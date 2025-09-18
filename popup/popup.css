@@ -38,12 +38,23 @@ button:hover {
     background-color: #005ecb;
 }
 
-a {
+.links {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.links a {
     color: #007aff;
     text-decoration: none;
     font-size: 12px;
+    padding: 5px 8px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
 }
 
-a:hover {
-    text-decoration: underline;
+.links a:hover {
+    background-color: #f0f0f0;
+    text-decoration: none;
 }

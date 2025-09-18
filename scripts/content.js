@@ -269,6 +269,8 @@
         return additionalImages;
     }
 
+
+
     // --- Main Execution ---
     let finalContentHtml = null;
     let finalTitle = document.title;

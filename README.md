@@ -1,0 +1,145 @@
+# Notion Smart Clipper
+
+一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持圖片提取和模板自定義功能。
+
+## ✨ 主要功能
+
+### 📄 智能內容提取
+- 使用 Readability.js 智能提取文章主要內容
+- 支持多種 CMS 系統（WordPress、Drupal 等）
+- 自動過濾廣告和無關內容
+
+### 🖼️ 增強圖片支持
+- 支持懶加載圖片（data-src、data-lazy-src 等）
+- 支持響應式圖片（srcset）
+- 智能圖片尺寸過濾
+- 自動收集頁面相關圖片
+
+### 🎨 模板自定義
+- **標題模板**：支持變量替換
+  - `{title}` - 原始標題
+  - `{date}` - 當前日期 (YYYY-MM-DD)
+  - `{time}` - 當前時間 (HH:MM)
+  - `{datetime}` - 完整日期時間
+  - `{url}` - 頁面 URL
+  - `{domain}` - 網站域名
+- **時間戳**：可選在內容開頭添加保存時間
+- **來源信息**：可選在內容末尾添加來源鏈接
+
+### ⚙️ 便捷設置
+- 一鍵跳轉到 Notion Integration 設置
+- 自動載入可用數據庫列表
+- API Key 連接測試
+- 模板效果預覽
+
+## 🚀 安裝和設置
+
+### 1. 安裝擴展
+1. 下載或克隆此項目
+2. 打開 Chrome 擴展管理頁面 (`chrome://extensions/`)
+3. 開啟「開發者模式」
+4. 點擊「載入未封裝項目」，選擇項目文件夾
+
+### 2. 設置 Notion Integration
+1. 點擊擴展圖標，選擇「Settings」
+2. 點擊「連接到 Notion」按鈕
+3. 在打開的 Notion 頁面中：
+   - 點擊「+ New integration」
+   - 填寫名稱（如：Smart Clipper）
+   - 選擇工作區
+   - 點擊「Submit」
+4. 複製「Internal Integration Token」
+5. 回到擴展設置頁面，貼上 API Key
+6. 系統會自動載入可用數據庫列表
+7. 選擇目標數據庫並保存設置
+
+### 3. 配置數據庫權限
+在 Notion 中：
+1. 打開目標數據庫
+2. 點擊右上角「...」菜單
+3. 選擇「Add connections」
+4. 選擇你創建的 Integration
+
+## 📖 使用方法
+
+### 基本使用
+1. 瀏覽到想要保存的網頁
+2. 點擊擴展圖標
+3. 點擊「Save Page」
+4. 等待保存完成
+
+### 模板設置
+1. 在設置頁面的「頁面模板設置」區域
+2. 配置標題模板，例如：
+   - `{title}` - 保持原標題
+   - `[{domain}] {title}` - 添加網站名
+   - `{title} - {date}` - 添加日期
+3. 選擇是否添加時間戳和來源信息
+4. 點擊「預覽效果」查看結果
+5. 保存設置
+
+## 🛠️ 技術特性
+
+- **Manifest V3**：使用最新的 Chrome 擴展標準
+- **智能內容識別**：多層回退機制確保內容提取成功
+- **圖片處理優化**：支持現代網站的各種圖片載入技術
+- **模板系統**：靈活的內容自定義功能
+- **錯誤處理**：完善的錯誤處理和用戶反饋
+
+## 📁 項目結構
+
+```
+notion-chrome/
+├── manifest.json          # 擴展配置文件
+├── popup/                 # 彈出窗口
+│   ├── popup.html
+│   ├── popup.js
+│   └── popup.css
+├── options/               # 設置頁面
+│   ├── options.html
+│   ├── options.js
+│   └── options.css
+├── scripts/               # 核心腳本
+│   ├── background.js      # 後台腳本
+│   └── content.js         # 內容腳本
+├── lib/                   # 第三方庫
+│   └── Readability.js     # Mozilla Readability
+├── icons/                 # 圖標文件
+└── help.html             # 幫助文檔
+```
+
+## 🔧 開發說明
+
+### 主要組件
+- **background.js**：處理擴展邏輯、API 調用、模板處理
+- **content.js**：網頁內容提取、圖片處理
+- **options.js**：設置頁面邏輯、數據庫載入
+
+### 模板處理流程
+1. 用戶點擊保存 → background.js 接收請求
+2. 注入 content.js 提取網頁內容
+3. 獲取用戶模板設置
+4. 在 content script 環境中應用模板
+5. 調用 Notion API 保存處理後的內容
+
+## 📝 更新日誌
+
+### v2.0
+- ✅ 重新實現圖片提取功能，支持更多圖片格式
+- ✅ 添加模板自定義功能
+- ✅ 改進 CMS 支持
+- ✅ 優化用戶界面和設置流程
+- ✅ 增強錯誤處理和用戶反饋
+
+### v1.0
+- ✅ 基本的網頁內容提取
+- ✅ Notion API 集成
+- ✅ 簡單的圖片支持
+
+## 🤝 貢獻
+
+歡迎提交 Issue 和 Pull Request 來改進這個項目！
+
+## 📄 許可證
+
+MIT License

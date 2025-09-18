@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion Smart Clipper 使用指南</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .feature {
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .feature h3 {
+            margin-top: 0;
+            color: #28a745;
+        }
+        .template-example {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>📚 Notion Smart Clipper 使用指南</h1>
+    
+    <div class="success">
+        <h3>🎯 快速開始</h3>
+        <ol>
+            <li>點擊擴展圖標 → Settings</li>
+            <li>點擊「連接到 Notion」按鈕</li>
+            <li>在 Notion 中創建 Integration 並複製 API Key</li>
+            <li>選擇數據庫並保存設置</li>
+            <li>開始保存網頁！</li>
+        </ol>
+    </div>
+
+    <div class="feature">
+        <h3>🖼️ 智能圖片提取</h3>
+        <p>自動識別和提取網頁中的圖片，支持：</p>
+        <ul>
+            <li>懶加載圖片（data-src、data-lazy-src 等）</li>
+            <li>響應式圖片（srcset）</li>
+            <li>自動過濾小尺寸圖標</li>
+            <li>支持各種 CMS 系統</li>
+        </ul>
+    </div>
+
+    <div class="feature">
+        <h3>🎨 模板自定義</h3>
+        <p>靈活的內容格式化選項：</p>
+        
+        <div class="template-example">
+            <h4>標題模板變量</h4>
+            <ul>
+                <li><span class="code">{title}</span> - 原始標題</li>
+                <li><span class="code">{date}</span> - 當前日期 (2024-01-15)</li>
+                <li><span class="code">{time}</span> - 當前時間 (14:30)</li>
+                <li><span class="code">{datetime}</span> - 完整時間 (2024-01-15 14:30)</li>
+                <li><span class="code">{url}</span> - 完整網址</li>
+                <li><span class="code">{domain}</span> - 網站域名</li>
+            </ul>
+        </div>
+
+        <div class="template-example">
+            <h4>模板範例</h4>
+            <ul>
+                <li><span class="code">[{domain}] {title}</span> → [example.com] 文章標題</li>
+                <li><span class="code">{title} - {date}</span> → 文章標題 - 2024-01-15</li>
+                <li><span class="code">{title} ({datetime})</span> → 文章標題 (2024-01-15 14:30)</li>
+            </ul>
+        </div>
+
+        <p><strong>額外選項：</strong></p>
+        <ul>
+            <li>✅ 添加時間戳 - 在內容開頭顯示保存時間</li>
+            <li>✅ 添加來源信息 - 在內容末尾添加原文鏈接</li>
+        </ul>
+    </div>
+
+    <div class="feature">
+        <h3>⚙️ 設置技巧</h3>
+        <ul>
+            <li><strong>API Key 測試：</strong>輸入後點擊「測試 API Key」驗證連接</li>
+            <li><strong>自動載入數據庫：</strong>有效的 API Key 會自動顯示可用數據庫</li>
+            <li><strong>模板預覽：</strong>設置模板後點擊「預覽效果」查看結果</li>
+            <li><strong>數據庫權限：</strong>記得在 Notion 中將 Integration 連接到數據庫</li>
+        </ul>
+    </div>
+
+    <div class="feature">
+        <h3>🔧 常見問題</h3>
+        <ul>
+            <li><strong>保存失敗：</strong>檢查 API Key 和數據庫權限</li>
+            <li><strong>圖片不顯示：</strong>某些網站有防盜鏈保護</li>
+            <li><strong>內容不完整：</strong>嘗試在不同網站測試，某些網站結構特殊</li>
+            <li><strong>模板不生效：</strong>確保已保存設置並重新載入頁面</li>
+        </ul>
+    </div>
+
+    <p style="text-align: center; margin-top: 40px; color: #666;">
+        <strong>版本 2.0</strong> | 
+        <a href="https://developers.notion.com/docs" target="_blank">Notion API 文檔</a> | 
+        <a href="https://github.com" target="_blank">GitHub</a>
+    </p>
+</body>
+</html>

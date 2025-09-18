@@ -9,16 +9,67 @@
 <body>
     <div class="container">
         <h1>Settings</h1>
-        <div class="form-group">
-            <label for="api-key">Notion API Key</label>
-            <input type="password" id="api-key" placeholder="Enter your Notion API Key">
+        
+        <!-- OAuth 授權區域 -->
+        <div class="auth-section">
+            <h2>連接 Notion</h2>
+            <div id="auth-status" class="auth-status"></div>
+            <button id="oauth-button" class="oauth-button">
+                <span class="notion-icon">📝</span>
+                連接到 Notion
+            </button>
+            <p class="auth-description">
+                點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
+            </p>
         </div>
-        <div class="form-group">
-            <label for="database-id">Notion Database ID</label>
-            <input type="text" id="database-id" placeholder="Enter your Notion Database ID">
+
+        <div class="divider">或</div>
+
+        <!-- 手動設置區域 -->
+        <div class="manual-section">
+            <h2>手動設置</h2>
+            <div class="form-group">
+                <label for="api-key">Notion API Key</label>
+                <input type="password" id="api-key" placeholder="Enter your Notion API Key">
+                <button type="button" id="test-api-button" class="test-button">測試 API Key</button>
+            </div>
+            <div class="form-group">
+                <label for="database-id">Notion Database ID</label>
+                <input type="text" id="database-id" placeholder="Enter your Notion Database ID">
+                <select id="database-select" style="display: none;">
+                    <option value="">選擇數據庫...</option>
+                </select>
+            </div>
+            <button id="save-button">Save Settings</button>
         </div>
-        <button id="save-button">Save Settings</button>
+
+        <!-- 模板設置區域 -->
+        <div class="template-section">
+            <h2>頁面模板設置</h2>
+            <div class="form-group">
+                <label for="title-template">標題模板</label>
+                <input type="text" id="title-template" placeholder="例如：{title} - {date}">
+                <small class="help-text">
+                    可用變量：{title} - 原始標題, {date} - 當前日期, {time} - 當前時間, {datetime} - 日期時間, {url} - 網頁URL, {domain} - 網站域名
+                </small>
+                <button type="button" id="preview-template" class="preview-button">預覽效果</button>
+                <div id="template-preview" class="template-preview"></div>
+            </div>
+            <div class="form-group">
+                <label for="add-source">添加來源信息</label>
+                <input type="checkbox" id="add-source" checked>
+                <label for="add-source" class="checkbox-label">在內容末尾添加來源鏈接</label>
+            </div>
+            <div class="form-group">
+                <label for="add-timestamp">添加時間戳</label>
+                <input type="checkbox" id="add-timestamp" checked>
+                <label for="add-timestamp" class="checkbox-label">在內容開頭添加保存時間</label>
+            </div>
+        </div>
+        
         <p id="status"></p>
+        
+
     </div>
     <script src="options.js"></script>
 </body>
