@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>調試版圖片擷取測試</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        img { max-width: 100%; height: auto; margin: 10px 0; border: 2px solid #ddd; }
+        .debug-info { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .image-container { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <article class="main-content">
+        <h1>調試版圖片擷取測試頁面</h1>
+        
+        <div class="debug-info">
+            <strong>調試信息：</strong>這個頁面設計用來測試和調試圖片擷取功能。請打開瀏覽器的開發者工具查看控制台輸出。
+        </div>
+        
+        <p>這是一個專門用來測試 Chrome 擴展圖片擷取功能的頁面。內容足夠長以滿足最小長度要求（250字符）。我們會測試各種不同的圖片載入方式，包括標準的 src 屬性、各種懶加載屬性、以及響應式圖片。這個測試頁面的目的是驗證修復後的擴展是否能正確處理各種現代網站使用的圖片技術。</p>
+        
+        <div class="image-container">
+            <h2>1. 標準圖片 (src 屬性)</h2>
+            <img src="https://via.placeholder.com/600x400/FF0000/FFFFFF?text=Standard+SRC" alt="標準 src 屬性圖片">
+            <div class="debug-info">使用標準的 src 屬性</div>
+        </div>
+        
+        <div class="image-container">
+            <h2>2. 懶加載圖片 (data-src)</h2>
+            <img data-src="https://via.placeholder.com/600x400/00FF00/FFFFFF?text=Data+SRC" alt="data-src 懶加載圖片" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400'%3E%3Crect width='100%25' height='100%25' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ELoading...%3C/text%3E%3C/svg%3E">
+            <div class="debug-info">使用 data-src 屬性，src 為佔位符</div>
+        </div>
+        
+        <div class="image-container">
+            <h2>3. 其他懶加載屬性</h2>
+            <img data-lazy-src="https://via.placeholder.com/600x400/0000FF/FFFFFF?text=Data+Lazy+SRC" alt="data-lazy-src 圖片">
+            <div class="debug-info">使用 data-lazy-src 屬性</div>
+        </div>
+        
+        <div class="image-container">
+            <h2>4. data-original 屬性</h2>
+            <img data-original="https://via.placeholder.com/600x400/FFFF00/000000?text=Data+Original" alt="data-original 圖片">
+            <div class="debug-info">使用 data-original 屬性</div>
+        </div>
+        
+        <div class="image-container">
+            <h2>5. 響應式圖片 (srcset)</h2>
+            <img srcset="https://via.placeholder.com/300x200/FF00FF/FFFFFF?text=Small+300w 300w, https://via.placeholder.com/600x400/FF00FF/FFFFFF?text=Large+600w 600w" 
+                 sizes="(max-width: 600px) 300px, 600px" 
+                 src="https://via.placeholder.com/600x400/FF00FF/FFFFFF?text=Fallback" 
+                 alt="響應式圖片">
+            <div class="debug-info">使用 srcset 和 sizes 屬性</div>
+        </div>
+        
+        <div class="image-container">
+            <h2>6. 小圖片（應該被過濾）</h2>
+            <img src="https://via.placeholder.com/50x50/888888/FFFFFF?text=Small" alt="小圖片" width="50" height="50">
+            <div class="debug-info">尺寸 50x50，應該被過濾掉</div>
+        </div>
+        
+        <p>測試說明：當你使用擴展擷取這個頁面時，應該能看到除了小圖片之外的所有圖片都被成功擷取。請檢查瀏覽器控制台的輸出來了解擷取過程的詳細信息。</p>
+        
+        <p>如果某些圖片沒有被擷取，可能的原因包括：URL 驗證失敗、圖片尺寸過小、或者圖片屬性不在支持列表中。修復後的版本應該能處理大多數這些情況。</p>
+        
+        <div class="debug-info">
+            <strong>預期結果：</strong>應該擷取到 5 張圖片（標準圖片、data-src、data-lazy-src、data-original、響應式圖片），小圖片應該被過濾掉。
+        </div>
+    </article>
+
+    <script>
+        // 模擬懶加載行為
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('測試頁面載入完成');
+            console.log('頁面包含的圖片元素：', document.querySelectorAll('img').length);
+            
+            // 列出所有圖片的屬性
+            document.querySelectorAll('img').forEach((img, index) => {
+                console.log(`圖片 ${index + 1}:`, {
+                    src: img.src,
+                    'data-src': img.getAttribute('data-src'),
+                    'data-lazy-src': img.getAttribute('data-lazy-src'),
+                    'data-original': img.getAttribute('data-original'),
+                    srcset: img.srcset,
+                    alt: img.alt,
+                    width: img.width,
+                    height: img.height
+                });
+            });
+        });
+    </script>
+</body>
+</html>
