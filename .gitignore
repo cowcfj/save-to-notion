@@ -1,6 +1,9 @@
 *.pem
 .DS_Store
 template-test.html
+highlight-test.html
+debug-test.html
 .vscode/
 *preview.html
 generate-icons.html
+*-test.html
