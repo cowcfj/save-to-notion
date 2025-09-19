@@ -161,6 +161,10 @@ notion-chrome/
 
 歡迎提交 Issue 和 Pull Request 來改進這個項目！
 
+## 🔒 隱私政策
+
+請查看我們的 [隱私政策](PRIVACY.md) 了解更多資訊。
+
 ## 📄 許可證
 
 MIT License
