@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Save to Notion (Smart Clipper)",
-  "version": "2.0",
+  "version": "2.1",
   "description": "智能網頁擷取工具，支持圖片提取、模板自定義，一鍵保存到 Notion。",
   "permissions": [
     "activeTab",
@@ -27,6 +27,13 @@
     }
   },
   "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["scripts/highlight-restore.js"],
+      "run_at": "document_end"
+    }
+  ],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

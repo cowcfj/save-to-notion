@@ -24,14 +24,36 @@ h2 {
 }
 
 button {
-    background-color: #007aff;
     color: white;
     border: none;
     padding: 10px 20px;
     border-radius: 5px;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
     width: 100%;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+#highlight-button {
+    background-color: #48bb78;
+}
+
+#highlight-button:hover {
+    background-color: #38a169;
+}
+
+#save-button {
+    background-color: #007aff;
+}
+
+#save-button:hover {
+    background-color: #005ecb;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 button:hover {

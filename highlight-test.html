@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>網頁標記功能測試</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .test-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .highlight-demo {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .important {
+            font-weight: bold;
+            color: #d63384;
+        }
+        .quote {
+            font-style: italic;
+            color: #6c757d;
+            border-left: 4px solid #dee2e6;
+            padding-left: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <article>
+        <h1>🖍️ 網頁標記功能測試頁面</h1>
+        
+        <div class="highlight-demo">
+            <h3>📋 測試步驟</h3>
+            <ol>
+                <li>點擊擴展圖標</li>
+                <li>點擊「📝 Start Highlighting」按鈕</li>
+                <li>在頁面上選中文字進行標記</li>
+                <li>嘗試不同的標記顏色</li>
+                <li>點擊已標記的文字查看選項</li>
+                <li>最後點擊「💾 Save Page」保存到 Notion</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h2>重要內容區域</h2>
+            <p>這是一段<span class="important">非常重要的內容</span>，你可以嘗試標記這些文字。標記功能支持多種顏色，包括黃色、綠色、藍色、紅色和紫色。</p>
+            
+            <p>你可以選中任何文字片段進行標記，比如這句話中的<strong>關鍵詞</strong>或者<em>重點內容</em>。標記後的內容會在保存到 Notion 時一併包含。</p>
+        </div>
+
+        <div class="test-section">
+            <h2>技術說明</h2>
+            <p>網頁標記功能的技術特點：</p>
+            <ul>
+                <li><strong>即時標記</strong>：選中文字後立即高亮顯示</li>
+                <li><strong>多色支持</strong>：提供 5 種不同的標記顏色</li>
+                <li><strong>持久保存</strong>：標記信息保存在本地存儲中</li>
+                <li><strong>Notion 集成</strong>：保存時將標記轉換為 Notion 格式</li>
+                <li><strong>交互操作</strong>：點擊標記可以修改或刪除</li>
+            </ul>
+        </div>
+
+        <div class="quote">
+            "好的工具應該讓複雜的任務變得簡單，讓簡單的任務變得愉快。" - 這句話很適合用來測試標記功能。
+        </div>
+
+        <div class="test-section">
+            <h2>長文本測試</h2>
+            <p>這是一段較長的文本，用來測試標記功能在處理長文本時的表現。你可以嘗試標記這段文字中的不同部分，比如開頭、中間或結尾的內容。標記功能應該能夠準確地識別和保存你選中的文字範圍。</p>
+            
+            <p>在實際使用中，用戶可能會標記文章中的重點段落、關鍵數據、重要結論或者需要後續跟進的內容。這些標記不僅能幫助用戶快速回顧重點，還能在團隊協作中起到很好的溝通作用。</p>
+        </div>
+
+        <div class="test-section">
+            <h2>預期結果</h2>
+            <p>完成標記並保存到 Notion 後，你應該能看到：</p>
+            <ol>
+                <li>原始文章內容</li>
+                <li>文章中的圖片（如果有）</li>
+                <li>一個「📝 頁面標記」區域</li>
+                <li>所有標記的文字，帶有對應的顏色背景</li>
+                <li>時間戳和來源信息（如果啟用了模板功能）</li>
+            </ol>
+        </div>
+
+        <p style="margin-top: 40px; padding: 20px; background: #e6fffa; border-radius: 8px; text-align: center;">
+            <strong>🎯 測試提示：</strong>嘗試標記這段文字，然後保存頁面查看 Notion 中的效果！
+        </p>
+    </article>
+</body>
+</html>

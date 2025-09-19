@@ -319,6 +319,8 @@
             });
         }
         
+        // 標記處理已移到 background.js 中，這裡不再處理
+
         if (blocks.length > 0) {
             console.log(`Final content extracted with ${blocks.length} blocks, including ${blocks.filter(b => b.type === 'image').length} images`);
             return { title: finalTitle, blocks: blocks };

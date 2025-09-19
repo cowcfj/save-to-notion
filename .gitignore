@@ -2,3 +2,5 @@
 .DS_Store
 template-test.html
 .vscode/
+*preview.html
+generate-icons.html
