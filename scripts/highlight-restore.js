@@ -1,5 +1,22 @@
 // 自動恢復標記的腳本
 (function() {
+    function normalizeUrl(rawUrl) {
+        try {
+            const u = new URL(rawUrl);
+            u.hash = '';
+            const trackingParams = [
+                'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
+                'gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'
+            ];
+            trackingParams.forEach((p) => u.searchParams.delete(p));
+            if (u.pathname !== '/' && u.pathname.endsWith('/')) {
+                u.pathname = u.pathname.replace(/\/+$/, '');
+            }
+            return u.toString();
+        } catch (e) {
+            return rawUrl || '';
+        }
+    }
     // 等待頁面完全載入
     function waitForPageLoad() {
         return new Promise((resolve) => {
@@ -17,8 +34,28 @@
         
         // 等待一段時間確保頁面內容穩定
         setTimeout(() => {
-            const pageKey = `highlights_${window.location.href}`;
-            const savedHighlights = localStorage.getItem(pageKey);
+            const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
+            try {
+                // 優先從 chrome.storage 讀取
+                chrome.storage?.local?.get([pageKey], (data) => {
+                    const stored = data && data[pageKey];
+                    if (stored && Array.isArray(stored) && stored.length > 0) {
+                        applyRestore(stored);
+                    } else {
+                        // 兼容舊版：從 localStorage 回退
+                        const legacy = localStorage.getItem(pageKey);
+                        if (legacy) {
+                            try { applyRestore(JSON.parse(legacy)); } catch (_) {}
+                        }
+                    }
+                });
+            } catch (e) {
+                // 非擴充環境或 chrome.storage 不可用時，使用 localStorage
+                const legacy = localStorage.getItem(pageKey);
+                if (legacy) {
+                    try { applyRestore(JSON.parse(legacy)); } catch (_) {}
+                }
+            }
             
             if (savedHighlights) {
                 try {
@@ -37,6 +74,14 @@
                 }
             }
         }, 1500); // 增加延遲時間
+    }
+
+    function applyRestore(highlightData) {
+        if (!Array.isArray(highlightData) || highlightData.length === 0) return;
+        console.log(`Restoring ${highlightData.length} highlights...`);
+        highlightData.forEach((data, index) => {
+            setTimeout(() => restoreHighlight(data), index * 100);
+        });
     }
 
     // 恢復單個標記
@@ -115,17 +160,39 @@
             });
         });
         
-        const pageKey = `highlights_${window.location.href}`;
-        localStorage.setItem(pageKey, JSON.stringify(highlightData));
+        const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
+        try {
+            chrome.storage?.local?.set({ [pageKey]: highlightData });
+        } catch (_) {
+            localStorage.setItem(pageKey, JSON.stringify(highlightData));
+        }
     }
 
     // 檢查頁面狀態並決定是否恢復標記
     function checkAndRestore() {
         // 檢查是否有保存的標記
-        const pageKey = `highlights_${window.location.href}`;
-        const savedHighlights = localStorage.getItem(pageKey);
+        const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
+        try {
+            chrome.storage?.local?.get([pageKey], (data) => {
+                const stored = data && data[pageKey];
+                if (stored && Array.isArray(stored)) {
+                    restoreHighlightsFromData(stored);
+                } else {
+                    const legacy = localStorage.getItem(pageKey);
+                    if (legacy) {
+                        try { restoreHighlightsFromData(JSON.parse(legacy)); } catch (_) {}
+                    }
+                }
+            });
+        } catch (e) {
+            const legacy = localStorage.getItem(pageKey);
+            if (legacy) {
+                try { restoreHighlightsFromData(JSON.parse(legacy)); } catch (_) {}
+            }
+        }
         
-        if (savedHighlights) {
+        function restoreHighlightsFromData(highlightData) {
+            if (!highlightData) return;
             // 發送消息檢查頁面狀態
             if (typeof chrome !== 'undefined' && chrome.runtime) {
                 chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
@@ -133,7 +200,7 @@
                         if (response.wasDeleted) {
                             // 頁面已被刪除，清除本地標記
                             console.log('Notion page was deleted, clearing local highlights');
-                            localStorage.removeItem(pageKey);
+                            try { chrome.storage?.local?.remove([pageKey]); } catch (_) { localStorage.removeItem(pageKey); }
                         } else {
                             // 頁面正常，恢復標記
                             restoreHighlights();

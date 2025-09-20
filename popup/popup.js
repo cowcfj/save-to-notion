@@ -112,8 +112,22 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                             
                             // 清除本地存儲
-                            const pageKey = `highlights_${window.location.href}`;
-                            localStorage.removeItem(pageKey);
+                            const normalizeUrl = (rawUrl) => {
+                                try {
+                                    const u = new URL(rawUrl);
+                                    u.hash = '';
+                                    const trackingParams = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'];
+                                    trackingParams.forEach((p) => u.searchParams.delete(p));
+                                    if (u.pathname !== '/' && u.pathname.endsWith('/')) {
+                                        u.pathname = u.pathname.replace(/\/+$/, '');
+                                    }
+                                    return u.toString();
+                                } catch (e) {
+                                    return rawUrl || '';
+                                }
+                            };
+                            const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
+                            try { chrome.storage?.local?.remove([pageKey]); } catch (_) { localStorage.removeItem(pageKey); }
                             
                             // 更新工具欄計數（如果存在）
                             if (window.simpleHighlighter) {

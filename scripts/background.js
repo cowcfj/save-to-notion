@@ -1,5 +1,27 @@
 // This script runs in the background and handles the core logic.
 
+// URL normalization for consistent keys and deduplication.
+function normalizeUrl(rawUrl) {
+    try {
+        const u = new URL(rawUrl);
+        // Drop fragment
+        u.hash = '';
+        // Remove common tracking params
+        const trackingParams = [
+            'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
+            'gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'
+        ];
+        trackingParams.forEach((p) => u.searchParams.delete(p));
+        // Normalize trailing slash (keep root "/")
+        if (u.pathname !== '/' && u.pathname.endsWith('/')) {
+            u.pathname = u.pathname.replace(/\/+$/, '');
+        }
+        return u.toString();
+    } catch (e) {
+        return rawUrl || '';
+    }
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'checkPageStatus') {
         // 檢查頁面是否已保存到 Notion
@@ -11,8 +33,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
 
             // 檢查本地存儲中是否有該頁面的保存記錄
-            chrome.storage.local.get([`saved_${activeTab.url}`], (result) => {
-                const savedData = result[`saved_${activeTab.url}`];
+            const normUrl = normalizeUrl(activeTab.url || '');
+            chrome.storage.local.get([`saved_${normUrl}`], (result) => {
+                const savedData = result[`saved_${normUrl}`];
                 
                 if (savedData && savedData.notionPageId) {
                     // 如果有保存記錄，檢查 Notion 頁面是否還存在
@@ -22,7 +45,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                 if (!pageExists) {
                                     // 頁面已被刪除，清除本地狀態
                                     console.log('Notion page was deleted, clearing local state');
-                                    clearPageState(activeTab.url);
+                                    clearPageState(normUrl);
                                     
                                     // 清除頁面上的標記
                                     chrome.scripting.executeScript({
@@ -35,7 +58,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                     sendResponse({ 
                                         success: true, 
                                         isSaved: false,
-                                        url: activeTab.url,
+                                        url: normUrl,
                                         title: activeTab.title,
                                         wasDeleted: true
                                     });
@@ -43,7 +66,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                     sendResponse({ 
                                         success: true, 
                                         isSaved: true,
-                                        url: activeTab.url,
+                                        url: normUrl,
                                         title: activeTab.title
                                     });
                                 }
@@ -53,7 +76,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                 sendResponse({ 
                                     success: true, 
                                     isSaved: true,
-                                    url: activeTab.url,
+                                    url: normUrl,
                                     title: activeTab.title
                                 });
                             });
@@ -62,7 +85,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             sendResponse({ 
                                 success: true, 
                                 isSaved: !!savedData,
-                                url: activeTab.url,
+                                url: normUrl,
                                 title: activeTab.title
                             });
                         }
@@ -71,7 +94,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse({ 
                         success: true, 
                         isSaved: false,
-                        url: activeTab.url,
+                        url: normUrl,
                         title: activeTab.title
                     });
                 }
@@ -117,8 +140,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     return;
                 }
 
-                chrome.storage.local.get([`saved_${activeTab.url}`], (savedData) => {
-                    const existingPage = savedData[`saved_${activeTab.url}`];
+                const normUrl = normalizeUrl(activeTab.url || '');
+                chrome.storage.local.get([`saved_${normUrl}`], (savedData) => {
+                    const existingPage = savedData[`saved_${normUrl}`];
                     
                     if (!existingPage || !existingPage.notionPageId) {
                         sendResponse({ success: false, error: 'Page not saved yet. Please save the page first.' });
@@ -133,7 +157,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         const highlights = highlightResults && highlightResults[0] ? highlightResults[0].result : [];
                         
                         // 只更新標記部分
-                        updateHighlightsOnly(existingPage.notionPageId, highlights, activeTab.url, config.notionApiKey, (response) => {
+                        updateHighlightsOnly(existingPage.notionPageId, highlights, normUrl, config.notionApiKey, (response) => {
                             if (response.success) {
                                 response.highlightsUpdated = true;
                                 response.highlightCount = highlights.length;
@@ -161,8 +185,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
 
                 // 檢查頁面是否已保存
-                chrome.storage.local.get([`saved_${activeTab.url}`], (savedData) => {
-                    const existingPage = savedData[`saved_${activeTab.url}`];
+                const normUrl = normalizeUrl(activeTab.url || '');
+                chrome.storage.local.get([`saved_${normUrl}`], (savedData) => {
+                    const existingPage = savedData[`saved_${normUrl}`];
                     
                     // 先收集標記信息
                 chrome.scripting.executeScript({
@@ -227,7 +252,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                         // 頁面存在，檢查是否有標記需要更新
                                         if (highlights.length > 0) {
                                             // 有標記，只更新標記部分
-                                            updateHighlightsOnly(existingPage.notionPageId, highlights, activeTab.url, config.notionApiKey, (response) => {
+                                            updateHighlightsOnly(existingPage.notionPageId, highlights, normUrl, config.notionApiKey, (response) => {
                                                 if (response.success) {
                                                     response.highlightCount = highlights.length;
                                                     response.highlightsUpdated = true;
@@ -236,7 +261,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                             });
                                         } else {
                                             // 沒有標記，完整更新頁面內容
-                                            updateNotionPage(existingPage.notionPageId, result.title, result.blocks, activeTab.url, config.notionApiKey, (response) => {
+                                            updateNotionPage(existingPage.notionPageId, result.title, result.blocks, normUrl, config.notionApiKey, (response) => {
                                                 if (response.success) {
                                                     response.imageCount = imageCount;
                                                     response.blockCount = result.blocks.length;
@@ -248,7 +273,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                     } else {
                                         // 頁面已被刪除，清除本地狀態並創建新頁面
                                         console.log('Notion page was deleted, clearing local state and creating new page');
-                                        clearPageState(activeTab.url);
+                                        clearPageState(normUrl);
                                         
                                         // 清除頁面上的標記
                                         chrome.scripting.executeScript({
@@ -259,7 +284,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                         });
                                         
                                         // 創建新頁面
-                                        saveToNotion(result.title, result.blocks, activeTab.url, config.notionApiKey, config.notionDatabaseId, (response) => {
+                                        saveToNotion(result.title, result.blocks, normUrl, config.notionApiKey, config.notionDatabaseId, (response) => {
                                             if (response.success) {
                                                 response.imageCount = imageCount;
                                                 response.blockCount = result.blocks.length;
@@ -272,14 +297,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                 }).catch(error => {
                                     console.error('Error checking page existence:', error);
                                     // 檢查失敗時，嘗試更新，如果失敗則創建新頁面
-                                    updateNotionPage(existingPage.notionPageId, result.title, result.blocks, activeTab.url, config.notionApiKey, (response) => {
+                                    updateNotionPage(existingPage.notionPageId, result.title, result.blocks, normUrl, config.notionApiKey, (response) => {
                                         if (response.success) {
                                             response.imageCount = imageCount;
                                             response.blockCount = result.blocks.length;
                                             response.updated = true;
                                         } else {
                                             // 更新失敗，清除狀態並創建新頁面
-                                            clearPageState(activeTab.url);
+                                            clearPageState(normUrl);
                                             
                                             // 清除頁面上的標記
                                             chrome.scripting.executeScript({
@@ -289,7 +314,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                                 console.warn('Failed to clear page highlights:', error);
                                             });
                                             
-                                            saveToNotion(result.title, result.blocks, activeTab.url, config.notionApiKey, config.notionDatabaseId, (newResponse) => {
+                                            saveToNotion(result.title, result.blocks, normUrl, config.notionApiKey, config.notionDatabaseId, (newResponse) => {
                                                 if (newResponse.success) {
                                                     newResponse.imageCount = imageCount;
                                                     newResponse.blockCount = result.blocks.length;
@@ -303,7 +328,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                 });
                             } else {
                                 // 創建新頁面
-                                saveToNotion(result.title, result.blocks, activeTab.url, config.notionApiKey, config.notionDatabaseId, (response) => {
+                                saveToNotion(result.title, result.blocks, normUrl, config.notionApiKey, config.notionDatabaseId, (response) => {
                                     if (response.success) {
                                         response.imageCount = imageCount;
                                         response.blockCount = result.blocks.length;
@@ -322,6 +347,82 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
 
         return true; // Indicates asynchronous response
+    }
+});
+
+// 動態注入標記恢復腳本：頁面載入完成後，若存在對應標記資料才注入
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab && tab.url) {
+        const normUrl = normalizeUrl(tab.url);
+        const key = `highlights_${normUrl}`;
+        chrome.storage.local.get([key], (data) => {
+            const highlights = data[key];
+            if (highlights && Array.isArray(highlights) && highlights.length > 0) {
+                // 已有新儲存，直接注入還原腳本
+                chrome.scripting.executeScript({
+                    target: { tabId },
+                    files: ['scripts/highlight-restore.js']
+                }, () => {});
+            } else {
+                // 嘗試從頁面 localStorage 遷移舊資料
+                chrome.scripting.executeScript({
+                    target: { tabId },
+                    func: () => {
+                        try {
+                            const normalize = (raw) => {
+                                try {
+                                    const u = new URL(raw);
+                                    u.hash = '';
+                                    const params = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'];
+                                    params.forEach((p) => u.searchParams.delete(p));
+                                    if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
+                                    return u.toString();
+                                } catch (e) { return raw || ''; }
+                            };
+                            const norm = normalize(window.location.href);
+                            const k1 = `highlights_${norm}`;
+                            const k2 = `highlights_${window.location.href}`;
+                            let key = null;
+                            let raw = localStorage.getItem(k1);
+                            if (raw) key = k1; else {
+                                raw = localStorage.getItem(k2);
+                                if (raw) key = k2;
+                            }
+                            if (!raw) {
+                                // 退一步，找任何以 highlights_ 開頭的鍵（保險）
+                                for (let i = 0; i < localStorage.length; i++) {
+                                    const k = localStorage.key(i);
+                                    if (k && k.startsWith('highlights_')) { key = k; raw = localStorage.getItem(k); break; }
+                                }
+                            }
+                            if (raw) {
+                                try {
+                                    const data = JSON.parse(raw);
+                                    if (Array.isArray(data) && data.length > 0) {
+                                        localStorage.removeItem(key);
+                                        return { migrated: true, data };
+                                    }
+                                } catch (_) {}
+                            }
+                        } catch (_) {}
+                        return { migrated: false };
+                    }
+                }, (results) => {
+                    try {
+                        const res = results && results[0] ? results[0].result : null;
+                        if (res && res.migrated && Array.isArray(res.data) && res.data.length > 0) {
+                            chrome.storage.local.set({ [key]: res.data }, () => {
+                                // 遷移完成後注入還原腳本
+                                chrome.scripting.executeScript({
+                                    target: { tabId },
+                                    files: ['scripts/highlight-restore.js']
+                                }, () => {});
+                            });
+                        }
+                    } catch (_) { /* ignore */ }
+                });
+            }
+        });
     }
 });
 
@@ -573,7 +674,7 @@ function initHighlighter() {
 
 
 
-        // 保存標記到本地存儲
+        // 保存標記到儲存（優先 chrome.storage.local）
         saveHighlights() {
             const highlights = document.querySelectorAll('.simple-highlight');
             const highlightData = [];
@@ -592,21 +693,53 @@ function initHighlighter() {
                 });
             });
             
-            const pageKey = `highlights_${window.location.href}`;
-            localStorage.setItem(pageKey, JSON.stringify(highlightData));
+            const normalize = (raw) => {
+                try {
+                    const u = new URL(raw);
+                    u.hash = '';
+                    const params = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'];
+                    params.forEach((p) => u.searchParams.delete(p));
+                    if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
+                    return u.toString();
+                } catch (e) { return raw || ''; }
+            };
+            const pageKey = `highlights_${normalize(window.location.href)}`;
+            try {
+                chrome.storage?.local?.set({ [pageKey]: highlightData });
+            } catch (_) {
+                localStorage.setItem(pageKey, JSON.stringify(highlightData));
+            }
         },
 
-        // 載入標記從本地存儲
+        // 載入標記（優先 chrome.storage.local）
         loadHighlights() {
-            const pageKey = `highlights_${window.location.href}`;
-            const savedHighlights = localStorage.getItem(pageKey);
-            
-            if (savedHighlights) {
+            const normalize = (raw) => {
                 try {
-                    const highlightData = JSON.parse(savedHighlights);
-                    this.restoreHighlights(highlightData);
-                } catch (error) {
-                    console.warn('Failed to load highlights:', error);
+                    const u = new URL(raw);
+                    u.hash = '';
+                    const params = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'];
+                    params.forEach((p) => u.searchParams.delete(p));
+                    if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
+                    return u.toString();
+                } catch (e) { return raw || ''; }
+            };
+            const pageKey = `highlights_${normalize(window.location.href)}`;
+            try {
+                chrome.storage?.local?.get([pageKey], (data) => {
+                    const stored = data && data[pageKey];
+                    if (stored && Array.isArray(stored)) {
+                        this.restoreHighlights(stored);
+                    } else {
+                        const legacy = localStorage.getItem(pageKey);
+                        if (legacy) {
+                            try { this.restoreHighlights(JSON.parse(legacy)); } catch (error) { console.warn('Failed to load highlights:', error); }
+                        }
+                    }
+                });
+            } catch (_) {
+                const legacy = localStorage.getItem(pageKey);
+                if (legacy) {
+                    try { this.restoreHighlights(JSON.parse(legacy)); } catch (error) { console.warn('Failed to load highlights:', error); }
                 }
             }
         },
@@ -799,9 +932,25 @@ function clearPageHighlights() {
         parent.normalize();
     });
     
-    // 清除本地存儲
-    const pageKey = `highlights_${window.location.href}`;
-    localStorage.removeItem(pageKey);
+    // 清除本地存儲（優先 chrome.storage）
+    try {
+        const normalize = (raw) => {
+            try {
+                const u = new URL(raw);
+                u.hash = '';
+                const params = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'];
+                params.forEach((p) => u.searchParams.delete(p));
+                if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
+                return u.toString();
+            } catch (e) { return raw || ''; }
+        };
+        const pageKey = `highlights_${normalize(window.location.href)}`;
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.remove([pageKey]);
+        } else {
+            localStorage.removeItem(pageKey);
+        }
+    } catch (_) {}
     
     // 更新工具欄計數（如果存在）
     if (window.simpleHighlighter) {

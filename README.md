@@ -129,6 +129,12 @@ notion-chrome/
 - **content.js**：網頁內容提取、圖片處理
 - **options.js**：設置頁面邏輯、數據庫載入
 
+### 變更摘要（v2.2+）
+- 新增「URL 正規化」：移除 `#fragment`、常見追蹤參數（`utm_*`、`gclid`、`fbclid` 等），修整非 root 的結尾斜線。所有儲存鍵均使用正規化 URL（`saved_<url>`、`highlights_<url>`）。
+- 「標記自動恢復」改為動態注入：移除 `content_scripts` 全域注入。改由背景程式在 `tabs.onUpdated` 檢測到對應 `highlights_<url>` 時才注入 `scripts/highlight-restore.js`。
+- 自動遷移舊資料：若新儲存（`chrome.storage.local`）無資料，會從頁面的 `localStorage` 檢測舊 `highlights_*`，遷移到 `chrome.storage.local` 後再注入恢復。
+- 權限精簡：移除未使用的 `identity` 權限。
+
 ### 模板處理流程
 1. 用戶點擊保存 → background.js 接收請求
 2. 注入 content.js 提取網頁內容
@@ -138,7 +144,13 @@ notion-chrome/
 
 ## 📝 更新日誌
 
-### v2.1 (最新版本)
+### v2.2 (最新版本)
+- 🔒 權限精簡：移除未使用的 `identity` 權限
+- 🧠 URL 正規化：移除 `#fragment`、追蹤參數（`utm_*`、`gclid`、`fbclid`）與結尾斜線正規化
+- ⚡️ 動態注入：僅在有對應標記資料時注入 `highlight-restore.js`
+- 🔁 自動遷移：自舊版 `localStorage` 自動遷移標記到 `chrome.storage.local`
+
+### v2.1
 - 🎯 **全新標記系統**：多顏色標記、實時同步、持久化存儲
 - 🔄 **智能狀態管理**：自動檢測頁面變化，智能清除無效標記
 - 🛠️ **增強調試功能**：詳細的操作日誌，便於問題定位
