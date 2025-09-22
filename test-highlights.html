@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>標記功能測試頁面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .debug-info {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 15px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>標記功能測試頁面</h1>
+    
+    <div class="test-section">
+        <h2>測試說明</h2>
+        <p>這個頁面用來測試 Notion Chrome 擴展的標記功能是否正常工作。</p>
+        <ol>
+            <li>安裝並啟用 Notion Chrome 擴展</li>
+            <li>點擊擴展圖標，選擇「開始標記」</li>
+            <li>選中下面的測試文字並標記</li>
+            <li>刷新頁面，檢查標記是否保持</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>測試文字區域</h2>
+        <p>這是第一段測試文字。請嘗試選中這段文字的一部分並進行標記。標記應該會保存到本地存儲中。</p>
+        
+        <p>這是第二段測試文字，包含了更多的內容。您可以嘗試用不同的顏色標記不同的部分，以測試多色標記功能。</p>
+        
+        <p>這是第三段測試文字。在標記完成後，請刷新頁面以測試標記是否能正確恢復。如果標記在刷新後消失，說明保存功能有問題。</p>
+        
+        <blockquote>
+            這是一個引用塊。引用塊中的文字也應該能被正常標記和恢復。
+        </blockquote>
+    </div>
+
+    <div class="test-section">
+        <h2>調試工具</h2>
+        <button onclick="checkStorageData()">檢查存儲數據</button>
+        <button onclick="clearStorageData()">清除存儲數據</button>
+        <button onclick="manualRestore()">手動恢復標記</button>
+        <button onclick="testSave()">測試保存</button>
+        
+        <div id="debug-output" class="debug-info">
+            調試信息將顯示在這裡...
+        </div>
+    </div>
+
+    <script>
+        function normalizeUrl(rawUrl) {
+            try {
+                const u = new URL(rawUrl);
+                u.hash = '';
+                const trackingParams = [
+                    'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
+                    'gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'
+                ];
+                trackingParams.forEach((p) => u.searchParams.delete(p));
+                if (u.pathname !== '/' && u.pathname.endsWith('/')) {
+                    u.pathname = u.pathname.replace(/\/+$/, '');
+                }
+                return u.toString();
+            } catch (e) {
+                return rawUrl || '';
+            }
+        }
+
+        function log(message) {
+            const output = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.innerHTML += `[${timestamp}] ${message}<br>`;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function checkStorageData() {
+            const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
+            log(`檢查存儲鍵: ${pageKey}`);
+            
+            // 檢查 chrome.storage.local
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.get([pageKey], (data) => {
+                    const stored = data[pageKey];
+                    if (stored && Array.isArray(stored)) {
+                        log(`Chrome Storage 中找到 ${stored.length} 個標記:`);
+                        stored.forEach((item, index) => {
+                            log(`  ${index + 1}. "${item.text.substring(0, 50)}..." (${item.color})`);
+                        });
+                    } else {
+                        log('Chrome Storage 中沒有找到標記數據');
+                    }
+                });
+            } else {
+                log('Chrome Storage 不可用');
+            }
+            
+            // 檢查 localStorage
+            const legacy = localStorage.getItem(pageKey);
+            if (legacy) {
+                try {
+                    const parsed = JSON.parse(legacy);
+                    log(`LocalStorage 中找到 ${parsed.length} 個標記:`);
+                    parsed.forEach((item, index) => {
+                        log(`  ${index + 1}. "${item.text.substring(0, 50)}..." (${item.color})`);
+                    });
+                } catch (e) {
+                    log('LocalStorage 數據解析失敗: ' + e.message);
+                }
+            } else {
+                log('LocalStorage 中沒有找到標記數據');
+            }
+            
+            // 檢查頁面上的標記
+            const highlights = document.querySelectorAll('.simple-highlight');
+            log(`頁面上當前有 ${highlights.length} 個標記`);
+        }
+
+        function clearStorageData() {
+            const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
+            
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.remove([pageKey], () => {
+                    log('已清除 Chrome Storage 中的標記數據');
+                });
+            }
+            
+            localStorage.removeItem(pageKey);
+            log('已清除 LocalStorage 中的標記數據');
+            
+            // 清除頁面上的標記
+            const highlights = document.querySelectorAll('.simple-highlight');
+            highlights.forEach(highlight => {
+                const parent = highlight.parentNode;
+                parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
+                parent.removeChild(highlight);
+                parent.normalize();
+            });
+            log(`已清除頁面上的 ${highlights.length} 個標記`);
+        }
+
+        function manualRestore() {
+            if (typeof chrome !== 'undefined' && chrome.scripting) {
+                // 在擴展環境中，注入恢復腳本
+                chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+                    if (tabs[0]) {
+                        chrome.scripting.executeScript({
+                            target: { tabId: tabs[0].id },
+                            files: ['scripts/highlight-restore.js']
+                        }, () => {
+                            log('已注入標記恢復腳本');
+                        });
+                    }
+                });
+            } else {
+                log('無法在非擴展環境中注入腳本，請手動刷新頁面');
+            }
+        }
+
+        function testSave() {
+            // 創建一個測試標記
+            const testHighlight = document.createElement('span');
+            testHighlight.className = 'simple-highlight';
+            testHighlight.style.backgroundColor = '#fff3cd';
+            testHighlight.style.cursor = 'pointer';
+            testHighlight.textContent = '測試標記';
+            
+            // 找到第一個段落並添加標記
+            const firstP = document.querySelector('.test-section p');
+            if (firstP) {
+                firstP.appendChild(document.createTextNode(' '));
+                firstP.appendChild(testHighlight);
+                log('已添加測試標記');
+                
+                // 嘗試保存
+                if (window.saveHighlights) {
+                    window.saveHighlights();
+                    log('已調用 saveHighlights 函數');
+                } else {
+                    log('saveHighlights 函數不可用');
+                    
+                    // 手動保存邏輯
+                    const highlights = document.querySelectorAll('.simple-highlight');
+                    const highlightData = [];
+                    highlights.forEach(highlight => {
+                        highlightData.push({
+                            text: highlight.textContent,
+                            color: highlight.style.backgroundColor || '#ffff00'
+                        });
+                    });
+                    
+                    const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
+                    localStorage.setItem(pageKey, JSON.stringify(highlightData));
+                    log(`手動保存了 ${highlightData.length} 個標記到 LocalStorage`);
+                }
+            }
+        }
+
+        // 頁面載入時執行檢查
+        window.addEventListener('load', () => {
+            log('頁面載入完成');
+            checkStorageData();
+        });
+        
+        // 監聽標記變化
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    const addedHighlights = Array.from(mutation.addedNodes).filter(
+                        node => node.nodeType === 1 && node.classList && node.classList.contains('simple-highlight')
+                    );
+                    if (addedHighlights.length > 0) {
+                        log(`檢測到新增 ${addedHighlights.length} 個標記`);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    </script>
+</body>
+</html>
