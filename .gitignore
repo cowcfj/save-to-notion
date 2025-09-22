@@ -1,9 +1,21 @@
 *.pem
 .DS_Store
+
+# 測試和開發文件
+*test.html
+*-test.html
+test-*.html
 template-test.html
 highlight-test.html
 debug-test.html
-.vscode/
 *preview.html
 generate-icons.html
-*-test.html
+
+# 開發工具
+.vscode/
+
+# 建構文件
+build/
+build.sh
+*.zip
+github-release-description.md
