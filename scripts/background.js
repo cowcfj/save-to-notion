@@ -143,6 +143,49 @@ class ScriptInjector {
             }
         );
     }
+
+    /**
+     * 注入腳本並執行函數，返回結果
+     */
+    static async injectWithResponse(tabId, func, files = []) {
+        try {
+            // 如果有文件需要注入，先注入文件
+            if (files && files.length > 0) {
+                await this.injectAndExecute(tabId, files, null, { logErrors: true });
+            }
+
+            // 執行函數並返回結果
+            if (func) {
+                return this.injectAndExecute(tabId, [], func, { 
+                    returnResult: true,
+                    logErrors: true 
+                });
+            } else if (files && files.length > 0) {
+                // 如果只注入文件而不執行函數，等待注入完成後返回成功標記
+                return Promise.resolve([{ result: { success: true } }]);
+            }
+
+            return Promise.resolve(null);
+        } catch (error) {
+            console.error('injectWithResponse failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 簡單的腳本注入（不返回結果）
+     */
+    static async inject(tabId, func, files = []) {
+        try {
+            return this.injectAndExecute(tabId, files, func, { 
+                returnResult: false,
+                logErrors: true 
+            });
+        } catch (error) {
+            console.error('inject failed:', error);
+            throw error;
+        }
+    }
 }
 
 // ==========================================
@@ -864,17 +907,144 @@ async function handleSavePage(sendResponse) {
         await ScriptInjector.injectHighlighter(activeTab.id);
         const highlights = await ScriptInjector.collectHighlights(activeTab.id);
 
-        // 注入內容提取腳本
-        const result = await ScriptInjector.injectWithResponse(activeTab.id, null, 
-            ['lib/Readability.js', 'scripts/content.js']
-        );
+        // 注入並執行內容提取
+        const result = await ScriptInjector.injectWithResponse(activeTab.id, () => {
+            // 執行內容提取邏輯（從 content.js 中提取的核心邏輯）
+            try {
+                // 首先嘗試使用 Readability.js
+                const article = new Readability(document.cloneNode(true)).parse();
+                
+                // 檢查內容品質的函數
+                function isContentGood(article) {
+                    const MIN_CONTENT_LENGTH = 250;
+                    const MAX_LINK_DENSITY = 0.3;
+                    
+                    if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = article.content;
+                    const links = tempDiv.querySelectorAll('a');
+                    let linkTextLength = 0;
+                    links.forEach(link => linkTextLength += link.textContent.length);
+                    const linkDensity = linkTextLength / article.length;
+                    return linkDensity <= MAX_LINK_DENSITY;
+                }
+                
+                // 轉換為 Notion 格式的函數
+                function convertHtmlToNotionBlocks(html) {
+                    const blocks = [];
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    
+                    function processNode(node) {
+                        if (node.nodeType !== 1) return;
+                        const textContent = node.textContent?.trim();
+                        
+                        switch (node.nodeName) {
+                            case 'H1': case 'H2': case 'H3':
+                                if (textContent) {
+                                    blocks.push({
+                                        object: 'block',
+                                        type: `heading_${node.nodeName[1]}`,
+                                        [`heading_${node.nodeName[1]}`]: {
+                                            rich_text: [{ type: 'text', text: { content: textContent } }]
+                                        }
+                                    });
+                                }
+                                break;
+                            case 'P':
+                                if (textContent) {
+                                    blocks.push({
+                                        object: 'block',
+                                        type: 'paragraph',
+                                        paragraph: {
+                                            rich_text: [{ type: 'text', text: { content: textContent } }]
+                                        }
+                                    });
+                                }
+                                break;
+                            case 'IMG':
+                                const src = node.src || node.getAttribute('data-src');
+                                if (src) {
+                                    try {
+                                        const absoluteUrl = new URL(src, document.baseURI).href;
+                                        blocks.push({
+                                            object: 'block',
+                                            type: 'image',
+                                            image: {
+                                                type: 'external',
+                                                external: { url: absoluteUrl }
+                                            }
+                                        });
+                                    } catch (e) {
+                                        console.warn('Failed to process image URL:', src);
+                                    }
+                                }
+                                break;
+                            default:
+                                if (node.childNodes.length > 0) {
+                                    node.childNodes.forEach(processNode);
+                                }
+                                break;
+                        }
+                    }
+                    
+                    tempDiv.childNodes.forEach(processNode);
+                    return blocks;
+                }
+                
+                let finalTitle = document.title;
+                let finalContent = null;
+                
+                if (isContentGood(article)) {
+                    finalContent = article.content;
+                    finalTitle = article.title;
+                } else {
+                    // 備用方案：查找主要內容
+                    const candidates = document.querySelectorAll('article, main, .content, .post-content, .entry-content');
+                    for (const candidate of candidates) {
+                        if (candidate.textContent.trim().length > 250) {
+                            finalContent = candidate.innerHTML;
+                            break;
+                        }
+                    }
+                }
+                
+                if (finalContent) {
+                    const blocks = convertHtmlToNotionBlocks(finalContent);
+                    return { title: finalTitle, blocks: blocks };
+                } else {
+                    return {
+                        title: document.title,
+                        blocks: [{
+                            object: 'block',
+                            type: 'paragraph',
+                            paragraph: {
+                                rich_text: [{ type: 'text', text: { content: 'Could not automatically extract article content.' } }]
+                            }
+                        }]
+                    };
+                }
+            } catch (error) {
+                console.error('Content extraction failed:', error);
+                return {
+                    title: document.title,
+                    blocks: [{
+                        object: 'block',
+                        type: 'paragraph',
+                        paragraph: {
+                            rich_text: [{ type: 'text', text: { content: 'Content extraction failed.' } }]
+                        }
+                    }]
+                };
+            }
+        }, ['lib/Readability.js']);
 
-        if (!result || !result[0] || !result[0].result || !result[0].result.blocks) {
+        if (!result || !result.title || !result.blocks) {
             sendResponse({ success: false, error: 'Could not parse the article content.' });
             return;
         }
 
-        const contentResult = result[0].result;
+        const contentResult = result;
         
         // 添加標記到內容
         if (highlights.length > 0) {
