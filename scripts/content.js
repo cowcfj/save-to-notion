@@ -150,19 +150,59 @@
     }
 
     /**
+     * 清理和標準化圖片 URL
+     */
+    function cleanImageUrl(url) {
+        if (!url || typeof url !== 'string') return null;
+        
+        try {
+            const urlObj = new URL(url);
+            
+            // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
+            if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
+                const uParam = urlObj.searchParams.get('u');
+                if (uParam && uParam.match(/^https?:\/\//)) {
+                    // 使用代理中的原始圖片 URL
+                    return cleanImageUrl(uParam);
+                }
+            }
+            
+            // 移除重複的查詢參數
+            const params = new URLSearchParams();
+            for (const [key, value] of urlObj.searchParams.entries()) {
+                if (!params.has(key)) {
+                    params.set(key, value);
+                }
+            }
+            urlObj.search = params.toString();
+            
+            return urlObj.href;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
      * 檢查 URL 是否為有效的圖片格式
      */
     function isValidImageUrl(url) {
         if (!url || typeof url !== 'string') return false;
         
+        // 先清理 URL
+        const cleanedUrl = cleanImageUrl(url);
+        if (!cleanedUrl) return false;
+        
         // 檢查是否為有效的 HTTP/HTTPS URL
-        if (!url.match(/^https?:\/\//i)) return false;
+        if (!cleanedUrl.match(/^https?:\/\//i)) return false;
+        
+        // 檢查 URL 長度（Notion 有限制）
+        if (cleanedUrl.length > 2000) return false;
         
         // 檢查常見的圖片文件擴展名
         const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(\?.*)?$/i;
         
         // 如果 URL 包含圖片擴展名，直接返回 true
-        if (imageExtensions.test(url)) return true;
+        if (imageExtensions.test(cleanedUrl)) return true;
         
         // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑
         const imagePathPatterns = [
@@ -176,7 +216,19 @@
             /\/file[s]?\//i
         ];
         
-        return imagePathPatterns.some(pattern => pattern.test(url));
+        // 排除明顯不是圖片的 URL
+        const excludePatterns = [
+            /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
+            /\/api\//i,
+            /\/ajax\//i,
+            /\/callback/i
+        ];
+        
+        if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
+            return false;
+        }
+        
+        return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
     }
 
     function convertHtmlToNotionBlocks(html) {
@@ -201,17 +253,19 @@
                     if (src) {
                         try {
                             const absoluteUrl = new URL(src, document.baseURI).href;
+                            const cleanedUrl = cleanImageUrl(absoluteUrl);
+                            
                             // 檢查是否為有效的圖片格式和 URL
-                            if (isValidImageUrl(absoluteUrl) && !blocks.some(b => b.type === 'image' && b.image.external.url === absoluteUrl)) {
+                            if (cleanedUrl && isValidImageUrl(cleanedUrl) && !blocks.some(b => b.type === 'image' && b.image.external.url === cleanedUrl)) {
                                 blocks.push({ 
                                     object: 'block', 
                                     type: 'image', 
                                     image: { 
                                         type: 'external', 
-                                        external: { url: absoluteUrl } 
+                                        external: { url: cleanedUrl } 
                                     } 
                                 });
-                                console.log(`Added image: ${absoluteUrl}`);
+                                console.log(`Added image: ${cleanedUrl}`);
                             }
                         } catch (e) { 
                             console.warn(`Failed to process image URL: ${src}`, e);
@@ -245,7 +299,9 @@
             if (src) {
                 try {
                     const absoluteUrl = new URL(src, document.baseURI).href;
-                    if (isValidImageUrl(absoluteUrl)) {
+                    const cleanedUrl = cleanImageUrl(absoluteUrl);
+                    
+                    if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
                         // 檢查圖片是否足夠大（避免收集小圖標）
                         const width = img.naturalWidth || img.width || 0;
                         const height = img.naturalHeight || img.height || 0;
@@ -253,7 +309,7 @@
                         // 只收集尺寸合理的圖片（寬度或高度至少 100px）
                         if (width >= 100 || height >= 100 || (width === 0 && height === 0)) {
                             additionalImages.push({
-                                url: absoluteUrl,
+                                url: cleanedUrl,
                                 alt: img.alt || '',
                                 width: width,
                                 height: height

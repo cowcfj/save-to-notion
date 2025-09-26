@@ -2,6 +2,92 @@
 // Refactored for better organization
 
 // ==========================================
+// URL UTILITIES
+// ==========================================
+
+/**
+ * 清理和標準化圖片 URL
+ */
+function cleanImageUrl(url) {
+    if (!url || typeof url !== 'string') return null;
+    
+    try {
+        const urlObj = new URL(url);
+        
+        // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
+        if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
+            const uParam = urlObj.searchParams.get('u');
+            if (uParam && uParam.match(/^https?:\/\//)) {
+                // 使用代理中的原始圖片 URL
+                return cleanImageUrl(uParam);
+            }
+        }
+        
+        // 移除重複的查詢參數
+        const params = new URLSearchParams();
+        for (const [key, value] of urlObj.searchParams.entries()) {
+            if (!params.has(key)) {
+                params.set(key, value);
+            }
+        }
+        urlObj.search = params.toString();
+        
+        return urlObj.href;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * 檢查 URL 是否為有效的圖片格式
+ */
+function isValidImageUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    
+    // 先清理 URL
+    const cleanedUrl = cleanImageUrl(url);
+    if (!cleanedUrl) return false;
+    
+    // 檢查是否為有效的 HTTP/HTTPS URL
+    if (!cleanedUrl.match(/^https?:\/\//i)) return false;
+    
+    // 檢查 URL 長度（Notion 有限制）
+    if (cleanedUrl.length > 2000) return false;
+    
+    // 檢查常見的圖片文件擴展名
+    const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(\?.*)?$/i;
+    
+    // 如果 URL 包含圖片擴展名，直接返回 true
+    if (imageExtensions.test(cleanedUrl)) return true;
+    
+    // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑
+    const imagePathPatterns = [
+        /\/image[s]?\//i,
+        /\/img[s]?\//i,
+        /\/photo[s]?\//i,
+        /\/picture[s]?\//i,
+        /\/media\//i,
+        /\/upload[s]?\//i,
+        /\/asset[s]?\//i,
+        /\/file[s]?\//i
+    ];
+    
+    // 排除明顯不是圖片的 URL
+    const excludePatterns = [
+        /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
+        /\/api\//i,
+        /\/ajax\//i,
+        /\/callback/i
+    ];
+    
+    if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
+        return false;
+    }
+    
+    return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+}
+
+// ==========================================
 // SCRIPT INJECTION MANAGER
 // ==========================================
 
@@ -909,6 +995,83 @@ async function handleSavePage(sendResponse) {
 
         // 注入並執行內容提取
         const result = await ScriptInjector.injectWithResponse(activeTab.id, () => {
+            // URL 清理輔助函數
+            function cleanImageUrl(url) {
+                if (!url || typeof url !== 'string') return null;
+                
+                try {
+                    const urlObj = new URL(url);
+                    
+                    // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
+                    if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
+                        const uParam = urlObj.searchParams.get('u');
+                        if (uParam && uParam.match(/^https?:\/\//)) {
+                            // 使用代理中的原始圖片 URL
+                            return cleanImageUrl(uParam);
+                        }
+                    }
+                    
+                    // 移除重複的查詢參數
+                    const params = new URLSearchParams();
+                    for (const [key, value] of urlObj.searchParams.entries()) {
+                        if (!params.has(key)) {
+                            params.set(key, value);
+                        }
+                    }
+                    urlObj.search = params.toString();
+                    
+                    return urlObj.href;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function isValidImageUrl(url) {
+                if (!url || typeof url !== 'string') return false;
+                
+                // 先清理 URL
+                const cleanedUrl = cleanImageUrl(url);
+                if (!cleanedUrl) return false;
+                
+                // 檢查是否為有效的 HTTP/HTTPS URL
+                if (!cleanedUrl.match(/^https?:\/\//i)) return false;
+                
+                // 檢查 URL 長度（Notion 有限制）
+                if (cleanedUrl.length > 2000) return false;
+                
+                // 檢查常見的圖片文件擴展名
+                const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(\?.*)?$/i;
+                
+                // 如果 URL 包含圖片擴展名，直接返回 true
+                if (imageExtensions.test(cleanedUrl)) return true;
+                
+                // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑
+                const imagePathPatterns = [
+                    /\/image[s]?\//i,
+                    /\/img[s]?\//i,
+                    /\/photo[s]?\//i,
+                    /\/picture[s]?\//i,
+                    /\/media\//i,
+                    /\/upload[s]?\//i,
+                    /\/asset[s]?\//i,
+                    /\/file[s]?\//i
+                ];
+                
+                // 排除明顯不是圖片的 URL
+                const excludePatterns = [
+                    /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
+                    /\/api\//i,
+                    /\/ajax\//i,
+                    /\/callback/i
+                ];
+                
+                if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
+                    return false;
+                }
+                
+                return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+            }
+            
             // 執行內容提取邏輯（從 content.js 中提取的核心邏輯）
             try {
                 // 首先嘗試使用 Readability.js
@@ -967,14 +1130,18 @@ async function handleSavePage(sendResponse) {
                                 if (src) {
                                     try {
                                         const absoluteUrl = new URL(src, document.baseURI).href;
-                                        blocks.push({
-                                            object: 'block',
-                                            type: 'image',
-                                            image: {
-                                                type: 'external',
-                                                external: { url: absoluteUrl }
-                                            }
-                                        });
+                                        const cleanedUrl = cleanImageUrl(absoluteUrl);
+                                        
+                                        if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
+                                            blocks.push({
+                                                object: 'block',
+                                                type: 'image',
+                                                image: {
+                                                    type: 'external',
+                                                    external: { url: cleanedUrl }
+                                                }
+                                            });
+                                        }
                                     } catch (e) {
                                         console.warn('Failed to process image URL:', src);
                                     }
