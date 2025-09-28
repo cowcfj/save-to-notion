@@ -198,12 +198,34 @@
 
             handleSelection() {
                 const selection = window.getSelection();
-                if (selection.rangeCount === 0 || selection.isCollapsed) return;
+                if (selection.rangeCount === 0 || selection.isCollapsed) {
+                    console.log('沒有選擇或選擇已折疊');
+                    return;
+                }
 
                 const range = selection.getRangeAt(0);
                 const selectedText = selection.toString().trim();
 
-                if (selectedText.length === 0) return;
+                if (selectedText.length === 0) {
+                    console.log('選中的文本為空');
+                    return;
+                }
+
+                // 詳細調試信息
+                console.log('=== 標註調試信息 ===');
+                console.log('選擇的文本:', `"${selectedText}"`);
+                console.log('開始容器:', range.startContainer);
+                console.log('開始容器類型:', range.startContainer.nodeType === Node.TEXT_NODE ? 'TEXT_NODE' : 'ELEMENT_NODE');
+                console.log('結束容器:', range.endContainer);
+                console.log('結束容器類型:', range.endContainer.nodeType === Node.TEXT_NODE ? 'TEXT_NODE' : 'ELEMENT_NODE');
+                console.log('共同祖先:', range.commonAncestorContainer);
+                
+                // 檢查父元素信息
+                let parentElement = range.commonAncestorContainer;
+                if (parentElement.nodeType === Node.TEXT_NODE) {
+                    parentElement = parentElement.parentElement;
+                }
+                console.log('父元素標籤:', parentElement ? parentElement.tagName : 'None');
 
                 try {
                     // 檢查選擇範圍是否跨越多個元素
@@ -212,28 +234,40 @@
                     
                     // 如果是同一個文本節點，使用原來的方法
                     if (startContainer === endContainer && startContainer.nodeType === Node.TEXT_NODE) {
+                        console.log('使用簡單選擇方法');
                         this.wrapSimpleSelection(range, selectedText);
                     } else {
                         // 對於複雜選擇（跨元素），使用更健壯的方法
+                        console.log('使用複雜選擇方法');
                         this.wrapComplexSelection(range, selectedText);
                     }
                     
                     selection.removeAllRanges();
                     this.updateHighlightCount();
                     saveHighlights();
+                    console.log('標註成功完成');
                 } catch (error) {
-                    console.warn('無法標記選中的文字:', error);
+                    console.warn('標註失敗，嘗試備用方法:', error);
                     // 嘗試使用備用方法
                     this.fallbackHighlight(selection);
                 }
+                console.log('=== 標註調試結束 ===');
             },
 
             wrapSimpleSelection(range, selectedText) {
-                const highlight = this.createHighlightSpan();
-                range.surroundContents(highlight);
+                console.log('執行簡單選擇包裝');
+                try {
+                    const highlight = this.createHighlightSpan();
+                    range.surroundContents(highlight);
+                    console.log('簡單選擇包裝成功');
+                } catch (error) {
+                    console.log('簡單選擇包裝失敗:', error.message);
+                    throw error;
+                }
             },
 
             wrapComplexSelection(range, selectedText) {
+                console.log('執行複雜選擇包裝');
                 const highlight = this.createHighlightSpan();
                 
                 // 檢查是否在需要特殊處理的元素內
@@ -244,11 +278,15 @@
                     console.log(`檢測到在 ${problematicElement.tagName} 內選擇，使用特殊處理`);
                     this.highlightInProblematicElement(range, highlight, problematicElement.tagName);
                     return;
+                } else {
+                    console.log('未檢測到問題元素，使用標準方法');
                 }
                 
                 try {
                     // 先嘗試標準方法
+                    console.log('嘗試標準 surroundContents 方法');
                     range.surroundContents(highlight);
+                    console.log('標準方法成功');
                 } catch (error) {
                     console.log('標準方法失敗，使用提取插入方法:', error.message);
                     // 如果失敗，使用提取和插入的方法
@@ -256,6 +294,7 @@
                         const contents = range.extractContents();
                         highlight.appendChild(contents);
                         range.insertNode(highlight);
+                        console.log('提取插入方法成功');
                     } catch (extractError) {
                         console.log('提取插入也失敗，使用克隆方法:', extractError.message);
                         // 最後嘗試克隆內容
@@ -263,6 +302,7 @@
                         highlight.appendChild(contents);
                         range.deleteContents();
                         range.insertNode(highlight);
+                        console.log('克隆方法成功');
                     }
                 }
             },
@@ -277,14 +317,26 @@
                     'ARTICLE', 'SECTION', 'HEADER', 'FOOTER', 'ASIDE', 'NAV'
                 ];
                 
+                console.log('開始查找問題祖先元素...');
                 let current = node;
-                while (current && current !== document.body) {
-                    if (current.nodeType === Node.ELEMENT_NODE && 
-                        problematicTags.includes(current.tagName)) {
-                        return current;
+                let depth = 0;
+                
+                while (current && current !== document.body && depth < 10) {
+                    console.log(`檢查第${depth}層:`, current.nodeName || 'TEXT_NODE', current.nodeType);
+                    
+                    if (current.nodeType === Node.ELEMENT_NODE) {
+                        console.log(`元素標籤: ${current.tagName}`);
+                        if (problematicTags.includes(current.tagName)) {
+                            console.log(`找到問題元素: ${current.tagName}`);
+                            return current;
+                        }
                     }
+                    
                     current = current.parentNode;
+                    depth++;
                 }
+                
+                console.log('未找到問題元素');
                 return null;
             },
 
