@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Smart Clipper v2.4.2 使用指南</title>
+    <title>Notion Smart Clipper v2.4.6 使用指南</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -48,15 +48,16 @@
     </style>
 </head>
 <body>
-    <h1>📚 Notion Smart Clipper v2.4.2 使用指南</h1>
+    <h1>📚 Notion Smart Clipper v2.4.6 使用指南</h1>
     
     <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 15px 0;">
-        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.4.2</h4>
+        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.4.6</h4>
         <ul style="margin-bottom: 0;">
-            <li>🔧 修復圖片URL驗證問題，解決「Invalid image url」錯誤</li>
-            <li>🌐 支援更多新聞網站的代理圖片URL（如UDN聯合新聞網）</li>
-            <li>📊 完整數據監控和存儲管理系統</li>
-            <li>⚡ 智能數據優化，提升效能和響應速度</li>
+            <li>✨ <strong>跨元素文本標記：</strong>支援跨越多個HTML元素的文本標註功能</li>
+            <li>🔧 6層漸進式回退機制，處理複雜的DOM結構</li>
+            <li>📝 智能列表標註，支援跨多個列表項目的選擇</li>
+            <li>�️ 增強錯誤處理和調試日誌系統</li>
+            <li>⚡ 片段重建技術，提升標註成功率</li>
         </ul>
     </div>
     
@@ -149,15 +150,59 @@
     </div>
 
     <div class="feature">
+        <h3>🎨 跨元素文本標記功能</h3>
+        <p><strong>v2.4.6 全新功能：</strong>支援跨越多個HTML元素的文本標註，特別針對列表、段落和複雜結構優化。</p>
+        
+        <div class="template-example">
+            <h4>💡 使用技巧</h4>
+            <p><strong>對於複雜的跨元素選擇（如跨多個列表項）：</strong></p>
+            <ol>
+                <li><strong>先進行單元素標註：</strong>在目標區域內選擇並標記幾段單獨的文本</li>
+                <li><strong>改變頁面結構：</strong>單元素標註會稍微調整DOM結構</li>
+                <li><strong>進行跨元素選擇：</strong>現在可以成功選擇跨越多個元素的文本進行標記</li>
+            </ol>
+        </div>
+        
+        <div class="template-example">
+            <h4>🎯 適用場景</h4>
+            <ul>
+                <li><strong>列表標註：</strong>跨越多個 &lt;li&gt; 項目的內容</li>
+                <li><strong>段落標註：</strong>跨越多個 &lt;p&gt; 段落的文本</li>
+                <li><strong>引用標註：</strong>跨越 &lt;blockquote&gt; 邊界的選擇</li>
+                <li><strong>表格標註：</strong>跨越表格單元格的內容</li>
+            </ul>
+        </div>
+        
+        <div style="background: #e8f5e8; border-left: 4px solid #28a745; padding: 15px; margin: 15px 0;">
+            <p><strong>🔬 技術原理：</strong></p>
+            <p>系統使用6層漸進式回退機制處理複雜的DOM結構：</p>
+            <ul style="margin: 10px 0; font-size: 14px;">
+                <li>標準DOM操作 → 內容提取 → 克隆重建 → 文本替換 → 片段重建 → 超級安全模式</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="feature">
         <h3>�🔧 常見問題與解決方案</h3>
         <ul>
-            <li><strong>「Invalid image url」錯誤：</strong>v2.4.2已修復，會自動清理無效圖片URL</li>
+            <li><strong>「Invalid image url」錯誤：</strong>已修復，會自動清理無效圖片URL</li>
             <li><strong>保存失敗：</strong>檢查 API Key 和數據庫權限，確保Integration已連接</li>
             <li><strong>圖片不顯示：</strong>某些網站有防盜鏈保護，擴展會自動跳過無效圖片</li>
             <li><strong>內容不完整：</strong>嘗試在不同網站測試，某些網站結構特殊</li>
             <li><strong>模板不生效：</strong>確保已保存設置並重新載入頁面</li>
             <li><strong>存儲空間不足：</strong>使用「數據管理」功能進行空間優化</li>
         </ul>
+        
+        <div style="background: #f8f9fa; border-radius: 6px; padding: 15px; margin: 15px 0;">
+            <h4 style="color: #495057; margin-top: 0;">🎯 文本標記問題排解</h4>
+            <ul style="margin-bottom: 0; font-size: 14px;">
+                <li><strong>跨元素選擇失敗：</strong>先進行幾次單元素標註，再嘗試跨元素選擇</li>
+                <li><strong>列表項標記問題：</strong>先標記單個列表項，再嘗試跨項標記</li>
+                <li><strong>標記位置不準確：</strong>檢查控制台日誌，系統會自動選擇最佳回退方案</li>
+                <li><strong>標記無法點擊：</strong>雙擊標記文本可以刪除，確認事件監聽器正常</li>
+                <li><strong>調試信息：</strong>打開開發者工具查看詳細的處理過程和錯誤信息</li>
+            </ul>
+        </div>
     </div>
 
     <div class="feature">
@@ -171,7 +216,7 @@
     </div>
 
     <div style="text-align: center; margin-top: 40px; padding: 20px; border-top: 1px solid #e0e0e0; color: #666;">
-        <p><strong>🌟 版本 v2.4.2</strong> | 最後更新：2025年9月</p>
+        <p><strong>🌟 版本 v2.4.6</strong> | 最後更新：2025年9月</p>
         <p>
             <a href="https://github.com/cowcfj/save-to-notion" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📂 GitHub 專案</a> |
             <a href="https://github.com/cowcfj/save-to-notion/releases" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📋 更新日誌</a> |
