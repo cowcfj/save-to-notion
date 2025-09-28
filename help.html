@@ -1,9 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
+    <meta    <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 15px 0;">
+        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.4.8</h4>
+        <ul style="margin-bottom: 0;">
+            <li>🖱️ <strong>雙重標記刪除系統：</strong>雙擊刪除 + Ctrl/Cmd+點擊快速刪除</li>
+            <li>✅ 完全修復雙擊刪除的選中問題和失效問題</li>
+            <li>⚡ 新增 Ctrl/Cmd+點擊無需確認的快速刪除方式</li>
+            <li>🎯 統一事件處理，確保兩種方式互不干擾</li>
+            <li>📝 普通點擊和文本選擇完全不受影響</li>
+        </ul>
+    </div>UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Smart Clipper v2.4.6 使用指南</title>
+    <title>Notion Smart Clipper v2.4.8 使用指南</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -48,10 +57,10 @@
     </style>
 </head>
 <body>
-    <h1>📚 Notion Smart Clipper v2.4.6 使用指南</h1>
+    <h1>📚 Notion Smart Clipper v2.4.8 使用指南</h1>
     
     <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 15px 0;">
-        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.4.6</h4>
+        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.4.8</h4>
         <ul style="margin-bottom: 0;">
             <li>✨ <strong>跨元素文本標記：</strong>支援跨越多個HTML元素的文本標註功能</li>
             <li>🔧 6層漸進式回退機制，處理複雜的DOM結構</li>
@@ -183,6 +192,51 @@
     </div>
 
     <div class="feature">
+        <h3>🖱️ 標記刪除功能 (v2.4.8 全新優化)</h3>
+        <p><strong>雙重刪除系統：</strong>提供兩種靈活的標記刪除方式，滿足不同使用場景的需求。</p>
+        
+        <div class="template-example">
+            <h4>🎯 方式一：雙擊刪除（推薦日常使用）</h4>
+            <ol>
+                <li><strong>雙擊標記：</strong>雙擊任何已標記的文本</li>
+                <li><strong>確認刪除：</strong>彈出確認對話框</li>
+                <li><strong>完成刪除：</strong>點擊「確定」完成刪除</li>
+            </ol>
+            <p><strong>✨ 優點：</strong>有確認步驟，防止誤操作，操作直觀</p>
+        </div>
+        
+        <div class="template-example">
+            <h4>⚡ 方式二：Ctrl/Cmd + 點擊（快速刪除）</h4>
+            <ol>
+                <li><strong>按住快捷鍵：</strong>按住 <code>Ctrl</code>(Windows) 或 <code>Cmd</code>(Mac)</li>
+                <li><strong>點擊標記：</strong>點擊要刪除的標記文本</li>
+                <li><strong>立即刪除：</strong>標記立即被移除（無需確認）</li>
+            </ol>
+            <p><strong>⚡ 優點：</strong>操作快速，適合批量整理標記</p>
+        </div>
+        
+        <div style="background: #f8f9fa; border-radius: 6px; padding: 15px; margin: 15px 0;">
+            <h4 style="color: #495057; margin-top: 0;">💡 使用建議</h4>
+            <ul style="margin-bottom: 0; font-size: 14px;">
+                <li><strong>日常閱讀：</strong>使用雙擊刪除，安全可靠</li>
+                <li><strong>批量整理：</strong>使用 Ctrl/Cmd + 點擊，效率更高</li>
+                <li><strong>正常操作：</strong>普通點擊和文本選擇完全不受影響</li>
+                <li><strong>跨平台：</strong>Windows 用 Ctrl，Mac 用 Cmd，自動適配</li>
+            </ul>
+        </div>
+        
+        <div style="background: #e7f3ff; border-left: 4px solid #0066cc; padding: 15px; margin: 15px 0;">
+            <p><strong>🔧 v2.4.8 修復內容：</strong></p>
+            <ul style="margin: 10px 0; font-size: 14px;">
+                <li>✅ 徹底修復雙擊時只選中部分字符的問題</li>
+                <li>✅ 解決雙擊刪除功能失效的問題</li>
+                <li>✅ 修復標記後文本無法正常選擇的問題</li>
+                <li>✅ 確保兩種刪除方式互不干擾</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="feature">
         <h3>�🔧 常見問題與解決方案</h3>
         <ul>
             <li><strong>「Invalid image url」錯誤：</strong>已修復，會自動清理無效圖片URL</li>
@@ -216,7 +270,7 @@
     </div>
 
     <div style="text-align: center; margin-top: 40px; padding: 20px; border-top: 1px solid #e0e0e0; color: #666;">
-        <p><strong>🌟 版本 v2.4.6</strong> | 最後更新：2025年9月</p>
+        <p><strong>🌟 版本 v2.4.8</strong> | 最後更新：2025年9月</p>
         <p>
             <a href="https://github.com/cowcfj/save-to-notion" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📂 GitHub 專案</a> |
             <a href="https://github.com/cowcfj/save-to-notion/releases" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📋 更新日誌</a> |
