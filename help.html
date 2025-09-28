@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Smart Clipper 使用指南</title>
+    <title>Notion Smart Clipper v2.4.2 使用指南</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -48,7 +48,17 @@
     </style>
 </head>
 <body>
-    <h1>📚 Notion Smart Clipper 使用指南</h1>
+    <h1>📚 Notion Smart Clipper v2.4.2 使用指南</h1>
+    
+    <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 15px 0;">
+        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.4.2</h4>
+        <ul style="margin-bottom: 0;">
+            <li>🔧 修復圖片URL驗證問題，解決「Invalid image url」錯誤</li>
+            <li>🌐 支援更多新聞網站的代理圖片URL（如UDN聯合新聞網）</li>
+            <li>📊 完整數據監控和存儲管理系統</li>
+            <li>⚡ 智能數據優化，提升效能和響應速度</li>
+        </ul>
+    </div>
     
     <div class="success">
         <h3>🎯 快速開始</h3>
@@ -62,11 +72,25 @@
     </div>
 
     <div class="feature">
-        <h3>🖼️ 智能圖片提取</h3>
-        <p>自動識別和提取網頁中的圖片，支持：</p>
+        <h3>� 智能數據管理</h3>
+        <p>全新的數據監控和管理功能：</p>
+        <ul>
+            <li><strong>實時監控：</strong>即時顯示存儲使用量和容量狀態</li>
+            <li><strong>智能優化：</strong>自動清理重複數據，提升效能</li>
+            <li><strong>數據備份：</strong>完整備份和恢復機制，確保數據安全</li>
+            <li><strong>完整性檢查：</strong>自動驗證數據完整性</li>
+        </ul>
+        <p><em>💡 在設置頁面找到「數據管理」選項卡體驗新功能！</em></p>
+    </div>
+
+    <div class="feature">
+        <h3>�🖼️ 智能圖片提取</h3>
+        <p>強化的圖片處理功能，支援更多格式：</p>
         <ul>
             <li>懶加載圖片（data-src、data-lazy-src 等）</li>
             <li>響應式圖片（srcset）</li>
+            <li><strong>代理URL：</strong>自動處理新聞網站的代理圖片鏈接</li>
+            <li><strong>URL清理：</strong>移除重複參數，確保圖片正常載入</li>
             <li>自動過濾小尺寸圖標</li>
             <li>支持各種 CMS 系統</li>
         </ul>
@@ -115,19 +139,48 @@
     </div>
 
     <div class="feature">
-        <h3>🔧 常見問題</h3>
+        <h3>� 高級功能</h3>
         <ul>
-            <li><strong>保存失敗：</strong>檢查 API Key 和數據庫權限</li>
-            <li><strong>圖片不顯示：</strong>某些網站有防盜鏈保護</li>
-            <li><strong>內容不完整：</strong>嘗試在不同網站測試，某些網站結構特殊</li>
-            <li><strong>模板不生效：</strong>確保已保存設置並重新載入頁面</li>
+            <li><strong>✨ 智能高亮：</strong>在網頁上標記重要內容，一併保存到Notion</li>
+            <li><strong>🎯 批量保存：</strong>支援多頁面內容的批量處理</li>
+            <li><strong>📝 自動標籤：</strong>根據網站域名自動添加分類標籤</li>
+            <li><strong>⚡ 快捷鍵：</strong>使用鍵盤快捷鍵快速保存（可在設置中配置）</li>
         </ul>
     </div>
 
-    <p style="text-align: center; margin-top: 40px; color: #666;">
-        <strong>版本 2.0</strong> | 
-        <a href="https://developers.notion.com/docs" target="_blank">Notion API 文檔</a> | 
-        <a href="https://github.com" target="_blank">GitHub</a>
-    </p>
+    <div class="feature">
+        <h3>�🔧 常見問題與解決方案</h3>
+        <ul>
+            <li><strong>「Invalid image url」錯誤：</strong>v2.4.2已修復，會自動清理無效圖片URL</li>
+            <li><strong>保存失敗：</strong>檢查 API Key 和數據庫權限，確保Integration已連接</li>
+            <li><strong>圖片不顯示：</strong>某些網站有防盜鏈保護，擴展會自動跳過無效圖片</li>
+            <li><strong>內容不完整：</strong>嘗試在不同網站測試，某些網站結構特殊</li>
+            <li><strong>模板不生效：</strong>確保已保存設置並重新載入頁面</li>
+            <li><strong>存儲空間不足：</strong>使用「數據管理」功能進行空間優化</li>
+        </ul>
+    </div>
+
+    <div class="feature">
+        <h3>💡 使用技巧</h3>
+        <ul>
+            <li><strong>🎯 最佳實踐：</strong>定期使用數據優化功能保持最佳性能</li>
+            <li><strong>🔄 升級安全：</strong>所有數據在升級過程中自動保留，無需擔心資料遺失</li>
+            <li><strong>🌐 網站相容性：</strong>支援主流新聞網站、部落格和技術文檔網站</li>
+            <li><strong>📱 跨平台：</strong>保存的內容可在所有Notion平台上查看和編輯</li>
+        </ul>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px; padding: 20px; border-top: 1px solid #e0e0e0; color: #666;">
+        <p><strong>🌟 版本 v2.4.2</strong> | 最後更新：2025年9月</p>
+        <p>
+            <a href="https://github.com/cowcfj/save-to-notion" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📂 GitHub 專案</a> |
+            <a href="https://github.com/cowcfj/save-to-notion/releases" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📋 更新日誌</a> |
+            <a href="https://github.com/cowcfj/save-to-notion/issues" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">🐛 問題回報</a> |
+            <a href="https://developers.notion.com/docs" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📚 Notion API</a>
+        </p>
+        <p style="font-size: 12px; color: #999; margin-top: 15px;">
+            💝 喜歡這個擴展嗎？歡迎在 <a href="https://github.com/cowcfj/save-to-notion" target="_blank" style="color: #0366d6;">GitHub</a> 給我們一個星星！
+        </p>
+    </div>
 </body>
 </html>
