@@ -402,13 +402,17 @@
                 this.safeHighlight(range, highlight, selectedText);
             },
 
-            // 通用的安全高亮方法
+            // 通用的安全高亮方法 - 增強版本，支持複雜的跨元素選擇
             safeHighlight(range, highlight, selectedText) {
+                console.log('開始安全高亮處理，選擇文本:', `"${selectedText}"`);
+                
                 // 方法1: 嘗試提取內容
                 try {
+                    console.log('嘗試方法1: 提取內容');
                     const contents = range.extractContents();
                     highlight.appendChild(contents);
                     range.insertNode(highlight);
+                    console.log('方法1成功');
                     return;
                 } catch (error) {
                     console.log('提取內容方法失敗:', error.message);
@@ -416,10 +420,12 @@
                 
                 // 方法2: 嘗試克隆內容
                 try {
+                    console.log('嘗試方法2: 克隆內容');
                     const contents = range.cloneContents();
                     highlight.appendChild(contents);
                     range.deleteContents();
                     range.insertNode(highlight);
+                    console.log('方法2成功');
                     return;
                 } catch (error) {
                     console.log('克隆內容方法失敗:', error.message);
@@ -427,14 +433,200 @@
                 
                 // 方法3: 文本替換方法
                 try {
+                    console.log('嘗試方法3: 文本替換');
                     highlight.textContent = selectedText;
                     range.deleteContents();
                     range.insertNode(highlight);
+                    console.log('方法3成功');
                     return;
                 } catch (error) {
                     console.log('文本替換方法失敗:', error.message);
-                    throw error; // 讓上層方法處理
                 }
+                
+                // 方法4: 片段重建法 - 專門處理跨元素選擇
+                try {
+                    console.log('嘗試方法4: 片段重建法');
+                    this.fragmentReconstructionHighlight(range, highlight, selectedText);
+                    console.log('方法4成功');
+                    return;
+                } catch (error) {
+                    console.log('片段重建法失敗:', error.message);
+                }
+                
+                // 方法5: 分割節點法 - 將跨元素選擇分解為多個單元素選擇
+                try {
+                    console.log('嘗試方法5: 分割節點法');
+                    this.splitNodeHighlight(range, highlight, selectedText);
+                    console.log('方法5成功');
+                    return;
+                } catch (error) {
+                    console.log('分割節點法失敗:', error.message);
+                }
+                
+                // 方法6: 超級安全模式 - 使用絕對安全的文本節點創建
+                try {
+                    console.log('嘗試方法6: 超級安全模式');
+                    this.superSafeHighlight(range, highlight, selectedText);
+                    console.log('方法6成功');
+                    return;
+                } catch (error) {
+                    console.log('超級安全模式失敗:', error.message);
+                }
+                
+                console.log('所有方法都失敗，拋出錯誤');
+                throw new Error('所有高亮方法都失敗');
+            },
+            
+            // 片段重建法 - 重建 DOM 片段來處理跨元素選擇
+            fragmentReconstructionHighlight(range, highlight, selectedText) {
+                // 創建一個 DocumentFragment 來重建選擇的內容
+                const fragment = document.createDocumentFragment();
+                const walker = document.createTreeWalker(
+                    range.commonAncestorContainer,
+                    NodeFilter.SHOW_ALL,
+                    {
+                        acceptNode: function(node) {
+                            if (range.intersectsNode(node)) {
+                                return NodeFilter.FILTER_ACCEPT;
+                            }
+                            return NodeFilter.FILTER_SKIP;
+                        }
+                    }
+                );
+                
+                let currentNode;
+                const nodesToProcess = [];
+                while (currentNode = walker.nextNode()) {
+                    if (range.intersectsNode(currentNode)) {
+                        nodesToProcess.push(currentNode);
+                    }
+                }
+                
+                // 如果找到了相關節點，處理它們
+                if (nodesToProcess.length > 0) {
+                    // 創建一個臨時容器
+                    const tempContainer = document.createElement('div');
+                    tempContainer.appendChild(range.cloneContents());
+                    
+                    // 將內容移到 highlight span 中
+                    while (tempContainer.firstChild) {
+                        highlight.appendChild(tempContainer.firstChild);
+                    }
+                    
+                    // 刪除原選擇並插入高亮
+                    range.deleteContents();
+                    range.insertNode(highlight);
+                } else {
+                    throw new Error('無法找到相關節點進行片段重建');
+                }
+            },
+            
+            // 分割節點法 - 將跨元素選擇分解處理
+            splitNodeHighlight(range, highlight, selectedText) {
+                const startContainer = range.startContainer;
+                const endContainer = range.endContainer;
+                
+                // 如果跨越不同的容器，嘗試分解處理
+                if (startContainer !== endContainer) {
+                    // 創建多個範圍來分別處理
+                    const ranges = this.splitRangeIntoSegments(range);
+                    
+                    if (ranges.length > 1) {
+                        // 創建一個包裝容器
+                        const wrapper = document.createElement('span');
+                        wrapper.className = highlight.className;
+                        wrapper.style.cssText = highlight.style.cssText;
+                        wrapper.title = highlight.title;
+                        
+                        // 處理每個範圍片段
+                        for (let i = ranges.length - 1; i >= 0; i--) {
+                            const segmentRange = ranges[i];
+                            const segmentContents = segmentRange.extractContents();
+                            wrapper.insertBefore(segmentContents, wrapper.firstChild);
+                        }
+                        
+                        // 在第一個範圍的位置插入包裝元素
+                        ranges[0].insertNode(wrapper);
+                        
+                        // 複製事件監聽器
+                        this.copyEventListeners(highlight, wrapper);
+                    } else {
+                        throw new Error('無法分割範圍');
+                    }
+                } else {
+                    // 同一容器，直接使用原有邏輯
+                    throw new Error('同一容器選擇，應使用其他方法');
+                }
+            },
+            
+            // 將一個範圍分割成多個片段
+            splitRangeIntoSegments(range) {
+                const segments = [];
+                const walker = document.createTreeWalker(
+                    range.commonAncestorContainer,
+                    NodeFilter.SHOW_TEXT,
+                    {
+                        acceptNode: function(node) {
+                            if (range.intersectsNode(node)) {
+                                return NodeFilter.FILTER_ACCEPT;
+                            }
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                    }
+                );
+                
+                let node;
+                while (node = walker.nextNode()) {
+                    const nodeRange = document.createRange();
+                    nodeRange.selectNodeContents(node);
+                    
+                    // 調整範圍邊界
+                    if (node === range.startContainer) {
+                        nodeRange.setStart(node, range.startOffset);
+                    }
+                    if (node === range.endContainer) {
+                        nodeRange.setEnd(node, range.endOffset);
+                    }
+                    
+                    if (!nodeRange.collapsed) {
+                        segments.push(nodeRange);
+                    }
+                }
+                
+                return segments;
+            },
+            
+            // 複製事件監聽器
+            copyEventListeners(source, target) {
+                // 複製 dblclick 事件監聽器
+                target.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    if (confirm('確定要刪除這個標記嗎？')) {
+                        const parent = target.parentNode;
+                        while (target.firstChild) {
+                            parent.insertBefore(target.firstChild, target);
+                        }
+                        parent.removeChild(target);
+                        this.updateHighlightCount();
+                        saveHighlights();
+                    }
+                });
+            },
+            
+            // 超級安全模式 - 最後的備用方案
+            superSafeHighlight(range, highlight, selectedText) {
+                // 使用純文本節點替換，確保絕對安全
+                const textNode = document.createTextNode(selectedText);
+                highlight.appendChild(textNode);
+                
+                // 嘗試在選擇的開始位置插入
+                const insertRange = document.createRange();
+                insertRange.setStart(range.startContainer, range.startOffset);
+                insertRange.collapse(true);
+                
+                // 刪除原選擇並插入新的高亮
+                range.deleteContents();
+                insertRange.insertNode(highlight);
             },
 
             createHighlightSpan() {
