@@ -236,13 +236,13 @@
             wrapComplexSelection(range, selectedText) {
                 const highlight = this.createHighlightSpan();
                 
-                // 檢查是否在特殊元素內（如 blockquote）
+                // 檢查是否在需要特殊處理的元素內
                 const commonAncestor = range.commonAncestorContainer;
-                const blockquote = this.findAncestorByTagName(commonAncestor, 'BLOCKQUOTE');
+                const problematicElement = this.findProblematicAncestor(commonAncestor);
                 
-                if (blockquote) {
-                    console.log('檢測到在 blockquote 內選擇，使用特殊處理');
-                    this.highlightInBlockquote(range, highlight);
+                if (problematicElement) {
+                    console.log(`檢測到在 ${problematicElement.tagName} 內選擇，使用特殊處理`);
+                    this.highlightInProblematicElement(range, highlight, problematicElement.tagName);
                     return;
                 }
                 
@@ -267,10 +267,20 @@
                 }
             },
 
-            findAncestorByTagName(node, tagName) {
+            // 擴展的祖先查找方法，檢查多種可能有問題的元素
+            findProblematicAncestor(node) {
+                // 定義可能導致 surroundContents 失敗的元素
+                const problematicTags = [
+                    'BLOCKQUOTE', 'UL', 'OL', 'LI', 'TABLE', 'TR', 'TD', 'TH', 
+                    'THEAD', 'TBODY', 'TFOOT', 'DL', 'DT', 'DD', 'FIELDSET', 
+                    'LEGEND', 'FIGURE', 'FIGCAPTION', 'DETAILS', 'SUMMARY',
+                    'ARTICLE', 'SECTION', 'HEADER', 'FOOTER', 'ASIDE', 'NAV'
+                ];
+                
                 let current = node;
                 while (current && current !== document.body) {
-                    if (current.nodeType === Node.ELEMENT_NODE && current.tagName === tagName) {
+                    if (current.nodeType === Node.ELEMENT_NODE && 
+                        problematicTags.includes(current.tagName)) {
                         return current;
                     }
                     current = current.parentNode;
@@ -278,23 +288,99 @@
                 return null;
             },
 
-            highlightInBlockquote(range, highlight) {
+            // 通用的問題元素處理方法
+            highlightInProblematicElement(range, highlight, tagName) {
                 try {
-                    // 對於 blockquote 內的內容，使用更保守的方法
                     const selectedText = range.toString();
                     
-                    // 檢查選擇是否跨越多個子元素
-                    if (range.startContainer === range.endContainer) {
-                        // 在同一容器內，安全使用標準方法
-                        range.surroundContents(highlight);
-                    } else {
-                        // 跨容器選擇，使用文本替換方法
-                        highlight.textContent = selectedText;
-                        range.deleteContents();
-                        range.insertNode(highlight);
+                    // 根據不同的元素類型使用不同的策略
+                    switch (tagName) {
+                        case 'UL':
+                        case 'OL':
+                            this.highlightInList(range, highlight, selectedText);
+                            break;
+                        case 'LI':
+                            this.highlightInListItem(range, highlight, selectedText);
+                            break;
+                        case 'TABLE':
+                        case 'TR':
+                        case 'TD':
+                        case 'TH':
+                            this.highlightInTable(range, highlight, selectedText);
+                            break;
+                        case 'BLOCKQUOTE':
+                            this.highlightInBlockquote(range, highlight);
+                            break;
+                        default:
+                            // 對於其他問題元素，使用通用的安全方法
+                            this.safeHighlight(range, highlight, selectedText);
+                            break;
                     }
                 } catch (error) {
-                    console.log('blockquote 處理失敗，回退到通用方法:', error.message);
+                    console.log(`${tagName} 特殊處理失敗，回退到通用方法:`, error.message);
+                    throw error; // 讓上層方法處理
+                }
+            },
+
+            // 列表容器的處理方法
+            highlightInList(range, highlight, selectedText) {
+                // 對於 UL/OL 容器，通常選擇跨越多個 LI
+                this.safeHighlight(range, highlight, selectedText);
+            },
+
+            // 列表項的處理方法
+            highlightInListItem(range, highlight, selectedText) {
+                // LI 內的選擇，檢查是否跨越子元素
+                if (range.startContainer === range.endContainer) {
+                    // 在同一容器內，嘗試標準方法
+                    try {
+                        range.surroundContents(highlight);
+                    } catch (error) {
+                        this.safeHighlight(range, highlight, selectedText);
+                    }
+                } else {
+                    // 跨容器選擇，使用安全方法
+                    this.safeHighlight(range, highlight, selectedText);
+                }
+            },
+
+            // 表格元素的處理方法
+            highlightInTable(range, highlight, selectedText) {
+                // 表格結構比較複雜，直接使用安全方法
+                this.safeHighlight(range, highlight, selectedText);
+            },
+
+            // 通用的安全高亮方法
+            safeHighlight(range, highlight, selectedText) {
+                // 方法1: 嘗試提取內容
+                try {
+                    const contents = range.extractContents();
+                    highlight.appendChild(contents);
+                    range.insertNode(highlight);
+                    return;
+                } catch (error) {
+                    console.log('提取內容方法失敗:', error.message);
+                }
+                
+                // 方法2: 嘗試克隆內容
+                try {
+                    const contents = range.cloneContents();
+                    highlight.appendChild(contents);
+                    range.deleteContents();
+                    range.insertNode(highlight);
+                    return;
+                } catch (error) {
+                    console.log('克隆內容方法失敗:', error.message);
+                }
+                
+                // 方法3: 文本替換方法
+                try {
+                    highlight.textContent = selectedText;
+                    range.deleteContents();
+                    range.insertNode(highlight);
+                    return;
+                } catch (error) {
+                    console.log('文本替換方法失敗:', error.message);
                     throw error; // 讓上層方法處理
                 }
             },
@@ -337,6 +423,14 @@
                     const commonAncestor = range.commonAncestorContainer;
                     console.log('共同祖先元素:', commonAncestor.nodeName || 'TEXT_NODE');
                     
+                    // 檢查是否在問題元素內
+                    const problematicElement = this.findProblematicAncestor(commonAncestor);
+                    if (problematicElement) {
+                        console.log(`在問題元素 ${problematicElement.tagName} 內，使用超級安全模式`);
+                        this.superSafeHighlight(range, span, originalContent);
+                        return;
+                    }
+                    
                     // 特別處理不同的容器類型
                     if (commonAncestor.nodeType === Node.TEXT_NODE) {
                         // 文本節點，使用分割方法
@@ -352,6 +446,111 @@
                     console.error('所有高亮方法都失敗了:', error);
                     // 最後的備用方案：添加到選擇範圍的父元素
                     this.addHighlightToParent(selection);
+                }
+            },
+
+            // 超級安全的高亮方法，用於處理最複雜的情況
+            superSafeHighlight(range, span, originalContent) {
+                try {
+                    // 方法1: 嘗試在範圍結束位置插入
+                    const endRange = range.cloneRange();
+                    endRange.collapse(false); // 折疊到結束位置
+                    
+                    span.textContent = originalContent;
+                    span.style.fontWeight = 'bold';
+                    span.style.textDecoration = 'underline';
+                    span.title += ' (安全模式 - 已移至文本末尾)';
+                    
+                    endRange.insertNode(span);
+                    
+                    // 添加一個箭頭標記指向原始位置
+                    const arrow = document.createTextNode(' ↑[標記] ');
+                    arrow.style = 'color: red; font-size: 12px;';
+                    endRange.insertNode(arrow);
+                    
+                    console.log('使用超級安全模式成功');
+                    alert('已在文本末尾添加標記。由於HTML結構複雜，標記被放置在安全位置。');
+                    
+                } catch (error) {
+                    console.log('超級安全模式失敗，嘗試最終備用方案:', error.message);
+                    // 最終方案：在頁面頂部創建一個提示
+                    this.createFloatingHighlight(originalContent, span);
+                }
+            },
+
+            // 創建浮動標記提示（最後的備用方案）
+            createFloatingHighlight(originalContent, span) {
+                try {
+                    // 創建一個浮動的標記提示框
+                    const floatingDiv = document.createElement('div');
+                    floatingDiv.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: #fff3cd;
+                        border: 2px solid #ffc107;
+                        border-radius: 8px;
+                        padding: 10px;
+                        max-width: 300px;
+                        z-index: 10000;
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                        font-family: Arial, sans-serif;
+                        font-size: 14px;
+                    `;
+                    
+                    floatingDiv.innerHTML = `
+                        <div style="font-weight: bold; margin-bottom: 5px;">📌 已標記文本</div>
+                        <div style="background: ${span.style.backgroundColor}; padding: 3px 6px; border-radius: 3px; margin-bottom: 5px;">
+                            ${originalContent.substring(0, 100)}${originalContent.length > 100 ? '...' : ''}
+                        </div>
+                        <div style="font-size: 12px; color: #666;">
+                            由於HTML結構限制，標記已保存但顯示在此處
+                        </div>
+                        <button onclick="this.parentElement.remove()" style="
+                            background: #007bff; color: white; border: none; 
+                            border-radius: 3px; padding: 3px 8px; 
+                            font-size: 11px; margin-top: 5px; cursor: pointer;
+                        ">關閉</button>
+                    `;
+                    
+                    document.body.appendChild(floatingDiv);
+                    
+                    // 5秒後自動消失
+                    setTimeout(() => {
+                        if (floatingDiv.parentElement) {
+                            floatingDiv.remove();
+                        }
+                    }, 5000);
+                    
+                    console.log('創建浮動標記提示成功');
+                    this.updateHighlightCount();
+                    saveHighlights();
+                    
+                } catch (error) {
+                    console.error('創建浮動提示也失敗了:', error);
+                    alert(`無法標記文本，但內容已記錄：\n${originalContent.substring(0, 200)}`);
+                }
+            },
+
+            // 保留 blockquote 的特殊處理方法
+            highlightInBlockquote(range, highlight) {
+                try {
+                    // 對於 blockquote 內的內容，使用更保守的方法
+                    const selectedText = range.toString();
+                    
+                    // 檢查選擇是否跨越多個子元素
+                    if (range.startContainer === range.endContainer) {
+                        // 在同一容器內，安全使用標準方法
+                        range.surroundContents(highlight);
+                    } else {
+                        // 跨容器選擇，使用文本替換方法
+                        highlight.textContent = selectedText;
+                        range.deleteContents();
+                        range.insertNode(highlight);
+                    }
+                } catch (error) {
+                    console.log('blockquote 處理失敗，回退到通用方法:', error.message);
+                    throw error; // 讓上層方法處理
                 }
             },
 
