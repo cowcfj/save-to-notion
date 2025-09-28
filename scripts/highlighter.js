@@ -598,19 +598,79 @@
             
             // 複製事件監聽器
             copyEventListeners(source, target) {
-                // 複製 dblclick 事件監聽器
-                target.addEventListener('dblclick', (e) => {
+                // 創建刪除按鈕
+                const deleteBtn = document.createElement('span');
+                deleteBtn.innerHTML = '✕';
+                deleteBtn.className = 'highlight-delete-btn';
+                deleteBtn.style.cssText = `
+                    position: absolute;
+                    top: -8px;
+                    right: -8px;
+                    width: 16px;
+                    height: 16px;
+                    background: #ff4444;
+                    color: white;
+                    border-radius: 50%;
+                    font-size: 12px;
+                    line-height: 16px;
+                    text-align: center;
+                    cursor: pointer;
+                    display: none;
+                    z-index: 10000;
+                    font-weight: bold;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                `;
+                
+                // 設置相對定位
+                target.style.position = 'relative';
+                target.style.cursor = 'pointer';
+                target.title = '右鍵或Ctrl+點擊刪除標記，懸停顯示刪除按鈕';
+                
+                // 懸停顯示刪除按鈕
+                target.addEventListener('mouseenter', () => {
+                    deleteBtn.style.display = 'block';
+                });
+                
+                target.addEventListener('mouseleave', () => {
+                    deleteBtn.style.display = 'none';
+                });
+                
+                // 刪除按鈕點擊事件
+                deleteBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (confirm('確定要刪除這個標記嗎？')) {
-                        const parent = target.parentNode;
-                        while (target.firstChild) {
-                            parent.insertBefore(target.firstChild, target);
-                        }
-                        parent.removeChild(target);
-                        this.updateHighlightCount();
-                        saveHighlights();
+                    e.preventDefault();
+                    this.removeHighlight(target);
+                });
+                
+                // 右鍵菜單刪除
+                target.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.showDeleteContextMenu(e, target);
+                });
+                
+                // Ctrl/Cmd + 點擊刪除
+                target.addEventListener('click', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.removeHighlight(target);
                     }
                 });
+                
+                // 雙擊選擇刪除
+                target.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const selection = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(target);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    this.showSelectionDeletePrompt(target);
+                });
+                
+                target.appendChild(deleteBtn);
             },
             
             // 超級安全模式 - 最後的備用方案
@@ -634,24 +694,259 @@
                 highlight.className = 'simple-highlight';
                 highlight.style.backgroundColor = this.colors[this.currentColor];
                 highlight.style.cursor = 'pointer';
-                highlight.title = '雙擊刪除標記';
+                highlight.style.position = 'relative';
+                highlight.title = '右鍵或Ctrl+點擊刪除標記，懸停顯示刪除按鈕';
 
-                highlight.addEventListener('dblclick', (e) => {
+                // 創建懸停刪除按鈕
+                const deleteBtn = document.createElement('span');
+                deleteBtn.innerHTML = '✕';
+                deleteBtn.className = 'highlight-delete-btn';
+                deleteBtn.style.cssText = `
+                    position: absolute;
+                    top: -8px;
+                    right: -8px;
+                    width: 16px;
+                    height: 16px;
+                    background: #ff4444;
+                    color: white;
+                    border-radius: 50%;
+                    font-size: 12px;
+                    line-height: 16px;
+                    text-align: center;
+                    cursor: pointer;
+                    display: none;
+                    z-index: 10000;
+                    font-weight: bold;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                `;
+                deleteBtn.title = '點擊刪除標記';
+                
+                // 懸停顯示刪除按鈕
+                highlight.addEventListener('mouseenter', () => {
+                    deleteBtn.style.display = 'block';
+                });
+                
+                highlight.addEventListener('mouseleave', () => {
+                    deleteBtn.style.display = 'none';
+                });
+                
+                // 刪除按鈕點擊事件
+                deleteBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (confirm('確定要刪除這個標記嗎？')) {
-                        const parent = highlight.parentNode;
-                        // 將高亮內容替換回原始文本
-                        while (highlight.firstChild) {
-                            parent.insertBefore(highlight.firstChild, highlight);
-                        }
-                        parent.removeChild(highlight);
-                        parent.normalize();
-                        this.updateHighlightCount();
-                        saveHighlights();
+                    e.preventDefault();
+                    this.removeHighlight(highlight);
+                });
+                
+                // 右鍵菜單刪除
+                highlight.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.showDeleteContextMenu(e, highlight);
+                });
+                
+                // Ctrl/Cmd + 點擊刪除
+                highlight.addEventListener('click', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.removeHighlight(highlight);
                     }
                 });
+                
+                // 移除原來的雙擊事件，改為選擇刪除
+                highlight.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    // 選擇整個標記元素
+                    const selection = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(highlight);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    
+                    // 顯示選擇刪除提示
+                    this.showSelectionDeletePrompt(highlight);
+                });
 
+                highlight.appendChild(deleteBtn);
                 return highlight;
+            },
+            
+            // 刪除標記的統一方法
+            removeHighlight(highlight) {
+                if (confirm('確定要刪除這個標記嗎？')) {
+                    const parent = highlight.parentNode;
+                    // 將高亮內容替換回原始文本
+                    while (highlight.firstChild) {
+                        // 跳過刪除按鈕
+                        if (highlight.firstChild.className === 'highlight-delete-btn') {
+                            highlight.removeChild(highlight.firstChild);
+                            continue;
+                        }
+                        parent.insertBefore(highlight.firstChild, highlight);
+                    }
+                    parent.removeChild(highlight);
+                    parent.normalize();
+                    this.updateHighlightCount();
+                    saveHighlights();
+                    console.log('標記已刪除');
+                }
+            },
+            
+            // 顯示右鍵刪除菜單
+            showDeleteContextMenu(e, highlight) {
+                // 移除已存在的菜單
+                const existingMenu = document.querySelector('.highlight-context-menu');
+                if (existingMenu) {
+                    existingMenu.remove();
+                }
+                
+                const menu = document.createElement('div');
+                menu.className = 'highlight-context-menu';
+                menu.style.cssText = `
+                    position: fixed;
+                    top: ${e.clientY}px;
+                    left: ${e.clientX}px;
+                    background: white;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                    padding: 8px 0;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 10001;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    font-size: 14px;
+                    min-width: 120px;
+                `;
+                
+                const deleteItem = document.createElement('div');
+                deleteItem.textContent = '🗑️ 刪除標記';
+                deleteItem.style.cssText = `
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                `;
+                deleteItem.addEventListener('mouseenter', () => {
+                    deleteItem.style.background = '#f5f5f5';
+                });
+                deleteItem.addEventListener('mouseleave', () => {
+                    deleteItem.style.background = 'transparent';
+                });
+                deleteItem.addEventListener('click', () => {
+                    menu.remove();
+                    this.removeHighlight(highlight);
+                });
+                
+                const cancelItem = document.createElement('div');
+                cancelItem.textContent = '❌ 取消';
+                cancelItem.style.cssText = deleteItem.style.cssText;
+                cancelItem.addEventListener('mouseenter', () => {
+                    cancelItem.style.background = '#f5f5f5';
+                });
+                cancelItem.addEventListener('mouseleave', () => {
+                    cancelItem.style.background = 'transparent';
+                });
+                cancelItem.addEventListener('click', () => {
+                    menu.remove();
+                });
+                
+                menu.appendChild(deleteItem);
+                menu.appendChild(cancelItem);
+                document.body.appendChild(menu);
+                
+                // 點擊其他地方關閉菜單
+                setTimeout(() => {
+                    document.addEventListener('click', function closeMenu() {
+                        menu.remove();
+                        document.removeEventListener('click', closeMenu);
+                    });
+                }, 100);
+            },
+            
+            // 顯示選擇刪除提示
+            showSelectionDeletePrompt(highlight) {
+                const prompt = document.createElement('div');
+                prompt.className = 'selection-delete-prompt';
+                prompt.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    border: 2px solid #007acc;
+                    border-radius: 8px;
+                    padding: 20px;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+                    z-index: 10002;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    font-size: 14px;
+                    text-align: center;
+                    min-width: 300px;
+                `;
+                
+                prompt.innerHTML = `
+                    <div style="margin-bottom: 15px; color: #333;">
+                        <strong>已選中標記內容</strong><br>
+                        <small>確定要刪除這個標記嗎？</small>
+                    </div>
+                    <button id="confirm-delete" style="
+                        background: #ff4444;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        margin-right: 10px;
+                        font-size: 14px;
+                    ">刪除標記</button>
+                    <button id="cancel-delete" style="
+                        background: #ccc;
+                        color: #333;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">取消</button>
+                `;
+                
+                document.body.appendChild(prompt);
+                
+                // 確認刪除
+                prompt.querySelector('#confirm-delete').addEventListener('click', () => {
+                    prompt.remove();
+                    // 清除選擇
+                    window.getSelection().removeAllRanges();
+                    // 直接刪除，不再確認
+                    const parent = highlight.parentNode;
+                    while (highlight.firstChild) {
+                        if (highlight.firstChild.className === 'highlight-delete-btn') {
+                            highlight.removeChild(highlight.firstChild);
+                            continue;
+                        }
+                        parent.insertBefore(highlight.firstChild, highlight);
+                    }
+                    parent.removeChild(highlight);
+                    parent.normalize();
+                    this.updateHighlightCount();
+                    saveHighlights();
+                    console.log('標記已刪除（選擇方式）');
+                });
+                
+                // 取消刪除
+                prompt.querySelector('#cancel-delete').addEventListener('click', () => {
+                    prompt.remove();
+                    window.getSelection().removeAllRanges();
+                });
+                
+                // ESC 鍵關閉
+                function handleEscape(e) {
+                    if (e.key === 'Escape') {
+                        prompt.remove();
+                        window.getSelection().removeAllRanges();
+                        document.removeEventListener('keydown', handleEscape);
+                    }
+                }
+                document.addEventListener('keydown', handleEscape);
             },
 
             fallbackHighlight(selection) {
