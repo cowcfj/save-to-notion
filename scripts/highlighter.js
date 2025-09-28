@@ -206,30 +206,217 @@
                 if (selectedText.length === 0) return;
 
                 try {
-                    const highlight = document.createElement('span');
-                    highlight.className = 'simple-highlight';
-                    highlight.style.backgroundColor = this.colors[this.currentColor];
-                    highlight.style.cursor = 'pointer';
-                    highlight.title = '雙擊刪除標記';
-
-                    highlight.addEventListener('dblclick', (e) => {
-                        e.stopPropagation();
-                        if (confirm('確定要刪除這個標記嗎？')) {
-                            const parent = highlight.parentNode;
-                            parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
-                            parent.removeChild(highlight);
-                            parent.normalize();
-                            this.updateHighlightCount();
-                            saveHighlights();
-                        }
-                    });
-
-                    range.surroundContents(highlight);
+                    // 檢查選擇範圍是否跨越多個元素
+                    const startContainer = range.startContainer;
+                    const endContainer = range.endContainer;
+                    
+                    // 如果是同一個文本節點，使用原來的方法
+                    if (startContainer === endContainer && startContainer.nodeType === Node.TEXT_NODE) {
+                        this.wrapSimpleSelection(range, selectedText);
+                    } else {
+                        // 對於複雜選擇（跨元素），使用更健壯的方法
+                        this.wrapComplexSelection(range, selectedText);
+                    }
+                    
                     selection.removeAllRanges();
                     this.updateHighlightCount();
                     saveHighlights();
                 } catch (error) {
                     console.warn('無法標記選中的文字:', error);
+                    // 嘗試使用備用方法
+                    this.fallbackHighlight(selection);
+                }
+            },
+
+            wrapSimpleSelection(range, selectedText) {
+                const highlight = this.createHighlightSpan();
+                range.surroundContents(highlight);
+            },
+
+            wrapComplexSelection(range, selectedText) {
+                const highlight = this.createHighlightSpan();
+                
+                // 檢查是否在特殊元素內（如 blockquote）
+                const commonAncestor = range.commonAncestorContainer;
+                const blockquote = this.findAncestorByTagName(commonAncestor, 'BLOCKQUOTE');
+                
+                if (blockquote) {
+                    console.log('檢測到在 blockquote 內選擇，使用特殊處理');
+                    this.highlightInBlockquote(range, highlight);
+                    return;
+                }
+                
+                try {
+                    // 先嘗試標準方法
+                    range.surroundContents(highlight);
+                } catch (error) {
+                    console.log('標準方法失敗，使用提取插入方法:', error.message);
+                    // 如果失敗，使用提取和插入的方法
+                    try {
+                        const contents = range.extractContents();
+                        highlight.appendChild(contents);
+                        range.insertNode(highlight);
+                    } catch (extractError) {
+                        console.log('提取插入也失敗，使用克隆方法:', extractError.message);
+                        // 最後嘗試克隆內容
+                        const contents = range.cloneContents();
+                        highlight.appendChild(contents);
+                        range.deleteContents();
+                        range.insertNode(highlight);
+                    }
+                }
+            },
+
+            findAncestorByTagName(node, tagName) {
+                let current = node;
+                while (current && current !== document.body) {
+                    if (current.nodeType === Node.ELEMENT_NODE && current.tagName === tagName) {
+                        return current;
+                    }
+                    current = current.parentNode;
+                }
+                return null;
+            },
+
+            highlightInBlockquote(range, highlight) {
+                try {
+                    // 對於 blockquote 內的內容，使用更保守的方法
+                    const selectedText = range.toString();
+                    
+                    // 檢查選擇是否跨越多個子元素
+                    if (range.startContainer === range.endContainer) {
+                        // 在同一容器內，安全使用標準方法
+                        range.surroundContents(highlight);
+                    } else {
+                        // 跨容器選擇，使用文本替換方法
+                        highlight.textContent = selectedText;
+                        range.deleteContents();
+                        range.insertNode(highlight);
+                    }
+                } catch (error) {
+                    console.log('blockquote 處理失敗，回退到通用方法:', error.message);
+                    throw error; // 讓上層方法處理
+                }
+            },
+
+            createHighlightSpan() {
+                const highlight = document.createElement('span');
+                highlight.className = 'simple-highlight';
+                highlight.style.backgroundColor = this.colors[this.currentColor];
+                highlight.style.cursor = 'pointer';
+                highlight.title = '雙擊刪除標記';
+
+                highlight.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    if (confirm('確定要刪除這個標記嗎？')) {
+                        const parent = highlight.parentNode;
+                        // 將高亮內容替換回原始文本
+                        while (highlight.firstChild) {
+                            parent.insertBefore(highlight.firstChild, highlight);
+                        }
+                        parent.removeChild(highlight);
+                        parent.normalize();
+                        this.updateHighlightCount();
+                        saveHighlights();
+                    }
+                });
+
+                return highlight;
+            },
+
+            fallbackHighlight(selection) {
+                try {
+                    console.log('使用備用高亮方法');
+                    const range = selection.getRangeAt(0);
+                    const span = this.createHighlightSpan();
+                    
+                    // 記錄原始內容
+                    const originalContent = range.toString();
+                    
+                    // 檢查是否可以安全地修改 DOM
+                    const commonAncestor = range.commonAncestorContainer;
+                    console.log('共同祖先元素:', commonAncestor.nodeName || 'TEXT_NODE');
+                    
+                    // 特別處理不同的容器類型
+                    if (commonAncestor.nodeType === Node.TEXT_NODE) {
+                        // 文本節點，使用分割方法
+                        this.highlightInTextNode(range, span, originalContent);
+                    } else {
+                        // 元素節點，使用提取插入方法
+                        this.highlightAcrossElements(range, span);
+                    }
+                    
+                    this.updateHighlightCount();
+                    saveHighlights();
+                } catch (error) {
+                    console.error('所有高亮方法都失敗了:', error);
+                    // 最後的備用方案：添加到選擇範圍的父元素
+                    this.addHighlightToParent(selection);
+                }
+            },
+
+            highlightInTextNode(range, span, originalContent) {
+                const textNode = range.startContainer;
+                const startOffset = range.startOffset;
+                const endOffset = range.endOffset;
+                
+                // 分割文本節點
+                const beforeText = textNode.textContent.substring(0, startOffset);
+                const selectedText = textNode.textContent.substring(startOffset, endOffset);
+                const afterText = textNode.textContent.substring(endOffset);
+                
+                // 創建新的節點結構
+                const parent = textNode.parentNode;
+                const beforeNode = document.createTextNode(beforeText);
+                const afterNode = document.createTextNode(afterText);
+                
+                span.textContent = selectedText;
+                
+                // 替換原文本節點
+                parent.insertBefore(beforeNode, textNode);
+                parent.insertBefore(span, textNode);
+                parent.insertBefore(afterNode, textNode);
+                parent.removeChild(textNode);
+            },
+
+            highlightAcrossElements(range, span) {
+                try {
+                    // 提取選中內容
+                    const contents = range.extractContents();
+                    span.appendChild(contents);
+                    range.insertNode(span);
+                } catch (error) {
+                    console.log('提取插入方法失敗，嘗試克隆方法');
+                    // 如果提取失敗，嘗試克隆內容
+                    const contents = range.cloneContents();
+                    span.appendChild(contents);
+                    // 刪除原內容
+                    range.deleteContents();
+                    range.insertNode(span);
+                }
+            },
+
+            addHighlightToParent(selection) {
+                try {
+                    const range = selection.getRangeAt(0);
+                    const selectedText = selection.toString().trim();
+                    
+                    // 創建一個包裝元素，添加到選擇範圍後面
+                    const highlight = this.createHighlightSpan();
+                    highlight.textContent = selectedText;
+                    
+                    // 在選擇範圍後插入
+                    range.collapse(false); // 將範圍折疊到結束位置
+                    range.insertNode(highlight);
+                    
+                    // 添加提示說明這是備用方法
+                    highlight.title += ' (備用模式)';
+                    
+                    console.log('使用備用插入方法成功');
+                    alert('已使用備用方式添加標記。如果位置不正確，請手動調整。');
+                } catch (error) {
+                    console.error('備用插入方法也失敗了:', error);
+                    alert('無法在此位置添加標記。請嘗試選擇較短的文本片段，或在不同位置重試。');
                 }
             },
 
