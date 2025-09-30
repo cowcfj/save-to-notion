@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion Clipper Settings</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Settings</h1>
+        
+        <!-- OAuth 授權區域 -->
+        <div class="auth-section">
+            <h2>連接 Notion</h2>
+            <div id="auth-status" class="auth-status"></div>
+            <button id="oauth-button" class="oauth-button">
+                <span class="notion-icon">📝</span>
+                連接到 Notion
+            </button>
+            <p class="auth-description">
+                點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
+            </p>
+        </div>
+
+        <div class="divider">或</div>
+
+        <!-- 手動設置區域 -->
+        <div class="manual-section">
+            <h2>手動設置</h2>
+            <div class="form-group">
+                <label for="api-key">Notion API Key</label>
+                <input type="password" id="api-key" placeholder="Enter your Notion API Key">
+                <button type="button" id="test-api-button" class="test-button">測試 API Key</button>
+            </div>
+            <div class="form-group">
+                <label for="database-id">Notion Database ID</label>
+                <input type="text" id="database-id" placeholder="Enter your Notion Database ID">
+                <select id="database-select" style="display: none;">
+                    <option value="">選擇數據庫...</option>
+                </select>
+            </div>
+            <button id="save-button">Save Settings</button>
+        </div>
+
+        <!-- 模板設置區域 -->
+        <div class="template-section">
+            <h2>頁面模板設置</h2>
+            <div class="form-group">
+                <label for="title-template">標題模板</label>
+                <input type="text" id="title-template" placeholder="例如：{title} - {date}">
+                <small class="help-text">
+                    可用變量：{title} - 原始標題, {date} - 當前日期, {time} - 當前時間, {datetime} - 日期時間, {url} - 網頁URL, {domain} - 網站域名
+                </small>
+                <button type="button" id="preview-template" class="preview-button">預覽效果</button>
+                <div id="template-preview" class="template-preview"></div>
+            </div>
+            <div class="form-group">
+                <label for="add-source">添加來源信息</label>
+                <input type="checkbox" id="add-source" checked>
+                <label for="add-source" class="checkbox-label">在內容末尾添加來源鏈接</label>
+            </div>
+            <div class="form-group">
+                <label for="add-timestamp">添加時間戳</label>
+                <input type="checkbox" id="add-timestamp" checked>
+                <label for="add-timestamp" class="checkbox-label">在內容開頭添加保存時間</label>
+            </div>
+        </div>
+        
+        <!-- 數據管理區域 -->
+        <div class="data-section">
+            <h2>數據管理</h2>
+            <div class="data-info">
+                <p>💡 <strong>數據安全提示：</strong>您的標記和配置數據安全儲存在 Chrome 中，擴展升級不會影響您的數據。</p>
+            </div>
+            
+            <!-- 存儲使用情況 -->
+            <div class="storage-usage">
+                <h3>📊 存儲使用情況</h3>
+                <div class="usage-info">
+                    <div class="usage-bar-container">
+                        <div class="usage-bar">
+                            <div id="usage-fill" class="usage-fill"></div>
+                        </div>
+                        <div class="usage-text">
+                            <span id="usage-percentage">0%</span>
+                            <span id="usage-details">0 MB / 5 MB</span>
+                        </div>
+                    </div>
+                    <div class="storage-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">📑 標記頁面：</span>
+                            <span id="pages-count">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">🎯 總標記數：</span>
+                            <span id="highlights-count">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">⚙️ 配置項目：</span>
+                            <span id="config-count">0</span>
+                        </div>
+                    </div>
+                    <button id="refresh-usage-button" class="refresh-button">🔄 刷新使用情況</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <button id="export-data-button" class="export-button">📥 備份數據</button>
+                <small class="help-text">將您的標記、配置和歷史記錄備份到文件</small>
+            </div>
+            <div class="form-group">
+                <input type="file" id="import-data-file" accept=".json" style="display: none;">
+                <button id="import-data-button" class="import-button">📤 恢復數據</button>
+                <small class="help-text">從備份文件恢復您的數據</small>
+            </div>
+            <div class="form-group">
+                <button id="check-data-button" class="check-button">🔍 檢查數據完整性</button>
+                <div id="data-status" class="data-status"></div>
+            </div>
+            
+            <!-- 數據優化區域 -->
+            <div class="optimization-section">
+                <h3>⚡ 數據優化</h3>
+                <div class="optimization-info">
+                    <p>優化擴展數據結構，提升性能而不丟失任何標記內容</p>
+                </div>
+                
+                <!-- 安全清理 -->
+                <div class="safe-cleanup">
+                    <h4>🧹 安全清理</h4>
+                    <div class="cleanup-option">
+                        <label>
+                            <input type="checkbox" id="cleanup-empty-pages" checked>
+                            <span>清理空白頁面記錄</span>
+                        </label>
+                        <small class="help-text">
+                            ⚠️ <strong>重要說明：</strong>這只會清理擴展中沒有標記的空白頁面記錄，
+                            <strong>不會影響您在 Notion 中已保存的任何頁面</strong>。擴展數據和 Notion 數據是完全獨立的。
+                        </small>
+                    </div>
+                    <button id="preview-cleanup-button" class="preview-button">👀 預覽清理效果</button>
+                    <button id="execute-cleanup-button" class="cleanup-button" style="display: none;">🗑️ 執行清理</button>
+                </div>
+                
+                <!-- 數據重整 -->
+                <div class="reorganize-section">
+                    <h4>🔄 數據重整優化</h4>
+                    <div class="reorganize-info">
+                        <p>重新組織和優化數據結構，提升擴展性能，<strong>保留所有標記內容</strong></p>
+                        <div class="optimization-benefits">
+                            <div class="benefit-item">✅ 壓縮數據大小，節省存儲空間</div>
+                            <div class="benefit-item">✅ 優化數據結構，提升載入速度</div>
+                            <div class="benefit-item">✅ 重建索引，加快搜索性能</div>
+                            <div class="benefit-item">✅ 整理碎片，改善整體響應</div>
+                        </div>
+                    </div>
+                    <button id="analyze-optimization-button" class="analyze-button">� 分析優化效果</button>
+                    <button id="execute-optimization-button" class="optimize-button" style="display: none;">⚡ 執行數據重整</button>
+                    <div id="optimization-preview" class="optimization-preview"></div>
+                </div>
+                
+                <div id="cleanup-preview" class="cleanup-preview"></div>
+            </div>
+        </div>
+        
+        <p id="status"></p>
+        
+
+    </div>
+    <script src="options.js"></script>
+</body>
+</html>

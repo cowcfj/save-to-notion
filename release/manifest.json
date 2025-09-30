@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Save to Notion (Smart Clipper)",
+  "version": "2.4.8",
+  "description": "智能網頁擷取工具，支持圖片提取、模板自定義，一鍵保存到 Notion。",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.notion.com/*",
+    "https://api.notion.com/v1/oauth/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
