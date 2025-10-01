@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>標註功能對比測試 - Notion Smart Clipper</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .panel {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+        
+        .panel h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        
+        .test-content {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            min-height: 200px;
+        }
+        
+        .test-content p {
+            margin: 10px 0;
+        }
+        
+        .test-content ul {
+            margin: 10px 0;
+            padding-left: 25px;
+        }
+        
+        .test-content blockquote {
+            border-left: 4px solid #007bff;
+            padding-left: 15px;
+            margin: 15px 0;
+            font-style: italic;
+            color: #666;
+        }
+        
+        .controls {
+            margin: 15px 0;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 4px;
+        }
+        
+        .controls button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        .controls button:hover {
+            background: #0056b3;
+        }
+        
+        .controls button.danger {
+            background: #dc3545;
+        }
+        
+        .controls button.danger:hover {
+            background: #c82333;
+        }
+        
+        .info-box {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 15px 0;
+            color: #0c5460;
+        }
+        
+        .info-box strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        /* 舊版標註樣式 */
+        .simple-highlight {
+            cursor: pointer;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .comparison-table th {
+            background: #007bff;
+            color: white;
+        }
+        
+        .comparison-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        .feature-yes {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .feature-no {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>📝 Notion Smart Clipper - 標註功能對比測試</h1>
+    
+    <div class="info-box">
+        <strong>測試說明：</strong>
+        本頁面對比兩種標註實現方案：
+        <ul>
+            <li><strong>舊版 (DOM操作)</strong>: 修改頁面DOM結構實現標註</li>
+            <li><strong>新版 (CSS Highlight API)</strong>: 使用瀏覽器原生API，不修改DOM</li>
+        </ul>
+    </div>
+
+    <table class="comparison-table">
+        <thead>
+            <tr>
+                <th>特性</th>
+                <th>舊版 (DOM操作)</th>
+                <th>新版 (CSS Highlight API)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>跨元素標註</td>
+                <td class="feature-no">❌ 需要複雜回退機制</td>
+                <td class="feature-yes">✅ 原生支持</td>
+            </tr>
+            <tr>
+                <td>DOM結構</td>
+                <td class="feature-no">❌ 會修改頁面結構</td>
+                <td class="feature-yes">✅ 完全不修改</td>
+            </tr>
+            <tr>
+                <td>視覺反饋</td>
+                <td class="feature-no">❌ 可能失敗</td>
+                <td class="feature-yes">✅ 可靠顯示</td>
+            </tr>
+            <tr>
+                <td>性能</td>
+                <td class="feature-no">❌ 較慢（DOM操作）</td>
+                <td class="feature-yes">✅ 更快（瀏覽器原生）</td>
+            </tr>
+            <tr>
+                <td>持久化</td>
+                <td class="feature-no">❌ 複雜（需保存HTML）</td>
+                <td class="feature-yes">✅ 簡單（保存Range）</td>
+            </tr>
+            <tr>
+                <td>重複標註問題</td>
+                <td class="feature-no">❌ 存在</td>
+                <td class="feature-yes">✅ 不存在</td>
+            </tr>
+            <tr>
+                <td>瀏覽器支持</td>
+                <td class="feature-yes">✅ 所有瀏覽器</td>
+                <td class="feature-no">⚠️ Chrome 105+, Safari 17.2+</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="container">
+        <!-- 舊版測試 -->
+        <div class="panel">
+            <h2>🔴 舊版 (DOM操作)</h2>
+            
+            <div class="controls">
+                <button onclick="initOldHighlighter()">啟動標註工具</button>
+                <button class="danger" onclick="clearOldHighlights()">清除所有標註</button>
+            </div>
+            
+            <div id="old-status" class="status" style="display:none;"></div>
+            
+            <div class="test-content" id="old-content">
+                <h3>測試內容</h3>
+                <p>這是一段<strong>普通文本</strong>，可以測試<em>簡單標註</em>。</p>
+                
+                <p>這是第二段，<span style="color: blue;">包含不同的</span>格式和<code>代碼</code>元素。</p>
+                
+                <blockquote>
+                    這是一段引用文字，測試在引用塊中的標註效果。
+                </blockquote>
+                
+                <ul>
+                    <li>列表項目一：測試列表內標註</li>
+                    <li>列表項目二：<strong>跨元素文本</strong>標註測試</li>
+                    <li>列表項目三：多層嵌套測試</li>
+                </ul>
+                
+                <p>跨段落標註測試：這是第一段的結尾部分...</p>
+                <p>...這是第二段的開始部分。選擇跨越兩段的文本測試。</p>
+            </div>
+        </div>
+
+        <!-- 新版測試 -->
+        <div class="panel">
+            <h2>🟢 新版 (CSS Highlight API)</h2>
+            
+            <div class="controls">
+                <button onclick="initNewHighlighter()">啟動標註工具</button>
+                <button class="danger" onclick="clearNewHighlights()">清除所有標註</button>
+                <button onclick="testHighlightAPI()">檢測API支持</button>
+            </div>
+            
+            <div id="new-status" class="status" style="display:none;"></div>
+            
+            <div class="test-content" id="new-content">
+                <h3>測試內容</h3>
+                <p>這是一段<strong>普通文本</strong>，可以測試<em>簡單標註</em>。</p>
+                
+                <p>這是第二段，<span style="color: blue;">包含不同的</span>格式和<code>代碼</code>元素。</p>
+                
+                <blockquote>
+                    這是一段引用文字，測試在引用塊中的標註效果。
+                </blockquote>
+                
+                <ul>
+                    <li>列表項目一：測試列表內標註</li>
+                    <li>列表項目二：<strong>跨元素文本</strong>標註測試</li>
+                    <li>列表項目三：多層嵌套測試</li>
+                </ul>
+                
+                <p>跨段落標註測試：這是第一段的結尾部分...</p>
+                <p>...這是第二段的開始部分。選擇跨越兩段的文本測試。</p>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 40px; padding: 20px; background: #fff3cd; border-radius: 8px;">
+        <h3>📝 測試步驟</h3>
+        <ol>
+            <li>點擊"啟動標註工具"按鈕</li>
+            <li>在測試內容中選擇文本</li>
+            <li>觀察標註效果和Console日誌</li>
+            <li>嘗試以下測試場景：
+                <ul>
+                    <li>單段落內文本標註</li>
+                    <li>跨格式標註（粗體、斜體等）</li>
+                    <li>跨段落標註</li>
+                    <li>列表項內標註</li>
+                    <li>引用塊內標註</li>
+                    <li>重複標註同一文本</li>
+                </ul>
+            </li>
+            <li>對比兩側的效果差異</li>
+        </ol>
+    </div>
+
+    <!-- Mock Storage Utility -->
+    <script>
+        // Mock StorageUtil for testing
+        window.StorageUtil = {
+            saveHighlights: async function(url, data) {
+                console.log('💾 保存標註:', data);
+                localStorage.setItem(`highlights_${url}`, JSON.stringify(data));
+            },
+            loadHighlights: async function(url) {
+                const data = localStorage.getItem(`highlights_${url}`);
+                return data ? JSON.parse(data) : null;
+            },
+            clearHighlights: function(url) {
+                localStorage.removeItem(`highlights_${url}`);
+            }
+        };
+    </script>
+
+    <!-- 舊版標註腳本 (簡化版，只保留核心邏輯) -->
+    <script>
+        let oldHighlighter = null;
+        
+        function initOldHighlighter() {
+            showStatus('old', '舊版標註工具已啟動', 'success');
+            
+            if (oldHighlighter) {
+                return;
+            }
+            
+            oldHighlighter = {
+                currentColor: 'yellow',
+                colors: {
+                    yellow: '#fff3cd',
+                    green: '#d4edda',
+                    blue: '#cce7ff',
+                    red: '#f8d7da'
+                }
+            };
+            
+            // 監聽選擇事件
+            document.getElementById('old-content').addEventListener('mouseup', function(e) {
+                const selection = window.getSelection();
+                if (!selection.isCollapsed && selection.toString().trim()) {
+                    const range = selection.getRangeAt(0);
+                    
+                    // 只標註在old-content內的選擇
+                    if (this.contains(range.commonAncestorContainer)) {
+                        try {
+                            applyOldHighlight(range);
+                            showStatus('old', `✅ 標註成功: "${selection.toString().substring(0, 30)}..."`, 'success');
+                        } catch (error) {
+                            showStatus('old', `❌ 標註失敗: ${error.message}`, 'error');
+                        }
+                        selection.removeAllRanges();
+                    }
+                }
+            });
+        }
+        
+        function applyOldHighlight(range) {
+            console.log('舊版標註 - 開始', {
+                text: range.toString(),
+                startContainer: range.startContainer,
+                endContainer: range.endContainer
+            });
+            
+            const span = document.createElement('span');
+            span.className = 'simple-highlight';
+            span.style.backgroundColor = oldHighlighter.colors[oldHighlighter.currentColor];
+            span.style.cursor = 'pointer';
+            span.title = '雙擊刪除';
+            
+            // 嘗試多種方法
+            try {
+                // 方法1: 標準方法
+                console.log('嘗試 surroundContents...');
+                range.surroundContents(span);
+                console.log('✅ surroundContents 成功');
+            } catch (e1) {
+                console.log('❌ surroundContents 失敗:', e1.message);
+                try {
+                    // 方法2: 提取內容
+                    console.log('嘗試 extractContents...');
+                    const contents = range.extractContents();
+                    span.appendChild(contents);
+                    range.insertNode(span);
+                    console.log('✅ extractContents 成功');
+                } catch (e2) {
+                    console.log('❌ extractContents 失敗:', e2.message);
+                    try {
+                        // 方法3: 克隆內容
+                        console.log('嘗試 cloneContents...');
+                        const contents = range.cloneContents();
+                        span.appendChild(contents);
+                        range.deleteContents();
+                        range.insertNode(span);
+                        console.log('✅ cloneContents 成功');
+                    } catch (e3) {
+                        console.log('❌ cloneContents 失敗:', e3.message);
+                        // 方法4: 文本替換
+                        console.log('嘗試 textContent...');
+                        span.textContent = range.toString();
+                        range.deleteContents();
+                        range.insertNode(span);
+                        console.log('⚠️ textContent 成功（丟失格式）');
+                    }
+                }
+            }
+            
+            // 添加刪除事件
+            span.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                if (confirm('刪除這個標註？')) {
+                    const parent = this.parentNode;
+                    while (this.firstChild) {
+                        parent.insertBefore(this.firstChild, this);
+                    }
+                    parent.removeChild(this);
+                    parent.normalize();
+                }
+            });
+        }
+        
+        function clearOldHighlights() {
+            const highlights = document.querySelectorAll('#old-content .simple-highlight');
+            highlights.forEach(h => {
+                const parent = h.parentNode;
+                while (h.firstChild) {
+                    parent.insertBefore(h.firstChild, h);
+                }
+                parent.removeChild(h);
+                parent.normalize();
+            });
+            showStatus('old', '已清除所有標註', 'success');
+        }
+    </script>
+
+    <!-- 新版標註腳本 (簡化版) -->
+    <script>
+        let newHighlightManager = null;
+        
+        function testHighlightAPI() {
+            if ('highlights' in CSS && CSS.highlights !== undefined) {
+                showStatus('new', '✅ 瀏覽器支持 CSS Custom Highlight API', 'success');
+            } else {
+                showStatus('new', '❌ 瀏覽器不支持 CSS Custom Highlight API\n需要 Chrome 105+, Edge 105+, Safari 17.2+', 'error');
+            }
+        }
+        
+        function initNewHighlighter() {
+            testHighlightAPI();
+            
+            if (!('highlights' in CSS)) {
+                return;
+            }
+            
+            if (newHighlightManager) {
+                return;
+            }
+            
+            newHighlightManager = {
+                highlights: new Map(),
+                nextId: 1,
+                currentColor: 'yellow',
+                colors: {
+                    yellow: '#fff3cd',
+                    green: '#d4edda',
+                    blue: '#cce7ff',
+                    red: '#f8d7da'
+                }
+            };
+            
+            // 初始化樣式
+            Object.keys(newHighlightManager.colors).forEach(color => {
+                const style = document.createElement('style');
+                style.textContent = `
+                    ::highlight(new-highlight-${color}) {
+                        background-color: ${newHighlightManager.colors[color]};
+                    }
+                `;
+                document.head.appendChild(style);
+            });
+            
+            // 監聽選擇事件
+            document.getElementById('new-content').addEventListener('mouseup', function(e) {
+                const selection = window.getSelection();
+                if (!selection.isCollapsed && selection.toString().trim()) {
+                    const range = selection.getRangeAt(0);
+                    
+                    // 只標註在new-content內的選擇
+                    if (this.contains(range.commonAncestorContainer)) {
+                        try {
+                            applyNewHighlight(range);
+                            showStatus('new', `✅ 標註成功: "${selection.toString().substring(0, 30)}..."`, 'success');
+                        } catch (error) {
+                            showStatus('new', `❌ 標註失敗: ${error.message}`, 'error');
+                        }
+                        selection.removeAllRanges();
+                    }
+                }
+            });
+            
+            showStatus('new', '新版標註工具已啟動', 'success');
+        }
+        
+        function applyNewHighlight(range) {
+            const id = `highlight-${newHighlightManager.nextId++}`;
+            const color = newHighlightManager.currentColor;
+            
+            console.log('新版標註 - 開始', {
+                id: id,
+                text: range.toString(),
+                startContainer: range.startContainer,
+                endContainer: range.endContainer
+            });
+            
+            // 保存標註
+            newHighlightManager.highlights.set(id, {
+                range: range.cloneRange(),
+                color: color,
+                text: range.toString()
+            });
+            
+            // 應用CSS Highlight
+            const highlight = new Highlight(range.cloneRange());
+            CSS.highlights.set(`new-highlight-${color}-${id}`, highlight);
+            
+            console.log('✅ CSS Highlight 應用成功');
+            console.log('DOM結構未改變 ✓');
+        }
+        
+        function clearNewHighlights() {
+            if (!newHighlightManager) {
+                return;
+            }
+            
+            // 清除所有CSS Highlights
+            newHighlightManager.highlights.forEach((data, id) => {
+                CSS.highlights.delete(`new-highlight-${data.color}-${id}`);
+            });
+            
+            newHighlightManager.highlights.clear();
+            showStatus('new', '已清除所有標註', 'success');
+        }
+        
+        function showStatus(side, message, type) {
+            const statusEl = document.getElementById(`${side}-status`);
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
+            
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

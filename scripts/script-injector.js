@@ -75,11 +75,12 @@ class ScriptInjector {
 
     /**
      * 注入標記工具並初始化
+     * v2.5.0: 使用新版 CSS Highlight API + 無痛自動遷移
      */
     static async injectHighlighter(tabId) {
         return this.injectAndExecute(
             tabId,
-            ['scripts/utils.js', 'scripts/highlighter.js'],
+            ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
             () => {
                 if (window.initHighlighter) {
                     window.initHighlighter();
@@ -87,18 +88,19 @@ class ScriptInjector {
             },
             {
                 errorMessage: 'Failed to inject highlighter',
-                successMessage: 'Highlighter injected and initialized successfully'
+                successMessage: 'Highlighter v2 injected and initialized successfully'
             }
         );
     }
 
     /**
      * 注入並收集標記
+     * v2.5.0: 使用新版標註系統
      */
     static async collectHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
-            ['scripts/utils.js', 'scripts/highlighter.js'],
+            ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
             () => {
                 if (window.collectHighlights) {
                     return window.collectHighlights();
@@ -115,11 +117,12 @@ class ScriptInjector {
 
     /**
      * 注入並清除頁面標記
+     * v2.5.0: 使用新版標註系統
      */
     static async clearPageHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
-            ['scripts/utils.js', 'scripts/highlighter.js'],
+            ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
             () => {
                 if (window.clearPageHighlights) {
                     window.clearPageHighlights();

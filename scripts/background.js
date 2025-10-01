@@ -210,30 +210,40 @@ class ScriptInjector {
 
     /**
      * 注入標記工具並初始化
+     * v2.5.0: 使用新版 CSS Highlight API + 無痛自動遷移
      */
     static async injectHighlighter(tabId) {
         return this.injectAndExecute(
             tabId,
-            ['scripts/utils.js', 'scripts/highlighter.js'],
+            ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
             () => {
+                // highlighter-v2.js 現在會自動初始化
+                // 這裡只需要顯示工具欄並激活標註模式
                 if (window.initHighlighter) {
-                    window.initHighlighter();
+                    window.initHighlighter(); // 確保已初始化
+                }
+                
+                // 顯示工具欄
+                if (window.notionHighlighter) {
+                    window.notionHighlighter.show();
+                    console.log('✅ 工具欄已顯示');
                 }
             },
             {
                 errorMessage: 'Failed to inject highlighter',
-                successMessage: 'Highlighter injected and initialized successfully'
+                successMessage: 'Highlighter v2 injected and initialized successfully'
             }
         );
     }
 
     /**
      * 注入並收集標記
+     * v2.5.0: 使用新版標註系統
      */
     static async collectHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
-            ['scripts/utils.js', 'scripts/highlighter.js'],
+            ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
             () => {
                 if (window.collectHighlights) {
                     return window.collectHighlights();
@@ -249,11 +259,12 @@ class ScriptInjector {
 
     /**
      * 注入並清除頁面標記
+     * v2.5.0: 使用新版標註系統
      */
     static async clearPageHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
-            ['scripts/utils.js', 'scripts/highlighter.js'],
+            ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
             () => {
                 if (window.clearPageHighlights) {
                     window.clearPageHighlights();
@@ -863,6 +874,9 @@ function handleMessage(request, sender, sendResponse) {
             case 'updateHighlights':
                 handleUpdateHighlights(sendResponse);
                 break;
+            case 'syncHighlights':
+                handleSyncHighlights(request, sendResponse);
+                break;
             case 'savePage':
                 handleSavePage(sendResponse);
                 break;
@@ -1024,6 +1038,72 @@ async function handleUpdateHighlights(sendResponse) {
 }
 
 /**
+ * 處理從工具欄同步標註到 Notion 的請求
+ */
+async function handleSyncHighlights(request, sendResponse) {
+    try {
+        console.log('🔄 處理同步標註請求');
+        
+        const tabs = await new Promise(resolve => 
+            chrome.tabs.query({ active: true, currentWindow: true }, resolve)
+        );
+        
+        const activeTab = tabs[0];
+        if (!activeTab || !activeTab.id) {
+            sendResponse({ success: false, error: '無法獲取當前標籤頁' });
+            return;
+        }
+
+        const config = await new Promise(resolve => 
+            getConfig(['notionApiKey'], resolve)
+        );
+        
+        if (!config.notionApiKey) {
+            sendResponse({ success: false, error: 'API Key 未設置' });
+            return;
+        }
+
+        const normUrl = normalizeUrl(activeTab.url || '');
+        const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
+        
+        if (!savedData || !savedData.notionPageId) {
+            sendResponse({ 
+                success: false, 
+                error: '頁面尚未保存到 Notion，請先點擊「保存頁面」' 
+            });
+            return;
+        }
+
+        const highlights = request.highlights || [];
+        console.log(`📊 準備同步 ${highlights.length} 個標註到頁面: ${savedData.notionPageId}`);
+        
+        if (highlights.length === 0) {
+            sendResponse({ 
+                success: true, 
+                message: '沒有新標註需要同步',
+                highlightCount: 0
+            });
+            return;
+        }
+
+        // 使用 updateHighlightsOnly 函數同步標註
+        updateHighlightsOnly(savedData.notionPageId, highlights, normUrl, config.notionApiKey, (response) => {
+            if (response.success) {
+                console.log(`✅ 成功同步 ${highlights.length} 個標註`);
+                response.highlightCount = highlights.length;
+                response.message = `成功同步 ${highlights.length} 個標註`;
+            } else {
+                console.error('❌ 同步標註失敗:', response.error);
+            }
+            sendResponse(response);
+        });
+    } catch (error) {
+        console.error('❌ handleSyncHighlights 錯誤:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
  * 處理保存頁面的請求
  */
 async function handleSavePage(sendResponse) {
@@ -1053,6 +1133,9 @@ async function handleSavePage(sendResponse) {
         // 注入 highlighter 並收集標記
         await ScriptInjector.injectHighlighter(activeTab.id);
         const highlights = await ScriptInjector.collectHighlights(activeTab.id);
+        
+        console.log('📊 收集到的標註數據:', highlights);
+        console.log('📊 標註數量:', highlights?.length || 0);
 
         // 注入並執行內容提取
         const result = await ScriptInjector.injectWithResponse(activeTab.id, () => {
