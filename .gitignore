@@ -63,6 +63,7 @@ cleanup.sh
 # 內部目錄（不應公開）
 tests/
 archive/
+demos/
 
 # 建構文件
 build/
