@@ -11,7 +11,7 @@ debug-test.html
 *preview.html
 generate-icons.html
 
-# 開發文檔（包含本地路徑）
+# 開發文檔（包含本地路徑或內部信息）
 QUICK_START.md
 *_INTERNAL.md
 *_LOCAL.md
@@ -20,19 +20,46 @@ TESTING_GUIDE.md
 TESTING_GUIDE_*.md
 TEST_GUIDE_*.md
 CODE_REVIEW_REPORT.md
-GITHUB_RELEASE_GUIDE_*.md
 CLEANUP_REPORT_*.md
 QUICK_TEST_*.md
+DEBUG_*.md
+INTEGRATION_SUMMARY.md
+SEAMLESS_MIGRATION.md
+HIGHLIGHTER_UPGRADE_PLAN.md
+HIGHLIGHT_SYNC_DIAGNOSTIC.md
+LOGGER_OPTIMIZATION_PLAN.md
+PERFORMANCE_ANALYSIS.md
+PERFORMANCE_OPTIMIZATION_GUIDE.md
+DATA_OPTIMIZATION_GUIDE.md
+DATA_PROTECTION_GUIDE.md
+FEATURE_COMPARISON.md
+
+# Chrome Store 發布相關（內部流程）
+CHROME_STORE_GUIDE.md
+GITHUB_RELEASE_GUIDE_*.md
+github-release-*.md
+
+# 協作提案（內部討論）
+COLLABORATION_PROPOSAL.md
+GOALS.md
+
+# 技術規格（內部設計）
+GOOGLE_DRIVE_BACKUP_SPEC.md
+UPGRADE_DATA_SAFETY.md
 
 # 項目規劃（內部使用）
 PROJECT_ROADMAP.md
 Agents.md
+PUBLISH_CHECKLIST.md
+
+# 構建腳本（開發工具）
+build.sh
+cleanup.sh
+*.sh
 
 # 開發工具
 .vscode/
 
 # 建構文件
 build/
-build.sh
 *.zip
-github-release-description.md
