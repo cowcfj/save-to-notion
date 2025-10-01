@@ -102,9 +102,6 @@ toolbar.querySelectorAll('.color-btn-v2').forEach(btn => {
 - [x] 控制台日誌反饋
 - [x] 完整文檔更新
 
-### ❌ 未實現（用戶選擇）
-- [ ] 全部刪除按鈕（用戶決定不實現）
-
 ## 🐛 已知問題
 無
 
@@ -126,11 +123,7 @@ feat: Add multi-color selector to highlighter v2.5.3
 Closes: Feature comparison request
 ```
 
-## 👥 貢獻者
-- AI Assistant - 功能實現和文檔編寫
-- User - 功能需求分析和決策
-
-## 🙏 致謝
+##  致謝
 感謝用戶提出的功能對比需求，幫助我們識別並恢復了這個實用的多顏色選擇功能。
 
 ---
