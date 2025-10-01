@@ -24,6 +24,9 @@ GITHUB_RELEASE_GUIDE_*.md
 CLEANUP_REPORT_*.md
 QUICK_TEST_*.md
 
+# 項目規劃（內部使用）
+PROJECT_ROADMAP.md
+
 # 開發工具
 .vscode/
 
