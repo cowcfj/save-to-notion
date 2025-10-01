@@ -52,6 +52,9 @@ PROJECT_ROADMAP.md
 Agents.md
 PUBLISH_CHECKLIST.md
 
+# 遷移和升級指南（內部技術文檔）
+MIGRATION_GUIDE.md
+
 # 構建腳本（開發工具）
 build.sh
 cleanup.sh
