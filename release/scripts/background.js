@@ -88,6 +88,56 @@ function isValidImageUrl(url) {
 }
 
 // ==========================================
+// TEXT UTILITIES
+// ==========================================
+
+/**
+ * 將長文本分割成符合 Notion 限制的片段
+ * Notion API 限制每個 rich_text 區塊最多 2000 字符
+ */
+function splitTextForHighlight(text, maxLength = 2000) {
+    if (!text || text.length <= maxLength) {
+        return [text];
+    }
+    
+    const chunks = [];
+    let remaining = text;
+    
+    while (remaining.length > 0) {
+        if (remaining.length <= maxLength) {
+            chunks.push(remaining);
+            break;
+        }
+        
+        // 嘗試在句號、問號、驚嘆號、換行符處分割
+        let splitIndex = -1;
+        const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
+        
+        for (const punct of punctuation) {
+            const lastIndex = remaining.lastIndexOf(punct, maxLength);
+            if (lastIndex > maxLength * 0.5) { // 至少分割到一半以上，避免片段太短
+                splitIndex = lastIndex + punct.length;
+                break;
+            }
+        }
+        
+        // 如果找不到合適的標點，嘗試在空格處分割
+        if (splitIndex === -1) {
+            splitIndex = remaining.lastIndexOf(' ', maxLength);
+            if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
+                // 實在找不到，強制在 maxLength 處分割
+                splitIndex = maxLength;
+            }
+        }
+        
+        chunks.push(remaining.substring(0, splitIndex).trim());
+        remaining = remaining.substring(splitIndex).trim();
+    }
+    
+    return chunks.filter(chunk => chunk.length > 0); // 過濾空字符串
+}
+
+// ==========================================
 // SCRIPT INJECTION MANAGER
 // ==========================================
 
@@ -596,17 +646,28 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
 
             highlights.forEach((highlight, index) => {
                 console.log(`📝 準備添加標記 ${index + 1}: "${highlight.text.substring(0, 30)}..." (顏色: ${highlight.color})`);
-                highlightBlocks.push({
-                    object: 'block',
-                    type: 'paragraph',
-                    paragraph: {
-                        rich_text: [{
-                            type: 'text',
-                            text: { content: highlight.text },
-                            annotations: {
-                                color: highlight.color
-                            }
-                        }]
+                
+                // 處理超長標記文本，需要分割成多個段落
+                const textChunks = splitTextForHighlight(highlight.text, 2000);
+                
+                textChunks.forEach((chunk, chunkIndex) => {
+                    highlightBlocks.push({
+                        object: 'block',
+                        type: 'paragraph',
+                        paragraph: {
+                            rich_text: [{
+                                type: 'text',
+                                text: { content: chunk },
+                                annotations: {
+                                    color: highlight.color
+                                }
+                            }]
+                        }
+                    });
+                    
+                    // 如果是分割的標記，在日誌中標註
+                    if (textChunks.length > 1) {
+                        console.log(`   └─ 分割片段 ${chunkIndex + 1}/${textChunks.length}: ${chunk.length} 字符`);
                     }
                 });
             });
@@ -1092,6 +1153,49 @@ async function handleSavePage(sendResponse) {
                     return linkDensity <= MAX_LINK_DENSITY;
                 }
                 
+                // 輔助函數：將長文本分割成符合 Notion 限制的片段
+                function splitTextForNotion(text, maxLength = 2000) {
+                    if (!text || text.length <= maxLength) {
+                        return [text];
+                    }
+                    
+                    const chunks = [];
+                    let remaining = text;
+                    
+                    while (remaining.length > 0) {
+                        if (remaining.length <= maxLength) {
+                            chunks.push(remaining);
+                            break;
+                        }
+                        
+                        // 嘗試在句號、問號、驚嘆號處分割
+                        let splitIndex = -1;
+                        const punctuation = ['.', '。', '?', '？', '!', '！', '\n'];
+                        
+                        for (const punct of punctuation) {
+                            const lastIndex = remaining.lastIndexOf(punct, maxLength);
+                            if (lastIndex > maxLength * 0.5) { // 至少分割到一半以上
+                                splitIndex = lastIndex + 1;
+                                break;
+                            }
+                        }
+                        
+                        // 如果找不到合適的標點，嘗試在空格處分割
+                        if (splitIndex === -1) {
+                            splitIndex = remaining.lastIndexOf(' ', maxLength);
+                            if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
+                                // 實在找不到，強制在 maxLength 處分割
+                                splitIndex = maxLength;
+                            }
+                        }
+                        
+                        chunks.push(remaining.substring(0, splitIndex).trim());
+                        remaining = remaining.substring(splitIndex).trim();
+                    }
+                    
+                    return chunks;
+                }
+                
                 // 轉換為 Notion 格式的函數
                 function convertHtmlToNotionBlocks(html) {
                     const blocks = [];
@@ -1105,23 +1209,31 @@ async function handleSavePage(sendResponse) {
                         switch (node.nodeName) {
                             case 'H1': case 'H2': case 'H3':
                                 if (textContent) {
-                                    blocks.push({
-                                        object: 'block',
-                                        type: `heading_${node.nodeName[1]}`,
-                                        [`heading_${node.nodeName[1]}`]: {
-                                            rich_text: [{ type: 'text', text: { content: textContent } }]
-                                        }
+                                    // 標題也需要處理長度限制
+                                    const headingChunks = splitTextForNotion(textContent, 2000);
+                                    headingChunks.forEach((chunk, index) => {
+                                        blocks.push({
+                                            object: 'block',
+                                            type: index === 0 ? `heading_${node.nodeName[1]}` : 'paragraph',
+                                            [index === 0 ? `heading_${node.nodeName[1]}` : 'paragraph']: {
+                                                rich_text: [{ type: 'text', text: { content: chunk } }]
+                                            }
+                                        });
                                     });
                                 }
                                 break;
                             case 'P':
                                 if (textContent) {
-                                    blocks.push({
-                                        object: 'block',
-                                        type: 'paragraph',
-                                        paragraph: {
-                                            rich_text: [{ type: 'text', text: { content: textContent } }]
-                                        }
+                                    // 將長段落分割成多個段落
+                                    const paragraphChunks = splitTextForNotion(textContent, 2000);
+                                    paragraphChunks.forEach(chunk => {
+                                        blocks.push({
+                                            object: 'block',
+                                            type: 'paragraph',
+                                            paragraph: {
+                                                rich_text: [{ type: 'text', text: { content: chunk } }]
+                                            }
+                                        });
                                     });
                                 }
                                 break;
