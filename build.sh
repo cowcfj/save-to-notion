@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Notion Smart Clipper v2.4.9 打包腳本
+# Notion Smart Clipper v2.5.3 打包腳本
 # 此腳本會創建適合發布的 ZIP 檔案
 
-VERSION="2.4.9"
+VERSION="2.5.3"
 BUILD_DIR="build"
 PACKAGE_NAME="notion-smart-clipper-v${VERSION}"
 
@@ -29,17 +29,15 @@ cp -r scripts $BUILD_DIR/$PACKAGE_NAME/
 cp README.md $BUILD_DIR/$PACKAGE_NAME/
 cp PRIVACY.md $BUILD_DIR/$PACKAGE_NAME/
 cp CHANGELOG.md $BUILD_DIR/$PACKAGE_NAME/
-cp RELEASE_NOTES_v2.3.md $BUILD_DIR/$PACKAGE_NAME/
+cp RELEASE_NOTES_v2.5.3.md $BUILD_DIR/$PACKAGE_NAME/
+cp QUICK_START.md $BUILD_DIR/$PACKAGE_NAME/
 
 # 複製示例 HTML 文件
 cp help.html $BUILD_DIR/$PACKAGE_NAME/
-cp highlight-test.html $BUILD_DIR/$PACKAGE_NAME/
-cp template-test.html $BUILD_DIR/$PACKAGE_NAME/
 
 echo "🧹 清理不需要的文件..."
 
-# 移除開發和測試文件
-rm -f $BUILD_DIR/$PACKAGE_NAME/test-*.html
+# 移除開發和測試文件（保留在項目中但不打包）
 rm -f $BUILD_DIR/$PACKAGE_NAME/scripts/script-injector.js  # 已整合到 background.js 中
 find $BUILD_DIR -name ".DS_Store" -delete
 
