@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Notion Smart Clipper v2.4.4 打包腳本
+# Notion Smart Clipper v2.4.9 打包腳本
 # 此腳本會創建適合發布的 ZIP 檔案
 
-VERSION="2.4.4"
+VERSION="2.4.9"
 BUILD_DIR="build"
 PACKAGE_NAME="notion-smart-clipper-v${VERSION}"
 
