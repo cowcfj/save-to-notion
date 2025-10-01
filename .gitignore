@@ -60,6 +60,10 @@ cleanup.sh
 # 開發工具
 .vscode/
 
+# 內部目錄（不應公開）
+tests/
+archive/
+
 # 建構文件
 build/
 *.zip
