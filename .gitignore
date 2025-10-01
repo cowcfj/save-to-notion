@@ -11,6 +11,11 @@ debug-test.html
 *preview.html
 generate-icons.html
 
+# 開發文檔（包含本地路徑）
+QUICK_START.md
+*_INTERNAL.md
+*_LOCAL.md
+
 # 開發工具
 .vscode/
 
