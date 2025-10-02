@@ -21,7 +21,7 @@ TESTING_GUIDE_*.md
 # TEST_GUIDE_*.md - 可發布的測試指南
 CODE_REVIEW_REPORT.md
 CLEANUP_REPORT_*.md
-# QUICK_TEST_*.md - 可發布的快速測試指南
+QUICK_TEST_*.md
 DEBUG_*.md
 DOCUMENT_REVIEW_REPORT.md
 # RELEASE_NOTES_v*.md - 可發布的發布說明
