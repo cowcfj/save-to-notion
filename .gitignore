@@ -87,3 +87,10 @@ demos/
 # 建構文件
 build/
 *.zip
+
+# Node.js 依賴
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
