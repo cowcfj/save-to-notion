@@ -1183,13 +1183,13 @@ async function handleSavePage(sendResponse) {
                 // 檢查 URL 長度（Notion 有限制）
                 if (cleanedUrl.length > 2000) return false;
                 
-                // 檢查常見的圖片文件擴展名
-                const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(\?.*)?$/i;
+                // v2.5.4: 擴展圖片格式支持
+                const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(\?.*)?$/i;
                 
                 // 如果 URL 包含圖片擴展名，直接返回 true
                 if (imageExtensions.test(cleanedUrl)) return true;
                 
-                // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑
+                // v2.5.4: 擴展路徑模式識別
                 const imagePathPatterns = [
                     /\/image[s]?\//i,
                     /\/img[s]?\//i,
@@ -1198,15 +1198,27 @@ async function handleSavePage(sendResponse) {
                     /\/media\//i,
                     /\/upload[s]?\//i,
                     /\/asset[s]?\//i,
-                    /\/file[s]?\//i
+                    /\/file[s]?\//i,
+                    /\/content\//i,
+                    /\/wp-content\//i,
+                    /\/cdn\//i,
+                    /cdn\d*\./i,  // cdn1.example.com, cdn2.example.com
+                    /\/static\//i,
+                    /\/thumb[s]?\//i,
+                    /\/thumbnail[s]?\//i,
+                    /\/resize\//i,
+                    /\/crop\//i,
+                    /\/(\d{4})\/(\d{2})\//  // 日期路徑如 /2025/10/
                 ];
                 
                 // 排除明顯不是圖片的 URL
                 const excludePatterns = [
-                    /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
+                    /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
                     /\/api\//i,
                     /\/ajax\//i,
-                    /\/callback/i
+                    /\/callback/i,
+                    /\/track/i,
+                    /\/analytics/i
                 ];
                 
                 if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
@@ -1214,6 +1226,104 @@ async function handleSavePage(sendResponse) {
                 }
                 
                 return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+            }
+            
+            // ============ v2.5.6: 封面圖/特色圖片提取功能 ============
+            /**
+             * 優先收集封面圖/特色圖片（通常位於標題上方或文章開頭）
+             */
+            function collectFeaturedImage() {
+                console.log('🎯 Attempting to collect featured/hero image...');
+                
+                // 常見的封面圖選擇器（按優先級排序）
+                const featuredImageSelectors = [
+                    // WordPress 和常見 CMS
+                    '.featured-image img',
+                    '.hero-image img',
+                    '.cover-image img',
+                    '.post-thumbnail img',
+                    '.entry-thumbnail img',
+                    '.wp-post-image',
+                    
+                    // 文章頭部區域
+                    '.article-header img',
+                    'header.article-header img',
+                    '.post-header img',
+                    '.entry-header img',
+                    
+                    // 通用特色圖片容器
+                    'figure.featured img',
+                    'figure.hero img',
+                    '[class*="featured"] img:first-of-type',
+                    '[class*="hero"] img:first-of-type',
+                    '[class*="cover"] img:first-of-type',
+                    
+                    // 文章開頭的第一張圖片
+                    'article > figure:first-of-type img',
+                    'article > div:first-of-type img',
+                    '.article > figure:first-of-type img',
+                    '.post > figure:first-of-type img'
+                ];
+                
+                // 提取圖片 src 的函數
+                function extractImageSrc(img) {
+                    const srcAttributes = [
+                        'src', 'data-src', 'data-lazy-src', 'data-original', 
+                        'data-lazy', 'data-url', 'data-image'
+                    ];
+                    
+                    for (const attr of srcAttributes) {
+                        const value = img.getAttribute(attr);
+                        if (value && value.trim() && !value.startsWith('data:')) {
+                            return value.trim();
+                        }
+                    }
+                    
+                    // 檢查 picture 元素
+                    const picture = img.closest('picture');
+                    if (picture) {
+                        const source = picture.querySelector('source');
+                        if (source) {
+                            const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
+                            if (srcset) {
+                                const urls = srcset.split(',').map(s => s.trim().split(' ')[0]);
+                                if (urls.length > 0 && !urls[0].startsWith('data:')) {
+                                    return urls[0];
+                                }
+                            }
+                        }
+                    }
+                    
+                    return null;
+                }
+                
+                for (const selector of featuredImageSelectors) {
+                    try {
+                        const img = document.querySelector(selector);
+                        if (img) {
+                            const src = extractImageSrc(img);
+                            if (src) {
+                                try {
+                                    const absoluteUrl = new URL(src, document.baseURI).href;
+                                    const cleanedUrl = cleanImageUrl(absoluteUrl);
+                                    
+                                    if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
+                                        console.log(`✓ Found featured image via selector: ${selector}`);
+                                        console.log(`  Image URL: ${cleanedUrl}`);
+                                        return cleanedUrl;
+                                    }
+                                } catch (e) {
+                                    console.warn(`Failed to process featured image URL: ${src}`, e);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`Error checking selector ${selector}:`, e);
+                    }
+                }
+                
+                console.log('✗ No featured image found');
+                return null;
             }
             
             // 執行內容提取邏輯（從 content.js 中提取的核心邏輯）
@@ -1321,10 +1431,41 @@ async function handleSavePage(sendResponse) {
                                 }
                                 break;
                             case 'IMG':
-                                const src = node.src || node.getAttribute('data-src');
-                                if (src) {
+                                // v2.5.4: 擴展懶加載屬性支持
+                                const srcAttributes = [
+                                    'src', 'data-src', 'data-lazy-src', 'data-original',
+                                    'data-lazy', 'data-url', 'data-image', 'data-actualsrc'
+                                ];
+                                
+                                let imgSrc = null;
+                                for (const attr of srcAttributes) {
+                                    const value = node.getAttribute(attr);
+                                    if (value && value.trim() && !value.startsWith('data:')) {
+                                        imgSrc = value.trim();
+                                        break;
+                                    }
+                                }
+                                
+                                // v2.5.4: 檢查 picture 元素
+                                if (!imgSrc) {
+                                    const picture = node.closest('picture');
+                                    if (picture) {
+                                        const source = picture.querySelector('source');
+                                        if (source) {
+                                            const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
+                                            if (srcset) {
+                                                const urls = srcset.split(',').map(s => s.trim().split(' ')[0]);
+                                                if (urls.length > 0 && !urls[0].startsWith('data:')) {
+                                                    imgSrc = urls[0];
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if (imgSrc) {
                                     try {
-                                        const absoluteUrl = new URL(src, document.baseURI).href;
+                                        const absoluteUrl = new URL(imgSrc, document.baseURI).href;
                                         const cleanedUrl = cleanImageUrl(absoluteUrl);
                                         
                                         if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
@@ -1338,7 +1479,7 @@ async function handleSavePage(sendResponse) {
                                             });
                                         }
                                     } catch (e) {
-                                        console.warn('Failed to process image URL:', src);
+                                        console.warn('Failed to process image URL:', imgSrc);
                                     }
                                 }
                                 break;
@@ -1373,6 +1514,34 @@ async function handleSavePage(sendResponse) {
                 
                 if (finalContent) {
                     const blocks = convertHtmlToNotionBlocks(finalContent);
+                    
+                    // v2.5.6: 優先添加封面圖
+                    console.log('=== v2.5.6: Featured Image Collection ===');
+                    const featuredImageUrl = collectFeaturedImage();
+                    
+                    if (featuredImageUrl) {
+                        // 檢查是否已經在 blocks 中（避免重複）
+                        const isDuplicate = blocks.some(block => 
+                            block.type === 'image' && 
+                            block.image?.external?.url === featuredImageUrl
+                        );
+                        
+                        if (!isDuplicate) {
+                            // 將封面圖插入到 blocks 開頭
+                            blocks.unshift({
+                                object: 'block',
+                                type: 'image',
+                                image: {
+                                    type: 'external',
+                                    external: { url: featuredImageUrl }
+                                }
+                            });
+                            console.log('✓ Featured image added as first block');
+                        } else {
+                            console.log('✗ Featured image already exists in blocks, skipped');
+                        }
+                    }
+                    
                     return { title: finalTitle, blocks: blocks };
                 } else {
                     return {
