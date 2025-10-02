@@ -116,12 +116,31 @@ https://github.com/cowcfj/save-to-notion
 
 ## 📂 文件管理規範
 
+### 📚 版本文檔分工
+
+#### CHANGELOG.md（完整版本歷史）
+- **目標受眾：** 開發者、貢獻者
+- **內容風格：** 詳細技術說明
+- **更新方式：** 持續累積所有版本
+- **用途：** 查詢完整歷史、技術參考
+
+#### RELEASE_NOTES_v*.md（發布公告）
+- **目標受眾：** 一般使用者
+- **內容風格：** 簡潔要點 + 連結
+- **更新方式：** 每個版本獨立文件
+- **用途：** GitHub Release、Chrome Store 發布
+
+⚠️ **重要：不要創建 `CHANGELOG_v*.md`**
+- 避免與 CHANGELOG.md 和 RELEASE_NOTES 功能重疊
+- 維持清晰的文件分工
+
 ### 公開文件（需同步到 GitHub）
 - ✅ `README.md` - 專案說明
-- ✅ `CHANGELOG.md` - 完整更新日誌
-- ✅ `RELEASE_NOTES_*.md` - 發布說明（簡化版）
+- ✅ `CHANGELOG.md` - 完整更新日誌（開發者參考）
+- ✅ `RELEASE_NOTES_v*.md` - 發布說明（使用者導向）
 - ✅ `PRIVACY.md` - 隱私政策
 - ✅ `PROJECT_ROADMAP.md` - 發展規劃
+- ✅ `PROJECT_STANDARDS.md` - 專案規範
 - ✅ `Agents.md` - AI Agent 工作指南
 
 ### 內部文件（.gitignore 排除）
@@ -129,6 +148,7 @@ https://github.com/cowcfj/save-to-notion
 - ❌ `*_INTERNAL.md` - 內部文件
 - ❌ `*_LOCAL.md` - 本地設定
 - ❌ `*_COMPLETE.md` - 完成總結
+- ❌ `CHANGELOG_v*.md` - 避免功能重疊
 - ❌ `TESTING_GUIDE_*.md` - 測試指南
 - ❌ 包含本地絕對路徑的任何文件
 
