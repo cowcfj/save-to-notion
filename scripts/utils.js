@@ -1,6 +1,12 @@
 // 共享工具函數
 // 此腳本包含所有內容腳本共用的工具函數
 
+// 防止重複注入導致的重複聲明錯誤
+if (typeof window.StorageUtil !== 'undefined') {
+    console.log('⚠️ utils.js 已經加載，跳過重複注入');
+    // 不執行後續代碼
+} else {
+
 /**
  * 標準化 URL，用於生成一致的存儲鍵
  * 處理：hash、查詢參數、尾部斜杠等變體
@@ -52,7 +58,8 @@ function normalizeUrl(rawUrl) {
 /**
  * 統一的存儲工具類
  */
-const StorageUtil = {
+if (typeof window.StorageUtil === 'undefined') {
+    window.StorageUtil = {
     /**
      * 保存標記數據
      */
@@ -240,12 +247,16 @@ const StorageUtil = {
             });
         });
     }
-};
+    }; // 結束 window.StorageUtil 定義
+} else {
+    console.log('⚠️ StorageUtil 已存在，跳過重複定義');
+}
 
 /**
  * 日誌工具
  */
-const Logger = {
+if (typeof window.Logger === 'undefined') {
+    window.Logger = {
     debug: (message, ...args) => {
         console.log(`[DEBUG] ${message}`, ...args);
     },
@@ -261,9 +272,16 @@ const Logger = {
     error: (message, ...args) => {
         console.error(`[ERROR] ${message}`, ...args);
     }
-};
+    }; // 結束 window.Logger 定義
+} else {
+    console.log('⚠️ Logger 已存在，跳過重複定義');
+}
 
-// 暴露全局變數以供其他腳本使用
-window.normalizeUrl = normalizeUrl;
-window.StorageUtil = StorageUtil;
-window.Logger = Logger;
+// 暴露 normalizeUrl 函數
+if (typeof window.normalizeUrl === 'undefined') {
+    window.normalizeUrl = normalizeUrl;
+} else {
+    console.log('⚠️ normalizeUrl 已存在，跳過重複定義');
+}
+
+} // 結束 else 區塊（如果 utils.js 未加載）
