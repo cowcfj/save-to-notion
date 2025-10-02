@@ -1,5 +1,30 @@
 # 變更日誌 (CHANGELOG)
 
+## [v2.6.1] - 2025-10-03
+
+### ✨ 智能 Icon 選擇功能
+- **智能評分系統**：從多個候選 icons 中自動選擇最佳的
+  - **格式優先級**：SVG (1000分) > PNG (500分) > JPEG (200分) > ICO (100分)
+  - **尺寸優先級**：180-256px (300分) > 更大尺寸 (200分) > 中等尺寸 (100分)
+  - **類型加分**：Apple Touch Icon (+50分)
+- **更好的 Icon 質量**：優先選擇 SVG 矢量圖和高清 PNG
+- **詳細的調試日誌**：顯示評分過程和候選比較
+- **向後兼容**：不影響現有邏輯，平滑升級
+
+### 🔧 技術改進
+- 新增 `selectBestIcon()` 函數：智能選擇最佳 icon
+- 新增 `parseSizeString()` 函數：解析 icon 尺寸信息
+- 修改 `collectSiteIcon()` 函數：收集所有候選後智能選擇
+- 新增測試腳本：`tests/verify-smart-icon-selection.js`
+
+### 📊 預期效果
+- **Reddit**：選擇 icon.svg 或 180x180 PNG（原先是 76x76）
+- **GitHub**：選擇 github.svg（原先是 apple-touch-icon.png）
+- **Dev.to**：智能選擇最佳 CDN 圖片
+- **整體提升**：Icon 質量和清晰度顯著改善
+
+---
+
 ## [v2.6.0] - 2025-10-02
 
 ### 🎯 網站 Icon 功能

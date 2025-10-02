@@ -1405,6 +1405,118 @@ async function handleSavePage(sendResponse) {
                 return null;
             }
             
+            // 輔助函數：解析尺寸字符串（如 "180x180"）
+            function parseSizeString(sizeStr) {
+                if (!sizeStr || !sizeStr.trim()) return 0;
+                
+                // 處理 "any" 格式（通常是 SVG）
+                if (sizeStr.toLowerCase() === 'any') {
+                    return 999; // 給予 SVG 最高優先級
+                }
+                
+                // 處理 "180x180" 格式
+                const match = sizeStr.match(/(\d+)x(\d+)/i);
+                if (match) {
+                    return parseInt(match[1]); // 返回寬度
+                }
+                
+                // 處理只有數字的情況
+                const numMatch = sizeStr.match(/\d+/);
+                if (numMatch) {
+                    return parseInt(numMatch[0]);
+                }
+                
+                return 0;
+            }
+            
+            // 輔助函數：從候選 icons 中智能選擇最佳的
+            function selectBestIcon(candidates) {
+                console.log(`📊 Selecting best icon from ${candidates.length} candidates...`);
+                
+                if (candidates.length === 0) return null;
+                if (candidates.length === 1) {
+                    console.log('✓ Only one candidate, selected by default');
+                    return candidates[0];
+                }
+                
+                // 評分系統
+                const scored = candidates.map(icon => {
+                    let score = 0;
+                    const url = icon.url.toLowerCase();
+                    
+                    // 1. 格式評分（最重要）
+                    if (url.endsWith('.svg') || url.includes('image/svg') || icon.type.includes('svg')) {
+                        score += 1000; // SVG 矢量圖，完美縮放
+                        console.log(`  ${icon.url.substring(0, 60)}...: +1000 (SVG format)`);
+                    } else if (url.endsWith('.png') || icon.type.includes('png')) {
+                        score += 500; // PNG 較好
+                        console.log(`  ${icon.url.substring(0, 60)}...: +500 (PNG format)`);
+                    } else if (url.endsWith('.ico') || icon.type.includes('ico')) {
+                        score += 100; // ICO 可用但較舊
+                        console.log(`  ${icon.url.substring(0, 60)}...: +100 (ICO format)`);
+                    } else if (url.endsWith('.jpg') || url.endsWith('.jpeg') || icon.type.includes('jpeg')) {
+                        score += 200; // JPEG 可用但不如 PNG
+                        console.log(`  ${icon.url.substring(0, 60)}...: +200 (JPEG format)`);
+                    }
+                    
+                    // 2. 尺寸評分（第二重要）
+                    const size = icon.size || 0;
+                    if (size === 999) {
+                        // SVG "any" 尺寸
+                        score += 500;
+                        console.log(`  ${icon.url.substring(0, 60)}...: +500 (any size - SVG)`);
+                    } else if (size >= 180 && size <= 256) {
+                        // 理想尺寸範圍（180x180 到 256x256）
+                        score += 300;
+                        console.log(`  ${icon.url.substring(0, 60)}...: +300 (ideal size: ${size}x${size})`);
+                    } else if (size > 256) {
+                        // 太大（可能影響性能，但質量好）
+                        score += 200;
+                        console.log(`  ${icon.url.substring(0, 60)}...: +200 (large size: ${size}x${size})`);
+                    } else if (size >= 120) {
+                        // 中等尺寸（可接受）
+                        score += 100;
+                        console.log(`  ${icon.url.substring(0, 60)}...: +100 (medium size: ${size}x${size})`);
+                    } else if (size > 0) {
+                        // 小尺寸（不理想）
+                        score += 50;
+                        console.log(`  ${icon.url.substring(0, 60)}...: +50 (small size: ${size}x${size})`);
+                    }
+                    
+                    // 3. 類型評分（第三重要）
+                    if (icon.iconType === 'apple-touch') {
+                        score += 50; // Apple Touch Icon 通常質量較好
+                        console.log(`  ${icon.url.substring(0, 60)}...: +50 (apple-touch-icon)`);
+                    }
+                    
+                    // 4. 優先級評分（最後考量）
+                    // 較低的 priority 值表示更高的優先級
+                    score += (10 - icon.priority) * 10;
+                    
+                    console.log(`  Total score: ${score}`);
+                    return { ...icon, score };
+                });
+                
+                // 按分數排序（降序）
+                scored.sort((a, b) => b.score - a.score);
+                
+                const best = scored[0];
+                console.log(`✓ Best icon selected: ${best.url} (score: ${best.score})`);
+                
+                // 顯示其他候選的分數（用於調試）
+                if (scored.length > 1) {
+                    console.log('  Other candidates:');
+                    scored.slice(1, 4).forEach((icon, idx) => {
+                        console.log(`    ${idx + 2}. ${icon.url.substring(0, 50)}... (score: ${icon.score})`);
+                    });
+                    if (scored.length > 4) {
+                        console.log(`    ... and ${scored.length - 4} more`);
+                    }
+                }
+                
+                return best;
+            }
+            
             // 提取網站 Icon/Favicon
             function collectSiteIcon() {
                 console.log('🎯 Attempting to collect site icon/favicon...');
@@ -1412,19 +1524,22 @@ async function handleSavePage(sendResponse) {
                 // 常見的網站 icon 選擇器（按優先級排序）
                 const iconSelectors = [
                     // 高清 Apple Touch Icon（通常尺寸較大，180x180 或更大）
-                    { selector: 'link[rel="apple-touch-icon"]', attr: 'href', priority: 1 },
-                    { selector: 'link[rel="apple-touch-icon-precomposed"]', attr: 'href', priority: 2 },
+                    { selector: 'link[rel="apple-touch-icon"]', attr: 'href', priority: 1, iconType: 'apple-touch' },
+                    { selector: 'link[rel="apple-touch-icon-precomposed"]', attr: 'href', priority: 2, iconType: 'apple-touch' },
                     
                     // 標準 Favicon
-                    { selector: 'link[rel="icon"]', attr: 'href', priority: 3 },
-                    { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4 },
-                    
-                    // Open Graph 圖片（備用，但通常太大）
-                    // { selector: 'meta[property="og:image"]', attr: 'content', priority: 5 },
+                    { selector: 'link[rel="icon"]', attr: 'href', priority: 3, iconType: 'standard' },
+                    { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4, iconType: 'standard' },
                 ];
                 
-                // 嘗試每個選擇器
-                for (const { selector, attr } of iconSelectors) {
+                // 收集所有候選 icons（不做早期退出優化）
+                // 設計決策：收集所有候選而不是找到第一個就返回
+                // 理由：1) 性能影響可忽略（< 1ms）
+                //      2) 保持代碼簡單易維護
+                //      3) 完整日誌有助於調試和驗證評分邏輯
+                const candidates = [];
+                
+                for (const { selector, attr, priority, iconType } of iconSelectors) {
                     try {
                         const elements = document.querySelectorAll(selector);
                         for (const element of elements) {
@@ -1432,8 +1547,23 @@ async function handleSavePage(sendResponse) {
                             if (iconUrl && iconUrl.trim() && !iconUrl.startsWith('data:')) {
                                 try {
                                     const absoluteUrl = new URL(iconUrl, document.baseURI).href;
-                                    console.log(`✓ Found site icon via ${selector}: ${absoluteUrl}`);
-                                    return absoluteUrl;
+                                    
+                                    // 提取尺寸和類型信息
+                                    const sizes = element.getAttribute('sizes') || '';
+                                    const type = element.getAttribute('type') || '';
+                                    const size = parseSizeString(sizes);
+                                    
+                                    candidates.push({
+                                        url: absoluteUrl,
+                                        priority: priority,
+                                        size: size,
+                                        type: type,
+                                        iconType: iconType,
+                                        sizes: sizes,
+                                        selector: selector
+                                    });
+                                    
+                                    console.log(`✓ Found icon: ${absoluteUrl.substring(0, 60)}... (${sizes || 'no size'}, ${type || 'no type'})`);
                                 } catch (e) {
                                     console.warn(`Failed to process icon URL: ${iconUrl}`, e);
                                 }
@@ -1444,10 +1574,19 @@ async function handleSavePage(sendResponse) {
                     }
                 }
                 
+                // 如果找到候選 icons，使用智能選擇
+                if (candidates.length > 0) {
+                    const bestIcon = selectBestIcon(candidates);
+                    if (bestIcon) {
+                        return bestIcon.url;
+                    }
+                }
+                
                 // 回退到默認 favicon.ico
+                console.log('⚠️ No icons found in HTML declarations, falling back to default favicon.ico');
                 try {
                     const defaultFavicon = new URL('/favicon.ico', document.baseURI).href;
-                    console.log(`✓ Falling back to default favicon: ${defaultFavicon}`);
+                    console.log(`✓ Using default favicon: ${defaultFavicon}`);
                     return defaultFavicon;
                 } catch (e) {
                     console.warn('Failed to construct default favicon URL:', e);

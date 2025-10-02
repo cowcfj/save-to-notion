@@ -11,10 +11,20 @@ debug-test.html
 *preview.html
 generate-icons.html
 
+# 測試結果和報告（自動生成，不應發布）
+tests/results/
+tests/screenshots/
+tests/SUMMARY.md
+test-report-*.json
+test-report-*.md
+/tmp/notion-clipper-tests/
+
 # 開發文檔（包含本地路徑或內部信息）
 QUICK_START.md
+MCP_SETUP.md
 *_INTERNAL.md
 *_LOCAL.md
+MCP_SETUP_GUIDE.md
 DEPLOYMENT_CHECKLIST.md
 TESTING_GUIDE.md
 TESTING_GUIDE_*.md

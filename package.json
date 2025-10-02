@@ -1,0 +1,25 @@
+{
+  "name": "notion-chrome",
+  "version": "1.0.0",
+  "description": "一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.6.0 最新版本**：支持網站 Icon 自動提取、封面圖提取、增強的圖片提取、原生 CSS Highlight API 標註系統和多顏色標註！",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cowcfj/save-to-notion.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/cowcfj/save-to-notion/issues"
+  },
+  "homepage": "https://github.com/cowcfj/save-to-notion#readme"
+}
