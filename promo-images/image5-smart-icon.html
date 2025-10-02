@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, height=800">
+    <title>智能網站圖標選擇</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 1280px;
+            height: 800px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .container {
+            width: 1180px;
+            height: 700px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 35px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        .header h1 {
+            font-size: 38px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            font-size: 16px;
+            color: #666;
+            font-weight: 400;
+        }
+        
+        .content {
+            display: flex;
+            gap: 30px;
+            flex: 1;
+        }
+        
+        .icon-display {
+            flex: 1;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .icon-main {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 65px;
+            box-shadow: 0 20px 50px rgba(102, 126, 234, 0.4);
+            margin-bottom: 15px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 20px 50px rgba(102, 126, 234, 0.4);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 25px 60px rgba(102, 126, 234, 0.5);
+            }
+        }
+        
+        .icon-label {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        
+        .icon-score {
+            background: linear-gradient(135deg, #28ca42 0%, #20b038 100%);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 5px 20px rgba(40, 202, 66, 0.3);
+        }
+        
+        .icon-candidates {
+            display: flex;
+            gap: 12px;
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+        }
+        
+        .candidate-icon {
+            width: 50px;
+            height: 50px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            opacity: 0.5;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .candidate-icon:hover {
+            opacity: 0.8;
+            transform: scale(1.1);
+        }
+        
+        .candidate-icon.selected {
+            opacity: 1;
+            border: 3px solid #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .candidate-score {
+            position: absolute;
+            bottom: -20px;
+            font-size: 11px;
+            color: #999;
+            font-weight: 600;
+        }
+        
+        .info-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .info-card {
+            background: linear-gradient(135deg, #fff5f7 0%, #f0e6ff 100%);
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-card h3 {
+            font-size: 17px;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-card ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .info-card li {
+            font-size: 13px;
+            color: #555;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            line-height: 1.6;
+        }
+        
+        .info-card li::before {
+            content: "✓";
+            color: #667eea;
+            font-weight: 700;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        
+        .scoring-table {
+            background: white;
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 12px;
+        }
+        
+        .scoring-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .scoring-row:last-child {
+            border-bottom: none;
+        }
+        
+        .scoring-label {
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .scoring-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px;
+            border-radius: 12px;
+            color: white;
+        }
+        
+        .highlight-box h4 {
+            font-size: 15px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .highlight-box p {
+            font-size: 13px;
+            line-height: 1.5;
+            opacity: 0.95;
+        }
+        
+        .example-sites {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        
+        .site-example {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>智能網站圖標選擇</h1>
+            <p>自動識別最佳網站圖標，讓你的 Notion 筆記更美觀</p>
+        </div>
+        
+        <div class="content">
+            <div class="icon-display">
+                <div class="icon-main">🎯</div>
+                <div class="icon-label">最佳圖標已選擇</div>
+                <div class="icon-score">
+                    ⭐ 評分：95/100
+                </div>
+                
+                <div class="icon-candidates">
+                    <div class="candidate-icon selected">
+                        🎯
+                        <span class="candidate-score">95</span>
+                    </div>
+                    <div class="candidate-icon">
+                        📱
+                        <span class="candidate-score">82</span>
+                    </div>
+                    <div class="candidate-icon">
+                        🌐
+                        <span class="candidate-score">75</span>
+                    </div>
+                    <div class="candidate-icon">
+                        💼
+                        <span class="candidate-score">68</span>
+                    </div>
+                    <div class="candidate-icon">
+                        📄
+                        <span class="candidate-score">50</span>
+                    </div>
+                </div>
+                
+                <div class="scoring-table">
+                    <div class="scoring-row">
+                        <span class="scoring-label">圖標尺寸</span>
+                        <span class="scoring-value">512×512 ✓</span>
+                    </div>
+                    <div class="scoring-row">
+                        <span class="scoring-label">圖片格式</span>
+                        <span class="scoring-value">PNG ✓</span>
+                    </div>
+                    <div class="scoring-row">
+                        <span class="scoring-label">網站適配</span>
+                        <span class="scoring-value">完美匹配 ✓</span>
+                    </div>
+                    <div class="scoring-row">
+                        <span class="scoring-label">清晰度</span>
+                        <span class="scoring-value">高清 ✓</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-panel">
+                <div class="info-card">
+                    <h3>🤖 智能評分系統</h3>
+                    <ul>
+                        <li>優先選擇高分辨率圖標</li>
+                        <li>支持 PNG、SVG 等多種格式</li>
+                        <li>從多個來源自動查找</li>
+                    </ul>
+                </div>
+                
+                <div class="info-card">
+                    <h3>✨ 核心優勢</h3>
+                    <ul>
+                        <li>全自動處理，無需手動選擇</li>
+                        <li>智能評分，選出最佳圖標</li>
+                        <li>快速高效，智能快取</li>
+                    </ul>
+                </div>
+                
+                <div class="highlight-box">
+                    <h4>🎨 讓筆記更美觀</h4>
+                    <p>
+                        保存網頁時自動選擇最適合的圖標，無論什麼類型的網站都能完美適配。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

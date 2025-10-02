@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280, height=800">
+    <title>一鍵保存網頁到 Notion</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 1280px;
+            height: 800px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .container {
+            width: 1180px;
+            height: 700px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 48px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            font-size: 22px;
+            color: #666;
+            font-weight: 400;
+        }
+        
+        .content {
+            display: flex;
+            gap: 40px;
+            flex: 1;
+            align-items: center;
+        }
+        
+        .browser-mockup {
+            flex: 1;
+            background: #f5f5f5;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .browser-header {
+            height: 40px;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            gap: 8px;
+        }
+        
+        .browser-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .browser-dot.red { background: #ff5f57; }
+        .browser-dot.yellow { background: #ffbd2e; }
+        .browser-dot.green { background: #28ca42; }
+        
+        .browser-url {
+            flex: 1;
+            margin-left: 15px;
+            background: white;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .browser-content {
+            padding: 20px;
+            background: white;
+            height: calc(100% - 40px);
+            overflow: hidden;
+        }
+        
+        .article-preview {
+            font-size: 14px;
+            line-height: 1.8;
+            color: #333;
+        }
+        
+        .article-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #1a1a1a;
+        }
+        
+        .article-text {
+            color: #555;
+            line-height: 1.8;
+        }
+        
+        .extension-icon {
+            position: absolute;
+            top: 50px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 12px 30px rgba(102, 126, 234, 0.6);
+            }
+        }
+        
+        .arrow {
+            position: absolute;
+            top: 80px;
+            right: 95px;
+            width: 120px;
+            height: 80px;
+        }
+        
+        .arrow svg {
+            width: 100%;
+            height: 100%;
+            fill: none;
+            stroke: #667eea;
+            stroke-width: 3;
+            stroke-linecap: round;
+        }
+        
+        .features {
+            flex: 0.7;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .feature-text h3 {
+            font-size: 20px;
+            color: #1a1a1a;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .feature-text p {
+            font-size: 15px;
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .click-hint {
+            position: absolute;
+            top: 130px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            animation: bounce 1s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>一鍵保存網頁到 Notion</h1>
+            <p>智能擷取網頁內容，輕鬆整理知識庫</p>
+        </div>
+        
+        <div class="content">
+            <div class="browser-mockup">
+                <div class="browser-header">
+                    <div class="browser-dot red"></div>
+                    <div class="browser-dot yellow"></div>
+                    <div class="browser-dot green"></div>
+                    <div class="browser-url">
+                        🔒 rapbull.net/posts/7690/蔡瀾：一個foodie的最高成就
+                    </div>
+                </div>
+                <div class="browser-content">
+                    <div class="article-preview">
+                        <div class="article-title">蔡瀾：一個 foodie 的最高成就</div>
+                        <div class="article-text">
+                            美食家蔡瀾先生的文章總是充滿生活智慧，從飲食談人生，從品味看世界。他認為一個真正的美食愛好者，不僅要懂得欣賞美食，更要能夠分享美食帶來的快樂...
+                            <br><br>
+                            在他的眾多著作中，常常提到「吃」不只是填飽肚子，而是一種生活態度。從街頭小吃到米其林餐廳，每一種食物都有其獨特的故事和價值...
+                        </div>
+                    </div>
+                </div>
+                <div class="extension-icon">N</div>
+                <div class="click-hint">點擊保存</div>
+                <div class="arrow">
+                    <svg viewBox="0 0 120 80">
+                        <path d="M 10 70 Q 60 20, 100 30 L 95 25 M 100 30 L 95 35" stroke-dasharray="5,5">
+                            <animate attributeName="stroke-dashoffset" from="10" to="0" dur="1.5s" repeatCount="indefinite"/>
+                        </path>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="features">
+                <div class="feature-item">
+                    <div class="feature-icon">⚡</div>
+                    <div class="feature-text">
+                        <h3>極速保存</h3>
+                        <p>點擊圖標即可保存，無需複雜操作</p>
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">🎯</div>
+                    <div class="feature-text">
+                        <h3>智能識別</h3>
+                        <p>自動提取標題、內容、圖片和網站圖標</p>
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">🎨</div>
+                    <div class="feature-text">
+                        <h3>完美排版</h3>
+                        <p>保留原文格式，在 Notion 中呈現最佳效果</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
