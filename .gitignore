@@ -20,6 +20,10 @@ test-report-*.md
 /tmp/notion-clipper-tests/
 
 # 開發文檔（包含本地路徑或內部信息）
+PROJECT_STANDARDS.md
+STANDARDS_SETUP_COMPLETE.md
+AI_AGENT_QUICK_REF.md
+GIT_PUSH_CHECKLIST.md
 QUICK_START.md
 MCP_SETUP.md
 *_INTERNAL.md

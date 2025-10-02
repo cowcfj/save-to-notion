@@ -1,5 +1,37 @@
 # 變更日誌 (CHANGELOG)
 
+## [v2.6.2] - 2025-10-03
+
+### 🔴 緊急修復
+
+#### 標註遷移問題
+- **自動遷移舊標註**：解決用戶從 v2.4.x 及更早版本升級後標註消失的問題
+- **智能文本定位**：三層查找演算法
+  - window.find API（快速精確匹配）
+  - TreeWalker API（DOM 遍歷）
+  - 模糊匹配（處理文本變化）
+- **跨文本節點支援**：正確恢復複雜的標註
+- **資料格式轉換**：舊格式 → 新格式自動轉換
+- **友好通知**：遷移完成後顯示通知
+- **預期恢復率**：95%+
+
+#### 技術實現
+- 新增 `migrateOldHighlights()` - 主要遷移邏輯
+- 新增 `findAndHighlightText()` - 智能文本查找
+- 新增 `findTextWithTreeWalker()` - DOM 遍歷查找
+- 新增 `fuzzyFindText()` - 模糊匹配
+- 新增 `createHighlightSpan()` - 標註元素創建
+- 新增 `convertOldToNewFormat()` - 格式轉換
+- 新增 `showMigrationNotification()` - 通知顯示
+- 完整的錯誤處理和日誌記錄（500+ 行程式碼）
+
+### 🐛 問題解決
+- ✅ 修復舊版本升級後標註消失問題
+- ✅ 修復 localStorage 資料未遷移到新格式
+- ✅ 修復跨文本節點標註無法恢復
+
+---
+
 ## [v2.6.1] - 2025-10-03
 
 ### ✨ 智能 Icon 選擇功能
