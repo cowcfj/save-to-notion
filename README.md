@@ -1,13 +1,19 @@
-# Notion Smart Clipper v2.5.7
+# Notion Smart Clipper v2.6.0
 
-一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.5.7 最新版本**：修復作者頭像/Logo 誤識別為封面圖，支持封面圖提取、增強的圖片提取、原生 CSS Highlight API 標註系統和多顏色標註！
+一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.6.0 最新版本**：支持網站 Icon 自動提取、封面圖提取、增強的圖片提取、原生 CSS Highlight API 標註系統和多顏色標註！
 
 ## ✨ 主要功能
 
 ### 🆕 新一代標註系統 (v2.5.x)
 - **CS## 📝 更新日誌
 
-### v2.5.7 (最新版本)
+### v2.6.0 (最新版本)
+- 🎯 **網站 Icon 自動提取**：favicon/logo 自動顯示在 Notion 頁面標題旁
+  - 智能提取：Apple Touch Icon → Favicon → /favicon.ico
+  - Notion 原生支持：使用 icon 屬性
+  - 自動化處理：提取失敗不影響頁面保存
+
+### v2.5.7
 - 🎯 **修復作者頭像/Logo 誤識別**：智能過濾作者頭像，避免被誤識別為封面圖
   - 多維度檢測：關鍵詞、尺寸、形狀
   - 適用於 Medium、WordPress、新聞網站等所有平台
@@ -57,6 +63,10 @@
 - 自動過濾廣告和無關內容
 
 ### 🖼️ 增強圖片支持 (v2.4.2+)
+- **網站 Icon 自動提取** (v2.6.0+)：網站 favicon/logo 自動顯示在 Notion 頁面標題旁
+  - 智能提取：Apple Touch Icon → Favicon → /favicon.ico
+  - Notion 原生支持：使用 icon 屬性，完美顯示
+  - 自動化處理：無需用戶干預
 - **封面圖優先提取** (v2.5.6+)：自動識別文章封面圖/Hero 圖片
   - 20 個封面圖選擇器，涵蓋 WordPress、CMS 和自定義容器
   - 封面圖作為第一張圖片顯示在 Notion 頁面頂部

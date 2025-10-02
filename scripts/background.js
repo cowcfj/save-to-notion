@@ -438,7 +438,7 @@ async function checkNotionPageExists(pageId, apiKey) {
 /**
  * Saves new content to Notion as a new page
  */
-async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResponse) {
+async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon = null) {
     const notionApiUrl = 'https://api.notion.com/v1/pages';
 
     const pageData = {
@@ -453,6 +453,17 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
         },
         children: blocks.slice(0, 100)
     };
+    
+    // v2.6.0: 添加網站 Icon（如果有）
+    if (siteIcon) {
+        pageData.icon = {
+            type: 'external',
+            external: {
+                url: siteIcon
+            }
+        };
+        console.log('✓ Setting page icon:', siteIcon);
+    }
 
     try {
         const response = await fetch(notionApiUrl, {
@@ -1394,6 +1405,58 @@ async function handleSavePage(sendResponse) {
                 return null;
             }
             
+            // 提取網站 Icon/Favicon
+            function collectSiteIcon() {
+                console.log('🎯 Attempting to collect site icon/favicon...');
+                
+                // 常見的網站 icon 選擇器（按優先級排序）
+                const iconSelectors = [
+                    // 高清 Apple Touch Icon（通常尺寸較大，180x180 或更大）
+                    { selector: 'link[rel="apple-touch-icon"]', attr: 'href', priority: 1 },
+                    { selector: 'link[rel="apple-touch-icon-precomposed"]', attr: 'href', priority: 2 },
+                    
+                    // 標準 Favicon
+                    { selector: 'link[rel="icon"]', attr: 'href', priority: 3 },
+                    { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4 },
+                    
+                    // Open Graph 圖片（備用，但通常太大）
+                    // { selector: 'meta[property="og:image"]', attr: 'content', priority: 5 },
+                ];
+                
+                // 嘗試每個選擇器
+                for (const { selector, attr } of iconSelectors) {
+                    try {
+                        const elements = document.querySelectorAll(selector);
+                        for (const element of elements) {
+                            const iconUrl = element.getAttribute(attr);
+                            if (iconUrl && iconUrl.trim() && !iconUrl.startsWith('data:')) {
+                                try {
+                                    const absoluteUrl = new URL(iconUrl, document.baseURI).href;
+                                    console.log(`✓ Found site icon via ${selector}: ${absoluteUrl}`);
+                                    return absoluteUrl;
+                                } catch (e) {
+                                    console.warn(`Failed to process icon URL: ${iconUrl}`, e);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`Error checking selector ${selector}:`, e);
+                    }
+                }
+                
+                // 回退到默認 favicon.ico
+                try {
+                    const defaultFavicon = new URL('/favicon.ico', document.baseURI).href;
+                    console.log(`✓ Falling back to default favicon: ${defaultFavicon}`);
+                    return defaultFavicon;
+                } catch (e) {
+                    console.warn('Failed to construct default favicon URL:', e);
+                }
+                
+                console.log('✗ No site icon found');
+                return null;
+            }
+            
             // 執行內容提取邏輯（從 content.js 中提取的核心邏輯）
             try {
                 // 首先嘗試使用 Readability.js
@@ -1610,7 +1673,15 @@ async function handleSavePage(sendResponse) {
                         }
                     }
                     
-                    return { title: finalTitle, blocks: blocks };
+                    // v2.6.0: 提取網站 Icon
+                    console.log('=== v2.6.0: Site Icon Collection ===');
+                    const siteIconUrl = collectSiteIcon();
+                    
+                    return { 
+                        title: finalTitle, 
+                        blocks: blocks,
+                        siteIcon: siteIconUrl  // 新增：返回網站 Icon URL
+                    };
                 } else {
                     return {
                         title: document.title,
@@ -1715,7 +1786,7 @@ async function handleSavePage(sendResponse) {
                         response.recreated = true;
                     }
                     sendResponse(response);
-                });
+                }, contentResult.siteIcon);
             }
         } else {
             saveToNotion(contentResult.title, contentResult.blocks, normUrl, config.notionApiKey, config.notionDatabaseId, (response) => {
@@ -1725,7 +1796,7 @@ async function handleSavePage(sendResponse) {
                     response.created = true;
                 }
                 sendResponse(response);
-            });
+            }, contentResult.siteIcon);
         }
     } catch (error) {
         console.error('Error in handleSavePage:', error);

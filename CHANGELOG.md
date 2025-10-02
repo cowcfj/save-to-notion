@@ -1,5 +1,29 @@
 # 變更日誌 (CHANGELOG)
 
+## [v2.6.0] - 2025-10-02
+
+### 🎯 網站 Icon 功能
+- **新增網站 Icon 提取**：自動擷取網頁 favicon/logo 並顯示在 Notion 頁面標題旁
+- **智能 Icon 選擇**：按優先級提取最佳品質的 icon
+  - Apple Touch Icon（180x180 或更大，優先）
+  - 標準 Favicon（icon, shortcut icon）
+  - 回退到 /favicon.ico
+- **Notion 原生支持**：使用 Notion API 的 `icon` 屬性，完美顯示
+- **自動化處理**：無需用戶干預，自動提取並設置
+
+### 🔧 技術實現
+- 新增 `collectSiteIcon()` 函數：提取網站 Icon URL
+- 修改 `saveToNotion()` 函數：支持 icon 屬性
+- 完善的錯誤處理：Icon 提取失敗不影響頁面保存
+- 詳細的調試日誌：記錄 Icon 提取過程
+
+### ✅ 解決的需求
+- ✅ 在 Notion 頁面標題旁顯示網站 logo
+- ✅ 更好的視覺識別和組織
+- ✅ 提升 Notion 數據庫的美觀度
+
+---
+
 ## [v2.5.7] - 2025-10-02
 
 ### 🎯 修復作者頭像/Logo 誤識別為封面圖
