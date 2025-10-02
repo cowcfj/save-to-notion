@@ -1265,6 +1265,69 @@ async function handleSavePage(sendResponse) {
                     '.post > figure:first-of-type img'
                 ];
                 
+                // 檢查圖片是否為作者頭像/logo
+                function isAuthorAvatar(img) {
+                    // 檢查常見的作者頭像相關 class 名稱
+                    const avatarKeywords = [
+                        'avatar', 'profile', 'author', 'user-image', 
+                        'user-avatar', 'byline', 'author-image',
+                        'author-photo', 'profile-pic', 'user-photo'
+                    ];
+                    
+                    // 檢查圖片本身的 class 和 id
+                    const imgClass = (img.className || '').toLowerCase();
+                    const imgId = (img.id || '').toLowerCase();
+                    const imgAlt = (img.alt || '').toLowerCase();
+                    
+                    for (const keyword of avatarKeywords) {
+                        if (imgClass.includes(keyword) || 
+                            imgId.includes(keyword) || 
+                            imgAlt.includes(keyword)) {
+                            console.log(`✗ Skipped author avatar/logo (keyword: ${keyword})`);
+                            return true;
+                        }
+                    }
+                    
+                    // 檢查父元素（向上最多 3 層）
+                    let parent = img.parentElement;
+                    for (let level = 0; level < 3 && parent; level++) {
+                        const parentClass = (parent.className || '').toLowerCase();
+                        const parentId = (parent.id || '').toLowerCase();
+                        
+                        for (const keyword of avatarKeywords) {
+                            if (parentClass.includes(keyword) || parentId.includes(keyword)) {
+                                console.log(`✗ Skipped author avatar/logo (parent ${level + 1} has keyword: ${keyword})`);
+                                return true;
+                            }
+                        }
+                        parent = parent.parentElement;
+                    }
+                    
+                    // 檢查圖片尺寸（頭像通常較小，< 200x200）
+                    const width = img.naturalWidth || img.width || 0;
+                    const height = img.naturalHeight || img.height || 0;
+                    
+                    if (width > 0 && height > 0) {
+                        if (width < 200 && height < 200) {
+                            console.log(`✗ Skipped small image (possible avatar): ${width}x${height}px`);
+                            return true;
+                        }
+                        
+                        // 檢查是否為圓形或接近正方形（頭像特徵）
+                        const aspectRatio = width / height;
+                        const borderRadius = window.getComputedStyle(img).borderRadius;
+                        
+                        if (aspectRatio >= 0.9 && aspectRatio <= 1.1 && 
+                            width < 400 && height < 400 &&
+                            borderRadius && (borderRadius === '50%' || parseInt(borderRadius) >= width / 2)) {
+                            console.log(`✗ Skipped circular/square image (likely avatar): ${width}x${height}px, border-radius: ${borderRadius}`);
+                            return true;
+                        }
+                    }
+                    
+                    return false;
+                }
+                
                 // 提取圖片 src 的函數
                 function extractImageSrc(img) {
                     const srcAttributes = [
@@ -1301,6 +1364,11 @@ async function handleSavePage(sendResponse) {
                     try {
                         const img = document.querySelector(selector);
                         if (img) {
+                            // 🔍 檢查是否為作者頭像/logo
+                            if (isAuthorAvatar(img)) {
+                                continue; // 跳過此圖片，繼續下一個選擇器
+                            }
+                            
                             const src = extractImageSrc(img);
                             if (src) {
                                 try {
