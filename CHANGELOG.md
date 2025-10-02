@@ -14,15 +14,29 @@
 - **避免重複添加**：智能檢測並避免封面圖重複
 - **改進排除邏輯**：排除普通 header，但保留文章 header（避免誤殺封面圖）
 
+### 🐛 關鍵修復
+- ✅ **修復封面圖提取邏輯未生效**：將 content.js 的邏輯同步到 background.js
+- ✅ **修復 StorageUtil 重複聲明錯誤**：防止 utils.js 重複注入
+- ✅ 更新 isValidImageUrl() 到 v2.5.4（+11 路徑模式，+3 格式）
+- ✅ 擴展 IMG 處理邏輯（+7 data-* 屬性，picture 元素支持）
+
 ### ✅ 解決問題
 - ✅ 修復標題上方的封面圖無法提取的問題
 - ✅ 支持新聞網站和博客的特色圖片
 - ✅ 完善對 faroutmagazine.co.uk 等網站的圖片提取
 
 ### 🔧 技術改進
-- 新增 `collectFeaturedImage()` 專門函數
+- 新增 `collectFeaturedImage()` 專門函數（content.js + background.js）
 - 四層圖片收集策略：封面圖 → 內容元素 → 文章區域 → 選擇性擴展
+- 防重複注入機制（utils.js）
 - 詳細的調試日誌，便於排查問題
+
+### 🧪 測試驗證（2025-10-02）
+- ✅ **WordPress 網站**：faroutmagazine.co.uk - 完美提取封面圖
+- ✅ **使用選擇器**：`.wp-post-image` 驗證成功
+- 🟡 **新聞網站**：BBC News - 圖片提取成功，但可能識別文章內圖片為封面圖
+- ⚠️ **Medium**：需要進一步優化（計劃 v2.5.7）
+- ✅ **無錯誤**：StorageUtil 重複聲明問題完全解決
 
 ---
 
