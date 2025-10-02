@@ -1,7 +1,7 @@
 {
   "name": "notion-chrome",
-  "version": "2.6.1",
-  "description": "一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.6.1 最新版本**：支持智能 Icon 選擇（自動評估並選擇最佳圖標）、封面圖提取、增強的圖片提取、原生 CSS Highlight API 標註系統和多顏色標註！",
+  "version": "2.6.2",
+  "description": "一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.6.2 最新版本**：修復標註遷移問題，支持智能 Icon 選擇、封面圖提取、增強的圖片提取、原生 CSS Highlight API 標註系統和多顏色標註！",
   "main": "index.js",
   "directories": {
     "lib": "lib",

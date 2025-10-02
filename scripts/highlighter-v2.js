@@ -39,11 +39,30 @@
                 console.warn('⚠️ 瀏覽器不支持 CSS Custom Highlight API，將使用傳統方法');
             }
 
-            // 從存儲恢復標註
-            this.restoreHighlights();
-            
-            // 檢查並執行無痛自動遷移
-            this.performSeamlessMigration();
+            // 🔧 修復：優先檢查並遷移 localStorage 中的舊標註數據
+            this.initializationComplete = this.initialize();
+        }
+        
+        /**
+         * 異步初始化流程
+         */
+        async initialize() {
+            try {
+                console.log('🚀 [初始化] 開始標註系統初始化...');
+                
+                // 步驟1：檢查並遷移 localStorage 數據
+                await this.checkAndMigrateLegacyData();
+                
+                // 步驟2：從存儲恢復標註
+                await this.restoreHighlights();
+                
+                // 步驟3：檢查並執行無痛自動遷移（處理 DOM 中的舊 span）
+                await this.performSeamlessMigration();
+                
+                console.log('✅ [初始化] 標註系統初始化完成');
+            } catch (error) {
+                console.error('❌ [初始化] 初始化過程出錯:', error);
+            }
         }
         
         /**
@@ -72,6 +91,446 @@
             } catch (error) {
                 console.error('❌ 無痛遷移過程出錯:', error);
             }
+        }
+
+        /**
+         * 🔧 檢查並遷移 localStorage 中的舊標註數據
+         */
+        async checkAndMigrateLegacyData() {
+            console.log('🔍 [遷移] 檢查 localStorage 中的舊標註數據...');
+            
+            try {
+                const currentUrl = window.location.href;
+                const normalizedUrl = normalizeUrl(currentUrl);
+                
+                // 檢查可能的舊 key
+                const possibleKeys = [
+                    `highlights_${normalizedUrl}`,
+                    `highlights_${currentUrl}`,
+                    `highlights_${window.location.origin}${window.location.pathname}`
+                ];
+                
+                let legacyData = null;
+                let foundKey = null;
+                
+                // 嘗試所有可能的 key
+                for (const key of possibleKeys) {
+                    const raw = localStorage.getItem(key);
+                    if (raw) {
+                        try {
+                            const data = JSON.parse(raw);
+                            if (Array.isArray(data) && data.length > 0) {
+                                legacyData = data;
+                                foundKey = key;
+                                console.log(`✅ [遷移] 發現舊標註數據: ${key}, ${data.length} 個標註`);
+                                break;
+                            }
+                        } catch (e) {
+                            console.warn(`⚠️ [遷移] 解析失敗: ${key}`, e);
+                        }
+                    }
+                }
+                
+                // 如果沒找到，遍歷所有 localStorage
+                if (!legacyData) {
+                    console.log('🔍 [遷移] 遍歷所有 localStorage 鍵...');
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith('highlights_')) {
+                            const raw = localStorage.getItem(key);
+                            try {
+                                const data = JSON.parse(raw);
+                                if (Array.isArray(data) && data.length > 0) {
+                                    legacyData = data;
+                                    foundKey = key;
+                                    console.log(`✅ [遷移] 發現舊標註數據: ${key}, ${data.length} 個標註`);
+                                    break;
+                                }
+                            } catch (e) {
+                                // 忽略解析錯誤
+                            }
+                        }
+                    }
+                }
+                
+                if (legacyData && foundKey) {
+                    // 檢查是否已經遷移過
+                    const migrationKey = `migration_completed_${normalizedUrl}`;
+                    const migrationStatus = await chrome.storage.local.get(migrationKey);
+                    
+                    if (migrationStatus[migrationKey]) {
+                        console.log('ℹ️ [遷移] 此頁面已完成遷移，跳過');
+                        return;
+                    }
+                    
+                    // 執行數據遷移
+                    await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
+                } else {
+                    console.log('ℹ️ [遷移] 未發現需要遷移的舊標註數據');
+                }
+            } catch (error) {
+                console.error('❌ [遷移] 檢查舊數據失敗:', error);
+            }
+        }
+
+        /**
+         * 🔧 將舊格式數據遷移到新格式
+         */
+        async migrateLegacyDataToNewFormat(legacyData, oldKey) {
+            console.log(`🔄 [遷移] 開始遷移 ${legacyData.length} 個舊標註...`);
+            
+            try {
+                const migratedHighlights = [];
+                let successCount = 0;
+                let failCount = 0;
+                
+                for (const oldItem of legacyData) {
+                    try {
+                        // 舊格式可能是多種形式：
+                        // 1. { text: "...", color: "yellow", ... }
+                        // 2. { text: "...", bgColor: "#fff3cd", ... }
+                        // 3. 簡單字符串（極少見）
+                        
+                        let textToFind = null;
+                        let color = 'yellow';
+                        
+                        if (typeof oldItem === 'object') {
+                            textToFind = oldItem.text || oldItem.content;
+                            
+                            // 處理顏色
+                            if (oldItem.color) {
+                                color = oldItem.color;
+                            } else if (oldItem.bgColor || oldItem.backgroundColor) {
+                                color = this.convertBgColorToName(oldItem.bgColor || oldItem.backgroundColor);
+                            }
+                        } else if (typeof oldItem === 'string') {
+                            textToFind = oldItem;
+                        }
+                        
+                        if (!textToFind || textToFind.trim().length === 0) {
+                            console.warn('⚠️ [遷移] 跳過空文本標註');
+                            failCount++;
+                            continue;
+                        }
+                        
+                        console.log(`  🔍 [遷移] 嘗試定位: "${textToFind.substring(0, 30)}..."`);
+                        
+                        // 嘗試在頁面中找到這段文本
+                        const range = this.findTextInPage(textToFind);
+                        
+                        if (range) {
+                            const newId = `highlight-${this.nextId++}`;
+                            const rangeInfo = this.serializeRange(range);
+                            
+                            migratedHighlights.push({
+                                id: newId,
+                                color: color,
+                                text: textToFind,
+                                timestamp: oldItem.timestamp || Date.now(),
+                                rangeInfo: rangeInfo
+                            });
+                            
+                            successCount++;
+                            console.log(`  ✅ [遷移] 成功: ${textToFind.substring(0, 30)}... (${color})`);
+                        } else {
+                            failCount++;
+                            console.warn(`  ⚠️ [遷移] 無法定位文本: ${textToFind.substring(0, 30)}...`);
+                        }
+                    } catch (error) {
+                        failCount++;
+                        console.error('  ❌ [遷移] 處理標註失敗:', error);
+                    }
+                }
+                
+                if (migratedHighlights.length > 0) {
+                    // 保存到新存儲
+                    const currentUrl = window.location.href;
+                    await StorageUtil.saveHighlights(currentUrl, {
+                        url: currentUrl,
+                        highlights: migratedHighlights
+                    });
+                    
+                    console.log(`✅ [遷移] 已保存 ${migratedHighlights.length} 個標註到新存儲`);
+                }
+                
+                // 標記遷移完成（無論成功多少）
+                const normalizedUrl = normalizeUrl(window.location.href);
+                await chrome.storage.local.set({
+                    [`migration_completed_${normalizedUrl}`]: {
+                        timestamp: Date.now(),
+                        oldKey: oldKey,
+                        totalCount: legacyData.length,
+                        successCount: successCount,
+                        failCount: failCount
+                    }
+                });
+                
+                console.log(`📊 [遷移] 遷移統計: 成功 ${successCount}/${legacyData.length}，失敗 ${failCount}`);
+                
+                // 刪除舊數據（謹慎操作）
+                if (successCount > 0) {
+                    localStorage.removeItem(oldKey);
+                    console.log(`🗑️ [遷移] 已刪除舊數據: ${oldKey}`);
+                } else {
+                    console.warn(`⚠️ [遷移] 保留舊數據（因為沒有成功遷移任何標註）`);
+                }
+                
+                // 顯示用戶通知
+                if (successCount > 0 || failCount > 0) {
+                    this.showMigrationNotification(successCount, failCount, legacyData.length);
+                }
+            } catch (error) {
+                console.error('❌ [遷移] 數據遷移失敗:', error);
+            }
+        }
+
+        /**
+         * 🔧 轉換背景顏色到顏色名稱
+         */
+        convertBgColorToName(bgColor) {
+            const colorMap = {
+                'rgb(255, 243, 205)': 'yellow',
+                '#fff3cd': 'yellow',
+                'rgb(212, 237, 218)': 'green',
+                '#d4edda': 'green',
+                'rgb(204, 231, 255)': 'blue',
+                '#cce7ff': 'blue',
+                'rgb(248, 215, 218)': 'red',
+                '#f8d7da': 'red'
+            };
+            
+            return colorMap[bgColor] || 'yellow';
+        }
+
+        /**
+         * 🔧 在頁面中查找文本並返回 Range
+         */
+        findTextInPage(textToFind) {
+            try {
+                // 清理文本（移除多餘空白）
+                const cleanText = textToFind.trim().replace(/\s+/g, ' ');
+                
+                // 方法1：使用 window.find() API（最快，但可能不夠精確）
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                
+                const found = window.find(cleanText, false, false, false, false, true, false);
+                
+                if (found && selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0).cloneRange();
+                    selection.removeAllRanges();
+                    console.log('    ✓ 使用 window.find() 找到');
+                    return range;
+                }
+                
+                // 方法2：使用 TreeWalker 精確查找
+                console.log('    → 嘗試 TreeWalker 方法...');
+                const range = this.findTextWithTreeWalker(cleanText);
+                if (range) {
+                    console.log('    ✓ 使用 TreeWalker 找到');
+                    return range;
+                }
+                
+                // 方法3：模糊匹配（處理空白字符差異）
+                console.log('    → 嘗試模糊匹配...');
+                return this.findTextFuzzy(cleanText);
+            } catch (error) {
+                console.error('    ✗ 查找文本失敗:', error);
+                return null;
+            }
+        }
+
+        /**
+         * 🔧 使用 TreeWalker 查找文本
+         */
+        findTextWithTreeWalker(textToFind) {
+            const walker = document.createTreeWalker(
+                document.body,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: (node) => {
+                        // 跳過腳本和樣式標籤
+                        const parent = node.parentElement;
+                        if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            );
+            
+            let node;
+            const textNodes = [];
+            
+            while (node = walker.nextNode()) {
+                if (node.textContent.trim().length > 0) {
+                    textNodes.push(node);
+                }
+            }
+            
+            // 在單個文本節點中查找
+            for (const node of textNodes) {
+                const text = node.textContent;
+                const index = text.indexOf(textToFind);
+                
+                if (index !== -1) {
+                    const range = document.createRange();
+                    range.setStart(node, index);
+                    range.setEnd(node, index + textToFind.length);
+                    return range;
+                }
+            }
+            
+            // 嘗試跨文本節點匹配
+            for (let i = 0; i < textNodes.length; i++) {
+                let combinedText = '';
+                const nodesInRange = [];
+                
+                for (let j = i; j < Math.min(i + 5, textNodes.length); j++) {
+                    combinedText += textNodes[j].textContent;
+                    nodesInRange.push(textNodes[j]);
+                    
+                    const index = combinedText.indexOf(textToFind);
+                    if (index !== -1) {
+                        // 找到跨節點的匹配，創建跨節點 Range
+                        const range = document.createRange();
+                        
+                        // 找到起始節點和偏移
+                        let currentLength = 0;
+                        let startNode = null;
+                        let startOffset = 0;
+                        
+                        for (const n of nodesInRange) {
+                            const nodeLength = n.textContent.length;
+                            if (currentLength + nodeLength > index) {
+                                startNode = n;
+                                startOffset = index - currentLength;
+                                break;
+                            }
+                            currentLength += nodeLength;
+                        }
+                        
+                        // 找到結束節點和偏移
+                        currentLength = 0;
+                        let endNode = null;
+                        let endOffset = 0;
+                        const endIndex = index + textToFind.length;
+                        
+                        for (const n of nodesInRange) {
+                            const nodeLength = n.textContent.length;
+                            if (currentLength + nodeLength >= endIndex) {
+                                endNode = n;
+                                endOffset = endIndex - currentLength;
+                                break;
+                            }
+                            currentLength += nodeLength;
+                        }
+                        
+                        if (startNode && endNode) {
+                            try {
+                                range.setStart(startNode, startOffset);
+                                range.setEnd(endNode, endOffset);
+                                return range;
+                            } catch (e) {
+                                console.warn('    ⚠️ 創建跨節點 Range 失敗:', e);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return null;
+        }
+
+        /**
+         * 🔧 模糊查找文本（處理空白字符差異）
+         */
+        findTextFuzzy(textToFind) {
+            // 將文本轉換為更寬鬆的匹配模式
+            const normalizedSearch = textToFind.replace(/\s+/g, '\\s+');
+            const regex = new RegExp(normalizedSearch, 'i');
+            
+            const walker = document.createTreeWalker(
+                document.body,
+                NodeFilter.SHOW_TEXT,
+                null
+            );
+            
+            let node;
+            while (node = walker.nextNode()) {
+                if (regex.test(node.textContent)) {
+                    const match = node.textContent.match(regex);
+                    if (match) {
+                        const index = match.index;
+                        const range = document.createRange();
+                        range.setStart(node, index);
+                        range.setEnd(node, index + match[0].length);
+                        console.log('    ✓ 使用模糊匹配找到');
+                        return range;
+                    }
+                }
+            }
+            
+            return null;
+        }
+
+        /**
+         * 🔧 顯示遷移通知
+         */
+        showMigrationNotification(successCount, failCount, totalCount) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                z-index: 999999;
+                max-width: 350px;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            const successRate = Math.round((successCount / totalCount) * 100);
+            const icon = successRate === 100 ? '✅' : successRate > 50 ? '⚠️' : '❌';
+            
+            notification.innerHTML = `
+                <style>
+                    @keyframes slideIn {
+                        from { transform: translateX(400px); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                </style>
+                <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #333;">
+                    ${icon} 標註遷移完成
+                </h3>
+                <p style="margin: 0 0 5px 0; color: #666; font-size: 14px;">
+                    ✅ 成功恢復: ${successCount} 個標註
+                </p>
+                ${failCount > 0 ? `
+                    <p style="margin: 0 0 5px 0; color: #dc3545; font-size: 14px;">
+                        ⚠️ 無法恢復: ${failCount} 個標註
+                    </p>
+                    <p style="margin: 0; color: #999; font-size: 12px;">
+                        部分標註因頁面結構變化無法定位
+                    </p>
+                ` : ''}
+                <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">
+                    舊標註數據已自動遷移到新格式
+                </p>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // 5秒後自動消失
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                notification.style.transform = 'translateX(400px)';
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
         }
 
         /**
