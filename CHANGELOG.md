@@ -1,5 +1,31 @@
 # 變更日誌 (CHANGELOG)
 
+## [v2.5.6] - 2025-10-02
+
+### 🎯 封面圖/特色圖片提取功能
+- **新增封面圖優先收集**：專門針對文章封面圖/Hero 圖片的提取邏輯
+- **20 個封面圖選擇器**：涵蓋 WordPress、常見 CMS 和自定義容器
+  - `.featured-image`, `.hero-image`, `.cover-image`
+  - `.post-thumbnail`, `.wp-post-image`
+  - `.article-header img`, `header.article-header img`
+  - `[class*="featured"]`, `[class*="hero"]`, `[class*="cover"]`
+  - `article > figure:first-of-type img`
+- **封面圖優先級**：封面圖作為第一張圖片顯示
+- **避免重複添加**：智能檢測並避免封面圖重複
+- **改進排除邏輯**：排除普通 header，但保留文章 header（避免誤殺封面圖）
+
+### ✅ 解決問題
+- ✅ 修復標題上方的封面圖無法提取的問題
+- ✅ 支持新聞網站和博客的特色圖片
+- ✅ 完善對 faroutmagazine.co.uk 等網站的圖片提取
+
+### 🔧 技術改進
+- 新增 `collectFeaturedImage()` 專門函數
+- 四層圖片收集策略：封面圖 → 內容元素 → 文章區域 → 選擇性擴展
+- 詳細的調試日誌，便於排查問題
+
+---
+
 ## [v2.5.5] - 2025-10-02
 
 ### 🎯 修復圖片收集策略過於寬泛的問題
