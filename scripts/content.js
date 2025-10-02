@@ -367,11 +367,56 @@
             }
         }
         
-        // 策略 3: 如果還是沒有足夠圖片，從整個文檔收集（更謹慎）
-        if (allImages.length < 2) {
+        // 策略 3: 如果仍然沒有圖片（< 1張），謹慎地擴展搜索
+        // 重要：排除明顯的非內容區域（header, footer, nav, sidebar, ads等）
+        if (allImages.length < 1) {
+            console.log(`Very few images found, attempting selective expansion...`);
+            
+            // 排除這些明顯的非內容區域
+            const excludeSelectors = [
+                'header', 'footer', 'nav', 'aside',
+                '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]', '[role="complementary"]',
+                '.header', '.footer', '.navigation', '.nav', '.navbar',
+                '.sidebar', '.side-bar', '.widget', '.widgets',
+                '.comments', '.comment-list', '.comment-section', '.comment-area',
+                '.related', '.related-posts', '.related-articles', '.recommended',
+                '.advertisement', '.ads', '.ad', '.banner', '.ad-container',
+                '.social', '.social-share', '.share-buttons', '.social-links',
+                '.menu', '.site-header', '.site-footer', '.site-nav'
+            ];
+            
+            // 獲取所有圖片
             const docImages = Array.from(document.querySelectorAll('img'));
-            console.log(`Falling back to document-wide search, found ${docImages.length} images`);
-            allImages = docImages;
+            
+            // 過濾掉在排除區域中的圖片
+            const filteredImages = docImages.filter(img => {
+                // 檢查圖片是否在任何排除區域內
+                for (const selector of excludeSelectors) {
+                    const excludeElements = document.querySelectorAll(selector);
+                    for (const excludeEl of excludeElements) {
+                        if (excludeEl.contains(img)) {
+                            console.log(`✗ Excluded image in ${selector}`);
+                            return false; // 圖片在排除區域內
+                        }
+                    }
+                }
+                return true; // 圖片不在任何排除區域內
+            });
+            
+            console.log(`Filtered ${docImages.length} total images -> ${filteredImages.length} content images (excluded ${docImages.length - filteredImages.length} from non-content areas)`);
+            
+            // 只添加不重複的圖片，且限制最多添加的數量
+            let addedFromExpansion = 0;
+            filteredImages.forEach(img => {
+                if (!allImages.includes(img) && addedFromExpansion < 10) { // 最多從擴展搜索添加10張
+                    allImages.push(img);
+                    addedFromExpansion++;
+                }
+            });
+            
+            if (addedFromExpansion > 0) {
+                console.log(`Added ${addedFromExpansion} images from selective expansion`);
+            }
         }
         
         console.log(`Total images to process: ${allImages.length}`);
