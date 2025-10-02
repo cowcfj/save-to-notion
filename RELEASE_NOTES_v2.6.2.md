@@ -37,7 +37,7 @@
 
 ## 📚 詳細資訊
 
-- **完整更新日誌：** [CHANGELOG_v2.6.2.md](https://github.com/cowcfj/save-to-notion/blob/main/CHANGELOG_v2.6.2.md)
+- **完整更新日誌：** [CHANGELOG.md](https://github.com/cowcfj/save-to-notion/blob/main/CHANGELOG.md)
 - **使用說明：** [README.md](https://github.com/cowcfj/save-to-notion#readme)
 - **問題回報：** [GitHub Issues](https://github.com/cowcfj/save-to-notion/issues)
 
