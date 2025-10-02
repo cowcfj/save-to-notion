@@ -118,7 +118,14 @@
             'data-zoom-src',
             'data-image-src',
             'data-img-src',
-            'data-real-src'
+            'data-real-src',
+            'data-lazy',
+            'data-url',
+            'data-image',
+            'data-img',
+            'data-fallback-src',
+            'data-origin',
+            'data-echo'
         ];
         
         // 首先檢查 srcset 屬性（響應式圖片）
@@ -142,6 +149,24 @@
                 const src = imgNode.getAttribute(attr);
                 if (src && src.trim() && !src.startsWith('data:') && !src.startsWith('blob:')) {
                     return src.trim();
+                }
+            }
+        }
+        
+        // 檢查父元素是否為 <picture> 元素
+        if (imgNode.parentElement && imgNode.parentElement.nodeName === 'PICTURE') {
+            const sources = imgNode.parentElement.querySelectorAll('source');
+            for (const source of sources) {
+                const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
+                if (srcset) {
+                    const srcsetEntries = srcset.split(',').map(entry => entry.trim());
+                    if (srcsetEntries.length > 0) {
+                        const lastEntry = srcsetEntries[srcsetEntries.length - 1];
+                        const url = lastEntry.split(' ')[0];
+                        if (url && !url.startsWith('data:')) {
+                            return url;
+                        }
+                    }
                 }
             }
         }
@@ -198,13 +223,13 @@
         // 檢查 URL 長度（Notion 有限制）
         if (cleanedUrl.length > 2000) return false;
         
-        // 檢查常見的圖片文件擴展名
-        const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(\?.*)?$/i;
+        // 檢查常見的圖片文件擴展名（擴展列表）
+        const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(\?.*)?$/i;
         
         // 如果 URL 包含圖片擴展名，直接返回 true
         if (imageExtensions.test(cleanedUrl)) return true;
         
-        // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑
+        // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
         const imagePathPatterns = [
             /\/image[s]?\//i,
             /\/img[s]?\//i,
@@ -213,15 +238,28 @@
             /\/media\//i,
             /\/upload[s]?\//i,
             /\/asset[s]?\//i,
-            /\/file[s]?\//i
+            /\/file[s]?\//i,
+            /\/content\//i,
+            /\/wp-content\//i,
+            /\/cdn\//i,
+            /cdn\d*\./i,  // cdn1.example.com, cdn2.example.com
+            /\/static\//i,
+            /\/thumb[s]?\//i,
+            /\/thumbnail[s]?\//i,
+            /\/resize\//i,
+            /\/crop\//i,
+            /\/(\d{4})\/(\d{2})\//  // 日期路徑如 /2025/10/
         ];
         
         // 排除明顯不是圖片的 URL
         const excludePatterns = [
-            /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
+            /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
             /\/api\//i,
             /\/ajax\//i,
-            /\/callback/i
+            /\/callback/i,
+            /\/track/i,
+            /\/analytics/i,
+            /\/pixel/i
         ];
         
         if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
@@ -292,9 +330,53 @@
      */
     function collectAdditionalImages(contentElement) {
         const additionalImages = [];
-        const allImages = contentElement ? contentElement.querySelectorAll('img') : document.querySelectorAll('img');
         
-        allImages.forEach(img => {
+        // 策略 1: 從指定的內容元素收集
+        let allImages = [];
+        if (contentElement) {
+            allImages = Array.from(contentElement.querySelectorAll('img'));
+            console.log(`Found ${allImages.length} images in content element`);
+        }
+        
+        // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
+        if (allImages.length < 3) {
+            const articleSelectors = [
+                'article',
+                'main',
+                '[role="main"]',
+                '.article',
+                '.post',
+                '.entry-content',
+                '.post-content',
+                '.article-content'
+            ];
+            
+            for (const selector of articleSelectors) {
+                const articleElement = document.querySelector(selector);
+                if (articleElement) {
+                    const articleImages = Array.from(articleElement.querySelectorAll('img'));
+                    console.log(`Found ${articleImages.length} images in ${selector}`);
+                    // 合併圖片，避免重複
+                    articleImages.forEach(img => {
+                        if (!allImages.includes(img)) {
+                            allImages.push(img);
+                        }
+                    });
+                    if (allImages.length >= 5) break; // 找到足夠的圖片就停止
+                }
+            }
+        }
+        
+        // 策略 3: 如果還是沒有足夠圖片，從整個文檔收集（更謹慎）
+        if (allImages.length < 2) {
+            const docImages = Array.from(document.querySelectorAll('img'));
+            console.log(`Falling back to document-wide search, found ${docImages.length} images`);
+            allImages = docImages;
+        }
+        
+        console.log(`Total images to process: ${allImages.length}`);
+        
+        allImages.forEach((img, index) => {
             const src = extractImageSrc(img);
             if (src) {
                 try {
@@ -306,22 +388,33 @@
                         const width = img.naturalWidth || img.width || 0;
                         const height = img.naturalHeight || img.height || 0;
                         
-                        // 只收集尺寸合理的圖片（寬度或高度至少 100px）
-                        if (width >= 100 || height >= 100 || (width === 0 && height === 0)) {
+                        // 降低尺寸要求，只排除明顯的小圖標
+                        const isIcon = (width > 0 && width < 50) || (height > 0 && height < 50);
+                        const isSizeUnknown = width === 0 && height === 0;
+                        
+                        if (!isIcon || isSizeUnknown) {
                             additionalImages.push({
                                 url: cleanedUrl,
                                 alt: img.alt || '',
                                 width: width,
                                 height: height
                             });
+                            console.log(`✓ Collected image ${index + 1}: ${cleanedUrl.substring(0, 80)}... (${width}x${height})`);
+                        } else {
+                            console.log(`✗ Skipped small icon ${index + 1}: ${width}x${height}`);
                         }
+                    } else {
+                        console.log(`✗ Invalid image URL ${index + 1}: ${cleanedUrl || src}`);
                     }
                 } catch (e) {
-                    console.warn(`Failed to process additional image: ${src}`, e);
+                    console.warn(`Failed to process image ${index + 1}: ${src}`, e);
                 }
+            } else {
+                console.log(`✗ No src found for image ${index + 1}`);
             }
         });
         
+        console.log(`Successfully collected ${additionalImages.length} valid images`);
         return additionalImages;
     }
 
@@ -353,14 +446,20 @@
     if (finalContentHtml) {
         const blocks = convertHtmlToNotionBlocks(finalContentHtml);
         
-        // 收集額外的圖片（如果主要內容中沒有足夠的圖片）
+        // 收集額外的圖片（更積極的策略）
         const imageBlocks = blocks.filter(b => b.type === 'image');
-        if (imageBlocks.length < 3) { // 如果圖片少於3張，嘗試收集更多
+        console.log(`\n=== Image Collection Summary ===`);
+        console.log(`Images found in main content: ${imageBlocks.length}`);
+        
+        // 如果圖片少於5張，嘗試收集更多（提高閾值）
+        if (imageBlocks.length < 5) {
+            console.log(`Attempting to collect additional images...`);
             const additionalImages = collectAdditionalImages(contentElement);
             const existingUrls = new Set(imageBlocks.map(b => b.image.external.url));
             
+            let addedCount = 0;
             additionalImages.forEach(imgInfo => {
-                if (!existingUrls.has(imgInfo.url) && imageBlocks.length < 10) { // 最多10張圖片
+                if (!existingUrls.has(imgInfo.url) && (imageBlocks.length + addedCount) < 15) { // 最多15張圖片
                     blocks.push({
                         object: 'block',
                         type: 'image',
@@ -370,15 +469,22 @@
                         }
                     });
                     existingUrls.add(imgInfo.url);
-                    console.log(`Added additional image: ${imgInfo.url}`);
+                    addedCount++;
+                    console.log(`✓ Added additional image ${addedCount}: ${imgInfo.url.substring(0, 80)}...`);
                 }
             });
+            console.log(`Added ${addedCount} additional images`);
         }
         
         // 標記處理已移到 background.js 中，這裡不再處理
 
+        const finalImageCount = blocks.filter(b => b.type === 'image').length;
+        console.log(`=== Final Result ===`);
+        console.log(`Total blocks: ${blocks.length}`);
+        console.log(`Total images: ${finalImageCount}`);
+        console.log(`================================\n`);
+        
         if (blocks.length > 0) {
-            console.log(`Final content extracted with ${blocks.length} blocks, including ${blocks.filter(b => b.type === 'image').length} images`);
             return { title: finalTitle, blocks: blocks };
         }
     }
