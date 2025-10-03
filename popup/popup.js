@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveButton = document.getElementById('save-button');
     const highlightButton = document.getElementById('highlight-button');
     const clearHighlightsButton = document.getElementById('clear-highlights-button');
+    const openNotionButton = document.getElementById('open-notion-button');
     const status = document.getElementById('status');
 
     // Check for API key and Database ID on popup open
@@ -21,31 +22,75 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
             if (response && response.success) {
                 if (response.isSaved) {
-                    // 頁面已保存，可以直接標記
-                    highlightButton.textContent = '📝 Start Highlighting';
-                    highlightButton.disabled = false;
-                    clearHighlightsButton.style.display = 'block';
-                    status.textContent = 'Page saved. Ready to highlight or save again.';
+                    // 頁面已保存
+                    updateUIForSavedPage(response);
                 } else {
-                    // 頁面未保存，需要先保存
-                    highlightButton.textContent = '📝 Save First to Highlight';
-                    highlightButton.disabled = true;
-                    clearHighlightsButton.style.display = 'none';
-                    
-                    if (response.wasDeleted) {
-                        status.textContent = 'Original page was deleted. Save to create new page.';
-                        status.style.color = '#d63384';
-                        setTimeout(() => {
-                            status.textContent = 'Save page first to enable highlighting.';
-                            status.style.color = '';
-                        }, 3000);
-                    } else {
-                        status.textContent = 'Save page first to enable highlighting.';
-                    }
+                    // 頁面未保存
+                    updateUIForUnsavedPage(response);
                 }
             }
         });
     }
+
+    // 更新 UI - 已保存狀態
+    function updateUIForSavedPage(response) {
+        // 更新保存按鈕
+        saveButton.textContent = '✅ Saved - Save Again';
+        saveButton.classList.add('saved');
+        
+        // 啟用標記按鈕
+        highlightButton.textContent = '📝 Start Highlighting';
+        highlightButton.disabled = false;
+        clearHighlightsButton.style.display = 'block';
+        
+        // 顯示打開 Notion 按鈕
+        if (response.notionUrl) {
+            openNotionButton.style.display = 'block';
+            openNotionButton.setAttribute('data-url', response.notionUrl);
+        }
+        
+        // 更新狀態訊息
+        status.textContent = '✅ Page saved. Ready to highlight or update.';
+        status.classList.add('saved-status');
+    }
+
+    // 更新 UI - 未保存狀態
+    function updateUIForUnsavedPage(response) {
+        // 更新保存按鈕
+        saveButton.textContent = '💾 Save Page';
+        saveButton.classList.remove('saved');
+        
+        // 禁用標記按鈕
+        highlightButton.textContent = '📝 Save First to Highlight';
+        highlightButton.disabled = true;
+        clearHighlightsButton.style.display = 'none';
+        
+        // 隱藏打開 Notion 按鈕
+        openNotionButton.style.display = 'none';
+        
+        // 更新狀態訊息
+        status.classList.remove('saved-status');
+        if (response.wasDeleted) {
+            status.textContent = 'Original page was deleted. Save to create new page.';
+            status.style.color = '#d63384';
+            setTimeout(() => {
+                status.textContent = 'Save page first to enable highlighting.';
+                status.style.color = '';
+            }, 3000);
+        } else {
+            status.textContent = 'Save page first to enable highlighting.';
+        }
+    }
+
+    // 打開 Notion 頁面按鈕事件
+    openNotionButton.addEventListener('click', () => {
+        const notionUrl = openNotionButton.getAttribute('data-url');
+        if (notionUrl) {
+            chrome.tabs.create({ url: notionUrl }, () => {
+                console.log('✅ 已在新標籤頁打開 Notion 頁面');
+            });
+        }
+    });
 
     // 標記按鈕事件
     highlightButton.addEventListener('click', () => {
@@ -189,6 +234,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 status.textContent = `${action} successfully! ${details}`;
+                
+                // v2.7.0: 保存成功後，重新檢查頁面狀態並更新 UI
+                setTimeout(() => {
+                    checkPageStatus();
+                }, 500);
             } else {
                 status.textContent = `Failed to save: ${response ? response.error : 'No response'}`;
                 console.error('Error from background script:', response ? response.error : 'No response');

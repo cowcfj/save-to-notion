@@ -51,6 +51,26 @@ button {
     background-color: #005ecb;
 }
 
+/* v2.7.0: 已保存狀態樣式 */
+#save-button.saved {
+    background-color: #48bb78;
+    border: 2px solid #38a169;
+}
+
+#save-button.saved:hover {
+    background-color: #38a169;
+}
+
+/* v2.7.0: Open in Notion 按鈕樣式 */
+#open-notion-button {
+    background-color: #000000;
+    margin-bottom: 8px;
+}
+
+#open-notion-button:hover {
+    background-color: #1a1a1a;
+}
+
 button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
