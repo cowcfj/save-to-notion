@@ -939,9 +939,6 @@ async function handleCheckPageStatus(sendResponse) {
                             }
                         });
 
-                        // 清除徽章
-                        chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
-
                         sendResponse({
                             success: true,
                             isSaved: false,
@@ -950,16 +947,11 @@ async function handleCheckPageStatus(sendResponse) {
                             wasDeleted: true
                         });
                     } else {
-                        // 設置綠色徽章表示已保存
-                        chrome.action.setBadgeText({ text: '✓', tabId: activeTab.id });
-                        chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId: activeTab.id });
-
                         sendResponse({
                             success: true,
                             isSaved: true,
                             url: normUrl,
-                            title: activeTab.title,
-                            notionUrl: savedData.notionUrl || null
+                            title: activeTab.title
                         });
                     }
                 } catch (error) {
@@ -972,26 +964,14 @@ async function handleCheckPageStatus(sendResponse) {
                     });
                 }
             } else {
-                // 設置徽章
-                if (savedData) {
-                    chrome.action.setBadgeText({ text: '✓', tabId: activeTab.id });
-                    chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId: activeTab.id });
-                } else {
-                    chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
-                }
-
                 sendResponse({
                     success: true,
                     isSaved: !!savedData,
                     url: normUrl,
-                    title: activeTab.title,
-                    notionUrl: savedData?.notionUrl || null
+                    title: activeTab.title
                 });
             }
         } else {
-            // 清除徽章
-            chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
-
             sendResponse({
                 success: true,
                 isSaved: false,

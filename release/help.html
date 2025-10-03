@@ -1,18 +1,9 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta    <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 15px 0;">
-        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.4.8</h4>
-        <ul style="margin-bottom: 0;">
-            <li>🖱️ <strong>雙重標記刪除系統：</strong>雙擊刪除 + Ctrl/Cmd+點擊快速刪除</li>
-            <li>✅ 完全修復雙擊刪除的選中問題和失效問題</li>
-            <li>⚡ 新增 Ctrl/Cmd+點擊無需確認的快速刪除方式</li>
-            <li>🎯 統一事件處理，確保兩種方式互不干擾</li>
-            <li>📝 普通點擊和文本選擇完全不受影響</li>
-        </ul>
-    </div>UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Smart Clipper v2.4.8 使用指南</title>
+    <title>Notion Smart Clipper v2.5.3 使用指南</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -40,12 +31,16 @@
             padding: 15px;
             margin: 15px 0;
         }
+        .template-example h4 {
+            margin-top: 0;
+            color: #0056b3;
+        }
         .code {
-            background: #f1f3f4;
+            background: #f5f5f5;
             padding: 2px 6px;
             border-radius: 3px;
-            font-family: monospace;
-            font-size: 14px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
         }
         .success {
             background: #d4edda;
@@ -57,16 +52,16 @@
     </style>
 </head>
 <body>
-    <h1>📚 Notion Smart Clipper v2.4.8 使用指南</h1>
+    <h1>📚 Notion Smart Clipper v2.5.3 使用指南</h1>
     
     <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 15px 0;">
-        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.4.8</h4>
+        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.5.3</h4>
         <ul style="margin-bottom: 0;">
-            <li>✨ <strong>跨元素文本標記：</strong>支援跨越多個HTML元素的文本標註功能</li>
-            <li>🔧 6層漸進式回退機制，處理複雜的DOM結構</li>
-            <li>📝 智能列表標註，支援跨多個列表項目的選擇</li>
-            <li>�️ 增強錯誤處理和調試日誌系統</li>
-            <li>⚡ 片段重建技術，提升標註成功率</li>
+            <li>🎨 <strong>多顏色標註選擇器：</strong>支援 4 種顏色（黃/綠/藍/紅）標註，可隨時切換</li>
+            <li>🖱️ <strong>雙重刪除機制：</strong>Ctrl/Cmd+點擊快速刪除 + 管理列表刪除</li>
+            <li>✨ <strong>CSS Highlight API：</strong>全新的標註引擎，無需修改 DOM 結構</li>
+            <li>🔄 <strong>無縫自動遷移：</strong>自動從舊版標註遷移到新版本</li>
+            <li>⚡ <strong>跨元素標註增強：</strong>完美支援跨越多個 HTML 元素的文本選擇</li>
         </ul>
     </div>
     
@@ -82,40 +77,26 @@
     </div>
 
     <div class="feature">
-        <h3>� 智能數據管理</h3>
+        <h3>📦 智能數據管理</h3>
         <p>全新的數據監控和管理功能：</p>
         <ul>
             <li><strong>實時監控：</strong>即時顯示存儲使用量和容量狀態</li>
             <li><strong>智能優化：</strong>自動清理重複數據，提升效能</li>
-            <li><strong>數據備份：</strong>完整備份和恢復機制，確保數據安全</li>
-            <li><strong>完整性檢查：</strong>自動驗證數據完整性</li>
-        </ul>
-        <p><em>💡 在設置頁面找到「數據管理」選項卡體驗新功能！</em></p>
-    </div>
-
-    <div class="feature">
-        <h3>�🖼️ 智能圖片提取</h3>
-        <p>強化的圖片處理功能，支援更多格式：</p>
-        <ul>
-            <li>懶加載圖片（data-src、data-lazy-src 等）</li>
-            <li>響應式圖片（srcset）</li>
-            <li><strong>代理URL：</strong>自動處理新聞網站的代理圖片鏈接</li>
-            <li><strong>URL清理：</strong>移除重複參數，確保圖片正常載入</li>
-            <li>自動過濾小尺寸圖標</li>
-            <li>支持各種 CMS 系統</li>
+            <li><strong>批量操作：</strong>快速清理過期或無效數據</li>
+            <li><strong>數據備份：</strong>支援導出和導入功能</li>
         </ul>
     </div>
 
     <div class="feature">
-        <h3>🎨 模板自定義</h3>
-        <p>靈活的內容格式化選項：</p>
+        <h3>📝 靈活的標題模板</h3>
+        <p>使用變數自定義頁面標題格式：</p>
         
         <div class="template-example">
-            <h4>標題模板變量</h4>
+            <h4>可用變數</h4>
             <ul>
-                <li><span class="code">{title}</span> - 原始標題</li>
-                <li><span class="code">{date}</span> - 當前日期 (2024-01-15)</li>
-                <li><span class="code">{time}</span> - 當前時間 (14:30)</li>
+                <li><span class="code">{title}</span> - 網頁標題</li>
+                <li><span class="code">{date}</span> - 日期 (2024-01-15)</li>
+                <li><span class="code">{time}</span> - 時間 (14:30)</li>
                 <li><span class="code">{datetime}</span> - 完整時間 (2024-01-15 14:30)</li>
                 <li><span class="code">{url}</span> - 完整網址</li>
                 <li><span class="code">{domain}</span> - 網站域名</li>
@@ -149,136 +130,85 @@
     </div>
 
     <div class="feature">
-        <h3>� 高級功能</h3>
-        <ul>
-            <li><strong>✨ 智能高亮：</strong>在網頁上標記重要內容，一併保存到Notion</li>
-            <li><strong>🎯 批量保存：</strong>支援多頁面內容的批量處理</li>
-            <li><strong>📝 自動標籤：</strong>根據網站域名自動添加分類標籤</li>
-            <li><strong>⚡ 快捷鍵：</strong>使用鍵盤快捷鍵快速保存（可在設置中配置）</li>
-        </ul>
-    </div>
-
-    <div class="feature">
-        <h3>🎨 跨元素文本標記功能</h3>
-        <p><strong>v2.4.6 全新功能：</strong>支援跨越多個HTML元素的文本標註，特別針對列表、段落和複雜結構優化。</p>
+        <h3>🎨 多顏色文本標註功能</h3>
+        <p><strong>v2.5.3 全新升級：</strong>使用 CSS Highlight API 實現高性能、多顏色的文本標註系統。</p>
         
         <div class="template-example">
-            <h4>💡 使用技巧</h4>
-            <p><strong>對於複雜的跨元素選擇（如跨多個列表項）：</strong></p>
+            <h4>💡 如何創建標註</h4>
             <ol>
-                <li><strong>先進行單元素標註：</strong>在目標區域內選擇並標記幾段單獨的文本</li>
-                <li><strong>改變頁面結構：</strong>單元素標註會稍微調整DOM結構</li>
-                <li><strong>進行跨元素選擇：</strong>現在可以成功選擇跨越多個元素的文本進行標記</li>
+                <li><strong>選擇文本：</strong>用滑鼠選擇要標註的文本（支援跨元素選擇）</li>
+                <li><strong>選擇顏色：</strong>在彈出的工具欄中點擊顏色按鈕</li>
+            </ol>
+            <ul style="margin-top: 5px; margin-bottom: 10px; list-style: none; padding-left: 20px;">
+                <li>🟨 <strong>黃色</strong> - 預設顏色，適合一般重點標註</li>
+                <li>🟩 <strong>綠色</strong> - 適合標記正面內容、重要定義</li>
+                <li>🟦 <strong>藍色</strong> - 適合標記參考資料、補充說明</li>
+                <li>🟥 <strong>紅色</strong> - 適合標記警告、關鍵問題</li>
+            </ul>
+            <ol start="3">
+                <li><strong>創建標註：</strong>點擊「✨ 標註」按鈕，文本將以所選顏色高亮顯示</li>
+                <li><strong>切換顏色：</strong>可以隨時點擊其他顏色按鈕切換標註顏色</li>
+                <li><strong>同步到 Notion：</strong>點擊「💾 同步到 Notion」保存所有標註</li>
             </ol>
         </div>
         
         <div class="template-example">
-            <h4>🎯 適用場景</h4>
+            <h4>🗑️ 如何刪除標註</h4>
+            <p><strong>方法一：快速刪除（推薦）</strong></p>
             <ul>
-                <li><strong>列表標註：</strong>跨越多個 &lt;li&gt; 項目的內容</li>
-                <li><strong>段落標註：</strong>跨越多個 &lt;p&gt; 段落的文本</li>
-                <li><strong>引用標註：</strong>跨越 &lt;blockquote&gt; 邊界的選擇</li>
-                <li><strong>表格標註：</strong>跨越表格單元格的內容</li>
+                <li>按住 <strong>Ctrl</strong>（Windows/Linux）或 <strong>Cmd</strong>（Mac）</li>
+                <li>點擊要刪除的標註文本</li>
+                <li>標註會立即消失，無需確認</li>
+            </ul>
+            <p><strong>方法二：列表管理</strong></p>
+            <ul>
+                <li>點擊工具欄中的「📋 管理」按鈕</li>
+                <li>在彈出的標註列表中找到要刪除的項目</li>
+                <li>點擊該項目右側的「🗑️ 刪除」按鈕</li>
             </ul>
         </div>
         
         <div style="background: #e8f5e8; border-left: 4px solid #28a745; padding: 15px; margin: 15px 0;">
-            <p><strong>🔬 技術原理：</strong></p>
-            <p>系統使用6層漸進式回退機制處理複雜的DOM結構：</p>
+            <p><strong>🔬 技術亮點：</strong></p>
             <ul style="margin: 10px 0; font-size: 14px;">
-                <li>標準DOM操作 → 內容提取 → 克隆重建 → 文本替換 → 片段重建 → 超級安全模式</li>
-            </ul>
-        </div>
-    </div>
-
-    <div class="feature">
-        <h3>🖱️ 標記刪除功能 (v2.4.8 全新優化)</h3>
-        <p><strong>雙重刪除系統：</strong>提供兩種靈活的標記刪除方式，滿足不同使用場景的需求。</p>
-        
-        <div class="template-example">
-            <h4>🎯 方式一：雙擊刪除（推薦日常使用）</h4>
-            <ol>
-                <li><strong>雙擊標記：</strong>雙擊任何已標記的文本</li>
-                <li><strong>確認刪除：</strong>彈出確認對話框</li>
-                <li><strong>完成刪除：</strong>點擊「確定」完成刪除</li>
-            </ol>
-            <p><strong>✨ 優點：</strong>有確認步驟，防止誤操作，操作直觀</p>
-        </div>
-        
-        <div class="template-example">
-            <h4>⚡ 方式二：Ctrl/Cmd + 點擊（快速刪除）</h4>
-            <ol>
-                <li><strong>按住快捷鍵：</strong>按住 <code>Ctrl</code>(Windows) 或 <code>Cmd</code>(Mac)</li>
-                <li><strong>點擊標記：</strong>點擊要刪除的標記文本</li>
-                <li><strong>立即刪除：</strong>標記立即被移除（無需確認）</li>
-            </ol>
-            <p><strong>⚡ 優點：</strong>操作快速，適合批量整理標記</p>
-        </div>
-        
-        <div style="background: #f8f9fa; border-radius: 6px; padding: 15px; margin: 15px 0;">
-            <h4 style="color: #495057; margin-top: 0;">💡 使用建議</h4>
-            <ul style="margin-bottom: 0; font-size: 14px;">
-                <li><strong>日常閱讀：</strong>使用雙擊刪除，安全可靠</li>
-                <li><strong>批量整理：</strong>使用 Ctrl/Cmd + 點擊，效率更高</li>
-                <li><strong>正常操作：</strong>普通點擊和文本選擇完全不受影響</li>
-                <li><strong>跨平台：</strong>Windows 用 Ctrl，Mac 用 Cmd，自動適配</li>
+                <li><strong>CSS Highlight API：</strong>瀏覽器原生支援，無需修改 DOM 結構</li>
+                <li><strong>完美跨元素：</strong>可以標註任意複雜的跨元素文本選擇</li>
+                <li><strong>自動持久化：</strong>標註數據自動保存，刷新頁面後自動恢復</li>
+                <li><strong>無縫遷移：</strong>自動從舊版標註系統遷移，不丟失任何數據</li>
+                <li><strong>高效渲染：</strong>使用瀏覽器原生 API，性能優於傳統方案</li>
             </ul>
         </div>
         
-        <div style="background: #e7f3ff; border-left: 4px solid #0066cc; padding: 15px; margin: 15px 0;">
-            <p><strong>🔧 v2.4.8 修復內容：</strong></p>
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0;">
+            <p><strong>�� 使用建議：</strong></p>
             <ul style="margin: 10px 0; font-size: 14px;">
-                <li>✅ 徹底修復雙擊時只選中部分字符的問題</li>
-                <li>✅ 解決雙擊刪除功能失效的問題</li>
-                <li>✅ 修復標記後文本無法正常選擇的問題</li>
-                <li>✅ 確保兩種刪除方式互不干擾</li>
+                <li>使用<strong>黃色</strong>標記一般重點內容</li>
+                <li>使用<strong>綠色</strong>標記重要定義、關鍵概念</li>
+                <li>使用<strong>藍色</strong>標記補充說明、參考資料</li>
+                <li>使用<strong>紅色</strong>標記需要特別注意的警告、問題</li>
+                <li>善用 Ctrl/Cmd+點擊 快速刪除不需要的標註</li>
+                <li>定期使用「💾 同步到 Notion」保存標註到雲端</li>
             </ul>
         </div>
     </div>
 
     <div class="feature">
-        <h3>�🔧 常見問題與解決方案</h3>
+        <h3>💡 常見問題與解決方案</h3>
         <ul>
-            <li><strong>「Invalid image url」錯誤：</strong>已修復，會自動清理無效圖片URL</li>
-            <li><strong>保存失敗：</strong>檢查 API Key 和數據庫權限，確保Integration已連接</li>
-            <li><strong>圖片不顯示：</strong>某些網站有防盜鏈保護，擴展會自動跳過無效圖片</li>
-            <li><strong>內容不完整：</strong>嘗試在不同網站測試，某些網站結構特殊</li>
-            <li><strong>模板不生效：</strong>確保已保存設置並重新載入頁面</li>
-            <li><strong>存儲空間不足：</strong>使用「數據管理」功能進行空間優化</li>
-        </ul>
-        
-        <div style="background: #f8f9fa; border-radius: 6px; padding: 15px; margin: 15px 0;">
-            <h4 style="color: #495057; margin-top: 0;">🎯 文本標記問題排解</h4>
-            <ul style="margin-bottom: 0; font-size: 14px;">
-                <li><strong>跨元素選擇失敗：</strong>先進行幾次單元素標註，再嘗試跨元素選擇</li>
-                <li><strong>列表項標記問題：</strong>先標記單個列表項，再嘗試跨項標記</li>
-                <li><strong>標記位置不準確：</strong>檢查控制台日誌，系統會自動選擇最佳回退方案</li>
-                <li><strong>標記無法點擊：</strong>雙擊標記文本可以刪除，確認事件監聽器正常</li>
-                <li><strong>調試信息：</strong>打開開發者工具查看詳細的處理過程和錯誤信息</li>
-            </ul>
-        </div>
-    </div>
-
-    <div class="feature">
-        <h3>💡 使用技巧</h3>
-        <ul>
-            <li><strong>🎯 最佳實踐：</strong>定期使用數據優化功能保持最佳性能</li>
-            <li><strong>🔄 升級安全：</strong>所有數據在升級過程中自動保留，無需擔心資料遺失</li>
-            <li><strong>🌐 網站相容性：</strong>支援主流新聞網站、部落格和技術文檔網站</li>
-            <li><strong>📱 跨平台：</strong>保存的內容可在所有Notion平台上查看和編輯</li>
+            <li><strong>標註沒有顯示：</strong>需要 Chrome 105+ 或 Edge 105+；嘗試刷新頁面</li>
+            <li><strong>刪除標註無效：</strong>確認正確按住 Ctrl/Cmd 鍵再點擊；或使用「📋 管理」列表刪除</li>
+            <li><strong>舊版標註遷移：</strong>系統會自動檢測並遷移，不會丟失數據</li>
+            <li><strong>API Key 無法連接：</strong>確認在 Notion 中正確創建 Integration 並連接到數據庫</li>
+            <li><strong>保存失敗：</strong>檢查 API Key 和數據庫權限</li>
+            <li><strong>圖片不顯示：</strong>某些網站有防盜鏈保護，擴展會自動跳過</li>
+            <li><strong>存儲空間不足：</strong>使用「數據管理」功能進行優化</li>
         </ul>
     </div>
 
     <div style="text-align: center; margin-top: 40px; padding: 20px; border-top: 1px solid #e0e0e0; color: #666;">
-        <p><strong>🌟 版本 v2.4.8</strong> | 最後更新：2025年9月</p>
-        <p>
-            <a href="https://github.com/cowcfj/save-to-notion" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📂 GitHub 專案</a> |
-            <a href="https://github.com/cowcfj/save-to-notion/releases" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📋 更新日誌</a> |
-            <a href="https://github.com/cowcfj/save-to-notion/issues" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">🐛 問題回報</a> |
-            <a href="https://developers.notion.com/docs" target="_blank" style="color: #0366d6; text-decoration: none; margin: 0 10px;">📚 Notion API</a>
-        </p>
+        <p><strong>🌟 版本 v2.5.3</strong> | 最後更新：2025年10月</p>
         <p style="font-size: 12px; color: #999; margin-top: 15px;">
-            💝 喜歡這個擴展嗎？歡迎在 <a href="https://github.com/cowcfj/save-to-notion" target="_blank" style="color: #0366d6;">GitHub</a> 給我們一個星星！
+            💝 感謝您使用 Notion Smart Clipper！
         </p>
     </div>
 </body>
