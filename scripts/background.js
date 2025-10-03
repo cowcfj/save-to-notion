@@ -920,6 +920,7 @@ async function handleCheckPageStatus(sendResponse) {
 
         const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
+        console.log('📊 checkPageStatus - savedData:', savedData);
         
         if (savedData && savedData.notionPageId) {
             const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
@@ -964,11 +965,16 @@ async function handleCheckPageStatus(sendResponse) {
                     }
                 } catch (error) {
                     console.error('Error checking page status:', error);
+                    // 即使檢查出錯，仍然返回 notionUrl
+                    chrome.action.setBadgeText({ text: '✓', tabId: activeTab.id });
+                    chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId: activeTab.id });
+                    
                     sendResponse({
                         success: true,
                         isSaved: true,
                         url: normUrl,
-                        title: activeTab.title
+                        title: activeTab.title,
+                        notionUrl: savedData.notionUrl || null
                     });
                 }
             } else {
