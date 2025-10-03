@@ -920,7 +920,6 @@ async function handleCheckPageStatus(sendResponse) {
 
         const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
-        console.log('📊 checkPageStatus - savedData:', savedData);
         
         if (savedData && savedData.notionPageId) {
             const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));

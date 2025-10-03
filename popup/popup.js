@@ -34,9 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 更新 UI - 已保存狀態
     function updateUIForSavedPage(response) {
-        console.log('✅ 頁面已保存，response:', response);
-        console.log('notionUrl:', response.notionUrl);
-        
         // 啟用標記按鈕
         highlightButton.textContent = '📝 Start Highlighting';
         highlightButton.disabled = false;
@@ -44,11 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 顯示打開 Notion 按鈕
         if (response.notionUrl) {
-            console.log('✅ 顯示 Open in Notion 按鈕');
             openNotionButton.style.display = 'block';
             openNotionButton.setAttribute('data-url', response.notionUrl);
-        } else {
-            console.log('⚠️ notionUrl 不存在，無法顯示按鈕');
         }
         
         // 更新狀態訊息
