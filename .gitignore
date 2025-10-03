@@ -10,6 +10,9 @@ highlight-test.html
 debug-test.html
 *preview.html
 generate-icons.html
+logo-design.html
+new-logo-preview.html
+*-design.html
 
 # 測試結果和報告（自動生成，不應發布）
 tests/results/
@@ -35,6 +38,8 @@ TESTING_GUIDE_*.md
 diagnose-mcp.md
 TEST_GUIDE_*.md
 TEST_RESULTS_*.md
+TEST_v*.md
+VERSION_SUMMARY_*.md
 CODE_REVIEW_REPORT.md
 CLEANUP_REPORT_*.md
 CLEANUP_COMPLETE_REPORT.md
@@ -67,6 +72,7 @@ PROJECT_PROGRESS_REPORT.md
 # Chrome Store 發布相關（內部流程）
 CHROME_STORE_GUIDE.md
 GITHUB_RELEASE_GUIDE_*.md
+GITHUB_RELEASE_v*.md
 github-release-*.md
 
 # 協作提案（內部討論）
@@ -100,6 +106,8 @@ cleanup.sh
 tests/
 archive/
 demos/
+promo-images/
+release/
 
 # 建構文件
 build/
