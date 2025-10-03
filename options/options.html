@@ -138,7 +138,20 @@
                             <strong>不會影響您在 Notion 中已保存的任何頁面</strong>。擴展數據和 Notion 數據是完全獨立的。
                         </small>
                     </div>
-                    <button id="preview-cleanup-button" class="preview-button">👀 預覽清理效果</button>
+                    <div class="cleanup-option">
+                        <label>
+                            <input type="checkbox" id="cleanup-deleted-pages" checked>
+                            <span>清理已刪除頁面的標註數據</span>
+                        </label>
+                        <small class="help-text">
+                            🔍 檢查所有已保存的頁面，清理在 Notion 中已刪除的頁面的標註數據。
+                            這將檢查 Notion API，可能需要幾分鐘時間（取決於頁面數量）。
+                        </small>
+                    </div>
+                    <button id="preview-cleanup-button" class="preview-button">
+                        <span class="spinner"></span>
+                        <span class="button-text">👀 預覽清理效果</span>
+                    </button>
                     <button id="execute-cleanup-button" class="cleanup-button" style="display: none;">🗑️ 執行清理</button>
                 </div>
                 

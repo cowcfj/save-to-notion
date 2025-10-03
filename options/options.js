@@ -607,43 +607,166 @@ document.addEventListener('DOMContentLoaded', () => {
         analyzeOptimizationButton.addEventListener('click', analyzeOptimization);
         executeOptimizationButton.addEventListener('click', executeOptimization);
         
-        // 安全清理：只清理空白頁面
+        // 安全清理：清理空白頁面 + 清理已刪除頁面的標註數據
         async function previewSafeCleanup() {
-            const plan = await generateSafeCleanupPlan();
-            cleanupPlan = plan;
-            displayCleanupPreview(plan);
+            const cleanEmptyPages = document.getElementById('cleanup-empty-pages').checked;
+            const cleanDeletedPages = document.getElementById('cleanup-deleted-pages').checked;
             
-            if (plan.items.length > 0) {
-                executeCleanupButton.style.display = 'inline-block';
-            } else {
-                executeCleanupButton.style.display = 'none';
+            // 顯示加載狀態
+            setPreviewButtonLoading(true);
+            
+            try {
+                const plan = await generateSafeCleanupPlan(cleanEmptyPages, cleanDeletedPages);
+                cleanupPlan = plan;
+                displayCleanupPreview(plan);
+                
+                if (plan.items.length > 0) {
+                    executeCleanupButton.style.display = 'inline-block';
+                } else {
+                    executeCleanupButton.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('預覽清理失敗:', error);
+                showDataStatus('❌ 預覽清理失敗: ' + error.message, 'error');
+            } finally {
+                // 恢復按鈕狀態
+                setPreviewButtonLoading(false);
             }
         }
         
-        async function generateSafeCleanupPlan() {
+        // 設置預覽按鈕的加載狀態
+        function setPreviewButtonLoading(loading) {
+            const button = document.getElementById('preview-cleanup-button');
+            const buttonText = button.querySelector('.button-text');
+            
+            if (loading) {
+                button.classList.add('loading');
+                button.disabled = true;
+                buttonText.textContent = '🔍 檢查中...';
+            } else {
+                button.classList.remove('loading');
+                button.disabled = false;
+                buttonText.textContent = '👀 預覽清理效果';
+            }
+        }
+        
+        // 更新檢查進度
+        function updateCheckProgress(current, total) {
+            const button = document.getElementById('preview-cleanup-button');
+            const buttonText = button.querySelector('.button-text');
+            
+            if (total > 0) {
+                const percentage = Math.round((current / total) * 100);
+                buttonText.textContent = `🔍 檢查中... ${current}/${total} (${percentage}%)`;
+            }
+        }
+        
+        async function generateSafeCleanupPlan(cleanEmptyPages, cleanDeletedPages) {
             return new Promise((resolve) => {
-                chrome.storage.local.get(null, (data) => {
+                chrome.storage.local.get(null, async (data) => {
                     const plan = {
                         items: [],
                         totalKeys: 0,
-                        spaceFreed: 0
+                        spaceFreed: 0,
+                        emptyPages: 0,
+                        deletedPages: 0
                     };
                     
-                    for (const [key, value] of Object.entries(data)) {
-                        if (!key.startsWith('highlights_')) continue;
+                    // 1. 清理空白頁面記錄
+                    if (cleanEmptyPages) {
+                        for (const [key, value] of Object.entries(data)) {
+                            if (!key.startsWith('highlights_')) continue;
+                            
+                            // 只清理真正的空白頁面（沒有任何標記數據）
+                            if (!Array.isArray(value) || value.length === 0) {
+                                const itemSize = new Blob([JSON.stringify({[key]: value})]).size;
+                                
+                                plan.items.push({
+                                    key,
+                                    url: key.replace('highlights_', ''),
+                                    size: itemSize,
+                                    reason: '空白頁面記錄'
+                                });
+                                
+                                plan.spaceFreed += itemSize;
+                                plan.emptyPages++;
+                            }
+                        }
+                    }
+                    
+                    // 2. 清理已刪除頁面的標註數據
+                    if (cleanDeletedPages) {
+                        const savedPages = Object.keys(data)
+                            .filter(key => key.startsWith('saved_'))
+                            .map(key => ({
+                                key: key,
+                                url: key.replace('saved_', ''),
+                                data: data[key]
+                            }));
                         
-                        // 只清理真正的空白頁面（沒有任何標記數據）
-                        if (!Array.isArray(value) || value.length === 0) {
-                            const itemSize = new Blob([JSON.stringify({[key]: value})]).size;
+                        console.log(`🔍 檢查 ${savedPages.length} 個已保存的頁面...`);
+                        
+                        // 顯示檢查進度
+                        updateCheckProgress(0, savedPages.length);
+                        
+                        // 批量檢查（避免 API 速率限制）
+                        for (let i = 0; i < savedPages.length; i++) {
+                            const page = savedPages[i];
                             
-                            plan.items.push({
-                                key,
-                                url: key.replace('highlights_', ''),
-                                size: itemSize,
-                                reason: '空白頁面記錄'
-                            });
+                            // 更新進度
+                            updateCheckProgress(i + 1, savedPages.length);
                             
-                            plan.spaceFreed += itemSize;
+                            if (!page.data || !page.data.notionPageId) {
+                                console.log(`⏭️ 跳過無效頁面: ${page.url}`);
+                                continue;
+                            }
+                            
+                            try {
+                                // 檢查 Notion 頁面是否存在
+                                const exists = await checkNotionPageExists(page.data.notionPageId);
+                                
+                                if (!exists) {
+                                    // 頁面已刪除，添加到清理計劃
+                                    const savedKey = page.key;
+                                    const highlightsKey = `highlights_${page.url}`;
+                                    
+                                    const savedSize = new Blob([JSON.stringify({[savedKey]: page.data})]).size;
+                                    const highlightsData = data[highlightsKey];
+                                    const highlightsSize = highlightsData ? new Blob([JSON.stringify({[highlightsKey]: highlightsData})]).size : 0;
+                                    const totalSize = savedSize + highlightsSize;
+                                    
+                                    // 添加兩個項目（saved_ 和 highlights_）
+                                    plan.items.push({
+                                        key: savedKey,
+                                        url: page.url,
+                                        size: savedSize,
+                                        reason: '已刪除頁面的保存狀態'
+                                    });
+                                    
+                                    if (highlightsData) {
+                                        plan.items.push({
+                                            key: highlightsKey,
+                                            url: page.url,
+                                            size: highlightsSize,
+                                            reason: '已刪除頁面的標註數據'
+                                        });
+                                    }
+                                    
+                                    plan.spaceFreed += totalSize;
+                                    plan.deletedPages++;
+                                    
+                                    console.log(`❌ 頁面已刪除: ${page.url} (${(totalSize / 1024).toFixed(1)} KB)`);
+                                }
+                                
+                                // 避免 API 速率限制（Notion: 3 requests/second）
+                                if (i < savedPages.length - 1) {
+                                    await new Promise(resolve => setTimeout(resolve, 350));
+                                }
+                                
+                            } catch (error) {
+                                console.error(`檢查頁面失敗: ${page.url}`, error);
+                                // 繼續處理下一個頁面
+                            }
                         }
                     }
                     
@@ -653,14 +776,28 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
+        // 輔助函數：檢查 Notion 頁面是否存在
+        async function checkNotionPageExists(pageId) {
+            try {
+                const response = await chrome.runtime.sendMessage({
+                    action: 'checkNotionPageExists',
+                    pageId: pageId
+                });
+                return response && response.exists === true;
+            } catch (error) {
+                console.error('檢查頁面存在失敗:', error);
+                return true; // 發生錯誤時假設頁面存在（安全策略）
+            }
+        }
+        
         function displayCleanupPreview(plan) {
             cleanupPreview.className = 'cleanup-preview show';
             
             if (plan.items.length === 0) {
                 cleanupPreview.innerHTML = `
                     <div class="cleanup-summary">
-                        <strong>✅ 沒有發現空白頁面記錄</strong>
-                        <p>所有頁面記錄都包含標記數據，無需清理。</p>
+                        <strong>✅ 沒有發現需要清理的數據</strong>
+                        <p>所有頁面記錄都是有效的，無需清理。</p>
                     </div>
                 `;
                 return;
@@ -668,12 +805,26 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const spaceMB = (plan.spaceFreed / (1024 * 1024)).toFixed(3);
             
+            let summaryText = '🧹 安全清理預覽\n\n將清理：\n';
+            if (plan.emptyPages > 0) {
+                summaryText += `• ${plan.emptyPages} 個空白頁面記錄\n`;
+            }
+            if (plan.deletedPages > 0) {
+                summaryText += `• ${plan.deletedPages} 個已刪除頁面的數據\n`;
+            }
+            summaryText += `\n釋放約 ${spaceMB} MB 空間`;
+            
             cleanupPreview.innerHTML = `
                 <div class="cleanup-summary">
                     <strong>🧹 安全清理預覽</strong>
-                    <p>將清理 <strong>${plan.totalKeys}</strong> 個空白頁面記錄，釋放約 <strong>${spaceMB} MB</strong> 空間</p>
+                    <p>${summaryText.split('\n').filter(line => line).map(line => {
+                        if (line.includes('將清理：')) return `<strong>${line.replace('將清理：', '')}</strong>`;
+                        if (line.startsWith('•')) return line;
+                        if (line.includes('釋放約')) return `<br>${line}`;
+                        return line;
+                    }).join('<br>')}</p>
                     <div class="warning-notice">
-                        ⚠️ <strong>重要提醒：</strong>這只會清理擴展中的空白記錄，<strong>絕對不會影響您在 Notion 中保存的任何頁面</strong>。
+                        ⚠️ <strong>重要提醒：</strong>這只會清理擴展中的無效記錄，<strong>絕對不會影響您在 Notion 中保存的任何頁面</strong>。
                     </div>
                 </div>
                 <div class="cleanup-list">

@@ -371,8 +371,15 @@ function normalizeUrl(rawUrl) {
  * Clears the local state for a specific page
  */
 function clearPageState(pageUrl) {
-    chrome.storage.local.remove([`saved_${pageUrl}`]);
-    console.log('Cleared local state for:', pageUrl);
+    const savedKey = `saved_${pageUrl}`;
+    const highlightsKey = `highlights_${pageUrl}`;
+    
+    // v2.7.1: 同時刪除保存狀態和標註數據
+    chrome.storage.local.remove([savedKey, highlightsKey], () => {
+        console.log('✅ Cleared all data for:', pageUrl);
+        console.log('  - Saved state:', savedKey);
+        console.log('  - Highlights:', highlightsKey);
+    });
 }
 
 /**
@@ -432,6 +439,34 @@ async function checkNotionPageExists(pageId, apiKey) {
     } catch (error) {
         console.error('Error checking page existence:', error);
         return false;
+    }
+}
+
+/**
+ * v2.7.1: 處理檢查 Notion 頁面是否存在的消息請求（用於數據清理）
+ */
+async function handleCheckNotionPageExistsMessage(request, sendResponse) {
+    try {
+        const { pageId } = request;
+        
+        if (!pageId) {
+            sendResponse({ success: false, error: 'Page ID is required' });
+            return;
+        }
+        
+        const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
+        
+        if (!config.notionApiKey) {
+            sendResponse({ success: false, error: 'Notion API Key not configured' });
+            return;
+        }
+        
+        const exists = await checkNotionPageExists(pageId, config.notionApiKey);
+        sendResponse({ success: true, exists: exists });
+        
+    } catch (error) {
+        console.error('handleCheckNotionPageExistsMessage error:', error);
+        sendResponse({ success: false, error: error.message });
     }
 }
 
@@ -878,6 +913,9 @@ function handleMessage(request, sender, sendResponse) {
         switch (request.action) {
             case 'checkPageStatus':
                 handleCheckPageStatus(sendResponse);
+                break;
+            case 'checkNotionPageExists':
+                handleCheckNotionPageExistsMessage(request, sendResponse);
                 break;
             case 'startHighlight':
                 handleStartHighlight(sendResponse);
