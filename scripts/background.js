@@ -336,6 +336,78 @@ class ScriptInjector {
 }
 
 // ==========================================
+// NOTION API UTILITIES
+// ==========================================
+
+/**
+ * 分批將區塊添加到 Notion 頁面
+ * Notion API 限制每次最多 100 個區塊
+ * 
+ * @param {string} pageId - Notion 頁面 ID
+ * @param {Array} blocks - 要添加的區塊數組
+ * @param {string} apiKey - Notion API Key
+ * @param {number} startIndex - 開始索引（默認 0）
+ * @returns {Promise<{success: boolean, addedCount: number, totalCount: number}>}
+ */
+async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
+    const BLOCKS_PER_BATCH = 100;
+    const DELAY_BETWEEN_BATCHES = 350; // ms，遵守 Notion API 速率限制（3 req/s）
+    
+    let addedCount = 0;
+    const totalBlocks = blocks.length - startIndex;
+    
+    if (totalBlocks <= 0) {
+        return { success: true, addedCount: 0, totalCount: 0 };
+    }
+    
+    console.log(`📦 準備分批添加區塊: 總共 ${totalBlocks} 個，從索引 ${startIndex} 開始`);
+    
+    try {
+        // 分批處理剩餘區塊
+        for (let i = startIndex; i < blocks.length; i += BLOCKS_PER_BATCH) {
+            const batch = blocks.slice(i, i + BLOCKS_PER_BATCH);
+            const batchNumber = Math.floor((i - startIndex) / BLOCKS_PER_BATCH) + 1;
+            const totalBatches = Math.ceil(totalBlocks / BLOCKS_PER_BATCH);
+            
+            console.log(`📤 發送批次 ${batchNumber}/${totalBatches}: ${batch.length} 個區塊`);
+            
+            const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    'Notion-Version': '2022-06-28'
+                },
+                body: JSON.stringify({
+                    children: batch
+                })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`❌ 批次 ${batchNumber} 失敗:`, errorText);
+                throw new Error(`批次添加失敗: ${response.status} - ${errorText}`);
+            }
+            
+            addedCount += batch.length;
+            console.log(`✅ 批次 ${batchNumber} 成功: 已添加 ${addedCount}/${totalBlocks} 個區塊`);
+            
+            // 如果還有更多批次，添加延遲以遵守速率限制
+            if (i + BLOCKS_PER_BATCH < blocks.length) {
+                await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+            }
+        }
+        
+        console.log(`🎉 所有區塊添加完成: ${addedCount}/${totalBlocks}`);
+        return { success: true, addedCount, totalCount: totalBlocks };
+        
+    } catch (error) {
+        console.error(`❌ 分批添加區塊失敗:`, error);
+        return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
+    }
+}
+
+// ==========================================
 // URL UTILITIES MODULE
 // ==========================================
 
@@ -514,6 +586,17 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
         if (response.ok) {
             const responseData = await response.json();
             const notionPageId = responseData.id;
+            
+            // 如果區塊數量超過 100，分批添加剩餘區塊
+            if (blocks.length > 100) {
+                console.log(`📚 檢測到超長文章: ${blocks.length} 個區塊，需要分批添加`);
+                const appendResult = await appendBlocksInBatches(notionPageId, blocks, apiKey, 100);
+                
+                if (!appendResult.success) {
+                    console.warn(`⚠️ 部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`, appendResult.error);
+                    // 即使部分失敗，頁面已創建，仍然保存記錄
+                }
+            }
 
             setSavedPageData(pageUrl, {
                 title: title,
@@ -573,6 +656,17 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
         });
 
         if (updateResponse.ok) {
+            // 如果區塊數量超過 100，分批添加剩餘區塊
+            if (blocks.length > 100) {
+                console.log(`📚 檢測到超長文章: ${blocks.length} 個區塊，需要分批添加`);
+                const appendResult = await appendBlocksInBatches(pageId, blocks, apiKey, 100);
+                
+                if (!appendResult.success) {
+                    console.warn(`⚠️ 部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`, appendResult.error);
+                    // 即使部分失敗，頁面已更新，仍然繼續
+                }
+            }
+            
             const titleUpdatePromise = fetch(`https://api.notion.com/v1/pages/${pageId}`, {
                 method: 'PATCH',
                 headers: {
