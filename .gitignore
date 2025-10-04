@@ -1,6 +1,12 @@
 *.pem
 .DS_Store
 
+# ============================================================
+# 🔒 GitHub 同步安全策略
+# 默認原則：除了核心代碼和正式發布文檔，其他文件默認不同步
+# 詳細策略見 GITHUB_SYNC_POLICY.md（內部文檔，不同步）
+# ============================================================
+
 # 測試和開發文件
 *test.html
 *-test.html
@@ -23,6 +29,7 @@ test-report-*.md
 /tmp/notion-clipper-tests/
 
 # 開發文檔（包含本地路徑或內部信息）
+GITHUB_SYNC_POLICY.md
 PROJECT_STANDARDS.md
 STANDARDS_SETUP_COMPLETE.md
 AI_AGENT_QUICK_REF.md
