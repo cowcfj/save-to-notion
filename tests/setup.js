@@ -1,25 +1,17 @@
 /**
  * Jest 測試環境設置
  * 配置全局 mocks 和測試工具
+ * 
+ * 注意：使用 jest.config.js 中的 testEnvironment: 'jsdom'
+ * Jest 會自動提供 DOM 環境，無需手動創建 JSDOM
  */
 
-// 導入 JSDOM 用於 DOM 測試
-const { JSDOM } = require('jsdom');
-
-// 創建一個基本的 DOM 環境
-const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
-  url: 'https://example.com',
-  pretendToBeVisual: true,
-  resources: 'usable'
-});
-
-// 將 DOM 全局對象暴露給測試
-global.window = dom.window;
-global.document = dom.window.document;
-global.navigator = dom.window.navigator;
-global.HTMLElement = dom.window.HTMLElement;
-global.Element = dom.window.Element;
-global.Node = dom.window.Node;
+// 確保 TextEncoder/TextDecoder 可用（某些 Node 版本需要）
+if (typeof global.TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
 
 // 導入 Chrome API mock
 require('./mocks/chrome');

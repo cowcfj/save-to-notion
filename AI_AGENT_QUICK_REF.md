@@ -78,7 +78,7 @@ RELEASE_NOTES_v*.md       → 個別發布公告（50-80行）
 
 ### ❌ 內部文件（.gitignore 排除）
 - `PROJECT_STANDARDS.md`
-- `PROJECT_ROADMAP.md`
+- `GOALS.md` ⚠️ 項目規劃（內部）
 - `*_COMPLETE.md`
 - `*_INTERNAL.md`
 - `*_LOCAL.md`

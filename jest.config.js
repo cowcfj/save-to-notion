@@ -1,6 +1,6 @@
 module.exports = {
-  // 測試環境
-  testEnvironment: 'node',
+  // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
+  testEnvironment: 'jsdom',
   
   // 測試設置文件
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],

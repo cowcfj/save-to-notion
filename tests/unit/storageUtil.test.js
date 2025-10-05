@@ -5,7 +5,6 @@
 
 describe('StorageUtil', () => {
     let mockChrome;
-    let mockLocalStorage;
 
     beforeEach(() => {
         // Mock normalizeUrl function
@@ -48,23 +47,14 @@ describe('StorageUtil', () => {
         };
         global.chrome = mockChrome;
 
-        // Mock localStorage
-        mockLocalStorage = {
-            data: {},
-            setItem: jest.fn((key, value) => {
-                mockLocalStorage.data[key] = value;
-            }),
-            getItem: jest.fn((key) => {
-                return mockLocalStorage.data[key] || null;
-            }),
-            removeItem: jest.fn((key) => {
-                delete mockLocalStorage.data[key];
-            }),
-            clear: jest.fn(() => {
-                mockLocalStorage.data = {};
-            })
-        };
-        global.localStorage = mockLocalStorage;
+        // 清空 localStorage（jsdom 原生）
+        global.localStorage.clear();
+        
+        // 使用 spyOn 監控 localStorage 方法
+        jest.spyOn(global.localStorage, 'setItem');
+        jest.spyOn(global.localStorage, 'getItem');
+        jest.spyOn(global.localStorage, 'removeItem');
+        jest.spyOn(global.localStorage, 'clear');
 
         // Mock console 方法
         global.console = {
@@ -202,7 +192,7 @@ describe('StorageUtil', () => {
 
     afterEach(() => {
         jest.clearAllMocks();
-        mockLocalStorage.clear();
+        localStorage.clear();
     });
 
     describe('saveHighlights', () => {
@@ -232,7 +222,7 @@ describe('StorageUtil', () => {
 
             await StorageUtil.saveHighlights(testUrl, testData);
 
-            expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+            expect(localStorage.setItem).toHaveBeenCalledWith(
                 `highlights_${normalizeUrl(testUrl)}`,
                 JSON.stringify(testData)
             );
@@ -330,12 +320,12 @@ describe('StorageUtil', () => {
             });
             
             // localStorage 有數據
-            mockLocalStorage.getItem = jest.fn(() => JSON.stringify(testData));
+            localStorage.getItem = jest.fn(() => JSON.stringify(testData));
 
             const result = await StorageUtil.loadHighlights(testUrl);
 
             expect(result).toEqual(testData);
-            expect(mockLocalStorage.getItem).toHaveBeenCalled();
+            expect(localStorage.getItem).toHaveBeenCalled();
         });
 
         test('應該處理不存在的 URL', async () => {
@@ -358,7 +348,7 @@ describe('StorageUtil', () => {
             });
             
             // localStorage 返回無效 JSON
-            mockLocalStorage.getItem = jest.fn(() => 'invalid json{');
+            localStorage.getItem = jest.fn(() => 'invalid json{');
 
             const result = await StorageUtil.loadHighlights(testUrl);
 
@@ -393,7 +383,7 @@ describe('StorageUtil', () => {
                 [`highlights_${normalizeUrl(testUrl)}`],
                 expect.any(Function)
             );
-            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(
+            expect(localStorage.removeItem).toHaveBeenCalledWith(
                 `highlights_${normalizeUrl(testUrl)}`
             );
         });
@@ -406,7 +396,7 @@ describe('StorageUtil', () => {
 
             await StorageUtil.clearHighlights(testUrl);
 
-            expect(mockLocalStorage.removeItem).toHaveBeenCalled();
+            expect(localStorage.removeItem).toHaveBeenCalled();
             
             // 恢復 chrome
             global.chrome = mockChrome;

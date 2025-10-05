@@ -7,6 +7,7 @@ const { normalizeUrl, StorageUtil, Logger } = require('../helpers/utils.testable
 
 describe('utils.js - 模組測試', () => {
   let originalGet, originalSet, originalRemove, originalStorage;
+  let mockLocalStorage;
 
   beforeEach(() => {
     // 保存原始 chrome.storage（以防被刪除）
@@ -39,20 +40,23 @@ describe('utils.js - 模組測試', () => {
       global.localStorage._reset();
     }
 
-    // 重置 localStorage mock 實現
-    const store = global.localStorage._getStore();
-    
-    global.localStorage.setItem = jest.fn((key, value) => {
-      store[key] = value.toString();
-    });
-
-    global.localStorage.getItem = jest.fn((key) => {
-      return store[key] !== undefined ? store[key] : null;
-    });
-
-    global.localStorage.removeItem = jest.fn((key) => {
-      delete store[key];
-    });
+    // 替換 localStorage 為完全可控的 mock
+    mockLocalStorage = {
+      data: {},
+      setItem: jest.fn((key, value) => {
+        mockLocalStorage.data[key] = value;
+      }),
+      getItem: jest.fn((key) => {
+        return mockLocalStorage.data[key] || null;
+      }),
+      removeItem: jest.fn((key) => {
+        delete mockLocalStorage.data[key];
+      }),
+      clear: jest.fn(() => {
+        mockLocalStorage.data = {};
+      })
+    };
+    global.localStorage = mockLocalStorage;
   });
 
   afterEach(() => {
@@ -70,6 +74,8 @@ describe('utils.js - 模組測試', () => {
     
     // 清除錯誤狀態
     chrome.runtime.lastError = null;
+    
+    // 不使用 jest.restoreAllMocks()，因為我們手動管理 localStorage mock
   });
 
   describe('normalizeUrl', () => {
@@ -151,12 +157,12 @@ describe('utils.js - 模組測試', () => {
       // 模擬 chrome.storage 錯誤
       chrome.storage.local.set = jest.fn((items, callback) => {
         chrome.runtime.lastError = { message: 'Quota exceeded' };
-        callback();
+        setTimeout(() => callback(), 0);  // 確保 lastError 設置後才調用 callback
       });
 
       await StorageUtil.saveHighlights(url, highlights);
 
-      expect(localStorage.setItem).toHaveBeenCalled();
+      expect(mockLocalStorage.setItem).toHaveBeenCalled();
     });
 
     test('應該處理 localStorage 保存失敗', async () => {
@@ -241,8 +247,7 @@ describe('utils.js - 模組測試', () => {
       const highlights = [{ text: 'legacy' }];
 
       const key = 'highlights_https://example.com/page';
-      const store = global.localStorage._getStore();
-      store[key] = JSON.stringify(highlights);
+      global.localStorage.setItem(key, JSON.stringify(highlights));
 
       const result = await StorageUtil.loadHighlights(url);
       expect(result).toEqual(highlights);
@@ -256,8 +261,7 @@ describe('utils.js - 模組測試', () => {
       };
 
       const key = 'highlights_https://example.com/page';
-      const store = global.localStorage._getStore();
-      store[key] = JSON.stringify(data);
+      global.localStorage.setItem(key, JSON.stringify(data));
 
       const result = await StorageUtil.loadHighlights(url);
       expect(result).toEqual(data.highlights);
@@ -307,8 +311,7 @@ describe('utils.js - 模組測試', () => {
       });
 
       const key = 'highlights_https://example.com/page';
-      const store = global.localStorage._getStore();
-      store[key] = JSON.stringify(highlights);
+      global.localStorage.setItem(key, JSON.stringify(highlights));
 
       const result = await StorageUtil.loadHighlights(url);
       expect(result).toEqual(highlights);
@@ -332,12 +335,11 @@ describe('utils.js - 模組測試', () => {
       const url = 'https://example.com/page';
       
       const key = 'highlights_https://example.com/page';
-      const store = global.localStorage._getStore();
-      store[key] = JSON.stringify([{ text: 'test' }]);
+      global.localStorage.setItem(key, JSON.stringify([{ text: 'test' }]));
 
       await StorageUtil.clearHighlights(url);
 
-      expect(localStorage.removeItem).toHaveBeenCalled();
+      expect(removeItemSpy).toHaveBeenCalled();
     });
 
     test('應該處理 chrome.storage 錯誤', async () => {
@@ -351,7 +353,7 @@ describe('utils.js - 模組測試', () => {
       await StorageUtil.clearHighlights(url);
 
       // 應該仍然完成，不拋出錯誤
-      expect(localStorage.removeItem).toHaveBeenCalled();
+      expect(mockLocalStorage.removeItem).toHaveBeenCalled();
     });
 
     test('應該處理 chrome.storage 不可用的情況', async () => {
@@ -362,12 +364,11 @@ describe('utils.js - 模組測試', () => {
       });
 
       const key = 'highlights_https://example.com/page';
-      const store = global.localStorage._getStore();
-      store[key] = JSON.stringify([{ text: 'test' }]);
+      global.localStorage.setItem(key, JSON.stringify([{ text: 'test' }]));
 
       await StorageUtil.clearHighlights(url);
 
-      expect(localStorage.removeItem).toHaveBeenCalled();
+      expect(removeItemSpy).toHaveBeenCalled();
     });
   });
 
