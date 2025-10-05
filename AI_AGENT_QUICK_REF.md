@@ -14,15 +14,24 @@
 
 ```markdown
 ## 🔴 主要修復
-- ✅ 要點1
-- ✅ 要點2
+- ✅ 要點1（一行說明）
+- ✅ 要點2（一行說明）
 
 ## 📚 詳細資訊
-- **完整更新日誌：** [CHANGELOG連結]
+- **完整更新日誌：** [CHANGELOG.md](link)
 ```
 
-❌ 避免：過度詳細的技術說明、完整程式碼範例  
-✅ 應該：核心要點、使用者可見改進、詳細連結
+❌ **絕對禁止：**
+- 過度詳細的技術說明
+- 完整程式碼範例
+- 多段落的實現細節
+- 超過 80 行的 Release Notes
+
+✅ **必須遵守：**
+- 每個要點一行（最多兩行）
+- 只寫使用者可見的改進
+- 技術細節放在 CHANGELOG.md
+- 提供"完整更新日誌"連結
 
 ### 3️⃣ Chrome Web Store 連結
 ```
@@ -38,12 +47,28 @@ https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnd
 
 ## 📂 文件分類
 
-### 📚 版本文檔分工
+### 📚 文檔三層策略
 ```
-CHANGELOG.md              → 完整版本歷史（開發者參考）
-RELEASE_NOTES_v*.md       → 簡潔發布公告（使用者導向）
-⚠️ 不要創建 CHANGELOG_v*.md  → 避免功能重疊
+README.md                 → 用戶入口（簡潔，~200行）
+CHANGELOG.md              → 完整技術歷史（分組折疊）
+RELEASE_NOTES_v*.md       → 個別發布公告（50-80行）
 ```
+
+**README.md 更新規則：**
+- 小版本 (v2.7.2→v2.7.3): 只更新當前版本描述
+- 大版本 (v2.7.x→v2.8.0): v2.7.x 合併為摘要，突出 v2.8.0
+
+**CHANGELOG.md 規則：**
+- ✅ 永遠不刪除歷史記錄
+- ✅ 使用 `<details>` 折疊舊版本
+- ✅ 按主要版本分組 (v2.7.x, v2.6.x, v2.5.x)
+
+**RELEASE_NOTES 規則：**
+- ✅ 每個版本獨立文件 (RELEASE_NOTES_v2.7.3.md)
+- ✅ 永遠不合併或刪除
+- ✅ 50-80 行，簡潔為主
+
+⚠️ **不要創建：** CHANGELOG_v*.md（與 RELEASE_NOTES 功能重疊）
 
 ### ✅ 可發布（推送到 GitHub）
 - `README.md`
