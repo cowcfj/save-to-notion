@@ -1,14 +1,16 @@
 {
   "name": "notion-chrome",
-  "version": "2.6.2",
-  "description": "一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.6.2 最新版本**：修復標註遷移問題，支持智能 Icon 選擇、封面圖提取、增強的圖片提取、原生 CSS Highlight API 標註系統和多顏色標註！",
+  "version": "2.7.3",
+  "description": "一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.7.3 最新版本**：修復超長文章內容截斷問題，支持完整保存任意長度的文章！支持智能 Icon 選擇、封面圖提取、原生 CSS Highlight API 標註系統和多顏色標註！",
   "main": "index.js",
   "directories": {
     "lib": "lib",
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "repository": {
     "type": "git",
@@ -21,5 +23,9 @@
   "bugs": {
     "url": "https://github.com/cowcfj/save-to-notion/issues"
   },
-  "homepage": "https://github.com/cowcfj/save-to-notion#readme"
+  "homepage": "https://github.com/cowcfj/save-to-notion#readme",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0"
+  }
 }

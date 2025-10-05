@@ -546,6 +546,10 @@ async function handleCheckNotionPageExistsMessage(request, sendResponse) {
  * Saves new content to Notion as a new page
  */
 async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon = null) {
+    // 開始性能監控 (service worker 環境，使用原生 Performance API)
+    const startTime = performance.now();
+    console.log('⏱️ 開始保存到 Notion...');
+
     const notionApiUrl = 'https://api.notion.com/v1/pages';
 
     const pageData = {
@@ -604,6 +608,9 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
                 notionPageId: notionPageId,
                 notionUrl: responseData.url || null
             }, () => {
+                // 結束性能監控 (service worker 環境)
+                const duration = performance.now() - startTime;
+                console.log(`⏱️ 保存到 Notion 完成: ${duration.toFixed(2)}ms`);
                 sendResponse({ success: true, notionPageId: notionPageId });
             });
         } else {
@@ -1023,6 +1030,7 @@ function handleMessage(request, sender, sendResponse) {
             case 'savePage':
                 handleSavePage(sendResponse);
                 break;
+
             default:
                 sendResponse({ success: false, error: 'Unknown action' });
         }
@@ -2126,3 +2134,15 @@ chrome.runtime.onInstalled.addListener(() => {
 // Setup all services
 setupMessageHandlers();
 setupTabListeners();
+
+// ============================================================
+// 模組導出 (用於測試)
+// ============================================================
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    normalizeUrl,
+    cleanImageUrl,
+    isValidImageUrl,
+    appendBlocksInBatches
+  };
+}
