@@ -1,11 +1,26 @@
 *.pem
-.DS_Store
+.DS# 內部文檔目錄(所有內部開發文檔)
+internal/
+archive/
 
-# ============================================================
+# 測試相關文件
+*test.html
+*-test.html
+test-*.html
+template-test.html
+highlight-test.html
+debug-test.html
+coverage/
+.nyc_output/
+*.lcov===========================================================
 # 🔒 GitHub 同步安全策略
 # 默認原則：除了核心代碼和正式發布文檔，其他文件默認不同步
-# 詳細策略見 GITHUB_SYNC_POLICY.md（內部文檔，不同步）
+# 詳細策略見 internal/guides/GITHUB_SYNC_POLICY.md
 # ============================================================
+
+# 內部文檔目錄（所有內部開發文檔）
+internal/
+archive/
 
 # 測試和開發文件
 *test.html
@@ -28,26 +43,102 @@ test-report-*.json
 test-report-*.md
 /tmp/notion-clipper-tests/
 
-# 開發文檔（包含本地路徑或內部信息）
-GITHUB_SYNC_POLICY.md
-PROJECT_STANDARDS.md
-STANDARDS_SETUP_COMPLETE.md
-AI_AGENT_QUICK_REF.md
-GIT_PUSH_CHECKLIST.md
-QUICK_START.md
-MCP_SETUP.md
+# ============================================================
+# 📂 內部開發文檔（不同步到 GitHub）
+# ============================================================
+
+# AI Agent 指南和內部文檔
+Agents.md
+AI_*.md
 *_INTERNAL.md
 *_LOCAL.md
+
+# 項目規劃和策略文檔
+PROJECT_ROADMAP.md
+PROJECT_STANDARDS.md
+PROJECT_EVALUATION_REPORT.md
+GITHUB_SYNC_POLICY.md
+DOCUMENTATION_STRATEGY.md
+STANDARDS_SETUP_COMPLETE.md
+GOALS.md
+
+# 設置和配置指南
+QUICK_START.md
+MCP_SETUP.md
 MCP_SETUP_GUIDE.md
-DEPLOYMENT_CHECKLIST.md
+GIT_PUSH_CHECKLIST.md
+diagnose-mcp.md
+
+# 測試文檔
 TESTING_GUIDE.md
 TESTING_GUIDE_*.md
-diagnose-mcp.md
 TEST_GUIDE_*.md
 TEST_RESULTS_*.md
 TEST_v*.md
-VERSION_SUMMARY_*.md
+TEST_E2E_MCP_GUIDE.md
+
+# 清理和優化報告
+CLEANUP_*.md
+DATA_CLEANUP_ANALYSIS.md
+DATA_OPTIMIZATION_GUIDE.md
+DATA_PROTECTION_GUIDE.md
+NODE_MODULES_CLEANUP_REPORT.md
+NODE_MODULES_EXPLANATION.md
+
+# 修復和調試文檔
+FIX_COMPLETE_*.md
+DEBUG_*.md
+DIAGNOSTIC_*.md
+HIGHLIGHT_MIGRATION_ISSUE.md
+HIGHLIGHT_SYNC_DIAGNOSTIC.md
+
+# 發布流程文檔
+DEPLOYMENT_CHECKLIST.md
+RELEASE_CHECKLIST_*.md
+RELEASE_COMPLETE_*.md
+CHROME_STORE_GUIDE.md
+GITHUB_RELEASE_GUIDE_*.md
+GITHUB_RELEASE_TEMPLATE.md
+GITHUB_RELEASE_v*.md
+PUBLISH_CHECKLIST.md
+
+# 功能規格和計劃文檔
+*_SPEC.md
+*_PLAN.md
+GOOGLE_DRIVE_BACKUP_SPEC.md
+HIGHLIGHTER_UPGRADE_PLAN.md
+LOGGER_OPTIMIZATION_PLAN.md
+MIGRATION_GUIDE.md
+SEAMLESS_MIGRATION.md
+
+# 技術指南（內部）
+IMAGE_EXTRACTION_GUIDE.md
+UPGRADE_DATA_SAFETY.md
+
+# 臨時工作文檔
+IMMEDIATE_ACTION_PLAN.md
 CODE_REVIEW_REPORT.md
+DOCUMENT_REVIEW_REPORT.md
+PERFORMANCE_*.md
+INTEGRATION_SUMMARY.md
+PROJECT_PROGRESS_REPORT.md
+
+# 版本總結（內部）
+VERSION_SUMMARY_*.md
+
+# 短期發布說明（保留完整版本）
+RELEASE_NOTES_SHORT_*.md
+
+# UI 改進文檔（內部）
+UI_IMPROVEMENT_*.md
+
+# 用戶指南（版本特定，內部）
+USER_GUIDE_v*.md
+
+# 備份文檔
+*_BACKUP.md
+README_BACKUP.md
+PROJECT_EVALUATION_REPORT_OLD.md
 CLEANUP_REPORT_*.md
 CLEANUP_COMPLETE_REPORT.md
 CLEANUP_PLAN.md
@@ -119,7 +210,13 @@ cleanup.sh
 .vscode/
 
 # 內部目錄（不應公開）
-tests/
+# tests/ - 注意: 保留 Jest 測試,只排除 E2E 測試
+tests/*.html
+tests/*.js
+tests/results/
+tests/SUMMARY.md
+!tests/mocks/
+!tests/unit/
 archive/
 demos/
 promo-images/
