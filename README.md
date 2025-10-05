@@ -1,6 +1,7 @@
 # Notion Smart Clipper v2.7.3
 
 [![Tests](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-20%25-green.svg)](TEST_COVERAGE_MILESTONE_20_PERCENT.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion。**v2.7.3 最新版本**：🐛 修復超長文章內容截斷問題，支持完整保存任意長度的文章！
@@ -189,6 +190,34 @@ notion-chrome/
 ├── lib/                   # 第三方庫
 │   └── Readability.js     # Mozilla Readability
 └── icons/                 # 圖標文件
+```
+
+---
+
+## 🧪 測試覆蓋率
+
+當前測試覆蓋率：**20.00%** ✅ ([詳細報告](TEST_COVERAGE_MILESTONE_20_PERCENT.md))
+
+```
+Coverage Summary
+-------------------------------|---------|----------|---------|---------|
+File                           | % Stmts | % Branch | % Funcs | % Lines |
+-------------------------------|---------|----------|---------|---------|
+All files                      |   20.00 |    27.75 |   23.90 |   19.36 |
+tests/helpers/                 |   94.70 |    90.32 |  100.00 |   94.77 |
+-------------------------------|---------|----------|---------|---------|
+```
+
+**測試統計：**
+- 總測試數：608 個
+- 測試通過率：100%
+- 測試套件：12 個
+- 執行時間：1.985 秒
+
+**運行測試：**
+```bash
+npm test                    # 運行所有測試
+npm test -- --coverage      # 生成覆蓋率報告
 ```
 
 ---

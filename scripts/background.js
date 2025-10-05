@@ -2143,6 +2143,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeUrl,
     cleanImageUrl,
     isValidImageUrl,
+    splitTextForHighlight,
     appendBlocksInBatches
   };
 }

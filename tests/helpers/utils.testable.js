@@ -1,10 +1,29 @@
 // 共享工具函數
 // 此腳本包含所有內容腳本共用的工具函數
+// 測試專用版本 - 可在 Node.js 環境中導出
+
+// 模擬瀏覽器環境（如果不存在）
+if (typeof window === 'undefined') {
+  global.window = {
+    StorageUtil: undefined,
+    Logger: undefined,
+    normalizeUrl: undefined,
+    location: { href: 'https://example.com' }
+  };
+}
 
 // 防止重複注入導致的重複聲明錯誤
-if (typeof window.StorageUtil !== 'undefined') {
+const isReinjection = typeof window.StorageUtil !== 'undefined';
+if (isReinjection) {
     console.log('⚠️ utils.js 已經加載，跳過重複注入');
-    // 不執行後續代碼
+    // 對於測試環境，仍然導出現有的函數
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = {
+        normalizeUrl: window.normalizeUrl,
+        StorageUtil: window.StorageUtil,
+        Logger: window.Logger
+      };
+    }
 } else {
 
 /**
@@ -299,3 +318,12 @@ if (typeof window.normalizeUrl === 'undefined') {
 }
 
 } // 結束 else 區塊（如果 utils.js 未加載）
+
+// Node.js/Jest 環境導出
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    normalizeUrl: window.normalizeUrl || normalizeUrl,
+    StorageUtil: window.StorageUtil,
+    Logger: window.Logger
+  };
+}

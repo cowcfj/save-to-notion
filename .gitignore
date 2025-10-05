@@ -49,6 +49,7 @@ test-report-*.md
 
 # AI Agent 指南和內部文檔
 Agents.md
+AI_AGENT_QUICK_REF.md
 *_INTERNAL.md
 *_LOCAL.md
 .github/copilot-instructions.md
@@ -76,6 +77,7 @@ TEST_GUIDE_*.md
 TEST_RESULTS_*.md
 TEST_v*.md
 TEST_E2E_MCP_GUIDE.md
+TEST_COVERAGE_*.md
 
 # 清理和優化報告
 CLEANUP_*.md
@@ -209,13 +211,16 @@ cleanup.sh
 .vscode/
 
 # 內部目錄（不應公開）
-# tests/ - 注意: 保留 Jest 測試,只排除 E2E 測試
+# tests/ - 注意: 保留 Jest 測試,只排除 E2E 測試和內部文檔
 tests/*.html
 tests/*.js
+tests/*.md
 tests/results/
 tests/SUMMARY.md
 !tests/mocks/
 !tests/unit/
+!tests/helpers/
+!tests/setup.js
 archive/
 demos/
 promo-images/

@@ -12,6 +12,57 @@
 
 ## [v2.7.x] - Current
 
+### [Unreleased] - 2025-10-06
+
+### 🧪 測試改進
+
+#### 測試覆蓋率達到 20% 里程碑
+- **成就**：測試覆蓋率從 14.70% 提升至 20.00%（+5.30%，相對增長 36.05%）
+- **測試數量**：從 420 個增至 608 個（+188 個，+44.76%）
+- **測試通過率**：100%（608/608）
+- **詳細報告**：[測試覆蓋率里程碑報告](TEST_COVERAGE_MILESTONE_20_PERCENT.md)
+
+#### 新增測試模組（tests/helpers/background-utils.testable.js）
+創建了包含 19 個工具函數的新測試模組（97.56% 覆蓋率），188 個測試用例：
+
+1. **URL 處理模組（4 函數，81 測試）**：
+   - `cleanImageUrl`：清理代理 URL、移除重複參數
+   - `isValidImageUrl`：驗證圖片 URL 格式、協議、擴展名
+   - `splitTextForHighlight`：智能分割長文本（Notion 2000 字符限制）
+   - `normalizeUrl`：標準化 URL（移除追蹤參數、fragment）
+
+2. **批次處理模組（2 函數，39 測試）**：
+   - `splitIntoBatches`：將數組分割成固定大小批次
+   - `calculateBatchStats`：計算批次統計信息
+
+3. **Notion 區塊構建模組（5 函數，40 測試）**：
+   - `createNotionRichText`：創建富文本對象
+   - `createNotionParagraph`：創建段落區塊
+   - `createNotionHeading`：創建標題區塊（H1-H3）
+   - `createNotionImage`：創建圖片區塊
+   - `isValidNotionBlock`：驗證 Notion 區塊結構
+
+4. **HTTP 狀態碼模組（5 函數，12 測試）**：
+   - `isSuccessStatusCode`：判斷 2xx 成功狀態
+   - `isRedirectStatusCode`：判斷 3xx 重定向
+   - `isClientErrorStatusCode`：判斷 4xx 客戶端錯誤
+   - `isServerErrorStatusCode`：判斷 5xx 服務器錯誤
+   - `getStatusCodeCategory`：獲取狀態碼類別字符串
+
+5. **工具函數模組（3 函數，32 測試）**：
+   - `truncateText`：智能截斷文本並添加省略號
+   - `safeJsonParse`：安全 JSON 解析（帶默認值）
+   - `safeJsonStringify`：安全 JSON 序列化（處理循環引用）
+
+### 🐛 Bug 修復
+
+#### clearHighlights Promise 超時問題
+- **問題**：`chrome.storage.local.remove()` 不返回 Promise，導致 `Promise.all` 行為不確定
+- **修復**：重構為使用回調包裝的 Promise，確保正確的異步處理
+- **測試**：添加專門測試用例，測試從 50 + 1 skipped → 51 passed
+
+---
+
 ### [v2.7.3] - 2025-10-03
 
 ### 🐛 重要修復
