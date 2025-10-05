@@ -228,7 +228,7 @@ build/
 
 # Node.js 依賴
 node_modules/
-package-lock.json
+# package-lock.json - 需要提交以支持 CI/CD 缓存
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
