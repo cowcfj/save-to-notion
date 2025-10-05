@@ -22,13 +22,28 @@
 
 ### 第一步：安裝擴展
 
-1. 下載項目文件
-2. 打開 Chrome 瀏覽器，訪問 `chrome://extensions/`
-3. 開啟右上角的「**開發者模式**」
-4. 點擊「**載入未封裝項目**」
-5. 選擇項目文件夾
+#### 方法一：從 Chrome 線上應用程式商店安裝（推薦）
 
-✅ 安裝成功後，瀏覽器工具欄會顯示 Notion 圖標
+1. 訪問 [Chrome Web Store - Save to Notion Smart Clipper](https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp) 🔗
+2. 點擊「**加到 Chrome**」按鈕
+3. 在彈出的對話框中點擊「**新增擴充功能**」
+4. ✅ 安裝完成!瀏覽器工具欄會顯示 Notion 圖標
+
+#### 方法二：從源碼安裝（開發者模式）
+
+適合想要使用最新功能或進行自定義的使用者:
+
+1. **下載源碼**
+   - 從 [GitHub Releases](https://github.com/cowcfj/save-to-notion/releases) 下載最新版本
+   - 或克隆倉庫: `git clone https://github.com/cowcfj/save-to-notion.git`
+
+2. **載入擴展**
+   - 打開 Chrome 瀏覽器，訪問 `chrome://extensions/`
+   - 開啟右上角的「**開發者模式**」
+   - 點擊「**載入未封裝項目**」
+   - 選擇下載/克隆的專案資料夾
+
+3. ✅ 安裝成功後，瀏覽器工具欄會顯示 Notion 圖標
 
 ### 第二步：連接 Notion
 
