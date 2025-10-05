@@ -49,9 +49,9 @@ test-report-*.md
 
 # AI Agent 指南和內部文檔
 Agents.md
-AI_*.md
 *_INTERNAL.md
 *_LOCAL.md
+.github/copilot-instructions.md
 
 # 項目規劃和策略文檔
 PROJECT_ROADMAP.md
@@ -188,7 +188,6 @@ UPGRADE_DATA_SAFETY.md
 PROJECT_ROADMAP.md
 # PROJECT_STANDARDS.md - 可發布（專案規範）
 Agents.md
-AI_AGENT_QUICK_REF.md
 PUBLISH_CHECKLIST.md
 GIT_PUSH_CHECKLIST.md
 IMMEDIATE_ACTION_PLAN.md
