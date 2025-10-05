@@ -28,14 +28,16 @@ comment:
 
 # 忽略的文件和目錄
 ignore:
-  - "tests/**"  # 測試文件
-  - "**/*.test.js"
+  - "tests/**/*.test.js"  # 測試文件本身
   - "**/*.spec.js"
   - "node_modules/**"
   - "archive/**"
   - "internal/**"
   - "demos/**"
   - "promo-images/**"
+  - "build/**"
+  - "coverage/**"
+  # 注意：不忽略 tests/helpers/*.testable.js，因為這些是可測試的實際代碼
 
 # Flags 配置（用於追蹤不同類型的測試）
 flags:
@@ -43,3 +45,9 @@ flags:
     paths:
       - scripts/
       - tests/helpers/
+    carryforward: true  # 保留先前的覆蓋率數據
+
+# 說明：
+# - scripts/ 包含實際的 Chrome Extension 代碼（大部分依賴 Chrome API，難以測試）
+# - tests/helpers/*.testable.js 包含從 scripts/ 提取的可測試邏輯
+# - 兩者都計入覆蓋率，因為 testable.js 文件是實際業務邏輯的純函數版本
