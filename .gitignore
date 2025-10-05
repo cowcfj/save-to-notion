@@ -100,9 +100,14 @@ Agents.md
 AI_AGENT_QUICK_REF.md
 PUBLISH_CHECKLIST.md
 GIT_PUSH_CHECKLIST.md
+IMMEDIATE_ACTION_PLAN.md
+PROJECT_EVALUATION_REPORT.md
 
 # 遷移和升級指南（內部技術文檔）
 MIGRATION_GUIDE.md
+
+# 內部測試指南（不發布）
+TEST_E2E_MCP_GUIDE.md
 
 # 構建腳本（開發工具）
 build.sh
