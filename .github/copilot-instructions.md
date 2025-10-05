@@ -20,9 +20,10 @@ Chrome Extension (Manifest V3) for saving web content to Notion with intelligent
 - Supports cross-element selections
 - Automatic migration from legacy `<span>`-based system
 
-**Batch Processing for Long Content**
+**Batch Processing for Long Content (v2.7.3)**
 - Notion API: 100 blocks/request limit
-- Auto-splitting with 350ms delays (rate limiting)
+- Auto-splitting with 350ms delays (rate limiting: 3 req/s)
+- Function: `appendBlocksInBatches(pageId, blocks, apiKey, startIndex)`
 - Graceful degradation on partial failures
 
 **Storage Pattern**
@@ -58,6 +59,7 @@ chrome.storage.local.get(null, console.log) // View all data
 console.log('🚀 [初始化]...') // Initialization
 console.log('📦 [存儲]...')   // Storage
 console.log('🎨 [標註]...')   // Highlights
+console.log('📤 [發送批次 X/Y]...') // Batch processing (v2.7.3)
 console.log('❌ [錯誤]...')   // Errors
 ```
 
@@ -70,32 +72,49 @@ console.log('❌ [錯誤]...')   // Errors
 Update these files together:
 - `manifest.json:version`
 - `package.json:version`
-- `README.md` changelog
-- `CHANGELOG.md` technical details
+- `README.md` (latest version only)
+- `CHANGELOG.md` (complete history with version groups)
+
+## Documentation Strategy
+
+### Three-Tier Approach
+1. **README.md**: User-facing, latest version + recent updates (~170 lines)
+2. **CHANGELOG.md**: Complete technical history, grouped by major versions with `<details>` collapsing
+3. **RELEASE_NOTES_v*.md**: Individual release announcements (50-80 lines each)
+
+**On Major Version Update (e.g., v2.7 → v2.8):**
+- README: Merge v2.7.x into brief summary, highlight v2.8.0 features
+- CHANGELOG: Move v2.7.x to "Archived" section with collapsing, never delete
+- Release Notes: Keep all individual files, never merge
 
 ## Integration Points
 
 ### Notion API (v2022-06-28)
 - Rate limit: 3 requests/second
 - Block limit: 100 per request
-- Use `appendBlocksInBatches()` for large content
+- Use `appendBlocksInBatches()` for content > 100 blocks
+- Batch delay: 350ms between requests
 
 ### Content Extraction
 - Mozilla Readability.js for article parsing
 - Multi-source icon extraction (Apple Touch Icon preferred)
 - Image URL cleaning for proxy/CDN compatibility
+- Author avatar filtering to avoid false cover images
 
 ## Key Files
 
-- `scripts/background.js`: Core business logic
+- `scripts/background.js`: Core business logic (2100+ lines)
 - `scripts/highlighter-v2.js`: Highlight system
 - `manifest.json`: Extension configuration
-- `CHANGELOG.md`: Technical change history
+- `CHANGELOG.md`: Complete technical history (grouped, collapsible)
+- `DOCUMENTATION_STRATEGY.md`: Internal guide (not synced to GitHub)
 
 ## Common Issues
 
-1. Highlight order: Migration must complete before restoration
-2. URL normalization required for all storage operations
-3. Background worker cannot access DOM directly
-4. Check browser support for CSS Highlight API
+1. **Highlight order**: Migration must complete before restoration
+2. **URL normalization**: Required for all storage operations
+3. **Background worker**: Cannot access DOM directly
+4. **CSS Highlight API**: Check browser support (`'highlights' in CSS`)
+5. **Batch processing**: Monitor console for batch progress logs
+6. **Documentation**: Never merge/delete CHANGELOG history; use collapsing for readability
 5. Prevent duplicate saves via `saved_` key tracking
