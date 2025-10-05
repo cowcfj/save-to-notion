@@ -1,6 +1,15 @@
 # Notion Smart Clipper v2.7.3
 
-[![Tests](https://github.com/cowcfj/save-to-notion/actions/workfl## 🚀 快速開始
+[![Tests](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion。**v2.7.3 最新版本**：🐛 修復超長文章內容截斷問題，支持完整保存任意長度的文章！
+
+> 📖 **[完整使用指南](USER_GUIDE.md)** | 包含詳細操作說明、FAQ 和故障排除
+
+---
+
+## 🚀 快速開始
 
 ### 1. 安裝擴展
 
@@ -13,12 +22,17 @@
 2. 打開 `chrome://extensions/`，開啟「開發者模式」
 3. 點擊「載入未封裝項目」，選擇下載的資料夾
 
-### 2. 設置 Notion Integration.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+### 2. 設置 Notion Integration
+1. 點擊擴展圖標 → Settings → 連接到 Notion
+2. 在 Notion 創建 Integration，複製 API Token
+3. 貼上 Token，選擇目標數據庫，保存設置
 
-一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion。**v2.7.3 最新版本**：🐛 修復超長文章內容截斷問題，支持完整保存任意長度的文章！
+### 3. 授權數據庫
+在 Notion 數據庫中：點擊「...」→「Add connections」→ 選擇你的 Integration
 
-> 📖 **[完整使用指南](USER_GUIDE.md)** | 包含詳細操作說明、FAQ 和故障排除
+> � **詳細配置步驟請參考** → [完整使用指南](USER_GUIDE.md#-快速開始)
+
+---
 
 ## 🎬 功能展示
 
