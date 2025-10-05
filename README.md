@@ -4,6 +4,11 @@
 [![codecov](https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## 🏆 近期里程碑
+[![Codecov Success](https://img.shields.io/badge/🎉_Codecov-Integration_Success-success.svg)](CODECOV_INTEGRATION_MILESTONE.md)
+[![Coverage Boost](https://img.shields.io/badge/Coverage-3.02%25_→_19.40%25_(6.4x)-brightgreen.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
+[![Tests Passing](https://img.shields.io/badge/Tests-608%2F608_Passing-success.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
+
 一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion。**v2.7.3 最新版本**：🐛 修復超長文章內容截斷問題，支持完整保存任意長度的文章！
 
 > 📖 **[完整使用指南](USER_GUIDE.md)** | 包含詳細操作說明、FAQ 和故障排除

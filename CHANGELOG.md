@@ -14,6 +14,39 @@
 
 ### [Unreleased] - 2025-10-06
 
+### 🎉 重大里程碑
+
+#### Codecov 集成成功 - 覆蓋率提升 6.4 倍
+- **測試穩定性**：100% 通過率（608/608 測試）
+- **Codecov 集成**：✅ 成功配置並自動化運行
+- **覆蓋率提升**：從 3.02% → 19.40%（542% 提升，6.4倍！）
+- **README 徽章**：修復失效鏈接，改用 Codecov 實時徽章
+- **CI 自動化**：每次推送自動上傳覆蓋率到 Codecov
+- **詳細報告**：[Codecov 集成成功里程碑](CODECOV_INTEGRATION_MILESTONE.md)
+
+#### 技術實施細節
+1. **測試修復**：修復 11 個 localStorage mock 失敗測試
+   - 使用 `jest.spyOn(Storage.prototype)` 解決 jsdom 環境問題
+   - 所有測試現在穩定通過
+
+2. **Codecov 配置**：
+   - 創建 `codecov.yml` 配置文件
+   - 更新 GitHub Actions workflow 添加 `CODECOV_TOKEN`
+   - 解決 429 速率限制錯誤
+   - 配置正確的覆蓋率計算路徑（`scripts/` + `tests/helpers/`）
+
+3. **文檔完善**：
+   - `CODECOV_SETUP.md` - 完整技術指南和故障排除
+   - `CODECOV_TODO.md` - 用戶友好的操作清單
+   - `TEST_COVERAGE_CODECOV_SUCCESS.md` - 里程碑成就報告
+
+#### 影響和價值
+- ✅ 建立完整的測試基礎設施
+- ✅ 實時的覆蓋率監控和追蹤
+- ✅ 自動化的 CI/CD 流程
+- ✅ 提升代碼質量和開發者信心
+- ✅ 為持續改進提供數據支持
+
 ### 🧪 測試改進
 
 #### 測試覆蓋率達到 20% 里程碑
