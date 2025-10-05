@@ -93,10 +93,9 @@ flags:
 
 ## 📚 相關文檔
 
-- [Codecov 設置指南](CODECOV_SETUP.md) - 完整配置說明
-- [測試指南](TESTING_GUIDE.md) - 測試開發指南
 - [`codecov.yml`](codecov.yml) - Codecov 配置
 - [`.github/workflows/test.yml`](.github/workflows/test.yml) - CI 配置
+- [Jest 配置](jest.config.js) - 測試框架配置
 
 ---
 

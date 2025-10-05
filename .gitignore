@@ -78,6 +78,11 @@ TEST_RESULTS_*.md
 TEST_v*.md
 TEST_E2E_MCP_GUIDE.md
 TEST_COVERAGE_*.md
+TEST_FIX_*.md
+
+# Codecov 內部設置文檔
+CODECOV_SETUP.md
+CODECOV_TODO.md
 
 # 清理和優化報告
 CLEANUP_*.md

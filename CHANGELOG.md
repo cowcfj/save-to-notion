@@ -36,9 +36,8 @@
    - 配置正確的覆蓋率計算路徑（`scripts/` + `tests/helpers/`）
 
 3. **文檔完善**：
-   - `CODECOV_SETUP.md` - 完整技術指南和故障排除
-   - `CODECOV_TODO.md` - 用戶友好的操作清單
-   - `TEST_COVERAGE_CODECOV_SUCCESS.md` - 里程碑成就報告
+   - `CODECOV_INTEGRATION_MILESTONE.md` - 里程碑成就報告
+   - 創建內部設置指南和操作清單
 
 #### 影響和價值
 - ✅ 建立完整的測試基礎設施
