@@ -1,5 +1,20 @@
 # Notion Smart Clipper - AI Coding Guide
 
+## 🔴 PRIMARY DIRECTIVE (最高指令)
+
+**LANGUAGE REQUIREMENT:**
+- **ALL communication with users MUST be in Traditional Chinese (繁體中文)**
+- **ALL Chinese text in code (UI strings, comments, error messages) MUST use Traditional Chinese**
+- **NO Simplified Chinese (简体中文) is allowed in any context**
+
+**Examples:**
+- ✅ `console.log('儲存成功')` (Traditional)
+- ❌ `console.log('保存成功')` (Simplified)
+- ✅ `測試` (Traditional)
+- ❌ `测试` (Simplified)
+
+---
+
 ## Project Overview
 Chrome Extension (Manifest V3) for saving web content to Notion with intelligent text highlighting. Current version: v2.7.3
 
