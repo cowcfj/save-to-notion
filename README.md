@@ -1,7 +1,7 @@
 # Notion Smart Clipper v2.7.3
 
 [![Tests](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-20%25-green.svg)](TEST_COVERAGE_MILESTONE_20_PERCENT.md)
+[![codecov](https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion。**v2.7.3 最新版本**：🐛 修復超長文章內容截斷問題，支持完整保存任意長度的文章！
