@@ -1,6 +1,18 @@
 # 變更日誌 (CHANGELOG)
 
-## [v2.7.3] - 2025-10-03
+> 本文檔記錄項目的所有重要變更。格式遵循 [Keep a Changelog](https://keepachangelog.com/) 規範。
+
+**快速導航：**
+- [v2.7.x (當前版本)](#v27x---current)
+- [v2.6.x (已歸檔)](#v26x---archived)
+- [v2.5.x (已歸檔)](#v25x---archived)
+- [v2.4.x (已歸檔)](#v24x---archived)
+
+---
+
+## [v2.7.x] - Current
+
+### [v2.7.3] - 2025-10-03
 
 ### 🐛 重要修復
 
@@ -195,7 +207,12 @@
 
 ---
 
-## [v2.6.2] - 2025-10-03
+## [v2.6.x] - Archived
+
+<details>
+<summary><strong>📦 點擊展開 v2.6.x 完整變更記錄</strong> (7 個版本)</summary>
+
+### [v2.6.2] - 2025-10-03
 
 ### 🔴 緊急修復
 
@@ -396,9 +413,16 @@
 - 更新 help.html 到 v2.5.3，添加多顏色標註完整說明
 - 更新 README.md 項目結構和功能描述
 
+</details>
+
 ---
 
-## [v2.5.0] - 2025-10-01
+## [v2.5.x] - Archived
+
+<details>
+<summary><strong>📦 點擊展開 v2.5.x 完整變更記錄</strong> (8 個版本)</summary>
+
+### [v2.5.0] - 2025-10-01
 
 ### 🎉 重大更新：新一代標註系統
 
@@ -453,9 +477,16 @@
 - 回滾機制測試
 - 多種網站結構兼容性測試
 
+</details>
+
 ---
 
-## [v2.4.9] - 2025-09-29
+## [v2.4.x] - Archived
+
+<details>
+<summary><strong>📦 點擊展開 v2.4.x 完整變更記錄</strong> (多個版本)</summary>
+
+### [v2.4.9] - 2025-09-29
 
 ### 🐛 Bug Fixes
 - 修復超長文本保存失敗問題
@@ -535,10 +566,19 @@
 - 統一命名規範
 - 改善註釋和文檔
 
+</details>
+
 ---
 
-## [v2.2.x] - 之前版本
+## [v2.3.x 及更早版本] - Legacy
+
+<details>
+<summary><strong>📦 點擊展開更早版本的變更記錄</strong></summary>
+
+### v2.2.x - 之前版本
 請參考 RELEASE_NOTES_v2.2.md
 
-## [v2.1.x] - 之前版本  
+### v2.1.x - 之前版本  
 請參考 RELEASE_NOTES_v2.1.md
+
+</details>
