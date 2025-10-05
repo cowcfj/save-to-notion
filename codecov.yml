@@ -1,0 +1,45 @@
+# Codecov Configuration
+# 文檔: https://docs.codecov.com/docs/codecov-yaml
+
+# 覆蓋率設置
+coverage:
+  # 覆蓋率變化閾值
+  status:
+    project:
+      default:
+        target: auto  # 目標覆蓋率（auto = 自動適應）
+        threshold: 1%  # 允許的下降幅度
+        if_ci_failed: error  # CI 失敗時的行為
+    patch:
+      default:
+        target: 50%  # 新代碼的目標覆蓋率
+        threshold: 5%
+  
+  # 精確度設置
+  precision: 2  # 小數位數
+  round: down  # 向下取整
+  range: "70...100"  # 顏色範圍（70% 以下紅色，100% 綠色）
+
+# 註釋設置
+comment:
+  layout: "reach,diff,flags,tree,files"
+  behavior: default  # 默認行為：如果有變化則註釋
+  require_changes: true  # 只在覆蓋率變化時註釋
+
+# 忽略的文件和目錄
+ignore:
+  - "tests/**"  # 測試文件
+  - "**/*.test.js"
+  - "**/*.spec.js"
+  - "node_modules/**"
+  - "archive/**"
+  - "internal/**"
+  - "demos/**"
+  - "promo-images/**"
+
+# Flags 配置（用於追蹤不同類型的測試）
+flags:
+  unittests:
+    paths:
+      - scripts/
+      - tests/helpers/
