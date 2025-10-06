@@ -2,6 +2,7 @@
 .DS# 內部文檔目錄(所有內部開發文檔)
 internal/
 archive/
+.kiro/
 
 # 測試相關文件
 *test.html
