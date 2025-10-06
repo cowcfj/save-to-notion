@@ -14,6 +14,22 @@
 
 ### [Unreleased] - 2025-10-06
 
+### 🔧 Bug 修復
+
+#### Open in Notion 按鈕功能修復
+- **問題修復**：標註後 "Open in Notion" 按鈕不再消失
+- **新功能**：在標註管理面板中添加 "Open in Notion" 按鈕
+- **兼容性**：改進舊版本數據的兼容性處理
+- **用戶體驗**：同步成功後自動更新按鈕狀態
+- **錯誤處理**：添加更詳細的錯誤提示和調試日誌
+
+**技術細節：**
+- 修改按鈕顯示邏輯：只要頁面已保存就顯示按鈕（不強制要求 notionUrl）
+- 利用 `handleCheckPageStatus` 為舊版本數據自動生成 Notion URL
+- 在 `updateHighlightList` 中添加標註列表頭部的 "Open in Notion" 按鈕
+- 同步成功後調用 `updateOpenNotionButton()` 更新狀態
+- 創建測試腳本 `test-open-notion-button.js` 用於功能驗證
+
 ### 🎉 重大里程碑
 
 #### Codecov 集成成功 - 覆蓋率提升 6.4 倍
