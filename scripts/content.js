@@ -1,6 +1,6 @@
 // This script is injected into the active tab.
 
-(function() {
+(function () {
 
     const MIN_CONTENT_LENGTH = 250;
     const MAX_LINK_DENSITY = 0.3;
@@ -27,13 +27,13 @@
      */
     function findContentCmsFallback() {
         console.log("Executing CMS-aware fallback finder...");
-        
+
         // Strategy 1: Look for Drupal's typical structure
         const drupalNodeContent = document.querySelector('.node__content');
         if (drupalNodeContent) {
             const imageField = drupalNodeContent.querySelector('.field--name-field-image');
             const bodyField = drupalNodeContent.querySelector('.field--name-field-body');
-            
+
             if (bodyField) {
                 console.log("Drupal structure detected. Combining fields.");
                 const imageHtml = imageField ? imageField.innerHTML : '';
@@ -45,12 +45,12 @@
         // Strategy 2: Look for WordPress and other CMS patterns
         const wordpressSelectors = [
             '.entry-content',
-            '.post-content', 
+            '.post-content',
             '.article-content',
             '.content-area',
             '.single-content'
         ];
-        
+
         for (const selector of wordpressSelectors) {
             const element = document.querySelector(selector);
             if (element && element.textContent.trim().length >= MIN_CONTENT_LENGTH) {
@@ -68,7 +68,7 @@
             '.article-body',
             '.entry-body'
         ];
-        
+
         for (const selector of articleSelectors) {
             const element = document.querySelector(selector);
             if (element && element.textContent.trim().length >= MIN_CONTENT_LENGTH) {
@@ -106,9 +106,9 @@
         // 擴展的圖片屬性列表，涵蓋更多懶加載和響應式圖片的情況
         const imageAttrs = [
             'src',
-            'data-src', 
-            'data-lazy-src', 
-            'data-original', 
+            'data-src',
+            'data-lazy-src',
+            'data-original',
             'data-srcset',
             'data-lazy-srcset',
             'data-original-src',
@@ -127,7 +127,7 @@
             'data-origin',
             'data-echo'
         ];
-        
+
         // 首先檢查 srcset 屬性（響應式圖片）
         const srcset = imgNode.getAttribute('srcset') || imgNode.getAttribute('data-srcset') || imgNode.getAttribute('data-lazy-srcset');
         if (srcset) {
@@ -142,7 +142,7 @@
                 }
             }
         }
-        
+
         // 按優先級檢查各種 src 屬性
         for (const attr of imageAttrs) {
             if (imgNode.hasAttribute(attr)) {
@@ -152,7 +152,7 @@
                 }
             }
         }
-        
+
         // 檢查父元素是否為 <picture> 元素
         if (imgNode.parentElement && imgNode.parentElement.nodeName === 'PICTURE') {
             const sources = imgNode.parentElement.querySelectorAll('source');
@@ -170,7 +170,7 @@
                 }
             }
         }
-        
+
         return null;
     }
 
@@ -179,10 +179,10 @@
      */
     function cleanImageUrl(url) {
         if (!url || typeof url !== 'string') return null;
-        
+
         try {
             const urlObj = new URL(url);
-            
+
             // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
             if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
                 const uParam = urlObj.searchParams.get('u');
@@ -191,7 +191,7 @@
                     return cleanImageUrl(uParam);
                 }
             }
-            
+
             // 移除重複的查詢參數
             const params = new URLSearchParams();
             for (const [key, value] of urlObj.searchParams.entries()) {
@@ -200,7 +200,7 @@
                 }
             }
             urlObj.search = params.toString();
-            
+
             return urlObj.href;
         } catch (e) {
             return null;
@@ -212,23 +212,23 @@
      */
     function isValidImageUrl(url) {
         if (!url || typeof url !== 'string') return false;
-        
+
         // 先清理 URL
         const cleanedUrl = cleanImageUrl(url);
         if (!cleanedUrl) return false;
-        
+
         // 檢查是否為有效的 HTTP/HTTPS URL
         if (!cleanedUrl.match(/^https?:\/\//i)) return false;
-        
+
         // 檢查 URL 長度（Notion 有限制）
         if (cleanedUrl.length > 2000) return false;
-        
+
         // 檢查常見的圖片文件擴展名（擴展列表）
         const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(\?.*)?$/i;
-        
+
         // 如果 URL 包含圖片擴展名，直接返回 true
         if (imageExtensions.test(cleanedUrl)) return true;
-        
+
         // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
         const imagePathPatterns = [
             /\/image[s]?\//i,
@@ -250,7 +250,7 @@
             /\/crop\//i,
             /\/(\d{4})\/(\d{2})\//  // 日期路徑如 /2025/10/
         ];
-        
+
         // 排除明顯不是圖片的 URL
         const excludePatterns = [
             /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
@@ -261,11 +261,11 @@
             /\/analytics/i,
             /\/pixel/i
         ];
-        
+
         if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
             return false;
         }
-        
+
         return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
     }
 
@@ -292,20 +292,20 @@
                         try {
                             const absoluteUrl = new URL(src, document.baseURI).href;
                             const cleanedUrl = cleanImageUrl(absoluteUrl);
-                            
+
                             // 檢查是否為有效的圖片格式和 URL
                             if (cleanedUrl && isValidImageUrl(cleanedUrl) && !blocks.some(b => b.type === 'image' && b.image.external.url === cleanedUrl)) {
-                                blocks.push({ 
-                                    object: 'block', 
-                                    type: 'image', 
-                                    image: { 
-                                        type: 'external', 
-                                        external: { url: cleanedUrl } 
-                                    } 
+                                blocks.push({
+                                    object: 'block',
+                                    type: 'image',
+                                    image: {
+                                        type: 'external',
+                                        external: { url: cleanedUrl }
+                                    }
                                 });
                                 console.log(`Added image: ${cleanedUrl}`);
                             }
-                        } catch (e) { 
+                        } catch (e) {
                             console.warn(`Failed to process image URL: ${src}`, e);
                         }
                     }
@@ -330,7 +330,7 @@
      */
     function collectFeaturedImage() {
         console.log('🎯 Attempting to collect featured/hero image...');
-        
+
         // 常見的封面圖選擇器（按優先級排序）
         const featuredImageSelectors = [
             // WordPress 和常見 CMS
@@ -340,27 +340,27 @@
             '.post-thumbnail img',
             '.entry-thumbnail img',
             '.wp-post-image',
-            
+
             // 文章頭部區域
             '.article-header img',
             'header.article-header img',
             '.post-header img',
             '.entry-header img',
-            
+
             // 通用特色圖片容器
             'figure.featured img',
             'figure.hero img',
             '[class*="featured"] img:first-of-type',
             '[class*="hero"] img:first-of-type',
             '[class*="cover"] img:first-of-type',
-            
+
             // 文章開頭的第一張圖片
             'article > figure:first-of-type img',
             'article > div:first-of-type img',
             '.article > figure:first-of-type img',
             '.post > figure:first-of-type img'
         ];
-        
+
         for (const selector of featuredImageSelectors) {
             try {
                 const img = document.querySelector(selector);
@@ -376,7 +376,7 @@
                 console.warn(`Error checking selector ${selector}:`, e);
             }
         }
-        
+
         console.log('✗ No featured image found');
         return null;
     }
@@ -386,7 +386,7 @@
      */
     function collectAdditionalImages(contentElement) {
         const additionalImages = [];
-        
+
         // 策略 0: 優先查找封面圖/特色圖片（v2.5.6 新增）
         console.log('=== Image Collection Strategy 0: Featured Image ===');
         const featuredImage = collectFeaturedImage();
@@ -394,7 +394,7 @@
             additionalImages.push(featuredImage);
             console.log('✓ Featured image added as first image');
         }
-        
+
         // 策略 1: 從指定的內容元素收集
         console.log('=== Image Collection Strategy 1: Content Element ===');
         let allImages = [];
@@ -402,7 +402,7 @@
             allImages = Array.from(contentElement.querySelectorAll('img'));
             console.log(`Found ${allImages.length} images in content element`);
         }
-        
+
         // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
         console.log('=== Image Collection Strategy 2: Article Regions ===');
         if (allImages.length < 3) {
@@ -416,7 +416,7 @@
                 '.post-content',
                 '.article-content'
             ];
-            
+
             for (const selector of articleSelectors) {
                 const articleElement = document.querySelector(selector);
                 if (articleElement) {
@@ -432,13 +432,13 @@
                 }
             }
         }
-        
+
         // 策略 3: 如果仍然沒有圖片（< 1張），謹慎地擴展搜索
         // 重要：排除明顯的非內容區域（header, footer, nav, sidebar, ads等）
         console.log('=== Image Collection Strategy 3: Selective Expansion ===');
         if (allImages.length < 1) {
             console.log(`Very few images found, attempting selective expansion...`);
-            
+
             // 排除這些明顯的非內容區域
             const excludeSelectors = [
                 'header:not(.article-header):not(.post-header)', // 排除普通 header，但保留文章 header
@@ -453,10 +453,10 @@
                 '.social', '.social-share', '.share-buttons', '.social-links',
                 '.menu', '.site-header', '.site-footer', '.site-nav'
             ];
-            
+
             // 獲取所有圖片
             const docImages = Array.from(document.querySelectorAll('img'));
-            
+
             // 過濾掉在排除區域中的圖片
             const filteredImages = docImages.filter(img => {
                 // 檢查圖片是否在任何排除區域內
@@ -471,9 +471,9 @@
                 }
                 return true; // 圖片不在任何排除區域內
             });
-            
+
             console.log(`Filtered ${docImages.length} total images -> ${filteredImages.length} content images (excluded ${docImages.length - filteredImages.length} from non-content areas)`);
-            
+
             // 只添加不重複的圖片，且限制最多添加的數量
             let addedFromExpansion = 0;
             filteredImages.forEach(img => {
@@ -482,36 +482,36 @@
                     addedFromExpansion++;
                 }
             });
-            
+
             if (addedFromExpansion > 0) {
                 console.log(`Added ${addedFromExpansion} images from selective expansion`);
             }
         }
-        
+
         console.log(`Total images to process from strategies 1-3: ${allImages.length}`);
-        
+
         allImages.forEach((img, index) => {
             const src = extractImageSrc(img);
             if (src) {
                 try {
                     const absoluteUrl = new URL(src, document.baseURI).href;
                     const cleanedUrl = cleanImageUrl(absoluteUrl);
-                    
+
                     if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
                         // 避免重複添加封面圖
                         if (featuredImage && cleanedUrl === featuredImage) {
                             console.log(`✗ Skipped duplicate featured image at index ${index + 1}`);
                             return;
                         }
-                        
+
                         // 檢查圖片是否足夠大（避免收集小圖標）
                         const width = img.naturalWidth || img.width || 0;
                         const height = img.naturalHeight || img.height || 0;
-                        
+
                         // 降低尺寸要求，只排除明顯的小圖標
                         const isIcon = (width > 0 && width < 50) || (height > 0 && height < 50);
                         const isSizeUnknown = width === 0 && height === 0;
-                        
+
                         if (!isIcon || isSizeUnknown) {
                             additionalImages.push({
                                 url: cleanedUrl,
@@ -533,7 +533,7 @@
                 console.log(`✗ No src found for image ${index + 1}`);
             }
         });
-        
+
         console.log(`Successfully collected ${additionalImages.length} valid images`);
         return additionalImages;
     }
@@ -545,7 +545,7 @@
     let finalTitle = document.title;
     let contentElement = null;
     const article = new Readability(document.cloneNode(true)).parse();
-    
+
     if (isContentGood(article)) {
         console.log("Successfully extracted content with Readability.js");
         finalContentHtml = article.content;
@@ -565,18 +565,18 @@
 
     if (finalContentHtml) {
         const blocks = convertHtmlToNotionBlocks(finalContentHtml);
-        
+
         // 收集額外的圖片（更積極的策略）
         const imageBlocks = blocks.filter(b => b.type === 'image');
         console.log(`\n=== Image Collection Summary ===`);
         console.log(`Images found in main content: ${imageBlocks.length}`);
-        
+
         // 如果圖片少於5張，嘗試收集更多（提高閾值）
         if (imageBlocks.length < 5) {
             console.log(`Attempting to collect additional images...`);
             const additionalImages = collectAdditionalImages(contentElement);
             const existingUrls = new Set(imageBlocks.map(b => b.image.external.url));
-            
+
             let addedCount = 0;
             additionalImages.forEach(imgInfo => {
                 if (!existingUrls.has(imgInfo.url) && (imageBlocks.length + addedCount) < 15) { // 最多15張圖片
@@ -595,7 +595,7 @@
             });
             console.log(`Added ${addedCount} additional images`);
         }
-        
+
         // 標記處理已移到 background.js 中，這裡不再處理
 
         const finalImageCount = blocks.filter(b => b.type === 'image').length;
@@ -603,7 +603,7 @@
         console.log(`Total blocks: ${blocks.length}`);
         console.log(`Total images: ${finalImageCount}`);
         console.log(`================================\n`);
-        
+
         if (blocks.length > 0) {
             return { title: finalTitle, blocks: blocks };
         }
