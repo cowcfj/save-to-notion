@@ -169,6 +169,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 填充數據庫選擇器
     function populateDatabaseSelect(databases) {
+        // 初始化搜索式選擇器（如果還沒有）
+        if (!searchableSelector) {
+            searchableSelector = new SearchableDatabaseSelector();
+        }
+        
+        // 使用新的搜索式選擇器
+        searchableSelector.populateDatabases(databases);
+        
+        // 隱藏原有的簡單選擇器
+        databaseSelect.style.display = 'none';
+        
+        // 保留原有邏輯作為回退（但隱藏）
         databaseSelect.innerHTML = '<option value="">選擇數據庫...</option>';
         
         console.log('找到數據庫:', databases.length, '個');
@@ -193,7 +205,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (databases.length > 0) {
-            databaseSelect.style.display = 'block';
             // 移除舊的事件監聽器，避免重複綁定
             databaseSelect.removeEventListener('change', handleDatabaseSelect);
             databaseSelect.addEventListener('change', handleDatabaseSelect);
@@ -1398,21 +1409,3 @@ class SearchableDatabaseSelector {
 
 // 初始化搜索式數據庫選擇器
 let searchableSelector = null;
-
-// 修改原有的 populateDatabaseSelect 函數以支持新選擇器
-const originalPopulateDatabaseSelect = populateDatabaseSelect;
-function populateDatabaseSelect(databases) {
-    // 初始化搜索式選擇器（如果還沒有）
-    if (!searchableSelector) {
-        searchableSelector = new SearchableDatabaseSelector();
-    }
-    
-    // 使用新的搜索式選擇器
-    searchableSelector.populateDatabases(databases);
-    
-    // 保留原有的簡單選擇器作為回退
-    originalPopulateDatabaseSelect(databases);
-    
-    // 隱藏原有的簡單選擇器
-    document.getElementById('database-select').style.display = 'none';
-}

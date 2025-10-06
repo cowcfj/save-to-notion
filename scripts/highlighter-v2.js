@@ -1198,6 +1198,9 @@
                         statusDiv.textContent = `✅ 已同步 ${highlights.length} 段標註`;
                         statusDiv.style.color = '#48bb78';
                         
+                        // 同步成功後更新 Open in Notion 按鈕狀態
+                        updateOpenNotionButton();
+                        
                         setTimeout(() => {
                             syncBtn.textContent = originalText;
                             syncBtn.style.background = '#2196F3';
@@ -1233,6 +1236,78 @@
             }
         });
         
+        // 綁定 "Open in Notion" 按鈕
+        toolbar.querySelector('#open-notion-v2').addEventListener('click', () => {
+            // 獲取當前頁面的 Notion URL
+            chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
+                console.log('🔗 Open in Notion 按鈕點擊，響應:', response);
+                
+                if (response && response.success && response.isSaved) {
+                    // handleCheckPageStatus 會為舊版本數據生成 notionUrl
+                    const notionUrl = response.notionUrl;
+                    if (notionUrl) {
+                        console.log('✅ 打開 Notion 頁面:', notionUrl);
+                        // 在新標籤頁中打開 Notion 頁面
+                        chrome.runtime.sendMessage({
+                            action: 'openNotionPage',
+                            url: notionUrl
+                        });
+                    } else {
+                        console.log('❌ 無法獲取 Notion URL');
+                        // 顯示錯誤信息
+                        const statusDiv = toolbar.querySelector('#highlight-status-v2');
+                        const originalText = statusDiv.innerHTML;
+                        statusDiv.textContent = '❌ 無法獲取 Notion 頁面鏈接';
+                        statusDiv.style.color = '#ef4444';
+                        setTimeout(() => {
+                            statusDiv.innerHTML = originalText;
+                            statusDiv.style.color = '#666';
+                        }, 3000);
+                    }
+                } else {
+                    console.log('❌ 頁面未保存到 Notion');
+                    // 顯示錯誤信息
+                    const statusDiv = toolbar.querySelector('#highlight-status-v2');
+                    const originalText = statusDiv.innerHTML;
+                    statusDiv.textContent = '❌ 頁面尚未保存到 Notion';
+                    statusDiv.style.color = '#ef4444';
+                    setTimeout(() => {
+                        statusDiv.innerHTML = originalText;
+                        statusDiv.style.color = '#666';
+                    }, 3000);
+                }
+            });
+        });
+        
+        // 檢查並更新 "Open in Notion" 按鈕狀態的函數
+        function updateOpenNotionButton() {
+            chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
+                const openBtn = toolbar.querySelector('#open-notion-v2');
+                const listOpenBtn = toolbar.querySelector('#list-open-notion-v2');
+                
+                console.log('🔍 檢查頁面狀態響應:', response);
+                
+                // 更寬鬆的顯示邏輯：只要頁面已保存就顯示按鈕
+                // notionUrl 會在 handleCheckPageStatus 中為舊版本數據自動生成
+                if (response && response.success && response.isSaved) {
+                    console.log('✅ 頁面已保存，顯示 Open in Notion 按鈕');
+                    openBtn.style.display = 'block';
+                    if (listOpenBtn) {
+                        listOpenBtn.style.display = 'block';
+                    }
+                } else {
+                    console.log('❌ 頁面未保存，隱藏 Open in Notion 按鈕');
+                    openBtn.style.display = 'none';
+                    if (listOpenBtn) {
+                        listOpenBtn.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        // 初始檢查頁面狀態
+        updateOpenNotionButton();
+        
         // 更新標註計數的輔助函數
         function updateHighlightCount() {
             const countSpan = toolbar.querySelector('#highlight-count-v2');
@@ -1261,7 +1336,17 @@
                 return;
             }
             
-            listDiv.innerHTML = highlights.map((h, index) => {
+            // 添加標註列表頭部，包含 Open in Notion 按鈕
+            const headerHtml = `
+                <div style="padding: 8px; border-bottom: 2px solid #e5e7eb; background: #f8f9fa; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 600; color: #333; font-size: 12px;">標註列表</span>
+                    <button id="list-open-notion-v2" style="padding: 4px 8px; border: 1px solid #10b981; border-radius: 3px; background: #10b981; color: white; cursor: pointer; font-size: 10px; font-weight: 500; display: none;" title="在 Notion 中打開此頁面">
+                        🔗 打開
+                    </button>
+                </div>
+            `;
+            
+            const highlightsHtml = highlights.map((h, index) => {
                 const text = h.text.substring(0, 40) + (h.text.length > 40 ? '...' : '');
                 const colorName = { yellow: '黃', green: '綠', blue: '藍', red: '紅' }[h.color] || h.color;
                 return `
@@ -1282,6 +1367,9 @@
                 `;
             }).join('');
             
+            // 組合完整的 HTML
+            listDiv.innerHTML = headerHtml + highlightsHtml;
+            
             // 綁定刪除按鈕事件
             listDiv.querySelectorAll('.delete-highlight-btn-v2').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -1293,6 +1381,55 @@
                     }
                 });
             });
+            
+            // 綁定標註列表中的 "Open in Notion" 按鈕事件
+            const listOpenBtn = listDiv.querySelector('#list-open-notion-v2');
+            if (listOpenBtn) {
+                listOpenBtn.addEventListener('click', () => {
+                    // 獲取當前頁面的 Notion URL
+                    chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
+                        console.log('🔗 列表 Open in Notion 按鈕點擊，響應:', response);
+                        
+                        if (response && response.success && response.isSaved) {
+                            // handleCheckPageStatus 會為舊版本數據生成 notionUrl
+                            const notionUrl = response.notionUrl;
+                            if (notionUrl) {
+                                console.log('✅ 打開 Notion 頁面:', notionUrl);
+                                // 在新標籤頁中打開 Notion 頁面
+                                chrome.runtime.sendMessage({
+                                    action: 'openNotionPage',
+                                    url: notionUrl
+                                });
+                            } else {
+                                console.log('❌ 無法獲取 Notion URL');
+                                // 顯示錯誤信息
+                                const statusDiv = toolbar.querySelector('#highlight-status-v2');
+                                const originalText = statusDiv.innerHTML;
+                                statusDiv.textContent = '❌ 無法獲取 Notion 頁面鏈接';
+                                statusDiv.style.color = '#ef4444';
+                                setTimeout(() => {
+                                    statusDiv.innerHTML = originalText;
+                                    statusDiv.style.color = '#666';
+                                }, 3000);
+                            }
+                        } else {
+                            console.log('❌ 頁面未保存到 Notion');
+                            // 顯示錯誤信息
+                            const statusDiv = toolbar.querySelector('#highlight-status-v2');
+                            const originalText = statusDiv.innerHTML;
+                            statusDiv.textContent = '❌ 頁面尚未保存到 Notion';
+                            statusDiv.style.color = '#ef4444';
+                            setTimeout(() => {
+                                statusDiv.innerHTML = originalText;
+                                statusDiv.style.color = '#666';
+                            }, 3000);
+                        }
+                    });
+                });
+            }
+            
+            // 更新標註列表中的 Open in Notion 按鈕狀態
+            updateOpenNotionButton();
         }
 
         // 監聽選擇事件 - 只在標註模式開啟時處理
@@ -1382,12 +1519,15 @@
             </div>
             
             <!-- 操作按鈕 -->
-            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                <button id="sync-to-notion-v2" style="flex: 1; padding: 8px 12px; border: 1px solid #2196F3; border-radius: 4px; background: #2196F3; color: white; cursor: pointer; font-size: 13px; font-weight: 500;">
+            <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+                <button id="sync-to-notion-v2" style="flex: 1; padding: 8px 10px; border: 1px solid #2196F3; border-radius: 4px; background: #2196F3; color: white; cursor: pointer; font-size: 12px; font-weight: 500;">
                     🔄 同步
                 </button>
-                <button id="manage-highlights-v2" style="flex: 1; padding: 8px 12px; border: 1px solid #f59e0b; border-radius: 4px; background: white; color: #f59e0b; cursor: pointer; font-size: 13px; font-weight: 500;">
-                    � 管理
+                <button id="open-notion-v2" style="flex: 1; padding: 8px 10px; border: 1px solid #10b981; border-radius: 4px; background: #10b981; color: white; cursor: pointer; font-size: 12px; font-weight: 500; display: none;">
+                    🔗 打開
+                </button>
+                <button id="manage-highlights-v2" style="flex: 1; padding: 8px 10px; border: 1px solid #f59e0b; border-radius: 4px; background: white; color: #f59e0b; cursor: pointer; font-size: 12px; font-weight: 500;">
+                    📝 管理
                 </button>
             </div>
             

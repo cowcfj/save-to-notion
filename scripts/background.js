@@ -589,6 +589,8 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
 
         if (response.ok) {
             const responseData = await response.json();
+            console.log('📄 Notion API 創建頁面響應:', responseData);
+            console.log('🔗 響應中的 URL:', responseData.url);
             const notionPageId = responseData.id;
             
             // 如果區塊數量超過 100，分批添加剩餘區塊
@@ -602,11 +604,19 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
                 }
             }
 
+            // 構建 Notion 頁面 URL（如果 API 響應中沒有提供）
+            let notionUrl = responseData.url;
+            if (!notionUrl && notionPageId) {
+                // 手動構建 Notion URL
+                notionUrl = `https://www.notion.so/${notionPageId.replace(/-/g, '')}`;
+                console.log('🔗 手動構建 Notion URL:', notionUrl);
+            }
+            
             setSavedPageData(pageUrl, {
                 title: title,
                 savedAt: Date.now(),
                 notionPageId: notionPageId,
-                notionUrl: responseData.url || null
+                notionUrl: notionUrl
             }, () => {
                 // 結束性能監控 (service worker 環境)
                 const duration = performance.now() - startTime;
@@ -1030,6 +1040,9 @@ function handleMessage(request, sender, sendResponse) {
             case 'savePage':
                 handleSavePage(sendResponse);
                 break;
+            case 'openNotionPage':
+                handleOpenNotionPage(request, sendResponse);
+                break;
 
             default:
                 sendResponse({ success: false, error: 'Unknown action' });
@@ -1094,12 +1107,19 @@ async function handleCheckPageStatus(sendResponse) {
                         chrome.action.setBadgeText({ text: '✓', tabId: activeTab.id });
                         chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId: activeTab.id });
 
+                        // 為舊版本數據生成 notionUrl（如果沒有的話）
+                        let notionUrl = savedData.notionUrl;
+                        if (!notionUrl && savedData.notionPageId) {
+                            notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
+                            console.log('🔗 為舊版本數據生成 Notion URL:', notionUrl);
+                        }
+
                         sendResponse({
                             success: true,
                             isSaved: true,
                             url: normUrl,
                             title: activeTab.title,
-                            notionUrl: savedData.notionUrl || null
+                            notionUrl: notionUrl || null
                         });
                     }
                 } catch (error) {
@@ -1108,12 +1128,19 @@ async function handleCheckPageStatus(sendResponse) {
                     chrome.action.setBadgeText({ text: '✓', tabId: activeTab.id });
                     chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId: activeTab.id });
                     
+                    // 為舊版本數據生成 notionUrl（如果沒有的話）
+                    let notionUrl = savedData.notionUrl;
+                    if (!notionUrl && savedData.notionPageId) {
+                        notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
+                        console.log('🔗 為舊版本數據生成 Notion URL (錯誤處理):', notionUrl);
+                    }
+                    
                     sendResponse({
                         success: true,
                         isSaved: true,
                         url: normUrl,
                         title: activeTab.title,
-                        notionUrl: savedData.notionUrl || null
+                        notionUrl: notionUrl || null
                     });
                 }
             } else {
@@ -1125,12 +1152,19 @@ async function handleCheckPageStatus(sendResponse) {
                     chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
                 }
 
+                // 為舊版本數據生成 notionUrl（如果沒有的話）
+                let notionUrl = savedData?.notionUrl;
+                if (!notionUrl && savedData?.notionPageId) {
+                    notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
+                    console.log('🔗 為舊版本數據生成 Notion URL (無 API Key):', notionUrl);
+                }
+
                 sendResponse({
                     success: true,
                     isSaved: !!savedData,
                     url: normUrl,
                     title: activeTab.title,
-                    notionUrl: savedData?.notionUrl || null
+                    notionUrl: notionUrl || null
                 });
             }
         } else {
@@ -2224,6 +2258,33 @@ async function showUpdateNotification(previousVersion, currentVersion) {
   } catch (error) {
     console.error('顯示更新通知失敗:', error);
   }
+}
+
+/**
+ * 處理打開 Notion 頁面的請求
+ */
+function handleOpenNotionPage(request, sendResponse) {
+    try {
+        const url = request.url;
+        if (!url) {
+            sendResponse({ success: false, error: 'No URL provided' });
+            return;
+        }
+        
+        // 在新標籤頁中打開 Notion 頁面
+        chrome.tabs.create({ url: url }, (tab) => {
+            if (chrome.runtime.lastError) {
+                console.error('Failed to open Notion page:', chrome.runtime.lastError);
+                sendResponse({ success: false, error: chrome.runtime.lastError.message });
+            } else {
+                console.log('✅ Opened Notion page in new tab:', url);
+                sendResponse({ success: true, tabId: tab.id });
+            }
+        });
+    } catch (error) {
+        console.error('❌ handleOpenNotionPage 錯誤:', error);
+        sendResponse({ success: false, error: error.message });
+    }
 }
 
 // Setup all services

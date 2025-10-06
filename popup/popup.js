@@ -39,6 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
         highlightButton.disabled = false;
         clearHighlightsButton.style.display = 'block';
         
+        // 隱藏保存按鈕（頁面已保存，不需要重複保存）
+        saveButton.style.display = 'none';
+        
         // 顯示打開 Notion 按鈕
         if (response.notionUrl) {
             openNotionButton.style.display = 'block';
@@ -55,6 +58,9 @@ document.addEventListener('DOMContentLoaded', () => {
         highlightButton.textContent = '📝 Save First to Highlight';
         highlightButton.disabled = true;
         clearHighlightsButton.style.display = 'none';
+        
+        // 顯示保存按鈕（頁面未保存，需要先保存）
+        saveButton.style.display = 'block';
         
         // 隱藏打開 Notion 按鈕
         openNotionButton.style.display = 'none';
