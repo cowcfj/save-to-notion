@@ -55,7 +55,7 @@ _待發布的更新將在此記錄_
 
 ### 📋 技術改進
 
-- 文件組織優化：測試文件移動到 `internal/testing/` 目錄
+- 文件組織優化：測試文件統一管理在 `tests/` 目錄（`manual/`、`e2e/` 子目錄）
 - 權限管理：添加必要的 `tabs` 權限支持更新通知功能
 - 文檔完善：更新項目文檔和指南
 
@@ -391,7 +391,7 @@ _待發布的更新將在此記錄_
 - 新增 `selectBestIcon()` 函數：智能選擇最佳 icon
 - 新增 `parseSizeString()` 函數：解析 icon 尺寸信息
 - 修改 `collectSiteIcon()` 函數：收集所有候選後智能選擇
-- 新增測試腳本：`tests/verify-smart-icon-selection.js`
+- 新增測試腳本：`tests/e2e/verify-smart-icon-selection.js`
 
 ### 📊 預期效果
 - **Reddit**：選擇 icon.svg 或 180x180 PNG（原先是 76x76）

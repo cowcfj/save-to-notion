@@ -216,12 +216,12 @@ cleanup.sh
 .vscode/
 
 # 內部目錄（不應公開）
-# tests/ - 注意: 保留 Jest 測試,只排除 E2E 測試和內部文檔
-tests/*.html
-tests/*.js
-tests/*.md
+# tests/ - 保留 Jest 測試，排除手動測試、E2E 測試和測試結果
+tests/manual/
+tests/e2e/
 tests/results/
-tests/SUMMARY.md
+tests/*.md
+!tests/README.md
 !tests/mocks/
 !tests/unit/
 !tests/helpers/

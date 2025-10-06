@@ -173,7 +173,7 @@ if (candidates.length > 0) {
 ✅ 知乎 - 處理中文網站
 
 ### 測試工具
-新增測試腳本：`tests/verify-smart-icon-selection.js`
+新增測試腳本：`tests/e2e/verify-smart-icon-selection.js`
 - 可在任何網站的控制台中運行
 - 顯示所有候選 icons
 - 展示評分過程
@@ -183,7 +183,7 @@ if (candidates.length > 0) {
 ```javascript
 // 1. 打開任何網站
 // 2. 打開開發者工具 (F12)
-// 3. 複製 tests/verify-smart-icon-selection.js 到控制台
+// 3. 複製 tests/e2e/verify-smart-icon-selection.js 到控制台
 // 4. 查看評分過程和結果
 ```
 
@@ -292,9 +292,9 @@ Other candidates:
 
 ## 📚 相關文檔
 
-- **完整改進計劃**：`tests/IMPROVEMENT_PLAN.md`
+- **完整改進計劃**：`internal/reports/20251001_v2.6.0_IMPROVEMENT_PLAN.md`
 - **測試報告**：`tests/results/test-report-batch-2-2025-10-03.md`
-- **測試腳本**：`tests/verify-smart-icon-selection.js`
+- **測試腳本**：`tests/e2e/verify-smart-icon-selection.js`
 - **變更日誌**：`CHANGELOG.md`
 
 ---
