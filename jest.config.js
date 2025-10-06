@@ -18,18 +18,19 @@ module.exports = {
     'tests/helpers/background-utils.testable.js',  // 包含 background.js 純函數
     'tests/helpers/highlighter-v2.testable.js',  // 包含測試版本的 highlighter-v2.js
     'tests/helpers/content.testable.js',  // 包含測試版本的 content.js
+    'tests/helpers/content-extraction.testable.js',  // 包含 content.js 內容提取函數
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**'
   ],
   
-  // 覆蓋率門檻 (當前基準: 2.32%, 逐步提升)
+  // 覆蓋率門檻 (當前基準: 20.67%, 逐步提升)
   coverageThreshold: {
     global: {
-      branches: 2,
-      functions: 2,
-      lines: 1.5,
-      statements: 2
+      branches: 20,
+      functions: 20,
+      lines: 18,
+      statements: 20
     }
   },
   

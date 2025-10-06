@@ -6,8 +6,8 @@
 
 ## 🏆 近期里程碑
 [![Codecov Success](https://img.shields.io/badge/🎉_Codecov-Integration_Success-success.svg)](CODECOV_INTEGRATION_MILESTONE.md)
-[![Coverage Boost](https://img.shields.io/badge/Coverage-3.02%25_→_19.40%25_(6.4x)-brightgreen.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
-[![Tests Passing](https://img.shields.io/badge/Tests-608%2F608_Passing-success.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
+[![Coverage Boost](https://img.shields.io/badge/Coverage-19.13%25_→_20.67%25-brightgreen.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
+[![Tests Passing](https://img.shields.io/badge/Tests-764%2F764_Passing-success.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
 
 一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取。**v2.8.0 最新版本**：🎉 全面提升用戶體驗 - Open in Notion 按鈕優化、更新通知系統、搜索式數據庫選擇器！
 
