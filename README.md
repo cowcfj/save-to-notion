@@ -171,15 +171,17 @@
 ```
 notion-chrome/
 ├── manifest.json          # 擴展配置文件
-├── popup/                 # 彈出窗口
-├── options/               # 設置頁面
+├── popup/                 # 彈出窗口 UI
+├── options/               # 設置頁面（含搜索式數據庫選擇器）
 ├── scripts/               # 核心腳本
-│   ├── background.js      # 後台腳本
-│   ├── content.js         # 內容腳本
-│   ├── highlighter-v2.js  # 新一代標註引擎
+│   ├── background.js      # 後台腳本（Notion API、批處理）
+│   ├── content.js         # 內容腳本（提取、圖片處理）
+│   ├── highlighter-v2.js  # 新一代標註引擎（CSS Highlight API）
 │   └── utils.js           # 工具函數
+├── update-notification/   # 更新通知系統（v2.8.0 新增）
 ├── lib/                   # 第三方庫
 │   └── Readability.js     # Mozilla Readability
+├── tests/                 # 測試文件（Jest）
 └── icons/                 # 圖標文件
 ```
 
@@ -216,13 +218,16 @@ npm test -- --coverage      # 生成覆蓋率報告
 ## 🔧 開發說明
 
 ### 主要組件
-- **background.js**：處理擴展邏輯、API 調用、模板處理
+- **background.js**：處理擴展邏輯、API 調用、模板處理、更新通知
 - **content.js**：網頁內容提取、圖片處理
 - **highlighter-v2.js**：基於 CSS Highlight API 的標註引擎
+- **options.js**：設置頁面邏輯，包含搜索式數據庫選擇器
 - **utils.js**：共享工具函數和 URL 處理
 
 ### 核心技術特點
 - **CSS Highlight API**：使用瀏覽器原生 API，零 DOM 修改
+- **搜索式選擇器**：實時搜索、鍵盤導航、高亮匹配（v2.8.0）
+- **更新通知系統**：智能化新功能提示（v2.8.0）
 - **URL 正規化**：移除追蹤參數（`utm_*`、`gclid`、`fbclid` 等）
 - **智能遷移**：自動從舊版本升級，支持回滾機制
 - **Range API**：精確的文本位置記錄和恢復
