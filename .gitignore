@@ -221,7 +221,6 @@ tests/manual/
 tests/e2e/
 tests/results/
 tests/*.md
-!tests/README.md
 !tests/mocks/
 !tests/unit/
 !tests/helpers/
