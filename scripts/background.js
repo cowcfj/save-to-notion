@@ -2127,9 +2127,104 @@ async function clearPageHighlights(tabId) {
 // ==========================================
 
 // Initialize the extension
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   console.log('Notion Smart Clipper extension installed/updated');
+  
+  // 處理擴展更新
+  if (details.reason === 'update') {
+    handleExtensionUpdate(details.previousVersion);
+  } else if (details.reason === 'install') {
+    handleExtensionInstall();
+  }
 });
+
+/**
+ * 處理擴展更新
+ */
+async function handleExtensionUpdate(previousVersion) {
+  const currentVersion = chrome.runtime.getManifest().version;
+  console.log(`擴展已更新: ${previousVersion} → ${currentVersion}`);
+  
+  // 檢查是否需要顯示更新說明
+  if (shouldShowUpdateNotification(previousVersion, currentVersion)) {
+    await showUpdateNotification(previousVersion, currentVersion);
+  }
+}
+
+/**
+ * 處理擴展安裝
+ */
+async function handleExtensionInstall() {
+  console.log('擴展首次安裝');
+  // 可以在這裡添加歡迎頁面或設置引導
+}
+
+/**
+ * 判斷是否需要顯示更新通知
+ */
+function shouldShowUpdateNotification(previousVersion, currentVersion) {
+  // 跳過開發版本或測試版本
+  if (!previousVersion || !currentVersion) return false;
+  
+  // 解析版本號
+  const prevParts = previousVersion.split('.').map(Number);
+  const currParts = currentVersion.split('.').map(Number);
+  
+  // 主版本或次版本更新時顯示通知
+  if (currParts[0] > prevParts[0] || currParts[1] > prevParts[1]) {
+    return true;
+  }
+  
+  // 修訂版本更新且有重要功能時也顯示
+  if (currParts[2] > prevParts[2]) {
+    // 檢查是否為重要更新
+    return isImportantUpdate(currentVersion);
+  }
+  
+  return false;
+}
+
+/**
+ * 檢查是否為重要更新
+ */
+function isImportantUpdate(version) {
+  // 定義重要更新的版本列表
+  const importantUpdates = [
+    '2.7.3', // 修復超長文章截斷問題
+    '2.8.0', // 商店更新說明功能
+    // 可以繼續添加重要版本
+  ];
+  
+  return importantUpdates.includes(version);
+}
+
+/**
+ * 顯示更新通知
+ */
+async function showUpdateNotification(previousVersion, currentVersion) {
+  try {
+    // 創建通知標籤頁
+    const tab = await chrome.tabs.create({
+      url: chrome.runtime.getURL('update-notification/update-notification.html'),
+      active: true
+    });
+    
+    // 等待頁面載入後傳送版本信息
+    setTimeout(() => {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'UPDATE_INFO',
+        previousVersion: previousVersion,
+        currentVersion: currentVersion
+      }).catch(err => {
+        console.log('發送更新信息失敗:', err);
+      });
+    }, 1000);
+    
+    console.log('已顯示更新通知頁面');
+  } catch (error) {
+    console.error('顯示更新通知失敗:', error);
+  }
+}
 
 // Setup all services
 setupMessageHandlers();

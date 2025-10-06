@@ -36,6 +36,37 @@
             <div class="form-group">
                 <label for="database-id">Notion Database ID</label>
                 <input type="text" id="database-id" placeholder="Enter your Notion Database ID">
+                
+                <!-- 可搜索的數據庫選擇器 -->
+                <div class="database-selector-container" id="database-selector-container" style="display: none;">
+                    <div class="searchable-selector">
+                        <div class="selector-input">
+                            <input type="text" 
+                                   id="database-search" 
+                                   placeholder="搜索數據庫名稱..." 
+                                   autocomplete="off">
+                            <button type="button" id="selector-toggle" class="selector-toggle">
+                                <span class="arrow">▼</span>
+                            </button>
+                        </div>
+                        <div class="selector-dropdown" id="database-dropdown" style="display: none;">
+                            <div class="dropdown-header">
+                                <span class="database-count" id="database-count">0 個數據庫</span>
+                                <button type="button" id="refresh-databases" class="refresh-btn" title="重新載入數據庫">
+                                    🔄
+                                </button>
+                            </div>
+                            <div class="dropdown-list" id="database-list">
+                                <div class="loading-state">
+                                    <div class="spinner"></div>
+                                    <span>載入數據庫中...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 保留原有的簡單選擇器作為回退 -->
                 <select id="database-select" style="display: none;">
                     <option value="">選擇數據庫...</option>
                 </select>

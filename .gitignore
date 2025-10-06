@@ -240,4 +240,22 @@ node_modules/
 # package-lock.json - 需要提交以支持 CI/CD 缓存
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
+yarn-error.log*# =
+===========================================================
+# 🚨 最新違規文件修正 (2025-10-06)
+# ============================================================
+
+# 實施文檔（內部）
+*_IMPLEMENTATION.md
+DATABASE_SELECTOR_IMPLEMENTATION.md
+IMPLEMENTATION_COMPLETE.md
+
+# 內部指南
+*_GUIDE.md
+UPDATE_NOTIFICATION_GUIDE.md
+
+# 文件組織文檔（內部）
+FILE_ORGANIZATION.md
+
+# 測試頁面
+quick-test.html

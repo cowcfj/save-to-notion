@@ -1071,3 +1071,348 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+// ==========================================
+// 可搜索數據庫選擇器
+// ==========================================
+
+class SearchableDatabaseSelector {
+    constructor() {
+        this.databases = [];
+        this.filteredDatabases = [];
+        this.selectedDatabase = null;
+        this.isOpen = false;
+        this.focusedIndex = -1;
+        
+        this.initializeElements();
+        this.setupEventListeners();
+    }
+
+    initializeElements() {
+        this.container = document.getElementById('database-selector-container');
+        this.searchInput = document.getElementById('database-search');
+        this.toggleButton = document.getElementById('selector-toggle');
+        this.dropdown = document.getElementById('database-dropdown');
+        this.databaseList = document.getElementById('database-list');
+        this.databaseCount = document.getElementById('database-count');
+        this.refreshButton = document.getElementById('refresh-databases');
+        this.databaseIdInput = document.getElementById('database-id');
+    }
+
+    setupEventListeners() {
+        // 搜索輸入
+        this.searchInput.addEventListener('input', (e) => {
+            this.filterDatabases(e.target.value);
+            this.showDropdown();
+        });
+
+        // 搜索框焦點事件
+        this.searchInput.addEventListener('focus', () => {
+            if (this.databases.length > 0) {
+                this.showDropdown();
+            }
+        });
+
+        // 切換下拉選單
+        this.toggleButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.toggleDropdown();
+        });
+
+        // 重新載入數據庫
+        this.refreshButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.refreshDatabases();
+        });
+
+        // 點擊外部關閉
+        document.addEventListener('click', (e) => {
+            if (!this.container.contains(e.target)) {
+                this.hideDropdown();
+            }
+        });
+
+        // 鍵盤導航
+        this.searchInput.addEventListener('keydown', (e) => {
+            this.handleKeyNavigation(e);
+        });
+    }
+
+    populateDatabases(databases) {
+        this.databases = databases.map(db => ({
+            id: db.id,
+            title: this.extractDatabaseTitle(db),
+            raw: db,
+            created: db.created_time,
+            lastEdited: db.last_edited_time
+        }));
+        
+        // 按標題排序
+        this.databases.sort((a, b) => a.title.localeCompare(b.title));
+        
+        this.filteredDatabases = [...this.databases];
+        this.updateDatabaseCount();
+        this.renderDatabaseList();
+        
+        // 顯示選擇器
+        this.container.style.display = 'block';
+        
+        // 更新搜索框提示
+        this.searchInput.placeholder = `搜索 ${databases.length} 個數據庫...`;
+        
+        // 如果當前有選中的數據庫，在搜索框中顯示
+        if (this.databaseIdInput.value) {
+            const selectedDb = this.databases.find(db => db.id === this.databaseIdInput.value);
+            if (selectedDb) {
+                this.searchInput.value = selectedDb.title;
+                this.selectedDatabase = selectedDb;
+            }
+        }
+    }
+
+    filterDatabases(query) {
+        const lowerQuery = query.toLowerCase().trim();
+        
+        if (!lowerQuery) {
+            this.filteredDatabases = [...this.databases];
+        } else {
+            this.filteredDatabases = this.databases.filter(db => 
+                db.title.toLowerCase().includes(lowerQuery) ||
+                db.id.toLowerCase().includes(lowerQuery)
+            );
+        }
+        
+        this.focusedIndex = -1;
+        this.updateDatabaseCount();
+        this.renderDatabaseList();
+    }
+
+    renderDatabaseList() {
+        if (this.filteredDatabases.length === 0) {
+            this.databaseList.innerHTML = `
+                <div class="no-results">
+                    <span class="icon">🔍</span>
+                    <div>未找到匹配的數據庫</div>
+                    <small>嘗試使用不同的關鍵字搜索</small>
+                </div>
+            `;
+            return;
+        }
+
+        this.databaseList.innerHTML = this.filteredDatabases
+            .map((db, index) => this.createDatabaseItemHTML(db, index))
+            .join('');
+
+        // 添加點擊事件
+        this.databaseList.querySelectorAll('.database-item').forEach((item, index) => {
+            item.addEventListener('click', () => {
+                this.selectDatabase(this.filteredDatabases[index]);
+            });
+        });
+    }
+
+    createDatabaseItemHTML(db, index) {
+        const isSelected = this.selectedDatabase && this.selectedDatabase.id === db.id;
+        const isFocused = index === this.focusedIndex;
+        
+        // 高亮搜索關鍵字
+        const query = this.searchInput.value.toLowerCase().trim();
+        let highlightedTitle = db.title;
+        if (query) {
+            const regex = new RegExp(`(${this.escapeRegex(query)})`, 'gi');
+            highlightedTitle = db.title.replace(regex, '<span class="search-highlight">$1</span>');
+        }
+        
+        return `
+            <div class="database-item ${isSelected ? 'selected' : ''} ${isFocused ? 'keyboard-focus' : ''}" 
+                 data-index="${index}">
+                <div class="database-title">${highlightedTitle}</div>
+                <div class="database-id">${db.id}</div>
+                <div class="database-meta">
+                    <span class="database-icon">📊</span>
+                    <span>數據庫</span>
+                    ${db.created ? `<span>•</span><span>創建於 ${this.formatDate(db.created)}</span>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    selectDatabase(database) {
+        this.selectedDatabase = database;
+        
+        // 更新搜索框顯示
+        this.searchInput.value = database.title;
+        
+        // 更新隱藏的數據庫 ID 輸入框
+        this.databaseIdInput.value = database.id;
+        
+        // 重新渲染以顯示選中狀態
+        this.renderDatabaseList();
+        
+        this.hideDropdown();
+        
+        // 顯示成功狀態
+        showStatus(`已選擇數據庫: ${database.title}`, 'success');
+        
+        // 觸發選擇事件（如果需要）
+        this.onDatabaseSelected?.(database);
+    }
+
+    showDropdown() {
+        this.dropdown.style.display = 'block';
+        this.isOpen = true;
+        this.toggleButton.classList.add('open');
+    }
+
+    hideDropdown() {
+        this.dropdown.style.display = 'none';
+        this.isOpen = false;
+        this.focusedIndex = -1;
+        this.toggleButton.classList.remove('open');
+        this.renderDatabaseList(); // 清除鍵盤焦點樣式
+    }
+
+    toggleDropdown() {
+        if (this.isOpen) {
+            this.hideDropdown();
+        } else {
+            if (this.databases.length > 0) {
+                this.showDropdown();
+            }
+        }
+    }
+
+    handleKeyNavigation(e) {
+        if (!this.isOpen) {
+            if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                e.preventDefault();
+                this.showDropdown();
+            }
+            return;
+        }
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                this.focusedIndex = Math.min(this.focusedIndex + 1, this.filteredDatabases.length - 1);
+                this.renderDatabaseList();
+                this.scrollToFocused();
+                break;
+                
+            case 'ArrowUp':
+                e.preventDefault();
+                this.focusedIndex = Math.max(this.focusedIndex - 1, -1);
+                this.renderDatabaseList();
+                this.scrollToFocused();
+                break;
+                
+            case 'Enter':
+                e.preventDefault();
+                if (this.focusedIndex >= 0 && this.filteredDatabases[this.focusedIndex]) {
+                    this.selectDatabase(this.filteredDatabases[this.focusedIndex]);
+                }
+                break;
+                
+            case 'Escape':
+                e.preventDefault();
+                this.hideDropdown();
+                break;
+        }
+    }
+
+    scrollToFocused() {
+        if (this.focusedIndex >= 0) {
+            const focusedElement = this.databaseList.querySelector('.keyboard-focus');
+            if (focusedElement) {
+                focusedElement.scrollIntoView({ block: 'nearest' });
+            }
+        }
+    }
+
+    updateDatabaseCount() {
+        const total = this.databases.length;
+        const filtered = this.filteredDatabases.length;
+        
+        if (filtered === total) {
+            this.databaseCount.textContent = `${total} 個數據庫`;
+        } else {
+            this.databaseCount.textContent = `${filtered} / ${total} 個數據庫`;
+        }
+    }
+
+    refreshDatabases() {
+        const apiKey = document.getElementById('api-key').value;
+        if (apiKey) {
+            this.showLoading();
+            loadDatabases(apiKey);
+        }
+    }
+
+    showLoading() {
+        this.databaseList.innerHTML = `
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <span>重新載入數據庫中...</span>
+            </div>
+        `;
+        this.showDropdown();
+    }
+
+    extractDatabaseTitle(db) {
+        let title = '未命名數據庫';
+        
+        if (db.title && db.title.length > 0) {
+            title = db.title[0].plain_text || db.title[0].text?.content || '未命名數據庫';
+        } else if (db.properties) {
+            const titleProp = Object.values(db.properties).find(prop => prop.type === 'title');
+            if (titleProp && titleProp.title && titleProp.title.length > 0) {
+                title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || '未命名數據庫';
+            }
+        }
+        
+        return title;
+    }
+
+    formatDate(dateString) {
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('zh-TW', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        } catch (e) {
+            return '';
+        }
+    }
+
+    escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
+
+// 初始化搜索式數據庫選擇器
+let searchableSelector = null;
+
+// 修改原有的 populateDatabaseSelect 函數以支持新選擇器
+const originalPopulateDatabaseSelect = populateDatabaseSelect;
+function populateDatabaseSelect(databases) {
+    // 初始化搜索式選擇器（如果還沒有）
+    if (!searchableSelector) {
+        searchableSelector = new SearchableDatabaseSelector();
+    }
+    
+    // 使用新的搜索式選擇器
+    searchableSelector.populateDatabases(databases);
+    
+    // 保留原有的簡單選擇器作為回退
+    originalPopulateDatabaseSelect(databases);
+    
+    // 隱藏原有的簡單選擇器
+    document.getElementById('database-select').style.display = 'none';
+}

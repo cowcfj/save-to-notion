@@ -874,3 +874,237 @@ input[type="checkbox"] {
     background: #f8f9fa;
 }
 
+
+/* ==========================================
+   可搜索數據庫選擇器樣式
+   ========================================== */
+
+.database-selector-container {
+    margin-top: 8px;
+}
+
+.searchable-selector {
+    position: relative;
+    width: 100%;
+}
+
+.selector-input {
+    display: flex;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+.selector-input:focus-within {
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.selector-input input {
+    flex: 1;
+    border: none;
+    padding: 12px 16px;
+    outline: none;
+    font-size: 14px;
+    background: transparent;
+}
+
+.selector-input input::placeholder {
+    color: #a0aec0;
+}
+
+.selector-toggle {
+    border: none;
+    background: #f7fafc;
+    padding: 12px 16px;
+    cursor: pointer;
+    color: #718096;
+    transition: all 0.2s ease;
+    border-left: 1px solid #e2e8f0;
+}
+
+.selector-toggle:hover {
+    background: #edf2f7;
+    color: #4a5568;
+}
+
+.selector-toggle .arrow {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.selector-toggle.open .arrow {
+    transform: rotate(180deg);
+}
+
+.selector-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    max-height: 300px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.dropdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: #f7fafc;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 12px;
+    color: #718096;
+}
+
+.database-count {
+    font-weight: 500;
+}
+
+.refresh-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.refresh-btn:hover {
+    background: #e2e8f0;
+}
+
+.dropdown-list {
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.database-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f7fafc;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.database-item:hover {
+    background-color: #f7fafc;
+}
+
+.database-item:last-child {
+    border-bottom: none;
+}
+
+.database-item.selected {
+    background-color: #ebf8ff;
+    border-left: 4px solid #4299e1;
+}
+
+.database-title {
+    font-weight: 500;
+    color: #2d3748;
+    font-size: 14px;
+}
+
+.database-id {
+    font-size: 11px;
+    color: #a0aec0;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    word-break: break-all;
+}
+
+.database-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #718096;
+}
+
+.database-icon {
+    font-size: 12px;
+}
+
+.no-results {
+    padding: 24px 16px;
+    text-align: center;
+    color: #a0aec0;
+    font-style: italic;
+}
+
+.no-results .icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    color: #718096;
+    gap: 12px;
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e2e8f0;
+    border-top: 2px solid #4299e1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.search-highlight {
+    background-color: #fed7d7;
+    color: #c53030;
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+/* 鍵盤導航樣式 */
+.database-item.keyboard-focus {
+    background-color: #ebf8ff;
+    outline: 2px solid #4299e1;
+    outline-offset: -2px;
+}
+
+/* 響應式設計 */
+@media (max-width: 640px) {
+    .selector-dropdown {
+        max-height: 200px;
+    }
+    
+    .dropdown-list {
+        max-height: 160px;
+    }
+    
+    .database-item {
+        padding: 10px 12px;
+    }
+    
+    .database-title {
+        font-size: 13px;
+    }
+    
+    .database-id {
+        font-size: 10px;
+    }
+}
