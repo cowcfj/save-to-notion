@@ -169,16 +169,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 填充數據庫選擇器
     function populateDatabaseSelect(databases) {
+        console.log('populateDatabaseSelect 被調用，數據庫數量:', databases.length);
+        
         // 初始化搜索式選擇器（如果還沒有）
         if (!searchableSelector) {
+            console.log('初始化搜索式選擇器');
             searchableSelector = new SearchableDatabaseSelector();
         }
         
         // 使用新的搜索式選擇器
+        console.log('調用 searchableSelector.populateDatabases');
         searchableSelector.populateDatabases(databases);
         
         // 隱藏原有的簡單選擇器
         databaseSelect.style.display = 'none';
+        console.log('隱藏原有選擇器');
         
         // 保留原有邏輯作為回退（但隱藏）
         databaseSelect.innerHTML = '<option value="">選擇數據庫...</option>';
@@ -1107,6 +1112,23 @@ class SearchableDatabaseSelector {
         this.databaseCount = document.getElementById('database-count');
         this.refreshButton = document.getElementById('refresh-databases');
         this.databaseIdInput = document.getElementById('database-id');
+        
+        console.log('SearchableDatabaseSelector 元素初始化:');
+        console.log('- container:', this.container);
+        console.log('- searchInput:', this.searchInput);
+        console.log('- toggleButton:', this.toggleButton);
+        console.log('- dropdown:', this.dropdown);
+        console.log('- databaseList:', this.databaseList);
+        console.log('- databaseCount:', this.databaseCount);
+        console.log('- refreshButton:', this.refreshButton);
+        console.log('- databaseIdInput:', this.databaseIdInput);
+        
+        if (!this.container) {
+            console.error('找不到 database-selector-container 元素！');
+        }
+        if (!this.searchInput) {
+            console.error('找不到 database-search 元素！');
+        }
     }
 
     setupEventListeners() {
@@ -1149,6 +1171,10 @@ class SearchableDatabaseSelector {
     }
 
     populateDatabases(databases) {
+        console.log('SearchableDatabaseSelector.populateDatabases 被調用');
+        console.log('容器元素:', this.container);
+        console.log('搜索輸入元素:', this.searchInput);
+        
         this.databases = databases.map(db => ({
             id: db.id,
             title: this.extractDatabaseTitle(db),
@@ -1156,6 +1182,8 @@ class SearchableDatabaseSelector {
             created: db.created_time,
             lastEdited: db.last_edited_time
         }));
+        
+        console.log('處理後的數據庫:', this.databases);
         
         // 按標題排序
         this.databases.sort((a, b) => a.title.localeCompare(b.title));
@@ -1165,10 +1193,12 @@ class SearchableDatabaseSelector {
         this.renderDatabaseList();
         
         // 顯示選擇器
+        console.log('顯示搜索選擇器容器');
         this.container.style.display = 'block';
         
         // 更新搜索框提示
         this.searchInput.placeholder = `搜索 ${databases.length} 個數據庫...`;
+        console.log('搜索選擇器初始化完成');
         
         // 如果當前有選中的數據庫，在搜索框中顯示
         if (this.databaseIdInput.value) {
