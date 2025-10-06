@@ -132,25 +132,6 @@
 
 ---
 
-## �🚀 快速開始
-
-### 1. 安裝擴展
-1. 下載項目，打開 Chrome 擴展管理頁面 (`chrome://extensions/`)
-2. 開啟「開發者模式」，點擊「載入未封裝項目」
-3. 選擇項目文件夾
-
-### 2. 設置 Notion Integration
-1. 點擊擴展圖標 → Settings → 連接到 Notion
-2. 在 Notion 創建 Integration，複製 API Token
-3. 貼上 Token，選擇目標數據庫，保存設置
-
-### 3. 授權數據庫
-在 Notion 數據庫中：點擊「...」→「Add connections」→ 選擇你的 Integration
-
-> 💡 **詳細配置步驟請參考** → [完整使用指南](USER_GUIDE.md#-快速開始)
-
----
-
 ## 📖 使用指南
 
 > 🔍 **需要詳細說明？** 請查看 **[完整使用指南](USER_GUIDE.md)**，包含所有功能詳解、使用技巧和常見問題解答。
