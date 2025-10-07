@@ -31,7 +31,7 @@
 | **MCP_USAGE_GUIDELINES.md** | MCP 使用完備準則（30K+） |
 | **FETCH_MCP_GUIDE.md** | Fetch MCP 詳細使用指南 |
 | **SEQUENTIAL_THINKING_MCP_GUIDE.md** | Sequential Thinking MCP 詳細使用指南 |
-| **diagnose-mcp.md** | MCP 診斷檢查清單 |
+| **TEST_E2E_MCP_GUIDE.md** | E2E 測試 MCP 詳細使用指南 |
 | **MCP_SYNC_QUICK_START.md** | MCP 配置同步快速指南 |
 | **MCP_SYNC_SOLUTION.md** | MCP 配置跨設備同步方案 |
 
@@ -80,8 +80,8 @@
 **我要規劃新功能**
 → 讀 `GOALS.md` 了解優先級和計劃
 
-**MCP 出問題了**
-→ 讀 `diagnose-mcp.md` 進行故障排除
+**我要進行 E2E 測試**
+→ 讀 `TEST_E2E_MCP_GUIDE.md` 了解 Chrome DevTools MCP 使用
 
 ---
 
@@ -110,6 +110,8 @@
 - **核心指導：** 6 個
 - **技術參考：** 7 個
 - **歷史記錄：** 5 個
+
+> 註：`diagnose-mcp.md` 已移至 `archive/` 目錄
 
 ---
 
