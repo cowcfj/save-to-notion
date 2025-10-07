@@ -1,15 +1,25 @@
-# Notion Smart Clipper v2.8.0
+# Notion Smart Clipper v2.8.1
 
+[![Latest Release](https://img.shields.io/github/v/release/cowcfj/save-to-notion)](https://github.com/cowcfj/save-to-notion/releases/latest)
 [![Tests](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> 🎉 **最新版本 v2.8.1 已發布！** [查看更新內容](https://github.com/cowcfj/save-to-notion/releases/tag/v2.8.1) - 數據管理功能完善
 
 ## 🏆 近期里程碑
 [![Codecov Success](https://img.shields.io/badge/🎉_Codecov-Integration_Success-success.svg)](CODECOV_INTEGRATION_MILESTONE.md)
 [![Coverage Boost](https://img.shields.io/badge/Coverage-19.13%25_→_20.67%25-brightgreen.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
 [![Tests Passing](https://img.shields.io/badge/Tests-764%2F764_Passing-success.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
 
-一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取。**v2.8.0 最新版本**：🎉 全面提升用戶體驗 - Open in Notion 按鈕優化、更新通知系統、搜索式數據庫選擇器！
+一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取。
+
+### 📦 最新更新 (v2.8.1 - 2025-10-07)
+- ✅ **數據管理功能完善**：修復檢查數據完整性、數據重整、自動清理功能
+- ✅ **遷移數據清理**：真正刪除遷移數據並釋放存儲空間
+- ✅ **測試通過**：25/25 測試項目通過（100%）
+
+[查看完整發布說明](RELEASE_NOTES_v2.8.1.md) | [查看所有版本](https://github.com/cowcfj/save-to-notion/releases)
 
 > 📖 **[完整使用指南](USER_GUIDE.md)** | 包含詳細操作說明、FAQ 和故障排除
 
