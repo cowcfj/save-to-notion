@@ -8,7 +8,7 @@ coverage:
   status:
     project:
       default:
-        target: 20%  # 目標覆蓋率（當前: 20.67%）
+        target: 20.5%  # 目標覆蓋率（當前: 20.67%）
         threshold: 1%  # 允許的下降幅度
         if_ci_failed: error  # CI 失敗時的行為
     patch:
