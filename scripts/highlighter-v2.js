@@ -219,7 +219,8 @@
                         const range = this.findTextInPage(textToFind);
                         
                         if (range) {
-                            const newId = `highlight-${this.nextId++}`;
+                            // v2.9.0: 使用更短的 ID 格式
+                            const newId = `h${this.nextId++}`;
                             const rangeInfo = this.serializeRange(range);
                             
                             migratedHighlights.push({
@@ -574,7 +575,8 @@
                 return null;
             }
 
-            const id = `highlight-${this.nextId++}`;
+            // v2.9.0: 使用更短的 ID 格式以節省存儲空間
+            const id = `h${this.nextId++}`;
             
             // 保存標註信息
             const highlightData = {
@@ -798,22 +800,24 @@
 
         /**
          * 序列化範圍信息以便存儲
+         * v2.8.0: 移除重複的 text 字段以節省存儲空間
          */
         serializeRange(range) {
             return {
                 startContainerPath: this.getNodePath(range.startContainer),
                 startOffset: range.startOffset,
                 endContainerPath: this.getNodePath(range.endContainer),
-                endOffset: range.endOffset,
-                text: range.toString()
+                endOffset: range.endOffset
+                // v2.8.0: 移除 text 字段（已在頂層保存）
             };
         }
 
         /**
-         * 獲取節點的XPath
+         * 獲取節點的路徑
+         * v2.9.0: 返回緊湊的字符串格式以節省存儲空間
          */
         getNodePath(node) {
-            const path = [];
+            const pathSteps = [];
             let current = node;
             
             while (current && current !== document.body) {
@@ -822,7 +826,7 @@
                     const parent = current.parentNode;
                     const textNodes = Array.from(parent.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
                     const index = textNodes.indexOf(current);
-                    path.unshift({ type: 'text', index: index });
+                    pathSteps.unshift(`text[${index}]`);
                     current = parent;
                 } else if (current.nodeType === Node.ELEMENT_NODE) {
                     // 元素節點：記錄標籤名和在父節點中的索引
@@ -830,23 +834,27 @@
                     if (parent) {
                         const siblings = Array.from(parent.children);
                         const index = siblings.indexOf(current);
-                        path.unshift({ 
-                            type: 'element', 
-                            tag: current.tagName.toLowerCase(), 
-                            index: index 
-                        });
+                        pathSteps.unshift(`${current.tagName.toLowerCase()}[${index}]`);
                     }
                     current = current.parentNode;
                 }
             }
             
-            return path;
+            // v2.9.0: 返回字符串格式 "div[0]/p[2]/text[0]"
+            return pathSteps.join('/');
         }
 
         /**
          * 根據路徑獲取節點
+         * v2.9.0: 支持字符串格式和舊的對象數組格式（向後兼容）
          */
         getNodeByPath(path) {
+            // v2.9.0: 如果是字符串格式，先解析
+            if (typeof path === 'string') {
+                path = this.parsePathFromString(path);
+                if (!path) return null;
+            }
+            
             let current = document.body;
             
             for (const step of path) {
@@ -869,11 +877,75 @@
             
             return current;
         }
+        
+        /**
+         * 從字符串解析路徑
+         * v2.9.0: 新增方法，用於解析緊湊格式的路徑字符串
+         * @param {string} pathStr - 路徑字符串，格式：'div[0]/p[2]/text[0]'
+         * @returns {Array|null} 路徑對象數組，或 null（解析失敗）
+         */
+        parsePathFromString(pathStr) {
+            if (!pathStr || typeof pathStr !== 'string') {
+                return null;
+            }
+            
+            try {
+                const steps = pathStr.split('/');
+                const path = [];
+                
+                for (const step of steps) {
+                    // 匹配格式：tagname[index] 或 text[index]
+                    const match = step.match(/^([a-z0-9\-]+)\[(\d+)\]$/i);
+                    if (!match) {
+                        console.warn('無效的路徑步驟格式:', step);
+                        return null;
+                    }
+                    
+                    const [, name, indexStr] = match;
+                    const index = parseInt(indexStr, 10);
+                    
+                    if (name === 'text') {
+                        path.push({ type: 'text', index });
+                    } else {
+                        path.push({ type: 'element', tag: name, index });
+                    }
+                }
+                
+                return path;
+            } catch (error) {
+                console.error('路徑解析失敗:', pathStr, error);
+                return null;
+            }
+        }
+        
+        /**
+         * 將對象數組格式的路徑轉換為字符串格式
+         * v2.9.0: 用於數據遷移
+         * @param {Array} pathArray - 對象數組格式的路徑
+         * @returns {string} 字符串格式的路徑
+         */
+        convertPathToString(pathArray) {
+            if (!Array.isArray(pathArray)) {
+                return '';
+            }
+            
+            return pathArray.map(step => {
+                if (step.type === 'text') {
+                    return `text[${step.index}]`;
+                } else if (step.type === 'element') {
+                    return `${step.tag}[${step.index}]`;
+                }
+                return '';
+            }).filter(Boolean).join('/');
+        }
 
         /**
          * 反序列化範圍
+         * v2.8.0: 使用外部文本參數進行驗證，避免重複存儲
+         * @param {Object} rangeInfo - 序列化的範圍信息
+         * @param {string} expectedText - 期望的文本內容（用於驗證）
          */
-        deserializeRange(rangeInfo) {
+        deserializeRange(rangeInfo, expectedText) {
             try {
                 const startContainer = this.getNodeByPath(rangeInfo.startContainerPath);
                 const endContainer = this.getNodeByPath(rangeInfo.endContainerPath);
@@ -887,11 +959,16 @@
                 range.setStart(startContainer, rangeInfo.startOffset);
                 range.setEnd(endContainer, rangeInfo.endOffset);
 
-                // 驗證文本是否匹配
-                if (range.toString() === rangeInfo.text) {
+                // v2.8.0: 使用傳入的 expectedText 驗證
+                // 向後兼容：如果 rangeInfo 中有 text（舊格式），優先使用它
+                const textToVerify = rangeInfo.text || expectedText;
+                
+                if (range.toString() === textToVerify) {
                     return range;
                 } else {
                     console.warn('範圍文本不匹配，可能頁面結構已改變');
+                    console.warn('期望:', textToVerify?.substring(0, 50));
+                    console.warn('實際:', range.toString().substring(0, 50));
                     return null;
                 }
             } catch (error) {
@@ -950,6 +1027,9 @@
                 let restored = 0;
                 let failed = 0;
                 
+                // v2.8.0 & v2.9.0: 檢查並遷移舊格式數據
+                let needsMigration = false;
+                
                 for (const highlightData of highlights) {
                     console.log(`   恢復標註 ${highlightData.id}:`, {
                         text: highlightData.text?.substring(0, 30) + '...',
@@ -957,7 +1037,28 @@
                         rangeInfo: highlightData.rangeInfo
                     });
                     
-                    const range = this.deserializeRange(highlightData.rangeInfo);
+                    // v2.8.0: 檢測並清理舊格式的重複文本
+                    if (highlightData.rangeInfo && highlightData.rangeInfo.text) {
+                        console.log(`   🔄 [v2.8.0] 檢測到重複文本，將自動清理`);
+                        delete highlightData.rangeInfo.text;
+                        needsMigration = true;
+                    }
+                    
+                    // v2.9.0: 檢測並轉換舊格式的路徑（對象數組 → 字符串）
+                    if (highlightData.rangeInfo) {
+                        const { startContainerPath, endContainerPath } = highlightData.rangeInfo;
+                        
+                        // 如果是對象數組格式（舊格式），轉換為字符串
+                        if (Array.isArray(startContainerPath)) {
+                            console.log(`   🔄 [v2.9.0] 檢測到舊路徑格式，將自動轉換`);
+                            highlightData.rangeInfo.startContainerPath = this.convertPathToString(startContainerPath);
+                            highlightData.rangeInfo.endContainerPath = this.convertPathToString(endContainerPath);
+                            needsMigration = true;
+                        }
+                    }
+                    
+                    // v2.8.0: 傳入 text 參數用於驗證
+                    const range = this.deserializeRange(highlightData.rangeInfo, highlightData.text);
                     if (range) {
                         const id = highlightData.id;
                         
@@ -984,6 +1085,13 @@
                         failed++;
                         console.warn(`   ❌ 恢復失敗: ${highlightData.id} - Range 反序列化失敗`);
                     }
+                }
+                
+                // v2.8.0 & v2.9.0: 如果有遷移，保存新格式
+                if (needsMigration) {
+                    console.log('💾 檢測到舊格式數據，保存優化後的格式...');
+                    await this.saveToStorage();
+                    console.log('✅ 數據格式已優化，存儲空間已減少');
                 }
 
                 console.log(`✅ 恢復完成: 成功 ${restored}/${highlights.length}，失敗 ${failed}`);

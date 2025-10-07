@@ -249,11 +249,14 @@
 
             this.statistics.removed = removed;
 
-            // 標記完成
+            // 標記完成（只保留最小信息）
             await this.updateMigrationState(MigrationPhase.COMPLETED, {
-                statistics: this.statistics,
-                completedAt: new Date().toISOString()
+                timestamp: Date.now()
+                // v2.9.0: 移除 statistics 等大數據
             });
+
+            // v2.9.0: 清理遷移數據
+            await this.cleanupMigrationData();
 
             console.log(`[遷移] 🎉 完全完成！移除了 ${removed} 個舊標註`);
             console.log('[遷移] DOM結構已完全恢復乾淨');
@@ -262,6 +265,48 @@
                 completed: true, 
                 statistics: this.statistics 
             };
+        }
+        
+        /**
+         * 清理遷移數據
+         * v2.9.0: 新增方法，清理不再需要的遷移狀態數據
+         */
+        async cleanupMigrationData() {
+            try {
+                console.log('[遷移] 🧹 開始清理遷移數據...');
+                
+                const allData = await chrome.storage.local.get(null);
+                const keysToRemove = [];
+                const currentUrl = window.location.href;
+                const currentKey = `${this.storageKey}_${currentUrl}`;
+                
+                for (const key of Object.keys(allData)) {
+                    // 清理其他頁面的遷移狀態（保留當前頁面的完成標記）
+                    if (key.startsWith('seamless_migration_state_') && key !== currentKey) {
+                        const state = allData[key];
+                        // 如果已完成超過7天，清理
+                        if (state.phase === MigrationPhase.COMPLETED && 
+                            Date.now() - state.timestamp > 7 * 24 * 60 * 60 * 1000) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                    
+                    // 清理舊的遷移標記
+                    if (key.startsWith('highlight_migration_status_') ||
+                        key.startsWith('migration_completed_')) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                if (keysToRemove.length > 0) {
+                    await chrome.storage.local.remove(keysToRemove);
+                    console.log(`[遷移] ✅ 清理了 ${keysToRemove.length} 個遷移數據`);
+                } else {
+                    console.log('[遷移] ℹ️ 沒有需要清理的遷移數據');
+                }
+            } catch (error) {
+                console.error('[遷移] ❌ 清理遷移數據失敗:', error);
+            }
         }
 
         /**
