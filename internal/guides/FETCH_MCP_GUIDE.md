@@ -4,6 +4,8 @@
 **狀態**：✅ 通用配置指南  
 **適用於**：Kiro、Cline、Cursor、Windsurf 等支持 MCP 的 AI agent
 
+> 💡 **相關文檔**：[MCP_USAGE_GUIDELINES.md](./MCP_USAGE_GUIDELINES.md) - 所有 MCP 服務器的使用準則和決策指南
+
 ---
 
 ## 📦 配置方法
