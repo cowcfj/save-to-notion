@@ -9,30 +9,91 @@
 
 ---
 
-## 📦 安裝信息
+## 📦 配置方法
 
-### **配置文件位置**
+### **不同 AI Agent 的配置文件位置**
+
+#### **Kiro**
+```bash
+# 工作區配置（推薦）
+.kiro/settings/mcp.json
+
+# 用戶級配置（全局）
+~/.kiro/settings/mcp.json
 ```
+
+#### **Cline (VS Code)**
+```bash
+# Cline 配置
 ~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json
 ```
 
-### **配置內容**
+#### **Cursor**
+```bash
+# Cursor 配置
+~/.cursor/mcp.json
+```
+
+#### **Windsurf**
+```bash
+# Windsurf 配置
+~/.windsurf/mcp.json
+```
+
+---
+
+## 🔧 配置內容（通用）
+
+### **基本配置**
 ```json
 {
-  "sequential-thinking": {
-    "command": "npx",
-    "args": [
-      "-y",
-      "@modelcontextprotocol/server-sequential-thinking"
-    ]
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    }
   }
 }
 ```
 
-### **備份位置**
+### **Kiro 完整配置範例**
+```json
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
 ```
-mcp_settings.json.backup（已備份原始配置）
-```
+
+### **配置說明**
+
+| 配置項 | 說明 | 可選值 |
+|--------|------|--------|
+| `command` | 執行命令 | `npx`, `uvx`, `node` |
+| `args` | 命令參數 | 服務器包名和參數 |
+| `env` | 環境變量 | 日誌級別等 |
+| `disabled` | 是否禁用 | `true`, `false` |
+| `autoApprove` | 自動批准的工具 | 工具名稱數組 |
+
+### **日誌級別**
+- `ERROR`: 只顯示錯誤（推薦）
+- `WARN`: 顯示警告和錯誤
+- `INFO`: 顯示信息、警告和錯誤
+- `DEBUG`: 顯示所有日誌（調試用）
 
 ---
 
@@ -599,6 +660,80 @@ Sequential Thinking 需要額外時間。評估任務的複雜度和重要性。
 
 ---
 
-**🎊 Sequential Thinking MCP 安裝完成！準備好更系統化地思考問題了嗎？**
+## 🚨 故障排除
 
-**下一步**：重啟 VS Code 以激活 Sequential Thinking MCP
+### **問題 1：Sequential Thinking MCP 未激活**
+
+#### **Kiro**
+```bash
+# 解決方案
+1. 檢查配置文件：.kiro/settings/mcp.json 或 ~/.kiro/settings/mcp.json
+2. 重新連接 MCP Server（從 MCP Server 視圖）
+3. 查看 Kiro 的 MCP 日誌
+4. 確認 npx 已安裝：npx --version
+```
+
+#### **Cline (VS Code)**
+```bash
+# 解決方案
+1. 重新啟動 VS Code（Window: Reload Window）
+2. 檢查配置文件是否正確
+3. 查看 Output 面板的 MCP 日誌
+```
+
+#### **通用檢查**
+```bash
+# 1. 確認 Node.js 已安裝
+node --version  # 應該 >= 16
+
+# 2. 確認 npx 可用
+npx --version
+
+# 3. 手動測試 Sequential Thinking MCP
+npx -y @modelcontextprotocol/server-sequential-thinking
+```
+
+### **問題 2：思考步驟不完整**
+```bash
+# 可能原因
+- 問題描述不夠清晰
+- 目標設定不明確
+- 步驟之間缺乏邏輯連接
+
+# 解決方案
+1. 明確定義問題和目標
+2. 確保每個步驟都有明確的輸入和輸出
+3. 檢查步驟之間的依賴關係
+```
+
+### **問題 3：推理結果不準確**
+```bash
+# 檢查清單
+- [ ] 前提條件是否正確？
+- [ ] 每個步驟的邏輯是否嚴密？
+- [ ] 是否考慮了所有可能的情況？
+- [ ] 是否有遺漏的關鍵信息？
+```
+
+---
+
+## 📚 相關資源
+
+- **MCP 協議**: https://modelcontextprotocol.io/
+- **Sequential Thinking 原理**: https://github.com/modelcontextprotocol/servers
+- **結構化思考方法**: 邏輯樹、MECE 原則
+
+---
+
+## 🔄 更新記錄
+
+- **2025-10-06**: 創建初始版本（Cline 專用）
+- **2025-10-07**: 更新為通用配置指南，支持多個 AI agent
+
+---
+
+**🎊 Sequential Thinking MCP 通用配置指南！適用於 Kiro、Cline、Cursor 等所有支持 MCP 的 AI agent！**
+
+**配置狀態**：✅ 通用配置指南  
+**適用範圍**：所有支持 MCP 的 AI agent  
+**維護策略**：保持配置格式通用，避免特定 agent 的硬編碼路徑
