@@ -3,9 +3,86 @@
 **文檔性質：** 內部測試指南（不同步到 GitHub）  
 **測試工具：** Chrome DevTools MCP  
 **創建日期：** 2025-10-05  
-**適用版本：** v2.7.3+
+**適用版本：** v2.7.3+  
+**適用於：** Kiro、Cline、Cursor、Windsurf 等支持 MCP 的 AI agent
 
 > 💡 **相關文檔**：[MCP_USAGE_GUIDELINES.md](./MCP_USAGE_GUIDELINES.md) - 所有 MCP 服務器的使用準則和決策指南
+
+---
+
+## � 配置方法
+
+### **不同 AI Agent 的配置文件位置**
+
+#### **Kiro**
+```bash
+# 工作區配置（推薦）
+.kiro/settings/mcp.json
+
+# 用戶級配置（全局）
+~/.kiro/settings/mcp.json
+```
+
+#### **Cline (VS Code)**
+```bash
+# Cline 配置
+~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json
+```
+
+#### **Cursor**
+```bash
+# Cursor 配置
+~/.cursor/mcp.json
+```
+
+---
+
+## 🔧 配置內容（通用）
+
+### **基本配置**
+```json
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-chrome-devtools"
+      ]
+    }
+  }
+}
+```
+
+### **Kiro 完整配置範例**
+```json
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-chrome-devtools"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+### **配置說明**
+
+| 配置項 | 說明 | 可選值 |
+|--------|------|--------|
+| `command` | 執行命令 | `npx`, `node` |
+| `args` | 命令參數 | 服務器包名和參數 |
+| `env` | 環境變量 | 日誌級別等 |
+| `disabled` | 是否禁用 | `true`, `false` |
+| `autoApprove` | 自動批准的工具 | 工具名稱數組 |
 
 ---
 
@@ -349,6 +426,79 @@ mcp_chrome-devtools_resize_page({
    - 每次發布前執行完整測試套件
    - 重點測試修改的功能
    - 驗證舊功能未被破壞
+
+---
+
+## 🚨 故障排除
+
+### **問題 1：Chrome DevTools MCP 未激活**
+
+#### **Kiro**
+```bash
+# 解決方案
+1. 檢查配置文件：.kiro/settings/mcp.json 或 ~/.kiro/settings/mcp.json
+2. 重新連接 MCP Server（從 MCP Server 視圖）
+3. 查看 Kiro 的 MCP 日誌
+4. 確認 npx 已安裝：npx --version
+```
+
+#### **Cline (VS Code)**
+```bash
+# 解決方案
+1. 重新啟動 VS Code（Window: Reload Window）
+2. 檢查配置文件是否正確
+3. 查看 Output 面板的 MCP 日誌
+```
+
+#### **通用檢查**
+```bash
+# 1. 確認 Node.js 已安裝
+node --version  # 應該 >= 16
+
+# 2. 確認 npx 可用
+npx --version
+
+# 3. 手動測試 Chrome DevTools MCP
+npx -y @modelcontextprotocol/server-chrome-devtools
+```
+
+### **問題 2：無法連接到 Chrome**
+```bash
+# 可能原因
+- Chrome 未啟動
+- Chrome 未開啟遠程調試端口
+- 端口被占用
+
+# 解決方案
+1. 確認 Chrome 正在運行
+2. 檢查 Chrome 是否開啟了調試端口
+3. 重啟 Chrome 和 MCP Server
+```
+
+### **問題 3：測試執行失敗**
+```bash
+# 檢查清單
+- [ ] 擴展是否已加載？
+- [ ] 頁面是否正確加載？
+- [ ] Content scripts 是否注入？
+- [ ] 網絡連接是否正常？
+- [ ] 是否有 JavaScript 錯誤？
+```
+
+---
+
+## 📚 相關資源
+
+- **Chrome DevTools Protocol**: https://chromedevtools.github.io/devtools-protocol/
+- **MCP 協議**: https://modelcontextprotocol.io/
+- **Chrome Extension 測試**: https://developer.chrome.com/docs/extensions/mv3/testing/
+
+---
+
+## 🔄 更新記錄
+
+- **2025-10-05**: 創建初始版本
+- **2025-10-07**: 添加通用配置和故障排除章節
 
 ---
 
