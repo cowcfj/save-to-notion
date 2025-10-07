@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.8.1
+- 對齊版本資訊：manifest.json 與 package.json → 2.8.1
+- CI 小幅調整：升級 Codecov Action 至 v4、引入 `test:ci`，並在 workflow 中使用
+- 覆蓋率門檻：Codecov project 目標由 20% 提升至 20.5%（保留 1% 容忍）
+- 文檔：新增內部 PR 指南（internal/guides/PR_INTERNAL_GUIDE.md），Agents.md 精煉 PR 原則並引用內部指南
+
+
 > 本文檔記錄項目的所有重要變更。格式遵循 [Keep a Changelog](https://keepachangelog.com/) 規範。
 
 **快速導航：**
