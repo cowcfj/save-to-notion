@@ -473,9 +473,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusText += `• ${report.highlightPages} 個頁面有標記\n`;
                 statusText += `• ${report.configKeys} 個配置項\n`;
                 
+                // v2.8.0: 顯示遷移數據統計
+                if (report.migrationKeys > 0) {
+                    const migrationSizeKB = (report.migrationDataSize / 1024).toFixed(1);
+                    statusText += `• ⚠️ ${report.migrationKeys} 個遷移數據（${migrationSizeKB} KB，可清理）\n`;
+                }
+                
                 if (report.corruptedData.length > 0) {
                     statusText += `• ⚠️ ${report.corruptedData.length} 個損壞的數據項`;
                     showDataStatus(statusText, 'error');
+                } else if (report.migrationKeys > 0) {
+                    statusText += `• 💡 建議使用「數據重整」功能清理遷移數據`;
+                    showDataStatus(statusText, 'warning');
                 } else {
                     statusText += `• ✅ 所有數據完整無損`;
                     showDataStatus(statusText, 'success');
@@ -497,17 +506,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 totalKeys: Object.keys(data).length,
                 highlightPages: 0,
                 configKeys: 0,
+                migrationKeys: 0,  // v2.8.0: 新增遷移數據統計
+                migrationDataSize: 0,  // v2.8.0: 遷移數據大小
                 corruptedData: []
             };
 
             for (const [key, value] of Object.entries(data)) {
                 if (key.startsWith('highlights_')) {
                     report.highlightPages++;
-                    if (!Array.isArray(value)) {
+                    if (!Array.isArray(value) && (!value || !Array.isArray(value.highlights))) {
                         report.corruptedData.push(key);
                     }
                 } else if (key.startsWith('config_') || key.includes('notion')) {
                     report.configKeys++;
+                } else if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
+                    // v2.8.0: 統計遷移數據（包括舊版本備份）
+                    report.migrationKeys++;
+                    const size = new Blob([JSON.stringify({[key]: value})]).size;
+                    report.migrationDataSize += size;
                 }
             }
 
@@ -862,20 +878,41 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             try {
+                showDataStatus('🔄 正在執行安全清理...', 'info');
+                
                 const keysToRemove = cleanupPlan.items.map(item => item.key);
                 
+                console.log('📋 清理計劃:', {
+                    keysToRemove: keysToRemove.length,
+                    emptyPages: cleanupPlan.emptyPages,
+                    deletedPages: cleanupPlan.deletedPages,
+                    spaceFreed: cleanupPlan.spaceFreed
+                });
+                
+                // 執行刪除操作
                 await new Promise((resolve, reject) => {
                     chrome.storage.local.remove(keysToRemove, () => {
                         if (chrome.runtime.lastError) {
+                            console.error('❌ 刪除失敗:', chrome.runtime.lastError);
                             reject(chrome.runtime.lastError);
                         } else {
+                            console.log(`✅ 已刪除 ${keysToRemove.length} 個數據項`);
                             resolve();
                         }
                     });
                 });
                 
-                const spaceMB = (cleanupPlan.spaceFreed / (1024 * 1024)).toFixed(3);
-                showDataStatus(`✅ 安全清理完成！已移除 ${cleanupPlan.totalKeys} 個空白記錄，釋放 ${spaceMB} MB 空間`, 'success');
+                const spaceKB = (cleanupPlan.spaceFreed / 1024).toFixed(1);
+                let message = `✅ 安全清理完成！已移除 ${cleanupPlan.totalKeys} 個無效記錄，釋放 ${spaceKB} KB 空間`;
+                
+                if (cleanupPlan.emptyPages > 0) {
+                    message += `\n• 清理了 ${cleanupPlan.emptyPages} 個空白頁面記錄`;
+                }
+                if (cleanupPlan.deletedPages > 0) {
+                    message += `\n• 清理了 ${cleanupPlan.deletedPages} 個已刪除頁面的數據`;
+                }
+                
+                showDataStatus(message, 'success');
                 
                 // 重新整理使用情況和預覽
                 updateStorageUsage();
@@ -912,47 +949,64 @@ document.addEventListener('DOMContentLoaded', () => {
                         spaceSaved: 0,
                         optimizations: [],
                         highlightPages: 0,
-                        totalHighlights: 0
+                        totalHighlights: 0,
+                        keysToRemove: [],
+                        optimizedData: {}
                     };
                     
                     const originalData = JSON.stringify(data);
                     plan.originalSize = new Blob([originalData]).size;
                     
+                    // v2.8.0: 統計遷移數據
+                    let migrationDataSize = 0;
+                    let migrationKeysCount = 0;
+                    
                     // 分析可能的優化
                     const optimizedData = {};
+                    const keysToRemove = [];
                     
                     for (const [key, value] of Object.entries(data)) {
+                        // v2.8.0: 檢測並清理遷移數據（包括舊版本備份）
+                        if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
+                            migrationKeysCount++;
+                            const size = new Blob([JSON.stringify({[key]: value})]).size;
+                            migrationDataSize += size;
+                            keysToRemove.push(key);
+                            // 不加入 optimizedData（清理掉）
+                            continue;
+                        }
+                        
                         if (key.startsWith('highlights_')) {
                             if (Array.isArray(value) && value.length > 0) {
                                 plan.highlightPages++;
                                 plan.totalHighlights += value.length;
                                 
-                                // 數據壓縮：移除重複的長文本，優化數據結構
-                                const optimizedHighlights = value.map(highlight => {
-                                    const optimized = { ...highlight };
-                                    // 限制文本長度，移除多餘空白
-                                    if (optimized.text) {
-                                        optimized.text = optimized.text.trim().substring(0, 500);
-                                    }
-                                    return optimized;
-                                });
-                                
-                                optimizedData[key] = optimizedHighlights;
-                                
-                                if (value.length !== optimizedHighlights.length || 
-                                    JSON.stringify(value) !== JSON.stringify(optimizedHighlights)) {
-                                    plan.optimizations.push(`優化 ${key.replace('highlights_', '')} 的數據結構`);
-                                }
+                                // 保持完整數據，不截斷文本
+                                optimizedData[key] = value;
                             }
                         } else {
                             optimizedData[key] = value;
                         }
                     }
                     
+                    // v2.8.0: 添加遷移數據清理到優化計劃
+                    if (migrationDataSize > 1024) {
+                        const sizeKB = (migrationDataSize / 1024).toFixed(1);
+                        plan.optimizations.push(`清理遷移數據（${migrationKeysCount} 項，${sizeKB} KB）`);
+                        plan.canOptimize = true;
+                    }
+                    
+                    plan.keysToRemove = keysToRemove;
+                    plan.optimizedData = optimizedData;
+                    
                     const optimizedJson = JSON.stringify(optimizedData);
                     plan.optimizedSize = new Blob([optimizedJson]).size;
                     plan.spaceSaved = plan.originalSize - plan.optimizedSize;
-                    plan.canOptimize = plan.spaceSaved > 1024; // 至少節省 1KB 才值得優化
+                    
+                    // 只要有遷移數據就可以優化
+                    if (migrationKeysCount > 0) {
+                        plan.canOptimize = true;
+                    }
                     
                     // 檢查是否需要索引重建
                     const hasFragmentation = Object.keys(data).some(key => 
@@ -961,11 +1015,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (hasFragmentation) {
                         plan.optimizations.push('修復數據碎片');
-                        plan.canOptimize = true;
-                    }
-                    
-                    if (plan.highlightPages > 100) {
-                        plan.optimizations.push('重建數據索引');
                         plan.canOptimize = true;
                     }
                     
@@ -1021,58 +1070,56 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             try {
-                // 創建備份
-                const backupData = await new Promise(resolve => {
+                showDataStatus('🔄 正在執行數據重整...', 'info');
+                
+                // v2.8.0: 使用預先計算好的優化數據
+                const optimizedData = optimizationPlan.optimizedData;
+                const keysToRemove = optimizationPlan.keysToRemove;
+                
+                console.log('📋 優化計劃:', {
+                    keysToRemove: keysToRemove.length,
+                    optimizedKeys: Object.keys(optimizedData).length,
+                    spaceSaved: optimizationPlan.spaceSaved
+                });
+                
+                // 先刪除遷移數據
+                if (keysToRemove.length > 0) {
+                    await new Promise((resolve, reject) => {
+                        chrome.storage.local.remove(keysToRemove, () => {
+                            if (chrome.runtime.lastError) {
+                                reject(chrome.runtime.lastError);
+                            } else {
+                                console.log(`✅ 已刪除 ${keysToRemove.length} 個遷移數據`);
+                                resolve();
+                            }
+                        });
+                    });
+                }
+                
+                // 然後寫入優化後的數據（如果有變化）
+                const currentData = await new Promise(resolve => {
                     chrome.storage.local.get(null, resolve);
                 });
                 
-                // 執行優化
-                const optimizedData = {};
+                const needsUpdate = Object.keys(optimizedData).some(key => {
+                    return JSON.stringify(currentData[key]) !== JSON.stringify(optimizedData[key]);
+                });
                 
-                for (const [key, value] of Object.entries(backupData)) {
-                    if (key.startsWith('highlights_')) {
-                        if (Array.isArray(value) && value.length > 0) {
-                            // 優化標記數據
-                            const optimizedHighlights = value.map(highlight => {
-                                const optimized = { ...highlight };
-                                if (optimized.text) {
-                                    optimized.text = optimized.text.trim().substring(0, 500);
-                                }
-                                return optimized;
-                            }).filter(h => h.text && h.text.length > 0); // 移除空標記
-                            
-                            if (optimizedHighlights.length > 0) {
-                                optimizedData[key] = optimizedHighlights;
+                if (needsUpdate) {
+                    await new Promise((resolve, reject) => {
+                        chrome.storage.local.set(optimizedData, () => {
+                            if (chrome.runtime.lastError) {
+                                reject(chrome.runtime.lastError);
+                            } else {
+                                console.log('✅ 已更新優化後的數據');
+                                resolve();
                             }
-                        }
-                    } else {
-                        optimizedData[key] = value;
-                    }
+                        });
+                    });
                 }
                 
-                // 清空存儲並寫入優化後的數據
-                await new Promise((resolve, reject) => {
-                    chrome.storage.local.clear(() => {
-                        if (chrome.runtime.lastError) {
-                            reject(chrome.runtime.lastError);
-                        } else {
-                            resolve();
-                        }
-                    });
-                });
-                
-                await new Promise((resolve, reject) => {
-                    chrome.storage.local.set(optimizedData, () => {
-                        if (chrome.runtime.lastError) {
-                            reject(chrome.runtime.lastError);
-                        } else {
-                            resolve();
-                        }
-                    });
-                });
-                
-                const spaceSavedMB = (optimizationPlan.spaceSaved / (1024 * 1024)).toFixed(3);
-                showDataStatus(`✅ 數據重整完成！已優化數據結構，節省 ${spaceSavedMB} MB 空間，所有標記內容完整保留`, 'success');
+                const spaceSavedKB = (optimizationPlan.spaceSaved / 1024).toFixed(1);
+                showDataStatus(`✅ 數據重整完成！已清理遷移數據，節省 ${spaceSavedKB} KB 空間，所有標記內容完整保留`, 'success');
                 
                 // 重新整理使用情況和預覽
                 updateStorageUsage();
