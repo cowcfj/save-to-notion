@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Smart Clipper v2.7.3 快速指南</title>
+    <title>Notion Smart Clipper v2.8.0+ 快速指南</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -13,6 +14,7 @@
             line-height: 1.6;
             color: #333;
         }
+
         .feature {
             background: #f8f9fa;
             border-left: 4px solid #28a745;
@@ -20,10 +22,12 @@
             margin: 20px 0;
             border-radius: 0 8px 8px 0;
         }
+
         .feature h3 {
             margin-top: 0;
             color: #28a745;
         }
+
         .code {
             background: #f5f5f5;
             padding: 2px 6px;
@@ -31,6 +35,7 @@
             font-family: 'Monaco', 'Courier New', monospace;
             font-size: 0.9em;
         }
+
         .success {
             background: #d4edda;
             border: 1px solid #c3e6cb;
@@ -38,6 +43,7 @@
             padding: 15px;
             margin: 15px 0;
         }
+
         .info-box {
             background: #f0f8ff;
             border: 2px solid #0066cc;
@@ -46,40 +52,43 @@
             margin: 20px 0;
             text-align: center;
         }
+
         .info-box a {
             color: #0066cc;
             font-weight: bold;
             text-decoration: none;
             font-size: 1.1em;
         }
+
         .info-box a:hover {
             text-decoration: underline;
         }
     </style>
 </head>
+
 <body>
-    <h1>📚 Notion Smart Clipper v2.7.3 快速指南</h1>
-    
+    <h1>📚 Notion Smart Clipper v2.8.0+ 快速指南</h1>
+
     <div class="info-box">
-        <p>📖 <strong>需要完整的使用指南和 FAQ?</strong></p>
+        <p>📖 <strong>完整使用指南和 FAQ</strong></p>
         <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank">
-            → 訪問 GitHub 完整用戶指南
+            → 查看完整用戶指南 (USER_GUIDE.md)
         </a>
         <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
             包含詳細操作步驟、30+ 常見問題、故障排除和最佳實踐
         </p>
     </div>
-    
+
     <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 15px 0;">
-        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.7.3</h4>
+        <h4 style="margin-top: 0; color: #856404;">🎉 最新更新 v2.8.0+</h4>
         <ul style="margin-bottom: 0;">
+            <li>🎨 <strong>標註工具欄按鈕：</strong>標註後可直接從工具欄打開 Notion 頁面</li>
+            <li>🔧 <strong>數據管理改進：</strong>修復數據完整性檢查和清理功能</li>
             <li>🐛 <strong>超長文章支持：</strong>完整保存任意長度的文章，自動分批處理</li>
-            <li>🎯 <strong>圖標徽章顯示：</strong>擴展圖標上顯示綠色 "✓" 表示頁面已保存</li>
             <li>🔗 <strong>Open in Notion：</strong>保存成功後一鍵打開對應的 Notion 頁面</li>
-            <li>🎨 <strong>多顏色標註：</strong>支援 5 種顏色（黃/綠/藍/紅/紫）標註</li>
         </ul>
     </div>
-    
+
     <div class="success">
         <h3>🎯 快速開始 (3 步驟)</h3>
         <ol>
@@ -102,35 +111,34 @@
     </div>
 
     <div class="feature">
-        <h3>💡 Top 10 常見問題</h3>
+        <h3>💡 常見問題快速解答</h3>
         <ol>
             <li><strong>API Key 無法連接?</strong> → 確認 Token 格式正確 (以 <span class="code">secret_</span> 開頭)</li>
             <li><strong>數據庫列表為空?</strong> → 在 Notion 中添加 Integration Connection</li>
             <li><strong>保存失敗?</strong> → 檢查 API Key 和數據庫權限</li>
-            <li><strong>內容不完整?</strong> → 等待頁面完全加載後再保存</li>
             <li><strong>標註沒有顯示?</strong> → 需要 Chrome 105+，嘗試刷新頁面</li>
-            <li><strong>無法刪除標註?</strong> → 按住 Ctrl/Cmd 點擊，或使用「📋 管理」功能</li>
-            <li><strong>圖標徽章不顯示?</strong> → 確認已保存頁面，刷新後查看</li>
-            <li><strong>"Open in Notion" 按鈕不顯示?</strong> → v2.7.0+ 頁面需要，舊頁面需重新保存</li>
-            <li><strong>圖片不顯示?</strong> → 某些網站有防盜鏈保護</li>
             <li><strong>存儲空間不足?</strong> → 設置頁面使用「數據管理」清理</li>
         </ol>
+        <p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+            <strong>📖 更多問題？</strong>
+            <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq" target="_blank" style="color: #28a745;">
+                查看完整 FAQ (30+ 問題) →
+            </a>
+        </p>
     </div>
 
     <div class="info-box" style="margin-top: 40px;">
-        <p>📚 <strong>遇到其他問題?</strong></p>
-        <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq" target="_blank">
-            → 查看完整 FAQ (30+ 問題)
+        <p>🔧 <strong>需要詳細幫助？</strong></p>
+        <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank">
+            → 完整用戶指南 (USER_GUIDE.md)
         </a>
-        <br><br>
-        <p>🔧 <strong>需要故障排除指南?</strong></p>
-        <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-故障排除" target="_blank">
-            → 查看詳細故障排除步驟
-        </a>
+        <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+            包含：詳細操作步驟 | 30+ FAQ | 故障排除 | 最佳實踐
+        </p>
     </div>
 
     <div style="text-align: center; margin-top: 40px; padding: 20px; border-top: 1px solid #e0e0e0; color: #666;">
-        <p><strong>🌟 版本 v2.7.3</strong> | 最後更新：2025年10月</p>
+        <p><strong>🌟 版本 v2.8.0+</strong> | 最後更新：2025年10月7日</p>
         <p style="font-size: 12px; color: #999; margin-top: 15px;">
             💝 感謝您使用 Notion Smart Clipper！
         </p>
@@ -138,7 +146,12 @@
             <a href="https://github.com/cowcfj/save-to-notion" target="_blank" style="color: #0066cc;">
                 ⭐ GitHub 項目主頁
             </a>
+            |
+            <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank" style="color: #0066cc;">
+                📖 完整用戶指南
+            </a>
         </p>
     </div>
 </body>
+
 </html>
