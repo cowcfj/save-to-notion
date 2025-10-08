@@ -1,4 +1,4 @@
-# Notion Smart Clipper v2.8.1
+# Notion Smart Clipper v2.8.2
 
 > 最近更新：修復長頁面多次開關後標註工具欄不顯示的問題（即將發布）
 
