@@ -199,7 +199,7 @@
                     return m2[1];
                 }
             }
-        } catch (e) {}
+        } catch (e) { /* empty: best-effort fallback; ignore style/noscript parse errors */ }
 
         // 檢查父元素是否為 <picture> 元素
         if (imgNode.parentElement && imgNode.parentElement.nodeName === 'PICTURE') {

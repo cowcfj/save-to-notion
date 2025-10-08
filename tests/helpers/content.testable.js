@@ -178,7 +178,7 @@ function extractImageSrc(imgNode) {
                 return m2[1];
             }
         }
-    } catch (e) {}
+    } catch (e) { /* empty: best-effort fallback; ignore style compute errors in tests */ }
 
     // 檢查父元素是否為 <picture> 元素
     if (imgNode.parentElement && imgNode.parentElement.nodeName === 'PICTURE') {
@@ -211,7 +211,7 @@ function extractImageSrc(imgNode) {
                 }
             }
         }
-    } catch (e) {}
+    } catch (e) { /* empty: best-effort fallback; ignore noscript parse errors in tests */ }
 
     return null;
 }
