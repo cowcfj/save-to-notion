@@ -1259,16 +1259,47 @@
             });
         });
         
-        // 綁定全局點擊監聽器（用於 Ctrl+點擊刪除）
+        // 綁定/解綁 全局點擊監聽器（用於 Ctrl+點擊刪除）
         const clickHandler = (e) => manager.handleDocumentClick(e);
-        document.addEventListener('click', clickHandler, true);
+        let listenerBound = false;
+        const bindDeleteListener = () => {
+            if (!listenerBound) {
+                document.addEventListener('click', clickHandler, true);
+                listenerBound = true;
+            }
+        };
+        const unbindDeleteListener = () => {
+            if (listenerBound) {
+                document.removeEventListener('click', clickHandler, true);
+                listenerBound = false;
+            }
+        };
+        // 初始綁定一次
+        bindDeleteListener();
         
         // 清理函數（當工具欄關閉時移除監聽器）
         const originalHide = () => {
             toolbar.style.display = 'none';
-            document.removeEventListener('click', clickHandler, true);
+            unbindDeleteListener();
         };
         toolbar.querySelector('#close-highlight-v2').addEventListener('click', originalHide, { once: true });
+        
+        // 監控 toolbar 是否被移除，若被移除則自動重新掛載
+        const mo = new MutationObserver(() => {
+            if (!document.body.contains(toolbar)) {
+                try {
+                    document.body.appendChild(toolbar);
+                } catch (e) {
+                    console.error('MutationObserver 重新掛載工具欄失敗:', e);
+                }
+            }
+        });
+        try {
+            mo.observe(document.body, { childList: true, subtree: true });
+            window.addEventListener('unload', () => mo.disconnect(), { once: true });
+        } catch (e) {
+            console.warn('MutationObserver 初始化失敗:', e);
+        }
         
         // 綁定同步按鈕
         toolbar.querySelector('#sync-to-notion-v2').addEventListener('click', async () => {
@@ -1581,6 +1612,12 @@
             toggle: toggleHighlightMode,
             show: () => {
                 try {
+                    // 確保刪除監聽器已綁定（避免多次開關後失效）
+                    try {
+                        if (typeof bindDeleteListener === 'function') {
+                            bindDeleteListener();
+                        }
+                    } catch (e) { /* ignore */ }
                     // If the toolbar was removed by the page, re-attach it
                     if (!toolbar.isConnected || !document.body.contains(toolbar)) {
                         document.body.appendChild(toolbar);
