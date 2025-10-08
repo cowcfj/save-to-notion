@@ -1,5 +1,10 @@
 # 變更日誌 (CHANGELOG)
 
+## [Unreleased]
+### 修復
+- 強化標註工具欄顯示穩定性：在長內容頁面多次標註/同步並反覆開關後，工具欄可能無法再顯示。現已在顯示時自動重新掛載節點、重申關鍵樣式，並將 z-index 提升至 2147483647，避免被覆蓋。（模組：highlighter-v2）
+
+
 ## v2.8.1
 - 對齊版本資訊：manifest.json 與 package.json → 2.8.1
 - CI 小幅調整：升級 Codecov Action 至 v4、引入 `test:ci`，並在 workflow 中使用
