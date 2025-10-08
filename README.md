@@ -1,27 +1,16 @@
-# Notion Smart Clipper v2.8.2
-
-> 最近更新：修復長頁面多次開關後標註工具欄不顯示的問題（v2.8.2 已發布）
+# Notion Smart Clipper
 
 [![Latest Release](https://img.shields.io/github/v/release/cowcfj/save-to-notion)](https://github.com/cowcfj/save-to-notion/releases/latest)
 [![Tests](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> 🎉 **最新版本 v2.8.2 已發布！** [查看更新內容](https://github.com/cowcfj/save-to-notion/releases/tag/v2.8.2) - 修復長頁多次開關後工具欄不顯示；並追加小幅增強（穩定性提升）
 
-## 🏆 近期里程碑
-[![Codecov Success](https://img.shields.io/badge/🎉_Codecov-Integration_Success-success.svg)](CODECOV_INTEGRATION_MILESTONE.md)
-[![Coverage Boost](https://img.shields.io/badge/Coverage-19.13%25_→_20.67%25-brightgreen.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
-[![Tests Passing](https://img.shields.io/badge/Tests-764%2F764_Passing-success.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
 
 一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取。
 
-### 📦 最新更新 (v2.8.2 - 2025-10-08)
-- ✅ **數據管理功能完善**：修復檢查數據完整性、數據重整、自動清理功能
-- ✅ **遷移數據清理**：真正刪除遷移數據並釋放存儲空間
-- ✅ **測試通過**：25/25 測試項目通過（100%）
-
-[查看完整發布說明](RELEASE_NOTES_v2.8.2.md) | [查看所有版本](https://github.com/cowcfj/save-to-notion/releases)
+### 📦 最新更新
+查看最新功能和改進：[所有版本發布說明](https://github.com/cowcfj/save-to-notion/releases)
 
 > 📖 **[完整使用指南](USER_GUIDE.md)** | 包含詳細操作說明、FAQ 和故障排除
 
@@ -194,32 +183,6 @@ notion-chrome/
 ```
 
 ---
-
-## 🧪 測試覆蓋率
-
-當前測試覆蓋率：**20.00%** ✅ ([詳細報告](TEST_COVERAGE_MILESTONE_20_PERCENT.md))
-
-```
-Coverage Summary
--------------------------------|---------|----------|---------|---------|
-File                           | % Stmts | % Branch | % Funcs | % Lines |
--------------------------------|---------|----------|---------|---------|
-All files                      |   20.00 |    27.75 |   23.90 |   19.36 |
-tests/helpers/                 |   94.70 |    90.32 |  100.00 |   94.77 |
--------------------------------|---------|----------|---------|---------|
-```
-
-**測試統計：**
-- 總測試數：608 個
-- 測試通過率：100%
-- 測試套件：12 個
-- 執行時間：1.985 秒
-
-**運行測試：**
-```bash
-npm test                    # 運行所有測試
-npm test -- --coverage      # 生成覆蓋率報告
-```
 
 ---
 
