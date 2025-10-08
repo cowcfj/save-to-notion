@@ -5,3 +5,5 @@ name = "javascript"
 
   [analyzers.meta]
   environment = ["browser"]
+  # Enforce no-empty blocks, but allow empty catch if annotated/commented
+  # DeepSource doesn't parse comments for allowance, but we'll keep codebase documented

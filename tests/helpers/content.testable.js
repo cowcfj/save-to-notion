@@ -89,6 +89,8 @@ function isValidImageUrl(url) {
 function extractImageSrc(imgNode) {
     // 擴展的圖片屬性列表，涵蓋更多懶加載和響應式圖片的情況
     const imageAttrs = [
+        // 擴展更多懶加載屬性
+        'data-actualsrc', 'data-src-original', 'data-echo', 'data-href', 'data-large', 'data-bigsrc',
         'src',
         'data-src', 
         'data-lazy-src', 
@@ -115,10 +117,32 @@ function extractImageSrc(imgNode) {
     // 首先檢查 srcset 屬性（響應式圖片）
     const srcset = imgNode.getAttribute('srcset') || imgNode.getAttribute('data-srcset') || imgNode.getAttribute('data-lazy-srcset');
     if (srcset) {
-        // 從 srcset 中提取最大尺寸的圖片
+        // 從 srcset 中提取最大寬度（w）或最大像素密度（x）的圖片，否則回退最後一個
         const srcsetEntries = srcset.split(',').map(entry => entry.trim());
         if (srcsetEntries.length > 0) {
-            // 取最後一個（通常是最大尺寸）或第一個
+            let bestUrl = null;
+            let bestMetric = -1; // 比較值，優先使用 w，其次使用 x
+            for (const entry of srcsetEntries) {
+                const [url, descriptor] = entry.split(/\s+/);
+                if (url && !url.startsWith('data:')) {
+                    let metric = -1;
+                    const wMatch = descriptor && descriptor.match(/(\d+)w/i);
+                    const xMatch = descriptor && descriptor.match(/(\d+)x/i);
+                    if (wMatch) {
+                        metric = parseInt(wMatch[1], 10) * 1000; // w 權重大於 x
+                    } else if (xMatch) {
+                        metric = parseInt(xMatch[1], 10);
+                    } else {
+                        // 沒有描述，視為最小優先
+                        metric = 0;
+                    }
+                    if (metric > bestMetric) {
+                        bestMetric = metric;
+                        bestUrl = url;
+                    }
+                }
+            }
+            if (bestUrl) return bestUrl;
             const lastEntry = srcsetEntries[srcsetEntries.length - 1];
             const url = lastEntry.split(' ')[0];
             if (url && !url.startsWith('data:')) {
@@ -137,6 +161,28 @@ function extractImageSrc(imgNode) {
         }
     }
     
+    // 背景圖片回退（僅在前面取不到時嘗試）
+    try {
+        const cs = window.getComputedStyle && window.getComputedStyle(imgNode);
+        const bg = cs && cs.getPropertyValue('background-image');
+        const m = bg && bg.match(/url\(["']?(.*?)["']?\)/i);
+        if (m && m[1] && !m[1].startsWith('data:')) {
+            return m[1];
+        }
+        const parent = imgNode.parentElement;
+        if (parent) {
+            const cs2 = window.getComputedStyle && window.getComputedStyle(parent);
+            const bg2 = cs2 && cs2.getPropertyValue('background-image');
+            const m2 = bg2 && bg2.match(/url\(["']?(.*?)["']?\)/i);
+            if (m2 && m2[1] && !m2[1].startsWith('data:')) {
+                return m2[1];
+            }
+        }
+    } catch (e) { 
+        // Best-effort fallback: ignore style computation errors in test environment
+        console.debug('Background image extraction failed in tests:', e.message);
+    }
+
     // 檢查父元素是否為 <picture> 元素
     if (imgNode.parentElement && imgNode.parentElement.nodeName === 'PICTURE') {
         const sources = imgNode.parentElement.querySelectorAll('source');
@@ -155,6 +201,24 @@ function extractImageSrc(imgNode) {
         }
     }
     
+    // noscript 回退：尋找鄰近/父節點內的 <noscript><img src="..."></noscript>
+    try {
+        const candidates = [imgNode, imgNode.parentElement].filter(Boolean);
+        for (const el of candidates) {
+            const nos = el.querySelector && el.querySelector('noscript');
+            if (nos && nos.textContent) {
+                const html = nos.textContent;
+                const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+                if (m && m[1] && !m[1].startsWith('data:')) {
+                    return m[1];
+                }
+            }
+        }
+    } catch (e) { 
+        // Best-effort fallback: ignore noscript parsing errors in test environment
+        console.debug('Noscript fallback extraction failed in tests:', e.message);
+    }
+
     return null;
 }
 

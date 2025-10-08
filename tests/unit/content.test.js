@@ -131,6 +131,38 @@ describe('content.js - 圖片處理函數', () => {
     });
 
     describe('extractImageSrc - 使用 JSDOM', () => {
+        test('應該從 noscript 內的 img 回退提取', () => {
+            const wrapper = document.createElement('div');
+            const img = document.createElement('img');
+            // 無任何可用屬性
+            wrapper.appendChild(img);
+            const nos = document.createElement('noscript');
+            nos.textContent = '<img src="https://example.com/in-noscript.jpg" alt="">';
+            wrapper.appendChild(nos);
+            expect(extractImageSrc(img)).toBe('https://example.com/in-noscript.jpg');
+        });
+
+        test('應該從背景圖回退提取（當 img 無有效屬性）', () => {
+            const img = document.createElement('img');
+            Object.defineProperty(img, 'style', { value: { backgroundImage: 'url(https://example.com/bg.jpg)' }, writable: true });
+            // jsdom 不支援計算樣式，模擬 getComputedStyle
+            const originalGCS = window.getComputedStyle;
+            window.getComputedStyle = () => ({ getPropertyValue: () => 'url("https://example.com/bg.jpg")' });
+            expect(extractImageSrc(img)).toBe('https://example.com/bg.jpg');
+            window.getComputedStyle = originalGCS;
+        });
+
+        test('應該在 srcset 以最大寬度選擇 URL', () => {
+            const img = document.createElement('img');
+            img.setAttribute('srcset', 'https://example.com/a.jpg 400w, https://example.com/b.jpg 800w, https://example.com/c.jpg 1200w');
+            expect(extractImageSrc(img)).toBe('https://example.com/c.jpg');
+        });
+
+        test('應該從擴展 data-* 屬性提取', () => {
+            const img = document.createElement('img');
+            img.setAttribute('data-actualsrc', 'https://example.com/actual.jpg');
+            expect(extractImageSrc(img)).toBe('https://example.com/actual.jpg');
+        });
         test('應該從 src 屬性提取', () => {
             const img = document.createElement('img');
             img.setAttribute('src', 'https://example.com/image.jpg');
