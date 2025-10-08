@@ -1186,6 +1186,9 @@
         const toolbar = createSimpleToolbar(manager);
         toolbar.style.display = 'none'; // 🔑 默認隱藏
         document.body.appendChild(toolbar);
+        // Query helpers to support Shadow DOM
+        const $ = (sel) => (toolbar.shadowRoot || toolbar).querySelector(sel);
+        const $$ = (sel) => (toolbar.shadowRoot || toolbar).querySelectorAll(sel);
         
         // 切換標註模式
         function toggleHighlightMode() {
@@ -1576,8 +1579,31 @@
             toolbar: toolbar,
             isActive: () => isActive,
             toggle: toggleHighlightMode,
-            show: () => toolbar.style.display = 'block',
-            hide: () => toolbar.style.display = 'none',
+            show: () => {
+                try {
+                    // If the toolbar was removed by the page, re-attach it
+                    if (!toolbar.isConnected || !document.body.contains(toolbar)) {
+                        document.body.appendChild(toolbar);
+                    }
+                    // Ensure core styles so site CSS can't easily override
+                    toolbar.style.position = 'fixed';
+                    toolbar.style.top = toolbar.style.top || '20px';
+                    toolbar.style.right = toolbar.style.right || '20px';
+                    toolbar.style.zIndex = '2147483647';
+                    toolbar.style.display = 'block';
+                    toolbar.style.visibility = 'visible';
+                    toolbar.style.opacity = '1';
+                } catch (e) {
+                    console.error('顯示標註工具欄失敗:', e);
+                }
+            },
+            hide: () => {
+                try {
+                    toolbar.style.display = 'none';
+                } catch (e) {
+                    console.error('隱藏標註工具欄失敗:', e);
+                }
+            },
             collectHighlights: () => manager.collectHighlightsForNotion()
         };
 
@@ -1599,7 +1625,8 @@
             border-radius: 8px;
             padding: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 10000;
+            /* Use a very high z-index to avoid being covered by site overlays */
+            z-index: 2147483647;
             font-family: Arial, sans-serif;
             font-size: 14px;
             min-width: 200px;
