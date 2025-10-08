@@ -178,7 +178,10 @@ function extractImageSrc(imgNode) {
                 return m2[1];
             }
         }
-    } catch (e) { /* empty: best-effort fallback; ignore style compute errors in tests */ }
+    } catch (e) { 
+        // Best-effort fallback: ignore style computation errors in test environment
+        console.debug('Background image extraction failed in tests:', e.message);
+    }
 
     // 檢查父元素是否為 <picture> 元素
     if (imgNode.parentElement && imgNode.parentElement.nodeName === 'PICTURE') {
@@ -211,7 +214,10 @@ function extractImageSrc(imgNode) {
                 }
             }
         }
-    } catch (e) { /* empty: best-effort fallback; ignore noscript parse errors in tests */ }
+    } catch (e) { 
+        // Best-effort fallback: ignore noscript parsing errors in test environment
+        console.debug('Noscript fallback extraction failed in tests:', e.message);
+    }
 
     return null;
 }
