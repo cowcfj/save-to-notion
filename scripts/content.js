@@ -112,6 +112,12 @@
             'data-srcset',
             'data-lazy-srcset',
             'data-original-src',
+            'data-actualsrc',
+            'data-src-original',
+            'data-echo',
+            'data-href',
+            'data-large',
+            'data-bigsrc',
             'data-full-src',
             'data-hi-res-src',
             'data-large-src',
@@ -131,10 +137,31 @@
         // 首先檢查 srcset 屬性（響應式圖片）
         const srcset = imgNode.getAttribute('srcset') || imgNode.getAttribute('data-srcset') || imgNode.getAttribute('data-lazy-srcset');
         if (srcset) {
-            // 從 srcset 中提取最大尺寸的圖片
+            // 從 srcset 中提取最大寬度（w 描述）的圖片，否則回退最後一個
             const srcsetEntries = srcset.split(',').map(entry => entry.trim());
             if (srcsetEntries.length > 0) {
-                // 取最後一個（通常是最大尺寸）或第一個
+                let bestUrl = null;
+                let bestW = -1;
+                for (const entry of srcsetEntries) {
+                    const [url, descriptor] = entry.split(/\s+/);
+                    if (url && !url.startsWith('data:')) {
+                        const match = descriptor && descriptor.match(/(\d+)w/i);
+                        if (match) {
+                            const w = parseInt(match[1], 10);
+                            if (w > bestW) {
+                                bestW = w;
+                                bestUrl = url;
+                            }
+                        } else {
+                            // 若無 w 描述，暫存作為回退
+                            bestUrl = bestUrl || url;
+                        }
+                    }
+                }
+                if (bestUrl) {
+                    return bestUrl;
+                }
+                // 回退：取最後一個（通常是最大尺寸）
                 const lastEntry = srcsetEntries[srcsetEntries.length - 1];
                 const url = lastEntry.split(' ')[0];
                 if (url && !url.startsWith('data:')) {
@@ -152,6 +179,27 @@
                 }
             }
         }
+
+        // 檢查父元素是否為 <picture> 元素
+        // 背景圖片回退（僅在前面取不到時嘗試，避免性能負擔）
+        try {
+            const cs = window.getComputedStyle && window.getComputedStyle(imgNode);
+            const bg = cs && cs.getPropertyValue('background-image');
+            const m = bg && bg.match(/url\(["']?(.*?)["']?\)/i);
+            if (m && m[1] && !m[1].startsWith('data:')) {
+                return m[1];
+            }
+            // 父節點 figure/div 的背景圖
+            const parent = imgNode.parentElement;
+            if (parent) {
+                const cs2 = window.getComputedStyle && window.getComputedStyle(parent);
+                const bg2 = cs2 && cs2.getPropertyValue('background-image');
+                const m2 = bg2 && bg2.match(/url\(["']?(.*?)["']?\)/i);
+                if (m2 && m2[1] && !m2[1].startsWith('data:')) {
+                    return m2[1];
+                }
+            }
+        } catch (e) {}
 
         // 檢查父元素是否為 <picture> 元素
         if (imgNode.parentElement && imgNode.parentElement.nodeName === 'PICTURE') {
