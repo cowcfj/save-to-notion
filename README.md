@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> 🎉 **最新版本 v2.8.1 已發布！** [查看更新內容](https://github.com/cowcfj/save-to-notion/releases/tag/v2.8.1) - 數據管理功能完善
+> 🎉 **最新版本 v2.8.2 已發布！** [查看更新內容](https://github.com/cowcfj/save-to-notion/releases/tag/v2.8.2) - 標註工具欄顯示穩定性修復
 
 ## 🏆 近期里程碑
 [![Codecov Success](https://img.shields.io/badge/🎉_Codecov-Integration_Success-success.svg)](CODECOV_INTEGRATION_MILESTONE.md)
@@ -16,12 +16,12 @@
 
 一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取。
 
-### 📦 最新更新 (v2.8.1 - 2025-10-07)
+### 📦 最新更新 (v2.8.2 - 2025-10-08)
 - ✅ **數據管理功能完善**：修復檢查數據完整性、數據重整、自動清理功能
 - ✅ **遷移數據清理**：真正刪除遷移數據並釋放存儲空間
 - ✅ **測試通過**：25/25 測試項目通過（100%）
 
-[查看完整發布說明](RELEASE_NOTES_v2.8.1.md) | [查看所有版本](https://github.com/cowcfj/save-to-notion/releases)
+[查看完整發布說明](RELEASE_NOTES_v2.8.2.md) | [查看所有版本](https://github.com/cowcfj/save-to-notion/releases)
 
 > 📖 **[完整使用指南](USER_GUIDE.md)** | 包含詳細操作說明、FAQ 和故障排除
 
@@ -110,7 +110,7 @@
 
 ## 📝 最新更新
 
-### v2.8.0 (最新版本) 🎉 用戶體驗全面提升
+### v2.8.0 🎉 用戶優化與功能增強
 - 🔗 **Open in Notion 按鈕優化**：修復標註後按鈕消失問題，標註面板新增快捷按鈕
 - 📢 **更新通知系統**：擴展更新後自動顯示新功能說明，智能化、現代化設計
 - 🔍 **搜索式數據庫選擇器**：實時搜索、鍵盤導航、詳細信息顯示，大幅改善多數據庫用戶體驗
