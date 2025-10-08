@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> 🎉 **最新版本 v2.8.2 已發布！** [查看更新內容](https://github.com/cowcfj/save-to-notion/releases/tag/v2.8.2) - 標註工具欄顯示穩定性修復
+> 🎉 **最新版本 v2.8.2 已發布！** [查看更新內容](https://github.com/cowcfj/save-to-notion/releases/tag/v2.8.2) - 標註工具欄顯示穩定性修復；並已追加小幅增強（MutationObserver 自動恢復 + show() 重綁刪除監聽）
 
 ## 🏆 近期里程碑
 [![Codecov Success](https://img.shields.io/badge/🎉_Codecov-Integration_Success-success.svg)](CODECOV_INTEGRATION_MILESTONE.md)
