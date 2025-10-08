@@ -183,18 +183,18 @@
         // 檢查父元素是否為 <picture> 元素
         // 背景圖片回退（僅在前面取不到時嘗試，避免性能負擔）
         try {
-            const cs = window.getComputedStyle && window.getComputedStyle(imgNode);
-            const bg = cs && cs.getPropertyValue('background-image');
-            const m = bg && bg.match(/url\(["']?(.*?)["']?\)/i);
+            const cs = window.getComputedStyle?.(imgNode);
+            const bg = cs?.getPropertyValue('background-image');
+            const m = bg?.match(/url\(["']?(.*?)["']?\)/i);
             if (m && m[1] && !m[1].startsWith('data:')) {
                 return m[1];
             }
             // 父節點 figure/div 的背景圖
             const parent = imgNode.parentElement;
             if (parent) {
-                const cs2 = window.getComputedStyle && window.getComputedStyle(parent);
-                const bg2 = cs2 && cs2.getPropertyValue('background-image');
-                const m2 = bg2 && bg2.match(/url\(["']?(.*?)["']?\)/i);
+                const cs2 = window.getComputedStyle?.(parent);
+                const bg2 = cs2?.getPropertyValue('background-image');
+                const m2 = bg2?.match(/url\(["']?(.*?)["']?\)/i);
                 if (m2 && m2[1] && !m2[1].startsWith('data:')) {
                     return m2[1];
                 }
