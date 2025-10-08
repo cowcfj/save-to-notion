@@ -3,7 +3,7 @@
 
 // 防止重複注入導致的重複聲明錯誤
 if (typeof window.StorageUtil !== 'undefined') {
-    console.log('⚠️ utils.js 已經加載，跳過重複注入');
+    // utils.js 已經加載，跳過重複注入
     // 不執行後續代碼
 } else {
 
@@ -13,13 +13,13 @@ if (typeof window.StorageUtil !== 'undefined') {
  */
 function normalizeUrl(rawUrl) {
     try {
-        console.log('🔧 [normalizeUrl] 原始 URL:', rawUrl);
+        // console.log('🔧 [normalizeUrl] 原始 URL:', rawUrl);
         
         const u = new URL(rawUrl);
         
         // 1. 移除 fragment (hash)
         if (u.hash) {
-            console.log('   移除 hash:', u.hash);
+            // console.log('   移除 hash:', u.hash);
             u.hash = '';
         }
         
@@ -36,17 +36,17 @@ function normalizeUrl(rawUrl) {
             }
         });
         if (removedParams.length > 0) {
-            console.log('   移除追蹤參數:', removedParams.join(', '));
+            // console.log('   移除追蹤參數:', removedParams.join(', '));
         }
         
         // 3. 標準化尾部斜杠（保留根路徑 "/"）
         if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-            console.log('   移除尾部斜杠:', u.pathname);
+            // console.log('   移除尾部斜杠:', u.pathname);
             u.pathname = u.pathname.replace(/\/+$/, '');
         }
         
         const normalized = u.toString();
-        console.log('✅ [normalizeUrl] 標準化後:', normalized);
+        // console.log('✅ [normalizeUrl] 標準化後:', normalized);
         
         return normalized;
     } catch (e) {
@@ -64,14 +64,14 @@ if (typeof window.StorageUtil === 'undefined') {
      * 保存標記數據
      */
     async saveHighlights(pageUrl, highlightData) {
-        console.log('💾 [saveHighlights] 開始保存標註');
-        console.log('   原始 URL:', pageUrl);
+        // console.log('💾 [saveHighlights] 開始保存標註');
+        // console.log('   原始 URL:', pageUrl);
         
         const normalizedUrl = normalizeUrl(pageUrl);
         const pageKey = `highlights_${normalizedUrl}`;
         const count = Array.isArray(highlightData) ? highlightData.length : (highlightData?.highlights?.length || 0);
         
-        console.log(`   保存 ${count} 個標註到鍵:`, pageKey);
+        // console.log(`   保存 ${count} 個標註到鍵:`, pageKey);
         
         return new Promise((resolve, reject) => {
             try {
@@ -110,13 +110,13 @@ if (typeof window.StorageUtil === 'undefined') {
      * 加載標記數據
      */
     async loadHighlights(pageUrl) {
-        console.log('📖 [loadHighlights] 開始讀取標註');
-        console.log('   原始 URL:', pageUrl);
+        // console.log('📖 [loadHighlights] 開始讀取標註');
+        // console.log('   原始 URL:', pageUrl);
         
         const normalizedUrl = normalizeUrl(pageUrl);
         const pageKey = `highlights_${normalizedUrl}`;
         
-        console.log('   讀取鍵:', pageKey);
+        // console.log('   讀取鍵:', pageKey);
         
         return new Promise((resolve) => {
             try {
