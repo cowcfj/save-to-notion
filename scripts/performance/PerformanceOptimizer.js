@@ -2,6 +2,7 @@
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
+const L = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 class PerformanceOptimizer {
     /**
      * 創建性能優化器實例
@@ -77,12 +78,12 @@ class PerformanceOptimizer {
                     performanceThreshold: 100,
                     batchSizeAdjustmentFactor: 0.1
                 });
-                console.log('🤖 自適應性能管理器已初始化');
+                L.info('🤖 自適應性能管理器已初始化');
             } else {
-                console.warn('⚠️ AdaptivePerformanceManager not available, adaptive features disabled');
+                L.warn('⚠️ AdaptivePerformanceManager not available, adaptive features disabled');
             }
         } catch (error) {
-            console.error('❌ 初始化自適應管理器失敗:', error);
+            L.error('❌ 初始化自適應管理器失敗:', error);
         }
     }
 
@@ -390,7 +391,7 @@ class PerformanceOptimizer {
             return [];
         }
 
-        console.log(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
+        L.info(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
         
         // 使用批處理方式預熱選擇器
         const results = [];
@@ -414,10 +415,10 @@ class PerformanceOptimizer {
                     this.cacheStats.prewarms++;
                     this.prewarmedSelectors.add(selector);
                     
-                    console.log(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
+                    L.info(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
                 }
             } catch (error) {
-                console.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
+                L.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
                 
                 if (typeof ErrorHandler !== 'undefined') {
                     ErrorHandler.logError({
@@ -436,7 +437,7 @@ class PerformanceOptimizer {
             }
         }
         
-        console.log(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
+        L.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
         return results;
     }
 
@@ -457,7 +458,7 @@ class PerformanceOptimizer {
         const results = await this.preloadSelectors(allSelectors, context);
         
         const duration = performance.now() - startTime;
-        console.log(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
+        L.info(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
         
         return results;
     }
@@ -829,13 +830,13 @@ class PerformanceOptimizer {
         // 根據緩存命中率調整策略
         if (stats.cache.hitRate < 0.3) {
             // 緩存命中率低，可能需要增加緩存大小或清理策略
-            console.log('📊 緩存命中率較低，考慮調整緩存策略');
+            L.info('📊 緩存命中率較低，考慮調整緩存策略');
         }
         
         // 根據平均處理時間調整批處理大小
         if (stats.metrics.averageProcessingTime > 50) {
             // 處理時間過長，減少批處理大小
-            console.log('⏰ 處理時間過長，動態調整批處理大小');
+            L.info('⏰ 處理時間過長，動態調整批處理大小');
             if (this.adaptiveManager) {
                 this.adaptiveManager.adjustBatchSize(Math.floor(this.currentSettings.batchSize * 0.8));
             }
@@ -844,7 +845,7 @@ class PerformanceOptimizer {
         // 定期清理過期緩存
         const expiredCount = this.clearExpiredCache();
         if (expiredCount > 0) {
-            console.log(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
+            L.info(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
         }
     }
 }
