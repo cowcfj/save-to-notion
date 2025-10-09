@@ -38,15 +38,28 @@ function cleanImageUrl(url) {
     }
 }
 
+// 圖片 URL 驗證結果緩存
+const urlValidationCache = new Map();
+const MAX_CACHE_SIZE = 1000;
+
 /**
  * 檢查 URL 是否為有效的圖片格式
  */
 function isValidImageUrl(url) {
     if (!url || typeof url !== 'string') return false;
     
+    // 檢查緩存
+    if (urlValidationCache.has(url)) {
+        return urlValidationCache.get(url);
+    }
+    
     // 先清理 URL
     const cleanedUrl = cleanImageUrl(url);
-    if (!cleanedUrl) return false;
+    if (!cleanedUrl) {
+        // 緩存負面結果
+        cacheValidationResult(url, false);
+        return false;
+    }
     
     // 檢查是否為有效的 HTTP/HTTPS URL
     if (!cleanedUrl.match(/^https?:\/\//i)) return false;
@@ -84,7 +97,26 @@ function isValidImageUrl(url) {
         return false;
     }
     
-    return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+    const result = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+    
+    // 緩存結果
+    cacheValidationResult(url, result);
+    
+    return result;
+}
+
+/**
+ * 緩存圖片 URL 驗證結果
+ */
+function cacheValidationResult(url, isValid) {
+    // 檢查緩存大小限制
+    if (urlValidationCache.size >= MAX_CACHE_SIZE) {
+        // 刪除最舊的條目（簡單的 FIFO 策略）
+        const firstKey = urlValidationCache.keys().next().value;
+        urlValidationCache.delete(firstKey);
+    }
+    
+    urlValidationCache.set(url, isValid);
 }
 
 // ==========================================
@@ -1408,6 +1440,21 @@ async function handleSavePage(sendResponse) {
 
         // 注入並執行內容提取
         const result = await ScriptInjector.injectWithResponse(activeTab.id, () => {
+            // 初始化性能優化器
+            const performanceOptimizer = new PerformanceOptimizer({
+                enableCache: true,
+                enableBatching: true,
+                enableMetrics: true
+            });
+            
+            // 預加載關鍵選擇器
+            const criticalSelectors = [
+                'img[src]', 'img[data-src]', 'img[data-lazy-src]',
+                'article', 'main', '.content', '.post-content', '.entry-content',
+                'link[rel*="icon"]', 'meta[property="og:image"]'
+            ];
+            performanceOptimizer.preloadSelectors(criticalSelectors);
+            
             // URL 清理輔助函數
             function cleanImageUrl(url) {
                 if (!url || typeof url !== 'string') return null;
@@ -1439,12 +1486,25 @@ async function handleSavePage(sendResponse) {
                 }
             }
 
+            // 圖片 URL 驗證結果緩存（內聯函數版本）
+            const urlValidationCache = new Map();
+            const MAX_CACHE_SIZE = 1000;
+            
             function isValidImageUrl(url) {
                 if (!url || typeof url !== 'string') return false;
                 
+                // 檢查緩存
+                if (urlValidationCache.has(url)) {
+                    return urlValidationCache.get(url);
+                }
+                
                 // 先清理 URL
                 const cleanedUrl = cleanImageUrl(url);
-                if (!cleanedUrl) return false;
+                if (!cleanedUrl) {
+                    // 緩存負面結果
+                    cacheValidationResult(url, false);
+                    return false;
+                }
                 
                 // 檢查是否為有效的 HTTP/HTTPS URL
                 if (!cleanedUrl.match(/^https?:\/\//i)) return false;
@@ -1494,7 +1554,26 @@ async function handleSavePage(sendResponse) {
                     return false;
                 }
                 
-                return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+                const result = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+                
+                // 緩存結果
+                cacheValidationResult(url, result);
+                
+                return result;
+            }
+            
+            /**
+             * 緩存圖片 URL 驗證結果（內聯函數版本）
+             */
+            function cacheValidationResult(url, isValid) {
+                // 檢查緩存大小限制
+                if (urlValidationCache.size >= MAX_CACHE_SIZE) {
+                    // 刪除最舊的條目（簡單的 FIFO 策略）
+                    const firstKey = urlValidationCache.keys().next().value;
+                    urlValidationCache.delete(firstKey);
+                }
+                
+                urlValidationCache.set(url, isValid);
             }
             
             // ============ v2.5.6: 封面圖/特色圖片提取功能 ============
@@ -1614,7 +1693,7 @@ async function handleSavePage(sendResponse) {
                     // 檢查 picture 元素
                     const picture = img.closest('picture');
                     if (picture) {
-                        const source = picture.querySelector('source');
+                        const source = performanceOptimizer.cachedQuery('source', picture, { single: true });
                         if (source) {
                             const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
                             if (srcset) {
@@ -1631,7 +1710,7 @@ async function handleSavePage(sendResponse) {
                 
                 for (const selector of featuredImageSelectors) {
                     try {
-                        const img = document.querySelector(selector);
+                        const img = performanceOptimizer.cachedQuery(selector, document, { single: true });
                         if (img) {
                             // 🔍 檢查是否為作者頭像/logo
                             if (isAuthorAvatar(img)) {
@@ -1799,7 +1878,7 @@ async function handleSavePage(sendResponse) {
                 
                 for (const { selector, attr, priority, iconType } of iconSelectors) {
                     try {
-                        const elements = document.querySelectorAll(selector);
+                        const elements = performanceOptimizer.cachedQuery(selector, document);
                         for (const element of elements) {
                             const iconUrl = element.getAttribute(attr);
                             if (iconUrl && iconUrl.trim() && !iconUrl.startsWith('data:')) {
@@ -1867,7 +1946,7 @@ async function handleSavePage(sendResponse) {
                     if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = article.content;
-                    const links = tempDiv.querySelectorAll('a');
+                    const links = performanceOptimizer.cachedQuery('a', tempDiv);
                     let linkTextLength = 0;
                     links.forEach(link => linkTextLength += link.textContent.length);
                     const linkDensity = linkTextLength / article.length;
@@ -1978,7 +2057,7 @@ async function handleSavePage(sendResponse) {
                                 if (!imgSrc) {
                                     const picture = node.closest('picture');
                                     if (picture) {
-                                        const source = picture.querySelector('source');
+                                        const source = performanceOptimizer.cachedQuery('source', picture, { single: true });
                                         if (source) {
                                             const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
                                             if (srcset) {
@@ -2031,7 +2110,7 @@ async function handleSavePage(sendResponse) {
                     finalTitle = article.title;
                 } else {
                     // 備用方案：查找主要內容
-                    const candidates = document.querySelectorAll('article, main, .content, .post-content, .entry-content');
+                    const candidates = performanceOptimizer.cachedQuery('article, main, .content, .post-content, .entry-content', document);
                     for (const candidate of candidates) {
                         if (candidate.textContent.trim().length > 250) {
                             finalContent = candidate.innerHTML;
@@ -2074,6 +2153,10 @@ async function handleSavePage(sendResponse) {
                     console.log('=== v2.6.0: Site Icon Collection ===');
                     const siteIconUrl = collectSiteIcon();
                     
+                    // 輸出性能統計
+                    const performanceStats = performanceOptimizer.getPerformanceStats();
+                    console.log('🚀 Performance Stats:', performanceStats);
+                    
                     return { 
                         title: finalTitle, 
                         blocks: blocks,
@@ -2104,7 +2187,7 @@ async function handleSavePage(sendResponse) {
                     }]
                 };
             }
-        }, ['lib/Readability.js']);
+        }, ['lib/Readability.js', 'scripts/performance/PerformanceOptimizer.js']);
 
         if (!result || !result.title || !result.blocks) {
             sendResponse({ success: false, error: 'Could not parse the article content.' });

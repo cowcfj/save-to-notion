@@ -1,7 +1,7 @@
 {
   "name": "notion-chrome",
-  "version": "2.8.2",
-  "description": "一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.8.1 最新版本**：修復超長文章內容截斷問題，支持完整保存任意長度的文章！支持智能 Icon 選擇、封面圖提取、原生 CSS Highlight API 標註系統和多顏色標註！",
+  "version": "2.9.0",
+  "description": "一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.9.0 最新版本**：全新性能優化系統！DOM 查詢緩存、批處理系統、智能預加載，大幅提升響應速度和用戶體驗！",
   "main": "index.js",
   "directories": {
     "lib": "lib",
