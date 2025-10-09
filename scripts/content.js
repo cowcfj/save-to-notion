@@ -15,7 +15,7 @@
                 });
 
                 // 使用智能預熱功能
-                const prewarmResult = await performanceOptimizer.smartPrewarm(document);
+                await performanceOptimizer.smartPrewarm(document);
                 console.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');
             } else {
                 console.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');

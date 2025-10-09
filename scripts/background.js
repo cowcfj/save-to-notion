@@ -1455,7 +1455,7 @@ async function handleSavePage(sendResponse) {
                     });
                     
                     // 使用智能預熱功能
-                    performanceOptimizer.smartPrewarm(document).then(prewarmResult => {
+                    performanceOptimizer.smartPrewarm(document).then(() => {
                         console.log('✓ PerformanceOptimizer initialized successfully with smart prewarming');
                     }).catch(error => {
                         console.warn('⚠️ Smart prewarming failed:', error);
