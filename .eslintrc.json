@@ -9,7 +9,11 @@
   "parserOptions": {"ecmaVersion": 12, "sourceType": "script"},
   "globals": {
     "Readability": "readonly",
-    "chrome": "readonly"
+    "chrome": "readonly",
+    "SrcsetParser": "readonly",
+    "AttributeExtractor": "readonly",
+    "FallbackStrategies": "readonly",
+    "Node": "readonly"
   },
   "rules": {
     "no-empty": ["error", {"allowEmptyCatch": true}],
