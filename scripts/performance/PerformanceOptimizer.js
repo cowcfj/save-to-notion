@@ -2,7 +2,7 @@
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
-/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, module */
+/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, module, AdaptivePerformanceManager, Logger */
 const L = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 
 class PerformanceOptimizer {
