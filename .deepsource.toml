@@ -9,7 +9,7 @@ enabled = true
 # Valid values: "browser" or "nodejs" (string). Choose the runtime
 # that best matches the analysed code. This repo is a Chrome extension,
 # so using "browser" helps the analyzer reason about DOM globals.
-environment = "browser"
+environment = ["browser"]
 
 [skip_patterns]
 paths = [
