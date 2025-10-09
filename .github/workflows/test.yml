@@ -51,8 +51,12 @@ jobs:
       if: success()
       run: echo "✅ All tests passed for Node.js ${{ matrix.node-version }}"
 
+    - name: Report cancelled
+      if: cancelled()
+      run: echo "⏹️ Tests cancelled for Node.js ${{ matrix.node-version }}"
+
     - name: Report failure
-      if: failure()
+      if: ${{ failure() && !cancelled() }}
       run: |
         echo "❌ Tests failed for Node.js ${{ matrix.node-version }}"
         exit 1
