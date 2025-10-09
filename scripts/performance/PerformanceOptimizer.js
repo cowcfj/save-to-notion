@@ -23,7 +23,7 @@ class PerformanceOptimizer {
         this.cacheStats = {
             hits: 0,
             misses: 0,
-            size: 0
+            evictions: 0
         };
 
         // 批處理隊列
@@ -81,7 +81,6 @@ class PerformanceOptimizer {
             } else {
                 // 緩存失效，移除
                 this.queryCache.delete(cacheKey);
-                this.cacheStats.size--;
             }
         }
 
@@ -92,13 +91,21 @@ class PerformanceOptimizer {
         const result = this._performQuery(selector, context, options);
         
         // 緩存結果
-        if (result && this.queryCache.size < this.options.cacheMaxSize) {
+        if (result) {
+            // 如果緩存已滿，移除最舊的項目
+            if (this.queryCache.size >= this.options.cacheMaxSize) {
+                const firstKey = this.queryCache.keys().next().value;
+                if (firstKey) {
+                    this.queryCache.delete(firstKey);
+                    this.cacheStats.evictions++;
+                }
+            }
+            
             this.queryCache.set(cacheKey, {
                 result: result,
                 timestamp: Date.now(),
                 selector: selector
             });
-            this.cacheStats.size++;
         }
 
         this._recordQueryTime(startTime);
@@ -196,7 +203,6 @@ class PerformanceOptimizer {
 
         if (force) {
             this.queryCache.clear();
-            this.cacheStats.size = 0;
             return;
         }
 
@@ -211,7 +217,6 @@ class PerformanceOptimizer {
 
         keysToDelete.forEach(key => {
             this.queryCache.delete(key);
-            this.cacheStats.size--;
         });
     }
 
@@ -223,6 +228,7 @@ class PerformanceOptimizer {
         return {
             cache: {
                 ...this.cacheStats,
+                size: this.queryCache.size,
                 hitRate: this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses) || 0
             },
             batch: {
@@ -236,10 +242,18 @@ class PerformanceOptimizer {
     }
 
     /**
+     * 獲取性能統計（別名方法）
+     * @returns {Object} 性能統計信息
+     */
+    getPerformanceStats() {
+        return this.getStats();
+    }
+
+    /**
      * 重置統計信息
      */
     resetStats() {
-        this.cacheStats = { hits: 0, misses: 0, size: this.queryCache.size };
+        this.cacheStats = { hits: 0, misses: 0, evictions: 0 };
         this.batchStats = { totalBatches: 0, totalItems: 0, averageBatchSize: 0 };
         this.metrics = {
             domQueries: 0,

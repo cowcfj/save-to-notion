@@ -88,15 +88,15 @@ describe('PerformanceOptimizer', () => {
                 cacheMaxSize: 2
             });
             
-            // 添加超過限制的查詢
-            smallOptimizer.cachedQuery('img', document);
-            smallOptimizer.cachedQuery('p', document);
+            // 添加超過限制的查詢（使用不同的選擇器和選項來確保不同的緩存鍵）
+            smallOptimizer.cachedQuery('img', document, { single: true });
+            smallOptimizer.cachedQuery('p', document, { all: true });
             
             let stats = smallOptimizer.getPerformanceStats();
             expect(stats.cache.size).toBe(2);
             
             // 添加第三個查詢，應該觸發驅逐
-            smallOptimizer.cachedQuery('a', document);
+            smallOptimizer.cachedQuery('a', document, { single: false });
             
             stats = smallOptimizer.getPerformanceStats();
             expect(stats.cache.size).toBeLessThanOrEqual(2);

@@ -368,5 +368,300 @@ describe('content.js - 圖片處理函數', () => {
                 global.document = originalDocument;
             }
         });
+});
+    describe('PerformanceOptimizer 可選邏輯', () => {
+        beforeEach(() => {
+            // 重置全局變數
+            global.PerformanceOptimizer = undefined;
+            global.ImageUtils = undefined;
+        });
+
+        afterEach(() => {
+            // 清理測試後的全局變數
+            delete global.PerformanceOptimizer;
+            delete global.ImageUtils;
+        });
+
+        test('應該在 PerformanceOptimizer 可用時正常初始化', () => {
+            // 模擬 PerformanceOptimizer 可用
+            global.PerformanceOptimizer = jest.fn().mockImplementation(() => ({
+                cachedQuery: jest.fn(),
+                preloadSelectors: jest.fn()
+            }));
+
+            // 重新載入模組（在真實環境中這會在 content.js 中發生）
+            const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation();
+            const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+
+            // 模擬 content.js 中的邏輯
+            let performanceOptimizer = null;
+            try {
+                if (typeof PerformanceOptimizer !== 'undefined') {
+                    performanceOptimizer = new PerformanceOptimizer({
+                        enableCache: true,
+                        enableBatching: true,
+                        enableMetrics: true
+                    });
+                    console.log('✓ PerformanceOptimizer initialized in content script');
+                } else {
+                    console.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
+                }
+            } catch (perfError) {
+                console.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
+                performanceOptimizer = null;
+            }
+
+            expect(performanceOptimizer).toBeDefined();
+            expect(typeof performanceOptimizer).toBe('object'); // PerformanceOptimizer 實例是對象
+            expect(mockConsoleLog).toHaveBeenCalledWith('✓ PerformanceOptimizer initialized in content script');
+
+            mockConsoleLog.mockRestore();
+            mockConsoleWarn.mockRestore();
+        });
+
+        test('應該在 PerformanceOptimizer 不存在時使用回退', () => {
+            const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+
+            let performanceOptimizer = null;
+            try {
+                if (typeof PerformanceOptimizer !== 'undefined') {
+                    performanceOptimizer = new PerformanceOptimizer({
+                        enableCache: true,
+                        enableBatching: true,
+                        enableMetrics: true
+                    });
+                    console.log('✓ PerformanceOptimizer initialized in content script');
+                } else {
+                    console.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
+                }
+            } catch (perfError) {
+                console.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
+                performanceOptimizer = null;
+            }
+
+            expect(performanceOptimizer).toBeNull();
+            expect(mockConsoleWarn).toHaveBeenCalledWith('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
+
+            mockConsoleWarn.mockRestore();
+        });
+
+        test('應該在 PerformanceOptimizer 初始化失敗時優雅降級', () => {
+            // 模擬 PerformanceOptimizer 拋出錯誤
+            global.PerformanceOptimizer = jest.fn().mockImplementation(() => {
+                throw new Error('Initialization failed');
+            });
+
+            const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+
+            let performanceOptimizer = null;
+            try {
+                if (typeof PerformanceOptimizer !== 'undefined') {
+                    performanceOptimizer = new PerformanceOptimizer({
+                        enableCache: true,
+                        enableBatching: true,
+                        enableMetrics: true
+                    });
+                    console.log('✓ PerformanceOptimizer initialized in content script');
+                } else {
+                    console.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
+                }
+            } catch (perfError) {
+                console.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
+                performanceOptimizer = null;
+            }
+
+            expect(performanceOptimizer).toBeNull();
+            expect(mockConsoleWarn).toHaveBeenCalledWith('⚠️ PerformanceOptimizer initialization failed in content script:', expect.any(Error));
+
+            mockConsoleWarn.mockRestore();
+        });
+    });
+
+    describe('cachedQuery 回退函數', () => {
+        let performanceOptimizer;
+
+        beforeEach(() => {
+            performanceOptimizer = {
+                cachedQuery: jest.fn((selector, context, options) => {
+                    return options.single ?
+                        context.querySelector(selector) :
+                        context.querySelectorAll(selector);
+                })
+            };
+        });
+
+        test('應該在 PerformanceOptimizer 可用時使用其 cachedQuery', () => {
+            const cachedQuery = (selector, context = document, options = {}) => {
+                if (performanceOptimizer) {
+                    return performanceOptimizer.cachedQuery(selector, context, options);
+                }
+                return options.single ? context.querySelector(selector) : context.querySelectorAll(selector);
+            };
+
+            const mockElement = document.createElement('div');
+            const result = cachedQuery('div', document, { single: true });
+
+            expect(performanceOptimizer.cachedQuery).toHaveBeenCalledWith('div', document, { single: true });
+        });
+
+        test('應該在 PerformanceOptimizer 不存在時回退到原生查詢', () => {
+            performanceOptimizer = null;
+
+            const cachedQuery = (selector, context = document, options = {}) => {
+                if (performanceOptimizer) {
+                    return performanceOptimizer.cachedQuery(selector, context, options);
+                }
+                return options.single ? context.querySelector(selector) : context.querySelectorAll(selector);
+            };
+
+            const mockElement = document.createElement('div');
+            document.body.appendChild(mockElement);
+
+            const result = cachedQuery('div', document, { single: true });
+            expect(result).toBe(mockElement);
+
+            const allResults = cachedQuery('div', document, { all: true });
+            expect(allResults).toContain(mockElement);
+
+            document.body.removeChild(mockElement);
+        });
+
+        test('應該正確處理 single 選項', () => {
+            performanceOptimizer = null;
+
+            const cachedQuery = (selector, context = document, options = {}) => {
+                if (performanceOptimizer) {
+                    return performanceOptimizer.cachedQuery(selector, context, options);
+                }
+                return options.single ? context.querySelector(selector) : context.querySelectorAll(selector);
+            };
+
+            const div1 = document.createElement('div');
+            const div2 = document.createElement('div');
+            document.body.appendChild(div1);
+            document.body.appendChild(div2);
+
+            expect(cachedQuery('div', document, { single: true })).toBe(div1);
+            expect(cachedQuery('div', document, {})).toEqual(expect.any(NodeList));
+
+            document.body.removeChild(div1);
+            document.body.removeChild(div2);
+        });
+    });
+
+    describe('ImageUtils 回退實現', () => {
+        beforeEach(() => {
+            // 清理可能的全局 ImageUtils
+            delete global.window.ImageUtils;
+        });
+
+        test('應該在 ImageUtils 不存在時創建回退實現', () => {
+            expect(typeof ImageUtils).toBe('undefined');
+
+            // 模擬 content.js 中的邏輯
+            if (typeof ImageUtils === 'undefined') {
+                console.warn('ImageUtils not available, using fallback implementations');
+                global.window.ImageUtils = {
+                    cleanImageUrl: function (url) {
+                        if (!url || typeof url !== 'string') return null;
+                        try {
+                            return new URL(url).href;
+                        } catch (e) {
+                            return null;
+                        }
+                    },
+                    isValidImageUrl: function (url) {
+                        if (!url || typeof url !== 'string') return false;
+                        return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url);
+                    },
+                    extractImageSrc: function (imgNode) {
+                        if (!imgNode) return null;
+                        return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
+                    },
+                    generateImageCacheKey: function (imgNode) {
+                        if (!imgNode) return 'null';
+                        return (imgNode.getAttribute('src') || '') + '|' + (imgNode.className || '');
+                    }
+                };
+            }
+
+            expect(global.window.ImageUtils).toBeDefined();
+            expect(typeof global.window.ImageUtils.cleanImageUrl).toBe('function');
+            expect(typeof global.window.ImageUtils.isValidImageUrl).toBe('function');
+            expect(typeof global.window.ImageUtils.extractImageSrc).toBe('function');
+            expect(typeof global.window.ImageUtils.generateImageCacheKey).toBe('function');
+        });
+
+        test('回退實現應該正確處理 cleanImageUrl', () => {
+            if (typeof ImageUtils === 'undefined') {
+                global.window.ImageUtils = {
+                    cleanImageUrl: function (url) {
+                        if (!url || typeof url !== 'string') return null;
+                        try {
+                            return new URL(url).href;
+                        } catch (e) {
+                            return null;
+                        }
+                    }
+                };
+            }
+
+            expect(global.window.ImageUtils.cleanImageUrl('https://example.com/image.jpg')).toBe('https://example.com/image.jpg');
+            expect(global.window.ImageUtils.cleanImageUrl(null)).toBeNull();
+            expect(global.window.ImageUtils.cleanImageUrl('invalid-url')).toBeNull();
+        });
+
+        test('回退實現應該正確處理 isValidImageUrl', () => {
+            if (typeof ImageUtils === 'undefined') {
+                global.window.ImageUtils = {
+                    isValidImageUrl: function (url) {
+                        if (!url || typeof url !== 'string') return false;
+                        return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url);
+                    }
+                };
+            }
+
+            expect(global.window.ImageUtils.isValidImageUrl('https://example.com/image.jpg')).toBe(true);
+            expect(global.window.ImageUtils.isValidImageUrl('https://example.com/image.png')).toBe(true);
+            expect(global.window.ImageUtils.isValidImageUrl('https://example.com/script.js')).toBe(false);
+            expect(global.window.ImageUtils.isValidImageUrl(null)).toBe(false);
+        });
+
+        test('回退實現應該正確處理 extractImageSrc', () => {
+            if (typeof ImageUtils === 'undefined') {
+                global.window.ImageUtils = {
+                    extractImageSrc: function (imgNode) {
+                        if (!imgNode) return null;
+                        return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
+                    }
+                };
+            }
+
+            const img = document.createElement('img');
+            img.setAttribute('data-src', 'fallback.jpg');
+            expect(global.window.ImageUtils.extractImageSrc(img)).toBe('fallback.jpg');
+
+            img.setAttribute('src', 'primary.jpg');
+            expect(global.window.ImageUtils.extractImageSrc(img)).toBe('primary.jpg');
+
+            expect(global.window.ImageUtils.extractImageSrc(null)).toBeNull();
+        });
+
+        test('回退實現應該正確處理 generateImageCacheKey', () => {
+            if (typeof ImageUtils === 'undefined') {
+                global.window.ImageUtils = {
+                    generateImageCacheKey: function (imgNode) {
+                        if (!imgNode) return 'null';
+                        return (imgNode.getAttribute('src') || '') + '|' + (imgNode.className || '');
+                    }
+                };
+            }
+
+            const img = document.createElement('img');
+            img.setAttribute('src', 'image.jpg');
+            img.className = 'lazy-image';
+            expect(global.window.ImageUtils.generateImageCacheKey(img)).toBe('image.jpg|lazy-image');
+            expect(global.window.ImageUtils.generateImageCacheKey(null)).toBe('null');
+        });
     });
 });
