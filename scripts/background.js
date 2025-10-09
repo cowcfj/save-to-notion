@@ -1439,21 +1439,43 @@ async function handleSavePage(sendResponse) {
         console.log('📊 標註數量:', highlights?.length || 0);
 
         // 注入並執行內容提取
-        const result = await ScriptInjector.injectWithResponse(activeTab.id, () => {
-            // 初始化性能優化器
-            const performanceOptimizer = new PerformanceOptimizer({
-                enableCache: true,
-                enableBatching: true,
-                enableMetrics: true
-            });
+        let result;
+        try {
+            result = await ScriptInjector.injectWithResponse(activeTab.id, () => {
+            // 初始化性能優化器（可選）
+            let performanceOptimizer = null;
+            try {
+                if (typeof PerformanceOptimizer !== 'undefined') {
+                    performanceOptimizer = new PerformanceOptimizer({
+                        enableCache: true,
+                        enableBatching: true,
+                        enableMetrics: true
+                    });
+                    
+                    // 預加載關鍵選擇器
+                    const criticalSelectors = [
+                        'img[src]', 'img[data-src]', 'img[data-lazy-src]',
+                        'article', 'main', '.content', '.post-content', '.entry-content',
+                        'link[rel*="icon"]', 'meta[property="og:image"]'
+                    ];
+                    performanceOptimizer.preloadSelectors(criticalSelectors);
+                    console.log('✓ PerformanceOptimizer initialized successfully');
+                } else {
+                    console.warn('⚠️ PerformanceOptimizer not available, using fallback queries');
+                }
+            } catch (perfError) {
+                console.warn('⚠️ PerformanceOptimizer initialization failed, using fallback queries:', perfError);
+                performanceOptimizer = null;
+            }
             
-            // 預加載關鍵選擇器
-            const criticalSelectors = [
-                'img[src]', 'img[data-src]', 'img[data-lazy-src]',
-                'article', 'main', '.content', '.post-content', '.entry-content',
-                'link[rel*="icon"]', 'meta[property="og:image"]'
-            ];
-            performanceOptimizer.preloadSelectors(criticalSelectors);
+            // 便捷的緩存查詢函數（帶回退）
+            function cachedQuery(selector, context = document, options = {}) {
+                if (performanceOptimizer) {
+                    return performanceOptimizer.cachedQuery(selector, context, options);
+                }
+                // 回退到原生查詢
+                return options.single ? context.querySelector(selector) : context.querySelectorAll(selector);
+            }
             
             // URL 清理輔助函數
             function cleanImageUrl(url) {
@@ -1693,7 +1715,7 @@ async function handleSavePage(sendResponse) {
                     // 檢查 picture 元素
                     const picture = img.closest('picture');
                     if (picture) {
-                        const source = performanceOptimizer.cachedQuery('source', picture, { single: true });
+                        const source = cachedQuery('source', picture, { single: true });
                         if (source) {
                             const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
                             if (srcset) {
@@ -1710,7 +1732,7 @@ async function handleSavePage(sendResponse) {
                 
                 for (const selector of featuredImageSelectors) {
                     try {
-                        const img = performanceOptimizer.cachedQuery(selector, document, { single: true });
+                        const img = cachedQuery(selector, document, { single: true });
                         if (img) {
                             // 🔍 檢查是否為作者頭像/logo
                             if (isAuthorAvatar(img)) {
@@ -1878,7 +1900,7 @@ async function handleSavePage(sendResponse) {
                 
                 for (const { selector, attr, priority, iconType } of iconSelectors) {
                     try {
-                        const elements = performanceOptimizer.cachedQuery(selector, document);
+                        const elements = cachedQuery(selector, document);
                         for (const element of elements) {
                             const iconUrl = element.getAttribute(attr);
                             if (iconUrl && iconUrl.trim() && !iconUrl.startsWith('data:')) {
@@ -1946,7 +1968,7 @@ async function handleSavePage(sendResponse) {
                     if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = article.content;
-                    const links = performanceOptimizer.cachedQuery('a', tempDiv);
+                    const links = cachedQuery('a', tempDiv);
                     let linkTextLength = 0;
                     links.forEach(link => linkTextLength += link.textContent.length);
                     const linkDensity = linkTextLength / article.length;
@@ -2057,7 +2079,7 @@ async function handleSavePage(sendResponse) {
                                 if (!imgSrc) {
                                     const picture = node.closest('picture');
                                     if (picture) {
-                                        const source = performanceOptimizer.cachedQuery('source', picture, { single: true });
+                                        const source = cachedQuery('source', picture, { single: true });
                                         if (source) {
                                             const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
                                             if (srcset) {
@@ -2109,12 +2131,67 @@ async function handleSavePage(sendResponse) {
                     finalContent = article.content;
                     finalTitle = article.title;
                 } else {
-                    // 備用方案：查找主要內容
-                    const candidates = performanceOptimizer.cachedQuery('article, main, .content, .post-content, .entry-content', document);
-                    for (const candidate of candidates) {
-                        if (candidate.textContent.trim().length > 250) {
-                            finalContent = candidate.innerHTML;
-                            break;
+                    console.log('🔄 Readability.js failed, trying CMS-aware fallback...');
+                    
+                    // 備用方案：使用更全面的選擇器列表
+                    const fallbackSelectors = [
+                        // WordPress 和 CMS 模式
+                        '.entry-content', '.post-content', '.article-content', '.content-area', '.single-content',
+                        '.main-content', '.page-content', '.content-wrapper', '.article-wrapper', '.post-wrapper',
+                        '.content-body', '.article-text', '.post-text', '.content-main', '.article-main',
+                        // 移動版常用選擇器
+                        '.mobile-content', '.m-content', '.content', '.text-content', '.article-detail',
+                        '.post-detail', '.detail-content', '.news-content', '.story-content',
+                        // 文章結構
+                        'article[role="main"]', 'article.post', 'article.article', 'article.content', 'article.entry',
+                        '.post-body', '.article-body', '.entry-body', '.news-body', '.story-body',
+                        '.content-text', '.article-container', '.post-container', '.content-container',
+                        // 通用選擇器
+                        'article', 'main article', '.article', '.post', '.entry', '.news', '.story',
+                        // ID 選擇器
+                        '#content', '#main-content', '#article-content', '#post-content', '#article', '#post', '#main'
+                    ];
+                    
+                    for (const selector of fallbackSelectors) {
+                        const element = cachedQuery(selector, document, { single: true });
+                        if (element) {
+                            const textLength = element.textContent.trim().length;
+                            console.log(`🔍 Checking selector "${selector}": ${textLength} characters`);
+                            if (textLength >= 250) {
+                                console.log(`✅ Found content with selector: ${selector} (${textLength} chars)`);
+                                finalContent = element.innerHTML;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 最後的嘗試：通用內容查找
+                    if (!finalContent) {
+                        console.log('🆘 Trying generic content finder with lower standards...');
+                        const candidates = cachedQuery('article, section, main, div', document);
+                        let bestElement = null;
+                        let maxScore = 0;
+                        
+                        for (const el of candidates) {
+                            const text = el.textContent?.trim() || '';
+                            if (text.length < 100) continue; // 降低標準到 100 字符
+                            
+                            const paragraphs = cachedQuery('p', el).length;
+                            const images = cachedQuery('img', el).length;
+                            const links = cachedQuery('a', el).length;
+                            
+                            const score = text.length + (paragraphs * 50) + (images * 30) - (links * 25);
+                            
+                            if (score > maxScore) {
+                                if (bestElement && el.contains(bestElement)) continue;
+                                maxScore = score;
+                                bestElement = el;
+                            }
+                        }
+                        
+                        if (bestElement) {
+                            console.log(`🎯 Emergency fallback: Found content with ${bestElement.textContent.trim().length} characters`);
+                            finalContent = bestElement.innerHTML;
                         }
                     }
                 }
@@ -2153,9 +2230,15 @@ async function handleSavePage(sendResponse) {
                     console.log('=== v2.6.0: Site Icon Collection ===');
                     const siteIconUrl = collectSiteIcon();
                     
-                    // 輸出性能統計
-                    const performanceStats = performanceOptimizer.getPerformanceStats();
-                    console.log('🚀 Performance Stats:', performanceStats);
+                    // 輸出性能統計（如果可用）
+                    if (performanceOptimizer) {
+                        try {
+                            const performanceStats = performanceOptimizer.getPerformanceStats();
+                            console.log('🚀 Performance Stats:', performanceStats);
+                        } catch (perfError) {
+                            console.warn('Could not get performance stats:', perfError);
+                        }
+                    }
                     
                     return { 
                         title: finalTitle, 
@@ -2188,9 +2271,49 @@ async function handleSavePage(sendResponse) {
                 };
             }
         }, ['lib/Readability.js', 'scripts/performance/PerformanceOptimizer.js']);
+        } catch (scriptError) {
+            console.error('❌ Content extraction script execution failed:', scriptError);
+            result = {
+                title: 'Content Extraction Failed',
+                blocks: [{
+                    object: 'block',
+                    type: 'paragraph',
+                    paragraph: {
+                        rich_text: [{
+                            type: 'text',
+                            text: { content: `Content extraction failed: ${scriptError.message || 'Unknown error'}` }
+                        }]
+                    }
+                }]
+            };
+        }
 
         if (!result || !result.title || !result.blocks) {
-            sendResponse({ success: false, error: 'Could not parse the article content.' });
+            console.error('❌ Content extraction result validation failed:', {
+                result: result,
+                resultType: typeof result,
+                hasResult: !!result,
+                hasTitle: !!(result && result.title),
+                hasBlocks: !!(result && result.blocks),
+                blocksLength: result && result.blocks ? result.blocks.length : 'N/A',
+                url: activeTab.url,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Provide more specific error messages based on what's missing
+            let errorMessage = 'Could not parse the article content.';
+            if (!result) {
+                errorMessage = 'Content extraction script returned no result.';
+            } else if (!result.title) {
+                errorMessage = 'Content extraction failed to get page title.';
+            } else if (!result.blocks) {
+                errorMessage = 'Content extraction failed to generate content blocks.';
+            }
+            
+            sendResponse({ 
+                success: false, 
+                error: errorMessage + ' Please check the browser console for details.' 
+            });
             return;
         }
 
