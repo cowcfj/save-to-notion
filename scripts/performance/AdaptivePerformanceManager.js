@@ -2,6 +2,7 @@
  * 自適應性能管理器
  * 根據頁面和系統性能動態調整優化策略
  */
+const L = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 class AdaptivePerformanceManager {
     /**
      * 創建自適應性能管理器實例
@@ -44,7 +45,7 @@ class AdaptivePerformanceManager {
         const strategy = this._adjustStrategyBasedOnAnalysis(pageAnalysis, systemPerformance);
         
         const duration = performance.now() - startTime;
-        console.log(`📊 自適應性能分析完成，耗時: ${duration.toFixed(2)}ms`);
+        L.info(`📊 自適應性能分析完成，耗時: ${duration.toFixed(2)}ms`);
         
         return strategy;
     }
@@ -73,7 +74,7 @@ class AdaptivePerformanceManager {
                 (analysis.imageCount * 0.1) + 
                 (analysis.textLength / 10000);
         } catch (error) {
-            console.warn('頁面內容分析失敗:', error);
+            L.warn('頁面內容分析失敗:', error);
         }
 
         return analysis;
@@ -122,7 +123,7 @@ class AdaptivePerformanceManager {
             }
             
         } catch (error) {
-            console.warn('系統性能分析失敗:', error);
+            L.warn('系統性能分析失敗:', error);
         }
 
         return performanceData;
@@ -175,9 +176,9 @@ class AdaptivePerformanceManager {
         // 應用新設置到性能優化器
         this._applySettingsToOptimizer();
 
-        console.log('🔄 自適應性能策略調整完成:', newSettings);
-        console.log('📊 頁面分析:', pageAnalysis);
-        console.log('📊 系統性能:', systemPerformance);
+        L.info('🔄 自適應性能策略調整完成:', newSettings);
+        L.info('📊 頁面分析:', pageAnalysis);
+        L.info('📊 系統性能:', systemPerformance);
 
         return {
             settings: newSettings,
@@ -196,7 +197,7 @@ class AdaptivePerformanceManager {
             this.performanceOptimizer.options.cacheMaxSize = this.currentSettings.cacheSize;
             
             // 這裡可以添加更多設置的動態更新邏輯
-            console.log(`🔧 已將新的性能設置應用到優化器:`, this.currentSettings);
+            L.info(`🔧 已將新的性能設置應用到優化器:`, this.currentSettings);
         }
     }
 
@@ -206,7 +207,7 @@ class AdaptivePerformanceManager {
      */
     adjustBatchSize(newBatchSize) {
         this.currentSettings.batchSize = Math.max(1, Math.min(1000, newBatchSize));
-        console.log(`🔄 批處理大小調整為: ${newBatchSize}`);
+        L.info(`🔄 批處理大小調整為: ${newBatchSize}`);
     }
 
     /**
@@ -216,7 +217,7 @@ class AdaptivePerformanceManager {
     adjustCacheSize(newCacheSize) {
         this.currentSettings.cacheSize = Math.max(50, Math.min(2000, newCacheSize));
         this.performanceOptimizer.options.cacheMaxSize = this.currentSettings.cacheSize;
-        console.log(`🔄 緩存大小調整為: ${newCacheSize}`);
+        L.info(`🔄 緩存大小調整為: ${newCacheSize}`);
     }
 
     /**
