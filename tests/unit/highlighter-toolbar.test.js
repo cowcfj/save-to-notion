@@ -80,10 +80,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       try {
         // 嘗試隱藏並移除
         window.notionHighlighter.hide();
-      } catch (e) { 
-        // Ignore cleanup errors in test teardown - this is expected behavior
-        console.debug('Test cleanup error (expected):', e.message);
-      }
+      } catch (e) { /* empty: ignore cleanup errors in test teardown */ }
     }
     delete window.notionHighlighter;
   });

@@ -145,7 +145,7 @@
                 for (const entry of srcsetEntries) {
                     const [url, descriptor] = entry.split(/\s+/);
                     if (url && !url.startsWith('data:')) {
-                        const match = descriptor?.match(/(\d+)w/i);
+                        const match = descriptor && descriptor.match(/(\d+)w/i);
                         if (match) {
                             const w = parseInt(match[1], 10);
                             if (w > bestW) {
@@ -183,29 +183,26 @@
         // 檢查父元素是否為 <picture> 元素
         // 背景圖片回退（僅在前面取不到時嘗試，避免性能負擔）
         try {
-            const cs = window.getComputedStyle?.(imgNode);
-            const bg = cs?.getPropertyValue('background-image');
-            const m = bg?.match(/url\(["']?(.*?)["']?\)/i);
+            const cs = window.getComputedStyle && window.getComputedStyle(imgNode);
+            const bg = cs && cs.getPropertyValue('background-image');
+            const m = bg && bg.match(/url\(["']?(.*?)["']?\)/i);
             if (m && m[1] && !m[1].startsWith('data:')) {
                 return m[1];
             }
             // 父節點 figure/div 的背景圖
             const parent = imgNode.parentElement;
             if (parent) {
-                const cs2 = window.getComputedStyle?.(parent);
-                const bg2 = cs2?.getPropertyValue('background-image');
-                const m2 = bg2?.match(/url\(["']?(.*?)["']?\)/i);
+                const cs2 = window.getComputedStyle && window.getComputedStyle(parent);
+                const bg2 = cs2 && cs2.getPropertyValue('background-image');
+                const m2 = bg2 && bg2.match(/url\(["']?(.*?)["']?\)/i);
                 if (m2 && m2[1] && !m2[1].startsWith('data:')) {
                     return m2[1];
                 }
             }
-        } catch (e) { 
-            // Best-effort fallback: ignore style computation errors in content script environment
-            console.debug('Background image extraction failed:', e.message);
-        }
+        } catch (e) { /* empty: best-effort fallback; ignore style/noscript parse errors */ }
 
         // 檢查父元素是否為 <picture> 元素
-        if (imgNode.parentElement?.nodeName === 'PICTURE') {
+        if (imgNode.parentElement && imgNode.parentElement.nodeName === 'PICTURE') {
             const sources = imgNode.parentElement.querySelectorAll('source');
             for (const source of sources) {
                 const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
@@ -220,24 +217,6 @@
                     }
                 }
             }
-        }
-
-        // noscript 回退：尋找鄰近/父節點內的 <noscript><img src="..."></noscript>
-        try {
-            const candidates = [imgNode, imgNode.parentElement].filter(Boolean);
-            for (const el of candidates) {
-                const noscript = el.querySelector?.('noscript');
-                if (noscript?.textContent) {
-                    const html = noscript.textContent;
-                    const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-                    if (match?.[1] && !match[1].startsWith('data:')) {
-                        return match[1];
-                    }
-                }
-            }
-        } catch (e) { 
-            // Best-effort fallback: ignore noscript parsing errors
-            console.debug('Noscript fallback extraction failed:', e.message);
         }
 
         return null;
@@ -255,7 +234,7 @@
             // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
             if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
                 const uParam = urlObj.searchParams.get('u');
-                if (uParam?.match(/^https?:\/\//)) {
+                if (uParam && uParam.match(/^https?:\/\//)) {
                     // 使用代理中的原始圖片 URL
                     return cleanImageUrl(uParam);
                 }
