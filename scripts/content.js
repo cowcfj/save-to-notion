@@ -14,7 +14,7 @@
         links.forEach(link => linkTextLength += link.textContent.length);
         const linkDensity = linkTextLength / article.length;
         if (linkDensity > MAX_LINK_DENSITY) {
-            console.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
+            Logger.info(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
             return false;
         }
         return true;
@@ -26,7 +26,7 @@
      * @returns {string|null} The combined innerHTML of the article components.
      */
     function findContentCmsFallback() {
-        console.log("Executing CMS-aware fallback finder...");
+        Logger.info("Executing CMS-aware fallback finder...");
 
         // Strategy 1: Look for Drupal's typical structure
         const drupalNodeContent = document.querySelector('.node__content');
@@ -35,7 +35,7 @@
             const bodyField = drupalNodeContent.querySelector('.field--name-field-body');
 
             if (bodyField) {
-                console.log("Drupal structure detected. Combining fields.");
+                Logger.info("Drupal structure detected. Combining fields.");
                 const imageHtml = imageField ? imageField.innerHTML : '';
                 const bodyHtml = bodyField.innerHTML;
                 return imageHtml + bodyHtml;
@@ -53,8 +53,8 @@
 
         for (const selector of wordpressSelectors) {
             const element = document.querySelector(selector);
-            if (element && element.textContent.trim().length >= MIN_CONTENT_LENGTH) {
-                console.log(`CMS content found with selector: ${selector}`);
+            if (element?.textContent?.trim().length >= MIN_CONTENT_LENGTH) {
+                Logger.info(`CMS content found with selector: ${selector}`);
                 return element.innerHTML;
             }
         }
@@ -71,14 +71,14 @@
 
         for (const selector of articleSelectors) {
             const element = document.querySelector(selector);
-            if (element && element.textContent.trim().length >= MIN_CONTENT_LENGTH) {
-                console.log(`Article content found with selector: ${selector}`);
+            if (element?.textContent?.trim().length >= MIN_CONTENT_LENGTH) {
+                Logger.info(`Article content found with selector: ${selector}`);
                 return element.innerHTML;
             }
         }
 
         // Strategy 4: Generic "biggest content block" as a final attempt
-        console.log("CMS structure not found. Reverting to generic content finder.");
+        Logger.info("CMS structure not found. Reverting to generic content finder.");
         const candidates = document.querySelectorAll('article, section, main, div');
         let bestElement = null;
         let maxScore = 0;
@@ -91,7 +91,7 @@
             // 給圖片加分，因為我們想要包含圖片的內容
             const score = text.length + (paragraphs * 50) + (images * 30) - (links * 25);
             if (score > maxScore) {
-                if (bestElement && el.contains(bestElement)) continue;
+                if (el?.contains(bestElement)) continue;
                 maxScore = score;
                 bestElement = el;
             }
@@ -174,7 +174,7 @@
         for (const attr of imageAttrs) {
             if (imgNode.hasAttribute(attr)) {
                 const src = imgNode.getAttribute(attr);
-                if (src && src.trim() && !src.startsWith('data:') && !src.startsWith('blob:')) {
+                if (src?.trim() && !src.startsWith('data:') && !src.startsWith('blob:')) {
                     return src.trim();
                 }
             }
@@ -186,7 +186,7 @@
             const cs = window.getComputedStyle?.(imgNode);
             const bg = cs?.getPropertyValue('background-image');
             const m = bg?.match(/url\(["']?(.*?)["']?\)/i);
-            if (m && m[1] && !m[1].startsWith('data:')) {
+            if (m?.[1] && !m[1].startsWith('data:')) {
                 return m[1];
             }
             // 父節點 figure/div 的背景圖
@@ -195,7 +195,7 @@
                 const cs2 = window.getComputedStyle?.(parent);
                 const bg2 = cs2?.getPropertyValue('background-image');
                 const m2 = bg2?.match(/url\(["']?(.*?)["']?\)/i);
-                if (m2 && m2[1] && !m2[1].startsWith('data:')) {
+                if (m2?.[1] && !m2[1].startsWith('data:')) {
                     return m2[1];
                 }
             }
@@ -372,10 +372,10 @@
                                         external: { url: cleanedUrl }
                                     }
                                 });
-                                console.log(`Added image: ${cleanedUrl}`);
+                                Logger.info(`Added image: ${cleanedUrl}`);
                             }
                         } catch (e) {
-                            console.warn(`Failed to process image URL: ${src}`, e);
+                            Logger.warn(`Failed to process image URL: ${src}`, e);
                         }
                     }
                     break;
@@ -398,7 +398,7 @@
      * 優先收集封面圖/特色圖片（通常位於標題上方或文章開頭）
      */
     function collectFeaturedImage() {
-        console.log('🎯 Attempting to collect featured/hero image...');
+        Logger.info('🎯 Attempting to collect featured/hero image...');
 
         // 常見的封面圖選擇器（按優先級排序）
         const featuredImageSelectors = [
@@ -436,17 +436,17 @@
                 if (img) {
                     const src = extractImageSrc(img);
                     if (src && isValidImageUrl(src)) {
-                        console.log(`✓ Found featured image via selector: ${selector}`);
-                        console.log(`  Image URL: ${src}`);
+                        Logger.info(`✓ Found featured image via selector: ${selector}`);
+                        Logger.info(`  Image URL: ${src}`);
                         return src;
                     }
                 }
             } catch (e) {
-                console.warn(`Error checking selector ${selector}:`, e);
+                Logger.warn(`Error checking selector ${selector}:`, e);
             }
         }
 
-        console.log('✗ No featured image found');
+        Logger.info('✗ No featured image found');
         return null;
     }
 
@@ -457,23 +457,23 @@
         const additionalImages = [];
 
         // 策略 0: 優先查找封面圖/特色圖片（v2.5.6 新增）
-        console.log('=== Image Collection Strategy 0: Featured Image ===');
+        Logger.info('=== Image Collection Strategy 0: Featured Image ===');
         const featuredImage = collectFeaturedImage();
         if (featuredImage) {
             additionalImages.push(featuredImage);
-            console.log('✓ Featured image added as first image');
+            Logger.info('✓ Featured image added as first image');
         }
 
         // 策略 1: 從指定的內容元素收集
-        console.log('=== Image Collection Strategy 1: Content Element ===');
+        Logger.info('=== Image Collection Strategy 1: Content Element ===');
         let allImages = [];
         if (contentElement) {
             allImages = Array.from(contentElement.querySelectorAll('img'));
-            console.log(`Found ${allImages.length} images in content element`);
+            Logger.info(`Found ${allImages.length} images in content element`);
         }
 
         // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
-        console.log('=== Image Collection Strategy 2: Article Regions ===');
+        Logger.info('=== Image Collection Strategy 2: Article Regions ===');
         if (allImages.length < 3) {
             const articleSelectors = [
                 'article',
@@ -490,7 +490,7 @@
                 const articleElement = document.querySelector(selector);
                 if (articleElement) {
                     const articleImages = Array.from(articleElement.querySelectorAll('img'));
-                    console.log(`Found ${articleImages.length} images in ${selector}`);
+                    Logger.info(`Found ${articleImages.length} images in ${selector}`);
                     // 合併圖片，避免重複
                     articleImages.forEach(img => {
                         if (!allImages.includes(img)) {
@@ -504,9 +504,9 @@
 
         // 策略 3: 如果仍然沒有圖片（< 1張），謹慎地擴展搜索
         // 重要：排除明顯的非內容區域（header, footer, nav, sidebar, ads等）
-        console.log('=== Image Collection Strategy 3: Selective Expansion ===');
+        Logger.info('=== Image Collection Strategy 3: Selective Expansion ===');
         if (allImages.length < 1) {
-            console.log(`Very few images found, attempting selective expansion...`);
+            Logger.info(`Very few images found, attempting selective expansion...`);
 
             // 排除這些明顯的非內容區域
             const excludeSelectors = [
@@ -533,7 +533,7 @@
                     const excludeElements = document.querySelectorAll(selector);
                     for (const excludeEl of excludeElements) {
                         if (excludeEl.contains(img)) {
-                            console.log(`✗ Excluded image in ${selector}`);
+                            Logger.info(`✗ Excluded image in ${selector}`);
                             return false; // 圖片在排除區域內
                         }
                     }
@@ -541,7 +541,7 @@
                 return true; // 圖片不在任何排除區域內
             });
 
-            console.log(`Filtered ${docImages.length} total images -> ${filteredImages.length} content images (excluded ${docImages.length - filteredImages.length} from non-content areas)`);
+            Logger.info(`Filtered ${docImages.length} total images -> ${filteredImages.length} content images (excluded ${docImages.length - filteredImages.length} from non-content areas)`);
 
             // 只添加不重複的圖片，且限制最多添加的數量
             let addedFromExpansion = 0;
@@ -553,11 +553,11 @@
             });
 
             if (addedFromExpansion > 0) {
-                console.log(`Added ${addedFromExpansion} images from selective expansion`);
+                Logger.info(`Added ${addedFromExpansion} images from selective expansion`);
             }
         }
 
-        console.log(`Total images to process from strategies 1-3: ${allImages.length}`);
+        Logger.info(`Total images to process from strategies 1-3: ${allImages.length}`);
 
         allImages.forEach((img, index) => {
             const src = extractImageSrc(img);
@@ -569,7 +569,7 @@
                     if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
                         // 避免重複添加封面圖
                         if (featuredImage && cleanedUrl === featuredImage) {
-                            console.log(`✗ Skipped duplicate featured image at index ${index + 1}`);
+                            Logger.info(`✗ Skipped duplicate featured image at index ${index + 1}`);
                             return;
                         }
 
@@ -588,22 +588,22 @@
                                 width: width,
                                 height: height
                             });
-                            console.log(`✓ Collected image ${index + 1}: ${cleanedUrl.substring(0, 80)}... (${width}x${height})`);
+                            Logger.info(`✓ Collected image ${index + 1}: ${cleanedUrl.substring(0, 80)}... (${width}x${height})`);
                         } else {
-                            console.log(`✗ Skipped small icon ${index + 1}: ${width}x${height}`);
+                            Logger.info(`✗ Skipped small icon ${index + 1}: ${width}x${height}`);
                         }
                     } else {
-                        console.log(`✗ Invalid image URL ${index + 1}: ${cleanedUrl || src}`);
+                        Logger.info(`✗ Invalid image URL ${index + 1}: ${cleanedUrl || src}`);
                     }
                 } catch (e) {
-                    console.warn(`Failed to process image ${index + 1}: ${src}`, e);
+                    Logger.warn(`Failed to process image ${index + 1}: ${src}`, e);
                 }
             } else {
-                console.log(`✗ No src found for image ${index + 1}`);
+                Logger.info(`✗ No src found for image ${index + 1}`);
             }
         });
 
-        console.log(`Successfully collected ${additionalImages.length} valid images`);
+        Logger.info(`Successfully collected ${additionalImages.length} valid images`);
         return additionalImages;
     }
 
@@ -616,7 +616,7 @@
     const article = new Readability(document.cloneNode(true)).parse();
 
     if (isContentGood(article)) {
-        console.log("Successfully extracted content with Readability.js");
+        Logger.info("Successfully extracted content with Readability.js");
         finalContentHtml = article.content;
         finalTitle = article.title;
         // 創建一個臨時元素來查找圖片
@@ -637,12 +637,13 @@
 
         // 收集額外的圖片（更積極的策略）
         const imageBlocks = blocks.filter(b => b.type === 'image');
-        console.log(`\n=== Image Collection Summary ===`);
-        console.log(`Images found in main content: ${imageBlocks.length}`);
+        Logger.info("
+=== Image Collection Summary ===");
+        Logger.info("Images found in main content: " + imageBlocks.length);
 
         // 如果圖片少於5張，嘗試收集更多（提高閾值）
         if (imageBlocks.length < 5) {
-            console.log(`Attempting to collect additional images...`);
+            Logger.info("Attempting to collect additional images...");
             const additionalImages = collectAdditionalImages(contentElement);
             const existingUrls = new Set(imageBlocks.map(b => b.image.external.url));
 
@@ -659,19 +660,20 @@
                     });
                     existingUrls.add(imgInfo.url);
                     addedCount++;
-                    console.log(`✓ Added additional image ${addedCount}: ${imgInfo.url.substring(0, 80)}...`);
+                    Logger.info(`✓ Added additional image ${addedCount}: ${imgInfo.url.substring(0, 80)}...`);
                 }
             });
-            console.log(`Added ${addedCount} additional images`);
+            Logger.info(`Added ${addedCount} additional images`);
         }
 
         // 標記處理已移到 background.js 中，這裡不再處理
 
         const finalImageCount = blocks.filter(b => b.type === 'image').length;
-        console.log(`=== Final Result ===`);
-        console.log(`Total blocks: ${blocks.length}`);
-        console.log(`Total images: ${finalImageCount}`);
-        console.log(`================================\n`);
+        Logger.info("=== Final Result ===");
+        Logger.info("Total blocks: " + blocks.length);
+        Logger.info("Total images: " + finalImageCount);
+        Logger.info("================================
+");
 
         if (blocks.length > 0) {
             return { title: finalTitle, blocks: blocks };
