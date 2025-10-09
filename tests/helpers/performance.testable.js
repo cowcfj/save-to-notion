@@ -75,7 +75,8 @@ class PerformanceOptimizer {
      */
     _initAdaptiveManager() {
         // 在測試環境中不實現複雜的自適應邏輯
-        console.log('🤖 自適應性能管理器已初始化（測試環境）');
+    // skipcq: JS-0002
+    console.log('🤖 自適應性能管理器已初始化（測試環境）');
     }
 
     /**
@@ -214,7 +215,8 @@ class PerformanceOptimizer {
             return [];
         }
 
-        console.log(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
+    // skipcq: JS-0002
+    console.log(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
         
         // 使用批處理方式預熱選擇器
         const results = [];
@@ -238,9 +240,11 @@ class PerformanceOptimizer {
                     this.cacheStats.prewarms++;
                     this.prewarmedSelectors.add(selector);
                     
+                    // skipcq: JS-0002
                     console.log(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
                 }
             } catch (error) {
+                // skipcq: JS-0002
                 console.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
                 
                 results.push({
@@ -251,7 +255,8 @@ class PerformanceOptimizer {
             }
         }
         
-        console.log(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
+    // skipcq: JS-0002
+    console.log(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
         return results;
     }
 
@@ -272,7 +277,8 @@ class PerformanceOptimizer {
         const results = await this.preloadSelectors(allSelectors, context);
         
         const duration = performance.now() - startTime;
-        console.log(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
+    // skipcq: JS-0002
+    console.log(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
         
         return results;
     }
@@ -600,6 +606,7 @@ class PerformanceOptimizer {
                 }
             }
         } catch (error) {
+            // skipcq: JS-0002
             console.error('Batch processing error:', error);
         } finally {
             this.processingBatch = false;
@@ -662,7 +669,8 @@ class PerformanceOptimizer {
         const startTime = performance.now();
         const result = fn();
         const endTime = performance.now();
-        console.info(`Performance: ${name} took ${(endTime - startTime).toFixed(2)}ms`);
+    // skipcq: JS-0002
+    console.info(`Performance: ${name} took ${(endTime - startTime).toFixed(2)}ms`);
         return result;
     }
 
@@ -676,7 +684,8 @@ class PerformanceOptimizer {
         const startTime = performance.now();
         const result = await asyncFn();
         const endTime = performance.now();
-        console.info(`Performance: ${name} took ${(endTime - startTime).toFixed(2)}ms`);
+    // skipcq: JS-0002
+    console.info(`Performance: ${name} took ${(endTime - startTime).toFixed(2)}ms`);
         return result;
     }
 
@@ -709,18 +718,21 @@ class PerformanceOptimizer {
         // 根據緩存命中率調整策略
         if (stats.cache.hitRate < 0.3) {
             // 緩存命中率低，可能需要增加緩存大小或清理策略
+            // skipcq: JS-0002
             console.log('📊 緩存命中率較低，考慮調整緩存策略');
         }
         
         // 根據平均處理時間調整批處理大小
         if (this.metrics.averageProcessingTime > 50) {
             // 處理時間過長，減少批處理大小
+            // skipcq: JS-0002
             console.log('⏰ 處理時間過長，動態調整批處理大小');
         }
         
         // 定期清理過期緩存
         const expiredCount = this.clearExpiredCache();
         if (expiredCount > 0) {
+            // skipcq: JS-0002
             console.log(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
         }
     }
