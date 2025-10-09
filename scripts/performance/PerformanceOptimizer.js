@@ -2,6 +2,7 @@
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
+const L = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 class PerformanceOptimizer {
     /**
      * 創建性能優化器實例
@@ -15,6 +16,11 @@ class PerformanceOptimizer {
             cacheMaxSize: 100,
             batchDelay: 16, // 一個動畫幀的時間
             metricsInterval: 5000, // 5秒收集一次指標
+            cacheTTL: 300000, // 5分鐘 TTL
+            prewarmSelectors: [ // 預設的預熱選擇器
+                'img[src]', 'img[data-src]', 'article', 'main', '.content', '.post-content', '.entry-content'
+            ],
+            enableAdaptive: false, // 是否啟用自適應功能
             ...options
         };
 
@@ -23,8 +29,13 @@ class PerformanceOptimizer {
         this.cacheStats = {
             hits: 0,
             misses: 0,
-            evictions: 0
+            evictions: 0,
+            prewarms: 0 // 預熱計數
         };
+
+        // 預熱相關屬性
+        this.prewarmedSelectors = new Set();
+        this.prewarmTimeout = null;
 
         // 批處理隊列
         this.batchQueue = [];
@@ -44,10 +55,58 @@ class PerformanceOptimizer {
             averageProcessingTime: 0
         };
 
+        // 自適應性能管理
+        this.adaptiveManager = null;
+        if (this.options.enableAdaptive) {
+            this._initAdaptiveManager();
+        }
+
         // 初始化性能監控
         if (this.options.enableMetrics) {
             this._initMetricsCollection();
         }
+    }
+
+    /**
+     * 初始化自適應性能管理器
+     * @private
+     */
+    _initAdaptiveManager() {
+        try {
+            if (typeof AdaptivePerformanceManager !== 'undefined') {
+                this.adaptiveManager = new AdaptivePerformanceManager(this, {
+                    performanceThreshold: 100,
+                    batchSizeAdjustmentFactor: 0.1
+                });
+                L.info('🤖 自適應性能管理器已初始化');
+            } else {
+                L.warn('⚠️ AdaptivePerformanceManager not available, adaptive features disabled');
+            }
+        } catch (error) {
+            L.error('❌ 初始化自適應管理器失敗:', error);
+        }
+    }
+
+    /**
+     * 啟用自適應性能優化
+     */
+    enableAdaptiveOptimization() {
+        if (!this.adaptiveManager) {
+            this.options.enableAdaptive = true;
+            this._initAdaptiveManager();
+        }
+    }
+
+    /**
+     * 執行自適應性能調整
+     * @param {Object} pageData - 頁面數據
+     */
+    async adaptiveAdjustment(pageData = {}) {
+        if (!this.adaptiveManager) {
+            return null;
+        }
+
+        return await this.adaptiveManager.analyzeAndAdjust(pageData);
     }
 
     /**
@@ -74,12 +133,14 @@ class PerformanceOptimizer {
             
             const cached = this.queryCache.get(cacheKey);
             
-            // 驗證緩存的元素是否仍在 DOM 中
-            if (this._validateCachedElements(cached.result)) {
+            // 檢查緩存是否過期
+            const isExpired = Date.now() - cached.timestamp > this.options.cacheTTL;
+            
+            if (!isExpired && this._validateCachedElements(cached.result)) {
                 this._recordQueryTime(startTime);
                 return cached.result;
             } else {
-                // 緩存失效，移除
+                // 緩存過期或失效，移除
                 this.queryCache.delete(cacheKey);
             }
         }
@@ -92,19 +153,14 @@ class PerformanceOptimizer {
         
         // 緩存結果
         if (result) {
-            // 如果緩存已滿，移除最舊的項目
-            if (this.queryCache.size >= this.options.cacheMaxSize) {
-                const firstKey = this.queryCache.keys().next().value;
-                if (firstKey) {
-                    this.queryCache.delete(firstKey);
-                    this.cacheStats.evictions++;
-                }
-            }
+            // 維護緩存大小限制
+            this._maintainCacheSizeLimit(cacheKey);
             
             this.queryCache.set(cacheKey, {
                 result: result,
                 timestamp: Date.now(),
-                selector: selector
+                selector: selector,
+                ttl: this.options.cacheTTL
             });
         }
 
@@ -229,7 +285,8 @@ class PerformanceOptimizer {
             cache: {
                 ...this.cacheStats,
                 size: this.queryCache.size,
-                hitRate: this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses) || 0
+                hitRate: this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses) || 0,
+                prewarmCount: this.prewarmedSelectors.size
             },
             batch: {
                 ...this.batchStats
@@ -324,16 +381,211 @@ class PerformanceOptimizer {
     }
 
     /**
+     * 預熱選擇器緩存
+     * @param {Array} selectors - 要預熱的 CSS 選擇器數組
+     * @param {Element} context - 查詢上下文，默認為 document
+     * @returns {Promise<Array>} 預熱結果
+     */
+    async preloadSelectors(selectors, context = document) {
+        if (!this.options.enableCache || !selectors || !Array.isArray(selectors)) {
+            return [];
+        }
+
+        L.info(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
+        
+        // 使用批處理方式預熱選擇器
+        const results = [];
+        
+        for (const selector of selectors) {
+            if (this.prewarmedSelectors.has(selector)) {
+                continue; // 已預熱過，跳過
+            }
+            
+            try {
+                // 執行查詢並將結果存入緩存
+                const result = this.cachedQuery(selector, context);
+                
+                if (result) {
+                    results.push({
+                        selector: selector,
+                        count: result.length || (result.nodeType ? 1 : 0),
+                        cached: true
+                    });
+                    
+                    this.cacheStats.prewarms++;
+                    this.prewarmedSelectors.add(selector);
+                    
+                    L.info(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
+                }
+            } catch (error) {
+                L.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
+                
+                if (typeof ErrorHandler !== 'undefined') {
+                    ErrorHandler.logError({
+                        type: 'preload_error',
+                        context: `preloading selector: ${selector}`,
+                        originalError: error,
+                        timestamp: Date.now()
+                    });
+                }
+                
+                results.push({
+                    selector: selector,
+                    error: error.message,
+                    cached: false
+                });
+            }
+        }
+        
+        L.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
+        return results;
+    }
+
+    /**
+     * 智能預熱 - 基於當前頁面內容自動預熱相關選擇器
+     * @param {Element} context - 查詢上下文，默認為 document
+     * @returns {Promise<Array>} 預熱結果
+     */
+    async smartPrewarm(context = document) {
+        const startTime = performance.now();
+        
+        // 基於當前頁面分析，動態生成預熱選擇器
+        const dynamicSelectors = this._analyzePageForPrewarming(context);
+        
+        // 合併配置中的預設選擇器和動態生成的選擇器
+        const allSelectors = [...new Set([...this.options.prewarmSelectors, ...dynamicSelectors])];
+        
+        const results = await this.preloadSelectors(allSelectors, context);
+        
+        const duration = performance.now() - startTime;
+        L.info(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
+        
+        return results;
+    }
+
+    /**
+     * 基於當前頁面內容分析，動態生成預熱選擇器
+     * @private
+     */
+    _analyzePageForPrewarming(context) {
+        const selectors = [];
+        
+        // 檢查頁面結構，生成可能的選擇器
+        if (context.querySelector('article')) {
+            selectors.push('article h1', 'article h2', 'article h3', 'article p', 'article img');
+        }
+        
+        if (context.querySelector('[role="main"]')) {
+            selectors.push('[role="main"] *');
+        }
+        
+        // 檢查是否有常見的 CMS 類名
+        const cmsPatterns = ['.entry-content', '.post-content', '.article-content', '.content-area'];
+        cmsPatterns.forEach(pattern => {
+            if (context.querySelector(pattern)) {
+                selectors.push(`${pattern} p`, `${pattern} img`, `${pattern} h1`, `${pattern} h2`, `${pattern} h3`);
+            }
+        });
+        
+        return selectors;
+    }
+
+    /**
+     * 維護緩存大小限制，實現 LRU 策略
+     * @private
+     */
+    _maintainCacheSizeLimit(newKey) {
+        if (this.queryCache.size < this.options.cacheMaxSize) {
+            return; // 尚未達到最大大小，無需清理
+        }
+
+        // 如果達到最大大小，移除最久未使用的項目
+        const firstKey = this.queryCache.keys().next().value;
+        if (firstKey && firstKey !== newKey) {
+            this.queryCache.delete(firstKey);
+            this.cacheStats.evictions++;
+        }
+    }
+
+    /**
+     * 清理過期的緩存項目
+     * @param {Object} options - 清理選項
+     * @returns {number} 清理的項目數量
+     */
+    clearExpiredCache(options = {}) {
+        const { force = false, maxAge = this.options.cacheTTL } = options;
+        let clearedCount = 0;
+
+        // 如果強制清理，則清理所有緩存
+        if (force) {
+            clearedCount = this.queryCache.size;
+            this.queryCache.clear();
+            return clearedCount;
+        }
+
+        // 否則只清理過期的緩存
+        const now = Date.now();
+        for (const [key, cached] of this.queryCache.entries()) {
+            if (now - cached.timestamp > maxAge) {
+                this.queryCache.delete(key);
+                clearedCount++;
+            }
+        }
+
+        return clearedCount;
+    }
+
+    /**
+     * 強制刷新特定選擇器的緩存
+     * @param {string|Array} selectors - 要刷新的選擇器或選擇器數組
+     * @param {Element} context - 查詢上下文
+     * @param {Object} options - 查詢選項
+     */
+    refreshCache(selectors, context = document, options = {}) {
+        const selectorList = Array.isArray(selectors) ? selectors : [selectors];
+        
+        for (const selector of selectorList) {
+            const cacheKey = this._generateCacheKey(selector, context, options);
+            if (this.queryCache.has(cacheKey)) {
+                // 執行新的查詢並更新緩存
+                const result = this._performQuery(selector, context, options);
+                
+                if (result) {
+                    this.queryCache.set(cacheKey, {
+                        result: result,
+                        timestamp: Date.now(),
+                        selector: selector,
+                        ttl: this.options.cacheTTL
+                    });
+                } else {
+                    // 如果新查詢沒有結果，則刪除緩存
+                    this.queryCache.delete(cacheKey);
+                }
+            }
+        }
+    }
+
+    /**
      * 安排批處理
      * @private
      */
     _scheduleBatchProcessing() {
         if (this.batchTimer) return;
 
-        this.batchTimer = setTimeout(() => {
-            this._processBatch();
-            this.batchTimer = null;
-        }, this.options.batchDelay);
+        // 使用 requestAnimationFrame 進行更優化的調度
+        // 如果支持 requestIdleCallback，則優先使用它
+        if (typeof requestIdleCallback !== 'undefined') {
+            this.batchTimer = requestIdleCallback(() => {
+                this._processBatch();
+                this.batchTimer = null;
+            }, { timeout: this.options.batchDelay });
+        } else {
+            // 回退到 setTimeout
+            this.batchTimer = setTimeout(() => {
+                this._processBatch();
+                this.batchTimer = null;
+            }, this.options.batchDelay);
+        }
     }
 
     /**
@@ -343,26 +595,70 @@ class PerformanceOptimizer {
     _processBatch() {
         if (this.batchQueue.length === 0) return;
 
+        // 動態調整批處理大小，根據隊列大小決定是否分批處理
+        const maxBatchSize = this._calculateOptimalBatchSize();
+        const currentBatch = this.batchQueue.length > maxBatchSize 
+            ? this.batchQueue.splice(0, maxBatchSize) 
+            : [...this.batchQueue];
+        
+        this.batchQueue = this.batchQueue.length > maxBatchSize 
+            ? this.batchQueue 
+            : [];
+
         const startTime = performance.now();
-        const currentBatch = [...this.batchQueue];
-        this.batchQueue = [];
 
         // 更新批處理統計
         this.batchStats.totalBatches++;
         this.batchStats.totalItems += currentBatch.length;
         this.batchStats.averageBatchSize = this.batchStats.totalItems / this.batchStats.totalBatches;
 
-        // 處理每個批處理項目
-        currentBatch.forEach(item => {
+        // 分批處理以避免阻塞 UI
+        this._processBatchItems(currentBatch, startTime);
+    }
+
+    /**
+     * 計算最佳批處理大小
+     * @private
+     */
+    _calculateOptimalBatchSize() {
+        // 根據隊列大小和歷史性能數據動態調整
+        const queueLength = this.batchQueue.length;
+        
+        if (queueLength === 0) return 100; // 默認大小
+        
+        // 如果隊列很長，使用較大的批處理以提高效率
+        if (queueLength > 500) return 200;
+        if (queueLength > 200) return 150;
+        if (queueLength > 50) return 100;
+        
+        // 如果隊列較短，使用較小的批處理以保持響應性
+        return 50;
+    }
+
+    /**
+     * 分批處理項目以避免阻塞 UI
+     * @private
+     */
+    _processBatchItems(items, startTime, index = 0, results = []) {
+        const chunkSize = 10; // 每次處理的項目數量
+        const endIndex = Math.min(index + chunkSize, items.length);
+
+        // 處理當前塊
+        for (let i = index; i < endIndex; i++) {
+            const item = items[i];
             try {
                 if (item.type === 'dom') {
                     // DOM 操作批處理
-                    const results = item.operations.map(op => op());
-                    item.resolve(results);
+                    const result = item.operations.map(op => op());
+                    item.resolve(result);
+                    results.push(result);
                 } else {
-                    // 圖片處理批處理
-                    const results = item.images.map(item.processor);
-                    item.resolve(results);
+                    // 圖片處理批處理或其他處理
+                    const result = Array.isArray(item.images) 
+                        ? item.images.map(img => item.processor(img))
+                        : [item.processor()]; // 處理單個項目
+                    item.resolve(result);
+                    results.push(result);
                 }
             } catch (error) {
                 if (typeof ErrorHandler !== 'undefined') {
@@ -375,13 +671,27 @@ class PerformanceOptimizer {
                 }
                 item.resolve([]);
             }
-        });
+        }
 
-        // 記錄處理時間
-        const processingTime = performance.now() - startTime;
-        this.metrics.totalProcessingTime += processingTime;
-        this.metrics.batchOperations++;
-        this.metrics.averageProcessingTime = this.metrics.totalProcessingTime / this.metrics.batchOperations;
+        // 如果還有更多項目，安排下一塊處理
+        if (endIndex < items.length) {
+            // 使用 requestAnimationFrame 或 setTimeout 來讓出控制權
+            if (typeof requestAnimationFrame !== 'undefined') {
+                requestAnimationFrame(() => {
+                    this._processBatchItems(items, startTime, endIndex, results);
+                });
+            } else {
+                setTimeout(() => {
+                    this._processBatchItems(items, startTime, endIndex, results);
+                }, 0);
+            }
+        } else {
+            // 所有項目已完成處理
+            const processingTime = performance.now() - startTime;
+            this.metrics.totalProcessingTime += processingTime;
+            this.metrics.batchOperations++;
+            this.metrics.averageProcessingTime = this.metrics.totalProcessingTime / this.metrics.batchOperations;
+        }
     }
 
     /**
@@ -393,15 +703,64 @@ class PerformanceOptimizer {
         
         for (let i = 0; i < items.length; i += batchSize) {
             const batch = items.slice(i, i + batchSize);
-            const batchPromises = batch.map(processor);
-            const batchResults = await Promise.allSettled(batchPromises);
             
-            results.push(...batchResults.map(result => 
-                result.status === 'fulfilled' ? result.value : { error: result.reason }
-            ));
+            // 使用動態批處理大小調整
+            const dynamicBatchSize = this._adjustBatchSizeForPerformance(batch.length);
+            if (dynamicBatchSize < batch.length) {
+                // 如果動態大小小於當前批次，進行細分
+                for (let j = 0; j < batch.length; j += dynamicBatchSize) {
+                    const subBatch = batch.slice(j, j + dynamicBatchSize);
+                    const subBatchPromises = subBatch.map(processor);
+                    const subBatchResults = await Promise.allSettled(subBatchPromises);
+                    
+                    results.push(...subBatchResults.map(result => 
+                        result.status === 'fulfilled' ? result.value : { error: result.reason }
+                    ));
+                    
+                    // 在批次之間提供短暫延遲以保持 UI 響應
+                    await this._yieldToMain();
+                }
+            } else {
+                const batchPromises = batch.map(processor);
+                const batchResults = await Promise.allSettled(batchPromises);
+                
+                results.push(...batchResults.map(result => 
+                    result.status === 'fulfilled' ? result.value : { error: result.reason }
+                ));
+            }
         }
         
         return results;
+    }
+    
+    /**
+     * 根據性能動態調整批處理大小
+     * @private
+     */
+    _adjustBatchSizeForPerformance(currentSize) {
+        // 如果有性能歷史數據，根據歷史性能調整大小
+        if (this.metrics.averageProcessingTime && this.metrics.averageProcessingTime > 100) {
+            // 如果平均處理時間過長，減少批次大小
+            return Math.max(1, Math.floor(currentSize * 0.7));
+        } else if (this.metrics.averageProcessingTime && this.metrics.averageProcessingTime < 10) {
+            // 如果處理很快，可以增加批次大小
+            return Math.min(500, currentSize * 1.5);
+        }
+        return currentSize;
+    }
+    
+    /**
+     * 讓出控制權給主線程以保持響應性
+     * @private
+     */
+    _yieldToMain() {
+        return new Promise(resolve => {
+            if (typeof requestIdleCallback !== 'undefined') {
+                requestIdleCallback(() => resolve());
+            } else {
+                setTimeout(() => resolve(), 1);  // 給瀏覽器機會處理其他任務
+            }
+        });
     }
 
     /**
@@ -436,8 +795,8 @@ class PerformanceOptimizer {
             const memory = this._getMemoryStats();
             
             // 記錄到控制台（開發模式）
-            if (this.options.enableMetrics && console.debug) {
-                console.debug('Performance Metrics:', {
+            if (this.options.enableMetrics && L.debug) {
+                L.debug('Performance Metrics:', {
                     cache: this.cacheStats,
                     batch: this.batchStats,
                     memory: memory
@@ -459,6 +818,35 @@ class PerformanceOptimizer {
             };
         }
         return null;
+    }
+
+    /**
+     * 根據當前系統負載調整性能參數
+     */
+    async adjustForSystemLoad() {
+        // 獲取當前性能指標
+        const stats = this.getStats();
+        
+        // 根據緩存命中率調整策略
+        if (stats.cache.hitRate < 0.3) {
+            // 緩存命中率低，可能需要增加緩存大小或清理策略
+            L.info('📊 緩存命中率較低，考慮調整緩存策略');
+        }
+        
+        // 根據平均處理時間調整批處理大小
+        if (stats.metrics.averageProcessingTime > 50) {
+            // 處理時間過長，減少批處理大小
+            L.info('⏰ 處理時間過長，動態調整批處理大小');
+            if (this.adaptiveManager) {
+                this.adaptiveManager.adjustBatchSize(Math.floor(this.currentSettings.batchSize * 0.8));
+            }
+        }
+        
+        // 定期清理過期緩存
+        const expiredCount = this.clearExpiredCache();
+        if (expiredCount > 0) {
+            L.info(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
+        }
     }
 }
 
