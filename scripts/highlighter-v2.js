@@ -2,7 +2,7 @@
 // v2.5.0 - 不修改DOM結構的標註實現
 (function() {
     // 使用來自 utils.js 的共享函數
-    const { normalizeUrl, StorageUtil, Logger } = window;
+    const { normalizeUrl, StorageUtil } = window;
 
     /**
      * 檢查瀏覽器是否支持 CSS Custom Highlight API
