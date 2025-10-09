@@ -13,6 +13,10 @@
     "SrcsetParser": "readonly",
     "AttributeExtractor": "readonly",
     "FallbackStrategies": "readonly",
+    "ErrorHandler": "readonly",
+    "RetryManager": "readonly",
+    "withRetry": "readonly",
+    "fetchWithRetry": "readonly",
     "Node": "readonly"
   },
   "rules": {

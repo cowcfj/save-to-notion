@@ -371,18 +371,41 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
             
             console.log(`📤 發送批次 ${batchNumber}/${totalBatches}: ${batch.length} 個區塊`);
             
-            const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json',
-                    'Notion-Version': '2022-06-28'
+            // 使用重試機制發送批次
+            const response = await (typeof withRetry !== 'undefined' ? withRetry : (fn) => fn())(
+                async () => {
+                    const res = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json',
+                            'Notion-Version': '2022-06-28'
+                        },
+                        body: JSON.stringify({
+                            children: batch
+                        })
+                    });
+                    
+                    if (!res.ok) {
+                        const errorText = await res.text();
+                        const error = new Error(`批次添加失敗: ${res.status} - ${errorText}`);
+                        error.status = res.status;
+                        throw error;
+                    }
+                    
+                    return res;
                 },
-                body: JSON.stringify({
-                    children: batch
-                })
-            });
+                {
+                    maxRetries: 3,
+                    baseDelay: 1000,
+                    shouldRetry: (error) => {
+                        // 重試 5xx 錯誤和 429 (Too Many Requests)
+                        return error.status >= 500 || error.status === 429;
+                    }
+                }
+            );
             
+            // 如果沒有重試機制，記錄批次失敗
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`❌ 批次 ${batchNumber} 失敗:`, errorText);
@@ -492,13 +515,36 @@ function getConfig(keys, callback) {
  */
 async function checkNotionPageExists(pageId, apiKey) {
     try {
-        const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Notion-Version': '2022-06-28'
+        const response = await (typeof withRetry !== 'undefined' ? withRetry : (fn) => fn())(
+            async () => {
+                const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Notion-Version': '2022-06-28'
+                    }
+                });
+
+                // 404 是預期的結果，不應該重試
+                if (res.status === 404) {
+                    return res;
+                }
+
+                // 其他錯誤狀態可能需要重試
+                if (!res.ok && res.status >= 500) {
+                    const error = new Error(`Page check failed: ${res.status}`);
+                    error.status = res.status;
+                    throw error;
+                }
+
+                return res;
+            },
+            {
+                maxRetries: 2,
+                baseDelay: 500,
+                shouldRetry: (error) => error.status >= 500 || error.status === 429
             }
-        });
+        );
 
         if (response.ok) {
             const pageData = await response.json();
@@ -509,7 +555,20 @@ async function checkNotionPageExists(pageId, apiKey) {
             return false;
         }
     } catch (error) {
-        console.error('Error checking page existence:', error);
+        /*
+         * 頁面存在性檢查錯誤：記錄但不中斷流程
+         * 返回 false 作為安全的默認值
+         */
+        if (typeof ErrorHandler !== 'undefined') {
+            ErrorHandler.logError({
+                type: 'network_error',
+                context: `checking page existence: ${pageId}`,
+                originalError: error,
+                timestamp: Date.now()
+            });
+        } else {
+            console.error('Error checking page existence:', error);
+        }
         return false;
     }
 }

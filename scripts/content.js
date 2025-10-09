@@ -199,7 +199,21 @@
                     return m2[1];
                 }
             }
-        } catch (e) { /* empty: best-effort fallback; ignore style/noscript parse errors */ }
+        } catch (error) { 
+            /* 
+             * 最佳努力回退策略：忽略樣式計算錯誤
+             * 常見錯誤：SecurityError (跨域)、InvalidStateError (元素已移除)
+             * 這些錯誤不影響主要功能，可以安全忽略
+             */
+            if (typeof ErrorHandler !== 'undefined') {
+                ErrorHandler.logError({
+                    type: 'dom_error',
+                    context: 'background image extraction',
+                    originalError: error,
+                    timestamp: Date.now()
+                });
+            }
+        }
 
         // 檢查父元素是否為 <picture> 元素
         if (imgNode.parentElement && imgNode.parentElement.nodeName === 'PICTURE') {
@@ -250,7 +264,19 @@
             urlObj.search = params.toString();
 
             return urlObj.href;
-        } catch (e) {
+        } catch (error) {
+            /*
+             * URL 解析錯誤：通常是格式不正確的 URL
+             * 返回 null 表示無法處理，調用者應該有適當的回退處理
+             */
+            if (typeof ErrorHandler !== 'undefined') {
+                ErrorHandler.logError({
+                    type: 'invalid_url',
+                    context: `URL cleaning: ${url}`,
+                    originalError: error,
+                    timestamp: Date.now()
+                });
+            }
             return null;
         }
     }
@@ -353,8 +379,21 @@
                                 });
                                 console.log(`Added image: ${cleanedUrl}`);
                             }
-                        } catch (e) {
-                            console.warn(`Failed to process image URL: ${src}`, e);
+                        } catch (error) {
+                            /*
+                             * URL 處理錯誤：通常是無效的 URL 格式
+                             * 記錄警告但不中斷處理流程
+                             */
+                            if (typeof ErrorHandler !== 'undefined') {
+                                ErrorHandler.logError({
+                                    type: 'invalid_url',
+                                    context: `image URL processing: ${src}`,
+                                    originalError: error,
+                                    timestamp: Date.now()
+                                });
+                            } else {
+                                console.warn(`Failed to process image URL: ${src}`, error);
+                            }
                         }
                     }
                     break;
@@ -420,8 +459,21 @@
                         return src;
                     }
                 }
-            } catch (e) {
-                console.warn(`Error checking selector ${selector}:`, e);
+            } catch (error) {
+                /*
+                 * DOM 查詢錯誤：可能是無效的選擇器或 DOM 結構問題
+                 * 記錄警告並繼續嘗試下一個選擇器
+                 */
+                if (typeof ErrorHandler !== 'undefined') {
+                    ErrorHandler.logError({
+                        type: 'dom_error',
+                        context: `featured image selector: ${selector}`,
+                        originalError: error,
+                        timestamp: Date.now()
+                    });
+                } else {
+                    console.warn(`Error checking selector ${selector}:`, error);
+                }
             }
         }
 
@@ -574,8 +626,21 @@
                     } else {
                         console.log(`✗ Invalid image URL ${index + 1}: ${cleanedUrl || src}`);
                     }
-                } catch (e) {
-                    console.warn(`Failed to process image ${index + 1}: ${src}`, e);
+                } catch (error) {
+                    /*
+                     * 圖片處理錯誤：可能是 URL 格式問題或 DOM 訪問錯誤
+                     * 記錄詳細信息以便調試，但不中斷整體處理
+                     */
+                    if (typeof ErrorHandler !== 'undefined') {
+                        ErrorHandler.logError({
+                            type: 'extraction_failed',
+                            context: `image processing at index ${index + 1}: ${src}`,
+                            originalError: error,
+                            timestamp: Date.now()
+                        });
+                    } else {
+                        console.warn(`Failed to process image ${index + 1}: ${src}`, error);
+                    }
                 }
             } else {
                 console.log(`✗ No src found for image ${index + 1}`);
