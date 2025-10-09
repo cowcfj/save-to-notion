@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 ### 增強
+- 統一應用可選鏈結（?.、?.()、?.[]）優化空值判斷，提升代碼可讀性與一致性
+- 擴展圖片擷取能力：支持 srcset 智能解析（優先最大寬度）、更多懶加載屬性、背景圖回退、noscript 回退
+- 改善錯誤處理：替換空 catch 塊為有意義的錯誤日誌，提升代碼質量
 - 提升標註工具欄韌性：加入 MutationObserver 自動恢復（工具欄節點被移除時自動重新掛載）、在 show() 時保險重綁 Ctrl/Cmd+點擊刪除監聽器，並保持關鍵樣式與 z-index 斷言，以避免長頁與多次開關造成的「工具欄失聯/被覆蓋」。(模組：highlighter-v2，PR #11)
 
 
@@ -14,7 +17,7 @@
 - 對齊版本資訊：manifest.json 與 package.json → 2.8.1
 - CI 小幅調整：升級 Codecov Action 至 v4、引入 `test:ci`，並在 workflow 中使用
 - 覆蓋率門檻：Codecov project 目標由 20% 提升至 20.5%（保留 1% 容忍）
-- 文檔：新增內部 PR 指南（internal/guides/PR_INTERNAL_GUIDE.md），Agents.md 精煉 PR 原則並引用內部指南
+- 文檔：完善 PR 工作流程指南（internal/guides/PR_WORKFLOW.md），整合詳細的 PR 寫作規範、檢查清單和 FAQ
 
 
 > 本文檔記錄項目的所有重要變更。格式遵循 [Keep a Changelog](https://keepachangelog.com/) 規範。

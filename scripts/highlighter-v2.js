@@ -8,7 +8,7 @@
      * 檢查瀏覽器是否支持 CSS Custom Highlight API
      */
     function supportsHighlightAPI() {
-        return 'highlights' in CSS && CSS.highlights !== undefined;
+        return 'highlights' in CSS && CSS.highlights !== undefined; // 可選鏈結不適用於 in 判斷，保留原寫法
     }
 
     /**
