@@ -46,3 +46,13 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+    
+    - name: Report test results
+      if: always()
+      run: |
+        if [ ${{ job.status }} == 'success' ]; then
+          echo "✅ All tests passed for Node.js ${{ matrix.node-version }}"
+        else
+          echo "❌ Tests failed for Node.js ${{ matrix.node-version }}"
+          exit 1
+        fi
