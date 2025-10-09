@@ -2,6 +2,8 @@
  * PerformanceOptimizer 單元測試
  * 測試性能優化器的核心功能
  */
+/* eslint-env jest */
+/* eslint-disable no-console */
 
 // 模擬 DOM 環境
 const { JSDOM } = require('jsdom');
@@ -21,16 +23,15 @@ const dom = new JSDOM(`
 </html>
 `);
 
-// 設置全局變量
-global.document = dom.window.document;
-global.window = dom.window;
-global.performance = {
-    now: () => Date.now()
-};
+// 設置所需的全局引用（使用解構以減少未宣告變數警告）
+const { document, window, performance } = dom.window;
+global.document = document;
+global.window = window;
+global.performance = { now: () => Date.now() };
 
-// 確保 DOM 查詢方法可用
-global.document.querySelector = dom.window.document.querySelector.bind(dom.window.document);
-global.document.querySelectorAll = dom.window.document.querySelectorAll.bind(dom.window.document);
+// 確保 DOM 查詢方法可用（已綁定於 document）
+document.querySelector = dom.window.document.querySelector.bind(dom.window.document);
+document.querySelectorAll = dom.window.document.querySelectorAll.bind(dom.window.document);
 
 // 引入性能優化器
 const { PerformanceOptimizer } = require('../../helpers/performance.testable');
