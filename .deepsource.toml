@@ -12,6 +12,6 @@ environment = "browser"
 
 [skip_patterns]
 paths = [
-  "tests/**",
+  "tests/manual/**",
   "tests/helpers/**"
 ]
