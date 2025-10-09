@@ -2,6 +2,7 @@
  * 自適應性能管理器
  * 根據頁面和系統性能動態調整優化策略
  */
+/* global window, document, performance, module */
 const L = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 class AdaptivePerformanceManager {
     /**

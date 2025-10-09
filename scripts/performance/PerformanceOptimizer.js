@@ -1,12 +1,13 @@
 /**
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
+/**
+ *
+ * 性能優化器
+ * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
+/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, module */
 const L = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
-class PerformanceOptimizer {
-    /**
-     * 創建性能優化器實例
-     * @param {Object} options - 配置選項
      */
     constructor(options = {}) {
         this.options = {
