@@ -33,11 +33,12 @@ class AdaptivePerformanceManager {
      * @param {Object} pageData - 頁面數據
      * @returns {Promise<Object>} 調整後的策略
      */
-    async analyzeAndAdjust(pageData = {}) {
+    async analyzeAndAdjust(_pageData = {}) {
         const startTime = performance.now();
         
         // 分析頁面內容
-        const pageAnalysis = this._analyzePageContent(pageData);
+        // 將傳入的 pageData 命名為 _pageData 表示在某些執行環境中該參數可能未被使用
+        const pageAnalysis = this._analyzePageContent(_pageData);
         
         // 分析系統性能
         const systemPerformance = await this._analyzeSystemPerformance();
