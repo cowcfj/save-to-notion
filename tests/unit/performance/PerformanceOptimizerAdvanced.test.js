@@ -66,8 +66,8 @@ describe('PerformanceOptimizer 進階功能測試', () => {
             const selector = 'img';
             
             // 第一次查詢，結果會被緩存
-            const result1 = optimizer.cachedQuery(selector, document);
-            expect(result1).toBeDefined();
+            const _result1 = optimizer.cachedQuery(selector, document);
+            expect(_result1).toBeDefined();
 
             // 驗證結果已緩存
             const stats = optimizer.getPerformanceStats();
@@ -112,8 +112,8 @@ describe('PerformanceOptimizer 進階功能測試', () => {
             const selector = 'a';
             
             // 初始查詢
-            const result1 = optimizer.cachedQuery(selector, document);
-            expect(result1).toBeDefined();
+            const _result1 = optimizer.cachedQuery(selector, document);
+            expect(_result1).toBeDefined();
 
             // 刷新緩存
             optimizer.refreshCache(selector);
@@ -175,12 +175,13 @@ describe('PerformanceOptimizer 進階功能測試', () => {
             const selector = 'img';
             
             // 第一次預熱
-            const result1 = await optimizer.preloadSelectors([selector]);
+            const _r1 = await optimizer.preloadSelectors([selector]);
             
             // 第二次預熱相同的選擇器
-            const result2 = await optimizer.preloadSelectors([selector]);
+            const _r2 = await optimizer.preloadSelectors([selector]);
             
-            // 第二次預熱不應產生新的預熱計數
+            // 第二次預熱相同的選擇器
+            const _r3 = await optimizer.preloadSelectors([selector]);
             const stats = optimizer.getPerformanceStats();
             expect(stats.cache.prewarms).toBeGreaterThanOrEqual(0);
         });
@@ -257,8 +258,8 @@ describe('PerformanceOptimizer 進階功能測試', () => {
 
         test('應該讓出控制權給主線程', async () => {
             // 測試讓出控制權功能
-                const result = await optimizer._yieldToMain();
-            expect(result).toBeUndefined(); // setTimeout(resolve) 返回 undefined
+                const _result = await optimizer._yieldToMain();
+                expect(_result).toBeUndefined(); // setTimeout(resolve) 返回 undefined
         });
     });
 
