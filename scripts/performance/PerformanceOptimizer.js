@@ -104,7 +104,8 @@ class PerformanceOptimizer {
             return null;
         }
 
-        return await this.adaptiveManager.analyzeAndAdjust(pageData);
+        // 返回 underlying promise 讓呼叫者自行 await，避免額外的 microtask
+        return this.adaptiveManager.analyzeAndAdjust(pageData);
     }
 
     /**

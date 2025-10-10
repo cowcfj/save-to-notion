@@ -104,15 +104,16 @@ class AdaptivePerformanceManager {
                 };
             }
 
-            // 執行簡單的性能測試
+            // 執行簡單的性能測試（避免建立大型未使用陣列以造成警告）
             const testStartTime = performance.now();
-            const testArray = new Array(10000);
+            let tmpAcc = 0;
             for (let i = 0; i < 10000; i++) {
-                testArray[i] = i * 2;
+                tmpAcc += i * 2;
             }
             const testDuration = performance.now() - testStartTime;
-            
-            performanceData.performanceScore = testDuration;
+
+            // 使用 testDuration 作為性能分數；tmpAcc 用來避免迴圈被優化掉
+            performanceData.performanceScore = testDuration + (tmpAcc % 1);
             
             // 基於測試結果評估性能
             if (testDuration < 10) {
@@ -138,28 +139,36 @@ class AdaptivePerformanceManager {
         let newSettings = { ...this.currentSettings };
 
         // 根據頁面複雜度調整緩存大小
+        const cacheFactor = (typeof this.options.cacheSizeAdjustmentFactor === 'number')
+            ? this.options.cacheSizeAdjustmentFactor
+            : 0.5; // 預設回退值
+
         if (pageAnalysis.complexityScore > 10) {
             // 複雜頁面 -> 增加緩存大小
             newSettings.cacheSize = Math.min(
-                Math.floor(this.performanceOptimizer.options.cacheMaxSize * 1.5),
+                Math.floor(this.performanceOptimizer.options.cacheMaxSize * (1 + cacheFactor)),
                 2000 // 最大緩存限制
             );
         } else if (pageAnalysis.complexityScore < 2) {
             // 簡單頁面 -> 減少緩存大小以節省內存
-            newSettings.cacheSize = Math.floor(this.performanceOptimizer.options.cacheMaxSize * 0.7);
+            newSettings.cacheSize = Math.floor(this.performanceOptimizer.options.cacheMaxSize * Math.max(0.1, (1 - cacheFactor)));
         }
 
         // 根據系統性能調整批處理大小
+        const batchFactor = (typeof this.options.batchSizeAdjustmentFactor === 'number')
+            ? this.options.batchSizeAdjustmentFactor
+            : 0.2; // 預設回退值
+
         if (systemPerformance.performanceScore < 20) {
             // 高性能系統 -> 增加批處理大小
             newSettings.batchSize = Math.min(
-                Math.floor(this.currentSettings.batchSize * 1.2),
+                Math.floor(this.currentSettings.batchSize * (1 + batchFactor)),
                 500 // 最大批處理大小
             );
         } else if (systemPerformance.performanceScore > 50) {
             // 低性能系統 -> 減少批處理大小
             newSettings.batchSize = Math.max(
-                Math.floor(this.currentSettings.batchSize * 0.6),
+                Math.floor(this.currentSettings.batchSize * Math.max(0.1, (1 - batchFactor))),
                 10 // 最小批處理大小
             );
         }
