@@ -189,20 +189,20 @@ describe('PerformanceOptimizer 進階功能測試', () => {
     describe('改進的批處理系統', () => {
         test('應該動態計算最佳批處理大小', () => {
             // 測試不同的隊列大小
-            const size0 = optimizer._calculateOptimalBatchSize.call(optimizer);
+                const size0 = optimizer._calculateOptimalBatchSize();
             expect(size0).toBe(100); // 默認大小
 
             // 模擬不同隊列長度
             optimizer.batchQueue = new Array(10);
-            const size1 = optimizer._calculateOptimalBatchSize.call(optimizer);
+                const size1 = optimizer._calculateOptimalBatchSize();
             expect(size1).toBe(50); // 中等大小
 
             optimizer.batchQueue = new Array(300);
-            const size2 = optimizer._calculateOptimalBatchSize.call(optimizer);
+                const size2 = optimizer._calculateOptimalBatchSize();
             expect(size2).toBe(150); // 較大
 
             optimizer.batchQueue = new Array(600);
-            const size3 = optimizer._calculateOptimalBatchSize.call(optimizer);
+                const size3 = optimizer._calculateOptimalBatchSize();
             expect(size3).toBe(200); // 最大
         });
 
@@ -222,12 +222,12 @@ describe('PerformanceOptimizer 進階功能測試', () => {
 
             // 模擬低性能場景
             optimizer.metrics.averageProcessingTime = 200; // 高處理時間
-            const adjustedSize1 = optimizer._adjustBatchSizeForPerformance.call(optimizer, originalSize);
+                const adjustedSize1 = optimizer._adjustBatchSizeForPerformance(originalSize);
             expect(adjustedSize1).toBeLessThan(originalSize);
 
             // 模擬高性能場景
             optimizer.metrics.averageProcessingTime = 5; // 低處理時間
-            const adjustedSize2 = optimizer._adjustBatchSizeForPerformance.call(optimizer, originalSize);
+                const adjustedSize2 = optimizer._adjustBatchSizeForPerformance(originalSize);
             expect(adjustedSize2).toBeGreaterThan(originalSize);
         });
     });
@@ -257,7 +257,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
 
         test('應該讓出控制權給主線程', async () => {
             // 測試讓出控制權功能
-            const result = await optimizer._yieldToMain.call(optimizer);
+                const result = await optimizer._yieldToMain();
             expect(result).toBeUndefined(); // setTimeout(resolve) 返回 undefined
         });
     });
