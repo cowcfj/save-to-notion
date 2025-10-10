@@ -1,41 +1,11 @@
-[project]
-name = "save-to-notion"
-
-# DeepSource config version
 version = 1
-
 
 [[analyzers]]
 name = "javascript"
 enabled = true
 
-[analyzers."javascript".config]
-rules_dir = "" # use default rules
+[analyzers.config]
+rules_dir = ""
 
-## Exclude manual tests, demos and internal build artifacts from DeepSource analysis
-[[analyzers."javascript".exclude]]
-path = "tests/manual/**"
-
-[[analyzers."javascript".exclude]]
-path = "test-*.js"
-
-[[analyzers."javascript".exclude]]
-path = "test-extension-*.html"
-
-[[analyzers."javascript".exclude]]
-path = "internal/build/**"
-
-[analyzers."javascript".meta]
-# Valid values: "browser" or "nodejs" (string). Choose the runtime
-# that best matches the analysed code. This repo is a Chrome extension,
-# so using "browser" helps the analyzer reason about DOM globals.
+[analyzers.meta]
 environment = "browser"
-# Skip doc coverage checks for some constructs to reduce DOCUMENTATION noise
-# Possible values: "class-expression", "method-definition", "function-declaration", etc.
-skip_doc_coverage = ["class-expression", "method-definition"]
-
-[skip_patterns]
-paths = [
-  "tests/manual/**",
-  "tests/helpers/**"
-]
