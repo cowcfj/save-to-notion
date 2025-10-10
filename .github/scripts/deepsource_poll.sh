@@ -21,6 +21,9 @@ BRANCH="${BRANCH:-${GITHUB_REF_NAME:-}}"
 if [[ -z "$BRANCH" ]]; then
   BRANCH="${1:-}"
 fi
+
+# Prefer to match by commit if available (more reliable than branchName in some cases)
+COMMIT_OID="${COMMIT_OID:-${GITHUB_SHA:-${2:-}}}"
 if [[ -z "$BRANCH" ]]; then
   echo "ERROR: Branch not specified. Set BRANCH env or pass branch as first arg."
   exit 1
@@ -33,7 +36,8 @@ BACKOFF_MULTIPLIER=${BACKOFF_MULTIPLIER:-2}
 
 API_ENDPOINT="https://app.deepsource.com/api/graphql"
 
-graphql_query='query($projectKey:String!,$branch:String!){ projectRuns(projectKey:$projectKey, branchName:$branch, first:1){ edges{ node{ id runUid commitOid status createdAt finishedAt summary{ occurrencesIntroduced occurrencesResolved occurrenceDistributionByCategory{ category introduced } } } } } }'
+# Fetch a few recent runs for the branch so we can match by commitOid if needed
+graphql_query='query($projectKey:String!,$branch:String!,$first:Int!){ projectRuns(projectKey:$projectKey, branchName:$branch, first:$first){ edges{ node{ id runUid commitOid status createdAt finishedAt summary{ occurrencesIntroduced occurrencesResolved occurrenceDistributionByCategory{ category introduced } } } } } }'
 
 attempt=0
 interval=$POLL_INTERVAL
@@ -44,7 +48,7 @@ while (( attempt < MAX_ATTEMPTS )); do
   attempt=$((attempt+1))
   echo "[deepsource-poll] attempt=$attempt branch=$BRANCH"
 
-  payload=$(jq -n --arg q "$graphql_query" --arg pk "$DEEPSOURCE_PROJECT_KEY" --arg br "$BRANCH" '{query:$q, variables:{projectKey:$pk, branch:$br}}')
+  payload=$(jq -n --arg q "$graphql_query" --arg pk "$DEEPSOURCE_PROJECT_KEY" --arg br "$BRANCH" --argjson first 5 '{query:$q, variables:{projectKey:$pk, branch:$br, first:$first}}')
 
   # call DeepSource GraphQL endpoint
   resp=$(curl -sS -H "Authorization: Token ${DEEPSOURCE_TOKEN}" -H "Content-Type: application/json" -d "$payload" "$API_ENDPOINT") || true
@@ -52,17 +56,26 @@ while (( attempt < MAX_ATTEMPTS )); do
   # write raw response to file for debugging (no secrets)
   echo "$resp" | jq '.' >/tmp/deepsource_last_raw.json || echo "{}" >/tmp/deepsource_last_raw.json
 
-  # Try to extract the node
-  node=$(echo "$resp" | jq -r '.data.projectRuns.edges[0].node // empty') || true
+  # Try to extract a node. If COMMIT_OID is provided, prefer the run whose commitOid matches it.
+  node=""
+  if [[ -n "${COMMIT_OID:-}" ]]; then
+    node=$(echo "$resp" | jq -c --arg co "$COMMIT_OID" '.data.projectRuns.edges[]?.node | select(.commitOid == $co) | .[0] // empty' 2>/dev/null) || true
+  fi
+
+  # Fallback to first node if none matched by commit
+  if [[ -z "$node" || "$node" == "null" ]]; then
+    node=$(echo "$resp" | jq -c '.data.projectRuns.edges[0].node // empty' 2>/dev/null) || true
+  fi
+
   if [[ -n "$node" && "$node" != "null" ]]; then
-    status=$(echo "$resp" | jq -r '.data.projectRuns.edges[0].node.status // empty')
-    commitOid=$(echo "$resp" | jq -r '.data.projectRuns.edges[0].node.commitOid // empty')
-    runId=$(echo "$resp" | jq -r '.data.projectRuns.edges[0].node.id // empty')
-    createdAt=$(echo "$resp" | jq -r '.data.projectRuns.edges[0].node.createdAt // empty')
-    finishedAt=$(echo "$resp" | jq -r '.data.projectRuns.edges[0].node.finishedAt // empty')
-    occurrencesIntroduced=$(echo "$resp" | jq -r '.data.projectRuns.edges[0].node.summary.occurrencesIntroduced // 0')
-    occurrencesResolved=$(echo "$resp" | jq -r '.data.projectRuns.edges[0].node.summary.occurrencesResolved // 0')
-    distribution=$(echo "$resp" | jq -c '.data.projectRuns.edges[0].node.summary.occurrenceDistributionByCategory // []')
+    status=$(echo "$node" | jq -r '.status // empty')
+    commitOid=$(echo "$node" | jq -r '.commitOid // empty')
+    runId=$(echo "$node" | jq -r '.id // empty')
+    createdAt=$(echo "$node" | jq -r '.createdAt // empty')
+    finishedAt=$(echo "$node" | jq -r '.finishedAt // empty')
+    occurrencesIntroduced=$(echo "$node" | jq -r '.summary.occurrencesIntroduced // 0')
+    occurrencesResolved=$(echo "$node" | jq -r '.summary.occurrencesResolved // 0')
+    distribution=$(echo "$node" | jq -c '.summary.occurrenceDistributionByCategory // []')
 
     # build summary JSON
     jq -n --arg runId "$runId" --arg commitOid "$commitOid" --arg status "$status" --arg createdAt "$createdAt" --arg finishedAt "$finishedAt" --argjson introduced "$occurrencesIntroduced" --argjson resolved "$occurrencesResolved" --arg distribution "$distribution" '
