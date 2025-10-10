@@ -217,9 +217,9 @@ class PerformanceOptimizer {
      * @param {Element} context - 查詢上下文，默認為 document
      * @returns {Promise<Array>} 預熱結果
      */
-    async preloadSelectors(selectors, context = document) {
+    preloadSelectors(selectors, context = document) {
         if (!this.options.enableCache || !selectors || !Array.isArray(selectors)) {
-            return [];
+            return Promise.resolve([]);
         }
 
     // skipcq: JS-0002
@@ -264,7 +264,7 @@ class PerformanceOptimizer {
         
     // skipcq: JS-0002
     console.log(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
-        return results;
+        return Promise.resolve(results);
     }
 
     /**
@@ -574,7 +574,7 @@ class PerformanceOptimizer {
      * 處理批處理隊列
      * @private
      */
-    async _processBatch() {
+    _processBatch() {
         if (this.batchQueue.length === 0 || this.processingBatch) return;
 
         this.processingBatch = true;
@@ -718,7 +718,7 @@ class PerformanceOptimizer {
     /**
      * 根據當前系統負載調整性能參數
      */
-    async adjustForSystemLoad() {
+    adjustForSystemLoad() {
         // 獲取當前性能指標
         const stats = this.getPerformanceStats();
         
@@ -742,6 +742,7 @@ class PerformanceOptimizer {
             // skipcq: JS-0002
             console.log(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
         }
+        return Promise.resolve();
     }
 }
 
