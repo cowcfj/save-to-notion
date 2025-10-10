@@ -42,8 +42,9 @@ class PerformanceOptimizer {
         };
 
         // 預熱相關屬性
-        this.prewarmedSelectors = new Set();
-        this.prewarmTimeout = null;
+    this.prewarmedSelectors = new Set();
+    // 預留欄位：測試用預熱超時控制（目前在測試環境未使用，以下以 _ 前綴表示刻意未使用以避開 linter/DeepSource 警告）
+    this._prewarmTimeout = null;
         
         // 批處理隊列
         this.batchQueue = [];
