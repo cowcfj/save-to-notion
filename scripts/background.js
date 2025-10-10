@@ -1,6 +1,31 @@
 // Notion Smart Clipper - Background Script
 // Refactored for better organization
 
+/* global chrome, PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, AdaptivePerformanceManager */
+
+// ==========================================
+// DEVELOPMENT MODE CONTROL
+// ==========================================
+
+// 用於控制調試輸出的開發模式標誌
+const DEBUG_MODE = (function() {
+    try {
+        // 可以通過 manifest.json 或其他方式控制
+        return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
+    } catch (e) {
+        // 生產環境中默認關閉調試
+        return false;
+    }
+})();
+
+// 條件日誌函數
+const Logger = {
+    log: (...args) => DEBUG_MODE && console.log(...args),
+    warn: (...args) => console.warn(...args), // 警告總是顯示
+    error: (...args) => console.error(...args), // 錯誤總是顯示
+    info: (...args) => DEBUG_MODE && console.info(...args)
+};
+
 // ==========================================
 // URL UTILITIES
 // ==========================================
@@ -1435,8 +1460,8 @@ async function handleSavePage(sendResponse) {
         await ScriptInjector.injectHighlighter(activeTab.id);
         const highlights = await ScriptInjector.collectHighlights(activeTab.id);
         
-        console.log('📊 收集到的標註數據:', highlights);
-        console.log('📊 標註數量:', highlights?.length || 0);
+        Logger.log('📊 收集到的標註數據:', highlights);
+        Logger.log('📊 標註數量:', highlights?.length || 0);
 
         // 注入並執行內容提取
         let result;
@@ -1456,15 +1481,15 @@ async function handleSavePage(sendResponse) {
                     
                     // 使用智能預熱功能
                     performanceOptimizer.smartPrewarm(document).then(() => {
-                        console.log('✓ PerformanceOptimizer initialized successfully with smart prewarming');
+                        Logger.log('✓ PerformanceOptimizer initialized successfully with smart prewarming');
                     }).catch(error => {
-                        console.warn('⚠️ Smart prewarming failed:', error);
+                        Logger.warn('⚠️ Smart prewarming failed:', error);
                     });
                 } else {
-                    console.warn('⚠️ PerformanceOptimizer not available, using fallback queries');
+                    Logger.warn('⚠️ PerformanceOptimizer not available, using fallback queries');
                 }
             } catch (perfError) {
-                console.warn('⚠️ PerformanceOptimizer initialization failed, using fallback queries:', perfError);
+                Logger.warn('⚠️ PerformanceOptimizer initialization failed, using fallback queries:', perfError);
                 performanceOptimizer = null;
             }
             

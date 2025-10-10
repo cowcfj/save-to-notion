@@ -1,6 +1,23 @@
 // This script is injected into the active tab.
 
-/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler */
+/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, chrome */
+
+// 開發模式控制（與 background.js 保持一致）
+const DEBUG_MODE = (function() {
+    try {
+        return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
+    } catch (e) {
+        return false;
+    }
+})();
+
+// 條件日誌函數
+const Logger = {
+    log: (...args) => DEBUG_MODE && console.log(...args),
+    warn: (...args) => console.warn(...args),
+    error: (...args) => console.error(...args),
+    info: (...args) => DEBUG_MODE && console.info(...args)
+};
 
 (async function () {
     try {
@@ -16,14 +33,14 @@
                     cacheTTL: 600000    // 10分鐘 TTL
                 });
 
-                // 使用智能預熱功能
-                await performanceOptimizer.smartPrewarm(document);
-                console.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');
+                                // 使用智能預熱功能
+                const prewarmResult = await performanceOptimizer.smartPrewarm(document);
+                Logger.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');
             } else {
-                console.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
+                Logger.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
             }
         } catch (perfError) {
-            console.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
+            Logger.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
             performanceOptimizer = null;
         }
 
@@ -38,7 +55,7 @@
 
         // 檢查 ImageUtils 是否可用，如果不可用則提供回退實現
         if (typeof ImageUtils === 'undefined') {
-            console.warn('ImageUtils not available, using fallback implementations');
+            Logger.warn('ImageUtils not available, using fallback implementations');
             window.ImageUtils = {
                 cleanImageUrl: function (url) {
                     if (!url || typeof url !== 'string') return null;
@@ -85,12 +102,12 @@
             // 如果頁面以長清單為主（如文件、命令列清單），允許通過
             const LIST_EXCEPTION_THRESHOLD = 8; // 8個以上的<li> 視為 list-heavy
             if (liCount >= LIST_EXCEPTION_THRESHOLD) {
-                console.log(`Readability.js content accepted as list-heavy (liCount=${liCount}) despite link density ${linkDensity.toFixed(2)}`);
+                Logger.log(`Readability.js content accepted as list-heavy (liCount=${liCount}) despite link density ${linkDensity.toFixed(2)}`);
                 return true;
             }
 
             if (linkDensity > MAX_LINK_DENSITY) {
-                console.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
+                Logger.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
                 return false;
             }
 
@@ -103,7 +120,7 @@
          * @returns {string|null} The combined innerHTML of the article components.
          */
         function findContentCmsFallback() {
-            console.log("Executing CMS-aware fallback finder...");
+            Logger.log("Executing CMS-aware fallback finder...");
 
             // Strategy 1: Look for Drupal's typical structure
             const drupalNodeContent = cachedQuery('.node__content', document, { single: true });
@@ -112,7 +129,7 @@
                 const bodyField = cachedQuery('.field--name-field-body', drupalNodeContent, { single: true });
 
                 if (bodyField) {
-                    console.log("Drupal structure detected. Combining fields.");
+                    Logger.log("Drupal structure detected. Combining fields.");
                     const imageHtml = imageField ? imageField.innerHTML : '';
                     const bodyHtml = bodyField.innerHTML;
                     return imageHtml + bodyHtml;
@@ -152,15 +169,15 @@
                 const element = cachedQuery(selector, document, { single: true });
                 if (element) {
                     const textLength = element.textContent.trim().length;
-                    console.log(`Found element with selector "${selector}": ${textLength} characters`);
+                    Logger.log(`Found element with selector "${selector}": ${textLength} characters`);
                     if (textLength >= MIN_CONTENT_LENGTH) {
-                        console.log(`✅ CMS content found with selector: ${selector} (${textLength} chars)`);
+                        Logger.log(`✅ CMS content found with selector: ${selector} (${textLength} chars)`);
                         return element.innerHTML;
                     } else {
-                        console.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
+                        Logger.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
                     }
                 } else {
-                    console.log(`❌ No element found with selector: ${selector}`);
+                    Logger.log(`❌ No element found with selector: ${selector}`);
                 }
             }
 
@@ -202,24 +219,24 @@
                 const element = cachedQuery(selector, document, { single: true });
                 if (element) {
                     const textLength = element.textContent.trim().length;
-                    console.log(`Found element with selector "${selector}": ${textLength} characters`);
+                    Logger.log(`Found element with selector "${selector}": ${textLength} characters`);
                     if (textLength >= MIN_CONTENT_LENGTH) {
-                        console.log(`✅ Article content found with selector: ${selector} (${textLength} chars)`);
+                        Logger.log(`✅ Article content found with selector: ${selector} (${textLength} chars)`);
                         return element.innerHTML;
                     } else {
-                        console.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
+                        Logger.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
                     }
                 } else {
-                    console.log(`❌ No element found with selector: ${selector}`);
+                    Logger.log(`❌ No element found with selector: ${selector}`);
                 }
             }
 
             // Strategy 4: Generic "biggest content block" as a final attempt
-            console.log("🔍 CMS structure not found. Reverting to generic content finder...");
-            console.log(`📏 Minimum content length required: ${MIN_CONTENT_LENGTH} characters`);
+            Logger.log("🔍 CMS structure not found. Reverting to generic content finder...");
+            Logger.log(`📏 Minimum content length required: ${MIN_CONTENT_LENGTH} characters`);
 
             const candidates = cachedQuery('article, section, main, div', document);
-            console.log(`🎯 Found ${candidates.length} potential content candidates`);
+            Logger.log(`🎯 Found ${candidates.length} potential content candidates`);
 
             let bestElement = null;
             let maxScore = 0;
@@ -230,7 +247,7 @@
                 candidateCount++;
 
                 if (text.length < MIN_CONTENT_LENGTH) {
-                    console.log(`❌ Candidate ${candidateCount}: Too short (${text.length} < ${MIN_CONTENT_LENGTH})`);
+                    Logger.log(`❌ Candidate ${candidateCount}: Too short (${text.length} < ${MIN_CONTENT_LENGTH})`);
                     continue;
                 }
 
@@ -241,25 +258,25 @@
                 // 給圖片加分，因為我們想要包含圖片的內容
                 const score = text.length + (paragraphs * 50) + (images * 30) - (links * 25);
 
-                console.log(`📊 Candidate ${candidateCount}: ${text.length} chars, ${paragraphs}p, ${images}img, ${links}links, score: ${score}`);
+                Logger.log(`📊 Candidate ${candidateCount}: ${text.length} chars, ${paragraphs}p, ${images}img, ${links}links, score: ${score}`);
 
                 if (score > maxScore) {
                     // 避免選擇嵌套的父元素
                     if (bestElement && el.contains(bestElement)) {
-                        console.log(`⚠️ Skipping nested parent element`);
+                        Logger.log(`⚠️ Skipping nested parent element`);
                         continue;
                     }
                     maxScore = score;
                     bestElement = el;
-                    console.log(`✅ New best candidate found with score: ${score}`);
+                    Logger.log(`✅ New best candidate found with score: ${score}`);
                 }
             }
 
             if (bestElement) {
-                console.log(`🎉 Best content found with ${bestElement.textContent.trim().length} characters`);
+                Logger.log(`🎉 Best content found with ${bestElement.textContent.trim().length} characters`);
                 return bestElement.innerHTML;
             } else {
-                console.log(`❌ No suitable content found. All ${candidateCount} candidates were too short or scored too low.`);
+                Logger.log(`❌ No suitable content found. All ${candidateCount} candidates were too short or scored too low.`);
 
                 // 最後的嘗試：降低標準
                 console.log(`🔄 Trying with lower standards (${MIN_CONTENT_LENGTH / 2} chars)...`);
