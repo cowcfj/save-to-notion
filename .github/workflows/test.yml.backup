@@ -1,0 +1,147 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    strategy:
+      matrix:
+        node-version: [20.x]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm run test:ci
+    
+    - name: Generate coverage report
+      run: npm run test:coverage
+      continue-on-error: true
+
+    - name: Coverage diagnostics (list files + head)
+      run: |
+        echo "-- coverage dir listing --"
+        ls -la coverage || true
+        echo "\n-- head of coverage/lcov.info (if exists) --"
+        if [ -f coverage/lcov.info ]; then
+          head -n 60 coverage/lcov.info
+        else
+          echo "coverage/lcov.info not found"
+        fi
+      continue-on-error: true
+    
+    - name: Upload coverage to Codecov
+      id: codecov_upload
+      uses: codecov/codecov-action@v4
+      if: matrix.node-version == '20.x'
+      with:
+        use_oidc: true
+        files: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        verbose: true
+
+    - name: Wait for Codecov processing
+      if: always()
+      run: |
+        set -euo pipefail
+        echo "Waiting for Codecov to process coverage for this commit..."
+        REPO="${{ github.repository }}"
+        SHA="${{ github.sha }}"
+        API_URL="https://api.codecov.io/api/v2/github/${REPO}/commits/${SHA}"
+
+        # Max attempts: 36 * 5s = 180s (3 minutes)
+        MAX_ATTEMPTS=36
+        SLEEP_SEC=5
+
+        for i in $(seq 1 $MAX_ATTEMPTS); do
+          echo "Attempt $i/$MAX_ATTEMPTS: querying $API_URL"
+          http_code=$(curl -s -H "Authorization: Bearer ${{ secrets.CODECOV_TOKEN }}" -o /tmp/codecov_commit.json -w "%{http_code}" "$API_URL" || echo "000")
+
+          if [ "$http_code" != "200" ]; then
+            echo "Codecov API returned HTTP $http_code — not ready yet"
+            sleep $SLEEP_SEC
+            continue
+          fi
+
+          # Try to use jq if available for robust parsing
+          if command -v jq >/dev/null 2>&1; then
+            state=$(jq -r '.state' /tmp/codecov_commit.json 2>/dev/null || echo "")
+            if [ "$state" = "complete" ] || [ "$state" = "finished" ]; then
+              echo "Codecov has processed the upload (state: $state)"
+              jq '.' /tmp/codecov_commit.json || true
+              exit 0
+            elif [ "$state" = "error" ]; then
+              echo "Codecov processing failed (state: $state)"
+              jq '.' /tmp/codecov_commit.json || true
+              exit 0
+            else
+              echo "Codecov processing not complete yet (state: $state)"
+              sleep $SLEEP_SEC
+              continue
+            fi
+          fi
+
+          # Fallback parsing without jq: check for "state": "complete"
+          if grep -q '"state"\s*:\s*"complete"' /tmp/codecov_commit.json || grep -q '"state"\s*:\s*"finished"' /tmp/codecov_commit.json; then
+            echo "Codecov has processed the upload (state: complete/finished)"
+            sed -n '1,200p' /tmp/codecov_commit.json || true
+            exit 0
+          fi
+
+          if grep -q '"state"\s*:\s*"error"' /tmp/codecov_commit.json; then
+            echo "Codecov processing failed"
+            sed -n '1,200p' /tmp/codecov_commit.json || true
+            exit 0
+          fi
+
+          echo "Codecov API response not yet indicating processed reports, retrying..."
+          sleep $SLEEP_SEC
+        done
+
+        echo "Timed out waiting for Codecov to process coverage after $((MAX_ATTEMPTS * SLEEP_SEC)) seconds"
+        echo "Last Codecov API response:"
+        sed -n '1,200p' /tmp/codecov_commit.json || true
+        exit 0
+    
+    - name: Report success
+      if: success()
+      run: echo "✅ All tests passed for Node.js ${{ matrix.node-version }}"
+
+    - name: Report Codecov upload step info
+      if: always()
+      run: |
+        echo "--- Codecov step outcome ---"
+        echo "Outcome: ${{ steps.codecov_upload.outcome }}"
+        echo "Conclusion: ${{ steps.codecov_upload.conclusion }}"
+        echo "Outputs: ${{ toJson(steps.codecov_upload.outputs) }}"
+
+    - name: Report cancelled
+      if: cancelled()
+      run: echo "⏹️ Tests cancelled for Node.js ${{ matrix.node-version }}"
+
+    - name: Report failure
+      if: ${{ failure() && !cancelled() }}
+      run: |
+        echo "❌ Tests failed for Node.js ${{ matrix.node-version }}"
+        exit 1
