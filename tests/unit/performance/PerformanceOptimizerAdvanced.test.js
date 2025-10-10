@@ -3,6 +3,9 @@
  * 測試新增的緩存預熱、TTL 機制、批處理優化和自適應功能
  */
 
+/* global document window performance */
+/* eslint-disable no-unused-vars */
+
 // 模擬 DOM 環境
 const { JSDOM } = require('jsdom');
 const dom = new JSDOM(`

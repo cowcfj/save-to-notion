@@ -5,6 +5,9 @@
 /* eslint-env jest */
 /* eslint-disable no-console */
 
+/* global document window performance */
+/* eslint-disable no-unused-vars */
+
 // 模擬 DOM 環境
 const { JSDOM } = require('jsdom');
 const dom = new JSDOM(`

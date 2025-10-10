@@ -1,3 +1,6 @@
+/* global document window performance */
+/* eslint-disable no-unused-vars */
+
 const { PerformanceOptimizer } = require('../../helpers/performance.testable');
 
 describe('PerformanceOptimizer (extra tests)', () => {
