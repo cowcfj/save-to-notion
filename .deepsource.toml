@@ -1,6 +1,9 @@
 [project]
 name = "save-to-notion"
 
+# DeepSource config version
+version = 1
+
 [[analyzers]]
 name = "javascript"
 enabled = true
@@ -20,11 +23,6 @@ path = "test-extension-*.html"
 
 [[analyzers.exclude]]
 path = "internal/build/**"
-version = 1
-
-[[analyzers]]
-name = "javascript"
-enabled = true
 
 [analyzers.meta]
 # Valid values: "browser" or "nodejs" (string). Choose the runtime
