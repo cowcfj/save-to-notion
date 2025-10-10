@@ -1,9 +1,9 @@
-name: DeepSource Poll
+name: DeepSource Poll (disabled auto-run)
 
+# Disabled for automatic runs. Keep as manual workflow (workflow_dispatch) for
+# occasional manual inspection or troubleshooting.
 on:
-  push:
-    branches:
-      - '**'
+  workflow_dispatch: {}
 
 jobs:
   poll-deepsource:
@@ -18,27 +18,15 @@ jobs:
       - name: Make script executable
         run: chmod +x ./.github/scripts/deepsource_poll.sh
 
-      - name: Poll DeepSource for run completion
-        env:
-          DEEPSOURCE_TOKEN: ${{ secrets.DEEPSOURCE_TOKEN }}
-          DEEPSOURCE_PROJECT_KEY: ${{ secrets.DEEPSOURCE_PROJECT_KEY }}
-          BRANCH: ${{ github.ref_name }}
-          COMMIT_OID: ${{ github.sha }}
-          # Limit attempts so workflow doesn't poll indefinitely; DeepSource will still run on its own.
-          MAX_ATTEMPTS: 3
-          POLL_INTERVAL: 10
+      - name: DeepSource poll (disabled)
         run: |
-          set -euo pipefail
-          echo "One-shot DeepSource check: branch=$BRANCH commit=${COMMIT_OID} max_attempts=${MAX_ATTEMPTS}"
-          ./.github/scripts/deepsource_poll.sh
+          echo "DeepSource poll disabled in CI. To run manually, use workflow_dispatch and review logs."
+          ./.github/scripts/deepsource_poll.sh || true
 
-      - name: Post result as PR comment (if applicable)
-        if: ${{ github.event_name == 'push' && github.ref_type == 'branch' }}
+      - name: Post result as PR comment (manual only)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_EVENT_PATH: ${{ github.event_path }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
-          chmod +x ./.github/scripts/deepsource_post_comment.sh
-          ./.github/scripts/deepsource_post_comment.sh "$GITHUB_EVENT_PATH"
+          echo "Manual run: no automated comment will be posted by default."
