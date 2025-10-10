@@ -285,9 +285,29 @@
             try {
                 console.log('🔎 Running extractLargestListFallback to find large <ul>/<ol>');
 
+                // 策略 1: 尋找真正的 <ul> / <ol>
                 const lists = Array.from(document.querySelectorAll('ul, ol'));
-                if (!lists || lists.length === 0) {
-                    console.log('✗ No lists found on page');
+                console.log(`Found ${lists.length} actual <ul>/<ol> elements`);
+
+                // 策略 2: 尋找可能是清單但用 div/section 呈現的內容
+                const possibleListContainers = Array.from(document.querySelectorAll('div, section, article')).filter(container => {
+                    const text = container.textContent || '';
+                    // 尋找包含多個以 bullet 字元或數字開頭的行的容器
+                    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                    if (lines.length < 4) return false;
+                    
+                    const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/;
+                    const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
+                    return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
+                });
+
+                console.log(`Found ${possibleListContainers.length} possible list containers`);
+
+                // 合併真正的清單和可能的清單容器
+                const allCandidates = [...lists, ...possibleListContainers];
+                
+                if (!allCandidates || allCandidates.length === 0) {
+                    console.log('✗ No lists or list-like containers found on page');
                     return null;
                 }
 
@@ -295,25 +315,34 @@
                 let best = null;
                 let bestScore = 0;
 
-                lists.forEach((list, idx) => {
-                    const liItems = Array.from(list.querySelectorAll('li'));
+                allCandidates.forEach((candidate, idx) => {
+                    const liItems = Array.from(candidate.querySelectorAll('li'));
                     const liCount = liItems.length;
-                    const textLength = (list.textContent || '').trim().length;
-                    const score = (liCount * 10) + Math.min(500, Math.floor(textLength / 10));
+                    const textLength = (candidate.textContent || '').trim().length;
+                    
+                    // 對於非 <ul>/<ol> 的容器，用行數代替 li 數量
+                    let effectiveItemCount = liCount;
+                    if (liCount === 0) {
+                        const lines = (candidate.textContent || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                        const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/;
+                        effectiveItemCount = lines.filter(line => bulletPattern.test(line)).length;
+                    }
+                    
+                    const score = (effectiveItemCount * 10) + Math.min(500, Math.floor(textLength / 10));
 
-                    console.log(`List ${idx + 1}: liCount=${liCount}, textLength=${textLength}, score=${score}`);
+                    console.log(`Candidate ${idx + 1}: itemCount=${effectiveItemCount}, textLength=${textLength}, score=${score}, tagName=${candidate.tagName}`);
 
-                    // 過濾太短或只有單一項目的 list
-                    if (liCount < 4) return;
+                    // 過濾太短或只有單一項目的容器
+                    if (effectiveItemCount < 4) return;
 
                     if (score > bestScore) {
                         bestScore = score;
-                        best = list;
+                        best = candidate;
                     }
                 });
 
                 if (best) {
-                    console.log(`✅ extractLargestListFallback chose a list with score ${bestScore} and ${best.querySelectorAll('li').length} items`);
+                    console.log(`✅ extractLargestListFallback chose a container with score ${bestScore}, tagName=${best.tagName}`);
                     // 嘗試把周邊標題包含進去（若存在相鄰的 <h1>-<h3>）
                     let containerHtml = best.innerHTML;
                     const prev = best.previousElementSibling;
@@ -324,7 +353,7 @@
                     return containerHtml;
                 }
 
-                console.log('✗ No suitable large list found');
+                console.log('✗ No suitable large list or list-like container found');
                 return null;
             } catch (e) {
                 console.warn('extractLargestListFallback failed:', e);
@@ -905,6 +934,27 @@
             await expandCollapsibleElements(400);
         } catch (e) {
             console.warn('Error while expanding collapsible elements before parsing:', e);
+        }
+
+        // 額外等待動態內容載入（針對像 gemini-cli docs 這樣的 SPA 或懶載入網站）
+        try {
+            console.log('🔄 等待動態內容載入...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // 嘗試觸發任何懶載入機制
+            const scrollableElements = document.querySelectorAll('[style*="overflow"]');
+            scrollableElements.forEach(el => {
+                try {
+                    el.scrollTop = el.scrollHeight;
+                    el.scrollLeft = el.scrollWidth;
+                } catch (e) { /* ignore */ }
+            });
+            
+            // 再等待一下讓懶載入內容出現
+            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log('✅ 動態內容載入等待完成');
+        } catch (e) {
+            console.warn('動態內容載入等待失敗:', e);
         }
 
         const article = new Readability(document.cloneNode(true)).parse();
