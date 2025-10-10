@@ -709,7 +709,7 @@
          * 嘗試展開頁面上常見的可折疊/懶載入內容，以便 Readability 能夠擷取隱藏的文本
          * Best-effort：會處理 <details>、aria-expanded/aria-hidden、常見 collapsed 類別 和 Bootstrap collapse
          */
-        async function expandCollapsibleElements(timeout = 300) {
+    const expandCollapsibleElements = async (timeout = 300) => {
             try {
                 const expanded = [];
 
@@ -735,7 +735,7 @@
                         // 如果有 aria-controls，嘗試移除 aria-hidden 或 collapsed 類別
                         const ctrl = t.getAttribute && t.getAttribute('aria-controls');
                         if (ctrl) {
-                            const target = document.getElementById(ctrl) || document.querySelector('#' + ctrl);
+                            const target = document.getElementById(ctrl) || document.querySelector(`#${ctrl}`);
                             if (target) {
                                 target.removeAttribute('aria-hidden');
                                 target.classList.remove('collapsed');
