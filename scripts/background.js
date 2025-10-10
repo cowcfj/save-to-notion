@@ -2318,6 +2318,49 @@ async function handleSavePage(sendResponse) {
         }
 
         const contentResult = result;
+        // --- DEBUG HELPER: 保存最新的 content extraction 結果到 chrome.storage.local，並在 service worker console 輸出 ---
+        try {
+            try {
+                const debugData = {
+                    title: contentResult.title,
+                    blocks: contentResult.blocks,
+                    url: normUrl,
+                    timestamp: Date.now()
+                };
+
+                // 儲存到 chrome.storage.local，方便在擴展 Inspect Service Worker 或 popup 中取用
+                try {
+                    chrome.storage.local.set({ '__debug_last_extraction__': debugData }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.warn('🧪 Debug: failed to save last extraction to storage:', chrome.runtime.lastError);
+                        } else {
+                            console.log('🧪 Debug: saved last extraction to chrome.storage.local');
+                        }
+                    });
+                } catch (e) {
+                    console.warn('🧪 Debug: chrome.storage.local.set threw:', e);
+                }
+
+                // 在 service worker console 輸出一份摘要（避免一次列印大量 block）
+                try {
+                    const summary = {
+                        title: debugData.title,
+                        url: debugData.url,
+                        timestamp: new Date(debugData.timestamp).toISOString(),
+                        blockCount: Array.isArray(debugData.blocks) ? debugData.blocks.length : 0,
+                        sampleBlocks: Array.isArray(debugData.blocks) ? debugData.blocks.slice(0, 6) : []
+                    };
+                    console.log('🧪 Debug - last extraction summary:', summary);
+                } catch (e) {
+                    console.warn('🧪 Debug: failed to build debug summary', e);
+                }
+            } catch (e) {
+                console.warn('🧪 Debug: error preparing debug extraction data', e);
+            }
+        } catch (e) {
+            // 安全保護：不可讓 debug 影響正常流程
+            console.warn('🧪 Debug helper failed:', e);
+        }
         
         // 添加標記到內容
         if (highlights.length > 0) {

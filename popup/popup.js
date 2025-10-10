@@ -88,6 +88,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Debug: 顯示最後一次 content extraction 的結果
+    const showDebugButton = document.getElementById('show-debug-extraction-button');
+    showDebugButton.addEventListener('click', () => {
+        status.textContent = 'Loading last extraction...';
+        chrome.storage.local.get(['__debug_last_extraction__'], (result) => {
+            const debugData = result && result.__debug_last_extraction__ ? result.__debug_last_extraction__ : null;
+            if (!debugData) {
+                status.textContent = 'No debug extraction data found.';
+                setTimeout(() => { status.textContent = 'Ready to save.'; }, 2000);
+                return;
+            }
+
+            // 打開一個新分頁顯示 JSON（data URL）
+            try {
+                const jsonStr = JSON.stringify(debugData, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                chrome.tabs.create({ url }, () => {
+                    status.textContent = 'Opened last extraction in new tab.';
+                    setTimeout(() => { status.textContent = 'Ready to save.'; }, 2000);
+                });
+            } catch (e) {
+                console.error('Failed to open debug extraction:', e);
+                status.textContent = 'Failed to open debug extraction.';
+            }
+        });
+    });
+
     // 標記按鈕事件
     highlightButton.addEventListener('click', () => {
         // 先檢查頁面狀態
