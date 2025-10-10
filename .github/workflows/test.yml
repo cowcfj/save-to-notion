@@ -68,7 +68,7 @@ jobs:
         echo "Waiting for Codecov to process coverage for this commit..."
         REPO="${{ github.repository }}"
         SHA="${{ github.sha }}"
-        API_URL="https://codecov.io/api/gh/${REPO}/commit/${SHA}"
+        API_URL="https://api.codecov.io/api/v2/github/${REPO}/commits/${SHA}"
 
         # Max attempts: 36 * 5s = 180s (3 minutes)
         MAX_ATTEMPTS=36
@@ -86,27 +86,31 @@ jobs:
 
           # Try to use jq if available for robust parsing
           if command -v jq >/dev/null 2>&1; then
-            reports_len=$(jq '.reports | length' /tmp/codecov_commit.json 2>/dev/null || echo "0")
-            if [ "$reports_len" -gt 0 ]; then
-              echo "Codecov has processed the upload (reports count: $reports_len)"
+            state=$(jq -r '.state' /tmp/codecov_commit.json 2>/dev/null || echo "")
+            if [ "$state" = "complete" ] || [ "$state" = "finished" ]; then
+              echo "Codecov has processed the upload (state: $state)"
+              jq '.' /tmp/codecov_commit.json || true
+              exit 0
+            elif [ "$state" = "error" ]; then
+              echo "Codecov processing failed (state: $state)"
               jq '.' /tmp/codecov_commit.json || true
               exit 0
             else
-              echo "Codecov reports array is empty (not processed yet)"
+              echo "Codecov processing not complete yet (state: $state)"
               sleep $SLEEP_SEC
               continue
             fi
           fi
 
-          # Fallback parsing without jq: look for non-empty "reports": [ ... ]
-          if grep -q '"reports"\s*:\s*\[\s*\]' /tmp/codecov_commit.json; then
-            echo "Codecov reports array is empty (not processed yet)"
-            sleep $SLEEP_SEC
-            continue
+          # Fallback parsing without jq: check for "state": "complete"
+          if grep -q '"state"\s*:\s*"complete"' /tmp/codecov_commit.json || grep -q '"state"\s*:\s*"finished"' /tmp/codecov_commit.json; then
+            echo "Codecov has processed the upload (state: complete/finished)"
+            sed -n '1,200p' /tmp/codecov_commit.json || true
+            exit 0
           fi
 
-          if grep -q '"reports"\s*:\s*\[' /tmp/codecov_commit.json; then
-            echo "Codecov has processed the upload (reports array present)"
+          if grep -q '"state"\s*:\s*"error"' /tmp/codecov_commit.json; then
+            echo "Codecov processing failed"
             sed -n '1,200p' /tmp/codecov_commit.json || true
             exit 0
           fi
