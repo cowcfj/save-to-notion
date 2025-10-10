@@ -66,6 +66,8 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       window.MutationObserver = SafeMutationObserver;
       // 提供 StorageUtil
       window.StorageUtil = createStorageUtilMock(highlights);
+      // 提供 normalizeUrl 函數
+      window.normalizeUrl = jest.fn((url) => url);
       // 載入腳本（會自動初始化並在 window 上掛載 notionHighlighter）
       require('../../scripts/highlighter-v2.js');
     });

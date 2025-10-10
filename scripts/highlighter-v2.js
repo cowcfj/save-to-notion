@@ -1175,8 +1175,7 @@
      */
     function initHighlighter() {
         // 如果已存在，顯示工具欄
-        
-    if (window.notionHighlighter if (window.notionHighlighter) {if (window.notionHighlighter) { typeof window.notionHighlighter.show === 'function') {
+        if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
             console.log('✅ 標註工具已存在，顯示工具欄');
             window.notionHighlighter.show();
             return;
@@ -1743,16 +1742,14 @@
     window.initNotionHighlighter = initHighlighter; // 別名
     
     window.clearPageHighlights = () => {
-        
-    if (window.notionHighlighter if (window.notionHighlighter) {if (window.notionHighlighter) { typeof window.notionHighlighter.show === 'function') {
+        if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
             window.notionHighlighter.manager.clearAll();
         }
     };
     window.clearNotionHighlights = window.clearPageHighlights; // 別名
     
     window.collectHighlights = () => {
-        
-    if (window.notionHighlighter if (window.notionHighlighter) {if (window.notionHighlighter) { typeof window.notionHighlighter.show === 'function') {
+        if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
             return window.notionHighlighter.manager.collectHighlightsForNotion();
         }
         return [];
@@ -1777,8 +1774,7 @@
                 console.log(`📦 發現 ${highlights.length} 個保存的標註，自動初始化...`);
                 initHighlighter();
                 // 隱藏工具欄（只恢復標註，不顯示UI）
-                
-    if (window.notionHighlighter if (window.notionHighlighter) {if (window.notionHighlighter) { typeof window.notionHighlighter.show === 'function') {
+                if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
                     window.notionHighlighter.hide();
                 }
             } else {
@@ -1787,8 +1783,7 @@
                 console.log('📝 初始化標註系統（無保存的標註）');
                 initHighlighter();
                 // 隱藏工具欄
-                
-    if (window.notionHighlighter if (window.notionHighlighter) {if (window.notionHighlighter) { typeof window.notionHighlighter.show === 'function') {
+                if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
                     window.notionHighlighter.hide();
                 }
             }
@@ -1796,8 +1791,7 @@
             console.error('❌ 自動初始化失敗:', error);
             // 即使失敗也要初始化，確保基本功能可用
             initHighlighter();
-            
-    if (window.notionHighlighter if (window.notionHighlighter) {if (window.notionHighlighter) { typeof window.notionHighlighter.show === 'function') {
+            if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
                 window.notionHighlighter.hide();
             }
         }
