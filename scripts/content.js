@@ -943,7 +943,7 @@
             console.log(`================================\n`);
 
             if (blocks.length > 0) {
-                return { title: finalTitle, blocks: blocks };
+                return { title: finalTitle, blocks: blocks, rawHtml: finalContentHtml };
             } else {
                 console.log(`❌ No blocks generated from content`);
                 // Return fallback content instead of continuing
@@ -958,7 +958,8 @@
                                 text: { content: 'Content was found but could not be converted to blocks.' }
                             }]
                         }
-                    }]
+                    }],
+                    rawHtml: finalContentHtml
                 };
             }
         } else {
@@ -987,7 +988,8 @@
                             text: { content: 'Could not automatically extract article content.' }
                         }]
                     }
-                }]
+                }],
+                rawHtml: finalContentHtml
             };
         }
     } catch (error) {
