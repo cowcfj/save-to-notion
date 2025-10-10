@@ -1,0 +1,39 @@
+name: DeepSource Poll
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  poll-deepsource:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Make script executable
+        run: chmod +x ./.github/scripts/deepsource_poll.sh
+
+      - name: Poll DeepSource for run completion
+        env:
+          DEEPSOURCE_TOKEN: ${{ secrets.DEEPSOURCE_TOKEN }}
+          DEEPSOURCE_PROJECT_KEY: ${{ secrets.DEEPSOURCE_PROJECT_KEY }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ./.github/scripts/deepsource_poll.sh
+
+      - name: Post result as PR comment (if applicable)
+        if: ${{ github.event_name == 'push' && github.ref_type == 'branch' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          chmod +x ./.github/scripts/deepsource_post_comment.sh
+          ./.github/scripts/deepsource_post_comment.sh "$GITHUB_EVENT_PATH"
