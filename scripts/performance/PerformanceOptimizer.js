@@ -100,9 +100,9 @@ class PerformanceOptimizer {
      * 執行自適應性能調整
      * @param {Object} pageData - 頁面數據
      */
-    async adaptiveAdjustment(pageData = {}) {
+    adaptiveAdjustment(pageData = {}) {
         if (!this.adaptiveManager) {
-            return null;
+            return Promise.resolve(null);
         }
 
         // 返回 underlying promise 讓呼叫者自行 await，避免額外的 microtask
@@ -386,9 +386,9 @@ class PerformanceOptimizer {
      * @param {Element} context - 查詢上下文，默認為 document
      * @returns {Promise<Array>} 預熱結果
      */
-    async preloadSelectors(selectors, context = document) {
+    preloadSelectors(selectors, context = document) {
         if (!this.options.enableCache || !selectors || !Array.isArray(selectors)) {
-            return [];
+            return Promise.resolve([]);
         }
 
         L.info(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
@@ -438,7 +438,7 @@ class PerformanceOptimizer {
         }
         
         L.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
-        return results;
+        return Promise.resolve(results);
     }
 
     /**
@@ -823,7 +823,7 @@ class PerformanceOptimizer {
     /**
      * 根據當前系統負載調整性能參數
      */
-    async adjustForSystemLoad() {
+    adjustForSystemLoad() {
         // 獲取當前性能指標
         const stats = this.getStats();
         
@@ -847,6 +847,9 @@ class PerformanceOptimizer {
         if (expiredCount > 0) {
             L.info(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
         }
+
+        // 保持 API 回傳 Promise（與之前 async 一致）
+        return Promise.resolve();
     }
 }
 
