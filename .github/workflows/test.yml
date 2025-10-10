@@ -36,8 +36,21 @@ jobs:
     - name: Generate coverage report
       run: npm run test:coverage
       continue-on-error: true
+
+    - name: Coverage diagnostics (list files + head)
+      run: |
+        echo "-- coverage dir listing --"
+        ls -la coverage || true
+        echo "\n-- head of coverage/lcov.info (if exists) --"
+        if [ -f coverage/lcov.info ]; then
+          head -n 60 coverage/lcov.info
+        else
+          echo "coverage/lcov.info not found"
+        fi
+      continue-on-error: true
     
     - name: Upload coverage to Codecov
+      id: codecov_upload
       uses: codecov/codecov-action@v4
       if: matrix.node-version == '20.x'
       with:
@@ -46,10 +59,19 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+        verbose: true
     
     - name: Report success
       if: success()
       run: echo "✅ All tests passed for Node.js ${{ matrix.node-version }}"
+
+    - name: Report Codecov upload step info
+      if: always()
+      run: |
+        echo "--- Codecov step outcome ---"
+        echo "Outcome: ${{ steps.codecov_upload.outcome }}"
+        echo "Conclusion: ${{ steps.codecov_upload.conclusion }}"
+        echo "Outputs: ${{ toJson(steps.codecov_upload.outputs) }}"
 
     - name: Report cancelled
       if: cancelled()
