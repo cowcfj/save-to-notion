@@ -41,7 +41,8 @@ module.exports = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/archive/',
-    '/internal/'
+    '/internal/',
+    '/tests/manual/' // 手動測試放在此目錄，不應在 CI 或常規測試中執行
   ],
 
   // 轉換配置（如果需要）
