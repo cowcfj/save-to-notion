@@ -7,11 +7,9 @@
     
     // 確保必要的依賴存在
     if (typeof normalizeUrl !== 'function') {
-        console.error('❌ normalizeUrl 函數未找到，請確保 utils.js 已正確加載');
         return;
     }
     if (typeof StorageUtil !== 'object' || !StorageUtil) {
-        console.error('❌ StorageUtil 對象未找到，請確保 utils.js 已正確加載');
         return;
     }
 
@@ -86,9 +84,7 @@
                 const result = await migrationManager.performSeamlessMigration(this);
                 
                 if (result && result.completed) {
-                    console.log('🎉 無痛遷移已完成');
                 } else if (result && result.phase) {
-                    console.log(`⏳ 遷移進行中，當前階段: ${result.phase}`);
                 } else if (result && result.rolledBack) {
                     console.warn(`⚠️ 遷移已回滾: ${result.reason}`);
                 }
@@ -104,7 +100,6 @@
          * 🔧 檢查並遷移 localStorage 中的舊標註數據
          */
         async checkAndMigrateLegacyData() {
-            console.log('🔍 [遷移] 檢查 localStorage 中的舊標註數據...');
             
             try {
                 const currentUrl = window.location.href;
@@ -129,7 +124,6 @@
                             if (Array.isArray(data) && data.length > 0) {
                                 legacyData = data;
                                 foundKey = key;
-                                console.log(`✅ [遷移] 發現舊標註數據: ${key}, ${data.length} 個標註`);
                                 break;
                             }
                         } catch (e) {
@@ -140,7 +134,6 @@
                 
                 // 如果沒找到，遍歷所有 localStorage
                 if (!legacyData) {
-                    console.log('🔍 [遷移] 遍歷所有 localStorage 鍵...');
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
                         if (key && key.startsWith('highlights_')) {
@@ -150,7 +143,6 @@
                                 if (Array.isArray(data) && data.length > 0) {
                                     legacyData = data;
                                     foundKey = key;
-                                    console.log(`✅ [遷移] 發現舊標註數據: ${key}, ${data.length} 個標註`);
                                     break;
                                 }
                             } catch (e) {
@@ -166,14 +158,12 @@
                     const migrationStatus = await chrome.storage.local.get(migrationKey);
                     
                     if (migrationStatus[migrationKey]) {
-                        console.log('ℹ️ [遷移] 此頁面已完成遷移，跳過');
                         return;
                     }
                     
                     // 執行數據遷移
                     await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
                 } else {
-                    console.log('ℹ️ [遷移] 未發現需要遷移的舊標註數據');
                 }
             } catch (error) {
                 console.error('❌ [遷移] 檢查舊數據失敗:', error);
@@ -184,7 +174,6 @@
          * 🔧 將舊格式數據遷移到新格式
          */
         async migrateLegacyDataToNewFormat(legacyData, oldKey) {
-            console.log(`🔄 [遷移] 開始遷移 ${legacyData.length} 個舊標註...`);
             
             try {
                 const migratedHighlights = [];
@@ -220,8 +209,6 @@
                             continue;
                         }
                         
-                        console.log(`  🔍 [遷移] 嘗試定位: "${textToFind.substring(0, 30)}..."`);
-                        
                         // 嘗試在頁面中找到這段文本
                         const range = this.findTextInPage(textToFind);
                         
@@ -239,7 +226,6 @@
                             });
                             
                             successCount++;
-                            console.log(`  ✅ [遷移] 成功: ${textToFind.substring(0, 30)}... (${color})`);
                         } else {
                             failCount++;
                             console.warn(`  ⚠️ [遷移] 無法定位文本: ${textToFind.substring(0, 30)}...`);
@@ -273,12 +259,9 @@
                     }
                 });
                 
-                console.log(`📊 [遷移] 遷移統計: 成功 ${successCount}/${legacyData.length}，失敗 ${failCount}`);
-                
                 // 刪除舊數據（謹慎操作）
                 if (successCount > 0) {
                     localStorage.removeItem(oldKey);
-                    console.log(`🗑️ [遷移] 已刪除舊數據: ${oldKey}`);
                 } else {
                     console.warn(`⚠️ [遷移] 保留舊數據（因為沒有成功遷移任何標註）`);
                 }
@@ -327,20 +310,16 @@
                 if (found && selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0).cloneRange();
                     selection.removeAllRanges();
-                    console.log('    ✓ 使用 window.find() 找到');
                     return range;
                 }
                 
                 // 方法2：使用 TreeWalker 精確查找
-                console.log('    → 嘗試 TreeWalker 方法...');
                 const range = this.findTextWithTreeWalker(cleanText);
                 if (range) {
-                    console.log('    ✓ 使用 TreeWalker 找到');
                     return range;
                 }
                 
                 // 方法3：模糊匹配（處理空白字符差異）
-                console.log('    → 嘗試模糊匹配...');
                 return this.findTextFuzzy(cleanText);
             } catch (error) {
                 console.error('    ✗ 查找文本失敗:', error);
@@ -473,7 +452,6 @@
                         const range = document.createRange();
                         range.setStart(node, index);
                         range.setEnd(node, index + match[0].length);
-                        console.log('    ✓ 使用模糊匹配找到');
                         return range;
                     }
                 }
@@ -562,8 +540,6 @@
                     }
                 `;
                 document.head.appendChild(style);
-                
-                console.log(`✅ 已註冊標註樣式: notion-${colorName}`);
             });
         }
 
@@ -572,13 +548,11 @@
          */
         addHighlight(range, color = this.currentColor) {
             if (!range || range.collapsed) {
-                console.log('無效的選擇範圍');
                 return null;
             }
 
             const text = range.toString().trim();
             if (!text) {
-                console.log('選中文本為空');
                 return null;
             }
 
@@ -607,8 +581,6 @@
 
             // 保存到存儲
             this.saveToStorage();
-
-            console.log(`✅ 標註已添加: ${id}, 文本長度: ${text.length}`);
             return id;
         }
 
@@ -619,7 +591,6 @@
             // 將 Range 添加到對應顏色的 Highlight 對象中
             if (this.highlightObjects[color]) {
                 this.highlightObjects[color].add(range);
-                console.log(`✅ 已添加到 notion-${color} Highlight 對象`);
             } else {
                 console.error(`❌ 未找到顏色 ${color} 的 Highlight 對象`);
             }
@@ -675,7 +646,6 @@
                 const color = highlightData.color;
                 if (this.highlightObjects[color] && highlightData.range) {
                     this.highlightObjects[color].delete(highlightData.range);
-                    console.log(`✅ 已從 notion-${color} 移除 Range`);
                 }
             } else {
                 // 傳統方法：移除 DOM 元素
@@ -693,8 +663,6 @@
             // 從存儲中移除
             this.highlights.delete(id);
             this.saveToStorage();
-
-            console.log(`✅ 標註已刪除: ${id}`);
         }
 
         /**
@@ -706,7 +674,6 @@
                 Object.keys(this.highlightObjects).forEach(color => {
                     this.highlightObjects[color].clear();
                 });
-                console.log('✅ 已清除所有 CSS Highlights');
             } else {
                 // 清除所有傳統標註元素
                 document.querySelectorAll('.simple-highlight').forEach(span => {
@@ -800,7 +767,6 @@
                 if (confirm(`確定要刪除這個標註嗎？\n\n"${text}"`)) {
                     this.removeHighlight(highlightId);
                     this.updateHighlightCount();
-                    console.log(`🗑️ 已刪除標註: ${highlightId}`);
                 }
             }
         }
@@ -989,7 +955,6 @@
          */
         async saveToStorage() {
             const currentUrl = window.location.href;
-            console.log('💾 [saveToStorage] 當前頁面 URL:', currentUrl);
             
             const data = {
                 url: currentUrl,
@@ -1016,20 +981,15 @@
         async restoreHighlights() {
             try {
                 const url = window.location.href;
-                console.log('🔍 [restoreHighlights] 當前頁面 URL:', url);
                 console.log('   pathname:', window.location.pathname);
                 console.log('   hash:', window.location.hash || '(無)');
                 console.log('   search:', window.location.search || '(無)');
                 
                 const highlights = await StorageUtil.loadHighlights(url);
-                console.log('📦 從存儲加載的數據:', highlights);
                 
                 if (!highlights || highlights.length === 0) {
-                    console.log('ℹ️ 沒有需要恢復的標註');
                     return;
                 }
-
-                console.log(`🔄 開始恢復 ${highlights.length} 個標註...`);
                 
                 let restored = 0;
                 let failed = 0;
@@ -1087,7 +1047,6 @@
                         }
 
                         restored++;
-                        console.log(`   ✅ 成功恢復: ${id}`);
                     } else {
                         failed++;
                         console.warn(`   ❌ 恢復失敗: ${highlightData.id} - Range 反序列化失敗`);
@@ -1096,9 +1055,7 @@
                 
                 // v2.8.0 & v2.9.0: 如果有遷移，保存新格式
                 if (needsMigration) {
-                    console.log('💾 檢測到舊格式數據，保存優化後的格式...');
                     await this.saveToStorage();
-                    console.log('✅ 數據格式已優化，存儲空間已減少');
                 }
 
                 console.log(`✅ 恢復完成: 成功 ${restored}/${highlights.length}，失敗 ${failed}`);
@@ -1113,7 +1070,6 @@
                 
                 // 驗證 CSS Highlights 狀態
                 if (supportsHighlightAPI()) {
-                    console.log('📊 CSS Highlights 狀態:');
                     Object.keys(this.highlightObjects).forEach(color => {
                         const size = this.highlightObjects[color]?.size || 0;
                         console.log(`   ${color}: ${size} 個 Range`);
@@ -1129,8 +1085,6 @@
          * 收集標註數據用於同步到 Notion
          */
         collectHighlightsForNotion() {
-            console.log('🔍 開始收集標註數據...');
-            console.log('🔍 當前標註數量:', this.highlights.size);
             
             const colorMap = {
                 yellow: 'yellow_background',
@@ -1143,8 +1097,6 @@
                 text: h.text,
                 color: colorMap[h.color] || 'yellow_background'
             }));
-            
-            console.log('✅ 收集到標註:', result.length, '個');
             result.forEach((h, i) => {
                 console.log(`   ${i+1}. "${h.text.substring(0, 50)}..." (${h.color})`);
             });
@@ -1158,7 +1110,6 @@
         setColor(color) {
             if (this.colors[color]) {
                 this.currentColor = color;
-                console.log(`當前標註顏色: ${color}`);
             }
         }
 
@@ -1176,12 +1127,9 @@
     function initHighlighter() {
         // 如果已存在，顯示工具欄
         if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
-            console.log('✅ 標註工具已存在，顯示工具欄');
             window.notionHighlighter.show();
             return;
         }
-
-        console.log('🔧 開始初始化標註系統...');
 
         // 創建標註管理器
         const manager = new HighlightManager();
@@ -1207,13 +1155,11 @@
                 btn.style.color = 'white';
                 btn.textContent = '標註中...';
                 document.body.style.cursor = 'crosshair';
-                console.log('✅ 標註模式已啟動');
             } else {
                 btn.style.background = 'white';
                 btn.style.color = '#333';
                 btn.textContent = '開始標註';
                 document.body.style.cursor = '';
-                console.log('⏸️ 標註模式已停止');
             }
         }
         
@@ -1261,8 +1207,6 @@
                         b.style.transform = 'scale(1)';
                     }
                 });
-                
-                console.log(`🎨 已切換到 ${selectedColor} 色標註`);
             });
         });
         
@@ -1391,20 +1335,17 @@
         toolbar.querySelector('#open-notion-v2').addEventListener('click', () => {
             // 獲取當前頁面的 Notion URL
             chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
-                console.log('🔗 Open in Notion 按鈕點擊，響應:', response);
                 
                 if (response && response.success && response.isSaved) {
                     // handleCheckPageStatus 會為舊版本數據生成 notionUrl
                     const notionUrl = response.notionUrl;
                     if (notionUrl) {
-                        console.log('✅ 打開 Notion 頁面:', notionUrl);
                         // 在新標籤頁中打開 Notion 頁面
                         chrome.runtime.sendMessage({
                             action: 'openNotionPage',
                             url: notionUrl
                         });
                     } else {
-                        console.log('❌ 無法獲取 Notion URL');
                         // 顯示錯誤信息
                         const statusDiv = toolbar.querySelector('#highlight-status-v2');
                         const originalText = statusDiv.innerHTML;
@@ -1416,7 +1357,6 @@
                         }, 3000);
                     }
                 } else {
-                    console.log('❌ 頁面未保存到 Notion');
                     // 顯示錯誤信息
                     const statusDiv = toolbar.querySelector('#highlight-status-v2');
                     const originalText = statusDiv.innerHTML;
@@ -1436,18 +1376,14 @@
                 const openBtn = toolbar.querySelector('#open-notion-v2');
                 const listOpenBtn = toolbar.querySelector('#list-open-notion-v2');
                 
-                console.log('🔍 檢查頁面狀態響應:', response);
-                
                 // 更寬鬆的顯示邏輯：只要頁面已保存就顯示按鈕
                 // notionUrl 會在 handleCheckPageStatus 中為舊版本數據自動生成
                 if (response && response.success && response.isSaved) {
-                    console.log('✅ 頁面已保存，顯示 Open in Notion 按鈕');
                     openBtn.style.display = 'block';
                     if (listOpenBtn) {
                         listOpenBtn.style.display = 'block';
                     }
                 } else {
-                    console.log('❌ 頁面未保存，隱藏 Open in Notion 按鈕');
                     openBtn.style.display = 'none';
                     if (listOpenBtn) {
                         listOpenBtn.style.display = 'none';
@@ -1539,20 +1475,17 @@
                 listOpenBtn.addEventListener('click', () => {
                     // 獲取當前頁面的 Notion URL
                     chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
-                        console.log('🔗 列表 Open in Notion 按鈕點擊，響應:', response);
                         
                         if (response && response.success && response.isSaved) {
                             // handleCheckPageStatus 會為舊版本數據生成 notionUrl
                             const notionUrl = response.notionUrl;
                             if (notionUrl) {
-                                console.log('✅ 打開 Notion 頁面:', notionUrl);
                                 // 在新標籤頁中打開 Notion 頁面
                                 chrome.runtime.sendMessage({
                                     action: 'openNotionPage',
                                     url: notionUrl
                                 });
                             } else {
-                                console.log('❌ 無法獲取 Notion URL');
                                 // 顯示錯誤信息
                                 const statusDiv = toolbar.querySelector('#highlight-status-v2');
                                 const originalText = statusDiv.innerHTML;
@@ -1564,7 +1497,6 @@
                                 }, 3000);
                             }
                         } else {
-                            console.log('❌ 頁面未保存到 Notion');
                             // 顯示錯誤信息
                             const statusDiv = toolbar.querySelector('#highlight-status-v2');
                             const originalText = statusDiv.innerHTML;
@@ -1595,12 +1527,10 @@
                 const selection = window.getSelection();
                 if (!selection.isCollapsed && selection.toString().trim()) {
                     const range = selection.getRangeAt(0);
-                    console.log(`📍 選擇了文本: "${selection.toString().substring(0, 50)}${selection.toString().length > 50 ? '...' : ''}"`);
                     
                     // 創建標註（CSS Highlight API 不需要修改 DOM，所以不影響選擇）
                     const id = manager.addHighlight(range, manager.currentColor);
                     if (id) {
-                        console.log(`✅ 標註已創建: ${id}，黃色標記已應用`);
                         // 更新計數顯示
                         updateHighlightCount();
                     }
@@ -1761,7 +1691,6 @@
     // 1. 恢復之前保存的標註
     // 2. 確保 window.collectHighlights 等函數可用
     // 3. 工具欄保持隱藏，直到用戶點擊「開始標註」
-    console.log('🚀 Notion Highlighter v2 腳本已加載');
     
     // 檢查是否有保存的標註需要恢復
     (async function autoInit() {
@@ -1771,7 +1700,6 @@
             
             if (highlights && highlights.length > 0) {
                 // 有保存的標註，自動初始化
-                console.log(`📦 發現 ${highlights.length} 個保存的標註，自動初始化...`);
                 initHighlighter();
                 // 隱藏工具欄（只恢復標註，不顯示UI）
                 if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
@@ -1780,7 +1708,6 @@
             } else {
                 // 沒有保存的標註，但仍然初始化以便函數可用
                 // 這樣 window.collectHighlights 等函數就存在了
-                console.log('📝 初始化標註系統（無保存的標註）');
                 initHighlighter();
                 // 隱藏工具欄
                 if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
