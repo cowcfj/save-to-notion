@@ -1,3 +1,25 @@
+[project]
+name = "save-to-notion"
+
+[[analyzers]]
+name = "javascript"
+enabled = true
+
+[analyzers.config]
+rules_dir = "" # use default rules
+
+# Exclude manual tests, demos and internal build artifacts from DeepSource analysis
+[[analyzers.exclude]]
+path = "tests/manual/**"
+
+[[analyzers.exclude]]
+path = "test-*.js"
+
+[[analyzers.exclude]]
+path = "test-extension-*.html"
+
+[[analyzers.exclude]]
+path = "internal/build/**"
 version = 1
 
 [[analyzers]]

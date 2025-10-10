@@ -20,10 +20,10 @@ const DEBUG_MODE = (function() {
 
 // 條件日誌函數
 const Logger = {
-    log: (...args) => DEBUG_MODE && console.log(...args),
+    log: (...args) => DEBUG_MODE && Logger.log(...args),
     warn: (...args) => console.warn(...args), // 警告總是顯示
     error: (...args) => console.error(...args), // 錯誤總是顯示
-    info: (...args) => DEBUG_MODE && console.info(...args)
+    info: (...args) => DEBUG_MODE && Logger.info(...args)
 };
 
 // ==========================================
@@ -247,7 +247,7 @@ class ScriptInjector {
                             reject(new Error(chrome.runtime.lastError.message));
                         } else {
                             if (successMessage && logErrors) {
-                                console.log(successMessage);
+                                Logger.log(successMessage);
                             }
                             const result = returnResult && results && results[0] ? results[0].result : null;
                             resolve(result);
@@ -283,7 +283,7 @@ class ScriptInjector {
                 // 顯示工具欄
                 if (window.notionHighlighter) {
                     window.notionHighlighter.show();
-                    console.log('✅ 工具欄已顯示');
+                    Logger.log('✅ 工具欄已顯示');
                 }
             },
             {
@@ -417,7 +417,7 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
         return { success: true, addedCount: 0, totalCount: 0 };
     }
     
-    console.log(`📦 準備分批添加區塊: 總共 ${totalBlocks} 個，從索引 ${startIndex} 開始`);
+    Logger.log(`📦 準備分批添加區塊: 總共 ${totalBlocks} 個，從索引 ${startIndex} 開始`);
     
     try {
         // 分批處理剩餘區塊
@@ -426,7 +426,7 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
             const batchNumber = Math.floor((i - startIndex) / BLOCKS_PER_BATCH) + 1;
             const totalBatches = Math.ceil(totalBlocks / BLOCKS_PER_BATCH);
             
-            console.log(`📤 發送批次 ${batchNumber}/${totalBatches}: ${batch.length} 個區塊`);
+            Logger.log(`📤 發送批次 ${batchNumber}/${totalBatches}: ${batch.length} 個區塊`);
             
             // 使用重試機制發送批次
             const response = await (typeof withRetry !== 'undefined' ? withRetry : (fn) => fn())(
@@ -470,7 +470,7 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
             }
             
             addedCount += batch.length;
-            console.log(`✅ 批次 ${batchNumber} 成功: 已添加 ${addedCount}/${totalBlocks} 個區塊`);
+            Logger.log(`✅ 批次 ${batchNumber} 成功: 已添加 ${addedCount}/${totalBlocks} 個區塊`);
             
             // 如果還有更多批次，添加延遲以遵守速率限制
             if (i + BLOCKS_PER_BATCH < blocks.length) {
@@ -478,7 +478,7 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
             }
         }
         
-        console.log(`🎉 所有區塊添加完成: ${addedCount}/${totalBlocks}`);
+        Logger.log(`🎉 所有區塊添加完成: ${addedCount}/${totalBlocks}`);
         return { success: true, addedCount, totalCount: totalBlocks };
         
     } catch (error) {
@@ -528,9 +528,9 @@ function clearPageState(pageUrl) {
     
     // v2.7.1: 同時刪除保存狀態和標註數據
     chrome.storage.local.remove([savedKey, highlightsKey], () => {
-        console.log('✅ Cleared all data for:', pageUrl);
-        console.log('  - Saved state:', savedKey);
-        console.log('  - Highlights:', highlightsKey);
+        Logger.log('✅ Cleared all data for:', pageUrl);
+        Logger.log('  - Saved state:', savedKey);
+        Logger.log('  - Highlights:', highlightsKey);
     });
 }
 
@@ -664,7 +664,7 @@ async function handleCheckNotionPageExistsMessage(request, sendResponse) {
 async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon = null) {
     // 開始性能監控 (service worker 環境，使用原生 Performance API)
     const startTime = performance.now();
-    console.log('⏱️ 開始保存到 Notion...');
+    Logger.log('⏱️ 開始保存到 Notion...');
 
     const notionApiUrl = 'https://api.notion.com/v1/pages';
 
@@ -689,7 +689,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
                 url: siteIcon
             }
         };
-        console.log('✓ Setting page icon:', siteIcon);
+        Logger.log('✓ Setting page icon:', siteIcon);
     }
 
     try {
@@ -705,13 +705,13 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
 
         if (response.ok) {
             const responseData = await response.json();
-            console.log('📄 Notion API 創建頁面響應:', responseData);
-            console.log('🔗 響應中的 URL:', responseData.url);
+            Logger.log('📄 Notion API 創建頁面響應:', responseData);
+            Logger.log('🔗 響應中的 URL:', responseData.url);
             const notionPageId = responseData.id;
             
             // 如果區塊數量超過 100，分批添加剩餘區塊
             if (blocks.length > 100) {
-                console.log(`📚 檢測到超長文章: ${blocks.length} 個區塊，需要分批添加`);
+                Logger.log(`📚 檢測到超長文章: ${blocks.length} 個區塊，需要分批添加`);
                 const appendResult = await appendBlocksInBatches(notionPageId, blocks, apiKey, 100);
                 
                 if (!appendResult.success) {
@@ -725,7 +725,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
             if (!notionUrl && notionPageId) {
                 // 手動構建 Notion URL
                 notionUrl = `https://www.notion.so/${notionPageId.replace(/-/g, '')}`;
-                console.log('🔗 手動構建 Notion URL:', notionUrl);
+                Logger.log('🔗 手動構建 Notion URL:', notionUrl);
             }
             
             setSavedPageData(pageUrl, {
@@ -736,7 +736,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
             }, () => {
                 // 結束性能監控 (service worker 環境)
                 const duration = performance.now() - startTime;
-                console.log(`⏱️ 保存到 Notion 完成: ${duration.toFixed(2)}ms`);
+                Logger.log(`⏱️ 保存到 Notion 完成: ${duration.toFixed(2)}ms`);
                 sendResponse({ success: true, notionPageId: notionPageId });
             });
         } else {
@@ -791,7 +791,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
         if (updateResponse.ok) {
             // 如果區塊數量超過 100，分批添加剩餘區塊
             if (blocks.length > 100) {
-                console.log(`📚 檢測到超長文章: ${blocks.length} 個區塊，需要分批添加`);
+                Logger.log(`📚 檢測到超長文章: ${blocks.length} 個區塊，需要分批添加`);
                 const appendResult = await appendBlocksInBatches(pageId, blocks, apiKey, 100);
                 
                 if (!appendResult.success) {
@@ -843,7 +843,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
  */
 async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendResponse) {
     try {
-        console.log('🔄 開始更新標記 - 頁面ID:', pageId, '標記數量:', highlights.length);
+        Logger.log('🔄 開始更新標記 - 頁面ID:', pageId, '標記數量:', highlights.length);
 
         const getResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
             method: 'GET',
@@ -861,7 +861,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
 
         const existingContent = await getResponse.json();
         const existingBlocks = existingContent.results;
-        console.log('📋 現有區塊數量:', existingBlocks.length);
+        Logger.log('📋 現有區塊數量:', existingBlocks.length);
 
         const blocksToDelete = [];
         let foundHighlightSection = false;
@@ -873,25 +873,25 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
                 block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記') {
                 foundHighlightSection = true;
                 blocksToDelete.push(block.id);
-                console.log(`🎯 找到標記區域標題 (索引 ${i}):`, block.id);
+                Logger.log(`🎯 找到標記區域標題 (索引 ${i}):`, block.id);
             } else if (foundHighlightSection) {
                 if (block.type.startsWith('heading_')) {
-                    console.log(`🛑 遇到下一個標題，停止收集標記區塊 (索引 ${i})`);
+                    Logger.log(`🛑 遇到下一個標題，停止收集標記區塊 (索引 ${i})`);
                     break;
                 }
                 if (block.type === 'paragraph') {
                     blocksToDelete.push(block.id);
-                    console.log(`📝 標記為刪除的段落 (索引 ${i}):`, block.id);
+                    Logger.log(`📝 標記為刪除的段落 (索引 ${i}):`, block.id);
                 }
             }
         }
 
-        console.log('🗑️ 需要刪除的區塊數量:', blocksToDelete.length);
+        Logger.log('🗑️ 需要刪除的區塊數量:', blocksToDelete.length);
 
         let deletedCount = 0;
         for (const blockId of blocksToDelete) {
             try {
-                console.log(`🗑️ 正在刪除區塊: ${blockId}`);
+                Logger.log(`🗑️ 正在刪除區塊: ${blockId}`);
                 const deleteResponse = await fetch(`https://api.notion.com/v1/blocks/${blockId}`, {
                     method: 'DELETE',
                     headers: {
@@ -902,7 +902,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
 
                 if (deleteResponse.ok) {
                     deletedCount++;
-                    console.log(`✅ 成功刪除區塊: ${blockId}`);
+                    Logger.log(`✅ 成功刪除區塊: ${blockId}`);
                 } else {
                     const errorData = await deleteResponse.json();
                     console.error(`❌ 刪除區塊失敗 ${blockId}:`, errorData);
@@ -912,10 +912,10 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
             }
         }
 
-        console.log(`🗑️ 實際刪除了 ${deletedCount}/${blocksToDelete.length} 個區塊`);
+        Logger.log(`🗑️ 實際刪除了 ${deletedCount}/${blocksToDelete.length} 個區塊`);
 
         if (highlights.length > 0) {
-            console.log('➕ 準備添加新的標記區域...');
+            Logger.log('➕ 準備添加新的標記區域...');
 
             const highlightBlocks = [{
                 object: 'block',
@@ -929,7 +929,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
             }];
 
             highlights.forEach((highlight, index) => {
-                console.log(`📝 準備添加標記 ${index + 1}: "${highlight.text.substring(0, 30)}..." (顏色: ${highlight.color})`);
+                Logger.log(`📝 準備添加標記 ${index + 1}: "${highlight.text.substring(0, 30)}..." (顏色: ${highlight.color})`);
                 
                 // 處理超長標記文本，需要分割成多個段落
                 const textChunks = splitTextForHighlight(highlight.text, 2000);
@@ -951,12 +951,12 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
                     
                     // 如果是分割的標記，在日誌中標註
                     if (textChunks.length > 1) {
-                        console.log(`   └─ 分割片段 ${chunkIndex + 1}/${textChunks.length}: ${chunk.length} 字符`);
+                        Logger.log(`   └─ 分割片段 ${chunkIndex + 1}/${textChunks.length}: ${chunk.length} 字符`);
                     }
                 });
             });
 
-            console.log('➕ 準備添加的區塊數量:', highlightBlocks.length);
+            Logger.log('➕ 準備添加的區塊數量:', highlightBlocks.length);
 
             const addResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
                 method: 'PATCH',
@@ -970,7 +970,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
                 })
             });
 
-            console.log('📡 API 響應狀態:', addResponse.status, addResponse.statusText);
+            Logger.log('📡 API 響應狀態:', addResponse.status, addResponse.statusText);
 
             if (!addResponse.ok) {
                 const errorData = await addResponse.json();
@@ -979,19 +979,19 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
             }
 
             const addResult = await addResponse.json();
-            console.log('✅ 成功添加新標記 - 響應:', addResult);
-            console.log('✅ 添加的區塊數量:', addResult.results?.length || 0);
+            Logger.log('✅ 成功添加新標記 - 響應:', addResult);
+            Logger.log('✅ 添加的區塊數量:', addResult.results?.length || 0);
         } else {
-            console.log('ℹ️ 沒有新標記需要添加');
+            Logger.log('ℹ️ 沒有新標記需要添加');
         }
 
-        console.log('💾 更新本地保存記錄...');
+        Logger.log('💾 更新本地保存記錄...');
         setSavedPageData(pageUrl, {
             savedAt: Date.now(),
             notionPageId: pageId,
             lastUpdated: Date.now()
         }, () => {
-            console.log('🎉 標記更新完成！');
+            Logger.log('🎉 標記更新完成！');
             sendResponse({ success: true });
         });
     } catch (error) {
@@ -1024,7 +1024,7 @@ function setupTabListeners() {
                     const highlights = data[key];
                     
                     if (highlights && Array.isArray(highlights) && highlights.length > 0) {
-                        console.log(`Found ${highlights.length} highlights for ${normUrl}, injecting restore script`);
+                        Logger.log(`Found ${highlights.length} highlights for ${normUrl}, injecting restore script`);
                         await ScriptInjector.injectHighlightRestore(tabId);
                     } else {
                         // 檢查是否有舊版 localStorage 中的標記需要遷移
@@ -1104,13 +1104,13 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
 
         const res = result && result[0] ? result[0].result : null;
         if (res && res.migrated && Array.isArray(res.data) && res.data.length > 0) {
-            console.log(`Migrating ${res.data.length} highlights from localStorage key: ${res.foundKey}`);
+            Logger.log(`Migrating ${res.data.length} highlights from localStorage key: ${res.foundKey}`);
             
             await new Promise(resolve => {
                 chrome.storage.local.set({ [storageKey]: res.data }, resolve);
             });
             
-            console.log('Legacy highlights migrated successfully, injecting restore script');
+            Logger.log('Legacy highlights migrated successfully, injecting restore script');
             await ScriptInjector.injectHighlightRestore(tabId);
         }
     } catch (error) {
@@ -1198,7 +1198,7 @@ async function handleCheckPageStatus(sendResponse) {
                     const pageExists = await checkNotionPageExists(savedData.notionPageId, config.notionApiKey);
                     
                     if (!pageExists) {
-                        console.log('Notion page was deleted, clearing local state');
+                        Logger.log('Notion page was deleted, clearing local state');
                         clearPageState(normUrl);
 
                         await ScriptInjector.injectHighlighter(activeTab.id);
@@ -1227,7 +1227,7 @@ async function handleCheckPageStatus(sendResponse) {
                         let notionUrl = savedData.notionUrl;
                         if (!notionUrl && savedData.notionPageId) {
                             notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
-                            console.log('🔗 為舊版本數據生成 Notion URL:', notionUrl);
+                            Logger.log('🔗 為舊版本數據生成 Notion URL:', notionUrl);
                         }
 
                         sendResponse({
@@ -1248,7 +1248,7 @@ async function handleCheckPageStatus(sendResponse) {
                     let notionUrl = savedData.notionUrl;
                     if (!notionUrl && savedData.notionPageId) {
                         notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
-                        console.log('🔗 為舊版本數據生成 Notion URL (錯誤處理):', notionUrl);
+                        Logger.log('🔗 為舊版本數據生成 Notion URL (錯誤處理):', notionUrl);
                     }
                     
                     sendResponse({
@@ -1272,7 +1272,7 @@ async function handleCheckPageStatus(sendResponse) {
                 let notionUrl = savedData?.notionUrl;
                 if (!notionUrl && savedData?.notionPageId) {
                     notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
-                    console.log('🔗 為舊版本數據生成 Notion URL (無 API Key):', notionUrl);
+                    Logger.log('🔗 為舊版本數據生成 Notion URL (無 API Key):', notionUrl);
                 }
 
                 sendResponse({
@@ -1368,7 +1368,7 @@ async function handleUpdateHighlights(sendResponse) {
  */
 async function handleSyncHighlights(request, sendResponse) {
     try {
-        console.log('🔄 處理同步標註請求');
+        Logger.log('🔄 處理同步標註請求');
         
         const tabs = await new Promise(resolve => 
             chrome.tabs.query({ active: true, currentWindow: true }, resolve)
@@ -1401,7 +1401,7 @@ async function handleSyncHighlights(request, sendResponse) {
         }
 
         const highlights = request.highlights || [];
-        console.log(`📊 準備同步 ${highlights.length} 個標註到頁面: ${savedData.notionPageId}`);
+        Logger.log(`📊 準備同步 ${highlights.length} 個標註到頁面: ${savedData.notionPageId}`);
         
         if (highlights.length === 0) {
             sendResponse({ 
@@ -1415,7 +1415,7 @@ async function handleSyncHighlights(request, sendResponse) {
         // 使用 updateHighlightsOnly 函數同步標註
         updateHighlightsOnly(savedData.notionPageId, highlights, normUrl, config.notionApiKey, (response) => {
             if (response.success) {
-                console.log(`✅ 成功同步 ${highlights.length} 個標註`);
+                Logger.log(`✅ 成功同步 ${highlights.length} 個標註`);
                 response.highlightCount = highlights.length;
                 response.message = `成功同步 ${highlights.length} 個標註`;
             } else {
@@ -1628,7 +1628,7 @@ async function handleSavePage(sendResponse) {
              * 優先收集封面圖/特色圖片（通常位於標題上方或文章開頭）
              */
             function collectFeaturedImage() {
-                console.log('🎯 Attempting to collect featured/hero image...');
+                Logger.log('🎯 Attempting to collect featured/hero image...');
                 
                 // 常見的封面圖選擇器（按優先級排序）
                 const featuredImageSelectors = [
@@ -1678,7 +1678,7 @@ async function handleSavePage(sendResponse) {
                         if (imgClass.includes(keyword) || 
                             imgId.includes(keyword) || 
                             imgAlt.includes(keyword)) {
-                            console.log(`✗ Skipped author avatar/logo (keyword: ${keyword})`);
+                            Logger.log(`✗ Skipped author avatar/logo (keyword: ${keyword})`);
                             return true;
                         }
                     }
@@ -1691,7 +1691,7 @@ async function handleSavePage(sendResponse) {
                         
                         for (const keyword of avatarKeywords) {
                             if (parentClass.includes(keyword) || parentId.includes(keyword)) {
-                                console.log(`✗ Skipped author avatar/logo (parent ${level + 1} has keyword: ${keyword})`);
+                                Logger.log(`✗ Skipped author avatar/logo (parent ${level + 1} has keyword: ${keyword})`);
                                 return true;
                             }
                         }
@@ -1704,7 +1704,7 @@ async function handleSavePage(sendResponse) {
                     
                     if (width > 0 && height > 0) {
                         if (width < 200 && height < 200) {
-                            console.log(`✗ Skipped small image (possible avatar): ${width}x${height}px`);
+                            Logger.log(`✗ Skipped small image (possible avatar): ${width}x${height}px`);
                             return true;
                         }
                         
@@ -1715,7 +1715,7 @@ async function handleSavePage(sendResponse) {
                         if (aspectRatio >= 0.9 && aspectRatio <= 1.1 && 
                             width < 400 && height < 400 &&
                             borderRadius && (borderRadius === '50%' || parseInt(borderRadius) >= width / 2)) {
-                            console.log(`✗ Skipped circular/square image (likely avatar): ${width}x${height}px, border-radius: ${borderRadius}`);
+                            Logger.log(`✗ Skipped circular/square image (likely avatar): ${width}x${height}px, border-radius: ${borderRadius}`);
                             return true;
                         }
                     }
@@ -1771,8 +1771,8 @@ async function handleSavePage(sendResponse) {
                                     const cleanedUrl = cleanImageUrl(absoluteUrl);
                                     
                                     if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
-                                        console.log(`✓ Found featured image via selector: ${selector}`);
-                                        console.log(`  Image URL: ${cleanedUrl}`);
+                                        Logger.log(`✓ Found featured image via selector: ${selector}`);
+                                        Logger.log(`  Image URL: ${cleanedUrl}`);
                                         return cleanedUrl;
                                     }
                                 } catch (e) {
@@ -1785,7 +1785,7 @@ async function handleSavePage(sendResponse) {
                     }
                 }
                 
-                console.log('✗ No featured image found');
+                Logger.log('✗ No featured image found');
                 return null;
             }
             
@@ -1815,11 +1815,11 @@ async function handleSavePage(sendResponse) {
             
             // 輔助函數：從候選 icons 中智能選擇最佳的
             function selectBestIcon(candidates) {
-                console.log(`📊 Selecting best icon from ${candidates.length} candidates...`);
+                Logger.log(`📊 Selecting best icon from ${candidates.length} candidates...`);
                 
                 if (candidates.length === 0) return null;
                 if (candidates.length === 1) {
-                    console.log('✓ Only one candidate, selected by default');
+                    Logger.log('✓ Only one candidate, selected by default');
                     return candidates[0];
                 }
                 
@@ -1831,16 +1831,16 @@ async function handleSavePage(sendResponse) {
                     // 1. 格式評分（最重要）
                     if (url.endsWith('.svg') || url.includes('image/svg') || icon.type.includes('svg')) {
                         score += 1000; // SVG 矢量圖，完美縮放
-                        console.log(`  ${icon.url.substring(0, 60)}...: +1000 (SVG format)`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +1000 (SVG format)`);
                     } else if (url.endsWith('.png') || icon.type.includes('png')) {
                         score += 500; // PNG 較好
-                        console.log(`  ${icon.url.substring(0, 60)}...: +500 (PNG format)`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +500 (PNG format)`);
                     } else if (url.endsWith('.ico') || icon.type.includes('ico')) {
                         score += 100; // ICO 可用但較舊
-                        console.log(`  ${icon.url.substring(0, 60)}...: +100 (ICO format)`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +100 (ICO format)`);
                     } else if (url.endsWith('.jpg') || url.endsWith('.jpeg') || icon.type.includes('jpeg')) {
                         score += 200; // JPEG 可用但不如 PNG
-                        console.log(`  ${icon.url.substring(0, 60)}...: +200 (JPEG format)`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +200 (JPEG format)`);
                     }
                     
                     // 2. 尺寸評分（第二重要）
@@ -1848,36 +1848,36 @@ async function handleSavePage(sendResponse) {
                     if (size === 999) {
                         // SVG "any" 尺寸
                         score += 500;
-                        console.log(`  ${icon.url.substring(0, 60)}...: +500 (any size - SVG)`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +500 (any size - SVG)`);
                     } else if (size >= 180 && size <= 256) {
                         // 理想尺寸範圍（180x180 到 256x256）
                         score += 300;
-                        console.log(`  ${icon.url.substring(0, 60)}...: +300 (ideal size: ${size}x${size})`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +300 (ideal size: ${size}x${size})`);
                     } else if (size > 256) {
                         // 太大（可能影響性能，但質量好）
                         score += 200;
-                        console.log(`  ${icon.url.substring(0, 60)}...: +200 (large size: ${size}x${size})`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +200 (large size: ${size}x${size})`);
                     } else if (size >= 120) {
                         // 中等尺寸（可接受）
                         score += 100;
-                        console.log(`  ${icon.url.substring(0, 60)}...: +100 (medium size: ${size}x${size})`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +100 (medium size: ${size}x${size})`);
                     } else if (size > 0) {
                         // 小尺寸（不理想）
                         score += 50;
-                        console.log(`  ${icon.url.substring(0, 60)}...: +50 (small size: ${size}x${size})`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +50 (small size: ${size}x${size})`);
                     }
                     
                     // 3. 類型評分（第三重要）
                     if (icon.iconType === 'apple-touch') {
                         score += 50; // Apple Touch Icon 通常質量較好
-                        console.log(`  ${icon.url.substring(0, 60)}...: +50 (apple-touch-icon)`);
+                        Logger.log(`  ${icon.url.substring(0, 60)}...: +50 (apple-touch-icon)`);
                     }
                     
                     // 4. 優先級評分（最後考量）
                     // 較低的 priority 值表示更高的優先級
                     score += (10 - icon.priority) * 10;
                     
-                    console.log(`  Total score: ${score}`);
+                    Logger.log(`  Total score: ${score}`);
                     return { ...icon, score };
                 });
                 
@@ -1885,16 +1885,16 @@ async function handleSavePage(sendResponse) {
                 scored.sort((a, b) => b.score - a.score);
                 
                 const best = scored[0];
-                console.log(`✓ Best icon selected: ${best.url} (score: ${best.score})`);
+                Logger.log(`✓ Best icon selected: ${best.url} (score: ${best.score})`);
                 
                 // 顯示其他候選的分數（用於調試）
                 if (scored.length > 1) {
-                    console.log('  Other candidates:');
+                    Logger.log('  Other candidates:');
                     scored.slice(1, 4).forEach((icon, idx) => {
-                        console.log(`    ${idx + 2}. ${icon.url.substring(0, 50)}... (score: ${icon.score})`);
+                        Logger.log(`    ${idx + 2}. ${icon.url.substring(0, 50)}... (score: ${icon.score})`);
                     });
                     if (scored.length > 4) {
-                        console.log(`    ... and ${scored.length - 4} more`);
+                        Logger.log(`    ... and ${scored.length - 4} more`);
                     }
                 }
                 
@@ -1903,7 +1903,7 @@ async function handleSavePage(sendResponse) {
             
             // 提取網站 Icon/Favicon
             function collectSiteIcon() {
-                console.log('🎯 Attempting to collect site icon/favicon...');
+                Logger.log('🎯 Attempting to collect site icon/favicon...');
                 
                 // 常見的網站 icon 選擇器（按優先級排序）
                 const iconSelectors = [
@@ -1947,7 +1947,7 @@ async function handleSavePage(sendResponse) {
                                         selector: selector
                                     });
                                     
-                                    console.log(`✓ Found icon: ${absoluteUrl.substring(0, 60)}... (${sizes || 'no size'}, ${type || 'no type'})`);
+                                    Logger.log(`✓ Found icon: ${absoluteUrl.substring(0, 60)}... (${sizes || 'no size'}, ${type || 'no type'})`);
                                 } catch (e) {
                                     console.warn(`Failed to process icon URL: ${iconUrl}`, e);
                                 }
@@ -1967,16 +1967,16 @@ async function handleSavePage(sendResponse) {
                 }
                 
                 // 回退到默認 favicon.ico
-                console.log('⚠️ No icons found in HTML declarations, falling back to default favicon.ico');
+                Logger.log('⚠️ No icons found in HTML declarations, falling back to default favicon.ico');
                 try {
                     const defaultFavicon = new URL('/favicon.ico', document.baseURI).href;
-                    console.log(`✓ Using default favicon: ${defaultFavicon}`);
+                    Logger.log(`✓ Using default favicon: ${defaultFavicon}`);
                     return defaultFavicon;
                 } catch (e) {
                     console.warn('Failed to construct default favicon URL:', e);
                 }
                 
-                console.log('✗ No site icon found');
+                Logger.log('✗ No site icon found');
                 return null;
             }
             
@@ -2015,23 +2015,23 @@ async function handleSavePage(sendResponse) {
                     const hasUrlPattern = urlPatterns.some(pattern => pattern.test(url));
                     const hasTitlePattern = titlePatterns.some(pattern => pattern.test(title));
                     
-                    console.log(`🔍 Technical doc detection: URL=${hasUrlPattern}, Title=${hasTitlePattern}, URL="${url}"`);
+                    Logger.log(`🔍 Technical doc detection: URL=${hasUrlPattern}, Title=${hasTitlePattern}, URL="${url}"`);
                     return hasUrlPattern || hasTitlePattern;
                 }
                 
                 // Emergency extraction 函數 - 用於技術文檔
                 function extractEmergencyContent() {
-                    console.log('🆘 Using emergency extraction for technical documentation...');
+                    Logger.log('🆘 Using emergency extraction for technical documentation...');
                     
                     // 等待動態內容載入（特別針對 gemini-cli 這種懶載入頁面）
                     function waitForContent(maxAttempts = 10) {
                         for (let attempt = 0; attempt < maxAttempts; attempt++) {
                             const textLength = document.body.textContent?.trim()?.length || 0;
-                            console.log(`🔄 Attempt ${attempt + 1}/${maxAttempts}: Found ${textLength} characters`);
+                            Logger.log(`🔄 Attempt ${attempt + 1}/${maxAttempts}: Found ${textLength} characters`);
                             
                             // 如果內容足夠多，停止等待
                             if (textLength > 3000) {
-                                console.log(`✅ Content loaded successfully: ${textLength} chars`);
+                                Logger.log(`✅ Content loaded successfully: ${textLength} chars`);
                                 break;
                             }
                             
@@ -2045,7 +2045,7 @@ async function handleSavePage(sendResponse) {
                                         range.selectNodeContents(document.body);
                                         selection.removeAllRanges();
                                         selection.addRange(range);
-                                        console.log('🎯 Method 1: Triggered document selection');
+                                        Logger.log('🎯 Method 1: Triggered document selection');
                                         
                                         // 稍後清除選擇
                                         setTimeout(() => {
@@ -2057,7 +2057,7 @@ async function handleSavePage(sendResponse) {
                                     if (attempt === 1) {
                                         window.scrollTo(0, document.body.scrollHeight);
                                         window.scrollTo(0, 0);
-                                        console.log('🎯 Method 2: Triggered scroll events');
+                                        Logger.log('🎯 Method 2: Triggered scroll events');
                                     }
                                     
                                     // 方法3：觸發點擊事件
@@ -2065,7 +2065,7 @@ async function handleSavePage(sendResponse) {
                                         const clickableElements = document.querySelectorAll('button, [role="button"], .expand, .show-more');
                                         if (clickableElements.length > 0) {
                                             clickableElements[0].click();
-                                            console.log('🎯 Method 3: Clicked expandable element');
+                                            Logger.log('🎯 Method 3: Clicked expandable element');
                                         }
                                     }
                                 } catch (e) {
@@ -2082,7 +2082,7 @@ async function handleSavePage(sendResponse) {
                         }
                         
                         const finalLength = document.body.textContent?.trim()?.length || 0;
-                        console.log(`🏁 Final content length: ${finalLength} characters`);
+                        Logger.log(`🏁 Final content length: ${finalLength} characters`);
                         return finalLength;
                     }
                     
@@ -2117,14 +2117,14 @@ async function handleSavePage(sendResponse) {
                         if (element) {
                             const text = element.textContent?.trim();
                             if (text && text.length > 500) {
-                                console.log(`✅ Found technical content with selector: ${selector} (${text.length} chars)`);
+                                Logger.log(`✅ Found technical content with selector: ${selector} (${text.length} chars)`);
                                 return element.innerHTML;
                             }
                         }
                     }
                     
                     // 2. 使用 TreeWalker 進行深度搜索
-                    console.log('🔄 Using TreeWalker for deep content search...');
+                    Logger.log('🔄 Using TreeWalker for deep content search...');
                     const walker = document.createTreeWalker(
                         document.body,
                         NodeFilter.SHOW_ELEMENT,
@@ -2199,11 +2199,11 @@ async function handleSavePage(sendResponse) {
                     
                     if (bestElement) {
                         const text = bestElement.textContent?.trim();
-                        console.log(`🎯 Emergency extraction found content: ${text ? text.length : 0} chars, score: ${maxScore}`);
+                        Logger.log(`🎯 Emergency extraction found content: ${text ? text.length : 0} chars, score: ${maxScore}`);
                         return bestElement.innerHTML;
                     }
                     
-                    console.log('❌ Emergency extraction failed');
+                    Logger.log('❌ Emergency extraction failed');
                     return null;
                 }
                 
@@ -2212,14 +2212,14 @@ async function handleSavePage(sendResponse) {
                 
                 // 決定使用哪種提取策略
                 if (isTechnicalDoc()) {
-                    console.log('📋 Technical documentation detected, using emergency extraction');
+                    Logger.log('📋 Technical documentation detected, using emergency extraction');
                     finalContent = extractEmergencyContent();
                     
                     // 如果 emergency extraction 失敗，仍然嘗試 Readability
                     if (!finalContent) {
-                        console.log('🔄 Emergency extraction failed, falling back to Readability...');
+                        Logger.log('🔄 Emergency extraction failed, falling back to Readability...');
                     } else {
-                        console.log(`✅ Emergency extraction succeeded with ${finalContent.length} chars, skipping Readability`);
+                        Logger.log(`✅ Emergency extraction succeeded with ${finalContent.length} chars, skipping Readability`);
                     }
                 }
                 
@@ -2242,14 +2242,14 @@ async function handleSavePage(sendResponse) {
                 
                 // 如果不是技術文檔或 emergency extraction 失敗，使用 Readability
                 if (!finalContent) {
-                    console.log('📖 Using Readability.js for content extraction');
+                    Logger.log('📖 Using Readability.js for content extraction');
                     article = new Readability(document.cloneNode(true)).parse();
                     
                     if (isContentGood(article)) {
                         finalContent = article.content;
                         finalTitle = article.title;
                     } else {
-                        console.log('🔄 Readability.js failed, trying CMS-aware fallback...');
+                        Logger.log('🔄 Readability.js failed, trying CMS-aware fallback...');
                         // 將使用下面的備用方案邏輯
                     }
                 }
@@ -2388,7 +2388,7 @@ async function handleSavePage(sendResponse) {
                     let codeContent = '';
                     let codeLanguage = 'plain text';
                     
-                    console.log(`🔄 Converting Markdown to Notion blocks: ${lines.length} lines`);
+                    Logger.log(`🔄 Converting Markdown to Notion blocks: ${lines.length} lines`);
                     
                     for (let i = 0; i < lines.length; i++) {
                         const line = lines[i];
@@ -2569,20 +2569,20 @@ async function handleSavePage(sendResponse) {
                         });
                     }
                     
-                    console.log(`✅ Converted Markdown to ${blocks.length} Notion blocks`);
+                    Logger.log(`✅ Converted Markdown to ${blocks.length} Notion blocks`);
                     return blocks;
                 }
 
                 // 轉換為 Notion 格式的函數
                 function convertHtmlToNotionBlocks(html) {
-                    console.log(`🔄 Converting HTML to Notion blocks: ${html.length} chars`);
+                    Logger.log(`🔄 Converting HTML to Notion blocks: ${html.length} chars`);
                     
                     // 🎯 新策略：對於 Markdown 網站，嘗試獲取原始 Markdown 源碼
                     const currentUrl = window.location.href;
                     
                     // 檢查是否是 GitHub Pages 或類似的 Markdown 網站
                     if (currentUrl.includes('github.io') || currentUrl.includes('docs')) {
-                        console.log('🔍 Detected potential Markdown website, attempting to fetch source...');
+                        Logger.log('🔍 Detected potential Markdown website, attempting to fetch source...');
                         
                         // 嘗試構建原始 Markdown URL
                         let markdownUrl = null;
@@ -2593,7 +2593,7 @@ async function handleSavePage(sendResponse) {
                         // 可以添加更多網站的規則
                         
                         if (markdownUrl) {
-                            console.log(`🔄 Attempting to fetch Markdown from: ${markdownUrl}`);
+                            Logger.log(`🔄 Attempting to fetch Markdown from: ${markdownUrl}`);
                             
                             // 使用同步方法嘗試獲取（在 executeScript 上下文中）
                             try {
@@ -2603,7 +2603,7 @@ async function handleSavePage(sendResponse) {
                                 
                                 if (xhr.status === 200) {
                                     const markdown = xhr.responseText;
-                                    console.log(`✅ Successfully fetched original Markdown: ${markdown.length} chars`);
+                                    Logger.log(`✅ Successfully fetched original Markdown: ${markdown.length} chars`);
                                     
                                     // 將 Markdown 轉換為 Notion 區塊
                                     return convertMarkdownToNotionBlocks(markdown);
@@ -2621,12 +2621,12 @@ async function handleSavePage(sendResponse) {
                     
                     // 嘗試提取純文本並簡單處理
                     const fullText = tempDiv.textContent || tempDiv.innerText || '';
-                    console.log(`📝 Extracted full text: ${fullText.length} chars`);
+                    Logger.log(`📝 Extracted full text: ${fullText.length} chars`);
                     
                     if (fullText.length > 500) {
                         // 將文本按段落分割，保持原有的結構
                         const lines = fullText.split('\n').filter(line => line.trim());
-                        console.log(`📋 Processing ${lines.length} lines`);
+                        Logger.log(`📋 Processing ${lines.length} lines`);
                         
                         let currentParagraph = '';
                         const maxLineLength = 1500; // 較大的段落長度限制
@@ -2698,12 +2698,12 @@ async function handleSavePage(sendResponse) {
                             });
                         }
                         
-                        console.log(`✅ Simple processing: ${blocks.length} blocks created`);
+                        Logger.log(`✅ Simple processing: ${blocks.length} blocks created`);
                         return blocks;
                     }
                     
                     // 最終回退
-                    console.log(`❌ All methods failed, returning simple text block`);
+                    Logger.log(`❌ All methods failed, returning simple text block`);
                     return [{
                         object: 'block',
                         type: 'paragraph',
@@ -2717,7 +2717,7 @@ async function handleSavePage(sendResponse) {
                     finalContent = article.content;
                     finalTitle = article.title;
                 } else if (article) {
-                    console.log('🔄 Readability.js failed, trying CMS-aware fallback...');
+                    Logger.log('🔄 Readability.js failed, trying CMS-aware fallback...');
                     
                     // 只有在 emergency extraction 也失敗時才使用備用方案
                     if (!finalContent) {
@@ -2744,9 +2744,9 @@ async function handleSavePage(sendResponse) {
                         const element = cachedQuery(selector, document, { single: true });
                         if (element) {
                             const textLength = element.textContent.trim().length;
-                            console.log(`🔍 Checking selector "${selector}": ${textLength} characters`);
+                            Logger.log(`🔍 Checking selector "${selector}": ${textLength} characters`);
                             if (textLength >= 250) {
-                                console.log(`✅ Found content with selector: ${selector} (${textLength} chars)`);
+                                Logger.log(`✅ Found content with selector: ${selector} (${textLength} chars)`);
                                 finalContent = element.innerHTML;
                                 break;
                             }
@@ -2755,7 +2755,7 @@ async function handleSavePage(sendResponse) {
                     
                     // 最後的嘗試：通用內容查找
                     if (!finalContent) {
-                        console.log('🆘 Trying generic content finder with lower standards...');
+                        Logger.log('🆘 Trying generic content finder with lower standards...');
                         const candidates = cachedQuery('article, section, main, div', document);
                         let bestElement = null;
                         let maxScore = 0;
@@ -2778,7 +2778,7 @@ async function handleSavePage(sendResponse) {
                         }
                         
                         if (bestElement) {
-                            console.log(`🎯 Emergency fallback: Found content with ${bestElement.textContent.trim().length} characters`);
+                            Logger.log(`🎯 Emergency fallback: Found content with ${bestElement.textContent.trim().length} characters`);
                             finalContent = bestElement.innerHTML;
                         }
                     }
@@ -2789,7 +2789,7 @@ async function handleSavePage(sendResponse) {
                     const blocks = convertHtmlToNotionBlocks(finalContent);
                     
                     // v2.5.6: 優先添加封面圖
-                    console.log('=== v2.5.6: Featured Image Collection ===');
+                    Logger.log('=== v2.5.6: Featured Image Collection ===');
                     const featuredImageUrl = collectFeaturedImage();
                     
                     if (featuredImageUrl) {
@@ -2809,21 +2809,21 @@ async function handleSavePage(sendResponse) {
                                     external: { url: featuredImageUrl }
                                 }
                             });
-                            console.log('✓ Featured image added as first block');
+                            Logger.log('✓ Featured image added as first block');
                         } else {
-                            console.log('✗ Featured image already exists in blocks, skipped');
+                            Logger.log('✗ Featured image already exists in blocks, skipped');
                         }
                     }
                     
                     // v2.6.0: 提取網站 Icon
-                    console.log('=== v2.6.0: Site Icon Collection ===');
+                    Logger.log('=== v2.6.0: Site Icon Collection ===');
                     const siteIconUrl = collectSiteIcon();
                     
                     // 輸出性能統計（如果可用）
                     if (performanceOptimizer) {
                         try {
                             const performanceStats = performanceOptimizer.getPerformanceStats();
-                            console.log('🚀 Performance Stats:', performanceStats);
+                            Logger.log('🚀 Performance Stats:', performanceStats);
                         } catch (perfError) {
                             console.warn('Could not get performance stats:', perfError);
                         }
@@ -2923,7 +2923,7 @@ async function handleSavePage(sendResponse) {
                         if (chrome.runtime.lastError) {
                             console.warn('🧪 Debug: failed to save last extraction to storage:', chrome.runtime.lastError);
                         } else {
-                            console.log('🧪 Debug: saved last extraction to chrome.storage.local');
+                            Logger.log('🧪 Debug: saved last extraction to chrome.storage.local');
                         }
                     });
                 } catch (e) {
@@ -2939,7 +2939,7 @@ async function handleSavePage(sendResponse) {
                         blockCount: Array.isArray(debugData.blocks) ? debugData.blocks.length : 0,
                         sampleBlocks: Array.isArray(debugData.blocks) ? debugData.blocks.slice(0, 6) : []
                     };
-                    console.log('🧪 Debug - last extraction summary:', summary);
+                    Logger.log('🧪 Debug - last extraction summary:', summary);
                 } catch (e) {
                     console.warn('🧪 Debug: failed to build debug summary', e);
                 }
@@ -3009,7 +3009,7 @@ async function handleSavePage(sendResponse) {
                     });
                 }
             } else {
-                console.log('Notion page was deleted, clearing local state and creating new page');
+                Logger.log('Notion page was deleted, clearing local state and creating new page');
                 clearPageState(normUrl);
                 await clearPageHighlights(activeTab.id);
                 
@@ -3059,7 +3059,7 @@ async function clearPageHighlights(tabId) {
 
 // Initialize the extension
 chrome.runtime.onInstalled.addListener((details) => {
-  console.log('Notion Smart Clipper extension installed/updated');
+  Logger.log('Notion Smart Clipper extension installed/updated');
   
   // 處理擴展更新
   if (details.reason === 'update') {
@@ -3074,7 +3074,7 @@ chrome.runtime.onInstalled.addListener((details) => {
  */
 async function handleExtensionUpdate(previousVersion) {
   const currentVersion = chrome.runtime.getManifest().version;
-  console.log(`擴展已更新: ${previousVersion} → ${currentVersion}`);
+  Logger.log(`擴展已更新: ${previousVersion} → ${currentVersion}`);
   
   // 檢查是否需要顯示更新說明
   if (shouldShowUpdateNotification(previousVersion, currentVersion)) {
@@ -3086,7 +3086,7 @@ async function handleExtensionUpdate(previousVersion) {
  * 處理擴展安裝
  */
 async function handleExtensionInstall() {
-  console.log('擴展首次安裝');
+  Logger.log('擴展首次安裝');
   // 可以在這裡添加歡迎頁面或設置引導
 }
 
@@ -3147,11 +3147,11 @@ async function showUpdateNotification(previousVersion, currentVersion) {
         previousVersion: previousVersion,
         currentVersion: currentVersion
       }).catch(err => {
-        console.log('發送更新信息失敗:', err);
+        Logger.log('發送更新信息失敗:', err);
       });
     }, 1000);
     
-    console.log('已顯示更新通知頁面');
+    Logger.log('已顯示更新通知頁面');
   } catch (error) {
     console.error('顯示更新通知失敗:', error);
   }
@@ -3174,7 +3174,7 @@ function handleOpenNotionPage(request, sendResponse) {
                 console.error('Failed to open Notion page:', chrome.runtime.lastError);
                 sendResponse({ success: false, error: chrome.runtime.lastError.message });
             } else {
-                console.log('✅ Opened Notion page in new tab:', url);
+                Logger.log('✅ Opened Notion page in new tab:', url);
                 sendResponse({ success: true, tabId: tab.id });
             }
         });
