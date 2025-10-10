@@ -50,7 +50,7 @@ class AdaptivePerformanceManager {
         const strategy = this._adjustStrategyBasedOnAnalysis(pageAnalysis, systemPerformance);
         
         const duration = performance.now() - startTime;
-        // 將本次分析結果推入歷史以供後續決策或診斷使用（避免被標示為未使用變數）
+        // 將本次分析結果推入歷史以供後續決策或診斷使用（防止未使用變數警告，且保留診斷信息）
         try {
             this.performanceHistory.push({
                 ts: Date.now(),
@@ -65,7 +65,6 @@ class AdaptivePerformanceManager {
         }
 
         L.info(`📊 自適應性能分析完成，耗時: ${duration.toFixed(2)}ms`);
-
         return strategy;
     }
 
@@ -85,7 +84,7 @@ class AdaptivePerformanceManager {
             // 分析當前文檔
             analysis.elementCount = document.querySelectorAll('*').length;
             analysis.imageCount = document.querySelectorAll('img').length;
-            analysis.textLength = document.body ? document.body.textContent.length : 0;
+            analysis.textLength = document?.body?.textContent?.length || 0;
             
             // 計算複雜度分數
             analysis.complexityScore = 

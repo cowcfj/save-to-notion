@@ -1,5 +1,7 @@
 // This script is injected into the active tab.
 
+/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler */
+
 (async function () {
     try {
         // 初始化性能優化器（如果可用）
@@ -703,9 +705,98 @@
 
 
         // --- Main Execution ---
+        /**
+         * 嘗試展開頁面上常見的可折疊/懶載入內容，以便 Readability 能夠擷取隱藏的文本
+         * Best-effort：會處理 <details>、aria-expanded/aria-hidden、常見 collapsed 類別 和 Bootstrap collapse
+         */
+    const expandCollapsibleElements = async (timeout = 300) => {
+            try {
+                const expanded = [];
+
+                // 1) <details> 元素
+                const details = Array.from(document.querySelectorAll('details:not([open])'));
+                details.forEach(d => {
+                    try {
+                        d.setAttribute('open', '');
+                        expanded.push(d);
+                    } catch (e) {
+                        console.warn('Failed to open <details> element', e);
+                    }
+                });
+
+                // 2) aria-expanded 控制的按鈕/觸發器：嘗試找到與之對應的目標並展開
+                const triggers = Array.from(document.querySelectorAll('[aria-expanded="false"]'));
+                triggers.forEach(t => {
+                    try {
+                        // 直接設定 aria-expanded，並嘗試觸發 click
+                        t.setAttribute('aria-expanded', 'true');
+                        try { t.click(); } catch (e) { /* ignore click failures */ }
+
+                        // 如果有 aria-controls，嘗試移除 aria-hidden 或 collapsed 類別
+                        const ctrl = t.getAttribute && t.getAttribute('aria-controls');
+                        if (ctrl) {
+                            const target = document.getElementById(ctrl) || document.querySelector(`#${ctrl}`);
+                            if (target) {
+                                target.removeAttribute('aria-hidden');
+                                target.classList.remove('collapsed');
+                                target.classList.remove('collapse');
+                                expanded.push(target);
+                            }
+                        }
+                    } catch (e) {
+                        // 忽略單一項目錯誤
+                    }
+                });
+
+                // 3) 通用 collapsed / collapse 類別
+                const collapsedEls = Array.from(document.querySelectorAll('.collapsed, .collapse:not(.show)'));
+                collapsedEls.forEach(el => {
+                    try {
+                        el.classList.remove('collapsed');
+                        el.classList.remove('collapse');
+                        el.classList.add('expanded-by-clipper');
+                        el.removeAttribute('aria-hidden');
+                        expanded.push(el);
+                    } catch (e) {
+                        // 忽略
+                    }
+                });
+
+                // 4) 常見 JS 會隱藏的屬性 (display:none) — 嘗試設為 block 但不破壞原本樣式
+                const hiddenByStyle = Array.from(document.querySelectorAll('[style*="display:none"], [hidden]'));
+                hiddenByStyle.forEach(el => {
+                    try {
+                        // 只針對有可能是折疊式內容的元素進行短暫顯示
+                        const textLen = (el.textContent || '').trim().length;
+                        if (textLen > 20) {
+                            el.style.display = '';
+                            el.removeAttribute('hidden');
+                            expanded.push(el);
+                        }
+                    } catch (e) { }
+                });
+
+                // 等待短暫時間讓任何 JS 綁定或懶載入觸發
+                await new Promise(res => setTimeout(res, timeout));
+
+                console.log(`✅ expandCollapsibleElements: expanded ${expanded.length} candidates`);
+                return expanded;
+            } catch (error) {
+                console.warn('expandCollapsibleElements failed:', error);
+                return [];
+            }
+        }
         let finalContentHtml = null;
         let finalTitle = document.title;
         let contentElement = null;
+
+        // 在使用 Readability 前嘗試展開折疊內容，以包含被隱藏的文字
+        try {
+            await expandCollapsibleElements(400);
+        } catch (e) {
+            console.warn('Error while expanding collapsible elements before parsing:', e);
+        }
+
         const article = new Readability(document.cloneNode(true)).parse();
 
         if (isContentGood(article)) {

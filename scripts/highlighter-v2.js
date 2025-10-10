@@ -2,7 +2,7 @@
 // v2.5.0 - 不修改DOM結構的標註實現
 (function() {
     // 使用來自 utils.js 的共享函數
-    const { normalizeUrl, StorageUtil, Logger } = window;
+    const { normalizeUrl, StorageUtil } = window;
 
     /**
      * 檢查瀏覽器是否支持 CSS Custom Highlight API
@@ -1285,6 +1285,7 @@
         toolbar.querySelector('#close-highlight-v2').addEventListener('click', originalHide, { once: true });
         
         // 監控 toolbar 是否被移除，若被移除則自動重新掛載
+        // 建立 MutationObserver 並在全域保留引用，避免被 GC
         const mo = new MutationObserver(() => {
             if (!document.body.contains(toolbar)) {
                 try {
@@ -1296,6 +1297,7 @@
         });
         try {
             mo.observe(document.body, { childList: true, subtree: true });
+            // 注意：稍後在 window.notionHighlighter 生成後，會把 mo 掛到 _observer 上
             window.addEventListener('unload', () => mo.disconnect(), { once: true });
         } catch (e) {
             console.warn('MutationObserver 初始化失敗:', e);
@@ -1605,6 +1607,7 @@
         });
 
         // 全局引用
+        // 保留 observer 與監聽器綁定狀態於全域對象，避免被 GC 或重複綁定
         window.notionHighlighter = {
             manager: manager,
             toolbar: toolbar,
@@ -1641,7 +1644,11 @@
                     console.error('隱藏標註工具欄失敗:', e);
                 }
             },
-            collectHighlights: () => manager.collectHighlightsForNotion()
+            collectHighlights: () => manager.collectHighlightsForNotion(),
+            _observer: mo,
+            _listenerBound: () => listenerBound,
+            _bindDeleteListener: bindDeleteListener,
+            _unbindDeleteListener: unbindDeleteListener
         };
 
         console.log('✅ 標註工具已初始化');
