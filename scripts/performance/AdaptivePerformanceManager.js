@@ -73,7 +73,7 @@ class AdaptivePerformanceManager {
      * 分析頁面內容以調整性能策略
      * @private
      */
-    _analyzePageContent(pageData) {
+    _analyzePageContent(_pageData) {
         const analysis = {
             elementCount: 0,
             imageCount: 0,
