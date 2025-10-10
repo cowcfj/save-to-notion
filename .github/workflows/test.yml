@@ -76,7 +76,7 @@ jobs:
 
         for i in $(seq 1 $MAX_ATTEMPTS); do
           echo "Attempt $i/$MAX_ATTEMPTS: querying $API_URL"
-          http_code=$(curl -s -o /tmp/codecov_commit.json -w "%{http_code}" "$API_URL" || echo "000")
+          http_code=$(curl -s -H "Authorization: Bearer ${{ secrets.CODECOV_TOKEN }}" -o /tmp/codecov_commit.json -w "%{http_code}" "$API_URL" || echo "000")
 
           if [ "$http_code" != "200" ]; then
             echo "Codecov API returned HTTP $http_code — not ready yet"

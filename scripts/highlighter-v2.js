@@ -34,9 +34,8 @@
             // 初始化 CSS Highlight Registry
             if (supportsHighlightAPI()) {
                 this.initializeHighlightStyles();
-                console.log('✅ 使用 CSS Custom Highlight API');
             } else {
-                console.warn('⚠️ 瀏覽器不支持 CSS Custom Highlight API，將使用傳統方法');
+                // 靜默降級到傳統方法
             }
 
             // 🔧 修復：優先檢查並遷移 localStorage 中的舊標註數據
@@ -48,20 +47,16 @@
          */
         async initialize() {
             try {
-                console.log('🚀 [初始化] 開始標註系統初始化...');
-                
                 // 步驟1：檢查並遷移 localStorage 數據
                 await this.checkAndMigrateLegacyData();
-                
+
                 // 步驟2：從存儲恢復標註
                 await this.restoreHighlights();
-                
+
                 // 步驟3：檢查並執行無痛自動遷移（處理 DOM 中的舊 span）
                 await this.performSeamlessMigration();
-                
-                console.log('✅ [初始化] 標註系統初始化完成');
             } catch (error) {
-                console.error('❌ [初始化] 初始化過程出錯:', error);
+                // 初始化錯誤靜默處理
             }
         }
         
@@ -1651,7 +1646,7 @@
             _unbindDeleteListener: unbindDeleteListener
         };
 
-        console.log('✅ 標註工具已初始化');
+        //
     }
     
     /**
