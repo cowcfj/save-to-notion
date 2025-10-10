@@ -46,8 +46,22 @@ class AdaptivePerformanceManager {
         const strategy = this._adjustStrategyBasedOnAnalysis(pageAnalysis, systemPerformance);
         
         const duration = performance.now() - startTime;
+        // 將本次分析結果推入歷史以供後續決策或診斷使用（避免被標示為未使用變數）
+        try {
+            this.performanceHistory.push({
+                ts: Date.now(),
+                duration: Number(duration.toFixed(2)),
+                performanceScore: systemPerformance && systemPerformance.performanceScore ? systemPerformance.performanceScore : null
+            });
+            // 保持歷史長度在合理範圍內以免無限增長
+            if (this.performanceHistory.length > 50) this.performanceHistory.shift();
+        } catch (e) {
+            // 不要阻塞主要流程，僅記錄警告
+            L.warn('記錄性能歷史失敗:', e);
+        }
+
         L.info(`📊 自適應性能分析完成，耗時: ${duration.toFixed(2)}ms`);
-        
+
         return strategy;
     }
 
