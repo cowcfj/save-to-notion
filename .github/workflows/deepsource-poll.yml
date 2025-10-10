@@ -23,8 +23,13 @@ jobs:
           DEEPSOURCE_TOKEN: ${{ secrets.DEEPSOURCE_TOKEN }}
           DEEPSOURCE_PROJECT_KEY: ${{ secrets.DEEPSOURCE_PROJECT_KEY }}
           BRANCH: ${{ github.ref_name }}
+          COMMIT_OID: ${{ github.sha }}
+          # Limit attempts so workflow doesn't poll indefinitely; DeepSource will still run on its own.
+          MAX_ATTEMPTS: 3
+          POLL_INTERVAL: 10
         run: |
           set -euo pipefail
+          echo "One-shot DeepSource check: branch=$BRANCH commit=${COMMIT_OID} max_attempts=${MAX_ATTEMPTS}"
           ./.github/scripts/deepsource_poll.sh
 
       - name: Post result as PR comment (if applicable)
