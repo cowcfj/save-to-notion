@@ -1449,17 +1449,17 @@ async function handleSavePage(sendResponse) {
                     performanceOptimizer = new PerformanceOptimizer({
                         enableCache: true,
                         enableBatching: true,
-                        enableMetrics: true
+                        enableMetrics: true,
+                        cacheMaxSize: 500,  // 增加緩存大小以支持更多頁面元素
+                        cacheTTL: 600000    // 10分鐘 TTL
                     });
                     
-                    // 預加載關鍵選擇器
-                    const criticalSelectors = [
-                        'img[src]', 'img[data-src]', 'img[data-lazy-src]',
-                        'article', 'main', '.content', '.post-content', '.entry-content',
-                        'link[rel*="icon"]', 'meta[property="og:image"]'
-                    ];
-                    performanceOptimizer.preloadSelectors(criticalSelectors);
-                    console.log('✓ PerformanceOptimizer initialized successfully');
+                    // 使用智能預熱功能
+                    performanceOptimizer.smartPrewarm(document).then(() => {
+                        console.log('✓ PerformanceOptimizer initialized successfully with smart prewarming');
+                    }).catch(error => {
+                        console.warn('⚠️ Smart prewarming failed:', error);
+                    });
                 } else {
                     console.warn('⚠️ PerformanceOptimizer not available, using fallback queries');
                 }
