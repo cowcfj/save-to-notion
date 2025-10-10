@@ -68,16 +68,32 @@
 
         function isContentGood(article) {
             if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
+
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = article.content;
-            const links = cachedQuery('a', tempDiv);
+
+            // 計算連結密度（link density）— 但對於以點列/參考為主的文件（像 CLI docs）
+            // 我們允許例外：如果內容包含大量的 <li> 項目，則視為有效內容。
+            const links = tempDiv.querySelectorAll ? tempDiv.querySelectorAll('a') : cachedQuery('a', tempDiv);
             let linkTextLength = 0;
-            links.forEach(link => linkTextLength += link.textContent.length);
-            const linkDensity = linkTextLength / article.length;
+            Array.from(links).forEach(link => linkTextLength += (link.textContent || '').length);
+            const linkDensity = linkTextLength / Math.max(1, article.length);
+
+            const liNodes = tempDiv.querySelectorAll ? tempDiv.querySelectorAll('li') : cachedQuery('li', tempDiv);
+            const liCount = liNodes ? liNodes.length : 0;
+
+            // 如果頁面以長清單為主（如文件、命令列清單），允許通過
+            const LIST_EXCEPTION_THRESHOLD = 8; // 8個以上的<li> 視為 list-heavy
+            if (liCount >= LIST_EXCEPTION_THRESHOLD) {
+                console.log(`Readability.js content accepted as list-heavy (liCount=${liCount}) despite link density ${linkDensity.toFixed(2)}`);
+                return true;
+            }
+
             if (linkDensity > MAX_LINK_DENSITY) {
                 console.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
                 return false;
             }
+
             return true;
         }
 
@@ -256,6 +272,62 @@
                 }
 
                 console.log(`💥 Complete failure: No content found even with lower standards`);
+                return null;
+            }
+        }
+
+        /**
+         * 當 Readability 與 CMS fallback 都無法取得內容時，嘗試擷取最大的一個 <ul> 或 <ol>
+         * 針對像是 CLI 文件或參考頁面（大量 bullet points）的改善。
+         * 回傳該列表的 innerHTML 或 null。
+         */
+        function extractLargestListFallback() {
+            try {
+                console.log('🔎 Running extractLargestListFallback to find large <ul>/<ol>');
+
+                const lists = Array.from(document.querySelectorAll('ul, ol'));
+                if (!lists || lists.length === 0) {
+                    console.log('✗ No lists found on page');
+                    return null;
+                }
+
+                // 評分：以 <li> 數量為主，並加上文字長度作為次要指標
+                let best = null;
+                let bestScore = 0;
+
+                lists.forEach((list, idx) => {
+                    const liItems = Array.from(list.querySelectorAll('li'));
+                    const liCount = liItems.length;
+                    const textLength = (list.textContent || '').trim().length;
+                    const score = (liCount * 10) + Math.min(500, Math.floor(textLength / 10));
+
+                    console.log(`List ${idx + 1}: liCount=${liCount}, textLength=${textLength}, score=${score}`);
+
+                    // 過濾太短或只有單一項目的 list
+                    if (liCount < 4) return;
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = list;
+                    }
+                });
+
+                if (best) {
+                    console.log(`✅ extractLargestListFallback chose a list with score ${bestScore} and ${best.querySelectorAll('li').length} items`);
+                    // 嘗試把周邊標題包含進去（若存在相鄰的 <h1>-<h3>）
+                    let containerHtml = best.innerHTML;
+                    const prev = best.previousElementSibling;
+                    if (prev && /^H[1-3]$/.test(prev.nodeName)) {
+                        containerHtml = prev.outerHTML + '\n' + containerHtml;
+                        console.log('Included preceding heading in fallback content');
+                    }
+                    return containerHtml;
+                }
+
+                console.log('✗ No suitable large list found');
+                return null;
+            } catch (e) {
+                console.warn('extractLargestListFallback failed:', e);
                 return null;
             }
         }
@@ -808,11 +880,22 @@
             tempDiv.innerHTML = finalContentHtml;
             contentElement = tempDiv;
         } else {
+            // Readability 失敗或被拒絕：先使用 CMS-specific fallback
             finalContentHtml = findContentCmsFallback();
             if (finalContentHtml) {
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = finalContentHtml;
                 contentElement = tempDiv;
+            } else {
+                // CMS fallback 也失敗，嘗試擷取大型清單（針對 CLI doc、reference pages）
+                const listFallback = extractLargestListFallback();
+                if (listFallback) {
+                    console.log('✅ Using list fallback content');
+                    finalContentHtml = listFallback;
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = finalContentHtml;
+                    contentElement = tempDiv;
+                }
             }
         }
 
@@ -978,6 +1061,13 @@
             }
         }];
     }
+
+    // 如果在單元測試環境，暴露結果到全域以便測試程式存取
+    try {
+        if (typeof window !== 'undefined' && window.__UNIT_TESTING__) {
+            try { window.__notion_extraction_result = result; } catch (e) { /* ignore */ }
+        }
+    } catch (e) { /* ignore */ }
 
     return result;
 }).catch(error => {
