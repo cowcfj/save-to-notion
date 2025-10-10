@@ -4,7 +4,6 @@
  */
 /* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, module, AdaptivePerformanceManager, Logger */
 const L = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
-
 class PerformanceOptimizer {
     constructor(options = {}) {
         this.options = {
@@ -437,8 +436,9 @@ class PerformanceOptimizer {
             }
         }
         
-        L.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
-        return Promise.resolve(results);
+    L.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
+    // 保守策略：統一以 Promise.resolve 返回，呼叫者可以使用 await 一致處理
+    return Promise.resolve(results);
     }
 
     /**

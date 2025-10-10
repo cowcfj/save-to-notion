@@ -1,5 +1,7 @@
 // This script is injected into the active tab.
 
+/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler */
+
 (async function () {
     try {
         // 初始化性能優化器（如果可用）
