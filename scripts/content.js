@@ -936,7 +936,7 @@
             console.warn('Error while expanding collapsible elements before parsing:', e);
         }
 
-<<<<<<< HEAD
+
         // 額外等待動態內容載入（針對像 gemini-cli docs 這樣的 SPA 或懶載入網站）
         try {
             console.log('🔄 等待動態內容載入...');
@@ -958,8 +958,6 @@
             console.warn('動態內容載入等待失敗:', e);
         }
 
-=======
->>>>>>> origin/main
         const article = new Readability(document.cloneNode(true)).parse();
 
         if (isContentGood(article)) {
