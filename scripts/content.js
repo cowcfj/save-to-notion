@@ -415,7 +415,45 @@
                         if (textContent) blocks.push({ object: 'block', type: `heading_${node.nodeName[1]}`, [`heading_${node.nodeName[1]}`]: { rich_text: createRichText(textContent) } });
                         break;
                     case 'P':
-                        if (textContent) blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: createRichText(textContent) } });
+                        if (textContent) {
+                            // 偵測是否為以換行或符號表示的清單（有些文件會用 CSS 或 <br> 呈現點列）
+                            const innerHtml = node.innerHTML || '';
+                            const lines = textContent.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+                            // 常見的 bullet 標記與編號模式
+                            const bulletCharRe = /^[\u2022\-\*•·–—►▶✔▪]\s+/;
+                            const numberedRe = /^\d+[\.|\)]\s+/;
+
+                            const hasBr = /<br\s*\/?/i.test(innerHtml);
+                            const manyLines = lines.length >= 2;
+
+                            // 判斷是否為 list-like paragraph：多行或包含 <br> 且每行看起來像項目
+                            let looksLikeList = false;
+                            if (manyLines || hasBr) {
+                                // 如果大部分行以 bulletChar 或 numbered 開頭，視為清單
+                                const matchCount = lines.reduce((acc, l) => acc + ((bulletCharRe.test(l) || numberedRe.test(l) || /^[-••]/.test(l)) ? 1 : 0), 0);
+                                if (matchCount >= Math.max(1, Math.floor(lines.length * 0.6))) {
+                                    looksLikeList = true;
+                                }
+                            } else {
+                                // 單行但以 bullet 字元開始也視為 list item
+                                if (bulletCharRe.test(textContent) || numberedRe.test(textContent)) looksLikeList = true;
+                            }
+
+                            if (looksLikeList) {
+                                // 把每一行或每個項目轉成 bulleted_list_item
+                                lines.forEach(line => {
+                                    let cleaned = line.replace(bulletCharRe, '').replace(numberedRe, '').trim();
+                                    // 移除常見起始符號
+                                    cleaned = cleaned.replace(/^[\-•\u2022\*\d+\.|\)\s]+/, '').trim();
+                                    if (cleaned) {
+                                        blocks.push({ object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: createRichText(cleaned) } });
+                                    }
+                                });
+                            } else {
+                                blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: createRichText(textContent) } });
+                            }
+                        }
                         break;
                     case 'IMG':
                         const src = extractImageSrc(node);
