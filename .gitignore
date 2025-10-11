@@ -264,3 +264,10 @@ quick-test.html
 .qwen/
 .roo/
 QWEN.md
+
+# 實驗性配置目錄
+.roo/
+.qwen/
+
+# 歷史存檔特定目錄
+archive/pr22/
