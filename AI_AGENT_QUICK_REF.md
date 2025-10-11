@@ -54,6 +54,24 @@ CHANGELOG.md              → 完整技術歷史（分組折疊）
 RELEASE_NOTES_v*.md       → 個別發布公告（50-80行）
 ```
 
+## 📁 項目目錄（公開）
+
+請在自動化或文件生成時使用下列「公開」目錄作為參考（不包含開發/工作目錄）：
+
+```
+notion-chrome/
+├── manifest.json
+├── scripts/
+├── popup/
+├── options/
+├── lib/
+├── icons/
+└── README.md / CHANGELOG.md
+```
+
+工作目錄（例如 `.qwen/`, `.roo/`, `.github/`, `tests/`, `internal/`, `archive/`）為開發或 CI 使用，不應列入發佈用的架構展示。
+
+
 **README.md 更新規則：**
 - 小版本 (v2.7.2→v2.7.3): 只更新當前版本描述
 - 大版本 (v2.7.x→v2.8.0): v2.7.x 合併為摘要，突出 v2.8.0

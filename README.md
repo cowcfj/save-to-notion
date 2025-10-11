@@ -34,31 +34,26 @@
 2. 在 Notion 創建 Integration，複製 API Token
 3. 貼上 Token，選擇目標數據庫，保存設置
 
-### 3. 授權數據庫
-在 Notion 數據庫中：點擊「...」→「Add connections」→ 選擇你的 Integration
+## 📁 項目結構（公開）
 
-> � **詳細配置步驟請參考** → [完整使用指南](USER_GUIDE.md#-快速開始)
+下列列出的是發佈/公開相關的目錄結構（省略本地工作目錄，例如 `.github/`, `.qwen/`, `.roo/`, `tests/`, `internal/`, `archive/`）：
 
----
+```
+notion-chrome/
+├── manifest.json          # 擴展配置與權限（Manifest V3）
+├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popup.css）
+├── options/               # 設置頁面（options.html, options.js, options.css）
+├── scripts/               # 核心腳本與子模組
+│   ├── background.js
+│   ├── content.js
+│   ├── highlighter-v2.js
+│   └── utils/
+├── update-notification/   # 更新通知頁面與邏輯
+├── lib/                   # 第三方庫（Readability.js）
+└── icons/                 # 圖標文件
+```
 
-## 🎬 功能展示
-
-<div align="center">
-
-### 一鍵保存網頁到 Notion
-![核心功能展示](promo-images/image1-main-feature.png)
-
-### 隨時標記重要內容
-![文本標註功能](promo-images/image2-highlight-feature.png)
-
-### 完美整合 Notion
-![Notion 整合展示](promo-images/image3-notion-integration.png)
-
-### 簡單設置，立即使用
-![設置界面](promo-images/image4-easy-setup.png)
-
-### 智能網站圖標選擇
-![智能圖標](promo-images/image5-smart-icon.png)
+註：工作目錄（例如 `.github/`, `.qwen/`, `.roo/`, `tests/`, `internal/`, `archive/`）為開發或 CI 使用，不應列入發佈用的架構展示。
 
 </div>
 
@@ -148,19 +143,32 @@
 
 ```
 notion-chrome/
-├── manifest.json          # 擴展配置文件
-├── popup/                 # 彈出窗口 UI
-├── options/               # 設置頁面（含搜索式數據庫選擇器）
-├── scripts/               # 核心腳本
-│   ├── background.js      # 後台腳本（Notion API、批處理）
-│   ├── content.js         # 內容腳本（提取、圖片處理）
-│   ├── highlighter-v2.js  # 新一代標註引擎（CSS Highlight API）
-│   └── utils.js           # 工具函數
-├── update-notification/   # 更新通知系統（v2.8.0 新增）
-├── lib/                   # 第三方庫
-│   └── Readability.js     # Mozilla Readability
-├── tests/                 # 測試文件（Jest）
-└── icons/                 # 圖標文件
+├── .github/               # CI 與 workflow（test.yml、coverage.yml）
+├── .qwen/                 # QWEN 測試資源
+├── .roo/                  # 本地工具 / MCP 設定
+├── manifest.json          # 擴展配置與權限（Manifest V3）
+├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popup.css）
+├── options/               # 設置頁面（options.html, options.js, options.css）
+├── scripts/               # 核心腳本與子模組
+│   ├── background.js
+│   ├── content.js
+│   ├── highlighter-v2.js
+│   ├── highlighter-migration.js
+│   ├── script-injector.js
+│   ├── seamless-migration.js
+│   ├── deepsource_poll.sh
+│   ├── imageExtraction/
+│   ├── performance/
+│   └── utils/
+├── update-notification/   # 更新通知頁面與邏輯
+├── lib/                   # 第三方庫（Readability.js）
+├── tests/                 # 測試（unit/, e2e/, manual/, helpers/）
+├── internal/              # 內部規格、scripts、設計資源（不直接發布）
+├── archive/               # 歷史存檔
+├── icons/                 # 圖標
+├── promo-images/          # 宣傳圖片（Chrome Web Store）
+├── README.md              # 用戶說明
+└── CHANGELOG.md           # 版本變更記錄
 ```
 
 ---

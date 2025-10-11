@@ -259,3 +259,8 @@ FILE_ORGANIZATION.md
 
 # 測試頁面
 quick-test.html
+
+# Qwen CLI 配置（保留但不追蹤）
+.qwen/
+.roo/
+QWEN.md
