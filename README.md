@@ -159,7 +159,6 @@ notion-chrome/
 │   ├── highlighter-migration.js
 │   ├── script-injector.js
 │   ├── seamless-migration.js
-│   ├── deepsource_poll.sh
 │   ├── imageExtraction/
 │   ├── performance/
 │   └── utils/
