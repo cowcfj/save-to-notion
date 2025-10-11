@@ -49,7 +49,8 @@ jobs:
         fi
       continue-on-error: true
     
-    - name: Upload coverage to Codecov
+    - name: Upload coverage to Codecov (Optional)
+      continue-on-error: true
       id: codecov_upload
       uses: codecov/codecov-action@v4
       if: matrix.node-version == '20.x'
@@ -59,66 +60,7 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
-        verbose: true
 
-    - name: Wait for Codecov processing
-      if: always()
-      run: |
-        set -euo pipefail
-        echo "Waiting for Codecov to process coverage for this commit..."
-        REPO="${{ github.repository }}"
-        SHA="${{ github.sha }}"
-        API_URL="https://codecov.io/api/gh/${REPO}/commit/${SHA}"
-
-        # Max attempts: 36 * 5s = 180s (3 minutes)
-        MAX_ATTEMPTS=36
-        SLEEP_SEC=5
-
-        for i in $(seq 1 $MAX_ATTEMPTS); do
-          echo "Attempt $i/$MAX_ATTEMPTS: querying $API_URL"
-          http_code=$(curl -s -o /tmp/codecov_commit.json -w "%{http_code}" "$API_URL" || echo "000")
-
-          if [ "$http_code" != "200" ]; then
-            echo "Codecov API returned HTTP $http_code — not ready yet"
-            sleep $SLEEP_SEC
-            continue
-          fi
-
-          # Try to use jq if available for robust parsing
-          if command -v jq >/dev/null 2>&1; then
-            reports_len=$(jq '.reports | length' /tmp/codecov_commit.json 2>/dev/null || echo "0")
-            if [ "$reports_len" -gt 0 ]; then
-              echo "Codecov has processed the upload (reports count: $reports_len)"
-              jq '.' /tmp/codecov_commit.json || true
-              exit 0
-            else
-              echo "Codecov reports array is empty (not processed yet)"
-              sleep $SLEEP_SEC
-              continue
-            fi
-          fi
-
-          # Fallback parsing without jq: look for non-empty "reports": [ ... ]
-          if grep -q '"reports"\s*:\s*\[\s*\]' /tmp/codecov_commit.json; then
-            echo "Codecov reports array is empty (not processed yet)"
-            sleep $SLEEP_SEC
-            continue
-          fi
-
-          if grep -q '"reports"\s*:\s*\[' /tmp/codecov_commit.json; then
-            echo "Codecov has processed the upload (reports array present)"
-            sed -n '1,200p' /tmp/codecov_commit.json || true
-            exit 0
-          fi
-
-          echo "Codecov API response not yet indicating processed reports, retrying..."
-          sleep $SLEEP_SEC
-        done
-
-        echo "Timed out waiting for Codecov to process coverage after $((MAX_ATTEMPTS * SLEEP_SEC)) seconds"
-        echo "Last Codecov API response:"
-        sed -n '1,200p' /tmp/codecov_commit.json || true
-        exit 0
     
     - name: Report success
       if: success()

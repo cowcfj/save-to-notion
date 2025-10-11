@@ -1,6 +1,23 @@
 // This script is injected into the active tab.
 
-/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler */
+/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, chrome */
+
+// 開發模式控制（與 background.js 保持一致）
+const DEBUG_MODE = (function() {
+    try {
+        return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
+    } catch (e) {
+        return false;
+    }
+})();
+
+// 條件日誌函數
+const Logger = {
+    log: (...args) => DEBUG_MODE && console.log(...args),
+    warn: (...args) => console.warn(...args),
+    error: (...args) => console.error(...args),
+    info: (...args) => DEBUG_MODE && console.info(...args)
+};
 
 (async function () {
     try {
@@ -16,14 +33,14 @@
                     cacheTTL: 600000    // 10分鐘 TTL
                 });
 
-                // 使用智能預熱功能
-                await performanceOptimizer.smartPrewarm(document);
-                console.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');
+                                // 使用智能預熱功能
+                const prewarmResult = await performanceOptimizer.smartPrewarm(document);
+                Logger.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');
             } else {
-                console.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
+                Logger.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
             }
         } catch (perfError) {
-            console.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
+            Logger.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
             performanceOptimizer = null;
         }
 
@@ -38,7 +55,7 @@
 
         // 檢查 ImageUtils 是否可用，如果不可用則提供回退實現
         if (typeof ImageUtils === 'undefined') {
-            console.warn('ImageUtils not available, using fallback implementations');
+            Logger.warn('ImageUtils not available, using fallback implementations');
             window.ImageUtils = {
                 cleanImageUrl: function (url) {
                     if (!url || typeof url !== 'string') return null;
@@ -68,16 +85,32 @@
 
         function isContentGood(article) {
             if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
+
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = article.content;
-            const links = cachedQuery('a', tempDiv);
+
+            // 計算連結密度（link density）— 但對於以點列/參考為主的文件（像 CLI docs）
+            // 我們允許例外：如果內容包含大量的 <li> 項目，則視為有效內容。
+            const links = tempDiv.querySelectorAll ? tempDiv.querySelectorAll('a') : cachedQuery('a', tempDiv);
             let linkTextLength = 0;
-            links.forEach(link => linkTextLength += link.textContent.length);
-            const linkDensity = linkTextLength / article.length;
+            Array.from(links).forEach(link => linkTextLength += (link.textContent || '').length);
+            const linkDensity = linkTextLength / Math.max(1, article.length);
+
+            const liNodes = tempDiv.querySelectorAll ? tempDiv.querySelectorAll('li') : cachedQuery('li', tempDiv);
+            const liCount = liNodes ? liNodes.length : 0;
+
+            // 如果頁面以長清單為主（如文件、命令列清單），允許通過
+            const LIST_EXCEPTION_THRESHOLD = 8; // 8個以上的<li> 視為 list-heavy
+            if (liCount >= LIST_EXCEPTION_THRESHOLD) {
+                Logger.log(`Readability.js content accepted as list-heavy (liCount=${liCount}) despite link density ${linkDensity.toFixed(2)}`);
+                return true;
+            }
+
             if (linkDensity > MAX_LINK_DENSITY) {
-                console.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
+                Logger.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
                 return false;
             }
+
             return true;
         }
 
@@ -87,7 +120,7 @@
          * @returns {string|null} The combined innerHTML of the article components.
          */
         function findContentCmsFallback() {
-            console.log("Executing CMS-aware fallback finder...");
+            Logger.log("Executing CMS-aware fallback finder...");
 
             // Strategy 1: Look for Drupal's typical structure
             const drupalNodeContent = cachedQuery('.node__content', document, { single: true });
@@ -96,7 +129,7 @@
                 const bodyField = cachedQuery('.field--name-field-body', drupalNodeContent, { single: true });
 
                 if (bodyField) {
-                    console.log("Drupal structure detected. Combining fields.");
+                    Logger.log("Drupal structure detected. Combining fields.");
                     const imageHtml = imageField ? imageField.innerHTML : '';
                     const bodyHtml = bodyField.innerHTML;
                     return imageHtml + bodyHtml;
@@ -136,15 +169,15 @@
                 const element = cachedQuery(selector, document, { single: true });
                 if (element) {
                     const textLength = element.textContent.trim().length;
-                    console.log(`Found element with selector "${selector}": ${textLength} characters`);
+                    Logger.log(`Found element with selector "${selector}": ${textLength} characters`);
                     if (textLength >= MIN_CONTENT_LENGTH) {
-                        console.log(`✅ CMS content found with selector: ${selector} (${textLength} chars)`);
+                        Logger.log(`✅ CMS content found with selector: ${selector} (${textLength} chars)`);
                         return element.innerHTML;
                     } else {
-                        console.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
+                        Logger.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
                     }
                 } else {
-                    console.log(`❌ No element found with selector: ${selector}`);
+                    Logger.log(`❌ No element found with selector: ${selector}`);
                 }
             }
 
@@ -186,24 +219,24 @@
                 const element = cachedQuery(selector, document, { single: true });
                 if (element) {
                     const textLength = element.textContent.trim().length;
-                    console.log(`Found element with selector "${selector}": ${textLength} characters`);
+                    Logger.log(`Found element with selector "${selector}": ${textLength} characters`);
                     if (textLength >= MIN_CONTENT_LENGTH) {
-                        console.log(`✅ Article content found with selector: ${selector} (${textLength} chars)`);
+                        Logger.log(`✅ Article content found with selector: ${selector} (${textLength} chars)`);
                         return element.innerHTML;
                     } else {
-                        console.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
+                        Logger.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
                     }
                 } else {
-                    console.log(`❌ No element found with selector: ${selector}`);
+                    Logger.log(`❌ No element found with selector: ${selector}`);
                 }
             }
 
             // Strategy 4: Generic "biggest content block" as a final attempt
-            console.log("🔍 CMS structure not found. Reverting to generic content finder...");
-            console.log(`📏 Minimum content length required: ${MIN_CONTENT_LENGTH} characters`);
+            Logger.log("🔍 CMS structure not found. Reverting to generic content finder...");
+            Logger.log(`📏 Minimum content length required: ${MIN_CONTENT_LENGTH} characters`);
 
             const candidates = cachedQuery('article, section, main, div', document);
-            console.log(`🎯 Found ${candidates.length} potential content candidates`);
+            Logger.log(`🎯 Found ${candidates.length} potential content candidates`);
 
             let bestElement = null;
             let maxScore = 0;
@@ -214,7 +247,7 @@
                 candidateCount++;
 
                 if (text.length < MIN_CONTENT_LENGTH) {
-                    console.log(`❌ Candidate ${candidateCount}: Too short (${text.length} < ${MIN_CONTENT_LENGTH})`);
+                    Logger.log(`❌ Candidate ${candidateCount}: Too short (${text.length} < ${MIN_CONTENT_LENGTH})`);
                     continue;
                 }
 
@@ -225,25 +258,25 @@
                 // 給圖片加分，因為我們想要包含圖片的內容
                 const score = text.length + (paragraphs * 50) + (images * 30) - (links * 25);
 
-                console.log(`📊 Candidate ${candidateCount}: ${text.length} chars, ${paragraphs}p, ${images}img, ${links}links, score: ${score}`);
+                Logger.log(`📊 Candidate ${candidateCount}: ${text.length} chars, ${paragraphs}p, ${images}img, ${links}links, score: ${score}`);
 
                 if (score > maxScore) {
                     // 避免選擇嵌套的父元素
                     if (bestElement && el.contains(bestElement)) {
-                        console.log(`⚠️ Skipping nested parent element`);
+                        Logger.log(`⚠️ Skipping nested parent element`);
                         continue;
                     }
                     maxScore = score;
                     bestElement = el;
-                    console.log(`✅ New best candidate found with score: ${score}`);
+                    Logger.log(`✅ New best candidate found with score: ${score}`);
                 }
             }
 
             if (bestElement) {
-                console.log(`🎉 Best content found with ${bestElement.textContent.trim().length} characters`);
+                Logger.log(`🎉 Best content found with ${bestElement.textContent.trim().length} characters`);
                 return bestElement.innerHTML;
             } else {
-                console.log(`❌ No suitable content found. All ${candidateCount} candidates were too short or scored too low.`);
+                Logger.log(`❌ No suitable content found. All ${candidateCount} candidates were too short or scored too low.`);
 
                 // 最後的嘗試：降低標準
                 console.log(`🔄 Trying with lower standards (${MIN_CONTENT_LENGTH / 2} chars)...`);
@@ -256,6 +289,91 @@
                 }
 
                 console.log(`💥 Complete failure: No content found even with lower standards`);
+                return null;
+            }
+        }
+
+        /**
+         * 當 Readability 與 CMS fallback 都無法取得內容時，嘗試擷取最大的一個 <ul> 或 <ol>
+         * 針對像是 CLI 文件或參考頁面（大量 bullet points）的改善。
+         * 回傳該列表的 innerHTML 或 null。
+         */
+        function extractLargestListFallback() {
+            try {
+                console.log('🔎 Running extractLargestListFallback to find large <ul>/<ol>');
+
+                // 策略 1: 尋找真正的 <ul> / <ol>
+                const lists = Array.from(document.querySelectorAll('ul, ol'));
+                console.log(`Found ${lists.length} actual <ul>/<ol> elements`);
+
+                // 策略 2: 尋找可能是清單但用 div/section 呈現的內容
+                const possibleListContainers = Array.from(document.querySelectorAll('div, section, article')).filter(container => {
+                    const text = container.textContent || '';
+                    // 尋找包含多個以 bullet 字元或數字開頭的行的容器
+                    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                    if (lines.length < 4) return false;
+                    
+                    const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/;
+                    const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
+                    return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
+                });
+
+                console.log(`Found ${possibleListContainers.length} possible list containers`);
+
+                // 合併真正的清單和可能的清單容器
+                const allCandidates = [...lists, ...possibleListContainers];
+                
+                if (!allCandidates || allCandidates.length === 0) {
+                    console.log('✗ No lists or list-like containers found on page');
+                    return null;
+                }
+
+                // 評分：以 <li> 數量為主，並加上文字長度作為次要指標
+                let best = null;
+                let bestScore = 0;
+
+                allCandidates.forEach((candidate, idx) => {
+                    const liItems = Array.from(candidate.querySelectorAll('li'));
+                    const liCount = liItems.length;
+                    const textLength = (candidate.textContent || '').trim().length;
+                    
+                    // 對於非 <ul>/<ol> 的容器，用行數代替 li 數量
+                    let effectiveItemCount = liCount;
+                    if (liCount === 0) {
+                        const lines = (candidate.textContent || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                        const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/;
+                        effectiveItemCount = lines.filter(line => bulletPattern.test(line)).length;
+                    }
+                    
+                    const score = (effectiveItemCount * 10) + Math.min(500, Math.floor(textLength / 10));
+
+                    console.log(`Candidate ${idx + 1}: itemCount=${effectiveItemCount}, textLength=${textLength}, score=${score}, tagName=${candidate.tagName}`);
+
+                    // 過濾太短或只有單一項目的容器
+                    if (effectiveItemCount < 4) return;
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = candidate;
+                    }
+                });
+
+                if (best) {
+                    console.log(`✅ extractLargestListFallback chose a container with score ${bestScore}, tagName=${best.tagName}`);
+                    // 嘗試把周邊標題包含進去（若存在相鄰的 <h1>-<h3>）
+                    let containerHtml = best.innerHTML;
+                    const prev = best.previousElementSibling;
+                    if (prev && /^H[1-3]$/.test(prev.nodeName)) {
+                        containerHtml = prev.outerHTML + '\n' + containerHtml;
+                        console.log('Included preceding heading in fallback content');
+                    }
+                    return containerHtml;
+                }
+
+                console.log('✗ No suitable large list or list-like container found');
+                return null;
+            } catch (e) {
+                console.warn('extractLargestListFallback failed:', e);
                 return null;
             }
         }
@@ -343,7 +461,45 @@
                         if (textContent) blocks.push({ object: 'block', type: `heading_${node.nodeName[1]}`, [`heading_${node.nodeName[1]}`]: { rich_text: createRichText(textContent) } });
                         break;
                     case 'P':
-                        if (textContent) blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: createRichText(textContent) } });
+                        if (textContent) {
+                            // 偵測是否為以換行或符號表示的清單（有些文件會用 CSS 或 <br> 呈現點列）
+                            const innerHtml = node.innerHTML || '';
+                            const lines = textContent.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+                            // 常見的 bullet 標記與編號模式
+                            const bulletCharRe = /^[\u2022\-\*•·–—►▶✔▪]\s+/;
+                            const numberedRe = /^\d+[\.|\)]\s+/;
+
+                            const hasBr = /<br\s*\/?/i.test(innerHtml);
+                            const manyLines = lines.length >= 2;
+
+                            // 判斷是否為 list-like paragraph：多行或包含 <br> 且每行看起來像項目
+                            let looksLikeList = false;
+                            if (manyLines || hasBr) {
+                                // 如果大部分行以 bulletChar 或 numbered 開頭，視為清單
+                                const matchCount = lines.reduce((acc, l) => acc + ((bulletCharRe.test(l) || numberedRe.test(l) || /^[-••]/.test(l)) ? 1 : 0), 0);
+                                if (matchCount >= Math.max(1, Math.floor(lines.length * 0.6))) {
+                                    looksLikeList = true;
+                                }
+                            } else {
+                                // 單行但以 bullet 字元開始也視為 list item
+                                if (bulletCharRe.test(textContent) || numberedRe.test(textContent)) looksLikeList = true;
+                            }
+
+                            if (looksLikeList) {
+                                // 把每一行或每個項目轉成 bulleted_list_item
+                                lines.forEach(line => {
+                                    let cleaned = line.replace(bulletCharRe, '').replace(numberedRe, '').trim();
+                                    // 移除常見起始符號
+                                    cleaned = cleaned.replace(/^[\-•\u2022\*\d+\.|\)\s]+/, '').trim();
+                                    if (cleaned) {
+                                        blocks.push({ object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: createRichText(cleaned) } });
+                                    }
+                                });
+                            } else {
+                                blocks.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: createRichText(textContent) } });
+                            }
+                        }
                         break;
                     case 'IMG':
                         const src = extractImageSrc(node);
@@ -797,6 +953,28 @@
             console.warn('Error while expanding collapsible elements before parsing:', e);
         }
 
+
+        // 額外等待動態內容載入（針對像 gemini-cli docs 這樣的 SPA 或懶載入網站）
+        try {
+            console.log('🔄 等待動態內容載入...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // 嘗試觸發任何懶載入機制
+            const scrollableElements = document.querySelectorAll('[style*="overflow"]');
+            scrollableElements.forEach(el => {
+                try {
+                    el.scrollTop = el.scrollHeight;
+                    el.scrollLeft = el.scrollWidth;
+                } catch (e) { /* ignore */ }
+            });
+            
+            // 再等待一下讓懶載入內容出現
+            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log('✅ 動態內容載入等待完成');
+        } catch (e) {
+            console.warn('動態內容載入等待失敗:', e);
+        }
+
         const article = new Readability(document.cloneNode(true)).parse();
 
         if (isContentGood(article)) {
@@ -808,11 +986,22 @@
             tempDiv.innerHTML = finalContentHtml;
             contentElement = tempDiv;
         } else {
+            // Readability 失敗或被拒絕：先使用 CMS-specific fallback
             finalContentHtml = findContentCmsFallback();
             if (finalContentHtml) {
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = finalContentHtml;
                 contentElement = tempDiv;
+            } else {
+                // CMS fallback 也失敗，嘗試擷取大型清單（針對 CLI doc、reference pages）
+                const listFallback = extractLargestListFallback();
+                if (listFallback) {
+                    console.log('✅ Using list fallback content');
+                    finalContentHtml = listFallback;
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = finalContentHtml;
+                    contentElement = tempDiv;
+                }
             }
         }
 
@@ -860,7 +1049,7 @@
             console.log(`================================\n`);
 
             if (blocks.length > 0) {
-                return { title: finalTitle, blocks: blocks };
+                return { title: finalTitle, blocks: blocks, rawHtml: finalContentHtml };
             } else {
                 console.log(`❌ No blocks generated from content`);
                 // Return fallback content instead of continuing
@@ -875,7 +1064,8 @@
                                 text: { content: 'Content was found but could not be converted to blocks.' }
                             }]
                         }
-                    }]
+                    }],
+                    rawHtml: finalContentHtml
                 };
             }
         } else {
@@ -904,7 +1094,8 @@
                             text: { content: 'Could not automatically extract article content.' }
                         }]
                     }
-                }]
+                }],
+                rawHtml: finalContentHtml
             };
         }
     } catch (error) {
@@ -978,6 +1169,13 @@
             }
         }];
     }
+
+    // 如果在單元測試環境，暴露結果到全域以便測試程式存取
+    try {
+        if (typeof window !== 'undefined' && window.__UNIT_TESTING__) {
+            try { window.__notion_extraction_result = result; } catch (e) { /* ignore */ }
+        }
+    } catch (e) { /* ignore */ }
 
     return result;
 }).catch(error => {
