@@ -149,8 +149,6 @@
 ```
 notion-chrome/
 ├── .github/               # CI 與 workflow（test.yml、coverage.yml）
-├── .qwen/                 # QWEN 測試資源
-├── .roo/                  # 本地工具 / MCP 設定
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
 ├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popup.css）
 ├── options/               # 設置頁面（options.html, options.js, options.css）
@@ -167,9 +165,6 @@ notion-chrome/
 │   └── utils/
 ├── update-notification/   # 更新通知頁面與邏輯
 ├── lib/                   # 第三方庫（Readability.js）
-├── tests/                 # 測試（unit/, e2e/, manual/, helpers/）
-├── internal/              # 內部規格、scripts、設計資源（不直接發布）
-├── archive/               # 歷史存檔
 ├── icons/                 # 圖標
 ├── promo-images/          # 宣傳圖片（Chrome Web Store）
 ├── README.md              # 用戶說明
