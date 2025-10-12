@@ -368,12 +368,28 @@ class PerformanceOptimizer {
     _validateCachedElements(result) {
         if (!result) return false;
 
-        if (result.nodeType) {
-            // 單個元素
-            return document.contains(result);
-        } else if (result.length !== undefined) {
-            // NodeList 或數組
-            return Array.from(result).every(el => document.contains(el));
+        try {
+            if (result.nodeType) {
+                // 單個元素
+                return document.contains(result);
+            } else if (result.length !== undefined) {
+                // NodeList 或數組
+                return Array.from(result).every(el => {
+                    // 確保 el 是有效的 Node 對象
+                    if (!el || !el.nodeType) return false;
+
+                    try {
+                        return document.contains(el);
+                    } catch (e) {
+                        // document.contains 在 JSDOM 環境可能拋出錯誤
+                        return false;
+                    }
+                });
+            }
+        } catch (error) {
+            // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
+            L.warn('元素驗證失敗:', error.message);
+            return false;
         }
 
         return false;
@@ -810,11 +826,16 @@ class PerformanceOptimizer {
      * @private
      */
     _getMemoryStats() {
-        if (typeof window !== 'undefined' && window.performance && window.performance.memory) {
+        // 檢查 window.performance.memory 或 global.performance.memory（測試環境）
+        const perf = (typeof window !== 'undefined' && window.performance) ||
+                     (typeof global !== 'undefined' && global.performance) ||
+                     (typeof performance !== 'undefined' && performance);
+
+        if (perf && perf.memory) {
             return {
-                usedJSHeapSize: window.performance.memory.usedJSHeapSize,
-                totalJSHeapSize: window.performance.memory.totalJSHeapSize,
-                jsHeapSizeLimit: window.performance.memory.jsHeapSizeLimit
+                usedJSHeapSize: perf.memory.usedJSHeapSize,
+                totalJSHeapSize: perf.memory.totalJSHeapSize,
+                jsHeapSizeLimit: perf.memory.jsHeapSizeLimit
             };
         }
         return null;
