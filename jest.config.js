@@ -24,13 +24,13 @@ module.exports = {
     '!**/node_modules/**'
   ],
 
-  // 覆蓋率門檻 (當前基準: 20.67%, 逐步提升)
+  // 覆蓋率門檻 (當前基準: 31.41%, 逐步提升)
   coverageThreshold: {
     global: {
-      branches: 20,
-      functions: 20,
-      lines: 18,
-      statements: 20
+      branches: 31,
+      functions: 39,
+      lines: 31,
+      statements: 31
     }
   },
 

@@ -1,6 +1,6 @@
 # Codecov Configuration
 # 文檔: https://docs.codecov.com/docs/codecov-yaml
-# 最後更新: 2025-10-07 - 覆蓋率達到 20.67%
+# 最後更新: 2025-10-12 - 覆蓋率達到 31.41%
 
 # 覆蓋率設置
 coverage:
@@ -8,7 +8,7 @@ coverage:
   status:
     project:
       default:
-        target: 20.5%  # 目標覆蓋率（當前: 20.67%）
+        target: 31%  # 目標覆蓋率（當前: 31.41%）
         threshold: 1%  # 允許的下降幅度
         if_ci_failed: error  # CI 失敗時的行為
     patch:
@@ -48,6 +48,11 @@ flags:
     carryforward: true  # 保留先前的覆蓋率數據
 
 # 覆蓋率歷程：
+# - 2025-10-12: 31.41% (1056 個測試)
+#   - 新增 ErrorHandler 全面測試 (50+ 測試) - 覆蓋率: 92%
+#   - 新增 RetryManager 全面測試 (40+ 測試) - 覆蓋率: 93.15%
+#   - 新增 PerformanceOptimizer 全面測試 (60+ 測試) - 覆蓋率: 80.47%
+#   - 更新覆蓋率門檻至 31%
 # - 2025-10-07: 20.67% (764 個測試)
 #   - 新增 content-extraction 測試 (28 個測試)
 #   - 更新覆蓋率門檻至 20%
@@ -59,6 +64,10 @@ flags:
 # - tests/helpers/*.testable.js 包含從 scripts/ 提取的可測試邏輯
 # - 兩者都計入覆蓋率，因為 testable.js 文件是實際業務邏輯的純函數版本
 # - 當前模塊覆蓋率：
+#   - ErrorHandler.js: 92%
+#   - RetryManager.js: 93.15%
+#   - PerformanceOptimizer.js: 80.47%
+#   - AdaptivePerformanceManager.js: 81.81%
 #   - background-utils.testable.js: 97.56%
 #   - content-extraction.testable.js: 98.21%
 #   - content.testable.js: 97.46%
