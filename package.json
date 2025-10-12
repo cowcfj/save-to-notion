@@ -1,7 +1,7 @@
 {
   "name": "notion-chrome",
-  "version": "2.9.0",
-  "description": "一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.9.0 最新版本**：全新性能優化系統！DOM 查詢緩存、批處理系統、智能預加載，大幅提升響應速度和用戶體驗！",
+  "version": "2.9.1",
+  "description": "一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，**v2.9.1 最新版本**：全新性能優化系統！DOM 查詢緩存、批處理系統、智能預加載，大幅提升響應速度和用戶體驗！測試覆蓋率達 31.41%！",
   "main": "index.js",
   "directories": {
     "lib": "lib",
