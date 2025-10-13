@@ -255,10 +255,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const imageCount = response.imageCount || 0;
                     const blockCount = response.blockCount || 0;
                     details = `(${blockCount} blocks, ${imageCount} images)`;
+
+                    // 如果有警告信息（如圖片被過濾），顯示在詳情中
+                    if (response.warning) {
+                        details += ` ⚠️ ${response.warning}`;
+                    }
                 }
-                
+
                 status.textContent = `${action} successfully! ${details}`;
-                
+
                 // v2.7.0: 保存成功後，更新圖標徽章
                 chrome.runtime.sendMessage({ action: 'checkPageStatus' });
             } else {

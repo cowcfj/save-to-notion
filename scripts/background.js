@@ -660,13 +660,75 @@ async function handleCheckNotionPageExistsMessage(request, sendResponse) {
 
 /**
  * Saves new content to Notion as a new page
+ * @param {boolean} excludeImages - 是否排除所有圖片（用於重試）
  */
-async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon = null) {
+async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon = null, excludeImages = false) {
     // 開始性能監控 (service worker 環境，使用原生 Performance API)
     const startTime = performance.now();
     console.log('⏱️ 開始保存到 Notion...');
 
     const notionApiUrl = 'https://api.notion.com/v1/pages';
+
+    // 如果需要排除圖片（重試模式），過濾掉所有圖片
+    let validBlocks;
+    if (excludeImages) {
+        console.log('🚫 Retry mode: Excluding ALL images');
+        validBlocks = blocks.filter(block => block.type !== 'image');
+    } else {
+        // 過濾掉可能導致 Notion API 錯誤的圖片區塊
+        validBlocks = blocks.filter(block => {
+            if (block.type === 'image') {
+                const imageUrl = block.image?.external?.url;
+                if (!imageUrl) {
+                    console.warn('⚠️ Skipped image block without URL');
+                    return false;
+                }
+
+                // 檢查 URL 長度
+                if (imageUrl.length > 1500) {
+                    console.warn(`⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`);
+                    return false;
+                }
+
+                // 檢查特殊字符
+                const problematicChars = /[<>{}|\\^`\[\]]/;
+                if (problematicChars.test(imageUrl)) {
+                    console.warn(`⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`);
+                    return false;
+                }
+
+                // 驗證 URL 格式
+                try {
+                    const urlObj = new URL(imageUrl);
+
+                    // 只接受 http/https
+                    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+                        console.warn(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
+                        return false;
+                    }
+
+                    // 檢查 URL 是否可以正常訪問（基本格式檢查）
+                    if (!urlObj.hostname || urlObj.hostname.length < 3) {
+                        console.warn(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
+                        return false;
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`, error);
+                    return false;
+                }
+
+                console.log(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
+            }
+            return true;
+        });
+    }
+
+    const skippedCount = blocks.length - validBlocks.length;
+    if (skippedCount > 0) {
+        console.log(`📊 Filtered ${skippedCount} potentially problematic image blocks from ${blocks.length} total blocks`);
+    }
+
+    console.log(`📊 Total blocks to save: ${validBlocks.length}, Image blocks: ${validBlocks.filter(b => b.type === 'image').length}`);
 
     const pageData = {
         parent: { database_id: databaseId },
@@ -678,9 +740,9 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
                 url: pageUrl
             }
         },
-        children: blocks.slice(0, 100)
+        children: validBlocks.slice(0, 100)
     };
-    
+
     // v2.6.0: 添加網站 Icon（如果有）
     if (siteIcon) {
         pageData.icon = {
@@ -693,6 +755,18 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
     }
 
     try {
+        console.log(`🚀 Sending ${validBlocks.slice(0, 100).length} blocks to Notion API...`);
+
+        // 記錄所有圖片區塊的 URL（用於調試）
+        const imageBlocksInPayload = validBlocks.slice(0, 100).filter(b => b.type === 'image');
+        if (imageBlocksInPayload.length > 0) {
+            console.log(`📸 Image blocks in payload: ${imageBlocksInPayload.length}`);
+            imageBlocksInPayload.forEach((img, idx) => {
+                const url = img.image?.external?.url;
+                console.log(`  ${idx + 1}. ${url?.substring(0, 100)}... (length: ${url?.length})`);
+            });
+        }
+
         const response = await fetch(notionApiUrl, {
             method: 'POST',
             headers: {
@@ -708,12 +782,12 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
             console.log('📄 Notion API 創建頁面響應:', responseData);
             console.log('🔗 響應中的 URL:', responseData.url);
             const notionPageId = responseData.id;
-            
+
             // 如果區塊數量超過 100，分批添加剩餘區塊
-            if (blocks.length > 100) {
-                console.log(`📚 檢測到超長文章: ${blocks.length} 個區塊，需要分批添加`);
-                const appendResult = await appendBlocksInBatches(notionPageId, blocks, apiKey, 100);
-                
+            if (validBlocks.length > 100) {
+                console.log(`📚 檢測到超長文章: ${validBlocks.length} 個區塊，需要分批添加`);
+                const appendResult = await appendBlocksInBatches(notionPageId, validBlocks, apiKey, 100);
+
                 if (!appendResult.success) {
                     console.warn(`⚠️ 部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`, appendResult.error);
                     // 即使部分失敗，頁面已創建，仍然保存記錄
@@ -727,7 +801,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
                 notionUrl = `https://www.notion.so/${notionPageId.replace(/-/g, '')}`;
                 console.log('🔗 手動構建 Notion URL:', notionUrl);
             }
-            
+
             setSavedPageData(pageUrl, {
                 title: title,
                 savedAt: Date.now(),
@@ -737,12 +811,56 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
                 // 結束性能監控 (service worker 環境)
                 const duration = performance.now() - startTime;
                 console.log(`⏱️ 保存到 Notion 完成: ${duration.toFixed(2)}ms`);
-                sendResponse({ success: true, notionPageId: notionPageId });
+
+                // 如果有過濾掉的圖片，在成功訊息中提醒用戶
+                if (skippedCount > 0 || excludeImages) {
+                    const totalSkipped = excludeImages ? 'All images' : `${skippedCount} image(s)`;
+                    sendResponse({
+                        success: true,
+                        notionPageId: notionPageId,
+                        warning: `${totalSkipped} were skipped due to compatibility issues`
+                    });
+                } else {
+                    sendResponse({ success: true, notionPageId: notionPageId });
+                }
             });
         } else {
             const errorData = await response.json();
             console.error('Notion API Error:', errorData);
-            sendResponse({ success: false, error: errorData.message || 'Failed to save to Notion.' });
+            console.error('Complete error details:', JSON.stringify(errorData, null, 2));
+
+            // 記錄發送到 Notion 的資料，以便調試
+            console.error('Blocks sent to Notion (first 5):', validBlocks.slice(0, 5).map(b => {
+                if (b.type === 'image') {
+                    return {
+                        type: b.type,
+                        imageUrl: b.image?.external?.url,
+                        urlLength: b.image?.external?.url?.length
+                    };
+                }
+                return { type: b.type };
+            }));
+
+            // 檢查是否仍有圖片驗證錯誤
+            if (errorData.code === 'validation_error' && errorData.message && errorData.message.includes('image')) {
+                // 嘗試找出哪個圖片導致問題
+                const imageBlocks = validBlocks.filter(b => b.type === 'image');
+                console.error(`❌ Still have image validation errors. Total image blocks: ${imageBlocks.length}`);
+                console.error('All image URLs:', imageBlocks.map(b => b.image?.external?.url));
+
+                // 自動重試：排除所有圖片
+                console.log('🔄 Auto-retry: Saving without ANY images...');
+
+                // 使用 setTimeout 避免立即重試
+                setTimeout(() => {
+                    saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon, true);
+                }, 500);
+                return;
+            }
+
+            // 提供更友好的錯誤信息
+            let errorMessage = errorData.message || 'Failed to save to Notion.';
+            sendResponse({ success: false, error: errorMessage });
         }
     } catch (error) {
         console.error('Fetch Error:', error);
@@ -755,6 +873,58 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
  */
 async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResponse) {
     try {
+        // 過濾掉可能導致 Notion API 錯誤的圖片區塊（與 saveToNotion 一致）
+        const validBlocks = blocks.filter(block => {
+            if (block.type === 'image') {
+                const imageUrl = block.image?.external?.url;
+                if (!imageUrl) {
+                    console.warn('⚠️ Skipped image block without URL');
+                    return false;
+                }
+
+                // 檢查 URL 長度
+                if (imageUrl.length > 1500) {
+                    console.warn(`⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`);
+                    return false;
+                }
+
+                // 檢查特殊字符
+                const problematicChars = /[<>{}|\\^`\[\]]/;
+                if (problematicChars.test(imageUrl)) {
+                    console.warn(`⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`);
+                    return false;
+                }
+
+                // 驗證 URL 格式
+                try {
+                    const urlObj = new URL(imageUrl);
+
+                    // 只接受 http/https
+                    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+                        console.warn(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
+                        return false;
+                    }
+
+                    // 檢查 URL 是否可以正常訪問（基本格式檢查）
+                    if (!urlObj.hostname || urlObj.hostname.length < 3) {
+                        console.warn(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
+                        return false;
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`, error);
+                    return false;
+                }
+
+                console.log(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
+            }
+            return true;
+        });
+
+        const skippedCount = blocks.length - validBlocks.length;
+        if (skippedCount > 0) {
+            console.log(`📊 Filtered ${skippedCount} potentially problematic image blocks from ${blocks.length} total blocks`);
+        }
+
         const getResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
             method: 'GET',
             headers: {
@@ -784,22 +954,22 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
                 'Notion-Version': '2022-06-28'
             },
             body: JSON.stringify({
-                children: blocks.slice(0, 100)
+                children: validBlocks.slice(0, 100)
             })
         });
 
         if (updateResponse.ok) {
             // 如果區塊數量超過 100，分批添加剩餘區塊
-            if (blocks.length > 100) {
-                console.log(`📚 檢測到超長文章: ${blocks.length} 個區塊，需要分批添加`);
-                const appendResult = await appendBlocksInBatches(pageId, blocks, apiKey, 100);
-                
+            if (validBlocks.length > 100) {
+                console.log(`📚 檢測到超長文章: ${validBlocks.length} 個區塊，需要分批添加`);
+                const appendResult = await appendBlocksInBatches(pageId, validBlocks, apiKey, 100);
+
                 if (!appendResult.success) {
                     console.warn(`⚠️ 部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`, appendResult.error);
                     // 即使部分失敗，頁面已更新，仍然繼續
                 }
             }
-            
+
             const titleUpdatePromise = fetch(`https://api.notion.com/v1/pages/${pageId}`, {
                 method: 'PATCH',
                 headers: {
@@ -826,11 +996,27 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
             });
 
             await Promise.all([titleUpdatePromise, storageUpdatePromise]);
-            sendResponse({ success: true });
+
+            // 如果有過濾掉的圖片，在回應中提醒用戶
+            if (skippedCount > 0) {
+                sendResponse({
+                    success: true,
+                    warning: `${skippedCount} image(s) were skipped due to compatibility issues`
+                });
+            } else {
+                sendResponse({ success: true });
+            }
         } else {
             const errorData = await updateResponse.json();
             console.error('Notion Update Error:', errorData);
-            sendResponse({ success: false, error: errorData.message || 'Failed to update Notion page.' });
+
+            // 提供更友好的錯誤信息
+            let errorMessage = errorData.message || 'Failed to update Notion page.';
+            if (errorData.code === 'validation_error' && errorMessage.includes('image')) {
+                errorMessage = 'Update Failed. Some images may have invalid URLs. Try updating again - problematic images will be filtered out.';
+            }
+
+            sendResponse({ success: false, error: errorMessage });
         }
     } catch (error) {
         console.error('Update Error:', error);

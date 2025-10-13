@@ -65,12 +65,12 @@ function isValidImageUrl(url) {
     // 檢查是否為有效的 HTTP/HTTPS URL
     if (!cleanedUrl.match(/^https?:\/\//i)) return false;
 
-    // 檢查 URL 長度（Notion 有限制）
-    if (cleanedUrl.length > 2000) return false;
+    // 檢查 URL 長度（Notion 有限制，保守設置為 1500）
+    if (cleanedUrl.length > 1500) return false;
 
     try {
         const urlObj = new URL(cleanedUrl);
-        
+
         // 檢查是否為 data URL
         if (urlObj.protocol === 'data:') {
             return urlObj.href.startsWith('data:image/');
@@ -122,6 +122,42 @@ function isValidImageUrl(url) {
         }
 
         return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+    } catch (error) {
+        return false;
+    }
+}
+
+/**
+ * 檢查 URL 是否可能被 Notion API 接受（更嚴格的驗證）
+ * @param {string} url - 要檢查的 URL
+ * @returns {boolean} 是否可能被 Notion 接受
+ */
+function isNotionCompatibleImageUrl(url) {
+    if (!isValidImageUrl(url)) return false;
+
+    try {
+        const urlObj = new URL(url);
+
+        // Notion 不支持某些特殊協議
+        if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+            return false;
+        }
+
+        // 檢查是否包含可能導致問題的特殊字符
+        // Notion API 對某些字符敏感
+        const problematicChars = /[<>{}|\\^`\[\]]/;
+        if (problematicChars.test(url)) {
+            return false;
+        }
+
+        // 檢查是否有過多的查詢參數（可能表示動態生成的 URL）
+        const paramCount = Array.from(urlObj.searchParams.keys()).length;
+        if (paramCount > 10) {
+            console.warn(`Image URL has too many query parameters (${paramCount}): ${url.substring(0, 100)}`);
+            return false;
+        }
+
+        return true;
     } catch (error) {
         return false;
     }
@@ -321,6 +357,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         cleanImageUrl,
         isValidImageUrl,
+        isNotionCompatibleImageUrl,
         extractImageSrc,
         extractBestUrlFromSrcset,
         generateImageCacheKey,
@@ -331,6 +368,7 @@ if (typeof module !== 'undefined' && module.exports) {
     window.ImageUtils = {
         cleanImageUrl,
         isValidImageUrl,
+        isNotionCompatibleImageUrl,
         extractImageSrc,
         extractBestUrlFromSrcset,
         generateImageCacheKey,

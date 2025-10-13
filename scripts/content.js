@@ -508,8 +508,13 @@ const Logger = {
                                 const absoluteUrl = new URL(src, document.baseURI).href;
                                 const cleanedUrl = cleanImageUrl(absoluteUrl);
 
+                                // 使用更嚴格的 Notion 兼容性檢查
+                                const isCompatible = typeof isNotionCompatibleImageUrl !== 'undefined'
+                                    ? isNotionCompatibleImageUrl(cleanedUrl)
+                                    : isValidImageUrl(cleanedUrl);
+
                                 // 檢查是否為有效的圖片格式和 URL
-                                if (cleanedUrl && isValidImageUrl(cleanedUrl) && !blocks.some(b => b.type === 'image' && b.image.external.url === cleanedUrl)) {
+                                if (cleanedUrl && isCompatible && !blocks.some(b => b.type === 'image' && b.image.external.url === cleanedUrl)) {
                                     blocks.push({
                                         object: 'block',
                                         type: 'image',
@@ -519,6 +524,8 @@ const Logger = {
                                         }
                                     });
                                     console.log(`Added image: ${cleanedUrl}`);
+                                } else if (cleanedUrl && !isCompatible) {
+                                    console.warn(`Skipped incompatible image URL: ${cleanedUrl.substring(0, 100)}...`);
                                 }
                             } catch (error) {
                                 /*
