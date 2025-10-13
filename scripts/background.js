@@ -2565,415 +2565,48 @@ async function handleSavePage(sendResponse) {
                     return chunks;
                 }
                 
-                // 將 Markdown 轉換為 Notion 區塊
-                function convertMarkdownToNotionBlocks(markdown) {
-                    const blocks = [];
-                    const lines = markdown.split('\n');
-                    let currentParagraph = '';
-                    let inCodeBlock = false;
-                    let codeContent = '';
-                    let codeLanguage = 'plain text';
+                if (finalContent) {
                     
-                    console.log(`🔄 Converting Markdown to Notion blocks: ${lines.length} lines`);
-                    
-                    for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i];
-                        const trimmedLine = line.trim();
-                        
-                        // 處理代碼區塊
-                        if (trimmedLine.startsWith('```')) {
-                            if (inCodeBlock) {
-                                // 結束代碼區塊
-                                if (codeContent.trim()) {
-                                    blocks.push({
-                                        object: 'block',
-                                        type: 'code',
-                                        code: {
-                                            rich_text: [{ type: 'text', text: { content: codeContent.trim() } }],
-                                            language: codeLanguage
-                                        }
-                                    });
-                                }
-                                inCodeBlock = false;
-                                codeContent = '';
-                                codeLanguage = 'plain text';
-                            } else {
-                                // 開始代碼區塊
-                                // 先保存當前段落
-                                if (currentParagraph.trim()) {
-                                    blocks.push({
-                                        object: 'block',
-                                        type: 'paragraph',
-                                        paragraph: {
-                                            rich_text: [{ type: 'text', text: { content: currentParagraph.trim() } }]
-                                        }
-                                    });
-                                    currentParagraph = '';
-                                }
-                                inCodeBlock = true;
-                                // 提取語言（如果有）
-                                const lang = trimmedLine.substring(3).trim();
-                                if (lang) {
-                                    codeLanguage = lang;
-                                }
-                            }
-                            continue;
-                        }
-                        
-                        if (inCodeBlock) {
-                            codeContent += line + '\n';
-                            continue;
-                        }
-                        
-                        // 處理標題
-                        if (trimmedLine.startsWith('#')) {
-                            // 先保存當前段落
-                            if (currentParagraph.trim()) {
-                                blocks.push({
-                                    object: 'block',
-                                    type: 'paragraph',
-                                    paragraph: {
-                                        rich_text: [{ type: 'text', text: { content: currentParagraph.trim() } }]
-                                    }
-                                });
-                                currentParagraph = '';
-                            }
-                            
-                            // 計算標題級別
-                            const level = Math.min(3, trimmedLine.match(/^#+/)[0].length);
-                            const headingText = trimmedLine.replace(/^#+\s*/, '');
-                            
-                            if (headingText) {
-                                blocks.push({
-                                    object: 'block',
-                                    type: `heading_${level}`,
-                                    [`heading_${level}`]: {
-                                        rich_text: [{ type: 'text', text: { content: headingText } }]
-                                    }
-                                });
-                            }
-                            continue;
-                        }
-                        
-                        // 處理列表項
-                        if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ') || /^\d+\.\s/.test(trimmedLine)) {
-                            // 先保存當前段落
-                            if (currentParagraph.trim()) {
-                                blocks.push({
-                                    object: 'block',
-                                    type: 'paragraph',
-                                    paragraph: {
-                                        rich_text: [{ type: 'text', text: { content: currentParagraph.trim() } }]
-                                    }
-                                });
-                                currentParagraph = '';
-                            }
-                            
-                            // 提取列表項文本
-                            let listText = '';
-                            if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
-                                listText = trimmedLine.substring(2).trim();
-                            } else {
-                                listText = trimmedLine.replace(/^\d+\.\s/, '');
-                            }
-                            
-                            // 處理加粗格式 **text**
-                            const richText = [];
-                            const parts = listText.split(/(\*\*[^*]+\*\*)/);
-                            
-                            for (const part of parts) {
-                                if (part.startsWith('**') && part.endsWith('**')) {
-                                    // 加粗文本
-                                    const boldText = part.slice(2, -2);
-                                    richText.push({
-                                        type: 'text',
-                                        text: { content: boldText },
-                                        annotations: { bold: true }
-                                    });
-                                } else if (part) {
-                                    // 普通文本
-                                    richText.push({
-                                        type: 'text',
-                                        text: { content: part }
-                                    });
-                                }
-                            }
-                            
-                            blocks.push({
-                                object: 'block',
-                                type: 'bulleted_list_item',
-                                bulleted_list_item: {
-                                    rich_text: richText.length > 0 ? richText : [{ type: 'text', text: { content: listText } }]
-                                }
-                            });
-                            continue;
-                        }
-                        
-                        // 處理空行
-                        if (!trimmedLine) {
-                            if (currentParagraph.trim()) {
-                                blocks.push({
-                                    object: 'block',
-                                    type: 'paragraph',
-                                    paragraph: {
-                                        rich_text: [{ type: 'text', text: { content: currentParagraph.trim() } }]
-                                    }
-                                });
-                                currentParagraph = '';
-                            }
-                            continue;
-                        }
-                        
-                        // 累積段落內容
-                        if (currentParagraph) {
-                            currentParagraph += ' ' + trimmedLine;
-                        } else {
-                            currentParagraph = trimmedLine;
+                    // 優先使用增強轉換器
+                    if (typeof window.convertHtmlToNotionBlocks === 'function') {
+                        console.log('🎉 Using enhanced HTML to Notion converter');
+                        try {
+                            blocks = window.convertHtmlToNotionBlocks(finalContent);
+                        } catch (error) {
+                            console.error('❌ Enhanced converter failed:', error);
+                            blocks = null;
                         }
                     }
                     
-                    // 處理最後的段落
-                    if (currentParagraph.trim()) {
-                        blocks.push({
-                            object: 'block',
-                            type: 'paragraph',
-                            paragraph: {
-                                rich_text: [{ type: 'text', text: { content: currentParagraph.trim() } }]
-                            }
-                        });
-                    }
-                    
-                    // 處理未結束的代碼區塊
-                    if (inCodeBlock && codeContent.trim()) {
-                        blocks.push({
-                            object: 'block',
-                            type: 'code',
-                            code: {
-                                rich_text: [{ type: 'text', text: { content: codeContent.trim() } }],
-                                language: codeLanguage
-                            }
-                        });
-                    }
-                    
-                    console.log(`✅ Converted Markdown to ${blocks.length} Notion blocks`);
-                    return blocks;
-                }
-
-                // 轉換為 Notion 格式的函數
-                function convertHtmlToNotionBlocks(html) {
-                    console.log(`🔄 Converting HTML to Notion blocks: ${html.length} chars`);
-                    
-                    // 🎯 新策略：對於 Markdown 網站，嘗試獲取原始 Markdown 源碼
-                    const currentUrl = window.location.href;
-                    
-                    // 檢查是否是 GitHub Pages 或類似的 Markdown 網站
-                    if (currentUrl.includes('github.io') || currentUrl.includes('docs')) {
-                        console.log('🔍 Detected potential Markdown website, attempting to fetch source...');
+                    // 回退方案：簡單文本處理
+                    if (!blocks || blocks.length === 0) {
+                        console.warn('⚠️ Using fallback: simple text processing');
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = finalContent;
+                        const text = (tempDiv.textContent || tempDiv.innerText || '').trim();
                         
-                        // 嘗試構建原始 Markdown URL
-                        let markdownUrl = null;
-                        
-                        if (currentUrl.includes('google-gemini.github.io/gemini-cli')) {
-                            markdownUrl = 'https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/commands.md';
-                        }
-                        // 可以添加更多網站的規則
-                        
-                        if (markdownUrl) {
-                            console.log(`🔄 Attempting to fetch Markdown from: ${markdownUrl}`);
-                            
-                            // 使用同步方法嘗試獲取（在 executeScript 上下文中）
-                            try {
-                                const xhr = new XMLHttpRequest();
-                                xhr.open('GET', markdownUrl, false); // 同步請求
-                                xhr.send();
-                                
-                                if (xhr.status === 200) {
-                                    const markdown = xhr.responseText;
-                                    console.log(`✅ Successfully fetched original Markdown: ${markdown.length} chars`);
-                                    
-                                    // 將 Markdown 轉換為 Notion 區塊
-                                    return convertMarkdownToNotionBlocks(markdown);
-                                }
-                            } catch (error) {
-                                console.warn('Failed to fetch original Markdown:', error);
-                            }
-                        }
-                    }
-                    
-                    // 回退到 HTML 處理
-                    const blocks = [];
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = html;
-                    
-                    // 嘗試提取純文本並簡單處理
-                    const fullText = tempDiv.textContent || tempDiv.innerText || '';
-                    console.log(`📝 Extracted full text: ${fullText.length} chars`);
-                    
-                    if (fullText.length > 500) {
-                        // 將文本按段落分割，保持原有的結構
-                        const lines = fullText.split('\n').filter(line => line.trim());
-                        console.log(`📋 Processing ${lines.length} lines`);
-                        
-                        let currentParagraph = '';
-                        const maxLineLength = 1500; // 較大的段落長度限制
-                        
-                        lines.forEach((line, index) => {
-                            const trimmedLine = line.trim();
-                            
-                            // 跳過空行和很短的行
-                            if (!trimmedLine || trimmedLine.length < 3) return;
-                            
-                            // 檢查是否是標題（基於內容判斷）
-                            const isTitle = (
-                                /^[A-Z][^.!?]*$/.test(trimmedLine) && trimmedLine.length < 100 &&
-                                (trimmedLine.includes('commands') || trimmedLine.includes('Commands') || 
-                                 trimmedLine.includes('/') || trimmedLine.includes('@') || trimmedLine.includes('!'))
-                            ) || trimmedLine.startsWith('# ') || /^[A-Z][A-Za-z\s\/\(\)@!]+$/.test(trimmedLine);
-                            
-                            if (isTitle && trimmedLine.length < 100) {
-                                // 先保存當前段落（如果有內容）
-                                if (currentParagraph.trim()) {
-                                    blocks.push({
-                                        object: 'block',
-                                        type: 'paragraph',
-                                        paragraph: {
-                                            rich_text: [{ type: 'text', text: { content: currentParagraph.trim() } }]
-                                        }
-                                    });
-                                    currentParagraph = '';
-                                }
-                                
-                                // 添加標題
-                                blocks.push({
-                                    object: 'block',
-                                    type: 'heading_2',
-                                    heading_2: {
-                                        rich_text: [{ type: 'text', text: { content: trimmedLine } }]
-                                    }
-                                });
-                            } else {
-                                // 累積段落內容，保持原有的格式
-                                if (currentParagraph) {
-                                    currentParagraph += '\n' + line; // 保持原有的縮進
-                                } else {
-                                    currentParagraph = line;
-                                }
-                                
-                                // 如果段落太長，就分割
-                                if (currentParagraph.length > maxLineLength) {
-                                    blocks.push({
-                                        object: 'block',
-                                        type: 'paragraph',
-                                        paragraph: {
-                                            rich_text: [{ type: 'text', text: { content: currentParagraph.trim() } }]
-                                        }
-                                    });
-                                    currentParagraph = '';
-                                }
-                            }
-                        });
-                        
-                        // 添加最後一個段落
-                        if (currentParagraph.trim()) {
-                            blocks.push({
+                        if (text) {
+                            const paragraphs = text.split('\n\n').filter(p => p.trim() && p.length > 10);
+                            blocks = paragraphs.map(para => ({
                                 object: 'block',
                                 type: 'paragraph',
                                 paragraph: {
-                                    rich_text: [{ type: 'text', text: { content: currentParagraph.trim() } }]
+                                    rich_text: [{ type: 'text', text: { content: para.trim().substring(0, 2000) } }]
                                 }
-                            });
+                            }));
+                        } else {
+                            blocks = [{
+                                object: 'block',
+                                type: 'paragraph',
+                                paragraph: {
+                                    rich_text: [{ type: 'text', text: { content: 'Content extraction failed' } }]
+                                }
+                            }];
                         }
-                        
-                        console.log(`✅ Simple processing: ${blocks.length} blocks created`);
-                        return blocks;
                     }
                     
-                    // 最終回退
-                    console.log(`❌ All methods failed, returning simple text block`);
-                    return [{
-                        object: 'block',
-                        type: 'paragraph',
-                        paragraph: {
-                            rich_text: [{ type: 'text', text: { content: html.substring(0, 2000) } }]
-                        }
-                    }];
-                }
+                    console.log(`✅ Generated ${blocks.length} Notion blocks`);
                 
-                if (article && isContentGood(article)) {
-                    finalContent = article.content;
-                    finalTitle = article.title;
-                } else if (article) {
-                    console.log('🔄 Readability.js failed, trying CMS-aware fallback...');
-                    
-                    // 只有在 emergency extraction 也失敗時才使用備用方案
-                    if (!finalContent) {
-                        // 備用方案：使用更全面的選擇器列表
-                    const fallbackSelectors = [
-                        // WordPress 和 CMS 模式
-                        '.entry-content', '.post-content', '.article-content', '.content-area', '.single-content',
-                        '.main-content', '.page-content', '.content-wrapper', '.article-wrapper', '.post-wrapper',
-                        '.content-body', '.article-text', '.post-text', '.content-main', '.article-main',
-                        // 移動版常用選擇器
-                        '.mobile-content', '.m-content', '.content', '.text-content', '.article-detail',
-                        '.post-detail', '.detail-content', '.news-content', '.story-content',
-                        // 文章結構
-                        'article[role="main"]', 'article.post', 'article.article', 'article.content', 'article.entry',
-                        '.post-body', '.article-body', '.entry-body', '.news-body', '.story-body',
-                        '.content-text', '.article-container', '.post-container', '.content-container',
-                        // 通用選擇器
-                        'article', 'main article', '.article', '.post', '.entry', '.news', '.story',
-                        // ID 選擇器
-                        '#content', '#main-content', '#article-content', '#post-content', '#article', '#post', '#main'
-                    ];
-                    
-                    for (const selector of fallbackSelectors) {
-                        const element = cachedQuery(selector, document, { single: true });
-                        if (element) {
-                            const textLength = element.textContent.trim().length;
-                            console.log(`🔍 Checking selector "${selector}": ${textLength} characters`);
-                            if (textLength >= 250) {
-                                console.log(`✅ Found content with selector: ${selector} (${textLength} chars)`);
-                                finalContent = element.innerHTML;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // 最後的嘗試：通用內容查找
-                    if (!finalContent) {
-                        console.log('🆘 Trying generic content finder with lower standards...');
-                        const candidates = cachedQuery('article, section, main, div', document);
-                        let bestElement = null;
-                        let maxScore = 0;
-                        
-                        for (const el of candidates) {
-                            const text = el.textContent?.trim() || '';
-                            if (text.length < 100) continue; // 降低標準到 100 字符
-                            
-                            const paragraphs = cachedQuery('p', el).length;
-                            const images = cachedQuery('img', el).length;
-                            const links = cachedQuery('a', el).length;
-                            
-                            const score = text.length + (paragraphs * 50) + (images * 30) - (links * 25);
-                            
-                            if (score > maxScore) {
-                                if (bestElement && el.contains(bestElement)) continue;
-                                maxScore = score;
-                                bestElement = el;
-                            }
-                        }
-                        
-                        if (bestElement) {
-                            console.log(`🎯 Emergency fallback: Found content with ${bestElement.textContent.trim().length} characters`);
-                            finalContent = bestElement.innerHTML;
-                        }
-                    }
-                    } // 結束 emergency extraction 檢查的條件塊
-                }
-                
-                if (finalContent) {
-                    const blocks = convertHtmlToNotionBlocks(finalContent);
-                    
                     // v2.5.6: 優先添加封面圖
                     console.log('=== v2.5.6: Featured Image Collection ===');
                     const featuredImageUrl = collectFeaturedImage();
@@ -3045,7 +2678,7 @@ async function handleSavePage(sendResponse) {
                     }]
                 };
             }
-        }, ['lib/Readability.js', 'scripts/performance/PerformanceOptimizer.js']);
+        }, ['lib/Readability.js', 'lib/turndown.js', 'lib/turndown-plugin-gfm.js', 'scripts/utils/htmlToNotionConverter.js', 'scripts/performance/PerformanceOptimizer.js']);
         } catch (scriptError) {
             console.error('❌ Content extraction script execution failed:', scriptError);
             result = {
