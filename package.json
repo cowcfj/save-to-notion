@@ -41,30 +41,5 @@
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15"
-  },
-  "jest": {
-    "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": [
-      "<rootDir>/tests/setup.js"
-    ],
-    "collectCoverageFrom": [
-      "scripts/**/*.js",
-      "tests/helpers/utils.testable.js",
-      "tests/helpers/background-utils.testable.js",
-      "tests/helpers/highlighter-v2.testable.js",
-      "tests/helpers/content.testable.js",
-      "tests/helpers/content-extraction.testable.js",
-      "!scripts/**/*.test.js",
-      "!scripts/**/*.spec.js",
-      "!**/node_modules/**"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "branches": 25,
-        "functions": 37,
-        "lines": 29,
-        "statements": 29
-      }
-    }
   }
 }

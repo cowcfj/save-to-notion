@@ -44,6 +44,8 @@ module.exports = {
     '/internal/',
     '/tests/manual/' // 手動測試放在此目錄，不應在 CI 或常規測試中執行
   ],
+  // 忽略模組路徑以避免 Jest Haste Map 命名衝突（重複的 package.json）
+  modulePathIgnorePatterns: ['<rootDir>/releases/'],
 
   // 轉換配置（如果需要）
   transform: {},
