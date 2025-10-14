@@ -1,5 +1,20 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.9.2 - 2025-10-14
+### 🐛 Bug 修復
+- **AttributeExtractor 修復**：修復 `isLazyLoadAttribute` 方法的誤判問題，避免將普通屬性（如 `data-testid`）錯誤識別為懶加載屬性
+- **測試穩定性提升**：修復多個測試文件中的實現問題，提升整體測試穩定性
+
+### 🧪 測試覆蓋率提升
+- **測試覆蓋率達到 34.89%**：相比 2.9.1 版本提升 +3.48%（從 31.41% 提升）
+- **新增測試文件**：
+  - `tests/unit/imageExtraction/AttributeExtractor.test.js` - 圖片屬性提取器測試（95% 覆蓋率）
+  - `tests/unit/utils.test.js` - 工具函數測試（74% 覆蓋率）
+  - `tests/unit/seamless-migration.test.js` - 無痛遷移測試（76% 覆蓋率）
+- **測試基礎設施完善**：更新 Jest 配置，調整覆蓋率門檻以反映當前進展
+
+---
+
 ## v2.9.1 - 2025-10-13
 ### 🐛 Bug 修復
 - **PerformanceOptimizer 測試穩定性提升**：增強 `_validateCachedElements` 的錯誤處理以支持 JSDOM 測試環境
