@@ -11,17 +11,17 @@ class AttributeExtractor {
         return [
             // 標準屬性
             'src',
-            
+
             // 常見的懶加載屬性
             'data-src',
             'data-lazy-src',
             'data-original',
             'data-original-src',
-            
+
             // 響應式圖片屬性
             'data-srcset',
             'data-lazy-srcset',
-            
+
             // 擴展的懶加載屬性
             'data-actualsrc',
             'data-src-original',
@@ -59,13 +59,13 @@ class AttributeExtractor {
         }
 
         const attributes = options.customAttributes || this.IMAGE_ATTRIBUTES;
-        
+
         // 按優先級檢查各種屬性
         for (const attr of attributes) {
             if (imgNode.hasAttribute(attr)) {
                 const value = imgNode.getAttribute(attr);
                 const cleanedValue = this._cleanAttributeValue(value);
-                
+
                 if (cleanedValue && this._isValidImageUrl(cleanedValue)) {
                     return cleanedValue;
                 }
@@ -92,11 +92,11 @@ class AttributeExtractor {
             if (imgNode.hasAttribute(attr)) {
                 const value = imgNode.getAttribute(attr);
                 const cleanedValue = this._cleanAttributeValue(value);
-                
-                if (cleanedValue && 
-                    this._isValidImageUrl(cleanedValue) && 
+
+                if (cleanedValue &&
+                    this._isValidImageUrl(cleanedValue) &&
                     !seenUrls.has(cleanedValue)) {
-                    
+
                     urls.push({
                         url: cleanedValue,
                         attribute: attr,
@@ -121,8 +121,8 @@ class AttributeExtractor {
             return false;
         }
 
-        return this.IMAGE_ATTRIBUTES.some(attr => 
-            imgNode.hasAttribute(attr) && 
+        return this.IMAGE_ATTRIBUTES.some(attr =>
+            imgNode.hasAttribute(attr) &&
             this._cleanAttributeValue(imgNode.getAttribute(attr))
         );
     }
@@ -152,7 +152,7 @@ class AttributeExtractor {
                 const value = imgNode.getAttribute(attr);
                 const cleanedValue = this._cleanAttributeValue(value);
                 const isValid = cleanedValue && this._isValidImageUrl(cleanedValue);
-                
+
                 stats.totalAttributes++;
                 if (isValid) {
                     stats.validUrls++;
@@ -189,7 +189,7 @@ class AttributeExtractor {
 
         // 移除引號
         cleaned = cleaned.replace(/^["']|["']$/g, '');
-        
+
         // 再次檢查是否為空
         if (!cleaned) {
             return null;
@@ -224,7 +224,7 @@ class AttributeExtractor {
             '1x1',
             'transparent'
         ];
-        
+
         const lowerUrl = url.toLowerCase();
         if (placeholders.some(placeholder => lowerUrl.includes(placeholder))) {
             return false;
@@ -256,10 +256,34 @@ class AttributeExtractor {
      * @returns {boolean} 是否為懶加載屬性
      */
     static isLazyLoadAttribute(attributeName) {
-        return attributeName.startsWith('data-') && 
-               (attributeName.includes('lazy') || 
-                attributeName.includes('src') || 
-                attributeName.includes('original'));
+        // 常見的懶加載屬性
+        const lazyLoadAttributes = [
+            'data-src',
+            'data-lazy-src',
+            'data-original',
+            'data-original-src',
+            'data-actualsrc',
+            'data-src-original',
+            'data-echo',
+            'data-href',
+            'data-large',
+            'data-bigsrc',
+            'data-full-src',
+            'data-hi-res-src',
+            'data-large-src',
+            'data-zoom-src',
+            'data-image-src',
+            'data-img-src',
+            'data-real-src',
+            'data-lazy',
+            'data-url',
+            'data-image',
+            'data-img',
+            'data-fallback-src',
+            'data-origin'
+        ];
+
+        return lazyLoadAttributes.includes(attributeName);
     }
 
     /**
@@ -268,7 +292,7 @@ class AttributeExtractor {
      * @returns {boolean} 是否為響應式圖片屬性
      */
     static isResponsiveAttribute(attributeName) {
-        return attributeName.includes('srcset') || 
+        return attributeName.includes('srcset') ||
                attributeName === 'sizes';
     }
 }
