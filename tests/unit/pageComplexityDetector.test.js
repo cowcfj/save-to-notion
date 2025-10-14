@@ -87,10 +87,20 @@ function setupDetectorForTest(document, window, location) {
             if (totalText.length === 0) return 0;
 
             let linkTextLength = 0;
-            links.forEach(link => {
-                const linkText = link.textContent?.trim() || '';
-                linkTextLength += linkText.length;
-            });
+            // 確保 links 是可迭代的數組或類數組對象
+            if (links && typeof links.forEach === 'function') {
+                links.forEach(link => {
+                    const linkText = link.textContent?.trim() || '';
+                    linkTextLength += linkText.length;
+                });
+            } else {
+                // 回退到 for 循環
+                for (let i = 0; i < (links.length || 0); i++) {
+                    const link = links[i];
+                    const linkText = link.textContent?.trim() || '';
+                    linkTextLength += linkText.length;
+                }
+            }
 
             return linkTextLength / totalText.length;
         } catch (error) {
