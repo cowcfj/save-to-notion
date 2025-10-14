@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Save to Notion (Smart Clipper)",
+  "version": "2.9.2",
+  "description": "智能網頁擷取工具，支持網站 Icon、封面圖提取、增強的圖片提取、模板自定義、多顏色標註功能，一鍵保存到 Notion。",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://api.notion.com/*",
+    "https://api.notion.com/v1/oauth/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": [
+        "scripts/utils.js",
+        "scripts/utils/imageUtils.js",
+        "scripts/seamless-migration.js",
+        "scripts/highlighter-v2.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

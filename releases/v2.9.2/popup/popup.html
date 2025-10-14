@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save to Notion</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Save to Notion</h2>
+        <p id="status">Ready to save.</p>
+        <button id="highlight-button">📝 Start Highlighting</button>
+        <button id="save-button">💾 Save Page</button>
+        <button id="open-notion-button" style="display: none;">🔗 Open in Notion</button>
+    <button id="clear-highlights-button" style="display: none;">🗑️ Clear Highlights</button>
+    <button id="show-debug-extraction-button" title="Open the last content extraction result in a new tab">🧪 Show Last Extraction</button>
+        <div class="links">
+            <a href="../options/options.html" target="_blank">⚙️ Settings</a>
+            <a href="../help.html" target="_blank">📖 Help</a>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
