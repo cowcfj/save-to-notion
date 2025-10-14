@@ -17,7 +17,16 @@ function isContentGood(article) {
     tempDiv.innerHTML = article.content;
     const links = tempDiv.querySelectorAll('a');
     let linkTextLength = 0;
-    links.forEach(link => linkTextLength += link.textContent.length);
+    // 確保 links 是可迭代的數組或類數組對象
+    if (links && typeof links.forEach === 'function') {
+        links.forEach(link => linkTextLength += link.textContent.length);
+    } else {
+        // 回退到 for 循環
+        for (let i = 0; i < (links.length || 0); i++) {
+            const link = links[i];
+            linkTextLength += link.textContent.length;
+        }
+    }
     const linkDensity = linkTextLength / article.length;
     if (linkDensity > MAX_LINK_DENSITY) {
         console.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);

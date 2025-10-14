@@ -91,13 +91,63 @@ const Logger = {
 
             // 計算連結密度（link density）— 但對於以點列/參考為主的文件（像 CLI docs）
             // 我們允許例外：如果內容包含大量的 <li> 項目，則視為有效內容。
-            const links = tempDiv.querySelectorAll ? tempDiv.querySelectorAll('a') : cachedQuery('a', tempDiv);
+            let links = [];
+            try {
+                if (tempDiv.querySelectorAll) {
+                    links = tempDiv.querySelectorAll('a') || [];
+                } else {
+                    const linkResult = cachedQuery('a', tempDiv);
+                    // 確保返回的是類數組對象
+                    if (linkResult) {
+                        if (Array.isArray(linkResult)) {
+                            links = linkResult;
+                        } else if (linkResult.nodeType) {
+                            // 單個元素
+                            links = [linkResult];
+                        } else if (typeof linkResult === 'object' && typeof linkResult.length === 'number') {
+                            // 類數組對象（如 NodeList）
+                            links = Array.from(linkResult);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to query links:', e);
+                links = [];
+            }
+
             let linkTextLength = 0;
-            Array.from(links).forEach(link => linkTextLength += (link.textContent || '').length);
+            try {
+                Array.from(links).forEach(link => linkTextLength += (link.textContent || '').length);
+            } catch (e) {
+                console.warn('Failed to calculate link text length:', e);
+            }
             const linkDensity = linkTextLength / Math.max(1, article.length);
 
-            const liNodes = tempDiv.querySelectorAll ? tempDiv.querySelectorAll('li') : cachedQuery('li', tempDiv);
-            const liCount = liNodes ? liNodes.length : 0;
+            let liNodes = [];
+            let liCount = 0;
+            try {
+                if (tempDiv.querySelectorAll) {
+                    liNodes = tempDiv.querySelectorAll('li') || [];
+                } else {
+                    const liResult = cachedQuery('li', tempDiv);
+                    // 確保返回的是類數組對象
+                    if (liResult) {
+                        if (Array.isArray(liResult)) {
+                            liNodes = liResult;
+                        } else if (liResult.nodeType) {
+                            // 單個元素
+                            liNodes = [liResult];
+                        } else if (typeof liResult === 'object' && typeof liResult.length === 'number') {
+                            // 類數組對象（如 NodeList）
+                            liNodes = Array.from(liResult);
+                        }
+                    }
+                }
+                liCount = liNodes.length;
+            } catch (e) {
+                console.warn('Failed to query li nodes:', e);
+                liCount = 0;
+            }
 
             // 如果頁面以長清單為主（如文件、命令列清單），允許通過
             const LIST_EXCEPTION_THRESHOLD = 8; // 8個以上的<li> 視為 list-heavy
@@ -312,7 +362,7 @@ const Logger = {
                     // 尋找包含多個以 bullet 字元或數字開頭的行的容器
                     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
                     if (lines.length < 4) return false;
-                    
+
                     const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/;
                     const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
                     return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
@@ -322,7 +372,7 @@ const Logger = {
 
                 // 合併真正的清單和可能的清單容器
                 const allCandidates = [...lists, ...possibleListContainers];
-                
+
                 if (!allCandidates || allCandidates.length === 0) {
                     console.log('✗ No lists or list-like containers found on page');
                     return null;
@@ -336,7 +386,7 @@ const Logger = {
                     const liItems = Array.from(candidate.querySelectorAll('li'));
                     const liCount = liItems.length;
                     const textLength = (candidate.textContent || '').trim().length;
-                    
+
                     // 對於非 <ul>/<ol> 的容器，用行數代替 li 數量
                     let effectiveItemCount = liCount;
                     if (liCount === 0) {
@@ -344,7 +394,7 @@ const Logger = {
                         const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/;
                         effectiveItemCount = lines.filter(line => bulletPattern.test(line)).length;
                     }
-                    
+
                     const score = (effectiveItemCount * 10) + Math.min(500, Math.floor(textLength / 10));
 
                     console.log(`Candidate ${idx + 1}: itemCount=${effectiveItemCount}, textLength=${textLength}, score=${score}, tagName=${candidate.tagName}`);
@@ -965,7 +1015,7 @@ const Logger = {
         try {
             console.log('🔄 等待動態內容載入...');
             await new Promise(resolve => setTimeout(resolve, 1000));
-            
+
             // 嘗試觸發任何懶載入機制
             const scrollableElements = document.querySelectorAll('[style*="overflow"]');
             scrollableElements.forEach(el => {
@@ -974,7 +1024,7 @@ const Logger = {
                     el.scrollLeft = el.scrollWidth;
                 } catch (e) { /* ignore */ }
             });
-            
+
             // 再等待一下讓懶載入內容出現
             await new Promise(resolve => setTimeout(resolve, 500));
             console.log('✅ 動態內容載入等待完成');
