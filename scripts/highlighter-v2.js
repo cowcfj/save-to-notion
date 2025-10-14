@@ -20,9 +20,14 @@
                 console.debug('[Highlighter]', ...args);
             }
         },
-        info: function(...args) {
+        log: function(...args) {
             if (CURRENT_LOG_LEVEL >= LOG_LEVELS.INFO) {
                 console.log('[Highlighter]', ...args);
+            }
+        },
+        info: function(...args) {
+            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.INFO) {
+                console.info('[Highlighter]', ...args);
             }
         },
         warn: function(...args) {
@@ -1078,7 +1083,7 @@
 
             try {
                 await StorageUtil.saveHighlights(currentUrl, data);
-                logger.log(`💾 已保存 ${data.highlights.length} 個標註`);
+                logger.info(`💾 已保存 ${data.highlights.length} 個標註`);
             } catch (error) {
                 logger.error('保存標註失敗:', error);
             }
@@ -1090,9 +1095,9 @@
         async restoreHighlights() {
             try {
                 const url = window.location.href;
-                logger.log('   pathname:', window.location.pathname);
-                logger.log('   hash:', window.location.hash || '(無)');
-                logger.log('   search:', window.location.search || '(無)');
+                logger.info('   pathname:', window.location.pathname);
+                logger.info('   hash:', window.location.hash || '(無)');
+                logger.info('   search:', window.location.search || '(無)');
 
                 const highlights = await StorageUtil.loadHighlights(url);
 
@@ -1107,7 +1112,7 @@
                 let needsMigration = false;
 
                 for (const highlightData of highlights) {
-                    logger.log(`   恢復標註 ${highlightData.id}:`, {
+                    logger.info(`   恢復標註 ${highlightData.id}:`, {
                         text: highlightData.text?.substring(0, 30) + '...',
                         color: highlightData.color,
                         rangeInfo: highlightData.rangeInfo
@@ -1115,7 +1120,7 @@
 
                     // v2.8.0: 檢測並清理舊格式的重複文本
                     if (highlightData.rangeInfo && highlightData.rangeInfo.text) {
-                        logger.log(`   🔄 [v2.8.0] 檢測到重複文本，將自動清理`);
+                        logger.info(`   🔄 [v2.8.0] 檢測到重複文本，將自動清理`);
                         delete highlightData.rangeInfo.text;
                         needsMigration = true;
                     }
@@ -1126,7 +1131,7 @@
 
                         // 如果是對象數組格式（舊格式），轉換為字符串
                         if (Array.isArray(startContainerPath)) {
-                            logger.log(`   🔄 [v2.9.0] 檢測到舊路徑格式，將自動轉換`);
+                            logger.info(`   🔄 [v2.9.0] 檢測到舊路徑格式，將自動轉換`);
                             highlightData.rangeInfo.startContainerPath = this.convertPathToString(startContainerPath);
                             highlightData.rangeInfo.endContainerPath = this.convertPathToString(endContainerPath);
                             needsMigration = true;
@@ -1167,7 +1172,7 @@
                     await this.saveToStorage();
                 }
 
-                logger.log(`✅ 恢復完成: 成功 ${restored}/${highlights.length}，失敗 ${failed}`);
+                logger.info(`✅ 恢復完成: 成功 ${restored}/${highlights.length}，失敗 ${failed}`);
 
                 // 更新 nextId
                 if (highlights.length > 0) {
@@ -1181,7 +1186,7 @@
                 if (supportsHighlightAPI()) {
                     Object.keys(this.highlightObjects).forEach(color => {
                         const size = this.highlightObjects[color]?.size || 0;
-                        logger.log(`   ${color}: ${size} 個 Range`);
+                        logger.info(`   ${color}: ${size} 個 Range`);
                     });
                 }
             } catch (error) {
@@ -1207,7 +1212,7 @@
                 color: colorMap[h.color] || 'yellow_background'
             }));
             result.forEach((h, i) => {
-                logger.log(`   ${i+1}. "${h.text.substring(0, 50)}..." (${h.color})`);
+                logger.info(`   ${i+1}. "${h.text.substring(0, 50)}..." (${h.color})`);
             });
 
             return result;
@@ -1233,7 +1238,7 @@
          * 強制恢復標註（用於頁面刷新後確保存儲的標註被正確加載）
          */
         async forceRestoreHighlights() {
-            logger.log('🔧 強制恢復標註');
+            logger.info('🔧 強制恢復標註');
             try {
                 // 清除現有的標註
                 this.clearAll();
@@ -1241,7 +1246,7 @@
                 // 重新從存儲中加載
                 await this.restoreHighlights();
 
-                logger.log('✅ 標註強制恢復完成');
+                logger.info('✅ 標註強制恢復完成');
                 return true;
             } catch (error) {
                 logger.error('❌ 強制恢復標註失敗:', error);
