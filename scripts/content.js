@@ -91,13 +91,63 @@ const Logger = {
 
             // 計算連結密度（link density）— 但對於以點列/參考為主的文件（像 CLI docs）
             // 我們允許例外：如果內容包含大量的 <li> 項目，則視為有效內容。
-            const links = tempDiv.querySelectorAll ? tempDiv.querySelectorAll('a') : cachedQuery('a', tempDiv);
+            let links = [];
+            try {
+                if (tempDiv.querySelectorAll) {
+                    links = tempDiv.querySelectorAll('a') || [];
+                } else {
+                    const linkResult = cachedQuery('a', tempDiv);
+                    // 確保返回的是類數組對象
+                    if (linkResult) {
+                        if (Array.isArray(linkResult)) {
+                            links = linkResult;
+                        } else if (linkResult.nodeType) {
+                            // 單個元素
+                            links = [linkResult];
+                        } else if (typeof linkResult === 'object' && typeof linkResult.length === 'number') {
+                            // 類數組對象（如 NodeList）
+                            links = Array.from(linkResult);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to query links:', e);
+                links = [];
+            }
+            
             let linkTextLength = 0;
-            Array.from(links).forEach(link => linkTextLength += (link.textContent || '').length);
+            try {
+                Array.from(links).forEach(link => linkTextLength += (link.textContent || '').length);
+            } catch (e) {
+                console.warn('Failed to calculate link text length:', e);
+            }
             const linkDensity = linkTextLength / Math.max(1, article.length);
 
-            const liNodes = tempDiv.querySelectorAll ? tempDiv.querySelectorAll('li') : cachedQuery('li', tempDiv);
-            const liCount = liNodes ? liNodes.length : 0;
+            let liNodes = [];
+            let liCount = 0;
+            try {
+                if (tempDiv.querySelectorAll) {
+                    liNodes = tempDiv.querySelectorAll('li') || [];
+                } else {
+                    const liResult = cachedQuery('li', tempDiv);
+                    // 確保返回的是類數組對象
+                    if (liResult) {
+                        if (Array.isArray(liResult)) {
+                            liNodes = liResult;
+                        } else if (liResult.nodeType) {
+                            // 單個元素
+                            liNodes = [liResult];
+                        } else if (typeof liResult === 'object' && typeof liResult.length === 'number') {
+                            // 類數組對象（如 NodeList）
+                            liNodes = Array.from(liResult);
+                        }
+                    }
+                }
+                liCount = liNodes.length;
+            } catch (e) {
+                console.warn('Failed to query li nodes:', e);
+                liCount = 0;
+            }
 
             // 如果頁面以長清單為主（如文件、命令列清單），允許通過
             const LIST_EXCEPTION_THRESHOLD = 8; // 8個以上的<li> 視為 list-heavy
