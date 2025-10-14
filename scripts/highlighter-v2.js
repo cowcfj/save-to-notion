@@ -1,10 +1,46 @@
 // 使用 CSS Custom Highlight API 的新版標註功能
 // v2.5.0 - 不修改DOM結構的標註實現
 (function() {
+    // 日誌級別控制
+    const LOG_LEVELS = {
+        NONE: 0,
+        ERROR: 1,
+        WARN: 2,
+        INFO: 3,
+        DEBUG: 4
+    };
+    
+    // 默認日誌級別為 INFO，生產環境可以設置為 WARN 或 ERROR
+    const CURRENT_LOG_LEVEL = LOG_LEVELS.INFO;
+    
+    // 日誌函數
+    const logger = {
+        debug: function(...args) {
+            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.DEBUG) {
+                console.debug('[Highlighter]', ...args);
+            }
+        },
+        info: function(...args) {
+            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.INFO) {
+                console.log('[Highlighter]', ...args);
+            }
+        },
+        warn: function(...args) {
+            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.WARN) {
+                console.warn('[Highlighter]', ...args);
+            }
+        },
+        error: function(...args) {
+            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.ERROR) {
+                console.error('[Highlighter]', ...args);
+            }
+        }
+    };
+
     // 使用來自 utils.js 的共享函數 - 添加安全檢查
     const normalizeUrl = window.normalizeUrl;
     const StorageUtil = window.StorageUtil;
-
+    
     // 確保必要的依賴存在
     if (typeof normalizeUrl !== 'function') {
         return;
@@ -28,7 +64,7 @@
             this.highlights = new Map(); // 存儲所有標註 ID -> {range, color, text}
             this.nextId = 1;
             this.currentColor = 'yellow';
-
+            
             // 顏色配置
             this.colors = {
                 yellow: '#fff3cd',
@@ -50,7 +86,7 @@
             // 🔧 修復：優先檢查並遷移 localStorage 中的舊標註數據
             this.initializationComplete = this.initialize();
         }
-
+        
         /**
          * 異步初始化流程
          */
@@ -66,33 +102,34 @@
                 await this.performSeamlessMigration();
             } catch (error) {
                 // 初始化錯誤靜默處理
+                logger.error('初始化失敗:', error);
             }
         }
-
+        
         /**
          * 執行無痛自動遷移
          */
         async performSeamlessMigration() {
-
+            
     if (typeof window.SeamlessMigrationManager === 'undefined') {
-                console.warn('⚠️ 無痛遷移管理器未加載');
+                logger.warn('⚠️ 無痛遷移管理器未加載');
                 return;
             }
-
+            
             try {
                 const migrationManager = new window.SeamlessMigrationManager();
                 const result = await migrationManager.performSeamlessMigration(this);
-
+                
                 if (result && result.completed) {
                 } else if (result && result.phase) {
                 } else if (result && result.rolledBack) {
-                    console.warn(`⚠️ 遷移已回滾: ${result.reason}`);
+                    logger.warn(`⚠️ 遷移已回滾: ${result.reason}`);
                 }
-
+                
                 // 無論如何，都重新保存當前狀態
                 await this.saveToStorage();
             } catch (error) {
-                console.error('❌ 無痛遷移過程出錯:', error);
+                logger.error('❌ 無痛遷移過程出錯:', error);
             }
         }
 
@@ -127,7 +164,7 @@
                                 break;
                             }
                         } catch (e) {
-                            console.warn(`⚠️ [遷移] 解析失敗: ${key}`, e);
+                            logger.warn(`⚠️ [遷移] 解析失敗: ${key}`, e);
                         }
                     }
                 }
@@ -166,7 +203,7 @@
                 } else {
                 }
             } catch (error) {
-                console.error('❌ [遷移] 檢查舊數據失敗:', error);
+                logger.error('❌ [遷移] 檢查舊數據失敗:', error);
             }
         }
 
@@ -204,7 +241,7 @@
                         }
 
                         if (!textToFind || textToFind.trim().length === 0) {
-                            console.warn('⚠️ [遷移] 跳過空文本標註');
+                            logger.warn('⚠️ [遷移] 跳過空文本標註');
                             failCount++;
                             continue;
                         }
@@ -228,11 +265,11 @@
                             successCount++;
                         } else {
                             failCount++;
-                            console.warn(`  ⚠️ [遷移] 無法定位文本: ${textToFind.substring(0, 30)}...`);
+                            logger.warn(`  ⚠️ [遷移] 無法定位文本: ${textToFind.substring(0, 30)}...`);
                         }
                     } catch (error) {
                         failCount++;
-                        console.error('  ❌ [遷移] 處理標註失敗:', error);
+                        logger.error('  ❌ [遷移] 處理標註失敗:', error);
                     }
                 }
 
@@ -244,7 +281,7 @@
                         highlights: migratedHighlights
                     });
 
-                    console.log(`✅ [遷移] 已保存 ${migratedHighlights.length} 個標註到新存儲`);
+                    logger.log(`✅ [遷移] 已保存 ${migratedHighlights.length} 個標註到新存儲`);
                 }
 
                 // 標記遷移完成（無論成功多少）
@@ -263,7 +300,7 @@
                 if (successCount > 0) {
                     localStorage.removeItem(oldKey);
                 } else {
-                    console.warn(`⚠️ [遷移] 保留舊數據（因為沒有成功遷移任何標註）`);
+                    logger.warn(`⚠️ [遷移] 保留舊數據（因為沒有成功遷移任何標註）`);
                 }
 
                 // 顯示用戶通知
@@ -271,7 +308,7 @@
                     this.showMigrationNotification(successCount, failCount, legacyData.length);
                 }
             } catch (error) {
-                console.error('❌ [遷移] 數據遷移失敗:', error);
+                logger.error('❌ [遷移] 數據遷移失敗:', error);
             }
         }
 
@@ -322,7 +359,7 @@
                 // 方法3：模糊匹配（處理空白字符差異）
                 return this.findTextFuzzy(cleanText);
             } catch (error) {
-                console.error('    ✗ 查找文本失敗:', error);
+                logger.error('    ✗ 查找文本失敗:', error);
                 return null;
             }
         }
@@ -419,7 +456,7 @@
                                 range.setEnd(endNode, endOffset);
                                 return range;
                             } catch (e) {
-                                console.warn('    ⚠️ 創建跨節點 Range 失敗:', e);
+                                logger.warn('    ⚠️ 創建跨節點 Range 失敗:', e);
                             }
                         }
                     }
@@ -592,7 +629,7 @@
             if (this.highlightObjects[color]) {
                 this.highlightObjects[color].add(range);
             } else {
-                console.error(`❌ 未找到顏色 ${color} 的 Highlight 對象`);
+                logger.error(`❌ 未找到顏色 ${color} 的 Highlight 對象`);
             }
         }
 
@@ -626,7 +663,7 @@
                     }
                 });
             } catch (error) {
-                console.error('傳統標註方法失敗:', error);
+                logger.error('傳統標註方法失敗:', error);
             }
         }
 
@@ -636,7 +673,7 @@
         removeHighlight(id) {
             const highlightData = this.highlights.get(id);
             if (!highlightData) {
-                console.warn(`標註 ${id} 不存在`);
+                logger.warn(`標註 ${id} 不存在`);
                 return;
             }
 
@@ -688,7 +725,7 @@
 
             this.highlights.clear();
             this.saveToStorage();
-            console.log('✅ 所有標註已清除');
+            logger.log('✅ 所有標註已清除');
         }
 
         /**
@@ -718,7 +755,7 @@
 
                 return null;
             } catch (error) {
-                console.error('檢測標註位置失敗:', error);
+                logger.error('檢測標註位置失敗:', error);
                 return null;
             }
         }
@@ -830,7 +867,7 @@
 
             // 確保 document.body 存在且可訪問
             if (!document || !document.body) {
-                console.debug('無法訪問 document.body');
+                logger.debug('無法訪問 document.body');
                 return null;
             }
 
@@ -841,20 +878,20 @@
                     if (step.type === 'element') {
                         // 確保 current 存在且有 children 屬性
                         if (!current || !current.children) {
-                            console.debug('當前節點無效或沒有子元素:', step);
+                            logger.debug('當前節點無效或沒有子元素:', step);
                             return null;
                         }
                         
                         const children = Array.from(current.children);
                         // 添加邊界檢查
                         if (step.index < 0 || step.index >= children.length) {
-                            console.debug('元素索引超出範圍:', step, '可用子元素數量:', children.length);
+                            logger.debug('元素索引超出範圍:', step, '可用子元素數量:', children.length);
                             // 嘗試模糊匹配：查找具有相同標籤名的元素
                             const matchingElements = children.filter(child => 
                                 child.tagName && child.tagName.toLowerCase() === step.tag
                             );
                             if (matchingElements.length > 0) {
-                                console.debug('  -> 使用模糊匹配找到元素:', step.tag);
+                                logger.debug('  -> 使用模糊匹配找到元素:', step.tag);
                                 current = matchingElements[0];
                                 continue;
                             }
@@ -864,20 +901,20 @@
                     } else if (step.type === 'text') {
                         // 確保 current 存在且有 childNodes 屬性
                         if (!current || !current.childNodes) {
-                            console.debug('當前節點無效或沒有子節點:', step);
+                            logger.debug('當前節點無效或沒有子節點:', step);
                             return null;
                         }
                         
                         const textNodes = Array.from(current.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
                         // 添加邊界檢查
                         if (step.index < 0 || step.index >= textNodes.length) {
-                            console.debug('文本節點索引超出範圍:', step, '可用文本節點數量:', textNodes.length);
+                            logger.debug('文本節點索引超出範圍:', step, '可用文本節點數量:', textNodes.length);
                             return null;
                         }
                         current = textNodes[step.index];
                     }
                 } catch (error) {
-                    console.debug('處理路徑步驟時出錯:', step, error);
+                    logger.debug('處理路徑步驟時出錯:', step, error);
                     return null;
                 }
             }
@@ -904,7 +941,7 @@
                     // 匹配格式：tagname[index] 或 text[index]
                     const match = step.match(/^([a-z0-9\-]+)\[(\d+)\]$/i);
                     if (!match) {
-                        console.warn('無效的路徑步驟格式:', step);
+                        logger.warn('無效的路徑步驟格式:', step);
                         return null;
                     }
 
@@ -920,7 +957,7 @@
 
                 return path;
             } catch (error) {
-                console.error('路徑解析失敗:', pathStr, error);
+                logger.error('路徑解析失敗:', pathStr, error);
                 return null;
             }
         }
@@ -956,7 +993,7 @@
             try {
                 // 檢查必要的參數
                 if (!rangeInfo) {
-                    console.debug('範圍信息無效');
+                    logger.debug('範圍信息無效');
                     return null;
                 }
 
@@ -965,13 +1002,13 @@
 
                 // 如果無法找到容器節點，嘗試使用模糊查找
                 if (!startContainer || !endContainer) {
-                    console.debug('無法恢復範圍：找不到容器節點，嘗試模糊查找...');
+                    logger.debug('無法恢復範圍：找不到容器節點，嘗試模糊查找...');
                     
                     // 嘗試在整個文檔中查找包含目標文本的節點
                     if (expectedText) {
                         const foundRange = this.findTextInPage(expectedText);
                         if (foundRange) {
-                            console.debug('  -> 使用模糊查找成功找到文本範圍');
+                            logger.debug('  -> 使用模糊查找成功找到文本範圍');
                             return foundRange;
                         }
                     }
@@ -988,12 +1025,12 @@
                 const maxEndOffset = endContainer.textContent ? endContainer.textContent.length : 0;
                 
                 if (startOffset < 0 || startOffset > maxStartOffset) {
-                    console.debug('起始偏移量無效:', startOffset, '最大值:', maxStartOffset);
+                    logger.debug('起始偏移量無效:', startOffset, '最大值:', maxStartOffset);
                     return null;
                 }
                 
                 if (endOffset < 0 || endOffset > maxEndOffset) {
-                    console.debug('結束偏移量無效:', endOffset, '最大值:', maxEndOffset);
+                    logger.debug('結束偏移量無效:', endOffset, '最大值:', maxEndOffset);
                     return null;
                 }
 
@@ -1008,16 +1045,16 @@
                 if (range.toString() === textToVerify) {
                     return range;
                 } else {
-                    console.debug('範圍文本不匹配，可能頁面結構已改變');
-                    console.debug('期望:', textToVerify?.substring(0, 50));
-                    console.debug('實際:', range.toString().substring(0, 50));
+                    logger.debug('範圍文本不匹配，可能頁面結構已改變');
+                    logger.debug('期望:', textToVerify?.substring(0, 50));
+                    logger.debug('實際:', range.toString().substring(0, 50));
                     
                     // 即使文本不匹配，也返回範圍（作為最後的回退）
-                    console.debug('  -> 回退到返回範圍對象');
+                    logger.debug('  -> 回退到返回範圍對象');
                     return range;
                 }
             } catch (error) {
-                console.debug('反序列化範圍失敗:', error);
+                logger.debug('反序列化範圍失敗:', error);
                 return null;
             }
         }
@@ -1041,9 +1078,9 @@
 
             try {
                 await StorageUtil.saveHighlights(currentUrl, data);
-                console.log(`💾 已保存 ${data.highlights.length} 個標註`);
+                logger.log(`💾 已保存 ${data.highlights.length} 個標註`);
             } catch (error) {
-                console.error('保存標註失敗:', error);
+                logger.error('保存標註失敗:', error);
             }
         }
 
@@ -1053,9 +1090,9 @@
         async restoreHighlights() {
             try {
                 const url = window.location.href;
-                console.log('   pathname:', window.location.pathname);
-                console.log('   hash:', window.location.hash || '(無)');
-                console.log('   search:', window.location.search || '(無)');
+                logger.log('   pathname:', window.location.pathname);
+                logger.log('   hash:', window.location.hash || '(無)');
+                logger.log('   search:', window.location.search || '(無)');
 
                 const highlights = await StorageUtil.loadHighlights(url);
 
@@ -1070,7 +1107,7 @@
                 let needsMigration = false;
 
                 for (const highlightData of highlights) {
-                    console.log(`   恢復標註 ${highlightData.id}:`, {
+                    logger.log(`   恢復標註 ${highlightData.id}:`, {
                         text: highlightData.text?.substring(0, 30) + '...',
                         color: highlightData.color,
                         rangeInfo: highlightData.rangeInfo
@@ -1078,7 +1115,7 @@
 
                     // v2.8.0: 檢測並清理舊格式的重複文本
                     if (highlightData.rangeInfo && highlightData.rangeInfo.text) {
-                        console.log(`   🔄 [v2.8.0] 檢測到重複文本，將自動清理`);
+                        logger.log(`   🔄 [v2.8.0] 檢測到重複文本，將自動清理`);
                         delete highlightData.rangeInfo.text;
                         needsMigration = true;
                     }
@@ -1089,7 +1126,7 @@
 
                         // 如果是對象數組格式（舊格式），轉換為字符串
                         if (Array.isArray(startContainerPath)) {
-                            console.log(`   🔄 [v2.9.0] 檢測到舊路徑格式，將自動轉換`);
+                            logger.log(`   🔄 [v2.9.0] 檢測到舊路徑格式，將自動轉換`);
                             highlightData.rangeInfo.startContainerPath = this.convertPathToString(startContainerPath);
                             highlightData.rangeInfo.endContainerPath = this.convertPathToString(endContainerPath);
                             needsMigration = true;
@@ -1121,7 +1158,7 @@
                         restored++;
                     } else {
                         failed++;
-                        console.warn(`   ❌ 恢復失敗: ${highlightData.id} - Range 反序列化失敗`);
+                        logger.warn(`   ❌ 恢復失敗: ${highlightData.id} - Range 反序列化失敗`);
                     }
                 }
 
@@ -1130,7 +1167,7 @@
                     await this.saveToStorage();
                 }
 
-                console.log(`✅ 恢復完成: 成功 ${restored}/${highlights.length}，失敗 ${failed}`);
+                logger.log(`✅ 恢復完成: 成功 ${restored}/${highlights.length}，失敗 ${failed}`);
 
                 // 更新 nextId
                 if (highlights.length > 0) {
@@ -1144,12 +1181,12 @@
                 if (supportsHighlightAPI()) {
                     Object.keys(this.highlightObjects).forEach(color => {
                         const size = this.highlightObjects[color]?.size || 0;
-                        console.log(`   ${color}: ${size} 個 Range`);
+                        logger.log(`   ${color}: ${size} 個 Range`);
                     });
                 }
             } catch (error) {
-                console.error('❌ 恢復標註失敗:', error);
-                console.error('錯誤堆棧:', error.stack);
+                logger.error('❌ 恢復標註失敗:', error);
+                logger.error('錯誤堆棧:', error.stack);
             }
         }
 
@@ -1170,7 +1207,7 @@
                 color: colorMap[h.color] || 'yellow_background'
             }));
             result.forEach((h, i) => {
-                console.log(`   ${i+1}. "${h.text.substring(0, 50)}..." (${h.color})`);
+                logger.log(`   ${i+1}. "${h.text.substring(0, 50)}..." (${h.color})`);
             });
 
             return result;
@@ -1196,7 +1233,7 @@
          * 強制恢復標註（用於頁面刷新後確保存儲的標註被正確加載）
          */
         async forceRestoreHighlights() {
-            console.log('🔧 強制恢復標註');
+            logger.log('🔧 強制恢復標註');
             try {
                 // 清除現有的標註
                 this.clearAll();
@@ -1204,10 +1241,10 @@
                 // 重新從存儲中加載
                 await this.restoreHighlights();
 
-                console.log('✅ 標註強制恢復完成');
+                logger.log('✅ 標註強制恢復完成');
                 return true;
             } catch (error) {
-                console.error('❌ 強制恢復標註失敗:', error);
+                logger.error('❌ 強制恢復標註失敗:', error);
                 return false;
             }
         }
@@ -1334,7 +1371,7 @@
                 try {
                     document.body.appendChild(toolbar);
                 } catch (e) {
-                    console.error('MutationObserver 重新掛載工具欄失敗:', e);
+                    logger.error('MutationObserver 重新掛載工具欄失敗:', e);
                 }
             }
         });
@@ -1343,7 +1380,7 @@
             // 注意：稍後在 window.notionHighlighter 生成後，會把 mo 掛到 _observer 上
             window.addEventListener('unload', () => mo.disconnect(), { once: true });
         } catch (e) {
-            console.warn('MutationObserver 初始化失敗:', e);
+            logger.warn('MutationObserver 初始化失敗:', e);
         }
 
         // 綁定同步按鈕
@@ -1407,7 +1444,7 @@
                     }
                 });
             } catch (error) {
-                console.error('同步標註失敗:', error);
+                logger.error('同步標註失敗:', error);
                 syncBtn.textContent = '❌ 同步失敗';
                 syncBtn.disabled = false;
                 syncBtn.style.opacity = '1';
@@ -1663,14 +1700,14 @@
                     toolbar.style.visibility = 'visible';
                     toolbar.style.opacity = '1';
                 } catch (e) {
-                    console.error('顯示標註工具欄失敗:', e);
+                    logger.error('顯示標註工具欄失敗:', e);
                 }
             },
             hide: () => {
                 try {
                     toolbar.style.display = 'none';
                 } catch (e) {
-                    console.error('隱藏標註工具欄失敗:', e);
+                    logger.error('隱藏標註工具欄失敗:', e);
                 }
             },
             collectHighlights: () => manager.collectHighlightsForNotion(),
@@ -1820,7 +1857,7 @@
                 }
             }
         } catch (error) {
-            console.error('❌ 自動初始化失敗:', error);
+            logger.error('❌ 自動初始化失敗:', error);
             // 即使失敗也要初始化，確保基本功能可用
             initHighlighter();
             if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
