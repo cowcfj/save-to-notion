@@ -1119,11 +1119,31 @@
         getCount() {
             return this.highlights.size;
         }
-    }
+        
+        /**
+         * 強制恢復標註（用於頁面刷新後確保存儲的標註被正確加載）
+         */
+        async forceRestoreHighlights() {
+            console.log('🔧 強制恢復標註');
+            try {
+                // 清除現有的標註
+                this.clearAll();
+                
+                // 重新從存儲中加載
+                await this.restoreHighlights();
+                
+                console.log('✅ 標註強制恢復完成');
+                return true;
+            } catch (error) {
+                console.error('❌ 強制恢復標註失敗:', error);
+                return false;
+            }
+        }
+}
 
-    /**
-     * 初始化標註工具
-     */
+/**
+ * 初始化標註工具
+ */
     function initHighlighter() {
         // 如果已存在，顯示工具欄
         if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
@@ -1686,6 +1706,14 @@
     };
     window.collectNotionHighlights = window.collectHighlights; // 別名
 
+    // 🔑 暴露強制恢復函數
+    window.forceRestoreHighlights = () => {
+        if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
+            return window.notionHighlighter.manager.forceRestoreHighlights();
+        }
+        return Promise.resolve(false);
+    };
+
     // 🔑 關鍵：頁面加載時自動初始化
     // 這樣可以：
     // 1. 恢復之前保存的標註
@@ -1701,10 +1729,15 @@
             if (highlights && highlights.length > 0) {
                 // 有保存的標註，自動初始化
                 initHighlighter();
-                // 隱藏工具欄（只恢復標註，不顯示UI）
-                if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
-                    window.notionHighlighter.hide();
-                }
+                // 等待標註管理器初始化完成後再恢復標註
+                setTimeout(async () => {
+                    if (window.notionHighlighter && window.notionHighlighter.manager) {
+                        // 確保標註被正確恢復
+                        await window.notionHighlighter.manager.initializationComplete;
+                        // 保持工具欄隱藏狀態，但確保標註可見
+                        window.notionHighlighter.hide();
+                    }
+                }, 100);
             } else {
                 // 沒有保存的標註，但仍然初始化以便函數可用
                 // 這樣 window.collectHighlights 等函數就存在了

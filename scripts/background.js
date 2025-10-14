@@ -1210,8 +1210,9 @@ function setupTabListeners() {
                     const highlights = data[key];
                     
                     if (highlights && Array.isArray(highlights) && highlights.length > 0) {
-                        console.log(`Found ${highlights.length} highlights for ${normUrl}, injecting restore script`);
-                        await ScriptInjector.injectHighlightRestore(tabId);
+                        console.log(`Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`);
+                        // 注入標記工具而不是恢復腳本，因為 highlighter-v2.js 現在會自動處理恢復
+                        await ScriptInjector.injectHighlighter(tabId);
                     } else {
                         // 檢查是否有舊版 localStorage 中的標記需要遷移
                         await migrateLegacyHighlights(tabId, normUrl, key);
