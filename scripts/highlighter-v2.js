@@ -9,10 +9,10 @@
         INFO: 3,
         DEBUG: 4
     };
-    
+
     // 默認日誌級別為 INFO，生產環境可以設置為 WARN 或 ERROR
     const CURRENT_LOG_LEVEL = LOG_LEVELS.INFO;
-    
+
     // 日誌函數
     const logger = {
         debug: function(...args) {
@@ -45,7 +45,7 @@
     // 使用來自 utils.js 的共享函數 - 添加安全檢查
     const normalizeUrl = window.normalizeUrl;
     const StorageUtil = window.StorageUtil;
-    
+
     // 確保必要的依賴存在
     if (typeof normalizeUrl !== 'function') {
         return;
@@ -69,7 +69,7 @@
             this.highlights = new Map(); // 存儲所有標註 ID -> {range, color, text}
             this.nextId = 1;
             this.currentColor = 'yellow';
-            
+
             // 顏色配置
             this.colors = {
                 yellow: '#fff3cd',
@@ -91,7 +91,7 @@
             // 🔧 修復：優先檢查並遷移 localStorage 中的舊標註數據
             this.initializationComplete = this.initialize();
         }
-        
+
         /**
          * 異步初始化流程
          */
@@ -110,27 +110,27 @@
                 logger.error('初始化失敗:', error);
             }
         }
-        
+
         /**
          * 執行無痛自動遷移
          */
         async performSeamlessMigration() {
-            
+
     if (typeof window.SeamlessMigrationManager === 'undefined') {
                 logger.warn('⚠️ 無痛遷移管理器未加載');
                 return;
             }
-            
+
             try {
                 const migrationManager = new window.SeamlessMigrationManager();
                 const result = await migrationManager.performSeamlessMigration(this);
-                
+
                 if (result && result.completed) {
                 } else if (result && result.phase) {
                 } else if (result && result.rolledBack) {
                     logger.warn(`⚠️ 遷移已回滾: ${result.reason}`);
                 }
-                
+
                 // 無論如何，都重新保存當前狀態
                 await this.saveToStorage();
             } catch (error) {
@@ -886,13 +886,13 @@
                             logger.debug('當前節點無效或沒有子元素:', step);
                             return null;
                         }
-                        
+
                         const children = Array.from(current.children);
                         // 添加邊界檢查
                         if (step.index < 0 || step.index >= children.length) {
                             logger.debug('元素索引超出範圍:', step, '可用子元素數量:', children.length);
                             // 嘗試模糊匹配：查找具有相同標籤名的元素
-                            const matchingElements = children.filter(child => 
+                            const matchingElements = children.filter(child =>
                                 child.tagName && child.tagName.toLowerCase() === step.tag
                             );
                             if (matchingElements.length > 0) {
@@ -909,7 +909,7 @@
                             logger.debug('當前節點無效或沒有子節點:', step);
                             return null;
                         }
-                        
+
                         const textNodes = Array.from(current.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
                         // 添加邊界檢查
                         if (step.index < 0 || step.index >= textNodes.length) {
@@ -1008,7 +1008,7 @@
                 // 如果無法找到容器節點，嘗試使用模糊查找
                 if (!startContainer || !endContainer) {
                     logger.debug('無法恢復範圍：找不到容器節點，嘗試模糊查找...');
-                    
+
                     // 嘗試在整個文檔中查找包含目標文本的節點
                     if (expectedText) {
                         const foundRange = this.findTextInPage(expectedText);
@@ -1017,23 +1017,23 @@
                             return foundRange;
                         }
                     }
-                    
+
                     return null;
                 }
 
                 // 驗證偏移量
                 const startOffset = rangeInfo.startOffset || 0;
                 const endOffset = rangeInfo.endOffset || 0;
-                
+
                 // 確保偏移量在有效範圍內
                 const maxStartOffset = startContainer.textContent ? startContainer.textContent.length : 0;
                 const maxEndOffset = endContainer.textContent ? endContainer.textContent.length : 0;
-                
+
                 if (startOffset < 0 || startOffset > maxStartOffset) {
                     logger.debug('起始偏移量無效:', startOffset, '最大值:', maxStartOffset);
                     return null;
                 }
-                
+
                 if (endOffset < 0 || endOffset > maxEndOffset) {
                     logger.debug('結束偏移量無效:', endOffset, '最大值:', maxEndOffset);
                     return null;
@@ -1053,7 +1053,7 @@
                     logger.debug('範圍文本不匹配，可能頁面結構已改變');
                     logger.debug('期望:', textToVerify?.substring(0, 50));
                     logger.debug('實際:', range.toString().substring(0, 50));
-                    
+
                     // 即使文本不匹配，也返回範圍（作為最後的回退）
                     logger.debug('  -> 回退到返回範圍對象');
                     return range;

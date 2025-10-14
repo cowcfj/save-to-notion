@@ -3,16 +3,16 @@
 
 (function() {
     console.log('🔧 執行標註恢復腳本');
-    
+
     // 確保必要的依賴已加載
     if (typeof window.initHighlighter !== 'function') {
         console.warn('⚠️ 標註工具未加載，無法恢復標註');
         return;
     }
-    
+
     // 初始化標註工具
     window.initHighlighter();
-    
+
     // 如果有 notionHighlighter 對象，嘗試恢復標註
     if (window.notionHighlighter && typeof window.notionHighlighter.manager.forceRestoreHighlights === 'function') {
         console.log('🔁 嘗試強制恢復標註');
@@ -30,7 +30,7 @@
     } else {
         console.warn('⚠️ 無法找到標註管理器，跳過強制恢復');
     }
-    
+
     // 隱藏工具欄
     setTimeout(() => {
         if (window.notionHighlighter && typeof window.notionHighlighter.hide === 'function') {

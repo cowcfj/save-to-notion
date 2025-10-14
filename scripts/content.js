@@ -114,7 +114,7 @@ const Logger = {
                 console.warn('Failed to query links:', e);
                 links = [];
             }
-            
+
             let linkTextLength = 0;
             try {
                 Array.from(links).forEach(link => linkTextLength += (link.textContent || '').length);
@@ -362,7 +362,7 @@ const Logger = {
                     // 尋找包含多個以 bullet 字元或數字開頭的行的容器
                     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
                     if (lines.length < 4) return false;
-                    
+
                     const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/;
                     const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
                     return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
@@ -372,7 +372,7 @@ const Logger = {
 
                 // 合併真正的清單和可能的清單容器
                 const allCandidates = [...lists, ...possibleListContainers];
-                
+
                 if (!allCandidates || allCandidates.length === 0) {
                     console.log('✗ No lists or list-like containers found on page');
                     return null;
@@ -386,7 +386,7 @@ const Logger = {
                     const liItems = Array.from(candidate.querySelectorAll('li'));
                     const liCount = liItems.length;
                     const textLength = (candidate.textContent || '').trim().length;
-                    
+
                     // 對於非 <ul>/<ol> 的容器，用行數代替 li 數量
                     let effectiveItemCount = liCount;
                     if (liCount === 0) {
@@ -394,7 +394,7 @@ const Logger = {
                         const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/;
                         effectiveItemCount = lines.filter(line => bulletPattern.test(line)).length;
                     }
-                    
+
                     const score = (effectiveItemCount * 10) + Math.min(500, Math.floor(textLength / 10));
 
                     console.log(`Candidate ${idx + 1}: itemCount=${effectiveItemCount}, textLength=${textLength}, score=${score}, tagName=${candidate.tagName}`);
@@ -1015,7 +1015,7 @@ const Logger = {
         try {
             console.log('🔄 等待動態內容載入...');
             await new Promise(resolve => setTimeout(resolve, 1000));
-            
+
             // 嘗試觸發任何懶載入機制
             const scrollableElements = document.querySelectorAll('[style*="overflow"]');
             scrollableElements.forEach(el => {
@@ -1024,7 +1024,7 @@ const Logger = {
                     el.scrollLeft = el.scrollWidth;
                 } catch (e) { /* ignore */ }
             });
-            
+
             // 再等待一下讓懶載入內容出現
             await new Promise(resolve => setTimeout(resolve, 500));
             console.log('✅ 動態內容載入等待完成');

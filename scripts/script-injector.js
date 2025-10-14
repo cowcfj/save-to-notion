@@ -11,10 +11,10 @@ class ScriptInjector {
      * @param {string[]} files - 要注入的文件列表
      * @param {Function|string} func - 要執行的函數
      * @param {Object} options - 選項
-     * @returns {Promise} 
+     * @returns {Promise}
      */
     static async injectAndExecute(tabId, files = [], func = null, options = {}) {
-        const { 
+        const {
             errorMessage = 'Script injection failed',
             successMessage = 'Script executed successfully',
             logErrors = true,
