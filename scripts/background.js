@@ -2420,7 +2420,28 @@ async function handleSavePage(sendResponse) {
                     tempDiv.innerHTML = article.content;
                     const links = cachedQuery('a', tempDiv);
                     let linkTextLength = 0;
-                    links.forEach(link => linkTextLength += link.textContent.length);
+                    // 確保 links 是可迭代的數組或類數組對象
+                    let linksArray = [];
+                    if (links) {
+                        if (Array.isArray(links)) {
+                            linksArray = links;
+                        } else if (links.nodeType) {
+                            // 單個元素
+                            linksArray = [links];
+                        } else if (typeof links === 'object' && typeof links.length === 'number') {
+                            // 類數組對象（如 NodeList）
+                            linksArray = Array.from(links);
+                        } else {
+                            // 其他情況，嘗試轉換為數組
+                            try {
+                                linksArray = Array.from(links);
+                            } catch (e) {
+                                console.warn('Failed to convert links to array:', e);
+                                linksArray = [];
+                            }
+                        }
+                    }
+                    linksArray.forEach(link => linkTextLength += link.textContent.length);
                     const linkDensity = linkTextLength / article.length;
                     return linkDensity <= MAX_LINK_DENSITY;
                 }
