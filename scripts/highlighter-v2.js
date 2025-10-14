@@ -830,7 +830,7 @@
 
             // 確保 document.body 存在且可訪問
             if (!document || !document.body) {
-                console.warn('無法訪問 document.body');
+                console.debug('無法訪問 document.body');
                 return null;
             }
 
@@ -841,20 +841,20 @@
                     if (step.type === 'element') {
                         // 確保 current 存在且有 children 屬性
                         if (!current || !current.children) {
-                            console.warn('當前節點無效或沒有子元素:', step);
+                            console.debug('當前節點無效或沒有子元素:', step);
                             return null;
                         }
                         
                         const children = Array.from(current.children);
                         // 添加邊界檢查
                         if (step.index < 0 || step.index >= children.length) {
-                            console.warn('元素索引超出範圍:', step, '可用子元素數量:', children.length);
+                            console.debug('元素索引超出範圍:', step, '可用子元素數量:', children.length);
                             // 嘗試模糊匹配：查找具有相同標籤名的元素
                             const matchingElements = children.filter(child => 
                                 child.tagName && child.tagName.toLowerCase() === step.tag
                             );
                             if (matchingElements.length > 0) {
-                                console.log('  -> 使用模糊匹配找到元素:', step.tag);
+                                console.debug('  -> 使用模糊匹配找到元素:', step.tag);
                                 current = matchingElements[0];
                                 continue;
                             }
@@ -864,20 +864,20 @@
                     } else if (step.type === 'text') {
                         // 確保 current 存在且有 childNodes 屬性
                         if (!current || !current.childNodes) {
-                            console.warn('當前節點無效或沒有子節點:', step);
+                            console.debug('當前節點無效或沒有子節點:', step);
                             return null;
                         }
                         
                         const textNodes = Array.from(current.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
                         // 添加邊界檢查
                         if (step.index < 0 || step.index >= textNodes.length) {
-                            console.warn('文本節點索引超出範圍:', step, '可用文本節點數量:', textNodes.length);
+                            console.debug('文本節點索引超出範圍:', step, '可用文本節點數量:', textNodes.length);
                             return null;
                         }
                         current = textNodes[step.index];
                     }
                 } catch (error) {
-                    console.warn('處理路徑步驟時出錯:', step, error);
+                    console.debug('處理路徑步驟時出錯:', step, error);
                     return null;
                 }
             }
@@ -956,7 +956,7 @@
             try {
                 // 檢查必要的參數
                 if (!rangeInfo) {
-                    console.warn('範圍信息無效');
+                    console.debug('範圍信息無效');
                     return null;
                 }
 
@@ -965,13 +965,13 @@
 
                 // 如果無法找到容器節點，嘗試使用模糊查找
                 if (!startContainer || !endContainer) {
-                    console.warn('無法恢復範圍：找不到容器節點，嘗試模糊查找...');
+                    console.debug('無法恢復範圍：找不到容器節點，嘗試模糊查找...');
                     
                     // 嘗試在整個文檔中查找包含目標文本的節點
                     if (expectedText) {
                         const foundRange = this.findTextInPage(expectedText);
                         if (foundRange) {
-                            console.log('  -> 使用模糊查找成功找到文本範圍');
+                            console.debug('  -> 使用模糊查找成功找到文本範圍');
                             return foundRange;
                         }
                     }
@@ -988,12 +988,12 @@
                 const maxEndOffset = endContainer.textContent ? endContainer.textContent.length : 0;
                 
                 if (startOffset < 0 || startOffset > maxStartOffset) {
-                    console.warn('起始偏移量無效:', startOffset, '最大值:', maxStartOffset);
+                    console.debug('起始偏移量無效:', startOffset, '最大值:', maxStartOffset);
                     return null;
                 }
                 
                 if (endOffset < 0 || endOffset > maxEndOffset) {
-                    console.warn('結束偏移量無效:', endOffset, '最大值:', maxEndOffset);
+                    console.debug('結束偏移量無效:', endOffset, '最大值:', maxEndOffset);
                     return null;
                 }
 
@@ -1008,16 +1008,16 @@
                 if (range.toString() === textToVerify) {
                     return range;
                 } else {
-                    console.warn('範圍文本不匹配，可能頁面結構已改變');
-                    console.warn('期望:', textToVerify?.substring(0, 50));
-                    console.warn('實際:', range.toString().substring(0, 50));
+                    console.debug('範圍文本不匹配，可能頁面結構已改變');
+                    console.debug('期望:', textToVerify?.substring(0, 50));
+                    console.debug('實際:', range.toString().substring(0, 50));
                     
                     // 即使文本不匹配，也返回範圍（作為最後的回退）
-                    console.log('  -> 回退到返回範圍對象');
+                    console.debug('  -> 回退到返回範圍對象');
                     return range;
                 }
             } catch (error) {
-                console.error('反序列化範圍失敗:', error);
+                console.debug('反序列化範圍失敗:', error);
                 return null;
             }
         }
