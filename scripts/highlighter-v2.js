@@ -4,7 +4,7 @@
     // 使用來自 utils.js 的共享函數 - 添加安全檢查
     const normalizeUrl = window.normalizeUrl;
     const StorageUtil = window.StorageUtil;
-    
+
     // 確保必要的依賴存在
     if (typeof normalizeUrl !== 'function') {
         return;
@@ -28,7 +28,7 @@
             this.highlights = new Map(); // 存儲所有標註 ID -> {range, color, text}
             this.nextId = 1;
             this.currentColor = 'yellow';
-            
+
             // 顏色配置
             this.colors = {
                 yellow: '#fff3cd',
@@ -50,7 +50,7 @@
             // 🔧 修復：優先檢查並遷移 localStorage 中的舊標註數據
             this.initializationComplete = this.initialize();
         }
-        
+
         /**
          * 異步初始化流程
          */
@@ -68,27 +68,27 @@
                 // 初始化錯誤靜默處理
             }
         }
-        
+
         /**
          * 執行無痛自動遷移
          */
         async performSeamlessMigration() {
-            
+
     if (typeof window.SeamlessMigrationManager === 'undefined') {
                 console.warn('⚠️ 無痛遷移管理器未加載');
                 return;
             }
-            
+
             try {
                 const migrationManager = new window.SeamlessMigrationManager();
                 const result = await migrationManager.performSeamlessMigration(this);
-                
+
                 if (result && result.completed) {
                 } else if (result && result.phase) {
                 } else if (result && result.rolledBack) {
                     console.warn(`⚠️ 遷移已回滾: ${result.reason}`);
                 }
-                
+
                 // 無論如何，都重新保存當前狀態
                 await this.saveToStorage();
             } catch (error) {
@@ -100,21 +100,21 @@
          * 🔧 檢查並遷移 localStorage 中的舊標註數據
          */
         async checkAndMigrateLegacyData() {
-            
+
             try {
                 const currentUrl = window.location.href;
                 const normalizedUrl = normalizeUrl(currentUrl);
-                
+
                 // 檢查可能的舊 key
                 const possibleKeys = [
                     `highlights_${normalizedUrl}`,
                     `highlights_${currentUrl}`,
                     `highlights_${window.location.origin}${window.location.pathname}`
                 ];
-                
+
                 let legacyData = null;
                 let foundKey = null;
-                
+
                 // 嘗試所有可能的 key
                 for (const key of possibleKeys) {
                     const raw = localStorage.getItem(key);
@@ -131,7 +131,7 @@
                         }
                     }
                 }
-                
+
                 // 如果沒找到，遍歷所有 localStorage
                 if (!legacyData) {
                     for (let i = 0; i < localStorage.length; i++) {
@@ -151,16 +151,16 @@
                         }
                     }
                 }
-                
+
                 if (legacyData && foundKey) {
                     // 檢查是否已經遷移過
                     const migrationKey = `migration_completed_${normalizedUrl}`;
                     const migrationStatus = await chrome.storage.local.get(migrationKey);
-                    
+
                     if (migrationStatus[migrationKey]) {
                         return;
                     }
-                    
+
                     // 執行數據遷移
                     await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
                 } else {
@@ -174,25 +174,25 @@
          * 🔧 將舊格式數據遷移到新格式
          */
         async migrateLegacyDataToNewFormat(legacyData, oldKey) {
-            
+
             try {
                 const migratedHighlights = [];
                 let successCount = 0;
                 let failCount = 0;
-                
+
                 for (const oldItem of legacyData) {
                     try {
                         // 舊格式可能是多種形式：
                         // 1. { text: "...", color: "yellow", ... }
                         // 2. { text: "...", bgColor: "#fff3cd", ... }
                         // 3. 簡單字符串（極少見）
-                        
+
                         let textToFind = null;
                         let color = 'yellow';
-                        
+
                         if (typeof oldItem === 'object') {
                             textToFind = oldItem.text || oldItem.content;
-                            
+
                             // 處理顏色
                             if (oldItem.color) {
                                 color = oldItem.color;
@@ -202,21 +202,21 @@
                         } else if (typeof oldItem === 'string') {
                             textToFind = oldItem;
                         }
-                        
+
                         if (!textToFind || textToFind.trim().length === 0) {
                             console.warn('⚠️ [遷移] 跳過空文本標註');
                             failCount++;
                             continue;
                         }
-                        
+
                         // 嘗試在頁面中找到這段文本
                         const range = this.findTextInPage(textToFind);
-                        
+
                         if (range) {
                             // v2.9.0: 使用更短的 ID 格式
                             const newId = `h${this.nextId++}`;
                             const rangeInfo = this.serializeRange(range);
-                            
+
                             migratedHighlights.push({
                                 id: newId,
                                 color: color,
@@ -224,7 +224,7 @@
                                 timestamp: oldItem.timestamp || Date.now(),
                                 rangeInfo: rangeInfo
                             });
-                            
+
                             successCount++;
                         } else {
                             failCount++;
@@ -235,7 +235,7 @@
                         console.error('  ❌ [遷移] 處理標註失敗:', error);
                     }
                 }
-                
+
                 if (migratedHighlights.length > 0) {
                     // 保存到新存儲
                     const currentUrl = window.location.href;
@@ -243,10 +243,10 @@
                         url: currentUrl,
                         highlights: migratedHighlights
                     });
-                    
+
                     console.log(`✅ [遷移] 已保存 ${migratedHighlights.length} 個標註到新存儲`);
                 }
-                
+
                 // 標記遷移完成（無論成功多少）
                 const normalizedUrl = normalizeUrl(window.location.href);
                 await chrome.storage.local.set({
@@ -258,14 +258,14 @@
                         failCount: failCount
                     }
                 });
-                
+
                 // 刪除舊數據（謹慎操作）
                 if (successCount > 0) {
                     localStorage.removeItem(oldKey);
                 } else {
                     console.warn(`⚠️ [遷移] 保留舊數據（因為沒有成功遷移任何標註）`);
                 }
-                
+
                 // 顯示用戶通知
                 if (successCount > 0 || failCount > 0) {
                     this.showMigrationNotification(successCount, failCount, legacyData.length);
@@ -289,7 +289,7 @@
                 'rgb(248, 215, 218)': 'red',
                 '#f8d7da': 'red'
             };
-            
+
             return colorMap[bgColor] || 'yellow';
         }
 
@@ -300,25 +300,25 @@
             try {
                 // 清理文本（移除多餘空白）
                 const cleanText = textToFind.trim().replace(/\s+/g, ' ');
-                
+
                 // 方法1：使用 window.find() API（最快，但可能不夠精確）
                 const selection = window.getSelection();
                 selection.removeAllRanges();
-                
+
                 const found = window.find(cleanText, false, false, false, false, true, false);
-                
+
                 if (found && selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0).cloneRange();
                     selection.removeAllRanges();
                     return range;
                 }
-                
+
                 // 方法2：使用 TreeWalker 精確查找
                 const range = this.findTextWithTreeWalker(cleanText);
                 if (range) {
                     return range;
                 }
-                
+
                 // 方法3：模糊匹配（處理空白字符差異）
                 return this.findTextFuzzy(cleanText);
             } catch (error) {
@@ -345,21 +345,21 @@
                     }
                 }
             );
-            
+
             let node;
             const textNodes = [];
-            
+
             while (node = walker.nextNode()) {
                 if (node.textContent.trim().length > 0) {
                     textNodes.push(node);
                 }
             }
-            
+
             // 在單個文本節點中查找
             for (const node of textNodes) {
                 const text = node.textContent;
                 const index = text.indexOf(textToFind);
-                
+
                 if (index !== -1) {
                     const range = document.createRange();
                     range.setStart(node, index);
@@ -367,26 +367,26 @@
                     return range;
                 }
             }
-            
+
             // 嘗試跨文本節點匹配
             for (let i = 0; i < textNodes.length; i++) {
                 let combinedText = '';
                 const nodesInRange = [];
-                
+
                 for (let j = i; j < Math.min(i + 5, textNodes.length); j++) {
                     combinedText += textNodes[j].textContent;
                     nodesInRange.push(textNodes[j]);
-                    
+
                     const index = combinedText.indexOf(textToFind);
                     if (index !== -1) {
                         // 找到跨節點的匹配，創建跨節點 Range
                         const range = document.createRange();
-                        
+
                         // 找到起始節點和偏移
                         let currentLength = 0;
                         let startNode = null;
                         let startOffset = 0;
-                        
+
                         for (const n of nodesInRange) {
                             const nodeLength = n.textContent.length;
                             if (currentLength + nodeLength > index) {
@@ -396,13 +396,13 @@
                             }
                             currentLength += nodeLength;
                         }
-                        
+
                         // 找到結束節點和偏移
                         currentLength = 0;
                         let endNode = null;
                         let endOffset = 0;
                         const endIndex = index + textToFind.length;
-                        
+
                         for (const n of nodesInRange) {
                             const nodeLength = n.textContent.length;
                             if (currentLength + nodeLength >= endIndex) {
@@ -412,7 +412,7 @@
                             }
                             currentLength += nodeLength;
                         }
-                        
+
                         if (startNode && endNode) {
                             try {
                                 range.setStart(startNode, startOffset);
@@ -425,7 +425,7 @@
                     }
                 }
             }
-            
+
             return null;
         }
 
@@ -436,13 +436,13 @@
             // 將文本轉換為更寬鬆的匹配模式
             const normalizedSearch = textToFind.replace(/\s+/g, '\\s+');
             const regex = new RegExp(normalizedSearch, 'i');
-            
+
             const walker = document.createTreeWalker(
                 document.body,
                 NodeFilter.SHOW_TEXT,
                 null
             );
-            
+
             let node;
             while (node = walker.nextNode()) {
                 if (regex.test(node.textContent)) {
@@ -456,7 +456,7 @@
                     }
                 }
             }
-            
+
             return null;
         }
 
@@ -478,10 +478,10 @@
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 animation: slideIn 0.3s ease-out;
             `;
-            
+
             const successRate = Math.round((successCount / totalCount) * 100);
             const icon = successRate === 100 ? '✅' : successRate > 50 ? '⚠️' : '❌';
-            
+
             notification.innerHTML = `
                 <style>
                     @keyframes slideIn {
@@ -507,9 +507,9 @@
                     舊標註數據已自動遷移到新格式
                 </p>
             `;
-            
+
             document.body.appendChild(notification);
-            
+
             // 5秒後自動消失
             setTimeout(() => {
                 notification.style.animation = 'slideOut 0.3s ease-out';
@@ -527,10 +527,10 @@
             Object.keys(this.colors).forEach(colorName => {
                 // 創建 Highlight 對象
                 this.highlightObjects[colorName] = new Highlight();
-                
+
                 // 註冊到 CSS.highlights（名稱格式：notion-yellow）
                 CSS.highlights.set(`notion-${colorName}`, this.highlightObjects[colorName]);
-                
+
                 // 創建對應的 CSS 樣式
                 const style = document.createElement('style');
                 style.textContent = `
@@ -558,7 +558,7 @@
 
             // v2.9.0: 使用更短的 ID 格式以節省存儲空間
             const id = `h${this.nextId++}`;
-            
+
             // 保存標註信息
             const highlightData = {
                 id: id,
@@ -606,11 +606,11 @@
                 span.dataset.highlightId = id;
                 span.style.backgroundColor = this.colors[color];
                 span.style.cursor = 'pointer';
-                
+
                 const contents = range.extractContents();
                 span.appendChild(contents);
                 range.insertNode(span);
-                
+
                 // 添加點擊刪除事件
                 span.addEventListener('click', (e) => {
                     if (e.ctrlKey || e.metaKey) {
@@ -618,7 +618,7 @@
                         this.removeHighlight(id);
                     }
                 });
-                
+
                 span.addEventListener('dblclick', (e) => {
                     e.preventDefault();
                     if (confirm('確定要刪除這個標記嗎？')) {
@@ -706,16 +706,16 @@
                     range.setStart(pos.offsetNode, pos.offset);
                     range.setEnd(pos.offsetNode, pos.offset);
                 }
-                
+
                 if (!range) return null;
-                
+
                 // 檢查這個點是否在任何已有標註內
                 for (const [id, highlight] of this.highlights.entries()) {
                     if (this.rangesOverlap(range, highlight.range)) {
                         return id;
                     }
                 }
-                
+
                 return null;
             } catch (error) {
                 console.error('檢測標註位置失敗:', error);
@@ -760,10 +760,10 @@
             if (highlightId) {
                 event.preventDefault();
                 event.stopPropagation();
-                
+
                 const highlight = this.highlights.get(highlightId);
                 const text = highlight.text.substring(0, 30) + (highlight.text.length > 30 ? '...' : '');
-                
+
                 if (confirm(`確定要刪除這個標註嗎？\n\n"${text}"`)) {
                     this.removeHighlight(highlightId);
                     this.updateHighlightCount();
@@ -792,7 +792,7 @@
         getNodePath(node) {
             const pathSteps = [];
             let current = node;
-            
+
             while (current && current !== document.body) {
                 if (current.nodeType === Node.TEXT_NODE) {
                     // 文本節點：記錄在父節點中的索引
@@ -812,7 +812,7 @@
                     current = current.parentNode;
                 }
             }
-            
+
             // v2.9.0: 返回字符串格式 "div[0]/p[2]/text[0]"
             return pathSteps.join('/');
         }
@@ -827,30 +827,64 @@
                 path = this.parsePathFromString(path);
                 if (!path) return null;
             }
-            
+
+            // 確保 document.body 存在且可訪問
+            if (!document || !document.body) {
+                console.warn('無法訪問 document.body');
+                return null;
+            }
+
             let current = document.body;
-            
+
             for (const step of path) {
-                if (step.type === 'element') {
-                    const children = Array.from(current.children);
-                    if (step.index >= children.length) {
-                        console.warn('無法找到元素節點:', step);
-                        return null;
+                try {
+                    if (step.type === 'element') {
+                        // 確保 current 存在且有 children 屬性
+                        if (!current || !current.children) {
+                            console.warn('當前節點無效或沒有子元素:', step);
+                            return null;
+                        }
+                        
+                        const children = Array.from(current.children);
+                        // 添加邊界檢查
+                        if (step.index < 0 || step.index >= children.length) {
+                            console.warn('元素索引超出範圍:', step, '可用子元素數量:', children.length);
+                            // 嘗試模糊匹配：查找具有相同標籤名的元素
+                            const matchingElements = children.filter(child => 
+                                child.tagName && child.tagName.toLowerCase() === step.tag
+                            );
+                            if (matchingElements.length > 0) {
+                                console.log('  -> 使用模糊匹配找到元素:', step.tag);
+                                current = matchingElements[0];
+                                continue;
+                            }
+                            return null;
+                        }
+                        current = children[step.index];
+                    } else if (step.type === 'text') {
+                        // 確保 current 存在且有 childNodes 屬性
+                        if (!current || !current.childNodes) {
+                            console.warn('當前節點無效或沒有子節點:', step);
+                            return null;
+                        }
+                        
+                        const textNodes = Array.from(current.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
+                        // 添加邊界檢查
+                        if (step.index < 0 || step.index >= textNodes.length) {
+                            console.warn('文本節點索引超出範圍:', step, '可用文本節點數量:', textNodes.length);
+                            return null;
+                        }
+                        current = textNodes[step.index];
                     }
-                    current = children[step.index];
-                } else if (step.type === 'text') {
-                    const textNodes = Array.from(current.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
-                    if (step.index >= textNodes.length) {
-                        console.warn('無法找到文本節點:', step);
-                        return null;
-                    }
-                    current = textNodes[step.index];
+                } catch (error) {
+                    console.warn('處理路徑步驟時出錯:', step, error);
+                    return null;
                 }
             }
-            
+
             return current;
         }
-        
+
         /**
          * 從字符串解析路徑
          * v2.9.0: 新增方法，用於解析緊湊格式的路徑字符串
@@ -861,11 +895,11 @@
             if (!pathStr || typeof pathStr !== 'string') {
                 return null;
             }
-            
+
             try {
                 const steps = pathStr.split('/');
                 const path = [];
-                
+
                 for (const step of steps) {
                     // 匹配格式：tagname[index] 或 text[index]
                     const match = step.match(/^([a-z0-9\-]+)\[(\d+)\]$/i);
@@ -873,24 +907,24 @@
                         console.warn('無效的路徑步驟格式:', step);
                         return null;
                     }
-                    
+
                     const [, name, indexStr] = match;
                     const index = parseInt(indexStr, 10);
-                    
+
                     if (name === 'text') {
                         path.push({ type: 'text', index });
                     } else {
                         path.push({ type: 'element', tag: name, index });
                     }
                 }
-                
+
                 return path;
             } catch (error) {
                 console.error('路徑解析失敗:', pathStr, error);
                 return null;
             }
         }
-        
+
         /**
          * 將對象數組格式的路徑轉換為字符串格式
          * v2.9.0: 用於數據遷移
@@ -901,7 +935,7 @@
             if (!Array.isArray(pathArray)) {
                 return '';
             }
-            
+
             return pathArray.map(step => {
                 if (step.type === 'text') {
                     return `text[${step.index}]`;
@@ -920,29 +954,67 @@
          */
         deserializeRange(rangeInfo, expectedText) {
             try {
+                // 檢查必要的參數
+                if (!rangeInfo) {
+                    console.warn('範圍信息無效');
+                    return null;
+                }
+
                 const startContainer = this.getNodeByPath(rangeInfo.startContainerPath);
                 const endContainer = this.getNodeByPath(rangeInfo.endContainerPath);
-                
+
+                // 如果無法找到容器節點，嘗試使用模糊查找
                 if (!startContainer || !endContainer) {
-                    console.warn('無法恢復範圍：找不到容器節點');
+                    console.warn('無法恢復範圍：找不到容器節點，嘗試模糊查找...');
+                    
+                    // 嘗試在整個文檔中查找包含目標文本的節點
+                    if (expectedText) {
+                        const foundRange = this.findTextInPage(expectedText);
+                        if (foundRange) {
+                            console.log('  -> 使用模糊查找成功找到文本範圍');
+                            return foundRange;
+                        }
+                    }
+                    
+                    return null;
+                }
+
+                // 驗證偏移量
+                const startOffset = rangeInfo.startOffset || 0;
+                const endOffset = rangeInfo.endOffset || 0;
+                
+                // 確保偏移量在有效範圍內
+                const maxStartOffset = startContainer.textContent ? startContainer.textContent.length : 0;
+                const maxEndOffset = endContainer.textContent ? endContainer.textContent.length : 0;
+                
+                if (startOffset < 0 || startOffset > maxStartOffset) {
+                    console.warn('起始偏移量無效:', startOffset, '最大值:', maxStartOffset);
+                    return null;
+                }
+                
+                if (endOffset < 0 || endOffset > maxEndOffset) {
+                    console.warn('結束偏移量無效:', endOffset, '最大值:', maxEndOffset);
                     return null;
                 }
 
                 const range = document.createRange();
-                range.setStart(startContainer, rangeInfo.startOffset);
-                range.setEnd(endContainer, rangeInfo.endOffset);
+                range.setStart(startContainer, startOffset);
+                range.setEnd(endContainer, endOffset);
 
                 // v2.8.0: 使用傳入的 expectedText 驗證
                 // 向後兼容：如果 rangeInfo 中有 text（舊格式），優先使用它
                 const textToVerify = rangeInfo.text || expectedText;
-                
+
                 if (range.toString() === textToVerify) {
                     return range;
                 } else {
                     console.warn('範圍文本不匹配，可能頁面結構已改變');
                     console.warn('期望:', textToVerify?.substring(0, 50));
                     console.warn('實際:', range.toString().substring(0, 50));
-                    return null;
+                    
+                    // 即使文本不匹配，也返回範圍（作為最後的回退）
+                    console.log('  -> 回退到返回範圍對象');
+                    return range;
                 }
             } catch (error) {
                 console.error('反序列化範圍失敗:', error);
@@ -955,7 +1027,7 @@
          */
         async saveToStorage() {
             const currentUrl = window.location.href;
-            
+
             const data = {
                 url: currentUrl,
                 highlights: Array.from(this.highlights.values()).map(h => ({
@@ -984,37 +1056,37 @@
                 console.log('   pathname:', window.location.pathname);
                 console.log('   hash:', window.location.hash || '(無)');
                 console.log('   search:', window.location.search || '(無)');
-                
+
                 const highlights = await StorageUtil.loadHighlights(url);
-                
+
                 if (!highlights || highlights.length === 0) {
                     return;
                 }
-                
+
                 let restored = 0;
                 let failed = 0;
-                
+
                 // v2.8.0 & v2.9.0: 檢查並遷移舊格式數據
                 let needsMigration = false;
-                
+
                 for (const highlightData of highlights) {
                     console.log(`   恢復標註 ${highlightData.id}:`, {
                         text: highlightData.text?.substring(0, 30) + '...',
                         color: highlightData.color,
                         rangeInfo: highlightData.rangeInfo
                     });
-                    
+
                     // v2.8.0: 檢測並清理舊格式的重複文本
                     if (highlightData.rangeInfo && highlightData.rangeInfo.text) {
                         console.log(`   🔄 [v2.8.0] 檢測到重複文本，將自動清理`);
                         delete highlightData.rangeInfo.text;
                         needsMigration = true;
                     }
-                    
+
                     // v2.9.0: 檢測並轉換舊格式的路徑（對象數組 → 字符串）
                     if (highlightData.rangeInfo) {
                         const { startContainerPath, endContainerPath } = highlightData.rangeInfo;
-                        
+
                         // 如果是對象數組格式（舊格式），轉換為字符串
                         if (Array.isArray(startContainerPath)) {
                             console.log(`   🔄 [v2.9.0] 檢測到舊路徑格式，將自動轉換`);
@@ -1023,12 +1095,12 @@
                             needsMigration = true;
                         }
                     }
-                    
+
                     // v2.8.0: 傳入 text 參數用於驗證
                     const range = this.deserializeRange(highlightData.rangeInfo, highlightData.text);
                     if (range) {
                         const id = highlightData.id;
-                        
+
                         // 恢復標註
                         this.highlights.set(id, {
                             id: id,
@@ -1052,22 +1124,22 @@
                         console.warn(`   ❌ 恢復失敗: ${highlightData.id} - Range 反序列化失敗`);
                     }
                 }
-                
+
                 // v2.8.0 & v2.9.0: 如果有遷移，保存新格式
                 if (needsMigration) {
                     await this.saveToStorage();
                 }
 
                 console.log(`✅ 恢復完成: 成功 ${restored}/${highlights.length}，失敗 ${failed}`);
-                
+
                 // 更新 nextId
                 if (highlights.length > 0) {
-                    const maxId = Math.max(...highlights.map(h => 
+                    const maxId = Math.max(...highlights.map(h =>
                         parseInt(h.id.replace('highlight-', '')) || 0
                     ));
                     this.nextId = maxId + 1;
                 }
-                
+
                 // 驗證 CSS Highlights 狀態
                 if (supportsHighlightAPI()) {
                     Object.keys(this.highlightObjects).forEach(color => {
@@ -1085,7 +1157,7 @@
          * 收集標註數據用於同步到 Notion
          */
         collectHighlightsForNotion() {
-            
+
             const colorMap = {
                 yellow: 'yellow_background',
                 green: 'green_background',
@@ -1100,7 +1172,7 @@
             result.forEach((h, i) => {
                 console.log(`   ${i+1}. "${h.text.substring(0, 50)}..." (${h.color})`);
             });
-            
+
             return result;
         }
 
@@ -1119,7 +1191,7 @@
         getCount() {
             return this.highlights.size;
         }
-        
+
         /**
          * 強制恢復標註（用於頁面刷新後確保存儲的標註被正確加載）
          */
@@ -1128,10 +1200,10 @@
             try {
                 // 清除現有的標註
                 this.clearAll();
-                
+
                 // 重新從存儲中加載
                 await this.restoreHighlights();
-                
+
                 console.log('✅ 標註強制恢復完成');
                 return true;
             } catch (error) {
@@ -1153,10 +1225,10 @@
 
         // 創建標註管理器
         const manager = new HighlightManager();
-        
+
         // 標註狀態
         let isActive = false;
-        
+
         // 創建簡單工具欄（默認隱藏）
         const toolbar = createSimpleToolbar(manager);
         toolbar.style.display = 'none'; // 🔑 默認隱藏
@@ -1164,12 +1236,12 @@
         // Query helpers to support Shadow DOM
         const $ = (sel) => (toolbar.shadowRoot || toolbar).querySelector(sel);
         const $$ = (sel) => (toolbar.shadowRoot || toolbar).querySelectorAll(sel);
-        
+
         // 切換標註模式
         function toggleHighlightMode() {
             isActive = !isActive;
             const btn = toolbar.querySelector('#toggle-highlight-v2');
-            
+
             if (isActive) {
                 btn.style.background = '#48bb78';
                 btn.style.color = 'white';
@@ -1182,10 +1254,10 @@
                 document.body.style.cursor = '';
             }
         }
-        
+
         // 綁定切換按鈕
         toolbar.querySelector('#toggle-highlight-v2').addEventListener('click', toggleHighlightMode);
-        
+
         // 綁定關閉按鈕
         toolbar.querySelector('#close-highlight-v2').addEventListener('click', () => {
             toolbar.style.display = 'none';
@@ -1193,12 +1265,12 @@
                 toggleHighlightMode(); // 關閉標註模式
             }
         });
-        
+
         // 綁定管理標註按鈕
         toolbar.querySelector('#manage-highlights-v2').addEventListener('click', () => {
             const listDiv = toolbar.querySelector('#highlight-list-v2');
             const manageBtn = toolbar.querySelector('#manage-highlights-v2');
-            
+
             if (listDiv.style.display === 'none') {
                 // 顯示標註列表
                 updateHighlightList();
@@ -1210,13 +1282,13 @@
                 manageBtn.textContent = '📋 管理';
             }
         });
-        
+
         // 綁定顏色選擇按鈕
         toolbar.querySelectorAll('.color-btn-v2').forEach(btn => {
             btn.addEventListener('click', () => {
                 const selectedColor = btn.dataset.color;
                 manager.currentColor = selectedColor;
-                
+
                 // 更新所有顏色按鈕的邊框樣式
                 toolbar.querySelectorAll('.color-btn-v2').forEach(b => {
                     if (b.dataset.color === selectedColor) {
@@ -1229,7 +1301,7 @@
                 });
             });
         });
-        
+
         // 綁定/解綁 全局點擊監聽器（用於 Ctrl+點擊刪除）
         const clickHandler = (e) => manager.handleDocumentClick(e);
         let listenerBound = false;
@@ -1247,14 +1319,14 @@
         };
         // 初始綁定一次
         bindDeleteListener();
-        
+
         // 清理函數（當工具欄關閉時移除監聽器）
         const originalHide = () => {
             toolbar.style.display = 'none';
             unbindDeleteListener();
         };
         toolbar.querySelector('#close-highlight-v2').addEventListener('click', originalHide, { once: true });
-        
+
         // 監控 toolbar 是否被移除，若被移除則自動重新掛載
         // 建立 MutationObserver 並在全域保留引用，避免被 GC
         const mo = new MutationObserver(() => {
@@ -1273,16 +1345,16 @@
         } catch (e) {
             console.warn('MutationObserver 初始化失敗:', e);
         }
-        
+
         // 綁定同步按鈕
         toolbar.querySelector('#sync-to-notion-v2').addEventListener('click', async () => {
             const syncBtn = toolbar.querySelector('#sync-to-notion-v2');
             const statusDiv = toolbar.querySelector('#highlight-status-v2');
             const originalText = syncBtn.textContent;
-            
+
             try {
                 const highlights = manager.collectHighlightsForNotion();
-                
+
                 if (highlights.length === 0) {
                     statusDiv.textContent = '⚠️ 沒有標註可同步';
                     statusDiv.style.color = '#f59e0b';
@@ -1291,14 +1363,14 @@
                     }, 2000);
                     return;
                 }
-                
+
                 // 更新按鈕狀態
                 syncBtn.textContent = '⏳ 同步中...';
                 syncBtn.disabled = true;
                 syncBtn.style.opacity = '0.6';
                 statusDiv.textContent = `正在同步 ${highlights.length} 段標註...`;
                 statusDiv.style.color = '#2196F3';
-                
+
                 // 調用 background.js 的同步功能
                 chrome.runtime.sendMessage({
                     action: 'syncHighlights',
@@ -1306,16 +1378,16 @@
                 }, (response) => {
                     syncBtn.disabled = false;
                     syncBtn.style.opacity = '1';
-                    
+
                     if (response && response.success) {
                         syncBtn.textContent = '✅ 同步成功';
                         syncBtn.style.background = '#48bb78';
                         statusDiv.textContent = `✅ 已同步 ${highlights.length} 段標註`;
                         statusDiv.style.color = '#48bb78';
-                        
+
                         // 同步成功後更新 Open in Notion 按鈕狀態
                         updateOpenNotionButton();
-                        
+
                         setTimeout(() => {
                             syncBtn.textContent = originalText;
                             syncBtn.style.background = '#2196F3';
@@ -1326,7 +1398,7 @@
                         syncBtn.style.background = '#ef4444';
                         statusDiv.textContent = response?.error || '同步失敗，請重試';
                         statusDiv.style.color = '#ef4444';
-                        
+
                         setTimeout(() => {
                             syncBtn.textContent = originalText;
                             syncBtn.style.background = '#2196F3';
@@ -1342,7 +1414,7 @@
                 syncBtn.style.background = '#ef4444';
                 statusDiv.textContent = '發生錯誤，請重試';
                 statusDiv.style.color = '#ef4444';
-                
+
                 setTimeout(() => {
                     syncBtn.textContent = originalText;
                     syncBtn.style.background = '#2196F3';
@@ -1350,12 +1422,12 @@
                 }, 3000);
             }
         });
-        
+
         // 綁定 "Open in Notion" 按鈕
         toolbar.querySelector('#open-notion-v2').addEventListener('click', () => {
             // 獲取當前頁面的 Notion URL
             chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
-                
+
                 if (response && response.success && response.isSaved) {
                     // handleCheckPageStatus 會為舊版本數據生成 notionUrl
                     const notionUrl = response.notionUrl;
@@ -1389,13 +1461,13 @@
                 }
             });
         });
-        
+
         // 檢查並更新 "Open in Notion" 按鈕狀態的函數
         function updateOpenNotionButton() {
             chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
                 const openBtn = toolbar.querySelector('#open-notion-v2');
                 const listOpenBtn = toolbar.querySelector('#list-open-notion-v2');
-                
+
                 // 更寬鬆的顯示邏輯：只要頁面已保存就顯示按鈕
                 // notionUrl 會在 handleCheckPageStatus 中為舊版本數據自動生成
                 if (response && response.success && response.isSaved) {
@@ -1411,10 +1483,10 @@
                 }
             });
         }
-        
+
         // 初始檢查頁面狀態
         updateOpenNotionButton();
-        
+
         // 更新標註計數的輔助函數
         function updateHighlightCount() {
             const countSpan = toolbar.querySelector('#highlight-count-v2');
@@ -1426,14 +1498,14 @@
                 statusDiv.style.color = '#666';
             }
         }
-        
+
         // 更新標註列表的輔助函數
         function updateHighlightList() {
             const listDiv = toolbar.querySelector('#highlight-list-v2');
             if (!listDiv || !manager) return;
-            
+
             const highlights = Array.from(manager.highlights.values());
-            
+
             if (highlights.length === 0) {
                 listDiv.innerHTML = `
                     <div style="padding: 8px; text-align: center; color: #666; font-size: 11px;">
@@ -1442,7 +1514,7 @@
                 `;
                 return;
             }
-            
+
             // 添加標註列表頭部，包含 Open in Notion 按鈕
             const headerHtml = `
                 <div style="padding: 8px; border-bottom: 2px solid #e5e7eb; background: #f8f9fa; display: flex; justify-content: space-between; align-items: center;">
@@ -1452,7 +1524,7 @@
                     </button>
                 </div>
             `;
-            
+
             const highlightsHtml = highlights.map((h, index) => {
                 const text = h.text.substring(0, 40) + (h.text.length > 40 ? '...' : '');
                 const colorName = { yellow: '黃', green: '綠', blue: '藍', red: '紅' }[h.color] || h.color;
@@ -1462,7 +1534,7 @@
                             <div style="color: #333; font-weight: 500; margin-bottom: 2px;">${index + 1}. ${colorName}色標註</div>
                             <div style="color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${text}</div>
                         </div>
-                        <button 
+                        <button
                             data-highlight-id="${h.id}"
                             class="delete-highlight-btn-v2"
                             style="padding: 4px 8px; border: 1px solid #ef4444; border-radius: 3px; background: white; color: #ef4444; cursor: pointer; font-size: 11px; margin-left: 8px; flex-shrink: 0;"
@@ -1473,10 +1545,10 @@
                     </div>
                 `;
             }).join('');
-            
+
             // 組合完整的 HTML
             listDiv.innerHTML = headerHtml + highlightsHtml;
-            
+
             // 綁定刪除按鈕事件
             listDiv.querySelectorAll('.delete-highlight-btn-v2').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -1488,14 +1560,14 @@
                     }
                 });
             });
-            
+
             // 綁定標註列表中的 "Open in Notion" 按鈕事件
             const listOpenBtn = listDiv.querySelector('#list-open-notion-v2');
             if (listOpenBtn) {
                 listOpenBtn.addEventListener('click', () => {
                     // 獲取當前頁面的 Notion URL
                     chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
-                        
+
                         if (response && response.success && response.isSaved) {
                             // handleCheckPageStatus 會為舊版本數據生成 notionUrl
                             const notionUrl = response.notionUrl;
@@ -1530,7 +1602,7 @@
                     });
                 });
             }
-            
+
             // 更新標註列表中的 Open in Notion 按鈕狀態
             updateOpenNotionButton();
         }
@@ -1541,20 +1613,20 @@
             if (!isActive || e.target.closest('#notion-highlighter-v2')) {
                 return;
             }
-            
+
             // 延遲一點以確保選擇完成
             setTimeout(() => {
                 const selection = window.getSelection();
                 if (!selection.isCollapsed && selection.toString().trim()) {
                     const range = selection.getRangeAt(0);
-                    
+
                     // 創建標註（CSS Highlight API 不需要修改 DOM，所以不影響選擇）
                     const id = manager.addHighlight(range, manager.currentColor);
                     if (id) {
                         // 更新計數顯示
                         updateHighlightCount();
                     }
-                    
+
                     // 🔑 關鍵：不清除選擇！
                     // CSS Highlight API 的優勢就是可以讓標註和選擇共存
                     // 用戶可以繼續複製文字或進行其他操作
@@ -1610,7 +1682,7 @@
 
         //
     }
-    
+
     /**
      * 創建簡單工具欄
      */
@@ -1632,10 +1704,10 @@
             font-size: 14px;
             min-width: 200px;
         `;
-        
+
         toolbar.innerHTML = `
             <div style="margin-bottom: 10px; font-weight: bold; text-align: center; color: #333;">📝 標註工具</div>
-            
+
             <!-- 標註控制按鈕 -->
             <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                 <button id="toggle-highlight-v2" style="flex: 1; padding: 8px 12px; border: 1px solid #48bb78; border-radius: 4px; background: white; color: #48bb78; cursor: pointer; font-size: 13px; font-weight: 500;">
@@ -1645,7 +1717,7 @@
                     ✕
                 </button>
             </div>
-            
+
             <!-- 顏色選擇器 -->
             <div style="display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
                 <button class="color-btn-v2" data-color="yellow" style="width: 32px; height: 32px; background: #ffd93d; border: 3px solid #333; border-radius: 4px; cursor: pointer; transition: all 0.2s;" title="黃色標註"></button>
@@ -1653,7 +1725,7 @@
                 <button class="color-btn-v2" data-color="blue" style="width: 32px; height: 32px; background: #4d9de0; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.2s;" title="藍色標註"></button>
                 <button class="color-btn-v2" data-color="red" style="width: 32px; height: 32px; background: #e15554; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.2s;" title="紅色標註"></button>
             </div>
-            
+
             <!-- 操作按鈕 -->
             <div style="display: flex; gap: 6px; margin-bottom: 10px;">
                 <button id="sync-to-notion-v2" style="flex: 1; padding: 8px 10px; border: 1px solid #2196F3; border-radius: 4px; background: #2196F3; color: white; cursor: pointer; font-size: 12px; font-weight: 500;">
@@ -1666,38 +1738,38 @@
                     📝 管理
                 </button>
             </div>
-            
+
             <!-- 標註列表（初始隱藏）-->
             <div id="highlight-list-v2" style="display: none; max-height: 300px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #e5e7eb; border-radius: 4px; background: #f9fafb;">
                 <div style="padding: 8px; text-align: center; color: #666; font-size: 11px;">
                     暫無標註
                 </div>
             </div>
-            
+
             <!-- 狀態顯示 -->
             <div id="highlight-status-v2" style="text-align: center; font-size: 11px; color: #666; padding: 4px;">
                 已標註: <span id="highlight-count-v2">0</span> 段
             </div>
-            
+
             <div style="text-align: center; font-size: 10px; color: #999; margin-top: 6px; padding-top: 6px; border-top: 1px solid #eee;">
                 💡 Ctrl+點擊標註可快速刪除
             </div>
         `;
-        
+
         return toolbar;
     }
 
     // 導出函數供外部調用（兼容舊版API）
     window.initHighlighter = initHighlighter;
     window.initNotionHighlighter = initHighlighter; // 別名
-    
+
     window.clearPageHighlights = () => {
         if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
             window.notionHighlighter.manager.clearAll();
         }
     };
     window.clearNotionHighlights = window.clearPageHighlights; // 別名
-    
+
     window.collectHighlights = () => {
         if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
             return window.notionHighlighter.manager.collectHighlightsForNotion();
@@ -1719,13 +1791,13 @@
     // 1. 恢復之前保存的標註
     // 2. 確保 window.collectHighlights 等函數可用
     // 3. 工具欄保持隱藏，直到用戶點擊「開始標註」
-    
+
     // 檢查是否有保存的標註需要恢復
     (async function autoInit() {
         try {
             const url = window.location.href;
             const highlights = await StorageUtil.loadHighlights(url);
-            
+
             if (highlights && highlights.length > 0) {
                 // 有保存的標註，自動初始化
                 initHighlighter();
