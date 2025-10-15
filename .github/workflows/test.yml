@@ -69,7 +69,7 @@ jobs:
       continue-on-error: true
       id: codecov_upload
       uses: codecov/codecov-action@v4
-      if: matrix.node-version == '20.x'
+      if: matrix.node-version == '20.x' && hashFiles('coverage/lcov.info') != ''
       with:
         use_oidc: true
         files: ./coverage/lcov.info
@@ -94,8 +94,4 @@ jobs:
       if: cancelled()
       run: echo "⏹️ Tests cancelled for Node.js ${{ matrix.node-version }}"
 
-    - name: Report failure
-      if: ${{ failure() && !cancelled() }}
-      run: |
-        echo "❌ Tests failed for Node.js ${{ matrix.node-version }}"
-        exit 1
+    # 不需要手動失敗步驟，讓失敗留給實際出錯的步驟
