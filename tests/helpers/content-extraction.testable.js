@@ -39,11 +39,12 @@ function isContentGood(article) {
  * CMS 感知的內容回退查找器
  * @returns {string|null} 找到的內容 HTML 或 null
  */
-function findContentCmsFallback() {
+function findContentCmsFallback(doc) {
+    const d = doc || document;
     console.log("Executing CMS-aware fallback finder...");
 
     // Strategy 1: Look for Drupal's typical structure
-    const drupalNodeContent = document.querySelector('.node__content');
+    const drupalNodeContent = d.querySelector('.node__content');
     if (drupalNodeContent) {
         const imageField = drupalNodeContent.querySelector('.field--name-field-image');
         const bodyField = drupalNodeContent.querySelector('.field--name-field-body');
@@ -66,7 +67,7 @@ function findContentCmsFallback() {
     ];
 
     for (const selector of wordpressSelectors) {
-        const element = document.querySelector(selector);
+        const element = d.querySelector(selector);
         if (element && element.textContent.trim().length >= MIN_CONTENT_LENGTH) {
             console.log(`CMS content found with selector: ${selector}`);
             return element.innerHTML;
@@ -84,7 +85,7 @@ function findContentCmsFallback() {
     ];
 
     for (const selector of articleSelectors) {
-        const element = document.querySelector(selector);
+        const element = d.querySelector(selector);
         if (element && element.textContent.trim().length >= MIN_CONTENT_LENGTH) {
             console.log(`Article content found with selector: ${selector}`);
             return element.innerHTML;
@@ -93,7 +94,7 @@ function findContentCmsFallback() {
 
     // Strategy 4: Generic "biggest content block" as a final attempt
     console.log("CMS structure not found. Reverting to generic content finder.");
-    const candidates = document.querySelectorAll('article, section, main, div');
+    const candidates = d.querySelectorAll('article, section, main, div');
     let bestElement = null;
     let maxScore = 0;
     for (const el of candidates) {

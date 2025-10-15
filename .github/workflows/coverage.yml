@@ -1,10 +1,13 @@
 name: Coverage
 
 on:
+  # 僅在 push 到主線時執行覆蓋率上傳，避免與 PR 測試重複
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+  # 支援手動與排程觸發，用於夜間覆蓋率任務
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'  # 每日 03:00 UTC 執行
 
 jobs:
   coverage:
@@ -24,7 +27,7 @@ jobs:
         run: npm ci
 
       - name: Run tests with coverage
-        run: npm test -- --coverage
+        run: npm test -- --coverage --ci --maxWorkers=2
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -32,6 +35,4 @@ jobs:
           files: coverage/lcov.info
           flags: unittests
           fail_ci_if_error: true
-        env:
-          # For public repos, CODECOV_TOKEN is optional; for private repos set this secret
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
