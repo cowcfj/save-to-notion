@@ -65,30 +65,22 @@ jobs:
         fi
       continue-on-error: true
     
-    - name: Upload coverage to Codecov (Optional)
-      continue-on-error: true
-      id: codecov_upload
-      uses: codecov/codecov-action@v4
-      if: matrix.node-version == '20.x' && hashFiles('coverage/lcov.info') != ''
-      with:
-        use_oidc: true
-        files: ./coverage/lcov.info
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+    # 將 Codecov 上傳從 Test workflow 中移除，改由 workflow_run 的 Coverage Upload 接手
 
     
     - name: Report success
       if: success()
       run: echo "✅ All tests passed for Node.js ${{ matrix.node-version }}"
 
-    - name: Report Codecov upload step info
+    # 移除 Codecov 步驟後，不再回報其狀態
+
+    - name: Upload LCOV coverage artifact
       if: always()
-      run: |
-        echo "--- Codecov step outcome ---"
-        echo "Outcome: ${{ steps.codecov_upload.outcome }}"
-        echo "Conclusion: ${{ steps.codecov_upload.conclusion }}"
-        echo "Outputs: ${{ toJson(steps.codecov_upload.outputs) }}"
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-lcov
+        path: coverage/lcov.info
+        if-no-files-found: ignore
 
     - name: Report cancelled
       if: cancelled()
