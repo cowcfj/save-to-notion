@@ -1,114 +1,39 @@
-## 📋 摘要 (Summary)
-<!-- 1-3 行說明做了什麼、為什麼 -->
+## PR 標題
+Notion Smart Clipper：CI/Jest 穩定化＋內容提取 testable 封裝與複雜用例測試
 
-## 🎯 變更類型
-- [ ] 🐛 Bug 修復 (fix)
-- [ ] ✨ 新功能 (feat)
-- [ ] 📝 文檔更新 (docs)
-- [ ] 🎨 代碼重構 (refactor)
-- [ ] 🧪 測試相關 (test)
-- [ ] 🔧 構建/工具 (chore)
+## 摘要
+- 精簡 CI 覆蓋率工作流觸發，避免與 PR 測試重複；使用 OIDC 強化 Codecov 上傳。
+- 明確忽略 `tests/e2e/` 與注入型腳本的覆蓋統計，讓覆蓋率訊號更準確。
+- 為內容提取與轉換建立可測試封裝（testable wrappers），補齊複雜用例測試並通過本地驗證。
 
-## 🔍 背景與動機 (Why)
-<!-- 問題現況、解決目標、設計考量 -->
-- **問題**: 
-- **原因**: 
-- **目標**: 
+## 主要變更
+- CI/workflows
+  - 調整 `coverage.yml` 觸發條件（僅主線 push＋手動/排程），`use_oidc: true` 上傳覆蓋率。
+  - 減少與 `.github/workflows/test.yml` 重疊，提升穩定性與可預期性。
+- Jest/覆蓋率配置
+  - `jest.config.js`：忽略 `tests/e2e/`；暫不計入覆蓋率的注入腳本 `scripts/utils/htmlToNotionConverter.js`、`scripts/utils/pageComplexityDetector.js`（後續以整合測試覆蓋）。
+- Testable 封裝與測試
+  - `tests/helpers/pageComplexityDetector.testable.js`
+  - `tests/helpers/htmlToNotionConverter.testable.js`
+  - `tests/helpers/content-extraction.testable.js`（接受 `document` 參數）
+  - `tests/unit/pageComplexityDetector.wrapper.test.js`
+  - `tests/unit/htmlToNotionConverter.wrapper.test.js`
+  - `tests/unit/content-extraction.wrapper.test.js`
 
-## 📝 變更內容 (What Changed)
-<!-- 按文件或功能分組列出主要變更 -->
+## 驗證
+- 本地 `npm run test:ci`：42 套件、1176 測試全部通過，覆蓋率報告生成正常且訊號純淨。
 
-### 🔗 相關 Issue
-<!-- 如果有相關的 Issue，請在此引用 -->
-Closes #
+## 風險與回滾
+- 低風險：僅測試與 CI 配置調整，不影響擴展運行時。
+- 回滾：恢復原 `coverage.yml` 觸發或逐檔回滾測試改動即可。
 
-### 🧪 測試
-<!-- 描述如何測試這些變更 -->
-- [ ] 單元測試通過 (`npm test`)
-- [ ] 覆蓋率檢查通過 (`npm test -- --coverage`)
-- [ ] 手動測試完成
+## 文件同步建議
+- 更新 `CHANGELOG.md`（已更新 v2.9.3 條目）。
+- 補充 `internal/specs/TECHNICAL_OVERVIEW.md` 的測試覆蓋與回退策略段落。
+- 若影響流程規範，更新 `Agents.md` 的測試覆蓋與常見場景章節。
 
-**測試步驟：**
-1. 
-2. 
-3. 
+## 後續工作
+- htmlToNotionConverter：引用 `>`、分隔線 `---`、內聯粗斜體、連結 `title`、嵌套列表多層級縮排。
+- content-extraction：Readability 與 `@extractus` 輸出一致性比對與回退邊界。
+- 覆蓋率目標：在訊號純淨前提下向 20%/35% 提升。
 
-### 📚 文檔更新
-<!-- 檢查是否需要更新相關文檔 -->
-- [ ] README.md（如果影響用戶使用）
-- [ ] CHANGELOG.md（記錄變更）
-- [ ] manifest.json（如果變更版本或權限）
-- [ ] help.html（如果影響幫助內容）
-
-### 🔍 代碼審核檢查清單
-
-#### 基本檢查
-- [ ] 代碼遵循項目編碼規範
-- [ ] 沒有硬編碼的敏感信息
-- [ ] 沒有本地絕對路徑
-- [ ] 錯誤處理完善
-- [ ] 日誌信息清晰有用
-
-#### 功能檢查
-- [ ] 功能按預期工作
-- [ ] 邊緣情況處理得當
-- [ ] 向後兼容性保持
-- [ ] 性能影響可接受
-
-#### 測試檢查
-- [ ] 新功能有對應測試
-- [ ] 測試覆蓋關鍵路徑
-- [ ] 所有測試通過
-- [ ] 覆蓋率不下降
-
-## 📊 影響範圍 (Impact)
-- **功能影響**: 
-- **性能影響**: 
-- **兼容性**: 
-- **權限變更**: 
-
-## ⚠️ 風險與回滾 (Risk & Rollback)
-**潛在風險：**
-- 
-
-**緩解措施：**
-- 
-
-**回滾計劃：**
-- 
-
-## 🔄 後續計劃 (Follow-ups)
-<!-- 分階段實施的後續步驟 -->
-- 
-
-### 📊 性能影響
-<!-- 如果有性能影響，請描述 -->
-- [ ] 無性能影響
-- [ ] 性能提升
-- [ ] 性能影響可接受
-- [ ] 需要性能測試
-
-### 🔄 部署注意事項
-<!-- 如果有特殊的部署要求，請說明 -->
-- [ ] 無特殊要求
-- [ ] 需要數據遷移
-- [ ] 需要清除緩存
-- [ ] 需要用戶重新安裝
-
----
-
-### 📋 自動化檢查狀態
-<!-- 這些會由 CI/CD 自動檢查 -->
-- 🤖 **GitHub Actions**: 測試和構建
-- 🔍 **DeepSource**: 代碼質量分析  
-- 📊 **Codecov**: 覆蓋率檢查
-
-### 👀 審核者注意事項
-<!-- 給審核者的特別說明 -->
-
----
-
-**📖 相關文檔：**
-- [PR 工作流程指南](internal/guides/PR_WORKFLOW.md)
-- [開發指南](Agents.md)
-- [項目目標](internal/guides/GOALS.md)

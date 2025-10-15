@@ -1,5 +1,23 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.9.3 - 2025-10-16
+### 🔧 CI/Jest 穩定化
+- 覆蓋率工作流精簡：`coverage.yml` 僅於主線 push、手動與排程觸發，避免與 PR 測試重複；啟用 OIDC 上傳 Codecov。
+- Jest 調整：忽略 `tests/e2e/`，並暫不將注入型腳本（`scripts/utils/htmlToNotionConverter.js`、`scripts/utils/pageComplexityDetector.js`）計入覆蓋，改以 testable 版本覆蓋，讓覆蓋率訊號更準確。
+
+### 🧪 測試增強與可測封裝
+- 新增 testable 封裝：
+  - `tests/helpers/pageComplexityDetector.testable.js`（detect/select/report/log）
+  - `tests/helpers/htmlToNotionConverter.testable.js`（`convertMarkdownToNotionBlocks`、`isValidAbsoluteUrl`）
+  - `tests/helpers/content-extraction.testable.js` 支援傳入 `document` 以便測試
+- 新增與擴充單元/整合測試：
+  - `tests/unit/pageComplexityDetector.wrapper.test.js`（技術文檔 vs 新聞頁面、分析報告、日誌）
+  - `tests/unit/htmlToNotionConverter.wrapper.test.js`（多級標題、編號列表、未閉合代碼塊、URL 邊界）
+  - `tests/unit/content-extraction.wrapper.test.js`（內容質量、高連結密度拒絕、Drupal/WordPress/Article/通用最大內容塊）
+
+### 📌 備註
+- 僅影響測試與 CI 配置，無運行時邏輯變更。
+
 ## v2.9.2 - 2025-10-14
 ### 🐛 Bug 修復
 - **AttributeExtractor 修復**：修復 `isLazyLoadAttribute` 方法的誤判問題，避免將普通屬性（如 `data-testid`）錯誤識別為懶加載屬性
