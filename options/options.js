@@ -709,12 +709,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         for (const [key, value] of Object.entries(data)) {
                             if (!key.startsWith('highlights_')) continue;
 
-                            // 只清理真正的空白頁面（沒有任何標記數據）
-                            if (!Array.isArray(value) || value.length === 0) {
+                            // 🔧 修復：正確判斷空白頁面（支持新舊兩種格式）
+                            let isEmpty = false;
+                            if (Array.isArray(value)) {
+                                // 舊格式：直接是數組
+                                isEmpty = value.length === 0;
+                            } else if (value && typeof value === 'object' && value.highlights) {
+                                // 新格式：{url, highlights}
+                                isEmpty = !Array.isArray(value.highlights) || value.highlights.length === 0;
+                            } else {
+                                // 無效數據，視為空白
+                                isEmpty = true;
+                            }
+
+                            if (isEmpty) {
                                 const url = key.replace('highlights_', '');
                                 const savedKey = `saved_${url}`;
 
-                                // 🔧 修復：只清理「已保存到 Notion 但沒有標註」的頁面
+                                // 只清理「已保存到 Notion 但沒有標註」的頁面
                                 // 如果頁面沒有保存到 Notion（沒有 saved_ 記錄），跳過
                                 if (!data[savedKey]) {
                                     console.log(`⏭️ 跳過未保存頁面: ${url}`);
