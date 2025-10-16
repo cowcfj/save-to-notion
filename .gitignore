@@ -229,8 +229,11 @@ tests/*.md
 !tests/setup.js
 archive/
 demos/
-promo-images/
+promo-images/*.html
 release/
+# 允許 promo-images 的圖片文件
+!promo-images/*.png
+!promo-images/*.jpg
 
 # 建構文件
 build/
