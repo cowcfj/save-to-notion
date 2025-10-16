@@ -1,0 +1,23 @@
+# Jekyll 配置 - GitHub Pages
+theme: jekyll-theme-minimal
+title: Notion Smart Clipper
+description: 智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取
+
+# 啟用 README 作為首頁
+readme_index:
+  enabled: true
+
+# Markdown 設置
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+# 插件
+plugins:
+  - jekyll-relative-links
+
+# 相對鏈接設置
+relative_links:
+  enabled: true
+  collections: true
