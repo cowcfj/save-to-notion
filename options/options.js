@@ -705,45 +705,48 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     
                     // 1. 清理空白頁面記錄
+                    // 🔧 修復：從 saved_ 記錄開始掃描，而不是從 highlights_ 開始
+                    // 因為沒有標註的頁面可能已經沒有 highlights_ 記錄了（被 saveToStorage 刪除）
                     if (cleanEmptyPages) {
                         for (const [key, value] of Object.entries(data)) {
-                            if (!key.startsWith('highlights_')) continue;
+                            if (!key.startsWith('saved_')) continue;
 
-                            // 🔧 修復：正確判斷空白頁面（支持新舊兩種格式）
-                            let isEmpty = false;
-                            if (Array.isArray(value)) {
-                                // 舊格式：直接是數組
-                                isEmpty = value.length === 0;
-                            } else if (value && typeof value === 'object' && value.highlights) {
-                                // 新格式：{url, highlights}
-                                isEmpty = !Array.isArray(value.highlights) || value.highlights.length === 0;
-                            } else {
-                                // 無效數據，視為空白
-                                isEmpty = true;
+                            const url = key.replace('saved_', '');
+                            const highlightsKey = `highlights_${url}`;
+                            const highlightsData = data[highlightsKey];
+
+                            // 檢查是否有標註數據
+                            let hasHighlights = false;
+                            if (highlightsData) {
+                                if (Array.isArray(highlightsData)) {
+                                    // 舊格式：直接是數組
+                                    hasHighlights = highlightsData.length > 0;
+                                } else if (highlightsData && typeof highlightsData === 'object' && highlightsData.highlights) {
+                                    // 新格式：{url, highlights}
+                                    hasHighlights = Array.isArray(highlightsData.highlights) && highlightsData.highlights.length > 0;
+                                }
                             }
 
-                            if (isEmpty) {
-                                const url = key.replace('highlights_', '');
-                                const savedKey = `saved_${url}`;
+                            // 如果沒有標註（或沒有 highlights_ 記錄），這是一個空白頁面
+                            if (!hasHighlights) {
+                                // 可能存在空的 highlights_ 記錄，或者根本沒有記錄
+                                if (highlightsData) {
+                                    // 有空記錄，清理它
+                                    const itemSize = new Blob([JSON.stringify({[highlightsKey]: highlightsData})]).size;
 
-                                // 只清理「已保存到 Notion 但沒有標註」的頁面
-                                // 如果頁面沒有保存到 Notion（沒有 saved_ 記錄），跳過
-                                if (!data[savedKey]) {
-                                    console.log(`⏭️ 跳過未保存頁面: ${url}`);
-                                    continue;
+                                    plan.items.push({
+                                        key: highlightsKey,
+                                        url: url,
+                                        size: itemSize,
+                                        reason: '空白頁面記錄（已保存但無標註）'
+                                    });
+
+                                    plan.spaceFreed += itemSize;
+                                    plan.emptyPages++;
+                                } else {
+                                    // 沒有記錄，但這是正常的（符合預期），跳過
+                                    console.log(`✓ 頁面 ${url} 已保存且無標註，無需清理（沒有 highlights_ 記錄）`);
                                 }
-
-                                const itemSize = new Blob([JSON.stringify({[key]: value})]).size;
-
-                                plan.items.push({
-                                    key,
-                                    url: url,
-                                    size: itemSize,
-                                    reason: '空白頁面記錄（已保存但無標註）'
-                                });
-
-                                plan.spaceFreed += itemSize;
-                                plan.emptyPages++;
                             }
                         }
                     }
