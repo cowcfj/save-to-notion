@@ -1281,9 +1281,64 @@
         const toolbar = createSimpleToolbar(manager);
         toolbar.style.display = 'none'; // 🔑 默認隱藏
         document.body.appendChild(toolbar);
+
+        // 創建最小化圖標
+        const miniIcon = createMiniIcon();
+        document.body.appendChild(miniIcon);
+
+        // 工具欄狀態管理
+        const ToolbarState = {
+            EXPANDED: 'expanded',
+            MINIMIZED: 'minimized',
+            HIDDEN: 'hidden'
+        };
+        let currentToolbarState = ToolbarState.HIDDEN;
+
         // Query helpers to support Shadow DOM
         const $ = (sel) => (toolbar.shadowRoot || toolbar).querySelector(sel);
         const $$ = (sel) => (toolbar.shadowRoot || toolbar).querySelectorAll(sel);
+
+        // 工具欄狀態切換函數
+        function minimizeToolbar() {
+            try {
+                toolbar.style.display = 'none';
+                miniIcon.style.display = 'flex';
+                currentToolbarState = ToolbarState.MINIMIZED;
+                logger.log('✅ [工具欄] 已最小化');
+            } catch (error) {
+                logger.error('❌ [工具欄] 最小化失敗:', error);
+            }
+        }
+
+        function expandToolbar() {
+            try {
+                toolbar.style.display = 'block';
+                miniIcon.style.display = 'none';
+                currentToolbarState = ToolbarState.EXPANDED;
+                logger.log('✅ [工具欄] 已展開');
+            } catch (error) {
+                logger.error('❌ [工具欄] 展開失敗:', error);
+            }
+        }
+
+        function hideToolbar() {
+            try {
+                toolbar.style.display = 'none';
+                miniIcon.style.display = 'none';
+                currentToolbarState = ToolbarState.HIDDEN;
+                logger.log('✅ [工具欄] 已隱藏');
+            } catch (error) {
+                logger.error('❌ [工具欄] 隱藏失敗:', error);
+            }
+        }
+
+        function toggleMinimize() {
+            if (currentToolbarState === ToolbarState.EXPANDED) {
+                minimizeToolbar();
+            } else if (currentToolbarState === ToolbarState.MINIMIZED) {
+                expandToolbar();
+            }
+        }
 
         // 切換標註模式
         function toggleHighlightMode() {
@@ -1306,12 +1361,22 @@
         // 綁定切換按鈕
         toolbar.querySelector('#toggle-highlight-v2').addEventListener('click', toggleHighlightMode);
 
+        // 綁定最小化按鈕
+        toolbar.querySelector('#minimize-highlight-v2').addEventListener('click', () => {
+            minimizeToolbar();
+        });
+
         // 綁定關閉按鈕
         toolbar.querySelector('#close-highlight-v2').addEventListener('click', () => {
-            toolbar.style.display = 'none';
+            hideToolbar();
             if (isActive) {
                 toggleHighlightMode(); // 關閉標註模式
             }
+        });
+
+        // 綁定最小化圖標點擊事件
+        miniIcon.addEventListener('click', () => {
+            expandToolbar();
         });
 
         // 綁定管理標註按鈕
@@ -1702,23 +1767,43 @@
                     if (!toolbar.isConnected || !document.body.contains(toolbar)) {
                         document.body.appendChild(toolbar);
                     }
+                    // If the mini icon was removed by the page, re-attach it
+                    if (!miniIcon.isConnected || !document.body.contains(miniIcon)) {
+                        document.body.appendChild(miniIcon);
+                    }
                     // Ensure core styles so site CSS can't easily override
                     toolbar.style.position = 'fixed';
                     toolbar.style.top = toolbar.style.top || '20px';
                     toolbar.style.right = toolbar.style.right || '20px';
                     toolbar.style.zIndex = '2147483647';
-                    toolbar.style.display = 'block';
                     toolbar.style.visibility = 'visible';
                     toolbar.style.opacity = '1';
+                    
+                    // 使用新的狀態管理展開工具欄
+                    expandToolbar();
                 } catch (e) {
                     logger.error('顯示標註工具欄失敗:', e);
                 }
             },
             hide: () => {
                 try {
-                    toolbar.style.display = 'none';
+                    hideToolbar();
                 } catch (e) {
                     logger.error('隱藏標註工具欄失敗:', e);
+                }
+            },
+            minimize: () => {
+                try {
+                    minimizeToolbar();
+                } catch (e) {
+                    logger.error('最小化標註工具欄失敗:', e);
+                }
+            },
+            expand: () => {
+                try {
+                    expandToolbar();
+                } catch (e) {
+                    logger.error('展開標註工具欄失敗:', e);
                 }
             },
             collectHighlights: () => manager.collectHighlightsForNotion(),
@@ -1761,7 +1846,10 @@
                 <button id="toggle-highlight-v2" style="flex: 1; padding: 8px 12px; border: 1px solid #48bb78; border-radius: 4px; background: white; color: #48bb78; cursor: pointer; font-size: 13px; font-weight: 500;">
                     開始標註
                 </button>
-                <button id="close-highlight-v2" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; color: #666; cursor: pointer; font-size: 13px;">
+                <button id="minimize-highlight-v2" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; color: #666; cursor: pointer; font-size: 13px; font-weight: bold;" title="最小化工具欄">
+                    －
+                </button>
+                <button id="close-highlight-v2" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; background: white; color: #666; cursor: pointer; font-size: 13px;" title="關閉工具欄">
                     ✕
                 </button>
             </div>
@@ -1805,6 +1893,49 @@
         `;
 
         return toolbar;
+    }
+
+    /**
+     * 創建最小化圖標
+     */
+    function createMiniIcon() {
+        const miniIcon = document.createElement('div');
+        miniIcon.id = 'notion-highlighter-mini';
+        miniIcon.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 2147483647;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            font-family: Arial, sans-serif;
+        `;
+
+        miniIcon.innerHTML = '📝';
+        miniIcon.title = '點擊展開標註工具欄';
+
+        // 懸停效果
+        miniIcon.addEventListener('mouseenter', () => {
+            miniIcon.style.background = '#f8f9fa';
+            miniIcon.style.transform = 'scale(1.1)';
+        });
+
+        miniIcon.addEventListener('mouseleave', () => {
+            miniIcon.style.background = 'white';
+            miniIcon.style.transform = 'scale(1)';
+        });
+
+        return miniIcon;
     }
 
     // 導出函數供外部調用（兼容舊版API）
