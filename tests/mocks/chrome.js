@@ -60,6 +60,45 @@ const chrome = {
         }
         return Promise.resolve(size);
       })
+    },
+    sync: {
+      get: jest.fn((keys, callback) => {
+        const result = {};
+        if (typeof keys === 'string') {
+          if (storageData[keys] !== undefined) {
+            result[keys] = storageData[keys];
+          }
+        } else if (Array.isArray(keys)) {
+          keys.forEach(key => {
+            if (storageData[key] !== undefined) {
+              result[key] = storageData[key];
+            }
+          });
+        } else if (keys === null || keys === undefined) {
+          Object.assign(result, storageData);
+        }
+        if (callback) {
+          callback(result);
+        }
+        return Promise.resolve(result);
+      }),
+      set: jest.fn((items, callback) => {
+        Object.assign(storageData, items);
+        if (callback) {
+          callback();
+        }
+        return Promise.resolve();
+      }),
+      remove: jest.fn((keys, callback) => {
+        const keysArray = Array.isArray(keys) ? keys : [keys];
+        keysArray.forEach(key => {
+          delete storageData[key];
+        });
+        if (callback) {
+          callback();
+        }
+        return Promise.resolve();
+      })
     }
   },
   
