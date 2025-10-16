@@ -639,19 +639,18 @@ document.addEventListener('DOMContentLoaded', () => {
         analyzeOptimizationButton.addEventListener('click', analyzeOptimization);
         executeOptimizationButton.addEventListener('click', executeOptimization);
         
-        // 安全清理：清理空白頁面 + 清理已刪除頁面的標註數據
+        // 安全清理：清理已刪除頁面的標註數據
         async function previewSafeCleanup() {
-            const cleanEmptyPages = document.getElementById('cleanup-empty-pages').checked;
             const cleanDeletedPages = document.getElementById('cleanup-deleted-pages').checked;
-            
+
             // 顯示加載狀態
             setPreviewButtonLoading(true);
-            
+
             try {
-                const plan = await generateSafeCleanupPlan(cleanEmptyPages, cleanDeletedPages);
+                const plan = await generateSafeCleanupPlan(cleanDeletedPages);
                 cleanupPlan = plan;
                 displayCleanupPreview(plan);
-                
+
                 if (plan.items.length > 0) {
                     executeCleanupButton.style.display = 'inline-block';
                 } else {
@@ -693,65 +692,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        async function generateSafeCleanupPlan(cleanEmptyPages, cleanDeletedPages) {
+        async function generateSafeCleanupPlan(cleanDeletedPages) {
             return new Promise((resolve) => {
                 chrome.storage.local.get(null, async (data) => {
                     const plan = {
                         items: [],
                         totalKeys: 0,
                         spaceFreed: 0,
-                        emptyPages: 0,
                         deletedPages: 0
                     };
-                    
-                    // 1. 清理空白頁面記錄
-                    // 🔧 修復：從 saved_ 記錄開始掃描，而不是從 highlights_ 開始
-                    // 因為沒有標註的頁面可能已經沒有 highlights_ 記錄了（被 saveToStorage 刪除）
-                    if (cleanEmptyPages) {
-                        for (const [key, value] of Object.entries(data)) {
-                            if (!key.startsWith('saved_')) continue;
 
-                            const url = key.replace('saved_', '');
-                            const highlightsKey = `highlights_${url}`;
-                            const highlightsData = data[highlightsKey];
-
-                            // 檢查是否有標註數據
-                            let hasHighlights = false;
-                            if (highlightsData) {
-                                if (Array.isArray(highlightsData)) {
-                                    // 舊格式：直接是數組
-                                    hasHighlights = highlightsData.length > 0;
-                                } else if (highlightsData && typeof highlightsData === 'object' && highlightsData.highlights) {
-                                    // 新格式：{url, highlights}
-                                    hasHighlights = Array.isArray(highlightsData.highlights) && highlightsData.highlights.length > 0;
-                                }
-                            }
-
-                            // 如果沒有標註（或沒有 highlights_ 記錄），這是一個空白頁面
-                            if (!hasHighlights) {
-                                // 可能存在空的 highlights_ 記錄，或者根本沒有記錄
-                                if (highlightsData) {
-                                    // 有空記錄，清理它
-                                    const itemSize = new Blob([JSON.stringify({[highlightsKey]: highlightsData})]).size;
-
-                                    plan.items.push({
-                                        key: highlightsKey,
-                                        url: url,
-                                        size: itemSize,
-                                        reason: '空白頁面記錄（已保存但無標註）'
-                                    });
-
-                                    plan.spaceFreed += itemSize;
-                                    plan.emptyPages++;
-                                } else {
-                                    // 沒有記錄，但這是正常的（符合預期），跳過
-                                    console.log(`✓ 頁面 ${url} 已保存且無標註，無需清理（沒有 highlights_ 記錄）`);
-                                }
-                            }
-                        }
-                    }
-                    
-                    // 2. 清理已刪除頁面的標註數據
+                    // 清理已刪除頁面的標註數據
                     if (cleanDeletedPages) {
                         const savedPages = Object.keys(data)
                             .filter(key => key.startsWith('saved_'))
@@ -863,9 +814,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const spaceMB = (plan.spaceFreed / (1024 * 1024)).toFixed(3);
             
             let summaryText = '🧹 安全清理預覽\n\n將清理：\n';
-            if (plan.emptyPages > 0) {
-                summaryText += `• ${plan.emptyPages} 個空白頁面記錄\n`;
-            }
             if (plan.deletedPages > 0) {
                 summaryText += `• ${plan.deletedPages} 個已刪除頁面的數據\n`;
             }
@@ -909,7 +857,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 console.log('📋 清理計劃:', {
                     keysToRemove: keysToRemove.length,
-                    emptyPages: cleanupPlan.emptyPages,
                     deletedPages: cleanupPlan.deletedPages,
                     spaceFreed: cleanupPlan.spaceFreed
                 });
@@ -929,10 +876,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const spaceKB = (cleanupPlan.spaceFreed / 1024).toFixed(1);
                 let message = `✅ 安全清理完成！已移除 ${cleanupPlan.totalKeys} 個無效記錄，釋放 ${spaceKB} KB 空間`;
-                
-                if (cleanupPlan.emptyPages > 0) {
-                    message += `\n• 清理了 ${cleanupPlan.emptyPages} 個空白頁面記錄`;
-                }
+
                 if (cleanupPlan.deletedPages > 0) {
                     message += `\n• 清理了 ${cleanupPlan.deletedPages} 個已刪除頁面的數據`;
                 }
