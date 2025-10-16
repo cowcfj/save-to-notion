@@ -1082,8 +1082,14 @@
             };
 
             try {
-                await StorageUtil.saveHighlights(currentUrl, data);
-                logger.info(`💾 已保存 ${data.highlights.length} 個標註`);
+                // 🔧 修復：如果沒有標註，刪除記錄而不是創建空記錄
+                if (data.highlights.length === 0) {
+                    await StorageUtil.clearHighlights(currentUrl);
+                    logger.info(`🗑️ 已刪除空白標註記錄`);
+                } else {
+                    await StorageUtil.saveHighlights(currentUrl, data);
+                    logger.info(`💾 已保存 ${data.highlights.length} 個標註`);
+                }
             } catch (error) {
                 logger.error('保存標註失敗:', error);
             }

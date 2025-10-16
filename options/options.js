@@ -708,18 +708,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (cleanEmptyPages) {
                         for (const [key, value] of Object.entries(data)) {
                             if (!key.startsWith('highlights_')) continue;
-                            
+
                             // 只清理真正的空白頁面（沒有任何標記數據）
                             if (!Array.isArray(value) || value.length === 0) {
+                                const url = key.replace('highlights_', '');
+                                const savedKey = `saved_${url}`;
+
+                                // 🔧 修復：只清理「已保存到 Notion 但沒有標註」的頁面
+                                // 如果頁面沒有保存到 Notion（沒有 saved_ 記錄），跳過
+                                if (!data[savedKey]) {
+                                    console.log(`⏭️ 跳過未保存頁面: ${url}`);
+                                    continue;
+                                }
+
                                 const itemSize = new Blob([JSON.stringify({[key]: value})]).size;
-                                
+
                                 plan.items.push({
                                     key,
-                                    url: key.replace('highlights_', ''),
+                                    url: url,
                                     size: itemSize,
-                                    reason: '空白頁面記錄'
+                                    reason: '空白頁面記錄（已保存但無標註）'
                                 });
-                                
+
                                 plan.spaceFreed += itemSize;
                                 plan.emptyPages++;
                             }
