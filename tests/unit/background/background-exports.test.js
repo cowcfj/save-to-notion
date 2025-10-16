@@ -17,7 +17,7 @@ global.chrome = {
   },
   runtime: {
     lastError: null,
-    getManifest: jest.fn(() => ({ version: '2.9.4' }))
+    getManifest: jest.fn(() => ({ version: '2.9.5' }))
   },
   tabs: {
     query: jest.fn(),
