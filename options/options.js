@@ -639,19 +639,18 @@ document.addEventListener('DOMContentLoaded', () => {
         analyzeOptimizationButton.addEventListener('click', analyzeOptimization);
         executeOptimizationButton.addEventListener('click', executeOptimization);
         
-        // 安全清理：清理空白頁面 + 清理已刪除頁面的標註數據
+        // 安全清理：清理已刪除頁面的標註數據
         async function previewSafeCleanup() {
-            const cleanEmptyPages = document.getElementById('cleanup-empty-pages').checked;
             const cleanDeletedPages = document.getElementById('cleanup-deleted-pages').checked;
-            
+
             // 顯示加載狀態
             setPreviewButtonLoading(true);
-            
+
             try {
-                const plan = await generateSafeCleanupPlan(cleanEmptyPages, cleanDeletedPages);
+                const plan = await generateSafeCleanupPlan(cleanDeletedPages);
                 cleanupPlan = plan;
                 displayCleanupPreview(plan);
-                
+
                 if (plan.items.length > 0) {
                     executeCleanupButton.style.display = 'inline-block';
                 } else {
@@ -693,40 +692,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        async function generateSafeCleanupPlan(cleanEmptyPages, cleanDeletedPages) {
+        async function generateSafeCleanupPlan(cleanDeletedPages) {
             return new Promise((resolve) => {
                 chrome.storage.local.get(null, async (data) => {
                     const plan = {
                         items: [],
                         totalKeys: 0,
                         spaceFreed: 0,
-                        emptyPages: 0,
                         deletedPages: 0
                     };
-                    
-                    // 1. 清理空白頁面記錄
-                    if (cleanEmptyPages) {
-                        for (const [key, value] of Object.entries(data)) {
-                            if (!key.startsWith('highlights_')) continue;
-                            
-                            // 只清理真正的空白頁面（沒有任何標記數據）
-                            if (!Array.isArray(value) || value.length === 0) {
-                                const itemSize = new Blob([JSON.stringify({[key]: value})]).size;
-                                
-                                plan.items.push({
-                                    key,
-                                    url: key.replace('highlights_', ''),
-                                    size: itemSize,
-                                    reason: '空白頁面記錄'
-                                });
-                                
-                                plan.spaceFreed += itemSize;
-                                plan.emptyPages++;
-                            }
-                        }
-                    }
-                    
-                    // 2. 清理已刪除頁面的標註數據
+
+                    // 清理已刪除頁面的標註數據
                     if (cleanDeletedPages) {
                         const savedPages = Object.keys(data)
                             .filter(key => key.startsWith('saved_'))
@@ -838,9 +814,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const spaceMB = (plan.spaceFreed / (1024 * 1024)).toFixed(3);
             
             let summaryText = '🧹 安全清理預覽\n\n將清理：\n';
-            if (plan.emptyPages > 0) {
-                summaryText += `• ${plan.emptyPages} 個空白頁面記錄\n`;
-            }
             if (plan.deletedPages > 0) {
                 summaryText += `• ${plan.deletedPages} 個已刪除頁面的數據\n`;
             }
@@ -884,7 +857,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 console.log('📋 清理計劃:', {
                     keysToRemove: keysToRemove.length,
-                    emptyPages: cleanupPlan.emptyPages,
                     deletedPages: cleanupPlan.deletedPages,
                     spaceFreed: cleanupPlan.spaceFreed
                 });
@@ -904,10 +876,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const spaceKB = (cleanupPlan.spaceFreed / 1024).toFixed(1);
                 let message = `✅ 安全清理完成！已移除 ${cleanupPlan.totalKeys} 個無效記錄，釋放 ${spaceKB} KB 空間`;
-                
-                if (cleanupPlan.emptyPages > 0) {
-                    message += `\n• 清理了 ${cleanupPlan.emptyPages} 個空白頁面記錄`;
-                }
+
                 if (cleanupPlan.deletedPages > 0) {
                     message += `\n• 清理了 ${cleanupPlan.deletedPages} 個已刪除頁面的數據`;
                 }
