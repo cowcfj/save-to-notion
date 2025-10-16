@@ -46,19 +46,19 @@
 <div align="center">
 
 ### 一鍵保存網頁到 Notion
-![核心功能展示](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image1-main-feature1280.jpg)
+![核心功能展示](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image1-main-feature.png)
 
 ### 隨時標記重要內容
-![文本標註功能](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image2-highlight-feature1280.jpg)
+![文本標註功能](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image2-highlight-feature.png)
 
 ### 完美整合 Notion
-![Notion 整合展示](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image3-notion-integration1280.jpg)
+![Notion 整合展示](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image3-notion-integration.png)
 
 ### 簡單設置，立即使用
-![設置界面](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image4-easy-setup1280.jpg)
+![設置界面](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image4-easy-setup.png)
 
 ### 智能網站圖標選擇
-![智能圖標](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image5-smart-icon1280.jpg)
+![智能圖標](https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image5-smart-icon.png)
 
 </div>
 
