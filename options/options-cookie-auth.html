@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion Smart Clipper - Cookie 授權設置</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #2d3748;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #1a202c;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 16px;
+        }
+
+        .auth-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .auth-status {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .auth-status.connected {
+            background: #f0fff4;
+            color: #38a169;
+            border: 1px solid #9ae6b4;
+        }
+
+        .auth-status.disconnected {
+            background: #fff5f5;
+            color: #e53e3e;
+            border: 1px solid #feb2b2;
+        }
+
+        .auth-status.checking {
+            background: #fffbeb;
+            color: #d69e2e;
+            border: 1px solid #fbd38d;
+        }
+
+        .status-icon {
+            font-size: 20px;
+            margin-right: 12px;
+        }
+
+        .user-info {
+            display: none;
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .user-info.show {
+            display: block;
+        }
+
+        .user-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+        }
+
+        .user-details {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 18px;
+            color: #1a202c;
+        }
+
+        .user-email {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .workspace-info {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .workspace-count {
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        .auth-button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .auth-button:hover {
+            background: #3182ce;
+            transform: translateY(-1px);
+        }
+
+        .auth-button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .auth-button.disconnect {
+            background: #e53e3e;
+        }
+
+        .auth-button.disconnect:hover {
+            background: #c53030;
+        }
+
+        .database-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .database-section.show {
+            display: block;
+        }
+
+        .database-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .database-item {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .database-item:hover {
+            background: #f7fafc;
+        }
+
+        .database-item:last-child {
+            border-bottom: none;
+        }
+
+        .database-item.selected {
+            background: #ebf8ff;
+            border-left: 4px solid #4299e1;
+        }
+
+        .database-title {
+            font-weight: 500;
+            color: #1a202c;
+            margin-bottom: 5px;
+        }
+
+        .database-description {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e2e8f0;
+            border-top: 2px solid #4299e1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .instructions {
+            background: #ebf8ff;
+            border: 1px solid #bee3f8;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .instructions h3 {
+            color: #2b6cb0;
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            color: #2d3748;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #feb2b2;
+        }
+
+        .success-message {
+            background: #c6f6d5;
+            color: #2f855a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #9ae6b4;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .test-section {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .test-button {
+            background: #805ad5;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+
+        .test-button:hover {
+            background: #6b46c1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍪 Notion Smart Clipper</h1>
+            <p>基於 Cookie 的 Notion 授權設置</p>
+        </div>
+
+        <!-- 授權狀態區域 -->
+        <div class="auth-section">
+            <h2>授權狀態</h2>
+            
+            <div id="auth-status" class="auth-status checking">
+                <span class="status-icon">⏳</span>
+                <span>正在檢查授權狀態...</span>
+            </div>
+
+            <!-- 用戶資訊 -->
+            <div id="user-info" class="user-info">
+                <div style="display: flex; align-items: center;">
+                    <img id="user-avatar" class="user-avatar" src="" alt="用戶頭像">
+                    <div class="user-details">
+                        <div id="user-name" class="user-name">載入中...</div>
+                        <div id="user-email" class="user-email">載入中...</div>
+                    </div>
+                </div>
+                <div class="workspace-info">
+                    <div id="workspace-count" class="workspace-count">工作空間: 載入中...</div>
+                </div>
+            </div>
+
+            <!-- 登入說明 -->
+            <div id="login-instructions" class="instructions" style="display: none;">
+                <h3>📝 如何登入 Notion</h3>
+                <ol>
+                    <li>點擊下方的「登入 Notion」按鈕</li>
+                    <li>在打開的頁面中輸入您的 Notion 帳號和密碼</li>
+                    <li>登入成功後，返回此頁面</li>
+                    <li>點擊「檢查授權狀態」確認登入</li>
+                </ol>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div style="margin-top: 20px;">
+                <button id="login-button" class="auth-button" onclick="loginToNotion()">
+                    <span>🔑</span>
+                    <span>登入 Notion</span>
+                </button>
+                
+                <button id="check-button" class="auth-button" onclick="checkAuthStatus()" style="background: #38a169;">
+                    <span>🔄</span>
+                    <span>檢查授權狀態</span>
+                </button>
+                
+                <button id="logout-button" class="auth-button disconnect" onclick="logout()" style="display: none;">
+                    <span>🚪</span>
+                    <span>登出</span>
+                </button>
+            </div>
+
+            <!-- 測試區域 -->
+            <div class="test-section">
+                <h4>🧪 測試功能</h4>
+                <p>用於測試和調試 Cookie 授權功能</p>
+                <button class="test-button" onclick="testCookieDetection()">測試 Cookie 檢測</button>
+                <button class="test-button" onclick="testAPICall()">測試 API 調用</button>
+                <button class="test-button" onclick="openTestPage()">打開測試頁面</button>
+            </div>
+        </div>
+
+        <!-- 資料庫選擇區域 -->
+        <div id="database-section" class="database-section">
+            <h2>選擇資料庫</h2>
+            <p>選擇您要保存網頁內容的 Notion 資料庫</p>
+            
+            <button id="load-databases" class="auth-button" onclick="loadDatabases()">
+                <span>📚</span>
+                <span>載入資料庫</span>
+            </button>
+            
+            <div id="database-list" class="database-list" style="display: none;">
+                <!-- 資料庫列表將在這裡動態載入 -->
+            </div>
+        </div>
+
+        <!-- 訊息顯示區域 -->
+        <div id="message-area"></div>
+
+        <div class="footer">
+            <p>Notion Smart Clipper - 讓您輕鬆保存網頁內容到 Notion</p>
+        </div>
+    </div>
+
+    <script src="../scripts/notion-cookie-auth.js"></script>
+    <script>
+        let notionAuth = null;
+        let selectedDatabase = null;
+
+        // 頁面載入時初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🔄 Cookie 授權頁面載入完成');
+            
+            try {
+                // 創建授權管理器實例
+                notionAuth = new NotionCookieAuth();
+                
+                // 檢查授權狀態
+                await checkAuthStatus();
+                
+            } catch (error) {
+                console.error('❌ 初始化失敗:', error);
+                showMessage('初始化失敗: ' + error.message, 'error');
+            }
+        });
+
+        // 檢查授權狀態
+        async function checkAuthStatus() {
+            console.log('🔍 檢查授權狀態...');
+            
+            const statusElement = document.getElementById('auth-status');
+            const userInfoElement = document.getElementById('user-info');
+            const loginInstructions = document.getElementById('login-instructions');
+            const databaseSection = document.getElementById('database-section');
+            const loginButton = document.getElementById('login-button');
+            const logoutButton = document.getElementById('logout-button');
+
+            // 顯示檢查中狀態
+            statusElement.className = 'auth-status checking';
+            statusElement.innerHTML = '<span class="status-icon">⏳</span><span>正在檢查授權狀態...</span>';
+
+            try {
+                // 初始化授權系統
+                const isLoggedIn = await notionAuth.initialize();
+
+                if (isLoggedIn) {
+                    // 已登入狀態
+                    statusElement.className = 'auth-status connected';
+                    statusElement.innerHTML = '<span class="status-icon">✅</span><span>已連接到 Notion</span>';
+                    
+                    // 顯示用戶資訊
+                    const userInfo = notionAuth.getUserDisplayInfo();
+                    if (userInfo) {
+                        document.getElementById('user-name').textContent = userInfo.name;
+                        document.getElementById('user-email').textContent = userInfo.email || '未提供郵箱';
+                        
+                        if (userInfo.avatar) {
+                            document.getElementById('user-avatar').src = userInfo.avatar;
+                        }
+                        
+                        userInfoElement.classList.add('show');
+                    }
+                    
+                    // 顯示工作空間資訊
+                    try {
+                        const workspaces = await notionAuth.getUserWorkspaces();
+                        document.getElementById('workspace-count').textContent = 
+                            `工作空間: ${workspaces.length} 個`;
+                    } catch (error) {
+                        console.warn('獲取工作空間失敗:', error);
+                    }
+                    
+                    // 顯示資料庫區域
+                    databaseSection.classList.add('show');
+                    loginInstructions.style.display = 'none';
+                    loginButton.style.display = 'none';
+                    logoutButton.style.display = 'inline-flex';
+                    
+                } else {
+                    // 未登入狀態
+                    statusElement.className = 'auth-status disconnected';
+                    statusElement.innerHTML = '<span class="status-icon">❌</span><span>未連接到 Notion</span>';
+                    
+                    userInfoElement.classList.remove('show');
+                    databaseSection.classList.remove('show');
+                    loginInstructions.style.display = 'block';
+                    loginButton.style.display = 'inline-flex';
+                    logoutButton.style.display = 'none';
+                }
+
+            } catch (error) {
+                console.error('❌ 檢查授權狀態失敗:', error);
+                statusElement.className = 'auth-status disconnected';
+                statusElement.innerHTML = '<span class="status-icon">❌</span><span>授權檢查失敗</span>';
+                showMessage('授權檢查失敗: ' + error.message, 'error');
+            }
+        }
+
+        // 登入 Notion
+        async function loginToNotion() {
+            console.log('🔑 開始登入流程...');
+            
+            const loginButton = document.getElementById('login-button');
+            const originalText = loginButton.innerHTML;
+            
+            try {
+                // 顯示載入狀態
+                loginButton.disabled = true;
+                loginButton.innerHTML = '<span class="loading"></span><span>正在打開登入頁面...</span>';
+                
+                // 提示用戶登入
+                const tabId = await notionAuth.promptUserLogin();
+                
+                if (tabId) {
+                    showMessage('已打開 Notion 登入頁面，請完成登入後返回此頁面', 'success');
+                    
+                    // 恢復按鈕狀態
+                    loginButton.disabled = false;
+                    loginButton.innerHTML = originalText;
+                    
+                } else {
+                    throw new Error('無法打開登入頁面');
+                }
+
+            } catch (error) {
+                console.error('❌ 登入失敗:', error);
+                showMessage('登入失敗: ' + error.message, 'error');
+                
+                // 恢復按鈕狀態
+                loginButton.disabled = false;
+                loginButton.innerHTML = originalText;
+            }
+        }
+
+        // 登出
+        async function logout() {
+            console.log('🚪 用戶登出...');
+            
+            try {
+                notionAuth.logout();
+                await checkAuthStatus();
+                showMessage('已登出', 'success');
+                
+            } catch (error) {
+                console.error('❌ 登出失敗:', error);
+                showMessage('登出失敗: ' + error.message, 'error');
+            }
+        }
+
+        // 載入資料庫
+        async function loadDatabases() {
+            console.log('📚 載入資料庫...');
+            
+            const loadButton = document.getElementById('load-databases');
+            const databaseList = document.getElementById('database-list');
+            const originalText = loadButton.innerHTML;
+            
+            try {
+                // 顯示載入狀態
+                loadButton.disabled = true;
+                loadButton.innerHTML = '<span class="loading"></span><span>載入中...</span>';
+                
+                // 搜索資料庫
+                const databases = await notionAuth.searchDatabases();
+                
+                if (databases.length > 0) {
+                    // 顯示資料庫列表
+                    databaseList.innerHTML = '';
+                    
+                    databases.forEach(db => {
+                        const item = document.createElement('div');
+                        item.className = 'database-item';
+                        item.onclick = () => selectDatabase(db, item);
+                        
+                        item.innerHTML = `
+                            <div class="database-title">${db.title || '未命名資料庫'}</div>
+                            <div class="database-description">ID: ${db.id}</div>
+                        `;
+                        
+                        databaseList.appendChild(item);
+                    });
+                    
+                    databaseList.style.display = 'block';
+                    showMessage(`找到 ${databases.length} 個資料庫`, 'success');
+                    
+                } else {
+                    showMessage('未找到任何資料庫', 'error');
+                }
+
+            } catch (error) {
+                console.error('❌ 載入資料庫失敗:', error);
+                showMessage('載入資料庫失敗: ' + error.message, 'error');
+                
+            } finally {
+                // 恢復按鈕狀態
+                loadButton.disabled = false;
+                loadButton.innerHTML = originalText;
+            }
+        }
+
+        // 選擇資料庫
+        function selectDatabase(database, element) {
+            // 移除其他選中狀態
+            document.querySelectorAll('.database-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // 設置當前選中
+            element.classList.add('selected');
+            selectedDatabase = database;
+            
+            showMessage(`已選擇資料庫: ${database.title}`, 'success');
+            
+            // 保存到 storage
+            chrome.storage.sync.set({
+                selectedDatabase: database
+            });
+        }
+
+        // 顯示訊息
+        function showMessage(message, type = 'info') {
+            const messageArea = document.getElementById('message-area');
+            const messageDiv = document.createElement('div');
+            
+            messageDiv.className = `${type}-message`;
+            messageDiv.textContent = message;
+            
+            messageArea.appendChild(messageDiv);
+            
+            // 3秒後自動移除
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+
+        // 測試功能
+        async function testCookieDetection() {
+            try {
+                const cookies = await notionAuth.detectAuthCookies();
+                showMessage(`檢測到 ${cookies.length} 個授權相關 cookies`, 'success');
+                console.log('檢測到的 cookies:', cookies);
+            } catch (error) {
+                showMessage('Cookie 檢測失敗: ' + error.message, 'error');
+            }
+        }
+
+        async function testAPICall() {
+            try {
+                const response = await notionAuth.makeAPICall('/api/v3/getUsers', {});
+                showMessage('API 調用成功', 'success');
+                console.log('API 響應:', response);
+            } catch (error) {
+                showMessage('API 調用失敗: ' + error.message, 'error');
+            }
+        }
+
+        function openTestPage() {
+            chrome.tabs.create({
+                url: chrome.runtime.getURL('test-new-cookie-auth.html')
+            });
+        }
+    </script>
+</body>
+</html>

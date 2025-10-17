@@ -7,11 +7,13 @@
     "activeTab",
     "scripting",
     "storage",
-    "tabs"
+    "tabs",
+    "cookies"
   ],
   "host_permissions": [
     "https://api.notion.com/*",
-    "https://api.notion.com/v1/oauth/*",
+    "https://www.notion.so/*",
+    "https://notion.so/*",
     "http://*/*",
     "https://*/*"
   ],
