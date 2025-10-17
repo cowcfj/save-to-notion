@@ -12,7 +12,7 @@ let hybridAuthManager = null;
 
 // 載入混合授權管理器
 try {
-    importScripts('scripts/hybrid-auth-manager.js');
+    importScripts('./scripts/hybrid-auth-manager.js');
     hybridAuthManager = new HybridAuthManager();
     console.log('✅ [Background] 混合授權管理器載入成功');
     

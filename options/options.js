@@ -299,14 +299,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Cookie 授權 - 載入資料庫
-    async function cookieLoadDatabases() {
+    async function loadCookieDatabases() {
         if (!notionCookieAuth) {
             return;
         }
 
         try {
-            cookieLoadDatabases.disabled = true;
-            cookieLoadDatabases.innerHTML = '<span class="loading"></span><span class="button-text">載入中...</span>';
+            if (cookieLoadDatabases) {
+                cookieLoadDatabases.disabled = true;
+                cookieLoadDatabases.innerHTML = '<span class="loading"></span><span class="button-text">載入中...</span>';
+            }
             
             const databases = await notionCookieAuth.searchDatabases();
             
@@ -338,8 +340,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('載入資料庫失敗:', error);
             showStatus('載入資料庫失敗: ' + error.message, 'error');
         } finally {
-            cookieLoadDatabases.disabled = false;
-            cookieLoadDatabases.innerHTML = '<span class="button-icon">📚</span><span class="button-text">載入資料庫</span>';
+            if (cookieLoadDatabases) {
+                cookieLoadDatabases.disabled = false;
+                cookieLoadDatabases.innerHTML = '<span class="button-icon">📚</span><span class="button-text">載入資料庫</span>';
+            }
         }
     }
 
@@ -714,9 +718,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     if (cookieLoadDatabases) {
-        cookieLoadDatabases.addEventListener('click', () => {
+        cookieLoadDatabases.addEventListener('click', function() {
             console.log('📚 載入 Cookie 授權的資料庫...');
-            // 這裡可以添加載入資料庫的邏輯
+            loadCookieDatabases();
         });
     }
     
