@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 初始化 Cookie 授權模組
     try {
         // 動態載入 Cookie 授權腳本
-        await loadScript('../scripts/notion-cookie-auth.js');
+        await loadScript('scripts/notion-cookie-auth.js');
         notionCookieAuth = new NotionCookieAuth();
         console.log('✅ Cookie 授權模組載入成功');
     } catch (error) {
