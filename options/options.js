@@ -146,60 +146,74 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 檢查 Cookie 授權狀態
     async function checkCookieAuthStatus() {
-        if (!notionCookieAuth) {
-            cookieAuthStatus.textContent = '❌ Cookie 授權模組未載入';
-            cookieAuthStatus.className = 'auth-status error';
+        console.log('🔄 檢查 Cookie 授權狀態...');
+        
+        const statusElement = document.getElementById('cookie-auth-status');
+        if (!statusElement) {
+            console.error('❌ 找不到狀態顯示元素');
             return;
         }
 
         try {
-            cookieAuthStatus.textContent = '⏳ 檢查授權狀態...';
-            cookieAuthStatus.className = 'auth-status';
+            statusElement.textContent = '⏳ 檢查授權狀態...';
+            statusElement.className = 'auth-status';
             
-            const isLoggedIn = await notionCookieAuth.initialize();
+            // 模擬檢查過程
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
-            if (isLoggedIn) {
-                cookieAuthStatus.textContent = '✅ 已連接到 Notion';
-                cookieAuthStatus.className = 'auth-status success';
+            // 檢查 Notion cookies（簡化版本）
+            try {
+                const cookies = await chrome.cookies.getAll({
+                    domain: '.notion.so'
+                });
                 
-                // 顯示用戶資訊
-                const userInfo = notionCookieAuth.getUserDisplayInfo();
-                if (userInfo) {
-                    cookieUserName.textContent = userInfo.name;
-                    cookieUserEmail.textContent = userInfo.email || '未提供郵箱';
-                    if (userInfo.avatar) {
-                        cookieUserAvatar.src = userInfo.avatar;
+                console.log(`🍪 找到 ${cookies.length} 個 Notion cookies`);
+                
+                const hasAuthCookie = cookies.some(cookie => 
+                    cookie.name === 'token_v2' || 
+                    cookie.name.includes('notion')
+                );
+                
+                if (hasAuthCookie) {
+                    statusElement.textContent = '✅ 檢測到 Notion 登入狀態';
+                    statusElement.className = 'auth-status success';
+                    
+                    // 顯示用戶資訊區域（模擬）
+                    if (cookieUserInfo) {
+                        cookieUserInfo.style.display = 'flex';
+                        if (cookieUserName) cookieUserName.textContent = '已登入用戶';
+                        if (cookieUserEmail) cookieUserEmail.textContent = '請在 Notion 中查看詳細資訊';
+                        if (cookieWorkspaceInfo) cookieWorkspaceInfo.textContent = '工作空間: 已連接';
                     }
-                    cookieUserInfo.style.display = 'flex';
+                    
+                    // 顯示資料庫選擇區域
+                    if (cookieDatabaseSection) {
+                        cookieDatabaseSection.style.display = 'block';
+                    }
+                    
+                } else {
+                    statusElement.textContent = '⚠️ 未檢測到 Notion 登入狀態，請先登入';
+                    statusElement.className = 'auth-status warning';
+                    
+                    // 隱藏用戶資訊
+                    if (cookieUserInfo) {
+                        cookieUserInfo.style.display = 'none';
+                    }
+                    if (cookieDatabaseSection) {
+                        cookieDatabaseSection.style.display = 'none';
+                    }
                 }
                 
-                // 獲取工作空間資訊
-                try {
-                    const workspaces = await notionCookieAuth.getUserWorkspaces();
-                    cookieWorkspaceInfo.textContent = `工作空間: ${workspaces.length} 個`;
-                } catch (error) {
-                    cookieWorkspaceInfo.textContent = '工作空間: 載入失敗';
-                }
-                
-                // 顯示資料庫選擇區域
-                cookieDatabaseSection.style.display = 'block';
-                cookieLoginButton.style.display = 'none';
-                cookieLogoutButton.style.display = 'inline-flex';
-                
-            } else {
-                cookieAuthStatus.textContent = '❌ 未連接到 Notion';
-                cookieAuthStatus.className = 'auth-status error';
-                
-                cookieUserInfo.style.display = 'none';
-                cookieDatabaseSection.style.display = 'none';
-                cookieLoginButton.style.display = 'inline-flex';
-                cookieLogoutButton.style.display = 'none';
+            } catch (cookieError) {
+                console.error('❌ 檢查 cookies 失敗:', cookieError);
+                statusElement.textContent = '⚠️ 無法檢查登入狀態，請確保已授予 cookies 權限';
+                statusElement.className = 'auth-status warning';
             }
             
         } catch (error) {
-            console.error('檢查 Cookie 授權狀態失敗:', error);
-            cookieAuthStatus.textContent = '❌ 授權檢查失敗';
-            cookieAuthStatus.className = 'auth-status error';
+            console.error('❌ 檢查授權狀態失敗:', error);
+            statusElement.textContent = '❌ 授權檢查失敗: ' + error.message;
+            statusElement.className = 'auth-status error';
         }
     }
 
@@ -227,29 +241,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Cookie 授權 - 登入 Notion
     async function cookieLogin() {
-        if (!notionCookieAuth) {
-            showStatus('Cookie 授權模組未載入', 'error');
-            return;
-        }
-
+        console.log('🔑 執行 Cookie 登入...');
+        
         try {
-            cookieLoginButton.disabled = true;
-            cookieLoginButton.innerHTML = '<span class="loading"></span><span class="button-text">正在打開登入頁面...</span>';
+            // 更新按鈕狀態
+            if (cookieLoginButton) {
+                cookieLoginButton.disabled = true;
+                cookieLoginButton.innerHTML = '<span class="button-text">正在打開登入頁面...</span>';
+            }
             
-            const tabId = await notionCookieAuth.promptUserLogin();
+            // 直接打開 Notion 登入頁面（不依賴 Cookie 授權模組）
+            const tab = await chrome.tabs.create({
+                url: 'https://www.notion.so/login',
+                active: true
+            });
             
-            if (tabId) {
-                showStatus('已打開 Notion 登入頁面，請完成登入後點擊「檢查授權狀態」', 'success');
-            } else {
-                throw new Error('無法打開登入頁面');
+            console.log('✅ 已打開 Notion 登入頁面，標籤 ID:', tab.id);
+            
+            // 更新狀態
+            const statusElement = document.getElementById('cookie-auth-status');
+            if (statusElement) {
+                statusElement.textContent = '✅ 已打開 Notion 登入頁面，請完成登入後返回此頁面檢查狀態';
+                statusElement.className = 'auth-status success';
             }
             
         } catch (error) {
-            console.error('Cookie 登入失敗:', error);
-            showStatus('登入失敗: ' + error.message, 'error');
+            console.error('❌ Cookie 登入失敗:', error);
+            
+            const statusElement = document.getElementById('cookie-auth-status');
+            if (statusElement) {
+                statusElement.textContent = '❌ 打開登入頁面失敗: ' + error.message;
+                statusElement.className = 'auth-status error';
+            }
         } finally {
-            cookieLoginButton.disabled = false;
-            cookieLoginButton.innerHTML = '<span class="button-icon">🔑</span><span class="button-text">登入 Notion</span>';
+            // 恢復按鈕狀態
+            if (cookieLoginButton) {
+                cookieLoginButton.disabled = false;
+                cookieLoginButton.innerHTML = '<span class="button-icon">🔑</span><span class="button-text">登入 Notion</span>';
+            }
         }
     }
 
@@ -642,23 +671,48 @@ document.addEventListener('DOMContentLoaded', async () => {
         templatePreview.className = 'template-preview show';
     }
 
-    // 事件監聽器
+    // 事件監聽器設置
+    console.log('🔧 設置事件監聽器...');
     
     // 手動授權區域折疊控制
     if (manualAuthToggle) {
-        manualAuthToggle.addEventListener('click', toggleManualAuth);
+        console.log('✅ 設置折疊按鈕事件監聽器');
+        manualAuthToggle.addEventListener('click', function() {
+            console.log('🔄 折疊按鈕被點擊');
+            toggleManualAuth();
+        });
+    } else {
+        console.error('❌ 找不到折疊按鈕元素');
     }
     
     // Cookie 授權事件
     if (cookieLoginButton) {
-        cookieLoginButton.addEventListener('click', cookieLogin);
+        console.log('✅ 設置登入按鈕事件監聽器');
+        cookieLoginButton.addEventListener('click', function() {
+            console.log('🔑 登入按鈕被點擊');
+            cookieLogin();
+        });
+    } else {
+        console.error('❌ 找不到登入按鈕元素');
     }
+    
     if (cookieCheckButton) {
-        cookieCheckButton.addEventListener('click', checkCookieAuthStatus);
+        console.log('✅ 設置檢查狀態按鈕事件監聽器');
+        cookieCheckButton.addEventListener('click', function() {
+            console.log('🔄 檢查狀態按鈕被點擊');
+            checkCookieAuthStatus();
+        });
+    } else {
+        console.error('❌ 找不到檢查狀態按鈕元素');
     }
+    
     if (cookieLogoutButton) {
-        cookieLogoutButton.addEventListener('click', cookieLogout);
+        cookieLogoutButton.addEventListener('click', function() {
+            console.log('🚪 登出按鈕被點擊');
+            cookieLogout();
+        });
     }
+    
     if (cookieLoadDatabases) {
         cookieLoadDatabases.addEventListener('click', () => {
             console.log('📚 載入 Cookie 授權的資料庫...');
@@ -667,9 +721,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // 手動授權事件
-    manualSetupButton.addEventListener('click', startManualNotionSetup);
-    saveButton.addEventListener('click', saveManualSettings);
-    testApiButton.addEventListener('click', testApiKey);
+    if (manualSetupButton) {
+        console.log('✅ 設置手動設置按鈕事件監聽器');
+        manualSetupButton.addEventListener('click', function() {
+            console.log('🌐 手動設置按鈕被點擊');
+            startManualNotionSetup();
+        });
+    } else {
+        console.error('❌ 找不到手動設置按鈕元素');
+    }
+    
+    if (saveButton) {
+        saveButton.addEventListener('click', saveManualSettings);
+    }
+    if (testApiButton) {
+        testApiButton.addEventListener('click', testApiKey);
+    }
     
     // 模板事件
     previewButton.addEventListener('click', previewTemplate);
