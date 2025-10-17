@@ -4,6 +4,34 @@
 /* global chrome, PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, AdaptivePerformanceManager */
 
 // ==========================================
+// HYBRID AUTH MANAGER INITIALIZATION
+// ==========================================
+
+// 全局混合授權管理器實例
+let hybridAuthManager = null;
+
+// 載入混合授權管理器
+try {
+    importScripts('scripts/hybrid-auth-manager.js');
+    hybridAuthManager = new HybridAuthManager();
+    console.log('✅ [Background] 混合授權管理器載入成功');
+    
+    // 初始化授權管理器
+    hybridAuthManager.initialize().then(success => {
+        if (success) {
+            console.log('✅ [Background] 混合授權管理器初始化成功');
+        } else {
+            console.warn('⚠️ [Background] 混合授權管理器初始化失敗，將回退到傳統模式');
+        }
+    }).catch(error => {
+        console.error('❌ [Background] 混合授權管理器初始化錯誤:', error);
+    });
+    
+} catch (error) {
+    console.warn('⚠️ [Background] 混合授權管理器載入失敗，將使用傳統 API 模式:', error);
+}
+
+// ==========================================
 // DEVELOPMENT MODE CONTROL
 // ==========================================
 
@@ -564,14 +592,104 @@ function getConfig(keys, callback) {
 }
 
 // ==========================================
+// HYBRID AUTH INTEGRATION
+// ==========================================
+
+/**
+ * 獲取 API 金鑰 - 支援混合授權
+ * @returns {Promise<string|null>} API 金鑰或 null
+ */
+async function getApiKey() {
+    try {
+        // 優先使用混合授權管理器
+        if (typeof hybridAuthManager !== 'undefined') {
+            const apiKey = await hybridAuthManager.getApiKey();
+            if (apiKey) {
+                console.log('✅ [Background] 使用混合授權管理器獲取 API 金鑰');
+                return apiKey;
+            }
+        }
+        
+        // 回退到傳統方式
+        console.log('🔄 [Background] 回退到傳統 API 金鑰獲取方式');
+        const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
+        return config.notionApiKey || null;
+        
+    } catch (error) {
+        console.error('❌ [Background] 獲取 API 金鑰失敗:', error);
+        return null;
+    }
+}
+
+/**
+ * 執行 Notion API 調用 - 支援混合授權
+ * @param {string} endpoint API 端點
+ * @param {Object} options 請求選項
+ * @returns {Promise<Response>} API 響應
+ */
+async function makeNotionAPICall(endpoint, options = {}) {
+    try {
+        // 優先使用混合授權管理器
+        if (typeof hybridAuthManager !== 'undefined' && hybridAuthManager.isReady()) {
+            console.log('✅ [Background] 使用混合授權管理器調用 API');
+            return await hybridAuthManager.makeNotionAPICall(endpoint, options);
+        }
+        
+        // 回退到傳統方式
+        console.log('🔄 [Background] 回退到傳統 API 調用方式');
+        const apiKey = await getApiKey();
+        if (!apiKey) {
+            throw new Error('API 金鑰未設置');
+        }
+        
+        const url = endpoint.startsWith('http') ? endpoint : `https://api.notion.com/v1${endpoint}`;
+        const requestOptions = {
+            method: options.method || 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'Notion-Version': '2022-06-28',
+                ...options.headers
+            },
+            ...options
+        };
+        
+        return await fetch(url, requestOptions);
+        
+    } catch (error) {
+        console.error('❌ [Background] Notion API 調用失敗:', error);
+        throw error;
+    }
+}
+
+// ==========================================
 // NOTION API MODULE
 // ==========================================
 
 /**
- * Checks if a Notion page exists
+ * Checks if a Notion page exists (Enhanced with Hybrid Auth support)
  */
-async function checkNotionPageExists(pageId, apiKey) {
+async function checkNotionPageExists(pageId, apiKey = null) {
     try {
+        console.log('🔍 [Background] 檢查 Notion 頁面是否存在:', pageId);
+        
+        // 如果沒有提供 apiKey，嘗試使用混合授權管理器
+        if (!apiKey) {
+            apiKey = await getApiKey();
+        }
+        
+        if (!apiKey) {
+            console.warn('⚠️ [Background] 無法獲取 API 金鑰，無法檢查頁面存在');
+            return false;
+        }
+        
+        // 如果是 Cookie 授權，暫時返回 true（假設頁面存在）
+        if (apiKey === 'COOKIE_AUTH') {
+            console.log('🍪 [Background] Cookie 授權模式，假設頁面存在');
+            return true;
+        }
+        
+        // 使用傳統 API 檢查
         const response = await (typeof withRetry !== 'undefined' ? withRetry : (fn) => fn())(
             async () => {
                 const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
@@ -624,7 +742,7 @@ async function checkNotionPageExists(pageId, apiKey) {
                 timestamp: Date.now()
             });
         } else {
-            console.error('Error checking page existence:', error);
+            console.error('❌ [Background] 檢查頁面存在錯誤:', error);
         }
         return false;
     }
@@ -642,14 +760,15 @@ async function handleCheckNotionPageExistsMessage(request, sendResponse) {
             return;
         }
 
-        const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
+        // 使用混合授權管理器獲取 API 金鑰
+        const apiKey = await getApiKey();
 
-        if (!config.notionApiKey) {
+        if (!apiKey) {
             sendResponse({ success: false, error: 'Notion API Key not configured' });
             return;
         }
 
-        const exists = await checkNotionPageExists(pageId, config.notionApiKey);
+        const exists = await checkNotionPageExists(pageId, apiKey);
         sendResponse({ success: true, exists: exists });
 
     } catch (error) {
@@ -1346,6 +1465,20 @@ function handleMessage(request, sender, sendResponse) {
             case 'openNotionPage':
                 handleOpenNotionPage(request, sendResponse);
                 break;
+            
+            // 測試消息處理
+            case 'ping':
+                sendResponse({ success: true, message: 'pong' });
+                break;
+            case 'test-hybrid-auth-manager':
+                handleTestHybridAuthManager(sendResponse);
+                break;
+            case 'test-api-call':
+                handleTestAPICall(sendResponse);
+                break;
+            case 'get-auth-status':
+                handleGetAuthStatus(sendResponse);
+                break;
 
             default:
                 sendResponse({ success: false, error: 'Unknown action' });
@@ -1378,11 +1511,11 @@ async function handleCheckPageStatus(sendResponse) {
         const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
 
         if (savedData && savedData.notionPageId) {
-            const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
+            const apiKey = await getApiKey();
 
-            if (config.notionApiKey) {
+            if (apiKey) {
                 try {
-                    const pageExists = await checkNotionPageExists(savedData.notionPageId, config.notionApiKey);
+                    const pageExists = await checkNotionPageExists(savedData.notionPageId, apiKey);
 
                     if (!pageExists) {
                         console.log('Notion page was deleted, clearing local state');
@@ -1521,8 +1654,8 @@ async function handleUpdateHighlights(sendResponse) {
             return;
         }
 
-        const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
-        if (!config.notionApiKey) {
+        const apiKey = await getApiKey();
+        if (!apiKey) {
             sendResponse({ success: false, error: 'API Key is not set.' });
             return;
         }
@@ -1537,7 +1670,7 @@ async function handleUpdateHighlights(sendResponse) {
 
         const highlights = await ScriptInjector.collectHighlights(activeTab.id);
 
-        updateHighlightsOnly(savedData.notionPageId, highlights, normUrl, config.notionApiKey, (response) => {
+        updateHighlightsOnly(savedData.notionPageId, highlights, normUrl, apiKey, (response) => {
             if (response.success) {
                 response.highlightsUpdated = true;
                 response.highlightCount = highlights.length;
@@ -1567,11 +1700,9 @@ async function handleSyncHighlights(request, sendResponse) {
             return;
         }
 
-        const config = await new Promise(resolve =>
-            getConfig(['notionApiKey'], resolve)
-        );
+        const apiKey = await getApiKey();
 
-        if (!config.notionApiKey) {
+        if (!apiKey) {
             sendResponse({ success: false, error: 'API Key 未設置' });
             return;
         }
@@ -1600,7 +1731,7 @@ async function handleSyncHighlights(request, sendResponse) {
         }
 
         // 使用 updateHighlightsOnly 函數同步標註
-        updateHighlightsOnly(savedData.notionPageId, highlights, normUrl, config.notionApiKey, (response) => {
+        updateHighlightsOnly(savedData.notionPageId, highlights, normUrl, apiKey, (response) => {
             if (response.success) {
                 console.log(`✅ 成功同步 ${highlights.length} 個標註`);
                 response.highlightCount = highlights.length;
@@ -1631,11 +1762,12 @@ async function handleSavePage(sendResponse) {
             return;
         }
 
+        const apiKey = await getApiKey();
         const config = await new Promise(resolve =>
-            getConfig(['notionApiKey', 'notionDatabaseId'], resolve)
+            getConfig(['notionDatabaseId'], resolve)
         );
 
-        if (!config.notionApiKey || !config.notionDatabaseId) {
+        if (!apiKey || !config.notionDatabaseId) {
             sendResponse({ success: false, error: 'API Key or Database ID is not set.' });
             return;
         }
@@ -2828,11 +2960,11 @@ async function handleSavePage(sendResponse) {
 
         // 處理保存邏輯
         if (savedData && savedData.notionPageId) {
-            const pageExists = await checkNotionPageExists(savedData.notionPageId, config.notionApiKey);
+            const pageExists = await checkNotionPageExists(savedData.notionPageId, apiKey);
 
             if (pageExists) {
                 if (highlights.length > 0) {
-                    updateHighlightsOnly(savedData.notionPageId, highlights, normUrl, config.notionApiKey, (response) => {
+                    updateHighlightsOnly(savedData.notionPageId, highlights, normUrl, apiKey, (response) => {
                         if (response.success) {
                             response.highlightCount = highlights.length;
                             response.highlightsUpdated = true;
@@ -2840,7 +2972,7 @@ async function handleSavePage(sendResponse) {
                         sendResponse(response);
                     });
                 } else {
-                    updateNotionPage(savedData.notionPageId, contentResult.title, contentResult.blocks, normUrl, config.notionApiKey, (response) => {
+                    updateNotionPage(savedData.notionPageId, contentResult.title, contentResult.blocks, normUrl, apiKey, (response) => {
                         if (response.success) {
                             response.imageCount = imageCount;
                             response.blockCount = contentResult.blocks.length;
@@ -2854,7 +2986,7 @@ async function handleSavePage(sendResponse) {
                 clearPageState(normUrl);
                 await clearPageHighlights(activeTab.id);
 
-                saveToNotion(contentResult.title, contentResult.blocks, normUrl, config.notionApiKey, config.notionDatabaseId, (response) => {
+                saveToNotion(contentResult.title, contentResult.blocks, normUrl, apiKey, config.notionDatabaseId, (response) => {
                     if (response.success) {
                         response.imageCount = imageCount;
                         response.blockCount = contentResult.blocks.length;
@@ -2865,7 +2997,7 @@ async function handleSavePage(sendResponse) {
                 }, contentResult.siteIcon);
             }
         } else {
-            saveToNotion(contentResult.title, contentResult.blocks, normUrl, config.notionApiKey, config.notionDatabaseId, (response) => {
+            saveToNotion(contentResult.title, contentResult.blocks, normUrl, apiKey, config.notionDatabaseId, (response) => {
                 if (response.success) {
                     response.imageCount = imageCount;
                     response.blockCount = contentResult.blocks.length;
@@ -3021,6 +3153,88 @@ function handleOpenNotionPage(request, sendResponse) {
         });
     } catch (error) {
         console.error('❌ handleOpenNotionPage 錯誤:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+// ==========================================
+// 測試消息處理函數
+// ==========================================
+
+/**
+ * 測試混合授權管理器
+ */
+async function handleTestHybridAuthManager(sendResponse) {
+    try {
+        const result = {
+            success: true,
+            isLoaded: typeof hybridAuthManager !== 'undefined' && hybridAuthManager !== null,
+            isInitialized: false,
+            authMethod: null
+        };
+
+        if (result.isLoaded) {
+            result.isInitialized = hybridAuthManager.isReady();
+            result.authMethod = hybridAuthManager.getCurrentAuthMethod();
+        }
+
+        sendResponse(result);
+    } catch (error) {
+        console.error('❌ 測試混合授權管理器失敗:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
+ * 測試 API 調用
+ */
+async function handleTestAPICall(sendResponse) {
+    try {
+        const apiKey = await getApiKey();
+        
+        const result = {
+            success: true,
+            hasApiKey: !!apiKey,
+            authMethod: null
+        };
+
+        if (hybridAuthManager && hybridAuthManager.isReady()) {
+            result.authMethod = hybridAuthManager.getCurrentAuthMethod();
+        } else {
+            result.authMethod = 'manual';
+        }
+
+        sendResponse(result);
+    } catch (error) {
+        console.error('❌ 測試 API 調用失敗:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
+ * 獲取授權狀態
+ */
+async function handleGetAuthStatus(sendResponse) {
+    try {
+        let authStatus = {
+            isAuthenticated: false,
+            authMethod: 'manual',
+            userInfo: null,
+            error: null
+        };
+
+        if (hybridAuthManager && hybridAuthManager.isReady()) {
+            authStatus = await hybridAuthManager.getAuthStatus();
+        } else {
+            // 回退到手動檢查
+            const apiKey = await getApiKey();
+            authStatus.isAuthenticated = !!apiKey;
+            authStatus.userInfo = { method: 'manual', hasApiKey: !!apiKey };
+        }
+
+        sendResponse({ success: true, authStatus });
+    } catch (error) {
+        console.error('❌ 獲取授權狀態失敗:', error);
         sendResponse({ success: false, error: error.message });
     }
 }
