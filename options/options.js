@@ -42,13 +42,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const templatePreview = document.getElementById('template-preview');
 
     // 初始化 Cookie 授權模組
+    console.log('🔄 開始載入 Cookie 授權模組...');
     try {
         // 動態載入 Cookie 授權腳本
-        await loadScript('scripts/notion-cookie-auth.js');
-        notionCookieAuth = new NotionCookieAuth();
-        console.log('✅ Cookie 授權模組載入成功');
+        console.log('📜 載入腳本: ../scripts/notion-cookie-auth.js');
+        await loadScript('../scripts/notion-cookie-auth.js');
+        console.log('📜 腳本載入完成，檢查 NotionCookieAuth 類...');
+        
+        if (typeof NotionCookieAuth !== 'undefined') {
+            notionCookieAuth = new NotionCookieAuth();
+            console.log('✅ Cookie 授權模組載入成功');
+        } else {
+            console.error('❌ NotionCookieAuth 類未定義');
+        }
     } catch (error) {
         console.error('❌ Cookie 授權模組載入失敗:', error);
+        console.error('錯誤詳情:', error.stack);
     }
 
     // 載入腳本輔助函數
@@ -64,19 +73,48 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 授權方式切換
     function switchAuthMethod(method) {
+        console.log(`🔄 切換授權方式到: ${method}`);
+        
         if (method === 'cookie') {
-            cookieAuthSection.style.display = 'block';
-            manualAuthSection.style.display = 'none';
-            authMethodCookie.checked = true;
+            console.log('🍪 顯示 Cookie 授權區域');
+            if (cookieAuthSection) {
+                cookieAuthSection.style.display = 'block';
+                console.log('✅ Cookie 授權區域已顯示');
+            } else {
+                console.error('❌ 找不到 Cookie 授權區域元素');
+            }
+            
+            if (manualAuthSection) {
+                manualAuthSection.style.display = 'none';
+            }
+            
+            if (authMethodCookie) {
+                authMethodCookie.checked = true;
+            }
             
             // 檢查 Cookie 授權狀態
             if (notionCookieAuth) {
+                console.log('🔍 檢查 Cookie 授權狀態...');
                 checkCookieAuthStatus();
+            } else {
+                console.warn('⚠️ Cookie 授權模組未載入，無法檢查狀態');
             }
         } else {
-            cookieAuthSection.style.display = 'none';
-            manualAuthSection.style.display = 'block';
-            authMethodManual.checked = true;
+            console.log('🔑 顯示手動授權區域');
+            if (cookieAuthSection) {
+                cookieAuthSection.style.display = 'none';
+            }
+            
+            if (manualAuthSection) {
+                manualAuthSection.style.display = 'block';
+                console.log('✅ 手動授權區域已顯示');
+            } else {
+                console.error('❌ 找不到手動授權區域元素');
+            }
+            
+            if (authMethodManual) {
+                authMethodManual.checked = true;
+            }
             
             // 檢查手動授權狀態
             checkManualAuthStatus();
@@ -88,6 +126,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 檢查授權狀態和載入設置
     function checkAuthStatus() {
+        console.log('🔍 檢查授權狀態和載入設置...');
         chrome.storage.sync.get([
             'authMethod',
             'notionApiKey', 
@@ -96,13 +135,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             'addSource', 
             'addTimestamp'
         ], (result) => {
+            console.log('📋 載入的設置:', result);
+            
             // 載入模板設置
-            titleTemplateInput.value = result.titleTemplate || '{title}';
-            addSourceCheckbox.checked = result.addSource !== false;
-            addTimestampCheckbox.checked = result.addTimestamp !== false;
+            if (titleTemplateInput) {
+                titleTemplateInput.value = result.titleTemplate || '{title}';
+            }
+            if (addSourceCheckbox) {
+                addSourceCheckbox.checked = result.addSource !== false;
+            }
+            if (addTimestampCheckbox) {
+                addTimestampCheckbox.checked = result.addTimestamp !== false;
+            }
             
             // 設置授權方式
             const authMethod = result.authMethod || 'cookie'; // 默認使用 Cookie 授權
+            console.log(`🎯 設置授權方式為: ${authMethod}`);
             switchAuthMethod(authMethod);
         });
     }
