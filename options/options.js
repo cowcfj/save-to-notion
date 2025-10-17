@@ -10,11 +10,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const testApiButton = document.getElementById('test-api-button');
     const status = document.getElementById('status');
     
-    // 授權方式選擇器
-    const authMethodCookie = document.getElementById('auth-method-cookie');
-    const authMethodManual = document.getElementById('auth-method-manual');
-    const cookieAuthSection = document.getElementById('cookie-auth-section');
-    const manualAuthSection = document.getElementById('manual-auth-section');
+    // 手動授權折疊控制
+    const manualAuthToggle = document.getElementById('manual-auth-toggle');
+    const manualAuthContent = document.getElementById('manual-auth-content');
     
     // Cookie 授權相關元素
     const cookieAuthStatus = document.getElementById('cookie-auth-status');
@@ -78,91 +76,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 授權方式切換
-    function switchAuthMethod(method) {
-        console.log(`🔄 切換授權方式到: ${method}`);
+    // 手動授權區域折疊控制
+    function toggleManualAuth() {
+        console.log('🔄 切換手動授權區域顯示狀態');
         
-        // 強制檢查元素是否存在
-        const cookieSection = document.getElementById('cookie-auth-section');
-        const manualSection = document.getElementById('manual-auth-section');
-        const cookieRadio = document.getElementById('auth-method-cookie');
-        const manualRadio = document.getElementById('auth-method-manual');
-        
-        console.log('元素檢查結果:');
-        console.log('- cookieSection:', !!cookieSection);
-        console.log('- manualSection:', !!manualSection);
-        console.log('- cookieRadio:', !!cookieRadio);
-        console.log('- manualRadio:', !!manualRadio);
-        
-        if (method === 'cookie') {
-            console.log('🍪 顯示 Cookie 授權區域');
+        if (manualAuthContent && manualAuthToggle) {
+            const isExpanded = manualAuthContent.style.display !== 'none';
             
-            if (cookieSection) {
-                cookieSection.style.display = 'block';
-                console.log('✅ Cookie 授權區域已顯示');
+            if (isExpanded) {
+                // 折疊
+                manualAuthContent.style.display = 'none';
+                manualAuthToggle.classList.remove('expanded');
+                console.log('📁 手動授權區域已折疊');
             } else {
-                console.error('❌ 找不到 Cookie 授權區域元素 (ID: cookie-auth-section)');
-                return;
+                // 展開
+                manualAuthContent.style.display = 'block';
+                manualAuthToggle.classList.add('expanded');
+                console.log('📂 手動授權區域已展開');
+                
+                // 展開時檢查手動授權狀態
+                checkManualAuthStatus();
             }
-            
-            if (manualSection) {
-                manualSection.style.display = 'none';
-                console.log('✅ 手動授權區域已隱藏');
-            }
-            
-            if (cookieRadio) {
-                cookieRadio.checked = true;
-                console.log('✅ Cookie 單選按鈕已選中');
-            }
-            
-            // 檢查 Cookie 授權狀態
-            if (notionCookieAuth) {
-                console.log('🔍 檢查 Cookie 授權狀態...');
-                checkCookieAuthStatus();
-            } else {
-                console.warn('⚠️ Cookie 授權模組未載入，顯示默認狀態');
-                const statusElement = document.getElementById('cookie-auth-status');
-                if (statusElement) {
-                    statusElement.textContent = '⚠️ Cookie 授權模組載入中...';
-                    statusElement.className = 'auth-status warning';
-                }
-            }
-        } else {
-            console.log('🔑 顯示手動授權區域');
-            
-            if (cookieSection) {
-                cookieSection.style.display = 'none';
-                console.log('✅ Cookie 授權區域已隱藏');
-            }
-            
-            if (manualSection) {
-                manualSection.style.display = 'block';
-                console.log('✅ 手動授權區域已顯示');
-            } else {
-                console.error('❌ 找不到手動授權區域元素 (ID: manual-auth-section)');
-                return;
-            }
-            
-            if (manualRadio) {
-                manualRadio.checked = true;
-                console.log('✅ 手動單選按鈕已選中');
-            }
-            
-            // 檢查手動授權狀態
-            checkManualAuthStatus();
         }
-        
-        // 保存授權方式選擇
-        chrome.storage.sync.set({ authMethod: method }, () => {
-            console.log(`💾 授權方式 "${method}" 已保存到 storage`);
-        });
     }
 
     // 檢查授權狀態和載入設置
     function checkAuthStatus() {
         console.log('🔍 檢查授權狀態和載入設置...');
         chrome.storage.sync.get([
-            'authMethod',
             'notionApiKey', 
             'notionDatabaseId', 
             'titleTemplate', 
@@ -182,10 +123,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 addTimestampCheckbox.checked = result.addTimestamp !== false;
             }
             
-            // 設置授權方式
-            const authMethod = result.authMethod || 'cookie'; // 默認使用 Cookie 授權
-            console.log(`🎯 設置授權方式為: ${authMethod}`);
-            switchAuthMethod(authMethod);
+            // 檢查 Cookie 授權狀態（主要方式）
+            if (notionCookieAuth) {
+                console.log('🍪 檢查 Cookie 授權狀態...');
+                checkCookieAuthStatus();
+            } else {
+                console.log('⚠️ Cookie 授權模組未載入，顯示默認狀態');
+                const statusElement = document.getElementById('cookie-auth-status');
+                if (statusElement) {
+                    statusElement.textContent = '⚠️ Cookie 授權模組載入中...';
+                    statusElement.className = 'auth-status warning';
+                }
+            }
+            
+            // 檢查是否有手動 API 設置
+            if (result.notionApiKey) {
+                console.log('🔑 發現手動 API 設置');
+                checkManualAuthStatus();
+            }
         });
     }
 
@@ -689,24 +644,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 事件監聽器
     
-    // 授權方式切換
-    authMethodCookie.addEventListener('change', () => {
-        if (authMethodCookie.checked) {
-            switchAuthMethod('cookie');
-        }
-    });
-    
-    authMethodManual.addEventListener('change', () => {
-        if (authMethodManual.checked) {
-            switchAuthMethod('manual');
-        }
-    });
+    // 手動授權區域折疊控制
+    if (manualAuthToggle) {
+        manualAuthToggle.addEventListener('click', toggleManualAuth);
+    }
     
     // Cookie 授權事件
-    cookieLoginButton.addEventListener('click', cookieLogin);
-    cookieCheckButton.addEventListener('click', checkCookieAuthStatus);
-    cookieLogoutButton.addEventListener('click', cookieLogout);
-    cookieLoadDatabases.addEventListener('click', cookieLoadDatabases);
+    if (cookieLoginButton) {
+        cookieLoginButton.addEventListener('click', cookieLogin);
+    }
+    if (cookieCheckButton) {
+        cookieCheckButton.addEventListener('click', checkCookieAuthStatus);
+    }
+    if (cookieLogoutButton) {
+        cookieLogoutButton.addEventListener('click', cookieLogout);
+    }
+    if (cookieLoadDatabases) {
+        cookieLoadDatabases.addEventListener('click', () => {
+            console.log('📚 載入 Cookie 授權的資料庫...');
+            // 這裡可以添加載入資料庫的邏輯
+        });
+    }
     
     // 手動授權事件
     manualSetupButton.addEventListener('click', startManualNotionSetup);

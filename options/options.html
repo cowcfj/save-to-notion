@@ -10,95 +10,80 @@
     <div class="container">
         <h1>Settings</h1>
         
-        <!-- 授權方式選擇 -->
-        <div class="auth-method-section">
-            <h2>連接 Notion</h2>
-            <div class="auth-method-selector">
-                <div class="method-option">
-                    <input type="radio" id="auth-method-cookie" name="auth-method" value="cookie">
-                    <label for="auth-method-cookie" class="method-label">
-                        <span class="method-icon">🍪</span>
-                        <div class="method-info">
-                            <strong>登入 Notion（推薦）</strong>
-                            <small>直接使用您的 Notion 帳號登入，簡單快捷</small>
-                        </div>
-                    </label>
+        <!-- 上層：登入 Notion（推薦方式） -->
+        <div class="primary-auth-section">
+            <h2>🔑 登入 Notion（推薦）</h2>
+            <div class="auth-description">
+                <p>直接使用您的 Notion 帳號登入，無需複雜設置，即可訪問所有工作區和資料庫。</p>
+            </div>
+            
+            <div id="cookie-auth-status" class="auth-status">準備登入 Notion...</div>
+            
+            <div class="auth-actions">
+                <button id="cookie-login-button" class="primary-button">
+                    <span class="button-icon">🔑</span>
+                    <span class="button-text">登入 Notion</span>
+                </button>
+                <button id="cookie-check-button" class="secondary-button">
+                    <span class="button-icon">🔄</span>
+                    <span class="button-text">檢查授權狀態</span>
+                </button>
+                <button id="cookie-logout-button" class="danger-button" style="display: none;">
+                    <span class="button-icon">🚪</span>
+                    <span class="button-text">登出</span>
+                </button>
+            </div>
+            
+            <!-- 用戶資訊卡片 -->
+            <div id="cookie-user-info" class="user-info-card" style="display: none;">
+                <div class="user-avatar-container">
+                    <img id="cookie-user-avatar" class="user-avatar" src="" alt="用戶頭像">
                 </div>
-                <div class="method-option">
-                    <input type="radio" id="auth-method-manual" name="auth-method" value="manual">
-                    <label for="auth-method-manual" class="method-label">
-                        <span class="method-icon">🔑</span>
-                        <div class="method-info">
-                            <strong>手動 API 金鑰</strong>
-                            <small>使用 Notion Integration API 金鑰</small>
-                        </div>
-                    </label>
+                <div class="user-details">
+                    <div id="cookie-user-name" class="user-name">載入中...</div>
+                    <div id="cookie-user-email" class="user-email">載入中...</div>
+                    <div id="cookie-workspace-info" class="workspace-info">工作空間: 載入中...</div>
+                </div>
+            </div>
+            
+            <!-- 資料庫選擇 -->
+            <div id="cookie-database-section" class="database-selection" style="display: none;">
+                <h4>選擇資料庫</h4>
+                <button id="cookie-load-databases" class="load-button">
+                    <span class="button-icon">📚</span>
+                    <span class="button-text">載入資料庫</span>
+                </button>
+                <div id="cookie-database-list" class="database-list" style="display: none;">
+                    <!-- 資料庫列表將在這裡動態載入 -->
                 </div>
             </div>
         </div>
 
-        <!-- 登入 Notion 區域 -->
-        <div class="cookie-auth-section" id="cookie-auth-section" style="display: none;">
-            <h3>🔑 登入 Notion</h3>
-            <div id="cookie-auth-status" class="auth-status"></div>
-            <div class="cookie-auth-content">
-                <div class="auth-benefits">
-                    <div class="benefit-item">✅ 使用您自己的 Notion 帳號</div>
-                    <div class="benefit-item">✅ 訪問所有工作區和資料庫</div>
-                    <div class="benefit-item">✅ 無需複雜的 API 設置</div>
-                    <div class="benefit-item">✅ 一鍵登入，即時可用</div>
+        <!-- 下層：手動 API 設置（可折疊） -->
+        <div class="secondary-auth-section">
+            <div class="collapsible-header" id="manual-auth-toggle">
+                <h3>🔧 進階設置：手動 API 金鑰</h3>
+                <span class="toggle-icon">▼</span>
+            </div>
+            
+            <div class="collapsible-content" id="manual-auth-content" style="display: none;">
+                <div class="auth-description">
+                    <p>適合進階用戶或企業環境，需要手動創建 Notion Integration 並獲取 API 金鑰。</p>
                 </div>
-                <div class="cookie-auth-actions">
-                    <button id="cookie-login-button" class="auth-button primary">
-                        <span class="button-icon">🔑</span>
-                        <span class="button-text">登入 Notion</span>
+                
+                <div id="manual-auth-status" class="auth-status">請設置 API 金鑰</div>
+                
+                <div class="manual-setup-actions">
+                    <button id="manual-setup-button" class="setup-button">
+                        <span class="button-icon">🌐</span>
+                        <span class="button-text">打開 Notion API 頁面</span>
                     </button>
-                    <button id="cookie-check-button" class="auth-button secondary">
-                        <span class="button-icon">🔄</span>
-                        <span class="button-text">檢查授權狀態</span>
-                    </button>
-                    <button id="cookie-logout-button" class="auth-button danger" style="display: none;">
-                        <span class="button-icon">🚪</span>
-                        <span class="button-text">登出</span>
-                    </button>
-                </div>
-                <div id="cookie-user-info" class="user-info-card" style="display: none;">
-                    <div class="user-avatar-container">
-                        <img id="cookie-user-avatar" class="user-avatar" src="" alt="用戶頭像">
-                    </div>
-                    <div class="user-details">
-                        <div id="cookie-user-name" class="user-name">載入中...</div>
-                        <div id="cookie-user-email" class="user-email">載入中...</div>
-                        <div id="cookie-workspace-info" class="workspace-info">工作空間: 載入中...</div>
-                    </div>
-                </div>
-                <div id="cookie-database-section" class="database-selection" style="display: none;">
-                    <h4>選擇資料庫</h4>
-                    <button id="cookie-load-databases" class="load-button">
-                        <span class="button-icon">📚</span>
-                        <span class="button-text">載入資料庫</span>
-                    </button>
-                    <div id="cookie-database-list" class="database-list" style="display: none;">
-                        <!-- 資料庫列表將在這裡動態載入 -->
-                    </div>
+                    <p class="setup-description">
+                        點擊上方按鈕將在新標籤頁中打開 Notion API 頁面，您可以在那裡創建新的 Integration 並獲取 API 金鑰。
+                    </p>
                 </div>
             </div>
         </div>
-
-        <!-- 手動 API 授權區域 -->
-        <div class="manual-auth-section" id="manual-auth-section" style="display: none;">
-            <h3>🔑 手動 API 設置</h3>
-            <div id="manual-auth-status" class="auth-status"></div>
-            <button id="manual-setup-button" class="auth-button">
-                <span class="notion-icon">📝</span>
-                打開 Notion 集成頁面
-            </button>
-            <p class="auth-description">
-                點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
-            </p>
-        </div>
-
-        <div class="divider">或</div>
 
         <!-- 手動設置區域 -->
         <div class="manual-section">
