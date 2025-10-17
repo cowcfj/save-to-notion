@@ -60,6 +60,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('錯誤詳情:', error.stack);
     }
 
+    // 確保所有元素都已準備好
+    console.log('🔍 檢查關鍵元素是否存在...');
+    console.log('- cookieAuthSection:', !!cookieAuthSection);
+    console.log('- manualAuthSection:', !!manualAuthSection);
+    console.log('- authMethodCookie:', !!authMethodCookie);
+    console.log('- authMethodManual:', !!authMethodManual);
+
     // 載入腳本輔助函數
     function loadScript(src) {
         return new Promise((resolve, reject) => {
@@ -75,21 +82,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     function switchAuthMethod(method) {
         console.log(`🔄 切換授權方式到: ${method}`);
         
+        // 強制檢查元素是否存在
+        const cookieSection = document.getElementById('cookie-auth-section');
+        const manualSection = document.getElementById('manual-auth-section');
+        const cookieRadio = document.getElementById('auth-method-cookie');
+        const manualRadio = document.getElementById('auth-method-manual');
+        
+        console.log('元素檢查結果:');
+        console.log('- cookieSection:', !!cookieSection);
+        console.log('- manualSection:', !!manualSection);
+        console.log('- cookieRadio:', !!cookieRadio);
+        console.log('- manualRadio:', !!manualRadio);
+        
         if (method === 'cookie') {
             console.log('🍪 顯示 Cookie 授權區域');
-            if (cookieAuthSection) {
-                cookieAuthSection.style.display = 'block';
+            
+            if (cookieSection) {
+                cookieSection.style.display = 'block';
                 console.log('✅ Cookie 授權區域已顯示');
             } else {
-                console.error('❌ 找不到 Cookie 授權區域元素');
+                console.error('❌ 找不到 Cookie 授權區域元素 (ID: cookie-auth-section)');
+                return;
             }
             
-            if (manualAuthSection) {
-                manualAuthSection.style.display = 'none';
+            if (manualSection) {
+                manualSection.style.display = 'none';
+                console.log('✅ 手動授權區域已隱藏');
             }
             
-            if (authMethodCookie) {
-                authMethodCookie.checked = true;
+            if (cookieRadio) {
+                cookieRadio.checked = true;
+                console.log('✅ Cookie 單選按鈕已選中');
             }
             
             // 檢查 Cookie 授權狀態
@@ -97,23 +120,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log('🔍 檢查 Cookie 授權狀態...');
                 checkCookieAuthStatus();
             } else {
-                console.warn('⚠️ Cookie 授權模組未載入，無法檢查狀態');
+                console.warn('⚠️ Cookie 授權模組未載入，顯示默認狀態');
+                const statusElement = document.getElementById('cookie-auth-status');
+                if (statusElement) {
+                    statusElement.textContent = '⚠️ Cookie 授權模組載入中...';
+                    statusElement.className = 'auth-status warning';
+                }
             }
         } else {
             console.log('🔑 顯示手動授權區域');
-            if (cookieAuthSection) {
-                cookieAuthSection.style.display = 'none';
+            
+            if (cookieSection) {
+                cookieSection.style.display = 'none';
+                console.log('✅ Cookie 授權區域已隱藏');
             }
             
-            if (manualAuthSection) {
-                manualAuthSection.style.display = 'block';
+            if (manualSection) {
+                manualSection.style.display = 'block';
                 console.log('✅ 手動授權區域已顯示');
             } else {
-                console.error('❌ 找不到手動授權區域元素');
+                console.error('❌ 找不到手動授權區域元素 (ID: manual-auth-section)');
+                return;
             }
             
-            if (authMethodManual) {
-                authMethodManual.checked = true;
+            if (manualRadio) {
+                manualRadio.checked = true;
+                console.log('✅ 手動單選按鈕已選中');
             }
             
             // 檢查手動授權狀態
@@ -121,7 +153,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         // 保存授權方式選擇
-        chrome.storage.sync.set({ authMethod: method });
+        chrome.storage.sync.set({ authMethod: method }, () => {
+            console.log(`💾 授權方式 "${method}" 已保存到 storage`);
+        });
     }
 
     // 檢查授權狀態和載入設置
@@ -685,8 +719,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 數據管理功能
     setupDataManagement();
 
-    // 初始化
-    checkAuthStatus();
+    // 初始化 - 延遲執行以確保所有模組都已載入
+    setTimeout(() => {
+        console.log('🚀 開始初始化授權狀態檢查...');
+        checkAuthStatus();
+    }, 100);
 
     // 數據管理功能實現
     function setupDataManagement() {
