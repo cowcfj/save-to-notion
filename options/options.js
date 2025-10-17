@@ -1,12 +1,38 @@
-document.addEventListener('DOMContentLoaded', () => {
+// 載入 Cookie 授權模組
+let notionCookieAuth = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // 原有元素
     const apiKeyInput = document.getElementById('api-key');
     const databaseIdInput = document.getElementById('database-id');
     const databaseSelect = document.getElementById('database-select');
     const saveButton = document.getElementById('save-button');
-    const oauthButton = document.getElementById('oauth-button');
     const testApiButton = document.getElementById('test-api-button');
     const status = document.getElementById('status');
-    const authStatus = document.getElementById('auth-status');
+    
+    // 授權方式選擇器
+    const authMethodCookie = document.getElementById('auth-method-cookie');
+    const authMethodManual = document.getElementById('auth-method-manual');
+    const cookieAuthSection = document.getElementById('cookie-auth-section');
+    const manualAuthSection = document.getElementById('manual-auth-section');
+    
+    // Cookie 授權相關元素
+    const cookieAuthStatus = document.getElementById('cookie-auth-status');
+    const cookieLoginButton = document.getElementById('cookie-login-button');
+    const cookieCheckButton = document.getElementById('cookie-check-button');
+    const cookieLogoutButton = document.getElementById('cookie-logout-button');
+    const cookieUserInfo = document.getElementById('cookie-user-info');
+    const cookieUserName = document.getElementById('cookie-user-name');
+    const cookieUserEmail = document.getElementById('cookie-user-email');
+    const cookieUserAvatar = document.getElementById('cookie-user-avatar');
+    const cookieWorkspaceInfo = document.getElementById('cookie-workspace-info');
+    const cookieDatabaseSection = document.getElementById('cookie-database-section');
+    const cookieLoadDatabases = document.getElementById('cookie-load-databases');
+    const cookieDatabaseList = document.getElementById('cookie-database-list');
+    
+    // 手動授權相關元素
+    const manualAuthStatus = document.getElementById('manual-auth-status');
+    const manualSetupButton = document.getElementById('manual-setup-button');
     
     // 模板相關元素
     const titleTemplateInput = document.getElementById('title-template');
@@ -15,19 +41,137 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewButton = document.getElementById('preview-template');
     const templatePreview = document.getElementById('template-preview');
 
+    // 初始化 Cookie 授權模組
+    try {
+        // 動態載入 Cookie 授權腳本
+        await loadScript('../scripts/notion-cookie-auth.js');
+        notionCookieAuth = new NotionCookieAuth();
+        console.log('✅ Cookie 授權模組載入成功');
+    } catch (error) {
+        console.error('❌ Cookie 授權模組載入失敗:', error);
+    }
+
+    // 載入腳本輔助函數
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 授權方式切換
+    function switchAuthMethod(method) {
+        if (method === 'cookie') {
+            cookieAuthSection.style.display = 'block';
+            manualAuthSection.style.display = 'none';
+            authMethodCookie.checked = true;
+            
+            // 檢查 Cookie 授權狀態
+            if (notionCookieAuth) {
+                checkCookieAuthStatus();
+            }
+        } else {
+            cookieAuthSection.style.display = 'none';
+            manualAuthSection.style.display = 'block';
+            authMethodManual.checked = true;
+            
+            // 檢查手動授權狀態
+            checkManualAuthStatus();
+        }
+        
+        // 保存授權方式選擇
+        chrome.storage.sync.set({ authMethod: method });
+    }
+
     // 檢查授權狀態和載入設置
     function checkAuthStatus() {
         chrome.storage.sync.get([
+            'authMethod',
             'notionApiKey', 
             'notionDatabaseId', 
             'titleTemplate', 
             'addSource', 
             'addTimestamp'
         ], (result) => {
+            // 載入模板設置
+            titleTemplateInput.value = result.titleTemplate || '{title}';
+            addSourceCheckbox.checked = result.addSource !== false;
+            addTimestampCheckbox.checked = result.addTimestamp !== false;
+            
+            // 設置授權方式
+            const authMethod = result.authMethod || 'cookie'; // 默認使用 Cookie 授權
+            switchAuthMethod(authMethod);
+        });
+    }
+
+    // 檢查 Cookie 授權狀態
+    async function checkCookieAuthStatus() {
+        if (!notionCookieAuth) {
+            cookieAuthStatus.textContent = '❌ Cookie 授權模組未載入';
+            cookieAuthStatus.className = 'auth-status error';
+            return;
+        }
+
+        try {
+            cookieAuthStatus.textContent = '⏳ 檢查授權狀態...';
+            cookieAuthStatus.className = 'auth-status';
+            
+            const isLoggedIn = await notionCookieAuth.initialize();
+            
+            if (isLoggedIn) {
+                cookieAuthStatus.textContent = '✅ 已連接到 Notion';
+                cookieAuthStatus.className = 'auth-status success';
+                
+                // 顯示用戶資訊
+                const userInfo = notionCookieAuth.getUserDisplayInfo();
+                if (userInfo) {
+                    cookieUserName.textContent = userInfo.name;
+                    cookieUserEmail.textContent = userInfo.email || '未提供郵箱';
+                    if (userInfo.avatar) {
+                        cookieUserAvatar.src = userInfo.avatar;
+                    }
+                    cookieUserInfo.style.display = 'flex';
+                }
+                
+                // 獲取工作空間資訊
+                try {
+                    const workspaces = await notionCookieAuth.getUserWorkspaces();
+                    cookieWorkspaceInfo.textContent = `工作空間: ${workspaces.length} 個`;
+                } catch (error) {
+                    cookieWorkspaceInfo.textContent = '工作空間: 載入失敗';
+                }
+                
+                // 顯示資料庫選擇區域
+                cookieDatabaseSection.style.display = 'block';
+                cookieLoginButton.style.display = 'none';
+                cookieLogoutButton.style.display = 'inline-flex';
+                
+            } else {
+                cookieAuthStatus.textContent = '❌ 未連接到 Notion';
+                cookieAuthStatus.className = 'auth-status error';
+                
+                cookieUserInfo.style.display = 'none';
+                cookieDatabaseSection.style.display = 'none';
+                cookieLoginButton.style.display = 'inline-flex';
+                cookieLogoutButton.style.display = 'none';
+            }
+            
+        } catch (error) {
+            console.error('檢查 Cookie 授權狀態失敗:', error);
+            cookieAuthStatus.textContent = '❌ 授權檢查失敗';
+            cookieAuthStatus.className = 'auth-status error';
+        }
+    }
+
+    // 檢查手動授權狀態
+    function checkManualAuthStatus() {
+        chrome.storage.sync.get(['notionApiKey', 'notionDatabaseId'], (result) => {
             if (result.notionApiKey) {
-                authStatus.textContent = '✅ 已連接到 Notion';
-                authStatus.className = 'auth-status success';
-                oauthButton.innerHTML = '<span class="notion-icon">🔄</span>重新設置';
+                manualAuthStatus.textContent = '✅ 已設置 API 金鑰';
+                manualAuthStatus.className = 'auth-status success';
                 
                 apiKeyInput.value = result.notionApiKey;
                 
@@ -38,23 +182,125 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 載入數據庫列表
                 loadDatabases(result.notionApiKey);
             } else {
-                authStatus.textContent = '未連接到 Notion';
-                authStatus.className = 'auth-status';
-                oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
+                manualAuthStatus.textContent = '未設置 API 金鑰';
+                manualAuthStatus.className = 'auth-status';
             }
-            
-            // 載入模板設置
-            titleTemplateInput.value = result.titleTemplate || '{title}';
-            addSourceCheckbox.checked = result.addSource !== false; // 默認為 true
-            addTimestampCheckbox.checked = result.addTimestamp !== false; // 默認為 true
         });
     }
 
-    // 引導用戶到 Notion 設置頁面
-    async function startNotionSetup() {
+    // Cookie 授權 - 登入 Notion
+    async function cookieLogin() {
+        if (!notionCookieAuth) {
+            showStatus('Cookie 授權模組未載入', 'error');
+            return;
+        }
+
         try {
-            oauthButton.disabled = true;
-            oauthButton.innerHTML = '<span class="loading"></span>正在打開 Notion...';
+            cookieLoginButton.disabled = true;
+            cookieLoginButton.innerHTML = '<span class="loading"></span><span class="button-text">正在打開登入頁面...</span>';
+            
+            const tabId = await notionCookieAuth.promptUserLogin();
+            
+            if (tabId) {
+                showStatus('已打開 Notion 登入頁面，請完成登入後點擊「檢查授權狀態」', 'success');
+            } else {
+                throw new Error('無法打開登入頁面');
+            }
+            
+        } catch (error) {
+            console.error('Cookie 登入失敗:', error);
+            showStatus('登入失敗: ' + error.message, 'error');
+        } finally {
+            cookieLoginButton.disabled = false;
+            cookieLoginButton.innerHTML = '<span class="button-icon">🔑</span><span class="button-text">登入 Notion</span>';
+        }
+    }
+
+    // Cookie 授權 - 登出
+    async function cookieLogout() {
+        if (!notionCookieAuth) {
+            return;
+        }
+
+        try {
+            notionCookieAuth.logout();
+            await checkCookieAuthStatus();
+            showStatus('已登出', 'success');
+        } catch (error) {
+            console.error('登出失敗:', error);
+            showStatus('登出失敗: ' + error.message, 'error');
+        }
+    }
+
+    // Cookie 授權 - 載入資料庫
+    async function cookieLoadDatabases() {
+        if (!notionCookieAuth) {
+            return;
+        }
+
+        try {
+            cookieLoadDatabases.disabled = true;
+            cookieLoadDatabases.innerHTML = '<span class="loading"></span><span class="button-text">載入中...</span>';
+            
+            const databases = await notionCookieAuth.searchDatabases();
+            
+            if (databases.length > 0) {
+                // 顯示資料庫列表
+                cookieDatabaseList.innerHTML = '';
+                
+                databases.forEach(db => {
+                    const item = document.createElement('div');
+                    item.className = 'database-item';
+                    item.onclick = () => selectCookieDatabase(db, item);
+                    
+                    item.innerHTML = `
+                        <div class="database-title">${db.title || '未命名資料庫'}</div>
+                        <div class="database-description">ID: ${db.id}</div>
+                    `;
+                    
+                    cookieDatabaseList.appendChild(item);
+                });
+                
+                cookieDatabaseList.style.display = 'block';
+                showStatus(`找到 ${databases.length} 個資料庫`, 'success');
+                
+            } else {
+                showStatus('未找到任何資料庫', 'error');
+            }
+            
+        } catch (error) {
+            console.error('載入資料庫失敗:', error);
+            showStatus('載入資料庫失敗: ' + error.message, 'error');
+        } finally {
+            cookieLoadDatabases.disabled = false;
+            cookieLoadDatabases.innerHTML = '<span class="button-icon">📚</span><span class="button-text">載入資料庫</span>';
+        }
+    }
+
+    // Cookie 授權 - 選擇資料庫
+    function selectCookieDatabase(database, element) {
+        // 移除其他選中狀態
+        document.querySelectorAll('#cookie-database-list .database-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        
+        // 設置當前選中
+        element.classList.add('selected');
+        
+        // 保存選擇的資料庫
+        chrome.storage.sync.set({
+            selectedDatabase: database,
+            notionDatabaseId: database.id // 保持相容性
+        });
+        
+        showStatus(`已選擇資料庫: ${database.title}`, 'success');
+    }
+
+    // 引導用戶到 Notion 設置頁面（手動授權）
+    async function startManualNotionSetup() {
+        try {
+            manualSetupButton.disabled = true;
+            manualSetupButton.innerHTML = '<span class="loading"></span>正在打開 Notion...';
 
             // 打開 Notion 集成頁面
             const integrationUrl = 'https://www.notion.so/my-integrations';
@@ -64,13 +310,13 @@ document.addEventListener('DOMContentLoaded', () => {
             showSetupGuide();
             
             setTimeout(() => {
-                oauthButton.disabled = false;
-                oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
+                manualSetupButton.disabled = false;
+                manualSetupButton.innerHTML = '<span class="notion-icon">📝</span>打開 Notion 集成頁面';
             }, 2000);
             
         } catch (error) {
-            oauthButton.disabled = false;
-            oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
+            manualSetupButton.disabled = false;
+            manualSetupButton.innerHTML = '<span class="notion-icon">📝</span>打開 Notion 集成頁面';
             showStatus('打開 Notion 頁面失敗: ' + error.message, 'error');
         }
     }
@@ -360,9 +606,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 事件監聽器
-    oauthButton.addEventListener('click', startNotionSetup);
+    
+    // 授權方式切換
+    authMethodCookie.addEventListener('change', () => {
+        if (authMethodCookie.checked) {
+            switchAuthMethod('cookie');
+        }
+    });
+    
+    authMethodManual.addEventListener('change', () => {
+        if (authMethodManual.checked) {
+            switchAuthMethod('manual');
+        }
+    });
+    
+    // Cookie 授權事件
+    cookieLoginButton.addEventListener('click', cookieLogin);
+    cookieCheckButton.addEventListener('click', checkCookieAuthStatus);
+    cookieLogoutButton.addEventListener('click', cookieLogout);
+    cookieLoadDatabases.addEventListener('click', cookieLoadDatabases);
+    
+    // 手動授權事件
+    manualSetupButton.addEventListener('click', startManualNotionSetup);
     saveButton.addEventListener('click', saveManualSettings);
     testApiButton.addEventListener('click', testApiKey);
+    
+    // 模板事件
     previewButton.addEventListener('click', previewTemplate);
 
     // 數據管理功能
