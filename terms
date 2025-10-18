@@ -1,0 +1,64 @@
+Notion Smart Clipper Terms of Use
+
+Effective Date: October 25, 2025
+
+1. Acceptance of Terms
+   By installing or using the Notion Smart Clipper Chrome extension (the "Extension"), you agree to be bound by these Terms of Use (the "Terms"). If you do not agree, do not install or use the Extension.
+
+2. Eligibility
+   You must be at least 18 years old, or the age of majority in your jurisdiction, to use the Extension. By using the Extension you represent that you meet this requirement and have the authority to accept these Terms.
+
+3. Description of the Service
+   The Extension extracts web content, allows you to highlight text, and saves structured information to your Notion workspace. All information is stored within your own Notion account, subject to Notion Labs, Inc.'s platform terms.
+
+4. Notion OAuth Authorization
+   4.1 The Extension requires authorization to your Notion workspace via Notion's official OAuth flow.
+   4.2 During authorization you will grant the Extension access to the Notion resources you select. The Extension only uses the granted scope to create, update, and read pages and databases necessary for saving clipped content and highlights.
+   4.3 You may revoke access at any time from your Notion account settings. Revocation may prevent the Extension from functioning.
+
+5. User Responsibilities
+   5.1 You are responsible for the accuracy, legality, and appropriateness of all content you clip, highlight, or transmit through the Extension.
+   5.2 You will not use the Extension to collect or store personal data without lawful basis, violate intellectual property rights, send spam, or engage in any unlawful, harmful, or abusive activity.
+
+6. Data Handling and Privacy
+   6.1 The Extension processes page content, highlight metadata, and configuration settings locally in your browser before transmitting them to Notion through the official API.
+   6.2 No account credentials are stored by the developers. OAuth tokens are stored only within Chrome extension storage on your device and are used solely to communicate with Notion on your behalf.
+   6.3 The Extension does not transmit data to any server controlled by the developers. All network requests go directly to Notion's API endpoints unless explicitly stated otherwise in the Extension.
+
+7. Browser Permissions
+   The Extension requests the minimum Chrome permissions necessary to read active tabs for clipping, manage local storage for highlights, display notifications, and perform background synchronization. Granting these permissions is required for full functionality.
+
+8. Intellectual Property
+   8.1 All rights, title, and interest in and to the Extension, including its code, design, logos, and documentation, are owned by the developers or their licensors.
+   8.2 You are granted a limited, non-exclusive, non-transferable license to use the Extension for personal or internal business purposes in accordance with these Terms.
+
+9. Third-Party Services
+   The Extension integrates with Notion and may rely on other third-party libraries and services. Your use of such services is governed by the terms and policies of those third parties, including Notion's Terms of Use and Privacy Policy. The developers are not responsible for acts or omissions of third-party providers.
+
+10. Updates and Modifications
+    10.1 The developers may release updates, enhancements, or bug fixes. The Extension may update automatically when a new version is available.
+    10.2 The developers may modify these Terms at any time. Material changes will be communicated through the Extension release notes or repository. Continued use after changes become effective constitutes acceptance.
+
+11. Support
+    Support resources, including troubleshooting guides and release notes, are available through the official project repository. Direct support is provided on an "as available" basis without guaranteed response times.
+
+12. Disclaimer of Warranties
+    THE EXTENSION IS PROVIDED "AS IS" WITHOUT ANY WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. USE OF THE EXTENSION IS AT YOUR OWN RISK.
+
+13. Limitation of Liability
+    TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE DEVELOPERS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR EXEMPLARY DAMAGES, OR FOR ANY LOSS OF DATA, PROFITS, REVENUE, OR BUSINESS ARISING FROM OR RELATING TO YOUR USE OF THE EXTENSION, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+14. Indemnification
+    You agree to indemnify and hold harmless the developers from any claims, losses, liabilities, damages, costs, and expenses (including reasonable attorney fees) arising out of or related to your use of the Extension or violation of these Terms.
+
+15. Termination
+    The developers may suspend or terminate your access to the Extension at any time for any reason. You may cease using the Extension at any time by uninstalling it and revoking Notion access. Sections 8 through 17 survive termination.
+
+16. Governing Law
+    These Terms are governed by and construed in accordance with the laws of the jurisdiction in which the developers operate, without regard to conflict of law principles. You consent to the exclusive jurisdiction of the courts located in that jurisdiction to resolve any dispute arising out of these Terms or the Extension.
+
+17. Entire Agreement
+    These Terms constitute the entire agreement between you and the developers regarding the Extension and supersede all prior agreements, understandings, or communications.
+
+Contact
+For questions about these Terms, please refer to the official repository or contact the developers through the support channels provided therein.
