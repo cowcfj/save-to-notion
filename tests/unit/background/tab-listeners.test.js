@@ -22,6 +22,7 @@ const mockScriptInjector = {
 };
 
 global.ScriptInjector = mockScriptInjector;
+global.migrateLegacyHighlights = jest.fn();
 
 describe('Background Tab Listeners', () => {
   let setupTabListeners, migrateLegacyHighlights, normalizeUrl;
