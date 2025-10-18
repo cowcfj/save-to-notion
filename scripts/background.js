@@ -1198,8 +1198,14 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
  * 設置標籤事件監聽器，用於動態注入標記恢復腳本
  */
 function setupTabListeners() {
-    chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         if (changeInfo.status === 'complete' && tab && tab.url) {
+            if (!/^https?:/i.test(tab.url)) {
+                if (typeof Logger !== 'undefined' && Logger.debug) {
+                    Logger.debug('Skipping tab listener for non-http(s) URL:', tab.url);
+                }
+                return;
+            }
             const normUrl = normalizeUrl(tab.url);
             const key = `highlights_${normUrl}`;
 
@@ -1232,6 +1238,16 @@ function setupTabListeners() {
  * 遷移舊版 localStorage 中的標記到 chrome.storage.local
  */
 async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
+    if (!normUrl || !storageKey) {
+        console.warn('Skipping legacy migration: missing normalized URL or storage key');
+        return;
+    }
+
+    if (!/^https?:/i.test(normUrl)) {
+        console.warn('Skipping legacy migration for non-http URL:', normUrl);
+        return;
+    }
+
     try {
         const result = await ScriptInjector.injectWithResponse(tabId, () => {
             try {
@@ -1788,12 +1804,12 @@ async function handleSavePage(sendResponse) {
                     return false;
                 }
 
-                const result = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+                const matchesImagePattern = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
 
                 // 緩存結果
-                cacheValidationResult(url, result);
+                cacheValidationResult(url, matchesImagePattern);
 
-                return result;
+                return matchesImagePattern;
             }
 
             /**
@@ -2994,6 +3010,7 @@ if (typeof module !== 'undefined' && module.exports) {
     cleanImageUrl,
     isValidImageUrl,
     splitTextForHighlight,
-    appendBlocksInBatches
+    appendBlocksInBatches,
+    migrateLegacyHighlights
   };
 }
