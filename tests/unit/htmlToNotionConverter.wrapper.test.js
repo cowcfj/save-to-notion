@@ -35,12 +35,33 @@ describe('HTML → Markdown → Notion Blocks - Wrapper', () => {
     expect(blocks[1].type).toBe('heading_3');
   });
 
+  test('Markdown 圖片轉換為 image block', () => {
+    const md = '![封面](https://example.com/cover.jpg "Cover")';
+    const blocks = convertMarkdownToNotionBlocks(md);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe('image');
+    expect(blocks[0].image.external.url).toBe('https://example.com/cover.jpg');
+    expect(blocks[0].image.caption[0].text.content).toBe('封面');
+  });
+
+  test('段落內含圖片時生成 image block 並保留文字', () => {
+    const md = '段落前置 ![圖說](https://example.com/pic.png) 段落結尾';
+    const blocks = convertMarkdownToNotionBlocks(md);
+    const imageBlocks = blocks.filter(b => b.type === 'image');
+    const paragraphBlock = blocks.find(b => b.type === 'paragraph');
+    expect(imageBlocks.length).toBe(1);
+    expect(paragraphBlock).toBeTruthy();
+    expect(paragraphBlock.paragraph.rich_text[0].text.content).toContain('段落前置');
+    expect(paragraphBlock.paragraph.rich_text[0].text.content).toContain('段落結尾');
+    expect(imageBlocks[0].image.external.url).toBe('https://example.com/pic.png');
+  });
+
   test('絕對連結驗證', () => {
     expect(isValidAbsoluteUrl('https://example.com/path')).toBe(true);
     expect(isValidAbsoluteUrl('/relative/path')).toBe(false);
     expect(isValidAbsoluteUrl('not a url')).toBe(false);
     expect(isValidAbsoluteUrl('javascript:alert(1)')).toBe(false);
     expect(isValidAbsoluteUrl('mailto:user@example.com')).toBe(false);
-    expect(isValidAbsoluteUrl('ftp://example.com/file.txt')).toBe(true);
+    expect(isValidAbsoluteUrl('ftp://example.com/file.txt')).toBe(false);
   });
 });

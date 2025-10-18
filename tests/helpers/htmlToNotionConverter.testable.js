@@ -9,7 +9,8 @@
 function isValidAbsoluteUrl(href) {
   try {
     const u = new URL(href);
-    return !!u.protocol && !!u.host;
+    if (!u.protocol || !u.host) return false;
+    return u.protocol === 'http:' || u.protocol === 'https:';
   } catch {
     return false;
   }
@@ -23,6 +24,18 @@ function convertMarkdownToNotionBlocks(markdown) {
   let codeLanguage = 'plain text';
   let listBuffer = [];
   let paragraph = '';
+
+  function pushImage(url, alt) {
+    blocks.push({
+      object: 'block',
+      type: 'image',
+      image: {
+        type: 'external',
+        external: { url },
+        caption: alt ? [{ type: 'text', text: { content: alt } }] : []
+      }
+    });
+  }
 
   function flushLists() {
     if (listBuffer.length) {
@@ -111,7 +124,23 @@ function convertMarkdownToNotionBlocks(markdown) {
       continue;
     }
 
-    paragraph = paragraph ? paragraph + ' ' + t : t;
+    const imageMatches = [...t.matchAll(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g)]
+      .filter((match) => isValidAbsoluteUrl(match[2]));
+
+    if (imageMatches.length && t.replace(/!\[[^\]]*\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, '').trim() === '') {
+      flushLists();
+      flushParagraph();
+      imageMatches.forEach((match) => pushImage(match[2], match[1]?.trim()));
+      continue;
+    }
+
+    let processedLine = t;
+    imageMatches.forEach((match) => {
+      processedLine = processedLine.replace(match[0], match[1] || '');
+      pushImage(match[2], match[1]?.trim());
+    });
+
+    paragraph = paragraph ? paragraph + ' ' + processedLine : processedLine;
   }
 
   if (paragraph.trim()) flushParagraph();
