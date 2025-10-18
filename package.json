@@ -1,6 +1,6 @@
 {
   "name": "notion-smart-clipper",
-  "version": "2.9.6",
+  "version": "2.9.7",
   "description": "智能網頁擷取工具，支持網站 Icon、封面圖提取、增強的圖片提取、模板自定義、多顏色標註功能，一鍵保存到 Notion。",
   "main": "index.js",
   "directories": {

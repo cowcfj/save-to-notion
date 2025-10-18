@@ -1,5 +1,15 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.9.7 - 2025-10-19
+### 🐛 Bug 修復
+- **Legacy 標註遷移權限錯誤**：在背景服務 worker 偵測非 HTTP(S) 網址（如 `chrome-extension://`、`chrome://`）時，將跳過舊版標註遷移流程，避免觸發 Chromium 權限限制導致的錯誤回報。
+- **日誌一致性**：改用 `Logger.debug` 取代直接僅用 `console.log` 的除錯訊息，統一日誌輸出渠道。
+- **程式碼可讀性**：移除無需 `await` 的 `async` 標記並調整內部變數命名，避免遮蔽外層作用域並符合靜態分析規範。
+
+### 🧪 測試
+- `npm test -- --runTestsByPath tests/unit/background/tab-listeners.test.js`
+- `npm test`
+
 ## v2.9.6 - 2025-10-18
 ### 🎯 用戶體驗改進
 - **Markdown 圖片自動渲染**：在內容擷取階段將 Markdown 圖片語法轉換為 Notion `image` 區塊，保留段落文字並僅允許 http/https 來源，避免圖片以純文字 URL 呈現。
