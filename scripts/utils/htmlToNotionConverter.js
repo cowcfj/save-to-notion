@@ -136,7 +136,7 @@ function convertMarkdownToNotionBlocks(markdown) {
     let listStack = [];
     
     // 統計資訊
-    let stats = {
+    const stats = {
         headings: 0,
         paragraphs: 0,
         lists: 0,
@@ -162,9 +162,26 @@ function convertMarkdownToNotionBlocks(markdown) {
         }
     }
     
+    const markdownImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g;
+
+    function appendImageBlock(url, altText) {
+        blocks.push({
+            object: 'block',
+            type: 'image',
+            image: {
+                type: 'external',
+                external: { url },
+                caption: altText ? [{ type: 'text', text: { content: altText } }] : []
+            }
+        });
+        stats.images = (stats.images || 0) + 1;
+    }
+
     while (i < lines.length) {
         const line = lines[i];
         const trimmed = line.trim();
+        const imageMatches = [...trimmed.matchAll(markdownImageRegex)]
+            .filter(match => isValidAbsoluteUrl(match[2]));
         
         // 進度追蹤（每10行報告一次，提供詳細信息）
         if (i > 0 && i % 10 === 0) {
@@ -220,6 +237,18 @@ function convertMarkdownToNotionBlocks(markdown) {
                 continue;
             }
             
+            // 處理純圖片行
+            if (imageMatches.length > 0 && trimmed.replace(markdownImageRegex, '').trim() === '') {
+                flushListStack();
+                imageMatches.forEach(match => {
+                    const url = match[2];
+                    const alt = match[1]?.trim();
+                    appendImageBlock(url, alt);
+                });
+                i++;
+                continue;
+            }
+
             // 處理標題
             const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
             if (headingMatch) {
@@ -314,7 +343,18 @@ function convertMarkdownToNotionBlocks(markdown) {
             if (trimmed) {
                 flushListStack(); // 段落前清空列表
                 // 收集連續的非空行作為一個段落
-                const paragraphLines = [trimmed];  // 使用 trimmed 而不是 line
+                const paragraphLines = [];
+                let paragraphLine = trimmed;
+                if (imageMatches.length > 0) {
+                    imageMatches.forEach(match => {
+                        appendImageBlock(match[2], match[1]?.trim());
+                        paragraphLine = paragraphLine.replace(match[0], match[1] || '');
+                    });
+                }
+                paragraphLine = paragraphLine.trim();
+                if (paragraphLine) {
+                    paragraphLines.push(paragraphLine);
+                }
                 i++;
                 while (i < lines.length) {
                     const nextLine = lines[i];
@@ -331,11 +371,27 @@ function convertMarkdownToNotionBlocks(markdown) {
                         nextTrimmed.startsWith('```')) {
                         break;
                     }
-                    paragraphLines.push(nextTrimmed);
+                    let nextParagraphLine = nextTrimmed;
+                    const inlineImageMatches = [...nextTrimmed.matchAll(markdownImageRegex)]
+                        .filter(match => isValidAbsoluteUrl(match[2]));
+                    if (inlineImageMatches.length > 0) {
+                        inlineImageMatches.forEach(match => {
+                            appendImageBlock(match[2], match[1]?.trim());
+                            nextParagraphLine = nextParagraphLine.replace(match[0], match[1] || '');
+                        });
+                    }
+                    nextParagraphLine = nextParagraphLine.trim();
+                    if (nextParagraphLine) {
+                        paragraphLines.push(nextParagraphLine);
+                    }
                     i++;
                 }
                 
                 const paragraphText = paragraphLines.join(' ').trim();  // 用空格連接而不是\n
+                if (!paragraphText) {
+                    continue;
+                }
+
                 if (paragraphText) {
                     // 檢查段落長度，Notion 每個 rich_text 有長度限制
                     const maxLength = 2000;
