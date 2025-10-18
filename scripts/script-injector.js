@@ -141,7 +141,7 @@ class ScriptInjector {
     static async injectHighlightRestore(tabId) {
         return this.injectAndExecute(
             tabId,
-            ['scripts/highlight-restore.js'],
+            ['scripts/utils.js', 'scripts/highlight-restore.js'],
             null,
             {
                 errorMessage: 'Failed to inject highlight restore script',

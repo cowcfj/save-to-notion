@@ -21,6 +21,7 @@ describe('ScriptInjector', () => {
     beforeEach(() => {
         // 清理 mock
         jest.clearAllMocks();
+        jest.useFakeTimers();
 
         // 清理全局對象
         delete global.ScriptInjector;
@@ -30,6 +31,11 @@ describe('ScriptInjector', () => {
             require('../../scripts/script-injector.js');
             ScriptInjector = global.ScriptInjector;
         });
+    });
+
+    afterEach(() => {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
     });
 
     describe('injectAndExecute', () => {
@@ -57,6 +63,26 @@ describe('ScriptInjector', () => {
 
             expect(mockChrome.scripting.executeScript).toHaveBeenCalledTimes(2);
             expect(result).toBe('test result');
+        });
+
+        test('當 returnResult 為 false 時應該忽略函數返回值', async () => {
+            mockChrome.scripting.executeScript.mockImplementation((options, callback) => {
+                if (options.files) {
+                    mockChrome.runtime.lastError = null;
+                    callback();
+                } else {
+                    mockChrome.runtime.lastError = null;
+                    callback([{ result: 'ignored' }]);
+                }
+            });
+
+            const result = await ScriptInjector.injectAndExecute(
+                5,
+                ['test.js'],
+                () => 'ignored'
+            );
+
+            expect(result).toBeNull();
         });
 
         test('應該處理文件注入錯誤', async () => {
@@ -191,13 +217,28 @@ describe('ScriptInjector', () => {
 
             expect(ScriptInjector.injectAndExecute).toHaveBeenCalledWith(
                 1,
-                ['scripts/highlight-restore.js'],
+                ['scripts/utils.js', 'scripts/highlight-restore.js'],
                 null,
                 {
                     errorMessage: 'Failed to inject highlight restore script',
                     successMessage: 'Highlight restore script injected successfully'
                 }
             );
+        });
+    });
+
+    describe('injectAndExecute 時間控制', () => {
+        test('應該保留原始 console 行為控制', async () => {
+            const originalLog = console.log;
+            console.log = jest.fn();
+
+            ScriptInjector.injectAndExecute = jest.fn().mockResolvedValue();
+
+            await ScriptInjector.injectHighlightRestore(2);
+
+            expect(console.log).not.toHaveBeenCalled();
+
+            console.log = originalLog;
         });
     });
 });

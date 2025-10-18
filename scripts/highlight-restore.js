@@ -16,7 +16,7 @@
     // 如果有 notionHighlighter 對象，嘗試恢復標註
     if (window.notionHighlighter && typeof window.notionHighlighter.manager.forceRestoreHighlights === 'function') {
         console.log('🔁 嘗試強制恢復標註');
-        window.notionHighlighter.manager.forceRestoreHighlights()
+        Promise.resolve(window.notionHighlighter.manager.forceRestoreHighlights())
             .then(success => {
                 if (success) {
                     console.log('✅ 標註恢復成功');
