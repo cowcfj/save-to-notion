@@ -1,5 +1,13 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.9.6 - 2025-10-18
+### 🎯 用戶體驗改進
+- **Markdown 圖片自動渲染**：在內容擷取階段將 Markdown 圖片語法轉換為 Notion `image` 區塊，保留段落文字並僅允許 http/https 來源，避免圖片以純文字 URL 呈現。
+
+### 🧪 測試
+- `npm test -- tests/unit/htmlToNotionConverter.wrapper.test.js`
+- `npm test`
+
 ## v2.9.5 - 2025-10-17
 ### ✨ 新功能
 - **標註工具欄最小化功能**：解決工具欄遮蓋網頁內容的問題
@@ -133,6 +141,7 @@
 - 擴展圖片擷取能力：支持 srcset 智能解析（優先最大寬度）、更多懶加載屬性、背景圖回退、noscript 回退
 - 改善錯誤處理：替換空 catch 塊為有意義的錯誤日誌，提升代碼質量
 - 提升標註工具欄韌性：加入 MutationObserver 自動恢復（工具欄節點被移除時自動重新掛載）、在 show() 時保險重綁 Ctrl/Cmd+點擊刪除監聽器，並保持關鍵樣式與 z-index 斷言，以避免長頁與多次開關造成的「工具欄失聯/被覆蓋」。(模組：highlighter-v2，PR #11)
+- Markdown 圖片支援：在內容擷取階段將 Markdown 圖片語法轉換為 Notion `image` 區塊，保留段落文字並僅允許 http/https 來源；新增對應單元測試覆蓋圖片轉換與 URL 驗證行為。（模組：htmlToNotionConverter）
 
 
 ## v2.8.2 - 2025-10-08
