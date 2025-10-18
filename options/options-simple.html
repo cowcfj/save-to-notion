@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save to Notion - 設定</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Save to Notion - 設定</h1>
+        
+        <div class="auth-section">
+            <h2>🔧 Notion API 設置</h2>
+            <div class="auth-description">
+                <p>使用 Notion Integration 的 API 金鑰進行授權。這是最穩定可靠的方式。</p>
+                <p><a href="https://www.notion.so/my-integrations" target="_blank">點擊這裡創建 Notion Integration</a></p>
+            </div>
+            
+            <div id="auth-status" class="auth-status">請設置 API 金鑰</div>
+            
+            <div class="form-group">
+                <label for="api-key">Notion API Key *</label>
+                <input type="password" id="api-key" placeholder="secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                <small class="help-text">
+                    從 <a href="https://www.notion.so/my-integrations" target="_blank">Notion Integrations</a> 頁面獲取
+                </small>
+            </div>
+            
+            <div class="form-group">
+                <label for="database-id">Notion Database ID *</label>
+                <input type="text" id="database-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                <small class="help-text">
+                    從 Notion 數據庫 URL 中獲取，格式如：notion.so/[workspace]/[database-id]
+                </small>
+            </div>
+            
+            <div class="form-actions">
+                <button id="test-button" type="button" class="secondary-button">測試連接</button>
+                <button id="save-button" type="button" class="primary-button">保存設置</button>
+                <button id="clear-button" type="button" class="danger-button">清除設置</button>
+            </div>
+        </div>
+        
+        <!-- 使用說明 -->
+        <div class="help-section">
+            <h3>📖 設置說明</h3>
+            <div class="help-content">
+                <h4>1. 創建 Notion Integration</h4>
+                <ol>
+                    <li>訪問 <a href="https://www.notion.so/my-integrations" target="_blank">Notion Integrations</a></li>
+                    <li>點擊「New integration」</li>
+                    <li>填寫名稱（如：Web Clipper）</li>
+                    <li>選擇關聯的工作空間</li>
+                    <li>點擊「Submit」</li>
+                    <li>複製生成的 API Key</li>
+                </ol>
+                
+                <h4>2. 獲取數據庫 ID</h4>
+                <ol>
+                    <li>在 Notion 中打開要保存內容的數據庫</li>
+                    <li>從瀏覽器地址欄複製 URL</li>
+                    <li>URL 格式：<code>https://www.notion.so/workspace/DATABASE_ID?v=VIEW_ID</code></li>
+                    <li>DATABASE_ID 就是需要的數據庫 ID</li>
+                </ol>
+                
+                <h4>3. 共享數據庫給 Integration</h4>
+                <ol>
+                    <li>在 Notion 數據庫頁面點擊右上角「Share」</li>
+                    <li>點擊「Invite」</li>
+                    <li>搜索並選擇您創建的 Integration</li>
+                    <li>點擊「Invite」完成共享</li>
+                </ol>
+            </div>
+        </div>
+        
+        <div id="status" class="status"></div>
+    </div>
+    
+    <script src="options-simple.js"></script>
+</body>
+</html>

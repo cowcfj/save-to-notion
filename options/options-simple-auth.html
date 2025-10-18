@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save to Notion - 設定</title>
+    <link rel="stylesheet" href="options.css">
+    <style>
+        /* 簡化授權專用樣式 */
+        .auth-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .auth-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .auth-section h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        
+        .status.authorized {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.unauthorized {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .user-details {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .user-details p {
+            margin: 5px 0;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        
+        .status-message {
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-message.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .status-message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .database-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background: white;
+        }
+        
+        .database-item {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .database-item:last-child {
+            border-bottom: none;
+        }
+        
+        .database-info h4 {
+            margin: 0 0 5px 0;
+            color: #495057;
+        }
+        
+        .database-info p {
+            margin: 2px 0;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .database-info a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        
+        .database-info a:hover {
+            text-decoration: underline;
+        }
+        
+        .select-database {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .select-database:hover {
+            background-color: #1e7e34;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+        
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #dee2e6;
+        }
+        
+        .divider span {
+            background: white;
+            padding: 0 15px;
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h1>Save to Notion - 設定</h1>
+        
+        <!-- 狀態顯示區域 -->
+        <div class="auth-section">
+            <h3>授權狀態</h3>
+            <div id="auth-status" class="status unauthorized">❌ 未授權</div>
+            <div id="user-info">
+                <p>請選擇授權方式</p>
+            </div>
+            <div id="status-message" class="status-message"></div>
+        </div>
+        
+        <!-- Cookie 登入區域 -->
+        <div id="login-section" class="auth-section">
+            <h3>🍪 Cookie 登入</h3>
+            <p>如果您已經在瀏覽器中登入 Notion，可以使用此方式快速授權。</p>
+            <div class="button-group">
+                <button id="login-button" class="btn btn-primary">打開 Notion 登入頁面</button>
+                <button id="refresh-button" class="btn btn-secondary">刷新授權狀態</button>
+            </div>
+            <div class="help-text">
+                點擊按鈕後，請在新開啟的頁面中登入 Notion，然後返回此頁面點擊「刷新授權狀態」。
+            </div>
+        </div>
+        
+        <div class="divider">
+            <span>或</span>
+        </div>
+        
+        <!-- 手動設置區域 -->
+        <div id="manual-section" class="auth-section">
+            <h3>🔑 手動 API 設置</h3>
+            <p>使用 Notion Integration 的 API 金鑰進行授權，功能更完整。</p>
+            
+            <div class="form-group">
+                <label for="api-key">Notion API 金鑰:</label>
+                <input type="password" id="api-key" placeholder="secret_xxxxxxxxxx">
+                <div class="help-text">
+                    在 <a href="https://www.notion.so/my-integrations" target="_blank">Notion Integrations</a> 頁面創建並獲取 API 金鑰
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="database-id">預設資料庫 ID:</label>
+                <input type="text" id="database-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                <div class="help-text">
+                    可以留空，稍後通過搜索功能選擇資料庫
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="test-api" class="btn btn-secondary">測試 API 金鑰</button>
+                <button id="save-manual" class="btn btn-success">保存設置</button>
+            </div>
+        </div>
+        
+        <!-- 資料庫搜索區域 -->
+        <div id="search-section" class="auth-section" style="display: none;">
+            <h3>📊 搜索資料庫</h3>
+            <p>搜索您的 Notion 資料庫並選擇作為預設保存位置。</p>
+            
+            <div class="form-group">
+                <label for="search-input">搜索關鍵字:</label>
+                <input type="text" id="search-input" placeholder="輸入資料庫名稱或關鍵字">
+            </div>
+            
+            <div class="button-group">
+                <button id="search-button" class="btn btn-primary">搜索資料庫</button>
+            </div>
+            
+            <div id="database-list" class="database-list" style="margin-top: 15px;">
+                <!-- 搜索結果將顯示在這裡 -->
+            </div>
+        </div>
+        
+        <!-- 控制按鈕區域 -->
+        <div class="auth-section">
+            <h3>控制選項</h3>
+            <div class="button-group">
+                <button id="logout-button" class="btn btn-danger" style="display: none;">登出</button>
+                <button id="refresh-button" class="btn btn-secondary" style="display: none;">刷新狀態</button>
+            </div>
+        </div>
+        
+        <!-- 說明區域 -->
+        <div class="auth-section">
+            <h3>📖 使用說明</h3>
+            <div style="line-height: 1.6;">
+                <h4>Cookie 登入方式:</h4>
+                <ul>
+                    <li>適合個人使用，設置簡單</li>
+                    <li>需要在瀏覽器中保持 Notion 登入狀態</li>
+                    <li>功能相對有限，主要支援基本的頁面保存</li>
+                </ul>
+                
+                <h4>手動 API 設置:</h4>
+                <ul>
+                    <li>功能完整，支援資料庫搜索和高級功能</li>
+                    <li>需要創建 Notion Integration 並獲取 API 金鑰</li>
+                    <li>更穩定可靠，推薦用於重要用途</li>
+                </ul>
+                
+                <h4>獲取 API 金鑰步驟:</h4>
+                <ol>
+                    <li>訪問 <a href="https://www.notion.so/my-integrations" target="_blank">Notion Integrations</a></li>
+                    <li>點擊「+ New integration」創建新的整合</li>
+                    <li>填寫名稱並選擇工作空間</li>
+                    <li>複製生成的「Internal Integration Token」</li>
+                    <li>在資料庫頁面中邀請您的 Integration</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    
+    <script src="options-simple-auth.js"></script>
+</body>
+</html>

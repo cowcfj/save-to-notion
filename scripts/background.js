@@ -32,6 +32,47 @@ try {
 }
 
 // ==========================================
+// SIMPLE AUTH MANAGER INITIALIZATION
+// ==========================================
+
+// 全局簡化授權管理器實例
+let simpleAuthManager = null;
+
+// 載入簡化授權管理器
+async function initializeSimpleAuthManager() {
+    try {
+        // 載入簡化授權模組
+        importScripts('./scripts/notion-simple-auth.js');
+        
+        // 創建實例
+        simpleAuthManager = new NotionSimpleAuth();
+        
+        // 初始化
+        const success = await simpleAuthManager.initialize();
+        
+        console.log('✅ [Background] 簡化授權管理器載入成功');
+        
+        if (success) {
+            console.log('✅ [Background] 簡化授權管理器初始化成功');
+            console.log(`📋 [Background] 授權方式: ${simpleAuthManager.getAuthMethod()}`);
+        } else {
+            console.log('ℹ️ [Background] 簡化授權管理器初始化完成，但用戶未授權');
+        }
+        
+        return success;
+        
+    } catch (error) {
+        console.warn('⚠️ [Background] 簡化授權管理器載入失敗，將使用現有授權系統:', error);
+        return false;
+    }
+}
+
+// 嘗試初始化簡化授權管理器
+initializeSimpleAuthManager().catch(error => {
+    console.warn('⚠️ [Background] 簡化授權管理器初始化失敗:', error);
+});
+
+// ==========================================
 // DEVELOPMENT MODE CONTROL
 // ==========================================
 
@@ -601,7 +642,16 @@ function getConfig(keys, callback) {
  */
 async function getApiKey() {
     try {
-        // 優先使用混合授權管理器
+        // 優先使用簡化授權管理器
+        if (simpleAuthManager && simpleAuthManager.isAuthorized()) {
+            const apiKey = simpleAuthManager.getApiKey();
+            if (apiKey) {
+                console.log('✅ [Background] 使用簡化授權管理器獲取 API 金鑰');
+                return apiKey;
+            }
+        }
+        
+        // 回退到混合授權管理器
         if (typeof hybridAuthManager !== 'undefined') {
             const apiKey = await hybridAuthManager.getApiKey();
             if (apiKey) {
@@ -610,7 +660,7 @@ async function getApiKey() {
             }
         }
         
-        // 回退到傳統方式
+        // 最後回退到傳統方式
         console.log('🔄 [Background] 回退到傳統 API 金鑰獲取方式');
         const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
         return config.notionApiKey || null;
@@ -1479,6 +1529,23 @@ function handleMessage(request, sender, sendResponse) {
             case 'get-auth-status':
                 handleGetAuthStatus(sendResponse);
                 break;
+            
+            // 簡化授權消息處理
+            case 'checkAuthStatus':
+                handleCheckAuthStatus(sendResponse);
+                break;
+            case 'searchDatabases':
+                handleSearchDatabases(request, sendResponse);
+                break;
+            case 'refreshAuth':
+                handleRefreshAuth(sendResponse);
+                break;
+            case 'logout':
+                handleLogout(sendResponse);
+                break;
+            case 'getApiKey':
+                handleGetApiKey(sendResponse);
+                break;
 
             default:
                 sendResponse({ success: false, error: 'Unknown action' });
@@ -1748,6 +1815,67 @@ async function handleSyncHighlights(request, sendResponse) {
 }
 
 /**
+ * 檢查授權狀態 - 支持 Cookie 和手動 API
+ */
+async function checkAuthorizationStatus() {
+    try {
+        console.log('🔍 [Background] 檢查授權狀態...');
+        
+        // 檢查手動 API 設置
+        const config = await new Promise(resolve => 
+            getConfig(['notionApiKey', 'notionDatabaseId'], resolve)
+        );
+        
+        if (config.notionApiKey && config.notionDatabaseId) {
+            console.log('✅ [Background] 檢測到手動 API 授權');
+            return {
+                isAuthorized: true,
+                method: 'manual',
+                apiKey: config.notionApiKey,
+                databaseId: config.notionDatabaseId
+            };
+        }
+        
+        // 檢查 Cookie 授權
+        const cookies = await chrome.cookies.getAll({ domain: '.notion.so' });
+        const tokenCookie = cookies.find(c => c.name === 'token_v2');
+        
+        if (tokenCookie && tokenCookie.value && tokenCookie.value.length > 10) {
+            console.log('✅ [Background] 檢測到 Cookie 授權');
+            
+            // 檢查是否有選擇的數據庫
+            const cookieConfig = await new Promise(resolve => 
+                getConfig(['cookieDatabaseId'], resolve)
+            );
+            
+            return {
+                isAuthorized: true,
+                method: 'cookie',
+                token: tokenCookie.value,
+                databaseId: cookieConfig.cookieDatabaseId || null
+            };
+        }
+        
+        console.log('❌ [Background] 未檢測到有效授權');
+        return {
+            isAuthorized: false,
+            method: null,
+            apiKey: null,
+            databaseId: null
+        };
+        
+    } catch (error) {
+        console.error('❌ [Background] 檢查授權狀態失敗:', error);
+        return {
+            isAuthorized: false,
+            method: null,
+            apiKey: null,
+            databaseId: null
+        };
+    }
+}
+
+/**
  * 處理保存頁面的請求
  */
 async function handleSavePage(sendResponse) {
@@ -1762,13 +1890,23 @@ async function handleSavePage(sendResponse) {
             return;
         }
 
-        const apiKey = await getApiKey();
-        const config = await new Promise(resolve =>
-            getConfig(['notionDatabaseId'], resolve)
-        );
+        // 檢查授權狀態 - 支持 Cookie 和手動 API
+        const authStatus = await checkAuthorizationStatus();
+        
+        if (!authStatus.isAuthorized) {
+            sendResponse({ 
+                success: false, 
+                error: 'Please set API Key and Database ID in settings.' 
+            });
+            return;
+        }
 
-        if (!apiKey || !config.notionDatabaseId) {
-            sendResponse({ success: false, error: 'API Key or Database ID is not set.' });
+        // 如果沒有數據庫 ID，提示用戶選擇
+        if (!authStatus.databaseId) {
+            sendResponse({ 
+                success: false, 
+                error: 'Please select a Notion database in settings.' 
+            });
             return;
         }
 
@@ -3031,8 +3169,12 @@ async function clearPageHighlights(tabId) {
 // ==========================================
 
 // Initialize the extension
-chrome.runtime.onInstalled.addListener((details) => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   console.log('Notion Smart Clipper extension installed/updated');
+
+  // 初始化簡化授權管理器
+  console.log('📦 [Background] 擴展安裝/更新，初始化簡化授權管理器...');
+  await initializeSimpleAuthManager();
 
   // 處理擴展更新
   if (details.reason === 'update') {
@@ -3238,6 +3380,294 @@ async function handleGetAuthStatus(sendResponse) {
         sendResponse({ success: false, error: error.message });
     }
 }
+
+// ==========================================
+// SIMPLE AUTH MESSAGE HANDLERS
+// ==========================================
+
+/**
+ * 處理檢查授權狀態請求
+ */
+async function handleCheckAuthStatus(sendResponse) {
+    try {
+        const status = {
+            isAuthenticated: false,
+            authMethod: null,
+            userInfo: null,
+            hasApiKey: false,
+            hasDatabaseId: false,
+            timestamp: new Date().toISOString()
+        };
+        
+        // 檢查簡化授權管理器
+        if (simpleAuthManager && simpleAuthManager.isAuthorized()) {
+            status.isAuthenticated = true;
+            status.authMethod = simpleAuthManager.getAuthMethod();
+            status.userInfo = simpleAuthManager.getUserDisplayInfo();
+            status.hasApiKey = !!simpleAuthManager.getApiKey();
+            status.hasDatabaseId = !!simpleAuthManager.getDatabaseId();
+            
+            console.log('✅ [Background] 簡化授權狀態檢查完成');
+            sendResponse({ success: true, data: status });
+            return;
+        }
+        
+        // 回退到混合授權管理器
+        if (typeof hybridAuthManager !== 'undefined' && hybridAuthManager) {
+            try {
+                const hybridStatus = await hybridAuthManager.checkAuthStatus();
+                if (hybridStatus.isAuthenticated) {
+                    status.isAuthenticated = true;
+                    status.authMethod = 'hybrid';
+                    status.userInfo = hybridStatus.userInfo;
+                    status.hasApiKey = true;
+                    
+                    console.log('✅ [Background] 混合授權狀態檢查完成');
+                    sendResponse({ success: true, data: status });
+                    return;
+                }
+            } catch (error) {
+                console.warn('⚠️ [Background] 混合授權狀態檢查失敗:', error);
+            }
+        }
+        
+        // 檢查傳統手動設置
+        const apiKey = await getApiKey();
+        const config = await new Promise(resolve => getConfig(['notionDatabaseId'], resolve));
+        const databaseId = config.notionDatabaseId;
+        
+        if (apiKey) {
+            status.isAuthenticated = true;
+            status.authMethod = 'manual';
+            status.hasApiKey = true;
+            status.hasDatabaseId = !!databaseId;
+            status.userInfo = { method: 'manual', hasApiKey: true };
+        }
+        
+        console.log('📋 [Background] 授權狀態檢查完成:', status);
+        sendResponse({ success: true, data: status });
+        
+    } catch (error) {
+        console.error('❌ [Background] 檢查授權狀態失敗:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
+ * 處理搜索資料庫請求
+ */
+async function handleSearchDatabases(request, sendResponse) {
+    try {
+        const query = request.query || '';
+        console.log('🔍 [Background] 搜索數據庫...');
+        
+        // 檢查授權狀態
+        const authStatus = await checkAuthorizationStatus();
+        
+        if (!authStatus.isAuthorized) {
+            throw new Error('未授權：請先登入 Notion 或設置 API 金鑰');
+        }
+        
+        let response;
+        
+        if (authStatus.method === 'cookie') {
+            // 使用 Cookie 授權調用 Notion API 獲取數據庫列表
+            console.log('🍪 [Background] 使用 Cookie 授權獲取數據庫列表');
+            
+            // 使用 loadUserContent API（根據調試結果，這個 API 有效）
+            console.log('🔄 [Background] 調用 loadUserContent API...');
+            response = await fetch('https://www.notion.so/api/v3/loadUserContent', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cookie': `token_v2=${authStatus.token}`
+                },
+                body: JSON.stringify({})
+            });
+        } else {
+            // 使用手動 API 調用
+            console.log('🔑 [Background] 使用手動 API 搜索數據庫');
+            response = await fetch('https://api.notion.com/v1/search', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authStatus.apiKey}`,
+                    'Content-Type': 'application/json',
+                    'Notion-Version': '2022-06-28'
+                },
+                body: JSON.stringify({
+                    query: query,
+                    filter: {
+                        value: 'database',
+                        property: 'object'
+                    }
+                })
+            });
+        }
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`搜索失敗: ${errorData.message || response.statusText}`);
+        }
+        
+        const data = await response.json();
+        let databases = [];
+        
+        if (authStatus.method === 'cookie') {
+            // 調試：打印完整的 API 響應結構
+            console.log('🔍 [Background] API 響應結構:', {
+                hasRecordMap: !!data.recordMap,
+                hasResults: !!data.results,
+                recordMapKeys: data.recordMap ? Object.keys(data.recordMap) : [],
+                resultsLength: data.results ? data.results.length : 0
+            });
+            
+            // 處理 loadUserContent API 響應格式
+            // 優先從 recordMap.block 中查找數據庫（根據調試結果）
+            if (data.recordMap && data.recordMap.block) {
+                console.log('📦 [Background] 從 block 結構中查找數據庫...');
+                const blocks = data.recordMap.block;
+                const databaseBlocks = [];
+                
+                Object.keys(blocks).forEach(blockId => {
+                    const block = blocks[blockId].value;
+                    
+                    // 查找所有數據庫相關的 block 類型
+                    if (block && (block.type === 'collection_view' || block.type === 'collection_view_page')) {
+                        console.log(`🎯 [Background] 找到 ${block.type} block:`, blockId, block);
+                        
+                        // 獲取數據庫標題
+                        let title = 'Untitled Database';
+                        if (block.properties && block.properties.title && block.properties.title[0]) {
+                            title = block.properties.title[0][0];
+                        }
+                        
+                        // 確保有 collection_id
+                        if (block.collection_id) {
+                            databaseBlocks.push({
+                                id: block.collection_id,
+                                title: title,
+                                url: `https://www.notion.so/${block.collection_id.replace(/-/g, '')}`,
+                                created_time: block.created_time,
+                                icon: block.format?.page_icon,
+                                type: block.type
+                            });
+                        }
+                    }
+                });
+                
+                // 去重（基於 collection_id）
+                const uniqueDatabases = [];
+                const seenIds = new Set();
+                
+                databaseBlocks.forEach(db => {
+                    if (!seenIds.has(db.id)) {
+                        seenIds.add(db.id);
+                        uniqueDatabases.push(db);
+                    }
+                });
+                
+                databases = uniqueDatabases;
+                console.log(`📊 [Background] 從 block 中找到 ${databases.length} 個唯一數據庫`);
+            }
+            // 備用：從 recordMap.collection 查找
+            else if (data.recordMap && data.recordMap.collection) {
+                const collections = data.recordMap.collection;
+                console.log('📊 [Background] 從 collection 中查找，數量:', Object.keys(collections).length);
+                
+                databases = Object.keys(collections).map(collectionId => {
+                    const collection = collections[collectionId].value;
+                    console.log(`📋 [Background] 處理數據庫 ${collectionId}:`, collection);
+                    
+                    return {
+                        id: collection.id,
+                        title: collection.name?.[0]?.[0] || collection.title?.[0]?.[0] || 'Untitled Database',
+                        url: `https://www.notion.so/${collection.id.replace(/-/g, '')}`,
+                        created_time: collection.created_time,
+                        icon: collection.icon
+                    };
+                });
+            }
+            
+            // 按名稱排序
+            databases.sort((a, b) => a.title.localeCompare(b.title));
+        } else {
+            // 處理手動 API 響應格式
+            databases = data.results.map(db => ({
+                id: db.id,
+                title: db.title?.[0]?.plain_text || 'Untitled Database',
+                url: db.url,
+                icon: db.icon,
+                created_time: db.created_time
+            }));
+        }
+        
+        console.log(`📊 [Background] 找到 ${databases.length} 個數據庫`);
+        sendResponse({ success: true, databases: databases });
+        
+    } catch (error) {
+        console.error('❌ [Background] 搜索資料庫失敗:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
+ * 處理授權刷新請求
+ */
+async function handleRefreshAuth(sendResponse) {
+    try {
+        if (simpleAuthManager) {
+            const success = await simpleAuthManager.recheckAuth();
+            console.log('🔄 [Background] 授權刷新結果:', success);
+            sendResponse({ success: true, data: { refreshed: success } });
+        } else {
+            sendResponse({ success: false, error: '簡化授權管理器未初始化' });
+        }
+    } catch (error) {
+        console.error('❌ [Background] 授權刷新失敗:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
+ * 處理登出請求
+ */
+async function handleLogout(sendResponse) {
+    try {
+        if (simpleAuthManager) {
+            await simpleAuthManager.logout();
+            console.log('🚪 [Background] 用戶已登出');
+            sendResponse({ success: true, data: { loggedOut: true } });
+        } else {
+            sendResponse({ success: false, error: '簡化授權管理器未初始化' });
+        }
+    } catch (error) {
+        console.error('❌ [Background] 登出失敗:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
+ * 處理獲取 API 金鑰請求
+ */
+async function handleGetApiKey(sendResponse) {
+    try {
+        const apiKey = await getApiKey();
+        sendResponse({ 
+            success: true, 
+            data: apiKey ? 'API 金鑰已設置' : null,
+            hasApiKey: !!apiKey
+        });
+    } catch (error) {
+        console.error('❌ [Background] 獲取 API 金鑰失敗:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+// 在擴展啟動時初始化簡化授權管理器
+chrome.runtime.onStartup.addListener(async () => {
+    console.log('🚀 [Background] 擴展啟動，初始化簡化授權管理器...');
+    await initializeSimpleAuthManager();
+});
 
 // Setup all services
 setupMessageHandlers();

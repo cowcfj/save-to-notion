@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion API 調試工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .error { 
+            background: #f8d7da; 
+            border-color: #f5c6cb; 
+            color: #721c24; 
+        }
+        .success { 
+            background: #d4edda; 
+            border-color: #c3e6cb; 
+            color: #155724; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Notion API 調試工具（擴展版）</h1>
+    
+    <div class="test-section">
+        <h3>Cookie 檢測</h3>
+        <button id="check-cookies" class="test-button">檢查 Notion Cookies</button>
+        <div id="cookie-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>API 測試</h3>
+        <button id="test-load-user-content" class="test-button">測試 loadUserContent</button>
+        <button id="test-get-spaces" class="test-button">測試 getSpaces</button>
+        <button id="test-search" class="test-button">測試 search</button>
+        <button id="test-load-page-chunk" class="test-button">測試 loadPageChunk</button>
+        <div id="api-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>數據庫解析</h3>
+        <button id="parse-databases" class="test-button">解析數據庫列表</button>
+        <button id="analyze-structure" class="test-button">分析完整結構</button>
+        <button id="analyze-blocks" class="test-button">詳細分析 90 個 Blocks</button>
+        <div id="parse-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Background Script 測試</h3>
+        <button id="test-background-search" class="test-button">測試 Background 搜索</button>
+        <div id="background-result" class="result"></div>
+    </div>
+
+    <script src="debug-notion-api.js"></script>
+</body>
+</html>

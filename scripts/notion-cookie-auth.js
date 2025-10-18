@@ -22,6 +22,7 @@ class NotionCookieAuth {
         // Notion API 端點
         this.apiEndpoints = {
             // 用戶資訊
+            loadUserEmailAndPhone: '/api/v3/loadUserEmailAndPhone',
             getUsers: '/api/v3/getUsers',
             // 工作空間
             getSpaces: '/api/v3/getSpaces',
@@ -128,9 +129,7 @@ class NotionCookieAuth {
 
         try {
             // 嘗試調用一個簡單的 API 來驗證授權
-            const response = await this.makeAPICall('/api/v3/getUsers', {
-                [this.authCookies.notion_user_id]: {}
-            });
+            const response = await this.makeAPICall('/api/v3/loadUserEmailAndPhone', {});
 
             if (response && !response.errorId) {
                 console.log('✅ [Cookie Auth] 授權驗證成功');
@@ -159,9 +158,7 @@ class NotionCookieAuth {
         }
 
         try {
-            const response = await this.makeAPICall('/api/v3/getUsers', {
-                [this.authCookies.notion_user_id]: {}
-            });
+            const response = await this.makeAPICall('/api/v3/loadUserEmailAndPhone', {});
 
             if (response && response.results && response.results[0]) {
                 const userData = response.results[0];

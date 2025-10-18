@@ -8,7 +8,8 @@
     "scripting",
     "storage",
     "tabs",
-    "cookies"
+    "cookies",
+    "identity"
   ],
   "host_permissions": [
     "https://api.notion.com/*",
@@ -41,7 +42,7 @@
       "128": "icons/icon128.png"
     }
   },
-  "options_page": "options/options.html",
+  "options_page": "options/options-simple.html",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

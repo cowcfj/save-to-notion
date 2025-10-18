@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save to Notion - 設定</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #2d3748;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        /* 授權狀態區域 */
+        .auth-status-section {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .auth-status-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        .auth-status-icon.authorized {
+            color: #28a745;
+        }
+        
+        .auth-status-icon.unauthorized {
+            color: #dc3545;
+        }
+        
+        .auth-status-text {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .auth-status-text.authorized {
+            color: #28a745;
+        }
+        
+        .auth-status-text.unauthorized {
+            color: #dc3545;
+        }
+        
+        .auth-method-badge {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+        }
+        
+        .user-info {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #6c757d;
+        }
+        
+        .user-details h3 {
+            margin: 0 0 5px 0;
+            font-size: 18px;
+            color: #2d3748;
+        }
+        
+        .user-details p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        /* 授權方式選擇 */
+        .auth-methods {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .auth-method {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .auth-method:hover {
+            border-color: #007bff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 123, 255, 0.15);
+        }
+        
+        .auth-method.active {
+            border-color: #007bff;
+            background: #f8f9ff;
+        }
+        
+        .auth-method-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        .auth-method-icon.cookie {
+            color: #28a745;
+        }
+        
+        .auth-method-icon.manual {
+            color: #ffc107;
+        }
+        
+        .auth-method h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #2d3748;
+        }
+        
+        .auth-method p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .auth-method .status-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dc3545;
+        }
+        
+        .auth-method .status-indicator.active {
+            background: #28a745;
+        }
+        
+        /* Cookie 授權區域 */
+        .cookie-auth-section {
+            background: #f8fff9;
+            border: 1px solid #c3e6cb;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .cookie-auth-section h3 {
+            color: #155724;
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .cookie-auth-actions {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        /* 手動 API 區域 */
+        .manual-auth-section {
+            background: #fffbf0;
+            border: 1px solid #ffeaa7;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .manual-auth-section h3 {
+            color: #856404;
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 14px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+        
+        /* 資料庫選擇區域 */
+        .database-section {
+            background: #f0f8ff;
+            border: 1px solid #bee5eb;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .database-section h3 {
+            color: #0c5460;
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .database-selector {
+            position: relative;
+        }
+        
+        .database-input-group {
+            display: flex;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+        
+        .database-input-group input {
+            flex: 1;
+            border: none;
+            padding: 12px 16px;
+            font-size: 14px;
+        }
+        
+        .database-input-group input:focus {
+            outline: none;
+        }
+        
+        .database-input-group:focus-within {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        
+        .dropdown-toggle {
+            background: #f8f9fa;
+            border: none;
+            padding: 12px 16px;
+            cursor: pointer;
+            color: #6c757d;
+            border-left: 1px solid #e2e8f0;
+            transition: background-color 0.2s ease;
+        }
+        
+        .dropdown-toggle:hover {
+            background: #e9ecef;
+        }
+        
+        .database-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+        
+        .database-dropdown.show {
+            display: block;
+        }
+        
+        .dropdown-header {
+            background: #f8f9fa;
+            padding: 10px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .database-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f8f9fa;
+            transition: background-color 0.2s ease;
+        }
+        
+        .database-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .database-item.selected {
+            background: #e3f2fd;
+            border-left: 4px solid #007bff;
+        }
+        
+        .database-item:last-child {
+            border-bottom: none;
+        }
+        
+        .database-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+        
+        .database-id {
+            font-size: 11px;
+            color: #6c757d;
+            font-family: monospace;
+        }
+        
+        .no-databases {
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        /* 按鈕樣式 */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #0056b3;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background: #1e7e34;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-warning:hover:not(:disabled) {
+            background: #e0a800;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: #545b62;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #007bff;
+            color: #007bff;
+        }
+        
+        .btn-outline:hover:not(:disabled) {
+            background: #007bff;
+            color: white;
+        }
+        
+        /* 狀態訊息 */
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .status-message.show {
+            display: block;
+        }
+        
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-message.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        /* 載入動畫 */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .auth-methods {
+                grid-template-columns: 1fr;
+            }
+            
+            .cookie-auth-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .user-info {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+        
+        /* 隱藏/顯示區域 */
+        .section-hidden {
+            display: none;
+        }
+        
+        .section-visible {
+            display: block;
+        }
+        
+        /* 導航鏈接 */
+        .navigation {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-bottom: 1px solid #dee2e6;
+            text-align: center;
+        }
+        
+        .navigation a {
+            color: #007bff;
+            text-decoration: none;
+            margin: 0 15px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        
+        .navigation a:hover {
+            background: #007bff;
+            color: white;
+        }
+        
+        .navigation a.active {
+            background: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Notion 授權設定</h1>
+            <p>選擇您偏好的授權方式來連接 Notion</p>
+        </div>
+        
+        <div class="navigation">
+            <a href="options-improved.html" class="active">📋 新版設定</a>
+            <a href="options.html">📋 舊版設定</a>
+            <a href="test-integration.html">🧪 整合測試</a>
+        </div>
+        
+        <div class="content">
+            <!-- 授權狀態顯示 -->
+            <div class="auth-status-section">
+                <span id="auth-status-icon" class="auth-status-icon unauthorized">🔒</span>
+                <div id="auth-status-text" class="auth-status-text unauthorized">未授權</div>
+                <div id="auth-method-badge" class="auth-method-badge" style="display: none;">Cookie 授權</div>
+                <div id="user-info" class="user-info" style="display: none;">
+                    <div class="user-avatar">👤</div>
+                    <div class="user-details">
+                        <h3 id="user-name">用戶名稱</h3>
+                        <p id="user-email">user@example.com</p>
+                        <p id="user-method">授權方式: Cookie</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 授權方式選擇 -->
+            <div class="auth-methods">
+                <div class="auth-method" id="cookie-method" onclick="selectAuthMethod('cookie')">
+                    <span class="status-indicator" id="cookie-status"></span>
+                    <span class="auth-method-icon cookie">🍪</span>
+                    <h3>Cookie 授權</h3>
+                    <p>使用您的 Notion 登入狀態，簡單快速</p>
+                </div>
+                
+                <div class="auth-method" id="manual-method" onclick="selectAuthMethod('manual')">
+                    <span class="status-indicator" id="manual-status"></span>
+                    <span class="auth-method-icon manual">🔑</span>
+                    <h3>手動 API 設定</h3>
+                    <p>使用 Integration API 金鑰，功能完整</p>
+                </div>
+            </div>
+            
+            <!-- Cookie 授權區域 -->
+            <div id="cookie-auth-section" class="cookie-auth-section section-hidden">
+                <h3>🍪 Cookie 授權設定</h3>
+                <p>這種方式會使用您在瀏覽器中的 Notion 登入狀態。</p>
+                
+                <div class="cookie-auth-actions">
+                    <button id="login-button" class="btn btn-primary">
+                        🔗 打開 Notion 登入頁面
+                    </button>
+                    <button id="check-status-button" class="btn btn-secondary">
+                        🔄 檢查登入狀態
+                    </button>
+                    <button id="logout-button" class="btn btn-danger" style="display: none;">
+                        🚪 登出
+                    </button>
+                </div>
+                
+                <div class="status-message" id="cookie-status-message"></div>
+            </div>
+            
+            <!-- 手動 API 授權區域 -->
+            <div id="manual-auth-section" class="manual-auth-section section-hidden">
+                <h3>🔑 手動 API 設定</h3>
+                <p>使用 Notion Integration 的 API 金鑰進行授權。</p>
+                
+                <div class="form-group">
+                    <label for="api-key">Notion API 金鑰</label>
+                    <input type="password" id="api-key" placeholder="secret_xxxxxxxxxx">
+                    <div class="help-text">
+                        在 <a href="https://www.notion.so/my-integrations" target="_blank">Notion Integrations</a> 頁面創建並獲取 API 金鑰
+                    </div>
+                </div>
+                
+                <div class="cookie-auth-actions">
+                    <button id="test-api-button" class="btn btn-secondary">
+                        🧪 測試 API 金鑰
+                    </button>
+                    <button id="save-manual-button" class="btn btn-success">
+                        💾 保存設定
+                    </button>
+                </div>
+                
+                <div class="status-message" id="manual-status-message"></div>
+            </div>
+            
+            <!-- 資料庫選擇區域 -->
+            <div id="database-section" class="database-section section-hidden">
+                <h3>📊 資料庫設定</h3>
+                <p>選擇用於保存網頁內容的 Notion 資料庫。</p>
+                
+                <div class="form-group">
+                    <label for="database-selector">選擇資料庫</label>
+                    <div class="database-selector">
+                        <div class="database-input-group">
+                            <input type="text" id="database-search" placeholder="搜索資料庫或輸入資料庫 ID">
+                            <button class="dropdown-toggle" id="dropdown-toggle">
+                                <span>▼</span>
+                            </button>
+                        </div>
+                        <div class="database-dropdown" id="database-dropdown">
+                            <div class="dropdown-header">
+                                <span id="database-count">載入中...</span>
+                                <button id="refresh-databases" class="btn-outline" style="padding: 4px 8px; font-size: 12px;">
+                                    🔄 刷新
+                                </button>
+                            </div>
+                            <div id="database-list">
+                                <div class="no-databases">請先完成授權</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="help-text">
+                        選擇的資料庫將作為預設的保存位置
+                    </div>
+                </div>
+                
+                <div class="cookie-auth-actions">
+                    <button id="save-database-button" class="btn btn-success">
+                        💾 保存資料庫設定
+                    </button>
+                </div>
+                
+                <div class="status-message" id="database-status-message"></div>
+            </div>
+            
+            <!-- 全局狀態訊息 -->
+            <div class="status-message" id="global-status-message"></div>
+        </div>
+    </div>
+    
+    <script src="options-improved.js"></script>
+</body>
+</html>

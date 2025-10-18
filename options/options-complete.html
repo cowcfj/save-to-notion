@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save to Notion - 完整設定</title>
+    <link rel="stylesheet" href="options.css">
+    <style>
+        /* 額外的改進樣式 */
+        .clear-auth-button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+        
+        .clear-auth-button:hover {
+            background: #c82333;
+        }
+        
+        .current-settings {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .current-settings h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        
+        .setting-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .setting-value {
+            color: #6c757d;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .navigation-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .nav-tab {
+            flex: 1;
+            padding: 12px 20px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6c757d;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-tab.active {
+            background: white;
+            color: #007bff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .nav-tab:hover:not(.active) {
+            background: #e9ecef;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Save to Notion - 設定</h1>
+        
+        <!-- 導航標籤 -->
+        <div class="navigation-tabs">
+            <button class="nav-tab active" data-tab="auth">🔐 授權設定</button>
+            <button class="nav-tab" data-tab="template">📝 模板設定</button>
+            <button class="nav-tab" data-tab="data">📊 資料管理</button>
+        </div>
+        
+        <!-- 授權設定標籤 -->
+        <div id="auth-tab" class="tab-content active">
+            <!-- 當前授權狀態 -->
+            <div class="primary-auth-section">
+                <h2>🔑 當前授權狀態</h2>
+                <div id="auth-status-display" class="auth-status">檢查中...</div>
+                
+                <!-- 當前設定顯示 -->
+                <div id="current-settings" class="current-settings" style="display: none;">
+                    <h4>目前設定</h4>
+                    <div class="setting-item">
+                        <span class="setting-label">授權方式:</span>
+                        <span id="current-auth-method" class="setting-value">-</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">用戶名稱:</span>
+                        <span id="current-user-name" class="setting-value">-</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">API 金鑰:</span>
+                        <span id="current-api-key" class="setting-value">-</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">資料庫 ID:</span>
+                        <span id="current-database-id" class="setting-value">-</span>
+                    </div>
+                </div>
+                
+                <!-- 用戶資訊卡片 -->
+                <div id="cookie-user-info" class="user-info-card" style="display: none;">
+                    <div class="user-avatar-container">
+                        <img id="cookie-user-avatar" class="user-avatar" src="" alt="用戶頭像">
+                    </div>
+                    <div class="user-details">
+                        <div id="cookie-user-name" class="user-name">載入中...</div>
+                        <div id="cookie-user-email" class="user-email">載入中...</div>
+                        <div id="cookie-workspace-info" class="workspace-info">工作空間: 載入中...</div>
+                    </div>
+                </div>
+                
+                <div class="auth-actions">
+                    <button id="refresh-auth-button" class="secondary-button">
+                        <span class="button-icon">🔄</span>
+                        <span class="button-text">刷新狀態</span>
+                    </button>
+                    <button id="clear-all-auth-button" class="clear-auth-button">
+                        <span class="button-icon">🗑️</span>
+                        <span class="button-text">清除所有授權</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Cookie 授權區域 -->
+            <div class="cookie-auth-section">
+                <h3>🍪 Cookie 授權（推薦）</h3>
+                <div class="auth-description">
+                    <p>直接使用您的 Notion 帳號登入，無需複雜設置，即可訪問所有工作區和資料庫。</p>
+                </div>
+                
+                <div id="cookie-auth-status" class="auth-status">準備登入 Notion...</div>
+                
+                <div class="cookie-auth-actions">
+                    <button id="cookie-login-button" class="auth-button primary">
+                        <span class="button-icon">🔑</span>
+                        <span class="button-text">登入 Notion</span>
+                    </button>
+                    <button id="cookie-check-button" class="auth-button secondary">
+                        <span class="button-icon">🔄</span>
+                        <span class="button-text">檢查登入狀態</span>
+                    </button>
+                    <button id="cookie-logout-button" class="auth-button danger" style="display: none;">
+                        <span class="button-icon">🚪</span>
+                        <span class="button-text">登出</span>
+                    </button>
+                </div>
+                
+                <!-- 資料庫選擇 -->
+                <div id="cookie-database-section" class="database-selection" style="display: none;">
+                    <h4>選擇資料庫</h4>
+                    <button id="cookie-load-databases" class="load-button">
+                        <span class="button-icon">📚</span>
+                        <span class="button-text">載入資料庫</span>
+                    </button>
+                    <div id="cookie-database-list" class="database-list" style="display: none;">
+                        <!-- 資料庫列表將在這裡動態載入 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 手動 API 授權區域 -->
+            <div class="secondary-auth-section">
+                <div class="collapsible-header" id="manual-auth-toggle">
+                    <h3>🔧 手動 API 設置</h3>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                
+                <div class="collapsible-content" id="manual-auth-content" style="display: none;">
+                    <div class="auth-description">
+                        <p>適合進階用戶或企業環境，需要手動創建 Notion Integration 並獲取 API 金鑰。</p>
+                    </div>
+                    
+                    <div id="manual-auth-status" class="auth-status">請設置 API 金鑰</div>
+                    
+                    <div class="manual-setup-actions">
+                        <button id="manual-setup-button" class="auth-button secondary">
+                            <span class="button-icon">🌐</span>
+                            <span class="button-text">打開 Notion API 頁面</span>
+                        </button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="api-key">Notion API Key</label>
+                        <input type="password" id="api-key" placeholder="Enter your Notion API Key">
+                        <button type="button" id="test-api-button" class="test-button">測試 API Key</button>
+                        <button type="button" id="clear-api-button" class="clear-auth-button">清除</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="database-id">Notion Database ID</label>
+                        <input type="text" id="database-id" placeholder="Enter your Notion Database ID">
+                        
+                        <!-- 可搜索的數據庫選擇器 -->
+                        <div class="database-selector-container">
+                            <div class="searchable-selector">
+                                <div class="selector-input">
+                                    <input type="text" id="database-search" placeholder="搜索資料庫或輸入 ID">
+                                    <button class="selector-toggle" id="database-toggle">
+                                        <span class="arrow">▼</span>
+                                    </button>
+                                </div>
+                                <div class="selector-dropdown" id="database-dropdown">
+                                    <div class="dropdown-header">
+                                        <span class="database-count" id="database-count">載入中...</span>
+                                        <button class="refresh-btn" id="refresh-databases">🔄</button>
+                                    </div>
+                                    <div class="dropdown-list" id="database-list">
+                                        <div class="no-results">請先設置有效的 API 金鑰</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="save-button" type="button">保存設置</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 模板設定標籤 -->
+        <div id="template-tab" class="tab-content">
+            <div class="template-section">
+                <h2>📝 頁面模板設置</h2>
+                <div class="form-group">
+                    <label for="title-template">標題模板</label>
+                    <input type="text" id="title-template" placeholder="例如：{title} - {date}">
+                    <small class="help-text">
+                        可用變量：{title} - 原始標題, {date} - 當前日期, {time} - 當前時間, {datetime} - 日期時間, {url} - 網頁URL, {domain} - 網站域名
+                    </small>
+                    <button type="button" id="preview-template" class="preview-button">預覽效果</button>
+                    <div id="template-preview" class="template-preview"></div>
+                </div>
+                <div class="form-group">
+                    <input type="checkbox" id="add-source">
+                    <label for="add-source" class="checkbox-label">添加來源鏈接</label>
+                </div>
+                <div class="form-group">
+                    <input type="checkbox" id="add-timestamp">
+                    <label for="add-timestamp" class="checkbox-label">添加時間戳</label>
+                </div>
+                <button type="button" id="save-template-button" class="auth-button primary">保存模板設置</button>
+            </div>
+        </div>
+        
+        <!-- 資料管理標籤 -->
+        <div id="data-tab" class="tab-content">
+            <div class="data-section">
+                <h2>📊 資料管理</h2>
+                <div class="data-info">
+                    <p>管理您的擴展數據，包括標記、配置和歷史記錄。</p>
+                </div>
+                
+                <!-- 存儲使用情況 -->
+                <div class="storage-usage">
+                    <h3>📊 存儲使用情況</h3>
+                    <div class="usage-info">
+                        <div class="usage-bar-container">
+                            <div class="usage-bar">
+                                <div class="usage-fill" id="usage-fill"></div>
+                            </div>
+                            <div class="usage-text">
+                                <span id="usage-percentage">0%</span>
+                                <span id="usage-details">0 KB / 5 MB</span>
+                            </div>
+                        </div>
+                        <div class="storage-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">📑 標記頁面：</span>
+                                <span id="marked-pages-count">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">⚙️ 配置數據：</span>
+                                <span id="config-size">0 KB</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">📈 歷史記錄：</span>
+                                <span id="history-count">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">🎨 高亮數據：</span>
+                                <span id="highlight-count">0</span>
+                            </div>
+                        </div>
+                        <button class="refresh-button" id="refresh-usage">刷新統計</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <button id="export-data-button" class="export-button">📥 備份數據</button>
+                    <small class="help-text">將您的標記、配置和歷史記錄備份到文件</small>
+                </div>
+                <div class="form-group">
+                    <input type="file" id="import-data-file" accept=".json" style="display: none;">
+                    <button id="import-data-button" class="import-button">📤 恢復數據</button>
+                    <small class="help-text">從備份文件恢復您的數據</small>
+                </div>
+                <div class="form-group">
+                    <button id="check-data-button" class="check-button">🔍 檢查數據完整性</button>
+                    <small class="help-text">檢查並修復可能的數據問題</small>
+                </div>
+                
+                <!-- 數據優化區域 -->
+                <div class="optimization-section">
+                    <h3>🚀 數據優化</h3>
+                    <div class="optimization-info">
+                        <p>優化存儲空間，提升擴展性能。</p>
+                    </div>
+                    
+                    <div class="safe-cleanup">
+                        <h4>安全清理</h4>
+                        <div class="cleanup-option">
+                            <input type="checkbox" id="cleanup-old-cache">
+                            <span>清理過期緩存 (> 30 天)</span>
+                            <small>安全移除超過 30 天的緩存數據</small>
+                        </div>
+                        <div class="cleanup-option">
+                            <input type="checkbox" id="cleanup-temp-files">
+                            <span>清理臨時文件</span>
+                            <small>移除處理過程中產生的臨時文件</small>
+                        </div>
+                        <div class="cleanup-option">
+                            <input type="checkbox" id="cleanup-error-logs">
+                            <span>清理錯誤日誌 (> 7 天)</span>
+                            <small>移除超過 7 天的錯誤日誌</small>
+                        </div>
+                        <button class="preview-button" id="preview-cleanup">預覽清理效果</button>
+                        <button class="cleanup-button" id="start-cleanup">開始清理</button>
+                    </div>
+                    
+                    <div class="reorganize-section">
+                        <h4>數據重整</h4>
+                        <div class="reorganize-info">
+                            <p>重新組織數據結構，優化存取效率。</p>
+                        </div>
+                        <button class="analyze-button" id="analyze-data">分析數據結構</button>
+                        <button class="optimize-button" id="optimize-data">優化數據</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="status" class="status"></div>
+    </div>
+    
+    <script src="options-complete.js"></script>
+</body>
+</html>

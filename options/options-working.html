@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save to Notion - 設定</title>
+    <link rel="stylesheet" href="options.css">
+    <style>
+        .navigation-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .nav-tab {
+            flex: 1;
+            padding: 12px 20px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6c757d;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-tab.active {
+            background: white;
+            color: #007bff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .nav-tab:hover:not(.active) {
+            background: #e9ecef;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .current-settings {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .current-settings h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        
+        .setting-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .setting-value {
+            color: #6c757d;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .auth-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .secondary-button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .secondary-button:hover {
+            background: #5a6268;
+        }
+        
+        .clear-auth-button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .clear-auth-button:hover {
+            background: #c82333;
+        }
+        
+        .cookie-auth-section {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .cookie-auth-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .auth-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .auth-button.primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .auth-button.primary:hover {
+            background: #0056b3;
+        }
+        
+        .auth-button.secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .auth-button.secondary:hover {
+            background: #5a6268;
+        }
+        
+        .auth-button.danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .auth-button.danger:hover {
+            background: #c82333;
+        }
+        
+        .secondary-auth-section {
+            margin-top: 30px;
+        }
+        
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .collapsible-header:hover {
+            background: #e9ecef;
+        }
+        
+        .toggle-icon {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        
+        .collapsible-content {
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            background: white;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        
+        .test-button, .clear-button {
+            margin-left: 10px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .test-button {
+            background: #28a745;
+            color: white;
+        }
+        
+        .test-button:hover {
+            background: #218838;
+        }
+        
+        .auth-status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        
+        .auth-status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .auth-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .auth-status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .auth-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .database-selection-section {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .database-selection-section h4 {
+            margin: 0 0 10px 0;
+            color: #0056b3;
+        }
+        
+        .database-search-actions {
+            margin: 15px 0;
+        }
+        
+        .database-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .database-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: white;
+        }
+        
+        .database-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .database-info {
+            flex: 1;
+        }
+        
+        .database-name {
+            font-weight: 500;
+            color: #495057;
+            margin-bottom: 4px;
+        }
+        
+        .database-id {
+            font-family: monospace;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .select-database-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .select-database-button:hover {
+            background: #218838;
+        }
+        
+        .no-databases {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .database-search-container {
+            margin: 15px 0;
+        }
+        
+        .database-search-container .form-group {
+            margin-bottom: 10px;
+        }
+        
+        .database-search-container input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .database-search-container input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        
+        .database-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Save to Notion - 設定</h1>
+        
+        <!-- 導航標籤 -->
+        <div class="navigation-tabs">
+            <button class="nav-tab active" data-tab="auth">🔐 授權設定</button>
+            <button class="nav-tab" data-tab="template">📝 模板設定</button>
+            <button class="nav-tab" data-tab="data">📊 資料管理</button>
+        </div>
+        
+        <!-- 授權設定標籤 -->
+        <div id="auth-tab" class="tab-content active">
+            <!-- 當前授權狀態 -->
+            <div class="primary-auth-section">
+                <h2>🔑 當前授權狀態</h2>
+                <div id="auth-status-display" class="auth-status info">檢查中...</div>
+                
+                <!-- 當前設定顯示 -->
+                <div id="current-settings" class="current-settings" style="display: none;">
+                    <h4>目前設定</h4>
+                    <div class="setting-item">
+                        <span class="setting-label">授權方式:</span>
+                        <span id="current-auth-method" class="setting-value">-</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">用戶名稱:</span>
+                        <span id="current-user-name" class="setting-value">-</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">API 金鑰:</span>
+                        <span id="current-api-key" class="setting-value">-</span>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">資料庫 ID:</span>
+                        <span id="current-database-id" class="setting-value">-</span>
+                    </div>
+                </div>
+                
+                <div class="auth-actions">
+                    <button id="refresh-auth-button" class="secondary-button">
+                        <span class="button-icon">🔄</span>
+                        <span class="button-text">刷新狀態</span>
+                    </button>
+                    <button id="clear-all-auth-button" class="clear-auth-button">
+                        <span class="button-icon">🗑️</span>
+                        <span class="button-text">清除所有授權</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Cookie 授權區域 -->
+            <div class="cookie-auth-section">
+                <h3>🍪 Cookie 授權（推薦）</h3>
+                <div class="auth-description">
+                    <p>直接使用您的 Notion 帳號登入，無需複雜設置。</p>
+                </div>
+                
+                <div id="cookie-auth-status" class="auth-status info">準備登入 Notion...</div>
+                
+                <div class="cookie-auth-actions">
+                    <button id="cookie-login-button" class="auth-button primary">
+                        <span class="button-icon">🔑</span>
+                        <span class="button-text">登入 Notion</span>
+                    </button>
+                    <button id="cookie-check-button" class="auth-button secondary">
+                        <span class="button-icon">🔄</span>
+                        <span class="button-text">檢查登入狀態</span>
+                    </button>
+                    <button id="cookie-logout-button" class="auth-button danger" style="display: none;">
+                        <span class="button-icon">🚪</span>
+                        <span class="button-text">登出</span>
+                    </button>
+                </div>
+                
+                <!-- 數據庫選擇區域 -->
+                <div id="database-selection-section" class="database-selection-section" style="display: none;">
+                    <h4>📊 選擇 Notion 數據庫</h4>
+                    <p>請選擇要保存網頁內容的 Notion 數據庫：</p>
+                    
+                    <div class="database-search-actions">
+                        <button id="search-databases-button" class="auth-button primary">
+                            <span class="button-icon">🔍</span>
+                            <span class="button-text">載入數據庫列表</span>
+                        </button>
+                    </div>
+                    
+                    <!-- 數據庫搜索框 -->
+                    <div id="database-search-container" class="database-search-container" style="display: none;">
+                        <div class="form-group">
+                            <label for="database-search-input">🔍 搜索數據庫</label>
+                            <input type="text" id="database-search-input" placeholder="輸入數據庫名稱進行搜索...">
+                        </div>
+                    </div>
+                    
+                    <div id="database-list" class="database-list"></div>
+                </div>
+            </div>
+            
+            <!-- 手動 API 授權區域 -->
+            <div class="secondary-auth-section">
+                <div class="collapsible-header" id="manual-auth-toggle">
+                    <h3>🔧 手動 API 設置</h3>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                
+                <div class="collapsible-content" id="manual-auth-content" style="display: none;">
+                    <div class="auth-description">
+                        <p>使用 Notion Integration 的 API 金鑰進行授權。</p>
+                    </div>
+                    
+                    <div id="manual-auth-status" class="auth-status info">請設置 API 金鑰</div>
+                    
+                    <div class="form-group">
+                        <label for="api-key">Notion API Key</label>
+                        <input type="password" id="api-key" placeholder="Enter your Notion API Key">
+                        <button type="button" id="test-api-button" class="test-button">測試 API Key</button>
+                        <button type="button" id="clear-api-button" class="clear-auth-button">清除</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="database-id">Notion Database ID</label>
+                        <input type="text" id="database-id" placeholder="Enter your Notion Database ID">
+                    </div>
+                    
+                    <button id="save-button" type="button" class="auth-button primary">保存設置</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 模板設定標籤 -->
+        <div id="template-tab" class="tab-content">
+            <div class="template-section">
+                <h2>📝 頁面模板設置</h2>
+                <p>模板設定功能開發中...</p>
+            </div>
+        </div>
+        
+        <!-- 資料管理標籤 -->
+        <div id="data-tab" class="tab-content">
+            <div class="data-section">
+                <h2>📊 資料管理</h2>
+                <p>資料管理功能開發中...</p>
+            </div>
+        </div>
+        
+        <div id="status" class="status"></div>
+    </div>
+    
+    <script src="options-working.js"></script>
+</body>
+</html>

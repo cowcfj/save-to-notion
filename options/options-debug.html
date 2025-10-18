@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>選項頁面調試版</title>
+    <link rel="stylesheet" href="options.css">
+    <style>
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>選項頁面調試版</h1>
+        
+        <div class="debug-info" id="debug-log">
+            <h3>調試信息</h3>
+            <div id="log-content"></div>
+        </div>
+        
+        <!-- 簡化的按鈕測試 -->
+        <div class="test-section">
+            <h2>按鈕測試</h2>
+            
+            <button id="test-button-1" class="auth-button primary">
+                測試按鈕 1
+            </button>
+            
+            <button id="cookie-check-button" class="auth-button secondary">
+                Cookie 檢查按鈕
+            </button>
+            
+            <button id="refresh-auth-button" class="auth-button">
+                刷新授權按鈕
+            </button>
+        </div>
+        
+        <!-- 原始按鈕結構 -->
+        <div class="navigation-tabs">
+            <button class="nav-tab active" data-tab="auth">🔐 授權設定</button>
+            <button class="nav-tab" data-tab="template">📝 模板設定</button>
+            <button class="nav-tab" data-tab="data">📊 資料管理</button>
+        </div>
+        
+        <div id="auth-tab" class="tab-content active">
+            <div class="cookie-auth-section">
+                <h3>🍪 Cookie 授權測試</h3>
+                <button id="cookie-login-button" class="auth-button primary">
+                    🔑 登入 Notion
+                </button>
+                <button id="cookie-logout-button" class="auth-button danger">
+                    🚪 登出
+                </button>
+            </div>
+        </div>
+        
+        <div id="status" class="status"></div>
+    </div>
+
+    <script src="options-debug.js"></script>
+</body>
+</html>
