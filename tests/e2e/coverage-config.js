@@ -15,7 +15,7 @@ module.exports = {
       '--disable-gpu'
     ],
     // Chrome 擴展加載配置
-    extensionPath: './dist', // 構建後的擴展目錄
+    extensionPath: '.', // 擴展根目錄（已包含 manifest.json）
   },
 
   // 覆蓋率收集配置
