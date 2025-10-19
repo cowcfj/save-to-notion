@@ -26,6 +26,23 @@ enabled = true
   # that best matches the analysed code. This repo is a Chrome extension,
   # so using "browser" helps the analyzer reason about DOM globals.
   environment = ["browser"]
+
   # Skip doc coverage checks for some constructs to reduce DOCUMENTATION noise
   # Possible values: "class-expression", "method-definition", "function-declaration", etc.
   skip_doc_coverage = ["class-expression", "method-definition"]
+
+  # Increase cyclomatic complexity threshold for test files
+  # Test files often have higher complexity due to multiple test cases
+  cyclomatic_complexity_threshold = "high"
+
+  # Issues to ignore in test files
+  # Tests naturally have repetitive patterns (arrange-act-assert)
+  # and similar structure across test cases
+  ignore_test_issues = [
+    "JS-0050",  # Similar blocks of code found in multiple locations
+    "JS-0052",  # Duplicate code blocks found
+    "JS-0116",  # Multiple statements in a single line
+    "JS-0241",  # Consider using template literals
+    "JS-0590",  # Cyclomatic complexity is more than allowed
+    "JS-R1005"  # Function with cyclomatic complexity higher than threshold
+  ]
