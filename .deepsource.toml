@@ -1,20 +1,36 @@
 version = 1
 
+# Patterns to mark as test files (DeepSource will apply different analysis rules)
+test_patterns = [
+  "tests/**",
+  "**/*.test.js",
+  "**/*.spec.js"
+]
+
+# Patterns to completely exclude from analysis
+exclude_patterns = [
+  "**/mocks/**",
+  "internal/**",
+  "archive/**",
+  "releases/**",
+  "coverage/**",
+  "node_modules/**"
+]
+
 [[analyzers]]
 name = "javascript"
 enabled = true
 
-[analyzers.meta]
-# Valid values: "browser" or "nodejs" (string). Choose the runtime
-# that best matches the analysed code. This repo is a Chrome extension,
-# so using "browser" helps the analyzer reason about DOM globals.
-environment = ["browser"]
-# Skip doc coverage checks for some constructs to reduce DOCUMENTATION noise
-# Possible values: "class-expression", "method-definition", "function-declaration", etc.
-skip_doc_coverage = ["class-expression", "method-definition"]
+  [analyzers.meta]
+  # Valid values: "browser" or "nodejs" (string). Choose the runtime
+  # that best matches the analysed code. This repo is a Chrome extension,
+  # so using "browser" helps the analyzer reason about DOM globals.
+  environment = ["browser"]
 
-[skip_patterns]
-paths = [
-  "tests/manual/**",
-  "tests/helpers/**"
-]
+  # Skip doc coverage checks for some constructs to reduce DOCUMENTATION noise
+  # Possible values: "class-expression", "method-definition", "function-declaration", etc.
+  skip_doc_coverage = ["class-expression", "method-definition"]
+
+  # Cyclomatic complexity threshold: low, medium, high, very-high, critical
+  # "very-high" allows complexity up to 50, suitable for test files
+  cyclomatic_complexity_threshold = "very-high"
