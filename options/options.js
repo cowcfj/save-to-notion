@@ -908,7 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        async function generateOptimizationPlan() {
+        function generateOptimizationPlan() {
             return new Promise((resolve) => {
                 chrome.storage.local.get(null, (data) => {
                     const plan = {
