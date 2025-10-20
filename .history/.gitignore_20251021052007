@@ -219,7 +219,7 @@ cleanup.sh
 .serena/
 
 # 內部目錄（不應公開）
-# tests/ - 保留 Jest 測試，排除手動測試和測試結果
+# tests/ - 保留 Jest 測試，排除手動測試、E2E 測試和測試結果
 tests/manual/
 tests/results/
 tests/*.md
