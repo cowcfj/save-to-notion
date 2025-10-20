@@ -1,35 +1,20 @@
 # 變更日誌 (CHANGELOG)
 
-## v2.9.8 - 2025-10-20
-### 🧪 測試基礎設施
-- **E2E 測試覆蓋率整合**：實施 Puppeteer + Istanbul E2E 測試覆蓋率整合方案
-  - 創建 `coverage-collector.js` - Puppeteer 覆蓋率收集引擎 (450+ 行)
-  - 創建 `coverage-merger.js` - Istanbul 覆蓋率合併工具 (200+ 行)
-  - 創建 `run-with-coverage.js` - 主執行腳本
-  - 實現 E2E 測試場景：Content Extraction (✅ 通過)
-  - 配置 GitHub Actions CI/CD 工作流程 (`test-e2e-coverage.yml`)
-  - 在 CI 環境成功運行，生成覆蓋率報告並上傳 artifacts
+## v2.9.8 - 2025-10-21
+### 🐛 Bug 修復
+- **空標註資料膨脹**：
+  - 背景服務僅在 HTTP(S) 網址且已有標註時才注入高亮腳本，避免為每個分頁建立空 `highlights_*` 紀錄。
+  - `highlighter-v2` 在無標註資料時跳過初始化，杜絕自動寫入空陣列。
+  - 選項頁偵測空標註並提供清理建議，能快速釋出儲存空間。
+- **擴充程序頁面穩定性**：過濾 `chrome-extension://` 等內部網址，解決 Options 頁面注入失敗錯誤訊息。
 
-### 📚 文檔
-- 新增 `GOALS.md` - E2E 測試優化計劃和近期目標
-- 新增 E2E 覆蓋率整合驗證報告和完成報告
+### 🛠️ 工程改進
+- 將除錯輸出統一導向 `Logger.debug`，清除殘留 `console.log`。
+- 移除不必要的 `async` 標記並初始化統計變數，修正 DeepSource 警示。
+- 調整單元測試 mock 寫法，確保 StorageUtil 行為與實際邏輯一致。
 
-### 🔧 已知問題
-- Jest 覆蓋率文件在 E2E 測試步驟中未保留 (待修復)
-- Highlighter E2E 測試超時 (MDN 頁面選擇器需更新)
-- 覆蓋率比較邏輯需要空值檢查
-
-### 📦 依賴更新
-- 新增 `puppeteer@21.0.0` - 瀏覽器自動化和覆蓋率收集
-- 新增 `istanbul-lib-coverage@3.2.2` - 覆蓋率數據處理
-- 新增 `istanbul-lib-report@3.0.1` - 報告生成
-- 新增 `istanbul-reports@3.1.7` - 報告格式化
-
-### 🎯 下一步計劃
-- 修復 Jest 覆蓋率文件保留問題
-- 修復覆蓋率比較邏輯空值處理
-- 更新 Highlighter 測試選擇器
-- 擴展 E2E 測試覆蓋核心文件 (background.js, content.js, highlighter-v2.js)
+### ✅ 測試
+- `npm test -- --watch=false`
 
 ---
 
