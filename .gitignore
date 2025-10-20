@@ -272,6 +272,7 @@ QWEN.md
 # 實驗性配置目錄
 .roo/
 .qwen/
+.serena/
 
 # 歷史存檔特定目錄
 archive/pr22/
