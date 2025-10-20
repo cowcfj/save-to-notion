@@ -929,6 +929,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     // v2.8.0: 統計遷移數據
                     let migrationDataSize = 0;
                     let migrationKeysCount = 0;
+                    let emptyHighlightKeys = 0;
+                    let emptyHighlightSize = 0;
                     
                     // 分析可能的優化
                     const optimizedData = {};
