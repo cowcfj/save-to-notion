@@ -908,6 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
+        // 生成資料重整分析計劃，統計遷移殘留與空標註以評估可節省空間
         function generateOptimizationPlan() {
             return new Promise((resolve) => {
                 chrome.storage.local.get(null, (data) => {
