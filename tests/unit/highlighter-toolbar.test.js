@@ -5,9 +5,9 @@
 describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   // 建立最小可行的 StorageUtil mock，避免自動初始化報錯
   const createStorageUtilMock = (highlights = []) => ({
-    loadHighlights: jest.fn(async () => highlights),
-    saveHighlights: jest.fn(async () => {}),
-    removeHighlights: jest.fn(async () => {})
+    loadHighlights: jest.fn(() => Promise.resolve(highlights)),
+    saveHighlights: jest.fn(() => Promise.resolve()),
+    clearHighlights: jest.fn(() => Promise.resolve())
   });
 
   const loadHighlighterScript = async (highlights = []) => {
@@ -66,7 +66,6 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       window.MutationObserver = SafeMutationObserver;
       // 提供 StorageUtil
       window.StorageUtil = createStorageUtilMock(highlights);
-      // 提供 normalizeUrl 函數
       window.normalizeUrl = jest.fn((url) => url);
       // 載入腳本（會自動初始化並在 window 上掛載 notionHighlighter）
       require('../../scripts/highlighter-v2.js');
@@ -88,7 +87,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   });
 
   test('show() 應在節點被移除後自動重新掛載並顯示', async () => {
-    await loadHighlighterScript([]);
+    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
     expect(window.notionHighlighter).toBeDefined();
 
     const { toolbar, show } = window.notionHighlighter;
@@ -107,7 +106,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   });
 
   test('show() 應重申關鍵樣式（position、top/right、z-index、visibility、opacity）', async () => {
-    await loadHighlighterScript([]);
+    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
     const { toolbar, show } = window.notionHighlighter;
 
     // 人為設置不合理樣式，呼叫 show() 後應被糾正
@@ -130,7 +129,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   });
 
   test('hide() 應將 display 設為 none', async () => {
-    await loadHighlighterScript([]);
+    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
     const { toolbar, show, hide } = window.notionHighlighter;
 
     show();
@@ -141,7 +140,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   });
 
   test('在存在高層級 overlay 的長頁情境下，toolbar z-index 應高於 overlay', async () => {
-    await loadHighlighterScript([]);
+    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
 
     // 建立模擬長頁與高層級 overlay
     const longContainer = document.createElement('div');
@@ -171,7 +170,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   });
 
   test('MutationObserver 應在 toolbar 被移除後自動重新掛載（無需呼叫 show）', async () => {
-    await loadHighlighterScript([]);
+    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
     const { toolbar } = window.notionHighlighter;
 
     // 移除 toolbar

@@ -1977,7 +1977,7 @@
             const url = window.location.href;
             const highlights = await StorageUtil.loadHighlights(url);
 
-            if (highlights && highlights.length > 0) {
+            if (Array.isArray(highlights) && highlights.length > 0) {
                 // 有保存的標註，自動初始化
                 initHighlighter();
                 // 等待標註管理器初始化完成後再恢復標註
@@ -1989,14 +1989,6 @@
                         window.notionHighlighter.hide();
                     }
                 }, 100);
-            } else {
-                // 沒有保存的標註，但仍然初始化以便函數可用
-                // 這樣 window.collectHighlights 等函數就存在了
-                initHighlighter();
-                // 隱藏工具欄
-                if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
-                    window.notionHighlighter.hide();
-                }
             }
         } catch (error) {
             logger.error('❌ 自動初始化失敗:', error);
