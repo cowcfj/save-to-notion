@@ -36,6 +36,14 @@ jobs:
     - name: Run Jest unit tests with coverage
       run: npm run test:coverage
 
+    # 保留 Jest 覆蓋率文件供後續合併使用
+    - name: Preserve Jest coverage for merging
+      if: always()
+      run: |
+        mkdir -p coverage-backup
+        cp -r coverage/* coverage-backup/ || true
+        ls -la coverage-backup/
+
     - name: Upload Jest coverage artifact
       if: always()
       uses: actions/upload-artifact@v4
@@ -85,6 +93,20 @@ jobs:
     # ============================================
     # 步驟 3: 合併覆蓋率報告
     # ============================================
+    - name: Restore Jest coverage for merging
+      if: always()
+      run: |
+        if [ -d coverage-backup ]; then
+          echo "📦 恢復 Jest 覆蓋率文件..."
+          cp -r coverage-backup/* coverage/ || true
+          ls -la coverage/
+        fi
+
+    - name: Merge coverage reports
+      if: always()
+      run: npm run test:merge-coverage
+      continue-on-error: true
+
     - name: Upload merged coverage artifact
       if: always()
       uses: actions/upload-artifact@v4

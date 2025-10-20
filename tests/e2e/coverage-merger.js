@@ -125,11 +125,24 @@ class CoverageMerger {
     console.log('📈 覆蓋率變化');
     console.log('='.repeat(60));
 
+    // 防禦性檢查：確保 summary 對象存在
+    if (!beforeSummary || !afterSummary) {
+      console.warn('⚠️ 無法比較覆蓋率：缺少 summary 數據');
+      console.log('='.repeat(60) + '\n');
+      return;
+    }
+
     const metrics = ['statements', 'branches', 'functions', 'lines'];
 
     metrics.forEach(metric => {
-      const before = beforeSummary[metric].pct;
-      const after = afterSummary[metric].pct;
+      // 防禦性檢查：確保 metric 數據存在
+      if (!beforeSummary[metric] || !afterSummary[metric]) {
+        console.warn(`⚠️ 跳過 ${metric}：數據不完整`);
+        return;
+      }
+
+      const before = beforeSummary[metric].pct || 0;
+      const after = afterSummary[metric].pct || 0;
       const diff = after - before;
       const arrow = diff > 0 ? '↗️' : diff < 0 ? '↘️' : '→';
       const sign = diff > 0 ? '+' : '';
