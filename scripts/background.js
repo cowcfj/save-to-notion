@@ -1222,7 +1222,9 @@ function setupTabListeners() {
 
                 // 僅在儲存中有有效標註時注入高亮腳本
                 if (Array.isArray(highlights) && highlights.length > 0) {
-                    console.log(`Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`);
+                    if (typeof Logger !== 'undefined' && Logger.debug) {
+                        Logger.debug(`Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`);
+                    }
                     await ScriptInjector.injectHighlighter(tabId);
                     return;
                 }
