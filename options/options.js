@@ -946,12 +946,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         
                         if (key.startsWith('highlights_')) {
-                            if (Array.isArray(value) && value.length > 0) {
+                            const highlightsArray = Array.isArray(value) ? value : value?.highlights;
+                            if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
                                 plan.highlightPages++;
-                                plan.totalHighlights += value.length;
-                                
-                                // 保持完整數據，不截斷文本
+                                plan.totalHighlights += highlightsArray.length;
                                 optimizedData[key] = value;
+                            } else {
+                                emptyHighlightKeys++;
+                                emptyHighlightSize += new Blob([JSON.stringify({[key]: value})]).size;
+                                keysToRemove.push(key);
                             }
                         } else {
                             optimizedData[key] = value;
@@ -965,6 +968,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         plan.canOptimize = true;
                     }
                     
+                    if (emptyHighlightKeys > 0) {
+                        const sizeKB = (emptyHighlightSize / 1024).toFixed(1);
+                        plan.optimizations.push(`移除空標註紀錄（${emptyHighlightKeys} 項，${sizeKB} KB）`);
+                        plan.canOptimize = true;
+                    }
+                    
                     plan.keysToRemove = keysToRemove;
                     plan.optimizedData = optimizedData;
                     
@@ -972,8 +981,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     plan.optimizedSize = new Blob([optimizedJson]).size;
                     plan.spaceSaved = plan.originalSize - plan.optimizedSize;
                     
-                    // 只要有遷移數據就可以優化
-                    if (migrationKeysCount > 0) {
+                    // 只要有遷移或空標註數據就可以優化
+                    if (migrationKeysCount > 0 || emptyHighlightKeys > 0) {
                         plan.canOptimize = true;
                     }
                     

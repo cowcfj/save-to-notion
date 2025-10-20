@@ -1199,35 +1199,40 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
  */
 function setupTabListeners() {
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-        if (changeInfo.status === 'complete' && tab && tab.url) {
-            if (!/^https?:/i.test(tab.url)) {
-                if (typeof Logger !== 'undefined' && Logger.debug) {
-                    Logger.debug('Skipping tab listener for non-http(s) URL:', tab.url);
-                }
-                return;
-            }
-            const normUrl = normalizeUrl(tab.url);
-            const key = `highlights_${normUrl}`;
-
-            // 添加延遲，確保頁面完全載入
-            setTimeout(async () => {
-                try {
-                    const data = await new Promise(resolve => chrome.storage.local.get([key], resolve));
-                    const highlights = data[key];
-
-                    if (highlights && Array.isArray(highlights) && highlights.length > 0) {
-                        console.log(`Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`);
-                        // 注入標記工具而不是恢復腳本，因為 highlighter-v2.js 現在會自動處理恢復
-                        await ScriptInjector.injectHighlighter(tabId);
-                    } else {
-                        // 檢查是否有舊版 localStorage 中的標記需要遷移
-                        await migrateLegacyHighlights(tabId, normUrl, key);
-                    }
-                } catch (error) {
-                    console.error('Error in tab listener:', error);
-                }
-            }, 1000); // 延遲 1 秒確保頁面穩定
+        if (changeInfo.status !== 'complete' || !tab || !tab.url) {
+            return;
         }
+
+        // 僅處理 http/https 頁面，排除 chrome-extension:// 等內部頁面
+        if (!/^https?:/i.test(tab.url)) {
+            if (typeof Logger !== 'undefined' && Logger.debug) {
+                Logger.debug('Skipping tab listener for non-http(s) URL:', tab.url);
+            }
+            return;
+        }
+
+        const normUrl = normalizeUrl(tab.url);
+        const key = `highlights_${normUrl}`;
+
+        // 添加延遲，確保頁面完全載入
+        setTimeout(async () => {
+            try {
+                const data = await new Promise(resolve => chrome.storage.local.get([key], resolve));
+                const highlights = data[key];
+
+                // 僅在儲存中有有效標註時注入高亮腳本
+                if (Array.isArray(highlights) && highlights.length > 0) {
+                    console.log(`Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`);
+                    await ScriptInjector.injectHighlighter(tabId);
+                    return;
+                }
+
+                // 沒有找到現有標註，若曾有遷移資料則恢復一次後清理
+                await migrateLegacyHighlights(tabId, normUrl, key);
+            } catch (error) {
+                console.error('Error in tab listener:', error);
+            }
+        }, 1000); // 延遲 1 秒確保頁面穩定
     });
 }
 
