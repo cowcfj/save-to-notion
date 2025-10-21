@@ -273,45 +273,55 @@ if (typeof window.Logger === 'undefined') {
     // 簡易開發模式偵測：版本字串含 dev 或手動開關
     const __LOGGER_DEV__ = (() => {
         try {
-            const m = chrome?.runtime?.getManifest?.();
-            const v = m?.version_name || m?.version || '';
-            return /dev/i.test(v) || window.__FORCE_LOG__ === true;
+            const manifest = chrome?.runtime?.getManifest?.();
+            const versionString = manifest?.version_name || manifest?.version || '';
+            return /dev/i.test(versionString) || (typeof window !== 'undefined' && window.__FORCE_LOG__ === true);
         } catch (e) {
             return false;
         }
     })();
 
+    // 將前端日誌透過 background sink 輸出，避免在瀏覽器端直接使用 console
+    function sendBackgroundLog(level, message, argsArray) {
+        try {
+            if (typeof chrome !== 'undefined' && chrome.runtime?.id && typeof chrome.runtime.sendMessage === 'function') {
+                chrome.runtime.sendMessage(
+                    { action: 'devLogSink', level, message, args: Array.from(argsArray || []) },
+                    () => { try { void chrome.runtime.lastError; } catch (_) {} }
+                );
+            }
+        } catch (_) {
+            // 忽略背景日誌發送錯誤（不在此處使用 console）
+        }
+    }
+
     window.Logger = {
-    // 與現有代碼兼容：提供 log 別名（瀏覽器端避免直接 console，在開發模式才輸出）
+    // 與現有代碼兼容：提供 log 別名（透過 background sink；僅在 dev 時發送）
     log: (message, ...args) => {
-        try { if (__LOGGER_DEV__) console.log(message, ...args); } catch (_) { /* noop */ }
+        if (__LOGGER_DEV__) sendBackgroundLog('log', message, args);
     },
     debug: (message, ...args) => {
-        if (__LOGGER_DEV__) console.log(`[DEBUG] ${message}`, ...args);
+        if (__LOGGER_DEV__) sendBackgroundLog('debug', message, args);
     },
-    
     info: (message, ...args) => {
-        if (__LOGGER_DEV__) console.log(`[INFO] ${message}`, ...args);
+        if (__LOGGER_DEV__) sendBackgroundLog('info', message, args);
     },
-    
     warn: (message, ...args) => {
-        // 警告/錯誤可視需求保留；此處保留，以利診斷
-        console.warn(`[WARN] ${message}`, ...args);
+        sendBackgroundLog('warn', message, args);
     },
-    
     error: (message, ...args) => {
-        console.error(`[ERROR] ${message}`, ...args);
+        sendBackgroundLog('error', message, args);
     }
     }; // 結束 window.Logger 定義
 } else {
-    console.log('⚠️ Logger 已存在，跳過重複定義');
+    // Logger 已存在，跳過重複定義
 }
 
 // 暴露 normalizeUrl 函數
 if (typeof window.normalizeUrl === 'undefined') {
     window.normalizeUrl = normalizeUrl;
 } else {
-    console.log('⚠️ normalizeUrl 已存在，跳過重複定義');
+    // normalizeUrl 已存在，跳過重複定義
 }
 
 } // 結束 else 區塊（如果 utils.js 未加載）

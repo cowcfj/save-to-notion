@@ -1366,6 +1366,27 @@ function handleMessage(request, sender, sendResponse) {
     try {
         // removed unused IS_TEST_ENV (legacy test guard)
         switch (request.action) {
+            case 'devLogSink': {
+                try {
+                    const level = request.level || 'log';
+                    const message = request.message || '';
+                    const args = Array.isArray(request.args) ? request.args : [];
+                    const prefix = '[ClientLog]';
+                    if (level === 'warn') {
+                        console.warn(prefix, message, ...args);
+                    } else if (level === 'error') {
+                        console.error(prefix, message, ...args);
+                    } else if (level === 'info') {
+                        if (DEBUG_MODE) console.info(prefix, message, ...args);
+                    } else {
+                        if (DEBUG_MODE) console.log(prefix, message, ...args);
+                    }
+                    sendResponse({ success: true });
+                } catch (e) {
+                    sendResponse({ success: false, error: e.message });
+                }
+                break;
+            }
             case 'checkPageStatus':
                 handleCheckPageStatus(sendResponse);
                 break;
