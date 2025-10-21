@@ -236,7 +236,7 @@ describe('background error branches (integration)', () => {
     // 追蹤 func 呼叫次序：第1次 func（injectHighlighter），第2次 func（collectHighlights），第3次 func（injectWithResponse）
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-      if (opts && opts.func) {
+      if (opts?.func) {
         funcCall += 1;
         if (funcCall === 2) {
           // collectHighlights → 回傳空陣列
@@ -276,7 +276,7 @@ describe('background error branches (integration)', () => {
     // 模擬內容注入成功：collectHighlights 空、injectWithResponse 回傳內容
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-      if (opts && opts.func) {
+      if (opts?.func) {
         funcCall += 1;
         if (funcCall === 2) {
           cb?.([{ result: [] }]); // collectHighlights
@@ -321,7 +321,7 @@ describe('background error branches (integration)', () => {
     // 注入：collectHighlights 空、injectWithResponse 回傳「含圖片」的內容
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-      if (opts && opts.func) {
+      if (opts?.func) {
         funcCall += 1;
         if (funcCall === 2) {
           cb?.([{ result: [] }]); // collectHighlights
@@ -399,7 +399,7 @@ describe('background error branches (integration)', () => {
     // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-      if (opts && opts.func) {
+      if (opts?.func) {
         funcCall += 1;
         if (funcCall === 2) { cb?.([{ result: [] }]); return; }
         if (funcCall === 3) {
@@ -470,7 +470,7 @@ describe('background error branches (integration)', () => {
 
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-      if (opts && opts.func) {
+      if (opts?.func) {
         funcCall += 1;
         if (funcCall === 2) { cb?.([{ result: [] }]); return; }
         if (funcCall === 3) {
@@ -521,7 +521,7 @@ describe('background error branches (integration)', () => {
     // 注入：collectHighlights 空、injectWithResponse 回傳含圖片的內容
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-      if (opts && opts.func) {
+      if (opts?.func) {
         funcCall += 1;
         if (funcCall === 2) { cb?.([{ result: [] }]); return; } // collectHighlights
         if (funcCall === 3) {
@@ -579,7 +579,7 @@ describe('background error branches (integration)', () => {
 
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-      if (opts && opts.func) {
+      if (opts?.func) {
         funcCall += 1;
         if (funcCall === 2) { cb?.([{ result: [] }]); return; }
         if (funcCall === 3) {
