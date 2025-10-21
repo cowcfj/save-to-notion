@@ -346,23 +346,23 @@ describe('background error branches (integration)', () => {
     // fetch：第1次返回 validation_error（含 image 字樣），第2次返回 ok:true
     const originalFetch = global.fetch;
     let fetchCall = 0;
-    global.fetch = jest.fn(async () => {
+    global.fetch = jest.fn(() => {
       fetchCall += 1;
       if (fetchCall === 1) {
-        return {
+        return Promise.resolve({
           ok: false,
           status: 400,
-          json: async () => ({ code: 'validation_error', message: 'image url invalid' }),
-          text: async () => 'image url invalid'
-        };
+          json: () => Promise.resolve({ code: 'validation_error', message: 'image url invalid' }),
+          text: () => Promise.resolve('image url invalid'),
+        });
       }
       // 第二次重試：成功
-      return {
+      return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => ({ id: 'new-page-id', url: 'https://www.notion.so/new' }),
-        text: async () => 'ok'
-      };
+        json: () => Promise.resolve({ id: 'new-page-id', url: 'https://www.notion.so/new' }),
+        text: () => Promise.resolve('ok'),
+      });
     });
 
     const sendResponse = jest.fn();
