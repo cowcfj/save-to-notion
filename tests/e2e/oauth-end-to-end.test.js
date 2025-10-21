@@ -6,9 +6,9 @@
  */
 
 describe('OAuth 端到端整合測試', () => {
-    let oauthManager;
-    let tokenManager;
-    let apiClient;
+    let oauthManager = null;
+    let tokenManager = null;
+    let apiClient = null;
     
     beforeEach(() => {
         // 重置 Chrome API 模擬
