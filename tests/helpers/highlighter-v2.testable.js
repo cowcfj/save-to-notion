@@ -343,7 +343,7 @@ function countHighlightsByColor(highlights) {
     
     highlights.forEach(h => {
         const color = h.color || 'yellow';
-        if (counts.hasOwnProperty(color)) {
+        if (Object.prototype.hasOwnProperty.call(counts, color)) {
             counts[color]++;
         } else {
             counts.other++;
