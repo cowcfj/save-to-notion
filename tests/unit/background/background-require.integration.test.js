@@ -105,7 +105,7 @@ describe('scripts/background.js require integration', () => {
     };
 
     // 全域 fetch mock（避免網路）
-    global.fetch = jest.fn(async (url, init) => {
+    global.fetch = jest.fn(async () => {
       // 提供最小成功回應
       return {
         ok: true,

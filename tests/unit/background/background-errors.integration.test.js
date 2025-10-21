@@ -295,7 +295,7 @@ describe('background error branches (integration)', () => {
 
     // 模擬 Notion API 回覆 400 非 image 錯誤
     const originalFetch = global.fetch;
-    global.fetch = jest.fn(async (url, init) => ({ ok: false, status: 400, json: async () => ({ message: 'Invalid request' }), text: async () => 'Invalid request' }));
+    global.fetch = jest.fn(async () => ({ ok: false, status: 400, json: async () => ({ message: 'Invalid request' }), text: async () => 'Invalid request' }));
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
@@ -341,7 +341,7 @@ describe('background error branches (integration)', () => {
     // fetch：第1次返回 validation_error（含 image 字樣），第2次返回 ok:true
     const originalFetch = global.fetch;
     let fetchCall = 0;
-    global.fetch = jest.fn(async (requestUrl, init) => {
+    global.fetch = jest.fn(async () => {
       fetchCall += 1;
       if (fetchCall === 1) {
         return {
