@@ -11,7 +11,7 @@
 module.exports = {
   name: 'Background Integration',
 
-  async run(page, config) {
+  async run(page, _config) {
     console.log('  🔧 開始 Background 整合測試...');
 
     // 1. 測試 URL 正規化功能
