@@ -46,15 +46,15 @@ describe('background error branches (integration)', () => {
         onUpdated,
         // 預設返回空，個別測試覆蓋
         query: jest.fn((queryInfo, cb) => cb([])),
-        create: jest.fn((props, cb) => cb && cb({ id: 101, ...props })),
-        sendMessage: jest.fn((tabId, msg, cb) => cb && cb({ success: true }))
+        create: jest.fn((props, cb) => cb?.({ id: 101, ...props })),
+        sendMessage: jest.fn((tabId, msg, cb) => cb?.({ success: true }))
       },
       action: {
         setBadgeText: jest.fn(),
         setBadgeBackgroundColor: jest.fn()
       },
       scripting: {
-        executeScript: jest.fn((opts, cb) => cb && cb([{ result: undefined }]))
+        executeScript: jest.fn((opts, cb) => cb?.([{ result: undefined }]))
       },
       storage: {
         local: {
@@ -67,13 +67,13 @@ describe('background error branches (integration)', () => {
             } else if (!keys) {
               Object.assign(res, storageData);
             }
-            cb && cb(res);
+            cb?.(res);
           }),
-          set: jest.fn((items, cb) => { Object.assign(storageData, items); cb && cb(); }),
-          remove: jest.fn((keys, cb) => { (Array.isArray(keys) ? keys : [keys]).forEach((k) => delete storageData[k]); cb && cb(); })
+          set: jest.fn((items, cb) => { Object.assign(storageData, items); cb?.(); }),
+          remove: jest.fn((keys, cb) => { (Array.isArray(keys) ? keys : [keys]).forEach((k) => delete storageData[k]); cb?.(); })
         },
         sync: {
-          get: jest.fn((keys, cb) => cb && cb({})) // 預設無 API Key，個別測試覆蓋
+          get: jest.fn((keys, cb) => cb?.({})) // 預設無 API Key，個別測試覆蓋
         }
       }
     };
@@ -104,7 +104,7 @@ describe('background error branches (integration)', () => {
     // 有活動分頁
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 1, url: 'https://x', title: 't', active: true }]));
     // 第一次 executeScript 模擬 lastError（文件注入階段）
-    chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => { chrome.runtime.lastError = { message: 'Injection failed' }; cb && cb(); });
+    chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => { chrome.runtime.lastError = { message: 'Injection failed' }; cb?.(); });
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'startHighlight' }, {}, sendResponse);
@@ -128,7 +128,7 @@ describe('background error branches (integration)', () => {
     // 有活動分頁
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 1, url: 'https://example.com/page', title: 't', active: true }]));
     // 提供 notionApiKey 但不提供 saved_ 鍵 → 觸發 Page not saved yet
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k' }));
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, {}, sendResponse);
@@ -160,7 +160,7 @@ describe('background error branches (integration)', () => {
   test('openNotionPage：tabs.create 失敗（runtime.lastError）→ 返回錯誤', async () => {
     const sendResponse = jest.fn();
     // 讓 create callback 觸發 lastError
-    chrome.tabs.create.mockImplementationOnce((props, cb) => { chrome.runtime.lastError = { message: 'Create failed' }; cb && cb(); });
+    chrome.tabs.create.mockImplementationOnce((props, cb) => { chrome.runtime.lastError = { message: 'Create failed' }; cb?.(); });
     chrome.runtime.onMessage._emit({ action: 'openNotionPage', url: 'https://www.notion.so/page' }, {}, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'Create failed' }));
@@ -204,7 +204,7 @@ describe('background error branches (integration)', () => {
   test('syncHighlights：頁面未保存 → 返回錯誤', async () => {
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 3, url: 'https://example.com/page', title: 'P', active: true }]));
     // 提供 notionApiKey，但不提供 saved_ 鍵
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k' }));
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] }, {}, sendResponse);
     await waitForSend(sendResponse);
@@ -216,7 +216,7 @@ describe('background error branches (integration)', () => {
     const url = 'https://example.com/page';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 4, url, title: 'P', active: true }]));
     // 有 API Key 且頁面已保存
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k' }));
     const savedKey = `saved_${url}`;
     await new Promise((r) => chrome.storage.local.set({ [savedKey]: { notionPageId: 'pid-xyz' } }, r));
 
@@ -231,7 +231,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 10, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
 
     // 追蹤 func 呼叫次序：第1次 func（injectHighlighter），第2次 func（collectHighlights），第3次 func（injectWithResponse）
     let funcCall = 0;
@@ -240,20 +240,20 @@ describe('background error branches (integration)', () => {
         funcCall += 1;
         if (funcCall === 2) {
           // collectHighlights → 回傳空陣列
-          cb && cb([{ result: [] }]);
+          cb?.([{ result: [] }]);
           return;
         }
         if (funcCall === 3) {
           // injectWithResponse → 模擬函數執行錯誤
           chrome.runtime.lastError = { message: 'Function execution failed' };
-          cb && cb();
+          cb?.();
           return;
         }
-        cb && cb([{ result: undefined }]);
+        cb?.([{ result: undefined }]);
         return;
       }
       // files 注入
-      cb && cb();
+      cb?.();
     });
 
     const sendResponse = jest.fn();
@@ -271,7 +271,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 11, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
 
     // 模擬內容注入成功：collectHighlights 空、injectWithResponse 回傳內容
     let funcCall = 0;
@@ -279,23 +279,28 @@ describe('background error branches (integration)', () => {
       if (opts && opts.func) {
         funcCall += 1;
         if (funcCall === 2) {
-          cb && cb([{ result: [] }]); // collectHighlights
+          cb?.([{ result: [] }]); // collectHighlights
           return;
         }
         if (funcCall === 3) {
-          cb && cb([{ result: { title: 'T', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'c' } }] } }] } }]);
+          cb?.([{ result: { title: 'T', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'c' } }] } }] } }]);
           return;
         }
-        cb && cb([{ result: undefined }]);
+        cb?.([{ result: undefined }]);
         return;
       }
       // files 注入
-      cb && cb();
+      cb?.();
     });
 
     // 模擬 Notion API 回覆 400 非 image 錯誤
     const originalFetch = global.fetch;
-    global.fetch = jest.fn(async () => ({ ok: false, status: 400, json: async () => ({ message: 'Invalid request' }), text: async () => 'Invalid request' }));
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: false,
+      status: 400,
+      json: () => Promise.resolve({ message: 'Invalid request' }),
+      text: () => Promise.resolve('Invalid request'),
+    }));
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
@@ -311,7 +316,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 12, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
 
     // 注入：collectHighlights 空、injectWithResponse 回傳「含圖片」的內容
     let funcCall = 0;
@@ -319,11 +324,11 @@ describe('background error branches (integration)', () => {
       if (opts && opts.func) {
         funcCall += 1;
         if (funcCall === 2) {
-          cb && cb([{ result: [] }]); // collectHighlights
+          cb?.([{ result: [] }]); // collectHighlights
           return;
         }
         if (funcCall === 3) {
-          cb && cb([{ result: {
+          cb?.([{ result: {
             title: 'T',
             blocks: [
               { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] } },
@@ -332,10 +337,10 @@ describe('background error branches (integration)', () => {
           }}]);
           return;
         }
-        cb && cb([{ result: undefined }]);
+        cb?.([{ result: undefined }]);
         return;
       }
-      cb && cb();
+      cb?.();
     });
 
     // fetch：第1次返回 validation_error（含 image 字樣），第2次返回 ok:true
@@ -385,7 +390,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 21, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
 
     // 已保存頁面 → 走 updateNotionPage 分支
     const savedKey = `saved_${url}`;
@@ -396,32 +401,52 @@ describe('background error branches (integration)', () => {
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
       if (opts && opts.func) {
         funcCall += 1;
-        if (funcCall === 2) { cb && cb([{ result: [] }]); return; }
+        if (funcCall === 2) { cb?.([{ result: [] }]); return; }
         if (funcCall === 3) {
-          cb && cb([{ result: { title: 'T', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'x' } }] } }] } }]);
+          cb?.([{ result: { title: 'T', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'x' } }] } }] } }]);
           return;
         }
-        cb && cb([{ result: undefined }]);
+        cb?.([{ result: undefined }]);
         return;
       }
-      cb && cb();
+      cb?.();
     });
 
     const originalFetch = global.fetch;
-    global.fetch = jest.fn(async (requestUrl, init) => {
+    global.fetch = jest.fn((requestUrl, init) => {
       // 檢查頁面存在
-      if (/\/v1\/pages\//.test(requestUrl) && (!init || init.method === 'GET')) {
-        return { ok: true, status: 200, json: async () => ({ archived: false }), text: async () => 'ok' };
+      if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ archived: false }),
+          text: () => Promise.resolve('ok'),
+        });
       }
       // 讀取既有內容
-      if (/\/v1\/blocks\/page-xyz\/children/.test(requestUrl) && init && init.method === 'GET') {
-        return { ok: true, status: 200, json: async () => ({ results: [] }), text: async () => 'ok' };
+      if (/\/v1\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'GET') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ results: [] }),
+          text: () => Promise.resolve('ok'),
+        });
       }
       // 更新內容 → 返回 validation_error 且 message 含 image
-      if (/\/v1\/blocks\/page-xyz\/children/.test(requestUrl) && init && init.method === 'PATCH') {
-        return { ok: false, status: 400, json: async () => ({ code: 'validation_error', message: 'image url invalid' }), text: async () => 'image url invalid' };
+      if (/\/v1\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ code: 'validation_error', message: 'image url invalid' }),
+          text: () => Promise.resolve('image url invalid'),
+        });
       }
-      return { ok: true, status: 200, json: async () => ({}), text: async () => 'ok' };
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve('ok'),
+      });
     });
 
     const sendResponse = jest.fn();
@@ -438,7 +463,7 @@ describe('background error branches (integration)', () => {
   test('updateNotionPage：一般 4xx 錯誤 → 返回原始訊息', async () => {
     const url = 'https://example.com/article2';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 22, url, title: 'Article2', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
 
     const savedKey = `saved_${url}`;
     await new Promise((r) => chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-abc' } }, r));
@@ -447,29 +472,29 @@ describe('background error branches (integration)', () => {
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
       if (opts && opts.func) {
         funcCall += 1;
-        if (funcCall === 2) { cb && cb([{ result: [] }]); return; }
+        if (funcCall === 2) { cb?.([{ result: [] }]); return; }
         if (funcCall === 3) {
-          cb && cb([{ result: { title: 'T2', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'y' } }] } }] } }]);
+          cb?.([{ result: { title: 'T2', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'y' } }] } }] } }]);
           return;
         }
-        cb && cb([{ result: undefined }]);
+        cb?.([{ result: undefined }]);
         return;
       }
-      cb && cb();
+      cb?.();
     });
 
     const originalFetch = global.fetch;
-    global.fetch = jest.fn(async (requestUrl, init) => {
-      if (/\/v1\/pages\//.test(requestUrl) && (!init || init.method === 'GET')) {
-        return { ok: true, status: 200, json: async () => ({ archived: false }) };
+    global.fetch = jest.fn((requestUrl, init) => {
+      if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ archived: false }) });
       }
-      if (/\/v1\/blocks\/page-abc\/children/.test(requestUrl) && init && init.method === 'GET') {
-        return { ok: true, status: 200, json: async () => ({ results: [] }) };
+      if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'GET') {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ results: [] }) });
       }
-      if (/\/v1\/blocks\/page-abc\/children/.test(requestUrl) && init && init.method === 'PATCH') {
-        return { ok: false, status: 400, json: async () => ({ message: 'Bad request' }), text: async () => 'Bad request' };
+      if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: false, status: 400, json: () => Promise.resolve({ message: 'Bad request' }), text: () => Promise.resolve('Bad request') });
       }
-      return { ok: true, status: 200, json: async () => ({}) };
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
     });
 
     const sendResponse = jest.fn();
@@ -489,7 +514,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 21, url, title: 'Article', active: true }]));
     // 配置 API/DB
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
     // 已保存頁面的 storage
     await new Promise((r) => chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: 'page-xyz' } }, r));
 
@@ -498,9 +523,9 @@ describe('background error branches (integration)', () => {
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
       if (opts && opts.func) {
         funcCall += 1;
-        if (funcCall === 2) { cb && cb([{ result: [] }]); return; } // collectHighlights
+        if (funcCall === 2) { cb?.([{ result: [] }]); return; } // collectHighlights
         if (funcCall === 3) {
-          cb && cb([{ result: {
+          cb?.([{ result: {
             title: 'T',
             blocks: [
               { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] } },
@@ -509,10 +534,10 @@ describe('background error branches (integration)', () => {
           }}]);
           return;
         }
-        cb && cb([{ result: undefined }]);
+        cb?.([{ result: undefined }]);
         return;
       }
-      cb && cb();
+      cb?.();
     });
 
     // fetch：
@@ -520,18 +545,18 @@ describe('background error branches (integration)', () => {
     // 2) GET /v1/blocks/:id/children ok:true json:{ results: [] }
     // 3) PATCH /v1/blocks/:id/children ok:false json:{ code:'validation_error', message:'image invalid' }
     const originalFetch = global.fetch;
-    global.fetch = jest.fn(async (requestUrl, init) => {
-      if (/\/v1\/pages\//.test(requestUrl) && init && init.method === 'GET') {
-        return { ok: true, status: 200, json: async () => ({ archived: false }) };
+    global.fetch = jest.fn((requestUrl, init) => {
+      if (/\/v1\/pages\//u.test(requestUrl) && init?.method === 'GET') {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ archived: false }) });
       }
-      if (/\/v1\/blocks\/.+\/children$/.test(requestUrl) && init && init.method === 'GET') {
-        return { ok: true, status: 200, json: async () => ({ results: [] }) };
+      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ results: [] }) });
       }
-      if (/\/v1\/blocks\/.+\/children$/.test(requestUrl) && init && init.method === 'PATCH') {
-        return { ok: false, status: 400, json: async () => ({ code: 'validation_error', message: 'image invalid' }) };
+      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: false, status: 400, json: () => Promise.resolve({ code: 'validation_error', message: 'image invalid' }) });
       }
       // 預設：成功
-      return { ok: true, status: 200, json: async () => ({}) };
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
     });
 
     const sendResponse = jest.fn();
@@ -549,36 +574,36 @@ describe('background error branches (integration)', () => {
     const normUrl = url;
 
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 22, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb && cb({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
     await new Promise((r) => chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: 'page-abc' } }, r));
 
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
       if (opts && opts.func) {
         funcCall += 1;
-        if (funcCall === 2) { cb && cb([{ result: [] }]); return; }
+        if (funcCall === 2) { cb?.([{ result: [] }]); return; }
         if (funcCall === 3) {
-          cb && cb([{ result: { title: 'T2', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p2' } }] } }] } }]);
+          cb?.([{ result: { title: 'T2', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p2' } }] } }] } }]);
           return;
         }
-        cb && cb([{ result: undefined }]);
+        cb?.([{ result: undefined }]);
         return;
       }
-      cb && cb();
+      cb?.();
     });
 
     const originalFetch = global.fetch;
-    global.fetch = jest.fn(async (requestUrl, init) => {
-      if (/\/v1\/pages\//.test(requestUrl) && init && init.method === 'GET') {
-        return { ok: true, status: 200, json: async () => ({ archived: false }) };
+    global.fetch = jest.fn((requestUrl, init) => {
+      if (/\/v1\/pages\//u.test(requestUrl) && init?.method === 'GET') {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ archived: false }) });
       }
-      if (/\/v1\/blocks\/.+\/children$/.test(requestUrl) && init && init.method === 'GET') {
-        return { ok: true, status: 200, json: async () => ({ results: [] }) };
+      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ results: [] }) });
       }
-      if (/\/v1\/blocks\/.+\/children$/.test(requestUrl) && init && init.method === 'PATCH') {
-        return { ok: false, status: 500, json: async () => ({}) };
+      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
       }
-      return { ok: true, status: 200, json: async () => ({}) };
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
     });
 
     const sendResponse = jest.fn();
