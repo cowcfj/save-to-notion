@@ -125,11 +125,24 @@ class CoverageMerger {
     console.log('📈 覆蓋率變化');
     console.log('='.repeat(60));
 
+    // 防禦性檢查：確保 summary 對象存在
+    if (!beforeSummary || !afterSummary) {
+      console.warn('⚠️ 無法比較覆蓋率：缺少 summary 數據');
+      console.log('='.repeat(60) + '\n');
+      return;
+    }
+
     const metrics = ['statements', 'branches', 'functions', 'lines'];
 
     metrics.forEach(metric => {
-      const before = beforeSummary[metric].pct;
-      const after = afterSummary[metric].pct;
+      // 防禦性檢查：確保 metric 數據存在
+      if (!beforeSummary[metric] || !afterSummary[metric]) {
+        console.warn(`⚠️ 跳過 ${metric}：數據不完整`);
+        return;
+      }
+
+      const before = beforeSummary[metric].pct || 0;
+      const after = afterSummary[metric].pct || 0;
       const diff = after - before;
       const arrow = diff > 0 ? '↗️' : diff < 0 ? '↘️' : '→';
       const sign = diff > 0 ? '+' : '';
@@ -152,8 +165,10 @@ class CoverageMerger {
     const jestCoverageFile = path.join('coverage', 'coverage-final.json');
     this.loadJestCoverage(jestCoverageFile);
 
-    // 記錄 Jest 覆蓋率摘要
-    const jestSummary = this.coverageMap.getCoverageSummary();
+    // 記錄 Jest 覆蓋率摘要（可能為空）
+    const jestSummary = Object.keys(this.coverageMap.data).length > 0
+      ? this.coverageMap.getCoverageSummary()
+      : null;
 
     // 2. 加載 E2E 覆蓋率
     const e2eCoverageFile = path.join(
@@ -171,8 +186,12 @@ class CoverageMerger {
     // 4. 打印摘要
     const mergedSummary = this.printSummary();
 
-    // 5. 比較覆蓋率變化
-    this.compareCoverage(jestSummary, mergedSummary);
+    // 5. 比較覆蓋率變化（只有當兩者都存在時）
+    if (jestSummary && mergedSummary) {
+      this.compareCoverage(jestSummary, mergedSummary);
+    } else {
+      console.log('\n⚠️ 跳過覆蓋率比較：Jest 覆蓋率數據不完整\n');
+    }
 
     return {
       jestSummary,

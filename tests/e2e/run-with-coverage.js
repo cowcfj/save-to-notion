@@ -43,14 +43,26 @@ async function main() {
 📊 報告位置:
    - E2E 覆蓋率:    ${config.coverage.dir}
    - 合併覆蓋率:    ${config.coverage.mergedDir}
+`);
 
-📈 覆蓋率提升:
+    // 只在兩個摘要都存在時顯示比較
+    if (mergedResult.jestSummary && mergedResult.mergedSummary) {
+      console.log(`📈 覆蓋率提升:
    - 語句: ${mergedResult.jestSummary.statements.pct.toFixed(2)}% → ${mergedResult.mergedSummary.statements.pct.toFixed(2)}%
    - 分支: ${mergedResult.jestSummary.branches.pct.toFixed(2)}% → ${mergedResult.mergedSummary.branches.pct.toFixed(2)}%
    - 函數: ${mergedResult.jestSummary.functions.pct.toFixed(2)}% → ${mergedResult.mergedSummary.functions.pct.toFixed(2)}%
    - 行數: ${mergedResult.jestSummary.lines.pct.toFixed(2)}% → ${mergedResult.mergedSummary.lines.pct.toFixed(2)}%
+`);
+    } else if (mergedResult.mergedSummary) {
+      console.log(`📊 E2E 覆蓋率:
+   - 語句: ${mergedResult.mergedSummary.statements.pct.toFixed(2)}%
+   - 分支: ${mergedResult.mergedSummary.branches.pct.toFixed(2)}%
+   - 函數: ${mergedResult.mergedSummary.functions.pct.toFixed(2)}%
+   - 行數: ${mergedResult.mergedSummary.lines.pct.toFixed(2)}%
+`);
+    }
 
-💡 查看詳細報告: open ${config.coverage.mergedDir}/index.html
+    console.log(`💡 查看詳細報告: open ${config.coverage.mergedDir}/index.html
     `);
 
     console.log('='.repeat(60) + '\n');

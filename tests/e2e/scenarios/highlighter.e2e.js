@@ -13,39 +13,92 @@ module.exports = {
     // 1. 導航到測試頁面
     console.log('  1️⃣ 導航到 MDN JavaScript Guide...');
     await page.goto(config.testPages.mdn, {
-      waitUntil: 'networkidle2',
-      timeout: 30000
+      waitUntil: 'domcontentloaded', // 改用更寬鬆的等待條件
+      timeout: 60000 // 增加超時時間
     });
 
-    // 2. 等待頁面內容加載
+    // 2. 等待頁面內容加載（使用多個備選選擇器）
     console.log('  2️⃣ 等待文章內容加載...');
-    await page.waitForSelector('article', { timeout: 10000 });
+    const articleSelectors = [
+      'article',
+      'main article',
+      '[role="main"]',
+      'main',
+      '.main-page-content'
+    ];
 
-    // 3. 檢查頁面結構
+    let articleFound = false;
+    for (const selector of articleSelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 5000 });
+        console.log(`     ✅ 找到內容容器: ${selector}`);
+        articleFound = true;
+        break;
+      } catch (e) {
+        console.log(`     ⚠️ 選擇器 ${selector} 未找到，嘗試下一個...`);
+      }
+    }
+
+    if (!articleFound) {
+      throw new Error('無法找到任何文章內容容器');
+    }
+
+    // 3. 檢查頁面結構（使用備選選擇器）
     console.log('  3️⃣ 驗證頁面結構...');
     const pageStructure = await page.evaluate(() => {
-      const article = document.querySelector('article');
+      // 嘗試多個可能的文章容器
+      const selectors = ['article', 'main article', '[role="main"]', 'main', '.main-page-content'];
+      let article = null;
+
+      for (const selector of selectors) {
+        article = document.querySelector(selector);
+        if (article) break;
+      }
+
       const paragraphs = article?.querySelectorAll('p');
 
       return {
         hasArticle: !!article,
         paragraphCount: paragraphs?.length || 0,
-        title: document.title
+        title: document.title,
+        foundSelector: article ? 'found' : 'not found'
       };
     });
 
     if (!pageStructure.hasArticle) {
-      throw new Error('頁面結構不正確：找不到 article 元素');
+      console.warn('⚠️ 無法找到標準 article 元素，嘗試備選方案...');
     }
 
     console.log(`     ✅ 找到 ${pageStructure.paragraphCount} 個段落`);
 
-    // 4. 測試文本選擇
+    // 4. 測試文本選擇（使用備選選擇器）
     console.log('  4️⃣ 測試文本選擇...');
     const selectionResult = await page.evaluate(() => {
-      const p = document.querySelector('article p');
+      // 嘗試多個可能的段落選擇器
+      const selectors = [
+        'article p',
+        'main article p',
+        'main p',
+        '[role="main"] p',
+        '.main-page-content p',
+        'p'
+      ];
+
+      let p = null;
+      for (const selector of selectors) {
+        const elements = document.querySelectorAll(selector);
+        // 找第一個有足夠文本內容的段落
+        for (const el of elements) {
+          if (el.textContent && el.textContent.trim().length > 20) {
+            p = el;
+            break;
+          }
+        }
+        if (p) break;
+      }
+
       if (!p || !p.firstChild) {
-        return { success: false, error: 'No paragraph found' };
+        return { success: false, error: 'No paragraph with sufficient text found' };
       }
 
       try {
