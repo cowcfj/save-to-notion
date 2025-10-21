@@ -270,21 +270,32 @@ if (typeof window.StorageUtil === 'undefined') {
  * 日誌工具
  */
 if (typeof window.Logger === 'undefined') {
+    // 簡易開發模式偵測：版本字串含 dev 或手動開關
+    const __LOGGER_DEV__ = (() => {
+        try {
+            const m = chrome?.runtime?.getManifest?.();
+            const v = m?.version_name || m?.version || '';
+            return /dev/i.test(v) || window.__FORCE_LOG__ === true;
+        } catch (e) {
+            return false;
+        }
+    })();
+
     window.Logger = {
-    // 與現有代碼兼容：提供 log 別名
+    // 與現有代碼兼容：提供 log 別名（瀏覽器端避免直接 console，在開發模式才輸出）
     log: (message, ...args) => {
-        // 保留原始輸出，避免重複加前綴
-        try { console.log(message, ...args); } catch (_) { /* noop */ }
+        try { if (__LOGGER_DEV__) console.log(message, ...args); } catch (_) { /* noop */ }
     },
     debug: (message, ...args) => {
-        console.log(`[DEBUG] ${message}`, ...args);
+        if (__LOGGER_DEV__) console.log(`[DEBUG] ${message}`, ...args);
     },
     
     info: (message, ...args) => {
-        console.log(`[INFO] ${message}`, ...args);
+        if (__LOGGER_DEV__) console.log(`[INFO] ${message}`, ...args);
     },
     
     warn: (message, ...args) => {
+        // 警告/錯誤可視需求保留；此處保留，以利診斷
         console.warn(`[WARN] ${message}`, ...args);
     },
     

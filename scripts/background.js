@@ -553,7 +553,7 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
     } = retryOptions;
 
     let attempt = 0;
-    let lastError;
+    let lastError = null;
     while (attempt <= maxRetries) {
         try {
             const res = await fetch(url, options);
@@ -1364,7 +1364,7 @@ function setupMessageHandlers() {
  */
 function handleMessage(request, sender, sendResponse) {
     try {
-        const IS_TEST_ENV = (typeof process !== 'undefined' && process.env && process.env.JEST_WORKER_ID);
+        // removed unused IS_TEST_ENV (legacy test guard)
         switch (request.action) {
             case 'checkPageStatus':
                 handleCheckPageStatus(sendResponse);
