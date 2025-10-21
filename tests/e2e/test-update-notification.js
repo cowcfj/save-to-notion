@@ -57,7 +57,7 @@
     // 手動打開更新通知頁面
     function openUpdateNotification() {
         const url = chrome.runtime.getURL('update-notification.html');
-        chrome.tabs.create({ url: url, active: true });
+        chrome.tabs.create({ url, active: true });
     }
     
     // 暴露測試函數到全局

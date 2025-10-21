@@ -143,12 +143,12 @@
                     
                     candidates.push({
                         url: absoluteUrl,
-                        priority: priority,
-                        size: size,
-                        type: type,
-                        iconType: iconType,
-                        sizes: sizes,
-                        selector: selector
+                        priority,
+                        size,
+                        type,
+                        iconType,
+                        sizes,
+                        selector
                     });
                     
                     console.log(`  ✓ ${absoluteUrl.substring(0, 50)}... (${sizes || 'no size'}, ${type || 'no type'})`);
