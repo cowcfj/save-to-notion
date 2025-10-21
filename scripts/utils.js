@@ -271,6 +271,11 @@ if (typeof window.StorageUtil === 'undefined') {
  */
 if (typeof window.Logger === 'undefined') {
     window.Logger = {
+    // 與現有代碼兼容：提供 log 別名
+    log: (message, ...args) => {
+        // 保留原始輸出，避免重複加前綴
+        try { console.log(message, ...args); } catch (_) { /* noop */ }
+    },
     debug: (message, ...args) => {
         console.log(`[DEBUG] ${message}`, ...args);
     },
