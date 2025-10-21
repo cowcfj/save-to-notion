@@ -1373,13 +1373,13 @@ function handleMessage(request, sender, sendResponse) {
                     const args = Array.isArray(request.args) ? request.args : [];
                     const prefix = '[ClientLog]';
                     if (level === 'warn') {
-                        console.warn(prefix, message, ...args);
+                        Logger.warn(prefix, message, ...args);
                     } else if (level === 'error') {
-                        console.error(prefix, message, ...args);
+                        Logger.error(prefix, message, ...args);
                     } else if (level === 'info') {
-                        if (DEBUG_MODE) console.info(prefix, message, ...args);
+                        Logger.info(`${prefix} ${message}`, ...args);
                     } else {
-                        if (DEBUG_MODE) console.log(prefix, message, ...args);
+                        Logger.log(`${prefix} ${message}`, ...args);
                     }
                     sendResponse({ success: true });
                 } catch (e) {

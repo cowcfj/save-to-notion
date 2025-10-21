@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const oauthButton = document.getElementById('oauth-button');
     const testApiButton = document.getElementById('test-api-button');
     const status = document.getElementById('status');
+    const debugToggle = document.getElementById('enable-debug-logs');
     const authStatus = document.getElementById('auth-status');
     
     // 模板相關元素
@@ -22,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'notionDatabaseId', 
             'titleTemplate', 
             'addSource', 
-            'addTimestamp'
+            'addTimestamp',
+            'enableDebugLogs'
         ], (result) => {
             if (result.notionApiKey) {
                 authStatus.textContent = '✅ 已連接到 Notion';
@@ -47,6 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
             titleTemplateInput.value = result.titleTemplate || '{title}';
             addSourceCheckbox.checked = result.addSource !== false; // 默認為 true
             addTimestampCheckbox.checked = result.addTimestamp !== false; // 默認為 true
+            // 日誌模式
+            if (debugToggle) {
+                debugToggle.checked = !!result.enableDebugLogs;
+            }
         });
     }
 
@@ -264,7 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 notionDatabaseId: databaseId,
                 titleTemplate: titleTemplateInput.value.trim() || '{title}',
                 addSource: addSourceCheckbox.checked,
-                addTimestamp: addTimestampCheckbox.checked
+                addTimestamp: addTimestampCheckbox.checked,
+                enableDebugLogs: debugToggle ? !!debugToggle.checked : false
             };
 
             chrome.storage.sync.set(settings, () => {
@@ -274,6 +281,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             showStatus('請填寫 API Key 和數據庫 ID', 'error');
         }
+    }
+
+    // 日誌模式切換（即時保存）
+    if (debugToggle) {
+        debugToggle.addEventListener('change', () => {
+            try {
+                chrome.storage.sync.set({ enableDebugLogs: !!debugToggle.checked }, () => {
+                    showStatus(debugToggle.checked ? '已啟用偵錯日誌（前端日誌將轉送到背景頁）' : '已停用偵錯日誌', 'success');
+                });
+            } catch (e) {
+                showStatus('切換日誌模式失敗: ' + e.message, 'error');
+            }
+        });
     }
 
     // API Key 輸入時自動載入數據庫
