@@ -29,10 +29,10 @@ module.exports = {
   // 覆蓋率門檼 (當前基準: 29.51%, 逐步提升)
   coverageThreshold: {
     global: {
-      branches: 25,
-      functions: 37,
-      lines: 29,
-      statements: 29
+      branches: 28,
+      functions: 40,
+      lines: 32,
+      statements: 32
     }
   },
 
