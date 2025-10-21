@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
             addTimestampCheckbox.checked = result.addTimestamp !== false; // 默認為 true
             // 日誌模式
             if (debugToggle) {
-                debugToggle.checked = !!result.enableDebugLogs;
+                debugToggle.checked = Boolean(result.enableDebugLogs);
             }
         });
     }
@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 titleTemplate: titleTemplateInput.value.trim() || '{title}',
                 addSource: addSourceCheckbox.checked,
                 addTimestamp: addTimestampCheckbox.checked,
-                enableDebugLogs: debugToggle ? !!debugToggle.checked : false
+                enableDebugLogs: Boolean(debugToggle?.checked)
             };
 
             chrome.storage.sync.set(settings, () => {
@@ -287,11 +287,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (debugToggle) {
         debugToggle.addEventListener('change', () => {
             try {
-                chrome.storage.sync.set({ enableDebugLogs: !!debugToggle.checked }, () => {
+                chrome.storage.sync.set({ enableDebugLogs: Boolean(debugToggle.checked) }, () => {
                     showStatus(debugToggle.checked ? '已啟用偵錯日誌（前端日誌將轉送到背景頁）' : '已停用偵錯日誌', 'success');
                 });
-            } catch (e) {
-                showStatus('切換日誌模式失敗: ' + e.message, 'error');
+            } catch (errToggle) {
+                showStatus(`切換日誌模式失敗: ${errToggle.message}`, 'error');
             }
         });
     }

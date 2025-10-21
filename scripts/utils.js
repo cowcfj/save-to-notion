@@ -5,18 +5,15 @@
 // 將背景日誌轉運器提升到程式根作用域，以符合 DeepSource 建議
 function __sendBackgroundLog(level, message, argsArray) {
     try {
-        // 僅在擴充環境下可用
-        if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+        // 僅在擴充環境下可用（使用可選鏈）
+        if (chrome?.runtime?.sendMessage) {
             const argsSafe = Array.isArray(argsArray) ? argsArray : Array.from(argsArray || []);
-            chrome.runtime.sendMessage(
-                { action: 'devLogSink', level, message, args: argsSafe },
-                () => {
-                    try {
-                        // 讀取 lastError 以避免未處理錯誤，但不使用 void
-                        if (chrome.runtime && chrome.runtime.lastError) { /* ignore */ }
-                    } catch (_) { /* ignore */ }
-                }
-            );
+            chrome.runtime.sendMessage({ action: 'devLogSink', level, message, args: argsSafe }, () => {
+                try {
+                    // 讀取 lastError 以避免未處理錯誤
+                    const _lastError = chrome?.runtime?.lastError; // eslint-disable-line no-unused-vars
+                } catch (_) { /* ignore */ }
+            });
         }
     } catch (_) {
         // 忽略背景日誌發送錯誤（瀏覽器端避免直接 console）
@@ -29,12 +26,12 @@ if (typeof window !== 'undefined') {
         window.__LOGGER_ENABLED__ = false;
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
             chrome.storage.sync.get(['enableDebugLogs'], (cfg) => {
-                try { window.__LOGGER_ENABLED__ = !!cfg?.enableDebugLogs; } catch (_) {}
+                try { window.__LOGGER_ENABLED__ = Boolean(cfg?.enableDebugLogs); } catch (_) {}
             });
             if (chrome.storage.onChanged && typeof chrome.storage.onChanged.addListener === 'function') {
                 chrome.storage.onChanged.addListener((changes, area) => {
                     if (area === 'sync' && changes && Object.prototype.hasOwnProperty.call(changes, 'enableDebugLogs')) {
-                        try { window.__LOGGER_ENABLED__ = !!changes.enableDebugLogs.newValue; } catch (_) {}
+                        try { window.__LOGGER_ENABLED__ = Boolean(changes.enableDebugLogs.newValue); } catch (_) {}
                     }
                 });
             }
@@ -221,9 +218,9 @@ if (typeof window.StorageUtil === 'undefined') {
                             resolve(highlights);
                             return;
                         }
-                    } catch (e) {
-                        console.error('Failed to parse localStorage highlights:', e);
-                    }
+                        } catch (errParseLocal) {
+                            console.error('Failed to parse localStorage highlights:', errParseLocal);
+                        }
                 }
                 resolve([]);
             }
@@ -286,7 +283,7 @@ if (typeof window.StorageUtil === 'undefined') {
      * 調試工具：列出所有存儲的標註鍵
      * 在控制台執行：StorageUtil.debugListAllKeys()
      */
-    async debugListAllKeys() {
+    debugListAllKeys() {
         return new Promise((resolve) => {
             try {
                 chrome.storage?.local?.get(null, (data) => {
