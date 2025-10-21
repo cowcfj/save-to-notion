@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             oauthButton.disabled = false;
             oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
-            showStatus('打開 Notion 頁面失敗: ' + error.message, 'error');
+            showStatus(`打開 Notion 頁面失敗: ${error.message}`, 'error');
         }
     }
 
@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showDataStatus('✅ 數據備份成功！備份文件已下載。', 'success');
             } catch (error) {
                 console.error('Backup failed:', error);
-                showDataStatus('❌ 備份失敗：' + error.message, 'error');
+                showDataStatus(`❌ 備份失敗：${error.message}`, 'error');
             }
         });
 
@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                 } catch (error) {
                     console.error('Import failed:', error);
-                    showDataStatus('❌ 恢復失敗：' + error.message, 'error');
+                    showDataStatus(`❌ 恢復失敗：${error.message}`, 'error');
                     importFile.value = '';
                 }
             };
@@ -512,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
             } catch (error) {
                 console.error('Data check failed:', error);
-                showDataStatus('❌ 檢查失敗：' + error.message, 'error');
+                showDataStatus(`❌ 檢查失敗：${error.message}`, 'error');
             }
         });
 
@@ -678,7 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error('預覽清理失敗:', error);
-                showDataStatus('❌ 預覽清理失敗: ' + error.message, 'error');
+                showDataStatus(`❌ 預覽清理失敗: ${error.message}`, 'error');
             } finally {
                 // 恢復按鈕狀態
                 setPreviewButtonLoading(false);
@@ -788,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 
                                 // 避免 API 速率限制（Notion: 3 requests/second）
                                 if (i < savedPages.length - 1) {
-                                    await new Promise(resolve => setTimeout(resolve, 350));
+                                    await new Promise(sleep => setTimeout(sleep, 350));
                                 }
                                 
                             } catch (error) {
@@ -911,7 +911,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
             } catch (error) {
                 console.error('Cleanup failed:', error);
-                showDataStatus('❌ 清理失敗：' + error.message, 'error');
+                showDataStatus(`❌ 清理失敗：${error.message}`, 'error');
             }
         }
         
@@ -1130,7 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
             } catch (error) {
                 console.error('Optimization failed:', error);
-                showDataStatus('❌ 數據重整失敗：' + error.message, 'error');
+                showDataStatus(`❌ 數據重整失敗：${error.message}`, 'error');
             }
         }
     }
