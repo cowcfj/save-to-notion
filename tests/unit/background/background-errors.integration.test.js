@@ -223,7 +223,7 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'syncHighlights', highlights: [] }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true, highlightCount: 0, message: expect.stringMatching(/沒有新標註需要同步/) }));
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true, highlightCount: 0, message: expect.stringMatching(/沒有新標註需要同步/u) }));
   });
 
   // ===== savePage 注入與 Notion API 錯誤路徑 =====

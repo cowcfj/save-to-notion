@@ -58,7 +58,7 @@ describe('scripts/background.js require integration', () => {
         onUpdated,
         onRemoved,
         query: jest.fn((queryInfo, cb) => {
-          cb([{ id: 1, url: 'https://example.com/article', title: 'Article', active: true }]);
+          cb?.([{ id: 1, url: 'https://example.com/article', title: 'Article', active: true }]);
         }),
         create: jest.fn((createProps) => Promise.resolve({ id: 99, ...createProps })),
         sendMessage: jest.fn(() => Promise.resolve({ success: true }))
@@ -68,7 +68,7 @@ describe('scripts/background.js require integration', () => {
         setBadgeBackgroundColor: jest.fn()
       },
       scripting: {
-        executeScript: jest.fn((opts, cb) => cb && cb([{ result: undefined }]))
+        executeScript: jest.fn((opts, cb) => cb?.([{ result: undefined }]))
       },
       storage: {
         local: {
@@ -81,12 +81,12 @@ describe('scripts/background.js require integration', () => {
             } else if (!keys) {
               Object.assign(res, storageData);
             }
-            cb && cb(res);
+            cb?.(res);
           }),
-          set: jest.fn((items, cb) => { Object.assign(storageData, items); cb && cb(); }),
+          set: jest.fn((items, cb) => { Object.assign(storageData, items); cb?.(); }),
           remove: jest.fn((keys, cb) => {
             (Array.isArray(keys) ? keys : [keys]).forEach((k) => delete storageData[k]);
-            cb && cb();
+            cb?.();
           })
         },
         sync: {
@@ -98,22 +98,19 @@ describe('scripts/background.js require integration', () => {
             } else if (typeof keys === 'string' && keys === 'notionApiKey') {
               res[keys] = 'test-key';
             }
-            cb && cb(res);
+            cb?.(res);
           })
         }
       }
     };
 
     // 全域 fetch mock（避免網路）
-    global.fetch = jest.fn(async () => {
-      // 提供最小成功回應
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ archived: false, results: [] }),
-        text: async () => 'ok'
-      };
-    });
+    global.fetch = jest.fn(() => Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({ archived: false, results: [] }),
+      text: async () => 'ok'
+    }));
   });
 
   afterEach(() => {
@@ -162,7 +159,7 @@ describe('scripts/background.js require integration', () => {
     const createCall = chrome.tabs.create.mock.calls[0];
     const createdTab = await createCall[0];
     // 直接觸發 callback
-    createCall[1] && createCall[1](createdTab);
+    createCall[1]?.(createdTab);
 
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
   });
