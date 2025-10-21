@@ -21,7 +21,7 @@ function createEvent() {
 }
 
 describe('background error branches (integration)', () => {
-  let originalChrome;
+  let originalChrome = null;
 
   beforeEach(() => {
     jest.resetModules();
@@ -160,7 +160,7 @@ describe('background error branches (integration)', () => {
   test('openNotionPage：tabs.create 失敗（runtime.lastError）→ 返回錯誤', async () => {
     const sendResponse = jest.fn();
     // 讓 create callback 觸發 lastError
-    chrome.tabs.create.mockImplementationOnce((props, cb) => { chrome.runtime.lastError = { message: 'Create failed' }; cb && cb(undefined); });
+    chrome.tabs.create.mockImplementationOnce((props, cb) => { chrome.runtime.lastError = { message: 'Create failed' }; cb && cb(); });
     chrome.runtime.onMessage._emit({ action: 'openNotionPage', url: 'https://www.notion.so/page' }, {}, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'Create failed' }));
@@ -189,7 +189,7 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'syncHighlights' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/無法獲取當前標籤頁/) }));
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/無法獲取當前標籤頁/u) }));
   });
 
   test('syncHighlights：缺少 API Key → 返回錯誤', async () => {
@@ -198,7 +198,7 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/API Key 未設置/) }));
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/API Key 未設置/u) }));
   });
 
   test('syncHighlights：頁面未保存 → 返回錯誤', async () => {
@@ -208,7 +208,7 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/頁面尚未保存到 Notion/) }));
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/頁面尚未保存到 Notion/u) }));
   });
 
   test('syncHighlights：空標註 → 成功且 0', async () => {
