@@ -26,8 +26,8 @@ function createEvent() {
 }
 
 describe('scripts/background.js require integration', () => {
-  let originalChrome;
-  let originalFetch;
+  let originalChrome = null;
+  let originalFetch = null;
 
   beforeEach(() => {
     jest.resetModules();
