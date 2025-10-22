@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const oauthButton = document.getElementById('oauth-button');
     const testApiButton = document.getElementById('test-api-button');
     const status = document.getElementById('status');
+    const debugToggle = document.getElementById('enable-debug-logs');
     const authStatus = document.getElementById('auth-status');
     
     // 模板相關元素
@@ -22,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'notionDatabaseId', 
             'titleTemplate', 
             'addSource', 
-            'addTimestamp'
+            'addTimestamp',
+            'enableDebugLogs'
         ], (result) => {
             if (result.notionApiKey) {
                 authStatus.textContent = '✅ 已連接到 Notion';
@@ -47,6 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
             titleTemplateInput.value = result.titleTemplate || '{title}';
             addSourceCheckbox.checked = result.addSource !== false; // 默認為 true
             addTimestampCheckbox.checked = result.addTimestamp !== false; // 默認為 true
+            // 日誌模式
+            if (debugToggle) {
+                debugToggle.checked = Boolean(result.enableDebugLogs);
+            }
         });
     }
 
@@ -71,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             oauthButton.disabled = false;
             oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
-            showStatus('打開 Notion 頁面失敗: ' + error.message, 'error');
+            showStatus(`打開 Notion 頁面失敗: ${error.message}`, 'error');
         }
     }
 
@@ -264,7 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 notionDatabaseId: databaseId,
                 titleTemplate: titleTemplateInput.value.trim() || '{title}',
                 addSource: addSourceCheckbox.checked,
-                addTimestamp: addTimestampCheckbox.checked
+                addTimestamp: addTimestampCheckbox.checked,
+                enableDebugLogs: Boolean(debugToggle?.checked)
             };
 
             chrome.storage.sync.set(settings, () => {
@@ -274,6 +281,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             showStatus('請填寫 API Key 和數據庫 ID', 'error');
         }
+    }
+
+    // 日誌模式切換（即時保存）
+    if (debugToggle) {
+        debugToggle.addEventListener('change', () => {
+            try {
+                chrome.storage.sync.set({ enableDebugLogs: Boolean(debugToggle.checked) }, () => {
+                    showStatus(debugToggle.checked ? '已啟用偵錯日誌（前端日誌將轉送到背景頁）' : '已停用偵錯日誌', 'success');
+                });
+            } catch (errToggle) {
+                showStatus(`切換日誌模式失敗: ${errToggle.message}`, 'error');
+            }
+        });
     }
 
     // API Key 輸入時自動載入數據庫
@@ -410,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showDataStatus('✅ 數據備份成功！備份文件已下載。', 'success');
             } catch (error) {
                 console.error('Backup failed:', error);
-                showDataStatus('❌ 備份失敗：' + error.message, 'error');
+                showDataStatus(`❌ 備份失敗：${error.message}`, 'error');
             }
         });
 
@@ -450,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                 } catch (error) {
                     console.error('Import failed:', error);
-                    showDataStatus('❌ 恢復失敗：' + error.message, 'error');
+                    showDataStatus(`❌ 恢復失敗：${error.message}`, 'error');
                     importFile.value = '';
                 }
             };
@@ -492,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
             } catch (error) {
                 console.error('Data check failed:', error);
-                showDataStatus('❌ 檢查失敗：' + error.message, 'error');
+                showDataStatus(`❌ 檢查失敗：${error.message}`, 'error');
             }
         });
 
@@ -658,7 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error('預覽清理失敗:', error);
-                showDataStatus('❌ 預覽清理失敗: ' + error.message, 'error');
+                showDataStatus(`❌ 預覽清理失敗: ${error.message}`, 'error');
             } finally {
                 // 恢復按鈕狀態
                 setPreviewButtonLoading(false);
@@ -768,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 
                                 // 避免 API 速率限制（Notion: 3 requests/second）
                                 if (i < savedPages.length - 1) {
-                                    await new Promise(resolve => setTimeout(resolve, 350));
+                                    await new Promise(sleep => setTimeout(sleep, 350));
                                 }
                                 
                             } catch (error) {
@@ -891,7 +911,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
             } catch (error) {
                 console.error('Cleanup failed:', error);
-                showDataStatus('❌ 清理失敗：' + error.message, 'error');
+                showDataStatus(`❌ 清理失敗：${error.message}`, 'error');
             }
         }
         
@@ -1110,7 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
             } catch (error) {
                 console.error('Optimization failed:', error);
-                showDataStatus('❌ 數據重整失敗：' + error.message, 'error');
+                showDataStatus(`❌ 數據重整失敗：${error.message}`, 'error');
             }
         }
     }

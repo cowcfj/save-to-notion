@@ -3,7 +3,8 @@
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
 /* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, module, AdaptivePerformanceManager, Logger */
-const L = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
+// 使用不與其他庫衝突的本地日誌別名，避免與 Leaflet 等全域變量 L 衝突
+const perfLogger = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 class PerformanceOptimizer {
     constructor(options = {}) {
         this.options = {
@@ -76,12 +77,12 @@ class PerformanceOptimizer {
                     performanceThreshold: 100,
                     batchSizeAdjustmentFactor: 0.1
                 });
-                L.info('🤖 自適應性能管理器已初始化');
+                perfLogger.info('🤖 自適應性能管理器已初始化');
             } else {
-                L.warn('⚠️ AdaptivePerformanceManager not available, adaptive features disabled');
+                perfLogger.warn('⚠️ AdaptivePerformanceManager not available, adaptive features disabled');
             }
         } catch (error) {
-            L.error('❌ 初始化自適應管理器失敗:', error);
+            perfLogger.error('❌ 初始化自適應管理器失敗:', error);
         }
     }
 
@@ -388,7 +389,7 @@ class PerformanceOptimizer {
             }
         } catch (error) {
             // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
-            L.warn('元素驗證失敗:', error.message);
+            perfLogger.warn('元素驗證失敗:', error.message);
             return false;
         }
 
@@ -406,7 +407,7 @@ class PerformanceOptimizer {
             return Promise.resolve([]);
         }
 
-        L.info(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
+        perfLogger.info(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
         
         // 使用批處理方式預熱選擇器
         const results = [];
@@ -430,10 +431,10 @@ class PerformanceOptimizer {
                     this.cacheStats.prewarms++;
                     this.prewarmedSelectors.add(selector);
                     
-                    L.info(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
+                    perfLogger.info(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
                 }
             } catch (error) {
-                L.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
+                perfLogger.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
                 
                 if (typeof ErrorHandler !== 'undefined') {
                     ErrorHandler.logError({
@@ -452,7 +453,7 @@ class PerformanceOptimizer {
             }
         }
         
-    L.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
+    perfLogger.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
     // 保守策略：統一以 Promise.resolve 返回，呼叫者可以使用 await 一致處理
     return Promise.resolve(results);
     }
@@ -474,7 +475,7 @@ class PerformanceOptimizer {
         const results = await this.preloadSelectors(allSelectors, context);
         
         const duration = performance.now() - startTime;
-        L.info(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
+        perfLogger.info(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
         
         return results;
     }
@@ -811,8 +812,8 @@ class PerformanceOptimizer {
             const memory = this._getMemoryStats();
             
             // 記錄到控制台（開發模式）
-            if (this.options.enableMetrics && L.debug) {
-                L.debug('Performance Metrics:', {
+            if (this.options.enableMetrics && perfLogger.debug) {
+                perfLogger.debug('Performance Metrics:', {
                     cache: this.cacheStats,
                     batch: this.batchStats,
                     memory: memory
@@ -851,13 +852,13 @@ class PerformanceOptimizer {
         // 根據緩存命中率調整策略
         if (stats.cache.hitRate < 0.3) {
             // 緩存命中率低，可能需要增加緩存大小或清理策略
-            L.info('📊 緩存命中率較低，考慮調整緩存策略');
+            perfLogger.info('📊 緩存命中率較低，考慮調整緩存策略');
         }
         
         // 根據平均處理時間調整批處理大小
         if (stats.metrics.averageProcessingTime > 50) {
             // 處理時間過長，減少批處理大小
-            L.info('⏰ 處理時間過長，動態調整批處理大小');
+            perfLogger.info('⏰ 處理時間過長，動態調整批處理大小');
             if (this.adaptiveManager) {
                 this.adaptiveManager.adjustBatchSize(Math.floor(this.currentSettings.batchSize * 0.8));
             }
@@ -866,7 +867,7 @@ class PerformanceOptimizer {
         // 定期清理過期緩存
         const expiredCount = this.clearExpiredCache();
         if (expiredCount > 0) {
-            L.info(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
+            perfLogger.info(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
         }
 
         // 保持 API 回傳 Promise（與之前 async 一致）

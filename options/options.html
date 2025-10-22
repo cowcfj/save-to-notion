@@ -193,11 +193,22 @@
                     <div id="optimization-preview" class="optimization-preview"></div>
                 </div>
                 
-                <div id="cleanup-preview" class="cleanup-preview"></div>
-            </div>
+        <div id="cleanup-preview" class="cleanup-preview"></div>
         </div>
+    </div>
 
-        <p id="status"></p>
+    <!-- 日誌與診斷 -->
+    <div class="diagnostics-section" style="margin-top: 24px;">
+        <h2>日誌與診斷</h2>
+        <div class="form-group">
+            <label for="enable-debug-logs">啟用偵錯日誌</label>
+            <input type="checkbox" id="enable-debug-logs">
+            <label for="enable-debug-logs" class="checkbox-label">將前端日誌轉送到背景頁（便於除錯）</label>
+            <small class="help-text">建議僅在調試時暫時開啟。</small>
+        </div>
+    </div>
+
+    <p id="status"></p>
 
 
     </div>

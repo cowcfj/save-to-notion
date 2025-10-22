@@ -12,12 +12,20 @@ const mockChrome = {
         }
     },
     runtime: {
-        lastError: null
+        lastError: null,
+        sendMessage: jest.fn((payload, callback) => {
+            if (typeof callback === 'function') callback();
+        })
     }
 };
 
 // 在測試開始前設置全局 chrome 對象
 global.chrome = mockChrome;
+
+// 啟用前端 Logger 的開發模式（讓 debug/info 也會透過背景 sink 發送）
+if (typeof window !== 'undefined') {
+    window.__FORCE_LOG__ = true;
+}
 
 // 重置模塊緩存並重新加載 utils.js
 jest.resetModules();
@@ -213,30 +221,59 @@ describe('utils.js', () => {
 
     describe('Logger', () => {
         beforeEach(() => {
-            // Mock console 方法來驗證調用
-            console.log = jest.fn();
-            console.warn = jest.fn();
-            console.error = jest.fn();
+            // 每個測試重置 sendMessage，避免前序呼叫的影響
+            mockChrome.runtime.sendMessage.mockClear();
         });
 
-        test('應該正確記錄 debug 信息', () => {
+        test('應該正確記錄 debug 信息（透過背景 sink）', () => {
             window.Logger.debug('test message', 'arg1', 'arg2');
-            expect(console.log).toHaveBeenCalledWith('[DEBUG] test message', 'arg1', 'arg2');
+            expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: 'devLogSink',
+                    level: 'debug',
+                    message: 'test message',
+                    args: ['arg1', 'arg2']
+                }),
+                expect.any(Function)
+            );
         });
 
-        test('應該正確記錄 info 信息', () => {
+        test('應該正確記錄 info 信息（透過背景 sink）', () => {
             window.Logger.info('test message', 'arg1');
-            expect(console.log).toHaveBeenCalledWith('[INFO] test message', 'arg1');
+            expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: 'devLogSink',
+                    level: 'info',
+                    message: 'test message',
+                    args: ['arg1']
+                }),
+                expect.any(Function)
+            );
         });
 
-        test('應該正確記錄 warn 信息', () => {
+        test('應該正確記錄 warn 信息（透過背景 sink）', () => {
             window.Logger.warn('test message');
-            expect(console.warn).toHaveBeenCalledWith('[WARN] test message');
+            expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: 'devLogSink',
+                    level: 'warn',
+                    message: 'test message'
+                }),
+                expect.any(Function)
+            );
         });
 
-        test('應該正確記錄 error 信息', () => {
+        test('應該正確記錄 error 信息（透過背景 sink）', () => {
             window.Logger.error('test message', 'error');
-            expect(console.error).toHaveBeenCalledWith('[ERROR] test message', 'error');
+            expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: 'devLogSink',
+                    level: 'error',
+                    message: 'test message',
+                    args: ['error']
+                }),
+                expect.any(Function)
+            );
         });
     });
 });

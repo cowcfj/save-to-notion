@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## Unreleased
+### 🐛 Bug 修復
+- 修復頁面已保存但刷新後顯示「未保存」：Notion 狀態檢查失敗時不再誤判為刪除並清空本地狀態（改為三態：存在/不存在/不確定）。
+- 修復偶發保存失敗：對 Notion API 新增自動重試（處理 DatastoreInfraError、5xx、429、409 等暫時性錯誤）。
+- 修復 PerformanceOptimizer 全域變數衝突：移除全域 `L`，改用本地 `perfLogger`，避免與 Leaflet 等衝突。
+- 修復 collectSiteIcon 迭代錯誤：改用 `cachedQuery(..., { all: true })`，避免單元素回傳時的不可迭代錯誤。
+- 修復 Logger 介面不一致：為 `Logger` 新增 `log()` 別名，避免「Logger.log is not a function」。
+
+### 🛠️ 工程改進
+- 提取 `fetchNotionWithRetry()`，集中處理 Notion API 重試與回退。
+
+
 ## v2.9.8 - 2025-10-21
 ### 🐛 Bug 修復
 - **空標註資料膨脹**：

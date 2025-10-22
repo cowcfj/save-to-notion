@@ -372,7 +372,8 @@ class ScriptInjector {
             return Promise.resolve(null);
         } catch (error) {
             console.error('injectWithResponse failed:', error);
-            throw error;
+            // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
+            return null;
         }
     }
 
@@ -428,39 +429,18 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
 
             console.log(`📤 發送批次 ${batchNumber}/${totalBatches}: ${batch.length} 個區塊`);
 
-            // 使用重試機制發送批次
-            const response = await (typeof withRetry !== 'undefined' ? withRetry : (fn) => fn())(
-                async () => {
-                    const res = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
-                        method: 'PATCH',
-                        headers: {
-                            'Authorization': `Bearer ${apiKey}`,
-                            'Content-Type': 'application/json',
-                            'Notion-Version': '2022-06-28'
-                        },
-                        body: JSON.stringify({
-                            children: batch
-                        })
-                    });
-
-                    if (!res.ok) {
-                        const errorText = await res.text();
-                        const error = new Error(`批次添加失敗: ${res.status} - ${errorText}`);
-                        error.status = res.status;
-                        throw error;
-                    }
-
-                    return res;
+            // 使用重試機制發送批次（處理 5xx/429/409/DatastoreInfraError）
+            const response = await fetchNotionWithRetry(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    'Notion-Version': '2022-06-28'
                 },
-                {
-                    maxRetries: 3,
-                    baseDelay: 1000,
-                    shouldRetry: (error) => {
-                        // 重試 5xx 錯誤和 429 (Too Many Requests)
-                        return error.status >= 500 || error.status === 429;
-                    }
-                }
-            );
+                body: JSON.stringify({
+                    children: batch
+                })
+            }, { maxRetries: 3, baseDelay: 800 });
 
             // 如果沒有重試機制，記錄批次失敗
             if (!response.ok) {
@@ -563,6 +543,59 @@ function getConfig(keys, callback) {
     chrome.storage.sync.get(keys, callback);
 }
 
+/**
+ * 帶重試的 Notion API 請求（處理暫時性錯誤，如 DatastoreInfraError/5xx/429/409）
+ */
+async function fetchNotionWithRetry(url, options, retryOptions = {}) {
+    const {
+        maxRetries = 2,
+        baseDelay = 600,
+    } = retryOptions;
+
+    let attempt = 0;
+    let lastError = null;
+    while (attempt <= maxRetries) {
+        try {
+            const res = await fetch(url, options);
+
+            if (res.ok) return res;
+
+            // 嘗試解析錯誤訊息
+            let message = '';
+            try {
+                const data = await res.clone().json();
+                message = data?.message || '';
+            } catch (_) { /* ignore parse errors */ }
+
+            const retriableStatus = res.status >= 500 || res.status === 429 || res.status === 409;
+            const retriableMessage = /Unsaved transactions|DatastoreInfraError/i.test(message);
+
+            if (attempt < maxRetries && (retriableStatus || retriableMessage)) {
+                const delay = baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 200);
+                await new Promise(r => setTimeout(r, delay));
+                attempt++;
+                continue;
+            }
+
+            // 非可重試錯誤或已達最大重試次數
+            return res;
+        } catch (err) {
+            lastError = err;
+            if (attempt < maxRetries) {
+                const delay = baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 200);
+                await new Promise(r => setTimeout(r, delay));
+                attempt++;
+                continue;
+            }
+            throw err;
+        }
+    }
+
+    // 理論上不會到達這裡
+    if (lastError) throw lastError;
+    throw new Error('fetchNotionWithRetry failed unexpectedly');
+}
+
 // ==========================================
 // NOTION API MODULE
 // ==========================================
@@ -570,47 +603,31 @@ function getConfig(keys, callback) {
 /**
  * Checks if a Notion page exists
  */
+// 返回值：
+//   true  => 確認存在
+//   false => 確認不存在（404）
+//   null  => 不確定（網路/服務端暫時性錯誤）
 async function checkNotionPageExists(pageId, apiKey) {
     try {
-        const response = await (typeof withRetry !== 'undefined' ? withRetry : (fn) => fn())(
-            async () => {
-                const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Notion-Version': '2022-06-28'
-                    }
-                });
-
-                // 404 是預期的結果，不應該重試
-                if (res.status === 404) {
-                    return res;
-                }
-
-                // 其他錯誤狀態可能需要重試
-                if (!res.ok && res.status >= 500) {
-                    const error = new Error(`Page check failed: ${res.status}`);
-                    error.status = res.status;
-                    throw error;
-                }
-
-                return res;
-            },
-            {
-                maxRetries: 2,
-                baseDelay: 500,
-                shouldRetry: (error) => error.status >= 500 || error.status === 429
+        const response = await fetchNotionWithRetry(`https://api.notion.com/v1/pages/${pageId}` , {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Notion-Version': '2022-06-28'
             }
-        );
+        }, { maxRetries: 2, baseDelay: 500 });
 
         if (response.ok) {
             const pageData = await response.json();
             return !pageData.archived;
-        } else if (response.status === 404) {
-            return false;
-        } else {
-            return false;
         }
+
+        if (response.status === 404) {
+            return false; // 確認不存在
+        }
+
+        // 其他情況（5xx/429/409 等）返回不確定，避免誤判為刪除
+        return null;
     } catch (error) {
         /*
          * 頁面存在性檢查錯誤：記錄但不中斷流程
@@ -626,7 +643,7 @@ async function checkNotionPageExists(pageId, apiKey) {
         } else {
             console.error('Error checking page existence:', error);
         }
-        return false;
+        return null;
     }
 }
 
@@ -767,7 +784,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
             });
         }
 
-        const response = await fetch(notionApiUrl, {
+        const response = await fetchNotionWithRetry(notionApiUrl, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -775,7 +792,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
                 'Notion-Version': '2022-06-28'
             },
             body: JSON.stringify(pageData)
-        });
+        }, { maxRetries: 2, baseDelay: 600 });
 
         if (response.ok) {
             const responseData = await response.json();
@@ -946,7 +963,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
             }
         }
 
-        const updateResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+        const updateResponse = await fetchNotionWithRetry(`https://api.notion.com/v1/blocks/${pageId}/children`, {
             method: 'PATCH',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -956,7 +973,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
             body: JSON.stringify({
                 children: validBlocks.slice(0, 100)
             })
-        });
+        }, { maxRetries: 0, baseDelay: 0 });
 
         if (updateResponse.ok) {
             // 如果區塊數量超過 100，分批添加剩餘區塊
@@ -970,7 +987,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
                 }
             }
 
-            const titleUpdatePromise = fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+            const titleUpdatePromise = fetchNotionWithRetry(`https://api.notion.com/v1/pages/${pageId}`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
@@ -984,7 +1001,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
                         }
                     }
                 })
-            });
+            }, { maxRetries: 2, baseDelay: 600 });
 
             const storageUpdatePromise = new Promise((resolve) => {
                 setSavedPageData(pageUrl, {
@@ -1144,7 +1161,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
 
             console.log('➕ 準備添加的區塊數量:', highlightBlocks.length);
 
-            const addResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+            const addResponse = await fetchNotionWithRetry(`https://api.notion.com/v1/blocks/${pageId}/children`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
@@ -1154,7 +1171,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
                 body: JSON.stringify({
                     children: highlightBlocks
                 })
-            });
+            }, { maxRetries: 2, baseDelay: 600 });
 
             console.log('📡 API 響應狀態:', addResponse.status, addResponse.statusText);
 
@@ -1347,7 +1364,29 @@ function setupMessageHandlers() {
  */
 function handleMessage(request, sender, sendResponse) {
     try {
+        // removed unused IS_TEST_ENV (legacy test guard)
         switch (request.action) {
+            case 'devLogSink': {
+                try {
+                    const level = request.level || 'log';
+                    const message = request.message || '';
+                    const args = Array.isArray(request.args) ? request.args : [];
+                    const prefix = '[ClientLog]';
+                    if (level === 'warn') {
+                        Logger.warn(prefix, message, ...args);
+                    } else if (level === 'error') {
+                        Logger.error(prefix, message, ...args);
+                    } else if (level === 'info') {
+                        Logger.info(`${prefix} ${message}`, ...args);
+                    } else {
+                        Logger.log(`${prefix} ${message}`, ...args);
+                    }
+                    sendResponse({ success: true });
+                } catch (e) {
+                    sendResponse({ success: false, error: e.message });
+                }
+                break;
+            }
             case 'checkPageStatus':
                 handleCheckPageStatus(sendResponse);
                 break;
@@ -1364,7 +1403,10 @@ function handleMessage(request, sender, sendResponse) {
                 handleSyncHighlights(request, sendResponse);
                 break;
             case 'savePage':
-                handleSavePage(sendResponse);
+                // 防禦性處理：確保即使內部未捕獲的拒絕也會回覆
+                Promise.resolve(handleSavePage(sendResponse)).catch(err => {
+                    try { sendResponse({ success: false, error: err?.message || 'Save failed' }); } catch (_) {}
+                });
                 break;
             case 'openNotionPage':
                 handleOpenNotionPage(request, sendResponse);
@@ -1405,9 +1447,9 @@ async function handleCheckPageStatus(sendResponse) {
 
             if (config.notionApiKey) {
                 try {
-                    const pageExists = await checkNotionPageExists(savedData.notionPageId, config.notionApiKey);
+                    const existence = await checkNotionPageExists(savedData.notionPageId, config.notionApiKey);
 
-                    if (!pageExists) {
+                    if (existence === false) {
                         console.log('Notion page was deleted, clearing local state');
                         clearPageState(normUrl);
 
@@ -1429,6 +1471,10 @@ async function handleCheckPageStatus(sendResponse) {
                             wasDeleted: true
                         });
                     } else {
+                        // existence 為 true 或 null（不確定）均視為已保存，不清除狀態
+                        if (existence === null) {
+                            console.warn('⚠️ Notion page existence uncertain due to transient error; preserving local saved state');
+                        }
                         // 設置綠色徽章表示已保存
                         chrome.action.setBadgeText({ text: '✓', tabId: activeTab.id });
                         chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId: activeTab.id });
@@ -2135,7 +2181,7 @@ async function handleSavePage(sendResponse) {
 
                 for (const { selector, attr, priority, iconType } of iconSelectors) {
                     try {
-                        const elements = cachedQuery(selector, document);
+                        const elements = cachedQuery(selector, document, { all: true });
                         for (const element of elements) {
                             const iconUrl = element.getAttribute(attr);
                             if (iconUrl && iconUrl.trim() && !iconUrl.startsWith('data:')) {
@@ -2726,19 +2772,9 @@ async function handleSavePage(sendResponse) {
         }, ['lib/Readability.js', 'lib/turndown.js', 'lib/turndown-plugin-gfm.js', 'scripts/utils/htmlToNotionConverter.js', 'scripts/performance/PerformanceOptimizer.js']);
         } catch (scriptError) {
             console.error('❌ Content extraction script execution failed:', scriptError);
-            result = {
-                title: 'Content Extraction Failed',
-                blocks: [{
-                    object: 'block',
-                    type: 'paragraph',
-                    paragraph: {
-                        rich_text: [{
-                            type: 'text',
-                            text: { content: `Content extraction failed: ${scriptError.message || 'Unknown error'}` }
-                        }]
-                    }
-                }]
-            };
+            // 直接回覆錯誤，符合錯誤分支預期
+            sendResponse({ success: false, error: scriptError?.message || 'Content extraction failed' });
+            return;
         }
 
         if (!result || !result.title || !result.blocks) {

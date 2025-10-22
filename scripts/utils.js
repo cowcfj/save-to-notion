@@ -1,6 +1,44 @@
 // 共享工具函數
 // 此腳本包含所有內容腳本共用的工具函數
 
+// ===== Program-root utilities (for linters/DeepSource) =====
+// 將背景日誌轉運器提升到程式根作用域，以符合 DeepSource 建議
+function __sendBackgroundLog(level, message, argsArray) {
+    try {
+        // 僅在擴充環境下可用（使用可選鏈）
+        if (chrome?.runtime?.sendMessage) {
+            const argsSafe = Array.isArray(argsArray) ? argsArray : Array.from(argsArray || []);
+            chrome.runtime.sendMessage({ action: 'devLogSink', level, message, args: argsSafe }, () => {
+                try {
+                    // 讀取 lastError 以避免未處理錯誤
+                    const _lastError = chrome?.runtime?.lastError; // eslint-disable-line no-unused-vars
+                } catch (_) { /* ignore */ }
+            });
+        }
+    } catch (_) {
+        // 忽略背景日誌發送錯誤（瀏覽器端避免直接 console）
+    }
+}
+
+// 初始化可切換的日誌模式旗標（預設 false）；由 options 頁面設定 enableDebugLogs 同步更新
+if (typeof window !== 'undefined') {
+    try {
+        window.__LOGGER_ENABLED__ = false;
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+            chrome.storage.sync.get(['enableDebugLogs'], (cfg) => {
+                try { window.__LOGGER_ENABLED__ = Boolean(cfg?.enableDebugLogs); } catch (_) {}
+            });
+            if (chrome.storage.onChanged && typeof chrome.storage.onChanged.addListener === 'function') {
+                chrome.storage.onChanged.addListener((changes, area) => {
+                    if (area === 'sync' && changes && Object.prototype.hasOwnProperty.call(changes, 'enableDebugLogs')) {
+                        try { window.__LOGGER_ENABLED__ = Boolean(changes.enableDebugLogs.newValue); } catch (_) {}
+                    }
+                });
+            }
+        }
+    } catch (_) { /* ignore */ }
+}
+
 // 防止重複注入導致的重複聲明錯誤
 if (typeof window.StorageUtil !== 'undefined') {
     // utils.js 已經加載，跳過重複注入
@@ -180,9 +218,9 @@ if (typeof window.StorageUtil === 'undefined') {
                             resolve(highlights);
                             return;
                         }
-                    } catch (e) {
-                        console.error('Failed to parse localStorage highlights:', e);
-                    }
+                        } catch (errParseLocal) {
+                            console.error('Failed to parse localStorage highlights:', errParseLocal);
+                        }
                 }
                 resolve([]);
             }
@@ -245,20 +283,24 @@ if (typeof window.StorageUtil === 'undefined') {
      * 調試工具：列出所有存儲的標註鍵
      * 在控制台執行：StorageUtil.debugListAllKeys()
      */
-    async debugListAllKeys() {
+    debugListAllKeys() {
         return new Promise((resolve) => {
-            chrome.storage?.local?.get(null, (data) => {
-                const highlightKeys = Object.keys(data).filter(k => k.startsWith('highlights_'));
-                console.log('📋 所有標註鍵 (' + highlightKeys.length + ' 個):');
-                highlightKeys.forEach(key => {
-                    const count = Array.isArray(data[key]) 
-                        ? data[key].length 
-                        : (data[key]?.highlights?.length || 0);
-                    const url = key.replace('highlights_', '');
-                    console.log(`   ${count} 個標註: ${url}`);
+            try {
+                chrome.storage?.local?.get(null, (data) => {
+                    const highlightKeys = Object.keys(data || {}).filter(keyName => keyName.startsWith('highlights_'));
+                    try { window.Logger?.info?.(`📋 所有標註鍵 (${highlightKeys.length} 個):`); } catch (_) {}
+                    highlightKeys.forEach(keyName => {
+                        const count = Array.isArray(data[keyName])
+                            ? data[keyName].length
+                            : (data[keyName]?.highlights?.length || 0);
+                        const url = keyName.replace('highlights_', '');
+                        try { window.Logger?.info?.(`   ${count} 個標註: ${url}`); } catch (_) {}
+                    });
+                    resolve(highlightKeys);
                 });
-                resolve(highlightKeys);
-            });
+            } catch (_) {
+                resolve([]);
+            }
         });
     }
     }; // 結束 window.StorageUtil 定義
@@ -270,32 +312,45 @@ if (typeof window.StorageUtil === 'undefined') {
  * 日誌工具
  */
 if (typeof window.Logger === 'undefined') {
+    // 簡易開發模式偵測：版本字串含 dev 或手動開關
+    const __LOGGER_DEV__ = (() => {
+        try {
+            const manifest = chrome?.runtime?.getManifest?.();
+            const versionString = manifest?.version_name || manifest?.version || '';
+            const flag = (typeof window !== 'undefined' && window.__FORCE_LOG__ === true) || (typeof window !== 'undefined' && window.__LOGGER_ENABLED__ === true);
+            return /dev/i.test(versionString) || flag;
+        } catch (e) {
+            return false;
+        }
+    })();
+
     window.Logger = {
+    // 與現有代碼兼容：提供 log 別名（透過 background sink；僅在 dev 時發送）
+    log: (message, ...args) => {
+        if (__LOGGER_DEV__) __sendBackgroundLog('log', message, args);
+    },
     debug: (message, ...args) => {
-        console.log(`[DEBUG] ${message}`, ...args);
+        if (__LOGGER_DEV__) __sendBackgroundLog('debug', message, args);
     },
-    
     info: (message, ...args) => {
-        console.log(`[INFO] ${message}`, ...args);
+        if (__LOGGER_DEV__) __sendBackgroundLog('info', message, args);
     },
-    
     warn: (message, ...args) => {
-        console.warn(`[WARN] ${message}`, ...args);
+        __sendBackgroundLog('warn', message, args);
     },
-    
     error: (message, ...args) => {
-        console.error(`[ERROR] ${message}`, ...args);
+        __sendBackgroundLog('error', message, args);
     }
     }; // 結束 window.Logger 定義
 } else {
-    console.log('⚠️ Logger 已存在，跳過重複定義');
+    // Logger 已存在，跳過重複定義
 }
 
 // 暴露 normalizeUrl 函數
 if (typeof window.normalizeUrl === 'undefined') {
     window.normalizeUrl = normalizeUrl;
 } else {
-    console.log('⚠️ normalizeUrl 已存在，跳過重複定義');
+    // normalizeUrl 已存在，跳過重複定義
 }
 
 } // 結束 else 區塊（如果 utils.js 未加載）
