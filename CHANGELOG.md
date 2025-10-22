@@ -12,6 +12,14 @@
 - 提取 `fetchNotionWithRetry()`，集中處理 Notion API 重試與回退。
 
 
+## v2.9.9 - 2025-10-22
+### 🔧 維護
+- 同步更新版本號：`manifest.json`、`package.json`、`package-lock.json` → v2.9.9。
+- 同步更新文檔版本資訊：`Agents.md`、`CHANGELOG.md`。
+
+> 本次為版本號一致性維護，無功能變更。
+
+
 ## v2.9.8 - 2025-10-21
 ### 🐛 Bug 修復
 - **空標註資料膨脹**：
