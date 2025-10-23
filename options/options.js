@@ -64,9 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * @returns {void}
      */
     function hideDataSourceUpgradeNotice() {
-        if (upgradeNoticeBanner && upgradeNoticeBanner.parentNode) {
-            upgradeNoticeBanner.parentNode.remove();
-        }
+        upgradeNoticeBanner?.parentNode?.remove();
         upgradeNoticeBanner = null;
     }
 
