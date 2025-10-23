@@ -1288,8 +1288,8 @@ class SearchableDatabaseSelector {
             created: db.created_time,
             lastEdited: db.last_edited_time
         }));
-        
-        console.log('處理後的資料來源:', this.databases);
+
+        window.Logger?.info?.('處理後的資料來源:', this.databases);
         
         // 按標題排序
         this.databases.sort((a, b) => a.title.localeCompare(b.title));
