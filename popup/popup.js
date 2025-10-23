@@ -5,10 +5,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const openNotionButton = document.getElementById('open-notion-button');
     const status = document.getElementById('status');
 
-    // Check for API key and Database ID on popup open
-    chrome.storage.sync.get(['notionApiKey', 'notionDatabaseId'], (result) => {
-        if (!result.notionApiKey || !result.notionDatabaseId) {
-            status.textContent = 'Please set API Key and Database ID in settings.';
+    // Check for API key and Data Source ID on popup open
+    chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'], (result) => {
+        const dataSourceId = result.notionDataSourceId || result.notionDatabaseId;
+        if (!result.notionApiKey || !dataSourceId) {
+            status.textContent = 'Please set API Key and Data Source ID in settings.';
             saveButton.disabled = true;
             highlightButton.disabled = true;
         } else {

@@ -36,7 +36,7 @@ describe('Background Notion API Operations', () => {
 
   describe('saveToNotion', () => {
     const mockApiKey = 'secret_test_key';
-    const mockDatabaseId = 'db-123';
+    const mockDataSourceId = 'db-123';
     const mockTitle = 'Test Article';
     const mockPageUrl = 'https://example.com/article';
     const mockBlocks = [
@@ -71,7 +71,7 @@ describe('Background Notion API Operations', () => {
         mockBlocks,
         mockPageUrl,
         mockApiKey,
-        mockDatabaseId,
+        mockDataSourceId,
         mockSendResponse
       );
 
@@ -83,7 +83,7 @@ describe('Background Notion API Operations', () => {
           headers: expect.objectContaining({
             'Authorization': `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-            'Notion-Version': '2022-06-28'
+            'Notion-Version': '2025-09-03'
           })
         })
       );
@@ -118,7 +118,7 @@ describe('Background Notion API Operations', () => {
         mockBlocks,
         mockPageUrl,
         mockApiKey,
-        mockDatabaseId,
+        mockDataSourceId,
         mockSendResponse,
         siteIcon
       );
@@ -196,7 +196,7 @@ describe('Background Notion API Operations', () => {
         blocksWithProblematicImages,
         mockPageUrl,
         mockApiKey,
-        mockDatabaseId,
+        mockDataSourceId,
         mockSendResponse
       );
 
@@ -260,7 +260,7 @@ describe('Background Notion API Operations', () => {
         longBlocks,
         mockPageUrl,
         mockApiKey,
-        mockDatabaseId,
+        mockDataSourceId,
         mockSendResponse
       );
 
@@ -302,7 +302,7 @@ describe('Background Notion API Operations', () => {
         mockBlocks,
         mockPageUrl,
         mockApiKey,
-        mockDatabaseId,
+        mockDataSourceId,
         mockSendResponse
       );
 
@@ -371,7 +371,7 @@ describe('Background Notion API Operations', () => {
         blocksWithImages,
         mockPageUrl,
         mockApiKey,
-        mockDatabaseId,
+        mockDataSourceId,
         mockSendResponse
       );
 
@@ -399,7 +399,7 @@ describe('Background Notion API Operations', () => {
         mockBlocks,
         mockPageUrl,
         mockApiKey,
-        mockDatabaseId,
+        mockDataSourceId,
         mockSendResponse
       );
 
@@ -442,7 +442,7 @@ describe('Background Notion API Operations', () => {
           method: 'GET',
           headers: expect.objectContaining({
             'Authorization': `Bearer ${mockApiKey}`,
-            'Notion-Version': '2022-06-28'
+            'Notion-Version': '2025-09-03'
           })
         })
       );
@@ -635,7 +635,7 @@ describe('Background Notion API Operations', () => {
 /**
  * 模拟的 Notion API 函数（用于测试）
  */
-async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon = null, excludeImages = false) {
+async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon = null, excludeImages = false) {
   const startTime = performance.now();
   
   // 过滤图片区块的逻辑
@@ -671,7 +671,10 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, databaseId,
   const skippedCount = blocks.length - validBlocks.length;
 
   const pageData = {
-    parent: { database_id: databaseId },
+    parent: {
+      type: 'data_source_id',
+      data_source_id: dataSourceId
+    },
     properties: {
       'Title': {
         title: [{ text: { content: title } }]
@@ -698,7 +701,7 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, databaseId,
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
+        'Notion-Version': '2025-09-03'
       },
       body: JSON.stringify(pageData)
     });
@@ -752,7 +755,7 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, databaseId,
       if (errorData.code === 'validation_error' && errorData.message && errorData.message.includes('image')) {
         console.log('Auto-retry: Saving without ANY images...');
         setTimeout(() => {
-          saveToNotionSimulated(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon, true);
+          saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon, true);
         }, 500);
         return;
       }
@@ -771,7 +774,7 @@ async function checkNotionPageExistsSimulated(pageId, apiKey) {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Notion-Version': '2022-06-28'
+        'Notion-Version': '2025-09-03'
       }
     });
 
@@ -815,7 +818,7 @@ async function appendBlocksInBatchesSimulated(pageId, blocks, apiKey, startIndex
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2022-06-28'
+          'Notion-Version': '2025-09-03'
         },
         body: JSON.stringify({
           children: batch

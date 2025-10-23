@@ -256,7 +256,7 @@ describe('background.js - 工具函數', () => {
                             headers: {
                                 'Authorization': `Bearer ${apiKey}`,
                                 'Content-Type': 'application/json',
-                                'Notion-Version': '2022-06-28'
+                                'Notion-Version': '2025-09-03'
                             },
                             body: JSON.stringify({
                                 children: batch
@@ -378,7 +378,7 @@ describe('background.js - 工具函數', () => {
                     headers: expect.objectContaining({
                         'Authorization': 'Bearer test_api_key',
                         'Content-Type': 'application/json',
-                        'Notion-Version': '2022-06-28'
+                        'Notion-Version': '2025-09-03'
                     })
                 })
             );

@@ -435,7 +435,7 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
-                    'Notion-Version': '2022-06-28'
+                    'Notion-Version': '2025-09-03'
                 },
                 body: JSON.stringify({
                     children: batch
@@ -613,7 +613,7 @@ async function checkNotionPageExists(pageId, apiKey) {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
-                'Notion-Version': '2022-06-28'
+                'Notion-Version': '2025-09-03'
             }
         }, { maxRetries: 2, baseDelay: 500 });
 
@@ -679,7 +679,7 @@ async function handleCheckNotionPageExistsMessage(request, sendResponse) {
  * Saves new content to Notion as a new page
  * @param {boolean} excludeImages - 是否排除所有圖片（用於重試）
  */
-async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon = null, excludeImages = false) {
+async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon = null, excludeImages = false) {
     // 開始性能監控 (service worker 環境，使用原生 Performance API)
     const startTime = performance.now();
     console.log('⏱️ 開始保存到 Notion...');
@@ -748,7 +748,10 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
     console.log(`📊 Total blocks to save: ${validBlocks.length}, Image blocks: ${validBlocks.filter(b => b.type === 'image').length}`);
 
     const pageData = {
-        parent: { database_id: databaseId },
+        parent: {
+            type: 'data_source_id',
+            data_source_id: dataSourceId
+        },
         properties: {
             'Title': {
                 title: [{ text: { content: title } }]
@@ -789,7 +792,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
-                'Notion-Version': '2022-06-28'
+                'Notion-Version': '2025-09-03'
             },
             body: JSON.stringify(pageData)
         }, { maxRetries: 2, baseDelay: 600 });
@@ -870,7 +873,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResp
 
                 // 使用 setTimeout 避免立即重試
                 setTimeout(() => {
-                    saveToNotion(title, blocks, pageUrl, apiKey, databaseId, sendResponse, siteIcon, true);
+                    saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon, true);
                 }, 500);
                 return;
             }
@@ -946,7 +949,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
-                'Notion-Version': '2022-06-28'
+                'Notion-Version': '2025-09-03'
             }
         });
 
@@ -957,7 +960,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${apiKey}`,
-                        'Notion-Version': '2022-06-28'
+                        'Notion-Version': '2025-09-03'
                     }
                 });
             }
@@ -968,7 +971,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
-                'Notion-Version': '2022-06-28'
+                'Notion-Version': '2025-09-03'
             },
             body: JSON.stringify({
                 children: validBlocks.slice(0, 100)
@@ -992,7 +995,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
-                    'Notion-Version': '2022-06-28'
+                    'Notion-Version': '2025-09-03'
                 },
                 body: JSON.stringify({
                     properties: {
@@ -1052,7 +1055,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
-                'Notion-Version': '2022-06-28'
+                'Notion-Version': '2025-09-03'
             }
         });
 
@@ -1099,7 +1102,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${apiKey}`,
-                        'Notion-Version': '2022-06-28'
+                        'Notion-Version': '2025-09-03'
                     }
                 });
 
@@ -1166,7 +1169,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
-                    'Notion-Version': '2022-06-28'
+                    'Notion-Version': '2025-09-03'
                 },
                 body: JSON.stringify({
                     children: highlightBlocks
@@ -1701,11 +1704,13 @@ async function handleSavePage(sendResponse) {
         }
 
         const config = await new Promise(resolve =>
-            getConfig(['notionApiKey', 'notionDatabaseId'], resolve)
+            getConfig(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'], resolve)
         );
 
-        if (!config.notionApiKey || !config.notionDatabaseId) {
-            sendResponse({ success: false, error: 'API Key or Database ID is not set.' });
+        const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
+
+        if (!config.notionApiKey || !dataSourceId) {
+            sendResponse({ success: false, error: 'API Key or Data Source ID is not set.' });
             return;
         }
 
@@ -2869,7 +2874,7 @@ async function handleSavePage(sendResponse) {
                 clearPageState(normUrl);
                 await clearPageHighlights(activeTab.id);
 
-                saveToNotion(contentResult.title, contentResult.blocks, normUrl, config.notionApiKey, config.notionDatabaseId, (response) => {
+                saveToNotion(contentResult.title, contentResult.blocks, normUrl, config.notionApiKey, dataSourceId, (response) => {
                     if (response.success) {
                         response.imageCount = imageCount;
                         response.blockCount = contentResult.blocks.length;
@@ -2880,7 +2885,7 @@ async function handleSavePage(sendResponse) {
                 }, contentResult.siteIcon);
             }
         } else {
-            saveToNotion(contentResult.title, contentResult.blocks, normUrl, config.notionApiKey, config.notionDatabaseId, (response) => {
+            saveToNotion(contentResult.title, contentResult.blocks, normUrl, config.notionApiKey, dataSourceId, (response) => {
                 if (response.success) {
                     response.imageCount = imageCount;
                     response.blockCount = contentResult.blocks.length;

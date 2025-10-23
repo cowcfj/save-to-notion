@@ -175,13 +175,13 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/Could not get active tab/i) }));
   });
 
-  test('savePage：缺少 API Key 或 Database ID → 返回錯誤', async () => {
+  test('savePage：缺少 API Key 或資料來源 ID → 返回錯誤', async () => {
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 7, url: 'https://example.com/a', title: 'A', active: true }]));
     // 預設 sync.get 回傳 {}，觸發缺少 API Key/DB ID
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/API Key or Database ID is not set/i) }));
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/API Key or Data Source ID is not set/i) }));
   });
 
   // ===== syncHighlights 錯誤與邊界分支 =====
@@ -231,7 +231,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 10, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
 
     // 追蹤 func 呼叫次序：第1次 func（injectHighlighter），第2次 func（collectHighlights），第3次 func（injectWithResponse）
     let funcCall = 0;
@@ -271,7 +271,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 11, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
 
     // 模擬內容注入成功：collectHighlights 空、injectWithResponse 回傳內容
     let funcCall = 0;
@@ -316,7 +316,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 12, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
 
     // 注入：collectHighlights 空、injectWithResponse 回傳「含圖片」的內容
     let funcCall = 0;
@@ -390,7 +390,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 21, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
 
     // 已保存頁面 → 走 updateNotionPage 分支
     const savedKey = `saved_${url}`;
@@ -463,7 +463,7 @@ describe('background error branches (integration)', () => {
   test('updateNotionPage：一般 4xx 錯誤 → 返回原始訊息', async () => {
     const url = 'https://example.com/article2';
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 22, url, title: 'Article2', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
 
     const savedKey = `saved_${url}`;
     await new Promise((r) => chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-abc' } }, r));
@@ -514,7 +514,7 @@ describe('background error branches (integration)', () => {
     // 活動分頁
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 21, url, title: 'Article', active: true }]));
     // 配置 API/DB
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
     // 已保存頁面的 storage
     await new Promise((r) => chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: 'page-xyz' } }, r));
 
@@ -574,7 +574,7 @@ describe('background error branches (integration)', () => {
     const normUrl = url;
 
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 22, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
     await new Promise((r) => chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: 'page-abc' } }, r));
 
     let funcCall = 0;

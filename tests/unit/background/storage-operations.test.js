@@ -30,6 +30,7 @@ describe('Background Storage Operations', () => {
       // Arrange
       const mockConfig = {
         notionApiKey: 'secret_test_key',
+        notionDataSourceId: 'ds-123',
         notionDatabaseId: 'db-123'
       };
 
@@ -37,11 +38,12 @@ describe('Background Storage Operations', () => {
 
       // Act
       const result = await new Promise((resolve) => {
-        getConfigSimulated(['notionApiKey', 'notionDatabaseId'], resolve);
+        getConfigSimulated(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'], resolve);
       });
 
       // Assert
       expect(result.notionApiKey).toBe('secret_test_key');
+      expect(result.notionDataSourceId).toBe('ds-123');
       expect(result.notionDatabaseId).toBe('db-123');
     });
 
