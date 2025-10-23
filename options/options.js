@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadDatabases(apiKey) {
         try {
             showStatus('正在載入資料來源列表...', 'info');
-            window.Logger?.info?.('開始載入資料來源，API Key:', apiKey.substring(0, 20) + '...');
+            window.Logger?.info?.(`開始載入資料來源，API Key: ${apiKey.substring(0, 20)}...`);
 
             const response = await fetch('https://api.notion.com/v1/search', {
                 method: 'POST',
