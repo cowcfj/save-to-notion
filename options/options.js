@@ -1219,15 +1219,16 @@ class SearchableDatabaseSelector {
         this.refreshButton = document.getElementById('refresh-databases');
         this.databaseIdInput = document.getElementById('database-id');
         
-        console.log('SearchableDatabaseSelector 元素初始化:');
-        console.log('- container:', this.container);
-        console.log('- searchInput:', this.searchInput);
-        console.log('- toggleButton:', this.toggleButton);
-        console.log('- dropdown:', this.dropdown);
-        console.log('- databaseList:', this.databaseList);
-        console.log('- databaseCount:', this.databaseCount);
-        console.log('- refreshButton:', this.refreshButton);
-        console.log('- databaseIdInput:', this.databaseIdInput);
+        window.Logger?.info?.('SearchableDatabaseSelector 元素初始化:', {
+            container: this.container,
+            searchInput: this.searchInput,
+            toggleButton: this.toggleButton,
+            dropdown: this.dropdown,
+            databaseList: this.databaseList,
+            databaseCount: this.databaseCount,
+            refreshButton: this.refreshButton,
+            databaseIdInput: this.databaseIdInput
+        });
         
         if (!this.container) {
             console.error('找不到 database-selector-container 元素！');
