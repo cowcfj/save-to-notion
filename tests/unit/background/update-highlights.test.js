@@ -117,7 +117,7 @@ describe('Background Update Highlights', () => {
           method: 'GET',
           headers: expect.objectContaining({
             'Authorization': `Bearer ${mockApiKey}`,
-            'Notion-Version': '2022-06-28'
+            'Notion-Version': '2025-09-03'
           })
         })
       );
@@ -559,7 +559,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Notion-Version': '2022-06-28'
+        'Notion-Version': '2025-09-03'
       }
     });
 
@@ -608,7 +608,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
-            'Notion-Version': '2022-06-28'
+            'Notion-Version': '2025-09-03'
           }
         });
 
@@ -675,7 +675,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2022-06-28'
+          'Notion-Version': '2025-09-03'
         },
         body: JSON.stringify({
           children: highlightBlocks

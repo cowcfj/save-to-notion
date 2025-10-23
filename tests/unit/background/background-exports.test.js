@@ -178,7 +178,7 @@ try {
             headers: {
               'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
-              'Notion-Version': '2022-06-28'
+              'Notion-Version': '2025-09-03'
             },
             body: JSON.stringify({
               children: batch
@@ -644,7 +644,7 @@ describe('Background.js Exported Functions', () => {
           headers: {
             'Authorization': `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-            'Notion-Version': '2022-06-28'
+            'Notion-Version': '2025-09-03'
           },
           body: JSON.stringify({
             children: blocks

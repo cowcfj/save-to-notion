@@ -34,8 +34,8 @@
                 <button type="button" id="test-api-button" class="test-button">測試 API Key</button>
             </div>
             <div class="form-group">
-                <label for="database-id">Notion Database ID</label>
-                <input type="text" id="database-id" placeholder="Enter your Notion Database ID">
+                <label for="database-id">Notion Data Source ID（原 Database ID）</label>
+                <input type="text" id="database-id" placeholder="Enter your Notion Data Source ID">
                 
                 <!-- 可搜索的數據庫選擇器 -->
                 <div class="database-selector-container" id="database-selector-container" style="display: none;">
@@ -43,7 +43,7 @@
                         <div class="selector-input">
                             <input type="text" 
                                    id="database-search" 
-                                   placeholder="搜索數據庫名稱..." 
+                                   placeholder="搜索資料來源名稱..." 
                                    autocomplete="off">
                             <button type="button" id="selector-toggle" class="selector-toggle">
                                 <span class="arrow">▼</span>
@@ -51,15 +51,15 @@
                         </div>
                         <div class="selector-dropdown" id="database-dropdown" style="display: none;">
                             <div class="dropdown-header">
-                                <span class="database-count" id="database-count">0 個數據庫</span>
-                                <button type="button" id="refresh-databases" class="refresh-btn" title="重新載入數據庫">
+                                <span class="database-count" id="database-count">0 個資料來源</span>
+                                <button type="button" id="refresh-databases" class="refresh-btn" title="重新載入資料來源">
                                     🔄
                                 </button>
                             </div>
                             <div class="dropdown-list" id="database-list">
                                 <div class="loading-state">
                                     <div class="spinner"></div>
-                                    <span>載入數據庫中...</span>
+                                    <span>載入資料來源中...</span>
                                 </div>
                             </div>
                         </div>
@@ -68,7 +68,7 @@
                 
                 <!-- 保留原有的簡單選擇器作為回退 -->
                 <select id="database-select" style="display: none;">
-                    <option value="">選擇數據庫...</option>
+                    <option value="">選擇資料來源...</option>
                 </select>
             </div>
             <button id="save-button">Save Settings</button>

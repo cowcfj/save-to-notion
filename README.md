@@ -32,10 +32,10 @@
 ### 2. 設置 Notion Integration
 1. 點擊擴展圖標 → Settings → 連接到 Notion
 2. 在 Notion 創建 Integration，複製 API Token
-3. 貼上 Token，選擇目標數據庫，保存設置
+3. 貼上 Token，選擇目標資料來源（Notion 介面仍顯示為 Database），保存設置
 
-### 3. 授權數據庫
-在 Notion 數據庫中：點擊「...」→「Add connections」→ 選擇你的 Integration
+### 3. 授權資料來源（Database）
+在 Notion 資料來源（Notion 介面標示為 Database）中：點擊「...」→「Add connections」→ 選擇你的 Integration
 
 > � **詳細配置步驟請參考** → [完整使用指南](USER_GUIDE.md#-快速開始)
 
@@ -92,7 +92,7 @@
 
 ### ⚙️ 便捷設置
 - 一鍵連接 Notion Integration
-- 自動載入數據庫列表
+- 自動載入資料來源列表
 - API Key 連接測試
 
 ---
@@ -180,7 +180,7 @@ notion-chrome/
 - **background.js**：處理擴展邏輯、API 調用、模板處理、更新通知
 - **content.js**：網頁內容提取、圖片處理
 - **highlighter-v2.js**：基於 CSS Highlight API 的標註引擎
-- **options.js**：設置頁面邏輯，包含搜索式數據庫選擇器
+- **options.js**：設置頁面邏輯，包含搜索式資料來源選擇器
 - **utils.js**：共享工具函數和 URL 處理
 
 ### 核心技術特點

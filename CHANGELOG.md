@@ -10,6 +10,7 @@
 
 ### 🛠️ 工程改進
 - 提取 `fetchNotionWithRetry()`，集中處理 Notion API 重試與回退。
+- 升級 Notion API 至 `2025-09-03`，改用資料來源（Data Source）ID、統一請求版本標頭，並保留舊設定以確保向後相容。
 
 
 ## v2.9.9 - 2025-10-22

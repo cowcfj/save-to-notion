@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const status = document.getElementById('status');
     const debugToggle = document.getElementById('enable-debug-logs');
     const authStatus = document.getElementById('auth-status');
+    const manualSection = document.querySelector('.manual-section');
     
     // 模板相關元素
     const titleTemplateInput = document.getElementById('title-template');
@@ -16,16 +17,68 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewButton = document.getElementById('preview-template');
     const templatePreview = document.getElementById('template-preview');
 
+    let upgradeNoticeBanner = null;
+
+    /**
+     * 顯示資料來源升級通知橫幅
+     * @description 當偵測到用戶仍在使用舊的Database ID時，顯示升級通知，提醒用戶切換到新的Data Source
+     * @param {string} legacyDatabaseId - 舊的資料庫ID，用於在通知中顯示
+     * @returns {void}
+     */
+    function showDataSourceUpgradeNotice(legacyDatabaseId = '') {
+        if (!manualSection) return;
+
+        if (!upgradeNoticeBanner) {
+            upgradeNoticeBanner = document.createElement('div');
+            upgradeNoticeBanner.className = 'upgrade-notice';
+            upgradeNoticeBanner.innerHTML = `
+                <strong>Notion API 已升級至 2025-09-03 版本</strong>
+                <p>偵測到您仍在使用舊的 Database ID：<code class="upgrade-notice-id">${legacyDatabaseId || '未設定'}</code>。請重新載入並選擇資料來源（Data Source），以儲存新的 Data Source ID，確保同步與標註完全正常。</p>
+                <div class="upgrade-hint">提示：點擊下方按鈕重新載入資料來源後，從列表重新選擇並儲存設定即可完成升級。</div>
+                <div class="upgrade-actions">
+                    <button type="button" class="upgrade-refresh-button">🔄 重新載入資料來源</button>
+                </div>
+            `;
+
+            manualSection.insertBefore(upgradeNoticeBanner, manualSection.firstChild);
+
+            const refreshButton = upgradeNoticeBanner.querySelector('.upgrade-refresh-button');
+            if (refreshButton) {
+                refreshButton.addEventListener('click', () => {
+                    if (!testApiButton.disabled) {
+                        testApiButton.click();
+                    }
+                });
+            }
+        }
+
+        const idDisplay = upgradeNoticeBanner.querySelector('.upgrade-notice-id');
+        if (idDisplay) {
+            idDisplay.textContent = legacyDatabaseId || '未設定';
+        }
+    }
+
+    /**
+     * 隱藏資料來源升級通知橫幅
+     * @description 從頁面中移除升級通知橫幅並清除引用，用於用戶已完成升級或不需要顯示通知時
+     * @returns {void}
+     */
+    function hideDataSourceUpgradeNotice() {
+        upgradeNoticeBanner?.parentNode?.remove();
+        upgradeNoticeBanner = null;
+    }
+
     // 檢查授權狀態和載入設置
     function checkAuthStatus() {
         chrome.storage.sync.get([
-            'notionApiKey', 
-            'notionDatabaseId', 
-            'titleTemplate', 
-            'addSource', 
-            'addTimestamp',
-            'enableDebugLogs'
-        ], (result) => {
+            'notionApiKey',
+            'notionDataSourceId',
+            'notionDatabaseId',
+        'titleTemplate',
+        'addSource',
+        'addTimestamp',
+        'enableDebugLogs'
+    ], (result) => {
             if (result.notionApiKey) {
                 authStatus.textContent = '✅ 已連接到 Notion';
                 authStatus.className = 'auth-status success';
@@ -33,16 +86,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 apiKeyInput.value = result.notionApiKey;
                 
-                if (result.notionDatabaseId) {
-                    databaseIdInput.value = result.notionDatabaseId;
+                const storedLegacyId = result.notionDatabaseId || '';
+                const storedDataSourceId = result.notionDataSourceId || '';
+                const resolvedId = storedDataSourceId || storedLegacyId;
+
+                if (resolvedId) {
+                    databaseIdInput.value = resolvedId;
+                } else {
+                    databaseIdInput.value = '';
+                }
+
+                if (storedLegacyId && !storedDataSourceId) {
+                    showDataSourceUpgradeNotice(storedLegacyId);
+                } else {
+                    hideDataSourceUpgradeNotice();
                 }
                 
-                // 載入數據庫列表
+                // 載入資料來源列表
                 loadDatabases(result.notionApiKey);
             } else {
                 authStatus.textContent = '未連接到 Notion';
                 authStatus.className = 'auth-status';
                 oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
+                hideDataSourceUpgradeNotice();
             }
             
             // 載入模板設置
@@ -90,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <li>點擊 <strong>"+ New integration"</strong> 創建新的集成</li>
                     <li>複製 <strong>"Internal Integration Token"</strong></li>
                     <li>將 Token 貼到下方的 API Key 欄位</li>
-                    <li>系統會自動載入可用的數據庫列表</li>
+                    <li>系統會自動載入可用的資料來源列表</li>
                 </ol>
             </div>
         `;
@@ -103,28 +169,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const guideDiv = document.createElement('div');
         guideDiv.className = 'setup-guide';
         guideDiv.innerHTML = guideHtml;
-        
-        const manualSection = document.querySelector('.manual-section');
+    
         manualSection.insertBefore(guideDiv, manualSection.firstChild);
     }
 
-    // 載入數據庫列表
+    // 載入資料來源列表
     async function loadDatabases(apiKey) {
         try {
-            showStatus('正在載入數據庫列表...', 'info');
-            console.log('開始載入數據庫，API Key:', apiKey.substring(0, 20) + '...');
-            
+            showStatus('正在載入資料來源列表...', 'info');
+            window.Logger?.info?.(`開始載入資料來源，API Key: ${apiKey.substring(0, 20)}...`);
+
             const response = await fetch('https://api.notion.com/v1/search', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
-                    'Notion-Version': '2022-06-28'
+                    'Notion-Version': '2025-09-03'
                 },
                 body: JSON.stringify({
                     filter: {
                         property: 'object',
-                        value: 'database'
+                        value: 'data_source'
                     },
                     page_size: 100
                 })
@@ -139,14 +204,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.results && data.results.length > 0) {
                     populateDatabaseSelect(data.results);
                 } else {
-                    showStatus('未找到任何數據庫。請確保：1) API Key 正確 2) Integration 已連接到數據庫', 'error');
+                    showStatus('未找到任何資料來源。請確保：1) API Key 正確 2) Integration 已連接到資料來源', 'error');
                     databaseSelect.style.display = 'none';
                 }
             } else {
                 const errorData = await response.json();
                 console.error('API 錯誤:', errorData);
                 
-                let errorMessage = '載入數據庫失敗: ';
+                let errorMessage = '載入資料來源失敗: ';
                 if (response.status === 401) {
                     errorMessage += 'API Key 無效或已過期';
                 } else if (response.status === 403) {
@@ -159,9 +224,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 databaseSelect.style.display = 'none';
             }
         } catch (error) {
-            console.error('載入數據庫失敗:', error);
+            console.error('載入資料來源失敗:', error);
             
-            let errorMessage = '載入數據庫失敗: ';
+            let errorMessage = '載入資料來源失敗: ';
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
                 errorMessage += '網絡連接問題，請檢查網絡連接';
             } else {
@@ -173,10 +238,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 填充數據庫選擇器
+    // 填充資料來源選擇器
     function populateDatabaseSelect(databases) {
-        console.log('populateDatabaseSelect 被調用，數據庫數量:', databases.length);
-        
+        window.Logger?.info?.('populateDatabaseSelect 被調用，資料來源數量:', databases.length);
+
         // 初始化搜索式選擇器（如果還沒有）
         if (!searchableSelector) {
             console.log('初始化搜索式選擇器');
@@ -192,27 +257,27 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('隱藏原有選擇器');
         
         // 保留原有邏輯作為回退（但隱藏）
-        databaseSelect.innerHTML = '<option value="">選擇數據庫...</option>';
-        
-        console.log('找到數據庫:', databases.length, '個');
-        
+        databaseSelect.innerHTML = '<option value="">選擇資料來源...</option>';
+
+        window.Logger?.info?.('找到資料來源:', databases.length, '個');
+
         databases.forEach(db => {
             const option = document.createElement('option');
             option.value = db.id;
             // 修復標題提取邏輯
-            let title = '未命名數據庫';
+            let title = '未命名資料來源';
             if (db.title && db.title.length > 0) {
-                title = db.title[0].plain_text || db.title[0].text?.content || '未命名數據庫';
+                title = db.title[0].plain_text || db.title[0].text?.content || '未命名資料來源';
             } else if (db.properties && db.properties.title) {
-                // 有些數據庫的標題在 properties 中
+                // 有些資料來源的標題在 properties 中
                 const titleProp = Object.values(db.properties).find(prop => prop.type === 'title');
                 if (titleProp && titleProp.title && titleProp.title.length > 0) {
-                    title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || '未命名數據庫';
+                    title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || '未命名資料來源';
                 }
             }
             option.textContent = title;
             databaseSelect.appendChild(option);
-            console.log('添加數據庫:', title, 'ID:', db.id);
+            window.Logger?.debug?.('添加資料來源:', title, 'ID:', db.id);
         });
 
         if (databases.length > 0) {
@@ -220,17 +285,17 @@ document.addEventListener('DOMContentLoaded', () => {
             databaseSelect.removeEventListener('change', handleDatabaseSelect);
             databaseSelect.addEventListener('change', handleDatabaseSelect);
             
-            showStatus(`找到 ${databases.length} 個數據庫，請從下拉選單中選擇`, 'success');
+            showStatus(`找到 ${databases.length} 個資料來源，請從下拉選單中選擇`, 'success');
         } else {
-            showStatus('未找到任何數據庫，請確保 API Key 有權限訪問數據庫', 'error');
+            showStatus('未找到任何資料來源，請確保 API Key 有權限訪問資料來源', 'error');
         }
     }
 
-    // 處理數據庫選擇
+    // 處理資料來源選擇
     function handleDatabaseSelect() {
         if (databaseSelect.value) {
             databaseIdInput.value = databaseSelect.value;
-            showStatus('數據庫已選擇，請點擊保存設置', 'info');
+            showStatus('資料來源已選擇，請點擊保存設置', 'info');
         }
     }
 
@@ -267,6 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 保存所有設置
             const settings = {
                 notionApiKey: apiKey,
+                notionDataSourceId: databaseId,
                 notionDatabaseId: databaseId,
                 titleTemplate: titleTemplateInput.value.trim() || '{title}',
                 addSource: addSourceCheckbox.checked,
@@ -279,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkAuthStatus();
             });
         } else {
-            showStatus('請填寫 API Key 和數據庫 ID', 'error');
+            showStatus('請填寫 API Key 和資料來源 ID', 'error');
         }
     }
 
@@ -296,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // API Key 輸入時自動載入數據庫
+    // API Key 輸入時自動載入資料來源
     let loadDatabasesTimeout;
     
     function handleApiKeyInput() {
@@ -1136,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 // ==========================================
-// 可搜索數據庫選擇器
+// 可搜索資料來源選擇器
 // ==========================================
 
 class SearchableDatabaseSelector {
@@ -1161,15 +1227,16 @@ class SearchableDatabaseSelector {
         this.refreshButton = document.getElementById('refresh-databases');
         this.databaseIdInput = document.getElementById('database-id');
         
-        console.log('SearchableDatabaseSelector 元素初始化:');
-        console.log('- container:', this.container);
-        console.log('- searchInput:', this.searchInput);
-        console.log('- toggleButton:', this.toggleButton);
-        console.log('- dropdown:', this.dropdown);
-        console.log('- databaseList:', this.databaseList);
-        console.log('- databaseCount:', this.databaseCount);
-        console.log('- refreshButton:', this.refreshButton);
-        console.log('- databaseIdInput:', this.databaseIdInput);
+        window.Logger?.info?.('SearchableDatabaseSelector 元素初始化:', {
+            container: this.container,
+            searchInput: this.searchInput,
+            toggleButton: this.toggleButton,
+            dropdown: this.dropdown,
+            databaseList: this.databaseList,
+            databaseCount: this.databaseCount,
+            refreshButton: this.refreshButton,
+            databaseIdInput: this.databaseIdInput
+        });
         
         if (!this.container) {
             console.error('找不到 database-selector-container 元素！');
@@ -1199,7 +1266,7 @@ class SearchableDatabaseSelector {
             this.toggleDropdown();
         });
 
-        // 重新載入數據庫
+        // 重新載入資料來源
         this.refreshButton.addEventListener('click', (e) => {
             e.preventDefault();
             this.refreshDatabases();
@@ -1230,8 +1297,8 @@ class SearchableDatabaseSelector {
             created: db.created_time,
             lastEdited: db.last_edited_time
         }));
-        
-        console.log('處理後的數據庫:', this.databases);
+
+        window.Logger?.info?.('處理後的資料來源:', this.databases);
         
         // 按標題排序
         this.databases.sort((a, b) => a.title.localeCompare(b.title));
@@ -1245,10 +1312,10 @@ class SearchableDatabaseSelector {
         this.container.style.display = 'block';
         
         // 更新搜索框提示
-        this.searchInput.placeholder = `搜索 ${databases.length} 個數據庫...`;
+        this.searchInput.placeholder = `搜索 ${databases.length} 個資料來源...`;
         console.log('搜索選擇器初始化完成');
         
-        // 如果當前有選中的數據庫，在搜索框中顯示
+        // 如果當前有選中的資料來源，在搜索框中顯示
         if (this.databaseIdInput.value) {
             const selectedDb = this.databases.find(db => db.id === this.databaseIdInput.value);
             if (selectedDb) {
@@ -1280,7 +1347,7 @@ class SearchableDatabaseSelector {
             this.databaseList.innerHTML = `
                 <div class="no-results">
                     <span class="icon">🔍</span>
-                    <div>未找到匹配的數據庫</div>
+                    <div>未找到匹配的資料來源</div>
                     <small>嘗試使用不同的關鍵字搜索</small>
                 </div>
             `;
@@ -1318,7 +1385,7 @@ class SearchableDatabaseSelector {
                 <div class="database-id">${db.id}</div>
                 <div class="database-meta">
                     <span class="database-icon">📊</span>
-                    <span>數據庫</span>
+                    <span>資料來源</span>
                     ${db.created ? `<span>•</span><span>創建於 ${this.formatDate(db.created)}</span>` : ''}
                 </div>
             </div>
@@ -1331,7 +1398,7 @@ class SearchableDatabaseSelector {
         // 更新搜索框顯示
         this.searchInput.value = database.title;
         
-        // 更新隱藏的數據庫 ID 輸入框
+        // 更新隱藏的資料來源 ID 輸入框
         this.databaseIdInput.value = database.id;
         
         // 重新渲染以顯示選中狀態
@@ -1340,7 +1407,7 @@ class SearchableDatabaseSelector {
         this.hideDropdown();
         
         // 顯示成功狀態
-        showStatus(`已選擇數據庫: ${database.title}`, 'success');
+        showStatus(`已選擇資料來源: ${database.title}`, 'success');
         
         // 觸發選擇事件（如果需要）
         this.onDatabaseSelected?.(database);
@@ -1422,9 +1489,9 @@ class SearchableDatabaseSelector {
         const filtered = this.filteredDatabases.length;
         
         if (filtered === total) {
-            this.databaseCount.textContent = `${total} 個數據庫`;
+            this.databaseCount.textContent = `${total} 個資料來源`;
         } else {
-            this.databaseCount.textContent = `${filtered} / ${total} 個數據庫`;
+            this.databaseCount.textContent = `${filtered} / ${total} 個資料來源`;
         }
     }
 
@@ -1440,21 +1507,21 @@ class SearchableDatabaseSelector {
         this.databaseList.innerHTML = `
             <div class="loading-state">
                 <div class="spinner"></div>
-                <span>重新載入數據庫中...</span>
+                <span>重新載入資料來源中...</span>
             </div>
         `;
         this.showDropdown();
     }
 
     extractDatabaseTitle(db) {
-        let title = '未命名數據庫';
+        let title = '未命名資料來源';
         
         if (db.title && db.title.length > 0) {
-            title = db.title[0].plain_text || db.title[0].text?.content || '未命名數據庫';
+            title = db.title[0].plain_text || db.title[0].text?.content || '未命名資料來源';
         } else if (db.properties) {
             const titleProp = Object.values(db.properties).find(prop => prop.type === 'title');
             if (titleProp && titleProp.title && titleProp.title.length > 0) {
-                title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || '未命名數據庫';
+                title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || '未命名資料來源';
             }
         }
         
@@ -1485,5 +1552,5 @@ class SearchableDatabaseSelector {
     }
 }
 
-// 初始化搜索式數據庫選擇器
+// 初始化搜索式資料來源選擇器
 let searchableSelector = null;

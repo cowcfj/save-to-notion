@@ -4,7 +4,7 @@
  * 測試範圍：
  * - createNotionPage() - 基礎頁面創建
  * - appendBlocksInBatches() - 批次追加邏輯
- * - fetchDatabases() - 資料庫獲取
+ * - fetchDatabases() - 資料來源獲取
  * - testApiKey() - API Key 驗證
  */
 
@@ -60,10 +60,13 @@ describe('Notion API - 基礎頁面創建', () => {
                 headers: {
                     'Authorization': 'Bearer test-key',
                     'Content-Type': 'application/json',
-                    'Notion-Version': '2022-06-28'
+                    'Notion-Version': '2025-09-03'
                 },
                 body: JSON.stringify({
-                    parent: { database_id: 'db-123' },
+                    parent: {
+                        type: 'data_source_id',
+                        data_source_id: 'ds-123'
+                    },
                     properties: {
                         title: {
                             title: [{ text: { content: 'Test Page' } }]
@@ -96,7 +99,7 @@ describe('Notion API - 基礎頁面創建', () => {
                 headers: {
                     'Authorization': 'Bearer invalid-key',
                     'Content-Type': 'application/json',
-                    'Notion-Version': '2022-06-28'
+                    'Notion-Version': '2025-09-03'
                 }
             });
 
@@ -115,14 +118,17 @@ describe('Notion API - 基礎頁面創建', () => {
                     object: 'error',
                     status: 404,
                     code: 'object_not_found',
-                    message: 'Could not find database with ID: db-invalid'
+                    message: 'Could not find data source with ID: ds-invalid'
                 })
             });
 
             const result = await global.fetch('https://api.notion.com/v1/pages', {
                 method: 'POST',
                 body: JSON.stringify({
-                    parent: { database_id: 'db-invalid' }
+                    parent: {
+                        type: 'data_source_id',
+                        data_source_id: 'ds-invalid'
+                    }
                 })
             });
 
@@ -229,14 +235,14 @@ describe('Notion API - 批次追加邏輯', () => {
     });
 });
 
-describe('Notion API - 資料庫獲取', () => {
+describe('Notion API - 資料來源獲取', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         global.fetch.mockClear();
     });
 
     describe('fetchDatabases()', () => {
-        test('應該成功獲取資料庫列表', async () => {
+        test('應該成功獲取資料來源列表', async () => {
             global.fetch.mockResolvedValueOnce({
                 ok: true,
                 json: async () => ({
@@ -271,7 +277,7 @@ describe('Notion API - 資料庫獲取', () => {
             expect(data.results[0].id).toBe('db-1');
         });
 
-        test('應該處理空資料庫列表', async () => {
+        test('應該處理空資料來源列表', async () => {
             global.fetch.mockResolvedValueOnce({
                 ok: true,
                 json: async () => ({
@@ -336,7 +342,7 @@ describe('Notion API - API Key 驗證', () => {
                 method: 'POST',
                 headers: {
                     'Authorization': 'Bearer valid-key',
-                    'Notion-Version': '2022-06-28'
+                    'Notion-Version': '2025-09-03'
                 }
             });
 
@@ -568,14 +574,17 @@ describe('Notion API - 錯誤處理增強', () => {
                     object: 'error',
                     status: 400,
                     code: 'validation_error',
-                    message: 'body failed validation: body.parent.database_id should be a string'
+                    message: 'body failed validation: body.parent.data_source_id should be a string'
                 })
             });
 
             const result = await global.fetch('https://api.notion.com/v1/pages', {
                 method: 'POST',
                 body: JSON.stringify({
-                    parent: { database_id: 123 } // 應該是字符串
+                    parent: {
+                        type: 'data_source_id',
+                        data_source_id: 123
+                    } // 應該是字符串
                 })
             });
 
@@ -640,7 +649,7 @@ describe('Notion API - 錯誤處理增強', () => {
     });
 
     describe('權限錯誤', () => {
-        test('應該處理無權限訪問數據庫', async () => {
+        test('應該處理無權限訪問資料來源', async () => {
             global.fetch.mockResolvedValueOnce({
                 ok: false,
                 status: 403,
@@ -648,11 +657,11 @@ describe('Notion API - 錯誤處理增強', () => {
                     object: 'error',
                     status: 403,
                     code: 'restricted_resource',
-                    message: 'The integration does not have access to this database.'
+                    message: 'The integration does not have access to this data source.'
                 })
             });
 
-            const result = await global.fetch('https://api.notion.com/v1/databases/db-restricted');
+            const result = await global.fetch('https://api.notion.com/v1/data_sources/ds-restricted');
 
             expect(result.ok).toBe(false);
             expect(result.status).toBe(403);
@@ -669,14 +678,17 @@ describe('Notion API - 錯誤處理增強', () => {
                     object: 'error',
                     status: 403,
                     code: 'restricted_resource',
-                    message: 'The integration does not have permission to create pages in this database.'
+                    message: 'The integration does not have permission to create pages in this data source.'
                 })
             });
 
             const result = await global.fetch('https://api.notion.com/v1/pages', {
                 method: 'POST',
                 body: JSON.stringify({
-                    parent: { database_id: 'db-restricted' }
+                    parent: {
+                        type: 'data_source_id',
+                        data_source_id: 'ds-restricted'
+                    }
                 })
             });
 

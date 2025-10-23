@@ -136,6 +136,59 @@ h2 {
     border: 1px solid #e2e8f0;
 }
 
+.upgrade-notice {
+    background: #fff7e6;
+    border: 1px solid rgba(246, 173, 85, 0.6);
+    color: #744210;
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin-bottom: 18px;
+    line-height: 1.6;
+}
+
+.upgrade-notice strong {
+    display: block;
+    font-size: 15px;
+    margin-bottom: 6px;
+}
+
+.upgrade-notice code {
+    background: rgba(255, 255, 255, 0.6);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 13px;
+    color: #9c4221;
+}
+
+.upgrade-notice .upgrade-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.upgrade-notice .upgrade-refresh-button {
+    background: #f6ad55;
+    border: none;
+    color: #744210;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.upgrade-notice .upgrade-refresh-button:hover {
+    background: #ed8936;
+    color: #fff;
+}
+
+.upgrade-notice .upgrade-hint {
+    font-size: 13px;
+    color: rgba(116, 66, 16, 0.8);
+}
+
 .form-group {
     margin-bottom: 20px;
 }
