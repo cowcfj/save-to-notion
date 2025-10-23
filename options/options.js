@@ -160,8 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const guideDiv = document.createElement('div');
         guideDiv.className = 'setup-guide';
         guideDiv.innerHTML = guideHtml;
-        
-        const manualSection = document.querySelector('.manual-section');
+    
         manualSection.insertBefore(guideDiv, manualSection.firstChild);
     }
 
