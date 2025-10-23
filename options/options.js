@@ -19,6 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let upgradeNoticeBanner = null;
 
+    /**
+     * 顯示資料來源升級通知橫幅
+     * @description 當偵測到用戶仍在使用舊的Database ID時，顯示升級通知，提醒用戶切換到新的Data Source
+     * @param {string} legacyDatabaseId - 舊的資料庫ID，用於在通知中顯示
+     * @returns {void}
+     */
     function showDataSourceUpgradeNotice(legacyDatabaseId = '') {
         if (!manualSection) return;
 
@@ -52,6 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * 隱藏資料來源升級通知橫幅
+     * @description 從頁面中移除升級通知橫幅並清除引用，用於用戶已完成升級或不需要顯示通知時
+     * @returns {void}
+     */
     function hideDataSourceUpgradeNotice() {
         if (upgradeNoticeBanner && upgradeNoticeBanner.parentNode) {
             upgradeNoticeBanner.parentNode.remove();
