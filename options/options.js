@@ -169,8 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadDatabases(apiKey) {
         try {
             showStatus('正在載入資料來源列表...', 'info');
-            console.log('開始載入資料來源，API Key:', apiKey.substring(0, 20) + '...');
-            
+            window.Logger?.info?.('開始載入資料來源，API Key:', apiKey.substring(0, 20) + '...');
+
             const response = await fetch('https://api.notion.com/v1/search', {
                 method: 'POST',
                 headers: {
@@ -232,8 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 填充資料來源選擇器
     function populateDatabaseSelect(databases) {
-        console.log('populateDatabaseSelect 被調用，資料來源數量:', databases.length);
-        
+        window.Logger?.info?.('populateDatabaseSelect 被調用，資料來源數量:', databases.length);
+
         // 初始化搜索式選擇器（如果還沒有）
         if (!searchableSelector) {
             console.log('初始化搜索式選擇器');
@@ -250,9 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 保留原有邏輯作為回退（但隱藏）
         databaseSelect.innerHTML = '<option value="">選擇資料來源...</option>';
-        
-        console.log('找到資料來源:', databases.length, '個');
-        
+
+        window.Logger?.info?.('找到資料來源:', databases.length, '個');
+
         databases.forEach(db => {
             const option = document.createElement('option');
             option.value = db.id;
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             option.textContent = title;
             databaseSelect.appendChild(option);
-            console.log('添加資料來源:', title, 'ID:', db.id);
+            window.Logger?.debug?.('添加資料來源:', title, 'ID:', db.id);
         });
 
         if (databases.length > 0) {
