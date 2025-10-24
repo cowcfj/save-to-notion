@@ -14,10 +14,16 @@
         <div class="auth-section">
             <h2>連接 Notion</h2>
             <div id="auth-status" class="auth-status"></div>
-            <button id="oauth-button" class="oauth-button">
-                <span class="notion-icon">📝</span>
-                連接到 Notion
-            </button>
+            <div class="auth-actions">
+                <button id="oauth-button" class="oauth-button">
+                    <span class="notion-icon">📝</span>
+                    連接到 Notion
+                </button>
+                <button id="disconnect-button" class="disconnect-button" style="display: none;">
+                    <span class="disconnect-icon">❌</span>
+                    斷開連接
+                </button>
+            </div>
             <p class="auth-description">
                 點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
             </p>
@@ -212,6 +218,7 @@
 
 
     </div>
+    <script src="../scripts/utils.js"></script>
     <script src="options.js"></script>
 </body>
 </html>
