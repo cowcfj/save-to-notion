@@ -43,7 +43,8 @@ const optionsHandler = {
             'enableDebugLogs'
         ], (result) => {
             // 模擬授權狀態檢查邏輯
-            const hasAuth = !!result.notionApiKey;
+            // 模擬授權狀態檢查邏輯
+            const hasAuth = Boolean(result.notionApiKey);
 
             // 返回狀態以便測試驗證
             resolve({
