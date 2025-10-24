@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g., v2.9.11)'
+        required: true
+      draft:
+        description: 'Create as draft'
+        required: false
+        default: 'false'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set release variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+            echo "IS_DRAFT=${{ github.event.inputs.draft }}" >> $GITHUB_ENV
+          else
+            echo "TAG_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+            echo "IS_DRAFT=false" >> $GITHUB_ENV
+          fi
+          echo "ZIP_NAME=notion-smart-clipper-${TAG_NAME}.zip" >> $GITHUB_ENV
+          echo "RELEASE_NOTES_FILE=RELEASE_NOTES_${TAG_NAME}.md" >> $GITHUB_ENV
+
+      - name: Prepare dist
+        run: |
+          rm -rf dist
+          mkdir -p dist releases
+          cp -a manifest.json dist/
+          cp -a icons dist/
+          cp -a options dist/
+          cp -a popup dist/
+          cp -a scripts dist/
+          cp -a lib dist/
+          cp -a update-notification dist/
+          cp -a help.html dist/
+
+      - name: Create zip
+        run: |
+          cd dist
+          zip -r "../releases/${ZIP_NAME}" .
+
+      - name: Detect release notes file
+        run: |
+          if [ -f "${RELEASE_NOTES_FILE}" ]; then
+            echo "HAS_NOTES=true" >> $GITHUB_ENV
+          else
+            echo "HAS_NOTES=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Release (with notes file)
+        if: env.HAS_NOTES == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.TAG_NAME }}
+          draft: ${{ env.IS_DRAFT == 'true' }}
+          body_path: ${{ env.RELEASE_NOTES_FILE }}
+          files: |
+            releases/${{ env.ZIP_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release (auto-generated notes)
+        if: env.HAS_NOTES == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.TAG_NAME }}
+          draft: ${{ env.IS_DRAFT == 'true' }}
+          generate_release_notes: true
+          files: |
+            releases/${{ env.ZIP_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
