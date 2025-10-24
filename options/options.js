@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const Logger = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 
+
+
     /**
      * 顯示資料來源升級通知橫幅
      * @description 當偵測到用戶仍在使用舊的Database ID時，顯示升級通知，提醒用戶切換到新的Data Source
@@ -451,13 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 斷開連接功能
-    async function disconnectFromNotion(confirmFn = () => true) {
-        const message = "您確定要斷開與 Notion 的連接嗎？這將會清除您儲存的 API 金鑰與資料來源設定。";
-        const shouldProceed = confirmFn(message);
-        if (!shouldProceed) {
-            Logger.info('🔌 [斷開連接] 使用者取消了斷開操作。');
-            return;
-        }
+    async function disconnectFromNotion() {
         try {
             Logger.info('🔌 [斷開連接] 開始斷開 Notion 連接');
 
@@ -488,10 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 事件監聽器
     oauthButton.addEventListener('click', startNotionSetup);
-    /* eslint-disable-next-line no-alert */
-    disconnectButton.addEventListener('click', () => disconnectFromNotion(
-        (msg) => (typeof window !== 'undefined' && typeof window.confirm === 'function') ? window.confirm(msg) : true
-    ));
+    disconnectButton.addEventListener('click', disconnectFromNotion);
     saveButton.addEventListener('click', saveManualSettings);
     testApiButton.addEventListener('click', testApiKey);
     previewButton.addEventListener('click', previewTemplate);
