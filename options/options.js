@@ -451,42 +451,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 斷開連接功能
-    async function disconnectFromNotion() {
-        if (confirm("您確定要斷開與 Notion 的連接嗎？這將會清除您儲存的 API 金鑰與資料來源設定。")) {
-            try {
-                Logger.info('🔌 [斷開連接] 開始斷開 Notion 連接');
-
-                // 清除授權相關數據
-                await chrome.storage.sync.remove([
-                    'notionApiKey',
-                    'notionDataSourceId',
-                    'notionDatabaseId'
-                ]);
-
-                Logger.info('✅ [斷開連接] 已清除授權數據');
-
-                // 重新檢查授權狀態，這會更新UI
-                checkAuthStatus();
-
-                // 清除輸入框內容
-                if (apiKeyInput) apiKeyInput.value = '';
-                if (databaseIdInput) databaseIdInput.value = '';
-
-                showStatus('已成功斷開與 Notion 的連接。', 'success');
-                Logger.info('🔄 [斷開連接] UI 已更新為未連接狀態');
-
-            } catch (error) {
-                Logger.error('❌ [斷開連接] 斷開連接失敗:', error);
-                showStatus(`斷開連接失敗: ${error.message}`, 'error');
-            }
-        } else {
+    async function disconnectFromNotion(confirmFn = () => true) {
+        const message = "您確定要斷開與 Notion 的連接嗎？這將會清除您儲存的 API 金鑰與資料來源設定。";
+        const shouldProceed = confirmFn(message);
+        if (!shouldProceed) {
             Logger.info('🔌 [斷開連接] 使用者取消了斷開操作。');
+            return;
+        }
+        try {
+            Logger.info('🔌 [斷開連接] 開始斷開 Notion 連接');
+
+            // 清除授權相關數據
+            await chrome.storage.sync.remove([
+                'notionApiKey',
+                'notionDataSourceId',
+                'notionDatabaseId'
+            ]);
+
+            Logger.info('✅ [斷開連接] 已清除授權數據');
+
+            // 重新檢查授權狀態，這會更新UI
+            checkAuthStatus();
+
+            // 清除輸入框內容
+            if (apiKeyInput) apiKeyInput.value = '';
+            if (databaseIdInput) databaseIdInput.value = '';
+
+            showStatus('已成功斷開與 Notion 的連接。', 'success');
+            Logger.info('🔄 [斷開連接] UI 已更新為未連接狀態');
+
+        } catch (error) {
+            Logger.error('❌ [斷開連接] 斷開連接失敗:', error);
+            showStatus(`斷開連接失敗: ${error.message}`, 'error');
         }
     }
 
     // 事件監聽器
     oauthButton.addEventListener('click', startNotionSetup);
-    disconnectButton.addEventListener('click', disconnectFromNotion);
+    /* eslint-disable-next-line no-alert */
+    disconnectButton.addEventListener('click', () => disconnectFromNotion(
+        (msg) => (typeof window !== 'undefined' && typeof window.confirm === 'function') ? window.confirm(msg) : true
+    ));
     saveButton.addEventListener('click', saveManualSettings);
     testApiButton.addEventListener('click', testApiKey);
     previewButton.addEventListener('click', previewTemplate);
