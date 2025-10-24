@@ -1,9 +1,9 @@
 const optionsHandler = require('../helpers/options.testable.js');
 
 describe('Options - 授權管理', () => {
-  let mockRemove;
-  let mockGet;
-  let checkAuthStatusSpy;
+  let mockRemove = jest.fn();
+  let mockGet = jest.fn();
+  let checkAuthStatusSpy = null;
 
   beforeEach(() => {
     // Mock Chrome APIs
