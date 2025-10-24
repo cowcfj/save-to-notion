@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let upgradeNoticeBanner = null;
 
+    const Logger = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
+
     /**
      * 顯示資料來源升級通知橫幅
      * @description 當偵測到用戶仍在使用舊的Database ID時，顯示升級通知，提醒用戶切換到新的Data Source
@@ -284,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (databases.length > 0) {
-            // 移除舊的事件監聽器，避免重複綁定
+            // 移除舊的事件監聽器，避免重複綑続
             databaseSelect.removeEventListener('change', handleDatabaseSelect);
             databaseSelect.addEventListener('change', handleDatabaseSelect);
             
