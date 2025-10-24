@@ -31,7 +31,7 @@ const optionsHandler = {
    * 檢查授權狀態 - 可測試版本
    * @param {Object} storageAPI - 存儲 API（默認使用 chrome.storage.sync）
    */
-  async checkAuthStatus(storageAPI = chrome.storage.sync) {
+  checkAuthStatus(storageAPI = chrome.storage.sync) {
     return new Promise((resolve) => {
         storageAPI.get([
             'notionApiKey',
