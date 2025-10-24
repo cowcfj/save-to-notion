@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const databaseSelect = document.getElementById('database-select');
     const saveButton = document.getElementById('save-button');
     const oauthButton = document.getElementById('oauth-button');
+    const disconnectButton = document.getElementById('disconnect-button');
     const testApiButton = document.getElementById('test-api-button');
     const status = document.getElementById('status');
     const debugToggle = document.getElementById('enable-debug-logs');
@@ -83,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 authStatus.textContent = '✅ 已連接到 Notion';
                 authStatus.className = 'auth-status success';
                 oauthButton.innerHTML = '<span class="notion-icon">🔄</span>重新設置';
+                disconnectButton.style.display = 'inline-block';
                 
                 apiKeyInput.value = result.notionApiKey;
                 
@@ -108,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 authStatus.textContent = '未連接到 Notion';
                 authStatus.className = 'auth-status';
                 oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
+                disconnectButton.style.display = 'none';
                 hideDataSourceUpgradeNotice();
             }
             
@@ -445,8 +448,43 @@ document.addEventListener('DOMContentLoaded', () => {
         templatePreview.className = 'template-preview show';
     }
 
+    // 斷開連接功能
+    async function disconnectFromNotion() {
+        if (confirm("您確定要斷開與 Notion 的連接嗎？這將會清除您儲存的 API 金鑰與資料來源設定。")) {
+            try {
+                Logger.info('🔌 [斷開連接] 開始斷開 Notion 連接');
+
+                // 清除授權相關數據
+                await chrome.storage.sync.remove([
+                    'notionApiKey',
+                    'notionDataSourceId',
+                    'notionDatabaseId'
+                ]);
+
+                Logger.info('✅ [斷開連接] 已清除授權數據');
+
+                // 重新檢查授權狀態，這會更新UI
+                checkAuthStatus();
+
+                // 清除輸入框內容
+                if (apiKeyInput) apiKeyInput.value = '';
+                if (databaseIdInput) databaseIdInput.value = '';
+
+                showStatus('已成功斷開與 Notion 的連接。', 'success');
+                Logger.info('🔄 [斷開連接] UI 已更新為未連接狀態');
+
+            } catch (error) {
+                Logger.error('❌ [斷開連接] 斷開連接失敗:', error);
+                showStatus(`斷開連接失敗: ${error.message}`, 'error');
+            }
+        } else {
+            Logger.info('🔌 [斷開連接] 使用者取消了斷開操作。');
+        }
+    }
+
     // 事件監聽器
     oauthButton.addEventListener('click', startNotionSetup);
+    disconnectButton.addEventListener('click', disconnectFromNotion);
     saveButton.addEventListener('click', saveManualSettings);
     testApiButton.addEventListener('click', testApiKey);
     previewButton.addEventListener('click', previewTemplate);

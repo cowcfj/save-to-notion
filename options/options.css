@@ -76,6 +76,38 @@ h2 {
     font-size: 18px;
 }
 
+.disconnect-icon {
+    font-size: 18px;
+}
+
+.disconnect-button {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.disconnect-button:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.disconnect-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .auth-description {
     font-size: 14px;
     opacity: 0.9;
