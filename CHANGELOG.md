@@ -1,6 +1,22 @@
 # 變更日誌 (CHANGELOG)
 ## Unreleased
 
+
+## v2.9.11 - 2025-10-24
+### ✨ 新功能
+- 設置頁新增「斷開連接」按鈕：一鍵清除 Notion API Key 與資料來源（Data Source）設定，立即刷新授權狀態顯示。
+
+### 🧪 測試
+- 新增 `tests/unit/options.test.js`：覆蓋斷開連接流程、錯誤處理、授權狀態更新（3 項測試通過）。
+- 新增 `tests/helpers/options.testable.js`：封裝測試輔助方法，簡化授權狀態檢查與資料清理流程。
+
+### 🔧 代碼品質
+- 移除無需 `await` 的 `async` 標記以消除 ESLint 警告（`async function without any await expressions`）。
+- 將布林轉換由 `!!value` 調整為 `Boolean(value)`，提升可讀性與一致性。
+
+### 🧹 維護
+- 同步更新版本號：`manifest.json`、`package.json` → v2.9.11。
+
 ## v2.9.10 - 2025-10-23
 ### 🔧 維護
 - 同步更新版本號：`manifest.json`、`package.json`、`package-lock.json` → v2.9.10。
