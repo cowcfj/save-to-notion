@@ -1,109 +1,75 @@
-const {
-  disconnectFromNotion,
-  checkAuthStatus
-} = require('../helpers/options.testable.js');
+const optionsHandler = require('../helpers/options.testable.js');
 
 describe('Options - 授權管理', () => {
-  let mockCheckAuthStatus;
+  let mockRemove;
+  let mockGet;
+  let checkAuthStatusSpy;
 
   beforeEach(() => {
-    // Reset mocks
+    // Mock Chrome APIs
     mockRemove = jest.fn();
     mockGet = jest.fn();
-
-    // Mock Chrome APIs with correct callback behavior
     global.chrome = {
-      runtime: {
-        lastError: null
-      },
-      storage: {
-        sync: {
-          remove: mockRemove,
-          get: mockGet
-        }
-      }
+      runtime: { lastError: null },
+      storage: { sync: { remove: mockRemove, get: mockGet } }
     };
 
-    // Setup default mock behaviors - simulate Chrome API callback pattern
+    // Spy on checkAuthStatus and mock its implementation
+    checkAuthStatusSpy = jest.spyOn(optionsHandler, 'checkAuthStatus').mockResolvedValue({
+        hasAuth: false,
+        settings: {}
+    });
+
+    // Default mock behaviors
     mockRemove.mockImplementation((keys, callback) => {
-      // Simulate synchronous callback execution for testing
-      if (global.chrome.runtime.lastError) {
-        // In error case, callback is still called but lastError is set
-        callback();
-      } else {
-        callback();
-      }
+      global.chrome.runtime.lastError = null;
+      callback();
     });
-
-    mockGet.mockImplementation((keys, callback) => {
-      // Simulate synchronous callback execution for testing
-      callback({});
-    });
-
-    // Mock checkAuthStatus function
-    mockCheckAuthStatus = jest.fn().mockResolvedValue({
-      hasAuth: false,
-      settings: {}
-    });
-
-    // Mock the global checkAuthStatus function
-    global.checkAuthStatus = mockCheckAuthStatus;
+    mockGet.mockImplementation((keys, callback) => callback({}));
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    // Restore all mocks
+    jest.restoreAllMocks();
   });
 
   describe('disconnectFromNotion', () => {
     test('應該正確斷開 Notion 連接並清除授權數據', async () => {
-      // Arrange - 設置測試環境
-      mockRemove.mockImplementation((keys, callback) => callback());
+      // Act
+      await optionsHandler.disconnectFromNotion();
 
-      // Act - 調用斷開連接功能
-      await disconnectFromNotion();
-
-      // Assert - 驗證行為
-      expect(mockRemove).toHaveBeenCalledWith([
-        'notionApiToken',
-        'notionDataSourceId',
-        'notionDatabaseId'
-      ]);
-      expect(mockCheckAuthStatus).toHaveBeenCalled();
+      // Assert
+      expect(mockRemove).toHaveBeenCalledWith(
+        ['notionApiToken', 'notionDataSourceId', 'notionDatabaseId'],
+        expect.any(Function)
+      );
+      expect(checkAuthStatusSpy).toHaveBeenCalled();
     });
 
     test('應該正確處理斷開連接時的錯誤', async () => {
-      // Arrange - 模擬存儲清除失敗
+      // Arrange
       const testError = new Error('存儲清除失敗');
-      mockRemove.mockRejectedValue(testError);
-
-      // Spy on console.error
+      mockRemove.mockImplementation((keys, callback) => {
+        global.chrome.runtime.lastError = testError;
+        callback();
+      });
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      // Act - 調用斷開連接功能
-      await disconnectFromNotion();
-
-      // Assert - 驗證錯誤處理
-      expect(mockRemove).toHaveBeenCalledWith([
-        'notionApiToken',
-        'notionDataSourceId',
-        'notionDatabaseId'
-      ]);
+      // Act & Assert
+      await expect(optionsHandler.disconnectFromNotion()).rejects.toThrow(testError);
+      expect(checkAuthStatusSpy).not.toHaveBeenCalled();
       expect(consoleSpy).toHaveBeenCalledWith('❌ [斷開連接] 清除授權數據失敗:', testError.message);
-      expect(mockCheckAuthStatus).toHaveBeenCalled();
 
-      // 清理 spy
+      // Cleanup
       consoleSpy.mockRestore();
     });
 
     test('應該在成功斷開連接後更新授權狀態', async () => {
-      // Arrange
-      mockRemove.mockResolvedValue();
-
       // Act
-      await disconnectFromNotion();
+      await optionsHandler.disconnectFromNotion();
 
-      // Assert - 確保 UI 狀態更新
-      expect(mockCheckAuthStatus).toHaveBeenCalledTimes(1);
+      // Assert
+      expect(checkAuthStatusSpy).toHaveBeenCalledTimes(1);
     });
   });
 });

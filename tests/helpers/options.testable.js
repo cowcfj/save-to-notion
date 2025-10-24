@@ -1,47 +1,37 @@
-// 可測試版本的 options.js 函數
-// 將 options.js 中的關鍵函數提取出來以便單元測試
+const optionsHandler = {
+  /**
+   * 斷開 Notion 連接功能 - 可測試版本
+   * @param {Object} storageAPI - 存儲 API（默認使用 chrome.storage.sync）
+   */
+  async disconnectFromNotion(storageAPI = chrome.storage.sync) {
+    console.log('🔌 [斷開連接] 開始斷開 Notion 連接');
 
-/**
- * 斷開 Notion 連接功能 - 可測試版本
- * @param {Object} storageAPI - 存儲 API（默認使用 chrome.storage.sync）
- */
-async function disconnectFromNotion(storageAPI = chrome.storage.sync) {
-    try {
-        console.log('🔌 [斷開連接] 開始斷開 Notion 連接');
-
-        // 清除授權相關數據
-        await new Promise((resolve, reject) => {
-            storageAPI.remove([
-                'notionApiToken',
-                'notionDataSourceId',
-                'notionDatabaseId'
-            ], () => {
-                if (chrome.runtime?.lastError) {
-                    reject(chrome.runtime.lastError);
-                } else {
-                    resolve();
-                }
-            });
+    await new Promise((resolve, reject) => {
+        storageAPI.remove([
+            'notionApiToken',
+            'notionDataSourceId',
+            'notionDatabaseId'
+        ], () => {
+            if (chrome.runtime?.lastError) {
+                console.error('❌ [斷開連接] 清除授權數據失敗:', chrome.runtime.lastError.message);
+                reject(chrome.runtime.lastError);
+            } else {
+                console.log('✅ [斷開連接] 已清除授權數據');
+                resolve();
+            }
         });
+    });
 
-        console.log('✅ [斷開連接] 已清除授權數據');
+    // 重新檢查授權狀態，這會更新UI
+    await this.checkAuthStatus(storageAPI);
+    console.log('🔄 [斷開連接] UI 已更新為未連接狀態');
+  },
 
-        // 重新檢查授權狀態，這會更新UI
-        await checkAuthStatus(storageAPI);
-
-        console.log('🔄 [斷開連接] UI 已更新為未連接狀態');
-
-    } catch (error) {
-        console.error('❌ [斷開連接] 斷開連接失敗:', error);
-        throw error; // 重新拋出錯誤以便測試捕獲
-    }
-}
-
-/**
- * 檢查授權狀態 - 可測試版本
- * @param {Object} storageAPI - 存儲 API（默認使用 chrome.storage.sync）
- */
-async function checkAuthStatus(storageAPI = chrome.storage.sync) {
+  /**
+   * 檢查授權狀態 - 可測試版本
+   * @param {Object} storageAPI - 存儲 API（默認使用 chrome.storage.sync）
+   */
+  async checkAuthStatus(storageAPI = chrome.storage.sync) {
     return new Promise((resolve) => {
         storageAPI.get([
             'notionApiKey',
@@ -70,9 +60,7 @@ async function checkAuthStatus(storageAPI = chrome.storage.sync) {
             });
         });
     });
-}
-
-module.exports = {
-    disconnectFromNotion,
-    checkAuthStatus
+  }
 };
+
+module.exports = optionsHandler;
