@@ -329,16 +329,16 @@ const Logger = {
                 Logger.log(`❌ No suitable content found. All ${candidateCount} candidates were too short or scored too low.`);
 
                 // 最後的嘗試：降低標準
-                console.log(`🔄 Trying with lower standards (${MIN_CONTENT_LENGTH / 2} chars)...`);
+                Logger.log(`🔄 Trying with lower standards (${MIN_CONTENT_LENGTH / 2} chars)...`);
                 for (const el of candidates) {
                     const text = el.textContent?.trim() || '';
                     if (text.length >= MIN_CONTENT_LENGTH / 2) {
-                        console.log(`🆘 Emergency fallback: Found content with ${text.length} characters`);
+                        Logger.log(`🆘 Emergency fallback: Found content with ${text.length} characters`);
                         return el.innerHTML;
                     }
                 }
 
-                console.log(`💥 Complete failure: No content found even with lower standards`);
+                Logger.log(`💥 Complete failure: No content found even with lower standards`);
                 return null;
             }
         }
@@ -350,11 +350,11 @@ const Logger = {
          */
         function extractLargestListFallback() {
             try {
-                console.log('🔎 Running extractLargestListFallback to find large <ul>/<ol>');
+                Logger.log('🔎 Running extractLargestListFallback to find large <ul>/<ol>');
 
                 // 策略 1: 尋找真正的 <ul> / <ol>
                 const lists = Array.from(document.querySelectorAll('ul, ol'));
-                console.log(`Found ${lists.length} actual <ul>/<ol> elements`);
+                Logger.log(`Found ${lists.length} actual <ul>/<ol> elements`);
 
                 // 策略 2: 尋找可能是清單但用 div/section 呈現的內容
                 const possibleListContainers = Array.from(document.querySelectorAll('div, section, article')).filter(container => {
@@ -368,13 +368,13 @@ const Logger = {
                     return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
                 });
 
-                console.log(`Found ${possibleListContainers.length} possible list containers`);
+                Logger.log(`Found ${possibleListContainers.length} possible list containers`);
 
                 // 合併真正的清單和可能的清單容器
                 const allCandidates = [...lists, ...possibleListContainers];
 
                 if (!allCandidates || allCandidates.length === 0) {
-                    console.log('✗ No lists or list-like containers found on page');
+                    Logger.log('✗ No lists or list-like containers found on page');
                     return null;
                 }
 
@@ -397,7 +397,7 @@ const Logger = {
 
                     const score = (effectiveItemCount * 10) + Math.min(500, Math.floor(textLength / 10));
 
-                    console.log(`Candidate ${idx + 1}: itemCount=${effectiveItemCount}, textLength=${textLength}, score=${score}, tagName=${candidate.tagName}`);
+                    Logger.log(`Candidate ${idx + 1}: itemCount=${effectiveItemCount}, textLength=${textLength}, score=${score}, tagName=${candidate.tagName}`);
 
                     // 過濾太短或只有單一項目的容器
                     if (effectiveItemCount < 4) return;
@@ -409,18 +409,18 @@ const Logger = {
                 });
 
                 if (best) {
-                    console.log(`✅ extractLargestListFallback chose a container with score ${bestScore}, tagName=${best.tagName}`);
+                    Logger.log(`✅ extractLargestListFallback chose a container with score ${bestScore}, tagName=${best.tagName}`);
                     // 嘗試把周邊標題包含進去（若存在相鄰的 <h1>-<h3>）
                     let containerHtml = best.innerHTML;
                     const prev = best.previousElementSibling;
                     if (prev && /^H[1-3]$/.test(prev.nodeName)) {
                         containerHtml = prev.outerHTML + '\n' + containerHtml;
-                        console.log('Included preceding heading in fallback content');
+                        Logger.log('Included preceding heading in fallback content');
                     }
                     return containerHtml;
                 }
 
-                console.log('✗ No suitable large list or list-like container found');
+                Logger.log('✗ No suitable large list or list-like container found');
                 return null;
             } catch (e) {
                 console.warn('extractLargestListFallback failed:', e);
@@ -573,7 +573,7 @@ const Logger = {
                                             external: { url: cleanedUrl }
                                         }
                                     });
-                                    console.log(`Added image: ${cleanedUrl}`);
+                                    Logger.log(`Added image: ${cleanedUrl}`);
                                 } else if (cleanedUrl && !isCompatible) {
                                     console.warn(`Skipped incompatible image URL: ${cleanedUrl.substring(0, 100)}...`);
                                 }
@@ -614,7 +614,7 @@ const Logger = {
          * 優先收集封面圖/特色圖片（通常位於標題上方或文章開頭）
          */
         function collectFeaturedImage() {
-            console.log('🎯 Attempting to collect featured/hero image...');
+            Logger.log('🎯 Attempting to collect featured/hero image...');
 
             // 常見的封面圖選擇器（按優先級排序）
             const featuredImageSelectors = [
@@ -675,7 +675,7 @@ const Logger = {
                 }
             }
 
-            console.log('✗ No featured image found');
+            Logger.log('✗ No featured image found');
             return null;
         }
 

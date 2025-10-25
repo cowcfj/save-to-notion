@@ -24,7 +24,7 @@
             const status = await this.getMigrationStatus();
             
             if (status === 'completed') {
-                console.log('✅ 此頁面已完成標註遷移');
+                Logger.info('✅ 此頁面已完成標註遷移');
                 return false;
             }
 
@@ -33,7 +33,7 @@
             this.oldHighlightsFound = oldHighlights.length;
 
             if (oldHighlights.length > 0) {
-                console.log(`🔍 檢測到 ${oldHighlights.length} 個舊版標註`);
+                Logger.info(`🔍 檢測到 ${oldHighlights.length} 個舊版標註`);
                 return true;
             }
 
@@ -61,7 +61,7 @@
             try {
                 const key = `${this.migrationKey}_${window.location.href}`;
                 await chrome.storage.local.set({ [key]: status });
-                console.log(`📝 遷移狀態已更新: ${status}`);
+                Logger.log(`📝 遷移狀態已更新: ${status}`);
             } catch (error) {
                 console.error('無法保存遷移狀態:', error);
             }
@@ -71,7 +71,7 @@
          * 執行自動遷移
          */
         async autoMigrate(highlightManager) {
-            console.log('🔄 開始自動遷移舊版標註...');
+            Logger.log('🔄 開始自動遷移舊版標註...');
 
             const oldHighlights = document.querySelectorAll('.simple-highlight');
             const migratedData = [];
@@ -107,7 +107,7 @@
          * 將舊的span元素轉換為Range對象
          */
         migrateSpanToRange(span, highlightManager) {
-            console.log('🔄 遷移標註:', span.textContent.substring(0, 30) + '...');
+            Logger.info('🔄 遷移標註:', span.textContent.substring(0, 30) + '...');
 
             try {
                 // 提取標註信息
@@ -123,19 +123,19 @@
                 const id = highlightManager.addHighlight(range, color);
 
                 if (id) {
-                    console.log(`✅ 成功遷移: ${text.substring(0, 20)}... (${color})`);
-                    
+                    Logger.info(`✅ 成功遷移: ${text.substring(0, 20)}... (${color})`);
+
                     // 移除舊的span元素（可選）
                     // 如果要保持舊標註，註釋掉下面這段
                     this.removeOldSpan(span);
-                    
+
                     return { id, text, color };
                 } else {
-                    console.warn('❌ 新版標註添加失敗');
+                    Logger.warn('❌ 新版標註添加失敗');
                     return null;
                 }
             } catch (error) {
-                console.error('遷移過程出錯:', error);
+                Logger.error?.('遷移過程出錯:', error) || console.error('遷移過程出錯:', error);
                 return null;
             }
         }
@@ -327,13 +327,13 @@
          * 執行完整的遷移流程
          */
         async performMigration(highlightManager) {
-            console.log('🚀 開始標註遷移流程...');
+            Logger.info('🚀 開始標註遷移流程...');
 
             // 1. 檢查是否需要遷移
             const needsMigration = await this.needsMigration();
-            
+
             if (!needsMigration) {
-                console.log('✅ 無需遷移');
+                Logger.info('✅ 無需遷移');
                 return { skipped: true };
             }
 
@@ -341,7 +341,7 @@
             const userChoice = await this.showMigrationPrompt();
 
             if (userChoice === 'keep') {
-                console.log('👤 用戶選擇保持舊版');
+                Logger.info('👤 用戶選擇保持舊版');
                 await this.setMigrationStatus('skipped');
                 return { skipped: true, reason: 'user_declined' };
             }
@@ -352,7 +352,7 @@
             // 4. 顯示結果
             this.showMigrationResult(result);
 
-            console.log('✅ 遷移流程完成:', result);
+            Logger.info('✅ 遷移流程完成:', result);
             return result;
         }
     }

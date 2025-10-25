@@ -88,7 +88,7 @@ function normalizeUrl(rawUrl) {
         
         return normalized;
     } catch (e) {
-        console.error('❌ [normalizeUrl] 標準化失敗:', e);
+        Logger?.error?.('❌ [normalizeUrl] 標準化失敗:', e) || console.error('❌ [normalizeUrl] 標準化失敗:', e);
         return rawUrl || '';
     }
 }
@@ -327,19 +327,32 @@ if (typeof window.Logger === 'undefined') {
     window.Logger = {
     // 與現有代碼兼容：提供 log 別名（透過 background sink；僅在 dev 時發送）
     log: (message, ...args) => {
-        if (__LOGGER_DEV__) __sendBackgroundLog('log', message, args);
+        if (__LOGGER_DEV__) {
+            __sendBackgroundLog('log', message, args);
+            console.log('[LOG]', message, ...args);
+        }
     },
     debug: (message, ...args) => {
-        if (__LOGGER_DEV__) __sendBackgroundLog('debug', message, args);
+        if (__LOGGER_DEV__) {
+            __sendBackgroundLog('debug', message, args);
+            console.debug('[DEBUG]', message, ...args);
+        }
     },
     info: (message, ...args) => {
-        if (__LOGGER_DEV__) __sendBackgroundLog('info', message, args);
+        if (__LOGGER_DEV__) {
+            __sendBackgroundLog('info', message, args);
+            console.info('[INFO]', message, ...args);
+        }
     },
     warn: (message, ...args) => {
         __sendBackgroundLog('warn', message, args);
+        if (__LOGGER_DEV__) {
+            console.warn('[WARN]', message, ...args);
+        }
     },
     error: (message, ...args) => {
         __sendBackgroundLog('error', message, args);
+        console.error('[ERROR]', message, ...args);
     }
     }; // 結束 window.Logger 定義
 } else {

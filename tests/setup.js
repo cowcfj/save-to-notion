@@ -16,6 +16,84 @@ if (typeof global.TextEncoder === 'undefined') {
 // 導入 Chrome API mock
 require('./mocks/chrome');
 
+// Force Logger into dev mode for testing
+global.__FORCE_LOG__ = true;
+global.__LOGGER_DEV__ = true;
+
+// Initialize runtime.lastError for ScriptInjector tests
+global.chrome.runtime.lastError = null;
+
+// Mock Logger (used by scripts) - simulate dev mode behavior since __FORCE_LOG__ is set
+global.Logger = {
+    log: jest.fn((message, ...args) => {
+        // Simulate dev mode: send background log and console.log
+        if (global.chrome?.runtime?.sendMessage) {
+            global.chrome.runtime.sendMessage({
+                action: 'devLogSink',
+                level: 'log',
+                message,
+                args
+            }, () => {});
+        }
+        console.log(`[LOG] ${message}`, ...args); // Concatenate prefix with message
+    }),
+    debug: jest.fn((message, ...args) => {
+        // Simulate dev mode: send background log and console.log
+        if (global.chrome?.runtime?.sendMessage) {
+            global.chrome.runtime.sendMessage({
+                action: 'devLogSink',
+                level: 'debug',
+                message,
+                args
+            }, () => {});
+        }
+        console.log(`[DEBUG] ${message}`, ...args); // Concatenate prefix with message to match test expectations
+    }),
+    info: jest.fn((message, ...args) => {
+        // Simulate dev mode: send background log and console.log
+        if (global.chrome?.runtime?.sendMessage) {
+            global.chrome.runtime.sendMessage({
+                action: 'devLogSink',
+                level: 'info',
+                message,
+                args
+            }, () => {});
+        }
+        console.log(`[INFO] ${message}`, ...args); // Concatenate prefix with message to match test expectations
+    }),
+    warn: jest.fn((message, ...args) => {
+        // Always send background log, optionally console.warn in dev mode
+        if (global.chrome?.runtime?.sendMessage) {
+            global.chrome.runtime.sendMessage({
+                action: 'devLogSink',
+                level: 'warn',
+                message,
+                args
+            }, () => {});
+        }
+        if (global.__LOGGER_DEV__) {
+            // Tests expect console.warn with concatenated message
+            console.warn(`[WARN] ${message}`, ...args);
+        }
+    }),
+    error: jest.fn((message, ...args) => {
+        // Always send background log and console.error
+        if (global.chrome?.runtime?.sendMessage) {
+            global.chrome.runtime.sendMessage({
+                action: 'devLogSink',
+                level: 'error',
+                message,
+                args
+            }, () => {});
+        }
+        console.error(`[ERROR] ${message}`, ...args); // Concatenate prefix with message
+    })
+};
+// Mock chrome.runtime.sendMessage for Logger background logging
+global.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
+    if (typeof callback === 'function') callback();
+});
+
 // Mock fetch API
 global.fetch = jest.fn();
 
@@ -65,6 +143,27 @@ global.console = {
   info: jest.fn(),
   debug: jest.fn()
 };
+
+// 每個測試前清理 mocks（在 beforeEach 中已經有，但這裡確保 Logger 相關測試正常）
+beforeEach(() => {
+  // 清理 Logger mocks
+  if (global.Logger) {
+    Object.keys(global.Logger).forEach(method => {
+      if (global.Logger[method] && global.Logger[method].mockClear) {
+        global.Logger[method].mockClear();
+      }
+    });
+  }
+
+  // 清理 console mocks（確保 Logger 測試不會受影響）
+  if (global.console) {
+    ['log', 'warn', 'error', 'info', 'debug'].forEach(method => {
+      if (global.console[method] && global.console[method].mockClear) {
+        global.console[method].mockClear();
+      }
+    });
+  }
+});
 
 // 每個測試前重置 mocks
 beforeEach(() => {

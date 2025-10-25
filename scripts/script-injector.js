@@ -21,6 +21,15 @@ class ScriptInjector {
             returnResult = false
         } = options;
 
+        // 驗證 tabId
+        if (typeof tabId !== 'number' || tabId <= 0) {
+            const errorMsg = 'Invalid tabId: must be a positive number';
+            if (logErrors) {
+                console.error(errorMsg);
+            }
+            throw new Error(errorMsg);
+        }
+
         try {
             // 首先注入文件
             if (files.length > 0) {
@@ -29,11 +38,11 @@ class ScriptInjector {
                         target: { tabId },
                         files: files
                     }, () => {
-                        if (chrome.runtime.lastError) {
+                        if (global.chrome.runtime.lastError) {
                             if (logErrors) {
-                                console.error(`File injection failed:`, chrome.runtime.lastError);
+                                console.error(`File injection failed:`, global.chrome.runtime.lastError);
                             }
-                            reject(new Error(chrome.runtime.lastError.message));
+                            reject(new Error(global.chrome.runtime.lastError.message));
                         } else {
                             resolve();
                         }
@@ -48,14 +57,14 @@ class ScriptInjector {
                         target: { tabId },
                         func: func
                     }, (results) => {
-                        if (chrome.runtime.lastError) {
+                        if (global.chrome.runtime.lastError) {
                             if (logErrors) {
-                                console.error(`Function execution failed:`, chrome.runtime.lastError);
+                                console.error(`Function execution failed:`, global.chrome.runtime.lastError);
                             }
-                            reject(new Error(chrome.runtime.lastError.message));
+                            reject(new Error(global.chrome.runtime.lastError.message));
                         } else {
                             if (successMessage && logErrors) {
-                                console.log(successMessage);
+                                Logger.log(successMessage);
                             }
                             const result = returnResult && results && results[0] ? results[0].result : null;
                             resolve(result);

@@ -13,18 +13,18 @@ describe('utils.js - 模組測試', () => {
   beforeEach(() => {
     // 保存原始 chrome.storage（以防被刪除）
     originalStorage = global.chrome.storage;
-    
+
     // 確保 chrome.storage 存在
     if (!global.chrome.storage) {
-      global.chrome.storage = { 
-        local: { 
-          get: jest.fn(), 
-          set: jest.fn(), 
-          remove: jest.fn() 
-        } 
+      global.chrome.storage = {
+        local: {
+          get: jest.fn(),
+          set: jest.fn(),
+          remove: jest.fn()
+        }
       };
     }
-    
+
     // 保存原始方法
     originalGet = chrome.storage.local.get;
     originalSet = chrome.storage.local.set;
@@ -32,7 +32,7 @@ describe('utils.js - 模組測試', () => {
 
     // 重置 mocks
     jest.clearAllMocks();
-    
+
     // 清理存儲
     if (global.chrome && global.chrome._clearStorage) {
       global.chrome._clearStorage();
@@ -40,6 +40,9 @@ describe('utils.js - 模組測試', () => {
     if (global.localStorage && global.localStorage._reset) {
       global.localStorage._reset();
     }
+
+    // 重置全局注入標記，避免模塊重複加載
+    delete window.__utilsInjected;
 
     // 替換 localStorage 為完全可控的 mock
     mockLocalStorage = {
@@ -58,7 +61,7 @@ describe('utils.js - 模組測試', () => {
       })
     };
     global.localStorage = mockLocalStorage;
-    
+
     // 動態加載模塊，確保使用新的 localStorage mock
     jest.resetModules();
     const utils = require('../helpers/utils.testable');
