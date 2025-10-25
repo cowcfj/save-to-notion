@@ -2787,8 +2787,8 @@ async function handleSavePage(sendResponse) {
                 result: result,
                 resultType: typeof result,
                 hasResult: !!result,
-                hasTitle: !!(result?.title),
-                hasBlocks: !!(result?.blocks),
+                hasTitle: Boolean(result?.title),
+                hasBlocks: Boolean(result?.blocks),
                 blocksLength: result?.blocks ? result.blocks.length : 'N/A',
                 url: activeTab.url,
                 timestamp: new Date().toISOString()
