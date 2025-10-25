@@ -125,8 +125,8 @@
                 const migrationManager = new window.SeamlessMigrationManager();
                 const result = await migrationManager.performSeamlessMigration(this);
 
-                if (result?.completed) {
-                } else if (result?.phase) {
+                if (!result) {
+                    logger.warn('⚠️ 無痛遷移返回空結果');
                 } else if (result?.rolledBack) {
                     logger.warn(`⚠️ 遷移已回滾: ${result.reason}`);
                 }
@@ -198,14 +198,13 @@
                     // 檢查是否已經遷移過
                     const migrationKey = `migration_completed_${normalizedUrl}`;
                     const migrationStatus = await chrome.storage.local.get(migrationKey);
-
+    
                     if (migrationStatus[migrationKey]) {
                         return;
                     }
-
+    
                     // 執行數據遷移
                     await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
-                } else {
                 }
             } catch (error) {
                 logger.error('❌ [遷移] 檢查舊數據失敗:', error);
