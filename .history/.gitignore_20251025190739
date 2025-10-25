@@ -1,5 +1,7 @@
 *.pem
 .DS# 內部文檔目錄(所有內部開發文檔)
+internal/
+archive/
 
 # 測試相關文件
 
@@ -17,19 +19,60 @@ archive/
 coverage/
 
 # 測試和開發文件
-tests/manual/
-tests/results/
-tests/screenshots/
-tests/*.md
-!tests/mocks/
-!tests/unit/
-!tests/helpers/
-!tests/setup.js
 *test.html
 *-test.html
 test-*.html
+template-test.html
+highlight-test.html
+debug-test.html
+*preview.html
+generate-icons.html
+logo-design.html
+new-logo-preview.html
+*-design.html
+tests/results/
+tests/screenshots/
+tests/SUMMARY.md
 test-report-*.json
 test-report-*.md
+/tmp/notion-clipper-tests/
+
+# E2E 測試實驗性工具（未完成，不同步）
+tests/e2e/coverage-merger-lcov.js
+
+# ============================================================
+# 📂 內部開發文檔（不同步到 GitHub）
+# ============================================================
+
+# AI Agent 指南和內部文檔
+Agents.md
+AI_AGENT_QUICK_REF.md
+*_GUIDE.md
+*_INTERNAL.md
+*_LOCAL.md
+.github/copilot-instructions.md
+
+# 項目規劃和策略文檔
+PROJECT_ROADMAP.md
+PROJECT_STANDARDS.md
+PROJECT_EVALUATION_REPORT.md
+GITHUB_SYNC_POLICY.md
+GIT_PUSH_CHECKLIST.md
+DOCUMENTATION_STRATEGY.md
+STANDARDS_SETUP_COMPLETE.md
+GOALS.md
+QUICK_START.md
+MCP_SETUP.md
+MCP_SETUP_GUIDE.md
+diagnose-mcp.md
+
+# 功能規格和計劃文檔
+*_SPEC.md
+*_PLAN.md
+MIGRATION_GUIDE.md
+SEAMLESS_MIGRATION.md
+
+# 測試文檔
 TESTING_GUIDE.md
 TESTING_GUIDE_*.md
 TEST_GUIDE_*.md
@@ -38,63 +81,17 @@ TEST_v*.md
 TEST_E2E_MCP_GUIDE.md
 TEST_COVERAGE_*.md
 TEST_FIX_*.md
-*preview.html
-generate-icons.html
-logo-design.html
-new-logo-preview.html
-*-design.html
-/tmp/notion-clipper-tests/
-demos/
-promo-images/*.html
-release/
-tests/e2e/coverage-merger-lcov.js
-
-# ============================================================
-# 📂 內部開發文檔（不同步到 GitHub）
-# ============================================================
-
-# AI Agent 指南、配置和內部文檔
-.qwen/
-.roo/
-.kiro/
-QWEN.md
-.serena/
-.vscode/
-.claude/
-Agents.md
-AI_AGENT_QUICK_REF.md
-*_GUIDE.md
-*_INTERNAL.md
-*_LOCAL.md
-*_TODO.md
-.github/copilot-instructions.md
-
-# 項目規劃和策略文檔
-PROJECT_ROADMAP.md
-PROJECT_STANDARDS.md
-*_REPORT.md
-*_STRATEGY.md
-*_CHECKLIST.md
-STANDARDS_SETUP_COMPLETE.md
-GITHUB_SYNC_POLICY.md
-GOALS.md
-QUICK_START.md
-MCP_SETUP.md
-diagnose-mcp.md
-DOCUMENTATION_STRATEGY.md
-
-# 功能規格和計劃文檔
-*_SPEC.md
-*_PLAN.md
-SEAMLESS_MIGRATION.md
-UPGRADE_DATA_SAFETY.md
 
 # Codecov 內部設置文檔
 CODECOV_SETUP.md
+CODECOV_TODO.md
 
 # 清理和優化報告
 CLEANUP_*.md
 DATA_CLEANUP_ANALYSIS.md
+DATA_OPTIMIZATION_GUIDE.md
+DATA_PROTECTION_GUIDE.md
+NODE_MODULES_CLEANUP_REPORT.md
 NODE_MODULES_EXPLANATION.md
 
 # 修復和調試文檔
@@ -105,23 +102,26 @@ DIAGNOSTIC_*.md
 *_DIAGNOSTIC.md
 
 # 發布流程文檔
-*_CHECKLIST.md
+DEPLOYMENT_CHECKLIST.md
 RELEASE_CHECKLIST_*.md
 RELEASE_COMPLETE_*.md
+CHROME_STORE_GUIDE.md
+GITHUB_RELEASE_GUIDE_*.md
 GITHUB_RELEASE_TEMPLATE.md
 GITHUB_RELEASE_v*.md
-RELEASE_SUMMARY_*.md
-NODE_MODULES_*.md
-INTEGRATION_SUMMARY.md
-PERFORMANCE_ANALYSIS.md
-FEATURE_COMPARISON.md
-DATA_CLEANUP_ANALYSIS.md
-/dist
+PUBLISH_CHECKLIST.md
+
+# 技術指南（內部）
+IMAGE_EXTRACTION_GUIDE.md
+UPGRADE_DATA_SAFETY.md
 
 # 臨時工作文檔
-*_PLAN.md
+IMMEDIATE_ACTION_PLAN.md
+CODE_REVIEW_REPORT.md
+DOCUMENT_REVIEW_REPORT.md
 PERFORMANCE_*.md
 INTEGRATION_SUMMARY.md
+PROJECT_PROGRESS_REPORT.md
 
 # 版本總結（內部）
 VERSION_SUMMARY_*.md
@@ -140,13 +140,35 @@ USER_GUIDE_v*.md
 README_BACKUP.md
 PROJECT_EVALUATION_REPORT_OLD.md
 CLEANUP_REPORT_*.md
+CLEANUP_COMPLETE_REPORT.md
+CLEANUP_PLAN.md
 QUICK_TEST_*.md
 DEBUG_*.md
+DOCUMENT_REVIEW_REPORT.md
+HIGHLIGHT_MIGRATION_ISSUE.md
 GITHUB_RELEASE_TEMPLATE.md
 RELEASE_CHECKLIST_*.md
 FIX_COMPLETE_*.md
 RELEASE_COMPLETE_*.md
 CHANGELOG_v*.md
+# RELEASE_NOTES_v*.md - 可發布的發布說明
+RELEASE_SUMMARY_*.md
+NODE_MODULES_*.md
+IMAGE_EXTRACTION_GUIDE.md
+RELEASE_v*.md
+INTEGRATION_SUMMARY.md
+SEAMLESS_MIGRATION.md
+HIGHLIGHTER_UPGRADE_PLAN.md
+HIGHLIGHT_SYNC_DIAGNOSTIC.md
+LOGGER_OPTIMIZATION_PLAN.md
+PERFORMANCE_ANALYSIS.md
+PERFORMANCE_OPTIMIZATION_GUIDE.md
+DATA_OPTIMIZATION_GUIDE.md
+DATA_PROTECTION_GUIDE.md
+FEATURE_COMPARISON.md
+DATA_CLEANUP_ANALYSIS.md
+PROJECT_PROGRESS_REPORT.md
+/dist
 
 # Chrome Store 發布相關（內部流程）
 GITHUB_RELEASE_v*.md
@@ -155,17 +177,53 @@ github-release-*.md
 
 # 協作提案（內部討論）
 COLLABORATION_PROPOSAL.md
+GOALS.md
+
+# 技術規格（內部設計）
+GOOGLE_DRIVE_BACKUP_SPEC.md
+UPGRADE_DATA_SAFETY.md
+
+# 項目規劃（內部使用）
+PROJECT_ROADMAP.md
+# PROJECT_STANDARDS.md - 可發布（專案規範）
+Agents.md
+PUBLISH_CHECKLIST.md
+GIT_PUSH_CHECKLIST.md
+IMMEDIATE_ACTION_PLAN.md
+PROJECT_EVALUATION_REPORT.md
+DOCUMENTATION_STRATEGY.md
+
+# 遷移和升級指南（內部技術文檔）
+MIGRATION_GUIDE.md
+
+# 內部測試指南（不發布）
+TEST_E2E_MCP_GUIDE.md
 
 # 構建腳本（開發工具）
-build/
 build.sh
 cleanup.sh
 *.sh
-*.zip
 
+# 內部目錄（不應公開）
+# tests/ - 保留 Jest 測試，排除手動測試和測試結果
+tests/manual/
+tests/results/
+tests/*.md
+!tests/mocks/
+!tests/unit/
+!tests/helpers/
+!tests/setup.js
+archive/
+demos/
+promo-images/*.html
+release/
 # 允許 promo-images 的圖片文件
 !promo-images/*.png
 !promo-images/*.jpg
+
+# 建構文件
+build/
+*.zip
 
 # Node.js 依賴
 node_modules/
@@ -179,7 +237,17 @@ yarn-error.log*# =
 
 # 實施文檔（內部）
 *_IMPLEMENTATION.md
+DATABASE_SELECTOR_IMPLEMENTATION.md
 IMPLEMENTATION_COMPLETE.md
 
 # 文件組織文檔（內部）
 FILE_ORGANIZATION.md
+
+# AI配置及開發工具（保留但不追蹤）
+.qwen/
+.roo/
+.kiro/
+QWEN.md
+.serena/
+.vscode/
+.claude/

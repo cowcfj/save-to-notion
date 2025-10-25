@@ -53,14 +53,7 @@ tests/e2e/coverage-merger-lcov.js
 # 📂 內部開發文檔（不同步到 GitHub）
 # ============================================================
 
-# AI Agent 指南、配置和內部文檔
-.qwen/
-.roo/
-.kiro/
-QWEN.md
-.serena/
-.vscode/
-.claude/
+# AI Agent 指南和內部文檔
 Agents.md
 AI_AGENT_QUICK_REF.md
 *_GUIDE.md
@@ -73,21 +66,19 @@ AI_AGENT_QUICK_REF.md
 PROJECT_ROADMAP.md
 PROJECT_STANDARDS.md
 *_REPORT.md
-*_STRATEGY.md
-*_CHECKLIST.md
-STANDARDS_SETUP_COMPLETE.md
 GITHUB_SYNC_POLICY.md
+GIT_PUSH_CHECKLIST.md
+*_STRATEGY.md
+STANDARDS_SETUP_COMPLETE.md
 GOALS.md
 QUICK_START.md
 MCP_SETUP.md
 diagnose-mcp.md
-DOCUMENTATION_STRATEGY.md
 
 # 功能規格和計劃文檔
 *_SPEC.md
 *_PLAN.md
 SEAMLESS_MIGRATION.md
-UPGRADE_DATA_SAFETY.md
 
 # Codecov 內部設置文檔
 CODECOV_SETUP.md
@@ -110,13 +101,9 @@ RELEASE_CHECKLIST_*.md
 RELEASE_COMPLETE_*.md
 GITHUB_RELEASE_TEMPLATE.md
 GITHUB_RELEASE_v*.md
-RELEASE_SUMMARY_*.md
-NODE_MODULES_*.md
-INTEGRATION_SUMMARY.md
-PERFORMANCE_ANALYSIS.md
-FEATURE_COMPARISON.md
-DATA_CLEANUP_ANALYSIS.md
-/dist
+
+# 技術指南（內部）
+UPGRADE_DATA_SAFETY.md
 
 # 臨時工作文檔
 *_PLAN.md
@@ -147,6 +134,15 @@ RELEASE_CHECKLIST_*.md
 FIX_COMPLETE_*.md
 RELEASE_COMPLETE_*.md
 CHANGELOG_v*.md
+# RELEASE_NOTES_v*.md - 可發布的發布說明
+RELEASE_SUMMARY_*.md
+NODE_MODULES_*.md
+INTEGRATION_SUMMARY.md
+PERFORMANCE_ANALYSIS.md
+DATA_OPTIMIZATION_GUIDE.md
+FEATURE_COMPARISON.md
+DATA_CLEANUP_ANALYSIS.md
+/dist
 
 # Chrome Store 發布相關（內部流程）
 GITHUB_RELEASE_v*.md
@@ -156,16 +152,38 @@ github-release-*.md
 # 協作提案（內部討論）
 COLLABORATION_PROPOSAL.md
 
+# 技術規格（內部設計）
+UPGRADE_DATA_SAFETY.md
+
+# 項目規劃（內部使用）
+PROJECT_ROADMAP.md
+# PROJECT_STANDARDS.md - 可發布（專案規範）
+Agents.md
+PUBLISH_CHECKLIST.md
+GIT_PUSH_CHECKLIST.md
+IMMEDIATE_ACTION_PLAN.md
+PROJECT_EVALUATION_REPORT.md
+DOCUMENTATION_STRATEGY.md
+
+# 遷移和升級指南（內部技術文檔）
+MIGRATION_GUIDE.md
+
+# 內部測試指南（不發布）
+TEST_E2E_MCP_GUIDE.md
+
 # 構建腳本（開發工具）
-build/
 build.sh
 cleanup.sh
 *.sh
-*.zip
+
 
 # 允許 promo-images 的圖片文件
 !promo-images/*.png
 !promo-images/*.jpg
+
+# 建構文件
+build/
+*.zip
 
 # Node.js 依賴
 node_modules/
@@ -179,7 +197,17 @@ yarn-error.log*# =
 
 # 實施文檔（內部）
 *_IMPLEMENTATION.md
+DATABASE_SELECTOR_IMPLEMENTATION.md
 IMPLEMENTATION_COMPLETE.md
 
 # 文件組織文檔（內部）
 FILE_ORGANIZATION.md
+
+# AI配置及開發工具（保留但不追蹤）
+.qwen/
+.roo/
+.kiro/
+QWEN.md
+.serena/
+.vscode/
+.claude/

@@ -17,7 +17,8 @@
     "test:merge-coverage": "node tests/e2e/coverage-merger.js",
     "test:all": "npm run test:coverage && npm run test:e2e",
     "build": "webpack --mode production",
-    "dev": "webpack --mode development --watch"
+    "dev": "webpack --mode development --watch",
+    "prepare": "husky"
   },
   "keywords": [
     "notion",
@@ -37,6 +38,7 @@
     "@babel/core": "^7.22.0",
     "@babel/preset-env": "^7.22.0",
     "babel-jest": "^29.5.0",
+    "husky": "^9.1.6",
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",

@@ -53,14 +53,7 @@ tests/e2e/coverage-merger-lcov.js
 # 📂 內部開發文檔（不同步到 GitHub）
 # ============================================================
 
-# AI Agent 指南、配置和內部文檔
-.qwen/
-.roo/
-.kiro/
-QWEN.md
-.serena/
-.vscode/
-.claude/
+# AI Agent 指南和內部文檔
 Agents.md
 AI_AGENT_QUICK_REF.md
 *_GUIDE.md
@@ -156,16 +149,26 @@ github-release-*.md
 # 協作提案（內部討論）
 COLLABORATION_PROPOSAL.md
 
+
+# 遷移和升級指南（內部技術文檔）
+MIGRATION_GUIDE.md
+
+# 內部測試指南（不發布）
+TEST_E2E_MCP_GUIDE.md
+
 # 構建腳本（開發工具）
-build/
 build.sh
 cleanup.sh
 *.sh
-*.zip
+
 
 # 允許 promo-images 的圖片文件
 !promo-images/*.png
 !promo-images/*.jpg
+
+# 建構文件
+build/
+*.zip
 
 # Node.js 依賴
 node_modules/
@@ -179,7 +182,17 @@ yarn-error.log*# =
 
 # 實施文檔（內部）
 *_IMPLEMENTATION.md
+DATABASE_SELECTOR_IMPLEMENTATION.md
 IMPLEMENTATION_COMPLETE.md
 
 # 文件組織文檔（內部）
 FILE_ORGANIZATION.md
+
+# AI配置及開發工具（保留但不追蹤）
+.qwen/
+.roo/
+.kiro/
+QWEN.md
+.serena/
+.vscode/
+.claude/
