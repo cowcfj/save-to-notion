@@ -397,14 +397,14 @@
             }
 
             // 在單個文本節點中查找
-            for (const node of textNodes) {
-                const text = node.textContent;
+            for (const textNode of textNodes) {
+                const text = textNode.textContent;
                 const index = text.indexOf(textToFind);
-
+            
                 if (index !== -1) {
                     const range = document.createRange();
-                    range.setStart(node, index);
-                    range.setEnd(node, index + textToFind.length);
+                    range.setStart(textNode, index);
+                    range.setEnd(textNode, index + textToFind.length);
                     return range;
                 }
             }
