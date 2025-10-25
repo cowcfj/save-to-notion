@@ -149,7 +149,7 @@ beforeEach(() => {
   // 清理 Logger mocks
   if (global.Logger) {
     Object.keys(global.Logger).forEach(method => {
-      if (global.Logger[method] && global.Logger[method].mockClear) {
+      if (global.Logger[method]?.mockClear) {
         global.Logger[method].mockClear();
       }
     });
@@ -158,7 +158,7 @@ beforeEach(() => {
   // 清理 console mocks（確保 Logger 測試不會受影響）
   if (global.console) {
     ['log', 'warn', 'error', 'info', 'debug'].forEach(method => {
-      if (global.console[method] && global.console[method].mockClear) {
+      if (global.console[method]?.mockClear) {
         global.console[method].mockClear();
       }
     });
@@ -173,23 +173,23 @@ beforeEach(() => {
   }
   
   // 清理 fetch mock
-  if (global.fetch && global.fetch.mockClear) {
+  if (global.fetch?.mockClear) {
     global.fetch.mockClear();
   }
   
   // 清理 localStorage
-  if (global.localStorage && global.localStorage._reset) {
+  if (global.localStorage?._reset) {
     global.localStorage._reset();
   }
   
   // 清理 Chrome storage
-  if (global.chrome && global.chrome._clearStorage) {
+  if (global.chrome?._clearStorage) {
     global.chrome._clearStorage();
   }
   
   // 清理 console mocks
   Object.keys(console).forEach(method => {
-    if (console[method] && console[method].mockClear) {
+    if (console[method]?.mockClear) {
       console[method].mockClear();
     }
   });

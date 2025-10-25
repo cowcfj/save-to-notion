@@ -34,10 +34,10 @@ describe('utils.js - 模組測試', () => {
     jest.clearAllMocks();
 
     // 清理存儲
-    if (global.chrome && global.chrome._clearStorage) {
+    if (global.chrome?._clearStorage) {
       global.chrome._clearStorage();
     }
-    if (global.localStorage && global.localStorage._reset) {
+    if (global.localStorage?._reset) {
       global.localStorage._reset();
     }
 
@@ -77,7 +77,7 @@ describe('utils.js - 模組測試', () => {
     }
     
     // 恢復原始方法
-    if (chrome.storage && chrome.storage.local) {
+    if (chrome.storage?.local) {
       if (originalGet) chrome.storage.local.get = originalGet;
       if (originalSet) chrome.storage.local.set = originalSet;
       if (originalRemove) chrome.storage.local.remove = originalRemove;
@@ -527,7 +527,7 @@ describe('utils.js - 模組測試', () => {
       // 第二次調用應該顯示數量和 URL
       const calls = console.log.mock.calls;
       const logLine = calls.find(call => 
-        call[0] && call[0].includes('2 個標註')
+        call[0]?.includes('2 個標註')
       );
       expect(logLine).toBeDefined();
     });

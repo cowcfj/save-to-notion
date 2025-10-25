@@ -17,7 +17,7 @@ function cleanImageUrl(url) {
         // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
             const uParam = urlObj.searchParams.get('u');
-            if (uParam && uParam.match(/^https?:\/\//)) {
+            if (uParam?.match(/^https?:\/\//)) {
                 // 使用代理中的原始圖片 URL
                 return cleanImageUrl(uParam);
             }
@@ -213,8 +213,8 @@ function extractBestUrlFromSrcset(srcset) {
         const [url, descriptor] = entry.split(/\s+/);
         if (url && !url.startsWith('data:')) {
             let metric = -1;
-            const wMatch = descriptor && descriptor.match(/(\d+)w/i);
-            const xMatch = descriptor && descriptor.match(/(\d+)x/i);
+            const wMatch = descriptor?.match(/(\d+)w/i);
+            const xMatch = descriptor?.match(/(\d+)x/i);
             
             if (wMatch) {
                 metric = parseInt(wMatch[1], 10) * 1000; // w 權重大於 x
@@ -256,7 +256,7 @@ function extractImageSrc(imgNode) {
     // 檢查各種圖片屬性
     for (const attr of IMAGE_ATTRIBUTES) {
         const value = imgNode.getAttribute(attr);
-        if (value && value.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
+        if (value?.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
             return value.trim();
         }
     }
@@ -287,7 +287,7 @@ function extractImageSrc(imgNode) {
             
             if (backgroundImage && backgroundImage !== 'none') {
                 const urlMatch = backgroundImage.match(/url\(['"]?([^'"]+)['"]?\)/);
-                if (urlMatch && urlMatch[1] && !urlMatch[1].startsWith('data:')) {
+                if (urlMatch?.[1] && !urlMatch[1].startsWith('data:')) {
                     return urlMatch[1];
                 }
             }
@@ -305,7 +305,7 @@ function extractImageSrc(imgNode) {
                 
                 if (parentBg && parentBg !== 'none') {
                     const parentMatch = parentBg.match(/url\(['"]?([^'"]+)['"]?\)/);
-                    if (parentMatch && parentMatch[1] && !parentMatch[1].startsWith('data:')) {
+                    if (parentMatch?.[1] && !parentMatch[1].startsWith('data:')) {
                         return parentMatch[1];
                     }
                 }
@@ -320,10 +320,10 @@ function extractImageSrc(imgNode) {
         const candidates = [imgNode, imgNode.parentElement].filter(Boolean);
         for (const el of candidates) {
             const noscript = el.querySelector && el.querySelector('noscript');
-            if (noscript && noscript.textContent) {
+            if (noscript?.textContent) {
                 const html = noscript.textContent;
                 const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-                if (match && match[1] && !match[1].startsWith('data:')) {
+                if (match?.[1] && !match[1].startsWith('data:')) {
                     return match[1];
                 }
             }

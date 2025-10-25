@@ -812,7 +812,7 @@ const Logger = {
 
                     // 收集有效的圖片結果
                     processedImages.forEach(result => {
-                        if (result && result.url) {
+                        if (result?.url) {
                             additionalImages.push(result);
                         }
                     });

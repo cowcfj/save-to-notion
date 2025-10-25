@@ -134,7 +134,7 @@
         
         for (const element of elements) {
             const iconUrl = element.getAttribute(attr);
-            if (iconUrl && iconUrl.trim() && !iconUrl.startsWith('data:')) {
+            if (iconUrl?.trim() && !iconUrl.startsWith('data:')) {
                 try {
                     const absoluteUrl = new URL(iconUrl, document.baseURI).href;
                     const sizes = element.getAttribute('sizes') || '';

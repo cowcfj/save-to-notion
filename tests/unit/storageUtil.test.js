@@ -32,13 +32,13 @@ describe('StorageUtil', () => {
             storage: {
                 local: {
                     set: jest.fn((items, callback) => {
-                        setTimeout(() => callback && callback(), 0);
+                        setTimeout(() => callback?.(), 0);
                     }),
                     get: jest.fn((keys, callback) => {
-                        setTimeout(() => callback && callback({}), 0);
+                        setTimeout(() => callback?.({}), 0);
                     }),
                     remove: jest.fn((keys, callback) => {
-                        setTimeout(() => callback && callback(), 0);
+                        setTimeout(() => callback?.(), 0);
                     })
                 }
             },
@@ -112,7 +112,7 @@ describe('StorageUtil', () => {
                 return new Promise((resolve) => {
                     try {
                         chrome.storage?.local?.get([pageKey], (data) => {
-                            const stored = data && data[pageKey];
+                            const stored = data?.[pageKey];
                             if (stored) {
                                 let highlights = [];
                                 if (Array.isArray(stored)) {
@@ -735,7 +735,7 @@ describe('StorageUtil', () => {
                 } else {
                     mockChrome.runtime.lastError = null;
                 }
-                setTimeout(() => callback && callback(), 0);
+                setTimeout(() => callback?.(), 0);
             });
 
             // 第一次保存（會失敗並回退到 localStorage）

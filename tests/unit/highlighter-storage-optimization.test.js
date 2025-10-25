@@ -102,7 +102,7 @@ describe('標註存儲優化 (v2.8.0)', () => {
             };
 
             // 模擬遷移邏輯
-            if (oldHighlightData.rangeInfo && oldHighlightData.rangeInfo.text) {
+            if (oldHighlightData.rangeInfo?.text) {
                 delete oldHighlightData.rangeInfo.text;
             }
 

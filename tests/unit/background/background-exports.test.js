@@ -74,7 +74,7 @@ try {
 
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
           const uParam = urlObj.searchParams.get('u');
-          if (uParam && uParam.match(/^https?:\/\//)) {
+          if (uParam?.match(/^https?:\/\//)) {
             return this.cleanImageUrl(uParam);
           }
         }

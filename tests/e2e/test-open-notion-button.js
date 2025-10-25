@@ -50,7 +50,7 @@ function testPageStatusCheck() {
     if (typeof chrome !== 'undefined' && chrome.runtime) {
         chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
             console.log('📡 頁面狀態響應:', response);
-            if (response && response.success && response.isSaved && response.notionUrl) {
+            if (response?.success && response.isSaved && response.notionUrl) {
                 console.log('✅ 頁面已保存到 Notion，URL:', response.notionUrl);
             } else {
                 console.log('ℹ️ 頁面未保存到 Notion 或無法獲取狀態');

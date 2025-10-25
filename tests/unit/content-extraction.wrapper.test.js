@@ -15,7 +15,7 @@ describe('Content Extraction - Testable Wrapper', () => {
 
   afterEach(() => {
     // 清理 DOM 內容，但保留 jsdom 的全域 document
-    if (document && document.body) {
+    if (document?.body) {
       document.body.innerHTML = '';
     }
   });

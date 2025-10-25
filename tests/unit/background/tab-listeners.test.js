@@ -114,7 +114,7 @@ describe('Background Tab Listeners', () => {
           return { found: false };
         });
 
-        if (result && result.found) {
+        if (result?.found) {
           console.log(`✅ 成功遷移 ${result.count} 個舊版標註`);
           
           // 將遷移的數據保存到 chrome.storage.local

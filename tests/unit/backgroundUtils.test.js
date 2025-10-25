@@ -14,7 +14,7 @@ describe('background.js - 工具函數', () => {
             // 處理代理 URL
             if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
                 const uParam = urlObj.searchParams.get('u');
-                if (uParam && uParam.match(/^https?:\/\//)) {
+                if (uParam?.match(/^https?:\/\//)) {
                     return cleanImageUrl(uParam);
                 }
             }

@@ -55,7 +55,7 @@ class AdaptivePerformanceManager {
             this.performanceHistory.push({
                 ts: Date.now(),
                 duration: Number(duration.toFixed(2)),
-                performanceScore: systemPerformance && systemPerformance.performanceScore ? systemPerformance.performanceScore : null
+                performanceScore: systemPerformance?.performanceScore ? systemPerformance.performanceScore : null
             });
             // 保持歷史長度在合理範圍內以免無限增長
             if (this.performanceHistory.length > 50) this.performanceHistory.shift();

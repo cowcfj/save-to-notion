@@ -534,7 +534,7 @@ describe('highlighter-migration.js', () => {
 
             const notifications = document.querySelectorAll('div');
             const notification = Array.from(notifications).find(
-                el => el.innerHTML && el.innerHTML.includes('遷移完成')
+                el => el.innerHTML?.includes('遷移完成')
             );
 
             expect(notification).not.toBeNull();
@@ -556,7 +556,7 @@ describe('highlighter-migration.js', () => {
 
             const notifications = document.querySelectorAll('div');
             const notification = Array.from(notifications).find(
-                el => el.innerHTML && el.innerHTML.includes('遷移完成')
+                el => el.innerHTML?.includes('遷移完成')
             );
 
             expect(notification).not.toBeNull();
@@ -576,7 +576,7 @@ describe('highlighter-migration.js', () => {
 
             const notifications = document.querySelectorAll('div');
             const notification = Array.from(notifications).find(
-                el => el.innerHTML && el.innerHTML.includes('遷移完成')
+                el => el.innerHTML?.includes('遷移完成')
             );
 
             expect(notification).not.toBeNull();

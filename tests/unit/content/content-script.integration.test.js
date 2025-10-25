@@ -27,8 +27,8 @@ describe('content script integration test', () => {
         window.ImageUtils = {
             cleanImageUrl: url => url,
             isValidImageUrl: url => true,
-            extractImageSrc: img => img && img.getAttribute ? (img.getAttribute('src') || '') : null,
-            generateImageCacheKey: img => (img && img.getAttribute ? (img.getAttribute('src') || '') : '')
+            extractImageSrc: img => img?.getAttribute ? (img.getAttribute('src') || '') : null,
+            generateImageCacheKey: img => (img?.getAttribute ? (img.getAttribute('src') || '') : '')
         };
 
         // Indicate unit testing mode so content.js exposes result to window

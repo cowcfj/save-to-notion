@@ -497,7 +497,7 @@ async function handleCheckPageStatusSimulated(sendResponse) {
     });
     const savedData = result[storageKey];
 
-    if (savedData && savedData.notionPageId) {
+    if (savedData?.notionPageId) {
       sendResponse({
         success: true,
         isSaved: true,
