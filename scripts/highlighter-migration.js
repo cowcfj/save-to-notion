@@ -360,6 +360,6 @@
     // 導出到全局
     window.HighlightMigrationManager = HighlightMigrationManager;
 
-    console.log('✅ 標註遷移工具已加載');
+    Logger.info('✅ 標註遷移工具已加載');
 
 })();
