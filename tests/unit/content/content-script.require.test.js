@@ -26,8 +26,8 @@ describe('content script require test', () => {
         global.ImageUtils = {
             cleanImageUrl: url => url,
             isValidImageUrl: url => true,
-            extractImageSrc: img => img && img.getAttribute ? (img.getAttribute('src') || '') : null,
-            generateImageCacheKey: img => (img && img.getAttribute ? (img.getAttribute('src') || '') : '')
+            extractImageSrc: img => img?.getAttribute ? (img.getAttribute('src') || '') : null,
+            generateImageCacheKey: img => (img?.getAttribute ? (img.getAttribute('src') || '') : '')
         };
 
         // mark unit testing mode

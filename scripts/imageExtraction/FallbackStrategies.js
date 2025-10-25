@@ -189,7 +189,7 @@ class FallbackStrategies {
 
             // 提取 URL
             const urlMatch = backgroundImage.match(/url\(["']?(.*?)["']?\)/i);
-            if (urlMatch && urlMatch[1]) {
+            if (urlMatch?.[1]) {
                 const url = urlMatch[1];
                 if (this._isValidUrl(url)) {
                     return url;
@@ -249,7 +249,7 @@ class FallbackStrategies {
             if (imgMatches) {
                 for (const match of imgMatches) {
                     const srcMatch = match.match(/src=["']([^"']+)["']/i);
-                    if (srcMatch && srcMatch[1]) {
+                    if (srcMatch?.[1]) {
                         const url = srcMatch[1];
                         if (this._isValidUrl(url)) {
                             return url;

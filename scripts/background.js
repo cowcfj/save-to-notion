@@ -42,7 +42,7 @@ function cleanImageUrl(url) {
         // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
             const uParam = urlObj.searchParams.get('u');
-            if (uParam && uParam.match(/^https?:\/\//)) {
+            if (uParam?.match(/^https?:\/\//)) {
                 // 使用代理中的原始圖片 URL
                 return cleanImageUrl(uParam);
             }
@@ -1307,7 +1307,7 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
                 if (!raw) {
                     for (let i = 0; i < localStorage.length; i++) {
                         const k = localStorage.key(i);
-                        if (k && k.startsWith('highlights_')) {
+                        if (k?.startsWith('highlights_')) {
                             key = k;
                             raw = localStorage.getItem(k);
                             break;
@@ -1332,8 +1332,8 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
             return { migrated: false };
         });
 
-        const res = result && result[0] ? result[0].result : null;
-        if (res && res.migrated && Array.isArray(res.data) && res.data.length > 0) {
+        const res = result?.[0] ? result[0].result : null;
+        if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {
             Logger.log(`Migrating ${res.data.length} highlights from localStorage key: ${res.foundKey}`);
 
             await new Promise(resolve => {
@@ -1445,7 +1445,7 @@ async function handleCheckPageStatus(sendResponse) {
         const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
 
-        if (savedData && savedData.notionPageId) {
+        if (savedData?.notionPageId) {
             const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
 
             if (config.notionApiKey) {
@@ -1773,7 +1773,7 @@ async function handleSavePage(sendResponse) {
                     // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
                     if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
                         const uParam = urlObj.searchParams.get('u');
-                        if (uParam && uParam.match(/^https?:\/\//)) {
+                        if (uParam?.match(/^https?:\/\//)) {
                             // 使用代理中的原始圖片 URL
                             return cleanImageUrl(uParam);
                         }
@@ -1993,7 +1993,7 @@ async function handleSavePage(sendResponse) {
 
                     for (const attr of srcAttributes) {
                         const value = img.getAttribute(attr);
-                        if (value && value.trim() && !value.startsWith('data:')) {
+                        if (value?.trim() && !value.startsWith('data:')) {
                             return value.trim();
                         }
                     }
@@ -2189,7 +2189,7 @@ async function handleSavePage(sendResponse) {
                         const elements = cachedQuery(selector, document, { all: true });
                         for (const element of elements) {
                             const iconUrl = element.getAttribute(attr);
-                            if (iconUrl && iconUrl.trim() && !iconUrl.startsWith('data:')) {
+                            if (iconUrl?.trim() && !iconUrl.startsWith('data:')) {
                                 try {
                                     const absoluteUrl = new URL(iconUrl, document.baseURI).href;
 
@@ -2787,9 +2787,9 @@ async function handleSavePage(sendResponse) {
                 result: result,
                 resultType: typeof result,
                 hasResult: !!result,
-                hasTitle: !!(result && result.title),
-                hasBlocks: !!(result && result.blocks),
-                blocksLength: result && result.blocks ? result.blocks.length : 'N/A',
+                hasTitle: Boolean(result?.title),
+                hasBlocks: Boolean(result?.blocks),
+                blocksLength: result?.blocks ? result.blocks.length : 'N/A',
                 url: activeTab.url,
                 timestamp: new Date().toISOString()
             });
@@ -2847,7 +2847,7 @@ async function handleSavePage(sendResponse) {
         const imageCount = contentResult.blocks.filter(b => b.type === 'image').length;
 
         // 處理保存邏輯
-        if (savedData && savedData.notionPageId) {
+        if (savedData?.notionPageId) {
             const pageExists = await checkNotionPageExists(savedData.notionPageId, config.notionApiKey);
 
             if (pageExists) {

@@ -275,10 +275,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let title = '未命名資料來源';
             if (db.title && db.title.length > 0) {
                 title = db.title[0].plain_text || db.title[0].text?.content || '未命名資料來源';
-            } else if (db.properties && db.properties.title) {
+            } else if (db.properties?.title) {
                 // 有些資料來源的標題在 properties 中
                 const titleProp = Object.values(db.properties).find(prop => prop.type === 'title');
-                if (titleProp && titleProp.title && titleProp.title.length > 0) {
+                if (titleProp?.title && titleProp.title.length > 0) {
                     title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || '未命名資料來源';
                 }
             }
@@ -1558,7 +1558,7 @@ class SearchableDatabaseSelector {
             title = db.title[0].plain_text || db.title[0].text?.content || '未命名資料來源';
         } else if (db.properties) {
             const titleProp = Object.values(db.properties).find(prop => prop.type === 'title');
-            if (titleProp && titleProp.title && titleProp.title.length > 0) {
+            if (titleProp?.title && titleProp.title.length > 0) {
                 title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || '未命名資料來源';
             }
         }

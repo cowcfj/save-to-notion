@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 檢查頁面狀態
     function checkPageStatus() {
         chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
-            if (response && response.success) {
+            if (response?.success) {
                 if (response.isSaved) {
                     // 頁面已保存
                     updateUIForSavedPage(response);
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     highlightButton.addEventListener('click', () => {
         // 先檢查頁面狀態
         chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (statusResponse) => {
-            if (statusResponse && statusResponse.success) {
+            if (statusResponse?.success) {
                 if (!statusResponse.isSaved) {
                     // 頁面未保存，提醒用戶
                     status.textContent = 'Please save the page first!';
@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (chrome.runtime.lastError) {
                         status.textContent = `Error: ${chrome.runtime.lastError.message}`;
                         console.error(chrome.runtime.lastError);
-                    } else if (response && response.success) {
+                    } else if (response?.success) {
                         status.textContent = 'Highlight mode activated!';
                         setTimeout(() => {
                             window.close(); // 關閉 popup 讓用戶開始標記
@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 發送清除標記的消息
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                 const activeTab = tabs[0];
-                if (activeTab && activeTab.id) {
+                if (activeTab?.id) {
                     chrome.scripting.executeScript({
                         target: { tabId: activeTab.id },
                         func: () => {
@@ -180,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             return highlights.length;
                         }
                     }, (results) => {
-                        const clearedCount = results && results[0] ? results[0].result : 0;
+                        const clearedCount = results?.[0] ? results[0].result : 0;
                         status.textContent = `Cleared ${clearedCount} highlights successfully!`;
                         
                         setTimeout(() => {
@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Handle potential errors (e.g., background script not ready)
                 status.textContent = `Error: ${chrome.runtime.lastError.message}`;
                 console.error(chrome.runtime.lastError);
-            } else if (response && response.success) {
+            } else if (response?.success) {
                 let action = 'Saved';
                 let details = '';
                 

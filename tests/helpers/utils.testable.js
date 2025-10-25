@@ -140,7 +140,7 @@ if (typeof window.StorageUtil === 'undefined') {
         return new Promise((resolve) => {
             try {
                 chrome.storage?.local?.get([pageKey], (data) => {
-                    const stored = data && data[pageKey];
+                    const stored = data?.[pageKey];
                     if (stored) {
                         // 支持兩種格式：數組（舊版）和對象（新版 {url, highlights}）
                         let highlights = [];
