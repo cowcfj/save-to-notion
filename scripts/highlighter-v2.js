@@ -125,8 +125,8 @@
                 const migrationManager = new window.SeamlessMigrationManager();
                 const result = await migrationManager.performSeamlessMigration(this);
 
-                if (result?.completed) {
-                } else if (result?.phase) {
+                if (!result) {
+                    logger.warn('⚠️ 無痛遷移返回空結果');
                 } else if (result?.rolledBack) {
                     logger.warn(`⚠️ 遷移已回滾: ${result.reason}`);
                 }
@@ -198,14 +198,13 @@
                     // 檢查是否已經遷移過
                     const migrationKey = `migration_completed_${normalizedUrl}`;
                     const migrationStatus = await chrome.storage.local.get(migrationKey);
-
+    
                     if (migrationStatus[migrationKey]) {
                         return;
                     }
-
+    
                     // 執行數據遷移
                     await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
-                } else {
                 }
             } catch (error) {
                 logger.error('❌ [遷移] 檢查舊數據失敗:', error);
@@ -398,14 +397,14 @@
             }
 
             // 在單個文本節點中查找
-            for (const node of textNodes) {
-                const text = node.textContent;
+            for (const textNode of textNodes) {
+                const text = textNode.textContent;
                 const index = text.indexOf(textToFind);
-
+            
                 if (index !== -1) {
                     const range = document.createRange();
-                    range.setStart(node, index);
-                    range.setEnd(node, index + textToFind.length);
+                    range.setStart(textNode, index);
+                    range.setEnd(textNode, index + textToFind.length);
                     return range;
                 }
             }
