@@ -125,9 +125,9 @@
                 const migrationManager = new window.SeamlessMigrationManager();
                 const result = await migrationManager.performSeamlessMigration(this);
 
-                if (result && result.completed) {
-                } else if (result && result.phase) {
-                } else if (result && result.rolledBack) {
+                if (result?.completed) {
+                } else if (result?.phase) {
+                } else if (result?.rolledBack) {
                     logger.warn(`⚠️ 遷移已回滾: ${result.reason}`);
                 }
 
@@ -178,7 +178,7 @@
                 if (!legacyData) {
                     for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
-                        if (key && key.startsWith('highlights_')) {
+                        if (key?.startsWith('highlights_')) {
                             const raw = localStorage.getItem(key);
                             try {
                                 const data = JSON.parse(raw);
@@ -1125,7 +1125,7 @@
                     });
 
                     // v2.8.0: 檢測並清理舊格式的重複文本
-                    if (highlightData.rangeInfo && highlightData.rangeInfo.text) {
+                    if (highlightData.rangeInfo?.text) {
                         logger.info(`   🔄 [v2.8.0] 檢測到重複文本，將自動清理`);
                         delete highlightData.rangeInfo.text;
                         needsMigration = true;
@@ -1492,7 +1492,7 @@
                     syncBtn.disabled = false;
                     syncBtn.style.opacity = '1';
 
-                    if (response && response.success) {
+                    if (response?.success) {
                         syncBtn.textContent = '✅ 同步成功';
                         syncBtn.style.background = '#48bb78';
                         statusDiv.textContent = `✅ 已同步 ${highlights.length} 段標註`;
@@ -1541,7 +1541,7 @@
             // 獲取當前頁面的 Notion URL
             chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
 
-                if (response && response.success && response.isSaved) {
+                if (response?.success && response.isSaved) {
                     // handleCheckPageStatus 會為舊版本數據生成 notionUrl
                     const notionUrl = response.notionUrl;
                     if (notionUrl) {
@@ -1583,7 +1583,7 @@
 
                 // 更寬鬆的顯示邏輯：只要頁面已保存就顯示按鈕
                 // notionUrl 會在 handleCheckPageStatus 中為舊版本數據自動生成
-                if (response && response.success && response.isSaved) {
+                if (response?.success && response.isSaved) {
                     openBtn.style.display = 'block';
                     if (listOpenBtn) {
                         listOpenBtn.style.display = 'block';
@@ -1681,7 +1681,7 @@
                     // 獲取當前頁面的 Notion URL
                     chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
 
-                        if (response && response.success && response.isSaved) {
+                        if (response?.success && response.isSaved) {
                             // handleCheckPageStatus 會為舊版本數據生成 notionUrl
                             const notionUrl = response.notionUrl;
                             if (notionUrl) {
@@ -1982,7 +1982,7 @@
                 initHighlighter();
                 // 等待標註管理器初始化完成後再恢復標註
                 setTimeout(async () => {
-                    if (window.notionHighlighter && window.notionHighlighter.manager) {
+                    if (window.notionHighlighter?.manager) {
                         // 確保標註被正確恢復
                         await window.notionHighlighter.manager.initializationComplete;
                         // 保持工具欄隱藏狀態，但確保標註可見

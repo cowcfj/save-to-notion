@@ -832,7 +832,7 @@ class PerformanceOptimizer {
                      (typeof global !== 'undefined' && global.performance) ||
                      (typeof performance !== 'undefined' && performance);
 
-        if (perf && perf.memory) {
+        if (perf?.memory) {
             return {
                 usedJSHeapSize: perf.memory.usedJSHeapSize,
                 totalJSHeapSize: perf.memory.totalJSHeapSize,
