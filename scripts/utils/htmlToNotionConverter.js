@@ -6,7 +6,7 @@
 
 // 注意：這個文件將被注入到頁面中，所以需要使用全局變數
 // 確保 Logger 可用（從 utils.js 或其他地方）
-if (typeof Logger === 'undefined') {
+if (typeof window.Logger === 'undefined') {
     Logger = console; // 回退到 console
 }
 
