@@ -1202,8 +1202,8 @@ const Logger = (() => {
             }
 
             // 3. 執行 Readability 解析
-            let readabilityInstance;
-            let parsedArticle;
+            let readabilityInstance = null;
+            let parsedArticle = null;
 
             try {
                 Logger.log('📖 Initializing Readability parser...');
