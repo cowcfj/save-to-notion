@@ -407,10 +407,12 @@ Readability.prototype = {
     // - Snapshot collections to arrays (avoid surprises from live HTMLCollection)
     // - De-duplicate if tagNames contains duplicates
     // - Defensive validation
-    const safeTags = Array.isArray(tagNames)
+    var safeTags = Array.isArray(tagNames)
       ? Array.from(
           new Set(
-            tagNames.filter(t => typeof t === "string" && t.trim().length > 0)
+            tagNames.filter(function (t) {
+              return typeof t === "string" && t.trim().length > 0;
+            })
           )
         )
       : [];
@@ -419,10 +421,10 @@ Readability.prototype = {
       return [];
     }
 
-    let elements = [];
-    for (let i = 0; i < safeTags.length; i++) {
-      const tag = safeTags[i];
-      const collection = node.getElementsByTagName(tag);
+    var elements = [];
+    for (var i = 0; i < safeTags.length; i++) {
+      var tag = safeTags[i];
+      var collection = node.getElementsByTagName(tag);
       // HTMLCollection/NodeList -> Array snapshot
       elements = elements.concat(Array.from(collection));
     }

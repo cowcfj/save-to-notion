@@ -410,7 +410,9 @@ Readability.prototype = {
     const safeTags = Array.isArray(tagNames)
       ? Array.from(
           new Set(
-            tagNames.filter(t => typeof t === "string" && t.trim().length > 0)
+            tagNames.filter(function (t) {
+              return typeof t === "string" && t.trim().length > 0;
+            })
           )
         )
       : [];
