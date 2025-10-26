@@ -143,7 +143,7 @@ const Logger = (() => {
         if (typeof ImageUtils === 'undefined') {
             Logger.warn('ImageUtils not available, using fallback implementations');
             window.ImageUtils = {
-                cleanImageUrl: function (url) {
+                cleanImageUrl(url) {
                     if (!url || typeof url !== 'string') return null;
                     try {
                         return new URL(url).href;
@@ -151,19 +151,19 @@ const Logger = (() => {
                         return null;
                     }
                 },
-                isValidImageUrl: function (url) {
+                isValidImageUrl(url) {
                     if (!url || typeof url !== 'string') return false;
                     return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url);
                 },
-                isNotionCompatibleImageUrl: function (url) {
+                isNotionCompatibleImageUrl(url) {
                     // 簡單的回退實現
                     return this.isValidImageUrl(url);
                 },
-                extractImageSrc: function (imgNode) {
+                extractImageSrc(imgNode) {
                     if (!imgNode) return null;
                     return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
                 },
-                generateImageCacheKey: function (imgNode) {
+                generateImageCacheKey(imgNode) {
                     if (!imgNode) return 'null';
                     return (imgNode.getAttribute('src') || '') + '|' + (imgNode.className || '');
                 }
