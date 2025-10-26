@@ -87,7 +87,11 @@ function isValidImageUrl(url) {
     }
 
     // 檢查是否為有效的 HTTP/HTTPS URL
-    if (!cleanedUrl.match(/^https?:\/\//i)) return false;
+    const HTTP_PROTOCOL_REGEX = /^https?:\/\//i;
+    if (!HTTP_PROTOCOL_REGEX.test(cleanedUrl)) {
+        cacheValidationResult(url, false);
+        return false;
+    }
 
     // 檢查 URL 長度（Notion 有限制）
     if (cleanedUrl.length > 2000) return false;
