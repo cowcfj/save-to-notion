@@ -12,11 +12,11 @@
 
     // 初始化標註工具
     window.initHighlighter();
-    Logger?.info?.('🔧 執行標註恢復腳本');
+    window.Logger?.info?.('🔧 執行標註恢復腳本');
 
     // 如果有 notionHighlighter 對象，嘗試恢復標註
     if (window.notionHighlighter && typeof window.notionHighlighter.manager.forceRestoreHighlights === 'function') {
-        
+
         Promise.resolve(window.notionHighlighter.manager.forceRestoreHighlights())
             .then(success => {
                 if (success) {
