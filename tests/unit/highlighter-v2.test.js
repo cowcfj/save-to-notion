@@ -67,7 +67,7 @@ describe('highlighter-v2.testable.js', () => {
         
         test('null 或 undefined 應該失敗', () => {
             expect(validateHighlightData(null)).toBe(false);
-            expect(validateHighlightData(undefined)).toBe(false);
+            expect(validateHighlightData()).toBe(false);
         });
         
         test('非對象應該失敗', () => {
@@ -166,7 +166,7 @@ describe('highlighter-v2.testable.js', () => {
         
         test('null 或 undefined 應該失敗', () => {
             expect(validateRangeInfo(null)).toBe(false);
-            expect(validateRangeInfo(undefined)).toBe(false);
+            expect(validateRangeInfo()).toBe(false);
         });
         
         test('缺少 startContainerPath 應該失敗', () => {
@@ -228,7 +228,7 @@ describe('highlighter-v2.testable.js', () => {
         
         test('null 或 undefined 應該失敗', () => {
             expect(validatePathStep(null)).toBe(false);
-            expect(validatePathStep(undefined)).toBe(false);
+            expect(validatePathStep()).toBe(false);
         });
         
         test('缺少 type 應該失敗', () => {
@@ -373,7 +373,7 @@ describe('highlighter-v2.testable.js', () => {
         
         test('非字符串應該返回空字符串', () => {
             expect(cleanText(null)).toBe('');
-            expect(cleanText(undefined)).toBe('');
+            expect(cleanText()).toBe('');
             expect(cleanText(123)).toBe('');
         });
         
@@ -450,7 +450,7 @@ describe('highlighter-v2.testable.js', () => {
         
         test('非字符串應該返回 null', () => {
             expect(createStorageKey(null)).toBe(null);
-            expect(createStorageKey(undefined)).toBe(null);
+            expect(createStorageKey()).toBe(null);
         });
     });
     

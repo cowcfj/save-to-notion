@@ -78,7 +78,7 @@ describe('cleanImageUrl - 深度測試', () => {
         
         test('空值應該返回 null', () => {
             expect(cleanImageUrl(null)).toBeNull();
-            expect(cleanImageUrl(undefined)).toBeNull();
+            expect(cleanImageUrl()).toBeNull();
             expect(cleanImageUrl('')).toBeNull();
         });
         
@@ -247,7 +247,7 @@ describe('isValidImageUrl - 深度測試', () => {
         });
         
         test('undefined 應該返回 false', () => {
-            expect(isValidImageUrl(undefined)).toBe(false);
+            expect(isValidImageUrl()).toBe(false);
         });
         
         test('空字符串應該返回 false', () => {

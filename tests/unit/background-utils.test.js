@@ -92,7 +92,7 @@ describe('background-utils.testable.js', () => {
             });
 
             test('undefined 應該返回 null', () => {
-                expect(cleanImageUrl(undefined)).toBeNull();
+                expect(cleanImageUrl()).toBeNull();
             });
 
             test('空字符串應該返回 null', () => {
@@ -188,7 +188,7 @@ describe('background-utils.testable.js', () => {
             });
 
             test('undefined 應該返回 false', () => {
-                expect(isValidImageUrl(undefined)).toBe(false);
+                expect(isValidImageUrl()).toBe(false);
             });
 
             test('空字符串應該返回 false', () => {
@@ -510,7 +510,7 @@ describe('background-utils.testable.js', () => {
             });
 
             test('undefined 應該返回空字符串', () => {
-                expect(normalizeUrl(undefined)).toBe('');
+                expect(normalizeUrl()).toBe('');
             });
 
             test('空字符串應該返回空字符串', () => {
@@ -836,7 +836,7 @@ describe('background-utils.testable.js', () => {
 
         test('非字符串應該返回 null', () => {
             expect(createNotionRichText(null)).toBeNull();
-            expect(createNotionRichText(undefined)).toBeNull();
+            expect(createNotionRichText()).toBeNull();
             expect(createNotionRichText(123)).toBeNull();
             expect(createNotionRichText({})).toBeNull();
         });
@@ -883,7 +883,7 @@ describe('background-utils.testable.js', () => {
 
         test('null 或 undefined 應該返回 null', () => {
             expect(createNotionParagraph(null)).toBeNull();
-            expect(createNotionParagraph(undefined)).toBeNull();
+            expect(createNotionParagraph()).toBeNull();
         });
 
         test('空字符串應該返回 null', () => {
@@ -979,7 +979,7 @@ describe('background-utils.testable.js', () => {
 
         test('非字符串應該返回 null', () => {
             expect(createNotionImage(null)).toBeNull();
-            expect(createNotionImage(undefined)).toBeNull();
+            expect(createNotionImage()).toBeNull();
             expect(createNotionImage(123)).toBeNull();
         });
 
@@ -1057,7 +1057,7 @@ describe('background-utils.testable.js', () => {
         });
 
         test('undefined 應該返回 false', () => {
-            expect(isValidNotionBlock(undefined)).toBe(false);
+            expect(isValidNotionBlock()).toBe(false);
         });
 
         test('非對象應該返回 false', () => {
@@ -1087,7 +1087,7 @@ describe('background-utils.testable.js', () => {
             test('非數字應該返回 false', () => {
                 expect(isSuccessStatusCode('200')).toBe(false);
                 expect(isSuccessStatusCode(null)).toBe(false);
-                expect(isSuccessStatusCode(undefined)).toBe(false);
+                expect(isSuccessStatusCode()).toBe(false);
             });
         });
 
@@ -1250,7 +1250,7 @@ describe('background-utils.testable.js', () => {
 
         test('非字符串應該返回默認值', () => {
             expect(safeJsonParse(null)).toBeNull();
-            expect(safeJsonParse(undefined)).toBeNull();
+            expect(safeJsonParse()).toBeNull();
             expect(safeJsonParse(123)).toBeNull();
             expect(safeJsonParse({})).toBeNull();
         });
@@ -1303,7 +1303,7 @@ describe('background-utils.testable.js', () => {
         });
 
         test('undefined 應該返回 null', () => {
-            expect(safeJsonStringify(undefined)).toBeNull();
+            expect(safeJsonStringify()).toBeNull();
         });
 
         test('函數應該被忽略', () => {

@@ -189,7 +189,7 @@ describe('Background Extension Lifecycle', () => {
       // Act & Assert
       expect(isImportantUpdate('')).toBe(false);
       expect(isImportantUpdate(null)).toBe(false);
-      expect(isImportantUpdate(undefined)).toBe(false);
+      expect(isImportantUpdate()).toBe(false);
       expect(isImportantUpdate('invalid')).toBe(false);
     });
   });

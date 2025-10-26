@@ -180,7 +180,7 @@ describe('Background Core Functions', () => {
     it('应该处理空值', () => {
       expect(backgroundFunctions.normalizeUrl('')).toBe('');
       expect(backgroundFunctions.normalizeUrl(null)).toBe('');
-      expect(backgroundFunctions.normalizeUrl(undefined)).toBe('');
+      expect(backgroundFunctions.normalizeUrl()).toBe('');
     });
   });
 
@@ -376,7 +376,7 @@ describe('Background Core Functions', () => {
     it('应该处理无效版本', () => {
       expect(backgroundFunctions.isImportantUpdate('')).toBe(false);
       expect(backgroundFunctions.isImportantUpdate(null)).toBe(false);
-      expect(backgroundFunctions.isImportantUpdate(undefined)).toBe(false);
+      expect(backgroundFunctions.isImportantUpdate()).toBe(false);
     });
   });
 

@@ -51,7 +51,7 @@ describe('cleanImageUrl', () => {
     });
 
     test('應該處理 undefined', () => {
-      expect(cleanImageUrl(undefined)).toBeNull();
+      expect(cleanImageUrl()).toBeNull();
     });
 
     test('應該處理空字串', () => {
@@ -167,7 +167,7 @@ describe('isValidImageUrl', () => {
     });
 
     test('應該拒絕 undefined', () => {
-      expect(isValidImageUrl(undefined)).toBe(false);
+      expect(isValidImageUrl()).toBe(false);
     });
 
     test('應該拒絕空字串', () => {

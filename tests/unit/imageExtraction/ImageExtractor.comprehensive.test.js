@@ -78,7 +78,7 @@ describe('ImageExtractor - 全面測試', () => {
         });
 
         it('應該處理 undefined 輸入', () => {
-            const result = extractor.extractImageSrc(undefined);
+            const result = extractor.extractImageSrc();
 
             expect(result).toBeNull();
         });
@@ -378,7 +378,7 @@ describe('ImageExtractor - 全面測試', () => {
         });
 
         it('應該拒絕 undefined', () => {
-            const result = extractor._isValidUrl(undefined);
+            const result = extractor._isValidUrl();
 
             expect(result).toBe(false);
         });

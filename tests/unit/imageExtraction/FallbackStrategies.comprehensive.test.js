@@ -537,7 +537,7 @@ describe('FallbackStrategies - 全面測試', () => {
         });
 
         it('應該拒絕 undefined', () => {
-            expect(FallbackStrategies._isValidUrl(undefined)).toBe(false);
+            expect(FallbackStrategies._isValidUrl()).toBe(false);
         });
 
         it('應該拒絕空字符串', () => {

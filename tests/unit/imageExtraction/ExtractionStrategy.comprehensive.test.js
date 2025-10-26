@@ -53,7 +53,7 @@ describe('ExtractionStrategy - 全面測試', () => {
             });
 
             it('應該拒絕 undefined', () => {
-                expect(strategy.isApplicable(undefined)).toBeFalsy();
+                expect(strategy.isApplicable()).toBeFalsy();
             });
 
             it('應該拒絕文本節點', () => {
@@ -89,7 +89,7 @@ describe('ExtractionStrategy - 全面測試', () => {
             });
 
             it('應該拒絕 undefined', () => {
-                expect(strategy._isValidUrl(undefined)).toBe(false);
+                expect(strategy._isValidUrl()).toBe(false);
             });
 
             it('應該拒絕空字符串', () => {
@@ -141,7 +141,7 @@ describe('ExtractionStrategy - 全面測試', () => {
             });
 
             it('應該處理 undefined', () => {
-                expect(strategy._cleanUrl(undefined)).toBeNull();
+                expect(strategy._cleanUrl()).toBeNull();
             });
 
             it('應該處理空字符串', () => {
