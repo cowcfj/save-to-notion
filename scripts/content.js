@@ -69,6 +69,10 @@ const Logger = {
                     if (!url || typeof url !== 'string') return false;
                     return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url);
                 },
+                isNotionCompatibleImageUrl: function (url) {
+                    // 簡單的回退實現
+                    return this.isValidImageUrl(url);
+                },
                 extractImageSrc: function (imgNode) {
                     if (!imgNode) return null;
                     return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
@@ -1033,63 +1037,6 @@ const Logger = {
         }
 
         /**
-         * 優化的 Readability 內容解析
-         * 包含性能優化、錯誤處理和邊緣情況處理
-         */
-        const parseArticleWithReadability = () => {
-            // 1. 驗證 Readability 依賴項
-            if (typeof Readability === 'undefined') {
-                Logger.error('❌ Readability library is not available');
-                throw new Error('Readability library not loaded');
-            }
-
-            Logger.log('🚀 Starting Readability content parsing...');
-
-            // 2. 性能優化：創建優化的文檔副本
-            const optimizedDocument = createOptimizedDocumentClone();
-            if (!optimizedDocument) {
-                throw new Error('Failed to create optimized document clone');
-            }
-
-            // 3. 執行 Readability 解析
-            let readabilityInstance;
-            let parsedArticle;
-
-            try {
-                Logger.log('📖 Initializing Readability parser...');
-                readabilityInstance = new Readability(optimizedDocument);
-
-                Logger.log('🔍 Parsing document content...');
-                parsedArticle = readabilityInstance.parse();
-
-                Logger.log('✅ Readability parsing completed');
-            } catch (parseError) {
-                Logger.error('❌ Readability parsing failed:', parseError);
-                throw new Error(`Readability parsing error: ${parseError.message}`);
-            }
-
-            // 4. 驗證解析結果
-            if (!parsedArticle) {
-                Logger.warn('⚠️ Readability returned null/undefined result');
-                throw new Error('Readability parsing returned no result');
-            }
-
-            // 5. 驗證基本屬性
-            if (!parsedArticle.content || typeof parsedArticle.content !== 'string') {
-                Logger.warn('⚠️ Readability result missing or invalid content property');
-                throw new Error('Parsed article has no valid content');
-            }
-
-            if (!parsedArticle.title || typeof parsedArticle.title !== 'string') {
-                Logger.warn('⚠️ Readability result missing title, using document title as fallback');
-                parsedArticle.title = document.title || 'Untitled Page';
-            }
-
-            Logger.log(`📊 Parsed article: ${parsedArticle.content.length} chars, title: "${parsedArticle.title}"`);
-            return parsedArticle;
-        };
-
-        /**
          * 創建優化的文檔副本以減少 DOM 克隆開銷
          * 移除不必要的元素來提升性能
          */
@@ -1147,6 +1094,63 @@ const Logger = {
                     return null;
                 }
             }
+        };
+
+        /**
+         * 優化的 Readability 內容解析
+         * 包含性能優化、錯誤處理和邊緣情況處理
+         */
+        const parseArticleWithReadability = () => {
+            // 1. 驗證 Readability 依賴項
+            if (typeof Readability === 'undefined') {
+                Logger.error('❌ Readability library is not available');
+                throw new Error('Readability library not loaded');
+            }
+
+            Logger.log('🚀 Starting Readability content parsing...');
+
+            // 2. 性能優化：創建優化的文檔副本
+            const optimizedDocument = createOptimizedDocumentClone();
+            if (!optimizedDocument) {
+                throw new Error('Failed to create optimized document clone');
+            }
+
+            // 3. 執行 Readability 解析
+            let readabilityInstance;
+            let parsedArticle;
+
+            try {
+                Logger.log('📖 Initializing Readability parser...');
+                readabilityInstance = new Readability(optimizedDocument);
+
+                Logger.log('🔍 Parsing document content...');
+                parsedArticle = readabilityInstance.parse();
+
+                Logger.log('✅ Readability parsing completed');
+            } catch (parseError) {
+                Logger.error('❌ Readability parsing failed:', parseError);
+                throw new Error(`Readability parsing error: ${parseError.message}`);
+            }
+
+            // 4. 驗證解析結果
+            if (!parsedArticle) {
+                Logger.warn('⚠️ Readability returned null/undefined result');
+                throw new Error('Readability parsing returned no result');
+            }
+
+            // 5. 驗證基本屬性
+            if (!parsedArticle.content || typeof parsedArticle.content !== 'string') {
+                Logger.warn('⚠️ Readability result missing or invalid content property');
+                throw new Error('Parsed article has no valid content');
+            }
+
+            if (!parsedArticle.title || typeof parsedArticle.title !== 'string') {
+                Logger.warn('⚠️ Readability result missing title, using document title as fallback');
+                parsedArticle.title = document.title || 'Untitled Page';
+            }
+
+            Logger.log(`📊 Parsed article: ${parsedArticle.content.length} chars, title: "${parsedArticle.title}"`);
+            return parsedArticle;
         };
 
         // 執行優化的 Readability 解析
@@ -1260,9 +1264,13 @@ const Logger = {
             console.log(`- Page text length: ${document.body ? document.body.textContent.length : 0} characters`);
 
             // 輸出性能統計（如果可用）
-            if (performanceOptimizer) {
-                const performanceStats = performanceOptimizer.getPerformanceStats();
-                console.log('🚀 Content.js Performance Stats:', performanceStats);
+            if (typeof performanceOptimizer !== 'undefined' && performanceOptimizer) {
+                try {
+                    const performanceStats = performanceOptimizer.getPerformanceStats();
+                    console.log('🚀 Content.js Performance Stats:', performanceStats);
+                } catch (perfError) {
+                    console.warn('Could not get performance stats:', perfError);
+                }
             }
 
             return {
