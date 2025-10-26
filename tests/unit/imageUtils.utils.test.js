@@ -58,7 +58,7 @@ describe('ImageUtils - cleanImageUrl', () => {
         });
 
         test('應該處理 undefined', () => {
-            expect(cleanImageUrl(undefined)).toBeNull();
+            expect(cleanImageUrl()).toBeNull();
         });
 
         test('應該處理空字串', () => {
@@ -174,7 +174,7 @@ describe('ImageUtils - isValidImageUrl', () => {
         });
 
         test('應該拒絕 undefined', () => {
-            expect(isValidImageUrl(undefined)).toBe(false);
+            expect(isValidImageUrl()).toBe(false);
         });
 
         test('應該拒絕空字串', () => {
@@ -238,7 +238,7 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
     test('應該處理空或無效輸入', () => {
         expect(extractBestUrlFromSrcset(null)).toBeNull();
         expect(extractBestUrlFromSrcset('')).toBeNull();
-        expect(extractBestUrlFromSrcset(undefined)).toBeNull();
+        expect(extractBestUrlFromSrcset()).toBeNull();
     });
 });
 
@@ -288,7 +288,7 @@ describe('ImageUtils - extractImageSrc', () => {
 
     test('應該處理 null 或無效輸入', () => {
         expect(extractImageSrc(null)).toBeNull();
-        expect(extractImageSrc(undefined)).toBeNull();
+        expect(extractImageSrc()).toBeNull();
     });
 
     test('應該跳過 data: 和 blob: URL', () => {
@@ -328,7 +328,7 @@ describe('ImageUtils - generateImageCacheKey', () => {
 
     test('應該處理 null 輸入', () => {
         expect(generateImageCacheKey(null)).toBe('');
-        expect(generateImageCacheKey(undefined)).toBe('');
+        expect(generateImageCacheKey()).toBe('');
     });
 });
 

@@ -31,7 +31,7 @@ describe('splitTextForHighlight', () => {
 
         test('null 或 undefined 返回包含原值的數組', () => {
             expect(splitTextForHighlight(null)).toEqual([null]);
-            expect(splitTextForHighlight(undefined)).toEqual([undefined]);
+            expect(splitTextForHighlight()).toEqual([undefined]);
         });
 
         test('正好 maxLength 長度的文本不分割', () => {

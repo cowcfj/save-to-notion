@@ -40,7 +40,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該處理 null 和 undefined', () => {
             expect(cleanImageUrl(null)).toBeNull();
-            expect(cleanImageUrl(undefined)).toBeNull();
+            expect(cleanImageUrl()).toBeNull();
         });
 
         test('應該處理空字符串', () => {
@@ -117,7 +117,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該處理 null 和 undefined', () => {
             expect(isValidImageUrl(null)).toBe(false);
-            expect(isValidImageUrl(undefined)).toBe(false);
+            expect(isValidImageUrl()).toBe(false);
         });
 
         test('應該處理空字符串', () => {

@@ -111,7 +111,7 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
         test('應該處理空值', () => {
             expect(mockManager.parsePathFromString('')).toBeNull();
             expect(mockManager.parsePathFromString(null)).toBeNull();
-            expect(mockManager.parsePathFromString(undefined)).toBeNull();
+            expect(mockManager.parsePathFromString()).toBeNull();
         });
     });
     
@@ -146,7 +146,7 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
         
         test('應該處理非數組', () => {
             expect(mockManager.convertPathToString(null)).toBe('');
-            expect(mockManager.convertPathToString(undefined)).toBe('');
+            expect(mockManager.convertPathToString()).toBe('');
             expect(mockManager.convertPathToString('string')).toBe('');
         });
     });

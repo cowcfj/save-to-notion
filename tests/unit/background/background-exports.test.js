@@ -253,7 +253,7 @@ describe('Background.js Exported Functions', () => {
     it('应该处理空值', () => {
       expect(backgroundModule.normalizeUrl('')).toBe('');
       expect(backgroundModule.normalizeUrl(null)).toBe('');
-      expect(backgroundModule.normalizeUrl(undefined)).toBe('');
+      expect(backgroundModule.normalizeUrl()).toBe('');
     });
 
     it('应该处理复杂的查询参数', () => {
@@ -468,7 +468,7 @@ describe('Background.js Exported Functions', () => {
     it('应该处理空文本', () => {
       expect(backgroundModule.splitTextForHighlight('')).toEqual(['']);
       expect(backgroundModule.splitTextForHighlight(null)).toEqual([null]);
-      expect(backgroundModule.splitTextForHighlight(undefined)).toEqual([undefined]);
+      expect(backgroundModule.splitTextForHighlight()).toEqual([undefined]);
     });
 
     it('应该过滤空字符串片段', () => {

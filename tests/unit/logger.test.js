@@ -132,12 +132,11 @@ describe('Logger', () => {
         });
 
         test('應該處理 null 和 undefined', () => {
-            Logger.warn('空值檢查', null, undefined);
+            Logger.warn('空值檢查', null);
 
             expect(consoleSpy.warn).toHaveBeenCalledWith(
                 '[WARN] 空值檢查', 
-                null, 
-                undefined
+                null
             );
         });
     });
@@ -270,7 +269,7 @@ describe('Logger', () => {
 
     describe('邊界情況', () => {
         test('應該處理 undefined 訊息', () => {
-            Logger.info(undefined);
+            Logger.info();
 
             expect(consoleSpy.log).toHaveBeenCalledWith('[INFO] undefined');
         });

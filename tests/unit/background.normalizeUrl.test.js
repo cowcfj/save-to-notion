@@ -171,7 +171,7 @@ describe('background.normalizeUrl', () => {
         });
 
         test('應該處理 undefined', () => {
-            const result = normalizeUrl(undefined);
+            const result = normalizeUrl();
             
             // background.js 返回空字符串而非 undefined
             expect(result).toBe('');

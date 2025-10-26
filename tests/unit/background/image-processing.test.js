@@ -82,7 +82,7 @@ describe('Background Image Processing', () => {
     it('应该处理 null 和 undefined', () => {
       // Act & Assert
       expect(cleanImageUrlSimulated(null)).toBeNull();
-      expect(cleanImageUrlSimulated(undefined)).toBeNull();
+      expect(cleanImageUrlSimulated()).toBeNull();
       expect(cleanImageUrlSimulated('')).toBeNull();
     });
 
@@ -246,7 +246,7 @@ describe('Background Image Processing', () => {
     it('应该处理 null、undefined 和空字符串', () => {
       // Act & Assert
       expect(isValidImageUrlSimulated(null)).toBe(false);
-      expect(isValidImageUrlSimulated(undefined)).toBe(false);
+      expect(isValidImageUrlSimulated()).toBe(false);
       expect(isValidImageUrlSimulated('')).toBe(false);
     });
 
@@ -381,7 +381,7 @@ describe('Background Image Processing', () => {
       // Act & Assert
       expect(splitTextForHighlightSimulated('')).toEqual(['']);
       expect(splitTextForHighlightSimulated(null)).toEqual([null]);
-      expect(splitTextForHighlightSimulated(undefined)).toEqual([undefined]);
+      expect(splitTextForHighlightSimulated()).toEqual([undefined]);
     });
 
     it('应该过滤空字符串片段', () => {

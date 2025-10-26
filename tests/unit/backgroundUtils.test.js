@@ -112,7 +112,7 @@ describe('background.js - 工具函數', () => {
         });
 
         test('應該處理 undefined', () => {
-            const result = cleanImageUrl(undefined);
+            const result = cleanImageUrl();
             
             expect(result).toBeNull();
         });
@@ -201,7 +201,7 @@ describe('background.js - 工具函數', () => {
         });
 
         test('應該處理 undefined', () => {
-            expect(isValidImageUrl(undefined)).toBe(false);
+            expect(isValidImageUrl()).toBe(false);
         });
 
         test('應該處理空字符串', () => {

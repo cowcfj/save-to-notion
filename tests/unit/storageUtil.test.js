@@ -813,7 +813,7 @@ describe('StorageUtil', () => {
         test('應該處理 undefined 數據', async () => {
             const testUrl = 'https://example.com/page';
 
-            await StorageUtil.saveHighlights(testUrl, undefined);
+            await StorageUtil.saveHighlights(testUrl);
 
             expect(mockChrome.storage.local.set).toHaveBeenCalled();
         });

@@ -123,7 +123,7 @@ describe('normalizeUrl', () => {
     });
 
     test('應該處理 undefined', () => {
-      expect(normalizeUrl(undefined)).toBe('');
+      expect(normalizeUrl()).toBe('');
     });
   });
 

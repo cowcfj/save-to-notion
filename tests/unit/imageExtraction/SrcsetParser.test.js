@@ -17,7 +17,7 @@ describe('SrcsetParser', () => {
         test('應該處理空 srcset', () => {
             expect(SrcsetParser.parse('')).toBeNull();
             expect(SrcsetParser.parse(null)).toBeNull();
-            expect(SrcsetParser.parse(undefined)).toBeNull();
+            expect(SrcsetParser.parse()).toBeNull();
         });
 
         test('應該跳過 data: URL', () => {
@@ -87,7 +87,7 @@ describe('SrcsetParser', () => {
         test('應該拒絕無效的 srcset', () => {
             expect(SrcsetParser.isValidSrcset('')).toBe(false);
             expect(SrcsetParser.isValidSrcset(null)).toBe(false);
-            expect(SrcsetParser.isValidSrcset(undefined)).toBe(false);
+            expect(SrcsetParser.isValidSrcset()).toBe(false);
         });
     });
 
