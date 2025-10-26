@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const notionUrl = openNotionButton.getAttribute('data-url');
         if (notionUrl) {
             chrome.tabs.create({ url: notionUrl }, () => {
-                console.log('✅ 已在新標籤頁打開 Notion 頁面');
+                
             });
         }
     });

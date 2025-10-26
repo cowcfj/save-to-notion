@@ -202,11 +202,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
-            console.log('API 響應狀態:', response.status);
+            
 
             if (response.ok) {
                 const data = await response.json();
-                console.log('API 響應數據:', data);
+                
                 
                 if (data.results && data.results.length > 0) {
                     populateDatabaseSelect(data.results);
@@ -251,17 +251,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 初始化搜索式選擇器（如果還沒有）
         if (!searchableSelector) {
-            console.log('初始化搜索式選擇器');
+            
             searchableSelector = new SearchableDatabaseSelector();
         }
         
         // 使用新的搜索式選擇器
-        console.log('調用 searchableSelector.populateDatabases');
+        
         searchableSelector.populateDatabases(databases);
         
         // 隱藏原有的簡單選擇器
         databaseSelect.style.display = 'none';
-        console.log('隱藏原有選擇器');
+        
         
         // 保留原有邏輯作為回退（但隱藏）
         databaseSelect.innerHTML = '<option value="">選擇資料來源...</option>';
@@ -836,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 data: data[key]
                             }));
                         
-                        console.log(`🔍 檢查 ${savedPages.length} 個已保存的頁面...`);
+                        
                         
                         // 顯示檢查進度
                         updateCheckProgress(0, savedPages.length);
@@ -849,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             updateCheckProgress(i + 1, savedPages.length);
                             
                             if (!page.data || !page.data.notionPageId) {
-                                console.log(`⏭️ 跳過無效頁面: ${page.url}`);
+                                
                                 continue;
                             }
                             
@@ -887,7 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     plan.spaceFreed += totalSize;
                                     plan.deletedPages++;
                                     
-                                    console.log(`❌ 頁面已刪除: ${page.url} (${(totalSize / 1024).toFixed(1)} KB)`);
+                                    
                                 }
                                 
                                 // 避免 API 速率限制（Notion: 3 requests/second）
@@ -979,11 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const keysToRemove = cleanupPlan.items.map(item => item.key);
                 
-                console.log('📋 清理計劃:', {
-                    keysToRemove: keysToRemove.length,
-                    deletedPages: cleanupPlan.deletedPages,
-                    spaceFreed: cleanupPlan.spaceFreed
-                });
+                
                 
                 // 執行刪除操作
                 await new Promise((resolve, reject) => {
@@ -992,7 +988,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             console.error('❌ 刪除失敗:', chrome.runtime.lastError);
                             reject(chrome.runtime.lastError);
                         } else {
-                            console.log(`✅ 已刪除 ${keysToRemove.length} 個數據項`);
+                            
                             resolve();
                         }
                     });
@@ -1181,11 +1177,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const optimizedData = optimizationPlan.optimizedData;
                 const keysToRemove = optimizationPlan.keysToRemove;
                 
-                console.log('📋 優化計劃:', {
-                    keysToRemove: keysToRemove.length,
-                    optimizedKeys: Object.keys(optimizedData).length,
-                    spaceSaved: optimizationPlan.spaceSaved
-                });
+                
                 
                 // 先刪除遷移數據
                 if (keysToRemove.length > 0) {
@@ -1194,7 +1186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (chrome.runtime.lastError) {
                                 reject(chrome.runtime.lastError);
                             } else {
-                                console.log(`✅ 已刪除 ${keysToRemove.length} 個遷移數據`);
+                                
                                 resolve();
                             }
                         });
@@ -1216,7 +1208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (chrome.runtime.lastError) {
                                 reject(chrome.runtime.lastError);
                             } else {
-                                console.log('✅ 已更新優化後的數據');
+                                
                                 resolve();
                             }
                         });
@@ -1324,9 +1316,9 @@ class SearchableDatabaseSelector {
     }
 
     populateDatabases(databases) {
-        console.log('SearchableDatabaseSelector.populateDatabases 被調用');
-        console.log('容器元素:', this.container);
-        console.log('搜索輸入元素:', this.searchInput);
+        
+        
+        
         
         this.databases = databases.map(db => ({
             id: db.id,
@@ -1346,12 +1338,12 @@ class SearchableDatabaseSelector {
         this.renderDatabaseList();
         
         // 顯示選擇器
-        console.log('顯示搜索選擇器容器');
+        
         this.container.style.display = 'block';
         
         // 更新搜索框提示
         this.searchInput.placeholder = `搜索 ${databases.length} 個資料來源...`;
-        console.log('搜索選擇器初始化完成');
+        
         
         // 如果當前有選中的資料來源，在搜索框中顯示
         if (this.databaseIdInput.value) {

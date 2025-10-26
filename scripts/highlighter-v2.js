@@ -22,7 +22,7 @@
         },
         log: function(...args) {
             if (CURRENT_LOG_LEVEL >= LOG_LEVELS.INFO) {
-                console.log('[Highlighter]', ...args);
+                
             }
         },
         info: function(...args) {

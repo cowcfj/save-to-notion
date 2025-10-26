@@ -105,7 +105,7 @@ function initTurndownService() {
                 return result;
             } else {
                 // 相對路徑、錨點連結等，直接返回文本避免 Notion API 問題
-                console.log(`⚠️ Turndown: Converting problematic URL to plain text: ${href}`);
+                
                 return content;
             }
         }
@@ -122,7 +122,7 @@ function convertMarkdownToNotionBlocks(markdown) {
     const blocks = [];
     const lines = markdown.split('\n');
     
-    console.log(`📋 Processing ${lines.length} lines of Markdown...`);
+    
     
     const startTime = Date.now();
     const maxProcessingTime = 30000; // 30秒超時
@@ -148,7 +148,7 @@ function convertMarkdownToNotionBlocks(markdown) {
     // 輔助函數：清空列表堆疊，將頂層列表項加入 blocks
     function flushListStack() {
         if (listStack.length > 0) {
-            console.log(`🗞️ Flushing ${listStack.length} list items from stack`);
+            
             // 只將頂層（level 0）的項目加入 blocks
             let addedCount = 0;
             listStack.forEach(item => {
@@ -157,7 +157,7 @@ function convertMarkdownToNotionBlocks(markdown) {
                     addedCount++;
                 }
             });
-            console.log(`🗞️ Added ${addedCount} top-level list items to blocks`);
+            
             listStack = [];
         }
     }
@@ -186,7 +186,7 @@ function convertMarkdownToNotionBlocks(markdown) {
         // 進度追蹤（每10行報告一次，提供詳細信息）
         if (i > 0 && i % 10 === 0) {
             const elapsed = Date.now() - startTime;
-            console.log(`📄 Line ${i}/${lines.length} (${Math.round(i/lines.length*100)}%) - "${trimmed.substring(0, 40)}..." - ${blocks.length} blocks created - ${elapsed}ms`);
+            
         }
         
         // 安全檢查：避免無限循環和超時
@@ -276,7 +276,7 @@ function convertMarkdownToNotionBlocks(markdown) {
                 flushListStack(); // 清空之前的列表堆疊
                 const content = unorderedListMatch[1];
                 
-                console.log(`📝 List item: "${content.substring(0, 30)}..."`);
+                
                 
                 blocks.push({
                     object: 'block',
@@ -420,7 +420,7 @@ function convertMarkdownToNotionBlocks(markdown) {
                             });
                         });
                         stats.paragraphs += chunks.length;
-                        console.log(`⚠️ Split long paragraph into ${chunks.length} blocks`);
+                        
                     }
                 }
                 // 不使用 continue，讓程序進入下一個循環
@@ -446,23 +446,23 @@ function convertMarkdownToNotionBlocks(markdown) {
     }
     
     // 結束時清空剩餘的列表項
-    console.log("🗞️ Flushing remaining list items...");
+    
     flushListStack();
     
     const totalTime = Date.now() - startTime;
-    console.log(`⏱️ Total processing time: ${totalTime}ms`);
+    
     
     // 顯示統計資訊
-    console.log("📊 Markdown parsing stats:", stats);
-    console.log(`📄 Processed ${i}/${lines.length} lines (${Math.round(i/lines.length*100)}%)`);
-    console.log(`🏁 FINAL RESULT: Total blocks created: ${blocks.length}`);
+    
+    
+    
     
     // 強制輸出最終狀態，即使有問題
-    console.log("🔍 FINAL BLOCKS DEBUG:");
+    
     if (blocks.length > 0) {
-        console.log(`📋 First block: ${blocks[0].type}`);
-        console.log(`📋 Last block: ${blocks[blocks.length - 1].type}`);
-        console.log(`📋 Block types: ${blocks.map(b => b.type).slice(0, 10).join(', ')}${blocks.length > 10 ? '...' : ''}`);
+        
+        
+        
     }
     
     if (blocks.length === 0) {
@@ -478,8 +478,8 @@ function convertMarkdownToNotionBlocks(markdown) {
     }
     
     // 強制最終輸出，確保調試信息完整
-    console.log("✅ convertMarkdownToNotionBlocks COMPLETED");
-    console.log(`📊 Final Summary: ${blocks.length} blocks created from ${lines.length} lines`);
+    
+    
     
     return blocks;
 }
@@ -587,7 +587,7 @@ function parseRichText(text) {
     
     // 安全檢查：如果文本太長或太複雜，直接返回純文本
     if (text.length > 5000) {
-        console.log(`⚠️ Text too long (${text.length} chars), using plain text`);
+        
         return [{ type: 'text', text: { content: text.substring(0, 2000) } }];
     }
     
@@ -775,14 +775,14 @@ function mapLanguage(lang) {
  * 主要的 HTML 到 Notion blocks 轉換函數
  */
 function convertHtmlToNotionBlocks(html) {
-    console.log(`🔄 Converting HTML to Notion blocks: ${html.length} chars`);
+    
     
     // ✅ 策略 1：對於 Markdown 網站，優先嘗試獲取原始 Markdown 文件
     const currentUrl = window.location.href;
     
     // 檢查是否是 GitHub Pages 或類似的 Markdown 網站
     if (currentUrl.includes('github.io') || currentUrl.includes('/docs/')) {
-        console.log('🔍 Detected potential Markdown website, attempting to fetch source...');
+        
         
         // 嘗試構建原始 Markdown URL
         let markdownUrl = null;
@@ -793,7 +793,7 @@ function convertHtmlToNotionBlocks(html) {
         // 可以添加更多網站的規則
         
         if (markdownUrl) {
-            console.log(`🔄 Attempting to fetch Markdown from: ${markdownUrl}`);
+            
             
             // 使用同步方法嘗試獲取（在 executeScript 上下文中）
             try {
@@ -803,11 +803,11 @@ function convertHtmlToNotionBlocks(html) {
                 
                 if (xhr.status === 200) {
                     const markdown = xhr.responseText;
-                    console.log(`✅ Successfully fetched original Markdown: ${markdown.length} chars`);
+                    
                     
                     // 直接將 Markdown 轉換為 Notion 區塊
                     const blocks = convertMarkdownToNotionBlocks(markdown);
-                    console.log(`✅ Generated ${blocks.length} blocks from original Markdown`);
+                    
                     return blocks;
                 }
             } catch (error) {
@@ -825,16 +825,16 @@ function convertHtmlToNotionBlocks(html) {
         document.querySelector('.markdown-body, .markdown, [class*="markdown"]') !== null;
         
     if (isTechnicalDoc) {
-        console.log('📋 Technical documentation detected - using optimized processing');
+        
         
         // 對技術文檔使用特殊處理：直接提取最佳內容區域
         const techSelectors = ['.markdown-body', '.docs-content', '.documentation', 'article', 'main'];
         for (const selector of techSelectors) {
             const element = document.querySelector(selector);
             if (element && element.textContent.trim().length > 1000) {
-                console.log(`🎯 Using technical content from: ${selector} (${element.textContent.trim().length} chars)`);
+                
                 html = element.innerHTML; // 更新為最佳內容
-                console.log(`🔄 Updated HTML content: ${html.length} chars`);
+                
                 break;
             }
         }
@@ -846,25 +846,25 @@ function convertHtmlToNotionBlocks(html) {
         
         if (turndownService) {
             // HTML → Markdown
-            console.log('📝 Converting HTML to Markdown...');
+            
             const markdown = turndownService.turndown(html);
-            console.log(`✅ Markdown generated: ${markdown.length} chars`);
+            
             
             // 顯示 Markdown 前几行供調試
             const previewLines = markdown.split('\n').slice(0, 10).join('\n');
-            console.log(`👀 Markdown preview (first 10 lines):\n${previewLines}\n...`);
+            
             
             // Markdown → Notion blocks
-            console.log('🔄 Converting Markdown to Notion blocks...');
+            
             const blocks = convertMarkdownToNotionBlocks(markdown);
-            console.log(`✅ Created ${blocks.length} Notion blocks`);
+            
             
             // 顯示 blocks 類型分佈
             const blockTypes = {};
             blocks.forEach(block => {
                 blockTypes[block.type] = (blockTypes[block.type] || 0) + 1;
             });
-            console.log("📊 Block types:", blockTypes);
+            
             
             return blocks;
         }

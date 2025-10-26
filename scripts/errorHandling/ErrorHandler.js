@@ -160,7 +160,7 @@ class ErrorHandler {
                 console.info(message, originalError);
                 break;
             default:
-                console.log(message, originalError);
+                
         }
         
         // 更新錯誤統計

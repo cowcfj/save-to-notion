@@ -381,7 +381,7 @@ export function logAnalysis(complexity, selection, extractionResult) {
         fallbackUsed: extractionResult.fallbackUsed
     };
 
-    console.log('📊 頁面分析結果:', logData);
+    
 
     // 發送到監控系統 (如果需要)
     if (window.analytics) {

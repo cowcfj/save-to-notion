@@ -13,7 +13,7 @@ const DEBUG_MODE = (function() {
 
 // 條件日誌函數
 const Logger = {
-    log: (...args) => DEBUG_MODE && console.log(...args),
+    log: (...args) => ,
     warn: (...args) => console.warn(...args),
     error: (...args) => console.error(...args),
     info: (...args) => DEBUG_MODE && console.info(...args)
