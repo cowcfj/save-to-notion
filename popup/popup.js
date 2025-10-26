@@ -80,15 +80,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 打開 Notion 頁面按鈕事件
-    openNotionButton.addEventListener('click', () => {
+    openNotionButton.addEventListener('click', async () => {
         const notionUrl = openNotionButton.getAttribute('data-url');
         if (notionUrl) {
-            chrome.tabs.create({ url: notionUrl }, (tab) => {
-                if (chrome.runtime.lastError) {
-                    console.error('Failed to open Notion page:', chrome.runtime.lastError);
-                    status.textContent = 'Failed to open Notion page.';
-                }
-            });
+            try {
+                await new Promise((resolve, reject) => {
+                    chrome.tabs.create({ url: notionUrl }, (tab) => {
+                        if (chrome.runtime.lastError) {
+                            reject(chrome.runtime.lastError);
+                        } else {
+                            resolve(tab);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('Failed to open Notion page:', error);
+                status.textContent = 'Failed to open Notion page.';
+            }
         }
     });
 
