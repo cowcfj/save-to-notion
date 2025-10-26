@@ -499,4 +499,295 @@ function isValidUrl(url, allowRelative = false, baseUrl = '') {
         /^javascript:/i, // JavaScript連結
         /^mailto:/i, // 郵件連結（Notion可能不支持）
         /^tel:/i, // 電話連結
-];
+        /^data:/i, // Data URL
+        /^file:/i // 本地文件
+    ];
+
+    for (const pattern of invalidPatterns) {
+        if (pattern.test(url)) return false;
+    }
+
+    // 如果允許相對路徑（Markdown 網站模式）
+    if (allowRelative) {
+        // 相對路徑和錨點連結在 Markdown 網站中很常見
+        if (url.startsWith('/') || url.startsWith('#') ||
+            url.startsWith('./') || url.startsWith('../')) {
+
+            // 嘗試轉換為絕對 URL（如果有 baseUrl）
+            if (baseUrl && (url.startsWith('/') || url.startsWith('./') || url.startsWith('../'))) {
+                try {
+                    const absoluteUrl = new URL(url, baseUrl).href;
+                    return isValidAbsoluteUrl(absoluteUrl);
+                } catch (error) {
+                    // 轉換失敗，但相對路徑仍可能有效
+                    Logger.info(`⚠️ Could not convert relative URL to absolute: ${url}`);
+                }
+            }
+
+        }
+    }
+
+    // 檢查絕對 URL
+    try {
+        new URL(url);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+/**
+ * 驗證 URL 是否為有效的絕對 URL
+ * @param {string} url - 要驗證的 URL
+ * @returns {boolean} 是否有效
+ */
+function isValidAbsoluteUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+
+    try {
+        const urlObj = new URL(url);
+        return ['http:', 'https:'].includes(urlObj.protocol);
+    } catch (error) {
+        return false;
+    }
+}
+
+/**
+ * 映射語言名稱到 Notion 支持的語言
+ * @param {string} lang - 原始語言標記
+ * @returns {string} Notion 支持的語言
+ */
+function mapLanguage(lang) {
+    if (!lang) return 'plain text';
+
+    const languageMap = {
+        'js': 'javascript',
+        'ts': 'typescript',
+        'py': 'python',
+        'java': 'java',
+        'cpp': 'cpp',
+        'c++': 'cpp',
+        'c': 'c',
+        'cs': 'csharp',
+        'csharp': 'csharp',
+        'php': 'php',
+        'rb': 'ruby',
+        'ruby': 'ruby',
+        'go': 'go',
+        'rs': 'rust',
+        'rust': 'rust',
+        'sh': 'bash',
+        'bash': 'bash',
+        'shell': 'bash',
+        'sql': 'sql',
+        'html': 'html',
+        'xml': 'xml',
+        'css': 'css',
+        'scss': 'scss',
+        'sass': 'sass',
+        'less': 'less',
+        'json': 'json',
+        'yaml': 'yaml',
+        'yml': 'yaml',
+        'md': 'markdown',
+        'markdown': 'markdown',
+        'swift': 'swift',
+        'php': 'php'
+    };
+
+    return languageMap[lang.toLowerCase()] || lang || 'plain text';
+}
+
+/**
+ * 解析富文本格式
+ * @param {string} text - 包含 Markdown 格式的文本
+ * @returns {Array} Notion rich_text 對象數組
+ */
+function parseRichText(text) {
+    if (!text) return [{ type: 'text', text: { content: '' } }];
+
+    // 簡單的粗體和斜體解析
+    const parts = [];
+    let currentText = text;
+
+    // 處理粗體 **text**
+    currentText = currentText.replace(/\*\*(.*?)\*\*/g, (match, content) => {
+        if (content) {
+            parts.push({
+                type: 'text',
+                text: { content: content },
+                annotations: { bold: true }
+            });
+        }
+        return ''; // 移除已處理的部分
+    });
+
+    // 處理斜體 *text*
+    currentText = currentText.replace(/\*(.*?)\*/g, (match, content) => {
+        if (content) {
+            parts.push({
+                type: 'text',
+                text: { content: content },
+                annotations: { italic: true }
+            });
+        }
+        return ''; // 移除已處理的部分
+    });
+
+    // 添加剩餘的普通文本
+    if (currentText.trim()) {
+        parts.push({
+            type: 'text',
+            text: { content: currentText.trim() }
+        });
+    }
+
+    return parts.length > 0 ? parts : [{ type: 'text', text: { content: text } }];
+}
+
+/**
+ * 主要的 HTML 到 Notion blocks 轉換函數
+ */
+function convertHtmlToNotionBlocks(html) {
+
+
+    // ✅ 策略 1：對於 Markdown 網站，優先嘗試獲取原始 Markdown 文件
+    const currentUrl = window.location.href;
+
+    // 檢查是否是 GitHub Pages 或類似的 Markdown 網站
+    if (currentUrl.includes('github.io') || currentUrl.includes('/docs/')) {
+        Logger.info('📄 [策略1] 檢測到 Markdown 網站，嘗試獲取原始文件');
+
+        // 嘗試構建原始 Markdown URL
+        let markdownUrl = null;
+
+        if (currentUrl.includes('google-gemini.github.io/gemini-cli')) {
+            markdownUrl = 'https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/commands.md';
+        }
+        // 可以添加更多網站的規則
+
+        if (markdownUrl) {
+            Logger.info(`🔗 [策略1] 嘗試獲取: ${markdownUrl}`);
+
+            // 使用同步方法嘗試獲取（在 executeScript 上下文中）
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', markdownUrl, false); // 同步請求
+                xhr.send();
+
+                if (xhr.status === 200) {
+                    const markdown = xhr.responseText;
+                    Logger.info(`✅ [策略1] 成功獲取 Markdown (${markdown.length} 字符)`);
+
+                    // 直接將 Markdown 轉換為 Notion 區塊
+                    const blocks = convertMarkdownToNotionBlocks(markdown);
+
+                    return blocks;
+                }
+            } catch (error) {
+                Logger.warn('Failed to fetch original Markdown:', error);
+            }
+        }
+    }
+
+    // ✅ 策略 2：智能檢測技術文檔並選擇最佳處理策略
+    const isTechnicalDoc =
+        currentUrl.includes('github.io') ||
+        currentUrl.includes('/docs/') ||
+        currentUrl.includes('/cli/') ||
+        currentUrl.includes('/api/') ||
+        document.querySelector('.markdown-body, .markdown, [class*="markdown"]') !== null;
+
+    if (isTechnicalDoc) {
+        Logger.info('🔧 [策略2] 檢測到技術文檔，使用智能內容提取');
+
+        // 對技術文檔使用特殊處理：直接提取最佳內容區域
+        const techSelectors = ['.markdown-body', '.docs-content', '.documentation', 'article', 'main'];
+        for (const selector of techSelectors) {
+            const element = document.querySelector(selector);
+            if (element && element.textContent.trim().length > 1000) {
+                Logger.info(`📋 [策略2] 使用選擇器: ${selector} (${element.textContent.trim().length} 字符)`);
+                html = element.innerHTML; // 更新為最佳內容
+
+                break;
+            }
+        }
+    }
+
+    try {
+        // 初始化 Turndown
+        const turndownService = initTurndownService();
+
+        if (turndownService) {
+            Logger.info('📝 [轉換] HTML → Markdown');
+            // HTML → Markdown
+
+            const markdown = turndownService.turndown(html);
+            Logger.info(`📄 [Markdown] 生成 ${markdown.length} 字符`);
+
+            // 顯示 Markdown 前几行供調試
+            const previewLines = markdown.split('\n').slice(0, 10).join('\n');
+            Logger.info(`📋 [預覽] Markdown 前10行:\n${previewLines}`);
+
+            // Markdown → Notion blocks
+            Logger.info('🔄 [轉換] Markdown → Notion blocks');
+
+            const blocks = convertMarkdownToNotionBlocks(markdown);
+
+            // 顯示 blocks 類型分佈
+            const blockTypes = {};
+            blocks.forEach(block => {
+                blockTypes[block.type] = (blockTypes[block.type] || 0) + 1;
+            });
+            Logger.info(`📊 [區塊] 類型分佈:`, blockTypes);
+
+            return blocks;
+        }
+    } catch (error) {
+        Logger.error('❌ HTML to Notion conversion failed:', error);
+        Logger.error('Error stack:', error.stack);
+    }
+
+    // 回退：使用純文本處理
+    Logger.warn('⚠️ Using fallback: plain text conversion');
+    return fallbackHtmlToNotionBlocks(html);
+}
+
+/**
+ * 回退方案：簡單的文本提取
+ */
+function fallbackHtmlToNotionBlocks(html) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    const text = tempDiv.textContent || tempDiv.innerText || '';
+
+    if (!text.trim()) {
+        return [{
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+                rich_text: [{ type: 'text', text: { content: 'Could not extract content' } }]
+            }
+        }];
+    }
+
+    // 按段落分割
+    const paragraphs = text.split('\n\n').filter(p => p.trim());
+
+    return paragraphs.map(para => ({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+            rich_text: [{
+                type: 'text',
+                text: { content: para.trim().substring(0, 2000) }
+            }]
+        }
+    }));
+}
+
+// 導出函數（在注入環境中）
+if (typeof window !== 'undefined') {
+    window.convertHtmlToNotionBlocks = convertHtmlToNotionBlocks;
+    window.convertMarkdownToNotionBlocks = convertMarkdownToNotionBlocks;
+}
