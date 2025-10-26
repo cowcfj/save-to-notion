@@ -16,11 +16,13 @@ describe('highlight-restore.js', () => {
         // 重置全局對象
         window.initHighlighter = null;
         window.notionHighlighter = null;
+        window.Logger = null;
 
         // Mock console 方法
         console.log = jest.fn();
         console.warn = jest.fn();
         console.error = jest.fn();
+        console.info = jest.fn();
     });
 
     afterEach(() => {
@@ -48,13 +50,18 @@ describe('highlight-restore.js', () => {
         // Mock initHighlighter 函數
         window.initHighlighter = jest.fn();
 
+        // Mock Logger
+        window.Logger = {
+            info: jest.fn()
+        };
+
         // 動態加載腳本
         jest.isolateModules(() => {
             require('../../scripts/highlight-restore.js');
         });
 
         expect(window.initHighlighter).toHaveBeenCalled();
-        expect(console.log).toHaveBeenCalledWith('🔧 執行標註恢復腳本');
+        expect(window.Logger.info).toHaveBeenCalledWith('🔧 執行標註恢復腳本');
     });
 
     test('當 notionHighlighter 不存在時應該記錄警告', () => {

@@ -39,16 +39,16 @@ document.addEventListener('DOMContentLoaded', () => {
         highlightButton.textContent = '📝 Start Highlighting';
         highlightButton.disabled = false;
         clearHighlightsButton.style.display = 'block';
-        
+
         // 隱藏保存按鈕（頁面已保存，不需要重複保存）
         saveButton.style.display = 'none';
-        
+
         // 顯示打開 Notion 按鈕
         if (response.notionUrl) {
             openNotionButton.style.display = 'block';
             openNotionButton.setAttribute('data-url', response.notionUrl);
         }
-        
+
         // 更新狀態訊息
         status.textContent = 'Page saved. Ready to highlight or update.';
     }
@@ -59,13 +59,13 @@ document.addEventListener('DOMContentLoaded', () => {
         highlightButton.textContent = '📝 Save First to Highlight';
         highlightButton.disabled = true;
         clearHighlightsButton.style.display = 'none';
-        
+
         // 顯示保存按鈕（頁面未保存，需要先保存）
         saveButton.style.display = 'block';
-        
+
         // 隱藏打開 Notion 按鈕
         openNotionButton.style.display = 'none';
-        
+
         // 更新狀態訊息
         if (response.wasDeleted) {
             status.textContent = 'Original page was deleted. Save to create new page.';
@@ -80,12 +80,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 打開 Notion 頁面按鈕事件
-    openNotionButton.addEventListener('click', () => {
+    openNotionButton.addEventListener('click', async () => {
         const notionUrl = openNotionButton.getAttribute('data-url');
         if (notionUrl) {
-            chrome.tabs.create({ url: notionUrl }, () => {
-                console.log('✅ 已在新標籤頁打開 Notion 頁面');
-            });
+            try {
+                await new Promise((resolve, reject) => {
+                    chrome.tabs.create({ url: notionUrl }, (tab) => {
+                        if (chrome.runtime.lastError) {
+                            reject(chrome.runtime.lastError);
+                        } else {
+                            resolve(tab);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('Failed to open Notion page:', error);
+                status.textContent = 'Failed to open Notion page.';
+            }
         }
     });
 
@@ -123,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         status.textContent = 'Failed to start highlight mode.';
                         console.error('Error from background script:', response ? response.error : 'No response');
                     }
-                    
+
                     setTimeout(() => {
                         highlightButton.disabled = false;
                     }, 2000);
@@ -153,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 parent.removeChild(highlight);
                                 parent.normalize();
                             });
-                            
+
                             // 清除本地存儲
                             const normalizeUrl = (rawUrl) => {
                                 try {
@@ -171,18 +182,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             };
                             const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
                             try { chrome.storage?.local?.remove([pageKey]); } catch (_) { localStorage.removeItem(pageKey); }
-                            
+
                             // 更新工具欄計數（如果存在）
                             if (window.simpleHighlighter) {
                                 window.simpleHighlighter.updateHighlightCount();
                             }
-                            
+
                             return highlights.length;
                         }
                     }, (results) => {
                         const clearedCount = results?.[0] ? results[0].result : 0;
                         status.textContent = `Cleared ${clearedCount} highlights successfully!`;
-                        
+
                         setTimeout(() => {
                             clearHighlightsButton.disabled = false;
                             status.textContent = 'Page saved. Ready to highlight or save again.';
@@ -209,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (response?.success) {
                 let action = 'Saved';
                 let details = '';
-                
+
                 if (response.recreated) {
                     action = 'Recreated (original was deleted)';
                     const imageCount = response.imageCount || 0;
@@ -244,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 status.textContent = `Failed to save: ${response ? response.error : 'No response'}`;
                 console.error('Error from background script:', response ? response.error : 'No response');
             }
-            
+
             // Re-enable the button after a short delay
             setTimeout(() => {
                 saveButton.disabled = false;

@@ -2,7 +2,7 @@
 // 用於在頁面刷新後恢復已保存的標註
 
 (function() {
-    console.log('🔧 執行標註恢復腳本');
+
 
     // 確保必要的依賴已加載
     if (typeof window.initHighlighter !== 'function') {
@@ -12,10 +12,11 @@
 
     // 初始化標註工具
     window.initHighlighter();
+    window.Logger?.info?.('🔧 執行標註恢復腳本');
 
     // 如果有 notionHighlighter 對象，嘗試恢復標註
     if (window.notionHighlighter && typeof window.notionHighlighter.manager.forceRestoreHighlights === 'function') {
-        console.log('🔁 嘗試強制恢復標註');
+
         Promise.resolve(window.notionHighlighter.manager.forceRestoreHighlights())
             .then(success => {
                 if (success) {

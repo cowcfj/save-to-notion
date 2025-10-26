@@ -1,46 +1,55 @@
 // 使用 CSS Custom Highlight API 的新版標註功能
 // v2.5.0 - 不修改DOM結構的標註實現
 (function() {
-    // 日誌級別控制
-    const LOG_LEVELS = {
-        NONE: 0,
-        ERROR: 1,
-        WARN: 2,
-        INFO: 3,
-        DEBUG: 4
-    };
 
-    // 默認日誌級別為 INFO，生產環境可以設置為 WARN 或 ERROR
-    const CURRENT_LOG_LEVEL = LOG_LEVELS.INFO;
-
-    // 日誌函數
-    const logger = {
-        debug: function(...args) {
-            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.DEBUG) {
-                console.debug('[Highlighter]', ...args);
-            }
-        },
-        log: function(...args) {
-            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.INFO) {
-                console.log('[Highlighter]', ...args);
-            }
-        },
-        info: function(...args) {
-            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.INFO) {
-                console.info('[Highlighter]', ...args);
-            }
-        },
-        warn: function(...args) {
-            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.WARN) {
-                console.warn('[Highlighter]', ...args);
-            }
-        },
-        error: function(...args) {
-            if (CURRENT_LOG_LEVEL >= LOG_LEVELS.ERROR) {
-                console.error('[Highlighter]', ...args);
-            }
+// 使用共享 Logger 系統的增強日誌器，整合錯誤處理和維護性
+/**
+ * 增強的日誌器實現
+ * 整合共享 Logger 系統，添加錯誤處理和維護性
+ */
+const logger = (() => {
+    // 檢查 Logger 系統是否可用
+    const isLoggerAvailable = () => {
+        try {
+            return typeof window.Logger === 'object' && window.Logger !== null;
+        } catch (error) {
+            // 靜默處理錯誤，避免日誌系統本身引發問題
+            return false;
         }
     };
+
+    // 創建帶錯誤處理的日誌方法
+    const createSafeLogger = (methodName) => {
+        return (...args) => {
+            try {
+                if (isLoggerAvailable() && typeof window.Logger[methodName] === 'function') {
+                    // 使用共享 Logger 系統，添加模組前綴
+                    return window.Logger[methodName](`[Highlighter]`, ...args);
+                } else {
+                    // 回退到控制台日誌（僅在開發環境）
+                    if (typeof console !== 'undefined' && typeof console[methodName] === 'function') {
+                        const prefix = methodName === 'log' ? '[Highlighter][LOG]' : `[Highlighter][${methodName.toUpperCase()}]`;
+                        console[methodName](prefix, ...args);
+                    }
+                }
+            } catch (error) {
+                // 防止日誌系統崩潰應用，靜默失敗
+                // 在極端情況下，可以使用原生 console.error 但不推薦
+                if (typeof console !== 'undefined' && typeof console.error === 'function') {
+                    console.error('[Highlighter][LOGGER_ERROR]' , 'Logger failed:', error.message);
+                }
+            }
+        };
+    };
+
+    return {
+        debug: createSafeLogger('debug'),
+        log: createSafeLogger('log'),
+        info: createSafeLogger('info'),
+        warn: createSafeLogger('warn'),
+        error: createSafeLogger('error')
+    };
+})();
 
     // 使用來自 utils.js 的共享函數 - 添加安全檢查
     const normalizeUrl = window.normalizeUrl;
@@ -198,11 +207,11 @@
                     // 檢查是否已經遷移過
                     const migrationKey = `migration_completed_${normalizedUrl}`;
                     const migrationStatus = await chrome.storage.local.get(migrationKey);
-    
+
                     if (migrationStatus[migrationKey]) {
                         return;
                     }
-    
+
                     // 執行數據遷移
                     await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
                 }
@@ -400,7 +409,7 @@
             for (const textNode of textNodes) {
                 const text = textNode.textContent;
                 const index = text.indexOf(textToFind);
-            
+
                 if (index !== -1) {
                     const range = document.createRange();
                     range.setStart(textNode, index);
@@ -1777,7 +1786,7 @@
                     toolbar.style.zIndex = '2147483647';
                     toolbar.style.visibility = 'visible';
                     toolbar.style.opacity = '1';
-                    
+
                     // 使用新的狀態管理展開工具欄
                     expandToolbar();
                 } catch (e) {

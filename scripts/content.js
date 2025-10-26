@@ -11,13 +11,99 @@ const DEBUG_MODE = (function() {
     }
 })();
 
-// 條件日誌函數
-const Logger = {
-    log: (...args) => DEBUG_MODE && console.log(...args),
-    warn: (...args) => console.warn(...args),
-    error: (...args) => console.error(...args),
-    info: (...args) => DEBUG_MODE && console.info(...args)
-};
+// 改進的日誌系統 - 生產環境安全且性能優化
+const Logger = (() => {
+    // 環境檢測快取（避免重複計算）
+    const isDevMode = DEBUG_MODE;
+    const isProduction = !isDevMode;
+
+    // 日誌級別常量（用於一致性和可維護性）
+    const LOG_LEVELS = {
+        DEBUG: 0,
+        LOG: 1,
+        INFO: 2,
+        WARN: 3,
+        ERROR: 4
+    };
+
+    // 當前日誌級別（基於環境）
+    const currentLevel = isDevMode ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN;
+
+    // 統一的日誌格式化函數（性能優化：只在需要時格式化）
+    const formatMessage = (level, message, ...args) => {
+        // 生產環境只保留錯誤和警告的基本信息
+        if (isProduction && level < LOG_LEVELS.WARN) {
+            return null;
+        }
+
+        // 開發環境添加時間戳和級別前綴
+        if (isDevMode) {
+            const timestamp = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
+            const levelPrefix = {
+                [LOG_LEVELS.DEBUG]: '🐛 [DEBUG]',
+                [LOG_LEVELS.LOG]: '📝 [LOG]',
+                [LOG_LEVELS.INFO]: 'ℹ️ [INFO]',
+                [LOG_LEVELS.WARN]: '⚠️ [WARN]',
+                [LOG_LEVELS.ERROR]: '❌ [ERROR]'
+            }[level] || '[UNKNOWN]';
+
+            return [`${levelPrefix} ${timestamp}:`, message, ...args];
+        }
+
+        // 生產環境只返回基本消息
+        return [message, ...args];
+    };
+
+    // 安全的控制台方法調用（處理邊緣情況）
+    const safeConsoleCall = (method, ...args) => {
+        try {
+            if (typeof console !== 'undefined' && typeof console[method] === 'function') {
+                console[method](...args);
+            }
+        } catch (error) {
+            // 靜默失敗，避免日誌系統本身造成問題
+            // 在極端情況下甚至 console 都不可用
+        }
+    };
+
+    // 創建日誌方法的工廠函數
+    const createLogMethod = (level, consoleMethod) => {
+        return (...args) => {
+            // 提前檢查級別（性能優化）
+            if (level < currentLevel) {
+                return;
+            }
+
+            // 參數驗證
+            if (!args || args.length === 0) {
+                return;
+            }
+
+            const formatted = formatMessage(level, ...args);
+            if (formatted) {
+                safeConsoleCall(consoleMethod, ...formatted);
+            }
+        };
+    };
+
+    // 返回 Logger 對象
+    return {
+        // 標準日誌級別
+        debug: createLogMethod(LOG_LEVELS.DEBUG, 'debug'),
+        log: createLogMethod(LOG_LEVELS.LOG, 'log'),
+        info: createLogMethod(LOG_LEVELS.INFO, 'info'),
+        warn: createLogMethod(LOG_LEVELS.WARN, 'warn'),
+        error: createLogMethod(LOG_LEVELS.ERROR, 'error'),
+
+        // 向後兼容的別名
+        trace: createLogMethod(LOG_LEVELS.DEBUG, 'debug'),
+
+        // 實用方法
+        isEnabled: (level = LOG_LEVELS.INFO) => level >= currentLevel,
+        getCurrentLevel: () => currentLevel,
+        isDevMode: () => isDevMode
+    };
+})();
 
 (async function () {
     try {
@@ -57,7 +143,7 @@ const Logger = {
         if (typeof ImageUtils === 'undefined') {
             Logger.warn('ImageUtils not available, using fallback implementations');
             window.ImageUtils = {
-                cleanImageUrl: function (url) {
+                cleanImageUrl(url) {
                     if (!url || typeof url !== 'string') return null;
                     try {
                         return new URL(url).href;
@@ -65,15 +151,19 @@ const Logger = {
                         return null;
                     }
                 },
-                isValidImageUrl: function (url) {
+                isValidImageUrl(url) {
                     if (!url || typeof url !== 'string') return false;
                     return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url);
                 },
-                extractImageSrc: function (imgNode) {
+                isNotionCompatibleImageUrl(url) {
+                    // 簡單的回退實現
+                    return this.isValidImageUrl(url);
+                },
+                extractImageSrc(imgNode) {
                     if (!imgNode) return null;
                     return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
                 },
-                generateImageCacheKey: function (imgNode) {
+                generateImageCacheKey(imgNode) {
                     if (!imgNode) return 'null';
                     return (imgNode.getAttribute('src') || '') + '|' + (imgNode.className || '');
                 }
@@ -559,8 +649,8 @@ const Logger = {
                                 const cleanedUrl = cleanImageUrl(absoluteUrl);
 
                                 // 使用更嚴格的 Notion 兼容性檢查
-                                const isCompatible = typeof isNotionCompatibleImageUrl !== 'undefined'
-                                    ? isNotionCompatibleImageUrl(cleanedUrl)
+                                const isCompatible = typeof ImageUtils !== 'undefined' && ImageUtils.isNotionCompatibleImageUrl
+                                    ? ImageUtils.isNotionCompatibleImageUrl(cleanedUrl)
                                     : isValidImageUrl(cleanedUrl);
 
                                 // 檢查是否為有效的圖片格式和 URL
@@ -1032,7 +1122,132 @@ const Logger = {
             console.warn('動態內容載入等待失敗:', e);
         }
 
-        const article = new Readability(document.cloneNode(true)).parse();
+        /**
+         * 創建優化的文檔副本以減少 DOM 克隆開銷
+         * 移除不必要的元素來提升性能
+         */
+        const createOptimizedDocumentClone = () => {
+            try {
+                Logger.log('🔧 Creating optimized document clone for parsing...');
+
+                // 克隆文檔
+                const clonedDoc = document.cloneNode(true);
+
+                // 性能優化：移除可能影響解析的元素
+                const elementsToRemove = [
+                    // 腳本和樣式（不會影響內容解析）
+                    'script', 'style', 'link[rel="stylesheet"]',
+                    // 廣告和追蹤元素
+                    '[class*="ad"]', '[class*="advertisement"]', '[id*="ad"]',
+                    '[class*="tracking"]', '[class*="analytics"]',
+                    // 導航和側邊欄（通常不包含主要內容）
+                    'nav', 'aside', '.sidebar', '.navigation', '.menu',
+                    // 頁腳和頁眉（除非是文章的一部分）
+                    'footer:not(.article-footer)', 'header:not(.article-header)',
+                    // 社交媒體小部件
+                    '[class*="social"]', '[class*="share"]',
+                    // 評論區域
+                    '.comments', '.comment-section',
+                    // 隱藏元素（通常不是內容的一部分）
+                    '[style*="display: none"]', '[hidden]'
+                ];
+
+                let removedCount = 0;
+                elementsToRemove.forEach(selector => {
+                    try {
+                        const elements = clonedDoc.querySelectorAll(selector);
+                        elements.forEach(el => {
+                            el.remove();
+                            removedCount++;
+                        });
+                    } catch (e) {
+                        // 忽略選擇器錯誤，繼續處理其他選擇器
+                        Logger.log(`⚠️ Failed to remove elements with selector: ${selector}`);
+                    }
+                });
+
+                Logger.log(`🧹 Removed ${removedCount} non-content elements from cloned document`);
+                Logger.log('📄 Optimized document ready for parsing');
+
+                return clonedDoc;
+            } catch (error) {
+                Logger.error('❌ Failed to create optimized document clone:', error);
+                // 回退到簡單克隆
+                try {
+                    return document.cloneNode(true);
+                } catch (fallbackError) {
+                    Logger.error('❌ Even fallback document cloning failed:', fallbackError);
+                    return null;
+                }
+            }
+        };
+
+        /**
+         * 優化的 Readability 內容解析
+         * 包含性能優化、錯誤處理和邊緣情況處理
+         */
+        const parseArticleWithReadability = () => {
+            // 1. 驗證 Readability 依賴項
+            if (typeof Readability === 'undefined') {
+                Logger.error('❌ Readability library is not available');
+                throw new Error('Readability library not loaded');
+            }
+
+            Logger.log('🚀 Starting Readability content parsing...');
+
+            // 2. 性能優化：創建優化的文檔副本
+            const optimizedDocument = createOptimizedDocumentClone();
+            if (!optimizedDocument) {
+                throw new Error('Failed to create optimized document clone');
+            }
+
+            // 3. 執行 Readability 解析
+            let readabilityInstance = null;
+            let parsedArticle = null;
+
+            try {
+                Logger.log('📖 Initializing Readability parser...');
+                readabilityInstance = new Readability(optimizedDocument);
+
+                Logger.log('🔍 Parsing document content...');
+                parsedArticle = readabilityInstance.parse();
+
+                Logger.log('✅ Readability parsing completed');
+            } catch (parseError) {
+                Logger.error('❌ Readability parsing failed:', parseError);
+                throw new Error(`Readability parsing error: ${parseError.message}`);
+            }
+
+            // 4. 驗證解析結果
+            if (!parsedArticle) {
+                Logger.warn('⚠️ Readability returned null/undefined result');
+                throw new Error('Readability parsing returned no result');
+            }
+
+            // 5. 驗證基本屬性
+            if (!parsedArticle.content || typeof parsedArticle.content !== 'string') {
+                Logger.warn('⚠️ Readability result missing or invalid content property');
+                throw new Error('Parsed article has no valid content');
+            }
+
+            if (!parsedArticle.title || typeof parsedArticle.title !== 'string') {
+                Logger.warn('⚠️ Readability result missing title, using document title as fallback');
+                parsedArticle.title = document.title || 'Untitled Page';
+            }
+
+            Logger.log(`📊 Parsed article: ${parsedArticle.content.length} chars, title: "${parsedArticle.title}"`);
+            return parsedArticle;
+        };
+
+        // 執行優化的 Readability 解析
+        let article = null;
+        try {
+            article = parseArticleWithReadability();
+        } catch (error) {
+            Logger.error('❌ Article parsing failed completely:', error);
+            // 設置為 null，讓後續的 fallback 機制處理
+            article = null;
+        }
 
         if (isContentGood(article)) {
             console.log("Successfully extracted content with Readability.js");
@@ -1135,9 +1350,13 @@ const Logger = {
             console.log(`- Page text length: ${document.body ? document.body.textContent.length : 0} characters`);
 
             // 輸出性能統計（如果可用）
-            if (performanceOptimizer) {
-                const performanceStats = performanceOptimizer.getPerformanceStats();
-                console.log('🚀 Content.js Performance Stats:', performanceStats);
+            if (typeof performanceOptimizer !== 'undefined' && performanceOptimizer) {
+                try {
+                    const performanceStats = performanceOptimizer.getPerformanceStats();
+                    console.log('🚀 Content.js Performance Stats:', performanceStats);
+                } catch (perfError) {
+                    console.warn('Could not get performance stats:', perfError);
+                }
             }
 
             return {

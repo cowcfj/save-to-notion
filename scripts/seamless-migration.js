@@ -61,7 +61,7 @@
                     metadata: metadata
                 };
                 await chrome.storage.local.set({ [key]: state });
-                console.log(`[遷移] 狀態更新: ${phase}`);
+                
             } catch (error) {
                 console.error('[遷移] 無法保存狀態:', error);
             }
@@ -71,17 +71,17 @@
          * 執行完整的自動遷移流程
          */
         async performSeamlessMigration(highlightManager) {
-            console.log('[遷移] 開始無痛自動遷移...');
+            
 
             // 檢查瀏覽器支持
             if (!this.checkBrowserSupport()) {
-                console.log('[遷移] 瀏覽器不支持 CSS Highlight API，跳過遷移');
+                
                 return { skipped: true, reason: 'browser_not_supported' };
             }
 
             // 獲取當前狀態
             const state = await this.getMigrationState();
-            console.log(`[遷移] 當前階段: ${state.phase}`);
+            
 
             // 根據階段執行相應操作
             switch (state.phase) {
@@ -95,11 +95,11 @@
                     return await this.phase3_RemoveOldSpans(highlightManager);
                 
                 case MigrationPhase.COMPLETED:
-                    console.log('[遷移] ✅ 已完成');
+                    
                     return { completed: true };
                 
                 case MigrationPhase.FAILED:
-                    console.log('[遷移] ⚠️ 之前失敗，嘗試重新遷移');
+                    
                     await this.updateMigrationState(MigrationPhase.NOT_STARTED);
                     return await this.performSeamlessMigration(highlightManager);
                 
@@ -112,18 +112,18 @@
          * 階段1：創建新標註，隱藏舊span
          */
         async phase1_CreateNewHighlights(highlightManager) {
-            console.log('[遷移] === 階段1：創建新標註 ===');
+            
 
             // 查找舊標註
             const oldSpans = document.querySelectorAll('.simple-highlight');
             if (oldSpans.length === 0) {
-                console.log('[遷移] 沒有發現舊標註，無需遷移');
+                
                 await this.updateMigrationState(MigrationPhase.COMPLETED);
                 return { skipped: true, reason: 'no_old_highlights' };
             }
 
             this.statistics.oldHighlightsFound = oldSpans.length;
-            console.log(`[遷移] 發現 ${oldSpans.length} 個舊標註`);
+            
 
             const newHighlights = [];
 
@@ -158,7 +158,7 @@
                         });
                         
                         this.statistics.newHighlightsCreated++;
-                        console.log(`[遷移] ✓ 創建新標註: ${text.substring(0, 20)}...`);
+                        
                     }
                 } catch (error) {
                     console.error('[遷移] ✗ 創建失敗:', error);
@@ -175,8 +175,8 @@
                 statistics: this.statistics
             });
 
-            console.log(`[遷移] ✅ 階段1完成: 創建了 ${this.statistics.newHighlightsCreated} 個新標註`);
-            console.log('[遷移] 💡 舊標註已隱藏但保留，下次加載時驗證');
+            
+            
 
             return { 
                 phase: MigrationPhase.PHASE_1_CREATED,
@@ -188,14 +188,14 @@
          * 階段2：驗證新標註能正常恢復
          */
         async phase2_VerifyAndHide(highlightManager) {
-            console.log('[遷移] === 階段2：驗證新標註 ===');
+            
 
             const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
-            console.log(`[遷移] 檢查 ${oldSpans.length} 個舊標註`);
+            
 
             // 檢查新標註是否正常加載
             const newHighlightsCount = highlightManager.getCount();
-            console.log(`[遷移] 新標註數量: ${newHighlightsCount}`);
+            
 
             if (newHighlightsCount === 0) {
                 // 新標註恢復失敗，回滾
@@ -211,8 +211,8 @@
                 statistics: this.statistics
             });
 
-            console.log('[遷移] ✅ 階段2完成: 新標註驗證成功');
-            console.log('[遷移] 💡 下次加載時將完全移除舊標註');
+            
+            
 
             // 立即進入階段3
             return await this.phase3_RemoveOldSpans(highlightManager);
@@ -222,10 +222,10 @@
          * 階段3：完全移除舊span
          */
         async phase3_RemoveOldSpans(highlightManager) {
-            console.log('[遷移] === 階段3：移除舊標註 ===');
+            
 
             const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
-            console.log(`[遷移] 準備移除 ${oldSpans.length} 個舊標註`);
+            
 
             let removed = 0;
             for (const span of oldSpans) {
@@ -258,8 +258,8 @@
             // v2.9.0: 清理遷移數據
             await this.cleanupMigrationData();
 
-            console.log(`[遷移] 🎉 完全完成！移除了 ${removed} 個舊標註`);
-            console.log('[遷移] DOM結構已完全恢復乾淨');
+            
+            
 
             return { 
                 completed: true, 
@@ -273,7 +273,7 @@
          */
         async cleanupMigrationData() {
             try {
-                console.log('[遷移] 🧹 開始清理遷移數據...');
+                
                 
                 const allData = await chrome.storage.local.get(null);
                 const keysToRemove = [];
@@ -300,9 +300,9 @@
                 
                 if (keysToRemove.length > 0) {
                     await chrome.storage.local.remove(keysToRemove);
-                    console.log(`[遷移] ✅ 清理了 ${keysToRemove.length} 個遷移數據`);
+                    
                 } else {
-                    console.log('[遷移] ℹ️ 沒有需要清理的遷移數據');
+                    
                 }
             } catch (error) {
                 console.error('[遷移] ❌ 清理遷移數據失敗:', error);
@@ -329,7 +329,7 @@
                 failedAt: new Date().toISOString()
             });
 
-            console.log('[遷移] ✓ 回滾完成，舊標註已恢復');
+            
 
             return { 
                 rolledBack: true, 
@@ -365,7 +365,7 @@
          * 手動觸發遷移重試（開發者工具）
          */
         async retryMigration(highlightManager) {
-            console.log('[遷移] 手動觸發重試...');
+            
             await this.updateMigrationState(MigrationPhase.NOT_STARTED);
             return await this.performSeamlessMigration(highlightManager);
         }
@@ -384,6 +384,6 @@
     // 導出到全局
     window.SeamlessMigrationManager = SeamlessMigrationManager;
 
-    console.log('✅ 無痛自動遷移工具已加載');
+    
 
 })();

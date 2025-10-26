@@ -119,14 +119,14 @@ if (typeof window.StorageUtil === 'undefined') {
                         // 回退到 localStorage
                         try {
                             localStorage.setItem(pageKey, JSON.stringify(highlightData));
-                            console.log('Saved highlights to localStorage as fallback');
+                            
                             resolve();
                         } catch (e) {
                             console.error('Failed to save highlights to localStorage:', e);
                             reject(e);
                         }
                     } else {
-                        console.log('Successfully saved highlights to chrome.storage');
+                        
                         resolve();
                     }
                 });
@@ -170,17 +170,17 @@ if (typeof window.StorageUtil === 'undefined') {
                         }
                         
                         if (highlights.length > 0) {
-                            console.log(`Found ${highlights.length} highlights in chrome.storage`);
+                            
                             resolve(highlights);
                             return;
                         }
                     }
                     
-                    console.log('No highlights found in chrome.storage, checking localStorage');
+                    
                     // 兼容舊版：從 localStorage 回退
                     const legacy = localStorage.getItem(pageKey);
                     if (legacy) {
-                        console.log('Found legacy highlights in localStorage');
+                        
                         try { 
                             const parsed = JSON.parse(legacy);
                             let highlights = [];
@@ -198,7 +198,7 @@ if (typeof window.StorageUtil === 'undefined') {
                             console.error('Failed to parse legacy highlights:', e);
                         }
                     }
-                    console.log('No highlights found for this page');
+                    
                     resolve([]);
                 });
             } catch (e) {
@@ -232,7 +232,7 @@ if (typeof window.StorageUtil === 'undefined') {
      */
     async clearHighlights(pageUrl) {
         const pageKey = `highlights_${normalizeUrl(pageUrl)}`;
-        console.log('Clearing highlights for key:', pageKey);
+        
         
         return new Promise((resolve) => {
             // 修復：先檢查 chrome.storage 是否存在
@@ -242,13 +242,13 @@ if (typeof window.StorageUtil === 'undefined') {
                         if (chrome.runtime.lastError) {
                             console.error('Failed to clear highlights from chrome.storage:', chrome.runtime.lastError);
                         } else {
-                            console.log('Cleared highlights from chrome.storage');
+                            
                         }
                         
                         // 同時清除 localStorage
                         try {
                             localStorage.removeItem(pageKey);
-                            console.log('Cleared highlights from localStorage');
+                            
                         } catch (e) {
                             console.error('Failed to clear localStorage:', e);
                         }
@@ -267,10 +267,10 @@ if (typeof window.StorageUtil === 'undefined') {
                 }
             } else {
                 // chrome.storage 不可用，只清除 localStorage
-                console.log('Chrome storage not available, clearing localStorage only');
+                
                 try {
                     localStorage.removeItem(pageKey);
-                    console.log('Cleared highlights from localStorage');
+                    
                 } catch (err) {
                     console.error('Failed to clear localStorage:', err);
                 }
@@ -305,7 +305,7 @@ if (typeof window.StorageUtil === 'undefined') {
     }
     }; // 結束 window.StorageUtil 定義
 } else {
-    console.log('⚠️ StorageUtil 已存在，跳過重複定義');
+    
 }
 
 /**
@@ -329,7 +329,7 @@ if (typeof window.Logger === 'undefined') {
     log: (message, ...args) => {
         if (__LOGGER_DEV__) {
             __sendBackgroundLog('log', message, args);
-            console.log('[LOG]', message, ...args);
+            
         }
     },
     debug: (message, ...args) => {
