@@ -1167,7 +1167,7 @@ const Logger = (() => {
                 });
 
                 Logger.log(`🧹 Removed ${removedCount} non-content elements from cloned document`);
-                Logger.log(`📄 Optimized document ready for parsing`);
+                Logger.log('📄 Optimized document ready for parsing');
 
                 return clonedDoc;
             } catch (error) {
