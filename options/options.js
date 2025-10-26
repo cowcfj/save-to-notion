@@ -441,11 +441,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let previewText = `標題預覽: "${processedTitle}"`;
         
         if (addTimestampCheckbox.checked) {
-            previewText += `\n✓ 會在內容開頭添加時間戳`;
+            previewText += "\n✓ 會在內容開頭添加時間戳";
         }
         
         if (addSourceCheckbox.checked) {
-            previewText += `\n✓ 會在內容末尾添加來源鏈接`;
+            previewText += "\n✓ 會在內容末尾添加來源鏈接";
         }
         
         templatePreview.textContent = previewText;
@@ -592,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const report = analyzeData(data);
                 
-                let statusText = `📊 數據完整性報告：\n`;
+                let statusText = "📊 數據完整性報告：\n";
                 statusText += `• 總共 ${report.totalKeys} 個數據項\n`;
                 statusText += `• ${report.highlightPages} 個頁面有標記\n`;
                 statusText += `• ${report.configKeys} 個配置項\n`;
@@ -607,10 +607,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusText += `• ⚠️ ${report.corruptedData.length} 個損壞的數據項`;
                     showDataStatus(statusText, 'error');
                 } else if (report.migrationKeys > 0) {
-                    statusText += `• 💡 建議使用「數據重整」功能清理遷移數據`;
+                    statusText += "• 💡 建議使用「數據重整」功能清理遷移數據";
                     showDataStatus(statusText, 'warning');
                 } else {
-                    statusText += `• ✅ 所有數據完整無損`;
+                    statusText += "• ✅ 所有數據完整無損";
                     showDataStatus(statusText, 'success');
                 }
                 

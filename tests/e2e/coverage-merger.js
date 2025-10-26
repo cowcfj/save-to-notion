@@ -67,7 +67,7 @@ class CoverageMerger {
    * 生成合併後的報告
    */
   generateReports(outputDir, reporters = ['text', 'json', 'lcov', 'html']) {
-    console.log(`\n📊 生成合併後的覆蓋率報告...`);
+    console.log("\n📊 生成合併後的覆蓋率報告...");
 
     // 確保輸出目錄存在
     if (!fs.existsSync(outputDir)) {

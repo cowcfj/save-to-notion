@@ -446,19 +446,19 @@ function convertMarkdownToNotionBlocks(markdown) {
     }
     
     // 結束時清空剩餘的列表項
-    console.log(`🗞️ Flushing remaining list items...`);
+    console.log("🗞️ Flushing remaining list items...");
     flushListStack();
     
     const totalTime = Date.now() - startTime;
     console.log(`⏱️ Total processing time: ${totalTime}ms`);
     
     // 顯示統計資訊
-    console.log(`📊 Markdown parsing stats:`, stats);
+    console.log("📊 Markdown parsing stats:", stats);
     console.log(`📄 Processed ${i}/${lines.length} lines (${Math.round(i/lines.length*100)}%)`);
     console.log(`🏁 FINAL RESULT: Total blocks created: ${blocks.length}`);
     
     // 強制輸出最終狀態，即使有問題
-    console.log(`🔍 FINAL BLOCKS DEBUG:`);
+    console.log("🔍 FINAL BLOCKS DEBUG:");
     if (blocks.length > 0) {
         console.log(`📋 First block: ${blocks[0].type}`);
         console.log(`📋 Last block: ${blocks[blocks.length - 1].type}`);
@@ -478,7 +478,7 @@ function convertMarkdownToNotionBlocks(markdown) {
     }
     
     // 強制最終輸出，確保調試信息完整
-    console.log(`✅ convertMarkdownToNotionBlocks COMPLETED`);
+    console.log("✅ convertMarkdownToNotionBlocks COMPLETED");
     console.log(`📊 Final Summary: ${blocks.length} blocks created from ${lines.length} lines`);
     
     return blocks;
@@ -719,7 +719,7 @@ function parseRichText(text) {
         return richText;
         
     } catch (error) {
-        console.error(`❌ Error in parseRichText:`, error);
+        console.error("❌ Error in parseRichText:", error);
         console.error(`Input text: "${text.substring(0, 100)}..."`);
         // 回退到純文本
         return [{ type: 'text', text: { content: text } }];
@@ -864,7 +864,7 @@ function convertHtmlToNotionBlocks(html) {
             blocks.forEach(block => {
                 blockTypes[block.type] = (blockTypes[block.type] || 0) + 1;
             });
-            console.log(`📊 Block types:`, blockTypes);
+            console.log("📊 Block types:", blockTypes);
             
             return blocks;
         }

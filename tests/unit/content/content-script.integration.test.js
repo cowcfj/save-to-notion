@@ -9,7 +9,7 @@ const path = require('path');
 
 describe('content script integration test', () => {
     test('runs content.js and exposes result when window.__UNIT_TESTING__ is true', async () => {
-        const html = `<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>`;
+        const html = "<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>";
 
         const dom = new JSDOM(html, { runScripts: 'dangerously', resources: 'usable' });
         const { window } = dom;

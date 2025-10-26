@@ -223,7 +223,7 @@ class ScriptInjector {
                     }, () => {
                         if (chrome.runtime.lastError) {
                             if (logErrors) {
-                                console.error(`File injection failed:`, chrome.runtime.lastError);
+                                console.error("File injection failed:", chrome.runtime.lastError);
                             }
                             reject(new Error(chrome.runtime.lastError.message));
                         } else {
@@ -242,7 +242,7 @@ class ScriptInjector {
                     }, (results) => {
                         if (chrome.runtime.lastError) {
                             if (logErrors) {
-                                console.error(`Function execution failed:`, chrome.runtime.lastError);
+                                console.error("Function execution failed:", chrome.runtime.lastError);
                             }
                             reject(new Error(chrome.runtime.lastError.message));
                         } else {
@@ -462,7 +462,7 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
         return { success: true, addedCount, totalCount: totalBlocks };
 
     } catch (error) {
-        console.error(`❌ 分批添加區塊失敗:`, error);
+        console.error("❌ 分批添加區塊失敗:", error);
         return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
     }
 }

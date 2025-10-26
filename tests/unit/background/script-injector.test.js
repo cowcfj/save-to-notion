@@ -449,7 +449,7 @@ class ScriptInjectorSimulated {
           }, () => {
             if (chrome.runtime.lastError) {
               if (logErrors) {
-                console.error(`File injection failed:`, chrome.runtime.lastError);
+                console.error("File injection failed:", chrome.runtime.lastError);
               }
               reject(new Error(chrome.runtime.lastError.message));
             } else {
@@ -468,7 +468,7 @@ class ScriptInjectorSimulated {
           }, (results) => {
             if (chrome.runtime.lastError) {
               if (logErrors) {
-                console.error(`Function execution failed:`, chrome.runtime.lastError);
+                console.error("Function execution failed:", chrome.runtime.lastError);
               }
               reject(new Error(chrome.runtime.lastError.message));
             } else {
