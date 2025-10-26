@@ -5,6 +5,11 @@
  */
 
 // 注意：這個文件將被注入到頁面中，所以需要使用全局變數
+// 確保 Logger 可用（從 utils.js 或其他地方）
+if (typeof Logger === 'undefined') {
+    Logger = console; // 回退到 console
+}
+
 // Turndown 庫需要在使用前加載
 
 /**
@@ -137,6 +142,7 @@ function convertMarkdownToNotionBlocks(markdown) {
 
     // 統計資訊
     const stats = {
+        images: 0,
         headings: 0,
         paragraphs: 0,
         lists: 0,
