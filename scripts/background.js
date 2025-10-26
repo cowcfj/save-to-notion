@@ -64,8 +64,8 @@ function cleanImageUrl(url) {
 }
 
 // 圖片 URL 驗證結果緩存
-const urlValidationCache = new Map();
-const MAX_CACHE_SIZE = 1000;
+const urlValidationCacheInline = new Map();
+const MAX_CACHE_SIZE_INLINE = 1000;
 
 /**
  * 檢查 URL 是否為有效的圖片格式
@@ -82,14 +82,14 @@ function isValidImageUrl(url) {
     const cleanedUrl = cleanImageUrl(url);
     if (!cleanedUrl) {
         // 緩存負面結果
-        cacheValidationResult(url, false);
+        cacheValidationResultInline(url, false);
         return false;
     }
 
     // 檢查是否為有效的 HTTP/HTTPS URL
     const HTTP_PROTOCOL_REGEX = /^https?:\/\//i;
     if (!HTTP_PROTOCOL_REGEX.test(cleanedUrl)) {
-        cacheValidationResult(url, false);
+        cacheValidationResultInline(url, false);
         return false;
     }
 
@@ -137,7 +137,7 @@ function isValidImageUrl(url) {
 /**
  * 緩存圖片 URL 驗證結果
  */
-function cacheValidationResult(url, isValid) {
+function cacheValidationResultInline(url, isValid) {
     // 檢查緩存大小限制
     if (urlValidationCache.size >= MAX_CACHE_SIZE) {
         // 刪除最舊的條目（簡單的 FIFO 策略）
@@ -1799,8 +1799,8 @@ async function handleSavePage(sendResponse) {
             }
 
             // 圖片 URL 驗證結果緩存（內聯函數版本）
-            const urlValidationCache = new Map();
-            const MAX_CACHE_SIZE = 1000;
+            const urlValidationCacheInline = new Map();
+            const MAX_CACHE_SIZE_INLINE = 1000;
 
             function isValidImageUrl(url) {
                 if (!url || typeof url !== 'string') return false;
@@ -1814,7 +1814,7 @@ async function handleSavePage(sendResponse) {
                 const cleanedUrl = cleanImageUrl(url);
                 if (!cleanedUrl) {
                     // 緩存負面結果
-                    cacheValidationResult(url, false);
+                    cacheValidationResultInline(url, false);
                     return false;
                 }
 
@@ -1869,7 +1869,7 @@ async function handleSavePage(sendResponse) {
                 const matchesImagePattern = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
 
                 // 緩存結果
-                cacheValidationResult(url, matchesImagePattern);
+                cacheValidationResultInline(url, matchesImagePattern);
 
                 return matchesImagePattern;
             }
@@ -1877,7 +1877,7 @@ async function handleSavePage(sendResponse) {
             /**
              * 緩存圖片 URL 驗證結果（內聯函數版本）
              */
-            function cacheValidationResult(url, isValid) {
+            function cacheValidationResultInline(url, isValid) {
                 // 檢查緩存大小限制
                 if (urlValidationCache.size >= MAX_CACHE_SIZE) {
                     // 刪除最舊的條目（簡單的 FIFO 策略）
