@@ -82,14 +82,14 @@ function isValidImageUrl(url) {
     const cleanedUrl = cleanImageUrl(url);
     if (!cleanedUrl) {
         // 緩存負面結果
-        cacheValidationResultInline(url, false);
+        cacheValidationResultInlineLocal(url, false);
         return false;
     }
 
     // 檢查是否為有效的 HTTP/HTTPS URL
     const HTTP_PROTOCOL_REGEX = /^https?:\/\//i;
     if (!HTTP_PROTOCOL_REGEX.test(cleanedUrl)) {
-        cacheValidationResultInline(url, false);
+        cacheValidationResultInlineLocal(url, false);
         return false;
     }
 
@@ -129,7 +129,7 @@ function isValidImageUrl(url) {
     const result = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
 
     // 緩存結果
-    cacheValidationResultInline(url, result);
+    cacheValidationResultInlineLocal(url, result);
 
     return result;
 }
@@ -1814,7 +1814,7 @@ async function handleSavePage(sendResponse) {
                 const cleanedUrl = cleanImageUrl(url);
                 if (!cleanedUrl) {
                     // 緩存負面結果
-                    cacheValidationResultInline(url, false);
+                    cacheValidationResultInlineLocal(url, false);
                     return false;
                 }
 
@@ -1869,7 +1869,7 @@ async function handleSavePage(sendResponse) {
                 const matchesImagePattern = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
 
                 // 緩存結果
-                cacheValidationResultInline(url, matchesImagePattern);
+                cacheValidationResultInlineLocal(url, matchesImagePattern);
 
                 return matchesImagePattern;
             }
