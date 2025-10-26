@@ -74,8 +74,8 @@ function isValidImageUrl(url) {
     if (!url || typeof url !== 'string') return false;
 
     // 檢查緩存
-    if (urlValidationCache.has(url)) {
-        return urlValidationCache.get(url);
+    if (urlValidationCacheInline.has(url)) {
+        return urlValidationCacheInline.get(url);
     }
 
     // 先清理 URL
@@ -129,7 +129,7 @@ function isValidImageUrl(url) {
     const result = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
 
     // 緩存結果
-    cacheValidationResult(url, result);
+    cacheValidationResultInline(url, result);
 
     return result;
 }
@@ -139,13 +139,13 @@ function isValidImageUrl(url) {
  */
 function cacheValidationResultInline(url, isValid) {
     // 檢查緩存大小限制
-    if (urlValidationCache.size >= MAX_CACHE_SIZE) {
+    if (urlValidationCacheInline.size >= MAX_CACHE_SIZE_INLINE) {
         // 刪除最舊的條目（簡單的 FIFO 策略）
-        const firstKey = urlValidationCache.keys().next().value;
-        urlValidationCache.delete(firstKey);
+        const firstKey = urlValidationCacheInline.keys().next().value;
+        urlValidationCacheInline.delete(firstKey);
     }
 
-    urlValidationCache.set(url, isValid);
+    urlValidationCacheInline.set(url, isValid);
 }
 
 // ==========================================
@@ -1806,8 +1806,8 @@ async function handleSavePage(sendResponse) {
                 if (!url || typeof url !== 'string') return false;
 
                 // 檢查緩存
-                if (urlValidationCache.has(url)) {
-                    return urlValidationCache.get(url);
+                if (urlValidationCacheInline.has(url)) {
+                    return urlValidationCacheInline.get(url);
                 }
 
                 // 先清理 URL
@@ -1879,13 +1879,13 @@ async function handleSavePage(sendResponse) {
              */
             function cacheValidationResultInline(url, isValid) {
                 // 檢查緩存大小限制
-                if (urlValidationCache.size >= MAX_CACHE_SIZE) {
+                if (urlValidationCacheInline.size >= MAX_CACHE_SIZE_INLINE) {
                     // 刪除最舊的條目（簡單的 FIFO 策略）
-                    const firstKey = urlValidationCache.keys().next().value;
-                    urlValidationCache.delete(firstKey);
+                    const firstKey = urlValidationCacheInline.keys().next().value;
+                    urlValidationCacheInline.delete(firstKey);
                 }
 
-                urlValidationCache.set(url, isValid);
+                urlValidationCacheInline.set(url, isValid);
             }
 
             // ============ v2.5.6: 封面圖/特色圖片提取功能 ============
