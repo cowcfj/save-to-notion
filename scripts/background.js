@@ -137,7 +137,7 @@ function isValidImageUrl(url) {
 /**
  * 緩存圖片 URL 驗證結果
  */
-function cacheValidationResultInline(url, isValid) {
+function cacheValidationResultInlineLocal(url, isValid) {
     // 檢查緩存大小限制
     if (urlValidationCacheInline.size >= MAX_CACHE_SIZE_INLINE) {
         // 刪除最舊的條目（簡單的 FIFO 策略）
@@ -1877,7 +1877,7 @@ async function handleSavePage(sendResponse) {
             /**
              * 緩存圖片 URL 驗證結果（內聯函數版本）
              */
-            function cacheValidationResultInline(url, isValid) {
+            function cacheValidationResultInlineLocal(url, isValid) {
                 // 檢查緩存大小限制
                 if (urlValidationCacheInline.size >= MAX_CACHE_SIZE_INLINE) {
                     // 刪除最舊的條目（簡單的 FIFO 策略）
