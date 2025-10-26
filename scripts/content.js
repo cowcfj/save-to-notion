@@ -649,8 +649,8 @@ const Logger = (() => {
                                 const cleanedUrl = cleanImageUrl(absoluteUrl);
 
                                 // 使用更嚴格的 Notion 兼容性檢查
-                                const isCompatible = typeof isNotionCompatibleImageUrl !== 'undefined'
-                                    ? isNotionCompatibleImageUrl(cleanedUrl)
+                                const isCompatible = typeof ImageUtils !== 'undefined' && ImageUtils.isNotionCompatibleImageUrl
+                                    ? ImageUtils.isNotionCompatibleImageUrl(cleanedUrl)
                                     : isValidImageUrl(cleanedUrl);
 
                                 // 檢查是否為有效的圖片格式和 URL
@@ -1240,7 +1240,7 @@ const Logger = (() => {
         };
 
         // 執行優化的 Readability 解析
-        let article;
+        let article = null;
         try {
             article = parseArticleWithReadability();
         } catch (error) {
