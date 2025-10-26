@@ -11,7 +11,7 @@ describe('content script require test', () => {
     });
 
     test('require scripts/content.js with jsdom globals', async () => {
-        const html = `<!doctype html><html><head><title>Require Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>`;
+        const html = "<!doctype html><html><head><title>Require Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>";
         const dom = new JSDOM(html);
         // expose globals
         global.window = dom.window;

@@ -224,7 +224,7 @@ class AdaptivePerformanceManager {
             this.performanceOptimizer.options.cacheMaxSize = this.currentSettings.cacheSize;
             
             // 這裡可以添加更多設置的動態更新邏輯
-            L.info(`🔧 已將新的性能設置應用到優化器:`, this.currentSettings);
+            L.info("🔧 已將新的性能設置應用到優化器:", this.currentSettings);
         }
     }
 

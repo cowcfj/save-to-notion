@@ -304,7 +304,7 @@
                 if (successCount > 0) {
                     localStorage.removeItem(oldKey);
                 } else {
-                    logger.warn(`⚠️ [遷移] 保留舊數據（因為沒有成功遷移任何標註）`);
+                    logger.warn("⚠️ [遷移] 保留舊數據（因為沒有成功遷移任何標註）");
                 }
 
                 // 顯示用戶通知
@@ -1084,7 +1084,7 @@
                 // 🔧 修復：如果沒有標註，刪除記錄而不是創建空記錄
                 if (data.highlights.length === 0) {
                     await StorageUtil.clearHighlights(currentUrl);
-                    logger.info(`🗑️ 已刪除空白標註記錄`);
+                    logger.info("🗑️ 已刪除空白標註記錄");
                 } else {
                     await StorageUtil.saveHighlights(currentUrl, data);
                     logger.info(`💾 已保存 ${data.highlights.length} 個標註`);
@@ -1125,7 +1125,7 @@
 
                     // v2.8.0: 檢測並清理舊格式的重複文本
                     if (highlightData.rangeInfo?.text) {
-                        logger.info(`   🔄 [v2.8.0] 檢測到重複文本，將自動清理`);
+                        logger.info("   🔄 [v2.8.0] 檢測到重複文本，將自動清理");
                         delete highlightData.rangeInfo.text;
                         needsMigration = true;
                     }
@@ -1136,7 +1136,7 @@
 
                         // 如果是對象數組格式（舊格式），轉換為字符串
                         if (Array.isArray(startContainerPath)) {
-                            logger.info(`   🔄 [v2.9.0] 檢測到舊路徑格式，將自動轉換`);
+                            logger.info("   🔄 [v2.9.0] 檢測到舊路徑格式，將自動轉換");
                             highlightData.rangeInfo.startContainerPath = this.convertPathToString(startContainerPath);
                             highlightData.rangeInfo.endContainerPath = this.convertPathToString(endContainerPath);
                             needsMigration = true;

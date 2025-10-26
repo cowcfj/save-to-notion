@@ -844,7 +844,7 @@ async function appendBlocksInBatchesSimulated(pageId, blocks, apiKey, startIndex
     return { success: true, addedCount, totalCount: totalBlocks };
 
   } catch (error) {
-    console.error(`分批添加区块失败:`, error);
+    console.error("分批添加区块失败:", error);
     return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
   }
 }

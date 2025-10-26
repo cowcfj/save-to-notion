@@ -313,7 +313,7 @@ const Logger = {
                 if (score > maxScore) {
                     // 避免選擇嵌套的父元素
                     if (bestElement && el.contains(bestElement)) {
-                        Logger.log(`⚠️ Skipping nested parent element`);
+                        Logger.log("⚠️ Skipping nested parent element");
                         continue;
                     }
                     maxScore = score;
@@ -338,7 +338,7 @@ const Logger = {
                     }
                 }
 
-                Logger.log(`💥 Complete failure: No content found even with lower standards`);
+                Logger.log("💥 Complete failure: No content found even with lower standards");
                 return null;
             }
         }
@@ -744,7 +744,7 @@ const Logger = {
             // 重要：排除明顯的非內容區域（header, footer, nav, sidebar, ads等）
             console.log('=== Image Collection Strategy 3: Selective Expansion ===');
             if (allImages.length < 1) {
-                console.log(`Very few images found, attempting selective expansion...`);
+                console.log("Very few images found, attempting selective expansion...");
 
                 // 排除這些明顯的非內容區域
                 const excludeSelectors = [
@@ -1068,12 +1068,12 @@ const Logger = {
 
             // 收集額外的圖片（更積極的策略）
             const imageBlocks = blocks.filter(b => b.type === 'image');
-            console.log(`\n=== Image Collection Summary ===`);
+            console.log("\n=== Image Collection Summary ===");
             console.log(`Images found in main content: ${imageBlocks.length}`);
 
             // 如果圖片少於5張，嘗試收集更多（提高閾值）
             if (imageBlocks.length < 5) {
-                console.log(`Attempting to collect additional images...`);
+                console.log("Attempting to collect additional images...");
                 const additionalImages = await collectAdditionalImages(contentElement);
                 const existingUrls = new Set(imageBlocks.map(b => b.image.external.url));
 
@@ -1099,16 +1099,16 @@ const Logger = {
             // 標記處理已移到 background.js 中，這裡不再處理
 
             const finalImageCount = blocks.filter(b => b.type === 'image').length;
-            console.log(`=== Final Result ===`);
+            console.log("=== Final Result ===");
             console.log(`Total blocks: ${blocks.length}`);
             console.log(`Total images: ${finalImageCount}`);
             console.log(`Title: "${finalTitle}"`);
-            console.log(`================================\n`);
+            console.log("================================\n");
 
             if (blocks.length > 0) {
                 return { title: finalTitle, blocks: blocks, rawHtml: finalContentHtml };
             } else {
-                console.log(`❌ No blocks generated from content`);
+                console.log("❌ No blocks generated from content");
                 // Return fallback content instead of continuing
                 return {
                     title: finalTitle || document.title,
@@ -1126,10 +1126,10 @@ const Logger = {
                 };
             }
         } else {
-            console.log(`❌ Content extraction failed completely`);
-            console.log(`📊 Extraction attempt summary:`);
+            console.log("❌ Content extraction failed completely");
+            console.log("📊 Extraction attempt summary:");
             console.log(`- Readability.js: ${article ? 'Found article but failed quality check' : 'Failed to parse'}`);
-            console.log(`- CMS Fallback: Failed to find suitable content`);
+            console.log("- CMS Fallback: Failed to find suitable content");
             console.log(`- Page title: "${document.title}"`);
             console.log(`- Page URL: ${window.location.href}`);
             console.log(`- Page text length: ${document.body ? document.body.textContent.length : 0} characters`);

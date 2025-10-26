@@ -358,8 +358,8 @@ class TestReport {
         md += `**總耗時：** ${(this.summary.duration / 1000).toFixed(2)} 秒\n\n`;
         
         md += '## 📊 測試摘要\n\n';
-        md += `| 總計 | ✅ 通過 | ❌ 失敗 | ⏭️ 跳過 |\n`;
-        md += `|------|--------|--------|--------|\n`;
+        md += "| 總計 | ✅ 通過 | ❌ 失敗 | ⏭️ 跳過 |\n";
+        md += "|------|--------|--------|--------|\n";
         md += `| ${this.summary.total} | ${this.summary.passed} | ${this.summary.failed} | ${this.summary.skipped} |\n\n`;
         
         md += '## 📝 詳細結果\n\n';
@@ -372,7 +372,7 @@ class TestReport {
             
             if (result.status === 'passed' && result.data.icons) {
                 md += `**Icons 數量：** ${result.data.icons.iconCount}\n`;
-                md += `**Icons 詳情：**\n`;
+                md += "**Icons 詳情：**\n";
                 result.data.icons.icons.forEach(icon => {
                     md += `- ${icon.type}: \`${icon.href}\`\n`;
                 });
@@ -380,7 +380,7 @@ class TestReport {
             }
             
             if (result.errors.length > 0) {
-                md += `**錯誤：**\n`;
+                md += "**錯誤：**\n";
                 result.errors.forEach(error => {
                     md += `- ${error}\n`;
                 });
@@ -388,7 +388,7 @@ class TestReport {
             }
             
             if (result.warnings.length > 0) {
-                md += `**警告：**\n`;
+                md += "**警告：**\n";
                 result.warnings.forEach(warning => {
                     md += `- ${warning}\n`;
                 });
