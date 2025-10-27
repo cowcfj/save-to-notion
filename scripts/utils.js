@@ -20,31 +20,6 @@ function __sendBackgroundLog(level, message, argsArray) {
     }
 }
 
-// 初始化可切換的日誌模式旗標（預設 false）；由 options 頁面設定 enableDebugLogs 同步更新
-if (typeof window !== 'undefined') {
-    try {
-        window.__LOGGER_ENABLED__ = false;
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-            chrome.storage.sync.get(['enableDebugLogs'], (cfg) => {
-                try { window.__LOGGER_ENABLED__ = Boolean(cfg?.enableDebugLogs); } catch (_) {}
-            });
-            if (chrome.storage.onChanged && typeof chrome.storage.onChanged.addListener === 'function') {
-                chrome.storage.onChanged.addListener((changes, area) => {
-                    if (area === 'sync' && changes && Object.prototype.hasOwnProperty.call(changes, 'enableDebugLogs')) {
-                        try { window.__LOGGER_ENABLED__ = Boolean(changes.enableDebugLogs.newValue); } catch (_) {}
-                    }
-                });
-            }
-        }
-    } catch (_) { /* ignore */ }
-}
-
-// 防止重複注入導致的重複聲明錯誤
-if (typeof window.StorageUtil !== 'undefined') {
-    // utils.js 已經加載，跳過重複注入
-    // 不執行後續代碼
-} else {
-
 /**
  * 標準化 URL，用於生成一致的存儲鍵
  * 處理：hash、查詢參數、尾部斜杠等變體
@@ -101,6 +76,31 @@ function normalizeUrl(rawUrl) {
         return rawUrl || '';
     }
 }
+
+// 初始化可切換的日誌模式旗標（預設 false）；由 options 頁面設定 enableDebugLogs 同步更新
+if (typeof window !== 'undefined') {
+    try {
+        window.__LOGGER_ENABLED__ = false;
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+            chrome.storage.sync.get(['enableDebugLogs'], (cfg) => {
+                try { window.__LOGGER_ENABLED__ = Boolean(cfg?.enableDebugLogs); } catch (_) {}
+            });
+            if (chrome.storage.onChanged && typeof chrome.storage.onChanged.addListener === 'function') {
+                chrome.storage.onChanged.addListener((changes, area) => {
+                    if (area === 'sync' && changes && Object.prototype.hasOwnProperty.call(changes, 'enableDebugLogs')) {
+                        try { window.__LOGGER_ENABLED__ = Boolean(changes.enableDebugLogs.newValue); } catch (_) {}
+                    }
+                });
+            }
+        }
+    } catch (_) { /* ignore */ }
+}
+
+// 防止重複注入導致的重複聲明錯誤
+if (typeof window.StorageUtil !== 'undefined') {
+    // utils.js 已經加載，跳過重複注入
+    // 不執行後續代碼
+} else {
 
 /**
  * 統一的存儲工具類
