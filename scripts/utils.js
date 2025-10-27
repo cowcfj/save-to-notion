@@ -52,15 +52,15 @@ if (typeof window.StorageUtil !== 'undefined') {
 function normalizeUrl(rawUrl) {
     try {
         // console.log('🔧 [normalizeUrl] 原始 URL:', rawUrl);
-        
+
         const u = new URL(rawUrl);
-        
+
         // 1. 移除 fragment (hash)
         if (u.hash) {
             // console.log('   移除 hash:', u.hash);
             u.hash = '';
         }
-        
+
         // 2. 移除常見的追蹤參數
         const trackingParams = [
             'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
@@ -76,19 +76,28 @@ function normalizeUrl(rawUrl) {
         if (removedParams.length > 0) {
             // console.log('   移除追蹤參數:', removedParams.join(', '));
         }
-        
+
         // 3. 標準化尾部斜杠（保留根路徑 "/"）
         if (u.pathname !== '/' && u.pathname.endsWith('/')) {
             // console.log('   移除尾部斜杠:', u.pathname);
             u.pathname = u.pathname.replace(/\/+$/, '');
         }
-        
+
         const normalized = u.toString();
         // console.log('✅ [normalizeUrl] 標準化後:', normalized);
-        
+
         return normalized;
     } catch (e) {
-        Logger?.error?.('❌ [normalizeUrl] 標準化失敗:', e) || console.error('❌ [normalizeUrl] 標準化失敗:', e);
+        if (typeof ErrorHandler !== 'undefined') {
+            ErrorHandler.logError({
+                type: 'url_normalization_error',
+                context: 'URL 標準化失敗',
+                originalError: e,
+                timestamp: Date.now()
+            });
+        } else {
+            console.error('❌ [normalizeUrl] 標準化失敗:', e);
+        }
         return rawUrl || '';
     }
 }
@@ -104,13 +113,13 @@ if (typeof window.StorageUtil === 'undefined') {
     async saveHighlights(pageUrl, highlightData) {
         // console.log('💾 [saveHighlights] 開始保存標註');
         // console.log('   原始 URL:', pageUrl);
-        
+
         const normalizedUrl = normalizeUrl(pageUrl);
         const pageKey = `highlights_${normalizedUrl}`;
         const count = Array.isArray(highlightData) ? highlightData.length : (highlightData?.highlights?.length || 0);
-        
+
         // console.log(`   保存 ${count} 個標註到鍵:`, pageKey);
-        
+
         return new Promise((resolve, reject) => {
             try {
                 chrome.storage?.local?.set({ [pageKey]: highlightData }, () => {
@@ -119,14 +128,14 @@ if (typeof window.StorageUtil === 'undefined') {
                         // 回退到 localStorage
                         try {
                             localStorage.setItem(pageKey, JSON.stringify(highlightData));
-                            
+
                             resolve();
                         } catch (e) {
                             console.error('Failed to save highlights to localStorage:', e);
                             reject(e);
                         }
                     } else {
-                        
+
                         resolve();
                     }
                 });
@@ -150,12 +159,12 @@ if (typeof window.StorageUtil === 'undefined') {
     async loadHighlights(pageUrl) {
         // console.log('📖 [loadHighlights] 開始讀取標註');
         // console.log('   原始 URL:', pageUrl);
-        
+
         const normalizedUrl = normalizeUrl(pageUrl);
         const pageKey = `highlights_${normalizedUrl}`;
-        
+
         // console.log('   讀取鍵:', pageKey);
-        
+
         return new Promise((resolve) => {
             try {
                 chrome.storage?.local?.get([pageKey], (data) => {
@@ -168,20 +177,20 @@ if (typeof window.StorageUtil === 'undefined') {
                         } else if (stored.highlights && Array.isArray(stored.highlights)) {
                             highlights = stored.highlights;
                         }
-                        
+
                         if (highlights.length > 0) {
-                            
+
                             resolve(highlights);
                             return;
                         }
                     }
-                    
-                    
+
+
                     // 兼容舊版：從 localStorage 回退
                     const legacy = localStorage.getItem(pageKey);
                     if (legacy) {
-                        
-                        try { 
+
+                        try {
                             const parsed = JSON.parse(legacy);
                             let highlights = [];
                             if (Array.isArray(parsed)) {
@@ -189,7 +198,7 @@ if (typeof window.StorageUtil === 'undefined') {
                             } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
                                 highlights = parsed.highlights;
                             }
-                            
+
                             if (highlights.length > 0) {
                                 resolve(highlights);
                                 return;
@@ -198,14 +207,14 @@ if (typeof window.StorageUtil === 'undefined') {
                             console.error('Failed to parse legacy highlights:', e);
                         }
                     }
-                    
+
                     resolve([]);
                 });
             } catch (e) {
                 console.log('Chrome storage not available, falling back to localStorage');
                 const legacy = localStorage.getItem(pageKey);
                 if (legacy) {
-                    try { 
+                    try {
                         const parsed = JSON.parse(legacy);
                         let highlights = [];
                         if (Array.isArray(parsed)) {
@@ -213,7 +222,7 @@ if (typeof window.StorageUtil === 'undefined') {
                         } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
                             highlights = parsed.highlights;
                         }
-                        
+
                         if (highlights.length > 0) {
                             resolve(highlights);
                             return;
@@ -232,8 +241,8 @@ if (typeof window.StorageUtil === 'undefined') {
      */
     async clearHighlights(pageUrl) {
         const pageKey = `highlights_${normalizeUrl(pageUrl)}`;
-        
-        
+
+
         return new Promise((resolve) => {
             // 修復：先檢查 chrome.storage 是否存在
             if (chrome.storage?.local) {
@@ -242,13 +251,13 @@ if (typeof window.StorageUtil === 'undefined') {
                         if (chrome.runtime.lastError) {
                             console.error('Failed to clear highlights from chrome.storage:', chrome.runtime.lastError);
                         } else {
-                            
+
                         }
-                        
+
                         // 同時清除 localStorage
                         try {
                             localStorage.removeItem(pageKey);
-                            
+
                         } catch (e) {
                             console.error('Failed to clear localStorage:', e);
                         }
@@ -267,10 +276,10 @@ if (typeof window.StorageUtil === 'undefined') {
                 }
             } else {
                 // chrome.storage 不可用，只清除 localStorage
-                
+
                 try {
                     localStorage.removeItem(pageKey);
-                    
+
                 } catch (err) {
                     console.error('Failed to clear localStorage:', err);
                 }
@@ -278,7 +287,7 @@ if (typeof window.StorageUtil === 'undefined') {
             }
         });
     },
-    
+
     /**
      * 調試工具：列出所有存儲的標註鍵
      * 在控制台執行：StorageUtil.debugListAllKeys()
@@ -305,7 +314,7 @@ if (typeof window.StorageUtil === 'undefined') {
     }
     }; // 結束 window.StorageUtil 定義
 } else {
-    
+
 }
 
 /**
@@ -329,7 +338,7 @@ if (typeof window.Logger === 'undefined') {
     log: (message, ...args) => {
         if (__LOGGER_DEV__) {
             __sendBackgroundLog('log', message, args);
-            
+
         }
     },
     debug: (message, ...args) => {
