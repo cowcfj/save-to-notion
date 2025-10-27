@@ -135,7 +135,7 @@
                     return null;
                 }
             } catch (error) {
-                Logger.error?.('遷移過程出錯:', error) || console.error('遷移過程出錯:', error);
+                
                 return null;
             }
         }

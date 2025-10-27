@@ -88,7 +88,7 @@ function normalizeUrl(rawUrl) {
         
         return normalized;
     } catch (e) {
-        Logger?.error?.('❌ [normalizeUrl] 標準化失敗:', e) || console.error('❌ [normalizeUrl] 標準化失敗:', e);
+        
         return rawUrl || '';
     }
 }
