@@ -22,7 +22,7 @@
         async needsMigration() {
             // 檢查遷移狀態
             const status = await this.getMigrationStatus();
-            
+
             if (status === 'completed') {
                 Logger.info('✅ 此頁面已完成標註遷移');
                 return false;
@@ -135,7 +135,16 @@
                     return null;
                 }
             } catch (error) {
-                Logger.error?.('遷移過程出錯:', error) || console.error('遷移過程出錯:', error);
+                if (typeof ErrorHandler !== 'undefined') {
+                    ErrorHandler.logError({
+                        type: 'migration_error',
+                        context: '標註遷移過程',
+                        originalError: error,
+                        timestamp: Date.now()
+                    });
+                } else {
+                    console.error('遷移過程出錯:', error);
+                }
                 return null;
             }
         }
@@ -146,18 +155,18 @@
         removeOldSpan(span) {
             try {
                 const parent = span.parentNode;
-                
+
                 // 將span的內容移到父節點
                 while (span.firstChild) {
                     parent.insertBefore(span.firstChild, span);
                 }
-                
+
                 // 移除span
                 parent.removeChild(span);
-                
+
                 // 合併文本節點
                 parent.normalize();
-                
+
                 Logger.info('🗑️ 已移除舊標註元素');
             } catch (error) {
                 console.error('移除舊標註失敗:', error);

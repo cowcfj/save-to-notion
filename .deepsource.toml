@@ -34,3 +34,11 @@ enabled = true
   # Cyclomatic complexity threshold: low, medium, high, very-high, critical
   # "very-high" allows complexity up to 50, suitable for test files
   cyclomatic_complexity_threshold = "very-high"
+
+  # Filter out false positives for error logging patterns
+  # JS-0427: "unused-expression" incorrectly flags error logging with side effects
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0427"
+  paths = [
+    "scripts/**/*.js"
+  ]
