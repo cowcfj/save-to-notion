@@ -62,6 +62,7 @@ QWEN.md
 .serena/
 .vscode/
 .claude/
+.kilocode/
 Agents.md
 AI_AGENT_QUICK_REF.md
 *_GUIDE.md
@@ -186,3 +187,4 @@ IMPLEMENTATION_COMPLETE.md
 FILE_ORGANIZATION.md
 popup/popup.js.backup
 scripts/background.js.bak
+
