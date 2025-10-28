@@ -22,6 +22,12 @@
   "rules": {
     "no-unused-vars": "warn",
     "no-empty": ["error", {"allowEmptyCatch": true}],
-    "no-case-declarations": "off"
+    "no-case-declarations": "off",
+    "no-implicit-coercion": ["error", {
+      "boolean": true,
+      "number": false,
+      "string": false,
+      "disallowTemplateShorthand": false
+    }]
   }
 }
