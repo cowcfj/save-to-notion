@@ -58,7 +58,7 @@ module.exports = {
       const paragraphs = article?.querySelectorAll('p');
 
       return {
-        hasArticle: !!article,
+        hasArticle: Boolean(article),
         paragraphCount: paragraphs?.length || 0,
         title: document.title,
         foundSelector: article ? 'found' : 'not found'

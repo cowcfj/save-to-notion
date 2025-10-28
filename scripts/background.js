@@ -1540,7 +1540,7 @@ async function handleCheckPageStatus(sendResponse) {
 
                 sendResponse({
                     success: true,
-                    isSaved: !!savedData,
+                    isSaved: Boolean(savedData),
                     url: normUrl,
                     title: activeTab.title,
                     notionUrl: notionUrl || null
@@ -2790,7 +2790,7 @@ async function handleSavePage(sendResponse) {
             console.error('❌ Content extraction result validation failed:', {
                 result: result,
                 resultType: typeof result,
-                hasResult: !!result,
+                hasResult: Boolean(result),
                 hasTitle: Boolean(result?.title),
                 hasBlocks: Boolean(result?.blocks),
                 blocksLength: result?.blocks ? result.blocks.length : 'N/A',
