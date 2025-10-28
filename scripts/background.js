@@ -2546,7 +2546,7 @@ async function handleSavePage(sendResponse) {
 
                     return text
                         .replace(/\s+/g, ' ')  // 將多個空白字符替換為單個空格
-                        .replace(/[\u00A0]/g, ' ')  // 替換不間斷空格
+                        .replace(/[\u00A0]/gu, ' ')  // 替換不間斷空格
                         .trim();
                 }
 
@@ -2554,7 +2554,7 @@ async function handleSavePage(sendResponse) {
                 function hasActualContent(text) {
                     if (!text) return false;
                     const cleaned = cleanTextContent(text);
-                    return cleaned.length > 0 && cleaned !== '•' && !/^[•\-\*\s]*$/.test(cleaned);
+                    return cleaned.length > 0 && cleaned !== '•' && !/^[•\-\*\s]*$/u.test(cleaned);
                 }
 
                 // 輔助函數：計算元素的列表嵌套深度

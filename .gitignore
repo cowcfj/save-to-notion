@@ -188,3 +188,7 @@ FILE_ORGANIZATION.md
 popup/popup.js.backup
 scripts/background.js.bak
 
+PR64-FIX-REPORT.md
+PR64-COMPLETE-SOLUTION.md
+.gitignore
+REGEX_USAGE_ANALYSIS.md

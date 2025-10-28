@@ -16,6 +16,8 @@
     "test:e2e:only": "node tests/e2e/coverage-collector.js",
     "test:merge-coverage": "node tests/e2e/coverage-merger.js",
     "test:all": "npm run test:coverage && npm run test:e2e",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
     "build": "webpack --mode production",
     "dev": "webpack --mode development --watch",
     "prepare": "husky"
@@ -38,6 +40,7 @@
     "@babel/core": "^7.22.0",
     "@babel/preset-env": "^7.22.0",
     "babel-jest": "^29.5.0",
+    "eslint-plugin-regexp": "^2.10.0",
     "husky": "^9.1.6",
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-report": "^3.0.1",

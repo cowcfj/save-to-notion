@@ -18,6 +18,8 @@
 
 ## Unreleased
 
+### ♻️ 次要改進
+- **重構 (PR #64)**：新增 `u` 旗標至正則表達式；影響文件：`lib/Readability.js`、`scripts/background.js`、`scripts/content.js`。改善 Unicode 字符處理，支援多語言環境。
 
 ## v2.9.11 - 2025-10-24
 ### ✨ 新功能
