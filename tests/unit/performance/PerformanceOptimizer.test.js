@@ -3,7 +3,7 @@
  * 測試性能優化器的核心功能
  */
 /* eslint-env jest */
-/* eslint-disable no-console */
+ 
 
 /* global document window performance */
 /* eslint-disable no-unused-vars */

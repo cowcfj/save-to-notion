@@ -1,5 +1,5 @@
 /* global document window performance */
-/* eslint-disable no-unused-vars */
+ 
 
 const { AdaptivePerformanceManager } = require('../../../scripts/performance/AdaptivePerformanceManager');
 const { PerformanceOptimizer } = require('../../helpers/performance.testable');

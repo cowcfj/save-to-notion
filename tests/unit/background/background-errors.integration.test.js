@@ -2,7 +2,7 @@
  * Background.js - 錯誤分支整合測試（require 真實腳本 + 事件觸發）
  */
 
-/* eslint-disable no-undef */
+ 
 
 function createEvent() {
   const listeners = [];
@@ -375,7 +375,7 @@ describe('background error branches (integration)', () => {
     for (let i = 0; i < 30 && sendResponse.mock.calls.length === 0; i++) {
       jest.runOnlyPendingTimers();
       // 讓出微任務
-      // eslint-disable-next-line no-await-in-loop
+       
       await Promise.resolve();
     }
     const resp = sendResponse.mock.calls[0][0];

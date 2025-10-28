@@ -63,7 +63,7 @@ function isValidImageUrl(url) {
     if (!cleanedUrl) return false;
 
     // 檢查是否為有效的 HTTP/HTTPS URL
-    if (!cleanedUrl.match(/^https?:\/\//i)) return false;
+    if (!/^https?:\/\//i.test(cleanedUrl)) return false;
 
     // 檢查 URL 長度（Notion 有限制，保守設置為 1500）
     if (cleanedUrl.length > 1500) return false;

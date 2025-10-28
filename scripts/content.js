@@ -453,7 +453,7 @@ const Logger = (() => {
                     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
                     if (lines.length < 4) return false;
 
-                    const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/u;
+                    const bulletPattern = /^[\u{2022}\-\*•·–—►▶✔▪\d+\.]\s+/u;
                     const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
                     return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
                 });
@@ -481,7 +481,7 @@ const Logger = (() => {
                     let effectiveItemCount = liCount;
                     if (liCount === 0) {
                         const lines = (candidate.textContent || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-                        const bulletPattern = /^[\u2022\-\*•·–—►▶✔▪\d+\.]\s+/u;
+                        const bulletPattern = /^[\u{2022}\-\*•·–—►▶✔▪\d+\.]\s+/u;
                         effectiveItemCount = lines.filter(line => bulletPattern.test(line)).length;
                     }
 
@@ -607,7 +607,7 @@ const Logger = (() => {
                             const lines = textContent.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
                             // 常見的 bullet 標記與編號模式
-                            const bulletCharRe = /^[\u2022\-\*•·–—►▶✔▪]\s+/u;
+                            const bulletCharRe = /^[\u{2022}\-\*•·–—►▶✔▪]\s+/u;
                             const numberedRe = /^\d+[\.|\)]\s+/;
 
                             const hasBr = /<br\s*\/?/i.test(innerHtml);
@@ -631,7 +631,7 @@ const Logger = (() => {
                                 lines.forEach(line => {
                                     let cleaned = line.replace(bulletCharRe, '').replace(numberedRe, '').trim();
                                     // 移除常見起始符號
-                                    cleaned = cleaned.replace(/^[\-•\u2022\*\d+\.|\)\s]+/u, '').trim();
+                                    cleaned = cleaned.replace(/^[\-•\u{2022}\*\d+\.|\)\s]+/u, '').trim();
                                     if (cleaned) {
                                         blocks.push({ object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: createRichText(cleaned) } });
                                     }
