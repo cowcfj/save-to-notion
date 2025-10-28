@@ -739,7 +739,7 @@ function convertHtmlToNotionBlocks(html) {
             blocks.forEach(block => {
                 blockTypes[block.type] = (blockTypes[block.type] || 0) + 1;
             });
-            Logger.info(`📊 [區塊] 類型分佈:`, blockTypes);
+            Logger.info("📊 [區塊] 類型分佈:", blockTypes);
 
             return blocks;
         }

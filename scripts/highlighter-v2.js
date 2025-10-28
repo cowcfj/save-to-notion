@@ -24,7 +24,7 @@ const logger = (() => {
             try {
                 if (isLoggerAvailable() && typeof window.Logger[methodName] === 'function') {
                     // 使用共享 Logger 系統，添加模組前綴
-                    return window.Logger[methodName](`[Highlighter]`, ...args);
+                    return window.Logger[methodName]("[Highlighter]", ...args);
                 } else {
                     // 回退到控制台日誌（僅在開發環境）
                     if (typeof console !== 'undefined' && typeof console[methodName] === 'function') {
