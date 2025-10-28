@@ -105,6 +105,16 @@ const Logger = (() => {
     };
 })();
 
+// 列表處理的預編譯正則表達式模式（性能優化：避免在循環中重複編譯）
+const LIST_PREFIX_PATTERNS = {
+    // 移除列表前綴：連字符、項目符號、星號、數字、點、管道、括號和空格
+    bulletPrefix: /^[-•\u{2022}*\d+.|)\s]+/u,
+    // 多餘空格正規化
+    multipleSpaces: /\s+/g,
+    // 空白行檢測
+    emptyLine: /^\s*$/
+};
+
 (async function () {
     try {
         // 初始化性能優化器（如果可用）
@@ -629,11 +639,27 @@ const Logger = (() => {
                             if (looksLikeList) {
                                 // 把每一行或每個項目轉成 bulleted_list_item
                                 lines.forEach(line => {
-                                    let cleaned = line.replace(bulletCharRe, '').replace(numberedRe, '').trim();
-                                    // 移除常見起始符號
-                                    cleaned = cleaned.replace(/^[\-•\u{2022}\*\d+\.|\)\s]+/u, '').trim();
-                                    if (cleaned) {
-                                        blocks.push({ object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: createRichText(cleaned) } });
+                                    // 步驟 1：移除已知的列表格式標記
+                                    let cleaned = line
+                                        .replace(bulletCharRe, '')
+                                        .replace(numberedRe, '')
+                                        .trim();
+
+                                    // 步驟 2：移除殘留的前綴符號（使用預編譯的正則表達式）
+                                    cleaned = cleaned
+                                        .replace(LIST_PREFIX_PATTERNS.bulletPrefix, '')
+                                        .replace(LIST_PREFIX_PATTERNS.multipleSpaces, ' ')
+                                        .trim();
+
+                                    // 步驟 3：只處理非空內容
+                                    if (cleaned && !LIST_PREFIX_PATTERNS.emptyLine.test(cleaned)) {
+                                        blocks.push({
+                                            object: 'block',
+                                            type: 'bulleted_list_item',
+                                            bulleted_list_item: {
+                                                rich_text: createRichText(cleaned)
+                                            }
+                                        });
                                     }
                                 });
                             } else {
