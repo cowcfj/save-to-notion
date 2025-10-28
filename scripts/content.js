@@ -642,11 +642,11 @@ const LIST_PREFIX_PATTERNS = {
                 }
 
                 case 'IMG': {
-                    const src = extractImageSrc(node);
+                    const src = ImageUtils.extractImageSrc(node);
                     if (src) {
                         try {
                             const absoluteUrl = new URL(src, document.baseURI).href;
-                            const cleanedUrl = cleanImageUrl(absoluteUrl);
+                            const cleanedUrl = ImageUtils.cleanImageUrl(absoluteUrl);
 
                             // 使用更嚴格的 Notion 兼容性檢查
                             const isCompatible = typeof ImageUtils !== 'undefined' && ImageUtils.isNotionCompatibleImageUrl
