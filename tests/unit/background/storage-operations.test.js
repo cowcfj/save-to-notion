@@ -453,7 +453,7 @@ function clearPageStateSimulated(pageUrl, callback) {
  */
 function isOldFormatData(data) {
   if (!data) return false;
-  return !!data.pageId && !data.notionPageId;
+  return Boolean(data.pageId) && !data.notionPageId;
 }
 
 /**
