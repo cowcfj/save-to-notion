@@ -1008,7 +1008,7 @@ const LIST_PREFIX_PATTERNS = {
          * @returns {Object|null} 處理結果
          */
         function processImageForCollection(img, index, featuredImage) {
-            const src = extractImageSrc(img);
+            const src = ImageUtils.extractImageSrc(img);
             if (!src) {
                 console.log(`✗ No src found for image ${index + 1}`);
                 return null;
