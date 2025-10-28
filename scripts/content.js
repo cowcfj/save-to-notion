@@ -607,7 +607,9 @@ const LIST_PREFIX_PATTERNS = {
             const textContent = node.textContent?.trim();
 
             switch (node.nodeName) {
-                case 'H1': case 'H2': case 'H3':
+                case 'H1':
+                case 'H2':
+                case 'H3': {
                     if (textContent) {
                         blocks.push({
                             object: 'block',
@@ -618,8 +620,9 @@ const LIST_PREFIX_PATTERNS = {
                         });
                     }
                     break;
+                }
 
-                case 'P':
+                case 'P': {
                     if (textContent) {
                         // 偵測是否為以換行或符號表示的清單（有些文件會用 CSS 或 <br> 呈現點列）
                         const innerHtml = node.innerHTML || '';
@@ -685,8 +688,9 @@ const LIST_PREFIX_PATTERNS = {
                         }
                     }
                     break;
+                }
 
-                case 'IMG':
+                case 'IMG': {
                     const src = extractImageSrc(node);
                     if (src) {
                         try {
@@ -730,8 +734,9 @@ const LIST_PREFIX_PATTERNS = {
                         }
                     }
                     break;
+                }
 
-                case 'LI':
+                case 'LI': {
                     if (textContent) {
                         blocks.push({
                             object: 'block',
@@ -742,8 +747,9 @@ const LIST_PREFIX_PATTERNS = {
                         });
                     }
                     break;
+                }
 
-                case 'BLOCKQUOTE':
+                case 'BLOCKQUOTE': {
                     if (textContent) {
                         blocks.push({
                             object: 'block',
@@ -754,12 +760,14 @@ const LIST_PREFIX_PATTERNS = {
                         });
                     }
                     break;
+                }
 
-                default:
+                default: {
                     if (node.childNodes.length > 0) {
                         node.childNodes.forEach(child => processNodeToNotionBlock(child, blocks, createRichText));
                     }
                     break;
+                }
             }
         }
 
