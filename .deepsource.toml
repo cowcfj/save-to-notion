@@ -14,7 +14,8 @@ exclude_patterns = [
   "archive/**",
   "releases/**",
   "coverage/**",
-  "node_modules/**"
+  "node_modules/**",
+  "lib/**"  # Exclude third-party libraries (e.g., Mozilla Readability.js)
 ]
 
 [[analyzers]]
