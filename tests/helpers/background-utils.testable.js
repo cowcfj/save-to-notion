@@ -6,10 +6,10 @@
  */
 function cleanImageUrl(url) {
     if (!url || typeof url !== 'string') return null;
-    
+
     try {
         const urlObj = new URL(url);
-        
+
         // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
             const uParam = urlObj.searchParams.get('u');
@@ -18,7 +18,7 @@ function cleanImageUrl(url) {
                 return cleanImageUrl(uParam);
             }
         }
-        
+
         // 移除重複的查詢參數
         const params = new URLSearchParams();
         for (const [key, value] of urlObj.searchParams.entries()) {
@@ -27,7 +27,7 @@ function cleanImageUrl(url) {
             }
         }
         urlObj.search = params.toString();
-        
+
         return urlObj.href;
     } catch (e) {
         return null;
@@ -39,23 +39,23 @@ function cleanImageUrl(url) {
  */
 function isValidImageUrl(url) {
     if (!url || typeof url !== 'string') return false;
-    
+
     // 先清理 URL
     const cleanedUrl = cleanImageUrl(url);
     if (!cleanedUrl) return false;
-    
+
     // 檢查是否為有效的 HTTP/HTTPS URL
     if (!cleanedUrl.match(/^https?:\/\//i)) return false;
-    
+
     // 檢查 URL 長度（Notion 有限制）
     if (cleanedUrl.length > 2000) return false;
-    
+
     // 檢查常見的圖片文件擴展名
-    const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(\?.*)?$/i;
-    
+    const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(?:\?.*)?$/i;
+
     // 如果 URL 包含圖片擴展名，直接返回 true
     if (imageExtensions.test(cleanedUrl)) return true;
-    
+
     // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑
     const imagePathPatterns = [
         /\/image[s]?\//i,
@@ -67,7 +67,7 @@ function isValidImageUrl(url) {
         /\/asset[s]?\//i,
         /\/file[s]?\//i
     ];
-    
+
     // 排除明顯不是圖片的 URL
     const excludePatterns = [
         /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
@@ -75,11 +75,11 @@ function isValidImageUrl(url) {
         /\/ajax\//i,
         /\/callback/i
     ];
-    
+
     if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
         return false;
     }
-    
+
     return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
 }
 
@@ -91,20 +91,20 @@ function splitTextForHighlight(text, maxLength = 2000) {
     if (!text || text.length <= maxLength) {
         return [text];
     }
-    
+
     const chunks = [];
     let remaining = text;
-    
+
     while (remaining.length > 0) {
         if (remaining.length <= maxLength) {
             chunks.push(remaining);
             break;
         }
-        
+
         // 嘗試在句號、問號、驚嘆號、換行符處分割
         let splitIndex = -1;
         const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
-        
+
         for (const punct of punctuation) {
             const lastIndex = remaining.lastIndexOf(punct, maxLength);
             if (lastIndex > maxLength * 0.5) { // 至少分割到一半以上，避免片段太短
@@ -112,7 +112,7 @@ function splitTextForHighlight(text, maxLength = 2000) {
                 break;
             }
         }
-        
+
         // 如果找不到合適的標點，嘗試在空格處分割
         if (splitIndex === -1) {
             splitIndex = remaining.lastIndexOf(' ', maxLength);
@@ -121,11 +121,11 @@ function splitTextForHighlight(text, maxLength = 2000) {
                 splitIndex = maxLength;
             }
         }
-        
+
         chunks.push(remaining.substring(0, splitIndex).trim());
         remaining = remaining.substring(splitIndex).trim();
     }
-    
+
     return chunks.filter(chunk => chunk.length > 0); // 過濾空字符串
 }
 
@@ -163,16 +163,16 @@ function splitIntoBatches(items, batchSize = 100) {
     if (!Array.isArray(items)) {
         return [];
     }
-    
+
     if (batchSize <= 0) {
         return items.length > 0 ? [items] : [];
     }
-    
+
     const batches = [];
     for (let i = 0; i < items.length; i += batchSize) {
         batches.push(items.slice(i, i + batchSize));
     }
-    
+
     return batches;
 }
 
@@ -187,14 +187,14 @@ function calculateBatchStats(totalItems, batchSize = 100, startIndex = 0) {
     if (typeof totalItems !== 'number' || typeof batchSize !== 'number' || typeof startIndex !== 'number') {
         return null;
     }
-    
+
     if (totalItems < 0 || batchSize <= 0 || startIndex < 0 || startIndex > totalItems) {
         return null;
     }
-    
+
     const remainingItems = totalItems - startIndex;
     const totalBatches = Math.ceil(remainingItems / batchSize);
-    
+
     return {
         totalItems,
         remainingItems,
@@ -215,17 +215,17 @@ function createNotionRichText(content, annotations = {}) {
     if (typeof content !== 'string') {
         return null;
     }
-    
+
     const richText = {
         type: 'text',
         text: { content }
     };
-    
+
     // 只在有標註時添加 annotations 字段
     if (annotations && Object.keys(annotations).length > 0) {
         richText.annotations = { ...annotations };
     }
-    
+
     return richText;
 }
 
@@ -239,9 +239,9 @@ function createNotionParagraph(content, annotations = {}) {
     if (!content) {
         return null;
     }
-    
+
     let richTextArray;
-    
+
     if (typeof content === 'string') {
         // 字符串：創建富文本對象
         const richText = createNotionRichText(content, annotations);
@@ -253,7 +253,7 @@ function createNotionParagraph(content, annotations = {}) {
     } else {
         return null;
     }
-    
+
     return {
         object: 'block',
         type: 'paragraph',
@@ -273,13 +273,13 @@ function createNotionHeading(content, level = 1) {
     if (typeof content !== 'string' || !content) {
         return null;
     }
-    
+
     if (![1, 2, 3].includes(level)) {
         return null;
     }
-    
+
     const headingType = `heading_${level}`;
-    
+
     return {
         object: 'block',
         type: headingType,
@@ -301,12 +301,12 @@ function createNotionImage(url) {
     if (typeof url !== 'string' || !url) {
         return null;
     }
-    
+
     // 基本 URL 驗證
-    if (!url.match(/^https?:\/\//i)) {
+    if (!/^https?:\/\//i.test(url)) {
         return null;
     }
-    
+
     return {
         object: 'block',
         type: 'image',
@@ -326,17 +326,17 @@ function isValidNotionBlock(block) {
     if (!block || typeof block !== 'object') {
         return false;
     }
-    
+
     // 必須有 object 和 type 字段
     if (block.object !== 'block' || !block.type) {
         return false;
     }
-    
+
     // 必須有對應類型的內容字段
     if (!block[block.type]) {
         return false;
     }
-    
+
     return true;
 }
 
@@ -349,7 +349,7 @@ function isSuccessStatusCode(statusCode) {
     if (typeof statusCode !== 'number') {
         return false;
     }
-    
+
     return statusCode >= 200 && statusCode < 300;
 }
 
@@ -362,7 +362,7 @@ function isRedirectStatusCode(statusCode) {
     if (typeof statusCode !== 'number') {
         return false;
     }
-    
+
     return statusCode >= 300 && statusCode < 400;
 }
 
@@ -375,7 +375,7 @@ function isClientErrorStatusCode(statusCode) {
     if (typeof statusCode !== 'number') {
         return false;
     }
-    
+
     return statusCode >= 400 && statusCode < 500;
 }
 
@@ -388,7 +388,7 @@ function isServerErrorStatusCode(statusCode) {
     if (typeof statusCode !== 'number') {
         return false;
     }
-    
+
     return statusCode >= 500 && statusCode < 600;
 }
 
@@ -401,13 +401,13 @@ function getStatusCodeCategory(statusCode) {
     if (typeof statusCode !== 'number') {
         return null;
     }
-    
+
     if (statusCode >= 200 && statusCode < 300) return 'success';
     if (statusCode >= 300 && statusCode < 400) return 'redirect';
     if (statusCode >= 400 && statusCode < 500) return 'client_error';
     if (statusCode >= 500 && statusCode < 600) return 'server_error';
     if (statusCode >= 100 && statusCode < 200) return 'informational';
-    
+
     return 'unknown';
 }
 
@@ -422,18 +422,18 @@ function truncateText(text, maxLength = 100, ellipsis = '...') {
     if (typeof text !== 'string') {
         return '';
     }
-    
+
     if (maxLength <= 0) {
         return '';
     }
-    
+
     if (text.length <= maxLength) {
         return text;
     }
-    
+
     const ellipsisLength = ellipsis.length;
     const truncateAt = Math.max(0, maxLength - ellipsisLength);
-    
+
     return text.substring(0, truncateAt) + ellipsis;
 }
 
@@ -447,7 +447,7 @@ function safeJsonParse(jsonString, defaultValue = null) {
     if (typeof jsonString !== 'string') {
         return defaultValue;
     }
-    
+
     try {
         return JSON.parse(jsonString);
     } catch (e) {
@@ -465,7 +465,7 @@ function safeJsonStringify(obj, space) {
     if (obj === undefined) {
         return null;
     }
-    
+
     try {
         const result = JSON.stringify(obj, null, space);
         // JSON.stringify 對某些值會返回 undefined

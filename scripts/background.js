@@ -97,7 +97,7 @@ function isValidImageUrl(url) {
     if (cleanedUrl.length > 2000) return false;
 
     // 檢查常見的圖片文件擴展名
-    const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(\?.*)?$/i;
+    const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(?:\?.*)?$/i;
 
     // 如果 URL 包含圖片擴展名，直接返回 true
     if (imageExtensions.test(cleanedUrl)) return true;
@@ -1825,7 +1825,7 @@ async function handleSavePage(sendResponse) {
                 if (cleanedUrl.length > 2000) return false;
 
                 // v2.5.4: 擴展圖片格式支持
-                const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(\?.*)?$/i;
+                const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
 
                 // 如果 URL 包含圖片擴展名，直接返回 true
                 if (imageExtensions.test(cleanedUrl)) return true;
@@ -2546,7 +2546,7 @@ async function handleSavePage(sendResponse) {
 
                     return text
                         .replace(/\s+/g, ' ')  // 將多個空白字符替換為單個空格
-                        .replace(/[\u00A0]/gu, ' ')  // 替換不間斷空格
+                        .replace(/[\u{a0}]/gu, ' ')  // 替換不間斷空格
                         .trim();
                 }
 

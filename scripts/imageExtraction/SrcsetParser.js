@@ -70,7 +70,7 @@ class SrcsetParser {
         }
 
         // 解析像素密度描述符 (例如: "2x")
-        const densityMatch = descriptor.match(/^(\d*\.?\d+)x$/i);
+        const densityMatch = descriptor.match(/^(\d+(?:\.\d+)?|\.\d+)x$/i);
         if (densityMatch) {
             entry.density = parseFloat(densityMatch[1]);
             return entry;

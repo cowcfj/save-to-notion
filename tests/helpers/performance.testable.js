@@ -8,7 +8,7 @@
  * 提供 DOM 查詢緩存、批處理和性能監控功能
  */
 /* eslint-env browser, jest */
-/* eslint-disable no-console */
+ 
 /* global document, performance, setTimeout */
 
 class PerformanceOptimizer {

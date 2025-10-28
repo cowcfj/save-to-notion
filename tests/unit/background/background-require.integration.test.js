@@ -6,7 +6,7 @@
  * - 透過事件發射器模擬 onInstalled/onMessage，覆蓋初始化與訊息處理路徑
  */
 
-/* eslint-disable no-undef */
+ 
 
 // 簡單事件工具：保存 listener 並允許 _emit 觸發
 function createEvent() {
