@@ -112,8 +112,8 @@ function convertMarkdownToNotionBlocks(markdown) {
       continue;
     }
 
-    if (/^(- |\* |\d+\.\s)/.test(t)) {
-      const text = t.replace(/^(- |\* |\d+\.\s)/, '').trim();
+    if (/^(?:- |\* |\d+\.\s)/.test(t)) {
+      const text = t.replace(/^(?:- |\* |\d+\.\s)/, '').trim();
       listBuffer.push(text);
       continue;
     }
