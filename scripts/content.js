@@ -819,7 +819,7 @@ const LIST_PREFIX_PATTERNS = {
                 try {
                     const img = cachedQuery(selector, document, { single: true });
                     if (img) {
-                        const src = extractImageSrc(img);
+                        const src = ImageUtils.extractImageSrc(img);
                         if (src && isValidImageUrl(src)) {
                             console.log(`✓ Found featured image via selector: ${selector}`);
                             console.log(`  Image URL: ${src}`);
