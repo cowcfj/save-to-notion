@@ -59,6 +59,7 @@ tests/e2e/coverage-merger-lcov.js
 .roo/
 .kiro/
 QWEN.md
+CLAUDE.md
 .serena/
 .vscode/
 .claude/
