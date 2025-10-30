@@ -22,6 +22,7 @@
     {
       "matches": ["http://*/*", "https://*/*"],
       "js": [
+        "lib/Readability.js",
         "scripts/utils.js",
         "scripts/utils/imageUtils.js",
         "scripts/seamless-migration.js",

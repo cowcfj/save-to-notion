@@ -223,7 +223,7 @@ const LIST_PREFIX_PATTERNS = {
                     }
                 }
             } catch (e) {
-                console.warn('Failed to query links:', e);
+                Logger.warn('Failed to query links:', e);
                 links = [];
             }
 
@@ -231,7 +231,7 @@ const LIST_PREFIX_PATTERNS = {
             try {
                 Array.from(links).forEach(link => linkTextLength += (link.textContent || '').length);
             } catch (e) {
-                console.warn('Failed to calculate link text length:', e);
+                Logger.warn('Failed to calculate link text length:', e);
             }
             const linkDensity = linkTextLength / Math.max(1, article.length);
 
@@ -257,7 +257,7 @@ const LIST_PREFIX_PATTERNS = {
                 }
                 liCount = liNodes.length;
             } catch (e) {
-                console.warn('Failed to query li nodes:', e);
+                Logger.warn('Failed to query li nodes:', e);
                 liCount = 0;
             }
 
@@ -535,7 +535,7 @@ const LIST_PREFIX_PATTERNS = {
                 Logger.log('✗ No suitable large list or list-like container found');
                 return null;
             } catch (e) {
-                console.warn('extractLargestListFallback failed:', e);
+                Logger.warn('extractLargestListFallback failed:', e);
                 return null;
             }
         }
@@ -665,7 +665,7 @@ const LIST_PREFIX_PATTERNS = {
                                 });
                                 Logger.log(`Added image: ${cleanedUrl}`);
                             } else if (cleanedUrl && !isCompatible) {
-                                console.warn(`Skipped incompatible image URL: ${cleanedUrl.substring(0, 100)}...`);
+                                Logger.warn(`Skipped incompatible image URL: ${cleanedUrl.substring(0, 100)}...`);
                             }
                         } catch (error) {
                             /*
@@ -680,7 +680,7 @@ const LIST_PREFIX_PATTERNS = {
                                     timestamp: Date.now()
                                 });
                             } else {
-                                console.warn(`Failed to process image URL: ${src}`, error);
+                                Logger.warn(`Failed to process image URL: ${src}`, error);
                             }
                         }
                     }
@@ -821,8 +821,8 @@ const LIST_PREFIX_PATTERNS = {
                     if (img) {
                         const src = ImageUtils.extractImageSrc(img);
                         if (src && isValidImageUrl(src)) {
-                            console.log(`✓ Found featured image via selector: ${selector}`);
-                            console.log(`  Image URL: ${src}`);
+                            Logger.log(`✓ Found featured image via selector: ${selector}`);
+                            Logger.log(`  Image URL: ${src}`);
                             return src;
                         }
                     }
@@ -839,7 +839,7 @@ const LIST_PREFIX_PATTERNS = {
                             timestamp: Date.now()
                         });
                     } else {
-                        console.warn(`Error checking selector ${selector}:`, error);
+                        Logger.warn(`Error checking selector ${selector}:`, error);
                     }
                 }
             }
@@ -855,15 +855,15 @@ const LIST_PREFIX_PATTERNS = {
             const additionalImages = [];
 
             // 策略 0: 優先查找封面圖/特色圖片（v2.5.6 新增）
-            console.log('=== Image Collection Strategy 0: Featured Image ===');
+            Logger.log('=== Image Collection Strategy 0: Featured Image ===');
             const featuredImage = collectFeaturedImage();
             if (featuredImage) {
                 additionalImages.push(featuredImage);
-                console.log('✓ Featured image added as first image');
+                Logger.log('✓ Featured image added as first image');
             }
 
             // 策略 1: 從指定的內容元素收集
-            console.log('=== Image Collection Strategy 1: Content Element ===');
+            Logger.log('=== Image Collection Strategy 1: Content Element ===');
             let allImages = [];
             if (contentElement) {
                 // 使用緩存查詢優化性能
@@ -871,11 +871,11 @@ const LIST_PREFIX_PATTERNS = {
                     cachedQuery('img', contentElement, { all: true }) :
                     contentElement.querySelectorAll('img');
                 allImages = Array.from(imgElements);
-                console.log(`Found ${allImages.length} images in content element`);
+                Logger.log(`Found ${allImages.length} images in content element`);
             }
 
             // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
-            console.log('=== Image Collection Strategy 2: Article Regions ===');
+            Logger.log('=== Image Collection Strategy 2: Article Regions ===');
             if (allImages.length < 3) {
                 const articleSelectors = [
                     'article',
@@ -897,7 +897,7 @@ const LIST_PREFIX_PATTERNS = {
                             cachedQuery('img', articleElement, { all: true }) :
                             articleElement.querySelectorAll('img');
                         const articleImages = Array.from(imgElements);
-                        console.log(`Found ${articleImages.length} images in ${selector}`);
+                        Logger.log(`Found ${articleImages.length} images in ${selector}`);
                         // 合併圖片，避免重複
                         articleImages.forEach(img => {
                             if (!allImages.includes(img)) {
@@ -911,9 +911,9 @@ const LIST_PREFIX_PATTERNS = {
 
             // 策略 3: 如果仍然沒有圖片（< 1張），謹慎地擴展搜索
             // 重要：排除明顯的非內容區域（header, footer, nav, sidebar, ads等）
-            console.log('=== Image Collection Strategy 3: Selective Expansion ===');
+            Logger.log('=== Image Collection Strategy 3: Selective Expansion ===');
             if (allImages.length < 1) {
-                console.log("Very few images found, attempting selective expansion...");
+                Logger.log("Very few images found, attempting selective expansion...");
 
                 // 排除這些明顯的非內容區域
                 const excludeSelectors = [
@@ -943,7 +943,7 @@ const LIST_PREFIX_PATTERNS = {
                         const excludeElements = cachedQuery(selector, document);
                         for (const excludeEl of excludeElements) {
                             if (excludeEl.contains(img)) {
-                                console.log(`✗ Excluded image in ${selector}`);
+                                Logger.log(`✗ Excluded image in ${selector}`);
                                 return false; // 圖片在排除區域內
                             }
                         }
@@ -951,7 +951,7 @@ const LIST_PREFIX_PATTERNS = {
                     return true; // 圖片不在任何排除區域內
                 });
 
-                console.log(`Filtered ${docImages.length} total images -> ${filteredImages.length} content images (excluded ${docImages.length - filteredImages.length} from non-content areas)`);
+                Logger.log(`Filtered ${docImages.length} total images -> ${filteredImages.length} content images (excluded ${docImages.length - filteredImages.length} from non-content areas)`);
 
                 // 只添加不重複的圖片，且限制最多添加的數量
                 let addedFromExpansion = 0;
@@ -963,16 +963,16 @@ const LIST_PREFIX_PATTERNS = {
                 });
 
                 if (addedFromExpansion > 0) {
-                    console.log(`Added ${addedFromExpansion} images from selective expansion`);
+                    Logger.log(`Added ${addedFromExpansion} images from selective expansion`);
                 }
             }
 
-            console.log(`Total images to process from strategies 1-3: ${allImages.length}`);
+            Logger.log(`Total images to process from strategies 1-3: ${allImages.length}`);
 
             // 使用批處理優化圖片處理性能
             if (typeof batchProcess !== 'undefined' && allImages.length > 5) {
                 // 對於大量圖片使用批處理
-                console.log(`🚀 Using batch processing for ${allImages.length} images`);
+                Logger.log(`🚀 Using batch processing for ${allImages.length} images`);
 
                 try {
                     const processedImages = await batchProcess(allImages, (img, index) => {
@@ -987,7 +987,7 @@ const LIST_PREFIX_PATTERNS = {
                     });
 
                 } catch (error) {
-                    console.warn('Batch processing failed, falling back to sequential processing:', error);
+                    Logger.warn('Batch processing failed, falling back to sequential processing:', error);
                     // 回退到原始處理方式
                     processImagesSequentially(allImages, featuredImage, additionalImages);
                 }
@@ -996,7 +996,7 @@ const LIST_PREFIX_PATTERNS = {
                 processImagesSequentially(allImages, featuredImage, additionalImages);
             }
 
-            console.log(`Successfully collected ${additionalImages.length} valid images`);
+            Logger.log(`Successfully collected ${additionalImages.length} valid images`);
             return additionalImages;
         }
 
@@ -1010,7 +1010,7 @@ const LIST_PREFIX_PATTERNS = {
         function processImageForCollection(img, index, featuredImage) {
             const src = ImageUtils.extractImageSrc(img);
             if (!src) {
-                console.log(`✗ No src found for image ${index + 1}`);
+                Logger.log(`✗ No src found for image ${index + 1}`);
                 return null;
             }
 
@@ -1019,13 +1019,13 @@ const LIST_PREFIX_PATTERNS = {
                 const cleanedUrl = cleanImageUrl(absoluteUrl);
 
                 if (!cleanedUrl || !isValidImageUrl(cleanedUrl)) {
-                    console.log(`✗ Invalid image URL ${index + 1}: ${cleanedUrl || src}`);
+                    Logger.log(`✗ Invalid image URL ${index + 1}: ${cleanedUrl || src}`);
                     return null;
                 }
 
                 // 避免重複添加封面圖
                 if (featuredImage && cleanedUrl === featuredImage) {
-                    console.log(`✗ Skipped duplicate featured image at index ${index + 1}`);
+                    Logger.log(`✗ Skipped duplicate featured image at index ${index + 1}`);
                     return null;
                 }
 
@@ -1038,11 +1038,11 @@ const LIST_PREFIX_PATTERNS = {
                 const isSizeUnknown = width === 0 && height === 0;
 
                 if (isIcon && !isSizeUnknown) {
-                    console.log(`✗ Skipped small icon ${index + 1}: ${width}x${height}`);
+                    Logger.log(`✗ Skipped small icon ${index + 1}: ${width}x${height}`);
                     return null;
                 }
 
-                console.log(`✓ Collected image ${index + 1}: ${cleanedUrl.substring(0, 80)}... (${width}x${height})`);
+                Logger.log(`✓ Collected image ${index + 1}: ${cleanedUrl.substring(0, 80)}... (${width}x${height})`);
                 return {
                     url: cleanedUrl,
                     alt: img.alt || '',
@@ -1063,7 +1063,7 @@ const LIST_PREFIX_PATTERNS = {
                         timestamp: Date.now()
                     });
                 } else {
-                    console.warn(`Failed to process image ${index + 1}: ${src}`, error);
+                    Logger.warn(`Failed to process image ${index + 1}: ${src}`, error);
                 }
                 return null;
             }
@@ -1102,7 +1102,7 @@ const LIST_PREFIX_PATTERNS = {
                         d.setAttribute('open', '');
                         expanded.push(d);
                     } catch (e) {
-                        console.warn('Failed to open <details> element', e);
+                        Logger.warn('Failed to open <details> element', e);
                     }
                 });
 
@@ -1161,10 +1161,10 @@ const LIST_PREFIX_PATTERNS = {
                 // 等待短暫時間讓任何 JS 綁定或懶載入觸發
                 await new Promise(res => setTimeout(res, timeout));
 
-                console.log(`✅ expandCollapsibleElements: expanded ${expanded.length} candidates`);
+                Logger.log(`✅ expandCollapsibleElements: expanded ${expanded.length} candidates`);
                 return expanded;
             } catch (error) {
-                console.warn('expandCollapsibleElements failed:', error);
+                Logger.warn('expandCollapsibleElements failed:', error);
                 return [];
             }
         }
@@ -1176,13 +1176,13 @@ const LIST_PREFIX_PATTERNS = {
         try {
             await expandCollapsibleElements(400);
         } catch (e) {
-            console.warn('Error while expanding collapsible elements before parsing:', e);
+            Logger.warn('Error while expanding collapsible elements before parsing:', e);
         }
 
 
         // 額外等待動態內容載入（針對像 gemini-cli docs 這樣的 SPA 或懶載入網站）
         try {
-            console.log('🔄 等待動態內容載入...');
+            Logger.log('🔄 等待動態內容載入...');
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             // 嘗試觸發任何懶載入機制
@@ -1196,9 +1196,9 @@ const LIST_PREFIX_PATTERNS = {
 
             // 再等待一下讓懶載入內容出現
             await new Promise(resolve => setTimeout(resolve, 500));
-            console.log('✅ 動態內容載入等待完成');
+            Logger.log('✅ 動態內容載入等待完成');
         } catch (e) {
-            console.warn('動態內容載入等待失敗:', e);
+            Logger.warn('動態內容載入等待失敗:', e);
         }
 
         /**
@@ -1285,6 +1285,13 @@ const LIST_PREFIX_PATTERNS = {
             let parsedArticle = null;
 
             try {
+                // 診斷：檢查 Readability 是否可用
+                Logger.log('📖 檢查 Readability 可用性...');
+                if (typeof Readability === 'undefined') {
+                    throw new Error('Readability 未定義 - 可能是腳本注入順序問題');
+                }
+                Logger.log('✅ Readability 已載入，類型:', typeof Readability);
+
                 Logger.log('📖 Initializing Readability parser...');
                 readabilityInstance = new Readability(optimizedDocument);
 
@@ -1329,7 +1336,7 @@ const LIST_PREFIX_PATTERNS = {
         }
 
         if (isContentGood(article)) {
-            console.log("Successfully extracted content with Readability.js");
+            Logger.log("Successfully extracted content with Readability.js");
             finalContentHtml = article.content;
             finalTitle = article.title;
             // 創建一個臨時元素來查找圖片
@@ -1347,7 +1354,7 @@ const LIST_PREFIX_PATTERNS = {
                 // CMS fallback 也失敗，嘗試擷取大型清單（針對 CLI doc、reference pages）
                 const listFallback = extractLargestListFallback();
                 if (listFallback) {
-                    console.log('✅ Using list fallback content');
+                    Logger.log('✅ Using list fallback content');
                     finalContentHtml = listFallback;
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = finalContentHtml;
@@ -1357,23 +1364,39 @@ const LIST_PREFIX_PATTERNS = {
         }
 
         if (finalContentHtml) {
-            console.log(`✅ Content extraction successful! Content length: ${finalContentHtml.length} characters`);
+            Logger.log(`✅ Content extraction successful! Content length: ${finalContentHtml.length} characters`);
             const blocks = convertHtmlToNotionBlocks(finalContentHtml);
 
             // 收集額外的圖片（更積極的策略）
             const imageBlocks = blocks.filter(b => b.type === 'image');
-            console.log("\n=== Image Collection Summary ===");
-            console.log(`Images found in main content: ${imageBlocks.length}`);
+            Logger.log("\n=== Image Collection Summary ===");
+            Logger.log(`Images found in main content: ${imageBlocks.length}`);
 
             // 如果圖片少於5張，嘗試收集更多（提高閾值）
             if (imageBlocks.length < 5) {
-                console.log("Attempting to collect additional images...");
+                Logger.log("Attempting to collect additional images...");
                 const additionalImages = await collectAdditionalImages(contentElement);
                 const existingUrls = new Set(imageBlocks.map(b => b.image.external.url));
 
                 let addedCount = 0;
                 additionalImages.forEach(imgInfo => {
                     if (!existingUrls.has(imgInfo.url) && (imageBlocks.length + addedCount) < 15) { // 最多15張圖片
+                        // 驗證圖片 URL 安全性
+                        try {
+                            const urlObj = new URL(imgInfo.url);
+                            if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+                                Logger.warn(`⚠️ 跳過無效協議的圖片 URL: ${imgInfo.url}`);
+                                return;
+                            }
+                            if (imgInfo.url.length > 2000) {
+                                Logger.warn(`⚠️ 跳過過長的圖片 URL: ${imgInfo.url.substring(0, 100)}...`);
+                                return;
+                            }
+                        } catch (urlError) {
+                            Logger.warn(`⚠️ 跳過無效的圖片 URL: ${imgInfo.url}`, urlError);
+                            return;
+                        }
+
                         blocks.push({
                             object: 'block',
                             type: 'image',
@@ -1384,25 +1407,25 @@ const LIST_PREFIX_PATTERNS = {
                         });
                         existingUrls.add(imgInfo.url);
                         addedCount++;
-                        console.log(`✓ Added additional image ${addedCount}: ${imgInfo.url.substring(0, 80)}...`);
+                        Logger.log(`✓ Added additional image ${addedCount}: ${imgInfo.url.substring(0, 80)}...`);
                     }
                 });
-                console.log(`Added ${addedCount} additional images`);
+                Logger.log(`Added ${addedCount} additional images`);
             }
 
             // 標記處理已移到 background.js 中，這裡不再處理
 
             const finalImageCount = blocks.filter(b => b.type === 'image').length;
-            console.log("=== Final Result ===");
-            console.log(`Total blocks: ${blocks.length}`);
-            console.log(`Total images: ${finalImageCount}`);
-            console.log(`Title: "${finalTitle}"`);
-            console.log("================================\n");
+            Logger.log("=== Final Result ===");
+            Logger.log(`Total blocks: ${blocks.length}`);
+            Logger.log(`Total images: ${finalImageCount}`);
+            Logger.log(`Title: "${finalTitle}"`);
+            Logger.log("================================\n");
 
             if (blocks.length > 0) {
                 return { title: finalTitle, blocks: blocks, rawHtml: finalContentHtml };
             } else {
-                console.log("❌ No blocks generated from content");
+                Logger.log("❌ No blocks generated from content");
                 // Return fallback content instead of continuing
                 return {
                     title: finalTitle || document.title,
@@ -1420,21 +1443,21 @@ const LIST_PREFIX_PATTERNS = {
                 };
             }
         } else {
-            console.log("❌ Content extraction failed completely");
-            console.log("📊 Extraction attempt summary:");
-            console.log(`- Readability.js: ${article ? 'Found article but failed quality check' : 'Failed to parse'}`);
-            console.log("- CMS Fallback: Failed to find suitable content");
-            console.log(`- Page title: "${document.title}"`);
-            console.log(`- Page URL: ${window.location.href}`);
-            console.log(`- Page text length: ${document.body ? document.body.textContent.length : 0} characters`);
+            Logger.log("❌ Content extraction failed completely");
+            Logger.log("📊 Extraction attempt summary:");
+            Logger.log(`- Readability.js: ${article ? 'Found article but failed quality check' : 'Failed to parse'}`);
+            Logger.log("- CMS Fallback: Failed to find suitable content");
+            Logger.log(`- Page title: "${document.title}"`);
+            Logger.log(`- Page URL: ${window.location.href}`);
+            Logger.log(`- Page text length: ${document.body ? document.body.textContent.length : 0} characters`);
 
             // 輸出性能統計（如果可用）
             if (typeof performanceOptimizer !== 'undefined' && performanceOptimizer) {
                 try {
                     const performanceStats = performanceOptimizer.getPerformanceStats();
-                    console.log('🚀 Content.js Performance Stats:', performanceStats);
+                    Logger.log('🚀 Content.js Performance Stats:', performanceStats);
                 } catch (perfError) {
-                    console.warn('Could not get performance stats:', perfError);
+                    Logger.warn('Could not get performance stats:', perfError);
                 }
             }
 
