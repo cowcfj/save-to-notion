@@ -1285,6 +1285,13 @@ const LIST_PREFIX_PATTERNS = {
             let parsedArticle = null;
 
             try {
+                // 診斷：檢查 Readability 是否可用
+                Logger.log('📖 檢查 Readability 可用性...');
+                if (typeof Readability === 'undefined') {
+                    throw new Error('Readability 未定義 - 可能是腳本注入順序問題');
+                }
+                Logger.log('✅ Readability 已載入，類型:', typeof Readability);
+
                 Logger.log('📖 Initializing Readability parser...');
                 readabilityInstance = new Readability(optimizedDocument);
 
