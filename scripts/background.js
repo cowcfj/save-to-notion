@@ -2472,8 +2472,8 @@ async function handleSavePage(sendResponse) {
                     return null;
                 }
 
-                finalContent = null;
-                finalTitle = document.title;
+                let finalContent = null;
+                let finalTitle = document.title;
 
                 // 決定使用哪種提取策略
                 if (isTechnicalDoc()) {
