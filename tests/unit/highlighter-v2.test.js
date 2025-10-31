@@ -585,8 +585,8 @@ describe('highlighter-v2.testable.js', () => {
             };
 
             // 創建測試實例（直接從原始文件加載，因為 testable 版本不包含類）
-            // eslint-disable-next-line no-unused-vars
-            const originalModule = require('../../scripts/highlighter-v2.js');
+            // 純副作用導入：觸發模組初始化，但不綁定變數
+            require('../../scripts/highlighter-v2.js');
 
             // 調用初始化方法（直接調用，因為類實例化有問題）
             const manager = {};
