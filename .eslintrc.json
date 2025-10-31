@@ -11,6 +11,8 @@
   "globals": {
     "Readability": "readonly",
     "chrome": "readonly",
+    "Highlight": "readonly",
+    "CSS": "readonly",
     "SrcsetParser": "readonly",
     "AttributeExtractor": "readonly",
     "FallbackStrategies": "readonly",
