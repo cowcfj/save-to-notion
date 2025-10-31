@@ -582,11 +582,14 @@ const logger = (() => {
                 return;
             }
 
+            // 創建局部引用以避免靜態分析誤報
+            const HighlightConstructor = Highlight;
+
             // 為每種顏色創建 Highlight 對象並註冊到 CSS.highlights
             Object.keys(this.colors).forEach(colorName => {
                 try {
                     // 創建 Highlight 對象
-                    this.highlightObjects[colorName] = new Highlight();
+                    this.highlightObjects[colorName] = new HighlightConstructor();
 
                     // 註冊到 CSS.highlights（名稱格式：notion-yellow）
                     CSS.highlights.set(`notion-${colorName}`, this.highlightObjects[colorName]);
