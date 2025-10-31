@@ -206,7 +206,9 @@ const logger = (() => {
                 if (legacyData && foundKey) {
                     // 檢查是否已經遷移過
                     const migrationKey = `migration_completed_${normalizedUrl}`;
-                    const migrationStatus = await chrome.storage.local.get(migrationKey);
+                    const migrationStatus = await (chrome && chrome.storage && chrome.storage.local ?
+                        chrome.storage.local.get(migrationKey) :
+                        Promise.resolve({}));
 
                     if (migrationStatus[migrationKey]) {
                         return;
@@ -299,15 +301,17 @@ const logger = (() => {
 
                 // 標記遷移完成（無論成功多少）
                 const normalizedUrl = normalizeUrl(window.location.href);
-                await chrome.storage.local.set({
-                    [`migration_completed_${normalizedUrl}`]: {
-                        timestamp: Date.now(),
-                        oldKey: oldKey,
-                        totalCount: legacyData.length,
-                        successCount: successCount,
-                        failCount: failCount
-                    }
-                });
+                if (chrome && chrome.storage && chrome.storage.local) {
+                    await chrome.storage.local.set({
+                        [`migration_completed_${normalizedUrl}`]: {
+                            timestamp: Date.now(),
+                            oldKey: oldKey,
+                            totalCount: legacyData.length,
+                            successCount: successCount,
+                            failCount: failCount
+                        }
+                    });
+                }
 
                 // 刪除舊數據（謹慎操作）
                 if (successCount > 0) {
@@ -1516,40 +1520,57 @@ const logger = (() => {
                 statusDiv.style.color = '#2196F3';
 
                 // 調用 background.js 的同步功能
-                chrome.runtime.sendMessage({
-                    action: 'syncHighlights',
-                    highlights: highlights
-                }, (response) => {
+                if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                    chrome.runtime.sendMessage({
+                        action: 'syncHighlights',
+                        highlights: highlights
+                    }, (response) => {
+                        syncBtn.disabled = false;
+                        syncBtn.style.opacity = '1';
+
+                        if (response?.success) {
+                            syncBtn.textContent = '✅ 同步成功';
+                            syncBtn.style.background = '#48bb78';
+                            statusDiv.textContent = `✅ 已同步 ${highlights.length} 段標註`;
+                            statusDiv.style.color = '#48bb78';
+
+                            // 同步成功後更新 Open in Notion 按鈕狀態
+                            updateOpenNotionButton();
+
+                            setTimeout(() => {
+                                syncBtn.textContent = originalText;
+                                syncBtn.style.background = '#2196F3';
+                                updateHighlightCount();
+                            }, 3000);
+                        } else {
+                            syncBtn.textContent = '❌ 同步失敗';
+                            syncBtn.style.background = '#ef4444';
+                            statusDiv.textContent = response?.error || '同步失敗，請重試';
+                            statusDiv.style.color = '#ef4444';
+
+                            setTimeout(() => {
+                                syncBtn.textContent = originalText;
+                                syncBtn.style.background = '#2196F3';
+                                updateHighlightCount();
+                            }, 3000);
+                        }
+                    });
+                } else {
+                    // Chrome API 不可用時的回退處理
+                    logger.warn('Chrome runtime API 不可用，無法同步標註');
+                    syncBtn.textContent = '❌ 同步失敗';
                     syncBtn.disabled = false;
                     syncBtn.style.opacity = '1';
+                    syncBtn.style.background = '#ef4444';
+                    statusDiv.textContent = 'Chrome API 不可用';
+                    statusDiv.style.color = '#ef4444';
 
-                    if (response?.success) {
-                        syncBtn.textContent = '✅ 同步成功';
-                        syncBtn.style.background = '#48bb78';
-                        statusDiv.textContent = `✅ 已同步 ${highlights.length} 段標註`;
-                        statusDiv.style.color = '#48bb78';
-
-                        // 同步成功後更新 Open in Notion 按鈕狀態
-                        updateOpenNotionButton();
-
-                        setTimeout(() => {
-                            syncBtn.textContent = originalText;
-                            syncBtn.style.background = '#2196F3';
-                            updateHighlightCount();
-                        }, 3000);
-                    } else {
-                        syncBtn.textContent = '❌ 同步失敗';
-                        syncBtn.style.background = '#ef4444';
-                        statusDiv.textContent = response?.error || '同步失敗，請重試';
-                        statusDiv.style.color = '#ef4444';
-
-                        setTimeout(() => {
-                            syncBtn.textContent = originalText;
-                            syncBtn.style.background = '#2196F3';
-                            updateHighlightCount();
-                        }, 3000);
-                    }
-                });
+                    setTimeout(() => {
+                        syncBtn.textContent = originalText;
+                        syncBtn.style.background = '#2196F3';
+                        updateHighlightCount();
+                    }, 3000);
+                }
             } catch (error) {
                 logger.error('同步標註失敗:', error);
                 syncBtn.textContent = '❌ 同步失敗';
@@ -1570,62 +1591,76 @@ const logger = (() => {
         // 綁定 "Open in Notion" 按鈕
         toolbar.querySelector('#open-notion-v2').addEventListener('click', () => {
             // 獲取當前頁面的 Notion URL
-            chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
-
-                if (response?.success && response.isSaved) {
-                    // handleCheckPageStatus 會為舊版本數據生成 notionUrl
-                    const notionUrl = response.notionUrl;
-                    if (notionUrl) {
-                        // 在新標籤頁中打開 Notion 頁面
-                        chrome.runtime.sendMessage({
-                            action: 'openNotionPage',
-                            url: notionUrl
-                        });
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
+                    if (response?.success && response.isSaved) {
+                        // handleCheckPageStatus 會為舊版本數據生成 notionUrl
+                        const notionUrl = response.notionUrl;
+                        if (notionUrl) {
+                            // 在新標籤頁中打開 Notion 頁面
+                            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                                chrome.runtime.sendMessage({
+                                    action: 'openNotionPage',
+                                    url: notionUrl
+                                });
+                            } else {
+                                // Chrome API 不可用時，使用 window.open 作為回退
+                                window.open(notionUrl, '_blank');
+                            }
+                        } else {
+                            // 顯示錯誤信息
+                            const statusDiv = toolbar.querySelector('#highlight-status-v2');
+                            const originalText = statusDiv.innerHTML;
+                            statusDiv.textContent = '❌ 無法獲取 Notion 頁面鏈接';
+                            statusDiv.style.color = '#ef4444';
+                            setTimeout(() => {
+                                statusDiv.innerHTML = originalText;
+                                statusDiv.style.color = '#666';
+                            }, 3000);
+                        }
                     } else {
                         // 顯示錯誤信息
                         const statusDiv = toolbar.querySelector('#highlight-status-v2');
                         const originalText = statusDiv.innerHTML;
-                        statusDiv.textContent = '❌ 無法獲取 Notion 頁面鏈接';
+                        statusDiv.textContent = '❌ 頁面尚未保存到 Notion';
                         statusDiv.style.color = '#ef4444';
                         setTimeout(() => {
                             statusDiv.innerHTML = originalText;
                             statusDiv.style.color = '#666';
                         }, 3000);
                     }
-                } else {
-                    // 顯示錯誤信息
-                    const statusDiv = toolbar.querySelector('#highlight-status-v2');
-                    const originalText = statusDiv.innerHTML;
-                    statusDiv.textContent = '❌ 頁面尚未保存到 Notion';
-                    statusDiv.style.color = '#ef4444';
-                    setTimeout(() => {
-                        statusDiv.innerHTML = originalText;
-                        statusDiv.style.color = '#666';
-                    }, 3000);
-                }
-            });
+                });
+            }
         });
 
         // 檢查並更新 "Open in Notion" 按鈕狀態的函數
         function updateOpenNotionButton() {
-            chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
+                    const openBtn = toolbar.querySelector('#open-notion-v2');
+                    const listOpenBtn = toolbar.querySelector('#list-open-notion-v2');
+
+                    // 更寬鬆的顯示邏輯：只要頁面已保存就顯示按鈕
+                    // notionUrl 會在 handleCheckPageStatus 中為舊版本數據自動生成
+                    if (response?.success && response.isSaved) {
+                        openBtn.style.display = 'block';
+                        if (listOpenBtn) {
+                            listOpenBtn.style.display = 'block';
+                        }
+                    } else {
+                        openBtn.style.display = 'none';
+                        if (listOpenBtn) {
+                            listOpenBtn.style.display = 'none';
+                        }
+                    }
+                });
+            } else {
+                // Chrome API 不可用時隱藏按鈕
                 const openBtn = toolbar.querySelector('#open-notion-v2');
                 const listOpenBtn = toolbar.querySelector('#list-open-notion-v2');
-
-                // 更寬鬆的顯示邏輯：只要頁面已保存就顯示按鈕
-                // notionUrl 會在 handleCheckPageStatus 中為舊版本數據自動生成
-                if (response?.success && response.isSaved) {
-                    openBtn.style.display = 'block';
-                    if (listOpenBtn) {
-                        listOpenBtn.style.display = 'block';
-                    }
-                } else {
-                    openBtn.style.display = 'none';
-                    if (listOpenBtn) {
-                        listOpenBtn.style.display = 'none';
-                    }
-                }
-            });
+                if (openBtn) openBtn.style.display = 'none';
+                if (listOpenBtn) listOpenBtn.style.display = 'none';
+            }
         }
 
         // 初始檢查頁面狀態
@@ -1710,40 +1745,41 @@ const logger = (() => {
             if (listOpenBtn) {
                 listOpenBtn.addEventListener('click', () => {
                     // 獲取當前頁面的 Notion URL
-                    chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
-
-                        if (response?.success && response.isSaved) {
-                            // handleCheckPageStatus 會為舊版本數據生成 notionUrl
-                            const notionUrl = response.notionUrl;
-                            if (notionUrl) {
-                                // 在新標籤頁中打開 Notion 頁面
-                                chrome.runtime.sendMessage({
-                                    action: 'openNotionPage',
-                                    url: notionUrl
-                                });
+                    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                        chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
+                            if (response?.success && response.isSaved) {
+                                // handleCheckPageStatus 會為舊版本數據生成 notionUrl
+                                const notionUrl = response.notionUrl;
+                                if (notionUrl) {
+                                    // 在新標籤頁中打開 Notion 頁面
+                                    chrome.runtime.sendMessage({
+                                        action: 'openNotionPage',
+                                        url: notionUrl
+                                    });
+                                } else {
+                                    // 顯示錯誤信息
+                                    const statusDiv = toolbar.querySelector('#highlight-status-v2');
+                                    const originalText = statusDiv.innerHTML;
+                                    statusDiv.textContent = '❌ 無法獲取 Notion 頁面鏈接';
+                                    statusDiv.style.color = '#ef4444';
+                                    setTimeout(() => {
+                                        statusDiv.innerHTML = originalText;
+                                        statusDiv.style.color = '#666';
+                                    }, 3000);
+                                }
                             } else {
                                 // 顯示錯誤信息
                                 const statusDiv = toolbar.querySelector('#highlight-status-v2');
                                 const originalText = statusDiv.innerHTML;
-                                statusDiv.textContent = '❌ 無法獲取 Notion 頁面鏈接';
+                                statusDiv.textContent = '❌ 頁面尚未保存到 Notion';
                                 statusDiv.style.color = '#ef4444';
                                 setTimeout(() => {
                                     statusDiv.innerHTML = originalText;
                                     statusDiv.style.color = '#666';
                                 }, 3000);
                             }
-                        } else {
-                            // 顯示錯誤信息
-                            const statusDiv = toolbar.querySelector('#highlight-status-v2');
-                            const originalText = statusDiv.innerHTML;
-                            statusDiv.textContent = '❌ 頁面尚未保存到 Notion';
-                            statusDiv.style.color = '#ef4444';
-                            setTimeout(() => {
-                                statusDiv.innerHTML = originalText;
-                                statusDiv.style.color = '#666';
-                            }, 3000);
-                        }
-                    });
+                        });
+                    }
                 });
             }
 
