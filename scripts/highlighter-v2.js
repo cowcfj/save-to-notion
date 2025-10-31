@@ -1,6 +1,6 @@
 // 使用 CSS Custom Highlight API 的新版標註功能
 // v2.5.0 - 不修改DOM結構的標註實現
-/* global chrome */
+/* global chrome, Highlight */
 (function() {
 
 // 使用共享 Logger 系統的增強日誌器，整合錯誤處理和維護性
@@ -583,6 +583,7 @@ const logger = (() => {
             }
 
             // 創建局部引用以避免靜態分析誤報
+            // eslint-disable-next-line no-undef
             const HighlightConstructor = Highlight;
 
             // 為每種顏色創建 Highlight 對象並註冊到 CSS.highlights
@@ -604,7 +605,7 @@ const logger = (() => {
                     `;
                     document.head.appendChild(style);
                 } catch (error) {
-                    logger.error(`❌ 初始化 ${colorName} 顏色樣式失敗:`, error);
+                    logger.error(`❌ 初始化 ${colorName} 顏色樣式失敗:`, error.message);
                 }
             });
         }
