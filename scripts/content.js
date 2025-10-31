@@ -286,7 +286,6 @@ function isContentGood(article) {
         }
 
         const MIN_CONTENT_LENGTH = 250;
-        const MAX_LINK_DENSITY = 0.3;
 
         /**
          * A new, CMS-aware fallback function. It specifically looks for patterns
