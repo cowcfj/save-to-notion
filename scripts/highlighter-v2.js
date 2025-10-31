@@ -1272,11 +1272,23 @@ const logger = (() => {
 /**
  * 初始化標註工具
  */
+    const USER_VISIBILITY_FLAG = '__notionHighlighterUserOpened';
+    const AUTO_HIDE_TIMER_FLAG = '__notionHighlighterAutoHideTimer';
+
     function initHighlighter() {
         // 如果已存在，顯示工具欄
         if (window.notionHighlighter && typeof window.notionHighlighter.show === 'function') {
             window.notionHighlighter.show();
             return;
+        }
+
+        if (typeof window[USER_VISIBILITY_FLAG] !== 'boolean') {
+            window[USER_VISIBILITY_FLAG] = false;
+        }
+
+        if (window[AUTO_HIDE_TIMER_FLAG]) {
+            try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+            window[AUTO_HIDE_TIMER_FLAG] = null;
         }
 
         // 創建標註管理器
@@ -1309,6 +1321,7 @@ const logger = (() => {
         // 工具欄狀態切換函數
         function minimizeToolbar() {
             try {
+                window[USER_VISIBILITY_FLAG] = true;
                 toolbar.style.display = 'none';
                 miniIcon.style.display = 'flex';
                 currentToolbarState = ToolbarState.MINIMIZED;
@@ -1320,6 +1333,11 @@ const logger = (() => {
 
         function expandToolbar() {
             try {
+                if (window[AUTO_HIDE_TIMER_FLAG]) {
+                    try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+                    window[AUTO_HIDE_TIMER_FLAG] = null;
+                }
+                window[USER_VISIBILITY_FLAG] = true;
                 toolbar.style.display = 'block';
                 miniIcon.style.display = 'none';
                 currentToolbarState = ToolbarState.EXPANDED;
@@ -1331,6 +1349,11 @@ const logger = (() => {
 
         function hideToolbar() {
             try {
+                window[USER_VISIBILITY_FLAG] = false;
+                if (window[AUTO_HIDE_TIMER_FLAG]) {
+                    try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+                    window[AUTO_HIDE_TIMER_FLAG] = null;
+                }
                 toolbar.style.display = 'none';
                 miniIcon.style.display = 'none';
                 currentToolbarState = ToolbarState.HIDDEN;
@@ -1988,15 +2011,28 @@ const logger = (() => {
             if (Array.isArray(highlights) && highlights.length > 0) {
                 // 有保存的標註，自動初始化
                 initHighlighter();
+                window[USER_VISIBILITY_FLAG] = false;
+                if (window[AUTO_HIDE_TIMER_FLAG]) {
+                    try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+                    window[AUTO_HIDE_TIMER_FLAG] = null;
+                }
                 // 等待標註管理器初始化完成後再恢復標註
-                setTimeout(async () => {
-                    if (window.notionHighlighter?.manager) {
-                        // 確保標註被正確恢復
-                        await window.notionHighlighter.manager.initializationComplete;
-                        // 保持工具欄隱藏狀態，但確保標註可見
-                        window.notionHighlighter.hide();
+                window[AUTO_HIDE_TIMER_FLAG] = setTimeout(async () => {
+                    try {
+                        if (window.notionHighlighter?.manager) {
+                            // 確保標註被正確恢復
+                            await window.notionHighlighter.manager.initializationComplete;
+                            // 僅在使用者尚未主動開啟工具欄時才自動隱藏
+                            if (!window[USER_VISIBILITY_FLAG]) {
+                                window.notionHighlighter.hide();
+                            }
+                        }
+                    } catch (error) {
+                        logger.error('❌ 自動初始化隱藏工具欄失敗:', error);
+                    } finally {
+                        window[AUTO_HIDE_TIMER_FLAG] = null;
                     }
-                }, 100);
+                }, 120);
             }
         } catch (error) {
             logger.error('❌ 自動初始化失敗:', error);
