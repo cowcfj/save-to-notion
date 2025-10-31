@@ -1519,7 +1519,7 @@ const logger = (() => {
                 statusDiv.style.color = '#2196F3';
 
                 // 調用 background.js 的同步功能
-                if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                if (chrome?.runtime?.sendMessage) {
                     chrome.runtime.sendMessage({
                         action: 'syncHighlights',
                         highlights: highlights
@@ -1590,14 +1590,14 @@ const logger = (() => {
         // 綁定 "Open in Notion" 按鈕
         toolbar.querySelector('#open-notion-v2').addEventListener('click', () => {
             // 獲取當前頁面的 Notion URL
-            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+            if (chrome?.runtime?.sendMessage) {
                 chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
                     if (response?.success && response.isSaved) {
                         // handleCheckPageStatus 會為舊版本數據生成 notionUrl
                         const notionUrl = response.notionUrl;
                         if (notionUrl) {
                             // 在新標籤頁中打開 Notion 頁面
-                            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                            if (chrome?.runtime?.sendMessage) {
                                 chrome.runtime.sendMessage({
                                     action: 'openNotionPage',
                                     url: notionUrl
@@ -1634,7 +1634,7 @@ const logger = (() => {
 
         // 檢查並更新 "Open in Notion" 按鈕狀態的函數
         function updateOpenNotionButton() {
-            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+            if (chrome?.runtime?.sendMessage) {
                 chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
                     const openBtn = toolbar.querySelector('#open-notion-v2');
                     const listOpenBtn = toolbar.querySelector('#list-open-notion-v2');
@@ -1744,7 +1744,7 @@ const logger = (() => {
             if (listOpenBtn) {
                 listOpenBtn.addEventListener('click', () => {
                     // 獲取當前頁面的 Notion URL
-                    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+                    if (chrome?.runtime?.sendMessage) {
                         chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response) => {
                             if (response?.success && response.isSaved) {
                                 // handleCheckPageStatus 會為舊版本數據生成 notionUrl
