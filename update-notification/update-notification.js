@@ -26,7 +26,7 @@
         // 設置當前版本
         const currentVersion = chrome.runtime.getManifest().version;
         document.getElementById('current-version').textContent = `v${currentVersion}`;
-        
+
         // 如果沒有收到更新信息，使用默認值
         setTimeout(() => {
             if (!updateInfo) {
@@ -79,7 +79,7 @@
      * 顯示默認更新信息
      */
     function displayDefaultUpdateInfo(currentVersion) {
-        document.getElementById('prev-version').textContent = 'v2.7.2';
+        document.getElementById('prev-version').textContent = 'v—';
         document.getElementById('curr-version').textContent = `v${currentVersion}`;
         loadUpdateContent(currentVersion);
     }
@@ -90,7 +90,7 @@
     function loadUpdateContent(version) {
         const updateContent = getUpdateContentByVersion(version);
         const contentContainer = document.getElementById('update-content');
-        
+
         if (updateContent) {
             contentContainer.innerHTML = updateContent;
         } else {

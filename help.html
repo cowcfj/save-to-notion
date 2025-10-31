@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notion Smart Clipper v2.9.10 快速指南</title>
+    <title>Notion Smart Clipper 快速指南</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -64,10 +64,20 @@
             text-decoration: underline;
         }
     </style>
+    <script>
+        // 動態載入版本號
+        document.addEventListener('DOMContentLoaded', function() {
+            const version = chrome.runtime.getManifest().version;
+            const versionStr = 'v' + version;
+            document.title = 'Notion Smart Clipper ' + versionStr + ' 快速指南';
+            document.querySelector('h1').textContent = '📚 Notion Smart Clipper ' + versionStr + ' 快速指南';
+            document.querySelector('.version-display').textContent = versionStr;
+        });
+    </script>
 </head>
 
 <body>
-    <h1>📚 Notion Smart Clipper v2.9.10 快速指南</h1>
+    <h1>📚 Notion Smart Clipper 快速指南</h1>
 
     <div class="info-box">
         <p>📖 <strong>完整使用指南和 FAQ</strong></p>
@@ -137,7 +147,7 @@
     </div>
 
     <div style="text-align: center; margin-top: 40px; padding: 20px; border-top: 1px solid #e0e0e0; color: #666;">
-        <p><strong>🌟 版本 v2.9.10</strong> | 最後更新：2025年10月23日</p>
+        <p><strong>🌟 版本 <span class="version-display"></span></strong> | 最後更新：2025年10月31日</p>
         <p style="font-size: 12px; color: #999; margin-top: 15px;">
             💝 感謝您使用 Notion Smart Clipper！
         </p>

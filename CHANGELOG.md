@@ -1,5 +1,81 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.10.0 - 2025-10-31
+
+### 🔧 版本管理改進
+
+#### 版本對齊與硬編碼移除
+- **版本統一**：將所有配置檔案和對外文檔的版本號統一對齊至 v2.10.0
+  - 配置檔案（manifest.json、package.json）使用純數字格式「2.10.0」
+  - 對外文檔和 UI 顯示統一使用「v2.10.0」格式（帶 v 前綴）
+- **移除硬編碼**：清除所有 HTML 檔案中硬編碼的版本字串
+  - help.html：移除 v2.9.10 硬編碼，改用 inline script 動態讀取版本
+  - update-notification.html：移除 v2.9.9 硬編碼，由 JS 動態注入
+  - update-notification.js：改善預設回退顯示，避免硬編碼舊版本
+- **動態版本顯示**：所有對外顯示的版本號改為動態讀取 `chrome.runtime.getManifest().version`
+  - 確保版本號始終與 manifest.json 保持同步
+  - 降低未來版本更新時的維護成本
+
+### ✨ 新功能
+
+#### 內容質量評估系統
+- **新增 `isContentGood` 函數**：智能評估擷取內容的質量，確保只保存高質量內容到 Notion
+  - 實現多維度內容質量檢測（文本長度、連結密度、段落結構）
+  - 自動過濾低質量或導航型頁面
+  - 提升內容擷取準確性，減少雜訊內容
+  - 新增 268 個單元測試覆蓋各種內容場景（[#68](https://github.com/cowcfj/save-to-notion/pull/68)）
+
+#### 標註工具欄體驗優化
+- **使用者可見性追蹤**：新增 `userVisibilityFlag` 標誌追蹤工具欄實際可見狀態
+- **智能自動隱藏**：實現 5 秒無操作自動隱藏機制，減少視覺干擾
+  - 用戶完成標註後工具欄自動收起
+  - 懸停或互動時重置計時器，保持靈活性
+  - 改善長時間閱讀時的視覺體驗
+  - 修復工具欄顯示邏輯，確保狀態同步正確（[#69](https://github.com/cowcfj/save-to-notion/pull/69)）
+
+### 🔧 代碼品質改進
+
+#### DeepSource 問題修復（PR #67）
+- **變數聲明優化**：修正 `handleSavePage` 函數中的重複變數聲明問題
+- **錯誤診斷增強**：在 `content.js` 中新增 Readability 可用性檢查，提供更清晰的錯誤訊息
+- **日誌系統統一**：將所有 `console.warn` 替換為 `Logger.warn`，確保日誌記錄一致性
+- **manifest 權限優化**：調整 content_scripts 配置，改善腳本注入效率
+
+#### 代碼重構
+- **content.js 大幅重構**：優化內容擷取流程，提升程式碼可讀性和維護性（179 行變更）
+- **使用模板字面量**：簡化測試中的內容字符串構建，提升測試代碼質量
+
+### 🧪 測試覆蓋率提升
+- **新增測試文件**：`tests/unit/content/isContentGood.test.js`（268 個測試用例）
+- **測試場景覆蓋**：
+  - 文本長度檢測（過短/正常/超長內容）
+  - 連結密度評估（導航頁面/正常文章/連結農場）
+  - 段落結構分析（單段落/多段落/空段落）
+  - 邊界條件處理（空內容/特殊字符/極端數值）
+
+### 📊 影響範圍
+- **相容性**：完全向後兼容 v2.9.13 及更早版本
+- **用戶體驗**：工具欄更智能，內容擷取更準確
+- **代碼品質**：通過 DeepSource 靜態分析檢查
+- **測試穩定性**：新增 268 個測試用例，100% 通過率
+
+### 🔗 相關連結
+- [完整變更比較](https://github.com/cowcfj/save-to-notion/compare/v2.9.13...v2.10.0)
+- [PR #67 - DeepSource 修復](https://github.com/cowcfj/save-to-notion/pull/67)
+- [PR #68 - 內容質量評估](https://github.com/cowcfj/save-to-notion/pull/68)
+- [PR #69 - 工具欄可見性改進](https://github.com/cowcfj/save-to-notion/pull/69)
+
+---
+
+**版本建議**：次版本更新（Minor）v2.10.0
+**理由**：
+1. 新增功能（feat）：`isContentGood` 函數、工具欄自動隱藏機制
+2. 無破壞性變更：所有改動均向後兼容
+3. 遵循 Semantic Versioning 2.0.0 規範：新功能應提升次版本號
+4. 根據 Conventional Commits：有 3 個 `feat:` 提交，應為次版本更新
+
+---
+
 ## v2.9.13 - 2025-10-28
 
 ### 🔧 代碼品質改進
