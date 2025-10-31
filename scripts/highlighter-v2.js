@@ -1,5 +1,6 @@
 // 使用 CSS Custom Highlight API 的新版標註功能
 // v2.5.0 - 不修改DOM結構的標註實現
+/* global chrome */
 (function() {
 
 // 使用共享 Logger 系統的增強日誌器，整合錯誤處理和維護性
@@ -299,7 +300,7 @@ const logger = (() => {
 
                 // 標記遷移完成（無論成功多少）
                 const normalizedUrl = normalizeUrl(window.location.href);
-                if (chrome && chrome.storage && chrome.storage.local) {
+                if (chrome?.storage?.local) {
                     await chrome.storage.local.set({
                         [`migration_completed_${normalizedUrl}`]: {
                             timestamp: Date.now(),
