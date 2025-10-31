@@ -583,7 +583,6 @@ const logger = (() => {
             }
 
             // 創建局部引用以避免靜態分析誤報
-            // eslint-disable-next-line no-undef
             const HighlightConstructor = Highlight;
 
             // 為每種顏色創建 Highlight 對象並註冊到 CSS.highlights
