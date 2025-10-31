@@ -206,9 +206,7 @@ const logger = (() => {
                 if (legacyData && foundKey) {
                     // 檢查是否已經遷移過
                     const migrationKey = `migration_completed_${normalizedUrl}`;
-                    const migrationStatus = await (chrome && chrome.storage && chrome.storage.local ?
-                        chrome.storage.local.get(migrationKey) :
-                        Promise.resolve({}));
+                    const migrationStatus = await (chrome?.storage?.local?.get(migrationKey) ?? Promise.resolve({}));
 
                     if (migrationStatus[migrationKey]) {
                         return;
