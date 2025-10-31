@@ -116,9 +116,102 @@ const LIST_PREFIX_PATTERNS = {
 };
 
 // ===================================================================
-// === 輔助函數聲明區塊（Helper Functions）
-// === 這些函數需要在 IIFE 內部定義以訪問其他輔助函數
+// === 輔助函數聲明區塊（Helper Functions - Module Level）
 // ===================================================================
+
+/**
+ * 安全地查詢 DOM 元素，避免拋出異常
+ * @param {Element|Document} container - 要查詢的容器元素
+ * @param {string} selector - CSS 選擇器
+ * @returns {NodeList|Array} 查詢結果或空數組
+ */
+function safeQueryElements(container, selector) {
+    if (!container || !selector) {
+        return [];
+    }
+
+    try {
+        return container.querySelectorAll(selector);
+    } catch (error) {
+        Logger.warn(`查詢選擇器失敗: ${selector}`, error);
+        return [];
+    }
+}
+
+/**
+ * 評估提取的內容質量
+ * 檢查內容長度和鏈接密度，判斷內容是否足夠好
+ *
+ * @param {Object} article - Readability 提取的文章對象
+ * @param {string} article.content - 文章 HTML 內容
+ * @param {number} article.textContent - 文章文本內容（用於長度計算）
+ * @returns {boolean} 如果內容質量良好返回 true，否則返回 false
+ *
+ * @description
+ * 質量評估標準：
+ * 1. 內容長度至少 250 字符（MIN_CONTENT_LENGTH）
+ * 2. 鏈接密度不超過 30%（MAX_LINK_DENSITY）
+ * 3. 列表項數量 >= 8 時允許例外（LIST_EXCEPTION_THRESHOLD）
+ *
+ * 鏈接密度 = (所有鏈接文本長度) / (總文本長度)
+ *
+ * 特殊處理：
+ * - 對於以清單為主的文件（如 CLI docs），如果包含 8+ 個 <li> 項目，即使鏈接密度高也視為有效
+ */
+function isContentGood(article) {
+    const MIN_CONTENT_LENGTH = 250;
+    const MAX_LINK_DENSITY = 0.3;
+    const LIST_EXCEPTION_THRESHOLD = 8;
+
+    // 驗證輸入
+    if (!article || !article.content) {
+        Logger.warn('[內容質量] article 或 article.content 為空');
+        return false;
+    }
+
+    // 使用正確的文本長度：article.content 的長度
+    const contentLength = article.content.length;
+
+    // 內容太短，質量不佳
+    if (contentLength < MIN_CONTENT_LENGTH) {
+        Logger.warn(`[內容質量] 內容長度不足: ${contentLength} < ${MIN_CONTENT_LENGTH}`);
+        return false;
+    }
+
+    // 創建臨時 DOM 容器以分析內容
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = article.content;
+
+    // 計算鏈接密度
+    let linkTextLength = 0;
+    const links = safeQueryElements(tempDiv, 'a');
+
+    // 修復 JS-0086: 使用顯式語句而非箭頭函數中的賦值返回
+    Array.from(links).forEach((link) => {
+        linkTextLength += (link.textContent || '').length;
+    });
+
+    // 使用正確的總長度作為分母
+    const linkDensity = contentLength > 0 ? linkTextLength / contentLength : 0;
+
+    // 計算列表項數量
+    const liNodes = safeQueryElements(tempDiv, 'li');
+    const liCount = liNodes.length;
+
+    // 如果頁面以長清單為主（如文件、命令列清單），允許通過
+    if (liCount >= LIST_EXCEPTION_THRESHOLD) {
+        Logger.log(`Readability.js content accepted as list-heavy (liCount=${liCount}) despite link density ${linkDensity.toFixed(2)}`);
+        return true;
+    }
+
+    // 檢查鏈接密度
+    if (linkDensity > MAX_LINK_DENSITY) {
+        Logger.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
+        return false;
+    }
+
+    return true;
+}
 
 // processNodeToNotionBlock 和 convertHtmlToNotionBlocks 將在 IIFE 內部定義
 // 因為它們需要訪問 extractImageSrc、cleanImageUrl 等函數
@@ -193,88 +286,6 @@ const LIST_PREFIX_PATTERNS = {
         }
 
         const MIN_CONTENT_LENGTH = 250;
-        const MAX_LINK_DENSITY = 0.3;
-
-        function isContentGood(article) {
-            if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
-
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = article.content;
-
-            // 計算連結密度（link density）— 但對於以點列/參考為主的文件（像 CLI docs）
-            // 我們允許例外：如果內容包含大量的 <li> 項目，則視為有效內容。
-            let links = [];
-            try {
-                if (tempDiv.querySelectorAll) {
-                    links = tempDiv.querySelectorAll('a') || [];
-                } else {
-                    const linkResult = cachedQuery('a', tempDiv);
-                    // 確保返回的是類數組對象
-                    if (linkResult) {
-                        if (Array.isArray(linkResult)) {
-                            links = linkResult;
-                        } else if (linkResult.nodeType) {
-                            // 單個元素
-                            links = [linkResult];
-                        } else if (typeof linkResult === 'object' && typeof linkResult.length === 'number') {
-                            // 類數組對象（如 NodeList）
-                            links = Array.from(linkResult);
-                        }
-                    }
-                }
-            } catch (e) {
-                Logger.warn('Failed to query links:', e);
-                links = [];
-            }
-
-            let linkTextLength = 0;
-            try {
-                Array.from(links).forEach(link => linkTextLength += (link.textContent || '').length);
-            } catch (e) {
-                Logger.warn('Failed to calculate link text length:', e);
-            }
-            const linkDensity = linkTextLength / Math.max(1, article.length);
-
-            let liNodes = [];
-            let liCount = 0;
-            try {
-                if (tempDiv.querySelectorAll) {
-                    liNodes = tempDiv.querySelectorAll('li') || [];
-                } else {
-                    const liResult = cachedQuery('li', tempDiv);
-                    // 確保返回的是類數組對象
-                    if (liResult) {
-                        if (Array.isArray(liResult)) {
-                            liNodes = liResult;
-                        } else if (liResult.nodeType) {
-                            // 單個元素
-                            liNodes = [liResult];
-                        } else if (typeof liResult === 'object' && typeof liResult.length === 'number') {
-                            // 類數組對象（如 NodeList）
-                            liNodes = Array.from(liResult);
-                        }
-                    }
-                }
-                liCount = liNodes.length;
-            } catch (e) {
-                Logger.warn('Failed to query li nodes:', e);
-                liCount = 0;
-            }
-
-            // 如果頁面以長清單為主（如文件、命令列清單），允許通過
-            const LIST_EXCEPTION_THRESHOLD = 8; // 8個以上的<li> 視為 list-heavy
-            if (liCount >= LIST_EXCEPTION_THRESHOLD) {
-                Logger.log(`Readability.js content accepted as list-heavy (liCount=${liCount}) despite link density ${linkDensity.toFixed(2)}`);
-                return true;
-            }
-
-            if (linkDensity > MAX_LINK_DENSITY) {
-                Logger.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
-                return false;
-            }
-
-            return true;
-        }
 
         /**
          * A new, CMS-aware fallback function. It specifically looks for patterns
