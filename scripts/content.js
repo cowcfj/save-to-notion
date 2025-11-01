@@ -114,6 +114,17 @@ const LIST_PREFIX_PATTERNS = {
     // 空白行檢測
     emptyLine: /^\s*$/
 };
+// ===================================================================
+// === 模組級變數聲明（Module-Level Variables）
+// ===================================================================
+
+/**
+ * 性能優化器實例
+ * 在 IIFE 初始化區塊中進行初始化，用於 DOM 查詢緩存和性能指標記錄
+ * @type {PerformanceOptimizer|null}
+ */
+let performanceOptimizer = null;
+
 
 // ===================================================================
 // === 輔助函數聲明區塊（Helper Functions - Module Level）
@@ -223,7 +234,7 @@ function isContentGood(article) {
 (async function () {
     try {
         // 初始化性能優化器（如果可用）
-        let performanceOptimizer = null;
+        performanceOptimizer = null;  // 重置模組級變數
         try {
             if (typeof PerformanceOptimizer !== 'undefined') {
                 performanceOptimizer = new PerformanceOptimizer({
@@ -1488,8 +1499,8 @@ function isContentGood(article) {
             };
         }
     } catch (error) {
-        console.error('❌ Critical error in content script:', error);
-        console.error('Error details:', {
+        Logger.error('❌ Critical error in content script:', error);
+        Logger.error('Error details:', {
             message: error.message,
             stack: error.stack,
             name: error.name,
@@ -1498,12 +1509,12 @@ function isContentGood(article) {
         });
 
         // 輸出性能統計（如果可用）
-        if (typeof performanceOptimizer !== 'undefined' && performanceOptimizer) {
+        if (performanceOptimizer) {
             try {
                 const performanceStats = performanceOptimizer.getPerformanceStats();
-                console.log('🚀 Content.js Performance Stats (Error Case):', performanceStats);
+                Logger.log('🚀 Performance Stats (Error Case):', performanceStats);
             } catch (perfError) {
-                console.warn('Could not get performance stats:', perfError);
+                Logger.warn('⚠️ 無法獲取性能統計:', perfError.message);
             }
         }
 
@@ -1525,7 +1536,7 @@ function isContentGood(article) {
 })().then(result => {
     // Safety check: ensure we always return a valid result
     if (!result || typeof result !== 'object') {
-        console.warn('❌ Content script returned invalid result, providing fallback');
+        Logger.warn('⚠️ Content script returned invalid result, providing fallback');
         return {
             title: document.title || 'Untitled Page',
             blocks: [{
@@ -1568,7 +1579,7 @@ function isContentGood(article) {
 
     return result;
 }).catch(error => {
-    console.error('❌ Async content script error:', error);
+    Logger.error('❌ Async content script error:', error);
     return {
         title: document.title || 'Untitled Page',
         blocks: [{
