@@ -1488,8 +1488,8 @@ function isContentGood(article) {
             };
         }
     } catch (error) {
-        console.error('❌ Critical error in content script:', error);
-        console.error('Error details:', {
+        Logger.error('❌ Critical error in content script:', error);
+        Logger.error('Error details:', {
             message: error.message,
             stack: error.stack,
             name: error.name,
@@ -1525,7 +1525,7 @@ function isContentGood(article) {
 })().then(result => {
     // Safety check: ensure we always return a valid result
     if (!result || typeof result !== 'object') {
-        console.warn('❌ Content script returned invalid result, providing fallback');
+        Logger.warn('⚠️ Content script returned invalid result, providing fallback');
         return {
             title: document.title || 'Untitled Page',
             blocks: [{
@@ -1568,7 +1568,7 @@ function isContentGood(article) {
 
     return result;
 }).catch(error => {
-    console.error('❌ Async content script error:', error);
+    Logger.error('❌ Async content script error:', error);
     return {
         title: document.title || 'Untitled Page',
         blocks: [{
