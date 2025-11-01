@@ -691,7 +691,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendRe
     const notionApiUrl = 'https://api.notion.com/v1/pages';
 
     // 如果需要排除圖片（重試模式），過濾掉所有圖片
-    let validBlocks;
+    let validBlocks = [];
     if (excludeImages) {
         Logger.log('🚫 Retry mode: Excluding ALL images');
         validBlocks = blocks.filter(block => block.type !== 'image');
@@ -1729,7 +1729,7 @@ async function handleSavePage(sendResponse) {
         Logger.log('📊 標註數量:', highlights?.length || 0);
 
         // 注入並執行內容提取
-        let result;
+        let result = null;
         try {
             result = await ScriptInjector.injectWithResponse(activeTab.id, () => {
             // 初始化性能優化器（可選）
