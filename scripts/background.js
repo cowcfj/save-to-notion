@@ -2666,6 +2666,8 @@ async function handleSavePage(sendResponse) {
                 }
 
                 if (finalContent) {
+                    // 聲明 blocks 變數
+                    let blocks;
 
                     // 優先使用增強轉換器
                     if (typeof window.convertHtmlToNotionBlocks === 'function') {
