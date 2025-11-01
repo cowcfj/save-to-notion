@@ -1498,12 +1498,12 @@ function isContentGood(article) {
         });
 
         // 輸出性能統計（如果可用）
-        if (typeof performanceOptimizer !== 'undefined' && performanceOptimizer) {
+        if (performanceOptimizer) {
             try {
                 const performanceStats = performanceOptimizer.getPerformanceStats();
-                console.log('🚀 Content.js Performance Stats (Error Case):', performanceStats);
+                Logger.log('🚀 Performance Stats (Error Case):', performanceStats);
             } catch (perfError) {
-                console.warn('Could not get performance stats:', perfError);
+                Logger.warn('⚠️ 無法獲取性能統計:', perfError.message);
             }
         }
 
