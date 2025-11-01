@@ -114,6 +114,17 @@ const LIST_PREFIX_PATTERNS = {
     // 空白行檢測
     emptyLine: /^\s*$/
 };
+// ===================================================================
+// === 模組級變數聲明（Module-Level Variables）
+// ===================================================================
+
+/**
+ * 性能優化器實例
+ * 在 IIFE 初始化區塊中進行初始化，用於 DOM 查詢緩存和性能指標記錄
+ * @type {PerformanceOptimizer|null}
+ */
+let performanceOptimizer = null;
+
 
 // ===================================================================
 // === 輔助函數聲明區塊（Helper Functions - Module Level）
@@ -223,7 +234,7 @@ function isContentGood(article) {
 (async function () {
     try {
         // 初始化性能優化器（如果可用）
-        let performanceOptimizer = null;
+        performanceOptimizer = null;  // 重置模組級變數
         try {
             if (typeof PerformanceOptimizer !== 'undefined') {
                 performanceOptimizer = new PerformanceOptimizer({
