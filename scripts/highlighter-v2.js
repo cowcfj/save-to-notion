@@ -1262,7 +1262,7 @@ const logger = (() => {
         /**
          * v2.9.12: 基於文本內容查找 Range 的回退機制
          */
-        async findRangeByTextContent(targetText, rangeInfo) {
+        findRangeByTextContent(targetText, rangeInfo) {
             try {
                 // 在整個文檔中搜索匹配的文本
                 const walker = document.createTreeWalker(
