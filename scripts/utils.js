@@ -237,51 +237,101 @@ if (typeof window.StorageUtil === 'undefined') {
     },
 
     /**
-     * 清除標記數據
+     * 清除指定頁面的標記數據
+     * @param {string} pageUrl - 頁面 URL
+     * @returns {Promise<void>} 清除操作完成後的 Promise
      */
     async clearHighlights(pageUrl) {
-        const pageKey = `highlights_${normalizeUrl(pageUrl)}`;
+        // 輸入驗證
+        if (!pageUrl || typeof pageUrl !== 'string') {
+            const error = new Error('Invalid pageUrl: must be a non-empty string');
+            if (typeof window.Logger !== 'undefined' && window.Logger.error) {
+                window.Logger.error('❌ [clearHighlights] 無效的 URL 參數:', error.message);
+            }
+            throw error;
+        }
 
+        let normalizedUrl;
+        try {
+            normalizedUrl = normalizeUrl(pageUrl);
+        } catch (error) {
+            if (typeof window.Logger !== 'undefined' && window.Logger.error) {
+                window.Logger.error('❌ [clearHighlights] URL 標準化失敗:', error);
+            }
+            throw new Error(`Failed to normalize URL: ${pageUrl}`);
+        }
 
-        return new Promise((resolve) => {
-            // 修復：先檢查 chrome.storage 是否存在
-            if (chrome.storage?.local) {
-                try {
-                    chrome.storage.local.remove([pageKey], () => {
-                        if (chrome.runtime.lastError) {
-                            console.error('Failed to clear highlights from chrome.storage:', chrome.runtime.lastError);
-                        }
+        const pageKey = `highlights_${normalizedUrl}`;
+        if (typeof window.Logger !== 'undefined' && window.Logger.log) {
+            window.Logger.log('🗑️ [clearHighlights] 開始清除標註:', pageKey);
+        }
 
-                        // 同時清除 localStorage
-                        try {
-                            localStorage.removeItem(pageKey);
+        const results = await Promise.allSettled([
+            this._clearFromChromeStorage(pageKey),
+            this._clearFromLocalStorage(pageKey)
+        ]);
 
-                        } catch (e) {
-                            console.error('Failed to clear localStorage:', e);
-                        }
+        // 檢查結果
+        const failures = results.filter(result => result.status === 'rejected');
+        if (failures.length === results.length) {
+            // 所有清除操作都失敗
+            const error = new Error('Failed to clear highlights from all storage locations');
+            if (typeof window.Logger !== 'undefined' && window.Logger.error) {
+                window.Logger.error('❌ [clearHighlights] 所有存儲清除失敗:', failures.map(f => f.reason));
+            }
+            throw error;
+        }
+
+        if (failures.length > 0) {
+            if (typeof window.Logger !== 'undefined' && window.Logger.warn) {
+                window.Logger.warn('⚠️ [clearHighlights] 部分存儲清除失敗:', failures.map(f => f.reason));
+            }
+        } else {
+            if (typeof window.Logger !== 'undefined' && window.Logger.log) {
+                window.Logger.log('✅ [clearHighlights] 標註清除完成');
+            }
+        }
+    },
+
+    /**
+     * 從 Chrome Storage 清除數據的輔助函數
+     * @private
+     * @param {string} key - 存儲鍵
+     * @returns {Promise<void>}
+     */
+    async _clearFromChromeStorage(key) {
+        if (!chrome?.storage?.local) {
+            throw new Error('Chrome storage not available');
+        }
+
+        return new Promise((resolve, reject) => {
+            try {
+                chrome.storage.local.remove([key], () => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(`Chrome storage error: ${chrome.runtime.lastError.message}`));
+                    } else {
                         resolve();
-                    });
-                } catch (e) {
-                    // chrome.storage.remove 調用失敗，回退到 localStorage
-                    console.log('Chrome storage remove failed, clearing localStorage only');
-                    try {
-                        localStorage.removeItem(pageKey);
-                        console.log('Cleared highlights from localStorage');
-                    } catch (err) {
-                        console.error('Failed to clear localStorage:', err);
                     }
-                    resolve();
-                }
-            } else {
-                // chrome.storage 不可用，只清除 localStorage
+                });
+            } catch (error) {
+                reject(new Error(`Chrome storage operation failed: ${error.message}`));
+            }
+        });
+    },
 
-                try {
-                    localStorage.removeItem(pageKey);
-
-                } catch (err) {
-                    console.error('Failed to clear localStorage:', err);
-                }
+    /**
+     * 從 localStorage 清除數據的輔助函數
+     * @private
+     * @param {string} key - 存儲鍵
+     * @returns {Promise<void>}
+     */
+    async _clearFromLocalStorage(key) {
+        return new Promise((resolve, reject) => {
+            try {
+                localStorage.removeItem(key);
                 resolve();
+            } catch (error) {
+                reject(new Error(`localStorage operation failed: ${error.message}`));
             }
         });
     },
