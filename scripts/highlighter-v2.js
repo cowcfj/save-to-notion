@@ -1351,7 +1351,7 @@ const logger = (() => {
         /**
          * v2.9.12: 等待 DOM 穩定
          */
-        static async waitForDOMStability(timeout = 100) {
+        static waitForDOMStability(timeout = 100) {
             return new Promise(resolve => {
                 let lastChange = Date.now();
                 let observer = null;
