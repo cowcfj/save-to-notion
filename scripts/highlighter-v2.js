@@ -1273,7 +1273,7 @@ const logger = (() => {
                 );
 
                 let node;
-                while (node = walker.nextNode()) {
+                while ((node = walker.nextNode()) !== null) {
                     const textContent = node.textContent;
                     const index = textContent.indexOf(targetText);
 
