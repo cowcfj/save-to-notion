@@ -1307,9 +1307,15 @@ const logger = (() => {
                 const expectedTrimmed = expectedText.trim();
 
                 // 允許一些文本變化的容忍度
-                return actualText.length >= expectedTrimmed.length * 0.8 &&
-                       expectedTrimmed.includes(actualText.substring(0, 20));
+                // 修復：改進驗證邏輯，確保文本長度在合理範圍內且內容匹配
+                const lengthMatch = actualText.length >= expectedTrimmed.length * 0.8 &&
+                                   actualText.length <= expectedTrimmed.length * 1.2;
+                const contentMatch = expectedTrimmed.includes(actualText.substring(0, Math.min(20, actualText.length)));
+
+                return lengthMatch && contentMatch;
             } catch (error) {
+                // 修復：使用捕獲的錯誤變數進行日誌記錄
+                logger.warn('   ⚠️ Range 驗證失敗:', error.message);
                 return false;
             }
         }
