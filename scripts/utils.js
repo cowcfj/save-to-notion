@@ -1,6 +1,23 @@
 // 共享工具函數
 // 此腳本包含所有內容腳本共用的工具函數
 
+// ===== Safe Logger Abstraction =====
+// 創建一個安全的 Logger 抽象，避免重複的 typeof 檢查
+const safeLogger = (() => {
+    // 檢查是否在瀏覽器環境且有 window.Logger
+    if (typeof window !== 'undefined' && typeof window.Logger !== 'undefined') {
+        return window.Logger;
+    }
+    // 返回一個安全的替代 Logger（使用原生 console）
+    return {
+        log: () => {}, // 在生產環境不輸出 log
+        debug: () => {},
+        info: () => {},
+        warn: console.warn.bind(console),
+        error: console.error.bind(console)
+    };
+})();
+
 // ===== Program-root utilities (for linters/DeepSource) =====
 // 將背景日誌轉運器提升到程式根作用域，以符合 DeepSource 建議
 function __sendBackgroundLog(level, message, argsArray) {
@@ -245,26 +262,15 @@ if (typeof window.StorageUtil === 'undefined') {
         // 輸入驗證
         if (!pageUrl || typeof pageUrl !== 'string') {
             const error = new Error('Invalid pageUrl: must be a non-empty string');
-            if (typeof window.Logger !== 'undefined' && window.Logger.error) {
-                window.Logger.error('❌ [clearHighlights] 無效的 URL 參數:', error.message);
-            }
+            safeLogger.error('❌ [clearHighlights] 無效的 URL 參數:', error.message);
             throw error;
         }
 
-        let normalizedUrl;
-        try {
-            normalizedUrl = normalizeUrl(pageUrl);
-        } catch (error) {
-            if (typeof window.Logger !== 'undefined' && window.Logger.error) {
-                window.Logger.error('❌ [clearHighlights] URL 標準化失敗:', error);
-            }
-            throw new Error(`Failed to normalize URL: ${pageUrl}`);
-        }
-
+        // URL 標準化（在 try 塊外，因為 normalizeUrl 內部已有錯誤處理）
+        const normalizedUrl = normalizeUrl(pageUrl);
         const pageKey = `highlights_${normalizedUrl}`;
-        if (typeof window.Logger !== 'undefined' && window.Logger.log) {
-            window.Logger.log('🗑️ [clearHighlights] 開始清除標註:', pageKey);
-        }
+
+        safeLogger.log('🗑️ [clearHighlights] 開始清除標註:', pageKey);
 
         const results = await Promise.allSettled([
             this._clearFromChromeStorage(pageKey),
@@ -276,20 +282,14 @@ if (typeof window.StorageUtil === 'undefined') {
         if (failures.length === results.length) {
             // 所有清除操作都失敗
             const error = new Error('Failed to clear highlights from all storage locations');
-            if (typeof window.Logger !== 'undefined' && window.Logger.error) {
-                window.Logger.error('❌ [clearHighlights] 所有存儲清除失敗:', failures.map(f => f.reason));
-            }
+            safeLogger.error('❌ [clearHighlights] 所有存儲清除失敗:', failures.map(f => f.reason));
             throw error;
         }
 
         if (failures.length > 0) {
-            if (typeof window.Logger !== 'undefined' && window.Logger.warn) {
-                window.Logger.warn('⚠️ [clearHighlights] 部分存儲清除失敗:', failures.map(f => f.reason));
-            }
+            safeLogger.warn('⚠️ [clearHighlights] 部分存儲清除失敗:', failures.map(f => f.reason));
         } else {
-            if (typeof window.Logger !== 'undefined' && window.Logger.log) {
-                window.Logger.log('✅ [clearHighlights] 標註清除完成');
-            }
+            safeLogger.log('✅ [clearHighlights] 標註清除完成');
         }
     },
 
@@ -345,13 +345,13 @@ if (typeof window.StorageUtil === 'undefined') {
             try {
                 chrome.storage?.local?.get(null, (data) => {
                     const highlightKeys = Object.keys(data || {}).filter(keyName => keyName.startsWith('highlights_'));
-                    try { window.Logger?.info?.(`📋 所有標註鍵 (${highlightKeys.length} 個):`); } catch (_) {}
+                    try { safeLogger.info(`📋 所有標註鍵 (${highlightKeys.length} 個):`); } catch (_) {}
                     highlightKeys.forEach(keyName => {
                         const count = Array.isArray(data[keyName])
                             ? data[keyName].length
                             : (data[keyName]?.highlights?.length || 0);
                         const url = keyName.replace('highlights_', '');
-                        try { window.Logger?.info?.(`   ${count} 個標註: ${url}`); } catch (_) {}
+                        try { safeLogger.info(`   ${count} 個標註: ${url}`); } catch (_) {}
                     });
                     resolve(highlightKeys);
                 });
