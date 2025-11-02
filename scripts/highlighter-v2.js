@@ -1168,8 +1168,8 @@ const logger = (() => {
                         }
                     }
 
-                    // v2.8.0: 傳入 text 參數用於驗證
-                    const range = this.deserializeRange(highlightData.rangeInfo, highlightData.text);
+                    // v2.9.12: 增強恢復邏輯 - 實現穩健的 Range 重建
+                    const range = await this.restoreRangeWithRetry(highlightData.rangeInfo, highlightData.text);
                     if (range) {
                         const id = highlightData.id;
 
@@ -1193,7 +1193,7 @@ const logger = (() => {
                         restored++;
                     } else {
                         failed++;
-                        logger.warn(`   ❌ 恢復失敗: ${highlightData.id} - Range 反序列化失敗`);
+                        logger.warn(`   ❌ 恢復失敗: ${highlightData.id} - Range 重建失敗`);
                     }
                 }
 
@@ -1223,6 +1223,317 @@ const logger = (() => {
                 logger.error('❌ 恢復標註失敗:', error);
                 logger.error('錯誤堆棧:', error.stack);
             }
+        }
+
+        /**
+         * v2.9.12: 增強的 Range 恢復邏輯 - 帶重試機制
+         */
+        async restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    // 首先嘗試標準反序列化
+                    const range = this.deserializeRange(rangeInfo, text);
+                    if (range && this.validateRange(range, text)) {
+                        return range;
+                    }
+
+                    // 如果失敗，嘗試基於文本內容的恢復
+                    if (attempt > 0) {
+                        const fallbackRange = await this.findRangeByTextContent(text, rangeInfo);
+                        if (fallbackRange && this.validateRange(fallbackRange, text)) {
+                            logger.info(`   🔄 [v2.9.12] 使用文本回退成功恢復 Range (嘗試 ${attempt + 1})`);
+                            return fallbackRange;
+                        }
+                    }
+
+                    // 等待 DOM 變化後重試
+                    if (attempt < maxRetries - 1) {
+                        await this.waitForDOMStability(100 * (attempt + 1));
+                    }
+                } catch (error) {
+                    logger.warn(`   ⚠️ Range 恢復嘗試 ${attempt + 1} 失敗:`, error.message);
+                }
+            }
+
+            logger.error(`   ❌ Range 恢復失敗，已嘗試 ${maxRetries} 次`);
+            return null;
+        }
+
+        /**
+         * v2.9.12: 基於文本內容查找 Range 的回退機制
+         */
+        findRangeByTextContent(targetText, rangeInfo) {
+            try {
+                // 在整個文檔中搜索匹配的文本
+                const walker = document.createTreeWalker(
+                    document.body,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+
+                let node = null;
+                while ((node = walker.nextNode()) !== null) {
+                    const textContent = node.textContent;
+                    const index = textContent.indexOf(targetText);
+
+                    if (index !== -1) {
+                        // 找到匹配的文本，創建 Range
+                        const range = document.createRange();
+                        range.setStart(node, index);
+                        range.setEnd(node, index + targetText.length);
+
+                        // 驗證上下文是否匹配（如果有保存的上下文信息）
+                        if (this.validateRangeContext(range, rangeInfo)) {
+                            return range;
+                        }
+                    }
+                }
+            } catch (error) {
+                logger.warn('   ⚠️ 文本回退搜索失敗:', error.message);
+            }
+
+            return null;
+        }
+
+        /**
+         * v2.9.12: 驗證 Range 是否有效
+         */
+        validateRange(range, expectedText) {
+            try {
+                if (!range || !range.toString) return false;
+
+                const actualText = range.toString().trim();
+                const expectedTrimmed = expectedText.trim();
+
+                // 允許一些文本變化的容忍度
+                // 修復：改進驗證邏輯，確保文本長度在合理範圍內且內容匹配
+                const lengthMatch = actualText.length >= expectedTrimmed.length * 0.8 &&
+                                   actualText.length <= expectedTrimmed.length * 1.2;
+                const contentMatch = expectedTrimmed.includes(actualText.substring(0, Math.min(20, actualText.length)));
+
+                return lengthMatch && contentMatch;
+            } catch (error) {
+                // 修復：使用捕獲的錯誤變數進行日誌記錄
+                logger.warn('   ⚠️ Range 驗證失敗:', error.message);
+                return false;
+            }
+        }
+
+        /**
+         * v2.9.12: 驗證 Range 上下文是否匹配
+         */
+        validateRangeContext(range, rangeInfo) {
+            try {
+                // 如果沒有上下文信息，認為匹配
+                if (!rangeInfo.contextBefore && !rangeInfo.contextAfter) {
+                    return true;
+                }
+
+                // 檢查前後文是否匹配
+                const rangeText = range.toString();
+                const container = range.commonAncestorContainer;
+
+                // 獲取更大範圍的文本來檢查上下文
+                const parentText = container.textContent || '';
+                const rangeStart = parentText.indexOf(rangeText);
+
+                if (rangeStart === -1) return false;
+
+                // 檢查前後文
+                const beforeText = parentText.substring(Math.max(0, rangeStart - 50), rangeStart);
+                const afterText = parentText.substring(rangeStart + rangeText.length, rangeStart + rangeText.length + 50);
+
+                const contextMatches = (!rangeInfo.contextBefore || beforeText.includes(rangeInfo.contextBefore)) &&
+                                      (!rangeInfo.contextAfter || afterText.includes(rangeInfo.contextAfter));
+
+                return contextMatches;
+            } catch (error) {
+                logger.warn('   ⚠️ 上下文驗證失敗:', error.message);
+                return true; // 容錯：如果驗證失敗，認為匹配
+            }
+        }
+
+        /**
+         * v2.9.12+: 等待 DOM 穩定 - 增強版
+         *
+         * 監視指定容器或整個文檔的 DOM 變更，當在穩定閾值時間內無新增變更時視為穩定。
+         * 使用 requestIdleCallback（若可用）或 setTimeout 進行檢查。
+         *
+         * @param {Object} options - 配置選項
+         * @param {string} [options.containerSelector] - 要監視的容器選擇器（不提供則監視 document.body）
+         * @param {number} [options.stabilityThresholdMs=150] - 穩定閾值（毫秒）：此時間內無變更視為穩定
+         * @param {number} [options.maxWaitMs=5000] - 最大等待時間（毫秒）：超時則返回 false
+         * @returns {Promise<boolean>} true=成功穩定, false=超時或找不到容器
+         *
+         * @example
+         * // 等待整個文檔穩定
+         * const isStable = await HighlightManager.waitForDOMStability();
+         *
+         * @example
+         * // 等待特定容器穩定，自訂閾值
+         * const isStable = await HighlightManager.waitForDOMStability({
+         *   containerSelector: '#main-content',
+         *   stabilityThresholdMs: 200,
+         *   maxWaitMs: 3000
+         * });
+         */
+        static waitForDOMStability(options = {}) {
+            // 解構選項並設置默認值
+            const {
+                containerSelector = null,
+                stabilityThresholdMs = 150,
+                maxWaitMs = 5000
+            } = options;
+
+            return new Promise((resolve) => {
+                // 前置檢查：確保 document 和 document.body 存在
+                if (typeof document === 'undefined' || !document.body) {
+                    logger.warn('⚠️ [waitForDOMStability] document.body 不存在');
+                    resolve(false);
+                    return;
+                }
+
+                // 確定要監視的容器
+                let targetContainer = document.body;
+                if (containerSelector) {
+                    const container = document.querySelector(containerSelector);
+                    if (!container) {
+                        logger.warn(`⚠️ [waitForDOMStability] 找不到容器: ${containerSelector}`);
+                        resolve(false);
+                        return;
+                    }
+                    targetContainer = container;
+                }
+
+                // 資源追蹤（用於清理）
+                let observer = null;
+                let stabilityTimerId = null;
+                let maxWaitTimerId = null;
+                let idleCallbackId = null;
+
+                // 記錄最後一次變更時間
+                let lastMutationTime = Date.now();
+
+                /**
+                 * 清理所有資源
+                 */
+                const cleanup = () => {
+                    // 斷開觀察器
+                    if (observer) {
+                        observer.disconnect();
+                        observer = null;
+                    }
+
+                    // 清除所有計時器
+                    if (stabilityTimerId !== null) {
+                        clearTimeout(stabilityTimerId);
+                        stabilityTimerId = null;
+                    }
+
+                    if (maxWaitTimerId !== null) {
+                        clearTimeout(maxWaitTimerId);
+                        maxWaitTimerId = null;
+                    }
+
+                    // 取消 idle callback（若存在）
+                    if (idleCallbackId !== null && typeof cancelIdleCallback !== 'undefined') {
+                        cancelIdleCallback(idleCallbackId);
+                        idleCallbackId = null;
+                    }
+                };
+
+                /**
+                 * 檢查 DOM 是否已穩定
+                 * @returns {boolean} true 表示已穩定
+                 */
+                const checkStability = () => {
+                    const timeSinceLastMutation = Date.now() - lastMutationTime;
+
+                    if (timeSinceLastMutation >= stabilityThresholdMs) {
+                        // DOM 已穩定
+                        cleanup();
+                        logger.log(`✅ [waitForDOMStability] DOM 已穩定 (${timeSinceLastMutation}ms 無變更)`);
+                        resolve(true);
+                        return true;
+                    }
+
+                    return false;
+                };
+
+                /**
+                 * 使用 requestIdleCallback 或 setTimeout 排程穩定檢查
+                 */
+                const scheduleStabilityCheck = () => {
+                    // 清除之前的計時器
+                    if (stabilityTimerId !== null) {
+                        clearTimeout(stabilityTimerId);
+                        stabilityTimerId = null;
+                    }
+                    if (idleCallbackId !== null && typeof cancelIdleCallback !== 'undefined') {
+                        cancelIdleCallback(idleCallbackId);
+                        idleCallbackId = null;
+                    }
+
+                    // 優先使用 requestIdleCallback（若可用）
+                    if (typeof requestIdleCallback !== 'undefined') {
+                        idleCallbackId = requestIdleCallback(() => {
+                            if (!checkStability()) {
+                                // 尚未穩定，繼續排程下一次檢查
+                                stabilityTimerId = setTimeout(scheduleStabilityCheck, stabilityThresholdMs);
+                            }
+                        }, { timeout: stabilityThresholdMs });
+                    } else {
+                        // 回退到 setTimeout
+                        stabilityTimerId = setTimeout(() => {
+                            if (!checkStability()) {
+                                // 尚未穩定，繼續排程下一次檢查
+                                scheduleStabilityCheck();
+                            }
+                        }, stabilityThresholdMs);
+                    }
+                };
+
+                /**
+                 * 超時處理
+                 */
+                const handleTimeout = () => {
+                    cleanup();
+                    logger.warn(`⚠️ [waitForDOMStability] 超時 (${maxWaitMs}ms)，DOM 未穩定`);
+                    resolve(false);
+                };
+
+                // 設置最大等待時間計時器
+                maxWaitTimerId = setTimeout(handleTimeout, maxWaitMs);
+
+                // 創建 MutationObserver
+                observer = new MutationObserver(() => {
+                    // 更新最後變更時間（避免在高頻 mutation 下執行昂貴操作）
+                    lastMutationTime = Date.now();
+
+                    // 重新排程穩定檢查
+                    scheduleStabilityCheck();
+                });
+
+                // 開始觀察（只監視必要的屬性）
+                try {
+                    observer.observe(targetContainer, {
+                        childList: true,  // 監視子節點的添加/移除
+                        subtree: true     // 監視整個子樹
+                        // 不監視 attributes、characterData 等以提升性能
+                    });
+
+                    // 初始排程穩定檢查
+                    scheduleStabilityCheck();
+
+                    logger.log(`🔍 [waitForDOMStability] 開始監視 DOM (閾值: ${stabilityThresholdMs}ms, 超時: ${maxWaitMs}ms)`);
+                } catch (error) {
+                    // 觀察失敗，清理並返回 false
+                    cleanup();
+                    logger.error(`❌ [waitForDOMStability] 觀察失敗:`, error);
+                    resolve(false);
+                }
+            });
         }
 
         /**

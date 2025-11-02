@@ -61,7 +61,7 @@
                     metadata: metadata
                 };
                 await chrome.storage.local.set({ [key]: state });
-                
+
             } catch (error) {
                 console.error('[遷移] 無法保存狀態:', error);
             }
@@ -71,38 +71,38 @@
          * 執行完整的自動遷移流程
          */
         async performSeamlessMigration(highlightManager) {
-            
+
 
             // 檢查瀏覽器支持
             if (!this.checkBrowserSupport()) {
-                
+
                 return { skipped: true, reason: 'browser_not_supported' };
             }
 
             // 獲取當前狀態
             const state = await this.getMigrationState();
-            
+
 
             // 根據階段執行相應操作
             switch (state.phase) {
                 case MigrationPhase.NOT_STARTED:
                     return await this.phase1_CreateNewHighlights(highlightManager);
-                
+
                 case MigrationPhase.PHASE_1_CREATED:
                     return await this.phase2_VerifyAndHide(highlightManager);
-                
+
                 case MigrationPhase.PHASE_2_VERIFIED:
                     return await this.phase3_RemoveOldSpans(highlightManager);
-                
+
                 case MigrationPhase.COMPLETED:
-                    
+
                     return { completed: true };
-                
+
                 case MigrationPhase.FAILED:
-                    
+
                     await this.updateMigrationState(MigrationPhase.NOT_STARTED);
                     return await this.performSeamlessMigration(highlightManager);
-                
+
                 default:
                     return { skipped: true };
             }
@@ -112,18 +112,18 @@
          * 階段1：創建新標註，隱藏舊span
          */
         async phase1_CreateNewHighlights(highlightManager) {
-            
+
 
             // 查找舊標註
             const oldSpans = document.querySelectorAll('.simple-highlight');
             if (oldSpans.length === 0) {
-                
+
                 await this.updateMigrationState(MigrationPhase.COMPLETED);
                 return { skipped: true, reason: 'no_old_highlights' };
             }
 
             this.statistics.oldHighlightsFound = oldSpans.length;
-            
+
 
             const newHighlights = [];
 
@@ -141,24 +141,24 @@
 
                     // 添加新標註
                     const id = highlightManager.addHighlight(range, color);
-                    
+
                     if (id) {
                         // 標記舊span（添加特殊屬性，但不移除）
                         span.setAttribute('data-migrated', 'true');
                         span.setAttribute('data-new-id', id);
-                        
+
                         // 隱藏舊span（視覺上看不到，但DOM中保留）
                         span.style.opacity = '0';
                         span.style.pointerEvents = 'none';
-                        
-                        newHighlights.push({ 
-                            oldSpan: span, 
-                            newId: id, 
-                            text: text.substring(0, 30) 
+
+                        newHighlights.push({
+                            oldSpan: span,
+                            newId: id,
+                            text: text.substring(0, 30)
                         });
-                        
+
                         this.statistics.newHighlightsCreated++;
-                        
+
                     }
                 } catch (error) {
                     console.error('[遷移] ✗ 創建失敗:', error);
@@ -168,19 +168,19 @@
 
             // 更新狀態到階段1
             await this.updateMigrationState(MigrationPhase.PHASE_1_CREATED, {
-                newHighlights: newHighlights.map(h => ({ 
-                    id: h.newId, 
-                    text: h.text 
+                newHighlights: newHighlights.map(h => ({
+                    id: h.newId,
+                    text: h.text
                 })),
                 statistics: this.statistics
             });
 
-            
-            
 
-            return { 
+
+
+            return {
                 phase: MigrationPhase.PHASE_1_CREATED,
-                statistics: this.statistics 
+                statistics: this.statistics
             };
         }
 
@@ -188,14 +188,14 @@
          * 階段2：驗證新標註能正常恢復
          */
         async phase2_VerifyAndHide(highlightManager) {
-            
+
 
             const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
-            
+
 
             // 檢查新標註是否正常加載
             const newHighlightsCount = highlightManager.getCount();
-            
+
 
             if (newHighlightsCount === 0) {
                 // 新標註恢復失敗，回滾
@@ -205,14 +205,14 @@
 
             // 驗證成功，更新狀態
             this.statistics.verified = oldSpans.length;
-            
+
             await this.updateMigrationState(MigrationPhase.PHASE_2_VERIFIED, {
                 verified: true,
                 statistics: this.statistics
             });
 
-            
-            
+
+
 
             // 立即進入階段3
             return await this.phase3_RemoveOldSpans(highlightManager);
@@ -222,25 +222,25 @@
          * 階段3：完全移除舊span
          */
         async phase3_RemoveOldSpans(highlightManager) {
-            
+
 
             const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
-            
+
 
             let removed = 0;
             for (const span of oldSpans) {
                 try {
                     const parent = span.parentNode;
-                    
+
                     // 將span內容移到父節點
                     while (span.firstChild) {
                         parent.insertBefore(span.firstChild, span);
                     }
-                    
+
                     // 移除span
                     parent.removeChild(span);
                     parent.normalize();
-                    
+
                     removed++;
                 } catch (error) {
                     console.error('[遷移] 移除span失敗:', error);
@@ -258,51 +258,48 @@
             // v2.9.0: 清理遷移數據
             await this.cleanupMigrationData();
 
-            
-            
 
-            return { 
-                completed: true, 
-                statistics: this.statistics 
+
+
+            return {
+                completed: true,
+                statistics: this.statistics
             };
         }
-        
+
         /**
          * 清理遷移數據
          * v2.9.0: 新增方法，清理不再需要的遷移狀態數據
          */
         async cleanupMigrationData() {
             try {
-                
-                
+
+
                 const allData = await chrome.storage.local.get(null);
                 const keysToRemove = [];
                 const currentUrl = window.location.href;
                 const currentKey = `${this.storageKey}_${currentUrl}`;
-                
+
                 for (const key of Object.keys(allData)) {
                     // 清理其他頁面的遷移狀態（保留當前頁面的完成標記）
                     if (key.startsWith('seamless_migration_state_') && key !== currentKey) {
                         const state = allData[key];
                         // 如果已完成超過7天，清理
-                        if (state.phase === MigrationPhase.COMPLETED && 
+                        if (state.phase === MigrationPhase.COMPLETED &&
                             Date.now() - state.timestamp > 7 * 24 * 60 * 60 * 1000) {
                             keysToRemove.push(key);
                         }
                     }
-                    
+
                     // 清理舊的遷移標記
                     if (key.startsWith('highlight_migration_status_') ||
                         key.startsWith('migration_completed_')) {
                         keysToRemove.push(key);
                     }
                 }
-                
+
                 if (keysToRemove.length > 0) {
                     await chrome.storage.local.remove(keysToRemove);
-                    
-                } else {
-                    
                 }
             } catch (error) {
                 console.error('[遷移] ❌ 清理遷移數據失敗:', error);
@@ -329,11 +326,11 @@
                 failedAt: new Date().toISOString()
             });
 
-            
 
-            return { 
-                rolledBack: true, 
-                reason: reason 
+
+            return {
+                rolledBack: true,
+                reason: reason
             };
         }
 
@@ -365,7 +362,7 @@
          * 手動觸發遷移重試（開發者工具）
          */
         async retryMigration(highlightManager) {
-            
+
             await this.updateMigrationState(MigrationPhase.NOT_STARTED);
             return await this.performSeamlessMigration(highlightManager);
         }
@@ -384,6 +381,6 @@
     // 導出到全局
     window.SeamlessMigrationManager = SeamlessMigrationManager;
 
-    
+
 
 })();

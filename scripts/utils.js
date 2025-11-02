@@ -1,12 +1,30 @@
+/* global chrome */
 // 共享工具函數
 // 此腳本包含所有內容腳本共用的工具函數
+
+// ===== Safe Logger Abstraction =====
+// 創建一個安全的 Logger 抽象，避免重複的 typeof 檢查
+const safeLogger = (() => {
+    // 檢查是否在瀏覽器環境且有 window.Logger
+    if (typeof window !== 'undefined' && typeof window.Logger !== 'undefined') {
+        return window.Logger;
+    }
+    // 返回一個安全的替代 Logger（使用原生 console）
+    return {
+        log: () => { /* Intentionally empty for production */ }, // 在生產環境不輸出 log
+        debug: () => { /* Intentionally empty for production */ },
+        info: () => { /* Intentionally empty for production */ },
+        warn: console.warn.bind(console),
+        error: console.error.bind(console)
+    };
+})();
 
 // ===== Program-root utilities (for linters/DeepSource) =====
 // 將背景日誌轉運器提升到程式根作用域，以符合 DeepSource 建議
 function __sendBackgroundLog(level, message, argsArray) {
     try {
         // 僅在擴充環境下可用（使用可選鏈）
-        if (chrome?.runtime?.sendMessage) {
+        if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
             const argsSafe = Array.isArray(argsArray) ? argsArray : Array.from(argsArray || []);
             chrome.runtime.sendMessage({ action: 'devLogSink', level, message, args: argsSafe }, () => {
                 try {
@@ -122,23 +140,27 @@ if (typeof window.StorageUtil === 'undefined') {
 
         return new Promise((resolve, reject) => {
             try {
-                chrome.storage?.local?.set({ [pageKey]: highlightData }, () => {
-                    if (chrome.runtime.lastError) {
-                        console.error('Failed to save highlights to chrome.storage:', chrome.runtime.lastError);
-                        // 回退到 localStorage
-                        try {
-                            localStorage.setItem(pageKey, JSON.stringify(highlightData));
+                if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+                    chrome.storage.local.set({ [pageKey]: highlightData }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.error('Failed to save highlights to chrome.storage:', chrome.runtime.lastError);
+                            // 回退到 localStorage
+                            try {
+                                localStorage.setItem(pageKey, JSON.stringify(highlightData));
+
+                                resolve();
+                            } catch (e) {
+                                console.error('Failed to save highlights to localStorage:', e);
+                                reject(e);
+                            }
+                        } else {
 
                             resolve();
-                        } catch (e) {
-                            console.error('Failed to save highlights to localStorage:', e);
-                            reject(e);
                         }
-                    } else {
-
-                        resolve();
-                    }
-                });
+                    });
+                } else {
+                    throw new Error('Chrome storage not available');
+                }
             } catch (e) {
                 console.log('Chrome storage not available, using localStorage');
                 try {
@@ -167,49 +189,53 @@ if (typeof window.StorageUtil === 'undefined') {
 
         return new Promise((resolve) => {
             try {
-                chrome.storage?.local?.get([pageKey], (data) => {
-                    const stored = data?.[pageKey];
-                    if (stored) {
-                        // 支持兩種格式：數組（舊版）和對象（新版 {url, highlights}）
-                        let highlights = [];
-                        if (Array.isArray(stored)) {
-                            highlights = stored;
-                        } else if (stored.highlights && Array.isArray(stored.highlights)) {
-                            highlights = stored.highlights;
-                        }
-
-                        if (highlights.length > 0) {
-
-                            resolve(highlights);
-                            return;
-                        }
-                    }
-
-
-                    // 兼容舊版：從 localStorage 回退
-                    const legacy = localStorage.getItem(pageKey);
-                    if (legacy) {
-
-                        try {
-                            const parsed = JSON.parse(legacy);
+                if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+                    chrome.storage.local.get([pageKey], (data) => {
+                        const stored = data?.[pageKey];
+                        if (stored) {
+                            // 支持兩種格式：數組（舊版）和對象（新版 {url, highlights}）
                             let highlights = [];
-                            if (Array.isArray(parsed)) {
-                                highlights = parsed;
-                            } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
-                                highlights = parsed.highlights;
+                            if (Array.isArray(stored)) {
+                                highlights = stored;
+                            } else if (stored.highlights && Array.isArray(stored.highlights)) {
+                                highlights = stored.highlights;
                             }
 
                             if (highlights.length > 0) {
+
                                 resolve(highlights);
                                 return;
                             }
-                        } catch (e) {
-                            console.error('Failed to parse legacy highlights:', e);
                         }
-                    }
 
-                    resolve([]);
-                });
+
+                        // 兼容舊版：從 localStorage 回退
+                        const legacy = localStorage.getItem(pageKey);
+                        if (legacy) {
+
+                            try {
+                                const parsed = JSON.parse(legacy);
+                                let highlights = [];
+                                if (Array.isArray(parsed)) {
+                                    highlights = parsed;
+                                } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
+                                    highlights = parsed.highlights;
+                                }
+
+                                if (highlights.length > 0) {
+                                    resolve(highlights);
+                                    return;
+                                }
+                            } catch (e) {
+                                console.error('Failed to parse legacy highlights:', e);
+                            }
+                        }
+
+                        resolve([]);
+                    });
+                } else {
+                    throw new Error('Chrome storage not available');
+                }
             } catch (e) {
                 console.log('Chrome storage not available, falling back to localStorage');
                 const legacy = localStorage.getItem(pageKey);
@@ -237,53 +263,84 @@ if (typeof window.StorageUtil === 'undefined') {
     },
 
     /**
-     * 清除標記數據
+     * 清除指定頁面的標記數據
+     * @param {string} pageUrl - 頁面 URL
+     * @returns {Promise<void>} 清除操作完成後的 Promise
      */
     async clearHighlights(pageUrl) {
-        const pageKey = `highlights_${normalizeUrl(pageUrl)}`;
+        // 輸入驗證
+        if (!pageUrl || typeof pageUrl !== 'string') {
+            const error = new Error('Invalid pageUrl: must be a non-empty string');
+            safeLogger.error('❌ [clearHighlights] 無效的 URL 參數:', error.message);
+            throw error;
+        }
 
+        // URL 標準化（在 try 塊外，因為 normalizeUrl 內部已有錯誤處理）
+        const normalizedUrl = normalizeUrl(pageUrl);
+        const pageKey = `highlights_${normalizedUrl}`;
 
-        return new Promise((resolve) => {
-            // 修復：先檢查 chrome.storage 是否存在
-            if (chrome.storage?.local) {
-                try {
-                    chrome.storage.local.remove([pageKey], () => {
-                        if (chrome.runtime.lastError) {
-                            console.error('Failed to clear highlights from chrome.storage:', chrome.runtime.lastError);
-                        } else {
+        safeLogger.log('🗑️ [clearHighlights] 開始清除標註:', pageKey);
 
-                        }
+        const results = await Promise.allSettled([
+            this._clearFromChromeStorage(pageKey),
+            this._clearFromLocalStorage(pageKey)
+        ]);
 
-                        // 同時清除 localStorage
-                        try {
-                            localStorage.removeItem(pageKey);
+        // 檢查結果
+        const failures = results.filter(result => result.status === 'rejected');
+        if (failures.length === results.length) {
+            // 所有清除操作都失敗
+            const error = new Error('Failed to clear highlights from all storage locations');
+            safeLogger.error('❌ [clearHighlights] 所有存儲清除失敗:', failures.map(f => f.reason));
+            throw error;
+        }
 
-                        } catch (e) {
-                            console.error('Failed to clear localStorage:', e);
-                        }
+        if (failures.length > 0) {
+            safeLogger.warn('⚠️ [clearHighlights] 部分存儲清除失敗:', failures.map(f => f.reason));
+        } else {
+            safeLogger.log('✅ [clearHighlights] 標註清除完成');
+        }
+    },
+
+    /**
+     * 從 Chrome Storage 清除數據的輔助函數
+     * @private
+     * @param {string} key - 存儲鍵
+     * @returns {Promise<void>}
+     */
+    _clearFromChromeStorage(key) {
+        if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+            return Promise.reject(new Error('Chrome storage not available'));
+        }
+
+        return new Promise((resolve, reject) => {
+            try {
+                chrome.storage.local.remove([key], () => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(`Chrome storage error: ${chrome.runtime.lastError.message}`));
+                    } else {
                         resolve();
-                    });
-                } catch (e) {
-                    // chrome.storage.remove 調用失敗，回退到 localStorage
-                    console.log('Chrome storage remove failed, clearing localStorage only');
-                    try {
-                        localStorage.removeItem(pageKey);
-                        console.log('Cleared highlights from localStorage');
-                    } catch (err) {
-                        console.error('Failed to clear localStorage:', err);
                     }
-                    resolve();
-                }
-            } else {
-                // chrome.storage 不可用，只清除 localStorage
+                });
+            } catch (error) {
+                reject(new Error(`Chrome storage operation failed: ${error.message}`));
+            }
+        });
+    },
 
-                try {
-                    localStorage.removeItem(pageKey);
-
-                } catch (err) {
-                    console.error('Failed to clear localStorage:', err);
-                }
+    /**
+     * 從 localStorage 清除數據的輔助函數
+     * @private
+     * @param {string} key - 存儲鍵
+     * @returns {Promise<void>}
+     */
+    _clearFromLocalStorage(key) {
+        return new Promise((resolve, reject) => {
+            try {
+                localStorage.removeItem(key);
                 resolve();
+            } catch (error) {
+                reject(new Error(`localStorage operation failed: ${error.message}`));
             }
         });
     },
@@ -295,26 +352,28 @@ if (typeof window.StorageUtil === 'undefined') {
     debugListAllKeys() {
         return new Promise((resolve) => {
             try {
-                chrome.storage?.local?.get(null, (data) => {
-                    const highlightKeys = Object.keys(data || {}).filter(keyName => keyName.startsWith('highlights_'));
-                    try { window.Logger?.info?.(`📋 所有標註鍵 (${highlightKeys.length} 個):`); } catch (_) {}
-                    highlightKeys.forEach(keyName => {
-                        const count = Array.isArray(data[keyName])
-                            ? data[keyName].length
-                            : (data[keyName]?.highlights?.length || 0);
-                        const url = keyName.replace('highlights_', '');
-                        try { window.Logger?.info?.(`   ${count} 個標註: ${url}`); } catch (_) {}
+                if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+                    chrome.storage.local.get(null, (data) => {
+                        const highlightKeys = Object.keys(data || {}).filter(keyName => keyName.startsWith('highlights_'));
+                        try { safeLogger.info(`📋 所有標註鍵 (${highlightKeys.length} 個):`); } catch (_) {}
+                        highlightKeys.forEach(keyName => {
+                            const count = Array.isArray(data[keyName])
+                                ? data[keyName].length
+                                : (data[keyName]?.highlights?.length || 0);
+                            const url = keyName.replace('highlights_', '');
+                            try { safeLogger.info(`   ${count} 個標註: ${url}`); } catch (_) {}
+                        });
+                        resolve(highlightKeys);
                     });
-                    resolve(highlightKeys);
-                });
+                } else {
+                    resolve([]);
+                }
             } catch (_) {
                 resolve([]);
             }
         });
     }
     }; // 結束 window.StorageUtil 定義
-} else {
-
 }
 
 /**
@@ -324,10 +383,13 @@ if (typeof window.Logger === 'undefined') {
     // 簡易開發模式偵測：版本字串含 dev 或手動開關
     const __LOGGER_DEV__ = (() => {
         try {
-            const manifest = chrome?.runtime?.getManifest?.();
-            const versionString = manifest?.version_name || manifest?.version || '';
-            const flag = (typeof window !== 'undefined' && window.__FORCE_LOG__ === true) || (typeof window !== 'undefined' && window.__LOGGER_ENABLED__ === true);
-            return /dev/i.test(versionString) || flag;
+            if (typeof chrome !== 'undefined') {
+                const manifest = chrome?.runtime?.getManifest?.();
+                const versionString = manifest?.version_name || manifest?.version || '';
+                const flag = (typeof window !== 'undefined' && window.__FORCE_LOG__ === true) || (typeof window !== 'undefined' && window.__LOGGER_ENABLED__ === true);
+                return /dev/i.test(versionString) || flag;
+            }
+            return false;
         } catch (e) {
             return false;
         }
