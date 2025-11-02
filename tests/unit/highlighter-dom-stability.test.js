@@ -4,8 +4,8 @@
  */
 
 describe('HighlightManager.waitForDOMStability', () => {
-    let originalRequestIdleCallback;
-    let originalCancelIdleCallback;
+    let originalRequestIdleCallback = null;
+    let originalCancelIdleCallback = null;
 
     beforeEach(() => {
         // 模擬 document 和 body
@@ -301,7 +301,7 @@ describe('HighlightManager.waitForDOMStability', () => {
         test('應該在超時時返回 false', async () => {
             const mockDisconnect = jest.fn();
             const mockObserve = jest.fn();
-            let mutationCallback;
+            let mutationCallback = null;
 
             global.MutationObserver = jest.fn((callback) => {
                 mutationCallback = callback;
