@@ -85,7 +85,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
             await expect(StorageUtil.clearHighlights(null))
                 .rejects.toThrow('Invalid pageUrl: must be a non-empty string');
 
-            await expect(StorageUtil.clearHighlights(undefined))
+            await expect(StorageUtil.clearHighlights())
                 .rejects.toThrow('Invalid pageUrl: must be a non-empty string');
 
             expect(global.window.Logger.error).toHaveBeenCalled();
@@ -349,20 +349,14 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
         test('應該並行執行清除操作而非串行', async () => {
             const testUrl = 'https://example.com/test';
 
-            let chromeStartTime = 0;
-            let localStorageStartTime = 0;
-
             chrome.storage.local.remove.mockImplementation((keys, callback) => {
-                chromeStartTime = Date.now();
                 setTimeout(() => {
                     if (callback) callback();
                 }, 10);
             });
 
             const originalRemoveItem = global.localStorage.removeItem;
-            global.localStorage.removeItem = jest.fn(() => {
-                localStorageStartTime = Date.now();
-            });
+            global.localStorage.removeItem = jest.fn();
 
             const startTime = Date.now();
             await StorageUtil.clearHighlights(testUrl);
