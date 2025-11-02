@@ -1359,7 +1359,7 @@ const logger = (() => {
          * @param {number} timeout - 等待穩定的超時時間（毫秒）
          * @returns {Promise<void>} 當 DOM 穩定後 resolve 的 Promise
          */
-        waitForDOMStability(timeout = 100) {
+        static waitForDOMStability(timeout = 100) {
             return new Promise(resolve => {
                 let lastChange = Date.now();
                 let observer = null;
