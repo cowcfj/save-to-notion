@@ -1299,7 +1299,7 @@ const logger = (() => {
         /**
          * v2.9.12: 驗證 Range 是否有效
          */
-        static validateRange(range, expectedText) {
+        validateRange(range, expectedText) {
             try {
                 if (!range || !range.toString) return false;
 
@@ -1317,7 +1317,7 @@ const logger = (() => {
         /**
          * v2.9.12: 驗證 Range 上下文是否匹配
          */
-        static validateRangeContext(range, rangeInfo) {
+        validateRangeContext(range, rangeInfo) {
             try {
                 // 如果沒有上下文信息，認為匹配
                 if (!rangeInfo.contextBefore && !rangeInfo.contextAfter) {
@@ -1351,7 +1351,7 @@ const logger = (() => {
         /**
          * v2.9.12: 等待 DOM 穩定
          */
-        static async waitForDOMStability(timeout = 100) {
+        async waitForDOMStability(timeout = 100) {
             return new Promise(resolve => {
                 let lastChange = Date.now();
                 let observer = null;
