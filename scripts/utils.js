@@ -10,9 +10,9 @@ const safeLogger = (() => {
     }
     // 返回一個安全的替代 Logger（使用原生 console）
     return {
-        log: () => {}, // 在生產環境不輸出 log
-        debug: () => {},
-        info: () => {},
+        log: () => { /* Intentionally empty for production */ }, // 在生產環境不輸出 log
+        debug: () => { /* Intentionally empty for production */ },
+        info: () => { /* Intentionally empty for production */ },
         warn: console.warn.bind(console),
         error: console.error.bind(console)
     };
