@@ -1272,7 +1272,7 @@ const logger = (() => {
                     false
                 );
 
-                let node;
+                let node = null;
                 while ((node = walker.nextNode()) !== null) {
                     const textContent = node.textContent;
                     const index = textContent.indexOf(targetText);
@@ -1354,7 +1354,7 @@ const logger = (() => {
         async waitForDOMStability(timeout = 100) {
             return new Promise(resolve => {
                 let lastChange = Date.now();
-                let observer;
+                let observer = null;
 
                 const checkStability = () => {
                     if (Date.now() - lastChange > timeout) {
