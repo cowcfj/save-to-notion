@@ -1,3 +1,4 @@
+/* global chrome */
 // 共享工具函數
 // 此腳本包含所有內容腳本共用的工具函數
 
@@ -23,7 +24,7 @@ const safeLogger = (() => {
 function __sendBackgroundLog(level, message, argsArray) {
     try {
         // 僅在擴充環境下可用（使用可選鏈）
-        if (chrome?.runtime?.sendMessage) {
+        if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
             const argsSafe = Array.isArray(argsArray) ? argsArray : Array.from(argsArray || []);
             chrome.runtime.sendMessage({ action: 'devLogSink', level, message, args: argsSafe }, () => {
                 try {
@@ -139,23 +140,27 @@ if (typeof window.StorageUtil === 'undefined') {
 
         return new Promise((resolve, reject) => {
             try {
-                chrome.storage?.local?.set({ [pageKey]: highlightData }, () => {
-                    if (chrome.runtime.lastError) {
-                        console.error('Failed to save highlights to chrome.storage:', chrome.runtime.lastError);
-                        // 回退到 localStorage
-                        try {
-                            localStorage.setItem(pageKey, JSON.stringify(highlightData));
+                if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+                    chrome.storage.local.set({ [pageKey]: highlightData }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.error('Failed to save highlights to chrome.storage:', chrome.runtime.lastError);
+                            // 回退到 localStorage
+                            try {
+                                localStorage.setItem(pageKey, JSON.stringify(highlightData));
+
+                                resolve();
+                            } catch (e) {
+                                console.error('Failed to save highlights to localStorage:', e);
+                                reject(e);
+                            }
+                        } else {
 
                             resolve();
-                        } catch (e) {
-                            console.error('Failed to save highlights to localStorage:', e);
-                            reject(e);
                         }
-                    } else {
-
-                        resolve();
-                    }
-                });
+                    });
+                } else {
+                    throw new Error('Chrome storage not available');
+                }
             } catch (e) {
                 console.log('Chrome storage not available, using localStorage');
                 try {
@@ -184,49 +189,53 @@ if (typeof window.StorageUtil === 'undefined') {
 
         return new Promise((resolve) => {
             try {
-                chrome.storage?.local?.get([pageKey], (data) => {
-                    const stored = data?.[pageKey];
-                    if (stored) {
-                        // 支持兩種格式：數組（舊版）和對象（新版 {url, highlights}）
-                        let highlights = [];
-                        if (Array.isArray(stored)) {
-                            highlights = stored;
-                        } else if (stored.highlights && Array.isArray(stored.highlights)) {
-                            highlights = stored.highlights;
-                        }
-
-                        if (highlights.length > 0) {
-
-                            resolve(highlights);
-                            return;
-                        }
-                    }
-
-
-                    // 兼容舊版：從 localStorage 回退
-                    const legacy = localStorage.getItem(pageKey);
-                    if (legacy) {
-
-                        try {
-                            const parsed = JSON.parse(legacy);
+                if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+                    chrome.storage.local.get([pageKey], (data) => {
+                        const stored = data?.[pageKey];
+                        if (stored) {
+                            // 支持兩種格式：數組（舊版）和對象（新版 {url, highlights}）
                             let highlights = [];
-                            if (Array.isArray(parsed)) {
-                                highlights = parsed;
-                            } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
-                                highlights = parsed.highlights;
+                            if (Array.isArray(stored)) {
+                                highlights = stored;
+                            } else if (stored.highlights && Array.isArray(stored.highlights)) {
+                                highlights = stored.highlights;
                             }
 
                             if (highlights.length > 0) {
+
                                 resolve(highlights);
                                 return;
                             }
-                        } catch (e) {
-                            console.error('Failed to parse legacy highlights:', e);
                         }
-                    }
 
-                    resolve([]);
-                });
+
+                        // 兼容舊版：從 localStorage 回退
+                        const legacy = localStorage.getItem(pageKey);
+                        if (legacy) {
+
+                            try {
+                                const parsed = JSON.parse(legacy);
+                                let highlights = [];
+                                if (Array.isArray(parsed)) {
+                                    highlights = parsed;
+                                } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
+                                    highlights = parsed.highlights;
+                                }
+
+                                if (highlights.length > 0) {
+                                    resolve(highlights);
+                                    return;
+                                }
+                            } catch (e) {
+                                console.error('Failed to parse legacy highlights:', e);
+                            }
+                        }
+
+                        resolve([]);
+                    });
+                } else {
+                    throw new Error('Chrome storage not available');
+                }
             } catch (e) {
                 console.log('Chrome storage not available, falling back to localStorage');
                 const legacy = localStorage.getItem(pageKey);
@@ -299,8 +308,8 @@ if (typeof window.StorageUtil === 'undefined') {
      * @param {string} key - 存儲鍵
      * @returns {Promise<void>}
      */
-    async _clearFromChromeStorage(key) {
-        if (!chrome?.storage?.local) {
+    _clearFromChromeStorage(key) {
+        if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
             throw new Error('Chrome storage not available');
         }
 
@@ -325,7 +334,7 @@ if (typeof window.StorageUtil === 'undefined') {
      * @param {string} key - 存儲鍵
      * @returns {Promise<void>}
      */
-    async _clearFromLocalStorage(key) {
+    _clearFromLocalStorage(key) {
         return new Promise((resolve, reject) => {
             try {
                 localStorage.removeItem(key);
@@ -343,18 +352,22 @@ if (typeof window.StorageUtil === 'undefined') {
     debugListAllKeys() {
         return new Promise((resolve) => {
             try {
-                chrome.storage?.local?.get(null, (data) => {
-                    const highlightKeys = Object.keys(data || {}).filter(keyName => keyName.startsWith('highlights_'));
-                    try { safeLogger.info(`📋 所有標註鍵 (${highlightKeys.length} 個):`); } catch (_) {}
-                    highlightKeys.forEach(keyName => {
-                        const count = Array.isArray(data[keyName])
-                            ? data[keyName].length
-                            : (data[keyName]?.highlights?.length || 0);
-                        const url = keyName.replace('highlights_', '');
-                        try { safeLogger.info(`   ${count} 個標註: ${url}`); } catch (_) {}
+                if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+                    chrome.storage.local.get(null, (data) => {
+                        const highlightKeys = Object.keys(data || {}).filter(keyName => keyName.startsWith('highlights_'));
+                        try { safeLogger.info(`📋 所有標註鍵 (${highlightKeys.length} 個):`); } catch (_) {}
+                        highlightKeys.forEach(keyName => {
+                            const count = Array.isArray(data[keyName])
+                                ? data[keyName].length
+                                : (data[keyName]?.highlights?.length || 0);
+                            const url = keyName.replace('highlights_', '');
+                            try { safeLogger.info(`   ${count} 個標註: ${url}`); } catch (_) {}
+                        });
+                        resolve(highlightKeys);
                     });
-                    resolve(highlightKeys);
-                });
+                } else {
+                    resolve([]);
+                }
             } catch (_) {
                 resolve([]);
             }
@@ -370,10 +383,13 @@ if (typeof window.Logger === 'undefined') {
     // 簡易開發模式偵測：版本字串含 dev 或手動開關
     const __LOGGER_DEV__ = (() => {
         try {
-            const manifest = chrome?.runtime?.getManifest?.();
-            const versionString = manifest?.version_name || manifest?.version || '';
-            const flag = (typeof window !== 'undefined' && window.__FORCE_LOG__ === true) || (typeof window !== 'undefined' && window.__LOGGER_ENABLED__ === true);
-            return /dev/i.test(versionString) || flag;
+            if (typeof chrome !== 'undefined') {
+                const manifest = chrome?.runtime?.getManifest?.();
+                const versionString = manifest?.version_name || manifest?.version || '';
+                const flag = (typeof window !== 'undefined' && window.__FORCE_LOG__ === true) || (typeof window !== 'undefined' && window.__LOGGER_ENABLED__ === true);
+                return /dev/i.test(versionString) || flag;
+            }
+            return false;
         } catch (e) {
             return false;
         }
