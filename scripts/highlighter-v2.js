@@ -1355,37 +1355,184 @@ const logger = (() => {
         }
 
         /**
-         * v2.9.12: 等待 DOM 穩定
-         * @param {number} timeout - 等待穩定的超時時間（毫秒）
-         * @returns {Promise<void>} 當 DOM 穩定後 resolve 的 Promise
+         * v2.9.12+: 等待 DOM 穩定 - 增強版
+         *
+         * 監視指定容器或整個文檔的 DOM 變更，當在穩定閾值時間內無新增變更時視為穩定。
+         * 使用 requestIdleCallback（若可用）或 setTimeout 進行檢查。
+         *
+         * @param {Object} options - 配置選項
+         * @param {string} [options.containerSelector] - 要監視的容器選擇器（不提供則監視 document.body）
+         * @param {number} [options.stabilityThresholdMs=150] - 穩定閾值（毫秒）：此時間內無變更視為穩定
+         * @param {number} [options.maxWaitMs=5000] - 最大等待時間（毫秒）：超時則返回 false
+         * @returns {Promise<boolean>} true=成功穩定, false=超時或找不到容器
+         *
+         * @example
+         * // 等待整個文檔穩定
+         * const isStable = await HighlightManager.waitForDOMStability();
+         *
+         * @example
+         * // 等待特定容器穩定，自訂閾值
+         * const isStable = await HighlightManager.waitForDOMStability({
+         *   containerSelector: '#main-content',
+         *   stabilityThresholdMs: 200,
+         *   maxWaitMs: 3000
+         * });
          */
-        static waitForDOMStability(timeout = 100) {
-            return new Promise(resolve => {
-                let lastChange = Date.now();
+        static waitForDOMStability(options = {}) {
+            // 解構選項並設置默認值
+            const {
+                containerSelector = null,
+                stabilityThresholdMs = 150,
+                maxWaitMs = 5000
+            } = options;
+
+            return new Promise((resolve) => {
+                // 前置檢查：確保 document 和 document.body 存在
+                if (typeof document === 'undefined' || !document.body) {
+                    logger.warn('⚠️ [waitForDOMStability] document.body 不存在');
+                    resolve(false);
+                    return;
+                }
+
+                // 確定要監視的容器
+                let targetContainer = document.body;
+                if (containerSelector) {
+                    const container = document.querySelector(containerSelector);
+                    if (!container) {
+                        logger.warn(`⚠️ [waitForDOMStability] 找不到容器: ${containerSelector}`);
+                        resolve(false);
+                        return;
+                    }
+                    targetContainer = container;
+                }
+
+                // 資源追蹤（用於清理）
                 let observer = null;
+                let stabilityTimerId = null;
+                let maxWaitTimerId = null;
+                let idleCallbackId = null;
+
+                // 記錄最後一次變更時間
+                let lastMutationTime = Date.now();
 
                 /**
-                 * 檢查 DOM 是否已穩定
-                 * 如果自最後一次變更起經過的時間超過 timeout，則斷開觀察器並 resolve Promise
+                 * 清理所有資源
                  */
-                const checkStability = () => {
-                    if (Date.now() - lastChange > timeout) {
+                const cleanup = () => {
+                    // 斷開觀察器
+                    if (observer) {
                         observer.disconnect();
-                        resolve();
+                        observer = null;
+                    }
+
+                    // 清除所有計時器
+                    if (stabilityTimerId !== null) {
+                        clearTimeout(stabilityTimerId);
+                        stabilityTimerId = null;
+                    }
+
+                    if (maxWaitTimerId !== null) {
+                        clearTimeout(maxWaitTimerId);
+                        maxWaitTimerId = null;
+                    }
+
+                    // 取消 idle callback（若存在）
+                    if (idleCallbackId !== null && typeof cancelIdleCallback !== 'undefined') {
+                        cancelIdleCallback(idleCallbackId);
+                        idleCallbackId = null;
                     }
                 };
 
+                /**
+                 * 檢查 DOM 是否已穩定
+                 * @returns {boolean} true 表示已穩定
+                 */
+                const checkStability = () => {
+                    const timeSinceLastMutation = Date.now() - lastMutationTime;
+
+                    if (timeSinceLastMutation >= stabilityThresholdMs) {
+                        // DOM 已穩定
+                        cleanup();
+                        logger.log(`✅ [waitForDOMStability] DOM 已穩定 (${timeSinceLastMutation}ms 無變更)`);
+                        resolve(true);
+                        return true;
+                    }
+
+                    return false;
+                };
+
+                /**
+                 * 使用 requestIdleCallback 或 setTimeout 排程穩定檢查
+                 */
+                const scheduleStabilityCheck = () => {
+                    // 清除之前的計時器
+                    if (stabilityTimerId !== null) {
+                        clearTimeout(stabilityTimerId);
+                        stabilityTimerId = null;
+                    }
+                    if (idleCallbackId !== null && typeof cancelIdleCallback !== 'undefined') {
+                        cancelIdleCallback(idleCallbackId);
+                        idleCallbackId = null;
+                    }
+
+                    // 優先使用 requestIdleCallback（若可用）
+                    if (typeof requestIdleCallback !== 'undefined') {
+                        idleCallbackId = requestIdleCallback(() => {
+                            if (!checkStability()) {
+                                // 尚未穩定，繼續排程下一次檢查
+                                stabilityTimerId = setTimeout(scheduleStabilityCheck, stabilityThresholdMs);
+                            }
+                        }, { timeout: stabilityThresholdMs });
+                    } else {
+                        // 回退到 setTimeout
+                        stabilityTimerId = setTimeout(() => {
+                            if (!checkStability()) {
+                                // 尚未穩定，繼續排程下一次檢查
+                                scheduleStabilityCheck();
+                            }
+                        }, stabilityThresholdMs);
+                    }
+                };
+
+                /**
+                 * 超時處理
+                 */
+                const handleTimeout = () => {
+                    cleanup();
+                    logger.warn(`⚠️ [waitForDOMStability] 超時 (${maxWaitMs}ms)，DOM 未穩定`);
+                    resolve(false);
+                };
+
+                // 設置最大等待時間計時器
+                maxWaitTimerId = setTimeout(handleTimeout, maxWaitMs);
+
+                // 創建 MutationObserver
                 observer = new MutationObserver(() => {
-                    lastChange = Date.now();
+                    // 更新最後變更時間（避免在高頻 mutation 下執行昂貴操作）
+                    lastMutationTime = Date.now();
+
+                    // 重新排程穩定檢查
+                    scheduleStabilityCheck();
                 });
 
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true,
-                    characterData: true
-                });
+                // 開始觀察（只監視必要的屬性）
+                try {
+                    observer.observe(targetContainer, {
+                        childList: true,  // 監視子節點的添加/移除
+                        subtree: true     // 監視整個子樹
+                        // 不監視 attributes、characterData 等以提升性能
+                    });
 
-                setTimeout(checkStability, timeout + 10);
+                    // 初始排程穩定檢查
+                    scheduleStabilityCheck();
+
+                    logger.log(`🔍 [waitForDOMStability] 開始監視 DOM (閾值: ${stabilityThresholdMs}ms, 超時: ${maxWaitMs}ms)`);
+                } catch (error) {
+                    // 觀察失敗，清理並返回 false
+                    cleanup();
+                    logger.error(`❌ [waitForDOMStability] 觀察失敗:`, error);
+                    resolve(false);
+                }
             });
         }
 
