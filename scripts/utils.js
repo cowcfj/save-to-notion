@@ -310,7 +310,7 @@ if (typeof window.StorageUtil === 'undefined') {
      */
     _clearFromChromeStorage(key) {
         if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-            throw new Error('Chrome storage not available');
+            return Promise.reject(new Error('Chrome storage not available'));
         }
 
         return new Promise((resolve, reject) => {
