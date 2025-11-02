@@ -4,7 +4,6 @@
  */
 
 describe('HighlightManager.waitForDOMStability', () => {
-    let HighlightManager;
     let originalRequestIdleCallback;
     let originalCancelIdleCallback;
 
@@ -39,10 +38,8 @@ describe('HighlightManager.waitForDOMStability', () => {
             // 模擬 MutationObserver
             const mockDisconnect = jest.fn();
             const mockObserve = jest.fn();
-            let mutationCallback;
 
-            global.MutationObserver = jest.fn((callback) => {
-                mutationCallback = callback;
+            global.MutationObserver = jest.fn((_callback) => {
                 return {
                     observe: mockObserve,
                     disconnect: mockDisconnect
