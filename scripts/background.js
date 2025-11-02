@@ -2415,7 +2415,7 @@ async function handleSavePage(sendResponse) {
 
                     let bestElement = null;
                     let maxScore = 0;
-                    let node;
+                    let node = null;
 
                     while (node = walker.nextNode()) {
                         const text = node.textContent?.trim();
@@ -2666,8 +2666,11 @@ async function handleSavePage(sendResponse) {
                 }
 
                 if (finalContent) {
-                    // 聲明 blocks 變數
-                    let blocks;
+                    /**
+                     * @type {Array<Object>|null} Notion blocks 陣列，存儲從 HTML 轉換的內容區塊
+                     * 初始化為 null 以明確表示「尚未轉換」狀態，便於後續檢查與錯誤處理
+                     */
+                    let blocks = null;
 
                     // 優先使用增強轉換器
                     if (typeof window.convertHtmlToNotionBlocks === 'function') {

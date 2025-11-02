@@ -1168,8 +1168,8 @@ const logger = (() => {
                         }
                     }
 
-                    // v2.8.0: 傳入 text 參數用於驗證
-                    const range = this.deserializeRange(highlightData.rangeInfo, highlightData.text);
+                    // v2.9.12: 增強恢復邏輯 - 實現穩健的 Range 重建
+                    const range = await this.restoreRangeWithRetry(highlightData.rangeInfo, highlightData.text);
                     if (range) {
                         const id = highlightData.id;
 
@@ -1193,7 +1193,7 @@ const logger = (() => {
                         restored++;
                     } else {
                         failed++;
-                        logger.warn(`   ❌ 恢復失敗: ${highlightData.id} - Range 反序列化失敗`);
+                        logger.warn(`   ❌ 恢復失敗: ${highlightData.id} - Range 重建失敗`);
                     }
                 }
 
@@ -1223,6 +1223,158 @@ const logger = (() => {
                 logger.error('❌ 恢復標註失敗:', error);
                 logger.error('錯誤堆棧:', error.stack);
             }
+        }
+
+        /**
+         * v2.9.12: 增強的 Range 恢復邏輯 - 帶重試機制
+         */
+        async restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    // 首先嘗試標準反序列化
+                    const range = this.deserializeRange(rangeInfo, text);
+                    if (range && this.validateRange(range, text)) {
+                        return range;
+                    }
+
+                    // 如果失敗，嘗試基於文本內容的恢復
+                    if (attempt > 0) {
+                        const fallbackRange = await this.findRangeByTextContent(text, rangeInfo);
+                        if (fallbackRange && this.validateRange(fallbackRange, text)) {
+                            logger.info(`   🔄 [v2.9.12] 使用文本回退成功恢復 Range (嘗試 ${attempt + 1})`);
+                            return fallbackRange;
+                        }
+                    }
+
+                    // 等待 DOM 變化後重試
+                    if (attempt < maxRetries - 1) {
+                        await this.waitForDOMStability(100 * (attempt + 1));
+                    }
+                } catch (error) {
+                    logger.warn(`   ⚠️ Range 恢復嘗試 ${attempt + 1} 失敗:`, error.message);
+                }
+            }
+
+            logger.error(`   ❌ Range 恢復失敗，已嘗試 ${maxRetries} 次`);
+            return null;
+        }
+
+        /**
+         * v2.9.12: 基於文本內容查找 Range 的回退機制
+         */
+        async findRangeByTextContent(targetText, rangeInfo) {
+            try {
+                // 在整個文檔中搜索匹配的文本
+                const walker = document.createTreeWalker(
+                    document.body,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+
+                let node;
+                while (node = walker.nextNode()) {
+                    const textContent = node.textContent;
+                    const index = textContent.indexOf(targetText);
+
+                    if (index !== -1) {
+                        // 找到匹配的文本，創建 Range
+                        const range = document.createRange();
+                        range.setStart(node, index);
+                        range.setEnd(node, index + targetText.length);
+
+                        // 驗證上下文是否匹配（如果有保存的上下文信息）
+                        if (this.validateRangeContext(range, rangeInfo)) {
+                            return range;
+                        }
+                    }
+                }
+            } catch (error) {
+                logger.warn('   ⚠️ 文本回退搜索失敗:', error.message);
+            }
+
+            return null;
+        }
+
+        /**
+         * v2.9.12: 驗證 Range 是否有效
+         */
+        validateRange(range, expectedText) {
+            try {
+                if (!range || !range.toString) return false;
+
+                const actualText = range.toString().trim();
+                const expectedTrimmed = expectedText.trim();
+
+                // 允許一些文本變化的容忍度
+                return actualText.length >= expectedTrimmed.length * 0.8 &&
+                       expectedTrimmed.includes(actualText.substring(0, 20));
+            } catch (error) {
+                return false;
+            }
+        }
+
+        /**
+         * v2.9.12: 驗證 Range 上下文是否匹配
+         */
+        validateRangeContext(range, rangeInfo) {
+            try {
+                // 如果沒有上下文信息，認為匹配
+                if (!rangeInfo.contextBefore && !rangeInfo.contextAfter) {
+                    return true;
+                }
+
+                // 檢查前後文是否匹配
+                const rangeText = range.toString();
+                const container = range.commonAncestorContainer;
+
+                // 獲取更大範圍的文本來檢查上下文
+                const parentText = container.textContent || '';
+                const rangeStart = parentText.indexOf(rangeText);
+
+                if (rangeStart === -1) return false;
+
+                // 檢查前後文
+                const beforeText = parentText.substring(Math.max(0, rangeStart - 50), rangeStart);
+                const afterText = parentText.substring(rangeStart + rangeText.length, rangeStart + rangeText.length + 50);
+
+                const contextMatches = (!rangeInfo.contextBefore || beforeText.includes(rangeInfo.contextBefore)) &&
+                                      (!rangeInfo.contextAfter || afterText.includes(rangeInfo.contextAfter));
+
+                return contextMatches;
+            } catch (error) {
+                logger.warn('   ⚠️ 上下文驗證失敗:', error.message);
+                return true; // 容錯：如果驗證失敗，認為匹配
+            }
+        }
+
+        /**
+         * v2.9.12: 等待 DOM 穩定
+         */
+        async waitForDOMStability(timeout = 100) {
+            return new Promise(resolve => {
+                let lastChange = Date.now();
+                let observer;
+
+                const checkStability = () => {
+                    if (Date.now() - lastChange > timeout) {
+                        observer.disconnect();
+                        resolve();
+                    }
+                };
+
+                observer = new MutationObserver(() => {
+                    lastChange = Date.now();
+                });
+
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true
+                });
+
+                setTimeout(checkStability, timeout + 10);
+            });
         }
 
         /**
