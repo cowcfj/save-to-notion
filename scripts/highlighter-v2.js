@@ -1350,12 +1350,18 @@ const logger = (() => {
 
         /**
          * v2.9.12: 等待 DOM 穩定
+         * @param {number} timeout - 等待穩定的超時時間（毫秒）
+         * @returns {Promise<void>} 當 DOM 穩定後 resolve 的 Promise
          */
-        async waitForDOMStability(timeout = 100) {
+        waitForDOMStability(timeout = 100) {
             return new Promise(resolve => {
                 let lastChange = Date.now();
                 let observer = null;
 
+                /**
+                 * 檢查 DOM 是否已穩定
+                 * 如果自最後一次變更起經過的時間超過 timeout，則斷開觀察器並 resolve Promise
+                 */
                 const checkStability = () => {
                     if (Date.now() - lastChange > timeout) {
                         observer.disconnect();
