@@ -443,9 +443,13 @@ describe('HighlightManager.waitForDOMStability', () => {
         });
 
         test('應該在 document.body 不存在時返回 false', async () => {
-            // 暫時移除 document.body
-            const originalBody = global.document.body;
-            global.document.body = null;
+            // 使用 Object.defineProperty 暫時覆蓋 document.body
+            const originalDescriptor = Object.getOwnPropertyDescriptor(global.document, 'body');
+
+            Object.defineProperty(global.document, 'body', {
+                configurable: true,
+                get: () => null
+            });
 
             class TestHighlightManager {
                 static async waitForDOMStability() {
@@ -464,15 +468,25 @@ describe('HighlightManager.waitForDOMStability', () => {
             expect(result).toBe(false);
 
             // 恢復 document.body
-            global.document.body = originalBody;
+            if (originalDescriptor) {
+                Object.defineProperty(global.document, 'body', originalDescriptor);
+            }
         });
     });
 
     describe('資源清理測試', () => {
         test('應該正確清理所有資源', async () => {
+            jest.useFakeTimers();
+
             const mockDisconnect = jest.fn();
             const mockObserve = jest.fn();
-            const mockClearTimeout = jest.spyOn(global, 'clearTimeout');
+            let clearTimeoutCallCount = 0;
+            const originalClearTimeout = global.clearTimeout;
+
+            global.clearTimeout = jest.fn((timerId) => {
+                clearTimeoutCallCount++;
+                return originalClearTimeout(timerId);
+            });
 
             global.MutationObserver = jest.fn(() => ({
                 observe: mockObserve,
@@ -480,13 +494,12 @@ describe('HighlightManager.waitForDOMStability', () => {
             }));
 
             global.requestIdleCallback = undefined;
-            jest.useFakeTimers();
 
             class TestHighlightManager {
                 static async waitForDOMStability(options = {}) {
                     const {
                         stabilityThresholdMs = 150,
-                        maxWaitMs = 5000
+                        maxWaitMs = 200
                     } = options;
 
                     return new Promise((resolve) => {
@@ -501,9 +514,11 @@ describe('HighlightManager.waitForDOMStability', () => {
                             }
                             if (stabilityTimerId !== null) {
                                 clearTimeout(stabilityTimerId);
+                                stabilityTimerId = null;
                             }
                             if (maxWaitTimerId !== null) {
                                 clearTimeout(maxWaitTimerId);
+                                maxWaitTimerId = null;
                             }
                         };
 
@@ -549,14 +564,16 @@ describe('HighlightManager.waitForDOMStability', () => {
 
             const promise = TestHighlightManager.waitForDOMStability();
 
+            // 推進時間觸發超時
             jest.advanceTimersByTime(200);
+
             await promise;
 
             // 驗證清理操作
             expect(mockDisconnect).toHaveBeenCalled();
-            expect(mockClearTimeout).toHaveBeenCalled();
+            expect(clearTimeoutCallCount).toBeGreaterThan(0);
 
-            mockClearTimeout.mockRestore();
+            global.clearTimeout = originalClearTimeout;
             jest.useRealTimers();
         });
     });

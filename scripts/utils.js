@@ -250,8 +250,6 @@ if (typeof window.StorageUtil === 'undefined') {
                     chrome.storage.local.remove([pageKey], () => {
                         if (chrome.runtime.lastError) {
                             console.error('Failed to clear highlights from chrome.storage:', chrome.runtime.lastError);
-                        } else {
-
                         }
 
                         // 同時清除 localStorage
@@ -313,8 +311,6 @@ if (typeof window.StorageUtil === 'undefined') {
         });
     }
     }; // 結束 window.StorageUtil 定義
-} else {
-
 }
 
 /**
