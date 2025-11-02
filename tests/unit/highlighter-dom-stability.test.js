@@ -54,7 +54,7 @@ describe('HighlightManager.waitForDOMStability', () => {
 
             // 創建測試用的 HighlightManager 類
             class TestHighlightManager {
-                static async waitForDOMStability(options = {}) {
+                static waitForDOMStability(options = {}) {
                     const {
                         containerSelector = null,
                         stabilityThresholdMs = 150,
@@ -195,7 +195,7 @@ describe('HighlightManager.waitForDOMStability', () => {
             jest.useFakeTimers();
 
             class TestHighlightManager {
-                static async waitForDOMStability(options = {}) {
+                static waitForDOMStability(options = {}) {
                     const {
                         containerSelector = null,
                         stabilityThresholdMs = 150,
@@ -315,7 +315,7 @@ describe('HighlightManager.waitForDOMStability', () => {
             jest.useFakeTimers();
 
             class TestHighlightManager {
-                static async waitForDOMStability(options = {}) {
+                static waitForDOMStability(options = {}) {
                     const {
                         stabilityThresholdMs = 150,
                         maxWaitMs = 5000
@@ -409,7 +409,7 @@ describe('HighlightManager.waitForDOMStability', () => {
             global.document.querySelector = jest.fn(() => null);
 
             class TestHighlightManager {
-                static async waitForDOMStability(options = {}) {
+                static waitForDOMStability(options = {}) {
                     const { containerSelector = null } = options;
 
                     return new Promise((resolve) => {
@@ -449,7 +449,7 @@ describe('HighlightManager.waitForDOMStability', () => {
             });
 
             class TestHighlightManager {
-                static async waitForDOMStability() {
+                static waitForDOMStability() {
                     return new Promise((resolve) => {
                         if (typeof document === 'undefined' || !document.body) {
                             resolve(false);
@@ -493,7 +493,7 @@ describe('HighlightManager.waitForDOMStability', () => {
             global.requestIdleCallback = undefined;
 
             class TestHighlightManager {
-                static async waitForDOMStability(options = {}) {
+                static waitForDOMStability(options = {}) {
                     const {
                         stabilityThresholdMs = 150,
                         maxWaitMs = 200
