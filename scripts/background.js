@@ -203,10 +203,11 @@ class ImageUrlValidationCache {
      * 獲取緩存統計信息
      */
     getStats() {
-        const hitRate = this.stats.hits / (this.stats.hits + this.stats.misses) * 100;
+        const total = this.stats.hits + this.stats.misses;
+        const hitRate = total > 0 ? (this.stats.hits / total) * 100 : 0;
         return {
             ...this.stats,
-            hitRate: hitRate.toFixed(2) + '%',
+            hitRate: `${hitRate.toFixed(2)}%`,
             size: this.cache.size,
             maxSize: this.maxSize
         };
