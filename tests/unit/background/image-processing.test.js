@@ -401,7 +401,7 @@ describe('Background Image Processing', () => {
   describe('图片处理集成测试', () => {
     it('应该完整处理图片 URL 流程', () => {
       // Arrange
-      const proxyUrl = 'https://pgw.udn.com.tw/gw/photo.php?u=' + 
+      const proxyUrl = 'https://pgw.udn.com.tw/gw/photo.php?u=' +
         encodeURIComponent('https://cdn.example.com/image.jpg?width=800&width=1200');
 
       // Act
@@ -425,7 +425,7 @@ describe('Background Image Processing', () => {
       complexUrls.forEach(url => {
         const cleaned = cleanImageUrlSimulated(url);
         const valid = isValidImageUrlSimulated(cleaned);
-        
+
         expect(cleaned).toBeTruthy();
         // 注意：某些复杂URL可能不被识别为有效图片URL，这是正常的
         // 这里我们主要测试清理功能不会崩溃
@@ -472,7 +472,7 @@ function isValidImageUrlSimulated(url) {
 
   // 简化的缓存实现
   const cache = isValidImageUrlSimulated._cache || (isValidImageUrlSimulated._cache = new Map());
-  
+
   if (cache.has(url)) {
     return cache.get(url);
   }
@@ -483,7 +483,7 @@ function isValidImageUrlSimulated(url) {
     return false;
   }
 
-  if (!cleanedUrl.match(/^https?:\/\//i)) {
+  if (!/^https?:\/\//i.test(cleanedUrl)) {
     cache.set(url, false);
     return false;
   }
