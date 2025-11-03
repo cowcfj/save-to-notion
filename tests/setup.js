@@ -47,7 +47,11 @@ global.Logger = {
                 args
             }, () => {});
         }
-        console.log(`[DEBUG] ${message}`, ...args); // Concatenate prefix with message to match test expectations
+        try {
+            console.log(`[DEBUG] ${message}`, ...args); // Concatenate prefix with message to match test expectations
+        } catch (e) {
+            // 忽略 console 錯誤
+        }
     }),
     info: jest.fn((message, ...args) => {
         // Simulate dev mode: send background log and console.log
@@ -59,7 +63,11 @@ global.Logger = {
                 args
             }, () => {});
         }
-        console.log(`[INFO] ${message}`, ...args); // Concatenate prefix with message to match test expectations
+        try {
+            console.log(`[INFO] ${message}`, ...args); // Concatenate prefix with message to match test expectations
+        } catch (e) {
+            // 忽略 console 錯誤
+        }
     }),
     warn: jest.fn((message, ...args) => {
         // Always send background log, optionally console.warn in dev mode
@@ -73,7 +81,11 @@ global.Logger = {
         }
         if (global.__LOGGER_DEV__) {
             // Tests expect console.warn with concatenated message
-            console.warn(`[WARN] ${message}`, ...args);
+            try {
+                console.warn(`[WARN] ${message}`, ...args);
+            } catch (e) {
+                // 忽略 console 錯誤
+            }
         }
     }),
     error: jest.fn((message, ...args) => {
@@ -86,7 +98,11 @@ global.Logger = {
                 args
             }, () => {});
         }
-        console.error(`[ERROR] ${message}`, ...args); // Concatenate prefix with message
+        try {
+            console.error(`[ERROR] ${message}`, ...args); // Concatenate prefix with message
+        } catch (e) {
+            // 忽略 console 錯誤
+        }
     })
 };
 // Mock chrome.runtime.sendMessage for Logger background logging

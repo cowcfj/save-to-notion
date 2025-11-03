@@ -15,7 +15,11 @@ if (typeof window === 'undefined') {
 // 防止重複注入導致的重複聲明錯誤
 const isReinjection = typeof window.StorageUtil !== 'undefined';
 if (isReinjection) {
-    console.log('⚠️ utils.js 已經加載，跳過重複注入');
+    try {
+        console.log('⚠️ utils.js 已經加載，跳過重複注入');
+    } catch (e) {
+        // 忽略 console 錯誤
+    }
     // 對於測試環境，仍然導出現有的函數
     if (typeof module !== 'undefined' && module.exports) {
       module.exports = {
@@ -290,42 +294,133 @@ if (typeof window.StorageUtil === 'undefined') {
     }
     }; // 結束 window.StorageUtil 定義
 } else {
-    console.log('⚠️ StorageUtil 已存在，跳過重複定義');
+    try {
+        console.log('⚠️ StorageUtil 已存在，跳過重複定義');
+    } catch (e) {
+        // 忽略 console 錯誤
+    }
 }
 
 /**
  * 日誌工具
  */
 if (typeof window.Logger === 'undefined') {
-    window.Logger = {
-    debug: (message, ...args) => {
-        console.log(`[DEBUG] ${message}`, ...args);
-    },
-    
-    info: (message, ...args) => {
-        console.log(`[INFO] ${message}`, ...args);
-    },
-    
-    warn: (message, ...args) => {
-        console.warn(`[WARN] ${message}`, ...args);
-    },
-    
-    error: (message, ...args) => {
-        console.error(`[ERROR] ${message}`, ...args);
+    // 檢查是否為開發模式
+    function isDevMode() {
+        // 首先檢查強制標記
+        if (window.__FORCE_LOG__ || window.__LOGGER_ENABLED__) {
+            return true;
+        }
+        
+        // 然後檢查 Chrome manifest
+        try {
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) {
+                const manifest = chrome.runtime.getManifest();
+                return manifest.version.includes('dev');
+            }
+        } catch (e) {
+            // 忽略錯誤
+        }
+        
+        return false;
     }
+
+    // 發送日誌到背景腳本
+    function __sendBackgroundLog(level, message, argsArray) {
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+            try {
+                chrome.runtime.sendMessage({
+                    action: 'devLogSink',
+                    level: level,
+                    message: message,
+                    args: Array.isArray(argsArray) ? argsArray : [argsArray]
+                }, () => {
+                    // 忽略回調錯誤
+                });
+            } catch (e) {
+                // 忽略發送錯誤
+            }
+        }
+    }
+
+    window.Logger = {
+        debug: (message, ...args) => {
+            if (isDevMode()) {
+                __sendBackgroundLog('debug', message, args);
+            }
+            try {
+                console.log(`[DEBUG] ${message}`, ...args);
+            } catch (e) {
+                // 忽略 console 錯誤
+            }
+        },
+        
+        info: (message, ...args) => {
+            if (isDevMode()) {
+                __sendBackgroundLog('info', message, args);
+            }
+            try {
+                console.log(`[INFO] ${message}`, ...args);
+            } catch (e) {
+                // 忽略 console 錯誤
+            }
+        },
+        
+        warn: (message, ...args) => {
+            __sendBackgroundLog('warn', message, args);
+            try {
+                console.warn(`[WARN] ${message}`, ...args);
+            } catch (e) {
+                // 忽略 console 錯誤
+            }
+        },
+        
+        error: (message, ...args) => {
+            __sendBackgroundLog('error', message, args);
+            try {
+                console.error(`[ERROR] ${message}`, ...args);
+            } catch (e) {
+                // 忽略 console 錯誤
+            }
+        }
     }; // 結束 window.Logger 定義
 } else {
-    console.log('⚠️ Logger 已存在，跳過重複定義');
+    try {
+        console.log('⚠️ Logger 已存在，跳過重複定義');
+    } catch (e) {
+        // 忽略 console 錯誤
+    }
 }
 
 // 暴露 normalizeUrl 函數
 if (typeof window.normalizeUrl === 'undefined') {
     window.normalizeUrl = normalizeUrl;
 } else {
-    console.log('⚠️ normalizeUrl 已存在，跳過重複定義');
+    try {
+        console.log('⚠️ normalizeUrl 已存在，跳過重複定義');
+    } catch (e) {
+        // 忽略 console 錯誤
+    }
 }
 
 } // 結束 else 區塊（如果 utils.js 未加載）
+
+// 初始化 Chrome Storage 監聽器
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync && chrome.storage.sync.onChanged) {
+    try {
+        chrome.storage.sync.onChanged.addListener((changes, areaName) => {
+            try {
+                if (areaName === 'sync' && changes && changes.enableDebugLogs) {
+                    window.__LOGGER_ENABLED__ = changes.enableDebugLogs.newValue;
+                }
+            } catch (e) {
+                // 忽略監聽器處理錯誤
+            }
+        });
+    } catch (e) {
+        // 忽略監聽器設置錯誤
+    }
+}
 
 // Node.js/Jest 環境導出
 if (typeof module !== 'undefined' && module.exports) {
