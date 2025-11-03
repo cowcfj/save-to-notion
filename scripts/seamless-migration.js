@@ -362,9 +362,22 @@
          * 手動觸發遷移重試（開發者工具）
          */
         async retryMigration(highlightManager) {
+            try {
+                // 重置遷移狀態為未開始
+                await this.updateMigrationState(MigrationPhase.NOT_STARTED);
 
-            await this.updateMigrationState(MigrationPhase.NOT_STARTED);
-            return await this.performSeamlessMigration(highlightManager);
+                // 執行完整遷移流程
+                return await this.performSeamlessMigration(highlightManager);
+            } catch (error) {
+                console.error('[遷移] ❌ 重試遷移失敗:', error);
+
+                // 返回失敗結果，包含錯誤信息
+                return {
+                    success: false,
+                    error: error.message,
+                    phase: MigrationPhase.FAILED
+                };
+            }
         }
 
         /**
