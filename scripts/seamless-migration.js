@@ -86,13 +86,13 @@
             // 根據階段執行相應操作
             switch (state.phase) {
                 case MigrationPhase.NOT_STARTED:
-                    return await this.phase1_CreateNewHighlights(highlightManager);
+                    return this.phase1_CreateNewHighlights(highlightManager);
 
                 case MigrationPhase.PHASE_1_CREATED:
-                    return await this.phase2_VerifyAndHide(highlightManager);
+                    return this.phase2_VerifyAndHide(highlightManager);
 
                 case MigrationPhase.PHASE_2_VERIFIED:
-                    return await this.phase3_RemoveOldSpans(highlightManager);
+                    return this.phase3_RemoveOldSpans(highlightManager);
 
                 case MigrationPhase.COMPLETED:
 
@@ -101,7 +101,7 @@
                 case MigrationPhase.FAILED:
 
                     await this.updateMigrationState(MigrationPhase.NOT_STARTED);
-                    return await this.performSeamlessMigration(highlightManager);
+                    return this.performSeamlessMigration(highlightManager);
 
                 default:
                     return { skipped: true };
@@ -200,7 +200,7 @@
             if (newHighlightsCount === 0) {
                 // 新標註恢復失敗，回滾
                 console.error('[遷移] ❌ 新標註未恢復，執行回滾');
-                return await this.rollback('verification_failed');
+                return this.rollback('verification_failed');
             }
 
             // 驗證成功，更新狀態
@@ -215,7 +215,7 @@
 
 
             // 立即進入階段3
-            return await this.phase3_RemoveOldSpans(highlightManager);
+            return this.phase3_RemoveOldSpans(highlightManager);
         }
 
         /**
