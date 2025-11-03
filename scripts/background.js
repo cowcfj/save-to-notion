@@ -339,14 +339,6 @@ function validateImageContent(url) {
     return matchesImagePattern;
 }
 
-/**
- * 清空圖片 URL 驗證緩存（維護用）
- */
-function clearImageUrlValidationCache() {
-    imageUrlValidationCache.clear();
-    Logger.log('🧹 [ImageValidation] 緩存已清空');
-}
-
 // 定期清理過期條目（每5分鐘）
 setInterval(() => {
     imageUrlValidationCache.cleanupExpired();
