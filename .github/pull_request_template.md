@@ -30,7 +30,7 @@ Notion Smart Clipper：CI/Jest 穩定化＋內容提取 testable 封裝與複雜
 ## 文件同步建議
 - 更新 `CHANGELOG.md`（已更新 v2.9.3 條目）。
 - 補充 `internal/specs/TECHNICAL_OVERVIEW.md` 的測試覆蓋與回退策略段落。
-- 若影響流程規範，更新 `Agents.md` 的測試覆蓋與常見場景章節。
+- 若影響流程規範，更新 `AGENTS.md` 的測試覆蓋與常見場景章節。
 
 ## 後續工作
 - htmlToNotionConverter：引用 `>`、分隔線 `---`、內聯粗斜體、連結 `title`、嵌套列表多層級縮排。
