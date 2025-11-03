@@ -54,6 +54,11 @@ module.exports = {
   // 轉換配置（如果需要）
   transform: {},
 
+  // 轉換 node_modules 中的 ES 模組
+  transformIgnorePatterns: [
+    'node_modules/(?!(jsdom|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree)/)'
+  ],
+
   // 詳細輸出
   verbose: true,
 

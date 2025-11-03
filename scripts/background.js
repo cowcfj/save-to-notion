@@ -63,47 +63,18 @@ function cleanImageUrl(url) {
     }
 }
 
-// 圖片 URL 驗證結果緩存
-const urlValidationCacheInline = new Map();
-const MAX_CACHE_SIZE_INLINE = 1000;
+// ============ 圖片 URL 驗證與緩存系統 ============
 
 /**
- * 檢查 URL 是否為有效的圖片格式
+ * 圖片 URL 驗證配置常量
  */
-function isValidImageUrl(url) {
-    if (!url || typeof url !== 'string') return false;
-
-    // 檢查緩存
-    if (urlValidationCacheInline.has(url)) {
-        return urlValidationCacheInline.get(url);
-    }
-
-    // 先清理 URL
-    const cleanedUrl = cleanImageUrl(url);
-    if (!cleanedUrl) {
-        // 緩存負面結果
-        cacheValidationResultInlineLocal(url, false);
-        return false;
-    }
-
-    // 檢查是否為有效的 HTTP/HTTPS URL
-    const HTTP_PROTOCOL_REGEX = /^https?:\/\//i;
-    if (!HTTP_PROTOCOL_REGEX.test(cleanedUrl)) {
-        cacheValidationResultInlineLocal(url, false);
-        return false;
-    }
-
-    // 檢查 URL 長度（Notion 有限制）
-    if (cleanedUrl.length > 2000) return false;
-
-    // 檢查常見的圖片文件擴展名
-    const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(?:\?.*)?$/i;
-
-    // 如果 URL 包含圖片擴展名，直接返回 true
-    if (imageExtensions.test(cleanedUrl)) return true;
-
-    // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑
-    const imagePathPatterns = [
+const IMAGE_VALIDATION_CONFIG = {
+    MAX_URL_LENGTH: 2000,
+    MAX_CACHE_SIZE: 500,  // 降低以減少記憶體使用
+    CACHE_TTL: 30 * 60 * 1000,  // 30分鐘 TTL
+    SUPPORTED_PROTOCOLS: ['http:', 'https:', 'data:', 'blob:'],
+    IMAGE_EXTENSIONS: /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i,
+    IMAGE_PATH_PATTERNS: [
         /\/image[s]?\//i,
         /\/img[s]?\//i,
         /\/photo[s]?\//i,
@@ -111,42 +82,268 @@ function isValidImageUrl(url) {
         /\/media\//i,
         /\/upload[s]?\//i,
         /\/asset[s]?\//i,
-        /\/file[s]?\//i
-    ];
-
-    // 排除明顯不是圖片的 URL
-    const excludePatterns = [
-        /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
+        /\/file[s]?\//i,
+        /\/content\//i,
+        /\/wp-content\//i,
+        /\/cdn\//i,
+        /cdn\d*\./i,
+        /\/static\//i,
+        /\/thumb[s]?\//i,
+        /\/thumbnail[s]?\//i,
+        /\/resize\//i,
+        /\/crop\//i,
+        /\/(\d{4})\/(\d{2})\//
+    ],
+    EXCLUDE_PATTERNS: [
+        /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
         /\/api\//i,
         /\/ajax\//i,
-        /\/callback/i
-    ];
+        /\/callback/i,
+        /\/track/i,
+        /\/analytics/i
+    ]
+};
 
-    if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
+/**
+ * 圖片 URL 驗證緩存類
+ * 實現真正的 LRU 緩存策略與 TTL
+ */
+class ImageUrlValidationCache {
+    constructor(maxSize = IMAGE_VALIDATION_CONFIG.MAX_CACHE_SIZE, ttl = IMAGE_VALIDATION_CONFIG.CACHE_TTL) {
+        this.cache = new Map();
+        this.maxSize = maxSize;
+        this.ttl = ttl;
+        this.accessOrder = new Map();  // 用於 LRU 追蹤
+        this.stats = { hits: 0, misses: 0, evictions: 0 };
+    }
+
+    /**
+     * 獲取緩存的驗證結果
+     * @param {string} url - 要檢查的 URL
+     * @returns {boolean|null} 驗證結果或 null（未緩存）
+     */
+    get(url) {
+        const entry = this.cache.get(url);
+        if (!entry) {
+            this.stats.misses++;
+            return null;
+        }
+
+        // 檢查是否過期
+        if (Date.now() - entry.timestamp > this.ttl) {
+            this.cache.delete(url);
+            this.accessOrder.delete(url);
+            this.stats.evictions++;
+            this.stats.misses++;
+            return null;
+        }
+
+        // 更新訪問順序（LRU）
+        this.accessOrder.delete(url);
+        this.accessOrder.set(url, Date.now());
+
+        this.stats.hits++;
+        return entry.isValid;
+    }
+
+    /**
+     * 設置緩存的驗證結果
+     * @param {string} url - 要緩存的 URL
+     * @param {boolean} isValid - 驗證結果
+     */
+    set(url, isValid) {
+        // 如果已存在，先刪除舊條目
+        if (this.cache.has(url)) {
+            this.accessOrder.delete(url);
+        }
+
+        // 檢查緩存大小限制
+        if (this.cache.size >= this.maxSize) {
+            this.evictLRU();
+        }
+
+        // 添加新條目
+        this.cache.set(url, {
+            isValid,
+            timestamp: Date.now()
+        });
+        this.accessOrder.set(url, Date.now());
+    }
+
+    /**
+     * 移除最少使用的條目（LRU）
+     */
+    evictLRU() {
+        const lruKey = this.accessOrder.keys().next().value;
+        if (lruKey) {
+            this.cache.delete(lruKey);
+            this.accessOrder.delete(lruKey);
+            this.stats.evictions++;
+        }
+    }
+
+    /**
+     * 清理過期的條目
+     */
+    cleanupExpired() {
+        const now = Date.now();
+        for (const [url, timestamp] of this.accessOrder) {
+            if (now - timestamp > this.ttl) {
+                this.cache.delete(url);
+                this.accessOrder.delete(url);
+                this.stats.evictions++;
+            } else {
+                // 因為 Map 是有序的，可以提前停止
+                break;
+            }
+        }
+    }
+
+    /**
+     * 獲取緩存統計信息
+     */
+    getStats() {
+        const total = this.stats.hits + this.stats.misses;
+        const hitRate = total > 0 ? (this.stats.hits / total) * 100 : 0;
+        return {
+            ...this.stats,
+            hitRate: `${hitRate.toFixed(2)}%`,
+            size: this.cache.size,
+            maxSize: this.maxSize
+        };
+    }
+
+    /**
+     * 清空緩存
+     */
+    clear() {
+        this.cache.clear();
+        this.accessOrder.clear();
+        this.stats = { hits: 0, misses: 0, evictions: 0 };
+    }
+}
+
+// 全域緩存實例
+const imageUrlValidationCache = new ImageUrlValidationCache();
+
+// 預編譯正則表達式以提升性能
+const HTTP_PROTOCOL_REGEX = /^https?:\/\//i;
+const DATA_PROTOCOL_REGEX = /^data:image\/(?:png|jpg|jpeg|gif|webp|svg\+xml);base64,/i;
+const BLOB_PROTOCOL_REGEX = /^blob:/i;
+
+/**
+ * 驗證圖片 URL 是否有效
+ * @param {string} url - 要驗證的圖片 URL
+ * @returns {boolean} 是否為有效的圖片 URL
+ */
+function isValidImageUrl(url) {
+    // 輸入驗證
+    if (!url || typeof url !== 'string') {
+        Logger.log('❌ [ImageValidation] 無效輸入：URL 為空或不是字符串');
         return false;
     }
 
-    const result = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+    // 修剪空白字符
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) {
+        Logger.log('❌ [ImageValidation] URL 為空字符串');
+        return false;
+    }
 
-    // 緩存結果
-    cacheValidationResultInlineLocal(url, result);
+    // 檢查緩存
+    const cachedResult = imageUrlValidationCache.get(trimmedUrl);
+    if (cachedResult !== null) {
+        return cachedResult;
+    }
 
-    return result;
+    try {
+        // 清理和標準化 URL
+        const cleanedUrl = cleanImageUrl(trimmedUrl);
+        if (!cleanedUrl) {
+            Logger.log('❌ [ImageValidation] URL 清理失敗');
+            imageUrlValidationCache.set(trimmedUrl, false);
+            return false;
+        }
+
+        // 驗證協議
+        if (!isValidProtocol(cleanedUrl)) {
+            Logger.log('❌ [ImageValidation] 不支持的協議');
+            imageUrlValidationCache.set(trimmedUrl, false);
+            return false;
+        }
+
+        // 檢查 URL 長度限制
+        if (cleanedUrl.length > IMAGE_VALIDATION_CONFIG.MAX_URL_LENGTH) {
+            Logger.log('❌ [ImageValidation] URL 長度超過限制');
+            imageUrlValidationCache.set(trimmedUrl, false);
+            return false;
+        }
+
+        // 檢查是否為圖片
+        const isValidImage = validateImageContent(cleanedUrl);
+
+        // 緩存結果
+        imageUrlValidationCache.set(trimmedUrl, isValidImage);
+
+        return isValidImage;
+
+    } catch (error) {
+        Logger.error('❌ [ImageValidation] 驗證過程中發生錯誤:', error);
+        imageUrlValidationCache.set(trimmedUrl, false);
+        return false;
+    }
 }
 
 /**
- * 緩存圖片 URL 驗證結果
+ * 驗證 URL 協議是否受支持
+ * @param {string} url - 要檢查的 URL
+ * @returns {boolean} 是否為受支持的協議
  */
-function cacheValidationResultInlineLocal(url, isValid) {
-    // 檢查緩存大小限制
-    if (urlValidationCacheInline.size >= MAX_CACHE_SIZE_INLINE) {
-        // 刪除最舊的條目（簡單的 FIFO 策略）
-        const firstKey = urlValidationCacheInline.keys().next().value;
-        urlValidationCacheInline.delete(firstKey);
+function isValidProtocol(url) {
+    try {
+        // 檢查不同協議類型
+        if (url.startsWith('data:')) {
+            return DATA_PROTOCOL_REGEX.test(url);
+        }
+
+        if (url.startsWith('blob:')) {
+            return BLOB_PROTOCOL_REGEX.test(url);
+        }
+
+        // 對於 HTTP/HTTPS URLs
+        return HTTP_PROTOCOL_REGEX.test(url);
+    } catch (error) {
+        Logger.error('❌ [ProtocolValidation] 協議檢查失敗:', error);
+        return false;
+    }
+}
+
+/**
+ * 驗證 URL 內容是否為圖片
+ * @param {string} url - 要檢查的 URL
+ * @returns {boolean} 是否為圖片內容
+ */
+function validateImageContent(url) {
+    // 如果 URL 包含圖片擴展名，直接返回 true
+    if (IMAGE_VALIDATION_CONFIG.IMAGE_EXTENSIONS.test(url)) {
+        return true;
     }
 
-    urlValidationCacheInline.set(url, isValid);
+    // 排除明顯不是圖片的 URL
+    if (IMAGE_VALIDATION_CONFIG.EXCLUDE_PATTERNS.some(pattern => pattern.test(url))) {
+        return false;
+    }
+
+    // 檢查路徑模式
+    const matchesImagePattern = IMAGE_VALIDATION_CONFIG.IMAGE_PATH_PATTERNS.some(pattern => pattern.test(url));
+
+    return matchesImagePattern;
 }
+
+// 定期清理過期條目（每5分鐘）
+setInterval(() => {
+    imageUrlValidationCache.cleanupExpired();
+}, 5 * 60 * 1000);
 
 // ==========================================
 // TEXT UTILITIES
@@ -1798,95 +1995,6 @@ async function handleSavePage(sendResponse) {
                 }
             }
 
-            // 圖片 URL 驗證結果緩存（內聯函數版本）
-            const urlValidationCacheInline = new Map();
-            const MAX_CACHE_SIZE_INLINE = 1000;
-
-            function isValidImageUrl(url) {
-                if (!url || typeof url !== 'string') return false;
-
-                // 檢查緩存
-                if (urlValidationCacheInline.has(url)) {
-                    return urlValidationCacheInline.get(url);
-                }
-
-                // 先清理 URL
-                const cleanedUrl = cleanImageUrl(url);
-                if (!cleanedUrl) {
-                    // 緩存負面結果
-                    cacheValidationResultInlineLocal(url, false);
-                    return false;
-                }
-
-                // 檢查是否為有效的 HTTP/HTTPS URL
-                if (!cleanedUrl.match(/^https?:\/\//i)) return false;
-
-                // 檢查 URL 長度（Notion 有限制）
-                if (cleanedUrl.length > 2000) return false;
-
-                // v2.5.4: 擴展圖片格式支持
-                const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
-
-                // 如果 URL 包含圖片擴展名，直接返回 true
-                if (imageExtensions.test(cleanedUrl)) return true;
-
-                // v2.5.4: 擴展路徑模式識別
-                const imagePathPatterns = [
-                    /\/image[s]?\//i,
-                    /\/img[s]?\//i,
-                    /\/photo[s]?\//i,
-                    /\/picture[s]?\//i,
-                    /\/media\//i,
-                    /\/upload[s]?\//i,
-                    /\/asset[s]?\//i,
-                    /\/file[s]?\//i,
-                    /\/content\//i,
-                    /\/wp-content\//i,
-                    /\/cdn\//i,
-                    /cdn\d*\./i,  // cdn1.example.com, cdn2.example.com
-                    /\/static\//i,
-                    /\/thumb[s]?\//i,
-                    /\/thumbnail[s]?\//i,
-                    /\/resize\//i,
-                    /\/crop\//i,
-                    /\/(\d{4})\/(\d{2})\//  // 日期路徑如 /2025/10/
-                ];
-
-                // 排除明顯不是圖片的 URL
-                const excludePatterns = [
-                    /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
-                    /\/api\//i,
-                    /\/ajax\//i,
-                    /\/callback/i,
-                    /\/track/i,
-                    /\/analytics/i
-                ];
-
-                if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
-                    return false;
-                }
-
-                const matchesImagePattern = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
-
-                // 緩存結果
-                cacheValidationResultInlineLocal(url, matchesImagePattern);
-
-                return matchesImagePattern;
-            }
-
-            /**
-             * 緩存圖片 URL 驗證結果（內聯函數版本）
-             */
-            function cacheValidationResultInlineLocal(url, isValid) {
-                // 檢查緩存大小限制
-                if (urlValidationCacheInline.size >= MAX_CACHE_SIZE_INLINE) {
-                    // 刪除最舊的條目（簡單的 FIFO 策略）
-                    const firstKey = urlValidationCacheInline.keys().next().value;
-                    urlValidationCacheInline.delete(firstKey);
-                }
-
-                urlValidationCacheInline.set(url, isValid);
-            }
 
             // ============ v2.5.6: 封面圖/特色圖片提取功能 ============
             /**
