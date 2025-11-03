@@ -266,18 +266,26 @@ if (typeof window.StorageUtil === 'undefined') {
      */
     async debugListAllKeys() {
         return new Promise((resolve) => {
-            chrome.storage?.local?.get(null, (data) => {
-                const highlightKeys = Object.keys(data).filter(k => k.startsWith('highlights_'));
-                console.log('📋 所有標註鍵 (' + highlightKeys.length + ' 個):');
-                highlightKeys.forEach(key => {
-                    const count = Array.isArray(data[key]) 
-                        ? data[key].length 
-                        : (data[key]?.highlights?.length || 0);
-                    const url = key.replace('highlights_', '');
-                    console.log(`   ${count} 個標註: ${url}`);
-                });
-                resolve(highlightKeys);
-            });
+            try {
+                if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+                    chrome.storage.local.get(null, (data) => {
+                        const highlightKeys = Object.keys(data || {}).filter(k => k.startsWith('highlights_'));
+                        try { console.log('📋 所有標註鍵 (' + highlightKeys.length + ' 個):'); } catch (_) {}
+                        highlightKeys.forEach(key => {
+                            const count = Array.isArray(data[key]) 
+                                ? data[key].length 
+                                : (data[key]?.highlights?.length || 0);
+                            const url = key.replace('highlights_', '');
+                            try { console.log(`   ${count} 個標註: ${url}`); } catch (_) {}
+                        });
+                        resolve(highlightKeys);
+                    });
+                } else {
+                    resolve([]);
+                }
+            } catch (_) {
+                resolve([]);
+            }
         });
     }
     }; // 結束 window.StorageUtil 定義
