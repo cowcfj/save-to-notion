@@ -340,14 +340,6 @@ function validateImageContent(url) {
 }
 
 /**
- * 獲取緩存統計信息（調試用）
- * @returns {object} 緩存統計
- */
-function getImageUrlValidationCacheStats() {
-    return imageUrlValidationCache.getStats();
-}
-
-/**
  * 清空圖片 URL 驗證緩存（維護用）
  */
 function clearImageUrlValidationCache() {
