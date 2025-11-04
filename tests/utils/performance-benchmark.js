@@ -129,7 +129,7 @@ class PerformanceBenchmark {
     if (results.length === 0) return null;
     
     const throughputs = results
-      .filter(r => r.result && r.result.blocksProcessed)
+      .filter(r => r.result?.blocksProcessed)
       .map(r => r.result.blocksProcessed / (r.processingTime / 1000));
     
     if (throughputs.length === 0) return null;
