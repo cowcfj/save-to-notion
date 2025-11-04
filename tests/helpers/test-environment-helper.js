@@ -169,7 +169,7 @@ class TestEnvironmentHelper {
     let current = global.chrome;
     
     for (let i = 0; i < parts.length - 1; i++) {
-      if (current && current[parts[i]]) {
+      if (current?.[parts[i]]) {
         current = current[parts[i]];
       } else {
         return; // 路徑不存在

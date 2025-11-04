@@ -1,24 +1,24 @@
 /**
  * Thomas Frank 方案整合測試
- * 
+ *
  * 完整的端到端測試，驗證 Thomas Frank 方案與我們實現的整合效果。
  * 包含性能基準、錯誤處理、擴展性等全面測試。
- * 
+ *
  * 參考需求：2.1, 2.2, 2.3 (批次處理策略)
  */
 
 // Jest 全局對象已經可用，無需導入
-const { 
-  generateTestBlocks, 
-  testThomasFrankPattern, 
-  testCurrentImplementation, 
-  testErrorHandling 
+const {
+  generateTestBlocks,
+  testThomasFrankPattern,
+  testCurrentImplementation,
+  testErrorHandling
 } = require('../unit/thomas-frank-comparison.test.js');
 const { ThomasFrankBenchmark } = require('../utils/performance-benchmark.js');
 
 describe('Thomas Frank 方案整合測試', () => {
   let benchmark;
-  
+
   beforeAll(() => {
     benchmark = new ThomasFrankBenchmark();
   });
@@ -60,7 +60,7 @@ describe('Thomas Frank 方案整合測試', () => {
         expect(results.thomasFrank[size]).toBeDefined();
         expect(results.current[size]).toBeDefined();
         expect(results.comparisons[size]).toBeDefined();
-        
+
         // 驗證成功率
         expect(results.thomasFrank[size].successRate).toBeGreaterThan(0.95);
         expect(results.current[size].successRate).toBeGreaterThan(0.95);
@@ -68,7 +68,7 @@ describe('Thomas Frank 方案整合測試', () => {
 
       // 驗證擴展性：我們的實現應該能處理更大規模
       expect(results.current[500].successRate).toBeGreaterThan(0.95);
-      
+
       console.log('\n🎯 關鍵發現:');
       console.log(`- Thomas Frank 200 區塊基準: ${results.thomasFrank[200].averageTime.toFixed(2)}ms`);
       console.log(`- 我們的 500 區塊性能: ${results.current[500].averageTime.toFixed(2)}ms`);
@@ -83,10 +83,10 @@ describe('Thomas Frank 方案整合測試', () => {
 
       for (const size of testSizes) {
         const blocks = generateTestBlocks(size);
-        
+
         // 測試 Thomas Frank 模式
         const tfResult = await testThomasFrankPattern(blocks);
-        
+
         // 測試我們的實現
         const currentResult = await testCurrentImplementation(blocks);
 
@@ -98,7 +98,7 @@ describe('Thomas Frank 方案整合測試', () => {
         // 驗證批次處理正確性
         expect(tfResult.blocksProcessed).toBe(size);
         expect(currentResult.blocksProcessed).toBe(size);
-        
+
         // 驗證批次數量計算
         const expectedBatches = Math.ceil(size / 100);
         expect(tfResult.batchCount).toBeLessThanOrEqual(expectedBatches + 1); // +1 for initial batch in TF pattern
@@ -114,16 +114,16 @@ describe('Thomas Frank 方案整合測試', () => {
     test('應該驗證速率限制遵守情況', async () => {
       const blocks = generateTestBlocks(300); // 3批次
       const startTime = Date.now();
-      
+
       await testCurrentImplementation(blocks);
-      
+
       const endTime = Date.now();
       const totalTime = endTime - startTime;
-      
+
       // 驗證最小執行時間（調整為測試環境的延遲時間：3批次需要至少 2 * 10ms 的延遲）
       const expectedMinTime = 2 * 10; // 2個批次間隔（測試環境縮短的延遲）
       expect(totalTime).toBeGreaterThan(expectedMinTime);
-      
+
       console.log(`⏱️ 速率限制驗證: ${totalTime}ms (最小期望: ${expectedMinTime}ms)`);
     });
   });
@@ -133,23 +133,24 @@ describe('Thomas Frank 方案整合測試', () => {
       const blocks = generateTestBlocks(300); // 減少區塊數量
       const errorScenario = {
         failureRate: 0.4, // 40% 失敗率
-        errorTypes: ['429', '500', '503', '409']
+        errorTypes: ['429', '500', '503', '409', '408'] // 增加更多可重試錯誤類型
       };
 
       const result = await testErrorHandling(blocks, errorScenario);
 
-      // 驗證錯誤恢復效果
-      expect(result.finalSuccessRate).toBeGreaterThan(0.6); // 至少60%成功率（考慮網絡錯誤情況）
-      
-      // 修改重試計數驗證 - 允許沒有重試的情況（如果所有批次都成功）
-      expect(result.retryCount).toBeGreaterThanOrEqual(0); // 應該有重試或全部成功
-      expect(result.retryCount).toBeLessThan(20); // 重試次數合理
+      // 驗證錯誤恢復效果 - 在40%失敗率下，應該能達到至少70%的成功率
+      expect(result.finalSuccessRate).toBeGreaterThan(0.7);
 
-      console.log(`🔧 錯誤恢復測試: 成功率=${(result.finalSuccessRate * 100).toFixed(1)}%, 重試=${result.retryCount}次`);
+      // 驗證重試機制有效性
+      expect(result.retryCount).toBeGreaterThan(0); // 應該有重試
+      expect(result.retryCount).toBeLessThan(50); // 重試次數合理
+      expect(result.averageRetriesPerBatch).toBeLessThan(3); // 平均每批次重試次數合理
+
+      console.log(`🔧 錯誤恢復測試: 成功率=${(result.finalSuccessRate * 100).toFixed(1)}%, 重試=${result.retryCount}次, 平均重試/批=${result.averageRetriesPerBatch.toFixed(2)}`);
     });
 
     test('應該測試不同錯誤類型的處理', async () => {
-      const errorTypes = ['429', '500', '503', '409', '400'];
+      const errorTypes = ['429', '500', '503', '409', '408', '502', '504', '400', '401', '403', '404'];
       const results = {};
 
       for (const errorType of errorTypes) {
@@ -160,14 +161,19 @@ describe('Thomas Frank 方案整合測試', () => {
         });
 
         results[errorType] = result;
-        
+
+        // 根據錯誤類型調整期望值：可重試錯誤應該有更高成功率
+        const retryableErrors = ['429', '500', '503', '409', '408', '502', '504'];
+        const expectedMinRate = retryableErrors.includes(errorType) ? 0.7 : 0.4; // 不可重試錯誤允許更低成功率
+
         // 驗證不同錯誤類型都能處理
-        expect(result.finalSuccessRate).toBeGreaterThan(0.7);
+        expect(result.finalSuccessRate).toBeGreaterThan(expectedMinRate);
       }
 
       console.log('\n🚨 錯誤類型處理結果:');
       Object.entries(results).forEach(([errorType, result]) => {
-        console.log(`${errorType}: 成功率=${(result.finalSuccessRate * 100).toFixed(1)}%`);
+        const retryable = ['429', '500', '503', '409', '408', '502', '504'].includes(errorType);
+        console.log(`${errorType} (${retryable ? '可重試' : '不可重試'}): 成功率=${(result.finalSuccessRate * 100).toFixed(1)}%, 重試=${result.retryCount}次`);
       });
     });
   });
@@ -202,7 +208,7 @@ describe('Thomas Frank 方案整合測試', () => {
 
       // 分析擴展性
       const scalabilityAnalysis = analyzeScalability(scalabilityResults);
-      
+
       console.log('\n📈 擴展性分析:');
       console.log(`線性度: ${scalabilityAnalysis.linearity.toFixed(3)}`);
       console.log(`最大處理能力: ${scalabilityAnalysis.maxCapacity} 區塊`);
@@ -256,7 +262,7 @@ describe('Thomas Frank 方案整合測試', () => {
     test('應該模擬真實的長文章保存場景', async () => {
       // 模擬不同類型的內容區塊
       const realWorldBlocks = generateRealWorldBlocks(1500);
-      
+
       const result = await testCurrentImplementation(realWorldBlocks);
 
       // 驗證真實場景處理能力
@@ -296,17 +302,17 @@ describe('Thomas Frank 方案整合測試', () => {
   function analyzeScalability(results) {
     const sizes = Object.keys(results).map(Number).sort((a, b) => a - b);
     const times = sizes.map(size => results[size].averageTime);
-    
+
     // 計算線性度（相關係數）
     const linearity = calculateCorrelation(sizes, times);
-    
+
     // 找到最大成功處理的規模
     const maxCapacity = Math.max(...sizes.filter(size => results[size].successRate > 0.95));
-    
+
     // 計算平均吞吐量
     const throughputs = sizes.map(size => results[size].throughput).filter(t => t > 0);
     const averageThroughput = throughputs.reduce((a, b) => a + b, 0) / throughputs.length;
-    
+
     return {
       linearity,
       maxCapacity,
@@ -322,10 +328,10 @@ describe('Thomas Frank 方案整合測試', () => {
     const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
     const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
     const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
-    
+
     const numerator = n * sumXY - sumX * sumY;
     const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
-    
+
     return denominator === 0 ? 0 : numerator / denominator;
   }
 
@@ -336,13 +342,13 @@ describe('Thomas Frank 方案整合測試', () => {
       'bulleted_list_item', 'numbered_list_item', 'code',
       'quote', 'callout'
     ];
-    
+
     const blocks = [];
-    
+
     for (let i = 0; i < count; i++) {
       const type = blockTypes[Math.floor(Math.random() * blockTypes.length)];
       const content = `真實內容區塊 ${i + 1}：這是一個${type}類型的區塊，包含實際的文章內容。`;
-      
+
       blocks.push({
         type,
         [type]: {
@@ -353,7 +359,7 @@ describe('Thomas Frank 方案整合測試', () => {
         }
       });
     }
-    
+
     return blocks;
   }
 
