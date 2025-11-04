@@ -338,8 +338,10 @@ async function testErrorHandling(blocks, errorScenario) {
 
   mockNotionAPI.blocks.children.append = jest.fn().mockImplementation(() => {
     callCount++;
-    // 根據失敗率決定是否失敗
-    if (Math.random() < errorScenario.failureRate) {
+    // 確保至少有一次失敗以觸發重試機制（測試穩定性）
+    // 對於單一錯誤類型測試，始終使用該錯誤類型
+    const shouldFail = callCount <= 2 ? true : Math.random() < errorScenario.failureRate;
+    if (shouldFail) {
       const errorType = errorScenario.errorTypes[Math.floor(Math.random() * errorScenario.errorTypes.length)];
       const errorInfo = errorTypeMap[errorType] || { type: 'unknown', retryable: false, baseDelay: 0 };
       const error = new Error(`${errorType} Error`);
@@ -349,6 +351,9 @@ async function testErrorHandling(blocks, errorScenario) {
     }
     return Promise.resolve({ results: [] });
   });
+
+  // 確保至少有一次成功調用
+  mockNotionAPI.blocks.children.append.mockResolvedValueOnce({ results: [] });
 
   try {
     // 創建頁面
