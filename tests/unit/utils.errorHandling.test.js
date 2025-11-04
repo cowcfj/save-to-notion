@@ -179,7 +179,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('應該處理 null 和 undefined 輸入', () => {
       expect(utils.normalizeUrl(null)).toBe('');
-      expect(utils.normalizeUrl(undefined)).toBe('');
+      expect(utils.normalizeUrl()).toBe('');
     });
 
     test('應該處理非字符串輸入', () => {
