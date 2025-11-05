@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 初始化搜索式選擇器（如果還沒有）
         if (!searchableSelector) {
             
-            searchableSelector = new SearchableDatabaseSelector();
+            searchableSelector = new SearchableDatabaseSelector({ showStatus, loadDatabases });
         }
         
         // 使用新的搜索式選擇器
@@ -1236,7 +1236,18 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================
 
 class SearchableDatabaseSelector {
-    constructor() {
+    constructor(dependencies = {}) {
+        const { showStatus, loadDatabases } = dependencies;
+        
+        if (typeof showStatus !== 'function') {
+            throw new Error('SearchableDatabaseSelector 需要 showStatus 函式');
+        }
+        if (typeof loadDatabases !== 'function') {
+            throw new Error('SearchableDatabaseSelector 需要 loadDatabases 函式');
+        }
+        
+        this.showStatus = showStatus;
+        this.loadDatabases = loadDatabases;
         this.databases = [];
         this.filteredDatabases = [];
         this.selectedDatabase = null;
@@ -1437,7 +1448,7 @@ class SearchableDatabaseSelector {
         this.hideDropdown();
         
         // 顯示成功狀態
-        showStatus(`已選擇資料來源: ${database.title}`, 'success');
+        this.showStatus(`已選擇資料來源: ${database.title}`, 'success');
         
         // 觸發選擇事件（如果需要）
         this.onDatabaseSelected?.(database);
@@ -1529,7 +1540,7 @@ class SearchableDatabaseSelector {
         const apiKey = document.getElementById('api-key').value;
         if (apiKey) {
             this.showLoading();
-            loadDatabases(apiKey);
+            this.loadDatabases(apiKey);
         }
     }
 
