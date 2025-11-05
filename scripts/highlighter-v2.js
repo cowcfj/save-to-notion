@@ -812,7 +812,7 @@ const logger = (() => {
         handleDocumentClick(event) {
             // 只在 Ctrl/Cmd + 點擊時處理
             if (!(event.ctrlKey || event.metaKey)) {
-                return;
+                return false;
             }
 
             const highlightId = this.getHighlightAtPoint(event.clientX, event.clientY);
@@ -825,9 +825,10 @@ const logger = (() => {
 
                 if (confirm(`確定要刪除這個標註嗎？\n\n"${text}"`)) {
                     this.removeHighlight(highlightId);
-                    this.updateHighlightCount();
+                    return true; // 通知外層已刪除，讓外層更新計數
                 }
             }
+            return false;
         }
 
         /**
@@ -1197,11 +1198,15 @@ const logger = (() => {
 
                 logger.info(`✅ 恢復完成: 成功 ${restored}/${highlights.length}，失敗 ${failed}`);
 
-                // 更新 nextId
+                // 更新 nextId：支援 'h123' 與 'highlight-123' 等格式
                 if (highlights.length > 0) {
-                    const maxId = Math.max(...highlights.map(h =>
-                        parseInt(h.id.replace('highlight-', '')) || 0
-                    ));
+                    const maxId = Math.max(
+                        ...highlights.map(h => {
+                            const idStr = String(h.id);
+                            const match = idStr.match(/(\d+)$/); // 取結尾數字
+                            return match ? parseInt(match[1], 10) : 0;
+                        })
+                    );
                     this.nextId = maxId + 1;
                 }
 
@@ -1767,7 +1772,12 @@ const logger = (() => {
         });
 
         // 綁定/解綁 全局點擊監聽器（用於 Ctrl+點擊刪除）
-        const clickHandler = (e) => manager.handleDocumentClick(e);
+        const clickHandler = (e) => {
+            const deleted = manager.handleDocumentClick(e);
+            if (deleted) {
+                updateHighlightCount();
+            }
+        };
         let listenerBound = false;
         const bindDeleteListener = () => {
             if (!listenerBound) {
