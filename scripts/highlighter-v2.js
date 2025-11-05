@@ -623,7 +623,11 @@ const logger = (() => {
             }
 
             // v2.9.0: 使用更短的 ID 格式以節省存儲空間
-            const id = `h${this.nextId++}`;
+            let id = `h${this.nextId++}`;
+            // 穩健性：避免因恢復/遷移造成的 ID 碰撞
+            while (this.highlights.has(id)) {
+                id = `h${this.nextId++}`;
+            }
 
             // 保存標註信息
             const highlightData = {
@@ -794,19 +798,12 @@ const logger = (() => {
          */
         rangesOverlap(range1, range2) {
             try {
-                // 檢查 range2 的起點是否在 range1 內
-                if (range1.isPointInRange(range2.startContainer, range2.startOffset)) {
-                    return true;
-                }
-                // 檢查 range2 的終點是否在 range1 內
-                if (range1.isPointInRange(range2.endContainer, range2.endOffset)) {
-                    return true;
-                }
-                // 檢查 range1 是否完全在 range2 內
-                if (range2.isPointInRange(range1.startContainer, range1.startOffset)) {
-                    return true;
-                }
-                return false;
+                // 合併為單一布林表達式以簡化回傳
+                return (
+                    range1.isPointInRange(range2.startContainer, range2.startOffset) ||
+                    range1.isPointInRange(range2.endContainer, range2.endOffset) ||
+                    range2.isPointInRange(range1.startContainer, range1.startOffset)
+                );
             } catch (error) {
                 // 如果節點不在同一個文檔樹中，isPointInRange 會拋出錯誤
                 return false;
@@ -819,7 +816,7 @@ const logger = (() => {
         handleDocumentClick(event) {
             // 只在 Ctrl/Cmd + 點擊時處理
             if (!(event.ctrlKey || event.metaKey)) {
-                return;
+                return false;
             }
 
             const highlightId = this.getHighlightAtPoint(event.clientX, event.clientY);
@@ -832,9 +829,10 @@ const logger = (() => {
 
                 if (confirm(`確定要刪除這個標註嗎？\n\n"${text}"`)) {
                     this.removeHighlight(highlightId);
-                    this.updateHighlightCount();
+                    return true; // 通知外層已刪除，讓外層更新計數
                 }
             }
+            return false;
         }
 
         /**
@@ -1204,11 +1202,15 @@ const logger = (() => {
 
                 logger.info(`✅ 恢復完成: 成功 ${restored}/${highlights.length}，失敗 ${failed}`);
 
-                // 更新 nextId
+                // 更新 nextId：支援 'h123' 與 'highlight-123' 等格式
                 if (highlights.length > 0) {
-                    const maxId = Math.max(...highlights.map(h =>
-                        parseInt(h.id.replace('highlight-', '')) || 0
-                    ));
+                    const maxId = Math.max(
+                        ...highlights.map(h => {
+                            const idStr = String(h.id);
+                            const match = idStr.match(/(\d+)$/); // 取結尾數字
+                            return match ? parseInt(match[1], 10) : 0;
+                        })
+                    );
                     this.nextId = maxId + 1;
                 }
 
@@ -1774,7 +1776,12 @@ const logger = (() => {
         });
 
         // 綁定/解綁 全局點擊監聽器（用於 Ctrl+點擊刪除）
-        const clickHandler = (e) => manager.handleDocumentClick(e);
+        const clickHandler = (e) => {
+            const deleted = manager.handleDocumentClick(e);
+            if (deleted) {
+                updateHighlightCount();
+            }
+        };
         let listenerBound = false;
         const bindDeleteListener = () => {
             if (!listenerBound) {

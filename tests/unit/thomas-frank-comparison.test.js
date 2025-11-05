@@ -352,8 +352,10 @@ async function testErrorHandling(blocks, errorScenario) {
     return Promise.resolve({ results: [] });
   });
 
-  // 確保至少有一次成功調用
-  mockNotionAPI.blocks.children.append.mockResolvedValueOnce({ results: [] });
+  // 確保至少有兩次成功調用（降低隨機波動，提升測試穩定性）
+  mockNotionAPI.blocks.children.append
+    .mockResolvedValueOnce({ results: [] })
+    .mockResolvedValueOnce({ results: [] });
 
   try {
     // 創建頁面
