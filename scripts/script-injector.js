@@ -1,3 +1,5 @@
+/* global chrome */
+
 // 腳本注入管理器
 // 統一管理所有的腳本注入操作，減少重複代碼
 
@@ -17,7 +19,7 @@ const logger = (() => {
         if (typeof self !== 'undefined' && self.Logger) {
             return self.Logger;
         }
-    } catch (_) {
+    } catch {
         // 忽略環境檢查錯誤，改用 console
     }
     return console;
