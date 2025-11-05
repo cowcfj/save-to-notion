@@ -794,19 +794,12 @@ const logger = (() => {
          */
         rangesOverlap(range1, range2) {
             try {
-                // 檢查 range2 的起點是否在 range1 內
-                if (range1.isPointInRange(range2.startContainer, range2.startOffset)) {
-                    return true;
-                }
-                // 檢查 range2 的終點是否在 range1 內
-                if (range1.isPointInRange(range2.endContainer, range2.endOffset)) {
-                    return true;
-                }
-                // 檢查 range1 是否完全在 range2 內
-                if (range2.isPointInRange(range1.startContainer, range1.startOffset)) {
-                    return true;
-                }
-                return false;
+                // 合併為單一布林表達式以簡化回傳
+                return (
+                    range1.isPointInRange(range2.startContainer, range2.startOffset) ||
+                    range1.isPointInRange(range2.endContainer, range2.endOffset) ||
+                    range2.isPointInRange(range1.startContainer, range1.startOffset)
+                );
             } catch (error) {
                 // 如果節點不在同一個文檔樹中，isPointInRange 會拋出錯誤
                 return false;
