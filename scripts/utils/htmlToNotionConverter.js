@@ -3,7 +3,7 @@
  * 使用 Turndown 將 HTML 轉換為 Markdown，再轉換為 Notion blocks
  * 保留格式：列表、代碼塊、標題、粗體、斜體等
  */
-/* global turndownPluginGfm */
+/* global TurndownService, turndownPluginGfm */
 
 // 注意：這個文件將被注入到頁面中，所以需要使用全局變數
 // 確保 Logger 可用（從 utils.js 或其他地方）
