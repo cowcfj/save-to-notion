@@ -4,6 +4,25 @@
 /**
  * 腳本注入管理器
  */
+
+// 取得安全日誌器，避免 Logger 未注入時直接引用
+const logger = (() => {
+    try {
+        if (typeof globalThis !== 'undefined' && globalThis.Logger) {
+            return globalThis.Logger;
+        }
+        if (typeof window !== 'undefined' && window.Logger) {
+            return window.Logger;
+        }
+        if (typeof self !== 'undefined' && self.Logger) {
+            return self.Logger;
+        }
+    } catch (_) {
+        // 忽略環境檢查錯誤，改用 console
+    }
+    return console;
+})();
+
 class ScriptInjector {
     /**
      * 注入文件並執行函數
@@ -64,7 +83,7 @@ class ScriptInjector {
                             reject(new Error(global.chrome.runtime.lastError.message));
                         } else {
                             if (successMessage && logErrors) {
-                                Logger.log(successMessage);
+                                logger.log(successMessage);
                             }
                             const result = returnResult && results && results[0] ? results[0].result : null;
                             resolve(result);
