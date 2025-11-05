@@ -9,7 +9,7 @@
 
 一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取。
 
-**當前版本：v2.10.1**
+**當前版本：v2.10.2**
 
 ### 📦 最新更新
 查看最新功能和改進：[所有版本發布說明](https://github.com/cowcfj/save-to-notion/releases)
