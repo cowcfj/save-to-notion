@@ -197,7 +197,7 @@ const logger = (() => {
                                     foundKey = key;
                                     break;
                                 }
-                            } catch (e) {
+                            } catch {
                                 // 忽略解析錯誤
                             }
                         }
@@ -2155,7 +2155,7 @@ const logger = (() => {
                         if (typeof bindDeleteListener === 'function') {
                             bindDeleteListener();
                         }
-                    } catch (e) { /* ignore */ }
+                    } catch { /* ignore */ }
                     // If the toolbar was removed by the page, re-attach it
                     if (!toolbar.isConnected || !document.body.contains(toolbar)) {
                         document.body.appendChild(toolbar);
