@@ -1,3 +1,5 @@
+/* global chrome */
+
 document.addEventListener('DOMContentLoaded', () => {
     const apiKeyInput = document.getElementById('api-key');
     const databaseIdInput = document.getElementById('database-id');
@@ -22,6 +24,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const Logger = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 
+    // 驗證 Chrome 擴充 API 是否可用，避免在測試或非擴充環境爆錯
+    const isChromeExtensionContext = typeof chrome !== 'undefined'
+        && typeof chrome.storage === 'object'
+        && typeof chrome.storage.sync === 'object';
+
+    if (!isChromeExtensionContext) {
+        if (status) {
+            status.textContent = '❌ 無法載入擴充功能設定：請於 Chrome 擴充環境中開啟。';
+            status.className = 'status error';
+        }
+        Logger.error('❌ [選項頁] 偵測到缺少 Chrome 擴充功能 API，已停止初始化流程。');
+        return;
+    }
 
 
     /**
