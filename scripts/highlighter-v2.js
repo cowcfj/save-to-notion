@@ -1643,10 +1643,6 @@ const logger = (() => {
         };
         let currentToolbarState = ToolbarState.HIDDEN;
 
-        // Query helpers to support Shadow DOM
-        const $ = (sel) => (toolbar.shadowRoot || toolbar).querySelector(sel);
-        const $$ = (sel) => (toolbar.shadowRoot || toolbar).querySelectorAll(sel);
-
         // 工具欄狀態切換函數
         function minimizeToolbar() {
             try {
