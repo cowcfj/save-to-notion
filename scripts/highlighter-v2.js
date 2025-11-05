@@ -1718,9 +1718,7 @@ const logger = (() => {
         toolbar.querySelector('#toggle-highlight-v2').addEventListener('click', toggleHighlightMode);
 
         // 綁定最小化按鈕
-        toolbar.querySelector('#minimize-highlight-v2').addEventListener('click', () => {
-            minimizeToolbar();
-        });
+        toolbar.querySelector('#minimize-highlight-v2').addEventListener('click', toggleMinimize);
 
         // 綁定關閉按鈕
         toolbar.querySelector('#close-highlight-v2').addEventListener('click', () => {
