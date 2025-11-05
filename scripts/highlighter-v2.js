@@ -623,7 +623,11 @@ const logger = (() => {
             }
 
             // v2.9.0: 使用更短的 ID 格式以節省存儲空間
-            const id = `h${this.nextId++}`;
+            let id = `h${this.nextId++}`;
+            // 穩健性：避免因恢復/遷移造成的 ID 碰撞
+            while (this.highlights.has(id)) {
+                id = `h${this.nextId++}`;
+            }
 
             // 保存標註信息
             const highlightData = {
