@@ -1628,7 +1628,7 @@ const logger = (() => {
         let isActive = false;
 
         // 創建簡單工具欄（默認隱藏）
-        const toolbar = createSimpleToolbar(manager);
+        const toolbar = createSimpleToolbar();
         toolbar.style.display = 'none'; // 🔑 默認隱藏
         document.body.appendChild(toolbar);
 
@@ -2211,7 +2211,7 @@ const logger = (() => {
     /**
      * 創建簡單工具欄
      */
-    function createSimpleToolbar(manager) {
+    function createSimpleToolbar() {
         const toolbar = document.createElement('div');
         toolbar.id = 'notion-highlighter-v2';
         toolbar.style.cssText = `
