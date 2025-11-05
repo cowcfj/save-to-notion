@@ -1616,7 +1616,7 @@ const logger = (() => {
         }
 
         if (window[AUTO_HIDE_TIMER_FLAG]) {
-            try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+            clearTimeout(window[AUTO_HIDE_TIMER_FLAG]);
             window[AUTO_HIDE_TIMER_FLAG] = null;
         }
 
@@ -1659,7 +1659,7 @@ const logger = (() => {
         function expandToolbar() {
             try {
                 if (window[AUTO_HIDE_TIMER_FLAG]) {
-                    try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+                    clearTimeout(window[AUTO_HIDE_TIMER_FLAG]);
                     window[AUTO_HIDE_TIMER_FLAG] = null;
                 }
                 window[USER_VISIBILITY_FLAG] = true;
@@ -1676,7 +1676,7 @@ const logger = (() => {
             try {
                 window[USER_VISIBILITY_FLAG] = false;
                 if (window[AUTO_HIDE_TIMER_FLAG]) {
-                    try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+                    clearTimeout(window[AUTO_HIDE_TIMER_FLAG]);
                     window[AUTO_HIDE_TIMER_FLAG] = null;
                 }
                 toolbar.style.display = 'none';
@@ -2375,7 +2375,7 @@ const logger = (() => {
                 initHighlighter();
                 window[USER_VISIBILITY_FLAG] = false;
                 if (window[AUTO_HIDE_TIMER_FLAG]) {
-                    try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+                    clearTimeout(window[AUTO_HIDE_TIMER_FLAG]);
                     window[AUTO_HIDE_TIMER_FLAG] = null;
                 }
                 // 等待標註管理器初始化完成後再恢復標註
