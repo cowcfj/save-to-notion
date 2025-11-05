@@ -47,7 +47,7 @@ function initTurndownService() {
     // 自定義規則：保留嵌套列表結構
     turndownService.addRule('nestedLists', {
         filter: ['ul', 'ol'],
-        replacement: function (content, node, options) {
+        replacement: function (content, node) {
             const parent = node.parentNode;
             if (parent && (parent.nodeName === 'LI')) {
                 // 這是嵌套列表，添加適當的縮排
@@ -102,7 +102,7 @@ function initTurndownService() {
             }
 
             // 對於 Markdown 網站，採用保守策略：只保留絕對 URL
-            if (isValidAbsoluteUrl(href)) {
+            if (isValidUrl(href)) {
                 // 標準 Markdown 連結格式
                 let result = '[' + content + '](' + href;
                 if (title) {
@@ -187,7 +187,7 @@ function convertMarkdownToNotionBlocks(markdown) {
         const line = lines[i];
         const trimmed = line.trim();
         const imageMatches = [...trimmed.matchAll(markdownImageRegex)]
-            .filter(match => isValidAbsoluteUrl(match[2]));
+            .filter(match => isValidUrl(match[2]));
 
         // 進度追蹤（每10行報告一次，提供詳細信息）
         if (i > 0 && i % 10 === 0) {
@@ -256,7 +256,7 @@ function convertMarkdownToNotionBlocks(markdown) {
             }
 
             // 處理標題
-            const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+            const headingMatch = trimmed.match(/^(#{1,6})\s+(\S.*)$/);
             if (headingMatch) {
                 flushListStack(); // 標題前清空列表
                 const level = headingMatch[1].length;
@@ -277,7 +277,7 @@ function convertMarkdownToNotionBlocks(markdown) {
             }
 
             // 處理無序列表（簡化處理，直接添加到 blocks）
-            const unorderedListMatch = trimmed.match(/^[-*+]\s+(.+)$/);
+            const unorderedListMatch = trimmed.match(/^[-*+]\s+(\S.*)$/);
             if (unorderedListMatch) {
                 flushListStack(); // 清空之前的列表堆疊
                 const content = unorderedListMatch[1];
@@ -295,7 +295,7 @@ function convertMarkdownToNotionBlocks(markdown) {
             }
 
             // 處理有序列表（簡化處理，直接添加到 blocks）
-            const orderedListMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+            const orderedListMatch = trimmed.match(/^(\d+)\.\s+(\S.*)$/);
             if (orderedListMatch) {
                 flushListStack(); // 清空之前的列表堆疊
                 const content = orderedListMatch[2];
@@ -377,7 +377,7 @@ function convertMarkdownToNotionBlocks(markdown) {
                     }
                     let nextParagraphLine = nextTrimmed;
                     const inlineImageMatches = [...nextTrimmed.matchAll(markdownImageRegex)]
-                        .filter(match => isValidAbsoluteUrl(match[2]));
+                        .filter(match => isValidUrl(match[2]));
                     if (inlineImageMatches.length > 0) {
                         inlineImageMatches.forEach(match => {
                             appendImageBlock(match[2], match[1]?.trim());
@@ -521,20 +521,15 @@ function isValidUrl(url, allowRelative = false, baseUrl = '') {
                     return isValidAbsoluteUrl(absoluteUrl);
                 } catch (error) {
                     // 轉換失敗，但相對路徑仍可能有效
-                    Logger.info(`⚠️ Could not convert relative URL to absolute: ${url}`);
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    Logger.info(`⚠️ Could not convert relative URL to absolute (${errorMessage}): ${url}`);
                 }
             }
 
         }
     }
 
-    // 檢查絕對 URL
-    try {
-        new URL(url);
-        return true;
-    } catch (error) {
-        return false;
-    }
+    return isValidAbsoluteUrl(url);
 }
 
 /**
@@ -548,7 +543,7 @@ function isValidAbsoluteUrl(url) {
     try {
         const urlObj = new URL(url);
         return ['http:', 'https:'].includes(urlObj.protocol);
-    } catch (error) {
+    } catch (_error) {
         return false;
     }
 }
