@@ -13,7 +13,7 @@ const logger = (() => {
     const isLoggerAvailable = () => {
         try {
             return typeof window.Logger === 'object' && window.Logger !== null;
-        } catch (error) {
+        } catch {
             // 靜默處理錯誤，避免日誌系統本身引發問題
             return false;
         }
@@ -797,14 +797,14 @@ const logger = (() => {
          * 檢測兩個 Range 是否重疊
          */
         rangesOverlap(range1, range2) {
-            try {
-                // 合併為單一布林表達式以簡化回傳
-                return (
-                    range1.isPointInRange(range2.startContainer, range2.startOffset) ||
-                    range1.isPointInRange(range2.endContainer, range2.endOffset) ||
-                    range2.isPointInRange(range1.startContainer, range1.startOffset)
-                );
-            } catch (error) {
+        try {
+            // 合併為單一布林表達式以簡化回傳
+            return (
+                range1.isPointInRange(range2.startContainer, range2.startOffset) ||
+                range1.isPointInRange(range2.endContainer, range2.endOffset) ||
+                range2.isPointInRange(range1.startContainer, range1.startOffset)
+            );
+        } catch {
                 // 如果節點不在同一個文檔樹中，isPointInRange 會拋出錯誤
                 return false;
             }
