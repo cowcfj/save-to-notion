@@ -543,7 +543,9 @@ function isValidAbsoluteUrl(url) {
     try {
         const urlObj = new URL(url);
         return ['http:', 'https:'].includes(urlObj.protocol);
-    } catch (_error) {
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        Logger.warn(`⚠️ [URL 驗證] 無法解析 URL (${errorMessage}): ${url}`);
         return false;
     }
 }
