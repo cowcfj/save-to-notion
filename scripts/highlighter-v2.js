@@ -1204,10 +1204,11 @@ const logger = (() => {
 
                 // 更新 nextId：支援 'h123' 與 'highlight-123' 等格式
                 if (highlights.length > 0) {
+                    const tailDigitsRegexp = /(\d+)$/;
                     const maxId = Math.max(
                         ...highlights.map(h => {
                             const idStr = String(h.id);
-                            const match = idStr.match(/(\d+)$/); // 取結尾數字
+                            const match = tailDigitsRegexp.exec(idStr); // 取結尾數字
                             return match ? parseInt(match[1], 10) : 0;
                         })
                     );
