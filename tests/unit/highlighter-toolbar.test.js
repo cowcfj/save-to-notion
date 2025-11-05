@@ -186,4 +186,27 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
 
     expect(document.body.contains(toolbar)).toBe(true);
   });
+
+  test('最小化按鈕應根據狀態在展開/最小化之間切換', async () => {
+    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
+    const { toolbar, show } = window.notionHighlighter;
+    const minimizeBtn = toolbar.querySelector('#minimize-highlight-v2');
+    const miniIcon = document.querySelector('#notion-highlighter-mini');
+
+    show();
+    expect(toolbar.style.display).toBe('block');
+    expect(miniIcon.style.display).toBe('none');
+
+    minimizeBtn.click();
+    expect(toolbar.style.display).toBe('none');
+    expect(miniIcon.style.display).toBe('flex');
+
+    // 模擬站點手動顯示 toolbar，但內部狀態仍為 MINIMIZED
+    toolbar.style.display = 'block';
+    miniIcon.style.display = 'none';
+
+    minimizeBtn.click();
+    expect(toolbar.style.display).toBe('block');
+    expect(miniIcon.style.display).toBe('none');
+  });
 });

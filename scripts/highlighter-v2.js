@@ -13,7 +13,7 @@ const logger = (() => {
     const isLoggerAvailable = () => {
         try {
             return typeof window.Logger === 'object' && window.Logger !== null;
-        } catch (error) {
+        } catch {
             // 靜默處理錯誤，避免日誌系統本身引發問題
             return false;
         }
@@ -197,7 +197,7 @@ const logger = (() => {
                                     foundKey = key;
                                     break;
                                 }
-                            } catch (e) {
+                            } catch {
                                 // 忽略解析錯誤
                             }
                         }
@@ -797,14 +797,14 @@ const logger = (() => {
          * 檢測兩個 Range 是否重疊
          */
         rangesOverlap(range1, range2) {
-            try {
-                // 合併為單一布林表達式以簡化回傳
-                return (
-                    range1.isPointInRange(range2.startContainer, range2.startOffset) ||
-                    range1.isPointInRange(range2.endContainer, range2.endOffset) ||
-                    range2.isPointInRange(range1.startContainer, range1.startOffset)
-                );
-            } catch (error) {
+        try {
+            // 合併為單一布林表達式以簡化回傳
+            return (
+                range1.isPointInRange(range2.startContainer, range2.startOffset) ||
+                range1.isPointInRange(range2.endContainer, range2.endOffset) ||
+                range2.isPointInRange(range1.startContainer, range1.startOffset)
+            );
+        } catch {
                 // 如果節點不在同一個文檔樹中，isPointInRange 會拋出錯誤
                 return false;
             }
@@ -1204,10 +1204,11 @@ const logger = (() => {
 
                 // 更新 nextId：支援 'h123' 與 'highlight-123' 等格式
                 if (highlights.length > 0) {
+                    const tailDigitsRegexp = /(\d+)$/;
                     const maxId = Math.max(
                         ...highlights.map(h => {
                             const idStr = String(h.id);
-                            const match = idStr.match(/(\d+)$/); // 取結尾數字
+                            const match = tailDigitsRegexp.exec(idStr); // 取結尾數字
                             return match ? parseInt(match[1], 10) : 0;
                         })
                     );
@@ -1616,7 +1617,7 @@ const logger = (() => {
         }
 
         if (window[AUTO_HIDE_TIMER_FLAG]) {
-            try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+            clearTimeout(window[AUTO_HIDE_TIMER_FLAG]);
             window[AUTO_HIDE_TIMER_FLAG] = null;
         }
 
@@ -1627,7 +1628,7 @@ const logger = (() => {
         let isActive = false;
 
         // 創建簡單工具欄（默認隱藏）
-        const toolbar = createSimpleToolbar(manager);
+        const toolbar = createSimpleToolbar();
         toolbar.style.display = 'none'; // 🔑 默認隱藏
         document.body.appendChild(toolbar);
 
@@ -1642,10 +1643,6 @@ const logger = (() => {
             HIDDEN: 'hidden'
         };
         let currentToolbarState = ToolbarState.HIDDEN;
-
-        // Query helpers to support Shadow DOM
-        const $ = (sel) => (toolbar.shadowRoot || toolbar).querySelector(sel);
-        const $$ = (sel) => (toolbar.shadowRoot || toolbar).querySelectorAll(sel);
 
         // 工具欄狀態切換函數
         function minimizeToolbar() {
@@ -1663,7 +1660,7 @@ const logger = (() => {
         function expandToolbar() {
             try {
                 if (window[AUTO_HIDE_TIMER_FLAG]) {
-                    try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+                    clearTimeout(window[AUTO_HIDE_TIMER_FLAG]);
                     window[AUTO_HIDE_TIMER_FLAG] = null;
                 }
                 window[USER_VISIBILITY_FLAG] = true;
@@ -1680,7 +1677,7 @@ const logger = (() => {
             try {
                 window[USER_VISIBILITY_FLAG] = false;
                 if (window[AUTO_HIDE_TIMER_FLAG]) {
-                    try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+                    clearTimeout(window[AUTO_HIDE_TIMER_FLAG]);
                     window[AUTO_HIDE_TIMER_FLAG] = null;
                 }
                 toolbar.style.display = 'none';
@@ -1722,9 +1719,7 @@ const logger = (() => {
         toolbar.querySelector('#toggle-highlight-v2').addEventListener('click', toggleHighlightMode);
 
         // 綁定最小化按鈕
-        toolbar.querySelector('#minimize-highlight-v2').addEventListener('click', () => {
-            minimizeToolbar();
-        });
+        toolbar.querySelector('#minimize-highlight-v2').addEventListener('click', toggleMinimize);
 
         // 綁定關閉按鈕
         toolbar.querySelector('#close-highlight-v2').addEventListener('click', () => {
@@ -2159,7 +2154,7 @@ const logger = (() => {
                         if (typeof bindDeleteListener === 'function') {
                             bindDeleteListener();
                         }
-                    } catch (e) { /* ignore */ }
+                    } catch { /* ignore */ }
                     // If the toolbar was removed by the page, re-attach it
                     if (!toolbar.isConnected || !document.body.contains(toolbar)) {
                         document.body.appendChild(toolbar);
@@ -2216,7 +2211,7 @@ const logger = (() => {
     /**
      * 創建簡單工具欄
      */
-    function createSimpleToolbar(manager) {
+    function createSimpleToolbar() {
         const toolbar = document.createElement('div');
         toolbar.id = 'notion-highlighter-v2';
         toolbar.style.cssText = `
@@ -2379,7 +2374,7 @@ const logger = (() => {
                 initHighlighter();
                 window[USER_VISIBILITY_FLAG] = false;
                 if (window[AUTO_HIDE_TIMER_FLAG]) {
-                    try { clearTimeout(window[AUTO_HIDE_TIMER_FLAG]); } catch (_) {}
+                    clearTimeout(window[AUTO_HIDE_TIMER_FLAG]);
                     window[AUTO_HIDE_TIMER_FLAG] = null;
                 }
                 // 等待標註管理器初始化完成後再恢復標註
