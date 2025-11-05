@@ -1530,7 +1530,7 @@ const logger = (() => {
                 } catch (error) {
                     // 觀察失敗，清理並返回 false
                     cleanup();
-                    logger.error(`❌ [waitForDOMStability] 觀察失敗:`, error);
+                    logger.error("❌ [waitForDOMStability] 觀察失敗:", error);
                     resolve(false);
                 }
             });
