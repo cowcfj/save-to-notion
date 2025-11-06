@@ -19,7 +19,7 @@ describe('StorageUtil 調試工具', () => {
       }
     };
     global.chrome = mockChrome;
-    
+
     // 清除 console 方法的調用記錄
     jest.clearAllMocks();
   });
@@ -58,7 +58,7 @@ describe('StorageUtil 調試工具', () => {
       expect(result).toContain('highlights_https://test.com');
       expect(result).toContain('highlights_https://demo.com');
       expect(result).not.toContain('other_key');
-      
+
       // 驗證 Chrome storage 被正確調用
       expect(mockChrome.storage.local.get).toHaveBeenCalledWith(null, expect.any(Function));
     });
@@ -181,7 +181,7 @@ describe('StorageUtil 調試工具', () => {
 
     test('應該處理 Chrome storage 操作異常', async () => {
       // Arrange
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
+      mockChrome.storage.local.get.mockImplementation(() => {
         throw new Error('Storage access denied');
       });
 
@@ -250,7 +250,7 @@ describe('StorageUtil 調試工具', () => {
       expect(result).toHaveLength(2);
       expect(result).toContain('highlights_https://notion.so/article1');
       expect(result).toContain('highlights_https://github.com/repo');
-      
+
       // 驗證非標註鍵被正確過濾
       expect(result).not.toContain('saved_https://notion.so/article1');
       expect(result).not.toContain('config_key');
