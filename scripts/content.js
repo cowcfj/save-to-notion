@@ -61,7 +61,7 @@ const Logger = (() => {
             if (typeof console !== 'undefined' && typeof console[method] === 'function') {
                 console[method](...args);
             }
-        } catch (error) {
+        } catch {
             // 靜默失敗，避免日誌系統本身造成問題
             // 在極端情況下甚至 console 都不可用
         }
