@@ -2637,14 +2637,28 @@ async function handleSavePage(sendResponse) {
                 // 如果不是技術文檔或 emergency extraction 失敗，使用 Readability
                 if (!finalContent) {
                     Logger.log('📖 Using Readability.js for content extraction');
-                    article = new Readability(document.cloneNode(true)).parse();
 
-                    if (isContentGood(article)) {
-                        finalContent = article.content;
-                        finalTitle = article.title;
-                    } else {
-                        Logger.log('🔄 Readability.js failed, trying CMS-aware fallback...');
+                    // 檢查 Readability 是否已載入
+                    if (typeof Readability === 'undefined') {
+                        Logger.error('❌ Readability library is not available');
+                        Logger.log('🔄 Readability.js not loaded, falling back to CMS-aware extraction...');
                         // 將使用下面的備用方案邏輯
+                    } else {
+                        try {
+                            article = new Readability(document.cloneNode(true)).parse();
+
+                            if (article && isContentGood(article)) {
+                                finalContent = article.content;
+                                finalTitle = article.title;
+                            } else {
+                                Logger.log('🔄 Readability.js failed, trying CMS-aware fallback...');
+                                // 將使用下面的備用方案邏輯
+                            }
+                        } catch (readabilityError) {
+                            Logger.error('❌ Readability parsing error:', readabilityError);
+                            Logger.log('🔄 Readability.js error, falling back to CMS-aware extraction...');
+                            // 將使用下面的備用方案邏輯
+                        }
                     }
                 }
 
