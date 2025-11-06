@@ -6,7 +6,8 @@
 const DEBUG_MODE = (function() {
     try {
         return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
-    } catch (e) {
+    } catch {
+        // 生產環境中默認關閉調試，靜默處理初始化錯誤
         return false;
     }
 })();
