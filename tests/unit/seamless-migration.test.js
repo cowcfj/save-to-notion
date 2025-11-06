@@ -41,7 +41,7 @@ describe('seamless-migration.js', () => {
         mockChrome.storage.local.get.mockImplementation((keys, callback) => {
             callback({});
         });
-        mockChrome.storage.local.set.mockImplementation((data, callback) => {
+        mockChrome.storage.local.set.mockImplementation((_data, callback) => {
             callback();
         });
         mockChrome.storage.local.remove.mockImplementation((keys, callback) => {
@@ -83,7 +83,7 @@ describe('seamless-migration.js', () => {
             });
 
             test('應該處理無法讀取狀態的情況', async () => {
-                mockChrome.storage.local.get.mockImplementation((keys, callback) => {
+                mockChrome.storage.local.get.mockImplementation((_keys, _callback) => {
                     throw new Error('Storage error');
                 });
 
@@ -99,7 +99,7 @@ describe('seamless-migration.js', () => {
             });
 
             test('應該處理無法保存狀態的情況', async () => {
-                mockChrome.storage.local.set.mockImplementation((data, callback) => {
+                mockChrome.storage.local.set.mockImplementation((_data, _callback) => {
                     throw new Error('Storage error');
                 });
 

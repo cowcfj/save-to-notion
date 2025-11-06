@@ -11,7 +11,6 @@
 const { JSDOM } = require('jsdom');
 
 // 將頁面複雜度檢測器轉為 CommonJS 格式，以便測試
-const pageComplexityDetectorPath = '../../scripts/utils/pageComplexityDetector.js';
 let detectPageComplexity, selectExtractor, getAnalysisReport, logAnalysis;
 
 // 模擬瀏覽器環境
@@ -73,7 +72,7 @@ function setupDetectorForTest(document, window, location) {
         try {
             const elements = container.querySelectorAll(selector);
             return elements ? elements.length : 0;
-        } catch (error) {
+        } catch {
             return 0;
         }
     }
@@ -103,7 +102,7 @@ function setupDetectorForTest(document, window, location) {
             }
 
             return linkTextLength / totalText.length;
-        } catch (error) {
+        } catch {
             return 0;
         }
     }
@@ -178,7 +177,7 @@ function setupDetectorForTest(document, window, location) {
 
             return complexity;
 
-        } catch (error) {
+        } catch {
             return {
                 isClean: false,
                 hasMarkdownFeatures: false,
@@ -567,7 +566,7 @@ describe('頁面複雜度檢測器', () => {
                 { isClean: false, hasMarkdownFeatures: false, hasTechnicalContent: true }
             ];
 
-            testCases.forEach((complexity, index) => {
+            testCases.forEach((complexity) => {
                 const selection = selectExtractor({
                     ...complexity,
                     hasAds: false,
@@ -588,7 +587,7 @@ describe('頁面複雜度檢測器', () => {
                 { hasAds: false, isComplexLayout: false, hasRichMedia: true }
             ];
 
-            testCases.forEach((complexity, index) => {
+            testCases.forEach((complexity) => {
                 const selection = selectExtractor({
                     isClean: false,
                     hasMarkdownFeatures: false,
@@ -721,7 +720,7 @@ describe('頁面複雜度檢測器', () => {
             // 應該能夠處理損壞的 HTML 而不崩潰
             expect(() => {
                 const complexity = detectPageComplexity(dom.window.document);
-                const selection = selectExtractor(complexity);
+                const _selection = selectExtractor(complexity);
             }).not.toThrow();
         });
     });
