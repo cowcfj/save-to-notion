@@ -2639,13 +2639,13 @@ async function handleSavePage(sendResponse) {
                     Logger.log('📖 Using Readability.js for content extraction');
 
                     // 檢查 Readability 是否已載入
-                    if (typeof Readability === 'undefined') {
+                    if (typeof window.Readability === 'undefined') {
                         Logger.error('❌ Readability library is not available');
                         Logger.log('🔄 Readability.js not loaded, falling back to CMS-aware extraction...');
                         // 將使用下面的備用方案邏輯
                     } else {
                         try {
-                            article = new Readability(document.cloneNode(true)).parse();
+                            article = new window.Readability(document.cloneNode(true)).parse();
 
                             if (article && isContentGood(article)) {
                                 finalContent = article.content;
