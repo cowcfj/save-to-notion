@@ -1,7 +1,7 @@
 // Notion Smart Clipper - Background Script
 // Refactored for better organization
 
-/* global chrome, PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, AdaptivePerformanceManager */
+/* global chrome, PerformanceOptimizer, ErrorHandler */
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
@@ -12,7 +12,7 @@ const DEBUG_MODE = (function() {
     try {
         // 可以通過 manifest.json 或其他方式控制
         return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
-    } catch (e) {
+    } catch {
         // 生產環境中默認關閉調試
         return false;
     }
@@ -58,7 +58,7 @@ function cleanImageUrl(url) {
         urlObj.search = params.toString();
 
         return urlObj.href;
-    } catch (e) {
+    } catch {
         return null;
     }
 }
@@ -691,7 +691,7 @@ function normalizeUrl(rawUrl) {
             u.pathname = u.pathname.replace(/\/+$/, '');
         }
         return u.toString();
-    } catch (e) {
+    } catch {
         return rawUrl || '';
     }
 }
@@ -766,7 +766,7 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
             try {
                 const data = await res.clone().json();
                 message = data?.message || '';
-            } catch (_) { /* ignore parse errors */ }
+            } catch { /* ignore parse errors */ }
 
             const retriableStatus = res.status >= 500 || res.status === 429 || res.status === 409;
             const retriableMessage = /Unsaved transactions|DatastoreInfraError/i.test(message);
@@ -1487,7 +1487,7 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
                         params.forEach((p) => u.searchParams.delete(p));
                         if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
                         return u.toString();
-                    } catch (e) { return raw || ''; }
+                    } catch { return raw || ''; }
                 };
 
                 const norm = normalize(window.location.href);
@@ -1609,7 +1609,7 @@ function handleMessage(request, sender, sendResponse) {
             case 'savePage':
                 // 防禦性處理：確保即使內部未捕獲的拒絕也會回覆
                 Promise.resolve(handleSavePage(sendResponse)).catch(err => {
-                    try { sendResponse({ success: false, error: err?.message || 'Save failed' }); } catch (_) {}
+                    try { sendResponse({ success: false, error: err?.message || 'Save failed' }); } catch { /* 忽略 sendResponse 錯誤 */ }
                 });
                 break;
             case 'openNotionPage':
@@ -1990,7 +1990,7 @@ async function handleSavePage(sendResponse) {
                     urlObj.search = params.toString();
 
                     return urlObj.href;
-                } catch (e) {
+                } catch {
                     return null;
                 }
             }
@@ -2422,7 +2422,7 @@ async function handleSavePage(sendResponse) {
 
                                         // 稍後清除選擇
                                         setTimeout(() => {
-                                            try { selection.removeAllRanges(); } catch (e) {}
+                                            try { selection.removeAllRanges(); } catch { /* 忽略清除選擇錯誤 */ }
                                         }, 50);
                                     }
 
@@ -2637,49 +2637,50 @@ async function handleSavePage(sendResponse) {
                 // 如果不是技術文檔或 emergency extraction 失敗，使用 Readability
                 if (!finalContent) {
                     Logger.log('📖 Using Readability.js for content extraction');
-                    article = new Readability(document.cloneNode(true)).parse();
 
-                    if (isContentGood(article)) {
-                        finalContent = article.content;
-                        finalTitle = article.title;
-                    } else {
-                        Logger.log('🔄 Readability.js failed, trying CMS-aware fallback...');
+                    // 檢查 Readability 是否已載入
+                    if (typeof window.Readability === 'undefined') {
+                        Logger.error('❌ Readability library is not available');
+                        Logger.log('🔄 Readability.js not loaded, falling back to CMS-aware extraction...');
                         // 將使用下面的備用方案邏輯
+                    } else {
+                        try {
+                            article = new window.Readability(document.cloneNode(true)).parse();
+
+                            if (article && isContentGood(article)) {
+                                finalContent = article.content;
+                                finalTitle = article.title;
+                            } else {
+                                Logger.log('🔄 Readability.js failed, trying CMS-aware fallback...');
+                                // 將使用下面的備用方案邏輯
+                            }
+                        } catch (readabilityError) {
+                            Logger.error('❌ Readability parsing error:', readabilityError);
+                            Logger.log('🔄 Readability.js error, falling back to CMS-aware extraction...');
+                            // 將使用下面的備用方案邏輯
+                        }
                     }
                 }
 
                 // 輔助函數：清理文本內容
-                function cleanTextContent(text) {
+                const cleanTextContent = (text) => {
                     if (!text) return '';
 
                     return text
                         .replace(/\s+/g, ' ')  // 將多個空白字符替換為單個空格
                         .replace(/[\u{a0}]/gu, ' ')  // 替換不間斷空格
                         .trim();
-                }
+                };
 
                 // 輔助函數：檢查文本是否有實際內容
-                function hasActualContent(text) {
+                const hasActualContent = (text) => {
                     if (!text) return false;
                     const cleaned = cleanTextContent(text);
-                    return cleaned.length > 0 && cleaned !== '•' && !/^[•\-\*\s]*$/u.test(cleaned);
-                }
-
-                // 輔助函數：計算元素的列表嵌套深度
-                function getListDepth(element) {
-                    let depth = 0;
-                    let parent = element.parentElement;
-                    while (parent && parent !== document.body) {
-                        if (parent.tagName === 'LI') {
-                            depth++;
-                        }
-                        parent = parent.parentElement;
-                    }
-                    return depth;
-                }
+                    return cleaned.length > 0 && cleaned !== '•' && !/^[•\-*\s]*$/u.test(cleaned);
+                };
 
                 // 輔助函數：獲取元素的直接文本內容（不包括子元素的文本）
-                function getDirectTextContent(element) {
+                const getDirectTextContent = (element) => {
                     let text = '';
                     for (const child of element.childNodes) {
                         if (child.nodeType === 3) { // Text node
@@ -2687,51 +2688,16 @@ async function handleSavePage(sendResponse) {
                         }
                     }
                     return text.trim();
-                }
+                };
 
                 // 輔助函數：創建帶縮進的列表項文本
-                function createIndentedText(text, depth) {
+                const createIndentedText = (text, depth) => {
                     const indent = '  '.repeat(depth); // 每級縮進2個空格
                     return indent + text;
-                }
-
-                // 輔助函數：處理列表項元素，保持層級結構
-                function processListItem(liElement, parentDepth, blocksArray) {
-                    const directText = getDirectTextContent(liElement);
-                    const cleanText = cleanTextContent(directText);
-
-                    // 如果有直接文本內容，創建列表項
-                    if (hasActualContent(cleanText)) {
-                        const indentedText = createIndentedText(cleanText, parentDepth);
-                        const textChunks = splitTextForNotion(indentedText, 2000);
-                        textChunks.forEach(chunk => {
-                            blocksArray.push({
-                                object: 'block',
-                                type: 'bulleted_list_item',
-                                bulleted_list_item: {
-                                    rich_text: [{ type: 'text', text: { content: chunk } }]
-                                }
-                            });
-                        });
-                    }
-
-                    // 遞歸處理子列表
-                    const childLists = liElement.querySelectorAll(':scope > ul, :scope > ol');
-                    childLists.forEach(childList => {
-                        processListRecursively(childList, parentDepth + 1, blocksArray);
-                    });
-                }
-
-                // 輔助函數：遞歸處理列表，保持層級結構
-                function processListRecursively(listElement, depth, blocksArray) {
-                    const directChildren = listElement.querySelectorAll(':scope > li');
-                    directChildren.forEach(li => {
-                        processListItem(li, depth, blocksArray);
-                    });
-                }
+                };
 
                 // 輔助函數：將長文本分割成符合 Notion 限制的片段
-                function splitTextForNotion(text, maxLength = 2000) {
+                const splitTextForNotion = (text, maxLength = 2000) => {
                     if (!text || text.length <= maxLength) {
                         return [text];
                     }
@@ -2771,7 +2737,60 @@ async function handleSavePage(sendResponse) {
                     }
 
                     return chunks;
-                }
+                };
+
+                // 輔助函數：遞歸處理列表相關函數（相互遞歸）
+                // 使用函數表達式而非聲明，符合 DeepSource JS-0128 要求
+                // 初始化為 null 以滿足 JS-0119 要求（變數應在宣告時初始化）
+                /**
+                 * 處理列表項元素，保持層級結構
+                 * @param {Element} liElement - 列表項元素
+                 * @param {number} depth - 當前深度
+                 * @param {Array} blocksArray - 區塊陣列
+                 */
+                let processListItem = null;
+                /**
+                 * 遞歸處理列表，保持層級結構
+                 * @param {Element} listElement - 列表元素
+                 * @param {number} depth - 當前深度
+                 * @param {Array} blocksArray - 區塊陣列
+                 */
+                let processListRecursively = null;
+
+                // 定義 processListRecursively（先定義，因為 processListItem 會調用它）
+                processListRecursively = function(listElement, depth, blocksArray) {
+                    const directChildren = listElement.querySelectorAll(':scope > li');
+                    directChildren.forEach(li => {
+                        processListItem(li, depth, blocksArray);
+                    });
+                };
+
+                // 定義 processListItem（後定義，因為它調用 processListRecursively）
+                processListItem = function(liElement, depth, blocksArray) {
+                    const directText = getDirectTextContent(liElement);
+                    const cleanText = cleanTextContent(directText);
+
+                    // 如果有直接文本內容，創建列表項
+                    if (hasActualContent(cleanText)) {
+                        const indentedText = createIndentedText(cleanText, depth);
+                        const textChunks = splitTextForNotion(indentedText, 2000);
+                        textChunks.forEach(chunk => {
+                            blocksArray.push({
+                                object: 'block',
+                                type: 'bulleted_list_item',
+                                bulleted_list_item: {
+                                    rich_text: [{ type: 'text', text: { content: chunk } }]
+                                }
+                            });
+                        });
+                    }
+
+                    // 遞歸處理子列表
+                    const childLists = liElement.querySelectorAll(':scope > ul, :scope > ol');
+                    childLists.forEach(childList => {
+                        processListRecursively(childList, depth + 1, blocksArray);
+                    });
+                };
 
                 if (finalContent) {
                     /**
