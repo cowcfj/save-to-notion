@@ -2663,24 +2663,24 @@ async function handleSavePage(sendResponse) {
                 }
 
                 // 輔助函數：清理文本內容
-                function cleanTextContent(text) {
+                const cleanTextContent = (text) => {
                     if (!text) return '';
 
                     return text
                         .replace(/\s+/g, ' ')  // 將多個空白字符替換為單個空格
                         .replace(/[\u{a0}]/gu, ' ')  // 替換不間斷空格
                         .trim();
-                }
+                };
 
                 // 輔助函數：檢查文本是否有實際內容
-                function hasActualContent(text) {
+                const hasActualContent = (text) => {
                     if (!text) return false;
                     const cleaned = cleanTextContent(text);
                     return cleaned.length > 0 && cleaned !== '•' && !/^[•\-*\s]*$/u.test(cleaned);
-                }
+                };
 
                 // 輔助函數：獲取元素的直接文本內容（不包括子元素的文本）
-                function getDirectTextContent(element) {
+                const getDirectTextContent = (element) => {
                     let text = '';
                     for (const child of element.childNodes) {
                         if (child.nodeType === 3) { // Text node
@@ -2688,51 +2688,16 @@ async function handleSavePage(sendResponse) {
                         }
                     }
                     return text.trim();
-                }
+                };
 
                 // 輔助函數：創建帶縮進的列表項文本
-                function createIndentedText(text, depth) {
+                const createIndentedText = (text, depth) => {
                     const indent = '  '.repeat(depth); // 每級縮進2個空格
                     return indent + text;
-                }
-
-                // 輔助函數：處理列表項元素，保持層級結構
-                function processListItem(liElement, parentDepth, blocksArray) {
-                    const directText = getDirectTextContent(liElement);
-                    const cleanText = cleanTextContent(directText);
-
-                    // 如果有直接文本內容，創建列表項
-                    if (hasActualContent(cleanText)) {
-                        const indentedText = createIndentedText(cleanText, parentDepth);
-                        const textChunks = splitTextForNotion(indentedText, 2000);
-                        textChunks.forEach(chunk => {
-                            blocksArray.push({
-                                object: 'block',
-                                type: 'bulleted_list_item',
-                                bulleted_list_item: {
-                                    rich_text: [{ type: 'text', text: { content: chunk } }]
-                                }
-                            });
-                        });
-                    }
-
-                    // 遞歸處理子列表
-                    const childLists = liElement.querySelectorAll(':scope > ul, :scope > ol');
-                    childLists.forEach(childList => {
-                        processListRecursively(childList, parentDepth + 1, blocksArray);
-                    });
-                }
-
-                // 輔助函數：遞歸處理列表，保持層級結構
-                function processListRecursively(listElement, depth, blocksArray) {
-                    const directChildren = listElement.querySelectorAll(':scope > li');
-                    directChildren.forEach(li => {
-                        processListItem(li, depth, blocksArray);
-                    });
-                }
+                };
 
                 // 輔助函數：將長文本分割成符合 Notion 限制的片段
-                function splitTextForNotion(text, maxLength = 2000) {
+                const splitTextForNotion = (text, maxLength = 2000) => {
                     if (!text || text.length <= maxLength) {
                         return [text];
                     }
@@ -2772,7 +2737,42 @@ async function handleSavePage(sendResponse) {
                     }
 
                     return chunks;
-                }
+                };
+
+                // 輔助函數：處理列表項元素，保持層級結構
+                const processListItem = (liElement, parentDepth, blocksArray) => {
+                    const directText = getDirectTextContent(liElement);
+                    const cleanText = cleanTextContent(directText);
+
+                    // 如果有直接文本內容，創建列表項
+                    if (hasActualContent(cleanText)) {
+                        const indentedText = createIndentedText(cleanText, parentDepth);
+                        const textChunks = splitTextForNotion(indentedText, 2000);
+                        textChunks.forEach(chunk => {
+                            blocksArray.push({
+                                object: 'block',
+                                type: 'bulleted_list_item',
+                                bulleted_list_item: {
+                                    rich_text: [{ type: 'text', text: { content: chunk } }]
+                                }
+                            });
+                        });
+                    }
+
+                    // 遞歸處理子列表
+                    const childLists = liElement.querySelectorAll(':scope > ul, :scope > ol');
+                    childLists.forEach(childList => {
+                        processListRecursively(childList, parentDepth + 1, blocksArray);
+                    });
+                };
+
+                // 輔助函數：遞歸處理列表，保持層級結構
+                const processListRecursively = (listElement, depth, blocksArray) => {
+                    const directChildren = listElement.querySelectorAll(':scope > li');
+                    directChildren.forEach(li => {
+                        processListItem(li, depth, blocksArray);
+                    });
+                };
 
                 if (finalContent) {
                     /**
