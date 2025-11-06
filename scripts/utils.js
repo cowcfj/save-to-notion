@@ -369,13 +369,13 @@ if (typeof window.StorageUtil === 'undefined') {
                 if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
                     chrome.storage.local.get(null, (data) => {
                         const highlightKeys = Object.keys(data || {}).filter(keyName => keyName.startsWith('highlights_'));
-                        try { safeLogger.info(`📋 所有標註鍵 (${highlightKeys.length} 個):`); } catch (_) {}
+                        safeLogger.info(`📋 所有標註鍵 (${highlightKeys.length} 個):`);
                         highlightKeys.forEach(keyName => {
                             const count = Array.isArray(data[keyName])
                                 ? data[keyName].length
                                 : (data[keyName]?.highlights?.length || 0);
                             const url = keyName.replace('highlights_', '');
-                            try { safeLogger.info(`   ${count} 個標註: ${url}`); } catch (_) {}
+                            safeLogger.info(`   ${count} 個標註: ${url}`);
                         });
                         resolve(highlightKeys);
                     });
