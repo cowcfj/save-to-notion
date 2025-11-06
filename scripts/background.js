@@ -12,7 +12,7 @@ const DEBUG_MODE = (function() {
     try {
         // 可以通過 manifest.json 或其他方式控制
         return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
-    } catch (e) {
+    } catch {
         // 生產環境中默認關閉調試
         return false;
     }
