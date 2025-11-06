@@ -2741,20 +2741,38 @@ async function handleSavePage(sendResponse) {
 
                 // 輔助函數：遞歸處理列表相關函數（相互遞歸）
                 // 使用函數表達式而非聲明，符合 DeepSource JS-0128 要求
-                // 注意：由於相互遞歸特性，會有一個靜態分析警告，但運行時無問題
+                // 先宣告兩個函數變數，然後再定義實現，解決 JS-0129 問題（使用前定義）
                 /**
                  * 處理列表項元素，保持層級結構
                  * @param {Element} liElement - 列表項元素
-                 * @param {number} parentDepth - 父層深度
+                 * @param {number} depth - 當前深度
                  * @param {Array} blocksArray - 區塊陣列
                  */
-                const processListItem = function(liElement, parentDepth, blocksArray) {
+                let processListItem;
+                /**
+                 * 遞歸處理列表，保持層級結構
+                 * @param {Element} listElement - 列表元素
+                 * @param {number} depth - 當前深度
+                 * @param {Array} blocksArray - 區塊陣列
+                 */
+                let processListRecursively;
+
+                // 定義 processListRecursively（先定義，因為 processListItem 會調用它）
+                processListRecursively = function(listElement, depth, blocksArray) {
+                    const directChildren = listElement.querySelectorAll(':scope > li');
+                    directChildren.forEach(li => {
+                        processListItem(li, depth, blocksArray);
+                    });
+                };
+
+                // 定義 processListItem（後定義，因為它調用 processListRecursively）
+                processListItem = function(liElement, depth, blocksArray) {
                     const directText = getDirectTextContent(liElement);
                     const cleanText = cleanTextContent(directText);
 
                     // 如果有直接文本內容，創建列表項
                     if (hasActualContent(cleanText)) {
-                        const indentedText = createIndentedText(cleanText, parentDepth);
+                        const indentedText = createIndentedText(cleanText, depth);
                         const textChunks = splitTextForNotion(indentedText, 2000);
                         textChunks.forEach(chunk => {
                             blocksArray.push({
@@ -2770,20 +2788,7 @@ async function handleSavePage(sendResponse) {
                     // 遞歸處理子列表
                     const childLists = liElement.querySelectorAll(':scope > ul, :scope > ol');
                     childLists.forEach(childList => {
-                        processListRecursively(childList, parentDepth + 1, blocksArray);
-                    });
-                };
-
-                /**
-                 * 遞歸處理列表，保持層級結構
-                 * @param {Element} listElement - 列表元素
-                 * @param {number} depth - 當前深度
-                 * @param {Array} blocksArray - 區塊陣列
-                 */
-                const processListRecursively = function(listElement, depth, blocksArray) {
-                    const directChildren = listElement.querySelectorAll(':scope > li');
-                    directChildren.forEach(li => {
-                        processListItem(li, depth, blocksArray);
+                        processListRecursively(childList, depth + 1, blocksArray);
                     });
                 };
 
