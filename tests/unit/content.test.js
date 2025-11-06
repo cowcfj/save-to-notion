@@ -7,7 +7,7 @@
 const { cleanImageUrl, isValidImageUrl, extractImageSrc, isContentGood } = require('../helpers/content.testable');
 
 describe('content.js - 圖片處理函數', () => {
-    
+
     describe('cleanImageUrl', () => {
         test('應該返回普通圖片 URL', () => {
             const url = 'https://example.com/image.jpg';
@@ -213,11 +213,11 @@ describe('content.js - 圖片處理函數', () => {
             const source = document.createElement('source');
             source.setAttribute('srcset', 'https://example.com/picture.jpg');
             picture.appendChild(source);
-            
+
             const img = document.createElement('img');
             // 不設置 src，讓函數去 picture 中尋找
             picture.appendChild(img);
-            
+
             expect(extractImageSrc(img)).toBe('https://example.com/picture.jpg');
         });
 
@@ -345,19 +345,19 @@ describe('content.js - 圖片處理函數', () => {
             // 測試未覆蓋的行 170：document undefined 分支
             // 保存原始 document
             const originalDocument = global.document;
-            
+
             try {
                 // 模擬 document 不存在
                 global.document = undefined;
-                
+
                 const article = {
                     content: '<p>Some content</p>',
                     length: 300
                 };
-                
+
                 // 應該使用簡化邏輯：只檢查長度
                 expect(isContentGood(article, 250)).toBe(true);
-                
+
                 const shortArticle = {
                     content: '<p>Short</p>',
                     length: 100
@@ -498,8 +498,7 @@ describe('content.js - 圖片處理函數', () => {
                 return options.single ? context.querySelector(selector) : context.querySelectorAll(selector);
             };
 
-            const mockElement = document.createElement('div');
-            const result = cachedQuery('div', document, { single: true });
+            cachedQuery('div', document, { single: true });
 
             expect(performanceOptimizer.cachedQuery).toHaveBeenCalledWith('div', document, { single: true });
         });
@@ -566,13 +565,13 @@ describe('content.js - 圖片處理函數', () => {
                         if (!url || typeof url !== 'string') return null;
                         try {
                             return new URL(url).href;
-                        } catch (e) {
+                        } catch {
                             return null;
                         }
                     },
                     isValidImageUrl: function (url) {
                         if (!url || typeof url !== 'string') return false;
-                        return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url);
+                        return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
                     },
                     extractImageSrc: function (imgNode) {
                         if (!imgNode) return null;
@@ -599,7 +598,7 @@ describe('content.js - 圖片處理函數', () => {
                         if (!url || typeof url !== 'string') return null;
                         try {
                             return new URL(url).href;
-                        } catch (e) {
+                        } catch {
                             return null;
                         }
                     }
@@ -616,7 +615,7 @@ describe('content.js - 圖片處理函數', () => {
                 global.window.ImageUtils = {
                     isValidImageUrl: function (url) {
                         if (!url || typeof url !== 'string') return false;
-                        return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url);
+                        return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
                     }
                 };
             }

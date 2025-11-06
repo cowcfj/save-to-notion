@@ -1,4 +1,4 @@
-/* global chrome */
+/* global chrome, ErrorHandler */
 // 共享工具函數
 // 此腳本包含所有內容腳本共用的工具函數
 
@@ -29,7 +29,7 @@ function __sendBackgroundLog(level, message, argsArray) {
             chrome.runtime.sendMessage({ action: 'devLogSink', level, message, args: argsSafe }, () => {
                 try {
                     // 讀取 lastError 以避免未處理錯誤
-                    const _lastError = chrome?.runtime?.lastError; // eslint-disable-line no-unused-vars
+                    const _lastError = chrome?.runtime?.lastError;
                 } catch (_) { /* ignore */ }
             });
         }
@@ -95,18 +95,33 @@ function normalizeUrl(rawUrl) {
     }
 }
 
+/**
+ * 安全地設置日誌啟用狀態
+ * 初始化設置失敗不應影響主流程，因此靜默處理錯誤
+ * @param {*} value - 要設置的值（會被轉換為布爾值）
+ */
+function setLoggerEnabledSafely(value) {
+    try {
+        if (typeof window !== 'undefined') {
+            window.__LOGGER_ENABLED__ = Boolean(value);
+        }
+    } catch (_) {
+        // 初始化設置失敗不應影響主流程
+    }
+}
+
 // 初始化可切換的日誌模式旗標（預設 false）；由 options 頁面設定 enableDebugLogs 同步更新
 if (typeof window !== 'undefined') {
     try {
         window.__LOGGER_ENABLED__ = false;
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
             chrome.storage.sync.get(['enableDebugLogs'], (cfg) => {
-                try { window.__LOGGER_ENABLED__ = Boolean(cfg?.enableDebugLogs); } catch (_) {}
+                setLoggerEnabledSafely(cfg?.enableDebugLogs);
             });
             if (chrome.storage.onChanged && typeof chrome.storage.onChanged.addListener === 'function') {
                 chrome.storage.onChanged.addListener((changes, area) => {
                     if (area === 'sync' && changes && Object.prototype.hasOwnProperty.call(changes, 'enableDebugLogs')) {
-                        try { window.__LOGGER_ENABLED__ = Boolean(changes.enableDebugLogs.newValue); } catch (_) {}
+                        setLoggerEnabledSafely(changes.enableDebugLogs.newValue);
                     }
                 });
             }
@@ -128,15 +143,14 @@ if (typeof window.StorageUtil === 'undefined') {
     /**
      * 保存標記數據
      */
-    async saveHighlights(pageUrl, highlightData) {
+    saveHighlights(pageUrl, highlightData) {
         // console.log('💾 [saveHighlights] 開始保存標註');
         // console.log('   原始 URL:', pageUrl);
 
         const normalizedUrl = normalizeUrl(pageUrl);
         const pageKey = `highlights_${normalizedUrl}`;
-        const count = Array.isArray(highlightData) ? highlightData.length : (highlightData?.highlights?.length || 0);
 
-        // console.log(`   保存 ${count} 個標註到鍵:`, pageKey);
+        // console.log(`   保存 ${Array.isArray(highlightData) ? highlightData.length : (highlightData?.highlights?.length || 0)} 個標註到鍵:`, pageKey);
 
         return new Promise((resolve, reject) => {
             try {
@@ -161,7 +175,7 @@ if (typeof window.StorageUtil === 'undefined') {
                 } else {
                     throw new Error('Chrome storage not available');
                 }
-            } catch (e) {
+            } catch (_) {
                 console.log('Chrome storage not available, using localStorage');
                 try {
                     localStorage.setItem(pageKey, JSON.stringify(highlightData));
@@ -178,7 +192,7 @@ if (typeof window.StorageUtil === 'undefined') {
     /**
      * 加載標記數據
      */
-    async loadHighlights(pageUrl) {
+    loadHighlights(pageUrl) {
         // console.log('📖 [loadHighlights] 開始讀取標註');
         // console.log('   原始 URL:', pageUrl);
 
@@ -236,7 +250,7 @@ if (typeof window.StorageUtil === 'undefined') {
                 } else {
                     throw new Error('Chrome storage not available');
                 }
-            } catch (e) {
+            } catch (_) {
                 console.log('Chrome storage not available, falling back to localStorage');
                 const legacy = localStorage.getItem(pageKey);
                 if (legacy) {
@@ -355,13 +369,13 @@ if (typeof window.StorageUtil === 'undefined') {
                 if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
                     chrome.storage.local.get(null, (data) => {
                         const highlightKeys = Object.keys(data || {}).filter(keyName => keyName.startsWith('highlights_'));
-                        try { safeLogger.info(`📋 所有標註鍵 (${highlightKeys.length} 個):`); } catch (_) {}
+                        safeLogger.info(`📋 所有標註鍵 (${highlightKeys.length} 個):`);
                         highlightKeys.forEach(keyName => {
                             const count = Array.isArray(data[keyName])
                                 ? data[keyName].length
                                 : (data[keyName]?.highlights?.length || 0);
                             const url = keyName.replace('highlights_', '');
-                            try { safeLogger.info(`   ${count} 個標註: ${url}`); } catch (_) {}
+                            safeLogger.info(`   ${count} 個標註: ${url}`);
                         });
                         resolve(highlightKeys);
                     });
@@ -390,7 +404,7 @@ if (typeof window.Logger === 'undefined') {
                 return /dev/i.test(versionString) || flag;
             }
             return false;
-        } catch (e) {
+        } catch (_) {
             return false;
         }
     })();

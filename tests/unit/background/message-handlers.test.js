@@ -4,16 +4,7 @@
  */
 
 describe('Background Message Handlers', () => {
-  let mockSendResponse;
-  let mockSender;
-
   beforeEach(() => {
-    // 重置 mocks
-    mockSendResponse = jest.fn();
-    mockSender = {
-      tab: { id: 1, url: 'https://example.com' }
-    };
-
     // 清理存儲
     if (chrome._clearStorage) {
       chrome._clearStorage();
@@ -47,7 +38,7 @@ describe('Background Message Handlers', () => {
 
       // 模擬 handleCheckPageStatus 的行為
       const request = { action: 'checkPageStatus' };
-      
+
       // Act
       const response = await simulateMessageHandler(request);
 
@@ -422,7 +413,7 @@ describe('Background Message Handlers', () => {
 
     it('應該處理異步錯誤', async () => {
       // Arrange
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
+      chrome.tabs.query.mockImplementation((_queryInfo, _callback) => {
         // 模擬異步錯誤：不調用 callback，直接拋出錯誤
         throw new Error('Async error');
       });
