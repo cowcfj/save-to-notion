@@ -247,8 +247,12 @@ function isContentGood(article) {
                 });
 
                                 // 使用智能預熱功能
-                const prewarmResult = await performanceOptimizer.smartPrewarm(document);
-                Logger.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');
+                try {
+                    await performanceOptimizer.smartPrewarm(document);
+                    Logger.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');
+                } catch (error) {
+                    Logger.warn('⚠️ Smart prewarming failed:', error);
+                }
             } else {
                 Logger.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
             }
