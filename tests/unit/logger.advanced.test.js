@@ -8,15 +8,11 @@ const { Logger } = require('../helpers/utils.testable.js');
 
 describe('Logger 系統進階測試', () => {
   let originalChrome;
-  let mockSendMessage;
 
   beforeEach(() => {
     // 保存原始環境
     originalChrome = global.chrome;
-    
-    // 設置 mock
-    mockSendMessage = jest.fn();
-    
+
     // 重置 console 方法
     jest.spyOn(console, 'debug').mockImplementation(() => {});
     jest.spyOn(console, 'info').mockImplementation(() => {});
@@ -27,7 +23,7 @@ describe('Logger 系統進階測試', () => {
   afterEach(() => {
     // 恢復原始環境
     global.chrome = originalChrome;
-    
+
     // 清理 mock
     jest.restoreAllMocks();
   });
