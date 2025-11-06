@@ -95,18 +95,33 @@ function normalizeUrl(rawUrl) {
     }
 }
 
+/**
+ * 安全地設置日誌啟用狀態
+ * 初始化設置失敗不應影響主流程，因此靜默處理錯誤
+ * @param {*} value - 要設置的值（會被轉換為布爾值）
+ */
+function setLoggerEnabledSafely(value) {
+    try {
+        if (typeof window !== 'undefined') {
+            window.__LOGGER_ENABLED__ = Boolean(value);
+        }
+    } catch (_) {
+        // 初始化設置失敗不應影響主流程
+    }
+}
+
 // 初始化可切換的日誌模式旗標（預設 false）；由 options 頁面設定 enableDebugLogs 同步更新
 if (typeof window !== 'undefined') {
     try {
         window.__LOGGER_ENABLED__ = false;
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
             chrome.storage.sync.get(['enableDebugLogs'], (cfg) => {
-                try { window.__LOGGER_ENABLED__ = Boolean(cfg?.enableDebugLogs); } catch (_) {}
+                setLoggerEnabledSafely(cfg?.enableDebugLogs);
             });
             if (chrome.storage.onChanged && typeof chrome.storage.onChanged.addListener === 'function') {
                 chrome.storage.onChanged.addListener((changes, area) => {
                     if (area === 'sync' && changes && Object.prototype.hasOwnProperty.call(changes, 'enableDebugLogs')) {
-                        try { window.__LOGGER_ENABLED__ = Boolean(changes.enableDebugLogs.newValue); } catch (_) {}
+                        setLoggerEnabledSafely(changes.enableDebugLogs.newValue);
                     }
                 });
             }
