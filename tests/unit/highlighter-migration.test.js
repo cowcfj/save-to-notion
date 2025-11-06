@@ -138,10 +138,11 @@ describe('highlighter-migration.js', () => {
     describe('getMigrationStatus', () => {
         test('應該獲取遷移狀態', async () => {
             const manager = new window.HighlightMigrationManager();
-            const key = `highlight_migration_status_${window.location.href}`;
 
             mockChrome.storage.local.get.mockImplementation((keys) => {
                 const result = {};
+                // keys 可能是字符串或數組，這裡處理字符串情況
+                const key = typeof keys === 'string' ? keys : keys[0];
                 result[key] = 'completed';
                 return Promise.resolve(result);
             });
@@ -164,7 +165,7 @@ describe('highlighter-migration.js', () => {
         test('應該處理讀取錯誤', async () => {
             const manager = new window.HighlightMigrationManager();
 
-            mockChrome.storage.local.get.mockImplementation((keys, callback) => {
+            mockChrome.storage.local.get.mockImplementation(() => {
                 throw new Error('Storage error');
             });
 
@@ -190,7 +191,7 @@ describe('highlighter-migration.js', () => {
         test('應該處理保存錯誤', async () => {
             const manager = new window.HighlightMigrationManager();
 
-            mockChrome.storage.local.set.mockImplementation((data, callback) => {
+            mockChrome.storage.local.set.mockImplementation(() => {
                 throw new Error('Storage error');
             });
 
