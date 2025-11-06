@@ -4,8 +4,6 @@
  */
 
 const { JSDOM } = require('jsdom');
-const fs = require('fs');
-const path = require('path');
 
 // 動態引入模組以避免 ES Module 問題
 let Readability, Defuddle, TurndownService, gfm;
@@ -281,6 +279,7 @@ awesome.init();
             // 測試 Readability
             const readabilityStart = Date.now();
             const article = new Readability(document.cloneNode(true)).parse();
+            expect(article).toBeTruthy();
             const readabilityTime = Date.now() - readabilityStart;
 
             console.log('\n⚡ 效能對比:');
@@ -290,6 +289,7 @@ awesome.init();
             if (Defuddle) {
                 const defuddleStart = Date.now();
                 const defuddled = new Defuddle(document.cloneNode(true)).parse();
+                expect(defuddled).toBeTruthy();
                 const defuddleTime = Date.now() - defuddleStart;
 
                 console.log('Defuddle:', defuddleTime, 'ms');
