@@ -33,14 +33,14 @@ describe('Thomas Frank 方案整合測試', () => {
   describe('完整對比測試套件', () => {
     test('應該運行完整的 Thomas Frank 對比測試', async () => {
       // 定義測試實現函數
-      const thomasFrankImpl = async (size) => {
+      const thomasFrankImpl = (size) => {
         const blocks = generateTestBlocks(size);
-        return await testThomasFrankPattern(blocks);
+        return testThomasFrankPattern(blocks);
       };
 
-      const currentImpl = async (size) => {
+      const currentImpl = (size) => {
         const blocks = generateTestBlocks(size);
-        return await testCurrentImplementation(blocks);
+        return testCurrentImplementation(blocks);
       };
 
       // 運行對比測試套件（減少測試規模以避免超時）
@@ -182,9 +182,9 @@ describe('Thomas Frank 方案整合測試', () => {
 
   describe('性能基準和擴展性測試', () => {
     test('應該建立性能基準並測試擴展性', async () => {
-      const scalabilityTest = async (size) => {
+      const scalabilityTest = (size) => {
         const blocks = generateTestBlocks(size);
-        return await testCurrentImplementation(blocks);
+        return testCurrentImplementation(blocks);
       };
 
       // 測試不同規模的性能（減少測試規模以避免超時）

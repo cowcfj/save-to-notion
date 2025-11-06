@@ -21,7 +21,7 @@ function cleanImageUrl(url) {
         // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
             const uParam = urlObj.searchParams.get('u');
-            if (uParam?.match(/^https?:\/\//)) {
+            if (uParam && /^https?:\/\//.test(uParam)) {
                 // 使用代理中的原始圖片 URL
                 return cleanImageUrl(uParam);
             }
@@ -37,7 +37,7 @@ function cleanImageUrl(url) {
         urlObj.search = params.toString();
 
         return urlObj.href;
-    } catch (e) {
+    } catch (_) {
         return null;
     }
 }
@@ -53,7 +53,7 @@ function isValidImageUrl(url) {
     if (!cleanedUrl) return false;
 
     // 檢查是否為有效的 HTTP/HTTPS URL
-    if (!cleanedUrl.match(/^https?:\/\//i)) return false;
+    if (!/^https?:\/\//i.test(cleanedUrl)) return false;
 
     // 檢查 URL 長度（Notion 有限制）
     if (cleanedUrl.length > 2000) return false;
@@ -165,7 +165,7 @@ function normalizeUrl(rawUrl) {
         }
 
         return url.href;
-    } catch (e) {
+    } catch (_) {
         return rawUrl; // 無效的 URL，返回原值
     }
 }

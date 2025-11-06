@@ -44,7 +44,7 @@ global.performance = {
 let backgroundModule;
 try {
   backgroundModule = require('../../../scripts/background.js');
-} catch (error) {
+} catch {
   console.warn('Could not import background.js directly, using mocked functions');
   // 如果无法直接导入，使用模拟的函数
   backgroundModule = {
@@ -61,7 +61,7 @@ try {
           u.pathname = u.pathname.replace(/\/+$/, '');
         }
         return u.toString();
-      } catch (e) {
+      } catch {
         return rawUrl || '';
       }
     },
@@ -74,7 +74,7 @@ try {
 
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
           const uParam = urlObj.searchParams.get('u');
-          if (uParam?.match(/^https?:\/\//)) {
+          if (uParam && /^https?:\/\//.test(uParam)) {
             return this.cleanImageUrl(uParam);
           }
         }
@@ -88,7 +88,7 @@ try {
         urlObj.search = params.toString();
 
         return urlObj.href;
-      } catch (e) {
+      } catch {
         return null;
       }
     },
@@ -99,10 +99,10 @@ try {
       const cleanedUrl = this.cleanImageUrl(url);
       if (!cleanedUrl) return false;
 
-      if (!cleanedUrl.match(/^https?:\/\//i)) return false;
+      if (!/^https?:\/\//i.test(cleanedUrl)) return false;
       if (cleanedUrl.length > 2000) return false;
 
-      const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(\?.*)?$/i;
+      const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
       if (imageExtensions.test(cleanedUrl)) return true;
 
       const imagePathPatterns = [
@@ -209,7 +209,7 @@ describe('Background.js Exported Functions', () => {
   beforeEach(() => {
     // 重置 mocks
     jest.clearAllMocks();
-    
+
     // 重置 console mocks
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -656,8 +656,7 @@ describe('Background.js Exported Functions', () => {
 
   describe('集成测试', () => {
     it('应该完整处理图片 URL 流程', () => {
-      const proxyUrl = 'https://pgw.udn.com.tw/gw/photo.php?u=' + 
-        encodeURIComponent('https://cdn.example.com/image.jpg?width=800&width=1200');
+      const proxyUrl = `https://pgw.udn.com.tw/gw/photo.php?u=${encodeURIComponent('https://cdn.example.com/image.jpg?width=800&width=1200')}`;
 
       const cleanedUrl = backgroundModule.cleanImageUrl(proxyUrl);
       const isValid = backgroundModule.isValidImageUrl(cleanedUrl);
@@ -669,19 +668,19 @@ describe('Background.js Exported Functions', () => {
     it('应该处理复杂的 URL 标准化场景', () => {
       const complexUrl = 'https://example.com/page/?utm_source=google&utm_medium=cpc&normal=keep#section';
       const normalized = backgroundModule.normalizeUrl(complexUrl);
-      
+
       expect(normalized).toBe('https://example.com/page?normal=keep');
     });
 
     it('应该处理长文本分割和验证', () => {
       const longText = 'This is a very long text. '.repeat(100); // 约2700字符
       const chunks = backgroundModule.splitTextForHighlight(longText, 2000);
-      
+
       expect(chunks.length).toBeGreaterThan(1);
       chunks.forEach(chunk => {
         expect(chunk.length).toBeLessThanOrEqual(2001); // 允许1个字符的误差
       });
-      
+
       // 验证所有片段都不为空
       chunks.forEach(chunk => {
         expect(chunk.trim().length).toBeGreaterThan(0);
