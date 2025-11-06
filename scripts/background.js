@@ -2665,19 +2665,6 @@ async function handleSavePage(sendResponse) {
                     return cleaned.length > 0 && cleaned !== '•' && !/^[•\-\*\s]*$/u.test(cleaned);
                 }
 
-                // 輔助函數：計算元素的列表嵌套深度
-                function getListDepth(element) {
-                    let depth = 0;
-                    let parent = element.parentElement;
-                    while (parent && parent !== document.body) {
-                        if (parent.tagName === 'LI') {
-                            depth++;
-                        }
-                        parent = parent.parentElement;
-                    }
-                    return depth;
-                }
-
                 // 輔助函數：獲取元素的直接文本內容（不包括子元素的文本）
                 function getDirectTextContent(element) {
                     let text = '';
