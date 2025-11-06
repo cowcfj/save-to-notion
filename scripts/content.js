@@ -1133,7 +1133,7 @@ function isContentGood(article) {
                     try {
                         // 直接設定 aria-expanded，並嘗試觸發 click
                         t.setAttribute('aria-expanded', 'true');
-                        try { t.click(); } catch (e) { /* ignore click failures */ }
+                        try { t.click(); } catch { /* ignore click failures */ }
 
                         // 如果有 aria-controls，嘗試移除 aria-hidden 或 collapsed 類別
                         const ctrl = t.getAttribute && t.getAttribute('aria-controls');
@@ -1146,7 +1146,7 @@ function isContentGood(article) {
                                 expanded.push(target);
                             }
                         }
-                    } catch (e) {
+                    } catch {
                         // 忽略單一項目錯誤
                     }
                 });
@@ -1160,7 +1160,7 @@ function isContentGood(article) {
                         el.classList.add('expanded-by-clipper');
                         el.removeAttribute('aria-hidden');
                         expanded.push(el);
-                    } catch (e) {
+                    } catch {
                         // 忽略
                     }
                 });
@@ -1176,7 +1176,7 @@ function isContentGood(article) {
                             el.removeAttribute('hidden');
                             expanded.push(el);
                         }
-                    } catch (e) { }
+                    } catch { }
                 });
 
                 // 等待短暫時間讓任何 JS 綁定或懶載入觸發
@@ -1212,7 +1212,7 @@ function isContentGood(article) {
                 try {
                     el.scrollTop = el.scrollHeight;
                     el.scrollLeft = el.scrollWidth;
-                } catch (e) { /* ignore */ }
+                } catch { /* ignore */ }
             });
 
             // 再等待一下讓懶載入內容出現
@@ -1260,7 +1260,7 @@ function isContentGood(article) {
                             el.remove();
                             removedCount++;
                         });
-                    } catch (e) {
+                    } catch {
                         // 忽略選擇器錯誤，繼續處理其他選擇器
                         Logger.log(`⚠️ Failed to remove elements with selector: ${selector}`);
                     }
@@ -1572,9 +1572,9 @@ function isContentGood(article) {
     // 如果在單元測試環境，暴露結果到全域以便測試程式存取
     try {
         if (typeof window !== 'undefined' && window.__UNIT_TESTING__) {
-            try { window.__notion_extraction_result = result; } catch (e) { /* ignore */ }
+            try { window.__notion_extraction_result = result; } catch { /* ignore */ }
         }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
 
     return result;
 }).catch(error => {
