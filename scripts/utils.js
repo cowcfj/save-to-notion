@@ -29,7 +29,7 @@ function __sendBackgroundLog(level, message, argsArray) {
             chrome.runtime.sendMessage({ action: 'devLogSink', level, message, args: argsSafe }, () => {
                 try {
                     // 讀取 lastError 以避免未處理錯誤
-                    const _lastError = chrome?.runtime?.lastError; // eslint-disable-line no-unused-vars
+                    const _lastError = chrome?.runtime?.lastError;
                 } catch (_) { /* ignore */ }
             });
         }
@@ -175,7 +175,7 @@ if (typeof window.StorageUtil === 'undefined') {
                 } else {
                     throw new Error('Chrome storage not available');
                 }
-            } catch (e) {
+            } catch (_) {
                 console.log('Chrome storage not available, using localStorage');
                 try {
                     localStorage.setItem(pageKey, JSON.stringify(highlightData));
@@ -250,7 +250,7 @@ if (typeof window.StorageUtil === 'undefined') {
                 } else {
                     throw new Error('Chrome storage not available');
                 }
-            } catch (e) {
+            } catch (_) {
                 console.log('Chrome storage not available, falling back to localStorage');
                 const legacy = localStorage.getItem(pageKey);
                 if (legacy) {
@@ -404,7 +404,7 @@ if (typeof window.Logger === 'undefined') {
                 return /dev/i.test(versionString) || flag;
             }
             return false;
-        } catch (e) {
+        } catch (_) {
             return false;
         }
     })();

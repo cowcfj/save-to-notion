@@ -53,7 +53,8 @@ module.exports = [
       // Base ESLint rules
       'no-unused-vars': ['warn', {
         argsIgnorePattern: '^_', // 忽略以下劃線開頭的未使用參數（用於接口一致性）
-        varsIgnorePattern: '^_'
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_' // 忽略以下劃線開頭的未使用 catch 參數
       }],
       'no-empty': ['error', { allowEmptyCatch: true }],
       'no-case-declarations': 'off',
