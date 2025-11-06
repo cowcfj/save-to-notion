@@ -1,10 +1,8 @@
 /* global chrome */
+'use strict';
 // 無痛自動遷移 - 用戶零感知的標註升級方案
 // v2.5.0 - 完全自動化，智能回退
 (function() {
-    'use strict';
-
-    const { StorageUtil } = window;
 
     /**
      * 智能遷移狀態
