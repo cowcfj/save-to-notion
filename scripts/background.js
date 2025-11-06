@@ -2739,16 +2739,16 @@ async function handleSavePage(sendResponse) {
                     return chunks;
                 };
 
-                // 輔助函數：遞歸處理列表，保持層級結構
-                function processListRecursively(listElement, depth, blocksArray) {
-                    const directChildren = listElement.querySelectorAll(':scope > li');
-                    directChildren.forEach(li => {
-                        processListItem(li, depth, blocksArray);
-                    });
-                }
-
-                // 輔助函數：處理列表項元素，保持層級結構
-                function processListItem(liElement, parentDepth, blocksArray) {
+                // 輔助函數：遞歸處理列表相關函數（相互遞歸）
+                // 使用函數表達式而非聲明，符合 DeepSource JS-0128 要求
+                // 注意：由於相互遞歸特性，會有一個靜態分析警告，但運行時無問題
+                /**
+                 * 處理列表項元素，保持層級結構
+                 * @param {Element} liElement - 列表項元素
+                 * @param {number} parentDepth - 父層深度
+                 * @param {Array} blocksArray - 區塊陣列
+                 */
+                const processListItem = function(liElement, parentDepth, blocksArray) {
                     const directText = getDirectTextContent(liElement);
                     const cleanText = cleanTextContent(directText);
 
@@ -2772,7 +2772,20 @@ async function handleSavePage(sendResponse) {
                     childLists.forEach(childList => {
                         processListRecursively(childList, parentDepth + 1, blocksArray);
                     });
-                }
+                };
+
+                /**
+                 * 遞歸處理列表，保持層級結構
+                 * @param {Element} listElement - 列表元素
+                 * @param {number} depth - 當前深度
+                 * @param {Array} blocksArray - 區塊陣列
+                 */
+                const processListRecursively = function(listElement, depth, blocksArray) {
+                    const directChildren = listElement.querySelectorAll(':scope > li');
+                    directChildren.forEach(li => {
+                        processListItem(li, depth, blocksArray);
+                    });
+                };
 
                 if (finalContent) {
                     /**
