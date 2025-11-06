@@ -220,8 +220,9 @@
 
         /**
          * 階段3：完全移除舊span
+         * @param {Object} _highlightManager - 保留參數以維持接口一致性（與其他 phase 方法簽名一致）
          */
-        async phase3_RemoveOldSpans(highlightManager) {
+        async phase3_RemoveOldSpans(_highlightManager) {
 
 
             const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
