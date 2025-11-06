@@ -1,4 +1,4 @@
-/* global chrome */
+/* global chrome, ErrorHandler */
 // 共享工具函數
 // 此腳本包含所有內容腳本共用的工具函數
 
@@ -134,9 +134,8 @@ if (typeof window.StorageUtil === 'undefined') {
 
         const normalizedUrl = normalizeUrl(pageUrl);
         const pageKey = `highlights_${normalizedUrl}`;
-        const count = Array.isArray(highlightData) ? highlightData.length : (highlightData?.highlights?.length || 0);
 
-        // console.log(`   保存 ${count} 個標註到鍵:`, pageKey);
+        // console.log(`   保存 ${Array.isArray(highlightData) ? highlightData.length : (highlightData?.highlights?.length || 0)} 個標註到鍵:`, pageKey);
 
         return new Promise((resolve, reject) => {
             try {
