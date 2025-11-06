@@ -565,9 +565,6 @@ function isContentGood(article) {
         /**
          * 提取圖片的 src 屬性，支持多種懶加載和響應式圖片格式
          */
-        // 圖片提取結果緩存
-        const imageExtractionCache = new Map();
-        const MAX_EXTRACTION_CACHE_SIZE = 100;
 
         /**
          * 將 DOM 節點轉換為 Notion 區塊
