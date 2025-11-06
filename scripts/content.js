@@ -281,7 +281,7 @@ function isContentGood(article) {
                 },
                 isValidImageUrl(url) {
                     if (!url || typeof url !== 'string') return false;
-                    return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url);
+                    return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
                 },
                 isNotionCompatibleImageUrl(url) {
                     // 簡單的回退實現
