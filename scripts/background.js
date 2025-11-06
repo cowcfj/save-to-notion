@@ -2741,21 +2741,21 @@ async function handleSavePage(sendResponse) {
 
                 // 輔助函數：遞歸處理列表相關函數（相互遞歸）
                 // 使用函數表達式而非聲明，符合 DeepSource JS-0128 要求
-                // 先宣告兩個函數變數，然後再定義實現，解決 JS-0129 問題（使用前定義）
+                // 初始化為 null 以滿足 JS-0119 要求（變數應在宣告時初始化）
                 /**
                  * 處理列表項元素，保持層級結構
                  * @param {Element} liElement - 列表項元素
                  * @param {number} depth - 當前深度
                  * @param {Array} blocksArray - 區塊陣列
                  */
-                let processListItem;
+                let processListItem = null;
                 /**
                  * 遞歸處理列表，保持層級結構
                  * @param {Element} listElement - 列表元素
                  * @param {number} depth - 當前深度
                  * @param {Array} blocksArray - 區塊陣列
                  */
-                let processListRecursively;
+                let processListRecursively = null;
 
                 // 定義 processListRecursively（先定義，因為 processListItem 會調用它）
                 processListRecursively = function(listElement, depth, blocksArray) {
