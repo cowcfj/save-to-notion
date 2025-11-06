@@ -58,7 +58,7 @@ function cleanImageUrl(url) {
         urlObj.search = params.toString();
 
         return urlObj.href;
-    } catch (e) {
+    } catch {
         return null;
     }
 }
@@ -691,7 +691,7 @@ function normalizeUrl(rawUrl) {
             u.pathname = u.pathname.replace(/\/+$/, '');
         }
         return u.toString();
-    } catch (e) {
+    } catch {
         return rawUrl || '';
     }
 }
@@ -766,7 +766,7 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
             try {
                 const data = await res.clone().json();
                 message = data?.message || '';
-            } catch (_) { /* ignore parse errors */ }
+            } catch { /* ignore parse errors */ }
 
             const retriableStatus = res.status >= 500 || res.status === 429 || res.status === 409;
             const retriableMessage = /Unsaved transactions|DatastoreInfraError/i.test(message);
@@ -1487,7 +1487,7 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
                         params.forEach((p) => u.searchParams.delete(p));
                         if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
                         return u.toString();
-                    } catch (e) { return raw || ''; }
+                    } catch { return raw || ''; }
                 };
 
                 const norm = normalize(window.location.href);
@@ -1609,7 +1609,7 @@ function handleMessage(request, sender, sendResponse) {
             case 'savePage':
                 // 防禦性處理：確保即使內部未捕獲的拒絕也會回覆
                 Promise.resolve(handleSavePage(sendResponse)).catch(err => {
-                    try { sendResponse({ success: false, error: err?.message || 'Save failed' }); } catch (_) {}
+                    try { sendResponse({ success: false, error: err?.message || 'Save failed' }); } catch { /* 忽略 sendResponse 錯誤 */ }
                 });
                 break;
             case 'openNotionPage':
@@ -1990,7 +1990,7 @@ async function handleSavePage(sendResponse) {
                     urlObj.search = params.toString();
 
                     return urlObj.href;
-                } catch (e) {
+                } catch {
                     return null;
                 }
             }
@@ -2422,7 +2422,7 @@ async function handleSavePage(sendResponse) {
 
                                         // 稍後清除選擇
                                         setTimeout(() => {
-                                            try { selection.removeAllRanges(); } catch (e) {}
+                                            try { selection.removeAllRanges(); } catch { /* 忽略清除選擇錯誤 */ }
                                         }, 50);
                                     }
 
