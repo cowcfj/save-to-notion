@@ -1,6 +1,6 @@
 // This script is injected into the active tab.
 
-/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, chrome */
+/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, chrome, Readability */
 
 // 開發模式控制（與 background.js 保持一致）
 const DEBUG_MODE = (function() {
