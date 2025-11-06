@@ -1180,7 +1180,9 @@ function isContentGood(article) {
                             el.removeAttribute('hidden');
                             expanded.push(el);
                         }
-                    } catch { }
+                    } catch (e) {
+                        Logger.warn('Failed to expand hidden element', e);
+                    }
                 });
 
                 // 等待短暫時間讓任何 JS 綁定或懶載入觸發
