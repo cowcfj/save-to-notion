@@ -1,7 +1,7 @@
 // Notion Smart Clipper - Background Script
 // Refactored for better organization
 
-/* global chrome, PerformanceOptimizer, ErrorHandler, AdaptivePerformanceManager */
+/* global chrome, PerformanceOptimizer, ErrorHandler */
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
