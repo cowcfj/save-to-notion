@@ -274,7 +274,8 @@ function isContentGood(article) {
                     if (!url || typeof url !== 'string') return null;
                     try {
                         return new URL(url).href;
-                    } catch (e) {
+                    } catch {
+                        // 無效 URL，返回 null
                         return null;
                     }
                 },
