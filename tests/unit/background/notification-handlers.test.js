@@ -120,7 +120,7 @@ describe('Background 通知處理器', () => {
       const request = { url: 'https://notion.so/test-page' };
       const sendResponse = jest.fn();
       const mockTab = { id: 123, url: 'https://notion.so/test-page' };
-      
+
       mockChrome.tabs.create.mockImplementation((options, callback) => {
         callback(mockTab);
       });
@@ -194,7 +194,7 @@ describe('Background 通知處理器', () => {
       const request = { url: 'https://notion.so/test-page' };
       const sendResponse = jest.fn();
       const error = { message: 'Permission denied' };
-      
+
       mockChrome.runtime.lastError = error;
       mockChrome.tabs.create.mockImplementation((options, callback) => {
         callback(null);
@@ -216,7 +216,7 @@ describe('Background 通知處理器', () => {
       const request = { url: 'https://notion.so/test-page' };
       const sendResponse = jest.fn();
       const error = new Error('Unexpected error');
-      
+
       mockChrome.tabs.create.mockImplementation(() => {
         throw error;
       });
@@ -239,12 +239,12 @@ describe('Background 通知處理器', () => {
         'https://notion.so/page-456',
         'https://custom.notion.site/page-789'
       ];
-      
+
       testUrls.forEach((url, index) => {
         const request = { url };
         const sendResponse = jest.fn();
         const mockTab = { id: index + 1, url };
-        
+
         mockChrome.tabs.create.mockImplementation((options, callback) => {
           callback(mockTab);
         });
@@ -265,7 +265,7 @@ describe('Background 通知處理器', () => {
       const request = { url: 'https://google.com' };
       const sendResponse = jest.fn();
       const mockTab = { id: 999, url: 'https://google.com' };
-      
+
       mockChrome.tabs.create.mockImplementation((options, callback) => {
         callback(mockTab);
       });
@@ -293,12 +293,13 @@ describe('Background 通知處理器', () => {
       mockChrome.tabs.create.mockResolvedValue(mockTab);
       mockChrome.tabs.sendMessage.mockResolvedValue({});
 
-      const showUpdateNotification = async (prev, curr) => {
+      const showUpdateNotification = async (previousVersion, currentVersion) => {
         const tab = await chrome.tabs.create({
           url: chrome.runtime.getURL('update-notification/update-notification.html'),
           active: true
         });
-        Logger.log('已顯示更新通知頁面');
+        // 模擬真實實現：記錄版本信息（真實實現會通過 sendMessage 傳送）
+        Logger.log(`已顯示更新通知頁面: ${previousVersion} → ${currentVersion}`);
         return tab;
       };
 
@@ -314,15 +315,15 @@ describe('Background 通知處理器', () => {
 
       // Act - 先顯示更新通知
       const updateTab = await showUpdateNotification('2.8.0', '2.9.0');
-      
+
       // 然後打開 Notion 頁面
       const notionRequest = { url: 'https://notion.so/new-feature' };
       const notionResponse = jest.fn();
-      
+
       mockChrome.tabs.create.mockImplementation((options, callback) => {
         callback({ id: 200, url: options.url });
       });
-      
+
       handleOpenNotionPage(notionRequest, notionResponse);
 
       // Assert
@@ -331,7 +332,7 @@ describe('Background 通知處理器', () => {
         success: true,
         tabId: 200
       });
-      expect(mockLogger.log).toHaveBeenCalledWith('已顯示更新通知頁面');
+      expect(mockLogger.log).toHaveBeenCalledWith('已顯示更新通知頁面: 2.8.0 → 2.9.0');
     });
   });
 });
