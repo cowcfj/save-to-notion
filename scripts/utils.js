@@ -143,7 +143,7 @@ if (typeof window.StorageUtil === 'undefined') {
     /**
      * 保存標記數據
      */
-    async saveHighlights(pageUrl, highlightData) {
+    saveHighlights(pageUrl, highlightData) {
         // console.log('💾 [saveHighlights] 開始保存標註');
         // console.log('   原始 URL:', pageUrl);
 
@@ -192,7 +192,7 @@ if (typeof window.StorageUtil === 'undefined') {
     /**
      * 加載標記數據
      */
-    async loadHighlights(pageUrl) {
+    loadHighlights(pageUrl) {
         // console.log('📖 [loadHighlights] 開始讀取標註');
         // console.log('   原始 URL:', pageUrl);
 
