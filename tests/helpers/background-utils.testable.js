@@ -13,7 +13,7 @@ function cleanImageUrl(url) {
         // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
             const uParam = urlObj.searchParams.get('u');
-            if (uParam?.match(/^https?:\/\//)) {
+            if (uParam && /^https?:\/\//.test(uParam)) {
                 // 使用代理中的原始圖片 URL
                 return cleanImageUrl(uParam);
             }
@@ -29,7 +29,7 @@ function cleanImageUrl(url) {
         urlObj.search = params.toString();
 
         return urlObj.href;
-    } catch (e) {
+    } catch {
         return null;
     }
 }
@@ -45,7 +45,7 @@ function isValidImageUrl(url) {
     if (!cleanedUrl) return false;
 
     // 檢查是否為有效的 HTTP/HTTPS URL
-    if (!cleanedUrl.match(/^https?:\/\//i)) return false;
+    if (!/^https?:\/\//i.test(cleanedUrl)) return false;
 
     // 檢查 URL 長度（Notion 有限制）
     if (cleanedUrl.length > 2000) return false;
@@ -148,7 +148,7 @@ function normalizeUrl(rawUrl) {
             u.pathname = u.pathname.replace(/\/+$/, '');
         }
         return u.toString();
-    } catch (e) {
+    } catch {
         return rawUrl || '';
     }
 }
@@ -450,7 +450,7 @@ function safeJsonParse(jsonString, defaultValue = null) {
 
     try {
         return JSON.parse(jsonString);
-    } catch (e) {
+    } catch {
         return defaultValue;
     }
 }
@@ -470,7 +470,7 @@ function safeJsonStringify(obj, space) {
         const result = JSON.stringify(obj, null, space);
         // JSON.stringify 對某些值會返回 undefined
         return result === undefined ? null : result;
-    } catch (error) {
+    } catch {
         return null;
     }
 }

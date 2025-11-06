@@ -42,7 +42,7 @@ function cleanImageUrl(url) {
         // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
             const uParam = urlObj.searchParams.get('u');
-            if (uParam?.match(/^https?:\/\//)) {
+            if (uParam && /^https?:\/\//.test(uParam)) {
                 // 使用代理中的原始圖片 URL
                 return cleanImageUrl(uParam);
             }
@@ -1974,7 +1974,7 @@ async function handleSavePage(sendResponse) {
                     // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
                     if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
                         const uParam = urlObj.searchParams.get('u');
-                        if (uParam?.match(/^https?:\/\//)) {
+                        if (uParam && /^https?:\/\//.test(uParam)) {
                             // 使用代理中的原始圖片 URL
                             return cleanImageUrl(uParam);
                         }
