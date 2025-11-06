@@ -2662,7 +2662,7 @@ async function handleSavePage(sendResponse) {
                 function hasActualContent(text) {
                     if (!text) return false;
                     const cleaned = cleanTextContent(text);
-                    return cleaned.length > 0 && cleaned !== '•' && !/^[•\-\*\s]*$/u.test(cleaned);
+                    return cleaned.length > 0 && cleaned !== '•' && !/^[•\-*\s]*$/u.test(cleaned);
                 }
 
                 // 輔助函數：獲取元素的直接文本內容（不包括子元素的文本）
