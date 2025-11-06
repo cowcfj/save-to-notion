@@ -1,12 +1,13 @@
 // This script is injected into the active tab.
 
-/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, chrome */
+/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, chrome, Readability */
 
 // 開發模式控制（與 background.js 保持一致）
 const DEBUG_MODE = (function() {
     try {
         return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
-    } catch (e) {
+    } catch {
+        // 生產環境中默認關閉調試，靜默處理初始化錯誤
         return false;
     }
 })();
@@ -60,7 +61,7 @@ const Logger = (() => {
             if (typeof console !== 'undefined' && typeof console[method] === 'function') {
                 console[method](...args);
             }
-        } catch (error) {
+        } catch {
             // 靜默失敗，避免日誌系統本身造成問題
             // 在極端情況下甚至 console 都不可用
         }
@@ -246,8 +247,12 @@ function isContentGood(article) {
                 });
 
                                 // 使用智能預熱功能
-                const prewarmResult = await performanceOptimizer.smartPrewarm(document);
-                Logger.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');
+                try {
+                    await performanceOptimizer.smartPrewarm(document);
+                    Logger.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');
+                } catch (error) {
+                    Logger.warn('⚠️ Smart prewarming failed:', error);
+                }
             } else {
                 Logger.warn('⚠️ PerformanceOptimizer not available in content script, using fallback queries');
             }
@@ -273,13 +278,14 @@ function isContentGood(article) {
                     if (!url || typeof url !== 'string') return null;
                     try {
                         return new URL(url).href;
-                    } catch (e) {
+                    } catch {
+                        // 無效 URL，返回 null
                         return null;
                     }
                 },
                 isValidImageUrl(url) {
                     if (!url || typeof url !== 'string') return false;
-                    return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(url);
+                    return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
                 },
                 isNotionCompatibleImageUrl(url) {
                     // 簡單的回退實現
@@ -565,9 +571,6 @@ function isContentGood(article) {
         /**
          * 提取圖片的 src 屬性，支持多種懶加載和響應式圖片格式
          */
-        // 圖片提取結果緩存
-        const imageExtractionCache = new Map();
-        const MAX_EXTRACTION_CACHE_SIZE = 100;
 
         /**
          * 將 DOM 節點轉換為 Notion 區塊
@@ -1134,7 +1137,7 @@ function isContentGood(article) {
                     try {
                         // 直接設定 aria-expanded，並嘗試觸發 click
                         t.setAttribute('aria-expanded', 'true');
-                        try { t.click(); } catch (e) { /* ignore click failures */ }
+                        try { t.click(); } catch { /* ignore click failures */ }
 
                         // 如果有 aria-controls，嘗試移除 aria-hidden 或 collapsed 類別
                         const ctrl = t.getAttribute && t.getAttribute('aria-controls');
@@ -1147,7 +1150,7 @@ function isContentGood(article) {
                                 expanded.push(target);
                             }
                         }
-                    } catch (e) {
+                    } catch {
                         // 忽略單一項目錯誤
                     }
                 });
@@ -1161,7 +1164,7 @@ function isContentGood(article) {
                         el.classList.add('expanded-by-clipper');
                         el.removeAttribute('aria-hidden');
                         expanded.push(el);
-                    } catch (e) {
+                    } catch {
                         // 忽略
                     }
                 });
@@ -1177,7 +1180,9 @@ function isContentGood(article) {
                             el.removeAttribute('hidden');
                             expanded.push(el);
                         }
-                    } catch (e) { }
+                    } catch (e) {
+                        Logger.warn('Failed to expand hidden element', e);
+                    }
                 });
 
                 // 等待短暫時間讓任何 JS 綁定或懶載入觸發
@@ -1213,7 +1218,7 @@ function isContentGood(article) {
                 try {
                     el.scrollTop = el.scrollHeight;
                     el.scrollLeft = el.scrollWidth;
-                } catch (e) { /* ignore */ }
+                } catch { /* ignore */ }
             });
 
             // 再等待一下讓懶載入內容出現
@@ -1261,7 +1266,7 @@ function isContentGood(article) {
                             el.remove();
                             removedCount++;
                         });
-                    } catch (e) {
+                    } catch {
                         // 忽略選擇器錯誤，繼續處理其他選擇器
                         Logger.log(`⚠️ Failed to remove elements with selector: ${selector}`);
                     }
@@ -1573,9 +1578,9 @@ function isContentGood(article) {
     // 如果在單元測試環境，暴露結果到全域以便測試程式存取
     try {
         if (typeof window !== 'undefined' && window.__UNIT_TESTING__) {
-            try { window.__notion_extraction_result = result; } catch (e) { /* ignore */ }
+            try { window.__notion_extraction_result = result; } catch { /* ignore */ }
         }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
 
     return result;
 }).catch(error => {
