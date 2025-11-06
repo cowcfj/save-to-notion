@@ -2739,8 +2739,16 @@ async function handleSavePage(sendResponse) {
                     return chunks;
                 };
 
+                // 輔助函數：遞歸處理列表，保持層級結構
+                function processListRecursively(listElement, depth, blocksArray) {
+                    const directChildren = listElement.querySelectorAll(':scope > li');
+                    directChildren.forEach(li => {
+                        processListItem(li, depth, blocksArray);
+                    });
+                }
+
                 // 輔助函數：處理列表項元素，保持層級結構
-                const processListItem = (liElement, parentDepth, blocksArray) => {
+                function processListItem(liElement, parentDepth, blocksArray) {
                     const directText = getDirectTextContent(liElement);
                     const cleanText = cleanTextContent(directText);
 
@@ -2764,15 +2772,7 @@ async function handleSavePage(sendResponse) {
                     childLists.forEach(childList => {
                         processListRecursively(childList, parentDepth + 1, blocksArray);
                     });
-                };
-
-                // 輔助函數：遞歸處理列表，保持層級結構
-                const processListRecursively = (listElement, depth, blocksArray) => {
-                    const directChildren = listElement.querySelectorAll(':scope > li');
-                    directChildren.forEach(li => {
-                        processListItem(li, depth, blocksArray);
-                    });
-                };
+                }
 
                 if (finalContent) {
                     /**
