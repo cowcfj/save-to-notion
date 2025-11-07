@@ -2354,232 +2354,233 @@ async function handleSavePage(sendResponse) {
             }
 
             // 執行內容提取邏輯（從 content.js 中提取的核心邏輯）
-            try {
-                // 檢測是否為技術文檔頁面（需要使用 emergency extraction）
-                function isTechnicalDoc() {
-                    const url = window.location.href.toLowerCase();
-                    const title = document.title.toLowerCase();
 
-                    // 檢查 URL 模式
-                    const urlPatterns = [
-                        /\/docs?\//,
-                        /\/api\//,
-                        /\/documentation\//,
-                        /\/guide\//,
-                        /\/manual\//,
-                        /\/reference\//,
-                        /\/cli\//,
-                        /\/commands?\//,
-                        /github\.io.*docs/,
-                        /\.github\.io/
-                    ];
+            // 檢測是否為技術文檔頁面（需要使用 emergency extraction）
+            function isTechnicalDoc() {
+                const url = window.location.href.toLowerCase();
+                const title = document.title.toLowerCase();
 
-                    // 檢查標題模式
-                    const titlePatterns = [
-                        /documentation/,
-                        /commands?/,
-                        /reference/,
-                        /guide/,
-                        /manual/,
-                        /cli/,
-                        /api/
-                    ];
+                // 檢查 URL 模式
+                const urlPatterns = [
+                    /\/docs?\//,
+                    /\/api\//,
+                    /\/documentation\//,
+                    /\/guide\//,
+                    /\/manual\//,
+                    /\/reference\//,
+                    /\/cli\//,
+                    /\/commands?\//,
+                    /github\.io.*docs/,
+                    /\.github\.io/
+                ];
 
-                    const hasUrlPattern = urlPatterns.some(pattern => pattern.test(url));
-                    const hasTitlePattern = titlePatterns.some(pattern => pattern.test(title));
+                // 檢查標題模式
+                const titlePatterns = [
+                    /documentation/,
+                    /commands?/,
+                    /reference/,
+                    /guide/,
+                    /manual/,
+                    /cli/,
+                    /api/
+                ];
 
-                    Logger.log(`🔍 Technical doc detection: URL=${hasUrlPattern}, Title=${hasTitlePattern}, URL="${url}"`);
-                    return hasUrlPattern || hasTitlePattern;
+                const hasUrlPattern = urlPatterns.some(pattern => pattern.test(url));
+                const hasTitlePattern = titlePatterns.some(pattern => pattern.test(title));
+
+                Logger.log(`🔍 Technical doc detection: URL=${hasUrlPattern}, Title=${hasTitlePattern}, URL="${url}"`);
+                return hasUrlPattern || hasTitlePattern;
+            }
+
+            // Emergency extraction 函數 - 用於技術文檔
+            function extractEmergencyContent() {
+                // 等待動態內容載入（特別針對 gemini-cli 這種懶載入頁面）
+                function waitForContent(maxAttempts = 10) {
+                    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                        const textLength = document.body.textContent?.trim()?.length || 0;
+                        Logger.log(`🔄 Attempt ${attempt + 1}/${maxAttempts}: Found ${textLength} characters`);
+
+                        // 如果內容足夠多，停止等待
+                        if (textLength > 3000) {
+                            Logger.log(`✅ Content loaded successfully: ${textLength} chars`);
+                            break;
+                        }
+
+                        // 嘗試觸發內容載入的多種方法
+                        if (attempt < 3) {
+                            try {
+                                // 方法1：選擇整個文檔來觸發懶載入
+                                if (attempt === 0) {
+                                    const selection = window.getSelection();
+                                    const range = document.createRange();
+                                    range.selectNodeContents(document.body);
+                                    selection.removeAllRanges();
+                                    selection.addRange(range);
+                                    Logger.log('🎯 Method 1: Triggered document selection');
+
+                                    // 稍後清除選擇
+                                    setTimeout(() => {
+                                        try { selection.removeAllRanges(); } catch { /* 忽略清除選擇錯誤 */ }
+                                    }, 50);
+                                }
+
+                                // 方法2：觸發滾動事件
+                                if (attempt === 1) {
+                                    window.scrollTo(0, document.body.scrollHeight);
+                                    window.scrollTo(0, 0);
+                                    Logger.log('🎯 Method 2: Triggered scroll events');
+                                }
+
+                                // 方法3：觸發點擊事件
+                                if (attempt === 2) {
+                                    const clickableElements = document.querySelectorAll('button, [role="button"], .expand, .show-more');
+                                    if (clickableElements.length > 0) {
+                                        clickableElements[0].click();
+                                        Logger.log('🎯 Method 3: Clicked expandable element');
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn(`⚠️ Could not trigger content loading (method ${attempt + 1}):`, e);
+                            }
+                        }
+
+                        // 等待時間：前幾次短等待，後面長等待
+                        const waitTime = attempt < 3 ? 300 : 500;
+                        const start = Date.now();
+                        while (Date.now() - start < waitTime) {
+                            // 同步等待
+                        }
+                    }
+
+                    const finalLength = document.body.textContent?.trim()?.length || 0;
+                    Logger.log(`🏁 Final content length: ${finalLength} characters`);
+                    return finalLength;
                 }
 
-                // Emergency extraction 函數 - 用於技術文檔
-                function extractEmergencyContent() {
-                    Logger.log('🆘 Using emergency extraction for technical documentation...');
+                Logger.log('🆘 Using emergency extraction for technical documentation...');
 
-                    // 等待動態內容載入（特別針對 gemini-cli 這種懶載入頁面）
-                    function waitForContent(maxAttempts = 10) {
-                        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                            const textLength = document.body.textContent?.trim()?.length || 0;
-                            Logger.log(`🔄 Attempt ${attempt + 1}/${maxAttempts}: Found ${textLength} characters`);
+                // 等待內容載入
+                waitForContent();
 
-                            // 如果內容足夠多，停止等待
-                            if (textLength > 3000) {
-                                Logger.log(`✅ Content loaded successfully: ${textLength} chars`);
-                                break;
-                            }
+                // 特別針對技術文檔的選擇器（按優先級排序）
+                const docSelectors = [
+                    // 通用文檔容器
+                    '.content', '.documentation', '.docs', '.guide', '.manual',
+                    '.api-content', '.reference', '.commands', '.cli-content',
 
-                            // 嘗試觸發內容載入的多種方法
-                            if (attempt < 3) {
-                                try {
-                                    // 方法1：選擇整個文檔來觸發懶載入
-                                    if (attempt === 0) {
-                                        const selection = window.getSelection();
-                                        const range = document.createRange();
-                                        range.selectNodeContents(document.body);
-                                        selection.removeAllRanges();
-                                        selection.addRange(range);
-                                        Logger.log('🎯 Method 1: Triggered document selection');
+                    // HTML5 語義化標籤
+                    '[role="main"]', 'main', 'article',
 
-                                        // 稍後清除選擇
-                                        setTimeout(() => {
-                                            try { selection.removeAllRanges(); } catch { /* 忽略清除選擇錯誤 */ }
-                                        }, 50);
-                                    }
+                    // 常見的頁面容器
+                    '.page-content', '.main-content', '.wrapper', '.container',
 
-                                    // 方法2：觸發滾動事件
-                                    if (attempt === 1) {
-                                        window.scrollTo(0, document.body.scrollHeight);
-                                        window.scrollTo(0, 0);
-                                        Logger.log('🎯 Method 2: Triggered scroll events');
-                                    }
+                    // GitHub Pages 和技術文檔站點
+                    '.site-content', '.page', '.markdown-body', '.wiki-content',
 
-                                    // 方法3：觸發點擊事件
-                                    if (attempt === 2) {
-                                        const clickableElements = document.querySelectorAll('button, [role="button"], .expand, .show-more');
-                                        if (clickableElements.length > 0) {
-                                            clickableElements[0].click();
-                                            Logger.log('🎯 Method 3: Clicked expandable element');
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.warn(`⚠️ Could not trigger content loading (method ${attempt + 1}):`, e);
-                                }
-                            }
+                    // 特定於某些文檔系統
+                    '.content-wrapper', '.docs-content', '.documentation-content',
 
-                            // 等待時間：前幾次短等待，後面長等待
-                            const waitTime = attempt < 3 ? 300 : 500;
-                            const start = Date.now();
-                            while (Date.now() - start < waitTime) {
-                                // 同步等待
-                            }
-                        }
+                    // 最寬泛的選擇器（最後嘗試）
+                    'body > div', 'body > section', 'body'
+                ];
 
-                        const finalLength = document.body.textContent?.trim()?.length || 0;
-                        Logger.log(`🏁 Final content length: ${finalLength} characters`);
-                        return finalLength;
-                    }
-
-                    // 等待內容載入
-                    waitForContent();
-
-                    // 特別針對技術文檔的選擇器（按優先級排序）
-                    const docSelectors = [
-                        // 通用文檔容器
-                        '.content', '.documentation', '.docs', '.guide', '.manual',
-                        '.api-content', '.reference', '.commands', '.cli-content',
-
-                        // HTML5 語義化標籤
-                        '[role="main"]', 'main', 'article',
-
-                        // 常見的頁面容器
-                        '.page-content', '.main-content', '.wrapper', '.container',
-
-                        // GitHub Pages 和技術文檔站點
-                        '.site-content', '.page', '.markdown-body', '.wiki-content',
-
-                        // 特定於某些文檔系統
-                        '.content-wrapper', '.docs-content', '.documentation-content',
-
-                        // 最寬泛的選擇器（最後嘗試）
-                        'body > div', 'body > section', 'body'
-                    ];
-
-                    // 1. 嘗試特定選擇器
-                    for (const selector of docSelectors) {
-                        const element = cachedQuery(selector, document, { single: true });
-                        if (element) {
-                            const text = element.textContent?.trim();
-                            if (text && text.length > 500) {
-                                Logger.log(`✅ Found technical content with selector: ${selector} (${text.length} chars)`);
-                                return element.innerHTML;
-                            }
+                // 1. 嘗試特定選擇器
+                for (const selector of docSelectors) {
+                    const element = cachedQuery(selector, document, { single: true });
+                    if (element) {
+                        const text = element.textContent?.trim();
+                        if (text && text.length > 500) {
+                            Logger.log(`✅ Found technical content with selector: ${selector} (${text.length} chars)`);
+                            return element.innerHTML;
                         }
                     }
+                }
 
-                    // 2. 使用 TreeWalker 進行深度搜索
-                    Logger.log('🔄 Using TreeWalker for deep content search...');
-                    const walker = document.createTreeWalker(
-                        document.body,
-                        NodeFilter.SHOW_ELEMENT,
-                        {
-                            acceptNode: function(node) {
-                                // 跳過導航、側邊欄、頁腳等
-                                const skipTags = ['nav', 'header', 'footer', 'aside', 'script', 'style'];
-                                if (skipTags.includes(node.tagName.toLowerCase())) {
-                                    return NodeFilter.FILTER_REJECT;
-                                }
-
-                                // 跳過特定 class
-                                const className = node.className || '';
-                                const skipClasses = ['nav', 'navigation', 'sidebar', 'header', 'footer', 'menu'];
-                                if (skipClasses.some(cls => className.includes(cls))) {
-                                    return NodeFilter.FILTER_SKIP;
-                                }
-
-                                return NodeFilter.FILTER_ACCEPT;
+                // 2. 使用 TreeWalker 進行深度搜索
+                Logger.log('🔄 Using TreeWalker for deep content search...');
+                const walker = document.createTreeWalker(
+                    document.body,
+                    NodeFilter.SHOW_ELEMENT,
+                    {
+                        acceptNode(node) {
+                            // 跳過導航、側邊欄、頁腳等
+                            const skipTags = ['nav', 'header', 'footer', 'aside', 'script', 'style'];
+                            if (skipTags.includes(node.tagName.toLowerCase())) {
+                                return NodeFilter.FILTER_REJECT;
                             }
-                        }
-                    );
 
-                    let bestElement = null;
-                    let maxScore = 0;
-                    let node = null;
-
-                    while (node = walker.nextNode()) {
-                        const text = node.textContent?.trim();
-                        if (!text || text.length < 200) continue;
-
-                        // 計算內容質量分數（確保不會產生 NaN）
-                        let score = text.length || 0;
-
-                        // 技術內容特徵加分
-                        const techKeywords = ['command', 'option', 'parameter', 'example', 'usage', 'syntax', 'cli', 'api'];
-                        let keywordCount = 0;
-                        const lowerText = text.toLowerCase();
-                        for (const keyword of techKeywords) {
-                            const matches = lowerText.split(keyword).length - 1;
-                            keywordCount += matches;
-                        }
-                        score += keywordCount * 100;
-
-                        // 結構化內容加分
-                        const headings = cachedQuery('h1, h2, h3, h4, h5, h6', node).length || 0;
-                        const codeBlocks = cachedQuery('code, pre', node).length || 0;
-                        const lists = cachedQuery('ul, ol', node).length || 0;
-
-                        score += headings * 50 + codeBlocks * 30 + lists * 20;
-
-                        // 確保分數是有效數字
-                        if (isNaN(score) || score <= 0) {
-                            score = text.length;
-                        }
-
-                        // 避免選擇包含更大元素的元素
-                        if (bestElement && (node.contains(bestElement) || bestElement.contains(node))) {
-                            if (node.contains(bestElement)) {
-                                // 當前節點包含之前的最佳節點，跳過
-                                continue;
-                            } else {
-                                // 之前的最佳節點包含當前節點，更新
-                                bestElement = node;
-                                maxScore = score;
+                            // 跳過特定 class
+                            const className = node.className || '';
+                            const skipClasses = ['nav', 'navigation', 'sidebar', 'header', 'footer', 'menu'];
+                            if (skipClasses.some(cls => className.includes(cls))) {
+                                return NodeFilter.FILTER_SKIP;
                             }
-                        } else if (score > maxScore) {
+
+                            return NodeFilter.FILTER_ACCEPT;
+                        }
+                    }
+                );
+
+                let bestElement = null;
+                let maxScore = 0;
+                let node = null;
+
+                while ((node = walker.nextNode()) !== null) {
+                    const text = node.textContent?.trim();
+                    if (!text || text.length < 200) continue;
+
+                    // 計算內容質量分數（確保不會產生 NaN）
+                    let score = text.length || 0;
+
+                    // 技術內容特徵加分
+                    const techKeywords = ['command', 'option', 'parameter', 'example', 'usage', 'syntax', 'cli', 'api'];
+                    let keywordCount = 0;
+                    const lowerText = text.toLowerCase();
+                    for (const keyword of techKeywords) {
+                        const matches = lowerText.split(keyword).length - 1;
+                        keywordCount += matches;
+                    }
+                    score += keywordCount * 100;
+
+                    // 結構化內容加分
+                    const headings = cachedQuery('h1, h2, h3, h4, h5, h6', node).length || 0;
+                    const codeBlocks = cachedQuery('code, pre', node).length || 0;
+                    const lists = cachedQuery('ul, ol', node).length || 0;
+
+                    score += headings * 50 + codeBlocks * 30 + lists * 20;
+
+                    // 確保分數是有效數字
+                    if (isNaN(score) || score <= 0) {
+                        score = text.length;
+                    }
+
+                    // 避免選擇包含更大元素的元素
+                    if (bestElement && (node.contains(bestElement) || bestElement.contains(node))) {
+                        if (node.contains(bestElement)) {
+                            // 當前節點包含之前的最佳節點，跳過
+                            continue;
+                        } else {
+                            // 之前的最佳節點包含當前節點，更新
                             bestElement = node;
                             maxScore = score;
                         }
+                    } else if (score > maxScore) {
+                        bestElement = node;
+                        maxScore = score;
                     }
-
-                    if (bestElement) {
-                        const text = bestElement.textContent?.trim();
-                        Logger.log(`🎯 Emergency extraction found content: ${text ? text.length : 0} chars, score: ${maxScore}`);
-                        return bestElement.innerHTML;
-                    }
-
-                    Logger.log('❌ Emergency extraction failed');
-                    return null;
                 }
 
+                if (bestElement) {
+                    const text = bestElement.textContent?.trim();
+                    Logger.log(`🎯 Emergency extraction found content: ${text ? text.length : 0} chars, score: ${maxScore}`);
+                    return bestElement.innerHTML;
+                }
+
+                Logger.log('❌ Emergency extraction failed');
+                return null;
+            }
+
+            try {
                 let finalContent = null;
                 let finalTitle = document.title;
 
