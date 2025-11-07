@@ -263,7 +263,9 @@ function isContentGood(article) {
         if (urlValidationCache.size >= MAX_CACHE_SIZE) {
             // 清理最舊的緩存項目
             const firstKey = urlValidationCache.keys().next().value;
-            urlValidationCache.delete(firstKey);
+            if (firstKey !== undefined) {
+                urlValidationCache.delete(firstKey);
+            }
         }
         urlValidationCache.set(url, result);
 
@@ -460,6 +462,90 @@ function isContentGood(article) {
         tempDiv.childNodes.forEach(node => processNodeToNotionBlock(node, blocks, createRichText));
 
         return blocks;
+    }
+
+    /**
+     * 處理單個圖片的收集邏輯
+     * @param {HTMLImageElement} img - 圖片元素
+     * @param {number} index - 圖片索引
+     * @param {string} featuredImage - 封面圖片 URL
+     * @returns {Object|null} 處理結果
+     */
+    function processImageForCollection(img, index, featuredImage) {
+        const src = ImageUtils.extractImageSrc(img);
+        if (!src) {
+            Logger.log(`✗ No src found for image ${index + 1}`);
+            return null;
+        }
+
+        try {
+            const absoluteUrl = new URL(src, document.baseURI).href;
+            const cleanedUrl = cleanImageUrl(absoluteUrl);
+
+            if (!cleanedUrl || !isValidImageUrl(cleanedUrl)) {
+                Logger.log(`✗ Invalid image URL ${index + 1}: ${cleanedUrl || src}`);
+                return null;
+            }
+
+            // 避免重複添加封面圖
+            if (featuredImage && cleanedUrl === featuredImage) {
+                Logger.log(`✗ Skipped duplicate featured image at index ${index + 1}`);
+                return null;
+            }
+
+            // 檢查圖片尺寸（性能優化：批量獲取尺寸信息）
+            const width = img.naturalWidth || img.width || 0;
+            const height = img.naturalHeight || img.height || 0;
+
+            // 降低尺寸要求，只排除明顯的小圖標
+            const isIcon = (width > 0 && width < 50) || (height > 0 && height < 50);
+            const isSizeUnknown = width === 0 && height === 0;
+
+            if (isIcon && !isSizeUnknown) {
+                Logger.log(`✗ Skipped small icon ${index + 1}: ${width}x${height}`);
+                return null;
+            }
+
+            Logger.log(`✓ Collected image ${index + 1}: ${cleanedUrl.substring(0, 80)}... (${width}x${height})`);
+            return {
+                url: cleanedUrl,
+                alt: img.alt || '',
+                width: width,
+                height: height
+            };
+
+        } catch (error) {
+            /*
+             * 圖片處理錯誤：可能是 URL 格式問題或 DOM 訪問錯誤
+             * 記錄詳細信息以便調試，但不中斷整體處理
+             */
+            if (typeof ErrorHandler !== 'undefined') {
+                ErrorHandler.logError({
+                    type: 'extraction_failed',
+                    context: `image processing at index ${index + 1}: ${src}`,
+                    originalError: error,
+                    timestamp: Date.now()
+                });
+            } else {
+                Logger.warn(`Failed to process image ${index + 1}: ${src}`, error);
+            }
+            return null;
+        }
+    }
+
+    /**
+     * 順序處理圖片（回退方案）
+     * @param {Array} images - 圖片數組
+     * @param {string} featuredImage - 封面圖片 URL
+     * @param {Array} additionalImages - 收集結果數組
+     */
+    function processImagesSequentially(images, featuredImage, additionalImages) {
+        images.forEach((img, index) => {
+            const result = processImageForCollection(img, index, featuredImage);
+            if (result) {
+                additionalImages.push(result);
+            }
+        });
     }
 
     try {
@@ -1022,92 +1108,6 @@ function isContentGood(article) {
             Logger.log(`Successfully collected ${additionalImages.length} valid images`);
             return additionalImages;
         }
-
-        /**
-         * 處理單個圖片的收集邏輯
-         * @param {HTMLImageElement} img - 圖片元素
-         * @param {number} index - 圖片索引
-         * @param {string} featuredImage - 封面圖片 URL
-         * @returns {Object|null} 處理結果
-         */
-        function processImageForCollection(img, index, featuredImage) {
-            const src = ImageUtils.extractImageSrc(img);
-            if (!src) {
-                Logger.log(`✗ No src found for image ${index + 1}`);
-                return null;
-            }
-
-            try {
-                const absoluteUrl = new URL(src, document.baseURI).href;
-                const cleanedUrl = cleanImageUrl(absoluteUrl);
-
-                if (!cleanedUrl || !isValidImageUrl(cleanedUrl)) {
-                    Logger.log(`✗ Invalid image URL ${index + 1}: ${cleanedUrl || src}`);
-                    return null;
-                }
-
-                // 避免重複添加封面圖
-                if (featuredImage && cleanedUrl === featuredImage) {
-                    Logger.log(`✗ Skipped duplicate featured image at index ${index + 1}`);
-                    return null;
-                }
-
-                // 檢查圖片尺寸（性能優化：批量獲取尺寸信息）
-                const width = img.naturalWidth || img.width || 0;
-                const height = img.naturalHeight || img.height || 0;
-
-                // 降低尺寸要求，只排除明顯的小圖標
-                const isIcon = (width > 0 && width < 50) || (height > 0 && height < 50);
-                const isSizeUnknown = width === 0 && height === 0;
-
-                if (isIcon && !isSizeUnknown) {
-                    Logger.log(`✗ Skipped small icon ${index + 1}: ${width}x${height}`);
-                    return null;
-                }
-
-                Logger.log(`✓ Collected image ${index + 1}: ${cleanedUrl.substring(0, 80)}... (${width}x${height})`);
-                return {
-                    url: cleanedUrl,
-                    alt: img.alt || '',
-                    width: width,
-                    height: height
-                };
-
-            } catch (error) {
-                /*
-                 * 圖片處理錯誤：可能是 URL 格式問題或 DOM 訪問錯誤
-                 * 記錄詳細信息以便調試，但不中斷整體處理
-                 */
-                if (typeof ErrorHandler !== 'undefined') {
-                    ErrorHandler.logError({
-                        type: 'extraction_failed',
-                        context: `image processing at index ${index + 1}: ${src}`,
-                        originalError: error,
-                        timestamp: Date.now()
-                    });
-                } else {
-                    Logger.warn(`Failed to process image ${index + 1}: ${src}`, error);
-                }
-                return null;
-            }
-        }
-
-        /**
-         * 順序處理圖片（回退方案）
-         * @param {Array} images - 圖片數組
-         * @param {string} featuredImage - 封面圖片 URL
-         * @param {Array} additionalImages - 收集結果數組
-         */
-        function processImagesSequentially(images, featuredImage, additionalImages) {
-            images.forEach((img, index) => {
-                const result = processImageForCollection(img, index, featuredImage);
-                if (result) {
-                    additionalImages.push(result);
-                }
-            });
-        }
-
-
 
         // --- Main Execution ---
         /**
