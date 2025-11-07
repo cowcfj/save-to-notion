@@ -548,6 +548,227 @@ function isContentGood(article) {
         });
     }
 
+    /**
+     * 優先收集封面圖/特色圖片（通常位於標題上方或文章開頭）
+     */
+    function collectFeaturedImage() {
+        Logger.log('🎯 Attempting to collect featured/hero image...');
+
+        // 常見的封面圖選擇器（按優先級排序）
+        const featuredImageSelectors = [
+            // WordPress 和常見 CMS
+            '.featured-image img',
+            '.hero-image img',
+            '.cover-image img',
+            '.post-thumbnail img',
+            '.entry-thumbnail img',
+            '.wp-post-image',
+
+            // 文章頭部區域
+            '.article-header img',
+            'header.article-header img',
+            '.post-header img',
+            '.entry-header img',
+
+            // 通用特色圖片容器
+            'figure.featured img',
+            'figure.hero img',
+            '[class*="featured"] img:first-of-type',
+            '[class*="hero"] img:first-of-type',
+            '[class*="cover"] img:first-of-type',
+
+            // 文章開頭的第一張圖片
+            'article > figure:first-of-type img',
+            'article > div:first-of-type img',
+            '.article > figure:first-of-type img',
+            '.post > figure:first-of-type img'
+        ];
+
+        for (const selector of featuredImageSelectors) {
+            try {
+                const img = cachedQuery(selector, document, { single: true });
+                if (img) {
+                    const src = ImageUtils.extractImageSrc(img);
+                    if (src && isValidImageUrl(src)) {
+                        Logger.log(`✓ Found featured image via selector: ${selector}`);
+                        Logger.log(`  Image URL: ${src}`);
+                        return src;
+                    }
+                }
+            } catch (error) {
+                /*
+                 * DOM 查詢錯誤：可能是無效的選擇器或 DOM 結構問題
+                 * 記錄警告並繼續嘗試下一個選擇器
+                 */
+                if (typeof ErrorHandler !== 'undefined') {
+                    ErrorHandler.logError({
+                        type: 'dom_error',
+                        context: `featured image selector: ${selector}`,
+                        originalError: error,
+                        timestamp: Date.now()
+                    });
+                } else {
+                    Logger.warn(`Error checking selector ${selector}:`, error);
+                }
+            }
+        }
+
+        Logger.log('✗ No featured image found');
+        return null;
+    }
+
+    /**
+     * 收集頁面中的所有相關圖片，作為內容提取的補充
+     */
+    async function collectAdditionalImages(contentElement) {
+        const additionalImages = [];
+
+        // 策略 0: 優先查找封面圖/特色圖片（v2.5.6 新增）
+        Logger.log('=== Image Collection Strategy 0: Featured Image ===');
+        const featuredImage = collectFeaturedImage();
+        if (featuredImage) {
+            additionalImages.push(featuredImage);
+            Logger.log('✓ Featured image added as first image');
+        }
+
+        // 策略 1: 從指定的內容元素收集
+        Logger.log('=== Image Collection Strategy 1: Content Element ===');
+        let allImages = [];
+        if (contentElement) {
+            // 使用緩存查詢優化性能
+            const imgElements = typeof cachedQuery !== 'undefined' ?
+                cachedQuery('img', contentElement, { all: true }) :
+                contentElement.querySelectorAll('img');
+            allImages = Array.from(imgElements);
+            Logger.log(`Found ${allImages.length} images in content element`);
+        }
+
+        // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
+        Logger.log('=== Image Collection Strategy 2: Article Regions ===');
+        if (allImages.length < 3) {
+            const articleSelectors = [
+                'article',
+                'main',
+                '[role="main"]',
+                '.article',
+                '.post',
+                '.entry-content',
+                '.post-content',
+                '.article-content'
+            ];
+
+            for (const selector of articleSelectors) {
+                const articleElement = typeof cachedQuery !== 'undefined' ?
+                    cachedQuery(selector, document, { single: true }) :
+                    document.querySelector(selector);
+                if (articleElement) {
+                    const imgElements = typeof cachedQuery !== 'undefined' ?
+                        cachedQuery('img', articleElement, { all: true }) :
+                        articleElement.querySelectorAll('img');
+                    const articleImages = Array.from(imgElements);
+                    Logger.log(`Found ${articleImages.length} images in ${selector}`);
+                    // 合併圖片，避免重複
+                    articleImages.forEach(img => {
+                        if (!allImages.includes(img)) {
+                            allImages.push(img);
+                        }
+                    });
+                    if (allImages.length >= 5) break; // 找到足夠的圖片就停止
+                }
+            }
+        }
+
+        // 策略 3: 如果仍然沒有圖片（< 1張），謹慎地擴展搜索
+        // 重要：排除明顯的非內容區域（header, footer, nav, sidebar, ads等）
+        Logger.log('=== Image Collection Strategy 3: Selective Expansion ===');
+        if (allImages.length < 1) {
+            Logger.log("Very few images found, attempting selective expansion...");
+
+            // 排除這些明顯的非內容區域
+            const excludeSelectors = [
+                'header:not(.article-header):not(.post-header)', // 排除普通 header，但保留文章 header
+                'footer', 'nav', 'aside',
+                '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]', '[role="complementary"]',
+                '.header:not(.article-header):not(.post-header)', // 排除普通 header，但保留文章 header
+                '.footer', '.navigation', '.nav', '.navbar',
+                '.sidebar', '.side-bar', '.widget', '.widgets',
+                '.comments', '.comment-list', '.comment-section', '.comment-area',
+                '.related', '.related-posts', '.related-articles', '.recommended',
+                '.advertisement', '.ads', '.ad', '.banner', '.ad-container',
+                '.social', '.social-share', '.share-buttons', '.social-links',
+                '.menu', '.site-header', '.site-footer', '.site-nav'
+            ];
+
+            // 獲取所有圖片（使用緩存查詢）
+            const imgElements = typeof cachedQuery !== 'undefined' ?
+                cachedQuery('img', document, { all: true }) :
+                document.querySelectorAll('img');
+            const docImages = Array.from(imgElements);
+
+            // 過濾掉在排除區域中的圖片
+            const filteredImages = docImages.filter(img => {
+                // 檢查圖片是否在任何排除區域內
+                for (const selector of excludeSelectors) {
+                    const excludeElements = cachedQuery(selector, document);
+                    for (const excludeEl of excludeElements) {
+                        if (excludeEl.contains(img)) {
+                            Logger.log(`✗ Excluded image in ${selector}`);
+                            return false; // 圖片在排除區域內
+                        }
+                    }
+                }
+                return true; // 圖片不在任何排除區域內
+            });
+
+            Logger.log(`Filtered ${docImages.length} total images -> ${filteredImages.length} content images (excluded ${docImages.length - filteredImages.length} from non-content areas)`);
+
+            // 只添加不重複的圖片，且限制最多添加的數量
+            let addedFromExpansion = 0;
+            filteredImages.forEach(img => {
+                if (!allImages.includes(img) && addedFromExpansion < 10) { // 最多從擴展搜索添加10張
+                    allImages.push(img);
+                    addedFromExpansion++;
+                }
+            });
+
+            if (addedFromExpansion > 0) {
+                Logger.log(`Added ${addedFromExpansion} images from selective expansion`);
+            }
+        }
+
+        Logger.log(`Total images to process from strategies 1-3: ${allImages.length}`);
+
+        // 使用批處理優化圖片處理性能
+        if (typeof batchProcess !== 'undefined' && allImages.length > 5) {
+            // 對於大量圖片使用批處理
+            Logger.log(`🚀 Using batch processing for ${allImages.length} images`);
+
+            try {
+                const processedImages = await batchProcess(allImages, (img, index) => {
+                    return processImageForCollection(img, index, featuredImage);
+                });
+
+                // 收集有效的圖片結果
+                processedImages.forEach(result => {
+                    if (result?.url) {
+                        additionalImages.push(result);
+                    }
+                });
+
+            } catch (error) {
+                Logger.warn('Batch processing failed, falling back to sequential processing:', error);
+                // 回退到原始處理方式
+                processImagesSequentially(allImages, featuredImage, additionalImages);
+            }
+        } else {
+            // 對於少量圖片或沒有批處理功能時使用順序處理
+            processImagesSequentially(allImages, featuredImage, additionalImages);
+        }
+
+        Logger.log(`Successfully collected ${additionalImages.length} valid images`);
+        return additionalImages;
+    }
+
     try {
         // 初始化性能優化器（如果可用）
         performanceOptimizer = null;  // 重置模組級變數
@@ -881,232 +1102,6 @@ function isContentGood(article) {
                 Logger.warn('extractLargestListFallback failed:', e);
                 return null;
             }
-        }
-
-        /**
-         * 提取圖片的 src 屬性，支持多種懶加載和響應式圖片格式
-         */
-
-
-        /**
-         * 優先收集封面圖/特色圖片（通常位於標題上方或文章開頭）
-         */
-        function collectFeaturedImage() {
-            Logger.log('🎯 Attempting to collect featured/hero image...');
-
-            // 常見的封面圖選擇器（按優先級排序）
-            const featuredImageSelectors = [
-                // WordPress 和常見 CMS
-                '.featured-image img',
-                '.hero-image img',
-                '.cover-image img',
-                '.post-thumbnail img',
-                '.entry-thumbnail img',
-                '.wp-post-image',
-
-                // 文章頭部區域
-                '.article-header img',
-                'header.article-header img',
-                '.post-header img',
-                '.entry-header img',
-
-                // 通用特色圖片容器
-                'figure.featured img',
-                'figure.hero img',
-                '[class*="featured"] img:first-of-type',
-                '[class*="hero"] img:first-of-type',
-                '[class*="cover"] img:first-of-type',
-
-                // 文章開頭的第一張圖片
-                'article > figure:first-of-type img',
-                'article > div:first-of-type img',
-                '.article > figure:first-of-type img',
-                '.post > figure:first-of-type img'
-            ];
-
-            for (const selector of featuredImageSelectors) {
-                try {
-                    const img = cachedQuery(selector, document, { single: true });
-                    if (img) {
-                        const src = ImageUtils.extractImageSrc(img);
-                        if (src && isValidImageUrl(src)) {
-                            Logger.log(`✓ Found featured image via selector: ${selector}`);
-                            Logger.log(`  Image URL: ${src}`);
-                            return src;
-                        }
-                    }
-                } catch (error) {
-                    /*
-                     * DOM 查詢錯誤：可能是無效的選擇器或 DOM 結構問題
-                     * 記錄警告並繼續嘗試下一個選擇器
-                     */
-                    if (typeof ErrorHandler !== 'undefined') {
-                        ErrorHandler.logError({
-                            type: 'dom_error',
-                            context: `featured image selector: ${selector}`,
-                            originalError: error,
-                            timestamp: Date.now()
-                        });
-                    } else {
-                        Logger.warn(`Error checking selector ${selector}:`, error);
-                    }
-                }
-            }
-
-            Logger.log('✗ No featured image found');
-            return null;
-        }
-
-        /**
-         * 收集頁面中的所有相關圖片，作為內容提取的補充
-         */
-        async function collectAdditionalImages(contentElement) {
-            const additionalImages = [];
-
-            // 策略 0: 優先查找封面圖/特色圖片（v2.5.6 新增）
-            Logger.log('=== Image Collection Strategy 0: Featured Image ===');
-            const featuredImage = collectFeaturedImage();
-            if (featuredImage) {
-                additionalImages.push(featuredImage);
-                Logger.log('✓ Featured image added as first image');
-            }
-
-            // 策略 1: 從指定的內容元素收集
-            Logger.log('=== Image Collection Strategy 1: Content Element ===');
-            let allImages = [];
-            if (contentElement) {
-                // 使用緩存查詢優化性能
-                const imgElements = typeof cachedQuery !== 'undefined' ?
-                    cachedQuery('img', contentElement, { all: true }) :
-                    contentElement.querySelectorAll('img');
-                allImages = Array.from(imgElements);
-                Logger.log(`Found ${allImages.length} images in content element`);
-            }
-
-            // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
-            Logger.log('=== Image Collection Strategy 2: Article Regions ===');
-            if (allImages.length < 3) {
-                const articleSelectors = [
-                    'article',
-                    'main',
-                    '[role="main"]',
-                    '.article',
-                    '.post',
-                    '.entry-content',
-                    '.post-content',
-                    '.article-content'
-                ];
-
-                for (const selector of articleSelectors) {
-                    const articleElement = typeof cachedQuery !== 'undefined' ?
-                        cachedQuery(selector, document, { single: true }) :
-                        document.querySelector(selector);
-                    if (articleElement) {
-                        const imgElements = typeof cachedQuery !== 'undefined' ?
-                            cachedQuery('img', articleElement, { all: true }) :
-                            articleElement.querySelectorAll('img');
-                        const articleImages = Array.from(imgElements);
-                        Logger.log(`Found ${articleImages.length} images in ${selector}`);
-                        // 合併圖片，避免重複
-                        articleImages.forEach(img => {
-                            if (!allImages.includes(img)) {
-                                allImages.push(img);
-                            }
-                        });
-                        if (allImages.length >= 5) break; // 找到足夠的圖片就停止
-                    }
-                }
-            }
-
-            // 策略 3: 如果仍然沒有圖片（< 1張），謹慎地擴展搜索
-            // 重要：排除明顯的非內容區域（header, footer, nav, sidebar, ads等）
-            Logger.log('=== Image Collection Strategy 3: Selective Expansion ===');
-            if (allImages.length < 1) {
-                Logger.log("Very few images found, attempting selective expansion...");
-
-                // 排除這些明顯的非內容區域
-                const excludeSelectors = [
-                    'header:not(.article-header):not(.post-header)', // 排除普通 header，但保留文章 header
-                    'footer', 'nav', 'aside',
-                    '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]', '[role="complementary"]',
-                    '.header:not(.article-header):not(.post-header)', // 排除普通 header，但保留文章 header
-                    '.footer', '.navigation', '.nav', '.navbar',
-                    '.sidebar', '.side-bar', '.widget', '.widgets',
-                    '.comments', '.comment-list', '.comment-section', '.comment-area',
-                    '.related', '.related-posts', '.related-articles', '.recommended',
-                    '.advertisement', '.ads', '.ad', '.banner', '.ad-container',
-                    '.social', '.social-share', '.share-buttons', '.social-links',
-                    '.menu', '.site-header', '.site-footer', '.site-nav'
-                ];
-
-                // 獲取所有圖片（使用緩存查詢）
-                const imgElements = typeof cachedQuery !== 'undefined' ?
-                    cachedQuery('img', document, { all: true }) :
-                    document.querySelectorAll('img');
-                const docImages = Array.from(imgElements);
-
-                // 過濾掉在排除區域中的圖片
-                const filteredImages = docImages.filter(img => {
-                    // 檢查圖片是否在任何排除區域內
-                    for (const selector of excludeSelectors) {
-                        const excludeElements = cachedQuery(selector, document);
-                        for (const excludeEl of excludeElements) {
-                            if (excludeEl.contains(img)) {
-                                Logger.log(`✗ Excluded image in ${selector}`);
-                                return false; // 圖片在排除區域內
-                            }
-                        }
-                    }
-                    return true; // 圖片不在任何排除區域內
-                });
-
-                Logger.log(`Filtered ${docImages.length} total images -> ${filteredImages.length} content images (excluded ${docImages.length - filteredImages.length} from non-content areas)`);
-
-                // 只添加不重複的圖片，且限制最多添加的數量
-                let addedFromExpansion = 0;
-                filteredImages.forEach(img => {
-                    if (!allImages.includes(img) && addedFromExpansion < 10) { // 最多從擴展搜索添加10張
-                        allImages.push(img);
-                        addedFromExpansion++;
-                    }
-                });
-
-                if (addedFromExpansion > 0) {
-                    Logger.log(`Added ${addedFromExpansion} images from selective expansion`);
-                }
-            }
-
-            Logger.log(`Total images to process from strategies 1-3: ${allImages.length}`);
-
-            // 使用批處理優化圖片處理性能
-            if (typeof batchProcess !== 'undefined' && allImages.length > 5) {
-                // 對於大量圖片使用批處理
-                Logger.log(`🚀 Using batch processing for ${allImages.length} images`);
-
-                try {
-                    const processedImages = await batchProcess(allImages, (img, index) => {
-                        return processImageForCollection(img, index, featuredImage);
-                    });
-
-                    // 收集有效的圖片結果
-                    processedImages.forEach(result => {
-                        if (result?.url) {
-                            additionalImages.push(result);
-                        }
-                    });
-
-                } catch (error) {
-                    Logger.warn('Batch processing failed, falling back to sequential processing:', error);
-                    // 回退到原始處理方式
-                    processImagesSequentially(allImages, featuredImage, additionalImages);
-                }
-            } else {
-                // 對於少量圖片或沒有批處理功能時使用順序處理
-                processImagesSequentially(allImages, featuredImage, additionalImages);
-            }
-
-            Logger.log(`Successfully collected ${additionalImages.length} valid images`);
-            return additionalImages;
         }
 
         // --- Main Execution ---
