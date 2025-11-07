@@ -2394,8 +2394,6 @@ async function handleSavePage(sendResponse) {
 
                 // Emergency extraction 函數 - 用於技術文檔
                 function extractEmergencyContent() {
-                    Logger.log('🆘 Using emergency extraction for technical documentation...');
-
                     // 等待動態內容載入（特別針對 gemini-cli 這種懶載入頁面）
                     function waitForContent(maxAttempts = 10) {
                         for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -2458,6 +2456,8 @@ async function handleSavePage(sendResponse) {
                         Logger.log(`🏁 Final content length: ${finalLength} characters`);
                         return finalLength;
                     }
+
+                    Logger.log('🆘 Using emergency extraction for technical documentation...');
 
                     // 等待內容載入
                     waitForContent();
