@@ -305,8 +305,8 @@ function isContentGood(article) {
                     const lines = textContent.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
                     // 常見的 bullet 標記與編號模式
-                    const bulletCharRe = /^[\u{2022}\-\*•·–—►▶✔▪]\s+/u;
-                    const numberedRe = /^\d+[\.|\)]\s+/;
+                    const bulletCharRe = /^[-\u{2022}*•·–—►▶✔▪]\s+/u;
+                    const numberedRe = /^\d+[.|)]\s+/;
 
                     const hasBr = /<br\s*\/?/i.test(innerHtml);
                     const manyLines = lines.length >= 2;
@@ -456,6 +456,11 @@ function isContentGood(article) {
         const blocks = [];
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
+        /**
+         * 將純文本轉換為 Notion rich_text 格式
+         * @param {string} text - 要轉換的文本內容
+         * @returns {Array<Object>} Notion rich_text 格式的數組，包含單個文本對象
+         */
         const createRichText = (text) => [{ type: 'text', text: { content: text } }];
 
         // 使用提取的獨立函數處理每個節點
@@ -510,8 +515,8 @@ function isContentGood(article) {
             return {
                 url: cleanedUrl,
                 alt: img.alt || '',
-                width: width,
-                height: height
+                width,
+                height
             };
 
         } catch (error) {
@@ -988,7 +993,7 @@ function isContentGood(article) {
                 const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
                 if (lines.length < 4) return false;
 
-                const bulletPattern = /^[\u{2022}\-\*•·–—►▶✔▪\d+\.]\s+/u;
+                const bulletPattern = /^(?:[-\u{2022}*•·–—►▶✔▪]|\d+[.)])\s+/u;
                 const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
                 return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
             });
@@ -1016,7 +1021,7 @@ function isContentGood(article) {
                 let effectiveItemCount = liCount;
                 if (liCount === 0) {
                     const lines = (candidate.textContent || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-                    const bulletPattern = /^[\u{2022}\-\*•·–—►▶✔▪\d+\.]\s+/u;
+                    const bulletPattern = /^(?:[-\u{2022}*•·–—►▶✔▪]|\d+[.)])\s+/u;
                     effectiveItemCount = lines.filter(line => bulletPattern.test(line)).length;
                 }
 
@@ -1039,7 +1044,7 @@ function isContentGood(article) {
                 let containerHtml = best.innerHTML;
                 const prev = best.previousElementSibling;
                 if (prev && /^H[1-3]$/.test(prev.nodeName)) {
-                    containerHtml = prev.outerHTML + '\n' + containerHtml;
+                    containerHtml = `${prev.outerHTML}\n${containerHtml}`;
                     Logger.log('Included preceding heading in fallback content');
                 }
                 return containerHtml;
@@ -1194,7 +1199,7 @@ function isContentGood(article) {
                 },
                 generateImageCacheKey(imgNode) {
                     if (!imgNode) return 'null';
-                    return (imgNode.getAttribute('src') || '') + '|' + (imgNode.className || '');
+                    return `${imgNode.getAttribute('src') || ''}|${imgNode.className || ''}`;
                 }
             };
         }

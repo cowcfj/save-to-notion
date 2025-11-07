@@ -2502,7 +2502,7 @@ async function handleSavePage(sendResponse) {
                     document.body,
                     NodeFilter.SHOW_ELEMENT,
                     {
-                        acceptNode: function(node) {
+                        acceptNode(node) {
                             // 跳過導航、側邊欄、頁腳等
                             const skipTags = ['nav', 'header', 'footer', 'aside', 'script', 'style'];
                             if (skipTags.includes(node.tagName.toLowerCase())) {
