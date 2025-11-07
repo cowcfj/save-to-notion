@@ -1,6 +1,6 @@
 /**
- * Background.js - ScriptInjector 类测试
- * 测试脚本注入管理器的各种方法
+ * Background.js - ScriptInjector 類測試
+ * 測試腳本注入管理器的各種方法
  */
 
 describe('Background ScriptInjector Class', () => {
@@ -8,10 +8,10 @@ describe('Background ScriptInjector Class', () => {
   let originalChrome;
 
   beforeEach(() => {
-    // 保存原始 chrome 对象
+    // 保存原始 chrome 對象
     originalChrome = global.chrome;
 
-    // 创建 chrome.scripting mock
+    // 創建 chrome.scripting mock
     mockExecuteScript = jest.fn();
     global.chrome = {
       ...global.chrome,
@@ -30,9 +30,9 @@ describe('Background ScriptInjector Class', () => {
   });
 
   afterEach(() => {
-    // 恢复原始 chrome 对象
+    // 恢復原始 chrome 對象
     global.chrome = originalChrome;
-    
+
     // 清理 mocks
     jest.restoreAllMocks();
   });
@@ -40,7 +40,7 @@ describe('Background ScriptInjector Class', () => {
   describe('injectAndExecute', () => {
     const mockTabId = 123;
 
-    it('应该成功注入文件并执行函数', async () => {
+    it('應該成功注入文件並執行函數', async () => {
       // Arrange
       const mockFiles = ['scripts/utils.js', 'scripts/highlighter-v2.js'];
       const mockFunc = () => { return 'test result'; };
@@ -50,7 +50,7 @@ describe('Background ScriptInjector Class', () => {
         .mockImplementationOnce((options, callback) => {
           callback();
         })
-        // Mock 函数执行成功
+        // Mock 函數執行成功
         .mockImplementationOnce((options, callback) => {
           callback([{ result: 'test result' }]);
         });
@@ -65,8 +65,8 @@ describe('Background ScriptInjector Class', () => {
 
       // Assert
       expect(mockExecuteScript).toHaveBeenCalledTimes(2);
-      
-      // 第一次调用：注入文件
+
+      // 第一次調用：注入文件
       expect(mockExecuteScript).toHaveBeenNthCalledWith(1,
         {
           target: { tabId: mockTabId },
@@ -75,7 +75,7 @@ describe('Background ScriptInjector Class', () => {
         expect.any(Function)
       );
 
-      // 第二次调用：执行函数
+      // 第二次調用：執行函數
       expect(mockExecuteScript).toHaveBeenNthCalledWith(2,
         {
           target: { tabId: mockTabId },
@@ -87,10 +87,10 @@ describe('Background ScriptInjector Class', () => {
       expect(result).toBe('test result');
     });
 
-    it('应该处理文件注入错误', async () => {
+    it('應該處理文件注入錯誤', async () => {
       // Arrange
       const mockFiles = ['scripts/nonexistent.js'];
-      
+
       global.chrome.runtime.lastError = { message: 'File not found' };
       mockExecuteScript.mockImplementationOnce((options, callback) => {
         callback();
@@ -105,10 +105,10 @@ describe('Background ScriptInjector Class', () => {
       global.chrome.runtime.lastError = null;
     });
 
-    it('应该处理函数执行错误', async () => {
+    it('應該處理函數執行錯誤', async () => {
       // Arrange
       const mockFunc = () => { throw new Error('Function error'); };
-      
+
       global.chrome.runtime.lastError = { message: 'Function execution failed' };
       mockExecuteScript.mockImplementationOnce((options, callback) => {
         callback();
@@ -123,7 +123,7 @@ describe('Background ScriptInjector Class', () => {
       global.chrome.runtime.lastError = null;
     });
 
-    it('应该处理异常错误', async () => {
+    it('應該處理異常錯誤', async () => {
       // Arrange
       mockExecuteScript.mockImplementationOnce(() => {
         throw new Error('Unexpected error');
@@ -135,7 +135,7 @@ describe('Background ScriptInjector Class', () => {
       ).rejects.toThrow('Unexpected error');
     });
 
-    it('应该在没有文件和函数时解析', async () => {
+    it('應該在沒有文件和函數時解析', async () => {
       // Act
       const result = await ScriptInjectorSimulated.injectAndExecute(mockTabId, [], null);
 
@@ -148,7 +148,7 @@ describe('Background ScriptInjector Class', () => {
   describe('injectHighlighter', () => {
     const mockTabId = 456;
 
-    it('应该正确调用 injectAndExecute 来注入标记工具', async () => {
+    it('應該正確調用 injectAndExecute 來注入標記工具', async () => {
       // Arrange
       mockExecuteScript
         .mockImplementationOnce((options, callback) => callback())
@@ -159,8 +159,8 @@ describe('Background ScriptInjector Class', () => {
 
       // Assert
       expect(mockExecuteScript).toHaveBeenCalledTimes(2);
-      
-      // 验证注入的文件
+
+      // 驗證注入的文件
       const fileCall = mockExecuteScript.mock.calls[0];
       expect(fileCall[0].files).toEqual([
         'scripts/utils.js',
@@ -168,7 +168,7 @@ describe('Background ScriptInjector Class', () => {
         'scripts/highlighter-v2.js'
       ]);
 
-      // 验证执行的函数
+      // 驗證執行的函數
       const funcCall = mockExecuteScript.mock.calls[1];
       expect(funcCall[0].func).toBeDefined();
       expect(typeof funcCall[0].func).toBe('function');
@@ -178,11 +178,11 @@ describe('Background ScriptInjector Class', () => {
   describe('collectHighlights', () => {
     const mockTabId = 789;
 
-    it('应该正确调用 injectAndExecute 来收集标记', async () => {
+    it('應該正確調用 injectAndExecute 來收集標記', async () => {
       // Arrange
       const mockHighlights = [
-        { text: '测试标记1', color: 'yellow' },
-        { text: '测试标记2', color: 'green' }
+        { text: '測試標記1', color: 'yellow' },
+        { text: '測試標記2', color: 'green' }
       ];
 
       mockExecuteScript
@@ -198,7 +198,7 @@ describe('Background ScriptInjector Class', () => {
       expect(mockExecuteScript).toHaveBeenCalledTimes(2);
       expect(result).toEqual(mockHighlights);
 
-      // 验证注入的文件
+      // 驗證注入的文件
       const fileCall = mockExecuteScript.mock.calls[0];
       expect(fileCall[0].files).toEqual([
         'scripts/utils.js',
@@ -207,7 +207,7 @@ describe('Background ScriptInjector Class', () => {
       ]);
     });
 
-    it('应该处理空标记结果', async () => {
+    it('應該處理空標記結果', async () => {
       // Arrange
       mockExecuteScript
         .mockImplementationOnce((options, callback) => callback())
@@ -226,7 +226,7 @@ describe('Background ScriptInjector Class', () => {
   describe('clearPageHighlights', () => {
     const mockTabId = 101;
 
-    it('应该正确调用 injectAndExecute 来清除页面标记', async () => {
+    it('應該正確調用 injectAndExecute 來清除頁面標記', async () => {
       // Arrange
       mockExecuteScript
         .mockImplementationOnce((options, callback) => callback())
@@ -238,7 +238,7 @@ describe('Background ScriptInjector Class', () => {
       // Assert
       expect(mockExecuteScript).toHaveBeenCalledTimes(2);
 
-      // 验证注入的文件
+      // 驗證注入的文件
       const fileCall = mockExecuteScript.mock.calls[0];
       expect(fileCall[0].files).toEqual([
         'scripts/utils.js',
@@ -246,7 +246,7 @@ describe('Background ScriptInjector Class', () => {
         'scripts/highlighter-v2.js'
       ]);
 
-      // 验证执行的函数
+      // 驗證執行的函數
       const funcCall = mockExecuteScript.mock.calls[1];
       expect(funcCall[0].func).toBeDefined();
     });
@@ -255,7 +255,7 @@ describe('Background ScriptInjector Class', () => {
   describe('injectHighlightRestore', () => {
     const mockTabId = 202;
 
-    it('应该正确调用 injectAndExecute 来注入标记恢复脚本', async () => {
+    it('應該正確調用 injectAndExecute 來注入標記恢復腳本', async () => {
       // Arrange
       mockExecuteScript.mockImplementationOnce((options, callback) => callback());
 
@@ -265,7 +265,7 @@ describe('Background ScriptInjector Class', () => {
       // Assert
       expect(mockExecuteScript).toHaveBeenCalledTimes(1);
 
-      // 验证注入的文件
+      // 驗證注入的文件
       const fileCall = mockExecuteScript.mock.calls[0];
       expect(fileCall[0].files).toEqual([
         'scripts/utils.js',
@@ -277,7 +277,7 @@ describe('Background ScriptInjector Class', () => {
   describe('injectWithResponse', () => {
     const mockTabId = 303;
 
-    it('应该注入文件并执行函数，返回结果', async () => {
+    it('應該注入文件並執行函數，返回結果', async () => {
       // Arrange
       const mockFiles = ['scripts/test.js'];
       const mockFunc = () => { return { success: true }; };
@@ -301,7 +301,7 @@ describe('Background ScriptInjector Class', () => {
       expect(mockExecuteScript).toHaveBeenCalledTimes(2);
     });
 
-    it('应该处理只注入文件的情况', async () => {
+    it('應該處理只注入文件的情況', async () => {
       // Arrange
       const mockFiles = ['scripts/test.js'];
 
@@ -319,10 +319,10 @@ describe('Background ScriptInjector Class', () => {
       expect(mockExecuteScript).toHaveBeenCalledTimes(1);
     });
 
-    it('应该处理注入失败的情况', async () => {
+    it('應該處理注入失敗的情況', async () => {
       // Arrange
       const mockFiles = ['scripts/test.js'];
-      
+
       global.chrome.runtime.lastError = { message: 'Injection failed' };
       mockExecuteScript.mockImplementationOnce((options, callback) => callback());
 
@@ -339,7 +339,7 @@ describe('Background ScriptInjector Class', () => {
   describe('inject', () => {
     const mockTabId = 404;
 
-    it('应该简单注入脚本（不返回结果）', async () => {
+    it('應該簡單注入腳本（不返回結果）', async () => {
       // Arrange
       const mockFiles = ['scripts/simple.js'];
       const mockFunc = () => { console.log('executed'); };
@@ -355,10 +355,10 @@ describe('Background ScriptInjector Class', () => {
       expect(mockExecuteScript).toHaveBeenCalledTimes(2);
     });
 
-    it('应该处理注入失败', async () => {
+    it('應該處理注入失敗', async () => {
       // Arrange
       const mockFunc = () => {};
-      
+
       mockExecuteScript.mockImplementationOnce(() => {
         throw new Error('Injection failed');
       });
@@ -370,10 +370,10 @@ describe('Background ScriptInjector Class', () => {
     });
   });
 
-  describe('错误处理和边界情况', () => {
+  describe('錯誤處理和邊界情況', () => {
     const mockTabId = 505;
 
-    it('应该处理 chrome.runtime.lastError 为 null 的情况', async () => {
+    it('應該處理 chrome.runtime.lastError 為 null 的情況', async () => {
       // Arrange
       global.chrome.runtime.lastError = null;
       mockExecuteScript.mockImplementationOnce((options, callback) => callback());
@@ -389,7 +389,7 @@ describe('Background ScriptInjector Class', () => {
       expect(result).toBeUndefined();
     });
 
-    it('应该处理回调函数中的异步错误', async () => {
+    it('應該處理回調函數中的異步錯誤', async () => {
       // Arrange
       mockExecuteScript.mockImplementationOnce((options, callback) => {
         setTimeout(() => {
@@ -407,10 +407,10 @@ describe('Background ScriptInjector Class', () => {
       global.chrome.runtime.lastError = null;
     });
 
-    it('应该处理无效的 tabId', async () => {
+    it('應該處理無效的 tabId', async () => {
       // Arrange
       const invalidTabId = null;
-      
+
       mockExecuteScript.mockImplementationOnce((options, callback) => {
         global.chrome.runtime.lastError = { message: 'Invalid tab ID' };
         callback();
@@ -428,7 +428,7 @@ describe('Background ScriptInjector Class', () => {
 });
 
 /**
- * 模拟的 ScriptInjector 类（用于测试）
+ * 模擬的 ScriptInjector 類（用於測試）
  */
 class ScriptInjectorSimulated {
   static async injectAndExecute(tabId, files = [], func = null, options = {}) {
@@ -459,7 +459,7 @@ class ScriptInjectorSimulated {
         });
       }
 
-      // 然后执行函数
+      // 然後執行函數
       if (func) {
         return new Promise((resolve, reject) => {
           chrome.scripting.executeScript({
@@ -562,14 +562,14 @@ class ScriptInjectorSimulated {
         await this.injectAndExecute(tabId, files, null, { logErrors: true });
       }
 
-      // 执行函数并返回结果
+      // 執行函數並返回結果
       if (func) {
         return this.injectAndExecute(tabId, [], func, {
           returnResult: true,
           logErrors: true
         });
       } else if (files && files.length > 0) {
-        // 如果只注入文件而不执行函数，返回成功标记
+        // 如果只注入文件而不執行函數，返回成功標記
         return Promise.resolve([{ result: { success: true } }]);
       }
 

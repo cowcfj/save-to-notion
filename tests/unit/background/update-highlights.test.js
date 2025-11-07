@@ -1,6 +1,6 @@
 /**
- * Background.js - 标注更新功能测试
- * 测试 updateHighlightsOnly 和相关的标注处理函数
+ * Background.js - 標註更新功能測試
+ * 測試 updateHighlightsOnly 和相關的標註處理函數
  */
 
 describe('Background Update Highlights', () => {
@@ -10,12 +10,12 @@ describe('Background Update Highlights', () => {
   beforeEach(() => {
     // 保存原始 fetch
     originalFetch = global.fetch;
-    
-    // 创建 fetch mock
+
+    // 創建 fetch mock
     mockFetch = jest.fn();
     global.fetch = mockFetch;
 
-    // 清理存储
+    // 清理存儲
     if (chrome._clearStorage) {
       chrome._clearStorage();
     }
@@ -27,9 +27,9 @@ describe('Background Update Highlights', () => {
   });
 
   afterEach(() => {
-    // 恢复原始 fetch
+    // 恢復原始 fetch
     global.fetch = originalFetch;
-    
+
     // 清理 mocks
     jest.restoreAllMocks();
   });
@@ -39,20 +39,20 @@ describe('Background Update Highlights', () => {
     const mockPageId = 'page-123';
     const mockPageUrl = 'https://example.com/article';
 
-    it('应该成功更新标注到现有页面', async () => {
+    it('應該成功更新標註到現有頁面', async () => {
       // Arrange
       const highlights = [
-        { text: '重要内容1', color: 'yellow' },
-        { text: '重要内容2', color: 'green' }
+        { text: '重要內容1', color: 'yellow' },
+        { text: '重要內容2', color: 'green' }
       ];
 
-      // Mock 获取现有内容的响应
+      // Mock 獲取現有內容的響應
       const existingBlocks = {
         results: [
           {
             id: 'block-1',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '原有内容' } }] }
+            paragraph: { rich_text: [{ text: { content: '原有內容' } }] }
           },
           {
             id: 'block-2',
@@ -62,15 +62,15 @@ describe('Background Update Highlights', () => {
           {
             id: 'block-3',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '旧标注1' } }] }
+            paragraph: { rich_text: [{ text: { content: '舊標註1' } }] }
           }
         ]
       };
 
-      // Mock 删除区块的响应
+      // Mock 刪除區塊的響應
       const deleteResponse = { ok: true, status: 200 };
 
-      // Mock 添加新标注的响应
+      // Mock 添加新標註的響應
       const addResponse = {
         results: [
           { id: 'new-block-1', type: 'heading_3' },
@@ -80,16 +80,16 @@ describe('Background Update Highlights', () => {
       };
 
       mockFetch
-        // 获取现有内容
+        // 獲取現有內容
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
           json: () => Promise.resolve(existingBlocks)
         })
-        // 删除旧标注区块
+        // 刪除舊標註區塊
         .mockResolvedValueOnce(deleteResponse)
         .mockResolvedValueOnce(deleteResponse)
-        // 添加新标注
+        // 添加新標註
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
@@ -109,8 +109,8 @@ describe('Background Update Highlights', () => {
 
       // Assert
       expect(mockFetch).toHaveBeenCalledTimes(4);
-      
-      // 验证获取现有内容的调用
+
+      // 驗證獲取現有內容的調用
       expect(mockFetch).toHaveBeenNthCalledWith(1,
         `https://api.notion.com/v1/blocks/${mockPageId}/children?page_size=100`,
         expect.objectContaining({
@@ -122,7 +122,7 @@ describe('Background Update Highlights', () => {
         })
       );
 
-      // 验证删除旧区块的调用
+      // 驗證刪除舊區塊的調用
       expect(mockFetch).toHaveBeenNthCalledWith(2,
         'https://api.notion.com/v1/blocks/block-2',
         expect.objectContaining({ method: 'DELETE' })
@@ -133,13 +133,13 @@ describe('Background Update Highlights', () => {
         expect.objectContaining({ method: 'DELETE' })
       );
 
-      // 验证添加新标注的调用
+      // 驗證添加新標註的調用
       const addCall = mockFetch.mock.calls[3];
       expect(addCall[0]).toBe(`https://api.notion.com/v1/blocks/${mockPageId}/children`);
       expect(addCall[1].method).toBe('PATCH');
-      
+
       const addBody = JSON.parse(addCall[1].body);
-      expect(addBody.children).toHaveLength(3); // 标题 + 2个标注
+      expect(addBody.children).toHaveLength(3); // 標題 + 2個標註
       expect(addBody.children[0].type).toBe('heading_3');
       expect(addBody.children[1].type).toBe('paragraph');
       expect(addBody.children[2].type).toBe('paragraph');
@@ -147,24 +147,24 @@ describe('Background Update Highlights', () => {
       expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    it('应该处理没有现有标注区域的页面', async () => {
+    it('應該處理沒有現有標註區域的頁面', async () => {
       // Arrange
       const highlights = [
-        { text: '新标注', color: 'blue' }
+        { text: '新標註', color: 'blue' }
       ];
 
-      // Mock 获取现有内容的响应（没有标注区域）
+      // Mock 獲取現有內容的響應（沒有標註區域）
       const existingBlocks = {
         results: [
           {
             id: 'block-1',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '原有内容' } }] }
+            paragraph: { rich_text: [{ text: { content: '原有內容' } }] }
           }
         ]
       };
 
-      // Mock 添加新标注的响应
+      // Mock 添加新標註的響應
       const addResponse = {
         results: [
           { id: 'new-block-1', type: 'heading_3' },
@@ -200,11 +200,11 @@ describe('Background Update Highlights', () => {
       expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    it('应该处理空标注列表', async () => {
+    it('應該處理空標註列表', async () => {
       // Arrange
       const highlights = [];
 
-      // Mock 获取现有内容的响应
+      // Mock 獲取現有內容的響應
       const existingBlocks = {
         results: [
           {
@@ -215,7 +215,7 @@ describe('Background Update Highlights', () => {
           {
             id: 'block-2',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '旧标注' } }] }
+            paragraph: { rich_text: [{ text: { content: '舊標註' } }] }
           }
         ]
       };
@@ -241,26 +241,26 @@ describe('Background Update Highlights', () => {
       );
 
       // Assert
-      expect(mockFetch).toHaveBeenCalledTimes(3); // 获取 + 2次删除，没有添加
+      expect(mockFetch).toHaveBeenCalledTimes(3); // 獲取 + 2次刪除，沒有添加
       expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    it('应该处理超长标注文本（需要分割）', async () => {
+    it('應該處理超長標註文本（需要分割）', async () => {
       // Arrange
-      const longText = 'A'.repeat(3000); // 超过 2000 字符限制
+      const longText = 'A'.repeat(3000); // 超過 2000 字元限制
       const highlights = [
         { text: longText, color: 'red' }
       ];
 
-      // Mock 获取现有内容的响应（没有标注区域）
+      // Mock 獲取現有內容的響應（沒有標註區域）
       const existingBlocks = { results: [] };
 
-      // Mock 添加新标注的响应
+      // Mock 添加新標註的響應
       const addResponse = {
         results: [
           { id: 'new-block-1', type: 'heading_3' },
           { id: 'new-block-2', type: 'paragraph' },
-          { id: 'new-block-3', type: 'paragraph' } // 分割后的第二部分
+          { id: 'new-block-3', type: 'paragraph' } // 分割後的第二部分
         ]
       };
 
@@ -290,8 +290,8 @@ describe('Background Update Highlights', () => {
       // Assert
       const addCall = mockFetch.mock.calls[1];
       const addBody = JSON.parse(addCall[1].body);
-      
-      // 应该有标题 + 2个分割的段落
+
+      // 應該有標題 + 2個分割的段落
       expect(addBody.children).toHaveLength(3);
       expect(addBody.children[0].type).toBe('heading_3');
       expect(addBody.children[1].type).toBe('paragraph');
@@ -300,9 +300,9 @@ describe('Background Update Highlights', () => {
       expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    it('应该处理获取现有内容失败的情况', async () => {
+    it('應該處理獲取現有內容失敗的情況', async () => {
       // Arrange
-      const highlights = [{ text: '测试', color: 'yellow' }];
+      const highlights = [{ text: '測試', color: 'yellow' }];
 
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -330,11 +330,11 @@ describe('Background Update Highlights', () => {
       );
     });
 
-    it('应该处理删除区块失败的情况', async () => {
+    it('應該處理刪除區塊失敗的情況', async () => {
       // Arrange
-      const highlights = [{ text: '测试', color: 'yellow' }];
+      const highlights = [{ text: '測試', color: 'yellow' }];
 
-      // Mock 获取现有内容成功
+      // Mock 獲取現有內容成功
       const existingBlocks = {
         results: [
           {
@@ -351,13 +351,13 @@ describe('Background Update Highlights', () => {
           status: 200,
           json: () => Promise.resolve(existingBlocks)
         })
-        // 删除失败
+        // 刪除失敗
         .mockResolvedValueOnce({
           ok: false,
           status: 400,
           json: () => Promise.resolve({ object: 'error', message: 'Delete failed' })
         })
-        // 添加新标注成功
+        // 添加新標註成功
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
@@ -376,7 +376,7 @@ describe('Background Update Highlights', () => {
       );
 
       // Assert
-      // 即使删除失败，也应该继续添加新标注
+      // 即使刪除失敗，也應該繼續添加新標註
       expect(mockFetch).toHaveBeenCalledTimes(3);
       expect(console.error).toHaveBeenCalledWith(
         expect.stringContaining('刪除區塊失敗'),
@@ -385,11 +385,11 @@ describe('Background Update Highlights', () => {
       expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    it('应该处理添加新标注失败的情况', async () => {
+    it('應該處理添加新標註失敗的情況', async () => {
       // Arrange
-      const highlights = [{ text: '测试', color: 'yellow' }];
+      const highlights = [{ text: '測試', color: 'yellow' }];
 
-      // Mock 获取现有内容成功（没有标注区域）
+      // Mock 獲取現有內容成功（沒有標註區域）
       const existingBlocks = { results: [] };
 
       mockFetch
@@ -398,7 +398,7 @@ describe('Background Update Highlights', () => {
           status: 200,
           json: () => Promise.resolve(existingBlocks)
         })
-        // 添加新标注失败
+        // 添加新標註失敗
         .mockResolvedValueOnce({
           ok: false,
           status: 400,
@@ -425,9 +425,9 @@ describe('Background Update Highlights', () => {
       );
     });
 
-    it('应该处理网络错误', async () => {
+    it('應該處理網路錯誤', async () => {
       // Arrange
-      const highlights = [{ text: '测试', color: 'yellow' }];
+      const highlights = [{ text: '測試', color: 'yellow' }];
 
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
@@ -451,17 +451,17 @@ describe('Background Update Highlights', () => {
       );
     });
 
-    it('应该正确识别和处理标注区域的边界', async () => {
+    it('應該正確識別和處理標註區域的邊界', async () => {
       // Arrange
-      const highlights = [{ text: '新标注', color: 'yellow' }];
+      const highlights = [{ text: '新標註', color: 'yellow' }];
 
-      // Mock 复杂的页面结构
+      // Mock 複雜的頁面結構
       const existingBlocks = {
         results: [
           {
             id: 'block-1',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '正文内容1' } }] }
+            paragraph: { rich_text: [{ text: { content: '正文內容1' } }] }
           },
           {
             id: 'block-2',
@@ -471,22 +471,22 @@ describe('Background Update Highlights', () => {
           {
             id: 'block-3',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '旧标注1' } }] }
+            paragraph: { rich_text: [{ text: { content: '舊標註1' } }] }
           },
           {
             id: 'block-4',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '旧标注2' } }] }
+            paragraph: { rich_text: [{ text: { content: '舊標註2' } }] }
           },
           {
             id: 'block-5',
             type: 'heading_2',
-            heading_2: { rich_text: [{ text: { content: '其他章节' } }] }
+            heading_2: { rich_text: [{ text: { content: '其他章節' } }] }
           },
           {
             id: 'block-6',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '其他内容' } }] }
+            paragraph: { rich_text: [{ text: { content: '其他內容' } }] }
           }
         ]
       };
@@ -497,11 +497,11 @@ describe('Background Update Highlights', () => {
           status: 200,
           json: () => Promise.resolve(existingBlocks)
         })
-        // 删除标注区域的3个区块
+        // 刪除標註區域的3個區塊
         .mockResolvedValueOnce({ ok: true, status: 200 })
         .mockResolvedValueOnce({ ok: true, status: 200 })
         .mockResolvedValueOnce({ ok: true, status: 200 })
-        // 添加新标注
+        // 添加新標註
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
@@ -520,9 +520,9 @@ describe('Background Update Highlights', () => {
       );
 
       // Assert
-      expect(mockFetch).toHaveBeenCalledTimes(5); // 获取 + 3次删除 + 1次添加
-      
-      // 验证删除的是正确的区块
+      expect(mockFetch).toHaveBeenCalledTimes(5); // 獲取 + 3次刪除 + 1次添加
+
+      // 驗證刪除的是正確的區塊
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.notion.com/v1/blocks/block-2',
         expect.objectContaining({ method: 'DELETE' })
@@ -536,7 +536,7 @@ describe('Background Update Highlights', () => {
         expect.objectContaining({ method: 'DELETE' })
       );
 
-      // 不应该删除其他章节的内容
+      // 不應該刪除其他章節的內容
       expect(mockFetch).not.toHaveBeenCalledWith(
         'https://api.notion.com/v1/blocks/block-5',
         expect.objectContaining({ method: 'DELETE' })
@@ -548,13 +548,13 @@ describe('Background Update Highlights', () => {
 });
 
 /**
- * 模拟的 updateHighlightsOnly 函数（用于测试）
+ * 模擬的 updateHighlightsOnly 函數（用於測試）
  */
 async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey, sendResponse) {
   try {
     console.log('🔄 開始更新標記 - 頁面ID:', pageId, '標記數量:', highlights.length);
 
-    // 获取现有页面内容
+    // 獲取現有頁面內容
     const getResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
       method: 'GET',
       headers: {
@@ -573,7 +573,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
     const existingBlocks = existingContent.results;
     console.log('📋 現有區塊數量:', existingBlocks.length);
 
-    // 查找并删除现有的标注区域
+    // 查找並刪除現有的標註區域
     const blocksToDelete = [];
     let foundHighlightSection = false;
 
@@ -599,7 +599,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
 
     console.log('🗑️ 需要刪除的區塊數量:', blocksToDelete.length);
 
-    // 删除旧的标注区块
+    // 刪除舊的標註區塊
     let deletedCount = 0;
     for (const blockId of blocksToDelete) {
       try {
@@ -626,7 +626,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
 
     console.log(`🗑️ 實際刪除了 ${deletedCount}/${blocksToDelete.length} 個區塊`);
 
-    // 添加新的标注（如果有）
+    // 添加新的標註（如果有）
     if (highlights.length > 0) {
       console.log('➕ 準備添加新的標記區域...');
 
@@ -644,7 +644,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
       highlights.forEach((highlight, index) => {
         console.log(`📝 準備添加標記 ${index + 1}: "${highlight.text.substring(0, 30)}..." (顏色: ${highlight.color})`);
 
-        // 处理超长标注文本，需要分割成多个段落
+        // 處理超長標註文本，需要分割成多個段落
         const textChunks = splitTextForNotionSimulated(highlight.text, 2000);
 
         textChunks.forEach((chunk, chunkIndex) => {
@@ -663,7 +663,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
           });
 
           if (textChunks.length > 1) {
-            console.log(`   └─ 分割片段 ${chunkIndex + 1}/${textChunks.length}: ${chunk.length} 字符`);
+            console.log(`   └─ 分割片段 ${chunkIndex + 1}/${textChunks.length}: ${chunk.length} 字元`);
           }
         });
       });
@@ -697,7 +697,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
       console.log('ℹ️ 沒有新標記需要添加');
     }
 
-    // 更新本地存储
+    // 更新本地存儲
     console.log('💾 更新本地保存記錄...');
     await chrome.storage.local.set({
       [`saved_${pageUrl}`]: {
@@ -711,13 +711,13 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
     sendResponse({ success: true });
   } catch (error) {
     console.error('💥 標記更新錯誤:', error);
-    console.error('💥 錯誤堆棧:', error.stack);
+    console.error('💥 錯誤堆疊:', error.stack);
     sendResponse({ success: false, error: error.message });
   }
 }
 
 /**
- * 辅助函数：将长文本分割成符合 Notion 限制的片段
+ * 輔助函數：將長文本分割成符合 Notion 限制的片段
  */
 function splitTextForNotionSimulated(text, maxLength = 2000) {
   if (!text || text.length <= maxLength) {
