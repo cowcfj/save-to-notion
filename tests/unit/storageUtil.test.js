@@ -23,6 +23,8 @@ describe('StorageUtil', () => {
                 }
                 return u.toString();
             } catch (e) {
+                // 記錄錯誤以保持與實際實現的一致性
+                console.error('❌ [normalizeUrl] 標準化失敗:', e);
                 return url || '';
             }
         });
@@ -79,7 +81,7 @@ describe('StorageUtil', () => {
             async saveHighlights(pageUrl, highlightData) {
                 const normalizedUrl = normalizeUrl(pageUrl);
                 const pageKey = `highlights_${normalizedUrl}`;
-                
+
                 return new Promise((resolve, reject) => {
                     try {
                         chrome.storage?.local?.set({ [pageKey]: highlightData }, () => {
@@ -94,7 +96,8 @@ describe('StorageUtil', () => {
                                 resolve();
                             }
                         });
-                    } catch (e) {
+                    } catch (_e) {
+                        console.log('Chrome storage not available, using localStorage');
                         try {
                             localStorage.setItem(pageKey, JSON.stringify(highlightData));
                             resolve();
@@ -108,7 +111,7 @@ describe('StorageUtil', () => {
             async loadHighlights(pageUrl) {
                 const normalizedUrl = normalizeUrl(pageUrl);
                 const pageKey = `highlights_${normalizedUrl}`;
-                
+
                 return new Promise((resolve) => {
                     try {
                         chrome.storage?.local?.get([pageKey], (data) => {
@@ -120,13 +123,13 @@ describe('StorageUtil', () => {
                                 } else if (stored.highlights && Array.isArray(stored.highlights)) {
                                     highlights = stored.highlights;
                                 }
-                                
+
                                 if (highlights.length > 0) {
                                     resolve(highlights);
                                     return;
                                 }
                             }
-                            
+
                             // 回退到 localStorage
                             const legacy = localStorage.getItem(pageKey);
                             if (legacy) {
@@ -138,18 +141,19 @@ describe('StorageUtil', () => {
                                     } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
                                         highlights = parsed.highlights;
                                     }
-                                    
+
                                     if (highlights.length > 0) {
                                         resolve(highlights);
                                         return;
                                     }
                                 } catch (e) {
-                                    // ignore
+                                    console.error('Failed to parse legacy highlights:', e);
                                 }
                             }
                             resolve([]);
                         });
-                    } catch (e) {
+                    } catch (_e) {
+                        console.log('Chrome storage not available, falling back to localStorage');
                         const legacy = localStorage.getItem(pageKey);
                         if (legacy) {
                             try {
@@ -160,13 +164,13 @@ describe('StorageUtil', () => {
                                 } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
                                     highlights = parsed.highlights;
                                 }
-                                
+
                                 if (highlights.length > 0) {
                                     resolve(highlights);
                                     return;
                                 }
                             } catch (e) {
-                                // ignore
+                                console.error('Failed to parse legacy highlights:', e);
                             }
                         }
                         resolve([]);
@@ -176,22 +180,23 @@ describe('StorageUtil', () => {
 
             async clearHighlights(pageUrl) {
                 const pageKey = `highlights_${normalizeUrl(pageUrl)}`;
-                
+
                 return new Promise((resolve) => {
                     try {
                         chrome.storage?.local?.remove([pageKey], () => {
                             try {
                                 localStorage.removeItem(pageKey);
-                            } catch (e) {
-                                // ignore
+                            } catch (_e) {
+                                // ignore - 清理操作失敗可安全忽略
                             }
                             resolve();
                         });
-                    } catch (e) {
+                    } catch (_e) {
+                        // ignore - 回退到 localStorage 清理
                         try {
                             localStorage.removeItem(pageKey);
-                        } catch (err) {
-                            // ignore
+                        } catch (_err) {
+                            // ignore - 清理操作失敗可安全忽略
                         }
                         resolve();
                     }
@@ -226,7 +231,7 @@ describe('StorageUtil', () => {
         test('應該在 chrome.storage 失敗時回退到 localStorage', async () => {
             // 模擬 chrome.storage 失敗
             mockChrome.runtime.lastError = { message: 'Storage error' };
-            
+
             const testUrl = 'https://example.com/page';
             const testData = [{ text: 'highlight', color: 'yellow' }];
 
@@ -290,7 +295,7 @@ describe('StorageUtil', () => {
                 { text: 'highlight 1', color: 'yellow' },
                 { text: 'highlight 2', color: 'green' }
             ];
-            
+
             // 模擬 chrome.storage 返回數據
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({
@@ -313,7 +318,7 @@ describe('StorageUtil', () => {
                     { text: 'highlight 2', color: 'green' }
                 ]
             };
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({
                     [`highlights_${normalizeUrl(testUrl)}`]: testData
@@ -329,12 +334,12 @@ describe('StorageUtil', () => {
         test('應該在 chrome.storage 無數據時回退到 localStorage', async () => {
             const testUrl = 'https://example.com/page';
             const testData = [{ text: 'legacy highlight', color: 'yellow' }];
-            
+
             // chrome.storage 返回空
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({}), 0);
             });
-            
+
             // 使用 Storage.prototype spy 來模擬 localStorage 有數據
             const getItemSpy = jest.spyOn(Storage.prototype, 'getItem').mockReturnValue(JSON.stringify(testData));
 
@@ -350,7 +355,7 @@ describe('StorageUtil', () => {
 
         test('應該處理不存在的 URL', async () => {
             const testUrl = 'https://example.com/nonexistent';
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({}), 0);
             });
@@ -362,11 +367,11 @@ describe('StorageUtil', () => {
 
         test('應該處理損壞的 localStorage 數據', async () => {
             const testUrl = 'https://example.com/page';
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({}), 0);
             });
-            
+
             // localStorage 返回無效 JSON
             mockLocalStorage.getItem = jest.fn(() => 'invalid json{');
 
@@ -379,7 +384,7 @@ describe('StorageUtil', () => {
             const testUrl = 'https://example.com/page?utm_source=test#section';
             const normalizedUrl = normalizeUrl(testUrl);
             const testData = [{ text: 'highlight', color: 'yellow' }];
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 expect(keys[0]).toBe(`highlights_${normalizedUrl}`);
                 setTimeout(() => callback({
@@ -417,7 +422,7 @@ describe('StorageUtil', () => {
 
         test('應該處理 chrome.storage 不可用的情況', async () => {
             const testUrl = 'https://example.com/page';
-            
+
             // 模擬 chrome.storage 不可用
             const savedChrome = global.chrome;
             global.chrome = undefined;
@@ -463,7 +468,7 @@ describe('StorageUtil', () => {
             ];
 
             // 並發保存
-            const promises = urls.map((url, index) => 
+            const promises = urls.map((url, index) =>
                 StorageUtil.saveHighlights(url, data[index])
             );
 
@@ -476,7 +481,7 @@ describe('StorageUtil', () => {
         test('應該處理並發讀取操作', async () => {
             const testUrl = 'https://example.com/page';
             const testData = [{ text: 'highlight', color: 'yellow' }];
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({
                     [`highlights_${normalizeUrl(testUrl)}`]: testData
@@ -484,7 +489,7 @@ describe('StorageUtil', () => {
             });
 
             // 並發讀取同一個 URL
-            const promises = Array(5).fill(null).map(() => 
+            const promises = Array(5).fill(null).map(() =>
                 StorageUtil.loadHighlights(testUrl)
             );
 
@@ -501,7 +506,7 @@ describe('StorageUtil', () => {
             const testUrl = 'https://example.com/page';
             const writeData = [{ text: 'new highlight', color: 'yellow' }];
             const readData = [{ text: 'old highlight', color: 'green' }];
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({
                     [`highlights_${normalizeUrl(testUrl)}`]: readData
@@ -509,7 +514,7 @@ describe('StorageUtil', () => {
             });
 
             // 同時進行讀寫操作
-            const [writeResult, readResult] = await Promise.all([
+            const [, readResult] = await Promise.all([
                 StorageUtil.saveHighlights(testUrl, writeData),
                 StorageUtil.loadHighlights(testUrl)
             ]);
@@ -527,7 +532,7 @@ describe('StorageUtil', () => {
             ];
 
             // 並發清除
-            const promises = urls.map(url => 
+            const promises = urls.map(url =>
                 StorageUtil.clearHighlights(url)
             );
 
@@ -544,12 +549,12 @@ describe('StorageUtil', () => {
                 { text: 'old highlight 1', color: 'yellow' },
                 { text: 'old highlight 2', color: 'green' }
             ];
-            
+
             // 模擬 localStorage 有舊格式數據
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({}), 0);
             });
-            
+
             // 使用 Storage.prototype spy
             const getItemSpy = jest.spyOn(Storage.prototype, 'getItem')
                 .mockReturnValue(JSON.stringify(oldFormatData));
@@ -573,11 +578,11 @@ describe('StorageUtil', () => {
                 ],
                 timestamp: Date.now()
             };
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({}), 0);
             });
-            
+
             // 使用 Storage.prototype spy
             const getItemSpy = jest.spyOn(Storage.prototype, 'getItem')
                 .mockReturnValue(JSON.stringify(oldFormatData));
@@ -594,12 +599,12 @@ describe('StorageUtil', () => {
 
         test('應該處理混合格式的數據', async () => {
             const testUrl = 'https://example.com/page';
-            
+
             // chrome.storage 有新格式
             const newFormatData = [
                 { text: 'new highlight', color: 'yellow', timestamp: Date.now() }
             ];
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({
                     [`highlights_${normalizeUrl(testUrl)}`]: newFormatData
@@ -614,11 +619,11 @@ describe('StorageUtil', () => {
 
         test('應該處理空的舊格式數據', async () => {
             const testUrl = 'https://example.com/page';
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({}), 0);
             });
-            
+
             // localStorage 有空數組
             mockLocalStorage.getItem = jest.fn(() => JSON.stringify([]));
 
@@ -629,11 +634,11 @@ describe('StorageUtil', () => {
 
         test('應該處理損壞的遷移數據', async () => {
             const testUrl = 'https://example.com/page';
-            
+
             mockChrome.storage.local.get = jest.fn((keys, callback) => {
                 setTimeout(() => callback({}), 0);
             });
-            
+
             // localStorage 有損壞的 JSON
             mockLocalStorage.getItem = jest.fn(() => '{invalid json');
 
@@ -653,8 +658,8 @@ describe('StorageUtil', () => {
             }));
 
             // 模擬配額超限
-            mockChrome.runtime.lastError = { 
-                message: 'QUOTA_BYTES quota exceeded' 
+            mockChrome.runtime.lastError = {
+                message: 'QUOTA_BYTES quota exceeded'
             };
 
             // 應該回退到 localStorage
@@ -877,7 +882,7 @@ describe('StorageUtil', () => {
         });
 
         test('應該處理批量保存操作', async () => {
-            const urls = Array(10).fill(null).map((_, i) => 
+            const urls = Array(10).fill(null).map((_, i) =>
                 `https://example.com/page${i}`
             );
             const data = Array(10).fill(null).map((_, i) => [
@@ -886,7 +891,7 @@ describe('StorageUtil', () => {
 
             const startTime = Date.now();
             await Promise.all(
-                urls.map((url, index) => 
+                urls.map((url, index) =>
                     StorageUtil.saveHighlights(url, data[index])
                 )
             );
