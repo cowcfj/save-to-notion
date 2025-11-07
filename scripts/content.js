@@ -225,9 +225,6 @@ function isContentGood(article) {
     return true;
 }
 
-// processNodeToNotionBlock 和 convertHtmlToNotionBlocks 將在 IIFE 內部定義
-// 因為它們需要訪問 extractImageSrc、cleanImageUrl 等函數
-
 // ===================================================================
 // === 主要執行區塊開始
 // ===================================================================
@@ -300,6 +297,238 @@ function isContentGood(article) {
                     return (imgNode.getAttribute('src') || '') + '|' + (imgNode.className || '');
                 }
             };
+        }
+
+        // ===================================================================
+        // === 函數聲明（移至函數體根部以符合 DeepSource JS-0016）
+        // ===================================================================
+
+        /**
+         * 清理和標準化圖片 URL
+         */
+        function cleanImageUrl(url) {
+            return ImageUtils.cleanImageUrl(url);
+        }
+
+        /**
+         * 檢查 URL 是否為有效的圖片格式
+         */
+        // URL 驗證結果緩存
+        const urlValidationCache = new Map();
+        const MAX_CACHE_SIZE = 200;
+
+        function isValidImageUrl(url) {
+            if (!url || typeof url !== 'string') return false;
+
+            // 檢查緩存
+            if (urlValidationCache.has(url)) {
+                return urlValidationCache.get(url);
+            }
+
+            // 使用統一的圖片 URL 驗證邏輯
+            const result = ImageUtils.isValidImageUrl(url);
+
+            // 緩存結果
+            if (urlValidationCache.size >= MAX_CACHE_SIZE) {
+                // 清理最舊的緩存項目
+                const firstKey = urlValidationCache.keys().next().value;
+                urlValidationCache.delete(firstKey);
+            }
+            urlValidationCache.set(url, result);
+
+            return result;
+        }
+
+        /**
+         * 將 DOM 節點轉換為 Notion 區塊
+         * @param {Node} node - DOM 節點
+         * @param {Array} blocks - Notion 區塊數組
+         * @param {Function} createRichText - 創建富文本的輔助函數
+         */
+        function processNodeToNotionBlock(node, blocks, createRichText) {
+            if (node.nodeType !== 1) return;
+            const textContent = node.textContent?.trim();
+
+            switch (node.nodeName) {
+                case 'H1':
+                case 'H2':
+                case 'H3': {
+                    if (textContent) {
+                        blocks.push({
+                            object: 'block',
+                            type: `heading_${node.nodeName[1]}`,
+                            [`heading_${node.nodeName[1]}`]: {
+                                rich_text: createRichText(textContent)
+                            }
+                        });
+                    }
+                    break;
+                }
+
+                case 'P': {
+                    if (textContent) {
+                        // 偵測是否為以換行或符號表示的清單（有些文件會用 CSS 或 <br> 呈現點列）
+                        const innerHtml = node.innerHTML || '';
+                        const lines = textContent.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+                        // 常見的 bullet 標記與編號模式
+                        const bulletCharRe = /^[\u{2022}\-\*•·–—►▶✔▪]\s+/u;
+                        const numberedRe = /^\d+[\.|\)]\s+/;
+
+                        const hasBr = /<br\s*\/?/i.test(innerHtml);
+                        const manyLines = lines.length >= 2;
+
+                        // 判斷是否為 list-like paragraph：多行或包含 <br> 且每行看起來像項目
+                        let looksLikeList = false;
+                        if (manyLines || hasBr) {
+                            // 如果大部分行以 bulletChar 或 numbered 開頭，視為清單
+                            const matchCount = lines.reduce((acc, l) =>
+                                acc + ((bulletCharRe.test(l) || numberedRe.test(l) || /^[-••]/u.test(l)) ? 1 : 0), 0);
+                            if (matchCount >= Math.max(1, Math.floor(lines.length * 0.6))) {
+                                looksLikeList = true;
+                            }
+                        } else {
+                            // 單行但以 bullet 字元開始也視為 list item
+                            if (bulletCharRe.test(textContent) || numberedRe.test(textContent)) {
+                                looksLikeList = true;
+                            }
+                        }
+
+                        if (looksLikeList) {
+                            // 把每一行或每個項目轉成 bulleted_list_item
+                            lines.forEach(line => {
+                                // 步驟 1：移除已知的列表格式標記
+                                let cleaned = line
+                                    .replace(bulletCharRe, '')
+                                    .replace(numberedRe, '')
+                                    .trim();
+
+                                // 步驟 2：移除殘留的前綴符號（使用預編譯的正則表達式）
+                                cleaned = cleaned
+                                    .replace(LIST_PREFIX_PATTERNS.bulletPrefix, '')
+                                    .replace(LIST_PREFIX_PATTERNS.multipleSpaces, ' ')
+                                    .trim();
+
+                                // 步驟 3：只處理非空內容
+                                if (cleaned && !LIST_PREFIX_PATTERNS.emptyLine.test(cleaned)) {
+                                    blocks.push({
+                                        object: 'block',
+                                        type: 'bulleted_list_item',
+                                        bulleted_list_item: {
+                                            rich_text: createRichText(cleaned)
+                                        }
+                                    });
+                                }
+                            });
+                        } else {
+                            blocks.push({
+                                object: 'block',
+                                type: 'paragraph',
+                                paragraph: {
+                                    rich_text: createRichText(textContent)
+                                }
+                            });
+                        }
+                    }
+                    break;
+                }
+
+                case 'IMG': {
+                    const src = ImageUtils.extractImageSrc(node);
+                    if (src) {
+                        try {
+                            const absoluteUrl = new URL(src, document.baseURI).href;
+                            const cleanedUrl = ImageUtils.cleanImageUrl(absoluteUrl);
+
+                            // 使用更嚴格的 Notion 兼容性檢查
+                            const isCompatible = typeof ImageUtils !== 'undefined' && ImageUtils.isNotionCompatibleImageUrl
+                                ? ImageUtils.isNotionCompatibleImageUrl(cleanedUrl)
+                                : isValidImageUrl(cleanedUrl);
+
+                            // 檢查是否為有效的圖片格式和 URL
+                            if (cleanedUrl && isCompatible && !blocks.some(b => b.type === 'image' && b.image.external.url === cleanedUrl)) {
+                                blocks.push({
+                                    object: 'block',
+                                    type: 'image',
+                                    image: {
+                                        type: 'external',
+                                        external: { url: cleanedUrl }
+                                    }
+                                });
+                                Logger.log(`Added image: ${cleanedUrl}`);
+                            } else if (cleanedUrl && !isCompatible) {
+                                Logger.warn(`Skipped incompatible image URL: ${cleanedUrl.substring(0, 100)}...`);
+                            }
+                        } catch (error) {
+                            /*
+                             * URL 處理錯誤：通常是無效的 URL 格式
+                             * 記錄警告但不中斷處理流程
+                             */
+                            if (typeof ErrorHandler !== 'undefined') {
+                                ErrorHandler.logError({
+                                    type: 'invalid_url',
+                                    context: `image URL processing: ${src}`,
+                                    originalError: error,
+                                    timestamp: Date.now()
+                                });
+                            } else {
+                                Logger.warn(`Failed to process image URL: ${src}`, error);
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                case 'LI': {
+                    if (textContent) {
+                        blocks.push({
+                            object: 'block',
+                            type: 'bulleted_list_item',
+                            bulleted_list_item: {
+                                rich_text: createRichText(textContent)
+                            }
+                        });
+                    }
+                    break;
+                }
+
+                case 'BLOCKQUOTE': {
+                    if (textContent) {
+                        blocks.push({
+                            object: 'block',
+                            type: 'quote',
+                            quote: {
+                                rich_text: createRichText(textContent)
+                            }
+                        });
+                    }
+                    break;
+                }
+
+                default: {
+                    if (node.childNodes.length > 0) {
+                        node.childNodes.forEach(child => processNodeToNotionBlock(child, blocks, createRichText));
+                    }
+                    break;
+                }
+            }
+        }
+
+        /**
+         * 將 HTML 轉換為 Notion 區塊陣列
+         * @param {string} html - HTML 字串
+         * @returns {Array} Notion 區塊陣列
+         */
+        function convertHtmlToNotionBlocks(html) {
+            const blocks = [];
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const createRichText = (text) => [{ type: 'text', text: { content: text } }];
+
+            // 使用提取的獨立函數處理每個節點
+            tempDiv.childNodes.forEach(node => processNodeToNotionBlock(node, blocks, createRichText));
+
+            return blocks;
         }
 
         const MIN_CONTENT_LENGTH = 250;
@@ -571,237 +800,6 @@ function isContentGood(article) {
         /**
          * 提取圖片的 src 屬性，支持多種懶加載和響應式圖片格式
          */
-
-        /**
-         * 將 DOM 節點轉換為 Notion 區塊
-         * @param {Node} node - DOM 節點
-         * @param {Array} blocks - Notion 區塊數組
-         * @param {Function} createRichText - 創建富文本的輔助函數
-         */
-        function processNodeToNotionBlock(node, blocks, createRichText) {
-            if (node.nodeType !== 1) return;
-            const textContent = node.textContent?.trim();
-
-            switch (node.nodeName) {
-                case 'H1':
-                case 'H2':
-                case 'H3': {
-                    if (textContent) {
-                        blocks.push({
-                            object: 'block',
-                            type: `heading_${node.nodeName[1]}`,
-                            [`heading_${node.nodeName[1]}`]: {
-                                rich_text: createRichText(textContent)
-                            }
-                        });
-                    }
-                    break;
-                }
-
-                case 'P': {
-                    if (textContent) {
-                        // 偵測是否為以換行或符號表示的清單（有些文件會用 CSS 或 <br> 呈現點列）
-                        const innerHtml = node.innerHTML || '';
-                        const lines = textContent.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-
-                        // 常見的 bullet 標記與編號模式
-                        const bulletCharRe = /^[\u{2022}\-\*•·–—►▶✔▪]\s+/u;
-                        const numberedRe = /^\d+[\.|\)]\s+/;
-
-                        const hasBr = /<br\s*\/?/i.test(innerHtml);
-                        const manyLines = lines.length >= 2;
-
-                        // 判斷是否為 list-like paragraph：多行或包含 <br> 且每行看起來像項目
-                        let looksLikeList = false;
-                        if (manyLines || hasBr) {
-                            // 如果大部分行以 bulletChar 或 numbered 開頭，視為清單
-                            const matchCount = lines.reduce((acc, l) =>
-                                acc + ((bulletCharRe.test(l) || numberedRe.test(l) || /^[-••]/u.test(l)) ? 1 : 0), 0);
-                            if (matchCount >= Math.max(1, Math.floor(lines.length * 0.6))) {
-                                looksLikeList = true;
-                            }
-                        } else {
-                            // 單行但以 bullet 字元開始也視為 list item
-                            if (bulletCharRe.test(textContent) || numberedRe.test(textContent)) {
-                                looksLikeList = true;
-                            }
-                        }
-
-                        if (looksLikeList) {
-                            // 把每一行或每個項目轉成 bulleted_list_item
-                            lines.forEach(line => {
-                                // 步驟 1：移除已知的列表格式標記
-                                let cleaned = line
-                                    .replace(bulletCharRe, '')
-                                    .replace(numberedRe, '')
-                                    .trim();
-
-                                // 步驟 2：移除殘留的前綴符號（使用預編譯的正則表達式）
-                                cleaned = cleaned
-                                    .replace(LIST_PREFIX_PATTERNS.bulletPrefix, '')
-                                    .replace(LIST_PREFIX_PATTERNS.multipleSpaces, ' ')
-                                    .trim();
-
-                                // 步驟 3：只處理非空內容
-                                if (cleaned && !LIST_PREFIX_PATTERNS.emptyLine.test(cleaned)) {
-                                    blocks.push({
-                                        object: 'block',
-                                        type: 'bulleted_list_item',
-                                        bulleted_list_item: {
-                                            rich_text: createRichText(cleaned)
-                                        }
-                                    });
-                                }
-                            });
-                        } else {
-                            blocks.push({
-                                object: 'block',
-                                type: 'paragraph',
-                                paragraph: {
-                                    rich_text: createRichText(textContent)
-                                }
-                            });
-                        }
-                    }
-                    break;
-                }
-
-                case 'IMG': {
-                    const src = ImageUtils.extractImageSrc(node);
-                    if (src) {
-                        try {
-                            const absoluteUrl = new URL(src, document.baseURI).href;
-                            const cleanedUrl = ImageUtils.cleanImageUrl(absoluteUrl);
-
-                            // 使用更嚴格的 Notion 兼容性檢查
-                            const isCompatible = typeof ImageUtils !== 'undefined' && ImageUtils.isNotionCompatibleImageUrl
-                                ? ImageUtils.isNotionCompatibleImageUrl(cleanedUrl)
-                                : isValidImageUrl(cleanedUrl);
-
-                            // 檢查是否為有效的圖片格式和 URL
-                            if (cleanedUrl && isCompatible && !blocks.some(b => b.type === 'image' && b.image.external.url === cleanedUrl)) {
-                                blocks.push({
-                                    object: 'block',
-                                    type: 'image',
-                                    image: {
-                                        type: 'external',
-                                        external: { url: cleanedUrl }
-                                    }
-                                });
-                                Logger.log(`Added image: ${cleanedUrl}`);
-                            } else if (cleanedUrl && !isCompatible) {
-                                Logger.warn(`Skipped incompatible image URL: ${cleanedUrl.substring(0, 100)}...`);
-                            }
-                        } catch (error) {
-                            /*
-                             * URL 處理錯誤：通常是無效的 URL 格式
-                             * 記錄警告但不中斷處理流程
-                             */
-                            if (typeof ErrorHandler !== 'undefined') {
-                                ErrorHandler.logError({
-                                    type: 'invalid_url',
-                                    context: `image URL processing: ${src}`,
-                                    originalError: error,
-                                    timestamp: Date.now()
-                                });
-                            } else {
-                                Logger.warn(`Failed to process image URL: ${src}`, error);
-                            }
-                        }
-                    }
-                    break;
-                }
-
-                case 'LI': {
-                    if (textContent) {
-                        blocks.push({
-                            object: 'block',
-                            type: 'bulleted_list_item',
-                            bulleted_list_item: {
-                                rich_text: createRichText(textContent)
-                            }
-                        });
-                    }
-                    break;
-                }
-
-                case 'BLOCKQUOTE': {
-                    if (textContent) {
-                        blocks.push({
-                            object: 'block',
-                            type: 'quote',
-                            quote: {
-                                rich_text: createRichText(textContent)
-                            }
-                        });
-                    }
-                    break;
-                }
-
-                default: {
-                    if (node.childNodes.length > 0) {
-                        node.childNodes.forEach(child => processNodeToNotionBlock(child, blocks, createRichText));
-                    }
-                    break;
-                }
-            }
-        }
-
-        /**
-         * 將 HTML 轉換為 Notion 區塊陣列
-         * @param {string} html - HTML 字串
-         * @returns {Array} Notion 區塊陣列
-         */
-        function convertHtmlToNotionBlocks(html) {
-            const blocks = [];
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            const createRichText = (text) => [{ type: 'text', text: { content: text } }];
-
-            // 使用提取的獨立函數處理每個節點
-            tempDiv.childNodes.forEach(node => processNodeToNotionBlock(node, blocks, createRichText));
-
-            return blocks;
-        }
-
-
-
-
-        /**
-         * 清理和標準化圖片 URL
-         */
-        function cleanImageUrl(url) {
-            return ImageUtils.cleanImageUrl(url);
-        }
-
-        /**
-         * 檢查 URL 是否為有效的圖片格式
-         */
-        // URL 驗證結果緩存
-        const urlValidationCache = new Map();
-        const MAX_CACHE_SIZE = 200;
-
-        function isValidImageUrl(url) {
-            if (!url || typeof url !== 'string') return false;
-
-            // 檢查緩存
-            if (urlValidationCache.has(url)) {
-                return urlValidationCache.get(url);
-            }
-
-            // 使用統一的圖片 URL 驗證邏輯
-            const result = ImageUtils.isValidImageUrl(url);
-
-            // 緩存結果
-            if (urlValidationCache.size >= MAX_CACHE_SIZE) {
-                // 清理最舊的緩存項目
-                const firstKey = urlValidationCache.keys().next().value;
-                urlValidationCache.delete(firstKey);
-            }
-            urlValidationCache.set(url, result);
-
-            return result;
-        }
 
 
         /**
