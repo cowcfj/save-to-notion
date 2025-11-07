@@ -2525,7 +2525,7 @@ async function handleSavePage(sendResponse) {
                 let maxScore = 0;
                 let node = null;
 
-                while (node = walker.nextNode()) {
+                while ((node = walker.nextNode()) !== null) {
                     const text = node.textContent?.trim();
                     if (!text || text.length < 200) continue;
 
