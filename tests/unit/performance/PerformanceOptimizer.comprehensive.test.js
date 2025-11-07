@@ -3,7 +3,6 @@
  * 目標：提升覆蓋率至 80%+
  */
 /* eslint-env jest */
-/* global document window performance requestIdleCallback requestAnimationFrame Image */
 
 const { JSDOM } = require('jsdom');
 
@@ -607,8 +606,6 @@ describe('PerformanceOptimizer - 全面測試', () => {
             for (let i = 0; i < optimizer.options.cacheMaxSize; i++) {
                 optimizer.cachedQuery(`selector${i}`, mockDocument);
             }
-
-            const initialSize = optimizer.queryCache.size;
 
             // 添加新項目
             optimizer.cachedQuery('new-selector', mockDocument);
