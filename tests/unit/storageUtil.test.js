@@ -78,7 +78,15 @@ describe('StorageUtil', () => {
         // 載入 utils.js 中的 StorageUtil
         // 因為測試環境，我們需要手動定義 StorageUtil
         global.StorageUtil = {
-            async saveHighlights(pageUrl, highlightData) {
+            /**
+             * 保存標註數據
+             *
+             * 注意：此函數使用 Promise 構造函數而非 async/await，原因如下：
+             * 1. 與實際實現（scripts/utils.js）保持一致，確保測試準確反映實際行為
+             * 2. Chrome Storage API 是基於回調的，使用 new Promise 包裝是處理回調式 API 的標準做法
+             * 3. 改用 async/await 需要額外的輔助函數來轉換回調，會增加複雜性且偏離實際實現
+             */
+            saveHighlights(pageUrl, highlightData) {
                 const normalizedUrl = normalizeUrl(pageUrl);
                 const pageKey = `highlights_${normalizedUrl}`;
 
@@ -108,7 +116,15 @@ describe('StorageUtil', () => {
                 });
             },
 
-            async loadHighlights(pageUrl) {
+            /**
+             * 加載標註數據
+             *
+             * 注意：此函數使用 Promise 構造函數而非 async/await，原因如下：
+             * 1. 與實際實現（scripts/utils.js）保持一致，確保測試準確反映實際行為
+             * 2. Chrome Storage API 是基於回調的，使用 new Promise 包裝是處理回調式 API 的標準做法
+             * 3. 改用 async/await 需要額外的輔助函數來轉換回調，會增加複雜性且偏離實際實現
+             */
+            loadHighlights(pageUrl) {
                 const normalizedUrl = normalizeUrl(pageUrl);
                 const pageKey = `highlights_${normalizedUrl}`;
 
@@ -178,7 +194,15 @@ describe('StorageUtil', () => {
                 });
             },
 
-            async clearHighlights(pageUrl) {
+            /**
+             * 清除標註數據
+             *
+             * 注意：此函數使用 Promise 構造函數而非 async/await，原因如下：
+             * 1. 與實際實現（scripts/utils.js）保持一致，確保測試準確反映實際行為
+             * 2. Chrome Storage API 是基於回調的，使用 new Promise 包裝是處理回調式 API 的標準做法
+             * 3. 改用 async/await 需要額外的輔助函數來轉換回調，會增加複雜性且偏離實際實現
+             */
+            clearHighlights(pageUrl) {
                 const pageKey = `highlights_${normalizeUrl(pageUrl)}`;
 
                 return new Promise((resolve) => {

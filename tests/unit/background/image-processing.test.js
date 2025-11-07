@@ -462,7 +462,7 @@ function cleanImageUrlSimulated(url) {
     urlObj.search = params.toString();
 
     return urlObj.href;
-  } catch (e) {
+  } catch (_) {
     return null;
   }
 }
