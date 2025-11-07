@@ -234,6 +234,10 @@ function isContentGood(article) {
     // === 函數聲明（移至函數體根部以符合 DeepSource JS-0016）
     // ===================================================================
 
+    // URL 驗證結果緩存
+    const urlValidationCache = new Map();
+    const MAX_CACHE_SIZE = 200;
+
     /**
      * 清理和標準化圖片 URL
      */
@@ -244,10 +248,6 @@ function isContentGood(article) {
     /**
      * 檢查 URL 是否為有效的圖片格式
      */
-    // URL 驗證結果緩存
-    const urlValidationCache = new Map();
-    const MAX_CACHE_SIZE = 200;
-
     function isValidImageUrl(url) {
         if (!url || typeof url !== 'string') return false;
 
