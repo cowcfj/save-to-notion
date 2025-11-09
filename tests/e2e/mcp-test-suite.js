@@ -363,7 +363,7 @@ module.exports = {
 if (require.main === module) {
     const suite = module.exports;
     suite.runAllTests()
-        .then(results => {
+        .then(() => {
             console.log('\n✅ 測試套件執行完成');
             console.log('\n💡 提示: 這些是測試計劃，需要在 Claude Code 中使用 MCP 工具實際執行');
             process.exit(0);

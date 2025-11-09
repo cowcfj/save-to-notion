@@ -290,7 +290,7 @@ describe('Background Storage Operations', () => {
       let errorOccurred = false;
       try {
         await new Promise((resolve, reject) => {
-          setSavedPageDataSimulated(pageUrl, data, (error) => {
+          setSavedPageDataSimulated(pageUrl, data, () => {
             if (chrome.runtime.lastError) {
               reject(chrome.runtime.lastError);
             } else {
