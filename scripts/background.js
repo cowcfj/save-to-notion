@@ -470,7 +470,7 @@ class ScriptInjector {
      * 注入標記工具並初始化
      * v2.5.0: 使用新版 CSS Highlight API + 無痛自動遷移
      */
-    static async injectHighlighter(tabId) {
+    static injectHighlighter(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -498,7 +498,7 @@ class ScriptInjector {
      * 注入並收集標記
      * v2.5.0: 使用新版標註系統
      */
-    static async collectHighlights(tabId) {
+    static collectHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -519,7 +519,7 @@ class ScriptInjector {
      * 注入並清除頁面標記
      * v2.5.0: 使用新版標註系統
      */
-    static async clearPageHighlights(tabId) {
+    static clearPageHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -537,7 +537,7 @@ class ScriptInjector {
     /**
      * 注入標記恢復腳本
      */
-    static async injectHighlightRestore(tabId) {
+    static injectHighlightRestore(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/highlight-restore.js'],
@@ -583,7 +583,7 @@ class ScriptInjector {
      */
     static async inject(tabId, func, files = []) {
         try {
-            return this.injectAndExecute(tabId, files, func, {
+            return await this.injectAndExecute(tabId, files, func, {
                 returnResult: false,
                 logErrors: true
             });
@@ -3085,7 +3085,7 @@ async function handleExtensionUpdate(previousVersion) {
 /**
  * 處理擴展安裝
  */
-async function handleExtensionInstall() {
+function handleExtensionInstall() {
   Logger.log('擴展首次安裝');
   // 可以在這裡添加歡迎頁面或設置引導
 }
