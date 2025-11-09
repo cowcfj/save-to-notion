@@ -13,7 +13,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
   beforeEach(() => {
     // 創建測試環境輔助工具
     testEnv = new TestEnvironmentHelper();
-    
+
     // 設置標準測試環境
     testEnv.setupTestEnvironment();
 
@@ -68,7 +68,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       // 模擬 get 方法成功但回調中有異常
       const testUrl = TEST_CONSTANTS.URLS.EXAMPLE;
       const highlightKey = TEST_CONSTANTS.generateStorageKey('highlights', testUrl);
-      
+
       global.chrome.storage.local.get = jest.fn((keys, callback) => {
         // 先調用回調
         callback({
@@ -88,7 +88,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       const exampleKey = TEST_CONSTANTS.generateStorageKey('highlights', TEST_CONSTANTS.URLS.EXAMPLE);
       const testKey = TEST_CONSTANTS.generateStorageKey('highlights', TEST_CONSTANTS.URLS.TEST);
       const demoKey = TEST_CONSTANTS.generateStorageKey('highlights', TEST_CONSTANTS.URLS.DEMO);
-      
+
       // 模擬返回異常數據格式
       global.chrome.storage.local.get = jest.fn((keys, callback) => {
         callback({
@@ -100,7 +100,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       });
 
       const result = await utils.StorageUtil.debugListAllKeys();
-      
+
       // 應該只返回有效的 highlights 鍵
       expect(result).toEqual([exampleKey, testKey, demoKey]);
     });
@@ -129,7 +129,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       });
 
       const result = await utils.StorageUtil.debugListAllKeys();
-      
+
       // 應該只返回 highlights 鍵
       expect(result).toHaveLength(TEST_CONSTANTS.TEST_SIZES.LARGE);
       expect(result.every(key => key.startsWith(TEST_CONSTANTS.STORAGE_KEYS.HIGHLIGHTS_PREFIX))).toBe(true);
@@ -144,13 +144,13 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       // 測試無效 URL
       const invalidUrl = TEST_CONSTANTS.URLS.INVALID;
       const result = utils.normalizeUrl(invalidUrl);
-      
+
       // 應該返回原始輸入而不拋出錯誤
       expect(result).toBe(invalidUrl);
-      
+
       // 檢查實際的錯誤日誌格式（檢查具體的錯誤對象）
       expect(global.console.error).toHaveBeenCalledWith(
-        `${TEST_CONSTANTS.LOG_PREFIXES.ERROR} [normalizeUrl] 標準化失敗:`,
+        `[ERROR] ${TEST_CONSTANTS.LOG_PREFIXES.ERROR} [normalizeUrl] 標準化失敗:`,
         expect.objectContaining({
           name: 'TypeError',
           message: expect.stringContaining('Invalid URL')
@@ -163,13 +163,13 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       // 測試無效 URL 的處理
       const invalidUrl = TEST_CONSTANTS.URLS.INVALID;
       const result = utils.normalizeUrl(invalidUrl);
-      
+
       // 應該返回原始輸入
       expect(result).toBe(invalidUrl);
-      
+
       // 應該記錄錯誤到 console
       expect(global.console.error).toHaveBeenCalledWith(
-        `${TEST_CONSTANTS.LOG_PREFIXES.ERROR} [normalizeUrl] 標準化失敗:`,
+        `[ERROR] ${TEST_CONSTANTS.LOG_PREFIXES.ERROR} [normalizeUrl] 標準化失敗:`,
         expect.objectContaining({
           name: 'TypeError',
           message: expect.stringContaining('Invalid URL')
@@ -185,7 +185,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
     test('應該處理非字符串輸入', () => {
       // normalizeUrl 會嘗試將輸入轉換為 URL，非字符串會導致錯誤並返回原值
       expect(utils.normalizeUrl(123)).toBe(123);
-      
+
       // 對於對象和數組，使用 toStrictEqual 進行深度比較
       const testObj = {};
       const testArr = [];
@@ -211,10 +211,10 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
       // 應該記錄錯誤但不拋出異常
       await utils.StorageUtil.clearHighlights(TEST_CONSTANTS.URLS.EXAMPLE);
-      
+
       // 驗證錯誤被記錄
       expect(global.console.error).toHaveBeenCalledWith(
-        'Failed to clear highlights from chrome.storage:',
+        '[ERROR] Failed to clear highlights from chrome.storage:',
         expect.objectContaining({ message: TEST_CONSTANTS.ERROR_MESSAGES.PERMISSION_DENIED })
       );
     });
@@ -234,7 +234,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
         // 應該記錄錯誤但不拋出異常
         await utils.StorageUtil.clearHighlights(TEST_CONSTANTS.URLS.EXAMPLE);
-        
+
         // 驗證錯誤被記錄（實際的實現可能不會記錄這個特定錯誤）
         // 我們只驗證函數執行完成而不拋出異常
         expect(true).toBe(true); // 如果到達這裡說明沒有拋出異常
@@ -258,13 +258,13 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       try {
         // clearHighlights 不會拋出錯誤，而是記錄錯誤並繼續
         const result = await utils.StorageUtil.clearHighlights(TEST_CONSTANTS.URLS.EXAMPLE);
-        
+
         // 驗證函數執行完成，不拋出異常
         expect(result).toBeUndefined();
-        
+
         // 驗證 Chrome Storage 錯誤被記錄
         expect(global.console.error).toHaveBeenCalledWith(
-          'Failed to clear highlights from chrome.storage:',
+          '[ERROR] Failed to clear highlights from chrome.storage:',
           expect.any(Object)
         );
       } finally {
@@ -289,13 +289,13 @@ describe('utils.js - 錯誤處理邊界測試', () => {
         const testData = TEST_CONSTANTS.generateTestData(1);
         // saveHighlights 實際上不會拋出錯誤，而是記錄錯誤並繼續
         const result = await utils.StorageUtil.saveHighlights(TEST_CONSTANTS.URLS.EXAMPLE, testData);
-        
+
         // 驗證函數執行完成，不拋出異常
         expect(result).toBeUndefined();
-        
+
         // 驗證錯誤被記錄
         expect(global.console.error).toHaveBeenCalledWith(
-          'Failed to save highlights to chrome.storage:',
+          '[ERROR] Failed to save highlights to chrome.storage:',
           expect.any(Object)
         );
       } finally {
@@ -385,7 +385,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
         global.console.error = originalError;
         global.console.debug = originalDebug;
         global.console.log = originalLog;
-        
+
         // 重新加載模組以恢復正常狀態
         jest.resetModules();
         utils = require('../helpers/utils.testable');
@@ -397,11 +397,11 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       ['error', 'test error message']
     ])('應該正確調用 %s 方法', (method, message) => {
       const spy = jest.spyOn(global.console, method).mockImplementation(() => {});
-      
+
       utils.Logger[method](message);
-      
+
       expect(spy).toHaveBeenCalledWith(`[${method.toUpperCase()}] ${message}`);
-      
+
       spy.mockRestore();
     });
 
@@ -411,20 +411,20 @@ describe('utils.js - 錯誤處理邊界測試', () => {
     ])('應該在開發模式下正確調用 %s 方法', (method, message) => {
       // 設置開發模式
       global.window.__FORCE_LOG__ = true;
-      
+
       // 重新加載模組
       jest.resetModules();
       utils = require('../helpers/utils.testable');
-      
+
       // debug 和 info 都使用 console.log
       const spy = jest.spyOn(global.console, 'log').mockImplementation(() => {});
-      
+
       utils.Logger[method](message);
-      
+
       expect(spy).toHaveBeenCalledWith(`[${method.toUpperCase()}] ${message}`);
-      
+
       spy.mockRestore();
-      
+
       // 清理
       delete global.window.__FORCE_LOG__;
     });
