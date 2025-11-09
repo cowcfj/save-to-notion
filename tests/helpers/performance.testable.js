@@ -8,7 +8,7 @@
  * 提供 DOM 查詢緩存、批處理和性能監控功能
  */
 /* eslint-env browser, jest */
- 
+
 /* global document, performance, setTimeout */
 
 class PerformanceOptimizer {
@@ -31,7 +31,7 @@ class PerformanceOptimizer {
             enableAdaptive: false, // 是否啟用自適應功能
             ...options
         };
-        
+
         // DOM 查詢緩存
         this.queryCache = new Map();
         this.cacheStats = {
@@ -45,7 +45,7 @@ class PerformanceOptimizer {
     this.prewarmedSelectors = new Set();
     // 預留欄位：測試用預熱超時控制（目前在測試環境未使用，以下以 _ 前綴表示刻意未使用以避開 linter/DeepSource 警告）
     this._prewarmTimeout = null;
-        
+
         // 批處理隊列
         this.batchQueue = [];
         this.batchTimer = null;
@@ -55,7 +55,7 @@ class PerformanceOptimizer {
             totalItems: 0,
             averageBatchSize: 0
         };
-        
+
         // 性能指標
         this.metrics = {
             domQueries: 0,
@@ -122,14 +122,14 @@ class PerformanceOptimizer {
         }
 
         const cacheKey = this._generateCacheKey(selector, context, options);
-        
+
         // 檢查緩存
         if (this.queryCache.has(cacheKey)) {
             const cached = this.queryCache.get(cacheKey);
-            
+
             // 檢查緩存是否過期
             const isExpired = Date.now() - cached.timestamp > this.options.cacheTTL;
-            
+
             if (!isExpired) {
                 this.cacheStats.hits++;
                 this.metrics.cacheHits++;
@@ -224,36 +224,36 @@ class PerformanceOptimizer {
 
     // skipcq: JS-0002
     console.log(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
-        
+
         // 使用批處理方式預熱選擇器
         const results = [];
-        
+
         for (const selector of selectors) {
             if (this.prewarmedSelectors.has(selector)) {
                 continue; // 已預熱過，跳過
             }
-            
+
             try {
                 // 執行查詢並將結果存入緩存
                 const result = this.cachedQuery(selector, context);
-                
+
                 if (result) {
                     results.push({
                         selector: selector,
                         count: Array.isArray(result) ? result.length : (result.nodeType ? 1 : 0),
                         cached: true
                     });
-                    
+
                     this.cacheStats.prewarms++;
                     this.prewarmedSelectors.add(selector);
-                    
+
                     // skipcq: JS-0002
                     console.log(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
                 }
             } catch (error) {
                 // skipcq: JS-0002
                 console.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
-                
+
                 results.push({
                     selector: selector,
                     error: error.message,
@@ -261,7 +261,7 @@ class PerformanceOptimizer {
                 });
             }
         }
-        
+
     // skipcq: JS-0002
     console.log(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
         return Promise.resolve(results);
@@ -274,19 +274,19 @@ class PerformanceOptimizer {
      */
     async smartPrewarm(context = document) {
         const startTime = performance.now();
-        
+
         // 基於當前頁面分析，動態生成預熱選擇器
         const dynamicSelectors = this._analyzePageForPrewarming(context);
-        
+
         // 合併配置中的預設選擇器和動態生成的選擇器
         const allSelectors = [...new Set([...this.options.prewarmSelectors, ...dynamicSelectors])];
-        
+
         const results = await this.preloadSelectors(allSelectors, context);
-        
+
         const duration = performance.now() - startTime;
     // skipcq: JS-0002
     console.log(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
-        
+
         return results;
     }
 
@@ -296,16 +296,16 @@ class PerformanceOptimizer {
      */
     _analyzePageForPrewarming(context) {
         const selectors = [];
-        
+
         // 檢查頁面結構，生成可能的選擇器
         if (context.querySelector('article')) {
             selectors.push('article h1', 'article h2', 'article h3', 'article p', 'article img');
         }
-        
+
         if (context.querySelector('[role="main"]')) {
             selectors.push('[role="main"] *');
         }
-        
+
         // 檢查是否有常見的 CMS 類名
         const cmsPatterns = ['.entry-content', '.post-content', '.article-content', '.content-area'];
         cmsPatterns.forEach(pattern => {
@@ -313,7 +313,7 @@ class PerformanceOptimizer {
                 selectors.push(`${pattern} p`, `${pattern} img`, `${pattern} h1`, `${pattern} h2`, `${pattern} h3`);
             }
         });
-        
+
         return selectors;
     }
 
@@ -353,13 +353,13 @@ class PerformanceOptimizer {
      */
     refreshCache(selectors, context = document, options = {}) {
         const selectorList = Array.isArray(selectors) ? selectors : [selectors];
-        
+
         for (const selector of selectorList) {
             const cacheKey = this._generateCacheKey(selector, context, options);
             if (this.queryCache.has(cacheKey)) {
                 // 執行新的查詢並更新緩存
                 const result = this._performQuery(selector, context, options);
-                
+
                 if (result) {
                     this.queryCache.set(cacheKey, {
                         result: result,
@@ -398,7 +398,7 @@ class PerformanceOptimizer {
     clearCache(pattern = null) {
         if (pattern) {
             // 清理匹配模式的緩存
-            for (const [key, value] of this.queryCache.entries()) {
+            for (const key of this.queryCache.keys()) {
                 if (key.includes(pattern)) {
                     this.queryCache.delete(key);
                 }
@@ -439,7 +439,7 @@ class PerformanceOptimizer {
      * @returns {Object} 性能統計信息
      */
     getPerformanceStats() {
-        const cacheHitRate = this.cacheStats.hits + this.cacheStats.misses > 0 
+        const cacheHitRate = this.cacheStats.hits + this.cacheStats.misses > 0
             ? (this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses) * 100).toFixed(2)
             : 0;
 
@@ -483,7 +483,7 @@ class PerformanceOptimizer {
             } else {
                 return context.querySelectorAll(selector);
             }
-        } catch (error) {
+        } catch {
             // 在測試環境中，返回空結果而不是拋出錯誤
             return options.single ? null : [];
         }
@@ -498,7 +498,7 @@ class PerformanceOptimizer {
      * @returns {string} 緩存鍵
      */
     _generateCacheKey(selector, context, options) {
-        const contextId = context === document ? 'document' : 
+        const contextId = context === document ? 'document' :
                          (context.id || context.tagName || 'element');
         const optionsStr = JSON.stringify(options);
         return `${selector}|${contextId}|${optionsStr}`;
@@ -626,20 +626,20 @@ class PerformanceOptimizer {
      */
     async _processInBatches(items, batchSize, processor) {
         const results = [];
-        
+
         for (let i = 0; i < items.length; i += batchSize) {
             const batch = items.slice(i, i + batchSize);
             const batchPromises = batch.map(processor);
             const batchResults = await Promise.allSettled(batchPromises);
-            
-            results.push(...batchResults.map(result => 
+
+            results.push(...batchResults.map(result =>
                 result.status === 'fulfilled' ? result.value : { error: result.reason }
             ));
         }
-        
+
         return results;
     }
-    
+
     /**
      * 根據性能動態調整批處理大小
      * @private
@@ -655,7 +655,7 @@ class PerformanceOptimizer {
         }
         return currentSize;
     }
-    
+
     /**
      * 讓出控制權給主線程以保持響應性
      * @private
@@ -703,14 +703,14 @@ class PerformanceOptimizer {
     _calculateOptimalBatchSize() {
         // 根據隊列大小和歷史性能數據動態調整
         const queueLength = this.batchQueue.length;
-        
+
         if (queueLength === 0) return 100; // 默認大小
-        
+
         // 如果隊列很長，使用較大的批處理以提高效率
         if (queueLength > 500) return 200;
         if (queueLength > 200) return 150;
         if (queueLength > 50) return 100;
-        
+
         // 如果隊列較短，使用較小的批處理以保持響應性
         return 50;
     }
@@ -721,21 +721,21 @@ class PerformanceOptimizer {
     adjustForSystemLoad() {
         // 獲取當前性能指標
         const stats = this.getPerformanceStats();
-        
+
         // 根據緩存命中率調整策略
         if (stats.cache.hitRate < 0.3) {
             // 緩存命中率低，可能需要增加緩存大小或清理策略
             // skipcq: JS-0002
             console.log('📊 緩存命中率較低，考慮調整緩存策略');
         }
-        
+
         // 根據平均處理時間調整批處理大小
         if (this.metrics.averageProcessingTime > 50) {
             // 處理時間過長，減少批處理大小
             // skipcq: JS-0002
             console.log('⏰ 處理時間過長，動態調整批處理大小');
         }
-        
+
         // 定期清理過期緩存
         const expiredCount = this.clearExpiredCache();
         if (expiredCount > 0) {

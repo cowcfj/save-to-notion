@@ -26,7 +26,7 @@ describe('content script integration test', () => {
         // Ensure ImageUtils is present (content.js will provide fallback if missing)
         window.ImageUtils = {
             cleanImageUrl: url => url,
-            isValidImageUrl: url => true,
+            isValidImageUrl: (..._args) => true,
             extractImageSrc: img => img?.getAttribute ? (img.getAttribute('src') || '') : null,
             generateImageCacheKey: img => (img?.getAttribute ? (img.getAttribute('src') || '') : '')
         };

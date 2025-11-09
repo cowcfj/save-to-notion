@@ -29,13 +29,13 @@ describe('Background Tab Listeners', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Reset Chrome API mocks
     mockChrome.tabs.onUpdated.addListener.mockClear();
     mockChrome.storage.local.get.mockImplementation((keys, callback) => {
       callback({});
     });
-    
+
     // 模擬 normalizeUrl 函數
     normalizeUrl = jest.fn((rawUrl) => {
       try {
@@ -63,15 +63,15 @@ describe('Background Tab Listeners', () => {
           if (changeInfo.status === 'complete' && tab && tab.url) {
             const normUrl = normalizeUrl(tab.url);
             const storageKey = `highlights_${normUrl}`;
-            
+
             // 檢查是否有標註數據
             chrome.storage.local.get([storageKey], async (result) => {
               if (result[storageKey]) {
                 console.log('🎨 檢測到頁面有標註，準備恢復:', normUrl);
-                
+
                 // 檢查是否需要遷移舊版標註
                 await migrateLegacyHighlights(tabId, normUrl, storageKey);
-                
+
                 // 注入標註恢復腳本
                 await ScriptInjector.injectHighlightRestore(tabId);
               }
@@ -90,16 +90,16 @@ describe('Background Tab Listeners', () => {
           // 檢查 localStorage 中是否有舊版標註
           const legacyKey = `highlights_${window.location.href}`;
           const legacyData = localStorage.getItem(legacyKey);
-          
+
           if (legacyData) {
             try {
               const highlights = JSON.parse(legacyData);
               if (Array.isArray(highlights) && highlights.length > 0) {
                 console.log('🔄 發現舊版標註，準備遷移:', highlights.length, '個');
-                
+
                 // 清理舊版數據
                 localStorage.removeItem(legacyKey);
-                
+
                 return {
                   found: true,
                   count: highlights.length,
@@ -110,20 +110,20 @@ describe('Background Tab Listeners', () => {
               console.error('解析舊版標註數據失敗:', parseError);
             }
           }
-          
+
           return { found: false };
         });
 
         if (result?.found) {
           console.log(`✅ 成功遷移 ${result.count} 個舊版標註`);
-          
+
           // 將遷移的數據保存到 chrome.storage.local
           const migratedData = {
             highlights: result.data,
             migratedAt: Date.now(),
             version: '2.8.0'
           };
-          
+
           chrome.storage.local.set({
             [storageKey]: migratedData
           });
@@ -152,7 +152,7 @@ describe('Background Tab Listeners', () => {
         url: 'https://example.com/article'
       };
       const changeInfo = { status: 'complete' };
-      
+
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
         callback({
           'highlights_https://example.com/article': {
@@ -214,7 +214,7 @@ describe('Background Tab Listeners', () => {
       const tabId = 123;
       const tab = { id: tabId, url: 'https://example.com/article' };
       const changeInfo = { status: 'complete' };
-      
+
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
         callback({
           'highlights_https://example.com/article': {
@@ -232,7 +232,7 @@ describe('Background Tab Listeners', () => {
       // Assert
       // 等待異步操作完成
       await new Promise(resolve => setTimeout(resolve, 50));
-      
+
       // 檢查基本的調用
       expect(normalizeUrl).toHaveBeenCalledWith('https://example.com/article');
       expect(mockChrome.storage.local.get).toHaveBeenCalledWith(
@@ -248,7 +248,7 @@ describe('Background Tab Listeners', () => {
       const tabId = 123;
       const normUrl = 'https://example.com/article';
       const storageKey = 'highlights_https://example.com/article';
-      
+
       const legacyHighlights = [
         { text: 'highlight 1', color: 'yellow' },
         { text: 'highlight 2', color: 'green' }
@@ -377,11 +377,8 @@ describe('Background Tab Listeners', () => {
       const tabId = 123;
       const tab = { id: tabId, url: 'https://example.com/article?utm_source=google#section' };
       const changeInfo = { status: 'complete' };
-      
-      // 使用 Promise 來處理異步回調
-      let storageCallback;
+
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        storageCallback = callback;
         // 立即調用回調
         callback({
           'highlights_https://example.com/article': {
@@ -401,7 +398,7 @@ describe('Background Tab Listeners', () => {
 
       // Act
       await listener(tabId, changeInfo, tab);
-      
+
       // 等待異步操作完成
       await new Promise(resolve => setTimeout(resolve, 50));
 
@@ -411,7 +408,7 @@ describe('Background Tab Listeners', () => {
         ['highlights_https://example.com/article'],
         expect.any(Function)
       );
-      
+
       // 由於異步回調的複雜性，我們只檢查基本的調用
       expect(console.log).toHaveBeenCalledWith('🎨 檢測到頁面有標註，準備恢復:', 'https://example.com/article');
     });
@@ -421,7 +418,7 @@ describe('Background Tab Listeners', () => {
       const tabId = 123;
       const tab = { id: tabId, url: 'https://example.com/article' };
       const changeInfo = { status: 'complete' };
-      
+
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
         callback({}); // 沒有標註數據
       });
@@ -444,7 +441,7 @@ describe('Background Tab Listeners', () => {
       const tabId = 123;
       const tab = { id: tabId, url: 'https://example.com/article' };
       const changeInfo = { status: 'complete' };
-      
+
       normalizeUrl.mockImplementation(() => {
         throw new Error('Normalization error');
       });

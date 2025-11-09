@@ -3,7 +3,7 @@
 (function() {
     'use strict';
 
-    const { StorageUtil, Logger } = window;
+    const { Logger } = window;
 
     /**
      * 標註遷移管理器

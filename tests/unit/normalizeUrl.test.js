@@ -100,7 +100,6 @@ describe('normalizeUrl', () => {
 
     test('應該處理複雜的真實世界 URL', () => {
       const url = 'https://blog.example.com/article/2024/10/05/?utm_source=twitter&utm_campaign=launch&fbclid=abc123#comments';
-      const expected = 'https://blog.example.com/article/2024/10/05?';
       expect(normalizeUrl(url)).toContain('https://blog.example.com/article/2024/10/05');
       expect(normalizeUrl(url)).not.toContain('utm_');
       expect(normalizeUrl(url)).not.toContain('fbclid');

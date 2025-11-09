@@ -25,7 +25,7 @@ describe('content script require test', () => {
 
         global.ImageUtils = {
             cleanImageUrl: url => url,
-            isValidImageUrl: url => true,
+            isValidImageUrl: (..._args) => true,
             extractImageSrc: img => img?.getAttribute ? (img.getAttribute('src') || '') : null,
             generateImageCacheKey: img => (img?.getAttribute ? (img.getAttribute('src') || '') : '')
         };

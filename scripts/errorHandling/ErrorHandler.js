@@ -45,7 +45,7 @@ class ErrorHandler {
             maxRetries: 3,
             ...options
         };
-        
+
         this.errorStats = new Map();
     }
 
@@ -96,26 +96,26 @@ class ErrorHandler {
         } = options;
 
         let lastError;
-        
+
         for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
             try {
                 return await asyncOperation();
             } catch (error) {
                 lastError = error;
-                
+
                 // 記錄重試嘗試
                 this.logRetryAttempt(error, attempt, maxRetries + 1);
-                
+
                 // 如果是最後一次嘗試或不應該重試，拋出錯誤
                 if (attempt > maxRetries || !shouldRetry(error)) {
                     throw error;
                 }
-                
+
                 // 等待後重試
                 await this.delay(delay * attempt);
             }
         }
-        
+
         throw lastError;
     }
 
@@ -143,12 +143,12 @@ class ErrorHandler {
      * @param {Object} errorInfo - 錯誤信息對象
      */
     static logError(errorInfo) {
-        const { type, context, originalError, timestamp } = errorInfo;
-        
+        const { type, context, originalError } = errorInfo;
+
         // 根據錯誤類型選擇日誌級別
         const logLevel = this.getLogLevel(type);
         const message = `[${type}] ${context}: ${originalError?.message || 'Unknown error'}`;
-        
+
         switch (logLevel) {
             case 'error':
                 console.error(message, originalError);
@@ -160,9 +160,9 @@ class ErrorHandler {
                 console.info(message, originalError);
                 break;
             default:
-                
+
         }
-        
+
         // 更新錯誤統計
         this.updateErrorStats(type);
     }
@@ -187,22 +187,22 @@ class ErrorHandler {
         if (error.name === 'NetworkError' || error.name === 'TimeoutError') {
             return true;
         }
-        
+
         // HTTP 5xx 錯誤可以重試
         if (error.status >= 500 && error.status < 600) {
             return true;
         }
-        
+
         // 429 (Too Many Requests) 可以重試
         if (error.status === 429) {
             return true;
         }
-        
+
         // 4xx 客戶端錯誤通常不應重試
         if (error.status >= 400 && error.status < 500) {
             return false;
         }
-        
+
         return false;
     }
 
@@ -222,7 +222,7 @@ class ErrorHandler {
             [ErrorTypes.VALIDATION_ERROR]: 'warn',
             [ErrorTypes.TIMEOUT_ERROR]: 'error'
         };
-        
+
         return logLevels[errorType] || 'warn';
     }
 
@@ -234,7 +234,7 @@ class ErrorHandler {
         if (!this.errorStats) {
             this.errorStats = new Map();
         }
-        
+
         const current = this.errorStats.get(errorType) || 0;
         this.errorStats.set(errorType, current + 1);
     }
@@ -247,7 +247,7 @@ class ErrorHandler {
         if (!this.errorStats) {
             return {};
         }
-        
+
         const stats = {};
         for (const [type, count] of this.errorStats.entries()) {
             stats[type] = count;
@@ -280,12 +280,12 @@ class ErrorHandler {
      * @returns {Function} 包裝後的函數
      */
     static wrap(fn, options = {}) {
-        const { 
-            fallback = null, 
+        const {
+            fallback = null,
             context = fn.name || 'anonymous function',
-            enableLogging = true 
+            enableLogging = true
         } = options;
-        
+
         return function(...args) {
             return ErrorHandler.withFallback(
                 () => fn.apply(this, args),
