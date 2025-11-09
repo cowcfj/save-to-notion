@@ -2611,7 +2611,9 @@ async function handleSavePage(sendResponse) {
                         }
                     }
                 }
-                linksArray.forEach(link => linkTextLength += link.textContent.length);
+                linksArray.forEach(link => {
+                    linkTextLength += link.textContent.length;
+                });
                 const linkDensity = linkTextLength / article.length;
                 return linkDensity <= MAX_LINK_DENSITY;
             }
