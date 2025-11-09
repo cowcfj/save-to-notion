@@ -15,7 +15,7 @@
  * 4. 創建高亮
  * 5. 驗證高亮存在
  */
-async function testBasicHighlighting() {
+function testBasicHighlighting() {
     console.log('📝 開始測試: 基礎高亮功能');
 
     const testUrl = 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide';
@@ -107,7 +107,7 @@ async function testBasicHighlighting() {
 /**
  * 測試 2: 高亮持久化測試
  */
-async function testHighlightPersistence() {
+function testHighlightPersistence() {
     console.log('💾 開始測試: 高亮持久化');
 
     const steps = {
@@ -182,7 +182,7 @@ async function testHighlightPersistence() {
 /**
  * 測試 3: 內容提取測試
  */
-async function testContentExtraction() {
+function testContentExtraction() {
     console.log('📄 開始測試: 內容提取');
 
     const steps = {
@@ -249,7 +249,7 @@ async function testContentExtraction() {
 /**
  * 測試 4: 多顏色高亮測試
  */
-async function testMultiColorHighlights() {
+function testMultiColorHighlights() {
     console.log('🎨 開始測試: 多顏色高亮');
 
     const colors = ['yellow', 'green', 'blue', 'red', 'purple'];
