@@ -65,17 +65,20 @@ describe('Background Tab Listeners', () => {
             const storageKey = `highlights_${normUrl}`;
 
             // 檢查是否有標註數據
-            chrome.storage.local.get([storageKey], async (result) => {
-              if (result[storageKey]) {
-                console.log('🎨 檢測到頁面有標註，準備恢復:', normUrl);
-
-                // 檢查是否需要遷移舊版標註
-                await migrateLegacyHighlights(tabId, normUrl, storageKey);
-
-                // 注入標註恢復腳本
-                await ScriptInjector.injectHighlightRestore(tabId);
-              }
+            // 將回調式 API 轉換為 Promise 以正確使用 await
+            const result = await new Promise((resolve) => {
+              chrome.storage.local.get([storageKey], resolve);
             });
+
+            if (result[storageKey]) {
+              console.log('🎨 檢測到頁面有標註，準備恢復:', normUrl);
+
+              // 檢查是否需要遷移舊版標註
+              await migrateLegacyHighlights(tabId, normUrl, storageKey);
+
+              // 注入標註恢復腳本
+              await ScriptInjector.injectHighlightRestore(tabId);
+            }
           }
         } catch (error) {
           console.error('標籤頁監聽器錯誤:', error);

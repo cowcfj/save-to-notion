@@ -470,7 +470,7 @@ class ScriptInjector {
      * 注入標記工具並初始化
      * v2.5.0: 使用新版 CSS Highlight API + 無痛自動遷移
      */
-    static async injectHighlighter(tabId) {
+    static injectHighlighter(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -498,7 +498,7 @@ class ScriptInjector {
      * 注入並收集標記
      * v2.5.0: 使用新版標註系統
      */
-    static async collectHighlights(tabId) {
+    static collectHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -519,7 +519,7 @@ class ScriptInjector {
      * 注入並清除頁面標記
      * v2.5.0: 使用新版標註系統
      */
-    static async clearPageHighlights(tabId) {
+    static clearPageHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -537,7 +537,7 @@ class ScriptInjector {
     /**
      * 注入標記恢復腳本
      */
-    static async injectHighlightRestore(tabId) {
+    static injectHighlightRestore(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/highlight-restore.js'],
@@ -583,7 +583,7 @@ class ScriptInjector {
      */
     static async inject(tabId, func, files = []) {
         try {
-            return this.injectAndExecute(tabId, files, func, {
+            return await this.injectAndExecute(tabId, files, func, {
                 returnResult: false,
                 logErrors: true
             });
@@ -677,20 +677,20 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
  */
 function normalizeUrl(rawUrl) {
     try {
-        const u = new URL(rawUrl);
+        const urlObj = new URL(rawUrl);
         // Drop fragment
-        u.hash = '';
+        urlObj.hash = '';
         // Remove common tracking params
         const trackingParams = [
             'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
             'gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'
         ];
-        trackingParams.forEach((p) => u.searchParams.delete(p));
+        trackingParams.forEach((p) => urlObj.searchParams.delete(p));
         // Normalize trailing slash (keep root "/")
-        if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-            u.pathname = u.pathname.replace(/\/+$/, '');
+        if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+            urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
         }
-        return u.toString();
+        return urlObj.toString();
     } catch {
         return rawUrl || '';
     }
@@ -1481,12 +1481,12 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
             try {
                 const normalize = (raw) => {
                     try {
-                        const u = new URL(raw);
-                        u.hash = '';
+                        const urlObj = new URL(raw);
+                        urlObj.hash = '';
                         const params = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'];
-                        params.forEach((p) => u.searchParams.delete(p));
-                        if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
-                        return u.toString();
+                        params.forEach((p) => urlObj.searchParams.delete(p));
+                        if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
+                        return urlObj.toString();
                     } catch { return raw || ''; }
                 };
 
@@ -2885,7 +2885,7 @@ async function handleSavePage(sendResponse) {
 
                     return {
                         title: finalTitle,
-                        blocks: blocks,
+                        blocks,
                         siteIcon: siteIconUrl  // 新增：返回網站 Icon URL
                     };
                 } else {
@@ -2923,7 +2923,7 @@ async function handleSavePage(sendResponse) {
 
         if (!result || !result.title || !result.blocks) {
             console.error('❌ Content extraction result validation failed:', {
-                result: result,
+                result,
                 resultType: typeof result,
                 hasResult: Boolean(result),
                 hasTitle: Boolean(result?.title),
@@ -2945,7 +2945,7 @@ async function handleSavePage(sendResponse) {
 
             sendResponse({
                 success: false,
-                error: errorMessage + ' Please check the browser console for details.'
+                error: `${errorMessage} Please check the browser console for details.`
             });
             return;
         }
@@ -3085,7 +3085,7 @@ async function handleExtensionUpdate(previousVersion) {
 /**
  * 處理擴展安裝
  */
-async function handleExtensionInstall() {
+function handleExtensionInstall() {
   Logger.log('擴展首次安裝');
   // 可以在這裡添加歡迎頁面或設置引導
 }
@@ -3144,8 +3144,8 @@ async function showUpdateNotification(previousVersion, currentVersion) {
     setTimeout(() => {
       chrome.tabs.sendMessage(tab.id, {
         type: 'UPDATE_INFO',
-        previousVersion: previousVersion,
-        currentVersion: currentVersion
+        previousVersion,
+        currentVersion
       }).catch(err => {
         Logger.log('發送更新信息失敗:', err);
       });
@@ -3169,7 +3169,7 @@ function handleOpenNotionPage(request, sendResponse) {
         }
 
         // 在新標籤頁中打開 Notion 頁面
-        chrome.tabs.create({ url: url }, (tab) => {
+        chrome.tabs.create({ url }, (tab) => {
             if (chrome.runtime.lastError) {
                 console.error('Failed to open Notion page:', chrome.runtime.lastError);
                 sendResponse({ success: false, error: chrome.runtime.lastError.message });

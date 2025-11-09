@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const debugToggle = document.getElementById('enable-debug-logs');
     const authStatus = document.getElementById('auth-status');
     const manualSection = document.querySelector('.manual-section');
-    
+
     // 模板相關元素
     const titleTemplateInput = document.getElementById('title-template');
     const addSourceCheckbox = document.getElementById('add-source');
@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const templatePreview = document.getElementById('template-preview');
 
     let upgradeNoticeBanner = null;
+    let searchableSelector = null;
 
     const Logger = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 
@@ -104,9 +105,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 authStatus.className = 'auth-status success';
                 oauthButton.innerHTML = '<span class="notion-icon">🔄</span>重新設置';
                 disconnectButton.style.display = 'inline-block';
-                
+
                 apiKeyInput.value = result.notionApiKey;
-                
+
                 const storedLegacyId = result.notionDatabaseId || '';
                 const storedDataSourceId = result.notionDataSourceId || '';
                 const resolvedId = storedDataSourceId || storedLegacyId;
@@ -122,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     hideDataSourceUpgradeNotice();
                 }
-                
+
                 // 載入資料來源列表
                 loadDatabases(result.notionApiKey);
             } else {
@@ -132,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 disconnectButton.style.display = 'none';
                 hideDataSourceUpgradeNotice();
             }
-            
+
             // 載入模板設置
             titleTemplateInput.value = result.titleTemplate || '{title}';
             addSourceCheckbox.checked = result.addSource !== false; // 默認為 true
@@ -153,15 +154,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // 打開 Notion 集成頁面
             const integrationUrl = 'https://www.notion.so/my-integrations';
             await chrome.tabs.create({ url: integrationUrl });
-            
+
             // 顯示設置指南
             showSetupGuide();
-            
+
             setTimeout(() => {
                 oauthButton.disabled = false;
                 oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
             }, 2000);
-            
+
         } catch (error) {
             oauthButton.disabled = false;
             oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
@@ -182,16 +183,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </ol>
             </div>
         `;
-        
+
         const existingGuide = document.querySelector('.setup-guide');
         if (existingGuide) {
             existingGuide.remove();
         }
-        
+
         const guideDiv = document.createElement('div');
         guideDiv.className = 'setup-guide';
         guideDiv.innerHTML = guideHtml;
-    
+
         manualSection.insertBefore(guideDiv, manualSection.firstChild);
     }
 
@@ -217,12 +218,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
-            
+
 
             if (response.ok) {
                 const data = await response.json();
-                
-                
+
+
                 if (data.results && data.results.length > 0) {
                     populateDatabaseSelect(data.results);
                 } else {
@@ -232,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 const errorData = await response.json();
                 console.error('API 錯誤:', errorData);
-                
+
                 let errorMessage = '載入資料來源失敗: ';
                 if (response.status === 401) {
                     errorMessage += 'API Key 無效或已過期';
@@ -241,20 +242,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     errorMessage += errorData.message || `HTTP ${response.status}`;
                 }
-                
+
                 showStatus(errorMessage, 'error');
                 databaseSelect.style.display = 'none';
             }
         } catch (error) {
             console.error('載入資料來源失敗:', error);
-            
+
             let errorMessage = '載入資料來源失敗: ';
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
                 errorMessage += '網絡連接問題，請檢查網絡連接';
             } else {
                 errorMessage += error.message;
             }
-            
+
             showStatus(errorMessage, 'error');
             databaseSelect.style.display = 'none';
         }
@@ -266,18 +267,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 初始化搜索式選擇器（如果還沒有）
         if (!searchableSelector) {
-            
+
             searchableSelector = new SearchableDatabaseSelector({ showStatus, loadDatabases });
         }
-        
+
         // 使用新的搜索式選擇器
-        
+
         searchableSelector.populateDatabases(databases);
-        
+
         // 隱藏原有的簡單選擇器
         databaseSelect.style.display = 'none';
-        
-        
+
+
         // 保留原有邏輯作為回退（但隱藏）
         databaseSelect.innerHTML = '<option value="">選擇資料來源...</option>';
 
@@ -306,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 移除舊的事件監聽器，避免重複綑続
             databaseSelect.removeEventListener('change', handleDatabaseSelect);
             databaseSelect.addEventListener('change', handleDatabaseSelect);
-            
+
             showStatus(`找到 ${databases.length} 個資料來源，請從下拉選單中選擇`, 'success');
         } else {
             showStatus('未找到任何資料來源，請確保 API Key 有權限訪問資料來源', 'error');
@@ -325,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showStatus(message, type = 'info') {
         status.textContent = message;
         status.className = type;
-        
+
         if (type === 'success') {
             setTimeout(() => {
                 status.textContent = '';
@@ -386,15 +387,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // API Key 輸入時自動載入資料來源
     let loadDatabasesTimeout;
-    
+
     function handleApiKeyInput() {
         const apiKey = apiKeyInput.value.trim();
-        
+
         // 清除之前的定時器
         if (loadDatabasesTimeout) {
             clearTimeout(loadDatabasesTimeout);
         }
-        
+
         // 檢查 API Key 格式 - Notion API Key 通常較長
         if (apiKey && apiKey.length > 20) {
             // 延遲載入，避免頻繁請求
@@ -403,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1000);
         }
     }
-    
+
     apiKeyInput.addEventListener('input', handleApiKeyInput);
     apiKeyInput.addEventListener('blur', handleApiKeyInput);
 
@@ -414,15 +415,15 @@ document.addEventListener('DOMContentLoaded', () => {
             showStatus('請先輸入 API Key', 'error');
             return;
         }
-        
+
         if (apiKey.length < 20) {
             showStatus('API Key 格式不正確，長度太短', 'error');
             return;
         }
-        
+
         testApiButton.disabled = true;
         testApiButton.textContent = '測試中...';
-        
+
         loadDatabases(apiKey).finally(() => {
             testApiButton.disabled = false;
             testApiButton.textContent = '測試 API Key';
@@ -434,17 +435,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const template = titleTemplateInput.value.trim() || '{title}';
         const sampleTitle = '示例文章標題';
         const sampleUrl = 'https://example.com/article';
-        
+
         // 簡化的模板處理（不引入完整的 template.js）
         const now = new Date();
         const domain = 'example.com';
-        const date = now.getFullYear() + '-' + 
-                    String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-                    String(now.getDate()).padStart(2, '0');
-        const time = String(now.getHours()).padStart(2, '0') + ':' + 
-                    String(now.getMinutes()).padStart(2, '0');
-        const datetime = date + ' ' + time;
-        
+        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const datetime = `${date} ${time}`;
+
         const processedTitle = template
             .replace(/\{title\}/g, sampleTitle)
             .replace(/\{url\}/g, sampleUrl)
@@ -452,17 +450,17 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/\{date\}/g, date)
             .replace(/\{time\}/g, time)
             .replace(/\{datetime\}/g, datetime);
-        
+
         let previewText = `標題預覽: "${processedTitle}"`;
-        
+
         if (addTimestampCheckbox.checked) {
             previewText += "\n✓ 會在內容開頭添加時間戳";
         }
-        
+
         if (addSourceCheckbox.checked) {
             previewText += "\n✓ 會在內容末尾添加來源鏈接";
         }
-        
+
         templatePreview.textContent = previewText;
         templatePreview.className = 'template-preview show';
     }
@@ -522,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
         exportButton.addEventListener('click', async () => {
             try {
                 showDataStatus('正在備份數據...', 'info');
-                
+
                 const data = await new Promise(resolve => {
                     chrome.storage.local.get(null, resolve);
                 });
@@ -566,9 +564,9 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = async (e) => {
                 try {
                     showDataStatus('正在恢復數據...', 'info');
-                    
+
                     const backup = JSON.parse(e.target.result);
-                    
+
                     if (!backup.data) {
                         throw new Error('無效的備份文件格式');
                     }
@@ -578,15 +576,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     showDataStatus(`✅ 數據恢復成功！已恢復 ${Object.keys(backup.data).length} 項數據。請重新整理頁面查看。`, 'success');
-                    
+
                     // 清除文件選擇
                     importFile.value = '';
-                    
+
                     // 3秒後重新載入設定
                     setTimeout(() => {
                         checkAuthStatus();
                     }, 2000);
-                    
+
                 } catch (error) {
                     console.error('Import failed:', error);
                     showDataStatus(`❌ 恢復失敗：${error.message}`, 'error');
@@ -600,24 +598,24 @@ document.addEventListener('DOMContentLoaded', () => {
         checkButton.addEventListener('click', async () => {
             try {
                 showDataStatus('正在檢查數據完整性...', 'info');
-                
+
                 const data = await new Promise(resolve => {
                     chrome.storage.local.get(null, resolve);
                 });
 
                 const report = analyzeData(data);
-                
+
                 let statusText = "📊 數據完整性報告：\n";
                 statusText += `• 總共 ${report.totalKeys} 個數據項\n`;
                 statusText += `• ${report.highlightPages} 個頁面有標記\n`;
                 statusText += `• ${report.configKeys} 個配置項\n`;
-                
+
                 // v2.8.0: 顯示遷移數據統計
                 if (report.migrationKeys > 0) {
                     const migrationSizeKB = (report.migrationDataSize / 1024).toFixed(1);
                     statusText += `• ⚠️ ${report.migrationKeys} 個遷移數據（${migrationSizeKB} KB，可清理）\n`;
                 }
-                
+
                 if (report.corruptedData.length > 0) {
                     statusText += `• ⚠️ ${report.corruptedData.length} 個損壞的數據項`;
                     showDataStatus(statusText, 'error');
@@ -628,7 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusText += "• ✅ 所有數據完整無損";
                     showDataStatus(statusText, 'success');
                 }
-                
+
             } catch (error) {
                 console.error('Data check failed:', error);
                 showDataStatus(`❌ 檢查失敗：${error.message}`, 'error');
@@ -671,13 +669,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 存儲使用情況相關功能
         const refreshUsageButton = document.getElementById('refresh-usage-button');
-        
+
         // 頁面載入時更新存儲使用情況
         updateStorageUsage();
-        
+
         // 刷新按鈕事件
         refreshUsageButton.addEventListener('click', updateStorageUsage);
-        
+
         async function updateStorageUsage() {
             try {
                 const usage = await getStorageUsage();
@@ -686,19 +684,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Failed to get storage usage:', error);
             }
         }
-        
+
         async function getStorageUsage() {
             return new Promise((resolve) => {
                 chrome.storage.local.get(null, (data) => {
                     const jsonString = JSON.stringify(data);
                     const sizeInBytes = new Blob([jsonString]).size;
                     const maxSize = 5 * 1024 * 1024; // 5MB
-                    
+
                     // 分析數據
                     let pagesCount = 0;
                     let highlightsCount = 0;
                     let configCount = 0;
-                    
+
                     for (const [key, value] of Object.entries(data)) {
                         if (key.startsWith('highlights_')) {
                             pagesCount++;
@@ -709,7 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             configCount++;
                         }
                     }
-                    
+
                     const usage = {
                         used: sizeInBytes,
                         total: maxSize,
@@ -720,12 +718,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         highlights: highlightsCount,
                         configs: configCount
                     };
-                    
+
                     resolve(usage);
                 });
             });
         }
-        
+
         function updateUsageDisplay(usage) {
             const usageFill = document.getElementById('usage-fill');
             const usagePercentage = document.getElementById('usage-percentage');
@@ -733,10 +731,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const pagesCount = document.getElementById('pages-count');
             const highlightsCount = document.getElementById('highlights-count');
             const configCount = document.getElementById('config-count');
-            
+
             // 更新使用率條
             usageFill.style.width = `${usage.percentage}%`;
-            
+
             // 根據使用率設置顏色
             usageFill.className = 'usage-fill';
             if (usage.percentage > 90) {
@@ -744,16 +742,16 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (usage.percentage > 70) {
                 usageFill.classList.add('warning');
             }
-            
+
             // 更新文字信息
             usagePercentage.textContent = `${usage.percentage}%`;
             usageDetails.textContent = `${usage.usedMB} MB / ${usage.totalMB} MB`;
-            
+
             // 更新統計信息
             pagesCount.textContent = usage.pages.toLocaleString();
             highlightsCount.textContent = usage.highlights.toLocaleString();
             configCount.textContent = usage.configs;
-            
+
             // 添加性能建議
             if (usage.percentage > 80) {
                 showDataStatus(`⚠️ 存儲使用率較高 (${usage.percentage}%)，建議清理不需要的標記數據`, 'warning');
@@ -769,15 +767,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const executeOptimizationButton = document.getElementById('execute-optimization-button');
         const cleanupPreview = document.getElementById('cleanup-preview');
         const optimizationPreview = document.getElementById('optimization-preview');
-        
+
         let cleanupPlan = null;
         let optimizationPlan = null;
-        
+
         previewCleanupButton.addEventListener('click', previewSafeCleanup);
         executeCleanupButton.addEventListener('click', executeSafeCleanup);
         analyzeOptimizationButton.addEventListener('click', analyzeOptimization);
         executeOptimizationButton.addEventListener('click', executeOptimization);
-        
+
         // 安全清理：清理已刪除頁面的標註數據
         async function previewSafeCleanup() {
             const cleanDeletedPages = document.getElementById('cleanup-deleted-pages').checked;
@@ -803,12 +801,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 setPreviewButtonLoading(false);
             }
         }
-        
+
         // 設置預覽按鈕的加載狀態
         function setPreviewButtonLoading(loading) {
             const button = document.getElementById('preview-cleanup-button');
             const buttonText = button.querySelector('.button-text');
-            
+
             if (loading) {
                 button.classList.add('loading');
                 button.disabled = true;
@@ -819,18 +817,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 buttonText.textContent = '👀 預覽清理效果';
             }
         }
-        
+
         // 更新檢查進度
         function updateCheckProgress(current, total) {
             const button = document.getElementById('preview-cleanup-button');
             const buttonText = button.querySelector('.button-text');
-            
+
             if (total > 0) {
                 const percentage = Math.round((current / total) * 100);
                 buttonText.textContent = `🔍 檢查中... ${current}/${total} (${percentage}%)`;
             }
         }
-        
+
         async function generateSafeCleanupPlan(cleanDeletedPages) {
             return new Promise((resolve) => {
                 chrome.storage.local.get(null, async (data) => {
@@ -850,38 +848,38 @@ document.addEventListener('DOMContentLoaded', () => {
                                 url: key.replace('saved_', ''),
                                 data: data[key]
                             }));
-                        
-                        
-                        
+
+
+
                         // 顯示檢查進度
                         updateCheckProgress(0, savedPages.length);
-                        
+
                         // 批量檢查（避免 API 速率限制）
                         for (let i = 0; i < savedPages.length; i++) {
                             const page = savedPages[i];
-                            
+
                             // 更新進度
                             updateCheckProgress(i + 1, savedPages.length);
-                            
+
                             if (!page.data || !page.data.notionPageId) {
-                                
+
                                 continue;
                             }
-                            
+
                             try {
                                 // 檢查 Notion 頁面是否存在
                                 const exists = await checkNotionPageExists(page.data.notionPageId);
-                                
+
                                 if (!exists) {
                                     // 頁面已刪除，添加到清理計劃
                                     const savedKey = page.key;
                                     const highlightsKey = `highlights_${page.url}`;
-                                    
+
                                     const savedSize = new Blob([JSON.stringify({[savedKey]: page.data})]).size;
                                     const highlightsData = data[highlightsKey];
                                     const highlightsSize = highlightsData ? new Blob([JSON.stringify({[highlightsKey]: highlightsData})]).size : 0;
                                     const totalSize = savedSize + highlightsSize;
-                                    
+
                                     // 添加兩個項目（saved_ 和 highlights_）
                                     plan.items.push({
                                         key: savedKey,
@@ -889,7 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         size: savedSize,
                                         reason: '已刪除頁面的保存狀態'
                                     });
-                                    
+
                                     if (highlightsData) {
                                         plan.items.push({
                                             key: highlightsKey,
@@ -898,31 +896,31 @@ document.addEventListener('DOMContentLoaded', () => {
                                             reason: '已刪除頁面的標註數據'
                                         });
                                     }
-                                    
+
                                     plan.spaceFreed += totalSize;
                                     plan.deletedPages++;
-                                    
-                                    
+
+
                                 }
-                                
+
                                 // 避免 API 速率限制（Notion: 3 requests/second）
                                 if (i < savedPages.length - 1) {
                                     await new Promise(sleep => setTimeout(sleep, 350));
                                 }
-                                
+
                             } catch (error) {
                                 console.error(`檢查頁面失敗: ${page.url}`, error);
                                 // 繼續處理下一個頁面
                             }
                         }
                     }
-                    
+
                     plan.totalKeys = plan.items.length;
                     resolve(plan);
                 });
             });
         }
-        
+
         // 輔助函數：檢查 Notion 頁面是否存在
         async function checkNotionPageExists(pageId) {
             try {
@@ -936,10 +934,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return true; // 發生錯誤時假設頁面存在（安全策略）
             }
         }
-        
+
         function displayCleanupPreview(plan) {
             cleanupPreview.className = 'cleanup-preview show';
-            
+
             if (plan.items.length === 0) {
                 cleanupPreview.innerHTML = `
                     <div class="cleanup-summary">
@@ -949,15 +947,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
                 return;
             }
-            
+
             const spaceMB = (plan.spaceFreed / (1024 * 1024)).toFixed(3);
-            
+
             let summaryText = '🧹 安全清理預覽\n\n將清理：\n';
             if (plan.deletedPages > 0) {
                 summaryText += `• ${plan.deletedPages} 個已刪除頁面的數據\n`;
             }
             summaryText += `\n釋放約 ${spaceMB} MB 空間`;
-            
+
             cleanupPreview.innerHTML = `
                 <div class="cleanup-summary">
                     <strong>🧹 安全清理預覽</strong>
@@ -982,20 +980,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         }
-        
+
         async function executeSafeCleanup() {
             if (!cleanupPlan || cleanupPlan.items.length === 0) {
                 showDataStatus('❌ 沒有清理計劃可執行', 'error');
                 return;
             }
-            
+
             try {
                 showDataStatus('🔄 正在執行安全清理...', 'info');
-                
+
                 const keysToRemove = cleanupPlan.items.map(item => item.key);
-                
-                
-                
+
+
+
                 // 執行刪除操作
                 await new Promise((resolve, reject) => {
                     chrome.storage.local.remove(keysToRemove, () => {
@@ -1003,46 +1001,46 @@ document.addEventListener('DOMContentLoaded', () => {
                             console.error('❌ 刪除失敗:', chrome.runtime.lastError);
                             reject(chrome.runtime.lastError);
                         } else {
-                            
+
                             resolve();
                         }
                     });
                 });
-                
+
                 const spaceKB = (cleanupPlan.spaceFreed / 1024).toFixed(1);
                 let message = `✅ 安全清理完成！已移除 ${cleanupPlan.totalKeys} 個無效記錄，釋放 ${spaceKB} KB 空間`;
 
                 if (cleanupPlan.deletedPages > 0) {
                     message += `\n• 清理了 ${cleanupPlan.deletedPages} 個已刪除頁面的數據`;
                 }
-                
+
                 showDataStatus(message, 'success');
-                
+
                 // 重新整理使用情況和預覽
                 updateStorageUsage();
                 executeCleanupButton.style.display = 'none';
                 cleanupPreview.className = 'cleanup-preview';
                 cleanupPlan = null;
-                
+
             } catch (error) {
                 console.error('Cleanup failed:', error);
                 showDataStatus(`❌ 清理失敗：${error.message}`, 'error');
             }
         }
-        
+
         // 數據重整優化
         async function analyzeOptimization() {
             const plan = await generateOptimizationPlan();
             optimizationPlan = plan;
             displayOptimizationPreview(plan);
-            
+
             if (plan.canOptimize) {
                 executeOptimizationButton.style.display = 'inline-block';
             } else {
                 executeOptimizationButton.style.display = 'none';
             }
         }
-        
+
         // 生成資料重整分析計劃，統計遷移殘留與空標註以評估可節省空間
         function generateOptimizationPlan() {
             return new Promise((resolve) => {
@@ -1058,20 +1056,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         keysToRemove: [],
                         optimizedData: {}
                     };
-                    
+
                     const originalData = JSON.stringify(data);
                     plan.originalSize = new Blob([originalData]).size;
-                    
+
                     // v2.8.0: 統計遷移數據
                     let migrationDataSize = 0;
                     let migrationKeysCount = 0;
                     let emptyHighlightKeys = 0;
                     let emptyHighlightSize = 0;
-                    
+
                     // 分析可能的優化
                     const optimizedData = {};
                     const keysToRemove = [];
-                    
+
                     for (const [key, value] of Object.entries(data)) {
                         // v2.8.0: 檢測並清理遷移數據（包括舊版本備份）
                         if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
@@ -1082,7 +1080,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             // 不加入 optimizedData（清理掉）
                             continue;
                         }
-                        
+
                         if (key.startsWith('highlights_')) {
                             const highlightsArray = Array.isArray(value) ? value : value?.highlights;
                             if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
@@ -1098,50 +1096,50 @@ document.addEventListener('DOMContentLoaded', () => {
                             optimizedData[key] = value;
                         }
                     }
-                    
+
                     // v2.8.0: 添加遷移數據清理到優化計劃
                     if (migrationDataSize > 1024) {
                         const sizeKB = (migrationDataSize / 1024).toFixed(1);
                         plan.optimizations.push(`清理遷移數據（${migrationKeysCount} 項，${sizeKB} KB）`);
                         plan.canOptimize = true;
                     }
-                    
+
                     if (emptyHighlightKeys > 0) {
                         const sizeKB = (emptyHighlightSize / 1024).toFixed(1);
                         plan.optimizations.push(`移除空標註紀錄（${emptyHighlightKeys} 項，${sizeKB} KB）`);
                         plan.canOptimize = true;
                     }
-                    
+
                     plan.keysToRemove = keysToRemove;
                     plan.optimizedData = optimizedData;
-                    
+
                     const optimizedJson = JSON.stringify(optimizedData);
                     plan.optimizedSize = new Blob([optimizedJson]).size;
                     plan.spaceSaved = plan.originalSize - plan.optimizedSize;
-                    
+
                     // 只要有遷移或空標註數據就可以優化
                     if (migrationKeysCount > 0 || emptyHighlightKeys > 0) {
                         plan.canOptimize = true;
                     }
-                    
+
                     // 檢查是否需要索引重建
-                    const hasFragmentation = Object.keys(data).some(key => 
+                    const hasFragmentation = Object.keys(data).some(key =>
                         key.startsWith('highlights_') && (!data[key] || !Array.isArray(data[key]))
                     );
-                    
+
                     if (hasFragmentation) {
                         plan.optimizations.push('修復數據碎片');
                         plan.canOptimize = true;
                     }
-                    
+
                     resolve(plan);
                 });
             });
         }
-        
+
         function displayOptimizationPreview(plan) {
             optimizationPreview.className = 'optimization-preview show';
-            
+
             if (!plan.canOptimize) {
                 optimizationPreview.innerHTML = `
                     <div class="optimization-summary">
@@ -1156,10 +1154,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
                 return;
             }
-            
+
             const spaceSavedMB = (plan.spaceSaved / (1024 * 1024)).toFixed(3);
             const percentSaved = ((plan.spaceSaved / plan.originalSize) * 100).toFixed(1);
-            
+
             optimizationPreview.innerHTML = `
                 <div class="optimization-summary">
                     <strong>⚡ 數據重整分析結果</strong>
@@ -1178,22 +1176,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         }
-        
+
         async function executeOptimization() {
             if (!optimizationPlan || !optimizationPlan.canOptimize) {
                 showDataStatus('❌ 沒有優化計劃可執行', 'error');
                 return;
             }
-            
+
             try {
                 showDataStatus('🔄 正在執行數據重整...', 'info');
-                
+
                 // v2.8.0: 使用預先計算好的優化數據
                 const optimizedData = optimizationPlan.optimizedData;
                 const keysToRemove = optimizationPlan.keysToRemove;
-                
-                
-                
+
+
+
                 // 先刪除遷移數據
                 if (keysToRemove.length > 0) {
                     await new Promise((resolve, reject) => {
@@ -1201,44 +1199,44 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (chrome.runtime.lastError) {
                                 reject(chrome.runtime.lastError);
                             } else {
-                                
+
                                 resolve();
                             }
                         });
                     });
                 }
-                
+
                 // 然後寫入優化後的數據（如果有變化）
                 const currentData = await new Promise(resolve => {
                     chrome.storage.local.get(null, resolve);
                 });
-                
+
                 const needsUpdate = Object.keys(optimizedData).some(key => {
                     return JSON.stringify(currentData[key]) !== JSON.stringify(optimizedData[key]);
                 });
-                
+
                 if (needsUpdate) {
                     await new Promise((resolve, reject) => {
                         chrome.storage.local.set(optimizedData, () => {
                             if (chrome.runtime.lastError) {
                                 reject(chrome.runtime.lastError);
                             } else {
-                                
+
                                 resolve();
                             }
                         });
                     });
                 }
-                
+
                 const spaceSavedKB = (optimizationPlan.spaceSaved / 1024).toFixed(1);
                 showDataStatus(`✅ 數據重整完成！已清理遷移數據，節省 ${spaceSavedKB} KB 空間，所有標記內容完整保留`, 'success');
-                
+
                 // 重新整理使用情況和預覽
                 updateStorageUsage();
                 executeOptimizationButton.style.display = 'none';
                 optimizationPreview.className = 'optimization-preview';
                 optimizationPlan = null;
-                
+
             } catch (error) {
                 console.error('Optimization failed:', error);
                 showDataStatus(`❌ 數據重整失敗：${error.message}`, 'error');
@@ -1253,14 +1251,14 @@ document.addEventListener('DOMContentLoaded', () => {
 class SearchableDatabaseSelector {
     constructor(dependencies = {}) {
         const { showStatus, loadDatabases } = dependencies;
-        
+
         if (typeof showStatus !== 'function') {
             throw new Error('SearchableDatabaseSelector 需要 showStatus 函式');
         }
         if (typeof loadDatabases !== 'function') {
             throw new Error('SearchableDatabaseSelector 需要 loadDatabases 函式');
         }
-        
+
         this.showStatus = showStatus;
         this.loadDatabases = loadDatabases;
         this.databases = [];
@@ -1268,7 +1266,7 @@ class SearchableDatabaseSelector {
         this.selectedDatabase = null;
         this.isOpen = false;
         this.focusedIndex = -1;
-        
+
         this.initializeElements();
         this.setupEventListeners();
     }
@@ -1282,7 +1280,7 @@ class SearchableDatabaseSelector {
         this.databaseCount = document.getElementById('database-count');
         this.refreshButton = document.getElementById('refresh-databases');
         this.databaseIdInput = document.getElementById('database-id');
-        
+
         window.Logger?.info?.('SearchableDatabaseSelector 元素初始化:', {
             container: this.container,
             searchInput: this.searchInput,
@@ -1293,7 +1291,7 @@ class SearchableDatabaseSelector {
             refreshButton: this.refreshButton,
             databaseIdInput: this.databaseIdInput
         });
-        
+
         if (!this.container) {
             console.error('找不到 database-selector-container 元素！');
         }
@@ -1342,10 +1340,10 @@ class SearchableDatabaseSelector {
     }
 
     populateDatabases(databases) {
-        
-        
-        
-        
+
+
+
+
         this.databases = databases.map(db => ({
             id: db.id,
             title: this.extractDatabaseTitle(db),
@@ -1355,22 +1353,22 @@ class SearchableDatabaseSelector {
         }));
 
         window.Logger?.info?.('處理後的資料來源:', this.databases);
-        
+
         // 按標題排序
         this.databases.sort((a, b) => a.title.localeCompare(b.title));
-        
+
         this.filteredDatabases = [...this.databases];
         this.updateDatabaseCount();
         this.renderDatabaseList();
-        
+
         // 顯示選擇器
-        
+
         this.container.style.display = 'block';
-        
+
         // 更新搜索框提示
         this.searchInput.placeholder = `搜索 ${databases.length} 個資料來源...`;
-        
-        
+
+
         // 如果當前有選中的資料來源，在搜索框中顯示
         if (this.databaseIdInput.value) {
             const selectedDb = this.databases.find(db => db.id === this.databaseIdInput.value);
@@ -1383,16 +1381,16 @@ class SearchableDatabaseSelector {
 
     filterDatabases(query) {
         const lowerQuery = query.toLowerCase().trim();
-        
+
         if (!lowerQuery) {
             this.filteredDatabases = [...this.databases];
         } else {
-            this.filteredDatabases = this.databases.filter(db => 
+            this.filteredDatabases = this.databases.filter(db =>
                 db.title.toLowerCase().includes(lowerQuery) ||
                 db.id.toLowerCase().includes(lowerQuery)
             );
         }
-        
+
         this.focusedIndex = -1;
         this.updateDatabaseCount();
         this.renderDatabaseList();
@@ -1425,7 +1423,7 @@ class SearchableDatabaseSelector {
     createDatabaseItemHTML(db, index) {
         const isSelected = this.selectedDatabase && this.selectedDatabase.id === db.id;
         const isFocused = index === this.focusedIndex;
-        
+
         // 高亮搜索關鍵字
         const query = this.searchInput.value.toLowerCase().trim();
         let highlightedTitle = db.title;
@@ -1433,9 +1431,9 @@ class SearchableDatabaseSelector {
             const regex = new RegExp(`(${this.escapeRegex(query)})`, 'gi');
             highlightedTitle = db.title.replace(regex, '<span class="search-highlight">$1</span>');
         }
-        
+
         return `
-            <div class="database-item ${isSelected ? 'selected' : ''} ${isFocused ? 'keyboard-focus' : ''}" 
+            <div class="database-item ${isSelected ? 'selected' : ''} ${isFocused ? 'keyboard-focus' : ''}"
                  data-index="${index}">
                 <div class="database-title">${highlightedTitle}</div>
                 <div class="database-id">${db.id}</div>
@@ -1450,21 +1448,21 @@ class SearchableDatabaseSelector {
 
     selectDatabase(database) {
         this.selectedDatabase = database;
-        
+
         // 更新搜索框顯示
         this.searchInput.value = database.title;
-        
+
         // 更新隱藏的資料來源 ID 輸入框
         this.databaseIdInput.value = database.id;
-        
+
         // 重新渲染以顯示選中狀態
         this.renderDatabaseList();
-        
+
         this.hideDropdown();
-        
+
         // 顯示成功狀態
         this.showStatus(`已選擇資料來源: ${database.title}`, 'success');
-        
+
         // 觸發選擇事件（如果需要）
         this.onDatabaseSelected?.(database);
     }
@@ -1509,21 +1507,21 @@ class SearchableDatabaseSelector {
                 this.renderDatabaseList();
                 this.scrollToFocused();
                 break;
-                
+
             case 'ArrowUp':
                 e.preventDefault();
                 this.focusedIndex = Math.max(this.focusedIndex - 1, -1);
                 this.renderDatabaseList();
                 this.scrollToFocused();
                 break;
-                
+
             case 'Enter':
                 e.preventDefault();
                 if (this.focusedIndex >= 0 && this.filteredDatabases[this.focusedIndex]) {
                     this.selectDatabase(this.filteredDatabases[this.focusedIndex]);
                 }
                 break;
-                
+
             case 'Escape':
                 e.preventDefault();
                 this.hideDropdown();
@@ -1543,7 +1541,7 @@ class SearchableDatabaseSelector {
     updateDatabaseCount() {
         const total = this.databases.length;
         const filtered = this.filteredDatabases.length;
-        
+
         if (filtered === total) {
             this.databaseCount.textContent = `${total} 個資料來源`;
         } else {
@@ -1571,7 +1569,7 @@ class SearchableDatabaseSelector {
 
     extractDatabaseTitle(db) {
         let title = '未命名資料來源';
-        
+
         if (db.title && db.title.length > 0) {
             title = db.title[0].plain_text || db.title[0].text?.content || '未命名資料來源';
         } else if (db.properties) {
@@ -1580,19 +1578,20 @@ class SearchableDatabaseSelector {
                 title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || '未命名資料來源';
             }
         }
-        
+
         return title;
     }
 
     formatDate(dateString) {
         try {
             const date = new Date(dateString);
-            return date.toLocaleDateString('zh-TW', { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
+            return date.toLocaleDateString('zh-TW', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
             });
-        } catch (e) {
+        } catch (_e) {
+            // 日期格式化失敗時返回空字符串，錯誤可以安全忽略
             return '';
         }
     }
@@ -1607,6 +1606,3 @@ class SearchableDatabaseSelector {
         return div.innerHTML;
     }
 }
-
-// 初始化搜索式資料來源選擇器
-let searchableSelector = null;

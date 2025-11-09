@@ -402,7 +402,7 @@ const logger = (() => {
             let node;
             const textNodes = [];
 
-            while (node = walker.nextNode()) {
+            while ((node = walker.nextNode()) !== null) {
                 if (node.textContent.trim().length > 0) {
                     textNodes.push(node);
                 }
@@ -497,7 +497,7 @@ const logger = (() => {
             );
 
             let node;
-            while (node = walker.nextNode()) {
+            while ((node = walker.nextNode()) !== null) {
                 if (regex.test(node.textContent)) {
                     const match = node.textContent.match(regex);
                     if (match) {

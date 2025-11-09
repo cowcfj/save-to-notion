@@ -589,8 +589,7 @@ function mapLanguage(lang) {
         'yml': 'yaml',
         'md': 'markdown',
         'markdown': 'markdown',
-        'swift': 'swift',
-        'php': 'php'
+        'swift': 'swift'
     };
 
     return languageMap[lang.toLowerCase()] || lang || 'plain text';

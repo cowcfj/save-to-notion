@@ -46,12 +46,12 @@ function normalizeUrl(rawUrl) {
     try {
         // console.log('🔧 [normalizeUrl] 原始 URL:', rawUrl);
 
-        const u = new URL(rawUrl);
+        const urlObj = new URL(rawUrl);
 
         // 1. 移除 fragment (hash)
-        if (u.hash) {
-            // console.log('   移除 hash:', u.hash);
-            u.hash = '';
+        if (urlObj.hash) {
+            // console.log('   移除 hash:', urlObj.hash);
+            urlObj.hash = '';
         }
 
         // 2. 移除常見的追蹤參數
@@ -61,9 +61,9 @@ function normalizeUrl(rawUrl) {
         ];
         const removedParams = [];
         trackingParams.forEach((p) => {
-            if (u.searchParams.has(p)) {
+            if (urlObj.searchParams.has(p)) {
                 removedParams.push(p);
-                u.searchParams.delete(p);
+                urlObj.searchParams.delete(p);
             }
         });
         if (removedParams.length > 0) {
@@ -71,12 +71,12 @@ function normalizeUrl(rawUrl) {
         }
 
         // 3. 標準化尾部斜杠（保留根路徑 "/"）
-        if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-            // console.log('   移除尾部斜杠:', u.pathname);
-            u.pathname = u.pathname.replace(/\/+$/, '');
+        if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+            // console.log('   移除尾部斜杠:', urlObj.pathname);
+            urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
         }
 
-        const normalized = u.toString();
+        const normalized = urlObj.toString();
         // console.log('✅ [normalizeUrl] 標準化後:', normalized);
 
         return normalized;
