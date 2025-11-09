@@ -677,20 +677,20 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
  */
 function normalizeUrl(rawUrl) {
     try {
-        const u = new URL(rawUrl);
+        const urlObj = new URL(rawUrl);
         // Drop fragment
-        u.hash = '';
+        urlObj.hash = '';
         // Remove common tracking params
         const trackingParams = [
             'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
             'gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'
         ];
-        trackingParams.forEach((p) => u.searchParams.delete(p));
+        trackingParams.forEach((p) => urlObj.searchParams.delete(p));
         // Normalize trailing slash (keep root "/")
-        if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-            u.pathname = u.pathname.replace(/\/+$/, '');
+        if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+            urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
         }
-        return u.toString();
+        return urlObj.toString();
     } catch {
         return rawUrl || '';
     }
@@ -1481,12 +1481,12 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
             try {
                 const normalize = (raw) => {
                     try {
-                        const u = new URL(raw);
-                        u.hash = '';
+                        const urlObj = new URL(raw);
+                        urlObj.hash = '';
                         const params = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'];
-                        params.forEach((p) => u.searchParams.delete(p));
-                        if (u.pathname !== '/' && u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/\/+$/, '');
-                        return u.toString();
+                        params.forEach((p) => urlObj.searchParams.delete(p));
+                        if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
+                        return urlObj.toString();
                     } catch { return raw || ''; }
                 };
 
@@ -2885,7 +2885,7 @@ async function handleSavePage(sendResponse) {
 
                     return {
                         title: finalTitle,
-                        blocks: blocks,
+                        blocks,
                         siteIcon: siteIconUrl  // 新增：返回網站 Icon URL
                     };
                 } else {
@@ -2923,7 +2923,7 @@ async function handleSavePage(sendResponse) {
 
         if (!result || !result.title || !result.blocks) {
             console.error('❌ Content extraction result validation failed:', {
-                result: result,
+                result,
                 resultType: typeof result,
                 hasResult: Boolean(result),
                 hasTitle: Boolean(result?.title),
@@ -2945,7 +2945,7 @@ async function handleSavePage(sendResponse) {
 
             sendResponse({
                 success: false,
-                error: errorMessage + ' Please check the browser console for details.'
+                error: `${errorMessage} Please check the browser console for details.`
             });
             return;
         }
@@ -3144,8 +3144,8 @@ async function showUpdateNotification(previousVersion, currentVersion) {
     setTimeout(() => {
       chrome.tabs.sendMessage(tab.id, {
         type: 'UPDATE_INFO',
-        previousVersion: previousVersion,
-        currentVersion: currentVersion
+        previousVersion,
+        currentVersion
       }).catch(err => {
         Logger.log('發送更新信息失敗:', err);
       });
@@ -3169,7 +3169,7 @@ function handleOpenNotionPage(request, sendResponse) {
         }
 
         // 在新標籤頁中打開 Notion 頁面
-        chrome.tabs.create({ url: url }, (tab) => {
+        chrome.tabs.create({ url }, (tab) => {
             if (chrome.runtime.lastError) {
                 console.error('Failed to open Notion page:', chrome.runtime.lastError);
                 sendResponse({ success: false, error: chrome.runtime.lastError.message });

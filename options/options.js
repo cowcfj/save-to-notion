@@ -439,12 +439,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // 簡化的模板處理（不引入完整的 template.js）
         const now = new Date();
         const domain = 'example.com';
-        const date = now.getFullYear() + '-' +
-                    String(now.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(now.getDate()).padStart(2, '0');
-        const time = String(now.getHours()).padStart(2, '0') + ':' +
-                    String(now.getMinutes()).padStart(2, '0');
-        const datetime = date + ' ' + time;
+        const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const datetime = `${date} ${time}`;
 
         const processedTitle = template
             .replace(/\{title\}/g, sampleTitle)

@@ -123,12 +123,12 @@ function normalizeUrl(rawUrl) {
     try {
         getLogger().debug('🔧 [normalizeUrl] 原始 URL:', rawUrl);
 
-        const u = new URL(rawUrl);
+        const urlObject = new URL(rawUrl);
 
         // 1. 移除 fragment (hash)
-        if (u.hash) {
-            getLogger().debug('   移除 hash:', u.hash);
-            u.hash = '';
+        if (urlObject.hash) {
+            getLogger().debug('   移除 hash:', urlObject.hash);
+            urlObject.hash = '';
         }
 
         // 2. 移除常見的追蹤參數
@@ -138,9 +138,9 @@ function normalizeUrl(rawUrl) {
         ];
         const removedParams = [];
         trackingParams.forEach((p) => {
-            if (u.searchParams.has(p)) {
+            if (urlObject.searchParams.has(p)) {
                 removedParams.push(p);
-                u.searchParams.delete(p);
+                urlObject.searchParams.delete(p);
             }
         });
         if (removedParams.length > 0) {
@@ -148,12 +148,12 @@ function normalizeUrl(rawUrl) {
         }
 
         // 3. 標準化尾部斜杠（保留根路徑 "/"）
-        if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-            getLogger().debug('   移除尾部斜杠:', u.pathname);
-            u.pathname = u.pathname.replace(/\/+$/, '');
+        if (urlObject.pathname !== '/' && urlObject.pathname.endsWith('/')) {
+            getLogger().debug('   移除尾部斜杠:', urlObject.pathname);
+            urlObject.pathname = urlObject.pathname.replace(/\/+$/, '');
         }
 
-        const normalized = u.toString();
+        const normalized = urlObject.toString();
         getLogger().debug('✅ [normalizeUrl] 標準化後:', normalized);
 
         return normalized;
@@ -228,7 +228,7 @@ if (typeof window.StorageUtil === 'undefined') {
     /**
      * 保存標記數據
      */
-    async saveHighlights(pageUrl, highlightData) {
+    saveHighlights(pageUrl, highlightData) {
         getLogger().debug('💾 [saveHighlights] 開始保存標註');
         getLogger().debug('   原始 URL:', pageUrl);
 
@@ -274,7 +274,7 @@ if (typeof window.StorageUtil === 'undefined') {
     /**
      * 加載標記數據
      */
-    async loadHighlights(pageUrl) {
+    loadHighlights(pageUrl) {
         getLogger().debug('📖 [loadHighlights] 開始讀取標註');
         getLogger().debug('   原始 URL:', pageUrl);
 
@@ -357,7 +357,7 @@ if (typeof window.StorageUtil === 'undefined') {
     /**
      * 清除標記數據
      */
-    async clearHighlights(pageUrl) {
+    clearHighlights(pageUrl) {
         const pageKey = `highlights_${normalizeUrl(pageUrl)}`;
         getLogger().debug('Clearing highlights for key:', pageKey);
 
