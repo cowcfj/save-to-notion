@@ -81,33 +81,37 @@ describe('Background Notion Page Operations', () => {
           return;
         }
 
-        // 獲取 API Key
-        chrome.storage.sync.get(['notionApiToken'], async (result) => {
-          try {
-            const apiKey = result.notionApiToken;
+        // 獲取 API Key，使用 Promise 包裝以維持 async/await 流程
+        await new Promise((resolve) => {
+          chrome.storage.sync.get(['notionApiToken'], async (result) => {
+            try {
+              const apiKey = result.notionApiToken;
 
-            if (!apiKey) {
+              if (!apiKey) {
+                sendResponse({
+                  success: false,
+                  error: 'Notion API token not configured'
+                });
+                return;
+              }
+
+              const checkResult = await checkNotionPageExists(pageId, apiKey);
+
+              sendResponse({
+                success: true,
+                exists: checkResult.exists,
+                error: checkResult.error
+              });
+            } catch (error) {
+              console.error('❌ 處理檢查頁面存在消息失敗:', error);
               sendResponse({
                 success: false,
-                error: 'Notion API token not configured'
+                error: error.message
               });
-              return;
+            } finally {
+              resolve();
             }
-
-            const checkResult = await checkNotionPageExists(pageId, apiKey);
-
-            sendResponse({
-              success: true,
-              exists: checkResult.exists,
-              error: checkResult.error
-            });
-          } catch (error) {
-            console.error('❌ 處理檢查頁面存在消息失敗:', error);
-            sendResponse({
-              success: false,
-              error: error.message
-            });
-          }
+          });
         });
       } catch (error) {
         console.error('❌ 處理檢查頁面存在消息失敗:', error);
@@ -361,7 +365,7 @@ describe('Background Notion Page Operations', () => {
       // Act
       try {
         await handleCheckNotionPageExistsMessage(request, mockSendResponse);
-      } catch (error) {
+      } catch (_error) {
         // 預期會有錯誤
       }
 
