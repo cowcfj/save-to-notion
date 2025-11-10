@@ -1850,7 +1850,7 @@ const logger = (() => {
                         try {
                             chrome.runtime.sendMessage({
                                 action: 'syncHighlights',
-                                highlights: highlights
+                                highlights
                             }, (sendResponse) => {
                                 const lastError = chrome.runtime?.lastError;
                                 if (lastError) {

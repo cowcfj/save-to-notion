@@ -685,6 +685,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+	    /**
+	     * 取得 chrome.storage.local 的使用統計，並回傳容量與標註分佈摘要。
+	     * @returns {Promise<{used:number,total:number,percentage:string,usedMB:string,totalMB:string,pages:number,highlights:number,configs:number}>}
+	     * 使用量概覽（含字節與 MB 單位、標註頁面數、標註數量與設定鍵數）
+	     * @throws {chrome.runtime.LastError} 無法存取 storage 時拋出，供上層顯示錯誤
+	     */
 	    async function getStorageUsage() {
 	        const data = await new Promise((resolve, reject) => {
 	            chrome.storage.local.get(null, (result) => {
@@ -852,7 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const savedPages = Object.keys(data)
                     .filter(key => key.startsWith('saved_'))
                     .map(key => ({
-                        key: key,
+                        key,
                         url: key.replace('saved_', ''),
                         data: data[key]
                     }));
