@@ -303,7 +303,7 @@ class ErrorHandler {
      * @returns {Function} 包裝後的異步函數
      */
     static wrapAsync(asyncFn, retryOptions = {}) {
-        return async function(...args) {
+        return function(...args) {
             return ErrorHandler.withRetry(
                 () => asyncFn.apply(this, args),
                 retryOptions

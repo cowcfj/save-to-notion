@@ -685,44 +685,56 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        async function getStorageUsage() {
-            return new Promise((resolve) => {
-                chrome.storage.local.get(null, (data) => {
-                    const jsonString = JSON.stringify(data);
-                    const sizeInBytes = new Blob([jsonString]).size;
-                    const maxSize = 5 * 1024 * 1024; // 5MB
+	    /**
+	     * 取得 chrome.storage.local 的使用統計，並回傳容量與標註分佈摘要。
+	     * @returns {Promise<{used:number,total:number,percentage:string,usedMB:string,totalMB:string,pages:number,highlights:number,configs:number}>}
+	     * 使用量概覽（含字節與 MB 單位、標註頁面數、標註數量與設定鍵數）
+	     * @throws {chrome.runtime.LastError} 無法存取 storage 時拋出，供上層顯示錯誤
+	     */
+	    async function getStorageUsage() {
+	        const data = await new Promise((resolve, reject) => {
+	            chrome.storage.local.get(null, (result) => {
+	                if (chrome.runtime.lastError) {
+	                    reject(chrome.runtime.lastError);
+	                    return;
+	                }
+	                resolve(result);
+	            });
+	        });
 
-                    // 分析數據
-                    let pagesCount = 0;
-                    let highlightsCount = 0;
-                    let configCount = 0;
+	        const jsonString = JSON.stringify(data);
+	        const sizeInBytes = new Blob([jsonString]).size;
+	        const maxSize = 5 * 1024 * 1024; // 5MB
 
-                    for (const [key, value] of Object.entries(data)) {
-                        if (key.startsWith('highlights_')) {
-                            pagesCount++;
-                            if (Array.isArray(value)) {
-                                highlightsCount += value.length;
-                            }
-                        } else if (key.includes('notion') || key.startsWith('config_')) {
-                            configCount++;
-                        }
-                    }
+	        // 分析數據
+	        let pagesCount = 0;
+	        let highlightsCount = 0;
+	        let configCount = 0;
 
-                    const usage = {
-                        used: sizeInBytes,
-                        total: maxSize,
-                        percentage: (sizeInBytes / maxSize * 100).toFixed(1),
-                        usedMB: (sizeInBytes / (1024 * 1024)).toFixed(2),
-                        totalMB: (maxSize / (1024 * 1024)).toFixed(0),
-                        pages: pagesCount,
-                        highlights: highlightsCount,
-                        configs: configCount
-                    };
+	        for (const [key, value] of Object.entries(data)) {
+	            if (key.startsWith('highlights_')) {
+	                pagesCount++;
+	                if (Array.isArray(value)) {
+	                    highlightsCount += value.length;
+	                }
+	            } else if (key.includes('notion') || key.startsWith('config_')) {
+	                configCount++;
+	            }
+	        }
 
-                    resolve(usage);
-                });
-            });
-        }
+	        const usage = {
+	            used: sizeInBytes,
+	            total: maxSize,
+	            percentage: (sizeInBytes / maxSize * 100).toFixed(1),
+	            usedMB: (sizeInBytes / (1024 * 1024)).toFixed(2),
+	            totalMB: (maxSize / (1024 * 1024)).toFixed(0),
+	            pages: pagesCount,
+	            highlights: highlightsCount,
+	            configs: configCount
+	        };
+
+	        return usage;
+	    }
 
         function updateUsageDisplay(usage) {
             const usageFill = document.getElementById('usage-fill');
@@ -830,95 +842,89 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function generateSafeCleanupPlan(cleanDeletedPages) {
-            return new Promise((resolve) => {
-                chrome.storage.local.get(null, async (data) => {
-                    const plan = {
-                        items: [],
-                        totalKeys: 0,
-                        spaceFreed: 0,
-                        deletedPages: 0
-                    };
+            const data = await new Promise(resolve => {
+                chrome.storage.local.get(null, resolve);
+            });
 
-                    // 清理已刪除頁面的標註數據
-                    if (cleanDeletedPages) {
-                        const savedPages = Object.keys(data)
-                            .filter(key => key.startsWith('saved_'))
-                            .map(key => ({
-                                key: key,
-                                url: key.replace('saved_', ''),
-                                data: data[key]
-                            }));
+            const plan = {
+                items: [],
+                totalKeys: 0,
+                spaceFreed: 0,
+                deletedPages: 0
+            };
 
+            // 清理已刪除頁面的標註數據
+            if (cleanDeletedPages) {
+                const savedPages = Object.keys(data)
+                    .filter(key => key.startsWith('saved_'))
+                    .map(key => ({
+                        key,
+                        url: key.replace('saved_', ''),
+                        data: data[key]
+                    }));
 
+                // 顯示檢查進度
+                updateCheckProgress(0, savedPages.length);
 
-                        // 顯示檢查進度
-                        updateCheckProgress(0, savedPages.length);
+                // 批量檢查（避免 API 速率限制）
+                for (let i = 0; i < savedPages.length; i++) {
+                    const page = savedPages[i];
 
-                        // 批量檢查（避免 API 速率限制）
-                        for (let i = 0; i < savedPages.length; i++) {
-                            const page = savedPages[i];
+                    // 更新進度
+                    updateCheckProgress(i + 1, savedPages.length);
 
-                            // 更新進度
-                            updateCheckProgress(i + 1, savedPages.length);
-
-                            if (!page.data || !page.data.notionPageId) {
-
-                                continue;
-                            }
-
-                            try {
-                                // 檢查 Notion 頁面是否存在
-                                const exists = await checkNotionPageExists(page.data.notionPageId);
-
-                                if (!exists) {
-                                    // 頁面已刪除，添加到清理計劃
-                                    const savedKey = page.key;
-                                    const highlightsKey = `highlights_${page.url}`;
-
-                                    const savedSize = new Blob([JSON.stringify({[savedKey]: page.data})]).size;
-                                    const highlightsData = data[highlightsKey];
-                                    const highlightsSize = highlightsData ? new Blob([JSON.stringify({[highlightsKey]: highlightsData})]).size : 0;
-                                    const totalSize = savedSize + highlightsSize;
-
-                                    // 添加兩個項目（saved_ 和 highlights_）
-                                    plan.items.push({
-                                        key: savedKey,
-                                        url: page.url,
-                                        size: savedSize,
-                                        reason: '已刪除頁面的保存狀態'
-                                    });
-
-                                    if (highlightsData) {
-                                        plan.items.push({
-                                            key: highlightsKey,
-                                            url: page.url,
-                                            size: highlightsSize,
-                                            reason: '已刪除頁面的標註數據'
-                                        });
-                                    }
-
-                                    plan.spaceFreed += totalSize;
-                                    plan.deletedPages++;
-
-
-                                }
-
-                                // 避免 API 速率限制（Notion: 3 requests/second）
-                                if (i < savedPages.length - 1) {
-                                    await new Promise(sleep => setTimeout(sleep, 350));
-                                }
-
-                            } catch (error) {
-                                console.error(`檢查頁面失敗: ${page.url}`, error);
-                                // 繼續處理下一個頁面
-                            }
-                        }
+                    if (!page.data || !page.data.notionPageId) {
+                        continue;
                     }
 
-                    plan.totalKeys = plan.items.length;
-                    resolve(plan);
-                });
-            });
+                    try {
+                        // 檢查 Notion 頁面是否存在
+                        const exists = await checkNotionPageExists(page.data.notionPageId);
+
+                        if (!exists) {
+                            // 頁面已刪除，添加到清理計劃
+                            const savedKey = page.key;
+                            const highlightsKey = `highlights_${page.url}`;
+
+                            const savedSize = new Blob([JSON.stringify({[savedKey]: page.data})]).size;
+                            const highlightsData = data[highlightsKey];
+                            const highlightsSize = highlightsData ? new Blob([JSON.stringify({[highlightsKey]: highlightsData})]).size : 0;
+                            const totalSize = savedSize + highlightsSize;
+
+                            // 添加兩個項目（saved_ 和 highlights_）
+                            plan.items.push({
+                                key: savedKey,
+                                url: page.url,
+                                size: savedSize,
+                                reason: '已刪除頁面的保存狀態'
+                            });
+
+                            if (highlightsData) {
+                                plan.items.push({
+                                    key: highlightsKey,
+                                    url: page.url,
+                                    size: highlightsSize,
+                                    reason: '已刪除頁面的標註數據'
+                                });
+                            }
+
+                            plan.spaceFreed += totalSize;
+                            plan.deletedPages++;
+                        }
+
+                        // 避免 API 速率限制（Notion: 3 requests/second）
+                        if (i < savedPages.length - 1) {
+                            await new Promise(sleep => setTimeout(sleep, 350));
+                        }
+                    } catch (error) {
+                        console.error(`檢查頁面失敗: ${page.url}`, error);
+                        // 繼續處理下一個頁面
+                    }
+                }
+            }
+
+            plan.totalKeys = plan.items.length;
+            return plan;
         }
 
         // 輔助函數：檢查 Notion 頁面是否存在

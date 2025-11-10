@@ -491,7 +491,7 @@ class ScriptInjectorSimulated {
     }
   }
 
-  static async injectHighlighter(tabId) {
+  static injectHighlighter(tabId) {
     return this.injectAndExecute(
       tabId,
       ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -511,7 +511,7 @@ class ScriptInjectorSimulated {
     );
   }
 
-  static async collectHighlights(tabId) {
+  static collectHighlights(tabId) {
     return this.injectAndExecute(
       tabId,
       ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -528,7 +528,7 @@ class ScriptInjectorSimulated {
     );
   }
 
-  static async clearPageHighlights(tabId) {
+  static clearPageHighlights(tabId) {
     return this.injectAndExecute(
       tabId,
       ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -543,7 +543,7 @@ class ScriptInjectorSimulated {
     );
   }
 
-  static async injectHighlightRestore(tabId) {
+  static injectHighlightRestore(tabId) {
     return this.injectAndExecute(
       tabId,
       ['scripts/utils.js', 'scripts/highlight-restore.js'],
@@ -582,10 +582,11 @@ class ScriptInjectorSimulated {
 
   static async inject(tabId, func, files = []) {
     try {
-      return this.injectAndExecute(tabId, files, func, {
+      const result = await this.injectAndExecute(tabId, files, func, {
         returnResult: false,
         logErrors: true
       });
+      return result;
     } catch (error) {
       console.error('inject failed:', error);
       throw error;

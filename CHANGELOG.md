@@ -2,9 +2,27 @@
 
 ## [Unreleased]
 
+_尚無更新_
+
+## v2.10.3 - 2025-11-10
+
+### ✨ 新功能
+
+- **存儲使用儀表板**：Options 頁面新增 `getStorageUsage`，即時計算 chrome.storage.local 的用量、標註頁面與設定數量，並提供刷新按鈕與風險提示，方便在清理前評估空間狀況。
+
+### 🔄 穩定性與韌性
+
+- **CMS 與清單回退**：新增 `cachedQuery`、Drupal/WordPress 感知的內容搜尋以及大型列表 fallback，並串接選擇性圖片擴展與批次處理，讓 WordPress、技術文件與 CLI 手冊在 Readability 失敗時仍能擷取正文與配圖。
+- **非同步流程 Promise 化**：背景腳本、ScriptInjector 與 StorageUtil 移除多餘的 `async` 包裝，統一以 Promise 形式處理 chrome.storage 與腳本注入，並加入安全的 Logger 啟用守衛，降低未處理拒絕與 race condition。
+
 ### 🐛 Bug 修復
 
 - **標註工具欄切換**：最小化按鈕改為依據當前狀態在展開/最小化之間切換，避免狀態不一致並修正 ESLint `no-unused-vars` 警告。
+- **URL 與圖片清理**：`normalizeUrl`、`cleanImageUrl` 及圖片代理處理全面改用 `URL` 物件並在失敗時回傳 `null`，避免背景流程在遇到截斷或代理鏈接時崩潰。
+
+### 🧪 測試與相容性
+
+- 新增高亮工具欄狀態切換、StorageUtil、ScriptInjector、性能優化器與 Readability 回退等多組測試，確保 Promise 化調整與新回退流程皆有覆蓋並保持 100% 通過率。
 
 ## v2.10.2 - 2025-11-05
 

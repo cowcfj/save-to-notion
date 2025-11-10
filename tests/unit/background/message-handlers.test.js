@@ -434,7 +434,7 @@ describe('Background Message Handlers', () => {
  * 輔助函數：模擬消息處理器的行為
  * 這是一個簡化版本，用於測試消息處理邏輯
  */
-async function simulateMessageHandler(request) {
+function simulateMessageHandler(request) {
   return new Promise((resolve) => {
     const sendResponse = (response) => {
       resolve(response);
