@@ -1846,40 +1846,50 @@ const logger = (() => {
 
                 // 調用 background.js 的同步功能
                 if (chrome?.runtime?.sendMessage) {
-                    chrome.runtime.sendMessage({
-                        action: 'syncHighlights',
-                        highlights: highlights
-                    }, (response) => {
-                        syncBtn.disabled = false;
-                        syncBtn.style.opacity = '1';
-
-                        if (response?.success) {
-                            syncBtn.textContent = '✅ 同步成功';
-                            syncBtn.style.background = '#48bb78';
-                            statusDiv.textContent = `✅ 已同步 ${highlights.length} 段標註`;
-                            statusDiv.style.color = '#48bb78';
-
-                            // 同步成功後更新 Open in Notion 按鈕狀態
-                            updateOpenNotionButton();
-
-                            setTimeout(() => {
-                                syncBtn.textContent = originalText;
-                                syncBtn.style.background = '#2196F3';
-                                updateHighlightCount();
-                            }, 3000);
-                        } else {
-                            syncBtn.textContent = '❌ 同步失敗';
-                            syncBtn.style.background = '#ef4444';
-                            statusDiv.textContent = response?.error || '同步失敗，請重試';
-                            statusDiv.style.color = '#ef4444';
-
-                            setTimeout(() => {
-                                syncBtn.textContent = originalText;
-                                syncBtn.style.background = '#2196F3';
-                                updateHighlightCount();
-                            }, 3000);
+                    const response = await new Promise((resolve, reject) => {
+                        try {
+                            chrome.runtime.sendMessage({
+                                action: 'syncHighlights',
+                                highlights: highlights
+                            }, (sendResponse) => {
+                                const lastError = chrome.runtime?.lastError;
+                                if (lastError) {
+                                    reject(new Error(lastError.message || 'Chrome runtime 錯誤'));
+                                    return;
+                                }
+                                resolve(sendResponse);
+                            });
+                        } catch (sendError) {
+                            reject(sendError);
                         }
                     });
+
+                    if (response?.success) {
+                        syncBtn.textContent = '✅ 同步成功';
+                        syncBtn.style.background = '#48bb78';
+                        statusDiv.textContent = `✅ 已同步 ${highlights.length} 段標註`;
+                        statusDiv.style.color = '#48bb78';
+
+                        // 同步成功後更新 Open in Notion 按鈕狀態
+                        updateOpenNotionButton();
+
+                        setTimeout(() => {
+                            syncBtn.textContent = originalText;
+                            syncBtn.style.background = '#2196F3';
+                            updateHighlightCount();
+                        }, 3000);
+                    } else {
+                        syncBtn.textContent = '❌ 同步失敗';
+                        syncBtn.style.background = '#ef4444';
+                        statusDiv.textContent = response?.error || '同步失敗，請重試';
+                        statusDiv.style.color = '#ef4444';
+
+                        setTimeout(() => {
+                            syncBtn.textContent = originalText;
+                            syncBtn.style.background = '#2196F3';
+                            updateHighlightCount();
+                        }, 3000);
+                    }
                 } else {
                     // Chrome API 不可用時的回退處理
                     logger.warn('Chrome runtime API 不可用，無法同步標註');
@@ -1910,6 +1920,9 @@ const logger = (() => {
                     syncBtn.style.background = '#2196F3';
                     updateHighlightCount();
                 }, 3000);
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.style.opacity = '1';
             }
         });
 
