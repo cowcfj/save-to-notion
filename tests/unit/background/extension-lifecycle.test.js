@@ -53,7 +53,7 @@ describe('Background Extension Lifecycle', () => {
       }
     };
 
-    handleExtensionInstall = jest.fn(async () => {
+    handleExtensionInstall = jest.fn(() => {
       console.log('擴展首次安裝');
     });
 
@@ -82,7 +82,7 @@ describe('Background Extension Lifecycle', () => {
         const updateUrl = chrome.runtime.getURL('update-notification/update-notification.html') +
           `?from=${encodeURIComponent(previousVersion)}&to=${encodeURIComponent(currentVersion)}`;
 
-        chrome.tabs.create({ url: updateUrl });
+        await chrome.tabs.create({ url: updateUrl });
       } catch (error) {
         console.error('顯示更新通知失敗:', error);
       }
@@ -129,9 +129,9 @@ describe('Background Extension Lifecycle', () => {
   });
 
   describe('handleExtensionInstall', () => {
-    test('應該記錄首次安裝信息', async () => {
+    test('應該記錄首次安裝信息', () => {
       // Act
-      await handleExtensionInstall();
+      handleExtensionInstall();
 
       // Assert
       expect(console.log).toHaveBeenCalledWith('擴展首次安裝');

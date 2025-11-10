@@ -107,7 +107,7 @@ class ScriptInjector {
      * 注入標記工具並初始化
      * v2.5.0: 使用新版 CSS Highlight API + 無痛自動遷移
      */
-    static async injectHighlighter(tabId) {
+    static injectHighlighter(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -127,7 +127,7 @@ class ScriptInjector {
      * 注入並收集標記
      * v2.5.0: 使用新版標註系統
      */
-    static async collectHighlights(tabId) {
+    static collectHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -149,7 +149,7 @@ class ScriptInjector {
      * 注入並清除頁面標記
      * v2.5.0: 使用新版標註系統
      */
-    static async clearPageHighlights(tabId) {
+    static clearPageHighlights(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
@@ -168,7 +168,7 @@ class ScriptInjector {
     /**
      * 注入標記恢復腳本
      */
-    static async injectHighlightRestore(tabId) {
+    static injectHighlightRestore(tabId) {
         return this.injectAndExecute(
             tabId,
             ['scripts/utils.js', 'scripts/highlight-restore.js'],
