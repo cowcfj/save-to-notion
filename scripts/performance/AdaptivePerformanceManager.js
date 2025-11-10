@@ -41,7 +41,7 @@ class AdaptivePerformanceManager {
         const pageAnalysis = this._analyzePageContent(_pageData);
         
         // 分析系統性能
-        const systemPerformance = await this._analyzeSystemPerformance();
+        const systemPerformance = await AdaptivePerformanceManager._analyzeSystemPerformance();
     // 參考配置中的 performanceThreshold 避免被靜態分析標記為未使用
     const perfThreshold = (typeof this.options.performanceThreshold === 'number') ? this.options.performanceThreshold : 100;
     L.info(`⚙️ 使用 performanceThreshold = ${perfThreshold}`);
@@ -102,7 +102,7 @@ class AdaptivePerformanceManager {
      * 分析系統性能
      * @private
      */
-    async _analyzeSystemPerformance() {
+    static _analyzeSystemPerformance() {
         const performanceData = {
             memoryUsage: null,
             cpuLoad: null,
