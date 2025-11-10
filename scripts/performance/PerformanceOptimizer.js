@@ -2,7 +2,7 @@
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
-/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, module, AdaptivePerformanceManager, Logger */
+/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, module, AdaptivePerformanceManager */
 // 使用不與其他庫衝突的本地日誌別名，避免與 Leaflet 等全域變量 L 衝突
 const perfLogger = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
 class PerformanceOptimizer {
@@ -381,7 +381,7 @@ class PerformanceOptimizer {
 
                     try {
                         return document.contains(el);
-                    } catch (e) {
+                    } catch {
                         // document.contains 在 JSDOM 環境可能拋出錯誤
                         return false;
                     }
