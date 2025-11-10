@@ -102,7 +102,7 @@ class AdaptivePerformanceManager {
      * 分析系統性能
      * @private
      */
-    async _analyzeSystemPerformance() {
+    _analyzeSystemPerformance() {
         const performanceData = {
             memoryUsage: null,
             cpuLoad: null,
