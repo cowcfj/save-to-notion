@@ -2,6 +2,28 @@
  * 重試管理器
  * 專門處理網絡請求和異步操作的重試邏輯
  */
+const errorHandlerModuleRef = (() => {
+    // 在 CommonJS 環境下嘗試動態載入 ErrorHandler 以支援測試
+    if (typeof module !== 'undefined' && module.exports && typeof require === 'function') {
+        try {
+            const { ErrorHandler } = require('./ErrorHandler');
+            return ErrorHandler;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    return null;
+})();
+
+function getErrorHandler() {
+    // 於瀏覽器環境優先使用全域 ErrorHandler，以便在 runtime 覆蓋
+    if (typeof globalThis !== 'undefined' && globalThis.ErrorHandler) {
+        return globalThis.ErrorHandler;
+    }
+
+    return errorHandlerModuleRef;
+}
 class RetryManager {
     /**
      * 創建重試管理器實例
@@ -68,15 +90,13 @@ class RetryManager {
      * @returns {Function} 包裝後的 fetch 函數
      */
     wrapFetch(fetchFunction, retryOptions = {}) {
-        return async (url, options = {}) => {
-            return this.execute(
-                () => fetchFunction(url, options),
-                {
-                    shouldRetry: (error) => this._shouldRetryNetworkError(error),
-                    ...retryOptions
-                }
-            );
-        };
+        return (url, options = {}) => this.execute(
+            () => fetchFunction(url, options),
+            {
+                shouldRetry: (error) => this._shouldRetryNetworkError(error),
+                ...retryOptions
+            }
+        );
     }
 
     /**
@@ -86,17 +106,15 @@ class RetryManager {
      * @returns {Function} 包裝後的函數
      */
     wrapDomOperation(domOperation, retryOptions = {}) {
-        return async (...args) => {
-            return this.execute(
-                () => domOperation(...args),
-                {
-                    maxRetries: 2, // DOM 操作通常重試次數較少
-                    baseDelay: 50,
-                    shouldRetry: (error) => this._shouldRetryDomError(error),
-                    ...retryOptions
-                }
-            );
-        };
+        return (...args) => this.execute(
+            () => domOperation(...args),
+            {
+                maxRetries: 2, // DOM 操作通常重試次數較少
+                baseDelay: 50,
+                shouldRetry: (error) => this._shouldRetryDomError(error),
+                ...retryOptions
+            }
+        );
     }
 
     /**
@@ -222,15 +240,17 @@ class RetryManager {
     _logRetryAttempt(error, attempt, maxAttempts, delay) {
         const message = `Retry attempt ${attempt}/${maxAttempts} after ${delay}ms: ${error.message}`;
         
-        if (typeof ErrorHandler !== 'undefined') {
-            ErrorHandler.logError({
+        console.warn(message);
+
+        const handler = getErrorHandler();
+
+        if (handler && typeof handler.logError === 'function') {
+            handler.logError({
                 type: 'network_error',
-                context: `retry attempt ${attempt}`,
+                context: `retry attempt ${attempt}/${maxAttempts} (delay ${delay}ms)`,
                 originalError: error,
                 timestamp: Date.now()
             });
-        } else {
-            console.warn(message);
         }
     }
 
@@ -253,15 +273,17 @@ class RetryManager {
     _logRetryFailure(error, totalRetries) {
         const message = `Operation failed after ${totalRetries} retries: ${error.message}`;
         
-        if (typeof ErrorHandler !== 'undefined') {
-            ErrorHandler.logError({
+        console.error(message, error);
+
+        const handler = getErrorHandler();
+
+        if (handler && typeof handler.logError === 'function') {
+            handler.logError({
                 type: 'network_error',
                 context: `final failure after ${totalRetries} retries`,
                 originalError: error,
                 timestamp: Date.now()
             });
-        } else {
-            console.error(message, error);
         }
     }
 
@@ -299,7 +321,7 @@ function withRetry(operation, options = {}) {
  * @param {Object} retryOptions - 重試選項
  * @returns {Promise<Response>} fetch 響應
  */
-async function fetchWithRetry(url, options = {}, retryOptions = {}) {
+function fetchWithRetry(url, options = {}, retryOptions = {}) {
     const retryManager = new RetryManager(retryOptions);
     return retryManager.wrapFetch(fetch)(url, options);
 }
