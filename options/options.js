@@ -685,44 +685,50 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        async function getStorageUsage() {
-            return new Promise((resolve) => {
-                chrome.storage.local.get(null, (data) => {
-                    const jsonString = JSON.stringify(data);
-                    const sizeInBytes = new Blob([jsonString]).size;
-                    const maxSize = 5 * 1024 * 1024; // 5MB
+	    async function getStorageUsage() {
+	        const data = await new Promise((resolve, reject) => {
+	            chrome.storage.local.get(null, (result) => {
+	                if (chrome.runtime.lastError) {
+	                    reject(chrome.runtime.lastError);
+	                    return;
+	                }
+	                resolve(result);
+	            });
+	        });
 
-                    // 分析數據
-                    let pagesCount = 0;
-                    let highlightsCount = 0;
-                    let configCount = 0;
+	        const jsonString = JSON.stringify(data);
+	        const sizeInBytes = new Blob([jsonString]).size;
+	        const maxSize = 5 * 1024 * 1024; // 5MB
 
-                    for (const [key, value] of Object.entries(data)) {
-                        if (key.startsWith('highlights_')) {
-                            pagesCount++;
-                            if (Array.isArray(value)) {
-                                highlightsCount += value.length;
-                            }
-                        } else if (key.includes('notion') || key.startsWith('config_')) {
-                            configCount++;
-                        }
-                    }
+	        // 分析數據
+	        let pagesCount = 0;
+	        let highlightsCount = 0;
+	        let configCount = 0;
 
-                    const usage = {
-                        used: sizeInBytes,
-                        total: maxSize,
-                        percentage: (sizeInBytes / maxSize * 100).toFixed(1),
-                        usedMB: (sizeInBytes / (1024 * 1024)).toFixed(2),
-                        totalMB: (maxSize / (1024 * 1024)).toFixed(0),
-                        pages: pagesCount,
-                        highlights: highlightsCount,
-                        configs: configCount
-                    };
+	        for (const [key, value] of Object.entries(data)) {
+	            if (key.startsWith('highlights_')) {
+	                pagesCount++;
+	                if (Array.isArray(value)) {
+	                    highlightsCount += value.length;
+	                }
+	            } else if (key.includes('notion') || key.startsWith('config_')) {
+	                configCount++;
+	            }
+	        }
 
-                    resolve(usage);
-                });
-            });
-        }
+	        const usage = {
+	            used: sizeInBytes,
+	            total: maxSize,
+	            percentage: (sizeInBytes / maxSize * 100).toFixed(1),
+	            usedMB: (sizeInBytes / (1024 * 1024)).toFixed(2),
+	            totalMB: (maxSize / (1024 * 1024)).toFixed(0),
+	            pages: pagesCount,
+	            highlights: highlightsCount,
+	            configs: configCount
+	        };
+
+	        return usage;
+	    }
 
         function updateUsageDisplay(usage) {
             const usageFill = document.getElementById('usage-fill');
