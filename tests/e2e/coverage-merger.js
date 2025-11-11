@@ -158,7 +158,7 @@ class CoverageMerger {
   /**
    * 執行完整的合併流程
    */
-  async merge(config) {
+  merge(config) {
     console.log('\n🔄 開始合併覆蓋率數據...\n');
 
     // 1. 加載 Jest 覆蓋率
@@ -206,15 +206,14 @@ if (require.main === module) {
   const config = require('./coverage-config');
   const merger = new CoverageMerger();
 
-  merger.merge(config)
-    .then(() => {
-      console.log('✅ 覆蓋率合併完成');
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error('❌ 覆蓋率合併失敗:', error);
-      process.exit(1);
-    });
+  try {
+    merger.merge(config);
+    console.log('✅ 覆蓋率合併完成');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ 覆蓋率合併失敗:', error);
+    process.exit(1);
+  }
 }
 
 module.exports = CoverageMerger;
