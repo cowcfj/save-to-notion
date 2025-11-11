@@ -44,7 +44,7 @@ describe('background.js - 工具函數', () => {
         if (!/^https?:\/\//i.test(cleanedUrl)) return false;
         if (cleanedUrl.length > 2000) return false;
 
-        const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif)(\?.*)?$/i;
+        const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
         if (imageExtensions.test(cleanedUrl)) return true;
 
         const imagePathPatterns = [
@@ -138,7 +138,10 @@ describe('background.js - 工具函數', () => {
                 'https://example.com/photo.jpeg',
                 'https://example.com/pic.png',
                 'https://example.com/animation.gif',
-                'https://example.com/modern.webp'
+                'https://example.com/modern.webp',
+                'https://example.com/hdr.avif',
+                'https://example.com/livephoto.heic',
+                'https://example.com/proraw.heif'
             ];
 
             urls.forEach(url => {
