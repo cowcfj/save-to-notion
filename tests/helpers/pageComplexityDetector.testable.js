@@ -128,7 +128,7 @@ function detectPageComplexity(document, urlStr = 'https://example.com') {
       metrics,
       technicalFeatures
     };
-  } catch (e) {
+  } catch {
     return {
       isClean: false,
       hasMarkdownFeatures: false,
