@@ -1,7 +1,8 @@
 // 標註數據遷移工具
 // v2.5.0 - 從舊版DOM標註遷移到新版CSS Highlight API
+'use strict';
+
 (function() {
-    'use strict';
 
     const { Logger } = window;
 

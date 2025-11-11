@@ -1,6 +1,7 @@
 // 更新通知頁面邏輯
+'use strict';
+
 (function() {
-    'use strict';
 
     let updateInfo = null;
 
