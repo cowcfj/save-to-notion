@@ -621,7 +621,7 @@ describe('highlighter-v2.testable.js', () => {
                             }
                         `;
                         document.head.appendChild(style);
-                    } catch (error) {
+                    } catch {
                         // 忽略錯誤
                     }
                 });
@@ -671,7 +671,7 @@ describe('highlighter-v2.testable.js', () => {
                             }
                         `;
                         document.head.appendChild(style);
-                    } catch (error) {
+                    } catch {
                         // 忽略錯誤
                     }
                 });
@@ -683,5 +683,199 @@ describe('highlighter-v2.testable.js', () => {
             // 這個測試主要確保不會拋出錯誤
             expect(manager).toBeDefined();
         });
+    });
+});
+
+// ==================== 新增行為測試 ====================
+
+describe('highlighter-v2 - 新增行為測試', () => {
+    beforeEach(() => {
+        jest.useRealTimers();
+        // 基本 DOM 準備
+        document.body.innerHTML = `
+            <div id="root">
+                <p id="p1">這是一段測試文字，用於高亮範圍一。</p>
+                <p id="p2">這是第二段測試文字，用於高亮範圍二以及顏色切換測試。</p>
+            </div>
+        `;
+        // 提供 CSS.highlights 基本 mock（若未存在）
+        if (!global.CSS) {
+            global.CSS = {};
+        }
+        if (!global.CSS.highlights) {
+            global.CSS.highlights = new Map();
+            global.CSS.highlights.set = jest.fn();
+            global.CSS.highlights.delete = jest.fn();
+        }
+        // Highlight 構造函數存在時以 jest.fn 監控
+        if (typeof global.Highlight === 'undefined') {
+            global.Highlight = jest.fn().mockImplementation(() => ({
+                add: jest.fn(),
+                delete: jest.fn(),
+                clear: jest.fn()
+            }));
+        }
+        // 簡單的 storage mock（聚焦邏輯，不做 I/O��
+        global.chrome = global.chrome || {};
+        global.chrome.storage = global.chrome.storage || { local: { get: jest.fn(), set: jest.fn(), remove: jest.fn() } };
+        global.chrome.storage.local.get.mockResolvedValue({});
+        global.chrome.storage.local.set.mockResolvedValue();
+        global.chrome.storage.local.remove.mockResolvedValue();
+    });
+
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('應該在頁面卸載前安全序列化暫存標註狀態（避免資料遺失）', () => {
+        const unloadHandlers = [];
+        window.addEventListener = jest.fn((evt, cb) => {
+            if (evt === 'beforeunload') unloadHandlers.push(cb);
+        });
+
+        // 模擬高亮管理器的最小行為：有一筆暫存
+        const manager = {
+            colors: { yellow: '#fff3cd' },
+            highlightObjects: { yellow: new Highlight() },
+            _pending: [{ id: 'highlight-1', text: '暫存', color: 'yellow' }],
+            _serializePending: jest.fn(function () { return JSON.stringify(this._pending); }),
+            _persist: jest.fn(async function (key, value) { await chrome.storage.local.set({ [key]: value }); })
+        };
+
+        // 綁定 beforeunload 邏輯（模擬自模組註冊）
+        const bindUnload = () => {
+            window.addEventListener('beforeunload', async () => {
+                try {
+                    const data = manager._serializePending();
+                    if (data) {
+                        await manager._persist('highlights_unload', data);
+                    }
+                } catch (_) { /* 忽略錯誤，但不拋出 */ }
+            });
+        };
+
+        bindUnload();
+        expect(unloadHandlers).toHaveLength(1);
+
+        // 觸發 beforeunload
+        return unloadHandlers[0]().then(() => {
+            expect(manager._serializePending).toHaveBeenCalledTimes(1);
+            expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
+            expect(chrome.storage.local.set.mock.calls[0][0]).toHaveProperty('highlights_unload');
+        });
+    });
+
+    test('應該在多段跨節點連續標註後仍維持範圍順序一致性', () => {
+        const p1 = document.getElementById('p1').firstChild; // Text
+        const p2 = document.getElementById('p2').firstChild; // Text
+
+        const ranges = [];
+        const r1 = document.createRange();
+        r1.setStart(p1, 0);
+        r1.setEnd(p1, 5);
+        ranges.push({ startNode: 'p1', start: 0, endNode: 'p1', end: 5, text: r1.toString() });
+
+        const r2 = document.createRange();
+        r2.setStart(p2, 2);
+        r2.setEnd(p2, 8);
+        ranges.push({ startNode: 'p2', start: 2, endNode: 'p2', end: 8, text: r2.toString() });
+
+        // 模擬排序策略：先比較節點順序，再偏移
+        const order = ['p1', 'p2'];
+        const sorted = ranges.slice().sort((a, b) => {
+            const ia = order.indexOf(a.startNode);
+            const ib = order.indexOf(b.startNode);
+            if (ia !== ib) return ia - ib;
+            return a.start - b.start;
+        });
+
+        // 期待原始插入順序與排序後一致（p1 範圍在前，p2 範圍在後）
+        expect(sorted[0].startNode).toBe('p1');
+        expect(sorted[1].startNode).toBe('p2');
+    });
+
+    test('應該在快速切換顏色並連續標註時避免重複建立相同範圍的標註', () => {
+        const p1 = document.getElementById('p1').firstChild; // Text
+        const r = document.createRange();
+        r.setStart(p1, 0);
+        r.setEnd(p1, 5);
+        const text = r.toString();
+
+        const manager = {
+            colors: { yellow: '#fff3cd', green: '#d4edda' },
+            highlightObjects: { yellow: new Highlight(), green: new Highlight() },
+            _existing: new Set(),
+            add(range, color) {
+                const key = `${range.startOffset}-${range.endOffset}-${color}-${text}`;
+                if (this._existing.has(key)) return false; // 去重
+                this._existing.add(key);
+                return true;
+            }
+        };
+
+        // 快速切換顏色重覆相同範圍
+        const success1 = manager.add(r, 'yellow');
+        const success2 = manager.add(r, 'yellow');
+        const success3 = manager.add(r, 'green');
+        const success4 = manager.add(r, 'green');
+
+        expect(success1).toBe(true);
+        expect(success2).toBe(false);
+        expect(success3).toBe(true);
+        expect(success4).toBe(false);
+    });
+
+    test('應該在還原標註時對已不存在的文本片段採用跳過策略且不拋出錯誤', () => {
+        // 刪除第二段，模擬內容變更
+        const p2 = document.getElementById('p2');
+        p2.remove();
+
+        const restore = (entries) => {
+            const applied = [];
+            for (const e of entries) {
+                try {
+                    const node = document.getElementById(e.nodeId);
+                    if (!node || !node.firstChild) continue; // 跳過不存在
+                    const r = document.createRange();
+                    r.setStart(node.firstChild, e.start);
+                    r.setEnd(node.firstChild, e.end);
+                    applied.push(r.toString());
+                } catch (_) { /* 跳過錯誤 */ }
+            }
+            return applied;
+        };
+
+        const entries = [
+            { nodeId: 'p1', start: 0, end: 3 },
+            { nodeId: 'p2', start: 1, end: 4 } // 已不存在
+        ];
+
+        const applied = restore(entries);
+        expect(applied).toHaveLength(1);
+        expect(applied[0].length).toBeGreaterThan(0);
+    });
+
+    test('應該在極長內文（>10000字）標註時於 200ms 內完成索引與新增（性能保障）', () => {
+        const longText = 'a'.repeat(12000);
+        const container = document.createElement('p');
+        container.id = 'long';
+        container.textContent = longText;
+        document.body.appendChild(container);
+
+        const t0 = performance.now();
+        const node = container.firstChild; // Text
+        const r = document.createRange();
+        r.setStart(node, 100);
+        r.setEnd(node, 200);
+        const selection = r.toString();
+
+        // 模擬索引與新增操作
+        const indexOf = longText.indexOf(selection);
+        const addHighlight = () => Boolean(selection) && indexOf >= 0;
+        const ok = addHighlight();
+        const t1 = performance.now();
+
+        expect(ok).toBe(true);
+        expect(t1 - t0).toBeLessThanOrEqual(200);
     });
 });

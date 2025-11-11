@@ -176,10 +176,10 @@ if (typeof window.StorageUtil === 'undefined') {
                     throw new Error('Chrome storage not available');
                 }
             } catch (_) {
-                console.log('Chrome storage not available, using localStorage');
+                console.warn('Chrome storage not available, using localStorage');
                 try {
                     localStorage.setItem(pageKey, JSON.stringify(highlightData));
-                    console.log('Saved highlights to localStorage');
+                    console.warn('Saved highlights to localStorage');
                     resolve();
                 } catch (err) {
                     console.error('Failed to save highlights:', err);
@@ -251,7 +251,7 @@ if (typeof window.StorageUtil === 'undefined') {
                     throw new Error('Chrome storage not available');
                 }
             } catch (_) {
-                console.log('Chrome storage not available, falling back to localStorage');
+                console.warn('Chrome storage not available, falling back to localStorage');
                 const legacy = localStorage.getItem(pageKey);
                 if (legacy) {
                     try {

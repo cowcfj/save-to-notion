@@ -3,22 +3,36 @@
  */
 
 describe('highlight-restore.js', () => {
-    // 保存原始的全局對象
+    // Arrange - 保存原始全域引用（避免在 beforeEach/afterEach 間被覆寫）
     const originalInitHighlighter = window.initHighlighter;
     const originalNotionHighlighter = window.notionHighlighter;
+    const originalLogger = window.Logger;
+
+    let loggerInfoMock;
+    let loggerWarnMock;
+    let loggerErrorMock;
 
     beforeEach(() => {
+        // 使用假計時器以控制 setTimeout 等計時行為
         jest.useFakeTimers();
 
-        // 清理 DOM
+        // 清理 DOM 狀態
         document.body.innerHTML = '';
 
-        // 重置全局對象
+        // 重置全域並建立 Logger mock（遵循日誌規範，避免直接依賴 console）
         window.initHighlighter = null;
         window.notionHighlighter = null;
-        window.Logger = null;
 
-        // Mock console 方法
+        loggerInfoMock = jest.fn();
+        loggerWarnMock = jest.fn();
+        loggerErrorMock = jest.fn();
+        window.Logger = {
+            info: loggerInfoMock,
+            warn: loggerWarnMock,
+            error: loggerErrorMock,
+        };
+
+        // 嚴格：避免測試依賴 console，將其設為 jest.fn()，但不作為驗證依據
         console.log = jest.fn();
         console.warn = jest.fn();
         console.error = jest.fn();
@@ -26,12 +40,15 @@ describe('highlight-restore.js', () => {
     });
 
     afterEach(() => {
-        // 恢復原始的全局對象
+        // 恢復原始全域對象（若存在），避免測試間污染
         window.initHighlighter = originalInitHighlighter;
         window.notionHighlighter = originalNotionHighlighter;
+        window.Logger = originalLogger;
 
+        // 確保計時器清空並恢復真實計時器
         jest.runOnlyPendingTimers();
         jest.useRealTimers();
+        jest.clearAllMocks();
     });
 
     test('應該在 initHighlighter 不存在時記錄警告並退出', () => {
@@ -43,7 +60,7 @@ describe('highlight-restore.js', () => {
             require('../../scripts/highlight-restore.js');
         });
 
-        expect(console.warn).toHaveBeenCalledWith('⚠️ 標註工具未加載，無法恢復標註');
+        expect(loggerWarnMock).toHaveBeenCalledWith('⚠️ 標註工具未加載，無法恢復標註');
     });
 
     test('應該調用 initHighlighter 函數', () => {
@@ -76,12 +93,15 @@ describe('highlight-restore.js', () => {
         });
 
         expect(window.initHighlighter).toHaveBeenCalled();
-        expect(console.warn).toHaveBeenCalledWith('⚠️ 無法找到標註管理器，跳過強制恢復');
+        expect(loggerWarnMock).toHaveBeenCalledWith('⚠️ 無法找到標註管理器，跳過強制恢復');
     });
 
     test('應該調用 forceRestoreHighlights 方法', async () => {
         // Mock initHighlighter 函數
         window.initHighlighter = jest.fn();
+        window.Logger = {
+            info: jest.fn()
+        };
 
         // Mock notionHighlighter 對象
         const mockForceRestore = jest.fn().mockResolvedValue(true);
@@ -102,7 +122,8 @@ describe('highlight-restore.js', () => {
 
         expect(window.initHighlighter).toHaveBeenCalled();
         expect(mockForceRestore).toHaveBeenCalled();
-        expect(console.log).toHaveBeenCalledWith('✅ 標註恢復成功');
+        expect(window.Logger.info).toHaveBeenCalledWith('✅ 標註恢復成功');
+        expect(console.log).not.toHaveBeenCalled();
     });
 
     test('應該處理 forceRestoreHighlights 失敗的情況', async () => {
@@ -129,7 +150,7 @@ describe('highlight-restore.js', () => {
 
         expect(window.initHighlighter).toHaveBeenCalled();
         expect(mockForceRestore).toHaveBeenCalled();
-        expect(console.warn).toHaveBeenCalledWith('⚠️ 標註恢復失敗');
+        expect(loggerWarnMock).toHaveBeenCalledWith('⚠️ 標註恢復失敗');
     });
 
     test('應該處理 forceRestoreHighlights 錯誤的情況', async () => {
@@ -156,10 +177,10 @@ describe('highlight-restore.js', () => {
 
         expect(window.initHighlighter).toHaveBeenCalled();
         expect(mockForceRestore).toHaveBeenCalled();
-        expect(console.error).toHaveBeenCalledWith('❌ 標註恢復過程中出錯:', expect.any(Error));
+        expect(loggerErrorMock).toHaveBeenCalledWith('❌ 標註恢復過程中出錯:', expect.any(Error));
     });
 
-    test('應該在 500ms 後調用 hide 方法', () => {
+    test('應該在 500ms 後調用 hide 方法', async () => {
         // Mock initHighlighter 函數
         window.initHighlighter = jest.fn();
 
@@ -178,6 +199,10 @@ describe('highlight-restore.js', () => {
             require('../../scripts/highlight-restore.js');
         });
 
+
+        // 需先清空 Promise 隊列以完成強制恢復流程，否則 setTimeout 尚未排程
+        await Promise.resolve();
+        await Promise.resolve();
         jest.runAllTimers();
 
         expect(mockHide).toHaveBeenCalled();
@@ -196,7 +221,7 @@ describe('highlight-restore.js', () => {
 
         await Promise.resolve();
 
-        expect(console.warn).toHaveBeenCalledWith('⚠️ 無法找到標註管理器，跳過強制恢復');
+        expect(loggerWarnMock).toHaveBeenCalledWith('⚠️ 無法找到標註管理器，跳過強制恢復');
         expect(window.initHighlighter).toHaveBeenCalled();
     });
 
@@ -219,6 +244,6 @@ describe('highlight-restore.js', () => {
         jest.runAllTimers();
 
         expect(mockForceRestore).toHaveBeenCalled();
-        expect(console.error).not.toHaveBeenCalled();
+        expect(loggerErrorMock).not.toHaveBeenCalled();
     });
 });
