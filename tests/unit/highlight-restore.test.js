@@ -8,10 +8,6 @@ describe('highlight-restore.js', () => {
     const originalNotionHighlighter = window.notionHighlighter;
     const originalLogger = window.Logger;
 
-    let loggerInfoMock;
-    let loggerWarnMock;
-    let loggerErrorMock;
-
     beforeEach(() => {
         // 使用假計時器以控制 setTimeout 等計時行為
         jest.useFakeTimers();
@@ -23,13 +19,10 @@ describe('highlight-restore.js', () => {
         window.initHighlighter = null;
         window.notionHighlighter = null;
 
-        loggerInfoMock = jest.fn();
-        loggerWarnMock = jest.fn();
-        loggerErrorMock = jest.fn();
         window.Logger = {
-            info: loggerInfoMock,
-            warn: loggerWarnMock,
-            error: loggerErrorMock,
+            info: jest.fn(),
+            warn: jest.fn(),
+            error: jest.fn(),
         };
 
         // 嚴格：避免測試依賴 console，將其設為 jest.fn()，但不作為驗證依據
@@ -60,7 +53,7 @@ describe('highlight-restore.js', () => {
             require('../../scripts/highlight-restore.js');
         });
 
-        expect(loggerWarnMock).toHaveBeenCalledWith('⚠️ 標註工具未加載，無法恢復標註');
+        expect(window.Logger.warn).toHaveBeenCalledWith('⚠️ 標註工具未加載，無法恢復標註');
     });
 
     test('應該調用 initHighlighter 函數', () => {
@@ -93,7 +86,7 @@ describe('highlight-restore.js', () => {
         });
 
         expect(window.initHighlighter).toHaveBeenCalled();
-        expect(loggerWarnMock).toHaveBeenCalledWith('⚠️ 無法找到標註管理器，跳過強制恢復');
+        expect(window.Logger.warn).toHaveBeenCalledWith('⚠️ 無法找到標註管理器，跳過強制恢復');
     });
 
     test('應該調用 forceRestoreHighlights 方法', async () => {
@@ -150,7 +143,7 @@ describe('highlight-restore.js', () => {
 
         expect(window.initHighlighter).toHaveBeenCalled();
         expect(mockForceRestore).toHaveBeenCalled();
-        expect(loggerWarnMock).toHaveBeenCalledWith('⚠️ 標註恢復失敗');
+        expect(window.Logger.warn).toHaveBeenCalledWith('⚠️ 標註恢復失敗');
     });
 
     test('應該處理 forceRestoreHighlights 錯誤的情況', async () => {
@@ -177,7 +170,7 @@ describe('highlight-restore.js', () => {
 
         expect(window.initHighlighter).toHaveBeenCalled();
         expect(mockForceRestore).toHaveBeenCalled();
-        expect(loggerErrorMock).toHaveBeenCalledWith('❌ 標註恢復過程中出錯:', expect.any(Error));
+        expect(window.Logger.error).toHaveBeenCalledWith('❌ 標註恢復過程中出錯:', expect.any(Error));
     });
 
     test('應該在 500ms 後調用 hide 方法', async () => {
@@ -221,7 +214,7 @@ describe('highlight-restore.js', () => {
 
         await Promise.resolve();
 
-        expect(loggerWarnMock).toHaveBeenCalledWith('⚠️ 無法找到標註管理器，跳過強制恢復');
+        expect(window.Logger.warn).toHaveBeenCalledWith('⚠️ 無法找到標註管理器，跳過強制恢復');
         expect(window.initHighlighter).toHaveBeenCalled();
     });
 
@@ -244,6 +237,6 @@ describe('highlight-restore.js', () => {
         jest.runAllTimers();
 
         expect(mockForceRestore).toHaveBeenCalled();
-        expect(loggerErrorMock).not.toHaveBeenCalled();
+        expect(window.Logger.error).not.toHaveBeenCalled();
     });
 });

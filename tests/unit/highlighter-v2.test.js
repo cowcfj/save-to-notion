@@ -734,12 +734,15 @@ describe('highlighter-v2 - 新增行為測試', () => {
         });
 
         // 模擬高亮管理器的最小行為：有一筆暫存
+        const pendingHighlights = [{ id: 'highlight-1', text: '暫存', color: 'yellow' }];
         const manager = {
             colors: { yellow: '#fff3cd' },
             highlightObjects: { yellow: new Highlight() },
-            _pending: [{ id: 'highlight-1', text: '暫存', color: 'yellow' }],
-            _serializePending: jest.fn(function () { return JSON.stringify(this._pending); }),
-            _persist: jest.fn(async function (key, value) { await chrome.storage.local.set({ [key]: value }); })
+            _pending: pendingHighlights,
+            _serializePending: jest.fn(() => JSON.stringify(pendingHighlights)),
+            _persist: jest.fn(async (key, value) => {
+                await chrome.storage.local.set({ [key]: value });
+            })
         };
 
         // 綁定 beforeunload 邏輯（模擬自模組註冊）
@@ -795,11 +798,11 @@ describe('highlighter-v2 - 新增行為測試', () => {
     });
 
     test('應該在快速切換顏色並連續標註時避免重複建立相同範圍的標註', () => {
-        const p1 = document.getElementById('p1').firstChild; // Text
-        const r = document.createRange();
-        r.setStart(p1, 0);
-        r.setEnd(p1, 5);
-        const text = r.toString();
+        const firstParagraphText = document.getElementById('p1').firstChild; // Text
+        const rangeWithinFirstParagraph = document.createRange();
+        rangeWithinFirstParagraph.setStart(firstParagraphText, 0);
+        rangeWithinFirstParagraph.setEnd(firstParagraphText, 5);
+        const text = rangeWithinFirstParagraph.toString();
 
         const manager = {
             colors: { yellow: '#fff3cd', green: '#d4edda' },
@@ -814,10 +817,10 @@ describe('highlighter-v2 - 新增行為測試', () => {
         };
 
         // 快速切換顏色重覆相同範圍
-        const success1 = manager.add(r, 'yellow');
-        const success2 = manager.add(r, 'yellow');
-        const success3 = manager.add(r, 'green');
-        const success4 = manager.add(r, 'green');
+        const success1 = manager.add(rangeWithinFirstParagraph, 'yellow');
+        const success2 = manager.add(rangeWithinFirstParagraph, 'yellow');
+        const success3 = manager.add(rangeWithinFirstParagraph, 'green');
+        const success4 = manager.add(rangeWithinFirstParagraph, 'green');
 
         expect(success1).toBe(true);
         expect(success2).toBe(false);
@@ -827,19 +830,19 @@ describe('highlighter-v2 - 新增行為測試', () => {
 
     test('應該在還原標註時對已不存在的文本片段採用跳過策略且不拋出錯誤', () => {
         // 刪除第二段，模擬內容變更
-        const p2 = document.getElementById('p2');
-        p2.remove();
+        const secondParagraphElement = document.getElementById('p2');
+        secondParagraphElement.remove();
 
         const restore = (entries) => {
             const applied = [];
-            for (const e of entries) {
+            for (const entry of entries) {
                 try {
-                    const node = document.getElementById(e.nodeId);
+                    const node = document.getElementById(entry.nodeId);
                     if (!node || !node.firstChild) continue; // 跳過不存在
-                    const r = document.createRange();
-                    r.setStart(node.firstChild, e.start);
-                    r.setEnd(node.firstChild, e.end);
-                    applied.push(r.toString());
+                    const entryRange = document.createRange();
+                    entryRange.setStart(node.firstChild, entry.start);
+                    entryRange.setEnd(node.firstChild, entry.end);
+                    applied.push(entryRange.toString());
                 } catch (_) { /* 跳過錯誤 */ }
             }
             return applied;
@@ -862,20 +865,20 @@ describe('highlighter-v2 - 新增行為測試', () => {
         container.textContent = longText;
         document.body.appendChild(container);
 
-        const t0 = performance.now();
+        const startTime = performance.now();
         const node = container.firstChild; // Text
-        const r = document.createRange();
-        r.setStart(node, 100);
-        r.setEnd(node, 200);
-        const selection = r.toString();
+        const selectionRange = document.createRange();
+        selectionRange.setStart(node, 100);
+        selectionRange.setEnd(node, 200);
+        const selection = selectionRange.toString();
 
         // 模擬索引與新增操作
         const indexOf = longText.indexOf(selection);
         const addHighlight = () => Boolean(selection) && indexOf >= 0;
-        const ok = addHighlight();
-        const t1 = performance.now();
+        const isSuccessful = addHighlight();
+        const endTime = performance.now();
 
-        expect(ok).toBe(true);
-        expect(t1 - t0).toBeLessThanOrEqual(200);
+        expect(isSuccessful).toBe(true);
+        expect(endTime - startTime).toBeLessThanOrEqual(200);
     });
 });

@@ -1,8 +1,9 @@
 // 標註恢復腳本
 // 用於在頁面刷新後恢復已保存的標註
 
+'use strict';
+
 (function () {
-  'use strict';
 
   // 常數：工具欄隱藏延遲（毫秒）
   const HIDE_TOOLBAR_DELAY_MS = 500; // 與既有行為一致，避免改變 UX 時序
