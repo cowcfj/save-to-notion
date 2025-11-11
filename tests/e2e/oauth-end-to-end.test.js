@@ -510,7 +510,7 @@ describe('OAuth 端到端整合測試', () => {
     });
 
     describe('性能和快取測試', () => {
-        test('E2E-013: 用戶資料快取性能', async () => {
+        test('E2E-013: 用戶資料快取性能', () => {
             const mockUserData = {
                 id: 'user123',
                 name: 'Test User',

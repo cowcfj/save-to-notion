@@ -496,7 +496,7 @@ describe('ErrorHandler - 全面測試', () => {
         test('應該保持 this 上下文', async () => {
             const obj = {
                 value: 42,
-                getValueAsync: async function() {
+                getValueAsync: function() {
                     return Promise.resolve(this.value);
                 }
             };
@@ -508,7 +508,7 @@ describe('ErrorHandler - 全面測試', () => {
         });
 
         test('應該傳遞參數', async () => {
-            const asyncFn = jest.fn(async (a, b) => a + b);
+            const asyncFn = jest.fn((a, b) => Promise.resolve(a + b));
             const wrappedFn = ErrorHandler.wrapAsync(asyncFn);
 
             const result = await wrappedFn(5, 7);

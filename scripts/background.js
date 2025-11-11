@@ -1964,8 +1964,8 @@ async function handleSavePage(sendResponse) {
                 return options.single ? context.querySelector(selector) : context.querySelectorAll(selector);
             }
 
-            // URL 清理輔助函數
-            function cleanImageUrl(url) {
+            // URL 清理輔助函數（避免與背景腳本的 cleanImageUrl 命名衝突）
+            function cleanImageUrlOnPage(url) {
                 if (!url || typeof url !== 'string') return null;
 
                 try {
@@ -1976,7 +1976,7 @@ async function handleSavePage(sendResponse) {
                         const uParam = urlObj.searchParams.get('u');
                         if (uParam && /^https?:\/\//.test(uParam)) {
                             // 使用代理中的原始圖片 URL
-                            return cleanImageUrl(uParam);
+                            return cleanImageUrlOnPage(uParam);
                         }
                     }
 
@@ -2141,7 +2141,7 @@ async function handleSavePage(sendResponse) {
                             if (src) {
                                 try {
                                     const absoluteUrl = new URL(src, document.baseURI).href;
-                                    const cleanedUrl = cleanImageUrl(absoluteUrl);
+                    const cleanedUrl = cleanImageUrlOnPage(absoluteUrl);
 
                                     if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
                                         Logger.log(`✓ Found featured image via selector: ${selector}`);

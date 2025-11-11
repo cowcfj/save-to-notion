@@ -180,7 +180,7 @@ class E2ECoverageCollector {
 
       return null;
     } catch (error) {
-      console.warn(`⚠️ 無法解析 URL: ${url}`);
+      console.warn(`⚠️ 無法解析 URL: ${url}`, error);
       return null;
     }
   }
@@ -245,7 +245,7 @@ class E2ECoverageCollector {
   /**
    * 保存覆蓋率數據
    */
-  async saveCoverage(coverageMap, outputDir) {
+  saveCoverage(coverageMap, outputDir) {
     console.log(`\n💾 保存覆蓋率報告到: ${outputDir}`);
 
     // 確保輸出目錄存在
@@ -309,7 +309,7 @@ class E2ECoverageCollector {
       const coverageMap = this.convertToIstanbul(coverage);
 
       // 6. 保存覆蓋率報告
-      await this.saveCoverage(coverageMap, this.config.coverage.dir);
+      this.saveCoverage(coverageMap, this.config.coverage.dir);
 
       // 7. 輸出測試結果摘要
       console.log('\n' + '='.repeat(60));

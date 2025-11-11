@@ -783,7 +783,7 @@ describe('Notion API - 重試邏輯', () => {
                 try {
                     const result = await global.fetch('https://api.notion.com/v1/pages');
                     if (result.ok) break;
-                } catch (error) {
+                } catch {
                     attempt++;
                     if (attempt < 3) {
                         const delay = baseDelay * Math.pow(2, attempt - 1);

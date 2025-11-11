@@ -660,7 +660,7 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
           const urlObj = new URL(imageUrl);
           if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') return false;
           if (!urlObj.hostname || urlObj.hostname.length < 3) return false;
-        } catch (error) {
+        } catch {
           return false;
         }
       }
