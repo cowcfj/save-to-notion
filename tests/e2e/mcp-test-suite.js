@@ -264,7 +264,7 @@ function testMultiColorHighlights() {
                     const highlights = colors.map((color, index) => ({
                         id: 'highlight-' + index,
                         text: 'Sample text ' + index,
-                        color: color,
+                        color,
                         timestamp: Date.now() + index
                     }));
 

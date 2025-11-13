@@ -270,10 +270,10 @@ const logger = (() => {
 
                             migratedHighlights.push({
                                 id: newId,
-                                color: color,
+                                color,
                                 text: textToFind,
                                 timestamp: oldItem.timestamp || Date.now(),
-                                rangeInfo: rangeInfo
+                                rangeInfo
                             });
 
                             successCount++;
@@ -631,10 +631,10 @@ const logger = (() => {
 
             // 保存標註信息
             const highlightData = {
-                id: id,
+                id,
                 range: range.cloneRange(), // 克隆範圍以保持引用
-                color: color,
-                text: text,
+                color,
+                text,
                 timestamp: Date.now(),
                 // 保存範圍的序列化信息以便恢復
                 rangeInfo: this.serializeRange(range)

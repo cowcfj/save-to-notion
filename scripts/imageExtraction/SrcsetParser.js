@@ -56,10 +56,10 @@ class SrcsetParser {
 
         const descriptor = parts[1] || '';
         const entry = {
-            url: url,
+            url,
             width: null,
             density: null,
-            descriptor: descriptor
+            descriptor
         };
 
         // 解析寬度描述符 (例如: "800w")
