@@ -160,9 +160,9 @@ class AttributeExtractor {
 
                 stats.attributes.push({
                     name: attr,
-                    value: value,
-                    cleanedValue: cleanedValue,
-                    isValid: isValid
+                    value,
+                    cleanedValue,
+                    isValid
                 });
             }
         }

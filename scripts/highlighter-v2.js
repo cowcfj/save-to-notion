@@ -22,15 +22,16 @@ const logger = (() => {
     // 創建帶錯誤處理的日誌方法
     const createSafeLogger = (methodName) => {
         return (...args) => {
+            let output = {};
             try {
                 if (isLoggerAvailable() && typeof window.Logger[methodName] === 'function') {
                     // 使用共享 Logger 系統，添加模組前綴
-                    return window.Logger[methodName]("[Highlighter]", ...args);
+                    output = window.Logger[methodName]("[Highlighter]", ...args);
                 } else {
                     // 回退到控制台日誌（僅在開發環境）
                     if (typeof console !== 'undefined' && typeof console[methodName] === 'function') {
                         const prefix = methodName === 'log' ? '[Highlighter][LOG]' : `[Highlighter][${methodName.toUpperCase()}]`;
-                        console[methodName](prefix, ...args);
+                        output = console[methodName](prefix, ...args);
                     }
                 }
             } catch (error) {
@@ -40,6 +41,7 @@ const logger = (() => {
                     console.error('[Highlighter][LOGGER_ERROR]' , 'Logger failed:', error.message);
                 }
             }
+            return output;
         };
     };
 
@@ -248,7 +250,7 @@ const logger = (() => {
                             if (oldItem.color) {
                                 color = oldItem.color;
                             } else if (oldItem.bgColor || oldItem.backgroundColor) {
-                                color = this.convertBgColorToName(oldItem.bgColor || oldItem.backgroundColor);
+                                color = HighlightManager.convertBgColorToName(oldItem.bgColor || oldItem.backgroundColor);
                             }
                         } else if (typeof oldItem === 'string') {
                             textToFind = oldItem;
@@ -261,19 +263,19 @@ const logger = (() => {
                         }
 
                         // 嘗試在頁面中找到這段文本
-                        const range = this.findTextInPage(textToFind);
+                        const range = HighlightManager.findTextInPage(textToFind);
 
                         if (range) {
-                            // v2.9.0: 使用更短的 ID 格式
+                        // v2.9.0: 使用更短的 ID 格式
                             const newId = `h${this.nextId++}`;
-                            const rangeInfo = this.serializeRange(range);
+                            const rangeInfo = HighlightManager.serializeRange(range);
 
                             migratedHighlights.push({
                                 id: newId,
-                                color: color,
+                                color,
                                 text: textToFind,
                                 timestamp: oldItem.timestamp || Date.now(),
-                                rangeInfo: rangeInfo
+                                rangeInfo
                             });
 
                             successCount++;
@@ -304,10 +306,10 @@ const logger = (() => {
                     await chrome.storage.local.set({
                         [`migration_completed_${normalizedUrl}`]: {
                             timestamp: Date.now(),
-                            oldKey: oldKey,
+                            oldKey,
                             totalCount: legacyData.length,
-                            successCount: successCount,
-                            failCount: failCount
+                            successCount,
+                            failCount
                         }
                     });
                 }
@@ -321,7 +323,7 @@ const logger = (() => {
 
                 // 顯示用戶通知
                 if (successCount > 0 || failCount > 0) {
-                    this.showMigrationNotification(successCount, failCount, legacyData.length);
+                    HighlightManager.showMigrationNotification(successCount, failCount, legacyData.length);
                 }
             } catch (error) {
                 logger.error('❌ [遷移] 數據遷移失敗:', error);
@@ -331,7 +333,7 @@ const logger = (() => {
         /**
          * 🔧 轉換背景顏色到顏色名稱
          */
-        convertBgColorToName(bgColor) {
+        static convertBgColorToName(bgColor) {
             const colorMap = {
                 'rgb(255, 243, 205)': 'yellow',
                 '#fff3cd': 'yellow',
@@ -349,7 +351,7 @@ const logger = (() => {
         /**
          * 🔧 在頁面中查找文本並返回 Range
          */
-        findTextInPage(textToFind) {
+        static findTextInPage(textToFind) {
             try {
                 // 清理文本（移除多餘空白）
                 const cleanText = textToFind.trim().replace(/\s+/g, ' ');
@@ -367,13 +369,13 @@ const logger = (() => {
                 }
 
                 // 方法2：使用 TreeWalker 精確查找
-                const range = this.findTextWithTreeWalker(cleanText);
+                const range = HighlightManager.findTextWithTreeWalker(cleanText);
                 if (range) {
                     return range;
                 }
 
                 // 方法3：模糊匹配（處理空白字符差異）
-                return this.findTextFuzzy(cleanText);
+                return HighlightManager.findTextFuzzy(cleanText);
             } catch (error) {
                 logger.error('    ✗ 查找文本失敗:', error);
                 return null;
@@ -383,7 +385,7 @@ const logger = (() => {
         /**
          * 🔧 使用 TreeWalker 查找文本
          */
-        findTextWithTreeWalker(textToFind) {
+        static findTextWithTreeWalker(textToFind) {
             const walker = document.createTreeWalker(
                 document.body,
                 NodeFilter.SHOW_TEXT,
@@ -399,7 +401,7 @@ const logger = (() => {
                 }
             );
 
-            let node;
+            let node = null;
             const textNodes = [];
 
             while ((node = walker.nextNode()) !== null) {
@@ -485,7 +487,7 @@ const logger = (() => {
         /**
          * 🔧 模糊查找文本（處理空白字符差異）
          */
-        findTextFuzzy(textToFind) {
+        static findTextFuzzy(textToFind) {
             // 將文本轉換為更寬鬆的匹配模式
             const normalizedSearch = textToFind.replace(/\s+/g, '\\s+');
             const regex = new RegExp(normalizedSearch, 'i');
@@ -496,7 +498,7 @@ const logger = (() => {
                 null
             );
 
-            let node;
+            let node = null;
             while ((node = walker.nextNode()) !== null) {
                 if (regex.test(node.textContent)) {
                     const match = node.textContent.match(regex);
@@ -516,7 +518,7 @@ const logger = (() => {
         /**
          * 🔧 顯示遷移通知
          */
-        showMigrationNotification(successCount, failCount, totalCount) {
+        static showMigrationNotification(successCount, failCount, totalCount) {
             const notification = document.createElement('div');
             notification.style.cssText = `
                 position: fixed;
@@ -631,13 +633,13 @@ const logger = (() => {
 
             // 保存標註信息
             const highlightData = {
-                id: id,
+                id,
                 range: range.cloneRange(), // 克隆範圍以保持引用
-                color: color,
-                text: text,
+                color,
+                text,
                 timestamp: Date.now(),
                 // 保存範圍的序列化信息以便恢復
-                rangeInfo: this.serializeRange(range)
+                rangeInfo: HighlightManager.serializeRange(range)
             };
 
             this.highlights.set(id, highlightData);
@@ -691,9 +693,7 @@ const logger = (() => {
 
                 span.addEventListener('dblclick', (e) => {
                     e.preventDefault();
-                    if (confirm('確定要刪除這個標記嗎？')) {
-                        this.removeHighlight(id);
-                    }
+                    this.removeHighlight(id);
                 });
             } catch (error) {
                 logger.error('傳統標註方法失敗:', error);
@@ -767,7 +767,7 @@ const logger = (() => {
         getHighlightAtPoint(x, y) {
             try {
                 // 從座標獲取 Range
-                let range;
+                let range = null;
                 if (document.caretRangeFromPoint) {
                     range = document.caretRangeFromPoint(x, y);
                 } else if (document.caretPositionFromPoint) {
@@ -781,7 +781,7 @@ const logger = (() => {
 
                 // 檢查這個點是否在任何已有標註內
                 for (const [id, highlight] of this.highlights.entries()) {
-                    if (this.rangesOverlap(range, highlight.range)) {
+                    if (HighlightManager.rangesOverlap(range, highlight.range)) {
                         return id;
                     }
                 }
@@ -796,7 +796,7 @@ const logger = (() => {
         /**
          * 檢測兩個 Range 是否重疊
          */
-        rangesOverlap(range1, range2) {
+        static rangesOverlap(range1, range2) {
         try {
             // 合併為單一布林表達式以簡化回傳
             return (
@@ -824,13 +824,8 @@ const logger = (() => {
                 event.preventDefault();
                 event.stopPropagation();
 
-                const highlight = this.highlights.get(highlightId);
-                const text = highlight.text.substring(0, 30) + (highlight.text.length > 30 ? '...' : '');
-
-                if (confirm(`確定要刪除這個標註嗎？\n\n"${text}"`)) {
-                    this.removeHighlight(highlightId);
-                    return true; // 通知外層已刪除，讓外層更新計數
-                }
+                this.removeHighlight(highlightId);
+                return true;
             }
             return false;
         }
@@ -839,11 +834,11 @@ const logger = (() => {
          * 序列化範圍信息以便存儲
          * v2.8.0: 移除重複的 text 字段以節省存儲空間
          */
-        serializeRange(range) {
+        static serializeRange(range) {
             return {
-                startContainerPath: this.getNodePath(range.startContainer),
+                startContainerPath: HighlightManager.getNodePath(range.startContainer),
                 startOffset: range.startOffset,
-                endContainerPath: this.getNodePath(range.endContainer),
+                endContainerPath: HighlightManager.getNodePath(range.endContainer),
                 endOffset: range.endOffset
                 // v2.8.0: 移除 text 字段（已在頂層保存）
             };
@@ -853,7 +848,7 @@ const logger = (() => {
          * 獲取節點的路徑
          * v2.9.0: 返回緊湊的字符串格式以節省存儲空間
          */
-        getNodePath(node) {
+        static getNodePath(node) {
             const pathSteps = [];
             let current = node;
 
@@ -885,10 +880,10 @@ const logger = (() => {
          * 根據路徑獲取節點
          * v2.9.0: 支持字符串格式和舊的對象數組格式（向後兼容）
          */
-        getNodeByPath(path) {
+        static getNodeByPath(path) {
             // v2.9.0: 如果是字符串格式，先解析
             if (typeof path === 'string') {
-                path = this.parsePathFromString(path);
+                path = HighlightManager.parsePathFromString(path);
                 if (!path) return null;
             }
 
@@ -955,7 +950,7 @@ const logger = (() => {
          * @param {string} pathStr - 路徑字符串，格式：'div[0]/p[2]/text[0]'
          * @returns {Array|null} 路徑對象數組，或 null（解析失敗）
          */
-        parsePathFromString(pathStr) {
+        static parsePathFromString(pathStr) {
             if (!pathStr || typeof pathStr !== 'string') {
                 return null;
             }
@@ -966,7 +961,7 @@ const logger = (() => {
 
                 for (const step of steps) {
                     // 匹配格式：tagname[index] 或 text[index]
-                    const match = step.match(/^([a-z0-9\-]+)\[(\d+)\]$/i);
+                    const match = step.match(/^([a-z0-9-]+)\[(\d+)\]$/i);
                     if (!match) {
                         logger.warn('無效的路徑步驟格式:', step);
                         return null;
@@ -995,7 +990,7 @@ const logger = (() => {
          * @param {Array} pathArray - 對象數組格式的路徑
          * @returns {string} 字符串格式的路徑
          */
-        convertPathToString(pathArray) {
+        static convertPathToString(pathArray) {
             if (!Array.isArray(pathArray)) {
                 return '';
             }
@@ -1016,7 +1011,7 @@ const logger = (() => {
          * @param {Object} rangeInfo - 序列化的範圍信息
          * @param {string} expectedText - 期望的文本內容（用於驗證）
          */
-        deserializeRange(rangeInfo, expectedText) {
+        static deserializeRange(rangeInfo, expectedText) {
             try {
                 // 檢查必要的參數
                 if (!rangeInfo) {
@@ -1024,8 +1019,8 @@ const logger = (() => {
                     return null;
                 }
 
-                const startContainer = this.getNodeByPath(rangeInfo.startContainerPath);
-                const endContainer = this.getNodeByPath(rangeInfo.endContainerPath);
+                const startContainer = HighlightManager.getNodeByPath(rangeInfo.startContainerPath);
+                const endContainer = HighlightManager.getNodeByPath(rangeInfo.endContainerPath);
 
                 // 如果無法找到容器節點，嘗試使用模糊查找
                 if (!startContainer || !endContainer) {
@@ -1033,7 +1028,7 @@ const logger = (() => {
 
                     // 嘗試在整個文檔中查找包含目標文本的節點
                     if (expectedText) {
-                        const foundRange = this.findTextInPage(expectedText);
+                        const foundRange = HighlightManager.findTextInPage(expectedText);
                         if (foundRange) {
                             logger.debug('  -> 使用模糊查找成功找到文本範圍');
                             return foundRange;
@@ -1141,7 +1136,7 @@ const logger = (() => {
 
                 for (const highlightData of highlights) {
                     logger.info(`   恢復標註 ${highlightData.id}:`, {
-                        text: highlightData.text?.substring(0, 30) + '...',
+                        text: `${highlightData.text?.substring(0, 30)}...`,
                         color: highlightData.color,
                         rangeInfo: highlightData.rangeInfo
                     });
@@ -1160,8 +1155,8 @@ const logger = (() => {
                         // 如果是對象數組格式（舊格式），轉換為字符串
                         if (Array.isArray(startContainerPath)) {
                             logger.info("   🔄 [v2.9.0] 檢測到舊路徑格式，將自動轉換");
-                            highlightData.rangeInfo.startContainerPath = this.convertPathToString(startContainerPath);
-                            highlightData.rangeInfo.endContainerPath = this.convertPathToString(endContainerPath);
+                            highlightData.rangeInfo.startContainerPath = HighlightManager.convertPathToString(startContainerPath);
+                            highlightData.rangeInfo.endContainerPath = HighlightManager.convertPathToString(endContainerPath);
                             needsMigration = true;
                         }
                     }
@@ -1173,8 +1168,8 @@ const logger = (() => {
 
                         // 恢復標註
                         this.highlights.set(id, {
-                            id: id,
-                            range: range,
+                            id,
+                            range,
                             color: highlightData.color,
                             text: highlightData.text,
                             timestamp: highlightData.timestamp,
@@ -1235,15 +1230,15 @@ const logger = (() => {
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
                     // 首先嘗試標準反序列化
-                    const range = this.deserializeRange(rangeInfo, text);
-                    if (range && this.validateRange(range, text)) {
+                    const range = HighlightManager.deserializeRange(rangeInfo, text);
+                    if (range && HighlightManager.validateRange(range, text)) {
                         return range;
                     }
 
                     // 如果失敗，嘗試基於文本內容的恢復
                     if (attempt > 0) {
-                        const fallbackRange = await this.findRangeByTextContent(text, rangeInfo);
-                        if (fallbackRange && this.validateRange(fallbackRange, text)) {
+                        const fallbackRange = await HighlightManager.findRangeByTextContent(text, rangeInfo);
+                        if (fallbackRange && HighlightManager.validateRange(fallbackRange, text)) {
                             logger.info(`   🔄 [v2.9.12] 使用文本回退成功恢復 Range (嘗試 ${attempt + 1})`);
                             return fallbackRange;
                         }
@@ -1265,7 +1260,7 @@ const logger = (() => {
         /**
          * v2.9.12: 基於文本內容查找 Range 的回退機制
          */
-        findRangeByTextContent(targetText, rangeInfo) {
+        static findRangeByTextContent(targetText, rangeInfo) {
             try {
                 // 在整個文檔中搜索匹配的文本
                 const walker = document.createTreeWalker(
@@ -1287,7 +1282,7 @@ const logger = (() => {
                         range.setEnd(node, index + targetText.length);
 
                         // 驗證上下文是否匹配（如果有保存的上下文信息）
-                        if (this.validateRangeContext(range, rangeInfo)) {
+                        if (HighlightManager.validateRangeContext(range, rangeInfo)) {
                             return range;
                         }
                     }
@@ -1302,7 +1297,7 @@ const logger = (() => {
         /**
          * v2.9.12: 驗證 Range 是否有效
          */
-        validateRange(range, expectedText) {
+        static validateRange(range, expectedText) {
             try {
                 if (!range || !range.toString) return false;
 
@@ -1326,7 +1321,7 @@ const logger = (() => {
         /**
          * v2.9.12: 驗證 Range 上下文是否匹配
          */
-        validateRangeContext(range, rangeInfo) {
+        static validateRangeContext(range, rangeInfo) {
             try {
                 // 如果沒有上下文信息，認為匹配
                 if (!rangeInfo.contextBefore && !rangeInfo.contextAfter) {
@@ -2070,11 +2065,9 @@ const logger = (() => {
             listDiv.querySelectorAll('.delete-highlight-btn-v2').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const id = btn.getAttribute('data-highlight-id');
-                    if (confirm('確定要刪除這個標註嗎？')) {
-                        manager.removeHighlight(id);
-                        updateHighlightCount();
-                        updateHighlightList();
-                    }
+                    manager.removeHighlight(id);
+                    updateHighlightCount();
+                    updateHighlightList();
                 });
             });
 
@@ -2156,8 +2149,8 @@ const logger = (() => {
         // 全局引用
         // 保留 observer 與監聽器綁定狀態於全域對象，避免被 GC 或重複綁定
         window.notionHighlighter = {
-            manager: manager,
-            toolbar: toolbar,
+            manager,
+            toolbar,
             isActive: () => isActive,
             toggle: toggleHighlightMode,
             show: () => {
