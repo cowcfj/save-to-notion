@@ -22,7 +22,7 @@ const logger = (() => {
     // 創建帶錯誤處理的日誌方法
     const createSafeLogger = (methodName) => {
         return (...args) => {
-            let output;
+            let output = {};
             try {
                 if (isLoggerAvailable() && typeof window.Logger[methodName] === 'function') {
                     // 使用共享 Logger 系統，添加模組前綴
@@ -263,12 +263,12 @@ const logger = (() => {
                         }
 
                         // 嘗試在頁面中找到這段文本
-                        const range = this.findTextInPage(textToFind);
+                        const range = HighlightManager.findTextInPage(textToFind);
 
                         if (range) {
-                            // v2.9.0: 使用更短的 ID 格式
+                        // v2.9.0: 使用更短的 ID 格式
                             const newId = `h${this.nextId++}`;
-                            const rangeInfo = this.serializeRange(range);
+                            const rangeInfo = HighlightManager.serializeRange(range);
 
                             migratedHighlights.push({
                                 id: newId,
@@ -351,7 +351,7 @@ const logger = (() => {
         /**
          * 🔧 在頁面中查找文本並返回 Range
          */
-        findTextInPage(textToFind) {
+        static findTextInPage(textToFind) {
             try {
                 // 清理文本（移除多餘空白）
                 const cleanText = textToFind.trim().replace(/\s+/g, ' ');
@@ -639,7 +639,7 @@ const logger = (() => {
                 text,
                 timestamp: Date.now(),
                 // 保存範圍的序列化信息以便恢復
-                rangeInfo: this.serializeRange(range)
+                rangeInfo: HighlightManager.serializeRange(range)
             };
 
             this.highlights.set(id, highlightData);
@@ -834,7 +834,7 @@ const logger = (() => {
          * 序列化範圍信息以便存儲
          * v2.8.0: 移除重複的 text 字段以節省存儲空間
          */
-        serializeRange(range) {
+        static serializeRange(range) {
             return {
                 startContainerPath: HighlightManager.getNodePath(range.startContainer),
                 startOffset: range.startOffset,
@@ -880,7 +880,7 @@ const logger = (() => {
          * 根據路徑獲取節點
          * v2.9.0: 支持字符串格式和舊的對象數組格式（向後兼容）
          */
-        getNodeByPath(path) {
+        static getNodeByPath(path) {
             // v2.9.0: 如果是字符串格式，先解析
             if (typeof path === 'string') {
                 path = HighlightManager.parsePathFromString(path);
@@ -1019,8 +1019,8 @@ const logger = (() => {
                     return null;
                 }
 
-                const startContainer = this.getNodeByPath(rangeInfo.startContainerPath);
-                const endContainer = this.getNodeByPath(rangeInfo.endContainerPath);
+                const startContainer = HighlightManager.getNodeByPath(rangeInfo.startContainerPath);
+                const endContainer = HighlightManager.getNodeByPath(rangeInfo.endContainerPath);
 
                 // 如果無法找到容器節點，嘗試使用模糊查找
                 if (!startContainer || !endContainer) {
@@ -1028,7 +1028,7 @@ const logger = (() => {
 
                     // 嘗試在整個文檔中查找包含目標文本的節點
                     if (expectedText) {
-                        const foundRange = this.findTextInPage(expectedText);
+                        const foundRange = HighlightManager.findTextInPage(expectedText);
                         if (foundRange) {
                             logger.debug('  -> 使用模糊查找成功找到文本範圍');
                             return foundRange;
@@ -1260,7 +1260,7 @@ const logger = (() => {
         /**
          * v2.9.12: 基於文本內容查找 Range 的回退機制
          */
-        static async findRangeByTextContent(targetText, rangeInfo) {
+        static findRangeByTextContent(targetText, rangeInfo) {
             try {
                 // 在整個文檔中搜索匹配的文本
                 const walker = document.createTreeWalker(
