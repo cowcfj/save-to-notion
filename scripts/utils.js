@@ -4,19 +4,31 @@
 
 // ===== Safe Logger Abstraction =====
 // 創建一個安全的 Logger 抽象，避免重複的 typeof 檢查
-const safeLogger = (() => {
+const safeLogger = (function initSafeLoggerSingleton() {
+    if (typeof window !== 'undefined' && window.__NOTION_SAFE_LOGGER__) {
+        return window.__NOTION_SAFE_LOGGER__;
+    }
+
     // 檢查是否在瀏覽器環境且有 window.Logger
     if (typeof window !== 'undefined' && typeof window.Logger !== 'undefined') {
+        window.__NOTION_SAFE_LOGGER__ = window.Logger;
         return window.Logger;
     }
+
     // 返回一個安全的替代 Logger（使用原生 console）
-    return {
+    const fallbackLogger = {
         log: () => { /* Intentionally empty for production */ }, // 在生產環境不輸出 log
         debug: () => { /* Intentionally empty for production */ },
         info: () => { /* Intentionally empty for production */ },
         warn: console.warn.bind(console),
         error: console.error.bind(console)
     };
+
+    if (typeof window !== 'undefined') {
+        window.__NOTION_SAFE_LOGGER__ = fallbackLogger;
+    }
+
+    return fallbackLogger;
 })();
 
 // ===== Program-root utilities (for linters/DeepSource) =====

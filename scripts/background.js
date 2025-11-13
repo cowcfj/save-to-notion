@@ -396,6 +396,79 @@ function splitTextForHighlight(text, maxLength = 2000) {
 }
 
 // ==========================================
+// SCRIPT INJECTION HELPERS
+// ==========================================
+
+// 判斷指定網址是否為禁止注入腳本的受限網域
+function isRestrictedInjectionUrl(urlString) {
+    if (!urlString) {
+        return true;
+    }
+
+    try {
+        const url = new URL(urlString);
+        const blockedHosts = [
+            { host: 'chrome.google.com', pathPrefix: '/webstore' },
+            { host: 'chromewebstore.google.com' },
+            { host: 'microsoftedge.microsoft.com', pathPrefix: '/addons' },
+            { host: 'addons.mozilla.org' }
+        ];
+
+        return blockedHosts.some(({ host, pathPrefix }) => {
+            if (url.host !== host) {
+                return false;
+            }
+            if (!pathPrefix) {
+                return true;
+            }
+            return url.pathname.startsWith(pathPrefix);
+        });
+    } catch (error) {
+        console.warn('Failed to parse URL when checking restrictions:', error);
+        return true;
+    }
+}
+
+// 解析 chrome.runtime.lastError 的文字內容
+function getRuntimeErrorMessage(runtimeError) {
+    if (!runtimeError) {
+        return '';
+    }
+
+    if (typeof runtimeError === 'string') {
+        return runtimeError;
+    }
+
+    if (runtimeError.message) {
+        return runtimeError.message;
+    }
+
+    try {
+        return JSON.stringify(runtimeError);
+    } catch (error) {
+        console.warn('Unable to stringify runtime error:', error);
+        return String(runtimeError);
+    }
+}
+
+// 軟性錯誤：常見於無法注入受限頁面或標籤已關閉
+function isRecoverableInjectionError(message) {
+    if (!message) {
+        return false;
+    }
+
+    const patterns = [
+        'Cannot access contents of url',
+        'Cannot access contents of page',
+        'No tab with id',
+        'The tab was closed',
+        'The frame was removed'
+    ];
+
+    return patterns.some(pattern => message.includes(pattern));
+}
+
+// ==========================================
 // SCRIPT INJECTION MANAGER
 // ==========================================
 
@@ -423,10 +496,17 @@ class ScriptInjector {
                         files: files
                     }, () => {
                         if (chrome.runtime.lastError) {
+                            const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
+                            const isRecoverable = isRecoverableInjectionError(errMsg);
                             if (logErrors) {
-                                console.error("File injection failed:", chrome.runtime.lastError);
+                                const logger = isRecoverable ? console.warn : console.error;
+                                logger('File injection failed:', errMsg);
                             }
-                            reject(new Error(chrome.runtime.lastError.message));
+                            if (isRecoverable) {
+                                resolve();
+                                return;
+                            }
+                            reject(new Error(errMsg || errorMessage));
                         } else {
                             resolve();
                         }
@@ -442,10 +522,17 @@ class ScriptInjector {
                         func: func
                     }, (results) => {
                         if (chrome.runtime.lastError) {
+                            const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
+                            const isRecoverable = isRecoverableInjectionError(errMsg);
                             if (logErrors) {
-                                console.error("Function execution failed:", chrome.runtime.lastError);
+                                const logger = isRecoverable ? console.warn : console.error;
+                                logger('Function execution failed:', errMsg);
                             }
-                            reject(new Error(chrome.runtime.lastError.message));
+                            if (isRecoverable) {
+                                resolve(returnResult ? null : undefined);
+                                return;
+                            }
+                            reject(new Error(errMsg || errorMessage));
                         } else {
                             if (successMessage && logErrors) {
                                 Logger.log(successMessage);
@@ -1428,6 +1515,13 @@ function setupTabListeners() {
         if (!/^https?:/i.test(tab.url)) {
             if (typeof Logger !== 'undefined' && Logger.debug) {
                 Logger.debug('Skipping tab listener for non-http(s) URL:', tab.url);
+            }
+            return;
+        }
+
+        if (isRestrictedInjectionUrl(tab.url)) {
+            if (typeof Logger !== 'undefined' && Logger.debug) {
+                Logger.debug('Skipping tab listener for restricted URL:', tab.url);
             }
             return;
         }

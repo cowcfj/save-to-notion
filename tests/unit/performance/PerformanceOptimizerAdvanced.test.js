@@ -3,8 +3,6 @@
  * 測試新增的緩存預熱、TTL 機制、批處理優化和自適應功能
  */
 
-/* global document window performance */
-/* eslint-disable no-unused-vars */
 
 // 模擬 DOM 環境
 const { JSDOM } = require('jsdom');
@@ -32,9 +30,10 @@ const dom = new JSDOM(`
 </html>
 `);
 
-// 設置全局變量
-global.document = dom.window.document;
-global.window = dom.window;
+// 設置所需的全局引用（使用解構以減少未宣告變數警告）
+const { document, window } = dom.window;
+global.document = document;
+global.window = window;
 global.performance = {
     now: () => Date.now(),
     memory: {
@@ -67,7 +66,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
     describe('TTL 機制和緩存管理', () => {
         test('應該支持 TTL 機制', () => {
             const selector = 'img';
-            
+
             // 第一次查詢，結果會被緩存
             const _result1 = optimizer.cachedQuery(selector, document);
             expect(_result1).toBeDefined();
@@ -87,7 +86,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
 
         test('應該清理過期緩存', () => {
             const selector = 'p';
-            
+
             // 添加項目到緩存
             optimizer.cachedQuery(selector, document);
             expect(optimizer.getPerformanceStats().cache.size).toBeGreaterThan(0);
@@ -102,10 +101,10 @@ describe('PerformanceOptimizer 進階功能測試', () => {
 
             // 清理過期緩存
             const clearedCount = optimizer.clearExpiredCache();
-            
+
             // 應該至少清理一個過期項目
             expect(clearedCount).toBeGreaterThanOrEqual(1);
-            
+
             // 如果清理了項目，則當前緩存大小應小於或等於原始大小
             const finalStats = optimizer.getPerformanceStats();
             expect(finalStats.cache.size).toBeGreaterThanOrEqual(0);
@@ -113,7 +112,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
 
         test('應該強制刷新特定選擇器緩存', () => {
             const selector = 'a';
-            
+
             // 初始查詢
             const _result1 = optimizer.cachedQuery(selector, document);
             expect(_result1).toBeDefined();
@@ -146,13 +145,13 @@ describe('PerformanceOptimizer 進階功能測試', () => {
     describe('緩存預熱功能', () => {
         test('應該預熱選擇器', async () => {
             const selectors = ['img', 'p', 'article'];
-            
+
             // 預熱選擇器
             const results = await optimizer.preloadSelectors(selectors);
-            
+
             expect(Array.isArray(results)).toBe(true);
             expect(results.length).toBe(selectors.length);
-            
+
             // 驗證預熱計數增加
             const stats = optimizer.getPerformanceStats();
             expect(stats.cache.prewarms).toBeGreaterThan(0);
@@ -162,27 +161,27 @@ describe('PerformanceOptimizer 進階功能測試', () => {
         test('應該進行智能預熱', async () => {
             // 執行智能預熱
             const results = await optimizer.smartPrewarm(document);
-            
+
             expect(Array.isArray(results)).toBe(true);
             expect(results.length).toBeGreaterThanOrEqual(0);
-            
+
             // 確保一些選擇器被預熱
             const stats = optimizer.getPerformanceStats();
             expect(stats.cache.prewarms).toBeGreaterThanOrEqual(0);
-            
+
             // 驗證預熱選擇器計數
             expect(stats.cache.prewarmCount).toBeGreaterThanOrEqual(0);
         });
 
         test('應該避免重複預熱相同選擇器', async () => {
             const selector = 'img';
-            
+
             // 第一次預熱
             const _r1 = await optimizer.preloadSelectors([selector]);
-            
+
             // 第二次預熱相同的選擇器
             const _r2 = await optimizer.preloadSelectors([selector]);
-            
+
             // 第二次預熱相同的選擇器
             const _r3 = await optimizer.preloadSelectors([selector]);
             const stats = optimizer.getPerformanceStats();
@@ -254,7 +253,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
         test('應該分析頁面內容', () => {
             const analysis = optimizer._analyzePageForPrewarming(document);
             expect(Array.isArray(analysis)).toBe(true);
-            
+
             // 應該包含一些基於文檔結構的選擇器
             expect(analysis.length).toBeGreaterThanOrEqual(0);
         });
@@ -270,7 +269,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
         test('應該根據系統負載調整性能參數', async () => {
             // 模擬不同性能場景並測試調整
             optimizer.metrics.averageProcessingTime = 100; // 假設處理時間較長
-            
+
             // 測試調整功能不拋出錯誤
             await expect(optimizer.adjustForSystemLoad()).resolves.not.toThrow();
         });
