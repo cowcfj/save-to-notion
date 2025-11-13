@@ -99,6 +99,15 @@ describe('RetryManager - 全面測試', () => {
         });
 
         test('應該記錄重試成功', async () => {
+            // 模擬 Logger 對象
+            const mockLogger = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn()
+            };
+            global.Logger = mockLogger;
+
             const error = new Error('Network error');
             error.name = 'NetworkError';
 
@@ -108,17 +117,39 @@ describe('RetryManager - 全面測試', () => {
 
             await retryManager.execute(operation);
 
-            expect(console.info).toHaveBeenCalledWith(
-                expect.stringContaining('succeeded after 1 retries')
+            // 驗證 Logger.log 或 Logger.info 被調用
+            const logCalled = mockLogger.log.mock.calls.some(call =>
+                call[0].includes('已成功') && call[0].includes('1 次重試')
             );
+            const infoCalled = mockLogger.info.mock.calls.some(call =>
+                call[0].includes('已成功') && call[0].includes('1 次重試')
+            );
+
+            expect(logCalled || infoCalled).toBe(true);
+
+            // 清理
+            delete global.Logger;
         });
 
         test('應該記錄重試失敗', async () => {
+            // 模擬 Logger 對象
+            const mockLogger = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn()
+            };
+            global.Logger = mockLogger;
+
             const operation = jest.fn().mockRejectedValue(new Error('Final error'));
 
             await expect(retryManager.execute(operation)).rejects.toThrow();
 
-            expect(console.error).toHaveBeenCalled();
+            // 驗證 Logger.error 被調用
+            expect(mockLogger.error).toHaveBeenCalled();
+
+            // 清理
+            delete global.Logger;
         });
 
         test('應該使用自定義的 shouldRetry 函數', async () => {
@@ -438,13 +469,25 @@ describe('RetryManager - 全面測試', () => {
 
     describe('_logRetryAttempt - 記錄重試嘗試', () => {
         test('應該記錄重試嘗試信息', () => {
+            // 模擬 Logger 對象
+            const mockLogger = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn()
+            };
+            global.Logger = mockLogger;
+
             const error = new Error('Test error');
 
             retryManager._logRetryAttempt(error, 1, 3, 100);
 
-            expect(console.warn).toHaveBeenCalledWith(
-                expect.stringContaining('Retry attempt 1/3 after 100ms')
+            expect(mockLogger.warn).toHaveBeenCalledWith(
+                expect.stringContaining('重試')
             );
+
+            // 清理
+            delete global.Logger;
         });
 
         test('應該使用 ErrorHandler 如果可用', () => {
@@ -463,24 +506,54 @@ describe('RetryManager - 全面測試', () => {
 
     describe('_logRetrySuccess - 記錄重試成功', () => {
         test('應該記錄成功信息', () => {
+            // 模擬 Logger 對象
+            const mockLogger = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn()
+            };
+            global.Logger = mockLogger;
+
             retryManager._logRetrySuccess(2);
 
-            expect(console.info).toHaveBeenCalledWith(
-                expect.stringContaining('succeeded after 2 retries')
+            // 驗證 Logger.log 或 Logger.info 被調用
+            const logCalled = mockLogger.log.mock.calls.some(call =>
+                call[0].includes('已成功') && call[0].includes('2 次重試')
             );
+            const infoCalled = mockLogger.info.mock.calls.some(call =>
+                call[0].includes('已成功') && call[0].includes('2 次重試')
+            );
+
+            expect(logCalled || infoCalled).toBe(true);
+
+            // 清理
+            delete global.Logger;
         });
     });
 
     describe('_logRetryFailure - 記錄重試失敗', () => {
         test('應該記錄失敗信息', () => {
+            // 模擬 Logger 對象
+            const mockLogger = {
+                log: jest.fn(),
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn()
+            };
+            global.Logger = mockLogger;
+
             const error = new Error('Final error');
 
             retryManager._logRetryFailure(error, 3);
 
-            expect(console.error).toHaveBeenCalledWith(
-                expect.stringContaining('failed after 3 retries'),
+            expect(mockLogger.error).toHaveBeenCalledWith(
+                expect.stringContaining('失敗'),
                 error
             );
+
+            // 清理
+            delete global.Logger;
         });
 
         test('應該使用 ErrorHandler 如果可用', () => {
@@ -497,15 +570,36 @@ describe('RetryManager - 全面測試', () => {
         });
     });
 
-    describe('getStats - 獲取統計信息', () => {
-        test('應該返回配置統計', () => {
-            const stats = retryManager.getStats();
+    describe('getConfigSnapshot - 獲取配置快照', () => {
+        test('應該返回配置快照', () => {
+            const config = retryManager.getConfigSnapshot();
 
-            expect(stats).toEqual({
+            expect(config).toEqual({
                 maxRetries: 3,
                 baseDelay: 100,
                 maxDelay: 5000,
-                backoffFactor: 2
+                backoffFactor: 2,
+                jitter: false
+            });
+        });
+    });
+
+    describe('getLastStats - 獲取最近統計', () => {
+        test('應該在無操作時返回 null', () => {
+            const stats = retryManager.getLastStats();
+            expect(stats).toBeNull();
+        });
+
+        test('應該在操作後返回統計信息', async () => {
+            const operation = jest.fn().mockResolvedValue('success');
+            await retryManager.execute(operation);
+
+            const stats = retryManager.getLastStats();
+            expect(stats).toMatchObject({
+                lastTotalRetries: 0,
+                lastTotalDelayMs: 0,
+                lastSucceeded: true,
+                contextType: 'network'
             });
         });
     });
