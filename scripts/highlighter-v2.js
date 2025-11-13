@@ -304,10 +304,10 @@ const logger = (() => {
                     await chrome.storage.local.set({
                         [`migration_completed_${normalizedUrl}`]: {
                             timestamp: Date.now(),
-                            oldKey: oldKey,
+                            oldKey,
                             totalCount: legacyData.length,
-                            successCount: successCount,
-                            failCount: failCount
+                            successCount,
+                            failCount
                         }
                     });
                 }
@@ -2156,8 +2156,8 @@ const logger = (() => {
         // 全局引用
         // 保留 observer 與監聽器綁定狀態於全域對象，避免被 GC 或重複綁定
         window.notionHighlighter = {
-            manager: manager,
-            toolbar: toolbar,
+            manager,
+            toolbar,
             isActive: () => isActive,
             toggle: toggleHighlightMode,
             show: () => {
