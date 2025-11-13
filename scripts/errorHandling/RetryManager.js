@@ -283,11 +283,7 @@ class RetryManager {
         }
 
         // 元素暫時不可訪問
-        if (name === 'NotFoundError' || msg.includes('not found')) {
-            return true;
-        }
-
-        return false;
+        return name === 'NotFoundError' || msg.includes('not found');
     }
 
     /**
