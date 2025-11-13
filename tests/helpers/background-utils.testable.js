@@ -332,8 +332,14 @@ function isValidNotionBlock(block) {
         return false;
     }
 
+    // 驗證類型字段名稱的有效性
+    const typeFieldName = block.type;
+    if (typeof typeFieldName !== 'string' || !typeFieldName) {
+        return false;
+    }
+
     // 必須有對應類型的內容字段
-    if (!block[block.type]) {
+    if (!block[typeFieldName]) {
         return false;
     }
 

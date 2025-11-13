@@ -4,6 +4,15 @@
  */
 
 /**
+ * 驗證字串是否有效且非空
+ * @param {*} value - 待驗證的值
+ * @returns {boolean} 是否為有效的非空字串
+ */
+function isValidNonEmptyString(value) {
+    return Boolean(value && typeof value === 'string' && value.trim());
+}
+
+/**
  * 轉換背景顏色到顏色名稱
  * @param {string} bgColor - 背景顏色（hex 或 rgb）
  * @returns {string} 顏色名稱
@@ -19,7 +28,7 @@ function convertBgColorToName(bgColor) {
         'rgb(248, 215, 218)': 'red',
         '#f8d7da': 'red'
     };
-    
+
     return colorMap[bgColor] || 'yellow';
 }
 
@@ -32,18 +41,18 @@ function validateHighlightData(highlightData) {
     if (!highlightData || typeof highlightData !== 'object') {
         return false;
     }
-    
+
     // 必須有 text 或 content
     if (!highlightData.text && !highlightData.content) {
         return false;
     }
-    
+
     // text 不能為空
     const text = highlightData.text || highlightData.content;
-    if (typeof text !== 'string' || text.trim().length === 0) {
+    if (!isValidNonEmptyString(text)) {
         return false;
     }
-    
+
     return true;
 }
 
@@ -60,20 +69,20 @@ function normalizeHighlightData(rawData) {
             timestamp: Date.now()
         };
     }
-    
+
     const normalized = {
         text: rawData.text || rawData.content || '',
         color: 'yellow',
         timestamp: rawData.timestamp || Date.now()
     };
-    
+
     // 處理顏色
     if (rawData.color) {
         normalized.color = rawData.color;
     } else if (rawData.bgColor || rawData.backgroundColor) {
         normalized.color = convertBgColorToName(rawData.bgColor || rawData.backgroundColor);
     }
-    
+
     return normalized;
 }
 
@@ -95,57 +104,64 @@ function validateRangeInfo(rangeInfo) {
     if (!rangeInfo || typeof rangeInfo !== 'object') {
         return false;
     }
-    
+
     // 必須包含起始和結束容器路徑
-    if (!Array.isArray(rangeInfo.startContainerPath) || 
+    if (!Array.isArray(rangeInfo.startContainerPath) ||
         !Array.isArray(rangeInfo.endContainerPath)) {
         return false;
     }
-    
+
     // 必須包含偏移量
-    if (typeof rangeInfo.startOffset !== 'number' || 
+    if (typeof rangeInfo.startOffset !== 'number' ||
         typeof rangeInfo.endOffset !== 'number') {
         return false;
     }
-    
+
     // 偏移量不能為負數
     if (rangeInfo.startOffset < 0 || rangeInfo.endOffset < 0) {
         return false;
     }
-    
-    // 必須包含文本
-    if (typeof rangeInfo.text !== 'string' || rangeInfo.text.length === 0) {
+
+    // 必須包含有效的非空文本
+    const text = rangeInfo.text;
+    if (!isValidNonEmptyString(text)) {
         return false;
     }
-    
+
     return true;
 }
 
 /**
- * 驗證節點路徑步驟
- * @param {Object} step - 路徑步驟
- * @returns {boolean} 是否有效
+ * 驗證路徑步驟的有效性
+ * @param {Object} step - DOM 路徑步驟對象
+ * @param {string} step.type - 步驟類型（'element' 或 'text'）
+ * @param {number} step.index - 節點索引
+ * @param {string} [step.tag] - 元素標籤名（當 type 為 'element' 時必需）
+ * @returns {boolean} 步驟是否有效
  */
 function validatePathStep(step) {
+    // 基本對象檢查
     if (!step || typeof step !== 'object') {
         return false;
     }
-    
+
     // 必須有類型
     if (!step.type || (step.type !== 'element' && step.type !== 'text')) {
         return false;
     }
-    
+
     // 必須有索引
     if (typeof step.index !== 'number' || step.index < 0) {
         return false;
     }
-    
-    // 如果是元素類型，必須有標籤名
-    if (step.type === 'element' && (!step.tag || typeof step.tag !== 'string')) {
-        return false;
+
+    // 元素類型步驟必須有有效的標籤
+    if (step.type === 'element') {
+        if (!isValidNonEmptyString(step.tag)) {
+            return false;
+        }
     }
-    
+
     return true;
 }
 
@@ -158,12 +174,12 @@ function validateNodePath(path) {
     if (!Array.isArray(path)) {
         return false;
     }
-    
+
     // 路徑不能為空
     if (path.length === 0) {
         return false;
     }
-    
+
     // 每個步驟都必須有效
     return path.every(step => validatePathStep(step));
 }
@@ -178,7 +194,7 @@ function calculateMigrationSuccessRate(successCount, totalCount) {
     if (totalCount === 0) {
         return 0;
     }
-    
+
     return Math.round((successCount / totalCount) * 100);
 }
 
@@ -191,14 +207,14 @@ function calculateMigrationSuccessRate(successCount, totalCount) {
  */
 function generateMigrationReport(successCount, failCount, totalCount) {
     const successRate = calculateMigrationSuccessRate(successCount, totalCount);
-    
+
     return {
         successCount,
         failCount,
         totalCount,
         successRate,
-        status: successRate === 100 ? 'complete' : 
-                successRate > 50 ? 'partial' : 
+        status: successRate === 100 ? 'complete' :
+                successRate > 50 ? 'partial' :
                 successRate > 0 ? 'minimal' : 'failed',
         timestamp: Date.now()
     };
@@ -213,7 +229,7 @@ function cleanText(text) {
     if (typeof text !== 'string') {
         return '';
     }
-    
+
     return text.trim().replace(/\s+/g, ' ');
 }
 
@@ -227,10 +243,10 @@ function isTextSimilar(text1, text2) {
     if (typeof text1 !== 'string' || typeof text2 !== 'string') {
         return false;
     }
-    
+
     const clean1 = cleanText(text1);
     const clean2 = cleanText(text2);
-    
+
     return clean1 === clean2;
 }
 
@@ -253,12 +269,12 @@ function formatTimestamp(timestamp) {
     if (typeof timestamp !== 'number' || timestamp <= 0) {
         return 'Invalid Date';
     }
-    
+
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) {
         return 'Invalid Date';
     }
-    
+
     return date.toISOString();
 }
 
@@ -268,10 +284,10 @@ function formatTimestamp(timestamp) {
  * @returns {string} 存儲鍵名
  */
 function createStorageKey(url) {
-    if (typeof url !== 'string' || url.trim().length === 0) {
+    if (!isValidNonEmptyString(url)) {
         return null;
     }
-    
+
     return `highlights_${url}`;
 }
 
@@ -284,7 +300,7 @@ function parseStorageKey(key) {
     if (typeof key !== 'string' || !key.startsWith('highlights_')) {
         return null;
     }
-    
+
     return key.substring('highlights_'.length);
 }
 
@@ -303,10 +319,10 @@ function isMigrationCompletionKey(key) {
  * @returns {string} 遷移完成鍵名
  */
 function createMigrationCompletionKey(url) {
-    if (typeof url !== 'string' || url.trim().length === 0) {
+    if (!isValidNonEmptyString(url)) {
         return null;
     }
-    
+
     return `migration_completed_${url}`;
 }
 
@@ -319,7 +335,7 @@ function filterValidHighlights(highlights) {
     if (!Array.isArray(highlights)) {
         return [];
     }
-    
+
     return highlights.filter(h => validateHighlightData(h));
 }
 
@@ -332,7 +348,7 @@ function countHighlightsByColor(highlights) {
     if (!Array.isArray(highlights)) {
         return {};
     }
-    
+
     const counts = {
         yellow: 0,
         green: 0,
@@ -340,7 +356,7 @@ function countHighlightsByColor(highlights) {
         red: 0,
         other: 0
     };
-    
+
     highlights.forEach(h => {
         const color = h.color || 'yellow';
         if (Object.prototype.hasOwnProperty.call(counts, color)) {
@@ -349,13 +365,14 @@ function countHighlightsByColor(highlights) {
             counts.other++;
         }
     });
-    
+
     return counts;
 }
 
 // Node.js 環境導出
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
+        isValidNonEmptyString,
         convertBgColorToName,
         validateHighlightData,
         normalizeHighlightData,
