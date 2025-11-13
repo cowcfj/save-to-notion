@@ -28,6 +28,11 @@ const HttpStatusRanges = {
 };
 
 /**
+ * 允許重試的特定 4xx 狀態碼
+ */
+const RetriableClientErrors = new Set([408, 429]);
+
+/**
  * 錯誤嚴重程度
  */
 const ErrorSeverity = {
@@ -204,27 +209,12 @@ class ErrorHandler {
         }
 
         const status = error.status;
+        const isServerError = status >= HttpStatusRanges.SERVER_ERROR_MIN &&
+            status < HttpStatusRanges.SERVER_ERROR_MAX;
+        const isRetriableClientError = RetriableClientErrors.has(status);
 
-        // HTTP 5xx 錯誤可以重試
-        if (status >= HttpStatusRanges.SERVER_ERROR_MIN &&
-            status < HttpStatusRanges.SERVER_ERROR_MAX) {
-            return true;
-        }
-
-        // 特定的可重試 4xx 錯誤（429 Too Many Requests, 408 Request Timeout）
-        const retriableClientErrors = [408, 429];
-        if (retriableClientErrors.includes(status)) {
-            return true;
-        }
-
-        // 其他 4xx 客戶端錯誤不應重試
-        if (status >= HttpStatusRanges.CLIENT_ERROR_MIN &&
-            status < HttpStatusRanges.CLIENT_ERROR_MAX) {
-            return false;
-        }
-
-        // 預設不重試未知狀態碼
-        return false;
+        // 僅允許 5xx 與特定 4xx 進入重試流程，其餘狀態碼一律不重試
+        return isServerError || isRetriableClientError;
     }
 
     /**
