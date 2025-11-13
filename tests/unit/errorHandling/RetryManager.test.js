@@ -24,14 +24,14 @@ function createAbortController() {
     get signal() {
       return {
         get aborted() { return aborted; },
-        addEventListener: (evt, cb, opts) => { if (evt === 'abort') listeners.add(cb); },
+        addEventListener: (evt, cb) => { if (evt === 'abort') listeners.add(cb); },
         removeEventListener: (evt, cb) => { if (evt === 'abort') listeners.delete(cb); },
       };
     },
     abort() {
       if (aborted) return;
       aborted = true;
-      listeners.forEach(cb => { try { cb(); } catch (_) {} });
+      listeners.forEach(cb => { try { cb(); } catch (_) { /* empty */ } });
       listeners.clear();
     }
   };
@@ -58,20 +58,20 @@ describe('RetryManager', () => {
     const calls = [];
     const fetchFn = jest.fn()
       // 第一次回傳 503 + Retry-After: 2 秒
-      .mockImplementationOnce(async () => {
+      .mockImplementationOnce(() => {
         calls.push(Date.now());
         return { status: 503, headers: new MockHeaders({ 'Retry-After': '2' }) };
       })
       // 第二次回傳成功 200
-      .mockImplementationOnce(async () => {
+      .mockImplementationOnce(() => {
         calls.push(Date.now());
-        return { status: 200, ok: true, headers: new MockHeaders() };
+        return Promise.resolve({ status: 200, ok: true, headers: new MockHeaders() });
       });
 
     const rm = new RetryManager({ baseDelay: 100, jitter: false });
     const wrapped = rm.wrapFetch(fetchFn);
 
-    const p = wrapped('https://example.com');
+    const fetchPromise = wrapped('https://example.com');
     // 需要先讓第一個請求 resolve 並處理錯誤、啟動延遲
     await Promise.resolve();
     await Promise.resolve();
@@ -85,7 +85,7 @@ describe('RetryManager', () => {
     await advance(1);
     expect(fetchFn).toHaveBeenCalledTimes(2);
 
-    const res = await p;
+    const res = await fetchPromise;
     expect(res.status).toBe(200);
 
     const stats = rm.getLastStats();
@@ -97,19 +97,19 @@ describe('RetryManager', () => {
   test('fetch: 429 並帶 HTTP 日期 Retry-After 應重試', async () => {
     // 使用秒數格式的 Retry-After
     const fetchFn = jest.fn()
-      .mockImplementationOnce(async () => ({
+      .mockImplementationOnce(() => Promise.resolve({
         status: 429,
         headers: new MockHeaders({ 'Retry-After': '1.5' }) // 1.5 秒 = 1500ms
       }))
-      .mockImplementationOnce(async () => ({
+      .mockImplementationOnce(() => Promise.resolve({
         status: 200,
         ok: true,
         headers: new MockHeaders()
       }));
 
-    const rm = new RetryManager({ baseDelay: 10, jitter: false });
-    const wrapped = rm.wrapFetch(fetchFn);
-    const p = wrapped('https://example.com');
+    const retryManager = new RetryManager({ baseDelay: 10, jitter: false });
+    const wrapped = retryManager.wrapFetch(fetchFn);
+    const fetchPromise = wrapped('https://example.com');
 
     // 讓第一次請求執行並啟動延遲
     await Promise.resolve();
@@ -122,7 +122,7 @@ describe('RetryManager', () => {
     await advance(1500);
     expect(fetchFn).toHaveBeenCalledTimes(2);
 
-    const res = await p;
+    const res = await fetchPromise;
     expect(res.status).toBe(200);
   });
 
@@ -131,9 +131,9 @@ describe('RetryManager', () => {
     const rm = new RetryManager({});
     const wrapped = rm.wrapFetch(fetchFn);
 
-    const p = wrapped('https://example.com');
+    const fetchPromise = wrapped('https://example.com');
     await Promise.resolve();
-    const res = await p;
+    const res = await fetchPromise;
 
     expect(fetchFn).toHaveBeenCalledTimes(1);
     expect(res.status).toBe(404);
@@ -162,15 +162,15 @@ describe('RetryManager', () => {
     const op = jest.fn().mockImplementation(() => {
       count += 1;
       if (count <= 2) {
-        const e = new Error('Network glitch');
-        e.name = 'NetworkError';
-        throw e;
+        const networkError = new Error('Network glitch');
+        networkError.name = 'NetworkError';
+        throw networkError;
       }
       return 'OK';
     });
 
     const rm = new RetryManager({ baseDelay: 100, jitter: false });
-    const p = rm.execute(op);
+    const executionPromise = rm.execute(op);
 
     // 第一次失敗 => 安排重試 after 100ms
     await Promise.resolve();
@@ -178,7 +178,7 @@ describe('RetryManager', () => {
     // 第二次失敗 => 安排重試 after 200ms（backoffFactor=2）
     await advance(200);
 
-    const result = await p;
+    const result = await executionPromise;
     expect(result).toBe('OK');
     expect(op).toHaveBeenCalledTimes(3);
 
@@ -191,62 +191,62 @@ describe('RetryManager', () => {
     const controller = createAbortController();
 
     const op = jest.fn().mockImplementation(() => {
-      const e = new Error('Temporary');
-      e.name = 'NetworkError';
-      throw e;
+      const tempError = new Error('Temporary');
+      tempError.name = 'NetworkError';
+      throw tempError;
     });
 
     const rm = new RetryManager({ baseDelay: 500, jitter: false });
 
-    const p = rm.execute(op, { signal: controller.signal });
+    const executePromise = rm.execute(op, { signal: controller.signal });
     await Promise.resolve();
 
     // 立刻取消，仍在等待第一次重試延遲
     controller.abort();
 
-    await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(executePromise).rejects.toMatchObject({ name: 'AbortError' });
   });
 
   test('execute: totalTimeoutMs 應限制總重試時長並拋出 TimeoutError', async () => {
     const op = jest.fn().mockImplementation(() => {
-      const e = new Error('Temporary');
-      e.name = 'NetworkError';
-      throw e;
+      const networkError = new Error('Temporary');
+      networkError.name = 'NetworkError';
+      throw networkError;
     });
 
     const rm = new RetryManager({ baseDelay: 200, jitter: false });
-    const p = rm.execute(op, { totalTimeoutMs: 250 });
+    const executionPromise = rm.execute(op, { totalTimeoutMs: 250 });
 
     // 第一次失敗後準備等待 200ms
     await Promise.resolve();
     await advance(200);
     // 第二次失敗後預期 400ms，但總時長限制 250 => 直接 TimeoutError
-    await expect(p).rejects.toMatchObject({ name: 'TimeoutError' });
+    await expect(executionPromise).rejects.toMatchObject({ name: 'TimeoutError' });
   });
 
   test('execute: jitter 使用可注入 random 以確保決定性', async () => {
     let invoked = 0;
-    const op = jest.fn().mockImplementation(() => {
+    const operation = jest.fn().mockImplementation(() => {
       invoked += 1;
       if (invoked === 1) {
-        const e = new Error('Temporary');
-        e.name = 'NetworkError';
-        throw e;
+        const error = new Error('Temporary');
+        error.name = 'NetworkError';
+        throw error;
       }
       return 'OK';
     });
 
     // baseDelay=100，backoffFactor=2，第一次計算延遲 => 100
     // jitter 啟用且 random()=0 => 100 * (0.5 + 0*0.5) = 50ms（下取整）
-    const rm = new RetryManager({ baseDelay: 100, jitter: true, backoffFactor: 2 });
-    const p = rm.execute(op, { random: () => 0 });
+    const retryManager = new RetryManager({ baseDelay: 100, jitter: true, backoffFactor: 2 });
+    const executionPromise = retryManager.execute(operation, { random: () => 0 });
 
     await Promise.resolve();
     await advance(50);
 
-    const result = await p;
+    const result = await executionPromise;
     expect(result).toBe('OK');
-    const stats = rm.getLastStats();
+    const stats = retryManager.getLastStats();
     expect(stats.lastTotalRetries).toBe(1);
     expect(stats.lastTotalDelayMs).toBe(50);
   });
@@ -256,9 +256,9 @@ describe('RetryManager', () => {
     const domOp = jest.fn().mockImplementation(() => {
       if (!done) {
         done = true;
-        const e = new Error('Not ready');
-        e.name = 'InvalidStateError';
-        throw e;
+        const invalidStateError = new Error('Not ready');
+        invalidStateError.name = 'InvalidStateError';
+        throw invalidStateError;
       }
       return 42;
     });
@@ -266,11 +266,11 @@ describe('RetryManager', () => {
     const rm = new RetryManager({ baseDelay: 100, jitter: false });
     const wrapped = rm.wrapDomOperation(domOp);
 
-    const p = wrapped();
+    const wrappedPromise = wrapped();
     await Promise.resolve();
     await advance(100);
 
-    const res = await p;
+    const res = await wrappedPromise;
     expect(res).toBe(42);
     const stats = rm.getLastStats();
     expect(stats.contextType).toBe('dom');
