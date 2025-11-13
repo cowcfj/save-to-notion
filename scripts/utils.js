@@ -4,7 +4,7 @@
 
 // ===== Safe Logger Abstraction =====
 // 創建一個安全的 Logger 抽象，避免重複的 typeof 檢查
-var safeLogger = (function initSafeLoggerSingleton() {
+const safeLogger = (function initSafeLoggerSingleton() {
     if (typeof window !== 'undefined' && window.__NOTION_SAFE_LOGGER__) {
         return window.__NOTION_SAFE_LOGGER__;
     }
