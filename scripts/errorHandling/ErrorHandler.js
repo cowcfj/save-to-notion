@@ -18,6 +18,16 @@ const ErrorTypes = {
 };
 
 /**
+ * HTTP 狀態碼範圍常數
+ */
+const HttpStatusRanges = {
+    CLIENT_ERROR_MIN: 400,
+    CLIENT_ERROR_MAX: 500,
+    SERVER_ERROR_MIN: 500,
+    SERVER_ERROR_MAX: 600
+};
+
+/**
  * 錯誤嚴重程度
  */
 const ErrorSeverity = {
@@ -188,21 +198,32 @@ class ErrorHandler {
             return true;
         }
 
-        // HTTP 5xx 錯誤可以重試
-        if (error.status >= 500 && error.status < 600) {
-            return true;
-        }
-
-        // 429 (Too Many Requests) 可以重試
-        if (error.status === 429) {
-            return true;
-        }
-
-        // 4xx 客戶端錯誤通常不應重試
-        if (error.status >= 400 && error.status < 500) {
+        // 防禦性檢查：確保 status 存在且為數字
+        if (!error || typeof error.status !== 'number') {
             return false;
         }
 
+        const status = error.status;
+
+        // HTTP 5xx 錯誤可以重試
+        if (status >= HttpStatusRanges.SERVER_ERROR_MIN &&
+            status < HttpStatusRanges.SERVER_ERROR_MAX) {
+            return true;
+        }
+
+        // 特定的可重試 4xx 錯誤（429 Too Many Requests, 408 Request Timeout）
+        const retriableClientErrors = [408, 429];
+        if (retriableClientErrors.includes(status)) {
+            return true;
+        }
+
+        // 其他 4xx 客戶端錯誤不應重試
+        if (status >= HttpStatusRanges.CLIENT_ERROR_MIN &&
+            status < HttpStatusRanges.CLIENT_ERROR_MAX) {
+            return false;
+        }
+
+        // 預設不重試未知狀態碼
         return false;
     }
 
