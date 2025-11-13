@@ -1011,7 +1011,7 @@ const logger = (() => {
          * @param {Object} rangeInfo - 序列化的範圍信息
          * @param {string} expectedText - 期望的文本內容（用於驗證）
          */
-        deserializeRange(rangeInfo, expectedText) {
+        static deserializeRange(rangeInfo, expectedText) {
             try {
                 // 檢查必要的參數
                 if (!rangeInfo) {
@@ -1230,7 +1230,7 @@ const logger = (() => {
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
                     // 首先嘗試標準反序列化
-                    const range = this.deserializeRange(rangeInfo, text);
+                    const range = HighlightManager.deserializeRange(rangeInfo, text);
                     if (range && HighlightManager.validateRange(range, text)) {
                         return range;
                     }
