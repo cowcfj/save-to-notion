@@ -1,6 +1,6 @@
 # 變更日誌 (CHANGELOG)
 
-## [Unreleased]
+## v2.11.0 - 2025-11-14
 
 ### ✨ 新功能
 
@@ -184,6 +184,21 @@
   - 新增 `.category-badge` CSS 類（綠色系）
   - 與現有的 `.workspace-badge` 和 `.container-badge` 形成完整體系
   - 三色標記系統：藍色（workspace）、橙色（容器）、綠色（分類）
+
+### 🛡️ 錯誤處理與腳本注入
+
+- **錯誤處理模組動態載入**：為錯誤處理模組與 RetryManager 增加動態載入與初始化守衛，避免在非預期環境中載入失敗，並統一錯誤日誌格式與統計欄位。
+- **重構重試邏輯**：將可重試 HTTP 狀態碼與網路錯誤判斷提取為常數與輔助函數，強化邊界檢查並簡化 `_shouldRetryNetworkError`、`ErrorHandler` 的分支邏輯。
+- **ScriptInjector 輔助函數**：新增腳本注入輔助函數，專門處理 `chrome-extension://` 等受限網址與注入失敗情境，提供更安全的錯誤處理與一致的日誌輸出（PR #101）。
+
+### 🧪 測試與代碼品質
+
+- **高亮模組重構**：將多個高亮相關方法（如 `deserializeRange`、HighlightManager 方法）改為靜態方法，移除多餘的確認對話框，並新增 `isValidNonEmptyString` 工具函數，用於嚴格驗證非空字串輸入，提升可重用性與可測性。
+- **PerformanceOptimizer 與工具函數清理**：將 `_analyzeSystemPerformance` 等方法簡化為同步/靜態實作，移除不必要的 async 標記與全域 Logger 依賴，並以 Promise 包裝獲取 API Key 等流程，使 async/await 調用鏈更一致。
+- **DeepSource 警告修復**：
+  - 移除多餘的錯誤參數與空 catch 變數，統一錯誤物件日誌格式（包含原始 error），避免靜態分析警告。
+  - 使用物件屬性速記語法、調整 `use strict` 位置與輔助函數命名（例如清理圖片 URL 函數），提升代碼可讀性與一致性。
+- **內容與測試細節調整**：更新標註恢復腳本與頁面複雜度檢測的錯誤處理邏輯，修正覆蓋率保存流程的小問題，並統一測試文件中的中文註釋用詞，讓測試描述更清晰易懂。
 
 ## v2.10.3 - 2025-11-10
 
