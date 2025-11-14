@@ -32,6 +32,11 @@
       "string": false,
       "disallowTemplateShorthand": false
     }],
+    "object-shorthand": ["warn", "always", {
+      "avoidQuotes": true,
+      "ignoreConstructors": false,
+      "avoidExplicitReturnArrows": false
+    }],
 
     "regexp/no-invalid-regexp": "error",
     "regexp/no-unused-capturing-group": "warn",
