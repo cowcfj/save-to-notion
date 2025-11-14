@@ -1037,22 +1037,13 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendRe
     Logger.log(`📊 Total blocks to save: ${validBlocks.length}, Image blocks: ${validBlocks.filter(b => b.type === 'image').length}`);
 
     // 根據類型設置 parent（支援 page 和 data_source）
-    let parentConfig;
-    if (dataSourceType === 'page') {
-        // 保存為頁面的子頁面
-        parentConfig = {
-            type: 'page_id',
-            page_id: dataSourceId
-        };
-        Logger.log(`📄 保存為頁面的子頁面: ${dataSourceId}`);
-    } else {
-        // 保存為數據庫條目（默認行為）
-        parentConfig = {
-            type: 'data_source_id',
-            data_source_id: dataSourceId
-        };
-        Logger.log(`📊 保存為數據庫條目: ${dataSourceId}`);
-    }
+    const parentConfig = dataSourceType === 'page'
+        ? { type: 'page_id', page_id: dataSourceId }
+        : { type: 'data_source_id', data_source_id: dataSourceId };
+    
+    Logger.log(dataSourceType === 'page' 
+        ? `📄 保存為頁面的子頁面: ${dataSourceId}`
+        : `📊 保存為數據庫條目: ${dataSourceId}`);
 
     const pageData = {
         parent: parentConfig,
