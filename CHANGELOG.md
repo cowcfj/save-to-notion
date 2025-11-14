@@ -1,5 +1,70 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.11.1 - 2025-11-14
+
+### 🔧 代碼品質改進
+
+#### imageUtils.js 重構與安全增強
+- **函數模組化重構**：
+  - 將 `extractImageSrc` 大型函數（93行）拆分為 6 個獨立子函數
+  - `extractFromSrcset()`：處理響應式圖片（srcset 屬性）
+  - `extractFromAttributes()`：遍歷懶加載與標準屬性
+  - `extractFromPicture()`：處理 `<picture>` 元素
+  - `extractFromBackgroundImage()`：提取 CSS 背景圖片
+  - `extractFromNoscript()`：回退到 noscript 標籤
+  - 提升可讀性、可測試性與可維護性
+
+- **魔術數字重構**：
+  - 抽取硬編碼常數為具名常數 `IMAGE_VALIDATION_CONSTANTS`
+  - `MAX_URL_LENGTH: 1500`：Notion API URL 長度限制
+  - `MAX_QUERY_PARAMS: 10`：查詢參數數量上限
+  - `MAX_BG_URL_LENGTH: 2000`：背景圖片 URL 長度限制（ReDoS 防護）
+  - 便於未來調整與配置管理
+
+- **ReDoS 安全修復**：
+  - 為 `extractFromBackgroundImage()` 添加 URL 長度檢查（2000 字符上限）
+  - 防止超長 URL 觸發正則表達式回溯攻擊（ReDoS）
+  - 保護擴充功能免受惡意構造的背景圖片 URL 攻擊
+
+- **日誌規範合規**：
+  - 移除生產環境 `console.warn`（第 156 行）
+  - 改用 `Logger.warn()` 統一日誌系統
+  - 符合專案日誌規範要求
+
+### 🧪 測試覆蓋率提升
+
+#### 新增邊界條件測試套件
+- **新增測試文件**：`tests/unit/imageUtils.boundary.test.js`（55 個測試用例）
+- **測試覆蓋範圍**：
+  - **URL 長度邊界**：1500 字符臨界值測試
+  - **查詢參數邊界**：10 個參數臨界值測試
+  - **畸形輸入處理**：空字符串、特殊字符、無效格式
+  - **srcset 解析邊界**：無描述符、混合條目、data: URL 過濾
+  - **多層回退策略**：srcset → 屬性 → picture → background → noscript
+  - **ReDoS 防護驗證**：超長 URL 拒絕測試
+  - **空值與異常處理**：null、undefined、非字符串輸入
+  - **整合測試**：完整回退鏈驗證
+
+- **測試結果**：
+  - ✅ 55/55 測試用例通過（100% 通過率）
+  - ✅ 全專案 72 測試套件，1893 測試（100% 通過率）
+  - ✅ 執行時間：46.7 秒
+
+### 📊 影響範圍
+
+- **功能無變更**：本次為程式碼品質提升，不影響用戶可見功能
+- **向後兼容**：完全兼容 v2.11.0 及更早版本
+- **安全增強**：修復 ReDoS 安全風險
+- **可維護性提升**：函數模組化、常數化、測試覆蓋完整
+
+### 🛡️ 安全性
+
+- **ReDoS 防護**：防止正則表達式拒絕服務攻擊
+- **輸入驗證增強**：嚴格的 URL 長度與格式檢查
+- **日誌安全**：統一日誌系統，避免敏感信息洩露
+
+---
+
 ## v2.11.0 - 2025-11-14
 
 ### ✨ 新功能

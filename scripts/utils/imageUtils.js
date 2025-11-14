@@ -4,6 +4,17 @@
  */
 
 /**
+ * 圖片驗證常數
+ * 用於 URL 長度、參數數量等限制
+ */
+const IMAGE_VALIDATION_CONSTANTS = {
+    MAX_URL_LENGTH: 1500,              // Notion API URL 長度限制
+    MAX_QUERY_PARAMS: 10,              // 查詢參數數量閾值（超過可能為動態 URL）
+    SRCSET_WIDTH_MULTIPLIER: 1000,     // srcset w 描述符權重（優先於 x）
+    MAX_BACKGROUND_URL_LENGTH: 2000    // 背景圖片 URL 最大長度（防止 ReDoS）
+};
+
+/**
  * 清理和標準化圖片 URL
  * @param {string} url - 原始圖片 URL
  * @returns {string|null} 清理後的 URL 或 null（如果無效）
@@ -65,8 +76,8 @@ function isValidImageUrl(url) {
     // 檢查是否為有效的 HTTP/HTTPS URL
     if (!/^https?:\/\//i.test(cleanedUrl)) return false;
 
-    // 檢查 URL 長度（Notion 有限制，保守設置為 1500）
-    if (cleanedUrl.length > 1500) return false;
+    // 檢查 URL 長度（Notion API 限制）
+    if (cleanedUrl.length > IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH) return false;
 
     try {
         const urlObj = new URL(cleanedUrl);
@@ -122,7 +133,7 @@ function isValidImageUrl(url) {
         }
 
         return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
-    } catch (error) {
+    } catch (_error) {
         return false;
     }
 }
@@ -152,13 +163,15 @@ function isNotionCompatibleImageUrl(url) {
 
         // 檢查是否有過多的查詢參數（可能表示動態生成的 URL）
         const paramCount = Array.from(urlObj.searchParams.keys()).length;
-        if (paramCount > 10) {
-            console.warn(`Image URL has too many query parameters (${paramCount}): ${url.substring(0, 100)}`);
+        if (paramCount > IMAGE_VALIDATION_CONSTANTS.MAX_QUERY_PARAMS) {
+            if (typeof Logger !== 'undefined') {
+                Logger.warn(`⚠️ [圖片驗證] URL 查詢參數過多 (${paramCount}): ${url.substring(0, 100)}`);
+            }
             return false;
         }
 
         return true;
-    } catch (error) {
+    } catch (_error) {
         return false;
     }
 }
@@ -215,16 +228,16 @@ function extractBestUrlFromSrcset(srcset) {
             let metric = -1;
             const wMatch = descriptor?.match(/(\d+)w/i);
             const xMatch = descriptor?.match(/(\d+)x/i);
-            
+
             if (wMatch) {
-                metric = parseInt(wMatch[1], 10) * 1000; // w 權重大於 x
+                metric = parseInt(wMatch[1], 10) * IMAGE_VALIDATION_CONSTANTS.SRCSET_WIDTH_MULTIPLIER;
             } else if (xMatch) {
                 metric = parseInt(xMatch[1], 10);
             } else {
                 // 沒有描述，視為最小優先
                 metric = 0;
             }
-            
+
             if (metric > bestMetric) {
                 bestMetric = metric;
                 bestUrl = url;
@@ -236,86 +249,110 @@ function extractBestUrlFromSrcset(srcset) {
 }
 
 /**
- * 從圖片元素中提取最佳的 src URL
+ * 從 srcset 屬性提取 URL
  * @param {HTMLImageElement} imgNode - 圖片元素
- * @returns {string|null} 提取的圖片 URL 或 null
+ * @returns {string|null} 提取的 URL 或 null
  */
-function extractImageSrc(imgNode) {
-    if (!imgNode) return null;
-
-    // 首先檢查 srcset 屬性（響應式圖片）
-    const srcset = imgNode.getAttribute('srcset') || 
-                   imgNode.getAttribute('data-srcset') || 
+function extractFromSrcset(imgNode) {
+    const srcset = imgNode.getAttribute('srcset') ||
+                   imgNode.getAttribute('data-srcset') ||
                    imgNode.getAttribute('data-lazy-srcset');
-    
+
     if (srcset) {
         const bestUrl = extractBestUrlFromSrcset(srcset);
         if (bestUrl) return bestUrl;
     }
+    return null;
+}
 
-    // 檢查各種圖片屬性
+/**
+ * 從圖片屬性提取 URL
+ * @param {HTMLImageElement} imgNode - 圖片元素
+ * @returns {string|null} 提取的 URL 或 null
+ */
+function extractFromAttributes(imgNode) {
     for (const attr of IMAGE_ATTRIBUTES) {
         const value = imgNode.getAttribute(attr);
         if (value?.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
             return value.trim();
         }
     }
+    return null;
+}
 
-    // 檢查 picture 元素的 source
+/**
+ * 從 picture 元素提取 URL
+ * @param {HTMLImageElement} imgNode - 圖片元素
+ * @returns {string|null} 提取的 URL 或 null
+ */
+function extractFromPicture(imgNode) {
     const parentPicture = imgNode.closest('picture');
-    if (parentPicture) {
-        const sources = parentPicture.querySelectorAll('source');
-        for (const source of sources) {
-            const sourceSrcset = source.getAttribute('srcset');
-            if (sourceSrcset) {
-                const bestUrl = extractBestUrlFromSrcset(sourceSrcset);
-                if (bestUrl) return bestUrl;
-            }
+    if (!parentPicture) return null;
+
+    const sources = parentPicture.querySelectorAll('source');
+    for (const source of sources) {
+        const sourceSrcset = source.getAttribute('srcset');
+        if (sourceSrcset) {
+            const bestUrl = extractBestUrlFromSrcset(sourceSrcset);
+            if (bestUrl) return bestUrl;
         }
     }
+    return null;
+}
 
-    // 檢查背景圖片
+/**
+ * 從背景圖片 CSS 屬性提取 URL
+ * @param {HTMLImageElement} imgNode - 圖片元素
+ * @returns {string|null} 提取的 URL 或 null
+ */
+function extractFromBackgroundImage(imgNode) {
     try {
-        if (typeof window !== 'undefined' && window.getComputedStyle) {
-            const computedStyle = window.getComputedStyle(imgNode);
-            let backgroundImage = computedStyle.backgroundImage;
-            
-            // 如果 backgroundImage 不存在，嘗試使用 getPropertyValue
-            if (!backgroundImage && computedStyle.getPropertyValue) {
-                backgroundImage = computedStyle.getPropertyValue('background-image');
+        if (typeof window === 'undefined' || !window.getComputedStyle) {
+            return null;
+        }
+
+        const computedStyle = window.getComputedStyle(imgNode);
+        const backgroundImage = computedStyle.backgroundImage ||
+                              computedStyle.getPropertyValue?.('background-image');
+
+        if (backgroundImage && backgroundImage !== 'none') {
+            // 限制捕獲組長度，防止 ReDoS 攻擊
+            const urlMatch = backgroundImage.match(/url\(['"]?([^'"]{1,2000})['"]?\)/);
+            if (urlMatch?.[1] &&
+                !urlMatch[1].startsWith('data:') &&
+                urlMatch[1].length < IMAGE_VALIDATION_CONSTANTS.MAX_BACKGROUND_URL_LENGTH) {
+                return urlMatch[1];
             }
-            
-            if (backgroundImage && backgroundImage !== 'none') {
-                const urlMatch = backgroundImage.match(/url\(['"]?([^'"]+)['"]?\)/);
-                if (urlMatch?.[1] && !urlMatch[1].startsWith('data:')) {
-                    return urlMatch[1];
-                }
-            }
-            
-            // 檢查父節點的背景圖片
-            const parent = imgNode.parentElement;
-            if (parent) {
-                const parentStyle = window.getComputedStyle(parent);
-                let parentBg = parentStyle.backgroundImage;
-                
-                // 如果 backgroundImage 不存在，嘗試使用 getPropertyValue
-                if (!parentBg && parentStyle.getPropertyValue) {
-                    parentBg = parentStyle.getPropertyValue('background-image');
-                }
-                
-                if (parentBg && parentBg !== 'none') {
-                    const parentMatch = parentBg.match(/url\(['"]?([^'"]+)['"]?\)/);
-                    if (parentMatch?.[1] && !parentMatch[1].startsWith('data:')) {
-                        return parentMatch[1];
-                    }
+        }
+
+        // 檢查父節點的背景圖片
+        const parent = imgNode.parentElement;
+        if (parent) {
+            const parentStyle = window.getComputedStyle(parent);
+            const parentBg = parentStyle.backgroundImage ||
+                           parentStyle.getPropertyValue?.('background-image');
+
+            if (parentBg && parentBg !== 'none') {
+                const parentMatch = parentBg.match(/url\(['"]?([^'"]{1,2000})['"]?\)/);
+                if (parentMatch?.[1] &&
+                    !parentMatch[1].startsWith('data:') &&
+                    parentMatch[1].length < IMAGE_VALIDATION_CONSTANTS.MAX_BACKGROUND_URL_LENGTH) {
+                    return parentMatch[1];
                 }
             }
         }
-    } catch (error) {
+    } catch (_error) {
         // 忽略樣式計算錯誤
     }
+    return null;
+}
 
-    // noscript 回退：尋找鄰近/父節點內的 <noscript><img src="..."></noscript>
+/**
+ * 從 noscript 標籤提取 URL
+ * @param {HTMLImageElement} imgNode - 圖片元素
+ * @returns {string|null} 提取的 URL 或 null
+ */
+function extractFromNoscript(imgNode) {
     try {
         const candidates = [imgNode, imgNode.parentElement].filter(Boolean);
         for (const el of candidates) {
@@ -328,11 +365,27 @@ function extractImageSrc(imgNode) {
                 }
             }
         }
-    } catch (error) {
+    } catch (_error) {
         // 忽略 noscript 解析錯誤
     }
-
     return null;
+}
+
+/**
+ * 從圖片元素中提取最佳的 src URL
+ * 使用多層回退策略：srcset → 屬性 → picture → background → noscript
+ *
+ * @param {HTMLImageElement} imgNode - 圖片元素
+ * @returns {string|null} 提取的圖片 URL 或 null
+ */
+function extractImageSrc(imgNode) {
+    if (!imgNode) return null;
+
+    return extractFromSrcset(imgNode) ||
+           extractFromAttributes(imgNode) ||
+           extractFromPicture(imgNode) ||
+           extractFromBackgroundImage(imgNode) ||
+           extractFromNoscript(imgNode);
 }
 
 /**
@@ -342,12 +395,12 @@ function extractImageSrc(imgNode) {
  */
 function generateImageCacheKey(imgNode) {
     if (!imgNode) return '';
-    
+
     const src = imgNode.getAttribute('src') || '';
     const dataSrc = imgNode.getAttribute('data-src') || '';
     const className = imgNode.className || '';
     const id = imgNode.id || '';
-    
+
     return `${src}|${dataSrc}|${className}|${id}`;
 }
 
@@ -361,7 +414,14 @@ if (typeof module !== 'undefined' && module.exports) {
         extractImageSrc,
         extractBestUrlFromSrcset,
         generateImageCacheKey,
-        IMAGE_ATTRIBUTES
+        IMAGE_ATTRIBUTES,
+        IMAGE_VALIDATION_CONSTANTS,
+        // 導出子函數供測試使用
+        extractFromSrcset,
+        extractFromAttributes,
+        extractFromPicture,
+        extractFromBackgroundImage,
+        extractFromNoscript
     };
 } else if (typeof window !== 'undefined') {
     // 瀏覽器環境
@@ -372,6 +432,7 @@ if (typeof module !== 'undefined' && module.exports) {
         extractImageSrc,
         extractBestUrlFromSrcset,
         generateImageCacheKey,
-        IMAGE_ATTRIBUTES
+        IMAGE_ATTRIBUTES,
+        IMAGE_VALIDATION_CONSTANTS
     };
 }

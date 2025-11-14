@@ -137,7 +137,7 @@ describe('HighlightManager.waitForDOMStability', () => {
                                 subtree: true
                             });
                             scheduleStabilityCheck();
-                        } catch (error) {
+                        } catch (_error) {
                             cleanup();
                             resolve(false);
                         }

@@ -39,7 +39,7 @@ module.exports = {
           urlObj.pathname = pathname;
 
           return urlObj.href;
-        } catch (error) {
+        } catch (_error) {
           return url;
         }
       }
@@ -100,7 +100,7 @@ module.exports = {
           const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext));
 
           return hasImageExtension || pathname.includes('/image') || url.includes('image');
-        } catch (error) {
+        } catch (_error) {
           return false;
         }
       }

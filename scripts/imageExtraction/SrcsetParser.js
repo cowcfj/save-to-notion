@@ -49,7 +49,7 @@ class SrcsetParser {
         // 分割 URL 和描述符
         const parts = entryString.split(/\s+/);
         const url = parts[0];
-        
+
         if (!url || url.startsWith('data:')) {
             return null;
         }
@@ -178,7 +178,7 @@ class SrcsetParser {
         try {
             const entries = this.parseSrcsetEntries(srcsetString);
             return entries.length > 0;
-        } catch (error) {
+        } catch (_error) {
             return false;
         }
     }
@@ -190,7 +190,7 @@ class SrcsetParser {
      */
     static getStats(srcsetString) {
         const entries = this.parseSrcsetEntries(srcsetString);
-        
+
         const stats = {
             totalEntries: entries.length,
             widthEntries: 0,
