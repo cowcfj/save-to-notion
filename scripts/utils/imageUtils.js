@@ -4,6 +4,24 @@
  */
 
 /**
+ * Logger 回退機制
+ * 優先使用全域 Logger（來自 utils.js），不存在時回退到 console
+ */
+const Logger = (function() {
+    if (typeof window !== 'undefined' && window.Logger) {
+        return window.Logger;
+    }
+    // 回退到 console，確保所有方法都存在
+    return {
+        log: () => { /* 生產環境不輸出 */ },
+        debug: () => { /* 生產環境不輸出 */ },
+        info: () => { /* 生產環境不輸出 */ },
+        warn: console.warn.bind(console),
+        error: console.error.bind(console)
+    };
+})();
+
+/**
  * 圖片驗證常數
  * 用於 URL 長度、參數數量等限制
  */
@@ -28,9 +46,7 @@ function cleanImageUrl(url, depth = 0) {
     // 遞歸深度檢查：防止惡意構造的嵌套代理 URL 導致堆疊溢出或 ReDoS
     if (depth > IMAGE_VALIDATION_CONSTANTS.MAX_RECURSION_DEPTH) {
         const errorMsg = `⚠️ [安全] 代理 URL 遞歸深度超過限制 (${depth}/${IMAGE_VALIDATION_CONSTANTS.MAX_RECURSION_DEPTH})`;
-        if (typeof Logger !== 'undefined') {
-            Logger.error(errorMsg);
-        }
+        Logger.error(errorMsg);
         throw new Error(errorMsg);
     }
 
@@ -245,9 +261,7 @@ function isNotionCompatibleImageUrl(url) {
         // 檢查是否有過多的查詢參數（可能表示動態生成的 URL）
         const paramCount = Array.from(urlObj.searchParams.keys()).length;
         if (paramCount > IMAGE_VALIDATION_CONSTANTS.MAX_QUERY_PARAMS) {
-            if (typeof Logger !== 'undefined') {
-                Logger.warn(`⚠️ [圖片驗證] URL 查詢參數過多 (${paramCount}): ${url.substring(0, 100)}`);
-            }
+            Logger.warn(`⚠️ [圖片驗證] URL 查詢參數過多 (${paramCount}): ${url.substring(0, 100)}`);
             return false;
         }
 

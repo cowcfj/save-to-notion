@@ -41,7 +41,7 @@ describe('imageUtils - 邊界條件測試', () => {
         });
 
         test('應拒絕長度遠超過限制的 URL', () => {
-            const url = 'https://example.com/' + 'a'.repeat(5000) + '.jpg';
+            const url = `https://example.com/${'a'.repeat(5000)}.jpg`;
             expect(isValidImageUrl(url)).toBe(false);
         });
 
@@ -132,6 +132,7 @@ describe('imageUtils - 邊界條件測試', () => {
         });
 
         test('應處理 undefined 輸入', () => {
+            // 顯式傳遞 undefined 以測試邊界條件，而非省略參數
             expect(cleanImageUrl(undefined)).toBeNull();
         });
 
@@ -180,6 +181,7 @@ describe('imageUtils - 邊界條件測試', () => {
         });
 
         test('應處理 undefined 輸入', () => {
+            // 顯式傳遞 undefined 以測試邊界條件，而非省略參數
             expect(extractImageSrc(undefined)).toBeNull();
         });
     });
@@ -300,7 +302,7 @@ describe('imageUtils - 邊界條件測試', () => {
 
         test('應拒絕超長的背景 URL（防止 ReDoS）', () => {
             const img = document.createElement('img');
-            const longUrl = 'https://example.com/' + 'a'.repeat(3000) + '.jpg';
+            const longUrl = `https://example.com/${'a'.repeat(3000)}.jpg`;
             img.style.backgroundImage = `url('${longUrl}')`;
             document.body.appendChild(img);
 
@@ -310,7 +312,7 @@ describe('imageUtils - 邊界條件測試', () => {
 
         test('應接受長度在限制內的背景 URL', () => {
             const img = document.createElement('img');
-            const url = 'https://example.com/' + 'a'.repeat(1000) + '.jpg';
+            const url = `https://example.com/${'a'.repeat(1000)}.jpg`;
             img.style.backgroundImage = `url('${url}')`;
             document.body.appendChild(img);
 
