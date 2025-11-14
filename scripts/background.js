@@ -966,8 +966,9 @@ async function handleCheckNotionPageExistsMessage(request, sendResponse) {
 /**
  * Saves new content to Notion as a new page
  * @param {boolean} excludeImages - 是否排除所有圖片（用於重試）
+ * @param {string} dataSourceType - 保存目標類型 ('page' 或 'data_source')
  */
-async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon = null, excludeImages = false) {
+async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon = null, excludeImages = false, dataSourceType = 'data_source') {
     // 開始性能監控 (service worker 環境，使用原生 Performance API)
     const startTime = performance.now();
     Logger.log('⏱️ 開始保存到 Notion...');
@@ -1035,11 +1036,26 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendRe
 
     Logger.log(`📊 Total blocks to save: ${validBlocks.length}, Image blocks: ${validBlocks.filter(b => b.type === 'image').length}`);
 
-    const pageData = {
-        parent: {
+    // 根據類型設置 parent（支援 page 和 data_source）
+    let parentConfig;
+    if (dataSourceType === 'page') {
+        // 保存為頁面的子頁面
+        parentConfig = {
+            type: 'page_id',
+            page_id: dataSourceId
+        };
+        Logger.log(`📄 保存為頁面的子頁面: ${dataSourceId}`);
+    } else {
+        // 保存為數據庫條目（默認行為）
+        parentConfig = {
             type: 'data_source_id',
             data_source_id: dataSourceId
-        },
+        };
+        Logger.log(`📊 保存為數據庫條目: ${dataSourceId}`);
+    }
+
+    const pageData = {
+        parent: parentConfig,
         properties: {
             'Title': {
                 title: [{ text: { content: title } }]
@@ -1161,7 +1177,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendRe
 
                 // 使用 setTimeout 避免立即重試
                 setTimeout(() => {
-                    saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon, true);
+                    saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon, true, dataSourceType);
                 }, 500);
                 return;
             }
@@ -1999,10 +2015,13 @@ async function handleSavePage(sendResponse) {
         }
 
         const config = await new Promise(resolve =>
-            getConfig(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'], resolve)
+            getConfig(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId', 'notionDataSourceType'], resolve)
         );
 
         const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
+        const dataSourceType = config.notionDataSourceType || 'data_source';  // 默認為 data_source 以保持向後兼容
+
+        Logger.log(`保存目標: ID=${dataSourceId}, 類型=${dataSourceType}`);
 
         if (!config.notionApiKey || !dataSourceId) {
             sendResponse({ success: false, error: 'API Key or Data Source ID is not set.' });
@@ -3115,7 +3134,7 @@ async function handleSavePage(sendResponse) {
                         response.recreated = true;
                     }
                     sendResponse(response);
-                }, contentResult.siteIcon);
+                }, contentResult.siteIcon, false, dataSourceType);
             }
         } else {
             saveToNotion(contentResult.title, contentResult.blocks, normUrl, config.notionApiKey, dataSourceId, (response) => {
@@ -3125,7 +3144,7 @@ async function handleSavePage(sendResponse) {
                     response.created = true;
                 }
                 sendResponse(response);
-            }, contentResult.siteIcon);
+            }, contentResult.siteIcon, false, dataSourceType);
         }
     } catch (error) {
         console.error('Error in handleSavePage:', error);

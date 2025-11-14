@@ -196,12 +196,148 @@ document.addEventListener('DOMContentLoaded', () => {
         manualSection.insertBefore(guideDiv, manualSection.firstChild);
     }
 
-    // 載入資料來源列表
+    /**
+     * 判斷頁面是否可能是容器頁面（有子項）
+     * 使用啟發式規則：workspace 直屬的頁面更可能是容器（保存網頁的目錄）
+     * @param {Object} item - 項目對象
+     * @returns {boolean} 是否可能是容器頁面
+     */
+    function isLikelyContainerPage(item) {
+        if (item.object !== 'page') return false;
+        // 啟發式：workspace 父級的頁面更可能是容器（頂層目錄）
+        return item.parent?.type === 'workspace';
+    }
+
+    /**
+     * 判斷頁面是否可能是分類頁面（中間層頁面）
+     * 啟發式規則：parent 為 page_id 的頁面可能是分類頁面（如「電影」、「閱讀」等）
+     * @param {Object} item - 項目對象
+     * @returns {boolean} 是否可能是分類頁面
+     */
+    function isLikelyCategoryPage(item) {
+        if (item.object !== 'page') return false;
+        // 啟發式：page_id parent 的頁面可能是分類頁面
+        // 這些頁面介於 workspace 頁面和深層頁面之間
+        return item.parent?.type === 'page_id';
+    }
+
+    /**
+     * 檢查數據庫 schema 是否包含 URL 屬性
+     * @param {Object} database - 數據庫對象
+     * @returns {boolean} 是否有 URL 屬性
+     */
+    function hasUrlProperty(database) {
+        if (database.object !== 'data_source' || !database.properties) return false;
+        // 檢查 properties（schema）中是否有 URL 類型的屬性
+        return Object.values(database.properties).some(prop => prop.type === 'url');
+    }
+
+    /**
+     * 檢查頁面是否可能是已保存的網頁
+     * 判斷依據：有 URL 屬性且 parent 為 data_source_id
+     * @param {Object} page - 頁面對象
+     * @returns {boolean} 是否可能是已保存的網頁
+     */
+    function isSavedWebPage(page) {
+        if (page.object !== 'page') return false;
+        
+        // 如果 parent 是 data_source_id，更可能是已保存的網頁
+        if (page.parent?.type === 'data_source_id') {
+            // 嘗試檢查是否有 URL 屬性（如果 properties 可用）
+            if (page.properties) {
+                const hasUrl = Object.entries(page.properties).some(([key, prop]) => {
+                    // 檢查屬性名稱或類型是否為 URL
+                    return key.toLowerCase().includes('url') || prop.type === 'url';
+                });
+                if (hasUrl) return true;
+            }
+            // 如果無法確認，保守處理：不排除
+            return false;
+        }
+        
+        return false;
+    }
+
+    /**
+     * 智能篩選和排序資料來源（v4.4 優化：基於 schema/properties 精確篩選）
+     * @param {Array} results - API 返回的原始結果
+     * @param {number} maxResults - 最大返回數量
+     * @returns {Array} 篩選並排序後的結果
+     */
+    function filterAndSortResults(results, maxResults = 100) {
+        window.Logger?.info?.(`開始篩選 ${results.length} 個項目，目標: ${maxResults} 個`);
+        
+        // 步驟 1：分類項目（5層優先級，基於 schema/properties）
+        const workspacePages = [];           // 第1層：workspace 頁面（幾乎必定是分類）
+        const urlDatabases = [];             // 第2層：有 URL 屬性的數據庫（保存目的地）
+        const categoryPages = [];            // 第3層：無 URL 的頁面（可能是分類）
+        const otherDatabases = [];           // 第4層：無 URL 的數據庫（其他容器）
+        const otherPages = [];               // 第5層：其他頁面
+        
+        let excludedCount = 0;  // 被排除的項目計數
+        
+        results.forEach(item => {
+            // 排除非目標類型
+            if (item.object !== 'page' && item.object !== 'data_source') {
+                window.Logger?.debug?.(`過濾掉非目標類型: ${item.object}`);
+                return;
+            }
+            
+            // 排除已保存的網頁（有 URL 屬性的 data_source_id 子頁面）
+            if (isSavedWebPage(item)) {
+                excludedCount++;
+                window.Logger?.debug?.(`排除已保存網頁: ${item.id}`);
+                return;
+            }
+            
+            // 分類到對應層級
+            if (item.object === 'data_source') {
+                // 數據庫按是否有 URL 屬性分類
+                if (hasUrlProperty(item)) {
+                    // 有 URL 屬性：很可能是保存網頁的數據庫（第2層）
+                    urlDatabases.push(item);
+                } else {
+                    // 無 URL 屬性：其他用途的數據庫（第4層）
+                    otherDatabases.push(item);
+                }
+            } else if (item.object === 'page') {
+                // 頁面按 parent 類型和屬性分層
+                if (item.parent?.type === 'workspace') {
+                    // workspace 直屬：幾乎必定是分類頁面（第1層）
+                    workspacePages.push(item);
+                } else if (item.parent?.type === 'page_id') {
+                    // page_id parent：可能是分類頁面（第3層）
+                    categoryPages.push(item);
+                } else {
+                    // 其他頁面（第5層）
+                    otherPages.push(item);
+                }
+            }
+        });
+        
+        // 步驟 2：保持 API 返回順序（不進行時間排序）
+        
+        // 步驟 3：合併結果（按新的優先級順序）
+        const filtered = [
+            ...workspacePages,      // 第1層：workspace 頁面（分類）
+            ...urlDatabases,        // 第2層：有 URL 的數據庫（保存目的地）
+            ...categoryPages,       // 第3層：可能的分類頁面
+            ...otherDatabases,      // 第4層：其他數據庫
+            ...otherPages           // 第5層：其他頁面
+        ].slice(0, maxResults);
+        
+        window.Logger?.info?.(`篩選完成: ${filtered.length} 個項目（${workspacePages.length} 個 workspace 頁面，${urlDatabases.length} 個 URL 數據庫，${categoryPages.length} 個分類頁面，${otherDatabases.length} 個其他數據庫，${otherPages.length} 個其他頁面，排除 ${excludedCount} 個已保存網頁）`);
+        
+        return filtered;
+    }
+
+    // 載入資料來源列表（支援頁面和數據庫）
     async function loadDatabases(apiKey) {
         try {
-            showStatus('正在載入資料來源列表...', 'info');
-            window.Logger?.info?.(`開始載入資料來源，API Key: ${apiKey.substring(0, 20)}...`);
+            showStatus('正在載入保存目標列表...', 'info');
+            window.Logger?.info?.(`開始載入保存目標，API Key: ${apiKey.substring(0, 20)}...`);
 
+            // 移除 filter，同時獲取 pages 和 data_sources
             const response = await fetch('https://api.notion.com/v1/search', {
                 method: 'POST',
                 headers: {
@@ -210,31 +346,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Notion-Version': '2025-09-03'
                 },
                 body: JSON.stringify({
-                    filter: {
-                        property: 'object',
-                        value: 'data_source'
-                    },
-                    page_size: 100
+                    page_size: 100,  // 保持 100 以提供充足的篩選池
+                    sort: {
+                        direction: 'descending',
+                        timestamp: 'last_edited_time'
+                    }
                 })
             });
 
-
-
             if (response.ok) {
                 const data = await response.json();
-
+                window.Logger?.info?.(`API 返回 ${data.results?.length || 0} 個項目`);
 
                 if (data.results && data.results.length > 0) {
-                    populateDatabaseSelect(data.results);
+                    // 客戶端智能篩選和排序（增加到 100 個）
+                    const filteredResults = filterAndSortResults(data.results, 100);
+                    
+                    if (filteredResults.length > 0) {
+                        populateDatabaseSelect(filteredResults);
+                    } else {
+                        showStatus('未找到可用的保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源', 'error');
+                        databaseSelect.style.display = 'none';
+                    }
                 } else {
-                    showStatus('未找到任何資料來源。請確保：1) API Key 正確 2) Integration 已連接到資料來源', 'error');
+                    showStatus('未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源', 'error');
                     databaseSelect.style.display = 'none';
                 }
             } else {
                 const errorData = await response.json();
                 console.error('API 錯誤:', errorData);
 
-                let errorMessage = '載入資料來源失敗: ';
+                let errorMessage = '載入保存目標失敗: ';
                 if (response.status === 401) {
                     errorMessage += 'API Key 無效或已過期';
                 } else if (response.status === 403) {
@@ -247,9 +389,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 databaseSelect.style.display = 'none';
             }
         } catch (error) {
-            console.error('載入資料來源失敗:', error);
+            console.error('載入保存目標失敗:', error);
 
-            let errorMessage = '載入資料來源失敗: ';
+            let errorMessage = '載入保存目標失敗: ';
             if (error.name === 'TypeError' && error.message.includes('fetch')) {
                 errorMessage += '網絡連接問題，請檢查網絡連接';
             } else {
@@ -352,11 +494,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update the input field to show the cleaned ID
             databaseIdInput.value = databaseId;
 
+            // 獲取類型信息（從隱藏字段或默認為 data_source）
+            const typeInput = document.getElementById('database-type');
+            const dataSourceType = typeInput?.value || 'data_source';  // 默認為 data_source 以保持向後兼容
+
+            window.Logger?.info?.(`保存設置: ID=${databaseId}, 類型=${dataSourceType}`);
+
             // 保存所有設置
             const settings = {
                 notionApiKey: apiKey,
                 notionDataSourceId: databaseId,
-                notionDatabaseId: databaseId,
+                notionDatabaseId: databaseId,  // 保持舊字段以兼容
+                notionDataSourceType: dataSourceType,  // 新增類型字段
                 titleTemplate: titleTemplateInput.value.trim() || '{title}',
                 addSource: addSourceCheckbox.checked,
                 addTimestamp: addTimestampCheckbox.checked,
@@ -364,7 +513,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             chrome.storage.sync.set(settings, () => {
-                showStatus('設置保存成功！', 'success');
+                const typeLabel = dataSourceType === 'page' ? '頁面' : '資料來源';
+                showStatus(`設置保存成功！已選擇${typeLabel}`, 'success');
                 checkAuthStatus();
             });
         } else {
@@ -1346,36 +1496,38 @@ class SearchableDatabaseSelector {
     }
 
     populateDatabases(databases) {
-
-
-
-
+        // 映射數據，添加類型和父級信息
         this.databases = databases.map(db => ({
             id: db.id,
             title: this.extractDatabaseTitle(db),
+            type: db.object,  // 'page' 或 'data_source'
+            isWorkspace: db.parent?.type === 'workspace',  // 是否為工作區直屬項目
+            parent: db.parent,  // 保留完整父級信息
             raw: db,
             created: db.created_time,
             lastEdited: db.last_edited_time
         }));
 
-        window.Logger?.info?.('處理後的資料來源:', this.databases);
+        window.Logger?.info?.('處理後的保存目標:', this.databases);
+        window.Logger?.info?.(`類型分布: ${this.databases.filter(d => d.type === 'page').length} 個頁面, ${this.databases.filter(d => d.type === 'data_source').length} 個資料來源`);
+        window.Logger?.info?.(`工作區項目: ${this.databases.filter(d => d.isWorkspace).length} 個`);
 
-        // 按標題排序
-        this.databases.sort((a, b) => a.title.localeCompare(b.title));
+        // 不再按標題排序，保持 API 返回的智能排序
+        // this.databases.sort((a, b) => a.title.localeCompare(b.title));
 
         this.filteredDatabases = [...this.databases];
         this.updateDatabaseCount();
         this.renderDatabaseList();
 
         // 顯示選擇器
-
         this.container.style.display = 'block';
 
         // 更新搜索框提示
-        this.searchInput.placeholder = `搜索 ${databases.length} 個資料來源...`;
+        const pageCount = databases.filter(d => d.object === 'page').length;
+        const dsCount = databases.filter(d => d.object === 'data_source').length;
+        this.searchInput.placeholder = `搜索 ${databases.length} 個保存目標（${dsCount} 個資料來源 + ${pageCount} 個頁面）`;
 
-
-        // 如果當前有選中的資料來源，在搜索框中顯示
+        // 如果當前有選中的保存目標，在搜索框中顯示
         if (this.databaseIdInput.value) {
             const selectedDb = this.databases.find(db => db.id === this.databaseIdInput.value);
             if (selectedDb) {
@@ -1438,14 +1590,57 @@ class SearchableDatabaseSelector {
             highlightedTitle = db.title.replace(regex, '<span class="search-highlight">$1</span>');
         }
 
+        // 類型圖標和標籤
+        const typeIcon = db.type === 'page' ? '📄' : '📊';
+        const typeLabel = db.type === 'page' ? '頁面' : '資料來源';
+        
+        // 工作區標記
+        const workspaceBadge = db.isWorkspace ? '<span class="workspace-badge">工作區</span>' : '';
+        
+        // 容器頁面標記（啟發式判斷：workspace 直屬頁面更可能是容器）
+        const isLikelyContainer = db.type === 'page' && db.parent?.type === 'workspace';
+        const containerBadge = isLikelyContainer ? '<span class="container-badge">📁 容器</span>' : '';
+        
+        // 分類頁面標記（啟發式判斷：page_id parent 的頁面可能是分類頁面）
+        const isLikelyCategory = db.type === 'page' && db.parent?.type === 'page_id';
+        const categoryBadge = isLikelyCategory ? '<span class="category-badge">🗂️ 分類</span>' : '';
+        
+        // Parent 路徑信息
+        let parentPath = '';
+        if (db.parent) {
+            switch (db.parent.type) {
+                case 'workspace':
+                    parentPath = '📁 工作區';
+                    break;
+                case 'page_id':
+                    parentPath = '📄 子頁面';
+                    break;
+                case 'data_source_id':
+                    parentPath = '📊 資料庫項目';
+                    break;
+                default:
+                    parentPath = '❓ 未知';
+            }
+        }
+
         return `
             <div class="database-item ${isSelected ? 'selected' : ''} ${isFocused ? 'keyboard-focus' : ''}"
-                 data-index="${index}">
-                <div class="database-title">${highlightedTitle}</div>
+                 data-index="${index}"
+                 data-type="${db.type}"
+                 data-is-workspace="${db.isWorkspace}"
+                 data-is-container="${isLikelyContainer}"
+                 data-is-category="${isLikelyCategory}">
+                <div class="database-title">
+                    ${highlightedTitle} 
+                    ${workspaceBadge}
+                    ${containerBadge}
+                    ${categoryBadge}
+                </div>
+                <div class="database-parent-path">${parentPath}</div>
                 <div class="database-id">${db.id}</div>
                 <div class="database-meta">
-                    <span class="database-icon">📊</span>
-                    <span>資料來源</span>
+                    <span class="database-icon">${typeIcon}</span>
+                    <span>${typeLabel}</span>
                     ${db.created ? `<span>•</span><span>創建於 ${this.formatDate(db.created)}</span>` : ''}
                 </div>
             </div>
@@ -1461,13 +1656,29 @@ class SearchableDatabaseSelector {
         // 更新隱藏的資料來源 ID 輸入框
         this.databaseIdInput.value = database.id;
 
+        // 保存類型信息到隱藏字段（用於後續保存）
+        const typeInput = document.getElementById('database-type');
+        if (typeInput) {
+            typeInput.value = database.type;
+        } else {
+            // 如果不存在，創建隱藏字段
+            const newTypeInput = document.createElement('input');
+            newTypeInput.type = 'hidden';
+            newTypeInput.id = 'database-type';
+            newTypeInput.value = database.type;
+            this.databaseIdInput.parentNode.appendChild(newTypeInput);
+        }
+        
+        window.Logger?.info?.(`選擇了 ${database.type === 'page' ? '頁面' : '資料來源'}: ${database.title} (${database.id})`);
+
         // 重新渲染以顯示選中狀態
         this.renderDatabaseList();
 
         this.hideDropdown();
 
         // 顯示成功狀態
-        this.showStatus(`已選擇資料來源: ${database.title}`, 'success');
+        const typeLabel = database.type === 'page' ? '頁面' : '資料來源';
+        this.showStatus(`已選擇${typeLabel}: ${database.title}`, 'success');
 
         // 觸發選擇事件（如果需要）
         this.onDatabaseSelected?.(database);
@@ -1574,14 +1785,22 @@ class SearchableDatabaseSelector {
     }
 
     extractDatabaseTitle(db) {
-        let title = '未命名資料來源';
+        let title = db.object === 'page' ? '未命名頁面' : '未命名資料來源';
 
-        if (db.title && db.title.length > 0) {
-            title = db.title[0].plain_text || db.title[0].text?.content || '未命名資料來源';
+        // 處理 page 對象（標題在 properties.title）
+        if (db.object === 'page' && db.properties?.title?.title) {
+            const titleContent = db.properties.title.title;
+            if (titleContent.length > 0) {
+                title = titleContent[0].plain_text || titleContent[0].text?.content || title;
+            }
+        }
+        // 處理 data_source 對象（標題在 title 或 properties）
+        else if (db.title && db.title.length > 0) {
+            title = db.title[0].plain_text || db.title[0].text?.content || title;
         } else if (db.properties) {
             const titleProp = Object.values(db.properties).find(prop => prop.type === 'title');
             if (titleProp?.title && titleProp.title.length > 0) {
-                title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || '未命名資料來源';
+                title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || title;
             }
         }
 

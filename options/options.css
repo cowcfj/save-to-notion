@@ -1100,6 +1100,54 @@ input[type="checkbox"] {
     font-weight: 500;
     color: #2d3748;
     font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.workspace-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background-color: #bee3f8;
+    color: #2c5282;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.container-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background-color: #fef5e7;
+    color: #b7791f;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.category-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background-color: #e6f4ea;
+    color: #1e7e34;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.database-parent-path {
+    font-size: 11px;
+    color: #718096;
+    margin: 2px 0 4px 0;
+    font-weight: 500;
 }
 
 .database-id {
