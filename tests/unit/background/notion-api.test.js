@@ -1,6 +1,6 @@
 /**
- * Background.js - Notion API 操作测试
- * 测试与 Notion API 交互的核心函数
+ * Background.js - Notion API 操作測試
+ * 測試與 Notion API 交互的核心函數
  */
 
 describe('Background Notion API Operations', () => {
@@ -11,11 +11,11 @@ describe('Background Notion API Operations', () => {
     // 保存原始 fetch
     originalFetch = global.fetch;
     
-    // 创建 fetch mock
+    // 創建 fetch mock
     mockFetch = jest.fn();
     global.fetch = mockFetch;
 
-    // 清理存储
+    // 清理存儲
     if (chrome._clearStorage) {
       chrome._clearStorage();
     }
@@ -27,7 +27,7 @@ describe('Background Notion API Operations', () => {
   });
 
   afterEach(() => {
-    // 恢复原始 fetch
+    // 恢復原始 fetch
     global.fetch = originalFetch;
     
     // 清理 mocks
@@ -49,7 +49,7 @@ describe('Background Notion API Operations', () => {
       }
     ];
 
-    it('应该成功保存页面到 Notion', async () => {
+    it('應該成功保存頁面到 Notion', async () => {
       // Arrange
       const mockResponse = {
         id: 'page-123',
@@ -96,7 +96,7 @@ describe('Background Notion API Operations', () => {
       );
     });
 
-    it('应该处理包含网站图标的保存请求', async () => {
+    it('應該處理包含網站圖標的保存請求', async () => {
       // Arrange
       const siteIcon = 'https://example.com/favicon.ico';
       const mockResponse = {
@@ -135,7 +135,7 @@ describe('Background Notion API Operations', () => {
       });
     });
 
-    it('应该过滤掉有问题的图片区块', async () => {
+    it('應該過濾掉有問題的圖片區塊', async () => {
       // Arrange
       const blocksWithProblematicImages = [
         {
@@ -161,7 +161,7 @@ describe('Background Notion API Operations', () => {
           image: {
             type: 'external',
             external: {
-              url: 'https://example.com/' + 'x'.repeat(2000) + '.jpg' // 过长的URL
+              url: 'https://example.com/' + 'x'.repeat(2000) + '.jpg' // 過長的URL
             }
           }
         },
@@ -204,7 +204,7 @@ describe('Background Notion API Operations', () => {
       const fetchCall = mockFetch.mock.calls[0];
       const requestBody = JSON.parse(fetchCall[1].body);
       
-      // 应该只保留正常的段落和有效的图片
+      // 應該只保留正常的段落和有效的圖片
       expect(requestBody.children).toHaveLength(2);
       expect(requestBody.children[0].type).toBe('paragraph');
       expect(requestBody.children[1].type).toBe('image');
@@ -218,7 +218,7 @@ describe('Background Notion API Operations', () => {
       );
     });
 
-    it('应该处理超过100个区块的长文章', async () => {
+    it('應該處理超過100個區塊的長文章', async () => {
       // Arrange
       const longBlocks = Array.from({ length: 150 }, (_, i) => ({
         object: 'block',
@@ -238,14 +238,14 @@ describe('Background Notion API Operations', () => {
         id: 'block-123'
       };
 
-      // Mock 创建页面的响应
+      // Mock 創建頁面的響應
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: () => Promise.resolve(mockCreateResponse)
       });
 
-      // Mock 分批添加的响应
+      // Mock 分批添加的響應
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -267,19 +267,19 @@ describe('Background Notion API Operations', () => {
       // Assert
       expect(mockFetch).toHaveBeenCalledTimes(2);
       
-      // 第一次调用：创建页面（前100个区块）
+      // 第一次調用：創建頁面（前100個區塊）
       const createCall = mockFetch.mock.calls[0];
       const createBody = JSON.parse(createCall[1].body);
       expect(createBody.children).toHaveLength(100);
 
-      // 第二次调用：添加剩余区块
+      // 第二次調用：添加剩餘區塊
       const appendCall = mockFetch.mock.calls[1];
       expect(appendCall[0]).toBe('https://api.notion.com/v1/blocks/page-long/children');
       const appendBody = JSON.parse(appendCall[1].body);
       expect(appendBody.children).toHaveLength(50);
     });
 
-    it('应该处理 Notion API 错误', async () => {
+    it('應該處理 Notion API 錯誤', async () => {
       // Arrange
       const mockErrorResponse = {
         object: 'error',
@@ -315,7 +315,7 @@ describe('Background Notion API Operations', () => {
       );
     });
 
-    it('应该在图片验证错误时自动重试（排除所有图片）', async () => {
+    it('應該在圖片驗證錯誤時自動重試（排除所有圖片）', async () => {
       // Arrange
       const blocksWithImages = [
         {
@@ -349,14 +349,14 @@ describe('Background Notion API Operations', () => {
         url: 'https://notion.so/pageretry'
       };
 
-      // 第一次调用失败
+      // 第一次調用失敗
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
         json: () => Promise.resolve(mockErrorResponse)
       });
 
-      // 第二次调用成功（无图片）
+      // 第二次調用成功（無圖片）
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -375,20 +375,20 @@ describe('Background Notion API Operations', () => {
         mockSendResponse
       );
 
-      // 等待重试完成
+      // 等待重試完成
       await new Promise(resolve => setTimeout(resolve, 600));
 
       // Assert
       expect(mockFetch).toHaveBeenCalledTimes(2);
       
-      // 第二次调用应该不包含图片
+      // 第二次調用應該不包含圖片
       const retryCall = mockFetch.mock.calls[1];
       const retryBody = JSON.parse(retryCall[1].body);
       expect(retryBody.children).toHaveLength(1);
       expect(retryBody.children[0].type).toBe('paragraph');
     });
 
-    it('应该处理网络错误', async () => {
+    it('應該處理網絡錯誤', async () => {
       // Arrange
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
       const mockSendResponse = jest.fn();
@@ -417,7 +417,7 @@ describe('Background Notion API Operations', () => {
     const mockApiKey = 'secret_test_key';
     const mockPageId = 'page-123';
 
-    it('应该返回 true 当页面存在且未归档时', async () => {
+    it('應該返回 true 當頁面存在且未歸檔時', async () => {
       // Arrange
       const mockResponse = {
         object: 'page',
@@ -448,7 +448,7 @@ describe('Background Notion API Operations', () => {
       );
     });
 
-    it('应该返回 false 当页面已归档时', async () => {
+    it('應該返回 false 當頁面已歸檔時', async () => {
       // Arrange
       const mockResponse = {
         object: 'page',
@@ -469,7 +469,7 @@ describe('Background Notion API Operations', () => {
       expect(result).toBe(false);
     });
 
-    it('应该返回 false 当页面不存在时（404）', async () => {
+    it('應該返回 false 當頁面不存在時（404）', async () => {
       // Arrange
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -484,7 +484,7 @@ describe('Background Notion API Operations', () => {
       expect(result).toBe(false);
     });
 
-    it('应该处理网络错误', async () => {
+    it('應該處理網絡錯誤', async () => {
       // Arrange
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
@@ -499,7 +499,7 @@ describe('Background Notion API Operations', () => {
       );
     });
 
-    it('应该处理服务器错误（5xx）', async () => {
+    it('應該處理服務器錯誤（5xx）', async () => {
       // Arrange
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -519,7 +519,7 @@ describe('Background Notion API Operations', () => {
     const mockApiKey = 'secret_test_key';
     const mockPageId = 'page-123';
 
-    it('应该成功分批添加区块', async () => {
+    it('應該成功分批添加區塊', async () => {
       // Arrange
       const blocks = Array.from({ length: 250 }, (_, i) => ({
         object: 'block',
@@ -529,7 +529,7 @@ describe('Background Notion API Operations', () => {
         }
       }));
 
-      // Mock 3次成功的响应（250个区块需要3批）
+      // Mock 3次成功的響應（250個區塊需要3批）
       for (let i = 0; i < 3; i++) {
         mockFetch.mockResolvedValueOnce({
           ok: true,
@@ -547,14 +547,14 @@ describe('Background Notion API Operations', () => {
       expect(result.totalCount).toBe(250);
       expect(mockFetch).toHaveBeenCalledTimes(3);
 
-      // 验证每次调用的区块数量
+      // 驗證每次調用的區塊數量
       const calls = mockFetch.mock.calls;
       expect(JSON.parse(calls[0][1].body).children).toHaveLength(100);
       expect(JSON.parse(calls[1][1].body).children).toHaveLength(100);
       expect(JSON.parse(calls[2][1].body).children).toHaveLength(50);
     });
 
-    it('应该处理部分批次失败的情况', async () => {
+    it('應該處理部分批次失敗的情況', async () => {
       // Arrange
       const blocks = Array.from({ length: 150 }, (_, i) => ({
         object: 'block',
@@ -571,7 +571,7 @@ describe('Background Notion API Operations', () => {
         json: () => Promise.resolve({ object: 'block' })
       });
 
-      // 第二批失败
+      // 第二批失敗
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
@@ -588,7 +588,7 @@ describe('Background Notion API Operations', () => {
       expect(result.error).toContain('批次添加失敗');
     });
 
-    it('应该处理空区块数组', async () => {
+    it('應該處理空區塊數組', async () => {
       // Act
       const result = await appendBlocksInBatchesSimulated(mockPageId, [], mockApiKey);
 
@@ -599,7 +599,7 @@ describe('Background Notion API Operations', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('应该遵守速率限制（批次间延迟）', async () => {
+    it('應該遵守速率限制（批次間延遲）', async () => {
       // Arrange
       const blocks = Array.from({ length: 200 }, (_, i) => ({
         object: 'block',
@@ -609,7 +609,7 @@ describe('Background Notion API Operations', () => {
         }
       }));
 
-      // Mock 2次成功响应
+      // Mock 2次成功響應
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
@@ -625,7 +625,7 @@ describe('Background Notion API Operations', () => {
       const duration = endTime - startTime;
 
       // Assert
-      // 应该至少有一次延迟（350ms）
+      // 應該至少有一次延遲（350ms）
       expect(duration).toBeGreaterThan(300);
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
@@ -633,12 +633,12 @@ describe('Background Notion API Operations', () => {
 });
 
 /**
- * 模拟的 Notion API 函数（用于测试）
+ * 模擬的 Notion API 函數（用於測試）
  */
 async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon = null, excludeImages = false) {
   const startTime = performance.now();
   
-  // 过滤图片区块的逻辑
+  // 過濾圖片區塊的邏輯
   let validBlocks;
   if (excludeImages) {
     validBlocks = blocks.filter(block => block.type !== 'image');
@@ -648,14 +648,14 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
         const imageUrl = block.image?.external?.url;
         if (!imageUrl) return false;
         
-        // 检查 URL 长度
+        // 檢查 URL 長度
         if (imageUrl.length > 1500) return false;
         
-        // 检查特殊字符
+        // 檢查特殊字符
         const problematicChars = /[<>{}|\\^`\[\]]/;
         if (problematicChars.test(imageUrl)) return false;
         
-        // 验证 URL 格式
+        // 驗證 URL 格式
         try {
           const urlObj = new URL(imageUrl);
           if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') return false;
@@ -710,21 +710,21 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
       const responseData = await response.json();
       const notionPageId = responseData.id;
 
-      // 如果区块数量超过 100，分批添加剩余区块
+      // 如果區塊數量超過 100，分批添加剩餘區塊
       if (validBlocks.length > 100) {
         const appendResult = await appendBlocksInBatchesSimulated(notionPageId, validBlocks, apiKey, 100);
         if (!appendResult.success) {
-          console.warn(`部分区块添加失败: ${appendResult.addedCount}/${appendResult.totalCount}`, appendResult.error);
+          console.warn(`部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`, appendResult.error);
         }
       }
 
-      // 构建 Notion 页面 URL
+      // 構建 Notion 頁面 URL
       let notionUrl = responseData.url;
       if (!notionUrl && notionPageId) {
         notionUrl = `https://www.notion.so/${notionPageId.replace(/-/g, '')}`;
       }
 
-      // 模拟保存到存储
+      // 模擬保存到存儲
       await chrome.storage.local.set({
         [`saved_${pageUrl}`]: {
           title: title,
@@ -751,7 +751,7 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
       const errorData = await response.json();
       console.error('Notion API Error:', errorData);
 
-      // 检查是否是图片验证错误，如果是则自动重试
+      // 檢查是否是圖片驗證錯誤，如果是則自動重試
       if (errorData.code === 'validation_error' && errorData.message && errorData.message.includes('image')) {
         console.log('Auto-retry: Saving without ANY images...');
         setTimeout(() => {
@@ -803,7 +803,7 @@ async function appendBlocksInBatchesSimulated(pageId, blocks, apiKey, startIndex
     return { success: true, addedCount: 0, totalCount: 0 };
   }
 
-  console.log(`准备分批添加区块: 总共 ${totalBlocks} 个，从索引 ${startIndex} 开始`);
+  console.log(`準備分批添加區塊: 總共 ${totalBlocks} 個，從索引 ${startIndex} 開始`);
 
   try {
     for (let i = startIndex; i < blocks.length; i += BLOCKS_PER_BATCH) {
@@ -811,7 +811,7 @@ async function appendBlocksInBatchesSimulated(pageId, blocks, apiKey, startIndex
       const batchNumber = Math.floor((i - startIndex) / BLOCKS_PER_BATCH) + 1;
       const totalBatches = Math.ceil(totalBlocks / BLOCKS_PER_BATCH);
 
-      console.log(`发送批次 ${batchNumber}/${totalBatches}: ${batch.length} 个区块`);
+      console.log(`發送批次 ${batchNumber}/${totalBatches}: ${batch.length} 個區塊`);
 
       const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
         method: 'PATCH',
@@ -827,24 +827,24 @@ async function appendBlocksInBatchesSimulated(pageId, blocks, apiKey, startIndex
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`批次 ${batchNumber} 失败:`, errorText);
+        console.error(`批次 ${batchNumber} 失敗:`, errorText);
         throw new Error(`批次添加失敗: ${response.status} - ${errorText}`);
       }
 
       addedCount += batch.length;
-      console.log(`批次 ${batchNumber} 成功: 已添加 ${addedCount}/${totalBlocks} 个区块`);
+      console.log(`批次 ${batchNumber} 成功: 已添加 ${addedCount}/${totalBlocks} 個區塊`);
 
-      // 如果还有更多批次，添加延迟
+      // 如果還有更多批次，添加延遲
       if (i + BLOCKS_PER_BATCH < blocks.length) {
         await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
       }
     }
 
-    console.log(`所有区块添加完成: ${addedCount}/${totalBlocks}`);
+    console.log(`所有區塊添加完成: ${addedCount}/${totalBlocks}`);
     return { success: true, addedCount, totalCount: totalBlocks };
 
   } catch (error) {
-    console.error("分批添加区块失败:", error);
+    console.error("分批添加區塊失敗:", error);
     return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
   }
 }
