@@ -955,7 +955,7 @@ async function handleCheckNotionPageExistsMessage(request, sendResponse) {
         }
 
         const exists = await checkNotionPageExists(pageId, config.notionApiKey);
-        sendResponse({ success: true, exists: exists });
+        sendResponse({ success: true, exists });
 
     } catch (error) {
         console.error('handleCheckNotionPageExistsMessage error:', error);
@@ -1040,8 +1040,8 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendRe
     const parentConfig = dataSourceType === 'page'
         ? { type: 'page_id', page_id: dataSourceId }
         : { type: 'data_source_id', data_source_id: dataSourceId };
-    
-    Logger.log(dataSourceType === 'page' 
+
+    Logger.log(dataSourceType === 'page'
         ? `📄 保存為頁面的子頁面: ${dataSourceId}`
         : `📊 保存為數據庫條目: ${dataSourceId}`);
 
@@ -1118,10 +1118,10 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendRe
             }
 
             setSavedPageData(pageUrl, {
-                title: title,
+                title,
                 savedAt: Date.now(),
-                notionPageId: notionPageId,
-                notionUrl: notionUrl
+                notionPageId,
+                notionUrl
             }, () => {
                 // 結束性能監控 (service worker 環境)
                 const duration = performance.now() - startTime;
@@ -1132,11 +1132,11 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendRe
                     const totalSkipped = excludeImages ? 'All images' : `${skippedCount} image(s)`;
                     sendResponse({
                         success: true,
-                        notionPageId: notionPageId,
+                        notionPageId,
                         warning: `${totalSkipped} were skipped due to compatibility issues`
                     });
                 } else {
-                    sendResponse({ success: true, notionPageId: notionPageId });
+                    sendResponse({ success: true, notionPageId });
                 }
             });
         } else {
@@ -1303,7 +1303,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
 
             const storageUpdatePromise = new Promise((resolve) => {
                 setSavedPageData(pageUrl, {
-                    title: title,
+                    title,
                     savedAt: Date.now(),
                     notionPageId: pageId,
                     lastUpdated: Date.now()
@@ -2416,12 +2416,12 @@ async function handleSavePage(sendResponse) {
 
                                     candidates.push({
                                         url: absoluteUrl,
-                                        priority: priority,
-                                        size: size,
-                                        type: type,
-                                        iconType: iconType,
-                                        sizes: sizes,
-                                        selector: selector
+                                        priority,
+                                        size,
+                                        type,
+                                        iconType,
+                                        sizes,
+                                        selector
                                     });
 
                                     Logger.log(`✓ Found icon: ${absoluteUrl.substring(0, 60)}... (${sizes || 'no size'}, ${type || 'no type'})`);

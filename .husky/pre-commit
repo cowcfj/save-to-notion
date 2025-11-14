@@ -1,2 +1,2 @@
-# Run tests
-npm test
+#!/bin/sh
+npm run lint
