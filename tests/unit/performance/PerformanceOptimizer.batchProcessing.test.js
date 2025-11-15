@@ -16,7 +16,7 @@ global.cancelIdleCallback = clearTimeout;
 const { PerformanceOptimizer } = require('../../helpers/performance.testable');
 
 describe('PerformanceOptimizer - 批次處理邏輯', () => {
-    let optimizer;
+    let optimizer = null;
 
     beforeEach(() => {
         optimizer = new PerformanceOptimizer({
