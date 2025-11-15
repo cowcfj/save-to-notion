@@ -493,7 +493,7 @@ class ScriptInjector {
                 await new Promise((resolve, reject) => {
                     chrome.scripting.executeScript({
                         target: { tabId },
-                        files: files
+                        files
                     }, () => {
                         if (chrome.runtime.lastError) {
                             const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
@@ -519,7 +519,7 @@ class ScriptInjector {
                 return new Promise((resolve, reject) => {
                     chrome.scripting.executeScript({
                         target: { tabId },
-                        func: func
+                        func
                     }, (results) => {
                         if (chrome.runtime.lastError) {
                             const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
@@ -997,7 +997,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendRe
                 }
 
                 // 檢查特殊字符
-                const problematicChars = /[<>{}|\\^`\[\]]/;
+                const problematicChars = /[<>{}|\\^`[\]]/;
                 if (problematicChars.test(imageUrl)) {
                     console.warn(`⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`);
                     return false;
@@ -1204,7 +1204,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
                 }
 
                 // 檢查特殊字符
-                const problematicChars = /[<>{}|\\^`\[\]]/;
+                const problematicChars = /[<>{}|\\^`[\]]/;
                 if (problematicChars.test(imageUrl)) {
                     console.warn(`⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`);
                     return false;
@@ -1476,7 +1476,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
             if (!addResponse.ok) {
                 const errorData = await addResponse.json();
                 console.error('❌ 添加標記失敗 - 錯誤詳情:', errorData);
-                throw new Error('Failed to add new highlights: ' + (errorData.message || 'Unknown error'));
+                throw new Error(`Failed to add new highlights: ${errorData.message || 'Unknown error'}`);
             }
 
             const addResult = await addResponse.json();
