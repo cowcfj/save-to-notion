@@ -10,7 +10,7 @@
 if (typeof window.Logger === 'undefined') {
     window.Logger = console; // 回退到 console
 }
-const Logger = window.Logger;
+// 直接使用 window.Logger，避免重複宣告
 
 // Turndown 庫需要在使用前加載
 
@@ -19,7 +19,7 @@ const Logger = window.Logger;
  */
 function initTurndownService() {
     if (typeof TurndownService === 'undefined') {
-        Logger.warn('⚠️ TurndownService not loaded, using fallback');
+        window.Logger.warn('⚠️ TurndownService not loaded, using fallback');
         return null;
     }
 
@@ -192,15 +192,15 @@ function convertMarkdownToNotionBlocks(markdown) {
         // 進度追蹤（每10行報告一次，提供詳細信息）
         if (i > 0 && i % 10 === 0) {
             const elapsed = Date.now() - startTime;
-            Logger.info(`📈 [進度] 已處理 ${i}/${lines.length} 行 (${elapsed}ms)`);
+            window.Logger.info(`📈 [進度] 已處理 ${i}/${lines.length} 行 (${elapsed}ms)`);
         }
 
         // 安全檢查：避免無限循環和超時
         const startI = i;
         const elapsed = Date.now() - startTime;
         if (elapsed > maxProcessingTime) {
-            Logger.error(`❌ Processing timeout after ${elapsed}ms at line ${i}/${lines.length}`);
-            Logger.error(`Current line: "${trimmed}"`);
+            window.Logger.error(`❌ Processing timeout after ${elapsed}ms at line ${i}/${lines.length}`);
+            window.Logger.error(`Current line: "${trimmed}"`);
             break;
         }
 
@@ -434,17 +434,17 @@ function convertMarkdownToNotionBlocks(markdown) {
             }
 
         } catch (error) {
-            Logger.error(`❌ Error processing line ${i}: "${lines[i] ? lines[i].substring(0, 50) : 'undefined'}..."`);
-            Logger.error('Error details:', error.message);
-            Logger.error('Stack trace:', error.stack);
+            window.Logger.error(`❌ Error processing line ${i}: "${lines[i] ? lines[i].substring(0, 50) : 'undefined'}..."`);
+            window.Logger.error('Error details:', error.message);
+            window.Logger.error('Stack trace:', error.stack);
             // 繼續處理下一行，不讓單一錯誤停止整個處理
             i++;
         }
 
         // 安全檢查：確保 i 有增加
         if (i === startI) {
-            Logger.warn(`⚠️ Line ${i} did not advance, forcing increment to avoid infinite loop`);
-            Logger.warn(`Line content: "${lines[i] || 'undefined'}"`);
+            window.Logger.warn(`⚠️ Line ${i} did not advance, forcing increment to avoid infinite loop`);
+            window.Logger.warn(`Line content: "${lines[i] || 'undefined'}"`);
             i++;
         }
     }
@@ -456,16 +456,16 @@ function convertMarkdownToNotionBlocks(markdown) {
     const totalTime = Date.now() - startTime;
 
     // 顯示統計資訊
-    Logger.info(`📊 [統計] 處理完成: ${totalTime}ms, ${blocks.length} 個區塊`);
+    window.Logger.info(`📊 [統計] 處理完成: ${totalTime}ms, ${blocks.length} 個區塊`);
 
     // 強制輸出最終狀態，即使有問題
 
     if (blocks.length > 0) {
-        Logger.info(`✅ [成功] 創建了 ${blocks.length} 個區塊`);
+        window.Logger.info(`✅ [成功] 創建了 ${blocks.length} 個區塊`);
     }
 
     if (blocks.length === 0) {
-        Logger.warn('⚠️ No blocks were created! This might indicate a parsing problem.');
+        window.Logger.warn('⚠️ No blocks were created! This might indicate a parsing problem.');
         // 返回一個默認段落避免空結果
         return [{
             object: 'block',
@@ -477,7 +477,7 @@ function convertMarkdownToNotionBlocks(markdown) {
     }
 
     // 強制最終輸出，確保調試信息完整
-    Logger.info(`🔄 [完成] 返回 ${blocks.length} 個區塊`);
+    window.Logger.info(`🔄 [完成] 返回 ${blocks.length} 個區塊`);
 
     return blocks;
 }
@@ -522,7 +522,7 @@ function isValidUrl(url, allowRelative = false, baseUrl = '') {
                 } catch (error) {
                     // 轉換失敗，但相對路徑仍可能有效
                     const errorMessage = error instanceof Error ? error.message : String(error);
-                    Logger.info(`⚠️ Could not convert relative URL to absolute (${errorMessage}): ${url}`);
+                    window.Logger.info(`⚠️ Could not convert relative URL to absolute (${errorMessage}): ${url}`);
                 }
             }
 
@@ -545,7 +545,7 @@ function isValidAbsoluteUrl(url) {
         return ['http:', 'https:'].includes(urlObj.protocol);
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        Logger.warn(`⚠️ [URL 驗證] 無法解析 URL (${errorMessage}): ${url}`);
+        window.Logger.warn(`⚠️ [URL 驗證] 無法解析 URL (${errorMessage}): ${url}`);
         return false;
     }
 }
@@ -653,7 +653,7 @@ function convertHtmlToNotionBlocks(html) {
 
     // 檢查是否是 GitHub Pages 或類似的 Markdown 網站
     if (currentUrl.includes('github.io') || currentUrl.includes('/docs/')) {
-        Logger.info('📄 [策略1] 檢測到 Markdown 網站，嘗試獲取原始文件');
+        window.Logger.info('📄 [策略1] 檢測到 Markdown 網站，嘗試獲取原始文件');
 
         // 嘗試構建原始 Markdown URL
         let markdownUrl = null;
@@ -664,7 +664,7 @@ function convertHtmlToNotionBlocks(html) {
         // 可以添加更多網站的規則
 
         if (markdownUrl) {
-            Logger.info(`🔗 [策略1] 嘗試獲取: ${markdownUrl}`);
+            window.Logger.info(`🔗 [策略1] 嘗試獲取: ${markdownUrl}`);
 
             // 使用同步方法嘗試獲取（在 executeScript 上下文中）
             try {
@@ -674,7 +674,7 @@ function convertHtmlToNotionBlocks(html) {
 
                 if (xhr.status === 200) {
                     const markdown = xhr.responseText;
-                    Logger.info(`✅ [策略1] 成功獲取 Markdown (${markdown.length} 字符)`);
+                    window.Logger.info(`✅ [策略1] 成功獲取 Markdown (${markdown.length} 字符)`);
 
                     // 直接將 Markdown 轉換為 Notion 區塊
                     const blocks = convertMarkdownToNotionBlocks(markdown);
@@ -682,7 +682,7 @@ function convertHtmlToNotionBlocks(html) {
                     return blocks;
                 }
             } catch (error) {
-                Logger.warn('Failed to fetch original Markdown:', error);
+                window.Logger.warn('Failed to fetch original Markdown:', error);
             }
         }
     }
@@ -696,14 +696,14 @@ function convertHtmlToNotionBlocks(html) {
         document.querySelector('.markdown-body, .markdown, [class*="markdown"]') !== null;
 
     if (isTechnicalDoc) {
-        Logger.info('🔧 [策略2] 檢測到技術文檔，使用智能內容提取');
+        window.Logger.info('🔧 [策略2] 檢測到技術文檔，使用智能內容提取');
 
         // 對技術文檔使用特殊處理：直接提取最佳內容區域
         const techSelectors = ['.markdown-body', '.docs-content', '.documentation', 'article', 'main'];
         for (const selector of techSelectors) {
             const element = document.querySelector(selector);
             if (element && element.textContent.trim().length > 1000) {
-                Logger.info(`📋 [策略2] 使用選擇器: ${selector} (${element.textContent.trim().length} 字符)`);
+                window.Logger.info(`📋 [策略2] 使用選擇器: ${selector} (${element.textContent.trim().length} 字符)`);
                 html = element.innerHTML; // 更新為最佳內容
 
                 break;
@@ -716,18 +716,18 @@ function convertHtmlToNotionBlocks(html) {
         const turndownService = initTurndownService();
 
         if (turndownService) {
-            Logger.info('📝 [轉換] HTML → Markdown');
+            window.Logger.info('📝 [轉換] HTML → Markdown');
             // HTML → Markdown
 
             const markdown = turndownService.turndown(html);
-            Logger.info(`📄 [Markdown] 生成 ${markdown.length} 字符`);
+            window.Logger.info(`📄 [Markdown] 生成 ${markdown.length} 字符`);
 
             // 顯示 Markdown 前几行供調試
             const previewLines = markdown.split('\n').slice(0, 10).join('\n');
-            Logger.info(`📋 [預覽] Markdown 前10行:\n${previewLines}`);
+            window.Logger.info(`📋 [預覽] Markdown 前10行:\n${previewLines}`);
 
             // Markdown → Notion blocks
-            Logger.info('🔄 [轉換] Markdown → Notion blocks');
+            window.Logger.info('🔄 [轉換] Markdown → Notion blocks');
 
             const blocks = convertMarkdownToNotionBlocks(markdown);
 
@@ -736,17 +736,17 @@ function convertHtmlToNotionBlocks(html) {
             blocks.forEach(block => {
                 blockTypes[block.type] = (blockTypes[block.type] || 0) + 1;
             });
-            Logger.info("📊 [區塊] 類型分佈:", blockTypes);
+            window.Logger.info("📊 [區塊] 類型分佈:", blockTypes);
 
             return blocks;
         }
     } catch (error) {
-        Logger.error('❌ HTML to Notion conversion failed:', error);
-        Logger.error('Error stack:', error.stack);
+        window.Logger.error('❌ HTML to Notion conversion failed:', error);
+        window.Logger.error('Error stack:', error.stack);
     }
 
     // 回退：使用純文本處理
-    Logger.warn('⚠️ Using fallback: plain text conversion');
+    window.Logger.warn('⚠️ Using fallback: plain text conversion');
     return fallbackHtmlToNotionBlocks(html);
 }
 

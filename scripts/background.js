@@ -476,7 +476,15 @@ function isRecoverableInjectionError(message) {
         'Cannot access contents of page',
         'No tab with id',
         'The tab was closed',
-        'The frame was removed'
+        'The frame was removed',
+        // v2.11.3: 新增錯誤頁面相關模式
+        'Frame with ID 0 is showing error page',
+        'is showing error page',
+        'ERR_NAME_NOT_RESOLVED',
+        'ERR_CONNECTION_REFUSED',
+        'ERR_INTERNET_DISCONNECTED',
+        'ERR_TIMED_OUT',
+        'ERR_SSL_PROTOCOL_ERROR'
     ];
 
     return patterns.some(pattern => message.includes(pattern));
@@ -1188,7 +1196,7 @@ async function saveToNotion(title, blocks, pageUrl, apiKey, dataSourceId, sendRe
             }
 
             // 提供更友好的錯誤信息
-            let errorMessage = errorData.message || 'Failed to save to Notion.';
+            const errorMessage = errorData.message || 'Failed to save to Notion.';
             sendResponse({ success: false, error: errorMessage });
         }
     } catch (error) {
@@ -1371,7 +1379,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
         if (!getResponse.ok) {
             const errorData = await getResponse.json();
             console.error('❌ 獲取頁面內容失敗:', errorData);
-            throw new Error('Failed to get existing page content: ' + (errorData.message || getResponse.statusText));
+            throw new Error(`Failed to get existing page content: ${errorData.message || getResponse.statusText}`);
         }
 
         const existingContent = await getResponse.json();
@@ -1592,8 +1600,20 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
     }
 
     try {
+        // 檢查標籤頁是否仍然有效且不是錯誤頁面
+        const tab = await chrome.tabs.get(tabId).catch(() => null);
+        if (!tab || !tab.url || tab.url.startsWith('chrome-error://')) {
+            Logger.log('⚠️ Skipping migration: tab is invalid or showing error page');
+            return;
+        }
+
         const result = await ScriptInjector.injectWithResponse(tabId, () => {
             try {
+                /**
+                 * 標準化 URL（移除追蹤參數和片段）
+                 * @param {string} raw - 原始 URL
+                 * @returns {string} 標準化後的 URL
+                 */
                 const normalize = (raw) => {
                     try {
                         const urlObj = new URL(raw);
@@ -1660,7 +1680,13 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
             await ScriptInjector.injectHighlightRestore(tabId);
         }
     } catch (error) {
-        console.error('Error handling migration results:', error);
+        // 檢查是否為可恢復的注入錯誤（如錯誤頁面、標籤已關閉等）
+        const errorMessage = error?.message || String(error);
+        if (isRecoverableInjectionError(errorMessage)) {
+            Logger.log('⚠️ Migration skipped due to recoverable error:', errorMessage);
+        } else {
+            console.error('❌ Error handling migration results:', error);
+        }
     }
 }
 
