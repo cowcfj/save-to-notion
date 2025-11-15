@@ -2,47 +2,7 @@
 // 共享工具函數
 // 此腳本包含所有內容腳本共用的工具函數
 
-// 防止重複注入導致的重複聲明錯誤
-if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
-    // utils.js 已經加載，跳過重複注入
-    // 使用立即執行函數避免後續代碼執行
-    (function() { return; })();
-} else {
-    // 標記 utils.js 已加載
-    if (typeof window !== 'undefined') {
-        window.__NOTION_UTILS_LOADED__ = true;
-    }
-
-// ===== Safe Logger Abstraction =====
-// 創建一個安全的 Logger 抽象，避免重複的 typeof 檢查
-const safeLogger = (function initSafeLoggerSingleton() {
-    if (typeof window !== 'undefined' && window.__NOTION_SAFE_LOGGER__) {
-        return window.__NOTION_SAFE_LOGGER__;
-    }
-
-    // 檢查是否在瀏覽器環境且有 window.Logger
-    if (typeof window !== 'undefined' && typeof window.Logger !== 'undefined') {
-        window.__NOTION_SAFE_LOGGER__ = window.Logger;
-        return window.Logger;
-    }
-
-    // 返回一個安全的替代 Logger（使用原生 console）
-    const fallbackLogger = {
-        log: () => { /* Intentionally empty for production */ }, // 在生產環境不輸出 log
-        debug: () => { /* Intentionally empty for production */ },
-        info: () => { /* Intentionally empty for production */ },
-        warn: console.warn.bind(console),
-        error: console.error.bind(console)
-    };
-
-    if (typeof window !== 'undefined') {
-        window.__NOTION_SAFE_LOGGER__ = fallbackLogger;
-    }
-
-    return fallbackLogger;
-})();
-
-// ===== Program-root utilities =====
+// ===== Module-level utilities (must be at program root) =====
 /**
  * 背景日誌轉運器：將日誌發送到 background service worker
  * @param {string} level - 日誌級別 (log/debug/info/warn/error)
@@ -138,6 +98,46 @@ function setLoggerEnabledSafely(value) {
         // 初始化設置失敗不應影響主流程
     }
 }
+
+// 防止重複注入導致的重複聲明錯誤
+if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
+    // utils.js 已經加載，跳過重複注入
+    // 使用立即執行函數避免後續代碼執行
+    (function() { return; })();
+} else {
+    // 標記 utils.js 已加載
+    if (typeof window !== 'undefined') {
+        window.__NOTION_UTILS_LOADED__ = true;
+    }
+
+// ===== Safe Logger Abstraction =====
+// 創建一個安全的 Logger 抽象，避免重複的 typeof 檢查
+const safeLogger = (function initSafeLoggerSingleton() {
+    if (typeof window !== 'undefined' && window.__NOTION_SAFE_LOGGER__) {
+        return window.__NOTION_SAFE_LOGGER__;
+    }
+
+    // 檢查是否在瀏覽器環境且有 window.Logger
+    if (typeof window !== 'undefined' && typeof window.Logger !== 'undefined') {
+        window.__NOTION_SAFE_LOGGER__ = window.Logger;
+        return window.Logger;
+    }
+
+    // 返回一個安全的替代 Logger（使用原生 console）
+    const fallbackLogger = {
+        log: () => { /* Intentionally empty for production */ }, // 在生產環境不輸出 log
+        debug: () => { /* Intentionally empty for production */ },
+        info: () => { /* Intentionally empty for production */ },
+        warn: console.warn.bind(console),
+        error: console.error.bind(console)
+    };
+
+    if (typeof window !== 'undefined') {
+        window.__NOTION_SAFE_LOGGER__ = fallbackLogger;
+    }
+
+    return fallbackLogger;
+})();
 
 // 初始化可切換的日誌模式旗標（預設 false）；由 options 頁面設定 enableDebugLogs 同步更新
 if (typeof window !== 'undefined') {
