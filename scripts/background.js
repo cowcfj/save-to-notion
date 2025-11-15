@@ -1,7 +1,7 @@
 // Notion Smart Clipper - Background Script
 // Refactored for better organization
 
-/* global chrome, PerformanceOptimizer, ErrorHandler */
+/* global chrome, PerformanceOptimizer, ErrorHandler, ImageUtils */
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
@@ -32,8 +32,15 @@ const Logger = {
 
 /**
  * 清理和標準化圖片 URL
+ * 使用 imageUtils.js 中的統一實現
  */
 function cleanImageUrl(url) {
+    // 檢查 ImageUtils 是否可用
+    if (typeof ImageUtils !== 'undefined' && ImageUtils.cleanImageUrl) {
+        return ImageUtils.cleanImageUrl(url);
+    }
+
+    // 回退實現（如果 ImageUtils 未載入）
     if (!url || typeof url !== 'string') return null;
 
     try {
@@ -43,7 +50,6 @@ function cleanImageUrl(url) {
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
             const uParam = urlObj.searchParams.get('u');
             if (uParam && /^https?:\/\//.test(uParam)) {
-                // 使用代理中的原始圖片 URL
                 return cleanImageUrl(uParam);
             }
         }
@@ -233,6 +239,7 @@ const BLOB_PROTOCOL_REGEX = /^blob:/i;
 
 /**
  * 驗證圖片 URL 是否有效
+ * 優先使用 imageUtils.js 中的統一實現，帶緩存優化
  * @param {string} url - 要驗證的圖片 URL
  * @returns {boolean} 是否為有效的圖片 URL
  */
@@ -257,30 +264,37 @@ function isValidImageUrl(url) {
     }
 
     try {
-        // 清理和標準化 URL
-        const cleanedUrl = cleanImageUrl(trimmedUrl);
-        if (!cleanedUrl) {
-            Logger.log('❌ [ImageValidation] URL 清理失敗');
-            imageUrlValidationCache.set(trimmedUrl, false);
-            return false;
-        }
+        // 優先使用 ImageUtils 的統一驗證（如果可用）
+        let isValidImage = false;
 
-        // 驗證協議
-        if (!isValidProtocol(cleanedUrl)) {
-            Logger.log('❌ [ImageValidation] 不支持的協議');
-            imageUrlValidationCache.set(trimmedUrl, false);
-            return false;
-        }
+        if (typeof ImageUtils !== 'undefined' && ImageUtils.isValidImageUrl) {
+            isValidImage = ImageUtils.isValidImageUrl(trimmedUrl);
+        } else {
+            // 回退實現：使用本地驗證邏輯
+            const cleanedUrl = cleanImageUrl(trimmedUrl);
+            if (!cleanedUrl) {
+                Logger.log('❌ [ImageValidation] URL 清理失敗');
+                imageUrlValidationCache.set(trimmedUrl, false);
+                return false;
+            }
 
-        // 檢查 URL 長度限制
-        if (cleanedUrl.length > IMAGE_VALIDATION_CONFIG.MAX_URL_LENGTH) {
-            Logger.log('❌ [ImageValidation] URL 長度超過限制');
-            imageUrlValidationCache.set(trimmedUrl, false);
-            return false;
-        }
+            // 驗證協議
+            if (!isValidProtocol(cleanedUrl)) {
+                Logger.log('❌ [ImageValidation] 不支持的協議');
+                imageUrlValidationCache.set(trimmedUrl, false);
+                return false;
+            }
 
-        // 檢查是否為圖片
-        const isValidImage = validateImageContent(cleanedUrl);
+            // 檢查 URL 長度限制
+            if (cleanedUrl.length > IMAGE_VALIDATION_CONFIG.MAX_URL_LENGTH) {
+                Logger.log('❌ [ImageValidation] URL 長度超過限制');
+                imageUrlValidationCache.set(trimmedUrl, false);
+                return false;
+            }
+
+            // 檢查是否為圖片
+            isValidImage = validateImageContent(cleanedUrl);
+        }
 
         // 緩存結果
         imageUrlValidationCache.set(trimmedUrl, isValidImage);

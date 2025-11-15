@@ -17,7 +17,11 @@ module.exports = {
     // 1. 測試 URL 正規化功能
     console.log('  1️⃣ 測試 URL 正規化...');
     const urlNormalizationResult = await page.evaluate(() => {
-      // 模擬 normalizeUrl 函數
+      /**
+       * 正規化 URL（移除追蹤參數、hash 和尾部斜線）
+       * @param {string} url - 要正規化的 URL
+       * @returns {string} 正規化後的 URL
+       */
       function normalizeUrl(url) {
         try {
           const urlObj = new URL(url);
@@ -81,6 +85,11 @@ module.exports = {
     // 2. 測試圖片 URL 驗證
     console.log('  2️⃣ 測試圖片 URL 驗證...');
     const imageValidationResult = await page.evaluate(() => {
+      /**
+       * 驗證圖片 URL 是否有效
+       * @param {string} url - 要驗證的圖片 URL
+       * @returns {boolean} URL 是否為有效的圖片 URL
+       */
       function isValidImageUrl(url) {
         if (!url || typeof url !== 'string') return false;
 
@@ -131,6 +140,12 @@ module.exports = {
     // 3. 測試文本分割功能
     console.log('  3️⃣ 測試長文本分割...');
     const textSplitResult = await page.evaluate(() => {
+      /**
+       * 將長文本分割成符合長度限制的區塊
+       * @param {string} text - 要分割的文本
+       * @param {number} [maxLength=2000] - 每個區塊的最大長度
+       * @returns {string[]} 分割後的文本區塊陣列
+       */
       function splitTextForHighlight(text, maxLength = 2000) {
         if (text.length <= maxLength) {
           return [text];

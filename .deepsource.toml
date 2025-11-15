@@ -43,3 +43,11 @@ enabled = true
   paths = [
     "scripts/**/*.js"
   ]
+
+  # JS-0002: Allow console usage in test files (Node.js environment)
+  # E2E tests run in Node.js and need console output for test progress
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0002"
+  paths = [
+    "tests/**/*.js"
+  ]
