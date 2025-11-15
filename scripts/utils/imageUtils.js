@@ -4,24 +4,6 @@
  */
 
 /**
- * Logger 回退機制
- * 優先使用全域 Logger（來自 utils.js），不存在時回退到 console
- */
-const Logger = (function() {
-    if (typeof window !== 'undefined' && window.Logger) {
-        return window.Logger;
-    }
-    // 回退到 console，確保所有方法都存在
-    return {
-        log: () => { /* 生產環境不輸出 */ },
-        debug: () => { /* 生產環境不輸出 */ },
-        info: () => { /* 生產環境不輸出 */ },
-        warn: console.warn.bind(console),
-        error: console.error.bind(console)
-    };
-})();
-
-/**
  * 圖片驗證常數
  * 用於 URL 長度、參數數量等限制
  */
@@ -29,26 +11,16 @@ const IMAGE_VALIDATION_CONSTANTS = {
     MAX_URL_LENGTH: 1500,              // Notion API URL 長度限制
     MAX_QUERY_PARAMS: 10,              // 查詢參數數量閾值（超過可能為動態 URL）
     SRCSET_WIDTH_MULTIPLIER: 1000,     // srcset w 描述符權重（優先於 x）
-    MAX_BACKGROUND_URL_LENGTH: 2000,   // 背景圖片 URL 最大長度（防止 ReDoS）
-    MAX_RECURSION_DEPTH: 10            // 代理 URL 遞歸解析最大深度（防止無限遞歸）
+    MAX_BACKGROUND_URL_LENGTH: 2000    // 背景圖片 URL 最大長度（防止 ReDoS）
 };
 
 /**
  * 清理和標準化圖片 URL
  * @param {string} url - 原始圖片 URL
- * @param {number} depth - 遞歸深度（內部參數，防止無限遞歸）
  * @returns {string|null} 清理後的 URL 或 null（如果無效）
- * @throws {Error} 當遞歸深度超過限制時拋出錯誤
  */
-function cleanImageUrl(url, depth = 0) {
+function cleanImageUrl(url) {
     if (!url || typeof url !== 'string') return null;
-
-    // 遞歸深度檢查：防止惡意構造的嵌套代理 URL 導致堆疊溢出或 ReDoS
-    if (depth > IMAGE_VALIDATION_CONSTANTS.MAX_RECURSION_DEPTH) {
-        const errorMsg = `⚠️ [安全] 代理 URL 遞歸深度超過限制 (${depth}/${IMAGE_VALIDATION_CONSTANTS.MAX_RECURSION_DEPTH})`;
-        Logger.error(errorMsg);
-        throw new Error(errorMsg);
-    }
 
     try {
         const urlObj = new URL(url);
@@ -56,18 +28,9 @@ function cleanImageUrl(url, depth = 0) {
         // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
         if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
             const uParam = urlObj.searchParams.get('u');
-            /**
-             * 正則表達式：/^https?:\/\//
-             * 用途：檢查字符串是否以 http:// 或 https:// 開頭
-             * 模式：
-             *   ^        - 字符串開始
-             *   https?   - 匹配 http 或 https（? 表示 s 可選）
-             *   :\/\/    - 匹配 ://（斜線需轉義）
-             * 風險：無（簡單前綴匹配，時間複雜度 O(1)）
-             */
             if (uParam?.match(/^https?:\/\//)) {
-                // 使用代理中的原始圖片 URL（遞歸處理，深度 +1）
-                return cleanImageUrl(uParam, depth + 1);
+                // 使用代理中的原始圖片 URL
+                return cleanImageUrl(uParam);
             }
         }
 
@@ -110,16 +73,7 @@ function isValidImageUrl(url) {
     const cleanedUrl = cleanImageUrl(url);
     if (!cleanedUrl) return false;
 
-    /**
-     * 正則表達式：/^https?:\/\//i
-     * 用途：檢查 URL 是否以 http:// 或 https:// 開頭（不區分大小寫）
-     * 模式：
-     *   ^        - 字符串開始
-     *   https?   - 匹配 http 或 https（? 表示 s 可選）
-     *   :\/\/    - 匹配 ://（斜線需轉義）
-     *   i 旗標  - 不區分大小寫
-     * 風險：無（簡單前綴匹配，時間複雜度 O(1)）
-     */
+    // 檢查是否為有效的 HTTP/HTTPS URL
     if (!/^https?:\/\//i.test(cleanedUrl)) return false;
 
     // 檢查 URL 長度（Notion API 限制）
@@ -141,76 +95,37 @@ function isValidImageUrl(url) {
         // 如果 URL 包含圖片擴展名，直接返回 true
         if (hasImageExtension) return true;
 
-        /**
-         * 圖片路徑模式正則表達式集合
-         * 用途：識別 CDN 或無副檔名的圖片 URL 路徑特徵
-         * 風險：所有模式均為簡單字符串匹配，無回溯風險，時間複雜度 O(n)
-         */
+        // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
         const imagePathPatterns = [
-            /\/image[s]?\//i,           // 匹配 /image/ 或 /images/（不區分大小寫）
-            /\/img[s]?\//i,             // 匹配 /img/ 或 /imgs/
-            /\/photo[s]?\//i,           // 匹配 /photo/ 或 /photos/
-            /\/picture[s]?\//i,         // 匹配 /picture/ 或 /pictures/
-            /\/media\//i,               // 匹配 /media/ 路徑
-            /\/upload[s]?\//i,          // 匹配 /upload/ 或 /uploads/
-            /\/asset[s]?\//i,           // 匹配 /asset/ 或 /assets/
-            /\/file[s]?\//i,            // 匹配 /file/ 或 /files/
-            /\/content\//i,             // 匹配 /content/ 路徑
-            /\/wp-content\//i,          // 匹配 WordPress /wp-content/ 路徑
-            /\/cdn\//i,                 // 匹配 /cdn/ 路徑
-            /**
-             * 正則表達式：/cdn\d*\./i
-             * 用途：匹配 CDN 子域名（如 cdn.、cdn1.、cdn2.example.com）
-             * 模式：
-             *   cdn   - 匹配字面字符串 "cdn"
-             *   \d*   - 匹配 0 到多個數字（* 表示 0 或多次）
-             *   \.    - 匹配點號（需轉義）
-             *   i 旗標 - 不區分大小寫
-             * 風險：低（\d* 在有界輸入下無回溯問題）
-             */
-            /cdn\d*\./i,
-            /\/static\//i,              // 匹配 /static/ 靜態資源路徑
-            /\/thumb[s]?\//i,           // 匹配 /thumb/ 或 /thumbs/ 縮圖路徑
-            /\/thumbnail[s]?\//i,       // 匹配 /thumbnail/ 或 /thumbnails/
-            /\/resize\//i,              // 匹配 /resize/ 圖片調整路徑
-            /\/crop\//i,                // 匹配 /crop/ 圖片裁剪路徑
-            /**
-             * 正則表達式：/\/(\d{4})\/(\d{2})\//
-             * 用途：匹配日期組織的路徑（如 /2025/10/、/2024/03/）
-             * 模式：
-             *   \/       - 匹配斜線
-             *   (\d{4})  - 捕獲組：匹配 4 位數字（年份）
-             *   \/       - 匹配斜線
-             *   (\d{2})  - 捕獲組：匹配 2 位數字（月份）
-             *   \/       - 匹配斜線
-             * 風險：無（固定長度匹配，時間複雜度 O(1)）
-             */
-            /\/(\d{4})\/(\d{2})\//
+            /\/image[s]?\//i,
+            /\/img[s]?\//i,
+            /\/photo[s]?\//i,
+            /\/picture[s]?\//i,
+            /\/media\//i,
+            /\/upload[s]?\//i,
+            /\/asset[s]?\//i,
+            /\/file[s]?\//i,
+            /\/content\//i,
+            /\/wp-content\//i,
+            /\/cdn\//i,
+            /cdn\d*\./i,  // cdn1.example.com, cdn2.example.com
+            /\/static\//i,
+            /\/thumb[s]?\//i,
+            /\/thumbnail[s]?\//i,
+            /\/resize\//i,
+            /\/crop\//i,
+            /\/(\d{4})\/(\d{2})\//  // 日期路徑如 /2025/10/
         ];
 
-        /**
-         * 排除模式正則表達式集合
-         * 用途：過濾明顯非圖片的 URL（腳本、API、追蹤像素等）
-         * 風險：所有模式均為簡單字符串匹配，無回溯風險
-         */
+        // 排除明顯不是圖片的 URL
         const excludePatterns = [
-            /**
-             * 正則表達式：/\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i
-             * 用途：排除常見的非圖片檔案副檔名
-             * 模式：
-             *   \.                  - 匹配點號（需轉義）
-             *   (js|css|...|xml)    - 匹配任一副檔名（| 表示或）
-             *   (\?|$)              - 匹配問號（查詢字符串開始）或字符串結尾
-             *   i 旗標              - 不區分大小寫
-             * 風險：無（有限選項集合，無回溯）
-             */
             /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
-            /\/api\//i,             // 排除 /api/ API 端點路徑
-            /\/ajax\//i,            // 排除 /ajax/ AJAX 請求路徑
-            /\/callback/i,          // 排除 /callback 回調路徑
-            /\/track/i,             // 排除 /track 追蹤路徑
-            /\/analytics/i,         // 排除 /analytics 分析路徑
-            /\/pixel/i              // 排除 /pixel 追蹤像素路徑
+            /\/api\//i,
+            /\/ajax\//i,
+            /\/callback/i,
+            /\/track/i,
+            /\/analytics/i,
+            /\/pixel/i
         ];
 
         if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
@@ -239,20 +154,8 @@ function isNotionCompatibleImageUrl(url) {
             return false;
         }
 
-        /**
-         * 正則表達式：/[<>{}|\\^`\[\]]/
-         * 用途：檢測 Notion API 不接受的特殊字符
-         * 模式：
-         *   [...]   - 字符類別，匹配方括號內任一字符
-         *   <>      - 尖括號
-         *   {}      - 大括號
-         *   |       - 管道符號
-         *   \\      - 反斜線（需雙重轉義）
-         *   ^       - 脫字符號
-         *   `       - 反引號
-         *   \[\]    - 方括號（需轉義）
-         * 風險：無（簡單字符類別匹配，時間複雜度 O(n)）
-         */
+        // 檢查是否包含可能導致問題的特殊字符
+        // Notion API 對某些字符敏感
         const problematicChars = /[<>{}|\\^`\[\]]/;
         if (problematicChars.test(url)) {
             return false;
@@ -261,7 +164,9 @@ function isNotionCompatibleImageUrl(url) {
         // 檢查是否有過多的查詢參數（可能表示動態生成的 URL）
         const paramCount = Array.from(urlObj.searchParams.keys()).length;
         if (paramCount > IMAGE_VALIDATION_CONSTANTS.MAX_QUERY_PARAMS) {
-            Logger.warn(`⚠️ [圖片驗證] URL 查詢參數過多 (${paramCount}): ${url.substring(0, 100)}`);
+            if (typeof Logger !== 'undefined') {
+                Logger.warn(`⚠️ [圖片驗證] URL 查詢參數過多 (${paramCount}): ${url.substring(0, 100)}`);
+            }
             return false;
         }
 
