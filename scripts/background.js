@@ -493,7 +493,7 @@ class ScriptInjector {
                 await new Promise((resolve, reject) => {
                     chrome.scripting.executeScript({
                         target: { tabId },
-                        files: files
+                        files
                     }, () => {
                         if (chrome.runtime.lastError) {
                             const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
@@ -519,7 +519,7 @@ class ScriptInjector {
                 return new Promise((resolve, reject) => {
                     chrome.scripting.executeScript({
                         target: { tabId },
-                        func: func
+                        func
                     }, (results) => {
                         if (chrome.runtime.lastError) {
                             const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
