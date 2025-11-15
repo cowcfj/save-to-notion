@@ -82,7 +82,6 @@ describe('PerformanceOptimizer - 批次處理邏輯', () => {
     describe('destroy() 方法測試', () => {
         test('應該清理批處理定時器', () => {
             optimizer.batchTimer = setTimeout(() => {}, 1000);
-            const timerId = optimizer.batchTimer;
 
             optimizer.destroy();
 
