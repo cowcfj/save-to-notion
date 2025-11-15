@@ -338,8 +338,8 @@ function isValidNotionBlock(block) {
         return false;
     }
 
-    // 必須有對應類型的內容字段（明確檢查存在性，區分 null/undefined 與 falsy 值）
-    if (block[typeFieldName] == null) {
+    // 必須有對應類型的內容字段，且該字段必須是 object
+    if (typeof block[typeFieldName] !== 'object' || block[typeFieldName] === null) {
         return false;
     }
 

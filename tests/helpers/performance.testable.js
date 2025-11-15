@@ -784,6 +784,25 @@ class PerformanceOptimizer {
         }
         return Promise.resolve();
     }
+
+    /**
+     * 清理資源
+     */
+    destroy() {
+        // 清理批處理定時器
+        if (this.batchTimer) {
+            clearTimeout(this.batchTimer);
+            this.batchTimer = null;
+        }
+
+        // 清空查詢緩存
+        this.queryCache.clear();
+
+        // 調用 adaptiveManager 的 destroy 方法（如果存在）
+        if (this.adaptiveManager && typeof this.adaptiveManager.destroy === 'function') {
+            this.adaptiveManager.destroy();
+        }
+    }
 }
 
 module.exports = { PerformanceOptimizer };

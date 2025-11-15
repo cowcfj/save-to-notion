@@ -612,13 +612,7 @@ class PerformanceOptimizer {
 
         // 動態調整批處理大小，根據隊列大小決定是否分批處理
         const maxBatchSize = this._calculateOptimalBatchSize();
-        const currentBatch = this.batchQueue.length > maxBatchSize
-            ? this.batchQueue.splice(0, maxBatchSize)
-            : [...this.batchQueue];
-
-        this.batchQueue = this.batchQueue.length > maxBatchSize
-            ? this.batchQueue
-            : [];
+        const currentBatch = this.batchQueue.splice(0, maxBatchSize);
 
         const startTime = performance.now();
 
@@ -883,7 +877,7 @@ class PerformanceOptimizer {
             // 處理時間過長，減少批處理大小
             perfLogger.info('⏰ 處理時間過長，動態調整批處理大小');
             if (this.adaptiveManager) {
-                const currentBatchSize = this.options.batchDelay || 16;
+                const currentBatchSize = this.options.batchSize || 100;
                 this.adaptiveManager.adjustBatchSize(Math.floor(currentBatchSize * 0.8));
             }
         }
