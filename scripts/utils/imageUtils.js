@@ -164,8 +164,11 @@ function isNotionCompatibleImageUrl(url) {
         // 檢查是否有過多的查詢參數（可能表示動態生成的 URL）
         const paramCount = Array.from(urlObj.searchParams.keys()).length;
         if (paramCount > IMAGE_VALIDATION_CONSTANTS.MAX_QUERY_PARAMS) {
-            if (typeof Logger !== 'undefined') {
+            // 使用與 ErrorHandler 相同的防禦性檢查模式
+            if (typeof Logger !== 'undefined' && Logger.warn) {
                 Logger.warn(`⚠️ [圖片驗證] URL 查詢參數過多 (${paramCount}): ${url.substring(0, 100)}`);
+            } else if (typeof console !== 'undefined' && console.warn) {
+                console.warn(`⚠️ [圖片驗證] URL 查詢參數過多 (${paramCount}): ${url.substring(0, 100)}`);
             }
             return false;
         }
