@@ -47,7 +47,7 @@
         async getMigrationStatus() {
             try {
                 const key = `${this.migrationKey}_${window.location.href}`;
-                const data = await chrome.storage.local.get(key);
+                const data = await window.chrome.storage.local.get(key);
                 return data[key] || 'pending';
             } catch (error) {
                 console.warn('無法讀取遷移狀態:', error);
@@ -61,7 +61,7 @@
         async setMigrationStatus(status) {
             try {
                 const key = `${this.migrationKey}_${window.location.href}`;
-                await chrome.storage.local.set({ [key]: status });
+                await window.chrome.storage.local.set({ [key]: status });
                 Logger.log(`📝 遷移狀態已更新: ${status}`);
             } catch (error) {
                 console.error('無法保存遷移狀態:', error);
@@ -136,8 +136,8 @@
                     return null;
                 }
             } catch (error) {
-                if (typeof ErrorHandler !== 'undefined') {
-                    ErrorHandler.logError({
+                if (window.ErrorHandler) {
+                    window.ErrorHandler.logError({
                         type: 'migration_error',
                         context: '標註遷移過程',
                         originalError: error,

@@ -511,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // API Key 輸入時自動載入資料來源
-    let loadDatabasesTimeout;
+    let loadDatabasesTimeout = null;
 
     function handleApiKeyInput() {
         const apiKey = apiKeyInput.value.trim();

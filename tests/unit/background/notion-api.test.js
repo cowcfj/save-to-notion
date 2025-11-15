@@ -10,7 +10,7 @@ describe('Background Notion API Operations', () => {
   beforeEach(() => {
     // 保存原始 fetch
     originalFetch = global.fetch;
-    
+
     // 創建 fetch mock
     mockFetch = jest.fn();
     global.fetch = mockFetch;
@@ -29,7 +29,7 @@ describe('Background Notion API Operations', () => {
   afterEach(() => {
     // 恢復原始 fetch
     global.fetch = originalFetch;
-    
+
     // 清理 mocks
     jest.restoreAllMocks();
   });
@@ -126,7 +126,7 @@ describe('Background Notion API Operations', () => {
       // Assert
       const fetchCall = mockFetch.mock.calls[0];
       const requestBody = JSON.parse(fetchCall[1].body);
-      
+
       expect(requestBody.icon).toEqual({
         type: 'external',
         external: {
@@ -203,7 +203,7 @@ describe('Background Notion API Operations', () => {
       // Assert
       const fetchCall = mockFetch.mock.calls[0];
       const requestBody = JSON.parse(fetchCall[1].body);
-      
+
       // 應該只保留正常的段落和有效的圖片
       expect(requestBody.children).toHaveLength(2);
       expect(requestBody.children[0].type).toBe('paragraph');
@@ -266,7 +266,7 @@ describe('Background Notion API Operations', () => {
 
       // Assert
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      
+
       // 第一次調用：創建頁面（前100個區塊）
       const createCall = mockFetch.mock.calls[0];
       const createBody = JSON.parse(createCall[1].body);
@@ -380,7 +380,7 @@ describe('Background Notion API Operations', () => {
 
       // Assert
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      
+
       // 第二次調用應該不包含圖片
       const retryCall = mockFetch.mock.calls[1];
       const retryBody = JSON.parse(retryCall[1].body);
@@ -637,24 +637,22 @@ describe('Background Notion API Operations', () => {
  */
 async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon = null, excludeImages = false) {
   const startTime = performance.now();
-  
+
   // 過濾圖片區塊的邏輯
-  let validBlocks;
-  if (excludeImages) {
-    validBlocks = blocks.filter(block => block.type !== 'image');
-  } else {
-    validBlocks = blocks.filter(block => {
+  const validBlocks = excludeImages
+    ? blocks.filter(block => block.type !== 'image')
+    : blocks.filter(block => {
       if (block.type === 'image') {
         const imageUrl = block.image?.external?.url;
         if (!imageUrl) return false;
-        
+
         // 檢查 URL 長度
         if (imageUrl.length > 1500) return false;
-        
+
         // 檢查特殊字符
         const problematicChars = /[<>{}|\\^`\[\]]/;
         if (problematicChars.test(imageUrl)) return false;
-        
+
         // 驗證 URL 格式
         try {
           const urlObj = new URL(imageUrl);
@@ -666,7 +664,6 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
       }
       return true;
     });
-  }
 
   const skippedCount = blocks.length - validBlocks.length;
 

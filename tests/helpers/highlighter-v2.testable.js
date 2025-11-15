@@ -49,11 +49,7 @@ function validateHighlightData(highlightData) {
 
     // text 不能為空
     const text = highlightData.text || highlightData.content;
-    if (!isValidNonEmptyString(text)) {
-        return false;
-    }
-
-    return true;
+    return isValidNonEmptyString(text);
 }
 
 /**
@@ -123,8 +119,7 @@ function validateRangeInfo(rangeInfo) {
     }
 
     // 必須包含有效的非空文本
-    const text = rangeInfo.text;
-    if (!isValidNonEmptyString(text)) {
+    if (!isValidNonEmptyString(rangeInfo.text)) {
         return false;
     }
 
