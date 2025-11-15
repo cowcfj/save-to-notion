@@ -63,11 +63,33 @@ function cleanImageUrl(url) {
 
 /**
  * 檢查 URL 是否為有效的圖片格式
+ * 整合了 AttributeExtractor 和 background.js 的驗證邏輯
  * @param {string} url - 要檢查的 URL
  * @returns {boolean} 是否為有效的圖片 URL
  */
 function isValidImageUrl(url) {
     if (!url || typeof url !== 'string') return false;
+
+    // 排除 data: 和 blob: URL（來自 AttributeExtractor）
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+        return false;
+    }
+
+    // 排除明顯的佔位符（來自 AttributeExtractor）
+    const placeholders = [
+        'placeholder',
+        'loading',
+        'spinner',
+        'blank',
+        'empty',
+        '1x1',
+        'transparent'
+    ];
+
+    const lowerUrl = url.toLowerCase();
+    if (placeholders.some(placeholder => lowerUrl.includes(placeholder))) {
+        return false;
+    }
 
     // 先清理 URL
     const cleanedUrl = cleanImageUrl(url);
@@ -212,12 +234,35 @@ const IMAGE_ATTRIBUTES = [
 
 /**
  * 從 srcset 字符串中提取最佳圖片 URL
+ * 優先使用 SrcsetParser 進行精確解析，回退到簡單實現
  * @param {string} srcset - srcset 屬性值
  * @returns {string|null} 最佳圖片 URL 或 null
  */
 function extractBestUrlFromSrcset(srcset) {
     if (!srcset || typeof srcset !== 'string') return null;
 
+    // 優先使用 SrcsetParser（如果可用）
+    if (typeof SrcsetParser !== 'undefined' && SrcsetParser.parse) {
+        try {
+            const bestUrl = SrcsetParser.parse(srcset, {
+                preferredWidth: 1920,  // 預設首選寬度
+                preferredDensity: 2.0  // 預設首選密度
+            });
+            if (bestUrl) return bestUrl;
+        } catch (error) {
+            // SrcsetParser 失敗時回退到簡單實現
+            if (typeof ErrorHandler !== 'undefined') {
+                ErrorHandler.logError({
+                    type: 'srcset_parser_failed',
+                    context: `SrcsetParser failed, falling back to simple implementation`,
+                    originalError: error,
+                    timestamp: Date.now()
+                });
+            }
+        }
+    }
+
+    // 回退實現：簡單的 srcset 解析
     const srcsetEntries = srcset.split(',').map(entry => entry.trim());
     if (srcsetEntries.length === 0) return null;
 

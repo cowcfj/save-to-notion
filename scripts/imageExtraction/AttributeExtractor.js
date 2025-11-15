@@ -200,11 +200,18 @@ class AttributeExtractor {
 
     /**
      * 驗證是否為有效的圖片 URL
+     * 使用 imageUtils.js 中的統一實現
      * @private
      * @param {string} url - 要驗證的 URL
      * @returns {boolean} 是否有效
      */
     static _isValidImageUrl(url) {
+        // 優先使用 ImageUtils 的統一驗證（如果可用）
+        if (typeof ImageUtils !== 'undefined' && ImageUtils.isValidImageUrl) {
+            return ImageUtils.isValidImageUrl(url);
+        }
+
+        // 回退實現（如果 ImageUtils 未載入）
         if (!url || typeof url !== 'string') {
             return false;
         }
