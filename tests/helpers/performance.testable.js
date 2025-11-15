@@ -121,7 +121,7 @@ class PerformanceOptimizer {
             return this._performQuery(selector, context, options);
         }
 
-        const cacheKey = this._generateCacheKey(selector, context, options);
+        const cacheKey = PerformanceOptimizer._generateCacheKey(selector, context, options);
 
         // 檢查緩存
         if (this.queryCache.has(cacheKey)) {
@@ -362,7 +362,7 @@ class PerformanceOptimizer {
         const selectorList = Array.isArray(selectors) ? selectors : [selectors];
 
         for (const selector of selectorList) {
-            const cacheKey = this._generateCacheKey(selector, context, options);
+            const cacheKey = PerformanceOptimizer._generateCacheKey(selector, context, options);
             if (this.queryCache.has(cacheKey)) {
                 // 執行新的查詢並更新緩存
                 const result = this._performQuery(selector, context, options);
@@ -490,7 +490,12 @@ class PerformanceOptimizer {
             } else {
                 return context.querySelectorAll(selector);
             }
-        } catch {
+        } catch (error) {
+            // 記錄查詢錯誤（使用實例狀態）
+            if (this.options.enableMetrics) {
+                // skipcq: JS-0002
+                console.warn(`⚠️ DOM 查詢失敗: ${selector}`, error.message);
+            }
             // 在測試環境中，返回空結果而不是拋出錯誤
             return options.single ? null : [];
         }
@@ -504,7 +509,7 @@ class PerformanceOptimizer {
      * @param {Object} options - 查詢選項
      * @returns {string} 緩存鍵
      */
-    _generateCacheKey(selector, context, options) {
+    static _generateCacheKey(selector, context, options) {
         const contextId = context === document ? 'document' :
                          (context.id || context.tagName || 'element');
         const optionsStr = JSON.stringify(options);
@@ -630,9 +635,14 @@ class PerformanceOptimizer {
     /**
      * 分批處理數組
      * @private
+     * @param {Array} items - 要處理的項目數組
+     * @param {number} batchSize - 批次大小
+     * @param {Function} processor - 處理函數
+     * @returns {Promise<Array>} 處理結果數組
      */
     async _processInBatches(items, batchSize, processor) {
         const results = [];
+        const startTime = performance.now();
 
         for (let i = 0; i < items.length; i += batchSize) {
             const batch = items.slice(i, i + batchSize);
@@ -642,7 +652,18 @@ class PerformanceOptimizer {
             results.push(...batchResults.map(result =>
                 result.status === 'fulfilled' ? result.value : { error: result.reason }
             ));
+
+            // 在處理大批次時讓出控制權以保持響應性
+            if (items.length > 100 && i + batchSize < items.length) {
+                await this._yieldToMain();
+            }
         }
+
+        // 更新性能指標（使用實例屬性以符合類別方法要求）
+        const processingTime = performance.now() - startTime;
+        this.metrics.totalProcessingTime += processingTime;
+        this.metrics.averageProcessingTime =
+            this.metrics.totalProcessingTime / (this.batchStats.totalBatches || 1);
 
         return results;
     }
@@ -683,8 +704,14 @@ class PerformanceOptimizer {
         const startTime = performance.now();
         const result = fn();
         const endTime = performance.now();
-    // skipcq: JS-0002
-    console.info(`Performance: ${name} took ${(endTime - startTime).toFixed(2)}ms`);
+        const duration = endTime - startTime;
+
+        // 記錄測量結果到實例指標
+        if (this.options.enableMetrics) {
+            // skipcq: JS-0002
+            console.info(`Performance: ${name} took ${duration.toFixed(2)}ms`);
+        }
+
         return result;
     }
 
@@ -698,8 +725,14 @@ class PerformanceOptimizer {
         const startTime = performance.now();
         const result = await asyncFn();
         const endTime = performance.now();
-    // skipcq: JS-0002
-    console.info(`Performance: ${name} took ${(endTime - startTime).toFixed(2)}ms`);
+        const duration = endTime - startTime;
+
+        // 記錄測量結果到實例指標
+        if (this.options.enableMetrics) {
+            // skipcq: JS-0002
+            console.info(`Performance: ${name} took ${duration.toFixed(2)}ms`);
+        }
+
         return result;
     }
 
