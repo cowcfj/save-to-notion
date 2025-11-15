@@ -1,7 +1,12 @@
 /**
  * 屬性提取器
  * 專門處理各種圖片屬性的提取，包括懶加載和響應式圖片屬性
+ *
+ * @requires ImageUtils - 圖片工具庫（可選，用於統一驗證邏輯）
  */
+
+/* global ImageUtils */
+
 class AttributeExtractor {
     /**
      * 圖片屬性優先級列表

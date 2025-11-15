@@ -48,9 +48,16 @@ function cleanImageUrl(url) {
         /*
          * URL 解析錯誤：通常是格式不正確的 URL
          * 返回 null 表示無法處理，調用者應該有適當的回退處理
+         *
+         * ErrorHandler 是全局變量，由 scripts/errorHandling/ErrorHandler.js 提供
+         * 在瀏覽器環境中掛載到 window.ErrorHandler
+         * 在 Node.js 測試環境中通過 require 引入
          */
-        if (typeof ErrorHandler !== 'undefined') {
-            ErrorHandler.logError({
+        const ErrorHandlerRef = typeof window !== 'undefined' ? window.ErrorHandler :
+                               (typeof ErrorHandler !== 'undefined' ? ErrorHandler : null);
+
+        if (ErrorHandlerRef) {
+            ErrorHandlerRef.logError({
                 type: 'invalid_url',
                 context: `URL cleaning: ${url}`,
                 originalError: error,
@@ -178,7 +185,7 @@ function isNotionCompatibleImageUrl(url) {
 
         // 檢查是否包含可能導致問題的特殊字符
         // Notion API 對某些字符敏感
-        const problematicChars = /[<>{}|\\^`\[\]]/;
+        const problematicChars = /[<>{}|\\^`[\]]/;
         if (problematicChars.test(url)) {
             return false;
         }
@@ -242,19 +249,30 @@ function extractBestUrlFromSrcset(srcset) {
     if (!srcset || typeof srcset !== 'string') return null;
 
     // 優先使用 SrcsetParser（如果可用）
-    if (typeof SrcsetParser !== 'undefined' && SrcsetParser.parse) {
+    // SrcsetParser 在瀏覽器環境中掛載到 window.SrcsetParser
+    // 在 Node.js 測試環境中可能通過 require 引入
+    const SrcsetParserRef = typeof window !== 'undefined' ? window.SrcsetParser :
+                           (typeof SrcsetParser !== 'undefined' ? SrcsetParser : null);
+
+    if (SrcsetParserRef && typeof SrcsetParserRef.parse === 'function') {
         try {
-            const bestUrl = SrcsetParser.parse(srcset, {
+            const bestUrl = SrcsetParserRef.parse(srcset, {
                 preferredWidth: 1920,  // 預設首選寬度
                 preferredDensity: 2.0  // 預設首選密度
             });
             if (bestUrl) return bestUrl;
         } catch (error) {
             // SrcsetParser 失敗時回退到簡單實現
-            if (typeof ErrorHandler !== 'undefined') {
-                ErrorHandler.logError({
+            // ErrorHandler 是全局變量，由 scripts/errorHandling/ErrorHandler.js 提供
+            // 在瀏覽器環境中掛載到 window.ErrorHandler
+            // 在 Node.js 測試環境中通過 require 引入
+            const ErrorHandlerRef = typeof window !== 'undefined' ? window.ErrorHandler :
+                                   (typeof ErrorHandler !== 'undefined' ? ErrorHandler : null);
+
+            if (ErrorHandlerRef) {
+                ErrorHandlerRef.logError({
                     type: 'srcset_parser_failed',
-                    context: `SrcsetParser failed, falling back to simple implementation`,
+                    context: 'SrcsetParser failed, falling back to simple implementation',
                     originalError: error,
                     timestamp: Date.now()
                 });
