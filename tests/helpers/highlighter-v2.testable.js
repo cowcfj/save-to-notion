@@ -119,11 +119,7 @@ function validateRangeInfo(rangeInfo) {
     }
 
     // 必須包含有效的非空文本
-    if (!isValidNonEmptyString(rangeInfo.text)) {
-        return false;
-    }
-
-    return true;
+    return isValidNonEmptyString(rangeInfo.text);
 }
 
 /**

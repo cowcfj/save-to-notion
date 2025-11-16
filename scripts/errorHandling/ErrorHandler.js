@@ -110,7 +110,7 @@ class ErrorHandler {
             shouldRetry = (error) => this.isRetryableError(error)
         } = options;
 
-        let lastError;
+        let lastError = null;
 
         for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
             try {
@@ -131,7 +131,8 @@ class ErrorHandler {
             }
         }
 
-        throw lastError;
+        // 防禦性處理：理論上不會走到這裡，但仍提供明確錯誤訊息
+        throw lastError || new Error('未知錯誤：重試流程在沒有捕捉到錯誤時結束');
     }
 
     /**

@@ -7,8 +7,8 @@
 const { RetryManager, withRetry, fetchWithRetry } = require('../../../scripts/errorHandling/RetryManager');
 
 describe('RetryManager - 全面測試', () => {
-    let retryManager;
-    let originalConsole;
+    let retryManager = null;
+    let originalConsole = null;
 
     beforeEach(() => {
         retryManager = new RetryManager({
