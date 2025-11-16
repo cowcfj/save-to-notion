@@ -718,7 +718,7 @@ describe('Notion API - 重試邏輯', () => {
                 });
 
             // 模擬重試邏輯
-            let result;
+            let result = null;
             let attempts = 0;
             const maxAttempts = 3;
 
@@ -746,7 +746,7 @@ describe('Notion API - 重試邏輯', () => {
                 .mockRejectedValueOnce(new Error('Network error'));
 
             // 模擬重試邏輯
-            let lastError;
+            let lastError = null;
             const maxAttempts = 3;
 
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -832,7 +832,7 @@ describe('Notion API - 重試邏輯', () => {
                 });
 
             // 模擬重試邏輯
-            let result;
+            let result = null;
             let attempts = 0;
 
             while (attempts < 3) {
