@@ -55,9 +55,9 @@
             try {
                 const key = `${this.storageKey}_${window.location.href}`;
                 const state = {
-                    phase: phase,
+                    phase,
                     timestamp: Date.now(),
-                    metadata: metadata
+                    metadata
                 };
                 await chrome.storage.local.set({ [key]: state });
 
@@ -73,7 +73,7 @@
 
 
             // 檢查瀏覽器支持
-            if (!this.checkBrowserSupport()) {
+            if (!SeamlessMigrationManager.checkBrowserSupport()) {
 
                 return { skipped: true, reason: 'browser_not_supported' };
             }
@@ -132,7 +132,7 @@
                     // 提取標註信息
                     const text = span.textContent;
                     const bgColor = span.style.backgroundColor;
-                    const color = this.convertColorToName(bgColor);
+                    const color = SeamlessMigrationManager.convertColorToName(bgColor);
 
                     // 創建Range
                     const range = document.createRange();
@@ -322,7 +322,7 @@
             });
 
             await this.updateMigrationState(MigrationPhase.FAILED, {
-                reason: reason,
+                reason,
                 failedAt: new Date().toISOString()
             });
 
@@ -330,21 +330,21 @@
 
             return {
                 rolledBack: true,
-                reason: reason
+                reason
             };
         }
 
         /**
          * 檢查瀏覽器支持
          */
-        checkBrowserSupport() {
+        static checkBrowserSupport() {
             return 'highlights' in CSS && CSS.highlights !== undefined;
         }
 
         /**
          * 轉換顏色值
          */
-        convertColorToName(bgColor) {
+        static convertColorToName(bgColor) {
             const colorMap = {
                 'rgb(255, 243, 205)': 'yellow',
                 '#fff3cd': 'yellow',
@@ -386,7 +386,7 @@
         getStatistics() {
             return {
                 ...this.statistics,
-                supportsCSSHighlight: this.checkBrowserSupport()
+                supportsCSSHighlight: SeamlessMigrationManager.checkBrowserSupport()
             };
         }
     }

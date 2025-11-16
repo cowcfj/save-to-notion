@@ -79,7 +79,7 @@
 
             for (const span of oldHighlights) {
                 try {
-                    const result = this.migrateSpanToRange(span, highlightManager);
+                    const result = HighlightMigrationManager.migrateSpanToRange(span, highlightManager);
                     if (result) {
                         migratedData.push(result);
                         this.migratedCount++;
@@ -107,14 +107,14 @@
         /**
          * 將舊的span元素轉換為Range對象
          */
-        migrateSpanToRange(span, highlightManager) {
-            Logger.info('🔄 遷移標註:', span.textContent.substring(0, 30) + '...');
+        static migrateSpanToRange(span, highlightManager) {
+            Logger.info('🔄 遷移標註:', `${span.textContent.substring(0, 30)}...`);
 
             try {
                 // 提取標註信息
                 const text = span.textContent;
                 const bgColor = span.style.backgroundColor;
-                const color = this.convertColorToName(bgColor);
+                const color = HighlightMigrationManager.convertColorToName(bgColor);
 
                 // 創建範圍包含整個span
                 const range = document.createRange();
@@ -128,7 +128,7 @@
 
                     // 移除舊的span元素（可選）
                     // 如果要保持舊標註，註釋掉下面這段
-                    this.removeOldSpan(span);
+                    HighlightMigrationManager.removeOldSpan(span);
 
                     return { id, text, color };
                 } else {
@@ -153,7 +153,7 @@
         /**
          * 移除舊的span元素
          */
-        removeOldSpan(span) {
+        static removeOldSpan(span) {
             try {
                 const parent = span.parentNode;
 
@@ -177,7 +177,7 @@
         /**
          * 轉換顏色值到顏色名稱
          */
-        convertColorToName(bgColor) {
+        static convertColorToName(bgColor) {
             const colorMap = {
                 'rgb(255, 243, 205)': 'yellow',
                 '#fff3cd': 'yellow',
@@ -269,12 +269,12 @@
 
                 // 按鈕事件
                 document.getElementById('migration-migrate').onclick = () => {
-                    this.removeMigrationUI();
+                    HighlightMigrationManager.removeMigrationUI();
                     resolve('migrate');
                 };
 
                 document.getElementById('migration-keep-old').onclick = () => {
-                    this.removeMigrationUI();
+                    HighlightMigrationManager.removeMigrationUI();
                     resolve('keep');
                 };
             });
@@ -283,7 +283,7 @@
         /**
          * 移除遷移UI
          */
-        removeMigrationUI() {
+        static removeMigrationUI() {
             const dialog = document.getElementById('highlight-migration-dialog');
             const overlay = document.getElementById('highlight-migration-overlay');
             if (dialog) dialog.remove();
@@ -293,7 +293,7 @@
         /**
          * 顯示遷移結果
          */
-        showMigrationResult(result) {
+        static showMigrationResult(result) {
             const notification = document.createElement('div');
             notification.style.cssText = `
                 position: fixed;
@@ -360,7 +360,7 @@
             const result = await this.autoMigrate(highlightManager);
 
             // 4. 顯示結果
-            this.showMigrationResult(result);
+            HighlightMigrationManager.showMigrationResult(result);
 
             Logger.info('✅ 遷移流程完成:', result);
             return result;

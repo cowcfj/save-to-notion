@@ -646,4 +646,80 @@ describe('PerformanceOptimizer - 全面測試', () => {
             expect(exported.batchProcess).toBeDefined();
         });
     });
+
+    describe('batchProcessWithRetry helper', () => {
+        test('應該在第一次嘗試就成功並返回結果', async () => {
+            const module = require('../../../scripts/performance/PerformanceOptimizer');
+            const customBatchFn = jest.fn((items, processor) => Promise.resolve(items.map(processor)));
+            const processor = (value) => ({ url: `image-${value}` });
+
+            const { results, meta } = await module.batchProcessWithRetry([1, 2], processor, {
+                customBatchFn,
+                captureFailedResults: true,
+                isResultSuccessful: (result) => Boolean(result?.url)
+            });
+
+            expect(customBatchFn).toHaveBeenCalledTimes(1);
+            expect(results).toHaveLength(2);
+            expect(meta.attempts).toBe(1);
+            expect(meta.failedIndices).toEqual([]);
+        });
+
+        test('應該在失敗後重試並最終成功', async () => {
+            const module = require('../../../scripts/performance/PerformanceOptimizer');
+            let attempt = 0;
+            const customBatchFn = jest.fn((items, processor) => {
+                attempt++;
+                if (attempt === 1) {
+                    return Promise.reject(new Error('Batch boom'));
+                }
+                return Promise.resolve(items.map(processor));
+            });
+            const processor = (value) => ({ url: `ix-${value}` });
+
+            const { results, meta } = await module.batchProcessWithRetry([1, 2, 3], processor, {
+                customBatchFn,
+                maxAttempts: 3,
+                baseDelay: 0,
+                captureFailedResults: true,
+                isResultSuccessful: (result) => Boolean(result?.url)
+            });
+
+            expect(customBatchFn).toHaveBeenCalledTimes(2);
+            expect(results).toHaveLength(3);
+            expect(meta.attempts).toBe(2);
+            expect(meta.failedIndices).toEqual([]);
+        });
+
+        test('當達到最大嘗試次數仍失敗時應返回 null', async () => {
+            const module = require('../../../scripts/performance/PerformanceOptimizer');
+            const customBatchFn = jest.fn(() => Promise.reject(new Error('permanent failure')));
+            const processor = (value) => ({ url: `img-${value}` });
+
+            const { results, meta } = await module.batchProcessWithRetry([1], processor, {
+                customBatchFn,
+                maxAttempts: 2,
+                baseDelay: 0
+            });
+
+            expect(customBatchFn).toHaveBeenCalledTimes(2);
+            expect(results).toBeNull();
+            expect(meta.attempts).toBe(2);
+            expect(meta.lastError).toBeInstanceOf(Error);
+        });
+
+        test('應該在 captureFailedResults 時回報失敗索引', async () => {
+            const module = require('../../../scripts/performance/PerformanceOptimizer');
+            const customBatchFn = jest.fn((items, processor) => Promise.resolve(items.map(processor)));
+            const processor = (value) => (value % 2 === 0 ? null : { url: `valid-${value}` });
+
+            const { meta } = await module.batchProcessWithRetry([1, 2, 3], processor, {
+                customBatchFn,
+                captureFailedResults: true,
+                isResultSuccessful: (result) => Boolean(result?.url)
+            });
+
+            expect(meta.failedIndices).toEqual([1]);
+        });
+    });
 });

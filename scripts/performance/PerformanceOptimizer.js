@@ -917,11 +917,82 @@ function batchProcess(items, processor) {
     return defaultOptimizer.batchProcessImages(items, processor);
 }
 
+function waitForDelay(ms) {
+    if (!ms || ms <= 0) {
+        return Promise.resolve();
+    }
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 具備重試與失敗統計的批處理封裝
+ * @param {Array} items - 要處理的項目
+ * @param {Function} processor - 單項處理函數
+ * @param {Object} options - 設定
+ * @param {number} [options.maxAttempts=2] - 最大嘗試次數
+ * @param {number} [options.baseDelay=120] - 初始延遲（毫秒），會以 2 的冪次增加
+ * @param {boolean} [options.captureFailedResults=false] - 是否收集失敗索引
+ * @param {Function} [options.isResultSuccessful] - 自訂成功判斷函數
+ * @param {Function} [options.customBatchFn] - 測試用自訂批處理函數
+ * @returns {Promise<{results: Array|null, meta: Object}>}
+ */
+async function batchProcessWithRetry(items, processor, options = {}) {
+    const {
+        maxAttempts = 2,
+        baseDelay = 120,
+        captureFailedResults = false,
+        isResultSuccessful = (result) => Boolean(result),
+        customBatchFn
+    } = options;
+
+    const attempts = Math.max(1, maxAttempts);
+    const summary = {
+        attempts: 0,
+        failedIndices: [],
+        lastError: null
+    };
+
+    const batchFn = typeof customBatchFn === 'function' ? customBatchFn : batchProcess;
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        summary.attempts = attempt;
+        try {
+            const results = await batchFn(items, processor);
+
+            if (!Array.isArray(results)) {
+                summary.failedIndices = items.map((_, index) => index);
+                throw new Error('Batch processor returned non-array results');
+            }
+
+            if (captureFailedResults) {
+                summary.failedIndices = [];
+                results.forEach((result, index) => {
+                    if (!isResultSuccessful(result, index)) {
+                        summary.failedIndices.push(index);
+                    }
+                });
+            }
+
+            return { results, meta: summary };
+        } catch (error) {
+            summary.lastError = error;
+
+            if (attempt < attempts) {
+                const delay = baseDelay * Math.pow(2, attempt - 1);
+                await waitForDelay(delay);
+            }
+        }
+    }
+
+    return { results: null, meta: summary };
+}
+
 // 導出類和函數
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { PerformanceOptimizer, cachedQuery, batchProcess };
+    module.exports = { PerformanceOptimizer, cachedQuery, batchProcess, batchProcessWithRetry };
 } else if (typeof window !== 'undefined') {
     window.PerformanceOptimizer = PerformanceOptimizer;
     window.cachedQuery = cachedQuery;
     window.batchProcess = batchProcess;
+    window.batchProcessWithRetry = batchProcessWithRetry;
 }

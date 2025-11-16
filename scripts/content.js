@@ -1,6 +1,6 @@
 // This script is injected into the active tab.
 
-/* global PerformanceOptimizer, ImageUtils, batchProcess, ErrorHandler, chrome, Readability */
+/* global PerformanceOptimizer, ImageUtils, batchProcess, batchProcessWithRetry, ErrorHandler, chrome, Readability */
 
 // 開發模式控制（與 background.js 保持一致）
 const DEBUG_MODE = (function() {
@@ -745,25 +745,50 @@ function isContentGood(article) {
 
         // 使用批處理優化圖片處理性能
         if (typeof batchProcess !== 'undefined' && allImages.length > 5) {
-            // 對於大量圖片使用批處理
             Logger.log(`🚀 Using batch processing for ${allImages.length} images`);
 
-            try {
-                const processedImages = await batchProcess(allImages, (img, index) => {
-                    return processImageForCollection(img, index, featuredImage);
-                });
-
-                // 收集有效的圖片結果
-                processedImages.forEach(result => {
-                    if (result?.url) {
-                        additionalImages.push(result);
+            if (typeof batchProcessWithRetry === 'function') {
+                const { results, meta } = await batchProcessWithRetry(
+                    allImages,
+                    (img, index) => processImageForCollection(img, index, featuredImage),
+                    {
+                        maxAttempts: 3,
+                        baseDelay: 120,
+                        captureFailedResults: true,
+                        isResultSuccessful: (imageResult) => Boolean(imageResult?.url)
                     }
-                });
+                );
 
-            } catch (error) {
-                Logger.warn('Batch processing failed, falling back to sequential processing:', error);
-                // 回退到原始處理方式
-                processImagesSequentially(allImages, featuredImage, additionalImages);
+                if (results) {
+                    results.forEach(result => {
+                        if (result?.url) {
+                            additionalImages.push(result);
+                        }
+                    });
+
+                    if (meta?.failedIndices?.length) {
+                        Logger.log(`Batch processing skipped ${meta.failedIndices.length} images after validation.`);
+                    }
+                } else {
+                    Logger.warn('Batch processing failed after retries, falling back to sequential processing.', meta?.lastError);
+                    processImagesSequentially(allImages, featuredImage, additionalImages);
+                }
+            } else {
+                try {
+                    const processedImages = await batchProcess(allImages, (img, index) => {
+                        return processImageForCollection(img, index, featuredImage);
+                    });
+
+                    processedImages.forEach(result => {
+                        if (result?.url) {
+                            additionalImages.push(result);
+                        }
+                    });
+
+                } catch (error) {
+                    Logger.warn('Batch processing failed, falling back to sequential processing:', error);
+                    processImagesSequentially(allImages, featuredImage, additionalImages);
+                }
             }
         } else {
             // 對於少量圖片或沒有批處理功能時使用順序處理
@@ -1460,7 +1485,7 @@ function isContentGood(article) {
             Logger.log("================================\n");
 
             if (blocks.length > 0) {
-                return { title: finalTitle, blocks: blocks, rawHtml: finalContentHtml };
+                return { title: finalTitle, blocks, rawHtml: finalContentHtml };
             } else {
                 Logger.log("❌ No blocks generated from content");
                 // Return fallback content instead of continuing
