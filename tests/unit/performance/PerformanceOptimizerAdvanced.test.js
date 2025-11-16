@@ -51,7 +51,8 @@ global.document.querySelectorAll = dom.window.document.querySelectorAll.bind(dom
 const { PerformanceOptimizer } = require('../../helpers/performance.testable');
 
 describe('PerformanceOptimizer 進階功能測試', () => {
-    let optimizer;
+    /** @type {PerformanceOptimizer | null} */
+    let optimizer = null;
 
     beforeEach(() => {
         optimizer = new PerformanceOptimizer({

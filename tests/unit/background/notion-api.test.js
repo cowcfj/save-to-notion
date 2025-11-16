@@ -5,7 +5,7 @@
 
 describe('Background Notion API Operations', () => {
   let mockFetch;
-  let originalFetch;
+  let originalFetch = global.fetch;
 
   beforeEach(() => {
     // 保存原始 fetch

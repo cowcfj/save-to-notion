@@ -352,11 +352,8 @@ function isValidNotionBlock(block) {
  * @returns {boolean} 是否成功
  */
 function isSuccessStatusCode(statusCode) {
-    if (typeof statusCode !== 'number') {
-        return false;
-    }
-
-    return statusCode >= 200 && statusCode < 300;
+    return typeof statusCode === 'number' &&
+        statusCode >= 200 && statusCode < 300;
 }
 
 /**

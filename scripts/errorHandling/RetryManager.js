@@ -55,7 +55,7 @@ class RetryManager {
      */
     async execute(operation, options = {}) {
         const config = { ...this.options, random: Math.random, ...options };
-        let lastError;
+        let lastError = null;
         let totalDelayMs = 0;
         const startTime = Date.now();
 
@@ -130,7 +130,7 @@ class RetryManager {
             }
         }
 
-        throw lastError;
+        throw lastError || new Error('未知的重試錯誤');
     }
 
     /**
