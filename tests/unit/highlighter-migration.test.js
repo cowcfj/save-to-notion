@@ -202,36 +202,28 @@ describe('highlighter-migration.js', () => {
 
     describe('convertColorToName', () => {
         test('應該轉換 RGB 顏色值', () => {
-            const manager = new window.HighlightMigrationManager();
-
-            expect(manager.convertColorToName('rgb(255, 243, 205)')).toBe('yellow');
-            expect(manager.convertColorToName('rgb(212, 237, 218)')).toBe('green');
-            expect(manager.convertColorToName('rgb(204, 231, 255)')).toBe('blue');
-            expect(manager.convertColorToName('rgb(248, 215, 218)')).toBe('red');
+            expect(window.HighlightMigrationManager.convertColorToName('rgb(255, 243, 205)')).toBe('yellow');
+            expect(window.HighlightMigrationManager.convertColorToName('rgb(212, 237, 218)')).toBe('green');
+            expect(window.HighlightMigrationManager.convertColorToName('rgb(204, 231, 255)')).toBe('blue');
+            expect(window.HighlightMigrationManager.convertColorToName('rgb(248, 215, 218)')).toBe('red');
         });
 
         test('應該轉換十六進制顏色值', () => {
-            const manager = new window.HighlightMigrationManager();
-
-            expect(manager.convertColorToName('#fff3cd')).toBe('yellow');
-            expect(manager.convertColorToName('#d4edda')).toBe('green');
-            expect(manager.convertColorToName('#cce7ff')).toBe('blue');
-            expect(manager.convertColorToName('#f8d7da')).toBe('red');
+            expect(window.HighlightMigrationManager.convertColorToName('#fff3cd')).toBe('yellow');
+            expect(window.HighlightMigrationManager.convertColorToName('#d4edda')).toBe('green');
+            expect(window.HighlightMigrationManager.convertColorToName('#cce7ff')).toBe('blue');
+            expect(window.HighlightMigrationManager.convertColorToName('#f8d7da')).toBe('red');
         });
 
         test('應該為未知顏色返回默認值', () => {
-            const manager = new window.HighlightMigrationManager();
-
-            expect(manager.convertColorToName('rgb(0, 0, 0)')).toBe('yellow');
-            expect(manager.convertColorToName('unknown')).toBe('yellow');
-            expect(manager.convertColorToName('')).toBe('yellow');
+            expect(window.HighlightMigrationManager.convertColorToName('rgb(0, 0, 0)')).toBe('yellow');
+            expect(window.HighlightMigrationManager.convertColorToName('unknown')).toBe('yellow');
+            expect(window.HighlightMigrationManager.convertColorToName('')).toBe('yellow');
         });
     });
 
     describe('removeOldSpan', () => {
         test('應該移除舊標註並保留文本', () => {
-            const manager = new window.HighlightMigrationManager();
-
             const parent = document.createElement('div');
             const span = document.createElement('span');
             span.className = 'simple-highlight';
@@ -241,15 +233,13 @@ describe('highlighter-migration.js', () => {
             parent.appendChild(document.createTextNode(' after'));
             document.body.appendChild(parent);
 
-            manager.removeOldSpan(span);
+            HighlightMigrationManager.removeOldSpan(span);
 
             expect(parent.querySelector('.simple-highlight')).toBeNull();
             expect(parent.textContent).toBe('before highlighted text after');
         });
 
         test('應該處理包含多個子節點的 span', () => {
-            const manager = new window.HighlightMigrationManager();
-
             const parent = document.createElement('div');
             const span = document.createElement('span');
             span.className = 'simple-highlight';
@@ -261,20 +251,18 @@ describe('highlighter-migration.js', () => {
             parent.appendChild(span);
             document.body.appendChild(parent);
 
-            manager.removeOldSpan(span);
+            HighlightMigrationManager.removeOldSpan(span);
 
             expect(parent.querySelector('.simple-highlight')).toBeNull();
             expect(parent.textContent).toBe('part1 part2');
         });
 
         test('應該處理移除錯誤', () => {
-            const manager = new window.HighlightMigrationManager();
-
             const span = document.createElement('span');
             span.className = 'simple-highlight';
             // span 沒有父節點，會導致錯誤
 
-            manager.removeOldSpan(span);
+            HighlightMigrationManager.removeOldSpan(span);
             expect(console.error).toHaveBeenCalled();
         });
     });
@@ -453,8 +441,6 @@ describe('highlighter-migration.js', () => {
 
     describe('removeMigrationUI', () => {
         test('應該移除對話框和遮罩', () => {
-            const manager = new window.HighlightMigrationManager();
-
             const dialog = document.createElement('div');
             dialog.id = 'highlight-migration-dialog';
             document.body.appendChild(dialog);
@@ -463,17 +449,15 @@ describe('highlighter-migration.js', () => {
             overlay.id = 'highlight-migration-overlay';
             document.body.appendChild(overlay);
 
-            manager.removeMigrationUI();
+            window.HighlightMigrationManager.removeMigrationUI();
 
             expect(document.getElementById('highlight-migration-dialog')).toBeNull();
             expect(document.getElementById('highlight-migration-overlay')).toBeNull();
         });
 
         test('應該處理 UI 元素不存在的情況', () => {
-            const manager = new window.HighlightMigrationManager();
-
             // 不應該拋出錯誤
-            expect(() => manager.removeMigrationUI()).not.toThrow();
+            expect(() => window.HighlightMigrationManager.removeMigrationUI()).not.toThrow();
         });
     });
 
@@ -523,11 +507,9 @@ describe('highlighter-migration.js', () => {
 
     describe('showMigrationResult', () => {
         test('應該顯示成功的遷移結果', () => {
-            const manager = new window.HighlightMigrationManager();
-
             jest.useFakeTimers();
 
-            manager.showMigrationResult({
+            window.HighlightMigrationManager.showMigrationResult({
                 total: 10,
                 migrated: 10,
                 failed: 0
@@ -547,9 +529,7 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該顯示部分成功的遷移結果', () => {
-            const manager = new window.HighlightMigrationManager();
-
-            manager.showMigrationResult({
+            window.HighlightMigrationManager.showMigrationResult({
                 total: 10,
                 migrated: 6,
                 failed: 4
@@ -567,9 +547,7 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該顯示失敗的遷移結果', () => {
-            const manager = new window.HighlightMigrationManager();
-
-            manager.showMigrationResult({
+            window.HighlightMigrationManager.showMigrationResult({
                 total: 10,
                 migrated: 2,
                 failed: 8
@@ -654,7 +632,9 @@ describe('highlighter-migration.js', () => {
 
             // Mock showMigrationPrompt 返回 'migrate'
             manager.showMigrationPrompt = jest.fn().mockResolvedValue('migrate');
-            manager.showMigrationResult = jest.fn();
+
+            // Spy on static method
+            const showResultSpy = jest.spyOn(window.HighlightMigrationManager, 'showMigrationResult').mockImplementation(() => {});
 
             const mockHighlightManager = {
                 addHighlight: jest.fn().mockReturnValue('highlight-id')
@@ -663,7 +643,9 @@ describe('highlighter-migration.js', () => {
             const result = await manager.performMigration(mockHighlightManager);
 
             expect(result.migrated).toBe(1);
-            expect(manager.showMigrationResult).toHaveBeenCalled();
+            expect(showResultSpy).toHaveBeenCalled();
+
+            showResultSpy.mockRestore();
         });
     });
 

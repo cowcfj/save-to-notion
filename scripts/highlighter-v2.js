@@ -1640,6 +1640,9 @@ const logger = (() => {
         let currentToolbarState = ToolbarState.HIDDEN;
 
         // 工具欄狀態切換函數
+        /**
+         * 最小化工具欄
+         */
         function minimizeToolbar() {
             try {
                 window[USER_VISIBILITY_FLAG] = true;
@@ -1652,6 +1655,9 @@ const logger = (() => {
             }
         }
 
+        /**
+         * 展開工具欄
+         */
         function expandToolbar() {
             try {
                 if (window[AUTO_HIDE_TIMER_FLAG]) {

@@ -1460,7 +1460,7 @@ function isContentGood(article) {
             Logger.log("================================\n");
 
             if (blocks.length > 0) {
-                return { title: finalTitle, blocks: blocks, rawHtml: finalContentHtml };
+                return { title: finalTitle, blocks, rawHtml: finalContentHtml };
             } else {
                 Logger.log("❌ No blocks generated from content");
                 // Return fallback content instead of continuing

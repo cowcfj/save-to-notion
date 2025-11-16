@@ -57,7 +57,7 @@ class ScriptInjector {
                 await new Promise((resolve, reject) => {
                     chrome.scripting.executeScript({
                         target: { tabId },
-                        files: files
+                        files
                     }, () => {
                         if (global.chrome.runtime.lastError) {
                             if (logErrors) {
@@ -76,7 +76,7 @@ class ScriptInjector {
                 return new Promise((resolve, reject) => {
                     chrome.scripting.executeScript({
                         target: { tabId },
-                        func: func
+                        func
                     }, (results) => {
                         if (global.chrome.runtime.lastError) {
                             if (logErrors) {

@@ -224,7 +224,7 @@ describe('seamless-migration.js', () => {
 
         describe('checkBrowserSupport', () => {
             test('應該檢查瀏覽器支持', () => {
-                const result = migrationManager.checkBrowserSupport();
+                const result = window.SeamlessMigrationManager.checkBrowserSupport();
                 expect(result).toBe(true);
             });
 
@@ -232,7 +232,7 @@ describe('seamless-migration.js', () => {
                 const originalCSS = global.CSS;
                 global.CSS = { highlights: undefined };
 
-                const result = migrationManager.checkBrowserSupport();
+                const result = window.SeamlessMigrationManager.checkBrowserSupport();
                 expect(result).toBe(false);
 
                 global.CSS = originalCSS;
@@ -241,9 +241,9 @@ describe('seamless-migration.js', () => {
 
         describe('convertColorToName', () => {
             test('應該轉換顏色值', () => {
-                expect(migrationManager.convertColorToName('rgb(255, 243, 205)')).toBe('yellow');
-                expect(migrationManager.convertColorToName('rgb(212, 237, 218)')).toBe('green');
-                expect(migrationManager.convertColorToName('unknown')).toBe('yellow');
+                expect(window.SeamlessMigrationManager.convertColorToName('rgb(255, 243, 205)')).toBe('yellow');
+                expect(window.SeamlessMigrationManager.convertColorToName('rgb(212, 237, 218)')).toBe('green');
+                expect(window.SeamlessMigrationManager.convertColorToName('unknown')).toBe('yellow');
             });
         });
     });
