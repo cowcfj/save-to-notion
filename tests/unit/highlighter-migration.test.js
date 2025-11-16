@@ -269,8 +269,6 @@ describe('highlighter-migration.js', () => {
 
     describe('migrateSpanToRange', () => {
         test('應該成功遷移標註', () => {
-            const manager = new window.HighlightMigrationManager();
-
             const span = document.createElement('span');
             span.className = 'simple-highlight';
             span.textContent = 'test highlight text';
@@ -283,7 +281,7 @@ describe('highlighter-migration.js', () => {
                 addHighlight: jest.fn().mockReturnValue('highlight-123')
             };
 
-            const result = manager.migrateSpanToRange(span, mockHighlightManager);
+            const result = HighlightMigrationManager.migrateSpanToRange(span, mockHighlightManager);
 
             expect(result).toEqual({
                 id: 'highlight-123',
@@ -294,8 +292,6 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該在 addHighlight 失敗時返回 null', () => {
-            const manager = new window.HighlightMigrationManager();
-
             const span = document.createElement('span');
             span.className = 'simple-highlight';
             span.textContent = 'test';
@@ -306,13 +302,11 @@ describe('highlighter-migration.js', () => {
                 addHighlight: jest.fn().mockReturnValue(null)
             };
 
-            const result = manager.migrateSpanToRange(span, mockHighlightManager);
+            const result = HighlightMigrationManager.migrateSpanToRange(span, mockHighlightManager);
             expect(result).toBeNull();
         });
 
         test('應該處理遷移過程中的錯誤', () => {
-            const manager = new window.HighlightMigrationManager();
-
             const span = document.createElement('span');
             span.className = 'simple-highlight';
             span.textContent = 'test';
@@ -324,13 +318,12 @@ describe('highlighter-migration.js', () => {
                 })
             };
 
-            const result = manager.migrateSpanToRange(span, mockHighlightManager);
+            const result = HighlightMigrationManager.migrateSpanToRange(span, mockHighlightManager);
             expect(result).toBeNull();
             expect(console.error).toHaveBeenCalled();
         });
 
         test('應該正確識別不同顏色的標註', () => {
-            const manager = new window.HighlightMigrationManager();
             const colors = [
                 { bg: 'rgb(255, 243, 205)', expected: 'yellow' },
                 { bg: 'rgb(212, 237, 218)', expected: 'green' },
@@ -354,7 +347,7 @@ describe('highlighter-migration.js', () => {
                     })
                 };
 
-                manager.migrateSpanToRange(span, mockHighlightManager);
+                HighlightMigrationManager.migrateSpanToRange(span, mockHighlightManager);
                 document.body.removeChild(parent);
             });
         });
@@ -634,7 +627,9 @@ describe('highlighter-migration.js', () => {
             manager.showMigrationPrompt = jest.fn().mockResolvedValue('migrate');
 
             // Spy on static method
-            const showResultSpy = jest.spyOn(window.HighlightMigrationManager, 'showMigrationResult').mockImplementation(() => {});
+            const showResultSpy = jest
+                .spyOn(window.HighlightMigrationManager, 'showMigrationResult')
+                .mockImplementation(() => undefined);
 
             const mockHighlightManager = {
                 addHighlight: jest.fn().mockReturnValue('highlight-id')

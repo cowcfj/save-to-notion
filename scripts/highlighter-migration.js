@@ -79,7 +79,7 @@
 
             for (const span of oldHighlights) {
                 try {
-                    const result = this.migrateSpanToRange(span, highlightManager);
+                    const result = HighlightMigrationManager.migrateSpanToRange(span, highlightManager);
                     if (result) {
                         migratedData.push(result);
                         this.migratedCount++;
@@ -107,7 +107,7 @@
         /**
          * 將舊的span元素轉換為Range對象
          */
-        migrateSpanToRange(span, highlightManager) {
+        static migrateSpanToRange(span, highlightManager) {
             Logger.info('🔄 遷移標註:', `${span.textContent.substring(0, 30)}...`);
 
             try {
