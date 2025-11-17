@@ -89,6 +89,7 @@ module.exports = [
       'build/**',
       '.nyc_output/**',
       '.history/**',
+      'archive/**',
       'lib/turndown.js',
       'lib/turndown-plugin-gfm.js',
       'tests/manual/**',

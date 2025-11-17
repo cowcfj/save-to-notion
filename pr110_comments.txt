@@ -1,0 +1,512 @@
+author:	bito-code-review
+association:	none
+edited:	true
+status:	none
+--
+<div>
+<h3>代碼審查代理運行 #ed01fb</h3>
+
+<div>
+<details>
+<summary>
+<b>可操作的建議 -  0</b>
+</summary>
+
+</details>
+</div>
+
+
+
+
+
+
+
+<div>
+<details>
+<summary>
+<b>審查詳情</b>
+</summary>
+
+<ul>
+<li>
+<div id="file_reviewed">
+已審查檔案 - <b>3</b> · 提交範圍: <code>19fa20f..19fa20f</code>
+<ul>
+<li>eslint.config.js</li><li>scripts/utils/htmlToNotionConverter.js</li><li>scripts/utils/pageComplexityDetector.js</li>
+</ul>
+</div>
+</li>
+
+<li>
+<div id="file_skipped">
+跳過的檔案 - <b>0</b>
+<ul>
+      
+</ul>
+</div>
+</li>
+
+
+<li>
+<div id="tools">
+工具
+<ul>
+      <li><b>Whispers</b> (Secret Scanner) - ✔︎ 成功</li><li><b>Detect-secrets</b> (Secret Scanner) - ✔︎ 成功</li><li><b>Eslint</b> (Linter) - ✔︎ 成功</li>
+</ul>
+</div>
+</li>
+
+</ul>
+</details>
+</div>
+
+<hr>
+
+
+<details>
+<summary>
+<b>Bito 使用指南</b>
+</summary>
+      
+**命令**
+      
+在拉取請求評論中輸入以下命令並保存評論。
+      
+- `/review` - 手動觸發完整的 AI 審查。
+
+- `/pause` - 暫停此拉取請求的自動審查。
+- `/resume` - 恢復自動審查。
+- `/resolve` - 將所有由 Bito 發布的審查評論標記為已解決。
+- `/abort` - 取消所有進行中的審查。
+
+      
+請參閱<a href="https://docs.bito.ai/bito-dev-agents/ai-code-review-agent/available-commands" target="_blank" rel="noopener noreferrer">文件</a>以獲取更多指令。
+      
+**配置**
+
+此程式庫使用 `Default Agent`。您可以在<a href="https://alpha.bito.ai/home/ai-agents/code-review-agent" target="_blank" rel="noopener noreferrer">這裡</a>自訂代理設定，或透過 cowcfj@rapbull.net 聯絡您的 Bito 工作區管理員。
+      
+**文檔與幫助**
+- <a href="https://docs.bito.ai/bito-dev-agents/ai-code-review-agent/getting-started/install-run-using-bito-cloud/create-or-customize-an-agent-instance" target="_blank" rel="noopener noreferrer">自定義代理設置</a>
+- <a href="https://docs.bito.ai/bito-dev-agents/ai-code-review-agent/implementing-custom-code-review-rules" target="_blank" rel="noopener noreferrer">審查規則</a>
+- <a href="https://docs.bito.ai/bito-dev-agents/ai-code-review-agent" target="_blank" rel="noopener noreferrer">一般文檔</a>
+- <a href="https://docs.bito.ai/bito-dev-agents/ai-code-review-agent/faqs" target="_blank" rel="noopener noreferrer">常見問題</a>
+</details>
+
+
+
+
+<span><i>AI 代碼審查由...提供</i> <sub><sub><a href="https://bito.ai/" target="_blank"><img src="https://bito.ai/wp-content/uploads/2023/10/Logo-Bito-Black-cropped.svg" alt="Bito Logo" width="50" height="20" /></a></sub></sub></span>
+
+
+</div>
+--
+author:	deepsource-io
+association:	contributor
+edited:	false
+status:	none
+--
+<div><p>Here's the code health analysis summary for commits <code>3209583..19fa20f</code>. <a href="https://app.deepsource.com/gh/cowcfj/save-to-notion/run/ace74018-3519-4856-bef3-f6f33165b56c/">View details on DeepSource</a>&nbsp;↗.</p><h3>Analysis Summary</h3><table><thead><tr><th>Analyzer</th><th>Status</th><th>Summary</th><th>Link</th></tr></thead><tbody><tr><td><img src="https://static.deepsource.com/analyzer_logos/javascript.svg" alt="DeepSource JavaScript Logo" width="16px" height="16px"/><strong>JavaScript</strong></td><td><span>✅&nbsp;</span><span>Success</span></td><td><div>🎯 3 occurences resolved</div></td><td><a href="https://app.deepsource.com/gh/cowcfj/save-to-notion/run/ace74018-3519-4856-bef3-f6f33165b56c/javascript/">View Check</a>&nbsp;↗</td></tr></tbody></table><hr/><blockquote><div>💡 If you’re a repository administrator, you can configure the quality gates from the <a href="https://app.deepsource.com/gh/cowcfj/save-to-notion/settings/reporting">settings</a>.</div></blockquote></div>
+
+--
+author:	qodo-merge-pro
+association:	none
+edited:	false
+status:	none
+--
+## PR Compliance Guide 🔍
+
+
+<!-- https://github.com/cowcfj/save-to-notion/commit/19fa20fa894d0125c1602c4baa5b886ddc564148 -->
+Below is a summary of compliance checks for this PR:<br>
+<table><tbody><tr><td colspan='2'><strong>Security Compliance</strong></td></tr>
+<tr><td>🟢</td><td><details><summary><strong>No security concerns identified</strong></summary>
+No security vulnerabilities detected by AI analysis. Human verification advised for critical code.
+</details></td></tr>
+<tr><td colspan='2'><strong>Ticket Compliance</strong></td></tr>
+<tr><td>⚪</td><td><details><summary>🎫 <strong>No ticket provided </strong></summary>
+
+
+- [ ] Create ticket/issue <!-- /create_ticket --create_ticket=true -->
+
+</details></td></tr>
+<tr><td colspan='2'><strong>Codebase Duplication Compliance</strong></td></tr>
+<tr><td>⚪</td><td><details><summary><strong>Codebase context is not defined </strong></summary>
+
+
+Follow the <a href='https://qodo-merge-docs.qodo.ai/core-abilities/rag_context_enrichment/'>guide</a> to enable codebase context checks.
+
+</details></td></tr>
+<tr><td colspan='2'><strong>Custom Compliance</strong></td></tr>
+<tr><td rowspan=3>🟢</td><td>
+<details><summary><strong>Generic: Meaningful Naming and Self-Documenting Code</strong></summary><br>
+
+**Objective:** Ensure all identifiers clearly express their purpose and intent, making code <br>self-documenting<br>
+
+**Status:** Passed<br>
+
+
+> Learn more about managing compliance <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#configuration-options'>generic rules</a> or creating your own <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#custom-compliance'>custom rules</a>
+</details></td></tr>
+<tr><td>
+<details><summary><strong>Generic: Secure Error Handling</strong></summary><br>
+
+**Objective:** To prevent the leakage of sensitive system information through error messages while <br>providing sufficient detail for internal debugging.<br>
+
+**Status:** Passed<br>
+
+
+> Learn more about managing compliance <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#configuration-options'>generic rules</a> or creating your own <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#custom-compliance'>custom rules</a>
+</details></td></tr>
+<tr><td>
+<details><summary><strong>Generic: Security-First Input Validation and Data Handling</strong></summary><br>
+
+**Objective:** Ensure all data inputs are validated, sanitized, and handled securely to prevent <br>vulnerabilities<br>
+
+**Status:** Passed<br>
+
+
+> Learn more about managing compliance <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#configuration-options'>generic rules</a> or creating your own <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#custom-compliance'>custom rules</a>
+</details></td></tr>
+<tr><td rowspan=3>⚪</td>
+<td><details>
+<summary><strong>Generic: Comprehensive Audit Trails</strong></summary><br>
+
+**Objective:** To create a detailed and reliable record of critical system actions for security analysis <br>and compliance.<br>
+
+**Status:** <br><a href='https://github.com/cowcfj/save-to-notion/pull/110/files#diff-54ba0e4f6c4d67fc6925b396ebace35edeb84d2c83b37e8d8bce22f18eefdc13R371-R388'><strong>Monitoring Context</strong></a>: The PR adds or modifies logic around analysis logging but does not show audit logging for <br>critical actions; given the scope is ESLint/config and internal analytics, this likely <br>falls outside audit requirements but cannot be confirmed from the diff alone.<br>
+<details open><summary>Referred Code</summary>
+
+```javascript
+export function logAnalysis(complexity, selection, extractionResult) {
+    if (typeof console === 'undefined') return;
+
+    const logData = {
+        url: window.location.href,
+        extractor: selection.extractor,
+        confidence: selection.confidence,
+        success: extractionResult.success,
+        contentLength: extractionResult.contentLength,
+        processingTime: extractionResult.processingTime,
+        fallbackUsed: extractionResult.fallbackUsed
+    };
+
+
+
+    // 發送到監控系統 (如果需要)
+    if (window.analytics) {
+        window.analytics.track('content_extraction_analysis', logData);
+```
+
+</details>
+
+> Learn more about managing compliance <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#configuration-options'>generic rules</a> or creating your own <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#custom-compliance'>custom rules</a>
+</details></td></tr>
+<tr><td><details>
+<summary><strong>Generic: Robust Error Handling and Edge Case Management</strong></summary><br>
+
+**Objective:** Ensure comprehensive error handling that provides meaningful context and graceful <br>degradation<br>
+
+**Status:** <br><a href='https://github.com/cowcfj/save-to-notion/pull/110/files#diff-54ba0e4f6c4d67fc6925b396ebace35edeb84d2c83b37e8d8bce22f18eefdc13R371-R388'><strong>Missing Guards</strong></a>: The code assumes the existence of window and window.analytics without explicit try/catch <br>or null checks for extractionResult fields, which may be acceptable in browser-only <br>contexts but is not fully verifiable from the diff.<br>
+<details open><summary>Referred Code</summary>
+
+```javascript
+export function logAnalysis(complexity, selection, extractionResult) {
+    if (typeof console === 'undefined') return;
+
+    const logData = {
+        url: window.location.href,
+        extractor: selection.extractor,
+        confidence: selection.confidence,
+        success: extractionResult.success,
+        contentLength: extractionResult.contentLength,
+        processingTime: extractionResult.processingTime,
+        fallbackUsed: extractionResult.fallbackUsed
+    };
+
+
+
+    // 發送到監控系統 (如果需要)
+    if (window.analytics) {
+        window.analytics.track('content_extraction_analysis', logData);
+```
+
+</details>
+
+> Learn more about managing compliance <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#configuration-options'>generic rules</a> or creating your own <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#custom-compliance'>custom rules</a>
+</details></td></tr>
+<tr><td><details>
+<summary><strong>Generic: Secure Logging Practices</strong></summary><br>
+
+**Objective:** To ensure logs are useful for debugging and auditing without exposing sensitive <br>information like PII, PHI, or cardholder data.<br>
+
+**Status:** <br><a href='https://github.com/cowcfj/save-to-notion/pull/110/files#diff-54ba0e4f6c4d67fc6925b396ebace35edeb84d2c83b37e8d8bce22f18eefdc13R371-R388'><strong>Analytics Data</strong></a>: The analytics event includes the current URL and extraction metrics; while not clearly <br>sensitive, the presence of full URLs could carry PII via query parameters depending on <br>usage, which is not verifiable from the diff.<br>
+<details open><summary>Referred Code</summary>
+
+```javascript
+export function logAnalysis(complexity, selection, extractionResult) {
+    if (typeof console === 'undefined') return;
+
+    const logData = {
+        url: window.location.href,
+        extractor: selection.extractor,
+        confidence: selection.confidence,
+        success: extractionResult.success,
+        contentLength: extractionResult.contentLength,
+        processingTime: extractionResult.processingTime,
+        fallbackUsed: extractionResult.fallbackUsed
+    };
+
+
+
+    // 發送到監控系統 (如果需要)
+    if (window.analytics) {
+        window.analytics.track('content_extraction_analysis', logData);
+```
+
+</details>
+
+> Learn more about managing compliance <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#configuration-options'>generic rules</a> or creating your own <a href='https://qodo-merge-docs.qodo.ai/tools/compliance/#custom-compliance'>custom rules</a>
+</details></td></tr>
+
+<tr><td align="center" colspan="2">
+
+<!-- placeholder --> <!-- /compliance --update_compliance=true -->
+
+</td></tr></tbody></table>
+<details><summary>Compliance status legend</summary>
+🟢 - Fully Compliant<br>
+🟡 - Partial Compliant<br>
+🔴 - Not Compliant<br>
+⚪ - Requires Further Human Verification<br>
+🏷️ - Compliance label<br>
+</details>
+
+--
+author:	qodo-merge-pro
+association:	none
+edited:	false
+status:	none
+--
+## PR Code Suggestions ✨
+
+<!-- 19fa20f -->
+
+Explore these optional code suggestions:
+
+<table><thead><tr><td><strong>Category</strong></td><td align=left><strong>Suggestion&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </strong></td><td align=center><strong>Impact</strong></td></tr><tbody><tr><td rowspan=1>General</td>
+<td>
+
+
+
+<details><summary>Simplify conditional logic for clarity</summary>
+
+___
+
+**Refactor the <code>if/else</code> chain for extractor selection to remove redundant checks <br>and combine branches, improving code clarity and maintainability.**
+
+[scripts/utils/pageComplexityDetector.js [242-267]](https://github.com/cowcfj/save-to-notion/pull/110/files#diff-54ba0e4f6c4d67fc6925b396ebace35edeb84d2c83b37e8d8bce22f18eefdc13R242-R267)
+
+```diff
+ let selectedExtractor = 'readability'; // 預設使用 Readability 作為安全回退
+ 
+ if (preferExtractus && !requireReadability) {
+     selectedExtractor = 'extractus';
+-
+     if (complexity.isClean) reasons.push('頁面簡潔');
+     if (complexity.hasMarkdownFeatures) reasons.push('包含代碼/列表');
+     if (complexity.hasTechnicalContent) reasons.push('技術文檔內容');
+-
+-} else if (requireReadability) {
+-    selectedExtractor = 'readability';
++} else {
++    // Default to readability
+     if (complexity.hasAds) reasons.push('包含廣告');
+     if (complexity.isComplexLayout) reasons.push('複雜佈局');
+     if (complexity.hasRichMedia) reasons.push('包含多媒體');
+-} else {
+-    if (selectedExtractor === 'readability') {
++    
++    if (reasons.length === 0) {
+         reasons.push('一般頁面');
+     }
+ }
+```
+
+
+- [ ] **Apply / Chat** <!-- /improve --apply_suggestion=0 -->
+
+
+<details><summary>Suggestion importance[1-10]: 6</summary>
+
+__
+
+Why: The suggestion correctly identifies redundant logic and proposes a valid refactoring that simplifies the conditional structure, improving code readability and maintainability.
+
+</details></details></td><td align=center>Low
+
+</td></tr>
+<tr><td align="center" colspan="2">
+
+- [ ] More <!-- /improve --more_suggestions=true -->
+
+</td><td></td></tr></tbody></table>
+
+
+--
+author:	bito-code-review
+association:	none
+edited:	false
+status:	none
+--
+<div>
+<h2><a href="https://bito.ai#changelist">Bito</a> 的變更清單</h2>
+<p>此拉取請求實現了以下關鍵變更。</p>
+
+<div>
+<table width="100%">
+<tbody>
+  <tr>
+    <th>關鍵變更</th>
+    <th>受影響的檔案</th>
+  </tr>
+
+<tr>
+<td width="30%">
+    <b>其他改善</b> - 程式碼結構優化
+</td>
+<td width="70%">
+
+
+<div>
+
+-&nbsp;[`eslint.config.js`](https://github.com/cowcfj/save-to-notion/pull/110/files#diff-a32a0887ed9d1d707bbb3b845b7df7fd40e673c47e7b60a3ebd896b68d3b8839) - 在 ESLint 配置中新增 'archive/**' 規則，進一步完善排除清單。
+<div>
+
+-&nbsp;[`htmlToNotionConverter.js`](https://github.com/cowcfj/save-to-notion/pull/110/files#diff-9dd199e87fb314dc3098042fb3b2f92e38d1da13a6006558b406b22a846640ca) - 調整 blankReplacement 函數的定義，加入註解說明未使用參數，提升程式碼解釋性。
+<div>
+
+-&nbsp;[`pageComplexityDetector.js`](https://github.com/cowcfj/save-to-notion/pull/110/files#diff-54ba0e4f6c4d67fc6925b396ebace35edeb84d2c83b37e8d8bce22f18eefdc13) - 更新預設選擇器為 'readability' 並調整格式，優化頁面複雜度檢測邏輯。
+</div>
+</td>
+</tr>
+
+</tbody>
+</table>
+</div>
+</div>
+--
+author:	bito-code-review
+association:	none
+edited:	false
+status:	none
+--
+<details open>
+  <summary><strong>Interaction Diagram by <a href="https://bito.ai#sequence_diagram">Bito</a></strong></summary>
+
+```mermaid
+sequenceDiagram
+participant EXT as Browser Extension
+participant BG as Background Script
+participant CONV as htmlToNotionConverter.js<br/>🔄 Updated | ●○○ Low
+participant COMP as pageComplexityDetector.js<br/>🔄 Updated | ●●○ Medium
+participant READ as Readability Library
+participant NOTION as Notion API
+participant LINT as ESLint Config<br/>🔄 Updated | ●○○ Low
+Note over CONV: Parameter naming cleanup<br/>blankReplacement function
+Note over COMP: Default extractor fallback<br/>improved error handling
+EXT->>BG: User clicks save to Notion
+BG->>COMP: Analyze page complexity
+COMP->>BG: Return extractor selection
+BG->>READ: Extract content using Readability
+READ->>CONV: Convert HTML to Notion blocks
+CONV->>BG: Return formatted blocks
+BG->>NOTION: Send content to Notion API
+NOTION-->>EXT: Confirm save success
+```
+
+---
+
+**Critical path:** Browser Extension-&gt;Background Script-&gt;pageComplexityDetector.js-&gt;Readability Library-&gt;htmlToNotionConverter.js-&gt;Notion API
+
+
+> **Note:** The changes improve code quality with parameter naming cleanup in htmlToNotionConverter and better default fallback handling in pageComplexityDetector. These are maintenance updates that enhance reliability without changing core functionality.
+
+  <p>
+    You can disable interaction diagrams by <a href="https://alpha.bito.ai/home/ai-agents/code-review-agent">customizing agent settings</a>. Refer to <a href="https://docs.bito.ai/ai-code-reviews-in-git/install-run-using-bito-cloud/create-or-customize-an-agent-instance#creating-or-customizing-ai-code-review-agents">documentation</a>.
+  </p>
+</details>
+--
+author:	bito-code-review
+association:	none
+edited:	false
+status:	approved
+--
+
+--
+author:	paragon-review
+association:	none
+edited:	false
+status:	commented
+--
+<!-- paragon-review-summary -->
+<!-- paragon-review-summary -->
+
+## Paragon Summary
+
+This pull request review identified **63 issues** across **14 categories** in 4 files. The review analyzed code changes, potential bugs, security vulnerabilities, performance issues, and code quality concerns using automated analysis tools.
+
+This pull request eliminates obsolete ESLint configurations and streamlines code in utility modules to boost clarity and maintainability. The changes reduce unnecessary complexity in linting setup and related scripts, making the codebase easier to navigate and update while preserving core functionality.
+
+**Key changes:**
+
+- Renamed .eslintrc.json to .eslintrc.json.backup to archive obsolete config
+- Updated eslint.config.js to remove unused ESLint settings
+- Simplified structure in htmlToNotionConverter.js for better clarity
+- Simplified structure in pageComplexityDetector.js for improved maintainability
+
+## **Confidence score: 2/5**
+
+- This PR has high risk due to 1 critical issue that require immediate attention before merge
+- Score reflects critical security vulnerabilities, data loss risks, or system stability issues
+- Pay close attention to critical findings in maintainability and best-practices categories
+
+4 files reviewed, 63 comments
+
+**Severity breakdown:** Critical: 1, High: 8, Medium: 24, Low: 30
+
+[Dashboard](https://home.polarity.cc)
+--
+author:	paragon-review
+association:	none
+edited:	false
+status:	commented
+--
+<!-- paragon-review-summary -->
+<!-- paragon-review-summary -->
+
+## Paragon Summary
+
+This pull request review identified **63 issues** across **14 categories** in 4 files. The review analyzed code changes, potential bugs, security vulnerabilities, performance issues, and code quality concerns using automated analysis tools.
+
+This pull request eliminates obsolete ESLint configurations and streamlines code in utility modules to boost clarity and maintainability. The changes reduce unnecessary complexity in linting setup and related scripts, making the codebase easier to navigate and update while preserving core functionality.
+
+**Key changes:**
+
+- Renamed .eslintrc.json to .eslintrc.json.backup to archive obsolete config
+- Updated eslint.config.js to remove unused ESLint settings
+- Simplified structure in htmlToNotionConverter.js for better clarity
+- Simplified structure in pageComplexityDetector.js for improved maintainability
+
+## **Confidence score: 2/5**
+
+- This PR has high risk due to 1 critical issue that require immediate attention before merge
+- Score reflects critical security vulnerabilities, data loss risks, or system stability issues
+- Pay close attention to critical findings in maintainability and best-practices categories
+
+4 files reviewed, 63 comments
+
+**Severity breakdown:** Critical: 1, High: 8, Medium: 24, Low: 30
+
+[Dashboard](https://home.polarity.cc)
+--

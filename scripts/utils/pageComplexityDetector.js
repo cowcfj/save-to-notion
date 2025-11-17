@@ -6,8 +6,8 @@
  * - 新聞/複雜頁面 → Readability (穩定、完整性高)
  *
  * @author Content Extraction Team
- * @version 1.0
- * @date 2025-10-13
+ * @version 1.1
+ * @date 2025-11-17
  */
 
 /**
@@ -239,36 +239,32 @@ export function selectExtractor(complexity) {
         complexity.isComplexLayout ||
         complexity.hasRichMedia;
 
-    let selectedExtractor;
+    let selectedExtractor = 'extractus'; // 預設提取器
 
     if (preferExtractus && !requireReadability) {
         selectedExtractor = 'extractus';
-
         if (complexity.isClean) reasons.push('頁面簡潔');
         if (complexity.hasMarkdownFeatures) reasons.push('包含代碼/列表');
         if (complexity.hasTechnicalContent) reasons.push('技術文檔內容');
 
     } else if (requireReadability) {
         selectedExtractor = 'readability';
-
         if (complexity.hasAds) reasons.push('包含廣告元素');
         if (complexity.isComplexLayout) reasons.push('複雜頁面佈局');
         if (complexity.hasRichMedia) reasons.push('大量媒體內容');
 
+    } else if (complexity.isLongForm) {
+        selectedExtractor = 'readability';
+        reasons.push('長文內容');
+
     } else {
-        // 邊界情況：根據內容長度決定
-        if (complexity.isLongForm) {
-            selectedExtractor = 'readability';
-            reasons.push('長文內容');
-        } else {
-            selectedExtractor = 'extractus';
-            reasons.push('一般頁面');
-        }
+        selectedExtractor = 'extractus';
+        reasons.push('一般頁面');
     }
 
     return {
         extractor: selectedExtractor,
-        reasons: reasons,
+        reasons,
         confidence: calculateConfidence(complexity, selectedExtractor),
         fallbackRequired: shouldUseFallback(complexity)
     };
@@ -381,7 +377,7 @@ export function logAnalysis(complexity, selection, extractionResult) {
         fallbackUsed: extractionResult.fallbackUsed
     };
 
-    
+
 
     // 發送到監控系統 (如果需要)
     if (window.analytics) {
