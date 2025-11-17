@@ -1,3 +1,42 @@
+let cachedFallbackStrategies = null;
+let attemptedRequireFallback = false;
+
+/**
+ * 解析回退策略：優先 CommonJS，其次回退全域，確保不同環境皆可使用
+ * @returns {Object|null}
+ */
+function resolveFallbackStrategies() {
+    if (cachedFallbackStrategies) {
+        return cachedFallbackStrategies;
+    }
+
+    if (typeof module !== 'undefined' && module.exports && !attemptedRequireFallback) {
+        attemptedRequireFallback = true;
+        try {
+            const requiredStrategies = require('./FallbackStrategies');
+            if (requiredStrategies) {
+                cachedFallbackStrategies = requiredStrategies;
+                return cachedFallbackStrategies;
+            }
+        } catch {
+            // 忽略 require 失敗，稍後改用全域檢索
+        }
+    }
+
+    const globalScope = typeof globalThis !== 'undefined'
+        ? globalThis
+        : (typeof window !== 'undefined'
+            ? window
+            : (typeof global !== 'undefined' ? global : undefined));
+
+    if (globalScope && globalScope.FallbackStrategies) {
+        cachedFallbackStrategies = globalScope.FallbackStrategies;
+        return cachedFallbackStrategies;
+    }
+
+    return null;
+}
+
 /**
  * 圖片提取器 - 主要的圖片 URL 提取類
  * 使用策略模式處理不同的圖片提取方法
@@ -21,6 +60,7 @@ class ImageExtractor {
         // 初始化策略
         this.strategies = [];
         this.cache = new Map();
+        this._resolvedFallbackStrategies = null;
     }
 
     /**
@@ -145,12 +185,12 @@ class ImageExtractor {
      * @returns {string|null} 提取到的圖片 URL
      */
     _extractFromBackground(imgNode) {
-        // 使用 FallbackStrategies 提取
-        if (typeof FallbackStrategies !== 'undefined') {
-            return FallbackStrategies.extractFromBackground(imgNode);
+        const fallbackStrategies = this._getFallbackStrategies();
+        if (!fallbackStrategies) {
+            return null;
         }
-        
-        return null;
+
+        return fallbackStrategies.extractFromBackground(imgNode);
     }
 
     /**
@@ -160,12 +200,12 @@ class ImageExtractor {
      * @returns {string|null} 提取到的圖片 URL
      */
     _extractFromPicture(imgNode) {
-        // 使用 FallbackStrategies 提取
-        if (typeof FallbackStrategies !== 'undefined') {
-            return FallbackStrategies.extractFromPicture(imgNode);
+        const fallbackStrategies = this._getFallbackStrategies();
+        if (!fallbackStrategies) {
+            return null;
         }
-        
-        return null;
+
+        return fallbackStrategies.extractFromPicture(imgNode);
     }
 
     /**
@@ -175,12 +215,34 @@ class ImageExtractor {
      * @returns {string|null} 提取到的圖片 URL
      */
     _extractFromNoscript(imgNode) {
-        // 使用 FallbackStrategies 提取
-        if (typeof FallbackStrategies !== 'undefined') {
-            return FallbackStrategies.extractFromNoscript(imgNode);
+        const fallbackStrategies = this._getFallbackStrategies();
+        if (!fallbackStrategies) {
+            return null;
         }
-        
-        return null;
+
+        return fallbackStrategies.extractFromNoscript(imgNode);
+    }
+
+    /**
+     * 取得回退策略實作，允許依環境自動解析
+     * @private
+     * @returns {Object|null} FallbackStrategies 實例
+     */
+    _getFallbackStrategies() {
+        if (!this.options.enableFallbacks) {
+            return null;
+        }
+
+        if (this._resolvedFallbackStrategies) {
+            return this._resolvedFallbackStrategies;
+        }
+
+        const resolved = resolveFallbackStrategies();
+        if (resolved) {
+            this._resolvedFallbackStrategies = resolved;
+        }
+
+        return resolved;
     }
 
     /**

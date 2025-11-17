@@ -4,6 +4,7 @@
 
 ### 🐛 Bug 修復
 - **AttributeExtractor URL 驗證**：修正 `_isValidImageUrl` 內使用 `new URL(url)` 僅為副作用的寫法，若宿主環境支援 `URL.canParse` 會優先使用零配置驗證，僅在必要時建立 `URL` 實例並保留相對路徑容錯，避免 ESLint `no-new` 類警告。
+- **ImageExtractor 回退策略載入**：新增 `resolveFallbackStrategies()`，優先透過 CommonJS 取得 `FallbackStrategies`，若模組尚未注入則回退至 `globalThis/window`，並受 `enableFallbacks` 控制，解決 `'FallbackStrategies' is not defined` 的 ESLint 警告且避免背景/picture/noscript 提取在不同環境下失效。
 
 ### 🧪 測試
 - 新增 `URL.canParse` 快速路徑的單元測試，覆蓋成功與回退兩種分支，確保在不同瀏覽器與 JSDOM 環境皆能保持既有行為。
