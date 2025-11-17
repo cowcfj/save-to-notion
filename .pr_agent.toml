@@ -1,3 +1,6 @@
+[config]
+response_language = "zh-TW"
+
 [rag_arguments]
 # 啟用 RAG (檢索增強生成)，讓 Agent 能理解整個專案上下文
 enable_rag = true
