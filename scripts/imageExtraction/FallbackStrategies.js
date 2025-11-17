@@ -293,8 +293,8 @@ class FallbackStrategies {
         }
 
         try {
-            new URL(url);
-            return true;
+            // 直接回傳轉為布林後的 URL 物件以避開 ESLint 對未使用建構值的警告
+            return Boolean(new URL(url));
         } catch {
             // 可能是相對 URL
             return url.length > 0 && !url.startsWith('#');

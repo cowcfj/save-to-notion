@@ -11,3 +11,7 @@ extra_instructions = "參考專案中的現有架構，專注於安全性和代�
 [pr_code_suggestions]
 num_code_suggestions = 5
 suggestions_score_threshold = 7
+extra_instructions = "請使用繁體中文 (Traditional Chinese) 提供程式碼優化建議。"
+
+[pr_description]
+extra_instructions = "請使用繁體中文 (Traditional Chinese) 生成 PR 標題與描述。格式需清晰易讀。"

@@ -1,3 +1,87 @@
+const moduleResolutionState = {
+    fallbackStrategies: { cache: null, attemptedRequire: false },
+    attributeExtractor: { cache: null, attemptedRequire: false },
+    srcsetParser: { cache: null, attemptedRequire: false }
+};
+
+/**
+ * 取得通用全域作用域，避免多處重複條件
+ * @returns {typeof globalThis | Window | global | undefined}
+ */
+function getGlobalScope() {
+    if (typeof globalThis !== 'undefined') {
+        return globalThis;
+    }
+    if (typeof window !== 'undefined') {
+        return window;
+    }
+    if (typeof global !== 'undefined') {
+        return global;
+    }
+    return undefined;
+}
+
+/**
+ * 建立模組解析器：優先 CommonJS，其次回退全域
+ * @param {Object} options
+ * @param {string} options.stateKey - moduleResolutionState 對應 key
+ * @param {string} options.requirePath - require 目標路徑
+ * @param {string} options.globalKey - 全域查找鍵值
+ * @returns {() => Object|null}
+ */
+function createModuleResolver({ stateKey, requirePath, globalKey }) {
+    return function resolveModule() {
+        const state = moduleResolutionState[stateKey];
+        if (!state) {
+            return null;
+        }
+
+        if (state.cache) {
+            return state.cache;
+        }
+
+        if (typeof module !== 'undefined' && module.exports && !state.attemptedRequire) {
+            state.attemptedRequire = true;
+            try {
+                const requiredModule = require(requirePath);
+                if (requiredModule) {
+                    state.cache = requiredModule;
+                    return state.cache;
+                }
+            } catch {
+                // 忽略 require 失敗，稍後改用全域檢索
+            }
+        }
+
+        const globalScope = getGlobalScope();
+        const resolvedModule = globalScope?.[globalKey];
+        if (resolvedModule) {
+            state.cache = resolvedModule;
+            return state.cache;
+        }
+
+        return null;
+    };
+}
+
+const resolveFallbackStrategies = createModuleResolver({
+    stateKey: 'fallbackStrategies',
+    requirePath: './FallbackStrategies',
+    globalKey: 'FallbackStrategies'
+});
+
+const resolveAttributeExtractor = createModuleResolver({
+    stateKey: 'attributeExtractor',
+    requirePath: './AttributeExtractor',
+    globalKey: 'AttributeExtractor'
+});
+
+const resolveSrcsetParser = createModuleResolver({
+    stateKey: 'srcsetParser',
+    requirePath: './SrcsetParser',
+    globalKey: 'SrcsetParser'
+});
+
 /**
  * 圖片提取器 - 主要的圖片 URL 提取類
  * 使用策略模式處理不同的圖片提取方法
@@ -17,10 +101,11 @@ class ImageExtractor {
             enableCache: false,
             ...options
         };
-        
+
         // 初始化策略
         this.strategies = [];
         this.cache = new Map();
+        this._resolvedFallbackStrategies = null;
     }
 
     /**
@@ -91,24 +176,28 @@ class ImageExtractor {
      * @returns {string|null} 提取到的圖片 URL
      */
     _extractFromSrcset(imgNode) {
-        const srcset = imgNode.getAttribute('srcset') || 
-                      imgNode.getAttribute('data-srcset') || 
+        const srcset = imgNode.getAttribute('srcset') ||
+                      imgNode.getAttribute('data-srcset') ||
                       imgNode.getAttribute('data-lazy-srcset');
-        
+
         if (!srcset) return null;
-        
+
         // 使用 SrcsetParser 解析
-        if (typeof SrcsetParser !== 'undefined') {
-            return SrcsetParser.parse(srcset);
+        const srcsetParser = resolveSrcsetParser();
+        if (srcsetParser && typeof srcsetParser.parse === 'function') {
+            const parsedUrl = srcsetParser.parse(srcset);
+            if (parsedUrl && this._isValidUrl(parsedUrl)) {
+                return parsedUrl;
+            }
         }
-        
+
         // 回退到簡單解析
         const entries = srcset.split(',').map(entry => entry.trim());
         if (entries.length > 0) {
             const url = entries[entries.length - 1].split(' ')[0];
             return this._isValidUrl(url) ? url : null;
         }
-        
+
         return null;
     }
 
@@ -120,21 +209,23 @@ class ImageExtractor {
      */
     _extractFromAttributes(imgNode) {
         // 使用 AttributeExtractor 提取
-        if (typeof AttributeExtractor !== 'undefined') {
-            return AttributeExtractor.extract(imgNode);
+        const attributeExtractor = resolveAttributeExtractor();
+        if (attributeExtractor && typeof attributeExtractor.extract === 'function') {
+            return attributeExtractor.extract(imgNode);
         }
-        
-        // 回退到基本屬性檢查
+
+        // 回退到基本屬性檢查（必須驗證 URL）
         const basicAttrs = ['src', 'data-src', 'data-lazy-src', 'data-original'];
         for (const attr of basicAttrs) {
             if (imgNode.hasAttribute(attr)) {
                 const value = imgNode.getAttribute(attr);
-                if (value && this._isValidUrl(value.trim())) {
-                    return value.trim();
+                const trimmedValue = value?.trim();
+                if (trimmedValue && this._isValidUrl(trimmedValue)) {
+                    return trimmedValue;
                 }
             }
         }
-        
+
         return null;
     }
 
@@ -145,12 +236,12 @@ class ImageExtractor {
      * @returns {string|null} 提取到的圖片 URL
      */
     _extractFromBackground(imgNode) {
-        // 使用 FallbackStrategies 提取
-        if (typeof FallbackStrategies !== 'undefined') {
-            return FallbackStrategies.extractFromBackground(imgNode);
+        const fallbackStrategies = this._getFallbackStrategies();
+        if (!fallbackStrategies) {
+            return null;
         }
-        
-        return null;
+
+        return fallbackStrategies.extractFromBackground(imgNode);
     }
 
     /**
@@ -160,12 +251,12 @@ class ImageExtractor {
      * @returns {string|null} 提取到的圖片 URL
      */
     _extractFromPicture(imgNode) {
-        // 使用 FallbackStrategies 提取
-        if (typeof FallbackStrategies !== 'undefined') {
-            return FallbackStrategies.extractFromPicture(imgNode);
+        const fallbackStrategies = this._getFallbackStrategies();
+        if (!fallbackStrategies) {
+            return null;
         }
-        
-        return null;
+
+        return fallbackStrategies.extractFromPicture(imgNode);
     }
 
     /**
@@ -175,12 +266,34 @@ class ImageExtractor {
      * @returns {string|null} 提取到的圖片 URL
      */
     _extractFromNoscript(imgNode) {
-        // 使用 FallbackStrategies 提取
-        if (typeof FallbackStrategies !== 'undefined') {
-            return FallbackStrategies.extractFromNoscript(imgNode);
+        const fallbackStrategies = this._getFallbackStrategies();
+        if (!fallbackStrategies) {
+            return null;
         }
-        
-        return null;
+
+        return fallbackStrategies.extractFromNoscript(imgNode);
+    }
+
+    /**
+     * 取得回退策略實作，允許依環境自動解析
+     * @private
+     * @returns {Object|null} FallbackStrategies 實例
+     */
+    _getFallbackStrategies() {
+        if (!this.options.enableFallbacks) {
+            return null;
+        }
+
+        if (this._resolvedFallbackStrategies) {
+            return this._resolvedFallbackStrategies;
+        }
+
+        const resolved = resolveFallbackStrategies();
+        if (resolved) {
+            this._resolvedFallbackStrategies = resolved;
+        }
+
+        return resolved;
     }
 
     /**
@@ -192,10 +305,11 @@ class ImageExtractor {
     _isValidUrl(url) {
         if (!url || typeof url !== 'string') return false;
         if (url.startsWith('data:') || url.startsWith('blob:')) return false;
-        
+
         try {
-            new URL(url);
-            return true;
+            const parsedUrl = new URL(url);
+            // 僅接受 http/https 協定，避免非網路資源造成無效下載
+            return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
         } catch {
             return false;
         }
@@ -212,7 +326,7 @@ class ImageExtractor {
         const src = imgNode.getAttribute('src') || '';
         const dataSrc = imgNode.getAttribute('data-src') || '';
         const srcset = imgNode.getAttribute('srcset') || '';
-        
+
         return `${src}|${dataSrc}|${srcset}`.substring(0, 100);
     }
 

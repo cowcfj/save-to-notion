@@ -1,9 +1,9 @@
 /**
- * Background.js - 导出函数测试
- * 直接测试 background.js 导出的函数以提升覆盖率
+ * Background.js - 導出函數測試
+ * 直接測試 background.js 導出的函數以提升覆蓋率
  */
 
-// 模拟 Chrome API 环境
+// 模擬 Chrome API 環境
 global.chrome = {
   storage: {
     local: {
@@ -32,21 +32,21 @@ global.chrome = {
   }
 };
 
-// 模拟 fetch
+// 模擬 fetch
 global.fetch = jest.fn();
 
-// 模拟 performance API
+// 模擬 performance API
 global.performance = {
   now: jest.fn(() => Date.now())
 };
 
-// 导入 background.js 的导出函数
+// 導入 background.js 的導出函數
 let backgroundModule;
 try {
   backgroundModule = require('../../../scripts/background.js');
 } catch {
   console.warn('Could not import background.js directly, using mocked functions');
-  // 如果无法直接导入，使用模拟的函数
+  // 如果無法直接導入，使用模擬的函數
   backgroundModule = {
     normalizeUrl: function(rawUrl) {
       try {
@@ -221,42 +221,42 @@ describe('Background.js Exported Functions', () => {
   });
 
   describe('normalizeUrl', () => {
-    it('应该标准化 URL 并移除 hash', () => {
+    it('應該標準化 URL 並移除 hash', () => {
       const url = 'https://example.com/page#section';
       const result = backgroundModule.normalizeUrl(url);
       expect(result).toBe('https://example.com/page');
     });
 
-    it('应该移除追踪参数', () => {
+    it('應該移除追蹤參數', () => {
       const url = 'https://example.com/page?utm_source=google&utm_medium=cpc&normal=keep';
       const result = backgroundModule.normalizeUrl(url);
       expect(result).toBe('https://example.com/page?normal=keep');
     });
 
-    it('应该移除所有追踪参数', () => {
+    it('應該移除所有追蹤參數', () => {
       const url = 'https://example.com/page?utm_source=google&gclid=123&fbclid=456&normal=keep';
       const result = backgroundModule.normalizeUrl(url);
       expect(result).toBe('https://example.com/page?normal=keep');
     });
 
-    it('应该标准化尾部斜杠', () => {
+    it('應該標準化尾部斜槓', () => {
       expect(backgroundModule.normalizeUrl('https://example.com/page/')).toBe('https://example.com/page');
       expect(backgroundModule.normalizeUrl('https://example.com/')).toBe('https://example.com/');
       expect(backgroundModule.normalizeUrl('https://example.com/path/subpath/')).toBe('https://example.com/path/subpath');
     });
 
-    it('应该处理无效 URL', () => {
+    it('應該處理無效 URL', () => {
       const result = backgroundModule.normalizeUrl('invalid-url');
       expect(result).toBe('invalid-url');
     });
 
-    it('应该处理空值', () => {
+    it('應該處理空值', () => {
       expect(backgroundModule.normalizeUrl('')).toBe('');
       expect(backgroundModule.normalizeUrl(null)).toBe('');
       expect(backgroundModule.normalizeUrl()).toBe('');
     });
 
-    it('应该处理复杂的查询参数', () => {
+    it('應該處理複雜的查詢參數', () => {
       const url = 'https://example.com/page?a=1&utm_source=test&b=2&gclid=abc&c=3';
       const result = backgroundModule.normalizeUrl(url);
       expect(result).toBe('https://example.com/page?a=1&b=2&c=3');
@@ -264,26 +264,26 @@ describe('Background.js Exported Functions', () => {
   });
 
   describe('cleanImageUrl', () => {
-    it('应该返回有效的简单图片 URL', () => {
+    it('應該返回有效的簡單圖片 URL', () => {
       const url = 'https://example.com/image.jpg';
       const result = backgroundModule.cleanImageUrl(url);
       expect(result).toBe(url);
     });
 
-    it('应该处理带查询参数的 URL', () => {
+    it('應該處理帶查詢參數的 URL', () => {
       const url = 'https://example.com/image.jpg?width=800&height=600';
       const result = backgroundModule.cleanImageUrl(url);
       expect(result).toBe(url);
     });
 
-    it('应该从代理 URL 提取原始图片', () => {
+    it('應該從代理 URL 提取原始圖片', () => {
       const originalUrl = 'https://cdn.example.com/image.jpg';
       const proxyUrl = `https://pgw.udn.com.tw/gw/photo.php?u=${encodeURIComponent(originalUrl)}`;
       const result = backgroundModule.cleanImageUrl(proxyUrl);
       expect(result).toBe(originalUrl);
     });
 
-    it('应该处理嵌套的代理 URL', () => {
+    it('應該處理嵌套的代理 URL', () => {
       const originalUrl = 'https://cdn.example.com/image.jpg';
       const firstProxy = `https://proxy1.com/gw/?u=${encodeURIComponent(originalUrl)}`;
       const nestedProxy = `https://proxy2.com/photo.php?u=${encodeURIComponent(firstProxy)}`;
@@ -291,31 +291,31 @@ describe('Background.js Exported Functions', () => {
       expect(result).toBe(originalUrl);
     });
 
-    it('应该移除重复的查询参数', () => {
+    it('應該移除重複的查詢參數', () => {
       const url = 'https://example.com/image.jpg?width=800&height=600&width=1200';
       const result = backgroundModule.cleanImageUrl(url);
       expect(result).toBe('https://example.com/image.jpg?width=800&height=600');
     });
 
-    it('应该处理无效输入', () => {
+    it('應該處理無效輸入', () => {
       expect(backgroundModule.cleanImageUrl(null)).toBeNull();
       expect(backgroundModule.cleanImageUrl('')).toBeNull();
       expect(backgroundModule.cleanImageUrl(123)).toBeNull();
       expect(backgroundModule.cleanImageUrl({})).toBeNull();
     });
 
-    it('应该处理无效 URL', () => {
+    it('應該處理無效 URL', () => {
       const result = backgroundModule.cleanImageUrl('not-a-url');
       expect(result).toBeNull();
     });
 
-    it('应该处理代理 URL 中缺少 u 参数的情况', () => {
+    it('應該處理代理 URL 中缺少 u 參數的情況', () => {
       const proxyUrl = 'https://pgw.udn.com.tw/gw/photo.php?other=value';
       const result = backgroundModule.cleanImageUrl(proxyUrl);
       expect(result).toBe(proxyUrl);
     });
 
-    it('应该处理代理 URL 中 u 参数无效的情况', () => {
+    it('應該處理代理 URL 中 u 參數無效的情況', () => {
       const proxyUrl = 'https://pgw.udn.com.tw/gw/photo.php?u=invalid-url';
       const result = backgroundModule.cleanImageUrl(proxyUrl);
       expect(result).toBe(proxyUrl);
@@ -323,7 +323,7 @@ describe('Background.js Exported Functions', () => {
   });
 
   describe('isValidImageUrl', () => {
-    it('应该接受标准图片 URL', () => {
+    it('應該接受標準圖片 URL', () => {
       const urls = [
         'https://example.com/image.jpg',
         'https://example.com/photo.png',
@@ -336,12 +336,12 @@ describe('Background.js Exported Functions', () => {
       });
     });
 
-    it('应该接受带查询参数的图片 URL', () => {
+    it('應該接受帶查詢參數的圖片 URL', () => {
       const url = 'https://example.com/image.jpg?width=800&height=600';
       expect(backgroundModule.isValidImageUrl(url)).toBe(true);
     });
 
-    it('应该支持各种图片格式', () => {
+    it('應該支持各種圖片格式', () => {
       const formats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif', 'avif', 'heic', 'heif'];
       formats.forEach(format => {
         const url = `https://example.com/image.${format}`;
@@ -349,7 +349,7 @@ describe('Background.js Exported Functions', () => {
       });
     });
 
-    it('应该识别图片路径模式', () => {
+    it('應該識別圖片路徑模式', () => {
       const pathUrls = [
         'https://example.com/images/photo',
         'https://example.com/img/banner',
@@ -365,7 +365,7 @@ describe('Background.js Exported Functions', () => {
       });
     });
 
-    it('应该排除非图片 URL', () => {
+    it('應該排除非圖片 URL', () => {
       const nonImageUrls = [
         'https://example.com/script.js',
         'https://example.com/style.css',
@@ -379,17 +379,17 @@ describe('Background.js Exported Functions', () => {
       });
     });
 
-    it('应该拒绝过长的 URL', () => {
+    it('應該拒絕過長的 URL', () => {
       const longUrl = 'https://example.com/' + 'x'.repeat(2000) + '.jpg';
       expect(backgroundModule.isValidImageUrl(longUrl)).toBe(false);
     });
 
-    it('应该接受正常长度的 URL', () => {
+    it('應該接受正常長度的 URL', () => {
       const normalUrl = 'https://example.com/' + 'x'.repeat(100) + '.jpg';
       expect(backgroundModule.isValidImageUrl(normalUrl)).toBe(true);
     });
 
-    it('应该拒绝非 HTTP(S) 协议', () => {
+    it('應該拒絕非 HTTP(S) 協議', () => {
       const nonHttpUrls = [
         'ftp://example.com/image.jpg',
         'file:///path/to/image.jpg',
@@ -400,7 +400,7 @@ describe('Background.js Exported Functions', () => {
       });
     });
 
-    it('应该处理无效输入', () => {
+    it('應該處理無效輸入', () => {
       expect(backgroundModule.isValidImageUrl(null)).toBe(false);
       expect(backgroundModule.isValidImageUrl('')).toBe(false);
       expect(backgroundModule.isValidImageUrl(123)).toBe(false);
@@ -410,13 +410,13 @@ describe('Background.js Exported Functions', () => {
   });
 
   describe('splitTextForHighlight', () => {
-    it('应该返回短文本不变', () => {
+    it('應該返回短文本不變', () => {
       const shortText = 'This is a short text.';
       const result = backgroundModule.splitTextForHighlight(shortText);
       expect(result).toEqual([shortText]);
     });
 
-    it('应该分割长文本', () => {
+    it('應該分割長文本', () => {
       const longText = 'A'.repeat(3000);
       const result = backgroundModule.splitTextForHighlight(longText, 2000);
       expect(result.length).toBeGreaterThan(1);
@@ -424,40 +424,40 @@ describe('Background.js Exported Functions', () => {
       expect(result.join('')).toBe(longText);
     });
 
-    it('应该在句号处分割', () => {
+    it('應該在句號處分割', () => {
       const text = 'First sentence. Second sentence. ' + 'A'.repeat(2000);
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
       expect(result[0]).toContain('First sentence. Second sentence.');
     });
 
-    it('应该在问号处分割', () => {
+    it('應該在問號處分割', () => {
       const text = 'First question? Second question? ' + 'A'.repeat(2000);
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
       expect(result[0]).toContain('First question? Second question?');
     });
 
-    it('应该在感叹号处分割', () => {
+    it('應該在感嘆號處分割', () => {
       const text = 'First exclamation! Second exclamation! ' + 'A'.repeat(2000);
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
       expect(result[0]).toContain('First exclamation! Second exclamation!');
     });
 
-    it('应该在双换行符处分割', () => {
+    it('應該在雙換行符處分割', () => {
       const text = 'First paragraph.\n\nSecond paragraph.\n\n' + 'A'.repeat(2000);
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
     });
 
-    it('应该在空格处分割（如果没有标点）', () => {
+    it('應該在空格處分割（如果沒有標點）', () => {
       const text = 'word1 word2 word3 ' + 'A'.repeat(2000);
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
     });
 
-    it('应该强制分割无间断文本', () => {
+    it('應該強制分割無間斷文本', () => {
       const text = 'A'.repeat(3000);
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBe(2);
@@ -465,14 +465,14 @@ describe('Background.js Exported Functions', () => {
       expect(result[1].length).toBe(1000);
     });
 
-    it('应该处理空文本', () => {
+    it('應該處理空文本', () => {
       expect(backgroundModule.splitTextForHighlight('')).toEqual(['']);
       expect(backgroundModule.splitTextForHighlight(null)).toEqual([null]);
       expect(backgroundModule.splitTextForHighlight()).toEqual([undefined]);
     });
 
-    it('应该过滤空字符串片段', () => {
-      const text = 'content.   \n\n   '; // 有内容但结尾是空白
+    it('應該過濾空字符串片段', () => {
+      const text = 'content.   \n\n   '; // 有內容但結尾是空白
       const result = backgroundModule.splitTextForHighlight(text, 100);
       expect(result.length).toBeGreaterThan(0);
       result.forEach(chunk => {
@@ -480,14 +480,14 @@ describe('Background.js Exported Functions', () => {
       });
     });
 
-    it('应该处理中文标点', () => {
-      const text = '第一句话。第二句话？第三句话！' + 'A'.repeat(2000);
+    it('應該處理中文標點', () => {
+      const text = '第一句話。第二句話？第三句話！' + 'A'.repeat(2000);
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
-      expect(result[0]).toContain('第一句话。第二句话？第三句话！');
+      expect(result[0]).toContain('第一句話。第二句話？第三句話！');
     });
 
-    it('应该使用自定义 maxLength', () => {
+    it('應該使用自訂 maxLength', () => {
       const text = 'A'.repeat(500);
       const result = backgroundModule.splitTextForHighlight(text, 200);
       expect(result.length).toBeGreaterThan(1);
@@ -505,7 +505,7 @@ describe('Background.js Exported Functions', () => {
       global.fetch = jest.fn();
     });
 
-    it('应该成功分批添加区块', async () => {
+    it('應該成功分批添加區塊', async () => {
       // Arrange
       const blocks = Array.from({ length: 250 }, (_, i) => ({
         object: 'block',
@@ -515,7 +515,7 @@ describe('Background.js Exported Functions', () => {
         }
       }));
 
-      // Mock 3次成功的响应
+      // Mock 3次成功的回應
       global.fetch.mockResolvedValue({
         ok: true,
         status: 200,
@@ -532,7 +532,7 @@ describe('Background.js Exported Functions', () => {
       expect(global.fetch).toHaveBeenCalledTimes(3);
     });
 
-    it('应该处理部分批次失败的情况', async () => {
+    it('應該處理部分批次失敗的情況', async () => {
       // Arrange
       const blocks = Array.from({ length: 150 }, (_, i) => ({
         object: 'block',
@@ -542,7 +542,7 @@ describe('Background.js Exported Functions', () => {
         }
       }));
 
-      // 第一批成功，第二批失败
+      // 第一批成功，第二批失敗
       global.fetch
         .mockResolvedValueOnce({
           ok: true,
@@ -565,7 +565,7 @@ describe('Background.js Exported Functions', () => {
       expect(result.error).toContain('批次添加失敗');
     });
 
-    it('应该处理空区块数组', async () => {
+    it('應該處理空區塊數組', async () => {
       // Act
       const result = await backgroundModule.appendBlocksInBatches(mockPageId, [], mockApiKey);
 
@@ -576,7 +576,7 @@ describe('Background.js Exported Functions', () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('应该处理从指定索引开始的情况', async () => {
+    it('應該處理從指定索引開始的情況', async () => {
       // Arrange
       const blocks = Array.from({ length: 150 }, (_, i) => ({
         object: 'block',
@@ -592,17 +592,17 @@ describe('Background.js Exported Functions', () => {
         json: () => Promise.resolve({ object: 'block' })
       });
 
-      // Act - 从索引100开始
+      // Act - 從索引100開始
       const result = await backgroundModule.appendBlocksInBatches(mockPageId, blocks, mockApiKey, 100);
 
       // Assert
       expect(result.success).toBe(true);
-      expect(result.addedCount).toBe(50); // 只处理剩余的50个区块
+      expect(result.addedCount).toBe(50); // 只處理剩餘的50個區塊
       expect(result.totalCount).toBe(50);
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
 
-    it('应该处理网络错误', async () => {
+    it('應該處理網路錯誤', async () => {
       // Arrange
       const blocks = [{ object: 'block', type: 'paragraph' }];
       global.fetch.mockRejectedValue(new Error('Network error'));
@@ -615,7 +615,7 @@ describe('Background.js Exported Functions', () => {
       expect(result.error).toBe('Network error');
     });
 
-    it('应该正确构造 API 请求', async () => {
+    it('應該正確建構 API 請求', async () => {
       // Arrange
       const blocks = [
         {
@@ -654,8 +654,8 @@ describe('Background.js Exported Functions', () => {
     });
   });
 
-  describe('集成测试', () => {
-    it('应该完整处理图片 URL 流程', () => {
+  describe('整合測試', () => {
+    it('應該完整處理圖片 URL 流程', () => {
       const proxyUrl = `https://pgw.udn.com.tw/gw/photo.php?u=${encodeURIComponent('https://cdn.example.com/image.jpg?width=800&width=1200')}`;
 
       const cleanedUrl = backgroundModule.cleanImageUrl(proxyUrl);
@@ -665,23 +665,23 @@ describe('Background.js Exported Functions', () => {
       expect(isValid).toBe(true);
     });
 
-    it('应该处理复杂的 URL 标准化场景', () => {
+    it('應該處理複雜的 URL 標準化場景', () => {
       const complexUrl = 'https://example.com/page/?utm_source=google&utm_medium=cpc&normal=keep#section';
       const normalized = backgroundModule.normalizeUrl(complexUrl);
 
       expect(normalized).toBe('https://example.com/page?normal=keep');
     });
 
-    it('应该处理长文本分割和验证', () => {
-      const longText = 'This is a very long text. '.repeat(100); // 约2700字符
+    it('應該處理長文本分割和驗證', () => {
+      const longText = 'This is a very long text. '.repeat(100); // 約2700字符
       const chunks = backgroundModule.splitTextForHighlight(longText, 2000);
 
       expect(chunks.length).toBeGreaterThan(1);
       chunks.forEach(chunk => {
-        expect(chunk.length).toBeLessThanOrEqual(2001); // 允许1个字符的误差
+        expect(chunk.length).toBeLessThanOrEqual(2001); // 允許1個字符的誤差
       });
 
-      // 验证所有片段都不为空
+      // 驗證所有片段都不為空
       chunks.forEach(chunk => {
         expect(chunk.trim().length).toBeGreaterThan(0);
       });
