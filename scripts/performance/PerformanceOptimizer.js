@@ -5,6 +5,12 @@
 /* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, module, AdaptivePerformanceManager */
 // 使用不與其他庫衝突的本地日誌別名，避免與 Leaflet 等全域變量 L 衝突
 const perfLogger = (typeof window !== 'undefined' && window.Logger) ? window.Logger : console;
+
+/**
+ * 性能優化器類
+ * 提供 DOM 查詢緩存、批處理隊列、性能監控和自適應優化功能
+ * @class
+ */
 class PerformanceOptimizer {
     constructor(options = {}) {
         this.options = {
@@ -155,9 +161,9 @@ class PerformanceOptimizer {
             this._maintainCacheSizeLimit(cacheKey);
 
             this.queryCache.set(cacheKey, {
-                result: result,
+                result,
                 timestamp: Date.now(),
-                selector: selector,
+                selector,
                 ttl: this.options.cacheTTL
             });
         }
@@ -180,10 +186,10 @@ class PerformanceOptimizer {
 
         return new Promise((resolve) => {
             const batchItem = {
-                images: images,
-                processor: processor,
-                resolve: resolve,
-                options: options,
+                images,
+                processor,
+                resolve,
+                options,
                 timestamp: Date.now()
             };
 
@@ -205,9 +211,9 @@ class PerformanceOptimizer {
 
         return new Promise((resolve) => {
             const batchItem = {
-                operations: operations,
-                resolve: resolve,
-                options: options,
+                operations,
+                resolve,
+                options,
                 timestamp: Date.now(),
                 type: 'dom'
             };
@@ -421,7 +427,7 @@ class PerformanceOptimizer {
 
                 if (result) {
                     results.push({
-                        selector: selector,
+                        selector,
                         count: result.length || (result.nodeType ? 1 : 0),
                         cached: true
                     });
@@ -444,7 +450,7 @@ class PerformanceOptimizer {
                 }
 
                 results.push({
-                    selector: selector,
+                    selector,
                     error: error.message,
                     cached: false
                 });
@@ -567,9 +573,9 @@ class PerformanceOptimizer {
 
                 if (result) {
                     this.queryCache.set(cacheKey, {
-                        result: result,
+                        result,
                         timestamp: Date.now(),
-                        selector: selector,
+                        selector,
                         ttl: this.options.cacheTTL
                     });
                 } else {
@@ -808,7 +814,7 @@ class PerformanceOptimizer {
                 perfLogger.debug('Performance Metrics:', {
                     cache: this.cacheStats,
                     batch: this.batchStats,
-                    memory: memory
+                    memory
                 });
             }
         }
