@@ -243,9 +243,27 @@ class AttributeExtractor {
         }
 
         // 基本 URL 格式檢查
+        // 嘗試取得 base URL 以支援相對路徑解析
+        const baseUrl = (() => {
+            if (typeof document !== 'undefined' && typeof document.baseURI === 'string') {
+                return document.baseURI;
+            }
+            if (typeof location !== 'undefined' && typeof location.href === 'string') {
+                return location.href;
+            }
+            return undefined;
+        })();
+
+        if (typeof URL !== 'undefined' && typeof URL.canParse === 'function') {
+            const canParse = baseUrl ? URL.canParse(url, baseUrl) : URL.canParse(url);
+            if (canParse) {
+                return true;
+            }
+        }
+
         try {
-            new URL(url);
-            return true;
+            const parsedUrl = baseUrl ? new URL(url, baseUrl) : new URL(url);
+            return Boolean(parsedUrl?.href);
         } catch {
             // 可能是相對 URL
             return url.length > 0 && !url.startsWith('#');

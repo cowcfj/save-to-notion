@@ -173,6 +173,16 @@ describe('AttributeExtractor', () => {
     });
 
     describe('_isValidImageUrl', () => {
+        let originalCanParse;
+
+        beforeEach(() => {
+            originalCanParse = URL.canParse;
+        });
+
+        afterEach(() => {
+            URL.canParse = originalCanParse;
+        });
+
         test('應該驗證有效的圖片 URL', () => {
             expect(AttributeExtractor._isValidImageUrl('https://example.com/image.jpg')).toBe(true);
             expect(AttributeExtractor._isValidImageUrl('/image.jpg')).toBe(true);
@@ -183,6 +193,23 @@ describe('AttributeExtractor', () => {
             expect(AttributeExtractor._isValidImageUrl('placeholder.jpg')).toBe(false);
             expect(AttributeExtractor._isValidImageUrl('')).toBe(false);
             expect(AttributeExtractor._isValidImageUrl(null)).toBe(false);
+        });
+
+        test('在支援 URL.canParse 時應直接信任解析結果', () => {
+            const canParseMock = jest.fn().mockReturnValue(true);
+            URL.canParse = canParseMock;
+
+            const input = 'https://example.com/image.png';
+            expect(AttributeExtractor._isValidImageUrl(input)).toBe(true);
+            expect(canParseMock).toHaveBeenCalled();
+            expect(canParseMock.mock.calls[0][0]).toBe(input);
+        });
+
+        test('當 URL.canParse 返回 false 時仍會回退到標準解析', () => {
+            URL.canParse = jest.fn().mockReturnValue(false);
+
+            expect(AttributeExtractor._isValidImageUrl('/relative-image.png')).toBe(true);
+            expect(URL.canParse).toHaveBeenCalled();
         });
     });
 

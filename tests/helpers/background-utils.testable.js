@@ -339,11 +339,8 @@ function isValidNotionBlock(block) {
     }
 
     // 必須有對應類型的內容字段，且該字段必須是 object
-    if (typeof block[typeFieldName] !== 'object' || block[typeFieldName] === null) {
-        return false;
-    }
-
-    return true;
+    return typeof block[typeFieldName] === 'object' &&
+        block[typeFieldName] !== null;
 }
 
 /**
