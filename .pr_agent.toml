@@ -1,0 +1,13 @@
+[rag_arguments]
+# 啟用 RAG (檢索增強生成)，讓 Agent 能理解整個專案上下文
+enable_rag = true
+
+[pr_reviewer]
+enable_review_labels_effort = true
+enable_review_labels_security = true
+enable_auto_approval = false
+extra_instructions = "參考專案中的現有架構，專注於安全性和代碼質量；請以繁體中文回應。"
+
+[pr_code_suggestions]
+num_code_suggestions = 5
+suggestions_score_threshold = 7
