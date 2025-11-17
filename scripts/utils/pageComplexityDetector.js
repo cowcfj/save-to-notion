@@ -239,7 +239,7 @@ export function selectExtractor(complexity) {
         complexity.isComplexLayout ||
         complexity.hasRichMedia;
 
-    let selectedExtractor;
+    let selectedExtractor = 'readability'; // 預設使用 Readability 作為安全回退
 
     if (preferExtractus && !requireReadability) {
         selectedExtractor = 'extractus';
@@ -268,7 +268,7 @@ export function selectExtractor(complexity) {
 
     return {
         extractor: selectedExtractor,
-        reasons: reasons,
+        reasons,
         confidence: calculateConfidence(complexity, selectedExtractor),
         fallbackRequired: shouldUseFallback(complexity)
     };
@@ -381,7 +381,7 @@ export function logAnalysis(complexity, selection, extractionResult) {
         fallbackUsed: extractionResult.fallbackUsed
     };
 
-    
+
 
     // 發送到監控系統 (如果需要)
     if (window.analytics) {

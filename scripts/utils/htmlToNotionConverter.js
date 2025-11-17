@@ -34,7 +34,8 @@ function initTurndownService() {
         linkStyle: 'inlined',
         linkReferenceStyle: 'full',
         // 保留嵌套列表的縮排
-        blankReplacement: function (content, node) {
+        // content 參數為 TurndownService API 接口要求，當前實現未使用
+        blankReplacement(_content, node) {
             return node.isBlock ? '\n\n' : '';
         }
     });
