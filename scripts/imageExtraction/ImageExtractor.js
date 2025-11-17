@@ -148,7 +148,7 @@ class ImageExtractor {
         // 策略執行順序：srcset > 屬性 > 背景圖 > picture > noscript
         const strategies = [
             this._extractFromSrcset.bind(this),
-            this._extractFromAttributes.bind(this),
+            ImageExtractor._extractFromAttributes,
             this._extractFromBackground.bind(this),
             this._extractFromPicture.bind(this),
             this._extractFromNoscript.bind(this)
@@ -207,7 +207,7 @@ class ImageExtractor {
      * @param {HTMLImageElement} imgNode - 圖片元素
      * @returns {string|null} 提取到的圖片 URL
      */
-    _extractFromAttributes(imgNode) {
+    static _extractFromAttributes(imgNode) {
         // 使用 AttributeExtractor 提取
         const attributeExtractor = resolveAttributeExtractor();
         if (attributeExtractor && typeof attributeExtractor.extract === 'function') {

@@ -239,14 +239,10 @@ describe('ImageExtractor - 全面測試', () => {
     });
 
     describe('_extractFromAttributes', () => {
-        beforeEach(() => {
-            extractor = new ImageExtractor();
-        });
-
         it('應該從 src 屬性提取', () => {
             imgElement.setAttribute('src', 'https://example.com/image.jpg');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/image.jpg');
         });
@@ -254,7 +250,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該從 data-src 屬性提取', () => {
             imgElement.setAttribute('data-src', 'https://example.com/lazy.jpg');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/lazy.jpg');
         });
@@ -262,7 +258,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該從 data-lazy-src 屬性提取', () => {
             imgElement.setAttribute('data-lazy-src', 'https://example.com/lazy-load.jpg');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/lazy-load.jpg');
         });
@@ -270,7 +266,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該從 data-original 屬性提取', () => {
             imgElement.setAttribute('data-original', 'https://example.com/original.jpg');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/original.jpg');
         });
@@ -278,13 +274,13 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該修剪空白字符', () => {
             imgElement.setAttribute('src', '  https://example.com/trimmed.jpg  ');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/trimmed.jpg');
         });
 
         it('沒有有效屬性時應該返回 null', () => {
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBeNull();
         });
@@ -292,7 +288,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該拒絕無效的 URL', () => {
             imgElement.setAttribute('src', 'not-a-valid-url');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBeNull();
         });
@@ -300,7 +296,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理空字符串屬性', () => {
             imgElement.setAttribute('src', '');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBeNull();
         });
