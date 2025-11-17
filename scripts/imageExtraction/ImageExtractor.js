@@ -1,7 +1,9 @@
 let cachedFallbackStrategies = null;
 let cachedAttributeExtractor = null;
+let cachedSrcsetParser = null;
 let attemptedRequireFallback = false;
 let attemptedRequireAttribute = false;
+let attemptedRequireSrcset = false;
 
 /**
  * 解析回退策略：優先 CommonJS，其次回退全域，確保不同環境皆可使用
@@ -62,11 +64,6 @@ function resolveAttributeExtractor() {
         }
     }
 
-    if (typeof AttributeExtractor !== 'undefined') {
-        cachedAttributeExtractor = AttributeExtractor;
-        return cachedAttributeExtractor;
-    }
-
     const globalScope = typeof globalThis !== 'undefined'
         ? globalThis
         : (typeof window !== 'undefined'
@@ -77,6 +74,43 @@ function resolveAttributeExtractor() {
     if (attributeExtractorFromGlobal) {
         cachedAttributeExtractor = attributeExtractorFromGlobal;
         return cachedAttributeExtractor;
+    }
+
+    return null;
+}
+
+/**
+ * 解析 SrcsetParser：優先 CommonJS，其次回退到全域實例
+ * @returns {Object|null}
+ */
+function resolveSrcsetParser() {
+    if (cachedSrcsetParser) {
+        return cachedSrcsetParser;
+    }
+
+    if (typeof module !== 'undefined' && module.exports && !attemptedRequireSrcset) {
+        attemptedRequireSrcset = true;
+        try {
+            const requiredParser = require('./SrcsetParser');
+            if (requiredParser) {
+                cachedSrcsetParser = requiredParser;
+                return cachedSrcsetParser;
+            }
+        } catch {
+            // 忽略 require 失敗，稍後改用全域檢索
+        }
+    }
+
+    const globalScope = typeof globalThis !== 'undefined'
+        ? globalThis
+        : (typeof window !== 'undefined'
+            ? window
+            : (typeof global !== 'undefined' ? global : undefined));
+
+    const srcsetParserFromGlobal = globalScope?.SrcsetParser;
+    if (srcsetParserFromGlobal) {
+        cachedSrcsetParser = srcsetParserFromGlobal;
+        return cachedSrcsetParser;
     }
 
     return null;
@@ -183,8 +217,12 @@ class ImageExtractor {
         if (!srcset) return null;
 
         // 使用 SrcsetParser 解析
-        if (typeof SrcsetParser !== 'undefined') {
-            return SrcsetParser.parse(srcset);
+        const srcsetParser = resolveSrcsetParser();
+        if (srcsetParser && typeof srcsetParser.parse === 'function') {
+            const parsedUrl = srcsetParser.parse(srcset);
+            if (parsedUrl && this._isValidUrl(parsedUrl)) {
+                return parsedUrl;
+            }
         }
 
         // 回退到簡單解析
