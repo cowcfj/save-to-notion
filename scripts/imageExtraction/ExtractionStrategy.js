@@ -52,8 +52,11 @@ class ExtractionStrategy {
         if (url.startsWith('data:') || url.startsWith('blob:')) return false;
         
         try {
-            new URL(url);
-            return true;
+            if (typeof URL !== 'undefined' && typeof URL.canParse === 'function') {
+                return URL.canParse(url);
+            }
+            const parsedUrl = new URL(url);
+            return Boolean(parsedUrl);
         } catch {
             return false;
         }

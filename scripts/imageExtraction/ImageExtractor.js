@@ -194,8 +194,9 @@ class ImageExtractor {
         if (url.startsWith('data:') || url.startsWith('blob:')) return false;
         
         try {
-            new URL(url);
-            return true;
+            const parsedUrl = new URL(url);
+            // 僅接受 http/https 協定，避免非網路資源造成無效下載
+            return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
         } catch {
             return false;
         }
