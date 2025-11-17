@@ -263,32 +263,23 @@ class AttributeExtractor {
             return undefined;
         })();
 
-        if (typeof URL !== 'undefined' && typeof URL.canParse === 'function') {
-            const canParse = baseUrl ? URL.canParse(url, baseUrl) : URL.canParse(url);
-            if (!canParse) {
-                // 如果 canParse 返回 false，嘗試標準解析
-                try {
-                    const parsedUrl = baseUrl ? new URL(url, baseUrl) : new URL(url);
-                    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
-                } catch {
-                    return false;
-                }
-            }
-            // canParse 返回 true，驗證協議
+        const validateWithStandardParser = () => {
             try {
                 const parsedUrl = baseUrl ? new URL(url, baseUrl) : new URL(url);
                 return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
             } catch {
                 return false;
             }
+        };
+
+        if (typeof URL !== 'undefined' && typeof URL.canParse === 'function') {
+            const canParse = baseUrl ? URL.canParse(url, baseUrl) : URL.canParse(url);
+            if (!canParse) {
+                return validateWithStandardParser();
+            }
         }
 
-        try {
-            const parsedUrl = baseUrl ? new URL(url, baseUrl) : new URL(url);
-            return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
-        } catch {
-            return false;
-        }
+        return validateWithStandardParser();
     }
 
     /**

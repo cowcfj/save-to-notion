@@ -1,120 +1,86 @@
-let cachedFallbackStrategies = null;
-let cachedAttributeExtractor = null;
-let cachedSrcsetParser = null;
-let attemptedRequireFallback = false;
-let attemptedRequireAttribute = false;
-let attemptedRequireSrcset = false;
+const moduleResolutionState = {
+    fallbackStrategies: { cache: null, attemptedRequire: false },
+    attributeExtractor: { cache: null, attemptedRequire: false },
+    srcsetParser: { cache: null, attemptedRequire: false }
+};
 
 /**
- * 解析回退策略：優先 CommonJS，其次回退全域，確保不同環境皆可使用
- * @returns {Object|null}
+ * 取得通用全域作用域，避免多處重複條件
+ * @returns {typeof globalThis | Window | global | undefined}
  */
-function resolveFallbackStrategies() {
-    if (cachedFallbackStrategies) {
-        return cachedFallbackStrategies;
+function getGlobalScope() {
+    if (typeof globalThis !== 'undefined') {
+        return globalThis;
     }
-
-    if (typeof module !== 'undefined' && module.exports && !attemptedRequireFallback) {
-        attemptedRequireFallback = true;
-        try {
-            const requiredStrategies = require('./FallbackStrategies');
-            if (requiredStrategies) {
-                cachedFallbackStrategies = requiredStrategies;
-                return cachedFallbackStrategies;
-            }
-        } catch {
-            // 忽略 require 失敗，稍後改用全域檢索
-        }
+    if (typeof window !== 'undefined') {
+        return window;
     }
-
-    const globalScope = typeof globalThis !== 'undefined'
-        ? globalThis
-        : (typeof window !== 'undefined'
-            ? window
-            : (typeof global !== 'undefined' ? global : undefined));
-
-    const fallbackStrategies = globalScope?.FallbackStrategies;
-    if (fallbackStrategies) {
-        cachedFallbackStrategies = fallbackStrategies;
-        return cachedFallbackStrategies;
+    if (typeof global !== 'undefined') {
+        return global;
     }
-
-    return null;
+    return undefined;
 }
 
 /**
- * 解析 AttributeExtractor：優先 CommonJS，其次回退到已載入的全域實例
- * @returns {Object|null}
+ * 建立模組解析器：優先 CommonJS，其次回退全域
+ * @param {Object} options
+ * @param {string} options.stateKey - moduleResolutionState 對應 key
+ * @param {string} options.requirePath - require 目標路徑
+ * @param {string} options.globalKey - 全域查找鍵值
+ * @returns {() => Object|null}
  */
-function resolveAttributeExtractor() {
-    if (cachedAttributeExtractor) {
-        return cachedAttributeExtractor;
-    }
-
-    if (typeof module !== 'undefined' && module.exports && !attemptedRequireAttribute) {
-        attemptedRequireAttribute = true;
-        try {
-            const requiredExtractor = require('./AttributeExtractor');
-            if (requiredExtractor) {
-                cachedAttributeExtractor = requiredExtractor;
-                return cachedAttributeExtractor;
-            }
-        } catch {
-            // 忽略 require 失敗，稍後改用全域檢索
+function createModuleResolver({ stateKey, requirePath, globalKey }) {
+    return function resolveModule() {
+        const state = moduleResolutionState[stateKey];
+        if (!state) {
+            return null;
         }
-    }
 
-    const globalScope = typeof globalThis !== 'undefined'
-        ? globalThis
-        : (typeof window !== 'undefined'
-            ? window
-            : (typeof global !== 'undefined' ? global : undefined));
+        if (state.cache) {
+            return state.cache;
+        }
 
-    const attributeExtractorFromGlobal = globalScope?.AttributeExtractor;
-    if (attributeExtractorFromGlobal) {
-        cachedAttributeExtractor = attributeExtractorFromGlobal;
-        return cachedAttributeExtractor;
-    }
+        if (typeof module !== 'undefined' && module.exports && !state.attemptedRequire) {
+            state.attemptedRequire = true;
+            try {
+                const requiredModule = require(requirePath);
+                if (requiredModule) {
+                    state.cache = requiredModule;
+                    return state.cache;
+                }
+            } catch {
+                // 忽略 require 失敗，稍後改用全域檢索
+            }
+        }
 
-    return null;
+        const globalScope = getGlobalScope();
+        const resolvedModule = globalScope?.[globalKey];
+        if (resolvedModule) {
+            state.cache = resolvedModule;
+            return state.cache;
+        }
+
+        return null;
+    };
 }
 
-/**
- * 解析 SrcsetParser：優先 CommonJS，其次回退到全域實例
- * @returns {Object|null}
- */
-function resolveSrcsetParser() {
-    if (cachedSrcsetParser) {
-        return cachedSrcsetParser;
-    }
+const resolveFallbackStrategies = createModuleResolver({
+    stateKey: 'fallbackStrategies',
+    requirePath: './FallbackStrategies',
+    globalKey: 'FallbackStrategies'
+});
 
-    if (typeof module !== 'undefined' && module.exports && !attemptedRequireSrcset) {
-        attemptedRequireSrcset = true;
-        try {
-            const requiredParser = require('./SrcsetParser');
-            if (requiredParser) {
-                cachedSrcsetParser = requiredParser;
-                return cachedSrcsetParser;
-            }
-        } catch {
-            // 忽略 require 失敗，稍後改用全域檢索
-        }
-    }
+const resolveAttributeExtractor = createModuleResolver({
+    stateKey: 'attributeExtractor',
+    requirePath: './AttributeExtractor',
+    globalKey: 'AttributeExtractor'
+});
 
-    const globalScope = typeof globalThis !== 'undefined'
-        ? globalThis
-        : (typeof window !== 'undefined'
-            ? window
-            : (typeof global !== 'undefined' ? global : undefined));
-
-    const srcsetParserFromGlobal = globalScope?.SrcsetParser;
-    if (srcsetParserFromGlobal) {
-        cachedSrcsetParser = srcsetParserFromGlobal;
-        return cachedSrcsetParser;
-    }
-
-    return null;
-}
+const resolveSrcsetParser = createModuleResolver({
+    stateKey: 'srcsetParser',
+    requirePath: './SrcsetParser',
+    globalKey: 'SrcsetParser'
+});
 
 /**
  * 圖片提取器 - 主要的圖片 URL 提取類
