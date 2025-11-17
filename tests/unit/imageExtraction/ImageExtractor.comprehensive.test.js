@@ -348,67 +348,67 @@ describe('ImageExtractor - 全面測試', () => {
         });
 
         it('應該接受有效的 HTTP URL', () => {
-            const result = extractor._isValidUrl('http://example.com/image.jpg');
+            const result = ImageExtractor._isValidUrl('http://example.com/image.jpg');
 
             expect(result).toBe(true);
         });
 
         it('應該接受有效的 HTTPS URL', () => {
-            const result = extractor._isValidUrl('https://example.com/image.jpg');
+            const result = ImageExtractor._isValidUrl('https://example.com/image.jpg');
 
             expect(result).toBe(true);
         });
 
         it('應該拒絕 data: URL', () => {
-            const result = extractor._isValidUrl('data:image/png;base64,abc123');
+            const result = ImageExtractor._isValidUrl('data:image/png;base64,abc123');
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕 blob: URL', () => {
-            const result = extractor._isValidUrl('blob:https://example.com/123-456');
+            const result = ImageExtractor._isValidUrl('blob:https://example.com/123-456');
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕 null', () => {
-            const result = extractor._isValidUrl(null);
+            const result = ImageExtractor._isValidUrl(null);
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕 undefined', () => {
-            const result = extractor._isValidUrl();
+            const result = ImageExtractor._isValidUrl();
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕空字符串', () => {
-            const result = extractor._isValidUrl('');
+            const result = ImageExtractor._isValidUrl('');
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕非字符串類型', () => {
-            const result = extractor._isValidUrl(123);
+            const result = ImageExtractor._isValidUrl(123);
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕無效的 URL', () => {
-            const result = extractor._isValidUrl('not-a-url');
+            const result = ImageExtractor._isValidUrl('not-a-url');
 
             expect(result).toBe(false);
         });
 
         it('應該接受帶查詢參數的 URL', () => {
-            const result = extractor._isValidUrl('https://example.com/image.jpg?width=800');
+            const result = ImageExtractor._isValidUrl('https://example.com/image.jpg?width=800');
 
             expect(result).toBe(true);
         });
 
         it('應該接受帶片段的 URL', () => {
-            const result = extractor._isValidUrl('https://example.com/image.jpg#top');
+            const result = ImageExtractor._isValidUrl('https://example.com/image.jpg#top');
 
             expect(result).toBe(true);
         });
@@ -422,7 +422,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該基於 src 生成緩存鍵', () => {
             imgElement.setAttribute('src', 'https://example.com/image.jpg');
 
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key).toContain('https://example.com/image.jpg');
         });
@@ -430,7 +430,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該包含 data-src 在緩存鍵中', () => {
             imgElement.setAttribute('data-src', 'https://example.com/lazy.jpg');
 
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key).toContain('https://example.com/lazy.jpg');
         });
@@ -438,7 +438,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該包含 srcset 在緩存鍵中', () => {
             imgElement.setAttribute('srcset', 'https://example.com/large.jpg 1200w');
 
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key).toContain('https://example.com/large.jpg');
         });
@@ -447,13 +447,13 @@ describe('ImageExtractor - 全面測試', () => {
             const longUrl = 'https://example.com/' + 'a'.repeat(200) + '.jpg';
             imgElement.setAttribute('src', longUrl);
 
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key.length).toBeLessThanOrEqual(100);
         });
 
         it('空屬性應該生成空分隔的鍵', () => {
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key).toBe('||');
         });

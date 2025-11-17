@@ -263,6 +263,10 @@ class AttributeExtractor {
             return undefined;
         })();
 
+        /**
+         * 使用標準 URL 解析器驗證 URL
+         * @returns {boolean} URL 是否為有效的 HTTP/HTTPS 協議
+         */
         const validateWithStandardParser = () => {
             try {
                 const parsedUrl = baseUrl ? new URL(url, baseUrl) : new URL(url);
