@@ -242,8 +242,17 @@ class AttributeExtractor {
             return false;
         }
 
+        // 檢查是否為有效的路徑格式
+        const isLikelyRelativePath = url.startsWith('/') || url.startsWith('./') || url.startsWith('../');
+        const hasImageExtension = /\.(?:jpe?g|png|gif|webp|svg|bmp|ico|tiff?|avif)(?:\?|#|$)/i.test(url);
+        const isAbsoluteUrl = /^https?:\/\//i.test(url);
+
+        // 如果不是明顯的相對路徑、沒有圖片副檔名、也不是絕對 URL，則拒絕
+        if (!isLikelyRelativePath && !hasImageExtension && !isAbsoluteUrl) {
+            return false;
+        }
+
         // 基本 URL 格式檢查
-        // 嘗試取得 base URL 以支援相對路徑解析
         const baseUrl = (() => {
             if (typeof document !== 'undefined' && typeof document.baseURI === 'string') {
                 return document.baseURI;
@@ -256,17 +265,29 @@ class AttributeExtractor {
 
         if (typeof URL !== 'undefined' && typeof URL.canParse === 'function') {
             const canParse = baseUrl ? URL.canParse(url, baseUrl) : URL.canParse(url);
-            if (canParse) {
-                return true;
+            if (!canParse) {
+                // 如果 canParse 返回 false，嘗試標準解析
+                try {
+                    const parsedUrl = baseUrl ? new URL(url, baseUrl) : new URL(url);
+                    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+                } catch {
+                    return false;
+                }
+            }
+            // canParse 返回 true，驗證協議
+            try {
+                const parsedUrl = baseUrl ? new URL(url, baseUrl) : new URL(url);
+                return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+            } catch {
+                return false;
             }
         }
 
         try {
             const parsedUrl = baseUrl ? new URL(url, baseUrl) : new URL(url);
-            return Boolean(parsedUrl?.href);
+            return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
         } catch {
-            // 可能是相對 URL
-            return url.length > 0 && !url.startsWith('#');
+            return false;
         }
     }
 

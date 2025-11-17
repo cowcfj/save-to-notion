@@ -12,8 +12,8 @@ const FallbackStrategies = require('../../../scripts/imageExtraction/FallbackStr
 const ImageExtractor = require('../../../scripts/imageExtraction/ImageExtractor');
 
 describe('ImageExtractor - 回退策略整合', () => {
-    let extractor;
-    let imgElement;
+    let extractor = null;
+    let imgElement = null;
 
     beforeEach(() => {
         extractor = new ImageExtractor();

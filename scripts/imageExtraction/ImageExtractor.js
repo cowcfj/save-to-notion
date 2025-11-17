@@ -1,5 +1,7 @@
 let cachedFallbackStrategies = null;
+let cachedAttributeExtractor = null;
 let attemptedRequireFallback = false;
+let attemptedRequireAttribute = false;
 
 /**
  * 解析回退策略：優先 CommonJS，其次回退全域，確保不同環境皆可使用
@@ -29,9 +31,52 @@ function resolveFallbackStrategies() {
             ? window
             : (typeof global !== 'undefined' ? global : undefined));
 
-    if (globalScope && globalScope.FallbackStrategies) {
-        cachedFallbackStrategies = globalScope.FallbackStrategies;
+    const fallbackStrategies = globalScope?.FallbackStrategies;
+    if (fallbackStrategies) {
+        cachedFallbackStrategies = fallbackStrategies;
         return cachedFallbackStrategies;
+    }
+
+    return null;
+}
+
+/**
+ * 解析 AttributeExtractor：優先 CommonJS，其次回退到已載入的全域實例
+ * @returns {Object|null}
+ */
+function resolveAttributeExtractor() {
+    if (cachedAttributeExtractor) {
+        return cachedAttributeExtractor;
+    }
+
+    if (typeof module !== 'undefined' && module.exports && !attemptedRequireAttribute) {
+        attemptedRequireAttribute = true;
+        try {
+            const requiredExtractor = require('./AttributeExtractor');
+            if (requiredExtractor) {
+                cachedAttributeExtractor = requiredExtractor;
+                return cachedAttributeExtractor;
+            }
+        } catch {
+            // 忽略 require 失敗，稍後改用全域檢索
+        }
+    }
+
+    if (typeof AttributeExtractor !== 'undefined') {
+        cachedAttributeExtractor = AttributeExtractor;
+        return cachedAttributeExtractor;
+    }
+
+    const globalScope = typeof globalThis !== 'undefined'
+        ? globalThis
+        : (typeof window !== 'undefined'
+            ? window
+            : (typeof global !== 'undefined' ? global : undefined));
+
+    const attributeExtractorFromGlobal = globalScope?.AttributeExtractor;
+    if (attributeExtractorFromGlobal) {
+        cachedAttributeExtractor = attributeExtractorFromGlobal;
+        return cachedAttributeExtractor;
     }
 
     return null;
@@ -56,7 +101,7 @@ class ImageExtractor {
             enableCache: false,
             ...options
         };
-        
+
         // 初始化策略
         this.strategies = [];
         this.cache = new Map();
@@ -131,24 +176,24 @@ class ImageExtractor {
      * @returns {string|null} 提取到的圖片 URL
      */
     _extractFromSrcset(imgNode) {
-        const srcset = imgNode.getAttribute('srcset') || 
-                      imgNode.getAttribute('data-srcset') || 
+        const srcset = imgNode.getAttribute('srcset') ||
+                      imgNode.getAttribute('data-srcset') ||
                       imgNode.getAttribute('data-lazy-srcset');
-        
+
         if (!srcset) return null;
-        
+
         // 使用 SrcsetParser 解析
         if (typeof SrcsetParser !== 'undefined') {
             return SrcsetParser.parse(srcset);
         }
-        
+
         // 回退到簡單解析
         const entries = srcset.split(',').map(entry => entry.trim());
         if (entries.length > 0) {
             const url = entries[entries.length - 1].split(' ')[0];
             return this._isValidUrl(url) ? url : null;
         }
-        
+
         return null;
     }
 
@@ -160,21 +205,23 @@ class ImageExtractor {
      */
     _extractFromAttributes(imgNode) {
         // 使用 AttributeExtractor 提取
-        if (typeof AttributeExtractor !== 'undefined') {
-            return AttributeExtractor.extract(imgNode);
+        const attributeExtractor = resolveAttributeExtractor();
+        if (attributeExtractor && typeof attributeExtractor.extract === 'function') {
+            return attributeExtractor.extract(imgNode);
         }
-        
-        // 回退到基本屬性檢查
+
+        // 回退到基本屬性檢查（必須驗證 URL）
         const basicAttrs = ['src', 'data-src', 'data-lazy-src', 'data-original'];
         for (const attr of basicAttrs) {
             if (imgNode.hasAttribute(attr)) {
                 const value = imgNode.getAttribute(attr);
-                if (value && this._isValidUrl(value.trim())) {
-                    return value.trim();
+                const trimmedValue = value?.trim();
+                if (trimmedValue && this._isValidUrl(trimmedValue)) {
+                    return trimmedValue;
                 }
             }
         }
-        
+
         return null;
     }
 
@@ -254,7 +301,7 @@ class ImageExtractor {
     _isValidUrl(url) {
         if (!url || typeof url !== 'string') return false;
         if (url.startsWith('data:') || url.startsWith('blob:')) return false;
-        
+
         try {
             const parsedUrl = new URL(url);
             // 僅接受 http/https 協定，避免非網路資源造成無效下載
@@ -275,7 +322,7 @@ class ImageExtractor {
         const src = imgNode.getAttribute('src') || '';
         const dataSrc = imgNode.getAttribute('data-src') || '';
         const srcset = imgNode.getAttribute('srcset') || '';
-        
+
         return `${src}|${dataSrc}|${srcset}`.substring(0, 100);
     }
 

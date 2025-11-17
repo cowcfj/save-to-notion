@@ -173,7 +173,7 @@ describe('AttributeExtractor', () => {
     });
 
     describe('_isValidImageUrl', () => {
-        let originalCanParse;
+        let originalCanParse = URL.canParse;
 
         beforeEach(() => {
             originalCanParse = URL.canParse;
