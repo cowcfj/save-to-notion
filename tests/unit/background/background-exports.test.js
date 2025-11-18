@@ -41,13 +41,13 @@ global.performance = {
 };
 
 // 導入 background.js 的導出函數
-let backgroundModule;
-try {
-  backgroundModule = require('../../../scripts/background.js');
-} catch {
-  console.warn('Could not import background.js directly, using mocked functions');
-  // 如果無法直接導入，使用模擬的函數
-  backgroundModule = {
+const backgroundModule = (() => {
+  try {
+    return require('../../../scripts/background.js');
+  } catch {
+    console.warn('Could not import background.js directly, using mocked functions');
+    // 如果無法直接導入，使用模擬的函數
+    return {
     normalizeUrl: function(rawUrl) {
       try {
         const u = new URL(rawUrl);
@@ -202,8 +202,9 @@ try {
         return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
       }
     }
-  };
-}
+    };
+  }
+})();
 
 describe('Background.js Exported Functions', () => {
   beforeEach(() => {

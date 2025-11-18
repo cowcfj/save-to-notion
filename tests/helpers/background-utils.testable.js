@@ -240,7 +240,7 @@ function createNotionParagraph(content, annotations = {}) {
         return null;
     }
 
-    let richTextArray;
+    let richTextArray = null;
 
     if (typeof content === 'string') {
         // 字符串：創建富文本對象

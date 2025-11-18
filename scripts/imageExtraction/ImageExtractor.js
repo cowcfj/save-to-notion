@@ -120,7 +120,7 @@ class ImageExtractor {
 
         // 檢查緩存
         if (this.options.enableCache) {
-            const cacheKey = this._generateCacheKey(imgNode);
+            const cacheKey = ImageExtractor._generateCacheKey(imgNode);
             if (this.cache.has(cacheKey)) {
                 return this.cache.get(cacheKey);
             }
@@ -131,7 +131,7 @@ class ImageExtractor {
 
         // 緩存結果
         if (this.options.enableCache && result) {
-            const cacheKey = this._generateCacheKey(imgNode);
+            const cacheKey = ImageExtractor._generateCacheKey(imgNode);
             this.cache.set(cacheKey, result);
         }
 
@@ -147,8 +147,8 @@ class ImageExtractor {
     _tryExtractionStrategies(imgNode) {
         // 策略執行順序：srcset > 屬性 > 背景圖 > picture > noscript
         const strategies = [
-            this._extractFromSrcset.bind(this),
-            this._extractFromAttributes.bind(this),
+            ImageExtractor._extractFromSrcset,
+            ImageExtractor._extractFromAttributes,
             this._extractFromBackground.bind(this),
             this._extractFromPicture.bind(this),
             this._extractFromNoscript.bind(this)
@@ -157,7 +157,7 @@ class ImageExtractor {
         for (const strategy of strategies) {
             try {
                 const result = strategy(imgNode);
-                if (result && this._isValidUrl(result)) {
+                if (result && ImageExtractor._isValidUrl(result)) {
                     return result;
                 }
             } catch (error) {
@@ -175,7 +175,7 @@ class ImageExtractor {
      * @param {HTMLImageElement} imgNode - 圖片元素
      * @returns {string|null} 提取到的圖片 URL
      */
-    _extractFromSrcset(imgNode) {
+    static _extractFromSrcset(imgNode) {
         const srcset = imgNode.getAttribute('srcset') ||
                       imgNode.getAttribute('data-srcset') ||
                       imgNode.getAttribute('data-lazy-srcset');
@@ -186,7 +186,7 @@ class ImageExtractor {
         const srcsetParser = resolveSrcsetParser();
         if (srcsetParser && typeof srcsetParser.parse === 'function') {
             const parsedUrl = srcsetParser.parse(srcset);
-            if (parsedUrl && this._isValidUrl(parsedUrl)) {
+            if (parsedUrl && ImageExtractor._isValidUrl(parsedUrl)) {
                 return parsedUrl;
             }
         }
@@ -195,7 +195,7 @@ class ImageExtractor {
         const entries = srcset.split(',').map(entry => entry.trim());
         if (entries.length > 0) {
             const url = entries[entries.length - 1].split(' ')[0];
-            return this._isValidUrl(url) ? url : null;
+            return ImageExtractor._isValidUrl(url) ? url : null;
         }
 
         return null;
@@ -207,7 +207,7 @@ class ImageExtractor {
      * @param {HTMLImageElement} imgNode - 圖片元素
      * @returns {string|null} 提取到的圖片 URL
      */
-    _extractFromAttributes(imgNode) {
+    static _extractFromAttributes(imgNode) {
         // 使用 AttributeExtractor 提取
         const attributeExtractor = resolveAttributeExtractor();
         if (attributeExtractor && typeof attributeExtractor.extract === 'function') {
@@ -220,7 +220,7 @@ class ImageExtractor {
             if (imgNode.hasAttribute(attr)) {
                 const value = imgNode.getAttribute(attr);
                 const trimmedValue = value?.trim();
-                if (trimmedValue && this._isValidUrl(trimmedValue)) {
+                if (trimmedValue && ImageExtractor._isValidUrl(trimmedValue)) {
                     return trimmedValue;
                 }
             }
@@ -302,7 +302,7 @@ class ImageExtractor {
      * @param {string} url - 要驗證的 URL
      * @returns {boolean} URL 是否有效
      */
-    _isValidUrl(url) {
+    static _isValidUrl(url) {
         if (!url || typeof url !== 'string') return false;
         if (url.startsWith('data:') || url.startsWith('blob:')) return false;
 
@@ -321,7 +321,7 @@ class ImageExtractor {
      * @param {HTMLImageElement} imgNode - 圖片元素
      * @returns {string} 緩存鍵
      */
-    _generateCacheKey(imgNode) {
+    static _generateCacheKey(imgNode) {
         // 使用元素的關鍵屬性生成唯一鍵
         const src = imgNode.getAttribute('src') || '';
         const dataSrc = imgNode.getAttribute('data-src') || '';

@@ -7,11 +7,11 @@
 const { JSDOM } = require('jsdom');
 
 describe('PerformanceOptimizer - 全面測試', () => {
-    let PerformanceOptimizer;
-    let optimizer;
-    let dom;
-    let mockDocument;
-    let mockWindow;
+    let PerformanceOptimizer = null;
+    let optimizer = null;
+    let dom = null;
+    let mockDocument = null;
+    let mockWindow = null;
 
     beforeEach(() => {
         // 創建新的 DOM 環境

@@ -5,9 +5,11 @@
 class ExtractionStrategy {
     /**
      * 提取圖片 URL
+     * 抽象方法，由子類實現並可能使用實例狀態
      * @param {HTMLImageElement} imgNode - 圖片元素
      * @returns {string|null} 提取到的圖片 URL，如果無法提取則返回 null
      */
+    // skipcq: JS-0105 - 抽象方法，子類實現時會使用 this
     extract(imgNode) {
         // 參數驗證
         if (!imgNode) {
@@ -50,7 +52,7 @@ class ExtractionStrategy {
     _isValidUrl(url) {
         if (!url || typeof url !== 'string') return false;
         if (url.startsWith('data:') || url.startsWith('blob:')) return false;
-        
+
         try {
             if (typeof URL !== 'undefined' && typeof URL.canParse === 'function') {
                 return URL.canParse(url);
@@ -70,10 +72,10 @@ class ExtractionStrategy {
      */
     _cleanUrl(url) {
         if (!url || typeof url !== 'string') return null;
-        
+
         const trimmed = url.trim();
         if (!trimmed) return null;
-        
+
         // 移除引號
         return trimmed.replace(/^["']|["']$/g, '');
     }

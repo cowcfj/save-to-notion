@@ -194,7 +194,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該從 srcset 提取最大尺寸的圖片', () => {
             imgElement.setAttribute('srcset', 'https://example.com/small.jpg 400w, https://example.com/large.jpg 1200w');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBe('https://example.com/large.jpg');
         });
@@ -202,7 +202,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理 data-srcset 屬性', () => {
             imgElement.setAttribute('data-srcset', 'https://example.com/lazy.jpg 800w');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBe('https://example.com/lazy.jpg');
         });
@@ -210,13 +210,13 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理 data-lazy-srcset 屬性', () => {
             imgElement.setAttribute('data-lazy-srcset', 'https://example.com/lazy-load.jpg 1000w');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBe('https://example.com/lazy-load.jpg');
         });
 
         it('沒有 srcset 時應該返回 null', () => {
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBeNull();
         });
@@ -224,7 +224,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理單個 URL 的 srcset', () => {
             imgElement.setAttribute('srcset', 'https://example.com/single.jpg');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBe('https://example.com/single.jpg');
         });
@@ -232,21 +232,17 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理無效的 srcset 格式', () => {
             imgElement.setAttribute('srcset', 'invalid-url');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBeNull();
         });
     });
 
     describe('_extractFromAttributes', () => {
-        beforeEach(() => {
-            extractor = new ImageExtractor();
-        });
-
         it('應該從 src 屬性提取', () => {
             imgElement.setAttribute('src', 'https://example.com/image.jpg');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/image.jpg');
         });
@@ -254,7 +250,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該從 data-src 屬性提取', () => {
             imgElement.setAttribute('data-src', 'https://example.com/lazy.jpg');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/lazy.jpg');
         });
@@ -262,7 +258,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該從 data-lazy-src 屬性提取', () => {
             imgElement.setAttribute('data-lazy-src', 'https://example.com/lazy-load.jpg');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/lazy-load.jpg');
         });
@@ -270,7 +266,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該從 data-original 屬性提取', () => {
             imgElement.setAttribute('data-original', 'https://example.com/original.jpg');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/original.jpg');
         });
@@ -278,13 +274,13 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該修剪空白字符', () => {
             imgElement.setAttribute('src', '  https://example.com/trimmed.jpg  ');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBe('https://example.com/trimmed.jpg');
         });
 
         it('沒有有效屬性時應該返回 null', () => {
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBeNull();
         });
@@ -292,7 +288,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該拒絕無效的 URL', () => {
             imgElement.setAttribute('src', 'not-a-valid-url');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBeNull();
         });
@@ -300,7 +296,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理空字符串屬性', () => {
             imgElement.setAttribute('src', '');
 
-            const result = extractor._extractFromAttributes(imgElement);
+            const result = ImageExtractor._extractFromAttributes(imgElement);
 
             expect(result).toBeNull();
         });
@@ -348,67 +344,67 @@ describe('ImageExtractor - 全面測試', () => {
         });
 
         it('應該接受有效的 HTTP URL', () => {
-            const result = extractor._isValidUrl('http://example.com/image.jpg');
+            const result = ImageExtractor._isValidUrl('http://example.com/image.jpg');
 
             expect(result).toBe(true);
         });
 
         it('應該接受有效的 HTTPS URL', () => {
-            const result = extractor._isValidUrl('https://example.com/image.jpg');
+            const result = ImageExtractor._isValidUrl('https://example.com/image.jpg');
 
             expect(result).toBe(true);
         });
 
         it('應該拒絕 data: URL', () => {
-            const result = extractor._isValidUrl('data:image/png;base64,abc123');
+            const result = ImageExtractor._isValidUrl('data:image/png;base64,abc123');
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕 blob: URL', () => {
-            const result = extractor._isValidUrl('blob:https://example.com/123-456');
+            const result = ImageExtractor._isValidUrl('blob:https://example.com/123-456');
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕 null', () => {
-            const result = extractor._isValidUrl(null);
+            const result = ImageExtractor._isValidUrl(null);
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕 undefined', () => {
-            const result = extractor._isValidUrl();
+            const result = ImageExtractor._isValidUrl();
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕空字符串', () => {
-            const result = extractor._isValidUrl('');
+            const result = ImageExtractor._isValidUrl('');
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕非字符串類型', () => {
-            const result = extractor._isValidUrl(123);
+            const result = ImageExtractor._isValidUrl(123);
 
             expect(result).toBe(false);
         });
 
         it('應該拒絕無效的 URL', () => {
-            const result = extractor._isValidUrl('not-a-url');
+            const result = ImageExtractor._isValidUrl('not-a-url');
 
             expect(result).toBe(false);
         });
 
         it('應該接受帶查詢參數的 URL', () => {
-            const result = extractor._isValidUrl('https://example.com/image.jpg?width=800');
+            const result = ImageExtractor._isValidUrl('https://example.com/image.jpg?width=800');
 
             expect(result).toBe(true);
         });
 
         it('應該接受帶片段的 URL', () => {
-            const result = extractor._isValidUrl('https://example.com/image.jpg#top');
+            const result = ImageExtractor._isValidUrl('https://example.com/image.jpg#top');
 
             expect(result).toBe(true);
         });
@@ -422,7 +418,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該基於 src 生成緩存鍵', () => {
             imgElement.setAttribute('src', 'https://example.com/image.jpg');
 
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key).toContain('https://example.com/image.jpg');
         });
@@ -430,7 +426,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該包含 data-src 在緩存鍵中', () => {
             imgElement.setAttribute('data-src', 'https://example.com/lazy.jpg');
 
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key).toContain('https://example.com/lazy.jpg');
         });
@@ -438,7 +434,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該包含 srcset 在緩存鍵中', () => {
             imgElement.setAttribute('srcset', 'https://example.com/large.jpg 1200w');
 
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key).toContain('https://example.com/large.jpg');
         });
@@ -447,13 +443,13 @@ describe('ImageExtractor - 全面測試', () => {
             const longUrl = 'https://example.com/' + 'a'.repeat(200) + '.jpg';
             imgElement.setAttribute('src', longUrl);
 
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key.length).toBeLessThanOrEqual(100);
         });
 
         it('空屬性應該生成空分隔的鍵', () => {
-            const key = extractor._generateCacheKey(imgElement);
+            const key = ImageExtractor._generateCacheKey(imgElement);
 
             expect(key).toBe('||');
         });
