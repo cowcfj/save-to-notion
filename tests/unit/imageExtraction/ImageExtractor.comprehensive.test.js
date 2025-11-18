@@ -194,7 +194,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該從 srcset 提取最大尺寸的圖片', () => {
             imgElement.setAttribute('srcset', 'https://example.com/small.jpg 400w, https://example.com/large.jpg 1200w');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBe('https://example.com/large.jpg');
         });
@@ -202,7 +202,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理 data-srcset 屬性', () => {
             imgElement.setAttribute('data-srcset', 'https://example.com/lazy.jpg 800w');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBe('https://example.com/lazy.jpg');
         });
@@ -210,13 +210,13 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理 data-lazy-srcset 屬性', () => {
             imgElement.setAttribute('data-lazy-srcset', 'https://example.com/lazy-load.jpg 1000w');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBe('https://example.com/lazy-load.jpg');
         });
 
         it('沒有 srcset 時應該返回 null', () => {
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBeNull();
         });
@@ -224,7 +224,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理單個 URL 的 srcset', () => {
             imgElement.setAttribute('srcset', 'https://example.com/single.jpg');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBe('https://example.com/single.jpg');
         });
@@ -232,7 +232,7 @@ describe('ImageExtractor - 全面測試', () => {
         it('應該處理無效的 srcset 格式', () => {
             imgElement.setAttribute('srcset', 'invalid-url');
 
-            const result = extractor._extractFromSrcset(imgElement);
+            const result = ImageExtractor._extractFromSrcset(imgElement);
 
             expect(result).toBeNull();
         });
