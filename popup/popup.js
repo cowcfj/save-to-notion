@@ -168,14 +168,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             // 清除本地存儲
                             const normalizeUrl = (rawUrl) => {
                                 try {
-                                    const u = new URL(rawUrl);
-                                    u.hash = '';
+                                    const url = new URL(rawUrl);
+                                    url.hash = '';
                                     const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'];
-                                    trackingParams.forEach((p) => u.searchParams.delete(p));
-                                    if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-                                        u.pathname = u.pathname.replace(/\/+$/, '');
+                                    trackingParams.forEach((p) => url.searchParams.delete(p));
+                                    if (url.pathname !== '/' && url.pathname.endsWith('/')) {
+                                        url.pathname = url.pathname.replace(/\/+$/, '');
                                     }
-                                    return u.toString();
+                                    return url.toString();
                                 } catch (error) {
                                     console.warn('Failed to normalize URL:', rawUrl, error);
                                     return rawUrl || '';

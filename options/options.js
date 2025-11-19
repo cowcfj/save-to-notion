@@ -658,7 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const backup = {
                     timestamp: new Date().toISOString(),
                     version: chrome.runtime.getManifest().version,
-                    data: data
+                    data
                 };
 
                 const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -763,11 +763,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        /**
+         * 顯示數據狀態訊息
+         * @param {string} message - 要顯示的訊息
+         * @param {string} type - 訊息類型（info, success, warning, error）
+         */
         function showDataStatus(message, type) {
             dataStatus.textContent = message;
             dataStatus.className = `data-status ${type}`;
         }
 
+        /**
+         * 分析存儲數據的完整性
+         * @param {Object} data - chrome.storage.local 中的所有數據
+         * @returns {Object} 包含分析報告的對象
+         */
         function analyzeData(data) {
             const report = {
                 totalKeys: Object.keys(data).length,
@@ -806,6 +816,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // 刷新按鈕事件
         refreshUsageButton.addEventListener('click', updateStorageUsage);
 
+        /**
+         * 更新存儲使用量統計
+         * 從 chrome.storage.local 獲取數據並更新顯示
+         */
         async function updateStorageUsage() {
             try {
                 const usage = await getStorageUsage();
@@ -866,6 +880,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return usage;
         }
 
+        /**
+         * 更新存儲使用量的 UI 顯示
+         * @param {Object} usage - 包含使用量統計的對象
+         */
         function updateUsageDisplay(usage) {
             const usageFill = document.getElementById('usage-fill');
             const usagePercentage = document.getElementById('usage-percentage');
@@ -971,6 +989,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        /**
+         * 生成安全清理計劃
+         * @param {boolean} cleanDeletedPages - 是否清理已刪除頁面的數據
+         * @returns {Promise<Object>} 包含清理計劃的對象
+         */
         async function generateSafeCleanupPlan(cleanDeletedPages) {
             const data = await new Promise(resolve => {
                 chrome.storage.local.get(null, resolve);
@@ -1062,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await chrome.runtime.sendMessage({
                     action: 'checkNotionPageExists',
-                    pageId: pageId
+                    pageId
                 });
                 return response && response.exists === true;
             } catch (error) {
@@ -1071,6 +1094,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        /**
+         * 顯示清理預覽
+         * @param {Object} plan - 清理計劃對象
+         */
         function displayCleanupPreview(plan) {
             cleanupPreview.className = 'cleanup-preview show';
 
@@ -1117,6 +1144,10 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
+        /**
+         * 執行安全清理
+         * 根據生成的清理計劃刪除不需要的數據
+         */
         async function executeSafeCleanup() {
             if (!cleanupPlan || cleanupPlan.items.length === 0) {
                 showDataStatus('❌ 沒有清理計劃可執行', 'error');
@@ -1273,6 +1304,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        /**
+         * 顯示優化預覽
+         * @param {Object} plan - 優化計劃對象
+         */
         function displayOptimizationPreview(plan) {
             optimizationPreview.className = 'optimization-preview show';
 
@@ -1313,6 +1348,10 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
+        /**
+         * 執行數據優化
+         * 根據優化計劃重整數據結構
+         */
         async function executeOptimization() {
             if (!optimizationPlan || !optimizationPlan.canOptimize) {
                 showDataStatus('❌ 沒有優化計劃可執行', 'error');
@@ -1479,7 +1518,7 @@ class SearchableDatabaseSelector {
         // 映射數據，添加類型和父級信息
         this.databases = databases.map(db => ({
             id: db.id,
-            title: this.extractDatabaseTitle(db),
+            title: SearchableDatabaseSelector.extractDatabaseTitle(db),
             type: db.object,  // 'page' 或 'data_source'
             isWorkspace: db.parent?.type === 'workspace',  // 是否為工作區直屬項目
             parent: db.parent,  // 保留完整父級信息
@@ -1566,7 +1605,7 @@ class SearchableDatabaseSelector {
         const query = this.searchInput.value.toLowerCase().trim();
         let highlightedTitle = db.title;
         if (query) {
-            const regex = new RegExp(`(${this.escapeRegex(query)})`, 'gi');
+            const regex = new RegExp(`(${SearchableDatabaseSelector.escapeRegex(query)})`, 'gi');
             highlightedTitle = db.title.replace(regex, '<span class="search-highlight">$1</span>');
         }
 
@@ -1627,7 +1666,7 @@ class SearchableDatabaseSelector {
                 <div class="database-meta">
                     <span class="database-icon">${typeIcon}</span>
                     <span>${typeLabel}</span>
-                    ${db.created ? `<span>•</span><span>創建於 ${this.formatDate(db.created)}</span>` : ''}
+                    ${db.created ? `<span>•</span><span>創建於 ${SearchableDatabaseSelector.formatDate(db.created)}</span>` : ''}
                 </div>
             </div>
         `;
@@ -1729,6 +1768,10 @@ class SearchableDatabaseSelector {
                 e.preventDefault();
                 this.hideDropdown();
                 break;
+
+            default:
+                // 其他按鍵不處理
+                break;
         }
     }
 
@@ -1770,7 +1813,12 @@ class SearchableDatabaseSelector {
         this.showDropdown();
     }
 
-    extractDatabaseTitle(db) {
+    /**
+     * 提取數據庫或頁面的標題
+     * @param {Object} db - 數據庫或頁面對象
+     * @returns {string} 提取的標題
+     */
+    static extractDatabaseTitle(db) {
         let title = db.object === 'page' ? '未命名頁面' : '未命名資料來源';
 
         // 處理 page 對象（標題在 properties.title）
@@ -1793,7 +1841,12 @@ class SearchableDatabaseSelector {
         return title;
     }
 
-    formatDate(dateString) {
+    /**
+     * 格式化日期字串
+     * @param {string} dateString - ISO 日期字串
+     * @returns {string} 格式化後的日期，失敗時返回空字串
+     */
+    static formatDate(dateString) {
         try {
             const date = new Date(dateString);
             return date.toLocaleDateString('zh-TW', {
@@ -1807,11 +1860,21 @@ class SearchableDatabaseSelector {
         }
     }
 
-    escapeRegex(string) {
+    /**
+     * 轉義正則表示式中的特殊字符
+     * @param {string} string - 要轉義的字串
+     * @returns {string} 轉義後的字串
+     */
+    static escapeRegex(string) {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    escapeHtml(text) {
+    /**
+     * 轉義 HTML 特殊字符
+     * @param {string} text - 要轉義的文本
+     * @returns {string} 轉義後的 HTML
+     */
+    static escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
