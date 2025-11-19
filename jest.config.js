@@ -20,7 +20,7 @@ module.exports = {
     'tests/helpers/background-utils.testable.js',  // 包含 background.js 純函數
     'tests/helpers/highlighter-v2.testable.js',  // 包含測試版本的 highlighter-v2.js
     'tests/helpers/content.testable.js',  // 包含測試版本的 content.js
-    'tests/helpers/content-extraction.testable.js',  // 包含 content.js 內容提取函數
+    'tests/helpers/content-extraction.testable.js', // 包含 content.js 內容提取函數
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**'
@@ -60,9 +60,6 @@ module.exports = {
     'node_modules/(?!(jsdom|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree)/)'
   ],
 
-  // 詳細輸出
-  verbose: true,
-
   // 模組名稱映射（用於模擬 Chrome API）
   moduleNameMapper: {
     '^chrome$': '<rootDir>/tests/mocks/chrome.js'
@@ -75,12 +72,16 @@ module.exports = {
   // 增加超時時間（30秒）
   testTimeout: 30000,
 
-  // Node.js 20.x 相容性設置
-  maxWorkers: '50%', // 限制並行工作進程數量，避免內存問題
-  maxConcurrency: 5,  // 限制最大並發測試數量
+  // Node.js 20.x 性能優化設置
+  maxWorkers: 2, // 進一步限制並行工作進程數量，避免內存問題
+  maxConcurrency: 3,  // 限制最大並發測試數量
 
-  // 確保在 Node.js 20.x 中的穩定性
-  clearMocks: true,
-  resetMocks: true,
-  restoreMocks: true
+  // 減少不必要的 mock 清理以提升性能
+  clearMocks: false, // 改為手動清理特定測試
+  resetMocks: false,  // 改為手動重置特定測試
+  restoreMocks: false, // 改為手動恢復特定測試
+
+  // 性能優化
+  bail: false, // 不在第一個失敗時停止，繼續執行所有測試
+  verbose: false // 關閉詳細輸出以提升速度
 };

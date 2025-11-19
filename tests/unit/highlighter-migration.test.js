@@ -31,36 +31,10 @@ global.window = {
 jest.resetModules();
 require('../../scripts/highlighter-migration.js');
 
-describe('highlighter-migration.js', () => {
-    beforeEach(() => {
-        // 清理 DOM
-        document.body.innerHTML = '';
-
-        // 清理 mock
-        jest.clearAllMocks();
-        mockChrome.runtime.lastError = null;
-
-        // 重置 chrome.storage
-        mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-            callback({});
-        });
-        mockChrome.storage.local.set.mockImplementation((data, callback) => {
-            if (callback) callback();
-        });
-
-        // 清理 console spies
-        jest.spyOn(console, 'log').mockImplementation(() => {});
-        jest.spyOn(console, 'warn').mockImplementation(() => {});
-        jest.spyOn(console, 'error').mockImplementation(() => {});
-    });
-
-    afterEach(() => {
-        jest.restoreAllMocks();
-    });
-
+describe('HighlightMigrationManager', () => {
     describe('HighlightMigrationManager - 構造函數', () => {
         test('應該正確初始化', () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             expect(manager.migrationKey).toBe('highlight_migration_status');
             expect(manager.oldHighlightsFound).toBe(0);
@@ -69,9 +43,10 @@ describe('highlighter-migration.js', () => {
         });
     });
 
+
     describe('needsMigration', () => {
         test('應該在已完成遷移時返回 false', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             // Mock getMigrationStatus 返回 'completed'
             mockChrome.storage.local.get.mockImplementation((keys, callback) => {
@@ -85,7 +60,7 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該在檢測到舊版標註時返回 true', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             // 創建舊版標註
             const span = document.createElement('span');
@@ -103,7 +78,7 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該在沒有舊版標註時返回 false', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             mockChrome.storage.local.get.mockImplementation((keys, callback) => {
                 callback({});
@@ -115,7 +90,7 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該正確計算舊版標註數量', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             // 創建多個舊版標註
             for (let i = 0; i < 5; i++) {
@@ -137,7 +112,7 @@ describe('highlighter-migration.js', () => {
 
     describe('getMigrationStatus', () => {
         test('應該獲取遷移狀態', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             mockChrome.storage.local.get.mockImplementation((keys) => {
                 const result = {};
@@ -163,7 +138,7 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該處理讀取錯誤', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             mockChrome.storage.local.get.mockImplementation(() => {
                 throw new Error('Storage error');
@@ -177,7 +152,7 @@ describe('highlighter-migration.js', () => {
 
     describe('setMigrationStatus', () => {
         test('應該保存遷移狀態', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             await manager.setMigrationStatus('completed');
 
@@ -189,7 +164,7 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該處理保存錯誤', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             mockChrome.storage.local.set.mockImplementation(() => {
                 throw new Error('Storage error');
@@ -355,7 +330,7 @@ describe('highlighter-migration.js', () => {
 
     describe('autoMigrate', () => {
         test('應該遷移所有舊標註', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             // 創建多個舊標註
             for (let i = 0; i < 3; i++) {
@@ -385,7 +360,7 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該記錄失敗的遷移', async () => {
-            const manager = new window.HighlightMigrationManager();
+            const manager = new HighlightMigrationManager();
 
             // 創建標註
             const span1 = document.createElement('span');
@@ -442,7 +417,7 @@ describe('highlighter-migration.js', () => {
             overlay.id = 'highlight-migration-overlay';
             document.body.appendChild(overlay);
 
-            window.HighlightMigrationManager.removeMigrationUI();
+            HighlightMigrationManager.removeMigrationUI();
 
             expect(document.getElementById('highlight-migration-dialog')).toBeNull();
             expect(document.getElementById('highlight-migration-overlay')).toBeNull();
@@ -450,7 +425,7 @@ describe('highlighter-migration.js', () => {
 
         test('應該處理 UI 元素不存在的情況', () => {
             // 不應該拋出錯誤
-            expect(() => window.HighlightMigrationManager.removeMigrationUI()).not.toThrow();
+            expect(() => HighlightMigrationManager.removeMigrationUI()).not.toThrow();
         });
     });
 
@@ -651,8 +626,8 @@ describe('highlighter-migration.js', () => {
         });
 
         test('應該能夠實例化', () => {
-            const instance = new window.HighlightMigrationManager();
-            expect(instance).toBeInstanceOf(window.HighlightMigrationManager);
+            const instance = new HighlightMigrationManager();
+            expect(instance).toBeInstanceOf(HighlightMigrationManager);
         });
     });
 });

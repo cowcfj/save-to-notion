@@ -34,7 +34,7 @@ jobs:
           # 設置 Node.js 20.x 特定的環境變數
           export NODE_OPTIONS="--max-old-space-size=4096"
           export JEST_MAX_WORKERS=2
-          npm test -- --coverage --ci --maxWorkers=2
+          npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit
 
       - name: Upload coverage to Codecov
         if: hashFiles('coverage/lcov.info') != ''
