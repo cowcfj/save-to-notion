@@ -20,7 +20,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       if (typeof window.CSS.highlights === 'undefined') {
         // 提供 Highlight 類的最小 mock
         if (typeof window.Highlight === 'undefined') {
-          window.Highlight = function Highlight() { };
+          window.Highlight = function Highlight() { /* no-op */ };
         }
 
         const map = new Map();

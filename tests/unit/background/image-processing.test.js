@@ -11,9 +11,9 @@ describe('Background Image Processing', () => {
     }
 
     // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(() => { });
-    jest.spyOn(console, 'warn').mockImplementation(() => { });
-    jest.spyOn(console, 'error').mockImplementation(() => { });
+    jest.spyOn(console, 'log').mockImplementation(() => { /* no-op */ });
+    jest.spyOn(console, 'warn').mockImplementation(() => { /* no-op */ });
+    jest.spyOn(console, 'error').mockImplementation(() => { /* no-op */ });
   });
 
   afterEach(() => {

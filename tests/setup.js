@@ -33,7 +33,7 @@ global.Logger = {
         level: 'log',
         message,
         args
-      }, () => { });
+      }, () => { /* no-op */ });
     }
     console.log(`[LOG] ${message}`, ...args); // Concatenate prefix with message
   }),
@@ -45,7 +45,7 @@ global.Logger = {
         level: 'debug',
         message,
         args
-      }, () => { });
+      }, () => { /* no-op */ });
     }
     try {
       console.log(`[DEBUG] ${message}`, ...args); // Concatenate prefix with message to match test expectations
@@ -61,7 +61,7 @@ global.Logger = {
         level: 'info',
         message,
         args
-      }, () => { });
+      }, () => { /* no-op */ });
     }
     try {
       console.log(`[INFO] ${message}`, ...args); // Concatenate prefix with message to match test expectations
@@ -77,7 +77,7 @@ global.Logger = {
         level: 'warn',
         message,
         args
-      }, () => { });
+      }, () => { /* no-op */ });
     }
     if (global.__LOGGER_DEV__) {
       // Tests expect console.warn with concatenated message
@@ -96,7 +96,7 @@ global.Logger = {
         level: 'error',
         message,
         args
-      }, () => { });
+      }, () => { /* no-op */ });
     }
     try {
       console.error(`[ERROR] ${message}`, ...args); // Concatenate prefix with message
