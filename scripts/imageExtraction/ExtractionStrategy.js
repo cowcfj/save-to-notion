@@ -22,6 +22,7 @@ class ExtractionStrategy {
      * 獲取策略名稱
      * @returns {string} 策略名稱
      */
+    // skipcq: JS-0105 - 抽象方法，子類實現時會使用 this
     getName() {
         throw new Error('ExtractionStrategy.getName() must be implemented by subclass');
     }

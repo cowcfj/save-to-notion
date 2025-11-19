@@ -287,60 +287,60 @@ describe('RetryManager - 全面測試', () => {
             const error = new Error('Network failed');
             error.name = 'NetworkError';
 
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(true);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(true);
         });
 
         test('應該識別 TimeoutError', () => {
             const error = new Error('Timeout');
             error.name = 'TimeoutError';
 
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(true);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(true);
         });
 
         test('應該識別包含 fetch 的錯誤消息', () => {
             const error = new Error('fetch failed');
 
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(true);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(true);
         });
 
         test('應該識別 5xx 錯誤', () => {
             const error = new Error('Server error');
             error.status = 500;
 
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(true);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(true);
 
             error.status = 503;
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(true);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(true);
         });
 
         test('應該識別 429 錯誤', () => {
             const error = new Error('Too many requests');
             error.status = 429;
 
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(true);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(true);
         });
 
         test('應該識別 408 錯誤', () => {
             const error = new Error('Request timeout');
             error.status = 408;
 
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(true);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(true);
         });
 
         test('應該拒絕 4xx 客戶端錯誤', () => {
             const error = new Error('Bad request');
             error.status = 400;
 
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(false);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(false);
 
             error.status = 404;
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(false);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(false);
         });
 
         test('應該拒絕未知錯誤', () => {
             const error = new Error('Unknown error');
 
-            expect(retryManager._shouldRetryNetworkError(error)).toBe(false);
+            expect(RetryManager._shouldRetryNetworkError(error)).toBe(false);
         });
     });
 
@@ -349,46 +349,46 @@ describe('RetryManager - 全面測試', () => {
             const error = new Error('Invalid state');
             error.name = 'InvalidStateError';
 
-            expect(retryManager._shouldRetryDomError(error)).toBe(true);
+            expect(RetryManager._shouldRetryDomError(error)).toBe(true);
         });
 
         test('應該識別 "not ready" 消息', () => {
             const error = new Error('DOM not ready');
 
-            expect(retryManager._shouldRetryDomError(error)).toBe(true);
+            expect(RetryManager._shouldRetryDomError(error)).toBe(true);
         });
 
         test('應該識別 "loading" 消息', () => {
             const error = new Error('still loading');
 
-            expect(retryManager._shouldRetryDomError(error)).toBe(true);
+            expect(RetryManager._shouldRetryDomError(error)).toBe(true);
         });
 
         test('應該識別 NotFoundError', () => {
             const error = new Error('Element not found');
             error.name = 'NotFoundError';
 
-            expect(retryManager._shouldRetryDomError(error)).toBe(true);
+            expect(RetryManager._shouldRetryDomError(error)).toBe(true);
         });
 
         test('應該識別 "not found" 消息', () => {
             const error = new Error('element not found');
 
-            expect(retryManager._shouldRetryDomError(error)).toBe(true);
+            expect(RetryManager._shouldRetryDomError(error)).toBe(true);
         });
 
         test('應該拒絕其他 DOM 錯誤', () => {
             const error = new Error('Invalid selector');
 
-            expect(retryManager._shouldRetryDomError(error)).toBe(false);
+            expect(RetryManager._shouldRetryDomError(error)).toBe(false);
         });
     });
 
     describe('_calculateDelay - 延遲計算', () => {
         test('應該計算指數退避延遲', () => {
-            const delay1 = retryManager._calculateDelay(1, retryManager.options);
-            const delay2 = retryManager._calculateDelay(2, retryManager.options);
-            const delay3 = retryManager._calculateDelay(3, retryManager.options);
+            const delay1 = RetryManager._calculateDelay(1, retryManager.options);
+            const delay2 = RetryManager._calculateDelay(2, retryManager.options);
+            const delay3 = RetryManager._calculateDelay(3, retryManager.options);
 
             expect(delay1).toBe(100); // 100 * 2^0
             expect(delay2).toBe(200); // 100 * 2^1
@@ -396,7 +396,7 @@ describe('RetryManager - 全面測試', () => {
         });
 
         test('應該限制最大延遲', () => {
-            const delay = retryManager._calculateDelay(10, retryManager.options);
+            const delay = RetryManager._calculateDelay(10, retryManager.options);
 
             expect(delay).toBe(5000); // maxDelay
         });
@@ -410,7 +410,7 @@ describe('RetryManager - 全面測試', () => {
 
             const delays = [];
             for (let i = 0; i < 10; i++) {
-                delays.push(managerWithJitter._calculateDelay(1, managerWithJitter.options));
+                delays.push(RetryManager._calculateDelay(1, managerWithJitter.options));
             }
 
             // 抖動應該產生不同的延遲值
@@ -430,7 +430,7 @@ describe('RetryManager - 全面測試', () => {
                 jitter: true
             });
 
-            const delay = managerWithJitter._calculateDelay(1, managerWithJitter.options);
+            const delay = RetryManager._calculateDelay(1, managerWithJitter.options);
 
             expect(Number.isInteger(delay)).toBe(true);
         });
@@ -439,7 +439,7 @@ describe('RetryManager - 全面測試', () => {
     describe('_delay - 延遲執行', () => {
         test('應該延遲指定的毫秒數', async () => {
             const startTime = Date.now();
-            await retryManager._delay(100);
+            await RetryManager._delay(100);
             const endTime = Date.now();
 
             expect(endTime - startTime).toBeGreaterThanOrEqual(90); // 考慮誤差
@@ -480,7 +480,7 @@ describe('RetryManager - 全面測試', () => {
 
             const error = new Error('Test error');
 
-            retryManager._logRetryAttempt(error, 1, 3, 100);
+            RetryManager._logRetryAttempt(error, 1, 3, 100);
 
             expect(mockLogger.warn).toHaveBeenCalledWith(
                 expect.stringContaining('重試')
@@ -496,7 +496,7 @@ describe('RetryManager - 全面測試', () => {
             };
 
             const error = new Error('Test error');
-            retryManager._logRetryAttempt(error, 1, 3, 100);
+            RetryManager._logRetryAttempt(error, 1, 3, 100);
 
             expect(global.ErrorHandler.logError).toHaveBeenCalled();
 
