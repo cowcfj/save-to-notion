@@ -258,18 +258,18 @@ describe('utils.js - 進階覆蓋率測試', () => {
     });
 
     test('應該在生產模式下不發送 debug 消息', () => {
+      // 確保沒有強制標記（在加載模組之前）
+      delete global.window.__FORCE_LOG__;
+      delete global.window.__LOGGER_ENABLED__;
+
       // 設置生產版本
       global.chrome.runtime.getManifest = jest.fn(() => ({
         version: '2.10.0'
       }));
 
-      // 確保沒有強制標記
-      delete global.window.__FORCE_LOG__;
-      delete global.window.__LOGGER_ENABLED__;
-
       global.chrome.runtime.sendMessage = jest.fn();
 
-      // 重新加載模組
+      // 重新加載模組（此時環境已正確設置為生產模式）
       jest.resetModules();
       utils = require('../helpers/utils.testable');
 
