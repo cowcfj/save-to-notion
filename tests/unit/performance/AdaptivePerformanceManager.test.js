@@ -1,5 +1,5 @@
-/* global document window performance */
- 
+/* global document */
+
 
 const { AdaptivePerformanceManager } = require('../../../scripts/performance/AdaptivePerformanceManager');
 const { PerformanceOptimizer } = require('../../helpers/performance.testable');

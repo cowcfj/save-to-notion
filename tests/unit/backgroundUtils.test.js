@@ -5,7 +5,7 @@
 
 describe('background.js - 工具函數', () => {
     // Mock cleanImageUrl 函數
-    global.cleanImageUrl = function(url) {
+    global.cleanImageUrl = function (url) {
         if (!url || typeof url !== 'string') return null;
 
         try {
@@ -29,13 +29,13 @@ describe('background.js - 工具函數', () => {
             urlObj.search = params.toString();
 
             return urlObj.href;
-        } catch (e) {
+        } catch (_e) {
             return null;
         }
     };
 
     // Mock isValidImageUrl 函數
-    global.isValidImageUrl = function(url) {
+    global.isValidImageUrl = function (url) {
         if (!url || typeof url !== 'string') return false;
 
         const cleanedUrl = cleanImageUrl(url);
@@ -233,7 +233,7 @@ describe('background.js - 工具函數', () => {
             global.console = consoleSpy;
 
             // 定義 appendBlocksInBatches 函數
-            global.appendBlocksInBatches = async function(pageId, blocks, apiKey, startIndex = 0) {
+            global.appendBlocksInBatches = async function (pageId, blocks, apiKey, startIndex = 0) {
                 const BLOCKS_PER_BATCH = 100;
                 const DELAY_BETWEEN_BATCHES = 350;
 

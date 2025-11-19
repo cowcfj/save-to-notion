@@ -11,9 +11,9 @@ describe('Background Image Processing', () => {
     }
 
     // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'log').mockImplementation(() => { });
+    jest.spyOn(console, 'warn').mockImplementation(() => { });
+    jest.spyOn(console, 'error').mockImplementation(() => { });
   });
 
   afterEach(() => {
@@ -493,7 +493,7 @@ function isValidImageUrlSimulated(url) {
     return false;
   }
 
-  const imageExtensions = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(\?.*)?$/i;
+  const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
   if (imageExtensions.test(cleanedUrl)) {
     cache.set(url, true);
     return true;

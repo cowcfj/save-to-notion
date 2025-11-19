@@ -12,7 +12,7 @@ async function expandCollapsibleElementsForTest(doc, timeout = 0) {
             try {
                 d.setAttribute('open', '');
                 expanded.push(d);
-            } catch (e) { }
+            } catch (_e) { }
         });
 
         // 2) aria-expanded triggers
@@ -20,7 +20,7 @@ async function expandCollapsibleElementsForTest(doc, timeout = 0) {
         triggers.forEach(t => {
             try {
                 t.setAttribute('aria-expanded', 'true');
-                try { t.click && t.click(); } catch (e) { }
+                try { t.click && t.click(); } catch (_e) { }
 
                 const ctrl = t.getAttribute && t.getAttribute('aria-controls');
                 if (ctrl) {
@@ -32,7 +32,7 @@ async function expandCollapsibleElementsForTest(doc, timeout = 0) {
                         expanded.push(target);
                     }
                 }
-            } catch (e) { }
+            } catch (_e) { }
         });
 
         // 3) collapsed / collapse classes
@@ -44,7 +44,7 @@ async function expandCollapsibleElementsForTest(doc, timeout = 0) {
                 el.classList.add('expanded-by-clipper');
                 el.removeAttribute('aria-hidden');
                 expanded.push(el);
-            } catch (e) { }
+            } catch (_e) { }
         });
 
         // 4) hidden by style or hidden attribute
@@ -57,12 +57,12 @@ async function expandCollapsibleElementsForTest(doc, timeout = 0) {
                     el.removeAttribute('hidden');
                     expanded.push(el);
                 }
-            } catch (e) { }
+            } catch (_e) { }
         });
 
         if (timeout > 0) await new Promise(r => setTimeout(r, timeout));
         return expanded;
-    } catch (error) {
+    } catch (_error) {
         return [];
     }
 }

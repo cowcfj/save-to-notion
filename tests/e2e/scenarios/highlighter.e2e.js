@@ -34,7 +34,7 @@ module.exports = {
         console.log(`     ✅ 找到內容容器: ${selector}`);
         articleFound = true;
         break;
-      } catch (e) {
+      } catch (_e) {
         console.log(`     ⚠️ 選擇器 ${selector} 未找到，嘗試下一個...`);
       }
     }

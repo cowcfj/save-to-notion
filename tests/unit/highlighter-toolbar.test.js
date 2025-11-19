@@ -20,7 +20,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       if (typeof window.CSS.highlights === 'undefined') {
         // 提供 Highlight 類的最小 mock
         if (typeof window.Highlight === 'undefined') {
-          window.Highlight = function Highlight() {};
+          window.Highlight = function Highlight() { };
         }
 
         const map = new Map();
@@ -50,7 +50,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
           this._timer = setInterval(() => {
             try {
               this._callback([], this);
-            } catch (e) {
+            } catch (_e) {
               // 安全忽略，以免中斷測試
             }
           }, 10);
@@ -81,7 +81,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       try {
         // 嘗試隱藏並移除
         window.notionHighlighter.hide();
-      } catch (e) { /* empty: ignore cleanup errors in test teardown */ }
+      } catch (_e) { /* empty: ignore cleanup errors in test teardown */ }
     }
     delete window.notionHighlighter;
   });
