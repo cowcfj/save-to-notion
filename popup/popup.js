@@ -203,6 +203,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         return highlights.length;
                     }
                 }, (results) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('腳本注入失敗:', chrome.runtime.lastError);
+                        status.textContent = 'Failed to clear highlights.';
+                        clearHighlightsButton.disabled = false;
+                        return;
+                    }
+
                     const clearedCount = results?.[0] ? results[0].result : 0;
                     status.textContent = `Cleared ${clearedCount} highlights successfully!`;
 

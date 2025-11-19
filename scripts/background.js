@@ -3057,7 +3057,7 @@ async function handleSavePage(sendResponse) {
                         }]
                     };
                 }
-            }, ['lib/Readability.js', 'lib/turndown.js', 'lib/turndown-plugin-gfm.js', 'scripts/utils/htmlToNotionConverter.js', 'scripts/performance/PerformanceOptimizer.js']);
+            }, ['scripts/utils.js', 'lib/Readability.js', 'lib/turndown.js', 'lib/turndown-plugin-gfm.js', 'scripts/utils/htmlToNotionConverter.js', 'scripts/performance/PerformanceOptimizer.js']);
         } catch (scriptError) {
             console.error('❌ Content extraction script execution failed:', scriptError);
             // 直接回覆錯誤，符合錯誤分支預期
