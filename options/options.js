@@ -95,11 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
             'notionApiKey',
             'notionDataSourceId',
             'notionDatabaseId',
-        'titleTemplate',
-        'addSource',
-        'addTimestamp',
-        'enableDebugLogs'
-    ], (result) => {
+            'titleTemplate',
+            'addSource',
+            'addTimestamp',
+            'enableDebugLogs'
+        ], (result) => {
             if (result.notionApiKey) {
                 authStatus.textContent = '✅ 已連接到 Notion';
                 authStatus.className = 'auth-status success';
@@ -513,6 +513,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // API Key 輸入時自動載入資料來源
     let loadDatabasesTimeout = null;
 
+    /**
+     * 處理 API Key 輸入事件
+     * 當用戶輸入 API Key 時，自動嘗試載入資料來源列表
+     * 使用防抖動（debounce）避免頻繁請求
+     */
     function handleApiKeyInput() {
         const apiKey = apiKeyInput.value.trim();
 
@@ -784,7 +789,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
                     // v2.8.0: 統計遷移數據（包括舊版本備份）
                     report.migrationKeys++;
-                    const size = new Blob([JSON.stringify({[key]: value})]).size;
+                    const size = new Blob([JSON.stringify({ [key]: value })]).size;
                     report.migrationDataSize += size;
                 }
             }
@@ -810,56 +815,56 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-	    /**
-	     * 取得 chrome.storage.local 的使用統計，並回傳容量與標註分佈摘要。
-	     * @returns {Promise<{used:number,total:number,percentage:string,usedMB:string,totalMB:string,pages:number,highlights:number,configs:number}>}
-	     * 使用量概覽（含字節與 MB 單位、標註頁面數、標註數量與設定鍵數）
-	     * @throws {chrome.runtime.LastError} 無法存取 storage 時拋出，供上層顯示錯誤
-	     */
-	    async function getStorageUsage() {
-	        const data = await new Promise((resolve, reject) => {
-	            chrome.storage.local.get(null, (result) => {
-	                if (chrome.runtime.lastError) {
-	                    reject(chrome.runtime.lastError);
-	                    return;
-	                }
-	                resolve(result);
-	            });
-	        });
+        /**
+         * 取得 chrome.storage.local 的使用統計，並回傳容量與標註分佈摘要。
+         * @returns {Promise<{used:number,total:number,percentage:string,usedMB:string,totalMB:string,pages:number,highlights:number,configs:number}>}
+         * 使用量概覽（含字節與 MB 單位、標註頁面數、標註數量與設定鍵數）
+         * @throws {chrome.runtime.LastError} 無法存取 storage 時拋出，供上層顯示錯誤
+         */
+        async function getStorageUsage() {
+            const data = await new Promise((resolve, reject) => {
+                chrome.storage.local.get(null, (result) => {
+                    if (chrome.runtime.lastError) {
+                        reject(chrome.runtime.lastError);
+                        return;
+                    }
+                    resolve(result);
+                });
+            });
 
-	        const jsonString = JSON.stringify(data);
-	        const sizeInBytes = new Blob([jsonString]).size;
-	        const maxSize = 5 * 1024 * 1024; // 5MB
+            const jsonString = JSON.stringify(data);
+            const sizeInBytes = new Blob([jsonString]).size;
+            const maxSize = 5 * 1024 * 1024; // 5MB
 
-	        // 分析數據
-	        let pagesCount = 0;
-	        let highlightsCount = 0;
-	        let configCount = 0;
+            // 分析數據
+            let pagesCount = 0;
+            let highlightsCount = 0;
+            let configCount = 0;
 
-	        for (const [key, value] of Object.entries(data)) {
-	            if (key.startsWith('highlights_')) {
-	                pagesCount++;
-	                if (Array.isArray(value)) {
-	                    highlightsCount += value.length;
-	                }
-	            } else if (key.includes('notion') || key.startsWith('config_')) {
-	                configCount++;
-	            }
-	        }
+            for (const [key, value] of Object.entries(data)) {
+                if (key.startsWith('highlights_')) {
+                    pagesCount++;
+                    if (Array.isArray(value)) {
+                        highlightsCount += value.length;
+                    }
+                } else if (key.includes('notion') || key.startsWith('config_')) {
+                    configCount++;
+                }
+            }
 
-	        const usage = {
-	            used: sizeInBytes,
-	            total: maxSize,
-	            percentage: (sizeInBytes / maxSize * 100).toFixed(1),
-	            usedMB: (sizeInBytes / (1024 * 1024)).toFixed(2),
-	            totalMB: (maxSize / (1024 * 1024)).toFixed(0),
-	            pages: pagesCount,
-	            highlights: highlightsCount,
-	            configs: configCount
-	        };
+            const usage = {
+                used: sizeInBytes,
+                total: maxSize,
+                percentage: (sizeInBytes / maxSize * 100).toFixed(1),
+                usedMB: (sizeInBytes / (1024 * 1024)).toFixed(2),
+                totalMB: (maxSize / (1024 * 1024)).toFixed(0),
+                pages: pagesCount,
+                highlights: highlightsCount,
+                configs: configCount
+            };
 
-	        return usage;
-	    }
+            return usage;
+        }
 
         function updateUsageDisplay(usage) {
             const usageFill = document.getElementById('usage-fill');
@@ -1011,9 +1016,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             const savedKey = page.key;
                             const highlightsKey = `highlights_${page.url}`;
 
-                            const savedSize = new Blob([JSON.stringify({[savedKey]: page.data})]).size;
+                            const savedSize = new Blob([JSON.stringify({ [savedKey]: page.data })]).size;
                             const highlightsData = data[highlightsKey];
-                            const highlightsSize = highlightsData ? new Blob([JSON.stringify({[highlightsKey]: highlightsData})]).size : 0;
+                            const highlightsSize = highlightsData ? new Blob([JSON.stringify({ [highlightsKey]: highlightsData })]).size : 0;
                             const totalSize = savedSize + highlightsSize;
 
                             // 添加兩個項目（saved_ 和 highlights_）
@@ -1091,11 +1096,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="cleanup-summary">
                     <strong>🧹 安全清理預覽</strong>
                     <p>${summaryText.split('\n').filter(line => line).map(line => {
-                        if (line.includes('將清理：')) return `<strong>${line.replace('將清理：', '')}</strong>`;
-                        if (line.startsWith('•')) return line;
-                        if (line.includes('釋放約')) return `<br>${line}`;
-                        return line;
-                    }).join('<br>')}</p>
+                if (line.includes('將清理：')) return `<strong>${line.replace('將清理：', '')}</strong>`;
+                if (line.startsWith('•')) return line;
+                if (line.includes('釋放約')) return `<br>${line}`;
+                return line;
+            }).join('<br>')}</p>
                     <div class="warning-notice">
                         ⚠️ <strong>重要提醒：</strong>這只會清理擴展中的無效記錄，<strong>絕對不會影響您在 Notion 中保存的任何頁面</strong>。
                     </div>
@@ -1205,7 +1210,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // v2.8.0: 檢測並清理遷移數據（包括舊版本備份）
                         if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
                             migrationKeysCount++;
-                            const size = new Blob([JSON.stringify({[key]: value})]).size;
+                            const size = new Blob([JSON.stringify({ [key]: value })]).size;
                             migrationDataSize += size;
                             keysToRemove.push(key);
                             // 不加入 optimizedData（清理掉）
@@ -1220,7 +1225,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 optimizedData[key] = value;
                             } else {
                                 emptyHighlightKeys++;
-                                emptyHighlightSize += new Blob([JSON.stringify({[key]: value})]).size;
+                                emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
                                 keysToRemove.push(key);
                             }
                         } else {

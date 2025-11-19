@@ -87,7 +87,7 @@ describe('content.js - 圖片處理函數', () => {
         });
 
         test('應該拒絕過長的 URL', () => {
-            const longUrl = 'https://example.com/' + 'a'.repeat(2000) + '.jpg';
+            const longUrl = `https://example.com/${'a'.repeat(2000)}.jpg`;
             expect(isValidImageUrl(longUrl)).toBe(false);
         });
 
@@ -243,7 +243,7 @@ describe('content.js - 圖片處理函數', () => {
     describe('isContentGood', () => {
         test('應該接受足夠長的內容', () => {
             const article = {
-                content: '<p>' + 'a'.repeat(300) + '</p>',
+                content: `<p>${'a'.repeat(300)}</p>`,
                 length: 300
             };
             expect(isContentGood(article)).toBe(true);
@@ -259,7 +259,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該拒絕高連結密度的內容', () => {
             const article = {
-                content: '<p>' + 'text '.repeat(50) + '</p><a href="#">' + 'link '.repeat(100) + '</a>',
+                content: `<p>${'text '.repeat(50)}</p><a href="#">${'link '.repeat(100)}</a>`,
                 length: 500
             };
             expect(isContentGood(article, 250, 0.3)).toBe(false);
@@ -267,7 +267,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該接受低連結密度的內容', () => {
             const article = {
-                content: '<p>' + 'text '.repeat(100) + '</p><a href="#">link</a>',
+                content: `<p>${'text '.repeat(100)}</p><a href="#">link</a>`,
                 length: 500
             };
             expect(isContentGood(article, 250, 0.3)).toBe(true);
@@ -292,7 +292,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該使用自定義 MIN_CONTENT_LENGTH', () => {
             const article = {
-                content: '<p>' + 'a'.repeat(150) + '</p>',
+                content: `<p>${'a'.repeat(150)}</p>`,
                 length: 150
             };
             expect(isContentGood(article, 100)).toBe(true);
@@ -301,7 +301,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該使用自定義 MAX_LINK_DENSITY', () => {
             const article = {
-                content: '<p>' + 'text '.repeat(50) + '</p><a href="#">' + 'link '.repeat(30) + '</a>',
+                content: `<p>${'text '.repeat(50)}</p><a href="#">${'link '.repeat(30)}</a>`,
                 length: 400
             };
             expect(isContentGood(article, 250, 0.5)).toBe(true);
@@ -310,7 +310,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該處理沒有連結的內容', () => {
             const article = {
-                content: '<p>' + 'Pure text content without any links. '.repeat(10) + '</p>',
+                content: `<p>${'Pure text content without any links. '.repeat(10)}</p>`,
                 length: 400
             };
             expect(isContentGood(article)).toBe(true);
@@ -318,7 +318,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該處理多個連結', () => {
             const article = {
-                content: '<p>Text</p><a href="#">Link1</a><p>Text</p><a href="#">Link2</a><p>' + 'Text '.repeat(50) + '</p>',
+                content: `<p>Text</p><a href="#">Link1</a><p>Text</p><a href="#">Link2</a><p>${'Text '.repeat(50)}</p>`,
                 length: 300
             };
             // 連結密度低，應該通過
@@ -327,7 +327,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該處理空連結', () => {
             const article = {
-                content: '<p>' + 'text '.repeat(100) + '</p><a href="#"></a>',
+                content: `<p>${'text '.repeat(100)}</p><a href="#"></a>`,
                 length: 500
             };
             expect(isContentGood(article)).toBe(true);
@@ -335,7 +335,7 @@ describe('content.js - 圖片處理函數', () => {
 
         test('應該處理嵌套的 HTML 結構', () => {
             const article = {
-                content: '<div><p>' + 'text '.repeat(50) + '</p><div><a href="#">link</a></div></div>',
+                content: `<div><p>${'text '.repeat(50)}</p><div><a href="#">link</a></div></div>`,
                 length: 300
             };
             expect(isContentGood(article, 250, 0.3)).toBe(true);
@@ -368,7 +368,7 @@ describe('content.js - 圖片處理函數', () => {
                 global.document = originalDocument;
             }
         });
-});
+    });
     describe('PerformanceOptimizer 可選邏輯', () => {
         beforeEach(() => {
             // 重置全局變數
@@ -478,7 +478,7 @@ describe('content.js - 圖片處理函數', () => {
     });
 
     describe('cachedQuery 回退函數', () => {
-        let performanceOptimizer;
+        let performanceOptimizer = null;
 
         beforeEach(() => {
             performanceOptimizer = {
@@ -561,7 +561,7 @@ describe('content.js - 圖片處理函數', () => {
             if (typeof ImageUtils === 'undefined') {
                 console.warn('ImageUtils not available, using fallback implementations');
                 global.window.ImageUtils = {
-                    cleanImageUrl: function (url) {
+                    cleanImageUrl(url) {
                         if (!url || typeof url !== 'string') return null;
                         try {
                             return new URL(url).href;
@@ -569,17 +569,17 @@ describe('content.js - 圖片處理函數', () => {
                             return null;
                         }
                     },
-                    isValidImageUrl: function (url) {
+                    isValidImageUrl(url) {
                         if (!url || typeof url !== 'string') return false;
                         return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
                     },
-                    extractImageSrc: function (imgNode) {
+                    extractImageSrc(imgNode) {
                         if (!imgNode) return null;
                         return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
                     },
-                    generateImageCacheKey: function (imgNode) {
+                    generateImageCacheKey(imgNode) {
                         if (!imgNode) return 'null';
-                        return (imgNode.getAttribute('src') || '') + '|' + (imgNode.className || '');
+                        return `${imgNode.getAttribute('src') || ''}|${imgNode.className || ''}`;
                     }
                 };
             }
@@ -594,7 +594,7 @@ describe('content.js - 圖片處理函數', () => {
         test('回退實現應該正確處理 cleanImageUrl', () => {
             if (typeof ImageUtils === 'undefined') {
                 global.window.ImageUtils = {
-                    cleanImageUrl: function (url) {
+                    cleanImageUrl(url) {
                         if (!url || typeof url !== 'string') return null;
                         try {
                             return new URL(url).href;
@@ -613,7 +613,7 @@ describe('content.js - 圖片處理函數', () => {
         test('回退實現應該正確處理 isValidImageUrl', () => {
             if (typeof ImageUtils === 'undefined') {
                 global.window.ImageUtils = {
-                    isValidImageUrl: function (url) {
+                    isValidImageUrl(url) {
                         if (!url || typeof url !== 'string') return false;
                         return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
                     }
@@ -629,7 +629,7 @@ describe('content.js - 圖片處理函數', () => {
         test('回退實現應該正確處理 extractImageSrc', () => {
             if (typeof ImageUtils === 'undefined') {
                 global.window.ImageUtils = {
-                    extractImageSrc: function (imgNode) {
+                    extractImageSrc(imgNode) {
                         if (!imgNode) return null;
                         return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
                     }
@@ -649,9 +649,9 @@ describe('content.js - 圖片處理函數', () => {
         test('回退實現應該正確處理 generateImageCacheKey', () => {
             if (typeof ImageUtils === 'undefined') {
                 global.window.ImageUtils = {
-                    generateImageCacheKey: function (imgNode) {
+                    generateImageCacheKey(imgNode) {
                         if (!imgNode) return 'null';
-                        return (imgNode.getAttribute('src') || '') + '|' + (imgNode.className || '');
+                        return `${imgNode.getAttribute('src') || ''}|${imgNode.className || ''}`;
                     }
                 };
             }
