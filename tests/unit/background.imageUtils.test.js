@@ -11,9 +11,7 @@ const backgroundModule = require('../../scripts/background.js');
 const { cleanImageUrl, isValidImageUrl } = backgroundModule;
 
 afterAll(() => {
-    if (backgroundModule._test && backgroundModule._test.clearCleanupInterval) {
-        backgroundModule._test.clearCleanupInterval();
-    }
+    backgroundModule._test?.clearCleanupInterval?.();
 });
 
 describe('cleanImageUrl - 深度測試', () => {
