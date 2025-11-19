@@ -108,10 +108,10 @@ class RetryManager {
 
                 // 計算延遲時間（支援 Retry-After 覆蓋）
                 const retryAfter = typeof error?.retryAfterMs === 'number' ? error.retryAfterMs : undefined;
-                const delay = typeof retryAfter === 'number' ? retryAfter : this._calculateDelay(attempt, config);
+                const delay = typeof retryAfter === 'number' ? retryAfter : RetryManager._calculateDelay(attempt, config);
 
                 // 記錄重試嘗試
-                this._logRetryAttempt(error, attempt, config.maxRetries + 1, delay, config.contextType);
+                RetryManager._logRetryAttempt(error, attempt, config.maxRetries + 1, delay, config.contextType);
 
                 // 總超時控制（若設定 totalTimeoutMs，則避免超出）
                 if (typeof config.totalTimeoutMs === 'number') {
@@ -125,7 +125,7 @@ class RetryManager {
                 }
 
                 // 等待後重試（支援 AbortSignal）
-                await this._delay(delay, config.signal);
+                await RetryManager._delay(delay, config.signal);
                 totalDelayMs += delay;
             }
         }
@@ -195,7 +195,7 @@ class RetryManager {
             },
             {
                 contextType: 'network',
-                shouldRetry: (error) => (typeof retryOptions.shouldRetry === 'function' ? retryOptions.shouldRetry.call(this, error) : this._shouldRetryNetworkError(error)),
+                shouldRetry: (error) => (typeof retryOptions.shouldRetry === 'function' ? retryOptions.shouldRetry.call(this, error) : RetryManager._shouldRetryNetworkError(error)),
                 ...retryOptions
             }
         );
@@ -214,7 +214,7 @@ class RetryManager {
                 contextType: 'dom',
                 maxRetries: 2, // DOM 操作通常重試次數較少
                 baseDelay: 50,
-                shouldRetry: (error) => this._shouldRetryDomError(error),
+                shouldRetry: (error) => RetryManager._shouldRetryDomError(error),
                 ...retryOptions
             }
         );
@@ -234,7 +234,7 @@ class RetryManager {
         }
 
         // 默認重試邏輯
-        return this._shouldRetryNetworkError(error);
+        return RetryManager._shouldRetryNetworkError(error);
     }
 
     /**
@@ -243,7 +243,7 @@ class RetryManager {
      * @param {Error} error - 錯誤對象
      * @returns {boolean} 是否應該重試
      */
-    _shouldRetryNetworkError(error) {
+    static _shouldRetryNetworkError(error) {
         const name = String(error?.name || '');
         const msg = String(error?.message || '');
 
@@ -273,7 +273,7 @@ class RetryManager {
      * @param {Error} error - 錯誤對象
      * @returns {boolean} 是否應該重試
      */
-    _shouldRetryDomError(error) {
+    static _shouldRetryDomError(error) {
         const name = String(error?.name || '');
         const msg = String(error?.message || '');
 
@@ -293,7 +293,7 @@ class RetryManager {
      * @param {Object} config - 配置選項
      * @returns {number} 延遲毫秒數
      */
-    _calculateDelay(attempt, config) {
+    static _calculateDelay(attempt, config) {
         // 指數退避
         let delay = config.baseDelay * Math.pow(config.backoffFactor, attempt - 1);
 
@@ -316,7 +316,7 @@ class RetryManager {
      * @param {AbortSignal} signal - 中止信號
      * @returns {Promise} Promise 對象
      */
-    _delay(ms, signal) {
+    static _delay(ms, signal) {
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
                 cleanup();
@@ -360,8 +360,9 @@ class RetryManager {
      * @param {number} attempt - 當前嘗試次數
      * @param {number} maxAttempts - 最大嘗試次數
      * @param {number} delay - 延遲時間
+     * @param {string} contextType - 上下文類型
      */
-    _logRetryAttempt(error, attempt, maxAttempts, delay, contextType = 'network') {
+    static _logRetryAttempt(error, attempt, maxAttempts, delay, contextType = 'network') {
         const logger = getLogger();
         const msg = String(error?.message || '');
         const message = `📦 [重試] 第 ${attempt}/${maxAttempts} 次，延遲 ${delay}ms：${msg}`;

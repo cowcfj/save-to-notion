@@ -79,7 +79,7 @@ class ErrorHandler {
         } catch (error) {
             const errorInfo = {
                 type: ErrorTypes.EXTRACTION_FAILED,
-                context: context,
+                context,
                 originalError: error,
                 timestamp: Date.now()
             };
@@ -145,10 +145,10 @@ class ErrorHandler {
      */
     static createError(type, message, details = {}, severity = ErrorSeverity.MEDIUM) {
         return {
-            type: type,
-            message: message,
-            details: details,
-            severity: severity,
+            type,
+            message,
+            details,
+            severity,
             timestamp: Date.now(),
             stack: new Error().stack
         };

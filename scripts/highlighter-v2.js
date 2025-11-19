@@ -1674,6 +1674,10 @@ const logger = (() => {
             }
         }
 
+        /**
+         * 隱藏工具欄
+         * 將工具欄和最小化圖標都設為不可見，並更新狀態為 HIDDEN
+         */
         function hideToolbar() {
             try {
                 window[USER_VISIBILITY_FLAG] = false;
