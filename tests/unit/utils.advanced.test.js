@@ -259,6 +259,30 @@ describe('utils.js - 進階覆蓋率測試', () => {
       expect(global.chrome.runtime.sendMessage).toHaveBeenCalled();
     });
 
+    test('應該在運行時響應 __LOGGER_ENABLED__ 切換', () => {
+      global.chrome.runtime.getManifest = jest.fn(() => ({
+        version: '2.10.0'
+      }));
+
+      global.chrome.runtime.sendMessage = jest.fn();
+
+      jest.resetModules();
+      utils = require('../helpers/utils.testable');
+
+      utils.Logger.debug('初始 debug');
+      expect(global.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+
+      global.window.__LOGGER_ENABLED__ = true;
+      utils.Logger.info('啟用後 info');
+      expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+
+      global.chrome.runtime.sendMessage.mockClear();
+
+      global.window.__LOGGER_ENABLED__ = false;
+      utils.Logger.debug('停用後 debug');
+      expect(global.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+
     test('應該處理 getManifest 拋出異常', () => {
       global.chrome.runtime.getManifest = jest.fn(() => {
         throw new Error('Manifest 錯誤');

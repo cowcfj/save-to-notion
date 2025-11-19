@@ -14,6 +14,8 @@ if (typeof window === 'undefined') {
   };
   // 聲明 chrome 為全局變量（在瀏覽器環境中由 Chrome Extension API 提供）
   global.chrome = undefined;
+} else if (typeof window.__LOGGER_ENABLED__ === 'undefined') {
+  window.__LOGGER_ENABLED__ = false;
 }
 
 // ===== Safe Logger Helper =====
@@ -97,38 +99,66 @@ function normalizeLoggerFlag(value) {
     return false;
 }
 
+/**
+ * 檢查是否啟用了手動日誌記錄
+ * 檢查全局變數 __FORCE_LOG__ 和 __LOGGER_ENABLED__ 來確定是否應該輸出日誌
+ * @returns {boolean} 如果啟用了手動日誌記錄則返回 true，否則返回 false
+ */
 function isManualLoggingEnabled() {
     if (typeof window === 'undefined') {
         return false;
     }
-    return normalizeLoggerFlag(window.__FORCE_LOG__) || normalizeLoggerFlag(window.__LOGGER_ENABLED__);
+    return (
+        normalizeLoggerFlag(window.__FORCE_LOG__) ||
+        normalizeLoggerFlag(window.__LOGGER_ENABLED__)
+    );
 }
 
 /**
- * 檢查是否為開發模式
+ * 檢查 manifest 版本是否標記為開發版本
+ * 通過檢查 version_name 或 version 字段是否包含 "dev" 來判斷
+ * 使用閉包緩存結果以提升性能
+ * @returns {boolean} 如果是開發版本則返回 true，否則返回 false
  */
-function isDevMode() {
-    // 首先檢查強制標記
-    if (isManualLoggingEnabled()) {
-        return true;
-    }
+const isManifestMarkedDev = (() => {
+    let cachedResult = null;
 
-    // 然後檢查 Chrome manifest
-    if (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) {
-        try {
-            const manifest = chrome.runtime.getManifest();
-            return manifest?.version?.includes('dev') || false;
-        } catch (_) {
-            // 如果 getManifest 拋出異常，降級為非開發模式
-            return false;
+    return function() {
+        if (cachedResult !== null) {
+            return cachedResult;
         }
-    }
 
-    return false;
+        if (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) {
+            try {
+                const manifest = chrome.runtime.getManifest();
+                const versionString = manifest?.version_name || manifest?.version || '';
+                cachedResult = /dev/i.test(versionString);
+                return cachedResult;
+            } catch (_) {
+                cachedResult = false;
+                return cachedResult;
+            }
+        }
+
+        cachedResult = false;
+        return false;
+    };
+})();
+
+/**
+ * 檢查是否應該輸出開發日誌
+ * 綜合檢查手動日誌旗標和 manifest 開發版本標記
+ * @returns {boolean} 如果應該輸出開發日誌則返回 true，否則返回 false
+ */
+function shouldEmitDevLog() {
+    return isManualLoggingEnabled() || isManifestMarkedDev();
 }
 
 /**
  * 發送日誌到背景腳本
+ * @param {string} level - 日誌級別 ('debug', 'info', 'warn', 'error')
+ * @param {string} message - 日誌訊息
+ * @param {Array} argsArray - 日誌參數陣列
  */
 function __sendBackgroundLog(level, message, argsArray) {
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
@@ -198,6 +228,7 @@ function normalizeUrl(rawUrl) {
 /**
  * 調試工具：列出所有存儲的標註鍵
  * 內部實現函數，供 StorageUtil.debugListAllKeys 使用
+ * @returns {Promise<Array<string>>} 返回包含所有標註鍵的陣列
  */
 function __debugListAllKeys() {
     return new Promise((resolve) => {
@@ -458,7 +489,7 @@ if (typeof window.StorageUtil === 'undefined') {
 if (typeof window.Logger === 'undefined') {
     window.Logger = {
         debug: (message, ...args) => {
-            if (isDevMode()) {
+            if (shouldEmitDevLog()) {
                 __sendBackgroundLog('debug', message, args);
             }
             try {
@@ -470,7 +501,7 @@ if (typeof window.Logger === 'undefined') {
         },
 
         info: (message, ...args) => {
-            if (isDevMode()) {
+            if (shouldEmitDevLog()) {
                 __sendBackgroundLog('info', message, args);
             }
             try {
