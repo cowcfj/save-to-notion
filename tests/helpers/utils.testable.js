@@ -161,19 +161,20 @@ function shouldEmitDevLog() {
  * @param {Array} argsArray - 日誌參數陣列
  */
 function __sendBackgroundLog(level, message, argsArray) {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-        try {
-            chrome.runtime.sendMessage({
-                action: 'devLogSink',
-                level,
-                message,
-                args: Array.isArray(argsArray) ? argsArray : [argsArray]
-            }, () => {
-                // 忽略回調錯誤
+    try {
+        // 僅在擴充環境下可用（使用可選鏈）
+        if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
+            const argsSafe = Array.isArray(argsArray) ? argsArray : Array.from(argsArray || []);
+            chrome.runtime.sendMessage({ action: 'devLogSink', level, message, args: argsSafe }, () => {
+                // 消費 lastError 以避免未處理錯誤警告（Chrome Extension 要求）
+                // 直接訪問屬性即可消費錯誤，無需額外操作
+                if (chrome?.runtime?.lastError) {
+                    // lastError 已被訪問，Chrome 不會拋出警告
+                }
             });
-        } catch (_) {
-            // 忽略發送錯誤
         }
+    } catch (_) {
+        // 忽略背景日誌發送錯誤（瀏覽器端避免直接 console）
     }
 }
 
