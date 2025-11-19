@@ -1,9 +1,16 @@
+/* global chrome */
 document.addEventListener('DOMContentLoaded', () => {
     const saveButton = document.getElementById('save-button');
     const highlightButton = document.getElementById('highlight-button');
     const clearHighlightsButton = document.getElementById('clear-highlights-button');
     const openNotionButton = document.getElementById('open-notion-button');
     const status = document.getElementById('status');
+
+    // Modal elements
+    const modal = document.getElementById('confirmation-modal');
+    const modalMessage = document.getElementById('modal-message');
+    const modalConfirm = document.getElementById('modal-confirm');
+    const modalCancel = document.getElementById('modal-cancel');
 
     // Check for API key and Data Source ID on popup open
     chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'], (result) => {
@@ -145,7 +152,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 清除標記按鈕事件
     clearHighlightsButton.addEventListener('click', () => {
-        if (confirm('確定要清除頁面上的所有標記嗎？這個操作無法撤銷。')) {
+        modalMessage.textContent = '確定要清除頁面上的所有標記嗎？這個操作無法撤銷。';
+        modal.style.display = 'flex';
+
+        // Remove existing listeners to prevent duplicates
+        const newConfirm = modalConfirm.cloneNode(true);
+        modalConfirm.parentNode.replaceChild(newConfirm, modalConfirm);
+        const newCancel = modalCancel.cloneNode(true);
+        modalCancel.parentNode.replaceChild(newCancel, modalCancel);
+
+        // Re-select after replacement
+        const currentConfirm = document.getElementById('modal-confirm');
+        const currentCancel = document.getElementById('modal-cancel');
+
+        currentCancel.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        currentConfirm.addEventListener('click', () => {
+            modal.style.display = 'none';
             status.textContent = 'Clearing highlights...';
             clearHighlightsButton.disabled = true;
 
@@ -205,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     clearHighlightsButton.disabled = false;
                 }
             });
-        }
+        });
     });
 
     saveButton.addEventListener('click', () => {
