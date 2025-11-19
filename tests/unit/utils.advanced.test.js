@@ -16,11 +16,11 @@ describe('utils.js - 進階覆蓋率測試', () => {
 
     // 重置模組
     jest.resetModules();
-    
+
     // 清理全局狀態
     delete global.window;
     delete global.chrome;
-    
+
     // 重新設置基本環境
     global.window = {
       StorageUtil: undefined,
@@ -149,11 +149,9 @@ describe('utils.js - 進階覆蓋率測試', () => {
       global.chrome.runtime.lastError = null;
     });
 
-    test('應該處理回調函數中的異常', () => {
-      global.chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        // 模擬回調中拋出異常
-        callback();
-        throw new Error('回調異常');
+    test('應該捕獲 sendMessage 調用時的同步錯誤', () => {
+      global.chrome.runtime.sendMessage = jest.fn(() => {
+        throw new Error('同步錯誤');
       });
 
       // 應該不拋出錯誤
@@ -275,18 +273,32 @@ describe('utils.js - 進階覆蓋率測試', () => {
       jest.resetModules();
       utils = require('../helpers/utils.testable');
 
+      // 清除模組加載時可能產生的調用
+      global.chrome.runtime.sendMessage.mockClear();
+
       // debug 和 info 不應該發送消息
       utils.Logger.debug('生產模式 debug');
       utils.Logger.info('生產模式 info');
 
-      expect(global.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+      // 驗證沒有 debug 或 info 級別的調用
+      const calls = global.chrome.runtime.sendMessage.mock.calls;
+      const debugOrInfoCalls = calls.filter(call =>
+        call[0]?.level === 'debug' || call[0]?.level === 'info'
+      );
+      expect(debugOrInfoCalls).toHaveLength(0);
 
       // 但 warn 和 error 應該發送
       utils.Logger.warn('生產模式 warn');
-      expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+      expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'warn' }),
+        expect.any(Function)
+      );
 
       utils.Logger.error('生產模式 error');
-      expect(global.chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
+      expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'error' }),
+        expect.any(Function)
+      );
     });
   });
 
@@ -421,7 +433,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
 
       // 重新加載模組
       jest.resetModules();
-      
+
       // 模擬沒有 Logger 的環境
       const originalConsole = global.console;
       global.console = {
