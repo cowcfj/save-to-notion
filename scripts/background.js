@@ -8,7 +8,7 @@
 // ==========================================
 
 // 用於控制調試輸出的開發模式標誌
-const DEBUG_MODE = (function() {
+const DEBUG_MODE = (function () {
     try {
         // 可以通過 manifest.json 或其他方式控制
         return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
@@ -355,7 +355,7 @@ function validateImageContent(url) {
 }
 
 // 定期清理過期條目（每5分鐘）
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
     imageUrlValidationCache.cleanupExpired();
 }, 5 * 60 * 1000);
 
@@ -791,8 +791,8 @@ function normalizeUrl(rawUrl) {
         urlObj.hash = '';
         // Remove common tracking params
         const trackingParams = [
-            'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
-            'gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'
+            'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+            'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'
         ];
         trackingParams.forEach((p) => urlObj.searchParams.delete(p));
         // Normalize trailing slash (keep root "/")
@@ -919,7 +919,7 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
 //   null  => 不確定（網路/服務端暫時性錯誤）
 async function checkNotionPageExists(pageId, apiKey) {
     try {
-        const response = await fetchNotionWithRetry(`https://api.notion.com/v1/pages/${pageId}` , {
+        const response = await fetchNotionWithRetry(`https://api.notion.com/v1/pages/${pageId}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -1618,7 +1618,7 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
                     try {
                         const urlObj = new URL(raw);
                         urlObj.hash = '';
-                        const params = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'];
+                        const params = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'];
                         params.forEach((p) => urlObj.searchParams.delete(p));
                         if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
                         return urlObj.toString();
@@ -2073,991 +2073,991 @@ async function handleSavePage(sendResponse) {
         let result = null;
         try {
             result = await ScriptInjector.injectWithResponse(activeTab.id, () => {
-            // 初始化性能優化器（可選）
-            let performanceOptimizer = null;
-            try {
-                if (typeof PerformanceOptimizer !== 'undefined') {
-                    performanceOptimizer = new PerformanceOptimizer({
-                        enableCache: true,
-                        enableBatching: true,
-                        enableMetrics: true,
-                        cacheMaxSize: 500,  // 增加緩存大小以支持更多頁面元素
-                        cacheTTL: 600000    // 10分鐘 TTL
-                    });
-
-                    // 使用智能預熱功能
-                    performanceOptimizer.smartPrewarm(document).then(() => {
-                        Logger.log('✓ PerformanceOptimizer initialized successfully with smart prewarming');
-                    }).catch(error => {
-                        Logger.warn('⚠️ Smart prewarming failed:', error);
-                    });
-                } else {
-                    Logger.warn('⚠️ PerformanceOptimizer not available, using fallback queries');
-                }
-            } catch (perfError) {
-                Logger.warn('⚠️ PerformanceOptimizer initialization failed, using fallback queries:', perfError);
-                performanceOptimizer = null;
-            }
-
-            // 便捷的緩存查詢函數（帶回退）
-            function cachedQuery(selector, context = document, options = {}) {
-                if (performanceOptimizer) {
-                    return performanceOptimizer.cachedQuery(selector, context, options);
-                }
-                // 回退到原生查詢
-                return options.single ? context.querySelector(selector) : context.querySelectorAll(selector);
-            }
-
-            // URL 清理輔助函數（避免與背景腳本的 cleanImageUrl 命名衝突）
-            function cleanImageUrlOnPage(url) {
-                if (!url || typeof url !== 'string') return null;
-
+                // 初始化性能優化器（可選）
+                let performanceOptimizer = null;
                 try {
-                    const urlObj = new URL(url);
+                    if (typeof PerformanceOptimizer !== 'undefined') {
+                        performanceOptimizer = new PerformanceOptimizer({
+                            enableCache: true,
+                            enableBatching: true,
+                            enableMetrics: true,
+                            cacheMaxSize: 500,  // 增加緩存大小以支持更多頁面元素
+                            cacheTTL: 600000    // 10分鐘 TTL
+                        });
 
-                    // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
-                    if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
-                        const uParam = urlObj.searchParams.get('u');
-                        if (uParam && /^https?:\/\//.test(uParam)) {
-                            // 使用代理中的原始圖片 URL
-                            return cleanImageUrlOnPage(uParam);
-                        }
+                        // 使用智能預熱功能
+                        performanceOptimizer.smartPrewarm(document).then(() => {
+                            Logger.log('✓ PerformanceOptimizer initialized successfully with smart prewarming');
+                        }).catch(error => {
+                            Logger.warn('⚠️ Smart prewarming failed:', error);
+                        });
+                    } else {
+                        Logger.warn('⚠️ PerformanceOptimizer not available, using fallback queries');
                     }
-
-                    // 移除重複的查詢參數
-                    const params = new URLSearchParams();
-                    for (const [key, value] of urlObj.searchParams.entries()) {
-                        if (!params.has(key)) {
-                            params.set(key, value);
-                        }
-                    }
-                    urlObj.search = params.toString();
-
-                    return urlObj.href;
-                } catch {
-                    return null;
+                } catch (perfError) {
+                    Logger.warn('⚠️ PerformanceOptimizer initialization failed, using fallback queries:', perfError);
+                    performanceOptimizer = null;
                 }
-            }
+
+                // 便捷的緩存查詢函數（帶回退）
+                function cachedQuery(selector, context = document, options = {}) {
+                    if (performanceOptimizer) {
+                        return performanceOptimizer.cachedQuery(selector, context, options);
+                    }
+                    // 回退到原生查詢
+                    return options.single ? context.querySelector(selector) : context.querySelectorAll(selector);
+                }
+
+                // URL 清理輔助函數（避免與背景腳本的 cleanImageUrl 命名衝突）
+                function cleanImageUrlOnPage(url) {
+                    if (!url || typeof url !== 'string') return null;
+
+                    try {
+                        const urlObj = new URL(url);
+
+                        // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
+                        if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
+                            const uParam = urlObj.searchParams.get('u');
+                            if (uParam && /^https?:\/\//.test(uParam)) {
+                                // 使用代理中的原始圖片 URL
+                                return cleanImageUrlOnPage(uParam);
+                            }
+                        }
+
+                        // 移除重複的查詢參數
+                        const params = new URLSearchParams();
+                        for (const [key, value] of urlObj.searchParams.entries()) {
+                            if (!params.has(key)) {
+                                params.set(key, value);
+                            }
+                        }
+                        urlObj.search = params.toString();
+
+                        return urlObj.href;
+                    } catch {
+                        return null;
+                    }
+                }
 
 
-            // ============ v2.5.6: 封面圖/特色圖片提取功能 ============
-            /**
-             * 優先收集封面圖/特色圖片（通常位於標題上方或文章開頭）
-             */
-            function collectFeaturedImage() {
-                Logger.log('🎯 Attempting to collect featured/hero image...');
+                // ============ v2.5.6: 封面圖/特色圖片提取功能 ============
+                /**
+                 * 優先收集封面圖/特色圖片（通常位於標題上方或文章開頭）
+                 */
+                function collectFeaturedImage() {
+                    Logger.log('🎯 Attempting to collect featured/hero image...');
 
-                // 常見的封面圖選擇器（按優先級排序）
-                const featuredImageSelectors = [
-                    // WordPress 和常見 CMS
-                    '.featured-image img',
-                    '.hero-image img',
-                    '.cover-image img',
-                    '.post-thumbnail img',
-                    '.entry-thumbnail img',
-                    '.wp-post-image',
+                    // 常見的封面圖選擇器（按優先級排序）
+                    const featuredImageSelectors = [
+                        // WordPress 和常見 CMS
+                        '.featured-image img',
+                        '.hero-image img',
+                        '.cover-image img',
+                        '.post-thumbnail img',
+                        '.entry-thumbnail img',
+                        '.wp-post-image',
 
-                    // 文章頭部區域
-                    '.article-header img',
-                    'header.article-header img',
-                    '.post-header img',
-                    '.entry-header img',
+                        // 文章頭部區域
+                        '.article-header img',
+                        'header.article-header img',
+                        '.post-header img',
+                        '.entry-header img',
 
-                    // 通用特色圖片容器
-                    'figure.featured img',
-                    'figure.hero img',
-                    '[class*="featured"] img:first-of-type',
-                    '[class*="hero"] img:first-of-type',
-                    '[class*="cover"] img:first-of-type',
+                        // 通用特色圖片容器
+                        'figure.featured img',
+                        'figure.hero img',
+                        '[class*="featured"] img:first-of-type',
+                        '[class*="hero"] img:first-of-type',
+                        '[class*="cover"] img:first-of-type',
 
-                    // 文章開頭的第一張圖片
-                    'article > figure:first-of-type img',
-                    'article > div:first-of-type img',
-                    '.article > figure:first-of-type img',
-                    '.post > figure:first-of-type img'
-                ];
-
-                // 檢查圖片是否為作者頭像/logo
-                function isAuthorAvatar(img) {
-                    // 檢查常見的作者頭像相關 class 名稱
-                    const avatarKeywords = [
-                        'avatar', 'profile', 'author', 'user-image',
-                        'user-avatar', 'byline', 'author-image',
-                        'author-photo', 'profile-pic', 'user-photo'
+                        // 文章開頭的第一張圖片
+                        'article > figure:first-of-type img',
+                        'article > div:first-of-type img',
+                        '.article > figure:first-of-type img',
+                        '.post > figure:first-of-type img'
                     ];
 
-                    // 檢查圖片本身的 class 和 id
-                    const imgClass = (img.className || '').toLowerCase();
-                    const imgId = (img.id || '').toLowerCase();
-                    const imgAlt = (img.alt || '').toLowerCase();
+                    // 檢查圖片是否為作者頭像/logo
+                    function isAuthorAvatar(img) {
+                        // 檢查常見的作者頭像相關 class 名稱
+                        const avatarKeywords = [
+                            'avatar', 'profile', 'author', 'user-image',
+                            'user-avatar', 'byline', 'author-image',
+                            'author-photo', 'profile-pic', 'user-photo'
+                        ];
 
-                    for (const keyword of avatarKeywords) {
-                        if (imgClass.includes(keyword) ||
-                            imgId.includes(keyword) ||
-                            imgAlt.includes(keyword)) {
-                            Logger.log(`✗ Skipped author avatar/logo (keyword: ${keyword})`);
-                            return true;
-                        }
-                    }
-
-                    // 檢查父元素（向上最多 3 層）
-                    let parent = img.parentElement;
-                    for (let level = 0; level < 3 && parent; level++) {
-                        const parentClass = (parent.className || '').toLowerCase();
-                        const parentId = (parent.id || '').toLowerCase();
+                        // 檢查圖片本身的 class 和 id
+                        const imgClass = (img.className || '').toLowerCase();
+                        const imgId = (img.id || '').toLowerCase();
+                        const imgAlt = (img.alt || '').toLowerCase();
 
                         for (const keyword of avatarKeywords) {
-                            if (parentClass.includes(keyword) || parentId.includes(keyword)) {
-                                Logger.log(`✗ Skipped author avatar/logo (parent ${level + 1} has keyword: ${keyword})`);
+                            if (imgClass.includes(keyword) ||
+                                imgId.includes(keyword) ||
+                                imgAlt.includes(keyword)) {
+                                Logger.log(`✗ Skipped author avatar/logo (keyword: ${keyword})`);
                                 return true;
                             }
                         }
-                        parent = parent.parentElement;
-                    }
 
-                    // 檢查圖片尺寸（頭像通常較小，< 200x200）
-                    const width = img.naturalWidth || img.width || 0;
-                    const height = img.naturalHeight || img.height || 0;
+                        // 檢查父元素（向上最多 3 層）
+                        let parent = img.parentElement;
+                        for (let level = 0; level < 3 && parent; level++) {
+                            const parentClass = (parent.className || '').toLowerCase();
+                            const parentId = (parent.id || '').toLowerCase();
 
-                    if (width > 0 && height > 0) {
-                        if (width < 200 && height < 200) {
-                            Logger.log(`✗ Skipped small image (possible avatar): ${width}x${height}px`);
-                            return true;
+                            for (const keyword of avatarKeywords) {
+                                if (parentClass.includes(keyword) || parentId.includes(keyword)) {
+                                    Logger.log(`✗ Skipped author avatar/logo (parent ${level + 1} has keyword: ${keyword})`);
+                                    return true;
+                                }
+                            }
+                            parent = parent.parentElement;
                         }
 
-                        // 檢查是否為圓形或接近正方形（頭像特徵）
-                        const aspectRatio = width / height;
-                        const borderRadius = window.getComputedStyle(img).borderRadius;
+                        // 檢查圖片尺寸（頭像通常較小，< 200x200）
+                        const width = img.naturalWidth || img.width || 0;
+                        const height = img.naturalHeight || img.height || 0;
 
-                        if (aspectRatio >= 0.9 && aspectRatio <= 1.1 &&
-                            width < 400 && height < 400 &&
-                            borderRadius && (borderRadius === '50%' || parseInt(borderRadius) >= width / 2)) {
-                            Logger.log(`✗ Skipped circular/square image (likely avatar): ${width}x${height}px, border-radius: ${borderRadius}`);
-                            return true;
+                        if (width > 0 && height > 0) {
+                            if (width < 200 && height < 200) {
+                                Logger.log(`✗ Skipped small image (possible avatar): ${width}x${height}px`);
+                                return true;
+                            }
+
+                            // 檢查是否為圓形或接近正方形（頭像特徵）
+                            const aspectRatio = width / height;
+                            const borderRadius = window.getComputedStyle(img).borderRadius;
+
+                            if (aspectRatio >= 0.9 && aspectRatio <= 1.1 &&
+                                width < 400 && height < 400 &&
+                                borderRadius && (borderRadius === '50%' || parseInt(borderRadius) >= width / 2)) {
+                                Logger.log(`✗ Skipped circular/square image (likely avatar): ${width}x${height}px, border-radius: ${borderRadius}`);
+                                return true;
+                            }
                         }
+
+                        return false;
                     }
 
-                    return false;
-                }
+                    // 提取圖片 src 的函數
+                    function extractImageSrc(img) {
+                        const srcAttributes = [
+                            'src', 'data-src', 'data-lazy-src', 'data-original',
+                            'data-lazy', 'data-url', 'data-image'
+                        ];
 
-                // 提取圖片 src 的函數
-                function extractImageSrc(img) {
-                    const srcAttributes = [
-                        'src', 'data-src', 'data-lazy-src', 'data-original',
-                        'data-lazy', 'data-url', 'data-image'
-                    ];
-
-                    for (const attr of srcAttributes) {
-                        const value = img.getAttribute(attr);
-                        if (value?.trim() && !value.startsWith('data:')) {
-                            return value.trim();
+                        for (const attr of srcAttributes) {
+                            const value = img.getAttribute(attr);
+                            if (value?.trim() && !value.startsWith('data:')) {
+                                return value.trim();
+                            }
                         }
-                    }
 
-                    // 檢查 picture 元素
-                    const picture = img.closest('picture');
-                    if (picture) {
-                        const source = cachedQuery('source', picture, { single: true });
-                        if (source) {
-                            const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
-                            if (srcset) {
-                                const urls = srcset.split(',').map(s => s.trim().split(' ')[0]);
-                                if (urls.length > 0 && !urls[0].startsWith('data:')) {
-                                    return urls[0];
+                        // 檢查 picture 元素
+                        const picture = img.closest('picture');
+                        if (picture) {
+                            const source = cachedQuery('source', picture, { single: true });
+                            if (source) {
+                                const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
+                                if (srcset) {
+                                    const urls = srcset.split(',').map(s => s.trim().split(' ')[0]);
+                                    if (urls.length > 0 && !urls[0].startsWith('data:')) {
+                                        return urls[0];
+                                    }
                                 }
                             }
                         }
+
+                        return null;
                     }
 
+                    for (const selector of featuredImageSelectors) {
+                        try {
+                            const img = cachedQuery(selector, document, { single: true });
+                            if (img) {
+                                // 🔍 檢查是否為作者頭像/logo
+                                if (isAuthorAvatar(img)) {
+                                    continue; // 跳過此圖片，繼續下一個選擇器
+                                }
+
+                                const src = extractImageSrc(img);
+                                if (src) {
+                                    try {
+                                        const absoluteUrl = new URL(src, document.baseURI).href;
+                                        const cleanedUrl = cleanImageUrlOnPage(absoluteUrl);
+
+                                        if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
+                                            Logger.log(`✓ Found featured image via selector: ${selector}`);
+                                            Logger.log(`  Image URL: ${cleanedUrl}`);
+                                            return cleanedUrl;
+                                        }
+                                    } catch (e) {
+                                        console.warn(`Failed to process featured image URL: ${src}`, e);
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.warn(`Error checking selector ${selector}:`, e);
+                        }
+                    }
+
+                    Logger.log('✗ No featured image found');
                     return null;
                 }
 
-                for (const selector of featuredImageSelectors) {
-                    try {
-                        const img = cachedQuery(selector, document, { single: true });
-                        if (img) {
-                            // 🔍 檢查是否為作者頭像/logo
-                            if (isAuthorAvatar(img)) {
-                                continue; // 跳過此圖片，繼續下一個選擇器
-                            }
+                // 輔助函數：解析尺寸字符串（如 "180x180"）
+                function parseSizeString(sizeStr) {
+                    if (!sizeStr || !sizeStr.trim()) return 0;
 
-                            const src = extractImageSrc(img);
-                            if (src) {
-                                try {
-                                    const absoluteUrl = new URL(src, document.baseURI).href;
-                    const cleanedUrl = cleanImageUrlOnPage(absoluteUrl);
+                    // 處理 "any" 格式（通常是 SVG）
+                    if (sizeStr.toLowerCase() === 'any') {
+                        return 999; // 給予 SVG 最高優先級
+                    }
 
-                                    if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
-                                        Logger.log(`✓ Found featured image via selector: ${selector}`);
-                                        Logger.log(`  Image URL: ${cleanedUrl}`);
-                                        return cleanedUrl;
-                                    }
-                                } catch (e) {
-                                    console.warn(`Failed to process featured image URL: ${src}`, e);
-                                }
-                            }
+                    // 處理 "180x180" 格式
+                    const match = sizeStr.match(/(\d+)x(\d+)/i);
+                    if (match) {
+                        return parseInt(match[1]); // 返回寬度
+                    }
+
+                    // 處理只有數字的情況
+                    const numMatch = sizeStr.match(/\d+/);
+                    if (numMatch) {
+                        return parseInt(numMatch[0]);
+                    }
+
+                    return 0;
+                }
+
+                // 輔助函數：從候選 icons 中智能選擇最佳的
+                function selectBestIcon(candidates) {
+                    Logger.log(`📊 Selecting best icon from ${candidates.length} candidates...`);
+
+                    if (candidates.length === 0) return null;
+                    if (candidates.length === 1) {
+                        Logger.log('✓ Only one candidate, selected by default');
+                        return candidates[0];
+                    }
+
+                    // 評分系統
+                    const scored = candidates.map(icon => {
+                        let score = 0;
+                        const url = icon.url.toLowerCase();
+
+                        // 1. 格式評分（最重要）
+                        if (url.endsWith('.svg') || url.includes('image/svg') || icon.type.includes('svg')) {
+                            score += 1000; // SVG 矢量圖，完美縮放
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +1000 (SVG format)`);
+                        } else if (url.endsWith('.png') || icon.type.includes('png')) {
+                            score += 500; // PNG 較好
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +500 (PNG format)`);
+                        } else if (url.endsWith('.ico') || icon.type.includes('ico')) {
+                            score += 100; // ICO 可用但較舊
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +100 (ICO format)`);
+                        } else if (url.endsWith('.jpg') || url.endsWith('.jpeg') || icon.type.includes('jpeg')) {
+                            score += 200; // JPEG 可用但不如 PNG
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +200 (JPEG format)`);
                         }
-                    } catch (e) {
-                        console.warn(`Error checking selector ${selector}:`, e);
-                    }
-                }
 
-                Logger.log('✗ No featured image found');
-                return null;
-            }
+                        // 2. 尺寸評分（第二重要）
+                        const size = icon.size || 0;
+                        if (size === 999) {
+                            // SVG "any" 尺寸
+                            score += 500;
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +500 (any size - SVG)`);
+                        } else if (size >= 180 && size <= 256) {
+                            // 理想尺寸範圍（180x180 到 256x256）
+                            score += 300;
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +300 (ideal size: ${size}x${size})`);
+                        } else if (size > 256) {
+                            // 太大（可能影響性能，但質量好）
+                            score += 200;
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +200 (large size: ${size}x${size})`);
+                        } else if (size >= 120) {
+                            // 中等尺寸（可接受）
+                            score += 100;
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +100 (medium size: ${size}x${size})`);
+                        } else if (size > 0) {
+                            // 小尺寸（不理想）
+                            score += 50;
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +50 (small size: ${size}x${size})`);
+                        }
 
-            // 輔助函數：解析尺寸字符串（如 "180x180"）
-            function parseSizeString(sizeStr) {
-                if (!sizeStr || !sizeStr.trim()) return 0;
+                        // 3. 類型評分（第三重要）
+                        if (icon.iconType === 'apple-touch') {
+                            score += 50; // Apple Touch Icon 通常質量較好
+                            Logger.log(`  ${icon.url.substring(0, 60)}...: +50 (apple-touch-icon)`);
+                        }
 
-                // 處理 "any" 格式（通常是 SVG）
-                if (sizeStr.toLowerCase() === 'any') {
-                    return 999; // 給予 SVG 最高優先級
-                }
+                        // 4. 優先級評分（最後考量）
+                        // 較低的 priority 值表示更高的優先級
+                        score += (10 - icon.priority) * 10;
 
-                // 處理 "180x180" 格式
-                const match = sizeStr.match(/(\d+)x(\d+)/i);
-                if (match) {
-                    return parseInt(match[1]); // 返回寬度
-                }
-
-                // 處理只有數字的情況
-                const numMatch = sizeStr.match(/\d+/);
-                if (numMatch) {
-                    return parseInt(numMatch[0]);
-                }
-
-                return 0;
-            }
-
-            // 輔助函數：從候選 icons 中智能選擇最佳的
-            function selectBestIcon(candidates) {
-                Logger.log(`📊 Selecting best icon from ${candidates.length} candidates...`);
-
-                if (candidates.length === 0) return null;
-                if (candidates.length === 1) {
-                    Logger.log('✓ Only one candidate, selected by default');
-                    return candidates[0];
-                }
-
-                // 評分系統
-                const scored = candidates.map(icon => {
-                    let score = 0;
-                    const url = icon.url.toLowerCase();
-
-                    // 1. 格式評分（最重要）
-                    if (url.endsWith('.svg') || url.includes('image/svg') || icon.type.includes('svg')) {
-                        score += 1000; // SVG 矢量圖，完美縮放
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +1000 (SVG format)`);
-                    } else if (url.endsWith('.png') || icon.type.includes('png')) {
-                        score += 500; // PNG 較好
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +500 (PNG format)`);
-                    } else if (url.endsWith('.ico') || icon.type.includes('ico')) {
-                        score += 100; // ICO 可用但較舊
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +100 (ICO format)`);
-                    } else if (url.endsWith('.jpg') || url.endsWith('.jpeg') || icon.type.includes('jpeg')) {
-                        score += 200; // JPEG 可用但不如 PNG
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +200 (JPEG format)`);
-                    }
-
-                    // 2. 尺寸評分（第二重要）
-                    const size = icon.size || 0;
-                    if (size === 999) {
-                        // SVG "any" 尺寸
-                        score += 500;
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +500 (any size - SVG)`);
-                    } else if (size >= 180 && size <= 256) {
-                        // 理想尺寸範圍（180x180 到 256x256）
-                        score += 300;
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +300 (ideal size: ${size}x${size})`);
-                    } else if (size > 256) {
-                        // 太大（可能影響性能，但質量好）
-                        score += 200;
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +200 (large size: ${size}x${size})`);
-                    } else if (size >= 120) {
-                        // 中等尺寸（可接受）
-                        score += 100;
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +100 (medium size: ${size}x${size})`);
-                    } else if (size > 0) {
-                        // 小尺寸（不理想）
-                        score += 50;
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +50 (small size: ${size}x${size})`);
-                    }
-
-                    // 3. 類型評分（第三重要）
-                    if (icon.iconType === 'apple-touch') {
-                        score += 50; // Apple Touch Icon 通常質量較好
-                        Logger.log(`  ${icon.url.substring(0, 60)}...: +50 (apple-touch-icon)`);
-                    }
-
-                    // 4. 優先級評分（最後考量）
-                    // 較低的 priority 值表示更高的優先級
-                    score += (10 - icon.priority) * 10;
-
-                    Logger.log(`  Total score: ${score}`);
-                    return { ...icon, score };
-                });
-
-                // 按分數排序（降序）
-                scored.sort((a, b) => b.score - a.score);
-
-                const best = scored[0];
-                Logger.log(`✓ Best icon selected: ${best.url} (score: ${best.score})`);
-
-                // 顯示其他候選的分數（用於調試）
-                if (scored.length > 1) {
-                    Logger.log('  Other candidates:');
-                    scored.slice(1, 4).forEach((icon, idx) => {
-                        Logger.log(`    ${idx + 2}. ${icon.url.substring(0, 50)}... (score: ${icon.score})`);
+                        Logger.log(`  Total score: ${score}`);
+                        return { ...icon, score };
                     });
-                    if (scored.length > 4) {
-                        Logger.log(`    ... and ${scored.length - 4} more`);
-                    }
-                }
 
-                return best;
-            }
+                    // 按分數排序（降序）
+                    scored.sort((a, b) => b.score - a.score);
 
-            // 提取網站 Icon/Favicon
-            function collectSiteIcon() {
-                Logger.log('🎯 Attempting to collect site icon/favicon...');
+                    const best = scored[0];
+                    Logger.log(`✓ Best icon selected: ${best.url} (score: ${best.score})`);
 
-                // 常見的網站 icon 選擇器（按優先級排序）
-                const iconSelectors = [
-                    // 高清 Apple Touch Icon（通常尺寸較大，180x180 或更大）
-                    { selector: 'link[rel="apple-touch-icon"]', attr: 'href', priority: 1, iconType: 'apple-touch' },
-                    { selector: 'link[rel="apple-touch-icon-precomposed"]', attr: 'href', priority: 2, iconType: 'apple-touch' },
-
-                    // 標準 Favicon
-                    { selector: 'link[rel="icon"]', attr: 'href', priority: 3, iconType: 'standard' },
-                    { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4, iconType: 'standard' },
-                ];
-
-                // 收集所有候選 icons（不做早期退出優化）
-                // 設計決策：收集所有候選而不是找到第一個就返回
-                // 理由：1) 性能影響可忽略（< 1ms）
-                //      2) 保持代碼簡單易維護
-                //      3) 完整日誌有助於調試和驗證評分邏輯
-                const candidates = [];
-
-                for (const { selector, attr, priority, iconType } of iconSelectors) {
-                    try {
-                        const elements = cachedQuery(selector, document, { all: true });
-                        for (const element of elements) {
-                            const iconUrl = element.getAttribute(attr);
-                            if (iconUrl?.trim() && !iconUrl.startsWith('data:')) {
-                                try {
-                                    const absoluteUrl = new URL(iconUrl, document.baseURI).href;
-
-                                    // 提取尺寸和類型信息
-                                    const sizes = element.getAttribute('sizes') || '';
-                                    const type = element.getAttribute('type') || '';
-                                    const size = parseSizeString(sizes);
-
-                                    candidates.push({
-                                        url: absoluteUrl,
-                                        priority,
-                                        size,
-                                        type,
-                                        iconType,
-                                        sizes,
-                                        selector
-                                    });
-
-                                    Logger.log(`✓ Found icon: ${absoluteUrl.substring(0, 60)}... (${sizes || 'no size'}, ${type || 'no type'})`);
-                                } catch (e) {
-                                    console.warn(`Failed to process icon URL: ${iconUrl}`, e);
-                                }
-                            }
+                    // 顯示其他候選的分數（用於調試）
+                    if (scored.length > 1) {
+                        Logger.log('  Other candidates:');
+                        scored.slice(1, 4).forEach((icon, idx) => {
+                            Logger.log(`    ${idx + 2}. ${icon.url.substring(0, 50)}... (score: ${icon.score})`);
+                        });
+                        if (scored.length > 4) {
+                            Logger.log(`    ... and ${scored.length - 4} more`);
                         }
-                    } catch (e) {
-                        console.warn(`Error checking selector ${selector}:`, e);
                     }
+
+                    return best;
                 }
 
-                // 如果找到候選 icons，使用智能選擇
-                if (candidates.length > 0) {
-                    const bestIcon = selectBestIcon(candidates);
-                    if (bestIcon) {
-                        return bestIcon.url;
-                    }
-                }
+                // 提取網站 Icon/Favicon
+                function collectSiteIcon() {
+                    Logger.log('🎯 Attempting to collect site icon/favicon...');
 
-                // 回退到默認 favicon.ico
-                Logger.log('⚠️ No icons found in HTML declarations, falling back to default favicon.ico');
-                try {
-                    const defaultFavicon = new URL('/favicon.ico', document.baseURI).href;
-                    Logger.log(`✓ Using default favicon: ${defaultFavicon}`);
-                    return defaultFavicon;
-                } catch (e) {
-                    console.warn('Failed to construct default favicon URL:', e);
-                }
+                    // 常見的網站 icon 選擇器（按優先級排序）
+                    const iconSelectors = [
+                        // 高清 Apple Touch Icon（通常尺寸較大，180x180 或更大）
+                        { selector: 'link[rel="apple-touch-icon"]', attr: 'href', priority: 1, iconType: 'apple-touch' },
+                        { selector: 'link[rel="apple-touch-icon-precomposed"]', attr: 'href', priority: 2, iconType: 'apple-touch' },
 
-                Logger.log('✗ No site icon found');
-                return null;
-            }
+                        // 標準 Favicon
+                        { selector: 'link[rel="icon"]', attr: 'href', priority: 3, iconType: 'standard' },
+                        { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4, iconType: 'standard' },
+                    ];
 
-            // 執行內容提取邏輯（從 content.js 中提取的核心邏輯）
+                    // 收集所有候選 icons（不做早期退出優化）
+                    // 設計決策：收集所有候選而不是找到第一個就返回
+                    // 理由：1) 性能影響可忽略（< 1ms）
+                    //      2) 保持代碼簡單易維護
+                    //      3) 完整日誌有助於調試和驗證評分邏輯
+                    const candidates = [];
 
-            // 檢測是否為技術文檔頁面（需要使用 emergency extraction）
-            function isTechnicalDoc() {
-                const url = window.location.href.toLowerCase();
-                const title = document.title.toLowerCase();
+                    for (const { selector, attr, priority, iconType } of iconSelectors) {
+                        try {
+                            const elements = cachedQuery(selector, document, { all: true });
+                            for (const element of elements) {
+                                const iconUrl = element.getAttribute(attr);
+                                if (iconUrl?.trim() && !iconUrl.startsWith('data:')) {
+                                    try {
+                                        const absoluteUrl = new URL(iconUrl, document.baseURI).href;
 
-                // 檢查 URL 模式
-                const urlPatterns = [
-                    /\/docs?\//,
-                    /\/api\//,
-                    /\/documentation\//,
-                    /\/guide\//,
-                    /\/manual\//,
-                    /\/reference\//,
-                    /\/cli\//,
-                    /\/commands?\//,
-                    /github\.io.*docs/,
-                    /\.github\.io/
-                ];
+                                        // 提取尺寸和類型信息
+                                        const sizes = element.getAttribute('sizes') || '';
+                                        const type = element.getAttribute('type') || '';
+                                        const size = parseSizeString(sizes);
 
-                // 檢查標題模式
-                const titlePatterns = [
-                    /documentation/,
-                    /commands?/,
-                    /reference/,
-                    /guide/,
-                    /manual/,
-                    /cli/,
-                    /api/
-                ];
+                                        candidates.push({
+                                            url: absoluteUrl,
+                                            priority,
+                                            size,
+                                            type,
+                                            iconType,
+                                            sizes,
+                                            selector
+                                        });
 
-                const hasUrlPattern = urlPatterns.some(pattern => pattern.test(url));
-                const hasTitlePattern = titlePatterns.some(pattern => pattern.test(title));
-
-                Logger.log(`🔍 Technical doc detection: URL=${hasUrlPattern}, Title=${hasTitlePattern}, URL="${url}"`);
-                return hasUrlPattern || hasTitlePattern;
-            }
-
-            // Emergency extraction 函數 - 用於技術文檔
-            function extractEmergencyContent() {
-                // 等待動態內容載入（特別針對 gemini-cli 這種懶載入頁面）
-                function waitForContent(maxAttempts = 10) {
-                    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                        const textLength = document.body.textContent?.trim()?.length || 0;
-                        Logger.log(`🔄 Attempt ${attempt + 1}/${maxAttempts}: Found ${textLength} characters`);
-
-                        // 如果內容足夠多，停止等待
-                        if (textLength > 3000) {
-                            Logger.log(`✅ Content loaded successfully: ${textLength} chars`);
-                            break;
-                        }
-
-                        // 嘗試觸發內容載入的多種方法
-                        if (attempt < 3) {
-                            try {
-                                // 方法1：選擇整個文檔來觸發懶載入
-                                if (attempt === 0) {
-                                    const selection = window.getSelection();
-                                    const range = document.createRange();
-                                    range.selectNodeContents(document.body);
-                                    selection.removeAllRanges();
-                                    selection.addRange(range);
-                                    Logger.log('🎯 Method 1: Triggered document selection');
-
-                                    // 稍後清除選擇
-                                    setTimeout(() => {
-                                        try { selection.removeAllRanges(); } catch { /* 忽略清除選擇錯誤 */ }
-                                    }, 50);
-                                }
-
-                                // 方法2：觸發滾動事件
-                                if (attempt === 1) {
-                                    window.scrollTo(0, document.body.scrollHeight);
-                                    window.scrollTo(0, 0);
-                                    Logger.log('🎯 Method 2: Triggered scroll events');
-                                }
-
-                                // 方法3：觸發點擊事件
-                                if (attempt === 2) {
-                                    const clickableElements = document.querySelectorAll('button, [role="button"], .expand, .show-more');
-                                    if (clickableElements.length > 0) {
-                                        clickableElements[0].click();
-                                        Logger.log('🎯 Method 3: Clicked expandable element');
+                                        Logger.log(`✓ Found icon: ${absoluteUrl.substring(0, 60)}... (${sizes || 'no size'}, ${type || 'no type'})`);
+                                    } catch (e) {
+                                        console.warn(`Failed to process icon URL: ${iconUrl}`, e);
                                     }
                                 }
-                            } catch (e) {
-                                console.warn(`⚠️ Could not trigger content loading (method ${attempt + 1}):`, e);
                             }
-                        }
-
-                        // 等待時間：前幾次短等待，後面長等待
-                        const waitTime = attempt < 3 ? 300 : 500;
-                        const start = Date.now();
-                        while (Date.now() - start < waitTime) {
-                            // 同步等待
+                        } catch (e) {
+                            console.warn(`Error checking selector ${selector}:`, e);
                         }
                     }
 
-                    const finalLength = document.body.textContent?.trim()?.length || 0;
-                    Logger.log(`🏁 Final content length: ${finalLength} characters`);
-                    return finalLength;
+                    // 如果找到候選 icons，使用智能選擇
+                    if (candidates.length > 0) {
+                        const bestIcon = selectBestIcon(candidates);
+                        if (bestIcon) {
+                            return bestIcon.url;
+                        }
+                    }
+
+                    // 回退到默認 favicon.ico
+                    Logger.log('⚠️ No icons found in HTML declarations, falling back to default favicon.ico');
+                    try {
+                        const defaultFavicon = new URL('/favicon.ico', document.baseURI).href;
+                        Logger.log(`✓ Using default favicon: ${defaultFavicon}`);
+                        return defaultFavicon;
+                    } catch (e) {
+                        console.warn('Failed to construct default favicon URL:', e);
+                    }
+
+                    Logger.log('✗ No site icon found');
+                    return null;
                 }
 
-                Logger.log('🆘 Using emergency extraction for technical documentation...');
+                // 執行內容提取邏輯（從 content.js 中提取的核心邏輯）
 
-                // 等待內容載入
-                waitForContent();
+                // 檢測是否為技術文檔頁面（需要使用 emergency extraction）
+                function isTechnicalDoc() {
+                    const url = window.location.href.toLowerCase();
+                    const title = document.title.toLowerCase();
 
-                // 特別針對技術文檔的選擇器（按優先級排序）
-                const docSelectors = [
-                    // 通用文檔容器
-                    '.content', '.documentation', '.docs', '.guide', '.manual',
-                    '.api-content', '.reference', '.commands', '.cli-content',
+                    // 檢查 URL 模式
+                    const urlPatterns = [
+                        /\/docs?\//,
+                        /\/api\//,
+                        /\/documentation\//,
+                        /\/guide\//,
+                        /\/manual\//,
+                        /\/reference\//,
+                        /\/cli\//,
+                        /\/commands?\//,
+                        /github\.io.*docs/,
+                        /\.github\.io/
+                    ];
 
-                    // HTML5 語義化標籤
-                    '[role="main"]', 'main', 'article',
+                    // 檢查標題模式
+                    const titlePatterns = [
+                        /documentation/,
+                        /commands?/,
+                        /reference/,
+                        /guide/,
+                        /manual/,
+                        /cli/,
+                        /api/
+                    ];
 
-                    // 常見的頁面容器
-                    '.page-content', '.main-content', '.wrapper', '.container',
+                    const hasUrlPattern = urlPatterns.some(pattern => pattern.test(url));
+                    const hasTitlePattern = titlePatterns.some(pattern => pattern.test(title));
 
-                    // GitHub Pages 和技術文檔站點
-                    '.site-content', '.page', '.markdown-body', '.wiki-content',
-
-                    // 特定於某些文檔系統
-                    '.content-wrapper', '.docs-content', '.documentation-content',
-
-                    // 最寬泛的選擇器（最後嘗試）
-                    'body > div', 'body > section', 'body'
-                ];
-
-                // 1. 嘗試特定選擇器
-                for (const selector of docSelectors) {
-                    const element = cachedQuery(selector, document, { single: true });
-                    if (element) {
-                        const text = element.textContent?.trim();
-                        if (text && text.length > 500) {
-                            Logger.log(`✅ Found technical content with selector: ${selector} (${text.length} chars)`);
-                            return element.innerHTML;
-                        }
-                    }
+                    Logger.log(`🔍 Technical doc detection: URL=${hasUrlPattern}, Title=${hasTitlePattern}, URL="${url}"`);
+                    return hasUrlPattern || hasTitlePattern;
                 }
 
-                // 2. 使用 TreeWalker 進行深度搜索
-                Logger.log('🔄 Using TreeWalker for deep content search...');
-                const walker = document.createTreeWalker(
-                    document.body,
-                    NodeFilter.SHOW_ELEMENT,
-                    {
-                        acceptNode(node) {
-                            // 跳過導航、側邊欄、頁腳等
-                            const skipTags = ['nav', 'header', 'footer', 'aside', 'script', 'style'];
-                            if (skipTags.includes(node.tagName.toLowerCase())) {
-                                return NodeFilter.FILTER_REJECT;
+                // Emergency extraction 函數 - 用於技術文檔
+                function extractEmergencyContent() {
+                    // 等待動態內容載入（特別針對 gemini-cli 這種懶載入頁面）
+                    function waitForContent(maxAttempts = 10) {
+                        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                            const textLength = document.body.textContent?.trim()?.length || 0;
+                            Logger.log(`🔄 Attempt ${attempt + 1}/${maxAttempts}: Found ${textLength} characters`);
+
+                            // 如果內容足夠多，停止等待
+                            if (textLength > 3000) {
+                                Logger.log(`✅ Content loaded successfully: ${textLength} chars`);
+                                break;
                             }
 
-                            // 跳過特定 class
-                            const className = node.className || '';
-                            const skipClasses = ['nav', 'navigation', 'sidebar', 'header', 'footer', 'menu'];
-                            if (skipClasses.some(cls => className.includes(cls))) {
-                                return NodeFilter.FILTER_SKIP;
+                            // 嘗試觸發內容載入的多種方法
+                            if (attempt < 3) {
+                                try {
+                                    // 方法1：選擇整個文檔來觸發懶載入
+                                    if (attempt === 0) {
+                                        const selection = window.getSelection();
+                                        const range = document.createRange();
+                                        range.selectNodeContents(document.body);
+                                        selection.removeAllRanges();
+                                        selection.addRange(range);
+                                        Logger.log('🎯 Method 1: Triggered document selection');
+
+                                        // 稍後清除選擇
+                                        setTimeout(() => {
+                                            try { selection.removeAllRanges(); } catch { /* 忽略清除選擇錯誤 */ }
+                                        }, 50);
+                                    }
+
+                                    // 方法2：觸發滾動事件
+                                    if (attempt === 1) {
+                                        window.scrollTo(0, document.body.scrollHeight);
+                                        window.scrollTo(0, 0);
+                                        Logger.log('🎯 Method 2: Triggered scroll events');
+                                    }
+
+                                    // 方法3：觸發點擊事件
+                                    if (attempt === 2) {
+                                        const clickableElements = document.querySelectorAll('button, [role="button"], .expand, .show-more');
+                                        if (clickableElements.length > 0) {
+                                            clickableElements[0].click();
+                                            Logger.log('🎯 Method 3: Clicked expandable element');
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.warn(`⚠️ Could not trigger content loading (method ${attempt + 1}):`, e);
+                                }
                             }
 
-                            return NodeFilter.FILTER_ACCEPT;
+                            // 等待時間：前幾次短等待，後面長等待
+                            const waitTime = attempt < 3 ? 300 : 500;
+                            const start = Date.now();
+                            while (Date.now() - start < waitTime) {
+                                // 同步等待
+                            }
+                        }
+
+                        const finalLength = document.body.textContent?.trim()?.length || 0;
+                        Logger.log(`🏁 Final content length: ${finalLength} characters`);
+                        return finalLength;
+                    }
+
+                    Logger.log('🆘 Using emergency extraction for technical documentation...');
+
+                    // 等待內容載入
+                    waitForContent();
+
+                    // 特別針對技術文檔的選擇器（按優先級排序）
+                    const docSelectors = [
+                        // 通用文檔容器
+                        '.content', '.documentation', '.docs', '.guide', '.manual',
+                        '.api-content', '.reference', '.commands', '.cli-content',
+
+                        // HTML5 語義化標籤
+                        '[role="main"]', 'main', 'article',
+
+                        // 常見的頁面容器
+                        '.page-content', '.main-content', '.wrapper', '.container',
+
+                        // GitHub Pages 和技術文檔站點
+                        '.site-content', '.page', '.markdown-body', '.wiki-content',
+
+                        // 特定於某些文檔系統
+                        '.content-wrapper', '.docs-content', '.documentation-content',
+
+                        // 最寬泛的選擇器（最後嘗試）
+                        'body > div', 'body > section', 'body'
+                    ];
+
+                    // 1. 嘗試特定選擇器
+                    for (const selector of docSelectors) {
+                        const element = cachedQuery(selector, document, { single: true });
+                        if (element) {
+                            const text = element.textContent?.trim();
+                            if (text && text.length > 500) {
+                                Logger.log(`✅ Found technical content with selector: ${selector} (${text.length} chars)`);
+                                return element.innerHTML;
+                            }
                         }
                     }
-                );
 
-                let bestElement = null;
-                let maxScore = 0;
-                let node = null;
+                    // 2. 使用 TreeWalker 進行深度搜索
+                    Logger.log('🔄 Using TreeWalker for deep content search...');
+                    const walker = document.createTreeWalker(
+                        document.body,
+                        NodeFilter.SHOW_ELEMENT,
+                        {
+                            acceptNode(node) {
+                                // 跳過導航、側邊欄、頁腳等
+                                const skipTags = ['nav', 'header', 'footer', 'aside', 'script', 'style'];
+                                if (skipTags.includes(node.tagName.toLowerCase())) {
+                                    return NodeFilter.FILTER_REJECT;
+                                }
 
-                while ((node = walker.nextNode()) !== null) {
-                    const text = node.textContent?.trim();
-                    if (!text || text.length < 200) continue;
+                                // 跳過特定 class
+                                const className = node.className || '';
+                                const skipClasses = ['nav', 'navigation', 'sidebar', 'header', 'footer', 'menu'];
+                                if (skipClasses.some(cls => className.includes(cls))) {
+                                    return NodeFilter.FILTER_SKIP;
+                                }
 
-                    // 計算內容質量分數（確保不會產生 NaN）
-                    let score = text.length || 0;
+                                return NodeFilter.FILTER_ACCEPT;
+                            }
+                        }
+                    );
 
-                    // 技術內容特徵加分
-                    const techKeywords = ['command', 'option', 'parameter', 'example', 'usage', 'syntax', 'cli', 'api'];
-                    let keywordCount = 0;
-                    const lowerText = text.toLowerCase();
-                    for (const keyword of techKeywords) {
-                        const matches = lowerText.split(keyword).length - 1;
-                        keywordCount += matches;
-                    }
-                    score += keywordCount * 100;
+                    let bestElement = null;
+                    let maxScore = 0;
+                    let node = null;
 
-                    // 結構化內容加分
-                    const headings = cachedQuery('h1, h2, h3, h4, h5, h6', node).length || 0;
-                    const codeBlocks = cachedQuery('code, pre', node).length || 0;
-                    const lists = cachedQuery('ul, ol', node).length || 0;
+                    while ((node = walker.nextNode()) !== null) {
+                        const text = node.textContent?.trim();
+                        if (!text || text.length < 200) continue;
 
-                    score += headings * 50 + codeBlocks * 30 + lists * 20;
+                        // 計算內容質量分數（確保不會產生 NaN）
+                        let score = text.length || 0;
 
-                    // 確保分數是有效數字
-                    if (isNaN(score) || score <= 0) {
-                        score = text.length;
-                    }
+                        // 技術內容特徵加分
+                        const techKeywords = ['command', 'option', 'parameter', 'example', 'usage', 'syntax', 'cli', 'api'];
+                        let keywordCount = 0;
+                        const lowerText = text.toLowerCase();
+                        for (const keyword of techKeywords) {
+                            const matches = lowerText.split(keyword).length - 1;
+                            keywordCount += matches;
+                        }
+                        score += keywordCount * 100;
 
-                    // 避免選擇包含更大元素的元素
-                    if (bestElement && (node.contains(bestElement) || bestElement.contains(node))) {
-                        if (node.contains(bestElement)) {
-                            // 當前節點包含之前的最佳節點，跳過
-                            continue;
-                        } else {
-                            // 之前的最佳節點包含當前節點，更新
+                        // 結構化內容加分
+                        const headings = cachedQuery('h1, h2, h3, h4, h5, h6', node).length || 0;
+                        const codeBlocks = cachedQuery('code, pre', node).length || 0;
+                        const lists = cachedQuery('ul, ol', node).length || 0;
+
+                        score += headings * 50 + codeBlocks * 30 + lists * 20;
+
+                        // 確保分數是有效數字
+                        if (isNaN(score) || score <= 0) {
+                            score = text.length;
+                        }
+
+                        // 避免選擇包含更大元素的元素
+                        if (bestElement && (node.contains(bestElement) || bestElement.contains(node))) {
+                            if (node.contains(bestElement)) {
+                                // 當前節點包含之前的最佳節點，跳過
+                                continue;
+                            } else {
+                                // 之前的最佳節點包含當前節點，更新
+                                bestElement = node;
+                                maxScore = score;
+                            }
+                        } else if (score > maxScore) {
                             bestElement = node;
                             maxScore = score;
                         }
-                    } else if (score > maxScore) {
-                        bestElement = node;
-                        maxScore = score;
                     }
+
+                    if (bestElement) {
+                        const text = bestElement.textContent?.trim();
+                        Logger.log(`🎯 Emergency extraction found content: ${text ? text.length : 0} chars, score: ${maxScore}`);
+                        return bestElement.innerHTML;
+                    }
+
+                    Logger.log('❌ Emergency extraction failed');
+                    return null;
                 }
 
-                if (bestElement) {
-                    const text = bestElement.textContent?.trim();
-                    Logger.log(`🎯 Emergency extraction found content: ${text ? text.length : 0} chars, score: ${maxScore}`);
-                    return bestElement.innerHTML;
-                }
+                // 檢查內容品質的函數
+                function isContentGood(article) {
+                    const MIN_CONTENT_LENGTH = 250;
+                    const MAX_LINK_DENSITY = 0.3;
 
-                Logger.log('❌ Emergency extraction failed');
-                return null;
-            }
-
-            // 檢查內容品質的函數
-            function isContentGood(article) {
-                const MIN_CONTENT_LENGTH = 250;
-                const MAX_LINK_DENSITY = 0.3;
-
-                if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = article.content;
-                const links = cachedQuery('a', tempDiv);
-                let linkTextLength = 0;
-                // 確保 links 是可迭代的數組或類數組對象
-                let linksArray = [];
-                if (links) {
-                    if (Array.isArray(links)) {
-                        linksArray = links;
-                    } else if (links.nodeType) {
-                        // 單個元素
-                        linksArray = [links];
-                    } else if (typeof links === 'object' && typeof links.length === 'number') {
-                        // 類數組對象（如 NodeList）
-                        linksArray = Array.from(links);
-                    } else {
-                        // 其他情況，嘗試轉換為數組
-                        try {
+                    if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = article.content;
+                    const links = cachedQuery('a', tempDiv);
+                    let linkTextLength = 0;
+                    // 確保 links 是可迭代的數組或類數組對象
+                    let linksArray = [];
+                    if (links) {
+                        if (Array.isArray(links)) {
+                            linksArray = links;
+                        } else if (links.nodeType) {
+                            // 單個元素
+                            linksArray = [links];
+                        } else if (typeof links === 'object' && typeof links.length === 'number') {
+                            // 類數組對象（如 NodeList）
                             linksArray = Array.from(links);
-                        } catch (e) {
-                            console.warn('Failed to convert links to array:', e);
-                            linksArray = [];
+                        } else {
+                            // 其他情況，嘗試轉換為數組
+                            try {
+                                linksArray = Array.from(links);
+                            } catch (e) {
+                                console.warn('Failed to convert links to array:', e);
+                                linksArray = [];
+                            }
                         }
                     }
+                    linksArray.forEach(link => {
+                        linkTextLength += link.textContent.length;
+                    });
+                    const linkDensity = linkTextLength / article.length;
+                    return linkDensity <= MAX_LINK_DENSITY;
                 }
-                linksArray.forEach(link => {
-                    linkTextLength += link.textContent.length;
-                });
-                const linkDensity = linkTextLength / article.length;
-                return linkDensity <= MAX_LINK_DENSITY;
-            }
 
-            try {
-                let finalContent = null;
-                let finalTitle = document.title;
+                try {
+                    let finalContent = null;
+                    let finalTitle = document.title;
 
-                // 決定使用哪種提取策略
-                if (isTechnicalDoc()) {
-                    Logger.log('📋 Technical documentation detected, using emergency extraction');
-                    finalContent = extractEmergencyContent();
+                    // 決定使用哪種提取策略
+                    if (isTechnicalDoc()) {
+                        Logger.log('📋 Technical documentation detected, using emergency extraction');
+                        finalContent = extractEmergencyContent();
 
-                    // 如果 emergency extraction 失敗，仍然嘗試 Readability
-                    if (!finalContent) {
-                        Logger.log('🔄 Emergency extraction failed, falling back to Readability...');
-                    } else {
-                        Logger.log(`✅ Emergency extraction succeeded with ${finalContent.length} chars, skipping Readability`);
+                        // 如果 emergency extraction 失敗，仍然嘗試 Readability
+                        if (!finalContent) {
+                            Logger.log('🔄 Emergency extraction failed, falling back to Readability...');
+                        } else {
+                            Logger.log(`✅ Emergency extraction succeeded with ${finalContent.length} chars, skipping Readability`);
+                        }
                     }
-                }
 
-                let article = null;
+                    let article = null;
 
-                // 如果不是技術文檔或 emergency extraction 失敗，使用 Readability
-                if (!finalContent) {
-                    Logger.log('📖 Using Readability.js for content extraction');
+                    // 如果不是技術文檔或 emergency extraction 失敗，使用 Readability
+                    if (!finalContent) {
+                        Logger.log('📖 Using Readability.js for content extraction');
 
-                    // 檢查 Readability 是否已載入
-                    if (typeof window.Readability === 'undefined') {
-                        Logger.error('❌ Readability library is not available');
-                        Logger.log('🔄 Readability.js not loaded, falling back to CMS-aware extraction...');
-                        // 將使用下面的備用方案邏輯
-                    } else {
-                        try {
-                            article = new window.Readability(document.cloneNode(true)).parse();
+                        // 檢查 Readability 是否已載入
+                        if (typeof window.Readability === 'undefined') {
+                            Logger.error('❌ Readability library is not available');
+                            Logger.log('🔄 Readability.js not loaded, falling back to CMS-aware extraction...');
+                            // 將使用下面的備用方案邏輯
+                        } else {
+                            try {
+                                article = new window.Readability(document.cloneNode(true)).parse();
 
-                            if (article && isContentGood(article)) {
-                                finalContent = article.content;
-                                finalTitle = article.title;
-                            } else {
-                                Logger.log('🔄 Readability.js failed, trying CMS-aware fallback...');
+                                if (article && isContentGood(article)) {
+                                    finalContent = article.content;
+                                    finalTitle = article.title;
+                                } else {
+                                    Logger.log('🔄 Readability.js failed, trying CMS-aware fallback...');
+                                    // 將使用下面的備用方案邏輯
+                                }
+                            } catch (readabilityError) {
+                                Logger.error('❌ Readability parsing error:', readabilityError);
+                                Logger.log('🔄 Readability.js error, falling back to CMS-aware extraction...');
                                 // 將使用下面的備用方案邏輯
                             }
-                        } catch (readabilityError) {
-                            Logger.error('❌ Readability parsing error:', readabilityError);
-                            Logger.log('🔄 Readability.js error, falling back to CMS-aware extraction...');
-                            // 將使用下面的備用方案邏輯
                         }
                     }
-                }
 
-                // 輔助函數：清理文本內容
-                const cleanTextContent = (text) => {
-                    if (!text) return '';
+                    // 輔助函數：清理文本內容
+                    const cleanTextContent = (text) => {
+                        if (!text) return '';
 
-                    return text
-                        .replace(/\s+/g, ' ')  // 將多個空白字符替換為單個空格
-                        .replace(/[\u{a0}]/gu, ' ')  // 替換不間斷空格
-                        .trim();
-                };
+                        return text
+                            .replace(/\s+/g, ' ')  // 將多個空白字符替換為單個空格
+                            .replace(/[\u{a0}]/gu, ' ')  // 替換不間斷空格
+                            .trim();
+                    };
 
-                // 輔助函數：檢查文本是否有實際內容
-                const hasActualContent = (text) => {
-                    if (!text) return false;
-                    const cleaned = cleanTextContent(text);
-                    return cleaned.length > 0 && cleaned !== '•' && !/^[•\-*\s]*$/u.test(cleaned);
-                };
+                    // 輔助函數：檢查文本是否有實際內容
+                    const hasActualContent = (text) => {
+                        if (!text) return false;
+                        const cleaned = cleanTextContent(text);
+                        return cleaned.length > 0 && cleaned !== '•' && !/^[•\-*\s]*$/u.test(cleaned);
+                    };
 
-                // 輔助函數：獲取元素的直接文本內容（不包括子元素的文本）
-                const getDirectTextContent = (element) => {
-                    let text = '';
-                    for (const child of element.childNodes) {
-                        if (child.nodeType === 3) { // Text node
-                            text += child.textContent;
+                    // 輔助函數：獲取元素的直接文本內容（不包括子元素的文本）
+                    const getDirectTextContent = (element) => {
+                        let text = '';
+                        for (const child of element.childNodes) {
+                            if (child.nodeType === 3) { // Text node
+                                text += child.textContent;
+                            }
                         }
-                    }
-                    return text.trim();
-                };
+                        return text.trim();
+                    };
 
-                // 輔助函數：創建帶縮進的列表項文本
-                const createIndentedText = (text, depth) => {
-                    const indent = '  '.repeat(depth); // 每級縮進2個空格
-                    return indent + text;
-                };
+                    // 輔助函數：創建帶縮進的列表項文本
+                    const createIndentedText = (text, depth) => {
+                        const indent = '  '.repeat(depth); // 每級縮進2個空格
+                        return indent + text;
+                    };
 
-                // 輔助函數：將長文本分割成符合 Notion 限制的片段
-                const splitTextForNotion = (text, maxLength = 2000) => {
-                    if (!text || text.length <= maxLength) {
-                        return [text];
-                    }
-
-                    const chunks = [];
-                    let remaining = text;
-
-                    while (remaining.length > 0) {
-                        if (remaining.length <= maxLength) {
-                            chunks.push(remaining);
-                            break;
+                    // 輔助函數：將長文本分割成符合 Notion 限制的片段
+                    const splitTextForNotion = (text, maxLength = 2000) => {
+                        if (!text || text.length <= maxLength) {
+                            return [text];
                         }
 
-                        // 嘗試在句號、問號、驚嘆號處分割
-                        let splitIndex = -1;
-                        const punctuation = ['.', '。', '?', '？', '!', '！', '\n'];
+                        const chunks = [];
+                        let remaining = text;
 
-                        for (const punct of punctuation) {
-                            const lastIndex = remaining.lastIndexOf(punct, maxLength);
-                            if (lastIndex > maxLength * 0.5) { // 至少分割到一半以上
-                                splitIndex = lastIndex + 1;
+                        while (remaining.length > 0) {
+                            if (remaining.length <= maxLength) {
+                                chunks.push(remaining);
                                 break;
                             }
+
+                            // 嘗試在句號、問號、驚嘆號處分割
+                            let splitIndex = -1;
+                            const punctuation = ['.', '。', '?', '？', '!', '！', '\n'];
+
+                            for (const punct of punctuation) {
+                                const lastIndex = remaining.lastIndexOf(punct, maxLength);
+                                if (lastIndex > maxLength * 0.5) { // 至少分割到一半以上
+                                    splitIndex = lastIndex + 1;
+                                    break;
+                                }
+                            }
+
+                            // 如果找不到合適的標點，嘗試在空格處分割
+                            if (splitIndex === -1) {
+                                splitIndex = remaining.lastIndexOf(' ', maxLength);
+                                if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
+                                    // 實在找不到，強制在 maxLength 處分割
+                                    splitIndex = maxLength;
+                                }
+                            }
+
+                            chunks.push(remaining.substring(0, splitIndex).trim());
+                            remaining = remaining.substring(splitIndex).trim();
                         }
 
-                        // 如果找不到合適的標點，嘗試在空格處分割
-                        if (splitIndex === -1) {
-                            splitIndex = remaining.lastIndexOf(' ', maxLength);
-                            if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
-                                // 實在找不到，強制在 maxLength 處分割
-                                splitIndex = maxLength;
+                        return chunks;
+                    };
+
+                    // 輔助函數：遞歸處理列表相關函數（相互遞歸）
+                    // 使用函數表達式而非聲明，符合 DeepSource JS-0128 要求
+                    // 初始化為 null 以滿足 JS-0119 要求（變數應在宣告時初始化）
+                    /**
+                     * 處理列表項元素，保持層級結構
+                     * @param {Element} liElement - 列表項元素
+                     * @param {number} depth - 當前深度
+                     * @param {Array} blocksArray - 區塊陣列
+                     */
+                    let processListItem = null;
+                    /**
+                     * 遞歸處理列表，保持層級結構
+                     * @param {Element} listElement - 列表元素
+                     * @param {number} depth - 當前深度
+                     * @param {Array} blocksArray - 區塊陣列
+                     */
+                    let processListRecursively = null;
+
+                    // 定義 processListRecursively（先定義，因為 processListItem 會調用它）
+                    processListRecursively = function (listElement, depth, blocksArray) {
+                        const directChildren = listElement.querySelectorAll(':scope > li');
+                        directChildren.forEach(li => {
+                            processListItem(li, depth, blocksArray);
+                        });
+                    };
+
+                    // 定義 processListItem（後定義，因為它調用 processListRecursively）
+                    processListItem = function (liElement, depth, blocksArray) {
+                        const directText = getDirectTextContent(liElement);
+                        const cleanText = cleanTextContent(directText);
+
+                        // 如果有直接文本內容，創建列表項
+                        if (hasActualContent(cleanText)) {
+                            const indentedText = createIndentedText(cleanText, depth);
+                            const textChunks = splitTextForNotion(indentedText, 2000);
+                            textChunks.forEach(chunk => {
+                                blocksArray.push({
+                                    object: 'block',
+                                    type: 'bulleted_list_item',
+                                    bulleted_list_item: {
+                                        rich_text: [{ type: 'text', text: { content: chunk } }]
+                                    }
+                                });
+                            });
+                        }
+
+                        // 遞歸處理子列表
+                        const childLists = liElement.querySelectorAll(':scope > ul, :scope > ol');
+                        childLists.forEach(childList => {
+                            processListRecursively(childList, depth + 1, blocksArray);
+                        });
+                    };
+
+                    if (finalContent) {
+                        /**
+                         * @type {Array<Object>|null} Notion blocks 陣列，存儲從 HTML 轉換的內容區塊
+                         * 初始化為 null 以明確表示「尚未轉換」狀態，便於後續檢查與錯誤處理
+                         */
+                        let blocks = null;
+
+                        // 優先使用增強轉換器
+                        if (typeof window.convertHtmlToNotionBlocks === 'function') {
+                            Logger.log('🎉 Using enhanced HTML to Notion converter');
+                            try {
+                                blocks = window.convertHtmlToNotionBlocks(finalContent);
+                            } catch (error) {
+                                console.error('❌ Enhanced converter failed:', error);
+                                blocks = null;
                             }
                         }
 
-                        chunks.push(remaining.substring(0, splitIndex).trim());
-                        remaining = remaining.substring(splitIndex).trim();
-                    }
+                        // 回退方案：簡單文本處理
+                        if (!blocks || blocks.length === 0) {
+                            console.warn('⚠️ Using fallback: simple text processing');
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = finalContent;
+                            const text = (tempDiv.textContent || tempDiv.innerText || '').trim();
 
-                    return chunks;
-                };
-
-                // 輔助函數：遞歸處理列表相關函數（相互遞歸）
-                // 使用函數表達式而非聲明，符合 DeepSource JS-0128 要求
-                // 初始化為 null 以滿足 JS-0119 要求（變數應在宣告時初始化）
-                /**
-                 * 處理列表項元素，保持層級結構
-                 * @param {Element} liElement - 列表項元素
-                 * @param {number} depth - 當前深度
-                 * @param {Array} blocksArray - 區塊陣列
-                 */
-                let processListItem = null;
-                /**
-                 * 遞歸處理列表，保持層級結構
-                 * @param {Element} listElement - 列表元素
-                 * @param {number} depth - 當前深度
-                 * @param {Array} blocksArray - 區塊陣列
-                 */
-                let processListRecursively = null;
-
-                // 定義 processListRecursively（先定義，因為 processListItem 會調用它）
-                processListRecursively = function(listElement, depth, blocksArray) {
-                    const directChildren = listElement.querySelectorAll(':scope > li');
-                    directChildren.forEach(li => {
-                        processListItem(li, depth, blocksArray);
-                    });
-                };
-
-                // 定義 processListItem（後定義，因為它調用 processListRecursively）
-                processListItem = function(liElement, depth, blocksArray) {
-                    const directText = getDirectTextContent(liElement);
-                    const cleanText = cleanTextContent(directText);
-
-                    // 如果有直接文本內容，創建列表項
-                    if (hasActualContent(cleanText)) {
-                        const indentedText = createIndentedText(cleanText, depth);
-                        const textChunks = splitTextForNotion(indentedText, 2000);
-                        textChunks.forEach(chunk => {
-                            blocksArray.push({
-                                object: 'block',
-                                type: 'bulleted_list_item',
-                                bulleted_list_item: {
-                                    rich_text: [{ type: 'text', text: { content: chunk } }]
-                                }
-                            });
-                        });
-                    }
-
-                    // 遞歸處理子列表
-                    const childLists = liElement.querySelectorAll(':scope > ul, :scope > ol');
-                    childLists.forEach(childList => {
-                        processListRecursively(childList, depth + 1, blocksArray);
-                    });
-                };
-
-                if (finalContent) {
-                    /**
-                     * @type {Array<Object>|null} Notion blocks 陣列，存儲從 HTML 轉換的內容區塊
-                     * 初始化為 null 以明確表示「尚未轉換」狀態，便於後續檢查與錯誤處理
-                     */
-                    let blocks = null;
-
-                    // 優先使用增強轉換器
-                    if (typeof window.convertHtmlToNotionBlocks === 'function') {
-                        Logger.log('🎉 Using enhanced HTML to Notion converter');
-                        try {
-                            blocks = window.convertHtmlToNotionBlocks(finalContent);
-                        } catch (error) {
-                            console.error('❌ Enhanced converter failed:', error);
-                            blocks = null;
+                            if (text) {
+                                const paragraphs = text.split('\n\n').filter(p => p.trim() && p.length > 10);
+                                blocks = paragraphs.map(para => ({
+                                    object: 'block',
+                                    type: 'paragraph',
+                                    paragraph: {
+                                        rich_text: [{ type: 'text', text: { content: para.trim().substring(0, 2000) } }]
+                                    }
+                                }));
+                            } else {
+                                blocks = [{
+                                    object: 'block',
+                                    type: 'paragraph',
+                                    paragraph: {
+                                        rich_text: [{ type: 'text', text: { content: 'Content extraction failed' } }]
+                                    }
+                                }];
+                            }
                         }
-                    }
 
-                    // 回退方案：簡單文本處理
-                    if (!blocks || blocks.length === 0) {
-                        console.warn('⚠️ Using fallback: simple text processing');
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = finalContent;
-                        const text = (tempDiv.textContent || tempDiv.innerText || '').trim();
+                        Logger.log(`✅ Generated ${blocks.length} Notion blocks`);
 
-                        if (text) {
-                            const paragraphs = text.split('\n\n').filter(p => p.trim() && p.length > 10);
-                            blocks = paragraphs.map(para => ({
+                        // v2.5.6: 優先添加封面圖
+                        Logger.log('=== v2.5.6: Featured Image Collection ===');
+                        const featuredImageUrl = collectFeaturedImage();
+
+                        if (featuredImageUrl) {
+                            // 檢查是否已經在 blocks 中（避免重複）
+                            const isDuplicate = blocks.some(block =>
+                                block.type === 'image' &&
+                                block.image?.external?.url === featuredImageUrl
+                            );
+
+                            if (!isDuplicate) {
+                                // 將封面圖插入到 blocks 開頭
+                                blocks.unshift({
+                                    object: 'block',
+                                    type: 'image',
+                                    image: {
+                                        type: 'external',
+                                        external: { url: featuredImageUrl }
+                                    }
+                                });
+                                Logger.log('✓ Featured image added as first block');
+                            } else {
+                                Logger.log('✗ Featured image already exists in blocks, skipped');
+                            }
+                        }
+
+                        // v2.6.0: 提取網站 Icon
+                        Logger.log('=== v2.6.0: Site Icon Collection ===');
+                        const siteIconUrl = collectSiteIcon();
+
+                        // 輸出性能統計（如果可用）
+                        if (performanceOptimizer) {
+                            try {
+                                const performanceStats = performanceOptimizer.getPerformanceStats();
+                                Logger.log('🚀 Performance Stats:', performanceStats);
+                            } catch (perfError) {
+                                console.warn('Could not get performance stats:', perfError);
+                            }
+                        }
+
+                        return {
+                            title: finalTitle,
+                            blocks,
+                            siteIcon: siteIconUrl  // 新增：返回網站 Icon URL
+                        };
+                    } else {
+                        return {
+                            title: document.title,
+                            blocks: [{
                                 object: 'block',
                                 type: 'paragraph',
                                 paragraph: {
-                                    rich_text: [{ type: 'text', text: { content: para.trim().substring(0, 2000) } }]
+                                    rich_text: [{ type: 'text', text: { content: 'Could not automatically extract article content.' } }]
                                 }
-                            }));
-                        } else {
-                            blocks = [{
-                                object: 'block',
-                                type: 'paragraph',
-                                paragraph: {
-                                    rich_text: [{ type: 'text', text: { content: 'Content extraction failed' } }]
-                                }
-                            }];
-                        }
+                            }]
+                        };
                     }
-
-                    Logger.log(`✅ Generated ${blocks.length} Notion blocks`);
-
-                    // v2.5.6: 優先添加封面圖
-                    Logger.log('=== v2.5.6: Featured Image Collection ===');
-                    const featuredImageUrl = collectFeaturedImage();
-
-                    if (featuredImageUrl) {
-                        // 檢查是否已經在 blocks 中（避免重複）
-                        const isDuplicate = blocks.some(block =>
-                            block.type === 'image' &&
-                            block.image?.external?.url === featuredImageUrl
-                        );
-
-                        if (!isDuplicate) {
-                            // 將封面圖插入到 blocks 開頭
-                            blocks.unshift({
-                                object: 'block',
-                                type: 'image',
-                                image: {
-                                    type: 'external',
-                                    external: { url: featuredImageUrl }
-                                }
-                            });
-                            Logger.log('✓ Featured image added as first block');
-                        } else {
-                            Logger.log('✗ Featured image already exists in blocks, skipped');
-                        }
-                    }
-
-                    // v2.6.0: 提取網站 Icon
-                    Logger.log('=== v2.6.0: Site Icon Collection ===');
-                    const siteIconUrl = collectSiteIcon();
-
-                    // 輸出性能統計（如果可用）
-                    if (performanceOptimizer) {
-                        try {
-                            const performanceStats = performanceOptimizer.getPerformanceStats();
-                            Logger.log('🚀 Performance Stats:', performanceStats);
-                        } catch (perfError) {
-                            console.warn('Could not get performance stats:', perfError);
-                        }
-                    }
-
-                    return {
-                        title: finalTitle,
-                        blocks,
-                        siteIcon: siteIconUrl  // 新增：返回網站 Icon URL
-                    };
-                } else {
+                } catch (error) {
+                    console.error('Content extraction failed:', error);
                     return {
                         title: document.title,
                         blocks: [{
                             object: 'block',
                             type: 'paragraph',
                             paragraph: {
-                                rich_text: [{ type: 'text', text: { content: 'Could not automatically extract article content.' } }]
+                                rich_text: [{ type: 'text', text: { content: 'Content extraction failed.' } }]
                             }
                         }]
                     };
                 }
-            } catch (error) {
-                console.error('Content extraction failed:', error);
-                return {
-                    title: document.title,
-                    blocks: [{
-                        object: 'block',
-                        type: 'paragraph',
-                        paragraph: {
-                            rich_text: [{ type: 'text', text: { content: 'Content extraction failed.' } }]
-                        }
-                    }]
-                };
-            }
-        }, ['lib/Readability.js', 'lib/turndown.js', 'lib/turndown-plugin-gfm.js', 'scripts/utils/htmlToNotionConverter.js', 'scripts/performance/PerformanceOptimizer.js']);
+            }, ['lib/Readability.js', 'lib/turndown.js', 'lib/turndown-plugin-gfm.js', 'scripts/utils/htmlToNotionConverter.js', 'scripts/performance/PerformanceOptimizer.js']);
         } catch (scriptError) {
             console.error('❌ Content extraction script execution failed:', scriptError);
             // 直接回覆錯誤，符合錯誤分支預期
@@ -3203,102 +3203,102 @@ async function clearPageHighlights(tabId) {
 
 // Initialize the extension
 chrome.runtime.onInstalled.addListener((details) => {
-  Logger.log('Notion Smart Clipper extension installed/updated');
+    Logger.log('Notion Smart Clipper extension installed/updated');
 
-  // 處理擴展更新
-  if (details.reason === 'update') {
-    handleExtensionUpdate(details.previousVersion);
-  } else if (details.reason === 'install') {
-    handleExtensionInstall();
-  }
+    // 處理擴展更新
+    if (details.reason === 'update') {
+        handleExtensionUpdate(details.previousVersion);
+    } else if (details.reason === 'install') {
+        handleExtensionInstall();
+    }
 });
 
 /**
  * 處理擴展更新
  */
 async function handleExtensionUpdate(previousVersion) {
-  const currentVersion = chrome.runtime.getManifest().version;
-  Logger.log(`擴展已更新: ${previousVersion} → ${currentVersion}`);
+    const currentVersion = chrome.runtime.getManifest().version;
+    Logger.log(`擴展已更新: ${previousVersion} → ${currentVersion}`);
 
-  // 檢查是否需要顯示更新說明
-  if (shouldShowUpdateNotification(previousVersion, currentVersion)) {
-    await showUpdateNotification(previousVersion, currentVersion);
-  }
+    // 檢查是否需要顯示更新說明
+    if (shouldShowUpdateNotification(previousVersion, currentVersion)) {
+        await showUpdateNotification(previousVersion, currentVersion);
+    }
 }
 
 /**
  * 處理擴展安裝
  */
 function handleExtensionInstall() {
-  Logger.log('擴展首次安裝');
-  // 可以在這裡添加歡迎頁面或設置引導
+    Logger.log('擴展首次安裝');
+    // 可以在這裡添加歡迎頁面或設置引導
 }
 
 /**
  * 判斷是否需要顯示更新通知
  */
 function shouldShowUpdateNotification(previousVersion, currentVersion) {
-  // 跳過開發版本或測試版本
-  if (!previousVersion || !currentVersion) return false;
+    // 跳過開發版本或測試版本
+    if (!previousVersion || !currentVersion) return false;
 
-  // 解析版本號
-  const prevParts = previousVersion.split('.').map(Number);
-  const currParts = currentVersion.split('.').map(Number);
+    // 解析版本號
+    const prevParts = previousVersion.split('.').map(Number);
+    const currParts = currentVersion.split('.').map(Number);
 
-  // 主版本或次版本更新時顯示通知
-  if (currParts[0] > prevParts[0] || currParts[1] > prevParts[1]) {
-    return true;
-  }
+    // 主版本或次版本更新時顯示通知
+    if (currParts[0] > prevParts[0] || currParts[1] > prevParts[1]) {
+        return true;
+    }
 
-  // 修訂版本更新且有重要功能時也顯示
-  if (currParts[2] > prevParts[2]) {
-    // 檢查是否為重要更新
-    return isImportantUpdate(currentVersion);
-  }
+    // 修訂版本更新且有重要功能時也顯示
+    if (currParts[2] > prevParts[2]) {
+        // 檢查是否為重要更新
+        return isImportantUpdate(currentVersion);
+    }
 
-  return false;
+    return false;
 }
 
 /**
  * 檢查是否為重要更新
  */
 function isImportantUpdate(version) {
-  // 定義重要更新的版本列表
-  const importantUpdates = [
-    '2.7.3', // 修復超長文章截斷問題
-    '2.8.0', // 商店更新說明功能
-    // 可以繼續添加重要版本
-  ];
+    // 定義重要更新的版本列表
+    const importantUpdates = [
+        '2.7.3', // 修復超長文章截斷問題
+        '2.8.0', // 商店更新說明功能
+        // 可以繼續添加重要版本
+    ];
 
-  return importantUpdates.includes(version);
+    return importantUpdates.includes(version);
 }
 
 /**
  * 顯示更新通知
  */
 async function showUpdateNotification(previousVersion, currentVersion) {
-  try {
-    // 創建通知標籤頁
-    const tab = await chrome.tabs.create({
-      url: chrome.runtime.getURL('update-notification/update-notification.html'),
-      active: true
-    });
+    try {
+        // 創建通知標籤頁
+        const tab = await chrome.tabs.create({
+            url: chrome.runtime.getURL('update-notification/update-notification.html'),
+            active: true
+        });
 
-    // 等待頁面載入後傳送版本信息
-    setTimeout(() => {
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'UPDATE_INFO',
-        previousVersion,
-        currentVersion
-      }).catch(err => {
-        Logger.log('發送更新信息失敗:', err);
-      });
-    }, 1000);
+        // 等待頁面載入後傳送版本信息
+        setTimeout(() => {
+            chrome.tabs.sendMessage(tab.id, {
+                type: 'UPDATE_INFO',
+                previousVersion,
+                currentVersion
+            }).catch(err => {
+                Logger.log('發送更新信息失敗:', err);
+            });
+        }, 1000);
 
-    Logger.log('已顯示更新通知頁面');
-  } catch (error) {
-    console.error('顯示更新通知失敗:', error);
-  }
+        Logger.log('已顯示更新通知頁面');
+    } catch (error) {
+        console.error('顯示更新通知失敗:', error);
+    }
 }
 
 /**
@@ -3336,12 +3336,16 @@ setupTabListeners();
 // 模組導出 (用於測試)
 // ============================================================
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    normalizeUrl,
-    cleanImageUrl,
-    isValidImageUrl,
-    splitTextForHighlight,
-    appendBlocksInBatches,
-    migrateLegacyHighlights
-  };
+    module.exports = {
+        normalizeUrl,
+        cleanImageUrl,
+        isValidImageUrl,
+        splitTextForHighlight,
+        appendBlocksInBatches,
+        migrateLegacyHighlights,
+        _test: {
+            imageUrlValidationCache,
+            clearCleanupInterval: () => clearInterval(cleanupInterval)
+        }
+    };
 }

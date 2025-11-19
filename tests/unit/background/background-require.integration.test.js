@@ -123,7 +123,9 @@ describe('scripts/background.js require integration', () => {
   test('onInstalled(update) 會顯示更新通知並傳送版本訊息', async () => {
     // 載入背景腳本（會註冊事件 listener）
     jest.isolateModules(() => {
-      require('../../../scripts/background.js');
+      const bg = require('../../../scripts/background.js');
+      // 清理 interval 以避免 open handles
+      bg._test?.clearCleanupInterval();
     });
 
     // 觸發安裝事件（更新場景）
@@ -147,7 +149,9 @@ describe('scripts/background.js require integration', () => {
 
   test('onMessage(openNotionPage) 會開新分頁並回傳成功', async () => {
     jest.isolateModules(() => {
-      require('../../../scripts/background.js');
+      const bg = require('../../../scripts/background.js');
+      // 清理 interval 以避免 open handles
+      bg._test?.clearCleanupInterval();
     });
 
     const sendResponse = jest.fn();
