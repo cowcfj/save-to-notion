@@ -150,87 +150,78 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Modal Event Listeners
+    modalCancel.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    modalConfirm.addEventListener('click', () => {
+        modal.style.display = 'none';
+        status.textContent = 'Clearing highlights...';
+        clearHighlightsButton.disabled = true;
+
+        // 發送清除標記的消息
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const activeTab = tabs[0];
+            if (activeTab?.id) {
+                chrome.scripting.executeScript({
+                    target: { tabId: activeTab.id },
+                    func: () => {
+                        // 清除頁面上的標記
+                        const highlights = document.querySelectorAll('.simple-highlight');
+                        highlights.forEach(highlight => {
+                            const parent = highlight.parentNode;
+                            parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
+                            parent.removeChild(highlight);
+                            parent.normalize();
+                        });
+
+                        // 清除本地存儲
+                        const normalizeUrl = (rawUrl) => {
+                            try {
+                                const url = new URL(rawUrl);
+                                url.hash = '';
+                                const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'];
+                                trackingParams.forEach((p) => url.searchParams.delete(p));
+                                if (url.pathname !== '/' && url.pathname.endsWith('/')) {
+                                    url.pathname = url.pathname.replace(/\/+$/, '');
+                                }
+                                return url.toString();
+                            } catch (error) {
+                                console.warn('Failed to normalize URL:', rawUrl, error);
+                                return rawUrl || '';
+                            }
+                        };
+                        const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
+                        try { chrome.storage?.local?.remove([pageKey]); } catch (_) { localStorage.removeItem(pageKey); }
+
+                        // 更新工具欄計數（如果存在）
+                        if (window.simpleHighlighter) {
+                            window.simpleHighlighter.updateHighlightCount();
+                        }
+
+                        return highlights.length;
+                    }
+                }, (results) => {
+                    const clearedCount = results?.[0] ? results[0].result : 0;
+                    status.textContent = `Cleared ${clearedCount} highlights successfully!`;
+
+                    setTimeout(() => {
+                        clearHighlightsButton.disabled = false;
+                        status.textContent = 'Page saved. Ready to highlight or save again.';
+                    }, 2000);
+                });
+            } else {
+                status.textContent = 'Failed to clear highlights.';
+                clearHighlightsButton.disabled = false;
+            }
+        });
+    });
+
     // 清除標記按鈕事件
     clearHighlightsButton.addEventListener('click', () => {
         modalMessage.textContent = '確定要清除頁面上的所有標記嗎？這個操作無法撤銷。';
         modal.style.display = 'flex';
-
-        // Remove existing listeners to prevent duplicates
-        const newConfirm = modalConfirm.cloneNode(true);
-        modalConfirm.parentNode.replaceChild(newConfirm, modalConfirm);
-        const newCancel = modalCancel.cloneNode(true);
-        modalCancel.parentNode.replaceChild(newCancel, modalCancel);
-
-        // Re-select after replacement
-        const currentConfirm = document.getElementById('modal-confirm');
-        const currentCancel = document.getElementById('modal-cancel');
-
-        currentCancel.addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-
-        currentConfirm.addEventListener('click', () => {
-            modal.style.display = 'none';
-            status.textContent = 'Clearing highlights...';
-            clearHighlightsButton.disabled = true;
-
-            // 發送清除標記的消息
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                const activeTab = tabs[0];
-                if (activeTab?.id) {
-                    chrome.scripting.executeScript({
-                        target: { tabId: activeTab.id },
-                        func: () => {
-                            // 清除頁面上的標記
-                            const highlights = document.querySelectorAll('.simple-highlight');
-                            highlights.forEach(highlight => {
-                                const parent = highlight.parentNode;
-                                parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
-                                parent.removeChild(highlight);
-                                parent.normalize();
-                            });
-
-                            // 清除本地存儲
-                            const normalizeUrl = (rawUrl) => {
-                                try {
-                                    const url = new URL(rawUrl);
-                                    url.hash = '';
-                                    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'];
-                                    trackingParams.forEach((p) => url.searchParams.delete(p));
-                                    if (url.pathname !== '/' && url.pathname.endsWith('/')) {
-                                        url.pathname = url.pathname.replace(/\/+$/, '');
-                                    }
-                                    return url.toString();
-                                } catch (error) {
-                                    console.warn('Failed to normalize URL:', rawUrl, error);
-                                    return rawUrl || '';
-                                }
-                            };
-                            const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
-                            try { chrome.storage?.local?.remove([pageKey]); } catch (_) { localStorage.removeItem(pageKey); }
-
-                            // 更新工具欄計數（如果存在）
-                            if (window.simpleHighlighter) {
-                                window.simpleHighlighter.updateHighlightCount();
-                            }
-
-                            return highlights.length;
-                        }
-                    }, (results) => {
-                        const clearedCount = results?.[0] ? results[0].result : 0;
-                        status.textContent = `Cleared ${clearedCount} highlights successfully!`;
-
-                        setTimeout(() => {
-                            clearHighlightsButton.disabled = false;
-                            status.textContent = 'Page saved. Ready to highlight or save again.';
-                        }, 2000);
-                    });
-                } else {
-                    status.textContent = 'Failed to clear highlights.';
-                    clearHighlightsButton.disabled = false;
-                }
-            });
-        });
     });
 
     saveButton.addEventListener('click', () => {
