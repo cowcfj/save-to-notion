@@ -30,15 +30,28 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Node.js 20.x compatibility check
+      run: |
+        echo "Node.js version: $(node --version)"
+        echo "npm version: $(npm --version)"
+        echo "Jest version: $(npm list jest | grep jest)"
+
     - name: Lint regex patterns (non-blocking)
       run: npm run lint
       continue-on-error: true
 
-    - name: Run tests
-      run: npm run test:ci
+    - name: Run tests with Node.js 20.x optimizations
+      run: |
+        # 設置 Node.js 20.x 特定的環境變數
+        export NODE_OPTIONS="--max-old-space-size=4096"
+        export JEST_MAX_WORKERS=2
+        npm run test:ci
 
     - name: Generate coverage report
-      run: npm run test:coverage
+      run: |
+        export NODE_OPTIONS="--max-old-space-size=4096"
+        export JEST_MAX_WORKERS=2
+        npm run test:coverage
       continue-on-error: true
 
     - name: Upload test report artifact (junit.xml)

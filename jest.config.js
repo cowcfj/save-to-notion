@@ -73,5 +73,14 @@ module.exports = {
   detectOpenHandles: true,
 
   // 增加超時時間（30秒）
-  testTimeout: 30000
+  testTimeout: 30000,
+
+  // Node.js 20.x 相容性設置
+  maxWorkers: '50%', // 限制並行工作進程數量，避免內存問題
+  maxConcurrency: 5,  // 限制最大並發測試數量
+
+  // 確保在 Node.js 20.x 中的穩定性
+  clearMocks: true,
+  resetMocks: true,
+  restoreMocks: true
 };
