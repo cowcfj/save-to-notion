@@ -170,13 +170,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 try {
                                     const u = new URL(rawUrl);
                                     u.hash = '';
-                                    const trackingParams = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'];
+                                    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'];
                                     trackingParams.forEach((p) => u.searchParams.delete(p));
                                     if (u.pathname !== '/' && u.pathname.endsWith('/')) {
                                         u.pathname = u.pathname.replace(/\/+$/, '');
                                     }
                                     return u.toString();
-                                } catch (e) {
+                                } catch (error) {
+                                    console.warn('Failed to normalize URL:', rawUrl, error);
                                     return rawUrl || '';
                                 }
                             };
