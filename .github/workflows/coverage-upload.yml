@@ -15,7 +15,7 @@ jobs:
       contents: read
     steps:
       - name: Download LCOV artifact from Tests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: coverage-lcov
           github-token: ${{ secrets.GITHUB_TOKEN }}
