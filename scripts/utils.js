@@ -85,14 +85,36 @@ function normalizeUrl(rawUrl) {
 }
 
 /**
- * 安全地設置日誌啟用狀態
- * 初始化設置失敗不應影響主流程，因此靜默處理錯誤
- * @param {*} value - 要設置的值（會被轉換為布爾值）
+ * 正規化日誌啟用旗標，避免 'false' 等字串被當成真值
+ * @param {*} value - 任何可被使用者或 storage 設置的值
+ * @returns {boolean}
  */
+function normalizeLoggerFlag(value) {
+    if (value === true) {
+        return true;
+    }
+    if (value === false || value === undefined || value === null) {
+        return false;
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'true' || normalized === '1') {
+            return true;
+        }
+        if (normalized === 'false' || normalized === '0' || normalized === '') {
+            return false;
+        }
+    }
+    if (typeof value === 'number') {
+        return value === 1;
+    }
+    return false;
+}
+
 function setLoggerEnabledSafely(value) {
     try {
         if (typeof window !== 'undefined') {
-            window.__LOGGER_ENABLED__ = Boolean(value);
+            window.__LOGGER_ENABLED__ = normalizeLoggerFlag(value);
         }
     } catch (_) {
         // 初始化設置失敗不應影響主流程
@@ -420,16 +442,22 @@ if (typeof window.StorageUtil === 'undefined') {
 if (typeof window.Logger === 'undefined') {
     // 簡易開發模式偵測：版本字串含 dev 或手動開關
     const __LOGGER_DEV__ = (() => {
+        const isManualLoggingEnabled = () => {
+            if (typeof window === 'undefined') {
+                return false;
+            }
+            return normalizeLoggerFlag(window.__FORCE_LOG__) || normalizeLoggerFlag(window.__LOGGER_ENABLED__);
+        };
+
         try {
             if (typeof chrome !== 'undefined') {
                 const manifest = chrome?.runtime?.getManifest?.();
                 const versionString = manifest?.version_name || manifest?.version || '';
-                const flag = (typeof window !== 'undefined' && window.__FORCE_LOG__ === true) || (typeof window !== 'undefined' && window.__LOGGER_ENABLED__ === true);
-                return /dev/i.test(versionString) || flag;
+                return /dev/i.test(versionString) || isManualLoggingEnabled();
             }
-            return false;
+            return isManualLoggingEnabled();
         } catch (_) {
-            return false;
+            return isManualLoggingEnabled();
         }
     })();
 

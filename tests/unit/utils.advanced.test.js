@@ -224,6 +224,41 @@ describe('utils.js - 進階覆蓋率測試', () => {
       expect(global.chrome.runtime.sendMessage).toHaveBeenCalled();
     });
 
+    test('應該忽略值為字串 false 的啟用旗標', () => {
+      // 設置日誌啟用標記為字串 'false'（真值，但應視為關閉）
+      global.window.__LOGGER_ENABLED__ = 'false';
+
+      global.chrome.runtime.getManifest = jest.fn(() => ({
+        version: '2.10.0'
+      }));
+
+      global.chrome.runtime.sendMessage = jest.fn();
+
+      jest.resetModules();
+      utils = require('../helpers/utils.testable');
+
+      utils.Logger.debug('字串 false 測試');
+
+      expect(global.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+
+    test('應該接受字串 true 的啟用旗標', () => {
+      global.window.__LOGGER_ENABLED__ = 'true';
+
+      global.chrome.runtime.getManifest = jest.fn(() => ({
+        version: '2.10.0'
+      }));
+
+      global.chrome.runtime.sendMessage = jest.fn();
+
+      jest.resetModules();
+      utils = require('../helpers/utils.testable');
+
+      utils.Logger.info('字串 true 測試');
+
+      expect(global.chrome.runtime.sendMessage).toHaveBeenCalled();
+    });
+
     test('應該處理 getManifest 拋出異常', () => {
       global.chrome.runtime.getManifest = jest.fn(() => {
         throw new Error('Manifest 錯誤');

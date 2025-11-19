@@ -73,11 +73,43 @@ function getLogger() {
 // 將函數提升到程式根作用域，以符合 DeepSource JS-0016 建議
 
 /**
+ * 正規化日誌旗標，避免 'false' 字串被視為真值
+ */
+function normalizeLoggerFlag(value) {
+    if (value === true) {
+        return true;
+    }
+    if (value === false || value === undefined || value === null) {
+        return false;
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'true' || normalized === '1') {
+            return true;
+        }
+        if (normalized === 'false' || normalized === '0' || normalized === '') {
+            return false;
+        }
+    }
+    if (typeof value === 'number') {
+        return value === 1;
+    }
+    return false;
+}
+
+function isManualLoggingEnabled() {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    return normalizeLoggerFlag(window.__FORCE_LOG__) || normalizeLoggerFlag(window.__LOGGER_ENABLED__);
+}
+
+/**
  * 檢查是否為開發模式
  */
 function isDevMode() {
     // 首先檢查強制標記
-    if (window.__FORCE_LOG__ || window.__LOGGER_ENABLED__) {
+    if (isManualLoggingEnabled()) {
         return true;
     }
 
@@ -493,8 +525,12 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync && ch
     try {
         chrome.storage.sync.onChanged.addListener((changes, areaName) => {
             try {
-                if (areaName === 'sync' && changes && changes.enableDebugLogs) {
-                    window.__LOGGER_ENABLED__ = changes.enableDebugLogs.newValue;
+                if (
+                    areaName === 'sync' &&
+                    changes &&
+                    Object.prototype.hasOwnProperty.call(changes, 'enableDebugLogs')
+                ) {
+                    window.__LOGGER_ENABLED__ = normalizeLoggerFlag(changes.enableDebugLogs.newValue);
                 }
             } catch (_) {
                 // 忽略監聽器處理錯誤
