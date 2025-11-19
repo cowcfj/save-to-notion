@@ -229,8 +229,8 @@ class RetryManager {
      */
     _shouldRetry(error, config) {
         // 使用自定義的重試判斷函數
-        if (config.shouldRetry) {
-            return config.shouldRetry(error);
+        if (typeof config.shouldRetry === 'function') {
+            return config.shouldRetry.call(this, error);
         }
 
         // 默認重試邏輯
