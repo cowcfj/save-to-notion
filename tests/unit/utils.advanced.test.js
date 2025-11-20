@@ -247,7 +247,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
       const testValue = 'false';
 
       // 模擬 normalizeLoggerFlag 的邏輯
-      let normalized;
+      let normalized = false;
       if (testValue === true) {
         normalized = true;
       } else if (testValue === false || testValue === undefined || testValue === null) {
@@ -293,16 +293,16 @@ describe('utils.js - 進階覆蓋率測試', () => {
       // 避免複雜的模組重新加載問題
 
       // 測試 false → true → false 的切換
-      let flag1 = false;
-      let normalized1 = flag1;
+      const flag1 = false;
+      const normalized1 = flag1;
       expect(normalized1).toBe(false);
 
-      let flag2 = true;
-      let normalized2 = flag2;
+      const flag2 = true;
+      const normalized2 = flag2;
       expect(normalized2).toBe(true);
 
-      let flag3 = false;
-      let normalized3 = flag3;
+      const flag3 = false;
+      const normalized3 = flag3;
       expect(normalized3).toBe(false);
     });
 

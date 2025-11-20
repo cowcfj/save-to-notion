@@ -24,6 +24,7 @@ global.__LOGGER_DEV__ = true;
 global.chrome.runtime.lastError = null;
 
 // Mock Logger (used by scripts) - simulate dev mode behavior since __FORCE_LOG__ is set
+// deepcode ignore UseConsoleLogInBrowser: Console usage is intentional in test environment for Logger mock
 global.Logger = {
   log: jest.fn((message, ...args) => {
     // Simulate dev mode: send background log and console.log
@@ -48,7 +49,7 @@ global.Logger = {
       }, () => { /* no-op */ });
     }
     try {
-      console.log(`[DEBUG] ${message}`, ...args); // Concatenate prefix with message to match test expectations
+      console.log(`[DEBUG] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
     } catch (_e) {
       // 忽略 console 錯誤
     }
@@ -64,7 +65,7 @@ global.Logger = {
       }, () => { /* no-op */ });
     }
     try {
-      console.log(`[INFO] ${message}`, ...args); // Concatenate prefix with message to match test expectations
+      console.log(`[INFO] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
     } catch (_e) {
       // 忽略 console 錯誤
     }
@@ -86,7 +87,7 @@ global.Logger = {
     if (global.__LOGGER_DEV__) {
       // Tests expect console.warn with concatenated message
       try {
-        console.warn(`[WARN] ${message}`, ...args);
+        console.warn(`[WARN] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
       } catch (_e) {
         // 忽略 console 錯誤
       }
@@ -103,7 +104,7 @@ global.Logger = {
       }, () => { /* no-op */ });
     }
     try {
-      console.error(`[ERROR] ${message}`, ...args); // Concatenate prefix with message
+      console.error(`[ERROR] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
     } catch (_e) {
       // 忽略 console 錯誤
     }
@@ -255,5 +256,5 @@ global.createDOMFromHTML = (htmlString) => {
 
 // 輔助函數：模擬圖片元素
 global.createMockImage = (src, attributes = {}) => {
-  return createDOMElement('img', { src, ...attributes });
+  return global.createDOMElement('img', { src, ...attributes });
 };
