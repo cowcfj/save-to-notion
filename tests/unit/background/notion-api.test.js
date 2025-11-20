@@ -4,7 +4,7 @@
  */
 
 describe('Background Notion API Operations', () => {
-  let mockFetch;
+  let mockFetch = null;
   let originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -21,9 +21,9 @@ describe('Background Notion API Operations', () => {
     }
 
     // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -161,7 +161,7 @@ describe('Background Notion API Operations', () => {
           image: {
             type: 'external',
             external: {
-              url: 'https://example.com/' + 'x'.repeat(2000) + '.jpg' // 過長的URL
+              url: `https://example.com/${'x'.repeat(2000)}.jpg` // 過長的URL
             }
           }
         },
@@ -650,7 +650,7 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
         if (imageUrl.length > 1500) return false;
 
         // 檢查特殊字符
-        const problematicChars = /[<>{}|\\^`\[\]]/;
+        const problematicChars = /[<>{}|\\^`[\]]/;
         if (problematicChars.test(imageUrl)) return false;
 
         // 驗證 URL 格式
@@ -724,10 +724,10 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
       // 模擬保存到存儲
       await chrome.storage.local.set({
         [`saved_${pageUrl}`]: {
-          title: title,
+          title,
           savedAt: Date.now(),
-          notionPageId: notionPageId,
-          notionUrl: notionUrl
+          notionPageId,
+          notionUrl
         }
       });
 
@@ -738,11 +738,11 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
         const totalSkipped = excludeImages ? 'All images' : `${skippedCount} image(s)`;
         sendResponse({
           success: true,
-          notionPageId: notionPageId,
+          notionPageId,
           warning: `${totalSkipped} were skipped due to compatibility issues`
         });
       } else {
-        sendResponse({ success: true, notionPageId: notionPageId });
+        sendResponse({ success: true, notionPageId });
       }
     } else {
       const errorData = await response.json();

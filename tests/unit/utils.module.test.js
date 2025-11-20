@@ -4,11 +4,11 @@
  */
 
 // 不在頂部 require，而是在 beforeEach 中動態加載
-let normalizeUrl, StorageUtil, Logger;
+let normalizeUrl = null, StorageUtil = null, Logger = null;
 
 describe('utils.js - 模組測試', () => {
-  let originalGet, originalSet, originalRemove, originalStorage;
-  let mockLocalStorage;
+  let originalGet = null, originalSet = null, originalRemove = null, originalStorage = null;
+  let mockLocalStorage = null;
 
   beforeEach(() => {
     // 保存原始 chrome.storage（以防被刪除）
@@ -75,17 +75,17 @@ describe('utils.js - 模組測試', () => {
     if (originalStorage) {
       global.chrome.storage = originalStorage;
     }
-    
+
     // 恢復原始方法
     if (chrome.storage?.local) {
       if (originalGet) chrome.storage.local.get = originalGet;
       if (originalSet) chrome.storage.local.set = originalSet;
       if (originalRemove) chrome.storage.local.remove = originalRemove;
     }
-    
+
     // 清除錯誤狀態
     chrome.runtime.lastError = null;
-    
+
     // 不使用 jest.restoreAllMocks()，因為我們手動管理 localStorage mock
   });
 
@@ -95,19 +95,19 @@ describe('utils.js - 模組測試', () => {
     if (mockLocalStorage.data[key]) {
       return mockLocalStorage.data[key];
     }
-    
+
     // 2. 檢查 global.localStorage（jsdom 提供的）
     if (global.localStorage.getItem) {
       const item = global.localStorage.getItem(key);
       if (item) return item;
     }
-    
+
     // 3. 檢查 window.localStorage（如果存在）
     if (typeof window !== 'undefined' && window.localStorage) {
       const item = window.localStorage.getItem(key);
       if (item) return item;
     }
-    
+
     return null;
   };
 
@@ -178,7 +178,7 @@ describe('utils.js - 模組測試', () => {
     test('應該處理對象格式的數據', async () => {
       const url = 'https://example.com/page';
       const data = {
-        url: url,
+        url,
         highlights: [{ text: 'test' }]
       };
 
@@ -202,23 +202,23 @@ describe('utils.js - 模組測試', () => {
       mockLocalStorage.data = {};
 
       await StorageUtil.saveHighlights(url, highlights);
-      
+
       // 等待異步操作
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // 檢查數據存儲位置
       const key = `highlights_${normalizeUrl(url)}`;
-      
+
       // 嘗試從不同來源讀取
       let foundData = null;
       let foundLocation = 'none';
-      
+
       // 1. 檢查 mockLocalStorage.data
       if (mockLocalStorage.data[key]) {
         foundData = mockLocalStorage.data[key];
         foundLocation = 'mockLocalStorage.data';
       }
-      
+
       // 2. 檢查 global.localStorage（jsdom 提供的）
       if (!foundData && global.localStorage.getItem) {
         const item = global.localStorage.getItem(key);
@@ -227,7 +227,7 @@ describe('utils.js - 模組測試', () => {
           foundLocation = 'global.localStorage.getItem';
         }
       }
-      
+
       // 3. 檢查 window.localStorage（如果存在）
       if (!foundData && typeof window !== 'undefined' && window.localStorage) {
         const item = window.localStorage.getItem(key);
@@ -249,13 +249,13 @@ describe('utils.js - 模組測試', () => {
           hasWindow: typeof window !== 'undefined',
           windowLocalStorage: typeof window !== 'undefined' ? typeof window.localStorage : 'N/A'
         };
-        throw new Error('Data not found. Debug: ' + JSON.stringify(debugInfo, null, 2));
+        throw new Error(`Data not found. Debug: ${JSON.stringify(debugInfo, null, 2)}`);
       }
 
       // 找到數據，驗證內容
       expect(foundData).toBeDefined();
       expect(JSON.parse(foundData)).toEqual(highlights);
-      
+
       // 如果數據在意外的位置，記錄警告（但測試通過）
       if (foundLocation !== 'mockLocalStorage.data') {
         // 這個測試實際上只關心數據被正確保存了，而不是保存到哪裡
@@ -300,7 +300,7 @@ describe('utils.js - 模組測試', () => {
     test('應該計算對象格式的標註數量', async () => {
       const url = 'https://example.com/page';
       const data = {
-        url: url,
+        url,
         highlights: [{ text: '1' }, { text: '2' }, { text: '3' }]
       };
 
@@ -330,7 +330,7 @@ describe('utils.js - 模組測試', () => {
     test('應該加載對象格式的標註', async () => {
       const url = 'https://example.com/page';
       const data = {
-        url: url,
+        url,
         highlights: [{ text: 'test 1' }]
       };
 
@@ -361,7 +361,7 @@ describe('utils.js - 模組測試', () => {
     test('應該處理 localStorage 中的對象格式', async () => {
       const url = 'https://example.com/page';
       const data = {
-        url: url,
+        url,
         highlights: [{ text: 'legacy' }]
       };
 
@@ -426,7 +426,7 @@ describe('utils.js - 模組測試', () => {
   describe('StorageUtil.clearHighlights', () => {
     test('應該清除標註數據', async () => {
       const url = 'https://example.com/page';
-      
+
       await chrome.storage.local.set({
         'highlights_https://example.com/page': [{ text: 'test' }]
       });
@@ -438,7 +438,7 @@ describe('utils.js - 模組測試', () => {
 
     test('應該同時清除 localStorage', async () => {
       const url = 'https://example.com/page';
-      
+
       const key = 'highlights_https://example.com/page';
       // 先存入數據
       if (global.localStorage.setItem) {
@@ -454,7 +454,7 @@ describe('utils.js - 模組測試', () => {
     test('應該處理 chrome.storage 錯誤', async () => {
       const url = 'https://example.com/page';
       const key = 'highlights_https://example.com/page';
-      
+
       // 先存入數據到 localStorage
       if (global.localStorage.setItem) {
         global.localStorage.setItem(key, JSON.stringify([{ text: 'test' }]));
@@ -526,7 +526,7 @@ describe('utils.js - 模組測試', () => {
       expect(keys).toHaveLength(1);
       // 第二次調用應該顯示數量和 URL
       const calls = console.log.mock.calls;
-      const logLine = calls.find(call => 
+      const logLine = calls.find(call =>
         call[0]?.includes('2 個標註')
       );
       expect(logLine).toBeDefined();
@@ -585,11 +585,11 @@ describe('utils.js - 模組測試', () => {
         chrome.runtime.lastError = { message: 'Storage error' };
         setTimeout(() => callback(), 0);
       });
-      
+
       // 模擬 localStorage 拋出 QuotaExceededError
       const quotaError = new Error('QuotaExceededError');
       quotaError.name = 'QuotaExceededError';
-      
+
       // 使用 spyOn 替換 localStorage.setItem
       const setItemSpy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
         throw quotaError;
@@ -609,12 +609,12 @@ describe('utils.js - 模組測試', () => {
     test('loadHighlights 應該處理 localStorage 損壞的 JSON', async () => {
       const url = 'https://example.com/page';
       const key = 'highlights_https://example.com/page';
-      
+
       // 模擬 chrome.storage 返回空（重要：確保完全為空）
       chrome.storage.local.get = jest.fn((keyParam, callback) => {
         setTimeout(() => callback({}), 0);  // 返回空對象
       });
-      
+
       // 使用 spyOn 替換 localStorage.getItem
       const getItemSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation((keyParam) => {
         if (keyParam === key) {
@@ -635,12 +635,12 @@ describe('utils.js - 模組測試', () => {
 
     test('clearHighlights 應該處理 localStorage.removeItem 異常', async () => {
       const url = 'https://example.com/page';
-      
+
       // chrome.storage 成功
       chrome.storage.local.remove = jest.fn((key, callback) => {
         callback();
       });
-      
+
       // localStorage.removeItem 失敗
       const removeError = new Error('Permission denied');
       localStorage.removeItem = jest.fn(() => {
@@ -653,14 +653,14 @@ describe('utils.js - 模組測試', () => {
 
     test('clearHighlights 應該在 chrome.storage 不可用時處理 localStorage 錯誤', async () => {
       const url = 'https://example.com/page';
-      
+
       // 保存原始 chrome.storage
       const originalStorage = global.chrome.storage;
-      
+
       try {
         // 模擬 chrome.storage 不可用
         delete global.chrome.storage;
-        
+
         // localStorage 失敗
         const originalRemoveItem = localStorage.removeItem;
         localStorage.removeItem = jest.fn(() => {
@@ -669,10 +669,10 @@ describe('utils.js - 模組測試', () => {
 
         // 應該靜默處理錯誤（不拋出）
         await StorageUtil.clearHighlights(url);
-        
+
         // 測試通過：沒有拋出錯誤
         expect(true).toBe(true);
-        
+
         // 恢復 localStorage
         localStorage.removeItem = originalRemoveItem;
       } finally {

@@ -22,9 +22,9 @@ const {
 } = require('../helpers/background-utils.testable');
 
 describe('background-utils.testable.js', () => {
-    
+
     describe('cleanImageUrl', () => {
-        
+
         describe('基本功能', () => {
             test('應該返回有效的圖片 URL', () => {
                 const url = 'https://example.com/image.jpg';
@@ -114,7 +114,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('isValidImageUrl', () => {
-        
+
         describe('有效的圖片 URL', () => {
             test('應該接受常見圖片擴展名', () => {
                 expect(isValidImageUrl('https://example.com/image.jpg')).toBe(true);
@@ -172,7 +172,7 @@ describe('background-utils.testable.js', () => {
             });
 
             test('應該拒絕超過 2000 字符的 URL', () => {
-                const longUrl = 'https://example.com/image.jpg?' + 'x'.repeat(2000);
+                const longUrl = `https://example.com/image.jpg?${'x'.repeat(2000)}`;
                 expect(isValidImageUrl(longUrl)).toBe(false);
             });
 
@@ -221,7 +221,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('splitTextForHighlight', () => {
-        
+
         describe('基本功能', () => {
             test('短文本應該返回單個元素數組', () => {
                 const text = 'Short text';
@@ -249,7 +249,7 @@ describe('background-utils.testable.js', () => {
 
         describe('智能分割', () => {
             test('應該在雙換行符處分割', () => {
-                const text = 'a'.repeat(1500) + '\n\n' + 'b'.repeat(1500);
+                const text = `${'a'.repeat(1500)}\n\n${'b'.repeat(1500)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result.length).toBeGreaterThan(1);
                 expect(result[0]).toContain('a');
@@ -257,44 +257,44 @@ describe('background-utils.testable.js', () => {
             });
 
             test('應該在單換行符處分割', () => {
-                const text = 'a'.repeat(1500) + '\n' + 'b'.repeat(1500);
+                const text = `${'a'.repeat(1500)}\n${'b'.repeat(1500)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result.length).toBeGreaterThan(1);
             });
 
             test('應該在中文句號處分割', () => {
-                const text = 'a'.repeat(1500) + '。' + 'b'.repeat(1500);
+                const text = `${'a'.repeat(1500)}。${'b'.repeat(1500)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result.length).toBeGreaterThan(1);
                 expect(result[0]).toContain('a');
             });
 
             test('應該在英文句號處分割', () => {
-                const text = 'a'.repeat(1500) + '. ' + 'b'.repeat(1500);
+                const text = `${'a'.repeat(1500)}. ${'b'.repeat(1500)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result.length).toBeGreaterThan(1);
             });
 
             test('應該在問號處分割', () => {
-                const text = 'a'.repeat(1500) + '？' + 'b'.repeat(1500);
+                const text = `${'a'.repeat(1500)}？${'b'.repeat(1500)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result.length).toBeGreaterThan(1);
             });
 
             test('應該在驚嘆號處分割', () => {
-                const text = 'a'.repeat(1500) + '！' + 'b'.repeat(1500);
+                const text = `${'a'.repeat(1500)}！${'b'.repeat(1500)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result.length).toBeGreaterThan(1);
             });
 
             test('應該在空格處分割（沒有標點時）', () => {
-                const text = 'a'.repeat(1500) + ' ' + 'b'.repeat(1500);
+                const text = `${'a'.repeat(1500)} ${'b'.repeat(1500)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result.length).toBeGreaterThan(1);
             });
 
             test('應該優先在靠近 maxLength 的標點處分割', () => {
-                const text = 'a'.repeat(100) + '。' + 'b'.repeat(1800) + '。' + 'c'.repeat(100);
+                const text = `${'a'.repeat(100)}。${'b'.repeat(1800)}。${'c'.repeat(100)}`;
                 const result = splitTextForHighlight(text, 2000);
                 // 應該在第二個句號處分割（更接近 maxLength）
                 expect(result[0]).toContain('b');
@@ -310,7 +310,7 @@ describe('background-utils.testable.js', () => {
             });
 
             test('標點位置太靠前時應該強制分割', () => {
-                const text = 'a'.repeat(100) + '。' + 'b'.repeat(2900);
+                const text = `${'a'.repeat(100)}。${'b'.repeat(2900)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result.length).toBeGreaterThan(1);
                 // 第一段不應該只有 100 個字符
@@ -320,13 +320,13 @@ describe('background-utils.testable.js', () => {
 
         describe('過濾和清理', () => {
             test('應該過濾空字符串', () => {
-                const text = 'a'.repeat(1500) + '   ' + 'b'.repeat(1500);
+                const text = `${'a'.repeat(1500)}   ${'b'.repeat(1500)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result.every(chunk => chunk.length > 0)).toBe(true);
             });
 
             test('應該 trim 每個片段', () => {
-                const text = 'a'.repeat(1500) + '。   ' + 'b'.repeat(1500);
+                const text = `${'a'.repeat(1500)}。   ${'b'.repeat(1500)}`;
                 const result = splitTextForHighlight(text, 2000);
                 expect(result[0]).not.toMatch(/\s+$/);
                 expect(result[1]).not.toMatch(/^\s+/);
@@ -372,7 +372,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('normalizeUrl', () => {
-        
+
         describe('基本功能', () => {
             test('應該返回標準化的 URL', () => {
                 const url = 'https://example.com/path';
@@ -550,7 +550,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('splitIntoBatches', () => {
-        
+
         describe('基本功能', () => {
             test('應該將數組分割成指定大小的批次', () => {
                 const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -634,9 +634,9 @@ describe('background-utils.testable.js', () => {
 
         describe('真實世界場景', () => {
             test('Notion API 批次（100 個區塊）', () => {
-                const blocks = new Array(250).fill(0).map((_, i) => ({ 
-                    type: 'paragraph', 
-                    content: `Block ${i}` 
+                const blocks = new Array(250).fill(0).map((_, i) => ({
+                    type: 'paragraph',
+                    content: `Block ${i}`
                 }));
                 const result = splitIntoBatches(blocks, 100);
                 expect(result).toHaveLength(3);
@@ -655,7 +655,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('calculateBatchStats', () => {
-        
+
         describe('基本功能', () => {
             test('應該計算正確的批次統計信息', () => {
                 const result = calculateBatchStats(250, 100, 0);
@@ -795,7 +795,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('createNotionRichText', () => {
-        
+
         test('應該創建基本富文本對象', () => {
             const result = createNotionRichText('Hello World');
             expect(result).toEqual({
@@ -814,8 +814,8 @@ describe('background-utils.testable.js', () => {
         });
 
         test('應該支持多個標註', () => {
-            const result = createNotionRichText('Styled', { 
-                bold: true, 
+            const result = createNotionRichText('Styled', {
+                bold: true,
                 italic: true,
                 color: 'red'
             });
@@ -852,7 +852,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('createNotionParagraph', () => {
-        
+
         test('應該從字符串創建段落', () => {
             const result = createNotionParagraph('Hello World');
             expect(result).toEqual({
@@ -897,7 +897,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('createNotionHeading', () => {
-        
+
         test('應該創建 H1 標題', () => {
             const result = createNotionHeading('Title', 1);
             expect(result).toEqual({
@@ -947,7 +947,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('createNotionImage', () => {
-        
+
         test('應該創建圖片區塊', () => {
             const url = 'https://example.com/image.jpg';
             const result = createNotionImage(url);
@@ -990,7 +990,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('isValidNotionBlock', () => {
-        
+
         test('有效的段落區塊應該返回 true', () => {
             const block = {
                 object: 'block',
@@ -1068,7 +1068,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('HTTP 狀態碼工具函數', () => {
-        
+
         describe('isSuccessStatusCode', () => {
             test('2xx 狀態碼應該返回 true', () => {
                 expect(isSuccessStatusCode(200)).toBe(true);
@@ -1156,7 +1156,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('truncateText', () => {
-        
+
         test('短文本應該保持不變', () => {
             expect(truncateText('Hello', 10)).toBe('Hello');
         });
@@ -1208,7 +1208,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('safeJsonParse', () => {
-        
+
         test('應該解析有效的 JSON', () => {
             const obj = { name: 'test', value: 123 };
             const json = JSON.stringify(obj);
@@ -1261,7 +1261,7 @@ describe('background-utils.testable.js', () => {
     });
 
     describe('safeJsonStringify', () => {
-        
+
         test('應該序列化對象', () => {
             const obj = { name: 'test', value: 123 };
             expect(safeJsonStringify(obj)).toBe(JSON.stringify(obj));
@@ -1307,18 +1307,20 @@ describe('background-utils.testable.js', () => {
         });
 
         test('函數應該被忽略', () => {
-            const obj = { 
-                name: 'test', 
-                func: function() {} 
+            const obj = {
+                name: 'test',
+                func() {
+                    // Intentionally empty for test
+                }
             };
             const result = safeJsonStringify(obj);
             expect(result).toBe('{"name":"test"}');
         });
 
         test('Symbol 應該被忽略', () => {
-            const obj = { 
-                name: 'test', 
-                [Symbol('key')]: 'value' 
+            const obj = {
+                name: 'test',
+                [Symbol('key')]: 'value'
             };
             const result = safeJsonStringify(obj);
             expect(result).toBe('{"name":"test"}');

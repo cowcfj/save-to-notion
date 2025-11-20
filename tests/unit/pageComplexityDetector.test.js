@@ -11,10 +11,15 @@
 const { JSDOM } = require('jsdom');
 
 // 將頁面複雜度檢測器轉為 CommonJS 格式，以便測試
-let detectPageComplexity, selectExtractor, getAnalysisReport, logAnalysis;
+let detectPageComplexity = null;
+let selectExtractor = null;
+let getAnalysisReport = null;
+let logAnalysis = null;
 
 // 模擬瀏覽器環境
-let mockWindow, mockDocument, mockLocation;
+let mockWindow = null;
+let mockDocument = null;
+let mockLocation = null;
 
 beforeAll(() => {
     // 由於檢測器使用 ES Module，我們需要模擬相關功能
@@ -137,7 +142,7 @@ function setupDetectorForTest(document, window, location) {
     }
 
     // 檢測頁面複雜度
-    detectPageComplexity = function(testDocument = document) {
+    detectPageComplexity = function (testDocument = document) {
         try {
             const metrics = {
                 isDocSite: isDocumentationSite(),
@@ -166,7 +171,7 @@ function setupDetectorForTest(document, window, location) {
                 hasTechnicalContent: technicalFeatures.isTechnical,
                 hasAds: metrics.adElements > 3,
                 isComplexLayout: metrics.navElements > 5 ||
-                               (metrics.contentElements > 0 && metrics.navElements / metrics.contentElements > 3),
+                    (metrics.contentElements > 0 && metrics.navElements / metrics.contentElements > 3),
                 linkDensity: metrics.linkDensity,
                 hasHighLinkDensity: metrics.linkDensity > 0.3,
                 isLongForm: metrics.textLength > 5000,
@@ -195,7 +200,7 @@ function setupDetectorForTest(document, window, location) {
     };
 
     // 選擇最佳提取器
-    selectExtractor = function(complexity) {
+    selectExtractor = function (complexity) {
         const reasons = [];
 
         const preferExtractus =
@@ -208,7 +213,7 @@ function setupDetectorForTest(document, window, location) {
             complexity.isComplexLayout ||
             complexity.hasRichMedia;
 
-        let selectedExtractor;
+        let selectedExtractor = null;
 
         if (preferExtractus && !requireReadability) {
             selectedExtractor = 'extractus';
@@ -260,14 +265,14 @@ function setupDetectorForTest(document, window, location) {
 
         return {
             extractor: selectedExtractor,
-            reasons: reasons,
-            confidence: confidence,
-            fallbackRequired: fallbackRequired
+            reasons,
+            confidence,
+            fallbackRequired
         };
     };
 
     // 獲取分析報告
-    getAnalysisReport = function(complexity, selection) {
+    getAnalysisReport = function (complexity, selection) {
         return {
             url: location.href,
             timestamp: new Date().toISOString(),
@@ -287,7 +292,7 @@ function setupDetectorForTest(document, window, location) {
     };
 
     // 記錄分析結果
-    logAnalysis = function(complexity, selection, extractionResult) {
+    logAnalysis = function (complexity, selection, extractionResult) {
         return {
             url: location.href,
             extractor: selection.extractor,
@@ -386,7 +391,7 @@ describe('頁面複雜度檢測器', () => {
                     <article>
                         <h1>Configuration Options</h1>
                         <ul>
-                            ${Array.from({length: 15}, (_, i) => `<li>Option ${i + 1}</li>`).join('')}
+                            ${Array.from({ length: 15 }, (_, i) => `<li>Option ${i + 1}</li>`).join('')}
                         </ul>
                     </article>
                 </body>
