@@ -6,7 +6,7 @@
  * - 透過事件發射器模擬 onInstalled/onMessage，覆蓋初始化與訊息處理路徑
  */
 
- 
+
 
 // 簡單事件工具：保存 listener 並允許 _emit 觸發
 function createEvent() {
@@ -19,7 +19,7 @@ function createEvent() {
     },
     hasListener: (fn) => listeners.includes(fn),
     _emit: (...args) => listeners.forEach((fn) => {
-      try { fn(...args); } catch (e) { /* 忽略 listener 內部錯誤以避免中斷測試 */ }
+      try { fn(...args); } catch (_e) { /* 忽略 listener 內部錯誤以避免中斷測試 */ }
     }),
     _listeners: listeners
   };
@@ -123,7 +123,9 @@ describe('scripts/background.js require integration', () => {
   test('onInstalled(update) 會顯示更新通知並傳送版本訊息', async () => {
     // 載入背景腳本（會註冊事件 listener）
     jest.isolateModules(() => {
-      require('../../../scripts/background.js');
+      const bg = require('../../../scripts/background.js');
+      // 清理 interval 以避免 open handles
+      bg._test?.clearCleanupInterval();
     });
 
     // 觸發安裝事件（更新場景）
@@ -147,7 +149,9 @@ describe('scripts/background.js require integration', () => {
 
   test('onMessage(openNotionPage) 會開新分頁並回傳成功', async () => {
     jest.isolateModules(() => {
-      require('../../../scripts/background.js');
+      const bg = require('../../../scripts/background.js');
+      // 清理 interval 以避免 open handles
+      bg._test?.clearCleanupInterval();
     });
 
     const sendResponse = jest.fn();

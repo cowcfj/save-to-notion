@@ -1,9 +1,16 @@
+/* global chrome */
 document.addEventListener('DOMContentLoaded', () => {
     const saveButton = document.getElementById('save-button');
     const highlightButton = document.getElementById('highlight-button');
     const clearHighlightsButton = document.getElementById('clear-highlights-button');
     const openNotionButton = document.getElementById('open-notion-button');
     const status = document.getElementById('status');
+
+    // Modal elements
+    const modal = document.getElementById('confirmation-modal');
+    const modalMessage = document.getElementById('modal-message');
+    const modalConfirm = document.getElementById('modal-confirm');
+    const modalCancel = document.getElementById('modal-cancel');
 
     // Check for API key and Data Source ID on popup open
     chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'], (result) => {
@@ -143,69 +150,85 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Modal Event Listeners
+    modalCancel.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    modalConfirm.addEventListener('click', () => {
+        modal.style.display = 'none';
+        status.textContent = 'Clearing highlights...';
+        clearHighlightsButton.disabled = true;
+
+        // 發送清除標記的消息
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const activeTab = tabs[0];
+            if (activeTab?.id) {
+                chrome.scripting.executeScript({
+                    target: { tabId: activeTab.id },
+                    func: () => {
+                        // 清除頁面上的標記
+                        const highlights = document.querySelectorAll('.simple-highlight');
+                        highlights.forEach(highlight => {
+                            const parent = highlight.parentNode;
+                            parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
+                            parent.removeChild(highlight);
+                            parent.normalize();
+                        });
+
+                        // 清除本地存儲
+                        const normalizeUrl = (rawUrl) => {
+                            try {
+                                const url = new URL(rawUrl);
+                                url.hash = '';
+                                const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'];
+                                trackingParams.forEach((p) => url.searchParams.delete(p));
+                                if (url.pathname !== '/' && url.pathname.endsWith('/')) {
+                                    url.pathname = url.pathname.replace(/\/+$/, '');
+                                }
+                                return url.toString();
+                            } catch (error) {
+                                console.warn('Failed to normalize URL:', rawUrl, error);
+                                return rawUrl || '';
+                            }
+                        };
+                        const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
+                        try { chrome.storage?.local?.remove([pageKey]); } catch (_) { localStorage.removeItem(pageKey); }
+
+                        // 更新工具欄計數（如果存在）
+                        if (window.simpleHighlighter) {
+                            window.simpleHighlighter.updateHighlightCount();
+                        }
+
+                        return highlights.length;
+                    }
+                }, (results) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('腳本注入失敗:', chrome.runtime.lastError);
+                        status.textContent = 'Failed to clear highlights.';
+                        clearHighlightsButton.disabled = false;
+                        return;
+                    }
+
+                    const clearedCount = results?.[0] ? results[0].result : 0;
+                    status.textContent = `Cleared ${clearedCount} highlights successfully!`;
+
+                    setTimeout(() => {
+                        clearHighlightsButton.disabled = false;
+                        status.textContent = 'Page saved. Ready to highlight or save again.';
+                    }, 2000);
+                });
+            } else {
+                status.textContent = 'Failed to clear highlights.';
+                clearHighlightsButton.disabled = false;
+            }
+        });
+    });
+
     // 清除標記按鈕事件
     clearHighlightsButton.addEventListener('click', () => {
-        if (confirm('確定要清除頁面上的所有標記嗎？這個操作無法撤銷。')) {
-            status.textContent = 'Clearing highlights...';
-            clearHighlightsButton.disabled = true;
-
-            // 發送清除標記的消息
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                const activeTab = tabs[0];
-                if (activeTab?.id) {
-                    chrome.scripting.executeScript({
-                        target: { tabId: activeTab.id },
-                        func: () => {
-                            // 清除頁面上的標記
-                            const highlights = document.querySelectorAll('.simple-highlight');
-                            highlights.forEach(highlight => {
-                                const parent = highlight.parentNode;
-                                parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
-                                parent.removeChild(highlight);
-                                parent.normalize();
-                            });
-
-                            // 清除本地存儲
-                            const normalizeUrl = (rawUrl) => {
-                                try {
-                                    const u = new URL(rawUrl);
-                                    u.hash = '';
-                                    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'];
-                                    trackingParams.forEach((p) => u.searchParams.delete(p));
-                                    if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-                                        u.pathname = u.pathname.replace(/\/+$/, '');
-                                    }
-                                    return u.toString();
-                                } catch (error) {
-                                    console.warn('Failed to normalize URL:', rawUrl, error);
-                                    return rawUrl || '';
-                                }
-                            };
-                            const pageKey = `highlights_${normalizeUrl(window.location.href)}`;
-                            try { chrome.storage?.local?.remove([pageKey]); } catch (_) { localStorage.removeItem(pageKey); }
-
-                            // 更新工具欄計數（如果存在）
-                            if (window.simpleHighlighter) {
-                                window.simpleHighlighter.updateHighlightCount();
-                            }
-
-                            return highlights.length;
-                        }
-                    }, (results) => {
-                        const clearedCount = results?.[0] ? results[0].result : 0;
-                        status.textContent = `Cleared ${clearedCount} highlights successfully!`;
-
-                        setTimeout(() => {
-                            clearHighlightsButton.disabled = false;
-                            status.textContent = 'Page saved. Ready to highlight or save again.';
-                        }, 2000);
-                    });
-                } else {
-                    status.textContent = 'Failed to clear highlights.';
-                    clearHighlightsButton.disabled = false;
-                }
-            });
-        }
+        modalMessage.textContent = '確定要清除頁面上的所有標記嗎？這個操作無法撤銷。';
+        modal.style.display = 'flex';
     });
 
     saveButton.addEventListener('click', () => {

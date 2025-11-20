@@ -85,14 +85,97 @@ function normalizeUrl(rawUrl) {
 }
 
 /**
- * 安全地設置日誌啟用狀態
- * 初始化設置失敗不應影響主流程，因此靜默處理錯誤
- * @param {*} value - 要設置的值（會被轉換為布爾值）
+ * 正規化日誌啟用旗標，避免 'false' 等字串被當成真值
+ * @param {*} value - 任何可被使用者或 storage 設置的值
+ * @returns {boolean}
+ */
+function normalizeLoggerFlag(value) {
+    if (value === true) {
+        return true;
+    }
+    if (value === false || value === undefined || value === null) {
+        return false;
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'true' || normalized === '1') {
+            return true;
+        }
+        if (normalized === 'false' || normalized === '0' || normalized === '') {
+            return false;
+        }
+    }
+    if (typeof value === 'number') {
+        return value === 1;
+    }
+    return false;
+}
+
+/**
+ * 檢查是否手動啟用日誌記錄
+ * 檢查 window.__FORCE_LOG__ 或 window.__LOGGER_ENABLED__ 旗標
+ * @returns {boolean} 如果手動啟用日誌則返回 true，否則返回 false
+ */
+function isManualLoggingEnabled() {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    return (
+        normalizeLoggerFlag(window.__FORCE_LOG__) ||
+        normalizeLoggerFlag(window.__LOGGER_ENABLED__)
+    );
+}
+
+/**
+ * 檢查 manifest 版本是否標記為開發版本
+ * 通過檢查 version_name 或 version 字段中是否包含 'dev' 來判斷
+ * 使用閉包緩存結果以提升性能
+ * @returns {boolean} 如果是開發版本則返回 true，否則返回 false
+ */
+const isManifestMarkedDev = (() => {
+    let cachedResult = null;
+
+    return function() {
+        if (cachedResult !== null) {
+            return cachedResult;
+        }
+
+        try {
+            if (typeof chrome !== 'undefined') {
+                const manifest = chrome?.runtime?.getManifest?.();
+                const versionString = manifest?.version_name || manifest?.version || '';
+                cachedResult = /dev/i.test(versionString);
+                return cachedResult;
+            }
+        } catch (_) {
+            // manifest 讀取失敗時，退回 false
+        }
+
+        cachedResult = false;
+        return false;
+    };
+})();
+
+/**
+ * 判斷是否應該輸出開發日誌
+ * 檢查手動啟用旗標或 manifest 開發版本標記
+ * @returns {boolean} 如果應該輸出開發日誌則返回 true，否則返回 false
+ */
+function shouldEmitDevLog() {
+    return isManualLoggingEnabled() || isManifestMarkedDev();
+}
+
+/**
+ * 安全地設置日誌啟用旗標
+ * 使用 normalizeLoggerFlag 正規化輸入值，避免字串 'false' 等被誤判為真值
+ * 設置失敗時靜默處理，不影響主流程
+ * @param {*} value - 要設置的值（任何類型，會被正規化為 boolean）
+ * @returns {void}
  */
 function setLoggerEnabledSafely(value) {
     try {
         if (typeof window !== 'undefined') {
-            window.__LOGGER_ENABLED__ = Boolean(value);
+            window.__LOGGER_ENABLED__ = normalizeLoggerFlag(value);
         }
     } catch (_) {
         // 初始化設置失敗不應影響主流程
@@ -142,7 +225,9 @@ const safeLogger = (function initSafeLoggerSingleton() {
 // 初始化可切換的日誌模式旗標（預設 false）；由 options 頁面設定 enableDebugLogs 同步更新
 if (typeof window !== 'undefined') {
     try {
-        window.__LOGGER_ENABLED__ = false;
+        if (typeof window.__LOGGER_ENABLED__ === 'undefined') {
+            window.__LOGGER_ENABLED__ = false;
+        }
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
             chrome.storage.sync.get(['enableDebugLogs'], (cfg) => {
                 setLoggerEnabledSafely(cfg?.enableDebugLogs);
@@ -418,44 +503,36 @@ if (typeof window.StorageUtil === 'undefined') {
  * 日誌工具
  */
 if (typeof window.Logger === 'undefined') {
-    // 簡易開發模式偵測：版本字串含 dev 或手動開關
-    const __LOGGER_DEV__ = (() => {
-        try {
-            if (typeof chrome !== 'undefined') {
-                const manifest = chrome?.runtime?.getManifest?.();
-                const versionString = manifest?.version_name || manifest?.version || '';
-                const flag = (typeof window !== 'undefined' && window.__FORCE_LOG__ === true) || (typeof window !== 'undefined' && window.__LOGGER_ENABLED__ === true);
-                return /dev/i.test(versionString) || flag;
-            }
-            return false;
-        } catch (_) {
-            return false;
-        }
-    })();
+    /**
+     * 檢查是否應該輸出開發日誌的內部函數
+     * 作為 Logger 方法的條件檢查器，決定是否執行日誌輸出
+     * @returns {boolean} 如果應該輸出開發日誌則返回 true，否則返回 false
+     */
+    const __LOGGER_DEV__ = () => shouldEmitDevLog();
 
     window.Logger = {
     // 與現有代碼兼容：提供 log 別名（透過 background sink；僅在 dev 時發送）
     log: (message, ...args) => {
-        if (__LOGGER_DEV__) {
+        if (__LOGGER_DEV__()) {
             __sendBackgroundLog('log', message, args);
 
         }
     },
     debug: (message, ...args) => {
-        if (__LOGGER_DEV__) {
+        if (__LOGGER_DEV__()) {
             __sendBackgroundLog('debug', message, args);
             console.debug('[DEBUG]', message, ...args);
         }
     },
     info: (message, ...args) => {
-        if (__LOGGER_DEV__) {
+        if (__LOGGER_DEV__()) {
             __sendBackgroundLog('info', message, args);
             console.info('[INFO]', message, ...args);
         }
     },
     warn: (message, ...args) => {
         __sendBackgroundLog('warn', message, args);
-        if (__LOGGER_DEV__) {
+        if (__LOGGER_DEV__()) {
             console.warn('[WARN]', message, ...args);
         }
     },

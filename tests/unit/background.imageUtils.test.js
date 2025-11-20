@@ -7,7 +7,12 @@
 require('../mocks/chrome.js');
 
 // 導入原始源碼
-const { cleanImageUrl, isValidImageUrl } = require('../../scripts/background.js');
+const backgroundModule = require('../../scripts/background.js');
+const { cleanImageUrl, isValidImageUrl } = backgroundModule;
+
+afterAll(() => {
+    backgroundModule._test?.clearCleanupInterval?.();
+});
 
 describe('cleanImageUrl - 深度測試', () => {
 

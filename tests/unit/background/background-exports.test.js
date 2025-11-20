@@ -48,160 +48,160 @@ const backgroundModule = (() => {
     console.warn('Could not import background.js directly, using mocked functions');
     // 如果無法直接導入，使用模擬的函數
     return {
-    normalizeUrl: function(rawUrl) {
-      try {
-        const u = new URL(rawUrl);
-        u.hash = '';
-        const trackingParams = [
-          'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
-          'gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'
+      normalizeUrl(rawUrl) {
+        try {
+          const urlObj = new URL(rawUrl);
+          urlObj.hash = '';
+          const trackingParams = [
+            'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+            'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'
+          ];
+          trackingParams.forEach((p) => urlObj.searchParams.delete(p));
+          if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+            urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
+          }
+          return urlObj.toString();
+        } catch {
+          return rawUrl || '';
+        }
+      },
+
+      cleanImageUrl(url) {
+        if (!url || typeof url !== 'string') return null;
+
+        try {
+          const urlObj = new URL(url);
+
+          if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
+            const uParam = urlObj.searchParams.get('u');
+            if (uParam && /^https?:\/\//.test(uParam)) {
+              return this.cleanImageUrl(uParam);
+            }
+          }
+
+          const params = new URLSearchParams();
+          for (const [key, value] of urlObj.searchParams.entries()) {
+            if (!params.has(key)) {
+              params.set(key, value);
+            }
+          }
+          urlObj.search = params.toString();
+
+          return urlObj.href;
+        } catch {
+          return null;
+        }
+      },
+
+      isValidImageUrl(url) {
+        if (!url || typeof url !== 'string') return false;
+
+        const cleanedUrl = this.cleanImageUrl(url);
+        if (!cleanedUrl) return false;
+
+        if (!/^https?:\/\//i.test(cleanedUrl)) return false;
+        if (cleanedUrl.length > 2000) return false;
+
+        const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
+        if (imageExtensions.test(cleanedUrl)) return true;
+
+        const imagePathPatterns = [
+          /\/image[s]?\//i, /\/img[s]?\//i, /\/photo[s]?\//i, /\/picture[s]?\//i,
+          /\/media\//i, /\/upload[s]?\//i, /\/asset[s]?\//i, /\/file[s]?\//i
         ];
-        trackingParams.forEach((p) => u.searchParams.delete(p));
-        if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-          u.pathname = u.pathname.replace(/\/+$/, '');
-        }
-        return u.toString();
-      } catch {
-        return rawUrl || '';
-      }
-    },
 
-    cleanImageUrl: function(url) {
-      if (!url || typeof url !== 'string') return null;
+        const excludePatterns = [
+          /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
+          /\/api\//i, /\/ajax\//i, /\/callback/i
+        ];
 
-      try {
-        const urlObj = new URL(url);
+        if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) return false;
+        return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+      },
 
-        if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
-          const uParam = urlObj.searchParams.get('u');
-          if (uParam && /^https?:\/\//.test(uParam)) {
-            return this.cleanImageUrl(uParam);
-          }
+      splitTextForHighlight(text, maxLength = 2000) {
+        if (!text || text.length <= maxLength) {
+          return [text];
         }
 
-        const params = new URLSearchParams();
-        for (const [key, value] of urlObj.searchParams.entries()) {
-          if (!params.has(key)) {
-            params.set(key, value);
-          }
-        }
-        urlObj.search = params.toString();
+        const chunks = [];
+        let remaining = text;
 
-        return urlObj.href;
-      } catch {
-        return null;
-      }
-    },
-
-    isValidImageUrl: function(url) {
-      if (!url || typeof url !== 'string') return false;
-
-      const cleanedUrl = this.cleanImageUrl(url);
-      if (!cleanedUrl) return false;
-
-      if (!/^https?:\/\//i.test(cleanedUrl)) return false;
-      if (cleanedUrl.length > 2000) return false;
-
-      const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
-      if (imageExtensions.test(cleanedUrl)) return true;
-
-      const imagePathPatterns = [
-        /\/image[s]?\//i, /\/img[s]?\//i, /\/photo[s]?\//i, /\/picture[s]?\//i,
-        /\/media\//i, /\/upload[s]?\//i, /\/asset[s]?\//i, /\/file[s]?\//i
-      ];
-
-      const excludePatterns = [
-        /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
-        /\/api\//i, /\/ajax\//i, /\/callback/i
-      ];
-
-      if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) return false;
-      return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
-    },
-
-    splitTextForHighlight: function(text, maxLength = 2000) {
-      if (!text || text.length <= maxLength) {
-        return [text];
-      }
-
-      const chunks = [];
-      let remaining = text;
-
-      while (remaining.length > 0) {
-        if (remaining.length <= maxLength) {
-          chunks.push(remaining);
-          break;
-        }
-
-        let splitIndex = -1;
-        const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
-
-        for (const punct of punctuation) {
-          const lastIndex = remaining.lastIndexOf(punct, maxLength);
-          if (lastIndex > maxLength * 0.5) {
-            splitIndex = lastIndex + punct.length;
+        while (remaining.length > 0) {
+          if (remaining.length <= maxLength) {
+            chunks.push(remaining);
             break;
           }
-        }
 
-        if (splitIndex === -1) {
-          splitIndex = remaining.lastIndexOf(' ', maxLength);
-          if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
-            splitIndex = maxLength;
-          }
-        }
+          let splitIndex = -1;
+          const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
 
-        chunks.push(remaining.substring(0, splitIndex).trim());
-        remaining = remaining.substring(splitIndex).trim();
-      }
-
-      return chunks.filter(chunk => chunk.length > 0);
-    },
-
-    appendBlocksInBatches: async function(pageId, blocks, apiKey, startIndex = 0) {
-      const BLOCKS_PER_BATCH = 100;
-      const DELAY_BETWEEN_BATCHES = 350;
-
-      let addedCount = 0;
-      const totalBlocks = blocks.length - startIndex;
-
-      if (totalBlocks <= 0) {
-        return { success: true, addedCount: 0, totalCount: 0 };
-      }
-
-      try {
-        for (let i = startIndex; i < blocks.length; i += BLOCKS_PER_BATCH) {
-          const batch = blocks.slice(i, i + BLOCKS_PER_BATCH);
-
-          const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-              'Notion-Version': '2025-09-03'
-            },
-            body: JSON.stringify({
-              children: batch
-            })
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`批次添加失敗: ${response.status} - ${errorText}`);
+          for (const punct of punctuation) {
+            const lastIndex = remaining.lastIndexOf(punct, maxLength);
+            if (lastIndex > maxLength * 0.5) {
+              splitIndex = lastIndex + punct.length;
+              break;
+            }
           }
 
-          addedCount += batch.length;
-
-          if (i + BLOCKS_PER_BATCH < blocks.length) {
-            await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+          if (splitIndex === -1) {
+            splitIndex = remaining.lastIndexOf(' ', maxLength);
+            if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
+              splitIndex = maxLength;
+            }
           }
+
+          chunks.push(remaining.substring(0, splitIndex).trim());
+          remaining = remaining.substring(splitIndex).trim();
         }
 
-        return { success: true, addedCount, totalCount: totalBlocks };
-      } catch (error) {
-        return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
+        return chunks.filter(chunk => chunk.length > 0);
+      },
+
+      async appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
+        const BLOCKS_PER_BATCH = 100;
+        const DELAY_BETWEEN_BATCHES = 350;
+
+        let addedCount = 0;
+        const totalBlocks = blocks.length - startIndex;
+
+        if (totalBlocks <= 0) {
+          return { success: true, addedCount: 0, totalCount: 0 };
+        }
+
+        try {
+          for (let i = startIndex; i < blocks.length; i += BLOCKS_PER_BATCH) {
+            const batch = blocks.slice(i, i + BLOCKS_PER_BATCH);
+
+            const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'Notion-Version': '2025-09-03'
+              },
+              body: JSON.stringify({
+                children: batch
+              })
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`批次添加失敗: ${response.status} - ${errorText}`);
+            }
+
+            addedCount += batch.length;
+
+            if (i + BLOCKS_PER_BATCH < blocks.length) {
+              await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+            }
+          }
+
+          return { success: true, addedCount, totalCount: totalBlocks };
+        } catch (error) {
+          return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
+        }
       }
-    }
     };
   }
 })();
@@ -212,9 +212,9 @@ describe('Background.js Exported Functions', () => {
     jest.clearAllMocks();
 
     // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -381,12 +381,12 @@ describe('Background.js Exported Functions', () => {
     });
 
     it('應該拒絕過長的 URL', () => {
-      const longUrl = 'https://example.com/' + 'x'.repeat(2000) + '.jpg';
+      const longUrl = `https://example.com/${'x'.repeat(2000)}.jpg`;
       expect(backgroundModule.isValidImageUrl(longUrl)).toBe(false);
     });
 
     it('應該接受正常長度的 URL', () => {
-      const normalUrl = 'https://example.com/' + 'x'.repeat(100) + '.jpg';
+      const normalUrl = `https://example.com/${'x'.repeat(100)}.jpg`;
       expect(backgroundModule.isValidImageUrl(normalUrl)).toBe(true);
     });
 
@@ -426,34 +426,34 @@ describe('Background.js Exported Functions', () => {
     });
 
     it('應該在句號處分割', () => {
-      const text = 'First sentence. Second sentence. ' + 'A'.repeat(2000);
+      const text = `First sentence. Second sentence. ${'A'.repeat(2000)}`;
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
       expect(result[0]).toContain('First sentence. Second sentence.');
     });
 
     it('應該在問號處分割', () => {
-      const text = 'First question? Second question? ' + 'A'.repeat(2000);
+      const text = `First question? Second question? ${'A'.repeat(2000)}`;
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
       expect(result[0]).toContain('First question? Second question?');
     });
 
     it('應該在感嘆號處分割', () => {
-      const text = 'First exclamation! Second exclamation! ' + 'A'.repeat(2000);
+      const text = `First exclamation! Second exclamation! ${'A'.repeat(2000)}`;
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
       expect(result[0]).toContain('First exclamation! Second exclamation!');
     });
 
     it('應該在雙換行符處分割', () => {
-      const text = 'First paragraph.\n\nSecond paragraph.\n\n' + 'A'.repeat(2000);
+      const text = `First paragraph.\n\nSecond paragraph.\n\n${'A'.repeat(2000)}`;
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
     });
 
     it('應該在空格處分割（如果沒有標點）', () => {
-      const text = 'word1 word2 word3 ' + 'A'.repeat(2000);
+      const text = `word1 word2 word3 ${'A'.repeat(2000)}`;
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
     });
@@ -482,7 +482,7 @@ describe('Background.js Exported Functions', () => {
     });
 
     it('應該處理中文標點', () => {
-      const text = '第一句話。第二句話？第三句話！' + 'A'.repeat(2000);
+      const text = `第一句話。第二句話？第三句話！${'A'.repeat(2000)}`;
       const result = backgroundModule.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
       expect(result[0]).toContain('第一句話。第二句話？第三句話！');

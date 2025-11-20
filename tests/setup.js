@@ -1,7 +1,7 @@
 /**
  * Jest 測試環境設置
  * 配置全局 mocks 和測試工具
- * 
+ *
  * 注意：使用 jest.config.js 中的 testEnvironment: 'jsdom'
  * Jest 會自動提供 DOM 環境，無需手動創建 JSDOM
  */
@@ -24,90 +24,95 @@ global.__LOGGER_DEV__ = true;
 global.chrome.runtime.lastError = null;
 
 // Mock Logger (used by scripts) - simulate dev mode behavior since __FORCE_LOG__ is set
+// deepcode ignore UseConsoleLogInBrowser: Console usage is intentional in test environment for Logger mock
 global.Logger = {
-    log: jest.fn((message, ...args) => {
-        // Simulate dev mode: send background log and console.log
-        if (global.chrome?.runtime?.sendMessage) {
-            global.chrome.runtime.sendMessage({
-                action: 'devLogSink',
-                level: 'log',
-                message,
-                args
-            }, () => {});
-        }
-        console.log(`[LOG] ${message}`, ...args); // Concatenate prefix with message
-    }),
-    debug: jest.fn((message, ...args) => {
-        // Simulate dev mode: send background log and console.log
-        if (global.chrome?.runtime?.sendMessage) {
-            global.chrome.runtime.sendMessage({
-                action: 'devLogSink',
-                level: 'debug',
-                message,
-                args
-            }, () => {});
-        }
-        try {
-            console.log(`[DEBUG] ${message}`, ...args); // Concatenate prefix with message to match test expectations
-        } catch (e) {
-            // 忽略 console 錯誤
-        }
-    }),
-    info: jest.fn((message, ...args) => {
-        // Simulate dev mode: send background log and console.log
-        if (global.chrome?.runtime?.sendMessage) {
-            global.chrome.runtime.sendMessage({
-                action: 'devLogSink',
-                level: 'info',
-                message,
-                args
-            }, () => {});
-        }
-        try {
-            console.log(`[INFO] ${message}`, ...args); // Concatenate prefix with message to match test expectations
-        } catch (e) {
-            // 忽略 console 錯誤
-        }
-    }),
-    warn: jest.fn((message, ...args) => {
-        // Always send background log, optionally console.warn in dev mode
-        if (global.chrome?.runtime?.sendMessage) {
-            global.chrome.runtime.sendMessage({
-                action: 'devLogSink',
-                level: 'warn',
-                message,
-                args
-            }, () => {});
-        }
-        if (global.__LOGGER_DEV__) {
-            // Tests expect console.warn with concatenated message
-            try {
-                console.warn(`[WARN] ${message}`, ...args);
-            } catch (e) {
-                // 忽略 console 錯誤
-            }
-        }
-    }),
-    error: jest.fn((message, ...args) => {
-        // Always send background log and console.error
-        if (global.chrome?.runtime?.sendMessage) {
-            global.chrome.runtime.sendMessage({
-                action: 'devLogSink',
-                level: 'error',
-                message,
-                args
-            }, () => {});
-        }
-        try {
-            console.error(`[ERROR] ${message}`, ...args); // Concatenate prefix with message
-        } catch (e) {
-            // 忽略 console 錯誤
-        }
-    })
+  log: jest.fn((message, ...args) => {
+    // Simulate dev mode: send background log and console.log
+    if (global.chrome?.runtime?.sendMessage) {
+      global.chrome.runtime.sendMessage({
+        action: 'devLogSink',
+        level: 'log',
+        message,
+        args
+      }, () => { /* no-op */ });
+    }
+    console.log(`[LOG] ${message}`, ...args); // Concatenate prefix with message
+  }),
+  debug: jest.fn((message, ...args) => {
+    // Simulate dev mode: send background log and console.log
+    if (global.chrome?.runtime?.sendMessage) {
+      global.chrome.runtime.sendMessage({
+        action: 'devLogSink',
+        level: 'debug',
+        message,
+        args
+      }, () => { /* no-op */ });
+    }
+    try {
+      console.log(`[DEBUG] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
+    } catch (_e) {
+      // 忽略 console 錯誤
+    }
+  }),
+  info: jest.fn((message, ...args) => {
+    // Simulate dev mode: send background log and console.log
+    if (global.chrome?.runtime?.sendMessage) {
+      global.chrome.runtime.sendMessage({
+        action: 'devLogSink',
+        level: 'info',
+        message,
+        args
+      }, () => { /* no-op */ });
+    }
+    try {
+      console.log(`[INFO] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
+    } catch (_e) {
+      // 忽略 console 錯誤
+    }
+  }),
+  warn: jest.fn((message, ...args) => {
+    // Always send background log, optionally console.warn in dev mode
+    if (global.chrome?.runtime?.sendMessage) {
+      try {
+        global.chrome.runtime.sendMessage({
+          action: 'devLogSink',
+          level: 'warn',
+          message,
+          args
+        }, () => { /* no-op */ });
+      } catch (_) {
+        // Ignore sendMessage errors in tests
+      }
+    }
+    if (global.__LOGGER_DEV__) {
+      // Tests expect console.warn with concatenated message
+      try {
+        console.warn(`[WARN] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
+      } catch (_e) {
+        // 忽略 console 錯誤
+      }
+    }
+  }),
+  error: jest.fn((message, ...args) => {
+    // Always send background log and console.error
+    if (global.chrome?.runtime?.sendMessage) {
+      global.chrome.runtime.sendMessage({
+        action: 'devLogSink',
+        level: 'error',
+        message,
+        args
+      }, () => { /* no-op */ });
+    }
+    try {
+      console.error(`[ERROR] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
+    } catch (_e) {
+      // 忽略 console 錯誤
+    }
+  })
 };
 // Mock chrome.runtime.sendMessage for Logger background logging
 global.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
-    if (typeof callback === 'function') callback();
+  if (typeof callback === 'function') callback();
 });
 
 // Mock fetch API
@@ -187,22 +192,22 @@ beforeEach(() => {
   if (document.body) {
     document.body.innerHTML = '';
   }
-  
+
   // 清理 fetch mock
   if (global.fetch?.mockClear) {
     global.fetch.mockClear();
   }
-  
+
   // 清理 localStorage
   if (global.localStorage?._reset) {
     global.localStorage._reset();
   }
-  
+
   // 清理 Chrome storage
   if (global.chrome?._clearStorage) {
     global.chrome._clearStorage();
   }
-  
+
   // 清理 console mocks
   Object.keys(console).forEach(method => {
     if (console[method]?.mockClear) {
@@ -251,5 +256,5 @@ global.createDOMFromHTML = (htmlString) => {
 
 // 輔助函數：模擬圖片元素
 global.createMockImage = (src, attributes = {}) => {
-  return createDOMElement('img', { src, ...attributes });
+  return global.createDOMElement('img', { src, ...attributes });
 };

@@ -5,25 +5,25 @@
 
 // 模擬 background.js 中的核心函數
 const backgroundFunctions = {
-  normalizeUrl: function(rawUrl) {
+  normalizeUrl(rawUrl) {
     try {
-      const u = new URL(rawUrl);
-      u.hash = '';
+      const urlObj = new URL(rawUrl);
+      urlObj.hash = '';
       const trackingParams = [
-        'utm_source','utm_medium','utm_campaign','utm_term','utm_content',
-        'gclid','fbclid','mc_cid','mc_eid','igshid','vero_id'
+        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+        'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'
       ];
-      trackingParams.forEach((p) => u.searchParams.delete(p));
-      if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-        u.pathname = u.pathname.replace(/\/+$/, '');
+      trackingParams.forEach((p) => urlObj.searchParams.delete(p));
+      if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+        urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
       }
-      return u.toString();
+      return urlObj.toString();
     } catch {
       return rawUrl || '';
     }
   },
 
-  cleanImageUrl: function(url) {
+  cleanImageUrl(url) {
     if (!url || typeof url !== 'string') return null;
 
     try {
@@ -50,7 +50,7 @@ const backgroundFunctions = {
     }
   },
 
-  isValidImageUrl: function(url) {
+  isValidImageUrl(url) {
     if (!url || typeof url !== 'string') return false;
 
     const cleanedUrl = this.cleanImageUrl(url);
@@ -76,7 +76,7 @@ const backgroundFunctions = {
     return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
   },
 
-  splitTextForHighlight: function(text, maxLength = 2000) {
+  splitTextForHighlight(text, maxLength = 2000) {
     if (!text || text.length <= maxLength) {
       return [text];
     }
@@ -115,7 +115,7 @@ const backgroundFunctions = {
     return chunks.filter(chunk => chunk.length > 0);
   },
 
-  cacheValidationResult: function(cache, url, isValid, maxSize = 1000) {
+  cacheValidationResult(cache, url, isValid, maxSize = 1000) {
     if (cache.size >= maxSize) {
       const firstKey = cache.keys().next().value;
       cache.delete(firstKey);
@@ -123,7 +123,7 @@ const backgroundFunctions = {
     cache.set(url, isValid);
   },
 
-  shouldShowUpdateNotification: function(previousVersion, currentVersion) {
+  shouldShowUpdateNotification(previousVersion, currentVersion) {
     if (!previousVersion || !currentVersion) return false;
     if (previousVersion.includes('dev') || currentVersion.includes('dev')) return false;
 
@@ -134,7 +134,7 @@ const backgroundFunctions = {
     return importantUpdates.includes(currentVersion);
   },
 
-  isImportantUpdate: function(version) {
+  isImportantUpdate(version) {
     const importantUpdates = [
       '2.8.0', '2.9.0', '3.0.0'
     ];
@@ -145,9 +145,9 @@ const backgroundFunctions = {
 describe('Background Core Functions', () => {
   beforeEach(() => {
     // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -251,7 +251,7 @@ describe('Background Core Functions', () => {
     });
 
     it('應該拒絕過長的 URL', () => {
-      const longUrl = 'https://example.com/' + 'x'.repeat(2000) + '.jpg';
+      const longUrl = `https://example.com/${'x'.repeat(2000)}.jpg`;
       expect(backgroundFunctions.isValidImageUrl(longUrl)).toBe(false);
     });
 
@@ -277,14 +277,14 @@ describe('Background Core Functions', () => {
     });
 
     it('應該在句號處分割', () => {
-      const text = 'First sentence. Second sentence. ' + 'A'.repeat(2000);
+      const text = `First sentence. Second sentence. ${'A'.repeat(2000)}`;
       const result = backgroundFunctions.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
       expect(result[0]).toContain('First sentence. Second sentence.');
     });
 
     it('應該在空格處分割（如果沒有標點）', () => {
-      const text = 'word1 word2 word3 ' + 'A'.repeat(2000);
+      const text = `word1 word2 word3 ${'A'.repeat(2000)}`;
       const result = backgroundFunctions.splitTextForHighlight(text, 2000);
       expect(result.length).toBeGreaterThan(1);
     });
@@ -434,7 +434,7 @@ describe('Background Core Functions', () => {
     });
 
     it('應該處理極端長度的輸入', () => {
-      const veryLongUrl = 'https://example.com/' + 'x'.repeat(10000) + '.jpg';
+      const veryLongUrl = `https://example.com/${'x'.repeat(10000)}.jpg`;
       const veryLongText = 'A'.repeat(50000);
 
       expect(() => {

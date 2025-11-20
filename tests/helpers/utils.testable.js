@@ -14,6 +14,8 @@ if (typeof window === 'undefined') {
   };
   // 聲明 chrome 為全局變量（在瀏覽器環境中由 Chrome Extension API 提供）
   global.chrome = undefined;
+} else if (typeof window.__LOGGER_ENABLED__ === 'undefined') {
+  window.__LOGGER_ENABLED__ = false;
 }
 
 // ===== Safe Logger Helper =====
@@ -73,45 +75,160 @@ function getLogger() {
 // 將函數提升到程式根作用域，以符合 DeepSource JS-0016 建議
 
 /**
- * 檢查是否為開發模式
+ * 正規化日誌旗標，避免 'false' 字串被視為真值
  */
-function isDevMode() {
-    // 首先檢查強制標記
-    if (window.__FORCE_LOG__ || window.__LOGGER_ENABLED__) {
+function normalizeLoggerFlag(value) {
+    if (value === true) {
         return true;
     }
-
-    // 然後檢查 Chrome manifest
-    if (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) {
-        try {
-            const manifest = chrome.runtime.getManifest();
-            return manifest?.version?.includes('dev') || false;
-        } catch (_) {
-            // 如果 getManifest 拋出異常，降級為非開發模式
+    if (value === false || value === undefined || value === null) {
+        return false;
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'true' || normalized === '1') {
+            return true;
+        }
+        if (normalized === 'false' || normalized === '0' || normalized === '') {
             return false;
         }
     }
-
+    if (typeof value === 'number') {
+        return value === 1;
+    }
     return false;
 }
 
 /**
+ * 檢查是否啟用了手動日誌記錄
+ * 檢查全局變數 __FORCE_LOG__ 和 __LOGGER_ENABLED__ 來確定是否應該輸出日誌
+ * @returns {boolean} 如果啟用了手動日誌記錄則返回 true，否則返回 false
+ */
+function isManualLoggingEnabled() {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    return (
+        normalizeLoggerFlag(window.__FORCE_LOG__) ||
+        normalizeLoggerFlag(window.__LOGGER_ENABLED__)
+    );
+}
+
+/**
+ * 檢查 manifest 版本是否標記為開發版本
+ * 通過檢查 version_name 或 version 字段是否包含 "dev" 來判斷
+ * 使用閉包緩存結果以提升性能
+ * @returns {boolean} 如果是開發版本則返回 true，否則返回 false
+ */
+// 使用全局對象存儲緩存狀態，確保跨模組加載的一致性
+if (typeof window.__manifestDevCache === 'undefined') {
+    window.__manifestDevCache = {
+        cachedResult: null,
+        cacheEnabled: true
+    };
+}
+
+const isManifestMarkedDev = (() => {
+    const cache = window.__manifestDevCache;
+
+    const checkManifest = function() {
+        // 如果緩存被禁用，每次都重新檢測（不更新緩存）
+        if (!cache.cacheEnabled) {
+            if (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) {
+                try {
+                    const manifest = chrome.runtime.getManifest();
+                    const versionString = manifest?.version_name || manifest?.version || '';
+                    return /dev/i.test(versionString);
+                } catch (_) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        // 如果緩存啟用但為空，檢測並緩存結果
+        if (cache.cachedResult === null) {
+            if (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) {
+                try {
+                    const manifest = chrome.runtime.getManifest();
+                    const versionString = manifest?.version_name || manifest?.version || '';
+                    cache.cachedResult = /dev/i.test(versionString);
+                } catch (_) {
+                    cache.cachedResult = false;
+                }
+            } else {
+                cache.cachedResult = false;
+            }
+        }
+
+        return cache.cachedResult;
+    };
+
+    /**
+     * 測試專用：禁用緩存
+     *
+     * 禁用後，每次調用 isManifestMarkedDev() 都會重新檢測 manifest。
+     * 這確保了測試環境中的完全隔離。
+     *
+     * 注意：生產環境永遠不應調用此函數。
+     */
+    checkManifest.disableCache = function() {
+        cache.cacheEnabled = false;
+    };
+
+    /**
+     * 測試專用：啟用緩存
+     *
+     * 重新啟用緩存機制，恢復性能優化。
+     * 應在測試的 afterEach 中調用以避免影響其他測試。
+     */
+    checkManifest.enableCache = function() {
+        cache.cacheEnabled = true;
+    };
+
+    /**
+     * 測試專用：重置緩存
+     *
+     * 清除已緩存的結果，下次調用時會重新檢測。
+     */
+    checkManifest.resetCache = function() {
+        cache.cachedResult = null;
+    };
+
+    return checkManifest;
+})();
+
+/**
+ * 檢查是否應該輸出開發日誌
+ * 綜合檢查手動日誌旗標和 manifest 開發版本標記
+ * @returns {boolean} 如果應該輸出開發日誌則返回 true，否則返回 false
+ */
+function shouldEmitDevLog() {
+    return isManualLoggingEnabled() || isManifestMarkedDev();
+}
+
+/**
  * 發送日誌到背景腳本
+ * @param {string} level - 日誌級別 ('debug', 'info', 'warn', 'error')
+ * @param {string} message - 日誌訊息
+ * @param {Array} argsArray - 日誌參數陣列
  */
 function __sendBackgroundLog(level, message, argsArray) {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-        try {
-            chrome.runtime.sendMessage({
-                action: 'devLogSink',
-                level,
-                message,
-                args: Array.isArray(argsArray) ? argsArray : [argsArray]
-            }, () => {
-                // 忽略回調錯誤
+    try {
+        // 僅在擴充環境下可用（使用可選鏈）
+        if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
+            const argsSafe = Array.isArray(argsArray) ? argsArray : Array.from(argsArray || []);
+            chrome.runtime.sendMessage({ action: 'devLogSink', level, message, args: argsSafe }, () => {
+                // 消費 lastError 以避免未處理錯誤警告（Chrome Extension 要求）
+                // 直接訪問屬性即可消費錯誤，無需額外操作
+                if (chrome?.runtime?.lastError) {
+                    // lastError 已被訪問，Chrome 不會拋出警告
+                }
             });
-        } catch (_) {
-            // 忽略發送錯誤
         }
+    } catch (_) {
+        // 忽略背景日誌發送錯誤（瀏覽器端避免直接 console）
     }
 }
 
@@ -166,6 +283,7 @@ function normalizeUrl(rawUrl) {
 /**
  * 調試工具：列出所有存儲的標註鍵
  * 內部實現函數，供 StorageUtil.debugListAllKeys 使用
+ * @returns {Promise<Array<string>>} 返回包含所有標註鍵的陣列
  */
 function __debugListAllKeys() {
     return new Promise((resolve) => {
@@ -208,12 +326,19 @@ if (isReinjection) {
     } catch (_) {
         // 忽略日誌錯誤
     }
-    // 對於測試環境，仍然導出現有的函數
+    // 對於測試環境，仍然導出現有的函數（包括緩存控制函數）
     if (typeof module !== 'undefined' && module.exports) {
+      // 獲取 checkManifest 函數（isManifestMarkedDev 返回的函數）
+      const checkManifest = isManifestMarkedDev;
+
       module.exports = {
         normalizeUrl: window.normalizeUrl,
         StorageUtil: window.StorageUtil,
-        Logger: window.Logger
+        Logger: window.Logger,
+        // 測試專用：緩存控制函數（直接調用 checkManifest 上的方法）
+        __disableManifestCache: checkManifest.disableCache,
+        __enableManifestCache: checkManifest.enableCache,
+        __resetManifestCache: checkManifest.resetCache
       };
     }
 } else {
@@ -426,7 +551,7 @@ if (typeof window.StorageUtil === 'undefined') {
 if (typeof window.Logger === 'undefined') {
     window.Logger = {
         debug: (message, ...args) => {
-            if (isDevMode()) {
+            if (shouldEmitDevLog()) {
                 __sendBackgroundLog('debug', message, args);
             }
             try {
@@ -438,7 +563,7 @@ if (typeof window.Logger === 'undefined') {
         },
 
         info: (message, ...args) => {
-            if (isDevMode()) {
+            if (shouldEmitDevLog()) {
                 __sendBackgroundLog('info', message, args);
             }
             try {
@@ -493,8 +618,12 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync && ch
     try {
         chrome.storage.sync.onChanged.addListener((changes, areaName) => {
             try {
-                if (areaName === 'sync' && changes && changes.enableDebugLogs) {
-                    window.__LOGGER_ENABLED__ = changes.enableDebugLogs.newValue;
+                if (
+                    areaName === 'sync' &&
+                    changes &&
+                    Object.prototype.hasOwnProperty.call(changes, 'enableDebugLogs')
+                ) {
+                    window.__LOGGER_ENABLED__ = normalizeLoggerFlag(changes.enableDebugLogs.newValue);
                 }
             } catch (_) {
                 // 忽略監聽器處理錯誤
@@ -510,6 +639,57 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     normalizeUrl: window.normalizeUrl || normalizeUrl,
     StorageUtil: window.StorageUtil,
-    Logger: window.Logger
+    Logger: window.Logger,
+
+    /**
+     * 測試專用：禁用 manifest 檢測緩存
+     *
+     * 禁用後，每次 Logger 調用都會重新檢測 manifest 版本。
+     * 這確保了測試環境中的完全隔離，避免測試間的狀態洩漏。
+     *
+     * 使用後必須在 afterEach 中調用 __enableManifestCache() 重新啟用緩存。
+     *
+     * @example
+     * beforeEach(() => {
+     *   if (utils?.__disableManifestCache) {
+     *     utils.__disableManifestCache();
+     *   }
+     * });
+     *
+     * afterEach(() => {
+     *   if (utils?.__enableManifestCache) {
+     *     utils.__enableManifestCache();
+     *   }
+     * });
+     */
+    __disableManifestCache: () => {
+      if (typeof isManifestMarkedDev?.disableCache === 'function') {
+        isManifestMarkedDev.disableCache();
+      }
+    },
+
+    /**
+     * 測試專用：啟用 manifest 檢測緩存
+     *
+     * 重新啟用緩存機制，恢復性能優化。
+     * 應在測試的 afterEach 中調用以避免影響其他測試。
+     */
+    __enableManifestCache: () => {
+      if (typeof isManifestMarkedDev?.enableCache === 'function') {
+        isManifestMarkedDev.enableCache();
+      }
+    },
+
+    /**
+     * 測試專用：重置 manifest 檢測緩存
+     *
+     * 清除已緩存的結果，下次調用時會重新檢測。
+     * 通常與 __disableManifestCache 配合使用。
+     */
+    __resetManifestCache: () => {
+      if (typeof isManifestMarkedDev?.resetCache === 'function') {
+        isManifestMarkedDev.resetCache();
+      }
+    }
   };
 }
