@@ -1,7 +1,7 @@
 /**
  * Jest 測試環境設置
  * 配置全局 mocks 和測試工具
- * 
+ *
  * 注意：使用 jest.config.js 中的 testEnvironment: 'jsdom'
  * Jest 會自動提供 DOM 環境，無需手動創建 JSDOM
  */
@@ -72,12 +72,16 @@ global.Logger = {
   warn: jest.fn((message, ...args) => {
     // Always send background log, optionally console.warn in dev mode
     if (global.chrome?.runtime?.sendMessage) {
-      global.chrome.runtime.sendMessage({
-        action: 'devLogSink',
-        level: 'warn',
-        message,
-        args
-      }, () => { /* no-op */ });
+      try {
+        global.chrome.runtime.sendMessage({
+          action: 'devLogSink',
+          level: 'warn',
+          message,
+          args
+        }, () => { /* no-op */ });
+      } catch (_) {
+        // Ignore sendMessage errors in tests
+      }
     }
     if (global.__LOGGER_DEV__) {
       // Tests expect console.warn with concatenated message

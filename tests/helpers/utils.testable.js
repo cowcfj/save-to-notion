@@ -120,29 +120,83 @@ function isManualLoggingEnabled() {
  * 使用閉包緩存結果以提升性能
  * @returns {boolean} 如果是開發版本則返回 true，否則返回 false
  */
+// 使用全局對象存儲緩存狀態，確保跨模組加載的一致性
+if (typeof window.__manifestDevCache === 'undefined') {
+    window.__manifestDevCache = {
+        cachedResult: null,
+        cacheEnabled: true
+    };
+}
+
 const isManifestMarkedDev = (() => {
-    let cachedResult = null;
+    const cache = window.__manifestDevCache;
 
-    return function() {
-        if (cachedResult !== null) {
-            return cachedResult;
-        }
-
-        if (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) {
-            try {
-                const manifest = chrome.runtime.getManifest();
-                const versionString = manifest?.version_name || manifest?.version || '';
-                cachedResult = /dev/i.test(versionString);
-                return cachedResult;
-            } catch (_) {
-                cachedResult = false;
-                return cachedResult;
+    const checkManifest = function() {
+        // 如果緩存被禁用，每次都重新檢測（不更新緩存）
+        if (!cache.cacheEnabled) {
+            if (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) {
+                try {
+                    const manifest = chrome.runtime.getManifest();
+                    const versionString = manifest?.version_name || manifest?.version || '';
+                    return /dev/i.test(versionString);
+                } catch (_) {
+                    return false;
+                }
+            } else {
+                return false;
             }
         }
 
-        cachedResult = false;
-        return false;
+        // 如果緩存啟用但為空，檢測並緩存結果
+        if (cache.cachedResult === null) {
+            if (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest) {
+                try {
+                    const manifest = chrome.runtime.getManifest();
+                    const versionString = manifest?.version_name || manifest?.version || '';
+                    cache.cachedResult = /dev/i.test(versionString);
+                } catch (_) {
+                    cache.cachedResult = false;
+                }
+            } else {
+                cache.cachedResult = false;
+            }
+        }
+
+        return cache.cachedResult;
     };
+
+    /**
+     * 測試專用：禁用緩存
+     *
+     * 禁用後，每次調用 isManifestMarkedDev() 都會重新檢測 manifest。
+     * 這確保了測試環境中的完全隔離。
+     *
+     * 注意：生產環境永遠不應調用此函數。
+     */
+    checkManifest.disableCache = function() {
+        cache.cacheEnabled = false;
+    };
+
+    /**
+     * 測試專用：啟用緩存
+     *
+     * 重新啟用緩存機制，恢復性能優化。
+     * 應在測試的 afterEach 中調用以避免影響其他測試。
+     */
+    checkManifest.enableCache = function() {
+        cache.cacheEnabled = true;
+    };
+
+    /**
+     * 測試專用：重置緩存
+     *
+     * 清除已緩存的結果，下次調用時會重新檢測。
+     */
+    checkManifest.resetCache = function() {
+        cache.cachedResult = null;
+    };
+
+    return checkManifest;
 })();
 
 /**
@@ -272,12 +326,19 @@ if (isReinjection) {
     } catch (_) {
         // 忽略日誌錯誤
     }
-    // 對於測試環境，仍然導出現有的函數
+    // 對於測試環境，仍然導出現有的函數（包括緩存控制函數）
     if (typeof module !== 'undefined' && module.exports) {
+      // 獲取 checkManifest 函數（isManifestMarkedDev 返回的函數）
+      const checkManifest = isManifestMarkedDev;
+
       module.exports = {
         normalizeUrl: window.normalizeUrl,
         StorageUtil: window.StorageUtil,
-        Logger: window.Logger
+        Logger: window.Logger,
+        // 測試專用：緩存控制函數（直接調用 checkManifest 上的方法）
+        __disableManifestCache: checkManifest.disableCache,
+        __enableManifestCache: checkManifest.enableCache,
+        __resetManifestCache: checkManifest.resetCache
       };
     }
 } else {
@@ -578,6 +639,57 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     normalizeUrl: window.normalizeUrl || normalizeUrl,
     StorageUtil: window.StorageUtil,
-    Logger: window.Logger
+    Logger: window.Logger,
+
+    /**
+     * 測試專用：禁用 manifest 檢測緩存
+     *
+     * 禁用後，每次 Logger 調用都會重新檢測 manifest 版本。
+     * 這確保了測試環境中的完全隔離，避免測試間的狀態洩漏。
+     *
+     * 使用後必須在 afterEach 中調用 __enableManifestCache() 重新啟用緩存。
+     *
+     * @example
+     * beforeEach(() => {
+     *   if (utils?.__disableManifestCache) {
+     *     utils.__disableManifestCache();
+     *   }
+     * });
+     *
+     * afterEach(() => {
+     *   if (utils?.__enableManifestCache) {
+     *     utils.__enableManifestCache();
+     *   }
+     * });
+     */
+    __disableManifestCache: () => {
+      if (typeof isManifestMarkedDev?.disableCache === 'function') {
+        isManifestMarkedDev.disableCache();
+      }
+    },
+
+    /**
+     * 測試專用：啟用 manifest 檢測緩存
+     *
+     * 重新啟用緩存機制，恢復性能優化。
+     * 應在測試的 afterEach 中調用以避免影響其他測試。
+     */
+    __enableManifestCache: () => {
+      if (typeof isManifestMarkedDev?.enableCache === 'function') {
+        isManifestMarkedDev.enableCache();
+      }
+    },
+
+    /**
+     * 測試專用：重置 manifest 檢測緩存
+     *
+     * 清除已緩存的結果，下次調用時會重新檢測。
+     * 通常與 __disableManifestCache 配合使用。
+     */
+    __resetManifestCache: () => {
+      if (typeof isManifestMarkedDev?.resetCache === 'function') {
+        isManifestMarkedDev.resetCache();
+      }
+    }
   };
 }
