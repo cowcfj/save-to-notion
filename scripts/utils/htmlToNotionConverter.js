@@ -48,18 +48,18 @@ function initTurndownService() {
     // 自定義規則：保留嵌套列表結構
     turndownService.addRule('nestedLists', {
         filter: ['ul', 'ol'],
-        replacement: function (content, node) {
+        replacement(content, node) {
             const parent = node.parentNode;
-            if (parent && (parent.nodeName === 'LI')) {
+            if (parent?.nodeName === 'LI') {
                 // 這是嵌套列表，添加適當的縮排
                 const lines = content.trim().split('\n');
                 const indentedLines = lines.map(line => {
                     if (line.trim()) {
-                        return '  ' + line; // 每層嵌套添加2個空格
+                        return `  ${line}`; // 每層嵌套添加2個空格
                     }
                     return line;
                 });
-                return '\n' + indentedLines.join('\n') + '\n';
+                return `\n${indentedLines.join('\n')}\n`;
             }
             return content;
         }
@@ -67,34 +67,31 @@ function initTurndownService() {
 
     // 自定義規則：保留代碼塊的語言標記
     turndownService.addRule('fencedCodeBlock', {
-        filter: function (node, options) {
+        filter(node, options) {
             return (
                 options.codeBlockStyle === 'fenced' &&
                 node.nodeName === 'PRE' &&
-                node.firstChild &&
-                node.firstChild.nodeName === 'CODE'
+                node.firstChild?.nodeName === 'CODE'
             );
         },
-        replacement: function (content, node, options) {
+        replacement(content, node, options) {
             const className = node.firstChild.getAttribute('class') || '';
             const language = (className.match(/language-(\S+)/) ||
-                            className.match(/lang-(\S+)/) ||
-                            className.match(/highlight-source-(\S+)/) ||
-                            [])[1] || '';
+                className.match(/lang-(\S+)/) ||
+                className.match(/highlight-source-(\S+)/) ||
+                [])[1] || '';
 
             const code = node.firstChild.textContent;
             const fence = options.fence;
 
-            return '\n\n' + fence + language + '\n' +
-                   code.replace(/\n$/, '') + '\n' +
-                   fence + '\n\n';
+            return `\n\n${fence}${language}\n${code.replace(/\n$/, '')}\n${fence}\n\n`;
         }
     });
 
     // 自定義規則：改進連結處理，確保正確的 Markdown 連結格式
     turndownService.addRule('improvedLinks', {
         filter: 'a',
-        replacement: function (content, node) {
+        replacement(content, node) {
             const href = node.getAttribute('href');
             const title = node.getAttribute('title');
 
@@ -105,9 +102,9 @@ function initTurndownService() {
             // 對於 Markdown 網站，採用保守策略：只保留絕對 URL
             if (isValidUrl(href)) {
                 // 標準 Markdown 連結格式
-                let result = '[' + content + '](' + href;
+                let result = `[${content}](${href}`;
                 if (title) {
-                    result += ' "' + title + '"';
+                    result += ` "${title}"`;
                 }
                 result += ')';
                 return result;
@@ -171,6 +168,11 @@ function convertMarkdownToNotionBlocks(markdown) {
 
     const markdownImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g;
 
+    /**
+     * 添加圖片區塊
+     * @param {string} url - 圖片 URL
+     * @param {string} altText - 圖片替代文本
+     */
     function appendImageBlock(url, altText) {
         blocks.push({
             object: 'block',
@@ -263,7 +265,7 @@ function convertMarkdownToNotionBlocks(markdown) {
                 const level = headingMatch[1].length;
                 const text = headingMatch[2];
                 const blockType = level === 1 ? 'heading_1' :
-                                level === 2 ? 'heading_2' : 'heading_3';
+                    level === 2 ? 'heading_2' : 'heading_3';
 
                 blocks.push({
                     object: 'block',
@@ -613,7 +615,7 @@ function parseRichText(text) {
         if (content) {
             parts.push({
                 type: 'text',
-                text: { content: content },
+                text: { content },
                 annotations: { bold: true }
             });
         }
@@ -625,7 +627,7 @@ function parseRichText(text) {
         if (content) {
             parts.push({
                 type: 'text',
-                text: { content: content },
+                text: { content },
                 annotations: { italic: true }
             });
         }
