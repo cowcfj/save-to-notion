@@ -209,13 +209,13 @@ describe('Highlighter Interactions', () => {
         });
 
         it('應該處理 click 事件（用於刪除高亮）', () => {
-            const span = document.createElement('span');
-            span.className = 'highlight';
-            span.textContent = '高亮文字';
-            document.body.appendChild(span);
+            const spanElement = document.createElement('span');
+            spanElement.className = 'highlight';
+            spanElement.textContent = '高亮文字';
+            document.body.appendChild(spanElement);
 
             let clickHandled = false;
-            span.addEventListener('click', (e) => {
+            spanElement.addEventListener('click', (e) => {
                 if (e.ctrlKey || e.metaKey) {
                     clickHandled = true;
                 }
@@ -227,19 +227,19 @@ describe('Highlighter Interactions', () => {
                 ctrlKey: true
             });
 
-            span.dispatchEvent(event);
+            spanElement.dispatchEvent(event);
 
             expect(clickHandled).toBe(true);
         });
 
         it('應該處理雙擊刪除高亮', () => {
-            const span = document.createElement('span');
-            span.className = 'highlight';
-            span.textContent = '高亮文字';
-            document.body.appendChild(span);
+            const spanElement = document.createElement('span');
+            spanElement.className = 'highlight';
+            spanElement.textContent = '高亮文字';
+            document.body.appendChild(spanElement);
 
             let dblclickHandled = false;
-            span.addEventListener('dblclick', () => {
+            spanElement.addEventListener('dblclick', () => {
                 dblclickHandled = true;
             });
 
@@ -248,7 +248,7 @@ describe('Highlighter Interactions', () => {
                 cancelable: true
             });
 
-            span.dispatchEvent(event);
+            spanElement.dispatchEvent(event);
 
             expect(dblclickHandled).toBe(true);
         });
@@ -276,10 +276,10 @@ describe('Highlighter Interactions', () => {
                 { id: 'h3', text: '高亮3', color: 'blue' }
             ];
 
-            const filtered = highlights.filter(h => h.id !== 'h2');
+            const filtered = highlights.filter(highlight => highlight.id !== 'h2');
 
             expect(filtered.length).toBe(2);
-            expect(filtered.some(h => h.id === 'h2')).toBe(false);
+            expect(filtered.some(highlight => highlight.id === 'h2')).toBe(false);
         });
 
         it('應該能夠更新高亮顏色', () => {
@@ -287,11 +287,11 @@ describe('Highlighter Interactions', () => {
                 { id: 'h1', text: '高亮1', color: 'yellow' }
             ];
 
-            const updated = highlights.map(h => {
-                if (h.id === 'h1') {
-                    return { ...h, color: 'green' };
+            const updated = highlights.map(highlight => {
+                if (highlight.id === 'h1') {
+                    return { ...highlight, color: 'green' };
                 }
-                return h;
+                return highlight;
             });
 
             expect(updated[0].color).toBe('green');
@@ -301,11 +301,11 @@ describe('Highlighter Interactions', () => {
     describe('XPath 路徑生成', () => {
         it('應該生成元素的 XPath', () => {
             const div = document.createElement('div');
-            const p1 = document.createElement('p');
-            const p2 = document.createElement('p');
+            const paragraph1 = document.createElement('p');
+            const paragraph2 = document.createElement('p');
 
-            div.appendChild(p1);
-            div.appendChild(p2);
+            div.appendChild(paragraph1);
+            div.appendChild(paragraph2);
             document.body.appendChild(div);
 
             // 簡化版 XPath 生成
@@ -319,7 +319,7 @@ describe('Highlighter Interactions', () => {
                 return `${getXPath(element.parentNode)}/${tagName}[${index}]`;
             };
 
-            const xpath = getXPath(p2);
+            const xpath = getXPath(paragraph2);
             expect(xpath).toContain('p[2]');
         });
 
