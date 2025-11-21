@@ -339,9 +339,7 @@ describe('HighlightManager 整合測試', () => {
         jest.clearAllMocks();
 
         // 清理 JSDOM 環境
-        if (dom && dom.window) {
-            dom.window.close();
-        }
+        dom?.window?.close();
 
         // 恢復 global 物件
         global.document = undefined;
