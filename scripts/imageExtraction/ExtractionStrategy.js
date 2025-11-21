@@ -29,28 +29,31 @@ class ExtractionStrategy {
 
     /**
      * 獲取策略優先級（數字越小優先級越高）
+     * 靜態方法，子類可覆寫為實例方法（如需訪問實例狀態）
      * @returns {number} 優先級
      */
-    getPriority() {
+    static getPriority() {
         return 100; // 默認優先級
     }
 
     /**
      * 檢查策略是否適用於給定的元素
+     * 靜態方法，子類可覆寫為實例方法（如需訪問實例狀態）
      * @param {HTMLImageElement} imgNode - 圖片元素
      * @returns {boolean} 是否適用
      */
-    isApplicable(imgNode) {
+    static isApplicable(imgNode) {
         return imgNode && imgNode.nodeType === Node.ELEMENT_NODE;
     }
 
     /**
      * 驗證提取到的 URL 是否有效
+     * 靜態工具方法，子類可直接使用或覆寫
      * @protected
      * @param {string} url - 要驗證的 URL
      * @returns {boolean} URL 是否有效
      */
-    _isValidUrl(url) {
+    static _isValidUrl(url) {
         if (!url || typeof url !== 'string') return false;
         if (url.startsWith('data:') || url.startsWith('blob:')) return false;
 
@@ -67,11 +70,12 @@ class ExtractionStrategy {
 
     /**
      * 清理和標準化 URL
+     * 靜態工具方法，子類可直接使用或覆寫
      * @protected
      * @param {string} url - 要清理的 URL
      * @returns {string|null} 清理後的 URL
      */
-    _cleanUrl(url) {
+    static _cleanUrl(url) {
         if (!url || typeof url !== 'string') return null;
 
         const trimmed = url.trim();
