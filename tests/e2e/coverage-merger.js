@@ -99,9 +99,10 @@ class CoverageMerger {
    * 打印覆蓋率摘要
    */
   printSummary() {
-    console.log('\n' + '='.repeat(60));
-    console.log('📊 合併後的覆蓋率摘要');
-    console.log('='.repeat(60));
+    console.log(`
+${'='.repeat(60)}
+📊 合併後的覆蓋率摘要
+${'='.repeat(60)}`);
 
     const summary = this.coverageMap.getCoverageSummary();
 
@@ -112,7 +113,7 @@ class CoverageMerger {
 行覆蓋率:     ${summary.lines.pct.toFixed(2)}% (${summary.lines.covered}/${summary.lines.total})
     `);
 
-    console.log('='.repeat(60) + '\n');
+    console.log(`${'='.repeat(60)}\n`);
 
     return summary;
   }
@@ -120,15 +121,16 @@ class CoverageMerger {
   /**
    * 比較測試前後的覆蓋率變化
    */
-  compareCoverage(beforeSummary, afterSummary) {
-    console.log('\n' + '='.repeat(60));
-    console.log('📈 覆蓋率變化');
-    console.log('='.repeat(60));
+  static compareCoverage(beforeSummary, afterSummary) {
+    console.log(`
+${'='.repeat(60)}
+📈 覆蓋率變化
+${'='.repeat(60)}`);
 
     // 防禦性檢查：確保 summary 對象存在
     if (!beforeSummary || !afterSummary) {
       console.warn('⚠️ 無法比較覆蓋率：缺少 summary 數據');
-      console.log('='.repeat(60) + '\n');
+      console.log(`${'='.repeat(60)}\n`);
       return;
     }
 
@@ -152,7 +154,7 @@ class CoverageMerger {
       );
     });
 
-    console.log('='.repeat(60) + '\n');
+    console.log(`${'='.repeat(60)}\n`);
   }
 
   /**
@@ -188,7 +190,7 @@ class CoverageMerger {
 
     // 5. 比較覆蓋率變化（只有當兩者都存在時）
     if (jestSummary && mergedSummary) {
-      this.compareCoverage(jestSummary, mergedSummary);
+      CoverageMerger.compareCoverage(jestSummary, mergedSummary);
     } else {
       console.log('\n⚠️ 跳過覆蓋率比較：Jest 覆蓋率數據不完整\n');
     }

@@ -115,7 +115,7 @@ class E2ECoverageCollector {
       }
 
       // 提取文件路徑
-      const filePath = this.extractFilePath(entry.url);
+      const filePath = this.constructor.extractFilePath(entry.url);
 
       if (!filePath) {
         continue;
@@ -148,24 +148,24 @@ class E2ECoverageCollector {
     }
 
     // 檢查是否在 include 列表中
-    const fileName = this.extractFilePath(url);
+    const fileName = this.constructor.extractFilePath(url);
     if (!fileName) return false;
 
     const { include, exclude } = this.config.coverage;
 
     // 檢查排除列表
-    if (exclude.some(pattern => this.matchPattern(fileName, pattern))) {
+    if (exclude.some(pattern => this.constructor.matchPattern(fileName, pattern))) {
       return false;
     }
 
     // 檢查包含列表
-    return include.some(pattern => this.matchPattern(fileName, pattern));
+    return include.some(pattern => this.constructor.matchPattern(fileName, pattern));
   }
 
   /**
    * 從 URL 提取文件路徑
    */
-  extractFilePath(url) {
+  static extractFilePath(url) {
     try {
       // Chrome 擴展 URL: chrome-extension://[id]/scripts/background.js
       if (url.includes('chrome-extension://')) {
@@ -188,13 +188,13 @@ class E2ECoverageCollector {
   /**
    * 簡單的模式匹配
    */
-  matchPattern(str, pattern) {
+  static matchPattern(str, pattern) {
     // 將 glob 模式轉換為正則表達式
     const regex = new RegExp(
-      '^' + pattern
+      `^${pattern
         .replace(/\*\*/g, '.*')
         .replace(/\*/g, '[^/]*')
-        .replace(/\?/g, '[^/]') + '$'
+        .replace(/\?/g, '[^/]')}$`
     );
     return regex.test(str);
   }
@@ -218,8 +218,8 @@ class E2ECoverageCollector {
       // 簡化版：將每個範圍視為一個語句
       ranges.forEach((range, index) => {
         coverage.statementMap[index] = {
-          start: this.offsetToLocation(text, range.start),
-          end: this.offsetToLocation(text, range.end)
+          start: this.constructor.offsetToLocation(text, range.start),
+          end: this.constructor.offsetToLocation(text, range.end)
         };
         coverage.s[index] = range.count || 1;
       });
@@ -234,7 +234,7 @@ class E2ECoverageCollector {
   /**
    * 將字符偏移轉換為行列位置
    */
-  offsetToLocation(text, offset) {
+  static offsetToLocation(text, offset) {
     const lines = text.substring(0, offset).split('\n');
     return {
       line: lines.length,
@@ -312,7 +312,7 @@ class E2ECoverageCollector {
       this.saveCoverage(coverageMap, this.config.coverage.dir);
 
       // 7. 輸出測試結果摘要
-      console.log('\n' + '='.repeat(60));
+      console.log(`\n${'='.repeat(60)}`);
       console.log('📊 E2E 測試結果摘要');
       console.log('='.repeat(60));
 
@@ -324,7 +324,7 @@ class E2ECoverageCollector {
       const passedCount = results.filter(r => r.success).length;
       const totalCount = results.length;
       console.log(`\n總計: ${passedCount}/${totalCount} 通過`);
-      console.log('='.repeat(60) + '\n');
+      console.log(`${'='.repeat(60)}\n`);
 
       return {
         success: passedCount === totalCount,
