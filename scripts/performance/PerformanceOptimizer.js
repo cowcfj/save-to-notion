@@ -37,8 +37,8 @@ class PerformanceOptimizer {
             prewarms: 0 // 預熱計數
         };
 
-    // 預熱相關屬性
-    this.prewarmedSelectors = new Set();
+        // 預熱相關屬性
+        this.prewarmedSelectors = new Set();
 
         // 批處理隊列
         this.batchQueue = [];
@@ -124,11 +124,11 @@ class PerformanceOptimizer {
         const startTime = performance.now();
 
         if (!this.options.enableCache) {
-            return this._performQuery(selector, context, options);
+            return PerformanceOptimizer._performQuery(selector, context, options);
         }
 
         // 生成緩存鍵
-        const cacheKey = this._generateCacheKey(selector, context, options);
+        const cacheKey = PerformanceOptimizer._generateCacheKey(selector, context, options);
 
         // 檢查緩存
         if (this.queryCache.has(cacheKey)) {
@@ -140,7 +140,7 @@ class PerformanceOptimizer {
             // 檢查緩存是否過期
             const isExpired = Date.now() - cached.timestamp > this.options.cacheTTL;
 
-            if (!isExpired && this._validateCachedElements(cached.result)) {
+            if (!isExpired && PerformanceOptimizer._validateCachedElements(cached.result)) {
                 this._recordQueryTime(startTime);
                 return cached.result;
             } else {
@@ -153,7 +153,7 @@ class PerformanceOptimizer {
         this.cacheStats.misses++;
         this.metrics.domQueries++;
 
-        const result = this._performQuery(selector, context, options);
+        const result = PerformanceOptimizer._performQuery(selector, context, options);
 
         // 緩存結果
         if (result) {
@@ -298,7 +298,7 @@ class PerformanceOptimizer {
             metrics: {
                 ...this.metrics
             },
-            memory: this._getMemoryStats()
+            memory: PerformanceOptimizer._getMemoryStats()
         };
     }
 
@@ -329,7 +329,7 @@ class PerformanceOptimizer {
      * 執行實際的 DOM 查詢
      * @private
      */
-    _performQuery(selector, context, options) {
+    static _performQuery(selector, context, options) {
         const { single = false, all = false } = options;
 
         try {
@@ -359,9 +359,9 @@ class PerformanceOptimizer {
      * 生成緩存鍵
      * @private
      */
-    _generateCacheKey(selector, context, options) {
+    static _generateCacheKey(selector, context, options) {
         const contextId = context === document ? 'document' :
-                         (context.id || context.tagName || 'element');
+            (context.id || context.tagName || 'element');
         const optionsStr = JSON.stringify(options);
         return `${selector}:${contextId}:${optionsStr}`;
     }
@@ -370,7 +370,7 @@ class PerformanceOptimizer {
      * 驗證緩存的元素是否仍然有效
      * @private
      */
-    _validateCachedElements(result) {
+    static _validateCachedElements(result) {
         if (!result) return false;
 
         try {
@@ -457,9 +457,9 @@ class PerformanceOptimizer {
             }
         }
 
-    perfLogger.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
-    // 保守策略：統一以 Promise.resolve 返回，呼叫者可以使用 await 一致處理
-    return Promise.resolve(results);
+        perfLogger.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
+        // 保守策略：統一以 Promise.resolve 返回，呼叫者可以使用 await 一致處理
+        return Promise.resolve(results);
     }
 
     /**
@@ -471,7 +471,7 @@ class PerformanceOptimizer {
         const startTime = performance.now();
 
         // 基於當前頁面分析，動態生成預熱選擇器
-        const dynamicSelectors = this._analyzePageForPrewarming(context);
+        const dynamicSelectors = PerformanceOptimizer._analyzePageForPrewarming(context);
 
         // 合併配置中的預設選擇器和動態生成的選擇器
         const allSelectors = [...new Set([...this.options.prewarmSelectors, ...dynamicSelectors])];
@@ -488,7 +488,7 @@ class PerformanceOptimizer {
      * 基於當前頁面內容分析，動態生成預熱選擇器
      * @private
      */
-    _analyzePageForPrewarming(context) {
+    static _analyzePageForPrewarming(context) {
         const selectors = [];
 
         // 檢查頁面結構，生成可能的選擇器
@@ -566,10 +566,10 @@ class PerformanceOptimizer {
         const selectorList = Array.isArray(selectors) ? selectors : [selectors];
 
         for (const selector of selectorList) {
-            const cacheKey = this._generateCacheKey(selector, context, options);
+            const cacheKey = PerformanceOptimizer._generateCacheKey(selector, context, options);
             if (this.queryCache.has(cacheKey)) {
                 // 執行新的查詢並更新緩存
-                const result = this._performQuery(selector, context, options);
+                const result = PerformanceOptimizer._performQuery(selector, context, options);
 
                 if (result) {
                     this.queryCache.set(cacheKey, {
@@ -733,7 +733,7 @@ class PerformanceOptimizer {
                     ));
 
                     // 在批次之間提供短暫延遲以保持 UI 響應
-                    await this._yieldToMain();
+                    await PerformanceOptimizer._yieldToMain();
                 }
             } else {
                 const batchPromises = batch.map(processor);
@@ -768,7 +768,7 @@ class PerformanceOptimizer {
      * 讓出控制權給主線程以保持響應性
      * @private
      */
-    _yieldToMain() {
+    static _yieldToMain() {
         return new Promise(resolve => {
             if (typeof requestIdleCallback !== 'undefined') {
                 requestIdleCallback(() => resolve());
@@ -807,7 +807,7 @@ class PerformanceOptimizer {
      */
     _collectPerformanceMetrics() {
         if (typeof window !== 'undefined' && window.performance) {
-            const memory = this._getMemoryStats();
+            const memory = PerformanceOptimizer._getMemoryStats();
 
             // 記錄到控制台（開發模式）
             if (this.options.enableMetrics && perfLogger.debug) {
@@ -824,11 +824,11 @@ class PerformanceOptimizer {
      * 獲取內存統計
      * @private
      */
-    _getMemoryStats() {
+    static _getMemoryStats() {
         // 檢查 window.performance.memory 或 global.performance.memory（測試環境）
         const perf = (typeof window !== 'undefined' && window.performance) ||
-                     (typeof global !== 'undefined' && global.performance) ||
-                     (typeof performance !== 'undefined' && performance);
+            (typeof global !== 'undefined' && global.performance) ||
+            (typeof performance !== 'undefined' && performance);
 
         if (perf?.memory) {
             return {
@@ -923,6 +923,11 @@ function batchProcess(items, processor) {
     return defaultOptimizer.batchProcessImages(items, processor);
 }
 
+/**
+ * 等待指定的時間
+ * @param {number} ms - 等待的毫秒數
+ * @returns {Promise<void>}
+ */
 function waitForDelay(ms) {
     if (!ms || ms <= 0) {
         return Promise.resolve();
