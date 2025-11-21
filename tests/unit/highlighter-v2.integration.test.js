@@ -241,9 +241,9 @@ describe('HighlightManager 整合測試', () => {
                     if (!pathArray) return null;
                 }
 
-                // 空陣列應返回 null
+                // 空陣列應返回 body (root)
                 if (Array.isArray(pathArray) && pathArray.length === 0) {
-                    return null;
+                    return testDocument.body;
                 }
 
                 let current = testDocument.body;
@@ -616,7 +616,7 @@ describe('HighlightManager 整合測試', () => {
         test('getNodeByPath() 應該處理無效路徑', () => {
             expect(HighlightManager.getNodeByPath(null)).toBeNull();
             expect(HighlightManager.getNodeByPath('invalid-path')).toBeNull();
-            expect(HighlightManager.getNodeByPath([])).toBeNull();
+            expect(HighlightManager.getNodeByPath([])).toBe(testDocument.body);
         });
     });
 
