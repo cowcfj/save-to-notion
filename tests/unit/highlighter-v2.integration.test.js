@@ -34,7 +34,7 @@ global.window.Logger = {
 // Mock normalizeUrl 和 StorageUtil
 global.window.normalizeUrl = jest.fn((url) => url);
 global.window.StorageUtil = {
-    saveHighlights: jest.fn().mockResolvedValue(undefined),
+    saveHighlights: jest.fn().mockResolvedValue(),
     loadHighlights: jest.fn().mockResolvedValue([])
 };
 
@@ -92,7 +92,7 @@ describe('HighlightManager 整合測試', () => {
         // 清除 mock 調用記錄
         jest.clearAllMocks();
         global.chrome.storage.local.get.mockResolvedValue({});
-        global.chrome.storage.local.set.mockResolvedValue(undefined);
+        global.chrome.storage.local.set.mockResolvedValue();
 
         // 建立 HighlightManager 類別的簡化版本用於測試
         // 由於原始檔案是 IIFE,我們需要提取並重建類別
