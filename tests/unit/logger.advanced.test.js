@@ -7,17 +7,17 @@
 const { Logger } = require('../helpers/utils.testable.js');
 
 describe('Logger 系統進階測試', () => {
-  let originalChrome;
+  let originalChrome = null;
 
   beforeEach(() => {
     // 保存原始環境
     originalChrome = global.chrome;
 
     // 重置 console 方法
-    jest.spyOn(console, 'debug').mockImplementation(() => {});
-    jest.spyOn(console, 'info').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    jest.spyOn(console, 'info').mockImplementation(() => undefined);
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {

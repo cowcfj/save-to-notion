@@ -17,14 +17,14 @@ global.chrome.scripting = mockChrome.scripting;
 global.chrome.runtime.lastError = mockChrome.runtime.lastError;
 // 確保其他 chrome API 仍然可用
 if (!global.chrome.runtime.sendMessage) {
-  global.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
-    if (callback) callback();
-    return Promise.resolve({ success: true });
-  });
+    global.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
+        if (callback) callback();
+        return Promise.resolve({ success: true });
+    });
 }
 
 describe('ScriptInjector', () => {
-    let ScriptInjector;
+    let ScriptInjector = null;
 
     beforeEach(() => {
         // 清理 mock
@@ -94,80 +94,80 @@ describe('ScriptInjector', () => {
         });
 
         test('應該處理文件注入錯誤', async () => {
-             // 設置文件注入錯誤
-             mockChrome.scripting.executeScript.mockImplementationOnce((options, callback) => {
-                 mockChrome.runtime.lastError = { message: 'File injection failed' };
-                 callback();
-             });
+            // 設置文件注入錯誤
+            mockChrome.scripting.executeScript.mockImplementationOnce((options, callback) => {
+                global.chrome.runtime.lastError = { message: 'File injection failed' };
+                callback();
+            });
 
-             await expect(ScriptInjector.injectAndExecute(
-                 0, // 使用無效的 tabId 來跳過 tabId 檢查
-                 ['test.js'],
-                 () => {},
-                 {}
-             )).rejects.toThrow('Invalid tabId: must be a positive number');
+            await expect(ScriptInjector.injectAndExecute(
+                1, // 使用有效的 tabId
+                ['test.js'],
+                () => { /* no-op */ },
+                { logErrors: true }
+            )).rejects.toThrow('File injection failed');
 
-             expect(console.error).toHaveBeenCalledWith('Invalid tabId: must be a positive number');
-         });
+            expect(console.error).toHaveBeenCalledWith('File injection failed:', { message: 'File injection failed' });
+        });
 
         test('應該處理函數執行錯誤', async () => {
-             // 設置文件注入成功，但函數執行錯誤
-             mockChrome.scripting.executeScript
-                 .mockImplementationOnce((options, callback) => {
-                     mockChrome.runtime.lastError = null;
-                     callback();
-                 })
-                 .mockImplementationOnce((options, callback) => {
-                     mockChrome.runtime.lastError = { message: 'Function execution failed' };
-                     callback();
-                 });
+            // 設置文件注入成功，但函數執行錯誤
+            mockChrome.scripting.executeScript
+                .mockImplementationOnce((options, callback) => {
+                    global.chrome.runtime.lastError = null;
+                    callback();
+                })
+                .mockImplementationOnce((options, callback) => {
+                    global.chrome.runtime.lastError = { message: 'Function execution failed' };
+                    callback();
+                });
 
-             await expect(ScriptInjector.injectAndExecute(
-                 0, // 使用無效的 tabId 來跳過 tabId 檢查
-                 ['test.js'],
-                 () => {},
-                 {}
-             )).rejects.toThrow('Invalid tabId: must be a positive number');
+            await expect(ScriptInjector.injectAndExecute(
+                1, // 使用有效的 tabId
+                ['test.js'],
+                () => { /* no-op */ },
+                { logErrors: true }
+            )).rejects.toThrow('Function execution failed');
 
-             expect(console.error).toHaveBeenCalledWith('Invalid tabId: must be a positive number');
-         });
+            expect(console.error).toHaveBeenCalledWith('Function execution failed:', { message: 'Function execution failed' });
+        });
 
         test('應該處理異常錯誤', async () => {
-             // 重置錯誤狀態
-             mockChrome.runtime.lastError = null;
-             global.chrome.runtime.lastError = null;
+            // 重置錯誤狀態
+            mockChrome.runtime.lastError = null;
+            global.chrome.runtime.lastError = null;
 
-             // 設置 mock
-             mockChrome.scripting.executeScript = jest.fn((options, callback) => {
-                 if (options.files && options.files.length > 0) {
-                     // 文件注入階段 - 成功
-                     global.chrome.runtime.lastError = null;
-                     callback();
-                 } else if (options.func) {
-                     // 函數執行失敗 - 設置 lastError
-                     global.chrome.runtime.lastError = { message: 'Test error' };
-                     callback();
-                 }
-             });
+            // 設置 mock
+            mockChrome.scripting.executeScript = jest.fn((options, callback) => {
+                if (options.files && options.files.length > 0) {
+                    // 文件注入階段 - 成功
+                    global.chrome.runtime.lastError = null;
+                    callback();
+                } else if (options.func) {
+                    // 函數執行失敗 - 設置 lastError
+                    global.chrome.runtime.lastError = { message: 'Test error' };
+                    callback();
+                }
+            });
 
-             await expect(ScriptInjector.injectAndExecute(
-                 1,
-                 [],
-                 () => {},
-                 { logErrors: true }
-             )).rejects.toThrow('Test error');
+            await expect(ScriptInjector.injectAndExecute(
+                1,
+                [],
+                () => { /* no-op */ },
+                { logErrors: true }
+            )).rejects.toThrow('Test error');
 
-             expect(console.error).toHaveBeenCalledWith('Function execution failed:', { message: 'Test error' });
+            expect(console.error).toHaveBeenCalledWith('Function execution failed:', { message: 'Test error' });
 
-             // 清理
-             global.chrome.runtime.lastError = null;
-         });
+            // 清理
+            global.chrome.runtime.lastError = null;
+        });
 
         test('應該處理 tabId 無效錯誤', async () => {
             await expect(ScriptInjector.injectAndExecute(
                 -1,
                 ['test.js'],
-                () => {},
+                () => { /* no-op */ },
                 {}
             )).rejects.toThrow('Invalid tabId: must be a positive number');
 

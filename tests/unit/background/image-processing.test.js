@@ -209,7 +209,7 @@ describe('Background Image Processing', () => {
 
     it('應該拒絕過長的 URL (>2000 字元)', () => {
       // Arrange
-      const longUrl = 'https://example.com/' + 'x'.repeat(2000) + '.jpg';
+      const longUrl = `https://example.com/${'x'.repeat(2000)}.jpg`;
 
       // Act
       const result = isValidImageUrlSimulated(longUrl);
@@ -220,7 +220,7 @@ describe('Background Image Processing', () => {
 
     it('應該接受正常長度的 URL', () => {
       // Arrange
-      const normalUrl = 'https://example.com/' + 'x'.repeat(100) + '.jpg';
+      const normalUrl = `https://example.com/${'x'.repeat(100)}.jpg`;
 
       // Act
       const result = isValidImageUrlSimulated(normalUrl);
@@ -342,7 +342,7 @@ describe('Background Image Processing', () => {
 
     it('應該在句號處分割', () => {
       // Arrange
-      const text = 'First sentence. Second sentence. ' + 'A'.repeat(2000);
+      const text = `First sentence. Second sentence. ${'A'.repeat(2000)}`;
 
       // Act
       const result = splitTextForHighlightSimulated(text, 2000);
@@ -354,7 +354,7 @@ describe('Background Image Processing', () => {
 
     it('應該在空格處分割（如果沒有標點）', () => {
       // Arrange
-      const text = 'word1 word2 word3 ' + 'A'.repeat(2000);
+      const text = `word1 word2 word3 ${'A'.repeat(2000)}`;
 
       // Act
       const result = splitTextForHighlightSimulated(text, 2000);
@@ -401,8 +401,7 @@ describe('Background Image Processing', () => {
   describe('圖片處理集成測試', () => {
     it('應該完整處理圖片 URL 流程', () => {
       // Arrange
-      const proxyUrl = 'https://pgw.udn.com.tw/gw/photo.php?u=' +
-        encodeURIComponent('https://cdn.example.com/image.jpg?width=800&width=1200');
+      const proxyUrl = `https://pgw.udn.com.tw/gw/photo.php?u=${encodeURIComponent('https://cdn.example.com/image.jpg?width=800&width=1200')}`;
 
       // Act
       const cleanedUrl = cleanImageUrlSimulated(proxyUrl);
