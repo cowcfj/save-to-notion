@@ -6,9 +6,9 @@
 const { JSDOM } = require('jsdom');
 
 describe('Highlighter Interactions', () => {
-    let dom;
-    let document;
-    let window;
+    let dom = null;
+    let document = null;
+    let window = null;
 
     beforeEach(() => {
         dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
@@ -22,12 +22,12 @@ describe('Highlighter Interactions', () => {
 
     describe('文本選擇和高亮創建', () => {
         it('應該能夠選擇文本', () => {
-            const p = document.createElement('p');
-            p.textContent = '這是一段測試文字。';
-            document.body.appendChild(p);
+            const paragraph = document.createElement('p');
+            paragraph.textContent = '這是一段測試文字。';
+            document.body.appendChild(paragraph);
 
             const range = document.createRange();
-            range.selectNodeContents(p);
+            range.selectNodeContents(paragraph);
 
             const selection = window.getSelection();
             selection.removeAllRanges();
@@ -37,12 +37,12 @@ describe('Highlighter Interactions', () => {
         });
 
         it('應該能夠獲取選擇的範圍', () => {
-            const p = document.createElement('p');
-            p.textContent = '這是一段較長的測試文字，用於測試選擇功能。';
-            document.body.appendChild(p);
+            const paragraph = document.createElement('p');
+            paragraph.textContent = '這是一段較長的測試文字，用於測試選擇功能。';
+            document.body.appendChild(paragraph);
 
             const range = document.createRange();
-            const textNode = p.firstChild;
+            const textNode = paragraph.firstChild;
             range.setStart(textNode, 0);
             range.setEnd(textNode, 7);
 
@@ -84,7 +84,7 @@ describe('Highlighter Interactions', () => {
 
         it('應該支持多種高亮顏色', () => {
             const supportedColors = ['yellow', 'green', 'blue', 'red', 'purple'];
-            
+
             supportedColors.forEach(color => {
                 expect(['yellow', 'green', 'blue', 'red', 'purple']).toContain(color);
             });
@@ -92,7 +92,7 @@ describe('Highlighter Interactions', () => {
 
         it('應該能夠切換高亮顏色', () => {
             let currentColor = 'yellow';
-            
+
             const nextColor = (current) => {
                 const colors = ['yellow', 'green', 'blue', 'red', 'purple'];
                 const index = colors.indexOf(current);
@@ -148,8 +148,8 @@ describe('Highlighter Interactions', () => {
         it('應該能夠檢測 Highlight API 是否可用', () => {
             // 在 JSDOM 中，Highlight API 不可用
             const hasHighlightAPI = typeof window.Highlight !== 'undefined' &&
-                                   typeof CSS !== 'undefined' &&
-                                   typeof CSS.highlights !== 'undefined';
+                typeof CSS !== 'undefined' &&
+                typeof CSS.highlights !== 'undefined';
 
             expect(hasHighlightAPI).toBe(false);
         });
@@ -189,33 +189,33 @@ describe('Highlighter Interactions', () => {
 
     describe('高亮事件處理', () => {
         it('應該處理 mouseup 事件', () => {
-            const p = document.createElement('p');
-            p.textContent = '測試文字';
-            document.body.appendChild(p);
+            const paragraph = document.createElement('p');
+            paragraph.textContent = '測試文字';
+            document.body.appendChild(paragraph);
 
             let eventFired = false;
             const handler = () => { eventFired = true; };
 
-            p.addEventListener('mouseup', handler);
+            paragraph.addEventListener('mouseup', handler);
 
             const event = new window.MouseEvent('mouseup', {
                 bubbles: true,
                 cancelable: true
             });
 
-            p.dispatchEvent(event);
+            paragraph.dispatchEvent(event);
 
             expect(eventFired).toBe(true);
         });
 
         it('應該處理 click 事件（用於刪除高亮）', () => {
-            const span = document.createElement('span');
-            span.className = 'highlight';
-            span.textContent = '高亮文字';
-            document.body.appendChild(span);
+            const spanElement = document.createElement('span');
+            spanElement.className = 'highlight';
+            spanElement.textContent = '高亮文字';
+            document.body.appendChild(spanElement);
 
             let clickHandled = false;
-            span.addEventListener('click', (e) => {
+            spanElement.addEventListener('click', (e) => {
                 if (e.ctrlKey || e.metaKey) {
                     clickHandled = true;
                 }
@@ -227,19 +227,19 @@ describe('Highlighter Interactions', () => {
                 ctrlKey: true
             });
 
-            span.dispatchEvent(event);
+            spanElement.dispatchEvent(event);
 
             expect(clickHandled).toBe(true);
         });
 
         it('應該處理雙擊刪除高亮', () => {
-            const span = document.createElement('span');
-            span.className = 'highlight';
-            span.textContent = '高亮文字';
-            document.body.appendChild(span);
+            const spanElement = document.createElement('span');
+            spanElement.className = 'highlight';
+            spanElement.textContent = '高亮文字';
+            document.body.appendChild(spanElement);
 
             let dblclickHandled = false;
-            span.addEventListener('dblclick', () => {
+            spanElement.addEventListener('dblclick', () => {
                 dblclickHandled = true;
             });
 
@@ -248,7 +248,7 @@ describe('Highlighter Interactions', () => {
                 cancelable: true
             });
 
-            span.dispatchEvent(event);
+            spanElement.dispatchEvent(event);
 
             expect(dblclickHandled).toBe(true);
         });
@@ -276,10 +276,10 @@ describe('Highlighter Interactions', () => {
                 { id: 'h3', text: '高亮3', color: 'blue' }
             ];
 
-            const filtered = highlights.filter(h => h.id !== 'h2');
+            const filtered = highlights.filter(highlight => highlight.id !== 'h2');
 
             expect(filtered.length).toBe(2);
-            expect(filtered.some(h => h.id === 'h2')).toBe(false);
+            expect(filtered.some(highlight => highlight.id === 'h2')).toBe(false);
         });
 
         it('應該能夠更新高亮顏色', () => {
@@ -287,11 +287,11 @@ describe('Highlighter Interactions', () => {
                 { id: 'h1', text: '高亮1', color: 'yellow' }
             ];
 
-            const updated = highlights.map(h => {
-                if (h.id === 'h1') {
-                    return { ...h, color: 'green' };
+            const updated = highlights.map(highlight => {
+                if (highlight.id === 'h1') {
+                    return { ...highlight, color: 'green' };
                 }
-                return h;
+                return highlight;
             });
 
             expect(updated[0].color).toBe('green');
@@ -301,34 +301,34 @@ describe('Highlighter Interactions', () => {
     describe('XPath 路徑生成', () => {
         it('應該生成元素的 XPath', () => {
             const div = document.createElement('div');
-            const p1 = document.createElement('p');
-            const p2 = document.createElement('p');
+            const paragraph1 = document.createElement('p');
+            const paragraph2 = document.createElement('p');
 
-            div.appendChild(p1);
-            div.appendChild(p2);
+            div.appendChild(paragraph1);
+            div.appendChild(paragraph2);
             document.body.appendChild(div);
 
             // 簡化版 XPath 生成
             const getXPath = (element) => {
                 if (element === document.body) return '/html/body';
-                
+
                 const siblings = Array.from(element.parentNode.children);
                 const index = siblings.indexOf(element) + 1;
                 const tagName = element.tagName.toLowerCase();
-                
+
                 return `${getXPath(element.parentNode)}/${tagName}[${index}]`;
             };
 
-            const xpath = getXPath(p2);
+            const xpath = getXPath(paragraph2);
             expect(xpath).toContain('p[2]');
         });
 
         it('應該處理文本節點的路徑', () => {
-            const p = document.createElement('p');
-            p.textContent = '測試文字';
-            document.body.appendChild(p);
+            const paragraph = document.createElement('p');
+            paragraph.textContent = '測試文字';
+            document.body.appendChild(paragraph);
 
-            const textNode = p.firstChild;
+            const textNode = paragraph.firstChild;
             expect(textNode.nodeType).toBe(3); // TEXT_NODE
         });
     });

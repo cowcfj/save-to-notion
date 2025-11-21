@@ -36,6 +36,8 @@ global.Logger = {
         args
       }, () => { /* no-op */ });
     }
+    // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
+    // skipcq: JS-0002
     console.log(`[LOG] ${message}`, ...args); // Concatenate prefix with message
   }),
   debug: jest.fn((message, ...args) => {
@@ -49,7 +51,9 @@ global.Logger = {
       }, () => { /* no-op */ });
     }
     try {
-      console.log(`[DEBUG] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
+      // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
+      // skipcq: JS-0002
+      console.log(`[DEBUG] ${message}`, ...args);
     } catch (_e) {
       // 忽略 console 錯誤
     }
@@ -65,7 +69,9 @@ global.Logger = {
       }, () => { /* no-op */ });
     }
     try {
-      console.log(`[INFO] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
+      // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
+      // skipcq: JS-0002
+      console.log(`[INFO] ${message}`, ...args);
     } catch (_e) {
       // 忽略 console 錯誤
     }

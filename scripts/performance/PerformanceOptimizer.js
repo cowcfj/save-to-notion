@@ -9,6 +9,25 @@ const perfLogger = (typeof window !== 'undefined' && window.Logger) ? window.Log
 /**
  * 性能優化器類
  * 提供 DOM 查詢緩存、批處理隊列、性能監控和自適應優化功能
+ * 
+ * 架構設計說明：
+ * 
+ * 1. 靜態輔助方法設計理念
+ *    - 類中包含若干靜態無狀態方法（如 _performQuery、_generateCacheKey 等）
+ *    - 這些方法保留在類內部是為了維護語義內聚性和代碼的可維護性
+ *    - 它們是本類核心功能的輔助邏輯，與類的職責緊密相關
+ *    - 遵循 KISS 原則：避免不必要的抽象和模組拆分
+ * 
+ * 2. 何時應該提取靜態方法？
+ *    - 當其他模組需要重用這些邏輯時
+ *    - 當函數變得足夠通用，不再與本類職責緊密相關時
+ *    - 當提取能明顯降低整體複雜度時
+ * 
+ * 3. 參考原則
+ *    - 優先考慮語義內聚性而非技術內聚性
+ *    - 參考項目中的 imageUtils.js、pageComplexityDetector.js 等真正通用的工具模組
+ *    - 只有當函數被多個不相關的模組使用時，才考慮提取
+ * 
  * @class
  */
 class PerformanceOptimizer {
@@ -37,8 +56,8 @@ class PerformanceOptimizer {
             prewarms: 0 // 預熱計數
         };
 
-    // 預熱相關屬性
-    this.prewarmedSelectors = new Set();
+        // 預熱相關屬性
+        this.prewarmedSelectors = new Set();
 
         // 批處理隊列
         this.batchQueue = [];
@@ -124,11 +143,11 @@ class PerformanceOptimizer {
         const startTime = performance.now();
 
         if (!this.options.enableCache) {
-            return this._performQuery(selector, context, options);
+            return PerformanceOptimizer._performQuery(selector, context, options);
         }
 
         // 生成緩存鍵
-        const cacheKey = this._generateCacheKey(selector, context, options);
+        const cacheKey = PerformanceOptimizer._generateCacheKey(selector, context, options);
 
         // 檢查緩存
         if (this.queryCache.has(cacheKey)) {
@@ -140,7 +159,7 @@ class PerformanceOptimizer {
             // 檢查緩存是否過期
             const isExpired = Date.now() - cached.timestamp > this.options.cacheTTL;
 
-            if (!isExpired && this._validateCachedElements(cached.result)) {
+            if (!isExpired && PerformanceOptimizer._validateCachedElements(cached.result)) {
                 this._recordQueryTime(startTime);
                 return cached.result;
             } else {
@@ -153,7 +172,7 @@ class PerformanceOptimizer {
         this.cacheStats.misses++;
         this.metrics.domQueries++;
 
-        const result = this._performQuery(selector, context, options);
+        const result = PerformanceOptimizer._performQuery(selector, context, options);
 
         // 緩存結果
         if (result) {
@@ -298,7 +317,7 @@ class PerformanceOptimizer {
             metrics: {
                 ...this.metrics
             },
-            memory: this._getMemoryStats()
+            memory: PerformanceOptimizer._getMemoryStats()
         };
     }
 
@@ -327,9 +346,23 @@ class PerformanceOptimizer {
 
     /**
      * 執行實際的 DOM 查詢
+     * 
+     * 設計說明：
+     * - 這是一個無狀態的純函數，不依賴類的實例狀態
+     * - 保留為靜態方法是為了保持與 PerformanceOptimizer 的語義內聚性
+     * - 封裝了 DOM 查詢的錯誤處理和自動判斷邏輯
+     * - 如果未來有其他模組需要此邏輯，可考慮提取到獨立的工具模組
+     * 
      * @private
+     * @static
+     * @param {string} selector - CSS 選擇器
+     * @param {Element|Document} context - 查詢上下文
+     * @param {Object} options - 查詢選項
+     * @param {boolean} [options.single=false] - 是否只返回單個元素
+     * @param {boolean} [options.all=false] - 是否強制返回所有元素
+     * @returns {NodeList|Element|null} 查詢結果
      */
-    _performQuery(selector, context, options) {
+    static _performQuery(selector, context, options) {
         const { single = false, all = false } = options;
 
         try {
@@ -357,20 +390,42 @@ class PerformanceOptimizer {
 
     /**
      * 生成緩存鍵
+     * 
+     * 設計說明：
+     * - 這是一個無狀態的純函數，基於輸入參數生成唯一的緩存鍵
+     * - 保留為靜態方法是為了確保緩存鍵生成邏輯的一致性
+     * - 使用組合鍵（選擇器 + 上下文 + 選項）確保緩存的精確性
+     * - 此邏輯專屬於 PerformanceOptimizer 的緩存策略，不適合獨立提取
+     * 
      * @private
+     * @static
+     * @param {string} selector - CSS 選擇器
+     * @param {Element|Document} context - 查詢上下文
+     * @param {Object} options - 查詢選項
+     * @returns {string} 緩存鍵（格式：selector:contextId:optionsJson）
      */
-    _generateCacheKey(selector, context, options) {
+    static _generateCacheKey(selector, context, options) {
         const contextId = context === document ? 'document' :
-                         (context.id || context.tagName || 'element');
+            (context.id || context.tagName || 'element');
         const optionsStr = JSON.stringify(options);
         return `${selector}:${contextId}:${optionsStr}`;
     }
 
     /**
      * 驗證緩存的元素是否仍然有效
+     * 
+     * 設計說明：
+     * - 這是一個無狀態的純函數，檢查 DOM 元素是否仍存在於文檔中
+     * - 保留為靜態方法是因為此邏輯是 PerformanceOptimizer 緩存機制的核心部分
+     * - 處理單個元素和 NodeList 兩種情況，並兼容 JSDOM 測試環境
+     * - 此驗證邏輯與緩存策略緊密相關，不建議獨立提取
+     * 
      * @private
+     * @static
+     * @param {Element|NodeList|Array} result - 要驗證的元素或元素列表
+     * @returns {boolean} 元素是否仍然有效（存在於文檔中）
      */
-    _validateCachedElements(result) {
+    static _validateCachedElements(result) {
         if (!result) return false;
 
         try {
@@ -457,9 +512,9 @@ class PerformanceOptimizer {
             }
         }
 
-    perfLogger.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
-    // 保守策略：統一以 Promise.resolve 返回，呼叫者可以使用 await 一致處理
-    return Promise.resolve(results);
+        perfLogger.info(`🔥 預熱完成: ${results.filter(r => r.cached).length}/${selectors.length} 個選擇器已預熱`);
+        // 保守策略：統一以 Promise.resolve 返回，呼叫者可以使用 await 一致處理
+        return Promise.resolve(results);
     }
 
     /**
@@ -471,7 +526,7 @@ class PerformanceOptimizer {
         const startTime = performance.now();
 
         // 基於當前頁面分析，動態生成預熱選擇器
-        const dynamicSelectors = this._analyzePageForPrewarming(context);
+        const dynamicSelectors = PerformanceOptimizer._analyzePageForPrewarming(context);
 
         // 合併配置中的預設選擇器和動態生成的選擇器
         const allSelectors = [...new Set([...this.options.prewarmSelectors, ...dynamicSelectors])];
@@ -486,9 +541,19 @@ class PerformanceOptimizer {
 
     /**
      * 基於當前頁面內容分析，動態生成預熱選擇器
+     * 
+     * 設計說明：
+     * - 這是一個無狀態的分析函數，根據頁面結構智能生成選擇器列表
+     * - 保留為靜態方法是因為此邏輯是智能預熱功能的核心算法
+     * - 包含對常見 CMS 和網站結構的啟發式分析
+     * - 此分析邏輯專屬於 PerformanceOptimizer 的預熱策略，不適合獨立提取
+     * 
      * @private
+     * @static
+     * @param {Element|Document} context - 要分析的上下文元素
+     * @returns {Array<string>} 動態生成的選擇器數組
      */
-    _analyzePageForPrewarming(context) {
+    static _analyzePageForPrewarming(context) {
         const selectors = [];
 
         // 檢查頁面結構，生成可能的選擇器
@@ -566,10 +631,10 @@ class PerformanceOptimizer {
         const selectorList = Array.isArray(selectors) ? selectors : [selectors];
 
         for (const selector of selectorList) {
-            const cacheKey = this._generateCacheKey(selector, context, options);
+            const cacheKey = PerformanceOptimizer._generateCacheKey(selector, context, options);
             if (this.queryCache.has(cacheKey)) {
                 // 執行新的查詢並更新緩存
-                const result = this._performQuery(selector, context, options);
+                const result = PerformanceOptimizer._performQuery(selector, context, options);
 
                 if (result) {
                     this.queryCache.set(cacheKey, {
@@ -733,7 +798,7 @@ class PerformanceOptimizer {
                     ));
 
                     // 在批次之間提供短暫延遲以保持 UI 響應
-                    await this._yieldToMain();
+                    await PerformanceOptimizer._yieldToMain();
                 }
             } else {
                 const batchPromises = batch.map(processor);
@@ -766,9 +831,18 @@ class PerformanceOptimizer {
 
     /**
      * 讓出控制權給主線程以保持響應性
+     * 
+     * 設計說明：
+     * - 這是一個無狀態的工具函數，使用 requestIdleCallback 或 setTimeout
+     * - 保留為靜態方法是因為此邏輯與批處理性能優化密切相關
+     * - 提供跨瀏覽器的兼容性處理（requestIdleCallback 的回退方案）
+     * - 此函數是 PerformanceOptimizer 批處理機制的基礎設施，不建議獨立提取
+     * 
      * @private
+     * @static
+     * @returns {Promise<void>} 在讓出控制權後解析的 Promise
      */
-    _yieldToMain() {
+    static _yieldToMain() {
         return new Promise(resolve => {
             if (typeof requestIdleCallback !== 'undefined') {
                 requestIdleCallback(() => resolve());
@@ -807,7 +881,7 @@ class PerformanceOptimizer {
      */
     _collectPerformanceMetrics() {
         if (typeof window !== 'undefined' && window.performance) {
-            const memory = this._getMemoryStats();
+            const memory = PerformanceOptimizer._getMemoryStats();
 
             // 記錄到控制台（開發模式）
             if (this.options.enableMetrics && perfLogger.debug) {
@@ -822,13 +896,25 @@ class PerformanceOptimizer {
 
     /**
      * 獲取內存統計
+     * 
+     * 設計說明：
+     * - 這是一個無狀態的工具函數，讀取瀏覽器的內存使用信息
+     * - 保留為靜態方法是因為此邏輯是性能監控功能的一部分
+     * - 提供跨環境的兼容性處理（瀏覽器、Node.js、測試環境）
+     * - 此函數是 PerformanceOptimizer 性能指標收集的基礎功能
+     * 
      * @private
+     * @static
+     * @returns {Object|null} 內存統計對象或 null（如果不支持）
+     * @returns {number} returns.usedJSHeapSize - 已使用的 JS 堆大小（字節）
+     * @returns {number} returns.totalJSHeapSize - JS 堆總大小（字節）
+     * @returns {number} returns.jsHeapSizeLimit - JS 堆大小限制（字節）
      */
-    _getMemoryStats() {
+    static _getMemoryStats() {
         // 檢查 window.performance.memory 或 global.performance.memory（測試環境）
         const perf = (typeof window !== 'undefined' && window.performance) ||
-                     (typeof global !== 'undefined' && global.performance) ||
-                     (typeof performance !== 'undefined' && performance);
+            (typeof global !== 'undefined' && global.performance) ||
+            (typeof performance !== 'undefined' && performance);
 
         if (perf?.memory) {
             return {
@@ -923,6 +1009,11 @@ function batchProcess(items, processor) {
     return defaultOptimizer.batchProcessImages(items, processor);
 }
 
+/**
+ * 等待指定的時間
+ * @param {number} ms - 等待的毫秒數
+ * @returns {Promise<void>}
+ */
 function waitForDelay(ms) {
     if (!ms || ms <= 0) {
         return Promise.resolve();

@@ -4,8 +4,8 @@
  */
 
 describe('Background Update Highlights', () => {
-  let mockFetch;
-  let originalFetch;
+  let mockFetch = null;
+  let originalFetch = null;
 
   beforeEach(() => {
     // 保存原始 fetch
@@ -21,9 +21,9 @@ describe('Background Update Highlights', () => {
     }
 
     // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'log').mockImplementation(jest.fn());
+    jest.spyOn(console, 'warn').mockImplementation(jest.fn());
+    jest.spyOn(console, 'error').mockImplementation(jest.fn());
   });
 
   afterEach(() => {
@@ -566,7 +566,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
     if (!getResponse.ok) {
       const errorData = await getResponse.json();
       console.error('❌ 獲取頁面內容失敗:', errorData);
-      throw new Error('Failed to get existing page content: ' + (errorData.message || getResponse.statusText));
+      throw new Error(`Failed to get existing page content: ${errorData.message || getResponse.statusText}`);
     }
 
     const existingContent = await getResponse.json();
@@ -581,7 +581,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
       const block = existingBlocks[i];
 
       if (block.type === 'heading_3' &&
-          block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記') {
+        block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記') {
         foundHighlightSection = true;
         blocksToDelete.push(block.id);
         console.log(`🎯 找到標記區域標題 (索引 ${i}):`, block.id);
@@ -687,7 +687,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
       if (!addResponse.ok) {
         const errorData = await addResponse.json();
         console.error('❌ 添加標記失敗 - 錯誤詳情:', errorData);
-        throw new Error('Failed to add new highlights: ' + (errorData.message || 'Unknown error'));
+        throw new Error(`Failed to add new highlights: ${errorData.message || 'Unknown error'}`);
       }
 
       const addResult = await addResponse.json();

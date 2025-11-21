@@ -6,12 +6,14 @@
 const { JSDOM } = require('jsdom');
 
 // 動態引入模組以避免 ES Module 問題
-let Readability, Defuddle, TurndownService, gfm;
+const Readability = require('../../lib/Readability.js');
+
+// 動態引入模組以避免 ES Module 問題
+let Defuddle = null;
+let TurndownService = null;
+let gfm = null;
 
 beforeAll(async () => {
-    // 引入 Readability（CommonJS）
-    Readability = require('../../lib/Readability.js');
-
     // 引入 Defuddle（可能需要動態引入）
     try {
         const defuddleModule = await import('defuddle/full');
@@ -36,7 +38,8 @@ describe('內容提取方案對比測試', () => {
      * 測試用例 1：簡單的 Markdown 文件頁面
      */
     describe('測試案例 1：Markdown 文件頁面', () => {
-        let dom, document;
+        let dom = null;
+        let document = null;
 
         beforeEach(() => {
             // 模擬一個典型的 Markdown 文件站頁面
@@ -181,7 +184,8 @@ awesome.init();
      * 測試用例 2：複雜的新聞網站頁面
      */
     describe('測試案例 2：新聞網站頁面', () => {
-        let dom, document;
+        let dom = null;
+        let document = null;
 
         beforeEach(() => {
             const html = `
