@@ -29,8 +29,8 @@ describe('Background 通知處理器', () => {
     };
     global.Logger = mockLogger;
 
-    // 清除 console mock
-    jest.spyOn(console, 'error').mockImplementation(() => { });
+    // 清除 console mock - 靜默 console.error 輸出以保持測試輸出清晰
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
