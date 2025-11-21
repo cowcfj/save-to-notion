@@ -24,9 +24,12 @@ describe('Background ScriptInjector Class', () => {
     };
 
     // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(() => { });
-    jest.spyOn(console, 'warn').mockImplementation(() => { });
-    jest.spyOn(console, 'error').mockImplementation(() => { });
+    jest.spyOn(console, 'log').mockImplementation(() => { // no-op
+    });
+    jest.spyOn(console, 'warn').mockImplementation(() => { // no-op
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => { // no-op
+    });
   });
 
   afterEach(() => {
@@ -357,7 +360,8 @@ describe('Background ScriptInjector Class', () => {
 
     it('應該處理注入失敗', async () => {
       // Arrange
-      const mockFunc = () => { };
+      const mockFunc = () => { // no-op
+      };
 
       mockExecuteScript.mockImplementationOnce(() => {
         throw new Error('Injection failed');

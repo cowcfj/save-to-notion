@@ -6,15 +6,14 @@
 const { JSDOM } = require('jsdom');
 
 // 動態引入模組以避免 ES Module 問題
-let Readability = null;
+const Readability = require('../../lib/Readability.js');
+
+// 動態引入模組以避免 ES Module 問題
 let Defuddle = null;
 let TurndownService = null;
 let gfm = null;
 
 beforeAll(async () => {
-    // 引入 Readability（CommonJS）
-    Readability = require('../../lib/Readability.js');
-
     // 引入 Defuddle（可能需要動態引入）
     try {
         const defuddleModule = await import('defuddle/full');
