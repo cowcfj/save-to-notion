@@ -4,10 +4,11 @@
  */
 
 // 動態導入以確保每次測試都是新的實例
-let utils;
+let utils = null;
 
 describe('utils.js - 進階覆蓋率測試', () => {
-  let originalChrome, originalWindow;
+  let originalChrome = null;
+  let originalWindow = null;
 
   beforeEach(() => {
     // 保存原始環境
@@ -414,7 +415,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
     });
 
     test('應該響應 enableDebugLogs 設置變更', () => {
-      let changeListener;
+      let changeListener = null;
 
       global.chrome.storage.sync.onChanged.addListener = jest.fn((listener) => {
         changeListener = listener;
@@ -445,7 +446,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
     });
 
     test('應該處理變更監聽器中的異常', () => {
-      let changeListener;
+      let changeListener = null;
 
       global.chrome.storage.sync.onChanged.addListener = jest.fn((listener) => {
         changeListener = listener;

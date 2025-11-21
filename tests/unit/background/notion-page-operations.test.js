@@ -19,7 +19,9 @@ global.console = {
 global.fetch = jest.fn();
 
 describe('Background Notion Page Operations', () => {
-  let checkNotionPageExists, handleCheckNotionPageExistsMessage, handleOpenNotionPage;
+  let checkNotionPageExists = null;
+  let handleCheckNotionPageExistsMessage = null;
+  let handleOpenNotionPage = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -137,7 +139,7 @@ describe('Background Notion Page Operations', () => {
 
         console.log('🔗 打開 Notion 頁面:', url);
 
-        chrome.tabs.create({ url: url }, (tab) => {
+        chrome.tabs.create({ url }, (tab) => {
           if (chrome.runtime.lastError) {
             console.error('❌ 打開標籤頁失敗:', chrome.runtime.lastError);
             sendResponse({

@@ -14,9 +14,9 @@ const CoverageMerger = require('./coverage-merger');
 const config = require('./coverage-config');
 
 async function main() {
-  console.log('\n' + '='.repeat(60));
+  console.log(`\n${'='.repeat(60)}`);
   console.log('🚀 E2E 測試覆蓋率收集器');
-  console.log('='.repeat(60) + '\n');
+  console.log(`${'='.repeat(60)}\n`);
 
   try {
     // 步驟 1: 執行 E2E 測試並收集覆蓋率
@@ -36,7 +36,7 @@ async function main() {
     const mergedResult = await merger.merge(config);
 
     // 最終摘要
-    console.log('\n' + '='.repeat(60));
+    console.log(`\n${'='.repeat(60)}`);
     console.log('🎉 測試覆蓋率收集完成！');
     console.log('='.repeat(60));
     console.log(`
@@ -65,7 +65,7 @@ async function main() {
     console.log(`💡 查看詳細報告: open ${config.coverage.mergedDir}/index.html
     `);
 
-    console.log('='.repeat(60) + '\n');
+    console.log(`${'='.repeat(60)}\n`);
 
     process.exit(result.success ? 0 : 1);
 

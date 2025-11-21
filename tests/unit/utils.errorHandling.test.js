@@ -6,8 +6,8 @@
 const TestEnvironmentHelper = require('../helpers/test-environment-helper');
 const TEST_CONSTANTS = require('../helpers/test-constants');
 
-let utils;
-let testEnv;
+let utils = null;
+let testEnv = null;
 
 describe('utils.js - 錯誤處理邊界測試', () => {
   beforeEach(() => {
@@ -321,7 +321,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
   });
 
   describe('Logger 錯誤處理增強', () => {
-    let originalConsole;
+    let originalConsole = null;
 
     beforeEach(() => {
       // 保存原始 console 對象
@@ -396,7 +396,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       ['warn', 'test warn message'],
       ['error', 'test error message']
     ])('應該正確調用 %s 方法', (method, message) => {
-      const spy = jest.spyOn(global.console, method).mockImplementation(() => {});
+      const spy = jest.spyOn(global.console, method).mockImplementation(jest.fn());
 
       utils.Logger[method](message);
 
@@ -417,7 +417,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       utils = require('../helpers/utils.testable');
 
       // debug 和 info 都使用 console.log
-      const spy = jest.spyOn(global.console, 'log').mockImplementation(() => {});
+      const spy = jest.spyOn(global.console, 'log').mockImplementation(jest.fn());
 
       utils.Logger[method](message);
 

@@ -4,8 +4,8 @@
  */
 
 describe('Background 通知處理器', () => {
-  let mockChrome;
-  let mockLogger;
+  let mockChrome = null;
+  let mockLogger = null;
 
   beforeEach(() => {
     // 設置 Chrome API mock
@@ -30,7 +30,7 @@ describe('Background 通知處理器', () => {
     global.Logger = mockLogger;
 
     // 清除 console mock
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => { });
   });
 
   afterEach(() => {
@@ -100,7 +100,7 @@ describe('Background 通知處理器', () => {
         }
 
         // 在新標籤頁中打開 Notion 頁面
-        chrome.tabs.create({ url: url }, (tab) => {
+        chrome.tabs.create({ url }, (tab) => {
           if (chrome.runtime.lastError) {
             console.error('Failed to open Notion page:', chrome.runtime.lastError);
             sendResponse({ success: false, error: chrome.runtime.lastError.message });
