@@ -22,7 +22,7 @@ class ExtractionStrategy {
      * 獲取策略名稱
      * @returns {string} 策略名稱
      */
-    // skipcq: JS-0105 - 抽象方法，子類實現時會使用 this
+    // skipcq: JS-0105 - 基礎類別提供預設實作,子類別可覆寫並使用實例狀態
     getName() {
         throw new Error('ExtractionStrategy.getName() must be implemented by subclass');
     }
@@ -32,6 +32,7 @@ class ExtractionStrategy {
      * 子類可覆寫此方法以自訂優先級
      * @returns {number} 優先級
      */
+    // skipcq: JS-0105 - 基礎類別提供預設實作,子類別可覆寫並使用實例狀態
     getPriority() {
         return 100; // 默認優先級
     }
@@ -42,6 +43,7 @@ class ExtractionStrategy {
      * @param {HTMLImageElement} imgNode - 圖片元素
      * @returns {boolean} 是否適用
      */
+    // skipcq: JS-0105 - 基礎類別提供預設實作,子類別可覆寫並使用實例狀態
     isApplicable(imgNode) {
         return imgNode && imgNode.nodeType === Node.ELEMENT_NODE;
     }
@@ -53,6 +55,7 @@ class ExtractionStrategy {
      * @param {string} url - 要驗證的 URL
      * @returns {boolean} URL 是否有效
      */
+    // skipcq: JS-0105 - 基礎類別提供預設實作,子類別可覆寫並使用實例狀態
     _isValidUrl(url) {
         if (!url || typeof url !== 'string') return false;
         if (url.startsWith('data:') || url.startsWith('blob:')) return false;
@@ -75,6 +78,7 @@ class ExtractionStrategy {
      * @param {string} url - 要清理的 URL
      * @returns {string|null} 清理後的 URL
      */
+    // skipcq: JS-0105 - 基礎類別提供預設實作,子類別可覆寫並使用實例狀態
     _cleanUrl(url) {
         if (!url || typeof url !== 'string') return null;
 
