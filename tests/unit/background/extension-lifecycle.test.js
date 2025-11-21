@@ -24,8 +24,11 @@ global.performance = {
 global.fetch = jest.fn();
 
 describe('Background Extension Lifecycle', () => {
-  let handleExtensionUpdate, handleExtensionInstall, shouldShowUpdateNotification,
-      isImportantUpdate, showUpdateNotification;
+  let handleExtensionUpdate = null;
+  let handleExtensionInstall = null;
+  let shouldShowUpdateNotification = null;
+  let isImportantUpdate = null;
+  let showUpdateNotification = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -79,8 +82,7 @@ describe('Background Extension Lifecycle', () => {
 
     showUpdateNotification = jest.fn(async (previousVersion, currentVersion) => {
       try {
-        const updateUrl = chrome.runtime.getURL('update-notification/update-notification.html') +
-          `?from=${encodeURIComponent(previousVersion)}&to=${encodeURIComponent(currentVersion)}`;
+        const updateUrl = `${chrome.runtime.getURL('update-notification/update-notification.html')}?from=${encodeURIComponent(previousVersion)}&to=${encodeURIComponent(currentVersion)}`;
 
         await chrome.tabs.create({ url: updateUrl });
       } catch (error) {
