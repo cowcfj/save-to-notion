@@ -102,14 +102,14 @@ jobs:
       - name: Create zip
         run: |
           cd release-package
-          zip -r "../releases/${ZIP_NAME}" .
+          zip -r "../releases/${{ env.ZIP_NAME }}" .
           
           echo "✅ Release zip created"
-          ls -lh "../releases/${ZIP_NAME}"
+          ls -lh "../releases/${{ env.ZIP_NAME }}"
 
       - name: Detect release notes file
         run: |
-          if [ -f "${RELEASE_NOTES_FILE}" ]; then
+          if [ -f "${{ env.RELEASE_NOTES_FILE }}" ]; then
             echo "HAS_NOTES=true" >> $GITHUB_ENV
           else
             echo "HAS_NOTES=false" >> $GITHUB_ENV
