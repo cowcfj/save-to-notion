@@ -69,7 +69,7 @@ export class HighlightManager {
         }
 
         // 使用全域 Highlight 建構函式
-        const HighlightConstructor = window.Highlight || Highlight;
+        const HighlightConstructor = (typeof window.Highlight !== 'undefined') ? window.Highlight : Highlight;
 
         Object.keys(this.colors).forEach(colorName => {
             try {
