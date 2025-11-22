@@ -8,7 +8,7 @@
 import { HighlightManager } from '../../scripts/highlighter/core/HighlightManager.js';
 
 describe('Highlight Migration Integration Tests', () => {
-    let manager;
+    let manager = null;
 
     beforeEach(() => {
         document.body.innerHTML = '';
@@ -157,7 +157,7 @@ describe('Highlight Migration Integration Tests', () => {
     });
 
     describe('Highlight Collection', () => {
-        test('should collect highlights for Notion', async () => {
+        test('should collect highlights for Notion', () => {
             // Setup page content
             document.body.innerHTML = '<p>Test content</p>';
 

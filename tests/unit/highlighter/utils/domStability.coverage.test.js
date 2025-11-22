@@ -109,10 +109,15 @@ describe('DOM Stability Utils Coverage Tests', () => {
             // Mock MutationObserver to throw on observe
             const originalMutationObserver = global.MutationObserver;
             global.MutationObserver = class {
+
                 observe() {
                     throw new Error('Observer error');
                 }
-                disconnect() { }
+                // Mock 實現：disconnect 在此測試中不需要實際功能
+
+                disconnect() {
+                    // 空操作 - mock MutationObserver 不需要清理邏輯
+                }
             };
 
             const result = await waitForDOMStability();

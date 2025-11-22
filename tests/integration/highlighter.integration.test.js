@@ -362,7 +362,7 @@ describe('Highlighter Integration Tests', () => {
 
     describe('Performance', () => {
         test('should handle many highlights efficiently', async () => {
-            document.body.innerHTML = '<p>' + 'word '.repeat(100) + '</p>';
+            document.body.innerHTML = `<p>${'word '.repeat(100)}</p>`;
             const manager = initHighlighter();
             await manager.initializationComplete;
 

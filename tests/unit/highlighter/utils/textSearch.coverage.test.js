@@ -127,11 +127,11 @@ describe('TextSearch Utils Coverage Tests', () => {
 
         test('should find text across multiple nodes', () => {
             // Create text nodes that are actually adjacent
-            const p = document.createElement('p');
-            p.appendChild(document.createTextNode('Hello'));
-            p.appendChild(document.createTextNode(' '));
-            p.appendChild(document.createTextNode('World'));
-            document.body.appendChild(p);
+            const paragraph = document.createElement('p');
+            paragraph.appendChild(document.createTextNode('Hello'));
+            paragraph.appendChild(document.createTextNode(' '));
+            paragraph.appendChild(document.createTextNode('World'));
+            document.body.appendChild(paragraph);
 
             const range = findTextWithTreeWalker('Hello World');
 
@@ -150,10 +150,10 @@ describe('TextSearch Utils Coverage Tests', () => {
         });
 
         test('should skip empty text nodes', () => {
-            const p = document.createElement('p');
-            p.appendChild(document.createTextNode('   '));
-            p.appendChild(document.createTextNode('Hello'));
-            document.body.appendChild(p);
+            const paragraph = document.createElement('p');
+            paragraph.appendChild(document.createTextNode('   '));
+            paragraph.appendChild(document.createTextNode('Hello'));
+            document.body.appendChild(paragraph);
 
             const range = findTextWithTreeWalker('Hello');
 

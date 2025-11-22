@@ -19,7 +19,7 @@ jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => ({
 }));
 
 describe('HighlightManager Coverage Tests', () => {
-    let manager;
+    let manager = null;
 
     beforeEach(() => {
         // Setup DOM
@@ -290,10 +290,10 @@ describe('HighlightManager Coverage Tests', () => {
 
             // Mock caretRangeFromPoint
             document.caretRangeFromPoint = jest.fn(() => {
-                const r = document.createRange();
-                r.setStart(div.firstChild, 2);
-                r.setEnd(div.firstChild, 2);
-                return r;
+                const caretRange = document.createRange();
+                caretRange.setStart(div.firstChild, 2);
+                caretRange.setEnd(div.firstChild, 2);
+                return caretRange;
             });
 
             const foundId = manager.getHighlightAtPoint(100, 100);

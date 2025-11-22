@@ -20,11 +20,11 @@ describe('Path Utils Coverage Tests', () => {
 
         test('should get path for element node', () => {
             const div = document.createElement('div');
-            const p = document.createElement('p');
-            div.appendChild(p);
+            const paragraphElement = document.createElement('p');
+            div.appendChild(paragraphElement);
             document.body.appendChild(div);
 
-            const path = getNodePath(p);
+            const path = getNodePath(paragraphElement);
             expect(path).toBe('div[0]/p[0]');
         });
 
@@ -41,12 +41,12 @@ describe('Path Utils Coverage Tests', () => {
         test('should handle multiple siblings', () => {
             const div1 = document.createElement('div');
             const div2 = document.createElement('div');
-            const p = document.createElement('p');
-            div2.appendChild(p);
+            const paragraphElement = document.createElement('p');
+            div2.appendChild(paragraphElement);
             document.body.appendChild(div1);
             document.body.appendChild(div2);
 
-            const path = getNodePath(p);
+            const path = getNodePath(paragraphElement);
             expect(path).toBe('div[1]/p[0]');
         });
 
@@ -121,18 +121,18 @@ describe('Path Utils Coverage Tests', () => {
 
         test('should get node from string path', () => {
             const div = document.createElement('div');
-            const p = document.createElement('p');
-            div.appendChild(p);
+            const paragraphElement = document.createElement('p');
+            div.appendChild(paragraphElement);
             document.body.appendChild(div);
 
             const node = getNodeByPath('div[0]/p[0]');
-            expect(node).toBe(p);
+            expect(node).toBe(paragraphElement);
         });
 
         test('should get node from path array', () => {
             const div = document.createElement('div');
-            const p = document.createElement('p');
-            div.appendChild(p);
+            const paragraphElement = document.createElement('p');
+            div.appendChild(paragraphElement);
             document.body.appendChild(div);
 
             const path = [
@@ -141,7 +141,7 @@ describe('Path Utils Coverage Tests', () => {
             ];
 
             const node = getNodeByPath(path);
-            expect(node).toBe(p);
+            expect(node).toBe(paragraphElement);
         });
 
         test('should get text node from path', () => {
