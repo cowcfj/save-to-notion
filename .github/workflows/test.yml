@@ -48,6 +48,28 @@ jobs:
         # 使用更保守的 Jest 配置
         npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit
 
+    - name: Verify production build
+      run: |
+        echo "Building production bundle..."
+        npm run build:prod
+        echo "Checking bundle size..."
+        ls -lh dist/highlighter-v2.bundle.js
+        
+        # Verify bundle was created and is compressed
+        if [ ! -f "dist/highlighter-v2.bundle.js" ]; then
+          echo "❌ Bundle file not found!"
+          exit 1
+        fi
+        
+        # Check bundle size (should be around 15KB, fail if > 50KB)
+        SIZE=$(stat -f%z "dist/highlighter-v2.bundle.js" 2>/dev/null || stat -c%s "dist/highlighter-v2.bundle.js" 2>/dev/null)
+        if [ "$SIZE" -gt 51200 ]; then
+          echo "❌ Bundle size ($SIZE bytes) exceeds 50KB limit!"
+          exit 1
+        fi
+        
+        echo "✅ Bundle size: $SIZE bytes (OK)"
+
     - name: Generate coverage report
       run: |
         export NODE_OPTIONS="--max-old-space-size=4096"

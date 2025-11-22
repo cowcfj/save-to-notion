@@ -152,22 +152,31 @@
 notion-chrome/
 ├── .github/               # CI 與 workflow（test.yml、coverage.yml）
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
+├── rollup.config.mjs      # Rollup 構建配置
 ├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popup.css）
 ├── options/               # 設置頁面（options.html, options.js, options.css）
 ├── scripts/               # 核心腳本與子模組
 │   ├── background.js
 │   ├── content.js
-│   ├── highlighter-v2.js
+│   ├── highlighter/       # 🆕 ES6 模組化標註系統
+│   │   ├── index.js       #     入口文件
+│   │   ├── core/          #     核心模組（Range, HighlightManager）
+│   │   └── utils/         #     工具模組（6個）
+│   ├── highlighter-v2.js  # 原始文件（保留向後兼容）
 │   ├── highlighter-migration.js
 │   ├── script-injector.js
 │   ├── seamless-migration.js
 │   ├── imageExtraction/
 │   ├── performance/
 │   └── utils/
+├── dist/                  # 🆕 構建產物
+│   ├── highlighter-v2.bundle.js      # 壓縮版 (15KB)
+│   └── highlighter-v2.bundle.js.map  # Source map
 ├── update-notification/   # 更新通知頁面與邏輯
 ├── lib/                   # 第三方庫（Readability.js）
 ├── icons/                 # 圖標
 ├── promo-images/          # 宣傳圖片（Chrome Web Store）
+├── tests/                 # 測試文件（138 tests）
 ├── README.md              # 用戶說明
 └── CHANGELOG.md           # 版本變更記錄
 ```
@@ -178,15 +187,54 @@ notion-chrome/
 
 ## 🔧 開發說明
 
+### 項目設置
+
+```bash
+# 安裝依賴
+npm install
+
+# 開發模式（實時編譯）
+npm run build:watch
+
+# 生產構建（壓縮）
+npm run build:prod
+
+# 運行測試
+npm test
+
+# 代碼檢查
+npm run lint
+```
+
 ### 主要組件
 - **background.js**：處理擴展邏輯、API 調用、模板處理、更新通知
 - **content.js**：網頁內容提取、圖片處理
-- **highlighter-v2.js**：基於 CSS Highlight API 的標註引擎
+- **highlighter-v2.js**：基於 CSS Highlight API 的標註引擎（已模組化）
+  - 位置：`scripts/highlighter/` (ES6 模組)
+  - 構建產物：`dist/highlighter-v2.bundle.js` (15KB 壓縮版)
 - **options.js**：設置頁面邏輯，包含搜索式資料來源選擇器
 - **utils.js**：共享工具函數和 URL 處理
 
+### 構建流程
+
+本項目使用 **Rollup** 進行模組打包：
+
+- **開發環境**：`npm run build:watch`
+  - 實時監控文件變更
+  - 不壓縮代碼
+  - inline source map
+
+- **生產環境**：`npm run build:prod`
+  - Terser 壓縮（-91% 體積）
+  - 外部 source map (`.map` 文件)
+  - 保留 console.log（除錯用）
+  - 保留關鍵全局變數
+
+**構建配置**：`rollup.config.mjs`
+
 ### 核心技術特點
 - **CSS Highlight API**：使用瀏覽器原生 API，零 DOM 修改
+- **ES6 模組化**：highlighter 已重構為 9 個獨立模組
 - **搜索式選擇器**：實時搜索、鍵盤導航、高亮匹配（v2.8.0）
 - **URL 正規化**：移除追蹤參數（`utm_*`、`gclid`、`fbclid` 等）
 - **智能遷移**：自動從舊版本升級，支持回滾機制

@@ -1,6 +1,6 @@
 {
   "name": "notion-smart-clipper",
-  "version": "2.11.5",
+  "version": "2.11.6",
   "description": "智能網頁擷取工具，支持網站 Icon、封面圖提取、增強的圖片提取、模板自定義、多顏色標註功能，一鍵保存到 Notion。",
   "main": "index.js",
   "directories": {
@@ -11,15 +11,18 @@
     "test": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",
     "test:coverage": "jest --config jest.config.js --coverage",
-    "test:ci": "jest --config jest.config.js --coverage --ci --maxWorkers=2 --reporters=default --reporters=jest-junit",
+    "test:ci": "jest --config jest.config.js --ci --coverage --maxWorkers=2",
     "test:e2e": "node tests/e2e/run-with-coverage.js",
     "test:e2e:only": "node tests/e2e/coverage-collector.js",
     "test:merge-coverage": "node tests/e2e/coverage-merger.js",
     "test:all": "npm run test:coverage && npm run test:e2e",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "build": "webpack --mode production",
-    "dev": "webpack --mode development --watch",
+    "build": "rollup -c",
+    "build:watch": "rollup -c -w",
+    "build:prod": "NODE_ENV=production rollup -c",
+    "dev": "npm run build:watch",
+    "prebuild:prod": "npm run test:ci",
     "prepare": "husky"
   },
   "keywords": [
@@ -39,6 +42,8 @@
   "devDependencies": {
     "@babel/core": "^7.22.0",
     "@babel/preset-env": "^7.22.0",
+    "@rollup/plugin-node-resolve": "^15.3.1",
+    "@rollup/plugin-terser": "^0.4.4",
     "babel-jest": "^29.5.0",
     "eslint-plugin-regexp": "^2.10.0",
     "husky": "^9.1.6",
@@ -49,8 +54,7 @@
     "jest-environment-jsdom": "^30.2.0",
     "jest-junit": "^16.0.0",
     "puppeteer": "^24.30.0",
-    "webpack": "^5.88.0",
-    "webpack-cli": "^6.0.1"
+    "rollup": "^4.53.3"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15"
