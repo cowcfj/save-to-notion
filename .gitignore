@@ -61,7 +61,6 @@ tests/e2e/coverage-merger-lcov.js
 QWEN.md
 CLAUDE.md
 .serena/
-.vscode/
 .claude/
 .kilocode/
 Agents.md
@@ -196,3 +195,4 @@ REGEX_USAGE_ANALYSIS.md
 tests/reports/thomas-frank-test-report.md
 .trae/documents/修復 JS-0240 並建立物件屬性速記治理方案.md
 .agent/rules/core.md
+CLAUDE.md

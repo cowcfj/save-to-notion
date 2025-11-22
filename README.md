@@ -190,13 +190,33 @@ notion-chrome/
 ### 項目設置
 
 ```bash
-# 安裝依賴
-npm install
+# 克隆倉庫
+git clone https://github.com/cowcfj/save-to-notion.git
+cd save-to-notion
 
-# 開發模式（實時編譯）
+# 安裝依賴（會自動執行構建）
+npm install
+# → postinstall hook 會自動執行 npm run build
+# → dist/highlighter-v2.bundle.js 自動生成
+
+# 載入 Chrome Extension
+# Chrome → 擴展程式 → 開啟開發者模式 → 載入未封裝項目 → 選擇此目錄
+```
+
+### 開發模式
+
+```bash
+# 🔥 推薦：實時編譯（修改源碼自動重新打包）
 npm run build:watch
 
-# 生產構建（壓縮）
+# 修改 highlighter 源碼（scripts/highlighter/）
+# → 自動重新打包到 dist/
+# → 重新載入 Extension 即可看到變更
+
+# 一次性構建（開發版本，未壓縮）
+npm run build
+
+# 生產構建（Terser 壓縮）
 npm run build:prod
 
 # 運行測試
@@ -204,6 +224,27 @@ npm test
 
 # 代碼檢查
 npm run lint
+```
+
+### 構建說明
+
+**自動構建機制**：
+- ✅ `npm install` 後自動執行 `npm run build`（通過 postinstall hook）
+- ✅ 開發者無需手動構建即可載入 Extension
+- ✅ `dist/` 目錄不被追蹤（在 `.gitignore` 中）
+
+**開發時的最佳實踐**：
+```bash
+# 1. 開啟實時編譯（推薦）
+npm run build:watch
+
+# 2. 修改代碼
+vim scripts/highlighter/core/Range.js
+
+# 3. 查看 Terminal 確認重新打包
+# ✅ created dist/highlighter-v2.bundle.js in 55ms
+
+# 4. 重新載入 Extension（Chrome Extension 頁面點擊刷新圖標）
 ```
 
 ### 主要組件

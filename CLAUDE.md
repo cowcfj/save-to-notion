@@ -35,12 +35,20 @@ npm test -- tests/unit/performance/PerformanceOptimizer.comprehensive.test.js
 
 ### Building
 ```bash
-# Build for production
+# Development build (Rollup, no compression)
 npm run build
 
-# Build for development (with watch mode)
-npm run dev
+#開發模式（實時編譯）
+npm run build:watch
+
+# Production build (Rollup + Terser compression)
+npm run build:prod
 ```
+
+**構建產物**：
+- `dist/highlighter-v2.bundle.js` - 打包後的 highlighter 模組
+  - 開發版本：166KB（未壓縮）
+  - 生產版本：15KB（Terser 壓縮，-91%）
 
 ### Test Structure
 - Unit tests: `tests/unit/**/*.test.js`
@@ -66,13 +74,26 @@ npm run dev
 - Image collection with featured image prioritization
 - Expandable content detection and extraction
 
-**highlighter-v2.js**
+**highlighter-v2** (ES6 模組化)
+- 位置：`scripts/highlighter/`（9個獨立模組）
+- 構建產物：`dist/highlighter-v2.bundle.js`（Rollup + Terser）
 - CSS Highlight API-based highlighting (non-DOM-modifying)
 - Zero-DOM-mutation approach for better compatibility
 - Legacy data migration from localStorage to chrome.storage
 - Seamless migration from old span-based highlighting
 - Multi-color support (yellow, green, blue, red, purple)
 - Ctrl/Cmd+click or double-click to delete highlights
+
+**模組結構**：
+- `index.js` (124行) - 入口、全局 API 設置
+- `core/Range.js` (125行) - Range 序列化/反序列化
+- `core/HighlightManager.js` (701行) - 標註管理、事件處理
+- `utils/color.js` (53行) - 顏色配置
+- `utils/dom.js` (101行) - DOM 操作工具
+- `utils/validation.js` (121行) - 輸入驗證
+- `utils/path.js` (198行) - 節點路徑計算
+- `utils/textSearch.js` (200行) - 文本搜索
+- `utils/domStability.js` (146行) - DOM 穩定性檢測
 
 ### Key Features
 
@@ -191,7 +212,19 @@ expect(element.querySelector('p').textContent).toBe('Test');
 scripts/
 ├── background.js              # Service worker (main orchestrator)
 ├── content.js                 # Content extraction logic
-├── highlighter-v2.js          # CSS Highlight API implementation
+├── highlighter/               # 🆕 ES6 Modular Highlighter
+│   ├── index.js               #     Entry point (124 lines)
+│   ├── core/
+│   │   ├── Range.js           #     Range serialization (125 lines)
+│   │   └── HighlightManager.js #    Highlight management (701 lines)
+│   └── utils/
+│       ├── color.js           #     Color configuration (53 lines)
+│       ├── dom.js             #     DOM utilities (101 lines)
+│       ├── validation.js      #     Input validation (121 lines)
+│       ├── path.js            #     Node path computation (198 lines)
+│       ├── textSearch.js      #     Text search (200 lines)
+│       └── domStability.js    #     DOM stability (146 lines)
+├── highlighter-v2.js          # Legacy file (kept for compatibility)
 ├── highlight-restore.js       # Restore highlights on page load
 ├── highlighter-migration.js   # Legacy migration utilities
 ├── seamless-migration.js      # Span → CSS API migration
@@ -213,6 +246,10 @@ scripts/
     ├── imageUtils.js          # Image URL validation & cleaning
     ├── htmlToNotionConverter.js  # HTML → Notion blocks
     └── pageComplexityDetector.js # Detect page complexity (ESM)
+
+dist/                          # 🆕 Build outputs
+└── highlighter-v2.bundle.js   #     Rollup + Terser bundle (15KB)
+    └── highlighter-v2.bundle.js.map #  Source map (70KB)
 ```
 
 ## Development Workflow
