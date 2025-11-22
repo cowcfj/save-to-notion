@@ -31,16 +31,22 @@ export function getNodePath(node) {
                 const index = textNodes.indexOf(current);
                 pathSteps.unshift(`text[${index}]`);
                 current = parent;
+            } else {
+                // 文本節點沒有父節點，終止迴圈
+                break;
             }
         } else if (current.nodeType === Node.ELEMENT_NODE) {
-            // 元素節點：記錄標籤名和在父節點中的索引
+            // 元素節點:記錄標籤名和在父節點中的索引
             const parent = current.parentNode;
             if (parent) {
                 const siblings = Array.from(parent.children);
                 const index = siblings.indexOf(current);
                 pathSteps.unshift(`${current.tagName.toLowerCase()}[${index}]`);
+                current = parent;
+            } else {
+                // 元素節點沒有父節點，終止迴圈
+                break;
             }
-            current = current.parentNode;
         } else {
             break;
         }
