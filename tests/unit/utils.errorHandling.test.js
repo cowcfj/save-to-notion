@@ -30,7 +30,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
   describe('debugListAllKeys 錯誤處理', () => {
     test('應該處理 chrome.storage.local.get 拋出異常', async () => {
       // 使用輔助工具模擬存儲錯誤
-      testEnv.simulateStorageError(TEST_CONSTANTS.ERROR_MESSAGES.STORAGE_ACCESS_DENIED);
+      TestEnvironmentHelper.simulateStorageError(TEST_CONSTANTS.ERROR_MESSAGES.STORAGE_ACCESS_DENIED);
 
       // 應該返回空數組而不拋出錯誤
       const result = await utils.StorageUtil.debugListAllKeys();
@@ -39,7 +39,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('應該處理 chrome.storage.local 不存在', async () => {
       // 使用輔助工具移除 local storage
-      testEnv.removeChromeAPI('storage.local');
+      TestEnvironmentHelper.removeChromeAPI('storage.local');
 
       // 應該返回空數組
       const result = await utils.StorageUtil.debugListAllKeys();
@@ -48,7 +48,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('應該處理 chrome.storage 完全不存在', async () => {
       // 使用輔助工具移除整個 storage
-      testEnv.removeChromeAPI('storage');
+      TestEnvironmentHelper.removeChromeAPI('storage');
 
       // 應該返回空數組
       const result = await utils.StorageUtil.debugListAllKeys();
@@ -57,7 +57,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('應該處理 chrome 完全不存在', async () => {
       // 使用輔助工具移除 chrome
-      testEnv.removeChrome();
+      TestEnvironmentHelper.removeChrome();
 
       // 應該返回空數組
       const result = await utils.StorageUtil.debugListAllKeys();
@@ -204,7 +204,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('clearHighlights 應該處理 Chrome Storage 清除失敗', async () => {
       // 模擬 Chrome Storage 清除失敗
-      testEnv.simulateRuntimeError(TEST_CONSTANTS.ERROR_MESSAGES.PERMISSION_DENIED);
+      TestEnvironmentHelper.simulateRuntimeError(TEST_CONSTANTS.ERROR_MESSAGES.PERMISSION_DENIED);
       global.chrome.storage.local.remove = jest.fn((keys, callback) => {
         callback();
       });
@@ -245,7 +245,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('clearHighlights 應該處理所有存儲都失敗的情況', async () => {
       // 模擬所有存儲都失敗
-      testEnv.simulateRuntimeError(TEST_CONSTANTS.ERROR_MESSAGES.CHROME_STORAGE_ERROR);
+      TestEnvironmentHelper.simulateRuntimeError(TEST_CONSTANTS.ERROR_MESSAGES.CHROME_STORAGE_ERROR);
       global.chrome.storage.local.remove = jest.fn((keys, callback) => {
         callback();
       });
@@ -274,7 +274,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('saveHighlights 應該處理 chrome.storage 和 localStorage 都失敗', async () => {
       // 模擬 chrome.storage 失敗
-      testEnv.simulateRuntimeError(TEST_CONSTANTS.ERROR_MESSAGES.STORAGE_QUOTA_EXCEEDED);
+      TestEnvironmentHelper.simulateRuntimeError(TEST_CONSTANTS.ERROR_MESSAGES.STORAGE_QUOTA_EXCEEDED);
       global.chrome.storage.local.set = jest.fn((items, callback) => {
         callback();
       });
@@ -305,7 +305,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('loadHighlights 應該處理 chrome.storage.local.get 異常', async () => {
       // 模擬 get 方法拋出異常
-      testEnv.simulateStorageError('Storage access error');
+      TestEnvironmentHelper.simulateStorageError('Storage access error');
 
       // 應該回退到 localStorage
       const testUrl = TEST_CONSTANTS.URLS.EXAMPLE;

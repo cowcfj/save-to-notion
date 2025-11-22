@@ -39,17 +39,17 @@ describe('Background Tab Listeners', () => {
     // 模擬 normalizeUrl 函數
     normalizeUrl = jest.fn((rawUrl) => {
       try {
-        const u = new URL(rawUrl);
+        const url = new URL(rawUrl);
         // 移除 hash
-        u.hash = '';
+        url.hash = '';
         // 移除追蹤參數
         const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid'];
-        trackingParams.forEach(param => u.searchParams.delete(param));
+        trackingParams.forEach(param => url.searchParams.delete(param));
         // 標準化尾部斜杠
-        if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-          u.pathname = u.pathname.slice(0, -1);
+        if (url.pathname !== '/' && url.pathname.endsWith('/')) {
+          url.pathname = url.pathname.slice(0, -1);
         }
-        return u.href;
+        return url.href;
       } catch (error) {
         console.error('URL 標準化失敗:', error);
         return rawUrl;

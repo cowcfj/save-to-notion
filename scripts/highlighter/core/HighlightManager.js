@@ -1,3 +1,4 @@
+/* global chrome, Highlight, CSS */
 /**
  * HighlightManager 核心類別
  * 管理所有標註操作、存儲、遷移和恢復
@@ -67,7 +68,8 @@ export class HighlightManager {
             return;
         }
 
-        const HighlightConstructor = Highlight;
+        // 使用全域 Highlight 建構函式
+        const HighlightConstructor = (typeof window.Highlight !== 'undefined') ? window.Highlight : Highlight;
 
         Object.keys(this.colors).forEach(colorName => {
             try {
@@ -271,7 +273,7 @@ export class HighlightManager {
             if (!range) return null;
 
             for (const [id, highlight] of this.highlights.entries()) {
-                if (this.rangesOverlap(range, highlight.range)) {
+                if (HighlightManager.rangesOverlap(range, highlight.range)) {
                     return id;
                 }
             }
@@ -288,7 +290,7 @@ export class HighlightManager {
      * @param {Range} range2
      * @returns {boolean}
      */
-    rangesOverlap(range1, range2) {
+    static rangesOverlap(range1, range2) {
         try {
             return (
                 range1.isPointInRange(range2.startContainer, range2.startOffset) ||
@@ -581,7 +583,7 @@ export class HighlightManager {
                         if (oldItem.color) {
                             color = oldItem.color;
                         } else if (oldItem.bgColor || oldItem.backgroundColor) {
-                            color = this.convertBgColorToName(oldItem.bgColor || oldItem.backgroundColor);
+                            color = HighlightManager.convertBgColorToName(oldItem.bgColor || oldItem.backgroundColor);
                         }
                     } else if (typeof oldItem === 'string') {
                         textToFind = oldItem;
@@ -653,7 +655,7 @@ export class HighlightManager {
      * @param {string} bgColor
      * @returns {string}
      */
-    convertBgColorToName(bgColor) {
+    static convertBgColorToName(bgColor) {
         const colorMap = {
             'rgb(255, 243, 205)': 'yellow',
             '#fff3cd': 'yellow',
