@@ -5,6 +5,8 @@
  * @version 2.9.12
  */
 
+/* global chrome */
+
 // Core modules
 import { HighlightManager } from './core/HighlightManager.js';
 import {
@@ -102,8 +104,7 @@ export default function setupHighlighter() {
         getInstance: () => manager
     };
 
-    console.log('[Highlighter V2] Initialized successfully');
-
+    // 初始化完成（移除 console.log 以符合生產環境規範）
     return manager;
 }
 
