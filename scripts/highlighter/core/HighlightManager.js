@@ -498,7 +498,7 @@ export class HighlightManager {
      * 防止在非受信環境中被注入偽造的 chrome 對象
      * @returns {Object|null} chrome.storage.local 或 null
      */
-    getSafeExtensionStorage() {
+    static getSafeExtensionStorage() {
         // 優先使用全域 chrome 對象（在擴充功能環境中通常可用）
         // 驗證 runtime.id 存在以確保是在擴充功能上下文中
         if (typeof window !== 'undefined' && window.chrome && window.chrome.runtime && window.chrome.runtime.id) {
@@ -569,7 +569,7 @@ export class HighlightManager {
             if (legacyData && foundKey) {
                 // 檢查是否已經遷移過
                 const migrationKey = `migration_completed_${normalizedUrl}`;
-                const storage = this.getSafeExtensionStorage();
+                const storage = HighlightManager.getSafeExtensionStorage();
                 const migrationStatus = await (storage?.get(migrationKey) ?? Promise.resolve({}));
 
                 if (!migrationStatus[migrationKey]) {
@@ -648,7 +648,7 @@ export class HighlightManager {
             }
 
             // 標記遷移完成
-            const storage = this.getSafeExtensionStorage();
+            const storage = HighlightManager.getSafeExtensionStorage();
             if (storage && window.normalizeUrl) {
                 const normalizedUrl = window.normalizeUrl(window.location.href);
                 await storage.set({
