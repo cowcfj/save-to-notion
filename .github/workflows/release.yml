@@ -116,27 +116,14 @@ jobs:
             echo "has_notes=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create GitHub Release (with notes file)
-        if: steps.notes.outputs.has_notes == 'true'
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.vars.outputs.tag_name }}
           name: ${{ steps.vars.outputs.tag_name }}
           draft: ${{ steps.vars.outputs.is_draft == 'true' }}
-          body_path: ${{ steps.vars.outputs.release_notes_file }}
-          files: |
-            releases/${{ steps.vars.outputs.zip_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release (auto-generated notes)
-        if: steps.notes.outputs.has_notes == 'false'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.vars.outputs.tag_name }}
-          name: ${{ steps.vars.outputs.tag_name }}
-          draft: ${{ steps.vars.outputs.is_draft == 'true' }}
-          generate_release_notes: true
+          body_path: ${{ steps.notes.outputs.has_notes == 'true' && steps.vars.outputs.release_notes_file || '' }}
+          generate_release_notes: ${{ steps.notes.outputs.has_notes == 'false' }}
           files: |
             releases/${{ steps.vars.outputs.zip_name }}
         env:
