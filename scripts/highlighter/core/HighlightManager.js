@@ -1,4 +1,4 @@
-/* global chrome, Highlight, CSS */
+/* global CSS */
 /**
  * HighlightManager 核心類別
  * 管理所有標註操作、存儲、遷移和恢復
@@ -69,7 +69,7 @@ export class HighlightManager {
         }
 
         // 使用全域 Highlight 建構函式
-        const HighlightConstructor = (typeof window.Highlight !== 'undefined') ? window.Highlight : Highlight;
+        const HighlightConstructor = window.Highlight;
 
         Object.keys(this.colors).forEach(colorName => {
             try {
@@ -548,7 +548,7 @@ export class HighlightManager {
             if (legacyData && foundKey) {
                 // 檢查是否已經遷移過
                 const migrationKey = `migration_completed_${normalizedUrl}`;
-                const migrationStatus = await (chrome?.storage?.local?.get(migrationKey) ?? Promise.resolve({}));
+                const migrationStatus = await (window.chrome?.storage?.local?.get(migrationKey) ?? Promise.resolve({}));
 
                 if (!migrationStatus[migrationKey]) {
                     await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
@@ -626,9 +626,9 @@ export class HighlightManager {
             }
 
             // 標記遷移完成
-            if (chrome?.storage?.local && window.normalizeUrl) {
+            if (window.chrome?.storage?.local && window.normalizeUrl) {
                 const normalizedUrl = window.normalizeUrl(window.location.href);
-                await chrome.storage.local.set({
+                await window.chrome.storage.local.set({
                     [`migration_completed_${normalizedUrl}`]: {
                         timestamp: Date.now(),
                         oldKey,
