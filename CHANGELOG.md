@@ -1,5 +1,37 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.12.0 - 2025-11-22
+
+### 🐛 Bug 修復
+
+#### HighlightManager 穩定性修復
+- **Highlight API 兼容性**：修復 `'Highlight' is not defined` 錯誤，增加對原生 Highlight API 的安全檢查與回退機制。
+- **Chrome API 安全存取**：修復 `chrome` 未定義錯誤，使用 `getSafeExtensionStorage` 確保在非擴充功能環境下的安全性。
+- **無限循環修復**：修復 `getNodePath` 在處理無父節點的文字節點時可能導致的無限循環問題。
+
+#### 代碼驗證與規範
+- **URL 驗證優化**：修復 `isValidUrl` 中的 `void` 運算符使用及未使用的 `URL` 物件實例化警告。
+- **ESLint 警告修復**：修復多處 `this` 上下文使用警告（`HighlightManager`、`PerformanceBenchmark`）。
+
+### 🛡️ 安全性增強
+
+#### 防禦性編程
+- **Highlight API 防護**：增強對 `window.Highlight` 的安全檢查，防止第三方腳本污染導致的安全風險。
+- **Storage API 存取控制**：強化 `chrome.storage` 的存取限制，確保僅在受信任的擴充功能環境中執行。
+
+### ♻️ CI/CD 改進
+
+#### Release Workflow 優化
+- **流程整合**：合併 GitHub Release 創建步驟，減少代碼重複。
+- **Context Access 修復**：修復 workflow 中的 context access 警告，提升流程穩定性。
+
+### 🔧 代碼品質
+
+- **Rollup 配置清理**：移除 `rollup.config.mjs` 中未使用的變數。
+- **全面警告修復**：系統性修復 codebase 中的各類 ESLint 警告，提升代碼整潔度。
+
+---
+
 ## v2.11.6 - 2025-11-22
 
 ### 🔧 技術改進
