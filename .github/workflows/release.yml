@@ -40,23 +40,72 @@ jobs:
           echo "ZIP_NAME=notion-smart-clipper-${TAG}.zip" >> $GITHUB_ENV
           echo "RELEASE_NOTES_FILE=RELEASE_NOTES_${TAG}.md" >> $GITHUB_ENV
 
-      - name: Prepare dist
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
         run: |
-          rm -rf dist
-          mkdir -p dist releases
-          cp -a manifest.json dist/
-          cp -a icons dist/
-          cp -a options dist/
-          cp -a popup dist/
-          cp -a scripts dist/
-          cp -a lib dist/
-          cp -a update-notification dist/
-          cp -a help.html dist/
+          echo "Building production bundle with Terser compression..."
+          npm run build:prod
+          echo "Verifying bundle was created..."
+          ls -lh dist/highlighter-v2.bundle.js
+          
+          # Verify bundle exists
+          if [ ! -f "dist/highlighter-v2.bundle.js" ]; then
+            echo "❌ Build failed: bundle not found!"
+            exit 1
+          fi
+          
+          echo "✅ Bundle created successfully"
+
+      - name: Prepare release dist
+        run: |
+          # Create releases directory (keep dist/ from build)
+          mkdir -p releases
+          
+          # Create temporary packaging directory
+          mkdir -p release-package
+          
+          # Copy all required files for Chrome Web Store
+          cp -a manifest.json release-package/
+          cp -a icons release-package/
+          cp -a options release-package/
+          cp -a popup release-package/
+          cp -a lib release-package/
+          cp -a update-notification release-package/
+          cp -a help.html release-package/
+          
+          # Copy dist folder (contains compressed bundle)
+          cp -a dist release-package/
+          
+          # Copy scripts folder but exclude highlighter source modules
+          # (they're already bundled in dist/highlighter-v2.bundle.js)
+          mkdir -p release-package/scripts
+          cp -a scripts/*.js release-package/scripts/
+          cp -a scripts/imageExtraction release-package/scripts/
+          cp -a scripts/performance release-package/scripts/
+          cp -a scripts/errorHandling release-package/scripts/
+          cp -a scripts/utils release-package/scripts/
+          
+          # Note: scripts/highlighter/ source files are NOT included
+          # Only the bundled version in dist/ is needed
+          
+          echo "✅ Release package prepared"
+          ls -la release-package/
 
       - name: Create zip
         run: |
-          cd dist
+          cd release-package
           zip -r "../releases/${ZIP_NAME}" .
+          
+          echo "✅ Release zip created"
+          ls -lh "../releases/${ZIP_NAME}"
 
       - name: Detect release notes file
         run: |
