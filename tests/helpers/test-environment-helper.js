@@ -109,7 +109,7 @@ class TestEnvironmentHelper {
     // 設置 mock 環境
     global.chrome = TestEnvironmentHelper.createMockChrome(chromeOverrides);
     global.window = TestEnvironmentHelper.createMockWindow(windowOverrides);
-    
+
     if (mockConsole) {
       global.console = TestEnvironmentHelper.createMockConsole();
     }
@@ -142,7 +142,7 @@ class TestEnvironmentHelper {
    * 模擬 Chrome Storage 錯誤
    * @param {string} errorMessage - 錯誤消息
    */
-  simulateStorageError(errorMessage = 'Storage access denied') {
+  static simulateStorageError(errorMessage = 'Storage access denied') {
     if (global.chrome?.storage?.local) {
       global.chrome.storage.local.get = jest.fn(() => {
         throw new Error(errorMessage);
@@ -154,7 +154,7 @@ class TestEnvironmentHelper {
    * 模擬 Chrome Runtime 錯誤
    * @param {string} errorMessage - 錯誤消息
    */
-  simulateRuntimeError(errorMessage = 'Runtime error') {
+  static simulateRuntimeError(errorMessage = 'Runtime error') {
     if (global.chrome?.runtime) {
       global.chrome.runtime.lastError = { message: errorMessage };
     }
@@ -164,10 +164,10 @@ class TestEnvironmentHelper {
    * 移除 Chrome API 的特定部分
    * @param {string} path - 要移除的路徑，如 'storage.local' 或 'storage'
    */
-  removeChromeAPI(path) {
+  static removeChromeAPI(path) {
     const parts = path.split('.');
     let current = global.chrome;
-    
+
     for (let i = 0; i < parts.length - 1; i++) {
       if (current?.[parts[i]]) {
         current = current[parts[i]];
@@ -175,7 +175,7 @@ class TestEnvironmentHelper {
         return; // 路徑不存在
       }
     }
-    
+
     if (current) {
       delete current[parts[parts.length - 1]];
     }
@@ -184,7 +184,7 @@ class TestEnvironmentHelper {
   /**
    * 完全移除 Chrome API
    */
-  removeChrome() {
+  static removeChrome() {
     delete global.chrome;
   }
 }

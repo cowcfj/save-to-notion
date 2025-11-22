@@ -84,26 +84,26 @@ module.exports = {
         'p'
       ];
 
-      let p = null;
+      let paragraph = null;
       for (const selector of selectors) {
         const elements = document.querySelectorAll(selector);
         // 找第一個有足夠文本內容的段落
         for (const el of elements) {
           if (el.textContent && el.textContent.trim().length > 20) {
-            p = el;
+            paragraph = el;
             break;
           }
         }
-        if (p) break;
+        if (paragraph) break;
       }
 
-      if (!p || !p.firstChild) {
+      if (!paragraph || !paragraph.firstChild) {
         return { success: false, error: 'No paragraph with sufficient text found' };
       }
 
       try {
         const range = document.createRange();
-        const textNode = p.firstChild;
+        const textNode = paragraph.firstChild;
         const textLength = Math.min(textNode.textContent.length, 50);
 
         range.setStart(textNode, 0);
@@ -193,7 +193,7 @@ module.exports = {
           timestamp: Date.now()
         };
 
-        const storageKey = 'highlights_' + window.location.href;
+        const storageKey = `highlights_${window.location.href}`;
         localStorage.setItem(storageKey, JSON.stringify([highlightData]));
 
         // 驗證保存
@@ -225,7 +225,7 @@ module.exports = {
 
     const restoreResult = await page.evaluate(() => {
       try {
-        const storageKey = 'highlights_' + window.location.href;
+        const storageKey = `highlights_${window.location.href}`;
         const saved = localStorage.getItem(storageKey);
         const highlights = JSON.parse(saved);
 
@@ -250,7 +250,7 @@ module.exports = {
 
     // 9. 清理測試數據
     await page.evaluate(() => {
-      const storageKey = 'highlights_' + window.location.href;
+      const storageKey = `highlights_${window.location.href}`;
       localStorage.removeItem(storageKey);
 
       // 清除所有 CSS highlights

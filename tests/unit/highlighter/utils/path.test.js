@@ -30,11 +30,11 @@ describe('utils/path', () => {
 
         test('should return path for nested elements', () => {
             const div = document.createElement('div');
-            const p = document.createElement('p');
-            div.appendChild(p);
+            const paragraph = document.createElement('p');
+            div.appendChild(paragraph);
             document.body.appendChild(div);
 
-            const path = getNodePath(p);
+            const path = getNodePath(paragraph);
             expect(path).toBe('div[0]/p[0]');
         });
 
@@ -87,7 +87,7 @@ describe('utils/path', () => {
 
         test('should return null for non-string input', () => {
             expect(parsePathFromString(null)).toBe(null);
-            expect(parsePathFromString(undefined)).toBe(null);
+            expect(parsePathFromString()).toBe(null);
             expect(parsePathFromString(123)).toBe(null);
         });
     });
@@ -121,12 +121,12 @@ describe('utils/path', () => {
 
         test('should get nested element', () => {
             const div = document.createElement('div');
-            const p = document.createElement('p');
-            div.appendChild(p);
+            const paragraph = document.createElement('p');
+            div.appendChild(paragraph);
             document.body.appendChild(div);
 
             const node = getNodeByPath('div[0]/p[0]');
-            expect(node).toBe(p);
+            expect(node).toBe(paragraph);
         });
 
         test('should get text node', () => {
@@ -183,7 +183,7 @@ describe('utils/path', () => {
 
         test('should return false for non-string types', () => {
             expect(isValidPathString(null)).toBe(false);
-            expect(isValidPathString(undefined)).toBe(false);
+            expect(isValidPathString()).toBe(false);
             expect(isValidPathString(123)).toBe(false);
             expect(isValidPathString({})).toBe(false);
         });
@@ -192,12 +192,12 @@ describe('utils/path', () => {
     describe('round-trip conversion', () => {
         test('should maintain path integrity through conversion', () => {
             const div = document.createElement('div');
-            const p = document.createElement('p');
-            p.textContent = 'Test';
-            div.appendChild(p);
+            const paragraph = document.createElement('p');
+            paragraph.textContent = 'Test';
+            div.appendChild(paragraph);
             document.body.appendChild(div);
 
-            const textNode = p.firstChild;
+            const textNode = paragraph.firstChild;
             const path = getNodePath(textNode);
             const retrievedNode = getNodeByPath(path);
 

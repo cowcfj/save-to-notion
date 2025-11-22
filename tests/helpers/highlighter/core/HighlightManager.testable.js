@@ -18,7 +18,7 @@ class HighlightManager {
         this.initializationComplete = null;
     }
 
-    async initialize() {
+    initialize() {
         // 簡化版本，僅用於測試
         return Promise.resolve();
     }
@@ -129,7 +129,7 @@ class HighlightManager {
             if (!range) return null;
 
             for (const [id, highlight] of this.highlights.entries()) {
-                if (this.rangesOverlap(range, highlight.range)) {
+                if (HighlightManager.rangesOverlap(range, highlight.range)) {
                     return id;
                 }
             }
@@ -140,7 +140,7 @@ class HighlightManager {
         }
     }
 
-    rangesOverlap(range1, range2) {
+    static rangesOverlap(range1, range2) {
         try {
             return (
                 range1.isPointInRange(range2.startContainer, range2.startOffset) ||
@@ -178,7 +178,7 @@ class HighlightManager {
         return this.highlights.size;
     }
 
-    convertBgColorToName(bgColor) {
+    static convertBgColorToName(bgColor) {
         const colorMap = {
             'rgb(255, 243, 205)': 'yellow',
             '#fff3cd': 'yellow',

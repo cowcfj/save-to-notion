@@ -188,19 +188,19 @@ describe('core/HighlightManager', () => {
 
     describe('convertBgColorToName', () => {
         test('should convert hex colors', () => {
-            expect(manager.convertBgColorToName('#fff3cd')).toBe('yellow');
-            expect(manager.convertBgColorToName('#d4edda')).toBe('green');
-            expect(manager.convertBgColorToName('#cce7ff')).toBe('blue');
-            expect(manager.convertBgColorToName('#f8d7da')).toBe('red');
+            expect(HighlightManager.convertBgColorToName('#fff3cd')).toBe('yellow');
+            expect(HighlightManager.convertBgColorToName('#d4edda')).toBe('green');
+            expect(HighlightManager.convertBgColorToName('#cce7ff')).toBe('blue');
+            expect(HighlightManager.convertBgColorToName('#f8d7da')).toBe('red');
         });
 
         test('should convert rgb colors', () => {
-            expect(manager.convertBgColorToName('rgb(255, 243, 205)')).toBe('yellow');
-            expect(manager.convertBgColorToName('rgb(212, 237, 218)')).toBe('green');
+            expect(HighlightManager.convertBgColorToName('rgb(255, 243, 205)')).toBe('yellow');
+            expect(HighlightManager.convertBgColorToName('rgb(212, 237, 218)')).toBe('green');
         });
 
         test('should return default for unknown color', () => {
-            expect(manager.convertBgColorToName('#unknown')).toBe('yellow');
+            expect(HighlightManager.convertBgColorToName('#unknown')).toBe('yellow');
         });
     });
 
@@ -244,7 +244,7 @@ describe('core/HighlightManager', () => {
             range2.setStart(div.firstChild, 5);
             range2.setEnd(div.firstChild, 10);
 
-            const overlaps = manager.rangesOverlap(range1, range2);
+            const overlaps = HighlightManager.rangesOverlap(range1, range2);
             expect(overlaps).toBe(true);
         });
 
@@ -261,7 +261,7 @@ describe('core/HighlightManager', () => {
             range2.setStart(div.firstChild, 10);
             range2.setEnd(div.firstChild, 15);
 
-            const overlaps = manager.rangesOverlap(range1, range2);
+            const overlaps = HighlightManager.rangesOverlap(range1, range2);
             expect(overlaps).toBe(false);
         });
     });
