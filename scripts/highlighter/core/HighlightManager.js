@@ -494,6 +494,20 @@ export class HighlightManager {
     }
 
     /**
+     * 安全獲取擴充功能存儲對象
+     * 防止在非受信環境中被注入偽造的 chrome 對象
+     * @returns {Object|null} chrome.storage.local 或 null
+     */
+    getSafeExtensionStorage() {
+        // 優先使用全域 chrome 對象（在擴充功能環境中通常可用）
+        // 驗證 runtime.id 存在以確保是在擴充功能上下文中
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+            return chrome.storage?.local || null;
+        }
+        return null;
+    }
+
+    /**
      * 檢查並遷移 localStorage 中的舊標註數據
      */
     async checkAndMigrateLegacyData() {
@@ -555,7 +569,8 @@ export class HighlightManager {
             if (legacyData && foundKey) {
                 // 檢查是否已經遷移過
                 const migrationKey = `migration_completed_${normalizedUrl}`;
-                const migrationStatus = await (window.chrome?.storage?.local?.get(migrationKey) ?? Promise.resolve({}));
+                const storage = this.getSafeExtensionStorage();
+                const migrationStatus = await (storage?.get(migrationKey) ?? Promise.resolve({}));
 
                 if (!migrationStatus[migrationKey]) {
                     await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
@@ -633,9 +648,10 @@ export class HighlightManager {
             }
 
             // 標記遷移完成
-            if (window.chrome?.storage?.local && window.normalizeUrl) {
+            const storage = this.getSafeExtensionStorage();
+            if (storage && window.normalizeUrl) {
                 const normalizedUrl = window.normalizeUrl(window.location.href);
-                await window.chrome.storage.local.set({
+                await storage.set({
                     [`migration_completed_${normalizedUrl}`]: {
                         timestamp: Date.now(),
                         oldKey,
