@@ -64,12 +64,19 @@ export class HighlightManager {
      * 初始化 CSS Highlight 樣式
      */
     initializeHighlightStyles() {
-        if (typeof Highlight === 'undefined' || !CSS?.highlights) {
+        // 安全性檢查：確保 Highlight 是原生實作，防止原型污染
+        const isNativeHighlight = typeof Highlight === 'function' &&
+            Highlight.toString().includes('[native code]');
+
+        if (!isNativeHighlight || !CSS?.highlights) {
+            if (typeof Highlight !== 'undefined' && !isNativeHighlight) {
+                window.Logger?.warn('[HighlightManager] 檢測到非原生的 Highlight 實作，已略過初始化');
+            }
             return;
         }
 
         // 使用全域 Highlight 建構函式
-        const HighlightConstructor = window.Highlight;
+        const HighlightConstructor = Highlight;
 
         Object.keys(this.colors).forEach(colorName => {
             try {
