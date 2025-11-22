@@ -42,7 +42,7 @@ describe('Color Utils Coverage Tests', () => {
             expect(convertBgColorToName('purple')).toBe('yellow');
             expect(convertBgColorToName('')).toBe('yellow');
             expect(convertBgColorToName(null)).toBe('yellow');
-            expect(convertBgColorToName(undefined)).toBe('yellow');
+            expect(convertBgColorToName()).toBe('yellow');
         });
     });
 

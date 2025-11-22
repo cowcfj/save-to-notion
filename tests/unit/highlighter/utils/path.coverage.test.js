@@ -89,7 +89,7 @@ describe('Path Utils Coverage Tests', () => {
 
         test('should return null for non-string input', () => {
             expect(parsePathFromString(null)).toBeNull();
-            expect(parsePathFromString(undefined)).toBeNull();
+            expect(parsePathFromString()).toBeNull();
             expect(parsePathFromString(123)).toBeNull();
         });
 
@@ -243,7 +243,7 @@ describe('Path Utils Coverage Tests', () => {
 
         test('should return false for non-string input', () => {
             expect(isValidPathString(null)).toBe(false);
-            expect(isValidPathString(undefined)).toBe(false);
+            expect(isValidPathString()).toBe(false);
             expect(isValidPathString(123)).toBe(false);
         });
 

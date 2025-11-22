@@ -45,7 +45,7 @@ describe('DOM Utils Coverage Tests', () => {
         });
 
         test('should return false for undefined', () => {
-            expect(isValidElement(undefined)).toBe(false);
+            expect(isValidElement()).toBe(false);
         });
 
         test('should return false for text node', () => {
@@ -100,7 +100,7 @@ describe('DOM Utils Coverage Tests', () => {
 
         test('should return empty string for invalid element', () => {
             expect(getVisibleText(null)).toBe('');
-            expect(getVisibleText(undefined)).toBe('');
+            expect(getVisibleText()).toBe('');
         });
 
         test('should return empty string for element without text', () => {
@@ -168,7 +168,7 @@ describe('DOM Utils Coverage Tests', () => {
 
         test('should return false for invalid element', () => {
             expect(isInViewport(null)).toBe(false);
-            expect(isInViewport(undefined)).toBe(false);
+            expect(isInViewport()).toBe(false);
         });
     });
 

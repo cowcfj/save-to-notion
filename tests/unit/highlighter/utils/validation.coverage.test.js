@@ -18,7 +18,7 @@ describe('Validation Utils Coverage Tests', () => {
 
         test('should return false for non-string values', () => {
             expect(isNonEmptyString(null)).toBe(false);
-            expect(isNonEmptyString(undefined)).toBe(false);
+            expect(isNonEmptyString()).toBe(false);
             expect(isNonEmptyString(123)).toBe(false);
             expect(isNonEmptyString({})).toBe(false);
             expect(isNonEmptyString([])).toBe(false);
@@ -33,7 +33,7 @@ describe('Validation Utils Coverage Tests', () => {
 
         test('should return false for null or undefined', () => {
             expect(isValidRange(null)).toBe(false);
-            expect(isValidRange(undefined)).toBe(false);
+            expect(isValidRange()).toBe(false);
         });
 
         test('should return false for non-Range objects', () => {
@@ -79,7 +79,7 @@ describe('Validation Utils Coverage Tests', () => {
 
         test('should return true for invalid range', () => {
             expect(isCollapsedRange(null)).toBe(true);
-            expect(isCollapsedRange(undefined)).toBe(true);
+            expect(isCollapsedRange()).toBe(true);
             expect(isCollapsedRange({})).toBe(true);
         });
     });
@@ -101,7 +101,7 @@ describe('Validation Utils Coverage Tests', () => {
 
         test('should return false for non-string values', () => {
             expect(isValidColor(null)).toBe(false);
-            expect(isValidColor(undefined)).toBe(false);
+            expect(isValidColor()).toBe(false);
             expect(isValidColor(123)).toBe(false);
         });
     });
@@ -126,7 +126,7 @@ describe('Validation Utils Coverage Tests', () => {
 
         test('should return false for non-string values', () => {
             expect(isValidUrl(null)).toBe(false);
-            expect(isValidUrl(undefined)).toBe(false);
+            expect(isValidUrl()).toBe(false);
             expect(isValidUrl(123)).toBe(false);
         });
     });
@@ -149,7 +149,7 @@ describe('Validation Utils Coverage Tests', () => {
         test('should return false for empty or non-string values', () => {
             expect(isValidHighlightId('')).toBe(false);
             expect(isValidHighlightId(null)).toBe(false);
-            expect(isValidHighlightId(undefined)).toBe(false);
+            expect(isValidHighlightId()).toBe(false);
             expect(isValidHighlightId(123)).toBe(false);
         });
     });
@@ -166,7 +166,7 @@ describe('Validation Utils Coverage Tests', () => {
 
         test('should return false for null or undefined', () => {
             expect(isValidHighlightData(null)).toBe(false);
-            expect(isValidHighlightData(undefined)).toBe(false);
+            expect(isValidHighlightData()).toBe(false);
         });
 
         test('should return false for non-object values', () => {
