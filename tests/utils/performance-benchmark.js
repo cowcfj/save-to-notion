@@ -69,7 +69,7 @@ class PerformanceBenchmark {
       }
     }
 
-    const summary = this.calculateSummary(testName, results);
+    const summary = PerformanceBenchmark.calculateSummary(testName, results);
     this.results.push(summary);
 
     console.log(`✅ 完成性能測試: ${testName}`);
@@ -85,7 +85,7 @@ class PerformanceBenchmark {
    * @param {Array} results - 測試結果數組
    * @returns {Object} 摘要統計
    */
-  calculateSummary(testName, results) {
+  static calculateSummary(testName, results) {
     const successfulResults = results.filter(r => r.success);
     const times = successfulResults.map(r => r.processingTime);
 

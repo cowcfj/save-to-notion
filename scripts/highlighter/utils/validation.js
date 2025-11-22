@@ -81,7 +81,7 @@ export function isValidUrl(url) {
     }
 
     try {
-        void new URL(url);
+        new URL(url);
         return true;
     } catch {
         return false;

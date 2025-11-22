@@ -18,7 +18,7 @@ class HighlightManager {
         this.initializationComplete = null;
     }
 
-    initialize() {
+    static initialize() {
         // 簡化版本，僅用於測試
         return Promise.resolve();
     }
