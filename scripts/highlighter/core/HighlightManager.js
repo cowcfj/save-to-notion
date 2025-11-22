@@ -1,4 +1,4 @@
-/* global chrome */
+/* global chrome, Highlight, CSS */
 /**
  * HighlightManager 核心類別
  * 管理所有標註操作、存儲、遷移和恢復
