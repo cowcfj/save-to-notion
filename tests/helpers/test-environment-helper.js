@@ -18,6 +18,7 @@ class TestEnvironmentHelper {
   static createMockChrome(overrides = {}) {
     const defaultChrome = {
       runtime: {
+        id: 'mock-extension-id',
         sendMessage: jest.fn(),
         lastError: null,
         getManifest: jest.fn(() => ({ version: '2.10.0' }))

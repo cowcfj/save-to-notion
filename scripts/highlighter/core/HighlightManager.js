@@ -1,4 +1,4 @@
-/* global chrome, Highlight, CSS */
+/* global CSS */
 /**
  * HighlightManager 核心類別
  * 管理所有標註操作、存儲、遷移和恢復
@@ -64,12 +64,19 @@ export class HighlightManager {
      * 初始化 CSS Highlight 樣式
      */
     initializeHighlightStyles() {
-        if (typeof Highlight === 'undefined' || !CSS?.highlights) {
+        // 安全性檢查：確保 Highlight 是原生實作，防止原型污染
+        const isNativeHighlight = typeof window.Highlight === 'function' &&
+            window.Highlight.toString().includes('[native code]');
+
+        if (!isNativeHighlight || !window.CSS?.highlights) {
+            if (typeof window.Highlight !== 'undefined' && !isNativeHighlight) {
+                window.Logger?.warn('[HighlightManager] 檢測到非原生的 Highlight 實作，已略過初始化');
+            }
             return;
         }
 
         // 使用全域 Highlight 建構函式
-        const HighlightConstructor = (typeof window.Highlight !== 'undefined') ? window.Highlight : Highlight;
+        const HighlightConstructor = window.Highlight;
 
         Object.keys(this.colors).forEach(colorName => {
             try {
@@ -487,6 +494,20 @@ export class HighlightManager {
     }
 
     /**
+     * 安全獲取擴充功能存儲對象
+     * 防止在非受信環境中被注入偽造的 chrome 對象
+     * @returns {Object|null} chrome.storage.local 或 null
+     */
+    static getSafeExtensionStorage() {
+        // 優先使用全域 chrome 對象（在擴充功能環境中通常可用）
+        // 驗證 runtime.id 存在以確保是在擴充功能上下文中
+        if (typeof window !== 'undefined' && window.chrome && window.chrome.runtime && window.chrome.runtime.id) {
+            return window.chrome.storage?.local || null;
+        }
+        return null;
+    }
+
+    /**
      * 檢查並遷移 localStorage 中的舊標註數據
      */
     async checkAndMigrateLegacyData() {
@@ -548,7 +569,8 @@ export class HighlightManager {
             if (legacyData && foundKey) {
                 // 檢查是否已經遷移過
                 const migrationKey = `migration_completed_${normalizedUrl}`;
-                const migrationStatus = await (chrome?.storage?.local?.get(migrationKey) ?? Promise.resolve({}));
+                const storage = HighlightManager.getSafeExtensionStorage();
+                const migrationStatus = await (storage?.get(migrationKey) ?? Promise.resolve({}));
 
                 if (!migrationStatus[migrationKey]) {
                     await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
@@ -626,9 +648,10 @@ export class HighlightManager {
             }
 
             // 標記遷移完成
-            if (chrome?.storage?.local && window.normalizeUrl) {
+            const storage = HighlightManager.getSafeExtensionStorage();
+            if (storage && window.normalizeUrl) {
                 const normalizedUrl = window.normalizeUrl(window.location.href);
-                await chrome.storage.local.set({
+                await storage.set({
                     [`migration_completed_${normalizedUrl}`]: {
                         timestamp: Date.now(),
                         oldKey,
