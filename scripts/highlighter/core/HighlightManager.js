@@ -65,18 +65,18 @@ export class HighlightManager {
      */
     initializeHighlightStyles() {
         // 安全性檢查：確保 Highlight 是原生實作，防止原型污染
-        const isNativeHighlight = typeof Highlight === 'function' &&
-            Highlight.toString().includes('[native code]');
+        const isNativeHighlight = typeof window.Highlight === 'function' &&
+            window.Highlight.toString().includes('[native code]');
 
-        if (!isNativeHighlight || !CSS?.highlights) {
-            if (typeof Highlight !== 'undefined' && !isNativeHighlight) {
+        if (!isNativeHighlight || !window.CSS?.highlights) {
+            if (typeof window.Highlight !== 'undefined' && !isNativeHighlight) {
                 window.Logger?.warn('[HighlightManager] 檢測到非原生的 Highlight 實作，已略過初始化');
             }
             return;
         }
 
         // 使用全域 Highlight 建構函式
-        const HighlightConstructor = Highlight;
+        const HighlightConstructor = window.Highlight;
 
         Object.keys(this.colors).forEach(colorName => {
             try {
@@ -501,8 +501,8 @@ export class HighlightManager {
     getSafeExtensionStorage() {
         // 優先使用全域 chrome 對象（在擴充功能環境中通常可用）
         // 驗證 runtime.id 存在以確保是在擴充功能上下文中
-        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
-            return chrome.storage?.local || null;
+        if (typeof window !== 'undefined' && window.chrome && window.chrome.runtime && window.chrome.runtime.id) {
+            return window.chrome.storage?.local || null;
         }
         return null;
     }
