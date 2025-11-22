@@ -53,7 +53,9 @@ module.exports = {
   modulePathIgnorePatterns: ['<rootDir>/releases/'],
 
   // 轉換配置（如果需要）
-  transform: {},
+  transform: {
+    '^.+\\.[tj]sx?$': 'babel-jest',
+  },
 
   // 轉換 node_modules 中的 ES 模組
   transformIgnorePatterns: [
