@@ -35,10 +35,10 @@ jobs:
             TAG="${{ github.ref_name }}"
             IS_DRAFT_INPUT="false"
           fi
-          echo "TAG_NAME=${TAG}" >> $GITHUB_ENV
-          echo "IS_DRAFT=${IS_DRAFT_INPUT}" >> $GITHUB_ENV
-          echo "ZIP_NAME=notion-smart-clipper-${TAG}.zip" >> $GITHUB_ENV
-          echo "RELEASE_NOTES_FILE=RELEASE_NOTES_${TAG}.md" >> $GITHUB_ENV
+          echo "tag_name=${TAG}" >> $GITHUB_OUTPUT
+          echo "is_draft=${IS_DRAFT_INPUT}" >> $GITHUB_OUTPUT
+          echo "zip_name=notion-smart-clipper-${TAG}.zip" >> $GITHUB_OUTPUT
+          echo "release_notes_file=RELEASE_NOTES_${TAG}.md" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -102,41 +102,29 @@ jobs:
       - name: Create zip
         run: |
           cd release-package
-          zip -r "../releases/${ZIP_NAME}" .
+          zip -r "../releases/${{ steps.vars.outputs.zip_name }}" .
           
           echo "✅ Release zip created"
-          ls -lh "../releases/${ZIP_NAME}"
+          ls -lh "../releases/${{ steps.vars.outputs.zip_name }}"
 
       - name: Detect release notes file
+        id: notes
         run: |
-          if [ -f "${RELEASE_NOTES_FILE}" ]; then
-            echo "HAS_NOTES=true" >> $GITHUB_ENV
+          if [ -f "${{ steps.vars.outputs.release_notes_file }}" ]; then
+            echo "has_notes=true" >> $GITHUB_OUTPUT
           else
-            echo "HAS_NOTES=false" >> $GITHUB_ENV
+            echo "has_notes=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create GitHub Release (with notes file)
-        if: env.HAS_NOTES == 'true'
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.TAG_NAME }}
-          name: ${{ env.TAG_NAME }}
-          draft: ${{ env.IS_DRAFT == 'true' }}
-          body_path: ${{ env.RELEASE_NOTES_FILE }}
+          tag_name: ${{ steps.vars.outputs.tag_name }}
+          name: ${{ steps.vars.outputs.tag_name }}
+          draft: ${{ steps.vars.outputs.is_draft == 'true' }}
+          body_path: ${{ steps.notes.outputs.has_notes == 'true' && steps.vars.outputs.release_notes_file || '' }}
+          generate_release_notes: ${{ steps.notes.outputs.has_notes == 'false' }}
           files: |
-            releases/${{ env.ZIP_NAME }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release (auto-generated notes)
-        if: env.HAS_NOTES == 'false'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ env.TAG_NAME }}
-          name: ${{ env.TAG_NAME }}
-          draft: ${{ env.IS_DRAFT == 'true' }}
-          generate_release_notes: true
-          files: |
-            releases/${{ env.ZIP_NAME }}
+            releases/${{ steps.vars.outputs.zip_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
