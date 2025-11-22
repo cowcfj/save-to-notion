@@ -158,7 +158,7 @@ describe('HighlightManager Coverage Tests', () => {
             range.setEnd(div.firstChild, 6);
 
             const id = manager.addHighlight(range);
-            const highlightObj = manager.highlightObjects['yellow'];
+            const highlightObj = manager.highlightObjects.yellow;
 
             manager.removeHighlight(id);
 
@@ -272,7 +272,7 @@ describe('HighlightManager Coverage Tests', () => {
             manager.clearAll();
 
             expect(manager.highlights.size).toBe(0);
-            expect(manager.highlightObjects['yellow'].clear).toHaveBeenCalled();
+            expect(manager.highlightObjects.yellow.clear).toHaveBeenCalled();
         });
     });
 
