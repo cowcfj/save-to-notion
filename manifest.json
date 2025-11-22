@@ -29,7 +29,7 @@
         "scripts/utils.js",
         "scripts/utils/imageUtils.js",
         "scripts/seamless-migration.js",
-        "scripts/highlighter-v2.js"
+        "dist/highlighter-v2.bundle.js"
       ],
       "run_at": "document_idle",
       "all_frames": false

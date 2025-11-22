@@ -110,4 +110,15 @@ export default function setupHighlighter() {
 // 自動初始化（在 browser 環境中）
 if (typeof window !== 'undefined' && !window.HighlighterV2) {
     setupHighlighter();
+
+    // 🔑 通知 background 檢查頁面狀態並更新 badge
+    // 這確保在頁面載入後 extension icon 的 badge 立即更新
+    if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
+        chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (_response) => {
+            // 靜默處理，不需要回應
+            if (chrome.runtime.lastError) {
+                // 忽略錯誤（例如 background script 未就緒）
+            }
+        });
+    }
 }
