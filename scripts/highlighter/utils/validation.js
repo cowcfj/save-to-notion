@@ -80,12 +80,7 @@ export function isValidUrl(url) {
         return false;
     }
 
-    try {
-        new URL(url);
-        return true;
-    } catch {
-        return false;
-    }
+    return URL.canParse(url);
 }
 
 /**
