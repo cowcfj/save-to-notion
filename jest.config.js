@@ -54,7 +54,7 @@ module.exports = {
 
   // 轉換配置（如果需要）
   transform: {
-    '^.+\\.[t|j]sx?$': 'babel-jest',
+    '^.+\\.[tj]sx?$': 'babel-jest',
   },
 
   // 轉換 node_modules 中的 ES 模組
