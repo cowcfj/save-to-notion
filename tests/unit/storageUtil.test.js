@@ -4,24 +4,26 @@
  */
 
 describe('StorageUtil', () => {
-    let mockChrome;
-    let mockLocalStorage;
+    /** @type {Object|null} Chrome API 模擬物件 */
+    let mockChrome = null;
+    /** @type {Object|null} LocalStorage 模擬物件 */
+    let mockLocalStorage = null;
 
     beforeEach(() => {
         // Mock normalizeUrl function
         global.normalizeUrl = jest.fn((url) => {
             // 簡單的 normalizeUrl 模擬
             try {
-                const u = new URL(url);
-                u.hash = '';
+                const urlObj = new URL(url);
+                urlObj.hash = '';
                 // 移除追蹤參數
                 const trackingParams = ['utm_source', 'utm_medium', 'fbclid'];
-                trackingParams.forEach(p => u.searchParams.delete(p));
+                trackingParams.forEach(param => urlObj.searchParams.delete(param));
                 // 移除尾部斜杠（除了根路徑）
-                if (u.pathname !== '/' && u.pathname.endsWith('/')) {
-                    u.pathname = u.pathname.replace(/\/+$/, '');
+                if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+                    urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
                 }
-                return u.toString();
+                return urlObj.toString();
             } catch (e) {
                 // 記錄錯誤以保持與實際實現的一致性
                 console.error('❌ [normalizeUrl] 標準化失敗:', e);
@@ -856,7 +858,7 @@ describe('StorageUtil', () => {
         });
 
         test('應該處理非常長的 URL', async () => {
-            const longUrl = 'https://example.com/' + 'a'.repeat(2000);
+            const longUrl = `https://example.com/${'a'.repeat(2000)}`;
             const testData = [{ text: 'highlight', color: 'yellow' }];
 
             await StorageUtil.saveHighlights(longUrl, testData);

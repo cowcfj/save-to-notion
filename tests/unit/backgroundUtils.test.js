@@ -176,7 +176,7 @@ describe('background.js - 工具函數', () => {
         });
 
         test('應該拒絕過長的 URL', () => {
-            const longUrl = 'https://example.com/' + 'a'.repeat(2000) + '.jpg';
+            const longUrl = `https://example.com/${'a'.repeat(2000)}.jpg`;
 
             expect(isValidImageUrl(longUrl)).toBe(false);
         });
@@ -213,9 +213,12 @@ describe('background.js - 工具函數', () => {
     });
 
     describe('appendBlocksInBatches', () => {
-        let mockFetch;
-        let originalFetch;
-        let consoleSpy;
+        /** @type {jest.Mock|null} */
+        let mockFetch = null;
+        /** @type {Function|null} */
+        let originalFetch = null;
+        /** @type {Object|null} */
+        let consoleSpy = null;
 
         beforeEach(() => {
             // 保存原始 fetch

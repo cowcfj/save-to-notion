@@ -5,8 +5,10 @@ const { AdaptivePerformanceManager } = require('../../../scripts/performance/Ada
 const { PerformanceOptimizer } = require('../../helpers/performance.testable');
 
 describe('AdaptivePerformanceManager', () => {
-  let optimizer;
-  let manager;
+  /** @type {PerformanceOptimizer|null} */
+  let optimizer = null;
+  /** @type {AdaptivePerformanceManager|null} */
+  let manager = null;
 
   beforeEach(() => {
     // clean DOM
@@ -35,10 +37,10 @@ describe('AdaptivePerformanceManager', () => {
     manager.adjustBatchSize(250);
     manager.adjustCacheSize(500);
 
-    const s = manager.getCurrentStrategy();
-    expect(s.batchSize).toBeGreaterThanOrEqual(1);
-    expect(s.cacheSize).toBeGreaterThanOrEqual(50);
+    const strategy = manager.getCurrentStrategy();
+    expect(strategy.batchSize).toBeGreaterThanOrEqual(1);
+    expect(strategy.cacheSize).toBeGreaterThanOrEqual(50);
     // optimizer options also updated
-    expect(optimizer.options.cacheMaxSize).toBe(s.cacheSize);
+    expect(optimizer.options.cacheMaxSize).toBe(strategy.cacheSize);
   });
 });
