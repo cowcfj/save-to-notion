@@ -1,58 +1,58 @@
 // 使用 CSS Custom Highlight API 的新版標註功能
 // v2.5.0 - 不修改DOM結構的標註實現
 /* global chrome, Highlight */
-(function() {
+(function () {
 
-// 使用共享 Logger 系統的增強日誌器，整合錯誤處理和維護性
-/**
- * 增強的日誌器實現
- * 整合共享 Logger 系統，添加錯誤處理和維護性
- */
-const logger = (() => {
-    // 檢查 Logger 系統是否可用
-    const isLoggerAvailable = () => {
-        try {
-            return typeof window.Logger === 'object' && window.Logger !== null;
-        } catch {
-            // 靜默處理錯誤，避免日誌系統本身引發問題
-            return false;
-        }
-    };
-
-    // 創建帶錯誤處理的日誌方法
-    const createSafeLogger = (methodName) => {
-        return (...args) => {
-            let output = {};
+    // 使用共享 Logger 系統的增強日誌器，整合錯誤處理和維護性
+    /**
+     * 增強的日誌器實現
+     * 整合共享 Logger 系統，添加錯誤處理和維護性
+     */
+    const logger = (() => {
+        // 檢查 Logger 系統是否可用
+        const isLoggerAvailable = () => {
             try {
-                if (isLoggerAvailable() && typeof window.Logger[methodName] === 'function') {
-                    // 使用共享 Logger 系統，添加模組前綴
-                    output = window.Logger[methodName]("[Highlighter]", ...args);
-                } else {
-                    // 回退到控制台日誌（僅在開發環境）
-                    if (typeof console !== 'undefined' && typeof console[methodName] === 'function') {
-                        const prefix = methodName === 'log' ? '[Highlighter][LOG]' : `[Highlighter][${methodName.toUpperCase()}]`;
-                        output = console[methodName](prefix, ...args);
+                return typeof window.Logger === 'object' && window.Logger !== null;
+            } catch {
+                // 靜默處理錯誤，避免日誌系統本身引發問題
+                return false;
+            }
+        };
+
+        // 創建帶錯誤處理的日誌方法
+        const createSafeLogger = (methodName) => {
+            return (...args) => {
+                let output = {};
+                try {
+                    if (isLoggerAvailable() && typeof window.Logger[methodName] === 'function') {
+                        // 使用共享 Logger 系統，添加模組前綴
+                        output = window.Logger[methodName]("[Highlighter]", ...args);
+                    } else {
+                        // 回退到控制台日誌（僅在開發環境）
+                        if (typeof console !== 'undefined' && typeof console[methodName] === 'function') {
+                            const prefix = methodName === 'log' ? '[Highlighter][LOG]' : `[Highlighter][${methodName.toUpperCase()}]`;
+                            output = console[methodName](prefix, ...args);
+                        }
+                    }
+                } catch (error) {
+                    // 防止日誌系統崩潰應用，靜默失敗
+                    // 在極端情況下，可以使用原生 console.error 但不推薦
+                    if (typeof console !== 'undefined' && typeof console.error === 'function') {
+                        console.error('[Highlighter][LOGGER_ERROR]', 'Logger failed:', error.message);
                     }
                 }
-            } catch (error) {
-                // 防止日誌系統崩潰應用，靜默失敗
-                // 在極端情況下，可以使用原生 console.error 但不推薦
-                if (typeof console !== 'undefined' && typeof console.error === 'function') {
-                    console.error('[Highlighter][LOGGER_ERROR]' , 'Logger failed:', error.message);
-                }
-            }
-            return output;
+                return output;
+            };
         };
-    };
 
-    return {
-        debug: createSafeLogger('debug'),
-        log: createSafeLogger('log'),
-        info: createSafeLogger('info'),
-        warn: createSafeLogger('warn'),
-        error: createSafeLogger('error')
-    };
-})();
+        return {
+            debug: createSafeLogger('debug'),
+            log: createSafeLogger('log'),
+            info: createSafeLogger('info'),
+            warn: createSafeLogger('warn'),
+            error: createSafeLogger('error')
+        };
+    })();
 
     // 使用來自 utils.js 的共享函數 - 添加安全檢查
     const normalizeUrl = window.normalizeUrl;
@@ -128,7 +128,7 @@ const logger = (() => {
          */
         async performSeamlessMigration() {
 
-    if (typeof window.SeamlessMigrationManager === 'undefined') {
+            if (typeof window.SeamlessMigrationManager === 'undefined') {
                 logger.warn('⚠️ 無痛遷移管理器未加載');
                 return;
             }
@@ -266,7 +266,7 @@ const logger = (() => {
                         const range = HighlightManager.findTextInPage(textToFind);
 
                         if (range) {
-                        // v2.9.0: 使用更短的 ID 格式
+                            // v2.9.0: 使用更短的 ID 格式
                             const newId = `h${this.nextId++}`;
                             const rangeInfo = HighlightManager.serializeRange(range);
 
@@ -797,14 +797,14 @@ const logger = (() => {
          * 檢測兩個 Range 是否重疊
          */
         static rangesOverlap(range1, range2) {
-        try {
-            // 合併為單一布林表達式以簡化回傳
-            return (
-                range1.isPointInRange(range2.startContainer, range2.startOffset) ||
-                range1.isPointInRange(range2.endContainer, range2.endOffset) ||
-                range2.isPointInRange(range1.startContainer, range1.startOffset)
-            );
-        } catch {
+            try {
+                // 合併為單一布林表達式以簡化回傳
+                return (
+                    range1.isPointInRange(range2.startContainer, range2.startOffset) ||
+                    range1.isPointInRange(range2.endContainer, range2.endOffset) ||
+                    range2.isPointInRange(range1.startContainer, range1.startOffset)
+                );
+            } catch {
                 // 如果節點不在同一個文檔樹中，isPointInRange 會拋出錯誤
                 return false;
             }
@@ -1307,7 +1307,7 @@ const logger = (() => {
                 // 允許一些文本變化的容忍度
                 // 修復：改進驗證邏輯，確保文本長度在合理範圍內且內容匹配
                 const lengthMatch = actualText.length >= expectedTrimmed.length * 0.8 &&
-                                   actualText.length <= expectedTrimmed.length * 1.2;
+                    actualText.length <= expectedTrimmed.length * 1.2;
                 const contentMatch = expectedTrimmed.includes(actualText.substring(0, Math.min(20, actualText.length)));
 
                 return lengthMatch && contentMatch;
@@ -1343,7 +1343,7 @@ const logger = (() => {
                 const afterText = parentText.substring(rangeStart + rangeText.length, rangeStart + rangeText.length + 50);
 
                 const contextMatches = (!rangeInfo.contextBefore || beforeText.includes(rangeInfo.contextBefore)) &&
-                                      (!rangeInfo.contextAfter || afterText.includes(rangeInfo.contextAfter));
+                    (!rangeInfo.contextAfter || afterText.includes(rangeInfo.contextAfter));
 
                 return contextMatches;
             } catch (error) {
@@ -1551,7 +1551,7 @@ const logger = (() => {
                 color: colorMap[h.color] || 'yellow_background'
             }));
             result.forEach((h, i) => {
-                logger.info(`   ${i+1}. "${h.text.substring(0, 50)}..." (${h.color})`);
+                logger.info(`   ${i + 1}. "${h.text.substring(0, 50)}..." (${h.color})`);
             });
 
             return result;
@@ -1592,11 +1592,11 @@ const logger = (() => {
                 return false;
             }
         }
-}
+    }
 
-/**
- * 初始化標註工具
- */
+    /**
+     * 初始化標註工具
+     */
     const USER_VISIBILITY_FLAG = '__notionHighlighterUserOpened';
     const AUTO_HIDE_TIMER_FLAG = '__notionHighlighterAutoHideTimer';
 
@@ -1694,6 +1694,10 @@ const logger = (() => {
             }
         }
 
+        /**
+         * 切換工具欄的最小化狀態
+         * 根據當前狀態展開或最小化工具欄
+         */
         function toggleMinimize() {
             if (currentToolbarState === ToolbarState.EXPANDED) {
                 minimizeToolbar();
@@ -1777,18 +1781,37 @@ const logger = (() => {
 
         // 綁定/解綁 全局點擊監聽器（用於 Ctrl+點擊刪除）
         const clickHandler = (e) => {
+            // 🔒 安全性改進：限制只處理來自主文檔的事件
+            // 防止第三方 iframe 或惡意腳本觸發未預期的刪除操作
+            if (e.target.ownerDocument !== document) {
+                return; // 忽略來自 iframe 或其他文檔的事件
+            }
+
+            // 🔒 安全性改進：排除來自不信任的 iframe 內部的點擊
+            if (e.target.closest('iframe')) {
+                return;
+            }
+
             const deleted = manager.handleDocumentClick(e);
             if (deleted) {
                 updateHighlightCount();
             }
         };
         let listenerBound = false;
+        /**
+         * 綁定全局點擊監聽器
+         * 用於處理 Ctrl+點擊刪除標註的功能
+         */
         const bindDeleteListener = () => {
             if (!listenerBound) {
                 document.addEventListener('click', clickHandler, true);
                 listenerBound = true;
             }
         };
+        /**
+         * 解綁全局點擊監聽器
+         * 移除 Ctrl+點擊刪除標註的監聽器
+         */
         const unbindDeleteListener = () => {
             if (listenerBound) {
                 document.removeEventListener('click', clickHandler, true);
