@@ -79,7 +79,7 @@ jobs:
 
     - name: Upload test report artifact (junit.xml)
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: junit-report
         path: junit.xml
@@ -87,7 +87,7 @@ jobs:
 
     - name: Upload HTML coverage artifact
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: coverage-html
         path: coverage
@@ -116,7 +116,7 @@ jobs:
 
     - name: Upload LCOV coverage artifact
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: coverage-lcov
         path: coverage/lcov.info
