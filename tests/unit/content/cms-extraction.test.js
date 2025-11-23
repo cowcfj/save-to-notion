@@ -6,8 +6,10 @@
 const { JSDOM } = require('jsdom');
 
 describe('CMS Content Extraction', () => {
-    let dom;
-    let document;
+    /** @type {JSDOM} JSDOM 實例,在 beforeEach 中初始化 */
+    let dom = null;
+    /** @type {Document} 文檔對象,在 beforeEach 中初始化 */
+    let document = null;
 
     beforeEach(() => {
         dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
@@ -109,7 +111,7 @@ describe('CMS Content Extraction', () => {
 
             const topLevelItems = document.querySelectorAll('body > ul > li');
             const nestedLists = document.querySelectorAll('ul ul');
-            
+
             expect(topLevelItems.length).toBe(25);
             expect(nestedLists.length).toBeGreaterThan(0);
         });

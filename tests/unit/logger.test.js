@@ -4,8 +4,10 @@
  */
 
 describe('Logger', () => {
-    let consoleSpy;
-    let originalConsole;
+    /** @type {Object} Console spy 對象,在 beforeEach 中初始化 */
+    let consoleSpy = null;
+    /** @type {Console} 原始 console 對象,在 beforeEach 中保存 */
+    let originalConsole = null;
 
     beforeEach(() => {
         // 保存原始 console
@@ -24,15 +26,15 @@ describe('Logger', () => {
             debug: (message, ...args) => {
                 console.log(`[DEBUG] ${message}`, ...args);
             },
-            
+
             info: (message, ...args) => {
                 console.log(`[INFO] ${message}`, ...args);
             },
-            
+
             warn: (message, ...args) => {
                 console.warn(`[WARN] ${message}`, ...args);
             },
-            
+
             error: (message, ...args) => {
                 console.error(`[ERROR] ${message}`, ...args);
             }
@@ -85,8 +87,8 @@ describe('Logger', () => {
             Logger.info('用戶操作', 'save', { page: 'example.com' });
 
             expect(consoleSpy.log).toHaveBeenCalledWith(
-                '[INFO] 用戶操作', 
-                'save', 
+                '[INFO] 用戶操作',
+                'save',
                 { page: 'example.com' }
             );
         });
@@ -116,7 +118,7 @@ describe('Logger', () => {
             Logger.warn('API 速率限制', { remaining: 10 });
 
             expect(consoleSpy.warn).toHaveBeenCalledWith(
-                '[WARN] API 速率限制', 
+                '[WARN] API 速率限制',
                 { remaining: 10 }
             );
         });
@@ -126,7 +128,7 @@ describe('Logger', () => {
             Logger.warn('發生非致命錯誤', error);
 
             expect(consoleSpy.warn).toHaveBeenCalledWith(
-                '[WARN] 發生非致命錯誤', 
+                '[WARN] 發生非致命錯誤',
                 error
             );
         });
@@ -135,7 +137,7 @@ describe('Logger', () => {
             Logger.warn('空值檢查', null);
 
             expect(consoleSpy.warn).toHaveBeenCalledWith(
-                '[WARN] 空值檢查', 
+                '[WARN] 空值檢查',
                 null
             );
         });
@@ -154,7 +156,7 @@ describe('Logger', () => {
             Logger.error('無法保存到 Notion', error);
 
             expect(consoleSpy.error).toHaveBeenCalledWith(
-                '[ERROR] 無法保存到 Notion', 
+                '[ERROR] 無法保存到 Notion',
                 error
             );
         });
@@ -162,11 +164,11 @@ describe('Logger', () => {
         test('應該處理錯誤堆疊信息', () => {
             const error = new Error('測試錯誤');
             error.stack = 'Error: 測試錯誤\n    at test.js:1:1';
-            
+
             Logger.error('堆疊追蹤', error);
 
             expect(consoleSpy.error).toHaveBeenCalledWith(
-                '[ERROR] 堆疊追蹤', 
+                '[ERROR] 堆疊追蹤',
                 error
             );
         });
@@ -184,7 +186,7 @@ describe('Logger', () => {
             Logger.error('API 錯誤詳情', complexData);
 
             expect(consoleSpy.error).toHaveBeenCalledWith(
-                '[ERROR] API 錯誤詳情', 
+                '[ERROR] API 錯誤詳情',
                 complexData
             );
         });
@@ -201,19 +203,19 @@ describe('Logger', () => {
             Logger.debug('多參數測試', 1, 2, 3, 4, 5);
 
             expect(consoleSpy.log).toHaveBeenCalledWith(
-                '[DEBUG] 多參數測試', 
+                '[DEBUG] 多參數測試',
                 1, 2, 3, 4, 5
             );
         });
 
         test('應該處理混合類型參數', () => {
             Logger.info(
-                '混合參數', 
-                'string', 
-                42, 
-                true, 
-                null, 
-                { key: 'value' }, 
+                '混合參數',
+                'string',
+                42,
+                true,
+                null,
+                { key: 'value' },
                 ['array']
             );
 

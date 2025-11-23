@@ -19,7 +19,9 @@ function isContentGood(article) {
     let linkTextLength = 0;
     // 確保 links 是可迭代的數組或類數組對象
     if (links && typeof links.forEach === 'function') {
-        links.forEach(link => linkTextLength += link.textContent.length);
+        links.forEach(link => {
+            linkTextLength += link.textContent.length;
+        });
     } else {
         // 回退到 for 循環
         for (let i = 0; i < (links.length || 0); i++) {

@@ -184,7 +184,7 @@ describe('Background Message Handlers', () => {
       // Act
       const request = {
         action: 'syncHighlights',
-        highlights: highlights
+        highlights
       };
       const response = await simulateMessageHandler(request);
 
@@ -359,7 +359,7 @@ describe('Background Message Handlers', () => {
       // Act
       const request = {
         action: 'openNotionPage',
-        notionUrl: notionUrl
+        notionUrl
       };
       const response = await simulateMessageHandler(request);
 

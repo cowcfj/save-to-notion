@@ -139,7 +139,7 @@ module.exports = {
             .map(li => li.textContent.trim());
           blocks.push({
             type: list.tagName === 'UL' ? 'bulleted_list' : 'numbered_list',
-            items: items
+            items
           });
         }
       });
