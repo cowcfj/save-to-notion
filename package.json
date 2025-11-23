@@ -58,6 +58,6 @@
     "rollup": "^4.53.3"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.15"
+    "@notionhq/client": "^5.4.0"
   }
 }
