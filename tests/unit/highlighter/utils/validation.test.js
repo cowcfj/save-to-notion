@@ -29,7 +29,7 @@ describe('utils/validation', () => {
         test('should return false for non-string types', () => {
             expect(isNonEmptyString(null)).toBe(false);
 
-            expect(isNonEmptyString(undefined)).toBe(false);
+            expect(isNonEmptyString()).toBe(false);
             expect(isNonEmptyString(123)).toBe(false);
             expect(isNonEmptyString({})).toBe(false);
             expect(isNonEmptyString([])).toBe(false);
@@ -45,7 +45,7 @@ describe('utils/validation', () => {
         test('should return false for null/undefined', () => {
             expect(isValidRange(null)).toBe(false);
 
-            expect(isValidRange(undefined)).toBe(false);
+            expect(isValidRange()).toBe(false);
         });
 
         test('should return false for invalid objects', () => {
@@ -114,7 +114,7 @@ describe('utils/validation', () => {
         test('should return false for non-string types', () => {
             expect(isValidUrl(null)).toBe(false);
 
-            expect(isValidUrl(undefined)).toBe(false);
+            expect(isValidUrl()).toBe(false);
             expect(isValidUrl(123)).toBe(false);
         });
     });
@@ -191,7 +191,7 @@ describe('utils/validation', () => {
         test('should return false for non-objects', () => {
             expect(isValidHighlightData(null)).toBe(false);
 
-            expect(isValidHighlightData(undefined)).toBe(false);
+            expect(isValidHighlightData()).toBe(false);
             expect(isValidHighlightData('string')).toBe(false);
             expect(isValidHighlightData(123)).toBe(false);
         });
