@@ -1781,6 +1781,17 @@
 
         // 綁定/解綁 全局點擊監聽器（用於 Ctrl+點擊刪除）
         const clickHandler = (e) => {
+            // 🔒 安全性改進：限制只處理來自主文檔的事件
+            // 防止第三方 iframe 或惡意腳本觸發未預期的刪除操作
+            if (e.target.ownerDocument !== document) {
+                return; // 忽略來自 iframe 或其他文檔的事件
+            }
+
+            // 🔒 安全性改進：排除來自不信任的 iframe 內部的點擊
+            if (e.target.closest('iframe')) {
+                return;
+            }
+
             const deleted = manager.handleDocumentClick(e);
             if (deleted) {
                 updateHighlightCount();
