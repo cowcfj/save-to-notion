@@ -45,7 +45,7 @@
     "@babel/preset-env": "^7.28.5",
     "@rollup/plugin-node-resolve": "^15.3.1",
     "@rollup/plugin-terser": "^0.4.4",
-    "babel-jest": "^29.5.0",
+    "babel-jest": "^30.2.0",
     "eslint-plugin-regexp": "^2.10.0",
     "husky": "^9.1.6",
     "istanbul-lib-coverage": "^3.2.2",
