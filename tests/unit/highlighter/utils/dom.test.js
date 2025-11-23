@@ -34,7 +34,7 @@ describe('utils/dom', () => {
         });
 
         test('should return false for undefined', () => {
-            expect(isValidElement(undefined)).toBe(false);
+            expect(isValidElement()).toBe(false);
         });
 
         test('should return false for non-Element types', () => {
