@@ -65,6 +65,32 @@ module.exports = [
         disallowTemplateShorthand: false
       }],
 
+      // Code Style - Modern JavaScript practices
+      'prefer-template': 'warn',              // 強制使用模板字串代替字串串接
+      'object-shorthand': ['warn', 'always'], // 要求物件屬性和方法使用簡寫語法
+      'prefer-const': 'warn',                 // 優先使用 const
+      'prefer-arrow-callback': ['warn', {    // 優先使用箭頭函數
+        allowNamedFunctions: false,
+        allowUnboundThis: true
+      }],
+      'no-var': 'warn',                       // 禁止使用 var
+
+      // Variable Naming
+      'id-length': ['warn', {                 // 變數名最小長度
+        min: 2,
+        exceptions: ['i', 'j', 'k', 'x', 'y', 'z', '_'],
+        properties: 'never'
+      }],
+
+      // Best Practices
+      'eqeqeq': ['warn', 'always', {         // 要求使用 === 和 !==
+        null: 'ignore'
+      }],
+      'curly': ['warn', 'all'],              // 要求所有控制語句使用大括號
+      'dot-notation': 'warn',                 // 要求使用點號訪問屬性
+      'no-else-return': 'warn',              // 禁止 if 語句中 return 後有 else
+      'no-lonely-if': 'warn',                // 禁止 if 作為唯一的語句出現在 else 中
+
       // Regexp plugin rules - Critical (errors)
       'regexp/no-invalid-regexp': 'error',
 
@@ -78,6 +104,10 @@ module.exports = [
       'regexp/no-useless-flag': 'warn',
       'regexp/prefer-regexp-exec': 'warn',
       'regexp/prefer-regexp-test': 'warn'
+    },
+    // ESLint cache configuration for faster subsequent runs
+    linterOptions: {
+      reportUnusedDisableDirectives: true
     }
   },
   {
