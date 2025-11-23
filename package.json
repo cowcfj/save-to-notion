@@ -42,7 +42,7 @@
   "homepage": "https://github.com/cowcfj/save-to-notion",
   "devDependencies": {
     "@babel/core": "^7.22.0",
-    "@babel/preset-env": "^7.22.0",
+    "@babel/preset-env": "^7.28.5",
     "@rollup/plugin-node-resolve": "^15.3.1",
     "@rollup/plugin-terser": "^0.4.4",
     "babel-jest": "^29.5.0",
