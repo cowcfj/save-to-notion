@@ -2,7 +2,12 @@ const { JSDOM } = require('jsdom');
 const { isContentGood, findContentCmsFallback, MIN_CONTENT_LENGTH } = require('../helpers/content-extraction.testable');
 
 describe('Content Extraction - Testable Wrapper', () => {
-  let dom, window, document;
+  /** @type {JSDOM|null} */
+  let dom = null;
+  /** @type {Window|null} */
+  let window = null;
+  /** @type {Document|null} */
+  let document = null;
 
   beforeEach(() => {
     dom = new JSDOM('<!doctype html><html><body></body></html>');

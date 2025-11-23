@@ -19,8 +19,10 @@
 const ImageExtractor = require('../../../scripts/imageExtraction/ImageExtractor');
 
 describe('ImageExtractor - 全面測試', () => {
-    let extractor;
-    let imgElement;
+    /** @type {ImageExtractor|null} */
+    let extractor = null;
+    /** @type {HTMLImageElement|null} */
+    let imgElement = null;
 
     beforeEach(() => {
         // 創建測試用的 img 元素
@@ -439,8 +441,8 @@ describe('ImageExtractor - 全面測試', () => {
             expect(key).toContain('https://example.com/large.jpg');
         });
 
-        it('應該限制緩存鍵長度為 100 字符', () => {
-            const longUrl = 'https://example.com/' + 'a'.repeat(200) + '.jpg';
+        it('應該限制緩存鍵長度為 100 字元', () => {
+            const longUrl = `https://example.com/${'a'.repeat(200)}.jpg`;
             imgElement.setAttribute('src', longUrl);
 
             const key = ImageExtractor._generateCacheKey(imgElement);

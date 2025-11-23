@@ -25,7 +25,12 @@ global.ScriptInjector = mockScriptInjector;
 global.migrateLegacyHighlights = jest.fn();
 
 describe('Background Tab Listeners', () => {
-  let setupTabListeners, migrateLegacyHighlights, normalizeUrl;
+  /** @type {Function|null} 設置標籤頁監聽器的函數 */
+  let setupTabListeners = null;
+  /** @type {Function|null} 遷移舊版標註的函數 */
+  let migrateLegacyHighlights = null;
+  /** @type {Function|null} 標準化 URL 的函數 */
+  let normalizeUrl = null;
 
   beforeEach(() => {
     jest.clearAllMocks();

@@ -11,8 +11,10 @@
 const { ExtractionStrategy, ExtractionResult } = require('../../../scripts/imageExtraction/ExtractionStrategy');
 
 describe('ExtractionStrategy - 全面測試', () => {
-    let strategy;
-    let imgElement;
+    /** @type {ExtractionStrategy|null} */
+    let strategy = null;
+    /** @type {HTMLImageElement|null} */
+    let imgElement = null;
 
     beforeEach(() => {
         strategy = new ExtractionStrategy();

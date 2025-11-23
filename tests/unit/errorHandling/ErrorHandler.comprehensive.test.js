@@ -8,7 +8,8 @@ const { ErrorHandler, ErrorTypes, ErrorSeverity } = require('../../../scripts/er
 
 describe('ErrorHandler - 全面測試', () => {
     // 保存原始的 console 方法
-    let originalConsole;
+    /** @type {Object|null} */
+    let originalConsole = null;
 
     beforeEach(() => {
         // Mock console 方法
@@ -455,7 +456,7 @@ describe('ErrorHandler - 全面測試', () => {
         test('應該保持 this 上下文', () => {
             const obj = {
                 value: 42,
-                getValue: function() {
+                getValue() {
                     return this.value;
                 }
             };
@@ -496,7 +497,7 @@ describe('ErrorHandler - 全面測試', () => {
         test('應該保持 this 上下文', async () => {
             const obj = {
                 value: 42,
-                getValueAsync: function() {
+                getValueAsync() {
                     return Promise.resolve(this.value);
                 }
             };

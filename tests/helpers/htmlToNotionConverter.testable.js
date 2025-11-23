@@ -8,9 +8,9 @@
 
 function isValidAbsoluteUrl(href) {
   try {
-    const u = new URL(href);
-    if (!u.protocol || !u.host) return false;
-    return u.protocol === 'http:' || u.protocol === 'https:';
+    const urlObj = new URL(href);
+    if (!urlObj.protocol || !urlObj.host) return false;
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
   } catch {
     return false;
   }
@@ -67,9 +67,9 @@ function convertMarkdownToNotionBlocks(markdown) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const t = line.trim();
+    const trimmedLine = line.trim();
 
-    if (t.startsWith('```')) {
+    if (trimmedLine.startsWith('```')) {
       flushLists();
       if (inCodeBlock) {
         if (codeContent.length) {
@@ -88,7 +88,7 @@ function convertMarkdownToNotionBlocks(markdown) {
       } else {
         flushParagraph();
         inCodeBlock = true;
-        const lang = t.substring(3).trim();
+        const lang = trimmedLine.substring(3).trim();
         if (lang) codeLanguage = lang;
       }
       continue;
@@ -99,11 +99,11 @@ function convertMarkdownToNotionBlocks(markdown) {
       continue;
     }
 
-    if (/^#{1,6}\s/.test(t)) {
+    if (/^#{1,6}\s/.test(trimmedLine)) {
       flushLists();
       flushParagraph();
-      const level = Math.min(3, t.match(/^#+/)[0].length);
-      const text = t.replace(/^#{1,6}\s*/, '');
+      const level = Math.min(3, trimmedLine.match(/^#+/)[0].length);
+      const text = trimmedLine.replace(/^#{1,6}\s*/, '');
       blocks.push({
         object: 'block',
         type: `heading_${level}`,
@@ -112,35 +112,35 @@ function convertMarkdownToNotionBlocks(markdown) {
       continue;
     }
 
-    if (/^(?:- |\* |\d+\.\s)/.test(t)) {
-      const text = t.replace(/^(?:- |\* |\d+\.\s)/, '').trim();
+    if (/^(?:- |\* |\d+\.\s)/.test(trimmedLine)) {
+      const text = trimmedLine.replace(/^(?:- |\* |\d+\.\s)/, '').trim();
       listBuffer.push(text);
       continue;
     }
 
-    if (t === '') {
+    if (trimmedLine === '') {
       flushLists();
       flushParagraph();
       continue;
     }
 
-    const imageMatches = [...t.matchAll(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g)]
+    const imageMatches = [...trimmedLine.matchAll(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g)]
       .filter((match) => isValidAbsoluteUrl(match[2]));
 
-    if (imageMatches.length && t.replace(/!\[[^\]]*\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, '').trim() === '') {
+    if (imageMatches.length && trimmedLine.replace(/!\[[^\]]*\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, '').trim() === '') {
       flushLists();
       flushParagraph();
       imageMatches.forEach((match) => pushImage(match[2], match[1]?.trim()));
       continue;
     }
 
-    let processedLine = t;
+    let processedLine = trimmedLine;
     imageMatches.forEach((match) => {
       processedLine = processedLine.replace(match[0], match[1] || '');
       pushImage(match[2], match[1]?.trim());
     });
 
-    paragraph = paragraph ? paragraph + ' ' + processedLine : processedLine;
+    paragraph = paragraph ? `${paragraph} ${processedLine}` : processedLine;
   }
 
   if (paragraph.trim()) flushParagraph();
