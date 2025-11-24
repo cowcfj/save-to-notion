@@ -63,6 +63,8 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
             this._timer = null;
           }
         }
+        // Mock 實現:保持與原生 MutationObserver API 的方法簽名一致
+
         takeRecords() {
           return [];
         }

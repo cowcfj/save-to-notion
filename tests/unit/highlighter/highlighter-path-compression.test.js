@@ -16,8 +16,10 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
         const path = [];
 
         for (const step of steps) {
-          const match = step.match(/^([a-z0-9\-]+)\[(\d+)\]$/i);
-          if (!match) {return null;}
+          const match = step.match(/^([a-z0-9-]+)\[(\d+)\]$/i);
+          if (!match) {
+            return null;
+          }
 
           const [, name, indexStr] = match;
           const index = parseInt(indexStr, 10);

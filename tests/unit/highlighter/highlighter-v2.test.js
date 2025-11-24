@@ -567,7 +567,8 @@ describe('highlighter-v2.testable.js', () => {
   });
   // ==================== Highlight API 兼容性測試 ====================
   describe('Highlight API 兼容性測試', () => {
-    let colors;
+    /** @type {Object<string, string>|null} - 顏色配置對象，在 beforeEach 中初始化 */
+    let colors = null;
 
     // 定義測試用的 initializeHighlightStyles 函數
     function initializeHighlightStyles() {
