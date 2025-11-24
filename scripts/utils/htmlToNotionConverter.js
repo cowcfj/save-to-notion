@@ -488,6 +488,16 @@ function convertMarkdownToNotionBlocks(markdown) {
   return blocks;
 }
 
+// 導出函數供測試使用
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    convertMarkdownToNotionBlocks,
+    parseRichText, // 也導出這個輔助函數以便單獨測試
+    isValidUrl,
+    mapLanguage,
+  };
+}
+
 /**
  * 驗證 URL 是否為有效的絕對 URL
  * @param {string} url - 要驗證的 URL
