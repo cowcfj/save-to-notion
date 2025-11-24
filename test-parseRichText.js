@@ -29,7 +29,7 @@ function parseRichText(text) {
   const richText = [];
   const finalPattern = /___(?:STAR|UNDER)_(\d+)___/g;
   let lastIndex = 0;
-  let match;
+  let match = null;
 
   while ((match = finalPattern.exec(tempText)) !== null) {
     if (match.index > lastIndex) {
