@@ -196,3 +196,12 @@ tests/reports/thomas-frank-test-report.md
 .trae/documents/修復 JS-0240 並建立物件屬性速記治理方案.md
 .agent/rules/core.md
 CLAUDE.md
+.clinerules/byterover-rules.md
+.kilocode/rules/byterover-rules.md
+.roo/rules/byterover-rules.md
+.windsurf/rules/byterover-rules.md
+.cursor/rules/byterover-rules.mdc
+.kiro/steering/byterover-rules.md
+.qoder/rules/byterover-rules.md
+.augment/rules/byterover-rules.md
+CLAUDE.md
