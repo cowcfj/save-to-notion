@@ -618,12 +618,18 @@ function mapLanguage(lang) {
     markdown: 'markdown',
     swift: 'swift',
   };
-
   return languageMap[lang.toLowerCase()] || lang || 'plain text';
 }
 
 /**
- * 解析富文本格式（修復版本：保持文本順序）
+ * 解析富文本格式,支援多種 Markdown 風格
+ * 支援格式：
+ * - 粗體: **text** 或 __text__
+ * - 斜體: *text* 或 _text_
+ *
+ * 注意：此函數同時支援星號和下劃線兩種 Markdown 格式，
+ * 以兼容 Turndown 的 emDelimiter: '_' 配置
+ *
  * @param {string} text - 包含 Markdown 格式的文本
  * @returns {Array} Notion rich_text 對象數組
  */
@@ -632,45 +638,92 @@ function parseRichText(text) {
     return [{ type: 'text', text: { content: '' } }];
   }
 
-  // 使用 split 保持文本順序
-  // 正則匹配：粗體 **text** 或 斜體 *text*（非貪婪）
-  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*)/;
-  const parts = text.split(pattern);
+  // 匹配粗體和斜體，支援 * 和 _ 兩種風格
+  // 優先使用星號格式，只在明確的空白邊界處匹配下劃線格式
+  // 這樣可以避免誤判變數名（如 user_name）
 
+  // 策略：先處理星號格式（安全），再處理空白邊界的下劃線格式
+  const starPattern = /(?:\*\*[^*]+\*\*|\*[^*]+\*)/g;
+
+  // 使用臨時標記替換星號格式，避免干擾
+  const matches = [];
+  let tempText = text.replace(starPattern, match => {
+    const index = matches.length;
+    matches.push(match);
+    return `___STAR_${index}___`;
+  });
+
+  // 處理下劃線格式，只在前後是空白字符或字串邊界時匹配
+  // (?:^|\s) - 字串開頭或空白字符
+  // (?=\s|$) - 空白字符或字串結尾（lookahead）
+  // 這裡使用非捕獲組 (?:^|\s) 來匹配前綴，確保下劃線前後有邊界
+  // 並且將前綴作為單獨的文本處理，不包含在格式化內容中
+  const underscorePattern = /((?:^|\s))(__|_)([^\s_]+?)\2(?=\s|$)/g;
+
+  tempText = tempText.replace(underscorePattern, (_fullMatch, prefix, delimiter, content) => {
+    const index = matches.length;
+    matches.push(`${delimiter}${content}${delimiter}`); // 存儲原始帶分隔符的內容
+    return `${prefix}___UNDER_${index}___`; // 返回前綴和標記
+  });
+
+  // 現在重新組合
   const richText = [];
+  const finalPattern = /___(?:STAR|UNDER)_(\d+)___/g;
+  let lastIndex = 0;
+  let match;
 
-  for (const part of parts) {
-    if (!part) {
-      continue;
-    } // 跳過空字串
-
-    // 檢查是否為粗體
-    if (part.startsWith('**') && part.endsWith('**')) {
-      const content = part.slice(2, -2);
-      if (content) {
+  while ((match = finalPattern.exec(tempText)) !== null) {
+    // 添加匹配前的普通文本
+    if (match.index > lastIndex) {
+      const plainText = tempText.slice(lastIndex, match.index);
+      if (plainText) {
         richText.push({
           type: 'text',
-          text: { content },
-          annotations: { bold: true },
+          text: { content: plainText },
         });
       }
     }
-    // 檢查是否為斜體（排除粗體）
-    else if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
-      const content = part.slice(1, -1);
-      if (content) {
-        richText.push({
-          type: 'text',
-          text: { content },
-          annotations: { italic: true },
-        });
-      }
-    }
-    // 普通文本
-    else {
+
+    const markerIndex = Number.parseInt(match[1], 10);
+    const original = matches[markerIndex];
+
+    // 判斷格式類型
+    if (original.startsWith('**') && original.endsWith('**')) {
       richText.push({
         type: 'text',
-        text: { content: part },
+        text: { content: original.slice(2, -2) },
+        annotations: { bold: true },
+      });
+    } else if (original.startsWith('__') && original.endsWith('__')) {
+      richText.push({
+        type: 'text',
+        text: { content: original.slice(2, -2) },
+        annotations: { bold: true },
+      });
+    } else if (original.startsWith('*') && original.endsWith('*')) {
+      richText.push({
+        type: 'text',
+        text: { content: original.slice(1, -1) },
+        annotations: { italic: true },
+      });
+    } else if (original.startsWith('_') && original.endsWith('_')) {
+      richText.push({
+        type: 'text',
+        text: { content: original.slice(1, -1) },
+        annotations: { italic: true },
+      });
+    }
+
+    lastIndex = finalPattern.lastIndex;
+  }
+
+  // 添加剩餘的文本
+  if (lastIndex < tempText.length) {
+    const remaining = tempText.slice(lastIndex);
+    if (remaining) {
+      richText.push({
+        type: 'text',
+        text: { content: remaining },
       });
     }
   }
