@@ -37,6 +37,7 @@ ignore:
   - "demos/**"
   - "promo-images/**"
   - "build/**"
+  - "dist/**"  # Rollup 打包後的文件(避免重複計算覆蓋率)
   # 注意：不忽略 tests/helpers/*.testable.js，因為這些是可測試的實際代碼
 
 # Flags 配置（用於追蹤不同類型的測試）
