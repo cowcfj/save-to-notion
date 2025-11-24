@@ -46,12 +46,14 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
         constructor(callback) {
           this._callback = callback;
           this._timer = null;
+          this._records = [];
         }
         observe() {
           // 以 10ms 間隔觸發 callback，模擬 DOM 變動
           this._timer = setInterval(() => {
             try {
               this._callback([], this);
+              this._records = []; // 清空已處理的 records
             } catch (_e) {
               // 安全忽略，以免中斷測試
             }
@@ -66,7 +68,9 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
         // Mock 實現:保持與原生 MutationObserver API 的方法簽名一致
 
         takeRecords() {
-          return [];
+          const records = this._records;
+          this._records = [];
+          return records;
         }
       }
       window.MutationObserver = SafeMutationObserver;
