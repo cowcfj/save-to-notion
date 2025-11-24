@@ -105,7 +105,8 @@ module.exports = [
       'regexp/prefer-regexp-exec': 'warn',
       'regexp/prefer-regexp-test': 'warn'
     },
-    // ESLint cache configuration for faster subsequent runs
+    // Report unnecessary eslint-disable comments to keep codebase clean
+    // 報告不必要的 eslint-disable 註解以保持程式碼庫清潔
     linterOptions: {
       reportUnusedDisableDirectives: true
     }
