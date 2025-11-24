@@ -121,8 +121,7 @@ module.exports = [
       '.nyc_output/**',
       '.history/**',
       'archive/**',
-      'lib/turndown.js',
-      'lib/turndown-plugin-gfm.js',
+      'lib/**', // 排除所有第三方 vendored 代碼
       'tests/manual/**',
       '*.config.js'
     ]
