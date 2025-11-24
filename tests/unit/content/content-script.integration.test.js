@@ -17,7 +17,7 @@ describe('content script integration test', () => {
         // Minimal Readability mock that returns an object with parsed content
         window.Readability = function (doc) {
             return {
-                parse: function () {
+                parse() {
                     return { title: doc.title, content: '<p>Mock content</p>', length: 300 };
                 }
             };
@@ -44,7 +44,8 @@ describe('content script integration test', () => {
         window.document.body.appendChild(scriptEl);
 
         // Wait for the script to execute and set window.__notion_extraction_result with polling
-        let result;
+        /** @type {*} 提取結果,在輪詢循環中初始化 */
+        let result = null;
         for (let i = 0; i < 30; i++) {
             await new Promise(resolve => setTimeout(resolve, 200));
             if (window.__notion_extraction_result) {

@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+coverage/
+.nyc_output/
+
+# Third-party libraries
+lib/turndown.js
+lib/turndown-plugin-gfm.js
+
+# Archives and history
+archive/
+.history/
+
+# Test outputs
+tests/manual/
+
+# Config files
+*.config.js
+
+# Git
+.git/
+.husky/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

@@ -7,7 +7,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   const createStorageUtilMock = (highlights = []) => ({
     loadHighlights: jest.fn(() => Promise.resolve(highlights)),
     saveHighlights: jest.fn(() => Promise.resolve()),
-    clearHighlights: jest.fn(() => Promise.resolve())
+    clearHighlights: jest.fn(() => Promise.resolve()),
   });
 
   const loadHighlighterScript = async (highlights = []) => {
@@ -20,16 +20,18 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       if (typeof window.CSS.highlights === 'undefined') {
         // 提供 Highlight 類的最小 mock
         if (typeof window.Highlight === 'undefined') {
-          window.Highlight = function Highlight() { /* no-op */ };
+          window.Highlight = function Highlight() {
+            /* no-op */
+          };
         }
 
         const map = new Map();
         window.CSS.highlights = {
-          set: (k, v) => map.set(k, v),
-          get: (k) => map.get(k),
-          has: (k) => map.has(k),
-          delete: (k) => map.delete(k),
-          clear: () => map.clear()
+          set: (key, value) => map.set(key, value),
+          get: key => map.get(key),
+          has: key => map.has(key),
+          delete: key => map.delete(key),
+          clear: () => map.clear(),
         };
       }
 
@@ -44,12 +46,14 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
         constructor(callback) {
           this._callback = callback;
           this._timer = null;
+          this._records = [];
         }
         observe() {
           // 以 10ms 間隔觸發 callback，模擬 DOM 變動
           this._timer = setInterval(() => {
             try {
               this._callback([], this);
+              this._records = []; // 清空已處理的 records
             } catch (_e) {
               // 安全忽略，以免中斷測試
             }
@@ -61,17 +65,23 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
             this._timer = null;
           }
         }
-        takeRecords() { return []; }
+        // Mock 實現:保持與原生 MutationObserver API 的方法簽名一致
+
+        takeRecords() {
+          const records = this._records;
+          this._records = [];
+          return records;
+        }
       }
       window.MutationObserver = SafeMutationObserver;
       // 提供 StorageUtil
       window.StorageUtil = createStorageUtilMock(highlights);
-      window.normalizeUrl = jest.fn((url) => url);
+      window.normalizeUrl = jest.fn(url => url);
       // 載入腳本（會自動初始化並在 window 上掛載 notionHighlighter）
-      require('../../scripts/highlighter-v2.js');
+      require('../../../scripts/highlighter-v2.js');
     });
     // 等待任何微任務（如 autoInit 異步）
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
   };
 
   beforeEach(() => {
@@ -81,13 +91,17 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       try {
         // 嘗試隱藏並移除
         window.notionHighlighter.hide();
-      } catch (_e) { /* empty: ignore cleanup errors in test teardown */ }
+      } catch (_e) {
+        /* empty: ignore cleanup errors in test teardown */
+      }
     }
     delete window.notionHighlighter;
   });
 
   test('show() 應在節點被移除後自動重新掛載並顯示', async () => {
-    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
+    await loadHighlighterScript([
+      { id: 'h1', text: 'demo', color: 'yellow', timestamp: Date.now(), rangeInfo: null },
+    ]);
     expect(window.notionHighlighter).toBeDefined();
 
     const { toolbar, show } = window.notionHighlighter;
@@ -106,7 +120,9 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   });
 
   test('show() 應重申關鍵樣式（position、top/right、z-index、visibility、opacity）', async () => {
-    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
+    await loadHighlighterScript([
+      { id: 'h1', text: 'demo', color: 'yellow', timestamp: Date.now(), rangeInfo: null },
+    ]);
     const { toolbar, show } = window.notionHighlighter;
 
     // 人為設置不合理樣式，呼叫 show() 後應被糾正
@@ -129,7 +145,9 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   });
 
   test('hide() 應將 display 設為 none', async () => {
-    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
+    await loadHighlighterScript([
+      { id: 'h1', text: 'demo', color: 'yellow', timestamp: Date.now(), rangeInfo: null },
+    ]);
     const { toolbar, show, hide } = window.notionHighlighter;
 
     show();
@@ -140,7 +158,9 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   });
 
   test('在存在高層級 overlay 的長頁情境下，toolbar z-index 應高於 overlay', async () => {
-    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
+    await loadHighlighterScript([
+      { id: 'h1', text: 'demo', color: 'yellow', timestamp: Date.now(), rangeInfo: null },
+    ]);
 
     // 建立模擬長頁與高層級 overlay
     const longContainer = document.createElement('div');
@@ -156,7 +176,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       right: '0',
       bottom: '0',
       background: 'rgba(0,0,0,0.1)',
-      zIndex: '999999' // 低於 2147483647，但高於大部分站點
+      zIndex: '999999', // 低於 2147483647，但高於大部分站點
     });
     document.body.appendChild(overlay);
 
@@ -170,7 +190,9 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
   });
 
   test('MutationObserver 應在 toolbar 被移除後自動重新掛載（無需呼叫 show）', async () => {
-    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
+    await loadHighlighterScript([
+      { id: 'h1', text: 'demo', color: 'yellow', timestamp: Date.now(), rangeInfo: null },
+    ]);
     const { toolbar } = window.notionHighlighter;
 
     // 移除 toolbar
@@ -182,13 +204,15 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
     document.body.appendChild(filler);
 
     // 等待 observer 輪詢觸發（10ms 間隔），保險等待 30ms
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise(resolve => setTimeout(resolve, 30));
 
     expect(document.body.contains(toolbar)).toBe(true);
   });
 
   test('最小化按鈕應根據狀態在展開/最小化之間切換', async () => {
-    await loadHighlighterScript([{ id: "h1", text: "demo", color: "yellow", timestamp: Date.now(), rangeInfo: null }]);
+    await loadHighlighterScript([
+      { id: 'h1', text: 'demo', color: 'yellow', timestamp: Date.now(), rangeInfo: null },
+    ]);
     const { toolbar, show } = window.notionHighlighter;
     const minimizeBtn = toolbar.querySelector('#minimize-highlight-v2');
     const miniIcon = document.querySelector('#notion-highlighter-mini');

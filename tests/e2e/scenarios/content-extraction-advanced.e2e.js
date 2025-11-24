@@ -32,8 +32,8 @@ module.exports = {
 
         // 提取標題
         const title = document.title ||
-                     document.querySelector('h1')?.textContent?.trim() ||
-                     'Untitled';
+          document.querySelector('h1')?.textContent?.trim() ||
+          'Untitled';
 
         // 提取作者
         const authorMeta = document.querySelector('meta[name="author"]');
@@ -102,7 +102,7 @@ module.exports = {
         // 檢測 CMS 類型
         const detectedCMS = (() => {
           if (document.querySelector('[generator*="WordPress"]') ||
-              document.querySelector('.wp-content')) {
+            document.querySelector('.wp-content')) {
             return 'wordpress';
           }
           if (document.querySelector('[content*="Drupal"]')) {
@@ -178,7 +178,7 @@ module.exports = {
               selector,
               tagName: el.tagName,
               isExpanded: el.hasAttribute('open') ||
-                         el.getAttribute('aria-expanded') === 'true',
+                el.getAttribute('aria-expanded') === 'true',
               hasContent: el.textContent.trim().length > 0
             });
           });
@@ -223,7 +223,7 @@ module.exports = {
 
             // 語意分數
             const semanticClasses = ['hero', 'featured', 'cover', 'main', 'primary'];
-            const classesAndId = (img.className + ' ' + img.id).toLowerCase();
+            const classesAndId = `${img.className} ${img.id}`.toLowerCase();
             if (semanticClasses.some(cls => classesAndId.includes(cls))) {
               score += 25;
             }

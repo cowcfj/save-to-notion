@@ -50,8 +50,10 @@ describe('seamless-migration.js', () => {
     });
 
     describe('SeamlessMigrationManager', () => {
-        let migrationManager;
-        let mockHighlightManager;
+        /** @type {SeamlessMigrationManager} 遷移管理器實例,在 beforeEach 中初始化 */
+        let migrationManager = null;
+        /** @type {Object} 模擬的 HighlightManager,在 beforeEach 中初始化 */
+        let mockHighlightManager = null;
 
         beforeEach(() => {
             migrationManager = new window.SeamlessMigrationManager();

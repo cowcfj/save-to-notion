@@ -4,7 +4,8 @@
 const { PerformanceOptimizer } = require('../../helpers/performance.testable');
 
 describe('PerformanceOptimizer (extra tests)', () => {
-  let optimizer;
+  /** @type {PerformanceOptimizer} 性能優化器實例,在 beforeEach 中初始化 */
+  let optimizer = null;
 
   beforeEach(() => {
     document.body.innerHTML = '';

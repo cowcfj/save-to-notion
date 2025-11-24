@@ -7,7 +7,10 @@ const {
 } = require('../helpers/pageComplexityDetector.testable');
 
 describe('PageComplexityDetector - Testable Wrapper', () => {
-  let dom, document;
+  /** @type {JSDOM} JSDOM 實例,在 beforeEach 中初始化 */
+  let dom = null;
+  /** @type {Document} 文檔對象,在 beforeEach 中初始化 */
+  let document = null;
 
   beforeEach(() => {
     dom = new JSDOM('<!doctype html><html><body></body></html>');

@@ -390,6 +390,7 @@ class RetryManager {
      * 記錄重試成功
      * @private
      * @param {number} totalRetries - 總重試次數
+     * @param {string} contextType - 上下文類型
      */
     _logRetrySuccess(totalRetries, contextType = 'network') {
         const logger = getLogger();
@@ -406,6 +407,7 @@ class RetryManager {
      * @private
      * @param {Error} error - 最終錯誤
      * @param {number} totalRetries - 總重試次數
+     * @param {string} contextType - 上下文類型
      */
     _logRetryFailure(error, totalRetries, contextType = 'network') {
         const logger = getLogger();

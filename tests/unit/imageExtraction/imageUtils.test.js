@@ -2,10 +2,10 @@
 // 測試 cleanImageUrl 和 isValidImageUrl 函數
 
 // 先設置 Chrome Mock,再導入源碼
-require('../mocks/chrome.js');
+require('../../mocks/chrome.js');
 
 // 導入實際的源碼函數
-const { cleanImageUrl, isValidImageUrl } = require('../../scripts/background.js');
+const { cleanImageUrl, isValidImageUrl } = require('../../../scripts/background.js');
 
 describe('cleanImageUrl', () => {
   describe('基本功能', () => {
@@ -90,7 +90,7 @@ describe('isValidImageUrl', () => {
 
   describe('圖片格式支持', () => {
     const formats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif'];
-    
+
     formats.forEach(format => {
       test(`應該支持 .${format} 格式`, () => {
         expect(isValidImageUrl(`https://example.com/image.${format}`)).toBe(true);
@@ -107,7 +107,7 @@ describe('isValidImageUrl', () => {
       '/media/cover.jpg',
       '/uploads/file.jpg',
       '/assets/logo.png',
-      '/files/image.jpg'
+      '/files/image.jpg',
     ];
 
     validPaths.forEach(path => {
@@ -151,7 +151,7 @@ describe('isValidImageUrl', () => {
 
   describe('URL 長度限制', () => {
     test('應該拒絕過長的 URL (>2000 字符)', () => {
-      const longUrl = 'https://example.com/image.jpg?' + 'a'.repeat(2000);
+      const longUrl = `https://example.com/image.jpg?${'a'.repeat(2000)}`;
       expect(isValidImageUrl(longUrl)).toBe(false);
     });
 
@@ -198,7 +198,9 @@ describe('isValidImageUrl', () => {
     });
 
     test('應該處理 WordPress 媒體庫', () => {
-      expect(isValidImageUrl('https://example.com/wp-content/uploads/2024/10/image.jpg')).toBe(true);
+      expect(isValidImageUrl('https://example.com/wp-content/uploads/2024/10/image.jpg')).toBe(
+        true
+      );
     });
   });
 });
