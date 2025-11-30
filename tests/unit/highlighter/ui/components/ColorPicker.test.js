@@ -5,7 +5,7 @@
 import { renderColorPicker } from '../../../../../scripts/highlighter/ui/components/ColorPicker.js';
 
 describe('ColorPicker', () => {
-  let container;
+  let container = null;
   const mockColors = {
     yellow: 'rgba(255, 255, 0, 0.3)',
     green: 'rgba(0, 255, 0, 0.3)',

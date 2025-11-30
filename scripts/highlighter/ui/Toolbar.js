@@ -366,6 +366,7 @@ export class Toolbar {
   /**
    * 在 Notion 中打開
    */
+
   openInNotion() {
     if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
       window.chrome.runtime.sendMessage({ action: 'openNotionPage' });

@@ -5,7 +5,7 @@
 import { renderHighlightList } from '../../../../../scripts/highlighter/ui/components/HighlightList.js';
 
 describe('HighlightList', () => {
-  let container;
+  let container = null;
   const mockHighlights = [
     { id: '1', text: '這是第一段標註文字', color: 'yellow' },
     {

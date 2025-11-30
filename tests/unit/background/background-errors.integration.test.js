@@ -2,21 +2,24 @@
  * Background.js - 錯誤分支整合測試（require 真實腳本 + 事件觸發）
  */
 
-
-
 function createEvent() {
   const listeners = [];
   return {
-    addListener: (fn) => listeners.push(fn),
-    removeListener: (fn) => {
+    addListener: fn => listeners.push(fn),
+    removeListener: fn => {
       const i = listeners.indexOf(fn);
-      if (i >= 0) listeners.splice(i, 1);
+      if (i >= 0) {
+        listeners.splice(i, 1);
+      }
     },
-    hasListener: (fn) => listeners.includes(fn),
-    _emit: (...args) => listeners.forEach((fn) => {
-      try { fn(...args); } catch (_) { }
-    }),
-    _listeners: listeners
+    hasListener: fn => listeners.includes(fn),
+    _emit: (...args) =>
+      listeners.forEach(fn => {
+        try {
+          fn(...args);
+        } catch (_) {}
+      }),
+    _listeners: listeners,
   };
 }
 
@@ -40,42 +43,54 @@ describe('background error branches (integration)', () => {
         getManifest: jest.fn(() => ({ version: '2.9.5' })),
         onMessage,
         onInstalled,
-        getURL: jest.fn((p) => `chrome-extension://test/${p}`)
+        getURL: jest.fn(path => `chrome-extension://test/${path}`),
       },
       tabs: {
         onUpdated,
         // 預設返回空，個別測試覆蓋
         query: jest.fn((queryInfo, cb) => cb([])),
         create: jest.fn((props, cb) => cb?.({ id: 101, ...props })),
-        sendMessage: jest.fn((tabId, msg, cb) => cb?.({ success: true }))
+        sendMessage: jest.fn((tabId, msg, cb) => cb?.({ success: true })),
       },
       action: {
         setBadgeText: jest.fn(),
-        setBadgeBackgroundColor: jest.fn()
+        setBadgeBackgroundColor: jest.fn(),
       },
       scripting: {
-        executeScript: jest.fn((opts, cb) => cb?.([{ result: undefined }]))
+        executeScript: jest.fn((opts, cb) => cb?.([{ result: undefined }])),
       },
       storage: {
         local: {
           get: jest.fn((keys, cb) => {
             const res = {};
             if (Array.isArray(keys)) {
-              keys.forEach((k) => { if (k in storageData) res[k] = storageData[k]; });
+              keys.forEach(key => {
+                if (key in storageData) {
+                  res[key] = storageData[key];
+                }
+              });
             } else if (typeof keys === 'string') {
-              if (keys in storageData) res[keys] = storageData[keys];
+              if (keys in storageData) {
+                res[keys] = storageData[keys];
+              }
             } else if (!keys) {
               Object.assign(res, storageData);
             }
             cb?.(res);
           }),
-          set: jest.fn((items, cb) => { Object.assign(storageData, items); cb?.(); }),
-          remove: jest.fn((keys, cb) => { (Array.isArray(keys) ? keys : [keys]).forEach((k) => delete storageData[k]); cb?.(); })
+          set: jest.fn((items, cb) => {
+            Object.assign(storageData, items);
+            cb?.();
+          }),
+          remove: jest.fn((keys, cb) => {
+            (Array.isArray(keys) ? keys : [keys]).forEach(key => delete storageData[key]);
+            cb?.();
+          }),
         },
         sync: {
-          get: jest.fn((keys, cb) => cb?.({})) // 預設無 API Key，個別測試覆蓋
-        }
-      }
+          get: jest.fn((keys, cb) => cb?.({})), // 預設無 API Key，個別測試覆蓋
+        },
+      },
     };
 
     // 載入背景腳本（註冊 onMessage）
@@ -89,7 +104,7 @@ describe('background error branches (integration)', () => {
   async function waitForSend(mockFn, maxWaitMs = 800) {
     const start = Date.now();
     while (mockFn.mock.calls.length === 0 && Date.now() - start < maxWaitMs) {
-      await new Promise((r) => setTimeout(r, 10));
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
   }
 
@@ -97,78 +112,126 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'startHighlight' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/active tab/i) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, error: expect.stringMatching(/active tab/i) })
+    );
   });
 
   test('startHighlight：注入失敗 → 返回錯誤', async () => {
     // 有活動分頁
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 1, url: 'https://x', title: 't', active: true }]));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 1, url: 'https://x', title: 't', active: true }])
+    );
     // 模擬 sendMessage 失敗，強制走注入邏輯
     chrome.tabs.sendMessage.mockImplementationOnce((tabId, msg, cb) => {
       chrome.runtime.lastError = { message: 'Message failed' };
       cb?.();
     });
     // 第一次 executeScript 模擬 lastError（文件注入階段）
-    chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => { chrome.runtime.lastError = { message: 'Injection failed' }; cb?.(); });
+    chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => {
+      chrome.runtime.lastError = { message: 'Injection failed' };
+      cb?.();
+    });
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'startHighlight' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'Injection failed' }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, error: 'Injection failed' })
+    );
     // 清理 lastError
     chrome.runtime.lastError = null;
   });
 
   test('updateHighlights：缺少 API Key → 返回錯誤', async () => {
     // 有活動分頁
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 1, url: 'https://example.com/page', title: 't', active: true }]));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 1, url: 'https://example.com/page', title: 't', active: true }])
+    );
     // sync.get 已預設為返回 {}（無 notionApiKey）
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/API Key is not set/i) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/API Key is not set/i),
+      })
+    );
   });
 
   test('updateHighlights：頁面未保存 → 返回錯誤', async () => {
     // 有活動分頁
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 1, url: 'https://example.com/page', title: 't', active: true }]));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 1, url: 'https://example.com/page', title: 't', active: true }])
+    );
     // 提供 notionApiKey 但不提供 saved_ 鍵 → 觸發 Page not saved yet
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'key' }));
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/Page not saved yet/i) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/Page not saved yet/i),
+      })
+    );
   });
 
   test('checkNotionPageExists：缺少 pageId → 返回錯誤', async () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'checkNotionPageExists' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/Page ID is required/i) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/Page ID is required/i),
+      })
+    );
   });
 
   test('checkNotionPageExists：未配置 API Key → 返回錯誤', async () => {
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'checkNotionPageExists', pageId: 'pid-1' }, {}, sendResponse);
+    chrome.runtime.onMessage._emit(
+      { action: 'checkNotionPageExists', pageId: 'pid-1' },
+      {},
+      sendResponse
+    );
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/Notion API Key not configured/i) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/Notion API Key not configured/i),
+      })
+    );
   });
 
   test('openNotionPage：缺少 URL → 返回錯誤', async () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'openNotionPage' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/No URL provided/i) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, error: expect.stringMatching(/No URL provided/i) })
+    );
   });
 
   test('openNotionPage：tabs.create 失敗（runtime.lastError）→ 返回錯誤', async () => {
     const sendResponse = jest.fn();
     // 讓 create callback 觸發 lastError
-    chrome.tabs.create.mockImplementationOnce((props, cb) => { chrome.runtime.lastError = { message: 'Create failed' }; cb?.(); });
-    chrome.runtime.onMessage._emit({ action: 'openNotionPage', url: 'https://www.notion.so/page' }, {}, sendResponse);
+    chrome.tabs.create.mockImplementationOnce((props, cb) => {
+      chrome.runtime.lastError = { message: 'Create failed' };
+      cb?.();
+    });
+    chrome.runtime.onMessage._emit(
+      { action: 'openNotionPage', url: 'https://www.notion.so/page' },
+      {},
+      sendResponse
+    );
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'Create failed' }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, error: 'Create failed' })
+    );
     chrome.runtime.lastError = null;
   });
 
@@ -177,16 +240,28 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/Could not get active tab/i) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/Could not get active tab/i),
+      })
+    );
   });
 
   test('savePage：缺少 API Key 或資料來源 ID → 返回錯誤', async () => {
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 7, url: 'https://example.com/a', title: 'A', active: true }]));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 7, url: 'https://example.com/a', title: 'A', active: true }])
+    );
     // 預設 sync.get 回傳 {}，觸發缺少 API Key/DB ID
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/API Key or Data Source ID is not set/i) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/API Key or Data Source ID is not set/i),
+      })
+    );
   });
 
   // ===== syncHighlights 錯誤與邊界分支 =====
@@ -194,49 +269,87 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'syncHighlights' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/無法獲取當前標籤頁/u) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/無法獲取當前標籤頁/u),
+      })
+    );
   });
 
   test('syncHighlights：缺少 API Key → 返回錯誤', async () => {
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 2, url: 'https://example.com/page', title: 'P', active: true }]));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 2, url: 'https://example.com/page', title: 'P', active: true }])
+    );
     // sync.get 預設 {} → 缺少 API Key
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] }, {}, sendResponse);
+    chrome.runtime.onMessage._emit(
+      { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
+      {},
+      sendResponse
+    );
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/API Key 未設置/u) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, error: expect.stringMatching(/API Key 未設置/u) })
+    );
   });
 
   test('syncHighlights：頁面未保存 → 返回錯誤', async () => {
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 3, url: 'https://example.com/page', title: 'P', active: true }]));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 3, url: 'https://example.com/page', title: 'P', active: true }])
+    );
     // 提供 notionApiKey，但不提供 saved_ 鍵
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'key' }));
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] }, {}, sendResponse);
+    chrome.runtime.onMessage._emit(
+      { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
+      {},
+      sendResponse
+    );
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringMatching(/頁面尚未保存到 Notion/u) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/頁面尚未保存到 Notion/u),
+      })
+    );
   });
 
   test('syncHighlights：空標註 → 成功且 0', async () => {
     // 活動分頁
     const url = 'https://example.com/page';
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 4, url, title: 'P', active: true }]));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 4, url, title: 'P', active: true }])
+    );
     // 有 API Key 且頁面已保存
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'key' }));
     const savedKey = `saved_${url}`;
-    await new Promise((r) => chrome.storage.local.set({ [savedKey]: { notionPageId: 'pid-xyz' } }, r));
+    await new Promise(resolve =>
+      chrome.storage.local.set({ [savedKey]: { notionPageId: 'pid-xyz' } }, resolve)
+    );
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'syncHighlights', highlights: [] }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true, highlightCount: 0, message: expect.stringMatching(/沒有新標註需要同步/u) }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        highlightCount: 0,
+        message: expect.stringMatching(/沒有新標註需要同步/u),
+      })
+    );
   });
 
   // ===== savePage 注入與 Notion API 錯誤路徑 =====
   test('savePage：injectWithResponse 函數執行失敗 → 返回錯誤', async () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 10, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 10, url, title: 'Article', active: true }])
+    );
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) =>
+      cb?.({ notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' })
+    );
 
     // 追蹤 func 呼叫次序：第1次 func（injectHighlighter），第2次 func（collectHighlights），第3次 func（injectWithResponse）
     let funcCall = 0;
@@ -275,8 +388,12 @@ describe('background error branches (integration)', () => {
   test('savePage：Notion API 建頁 4xx 錯誤（非 image）→ 返回錯誤訊息', async () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 11, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 11, url, title: 'Article', active: true }])
+    );
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) =>
+      cb?.({ notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' })
+    );
 
     // 模擬內容注入成功：collectHighlights 空、injectWithResponse 回傳內容
     let funcCall = 0;
@@ -288,7 +405,20 @@ describe('background error branches (integration)', () => {
           return;
         }
         if (funcCall === 3) {
-          cb?.([{ result: { title: 'T', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'c' } }] } }] } }]);
+          cb?.([
+            {
+              result: {
+                title: 'T',
+                blocks: [
+                  {
+                    object: 'block',
+                    type: 'paragraph',
+                    paragraph: { rich_text: [{ type: 'text', text: { content: 'c' } }] },
+                  },
+                ],
+              },
+            },
+          ]);
           return;
         }
         cb?.([{ result: undefined }]);
@@ -300,17 +430,21 @@ describe('background error branches (integration)', () => {
 
     // 模擬 Notion API 回覆 400 非 image 錯誤
     const originalFetch = global.fetch;
-    global.fetch = jest.fn(() => Promise.resolve({
-      ok: false,
-      status: 400,
-      json: () => Promise.resolve({ message: 'Invalid request' }),
-      text: () => Promise.resolve('Invalid request'),
-    }));
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ message: 'Invalid request' }),
+        text: () => Promise.resolve('Invalid request'),
+      })
+    );
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'Invalid request' }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, error: 'Invalid request' })
+    );
 
     global.fetch = originalFetch;
   });
@@ -320,8 +454,12 @@ describe('background error branches (integration)', () => {
 
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 12, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 12, url, title: 'Article', active: true }])
+    );
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) =>
+      cb?.({ notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' })
+    );
 
     // 注入：collectHighlights 空、injectWithResponse 回傳「含圖片」的內容
     let funcCall = 0;
@@ -333,15 +471,28 @@ describe('background error branches (integration)', () => {
           return;
         }
         if (funcCall === 3) {
-          cb?.([{
-            result: {
-              title: 'T',
-              blocks: [
-                { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] } },
-                { object: 'block', type: 'image', image: { type: 'external', external: { url: 'https://cdn.example.com/img.jpg' } } }
-              ]
-            }
-          }]);
+          cb?.([
+            {
+              result: {
+                title: 'T',
+                blocks: [
+                  {
+                    object: 'block',
+                    type: 'paragraph',
+                    paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] },
+                  },
+                  {
+                    object: 'block',
+                    type: 'image',
+                    image: {
+                      type: 'external',
+                      external: { url: 'https://cdn.example.com/img.jpg' },
+                    },
+                  },
+                ],
+              },
+            },
+          ]);
           return;
         }
         cb?.([{ result: undefined }]);
@@ -396,21 +547,43 @@ describe('background error branches (integration)', () => {
   test('updateNotionPage：validation_error（含 image）→ 返回友善錯誤訊息', async () => {
     // 活動分頁 + 有 API/DB
     const url = 'https://example.com/article';
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 21, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 21, url, title: 'Article', active: true }])
+    );
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) =>
+      cb?.({ notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' })
+    );
 
     // 已保存頁面 → 走 updateNotionPage 分支
     const savedKey = `saved_${url}`;
-    await new Promise((r) => chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-xyz' } }, r));
+    await new Promise(resolve =>
+      chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-xyz' } }, resolve)
+    );
 
     // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
       if (opts?.func) {
         funcCall += 1;
-        if (funcCall === 2) { cb?.([{ result: [] }]); return; }
+        if (funcCall === 2) {
+          cb?.([{ result: [] }]);
+          return;
+        }
         if (funcCall === 3) {
-          cb?.([{ result: { title: 'T', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'x' } }] } }] } }]);
+          cb?.([
+            {
+              result: {
+                title: 'T',
+                blocks: [
+                  {
+                    object: 'block',
+                    type: 'paragraph',
+                    paragraph: { rich_text: [{ type: 'text', text: { content: 'x' } }] },
+                  },
+                ],
+              },
+            },
+          ]);
           return;
         }
         cb?.([{ result: undefined }]);
@@ -459,29 +632,54 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
-      success: false,
-      error: 'Update Failed. Some images may have invalid URLs. Try updating again - problematic images will be filtered out.'
-    }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error:
+          'Update Failed. Some images may have invalid URLs. Try updating again - problematic images will be filtered out.',
+      })
+    );
 
     global.fetch = originalFetch;
   });
 
   test('updateNotionPage：一般 4xx 錯誤 → 返回原始訊息', async () => {
     const url = 'https://example.com/article2';
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 22, url, title: 'Article2', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 22, url, title: 'Article2', active: true }])
+    );
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) =>
+      cb?.({ notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' })
+    );
 
     const savedKey = `saved_${url}`;
-    await new Promise((r) => chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-abc' } }, r));
+    await new Promise(resolve =>
+      chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-abc' } }, resolve)
+    );
 
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
       if (opts?.func) {
         funcCall += 1;
-        if (funcCall === 2) { cb?.([{ result: [] }]); return; }
+        if (funcCall === 2) {
+          cb?.([{ result: [] }]);
+          return;
+        }
         if (funcCall === 3) {
-          cb?.([{ result: { title: 'T2', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'y' } }] } }] } }]);
+          cb?.([
+            {
+              result: {
+                title: 'T2',
+                blocks: [
+                  {
+                    object: 'block',
+                    type: 'paragraph',
+                    paragraph: { rich_text: [{ type: 'text', text: { content: 'y' } }] },
+                  },
+                ],
+              },
+            },
+          ]);
           return;
         }
         cb?.([{ result: undefined }]);
@@ -493,13 +691,26 @@ describe('background error branches (integration)', () => {
     const originalFetch = global.fetch;
     global.fetch = jest.fn((requestUrl, init) => {
       if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ archived: false }) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ archived: false }),
+        });
       }
       if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'GET') {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ results: [] }) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ results: [] }),
+        });
       }
       if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'PATCH') {
-        return Promise.resolve({ ok: false, status: 400, json: () => Promise.resolve({ message: 'Bad request' }), text: () => Promise.resolve('Bad request') });
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ message: 'Bad request' }),
+          text: () => Promise.resolve('Bad request'),
+        });
       }
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
     });
@@ -507,7 +718,9 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
     await waitForSend(sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'Bad request' }));
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ success: false, error: 'Bad request' })
+    );
 
     global.fetch = originalFetch;
   });
@@ -519,28 +732,50 @@ describe('background error branches (integration)', () => {
     const normUrl = url; // normalizeUrl 會保留此格式
 
     // 活動分頁
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 21, url, title: 'Article', active: true }]));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 21, url, title: 'Article', active: true }])
+    );
     // 配置 API/DB
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) =>
+      cb?.({ notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' })
+    );
     // 已保存頁面的 storage
-    await new Promise((r) => chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: 'page-xyz' } }, r));
+    await new Promise(resolve =>
+      chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: 'page-xyz' } }, resolve)
+    );
 
     // 注入：collectHighlights 空、injectWithResponse 回傳含圖片的內容
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
       if (opts?.func) {
         funcCall += 1;
-        if (funcCall === 2) { cb?.([{ result: [] }]); return; } // collectHighlights
+        if (funcCall === 2) {
+          cb?.([{ result: [] }]);
+          return;
+        } // collectHighlights
         if (funcCall === 3) {
-          cb?.([{
-            result: {
-              title: 'T',
-              blocks: [
-                { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] } },
-                { object: 'block', type: 'image', image: { type: 'external', external: { url: 'https://cdn.example.com/img.jpg' } } }
-              ]
-            }
-          }]);
+          cb?.([
+            {
+              result: {
+                title: 'T',
+                blocks: [
+                  {
+                    object: 'block',
+                    type: 'paragraph',
+                    paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] },
+                  },
+                  {
+                    object: 'block',
+                    type: 'image',
+                    image: {
+                      type: 'external',
+                      external: { url: 'https://cdn.example.com/img.jpg' },
+                    },
+                  },
+                ],
+              },
+            },
+          ]);
           return;
         }
         cb?.([{ result: undefined }]);
@@ -556,13 +791,25 @@ describe('background error branches (integration)', () => {
     const originalFetch = global.fetch;
     global.fetch = jest.fn((requestUrl, init) => {
       if (/\/v1\/pages\//u.test(requestUrl) && init?.method === 'GET') {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ archived: false }) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ archived: false }),
+        });
       }
       if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ results: [] }) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ results: [] }),
+        });
       }
       if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
-        return Promise.resolve({ ok: false, status: 400, json: () => Promise.resolve({ code: 'validation_error', message: 'image invalid' }) });
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ code: 'validation_error', message: 'image invalid' }),
+        });
       }
       // 預設：成功
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
@@ -582,17 +829,39 @@ describe('background error branches (integration)', () => {
     const url = 'https://example.com/article2';
     const normUrl = url;
 
-    chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 22, url, title: 'Article', active: true }]));
-    chrome.storage.sync.get.mockImplementationOnce((keys, cb) => cb?.({ notionApiKey: 'k', notionDataSourceId: 'ds', notionDatabaseId: 'db' }));
-    await new Promise((r) => chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: 'page-abc' } }, r));
+    chrome.tabs.query.mockImplementationOnce((queryInfo, cb) =>
+      cb([{ id: 22, url, title: 'Article', active: true }])
+    );
+    chrome.storage.sync.get.mockImplementationOnce((keys, cb) =>
+      cb?.({ notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' })
+    );
+    await new Promise(resolve =>
+      chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: 'page-abc' } }, resolve)
+    );
 
     let funcCall = 0;
     chrome.scripting.executeScript.mockImplementation((opts, cb) => {
       if (opts?.func) {
         funcCall += 1;
-        if (funcCall === 2) { cb?.([{ result: [] }]); return; }
+        if (funcCall === 2) {
+          cb?.([{ result: [] }]);
+          return;
+        }
         if (funcCall === 3) {
-          cb?.([{ result: { title: 'T2', blocks: [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p2' } }] } }] } }]);
+          cb?.([
+            {
+              result: {
+                title: 'T2',
+                blocks: [
+                  {
+                    object: 'block',
+                    type: 'paragraph',
+                    paragraph: { rich_text: [{ type: 'text', text: { content: 'p2' } }] },
+                  },
+                ],
+              },
+            },
+          ]);
           return;
         }
         cb?.([{ result: undefined }]);
@@ -604,10 +873,18 @@ describe('background error branches (integration)', () => {
     const originalFetch = global.fetch;
     global.fetch = jest.fn((requestUrl, init) => {
       if (/\/v1\/pages\//u.test(requestUrl) && init?.method === 'GET') {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ archived: false }) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ archived: false }),
+        });
       }
       if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ results: [] }) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ results: [] }),
+        });
       }
       if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
         return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
