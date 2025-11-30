@@ -608,10 +608,10 @@ class ScriptInjector {
      * v2.5.0: 使用新版標註系統
      */
     static collectHighlights(tabId) {
-        // Bundle 已由 manifest.json 注入，直接執行函數
+        // manifest.json 已注入所有依賴，無需重複注入
         return this.injectAndExecute(
             tabId,
-            [], // 不需要注入，bundle 已加載
+            [], // 所有腳本已由 manifest.json 注入
             () => {
                 if (window.collectHighlights) {
                     return window.collectHighlights();
@@ -630,10 +630,10 @@ class ScriptInjector {
      * v2.5.0: 使用新版標註系統
      */
     static clearPageHighlights(tabId) {
-        // Bundle 已由 manifest.json 注入，直接執行函數
+        // manifest.json 已注入所有依賴，無需重複注入
         return this.injectAndExecute(
             tabId,
-            [], // 不需要注入，bundle 已加載
+            [], // 所有腳本已由 manifest.json 注入
             () => {
                 if (window.clearPageHighlights) {
                     window.clearPageHighlights();
