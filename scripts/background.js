@@ -608,9 +608,10 @@ class ScriptInjector {
      * v2.5.0: 使用新版標註系統
      */
     static collectHighlights(tabId) {
+        // Bundle 已由 manifest.json 注入，直接執行函數
         return this.injectAndExecute(
             tabId,
-            ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
+            [], // 不需要注入，bundle 已加載
             () => {
                 if (window.collectHighlights) {
                     return window.collectHighlights();
@@ -629,16 +630,17 @@ class ScriptInjector {
      * v2.5.0: 使用新版標註系統
      */
     static clearPageHighlights(tabId) {
+        // Bundle 已由 manifest.json 注入，直接執行函數
         return this.injectAndExecute(
             tabId,
-            ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
+            [], // 不需要注入，bundle 已加載
             () => {
                 if (window.clearPageHighlights) {
                     window.clearPageHighlights();
                 }
             },
             {
-                errorMessage: 'Failed to clear page highlights'
+                errorMessage: 'Failed to clear highlights'
             }
         );
     }
