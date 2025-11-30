@@ -3,25 +3,23 @@
  * 負責創建和管理最小化後的浮動圖標
  */
 
-import { getMiniIconStyles } from '../styles/toolbarStyles.js';
-
 /**
  * 創建最小化圖標
  * @returns {HTMLElement} 最小化圖標 DOM 元素
  */
 export function createMiniIcon() {
-    const miniIcon = document.createElement('div');
-    miniIcon.id = 'notion-highlighter-mini';
+  const miniIcon = document.createElement('div');
+  miniIcon.id = 'notion-highlighter-mini-icon';
 
-    // 應用樣式
-    const styles = getMiniIconStyles();
-    Object.assign(miniIcon.style, styles);
+  // 設置內容
+  miniIcon.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M11 4H4C3.44772 4 3 4.44772 3 5V20C3 20.5523 3.44772 21 4 21H19C19.5523 21 20 20.5523 20 20V13M18.5858 2.58579C19.3668 1.80474 20.6332 1.80474 21.4142 2.58579C22.1953 3.36683 22.1953 4.63316 21.4142 5.41421L11.8284 15H9V12.1716L18.5858 2.58579Z" stroke="#2eaadc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    `;
+  miniIcon.title = '點擊展開標註工具欄';
 
-    // 設置內容
-    miniIcon.innerHTML = '📝';
-    miniIcon.title = '點擊展開標註工具欄';
-
-    return miniIcon;
+  return miniIcon;
 }
 
 /**
@@ -30,21 +28,10 @@ export function createMiniIcon() {
  * @param {Function} onExpand - 展開回調函數
  */
 export function bindMiniIconEvents(miniIcon, onExpand) {
-    if (!miniIcon || typeof onExpand !== 'function') {
-        throw new Error('Invalid arguments for bindMiniIconEvents');
-    }
+  if (!miniIcon || typeof onExpand !== 'function') {
+    throw new Error('Invalid arguments for bindMiniIconEvents');
+  }
 
-    // 鼠標懸停效果
-    miniIcon.addEventListener('mouseenter', () => {
-        miniIcon.style.background = '#f8f9fa';
-        miniIcon.style.transform = 'scale(1.1)';
-    });
-
-    miniIcon.addEventListener('mouseleave', () => {
-        miniIcon.style.background = 'white';
-        miniIcon.style.transform = 'scale(1)';
-    });
-
-    // 點擊展開
-    miniIcon.addEventListener('click', onExpand);
+  // 點擊展開
+  miniIcon.addEventListener('click', onExpand);
 }
