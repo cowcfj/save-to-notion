@@ -123,7 +123,8 @@ module.exports = [
       'archive/**',
       'lib/**', // 排除所有第三方 vendored 代碼
       'tests/manual/**',
-      '*.config.js'
+      '*.config.js',
+      'scripts/highlighter-v2.legacy.js'
     ]
   }
 ];

@@ -1,27 +1,62 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.13.0 - 2025-11-30
+
+### ✨ 重大更新
+
+#### 標註工具欄模組化完成
+
+- **全面模組化**：完成標註工具欄的 ES6 模組化重構，徹底解決雙重注入衝突問題。
+- **架構優化**：將單一巨大的 `highlighter-v2.js` 拆分為結構清晰的模組化組件。
+- **遺留代碼處理**：將舊版 `scripts/highlighter-v2.js` 重命名為 `scripts/highlighter-v2.legacy.js`，保留作為參考。
+
+### 🐛 Bug 修復
+
+#### 腳本注入與運行時優化
+
+- **冗餘注入修復**：移除 `background.js` 中 `collectHighlights` 和 `clearPageHighlights` 的冗餘腳本注入，消除潛在衝突。
+- **runtime.lastError 修復**：修正消息監聽器的響應邏輯，確保只在實際發送響應時返回 `true`，消除控制台警告。
+- **初始化邏輯增強**：優化 `HighlighterV2` 的初始化檢查，防止在未就緒狀態下調用 API。
+
+### 📝 文檔與維護
+
+#### 已知限制說明
+
+- **CSP 兼容性**：確認部分採用嚴格 Content Security Policy (CSP) 的網站（如 latepost.com）可能無法使用標註功能。這是由於網站安全策略限制了擴展腳本的執行，屬於已知限制。
+
+### 🧪 測試驗證
+
+- **單元測試**：全項目 2253 個測試通過 (100% 通過率)。
+- **E2E 測試**：除已知 CSP 限制網站外，主要功能驗證通過。
+
+---
+
 ## v2.12.0 - 2025-11-22
 
 ### 🐛 Bug 修復
 
 #### HighlightManager 穩定性修復
+
 - **Highlight API 兼容性**：修復 `'Highlight' is not defined` 錯誤，增加對原生 Highlight API 的安全檢查與回退機制。
 - **Chrome API 安全存取**：修復 `chrome` 未定義錯誤，使用 `getSafeExtensionStorage` 確保在非擴充功能環境下的安全性。
 - **無限循環修復**：修復 `getNodePath` 在處理無父節點的文字節點時可能導致的無限循環問題。
 
 #### 代碼驗證與規範
+
 - **URL 驗證優化**：修復 `isValidUrl` 中的 `void` 運算符使用及未使用的 `URL` 物件實例化警告。
 - **ESLint 警告修復**：修復多處 `this` 上下文使用警告（`HighlightManager`、`PerformanceBenchmark`）。
 
 ### 🛡️ 安全性增強
 
 #### 防禦性編程
+
 - **Highlight API 防護**：增強對 `window.Highlight` 的安全檢查，防止第三方腳本污染導致的安全風險。
 - **Storage API 存取控制**：強化 `chrome.storage` 的存取限制，確保僅在受信任的擴充功能環境中執行。
 
 ### ♻️ CI/CD 改進
 
 #### Release Workflow 優化
+
 - **流程整合**：合併 GitHub Release 創建步驟，減少代碼重複。
 - **Context Access 修復**：修復 workflow 中的 context access 警告，提升流程穩定性。
 
@@ -37,6 +72,7 @@
 ### 🔧 技術改進
 
 #### ES6 模組化重構
+
 - **Highlighter 模組化**：將 `highlighter-v2.js` (2,425 行) 重構為 9 個獨立 ES6 模組
   - **核心模組**：`Range.js`、`HighlightManager.js`
   - **工具模組**：`color.js`、`dom.js`、`validation.js`、`path.js`、`textSearch.js`、`domStability.js`
@@ -45,6 +81,7 @@
   - 原始文件保留（向後兼容）
 
 #### Terser 壓縮優化
+
 - **Rollup 構建配置**：新增 `rollup.config.mjs` 配置文件
   - 工具：**Rollup** + **@rollup/plugin-terser**
   - 環境區分：`NODE_ENV=production` 觸發壓縮
@@ -60,6 +97,7 @@
   - Build 時間：~216ms (生產)、~55ms (開發)
 
 #### NPM Scripts 新增
+
 - `build:prod`: 生產環境構建（壓縮）
 - `build:watch`: 開發環境實時編譯
 - `dev`: 開發模式別名
@@ -67,6 +105,7 @@
 ### 🐛 Bug 修復
 
 #### Badge 顯示問題
+
 - **問題**：頁面重載後 Extension badge (✅) 不自動顯示
 - **原因**：重構時遺漏 `chrome.runtime.sendMessage({action: 'checkPageStatus'})` 調用
 - **修復**：在 `index.js` 初始化後添加 checkPageStatus 通知
@@ -75,11 +114,13 @@
 ### 🧪 測試與驗證
 
 #### 單元測試
+
 - ✅ **138/138 測試通過**（100% 通過率）
 - ✅ 所有 highlighter 相關測試覆蓋
 - ✅ 執行時間：~3.8 秒
 
 #### 系統化遺漏檢測
+
 - **Chrome API 調用對比**：
   - `sendMessage`: 7 處（舊）→ 2 處（新）+ 5 處 UI 功能（保留）
   - `storage`: StorageUtil 處理
@@ -87,8 +128,9 @@
 - **結論**：僅 1 個遺漏（badge 更新），已修復 ✅
 
 #### 手動測試（Chrome Extension）
+
 - ✅ 標註功能正常（創建、刪除、顏色切換）
-- ✅ 重載後標註保留  
+- ✅ 重載後標註保留
 - ✅ 同步到 Notion
 - ✅ Badge 自動顯示
 - ✅ 壓縮版本運作正常
@@ -97,6 +139,7 @@
 ### ♻️ CI/CD 改進
 
 #### GitHub Actions 更新
+
 - **test.yml** 新增生產構建驗證步驟：
   - 執行 `npm run build:prod`
   - 驗證 bundle 文件存在
@@ -106,6 +149,7 @@
 ### 📚 文檔更新
 
 #### 新增文檔
+
 - **重構最佳實踐指南**（`internal/guides/REFACTORING_BEST_PRACTICES.md`）：
   - 6 條核心規則
   - 完整檢查清單（重構前/中/後）
@@ -116,6 +160,7 @@
 - **Release Notes v2.11.6**（artifacts/`release_notes_v2.11.6.md`）
 
 #### 更新文檔
+
 - **README.md**：
   - 添加構建流程說明
   - 更新項目結構（反映模組化）
@@ -127,6 +172,7 @@
 ### 📁 文件變更
 
 #### 新增
+
 - `rollup.config.mjs` - Rollup 配置
 - `scripts/highlighter/` - 9 個模組文件
 - `dist/highlighter-v2.bundle.js` - 壓縮版 bundle (15KB)
@@ -134,6 +180,7 @@
 - `internal/guides/REFACTORING_BEST_PRACTICES.md` - 重構指南
 
 #### 修改
+
 - `manifest.json` - 指向 `dist/highlighter-v2.bundle.js`
 - `package.json` - 新增 build scripts
 - `.github/workflows/test.yml` - 添加 build 驗證
@@ -141,6 +188,7 @@
 - `AGENTS.md` - 添加重構章節
 
 #### 保留（向後兼容）
+
 - `scripts/highlighter-v2.js` - 原始文件未刪除
 
 ### 📊 影響範圍
@@ -161,6 +209,7 @@
 ## v2.11.5 - 2025-11-20
 
 ### ✨ 新功能
+
 - **Popup 腳本注入強化**：在內容提取前主動注入 `utils.js`，確保工具函數可用，並新增腳本注入錯誤處理機制。
 - **彈窗對話框改進**：將原生 `confirm` 對話框替換為自訂模態對話框，提升用戶體驗與視覺一致性。
 - **日誌功能開關**：新增日誌功能的開關檢查，支援手動啟用日誌記錄和開發模式標記。
@@ -168,6 +217,7 @@
 ### 🐛 Bug 修復
 
 #### 測試與日誌系統
+
 - **Logger 模擬邏輯修正**：修正 Logger 模擬邏輯，確保測試環境中的 console 使用符合預期。
 - **測試環境增強**：添加緩存控制函數以支持測試隔離和性能優化。
 - **Node.js 20.x 相容性**：調整測試環境變數及配置以避免內存問題，優化 Jest 參數以改善性能和穩定性。
@@ -175,12 +225,14 @@
 - **日誌旗標處理**：正規化日誌啟用旗標處理，確保字串 'false' 被正確忽略。
 
 #### 圖片處理與 URL 驗證
+
 - **AttributeExtractor URL 驗證**：修正 `_isValidImageUrl` 內使用 `new URL(url)` 僅為副作用的寫法，若宿主環境支援 `URL.canParse` 會優先使用零配置驗證，僅在必要時建立 `URL` 實例並保留相對路徑容錯，避免 ESLint `no-new` 類警告。
 - **ImageExtractor 回退策略載入**：新增 `resolveFallbackStrategies()`，優先透過 CommonJS 取得 `FallbackStrategies`，若模組尚未注入則回退至 `globalThis/window`，並受 `enableFallbacks` 控制，解決 `'FallbackStrategies' is not defined` 的 ESLint 警告且避免背景/picture/noscript 提取在不同環境下失效。
 - **SrcsetParser 解析優化**：優化圖片提取流程並擴充全域回退策略。
 - **圖片提取方法靜態化**：將 `_extractFromSrcset` 和 `_extractFromAttributes` 方法改為靜態方法，並更新測試用例以反映此變更。
 
 #### 其他修復
+
 - **正則表達式修正**：修正正則表達式以支持全局和Unicode標誌。
 - **遷移狀態存取**：修正存取 `chrome.storage` 的方式，確保在 Chrome 環境中正確讀取和設置遷移狀態。
 - **變數初始化**：將多個變數初始化為 null，避免未定義錯誤，提高代碼穩定性。
@@ -190,6 +242,7 @@
 ### ♻️ 代碼重構
 
 #### 測試代碼優化
+
 - **模態對話框事件監聽器**：簡化清除標註的模態事件監聽器，優化事件處理邏輯。
 - **DOM 操作錯誤處理**：移除 expand helper 中 DOM 操作周圍不必要的 try/catch 塊（保留點擊事件）。
 - **空函數註釋**：在測試設置和 console mocks 的空函數體中添加 `/* no-op */` 註釋以提高清晰度。
@@ -198,6 +251,7 @@
 - **測試代碼風格**：更新測試文件以使用模板字面量和簡潔方法語法。
 
 #### 代碼結構優化
+
 - **URL 變數命名**：更新 URL 正規化邏輯中的變數名稱，改善代碼可讀性。
 - **URL 正規化日誌**：改善 URL 正規化錯誤日誌記錄和代碼風格。
 - **靜態方法調用**：使用簡寫語法和靜態方法調用，簡化代碼結構。
@@ -206,6 +260,7 @@
 - **Notion 區塊驗證**：明確檢查 Notion 區塊內容字段的存在性，優化驗證邏輯。
 
 ### 🧪 測試改進
+
 - **高級工具測試更新**：更新 advanced utility tests，提升測試覆蓋率。
 - **URL.canParse 測試**：新增 `URL.canParse` 快速路徑的單元測試，覆蓋成功與回退兩種分支，確保在不同瀏覽器與 JSDOM 環境皆能保持既有行為。
 - **整合測試**：新增實驗性整合測試，暫時忽略有問題的單元測試。
@@ -213,6 +268,7 @@
 - **遷移方法測試**：將 migrateSpanToRange 方法設為靜態，並更新相關調用與測試。
 
 ### 📦 依賴更新
+
 - **chore(deps-dev)**: bump jest-environment-jsdom from 29.7.0 to 30.2.0
 - **chore(deps-dev)**: bump puppeteer from 24.25.0 to 24.30.0
 - **chore(deps-dev)**: bump webpack-cli from 5.1.4 to 6.0.1
@@ -221,11 +277,13 @@
 - **chore(deps)**: bump actions/github-script from 7 to 8
 
 ### 🔧 維護與配置
+
 - **Dependabot 配置**：新增 dependabot 配置文件以自動管理依賴更新。
 - **ESLint 配置簡化**：移除未使用的 ESLint 配置，簡化代碼結構 (#110)。
 - **ESLint 命令優化**：移除 eslint 命令中明確的 `.js` 擴展名。
 
 ### 📊 影響範圍
+
 - **穩定性提升**：改善測試環境穩定性，提升 Node.js 20.x 相容性。
 - **向後兼容**：完全兼容 v2.11.4 及更早版本。
 - **開發體驗**：優化日誌系統、錯誤處理與測試流程，提升開發效率。
@@ -238,6 +296,7 @@
 ### 🐛 Bug 修復
 
 #### 防止重複注入錯誤
+
 - **修復 `safeLogger` 重複宣告錯誤**：解決 `Uncaught SyntaxError: Identifier 'safeLogger' has already been declared` 錯誤
   - 將防重複注入檢查提前到檔案開頭，在 `safeLogger` 宣告之前執行
   - 使用 `window.__NOTION_UTILS_LOADED__` 標記追蹤載入狀態
@@ -245,15 +304,18 @@
   - 提升在複雜頁面環境下的腳本注入穩定性
 
 ### 📊 影響範圍
+
 - **穩定性提升**：解決在某些網站上可能出現的腳本重複注入錯誤
 - **向後兼容**：完全兼容 v2.11.3 及更早版本
 - **用戶體驗**：減少控制台錯誤訊息，提升擴充功能可靠性
 
 ### 🛡️ 安全性
+
 - **防禦性編程**：增強對重複腳本注入的容錯能力
 - **錯誤預防**：在問題發生前就阻止重複宣告
 
 ### 🧪 測試
+
 - ✅ 所有 608 個 utils 相關測試通過（100% 通過率）
 - ✅ ESLint 檢查通過，無新增警告
 - ✅ 重複載入測試驗證通過
@@ -265,6 +327,7 @@
 ### 🐛 Bug 修復
 
 #### 遷移系統錯誤處理增強
+
 - **錯誤頁面遷移容錯**：修復 `migrateLegacyHighlights` 函數中的 `Frame with ID 0 is showing error page` 錯誤
   - 在遷移前檢查標籤頁有效性，跳過錯誤頁面（`chrome-error://`）
   - 改善 catch 區塊錯誤處理，使用 `isRecoverableInjectionError` 判斷可恢復錯誤
@@ -273,11 +336,13 @@
   - 提升在網路錯誤、標籤關閉等場景下的穩定性
 
 ### 📊 影響範圍
+
 - **穩定性提升**：用戶在錯誤頁面或標籤關閉時不再看到錯誤提示
 - **向後兼容**：完全兼容 v2.11.2 及更早版本
 - **用戶體驗**：減少不必要的錯誤訊息，提升操作流暢度
 
 ### 🛡️ 安全性
+
 - **防禦性編程**：增強對異常標籤頁狀態的容錯能力
 - **錯誤分類**：明確區分可恢復錯誤與嚴重錯誤
 
@@ -288,6 +353,7 @@
 ### 🐛 Bug 修復
 
 #### 腳本注入錯誤處理增強
+
 - **錯誤頁面注入容錯**：修復 `Frame with ID 0 is showing error page` 錯誤導致的流程中斷
   - 擴展 `isRecoverableInjectionError()` 函數，新增錯誤頁面相關模式識別
   - 新增模式：`is showing error page`、`ERR_NAME_NOT_RESOLVED`、`ERR_CONNECTION_REFUSED`、`ERR_INTERNET_DISCONNECTED`、`ERR_TIMED_OUT`、`ERR_SSL_PROTOCOL_ERROR`
@@ -295,11 +361,13 @@
   - 改善在網路錯誤、DNS 解析失敗、SSL 錯誤等場景下的穩定性
 
 ### 📊 影響範圍
+
 - **穩定性提升**：用戶在錯誤頁面點擊擴展圖標不再看到錯誤提示
 - **向後兼容**：完全兼容 v2.11.1 及更早版本
 - **用戶體驗**：減少不必要的錯誤訊息，提升操作流暢度
 
 ### 🛡️ 安全性
+
 - **防禦性編程**：增強對異常頁面狀態的容錯能力
 - **錯誤分類**：明確區分可恢復錯誤與嚴重錯誤
 
@@ -310,6 +378,7 @@
 ### 🔧 代碼品質改進
 
 #### imageUtils.js 重構與安全增強
+
 - **函數模組化重構**：
   - 將 `extractImageSrc` 大型函數（93行）拆分為 6 個獨立子函數
   - `extractFromSrcset()`：處理響應式圖片（srcset 屬性）
@@ -339,6 +408,7 @@
 ### 🧪 測試覆蓋率提升
 
 #### 新增邊界條件測試套件
+
 - **新增測試文件**：`tests/unit/imageUtils.boundary.test.js`（55 個測試用例）
 - **測試覆蓋範圍**：
   - **URL 長度邊界**：1500 字符臨界值測試
@@ -615,6 +685,7 @@
 ### 🐛 Bug 修復
 
 #### 遷移系統穩定性改進
+
 - **無縫遷移重試機制**：為舊版標註遷移功能增加重試邏輯，處理遷移過程中的錯誤並返回失敗結果，提升遷移成功率
 - **變數初始化修復**：修復多個函數中的變數初始化問題，避免未定義錯誤
   - 初始化 `result` 變數在聲明時
@@ -623,10 +694,12 @@
 - **錯誤處理優化**：將 StorageUtil 的錯誤處理從拋出異常改為返回拒絕的 Promise，提升錯誤處理一致性
 
 #### 圖片驗證邏輯修復
+
 - **緩存統計計算修正**：修復圖片 URL 驗證緩存的命中率計算邏輯，確保統計數據準確性
 - **文本驗證邏輯改進**：增強文本範圍驗證，確保長度和內容匹配，並增強錯誤日誌記錄
 
 #### DOM 穩定性優化
+
 - **waitForDOMStability 方法同步化**：將方法從 async 轉為同步，提升性能並簡化邏輯
 - **節點遍歷條件修正**：修復遍歷節點時的條件判斷，避免無效操作
 - **MutationObserver 模擬優化**：移除不必要的變數並優化邏輯
@@ -634,43 +707,52 @@
 ### 🔧 代碼品質改進
 
 #### 圖片驗證重構
+
 - **LRU 緩存策略實現**：重構圖片 URL 驗證邏輯，增加 LRU 緩存策略並改進配置常量
 - **配置常量優化**：增加配置常量並改進錯誤處理，提升代碼可維護性
 
 #### 工具函數優化
+
 - **clearHighlights 方法改進**：改進錯誤處理與性能，處理 undefined 輸入並優化清除操作
 - **Logger 註解修正**：修正安全 Logger 的空函數註解，提升可讀性
 
 #### 調試函數清理
+
 - **維護函數移除**：移除清空圖片 URL 驗證緩存和獲取緩存統計信息的調試函數
 - **代碼清理**：移除不必要的註解和空行，優化代碼可讀性
 
 ### ✨ 新功能
 
 #### DOM 穩定性增強
+
 - **waitForDOMStability 自訂化**：支援自訂容器和穩定性閾值，提供更靈活的 DOM 穩定性檢測
 - **靜態方法優化**：將相關方法設為靜態，提升可用性和性能
 
 #### API 兼容性增強
+
 - **Highlight API 支持檢查**：增強對 Highlight API 的支持，添加兼容性測試和錯誤處理
 - **Chrome API 回退處理**：增強 Chrome API 檢查，確保在 API 不可用時提供適當回退
 - **樣式初始化改進**：添加 Highlight API 支持檢查及錯誤處理
 
 #### ESLint 配置更新
+
 - **全局變量配置**：更新 ESLint 配置，添加 Highlight 和 CSS 為全局變量
 
 ### 🧪 測試改進
 
 #### Jest 配置優化
+
 - **ES 模組轉換**：增加對 node_modules 中 ES 模組的轉換配置，提升測試兼容性
 
 #### 測試實例加載修正
+
 - **類實例化問題修復**：修正測試實例加載方式，避免類實例化問題
 - **原始模組測試支持**：添加對原始模組的測試實例加載
 
 ### 🔄 效能改進
 
 #### 日誌一致性優化
+
 - **統一日誌記錄**：增強日誌一致性，重構性能優化器初始化邏輯
 
 ## v2.10.0 - 2025-10-31
@@ -678,6 +760,7 @@
 ### 🔧 版本管理改進
 
 #### 版本對齊與硬編碼移除
+
 - **版本統一**：將所有配置檔案和對外文檔的版本號統一對齊至 v2.10.0
   - 配置檔案（manifest.json、package.json）使用純數字格式「2.10.0」
   - 對外文檔和 UI 顯示統一使用「v2.10.0」格式（帶 v 前綴）
@@ -692,6 +775,7 @@
 ### ✨ 新功能
 
 #### 內容質量評估系統
+
 - **新增 `isContentGood` 函數**：智能評估擷取內容的質量，確保只保存高質量內容到 Notion
   - 實現多維度內容質量檢測（文本長度、連結密度、段落結構）
   - 自動過濾低質量或導航型頁面
@@ -699,6 +783,7 @@
   - 新增 268 個單元測試覆蓋各種內容場景（[#68](https://github.com/cowcfj/save-to-notion/pull/68)）
 
 #### 標註工具欄體驗優化
+
 - **使用者可見性追蹤**：新增 `userVisibilityFlag` 標誌追蹤工具欄實際可見狀態
 - **智能自動隱藏**：實現 5 秒無操作自動隱藏機制，減少視覺干擾
   - 用戶完成標註後工具欄自動收起
@@ -709,16 +794,19 @@
 ### 🔧 代碼品質改進
 
 #### DeepSource 問題修復（PR #67）
+
 - **變數聲明優化**：修正 `handleSavePage` 函數中的重複變數聲明問題
 - **錯誤診斷增強**：在 `content.js` 中新增 Readability 可用性檢查，提供更清晰的錯誤訊息
 - **日誌系統統一**：將所有 `console.warn` 替換為 `Logger.warn`，確保日誌記錄一致性
 - **manifest 權限優化**：調整 content_scripts 配置，改善腳本注入效率
 
 #### 代碼重構
+
 - **content.js 大幅重構**：優化內容擷取流程，提升程式碼可讀性和維護性（179 行變更）
 - **使用模板字面量**：簡化測試中的內容字符串構建，提升測試代碼質量
 
 ### 🧪 測試覆蓋率提升
+
 - **新增測試文件**：`tests/unit/content/isContentGood.test.js`（268 個測試用例）
 - **測試場景覆蓋**：
   - 文本長度檢測（過短/正常/超長內容）
@@ -727,12 +815,14 @@
   - 邊界條件處理（空內容/特殊字符/極端數值）
 
 ### 📊 影響範圍
+
 - **相容性**：完全向後兼容 v2.9.13 及更早版本
 - **用戶體驗**：工具欄更智能，內容擷取更準確
 - **代碼品質**：通過 DeepSource 靜態分析檢查
 - **測試穩定性**：新增 268 個測試用例，100% 通過率
 
 ### 🔗 相關連結
+
 - [完整變更比較](https://github.com/cowcfj/save-to-notion/compare/v2.9.13...v2.10.0)
 - [PR #67 - DeepSource 修復](https://github.com/cowcfj/save-to-notion/pull/67)
 - [PR #68 - 內容質量評估](https://github.com/cowcfj/save-to-notion/pull/68)
@@ -742,6 +832,7 @@
 
 **版本建議**：次版本更新（Minor）v2.10.0
 **理由**：
+
 1. 新增功能（feat）：`isContentGood` 函數、工具欄自動隱藏機制
 2. 無破壞性變更：所有改動均向後兼容
 3. 遵循 Semantic Versioning 2.0.0 規範：新功能應提升次版本號
@@ -754,12 +845,14 @@
 ### 🔧 代碼品質改進
 
 #### PR64 DeepSource 修復
+
 - **正則表達式優化**：為多個正則表達式添加 `u` (Unicode) 旗標，改善 Unicode 字符處理
   - 影響文件：`lib/Readability.js`、`scripts/background.js`、`scripts/content.js`
   - 提升多語言環境支持，確保正確處理各種語言字符
   - 符合現代 JavaScript 最佳實踐和 DeepSource 代碼質量標準
 
 #### 正則表達式 Linting 完成
+
 - **代碼規範統一**：完成項目範圍內的正則表達式 linting 工作
   - 修正所有 ESLint regexp 插件警告
   - 統一正則表達式編寫風格
@@ -768,23 +861,28 @@
 ### 🧪 測試系統完善
 
 #### E2E 測試覆蓋率改進
+
 - **測試基礎設施強化**：完善端到端測試系統
   - 驗證 E2E 測試覆蓋率收集機制
   - 改進測試穩定性和可靠性
   - 為未來的自動化測試奠定基礎
 
 ### 📊 影響範圍
+
 - **無功能變更**：本版本專注於代碼品質提升，不影響用戶可見功能
 - **向後兼容**：完全兼容 v2.9.12 及更早版本
 - **技術債務清理**：減少技術債務，提升長期可維護性
 
 ### 🧹 維護
+
 - 同步更新版本號：`manifest.json`、`package.json`、`README.md` → v2.9.13
 
 ---
 
 ## v2.9.12 - 2025-10-26
+
 ### 🐛 Bug 修復
+
 - **Logger 系統修復**：修正 Logger 引用和可用性檢查，確保在全局範圍內正確使用和初始化統計資訊
 - **圖片 URL 驗證優化**：更新 `isValidImageUrl` 函數使用正則表達式檢查 HTTP/HTTPS 協議，並實現緩存驗證結果以提升性能
 - **按鈕顯示邏輯修復**：改善打開 Notion 頁面的按鈕顯示邏輯，添加更好的錯誤處理和用戶體驗
@@ -792,46 +890,58 @@
 - **Notion 兼容性檢查**：更新 Notion 兼容圖片 URL 的檢查邏輯，改善內容解析流程
 
 ### 🔧 代碼品質
+
 - **日誌系統統一**：將所有 `console` 日誌記錄替換為統一的 Logger 系統管理
 - **代碼清理**：移除多餘空行，簡化函數定義，提升代碼可讀性
 - **錯誤處理增強**：改善異步操作的錯誤處理，使用 async/await 模式
 - **函數重命名**：重命名緩存圖片 URL 驗證函數以提高可讀性
 
 ### 🧹 維護
+
 - 同步更新版本號：`manifest.json`、`package.json` → v2.9.12
 
 ## v2.9.11 - 2025-10-24
+
 ### ✨ 新功能
+
 - 設置頁新增「斷開連接」按鈕：一鍵清除 Notion API Key 與資料來源（Data Source）設定，立即刷新授權狀態顯示。
 
 ### 🧪 測試
+
 - 新增 `tests/unit/options.test.js`：覆蓋斷開連接流程、錯誤處理、授權狀態更新（3 項測試通過）。
 - 新增 `tests/helpers/options.testable.js`：封裝測試輔助方法，簡化授權狀態檢查與資料清理流程。
 
 ### 🔧 代碼品質
+
 - 移除無需 `await` 的 `async` 標記以消除 ESLint 警告（`async function without any await expressions`）。
 - 將布林轉換由 `!!value` 調整為 `Boolean(value)`，提升可讀性與一致性。
 
 ### 🧹 維護
+
 - 同步更新版本號：`manifest.json`、`package.json` → v2.9.11。
 
 ## v2.9.10 - 2025-10-23
+
 ### 🔧 維護
+
 - 同步更新版本號：`manifest.json`、`package.json`、`package-lock.json` → v2.9.10。
 - 同步更新文檔版本資訊：`Agents.md`、`CHANGELOG.md`。
 
 > 本次為版本號一致性維護，無功能變更。
 
 ## v2.9.9 - 2025-10-22
+
 ### 🔧 維護
+
 - 同步更新版本號：`manifest.json`、`package.json`、`package-lock.json` → v2.9.9。
 - 同步更新文檔版本資訊：`Agents.md`、`CHANGELOG.md`。
 
 > 本次為版本號一致性維護，無功能變更。
 
-
 ## v2.9.8 - 2025-10-21
+
 ### 🐛 Bug 修復
+
 - **空標註資料膨脹**：
   - 背景服務僅在 HTTP(S) 網址且已有標註時才注入高亮腳本，避免為每個分頁建立空 `highlights_*` 紀錄。
   - `highlighter-v2` 在無標註資料時跳過初始化，杜絕自動寫入空陣列。
@@ -839,35 +949,45 @@
 - **擴充程序頁面穩定性**：過濾 `chrome-extension://` 等內部網址，解決 Options 頁面注入失敗錯誤訊息。
 
 ### 🛠️ 工程改進
+
 - 將除錯輸出統一導向 `Logger.debug`，清除殘留 `console.log`。
 - 移除不必要的 `async` 標記並初始化統計變數，修正 DeepSource 警示。
 - 調整單元測試 mock 寫法，確保 StorageUtil 行為與實際邏輯一致。
 
 ### ✅ 測試
+
 - `npm test -- --watch=false`
 
 ---
 
 ## v2.9.7 - 2025-10-19
+
 ### 🐛 Bug 修復
+
 - **Legacy 標註遷移權限錯誤**：在背景服務 worker 偵測非 HTTP(S) 網址（如 `chrome-extension://`、`chrome://`）時，將跳過舊版標註遷移流程，避免觸發 Chromium 權限限制導致的錯誤回報。
 - **日誌一致性**：改用 `Logger.debug` 取代直接僅用 `console.log` 的除錯訊息，統一日誌輸出渠道。
 - **程式碼可讀性**：移除無需 `await` 的 `async` 標記並調整內部變數命名，避免遮蔽外層作用域並符合靜態分析規範。
 
 ### 🧪 測試
+
 - `npm test -- --runTestsByPath tests/unit/background/tab-listeners.test.js`
 - `npm test`
 
 ## v2.9.6 - 2025-10-18
+
 ### 🎯 用戶體驗改進
+
 - **Markdown 圖片自動渲染**：在內容擷取階段將 Markdown 圖片語法轉換為 Notion `image` 區塊，保留段落文字並僅允許 http/https 來源，避免圖片以純文字 URL 呈現。
 
 ### 🧪 測試
+
 - `npm test -- tests/unit/htmlToNotionConverter.wrapper.test.js`
 - `npm test`
 
 ## v2.9.5 - 2025-10-17
+
 ### ✨ 新功能
+
 - **標註工具欄最小化功能**：解決工具欄遮蓋網頁內容的問題
   - 新增最小化按鈕（－），可將工具欄收縮為小圖標
   - 最小化後顯示 40x40px 圓形圖標（📝），點擊可重新展開
@@ -876,17 +996,20 @@
   - 包含完整的錯誤處理和調試日誌
 
 ### 🎯 用戶體驗改進
+
 - **減少視覺干擾**：用戶可自由選擇工具欄顯示方式
 - **保持功能完整**：最小化狀態下所有標註功能保持可用
 - **直觀操作**：簡單點擊即可切換工具欄狀態
 
 ### 🔧 技術實現
+
 - 新增狀態管理系統（展開/最小化/隱藏）
 - 實現平滑的狀態切換動畫
 - 完善的 DOM 元素檢查和錯誤處理
 - 統一的日誌記錄格式
 
 ### 📦 版本更新
+
 - 更新 manifest.json 版本號到 v2.9.5
 - 更新 package.json 版本號到 v2.9.5
 - 同步更新測試文件中的版本號引用
@@ -894,7 +1017,9 @@
 ---
 
 ## v2.9.4 - 2025-10-16
+
 ### ♻️ 代碼重構
+
 - **移除冗餘功能**：移除「清理空白頁面記錄」功能
   - 分析顯示每筆 `saved_` 記錄僅佔 ~250-450 bytes
   - 即使 1000 個頁面也僅佔用 250-450 KB（< 10% of 5 MB 限制）
@@ -903,6 +1028,7 @@
 - **保留功能**：「清理已刪除頁面的標註數據」功能正常運作
 
 ### 📊 影響
+
 - **代碼簡化**：移除約 74 行代碼
 - **測試狀態**：✅ 所有 21 個測試套件通過
 - **覆蓋率**：✅ 保持穩定
@@ -911,11 +1037,14 @@
 ---
 
 ## v2.9.3 - 2025-10-16
+
 ### 🔧 CI/Jest 穩定化
+
 - 覆蓋率工作流精簡：`coverage.yml` 僅於主線 push、手動與排程觸發，避免與 PR 測試重複；啟用 OIDC 上傳 Codecov。
 - Jest 調整：忽略 `tests/e2e/`，並暫不將注入型腳本（`scripts/utils/htmlToNotionConverter.js`、`scripts/utils/pageComplexityDetector.js`）計入覆蓋，改以 testable 版本覆蓋，讓覆蓋率訊號更準確。
 
 ### 🧪 測試增強與可測封裝
+
 - 新增 testable 封裝：
   - `tests/helpers/pageComplexityDetector.testable.js`（detect/select/report/log）
   - `tests/helpers/htmlToNotionConverter.testable.js`（`convertMarkdownToNotionBlocks`、`isValidAbsoluteUrl`）
@@ -926,14 +1055,18 @@
   - `tests/unit/content-extraction.wrapper.test.js`（內容質量、高連結密度拒絕、Drupal/WordPress/Article/通用最大內容塊）
 
 ### 📌 備註
+
 - 僅影響測試與 CI 配置，無運行時邏輯變更。
 
 ## v2.9.2 - 2025-10-14
+
 ### 🐛 Bug 修復
+
 - **AttributeExtractor 修復**：修復 `isLazyLoadAttribute` 方法的誤判問題，避免將普通屬性（如 `data-testid`）錯誤識別為懶加載屬性
 - **測試穩定性提升**：修復多個測試文件中的實現問題，提升整體測試穩定性
 
 ### 🧪 測試覆蓋率提升
+
 - **測試覆蓋率達到 34.89%**：相比 2.9.1 版本提升 +3.48%（從 31.41% 提升）
 - **新增測試文件**：
   - `tests/unit/imageExtraction/AttributeExtractor.test.js` - 圖片屬性提取器測試（95% 覆蓋率）
@@ -944,24 +1077,30 @@
 ---
 
 ## v2.9.1 - 2025-10-13
+
 ### 🐛 Bug 修復
+
 - **PerformanceOptimizer 測試穩定性提升**：增強 `_validateCachedElements` 的錯誤處理以支持 JSDOM 測試環境
 - **DOM 驗證修復**：修復 PerformanceOptimizer 測試中的 DOM 驗證錯誤，確保測試在無瀏覽器環境下也能正確運行
 
 ### 🧪 測試覆蓋率提升
+
 - **測試覆蓋率達到 31.41%**：相比 2.9.0 版本提升 +8.4%（從 23.01% 提升）
 - **測試穩定性改進**：所有性能優化相關測試現在都能在 CI 環境中穩定通過
 
 ### 📚 文檔與代碼質量改進
+
 - **README.md 更新**：更新功能展示和設置說明，移除過時的項目結構引用
 - **文檔結構整理**：整理項目文檔結構，提升可讀性和維護性
 
 ---
 
 ## v2.9.0 - 2025-10-09
+
 ### 🚀 重大功能增強
 
 #### 全新性能優化系統
+
 - **DOM 查詢緩存**：實施 LRU 緩存策略，重複查詢性能提升 20-50%
 - **批處理系統**：圖片和 DOM 操作批量化處理，提升響應性和用戶體驗
 - **智能預加載**：關鍵選擇器預加載，減少首次查詢延遲
@@ -969,6 +1108,7 @@
 - **性能監控**：實時收集和顯示性能統計，包括緩存命中率、查詢時間等
 
 #### 技術架構改進
+
 - **PerformanceOptimizer 類**：新增專門的性能優化組件
 - **緩存策略**：實施多層緩存機制，包括 DOM 查詢緩存和 URL 驗證緩存
 - **批處理隊列**：智能調度系統，16ms 延遲的批處理機制
@@ -976,38 +1116,44 @@
 - **模組化設計**：新增 `scripts/performance/`、`scripts/errorHandling/`、`scripts/imageExtraction/` 模組
 
 #### 測試覆蓋提升
+
 - **新增 13 個性能測試**：全面覆蓋性能優化功能
 - **測試通過率**：821/821 個測試 100% 通過
 - **手動測試工具**：新增 `tests/manual/performance-test.html` 性能測試頁面
 - **測試報告**：詳細的性能優化測試報告和基準測試
 
 ### 🔧 代碼質量改進
+
 - **函數分解**：大型函數拆分為更小、更專注的函數
 - **模組化重構**：圖片提取邏輯模組化，提升可維護性
 - **錯誤處理標準化**：統一的錯誤處理模式和日誌記錄
 - **性能監控**：內建性能統計和監控功能
 
 ### 📊 性能提升數據
+
 - **DOM 查詢**：重複查詢性能提升 20-50%
 - **圖片處理**：批處理機制提升響應性
 - **內存使用**：智能緩存管理，避免內存洩漏
 - **用戶體驗**：整體響應速度和流暢度顯著提升
 
 ## [Unreleased]
+
 ### 增強
+
 - 統一應用可選鏈結（?.、?.()、?.[]）優化空值判斷，提升代碼可讀性與一致性
 - 擴展圖片擷取能力：支持 srcset 智能解析（優先最大寬度）、更多懶加載屬性、背景圖回退、noscript 回退
 - 改善錯誤處理：替換空 catch 塊為有意義的錯誤日誌，提升代碼質量
 - 提升標註工具欄韌性：加入 MutationObserver 自動恢復（工具欄節點被移除時自動重新掛載）、在 show() 時保險重綁 Ctrl/Cmd+點擊刪除監聽器，並保持關鍵樣式與 z-index 斷言，以避免長頁與多次開關造成的「工具欄失聯/被覆蓋」。(模組：highlighter-v2，PR #11)
 - Markdown 圖片支援：在內容擷取階段將 Markdown 圖片語法轉換為 Notion `image` 區塊，保留段落文字並僅允許 http/https 來源；新增對應單元測試覆蓋圖片轉換與 URL 驗證行為。（模組：htmlToNotionConverter）
 
-
 ## v2.8.2 - 2025-10-08
+
 ### 修復
+
 - 強化標註工具欄顯示穩定性：在長內容頁面多次標註/同步並反覆開關後，工具欄可能無法再顯示。現已在顯示時自動重新掛載節點、重申關鍵樣式，並將 z-index 提升至 2147483647，避免被覆蓋。（模組：highlighter-v2）
 
-
 ## v2.8.1
+
 - 對齊版本資訊：manifest.json 與 package.json → 2.8.1
 - CI 小幅調整：升級 Codecov Action 至 v4、引入 `test:ci`，並在 workflow 中使用
 - 覆蓋率門檻：Codecov project 目標由 20% 提升至 20.5%（保留 1% 容忍）
