@@ -386,11 +386,11 @@ export class Toolbar {
     }
 
     // 移除 DOM 元素
-    if (this.container && this.container.parentNode) {
+    if (this.container?.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
 
-    if (this.miniIcon && this.miniIcon.parentNode) {
+    if (this.miniIcon?.parentNode) {
       this.miniIcon.parentNode.removeChild(this.miniIcon);
     }
   }

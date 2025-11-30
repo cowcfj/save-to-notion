@@ -1928,7 +1928,7 @@ async function handleStartHighlight(sendResponse) {
                 });
             });
 
-            if (response && response.success) {
+            if (response?.success) {
                 sendResponse({ success: true });
                 return;
             }

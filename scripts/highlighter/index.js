@@ -39,7 +39,7 @@ export function initHighlighter(options = {}) {
     manager.initializationComplete = manager.initialize();
 
     // 監聽來自 background 的消息
-    if (window.chrome && window.chrome.runtime && window.chrome.runtime.onMessage) {
+    if (window.chrome?.runtime && window.chrome.runtime.onMessage) {
         window.chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'toggleHighlighter') {
                 if (window.notionHighlighter) {
