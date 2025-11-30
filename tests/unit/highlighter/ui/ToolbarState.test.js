@@ -77,13 +77,15 @@ describe('ToolbarStateManager', () => {
       listener.mockClear();
 
       stateManager.currentState = ToolbarStates.EXPANDED;
+      expect(listener).toHaveBeenLastCalledWith(ToolbarStates.EXPANDED);
+
       stateManager.currentState = ToolbarStates.MINIMIZED;
+      expect(listener).toHaveBeenLastCalledWith(ToolbarStates.MINIMIZED);
+
       stateManager.currentState = ToolbarStates.HIDDEN;
+      expect(listener).toHaveBeenLastCalledWith(ToolbarStates.HIDDEN);
 
       expect(listener).toHaveBeenCalledTimes(3);
-      expect(listener).toHaveBeenNthCalledWith(1, ToolbarStates.EXPANDED);
-      expect(listener).toHaveBeenNthCalledWith(2, ToolbarStates.MINIMIZED);
-      expect(listener).toHaveBeenNthCalledWith(3, ToolbarStates.HIDDEN);
     });
   });
 
