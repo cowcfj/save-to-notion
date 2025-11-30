@@ -330,12 +330,12 @@ export class Toolbar {
       statusDiv.textContent = '🔄 正在同步...';
 
       // 調用 background script 進行同步
-      if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
+      if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
         try {
           // 收集標註數據
           const highlights = this.manager.collectHighlightsForNotion();
 
-          await chrome.runtime.sendMessage({
+          await window.chrome.runtime.sendMessage({
             action: 'syncHighlights',
             highlights, // 使用簡寫
           });
@@ -367,8 +367,8 @@ export class Toolbar {
    * 在 Notion 中打開
    */
   openInNotion() {
-    if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
-      chrome.runtime.sendMessage({ action: 'openNotionPage' });
+    if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
+      window.chrome.runtime.sendMessage({ action: 'openNotionPage' });
     }
   }
 
