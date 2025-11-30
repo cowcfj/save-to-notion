@@ -45,10 +45,15 @@ export function initHighlighter(options = {}) {
                 if (window.notionHighlighter) {
                     window.notionHighlighter.toggle();
                     sendResponse({ success: true, isActive: window.notionHighlighter.isActive() });
+                    return true; // 只在實際發送響應時返回 true
                 }
+                // notionHighlighter 未初始化
+                sendResponse({ success: false, error: 'notionHighlighter not initialized' });
+                return true;
+
             }
-            // 必須返回 true 以支持異步 sendResponse（雖然這裡我們是同步的，但保持習慣）
-            return true;
+            // 不處理的消息不返回 true
+            return false;
         });
     }
 
