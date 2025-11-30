@@ -17,6 +17,9 @@ import {
     validateRange
 } from './core/Range.js';
 
+// UI modules
+import { Toolbar } from './ui/Toolbar.js';
+
 // Utility modules
 import { COLORS, convertBgColorToName } from './utils/color.js';
 import { supportsHighlightAPI, isValidElement, getVisibleText } from './utils/dom.js';
@@ -26,7 +29,7 @@ import { findTextInPage, findTextWithTreeWalker, findTextFuzzy } from './utils/t
 import { waitForDOMStability } from './utils/domStability.js';
 
 /**
- * 初始化 Highlighter V2
+ * 初始化 Highlighter V2 (僅 Manager)
  * @returns {HighlightManager}
  */
 export function initHighlighter(options = {}) {
@@ -35,7 +38,39 @@ export function initHighlighter(options = {}) {
     // 自動執行初始化
     manager.initializationComplete = manager.initialize();
 
+    // 監聽來自 background 的消息
+    if (window.chrome && window.chrome.runtime && window.chrome.runtime.onMessage) {
+        window.chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request.action === 'toggleHighlighter') {
+                if (window.notionHighlighter) {
+                    window.notionHighlighter.toggle();
+                    sendResponse({ success: true, isActive: window.notionHighlighter.isActive() });
+                }
+            }
+            // 必須返回 true 以支持異步 sendResponse（雖然這裡我們是同步的，但保持習慣）
+            return true;
+        });
+    }
+
     return manager;
+}
+
+/**
+ * 初始化 Highlighter V2 (包含工具欄)
+ * @returns {{manager: HighlightManager, toolbar: Toolbar}}
+ */
+export function initHighlighterWithToolbar(options = {}) {
+    const manager = new HighlightManager(options);
+    const toolbar = new Toolbar(manager);
+
+    // 自動執行初始化
+    // 自動執行初始化
+    manager.initializationComplete = manager.initialize().then(() => {
+        // 初始化完成後更新計數
+        toolbar.updateHighlightCount();
+    });
+
+    return { manager, toolbar };
 }
 
 /**
@@ -44,6 +79,7 @@ export function initHighlighter(options = {}) {
 export {
     // Core
     HighlightManager,
+    Toolbar,
     serializeRange,
     deserializeRange,
     restoreRangeWithRetry,
@@ -75,12 +111,13 @@ export default function setupHighlighter() {
         throw new Error('Highlighter V2 requires a browser environment');
     }
 
-    // 初始化 manager  
-    const manager = initHighlighter();
+    // 初始化 manager 和 toolbar
+    const { manager, toolbar } = initHighlighterWithToolbar();
 
-    // 設置到 window for Chrome Extension compatibility
+    // 設置新版 API 到 window for Chrome Extension compatibility
     window.HighlighterV2 = {
         manager,
+        toolbar,
 
         // Core functions
         serializeRange,
@@ -101,11 +138,52 @@ export default function setupHighlighter() {
 
         // Convenience methods
         init: (options) => initHighlighter(options),
-        getInstance: () => manager
+        initWithToolbar: (options) => initHighlighterWithToolbar(options),
+        getInstance: () => manager,
+        getToolbar: () => toolbar
     };
 
-    // 初始化完成（移除 console.log 以符合生產環境規範）
-    return manager;
+    // 🔑 向後兼容：設置舊版 API
+    window.notionHighlighter = {
+        manager,
+        show: () => toolbar.show(),
+        hide: () => toolbar.hide(),
+        minimize: () => toolbar.minimize(),
+        toggle: () => {
+            const state = toolbar.stateManager.currentState;
+            if (state === 'hidden') {
+                toolbar.show();
+            } else {
+                toolbar.hide();
+            }
+        },
+        collectHighlights: () => manager.collectHighlightsForNotion(),
+        clearAll: () => manager.clearAll(),
+        getCount: () => manager.getCount()
+    };
+
+    // 🔑 全域函數別名（向後兼容）
+    window.initHighlighter = () => {
+        if (window.notionHighlighter) {
+            window.notionHighlighter.show();
+        }
+        return window.notionHighlighter;
+    };
+
+    window.collectHighlights = () => {
+        if (window.notionHighlighter) {
+            return window.notionHighlighter.collectHighlights();
+        }
+        return [];
+    };
+
+    window.clearPageHighlights = () => {
+        if (window.notionHighlighter) {
+            window.notionHighlighter.clearAll();
+        }
+    };
+
+    return { manager, toolbar };
 }
 
 // 自動初始化（在 browser 環境中）
@@ -123,3 +201,4 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
         });
     }
 }
+

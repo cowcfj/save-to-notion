@@ -41,7 +41,7 @@ function cleanImageUrl(url) {
     }
 
     // 回退實現（如果 ImageUtils 未載入）
-    if (!url || typeof url !== 'string') return null;
+    if (!url || typeof url !== 'string') { return null; }
 
     try {
         const urlObj = new URL(url);
@@ -582,7 +582,7 @@ class ScriptInjector {
     static injectHighlighter(tabId) {
         return this.injectAndExecute(
             tabId,
-            ['scripts/utils.js', 'scripts/seamless-migration.js', 'scripts/highlighter-v2.js'],
+            ['dist/highlighter-v2.bundle.js'],
             () => {
                 // highlighter-v2.js 現在會自動初始化
                 // 這裡只需要顯示工具欄並激活標註模式
@@ -868,7 +868,7 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
         try {
             const res = await fetch(url, options);
 
-            if (res.ok) return res;
+            if (res.ok) { return res; }
 
             // 嘗試解析錯誤訊息
             let message = '';
@@ -902,7 +902,7 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
     }
 
     // 理論上不會到達這裡
-    if (lastError) throw lastError;
+    if (lastError) { throw lastError; }
     throw new Error('fetchNotionWithRetry failed unexpectedly');
 }
 
@@ -1620,7 +1620,7 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
                         urlObj.hash = '';
                         const params = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'];
                         params.forEach((p) => urlObj.searchParams.delete(p));
-                        if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
+                        if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) { urlObj.pathname = urlObj.pathname.replace(/\/+$/, ''); }
                         return urlObj.toString();
                     } catch { return raw || ''; }
                 };
@@ -1633,10 +1633,10 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
 
                 // 嘗試找到對應的舊版標記數據
                 raw = localStorage.getItem(k1);
-                if (raw) key = k1;
+                if (raw) { key = k1; }
                 else {
                     raw = localStorage.getItem(k2);
-                    if (raw) key = k2;
+                    if (raw) { key = k2; }
                 }
 
                 // 如果還是找不到，遍歷所有以 highlights_ 開頭的鍵
@@ -1914,6 +1914,27 @@ async function handleStartHighlight(sendResponse) {
             return;
         }
 
+        // 嘗試先發送消息切換（如果腳本已加載）
+        try {
+            const response = await new Promise((resolve, reject) => {
+                chrome.tabs.sendMessage(activeTab.id, { action: 'toggleHighlighter' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(chrome.runtime.lastError);
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+
+            if (response && response.success) {
+                sendResponse({ success: true });
+                return;
+            }
+        } catch (error) {
+            // 消息發送失敗，說明腳本可能未加載，繼續執行注入
+            Logger.log('發送 toggleHighlighter 失敗，嘗試注入腳本:', error);
+        }
+
         await ScriptInjector.injectHighlighter(activeTab.id);
         sendResponse({ success: true });
     } catch (error) {
@@ -2110,7 +2131,7 @@ async function handleSavePage(sendResponse) {
 
                 // URL 清理輔助函數（避免與背景腳本的 cleanImageUrl 命名衝突）
                 function cleanImageUrlOnPage(url) {
-                    if (!url || typeof url !== 'string') return null;
+                    if (!url || typeof url !== 'string') { return null; }
 
                     try {
                         const urlObj = new URL(url);
@@ -2308,7 +2329,7 @@ async function handleSavePage(sendResponse) {
 
                 // 輔助函數：解析尺寸字符串（如 "180x180"）
                 function parseSizeString(sizeStr) {
-                    if (!sizeStr || !sizeStr.trim()) return 0;
+                    if (!sizeStr || !sizeStr.trim()) { return 0; }
 
                     // 處理 "any" 格式（通常是 SVG）
                     if (sizeStr.toLowerCase() === 'any') {
@@ -2334,7 +2355,7 @@ async function handleSavePage(sendResponse) {
                 function selectBestIcon(candidates) {
                     Logger.log(`📊 Selecting best icon from ${candidates.length} candidates...`);
 
-                    if (candidates.length === 0) return null;
+                    if (candidates.length === 0) { return null; }
                     if (candidates.length === 1) {
                         Logger.log('✓ Only one candidate, selected by default');
                         return candidates[0];
@@ -2671,7 +2692,7 @@ async function handleSavePage(sendResponse) {
 
                     while ((node = walker.nextNode()) !== null) {
                         const text = node.textContent?.trim();
-                        if (!text || text.length < 200) continue;
+                        if (!text || text.length < 200) { continue; }
 
                         // 計算內容質量分數（確保不會產生 NaN）
                         let score = text.length || 0;
@@ -2729,7 +2750,7 @@ async function handleSavePage(sendResponse) {
                     const MIN_CONTENT_LENGTH = 250;
                     const MAX_LINK_DENSITY = 0.3;
 
-                    if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
+                    if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) { return false; }
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = article.content;
                     const links = cachedQuery('a', tempDiv);
@@ -2811,7 +2832,7 @@ async function handleSavePage(sendResponse) {
 
                     // 輔助函數：清理文本內容
                     const cleanTextContent = (text) => {
-                        if (!text) return '';
+                        if (!text) { return ''; }
 
                         return text
                             .replace(/\s+/g, ' ')  // 將多個空白字符替換為單個空格
@@ -2821,7 +2842,7 @@ async function handleSavePage(sendResponse) {
 
                     // 輔助函數：檢查文本是否有實際內容
                     const hasActualContent = (text) => {
-                        if (!text) return false;
+                        if (!text) { return false; }
                         const cleaned = cleanTextContent(text);
                         return cleaned.length > 0 && cleaned !== '•' && !/^[•\-*\s]*$/u.test(cleaned);
                     };
@@ -3032,18 +3053,18 @@ async function handleSavePage(sendResponse) {
                             blocks,
                             siteIcon: siteIconUrl  // 新增：返回網站 Icon URL
                         };
-                    } else {
-                        return {
-                            title: document.title,
-                            blocks: [{
-                                object: 'block',
-                                type: 'paragraph',
-                                paragraph: {
-                                    rich_text: [{ type: 'text', text: { content: 'Could not automatically extract article content.' } }]
-                                }
-                            }]
-                        };
                     }
+                    return {
+                        title: document.title,
+                        blocks: [{
+                            object: 'block',
+                            type: 'paragraph',
+                            paragraph: {
+                                rich_text: [{ type: 'text', text: { content: 'Could not automatically extract article content.' } }]
+                            }
+                        }]
+                    };
+
                 } catch (error) {
                     console.error('Content extraction failed:', error);
                     return {
@@ -3239,7 +3260,7 @@ function handleExtensionInstall() {
  */
 function shouldShowUpdateNotification(previousVersion, currentVersion) {
     // 跳過開發版本或測試版本
-    if (!previousVersion || !currentVersion) return false;
+    if (!previousVersion || !currentVersion) { return false; }
 
     // 解析版本號
     const prevParts = previousVersion.split('.').map(Number);

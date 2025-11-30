@@ -2,7 +2,7 @@
  * Background.js - 錯誤分支整合測試（require 真實腳本 + 事件觸發）
  */
 
- 
+
 
 function createEvent() {
   const listeners = [];
@@ -14,7 +14,7 @@ function createEvent() {
     },
     hasListener: (fn) => listeners.includes(fn),
     _emit: (...args) => listeners.forEach((fn) => {
-      try { fn(...args); } catch (_) {}
+      try { fn(...args); } catch (_) { }
     }),
     _listeners: listeners
   };
@@ -103,6 +103,11 @@ describe('background error branches (integration)', () => {
   test('startHighlight：注入失敗 → 返回錯誤', async () => {
     // 有活動分頁
     chrome.tabs.query.mockImplementationOnce((q, cb) => cb([{ id: 1, url: 'https://x', title: 't', active: true }]));
+    // 模擬 sendMessage 失敗，強制走注入邏輯
+    chrome.tabs.sendMessage.mockImplementationOnce((tabId, msg, cb) => {
+      chrome.runtime.lastError = { message: 'Message failed' };
+      cb?.();
+    });
     // 第一次 executeScript 模擬 lastError（文件注入階段）
     chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => { chrome.runtime.lastError = { message: 'Injection failed' }; cb?.(); });
 
@@ -328,13 +333,15 @@ describe('background error branches (integration)', () => {
           return;
         }
         if (funcCall === 3) {
-          cb?.([{ result: {
-            title: 'T',
-            blocks: [
-              { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] } },
-              { object: 'block', type: 'image', image: { type: 'external', external: { url: 'https://cdn.example.com/img.jpg' } } }
-            ]
-          }}]);
+          cb?.([{
+            result: {
+              title: 'T',
+              blocks: [
+                { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] } },
+                { object: 'block', type: 'image', image: { type: 'external', external: { url: 'https://cdn.example.com/img.jpg' } } }
+              ]
+            }
+          }]);
           return;
         }
         cb?.([{ result: undefined }]);
@@ -375,7 +382,7 @@ describe('background error branches (integration)', () => {
     for (let i = 0; i < 30 && sendResponse.mock.calls.length === 0; i++) {
       jest.runOnlyPendingTimers();
       // 讓出微任務
-       
+
       await Promise.resolve();
     }
     const resp = sendResponse.mock.calls[0][0];
@@ -525,13 +532,15 @@ describe('background error branches (integration)', () => {
         funcCall += 1;
         if (funcCall === 2) { cb?.([{ result: [] }]); return; } // collectHighlights
         if (funcCall === 3) {
-          cb?.([{ result: {
-            title: 'T',
-            blocks: [
-              { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] } },
-              { object: 'block', type: 'image', image: { type: 'external', external: { url: 'https://cdn.example.com/img.jpg' } } }
-            ]
-          }}]);
+          cb?.([{
+            result: {
+              title: 'T',
+              blocks: [
+                { object: 'block', type: 'paragraph', paragraph: { rich_text: [{ type: 'text', text: { content: 'p' } }] } },
+                { object: 'block', type: 'image', image: { type: 'external', external: { url: 'https://cdn.example.com/img.jpg' } } }
+              ]
+            }
+          }]);
           return;
         }
         cb?.([{ result: undefined }]);
