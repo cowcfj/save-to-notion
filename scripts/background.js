@@ -608,7 +608,7 @@ class ScriptInjector {
             if (window.notionHighlighter) {
               window.notionHighlighter.show();
               const count = window.HighlighterV2?.manager?.getCount() || 0;
-              console.log(`✅ 標註工具已準備，共 ${count} 個標註`);
+              Logger.log(`✅ 標註工具已準備，共 ${count} 個標註`);
               resolve({ initialized: true, highlightCount: count });
             } else {
               console.warn('⚠️ notionHighlighter 未初始化');
@@ -1743,7 +1743,7 @@ function setupTabListeners() {
   // 監聽標籤頁切換
   chrome.tabs.onActivated.addListener(activeInfo => {
     chrome.tabs.get(activeInfo.tabId, tab => {
-      if (tab && tab.url) {
+      if (tab?.url) {
         updateTabStatus(activeInfo.tabId, tab.url);
       }
     });

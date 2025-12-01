@@ -18,10 +18,10 @@ jest.mock('../../../../scripts/highlighter/ui/components/ColorPicker.js', () => 
 }));
 
 describe('Toolbar Actions', () => {
-  let managerMock;
-  let toolbar;
-  let sendMessageMock;
-  let statusDiv;
+  let managerMock = null;
+  let toolbar = null;
+  let sendMessageMock = null;
+  let statusDiv = null;
 
   beforeEach(() => {
     // Reset mocks

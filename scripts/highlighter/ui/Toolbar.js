@@ -328,7 +328,7 @@ export class Toolbar {
    * @returns {Promise<Object>}
    * @private
    */
-  _sendMessageAsync(message) {
+  static _sendMessageAsync(message) {
     return new Promise((resolve, reject) => {
       if (typeof window === 'undefined' || !window.chrome?.runtime?.sendMessage) {
         reject(new Error('無法連接擴展'));
@@ -359,12 +359,12 @@ export class Toolbar {
         // 收集標註數據
         const highlights = this.manager.collectHighlightsForNotion();
 
-        const response = await this._sendMessageAsync({
+        const response = await Toolbar._sendMessageAsync({
           action: 'syncHighlights',
           highlights,
         });
 
-        if (response && response.success) {
+        if (response?.success) {
           statusDiv.textContent = '✅ 同步成功';
         } else {
           const errorMsg = response?.error || '未知錯誤';
@@ -389,6 +389,7 @@ export class Toolbar {
 
   /**
    * 在 Notion 中打開
+   * 注意：此方法不使用 this，但需保持為實例方法以便從其他方法調用
    */
 
   openInNotion() {
