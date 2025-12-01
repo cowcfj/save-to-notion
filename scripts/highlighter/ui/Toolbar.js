@@ -322,6 +322,32 @@ export class Toolbar {
   /**
    * 同步到 Notion
    */
+  /**
+   * 封裝 chrome.runtime.sendMessage 為 Promise
+   * @param {Object} message - 要發送的消息
+   * @returns {Promise<Object>}
+   * @private
+   */
+  _sendMessageAsync(message) {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined' || !window.chrome?.runtime?.sendMessage) {
+        reject(new Error('無法連接擴展'));
+        return;
+      }
+
+      window.chrome.runtime.sendMessage(message, response => {
+        if (window.chrome.runtime.lastError) {
+          reject(new Error(window.chrome.runtime.lastError.message));
+          return;
+        }
+        resolve(response);
+      });
+    });
+  }
+
+  /**
+   * 同步到 Notion
+   */
   async syncToNotion() {
     const statusDiv = this.container.querySelector('#highlight-status-v2');
 
@@ -329,42 +355,34 @@ export class Toolbar {
       const originalText = statusDiv.innerHTML;
       statusDiv.textContent = '🔄 正在同步...';
 
-      // 調用 background script 進行同步
-      if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
-        try {
-          // 收集標註數據
-          const highlights = this.manager.collectHighlightsForNotion();
+      try {
+        // 收集標註數據
+        const highlights = this.manager.collectHighlightsForNotion();
 
-          const response = await window.chrome.runtime.sendMessage({
-            action: 'syncHighlights',
-            highlights, // 使用簡寫
-          });
+        const response = await this._sendMessageAsync({
+          action: 'syncHighlights',
+          highlights,
+        });
 
-          if (response && response.success) {
-            statusDiv.textContent = '✅ 同步成功';
-          } else {
-            const errorMsg = response?.error || '未知錯誤';
-            statusDiv.textContent = `❌ ${errorMsg}`;
-          }
-
-          setTimeout(() => {
-            statusDiv.innerHTML = originalText;
-          }, 2000);
-        } catch (error) {
-          statusDiv.textContent = '❌ 同步失敗';
-          setTimeout(() => {
-            statusDiv.innerHTML = originalText;
-          }, 2000);
-
-          if (typeof window.Logger !== 'undefined') {
-            window.Logger?.error('同步失敗:', error);
-          }
+        if (response && response.success) {
+          statusDiv.textContent = '✅ 同步成功';
+        } else {
+          const errorMsg = response?.error || '未知錯誤';
+          statusDiv.textContent = `❌ ${errorMsg}`;
         }
-      } else {
-        statusDiv.textContent = '❌ 無法連接擴展';
+
         setTimeout(() => {
           statusDiv.innerHTML = originalText;
         }, 2000);
+      } catch (error) {
+        statusDiv.textContent = '❌ 同步失敗';
+        setTimeout(() => {
+          statusDiv.innerHTML = originalText;
+        }, 2000);
+
+        if (typeof window.Logger !== 'undefined') {
+          window.Logger?.error('同步失敗:', error);
+        }
       }
     }
   }

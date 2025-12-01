@@ -75,21 +75,28 @@ describe('Toolbar Actions', () => {
 
   describe('syncToNotion', () => {
     test('should show success message when sync is successful', async () => {
-      // Setup success response
-      sendMessageMock.mockResolvedValue({ success: true });
+      // Setup success response via callback
+      sendMessageMock.mockImplementation((message, callback) => {
+        callback({ success: true });
+      });
 
       await toolbar.syncToNotion();
 
-      expect(sendMessageMock).toHaveBeenCalledWith({
-        action: 'syncHighlights',
-        highlights: [{ text: 'test highlight' }],
-      });
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        {
+          action: 'syncHighlights',
+          highlights: [{ text: 'test highlight' }],
+        },
+        expect.any(Function)
+      );
       expect(statusDiv.textContent).toBe('✅ 同步成功');
     });
 
     test('should show error message when sync fails with error message', async () => {
-      // Setup failure response
-      sendMessageMock.mockResolvedValue({ success: false, error: 'API Key Missing' });
+      // Setup failure response via callback
+      sendMessageMock.mockImplementation((message, callback) => {
+        callback({ success: false, error: 'API Key Missing' });
+      });
 
       await toolbar.syncToNotion();
 
@@ -98,23 +105,28 @@ describe('Toolbar Actions', () => {
     });
 
     test('should show default error message when sync fails without error message', async () => {
-      // Setup failure response without specific error
-      sendMessageMock.mockResolvedValue({ success: false });
+      // Setup failure response without specific error via callback
+      sendMessageMock.mockImplementation((message, callback) => {
+        callback({ success: false });
+      });
 
       await toolbar.syncToNotion();
 
       expect(statusDiv.textContent).toBe('❌ 未知錯誤');
     });
 
-    test('should handle network/runtime errors', async () => {
-      // Setup network error
-      const error = new Error('Network Error');
-      sendMessageMock.mockRejectedValue(error);
+    test('should handle runtime errors (chrome.runtime.lastError)', async () => {
+      // Setup runtime error
+      sendMessageMock.mockImplementation((message, callback) => {
+        window.chrome.runtime.lastError = { message: 'Connection failed' };
+        callback();
+        delete window.chrome.runtime.lastError;
+      });
 
       await toolbar.syncToNotion();
 
       expect(statusDiv.textContent).toBe('❌ 同步失敗');
-      expect(window.Logger.error).toHaveBeenCalledWith('同步失敗:', error);
+      expect(window.Logger.error).toHaveBeenCalledWith('同步失敗:', expect.any(Error));
     });
   });
 
