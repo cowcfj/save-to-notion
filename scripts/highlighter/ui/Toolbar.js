@@ -335,12 +335,18 @@ export class Toolbar {
           // 收集標註數據
           const highlights = this.manager.collectHighlightsForNotion();
 
-          await window.chrome.runtime.sendMessage({
+          const response = await window.chrome.runtime.sendMessage({
             action: 'syncHighlights',
             highlights, // 使用簡寫
           });
 
-          statusDiv.textContent = '✅ 同步成功';
+          if (response && response.success) {
+            statusDiv.textContent = '✅ 同步成功';
+          } else {
+            const errorMsg = response?.error || '未知錯誤';
+            statusDiv.textContent = `❌ ${errorMsg}`;
+          }
+
           setTimeout(() => {
             statusDiv.innerHTML = originalText;
           }, 2000);
@@ -369,7 +375,10 @@ export class Toolbar {
 
   openInNotion() {
     if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
-      window.chrome.runtime.sendMessage({ action: 'openNotionPage' });
+      window.chrome.runtime.sendMessage({
+        action: 'openNotionPage',
+        url: window.location.href,
+      });
     }
   }
 
