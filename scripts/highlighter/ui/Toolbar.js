@@ -112,7 +112,7 @@ export class Toolbar {
     }
 
     if (openBtn) {
-      openBtn.addEventListener('click', () => this.openInNotion());
+      openBtn.addEventListener('click', () => Toolbar.openInNotion());
     }
 
     if (manageBtn) {
@@ -312,7 +312,7 @@ export class Toolbar {
           this.updateHighlightCount();
           this.toggleHighlightList(); // 刷新列表
         },
-        () => this.openInNotion()
+        () => Toolbar.openInNotion()
       );
 
       listContainer.style.display = 'block';
@@ -388,11 +388,11 @@ export class Toolbar {
   }
 
   /**
-   * 在 Notion 中打開
-   * 注意：此方法不使用 this，但需保持為實例方法以便從其他方法調用
+   * 在 Notion 中打開當前頁面
+   * 發送當前頁面 URL 給 background,由 background 查詢對應的 Notion 頁面 URL
+   * @static
    */
-
-  openInNotion() {
+  static openInNotion() {
     if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
       window.chrome.runtime.sendMessage({
         action: 'openNotionPage',

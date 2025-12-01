@@ -33,6 +33,7 @@ describe('background error branches (integration)', () => {
     const onMessage = createEvent();
     const onInstalled = createEvent();
     const onUpdated = createEvent();
+    const onActivated = createEvent();
 
     const storageData = {};
 
@@ -47,7 +48,9 @@ describe('background error branches (integration)', () => {
       },
       tabs: {
         onUpdated,
-        // 預設返回空，個別測試覆蓋
+        onActivated,
+        get: jest.fn((tabId, cb) => cb?.({ id: tabId, url: 'https://example.com' })),
+        // 預設返回空,個別測試覆蓋
         query: jest.fn((queryInfo, cb) => cb([])),
         create: jest.fn((props, cb) => cb?.({ id: 101, ...props })),
         sendMessage: jest.fn((tabId, msg, cb) => cb?.({ success: true })),
@@ -217,17 +220,28 @@ describe('background error branches (integration)', () => {
   });
 
   test('openNotionPage：tabs.create 失敗（runtime.lastError）→ 返回錯誤', async () => {
+    // 設置已保存的頁面數據
+    const pageUrl = 'https://example.com/article';
+    const savedKey = `saved_${pageUrl}`;
+    await new Promise(resolve =>
+      chrome.storage.local.set(
+        {
+          [savedKey]: {
+            notionPageId: 'page-123',
+            notionUrl: 'https://www.notion.so/page123',
+          },
+        },
+        resolve
+      )
+    );
+
     const sendResponse = jest.fn();
     // 讓 create callback 觸發 lastError
     chrome.tabs.create.mockImplementationOnce((props, cb) => {
       chrome.runtime.lastError = { message: 'Create failed' };
       cb?.();
     });
-    chrome.runtime.onMessage._emit(
-      { action: 'openNotionPage', url: 'https://www.notion.so/page' },
-      {},
-      sendResponse
-    );
+    chrome.runtime.onMessage._emit({ action: 'openNotionPage', url: pageUrl }, {}, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({ success: false, error: 'Create failed' })

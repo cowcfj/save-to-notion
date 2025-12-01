@@ -3726,22 +3726,48 @@ async function showUpdateNotification(previousVersion, currentVersion) {
 /**
  * 處理打開 Notion 頁面的請求
  */
-function handleOpenNotionPage(request, sendResponse) {
+async function handleOpenNotionPage(request, sendResponse) {
   try {
-    const url = request.url;
-    if (!url) {
+    const pageUrl = request.url;
+    if (!pageUrl) {
       sendResponse({ success: false, error: 'No URL provided' });
       return;
     }
 
+    // 標準化 URL
+    const normUrl = normalizeUrl(pageUrl);
+
+    // 查詢已保存的頁面數據
+    const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
+
+    if (!savedData || !savedData.notionPageId) {
+      sendResponse({
+        success: false,
+        error: '此頁面尚未保存到 Notion，請先點擊「保存頁面」',
+      });
+      return;
+    }
+
+    // 獲取或生成 notionUrl
+    let notionUrl = savedData.notionUrl;
+    if (!notionUrl && savedData.notionPageId) {
+      notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
+      Logger.log('🔗 為頁面生成 Notion URL:', notionUrl);
+    }
+
+    if (!notionUrl) {
+      sendResponse({ success: false, error: '無法獲取 Notion 頁面 URL' });
+      return;
+    }
+
     // 在新標籤頁中打開 Notion 頁面
-    chrome.tabs.create({ url }, tab => {
+    chrome.tabs.create({ url: notionUrl }, tab => {
       if (chrome.runtime.lastError) {
         console.error('Failed to open Notion page:', chrome.runtime.lastError);
         sendResponse({ success: false, error: chrome.runtime.lastError.message });
       } else {
-        Logger.log('✅ Opened Notion page in new tab:', url);
-        sendResponse({ success: true, tabId: tab.id });
+        Logger.log('✅ Opened Notion page in new tab:', notionUrl);
+        sendResponse({ success: true, tabId: tab.id, notionUrl });
       }
     });
   } catch (error) {

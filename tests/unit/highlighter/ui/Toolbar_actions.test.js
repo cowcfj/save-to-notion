@@ -132,8 +132,8 @@ describe('Toolbar Actions', () => {
 
   describe('openInNotion', () => {
     test('should send openNotionPage message with current URL', () => {
-      // Just verify it sends *some* URL, since we can't easily mock window.location in JSDOM without issues
-      toolbar.openInNotion();
+      // Call the static method directly
+      Toolbar.openInNotion();
 
       expect(sendMessageMock).toHaveBeenCalledWith(
         expect.objectContaining({
