@@ -3791,6 +3791,10 @@ if (typeof module !== 'undefined' && module.exports) {
     splitTextForHighlight,
     appendBlocksInBatches,
     migrateLegacyHighlights,
+    updateTabStatus,
+    getSavedPageData,
+    ScriptInjector,
+    isRestrictedInjectionUrl,
     _test: {
       imageUrlValidationCache,
       clearCleanupInterval: () => clearInterval(cleanupInterval),
