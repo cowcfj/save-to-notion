@@ -6,7 +6,7 @@
 import { renderHighlightList } from '../../../../../scripts/highlighter/ui/components/HighlightList.js';
 
 describe('HighlightList - XSS 安全性測試', () => {
-  let container;
+  let container = null;
 
   beforeEach(() => {
     container = document.createElement('div');
