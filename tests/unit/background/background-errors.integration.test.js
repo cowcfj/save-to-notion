@@ -17,7 +17,10 @@ function createEvent() {
       listeners.forEach(fn => {
         try {
           fn(...args);
-        } catch (_) {}
+        } catch (_error) {
+          // 刻意忽略監聽器錯誤，確保所有監聽器都能執行
+          // 這模擬了真實 Chrome 事件系統的行為
+        }
       }),
     _listeners: listeners,
   };
