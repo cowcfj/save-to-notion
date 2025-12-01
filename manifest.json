@@ -20,8 +20,7 @@
         "lib/Readability.js",
         "scripts/utils.js",
         "scripts/utils/imageUtils.js",
-        "scripts/seamless-migration.js",
-        "dist/highlighter-v2.bundle.js"
+        "scripts/seamless-migration.js"
       ],
       "run_at": "document_idle",
       "all_frames": false
