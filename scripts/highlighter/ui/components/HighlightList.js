@@ -36,77 +36,85 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     throw new Error('onDelete must be a function');
   }
 
+  // 清空容器
+  container.innerHTML = '';
+
   // 空列表情況
   if (highlights.length === 0) {
-    container.innerHTML = `
-            <div style="padding: 16px; text-align: center; color: #9ca3af; font-size: 13px;">
-                暫無標註
-            </div>
-        `;
+    const emptyDiv = document.createElement('div');
+    emptyDiv.style.cssText = 'padding: 16px; text-align: center; color: #9ca3af; font-size: 13px;';
+    emptyDiv.textContent = '暫無標註';
+    container.appendChild(emptyDiv);
     return;
   }
 
   // 列表標題
-  const headerHtml = `
-        <div class="nh-list-header">
-            <span>標註列表</span>
-            ${
-              onOpenNotion
-                ? '<button id="list-open-notion-v2" class="nh-btn nh-btn-mini">🔗 打開</button>'
-                : ''
-            }
-        </div>
-    `;
+  const headerDiv = document.createElement('div');
+  headerDiv.className = 'nh-list-header';
+
+  const headerSpan = document.createElement('span');
+  headerSpan.textContent = '標註列表';
+  headerDiv.appendChild(headerSpan);
+
+  // 打開 Notion 按鈕（可選）
+  if (onOpenNotion) {
+    const openBtn = document.createElement('button');
+    openBtn.id = 'list-open-notion-v2';
+    openBtn.className = 'nh-btn nh-btn-mini';
+    openBtn.textContent = '🔗 打開';
+    openBtn.addEventListener('click', onOpenNotion);
+    headerDiv.appendChild(openBtn);
+  }
+
+  container.appendChild(headerDiv);
 
   // 標註項目
-  const highlightsHtml = highlights
-    .map((highlight, index) => {
-      // 截斷過長的文本
-      const text = highlight.text.substring(0, 40) + (highlight.text.length > 40 ? '...' : '');
-      const colorName = getColorName(highlight.color);
+  highlights.forEach((highlight, index) => {
+    // 截斷過長的文本
+    const text = highlight.text.substring(0, 40) + (highlight.text.length > 40 ? '...' : '');
+    const colorName = getColorName(highlight.color);
 
-      return `
-            <div class="nh-list-item">
-                <div class="nh-list-content">
-                    <div class="nh-list-title">
-                        ${index + 1}. ${colorName}色標註
-                    </div>
-                    <div class="nh-list-text">
-                        ${text}
-                    </div>
-                </div>
-                <button 
-                    data-highlight-id="${highlight.id}"
-                    class="nh-btn-delete"
-                    title="刪除此標註"
-                >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M1 3H13M2.5 3L3.5 12C3.5 12.5523 3.94772 13 4.5 13H9.5C10.0523 13 10.5 12.5523 10.5 12L11.5 3M5 1V3M9 1V3M5 6V10M9 6V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-            </div>
-        `;
-    })
-    .join('');
+    // 創建項目容器
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'nh-list-item';
 
-  // 組合 HTML
-  container.innerHTML = headerHtml + highlightsHtml;
+    // 創建內容區域
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'nh-list-content';
 
-  // 綁定刪除事件
-  container.querySelectorAll('.nh-btn-delete').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-highlight-id');
-      if (id) {
-        onDelete(id);
-      }
+    // 標題
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'nh-list-title';
+    titleDiv.textContent = `${index + 1}. ${colorName}色標註`;
+
+    // 文本內容（使用 textContent 防止 XSS）
+    const textDiv = document.createElement('div');
+    textDiv.className = 'nh-list-text';
+    textDiv.textContent = text;
+
+    contentDiv.appendChild(titleDiv);
+    contentDiv.appendChild(textDiv);
+
+    // 刪除按鈕
+    const deleteBtn = document.createElement('button');
+    deleteBtn.setAttribute('data-highlight-id', highlight.id);
+    deleteBtn.className = 'nh-btn-delete';
+    deleteBtn.title = '刪除此標註';
+
+    // SVG 圖標（靜態內容，安全使用 innerHTML）
+    deleteBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1 3H13M2.5 3L3.5 12C3.5 12.5523 3.94772 13 4.5 13H9.5C10.0523 13 10.5 12.5523 10.5 12L11.5 3M5 1V3M9 1V3M5 6V10M9 6V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
+
+    // 綁定刪除事件
+    deleteBtn.addEventListener('click', () => {
+      onDelete(highlight.id);
     });
-  });
 
-  // 綁定打開 Notion 按鈕（如果存在）
-  if (onOpenNotion) {
-    const openBtn = container.querySelector('#list-open-notion-v2');
-    if (openBtn) {
-      openBtn.addEventListener('click', onOpenNotion);
-    }
-  }
+    itemDiv.appendChild(contentDiv);
+    itemDiv.appendChild(deleteBtn);
+    container.appendChild(itemDiv);
+  });
 }
