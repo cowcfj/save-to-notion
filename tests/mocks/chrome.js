@@ -44,7 +44,7 @@ const chrome = {
         }
         return Promise.resolve();
       }),
-      clear: jest.fn((callback) => {
+      clear: jest.fn(callback => {
         Object.keys(storageData).forEach(key => {
           delete storageData[key];
         });
@@ -59,7 +59,7 @@ const chrome = {
           callback(size);
         }
         return Promise.resolve(size);
-      })
+      }),
     },
     sync: {
       get: jest.fn((keys, callback) => {
@@ -98,10 +98,10 @@ const chrome = {
           callback();
         }
         return Promise.resolve();
-      })
-    }
+      }),
+    },
   },
-  
+
   runtime: {
     lastError: null,
     sendMessage: jest.fn((message, callback) => {
@@ -113,28 +113,30 @@ const chrome = {
     onMessage: {
       addListener: jest.fn(),
       removeListener: jest.fn(),
-      hasListener: jest.fn()
+      hasListener: jest.fn(),
     },
     onInstalled: {
       addListener: jest.fn(),
-      removeListener: jest.fn()
+      removeListener: jest.fn(),
     },
-    getURL: jest.fn((path) => `chrome-extension://mock-id/${path}`),
+    getURL: jest.fn(path => `chrome-extension://mock-id/${path}`),
     getManifest: jest.fn(() => ({
       version: '2.7.3',
-      name: 'Notion Smart Clipper'
+      name: 'Notion Smart Clipper',
     })),
-    id: 'mock-extension-id'
+    id: 'mock-extension-id',
   },
-  
+
   tabs: {
     query: jest.fn((queryInfo, callback) => {
-      const tabs = [{ 
-        id: 1, 
-        url: 'https://example.com',
-        title: 'Example',
-        active: true
-      }];
+      const tabs = [
+        {
+          id: 1,
+          url: 'https://example.com',
+          title: 'Example',
+          active: true,
+        },
+      ];
       if (callback) {
         callback(tabs);
       }
@@ -147,9 +149,9 @@ const chrome = {
       return Promise.resolve({ success: true });
     }),
     create: jest.fn((createProperties, callback) => {
-      const tab = { 
+      const tab = {
         id: Math.floor(Math.random() * 10000),
-        ...createProperties
+        ...createProperties,
       };
       if (callback) {
         callback(tab);
@@ -158,23 +160,31 @@ const chrome = {
     }),
     onUpdated: {
       addListener: jest.fn(),
-      removeListener: jest.fn()
+      removeListener: jest.fn(),
+    },
+    onActivated: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
     },
     onRemoved: {
       addListener: jest.fn(),
-      removeListener: jest.fn()
-    }
+      removeListener: jest.fn(),
+    },
   },
-  
+
   action: {
     setBadgeText: jest.fn((details, callback) => {
-      if (callback) callback();
+      if (callback) {
+        callback();
+      }
       return Promise.resolve();
     }),
     setBadgeBackgroundColor: jest.fn((details, callback) => {
-      if (callback) callback();
+      if (callback) {
+        callback();
+      }
       return Promise.resolve();
-    })
+    }),
   },
 
   // 輔助方法：清理存儲數據（測試用）
@@ -183,9 +193,9 @@ const chrome = {
       delete storageData[key];
     });
   },
-  
+
   // 輔助方法：獲取存儲數據（測試用）
-  _getStorage: () => ({ ...storageData })
+  _getStorage: () => ({ ...storageData }),
 };
 
 global.chrome = chrome;
