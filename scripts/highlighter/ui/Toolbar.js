@@ -181,7 +181,7 @@ export class Toolbar {
         // 如果列表是打開的，刷新列表
         const listContainer = this.container.querySelector('#highlight-list-v2');
         if (listContainer && listContainer.style.display !== 'none') {
-          this.toggleHighlightList();
+          this.refreshHighlightList();
         }
       }
     };
@@ -310,13 +310,42 @@ export class Toolbar {
         id => {
           this.manager.removeHighlight(id);
           this.updateHighlightCount();
-          this.toggleHighlightList(); // 刷新列表
+          this.refreshHighlightList(); // 刷新列表
         },
         () => Toolbar.openInNotion()
       );
 
       listContainer.style.display = 'block';
     }
+  }
+
+  /**
+   * 刷新標註列表（僅在列表可見時）
+   */
+  refreshHighlightList() {
+    const listContainer = this.container.querySelector('#highlight-list-v2');
+
+    if (!listContainer) {
+      return;
+    }
+
+    // 僅在列表可見時刷新
+    if (listContainer.style.display === 'none') {
+      return;
+    }
+
+    const highlights = Array.from(this.manager.highlights.values());
+
+    renderHighlightList(
+      listContainer,
+      highlights,
+      id => {
+        this.manager.removeHighlight(id);
+        this.updateHighlightCount();
+        this.refreshHighlightList(); // 刷新列表
+      },
+      () => Toolbar.openInNotion()
+    );
   }
 
   /**

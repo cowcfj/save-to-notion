@@ -115,14 +115,14 @@ describe('Background State Updates', () => {
 
   test('updateTabStatus should clear badge when page is not saved', async () => {
     const tabId = 123;
-    const _url = 'https://example.com/unsaved';
+    const url = 'https://example.com/unsaved';
 
     // Mock storage data (empty)
     chrome.storage.local.get.mockImplementation((keys, callback) => {
       callback({});
     });
 
-    await updateTabStatus(tabId, _url);
+    await updateTabStatus(tabId, url);
 
     // Verify badge cleared
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId });
