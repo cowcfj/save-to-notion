@@ -30,7 +30,9 @@ describe('utils.js - 錯誤處理邊界測試', () => {
   describe('debugListAllKeys 錯誤處理', () => {
     test('應該處理 chrome.storage.local.get 拋出異常', async () => {
       // 使用輔助工具模擬存儲錯誤
-      TestEnvironmentHelper.simulateStorageError(TEST_CONSTANTS.ERROR_MESSAGES.STORAGE_ACCESS_DENIED);
+      TestEnvironmentHelper.simulateStorageError(
+        TEST_CONSTANTS.ERROR_MESSAGES.STORAGE_ACCESS_DENIED
+      );
 
       // 應該返回空數組而不拋出錯誤
       const result = await utils.StorageUtil.debugListAllKeys();
@@ -72,7 +74,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       global.chrome.storage.local.get = jest.fn((keys, callback) => {
         // 先調用回調
         callback({
-          [highlightKey]: TEST_CONSTANTS.generateTestData(1)
+          [highlightKey]: TEST_CONSTANTS.generateTestData(1),
         });
         // 然後拋出異常
         throw new Error(TEST_CONSTANTS.ERROR_MESSAGES.POST_CALLBACK_ERROR);
@@ -85,7 +87,10 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('應該處理數據格式異常', async () => {
       // 使用常數生成測試數據
-      const exampleKey = TEST_CONSTANTS.generateStorageKey('highlights', TEST_CONSTANTS.URLS.EXAMPLE);
+      const exampleKey = TEST_CONSTANTS.generateStorageKey(
+        'highlights',
+        TEST_CONSTANTS.URLS.EXAMPLE
+      );
       const testKey = TEST_CONSTANTS.generateStorageKey('highlights', TEST_CONSTANTS.URLS.TEST);
       const demoKey = TEST_CONSTANTS.generateStorageKey('highlights', TEST_CONSTANTS.URLS.DEMO);
 
@@ -95,7 +100,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
           [exampleKey]: TEST_CONSTANTS.TEST_DATA.INVALID_DATA_FORMAT,
           [testKey]: null,
           [demoKey]: undefined,
-          'other_key': 'should_be_ignored'
+          other_key: 'should_be_ignored',
         });
       });
 
@@ -111,7 +116,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
       global.chrome.storage.local.get = jest.fn((keys, callback) => {
         callback({
-          'highlights_https://example.com': [{ text: 'test' }]
+          'highlights_https://example.com': [{ text: 'test' }],
         });
       });
 
@@ -132,7 +137,9 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
       // 應該只返回 highlights 鍵
       expect(result).toHaveLength(TEST_CONSTANTS.TEST_SIZES.LARGE);
-      expect(result.every(key => key.startsWith(TEST_CONSTANTS.STORAGE_KEYS.HIGHLIGHTS_PREFIX))).toBe(true);
+      expect(
+        result.every(key => key.startsWith(TEST_CONSTANTS.STORAGE_KEYS.HIGHLIGHTS_PREFIX))
+      ).toBe(true);
     });
   });
 
@@ -142,7 +149,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       delete global.ErrorHandler;
 
       // 測試無效 URL
-      const invalidUrl = TEST_CONSTANTS.URLS.INVALID;
+      const invalidUrl = 'http://';
       const result = utils.normalizeUrl(invalidUrl);
 
       // 應該返回原始輸入而不拋出錯誤
@@ -153,7 +160,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
         `[ERROR] ${TEST_CONSTANTS.LOG_PREFIXES.ERROR} [normalizeUrl] 標準化失敗:`,
         expect.objectContaining({
           name: 'TypeError',
-          message: expect.stringContaining('Invalid URL')
+          message: expect.stringContaining('Invalid URL'),
         })
       );
     });
@@ -161,7 +168,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
     test('應該處理 ErrorHandler 存在但拋出異常的情況', () => {
       // 實際的 normalizeUrl 不使用 ErrorHandler，這個測試應該測試實際行為
       // 測試無效 URL 的處理
-      const invalidUrl = TEST_CONSTANTS.URLS.INVALID;
+      const invalidUrl = 'http://';
       const result = utils.normalizeUrl(invalidUrl);
 
       // 應該返回原始輸入
@@ -172,7 +179,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
         `[ERROR] ${TEST_CONSTANTS.LOG_PREFIXES.ERROR} [normalizeUrl] 標準化失敗:`,
         expect.objectContaining({
           name: 'TypeError',
-          message: expect.stringContaining('Invalid URL')
+          message: expect.stringContaining('Invalid URL'),
         })
       );
     });
@@ -245,7 +252,9 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('clearHighlights 應該處理所有存儲都失敗的情況', async () => {
       // 模擬所有存儲都失敗
-      TestEnvironmentHelper.simulateRuntimeError(TEST_CONSTANTS.ERROR_MESSAGES.CHROME_STORAGE_ERROR);
+      TestEnvironmentHelper.simulateRuntimeError(
+        TEST_CONSTANTS.ERROR_MESSAGES.CHROME_STORAGE_ERROR
+      );
       global.chrome.storage.local.remove = jest.fn((keys, callback) => {
         callback();
       });
@@ -274,7 +283,9 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test('saveHighlights 應該處理 chrome.storage 和 localStorage 都失敗', async () => {
       // 模擬 chrome.storage 失敗
-      TestEnvironmentHelper.simulateRuntimeError(TEST_CONSTANTS.ERROR_MESSAGES.STORAGE_QUOTA_EXCEEDED);
+      TestEnvironmentHelper.simulateRuntimeError(
+        TEST_CONSTANTS.ERROR_MESSAGES.STORAGE_QUOTA_EXCEEDED
+      );
       global.chrome.storage.local.set = jest.fn((items, callback) => {
         callback();
       });
@@ -288,7 +299,10 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       try {
         const testData = TEST_CONSTANTS.generateTestData(1);
         // saveHighlights 實際上不會拋出錯誤，而是記錄錯誤並繼續
-        const result = await utils.StorageUtil.saveHighlights(TEST_CONSTANTS.URLS.EXAMPLE, testData);
+        const result = await utils.StorageUtil.saveHighlights(
+          TEST_CONSTANTS.URLS.EXAMPLE,
+          testData
+        );
 
         // 驗證函數執行完成，不拋出異常
         expect(result).toBeUndefined();
@@ -394,7 +408,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test.each([
       ['warn', 'test warn message'],
-      ['error', 'test error message']
+      ['error', 'test error message'],
     ])('應該正確調用 %s 方法', (method, message) => {
       const spy = jest.spyOn(global.console, method).mockImplementation(jest.fn());
 
@@ -407,7 +421,7 @@ describe('utils.js - 錯誤處理邊界測試', () => {
 
     test.each([
       ['debug', 'test debug message'],
-      ['info', 'test info message']
+      ['info', 'test info message'],
     ])('應該在開發模式下正確調用 %s 方法', (method, message) => {
       // 設置開發模式
       global.window.__FORCE_LOG__ = true;
