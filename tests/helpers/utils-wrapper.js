@@ -8,8 +8,8 @@ if (typeof window === 'undefined') {
   global.window = {
     StorageUtil: undefined,
     location: {
-      href: 'https://example.com'
-    }
+      href: 'https://example.com',
+    },
   };
 }
 
@@ -31,14 +31,14 @@ const sandbox = {
   URL: global.URL || require('url').URL,
   // 導出這些函數供測試使用
   normalizeUrl: undefined,
-  StorageUtil: undefined
+  StorageUtil: undefined,
 };
 
 // 在沙箱中執行代碼
 vm.createContext(sandbox);
 
 // 修改 utils.js 代碼，在結尾添加導出
-const modifiedCode = utilsCode + `
+const modifiedCode = `${utilsCode}
 // 測試環境導出
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -51,7 +51,7 @@ if (typeof module !== 'undefined' && module.exports) {
 try {
   vm.runInContext(modifiedCode, sandbox, {
     filename: 'utils.js',
-    displayErrors: true
+    displayErrors: true,
   });
 } catch (error) {
   console.error('Failed to execute utils.js:', error);
@@ -60,5 +60,5 @@ try {
 // 導出函數
 module.exports = {
   normalizeUrl: sandbox.normalizeUrl || global.normalizeUrl,
-  StorageUtil: sandbox.window.StorageUtil || global.window.StorageUtil
+  StorageUtil: sandbox.window.StorageUtil || global.window.StorageUtil,
 };
