@@ -506,8 +506,8 @@ function withRetry(operation, options = {}) {
  * @returns {Promise<Response>} fetch 響應
  */
 function fetchWithRetry(url, options = {}, retryOptions = {}) {
-  const retryManager = new RetryManager(retryOptions);
-  return retryManager.wrapFetch(fetch)(url, options);
+  const retryManager = new RetryManager();
+  return retryManager.wrapFetch(fetch, retryOptions)(url, options);
 }
 
 // 導出類和函數
