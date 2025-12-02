@@ -129,7 +129,7 @@ describe('Highlighter Integration Tests', () => {
 
     describe('setupHighlighter', () => {
         test('should setup window.HighlighterV2', () => {
-            const manager = setupHighlighter();
+            const { manager } = setupHighlighter();
 
             expect(window.HighlighterV2).toBeDefined();
             expect(window.HighlighterV2.manager).toBe(manager);

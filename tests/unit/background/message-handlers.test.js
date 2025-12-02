@@ -28,7 +28,7 @@ describe('Background Message Handlers', () => {
       const mockTab = {
         id: 1,
         url: 'https://example.com/article',
-        title: 'Test Article'
+        title: 'Test Article',
       };
 
       chrome.tabs.query.mockImplementation((queryInfo, callback) => {
@@ -54,19 +54,19 @@ describe('Background Message Handlers', () => {
       const mockTab = {
         id: 1,
         url: 'https://example.com/article',
-        title: 'Test Article'
+        title: 'Test Article',
       };
 
       const savedData = {
         notionPageId: 'page-123',
         notionUrl: 'https://notion.so/page123',
-        savedAt: Date.now()
+        savedAt: Date.now(),
       };
 
       // 保存數據到存儲
       const normalizedUrl = 'https://example.com/article';
       await chrome.storage.local.set({
-        [`page_${normalizedUrl}`]: savedData
+        [`page_${normalizedUrl}`]: savedData,
       });
 
       chrome.tabs.query.mockImplementation((queryInfo, callback) => {
@@ -106,7 +106,7 @@ describe('Background Message Handlers', () => {
       // Arrange
       const mockTab = {
         id: 1,
-        url: 'https://example.com/article'
+        url: 'https://example.com/article',
       };
 
       chrome.tabs.query.mockImplementation((queryInfo, callback) => {
@@ -149,24 +149,24 @@ describe('Background Message Handlers', () => {
       const mockTab = {
         id: 1,
         url: 'https://example.com/article',
-        title: 'Test Article'
+        title: 'Test Article',
       };
 
       const savedData = {
         notionPageId: 'page-123',
-        notionUrl: 'https://notion.so/page123'
+        notionUrl: 'https://notion.so/page123',
       };
 
       const highlights = [
         { text: '測試標註 1', color: 'yellow' },
-        { text: '測試標註 2', color: 'green' }
+        { text: '測試標註 2', color: 'green' },
       ];
 
       // 設置存儲數據
       const normalizedUrl = 'https://example.com/article';
       await chrome.storage.local.set({
         [`page_${normalizedUrl}`]: savedData,
-        notionApiKey: 'secret_test_key'
+        notionApiKey: 'secret_test_key',
       });
 
       chrome.tabs.query.mockImplementation((queryInfo, callback) => {
@@ -178,13 +178,13 @@ describe('Background Message Handlers', () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ object: 'block', id: 'block-123' })
+        json: () => Promise.resolve({ object: 'block', id: 'block-123' }),
       });
 
       // Act
       const request = {
         action: 'syncHighlights',
-        highlights
+        highlights,
       };
       const response = await simulateMessageHandler(request);
 
@@ -197,11 +197,11 @@ describe('Background Message Handlers', () => {
       // Arrange
       const mockTab = {
         id: 1,
-        url: 'https://example.com/article'
+        url: 'https://example.com/article',
       };
 
       await chrome.storage.local.set({
-        notionApiKey: 'secret_test_key'
+        notionApiKey: 'secret_test_key',
       });
 
       chrome.tabs.query.mockImplementation((queryInfo, callback) => {
@@ -212,7 +212,7 @@ describe('Background Message Handlers', () => {
       // Act
       const request = {
         action: 'syncHighlights',
-        highlights: [{ text: '測試', color: 'yellow' }]
+        highlights: [{ text: '測試', color: 'yellow' }],
       };
       const response = await simulateMessageHandler(request);
 
@@ -225,7 +225,7 @@ describe('Background Message Handlers', () => {
       // Arrange
       const mockTab = {
         id: 1,
-        url: 'https://example.com/article'
+        url: 'https://example.com/article',
       };
 
       chrome.tabs.query.mockImplementation((queryInfo, callback) => {
@@ -236,7 +236,7 @@ describe('Background Message Handlers', () => {
       // Act
       const request = {
         action: 'syncHighlights',
-        highlights: [{ text: '測試', color: 'yellow' }]
+        highlights: [{ text: '測試', color: 'yellow' }],
       };
       const response = await simulateMessageHandler(request);
 
@@ -249,17 +249,17 @@ describe('Background Message Handlers', () => {
       // Arrange
       const mockTab = {
         id: 1,
-        url: 'https://example.com/article'
+        url: 'https://example.com/article',
       };
 
       const savedData = {
-        notionPageId: 'page-123'
+        notionPageId: 'page-123',
       };
 
       const normalizedUrl = 'https://example.com/article';
       await chrome.storage.local.set({
         [`page_${normalizedUrl}`]: savedData,
-        notionApiKey: 'secret_test_key'
+        notionApiKey: 'secret_test_key',
       });
 
       chrome.tabs.query.mockImplementation((queryInfo, callback) => {
@@ -270,7 +270,7 @@ describe('Background Message Handlers', () => {
       // Act
       const request = {
         action: 'syncHighlights',
-        highlights: []
+        highlights: [],
       };
       const response = await simulateMessageHandler(request);
 
@@ -286,17 +286,17 @@ describe('Background Message Handlers', () => {
       // Arrange
       const mockTab = {
         id: 1,
-        url: 'https://example.com/article'
+        url: 'https://example.com/article',
       };
 
       const savedData = {
-        notionPageId: 'page-123'
+        notionPageId: 'page-123',
       };
 
       const normalizedUrl = 'https://example.com/article';
       await chrome.storage.local.set({
         [`page_${normalizedUrl}`]: savedData,
-        notionApiKey: 'secret_test_key'
+        notionApiKey: 'secret_test_key',
       });
 
       chrome.tabs.query.mockImplementation((queryInfo, callback) => {
@@ -308,7 +308,7 @@ describe('Background Message Handlers', () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ object: 'block' })
+        json: () => Promise.resolve({ object: 'block' }),
       });
 
       // Act
@@ -323,11 +323,11 @@ describe('Background Message Handlers', () => {
       // Arrange
       const mockTab = {
         id: 1,
-        url: 'https://example.com/article'
+        url: 'https://example.com/article',
       };
 
       await chrome.storage.local.set({
-        notionApiKey: 'secret_test_key'
+        notionApiKey: 'secret_test_key',
       });
 
       chrome.tabs.query.mockImplementation((queryInfo, callback) => {
@@ -346,34 +346,57 @@ describe('Background Message Handlers', () => {
   });
 
   describe('openNotionPage 消息', () => {
-    it('應該打開 Notion 頁面', async () => {
+    it('應該打開已保存頁面的 Notion URL', async () => {
       // Arrange
+      const currentUrl = 'https://example.com/article';
       const notionUrl = 'https://notion.so/page123';
+
+      // 設置已保存的頁面數據
+      await chrome.storage.local.set({
+        [`saved_${currentUrl}`]: {
+          notionPageId: 'page-123',
+          notionUrl,
+          savedAt: Date.now(),
+        },
+      });
 
       chrome.tabs.create.mockImplementation((createProperties, callback) => {
         const tab = { id: 2, url: createProperties.url };
-        if (callback) callback(tab);
+        if (callback) {
+          callback(tab);
+        }
         return Promise.resolve(tab);
       });
 
       // Act
       const request = {
         action: 'openNotionPage',
-        notionUrl
+        url: currentUrl, // 發送當前頁面 URL
       };
       const response = await simulateMessageHandler(request);
 
       // Assert
       expect(response.success).toBe(true);
-      expect(chrome.tabs.create).toHaveBeenCalled();
-      const callArgs = chrome.tabs.create.mock.calls[0];
-      expect(callArgs[0]).toEqual({ url: notionUrl });
+      expect(chrome.tabs.create).toHaveBeenCalledWith({ url: notionUrl }, expect.any(Function));
+    });
+
+    it('應該處理頁面未保存的錯誤', async () => {
+      // Act
+      const request = {
+        action: 'openNotionPage',
+        url: 'https://example.com/not-saved',
+      };
+      const response = await simulateMessageHandler(request);
+
+      // Assert
+      expect(response.success).toBe(false);
+      expect(response.error).toContain('尚未保存');
     });
 
     it('應該處理缺少 URL 的錯誤', async () => {
       // Act
       const request = {
-        action: 'openNotionPage'
+        action: 'openNotionPage',
       };
       const response = await simulateMessageHandler(request);
 
@@ -435,8 +458,8 @@ describe('Background Message Handlers', () => {
  * 這是一個簡化版本，用於測試消息處理邏輯
  */
 function simulateMessageHandler(request) {
-  return new Promise((resolve) => {
-    const sendResponse = (response) => {
+  return new Promise(resolve => {
+    const sendResponse = response => {
       resolve(response);
     };
 
@@ -471,7 +494,7 @@ function simulateMessageHandler(request) {
  */
 async function handleCheckPageStatusSimulated(sendResponse) {
   try {
-    const tabs = await new Promise((resolve) => {
+    const tabs = await new Promise(resolve => {
       chrome.tabs.query({ active: true, currentWindow: true }, resolve);
     });
     const activeTab = tabs[0];
@@ -483,7 +506,7 @@ async function handleCheckPageStatusSimulated(sendResponse) {
 
     const normUrl = activeTab.url;
     const storageKey = `page_${normUrl}`;
-    const result = await new Promise((resolve) => {
+    const result = await new Promise(resolve => {
       chrome.storage.local.get(storageKey, resolve);
     });
     const savedData = result[storageKey];
@@ -494,14 +517,14 @@ async function handleCheckPageStatusSimulated(sendResponse) {
         isSaved: true,
         url: normUrl,
         title: activeTab.title,
-        notionUrl: savedData.notionUrl || null
+        notionUrl: savedData.notionUrl || null,
       });
     } else {
       sendResponse({
         success: true,
         isSaved: false,
         url: normUrl,
-        title: activeTab.title
+        title: activeTab.title,
       });
     }
   } catch (error) {
@@ -511,7 +534,7 @@ async function handleCheckPageStatusSimulated(sendResponse) {
 
 async function handleStartHighlightSimulated(sendResponse) {
   try {
-    const tabs = await new Promise((resolve) => {
+    const tabs = await new Promise(resolve => {
       chrome.tabs.query({ active: true, currentWindow: true }, resolve);
     });
     const activeTab = tabs[0];
@@ -529,7 +552,7 @@ async function handleStartHighlightSimulated(sendResponse) {
 
 async function handleSyncHighlightsSimulated(request, sendResponse) {
   try {
-    const tabs = await new Promise((resolve) => {
+    const tabs = await new Promise(resolve => {
       chrome.tabs.query({ active: true, currentWindow: true }, resolve);
     });
     const activeTab = tabs[0];
@@ -539,7 +562,7 @@ async function handleSyncHighlightsSimulated(request, sendResponse) {
       return;
     }
 
-    const config = await new Promise((resolve) => {
+    const config = await new Promise(resolve => {
       chrome.storage.local.get('notionApiKey', resolve);
     });
     if (!config.notionApiKey) {
@@ -549,7 +572,7 @@ async function handleSyncHighlightsSimulated(request, sendResponse) {
 
     const normUrl = activeTab.url;
     const storageKey = `page_${normUrl}`;
-    const result = await new Promise((resolve) => {
+    const result = await new Promise(resolve => {
       chrome.storage.local.get(storageKey, resolve);
     });
     const savedData = result[storageKey];
@@ -557,7 +580,7 @@ async function handleSyncHighlightsSimulated(request, sendResponse) {
     if (!savedData || !savedData.notionPageId) {
       sendResponse({
         success: false,
-        error: '頁面尚未保存到 Notion，請先點擊「保存頁面」'
+        error: '頁面尚未保存到 Notion，請先點擊「保存頁面」',
       });
       return;
     }
@@ -567,7 +590,7 @@ async function handleSyncHighlightsSimulated(request, sendResponse) {
       sendResponse({
         success: true,
         message: '沒有新標註需要同步',
-        highlightCount: 0
+        highlightCount: 0,
       });
       return;
     }
@@ -575,7 +598,7 @@ async function handleSyncHighlightsSimulated(request, sendResponse) {
     // 模擬成功同步
     sendResponse({
       success: true,
-      highlightCount: highlights.length
+      highlightCount: highlights.length,
     });
   } catch (error) {
     sendResponse({ success: false, error: error.message });
@@ -584,7 +607,7 @@ async function handleSyncHighlightsSimulated(request, sendResponse) {
 
 async function handleUpdateHighlightsSimulated(sendResponse) {
   try {
-    const tabs = await new Promise((resolve) => {
+    const tabs = await new Promise(resolve => {
       chrome.tabs.query({ active: true, currentWindow: true }, resolve);
     });
     const activeTab = tabs[0];
@@ -594,7 +617,7 @@ async function handleUpdateHighlightsSimulated(sendResponse) {
       return;
     }
 
-    const config = await new Promise((resolve) => {
+    const config = await new Promise(resolve => {
       chrome.storage.local.get('notionApiKey', resolve);
     });
     if (!config.notionApiKey) {
@@ -604,7 +627,7 @@ async function handleUpdateHighlightsSimulated(sendResponse) {
 
     const normUrl = activeTab.url;
     const storageKey = `page_${normUrl}`;
-    const result = await new Promise((resolve) => {
+    const result = await new Promise(resolve => {
       chrome.storage.local.get(storageKey, resolve);
     });
     const savedData = result[storageKey];
@@ -622,15 +645,34 @@ async function handleUpdateHighlightsSimulated(sendResponse) {
 
 async function handleOpenNotionPageSimulated(request, sendResponse) {
   try {
-    if (!request.notionUrl) {
-      sendResponse({ success: false, error: 'Notion URL is required' });
+    const pageUrl = request.url;
+    if (!pageUrl) {
+      sendResponse({ success: false, error: 'No URL provided' });
       return;
     }
 
-    await new Promise((resolve) => {
-      chrome.tabs.create({ url: request.notionUrl }, resolve);
+    // 查詢保存的數據
+    const storageKey = `saved_${pageUrl}`;
+    const result = await new Promise(resolve => {
+      chrome.storage.local.get(storageKey, resolve);
     });
-    sendResponse({ success: true });
+    const savedData = result[storageKey];
+
+    if (!savedData || !savedData.notionPageId) {
+      sendResponse({
+        success: false,
+        error: '此頁面尚未保存到 Notion，請先點擊「保存頁面」',
+      });
+      return;
+    }
+
+    const notionUrl =
+      savedData.notionUrl || `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
+
+    await new Promise(resolve => {
+      chrome.tabs.create({ url: notionUrl }, resolve);
+    });
+    sendResponse({ success: true, notionUrl });
   } catch (error) {
     sendResponse({ success: false, error: error.message });
   }

@@ -36,7 +36,6 @@ export default {
             }
         })
     ].filter(Boolean),  // 過濾掉 false 值（開發環境時 terser 為 false）
-    external: ['chrome'],
     onwarn(warning, warn) {
         // 忽略某些常見警告
         if (warning.code === 'THIS_IS_UNDEFINED') return;
