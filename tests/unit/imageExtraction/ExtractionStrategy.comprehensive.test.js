@@ -321,6 +321,12 @@ describe('ExtractionStrategy - 全面測試', () => {
 
   describe('子類實現示例', () => {
     class TestStrategy extends ExtractionStrategy {
+      constructor() {
+        super();
+        this.strategyName = 'TestStrategy';
+        this.priority = 50;
+      }
+
       extract(imgNode) {
         if (!imgNode) {
           throw new Error('imgNode parameter is required');
@@ -329,14 +335,12 @@ describe('ExtractionStrategy - 全面測試', () => {
         return this._isValidUrl(url) ? url : null;
       }
 
-       
       getName() {
-        return 'TestStrategy';
+        return this.strategyName;
       }
 
-       
       getPriority() {
-        return 50;
+        return this.priority;
       }
     }
 
