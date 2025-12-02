@@ -38,7 +38,7 @@ document.querySelectorAll = dom.window.document.querySelectorAll.bind(dom.window
 const { PerformanceOptimizer } = require('../../helpers/performance.testable');
 
 describe('PerformanceOptimizer', () => {
-  let optimizer;
+  let optimizer = null;
 
   beforeEach(() => {
     optimizer = new PerformanceOptimizer({
