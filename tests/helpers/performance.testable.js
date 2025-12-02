@@ -471,18 +471,14 @@ class PerformanceOptimizer {
    * @returns {Object} 性能統計信息
    */
   getPerformanceStats() {
-    const cacheHitRate =
-      this.cacheStats.hits + this.cacheStats.misses > 0
-        ? ((this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses)) * 100).toFixed(
-            2
-          )
-        : 0;
-
     return {
       cache: {
         size: this.queryCache.size,
         maxSize: this.options.cacheMaxSize,
-        hitRate: `${cacheHitRate}%`,
+        hitRate:
+          this.cacheStats.hits + this.cacheStats.misses > 0
+            ? this.cacheStats.hits / (this.cacheStats.hits + this.cacheStats.misses)
+            : 0,
         prewarmCount: this.prewarmedSelectors.size,
         ...this.cacheStats,
       },
@@ -494,8 +490,8 @@ class PerformanceOptimizer {
       },
       queries: {
         total: this.metrics.domQueries,
-        averageTime: `${this.metrics.averageQueryTime.toFixed(2)}ms`,
-        totalTime: `${this.metrics.totalQueryTime.toFixed(2)}ms`,
+        averageTime: this.metrics.averageQueryTime,
+        totalTime: this.metrics.totalQueryTime,
       },
       metrics: {
         ...this.metrics,
