@@ -143,9 +143,35 @@ function splitTextForHighlight(text, maxLength = 2000) {
 }
 
 /**
- * Normalizes URLs for consistent keys and deduplication
+ * 標準化 URL，用於生成一致的存儲鍵和去重
+ *
+ * ⚠️ 設計限制：本函數僅處理絕對 URL（含協議的完整 URL）。
+ * 相對 URL（如 '/path', '../page'）會原樣返回而不進行標準化。
+ *
+ * Chrome Extension 使用場景：
+ * - tab.url, activeTab.url → 永遠是絕對 URL
+ * - window.location.href → 永遠是絕對 URL
+ *
+ * 處理項目：
+ * - 移除 fragment (hash #)
+ * - 移除追蹤參數 (utm_*, fbclid, gclid, etc.)
+ * - 標準化尾部斜線（保留根路徑 "/"）
+ *
+ * @param {string} rawUrl - 完整的絕對 URL
+ * @returns {string} 標準化後的 URL，相對/無效 URL 返回原始輸入
  */
 function normalizeUrl(rawUrl) {
+  // 輸入驗證
+  if (!rawUrl || typeof rawUrl !== 'string') {
+    return rawUrl || '';
+  }
+
+  // 快速檢查：相對 URL 直接返回（不進行標準化）
+  // Chrome Extension 環境中 tab.url 和 window.location.href 永遠是絕對 URL
+  if (!rawUrl.includes('://')) {
+    return rawUrl;
+  }
+
   try {
     const urlObj = new URL(rawUrl);
     // Drop fragment
