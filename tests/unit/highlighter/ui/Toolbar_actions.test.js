@@ -135,12 +135,12 @@ describe('Toolbar Actions', () => {
       // Call the static method directly
       Toolbar.openInNotion();
 
-      expect(sendMessageMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'openNotionPage',
-          url: expect.any(String),
-        })
-      );
+      // 驗證發送的 URL 是當前頁面的 window.location.href
+      // 在 jsdom 環境中默認是 'http://localhost/'
+      expect(sendMessageMock).toHaveBeenCalledWith({
+        action: 'openNotionPage',
+        url: window.location.href,
+      });
     });
   });
 });
