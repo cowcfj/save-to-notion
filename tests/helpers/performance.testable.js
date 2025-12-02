@@ -112,7 +112,7 @@ class PerformanceOptimizer {
     // 在測試環境中返回基本結果
     // 這裡保留返回 Promise 的行為以與生產版本一致（避免將函式簽名改動影響外部呼叫）
     return Promise.resolve({
-      settings: { ...this.currentSettings },
+      settings: { ...(this.currentSettings || {}) },
       pageAnalysis: { elementCount: 0, imageCount: 0, textLength: 0, complexityScore: 0 },
       systemPerformance: {
         memoryUsage: null,
