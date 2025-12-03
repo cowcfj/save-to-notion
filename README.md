@@ -169,6 +169,9 @@ notion-chrome/
 │   ├── imageExtraction/
 │   ├── performance/
 │   └── utils/
+│       ├── Logger.js      # 🆕 統一日誌系統
+│       ├── utils.js       # 工具函數
+│       └── imageUtils.js  # 圖片處理
 ├── dist/                  # 🆕 構建產物
 │   ├── highlighter-v2.bundle.js      # 壓縮版 (15KB)
 │   └── highlighter-v2.bundle.js.map  # Source map
@@ -254,6 +257,7 @@ vim scripts/highlighter/core/Range.js
   - 位置：`scripts/highlighter/` (ES6 模組)
   - 構建產物：`dist/highlighter-v2.bundle.js` (15KB 壓縮版)
 - **options.js**：設置頁面邏輯，包含搜索式資料來源選擇器
+- **utils/Logger.js**：🆕 統一日誌系統，支持環境感知與調試模式控制
 - **utils.js**：共享工具函數和 URL 處理
 
 ### 構建流程
