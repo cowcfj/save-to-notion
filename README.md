@@ -158,6 +158,7 @@ notion-chrome/
 ├── scripts/               # 核心腳本與子模組
 │   ├── background.js
 │   ├── content.js
+│   ├── utils.js           # 工具函數（文件）
 │   ├── highlighter/       # 🆕 ES6 模組化標註系統
 │   │   ├── index.js       #     入口文件
 │   │   ├── core/          #     核心模組（Range, HighlightManager）
@@ -168,10 +169,11 @@ notion-chrome/
 │   ├── seamless-migration.js
 │   ├── imageExtraction/
 │   ├── performance/
-│   └── utils/
+│   └── utils/             # 工具模組（目錄）
 │       ├── Logger.js      # 🆕 統一日誌系統
-│       ├── utils.js       # 工具函數
-│       └── imageUtils.js  # 圖片處理
+│       ├── imageUtils.js  # 圖片處理
+│       ├── htmlToNotionConverter.js
+│       └── pageComplexityDetector.js
 ├── dist/                  # 🆕 構建產物
 │   ├── highlighter-v2.bundle.js      # 壓縮版 (15KB)
 │   └── highlighter-v2.bundle.js.map  # Source map
@@ -257,8 +259,8 @@ vim scripts/highlighter/core/Range.js
   - 位置：`scripts/highlighter/` (ES6 模組)
   - 構建產物：`dist/highlighter-v2.bundle.js` (15KB 壓縮版)
 - **options.js**：設置頁面邏輯，包含搜索式資料來源選擇器
-- **utils/Logger.js**：🆕 統一日誌系統，支持環境感知與調試模式控制
-- **utils.js**：共享工具函數和 URL 處理
+- **utils.js**：共享工具函數和 URL 處理（`scripts/utils.js` 文件）
+- **utils/Logger.js**：🆕 統一日誌系統，支持環境感知與調試模式控制（`scripts/utils/` 目錄下）
 
 ### 構建流程
 
