@@ -115,3 +115,23 @@ export const TEXT_PROCESSING = {
   MAX_RICH_TEXT_LENGTH: 2000, // Notion rich_text 區塊最大長度
   MIN_SPLIT_RATIO: 0.5, // 文本分割時的最小比例
 };
+
+// ==========================================
+// URL 標準化相關常量
+// ==========================================
+
+export const URL_NORMALIZATION = {
+  TRACKING_PARAMS: [
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_term',
+    'utm_content',
+    'gclid',
+    'fbclid',
+    'mc_cid',
+    'mc_eid',
+    'igshid',
+    'vero_id',
+  ],
+};
