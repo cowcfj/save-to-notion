@@ -1,0 +1,164 @@
+/**
+ * @jest-environment jsdom
+ */
+
+const { domConverter } = require('../../../../scripts/content/converters/DomConverter');
+
+// Mock dependencies
+global.Logger = {
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+
+global.ImageUtils = {
+  extractImageSrc: jest.fn(),
+  cleanImageUrl: jest.fn(url => url),
+  isNotionCompatibleImageUrl: jest.fn(() => true),
+};
+
+global.ErrorHandler = {
+  logError: jest.fn(),
+};
+
+describe('DomConverter', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('Headings', () => {
+    test('should convert H1 to heading_1', () => {
+      const html = '<h1>Title</h1>';
+      const blocks = domConverter.convert(html);
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]).toEqual({
+        object: 'block',
+        type: 'heading_1',
+        heading_1: { rich_text: [{ type: 'text', text: { content: 'Title' } }] },
+      });
+    });
+
+    test('should convert H2 to heading_2', () => {
+      const html = '<h2>Subtitle</h2>';
+      const blocks = domConverter.convert(html);
+      expect(blocks[0].type).toBe('heading_2');
+    });
+
+    test('should convert H3 to heading_3', () => {
+      const html = '<h3>Section</h3>';
+      const blocks = domConverter.convert(html);
+      expect(blocks[0].type).toBe('heading_3');
+    });
+
+    test('should ignore empty headings', () => {
+      const html = '<h1>   </h1>';
+      const blocks = domConverter.convert(html);
+      expect(blocks).toHaveLength(0);
+    });
+  });
+
+  describe('Paragraphs', () => {
+    test('should convert P to paragraph', () => {
+      const html = '<p>Hello World</p>';
+      const blocks = domConverter.convert(html);
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]).toEqual({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: { rich_text: [{ type: 'text', text: { content: 'Hello World' } }] },
+      });
+    });
+
+    test('should ignore empty paragraphs', () => {
+      const html = '<p>   </p>';
+      const blocks = domConverter.convert(html);
+      expect(blocks).toHaveLength(0);
+    });
+
+    test('should detect list-like paragraphs (bullets)', () => {
+      const html = '<p>• Item 1<br>• Item 2</p>';
+      const blocks = domConverter.convert(html);
+      expect(blocks).toHaveLength(2);
+      expect(blocks[0].type).toBe('bulleted_list_item');
+      expect(blocks[0].bulleted_list_item.rich_text[0].text.content).toBe('Item 1');
+      expect(blocks[1].type).toBe('bulleted_list_item');
+      expect(blocks[1].bulleted_list_item.rich_text[0].text.content).toBe('Item 2');
+    });
+
+    test('should detect list-like paragraphs (numbered)', () => {
+      const html = '<p>1. First<br>2. Second</p>';
+      const blocks = domConverter.convert(html);
+      expect(blocks).toHaveLength(2);
+      expect(blocks[0].type).toBe('bulleted_list_item'); // Currently converts to bulleted list
+      expect(blocks[0].bulleted_list_item.rich_text[0].text.content).toBe('First');
+    });
+  });
+
+  describe('Images', () => {
+    test('should convert IMG to image block', () => {
+      const src = 'https://example.com/image.jpg';
+      global.ImageUtils.extractImageSrc.mockReturnValue(src);
+
+      const html = `<img src="${src}" />`;
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]).toEqual({
+        object: 'block',
+        type: 'image',
+        image: {
+          type: 'external',
+          external: { url: src },
+        },
+      });
+    });
+
+    test('should skip duplicate images', () => {
+      const src = 'https://example.com/image.jpg';
+      global.ImageUtils.extractImageSrc.mockReturnValue(src);
+
+      const html = `<img src="${src}" /><img src="${src}" />`;
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1); // Should only have one
+    });
+
+    test('should handle invalid image URLs gracefully', () => {
+      global.ImageUtils.extractImageSrc.mockReturnValue(null);
+      const html = '<img src="" />';
+      const blocks = domConverter.convert(html);
+      expect(blocks).toHaveLength(0);
+    });
+  });
+
+  describe('Lists', () => {
+    test('should convert LI to bulleted_list_item', () => {
+      const html = '<ul><li>Item 1</li><li>Item 2</li></ul>';
+      const blocks = domConverter.convert(html);
+      // UL itself is ignored, children are processed
+      expect(blocks).toHaveLength(2);
+      expect(blocks[0].type).toBe('bulleted_list_item');
+      expect(blocks[1].type).toBe('bulleted_list_item');
+    });
+  });
+
+  describe('Blockquotes', () => {
+    test('should convert BLOCKQUOTE to quote', () => {
+      const html = '<blockquote>Quote text</blockquote>';
+      const blocks = domConverter.convert(html);
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('quote');
+      expect(blocks[0].quote.rich_text[0].text.content).toBe('Quote text');
+    });
+  });
+
+  describe('Nested Structures', () => {
+    test('should flatten nested structures', () => {
+      const html = '<div><h1>Title</h1><p>Text</p></div>';
+      const blocks = domConverter.convert(html);
+      expect(blocks).toHaveLength(2);
+      expect(blocks[0].type).toBe('heading_1');
+      expect(blocks[1].type).toBe('paragraph');
+    });
+  });
+});
