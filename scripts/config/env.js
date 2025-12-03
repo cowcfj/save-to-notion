@@ -13,7 +13,7 @@
  * @returns {boolean} 是否在擴充功能環境中
  */
 export function isExtensionContext() {
-  return typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
+  return Boolean(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
 }
 
 /**
@@ -39,7 +39,7 @@ export function isContentContext() {
  * @returns {boolean} 是否在 Node.js 環境中
  */
 export function isNodeEnvironment() {
-  return typeof module !== 'undefined' && module.exports && typeof window === 'undefined';
+  return Boolean(typeof module !== 'undefined' && module.exports && typeof window === 'undefined');
 }
 
 /**
