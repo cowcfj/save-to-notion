@@ -70,6 +70,7 @@ function cleanImageUrl(url) {
 /**
  * 圖片 URL 驗證配置常量
  */
+// @SYNC-WITH: scripts/config/constants.js
 const IMAGE_VALIDATION_CONFIG = {
   MAX_URL_LENGTH: 2000,
   MAX_CACHE_SIZE: 500, // 降低以減少記憶體使用
@@ -232,6 +233,7 @@ class ImageUrlValidationCache {
 const imageUrlValidationCache = new ImageUrlValidationCache();
 
 // 預編譯正則表達式以提升性能
+// @SYNC-WITH: scripts/config/constants.js
 const HTTP_PROTOCOL_REGEX = /^https?:\/\//i;
 const DATA_PROTOCOL_REGEX = /^data:image\/(?:png|jpg|jpeg|gif|webp|svg\+xml);base64,/i;
 const BLOB_PROTOCOL_REGEX = /^blob:/i;
