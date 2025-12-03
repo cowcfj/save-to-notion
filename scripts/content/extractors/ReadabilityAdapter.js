@@ -6,12 +6,9 @@
  * - 整合內容質量檢查 (isContentGood)
  * - 提供多層 fallback 策略 (Readability → CMS → List)
  * - 統一錯誤處理和日誌記錄
- *
- * 注意: Readability 的實際調用邏輯 (parseArticleWithReadability)
- * 尚未遷移到此模組,仍在 content.js 中。
  */
 
-/* global Logger, PerformanceOptimizer */
+/* global Readability, Logger, PerformanceOptimizer */
 
 /**
  * 安全地查詢 DOM 元素,避免拋出異常
@@ -518,6 +515,149 @@ function extractLargestListFallback() {
   }
 }
 
+/**
+ * 創建優化的文檔副本用於 Readability 解析
+ * 移除廣告、追蹤元素、導航等非內容元素以提高解析質量
+ * @returns {Document|null} 優化後的文檔副本,失敗時返回 null
+ */
+function createOptimizedDocumentClone() {
+  try {
+    Logger.log('🔧 Creating optimized document clone for parsing...');
+
+    // 克隆文檔
+    const clonedDoc = document.cloneNode(true);
+
+    // 性能優化：移除可能影響解析的元素
+    // 移除不必要的元素以減少噪音
+    // @SYNC-WITH: scripts/config/selectors.js (EXCLUSION_SELECTORS)
+    const elementsToRemove = [
+      'script',
+      'style',
+      'link[rel="stylesheet"]',
+      // 廣告和追蹤元素
+      '[class*="ad"]',
+      '[class*="advertisement"]',
+      '[id*="ad"]',
+      '[class*="tracking"]',
+      '[class*="analytics"]',
+      // 導航和側邊欄（通常不包含主要內容）
+      'nav',
+      'aside',
+      '.sidebar',
+      '.navigation',
+      '.menu',
+      // 頁腳和頁眉（除非是文章的一部分）
+      'footer:not(.article-footer)',
+      'header:not(.article-header)',
+      // 社交媒體小部件
+      '[class*="social"]',
+      '[class*="share"]',
+      // 評論區域
+      '.comments',
+      '.comment-section',
+      // 隱藏元素（通常不是內容的一部分）
+      '[style*="display: none"]',
+      '[hidden]',
+    ];
+
+    let removedCount = 0;
+    elementsToRemove.forEach(selector => {
+      try {
+        const elements = clonedDoc.querySelectorAll(selector);
+        elements.forEach(el => {
+          el.remove();
+          removedCount++;
+        });
+      } catch {
+        // 忽略選擇器錯誤，繼續處理其他選擇器
+        Logger.log(`⚠️ Failed to remove elements with selector: ${selector}`);
+      }
+    });
+
+    Logger.log(`🧹 Removed ${removedCount} non-content elements from cloned document`);
+    Logger.log('📄 Optimized document ready for parsing');
+
+    return clonedDoc;
+  } catch (error) {
+    Logger.error('❌ Failed to create optimized document clone:', error);
+    // 回退到簡單克隆
+    try {
+      return document.cloneNode(true);
+    } catch (fallbackError) {
+      Logger.error('❌ Even fallback document cloning failed:', fallbackError);
+      return null;
+    }
+  }
+}
+
+/**
+ * 使用 Readability.js 解析文章內容
+ * 包含性能優化、錯誤處理和邊緣情況處理
+ * @returns {Object} 解析後的文章對象,包含 title 和 content 屬性
+ * @throws {Error} 當 Readability 不可用或解析失敗時拋出錯誤
+ */
+function parseArticleWithReadability() {
+  // 1. 驗證 Readability 依賴項
+  if (typeof Readability === 'undefined') {
+    Logger.error('❌ Readability library is not available');
+    throw new Error('Readability library not loaded');
+  }
+
+  Logger.log('🚀 Starting Readability content parsing...');
+
+  // 2. 性能優化：創建優化的文檔副本
+  const optimizedDocument = createOptimizedDocumentClone();
+  if (!optimizedDocument) {
+    throw new Error('Failed to create optimized document clone');
+  }
+
+  // 3. 執行 Readability 解析
+  let readabilityInstance = null;
+  let parsedArticle = null;
+
+  try {
+    // 診斷：檢查 Readability 是否可用
+    Logger.log('📖 檢查 Readability 可用性...');
+    if (typeof Readability === 'undefined') {
+      throw new Error('Readability 未定義 - 可能是腳本注入順序問題');
+    }
+    Logger.log('✅ Readability 已載入，類型:', typeof Readability);
+
+    Logger.log('📖 Initializing Readability parser...');
+    readabilityInstance = new Readability(optimizedDocument);
+
+    Logger.log('🔍 Parsing document content...');
+    parsedArticle = readabilityInstance.parse();
+
+    Logger.log('✅ Readability parsing completed');
+  } catch (parseError) {
+    Logger.error('❌ Readability parsing failed:', parseError);
+    throw new Error(`Readability parsing error: ${parseError.message}`);
+  }
+
+  // 4. 驗證解析結果
+  if (!parsedArticle) {
+    Logger.warn('⚠️ Readability returned null/undefined result');
+    throw new Error('Readability parsing returned no result');
+  }
+
+  // 5. 驗證基本屬性
+  if (!parsedArticle.content || typeof parsedArticle.content !== 'string') {
+    Logger.warn('⚠️ Readability result missing or invalid content property');
+    throw new Error('Parsed article has no valid content');
+  }
+
+  if (!parsedArticle.title || typeof parsedArticle.title !== 'string') {
+    Logger.warn('⚠️ Readability result missing title, using document title as fallback');
+    parsedArticle.title = document.title || 'Untitled Page';
+  }
+
+  Logger.log(
+    `📊 Parsed article: ${parsedArticle.content.length} chars, title: "${parsedArticle.title}"`
+  );
+  return parsedArticle;
+}
+
 // 導出函數供其他模組使用
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -527,5 +667,7 @@ if (typeof module !== 'undefined' && module.exports) {
     cachedQuery,
     findContentCmsFallback,
     extractLargestListFallback,
+    createOptimizedDocumentClone,
+    parseArticleWithReadability,
   };
 }
