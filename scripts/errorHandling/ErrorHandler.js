@@ -69,9 +69,15 @@ class ErrorHandler {
      * @returns {Object} Logger 實例
      */
     static get logger() {
-        if (typeof Logger !== 'undefined') return Logger;
-        if (typeof window !== 'undefined' && window.Logger) return window.Logger;
-        if (typeof self !== 'undefined' && self.Logger) return self.Logger;
+        if (typeof Logger !== 'undefined') {
+            return Logger;
+        }
+        if (typeof window !== 'undefined' && window.Logger) {
+            return window.Logger;
+        }
+        if (typeof self !== 'undefined' && self.Logger) {
+            return self.Logger;
+        }
         return console;
     }
 

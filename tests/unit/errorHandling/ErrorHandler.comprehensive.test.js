@@ -522,7 +522,7 @@ describe('ErrorHandler - 全面測試', () => {
         });
 
         test('應該傳遞參數', async () => {
-            const asyncFn = jest.fn((a, b) => Promise.resolve(a + b));
+            const asyncFn = jest.fn((num1, num2) => Promise.resolve(num1 + num2));
             const wrappedFn = ErrorHandler.wrapAsync(asyncFn);
 
             const result = await wrappedFn(5, 7);

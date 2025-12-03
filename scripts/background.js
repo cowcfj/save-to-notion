@@ -10,8 +10,8 @@
 // Import unified Logger
 try {
   importScripts('utils/Logger.js');
-} catch (e) {
-  console.error('Failed to import Logger.js:', e);
+} catch (err) {
+  console.error('Failed to import Logger.js:', err);
 }
 
 // ==========================================

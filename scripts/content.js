@@ -1,6 +1,6 @@
 // This script is injected into the active tab.
 
-/* global PerformanceOptimizer, ImageUtils, batchProcess, batchProcessWithRetry, ErrorHandler, chrome, Readability */
+/* global PerformanceOptimizer, ImageUtils, batchProcess, batchProcessWithRetry, ErrorHandler, Readability */
 
 // 開發模式控制（與 background.js 保持一致）
 // Logger and DEBUG_MODE are now provided by scripts/utils/Logger.js
@@ -149,7 +149,7 @@ function isContentGood(article) {
      * 檢查 URL 是否為有效的圖片格式
      */
     function isValidImageUrl(url) {
-        if (!url || typeof url !== 'string') return false;
+        if (!url || typeof url !== 'string') { return false; }
 
         // 檢查緩存
         if (urlValidationCache.has(url)) {
@@ -179,7 +179,7 @@ function isContentGood(article) {
      * @param {Function} createRichText - 創建富文本的輔助函數
      */
     function processNodeToNotionBlock(node, blocks, createRichText) {
-        if (node.nodeType !== 1) return;
+        if (node.nodeType !== 1) { return; }
         const textContent = node.textContent?.trim();
 
         switch (node.nodeName) {
@@ -578,7 +578,7 @@ function isContentGood(article) {
                             allImages.push(img);
                         }
                     });
-                    if (allImages.length >= 5) break; // 找到足夠的圖片就停止
+                    if (allImages.length >= 5) { break; } // 找到足夠的圖片就停止
                 }
             }
         }
@@ -778,9 +778,9 @@ function isContentGood(article) {
                 if (textLength >= MIN_CONTENT_LENGTH) {
                     Logger.log(`✅ CMS content found with selector: ${selector} (${textLength} chars)`);
                     return element.innerHTML;
-                } else {
-                    Logger.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
                 }
+                Logger.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
+
             } else {
                 Logger.log(`❌ No element found with selector: ${selector}`);
             }
@@ -828,9 +828,9 @@ function isContentGood(article) {
                 if (textLength >= MIN_CONTENT_LENGTH) {
                     Logger.log(`✅ Article content found with selector: ${selector} (${textLength} chars)`);
                     return element.innerHTML;
-                } else {
-                    Logger.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
                 }
+                Logger.log(`❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`);
+
             } else {
                 Logger.log(`❌ No element found with selector: ${selector}`);
             }
@@ -880,22 +880,22 @@ function isContentGood(article) {
         if (bestElement) {
             Logger.log(`🎉 Best content found with ${bestElement.textContent.trim().length} characters`);
             return bestElement.innerHTML;
-        } else {
-            Logger.log(`❌ No suitable content found. All ${candidateCount} candidates were too short or scored too low.`);
-
-            // 最後的嘗試：降低標準
-            Logger.log(`🔄 Trying with lower standards (${MIN_CONTENT_LENGTH / 2} chars)...`);
-            for (const el of candidates) {
-                const text = el.textContent?.trim() || '';
-                if (text.length >= MIN_CONTENT_LENGTH / 2) {
-                    Logger.log(`🆘 Emergency fallback: Found content with ${text.length} characters`);
-                    return el.innerHTML;
-                }
-            }
-
-            Logger.log("💥 Complete failure: No content found even with lower standards");
-            return null;
         }
+        Logger.log(`❌ No suitable content found. All ${candidateCount} candidates were too short or scored too low.`);
+
+        // 最後的嘗試：降低標準
+        Logger.log(`🔄 Trying with lower standards (${MIN_CONTENT_LENGTH / 2} chars)...`);
+        for (const el of candidates) {
+            const text = el.textContent?.trim() || '';
+            if (text.length >= MIN_CONTENT_LENGTH / 2) {
+                Logger.log(`🆘 Emergency fallback: Found content with ${text.length} characters`);
+                return el.innerHTML;
+            }
+        }
+
+        Logger.log("💥 Complete failure: No content found even with lower standards");
+        return null;
+
     }
 
     /**
@@ -916,7 +916,7 @@ function isContentGood(article) {
                 const text = container.textContent || '';
                 // 尋找包含多個以 bullet 字元或數字開頭的行的容器
                 const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-                if (lines.length < 4) return false;
+                if (lines.length < 4) { return false; }
 
                 const bulletPattern = /^(?:[-\u{2022}*•·–—►▶✔▪]|\d+[.)])\s+/u;
                 const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
@@ -955,7 +955,7 @@ function isContentGood(article) {
                 Logger.log(`Candidate ${idx + 1}: itemCount=${effectiveItemCount}, textLength=${textLength}, score=${score}, tagName=${candidate.tagName}`);
 
                 // 過濾太短或只有單一項目的容器
-                if (effectiveItemCount < 4) return;
+                if (effectiveItemCount < 4) { return; }
 
                 if (score > bestScore) {
                     bestScore = score;
@@ -1102,7 +1102,7 @@ function isContentGood(article) {
             Logger.warn('ImageUtils not available, using fallback implementations');
             window.ImageUtils = {
                 cleanImageUrl(url) {
-                    if (!url || typeof url !== 'string') return null;
+                    if (!url || typeof url !== 'string') { return null; }
                     try {
                         return new URL(url).href;
                     } catch {
@@ -1111,7 +1111,7 @@ function isContentGood(article) {
                     }
                 },
                 isValidImageUrl(url) {
-                    if (!url || typeof url !== 'string') return false;
+                    if (!url || typeof url !== 'string') { return false; }
                     return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
                 },
                 isNotionCompatibleImageUrl(url) {
@@ -1119,11 +1119,11 @@ function isContentGood(article) {
                     return this.isValidImageUrl(url);
                 },
                 extractImageSrc(imgNode) {
-                    if (!imgNode) return null;
+                    if (!imgNode) { return null; }
                     return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
                 },
                 generateImageCacheKey(imgNode) {
-                    if (!imgNode) return 'null';
+                    if (!imgNode) { return 'null'; }
                     return `${imgNode.getAttribute('src') || ''}|${imgNode.className || ''}`;
                 }
             };
@@ -1386,58 +1386,58 @@ function isContentGood(article) {
 
             if (blocks.length > 0) {
                 return { title: finalTitle, blocks, rawHtml: finalContentHtml };
-            } else {
-                Logger.log("❌ No blocks generated from content");
-                // Return fallback content instead of continuing
-                return {
-                    title: finalTitle || document.title,
-                    blocks: [{
-                        object: 'block',
-                        type: 'paragraph',
-                        paragraph: {
-                            rich_text: [{
-                                type: 'text',
-                                text: { content: 'Content was found but could not be converted to blocks.' }
-                            }]
-                        }
-                    }],
-                    rawHtml: finalContentHtml
-                };
             }
-        } else {
-            Logger.log("❌ Content extraction failed completely");
-            Logger.log("📊 Extraction attempt summary:");
-            Logger.log(`- Readability.js: ${article ? 'Found article but failed quality check' : 'Failed to parse'}`);
-            Logger.log("- CMS Fallback: Failed to find suitable content");
-            Logger.log(`- Page title: "${document.title}"`);
-            Logger.log(`- Page URL: ${window.location.href}`);
-            Logger.log(`- Page text length: ${document.body ? document.body.textContent.length : 0} characters`);
-
-            // 輸出性能統計（如果可用）
-            if (typeof performanceOptimizer !== 'undefined' && performanceOptimizer) {
-                try {
-                    const performanceStats = performanceOptimizer.getPerformanceStats();
-                    Logger.log('🚀 Content.js Performance Stats:', performanceStats);
-                } catch (perfError) {
-                    Logger.warn('Could not get performance stats:', perfError);
-                }
-            }
-
+            Logger.log("❌ No blocks generated from content");
+            // Return fallback content instead of continuing
             return {
-                title: document.title,
+                title: finalTitle || document.title,
                 blocks: [{
                     object: 'block',
                     type: 'paragraph',
                     paragraph: {
                         rich_text: [{
                             type: 'text',
-                            text: { content: 'Could not automatically extract article content.' }
+                            text: { content: 'Content was found but could not be converted to blocks.' }
                         }]
                     }
                 }],
                 rawHtml: finalContentHtml
             };
+
         }
+        Logger.log("❌ Content extraction failed completely");
+        Logger.log("📊 Extraction attempt summary:");
+        Logger.log(`- Readability.js: ${article ? 'Found article but failed quality check' : 'Failed to parse'}`);
+        Logger.log("- CMS Fallback: Failed to find suitable content");
+        Logger.log(`- Page title: "${document.title}"`);
+        Logger.log(`- Page URL: ${window.location.href}`);
+        Logger.log(`- Page text length: ${document.body ? document.body.textContent.length : 0} characters`);
+
+        // 輸出性能統計（如果可用）
+        if (typeof performanceOptimizer !== 'undefined' && performanceOptimizer) {
+            try {
+                const performanceStats = performanceOptimizer.getPerformanceStats();
+                Logger.log('🚀 Content.js Performance Stats:', performanceStats);
+            } catch (perfError) {
+                Logger.warn('Could not get performance stats:', perfError);
+            }
+        }
+
+        return {
+            title: document.title,
+            blocks: [{
+                object: 'block',
+                type: 'paragraph',
+                paragraph: {
+                    rich_text: [{
+                        type: 'text',
+                        text: { content: 'Could not automatically extract article content.' }
+                    }]
+                }
+            }],
+            rawHtml: finalContentHtml
+        };
+
     } catch (error) {
         Logger.error('❌ Critical error in content script:', error);
         Logger.error('Error details:', {
