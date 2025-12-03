@@ -7,24 +7,18 @@
 // DEVELOPMENT MODE CONTROL
 // ==========================================
 
-// 用於控制調試輸出的開發模式標誌
-const DEBUG_MODE = (function () {
-  try {
-    // 可以通過 manifest.json 或其他方式控制
-    return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
-  } catch {
-    // 生產環境中默認關閉調試
-    return false;
-  }
-})();
+// Import unified Logger
+try {
+  importScripts('utils/Logger.js');
+} catch (e) {
+  console.error('Failed to import Logger.js:', e);
+}
 
-// 條件日誌函數
-const Logger = {
-  log: (...args) => DEBUG_MODE && Logger.log(...args),
-  warn: (...args) => console.warn(...args), // 警告總是顯示
-  error: (...args) => console.error(...args), // 錯誤總是顯示
-  info: (...args) => DEBUG_MODE && console.info(...args),
-};
+// ==========================================
+// DEVELOPMENT MODE CONTROL
+// ==========================================
+
+// DEBUG_MODE and Logger are now provided by utils/Logger.js
 
 // ==========================================
 // URL UTILITIES

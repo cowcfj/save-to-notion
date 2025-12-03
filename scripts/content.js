@@ -3,108 +3,8 @@
 /* global PerformanceOptimizer, ImageUtils, batchProcess, batchProcessWithRetry, ErrorHandler, chrome, Readability */
 
 // 開發模式控制（與 background.js 保持一致）
-const DEBUG_MODE = (function() {
-    try {
-        return chrome?.runtime?.getManifest?.()?.version?.includes('dev') || false;
-    } catch {
-        // 生產環境中默認關閉調試，靜默處理初始化錯誤
-        return false;
-    }
-})();
-
-// 改進的日誌系統 - 生產環境安全且性能優化
-const Logger = (() => {
-    // 環境檢測快取（避免重複計算）
-    const isDevMode = DEBUG_MODE;
-    const isProduction = !isDevMode;
-
-    // 日誌級別常量（用於一致性和可維護性）
-    const LOG_LEVELS = {
-        DEBUG: 0,
-        LOG: 1,
-        INFO: 2,
-        WARN: 3,
-        ERROR: 4
-    };
-
-    // 當前日誌級別（基於環境）
-    const currentLevel = isDevMode ? LOG_LEVELS.DEBUG : LOG_LEVELS.WARN;
-
-    // 統一的日誌格式化函數（性能優化：只在需要時格式化）
-    const formatMessage = (level, message, ...args) => {
-        // 生產環境只保留錯誤和警告的基本信息
-        if (isProduction && level < LOG_LEVELS.WARN) {
-            return null;
-        }
-
-        // 開發環境添加時間戳和級別前綴
-        if (isDevMode) {
-            const timestamp = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
-            const levelPrefix = {
-                [LOG_LEVELS.DEBUG]: '🐛 [DEBUG]',
-                [LOG_LEVELS.LOG]: '📝 [LOG]',
-                [LOG_LEVELS.INFO]: 'ℹ️ [INFO]',
-                [LOG_LEVELS.WARN]: '⚠️ [WARN]',
-                [LOG_LEVELS.ERROR]: '❌ [ERROR]'
-            }[level] || '[UNKNOWN]';
-
-            return [`${levelPrefix} ${timestamp}:`, message, ...args];
-        }
-
-        // 生產環境只返回基本消息
-        return [message, ...args];
-    };
-
-    // 安全的控制台方法調用（處理邊緣情況）
-    const safeConsoleCall = (method, ...args) => {
-        try {
-            if (typeof console !== 'undefined' && typeof console[method] === 'function') {
-                console[method](...args);
-            }
-        } catch {
-            // 靜默失敗，避免日誌系統本身造成問題
-            // 在極端情況下甚至 console 都不可用
-        }
-    };
-
-    // 創建日誌方法的工廠函數
-    const createLogMethod = (level, consoleMethod) => {
-        return (...args) => {
-            // 提前檢查級別（性能優化）
-            if (level < currentLevel) {
-                return;
-            }
-
-            // 參數驗證
-            if (!args || args.length === 0) {
-                return;
-            }
-
-            const formatted = formatMessage(level, ...args);
-            if (formatted) {
-                safeConsoleCall(consoleMethod, ...formatted);
-            }
-        };
-    };
-
-    // 返回 Logger 對象
-    return {
-        // 標準日誌級別
-        debug: createLogMethod(LOG_LEVELS.DEBUG, 'debug'),
-        log: createLogMethod(LOG_LEVELS.LOG, 'log'),
-        info: createLogMethod(LOG_LEVELS.INFO, 'info'),
-        warn: createLogMethod(LOG_LEVELS.WARN, 'warn'),
-        error: createLogMethod(LOG_LEVELS.ERROR, 'error'),
-
-        // 向後兼容的別名
-        trace: createLogMethod(LOG_LEVELS.DEBUG, 'debug'),
-
-        // 實用方法
-        isEnabled: (level = LOG_LEVELS.INFO) => level >= currentLevel,
-        getCurrentLevel: () => currentLevel,
-        isDevMode: () => isDevMode
-    };
-})();
+// Logger and DEBUG_MODE are now provided by scripts/utils/Logger.js
+// and exposed globally via window.Logger
 
 // 列表處理的預編譯正則表達式模式（性能優化：避免在循環中重複編譯）
 const LIST_PREFIX_PATTERNS = {
@@ -1182,7 +1082,7 @@ function isContentGood(article) {
                     cacheTTL: 600000    // 10分鐘 TTL
                 });
 
-                                // 使用智能預熱功能
+                // 使用智能預熱功能
                 try {
                     await performanceOptimizer.smartPrewarm(document);
                     Logger.log('✓ PerformanceOptimizer initialized in content script with smart prewarming');

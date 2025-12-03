@@ -1,0 +1,112 @@
+
+> notion-smart-clipper@2.13.1 test
+> jest --config jest.config.js tests/unit/utils.test.js
+
+FAIL tests/unit/utils.test.js
+  ● utils.js › StorageUtil › clearHighlights › 應該清除 chrome.storage 和 localStorage 中的標註
+
+    ReferenceError: safeLogger is not defined
+
+      288 |           const pageKey = `highlights_${normalizedUrl}`;
+      289 |
+    > 290 |           safeLogger.log('🗑️ [clearHighlights] 開始清除標註:', pageKey);
+          |           ^
+      291 |
+      292 |           const results = await Promise.allSettled([
+      293 |             this._clearFromChromeStorage(pageKey),
+
+      at Object.safeLogger [as clearHighlights] (scripts/utils.js:290:11)
+      at Object.clearHighlights (tests/unit/utils.test.js:197:42)
+
+  ● utils.js › StorageUtil › clearHighlights › 應該處理 chrome.storage 不可用的情況
+
+    ReferenceError: safeLogger is not defined
+
+      288 |           const pageKey = `highlights_${normalizedUrl}`;
+      289 |
+    > 290 |           safeLogger.log('🗑️ [clearHighlights] 開始清除標註:', pageKey);
+          |           ^
+      291 |
+      292 |           const results = await Promise.allSettled([
+      293 |             this._clearFromChromeStorage(pageKey),
+
+      at Object.safeLogger [as clearHighlights] (scripts/utils.js:290:11)
+      at Object.clearHighlights (tests/unit/utils.test.js:213:42)
+
+  ● utils.js › Logger › 應該正確記錄 debug 信息（透過背景 sink）
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"action": "devLogSink", "args": ["arg1", "arg2"], "level": "debug", "message": "test message"}, Any<Function>
+
+    Number of calls: 0
+
+      229 |         test('應該正確記錄 debug 信息（透過背景 sink）', () => {
+      230 |             window.Logger.debug('test message', 'arg1', 'arg2');
+    > 231 |             expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+          |                                                    ^
+      232 |                 expect.objectContaining({
+      233 |                     action: 'devLogSink',
+      234 |                     level: 'debug',
+
+      at Object.toHaveBeenCalledWith (tests/unit/utils.test.js:231:52)
+
+  ● utils.js › Logger › 應該正確記錄 info 信息（透過背景 sink）
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"action": "devLogSink", "args": ["arg1"], "level": "info", "message": "test message"}, Any<Function>
+
+    Number of calls: 0
+
+      242 |         test('應該正確記錄 info 信息（透過背景 sink）', () => {
+      243 |             window.Logger.info('test message', 'arg1');
+    > 244 |             expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+          |                                                    ^
+      245 |                 expect.objectContaining({
+      246 |                     action: 'devLogSink',
+      247 |                     level: 'info',
+
+      at Object.toHaveBeenCalledWith (tests/unit/utils.test.js:244:52)
+
+  ● utils.js › Logger › 應該正確記錄 warn 信息（透過背景 sink）
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"action": "devLogSink", "level": "warn", "message": "test message"}, Any<Function>
+
+    Number of calls: 0
+
+      255 |         test('應該正確記錄 warn 信息（透過背景 sink）', () => {
+      256 |             window.Logger.warn('test message');
+    > 257 |             expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+          |                                                    ^
+      258 |                 expect.objectContaining({
+      259 |                     action: 'devLogSink',
+      260 |                     level: 'warn',
+
+      at Object.toHaveBeenCalledWith (tests/unit/utils.test.js:257:52)
+
+  ● utils.js › Logger › 應該正確記錄 error 信息（透過背景 sink）
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"action": "devLogSink", "args": ["error"], "level": "error", "message": "test message"}, Any<Function>
+
+    Number of calls: 0
+
+      267 |         test('應該正確記錄 error 信息（透過背景 sink）', () => {
+      268 |             window.Logger.error('test message', 'error');
+    > 269 |             expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+          |                                                    ^
+      270 |                 expect.objectContaining({
+      271 |                     action: 'devLogSink',
+      272 |                     level: 'error',
+
+      at Object.toHaveBeenCalledWith (tests/unit/utils.test.js:269:52)
+
+Test Suites: 1 failed, 1 total
+Tests:       6 failed, 12 passed, 18 total
+Snapshots:   0 total
+Time:        1.298 s
+Ran all test suites matching /tests\/unit\/utils.test.js/i.

@@ -12,23 +12,24 @@ const mockChrome = {
         }
     },
     runtime: {
+        id: 'mock-extension-id',
         lastError: null,
         sendMessage: jest.fn((payload, callback) => {
             if (typeof callback === 'function') callback();
-        })
+        }),
+        getManifest: jest.fn(() => ({ version_name: 'dev' }))
     }
 };
 
 // 在測試開始前設置全局 chrome 對象
 global.chrome = mockChrome;
 
-// 啟用前端 Logger 的開發模式（讓 debug/info 也會透過背景 sink 發送）
-if (typeof window !== 'undefined') {
-    window.__FORCE_LOG__ = true;
-}
+// 啟用前端 Logger 的開發模式（通過 Manifest mock）
+// window.__FORCE_LOG__ 不再使用
 
 // 重置模塊緩存並重新加載 utils.js
 jest.resetModules();
+require('../../scripts/utils/Logger.js');
 require('../../scripts/utils.js');
 
 describe('utils.js', () => {

@@ -65,6 +65,17 @@ class ErrorHandler {
     }
 
     /**
+     * 獲取 Logger 實例 (安全回退)
+     * @returns {Object} Logger 實例
+     */
+    static get logger() {
+        if (typeof Logger !== 'undefined') return Logger;
+        if (typeof window !== 'undefined' && window.Logger) return window.Logger;
+        if (typeof self !== 'undefined' && self.Logger) return self.Logger;
+        return console;
+    }
+
+    /**
      * 執行操作並處理錯誤，支持回退策略
      * @param {Function} operation - 要執行的操作
      * @param {*} fallback - 回退值或回退函數
@@ -167,16 +178,16 @@ class ErrorHandler {
 
         switch (logLevel) {
             case 'error':
-                console.error(message, originalError);
+                this.logger.error(message, originalError);
                 break;
             case 'warn':
-                console.warn(message, originalError);
+                this.logger.warn(message, originalError);
                 break;
             case 'info':
-                console.info(message, originalError);
+                this.logger.info(message, originalError);
                 break;
             default:
-
+                this.logger.warn(message, originalError);
         }
 
         // 更新錯誤統計
@@ -190,7 +201,7 @@ class ErrorHandler {
      * @param {number} maxAttempts - 最大嘗試次數
      */
     static logRetryAttempt(error, attempt, maxAttempts) {
-        console.warn(`Retry attempt ${attempt}/${maxAttempts}: ${error.message}`);
+        this.logger.warn(`Retry attempt ${attempt}/${maxAttempts}: ${error.message}`);
     }
 
     /**
@@ -298,7 +309,7 @@ class ErrorHandler {
             enableLogging = true
         } = options;
 
-        return function(...args) {
+        return function (...args) {
             return ErrorHandler.withFallback(
                 () => fn.apply(this, args),
                 fallback,
@@ -315,7 +326,7 @@ class ErrorHandler {
      * @returns {Function} 包裝後的異步函數
      */
     static wrapAsync(asyncFn, retryOptions = {}) {
-        return function(...args) {
+        return function (...args) {
             return ErrorHandler.withRetry(
                 () => asyncFn.apply(this, args),
                 retryOptions

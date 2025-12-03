@@ -25,6 +25,19 @@ describe('ErrorHandler - 全面測試', () => {
         console.info = jest.fn();
         console.log = jest.fn();
 
+        // Mock Logger (used by ErrorHandler now)
+        const mockLogger = {
+            error: console.error,
+            warn: console.warn,
+            info: console.info,
+            log: console.log,
+            debug: console.log
+        };
+        global.Logger = mockLogger;
+        if (typeof window !== 'undefined') {
+            window.Logger = mockLogger;
+        }
+
         // 清除錯誤統計
         ErrorHandler.clearErrorStats();
     });

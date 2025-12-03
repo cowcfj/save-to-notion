@@ -34,6 +34,13 @@ describe('content script integration test', () => {
         // Indicate unit testing mode so content.js exposes result to window
         window.__UNIT_TESTING__ = true;
 
+        // Load Logger.js first (content.js depends on it)
+        const loggerPath = path.resolve(__dirname, '../../../scripts/utils/Logger.js');
+        const loggerCode = fs.readFileSync(loggerPath, 'utf8');
+        const loggerEl = window.document.createElement('script');
+        loggerEl.textContent = loggerCode;
+        window.document.body.appendChild(loggerEl);
+
         // Load the script file content and evaluate it in the window
         const scriptPath = path.resolve(__dirname, '../../../scripts/content.js');
         const scriptCode = fs.readFileSync(scriptPath, 'utf8');

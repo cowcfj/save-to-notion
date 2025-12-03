@@ -13,32 +13,7 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
 
   (function () {
     // ===== Module-level utilities (must be at program root) =====
-    /**
-     * 背景日誌轉運器：將日誌發送到 background service worker
-     * @param {string} level - 日誌級別 (log/debug/info/warn/error)
-     * @param {string} message - 日誌訊息
-     * @param {Array} argsArray - 額外參數
-     */
-    function __sendBackgroundLog(level, message, argsArray) {
-      try {
-        // 僅在擴充環境下可用（使用可選鏈）
-        if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
-          const argsSafe = Array.isArray(argsArray) ? argsArray : Array.from(argsArray || []);
-          chrome.runtime.sendMessage(
-            { action: 'devLogSink', level, message, args: argsSafe },
-            () => {
-              // 消費 lastError 以避免未處理錯誤警告（Chrome Extension 要求）
-              // 直接訪問屬性即可消費錯誤，無需額外操作
-              if (chrome?.runtime?.lastError) {
-                // lastError 已被訪問，Chrome 不會拋出警告
-              }
-            }
-          );
-        }
-      } catch (_) {
-        // 忽略背景日誌發送錯誤（瀏覽器端避免直接 console）
-      }
-    }
+    // __sendBackgroundLog moved to Logger.js
 
     /**
      * 標準化 URL，用於生成一致的存儲鍵
@@ -131,166 +106,28 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
       }
     }
 
-    /**
-     * 正規化日誌啟用旗標，避免 'false' 等字串被當成真值
-     * @param {*} value - 任何可被使用者或 storage 設置的值
-     * @returns {boolean}
-     */
-    function normalizeLoggerFlag(value) {
-      if (value === true) {
-        return true;
-      }
-      if (value === false || value === undefined || value === null) {
-        return false;
-      }
-      if (typeof value === 'string') {
-        const normalized = value.trim().toLowerCase();
-        if (normalized === 'true' || normalized === '1') {
-          return true;
-        }
-        if (normalized === 'false' || normalized === '0' || normalized === '') {
-          return false;
-        }
-      }
-      if (typeof value === 'number') {
-        return value === 1;
-      }
-      return false;
-    }
-
-    /**
-     * 檢查是否手動啟用日誌記錄
-     * 檢查 window.__FORCE_LOG__ 或 window.__LOGGER_ENABLED__ 旗標
-     * @returns {boolean} 如果手動啟用日誌則返回 true，否則返回 false
-     */
-    function isManualLoggingEnabled() {
-      if (typeof window === 'undefined') {
-        return false;
-      }
-      return (
-        normalizeLoggerFlag(window.__FORCE_LOG__) || normalizeLoggerFlag(window.__LOGGER_ENABLED__)
-      );
-    }
-
-    /**
-     * 檢查 manifest 版本是否標記為開發版本
-     * 通過檢查 version_name 或 version 字段中是否包含 'dev' 來判斷
-     * 使用閉包緩存結果以提升性能
-     * @returns {boolean} 如果是開發版本則返回 true，否則返回 false
-     */
-    const isManifestMarkedDev = (() => {
-      let cachedResult = null;
-
-      return function () {
-        if (cachedResult !== null) {
-          return cachedResult;
-        }
-
-        try {
-          if (typeof chrome !== 'undefined') {
-            const manifest = chrome?.runtime?.getManifest?.();
-            const versionString = manifest?.version_name || manifest?.version || '';
-            cachedResult = /dev/i.test(versionString);
-            return cachedResult;
-          }
-        } catch (_) {
-          // manifest 讀取失敗時，退回 false
-        }
-
-        cachedResult = false;
-        return false;
-      };
-    })();
-
-    /**
-     * 判斷是否應該輸出開發日誌
-     * 檢查手動啟用旗標或 manifest 開發版本標記
-     * @returns {boolean} 如果應該輸出開發日誌則返回 true，否則返回 false
-     */
-    function shouldEmitDevLog() {
-      return isManualLoggingEnabled() || isManifestMarkedDev();
-    }
-
-    /**
-     * 安全地設置日誌啟用旗標
-     * 使用 normalizeLoggerFlag 正規化輸入值，避免字串 'false' 等被誤判為真值
-     * 設置失敗時靜默處理，不影響主流程
-     * @param {*} value - 要設置的值（任何類型，會被正規化為 boolean）
-     * @returns {void}
-     */
-    function setLoggerEnabledSafely(value) {
-      try {
-        if (typeof window !== 'undefined') {
-          window.__LOGGER_ENABLED__ = normalizeLoggerFlag(value);
-        }
-      } catch (_) {
-        // 初始化設置失敗不應影響主流程
-      }
-    }
+    // Legacy logger helpers removed (moved to Logger.js or deprecated)
 
     // ===== Safe Logger Abstraction =====
-    // 創建一個安全的 Logger 抽象，避免重複的 typeof 檢查
-    const safeLogger = (function initSafeLoggerSingleton() {
-      if (typeof window !== 'undefined' && window.__NOTION_SAFE_LOGGER__) {
-        return window.__NOTION_SAFE_LOGGER__;
-      }
+    // 使用新的統一 Logger 模組
+    // 注意：由於 utils.js 是內容腳本的一部分，我們需要確保 Logger.js 已被注入
+    // 或者在這裡提供一個兼容層，如果 Logger 未定義則回退到 console
 
-      // 檢查是否在瀏覽器環境且有 window.Logger
-      if (typeof window !== 'undefined' && typeof window.Logger !== 'undefined') {
-        window.__NOTION_SAFE_LOGGER__ = window.Logger;
-        return window.Logger;
-      }
-
-      // 返回一個安全的替代 Logger（使用原生 console）
-      const fallbackLogger = {
-        log: () => {
-          /* Intentionally empty for production */
-        }, // 在生產環境不輸出 log
-        debug: () => {
-          /* Intentionally empty for production */
-        },
-        info: () => {
-          /* Intentionally empty for production */
-        },
-        warn: console.warn.bind(console),
-        error: console.error.bind(console),
-      };
-
-      if (typeof window !== 'undefined') {
-        window.__NOTION_SAFE_LOGGER__ = fallbackLogger;
-      }
-
-      return fallbackLogger;
-    })();
-
-    // 初始化可切換的日誌模式旗標（預設 false）；由 options 頁面設定 enableDebugLogs 同步更新
     if (typeof window !== 'undefined') {
-      try {
-        if (typeof window.__LOGGER_ENABLED__ === 'undefined') {
-          window.__LOGGER_ENABLED__ = false;
+      // 如果 window.Logger 已經由 Logger.js 定義，則直接使用
+      // 如果沒有，嘗試加載或定義回退
+      if (!window.Logger) {
+        // 嘗試從全局獲取（如果是在 background）
+        if (typeof self !== 'undefined' && self.Logger) {
+          window.Logger = self.Logger;
+        } else {
+          // 臨時回退，直到 Logger.js 加載完成
+          window.Logger = console;
         }
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-          chrome.storage.sync.get(['enableDebugLogs'], cfg => {
-            setLoggerEnabledSafely(cfg?.enableDebugLogs);
-          });
-          if (
-            chrome.storage.onChanged &&
-            typeof chrome.storage.onChanged.addListener === 'function'
-          ) {
-            chrome.storage.onChanged.addListener((changes, area) => {
-              if (
-                area === 'sync' &&
-                changes &&
-                Object.prototype.hasOwnProperty.call(changes, 'enableDebugLogs')
-              ) {
-                setLoggerEnabledSafely(changes.enableDebugLogs.newValue);
-              }
-            });
-          }
-        }
-      } catch (_) {
-        /* ignore */
       }
+
+      // 暴露給全局，以便其他腳本使用
+      window.__NOTION_SAFE_LOGGER__ = window.Logger;
     }
 
     /**
@@ -442,7 +279,7 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
           // 輸入驗證
           if (!pageUrl || typeof pageUrl !== 'string') {
             const error = new Error('Invalid pageUrl: must be a non-empty string');
-            safeLogger.error('❌ [clearHighlights] 無效的 URL 參數:', error.message);
+            (window.Logger || console).error('❌ [clearHighlights] 無效的 URL 參數:', error.message);
             throw error;
           }
 
@@ -450,7 +287,7 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
           const normalizedUrl = normalizeUrl(pageUrl);
           const pageKey = `highlights_${normalizedUrl}`;
 
-          safeLogger.log('🗑️ [clearHighlights] 開始清除標註:', pageKey);
+          (window.Logger || console).log('🗑️ [clearHighlights] 開始清除標註:', pageKey);
 
           const results = await Promise.allSettled([
             this._clearFromChromeStorage(pageKey),
@@ -462,7 +299,7 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
           if (failures.length === results.length) {
             // 所有清除操作都失敗
             const error = new Error('Failed to clear highlights from all storage locations');
-            safeLogger.error(
+            (window.Logger || console).error(
               '❌ [clearHighlights] 所有存儲清除失敗:',
               failures.map(failure => failure.reason)
             );
@@ -470,12 +307,12 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
           }
 
           if (failures.length > 0) {
-            safeLogger.warn(
+            (window.Logger || console).warn(
               '⚠️ [clearHighlights] 部分存儲清除失敗:',
               failures.map(failure => failure.reason)
             );
           } else {
-            safeLogger.log('✅ [clearHighlights] 標註清除完成');
+            (window.Logger || console).log('✅ [clearHighlights] 標註清除完成');
           }
         },
 
@@ -534,13 +371,13 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
                   const highlightKeys = Object.keys(data || {}).filter(keyName =>
                     keyName.startsWith('highlights_')
                   );
-                  safeLogger.info(`📋 所有標註鍵 (${highlightKeys.length} 個):`);
+                  (window.Logger || console).info(`📋 所有標註鍵 (${highlightKeys.length} 個):`);
                   highlightKeys.forEach(keyName => {
                     const count = Array.isArray(data[keyName])
                       ? data[keyName].length
                       : data[keyName]?.highlights?.length || 0;
                     const url = keyName.replace('highlights_', '');
-                    safeLogger.info(`   ${count} 個標註: ${url}`);
+                    (window.Logger || console).info(`   ${count} 個標註: ${url}`);
                   });
                   resolve(highlightKeys);
                 });
@@ -555,50 +392,8 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
       }; // 結束 window.StorageUtil 定義
     }
 
-    /**
-     * 日誌工具
-     */
-    if (typeof window.Logger === 'undefined') {
-      /**
-       * 檢查是否應該輸出開發日誌的內部函數
-       * 作為 Logger 方法的條件檢查器，決定是否執行日誌輸出
-       * @returns {boolean} 如果應該輸出開發日誌則返回 true，否則返回 false
-       */
-      const __LOGGER_DEV__ = () => shouldEmitDevLog();
-
-      window.Logger = {
-        // 與現有代碼兼容：提供 log 別名（透過 background sink；僅在 dev 時發送）
-        log: (message, ...args) => {
-          if (__LOGGER_DEV__()) {
-            __sendBackgroundLog('log', message, args);
-          }
-        },
-        debug: (message, ...args) => {
-          if (__LOGGER_DEV__()) {
-            __sendBackgroundLog('debug', message, args);
-            console.debug('[DEBUG]', message, ...args);
-          }
-        },
-        info: (message, ...args) => {
-          if (__LOGGER_DEV__()) {
-            __sendBackgroundLog('info', message, args);
-            console.info('[INFO]', message, ...args);
-          }
-        },
-        warn: (message, ...args) => {
-          __sendBackgroundLog('warn', message, args);
-          if (__LOGGER_DEV__()) {
-            console.warn('[WARN]', message, ...args);
-          }
-        },
-        error: (message, ...args) => {
-          __sendBackgroundLog('error', message, args);
-          console.error('[ERROR]', message, ...args);
-        },
-      }; // 結束 window.Logger 定義
-    } else {
-      // Logger 已存在，跳過重複定義
-    }
+    // Logger 定義已移至 scripts/utils/Logger.js
+    // 此處不再重複定義，避免衝突
 
     // 暴露 normalizeUrl 函數
     if (typeof window.normalizeUrl === 'undefined') {
