@@ -7,8 +7,8 @@ jest.mock('../../../../scripts/content/extractors/ReadabilityAdapter', () => ({
   cachedQuery: jest.fn(),
 }));
 
-const { imageCollector } = require('../../../../scripts/content/extractors/ImageCollector');
-const { cachedQuery } = require('../../../../scripts/content/extractors/ReadabilityAdapter');
+import { imageCollector } from '../../../../scripts/content/extractors/ImageCollector.js';
+import { cachedQuery } from '../../../../scripts/content/extractors/ReadabilityAdapter.js';
 
 // Mock Globals
 global.Logger = {

@@ -2,9 +2,9 @@
  * @jest-environment jsdom
  */
 
-const { converterFactory } = require('../../../../scripts/content/converters/ConverterFactory');
-const { domConverter } = require('../../../../scripts/content/converters/DomConverter');
-const { markdownConverter } = require('../../../../scripts/content/converters/MarkdownConverter');
+import { converterFactory } from '../../../../scripts/content/converters/ConverterFactory.js';
+import { domConverter } from '../../../../scripts/content/converters/DomConverter.js';
+import { markdownConverter } from '../../../../scripts/content/converters/MarkdownConverter.js';
 
 // Mock converters
 jest.mock('../../../../scripts/content/converters/DomConverter', () => ({

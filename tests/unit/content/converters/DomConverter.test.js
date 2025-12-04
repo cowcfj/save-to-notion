@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-const { domConverter } = require('../../../../scripts/content/converters/DomConverter');
+import { domConverter } from '../../../../scripts/content/converters/DomConverter.js';
 
 // Mock dependencies
 global.Logger = {

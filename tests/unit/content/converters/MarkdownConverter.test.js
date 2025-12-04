@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-const { markdownConverter } = require('../../../../scripts/content/converters/MarkdownConverter');
+import { markdownConverter } from '../../../../scripts/content/converters/MarkdownConverter.js';
 
 // Mock TurndownService
 class MockTurndownService {

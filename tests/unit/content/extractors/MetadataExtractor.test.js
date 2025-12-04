@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-const { metadataExtractor } = require('../../../../scripts/content/extractors/MetadataExtractor');
+import { metadataExtractor } from '../../../../scripts/content/extractors/MetadataExtractor.js';
 
 describe('MetadataExtractor', () => {
   beforeEach(() => {

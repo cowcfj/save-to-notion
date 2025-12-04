@@ -14,7 +14,7 @@ const Logger = {
 global.Logger = Logger;
 
 // 引用 ReadabilityAdapter 模組
-const { isContentGood } = require('../../../../scripts/content/extractors/ReadabilityAdapter');
+import { isContentGood } from '../../../../scripts/content/extractors/ReadabilityAdapter.js';
 
 describe('ReadabilityAdapter - isContentGood', () => {
   beforeEach(() => {
