@@ -7,7 +7,7 @@ export default {
     input: 'scripts/content/index.js',
     output: {
         file: 'dist/content.bundle.js',
-        format: 'iife',
+        format: 'umd',  // 改為 UMD 格式，自動處理全局變量
         name: 'ContentScript',
         sourcemap: isDev ? 'inline' : true,
         banner: '/* Save to Notion - Content Script */'

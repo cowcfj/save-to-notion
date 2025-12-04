@@ -22,6 +22,9 @@ import { contentExtractor } from './extractors/ContentExtractor.js';
 import { converterFactory } from './converters/ConverterFactory.js';
 import { imageCollector } from './extractors/ImageCollector.js';
 
+// 立即打印日誌證明腳本已加載
+Logger.log('🚀 [Save to Notion] Content Bundle Loaded! Access via extension context.');
+
 /**
  * 主要內容提取函數
  * 此函數會被 background.js 通過 executeScript 調用
@@ -125,3 +128,9 @@ async function extractPageContent() {
 
 // 導出函數供 IIFE 使用
 export { extractPageContent };
+
+// IIFE bundle 會將這個賦值給全局 ContentScript 對象
+// 同時也需要直接暴露到 window 供 background.js 調用
+if (typeof window !== 'undefined') {
+  window.extractPageContent = extractPageContent;
+}
