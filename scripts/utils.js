@@ -34,7 +34,7 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
     if (typeof module !== 'undefined' && typeof require !== 'undefined') {
       try {
         const config = require('./config/constants');
-        if (config.URL_NORMALIZATION && config.URL_NORMALIZATION.TRACKING_PARAMS) {
+        if (config.URL_NORMALIZATION?.TRACKING_PARAMS) {
           TRACKING_PARAMS = config.URL_NORMALIZATION.TRACKING_PARAMS;
         }
       } catch (_err) {

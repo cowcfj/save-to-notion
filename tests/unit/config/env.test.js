@@ -115,7 +115,7 @@ describe('配置模組 - env.js', () => {
 
     test('應處理 null 和 undefined', () => {
       const result1 = selectByEnvironment(null, 'prod');
-      const result2 = selectByEnvironment('dev', undefined);
+      const result2 = selectByEnvironment('dev');
 
       if (isDevelopment()) {
         expect(result1).toBeNull();

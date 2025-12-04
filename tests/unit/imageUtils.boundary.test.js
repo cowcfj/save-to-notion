@@ -135,7 +135,7 @@ describe('imageUtils - 邊界條件測試', () => {
 
     test('應處理 undefined 輸入', () => {
       // 顯式傳遞 undefined 以測試邊界條件，而非省略參數
-      expect(cleanImageUrl(undefined)).toBeNull();
+      expect(cleanImageUrl()).toBeNull();
     });
 
     test('應處理空字符串', () => {
@@ -184,7 +184,7 @@ describe('imageUtils - 邊界條件測試', () => {
 
     test('應處理 undefined 輸入', () => {
       // 顯式傳遞 undefined 以測試邊界條件，而非省略參數
-      expect(extractImageSrc(undefined)).toBeNull();
+      expect(extractImageSrc()).toBeNull();
     });
   });
 
