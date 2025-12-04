@@ -11,6 +11,11 @@
 /* global Logger, ImageUtils, ErrorHandler, batchProcess, batchProcessWithRetry */
 
 import { cachedQuery } from './ReadabilityAdapter.js';
+import {
+  FEATURED_IMAGE_SELECTORS,
+  ARTICLE_SELECTORS,
+  EXCLUSION_SELECTORS,
+} from '../../config/selectors.js';
 
 class ImageCollector {
   /**
@@ -24,38 +29,7 @@ class ImageCollector {
   static collectFeaturedImage() {
     Logger.log('🎯 Attempting to collect featured/hero image...');
 
-    // 常見的封面圖選擇器（按優先級排序）
-    // @SYNC-WITH: scripts/config/selectors.js (FEATURED_IMAGE_SELECTORS)
-    const featuredImageSelectors = [
-      // WordPress 和常見 CMS
-      '.featured-image img',
-      '.hero-image img',
-      '.cover-image img',
-      '.post-thumbnail img',
-      '.entry-thumbnail img',
-      '.wp-post-image',
-
-      // 文章頭部區域
-      '.article-header img',
-      'header.article-header img',
-      '.post-header img',
-      '.entry-header img',
-
-      // 通用特色圖片容器
-      'figure.featured img',
-      'figure.hero img',
-      '[class*="featured"] img:first-of-type',
-      '[class*="hero"] img:first-of-type',
-      '[class*="cover"] img:first-of-type',
-
-      // 文章開頭的第一張圖片
-      'article > figure:first-of-type img',
-      'article > div:first-of-type img',
-      '.article > figure:first-of-type img',
-      '.post > figure:first-of-type img',
-    ];
-
-    for (const selector of featuredImageSelectors) {
+    for (const selector of FEATURED_IMAGE_SELECTORS) {
       try {
         const img = cachedQuery(selector, document, { single: true });
         if (img) {
@@ -208,19 +182,7 @@ class ImageCollector {
     // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
     Logger.log('=== Image Collection Strategy 2: Article Regions ===');
     if (allImages.length < 3) {
-      // @SYNC-WITH: scripts/config/selectors.js (ARTICLE_SELECTORS)
-      const articleSelectors = [
-        'article',
-        'main',
-        '[role="main"]',
-        '.article',
-        '.post',
-        '.entry-content',
-        '.post-content',
-        '.article-content',
-      ];
-
-      for (const selector of articleSelectors) {
+      for (const selector of ARTICLE_SELECTORS) {
         const articleElement = cachedQuery(selector, document, { single: true });
         if (articleElement) {
           const imgElements = cachedQuery('img', articleElement, { all: true });
@@ -244,28 +206,11 @@ class ImageCollector {
     if (allImages.length < 1) {
       Logger.log('Very few images found, attempting selective expansion...');
 
-      // @SYNC-WITH: scripts/config/selectors.js (EXCLUSION_SELECTORS)
-      const excludeSelectors = [
-        'header:not(.article-header):not(.post-header)',
-        'footer',
-        'nav',
-        'aside',
-        '[role="navigation"]',
-        '[role="banner"]',
-        '[role="contentinfo"]',
-        '.sidebar',
-        '.widget',
-        '.comments',
-        '.related',
-        '.advertisement',
-        '.ads',
-      ];
-
       const imgElements = cachedQuery('img', document, { all: true });
       const docImages = Array.from(imgElements);
 
       const filteredImages = docImages.filter(img => {
-        for (const selector of excludeSelectors) {
+        for (const selector of EXCLUSION_SELECTORS) {
           const excludeElements = cachedQuery(selector, document);
           for (const excludeEl of excludeElements) {
             if (excludeEl.contains(img)) {

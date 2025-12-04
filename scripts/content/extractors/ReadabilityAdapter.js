@@ -10,6 +10,9 @@
 
 /* global Readability, Logger, PerformanceOptimizer */
 
+import { CONTENT_QUALITY } from '../../config/constants.js';
+import { CMS_CONTENT_SELECTORS } from '../../config/selectors.js';
+
 /**
  * 安全地查詢 DOM 元素,避免拋出異常
  * @param {Element|Document} container - 要查詢的容器元素
@@ -50,10 +53,7 @@ function safeQueryElements(container, selector) {
  * - 對於以清單為主的文件（如 CLI docs），如果包含 8+ 個 <li> 項目，即使鏈接密度高也視為有效
  */
 function isContentGood(article) {
-  // @SYNC-WITH: scripts/config/constants.js (CONTENT_QUALITY)
-  const MIN_CONTENT_LENGTH = 250;
-  const MAX_LINK_DENSITY = 0.3;
-  const LIST_EXCEPTION_THRESHOLD = 8;
+  const { MIN_CONTENT_LENGTH, MAX_LINK_DENSITY, LIST_EXCEPTION_THRESHOLD } = CONTENT_QUALITY;
 
   // 驗證輸入
   if (!article || !article.content) {
@@ -202,12 +202,6 @@ async function expandCollapsibleElements(timeout = 300) {
 }
 
 /**
- * 內容長度最小值常量
- * @SYNC-WITH: scripts/config/constants.js (CONTENT_QUALITY.MIN_CONTENT_LENGTH)
- */
-const MIN_CONTENT_LENGTH = 250;
-
-/**
  * 便捷的緩存查詢函數
  * @param {string} selector - CSS 選擇器
  * @param {Element|Document} context - 查詢上下文
@@ -250,36 +244,7 @@ function findContentCmsFallback() {
   }
 
   // Strategy 2: Look for WordPress and other CMS patterns
-  // @SYNC-WITH: scripts/config/selectors.js (CMS_CONTENT_SELECTORS)
-  const wordpressSelectors = [
-    '.entry-content',
-    '.post-content',
-    '.article-content',
-    '.content-area',
-    '.single-content',
-    '.main-content',
-    '.page-content',
-    '.content-wrapper',
-    '.article-wrapper',
-    '.post-wrapper',
-    '.content-body',
-    '.article-text',
-    '.post-text',
-    '.content-main',
-    '.article-main',
-    // 移動版常用選擇器
-    '.mobile-content',
-    '.m-content',
-    '.content',
-    '.text-content',
-    '.article-detail',
-    '.post-detail',
-    '.detail-content',
-    '.news-content',
-    '.story-content',
-  ];
-
-  for (const selector of wordpressSelectors) {
+  for (const selector of CMS_CONTENT_SELECTORS) {
     const element = cachedQuery(selector, document, { single: true });
     if (element) {
       const textLength = element.textContent.trim().length;
@@ -529,7 +494,7 @@ function createOptimizedDocumentClone() {
 
     // 性能優化：移除可能影響解析的元素
     // 移除不必要的元素以減少噪音
-    // @SYNC-WITH: scripts/config/selectors.js (EXCLUSION_SELECTORS)
+    // 注意：此選擇器集為文檔克隆清理專用，包含 script/style 等，與 EXCLUSION_SELECTORS 用途不同
     const elementsToRemove = [
       'script',
       'style',
