@@ -4,7 +4,6 @@
 'use strict';
 
 (function () {
-
   // 常數：工具欄隱藏延遲（毫秒）
   const HIDE_TOOLBAR_DELAY_MS = 500; // 與既有行為一致，避免改變 UX 時序
 
@@ -16,7 +15,7 @@
   };
 
   // 在 DOM 就緒後執行，降低初始化時序造成的間歇性失敗
-  const onReady = (fn) => {
+  const onReady = fn => {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => fn(), { once: true });
     } else {
@@ -36,8 +35,8 @@
     try {
       window.initHighlighter();
       log.info('🔧 執行標註恢復腳本');
-    } catch (e) {
-      log.error('❌ 標註初始化過程中出錯:', e);
+    } catch (error) {
+      log.error('❌ 標註初始化過程中出錯:', error);
       // 初始化失敗則無法繼續恢復流程
       return;
     }
@@ -67,9 +66,9 @@
       if (typeof window.notionHighlighter?.hide === 'function') {
         try {
           window.notionHighlighter.hide();
-        } catch (e) {
+        } catch (error) {
           // 隱藏失敗不應阻斷流程，只記錄錯誤
-          log.error('❌ 隱藏標註工具欄時出錯:', e);
+          log.error('❌ 隱藏標註工具欄時出錯:', error);
         }
       }
     }, HIDE_TOOLBAR_DELAY_MS);

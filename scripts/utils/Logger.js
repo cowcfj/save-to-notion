@@ -159,6 +159,10 @@ function sendToBackground(level, message, args) {
   }
 }
 
+/**
+ * 統一日誌類
+ * 提供靜態方法用於記錄不同級別的日誌
+ */
 class Logger {
   static get debugEnabled() {
     if (!_isInitialized) {
