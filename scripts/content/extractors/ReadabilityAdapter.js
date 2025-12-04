@@ -56,7 +56,7 @@ function safeQueryElements(container, selector) {
  * - 對於以清單為主的文件（如 CLI docs），如果包含 8+ 個 <li> 項目，即使鏈接密度高也視為有效
  */
 function isContentGood(article) {
-  const { MIN_CONTENT_LENGTH, MAX_LINK_DENSITY, LIST_EXCEPTION_THRESHOLD } = CONTENT_QUALITY;
+  const { MAX_LINK_DENSITY, LIST_EXCEPTION_THRESHOLD } = CONTENT_QUALITY;
 
   // 驗證輸入
   if (!article || !article.content) {
