@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { metadataExtractor } from '../../../../scripts/content/extractors/MetadataExtractor.js';
+import { MetadataExtractor } from '../../../../scripts/content/extractors/MetadataExtractor.js';
 
 describe('MetadataExtractor', () => {
   beforeEach(() => {
@@ -14,25 +14,25 @@ describe('MetadataExtractor', () => {
   describe('extractTitle', () => {
     test('should prioritize Readability title', () => {
       document.title = 'Doc Title';
-      const result = metadataExtractor.extractTitle(document, { title: 'Readability Title' });
+      const result = MetadataExtractor.extractTitle(document, { title: 'Readability Title' });
       expect(result).toBe('Readability Title');
     });
 
     test('should fallback to document title', () => {
       document.title = 'Doc Title';
-      const result = metadataExtractor.extractTitle(document, {});
+      const result = MetadataExtractor.extractTitle(document, {});
       expect(result).toBe('Doc Title');
     });
 
     test('should fallback to default if no title', () => {
-      const result = metadataExtractor.extractTitle(document, {});
+      const result = MetadataExtractor.extractTitle(document, {});
       expect(result).toBe('Untitled Page');
     });
   });
 
   describe('extractAuthor', () => {
     test('should prioritize Readability byline', () => {
-      const result = metadataExtractor.extractAuthor(document, { byline: 'John Doe' });
+      const result = MetadataExtractor.extractAuthor(document, { byline: 'John Doe' });
       expect(result).toBe('John Doe');
     });
 
@@ -42,7 +42,7 @@ describe('MetadataExtractor', () => {
       meta.content = 'Jane Doe';
       document.head.appendChild(meta);
 
-      const result = metadataExtractor.extractAuthor(document, {});
+      const result = MetadataExtractor.extractAuthor(document, {});
       expect(result).toBe('Jane Doe');
     });
 
@@ -52,14 +52,14 @@ describe('MetadataExtractor', () => {
       meta.content = 'Author Name';
       document.head.appendChild(meta);
 
-      const result = metadataExtractor.extractAuthor(document, {});
+      const result = MetadataExtractor.extractAuthor(document, {});
       expect(result).toBe('Author Name');
     });
   });
 
   describe('extractDescription', () => {
     test('should prioritize Readability excerpt', () => {
-      const result = metadataExtractor.extractDescription(document, { excerpt: 'Short summary' });
+      const result = MetadataExtractor.extractDescription(document, { excerpt: 'Short summary' });
       expect(result).toBe('Short summary');
     });
 
@@ -69,7 +69,7 @@ describe('MetadataExtractor', () => {
       meta.content = 'Meta description';
       document.head.appendChild(meta);
 
-      const result = metadataExtractor.extractDescription(document, {});
+      const result = MetadataExtractor.extractDescription(document, {});
       expect(result).toBe('Meta description');
     });
   });
@@ -81,7 +81,7 @@ describe('MetadataExtractor', () => {
       link.href = 'https://example.com/favicon.ico';
       document.head.appendChild(link);
 
-      const result = metadataExtractor.extractFavicon(document);
+      const result = MetadataExtractor.extractFavicon(document);
       expect(result).toBe('https://example.com/favicon.ico');
     });
 
@@ -93,7 +93,7 @@ describe('MetadataExtractor', () => {
 
       // In jsdom, location.origin is usually 'null' if not set.
       // But we can check if it returns a string ending in /favicon.ico
-      const result = metadataExtractor.extractFavicon(document);
+      const result = MetadataExtractor.extractFavicon(document);
       expect(result).toMatch(/\/favicon\.ico$/);
     });
   });

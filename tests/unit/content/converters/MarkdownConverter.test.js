@@ -10,11 +10,15 @@ class MockTurndownService {
     this.options = options;
     this.rules = {};
   }
-  use() {}
+  use(_plugin) {
+    return this;
+  }
   addRule(name, rule) {
     this.rules[name] = rule;
   }
   turndown(_html) {
+    // Use this.options to silence unused warning if needed, or just ignore
+    const _opts = this.options;
     return '# Mock Markdown Title\n\nParagraph text.';
   }
 }

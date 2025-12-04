@@ -17,7 +17,11 @@ class ImageCollector {
    * 嘗試收集特色/封面圖片
    * @returns {string|null} 圖片 URL 或 null
    */
-  collectFeaturedImage() {
+  /**
+   * 嘗試收集特色/封面圖片
+   * @returns {string|null} 圖片 URL 或 null
+   */
+  static collectFeaturedImage() {
     Logger.log('🎯 Attempting to collect featured/hero image...');
 
     // 常見的封面圖選擇器（按優先級排序）
@@ -92,7 +96,7 @@ class ImageCollector {
    * @param {string} featuredImage - 已找到的特色圖片 URL (用於去重)
    * @returns {Object|null} 圖片對象或 null
    */
-  processImageForCollection(img, index, featuredImage) {
+  static processImageForCollection(img, index, featuredImage) {
     const src = ImageUtils.extractImageSrc(img);
     if (!src) {
       Logger.log(`✗ No src found for image ${index + 1}`);
@@ -160,9 +164,9 @@ class ImageCollector {
   /**
    * 順序處理圖片列表
    */
-  processImagesSequentially(images, featuredImage, additionalImages) {
+  static processImagesSequentially(images, featuredImage, additionalImages) {
     images.forEach((img, index) => {
-      const result = this.processImageForCollection(img, index, featuredImage);
+      const result = ImageCollector.processImageForCollection(img, index, featuredImage);
       if (result) {
         additionalImages.push(result);
       }
@@ -174,12 +178,12 @@ class ImageCollector {
    * @param {Element} contentElement - 主要內容元素
    * @returns {Promise<Array>} 圖片對象數組
    */
-  async collectAdditionalImages(contentElement) {
+  static async collectAdditionalImages(contentElement) {
     const additionalImages = [];
 
     // 策略 0: 優先查找封面圖/特色圖片
     Logger.log('=== Image Collection Strategy 0: Featured Image ===');
-    const featuredImage = this.collectFeaturedImage();
+    const featuredImage = ImageCollector.collectFeaturedImage();
     if (featuredImage) {
       additionalImages.push({
         object: 'block',
@@ -290,27 +294,27 @@ class ImageCollector {
       if (typeof batchProcessWithRetry === 'function') {
         const { results } = await batchProcessWithRetry(
           allImages,
-          (img, index) => this.processImageForCollection(img, index, featuredImage),
+          (img, index) => ImageCollector.processImageForCollection(img, index, featuredImage),
           { maxAttempts: 3, isResultSuccessful: result => Boolean(result?.image?.external?.url) }
         );
         if (results) {
           results.forEach(result => result && additionalImages.push(result));
         } else {
-          this.processImagesSequentially(allImages, featuredImage, additionalImages);
+          ImageCollector.processImagesSequentially(allImages, featuredImage, additionalImages);
         }
       } else {
         // Fallback to simple batch
         try {
           const results = await batchProcess(allImages, (img, index) =>
-            this.processImageForCollection(img, index, featuredImage)
+            ImageCollector.processImageForCollection(img, index, featuredImage)
           );
           results.forEach(result => result && additionalImages.push(result));
         } catch (_error) {
-          this.processImagesSequentially(allImages, featuredImage, additionalImages);
+          ImageCollector.processImagesSequentially(allImages, featuredImage, additionalImages);
         }
       }
     } else {
-      this.processImagesSequentially(allImages, featuredImage, additionalImages);
+      ImageCollector.processImagesSequentially(allImages, featuredImage, additionalImages);
     }
 
     Logger.log(`Successfully collected ${additionalImages.length} valid images`);

@@ -7,7 +7,7 @@ jest.mock('../../../../scripts/content/extractors/ReadabilityAdapter', () => ({
   cachedQuery: jest.fn(),
 }));
 
-import { imageCollector } from '../../../../scripts/content/extractors/ImageCollector.js';
+import { ImageCollector } from '../../../../scripts/content/extractors/ImageCollector.js';
 import { cachedQuery } from '../../../../scripts/content/extractors/ReadabilityAdapter.js';
 
 // Mock Globals
@@ -68,14 +68,14 @@ describe('ImageCollector', () => {
       });
       global.ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
 
-      const result = imageCollector.collectFeaturedImage();
+      const result = ImageCollector.collectFeaturedImage();
       expect(result).toBe('https://example.com/featured.jpg');
       expect(cachedQuery).toHaveBeenCalled();
     });
 
     test('should return null if no featured image found', () => {
       cachedQuery.mockReturnValue(null);
-      const result = imageCollector.collectFeaturedImage();
+      const result = ImageCollector.collectFeaturedImage();
       expect(result).toBeNull();
     });
   });
@@ -89,7 +89,7 @@ describe('ImageCollector', () => {
 
       global.ImageUtils.extractImageSrc.mockReturnValue('https://example.com/img.jpg');
 
-      const result = imageCollector.processImageForCollection(mockImg, 0, null);
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null);
 
       expect(result).toEqual({
         object: 'block',
@@ -107,7 +107,7 @@ describe('ImageCollector', () => {
       mockImg.src = 'https://example.com/featured.jpg';
       global.ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
 
-      const result = imageCollector.processImageForCollection(
+      const result = ImageCollector.processImageForCollection(
         mockImg,
         0,
         'https://example.com/featured.jpg'
@@ -123,7 +123,7 @@ describe('ImageCollector', () => {
 
       global.ImageUtils.extractImageSrc.mockReturnValue('https://example.com/small.jpg');
 
-      const result = imageCollector.processImageForCollection(mockImg, 0, null);
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null);
       expect(result).toBeNull();
     });
   });
@@ -147,18 +147,21 @@ describe('ImageCollector', () => {
       // Ensure collectFeaturedImage returns null
       global.ImageUtils.extractImageSrc.mockImplementation(img => (img ? img.src : null));
 
-      // Mock processImageForCollection behavior via spy
-      const processSpy = jest.spyOn(imageCollector, 'processImageForCollection');
-      processSpy.mockImplementation(img => ({
+      // Mock processImageForCollection to return valid results
+      const originalProcess = ImageCollector.processImageForCollection;
+      ImageCollector.processImageForCollection = jest.fn(img => ({
         object: 'block',
         type: 'image',
         image: { external: { url: img.src } },
       }));
 
-      const results = await imageCollector.collectAdditionalImages(contentElement);
+      const results = await ImageCollector.collectAdditionalImages(contentElement);
 
       expect(results).toHaveLength(2);
       expect(results[0].image.external.url).toBe('https://example.com/1.jpg');
+
+      // Restore original method
+      ImageCollector.processImageForCollection = originalProcess;
     });
 
     test('should fallback to sequential processing if batch fails', async () => {
@@ -166,9 +169,9 @@ describe('ImageCollector', () => {
       const contentElement = document.createElement('div');
       const mockImgs = Array(6)
         .fill(0)
-        .map((_, i) => {
+        .map((_, idx) => {
           const img = document.createElement('img');
-          img.src = `https://example.com/${i}.jpg`;
+          img.src = `https://example.com/${idx}.jpg`;
           return img;
         });
 
@@ -187,21 +190,25 @@ describe('ImageCollector', () => {
 
       global.batchProcess = jest.fn().mockRejectedValue(new Error('Batch failed'));
 
-      // Spy on sequential
-      const seqSpy = jest.spyOn(imageCollector, 'processImagesSequentially');
-      // Spy on processImageForCollection to return valid result
-      jest.spyOn(imageCollector, 'processImageForCollection').mockReturnValue({
+      // Mock processImageForCollection
+      const originalProcess = ImageCollector.processImageForCollection;
+      ImageCollector.processImageForCollection = jest.fn().mockReturnValue({
         object: 'block',
         type: 'image',
         image: { external: { url: 'url' } },
       });
 
-      await imageCollector.collectAdditionalImages(contentElement);
+      // Spy on sequential
+      const seqSpy = jest.spyOn(ImageCollector, 'processImagesSequentially');
+
+      await ImageCollector.collectAdditionalImages(contentElement);
 
       expect(seqSpy).toHaveBeenCalled();
 
       // Restore
       global.batchProcessWithRetry = originalBatchRetry;
+      ImageCollector.processImageForCollection = originalProcess;
+      seqSpy.mockRestore();
     });
   });
 });

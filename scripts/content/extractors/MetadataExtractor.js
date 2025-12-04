@@ -16,13 +16,19 @@ class MetadataExtractor {
    * @param {Object} [readabilityArticle] - Readability 解析結果 (可選)
    * @returns {Object} 元數據對象
    */
-  extract(doc, readabilityArticle = null) {
+  /**
+   * 提取頁面元數據
+   * @param {Document} doc - DOM Document 對象
+   * @param {Object} [readabilityArticle] - Readability 解析結果 (可選)
+   * @returns {Object} 元數據對象
+   */
+  static extract(doc, readabilityArticle = null) {
     return {
-      title: this.extractTitle(doc, readabilityArticle),
+      title: MetadataExtractor.extractTitle(doc, readabilityArticle),
       url: doc.location ? doc.location.href : '',
-      author: this.extractAuthor(doc, readabilityArticle),
-      description: this.extractDescription(doc, readabilityArticle),
-      favicon: this.extractFavicon(doc),
+      author: MetadataExtractor.extractAuthor(doc, readabilityArticle),
+      description: MetadataExtractor.extractDescription(doc, readabilityArticle),
+      favicon: MetadataExtractor.extractFavicon(doc),
     };
   }
 
@@ -31,7 +37,7 @@ class MetadataExtractor {
    * 優先級: Readability.title > document.title > 'Untitled Page'
    */
   // prettier-ignore
-  extractTitle(doc, readabilityArticle) {
+  static extractTitle(doc, readabilityArticle) {
     if (readabilityArticle?.title && typeof readabilityArticle.title === 'string') {
       return readabilityArticle.title;
     }
@@ -43,7 +49,7 @@ class MetadataExtractor {
    * 優先級: Readability.byline > meta[name="author"] > meta[property="article:author"]
    */
   // prettier-ignore
-  extractAuthor(doc, readabilityArticle) {
+  static extractAuthor(doc, readabilityArticle) {
     if (readabilityArticle?.byline) {
       return readabilityArticle.byline;
     }
@@ -61,7 +67,7 @@ class MetadataExtractor {
    * 優先級: Readability.excerpt > meta[name="description"] > meta[property="og:description"]
    */
   // prettier-ignore
-  extractDescription(doc, readabilityArticle) {
+  static extractDescription(doc, readabilityArticle) {
     if (readabilityArticle?.excerpt) {
       return readabilityArticle.excerpt;
     }
@@ -79,7 +85,7 @@ class MetadataExtractor {
    * 查找 link[rel="icon"] 等標籤
    */
   // prettier-ignore
-  extractFavicon(doc) {
+  static extractFavicon(doc) {
     const selectors = [
       'link[rel="icon"]',
       'link[rel="shortcut icon"]',

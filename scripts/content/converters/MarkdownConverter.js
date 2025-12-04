@@ -149,7 +149,7 @@ class MarkdownConverter {
           // 開始代碼塊
           inCodeBlock = true;
           const lang = trimmed.substring(3).trim();
-          codeLanguage = this.mapLanguage(lang) || 'plain text';
+          codeLanguage = MarkdownConverter.mapLanguage(lang) || 'plain text';
         }
         i++;
         continue;
@@ -190,7 +190,7 @@ class MarkdownConverter {
           blocks.push({
             object: 'block',
             type: blockType,
-            [blockType]: { rich_text: this.parseRichText(text) },
+            [blockType]: { rich_text: MarkdownConverter.parseRichText(text) },
           });
         } else {
           // h4-h6 轉為粗體段落
@@ -212,7 +212,7 @@ class MarkdownConverter {
         blocks.push({
           object: 'block',
           type: 'bulleted_list_item',
-          bulleted_list_item: { rich_text: this.parseRichText(unorderedListMatch[1]) },
+          bulleted_list_item: { rich_text: MarkdownConverter.parseRichText(unorderedListMatch[1]) },
         });
         i++;
         continue;
@@ -223,7 +223,7 @@ class MarkdownConverter {
         blocks.push({
           object: 'block',
           type: 'numbered_list_item',
-          numbered_list_item: { rich_text: this.parseRichText(orderedListMatch[2]) },
+          numbered_list_item: { rich_text: MarkdownConverter.parseRichText(orderedListMatch[2]) },
         });
         i++;
         continue;
@@ -236,7 +236,7 @@ class MarkdownConverter {
           blocks.push({
             object: 'block',
             type: 'quote',
-            quote: { rich_text: this.parseRichText(quoteText) },
+            quote: { rich_text: MarkdownConverter.parseRichText(quoteText) },
           });
         }
         i++;
@@ -255,7 +255,7 @@ class MarkdownConverter {
         blocks.push({
           object: 'block',
           type: 'paragraph',
-          paragraph: { rich_text: this.parseRichText(trimmed) },
+          paragraph: { rich_text: MarkdownConverter.parseRichText(trimmed) },
         });
       }
 
@@ -268,7 +268,7 @@ class MarkdownConverter {
   /**
    * 解析富文本
    */
-  parseRichText(text) {
+  static parseRichText(text) {
     if (!text) {
       return [{ type: 'text', text: { content: '' } }];
     }
@@ -279,7 +279,7 @@ class MarkdownConverter {
     return [{ type: 'text', text: { content: text } }];
   }
 
-  mapLanguage(lang) {
+  static mapLanguage(lang) {
     if (!lang) {
       return 'plain text';
     }

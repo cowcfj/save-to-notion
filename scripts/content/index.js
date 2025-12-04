@@ -18,9 +18,9 @@
 
 /* global Logger */
 
-import { contentExtractor } from './extractors/ContentExtractor.js';
-import { converterFactory } from './converters/ConverterFactory.js';
-import { imageCollector } from './extractors/ImageCollector.js';
+import { ContentExtractor } from './extractors/ContentExtractor.js';
+import { ConverterFactory } from './converters/ConverterFactory.js';
+import { ImageCollector } from './extractors/ImageCollector.js';
 
 // 立即打印日誌證明腳本已加載
 Logger.log('🚀 [Save to Notion] Content Bundle Loaded! Access via extension context.');
@@ -36,7 +36,7 @@ async function extractPageContent() {
 
   try {
     // 1. 提取內容和元數據
-    const extractResult = await contentExtractor.extract(document);
+    const extractResult = ContentExtractor.extract(document);
 
     if (!extractResult || !extractResult.content) {
       Logger.warn('⚠️ Content extraction failed or returned empty content');
@@ -66,7 +66,7 @@ async function extractPageContent() {
 
     // 2. 轉換為 Notion Blocks
     Logger.log(`📝 Converting content (type: ${type}) to Notion Blocks...`);
-    const converter = converterFactory.getConverter(type);
+    const converter = ConverterFactory.getConverter(type);
     const blocks = converter.convert(content);
 
     Logger.log(`✅ Converted ${blocks.length} blocks`);
@@ -78,7 +78,7 @@ async function extractPageContent() {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = content;
 
-      additionalImages = await imageCollector.collectImages(tempDiv, blocks);
+      additionalImages = await ImageCollector.collectAdditionalImages(tempDiv);
       Logger.log(`📸 Collected ${additionalImages.length} additional images`);
     } catch (imageError) {
       Logger.warn('⚠️ Image collection failed:', imageError);

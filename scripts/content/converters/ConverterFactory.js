@@ -15,7 +15,7 @@ class ConverterFactory {
    * @param {string} type - 內容類型 ('markdown' | 'html' | 'dom')
    * @returns {Object} 轉換器實例 (具有 convert 方法)
    */
-  getConverter(type) {
+  static getConverter(type) {
     switch (type?.toLowerCase()) {
       case 'markdown':
       case 'md':

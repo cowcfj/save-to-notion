@@ -13,7 +13,7 @@ jest.mock('../../../../scripts/content/extractors/ReadabilityAdapter', () => ({
 }));
 
 jest.mock('../../../../scripts/content/extractors/MetadataExtractor', () => ({
-  metadataExtractor: {
+  MetadataExtractor: {
     extract: jest.fn(),
   },
 }));
@@ -28,9 +28,9 @@ jest.mock(
   { virtual: true }
 );
 
-const { contentExtractor } = require('../../../../scripts/content/extractors/ContentExtractor');
+const { ContentExtractor } = require('../../../../scripts/content/extractors/ContentExtractor');
 const { readabilityAdapter } = require('../../../../scripts/content/extractors/ReadabilityAdapter');
-const { metadataExtractor } = require('../../../../scripts/content/extractors/MetadataExtractor');
+const { MetadataExtractor } = require('../../../../scripts/content/extractors/MetadataExtractor');
 const pageComplexityDetector = require('../../../../scripts/utils/pageComplexityDetector');
 
 global.Logger = {
@@ -46,7 +46,7 @@ describe('ContentExtractor', () => {
   });
 
   describe('extract', () => {
-    test('should use Readability when selected', async () => {
+    test('should use Readability when selected', () => {
       // Setup mocks
       pageComplexityDetector.detectPageComplexity.mockReturnValue({});
       pageComplexityDetector.selectExtractor.mockReturnValue({
@@ -60,16 +60,16 @@ describe('ContentExtractor', () => {
       });
       readabilityAdapter.isContentGood.mockReturnValue(true);
 
-      metadataExtractor.extract.mockReturnValue({ title: 'Title' });
+      MetadataExtractor.extract.mockReturnValue({ title: 'Title' });
 
-      const result = await contentExtractor.extract(document);
+      const result = ContentExtractor.extract(document);
 
       expect(result.content).toBe('<div>Article</div>');
       expect(result.type).toBe('html');
       expect(readabilityAdapter.parseArticleWithReadability).toHaveBeenCalled();
     });
 
-    test('should fallback to CMS content if Readability fails', async () => {
+    test('should fallback to CMS content if Readability fails', () => {
       pageComplexityDetector.detectPageComplexity.mockReturnValue({});
       pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'readability' });
 
@@ -77,20 +77,20 @@ describe('ContentExtractor', () => {
       readabilityAdapter.isContentGood.mockReturnValue(false);
       readabilityAdapter.findContentCmsFallback.mockReturnValue('<div>CMS Content</div>');
 
-      const result = await contentExtractor.extract(document);
+      const result = ContentExtractor.extract(document);
 
       expect(result.content).toBe('<div>CMS Content</div>');
       expect(readabilityAdapter.findContentCmsFallback).toHaveBeenCalled();
     });
 
-    test('should use Technical extraction when selected (extractus)', async () => {
+    test('should use Technical extraction when selected (extractus)', () => {
       pageComplexityDetector.detectPageComplexity.mockReturnValue({});
       pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'extractus' });
 
       // Mock DOM for technical content
       document.body.innerHTML = '<div class="markdown-body">Technical Content</div>';
 
-      const result = await contentExtractor.extract(document);
+      const result = ContentExtractor.extract(document);
 
       expect(result.content).toBe('Technical Content');
       expect(result.type).toBe('html');
@@ -98,7 +98,7 @@ describe('ContentExtractor', () => {
       expect(readabilityAdapter.parseArticleWithReadability).not.toHaveBeenCalled();
     });
 
-    test('should fallback to Readability if Technical extraction fails', async () => {
+    test('should fallback to Readability if Technical extraction fails', () => {
       pageComplexityDetector.detectPageComplexity.mockReturnValue({});
       pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'extractus' });
 
@@ -110,7 +110,7 @@ describe('ContentExtractor', () => {
       });
       readabilityAdapter.isContentGood.mockReturnValue(true);
 
-      const result = await contentExtractor.extract(document);
+      const result = ContentExtractor.extract(document);
 
       expect(result.content).toBe('<div>Readability</div>');
       expect(readabilityAdapter.parseArticleWithReadability).toHaveBeenCalled();

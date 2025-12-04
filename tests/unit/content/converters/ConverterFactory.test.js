@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { converterFactory } from '../../../../scripts/content/converters/ConverterFactory.js';
+import { ConverterFactory } from '../../../../scripts/content/converters/ConverterFactory.js';
 import { domConverter } from '../../../../scripts/content/converters/DomConverter.js';
 import { markdownConverter } from '../../../../scripts/content/converters/MarkdownConverter.js';
 
@@ -16,32 +16,32 @@ jest.mock('../../../../scripts/content/converters/MarkdownConverter', () => ({
 
 describe('ConverterFactory', () => {
   test('should return markdownConverter for "markdown"', () => {
-    const converter = converterFactory.getConverter('markdown');
+    const converter = ConverterFactory.getConverter('markdown');
     expect(converter).toBe(markdownConverter);
   });
 
   test('should return markdownConverter for "md"', () => {
-    const converter = converterFactory.getConverter('md');
+    const converter = ConverterFactory.getConverter('md');
     expect(converter).toBe(markdownConverter);
   });
 
   test('should return domConverter for "html"', () => {
-    const converter = converterFactory.getConverter('html');
+    const converter = ConverterFactory.getConverter('html');
     expect(converter).toBe(domConverter);
   });
 
   test('should return domConverter for "dom"', () => {
-    const converter = converterFactory.getConverter('dom');
+    const converter = ConverterFactory.getConverter('dom');
     expect(converter).toBe(domConverter);
   });
 
   test('should return domConverter by default', () => {
-    const converter = converterFactory.getConverter('unknown');
+    const converter = ConverterFactory.getConverter('unknown');
     expect(converter).toBe(domConverter);
   });
 
   test('should return domConverter for null/undefined', () => {
-    expect(converterFactory.getConverter(null)).toBe(domConverter);
-    expect(converterFactory.getConverter(undefined)).toBe(domConverter);
+    expect(ConverterFactory.getConverter(null)).toBe(domConverter);
+    expect(ConverterFactory.getConverter()).toBe(domConverter);
   });
 });

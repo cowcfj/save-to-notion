@@ -11,7 +11,7 @@
 /* global Logger */
 
 import { readabilityAdapter } from './ReadabilityAdapter.js';
-import { metadataExtractor } from './MetadataExtractor.js';
+import { MetadataExtractor } from './MetadataExtractor.js';
 // 假設 pageComplexityDetector 可用或已被打包
 // 在測試環境中我們將 Mock 它
 // 假設 pageComplexityDetector 可用或已被打包
@@ -34,7 +34,13 @@ class ContentExtractor {
    * @param {Object} _options - 配置選項
    * @returns {Promise<Object>} 提取結果 { content, type, metadata, rawArticle }
    */
-  async extract(doc, _options = {}) {
+  /**
+   * 執行內容提取
+   * @param {Document} doc - DOM Document
+   * @param {Object} _options - 配置選項
+   * @returns {Object} 提取結果 { content, type, metadata, rawArticle }
+   */
+  static extract(doc, _options = {}) {
     Logger.log('🚀 Starting content extraction...');
 
     // 1. 檢測頁面複雜度與類型
@@ -57,7 +63,8 @@ class ContentExtractor {
     }
 
     // 3. 提取元數據
-    const metadata = metadataExtractor.extract(doc, result ? result.rawArticle : null);
+    // 使用 MetadataExtractor 類靜態方法
+    const metadata = MetadataExtractor.extract(doc, result ? result.rawArticle : null);
 
     // 4. 組合最終結果
     return {
