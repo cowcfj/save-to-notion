@@ -21,7 +21,8 @@
         "scripts/utils/Logger.js",
         "scripts/utils.js",
         "scripts/utils/imageUtils.js",
-        "scripts/seamless-migration.js"
+        "scripts/seamless-migration.js",
+        "dist/content.bundle.js"
       ],
       "run_at": "document_idle",
       "all_frames": false
