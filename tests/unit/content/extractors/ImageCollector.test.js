@@ -37,9 +37,9 @@ describe('ImageCollector', () => {
     document.body.innerHTML = '';
 
     // Default mocks
-    global.Logger.log.mockImplementation(() => {});
-    global.Logger.warn.mockImplementation(() => {});
-    global.Logger.error.mockImplementation(() => {});
+    global.Logger.log.mockImplementation(() => undefined);
+    global.Logger.warn.mockImplementation(() => undefined);
+    global.Logger.error.mockImplementation(() => undefined);
 
     global.ImageUtils.extractImageSrc.mockReturnValue(null);
     global.ImageUtils.cleanImageUrl.mockImplementation(url => url);
@@ -48,7 +48,7 @@ describe('ImageCollector', () => {
 
     // Default cachedQuery mock
     cachedQuery.mockImplementation((selector, context, options) => {
-      if (options && options.all) {
+      if (options?.all) {
         return [];
       }
       return null;
@@ -61,7 +61,7 @@ describe('ImageCollector', () => {
       mockImg.src = 'https://example.com/featured.jpg';
 
       cachedQuery.mockImplementation((selector, context, options) => {
-        if (options && options.single) {
+        if (options?.single) {
           return mockImg;
         }
         return null;
