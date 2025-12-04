@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { markdownConverter } from '../../../../scripts/content/converters/MarkdownConverter.js';
+import { MarkdownConverter } from '../../../../scripts/content/converters/MarkdownConverter.js';
 
 // Mock TurndownService
 class MockTurndownService {
@@ -31,13 +31,13 @@ describe('MarkdownConverter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset singleton instance state if needed, but it's stateless mostly except turndownService instance
-    markdownConverter.turndownService = null;
+    MarkdownConverter.turndownService = null;
   });
 
   describe('convertMarkdown', () => {
     test('should convert headings', () => {
       const md = '# H1\n## H2\n### H3';
-      const blocks = markdownConverter.convertMarkdown(md);
+      const blocks = MarkdownConverter.convertMarkdown(md);
       expect(blocks).toHaveLength(3);
       expect(blocks[0].type).toBe('heading_1');
       expect(blocks[1].type).toBe('heading_2');
@@ -46,7 +46,7 @@ describe('MarkdownConverter', () => {
 
     test('should convert lists', () => {
       const md = '- Item 1\n* Item 2\n1. Ordered';
-      const blocks = markdownConverter.convertMarkdown(md);
+      const blocks = MarkdownConverter.convertMarkdown(md);
       expect(blocks).toHaveLength(3);
       expect(blocks[0].type).toBe('bulleted_list_item');
       expect(blocks[1].type).toBe('bulleted_list_item');
@@ -55,7 +55,7 @@ describe('MarkdownConverter', () => {
 
     test('should convert code blocks', () => {
       const md = '```js\nconsole.log("hi");\n```';
-      const blocks = markdownConverter.convertMarkdown(md);
+      const blocks = MarkdownConverter.convertMarkdown(md);
       expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('code');
       expect(blocks[0].code.language).toBe('javascript');
@@ -64,7 +64,7 @@ describe('MarkdownConverter', () => {
 
     test('should convert images', () => {
       const md = '![Alt](https://example.com/img.jpg)';
-      const blocks = markdownConverter.convertMarkdown(md);
+      const blocks = MarkdownConverter.convertMarkdown(md);
       expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('image');
       expect(blocks[0].image.external.url).toBe('https://example.com/img.jpg');
@@ -74,7 +74,7 @@ describe('MarkdownConverter', () => {
   describe('convertHtml', () => {
     test('should use TurndownService to convert HTML', () => {
       const html = '<h1>Title</h1><p>Text</p>';
-      const blocks = markdownConverter.convertHtml(html);
+      const blocks = MarkdownConverter.convertHtml(html);
 
       // Based on MockTurndownService output
       expect(blocks).toHaveLength(2);
@@ -86,7 +86,7 @@ describe('MarkdownConverter', () => {
       const originalTurndown = global.TurndownService;
       global.TurndownService = undefined;
 
-      const blocks = markdownConverter.convertHtml('<div></div>');
+      const blocks = MarkdownConverter.convertHtml('<div></div>');
       expect(blocks).toEqual([]);
       expect(global.Logger.warn).toHaveBeenCalled();
 

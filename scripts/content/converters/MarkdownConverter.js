@@ -17,9 +17,9 @@ class MarkdownConverter {
   /**
    * 獲取或初始化 TurndownService
    */
-  getTurndownService() {
-    if (this.turndownService) {
-      return this.turndownService;
+  static getTurndownService() {
+    if (MarkdownConverter.turndownService) {
+      return MarkdownConverter.turndownService;
     }
 
     if (typeof TurndownService === 'undefined') {
@@ -89,7 +89,7 @@ class MarkdownConverter {
       },
     });
 
-    this.turndownService = service;
+    MarkdownConverter.turndownService = service;
     return service;
   }
 
@@ -98,14 +98,14 @@ class MarkdownConverter {
    * @param {string|Element} html - HTML 字串或元素
    * @returns {Array} Notion Blocks
    */
-  convertHtml(html) {
-    const service = this.getTurndownService();
+  static convertHtml(html) {
+    const service = MarkdownConverter.getTurndownService();
     if (!service) {
       return [];
     }
 
     const markdown = service.turndown(html);
-    return this.convertMarkdown(markdown);
+    return MarkdownConverter.convertMarkdown(markdown);
   }
 
   /**
@@ -113,7 +113,7 @@ class MarkdownConverter {
    * @param {string} markdown - Markdown 文本
    * @returns {Array} Notion Blocks
    */
-  convertMarkdown(markdown) {
+  static convertMarkdown(markdown) {
     const blocks = [];
     const lines = markdown.split('\n');
     let i = 0;

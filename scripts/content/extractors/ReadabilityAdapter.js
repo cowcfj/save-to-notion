@@ -13,6 +13,9 @@
 import { CONTENT_QUALITY } from '../../config/constants.js';
 import { CMS_CONTENT_SELECTORS } from '../../config/selectors.js';
 
+// 從 CONTENT_QUALITY 解構常用常量到模組級別
+const { MIN_CONTENT_LENGTH } = CONTENT_QUALITY;
+
 /**
  * 安全地查詢 DOM 元素,避免拋出異常
  * @param {Element|Document} container - 要查詢的容器元素
