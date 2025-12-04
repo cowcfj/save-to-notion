@@ -3,6 +3,8 @@
  * 統一的圖片 URL 處理、驗證和提取邏輯
  */
 
+/* global ErrorHandler, SrcsetParser */
+
 /**
  * 圖片驗證常數
  * 用於 URL 長度、參數數量等限制
