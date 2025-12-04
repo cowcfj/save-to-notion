@@ -276,10 +276,4 @@ class DomConverter {
 // 導出單例
 const domConverter = new DomConverter();
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    DomConverter,
-    domConverter,
-    strategies, // 導出策略供測試
-  };
-}
+export { DomConverter, domConverter, strategies };

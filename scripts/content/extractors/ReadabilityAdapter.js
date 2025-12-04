@@ -659,15 +659,25 @@ function parseArticleWithReadability() {
 }
 
 // 導出函數供其他模組使用
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    safeQueryElements,
-    isContentGood,
-    expandCollapsibleElements,
-    cachedQuery,
-    findContentCmsFallback,
-    extractLargestListFallback,
-    createOptimizedDocumentClone,
-    parseArticleWithReadability,
-  };
-}
+const readabilityAdapter = {
+  safeQueryElements,
+  isContentGood,
+  expandCollapsibleElements,
+  cachedQuery,
+  findContentCmsFallback,
+  extractLargestListFallback,
+  createOptimizedDocumentClone,
+  parseArticleWithReadability,
+};
+
+export {
+  readabilityAdapter,
+  safeQueryElements,
+  isContentGood,
+  expandCollapsibleElements,
+  cachedQuery,
+  findContentCmsFallback,
+  extractLargestListFallback,
+  createOptimizedDocumentClone,
+  parseArticleWithReadability,
+};

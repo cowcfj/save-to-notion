@@ -1,0 +1,127 @@
+/**
+ * Content Script Entry Point
+ *
+ * 此文件整合所有模組化的 Content Script 組件，提供統一的內容提取接口。
+ *
+ * 執行模式：
+ * - 由 background.js 通過 chrome.scripting.executeScript 動態注入
+ * - 在頁面上下文中執行（可訪問 DOM、全局變量）
+ * - 返回提取結果給 background.js
+ *
+ * 依賴（需要在 manifest.json 中先注入）：
+ * - Readability.js - 第三方庫
+ * - Logger.js - 日誌系統
+ * - ImageUtils - 圖片處理工具
+ * - PerformanceOptimizer - 性能優化（可選）
+ * - batchProcess, batchProcessWithRetry - 批處理工具（可選）
+ */
+
+/* global Logger */
+
+import { contentExtractor } from './extractors/ContentExtractor.js';
+import { converterFactory } from './converters/ConverterFactory.js';
+import { imageCollector } from './extractors/ImageCollector.js';
+
+/**
+ * 主要內容提取函數
+ * 此函數會被 background.js 通過 executeScript 調用
+ *
+ * @returns {Promise<{title: string, blocks: Array, rawHtml: string}>}
+ */
+async function extractPageContent() {
+  Logger.log('🚀 [Content Script] Starting content extraction...');
+
+  try {
+    // 1. 提取內容和元數據
+    const extractResult = await contentExtractor.extract(document);
+
+    if (!extractResult || !extractResult.content) {
+      Logger.warn('⚠️ Content extraction failed or returned empty content');
+      return {
+        title: document.title || 'Untitled Page',
+        blocks: [
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: 'Content extraction failed. The page may be empty or protected.',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+        rawHtml: '',
+      };
+    }
+
+    const { content, type, metadata } = extractResult;
+
+    // 2. 轉換為 Notion Blocks
+    Logger.log(`📝 Converting content (type: ${type}) to Notion Blocks...`);
+    const converter = converterFactory.getConverter(type);
+    const blocks = converter.convert(content);
+
+    Logger.log(`✅ Converted ${blocks.length} blocks`);
+
+    // 3. 收集額外圖片（可選）
+    let additionalImages = [];
+    try {
+      // 創建臨時容器來查找圖片
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = content;
+
+      additionalImages = await imageCollector.collectImages(tempDiv, blocks);
+      Logger.log(`📸 Collected ${additionalImages.length} additional images`);
+    } catch (imageError) {
+      Logger.warn('⚠️ Image collection failed:', imageError);
+    }
+
+    // 4. 返回結果
+    return {
+      title: metadata.title || document.title || 'Untitled Page',
+      blocks,
+      rawHtml: content,
+      metadata, // 包含 author, description, favicon
+      additionalImages,
+      // 調試信息
+      debug: {
+        contentType: type,
+        blockCount: blocks.length,
+        imageCount: additionalImages.length,
+        complexity: extractResult.debug?.complexity,
+      },
+    };
+  } catch (error) {
+    Logger.error('❌ [Content Script] Extraction failed:', error);
+
+    return {
+      title: document.title || 'Untitled Page',
+      blocks: [
+        {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [
+              {
+                type: 'text',
+                text: {
+                  content: `Extraction error: ${error.message || 'Unknown error'}`,
+                },
+              },
+            ],
+          },
+        },
+      ],
+      rawHtml: '',
+      error: error.message,
+    };
+  }
+}
+
+// 導出函數供 IIFE 使用
+export { extractPageContent };

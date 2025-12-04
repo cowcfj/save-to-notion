@@ -24,6 +24,11 @@
     "build": "rollup -c",
     "build:watch": "rollup -c -w",
     "build:prod": "NODE_ENV=production rollup -c",
+    "build:content": "rollup -c rollup.content.config.mjs",
+    "build:content:watch": "rollup -c rollup.content.config.mjs -w",
+    "build:content:prod": "NODE_ENV=production rollup -c rollup.content.config.mjs",
+    "build:all": "npm run build && npm run build:content",
+    "build:all:prod": "NODE_ENV=production npm run build:prod && npm run build:content:prod",
     "dev": "npm run build:watch",
     "prebuild:prod": "npm run test:ci",
     "prepare": "husky"

@@ -51,3 +51,14 @@ enabled = true
   paths = [
     "tests/**/*.js"
   ]
+
+  # JS-xxxx: Ignore class-methods-use-this warnings for factory/utility methods
+  # These are intentional design patterns (factory pattern, utility functions)
+  # that maintain instance interface for API consistency while being stateless
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0105"  # class-methods-use-this
+  paths = [
+    "scripts/content/converters/ConverterFactory.js",
+    "scripts/content/converters/MarkdownConverter.js",
+    "scripts/content/extractors/MetadataExtractor.js"
+  ]

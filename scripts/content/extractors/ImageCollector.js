@@ -10,7 +10,7 @@
 
 /* global Logger, ImageUtils, ErrorHandler, batchProcess, batchProcessWithRetry */
 
-const { cachedQuery } = require('./ReadabilityAdapter');
+import { cachedQuery } from './ReadabilityAdapter.js';
 
 class ImageCollector {
   /**
@@ -320,9 +320,4 @@ class ImageCollector {
 
 const imageCollector = new ImageCollector();
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    ImageCollector,
-    imageCollector,
-  };
-}
+export { ImageCollector, imageCollector };

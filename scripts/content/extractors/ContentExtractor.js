@@ -10,8 +10,8 @@
 
 /* global Logger */
 
-const { readabilityAdapter } = require('./ReadabilityAdapter');
-const { metadataExtractor } = require('./MetadataExtractor');
+import { readabilityAdapter } from './ReadabilityAdapter.js';
+import { metadataExtractor } from './MetadataExtractor.js';
 // 假設 pageComplexityDetector 可用或已被打包
 // 在測試環境中我們將 Mock 它
 let pageComplexityDetector;
@@ -166,9 +166,4 @@ class ContentExtractor {
 
 const contentExtractor = new ContentExtractor();
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    ContentExtractor,
-    contentExtractor,
-  };
-}
+export { ContentExtractor, contentExtractor };

@@ -30,7 +30,7 @@ class MetadataExtractor {
    * 提取標題
    * 優先級: Readability.title > document.title > 'Untitled Page'
    */
-
+  // prettier-ignore
   extractTitle(doc, readabilityArticle) {
     if (readabilityArticle?.title && typeof readabilityArticle.title === 'string') {
       return readabilityArticle.title;
@@ -42,7 +42,7 @@ class MetadataExtractor {
    * 提取作者
    * 優先級: Readability.byline > meta[name="author"] > meta[property="article:author"]
    */
-
+  // prettier-ignore
   extractAuthor(doc, readabilityArticle) {
     if (readabilityArticle?.byline) {
       return readabilityArticle.byline;
@@ -60,7 +60,7 @@ class MetadataExtractor {
    * 提取描述
    * 優先級: Readability.excerpt > meta[name="description"] > meta[property="og:description"]
    */
-
+  // prettier-ignore
   extractDescription(doc, readabilityArticle) {
     if (readabilityArticle?.excerpt) {
       return readabilityArticle.excerpt;
@@ -78,7 +78,7 @@ class MetadataExtractor {
    * 提取 Favicon
    * 查找 link[rel="icon"] 等標籤
    */
-
+  // prettier-ignore
   extractFavicon(doc) {
     const selectors = [
       'link[rel="icon"]',
@@ -103,9 +103,4 @@ class MetadataExtractor {
 
 const metadataExtractor = new MetadataExtractor();
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    MetadataExtractor,
-    metadataExtractor,
-  };
-}
+export { MetadataExtractor, metadataExtractor };

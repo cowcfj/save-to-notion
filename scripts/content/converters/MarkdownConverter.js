@@ -300,9 +300,4 @@ class MarkdownConverter {
 
 const markdownConverter = new MarkdownConverter();
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    MarkdownConverter,
-    markdownConverter,
-  };
-}
+export { MarkdownConverter, markdownConverter };

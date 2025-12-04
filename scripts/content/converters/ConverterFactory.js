@@ -6,8 +6,8 @@
  * - 管理轉換器的單例
  */
 
-const { domConverter } = require('./DomConverter');
-const { markdownConverter } = require('./MarkdownConverter');
+import { domConverter } from './DomConverter.js';
+import { markdownConverter } from './MarkdownConverter.js';
 
 class ConverterFactory {
   /**
@@ -30,9 +30,4 @@ class ConverterFactory {
 
 const converterFactory = new ConverterFactory();
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    ConverterFactory,
-    converterFactory,
-  };
-}
+export { ConverterFactory, converterFactory };
