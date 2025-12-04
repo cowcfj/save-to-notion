@@ -85,7 +85,7 @@ function initDebugState() {
         _debugEnabled = Boolean(changes.enableDebugLogs.newValue);
         // 在控制台輸出狀態變更，方便調試
         const status = _debugEnabled ? 'ENABLED' : 'DISABLED';
-        
+        console.info(`[Logger] Debug mode ${status}`);
       }
     });
   }
@@ -179,7 +179,7 @@ class Logger {
     if (!this.debugEnabled) {
       return;
     }
-    
+
     sendToBackground('log', message, args);
   }
 
