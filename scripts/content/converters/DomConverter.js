@@ -11,7 +11,7 @@
 /* global Logger, ImageUtils, ErrorHandler */
 
 const LIST_PREFIX_PATTERNS = {
-  bulletPrefix: /^[-*•]\s+/,
+  bulletPrefix: /^[-*•]\s+/u,
   multipleSpaces: /\s{2,}/g,
   emptyLine: /^\s*$/,
 };
@@ -73,7 +73,7 @@ const strategies = {
     const innerHtml = node.innerHTML || '';
     const hasBr = /<br\s*\/?/i.test(innerHtml);
 
-    let lines;
+    let lines = [];
     if (hasBr) {
       // 如果包含 <br>, 創建副本並將 <br> 替換為換行符, 以便正確分割
       const temp = node.cloneNode(true);
