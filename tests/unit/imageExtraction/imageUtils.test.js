@@ -5,7 +5,7 @@
 require('../../mocks/chrome.js');
 
 // 導入實際的源碼函數
-const { cleanImageUrl, isValidImageUrl } = require('../../../scripts/background.js');
+const { cleanImageUrl, isValidImageUrl } = require('../../../scripts/utils/imageUtils.js');
 
 describe('cleanImageUrl', () => {
   describe('基本功能', () => {

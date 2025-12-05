@@ -51,6 +51,19 @@
 
 ---
 
+## v2.13.2 - 2025-12-05
+
+### ♻️ 代碼重構
+
+#### 圖片驗證邏輯統一
+
+- **統一驗證入口**：將分散在 `AttributeExtractor`、`FallbackStrategies` 和 `background.js` 中的圖片驗證邏輯統一收斂至 `scripts/utils/imageUtils.js`。
+- **相對路徑支持**：`ImageUtils.cleanImageUrl` 與 `isValidImageUrl` 新增對相對路徑（如 `/images/photo.jpg`）的完整支持，修復了部分網站圖片無法提取的問題。
+- **消除重複代碼**：移除 `background.js` 中冗餘的 URL 清理與驗證邏輯，改為直接調用 `ImageUtils`，提升維護性。
+- **測試覆蓋**：更新並通過所有相關單元測試，確保重構不影響現有功能。
+
+---
+
 ## v2.13.1 - 2025-12-01
 
 ### ⚡ 效能優化

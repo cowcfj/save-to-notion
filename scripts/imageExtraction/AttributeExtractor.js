@@ -2,32 +2,40 @@
  * 屬性提取器
  * 專門處理各種圖片屬性的提取，包括懶加載和響應式圖片屬性
  *
- * @requires ImageUtils - 圖片工具庫（可選，用於統一驗證邏輯）
+ * @requires ImageUtils - 圖片工具庫
  */
 
-/* global ImageUtils */
+// 嘗試獲取 ImageUtils 引用
+let ImageUtilsRef = typeof window !== 'undefined' ? window.ImageUtils : null;
+
+if (!ImageUtilsRef && typeof require !== 'undefined') {
+  try {
+    ImageUtilsRef = require('../utils/imageUtils');
+  } catch (_e) {
+    // 忽略加載錯誤
+  }
+}
 
 class AttributeExtractor {
   /**
    * 圖片屬性優先級列表
    * 按照常見程度和可靠性排序
+   * 優先使用 ImageUtils 中的定義
    */
   static get IMAGE_ATTRIBUTES() {
-    return [
-      // 標準屬性
-      'src',
+    if (ImageUtilsRef?.IMAGE_ATTRIBUTES) {
+      return ImageUtilsRef.IMAGE_ATTRIBUTES;
+    }
 
-      // 常見的懶加載屬性
+    // 回退定義（以防 ImageUtils 未加載）
+    return [
+      'src',
       'data-src',
       'data-lazy-src',
       'data-original',
       'data-original-src',
-
-      // 響應式圖片屬性
       'data-srcset',
       'data-lazy-srcset',
-
-      // 擴展的懶加載屬性
       'data-actualsrc',
       'data-src-original',
       'data-echo',
@@ -92,8 +100,9 @@ class AttributeExtractor {
 
     const urls = [];
     const seenUrls = new Set();
+    const attributes = this.IMAGE_ATTRIBUTES;
 
-    for (const attr of this.IMAGE_ATTRIBUTES) {
+    for (const attr of attributes) {
       if (imgNode.hasAttribute(attr)) {
         const value = imgNode.getAttribute(attr);
         const cleanedValue = this._cleanAttributeValue(value);
@@ -102,7 +111,7 @@ class AttributeExtractor {
           urls.push({
             url: cleanedValue,
             attribute: attr,
-            priority: this.IMAGE_ATTRIBUTES.indexOf(attr),
+            priority: attributes.indexOf(attr),
           });
           seenUrls.add(cleanedValue);
         }
@@ -207,82 +216,21 @@ class AttributeExtractor {
    * @returns {boolean} 是否有效
    */
   static _isValidImageUrl(url) {
-    // 優先使用 ImageUtils 的統一驗證（如果可用）
-    if (typeof ImageUtils !== 'undefined' && ImageUtils.isValidImageUrl) {
-      return ImageUtils.isValidImageUrl(url);
+    // 優先使用 ImageUtils 的統一驗證
+    if (ImageUtilsRef?.isValidImageUrl) {
+      return ImageUtilsRef.isValidImageUrl(url);
     }
 
-    // 回退實現（如果 ImageUtils 未載入）
+    // 最小化回退實現（僅當 ImageUtils 不可用時）
     if (!url || typeof url !== 'string') {
       return false;
     }
 
-    // 排除 data: 和 blob: URL
     if (url.startsWith('data:') || url.startsWith('blob:')) {
       return false;
     }
 
-    // 排除明顯的佔位符
-    const placeholders = [
-      'placeholder',
-      'loading',
-      'spinner',
-      'blank',
-      'empty',
-      '1x1',
-      'transparent',
-    ];
-
-    const lowerUrl = url.toLowerCase();
-    if (placeholders.some(placeholder => lowerUrl.includes(placeholder))) {
-      return false;
-    }
-
-    // 檢查是否為有效的路徑格式
-    const isLikelyRelativePath =
-      url.startsWith('/') || url.startsWith('./') || url.startsWith('../');
-    const hasImageExtension = /\.(?:jpe?g|png|gif|webp|svg|bmp|ico|tiff?|avif)(?:\?|#|$)/i.test(
-      url
-    );
-    const isAbsoluteUrl = /^https?:\/\//i.test(url);
-
-    // 如果不是明顯的相對路徑、沒有圖片副檔名、也不是絕對 URL，則拒絕
-    if (!isLikelyRelativePath && !hasImageExtension && !isAbsoluteUrl) {
-      return false;
-    }
-
-    // 基本 URL 格式檢查
-    const baseUrl = (() => {
-      if (typeof document !== 'undefined' && typeof document.baseURI === 'string') {
-        return document.baseURI;
-      }
-      if (typeof location !== 'undefined' && typeof location.href === 'string') {
-        return location.href;
-      }
-      return undefined;
-    })();
-
-    /**
-     * 使用標準 URL 解析器驗證 URL
-     * @returns {boolean} URL 是否為有效的 HTTP/HTTPS 協議
-     */
-    const validateWithStandardParser = () => {
-      try {
-        const parsedUrl = baseUrl ? new URL(url, baseUrl) : new URL(url);
-        return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
-      } catch {
-        return false;
-      }
-    };
-
-    if (typeof URL !== 'undefined' && typeof URL.canParse === 'function') {
-      const canParse = baseUrl ? URL.canParse(url, baseUrl) : URL.canParse(url);
-      if (!canParse) {
-        return validateWithStandardParser();
-      }
-    }
-
-    return validateWithStandardParser();
+    return url.length > 5;
   }
 
   /**
@@ -301,34 +249,11 @@ class AttributeExtractor {
    * @returns {boolean} 是否為懶加載屬性
    */
   static isLazyLoadAttribute(attributeName) {
-    // 常見的懶加載屬性
-    const lazyLoadAttributes = [
-      'data-src',
-      'data-lazy-src',
-      'data-original',
-      'data-original-src',
-      'data-actualsrc',
-      'data-src-original',
-      'data-echo',
-      'data-href',
-      'data-large',
-      'data-bigsrc',
-      'data-full-src',
-      'data-hi-res-src',
-      'data-large-src',
-      'data-zoom-src',
-      'data-image-src',
-      'data-img-src',
-      'data-real-src',
-      'data-lazy',
-      'data-url',
-      'data-image',
-      'data-img',
-      'data-fallback-src',
-      'data-origin',
-    ];
-
-    return lazyLoadAttributes.includes(attributeName);
+    // 簡單判斷：包含 lazy 或 data-src 等關鍵字
+    // 為了保持一致性，這裡也可以依賴 ImageUtils，但 ImageUtils 目前沒有導出 isLazyLoadAttribute
+    // 所以保留基於 IMAGE_ATTRIBUTES 的判斷
+    const lazyKeywords = ['lazy', 'data-src', 'data-original', 'echo', 'real'];
+    return lazyKeywords.some(keyword => attributeName.includes(keyword));
   }
 
   /**

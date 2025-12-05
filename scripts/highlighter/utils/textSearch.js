@@ -115,10 +115,10 @@ export function findTextWithTreeWalker(textToFind) {
         let startNode = null;
         let startOffset = 0;
 
-        for (const node of nodesInRange) {
-          const nodeLength = node.textContent.length;
+        for (const rangeNode of nodesInRange) {
+          const nodeLength = rangeNode.textContent.length;
           if (currentLength + nodeLength > index) {
-            startNode = node;
+            startNode = rangeNode;
             startOffset = index - currentLength;
             break;
           }
@@ -131,10 +131,10 @@ export function findTextWithTreeWalker(textToFind) {
         let endOffset = 0;
         const endIndex = index + textToFind.length;
 
-        for (const node of nodesInRange) {
-          const nodeLength = node.textContent.length;
+        for (const rangeNode of nodesInRange) {
+          const nodeLength = rangeNode.textContent.length;
           if (currentLength + nodeLength >= endIndex) {
-            endNode = node;
+            endNode = rangeNode;
             endOffset = endIndex - currentLength;
             break;
           }

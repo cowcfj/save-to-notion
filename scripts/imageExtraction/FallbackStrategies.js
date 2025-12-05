@@ -1,7 +1,21 @@
 /**
  * 回退策略類
  * 實現各種圖片提取的回退方法，包括背景圖、picture 元素和 noscript 處理
+ *
+ * @requires ImageUtils - 圖片工具庫
  */
+
+// 嘗試獲取 ImageUtils 引用
+let ImageUtilsRef = typeof window !== 'undefined' ? window.ImageUtils : null;
+
+if (!ImageUtilsRef && typeof require !== 'undefined') {
+  try {
+    ImageUtilsRef = require('../utils/imageUtils');
+  } catch (_e) {
+    // 忽略加載錯誤
+  }
+}
+
 class FallbackStrategies {
   /**
    * 從背景圖片提取 URL
@@ -274,11 +288,16 @@ class FallbackStrategies {
    * @returns {boolean} 是否有效
    */
   static _isValidUrl(url) {
+    // 優先使用 ImageUtils 的統一驗證
+    if (ImageUtilsRef && ImageUtilsRef.isValidImageUrl) {
+      return ImageUtilsRef.isValidImageUrl(url);
+    }
+
+    // 最小化回退實現（僅當 ImageUtils 不可用時）
     if (!url || typeof url !== 'string') {
       return false;
     }
 
-    // 排除 data: 和 blob: URL
     if (url.startsWith('data:') || url.startsWith('blob:')) {
       return false;
     }

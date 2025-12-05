@@ -40,9 +40,59 @@ function cleanImageUrl(url) {
     return null;
   }
 
-  try {
-    const urlObj = new URL(url);
+  let urlObj = null;
+  let isRelative = false;
 
+  try {
+    urlObj = new URL(url);
+  } catch (error) {
+    // 嘗試作為相對 URL 解析
+    try {
+      // 簡單啟發式檢查：如果是相對路徑，應該看起來像路徑
+      // 1. 以 / 或 ./ 或 ../ 開頭
+      // 2. 或者包含文件擴展名
+      const isPathLike =
+        url.startsWith('/') ||
+        url.startsWith('./') ||
+        url.startsWith('../') ||
+        /\.[a-zA-Z0-9]{2,4}$/.test(url);
+
+      if (!isPathLike) {
+        throw new Error('Invalid relative URL format');
+      }
+
+      // 使用假域名作為基底來解析相對路徑
+      urlObj = new URL(url, 'http://dummy-base.com');
+      isRelative = true;
+    } catch (_e) {
+      /*
+       * URL 解析錯誤：通常是格式不正確的 URL
+       * 返回 null 表示無法處理，調用者應該有適當的回退處理
+       *
+       * ErrorHandler 是全局變量，由 scripts/errorHandling/ErrorHandler.js 提供
+       * 在瀏覽器環境中掛載到 window.ErrorHandler
+       * 在 Node.js 測試環境中通過 require 引入
+       */
+      const ErrorHandlerRef =
+        typeof window !== 'undefined'
+          ? window.ErrorHandler
+          : typeof ErrorHandler !== 'undefined'
+            ? ErrorHandler
+            : null;
+
+      if (ErrorHandlerRef) {
+        ErrorHandlerRef.logError({
+          type: 'invalid_url',
+          context: `URL cleaning: ${url}`,
+          originalError: error,
+          timestamp: Date.now(),
+        });
+      }
+      return null;
+    }
+  }
+
+  try {
     // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
     if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
       const uParam = urlObj.searchParams.get('u');
@@ -61,31 +111,15 @@ function cleanImageUrl(url) {
     }
     urlObj.search = params.toString();
 
-    return urlObj.href;
-  } catch (error) {
-    /*
-     * URL 解析錯誤：通常是格式不正確的 URL
-     * 返回 null 表示無法處理，調用者應該有適當的回退處理
-     *
-     * ErrorHandler 是全局變量，由 scripts/errorHandling/ErrorHandler.js 提供
-     * 在瀏覽器環境中掛載到 window.ErrorHandler
-     * 在 Node.js 測試環境中通過 require 引入
-     */
-    const ErrorHandlerRef =
-      typeof window !== 'undefined'
-        ? window.ErrorHandler
-        : typeof ErrorHandler !== 'undefined'
-          ? ErrorHandler
-          : null;
-
-    if (ErrorHandlerRef) {
-      ErrorHandlerRef.logError({
-        type: 'invalid_url',
-        context: `URL cleaning: ${url}`,
-        originalError: error,
-        timestamp: Date.now(),
-      });
+    if (isRelative) {
+      // 重建相對 URL
+      // 注意：pathname 總是從 / 開始，如果原始 URL 是 'image.jpg'，這裡會變成 '/image.jpg'
+      // 這通常是可以接受的標準化
+      return urlObj.pathname + urlObj.search + urlObj.hash;
     }
+
+    return urlObj.href;
+  } catch (_error) {
     return null;
   }
 }
@@ -128,8 +162,12 @@ function isValidImageUrl(url) {
     return false;
   }
 
-  // 檢查是否為有效的 HTTP/HTTPS URL
-  if (!/^https?:\/\//i.test(cleanedUrl)) {
+  // 檢查是否為有效的 HTTP/HTTPS URL 或 相對路徑
+  const isAbsolute = /^https?:\/\//i.test(cleanedUrl);
+  // 相對路徑通常以 / 或 . 開頭，或者只是文件名（cleanImageUrl 會加上 /）
+  const isRelative = cleanedUrl.startsWith('/');
+
+  if (!isAbsolute && !isRelative) {
     return false;
   }
 
@@ -139,9 +177,10 @@ function isValidImageUrl(url) {
   }
 
   try {
-    const urlObj = new URL(cleanedUrl);
+    // 為了後續檢查，如果是相對路徑，再次轉為對象
+    const urlObj = isAbsolute ? new URL(cleanedUrl) : new URL(cleanedUrl, 'http://dummy-base.com');
 
-    // 檢查是否為 data URL
+    // 檢查是否為 data URL (再次檢查，以防 cleanImageUrl 改變了什麼)
     if (urlObj.protocol === 'data:') {
       return urlObj.href.startsWith('data:image/');
     }
