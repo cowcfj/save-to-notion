@@ -184,3 +184,16 @@ export const ARTICLE_STRUCTURE_SELECTORS = [
   '#post',
   '#main',
 ];
+
+// ==========================================
+// 元數據選擇器
+// ==========================================
+
+/**
+ * Favicon 選擇器（來自 MetadataExtractor.js）
+ */
+export const FAVICON_SELECTORS = [
+  'link[rel="icon"]',
+  'link[rel="shortcut icon"]',
+  'link[rel="apple-touch-icon"]',
+];

@@ -8,7 +8,7 @@
  * - 提取 Favicon
  * - 整合 Readability 解析結果與頁面 Meta 標籤
  */
-
+import { FAVICON_SELECTORS } from '../../config/selectors.js';
 class MetadataExtractor {
   /**
    * 提取頁面元數據
@@ -86,11 +86,8 @@ class MetadataExtractor {
    */
   // prettier-ignore
   static extractFavicon(doc) {
-    const selectors = [
-      'link[rel="icon"]',
-      'link[rel="shortcut icon"]',
-      'link[rel="apple-touch-icon"]',
-    ];
+    // 使用配置中的選擇器
+    const selectors = FAVICON_SELECTORS;
 
     for (const selector of selectors) {
       const link = doc.querySelector(selector);
