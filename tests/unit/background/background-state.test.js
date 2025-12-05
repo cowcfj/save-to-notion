@@ -46,7 +46,7 @@ global.PerformanceOptimizer = {};
 // Import background script
 // This will execute the background script, so we need mocks ready before this
 const background = require('../../../scripts/background.js');
-const { updateTabStatus, ScriptInjector } = background;
+const { updateTabStatus, injectionService } = background;
 
 describe('Background State Updates', () => {
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe('Background State Updates', () => {
     // or just to verify it was called.
     // Since we want to verify it was called, and we don't want side effects (though executeScript is mocked),
     // mocking it is safer for this unit test.
-    jest.spyOn(ScriptInjector, 'injectHighlighter').mockResolvedValue();
+    jest.spyOn(injectionService, 'injectHighlighter').mockResolvedValue();
 
     // Also mock migrateLegacyHighlights if we want to isolate it,
     // but the review said "mocking ... migrateLegacyHighlights as needed".
@@ -110,7 +110,7 @@ describe('Background State Updates', () => {
     expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#48bb78', tabId });
 
     // Verify highlighter injection
-    expect(ScriptInjector.injectHighlighter).toHaveBeenCalledWith(tabId);
+    expect(injectionService.injectHighlighter).toHaveBeenCalledWith(tabId);
   });
 
   test('updateTabStatus should clear badge when page is not saved', async () => {
@@ -128,7 +128,7 @@ describe('Background State Updates', () => {
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId });
 
     // Verify no injection if no highlights
-    expect(ScriptInjector.injectHighlighter).not.toHaveBeenCalled();
+    expect(injectionService.injectHighlighter).not.toHaveBeenCalled();
 
     // Since we can't easily spy on internal migrateLegacyHighlights call without changing source,
     // we can check if storage.remove was called (which migrateLegacyHighlights does if no legacy data).

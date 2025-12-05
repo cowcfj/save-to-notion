@@ -13,6 +13,13 @@ import './utils/Logger.js';
 // Import modular services (Phase 4 integration)
 import { StorageService, URL_TRACKING_PARAMS } from './background/services/StorageService.js';
 import { NotionService, fetchWithRetry } from './background/services/NotionService.js';
+import {
+  InjectionService,
+  isRestrictedInjectionUrl,
+  isRecoverableInjectionError,
+} from './background/services/InjectionService.js';
+
+const injectionService = new InjectionService({ logger: Logger });
 
 import { MessageHandler } from './background/handlers/MessageHandler.js';
 
@@ -87,316 +94,7 @@ function splitTextForHighlight(text, maxLength = 2000) {
 // ==========================================
 
 // 判斷指定網址是否為禁止注入腳本的受限網域
-function isRestrictedInjectionUrl(urlString) {
-  if (!urlString) {
-    return true;
-  }
-
-  try {
-    const url = new URL(urlString);
-    const blockedHosts = [
-      { host: 'chrome.google.com', pathPrefix: '/webstore' },
-      { host: 'chromewebstore.google.com' },
-      { host: 'microsoftedge.microsoft.com', pathPrefix: '/addons' },
-      { host: 'addons.mozilla.org' },
-    ];
-
-    return blockedHosts.some(({ host, pathPrefix }) => {
-      if (url.host !== host) {
-        return false;
-      }
-      if (!pathPrefix) {
-        return true;
-      }
-      return url.pathname.startsWith(pathPrefix);
-    });
-  } catch (error) {
-    console.warn('Failed to parse URL when checking restrictions:', error);
-    return true;
-  }
-}
-
-// 解析 chrome.runtime.lastError 的文字內容
-function getRuntimeErrorMessage(runtimeError) {
-  if (!runtimeError) {
-    return '';
-  }
-
-  if (typeof runtimeError === 'string') {
-    return runtimeError;
-  }
-
-  if (runtimeError.message) {
-    return runtimeError.message;
-  }
-
-  try {
-    return JSON.stringify(runtimeError);
-  } catch (error) {
-    console.warn('Unable to stringify runtime error:', error);
-    return String(runtimeError);
-  }
-}
-
-// 軟性錯誤：常見於無法注入受限頁面或標籤已關閉
-function isRecoverableInjectionError(message) {
-  if (!message) {
-    return false;
-  }
-
-  const patterns = [
-    'Cannot access contents of url',
-    'Cannot access contents of page',
-    'Cannot access contents of the page',
-    'Extension manifest must request permission',
-    'No tab with id',
-    'The tab was closed',
-    'The frame was removed',
-    // v2.11.3: 新增錯誤頁面相關模式
-    'Frame with ID 0 is showing error page',
-    'is showing error page',
-    'ERR_NAME_NOT_RESOLVED',
-    'ERR_CONNECTION_REFUSED',
-    'ERR_INTERNET_DISCONNECTED',
-    'ERR_TIMED_OUT',
-    'ERR_SSL_PROTOCOL_ERROR',
-  ];
-
-  return patterns.some(pattern => message.includes(pattern));
-}
-
-// ==========================================
-// SCRIPT INJECTION MANAGER
-// ==========================================
-
-/**
- * 腳本注入管理器 - 統一管理所有腳本注入操作
- */
-class ScriptInjector {
-  /**
-   * 注入文件並執行函數
-   */
-  static async injectAndExecute(tabId, files = [], func = null, options = {}) {
-    const {
-      errorMessage = 'Script injection failed',
-      successMessage = 'Script executed successfully',
-      logErrors = true,
-      returnResult = false,
-    } = options;
-
-    try {
-      // 首先注入文件
-      if (files.length > 0) {
-        await new Promise((resolve, reject) => {
-          chrome.scripting.executeScript(
-            {
-              target: { tabId },
-              files,
-            },
-            () => {
-              if (chrome.runtime.lastError) {
-                const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
-                const isRecoverable = isRecoverableInjectionError(errMsg);
-                if (logErrors) {
-                  if (isRecoverable) {
-                    console.warn('⚠️ File injection skipped (recoverable):', errMsg);
-                  } else {
-                    console.error('File injection failed:', errMsg);
-                  }
-                }
-                if (isRecoverable) {
-                  resolve();
-                  return;
-                }
-                reject(new Error(errMsg || errorMessage));
-              } else {
-                resolve();
-              }
-            }
-          );
-        });
-      }
-
-      // 然後執行函數
-      if (func) {
-        return new Promise((resolve, reject) => {
-          chrome.scripting.executeScript(
-            {
-              target: { tabId },
-              func,
-            },
-            results => {
-              if (chrome.runtime.lastError) {
-                const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
-                const isRecoverable = isRecoverableInjectionError(errMsg);
-                if (logErrors) {
-                  if (isRecoverable) {
-                    console.warn('⚠️ Function execution skipped (recoverable):', errMsg);
-                  } else {
-                    console.error('Function execution failed:', errMsg);
-                  }
-                }
-                if (isRecoverable) {
-                  resolve(returnResult ? null : undefined);
-                  return;
-                }
-                reject(new Error(errMsg || errorMessage));
-              } else {
-                if (successMessage && logErrors) {
-                  Logger.log(successMessage);
-                }
-                const result = returnResult && results && results[0] ? results[0].result : null;
-                resolve(result);
-              }
-            }
-          );
-        });
-      }
-
-      return Promise.resolve();
-    } catch (error) {
-      if (logErrors) {
-        console.error(errorMessage, error);
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * 注入標記工具並初始化
-   * v2.5.0: 使用新版 CSS Highlight API + 無痛自動遷移
-   */
-  static injectHighlighter(tabId) {
-    return this.injectAndExecute(
-      tabId,
-      ['dist/highlighter-v2.bundle.js'],
-      () => {
-        // highlighter-v2.bundle.js 會自動初始化（setupHighlighter）
-        // 我們只需要確保工具欄顯示即可
-        // 使用 setTimeout 確保自動初始化完成
-        return new Promise(resolve => {
-          setTimeout(() => {
-            if (window.notionHighlighter) {
-              window.notionHighlighter.show();
-              const count = window.HighlighterV2?.manager?.getCount() || 0;
-              Logger.log(`✅ 標註工具已準備，共 ${count} 個標註`);
-              resolve({ initialized: true, highlightCount: count });
-            } else {
-              console.warn('⚠️ notionHighlighter 未初始化');
-              resolve({ initialized: false, highlightCount: 0 });
-            }
-          }, 500); // 等待 500ms 確保初始化完成
-        });
-      },
-      {
-        errorMessage: 'Failed to inject highlighter',
-        successMessage: 'Highlighter v2 injected successfully',
-        returnResult: true,
-      }
-    );
-  }
-
-  /**
-   * 注入並收集標記
-   * v2.5.0: 使用新版標註系統
-   */
-  static collectHighlights(tabId) {
-    // manifest.json 已注入所有依賴，無需重複注入
-    return this.injectAndExecute(
-      tabId,
-      [], // 所有腳本已由 manifest.json 注入
-      () => {
-        if (window.collectHighlights) {
-          return window.collectHighlights();
-        }
-        return [];
-      },
-      {
-        errorMessage: 'Failed to collect highlights',
-        returnResult: true,
-      }
-    );
-  }
-
-  /**
-   * 注入並清除頁面標記
-   * v2.5.0: 使用新版標註系統
-   */
-  static clearPageHighlights(tabId) {
-    // manifest.json 已注入所有依賴，無需重複注入
-    return this.injectAndExecute(
-      tabId,
-      [], // 所有腳本已由 manifest.json 注入
-      () => {
-        if (window.clearPageHighlights) {
-          window.clearPageHighlights();
-        }
-      },
-      {
-        errorMessage: 'Failed to clear highlights',
-      }
-    );
-  }
-
-  /**
-   * 注入標記恢復腳本
-   */
-  static injectHighlightRestore(tabId) {
-    return this.injectAndExecute(
-      tabId,
-      ['scripts/utils.js', 'scripts/highlight-restore.js'],
-      null,
-      {
-        errorMessage: 'Failed to inject highlight restore script',
-        successMessage: 'Highlight restore script injected successfully',
-      }
-    );
-  }
-
-  /**
-   * 注入腳本並執行函數，返回結果
-   */
-  static async injectWithResponse(tabId, func, files = []) {
-    try {
-      // 如果有文件需要注入，先注入文件
-      if (files && files.length > 0) {
-        await this.injectAndExecute(tabId, files, null, { logErrors: true });
-      }
-
-      // 執行函數並返回結果
-      if (func) {
-        return this.injectAndExecute(tabId, [], func, {
-          returnResult: true,
-          logErrors: true,
-        });
-      } else if (files && files.length > 0) {
-        // 如果只注入文件而不執行函數，等待注入完成後返回成功標記
-        return Promise.resolve([{ result: { success: true } }]);
-      }
-
-      return Promise.resolve(null);
-    } catch (error) {
-      console.error('injectWithResponse failed:', error);
-      // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
-      return null;
-    }
-  }
-
-  /**
-   * 簡單的腳本注入（不返回結果）
-   */
-  static async inject(tabId, func, files = []) {
-    try {
-      return await this.injectAndExecute(tabId, files, func, {
-        returnResult: false,
-        logErrors: true,
-      });
-    } catch (error) {
-      console.error('inject failed:', error);
-      throw error;
-    }
-  }
-}
+// SCRIPT INJECTION MANAGER provided by InjectionService
 
 // ==========================================
 // NOTION API UTILITIES
@@ -1294,7 +992,7 @@ async function updateTabStatus(tabId, url) {
           `Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`
         );
       }
-      await ScriptInjector.injectHighlighter(tabId);
+      await injectionService.injectHighlighter(tabId);
     } else {
       // 沒有找到現有標註，若曾有遷移資料則恢復一次後清理
       await migrateLegacyHighlights(tabId, normUrl, highlightsKey);
@@ -1353,7 +1051,7 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
       return;
     }
 
-    const result = await ScriptInjector.injectWithResponse(tabId, () => {
+    const result = await injectionService.injectWithResponse(tabId, () => {
       try {
         /**
          * 標準化 URL（移除追蹤參數和片段）
@@ -1442,7 +1140,7 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
       });
 
       Logger.log('Legacy highlights migrated successfully, injecting restore script');
-      await ScriptInjector.injectHighlightRestore(tabId);
+      await injectionService.injectHighlightRestore(tabId);
     }
   } catch (error) {
     // 檢查是否為可恢復的注入錯誤（如錯誤頁面、標籤已關閉等）
@@ -1562,8 +1260,8 @@ async function handleCheckPageStatus(sendResponse) {
             Logger.log('Notion page was deleted, clearing local state');
             clearPageState(normUrl);
 
-            await ScriptInjector.injectHighlighter(activeTab.id);
-            await ScriptInjector.inject(activeTab.id, () => {
+            await injectionService.injectHighlighter(activeTab.id);
+            await injectionService.inject(activeTab.id, () => {
               if (window.clearPageHighlights) {
                 window.clearPageHighlights();
               }
@@ -1703,7 +1401,7 @@ async function handleStartHighlight(sendResponse) {
       Logger.log('發送 toggleHighlighter 失敗，嘗試注入腳本:', error);
     }
 
-    await ScriptInjector.injectHighlighter(activeTab.id);
+    await injectionService.injectHighlighter(activeTab.id);
     sendResponse({ success: true });
   } catch (error) {
     console.error('Error in handleStartHighlight:', error);
@@ -1740,7 +1438,7 @@ async function handleUpdateHighlights(sendResponse) {
       return;
     }
 
-    const highlights = await ScriptInjector.collectHighlights(activeTab.id);
+    const highlights = await injectionService.collectHighlights(activeTab.id);
 
     updateHighlightsOnly(
       savedData.notionPageId,
@@ -1867,8 +1565,8 @@ async function handleSavePage(sendResponse) {
     const savedData = await getSavedPageData(normUrl);
 
     // 注入 highlighter 並收集標記
-    await ScriptInjector.injectHighlighter(activeTab.id);
-    const highlights = await ScriptInjector.collectHighlights(activeTab.id);
+    await injectionService.injectHighlighter(activeTab.id);
+    const highlights = await injectionService.collectHighlights(activeTab.id);
 
     Logger.log('📊 收集到的標註數據:', highlights);
     Logger.log('📊 標註數量:', highlights?.length || 0);
@@ -1876,7 +1574,7 @@ async function handleSavePage(sendResponse) {
     // 注入並執行內容提取
     let result = null;
     try {
-      result = await ScriptInjector.injectWithResponse(
+      result = await injectionService.injectWithResponse(
         activeTab.id,
         () => {
           // 初始化性能優化器（可選）
@@ -3211,8 +2909,8 @@ async function handleSavePage(sendResponse) {
 // 清理頁面標記的輔助函數
 async function clearPageHighlights(tabId) {
   try {
-    await ScriptInjector.injectHighlighter(tabId);
-    await ScriptInjector.inject(tabId, () => {
+    await injectionService.injectHighlighter(tabId);
+    await injectionService.inject(tabId, () => {
       if (window.clearPageHighlights) {
         window.clearPageHighlights();
       }
@@ -3398,7 +3096,7 @@ if (typeof module !== 'undefined' && module.exports) {
     migrateLegacyHighlights,
     updateTabStatus,
     getSavedPageData,
-    ScriptInjector,
+    injectionService,
     isRestrictedInjectionUrl,
   };
 }
