@@ -16,7 +16,7 @@ export default {
         resolve(),
         !isDev && terser({
             compress: {
-                drop_console: false,      // 保留 console.log（除錯需要）
+                drop_console: true,      // 移除 console.log（生產環境不需要）
                 drop_debugger: true,      // 移除 debugger
                 pure_funcs: [             // 移除特定 debug 函式
                     'console.debug'
