@@ -11,7 +11,7 @@
 /* global Readability, Logger, PerformanceOptimizer */
 
 import { CONTENT_QUALITY } from '../../config/constants.js';
-import { CMS_CONTENT_SELECTORS } from '../../config/selectors.js';
+import { CMS_CONTENT_SELECTORS, ARTICLE_STRUCTURE_SELECTORS } from '../../config/selectors.js';
 
 // 從 CONTENT_QUALITY 解構常用常量到模組級別
 const { MIN_CONTENT_LENGTH } = CONTENT_QUALITY;
@@ -265,40 +265,7 @@ function findContentCmsFallback() {
   }
 
   // Strategy 3: Look for common article structures
-  const articleSelectors = [
-    'article[role="main"]',
-    'article.post',
-    'article.article',
-    'article.content',
-    'article.entry',
-    '.post-body',
-    '.article-body',
-    '.entry-body',
-    '.news-body',
-    '.story-body',
-    '.content-text',
-    '.article-container',
-    '.post-container',
-    '.content-container',
-    // 通用文章標籤
-    'article',
-    'main article',
-    '.article',
-    '.post',
-    '.entry',
-    '.news',
-    '.story',
-    // ID 選擇器（常見的）
-    '#content',
-    '#main-content',
-    '#article-content',
-    '#post-content',
-    '#article',
-    '#post',
-    '#main',
-  ];
-
-  for (const selector of articleSelectors) {
+  for (const selector of ARTICLE_STRUCTURE_SELECTORS) {
     const element = cachedQuery(selector, document, { single: true });
     if (element) {
       const textLength = element.textContent.trim().length;
