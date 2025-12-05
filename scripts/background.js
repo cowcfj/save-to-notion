@@ -1577,19 +1577,63 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
 /**
  * Sets up the message listener for runtime messages
  */
+/**
+ * 設置消息處理器
+ * 使用 MessageHandler 統一管理所有消息路由
+ */
 function setupMessageHandlers() {
+  // 檢查 MessageHandler 是否可用（瀏覽器環境）
+  if (typeof window !== 'undefined' && window.MessageHandler) {
+    const messageHandler = new window.MessageHandler({ logger: Logger });
+
+    // 註冊所有消息處理函數
+    messageHandler.registerAll({
+      checkPageStatus: (request, sender, sendResponse) => {
+        handleCheckPageStatus(sendResponse);
+      },
+      checkNotionPageExists: (request, sender, sendResponse) => {
+        handleCheckNotionPageExistsMessage(request, sendResponse);
+      },
+      startHighlight: (request, sender, sendResponse) => {
+        handleStartHighlight(sendResponse);
+      },
+      updateHighlights: (request, sender, sendResponse) => {
+        handleUpdateHighlights(sendResponse);
+      },
+      syncHighlights: (request, sender, sendResponse) => {
+        handleSyncHighlights(request, sendResponse);
+      },
+      savePage: (request, sender, sendResponse) => {
+        Promise.resolve(handleSavePage(sendResponse)).catch(err => {
+          try {
+            sendResponse({ success: false, error: err?.message || 'Save failed' });
+          } catch {
+            /* 忽略 sendResponse 錯誤 */
+          }
+        });
+      },
+      openNotionPage: (request, sender, sendResponse) => {
+        handleOpenNotionPage(request, sendResponse);
+      },
+    });
+
+    messageHandler.setupListener();
+    Logger.log('✅ MessageHandler 設置完成');
+    return;
+  }
+
+  // Fallback: 直接使用 chrome.runtime.onMessage（測試環境）
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    handleMessage(request, sender, sendResponse);
-    return true; // Indicates asynchronous response
+    handleMessageFallback(request, sender, sendResponse);
+    return true;
   });
 }
 
 /**
- * Main message handler that routes to specific handlers
+ * Fallback 消息處理（測試環境使用）
  */
-function handleMessage(request, sender, sendResponse) {
+function handleMessageFallback(request, sender, sendResponse) {
   try {
-    // removed unused IS_TEST_ENV (legacy test guard)
     switch (request.action) {
       case 'devLogSink': {
         try {
@@ -1628,7 +1672,6 @@ function handleMessage(request, sender, sendResponse) {
         handleSyncHighlights(request, sendResponse);
         break;
       case 'savePage':
-        // 防禦性處理：確保即使內部未捕獲的拒絕也會回覆
         Promise.resolve(handleSavePage(sendResponse)).catch(err => {
           try {
             sendResponse({ success: false, error: err?.message || 'Save failed' });
@@ -1640,7 +1683,6 @@ function handleMessage(request, sender, sendResponse) {
       case 'openNotionPage':
         handleOpenNotionPage(request, sendResponse);
         break;
-
       default:
         sendResponse({ success: false, error: 'Unknown action' });
     }
