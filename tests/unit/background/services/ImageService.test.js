@@ -129,6 +129,7 @@ describe('ImageService', () => {
 
   afterEach(() => {
     service.stopCleanupTask();
+    jest.restoreAllMocks();
   });
 
   describe('isValidImageUrl', () => {
@@ -144,6 +145,44 @@ describe('ImageService', () => {
 
       // 驗證器只應被調用一次
       expect(mockValidator).toHaveBeenCalledTimes(1);
+    });
+
+    it('應該根據創建時間清理過期條目，而不是訪問時間', () => {
+      const url = 'https://example.com/old-item.jpg';
+      const ttl = 1000;
+      service = new ImageService({
+        cacheTtl: ttl,
+        maxCacheSize: 10,
+        logger: mockLogger,
+        validator: mockValidator,
+      });
+
+      // 1. 初始添加 (T=0)
+      const startTime = Date.now();
+      jest.spyOn(Date, 'now').mockReturnValue(startTime);
+      service.isValidImageUrl(url);
+
+      // 2. 模擬快過期時訪問 (T=900) - 這會更新 accessOrder 但不應更新 cache.timestamp
+      jest.spyOn(Date, 'now').mockReturnValue(startTime + 900);
+      service.isValidImageUrl(url);
+
+      // 3. 模擬過期時間點 (T=1100)
+      // 依據創建時間(T=0)，現在(T=1100)已過期 (>1000)
+      // 但依據訪問時間(T=900)，現在還沒過期 (1100-900 = 200 < 1000)
+      jest.spyOn(Date, 'now').mockReturnValue(startTime + 1100);
+      service.cache.cleanupExpired();
+
+      // 如果邏輯錯誤（使用訪問時間），這裡會是 true
+      // 如果邏輯正確（使用創建時間），這裡應該是 false
+      service.isValidImageUrl(url);
+
+      // 我們期望它被清理掉，重新驗證
+      expect(mockValidator).toHaveBeenCalledTimes(2); // 初始1 + 訪問1(沒觸發) + 過期後重新驗證1 = 2
+      // 初始調用 -> validator calls: 1
+      // 第二次調用 (cache hit) -> validator calls: 1
+      // cleanupExpired -> 應該清除
+      // 第三次調用 (should be miss) -> validator calls: 2
+      expect(mockValidator).toHaveBeenCalledTimes(2);
     });
 
     it('應該拒絕無效輸入', () => {

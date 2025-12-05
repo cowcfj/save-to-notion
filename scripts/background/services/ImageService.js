@@ -94,13 +94,24 @@ class ImageUrlValidationCache {
    */
   cleanupExpired() {
     const now = Date.now();
-    for (const [url, timestamp] of this.accessOrder) {
-      if (now - timestamp > this.ttl) {
+    for (const url of this.accessOrder.keys()) {
+      const entry = this.cache.get(url);
+
+      // 處理數據不一致情況
+      if (!entry) {
+        this.accessOrder.delete(url);
+        continue;
+      }
+
+      // 使用創建時間檢查 TTL (Review Fix)
+      if (now - entry.timestamp > this.ttl) {
         this.cache.delete(url);
         this.accessOrder.delete(url);
         this.stats.evictions++;
       } else {
-        // 因為 Map 是有序的，可以提前停止
+        // 保持 Review 建議的優化：遇到未過期的則提前停止
+        // 注意：這假設 LRU 順序與創建時間大致相關，雖然不嚴格準確，
+        // 但作為後台清理任務的可接受啟發式優化。
         break;
       }
     }
