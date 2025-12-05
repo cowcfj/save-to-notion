@@ -12,7 +12,6 @@ let _debugEnabled = false;
 let _isInitialized = false;
 
 // 日誌級別常量
-// 日誌級別常量
 let LOG_LEVELS = {
   DEBUG: 0,
   LOG: 1,
