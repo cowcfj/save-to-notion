@@ -88,9 +88,13 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const key = `saved_${normalizedUrl}`;
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       this.storage.local.get([key], result => {
-        resolve(result[key] || null);
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(result[key] || null);
+        }
       });
     });
   }
@@ -109,7 +113,7 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const key = `saved_${normalizedUrl}`;
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       this.storage.local.set(
         {
           [key]: {
@@ -117,7 +121,13 @@ class StorageService {
             lastUpdated: Date.now(),
           },
         },
-        resolve
+        () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve();
+          }
+        }
       );
     });
   }
@@ -136,10 +146,14 @@ class StorageService {
     const savedKey = `saved_${normalizedUrl}`;
     const highlightsKey = `highlights_${normalizedUrl}`;
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       this.storage.local.remove([savedKey, highlightsKey], () => {
-        this.logger.log?.('✅ Cleared all data for:', normalizedUrl);
-        resolve();
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          this.logger.log?.('✅ Cleared all data for:', normalizedUrl);
+          resolve();
+        }
       });
     });
   }
@@ -154,8 +168,14 @@ class StorageService {
       throw new Error('Chrome storage not available');
     }
 
-    return new Promise(resolve => {
-      this.storage.sync.get(keys, resolve);
+    return new Promise((resolve, reject) => {
+      this.storage.sync.get(keys, result => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(result);
+        }
+      });
     });
   }
 
@@ -169,8 +189,14 @@ class StorageService {
       throw new Error('Chrome storage not available');
     }
 
-    return new Promise(resolve => {
-      this.storage.sync.set(config, resolve);
+    return new Promise((resolve, reject) => {
+      this.storage.sync.set(config, () => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve();
+        }
+      });
     });
   }
 
@@ -187,9 +213,13 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const key = `highlights_${normalizedUrl}`;
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       this.storage.local.get([key], result => {
-        resolve(result[key] || []);
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(result[key] || []);
+        }
       });
     });
   }
@@ -208,8 +238,14 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const key = `highlights_${normalizedUrl}`;
 
-    return new Promise(resolve => {
-      this.storage.local.set({ [key]: highlights }, resolve);
+    return new Promise((resolve, reject) => {
+      this.storage.local.set({ [key]: highlights }, () => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve();
+        }
+      });
     });
   }
 
@@ -222,12 +258,16 @@ class StorageService {
       throw new Error('Chrome storage not available');
     }
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       this.storage.local.get(null, result => {
-        const urls = Object.keys(result)
-          .filter(key => key.startsWith('saved_'))
-          .map(key => key.replace('saved_', ''));
-        resolve(urls);
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          const urls = Object.keys(result)
+            .filter(key => key.startsWith('saved_'))
+            .map(key => key.replace('saved_', ''));
+          resolve(urls);
+        }
       });
     });
   }
