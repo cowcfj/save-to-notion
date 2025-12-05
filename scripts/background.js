@@ -552,7 +552,7 @@ function getConfig(keys) {
  * 帶重試的 Notion API 請求
  * @returns {Promise<Response>}
  */
-async function fetchNotionWithRetry(url, options, retryOptions = {}) {
+function fetchNotionWithRetry(url, options, retryOptions = {}) {
   // 委派給 NotionService 模組提供的 fetchWithRetry
   return fetchWithRetry(url, options, retryOptions);
 }
@@ -568,7 +568,7 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
 //   true  => 確認存在
 //   false => 確認不存在（404）
 //   null  => 不確定（網路/服務端暫時性錯誤）
-async function checkNotionPageExists(pageId, apiKey) {
+function checkNotionPageExists(pageId, apiKey) {
   const notionService = new NotionService({ apiKey, logger: Logger });
   return notionService.checkPageExists(pageId);
 }
