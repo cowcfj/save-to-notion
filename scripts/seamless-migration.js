@@ -273,7 +273,10 @@
       try {
         const allData = await chrome.storage.local.get(null);
         const keysToRemove = [];
-        const currentUrl = window.location.href;
+        const currentUrl =
+          typeof window.normalizeUrl === 'function'
+            ? window.normalizeUrl(window.location.href)
+            : window.location.href;
         const currentKey = `${this.storageKey}_${currentUrl}`;
 
         for (const key of Object.keys(allData)) {
