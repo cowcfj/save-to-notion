@@ -360,7 +360,10 @@ export class HighlightManager {
       return;
     }
 
-    const currentUrl = window.location.href;
+    // 使用標準化 URL 確保存儲鍵一致性
+    const currentUrl = window.normalizeUrl
+      ? window.normalizeUrl(window.location.href)
+      : window.location.href;
     const data = {
       url: currentUrl,
       highlights: Array.from(this.highlights.values()).map(highlight => ({
@@ -400,7 +403,10 @@ export class HighlightManager {
     }
 
     try {
-      const url = window.location.href;
+      // 使用標準化 URL 與存儲保持一致
+      const url = window.normalizeUrl
+        ? window.normalizeUrl(window.location.href)
+        : window.location.href;
       const highlights = await window.StorageUtil.loadHighlights(url);
 
       if (!highlights || highlights.length === 0) {
