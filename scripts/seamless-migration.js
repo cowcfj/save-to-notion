@@ -34,7 +34,12 @@
      */
     async getMigrationState() {
       try {
-        const key = `${this.storageKey}_${window.location.href}`;
+        // 使用標準化的 URL 作為鍵，避免 hash 和追蹤參數導致重複狀態
+        const normalizedUrl =
+          typeof window.normalizeUrl === 'function'
+            ? window.normalizeUrl(window.location.href)
+            : window.location.href;
+        const key = `${this.storageKey}_${normalizedUrl}`;
         const data = await chrome.storage.local.get(key);
         return (
           data[key] || {
@@ -54,7 +59,12 @@
      */
     async updateMigrationState(phase, metadata = {}) {
       try {
-        const key = `${this.storageKey}_${window.location.href}`;
+        // 使用標準化的 URL 作為鍵，避免 hash 和追蹤參數導致重複狀態
+        const normalizedUrl =
+          typeof window.normalizeUrl === 'function'
+            ? window.normalizeUrl(window.location.href)
+            : window.location.href;
+        const key = `${this.storageKey}_${normalizedUrl}`;
         const state = {
           phase,
           timestamp: Date.now(),
