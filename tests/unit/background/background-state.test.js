@@ -46,7 +46,7 @@ global.PerformanceOptimizer = {};
 // Import background script
 // This will execute the background script, so we need mocks ready before this
 const background = require('../../../scripts/background.js');
-const { updateTabStatus, injectionService } = background;
+const { tabService, injectionService } = background;
 
 describe('Background State Updates', () => {
   beforeEach(() => {
@@ -81,7 +81,7 @@ describe('Background State Updates', () => {
     jest.restoreAllMocks();
   });
 
-  test('updateTabStatus should update badge and inject highlighter when page is saved and has highlights', async () => {
+  test('tabService.updateTabStatus should update badge and inject highlighter when page is saved and has highlights', async () => {
     const tabId = 123;
     const url = 'https://example.com/page';
     const normUrl = 'https://example.com/page';
@@ -103,7 +103,7 @@ describe('Background State Updates', () => {
       callback(result);
     });
 
-    await updateTabStatus(tabId, url);
+    await tabService.updateTabStatus(tabId, url);
 
     // Verify badge update
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId });
@@ -113,7 +113,7 @@ describe('Background State Updates', () => {
     expect(injectionService.injectHighlighter).toHaveBeenCalledWith(tabId);
   });
 
-  test('updateTabStatus should clear badge when page is not saved', async () => {
+  test('tabService.updateTabStatus should clear badge when page is not saved', async () => {
     const tabId = 123;
     const url = 'https://example.com/unsaved';
 
@@ -122,7 +122,7 @@ describe('Background State Updates', () => {
       callback({});
     });
 
-    await updateTabStatus(tabId, url);
+    await tabService.updateTabStatus(tabId, url);
 
     // Verify badge cleared
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId });
@@ -138,8 +138,8 @@ describe('Background State Updates', () => {
     // Now it's the real function.
   });
 
-  test('updateTabStatus should ignore non-http URLs', async () => {
-    await updateTabStatus(123, 'chrome://extensions');
+  test('tabService.updateTabStatus should ignore non-http URLs', async () => {
+    await tabService.updateTabStatus(123, 'chrome://extensions');
     expect(chrome.action.setBadgeText).not.toHaveBeenCalled();
   });
 });

@@ -22,6 +22,7 @@ import {
 const injectionService = new InjectionService({ logger: Logger });
 
 import { MessageHandler } from './background/handlers/MessageHandler.js';
+import { TabService } from './background/services/TabService.js';
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
@@ -956,202 +957,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
 /**
  * Sets up tab event listeners for dynamic injection
  */
-/**
- * 設置標籤事件監聽器，用於動態注入標記恢復腳本
- */
-/**
- * 更新標籤頁狀態（徽章和標註注入）
- * @param {number} tabId - 標籤頁 ID
- * @param {string} url - 標籤頁 URL
- */
-async function updateTabStatus(tabId, url) {
-  if (!url || !/^https?:/i.test(url) || isRestrictedInjectionUrl(url)) {
-    return;
-  }
-
-  const normUrl = normalizeUrl(url);
-  const highlightsKey = `highlights_${normUrl}`;
-
-  try {
-    // 1. 檢查是否已保存，更新徽章
-    const savedData = await getSavedPageData(normUrl);
-    if (savedData) {
-      chrome.action.setBadgeText({ text: '✓', tabId });
-      chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId });
-    } else {
-      chrome.action.setBadgeText({ text: '', tabId });
-    }
-
-    // 2. 檢查是否有標註，注入高亮腳本
-    const data = await new Promise(resolve => chrome.storage.local.get([highlightsKey], resolve));
-    const highlights = data[highlightsKey];
-
-    if (Array.isArray(highlights) && highlights.length > 0) {
-      if (typeof Logger !== 'undefined' && Logger.debug) {
-        Logger.debug(
-          `Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`
-        );
-      }
-      await injectionService.injectHighlighter(tabId);
-    } else {
-      // 沒有找到現有標註，若曾有遷移資料則恢復一次後清理
-      await migrateLegacyHighlights(tabId, normUrl, highlightsKey);
-    }
-  } catch (error) {
-    console.error('Error updating tab status:', error);
-  }
-}
-
-/**
- * 設置標籤事件監聽器，用於動態注入標記恢復腳本和更新狀態
- */
-function setupTabListeners() {
-  // 監聽標籤頁更新
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab && tab.url) {
-      // 添加延遲，確保頁面完全載入
-      setTimeout(() => {
-        updateTabStatus(tabId, tab.url);
-      }, 1000);
-    }
-  });
-
-  // 監聽標籤頁切換
-  chrome.tabs.onActivated.addListener(activeInfo => {
-    chrome.tabs.get(activeInfo.tabId, tab => {
-      if (tab?.url) {
-        updateTabStatus(activeInfo.tabId, tab.url);
-      }
-    });
-  });
-}
-
-/**
- * 遷移舊版本 localStorage 中的標記到 chrome.storage
- */
-/**
- * 遷移舊版 localStorage 中的標記到 chrome.storage.local
- */
-async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
-  if (!normUrl || !storageKey) {
-    console.warn('Skipping legacy migration: missing normalized URL or storage key');
-    return;
-  }
-
-  if (!/^https?:/i.test(normUrl)) {
-    console.warn('Skipping legacy migration for non-http URL:', normUrl);
-    return;
-  }
-
-  try {
-    // 檢查標籤頁是否仍然有效且不是錯誤頁面
-    const tab = await chrome.tabs.get(tabId).catch(() => null);
-    if (!tab || !tab.url || tab.url.startsWith('chrome-error://')) {
-      Logger.log('⚠️ Skipping migration: tab is invalid or showing error page');
-      return;
-    }
-
-    const result = await injectionService.injectWithResponse(tabId, () => {
-      try {
-        /**
-         * 標準化 URL（移除追蹤參數和片段）
-         * @param {string} raw - 原始 URL
-         * @returns {string} 標準化後的 URL
-         */
-        const normalize = raw => {
-          try {
-            const urlObj = new URL(raw);
-            urlObj.hash = '';
-            const params = [
-              'utm_source',
-              'utm_medium',
-              'utm_campaign',
-              'utm_term',
-              'utm_content',
-              'gclid',
-              'fbclid',
-              'mc_cid',
-              'mc_eid',
-              'igshid',
-              'vero_id',
-            ];
-            params.forEach(param => urlObj.searchParams.delete(param));
-            if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
-              urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
-            }
-            return urlObj.toString();
-          } catch {
-            return raw || '';
-          }
-        };
-
-        const norm = normalize(window.location.href);
-        const k1 = `highlights_${norm}`;
-        const k2 = `highlights_${window.location.href}`;
-        let key = null;
-        let raw = null;
-
-        // 嘗試找到對應的舊版標記數據
-        raw = localStorage.getItem(k1);
-        if (raw) {
-          key = k1;
-        } else {
-          raw = localStorage.getItem(k2);
-          if (raw) {
-            key = k2;
-          }
-        }
-
-        // 如果還是找不到，遍歷所有以 highlights_ 開頭的鍵
-        if (!raw) {
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k?.startsWith('highlights_')) {
-              key = k;
-              raw = localStorage.getItem(k);
-              break;
-            }
-          }
-        }
-
-        if (raw) {
-          try {
-            const data = JSON.parse(raw);
-            if (Array.isArray(data) && data.length > 0) {
-              localStorage.removeItem(key);
-              return { migrated: true, data, foundKey: key };
-            }
-          } catch (error) {
-            console.error('Failed to parse legacy highlight data:', error);
-          }
-        }
-      } catch (error) {
-        console.error('Error during migration:', error);
-      }
-      return { migrated: false };
-    });
-
-    const res = result?.[0] ? result[0].result : null;
-    if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {
-      Logger.log(`Migrating ${res.data.length} highlights from localStorage key: ${res.foundKey}`);
-
-      await new Promise(resolve => {
-        chrome.storage.local.set({ [storageKey]: res.data }, resolve);
-      });
-
-      Logger.log('Legacy highlights migrated successfully, injecting restore script');
-      await injectionService.injectHighlightRestore(tabId);
-    }
-  } catch (error) {
-    // 檢查是否為可恢復的注入錯誤（如錯誤頁面、標籤已關閉等）
-    const errorMessage = error?.message || String(error);
-    if (isRecoverableInjectionError(errorMessage)) {
-      Logger.log('⚠️ Migration skipped due to recoverable error:', errorMessage);
-    } else {
-      console.error('❌ Error handling migration results:', error);
-    }
-  }
-}
+// Tab management logic is now in TabService.js
 
 // ==========================================
 // MESSAGE HANDLERS MODULE
@@ -3081,9 +2887,19 @@ async function handleOpenNotionPage(request, sendResponse) {
   }
 }
 
+// Initialize TabService with dependencies
+const tabService = new TabService({
+  logger: Logger,
+  injectionService,
+  normalizeUrl,
+  getSavedPageData,
+  isRestrictedUrl: isRestrictedInjectionUrl,
+  isRecoverableError: isRecoverableInjectionError,
+});
+
 // Setup all services
 setupMessageHandlers();
-setupTabListeners();
+tabService.setupListeners();
 
 // ============================================================
 // 模組導出 (用於測試)
@@ -3093,8 +2909,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeUrl,
     splitTextForHighlight,
     appendBlocksInBatches,
-    migrateLegacyHighlights,
-    updateTabStatus,
+    tabService,
     getSavedPageData,
     injectionService,
     isRestrictedInjectionUrl,
