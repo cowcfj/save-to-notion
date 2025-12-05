@@ -772,67 +772,72 @@ const normalizeUrl =
 
 /**
  * Clears the local state for a specific page
- * ⚠️ 委派給 StorageService（避免重複實現）
+ * @returns {Promise<void>}
  */
 function clearPageState(pageUrl) {
   if (typeof window !== 'undefined' && window.StorageService) {
     const svc = new window.StorageService();
-    svc.clearPageState(pageUrl);
-    return;
+    return svc.clearPageState(pageUrl);
   }
   // Fallback for test environment
-  const savedKey = `saved_${pageUrl}`;
-  const highlightsKey = `highlights_${pageUrl}`;
-  chrome.storage.local.remove([savedKey, highlightsKey], () => {
-    Logger.log('✅ Cleared all data for:', pageUrl);
+  return new Promise(resolve => {
+    const savedKey = `saved_${pageUrl}`;
+    const highlightsKey = `highlights_${pageUrl}`;
+    chrome.storage.local.remove([savedKey, highlightsKey], () => {
+      Logger.log('✅ Cleared all data for:', pageUrl);
+      resolve();
+    });
   });
 }
 
 /**
  * Gets the saved page data from local storage
- * ⚠️ 委派給 StorageService
+ * @returns {Promise<Object|null>}
  */
-function getSavedPageData(pageUrl, callback) {
+function getSavedPageData(pageUrl) {
   if (typeof window !== 'undefined' && window.StorageService) {
     const svc = new window.StorageService();
-    svc.getSavedPageData(pageUrl).then(callback);
-    return;
+    return svc.getSavedPageData(pageUrl);
   }
   // Fallback
-  chrome.storage.local.get([`saved_${pageUrl}`], result => {
-    callback(result[`saved_${pageUrl}`] || null);
+  return new Promise(resolve => {
+    chrome.storage.local.get([`saved_${pageUrl}`], result => {
+      resolve(result[`saved_${pageUrl}`] || null);
+    });
   });
 }
 
 /**
  * Sets the saved page data in local storage
- * ⚠️ 委派給 StorageService
+ * @returns {Promise<void>}
  */
-function setSavedPageData(pageUrl, data, callback) {
+function setSavedPageData(pageUrl, data) {
   if (typeof window !== 'undefined' && window.StorageService) {
     const svc = new window.StorageService();
-    svc.setSavedPageData(pageUrl, data).then(callback);
-    return;
+    return svc.setSavedPageData(pageUrl, data);
   }
   // Fallback
-  const storageData = {
-    [`saved_${pageUrl}`]: { ...data, lastUpdated: Date.now() },
-  };
-  chrome.storage.local.set(storageData, callback);
+  return new Promise(resolve => {
+    const storageData = {
+      [`saved_${pageUrl}`]: { ...data, lastUpdated: Date.now() },
+    };
+    chrome.storage.local.set(storageData, resolve);
+  });
 }
 
 /**
  * Gets configuration from sync storage
- * ⚠️ 委派給 StorageService
+ * @returns {Promise<Object>}
  */
-function getConfig(keys, callback) {
+function getConfig(keys) {
   if (typeof window !== 'undefined' && window.StorageService) {
     const svc = new window.StorageService();
-    svc.getConfig(keys).then(callback);
-    return;
+    return svc.getConfig(keys);
   }
   // Fallback
-  chrome.storage.sync.get(keys, callback);
+  return new Promise(resolve => {
+    chrome.storage.sync.get(keys, resolve);
+  });
 }
 
 /**
@@ -958,7 +963,7 @@ async function handleCheckNotionPageExistsMessage(request, sendResponse) {
       return;
     }
 
-    const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
+    const config = await getConfig(['notionApiKey']);
 
     if (!config.notionApiKey) {
       sendResponse({ success: false, error: 'Notion API Key not configured' });
@@ -1158,32 +1163,28 @@ async function saveToNotion(
         Logger.log('🔗 手動構建 Notion URL:', notionUrl);
       }
 
-      setSavedPageData(
-        pageUrl,
-        {
-          title,
-          savedAt: Date.now(),
-          notionPageId,
-          notionUrl,
-        },
-        () => {
-          // 結束性能監控 (service worker 環境)
-          const duration = performance.now() - startTime;
-          Logger.log(`⏱️ 保存到 Notion 完成: ${duration.toFixed(2)}ms`);
+      setSavedPageData(pageUrl, {
+        title,
+        savedAt: Date.now(),
+        notionPageId,
+        notionUrl,
+      }).then(() => {
+        // 結束性能監控 (service worker 環境)
+        const duration = performance.now() - startTime;
+        Logger.log(`⏱️ 保存到 Notion 完成: ${duration.toFixed(2)}ms`);
 
-          // 如果有過濾掉的圖片，在成功訊息中提醒用戶
-          if (skippedCount > 0 || excludeImages) {
-            const totalSkipped = excludeImages ? 'All images' : `${skippedCount} image(s)`;
-            sendResponse({
-              success: true,
-              notionPageId,
-              warning: `${totalSkipped} were skipped due to compatibility issues`,
-            });
-          } else {
-            sendResponse({ success: true, notionPageId });
-          }
+        // 如果有過濾掉的圖片，在成功訊息中提醒用戶
+        if (skippedCount > 0 || excludeImages) {
+          const totalSkipped = excludeImages ? 'All images' : `${skippedCount} image(s)`;
+          sendResponse({
+            success: true,
+            notionPageId,
+            warning: `${totalSkipped} were skipped due to compatibility issues`,
+          });
+        } else {
+          sendResponse({ success: true, notionPageId });
         }
-      );
+      });
     } else {
       const errorData = await response.json();
       console.error('Notion API Error:', errorData);
@@ -1388,17 +1389,11 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
         { maxRetries: 2, baseDelay: 600 }
       );
 
-      const storageUpdatePromise = new Promise(resolve => {
-        setSavedPageData(
-          pageUrl,
-          {
-            title,
-            savedAt: Date.now(),
-            notionPageId: pageId,
-            lastUpdated: Date.now(),
-          },
-          resolve
-        );
+      const storageUpdatePromise = setSavedPageData(pageUrl, {
+        title,
+        savedAt: Date.now(),
+        notionPageId: pageId,
+        lastUpdated: Date.now(),
       });
 
       await Promise.all([titleUpdatePromise, storageUpdatePromise]);
@@ -1600,18 +1595,14 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
     }
 
     Logger.log('💾 更新本地保存記錄...');
-    setSavedPageData(
-      pageUrl,
-      {
-        savedAt: Date.now(),
-        notionPageId: pageId,
-        lastUpdated: Date.now(),
-      },
-      () => {
-        Logger.log('🎉 標記更新完成！');
-        sendResponse({ success: true });
-      }
-    );
+    setSavedPageData(pageUrl, {
+      savedAt: Date.now(),
+      notionPageId: pageId,
+      lastUpdated: Date.now(),
+    }).then(() => {
+      Logger.log('🎉 標記更新完成！');
+      sendResponse({ success: true });
+    });
   } catch (error) {
     console.error('💥 標記更新錯誤:', error);
     console.error('💥 錯誤堆棧:', error.stack);
@@ -1644,7 +1635,7 @@ async function updateTabStatus(tabId, url) {
 
   try {
     // 1. 檢查是否已保存，更新徽章
-    const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
+    const savedData = await getSavedPageData(normUrl);
     if (savedData) {
       chrome.action.setBadgeText({ text: '✓', tabId });
       chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId });
@@ -1922,10 +1913,10 @@ async function handleCheckPageStatus(sendResponse) {
     }
 
     const normUrl = normalizeUrl(activeTab.url || '');
-    const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
+    const savedData = await getSavedPageData(normUrl);
 
     if (savedData?.notionPageId) {
-      const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
+      const config = await getConfig(['notionApiKey']);
 
       if (config.notionApiKey) {
         try {
@@ -2102,14 +2093,14 @@ async function handleUpdateHighlights(sendResponse) {
       return;
     }
 
-    const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
+    const config = await getConfig(['notionApiKey']);
     if (!config.notionApiKey) {
       sendResponse({ success: false, error: 'API Key is not set.' });
       return;
     }
 
     const normUrl = normalizeUrl(activeTab.url || '');
-    const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
+    const savedData = await getSavedPageData(normUrl);
 
     if (!savedData || !savedData.notionPageId) {
       sendResponse({ success: false, error: 'Page not saved yet. Please save the page first.' });
@@ -2154,7 +2145,7 @@ async function handleSyncHighlights(request, sendResponse) {
       return;
     }
 
-    const config = await new Promise(resolve => getConfig(['notionApiKey'], resolve));
+    const config = await getConfig(['notionApiKey']);
 
     if (!config.notionApiKey) {
       sendResponse({ success: false, error: 'API Key 未設置' });
@@ -2162,7 +2153,7 @@ async function handleSyncHighlights(request, sendResponse) {
     }
 
     const normUrl = normalizeUrl(activeTab.url || '');
-    const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
+    const savedData = await getSavedPageData(normUrl);
 
     if (!savedData || !savedData.notionPageId) {
       sendResponse({
@@ -2222,12 +2213,12 @@ async function handleSavePage(sendResponse) {
       return;
     }
 
-    const config = await new Promise(resolve =>
-      getConfig(
-        ['notionApiKey', 'notionDataSourceId', 'notionDatabaseId', 'notionDataSourceType'],
-        resolve
-      )
-    );
+    const config = await getConfig([
+      'notionApiKey',
+      'notionDataSourceId',
+      'notionDatabaseId',
+      'notionDataSourceType',
+    ]);
 
     const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
     const dataSourceType = config.notionDataSourceType || 'data_source'; // 默認為 data_source 以保持向後兼容
@@ -2240,7 +2231,7 @@ async function handleSavePage(sendResponse) {
     }
 
     const normUrl = normalizeUrl(activeTab.url || '');
-    const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
+    const savedData = await getSavedPageData(normUrl);
 
     // 注入 highlighter 並收集標記
     await ScriptInjector.injectHighlighter(activeTab.id);
@@ -3684,7 +3675,7 @@ async function handleOpenNotionPage(request, sendResponse) {
     const normUrl = normalizeUrl(pageUrl);
 
     // 查詢已保存的頁面數據
-    const savedData = await new Promise(resolve => getSavedPageData(normUrl, resolve));
+    const savedData = await getSavedPageData(normUrl);
 
     if (!savedData || !savedData.notionPageId) {
       sendResponse({
