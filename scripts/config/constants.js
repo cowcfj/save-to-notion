@@ -13,7 +13,7 @@
  * 圖片驗證常量（來自 imageUtils.js）
  */
 export const IMAGE_VALIDATION_CONSTANTS = {
-  MAX_URL_LENGTH: 1500, // Notion API URL 長度限制
+  MAX_URL_LENGTH: 2000, // Notion API 限制通常為 2000 字符，這也是瀏覽器的安全限制
   MAX_QUERY_PARAMS: 10, // 查詢參數數量閾值（超過可能為動態 URL）
   SRCSET_WIDTH_MULTIPLIER: 1000, // srcset w 描述符權重（優先於 x）
   MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）
@@ -25,7 +25,7 @@ export const IMAGE_VALIDATION_CONSTANTS = {
  * 圖片 URL 驗證配置（來自 background.js）
  */
 export const IMAGE_VALIDATION_CONFIG = {
-  MAX_URL_LENGTH: 2000,
+  // MAX_URL_LENGTH 已統一至 IMAGE_VALIDATION_CONSTANTS
   MAX_CACHE_SIZE: 500, // 緩存大小限制
   CACHE_TTL: 30 * 60 * 1000, // 30分鐘 TTL
   SUPPORTED_PROTOCOLS: ['http:', 'https:', 'data:', 'blob:'],

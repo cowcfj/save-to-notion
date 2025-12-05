@@ -103,19 +103,19 @@ describe('cleanImageUrl - 深度測試', () => {
 
 describe('isValidImageUrl - 深度測試', () => {
   describe('URL 長度限制', () => {
-    test('長度超過 1500 應該返回 false', () => {
-      const longUrl = `https://example.com/${'a'.repeat(1501)}.jpg`;
+    test('長度超過 2000 應該返回 false', () => {
+      const longUrl = `https://example.com/${'a'.repeat(2001)}.jpg`;
       expect(isValidImageUrl(longUrl)).toBe(false);
     });
 
-    test('長度正好 1500 應該返回 true', () => {
+    test('長度正好 2000 應該返回 true', () => {
       const baseUrl = 'https://example.com/';
-      const padding = 'a'.repeat(1500 - baseUrl.length - 4); // -4 for .jpg
+      const padding = 'a'.repeat(2000 - baseUrl.length - 4); // -4 for .jpg
       const url = `${baseUrl}${padding}.jpg`;
       expect(isValidImageUrl(url)).toBe(true);
     });
 
-    test('長度小於 1500 應該返回 true', () => {
+    test('長度小於 2000 應該返回 true', () => {
       const url = 'https://example.com/image.jpg';
       expect(isValidImageUrl(url)).toBe(true);
     });
