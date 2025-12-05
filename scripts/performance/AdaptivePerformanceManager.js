@@ -169,6 +169,10 @@ class AdaptivePerformanceManager {
   _adjustStrategyBasedOnAnalysis(pageAnalysis, systemPerformance) {
     const newSettings = { ...this.currentSettings };
 
+    // 安全獲取 cacheMaxSize，如果 performanceOptimizer 不可用則使用默認值
+    const DEFAULT_CACHE_MAX_SIZE = 100;
+    const cacheMaxSize = this.performanceOptimizer?.options?.cacheMaxSize || DEFAULT_CACHE_MAX_SIZE;
+
     // 根據頁面複雜度調整緩存大小
     const cacheFactor =
       typeof this.options.cacheSizeAdjustmentFactor === 'number'
@@ -178,14 +182,12 @@ class AdaptivePerformanceManager {
     if (pageAnalysis.complexityScore > 10) {
       // 複雜頁面 -> 增加緩存大小
       newSettings.cacheSize = Math.min(
-        Math.floor(this.performanceOptimizer.options.cacheMaxSize * (1 + cacheFactor)),
+        Math.floor(cacheMaxSize * (1 + cacheFactor)),
         2000 // 最大緩存限制
       );
     } else if (pageAnalysis.complexityScore < 2) {
       // 簡單頁面 -> 減少緩存大小以節省內存
-      newSettings.cacheSize = Math.floor(
-        this.performanceOptimizer.options.cacheMaxSize * Math.max(0.1, 1 - cacheFactor)
-      );
+      newSettings.cacheSize = Math.floor(cacheMaxSize * Math.max(0.1, 1 - cacheFactor));
     }
 
     // 根據系統性能調整批處理大小
@@ -262,7 +264,7 @@ class AdaptivePerformanceManager {
     this.currentSettings.cacheSize = Math.max(50, Math.min(2000, newCacheSize));
 
     // 檢查 performanceOptimizer 是否存在並且有 options 屬性
-    if (this.performanceOptimizer && this.performanceOptimizer.options) {
+    if (this.performanceOptimizer?.options) {
       this.performanceOptimizer.options.cacheMaxSize = this.currentSettings.cacheSize;
     } else {
       Logger.warn('⚠️ performanceOptimizer 不可用，無法同步緩存大小設置');
