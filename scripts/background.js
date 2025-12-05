@@ -38,6 +38,7 @@ import { TabService } from './background/services/TabService.js';
 
 // Initialize Services
 const storageService = new StorageService({ logger: Logger });
+const notionService = new NotionService({ logger: Logger });
 
 // ==========================================
 // TEXT UTILITIES
@@ -321,73 +322,8 @@ async function saveToNotion(
 
   const notionApiUrl = 'https://api.notion.com/v1/pages';
 
-  // 如果需要排除圖片（重試模式），過濾掉所有圖片
-  let validBlocks = [];
-  if (excludeImages) {
-    Logger.log('🚫 Retry mode: Excluding ALL images');
-    validBlocks = blocks.filter(block => block.type !== 'image');
-  } else {
-    // 過濾掉可能導致 Notion API 錯誤的圖片區塊
-    validBlocks = blocks.filter(block => {
-      if (block.type === 'image') {
-        const imageUrl = block.image?.external?.url;
-        if (!imageUrl) {
-          console.warn('⚠️ Skipped image block without URL');
-          return false;
-        }
-
-        // 檢查 URL 長度
-        if (imageUrl.length > 1500) {
-          console.warn(
-            `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
-          );
-          return false;
-        }
-
-        // 檢查特殊字符
-        const problematicChars = /[<>{}|\\^`[\]]/;
-        if (problematicChars.test(imageUrl)) {
-          console.warn(
-            `⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`
-          );
-          return false;
-        }
-
-        // 驗證 URL 格式
-        try {
-          const urlObj = new URL(imageUrl);
-
-          // 只接受 http/https
-          if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-            console.warn(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
-            return false;
-          }
-
-          // 檢查 URL 是否可以正常訪問（基本格式檢查）
-          if (!urlObj.hostname || urlObj.hostname.length < 3) {
-            console.warn(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
-            return false;
-          }
-        } catch (error) {
-          console.warn(
-            `⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`,
-            error
-          );
-          return false;
-        }
-
-        Logger.log(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
-      }
-      return true;
-    });
-  }
-
-  const skippedCount = blocks.length - validBlocks.length;
-  if (skippedCount > 0) {
-    Logger.log(
-      `📊 Filtered ${skippedCount} potentially problematic image blocks from ${blocks.length} total blocks`
-    );
-  }
+  // 使用 NotionService 的圖片過濾方法
+  const { validBlocks, skippedCount } = notionService.filterValidImageBlocks(blocks, excludeImages);
 
   Logger.log(
     `📊 Total blocks to save: ${validBlocks.length}, Image blocks: ${validBlocks.filter(block => block.type === 'image').length}`
@@ -587,66 +523,8 @@ async function saveToNotion(
  */
 async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResponse) {
   try {
-    // 過濾掉可能導致 Notion API 錯誤的圖片區塊（與 saveToNotion 一致）
-    const validBlocks = blocks.filter(block => {
-      if (block.type === 'image') {
-        const imageUrl = block.image?.external?.url;
-        if (!imageUrl) {
-          console.warn('⚠️ Skipped image block without URL');
-          return false;
-        }
-
-        // 檢查 URL 長度
-        if (imageUrl.length > 1500) {
-          console.warn(
-            `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
-          );
-          return false;
-        }
-
-        // 檢查特殊字符
-        const problematicChars = /[<>{}|\\^`[\]]/;
-        if (problematicChars.test(imageUrl)) {
-          console.warn(
-            `⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`
-          );
-          return false;
-        }
-
-        // 驗證 URL 格式
-        try {
-          const urlObj = new URL(imageUrl);
-
-          // 只接受 http/https
-          if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-            console.warn(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
-            return false;
-          }
-
-          // 檢查 URL 是否可以正常訪問（基本格式檢查）
-          if (!urlObj.hostname || urlObj.hostname.length < 3) {
-            console.warn(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
-            return false;
-          }
-        } catch (error) {
-          console.warn(
-            `⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`,
-            error
-          );
-          return false;
-        }
-
-        Logger.log(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
-      }
-      return true;
-    });
-
-    const skippedCount = blocks.length - validBlocks.length;
-    if (skippedCount > 0) {
-      Logger.log(
-        `📊 Filtered ${skippedCount} potentially problematic image blocks from ${blocks.length} total blocks`
-      );
-    }
+    // 使用 NotionService 的圖片過濾方法
+    const { validBlocks, skippedCount } = notionService.filterValidImageBlocks(blocks);
 
     const getResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
       method: 'GET',
