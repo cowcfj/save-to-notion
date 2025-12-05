@@ -14,6 +14,7 @@ const IMAGE_VALIDATION_CONSTANTS = {
   MAX_QUERY_PARAMS: 10, // 查詢參數數量閾值（超過可能為動態 URL）
   SRCSET_WIDTH_MULTIPLIER: 1000, // srcset w 描述符權重（優先於 x）
   MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）
+  MAX_RECURSION_DEPTH: 5, // cleanImageUrl 最大遞迴深度（防止無限遞迴）
 };
 
 // Node.js 環境適配：嘗試從配置模組加載
@@ -33,11 +34,22 @@ if (typeof module !== 'undefined' && typeof require !== 'undefined') {
 /**
  * 清理和標準化圖片 URL
  * @param {string} url - 原始圖片 URL
+ * @param {number} depth - 當前遞迴深度（用於防止無限遞迴）
  * @returns {string|null} 清理後的 URL 或 null（如果無效）
  */
-function cleanImageUrl(url) {
+function cleanImageUrl(url, depth = 0) {
   if (!url || typeof url !== 'string') {
     return null;
+  }
+
+  // 防止無限遞迴
+  if (depth >= IMAGE_VALIDATION_CONSTANTS.MAX_RECURSION_DEPTH) {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn(
+        `⚠️ [cleanImageUrl] 達到最大遞迴深度 (${depth})，停止處理: ${url.substring(0, 100)}`
+      );
+    }
+    return url; // 返回當前 URL 而不是 null，避免丟失數據
   }
 
   let urlObj = null;
@@ -102,8 +114,8 @@ function cleanImageUrl(url) {
     if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
       const uParam = urlObj.searchParams.get('u');
       if (uParam?.match(/^https?:\/\//)) {
-        // 使用代理中的原始圖片 URL
-        return cleanImageUrl(uParam);
+        // 使用代理中的原始圖片 URL，遞增深度以防止無限遞迴
+        return cleanImageUrl(uParam, depth + 1);
       }
     }
 
