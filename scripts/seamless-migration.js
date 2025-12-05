@@ -202,8 +202,11 @@
 
       // 檢查新標註是否正常加載
       const newHighlightsCount = highlightManager.getCount();
+      const oldHighlightsFound = this.statistics.oldHighlightsFound || 0;
 
-      if (newHighlightsCount === 0) {
+      // 只有在原本有標註但新標註未恢復時才需要回滾
+      // 避免在頁面原本就沒有標註時的假陽性
+      if (oldHighlightsFound > 0 && newHighlightsCount === 0) {
         // 新標註恢復失敗，回滾
         console.error('[遷移] ❌ 新標註未恢復，執行回滾');
         return this.rollback('verification_failed');

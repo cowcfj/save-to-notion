@@ -199,11 +199,27 @@ describe('seamless-migration.js', () => {
         span.setAttribute('data-migrated', 'true');
         document.body.appendChild(span);
 
-        // Mock HighlightManager.getCount
+        // 模擬 phase1 已找到舊標註
+        migrationManager.statistics.oldHighlightsFound = 1;
+
+        // Mock HighlightManager.getCount - 新標註未恢復
         mockHighlightManager.getCount.mockReturnValue(0);
 
         const result = await migrationManager.phase2_VerifyAndHide(mockHighlightManager);
         expect(result.rolledBack).toBe(true);
+      });
+
+      test('應該在頁面原本無標註時不回滾（避免假陽性）', async () => {
+        // 模擬頁面原本就沒有舊標註
+        migrationManager.statistics.oldHighlightsFound = 0;
+
+        // 新標註數量也是 0（因為原本就沒有）
+        mockHighlightManager.getCount.mockReturnValue(0);
+
+        const result = await migrationManager.phase2_VerifyAndHide(mockHighlightManager);
+        // 不應該回滾，應該正常完成
+        expect(result.completed).toBe(true);
+        expect(result.rolledBack).toBeUndefined();
       });
     });
 
