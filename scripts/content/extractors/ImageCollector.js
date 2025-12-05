@@ -16,6 +16,7 @@ import {
   ARTICLE_SELECTORS,
   EXCLUSION_SELECTORS,
 } from '../../config/selectors.js';
+import { IMAGE_VALIDATION_CONSTANTS } from '../../config/constants.js';
 
 class ImageCollector {
   /**
@@ -104,7 +105,10 @@ class ImageCollector {
       // 原代碼有檢查 img.naturalWidth < 200 等。我應該加上。
 
       if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-        if (img.naturalWidth < 200 || img.naturalHeight < 100) {
+        if (
+          img.naturalWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
+          img.naturalHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT
+        ) {
           Logger.log(`✗ Image too small: ${img.naturalWidth}x${img.naturalHeight}`);
           return null;
         }
