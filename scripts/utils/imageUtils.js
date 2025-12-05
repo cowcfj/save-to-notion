@@ -61,9 +61,14 @@ function cleanImageUrl(url) {
         throw new Error('Invalid relative URL format');
       }
 
-      // 使用假域名作為基底來解析相對路徑
-      urlObj = new URL(url, 'http://dummy-base.com');
-      isRelative = true;
+      if (url.startsWith('//')) {
+        urlObj = new URL(`https:${url}`);
+        isRelative = false;
+      } else {
+        // 使用假域名作為基底來解析相對路徑
+        urlObj = new URL(url, 'http://dummy-base.com');
+        isRelative = true;
+      }
     } catch (_e) {
       /*
        * URL 解析錯誤：通常是格式不正確的 URL

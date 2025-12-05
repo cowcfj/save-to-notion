@@ -221,16 +221,8 @@ class AttributeExtractor {
       return ImageUtilsRef.isValidImageUrl(url);
     }
 
-    // 最小化回退實現（僅當 ImageUtils 不可用時）
-    if (!url || typeof url !== 'string') {
-      return false;
-    }
-
-    if (url.startsWith('data:') || url.startsWith('blob:')) {
-      return false;
-    }
-
-    return url.length > 5;
+    // 如果 ImageUtils 不可用，返回 false
+    return false;
   }
 
   /**

@@ -293,27 +293,8 @@ class FallbackStrategies {
       return ImageUtilsRef.isValidImageUrl(url);
     }
 
-    // 最小化回退實現（僅當 ImageUtils 不可用時）
-    if (!url || typeof url !== 'string') {
-      return false;
-    }
-
-    if (url.startsWith('data:') || url.startsWith('blob:')) {
-      return false;
-    }
-
-    // 基本長度檢查
-    if (url.length < 4) {
-      return false;
-    }
-
-    try {
-      // 直接回傳轉為布林後的 URL 物件以避開 ESLint 對未使用建構值的警告
-      return Boolean(new URL(url));
-    } catch {
-      // 可能是相對 URL
-      return url.length > 0 && !url.startsWith('#');
-    }
+    // 如果 ImageUtils 不可用，返回 false
+    return false;
   }
 
   /**

@@ -150,7 +150,7 @@ describe('imageUtils - 邊界條件測試', () => {
 
     test('應處理無效的 URL 格式', () => {
       expect(cleanImageUrl('not a url')).toBeNull();
-      expect(cleanImageUrl('//invalid')).toBeNull();
+      expect(cleanImageUrl('//invalid')).toBe('https://invalid/');
       expect(cleanImageUrl('ftp://example.com/image.jpg')).toBe('ftp://example.com/image.jpg');
     });
 
