@@ -238,7 +238,7 @@ class AdaptivePerformanceManager {
    * @private
    */
   _applySettingsToOptimizer() {
-    if (this.performanceOptimizer) {
+    if (this.performanceOptimizer?.options) {
       // 更新緩存大小
       this.performanceOptimizer.options.cacheMaxSize = this.currentSettings.cacheSize;
 
