@@ -10,11 +10,7 @@
 
 /* global Logger, ImageUtils, ErrorHandler */
 
-const LIST_PREFIX_PATTERNS = {
-  bulletPrefix: /^[-*•]\s+/u,
-  multipleSpaces: /\s{2,}/g,
-  emptyLine: /^\s*$/,
-};
+import { LIST_PREFIX_PATTERNS, BULLET_PATTERNS } from '../../config/patterns.js';
 
 /**
  * 創建富文本對象的輔助函數
@@ -91,8 +87,8 @@ const strategies = {
     }
 
     // 常見的 bullet 標記與編號模式
-    const bulletCharRe = /^[-\u{2022}*•·–—►▶✔▪]\s+/u;
-    const numberedRe = /^\d+[.|)]\s+/;
+    const bulletCharRe = BULLET_PATTERNS.bulletChar;
+    const numberedRe = BULLET_PATTERNS.numbered;
 
     const manyLines = lines.length >= 2;
 
