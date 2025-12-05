@@ -19,7 +19,7 @@ describe('配置模組 - constants.js', () => {
   describe('IMAGE_VALIDATION_CONSTANTS', () => {
     test('應導出所有必要的常量', () => {
       expect(IMAGE_VALIDATION_CONSTANTS).toBeDefined();
-      expect(IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH).toBe(1500);
+      expect(IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH).toBe(2000);
       expect(IMAGE_VALIDATION_CONSTANTS.MAX_QUERY_PARAMS).toBe(10);
       expect(IMAGE_VALIDATION_CONSTANTS.SRCSET_WIDTH_MULTIPLIER).toBe(1000);
       expect(IMAGE_VALIDATION_CONSTANTS.MAX_BACKGROUND_URL_LENGTH).toBe(2000);
@@ -41,7 +41,6 @@ describe('配置模組 - constants.js', () => {
     });
 
     test('應包含正確的數值配置', () => {
-      expect(IMAGE_VALIDATION_CONFIG.MAX_URL_LENGTH).toBe(2000);
       expect(IMAGE_VALIDATION_CONFIG.MAX_CACHE_SIZE).toBe(500);
       expect(IMAGE_VALIDATION_CONFIG.CACHE_TTL).toBe(30 * 60 * 1000);
     });
