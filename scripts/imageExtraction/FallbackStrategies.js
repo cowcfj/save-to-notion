@@ -272,7 +272,12 @@ class FallbackStrategies {
       // 嘗試匹配其他可能的 URL 模式
       const urlMatches = content.match(/https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|gif|webp|svg)/gi);
       if (urlMatches && urlMatches.length > 0) {
-        return urlMatches[0];
+        // 遍歷所有匹配的 URL，返回第一個有效的
+        for (const url of urlMatches) {
+          if (this._isValidUrl(url)) {
+            return url;
+          }
+        }
       }
     } catch (error) {
       console.warn('Failed to parse noscript content:', error.message);
