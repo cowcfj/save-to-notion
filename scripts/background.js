@@ -724,61 +724,47 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
 /**
  * 標準化 URL，用於生成一致的存儲鍵和去重
  *
- * ⚠️ 設計限制：本函數僅處理絕對 URL（含協議的完整 URL）。
- * 相對 URL（如 '/path', '../page'）會原樣返回而不進行標準化。
- *
- * Chrome Extension 使用場景：
- * - tab.url, activeTab.url → 永遠是絕對 URL
- * - window.location.href → 永遠是絕對 URL
- *
- * 處理項目：
- * - 移除 fragment (hash #)
- * - 移除追蹤參數 (utm_*, fbclid, gclid, etc.)
- * - 標準化尾部斜線（保留根路徑 "/"）
+ * ⚠️ 瀏覽器環境使用 StorageService.normalizeUrl
+ * 測試環境使用本地實現（避免依賴 window）
  *
  * @param {string} rawUrl - 完整的絕對 URL
- * @returns {string} 標準化後的 URL，相對/無效 URL 返回原始輸入
+ * @returns {string} 標準化後的 URL
  */
-function normalizeUrl(rawUrl) {
-  // 輸入驗證
-  if (!rawUrl || typeof rawUrl !== 'string') {
-    return rawUrl || '';
-  }
-
-  // 快速檢查：相對 URL 直接返回（不進行標準化）
-  // Chrome Extension 環境中 tab.url 和 window.location.href 永遠是絕對 URL
-  if (!rawUrl.includes('://')) {
-    return rawUrl;
-  }
-
-  try {
-    const urlObj = new URL(rawUrl);
-    // Drop fragment
-    urlObj.hash = '';
-    // Remove common tracking params
-    const trackingParams = [
-      'utm_source',
-      'utm_medium',
-      'utm_campaign',
-      'utm_term',
-      'utm_content',
-      'gclid',
-      'fbclid',
-      'mc_cid',
-      'mc_eid',
-      'igshid',
-      'vero_id',
-    ];
-    trackingParams.forEach(param => urlObj.searchParams.delete(param));
-    // Normalize trailing slash (keep root "/")
-    if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
-      urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
-    }
-    return urlObj.toString();
-  } catch {
-    return rawUrl || '';
-  }
-}
+const normalizeUrl =
+  typeof window !== 'undefined' && window.normalizeUrl
+    ? window.normalizeUrl
+    : function (rawUrl) {
+        if (!rawUrl || typeof rawUrl !== 'string') {
+          return rawUrl || '';
+        }
+        if (!rawUrl.includes('://')) {
+          return rawUrl;
+        }
+        try {
+          const urlObj = new URL(rawUrl);
+          urlObj.hash = '';
+          const trackingParams = [
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_term',
+            'utm_content',
+            'gclid',
+            'fbclid',
+            'mc_cid',
+            'mc_eid',
+            'igshid',
+            'vero_id',
+          ];
+          trackingParams.forEach(param => urlObj.searchParams.delete(param));
+          if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
+            urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
+          }
+          return urlObj.toString();
+        } catch {
+          return rawUrl || '';
+        }
+      };
 
 // ==========================================
 // STORAGE MANAGER MODULE
