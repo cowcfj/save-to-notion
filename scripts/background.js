@@ -165,6 +165,56 @@ class ImageUrlValidationCache {
 const imageUrlValidationCache = new ImageUrlValidationCache();
 
 /**
+ * 本地輕量級圖片 URL 驗證器
+ * 用於 service worker 環境中 ImageUtils 不可用時的回退
+ * @param {string} url - 要驗證的 URL
+ * @returns {boolean} 是否為有效的圖片 URL
+ */
+function validateImageUrlLocally(url) {
+  if (!url || typeof url !== 'string' || url.trim().length === 0) {
+    return false;
+  }
+
+  try {
+    const urlObj = new URL(url);
+
+    // 驗證協議是 http 或 https
+    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+      return false;
+    }
+
+    // 檢查常見圖片擴展名
+    const pathname = urlObj.pathname.toLowerCase();
+    const imageExtensions = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.webp',
+      '.svg',
+      '.bmp',
+      '.ico',
+      '.tiff',
+      '.tif',
+      '.avif',
+      '.heic',
+      '.heif',
+    ];
+    const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext));
+
+    // 檢查路徑是否包含圖片關鍵詞
+    const hasImageKeyword =
+      /\/(?:image[s]?|img[s]?|photo[s]?|picture[s]?|media|upload[s]?|cdn)\//i.test(pathname);
+
+    // 至少滿足一個條件：有圖片擴展名、包含圖片關鍵詞、或有文件擴展名
+    return hasImageExtension || hasImageKeyword || pathname.includes('.');
+  } catch (_error) {
+    // URL 解析失敗
+    return false;
+  }
+}
+
+/**
  * 驗證圖片 URL 是否有效
  * 優先使用 imageUtils.js 中的統一實現，帶緩存優化
  * @param {string} url - 要驗證的圖片 URL
@@ -197,8 +247,9 @@ function isValidImageUrl(url) {
     if (typeof ImageUtils !== 'undefined' && ImageUtils.isValidImageUrl) {
       isValidImage = ImageUtils.isValidImageUrl(trimmedUrl);
     } else {
-      Logger.warn('⚠️ [ImageValidation] ImageUtils 不可用，無法驗證圖片');
-      isValidImage = false;
+      // 回退到本地輕量級驗證器（service worker 環境）
+      Logger.warn('⚠️ [ImageValidation] ImageUtils 不可用，使用本地回退驗證器');
+      isValidImage = validateImageUrlLocally(trimmedUrl);
     }
 
     // 緩存結果
