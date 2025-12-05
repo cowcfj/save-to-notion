@@ -13,20 +13,7 @@
 import { readabilityAdapter } from './ReadabilityAdapter.js';
 import { MetadataExtractor } from './MetadataExtractor.js';
 import { TECHNICAL_CONTENT_SELECTORS } from '../../config/selectors.js';
-// 假設 pageComplexityDetector 可用或已被打包
-// 在測試環境中我們將 Mock 它
-// 假設 pageComplexityDetector 可用或已被打包
-// 在測試環境中我們將 Mock 它
-let pageComplexityDetector = null;
-try {
-  pageComplexityDetector = require('../../utils/pageComplexityDetector');
-} catch (_error) {
-  // Fallback or mock for environment where require fails
-  pageComplexityDetector = {
-    detectPageComplexity: () => ({}),
-    selectExtractor: () => ({ extractor: 'readability' }),
-  };
-}
+import pageComplexityDetector from '../../utils/pageComplexityDetector.js';
 
 class ContentExtractor {
   /**
