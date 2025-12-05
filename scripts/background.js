@@ -10,6 +10,12 @@
 // Import unified Logger (ES Module)
 import './utils/Logger.js';
 
+// Import modular services (Phase 4 integration)
+import './background/services/StorageService.js';
+import './background/services/NotionService.js';
+import './background/services/ImageService.js';
+import './background/handlers/MessageHandler.js';
+
 // ==========================================
 // DEVELOPMENT MODE CONTROL
 // ==========================================
