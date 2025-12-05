@@ -1,23 +1,15 @@
 /**
- * background.js 圖片工具函數測試
- * 補充測試以提高覆蓋率
+ * imageUtils.js 圖片工具函數測試
+ * 測試 cleanImageUrl 和 isValidImageUrl 的功能
  */
 
 // 先設置 Chrome Mock
 require('../mocks/chrome.js');
 
-// 導入原始源碼
-// 導入 ImageUtils 並掛載到全局，因為 background.js 依賴它
-const ImageUtils = require('../../scripts/utils/imageUtils.js');
-global.ImageUtils = ImageUtils;
+// 直接從 imageUtils.js 導入
+const { cleanImageUrl, isValidImageUrl } = require('../../scripts/utils/imageUtils.js');
 
-// 導入原始源碼
-const backgroundModule = require('../../scripts/background.js');
-const { cleanImageUrl, isValidImageUrl } = backgroundModule;
-
-afterAll(() => {
-  backgroundModule._test?.clearCleanupInterval?.();
-});
+// 無需 afterAll 清理，因為不再依賴 background.js 的 cleanupInterval
 
 describe('cleanImageUrl - 深度測試', () => {
   describe('代理 URL 處理（未覆蓋部分）', () => {
