@@ -13,7 +13,8 @@
 import { readabilityAdapter } from './ReadabilityAdapter.js';
 import { MetadataExtractor } from './MetadataExtractor.js';
 import { TECHNICAL_CONTENT_SELECTORS } from '../../config/selectors.js';
-import pageComplexityDetector from '../../utils/pageComplexityDetector.js';
+
+import { detectPageComplexity, selectExtractor } from '../../utils/pageComplexityDetector.js';
 
 class ContentExtractor {
   /**
@@ -32,8 +33,8 @@ class ContentExtractor {
     Logger.log('🚀 Starting content extraction...');
 
     // 1. 檢測頁面複雜度與類型
-    const complexity = pageComplexityDetector.detectPageComplexity(doc);
-    const selection = pageComplexityDetector.selectExtractor(complexity);
+    const complexity = detectPageComplexity(doc);
+    const selection = selectExtractor(complexity);
 
     Logger.log(`📊 Page analysis: ${selection.extractor} (Confidence: ${selection.confidence}%)`);
 
