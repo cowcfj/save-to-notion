@@ -906,7 +906,13 @@ class PerformanceOptimizer {
    */
   _initMetricsCollection() {
     if (typeof window !== 'undefined' && window.performance) {
-      setInterval(() => {
+      // 防止重複創建定時器
+      if (this._metricsIntervalId) {
+        return;
+      }
+
+      // 存儲 interval ID 以便後續清理
+      this._metricsIntervalId = setInterval(() => {
         this._collectPerformanceMetrics();
       }, this.options.metricsInterval);
     }
@@ -976,6 +982,12 @@ class PerformanceOptimizer {
         clearTimeout(this.batchTimer);
       }
       this.batchTimer = null;
+    }
+
+    // 清理性能指標收集定時器
+    if (this._metricsIntervalId) {
+      clearInterval(this._metricsIntervalId);
+      this._metricsIntervalId = null;
     }
 
     // 清理緩存
