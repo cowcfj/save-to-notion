@@ -13,10 +13,25 @@
 /**
  * 檢測技術文檔站點
  * 基於URL特徵識別文檔類網站
+ * @param {string|Location} urlOrLocation - URL 字符串或 Location 對象
  */
-function isDocumentationSite(url = window.location) {
-  const hostname = url.hostname.toLowerCase();
-  const pathname = url.pathname.toLowerCase();
+function isDocumentationSite(urlOrLocation = window.location) {
+  let hostname = '';
+  let pathname = '';
+
+  if (typeof urlOrLocation === 'string') {
+    try {
+      const url = new URL(urlOrLocation);
+      hostname = url.hostname.toLowerCase();
+      pathname = url.pathname.toLowerCase();
+    } catch (_error) {
+      // 如果不是有效的 URL，嘗試直接作為路徑處理或忽略
+      return false;
+    }
+  } else {
+    hostname = (urlOrLocation.hostname || '').toLowerCase();
+    pathname = (urlOrLocation.pathname || '').toLowerCase();
+  }
 
   // GitHub Pages 和常見文檔站點
   const docHostPatterns = [
@@ -163,7 +178,7 @@ export function detectPageComplexity(document = window.document) {
     // 基礎指標統計
     const metrics = {
       // 網站類型
-      isDocSite: isDocumentationSite(),
+      isDocSite: isDocumentationSite(document.location || document.URL || window.location),
 
       // DOM結構分析
       adElements: countElements(
