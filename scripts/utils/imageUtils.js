@@ -280,7 +280,9 @@ function isNotionCompatibleImageUrl(url) {
   }
 
   try {
-    const urlObj = new URL(url);
+    // 處理相對 URL
+    const baseUrl = typeof window !== 'undefined' ? window.location.href : 'http://localhost';
+    const urlObj = new URL(url, baseUrl);
 
     // Notion 不支持某些特殊協議
     if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
