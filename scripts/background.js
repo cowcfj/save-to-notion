@@ -841,22 +841,26 @@ function getConfig(keys) {
 }
 
 /**
- * 帶重試的 Notion API 請求（處理暫時性錯誤，如 DatastoreInfraError/5xx/429/409）
+ * 帶重試的 Notion API 請求
+ * @returns {Promise<Response>}
  */
 async function fetchNotionWithRetry(url, options, retryOptions = {}) {
+  // 瀏覽器環境: 委派給 NotionService.fetchWithRetry
+  if (typeof window !== 'undefined' && window.fetchWithRetry) {
+    return window.fetchWithRetry(url, options, retryOptions);
+  }
+  // Fallback for test environment
   const { maxRetries = 2, baseDelay = 600 } = retryOptions;
-
   let attempt = 0;
   let lastError = null;
+
   while (attempt <= maxRetries) {
     try {
       const res = await fetch(url, options);
-
       if (res.ok) {
         return res;
       }
 
-      // 嘗試解析錯誤訊息
       let message = '';
       try {
         const data = await res.clone().json();
@@ -874,8 +878,6 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
         attempt++;
         continue;
       }
-
-      // 非可重試錯誤或已達最大重試次數
       return res;
     } catch (err) {
       lastError = err;
@@ -889,7 +891,6 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
     }
   }
 
-  // 理論上不會到達這裡
   if (lastError) {
     throw lastError;
   }
