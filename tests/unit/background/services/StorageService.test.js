@@ -44,6 +44,13 @@ describe('normalizeUrl', () => {
   it('應該處理無效 URL', () => {
     expect(normalizeUrl('not-a-url')).toBe('not-a-url');
   });
+
+  it('應該總是返回字串類型', () => {
+    expect(normalizeUrl(123)).toBe('123');
+    expect(normalizeUrl({ custom: 'obj' })).toBe('[object Object]');
+    expect(normalizeUrl(['a', 'b'])).toBe('a,b');
+    expect(normalizeUrl(true)).toBe('true');
+  });
 });
 
 describe('StorageService', () => {

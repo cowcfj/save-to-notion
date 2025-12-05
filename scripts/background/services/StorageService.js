@@ -34,8 +34,13 @@ export const URL_TRACKING_PARAMS = [
  * @returns {string} 標準化後的 URL
  */
 function normalizeUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== 'string') {
-    return rawUrl || '';
+  if (!rawUrl) {
+    return '';
+  }
+
+  // 確保轉換為字符串
+  if (typeof rawUrl !== 'string') {
+    rawUrl = String(rawUrl);
   }
 
   // 相對 URL 直接返回
