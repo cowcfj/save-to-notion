@@ -772,23 +772,33 @@ const normalizeUrl =
 
 /**
  * Clears the local state for a specific page
+ * ⚠️ 委派給 StorageService（避免重複實現）
  */
 function clearPageState(pageUrl) {
+  if (typeof window !== 'undefined' && window.StorageService) {
+    const svc = new window.StorageService();
+    svc.clearPageState(pageUrl);
+    return;
+  }
+  // Fallback for test environment
   const savedKey = `saved_${pageUrl}`;
   const highlightsKey = `highlights_${pageUrl}`;
-
-  // v2.7.1: 同時刪除保存狀態和標註數據
   chrome.storage.local.remove([savedKey, highlightsKey], () => {
     Logger.log('✅ Cleared all data for:', pageUrl);
-    Logger.log('  - Saved state:', savedKey);
-    Logger.log('  - Highlights:', highlightsKey);
   });
 }
 
 /**
  * Gets the saved page data from local storage
+ * ⚠️ 委派給 StorageService
  */
 function getSavedPageData(pageUrl, callback) {
+  if (typeof window !== 'undefined' && window.StorageService) {
+    const svc = new window.StorageService();
+    svc.getSavedPageData(pageUrl).then(callback);
+    return;
+  }
+  // Fallback
   chrome.storage.local.get([`saved_${pageUrl}`], result => {
     callback(result[`saved_${pageUrl}`] || null);
   });
@@ -796,21 +806,32 @@ function getSavedPageData(pageUrl, callback) {
 
 /**
  * Sets the saved page data in local storage
+ * ⚠️ 委派給 StorageService
  */
 function setSavedPageData(pageUrl, data, callback) {
+  if (typeof window !== 'undefined' && window.StorageService) {
+    const svc = new window.StorageService();
+    svc.setSavedPageData(pageUrl, data).then(callback);
+    return;
+  }
+  // Fallback
   const storageData = {
-    [`saved_${pageUrl}`]: {
-      ...data,
-      lastUpdated: Date.now(),
-    },
+    [`saved_${pageUrl}`]: { ...data, lastUpdated: Date.now() },
   };
   chrome.storage.local.set(storageData, callback);
 }
 
 /**
  * Gets configuration from sync storage
+ * ⚠️ 委派給 StorageService
  */
 function getConfig(keys, callback) {
+  if (typeof window !== 'undefined' && window.StorageService) {
+    const svc = new window.StorageService();
+    svc.getConfig(keys).then(callback);
+    return;
+  }
+  // Fallback
   chrome.storage.sync.get(keys, callback);
 }
 
