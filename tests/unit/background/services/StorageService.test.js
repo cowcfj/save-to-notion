@@ -195,13 +195,13 @@ describe('StorageService', () => {
   });
 
   describe('error handling', () => {
-    it('應該在沒有 storage 時拋出錯誤', async () => {
+    it('應該在沒有 storage 時拋出錯誤', () => {
       // 暫時移除 global.chrome 以確保 storage 為 null
       const originalChrome = global.chrome;
       delete global.chrome;
 
       const serviceNoStorage = new StorageService({ chromeStorage: null });
-      await expect(serviceNoStorage.getSavedPageData('url')).rejects.toThrow(
+      expect(() => serviceNoStorage.getSavedPageData('url')).toThrow(
         'Chrome storage not available'
       );
 

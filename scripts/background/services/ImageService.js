@@ -162,12 +162,12 @@ class ImageService {
   }
 
   /**
-   * 本地輕量級驗證器（回退用）
+   * 本地輕量級驗證器（回退方案）
    * @param {string} url - 要驗證的 URL
    * @returns {boolean} 是否為有效的圖片 URL
    * @private
    */
-  _validateLocally(url) {
+  static _validateLocally(url) {
     if (!url || typeof url !== 'string' || url.trim().length === 0) {
       return false;
     }
@@ -241,7 +241,7 @@ class ImageService {
       } else {
         // 回退到本地驗證器
         this.logger.warn?.('⚠️ [ImageService] 外部驗證器不可用，使用本地回退驗證器');
-        isValid = this._validateLocally(trimmedUrl);
+        isValid = ImageService._validateLocally(trimmedUrl);
       }
 
       // 緩存結果

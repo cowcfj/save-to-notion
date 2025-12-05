@@ -10,24 +10,13 @@
  */
 
 // 嘗試從集中式常量模組導入，測試環境中使用默認值
-let NOTION_API_CONSTANTS;
-try {
+const NOTION_API_CONSTANTS = (() => {
   // ES Module 環境（瀏覽器）
   if (typeof window !== 'undefined' && window.NOTION_API) {
-    NOTION_API_CONSTANTS = window.NOTION_API;
-  } else {
-    // 預設值（用於 Node.js 測試環境或常量未加載時）
-    NOTION_API_CONSTANTS = {
-      VERSION: '2025-09-03',
-      BASE_URL: 'https://api.notion.com/v1',
-      BLOCKS_PER_BATCH: 100,
-      DELAY_BETWEEN_BATCHES: 350,
-      MAX_RETRIES: 3,
-      BASE_RETRY_DELAY: 800,
-    };
+    return window.NOTION_API;
   }
-} catch (_err) {
-  NOTION_API_CONSTANTS = {
+  // 預設值（用於 Node.js 測試環境或常量未加載時）
+  return {
     VERSION: '2025-09-03',
     BASE_URL: 'https://api.notion.com/v1',
     BLOCKS_PER_BATCH: 100,
@@ -35,7 +24,7 @@ try {
     MAX_RETRIES: 3,
     BASE_RETRY_DELAY: 800,
   };
-}
+})();
 
 // 使用統一常量構建配置
 const NOTION_CONFIG = {

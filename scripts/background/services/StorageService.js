@@ -9,6 +9,8 @@
  * @module services/StorageService
  */
 
+/* global chrome */
+
 /**
  * URL 標準化相關常量
  */
@@ -78,7 +80,7 @@ class StorageService {
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<Object|null>}
    */
-  async getSavedPageData(pageUrl) {
+  getSavedPageData(pageUrl) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -99,7 +101,7 @@ class StorageService {
    * @param {Object} data - 保存數據
    * @returns {Promise<void>}
    */
-  async setSavedPageData(pageUrl, data) {
+  setSavedPageData(pageUrl, data) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -125,7 +127,7 @@ class StorageService {
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
    */
-  async clearPageState(pageUrl) {
+  clearPageState(pageUrl) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -147,7 +149,7 @@ class StorageService {
    * @param {string[]} keys - 要獲取的配置鍵
    * @returns {Promise<Object>}
    */
-  async getConfig(keys) {
+  getConfig(keys) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -162,7 +164,7 @@ class StorageService {
    * @param {Object} config - 配置對象
    * @returns {Promise<void>}
    */
-  async setConfig(config) {
+  setConfig(config) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -177,7 +179,7 @@ class StorageService {
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<Array>}
    */
-  async getHighlights(pageUrl) {
+  getHighlights(pageUrl) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -198,7 +200,7 @@ class StorageService {
    * @param {Array} highlights - 標註數組
    * @returns {Promise<void>}
    */
-  async setHighlights(pageUrl, highlights) {
+  setHighlights(pageUrl, highlights) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -215,7 +217,7 @@ class StorageService {
    * 獲取所有已保存頁面的 URL
    * @returns {Promise<string[]>}
    */
-  async getAllSavedPageUrls() {
+  getAllSavedPageUrls() {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }

@@ -9,6 +9,8 @@
  * @module handlers/MessageHandler
  */
 
+/* global chrome */
+
 /**
  * MessageHandler 類
  */
