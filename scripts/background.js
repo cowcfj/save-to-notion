@@ -2123,8 +2123,9 @@ async function handleSavePage(sendResponse) {
           }
 
           // URL 驗證輔助函數（頁面上下文版本）
+          // 注意：此邏輯與 ImageService._validateLocally 保持同步
           function isValidImageUrlOnPage(url) {
-            if (!url || typeof url !== 'string') {
+            if (!url || typeof url !== 'string' || url.trim().length === 0) {
               return false;
             }
             try {
@@ -2142,12 +2143,19 @@ async function handleSavePage(sendResponse) {
                 '.svg',
                 '.bmp',
                 '.ico',
+                '.tiff',
+                '.tif',
+                '.avif',
+                '.heic',
+                '.heif',
               ];
               const hasImageExt = imageExtensions.some(ext => pathname.endsWith(ext));
-              const hasImagePath = /\/(?:image|img|photo|picture|media|upload|cdn)\//i.test(
-                pathname
-              );
-              return hasImageExt || hasImagePath;
+              const hasImagePath =
+                /\/(?:image[s]?|img[s]?|photo[s]?|picture[s]?|media|upload[s]?|cdn)\//i.test(
+                  pathname
+                );
+              // 至少滿足一個條件
+              return hasImageExt || hasImagePath || pathname.includes('.');
             } catch {
               return false;
             }
