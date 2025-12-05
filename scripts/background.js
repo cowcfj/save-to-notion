@@ -2080,7 +2080,36 @@ async function handleSavePage(sendResponse) {
             }
           }
 
-          // ============ v2.5.6: 封面圖/特色圖片提取功能 ============
+          // URL 驗證輔助函數（頁面上下文版本）
+          function isValidImageUrlOnPage(url) {
+            if (!url || typeof url !== 'string') {
+              return false;
+            }
+            try {
+              const urlObj = new URL(url);
+              if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+                return false;
+              }
+              const pathname = urlObj.pathname.toLowerCase();
+              const imageExtensions = [
+                '.jpg',
+                '.jpeg',
+                '.png',
+                '.gif',
+                '.webp',
+                '.svg',
+                '.bmp',
+                '.ico',
+              ];
+              const hasImageExt = imageExtensions.some(ext => pathname.endsWith(ext));
+              const hasImagePath = /\/(?:image|img|photo|picture|media|upload|cdn)\//i.test(
+                pathname
+              );
+              return hasImageExt || hasImagePath;
+            } catch {
+              return false;
+            }
+          }
           /**
            * 優先收集封面圖/特色圖片（通常位於標題上方或文章開頭）
            */
@@ -2251,7 +2280,7 @@ async function handleSavePage(sendResponse) {
                       const absoluteUrl = new URL(src, document.baseURI).href;
                       const cleanedUrl = cleanImageUrlOnPage(absoluteUrl);
 
-                      if (cleanedUrl && isValidImageUrl(cleanedUrl)) {
+                      if (cleanedUrl && isValidImageUrlOnPage(cleanedUrl)) {
                         Logger.log(`✓ Found featured image via selector: ${selector}`);
                         Logger.log(`  Image URL: ${cleanedUrl}`);
                         return cleanedUrl;
