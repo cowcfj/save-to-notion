@@ -197,3 +197,18 @@ export const FAVICON_SELECTORS = [
   'link[rel="shortcut icon"]',
   'link[rel="apple-touch-icon"]',
 ];
+
+// ==========================================
+// 技術文檔選擇器
+// ==========================================
+
+/**
+ * 技術文檔/Markdown 內容選擇器（來自 ContentExtractor.js）
+ */
+export const TECHNICAL_CONTENT_SELECTORS = [
+  '.markdown-body',
+  '.docs-content',
+  '.documentation',
+  'article',
+  'main',
+];

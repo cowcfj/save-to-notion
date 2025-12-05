@@ -12,6 +12,7 @@
 
 import { readabilityAdapter } from './ReadabilityAdapter.js';
 import { MetadataExtractor } from './MetadataExtractor.js';
+import { TECHNICAL_CONTENT_SELECTORS } from '../../config/selectors.js';
 // 假設 pageComplexityDetector 可用或已被打包
 // 在測試環境中我們將 Mock 它
 // 假設 pageComplexityDetector 可用或已被打包
@@ -123,8 +124,7 @@ class ContentExtractor {
     Logger.log('🔧 Executing Technical/Markdown extraction...');
 
     // 策略 2: 提取特定 DOM 區域
-    const techSelectors = ['.markdown-body', '.docs-content', '.documentation', 'article', 'main'];
-    for (const selector of techSelectors) {
+    for (const selector of TECHNICAL_CONTENT_SELECTORS) {
       const element = doc.querySelector(selector);
       if (element) {
         Logger.log(`✅ Found technical content container: ${selector}`);
