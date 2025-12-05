@@ -260,8 +260,16 @@ class AdaptivePerformanceManager {
    */
   adjustCacheSize(newCacheSize) {
     this.currentSettings.cacheSize = Math.max(50, Math.min(2000, newCacheSize));
-    this.performanceOptimizer.options.cacheMaxSize = this.currentSettings.cacheSize;
-    Logger.info(`🔄 緩存大小調整為: ${newCacheSize}`);
+
+    // 檢查 performanceOptimizer 是否存在並且有 options 屬性
+    if (this.performanceOptimizer && this.performanceOptimizer.options) {
+      this.performanceOptimizer.options.cacheMaxSize = this.currentSettings.cacheSize;
+    } else {
+      Logger.warn('⚠️ performanceOptimizer 不可用，無法同步緩存大小設置');
+    }
+
+    // 報告實際應用的緩存大小，而不是原始輸入值
+    Logger.info(`🔄 緩存大小調整為: ${this.currentSettings.cacheSize}`);
   }
 
   /**
