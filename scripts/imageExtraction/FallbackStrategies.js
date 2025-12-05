@@ -289,7 +289,7 @@ class FallbackStrategies {
    */
   static _isValidUrl(url) {
     // 優先使用 ImageUtils 的統一驗證
-    if (ImageUtilsRef && ImageUtilsRef.isValidImageUrl) {
+    if (ImageUtilsRef?.isValidImageUrl) {
       return ImageUtilsRef.isValidImageUrl(url);
     }
 
