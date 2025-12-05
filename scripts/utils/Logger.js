@@ -183,7 +183,7 @@ class Logger {
     if (!this.debugEnabled) {
       return;
     }
-
+    console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
     sendToBackground('log', message, args);
   }
 
