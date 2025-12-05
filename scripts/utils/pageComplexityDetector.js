@@ -379,7 +379,7 @@ export function getAnalysisReport(complexity, selection) {
     timestamp: new Date().toISOString(),
 
     pageType: {
-      isDocumentationSite: complexity.isClean,
+      isDocumentationSite: complexity.metrics.isDocSite,
       isTechnicalContent: complexity.hasTechnicalContent,
       isNewsOrBlog: !complexity.isClean && complexity.isLongForm,
     },
