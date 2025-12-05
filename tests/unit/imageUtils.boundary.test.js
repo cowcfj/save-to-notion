@@ -22,23 +22,23 @@ const { IMAGE_VALIDATION_CONSTANTS } = require('../../scripts/config/constants')
 
 describe('imageUtils - 邊界條件測試', () => {
   describe('isValidImageUrl - URL 長度邊界', () => {
-    test('應接受長度剛好等於 1500 的 URL', () => {
-      // 構造長度剛好為 1500 的 URL
+    test('應接受長度剛好等於 2000 的 URL', () => {
+      // 構造長度剛好為 2000 的 URL
       const baseUrl = 'https://example.com/';
       const extension = '.jpg';
-      const padding = 1500 - baseUrl.length - extension.length;
+      const padding = 2000 - baseUrl.length - extension.length;
       const url = baseUrl + 'a'.repeat(padding) + extension;
-      expect(url.length).toBe(1500);
+      expect(url.length).toBe(2000);
       expect(isValidImageUrl(url)).toBe(true);
     });
 
-    test('應拒絕長度剛好超過 1500 的 URL', () => {
-      // 構造長度為 1501 的 URL
+    test('應拒絕長度剛好超過 2000 的 URL', () => {
+      // 構造長度為 2001 的 URL
       const baseUrl = 'https://example.com/';
       const extension = '.jpg';
-      const padding = 1501 - baseUrl.length - extension.length;
+      const padding = 2001 - baseUrl.length - extension.length;
       const url = baseUrl + 'a'.repeat(padding) + extension;
-      expect(url.length).toBe(1501);
+      expect(url.length).toBe(2001);
       expect(isValidImageUrl(url)).toBe(false);
     });
 
@@ -398,7 +398,7 @@ describe('imageUtils - 邊界條件測試', () => {
 
   describe('IMAGE_VALIDATION_CONSTANTS - 常數驗證', () => {
     test('應定義所有必要的常數', () => {
-      expect(IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH).toBe(1500);
+      expect(IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH).toBe(2000);
       expect(IMAGE_VALIDATION_CONSTANTS.MAX_QUERY_PARAMS).toBe(10);
       expect(IMAGE_VALIDATION_CONSTANTS.SRCSET_WIDTH_MULTIPLIER).toBe(1000);
       expect(IMAGE_VALIDATION_CONSTANTS.MAX_BACKGROUND_URL_LENGTH).toBe(2000);
