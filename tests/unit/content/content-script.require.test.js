@@ -34,7 +34,7 @@ describe('content script require test', () => {
     // mark unit testing mode
     global.window.__UNIT_TESTING__ = true;
 
-    const scriptPath = path.resolve(__dirname, '../../../scripts/content.js');
+    const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
 
     // Ensure it's not cached
     delete require.cache[require.resolve(scriptPath)];

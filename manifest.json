@@ -1,14 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Save to Notion (Smart Clipper)",
-  "version": "2.13.1",
+  "version": "2.13.2",
   "description": "智能網頁擷取工具，支持網站 Icon、封面圖提取、增強的圖片提取、模板自定義、多顏色標註功能，一鍵保存到 Notion。",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "tabs"
-  ],
+  "permissions": ["activeTab", "scripting", "storage", "unlimitedStorage", "tabs"],
   "host_permissions": [
     "https://api.notion.com/*",
     "https://api.notion.com/v1/oauth/*",
@@ -20,16 +15,14 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
+      "matches": ["http://*/*", "https://*/*"],
       "js": [
         "lib/Readability.js",
         "scripts/utils/Logger.js",
         "scripts/utils.js",
         "scripts/utils/imageUtils.js",
-        "scripts/seamless-migration.js"
+        "scripts/seamless-migration.js",
+        "dist/content.bundle.js"
       ],
       "run_at": "document_idle",
       "all_frames": false

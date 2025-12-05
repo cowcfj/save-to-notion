@@ -13,12 +13,12 @@ import { waitForDOMStability } from '../utils/domStability.js';
  * @returns {Object} 序列化的 Range 資訊
  */
 export function serializeRange(range) {
-    return {
-        startContainerPath: getNodePath(range.startContainer),
-        startOffset: range.startOffset,
-        endContainerPath: getNodePath(range.endContainer),
-        endOffset: range.endOffset
-    };
+  return {
+    startContainerPath: getNodePath(range.startContainer),
+    startOffset: range.startOffset,
+    endContainerPath: getNodePath(range.endContainer),
+    endOffset: range.endOffset,
+  };
 }
 
 /**
@@ -28,30 +28,32 @@ export function serializeRange(range) {
  * @returns {Range|null} 恢復的 Range 或 null
  */
 export function deserializeRange(rangeInfo, expectedText) {
-    if (!rangeInfo) return null;
+  if (!rangeInfo) {
+    return null;
+  }
 
-    try {
-        const startNode = getNodeByPath(rangeInfo.startContainerPath);
-        const endNode = getNodeByPath(rangeInfo.endContainerPath);
+  try {
+    const startNode = getNodeByPath(rangeInfo.startContainerPath);
+    const endNode = getNodeByPath(rangeInfo.endContainerPath);
 
-        if (!startNode || !endNode) {
-            return null;
-        }
-
-        const range = document.createRange();
-        range.setStart(startNode, rangeInfo.startOffset);
-        range.setEnd(endNode, rangeInfo.endOffset);
-
-        // 驗證文本
-        const actualText = range.toString();
-        if (actualText !== expectedText) {
-            return null;
-        }
-
-        return range;
-    } catch (_error) {
-        return null;
+    if (!startNode || !endNode) {
+      return null;
     }
+
+    const range = document.createRange();
+    range.setStart(startNode, rangeInfo.startOffset);
+    range.setEnd(endNode, rangeInfo.endOffset);
+
+    // 驗證文本
+    const actualText = range.toString();
+    if (actualText !== expectedText) {
+      return null;
+    }
+
+    return range;
+  } catch (_error) {
+    return null;
+  }
 }
 
 /**
@@ -62,36 +64,36 @@ export function deserializeRange(rangeInfo, expectedText) {
  * @returns {Promise<Range|null>}
  */
 export async function restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
-    // 嘗試直接反序列化
-    let range = deserializeRange(rangeInfo, text);
-    if (range) {
+  // 嘗試直接反序列化
+  let range = deserializeRange(rangeInfo, text);
+  if (range) {
+    return range;
+  }
+
+  // 等待 DOM 穩定後重試
+  for (let i = 0; i < maxRetries; i++) {
+    const isStable = await waitForDOMStability({
+      stabilityThresholdMs: 150,
+      maxWaitMs: 2000,
+    });
+
+    if (isStable) {
+      range = deserializeRange(rangeInfo, text);
+      if (range) {
         return range;
+      }
     }
 
-    // 等待 DOM 穩定後重試
-    for (let i = 0; i < maxRetries; i++) {
-        const isStable = await waitForDOMStability({
-            stabilityThresholdMs: 150,
-            maxWaitMs: 2000
-        });
-
-        if (isStable) {
-            range = deserializeRange(rangeInfo, text);
-            if (range) {
-                return range;
-            }
-        }
-
-        // 最後嘗試：使用文本搜索
-        if (i === maxRetries - 1) {
-            range = findTextInPage(text);
-            if (range) {
-                return range;
-            }
-        }
+    // 最後嘗試：使用文本搜索
+    if (i === maxRetries - 1) {
+      range = findTextInPage(text);
+      if (range) {
+        return range;
+      }
     }
+  }
 
-    return null;
+  return null;
 }
 
 /**
@@ -100,11 +102,11 @@ export async function restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
  * @returns {Range|null}
  */
 export function findRangeByTextContent(targetText) {
-    if (!targetText || typeof targetText !== 'string') {
-        return null;
-    }
+  if (!targetText || typeof targetText !== 'string') {
+    return null;
+  }
 
-    return findTextInPage(targetText);
+  return findTextInPage(targetText);
 }
 
 /**
@@ -114,12 +116,14 @@ export function findRangeByTextContent(targetText) {
  * @returns {boolean}
  */
 export function validateRange(range, expectedText) {
-    if (!range) return false;
+  if (!range) {
+    return false;
+  }
 
-    try {
-        const actualText = range.toString();
-        return actualText === expectedText;
-    } catch (_error) {
-        return false;
-    }
+  try {
+    const actualText = range.toString();
+    return actualText === expectedText;
+  } catch (_error) {
+    return false;
+  }
 }

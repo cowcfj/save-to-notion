@@ -1,7 +1,7 @@
 // Notion Smart Clipper - Background Script
 // Refactored for better organization
 
-/* global chrome, PerformanceOptimizer, ErrorHandler, ImageUtils */
+/* global chrome, PerformanceOptimizer, ErrorHandler, ImageUtils, Logger */
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
@@ -28,93 +28,26 @@ try {
  * 清理和標準化圖片 URL
  * 使用 imageUtils.js 中的統一實現
  */
+/**
+ * 清理和標準化圖片 URL
+ * 使用 imageUtils.js 中的統一實現
+ */
 function cleanImageUrl(url) {
   // 檢查 ImageUtils 是否可用
   if (typeof ImageUtils !== 'undefined' && ImageUtils.cleanImageUrl) {
     return ImageUtils.cleanImageUrl(url);
   }
-
-  // 回退實現（如果 ImageUtils 未載入）
-  if (!url || typeof url !== 'string') {
-    return null;
-  }
-
-  try {
-    const urlObj = new URL(url);
-
-    // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
-    if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
-      const uParam = urlObj.searchParams.get('u');
-      if (uParam && /^https?:\/\//.test(uParam)) {
-        return cleanImageUrl(uParam);
-      }
-    }
-
-    // 移除重複的查詢參數
-    const params = new URLSearchParams();
-    for (const [key, value] of urlObj.searchParams.entries()) {
-      if (!params.has(key)) {
-        params.set(key, value);
-      }
-    }
-    urlObj.search = params.toString();
-
-    return urlObj.href;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 // ============ 圖片 URL 驗證與緩存系統 ============
-
-/**
- * 圖片 URL 驗證配置常量
- */
-const IMAGE_VALIDATION_CONFIG = {
-  MAX_URL_LENGTH: 2000,
-  MAX_CACHE_SIZE: 500, // 降低以減少記憶體使用
-  CACHE_TTL: 30 * 60 * 1000, // 30分鐘 TTL
-  SUPPORTED_PROTOCOLS: ['http:', 'https:', 'data:', 'blob:'],
-  IMAGE_EXTENSIONS: /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i,
-  IMAGE_PATH_PATTERNS: [
-    /\/image[s]?\//i,
-    /\/img[s]?\//i,
-    /\/photo[s]?\//i,
-    /\/picture[s]?\//i,
-    /\/media\//i,
-    /\/upload[s]?\//i,
-    /\/asset[s]?\//i,
-    /\/file[s]?\//i,
-    /\/content\//i,
-    /\/wp-content\//i,
-    /\/cdn\//i,
-    /cdn\d*\./i,
-    /\/static\//i,
-    /\/thumb[s]?\//i,
-    /\/thumbnail[s]?\//i,
-    /\/resize\//i,
-    /\/crop\//i,
-    /\/(\d{4})\/(\d{2})\//,
-  ],
-  EXCLUDE_PATTERNS: [
-    /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
-    /\/api\//i,
-    /\/ajax\//i,
-    /\/callback/i,
-    /\/track/i,
-    /\/analytics/i,
-  ],
-};
 
 /**
  * 圖片 URL 驗證緩存類
  * 實現真正的 LRU 緩存策略與 TTL
  */
 class ImageUrlValidationCache {
-  constructor(
-    maxSize = IMAGE_VALIDATION_CONFIG.MAX_CACHE_SIZE,
-    ttl = IMAGE_VALIDATION_CONFIG.CACHE_TTL
-  ) {
+  constructor(maxSize = 500, ttl = 30 * 60 * 1000) {
     this.cache = new Map();
     this.maxSize = maxSize;
     this.ttl = ttl;
@@ -231,10 +164,55 @@ class ImageUrlValidationCache {
 // 全域緩存實例
 const imageUrlValidationCache = new ImageUrlValidationCache();
 
-// 預編譯正則表達式以提升性能
-const HTTP_PROTOCOL_REGEX = /^https?:\/\//i;
-const DATA_PROTOCOL_REGEX = /^data:image\/(?:png|jpg|jpeg|gif|webp|svg\+xml);base64,/i;
-const BLOB_PROTOCOL_REGEX = /^blob:/i;
+/**
+ * 本地輕量級圖片 URL 驗證器
+ * 用於 service worker 環境中 ImageUtils 不可用時的回退
+ * @param {string} url - 要驗證的 URL
+ * @returns {boolean} 是否為有效的圖片 URL
+ */
+function validateImageUrlLocally(url) {
+  if (!url || typeof url !== 'string' || url.trim().length === 0) {
+    return false;
+  }
+
+  try {
+    const urlObj = new URL(url);
+
+    // 驗證協議是 http 或 https
+    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+      return false;
+    }
+
+    // 檢查常見圖片擴展名
+    const pathname = urlObj.pathname.toLowerCase();
+    const imageExtensions = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.webp',
+      '.svg',
+      '.bmp',
+      '.ico',
+      '.tiff',
+      '.tif',
+      '.avif',
+      '.heic',
+      '.heif',
+    ];
+    const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext));
+
+    // 檢查路徑是否包含圖片關鍵詞
+    const hasImageKeyword =
+      /\/(?:image[s]?|img[s]?|photo[s]?|picture[s]?|media|upload[s]?|cdn)\//i.test(pathname);
+
+    // 至少滿足一個條件：有圖片擴展名、包含圖片關鍵詞、或有文件擴展名
+    return hasImageExtension || hasImageKeyword || pathname.includes('.');
+  } catch (_error) {
+    // URL 解析失敗
+    return false;
+  }
+}
 
 /**
  * 驗證圖片 URL 是否有效
@@ -269,30 +247,9 @@ function isValidImageUrl(url) {
     if (typeof ImageUtils !== 'undefined' && ImageUtils.isValidImageUrl) {
       isValidImage = ImageUtils.isValidImageUrl(trimmedUrl);
     } else {
-      // 回退實現：使用本地驗證邏輯
-      const cleanedUrl = cleanImageUrl(trimmedUrl);
-      if (!cleanedUrl) {
-        Logger.log('❌ [ImageValidation] URL 清理失敗');
-        imageUrlValidationCache.set(trimmedUrl, false);
-        return false;
-      }
-
-      // 驗證協議
-      if (!isValidProtocol(cleanedUrl)) {
-        Logger.log('❌ [ImageValidation] 不支持的協議');
-        imageUrlValidationCache.set(trimmedUrl, false);
-        return false;
-      }
-
-      // 檢查 URL 長度限制
-      if (cleanedUrl.length > IMAGE_VALIDATION_CONFIG.MAX_URL_LENGTH) {
-        Logger.log('❌ [ImageValidation] URL 長度超過限制');
-        imageUrlValidationCache.set(trimmedUrl, false);
-        return false;
-      }
-
-      // 檢查是否為圖片
-      isValidImage = validateImageContent(cleanedUrl);
+      // 回退到本地輕量級驗證器（service worker 環境）
+      Logger.warn('⚠️ [ImageValidation] ImageUtils 不可用，使用本地回退驗證器');
+      isValidImage = validateImageUrlLocally(trimmedUrl);
     }
 
     // 緩存結果
@@ -304,54 +261,6 @@ function isValidImageUrl(url) {
     imageUrlValidationCache.set(trimmedUrl, false);
     return false;
   }
-}
-
-/**
- * 驗證 URL 協議是否受支持
- * @param {string} url - 要檢查的 URL
- * @returns {boolean} 是否為受支持的協議
- */
-function isValidProtocol(url) {
-  try {
-    // 檢查不同協議類型
-    if (url.startsWith('data:')) {
-      return DATA_PROTOCOL_REGEX.test(url);
-    }
-
-    if (url.startsWith('blob:')) {
-      return BLOB_PROTOCOL_REGEX.test(url);
-    }
-
-    // 對於 HTTP/HTTPS URLs
-    return HTTP_PROTOCOL_REGEX.test(url);
-  } catch (error) {
-    Logger.error('❌ [ProtocolValidation] 協議檢查失敗:', error);
-    return false;
-  }
-}
-
-/**
- * 驗證 URL 內容是否為圖片
- * @param {string} url - 要檢查的 URL
- * @returns {boolean} 是否為圖片內容
- */
-function validateImageContent(url) {
-  // 如果 URL 包含圖片擴展名，直接返回 true
-  if (IMAGE_VALIDATION_CONFIG.IMAGE_EXTENSIONS.test(url)) {
-    return true;
-  }
-
-  // 排除明顯不是圖片的 URL
-  if (IMAGE_VALIDATION_CONFIG.EXCLUDE_PATTERNS.some(pattern => pattern.test(url))) {
-    return false;
-  }
-
-  // 檢查路徑模式
-  const matchesImagePattern = IMAGE_VALIDATION_CONFIG.IMAGE_PATH_PATTERNS.some(pattern =>
-    pattern.test(url)
-  );
-
-  return matchesImagePattern;
 }
 
 // 定期清理過期條目（每5分鐘）
@@ -478,6 +387,8 @@ function isRecoverableInjectionError(message) {
   const patterns = [
     'Cannot access contents of url',
     'Cannot access contents of page',
+    'Cannot access contents of the page',
+    'Extension manifest must request permission',
     'No tab with id',
     'The tab was closed',
     'The frame was removed',
@@ -527,8 +438,11 @@ class ScriptInjector {
                 const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
                 const isRecoverable = isRecoverableInjectionError(errMsg);
                 if (logErrors) {
-                  const logger = isRecoverable ? console.warn : console.error;
-                  logger('File injection failed:', errMsg);
+                  if (isRecoverable) {
+                    console.warn('⚠️ File injection skipped (recoverable):', errMsg);
+                  } else {
+                    console.error('File injection failed:', errMsg);
+                  }
                 }
                 if (isRecoverable) {
                   resolve();
@@ -556,8 +470,11 @@ class ScriptInjector {
                 const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
                 const isRecoverable = isRecoverableInjectionError(errMsg);
                 if (logErrors) {
-                  const logger = isRecoverable ? console.warn : console.error;
-                  logger('Function execution failed:', errMsg);
+                  if (isRecoverable) {
+                    console.warn('⚠️ Function execution skipped (recoverable):', errMsg);
+                  } else {
+                    console.error('Function execution failed:', errMsg);
+                  }
                 }
                 if (isRecoverable) {
                   resolve(returnResult ? null : undefined);

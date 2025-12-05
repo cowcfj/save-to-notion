@@ -15,6 +15,33 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
     // ===== Module-level utilities (must be at program root) =====
     // __sendBackgroundLog moved to Logger.js
 
+    // 默認追蹤參數列表 (瀏覽器環境使用)
+    let TRACKING_PARAMS = [
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
+      'gclid',
+      'fbclid',
+      'mc_cid',
+      'mc_eid',
+      'igshid',
+      'vero_id',
+    ];
+
+    // Node.js 環境適配：嘗試從配置模組加載
+    if (typeof module !== 'undefined' && typeof require !== 'undefined') {
+      try {
+        const config = require('./config/constants');
+        if (config.URL_NORMALIZATION?.TRACKING_PARAMS) {
+          TRACKING_PARAMS = config.URL_NORMALIZATION.TRACKING_PARAMS;
+        }
+      } catch (_err) {
+        // 忽略加載錯誤，保持默認值
+      }
+    }
+
     /**
      * 標準化 URL，用於生成一致的存儲鍵
      *
@@ -57,19 +84,7 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
         }
 
         // 2. 移除常見的追蹤參數
-        const trackingParams = [
-          'utm_source',
-          'utm_medium',
-          'utm_campaign',
-          'utm_term',
-          'utm_content',
-          'gclid',
-          'fbclid',
-          'mc_cid',
-          'mc_eid',
-          'igshid',
-          'vero_id',
-        ];
+        const trackingParams = TRACKING_PARAMS;
         const removedParams = [];
         trackingParams.forEach(param => {
           if (urlObj.searchParams.has(param)) {
@@ -279,7 +294,10 @@ if (typeof window !== 'undefined' && window.__NOTION_UTILS_LOADED__) {
           // 輸入驗證
           if (!pageUrl || typeof pageUrl !== 'string') {
             const error = new Error('Invalid pageUrl: must be a non-empty string');
-            (window.Logger || console).error('❌ [clearHighlights] 無效的 URL 參數:', error.message);
+            (window.Logger || console).error(
+              '❌ [clearHighlights] 無效的 URL 參數:',
+              error.message
+            );
             throw error;
           }
 
