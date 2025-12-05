@@ -14,7 +14,7 @@
 /**
  * URL 標準化相關常量
  */
-const URL_TRACKING_PARAMS = [
+export const URL_TRACKING_PARAMS = [
   'utm_source',
   'utm_medium',
   'utm_campaign',
@@ -234,6 +234,8 @@ class StorageService {
 }
 
 // 導出
+export { StorageService, normalizeUrl };
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { StorageService, normalizeUrl, URL_TRACKING_PARAMS };
 } else if (typeof window !== 'undefined') {

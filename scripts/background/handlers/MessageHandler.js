@@ -145,6 +145,8 @@ class MessageHandler {
 }
 
 // 導出
+export { MessageHandler };
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { MessageHandler };
 } else if (typeof window !== 'undefined') {

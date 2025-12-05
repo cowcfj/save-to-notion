@@ -295,6 +295,8 @@ class ImageService {
 }
 
 // 導出
+export { ImageService, ImageUrlValidationCache };
+
 if (typeof module !== 'undefined' && module.exports) {
   // Node.js 環境（測試）
   module.exports = { ImageService, ImageUrlValidationCache };

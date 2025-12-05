@@ -1,7 +1,7 @@
 // Notion Smart Clipper - Background Script
 // Refactored for better organization
 
-/* global chrome, PerformanceOptimizer, ErrorHandler, Logger */
+/* global chrome, PerformanceOptimizer, Logger */
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
@@ -11,10 +11,10 @@
 import './utils/Logger.js';
 
 // Import modular services (Phase 4 integration)
-import './background/services/StorageService.js';
-import './background/services/NotionService.js';
-import './background/services/ImageService.js';
-import './background/handlers/MessageHandler.js';
+import { StorageService, URL_TRACKING_PARAMS } from './background/services/StorageService.js';
+import { NotionService, fetchWithRetry } from './background/services/NotionService.js';
+
+import { MessageHandler } from './background/handlers/MessageHandler.js';
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
@@ -27,6 +27,9 @@ import './background/handlers/MessageHandler.js';
 // ==========================================
 // cleanImageUrl, isValidImageUrl 等函數由 scripts/utils/imageUtils.js 提供
 // 在瀏覽器環境中透過 ImageUtils 全局對象訪問
+
+// Initialize Services
+const storageService = new StorageService({ logger: Logger });
 
 // ==========================================
 // TEXT UTILITIES
@@ -498,20 +501,8 @@ const normalizeUrl =
         try {
           const urlObj = new URL(rawUrl);
           urlObj.hash = '';
-          const trackingParams = [
-            'utm_source',
-            'utm_medium',
-            'utm_campaign',
-            'utm_term',
-            'utm_content',
-            'gclid',
-            'fbclid',
-            'mc_cid',
-            'mc_eid',
-            'igshid',
-            'vero_id',
-          ];
-          trackingParams.forEach(param => urlObj.searchParams.delete(param));
+          // 使用共享的追蹤參數列表
+          URL_TRACKING_PARAMS.forEach(param => urlObj.searchParams.delete(param));
           if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
             urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
           }
@@ -530,19 +521,7 @@ const normalizeUrl =
  * @returns {Promise<void>}
  */
 function clearPageState(pageUrl) {
-  if (typeof window !== 'undefined' && window.StorageService) {
-    const svc = new window.StorageService();
-    return svc.clearPageState(pageUrl);
-  }
-  // Fallback for test environment
-  return new Promise(resolve => {
-    const savedKey = `saved_${pageUrl}`;
-    const highlightsKey = `highlights_${pageUrl}`;
-    chrome.storage.local.remove([savedKey, highlightsKey], () => {
-      Logger.log('✅ Cleared all data for:', pageUrl);
-      resolve();
-    });
-  });
+  return storageService.clearPageState(pageUrl);
 }
 
 /**
@@ -550,16 +529,7 @@ function clearPageState(pageUrl) {
  * @returns {Promise<Object|null>}
  */
 function getSavedPageData(pageUrl) {
-  if (typeof window !== 'undefined' && window.StorageService) {
-    const svc = new window.StorageService();
-    return svc.getSavedPageData(pageUrl);
-  }
-  // Fallback
-  return new Promise(resolve => {
-    chrome.storage.local.get([`saved_${pageUrl}`], result => {
-      resolve(result[`saved_${pageUrl}`] || null);
-    });
-  });
+  return storageService.getSavedPageData(pageUrl);
 }
 
 /**
@@ -567,17 +537,7 @@ function getSavedPageData(pageUrl) {
  * @returns {Promise<void>}
  */
 function setSavedPageData(pageUrl, data) {
-  if (typeof window !== 'undefined' && window.StorageService) {
-    const svc = new window.StorageService();
-    return svc.setSavedPageData(pageUrl, data);
-  }
-  // Fallback
-  return new Promise(resolve => {
-    const storageData = {
-      [`saved_${pageUrl}`]: { ...data, lastUpdated: Date.now() },
-    };
-    chrome.storage.local.set(storageData, resolve);
-  });
+  return storageService.setSavedPageData(pageUrl, data);
 }
 
 /**
@@ -585,14 +545,7 @@ function setSavedPageData(pageUrl, data) {
  * @returns {Promise<Object>}
  */
 function getConfig(keys) {
-  if (typeof window !== 'undefined' && window.StorageService) {
-    const svc = new window.StorageService();
-    return svc.getConfig(keys);
-  }
-  // Fallback
-  return new Promise(resolve => {
-    chrome.storage.sync.get(keys, resolve);
-  });
+  return storageService.getConfig(keys);
 }
 
 /**
@@ -600,56 +553,8 @@ function getConfig(keys) {
  * @returns {Promise<Response>}
  */
 async function fetchNotionWithRetry(url, options, retryOptions = {}) {
-  // 瀏覽器環境: 委派給 NotionService.fetchWithRetry
-  if (typeof window !== 'undefined' && window.fetchWithRetry) {
-    return window.fetchWithRetry(url, options, retryOptions);
-  }
-  // Fallback for test environment
-  const { maxRetries = 2, baseDelay = 600 } = retryOptions;
-  let attempt = 0;
-  let lastError = null;
-
-  while (attempt <= maxRetries) {
-    try {
-      const res = await fetch(url, options);
-      if (res.ok) {
-        return res;
-      }
-
-      let message = '';
-      try {
-        const data = await res.clone().json();
-        message = data?.message || '';
-      } catch {
-        /* ignore parse errors */
-      }
-
-      const retriableStatus = res.status >= 500 || res.status === 429 || res.status === 409;
-      const retriableMessage = /Unsaved transactions|DatastoreInfraError/i.test(message);
-
-      if (attempt < maxRetries && (retriableStatus || retriableMessage)) {
-        const delay = baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 200);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        attempt++;
-        continue;
-      }
-      return res;
-    } catch (err) {
-      lastError = err;
-      if (attempt < maxRetries) {
-        const delay = baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 200);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        attempt++;
-        continue;
-      }
-      throw err;
-    }
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
-  throw new Error('fetchNotionWithRetry failed unexpectedly');
+  // 委派給 NotionService 模組提供的 fetchWithRetry
+  return fetchWithRetry(url, options, retryOptions);
 }
 
 // ==========================================
@@ -664,47 +569,8 @@ async function fetchNotionWithRetry(url, options, retryOptions = {}) {
 //   false => 確認不存在（404）
 //   null  => 不確定（網路/服務端暫時性錯誤）
 async function checkNotionPageExists(pageId, apiKey) {
-  try {
-    const response = await fetchNotionWithRetry(
-      `https://api.notion.com/v1/pages/${pageId}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Notion-Version': '2025-09-03',
-        },
-      },
-      { maxRetries: 2, baseDelay: 500 }
-    );
-
-    if (response.ok) {
-      const pageData = await response.json();
-      return !pageData.archived;
-    }
-
-    if (response.status === 404) {
-      return false; // 確認不存在
-    }
-
-    // 其他情況（5xx/429/409 等）返回不確定，避免誤判為刪除
-    return null;
-  } catch (error) {
-    /*
-     * 頁面存在性檢查錯誤：記錄但不中斷流程
-     * 返回 false 作為安全的默認值
-     */
-    if (typeof ErrorHandler !== 'undefined') {
-      ErrorHandler.logError({
-        type: 'network_error',
-        context: `checking page existence: ${pageId}`,
-        originalError: error,
-        timestamp: Date.now(),
-      });
-    } else {
-      console.error('Error checking page existence:', error);
-    }
-    return null;
-  }
+  const notionService = new NotionService({ apiKey, logger: Logger });
+  return notionService.checkPageExists(pageId);
 }
 
 /**
@@ -1582,115 +1448,65 @@ async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
  * 使用 MessageHandler 統一管理所有消息路由
  */
 function setupMessageHandlers() {
-  // 檢查 MessageHandler 是否可用（瀏覽器環境）
-  if (typeof window !== 'undefined' && window.MessageHandler) {
-    const messageHandler = new window.MessageHandler({ logger: Logger });
+  const messageHandler = new MessageHandler({ logger: Logger });
 
-    // 註冊所有消息處理函數
-    messageHandler.registerAll({
-      checkPageStatus: (request, sender, sendResponse) => {
-        handleCheckPageStatus(sendResponse);
-      },
-      checkNotionPageExists: (request, sender, sendResponse) => {
-        handleCheckNotionPageExistsMessage(request, sendResponse);
-      },
-      startHighlight: (request, sender, sendResponse) => {
-        handleStartHighlight(sendResponse);
-      },
-      updateHighlights: (request, sender, sendResponse) => {
-        handleUpdateHighlights(sendResponse);
-      },
-      syncHighlights: (request, sender, sendResponse) => {
-        handleSyncHighlights(request, sendResponse);
-      },
-      savePage: (request, sender, sendResponse) => {
-        Promise.resolve(handleSavePage(sendResponse)).catch(err => {
-          try {
-            sendResponse({ success: false, error: err?.message || 'Save failed' });
-          } catch {
-            /* 忽略 sendResponse 錯誤 */
-          }
-        });
-      },
-      openNotionPage: (request, sender, sendResponse) => {
-        handleOpenNotionPage(request, sendResponse);
-      },
-    });
-
-    messageHandler.setupListener();
-    Logger.log('✅ MessageHandler 設置完成');
-    return;
-  }
-
-  // Fallback: 直接使用 chrome.runtime.onMessage（測試環境）
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    handleMessageFallback(request, sender, sendResponse);
-    return true;
+  // 註冊所有消息處理函數
+  messageHandler.registerAll({
+    devLogSink: (request, sender, sendResponse) => {
+      try {
+        const level = request.level || 'log';
+        const message = request.message || '';
+        const args = Array.isArray(request.args) ? request.args : [];
+        const prefix = '[ClientLog]';
+        if (level === 'warn') {
+          Logger.warn(prefix, message, ...args);
+        } else if (level === 'error') {
+          Logger.error(prefix, message, ...args);
+        } else if (level === 'info') {
+          Logger.info(`${prefix} ${message}`, ...args);
+        } else {
+          Logger.log(`${prefix} ${message}`, ...args);
+        }
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+    checkPageStatus: (request, sender, sendResponse) => {
+      handleCheckPageStatus(sendResponse);
+    },
+    checkNotionPageExists: (request, sender, sendResponse) => {
+      handleCheckNotionPageExistsMessage(request, sendResponse);
+    },
+    startHighlight: (request, sender, sendResponse) => {
+      handleStartHighlight(sendResponse);
+    },
+    updateHighlights: (request, sender, sendResponse) => {
+      handleUpdateHighlights(sendResponse);
+    },
+    syncHighlights: (request, sender, sendResponse) => {
+      handleSyncHighlights(request, sendResponse);
+    },
+    savePage: (request, sender, sendResponse) => {
+      Promise.resolve(handleSavePage(sendResponse)).catch(err => {
+        try {
+          sendResponse({ success: false, error: err?.message || 'Save failed' });
+        } catch {
+          /* 忽略 sendResponse 錯誤 */
+        }
+      });
+    },
+    openNotionPage: (request, sender, sendResponse) => {
+      handleOpenNotionPage(request, sendResponse);
+    },
   });
+
+  messageHandler.setupListener();
+  Logger.log('✅ MessageHandler 設置完成');
 }
 
 /**
- * Fallback 消息處理（測試環境使用）
- */
-function handleMessageFallback(request, sender, sendResponse) {
-  try {
-    switch (request.action) {
-      case 'devLogSink': {
-        try {
-          const level = request.level || 'log';
-          const message = request.message || '';
-          const args = Array.isArray(request.args) ? request.args : [];
-          const prefix = '[ClientLog]';
-          if (level === 'warn') {
-            Logger.warn(prefix, message, ...args);
-          } else if (level === 'error') {
-            Logger.error(prefix, message, ...args);
-          } else if (level === 'info') {
-            Logger.info(`${prefix} ${message}`, ...args);
-          } else {
-            Logger.log(`${prefix} ${message}`, ...args);
-          }
-          sendResponse({ success: true });
-        } catch (error) {
-          sendResponse({ success: false, error: error.message });
-        }
-        break;
-      }
-      case 'checkPageStatus':
-        handleCheckPageStatus(sendResponse);
-        break;
-      case 'checkNotionPageExists':
-        handleCheckNotionPageExistsMessage(request, sendResponse);
-        break;
-      case 'startHighlight':
-        handleStartHighlight(sendResponse);
-        break;
-      case 'updateHighlights':
-        handleUpdateHighlights(sendResponse);
-        break;
-      case 'syncHighlights':
-        handleSyncHighlights(request, sendResponse);
-        break;
-      case 'savePage':
-        Promise.resolve(handleSavePage(sendResponse)).catch(err => {
-          try {
-            sendResponse({ success: false, error: err?.message || 'Save failed' });
-          } catch {
-            /* 忽略 sendResponse 錯誤 */
-          }
-        });
-        break;
-      case 'openNotionPage':
-        handleOpenNotionPage(request, sendResponse);
-        break;
-      default:
-        sendResponse({ success: false, error: 'Unknown action' });
-    }
-  } catch (error) {
-    console.error('Message handler error:', error);
-    sendResponse({ success: false, error: error.message });
-  }
-}
+
 
 /**
  * Handles checkPageStatus action

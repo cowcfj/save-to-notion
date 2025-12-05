@@ -390,6 +390,8 @@ class NotionService {
 }
 
 // 導出
+export { NotionService, fetchWithRetry, NOTION_CONFIG };
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { NotionService, fetchWithRetry, NOTION_CONFIG };
 } else if (typeof window !== 'undefined') {
