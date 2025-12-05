@@ -286,5 +286,38 @@ describe('NotionService', () => {
       expect(result.success).toBe(true);
       expect(result.deletedCount).toBe(0);
     });
+    it('應該處理分頁情況', async () => {
+      global.fetch = jest
+        .fn()
+        // First page
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              results: [{ id: 'block-1' }],
+              has_more: true,
+              next_cursor: 'cursor-1',
+            }),
+        })
+        // Second page
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              results: [{ id: 'block-2' }],
+              has_more: false, // Explicitly false or omit
+            }),
+        })
+        // Delete block 1
+        .mockResolvedValueOnce({ ok: true })
+        // Delete block 2
+        .mockResolvedValueOnce({ ok: true });
+
+      const result = await service.deleteAllBlocks('page-123');
+      expect(result.success).toBe(true);
+      expect(result.deletedCount).toBe(2);
+      // Calls: 1. List page 1, 2. List page 2, 3. Delete block 1, 4. Delete block 2
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+    });
   });
 });

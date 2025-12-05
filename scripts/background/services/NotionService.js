@@ -325,30 +325,44 @@ class NotionService {
     }
 
     try {
-      // 獲取現有區塊
-      const listResponse = await fetchWithRetry(
-        `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100`,
-        {
-          method: 'GET',
-          headers: this._getHeaders(),
-        },
-        { maxRetries: 2, baseDelay: 500 }
-      );
+      // 收集所有區塊（處理分頁）
+      const allBlocks = [];
+      let startCursor = null;
+      let hasMore = true;
 
-      if (!listResponse.ok) {
-        return { success: false, deletedCount: 0, error: 'Failed to list blocks' };
+      while (hasMore) {
+        const url = startCursor
+          ? `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100&start_cursor=${startCursor}`
+          : `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100`;
+
+        const listResponse = await fetchWithRetry(
+          url,
+          {
+            method: 'GET',
+            headers: this._getHeaders(),
+          },
+          { maxRetries: 2, baseDelay: 500 }
+        );
+
+        if (!listResponse.ok) {
+          return { success: false, deletedCount: 0, error: 'Failed to list blocks' };
+        }
+
+        const data = await listResponse.json();
+        const blocks = data.results || [];
+        allBlocks.push(...blocks);
+
+        hasMore = data.has_more === true;
+        startCursor = data.next_cursor;
       }
 
-      const data = await listResponse.json();
-      const blocks = data.results || [];
-
-      if (blocks.length === 0) {
+      if (allBlocks.length === 0) {
         return { success: true, deletedCount: 0 };
       }
 
       // 逐個刪除區塊
       let deletedCount = 0;
-      for (const block of blocks) {
+      for (const block of allBlocks) {
         try {
           await fetchWithRetry(
             `${this.config.BASE_URL}/blocks/${block.id}`,
