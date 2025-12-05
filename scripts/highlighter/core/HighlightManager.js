@@ -651,7 +651,11 @@ export class HighlightManager {
       }
 
       if (migratedHighlights.length > 0 && window.StorageUtil) {
-        const currentUrl = window.location.href;
+        // 使用標準化 URL 保持與存儲格式一致
+        const currentUrl = window.normalizeUrl
+          ? window.normalizeUrl(window.location.href)
+          : window.location.href;
+
         await window.StorageUtil.saveHighlights(currentUrl, {
           url: currentUrl,
           highlights: migratedHighlights,
