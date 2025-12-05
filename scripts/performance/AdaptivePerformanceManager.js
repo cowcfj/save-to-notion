@@ -11,7 +11,11 @@ class AdaptivePerformanceManager {
    * @param {Object} options - 配置選項
    */
   constructor(performanceOptimizer, options = {}) {
-    this.performanceOptimizer = performanceOptimizer;
+    // 防禦性檢查：確保 performanceOptimizer 和其 options 存在
+    const DEFAULT_CACHE_MAX_SIZE = 100;
+    const validOptimizer = performanceOptimizer && typeof performanceOptimizer === 'object';
+
+    this.performanceOptimizer = validOptimizer ? performanceOptimizer : null;
     this.options = {
       performanceThreshold: 100, // 性能基準線（ms）
       batchSizeAdjustmentFactor: 0.1, // 批處理大小調整因子
@@ -19,10 +23,16 @@ class AdaptivePerformanceManager {
       ...options,
     };
 
+    // 安全地獲取 cacheMaxSize，使用多層回退
+    const cacheMaxSize =
+      (validOptimizer && performanceOptimizer.options?.cacheMaxSize) ||
+      options.cacheMaxSize ||
+      DEFAULT_CACHE_MAX_SIZE;
+
     this.performanceHistory = []; // 性能歷史記錄
     this.currentSettings = {
       batchSize: 100,
-      cacheSize: performanceOptimizer.options.cacheMaxSize,
+      cacheSize: cacheMaxSize,
       enableCache: true,
       enableBatching: true,
     };
