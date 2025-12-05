@@ -78,15 +78,17 @@ function initDebugState() {
       }
     });
 
-    // 監聽變更
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'sync' && changes.enableDebugLogs) {
-        _debugEnabled = Boolean(changes.enableDebugLogs.newValue);
-        // 在控制台輸出狀態變更，方便調試
-        const status = _debugEnabled ? 'ENABLED' : 'DISABLED';
-        console.info(`[Logger] Debug mode ${status}`);
-      }
-    });
+    // 監聽變更（防禦性檢查 onChanged 是否存在）
+    if (chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'sync' && changes.enableDebugLogs) {
+          _debugEnabled = Boolean(changes.enableDebugLogs.newValue);
+          // 在控制台輸出狀態變更，方便調試
+          const status = _debugEnabled ? 'ENABLED' : 'DISABLED';
+          console.info(`[Logger] Debug mode ${status}`);
+        }
+      });
+    }
   }
 
   _isInitialized = true;

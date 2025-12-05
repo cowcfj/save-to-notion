@@ -7,12 +7,8 @@
 // DEVELOPMENT MODE CONTROL
 // ==========================================
 
-// Import unified Logger
-try {
-  importScripts('utils/Logger.js');
-} catch (err) {
-  console.error('Failed to import Logger.js:', err);
-}
+// Import unified Logger (ES Module)
+import './utils/Logger.js';
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
