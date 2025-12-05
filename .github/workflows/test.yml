@@ -40,6 +40,13 @@ jobs:
       run: npm run lint
       continue-on-error: true
 
+    - name: Build content script bundle
+      run: |
+        echo "Building content script bundle for tests..."
+        npm run build:content
+        echo "Verifying bundle was created..."
+        ls -lh dist/content.bundle.js
+
     - name: Run tests with Node.js 20.x optimizations
       run: |
         # 設置 Node.js 20.x 特定的環境變數
