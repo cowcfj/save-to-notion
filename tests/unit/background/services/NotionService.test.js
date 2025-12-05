@@ -9,7 +9,7 @@ const {
 } = require('../../../../scripts/background/services/NotionService');
 
 describe('fetchWithRetry', () => {
-  let originalFetch;
+  let originalFetch = null;
 
   beforeEach(() => {
     originalFetch = global.fetch;
@@ -97,9 +97,9 @@ describe('fetchWithRetry', () => {
 });
 
 describe('NotionService', () => {
-  let service;
-  let mockLogger;
-  let originalFetch;
+  let service = null;
+  let mockLogger = null;
+  let originalFetch = null;
 
   beforeEach(() => {
     originalFetch = global.fetch;

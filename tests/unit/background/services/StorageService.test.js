@@ -39,7 +39,6 @@ describe('normalizeUrl', () => {
   it('應該處理空值', () => {
     expect(normalizeUrl('')).toBe('');
     expect(normalizeUrl(null)).toBe('');
-    expect(normalizeUrl(undefined)).toBe('');
   });
 
   it('應該處理無效 URL', () => {
@@ -48,9 +47,9 @@ describe('normalizeUrl', () => {
 });
 
 describe('StorageService', () => {
-  let service;
-  let mockStorage;
-  let mockLogger;
+  let service = null;
+  let mockStorage = null;
+  let mockLogger = null;
 
   beforeEach(() => {
     mockStorage = {

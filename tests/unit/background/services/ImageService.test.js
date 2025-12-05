@@ -9,7 +9,7 @@ const {
 } = require('../../../../scripts/background/services/ImageService');
 
 describe('ImageUrlValidationCache', () => {
-  let cache;
+  let cache = null;
 
   beforeEach(() => {
     cache = new ImageUrlValidationCache(5, 1000); // 小緩存，1秒 TTL
@@ -109,9 +109,9 @@ describe('ImageUrlValidationCache', () => {
 });
 
 describe('ImageService', () => {
-  let service;
-  let mockValidator;
-  let mockLogger;
+  let service = null;
+  let mockValidator = null;
+  let mockLogger = null;
 
   beforeEach(() => {
     mockValidator = jest.fn(url => url.endsWith('.jpg'));
@@ -230,7 +230,7 @@ describe('ImageService', () => {
   });
 
   describe('本地回退驗證器', () => {
-    let serviceNoValidator;
+    let serviceNoValidator = null;
 
     beforeEach(() => {
       serviceNoValidator = new ImageService({ logger: mockLogger });

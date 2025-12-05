@@ -5,8 +5,8 @@
 const { MessageHandler } = require('../../../../scripts/background/handlers/MessageHandler');
 
 describe('MessageHandler', () => {
-  let handler;
-  let mockLogger;
+  let handler = null;
+  let mockLogger = null;
 
   beforeEach(() => {
     mockLogger = {
