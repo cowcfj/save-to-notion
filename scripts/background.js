@@ -790,23 +790,33 @@ async function saveToNotion(
         savedAt: Date.now(),
         notionPageId,
         notionUrl,
-      }).then(() => {
-        // 結束性能監控 (service worker 環境)
-        const duration = performance.now() - startTime;
-        Logger.log(`⏱️ 保存到 Notion 完成: ${duration.toFixed(2)}ms`);
+      })
+        .then(() => {
+          // 結束性能監控 (service worker 環境)
+          const duration = performance.now() - startTime;
+          Logger.log(`⏱️ 保存到 Notion 完成: ${duration.toFixed(2)}ms`);
 
-        // 如果有過濾掉的圖片，在成功訊息中提醒用戶
-        if (skippedCount > 0 || excludeImages) {
-          const totalSkipped = excludeImages ? 'All images' : `${skippedCount} image(s)`;
+          // 如果有過濾掉的圖片，在成功訊息中提醒用戶
+          if (skippedCount > 0 || excludeImages) {
+            const totalSkipped = excludeImages ? 'All images' : `${skippedCount} image(s)`;
+            sendResponse({
+              success: true,
+              notionPageId,
+              warning: `${totalSkipped} were skipped due to compatibility issues`,
+            });
+          } else {
+            sendResponse({ success: true, notionPageId });
+          }
+        })
+        .catch(err => {
+          console.error('Failed to save page data:', err);
+          // 即使保存本地狀態失敗，Notion 頁面已創建，視為成功但帶有警告
           sendResponse({
             success: true,
             notionPageId,
-            warning: `${totalSkipped} were skipped due to compatibility issues`,
+            warning: `Page saved to Notion, but local state update failed: ${err.message}`,
           });
-        } else {
-          sendResponse({ success: true, notionPageId });
-        }
-      });
+        });
     } else {
       const errorData = await response.json();
       console.error('Notion API Error:', errorData);
@@ -1221,10 +1231,19 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
       savedAt: Date.now(),
       notionPageId: pageId,
       lastUpdated: Date.now(),
-    }).then(() => {
-      Logger.log('🎉 標記更新完成！');
-      sendResponse({ success: true });
-    });
+    })
+      .then(() => {
+        Logger.log('🎉 標記更新完成！');
+        sendResponse({ success: true });
+      })
+      .catch(err => {
+        console.error('Failed to update local state:', err);
+        // 標記已添加到 Notion，視為成功
+        sendResponse({
+          success: true,
+          warning: `Highlights added, but local sync failed: ${err.message}`,
+        });
+      });
   } catch (error) {
     console.error('💥 標記更新錯誤:', error);
     console.error('💥 錯誤堆棧:', error.stack);
