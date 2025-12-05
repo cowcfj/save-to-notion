@@ -102,9 +102,24 @@
         case MigrationPhase.COMPLETED:
           return { completed: true };
 
-        case MigrationPhase.FAILED:
-          await this.updateMigrationState(MigrationPhase.NOT_STARTED);
-          return this.performSeamlessMigration(highlightManager);
+        case MigrationPhase.FAILED: {
+          // 防止無限重試循環
+          const retryCount = state.metadata?.retryCount || 0;
+          const MAX_RETRIES = 3;
+
+          if (retryCount < MAX_RETRIES) {
+            console.warn(
+              `[Migration] Previous attempt failed. Retrying (${retryCount + 1}/${MAX_RETRIES})...`
+            );
+            await this.updateMigrationState(MigrationPhase.NOT_STARTED, {
+              retryCount: retryCount + 1,
+            });
+            return this.performSeamlessMigration(highlightManager);
+          }
+
+          console.error('[Migration] Max retries exceeded. Stopping migration.');
+          return { error: 'Migration failed after max retries' };
+        }
 
         default:
           return { skipped: true };
