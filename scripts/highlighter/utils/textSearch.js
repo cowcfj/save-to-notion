@@ -168,8 +168,11 @@ export function findTextWithTreeWalker(textToFind) {
  * const range = findTextFuzzy('Hello  World'); // 可找到 "Hello World"
  */
 export function findTextFuzzy(textToFind) {
-  // 將文本轉換為更寬鬆的匹配模式
-  const normalizedSearch = textToFind.replace(/\s+/g, '\\s+');
+  // 首先轉義所有正則表達式元字符，使其被當作普通字符處理
+  const escapedText = textToFind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // 然後將連續的空白字符轉換為 \s+ 以實現寬鬆匹配
+  const normalizedSearch = escapedText.replace(/\s+/g, '\\s+');
   const regex = new RegExp(normalizedSearch, 'i');
 
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
