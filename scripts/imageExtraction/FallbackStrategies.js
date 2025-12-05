@@ -293,8 +293,32 @@ class FallbackStrategies {
       return ImageUtilsRef.isValidImageUrl(url);
     }
 
-    // 如果 ImageUtils 不可用，返回 false
-    return false;
+    // 回退到內聯輕量級驗證，避免靜默失敗
+    if (!url || typeof url !== 'string' || url.trim().length === 0) {
+      return false;
+    }
+
+    try {
+      const urlObj = new URL(url);
+
+      // 驗證協議是 http 或 https
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        return false;
+      }
+
+      // 可選：檢查常見圖片擴展名
+      const pathname = urlObj.pathname.toLowerCase();
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+      const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext));
+
+      // 如果有圖片擴展名，或者路徑包含 'image'/'img' 等關鍵詞，則認為可能是圖片
+      const hasImageKeyword = /\/(?:image[s]?|img[s]?|photo[s]?|picture[s]?)\//i.test(pathname);
+
+      return hasImageExtension || hasImageKeyword || pathname.includes('.');
+    } catch (_error) {
+      // URL 解析失敗
+      return false;
+    }
   }
 
   /**
