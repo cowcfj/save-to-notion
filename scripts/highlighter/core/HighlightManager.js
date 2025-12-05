@@ -575,10 +575,14 @@ export class HighlightManager {
         // 檢查是否已經遷移過
         const migrationKey = `migration_completed_${normalizedUrl}`;
         const storage = HighlightManager.getSafeExtensionStorage();
-        const migrationStatus = await (storage?.get(migrationKey) ?? Promise.resolve({}));
 
-        if (!migrationStatus[migrationKey]) {
-          await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
+        // 只有在 storage 可用時才執行遷移檢查
+        if (storage) {
+          const migrationStatus = await storage.get(migrationKey);
+
+          if (!migrationStatus[migrationKey]) {
+            await this.migrateLegacyDataToNewFormat(legacyData, foundKey);
+          }
         }
       }
     } catch (error) {
