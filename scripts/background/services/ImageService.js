@@ -204,7 +204,7 @@ class ImageService {
         /\/(?:image[s]?|img[s]?|photo[s]?|picture[s]?|media|upload[s]?|cdn)\//i.test(pathname);
 
       // 至少滿足一個條件
-      return hasImageExtension || hasImageKeyword || pathname.includes('.');
+      return hasImageExtension || hasImageKeyword;
     } catch (_error) {
       return false;
     }

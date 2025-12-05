@@ -257,6 +257,12 @@ describe('ImageService', () => {
       expect(serviceNoValidator.isValidImageUrl('file:///path/to/img.jpg')).toBe(false);
     });
 
+    it('應該拒絕包含點但非圖片擴展名的 URL', () => {
+      expect(serviceNoValidator.isValidImageUrl('https://example.com/api/v1.0/data')).toBe(false);
+      expect(serviceNoValidator.isValidImageUrl('https://example.com/user.profile')).toBe(false);
+      expect(serviceNoValidator.isValidImageUrl('https://example.com/document.pdf')).toBe(false);
+    });
+
     it('應該拒絕無效 URL', () => {
       expect(serviceNoValidator.isValidImageUrl('not-a-url')).toBe(false);
     });

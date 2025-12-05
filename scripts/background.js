@@ -2155,7 +2155,7 @@ async function handleSavePage(sendResponse) {
                   pathname
                 );
               // 至少滿足一個條件
-              return hasImageExt || hasImagePath || pathname.includes('.');
+              return hasImageExt || hasImagePath;
             } catch {
               return false;
             }
