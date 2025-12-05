@@ -21,12 +21,6 @@ class ContentExtractor {
    * 執行內容提取
    * @param {Document} doc - DOM Document
    * @param {Object} _options - 配置選項
-   * @returns {Promise<Object>} 提取結果 { content, type, metadata, rawArticle }
-   */
-  /**
-   * 執行內容提取
-   * @param {Document} doc - DOM Document
-   * @param {Object} _options - 配置選項
    * @returns {Object} 提取結果 { content, type, metadata, rawArticle }
    */
   static extract(doc, _options = {}) {
