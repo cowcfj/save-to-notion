@@ -6,8 +6,28 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 describe('content script integration test', () => {
+  // Ensure bundle exists before running tests
+  beforeAll(() => {
+    const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
+    if (!fs.existsSync(scriptPath)) {
+      console.log('⚠️ Content bundle not found. Building it now for integration test...');
+      try {
+        // Execute build command in project root
+        execSync('npm run build:content', {
+          stdio: 'inherit',
+          cwd: path.resolve(__dirname, '../../../'),
+        });
+        console.log('✅ Content bundle built successfully.');
+      } catch (error) {
+        console.error('❌ Failed to build content bundle:', error);
+        throw error;
+      }
+    }
+  }, 60000); // Increase timeout for build
+
   test('runs content.js and exposes result when window.__UNIT_TESTING__ is true', async () => {
     const html =
       '<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>';
