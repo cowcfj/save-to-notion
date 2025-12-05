@@ -517,7 +517,7 @@ const normalizeUrl =
           }
           return urlObj.toString();
         } catch {
-          return rawUrl || '';
+          return rawUrl;
         }
       };
 

@@ -57,7 +57,7 @@ function normalizeUrl(rawUrl) {
 
     return urlObj.toString();
   } catch {
-    return rawUrl || '';
+    return rawUrl;
   }
 }
 
