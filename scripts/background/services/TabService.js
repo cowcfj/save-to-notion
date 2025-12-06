@@ -72,7 +72,7 @@ class TabService {
         await this.migrateLegacyHighlights(tabId, normUrl, highlightsKey);
       }
     } catch (error) {
-      console.error('Error updating tab status:', error);
+      this.logger.error?.('Error updating tab status:', error);
     }
   }
 
@@ -108,12 +108,12 @@ class TabService {
    */
   async migrateLegacyHighlights(tabId, normUrl, storageKey) {
     if (!normUrl || !storageKey) {
-      console.warn('Skipping legacy migration: missing normalized URL or storage key');
+      this.logger.warn?.('Skipping legacy migration: missing normalized URL or storage key');
       return;
     }
 
     if (!/^https?:/i.test(normUrl)) {
-      console.warn('Skipping legacy migration for non-http URL:', normUrl);
+      this.logger.warn?.('Skipping legacy migration for non-http URL:', normUrl);
       return;
     }
 
@@ -224,7 +224,7 @@ class TabService {
       if (this.isRecoverableError(errorMessage)) {
         this.logger.log('⚠️ Migration skipped due to recoverable error:', errorMessage);
       } else {
-        console.error('❌ Error handling migration results:', error);
+        this.logger.error?.('❌ Error handling migration results:', error);
       }
     }
   }
