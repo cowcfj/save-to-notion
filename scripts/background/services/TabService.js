@@ -205,7 +205,8 @@ class TabService {
         return { migrated: false };
       });
 
-      const res = result?.[0] ? result[0].result : null;
+      // injectWithResponse 已經解包回傳值，直接使用 result
+      const res = result;
       if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {
         this.logger.log(
           `Migrating ${res.data.length} highlights from localStorage key: ${res.foundKey}`
