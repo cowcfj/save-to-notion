@@ -1261,6 +1261,28 @@ function buildHighlightBlocks(highlights) {
 }
 
 /**
+ * 處理內容提取結果
+ * @param {Object} rawResult - 注入腳本返回的原始結果
+ * @param {Array} highlights - 標註數據
+ * @returns {Object} 處理後的內容結果 { title, blocks, siteIcon }
+ */
+function processContentResult(rawResult, highlights) {
+  const contentResult = rawResult || {
+    title: 'Untitled',
+    blocks: [],
+    siteIcon: null,
+  };
+
+  // 添加標註區塊
+  if (highlights && highlights.length > 0) {
+    const highlightBlocks = buildHighlightBlocks(highlights);
+    contentResult.blocks.push(...highlightBlocks);
+  }
+
+  return contentResult;
+}
+
+/**
  * 處理保存頁面的請求
  */
 async function handleSavePage(sendResponse) {
@@ -2509,12 +2531,8 @@ async function handleSavePage(sendResponse) {
       return;
     }
 
-    const contentResult = result;
-    // 添加標記到內容
-    if (highlights.length > 0) {
-      const highlightBlocks = buildHighlightBlocks(highlights);
-      contentResult.blocks.push(...highlightBlocks);
-    }
+    // 處理內容結果並添加標註
+    const contentResult = processContentResult(result, highlights);
 
     const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
 
@@ -2807,5 +2825,6 @@ if (typeof module !== 'undefined' && module.exports) {
     injectionService,
     isRestrictedInjectionUrl,
     buildHighlightBlocks,
+    processContentResult,
   };
 }
