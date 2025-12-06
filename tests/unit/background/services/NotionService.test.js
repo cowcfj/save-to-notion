@@ -320,4 +320,136 @@ describe('NotionService', () => {
       expect(global.fetch).toHaveBeenCalledTimes(4);
     });
   });
+
+  describe('filterValidImageBlocks', () => {
+    it('should return empty array for null or undefined input', () => {
+      const result1 = service.filterValidImageBlocks(null);
+      // skipcq: JS-0356 - Intentionally testing undefined input handling
+      const result2 = service.filterValidImageBlocks(undefined);
+
+      expect(result1.validBlocks).toEqual([]);
+      expect(result1.skippedCount).toBe(0);
+      expect(result2.validBlocks).toEqual([]);
+    });
+
+    it('should return empty array for non-array input', () => {
+      const result = service.filterValidImageBlocks('not an array');
+      expect(result.validBlocks).toEqual([]);
+    });
+
+    it('should pass through non-image blocks', () => {
+      const blocks = [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+        { type: 'heading_1', heading_1: { rich_text: [] } },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual(blocks);
+      expect(result.skippedCount).toBe(0);
+    });
+
+    it('should exclude all images when excludeImages is true', () => {
+      const blocks = [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+        { type: 'image', image: { external: { url: 'https://example.com/img.jpg' } } },
+        { type: 'heading_1', heading_1: { rich_text: [] } },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks, true);
+      expect(result.validBlocks.length).toBe(2);
+      expect(result.skippedCount).toBe(1);
+      expect(result.validBlocks.every(block => block.type !== 'image')).toBe(true);
+    });
+
+    it('should filter out images without URL', () => {
+      const blocks = [
+        { type: 'image', image: { external: {} } },
+        { type: 'image', image: {} },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(2);
+    });
+
+    it('should filter out images with too long URLs', () => {
+      const longUrl = `https://example.com/${'a'.repeat(1600)}`;
+      const blocks = [{ type: 'image', image: { external: { url: longUrl } } }];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(1);
+    });
+
+    it('should filter out images with problematic characters', () => {
+      const blocks = [
+        { type: 'image', image: { external: { url: 'https://example.com/img<script>.jpg' } } },
+        { type: 'image', image: { external: { url: 'https://example.com/img{}.jpg' } } },
+        { type: 'image', image: { external: { url: 'https://example.com/img|test.jpg' } } },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(3);
+    });
+
+    it('should filter out images with invalid protocol', () => {
+      const blocks = [
+        { type: 'image', image: { external: { url: 'ftp://example.com/img.jpg' } } },
+        { type: 'image', image: { external: { url: 'data:image/png;base64,abc' } } },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(2);
+    });
+
+    it('should filter out images with invalid hostname', () => {
+      const blocks = [{ type: 'image', image: { external: { url: 'https://ab/img.jpg' } } }];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(1);
+    });
+
+    it('should filter out images with invalid URL format', () => {
+      const blocks = [{ type: 'image', image: { external: { url: 'not-a-valid-url' } } }];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(1);
+    });
+
+    it('should keep valid image blocks', () => {
+      const validImage = {
+        type: 'image',
+        image: { external: { url: 'https://example.com/image.jpg' } },
+      };
+      const blocks = [validImage];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([validImage]);
+      expect(result.skippedCount).toBe(0);
+    });
+
+    it('should handle mixed blocks correctly', () => {
+      const validImage = {
+        type: 'image',
+        image: { external: { url: 'https://example.com/valid.jpg' } },
+      };
+      const invalidImage = {
+        type: 'image',
+        image: { external: { url: 'ftp://invalid.com/img.jpg' } },
+      };
+      const paragraph = { type: 'paragraph', paragraph: { rich_text: [] } };
+
+      const blocks = [paragraph, validImage, invalidImage];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks.length).toBe(2);
+      expect(result.validBlocks).toContain(paragraph);
+      expect(result.validBlocks).toContain(validImage);
+      expect(result.skippedCount).toBe(1);
+    });
+  });
 });
