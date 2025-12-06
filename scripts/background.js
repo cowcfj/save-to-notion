@@ -269,8 +269,9 @@ function fetchNotionWithRetry(url, options, retryOptions = {}) {
 //   false => 確認不存在（404）
 //   null  => 不確定（網路/服務端暫時性錯誤）
 function checkNotionPageExists(pageId, apiKey) {
-  const localNotionService = new NotionService({ apiKey, logger: Logger });
-  return localNotionService.checkPageExists(pageId);
+  // 使用全局 notionService 實例，設置 apiKey 後調用
+  notionService.setApiKey(apiKey);
+  return notionService.checkPageExists(pageId);
 }
 
 /**
