@@ -169,9 +169,9 @@ class InjectionService {
                 const isRecoverable = isRecoverableInjectionError(errMsg);
                 if (logErrors) {
                   if (isRecoverable) {
-                    console.warn('⚠️ File injection skipped (recoverable):', errMsg);
+                    this.logger.warn?.('⚠️ File injection skipped (recoverable):', errMsg);
                   } else {
-                    console.error('File injection failed:', errMsg);
+                    this.logger.error?.('File injection failed:', errMsg);
                   }
                 }
                 if (isRecoverable) {
@@ -201,9 +201,9 @@ class InjectionService {
                 const isRecoverable = isRecoverableInjectionError(errMsg);
                 if (logErrors) {
                   if (isRecoverable) {
-                    console.warn('⚠️ Function execution skipped (recoverable):', errMsg);
+                    this.logger.warn?.('⚠️ Function execution skipped (recoverable):', errMsg);
                   } else {
-                    console.error('Function execution failed:', errMsg);
+                    this.logger.error?.('Function execution failed:', errMsg);
                   }
                 }
                 if (isRecoverable) {
@@ -226,7 +226,7 @@ class InjectionService {
       return Promise.resolve();
     } catch (error) {
       if (logErrors) {
-        console.error(errorMessage, error);
+        this.logger.error?.(errorMessage, error);
       }
       throw error;
     }
@@ -358,7 +358,7 @@ class InjectionService {
 
       return Promise.resolve(null);
     } catch (error) {
-      console.error('injectWithResponse failed:', error);
+      this.logger.error?.('injectWithResponse failed:', error);
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
       return null;
     }
@@ -378,7 +378,7 @@ class InjectionService {
         logErrors: true,
       });
     } catch (error) {
-      console.error('inject failed:', error);
+      this.logger.error?.('inject failed:', error);
       throw error;
     }
   }

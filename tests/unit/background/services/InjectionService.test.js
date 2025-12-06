@@ -104,7 +104,8 @@ describe('InjectionService', () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
 
       await expect(service.injectAndExecute(1, ['file.js'])).resolves.toBeUndefined();
-      expect(mockLogger.warn).not.toHaveBeenCalled(); // Default logErrors is true, should have logged warn
+      // Default logErrors is true, recoverable error should log warn
+      expect(mockLogger.warn).toHaveBeenCalled();
     });
   });
 

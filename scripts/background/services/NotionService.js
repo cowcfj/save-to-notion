@@ -161,13 +161,13 @@ class NotionService {
 
       const imageUrl = block.image?.external?.url;
       if (!imageUrl) {
-        console.warn('⚠️ Skipped image block without URL');
+        this.logger.warn?.('⚠️ Skipped image block without URL');
         return false;
       }
 
       // 檢查 URL 長度
       if (imageUrl.length > 1500) {
-        console.warn(
+        this.logger.warn?.(
           `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
         );
         return false;
@@ -176,7 +176,7 @@ class NotionService {
       // 檢查特殊字符
       const problematicChars = /[<>{}|\\^`[\]]/;
       if (problematicChars.test(imageUrl)) {
-        console.warn(
+        this.logger.warn?.(
           `⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`
         );
         return false;
@@ -188,17 +188,17 @@ class NotionService {
 
         // 只接受 http/https
         if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-          console.warn(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
+          this.logger.warn?.(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
           return false;
         }
 
         // 檢查 hostname
         if (!urlObj.hostname || urlObj.hostname.length < 3) {
-          console.warn(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
+          this.logger.warn?.(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
           return false;
         }
       } catch (error) {
-        console.warn(
+        this.logger.warn?.(
           `⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`,
           error
         );
