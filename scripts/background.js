@@ -13,8 +13,16 @@ import './utils/Logger.js';
 // Import modular services (Phase 4 integration)
 import { StorageService, URL_TRACKING_PARAMS } from './background/services/StorageService.js';
 import { NotionService, fetchWithRetry } from './background/services/NotionService.js';
+import {
+  InjectionService,
+  isRestrictedInjectionUrl,
+  isRecoverableInjectionError,
+} from './background/services/InjectionService.js';
+
+const injectionService = new InjectionService({ logger: Logger });
 
 import { MessageHandler } from './background/handlers/MessageHandler.js';
+import { TabService } from './background/services/TabService.js';
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
@@ -30,6 +38,7 @@ import { MessageHandler } from './background/handlers/MessageHandler.js';
 
 // Initialize Services
 const storageService = new StorageService({ logger: Logger });
+const notionService = new NotionService({ logger: Logger });
 
 // ==========================================
 // TEXT UTILITIES
@@ -87,316 +96,7 @@ function splitTextForHighlight(text, maxLength = 2000) {
 // ==========================================
 
 // 判斷指定網址是否為禁止注入腳本的受限網域
-function isRestrictedInjectionUrl(urlString) {
-  if (!urlString) {
-    return true;
-  }
-
-  try {
-    const url = new URL(urlString);
-    const blockedHosts = [
-      { host: 'chrome.google.com', pathPrefix: '/webstore' },
-      { host: 'chromewebstore.google.com' },
-      { host: 'microsoftedge.microsoft.com', pathPrefix: '/addons' },
-      { host: 'addons.mozilla.org' },
-    ];
-
-    return blockedHosts.some(({ host, pathPrefix }) => {
-      if (url.host !== host) {
-        return false;
-      }
-      if (!pathPrefix) {
-        return true;
-      }
-      return url.pathname.startsWith(pathPrefix);
-    });
-  } catch (error) {
-    console.warn('Failed to parse URL when checking restrictions:', error);
-    return true;
-  }
-}
-
-// 解析 chrome.runtime.lastError 的文字內容
-function getRuntimeErrorMessage(runtimeError) {
-  if (!runtimeError) {
-    return '';
-  }
-
-  if (typeof runtimeError === 'string') {
-    return runtimeError;
-  }
-
-  if (runtimeError.message) {
-    return runtimeError.message;
-  }
-
-  try {
-    return JSON.stringify(runtimeError);
-  } catch (error) {
-    console.warn('Unable to stringify runtime error:', error);
-    return String(runtimeError);
-  }
-}
-
-// 軟性錯誤：常見於無法注入受限頁面或標籤已關閉
-function isRecoverableInjectionError(message) {
-  if (!message) {
-    return false;
-  }
-
-  const patterns = [
-    'Cannot access contents of url',
-    'Cannot access contents of page',
-    'Cannot access contents of the page',
-    'Extension manifest must request permission',
-    'No tab with id',
-    'The tab was closed',
-    'The frame was removed',
-    // v2.11.3: 新增錯誤頁面相關模式
-    'Frame with ID 0 is showing error page',
-    'is showing error page',
-    'ERR_NAME_NOT_RESOLVED',
-    'ERR_CONNECTION_REFUSED',
-    'ERR_INTERNET_DISCONNECTED',
-    'ERR_TIMED_OUT',
-    'ERR_SSL_PROTOCOL_ERROR',
-  ];
-
-  return patterns.some(pattern => message.includes(pattern));
-}
-
-// ==========================================
-// SCRIPT INJECTION MANAGER
-// ==========================================
-
-/**
- * 腳本注入管理器 - 統一管理所有腳本注入操作
- */
-class ScriptInjector {
-  /**
-   * 注入文件並執行函數
-   */
-  static async injectAndExecute(tabId, files = [], func = null, options = {}) {
-    const {
-      errorMessage = 'Script injection failed',
-      successMessage = 'Script executed successfully',
-      logErrors = true,
-      returnResult = false,
-    } = options;
-
-    try {
-      // 首先注入文件
-      if (files.length > 0) {
-        await new Promise((resolve, reject) => {
-          chrome.scripting.executeScript(
-            {
-              target: { tabId },
-              files,
-            },
-            () => {
-              if (chrome.runtime.lastError) {
-                const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
-                const isRecoverable = isRecoverableInjectionError(errMsg);
-                if (logErrors) {
-                  if (isRecoverable) {
-                    console.warn('⚠️ File injection skipped (recoverable):', errMsg);
-                  } else {
-                    console.error('File injection failed:', errMsg);
-                  }
-                }
-                if (isRecoverable) {
-                  resolve();
-                  return;
-                }
-                reject(new Error(errMsg || errorMessage));
-              } else {
-                resolve();
-              }
-            }
-          );
-        });
-      }
-
-      // 然後執行函數
-      if (func) {
-        return new Promise((resolve, reject) => {
-          chrome.scripting.executeScript(
-            {
-              target: { tabId },
-              func,
-            },
-            results => {
-              if (chrome.runtime.lastError) {
-                const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
-                const isRecoverable = isRecoverableInjectionError(errMsg);
-                if (logErrors) {
-                  if (isRecoverable) {
-                    console.warn('⚠️ Function execution skipped (recoverable):', errMsg);
-                  } else {
-                    console.error('Function execution failed:', errMsg);
-                  }
-                }
-                if (isRecoverable) {
-                  resolve(returnResult ? null : undefined);
-                  return;
-                }
-                reject(new Error(errMsg || errorMessage));
-              } else {
-                if (successMessage && logErrors) {
-                  Logger.log(successMessage);
-                }
-                const result = returnResult && results && results[0] ? results[0].result : null;
-                resolve(result);
-              }
-            }
-          );
-        });
-      }
-
-      return Promise.resolve();
-    } catch (error) {
-      if (logErrors) {
-        console.error(errorMessage, error);
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * 注入標記工具並初始化
-   * v2.5.0: 使用新版 CSS Highlight API + 無痛自動遷移
-   */
-  static injectHighlighter(tabId) {
-    return this.injectAndExecute(
-      tabId,
-      ['dist/highlighter-v2.bundle.js'],
-      () => {
-        // highlighter-v2.bundle.js 會自動初始化（setupHighlighter）
-        // 我們只需要確保工具欄顯示即可
-        // 使用 setTimeout 確保自動初始化完成
-        return new Promise(resolve => {
-          setTimeout(() => {
-            if (window.notionHighlighter) {
-              window.notionHighlighter.show();
-              const count = window.HighlighterV2?.manager?.getCount() || 0;
-              Logger.log(`✅ 標註工具已準備，共 ${count} 個標註`);
-              resolve({ initialized: true, highlightCount: count });
-            } else {
-              console.warn('⚠️ notionHighlighter 未初始化');
-              resolve({ initialized: false, highlightCount: 0 });
-            }
-          }, 500); // 等待 500ms 確保初始化完成
-        });
-      },
-      {
-        errorMessage: 'Failed to inject highlighter',
-        successMessage: 'Highlighter v2 injected successfully',
-        returnResult: true,
-      }
-    );
-  }
-
-  /**
-   * 注入並收集標記
-   * v2.5.0: 使用新版標註系統
-   */
-  static collectHighlights(tabId) {
-    // manifest.json 已注入所有依賴，無需重複注入
-    return this.injectAndExecute(
-      tabId,
-      [], // 所有腳本已由 manifest.json 注入
-      () => {
-        if (window.collectHighlights) {
-          return window.collectHighlights();
-        }
-        return [];
-      },
-      {
-        errorMessage: 'Failed to collect highlights',
-        returnResult: true,
-      }
-    );
-  }
-
-  /**
-   * 注入並清除頁面標記
-   * v2.5.0: 使用新版標註系統
-   */
-  static clearPageHighlights(tabId) {
-    // manifest.json 已注入所有依賴，無需重複注入
-    return this.injectAndExecute(
-      tabId,
-      [], // 所有腳本已由 manifest.json 注入
-      () => {
-        if (window.clearPageHighlights) {
-          window.clearPageHighlights();
-        }
-      },
-      {
-        errorMessage: 'Failed to clear highlights',
-      }
-    );
-  }
-
-  /**
-   * 注入標記恢復腳本
-   */
-  static injectHighlightRestore(tabId) {
-    return this.injectAndExecute(
-      tabId,
-      ['scripts/utils.js', 'scripts/highlight-restore.js'],
-      null,
-      {
-        errorMessage: 'Failed to inject highlight restore script',
-        successMessage: 'Highlight restore script injected successfully',
-      }
-    );
-  }
-
-  /**
-   * 注入腳本並執行函數，返回結果
-   */
-  static async injectWithResponse(tabId, func, files = []) {
-    try {
-      // 如果有文件需要注入，先注入文件
-      if (files && files.length > 0) {
-        await this.injectAndExecute(tabId, files, null, { logErrors: true });
-      }
-
-      // 執行函數並返回結果
-      if (func) {
-        return this.injectAndExecute(tabId, [], func, {
-          returnResult: true,
-          logErrors: true,
-        });
-      } else if (files && files.length > 0) {
-        // 如果只注入文件而不執行函數，等待注入完成後返回成功標記
-        return Promise.resolve([{ result: { success: true } }]);
-      }
-
-      return Promise.resolve(null);
-    } catch (error) {
-      console.error('injectWithResponse failed:', error);
-      // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
-      return null;
-    }
-  }
-
-  /**
-   * 簡單的腳本注入（不返回結果）
-   */
-  static async inject(tabId, func, files = []) {
-    try {
-      return await this.injectAndExecute(tabId, files, func, {
-        returnResult: false,
-        logErrors: true,
-      });
-    } catch (error) {
-      console.error('inject failed:', error);
-      throw error;
-    }
-  }
-}
+// SCRIPT INJECTION MANAGER provided by InjectionService
 
 // ==========================================
 // NOTION API UTILITIES
@@ -569,7 +269,8 @@ function fetchNotionWithRetry(url, options, retryOptions = {}) {
 //   false => 確認不存在（404）
 //   null  => 不確定（網路/服務端暫時性錯誤）
 function checkNotionPageExists(pageId, apiKey) {
-  const notionService = new NotionService({ apiKey, logger: Logger });
+  // 使用全局 notionService 實例，設置 apiKey 後調用
+  notionService.setApiKey(apiKey);
   return notionService.checkPageExists(pageId);
 }
 
@@ -622,73 +323,8 @@ async function saveToNotion(
 
   const notionApiUrl = 'https://api.notion.com/v1/pages';
 
-  // 如果需要排除圖片（重試模式），過濾掉所有圖片
-  let validBlocks = [];
-  if (excludeImages) {
-    Logger.log('🚫 Retry mode: Excluding ALL images');
-    validBlocks = blocks.filter(block => block.type !== 'image');
-  } else {
-    // 過濾掉可能導致 Notion API 錯誤的圖片區塊
-    validBlocks = blocks.filter(block => {
-      if (block.type === 'image') {
-        const imageUrl = block.image?.external?.url;
-        if (!imageUrl) {
-          console.warn('⚠️ Skipped image block without URL');
-          return false;
-        }
-
-        // 檢查 URL 長度
-        if (imageUrl.length > 1500) {
-          console.warn(
-            `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
-          );
-          return false;
-        }
-
-        // 檢查特殊字符
-        const problematicChars = /[<>{}|\\^`[\]]/;
-        if (problematicChars.test(imageUrl)) {
-          console.warn(
-            `⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`
-          );
-          return false;
-        }
-
-        // 驗證 URL 格式
-        try {
-          const urlObj = new URL(imageUrl);
-
-          // 只接受 http/https
-          if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-            console.warn(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
-            return false;
-          }
-
-          // 檢查 URL 是否可以正常訪問（基本格式檢查）
-          if (!urlObj.hostname || urlObj.hostname.length < 3) {
-            console.warn(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
-            return false;
-          }
-        } catch (error) {
-          console.warn(
-            `⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`,
-            error
-          );
-          return false;
-        }
-
-        Logger.log(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
-      }
-      return true;
-    });
-  }
-
-  const skippedCount = blocks.length - validBlocks.length;
-  if (skippedCount > 0) {
-    Logger.log(
-      `📊 Filtered ${skippedCount} potentially problematic image blocks from ${blocks.length} total blocks`
-    );
-  }
+  // 使用 NotionService 的圖片過濾方法
+  const { validBlocks, skippedCount } = notionService.filterValidImageBlocks(blocks, excludeImages);
 
   Logger.log(
     `📊 Total blocks to save: ${validBlocks.length}, Image blocks: ${validBlocks.filter(block => block.type === 'image').length}`
@@ -888,66 +524,8 @@ async function saveToNotion(
  */
 async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResponse) {
   try {
-    // 過濾掉可能導致 Notion API 錯誤的圖片區塊（與 saveToNotion 一致）
-    const validBlocks = blocks.filter(block => {
-      if (block.type === 'image') {
-        const imageUrl = block.image?.external?.url;
-        if (!imageUrl) {
-          console.warn('⚠️ Skipped image block without URL');
-          return false;
-        }
-
-        // 檢查 URL 長度
-        if (imageUrl.length > 1500) {
-          console.warn(
-            `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
-          );
-          return false;
-        }
-
-        // 檢查特殊字符
-        const problematicChars = /[<>{}|\\^`[\]]/;
-        if (problematicChars.test(imageUrl)) {
-          console.warn(
-            `⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`
-          );
-          return false;
-        }
-
-        // 驗證 URL 格式
-        try {
-          const urlObj = new URL(imageUrl);
-
-          // 只接受 http/https
-          if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-            console.warn(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
-            return false;
-          }
-
-          // 檢查 URL 是否可以正常訪問（基本格式檢查）
-          if (!urlObj.hostname || urlObj.hostname.length < 3) {
-            console.warn(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
-            return false;
-          }
-        } catch (error) {
-          console.warn(
-            `⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`,
-            error
-          );
-          return false;
-        }
-
-        Logger.log(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
-      }
-      return true;
-    });
-
-    const skippedCount = blocks.length - validBlocks.length;
-    if (skippedCount > 0) {
-      Logger.log(
-        `📊 Filtered ${skippedCount} potentially problematic image blocks from ${blocks.length} total blocks`
-      );
-    }
+    // 使用 NotionService 的圖片過濾方法
+    const { validBlocks, skippedCount } = notionService.filterValidImageBlocks(blocks);
 
     const getResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
       method: 'GET',
@@ -1258,202 +836,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
 /**
  * Sets up tab event listeners for dynamic injection
  */
-/**
- * 設置標籤事件監聽器，用於動態注入標記恢復腳本
- */
-/**
- * 更新標籤頁狀態（徽章和標註注入）
- * @param {number} tabId - 標籤頁 ID
- * @param {string} url - 標籤頁 URL
- */
-async function updateTabStatus(tabId, url) {
-  if (!url || !/^https?:/i.test(url) || isRestrictedInjectionUrl(url)) {
-    return;
-  }
-
-  const normUrl = normalizeUrl(url);
-  const highlightsKey = `highlights_${normUrl}`;
-
-  try {
-    // 1. 檢查是否已保存，更新徽章
-    const savedData = await getSavedPageData(normUrl);
-    if (savedData) {
-      chrome.action.setBadgeText({ text: '✓', tabId });
-      chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId });
-    } else {
-      chrome.action.setBadgeText({ text: '', tabId });
-    }
-
-    // 2. 檢查是否有標註，注入高亮腳本
-    const data = await new Promise(resolve => chrome.storage.local.get([highlightsKey], resolve));
-    const highlights = data[highlightsKey];
-
-    if (Array.isArray(highlights) && highlights.length > 0) {
-      if (typeof Logger !== 'undefined' && Logger.debug) {
-        Logger.debug(
-          `Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`
-        );
-      }
-      await ScriptInjector.injectHighlighter(tabId);
-    } else {
-      // 沒有找到現有標註，若曾有遷移資料則恢復一次後清理
-      await migrateLegacyHighlights(tabId, normUrl, highlightsKey);
-    }
-  } catch (error) {
-    console.error('Error updating tab status:', error);
-  }
-}
-
-/**
- * 設置標籤事件監聽器，用於動態注入標記恢復腳本和更新狀態
- */
-function setupTabListeners() {
-  // 監聽標籤頁更新
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab && tab.url) {
-      // 添加延遲，確保頁面完全載入
-      setTimeout(() => {
-        updateTabStatus(tabId, tab.url);
-      }, 1000);
-    }
-  });
-
-  // 監聽標籤頁切換
-  chrome.tabs.onActivated.addListener(activeInfo => {
-    chrome.tabs.get(activeInfo.tabId, tab => {
-      if (tab?.url) {
-        updateTabStatus(activeInfo.tabId, tab.url);
-      }
-    });
-  });
-}
-
-/**
- * 遷移舊版本 localStorage 中的標記到 chrome.storage
- */
-/**
- * 遷移舊版 localStorage 中的標記到 chrome.storage.local
- */
-async function migrateLegacyHighlights(tabId, normUrl, storageKey) {
-  if (!normUrl || !storageKey) {
-    console.warn('Skipping legacy migration: missing normalized URL or storage key');
-    return;
-  }
-
-  if (!/^https?:/i.test(normUrl)) {
-    console.warn('Skipping legacy migration for non-http URL:', normUrl);
-    return;
-  }
-
-  try {
-    // 檢查標籤頁是否仍然有效且不是錯誤頁面
-    const tab = await chrome.tabs.get(tabId).catch(() => null);
-    if (!tab || !tab.url || tab.url.startsWith('chrome-error://')) {
-      Logger.log('⚠️ Skipping migration: tab is invalid or showing error page');
-      return;
-    }
-
-    const result = await ScriptInjector.injectWithResponse(tabId, () => {
-      try {
-        /**
-         * 標準化 URL（移除追蹤參數和片段）
-         * @param {string} raw - 原始 URL
-         * @returns {string} 標準化後的 URL
-         */
-        const normalize = raw => {
-          try {
-            const urlObj = new URL(raw);
-            urlObj.hash = '';
-            const params = [
-              'utm_source',
-              'utm_medium',
-              'utm_campaign',
-              'utm_term',
-              'utm_content',
-              'gclid',
-              'fbclid',
-              'mc_cid',
-              'mc_eid',
-              'igshid',
-              'vero_id',
-            ];
-            params.forEach(param => urlObj.searchParams.delete(param));
-            if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
-              urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
-            }
-            return urlObj.toString();
-          } catch {
-            return raw || '';
-          }
-        };
-
-        const norm = normalize(window.location.href);
-        const k1 = `highlights_${norm}`;
-        const k2 = `highlights_${window.location.href}`;
-        let key = null;
-        let raw = null;
-
-        // 嘗試找到對應的舊版標記數據
-        raw = localStorage.getItem(k1);
-        if (raw) {
-          key = k1;
-        } else {
-          raw = localStorage.getItem(k2);
-          if (raw) {
-            key = k2;
-          }
-        }
-
-        // 如果還是找不到，遍歷所有以 highlights_ 開頭的鍵
-        if (!raw) {
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k?.startsWith('highlights_')) {
-              key = k;
-              raw = localStorage.getItem(k);
-              break;
-            }
-          }
-        }
-
-        if (raw) {
-          try {
-            const data = JSON.parse(raw);
-            if (Array.isArray(data) && data.length > 0) {
-              localStorage.removeItem(key);
-              return { migrated: true, data, foundKey: key };
-            }
-          } catch (error) {
-            console.error('Failed to parse legacy highlight data:', error);
-          }
-        }
-      } catch (error) {
-        console.error('Error during migration:', error);
-      }
-      return { migrated: false };
-    });
-
-    const res = result?.[0] ? result[0].result : null;
-    if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {
-      Logger.log(`Migrating ${res.data.length} highlights from localStorage key: ${res.foundKey}`);
-
-      await new Promise(resolve => {
-        chrome.storage.local.set({ [storageKey]: res.data }, resolve);
-      });
-
-      Logger.log('Legacy highlights migrated successfully, injecting restore script');
-      await ScriptInjector.injectHighlightRestore(tabId);
-    }
-  } catch (error) {
-    // 檢查是否為可恢復的注入錯誤（如錯誤頁面、標籤已關閉等）
-    const errorMessage = error?.message || String(error);
-    if (isRecoverableInjectionError(errorMessage)) {
-      Logger.log('⚠️ Migration skipped due to recoverable error:', errorMessage);
-    } else {
-      console.error('❌ Error handling migration results:', error);
-    }
-  }
-}
+// Tab management logic is now in TabService.js
 
 // ==========================================
 // MESSAGE HANDLERS MODULE
@@ -1562,8 +945,8 @@ async function handleCheckPageStatus(sendResponse) {
             Logger.log('Notion page was deleted, clearing local state');
             clearPageState(normUrl);
 
-            await ScriptInjector.injectHighlighter(activeTab.id);
-            await ScriptInjector.inject(activeTab.id, () => {
+            await injectionService.injectHighlighter(activeTab.id);
+            await injectionService.inject(activeTab.id, () => {
               if (window.clearPageHighlights) {
                 window.clearPageHighlights();
               }
@@ -1703,7 +1086,7 @@ async function handleStartHighlight(sendResponse) {
       Logger.log('發送 toggleHighlighter 失敗，嘗試注入腳本:', error);
     }
 
-    await ScriptInjector.injectHighlighter(activeTab.id);
+    await injectionService.injectHighlighter(activeTab.id);
     sendResponse({ success: true });
   } catch (error) {
     console.error('Error in handleStartHighlight:', error);
@@ -1740,7 +1123,7 @@ async function handleUpdateHighlights(sendResponse) {
       return;
     }
 
-    const highlights = await ScriptInjector.collectHighlights(activeTab.id);
+    const highlights = await injectionService.collectHighlights(activeTab.id);
 
     updateHighlightsOnly(
       savedData.notionPageId,
@@ -1867,8 +1250,8 @@ async function handleSavePage(sendResponse) {
     const savedData = await getSavedPageData(normUrl);
 
     // 注入 highlighter 並收集標記
-    await ScriptInjector.injectHighlighter(activeTab.id);
-    const highlights = await ScriptInjector.collectHighlights(activeTab.id);
+    await injectionService.injectHighlighter(activeTab.id);
+    const highlights = await injectionService.collectHighlights(activeTab.id);
 
     Logger.log('📊 收集到的標註數據:', highlights);
     Logger.log('📊 標註數量:', highlights?.length || 0);
@@ -1876,7 +1259,7 @@ async function handleSavePage(sendResponse) {
     // 注入並執行內容提取
     let result = null;
     try {
-      result = await ScriptInjector.injectWithResponse(
+      result = await injectionService.injectWithResponse(
         activeTab.id,
         () => {
           // 初始化性能優化器（可選）
@@ -3211,8 +2594,8 @@ async function handleSavePage(sendResponse) {
 // 清理頁面標記的輔助函數
 async function clearPageHighlights(tabId) {
   try {
-    await ScriptInjector.injectHighlighter(tabId);
-    await ScriptInjector.inject(tabId, () => {
+    await injectionService.injectHighlighter(tabId);
+    await injectionService.inject(tabId, () => {
       if (window.clearPageHighlights) {
         window.clearPageHighlights();
       }
@@ -3383,9 +2766,19 @@ async function handleOpenNotionPage(request, sendResponse) {
   }
 }
 
+// Initialize TabService with dependencies
+const tabService = new TabService({
+  logger: Logger,
+  injectionService,
+  normalizeUrl,
+  getSavedPageData,
+  isRestrictedUrl: isRestrictedInjectionUrl,
+  isRecoverableError: isRecoverableInjectionError,
+});
+
 // Setup all services
 setupMessageHandlers();
-setupTabListeners();
+tabService.setupListeners();
 
 // ============================================================
 // 模組導出 (用於測試)
@@ -3395,10 +2788,9 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeUrl,
     splitTextForHighlight,
     appendBlocksInBatches,
-    migrateLegacyHighlights,
-    updateTabStatus,
+    tabService,
     getSavedPageData,
-    ScriptInjector,
+    injectionService,
     isRestrictedInjectionUrl,
   };
 }

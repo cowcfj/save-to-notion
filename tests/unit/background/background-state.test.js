@@ -46,7 +46,7 @@ global.PerformanceOptimizer = {};
 // Import background script
 // This will execute the background script, so we need mocks ready before this
 const background = require('../../../scripts/background.js');
-const { updateTabStatus, ScriptInjector } = background;
+const { tabService, injectionService } = background;
 
 describe('Background State Updates', () => {
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe('Background State Updates', () => {
     // or just to verify it was called.
     // Since we want to verify it was called, and we don't want side effects (though executeScript is mocked),
     // mocking it is safer for this unit test.
-    jest.spyOn(ScriptInjector, 'injectHighlighter').mockResolvedValue();
+    jest.spyOn(injectionService, 'injectHighlighter').mockResolvedValue();
 
     // Also mock migrateLegacyHighlights if we want to isolate it,
     // but the review said "mocking ... migrateLegacyHighlights as needed".
@@ -81,7 +81,7 @@ describe('Background State Updates', () => {
     jest.restoreAllMocks();
   });
 
-  test('updateTabStatus should update badge and inject highlighter when page is saved and has highlights', async () => {
+  test('tabService.updateTabStatus should update badge and inject highlighter when page is saved and has highlights', async () => {
     const tabId = 123;
     const url = 'https://example.com/page';
     const normUrl = 'https://example.com/page';
@@ -103,17 +103,17 @@ describe('Background State Updates', () => {
       callback(result);
     });
 
-    await updateTabStatus(tabId, url);
+    await tabService.updateTabStatus(tabId, url);
 
     // Verify badge update
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId });
     expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#48bb78', tabId });
 
     // Verify highlighter injection
-    expect(ScriptInjector.injectHighlighter).toHaveBeenCalledWith(tabId);
+    expect(injectionService.injectHighlighter).toHaveBeenCalledWith(tabId);
   });
 
-  test('updateTabStatus should clear badge when page is not saved', async () => {
+  test('tabService.updateTabStatus should clear badge when page is not saved', async () => {
     const tabId = 123;
     const url = 'https://example.com/unsaved';
 
@@ -122,13 +122,13 @@ describe('Background State Updates', () => {
       callback({});
     });
 
-    await updateTabStatus(tabId, url);
+    await tabService.updateTabStatus(tabId, url);
 
     // Verify badge cleared
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId });
 
     // Verify no injection if no highlights
-    expect(ScriptInjector.injectHighlighter).not.toHaveBeenCalled();
+    expect(injectionService.injectHighlighter).not.toHaveBeenCalled();
 
     // Since we can't easily spy on internal migrateLegacyHighlights call without changing source,
     // we can check if storage.remove was called (which migrateLegacyHighlights does if no legacy data).
@@ -138,8 +138,8 @@ describe('Background State Updates', () => {
     // Now it's the real function.
   });
 
-  test('updateTabStatus should ignore non-http URLs', async () => {
-    await updateTabStatus(123, 'chrome://extensions');
+  test('tabService.updateTabStatus should ignore non-http URLs', async () => {
+    await tabService.updateTabStatus(123, 'chrome://extensions');
     expect(chrome.action.setBadgeText).not.toHaveBeenCalled();
   });
 });

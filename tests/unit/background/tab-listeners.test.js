@@ -12,16 +12,16 @@ global.console = {
   log: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
-  info: jest.fn()
+  info: jest.fn(),
 };
 
-// Mock ScriptInjector
-const mockScriptInjector = {
+// Mock InjectionService
+const mockInjectionService = {
   injectWithResponse: jest.fn(),
-  injectHighlightRestore: jest.fn()
+  injectHighlightRestore: jest.fn(),
 };
 
-global.ScriptInjector = mockScriptInjector;
+global.injectionService = mockInjectionService;
 global.migrateLegacyHighlights = jest.fn();
 
 describe('Background Tab Listeners', () => {
@@ -42,13 +42,21 @@ describe('Background Tab Listeners', () => {
     });
 
     // 模擬 normalizeUrl 函數
-    normalizeUrl = jest.fn((rawUrl) => {
+    normalizeUrl = jest.fn(rawUrl => {
       try {
         const url = new URL(rawUrl);
         // 移除 hash
         url.hash = '';
         // 移除追蹤參數
-        const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid'];
+        const trackingParams = [
+          'utm_source',
+          'utm_medium',
+          'utm_campaign',
+          'utm_content',
+          'utm_term',
+          'fbclid',
+          'gclid',
+        ];
         trackingParams.forEach(param => url.searchParams.delete(param));
         // 標準化尾部斜杠
         if (url.pathname !== '/' && url.pathname.endsWith('/')) {
@@ -71,7 +79,7 @@ describe('Background Tab Listeners', () => {
 
             // 檢查是否有標註數據
             // 將回調式 API 轉換為 Promise 以正確使用 await
-            const result = await new Promise((resolve) => {
+            const result = await new Promise(resolve => {
               chrome.storage.local.get([storageKey], resolve);
             });
 
@@ -82,7 +90,7 @@ describe('Background Tab Listeners', () => {
               await migrateLegacyHighlights(tabId, normUrl, storageKey);
 
               // 注入標註恢復腳本
-              await ScriptInjector.injectHighlightRestore(tabId);
+              await global.injectionService.injectHighlightRestore(tabId);
             }
           }
         } catch (error) {
@@ -94,7 +102,7 @@ describe('Background Tab Listeners', () => {
     // 模擬 migrateLegacyHighlights 函數
     migrateLegacyHighlights = jest.fn(async (tabId, normUrl, storageKey) => {
       try {
-        const result = await ScriptInjector.injectWithResponse(tabId, () => {
+        const result = await global.injectionService.injectWithResponse(tabId, () => {
           // 檢查 localStorage 中是否有舊版標註
           const legacyKey = `highlights_${window.location.href}`;
           const legacyData = localStorage.getItem(legacyKey);
@@ -111,7 +119,7 @@ describe('Background Tab Listeners', () => {
                 return {
                   found: true,
                   count: highlights.length,
-                  data: highlights
+                  data: highlights,
                 };
               }
             } catch (parseError) {
@@ -129,11 +137,11 @@ describe('Background Tab Listeners', () => {
           const migratedData = {
             highlights: result.data,
             migratedAt: Date.now(),
-            version: '2.8.0'
+            version: '2.8.0',
           };
 
           chrome.storage.local.set({
-            [storageKey]: migratedData
+            [storageKey]: migratedData,
           });
         }
       } catch (error) {
@@ -157,15 +165,15 @@ describe('Background Tab Listeners', () => {
       const tabId = 123;
       const tab = {
         id: tabId,
-        url: 'https://example.com/article'
+        url: 'https://example.com/article',
       };
       const changeInfo = { status: 'complete' };
 
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
         callback({
           'highlights_https://example.com/article': {
-            highlights: [{ text: 'test highlight', color: 'yellow' }]
-          }
+            highlights: [{ text: 'test highlight', color: 'yellow' }],
+          },
         });
       });
 
@@ -226,8 +234,8 @@ describe('Background Tab Listeners', () => {
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
         callback({
           'highlights_https://example.com/article': {
-            highlights: [{ text: 'test highlight', color: 'yellow' }]
-          }
+            highlights: [{ text: 'test highlight', color: 'yellow' }],
+          },
         });
       });
 
@@ -259,27 +267,30 @@ describe('Background Tab Listeners', () => {
 
       const legacyHighlights = [
         { text: 'highlight 1', color: 'yellow' },
-        { text: 'highlight 2', color: 'green' }
+        { text: 'highlight 2', color: 'green' },
       ];
 
-      mockScriptInjector.injectWithResponse.mockResolvedValue({
+      mockInjectionService.injectWithResponse.mockResolvedValue({
         found: true,
         count: 2,
-        data: legacyHighlights
+        data: legacyHighlights,
       });
 
       // Act
       await migrateLegacyHighlights(tabId, normUrl, storageKey);
 
       // Assert
-      expect(mockScriptInjector.injectWithResponse).toHaveBeenCalledWith(tabId, expect.any(Function));
+      expect(mockInjectionService.injectWithResponse).toHaveBeenCalledWith(
+        tabId,
+        expect.any(Function)
+      );
       expect(console.log).toHaveBeenCalledWith('✅ 成功遷移 2 個舊版標註');
       expect(mockChrome.storage.local.set).toHaveBeenCalledWith({
         [storageKey]: {
           highlights: legacyHighlights,
           migratedAt: expect.any(Number),
-          version: '2.8.0'
-        }
+          version: '2.8.0',
+        },
       });
     });
 
@@ -289,15 +300,18 @@ describe('Background Tab Listeners', () => {
       const normUrl = 'https://example.com/article';
       const storageKey = 'highlights_https://example.com/article';
 
-      mockScriptInjector.injectWithResponse.mockResolvedValue({
-        found: false
+      mockInjectionService.injectWithResponse.mockResolvedValue({
+        found: false,
       });
 
       // Act
       await migrateLegacyHighlights(tabId, normUrl, storageKey);
 
       // Assert
-      expect(mockScriptInjector.injectWithResponse).toHaveBeenCalledWith(tabId, expect.any(Function));
+      expect(mockInjectionService.injectWithResponse).toHaveBeenCalledWith(
+        tabId,
+        expect.any(Function)
+      );
       expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
     });
 
@@ -307,7 +321,7 @@ describe('Background Tab Listeners', () => {
       const normUrl = 'https://example.com/article';
       const storageKey = 'highlights_https://example.com/article';
 
-      mockScriptInjector.injectWithResponse.mockRejectedValue(new Error('Injection failed'));
+      mockInjectionService.injectWithResponse.mockRejectedValue(new Error('Injection failed'));
 
       // Act
       await migrateLegacyHighlights(tabId, normUrl, storageKey);
@@ -322,7 +336,7 @@ describe('Background Tab Listeners', () => {
       const normUrl = 'https://example.com/article';
       const storageKey = 'highlights_https://example.com/article';
 
-      mockScriptInjector.injectWithResponse.mockResolvedValue(null);
+      mockInjectionService.injectWithResponse.mockResolvedValue(null);
 
       // Act
       await migrateLegacyHighlights(tabId, normUrl, storageKey);
@@ -343,7 +357,9 @@ describe('Background Tab Listeners', () => {
 
     test('應該移除追蹤參數', () => {
       // Act
-      const result = normalizeUrl('https://example.com/article?utm_source=google&utm_medium=cpc&normal=keep');
+      const result = normalizeUrl(
+        'https://example.com/article?utm_source=google&utm_medium=cpc&normal=keep'
+      );
 
       // Assert
       expect(result).toBe('https://example.com/article?normal=keep');
@@ -365,14 +381,19 @@ describe('Background Tab Listeners', () => {
 
       // Assert
       expect(result).toBe('invalid-url');
-      expect(console.error).toHaveBeenCalledWith('URL 標準化失敗:', expect.objectContaining({
-        name: 'TypeError'
-      }));
+      expect(console.error).toHaveBeenCalledWith(
+        'URL 標準化失敗:',
+        expect.objectContaining({
+          name: 'TypeError',
+        })
+      );
     });
 
     test('應該處理複雜的 URL', () => {
       // Act
-      const result = normalizeUrl('https://example.com/article/?utm_source=test&fbclid=123&gclid=456&keep=this#hash');
+      const result = normalizeUrl(
+        'https://example.com/article/?utm_source=test&fbclid=123&gclid=456&keep=this#hash'
+      );
 
       // Assert
       expect(result).toBe('https://example.com/article?keep=this');
@@ -390,15 +411,15 @@ describe('Background Tab Listeners', () => {
         // 立即調用回調
         callback({
           'highlights_https://example.com/article': {
-            highlights: [{ text: 'test highlight', color: 'yellow' }]
-          }
+            highlights: [{ text: 'test highlight', color: 'yellow' }],
+          },
         });
       });
 
-      mockScriptInjector.injectWithResponse.mockResolvedValue({
+      mockInjectionService.injectWithResponse.mockResolvedValue({
         found: true,
         count: 1,
-        data: [{ text: 'legacy highlight', color: 'blue' }]
+        data: [{ text: 'legacy highlight', color: 'blue' }],
       });
 
       setupTabListeners();
@@ -411,14 +432,19 @@ describe('Background Tab Listeners', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       // Assert
-      expect(normalizeUrl).toHaveBeenCalledWith('https://example.com/article?utm_source=google#section');
+      expect(normalizeUrl).toHaveBeenCalledWith(
+        'https://example.com/article?utm_source=google#section'
+      );
       expect(mockChrome.storage.local.get).toHaveBeenCalledWith(
         ['highlights_https://example.com/article'],
         expect.any(Function)
       );
 
       // 由於異步回調的複雜性，我們只檢查基本的調用
-      expect(console.log).toHaveBeenCalledWith('🎨 檢測到頁面有標註，準備恢復:', 'https://example.com/article');
+      expect(console.log).toHaveBeenCalledWith(
+        '🎨 檢測到頁面有標註，準備恢復:',
+        'https://example.com/article'
+      );
     });
 
     test('沒有標註的頁面不應該觸發遷移和恢復', async () => {
@@ -439,7 +465,7 @@ describe('Background Tab Listeners', () => {
 
       // Assert
       expect(migrateLegacyHighlights).not.toHaveBeenCalled();
-      expect(mockScriptInjector.injectHighlightRestore).not.toHaveBeenCalled();
+      expect(mockInjectionService.injectHighlightRestore).not.toHaveBeenCalled();
     });
   });
 
@@ -467,10 +493,10 @@ describe('Background Tab Listeners', () => {
       const normUrl = 'https://example.com/article';
       const storageKey = 'highlights_https://example.com/article';
 
-      mockScriptInjector.injectWithResponse.mockResolvedValue({
+      mockInjectionService.injectWithResponse.mockResolvedValue({
         found: true,
         count: 1,
-        data: [{ text: 'test', color: 'yellow' }]
+        data: [{ text: 'test', color: 'yellow' }],
       });
 
       mockChrome.storage.local.set.mockImplementation(() => {
