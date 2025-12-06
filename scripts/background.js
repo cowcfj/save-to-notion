@@ -1283,6 +1283,120 @@ function processContentResult(rawResult, highlights) {
 }
 
 /**
+ * 根據頁面狀態決定並執行保存操作
+ * @param {Object} params - 參數對象
+ * @param {Object} params.savedData - 已保存的頁面數據
+ * @param {string} params.normUrl - 標準化後的 URL
+ * @param {Object} params.config - 配置對象 (含 notionApiKey)
+ * @param {string} params.dataSourceId - 數據源 ID
+ * @param {string} params.dataSourceType - 數據源類型
+ * @param {Object} params.contentResult - 處理後的內容結果
+ * @param {Array} params.highlights - 標註數據
+ * @param {number} params.activeTabId - 活動標籤頁 ID
+ * @param {Function} params.sendResponse - 響應回調函數
+ */
+async function determineAndExecuteSaveAction(params) {
+  const {
+    savedData,
+    normUrl,
+    config,
+    dataSourceId,
+    dataSourceType,
+    contentResult,
+    highlights,
+    activeTabId,
+    sendResponse,
+  } = params;
+
+  const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
+
+  // 已有保存記錄：檢查頁面是否仍存在
+  if (savedData?.notionPageId) {
+    const pageExists = await checkNotionPageExists(savedData.notionPageId, config.notionApiKey);
+
+    if (pageExists) {
+      // 頁面存在：更新標註或內容
+      if (highlights.length > 0) {
+        updateHighlightsOnly(
+          savedData.notionPageId,
+          highlights,
+          normUrl,
+          config.notionApiKey,
+          response => {
+            if (response.success) {
+              response.highlightCount = highlights.length;
+              response.highlightsUpdated = true;
+            }
+            sendResponse(response);
+          }
+        );
+      } else {
+        updateNotionPage(
+          savedData.notionPageId,
+          contentResult.title,
+          contentResult.blocks,
+          normUrl,
+          config.notionApiKey,
+          response => {
+            if (response.success) {
+              response.imageCount = imageCount;
+              response.blockCount = contentResult.blocks.length;
+              response.updated = true;
+            }
+            sendResponse(response);
+          }
+        );
+      }
+    } else {
+      // 頁面已刪除：清理狀態並創建新頁面
+      Logger.log('Notion page was deleted, clearing local state and creating new page');
+      clearPageState(normUrl);
+      await clearPageHighlights(activeTabId);
+
+      saveToNotion(
+        contentResult.title,
+        contentResult.blocks,
+        normUrl,
+        config.notionApiKey,
+        dataSourceId,
+        response => {
+          if (response.success) {
+            response.imageCount = imageCount;
+            response.blockCount = contentResult.blocks.length;
+            response.created = true;
+            response.recreated = true;
+          }
+          sendResponse(response);
+        },
+        contentResult.siteIcon,
+        false,
+        dataSourceType
+      );
+    }
+  } else {
+    // 首次保存
+    saveToNotion(
+      contentResult.title,
+      contentResult.blocks,
+      normUrl,
+      config.notionApiKey,
+      dataSourceId,
+      response => {
+        if (response.success) {
+          response.imageCount = imageCount;
+          response.blockCount = contentResult.blocks.length;
+          response.created = true;
+        }
+        sendResponse(response);
+      },
+      contentResult.siteIcon,
+      false,
+      dataSourceType
+    );
+  }
+}
+
+/**
  * 處理保存頁面的請求
  */
 async function handleSavePage(sendResponse) {
@@ -2534,89 +2648,18 @@ async function handleSavePage(sendResponse) {
     // 處理內容結果並添加標註
     const contentResult = processContentResult(result, highlights);
 
-    const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
-
-    // 處理保存邏輯
-    if (savedData?.notionPageId) {
-      const pageExists = await checkNotionPageExists(savedData.notionPageId, config.notionApiKey);
-
-      if (pageExists) {
-        if (highlights.length > 0) {
-          updateHighlightsOnly(
-            savedData.notionPageId,
-            highlights,
-            normUrl,
-            config.notionApiKey,
-            response => {
-              if (response.success) {
-                response.highlightCount = highlights.length;
-                response.highlightsUpdated = true;
-              }
-              sendResponse(response);
-            }
-          );
-        } else {
-          updateNotionPage(
-            savedData.notionPageId,
-            contentResult.title,
-            contentResult.blocks,
-            normUrl,
-            config.notionApiKey,
-            response => {
-              if (response.success) {
-                response.imageCount = imageCount;
-                response.blockCount = contentResult.blocks.length;
-                response.updated = true;
-              }
-              sendResponse(response);
-            }
-          );
-        }
-      } else {
-        Logger.log('Notion page was deleted, clearing local state and creating new page');
-        clearPageState(normUrl);
-        await clearPageHighlights(activeTab.id);
-
-        saveToNotion(
-          contentResult.title,
-          contentResult.blocks,
-          normUrl,
-          config.notionApiKey,
-          dataSourceId,
-          response => {
-            if (response.success) {
-              response.imageCount = imageCount;
-              response.blockCount = contentResult.blocks.length;
-              response.created = true;
-              response.recreated = true;
-            }
-            sendResponse(response);
-          },
-          contentResult.siteIcon,
-          false,
-          dataSourceType
-        );
-      }
-    } else {
-      saveToNotion(
-        contentResult.title,
-        contentResult.blocks,
-        normUrl,
-        config.notionApiKey,
-        dataSourceId,
-        response => {
-          if (response.success) {
-            response.imageCount = imageCount;
-            response.blockCount = contentResult.blocks.length;
-            response.created = true;
-          }
-          sendResponse(response);
-        },
-        contentResult.siteIcon,
-        false,
-        dataSourceType
-      );
-    }
+    // 執行保存操作
+    await determineAndExecuteSaveAction({
+      savedData,
+      normUrl,
+      config,
+      dataSourceId,
+      dataSourceType,
+      contentResult,
+      highlights,
+      activeTabId: activeTab.id,
+      sendResponse,
+    });
   } catch (error) {
     console.error('Error in handleSavePage:', error);
     sendResponse({ success: false, error: error.message });
@@ -2826,5 +2869,6 @@ if (typeof module !== 'undefined' && module.exports) {
     isRestrictedInjectionUrl,
     buildHighlightBlocks,
     processContentResult,
+    determineAndExecuteSaveAction,
   };
 }
