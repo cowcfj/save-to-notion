@@ -251,9 +251,11 @@ class InjectionService {
             if (window.notionHighlighter) {
               window.notionHighlighter.show();
               const count = window.HighlighterV2?.manager?.getCount() || 0;
+              // skipcq: JS-0002 - 此代碼在頁面上下文執行，無法訪問 this.logger
               console.log(`✅ 標註工具已準備，共 ${count} 個標註`);
               resolve({ initialized: true, highlightCount: count });
             } else {
+              // skipcq: JS-0002 - 此代碼在頁面上下文執行，無法訪問 this.logger
               console.warn('⚠️ notionHighlighter 未初始化');
               resolve({ initialized: false, highlightCount: 0 });
             }
