@@ -1215,6 +1215,52 @@ async function handleSyncHighlights(request, sendResponse) {
 }
 
 /**
+ * 將標註數據轉換為 Notion 區塊
+ * @param {Array} highlights - 標註數據
+ * @returns {Array} Notion 區塊數組
+ */
+function buildHighlightBlocks(highlights) {
+  if (!highlights || highlights.length === 0) {
+    return [];
+  }
+
+  const blocks = [
+    {
+      object: 'block',
+      type: 'heading_3',
+      heading_3: {
+        rich_text: [
+          {
+            type: 'text',
+            text: { content: '📝 頁面標記' },
+          },
+        ],
+      },
+    },
+  ];
+
+  highlights.forEach(highlight => {
+    blocks.push({
+      object: 'block',
+      type: 'paragraph',
+      paragraph: {
+        rich_text: [
+          {
+            type: 'text',
+            text: { content: highlight.text || '' },
+            annotations: {
+              color: highlight.color || 'default',
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  return blocks;
+}
+
+/**
  * 處理保存頁面的請求
  */
 async function handleSavePage(sendResponse) {
@@ -2466,39 +2512,7 @@ async function handleSavePage(sendResponse) {
     const contentResult = result;
     // 添加標記到內容
     if (highlights.length > 0) {
-      const highlightBlocks = [
-        {
-          object: 'block',
-          type: 'heading_3',
-          heading_3: {
-            rich_text: [
-              {
-                type: 'text',
-                text: { content: '📝 頁面標記' },
-              },
-            ],
-          },
-        },
-      ];
-
-      highlights.forEach(highlight => {
-        highlightBlocks.push({
-          object: 'block',
-          type: 'paragraph',
-          paragraph: {
-            rich_text: [
-              {
-                type: 'text',
-                text: { content: highlight.text },
-                annotations: {
-                  color: highlight.color,
-                },
-              },
-            ],
-          },
-        });
-      });
-
+      const highlightBlocks = buildHighlightBlocks(highlights);
       contentResult.blocks.push(...highlightBlocks);
     }
 
@@ -2792,5 +2806,6 @@ if (typeof module !== 'undefined' && module.exports) {
     getSavedPageData,
     injectionService,
     isRestrictedInjectionUrl,
+    buildHighlightBlocks,
   };
 }
