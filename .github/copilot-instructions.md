@@ -16,8 +16,7 @@
 
 ### 2. 📂 上下文感知 (Context Awareness)
 在生成任何代碼之前，你 **必須 (MUST)** 確保與專案標準對齊：
-* **Reference:** 詳閱 **`/Agents.md`** 以獲取完整的 AI Agent 協議與工作規範。
-* **Quick Check:** 參考 **`/AI_AGENT_QUICK_REF.md`** 獲取關鍵提醒。
+* **Reference:** 詳閱 **`AGENTS.md`** 以獲取完整的 AI Agent 協議與工作規範。
 * **Project Context:** Chrome Web Store Extension - [Save to Notion Smart Clip](https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp)
 
 ---
