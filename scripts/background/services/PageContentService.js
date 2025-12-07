@@ -76,7 +76,7 @@ class PageContentService {
             if (typeof window.extractPageContent === 'function') {
               const extractResult = await window.extractPageContent();
 
-              if (extractResult && extractResult.blocks) {
+              if (extractResult?.blocks) {
                 PageLogger.log?.(
                   `✅ [PageContentService] 提取成功: ${extractResult.blocks.length} blocks`
                 );
@@ -138,7 +138,7 @@ class PageContentService {
 
       // 處理注入結果
       // 注意：injectWithResponse 已經解包了 results[0].result，直接返回函數執行結果
-      if (result && result.title && result.blocks) {
+      if (result?.title && result?.blocks) {
         this.logger.log?.(
           `✅ [PageContentService] 成功: "${result.title}" (${result.blocks.length} blocks)`
         );

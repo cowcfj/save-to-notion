@@ -7,9 +7,9 @@ const {
 } = require('../../../../scripts/background/services/PageContentService.js');
 
 describe('PageContentService', () => {
-  let mockInjectionService;
-  let mockLogger;
-  let service;
+  let mockInjectionService = null;
+  let mockLogger = null;
+  let service = null;
 
   beforeEach(() => {
     mockInjectionService = {
@@ -128,7 +128,7 @@ describe('PageContentService', () => {
 
       // 驗證日誌包含成功訊息
       const logCalls = mockLogger.log.mock.calls;
-      const successLog = logCalls.find(call => call[0] && call[0].includes('成功'));
+      const successLog = logCalls.find(call => call[0]?.includes('成功'));
       expect(successLog).toBeDefined();
     });
   });

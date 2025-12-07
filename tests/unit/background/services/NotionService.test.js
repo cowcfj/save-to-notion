@@ -324,7 +324,6 @@ describe('NotionService', () => {
   describe('filterValidImageBlocks', () => {
     it('should return empty array for null or undefined input', () => {
       const result1 = service.filterValidImageBlocks(null);
-      // skipcq: JS-0356 - Intentionally testing undefined input handling
       const result2 = service.filterValidImageBlocks(undefined);
 
       expect(result1.validBlocks).toEqual([]);

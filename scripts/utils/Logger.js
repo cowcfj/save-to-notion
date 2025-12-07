@@ -174,7 +174,9 @@ function sendToBackground(level, message, args) {
  * 提供靜態方法用於記錄不同級別的日誌
  */
 // eslint-disable-next-line no-var
-var Logger = (function () {
+var Logger;
+
+Logger = (function () {
   // 如果已存在，直接返回
   if (typeof window !== 'undefined' && window.Logger) {
     return window.Logger;

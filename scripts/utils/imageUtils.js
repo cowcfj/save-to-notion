@@ -322,8 +322,11 @@ function isNotionCompatibleImageUrl(url) {
  * 統一的圖片屬性列表，涵蓋各種懶加載和響應式圖片的情況
  */
 // 使用 var 避免重複注入錯誤
+// 聲明在頂層
 // eslint-disable-next-line no-var
-var IMAGE_ATTRIBUTES =
+var IMAGE_ATTRIBUTES;
+
+IMAGE_ATTRIBUTES =
   typeof window !== 'undefined' && window.IMAGE_ATTRIBUTES
     ? window.IMAGE_ATTRIBUTES
     : [

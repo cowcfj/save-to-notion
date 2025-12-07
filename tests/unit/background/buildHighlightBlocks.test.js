@@ -10,7 +10,6 @@ describe('buildHighlightBlocks', () => {
   });
 
   it('should return empty array for undefined input', () => {
-    // skipcq: JS-0356 - Intentionally testing undefined input handling
     expect(buildHighlightBlocks(undefined)).toEqual([]);
   });
 
