@@ -3,13 +3,13 @@
  *
  * 職責:
  * - 封裝頁面內容提取的注入邏輯
- * - 整合 ContentExtractor, MetadataExtractor, ContentBridge
+ * - 使用 dist/content.bundle.js 中的 extractPageContent
  * - 提供統一的內容提取接口給 background.js
  *
  * 架構:
  * PageContentService (Background)
  *   ↓ injects
- * ContentExtractor + ContentBridge (Content Script)
+ * dist/content.bundle.js → extractPageContent()
  *   ↓ returns
  * { title, blocks, siteIcon }
  */
@@ -18,20 +18,19 @@
 
 /**
  * 頁面內容提取所需的腳本文件列表
+ * 使用 Rollup 打包的 bundle，包含所有 Content Extractors
  */
 const CONTENT_EXTRACTION_SCRIPTS = [
+  // 基礎依賴（content.bundle.js 不包含這些）
   'scripts/utils.js',
+  'scripts/utils/Logger.js',
+  'scripts/utils/imageUtils.js', // ImageUtils - bundle 依賴此全局變量
   'lib/Readability.js',
   'lib/turndown.js',
   'lib/turndown-plugin-gfm.js',
   'scripts/utils/htmlToNotionConverter.js',
-  'scripts/performance/PerformanceOptimizer.js',
-  'scripts/config/selectors.js',
-  'scripts/utils/pageComplexityDetector.js',
-  'scripts/content/extractors/MetadataExtractor.js',
-  'scripts/content/extractors/ReadabilityAdapter.js',
-  'scripts/content/extractors/ContentExtractor.js',
-  'scripts/content/converters/ContentBridge.js',
+  // Content Script bundle（包含 ContentExtractor, ConverterFactory 等）
+  'dist/content.bundle.js',
 ];
 
 /**
@@ -52,14 +51,10 @@ class PageContentService {
    * 提取頁面內容並轉換為 Notion blocks
    *
    * @param {number} tabId - 目標標籤頁 ID
-   * @param {Object} options - 提取選項
-   * @param {boolean} options.includeFeaturedImage - 是否包含封面圖
+   * @param {Object} _options - 提取選項（保留供未來使用）
    * @returns {Promise<{title: string, blocks: Array, siteIcon: string|null}>}
    */
-  async extractContent(tabId, options = {}) {
-    // _includeFeaturedImage 保留供未來版本使用，當前注入腳本內固定為 true
-    const { includeFeaturedImage: _includeFeaturedImage = true } = options;
-
+  async extractContent(tabId, _options = {}) {
     this.logger.log?.('📄 [PageContentService] 開始提取頁面內容...');
 
     if (!this.injectionService) {
@@ -67,51 +62,37 @@ class PageContentService {
     }
 
     try {
-      // 注入必要的腳本並執行提取
+      // 注入 bundle 並執行提取
       const result = await this.injectionService.injectWithResponse(
         tabId,
-        () => {
-          // 這個函數在頁面上下文中執行，window 對象來自目標頁面
+        async () => {
+          // 此函數在頁面上下文中執行
           const PageLogger = window.Logger || console;
 
           try {
-            PageLogger.log?.('🚀 [PageContentService] 執行內容提取...');
+            PageLogger.log?.('🚀 [PageContentService] 調用 extractPageContent...');
 
-            // 使用 ContentBridge 整合提取流程
-            if (typeof window.extractAndBridge === 'function') {
-              const bridgeResult = window.extractAndBridge(document, {
-                includeFeaturedImage: true,
-              });
+            // 使用 content.bundle.js 暴露的 extractPageContent
+            if (typeof window.extractPageContent === 'function') {
+              const extractResult = await window.extractPageContent();
 
-              PageLogger.log?.(
-                `✅ [PageContentService] 提取完成: ${bridgeResult.blocks?.length || 0} blocks`
-              );
+              if (extractResult && extractResult.blocks) {
+                PageLogger.log?.(
+                  `✅ [PageContentService] 提取成功: ${extractResult.blocks.length} blocks`
+                );
 
-              return bridgeResult;
+                // 適配返回格式：添加 siteIcon
+                return {
+                  title: extractResult.title || document.title || 'Untitled',
+                  blocks: extractResult.blocks,
+                  siteIcon:
+                    extractResult.metadata?.siteIcon || extractResult.metadata?.favicon || null,
+                };
+              }
             }
 
-            // Fallback: 使用 ContentExtractor + bridgeContentToBlocks
-            if (
-              typeof window.ContentExtractor?.extract === 'function' &&
-              typeof window.bridgeContentToBlocks === 'function'
-            ) {
-              const extracted = window.ContentExtractor.extract(document);
-              const fallbackResult = window.bridgeContentToBlocks(extracted, {
-                includeFeaturedImage: true,
-              });
-
-              PageLogger.log?.(
-                `✅ [PageContentService] Fallback 提取完成: ${fallbackResult.blocks?.length || 0} blocks`
-              );
-
-              return fallbackResult;
-            }
-
-            // 最終 Fallback: 返回基本結構
-            PageLogger.warn?.(
-              '⚠️ [PageContentService] Content extractors not available, using basic fallback'
-            );
-
+            // Fallback: 基本提取
+            PageLogger.warn?.('⚠️ [PageContentService] extractPageContent 不可用');
             return {
               title: document.title || 'Untitled',
               blocks: [
@@ -122,9 +103,7 @@ class PageContentService {
                     rich_text: [
                       {
                         type: 'text',
-                        text: {
-                          content: 'Content extraction failed: Required scripts not loaded.',
-                        },
+                        text: { content: 'Content extraction: extractPageContent not available.' },
                       },
                     ],
                   },
@@ -133,8 +112,7 @@ class PageContentService {
               siteIcon: null,
             };
           } catch (error) {
-            PageLogger.error?.('❌ [PageContentService] 內容提取失敗:', error);
-
+            PageLogger.error?.('❌ [PageContentService] 提取失敗:', error);
             return {
               title: document.title || 'Untitled',
               blocks: [
@@ -145,7 +123,7 @@ class PageContentService {
                     rich_text: [
                       {
                         type: 'text',
-                        text: { content: `Content extraction failed: ${error.message}` },
+                        text: { content: `Extraction failed: ${error.message}` },
                       },
                     ],
                   },
@@ -159,15 +137,12 @@ class PageContentService {
       );
 
       // 處理注入結果
-      if (result && result.length > 0) {
-        const extractedContent = result[0]?.result;
-
-        if (extractedContent?.title && extractedContent?.blocks) {
-          this.logger.log?.(
-            `✅ [PageContentService] 成功提取: "${extractedContent.title}" (${extractedContent.blocks.length} blocks)`
-          );
-          return extractedContent;
-        }
+      // 注意：injectWithResponse 已經解包了 results[0].result，直接返回函數執行結果
+      if (result && result.title && result.blocks) {
+        this.logger.log?.(
+          `✅ [PageContentService] 成功: "${result.title}" (${result.blocks.length} blocks)`
+        );
+        return result;
       }
 
       // 結果無效
@@ -179,16 +154,14 @@ class PageContentService {
             object: 'block',
             type: 'paragraph',
             paragraph: {
-              rich_text: [
-                { type: 'text', text: { content: 'Content extraction returned invalid result.' } },
-              ],
+              rich_text: [{ type: 'text', text: { content: 'Invalid extraction result.' } }],
             },
           },
         ],
         siteIcon: null,
       };
     } catch (error) {
-      this.logger.error?.('❌ [PageContentService] 注入或提取失敗:', error);
+      this.logger.error?.('❌ [PageContentService] 注入失敗:', error);
       throw error;
     }
   }

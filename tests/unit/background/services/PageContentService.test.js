@@ -52,15 +52,12 @@ describe('PageContentService', () => {
     });
 
     test('應調用 injectWithResponse 並返回提取結果', async () => {
-      const mockResult = [
-        {
-          result: {
-            title: 'Test Page',
-            blocks: [{ type: 'paragraph', paragraph: { rich_text: [] } }],
-            siteIcon: 'https://example.com/icon.png',
-          },
-        },
-      ];
+      // injectWithResponse 直接返回函數執行結果
+      const mockResult = {
+        title: 'Test Page',
+        blocks: [{ type: 'paragraph', paragraph: { rich_text: [] } }],
+        siteIcon: 'https://example.com/icon.png',
+      };
 
       mockInjectionService.injectWithResponse.mockResolvedValue(mockResult);
 
@@ -77,7 +74,8 @@ describe('PageContentService', () => {
     });
 
     test('應返回回退結果當提取結果為空', async () => {
-      mockInjectionService.injectWithResponse.mockResolvedValue([]);
+      // 空結果或無效結果
+      mockInjectionService.injectWithResponse.mockResolvedValue(null);
 
       const result = await service.extractContent(123);
 
@@ -87,11 +85,8 @@ describe('PageContentService', () => {
     });
 
     test('應返回回退結果當提取結果缺少必要欄位', async () => {
-      mockInjectionService.injectWithResponse.mockResolvedValue([
-        {
-          result: { title: 'Test' }, // 缺少 blocks
-        },
-      ]);
+      // 缺少 blocks 的結果
+      mockInjectionService.injectWithResponse.mockResolvedValue({ title: 'Test' });
 
       const result = await service.extractContent(123);
 
@@ -117,18 +112,15 @@ describe('PageContentService', () => {
     });
 
     test('應記錄成功提取的日誌', async () => {
-      const mockResult = [
-        {
-          result: {
-            title: 'Test Page',
-            blocks: [
-              { type: 'paragraph', paragraph: { rich_text: [] } },
-              { type: 'heading_1', heading_1: { rich_text: [] } },
-            ],
-            siteIcon: null,
-          },
-        },
-      ];
+      // injectWithResponse 直接返回函數執行結果，不是包裝在陣列中
+      const mockResult = {
+        title: 'Test Page',
+        blocks: [
+          { type: 'paragraph', paragraph: { rich_text: [] } },
+          { type: 'heading_1', heading_1: { rich_text: [] } },
+        ],
+        siteIcon: null,
+      };
 
       mockInjectionService.injectWithResponse.mockResolvedValue(mockResult);
 
@@ -136,7 +128,7 @@ describe('PageContentService', () => {
 
       // 驗證日誌包含成功訊息
       const logCalls = mockLogger.log.mock.calls;
-      const successLog = logCalls.find(call => call[0] && call[0].includes('成功提取'));
+      const successLog = logCalls.find(call => call[0] && call[0].includes('成功'));
       expect(successLog).toBeDefined();
     });
   });
@@ -154,8 +146,7 @@ describe('PageContentService', () => {
 
       expect(scripts).toContain('scripts/utils.js');
       expect(scripts).toContain('lib/Readability.js');
-      expect(scripts).toContain('scripts/content/extractors/ContentExtractor.js');
-      expect(scripts).toContain('scripts/content/converters/ContentBridge.js');
+      expect(scripts).toContain('dist/content.bundle.js');
     });
   });
 
@@ -173,7 +164,8 @@ describe('PageContentService', () => {
 
     test('所有腳本路徑應有正確格式', () => {
       CONTENT_EXTRACTION_SCRIPTS.forEach(script => {
-        expect(script).toMatch(/^(scripts|lib)\/.+\.(js)$/);
+        // 支持 scripts/, lib/, dist/ 開頭
+        expect(script).toMatch(/^(scripts|lib|dist)\/.+\.(js)$/);
       });
     });
   });

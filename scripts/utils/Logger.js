@@ -7,12 +7,15 @@
  * @module Logger
  */
 
-// 內部狀態
-let _debugEnabled = false;
-let _isInitialized = false;
+// 內部狀態 - 使用 var 支持重複注入
+// eslint-disable-next-line no-var
+var _debugEnabled = false;
+// eslint-disable-next-line no-var
+var _isInitialized = false;
 
-// 日誌級別常量
-let LOG_LEVELS = {
+// 日誌級別常量 - 使用 var 支持重複注入
+// eslint-disable-next-line no-var
+var LOG_LEVELS = {
   DEBUG: 0,
   LOG: 1,
   INFO: 2,
@@ -20,9 +23,11 @@ let LOG_LEVELS = {
   ERROR: 4,
 };
 
-// 環境檢測
-let isExtensionContext = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
-let isBackground = isExtensionContext && typeof window === 'undefined'; // Service Worker 環境通常沒有 window (或 self !== window)
+// 環境檢測 - 使用 var 支持重複注入
+// eslint-disable-next-line no-var
+var isExtensionContext = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
+// eslint-disable-next-line no-var
+var isBackground = isExtensionContext && typeof window === 'undefined'; // Service Worker 環境通常沒有 window (或 self !== window)
 
 // Node.js 環境適配：嘗試從配置模組加載
 if (typeof module !== 'undefined' && typeof require !== 'undefined') {
@@ -164,50 +169,65 @@ function sendToBackground(level, message, args) {
  * 統一日誌類
  * 提供靜態方法用於記錄不同級別的日誌
  */
-class Logger {
-  static get debugEnabled() {
-    if (!_isInitialized) {
-      initDebugState();
+/**
+ * 統一日誌類
+ * 提供靜態方法用於記錄不同級別的日誌
+ */
+// eslint-disable-next-line no-var
+var Logger = (function () {
+  // 如果已存在，直接返回
+  if (typeof window !== 'undefined' && window.Logger) {
+    return window.Logger;
+  }
+  if (typeof self !== 'undefined' && self.Logger) {
+    return self.Logger;
+  }
+
+  return class Logger {
+    static get debugEnabled() {
+      if (!_isInitialized) {
+        initDebugState();
+      }
+      return _debugEnabled;
     }
-    return _debugEnabled;
-  }
 
-  static debug(message, ...args) {
-    if (!this.debugEnabled) {
-      return;
+    static debug(message, ...args) {
+      if (!this.debugEnabled) {
+        return;
+      }
+      console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
+      sendToBackground('debug', message, args);
     }
-    console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
-    sendToBackground('debug', message, args);
-  }
 
-  static log(message, ...args) {
-    if (!this.debugEnabled) {
-      return;
+    static log(message, ...args) {
+      if (!this.debugEnabled) {
+        return;
+      }
+      console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
+      sendToBackground('log', message, args);
     }
-    console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
-    sendToBackground('log', message, args);
-  }
 
-  static info(message, ...args) {
-    if (!this.debugEnabled) {
-      return;
+    static info(message, ...args) {
+      if (!this.debugEnabled) {
+        return;
+      }
+      console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
+      sendToBackground('info', message, args);
     }
-    console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
-    sendToBackground('info', message, args);
-  }
 
-  static warn(message, ...args) {
-    // Warn 總是輸出
-    console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
-    sendToBackground('warn', message, args);
-  }
+    static warn(message, ...args) {
+      // Warn 總是輸出
+      console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
+      sendToBackground('warn', message, args);
+    }
 
-  static error(message, ...args) {
-    // Error 總是輸出
-    console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
-    sendToBackground('error', message, args);
-  }
-}
+    static error(message, ...args) {
+      // Error 總是輸出
+      console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
+      sendToBackground('error', message, args);
+    }
+  };
+})();
 
 // 自動初始化
 initDebugState();

@@ -68,11 +68,16 @@ class ContentExtractor {
   static extractReadability(doc) {
     Logger.log('📖 Executing Readability extraction...');
 
-    // 使用 ReadabilityAdapter
-    // 注意: ReadabilityAdapter 目前是同步的，但為了未來擴展保持 async 簽名
-    const article = readabilityAdapter.parseArticleWithReadability(doc);
+    // 使用 ReadabilityAdapter (包裝在 try-catch 中以確保 fallback 可以執行)
+    let article = null;
+    try {
+      article = readabilityAdapter.parseArticleWithReadability(doc);
+    } catch (readabilityError) {
+      Logger.warn('⚠️ Readability parsing failed:', readabilityError.message);
+      // 繼續執行 fallback 邏輯
+    }
 
-    if (readabilityAdapter.isContentGood(article)) {
+    if (article && readabilityAdapter.isContentGood(article)) {
       return {
         content: article.content,
         type: 'html',
