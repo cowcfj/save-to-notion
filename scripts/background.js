@@ -392,7 +392,7 @@ async function saveToNotion(
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2025-09-03',
+          'Notion-Version': NOTION_API.VERSION,
         },
         body: JSON.stringify(pageData),
       },
@@ -537,7 +537,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
       method: 'GET',
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        'Notion-Version': '2025-09-03',
+        'Notion-Version': NOTION_API.VERSION,
       },
     });
 
@@ -548,7 +548,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
           method: 'DELETE',
           headers: {
             Authorization: `Bearer ${apiKey}`,
-            'Notion-Version': '2025-09-03',
+            'Notion-Version': NOTION_API.VERSION,
           },
         });
       }
@@ -561,7 +561,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2025-09-03',
+          'Notion-Version': NOTION_API.VERSION,
         },
         body: JSON.stringify({
           children: validBlocks.slice(0, 100),
@@ -592,7 +592,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
-            'Notion-Version': '2025-09-03',
+            'Notion-Version': NOTION_API.VERSION,
           },
           body: JSON.stringify({
             properties: {
@@ -655,7 +655,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
         method: 'GET',
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          'Notion-Version': '2025-09-03',
+          'Notion-Version': NOTION_API.VERSION,
         },
       }
     );
@@ -707,7 +707,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
           method: 'DELETE',
           headers: {
             Authorization: `Bearer ${apiKey}`,
-            'Notion-Version': '2025-09-03',
+            'Notion-Version': NOTION_API.VERSION,
           },
         });
 
@@ -786,7 +786,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
-            'Notion-Version': '2025-09-03',
+            'Notion-Version': NOTION_API.VERSION,
           },
           body: JSON.stringify({
             children: highlightBlocks,

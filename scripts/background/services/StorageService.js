@@ -11,22 +11,13 @@
 
 /* global chrome */
 
+// 導入統一配置
+import { URL_NORMALIZATION } from '../../config/index.js';
+
 /**
- * URL 標準化相關常量
+ * URL 標準化相關常量（從統一配置導出，用於兼容既有導入）
  */
-export const URL_TRACKING_PARAMS = [
-  'utm_source',
-  'utm_medium',
-  'utm_campaign',
-  'utm_term',
-  'utm_content',
-  'gclid',
-  'fbclid',
-  'mc_cid',
-  'mc_eid',
-  'igshid',
-  'vero_id',
-];
+export const URL_TRACKING_PARAMS = URL_NORMALIZATION.TRACKING_PARAMS;
 
 /**
  * 標準化 URL，用於生成一致的存儲鍵
