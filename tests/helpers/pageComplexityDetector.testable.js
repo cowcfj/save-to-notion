@@ -3,6 +3,45 @@
  * 將 ESM 模組邏輯封裝為可在 Jest(CommonJS) 中測試的純函數版本。
  */
 
+function isTechnicalDoc(options = {}) {
+  const url = (options.url || 'https://example.com').toLowerCase();
+  const title = (options.title || '').toLowerCase();
+
+  // URL 模式檢測
+  const urlPatterns = [
+    /\/docs?\//,
+    /\/api\//,
+    /\/documentation\//,
+    /\/guide\//,
+    /\/manual\//,
+    /\/reference\//,
+    /\/cli\//,
+    /\/commands?\//,
+    /github\.io.*docs/,
+    /\.github\.io/,
+  ];
+
+  // 標題模式檢測
+  const titlePatterns = [
+    /documentation/,
+    /commands?/,
+    /reference/,
+    /guide/,
+    /manual/,
+    /cli/,
+    /api/,
+  ];
+
+  const matchedUrl = urlPatterns.some(pattern => pattern.test(url));
+  const matchedTitle = titlePatterns.some(pattern => pattern.test(title));
+
+  return {
+    isTechnical: matchedUrl || matchedTitle,
+    matchedUrl,
+    matchedTitle,
+  };
+}
+
 function isDocumentationSite(urlStr) {
   try {
     const url = new URL(urlStr || 'https://example.com');
@@ -302,7 +341,9 @@ function getAnalysisReport(complexity, selection, urlStr = 'https://example.com'
 }
 
 function logAnalysis(complexity, selection, extractionResult, opts = {}) {
-  const { url = 'https://example.com', analytics } = opts;
+  const { url = 'https://example.com' } = opts;
+  const analytics = opts.analytics || (typeof window !== 'undefined' ? window.analytics : null);
+
   const payload = {
     url,
     extractor: selection.extractor,
@@ -325,4 +366,5 @@ module.exports = {
   selectExtractor,
   getAnalysisReport,
   logAnalysis,
+  isTechnicalDoc,
 };

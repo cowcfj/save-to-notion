@@ -18,7 +18,7 @@ const {
   getAnalysisReport,
   logAnalysis,
   isTechnicalDoc,
-} = require('../../scripts/utils/pageComplexityDetector.js');
+} = require('../../tests/helpers/pageComplexityDetector.testable.js');
 
 // 模擬瀏覽器環境
 // let mockWindow = null;
