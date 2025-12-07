@@ -215,11 +215,22 @@ function buildHighlightBlocks(highlights, title = '📝 頁面標記') {
   const blocks = [createHeading(title, 3)];
 
   highlights.forEach(highlight => {
-    blocks.push(
-      createParagraph(highlight.text || '', {
-        color: highlight.color || 'default',
-      })
-    );
+    const text = highlight.text || '';
+
+    // Split text if it exceeds MAX_TEXT_LENGTH
+    // skipcq: JS-0113 - Using valid regex for splitting string by length
+    const textChunks =
+      text.length > MAX_TEXT_LENGTH
+        ? text.match(new RegExp(`.{1,${MAX_TEXT_LENGTH}}`, 'g')) || []
+        : [text];
+
+    textChunks.forEach(chunk => {
+      blocks.push(
+        createParagraph(chunk, {
+          color: highlight.color || 'default',
+        })
+      );
+    });
   });
 
   return blocks;

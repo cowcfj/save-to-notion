@@ -199,6 +199,18 @@ describe('BlockBuilder', () => {
       const result = buildHighlightBlocks(highlights, 'Custom Title');
       expect(result[0].heading_3.rich_text[0].text.content).toBe('Custom Title');
     });
+
+    test('should split long highlight text into multiple blocks', () => {
+      const longText = 'a'.repeat(2500);
+      const highlights = [{ text: longText, color: 'yellow' }];
+      const result = buildHighlightBlocks(highlights);
+
+      // 1 heading + 2 paragraphs for the split text
+      expect(result.length).toBe(3);
+      expect(result[1].paragraph.rich_text[0].text.content.length).toBe(MAX_TEXT_LENGTH);
+      expect(result[2].paragraph.rich_text[0].text.content.length).toBe(500);
+      expect(result[2].paragraph.rich_text[0].annotations.color).toBe('yellow');
+    });
   });
 
   describe('textToParagraphs', () => {
