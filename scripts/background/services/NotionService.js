@@ -10,7 +10,7 @@
  */
 
 // 導入統一配置
-import { NOTION_API } from '../../config/index.js';
+import { NOTION_API, IMAGE_VALIDATION_CONSTANTS } from '../../config/index.js';
 
 // 使用統一常量構建配置
 const NOTION_CONFIG = {
@@ -151,8 +151,9 @@ class NotionService {
         return false;
       }
 
-      // 檢查 URL 長度
-      if (imageUrl.length > 1500) {
+      // 檢查 URL 長度（使用統一配置的閾值，略低於最大限制以留安全餘量）
+      const maxUrlLength = IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH - 500; // 1500
+      if (imageUrl.length > maxUrlLength) {
         this.logger.warn?.(
           `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
         );
