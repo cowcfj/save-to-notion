@@ -22,6 +22,43 @@ var IMAGE_VALIDATION_CONSTANTS =
         MAX_RECURSION_DEPTH: 5, // cleanImageUrl 最大遞迴深度（防止無限遞迴）
       };
 
+/**
+ * 統一的圖片屬性列表，涵蓋各種懶加載和響應式圖片的情況
+ */
+// 聲明在頂層
+// eslint-disable-next-line no-var
+var IMAGE_ATTRIBUTES =
+  typeof window !== 'undefined' && window.IMAGE_ATTRIBUTES
+    ? window.IMAGE_ATTRIBUTES
+    : [
+        'src',
+        'data-src',
+        'data-lazy-src',
+        'data-original',
+        'data-srcset',
+        'data-lazy-srcset',
+        'data-original-src',
+        'data-actualsrc',
+        'data-src-original',
+        'data-echo',
+        'data-href',
+        'data-large',
+        'data-bigsrc',
+        'data-full-src',
+        'data-hi-res-src',
+        'data-large-src',
+        'data-zoom-src',
+        'data-image-src',
+        'data-img-src',
+        'data-real-src',
+        'data-lazy',
+        'data-url',
+        'data-image',
+        'data-img',
+        'data-fallback-src',
+        'data-origin',
+      ];
+
 // Node.js 環境適配：嘗試從配置模組加載
 if (typeof module !== 'undefined' && typeof require !== 'undefined') {
   try {
@@ -317,46 +354,6 @@ function isNotionCompatibleImageUrl(url) {
     return false;
   }
 }
-
-/**
- * 統一的圖片屬性列表，涵蓋各種懶加載和響應式圖片的情況
- */
-// 使用 var 避免重複注入錯誤
-// 聲明在頂層
-// eslint-disable-next-line no-var
-var IMAGE_ATTRIBUTES;
-
-IMAGE_ATTRIBUTES =
-  typeof window !== 'undefined' && window.IMAGE_ATTRIBUTES
-    ? window.IMAGE_ATTRIBUTES
-    : [
-        'src',
-        'data-src',
-        'data-lazy-src',
-        'data-original',
-        'data-srcset',
-        'data-lazy-srcset',
-        'data-original-src',
-        'data-actualsrc',
-        'data-src-original',
-        'data-echo',
-        'data-href',
-        'data-large',
-        'data-bigsrc',
-        'data-full-src',
-        'data-hi-res-src',
-        'data-large-src',
-        'data-zoom-src',
-        'data-image-src',
-        'data-img-src',
-        'data-real-src',
-        'data-lazy',
-        'data-url',
-        'data-image',
-        'data-img',
-        'data-fallback-src',
-        'data-origin',
-      ];
 
 /**
  * 從 srcset 字符串中提取最佳圖片 URL

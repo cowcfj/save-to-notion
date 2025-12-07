@@ -249,7 +249,7 @@ describe('BlockBuilder', () => {
     test('should return false for invalid inputs', () => {
       expect(isValidBlock(null)).toBe(false);
       // skipcq: JS-0356 - Intentionally testing undefined input handling
-      expect(isValidBlock(undefined)).toBe(false);
+      expect(isValidBlock()).toBe(false);
       expect(isValidBlock({})).toBe(false);
       expect(isValidBlock({ object: 'block' })).toBe(false);
       expect(isValidBlock({ type: 'paragraph' })).toBe(false);

@@ -10,7 +10,7 @@ describe('buildHighlightBlocks', () => {
   });
 
   it('should return empty array for undefined input', () => {
-    expect(buildHighlightBlocks(undefined)).toEqual([]);
+    expect(buildHighlightBlocks()).toEqual([]);
   });
 
   it('should return empty array for empty array', () => {
