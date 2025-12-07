@@ -9,67 +9,12 @@
  * - 提取封面圖 (Featured Image)
  * - 整合 Readability 解析結果與頁面 Meta 標籤
  */
-import { FAVICON_SELECTORS } from '../../config/selectors.js';
-
-/**
- * 封面圖選擇器（按優先級排序）
- */
-const FEATURED_IMAGE_SELECTORS = [
-  // WordPress 和常見 CMS
-  '.featured-image img',
-  '.hero-image img',
-  '.cover-image img',
-  '.post-thumbnail img',
-  '.entry-thumbnail img',
-  '.wp-post-image',
-  // 文章頭部區域
-  '.article-header img',
-  'header.article-header img',
-  '.post-header img',
-  '.entry-header img',
-  // 通用特色圖片容器
-  'figure.featured img',
-  'figure.hero img',
-  '[class*="featured"] img:first-of-type',
-  '[class*="hero"] img:first-of-type',
-  '[class*="cover"] img:first-of-type',
-  // 文章開頭的第一張圖片
-  'article > figure:first-of-type img',
-  'article > div:first-of-type img',
-  '.article > figure:first-of-type img',
-  '.post > figure:first-of-type img',
-];
-
-/**
- * 作者頭像/Logo 關鍵字（用於過濾）
- */
-const AVATAR_KEYWORDS = [
-  'avatar',
-  'profile',
-  'author',
-  'user-image',
-  'user-avatar',
-  'byline',
-  'author-image',
-  'author-photo',
-  'profile-pic',
-  'user-photo',
-];
-
-/**
- * Site Icon 選擇器配置
- */
-const SITE_ICON_SELECTORS = [
-  { selector: 'link[rel="apple-touch-icon"]', attr: 'href', priority: 1, iconType: 'apple-touch' },
-  {
-    selector: 'link[rel="apple-touch-icon-precomposed"]',
-    attr: 'href',
-    priority: 2,
-    iconType: 'apple-touch',
-  },
-  { selector: 'link[rel="icon"]', attr: 'href', priority: 3, iconType: 'standard' },
-  { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4, iconType: 'standard' },
-];
+import {
+  FAVICON_SELECTORS,
+  FEATURED_IMAGE_SELECTORS,
+  SITE_ICON_SELECTORS,
+  AVATAR_KEYWORDS,
+} from '../../config/selectors.js';
 
 class MetadataExtractor {
   /**
@@ -423,10 +368,4 @@ class MetadataExtractor {
 
 const metadataExtractor = new MetadataExtractor();
 
-export {
-  MetadataExtractor,
-  metadataExtractor,
-  FEATURED_IMAGE_SELECTORS,
-  AVATAR_KEYWORDS,
-  SITE_ICON_SELECTORS,
-};
+export { MetadataExtractor, metadataExtractor };
