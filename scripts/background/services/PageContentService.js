@@ -26,9 +26,6 @@ const CONTENT_EXTRACTION_SCRIPTS = [
   'scripts/utils/Logger.js',
   'scripts/utils/imageUtils.js', // ImageUtils - bundle 依賴此全局變量
   'lib/Readability.js',
-  'lib/turndown.js',
-  'lib/turndown-plugin-gfm.js',
-  'scripts/utils/htmlToNotionConverter.js',
   // Content Script bundle（包含 ContentExtractor, ConverterFactory 等）
   'dist/content.bundle.js',
 ];

@@ -35,7 +35,7 @@
  * @returns {Object} { title, blocks, siteIcon }
  */
 function bridgeContentToBlocks(extractedContent, options = {}) {
-  const { includeFeaturedImage = true, htmlConverter = getDefaultHtmlConverter() } = options;
+  const { includeFeaturedImage = true } = options;
 
   // 驗證輸入
   if (!extractedContent) {
@@ -58,13 +58,21 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
 
   if (content) {
     try {
-      if (type === 'html' && htmlConverter) {
-        Logger.log('🔄 [ContentBridge] 使用 HTML 轉換器');
-        blocks = htmlConverter(content);
-      } else if (type === 'markdown') {
-        // Markdown 內容需要先轉換為 HTML 或直接處理
-        Logger.log('🔄 [ContentBridge] Markdown 內容，使用 HTML 轉換器');
-        blocks = htmlConverter(content);
+      if (type === 'html' || type === 'markdown') {
+        Logger.log(`🔄 [ContentBridge] 使用 DomConverter 轉換 (type: ${type})`);
+        // 動態獲取 domConverter，假設它已掛載或通過模組加載
+        // 在新架構中，建議直接使用 index.js 的 extractPageContent 流程
+        // 這裡作為兼容層，嘗試使用 window.domConverter 或 ConverterFactory
+        const converter =
+          window.domConverter ||
+          (window.ConverterFactory ? window.ConverterFactory.getConverter(type) : null);
+
+        if (converter) {
+          blocks = converter.convert(content);
+        } else {
+          Logger.warn('⚠️ [ContentBridge] Converter 不可用');
+          blocks = createTextBlocks(content);
+        }
       } else {
         Logger.warn('⚠️ [ContentBridge] 未知內容類型，使用回退處理');
         blocks = createTextBlocks(content);
@@ -128,17 +136,6 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
     blocks,
     siteIcon,
   };
-}
-
-/**
- * 獲取預設的 HTML 轉換器
- * @returns {Function|null}
- */
-function getDefaultHtmlConverter() {
-  if (typeof window !== 'undefined' && typeof window.convertHtmlToNotionBlocks === 'function') {
-    return window.convertHtmlToNotionBlocks;
-  }
-  return null;
 }
 
 /**
@@ -261,6 +258,5 @@ if (typeof module !== 'undefined' && module.exports) {
     extractAndBridge,
     createTextBlocks,
     createFallbackResult,
-    getDefaultHtmlConverter,
   };
 }

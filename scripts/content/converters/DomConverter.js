@@ -3,14 +3,12 @@
  *
  * 職責:
  * - 將 HTML/DOM 結構轉換為 Notion Block 格式
- * - 處理各種 HTML 標籤 (H1-H3, P, IMG, LI, BLOCKQUOTE)
- * - 識別並處理偽裝成段落的列表
- * - 處理圖片 URL 驗證和清理
+ * - 支援遞歸處理嵌套結構 (如嵌套列表)
+ * - 處理各種 HTML 標籤 (H1-H3, P, UL/OL/LI, IMG, BLOCKQUOTE, PRE, HR)
+ * - 解析 Rich Text (B, I, A, CODE, S)
  */
 
-/* global Logger, ImageUtils, ErrorHandler */
-
-import { LIST_PREFIX_PATTERNS, BULLET_PATTERNS } from '../../config/patterns.js';
+/* global ImageUtils */
 
 /**
  * Notion API 文本長度限制
@@ -19,339 +17,83 @@ import { LIST_PREFIX_PATTERNS, BULLET_PATTERNS } from '../../config/patterns.js'
 const MAX_TEXT_LENGTH = 2000;
 
 /**
- * 將長文本分割成符合 Notion 限制的片段
- * @param {string} text - 要分割的文本
- * @param {number} maxLength - 每個片段的最大長度
- * @returns {string[]} 分割後的文本片段
+ * DomConverter 類
+ * 負責將 HTML DOM 節點轉換為 Notion Blocks
  */
-const splitTextIntoChunks = (text, maxLength = MAX_TEXT_LENGTH) => {
-  if (!text || text.length <= maxLength) {
-    return [text];
-  }
-
-  const chunks = [];
-  let remaining = text;
-
-  while (remaining.length > 0) {
-    if (remaining.length <= maxLength) {
-      chunks.push(remaining);
-      break;
-    }
-
-    // 嘗試在句號、問號、驚嘆號、換行符處分割
-    let splitIndex = -1;
-    const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
-
-    for (const punct of punctuation) {
-      const lastIndex = remaining.lastIndexOf(punct, maxLength);
-      if (lastIndex > maxLength * 0.5) {
-        splitIndex = lastIndex + punct.length;
-        break;
-      }
-    }
-
-    // 如果找不到合適的標點，嘗試在空格處分割
-    if (splitIndex === -1) {
-      splitIndex = remaining.lastIndexOf(' ', maxLength);
-      if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
-        // 實在找不到，強制在 maxLength 處分割
-        splitIndex = maxLength;
-      }
-    }
-
-    chunks.push(remaining.substring(0, splitIndex).trim());
-    remaining = remaining.substring(splitIndex).trim();
-  }
-
-  return chunks.filter(chunk => chunk.length > 0);
-};
-
-/**
- * 創建富文本對象的輔助函數
- * @param {string} text - 文本內容
- * @returns {Array} Notion rich_text 數組
- */
-const createRichText = text => [
-  { type: 'text', text: { content: (text || '').substring(0, MAX_TEXT_LENGTH) } },
-];
-
-/**
- * 節點轉換策略集合
- */
-const strategies = {
-  H1: node => {
-    const text = node.textContent?.trim();
-    if (!text) {
-      return null;
-    }
-    return {
-      object: 'block',
-      type: 'heading_1',
-      heading_1: { rich_text: createRichText(text) },
-    };
-  },
-
-  H2: node => {
-    const text = node.textContent?.trim();
-    if (!text) {
-      return null;
-    }
-    return {
-      object: 'block',
-      type: 'heading_2',
-      heading_2: { rich_text: createRichText(text) },
-    };
-  },
-
-  H3: node => {
-    const text = node.textContent?.trim();
-    if (!text) {
-      return null;
-    }
-    return {
-      object: 'block',
-      type: 'heading_3',
-      heading_3: { rich_text: createRichText(text) },
-    };
-  },
-
-  P: node => {
-    const textContent = node.textContent?.trim();
-    if (!textContent) {
-      return null;
-    }
-
-    // 偵測是否為以換行或符號表示的清單（有些文件會用 CSS 或 <br> 呈現點列）
-    const innerHtml = node.innerHTML || '';
-    const hasBr = /<br\s*\/?/i.test(innerHtml);
-
-    let lines = [];
-    if (hasBr) {
-      // 如果包含 <br>, 創建副本並將 <br> 替換為換行符, 以便正確分割
-      const temp = node.cloneNode(true);
-      const brs = temp.querySelectorAll('br');
-      brs.forEach(br => br.replaceWith('\n'));
-      lines = temp.textContent
-        .split('\n')
-        .map(line => line.trim())
-        .filter(Boolean);
-    } else {
-      lines = textContent
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(Boolean);
-    }
-
-    // 常見的 bullet 標記與編號模式
-    const bulletCharRe = BULLET_PATTERNS.bulletChar;
-    const numberedRe = BULLET_PATTERNS.numbered;
-
-    const manyLines = lines.length >= 2;
-
-    // 判斷是否為 list-like paragraph：多行或包含 <br> 且每行看起來像項目
-    let looksLikeList = false;
-    if (manyLines || hasBr) {
-      // 如果大部分行以 bulletChar 或 numbered 開頭，視為清單
-      const matchCount = lines.reduce(
-        (acc, line) =>
-          acc + (bulletCharRe.test(line) || numberedRe.test(line) || /^[-••]/u.test(line) ? 1 : 0),
-        0
-      );
-      if (matchCount >= Math.max(1, Math.floor(lines.length * 0.6))) {
-        looksLikeList = true;
-      }
-    } else if (bulletCharRe.test(textContent) || numberedRe.test(textContent)) {
-      // 單行但以 bullet 字元開始也視為 list item
-      looksLikeList = true;
-    }
-
-    if (looksLikeList) {
-      // 返回多個 block 的數組
-      const blocks = [];
-      lines.forEach(line => {
-        // 步驟 1：移除已知的列表格式標記
-        let cleaned = line.replace(bulletCharRe, '').replace(numberedRe, '').trim();
-
-        // 步驟 2：移除殘留的前綴符號
-        cleaned = cleaned
-          .replace(LIST_PREFIX_PATTERNS.bulletPrefix, '')
-          .replace(LIST_PREFIX_PATTERNS.multipleSpaces, ' ')
-          .trim();
-
-        // 步驟 3：只處理非空內容
-        if (cleaned && !LIST_PREFIX_PATTERNS.emptyLine.test(cleaned)) {
-          // 處理超長文本：分割成多個區塊
-          const chunks = splitTextIntoChunks(cleaned);
-          chunks.forEach(chunk => {
-            blocks.push({
-              object: 'block',
-              type: 'bulleted_list_item',
-              bulleted_list_item: {
-                rich_text: createRichText(chunk),
-              },
-            });
-          });
-        }
-      });
-      return blocks.length > 0 ? blocks : null;
-    }
-
-    // 處理超長段落：分割成多個區塊
-    if (textContent.length > MAX_TEXT_LENGTH) {
-      const chunks = splitTextIntoChunks(textContent);
-      return chunks.map(chunk => ({
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: createRichText(chunk),
-        },
-      }));
-    }
-
-    return {
-      object: 'block',
-      type: 'paragraph',
-      paragraph: {
-        rich_text: createRichText(textContent),
-      },
-    };
-  },
-
-  IMG: (node, existingBlocks = []) => {
-    const src = ImageUtils.extractImageSrc(node);
-    if (!src) {
-      return null;
-    }
-
-    try {
-      const absoluteUrl = new URL(src, document.baseURI).href;
-      const cleanedUrl = ImageUtils.cleanImageUrl(absoluteUrl);
-
-      // 使用 ImageUtils 進行兼容性檢查
-      const isCompatible = ImageUtils.isNotionCompatibleImageUrl
-        ? ImageUtils.isNotionCompatibleImageUrl(cleanedUrl)
-        : true; // Fallback if method missing
-
-      // 檢查是否為有效的圖片格式和 URL，且未重複
-      if (
-        cleanedUrl &&
-        isCompatible &&
-        !existingBlocks.some(
-          block => block.type === 'image' && block.image.external.url === cleanedUrl
-        )
-      ) {
-        Logger.log(`Added image: ${cleanedUrl}`);
-        return {
-          object: 'block',
-          type: 'image',
-          image: {
-            type: 'external',
-            external: { url: cleanedUrl },
-          },
-        };
-      } else if (cleanedUrl && !isCompatible) {
-        Logger.warn(`Skipped incompatible image URL: ${cleanedUrl.substring(0, 100)}...`);
-      }
-    } catch (error) {
-      if (typeof ErrorHandler !== 'undefined') {
-        ErrorHandler.logError({
-          type: 'invalid_url',
-          context: `image URL processing: ${src}`,
-          originalError: error,
-          timestamp: Date.now(),
-        });
-      } else {
-        Logger.warn(`Failed to process image URL: ${src}`, error);
-      }
-    }
-    return null;
-  },
-
-  LI: node => {
-    const textContent = node.textContent?.trim();
-    if (!textContent) {
-      return null;
-    }
-
-    // 處理超長文本：分割成多個列表項
-    if (textContent.length > MAX_TEXT_LENGTH) {
-      const chunks = splitTextIntoChunks(textContent);
-      return chunks.map(chunk => ({
-        object: 'block',
-        type: 'bulleted_list_item',
-        bulleted_list_item: {
-          rich_text: createRichText(chunk),
-        },
-      }));
-    }
-
-    return {
-      object: 'block',
-      type: 'bulleted_list_item',
-      bulleted_list_item: {
-        rich_text: createRichText(textContent),
-      },
-    };
-  },
-
-  BLOCKQUOTE: node => {
-    const textContent = node.textContent?.trim();
-    if (!textContent) {
-      return null;
-    }
-
-    // 處理超長文本：分割成多個引用區塊
-    if (textContent.length > MAX_TEXT_LENGTH) {
-      const chunks = splitTextIntoChunks(textContent);
-      return chunks.map(chunk => ({
-        object: 'block',
-        type: 'quote',
-        quote: {
-          rich_text: createRichText(chunk),
-        },
-      }));
-    }
-
-    return {
-      object: 'block',
-      type: 'quote',
-      quote: {
-        rich_text: createRichText(textContent),
-      },
-    };
-  },
-};
-
 class DomConverter {
+  constructor() {
+    this.strategies = this.initStrategies();
+  }
+
+  /**
+   * 初始化轉換策略
+   */
+  initStrategies() {
+    return {
+      // 標題
+      H1: node => this.createHeadingBlock('heading_1', node),
+      H2: node => this.createHeadingBlock('heading_2', node),
+      H3: node => this.createHeadingBlock('heading_3', node),
+      H4: node => this.createBoldParagraphBlock(node),
+      H5: node => this.createBoldParagraphBlock(node),
+      H6: node => this.createBoldParagraphBlock(node),
+
+      // 段落
+      P: node => this.createParagraphBlock(node),
+      DIV: node => this.processDiv(node),
+
+      // 列表
+      UL: node => this.processList(node, 'bulleted_list_item'),
+      OL: node => this.processList(node, 'numbered_list_item'),
+      LI: node => this.processListItem(node), // 通常由 processList 內部處理，但保留以防萬一
+
+      // 引用
+      BLOCKQUOTE: node => this.createQuoteBlock(node),
+
+      // 代碼塊
+      PRE: node => this.createCodeBlock(node),
+
+      // 圖片
+      IMG: node => this.createImageBlock(node),
+      FIGURE: node => this.processFigure(node),
+
+      // 分隔線
+      HR: () => ({ object: 'block', type: 'divider', divider: {} }),
+
+      // 其他容器，直接處理子節點
+      ARTICLE: node => this.processChildren(node),
+      SECTION: node => this.processChildren(node),
+      MAIN: node => this.processChildren(node),
+    };
+  }
+
   /**
    * 將 HTML 轉換為 Notion 區塊陣列
-   * @param {string} html - HTML 字串
+   * @param {string|Node} htmlOrNode - HTML 字串或 DOM 節點
    * @returns {Array} Notion 區塊陣列
    */
-  convert(html) {
-    const blocks = [];
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
+  convert(htmlOrNode) {
+    let rootNode = null;
+    if (typeof htmlOrNode === 'string') {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlOrNode, 'text/html');
+      rootNode = doc.body;
+    } else {
+      rootNode = htmlOrNode;
+    }
 
-    tempDiv.childNodes.forEach(node => this.processNode(node, blocks));
-
-    return blocks;
+    return this.processChildren(rootNode);
   }
 
   /**
-   * 處理單個節點並添加到 blocks 數組
-   * @param {Node} node - DOM 節點
-   * @param {Array} blocks - 目標 blocks 數組
+   * 處理子節點
+   * @param {Node} parentNode
+   * @returns {Array} Blocks
    */
-  processNode(node, blocks) {
-    if (node.nodeType !== 1) {
-      // 僅處理元素節點
-      return;
-    }
-
-    const strategy = strategies[node.nodeName];
-    if (strategy) {
-      const result = strategy(node, blocks); // 傳入 blocks 以供 IMG 查重
+  processChildren(parentNode) {
+    const blocks = [];
+    parentNode.childNodes.forEach(child => {
+      const result = this.processNode(child);
       if (result) {
         if (Array.isArray(result)) {
           blocks.push(...result);
@@ -359,14 +101,446 @@ class DomConverter {
           blocks.push(result);
         }
       }
-    } else if (node.childNodes.length > 0) {
-      // 遞歸處理子節點
-      node.childNodes.forEach(child => this.processNode(child, blocks));
+    });
+    return blocks;
+  }
+
+  /**
+   * 處理單個節點
+   * @param {Node} node
+   * @returns {Object|Array|null} Block or Array of Blocks
+   */
+  processNode(node) {
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
     }
+
+    // 忽略隱藏元素
+    if (node.style?.display === 'none' || node.style?.visibility === 'hidden') {
+      return null;
+    }
+
+    const strategy = this.strategies[node.tagName];
+    if (strategy) {
+      return strategy(node);
+    }
+
+    // 對於未定義策略的元素（如 span, b, i 等在 block 層級出現時），
+    // 或者其他容器（header, footer 等），默認處理其子節點（穿透）
+    // 但如果是 inline 元素被當作 block，可能需要包裝成 paragraph？
+    // 這裡我們簡單地採用穿透策略，嘗試提取有用的子 Block
+    return this.processChildren(node);
+  }
+
+  processListItem(node) {
+    // 默認 LI 處理器 (針對未被 processList 捕獲的孤立 LI)
+    return this.createListItemBlock(node, 'bulleted_list_item');
+  }
+
+  // --- Block Creation Helpers ---
+
+  createHeadingBlock(type, node) {
+    const richText = this.parseRichText(node);
+    if (!richText.length) {
+      return null;
+    }
+    return {
+      object: 'block',
+      type,
+      [type]: { rich_text: richText },
+    };
+  }
+
+  createBoldParagraphBlock(node) {
+    const richText = this.parseRichText(node);
+    if (!richText.length) {
+      return null;
+    }
+
+    // 加粗整個段落
+    const boldRichText = richText.map(rt => {
+      if (rt.type === 'text') {
+        return {
+          ...rt,
+          annotations: { ...rt.annotations, bold: true },
+        };
+      }
+      return rt;
+    });
+
+    return {
+      object: 'block',
+      type: 'paragraph',
+      paragraph: { rich_text: boldRichText },
+    };
+  }
+
+  createParagraphBlock(node) {
+    // 檢查是否包含圖片（Image inside P）
+    const img = node.querySelector('img');
+    // 如果段落只包含圖片，直接返回圖片 Block
+    if (img && node.textContent.trim().length === 0) {
+      return this.createImageBlock(img);
+    }
+
+    // 檢查是否是 "偽裝列表" (List-like paragraph)
+    // 簡單判斷：如果包含 <br> 且有多行，暫時先當作普通段落處理，
+    // 未來可以加入類似原有 DomConverter 的智能檢測邏輯。
+    // 為了保持 2.1 版本重構的純粹性，我們先專注於標準 P 標籤
+
+    const richText = this.parseRichText(node);
+    if (!richText.length) {
+      return null;
+    }
+
+    return {
+      object: 'block',
+      type: 'paragraph',
+      paragraph: { rich_text: richText },
+    };
+  }
+
+  processDiv(node) {
+    // Div 是一個通用容器。
+    // 策略：直接處理子節點 (Unwrap)
+    return this.processChildren(node);
+  }
+
+  processList(node, type) {
+    const blocks = [];
+
+    // 遍歷子節點，只處理 LI
+    node.childNodes.forEach(child => {
+      if (child.nodeName === 'LI') {
+        // 處理 LI
+        const liBlock = this.createListItemBlock(child, type);
+        if (liBlock) {
+          blocks.push(liBlock);
+        }
+      } else {
+        // 處理非 LI 直接子節點 (可能是嵌套錯誤的 HTML，嘗試穿透)
+        const result = this.processNode(child);
+        if (result) {
+          if (Array.isArray(result)) {
+            blocks.push(...result);
+          } else {
+            blocks.push(result);
+          }
+        }
+      }
+    });
+
+    return blocks;
+  }
+
+  createListItemBlock(node, type) {
+    // LI 可能包含：
+    // 1. 純文本/Inline 元素 -> rich_text
+    // 2. Block 級元素 (P, H1) -> 這裡需要決定是合併還是作為 children
+    // 3. 嵌套列表 (UL, OL) -> children
+
+    // 簡化策略：
+    // 1. 提取 LI 的 "直接" 文本內容作為 item title
+    // 2. 提取 LI 內的 "嵌套列表" 作為 children
+
+    // 為了準確提取 Text，我們需要遍歷 childNodes
+    const richTexts = [];
+    const childrenBlocks = [];
+
+    node.childNodes.forEach(child => {
+      if (['UL', 'OL'].includes(child.nodeName)) {
+        // 嵌套列表 -> Children
+        const nestedBlocks = this.processList(
+          child,
+          child.nodeName === 'OL' ? 'numbered_list_item' : 'bulleted_list_item'
+        );
+        childrenBlocks.push(...nestedBlocks);
+      } else if (child.nodeName === 'P') {
+        // 如果 LI 內部有 P，通常 P 的內容就是列表文本
+        // 但如果有多個 P，第一個是文本，後面的是 children??
+        // Notion 列表項本身就有文本，所以我們把第一個 P 的內容合併進來
+        const pRichText = this.parseRichText(child);
+        richTexts.push(...pRichText);
+        // P 之後如果還有其他 Block 級元素，怎麼辦？
+        // 暫時將其忽略或作為文本附加
+      } else if (child.nodeType !== Node.ELEMENT_NODE || DomConverter.isInlineNode(child)) {
+        // Inline 内容 -> Rich Text
+        const rt = this.processInlineNode(child);
+        if (rt) {
+          if (Array.isArray(rt)) {
+            richTexts.push(...rt);
+          } else {
+            richTexts.push(rt);
+          }
+        }
+      } else {
+        // 其他 Block 級元素 (如 Div, Quote) -> Children
+        const result = this.processNode(child);
+        if (result) {
+          if (Array.isArray(result)) {
+            childrenBlocks.push(...result);
+          } else {
+            childrenBlocks.push(result);
+          }
+        }
+      }
+    });
+
+    // 如果沒有文本，給個預設空字符，否則 Notion 可能會報錯
+    // 實際上 Notion 允許空 list item
+
+    // 合併相鄰的 Text 節點 (優化)
+    const mergedRichText = DomConverter.mergeRichText(richTexts);
+
+    const block = {
+      object: 'block',
+      type,
+      [type]: {
+        rich_text: mergedRichText,
+      },
+    };
+
+    if (childrenBlocks.length > 0) {
+      block.children = childrenBlocks;
+    }
+
+    return block;
+  }
+
+  createQuoteBlock(node) {
+    // 引用可以包含複雜內容，但 Notion Quote 主要由 rich_text 構成。
+    // 如果引用包含多個段落，通常第一個段落是 quote text，後續作為 children。
+    const richText = this.parseRichText(node); // 這會提取所有文本
+    if (!richText.length) {
+      return null;
+    }
+
+    return {
+      object: 'block',
+      type: 'quote',
+      quote: { rich_text: richText },
+    };
+  }
+
+  createCodeBlock(node) {
+    // PRE 通常包含 CODE
+    const codeNode = node.querySelector('code') || node;
+    const text = codeNode.textContent || '';
+
+    // 嘗試獲取語言
+    let language = 'plain text';
+    const className = codeNode.className || node.className || '';
+    const langMatch = className.match(/language-(\w+)|lang-(\w+)/);
+    if (langMatch) {
+      language = DomConverter.mapLanguage(langMatch[1] || langMatch[2]);
+    }
+
+    return {
+      object: 'block',
+      type: 'code',
+      code: {
+        rich_text: [{ type: 'text', text: { content: text.substring(0, MAX_TEXT_LENGTH) } }],
+        language,
+      },
+    };
+  }
+
+  createImageBlock(node) {
+    const src = ImageUtils.extractImageSrc(node);
+    if (!src) {
+      return null;
+    }
+
+    let finalUrl = src;
+    try {
+      finalUrl = new URL(src, document.baseURI).href;
+      finalUrl = ImageUtils.cleanImageUrl(finalUrl);
+    } catch (_error) {
+      // ignore invalid url
+    }
+
+    const alt = node.getAttribute('alt') || '';
+
+    return {
+      object: 'block',
+      type: 'image',
+      image: {
+        type: 'external',
+        external: { url: finalUrl },
+        caption: alt ? [{ type: 'text', text: { content: alt } }] : [],
+      },
+    };
+  }
+
+  processFigure(node) {
+    // 處理 Figure，通常包含 Img 和 Figcaption
+    const img = node.querySelector('img');
+    if (img) {
+      const block = this.createImageBlock(img);
+      const caption = node.querySelector('figcaption');
+      if (block && caption) {
+        const captionText = caption.textContent.trim();
+        if (captionText) {
+          block.image.caption = [{ type: 'text', text: { content: captionText } }];
+        }
+      }
+      return block;
+    }
+    return null;
+  }
+
+  // --- Rich Text Parsing ---
+
+  parseRichText(node) {
+    const richTexts = [];
+    node.childNodes.forEach(child => {
+      const rt = this.processInlineNode(child);
+      if (rt) {
+        if (Array.isArray(rt)) {
+          richTexts.push(...rt);
+        } else {
+          richTexts.push(rt);
+        }
+      }
+    });
+    return DomConverter.mergeRichText(richTexts);
+  }
+
+  processInlineNode(node, annotations = {}) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      if (!text) {
+        return null;
+      }
+      // 注意：不要在這裡 trim()，否則會丟失詞與詞之間的空格
+      // 只有在 block 開頭結尾才 trim，或者完全信任 DOM 的空白
+      return {
+        type: 'text',
+        text: { content: text },
+        annotations: { ...annotations },
+      };
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
+    }
+
+    // 合併樣式
+    const newAnnotations = { ...annotations };
+    const tagName = node.tagName;
+
+    if (['B', 'STRONG'].includes(tagName)) {
+      newAnnotations.bold = true;
+    } else if (['I', 'EM'].includes(tagName)) {
+      newAnnotations.italic = true;
+    } else if (['U', 'INS'].includes(tagName)) {
+      newAnnotations.underline = true;
+    } else if (['S', 'DEL', 'STRIKE'].includes(tagName)) {
+      newAnnotations.strikethrough = true;
+    } else if (['CODE', 'KBD', 'SAMP', 'TT'].includes(tagName)) {
+      newAnnotations.code = true;
+    }
+
+    // 連結處理
+    let link = null;
+    if (tagName === 'A') {
+      const href = node.getAttribute('href');
+      // 使用正則避免 "Script URL is a form of eval" 警告
+      if (href && !/^javascript:/i.test(href)) {
+        try {
+          link = { url: new URL(href, document.baseURI).href };
+        } catch (_error) {
+          /* ignore */
+        }
+      }
+    }
+
+    // 遞歸處理子節點
+    const childrenRichTexts = [];
+    node.childNodes.forEach(child => {
+      const rt = this.processInlineNode(child, newAnnotations);
+      if (rt) {
+        if (link && rt.text) {
+          rt.text.link = link; // Apply link to text object
+        }
+
+        if (Array.isArray(rt)) {
+          childrenRichTexts.push(...rt);
+        } else {
+          childrenRichTexts.push(rt);
+        }
+      }
+    });
+
+    return childrenRichTexts;
+  }
+
+  static isInlineNode(node) {
+    const inlineTags = ['#text', 'A', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'CODE', 'SPAN', 'BR'];
+    return inlineTags.includes(node.nodeName);
+  }
+
+  static mergeRichText(richTextArray) {
+    if (!richTextArray.length) {
+      return [];
+    }
+
+    const merged = [];
+    let current = richTextArray[0];
+
+    for (let i = 1; i < richTextArray.length; i++) {
+      const next = richTextArray[i];
+      // 如果樣式和連結完全相同，則合併文本
+      if (
+        DomConverter.areAnnotationsEqual(current.annotations, next.annotations) &&
+        DomConverter.areLinksEqual(current.text?.link, next.text?.link)
+      ) {
+        current.text.content += next.text.content;
+      } else {
+        merged.push(current);
+        current = next;
+      }
+    }
+    merged.push(current);
+    return merged;
+  }
+
+  static areAnnotationsEqual(a1 = {}, a2 = {}) {
+    const keys = ['bold', 'italic', 'strikethrough', 'underline', 'code', 'color'];
+    return keys.every(k => Boolean(a1[k]) === Boolean(a2[k]));
+  }
+
+  static areLinksEqual(l1, l2) {
+    return l1?.url === l2?.url;
+  }
+
+  // --- Utils ---
+
+  static mapLanguage(lang) {
+    if (!lang) {
+      return 'plain text';
+    }
+    const map = {
+      js: 'javascript',
+      ts: 'typescript',
+      py: 'python',
+      md: 'markdown',
+      html: 'html',
+      css: 'css',
+      json: 'json',
+      sh: 'bash',
+      bash: 'bash',
+      c: 'c',
+      cpp: 'c++',
+      java: 'java',
+      go: 'go',
+      rust: 'rust',
+    };
+    return map[lang.toLowerCase()] || lang;
   }
 }
 
 // 導出單例
 const domConverter = new DomConverter();
 
-export { DomConverter, domConverter, strategies };
+export { DomConverter, domConverter };
