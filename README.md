@@ -174,6 +174,10 @@ notion-chrome/
 ├── options/               # 設置頁面（options.html, options.js, options.css）
 ├── scripts/               # 核心腳本與子模組
 │   ├── background.js
+│   ├── background/        # 🆕 模塊化背景服務
+│   │   ├── services/      #     服務層 (Notion, Storage, Injection, Tab, PageContent)
+│   │   ├── handlers/      #     消息處理 (MessageHandler)
+│   │   └── utils/         #     背景工具 (BlockBuilder)
 │   ├── content/           # 🆕 ES6 模塊化內容提取系統
 │   │   ├── index.js       #     入口文件
 │   │   ├── extractors/    #     提取層（ContentExtractor, ReadabilityAdapter, MetadataExtractor, ImageCollector）
