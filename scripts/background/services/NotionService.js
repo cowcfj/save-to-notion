@@ -470,6 +470,116 @@ class NotionService {
       return { success: false, deletedCount: 0, error: error.message };
     }
   }
+
+  /**
+   * 構建頁面數據結構
+   * 簡化 saveToNotion 中的頁面數據構建邏輯
+   * @param {Object} options - 頁面配置選項
+   * @param {string} options.title - 頁面標題
+   * @param {string} options.pageUrl - 原始頁面 URL
+   * @param {string} options.dataSourceId - 數據源 ID (database 或 page)
+   * @param {string} options.dataSourceType - 類型 ('data_source' 或 'page')
+   * @param {Array} options.blocks - 內容區塊 (最多取前 100 個)
+   * @param {string} [options.siteIcon] - 網站 Icon URL
+   * @param {boolean} [options.excludeImages] - 是否排除圖片
+   * @returns {{pageData: Object, validBlocks: Array, skippedCount: number}}
+   */
+  buildPageData(options) {
+    const {
+      title,
+      pageUrl,
+      dataSourceId,
+      dataSourceType = 'data_source',
+      blocks = [],
+      siteIcon = null,
+      excludeImages = false,
+    } = options;
+
+    // 過濾圖片區塊
+    const { validBlocks, skippedCount } = this.filterValidImageBlocks(blocks, excludeImages);
+
+    // 構建 parent 配置
+    const parentConfig =
+      dataSourceType === 'page'
+        ? { type: 'page_id', page_id: dataSourceId }
+        : { type: 'data_source_id', data_source_id: dataSourceId };
+
+    // 構建頁面數據
+    const pageData = {
+      parent: parentConfig,
+      properties: {
+        Title: {
+          title: [{ text: { content: title || 'Untitled' } }],
+        },
+        URL: {
+          url: pageUrl || '',
+        },
+      },
+      children: validBlocks.slice(0, this.config.BLOCKS_PER_BATCH),
+    };
+
+    // 添加網站 Icon（如果有）
+    if (siteIcon) {
+      pageData.icon = {
+        type: 'external',
+        external: { url: siteIcon },
+      };
+    }
+
+    return { pageData, validBlocks, skippedCount };
+  }
+
+  /**
+   * 刷新頁面內容（刪除舊區塊並添加新區塊）
+   * 簡化 updateNotionPage 的內容更新邏輯
+   * @param {string} pageId - Notion 頁面 ID
+   * @param {Array} newBlocks - 新的內容區塊
+   * @param {Object} [options] - 選項
+   * @param {boolean} [options.excludeImages] - 是否排除圖片
+   * @param {boolean} [options.updateTitle] - 是否同時更新標題
+   * @param {string} [options.title] - 新標題（當 updateTitle 為 true 時）
+   * @returns {Promise<{success: boolean, addedCount?: number, deletedCount?: number, error?: string}>}
+   */
+  async refreshPageContent(pageId, newBlocks, options = {}) {
+    const { excludeImages = false, updateTitle = false, title = '' } = options;
+
+    try {
+      // 過濾有效區塊
+      const { validBlocks, skippedCount } = this.filterValidImageBlocks(newBlocks, excludeImages);
+
+      // 步驟 1: 更新標題（如果需要）
+      if (updateTitle && title) {
+        const titleResult = await this.updatePageTitle(pageId, title);
+        if (!titleResult.success) {
+          this.logger.warn?.('⚠️ 標題更新失敗:', titleResult.error);
+        }
+      }
+
+      // 步驟 2: 刪除現有區塊
+      const deleteResult = await this.deleteAllBlocks(pageId);
+      if (!deleteResult.success) {
+        return {
+          success: false,
+          error: `刪除區塊失敗: ${deleteResult.error}`,
+          deletedCount: deleteResult.deletedCount,
+        };
+      }
+
+      // 步驟 3: 添加新區塊
+      const appendResult = await this.appendBlocksInBatches(pageId, validBlocks, 0);
+
+      return {
+        success: appendResult.success,
+        addedCount: appendResult.addedCount,
+        deletedCount: deleteResult.deletedCount,
+        skippedImageCount: skippedCount,
+        error: appendResult.error,
+      };
+    } catch (error) {
+      this.logger.error?.('❌ 刷新頁面內容失敗:', error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 // 導出

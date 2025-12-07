@@ -320,4 +320,282 @@ describe('NotionService', () => {
       expect(global.fetch).toHaveBeenCalledTimes(4);
     });
   });
+
+  describe('filterValidImageBlocks', () => {
+    it('should return empty array for null or undefined input', () => {
+      const result1 = service.filterValidImageBlocks(null);
+      const result2 = service.filterValidImageBlocks();
+
+      expect(result1.validBlocks).toEqual([]);
+      expect(result1.skippedCount).toBe(0);
+      expect(result2.validBlocks).toEqual([]);
+    });
+
+    it('should return empty array for non-array input', () => {
+      const result = service.filterValidImageBlocks('not an array');
+      expect(result.validBlocks).toEqual([]);
+    });
+
+    it('should pass through non-image blocks', () => {
+      const blocks = [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+        { type: 'heading_1', heading_1: { rich_text: [] } },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual(blocks);
+      expect(result.skippedCount).toBe(0);
+    });
+
+    it('should exclude all images when excludeImages is true', () => {
+      const blocks = [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+        { type: 'image', image: { external: { url: 'https://example.com/img.jpg' } } },
+        { type: 'heading_1', heading_1: { rich_text: [] } },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks, true);
+      expect(result.validBlocks.length).toBe(2);
+      expect(result.skippedCount).toBe(1);
+      expect(result.validBlocks.every(block => block.type !== 'image')).toBe(true);
+    });
+
+    it('should filter out images without URL', () => {
+      const blocks = [
+        { type: 'image', image: { external: {} } },
+        { type: 'image', image: {} },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(2);
+    });
+
+    it('should filter out images with too long URLs', () => {
+      const longUrl = `https://example.com/${'a'.repeat(1600)}`;
+      const blocks = [{ type: 'image', image: { external: { url: longUrl } } }];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(1);
+    });
+
+    it('should filter out images with problematic characters', () => {
+      const blocks = [
+        { type: 'image', image: { external: { url: 'https://example.com/img<script>.jpg' } } },
+        { type: 'image', image: { external: { url: 'https://example.com/img{}.jpg' } } },
+        { type: 'image', image: { external: { url: 'https://example.com/img|test.jpg' } } },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(3);
+    });
+
+    it('should filter out images with invalid protocol', () => {
+      const blocks = [
+        { type: 'image', image: { external: { url: 'ftp://example.com/img.jpg' } } },
+        { type: 'image', image: { external: { url: 'data:image/png;base64,abc' } } },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(2);
+    });
+
+    it('should filter out images with invalid hostname', () => {
+      const blocks = [{ type: 'image', image: { external: { url: 'https://ab/img.jpg' } } }];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(1);
+    });
+
+    it('should filter out images with invalid URL format', () => {
+      const blocks = [{ type: 'image', image: { external: { url: 'not-a-valid-url' } } }];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([]);
+      expect(result.skippedCount).toBe(1);
+    });
+
+    it('should keep valid image blocks', () => {
+      const validImage = {
+        type: 'image',
+        image: { external: { url: 'https://example.com/image.jpg' } },
+      };
+      const blocks = [validImage];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks).toEqual([validImage]);
+      expect(result.skippedCount).toBe(0);
+    });
+
+    it('should handle mixed blocks correctly', () => {
+      const validImage = {
+        type: 'image',
+        image: { external: { url: 'https://example.com/valid.jpg' } },
+      };
+      const invalidImage = {
+        type: 'image',
+        image: { external: { url: 'ftp://invalid.com/img.jpg' } },
+      };
+      const paragraph = { type: 'paragraph', paragraph: { rich_text: [] } };
+
+      const blocks = [paragraph, validImage, invalidImage];
+
+      const result = service.filterValidImageBlocks(blocks);
+      expect(result.validBlocks.length).toBe(2);
+      expect(result.validBlocks).toContain(paragraph);
+      expect(result.validBlocks).toContain(validImage);
+      expect(result.skippedCount).toBe(1);
+    });
+  });
+
+  describe('buildPageData', () => {
+    it('should build page data for data_source type', () => {
+      const result = service.buildPageData({
+        title: 'Test Page',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        dataSourceType: 'data_source',
+        blocks: [{ type: 'paragraph', paragraph: { rich_text: [] } }],
+      });
+
+      expect(result.pageData.parent.type).toBe('data_source_id');
+      expect(result.pageData.parent.data_source_id).toBe('db-123');
+      expect(result.pageData.properties.Title.title[0].text.content).toBe('Test Page');
+      expect(result.pageData.properties.URL.url).toBe('https://example.com');
+    });
+
+    it('should build page data for page type', () => {
+      const result = service.buildPageData({
+        title: 'Child Page',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'page-456',
+        dataSourceType: 'page',
+        blocks: [],
+      });
+
+      expect(result.pageData.parent.type).toBe('page_id');
+      expect(result.pageData.parent.page_id).toBe('page-456');
+    });
+
+    it('should add site icon when provided', () => {
+      const result = service.buildPageData({
+        title: 'With Icon',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        blocks: [],
+        siteIcon: 'https://example.com/icon.png',
+      });
+
+      expect(result.pageData.icon).toEqual({
+        type: 'external',
+        external: { url: 'https://example.com/icon.png' },
+      });
+    });
+
+    it('should filter image blocks and return skipped count', () => {
+      const blocks = [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+        { type: 'image', image: { external: { url: 'ftp://invalid.com/img.jpg' } } },
+      ];
+
+      const result = service.buildPageData({
+        title: 'Test',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        blocks,
+      });
+
+      expect(result.skippedCount).toBe(1);
+      expect(result.validBlocks.length).toBe(1);
+    });
+
+    it('should limit children to BATCH_SIZE', () => {
+      const blocks = Array(150)
+        .fill(null)
+        .map(() => ({ type: 'paragraph', paragraph: { rich_text: [] } }));
+
+      const result = service.buildPageData({
+        title: 'Long Article',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        blocks,
+      });
+
+      expect(result.pageData.children.length).toBe(100);
+      expect(result.validBlocks.length).toBe(150);
+    });
+
+    it('should use default values for missing options', () => {
+      const result = service.buildPageData({
+        dataSourceId: 'db-123',
+      });
+
+      expect(result.pageData.properties.Title.title[0].text.content).toBe('Untitled');
+      expect(result.pageData.properties.URL.url).toBe('');
+    });
+  });
+
+  describe('refreshPageContent', () => {
+    let originalFetch = null;
+
+    beforeEach(() => {
+      originalFetch = global.fetch;
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it('should return error when delete fails', async () => {
+      // Mock deleteAllBlocks 失敗
+      service.deleteAllBlocks = jest.fn().mockResolvedValue({
+        success: false,
+        deletedCount: 0,
+        error: 'Delete failed',
+      });
+
+      const result = await service.refreshPageContent('page-123', []);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('刪除區塊失敗');
+    });
+
+    it('should update title when option is set', async () => {
+      service.updatePageTitle = jest.fn().mockResolvedValue({ success: true });
+      service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true, deletedCount: 5 });
+      service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true, addedCount: 2 });
+
+      await service.refreshPageContent('page-123', [], {
+        updateTitle: true,
+        title: 'New Title',
+      });
+
+      expect(service.updatePageTitle).toHaveBeenCalledWith('page-123', 'New Title');
+    });
+
+    it('should return success with counts on completion', async () => {
+      service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true, deletedCount: 5 });
+      service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true, addedCount: 3 });
+
+      const result = await service.refreshPageContent('page-123', [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+      ]);
+
+      expect(result.success).toBe(true);
+      expect(result.deletedCount).toBe(5);
+    });
+
+    it('should handle exceptions gracefully', async () => {
+      service.deleteAllBlocks = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      const result = await service.refreshPageContent('page-123', []);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Network error');
+    });
+  });
 });

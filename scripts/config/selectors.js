@@ -198,6 +198,38 @@ export const FAVICON_SELECTORS = [
   'link[rel="apple-touch-icon"]',
 ];
 
+/**
+ * Site Icon 選擇器配置（來自 MetadataExtractor.js extractSiteIcon）
+ * 帶優先級和類型信息，用於智能選擇最佳 icon
+ */
+export const SITE_ICON_SELECTORS = [
+  { selector: 'link[rel="apple-touch-icon"]', attr: 'href', priority: 1, iconType: 'apple-touch' },
+  {
+    selector: 'link[rel="apple-touch-icon-precomposed"]',
+    attr: 'href',
+    priority: 2,
+    iconType: 'apple-touch',
+  },
+  { selector: 'link[rel="icon"]', attr: 'href', priority: 3, iconType: 'standard' },
+  { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4, iconType: 'standard' },
+];
+
+/**
+ * 作者頭像/Logo 關鍵字（用於過濾，來自 MetadataExtractor.js）
+ */
+export const AVATAR_KEYWORDS = [
+  'avatar',
+  'profile',
+  'author',
+  'user-image',
+  'user-avatar',
+  'byline',
+  'author-image',
+  'author-photo',
+  'profile-pic',
+  'user-photo',
+];
+
 // ==========================================
 // 技術文檔選擇器
 // ==========================================

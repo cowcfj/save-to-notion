@@ -66,6 +66,57 @@ function isDocumentationSite(urlOrLocation = window.location) {
 }
 
 /**
+ * 檢測是否為技術文檔頁面
+ * 結合 URL 模式和標題模式進行綜合判斷
+ * @param {Object} options - 檢測選項
+ * @param {string} options.url - 頁面 URL (可選，默認使用 window.location.href)
+ * @param {string} options.title - 頁面標題 (可選，默認使用 document.title)
+ * @returns {{isTechnical: boolean, matchedUrl: boolean, matchedTitle: boolean}}
+ */
+export function isTechnicalDoc(options = {}) {
+  const url = (
+    options.url || (typeof window !== 'undefined' ? window.location.href : '')
+  ).toLowerCase();
+  const title = (
+    options.title || (typeof document !== 'undefined' ? document.title : '')
+  ).toLowerCase();
+
+  // URL 模式檢測
+  const urlPatterns = [
+    /\/docs?\//,
+    /\/api\//,
+    /\/documentation\//,
+    /\/guide\//,
+    /\/manual\//,
+    /\/reference\//,
+    /\/cli\//,
+    /\/commands?\//,
+    /github\.io.*docs/,
+    /\.github\.io/,
+  ];
+
+  // 標題模式檢測
+  const titlePatterns = [
+    /documentation/,
+    /commands?/,
+    /reference/,
+    /guide/,
+    /manual/,
+    /cli/,
+    /api/,
+  ];
+
+  const matchedUrl = urlPatterns.some(pattern => pattern.test(url));
+  const matchedTitle = titlePatterns.some(pattern => pattern.test(title));
+
+  return {
+    isTechnical: matchedUrl || matchedTitle,
+    matchedUrl,
+    matchedTitle,
+  };
+}
+
+/**
  * 統計DOM元素數量
  */
 function countElements(container, selector) {
@@ -454,4 +505,5 @@ export default {
   selectExtractor,
   getAnalysisReport,
   logAnalysis,
+  isTechnicalDoc,
 };
