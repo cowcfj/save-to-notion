@@ -152,7 +152,9 @@ class NotionService {
       }
 
       // 檢查 URL 長度（使用統一配置的閾值，略低於最大限制以留安全餘量）
-      const maxUrlLength = IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH - 500; // 1500
+      const maxUrlLength =
+        IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH -
+        IMAGE_VALIDATION_CONSTANTS.URL_LENGTH_SAFETY_MARGIN;
       if (imageUrl.length > maxUrlLength) {
         this.logger.warn?.(
           `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`

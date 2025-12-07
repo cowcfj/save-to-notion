@@ -14,6 +14,7 @@
  */
 export const IMAGE_VALIDATION_CONSTANTS = {
   MAX_URL_LENGTH: 2000, // Notion API 限制通常為 2000 字符，這也是瀏覽器的安全限制
+  URL_LENGTH_SAFETY_MARGIN: 500, // 安全邊際，用於 Notion API 請求時預留空間，避免臨界值問題
   MAX_QUERY_PARAMS: 10, // 查詢參數數量閾值（超過可能為動態 URL）
   SRCSET_WIDTH_MULTIPLIER: 1000, // srcset w 描述符權重（優先於 x）
   MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）
