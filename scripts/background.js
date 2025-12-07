@@ -28,7 +28,7 @@ const pageContentService = new PageContentService({
 
 // Phase 10c-5: Feature Flag 控制新舊內容提取邏輯
 // 設為 true 使用 PageContentService + dist/content.bundle.js
-const USE_PAGE_CONTENT_SERVICE = false;
+const USE_PAGE_CONTENT_SERVICE = true;
 
 import { MessageHandler } from './background/handlers/MessageHandler.js';
 import { TabService } from './background/services/TabService.js';

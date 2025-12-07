@@ -540,26 +540,19 @@ function parseArticleWithReadability() {
 
   Logger.log('🚀 Starting Readability content parsing...');
 
-  // 2. 性能優化：創建優化的文檔副本
-  const optimizedDocument = createOptimizedDocumentClone();
-  if (!optimizedDocument) {
-    throw new Error('Failed to create optimized document clone');
-  }
+  // 2. 克隆文檔（與舊邏輯一致，不做預處理）
+  // 注意：之前使用 createOptimizedDocumentClone() 進行 DOM 預處理，
+  // 但這會過度移除元素導致 Readability 無法識別正文。
+  // 舊邏輯 (background.js:2352) 直接使用 document.cloneNode(true)，
+  // 讓 Readability 自己決定如何處理文檔結構。
+  const clonedDocument = document.cloneNode(true);
 
   // 3. 執行 Readability 解析
-  let readabilityInstance = null;
   let parsedArticle = null;
 
   try {
-    // 診斷：檢查 Readability 是否可用
-    Logger.log('📖 檢查 Readability 可用性...');
-    if (typeof Readability === 'undefined') {
-      throw new Error('Readability 未定義 - 可能是腳本注入順序問題');
-    }
-    Logger.log('✅ Readability 已載入，類型:', typeof Readability);
-
     Logger.log('📖 Initializing Readability parser...');
-    readabilityInstance = new Readability(optimizedDocument);
+    const readabilityInstance = new Readability(clonedDocument);
 
     Logger.log('🔍 Parsing document content...');
     parsedArticle = readabilityInstance.parse();
