@@ -405,7 +405,7 @@ async function saveToNotion(
       console.error('Notion API Error:', result.error);
 
       // 檢查是否為圖片驗證錯誤，自動重試排除圖片
-      if (result.error && result.error.includes('image') && !excludeImages) {
+      if (result.error?.includes('image') && !excludeImages) {
         Logger.log('🔄 Auto-retry: Saving without ANY images...');
         setTimeout(() => {
           saveToNotion(
