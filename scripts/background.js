@@ -323,110 +323,54 @@ async function saveToNotion(
   excludeImages = false,
   dataSourceType = 'data_source'
 ) {
-  // 開始性能監控 (service worker 環境，使用原生 Performance API)
+  // 開始性能監控
   const startTime = performance.now();
   Logger.log('⏱️ 開始保存到 Notion...');
 
-  const notionApiUrl = `${NOTION_API.BASE_URL}/pages`;
+  // 設置 API Key
+  notionService.setApiKey(apiKey);
 
-  // 使用 NotionService 的圖片過濾方法
-  const { validBlocks, skippedCount } = notionService.filterValidImageBlocks(blocks, excludeImages);
+  // 使用 NotionService 構建頁面數據
+  const { pageData, validBlocks, skippedCount } = notionService.buildPageData({
+    title,
+    pageUrl,
+    dataSourceId,
+    dataSourceType,
+    blocks,
+    siteIcon,
+    excludeImages,
+  });
 
   Logger.log(
     `📊 Total blocks to save: ${validBlocks.length}, Image blocks: ${validBlocks.filter(block => block.type === 'image').length}`
   );
 
-  // 根據類型設置 parent（支援 page 和 data_source）
-  const parentConfig =
-    dataSourceType === 'page'
-      ? { type: 'page_id', page_id: dataSourceId }
-      : { type: 'data_source_id', data_source_id: dataSourceId };
-
-  Logger.log(
-    dataSourceType === 'page'
-      ? `📄 保存為頁面的子頁面: ${dataSourceId}`
-      : `📊 保存為數據庫條目: ${dataSourceId}`
-  );
-
-  const pageData = {
-    parent: parentConfig,
-    properties: {
-      Title: {
-        title: [{ text: { content: title } }],
-      },
-      URL: {
-        url: pageUrl,
-      },
-    },
-    children: validBlocks.slice(0, 100),
-  };
-
-  // v2.6.0: 添加網站 Icon（如果有）
-  if (siteIcon) {
-    pageData.icon = {
-      type: 'external',
-      external: {
-        url: siteIcon,
-      },
-    };
-    Logger.log('✓ Setting page icon:', siteIcon);
-  }
-
   try {
-    Logger.log(`🚀 Sending ${validBlocks.slice(0, 100).length} blocks to Notion API...`);
+    // 使用 NotionService 創建頁面（支持自動批次）
+    const result = await notionService.createPage(pageData, {
+      autoBatch: true,
+      allBlocks: validBlocks,
+    });
 
-    // 記錄所有圖片區塊的 URL（用於調試）
-    const imageBlocksInPayload = validBlocks.slice(0, 100).filter(block => block.type === 'image');
-    if (imageBlocksInPayload.length > 0) {
-      Logger.log(`📸 Image blocks in payload: ${imageBlocksInPayload.length}`);
-      imageBlocksInPayload.forEach((img, idx) => {
-        const url = img.image?.external?.url;
-        Logger.log(`  ${idx + 1}. ${url?.substring(0, 100)}... (length: ${url?.length})`);
-      });
-    }
+    if (result.success) {
+      const notionPageId = result.pageId;
 
-    const response = await fetchNotionWithRetry(
-      notionApiUrl,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Notion-Version': NOTION_API.VERSION,
-        },
-        body: JSON.stringify(pageData),
-      },
-      { maxRetries: 2, baseDelay: 600 }
-    );
-
-    if (response.ok) {
-      const responseData = await response.json();
-      Logger.log('📄 Notion API 創建頁面響應:', responseData);
-      Logger.log('🔗 響應中的 URL:', responseData.url);
-      const notionPageId = responseData.id;
-
-      // 如果區塊數量超過 100，分批添加剩餘區塊
-      if (validBlocks.length > 100) {
-        Logger.log(`📚 檢測到超長文章: ${validBlocks.length} 個區塊，需要分批添加`);
-        const appendResult = await appendBlocksInBatches(notionPageId, validBlocks, apiKey, 100);
-
-        if (!appendResult.success) {
-          console.warn(
-            `⚠️ 部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`,
-            appendResult.error
-          );
-          // 即使部分失敗，頁面已創建，仍然保存記錄
-        }
+      // 處理批次添加結果
+      if (result.appendResult && !result.appendResult.success) {
+        console.warn(
+          `⚠️ 部分區塊添加失敗: ${result.appendResult.addedCount}/${result.appendResult.totalCount}`,
+          result.appendResult.error
+        );
       }
 
-      // 構建 Notion 頁面 URL（如果 API 響應中沒有提供）
-      let notionUrl = responseData.url;
+      // 構建 Notion 頁面 URL
+      let notionUrl = result.url;
       if (!notionUrl && notionPageId) {
-        // 手動構建 Notion URL
         notionUrl = `https://www.notion.so/${notionPageId.replace(/-/g, '')}`;
         Logger.log('🔗 手動構建 Notion URL:', notionUrl);
       }
 
+      // 保存本地狀態
       setSavedPageData(pageUrl, {
         title,
         savedAt: Date.now(),
@@ -434,11 +378,9 @@ async function saveToNotion(
         notionUrl,
       })
         .then(() => {
-          // 結束性能監控 (service worker 環境)
           const duration = performance.now() - startTime;
           Logger.log(`⏱️ 保存到 Notion 完成: ${duration.toFixed(2)}ms`);
 
-          // 如果有過濾掉的圖片，在成功訊息中提醒用戶
           if (skippedCount > 0 || excludeImages) {
             const totalSkipped = excludeImages ? 'All images' : `${skippedCount} image(s)`;
             sendResponse({
@@ -452,7 +394,6 @@ async function saveToNotion(
         })
         .catch(err => {
           console.error('Failed to save page data:', err);
-          // 即使保存本地狀態失敗，Notion 頁面已創建，視為成功但帶有警告
           sendResponse({
             success: true,
             notionPageId,
@@ -460,45 +401,12 @@ async function saveToNotion(
           });
         });
     } else {
-      const errorData = await response.json();
-      console.error('Notion API Error:', errorData);
-      console.error('Complete error details:', JSON.stringify(errorData, null, 2));
+      // 處理創建失敗
+      console.error('Notion API Error:', result.error);
 
-      // 記錄發送到 Notion 的資料，以便調試
-      console.error(
-        'Blocks sent to Notion (first 5):',
-        validBlocks.slice(0, 5).map(block => {
-          if (block.type === 'image') {
-            return {
-              type: block.type,
-              imageUrl: block.image?.external?.url,
-              urlLength: block.image?.external?.url?.length,
-            };
-          }
-          return { type: block.type };
-        })
-      );
-
-      // 檢查是否仍有圖片驗證錯誤
-      if (
-        errorData.code === 'validation_error' &&
-        errorData.message &&
-        errorData.message.includes('image')
-      ) {
-        // 嘗試找出哪個圖片導致問題
-        const imageBlocks = validBlocks.filter(block => block.type === 'image');
-        console.error(
-          `❌ Still have image validation errors. Total image blocks: ${imageBlocks.length}`
-        );
-        console.error(
-          'All image URLs:',
-          imageBlocks.map(block => block.image?.external?.url)
-        );
-
-        // 自動重試：排除所有圖片
+      // 檢查是否為圖片驗證錯誤，自動重試排除圖片
+      if (result.error && result.error.includes('image') && !excludeImages) {
         Logger.log('🔄 Auto-retry: Saving without ANY images...');
-
-        // 使用 setTimeout 避免立即重試
         setTimeout(() => {
           saveToNotion(
             title,
@@ -508,16 +416,14 @@ async function saveToNotion(
             dataSourceId,
             sendResponse,
             siteIcon,
-            true,
+            true, // excludeImages = true
             dataSourceType
           );
         }, 500);
         return;
       }
 
-      // 提供更友好的錯誤信息
-      const errorMessage = errorData.message || 'Failed to save to Notion.';
-      sendResponse({ success: false, error: errorMessage });
+      sendResponse({ success: false, error: result.error || 'Failed to save to Notion.' });
     }
   } catch (error) {
     console.error('Fetch Error:', error);
@@ -530,106 +436,39 @@ async function saveToNotion(
  */
 async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResponse) {
   try {
-    // 使用 NotionService 的圖片過濾方法
-    const { validBlocks, skippedCount } = notionService.filterValidImageBlocks(blocks);
+    // 設置 API Key
+    notionService.setApiKey(apiKey);
 
-    const getResponse = await fetch(`${NOTION_API.BASE_URL}/blocks/${pageId}/children`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Notion-Version': NOTION_API.VERSION,
-      },
+    // 使用 NotionService 刷新頁面內容
+    const result = await notionService.refreshPageContent(pageId, blocks, {
+      updateTitle: true,
+      title,
     });
 
-    if (getResponse.ok) {
-      const existingContent = await getResponse.json();
-      for (const block of existingContent.results) {
-        await fetch(`${NOTION_API.BASE_URL}/blocks/${block.id}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Notion-Version': NOTION_API.VERSION,
-          },
-        });
-      }
-    }
-
-    const updateResponse = await fetchNotionWithRetry(
-      `${NOTION_API.BASE_URL}/blocks/${pageId}/children`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Notion-Version': NOTION_API.VERSION,
-        },
-        body: JSON.stringify({
-          children: validBlocks.slice(0, 100),
-        }),
-      },
-      { maxRetries: 0, baseDelay: 0 }
-    );
-
-    if (updateResponse.ok) {
-      // 如果區塊數量超過 100，分批添加剩餘區塊
-      if (validBlocks.length > 100) {
-        Logger.log(`📚 檢測到超長文章: ${validBlocks.length} 個區塊，需要分批添加`);
-        const appendResult = await appendBlocksInBatches(pageId, validBlocks, apiKey, 100);
-
-        if (!appendResult.success) {
-          console.warn(
-            `⚠️ 部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`,
-            appendResult.error
-          );
-          // 即使部分失敗，頁面已更新，仍然繼續
-        }
-      }
-
-      const titleUpdatePromise = fetchNotionWithRetry(
-        `${NOTION_API.BASE_URL}/pages/${pageId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'Notion-Version': NOTION_API.VERSION,
-          },
-          body: JSON.stringify({
-            properties: {
-              Title: {
-                title: [{ text: { content: title } }],
-              },
-            },
-          }),
-        },
-        { maxRetries: 2, baseDelay: 600 }
-      );
-
-      const storageUpdatePromise = setSavedPageData(pageUrl, {
+    if (result.success) {
+      // 保存本地狀態
+      await setSavedPageData(pageUrl, {
         title,
         savedAt: Date.now(),
         notionPageId: pageId,
         lastUpdated: Date.now(),
       });
 
-      await Promise.all([titleUpdatePromise, storageUpdatePromise]);
-
-      // 如果有過濾掉的圖片，在回應中提醒用戶
-      if (skippedCount > 0) {
+      // 檢查是否有過濾掉的圖片
+      if (result.skippedImageCount > 0) {
         sendResponse({
           success: true,
-          warning: `${skippedCount} image(s) were skipped due to compatibility issues`,
+          warning: `${result.skippedImageCount} image(s) were skipped due to compatibility issues`,
         });
       } else {
         sendResponse({ success: true });
       }
     } else {
-      const errorData = await updateResponse.json();
-      console.error('Notion Update Error:', errorData);
+      console.error('Notion Update Error:', result.error);
 
       // 提供更友好的錯誤信息
-      let errorMessage = errorData.message || 'Failed to update Notion page.';
-      if (errorData.code === 'validation_error' && errorMessage.includes('image')) {
+      let errorMessage = result.error || 'Failed to update Notion page.';
+      if (errorMessage.includes('image')) {
         errorMessage =
           'Update Failed. Some images may have invalid URLs. Try updating again - problematic images will be filtered out.';
       }
@@ -649,107 +488,33 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
   try {
     Logger.log('🔄 開始更新標記 - 頁面ID:', pageId, '標記數量:', highlights.length);
 
-    const getResponse = await fetch(
-      `${NOTION_API.BASE_URL}/blocks/${pageId}/children?page_size=100`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Notion-Version': NOTION_API.VERSION,
-        },
-      }
-    );
+    // 設置 API Key
+    notionService.setApiKey(apiKey);
 
-    if (!getResponse.ok) {
-      const errorData = await getResponse.json();
-      console.error('❌ 獲取頁面內容失敗:', errorData);
-      throw new Error(
-        `Failed to get existing page content: ${errorData.message || getResponse.statusText}`
-      );
-    }
-
-    const existingContent = await getResponse.json();
-    const existingBlocks = existingContent.results;
-    Logger.log('📋 現有區塊數量:', existingBlocks.length);
-
-    const blocksToDelete = [];
-    let foundHighlightSection = false;
-
-    for (let i = 0; i < existingBlocks.length; i++) {
-      const block = existingBlocks[i];
-
-      if (
-        block.type === 'heading_3' &&
-        block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記'
-      ) {
-        foundHighlightSection = true;
-        blocksToDelete.push(block.id);
-        Logger.log(`🎯 找到標記區域標題 (索引 ${i}):`, block.id);
-      } else if (foundHighlightSection) {
-        if (block.type.startsWith('heading_')) {
-          Logger.log(`🛑 遇到下一個標題，停止收集標記區塊 (索引 ${i})`);
-          break;
-        }
-        if (block.type === 'paragraph') {
-          blocksToDelete.push(block.id);
-          Logger.log(`📝 標記為刪除的段落 (索引 ${i}):`, block.id);
-        }
-      }
-    }
-
-    Logger.log('🗑️ 需要刪除的區塊數量:', blocksToDelete.length);
-
-    let deletedCount = 0;
-    for (const blockId of blocksToDelete) {
-      try {
-        Logger.log(`🗑️ 正在刪除區塊: ${blockId}`);
-        const deleteResponse = await fetch(`${NOTION_API.BASE_URL}/blocks/${blockId}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Notion-Version': NOTION_API.VERSION,
-          },
-        });
-
-        if (deleteResponse.ok) {
-          deletedCount++;
-          Logger.log(`✅ 成功刪除區塊: ${blockId}`);
-        } else {
-          const errorData = await deleteResponse.json();
-          console.error(`❌ 刪除區塊失敗 ${blockId}:`, errorData);
-        }
-      } catch (deleteError) {
-        console.error(`❌ 刪除區塊異常 ${blockId}:`, deleteError);
-      }
-    }
-
-    Logger.log(`🗑️ 實際刪除了 ${deletedCount}/${blocksToDelete.length} 個區塊`);
+    // 構建標記區塊
+    const highlightBlocks = [];
 
     if (highlights.length > 0) {
-      Logger.log('➕ 準備添加新的標記區域...');
-
-      const highlightBlocks = [
-        {
-          object: 'block',
-          type: 'heading_3',
-          heading_3: {
-            rich_text: [
-              {
-                type: 'text',
-                text: { content: '📝 頁面標記' },
-              },
-            ],
-          },
+      // 添加標題
+      highlightBlocks.push({
+        object: 'block',
+        type: 'heading_3',
+        heading_3: {
+          rich_text: [{ type: 'text', text: { content: '📝 頁面標記' } }],
         },
-      ];
+      });
 
+      // 添加每個標記
       highlights.forEach((highlight, index) => {
         Logger.log(
           `📝 準備添加標記 ${index + 1}: "${highlight.text.substring(0, 30)}..." (顏色: ${highlight.color})`
         );
 
-        // 處理超長標記文本，需要分割成多個段落
-        const textChunks = splitTextForHighlight(highlight.text, 2000);
+        // 處理超長標記文本
+        const textChunks = splitTextForHighlight(
+          highlight.text,
+          TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH
+        );
 
         textChunks.forEach((chunk, chunkIndex) => {
           highlightBlocks.push({
@@ -760,15 +525,12 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
                 {
                   type: 'text',
                   text: { content: chunk },
-                  annotations: {
-                    color: highlight.color,
-                  },
+                  annotations: { color: highlight.color },
                 },
               ],
             },
           });
 
-          // 如果是分割的標記，在日誌中標註
           if (textChunks.length > 1) {
             Logger.log(
               `   └─ 分割片段 ${chunkIndex + 1}/${textChunks.length}: ${chunk.length} 字符`
@@ -776,61 +538,38 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
           }
         });
       });
-
-      Logger.log('➕ 準備添加的區塊數量:', highlightBlocks.length);
-
-      const addResponse = await fetchNotionWithRetry(
-        `${NOTION_API.BASE_URL}/blocks/${pageId}/children`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'Notion-Version': NOTION_API.VERSION,
-          },
-          body: JSON.stringify({
-            children: highlightBlocks,
-          }),
-        },
-        { maxRetries: 2, baseDelay: 600 }
-      );
-
-      Logger.log('📡 API 響應狀態:', addResponse.status, addResponse.statusText);
-
-      if (!addResponse.ok) {
-        const errorData = await addResponse.json();
-        console.error('❌ 添加標記失敗 - 錯誤詳情:', errorData);
-        throw new Error(`Failed to add new highlights: ${errorData.message || 'Unknown error'}`);
-      }
-
-      const addResult = await addResponse.json();
-      Logger.log('✅ 成功添加新標記 - 響應:', addResult);
-      Logger.log('✅ 添加的區塊數量:', addResult.results?.length || 0);
-    } else {
-      Logger.log('ℹ️ 沒有新標記需要添加');
     }
 
-    Logger.log('💾 更新本地保存記錄...');
-    setSavedPageData(pageUrl, {
-      savedAt: Date.now(),
-      notionPageId: pageId,
-      lastUpdated: Date.now(),
-    })
-      .then(() => {
-        Logger.log('🎉 標記更新完成！');
-        sendResponse({ success: true });
+    Logger.log('➕ 準備處理的區塊數量:', highlightBlocks.length);
+
+    // 使用 NotionService 更新標記區域
+    const result = await notionService.updateHighlightsSection(pageId, highlightBlocks);
+
+    if (result.success) {
+      Logger.log(`✅ 標記更新成功 - 刪除: ${result.deletedCount}, 添加: ${result.addedCount}`);
+
+      // 保存本地狀態
+      setSavedPageData(pageUrl, {
+        savedAt: Date.now(),
+        notionPageId: pageId,
+        lastUpdated: Date.now(),
       })
-      .catch(err => {
-        console.error('Failed to update local state:', err);
-        // 標記已添加到 Notion，視為成功
-        sendResponse({
-          success: true,
-          warning: `Highlights added, but local sync failed: ${err.message}`,
+        .then(() => {
+          Logger.log('🎉 標記更新完成！');
+          sendResponse({ success: true });
+        })
+        .catch(err => {
+          console.error('Failed to update local state:', err);
+          sendResponse({
+            success: true,
+            warning: `Highlights added, but local sync failed: ${err.message}`,
+          });
         });
-      });
+    } else {
+      throw new Error(result.error || 'Failed to update highlights');
+    }
   } catch (error) {
     console.error('💥 標記更新錯誤:', error);
-    console.error('💥 錯誤堆棧:', error.stack);
     sendResponse({ success: false, error: error.message });
   }
 }
