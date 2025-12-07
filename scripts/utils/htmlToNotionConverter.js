@@ -282,15 +282,32 @@ function convertMarkdownToNotionBlocks(markdown) {
       const unorderedListMatch = trimmed.match(/^[-*+]\s+(\S.*)$/);
       if (unorderedListMatch) {
         const content = unorderedListMatch[1];
+        const maxLength = 2000;
 
-        blocks.push({
-          object: 'block',
-          type: 'bulleted_list_item',
-          bulleted_list_item: {
-            rich_text: parseRichText(content),
-          },
-        });
-        stats.lists++;
+        // 處理超長文本：分割成多個區塊
+        if (content.length > maxLength) {
+          for (let pos = 0; pos < content.length; pos += maxLength) {
+            blocks.push({
+              object: 'block',
+              type: 'bulleted_list_item',
+              bulleted_list_item: {
+                rich_text: [
+                  { type: 'text', text: { content: content.substring(pos, pos + maxLength) } },
+                ],
+              },
+            });
+            stats.lists++;
+          }
+        } else {
+          blocks.push({
+            object: 'block',
+            type: 'bulleted_list_item',
+            bulleted_list_item: {
+              rich_text: parseRichText(content),
+            },
+          });
+          stats.lists++;
+        }
         i++;
         continue;
       }
@@ -299,15 +316,32 @@ function convertMarkdownToNotionBlocks(markdown) {
       const orderedListMatch = trimmed.match(/^(\d+)\.\s+(\S.*)$/);
       if (orderedListMatch) {
         const content = orderedListMatch[2];
+        const maxLength = 2000;
 
-        blocks.push({
-          object: 'block',
-          type: 'numbered_list_item',
-          numbered_list_item: {
-            rich_text: parseRichText(content),
-          },
-        });
-        stats.lists++;
+        // 處理超長文本：分割成多個區塊
+        if (content.length > maxLength) {
+          for (let pos = 0; pos < content.length; pos += maxLength) {
+            blocks.push({
+              object: 'block',
+              type: 'numbered_list_item',
+              numbered_list_item: {
+                rich_text: [
+                  { type: 'text', text: { content: content.substring(pos, pos + maxLength) } },
+                ],
+              },
+            });
+            stats.lists++;
+          }
+        } else {
+          blocks.push({
+            object: 'block',
+            type: 'numbered_list_item',
+            numbered_list_item: {
+              rich_text: parseRichText(content),
+            },
+          });
+          stats.lists++;
+        }
         i++;
         continue;
       }
@@ -316,14 +350,32 @@ function convertMarkdownToNotionBlocks(markdown) {
       if (trimmed.startsWith('>')) {
         const quoteText = trimmed.substring(1).trim();
         if (quoteText) {
-          blocks.push({
-            object: 'block',
-            type: 'quote',
-            quote: {
-              rich_text: parseRichText(quoteText),
-            },
-          });
-          stats.quotes++;
+          const maxLength = 2000;
+
+          // 處理超長文本：分割成多個區塊
+          if (quoteText.length > maxLength) {
+            for (let pos = 0; pos < quoteText.length; pos += maxLength) {
+              blocks.push({
+                object: 'block',
+                type: 'quote',
+                quote: {
+                  rich_text: [
+                    { type: 'text', text: { content: quoteText.substring(pos, pos + maxLength) } },
+                  ],
+                },
+              });
+              stats.quotes++;
+            }
+          } else {
+            blocks.push({
+              object: 'block',
+              type: 'quote',
+              quote: {
+                rich_text: parseRichText(quoteText),
+              },
+            });
+            stats.quotes++;
+          }
         }
         i++;
         continue;

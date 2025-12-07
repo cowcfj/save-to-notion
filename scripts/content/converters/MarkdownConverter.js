@@ -9,6 +9,69 @@
 
 /* global Logger, TurndownService, turndownPluginGfm */
 
+/**
+ * Notion API 文本長度限制
+ * @constant {number}
+ */
+const MAX_TEXT_LENGTH = 2000;
+
+/**
+ * 將長文本分割成符合 Notion 限制的片段
+ * @param {string} text - 要分割的文本
+ * @param {number} maxLength - 每個片段的最大長度
+ * @returns {string[]} 分割後的文本片段
+ */
+const splitTextIntoChunks = (text, maxLength = MAX_TEXT_LENGTH) => {
+  if (!text || text.length <= maxLength) {
+    return [text];
+  }
+
+  const chunks = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLength) {
+      chunks.push(remaining);
+      break;
+    }
+
+    // 嘗試在句號、問號、驚嘆號、換行符處分割
+    let splitIndex = -1;
+    const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
+
+    for (const punct of punctuation) {
+      const lastIndex = remaining.lastIndexOf(punct, maxLength);
+      if (lastIndex > maxLength * 0.5) {
+        splitIndex = lastIndex + punct.length;
+        break;
+      }
+    }
+
+    // 如果找不到合適的標點，嘗試在空格處分割
+    if (splitIndex === -1) {
+      splitIndex = remaining.lastIndexOf(' ', maxLength);
+      if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
+        // 實在找不到，強制在 maxLength 處分割
+        splitIndex = maxLength;
+      }
+    }
+
+    chunks.push(remaining.substring(0, splitIndex).trim());
+    remaining = remaining.substring(splitIndex).trim();
+  }
+
+  return chunks.filter(chunk => chunk.length > 0);
+};
+
+/**
+ * MarkdownConverter - Markdown 轉 Notion Block 轉換器
+ *
+ * 職責:
+ * - 將 Markdown 文本轉換為 Notion Block 格式
+ * - 將 HTML 轉換為 Markdown（使用 Turndown）
+ * - 處理 Markdown 語法（標題、列表、代碼塊、引用、圖片等）
+ * - 處理超長文本分割以符合 Notion API 限制
+ */
 class MarkdownConverter {
   constructor() {
     this.turndownService = null;
@@ -209,22 +272,48 @@ class MarkdownConverter {
       // 處理列表
       const unorderedListMatch = trimmed.match(/^[-*+]\s+(\S.*)$/);
       if (unorderedListMatch) {
-        blocks.push({
-          object: 'block',
-          type: 'bulleted_list_item',
-          bulleted_list_item: { rich_text: MarkdownConverter.parseRichText(unorderedListMatch[1]) },
-        });
+        const content = unorderedListMatch[1];
+        // 處理超長文本：分割成多個區塊
+        if (content.length > MAX_TEXT_LENGTH) {
+          const chunks = splitTextIntoChunks(content);
+          chunks.forEach(chunk => {
+            blocks.push({
+              object: 'block',
+              type: 'bulleted_list_item',
+              bulleted_list_item: { rich_text: MarkdownConverter.parseRichText(chunk) },
+            });
+          });
+        } else {
+          blocks.push({
+            object: 'block',
+            type: 'bulleted_list_item',
+            bulleted_list_item: { rich_text: MarkdownConverter.parseRichText(content) },
+          });
+        }
         i++;
         continue;
       }
 
       const orderedListMatch = trimmed.match(/^(\d+)\.\s+(\S.*)$/);
       if (orderedListMatch) {
-        blocks.push({
-          object: 'block',
-          type: 'numbered_list_item',
-          numbered_list_item: { rich_text: MarkdownConverter.parseRichText(orderedListMatch[2]) },
-        });
+        const content = orderedListMatch[2];
+        // 處理超長文本：分割成多個區塊
+        if (content.length > MAX_TEXT_LENGTH) {
+          const chunks = splitTextIntoChunks(content);
+          chunks.forEach(chunk => {
+            blocks.push({
+              object: 'block',
+              type: 'numbered_list_item',
+              numbered_list_item: { rich_text: MarkdownConverter.parseRichText(chunk) },
+            });
+          });
+        } else {
+          blocks.push({
+            object: 'block',
+            type: 'numbered_list_item',
+            numbered_list_item: { rich_text: MarkdownConverter.parseRichText(content) },
+          });
+        }
         i++;
         continue;
       }
@@ -233,11 +322,23 @@ class MarkdownConverter {
       if (trimmed.startsWith('>')) {
         const quoteText = trimmed.substring(1).trim();
         if (quoteText) {
-          blocks.push({
-            object: 'block',
-            type: 'quote',
-            quote: { rich_text: MarkdownConverter.parseRichText(quoteText) },
-          });
+          // 處理超長文本：分割成多個區塊
+          if (quoteText.length > MAX_TEXT_LENGTH) {
+            const chunks = splitTextIntoChunks(quoteText);
+            chunks.forEach(chunk => {
+              blocks.push({
+                object: 'block',
+                type: 'quote',
+                quote: { rich_text: MarkdownConverter.parseRichText(chunk) },
+              });
+            });
+          } else {
+            blocks.push({
+              object: 'block',
+              type: 'quote',
+              quote: { rich_text: MarkdownConverter.parseRichText(quoteText) },
+            });
+          }
         }
         i++;
         continue;
@@ -252,11 +353,23 @@ class MarkdownConverter {
 
       // 處理段落
       if (trimmed) {
-        blocks.push({
-          object: 'block',
-          type: 'paragraph',
-          paragraph: { rich_text: MarkdownConverter.parseRichText(trimmed) },
-        });
+        // 處理超長文本：分割成多個區塊
+        if (trimmed.length > MAX_TEXT_LENGTH) {
+          const chunks = splitTextIntoChunks(trimmed);
+          chunks.forEach(chunk => {
+            blocks.push({
+              object: 'block',
+              type: 'paragraph',
+              paragraph: { rich_text: MarkdownConverter.parseRichText(chunk) },
+            });
+          });
+        } else {
+          blocks.push({
+            object: 'block',
+            type: 'paragraph',
+            paragraph: { rich_text: MarkdownConverter.parseRichText(trimmed) },
+          });
+        }
       }
 
       i++;
@@ -275,8 +388,8 @@ class MarkdownConverter {
 
     // 簡化版實現，完整版應包含加粗、斜體等解析
     // 這裡暫時只返回純文本，後續可從 htmlToNotionConverter.js 完整遷移 parseRichText 邏輯
-    // 為了保持代碼簡潔，這裡先做基本實現
-    return [{ type: 'text', text: { content: text } }];
+    // 為了保持代碼簡潔，這裡先做基本實現，並截斷超長文本
+    return [{ type: 'text', text: { content: (text || '').substring(0, MAX_TEXT_LENGTH) } }];
   }
 
   static mapLanguage(lang) {

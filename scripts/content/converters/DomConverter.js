@@ -13,11 +13,67 @@
 import { LIST_PREFIX_PATTERNS, BULLET_PATTERNS } from '../../config/patterns.js';
 
 /**
+ * Notion API 文本長度限制
+ * @constant {number}
+ */
+const MAX_TEXT_LENGTH = 2000;
+
+/**
+ * 將長文本分割成符合 Notion 限制的片段
+ * @param {string} text - 要分割的文本
+ * @param {number} maxLength - 每個片段的最大長度
+ * @returns {string[]} 分割後的文本片段
+ */
+const splitTextIntoChunks = (text, maxLength = MAX_TEXT_LENGTH) => {
+  if (!text || text.length <= maxLength) {
+    return [text];
+  }
+
+  const chunks = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLength) {
+      chunks.push(remaining);
+      break;
+    }
+
+    // 嘗試在句號、問號、驚嘆號、換行符處分割
+    let splitIndex = -1;
+    const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
+
+    for (const punct of punctuation) {
+      const lastIndex = remaining.lastIndexOf(punct, maxLength);
+      if (lastIndex > maxLength * 0.5) {
+        splitIndex = lastIndex + punct.length;
+        break;
+      }
+    }
+
+    // 如果找不到合適的標點，嘗試在空格處分割
+    if (splitIndex === -1) {
+      splitIndex = remaining.lastIndexOf(' ', maxLength);
+      if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
+        // 實在找不到，強制在 maxLength 處分割
+        splitIndex = maxLength;
+      }
+    }
+
+    chunks.push(remaining.substring(0, splitIndex).trim());
+    remaining = remaining.substring(splitIndex).trim();
+  }
+
+  return chunks.filter(chunk => chunk.length > 0);
+};
+
+/**
  * 創建富文本對象的輔助函數
  * @param {string} text - 文本內容
  * @returns {Array} Notion rich_text 數組
  */
-const createRichText = text => [{ type: 'text', text: { content: text || '' } }];
+const createRichText = text => [
+  { type: 'text', text: { content: (text || '').substring(0, MAX_TEXT_LENGTH) } },
+];
 
 /**
  * 節點轉換策略集合
@@ -111,30 +167,45 @@ const strategies = {
 
     if (looksLikeList) {
       // 返回多個 block 的數組
-      return lines
-        .map(line => {
-          // 步驟 1：移除已知的列表格式標記
-          let cleaned = line.replace(bulletCharRe, '').replace(numberedRe, '').trim();
+      const blocks = [];
+      lines.forEach(line => {
+        // 步驟 1：移除已知的列表格式標記
+        let cleaned = line.replace(bulletCharRe, '').replace(numberedRe, '').trim();
 
-          // 步驟 2：移除殘留的前綴符號
-          cleaned = cleaned
-            .replace(LIST_PREFIX_PATTERNS.bulletPrefix, '')
-            .replace(LIST_PREFIX_PATTERNS.multipleSpaces, ' ')
-            .trim();
+        // 步驟 2：移除殘留的前綴符號
+        cleaned = cleaned
+          .replace(LIST_PREFIX_PATTERNS.bulletPrefix, '')
+          .replace(LIST_PREFIX_PATTERNS.multipleSpaces, ' ')
+          .trim();
 
-          // 步驟 3：只處理非空內容
-          if (cleaned && !LIST_PREFIX_PATTERNS.emptyLine.test(cleaned)) {
-            return {
+        // 步驟 3：只處理非空內容
+        if (cleaned && !LIST_PREFIX_PATTERNS.emptyLine.test(cleaned)) {
+          // 處理超長文本：分割成多個區塊
+          const chunks = splitTextIntoChunks(cleaned);
+          chunks.forEach(chunk => {
+            blocks.push({
               object: 'block',
               type: 'bulleted_list_item',
               bulleted_list_item: {
-                rich_text: createRichText(cleaned),
+                rich_text: createRichText(chunk),
               },
-            };
-          }
-          return null;
-        })
-        .filter(Boolean);
+            });
+          });
+        }
+      });
+      return blocks.length > 0 ? blocks : null;
+    }
+
+    // 處理超長段落：分割成多個區塊
+    if (textContent.length > MAX_TEXT_LENGTH) {
+      const chunks = splitTextIntoChunks(textContent);
+      return chunks.map(chunk => ({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: createRichText(chunk),
+        },
+      }));
     }
 
     return {
@@ -201,6 +272,19 @@ const strategies = {
     if (!textContent) {
       return null;
     }
+
+    // 處理超長文本：分割成多個列表項
+    if (textContent.length > MAX_TEXT_LENGTH) {
+      const chunks = splitTextIntoChunks(textContent);
+      return chunks.map(chunk => ({
+        object: 'block',
+        type: 'bulleted_list_item',
+        bulleted_list_item: {
+          rich_text: createRichText(chunk),
+        },
+      }));
+    }
+
     return {
       object: 'block',
       type: 'bulleted_list_item',
@@ -215,6 +299,19 @@ const strategies = {
     if (!textContent) {
       return null;
     }
+
+    // 處理超長文本：分割成多個引用區塊
+    if (textContent.length > MAX_TEXT_LENGTH) {
+      const chunks = splitTextIntoChunks(textContent);
+      return chunks.map(chunk => ({
+        object: 'block',
+        type: 'quote',
+        quote: {
+          rich_text: createRichText(chunk),
+        },
+      }));
+    }
+
     return {
       object: 'block',
       type: 'quote',

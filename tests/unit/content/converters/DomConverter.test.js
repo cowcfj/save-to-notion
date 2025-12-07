@@ -161,4 +161,55 @@ describe('DomConverter', () => {
       expect(blocks[1].type).toBe('paragraph');
     });
   });
+
+  describe('Long Text Handling', () => {
+    test('should split long LI text into multiple blocks', () => {
+      const longText = 'A'.repeat(5200);
+      const html = `<ul><li>${longText}</li></ul>`;
+      const blocks = domConverter.convert(html);
+
+      // 應該分割成多個區塊 (5200 / 2000 = 3 塊)
+      expect(blocks.length).toBeGreaterThan(1);
+      blocks.forEach(block => {
+        expect(block.type).toBe('bulleted_list_item');
+        expect(block.bulleted_list_item.rich_text[0].text.content.length).toBeLessThanOrEqual(2000);
+      });
+    });
+
+    test('should split long BLOCKQUOTE text into multiple blocks', () => {
+      const longText = 'B'.repeat(4500);
+      const html = `<blockquote>${longText}</blockquote>`;
+      const blocks = domConverter.convert(html);
+
+      // 應該分割成多個區塊
+      expect(blocks.length).toBeGreaterThan(1);
+      blocks.forEach(block => {
+        expect(block.type).toBe('quote');
+        expect(block.quote.rich_text[0].text.content.length).toBeLessThanOrEqual(2000);
+      });
+    });
+
+    test('should split long paragraph text into multiple blocks', () => {
+      const longText = 'C'.repeat(4000);
+      const html = `<p>${longText}</p>`;
+      const blocks = domConverter.convert(html);
+
+      // 應該分割成多個區塊
+      expect(blocks.length).toBeGreaterThan(1);
+      blocks.forEach(block => {
+        expect(block.type).toBe('paragraph');
+        expect(block.paragraph.rich_text[0].text.content.length).toBeLessThanOrEqual(2000);
+      });
+    });
+
+    test('should not split text under 2000 characters', () => {
+      const shortText = 'D'.repeat(1500);
+      const html = `<li>${shortText}</li>`;
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].type).toBe('bulleted_list_item');
+      expect(blocks[0].bulleted_list_item.rich_text[0].text.content.length).toBe(1500);
+    });
+  });
 });
