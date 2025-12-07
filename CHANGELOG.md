@@ -1,6 +1,21 @@
 # 變更日誌 (CHANGELOG)
 
-## [Unreleased] - 統一常量配置系統
+## [Unreleased]
+
+## v2.14.0 - 2025-12-07
+
+### ♻️ 代碼清理與架構優化
+
+#### 移除舊版內容提取邏輯
+
+- **移除 Legacy Fallback**：完全移除 `background.js` 中長達 1200 行的舊版 `injectWithResponse` 內容提取邏輯。
+- **統一使用 PageContentService**：現在所有的內容提取請求都通過 `PageContentService` 處理，確保行為一致且更易於維護。
+- **移除 Feature Flag**：移除了 `USE_PAGE_CONTENT_SERVICE` 開關，標誌著從舊架構向新服務化架構遷移的完成。
+- **依賴簡化**：移除了不再使用的 `PerformanceOptimizer` 全局依賴（在 background 環境中）。
+
+### 🧪 穩定性驗證
+
+- **全面回歸測試**：通過所有 117 個測試套件驗證，確保在移除舊邏輯後核心功能不受影響。
 
 ### 🏗️ 架構改進
 
