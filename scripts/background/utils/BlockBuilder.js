@@ -1,0 +1,294 @@
+/**
+ * Notion Block Builder 工具類
+ *
+ * 提供無狀態的工廠方法，用於構建各種 Notion Block 結構。
+ * 這些方法在 background script 端使用，處理從 content script 提取的內容。
+ *
+ * @author Content Extraction Team
+ * @version 1.0
+ * @date 2025-12-07
+ */
+
+/**
+ * 文本內容最大長度（Notion API 限制）
+ * @constant {number}
+ */
+const MAX_TEXT_LENGTH = 2000;
+
+/**
+ * 創建 rich_text 對象
+ * @param {string} content - 文本內容
+ * @param {Object} options - 選項
+ * @param {string} options.color - 文本顏色 (default, gray, brown, orange, yellow, green, blue, purple, pink, red)
+ * @param {boolean} options.bold - 粗體
+ * @param {boolean} options.italic - 斜體
+ * @param {boolean} options.strikethrough - 刪除線
+ * @param {boolean} options.underline - 底線
+ * @param {boolean} options.code - 代碼樣式
+ * @param {string} options.link - 連結 URL
+ * @returns {Object} rich_text 對象
+ */
+function createRichText(content, options = {}) {
+  const text = (content || '').substring(0, MAX_TEXT_LENGTH);
+
+  const richText = {
+    type: 'text',
+    text: { content: text },
+  };
+
+  // 添加連結
+  if (options.link) {
+    richText.text.link = { url: options.link };
+  }
+
+  // 添加樣式註解
+  const annotations = {};
+  if (options.color && options.color !== 'default') {
+    annotations.color = options.color;
+  }
+  if (options.bold) {
+    annotations.bold = true;
+  }
+  if (options.italic) {
+    annotations.italic = true;
+  }
+  if (options.strikethrough) {
+    annotations.strikethrough = true;
+  }
+  if (options.underline) {
+    annotations.underline = true;
+  }
+  if (options.code) {
+    annotations.code = true;
+  }
+
+  if (Object.keys(annotations).length > 0) {
+    richText.annotations = annotations;
+  }
+
+  return richText;
+}
+
+/**
+ * 創建段落區塊
+ * @param {string} content - 段落內容
+ * @param {Object} options - rich_text 選項
+ * @returns {Object} Notion paragraph block
+ */
+function createParagraph(content, options = {}) {
+  return {
+    object: 'block',
+    type: 'paragraph',
+    paragraph: {
+      rich_text: [createRichText(content, options)],
+    },
+  };
+}
+
+/**
+ * 創建標題區塊
+ * @param {string} content - 標題內容
+ * @param {number} level - 標題層級 (1, 2, 3)
+ * @returns {Object} Notion heading block
+ */
+function createHeading(content, level = 2) {
+  const validLevel = Math.min(Math.max(level, 1), 3);
+  const headingType = `heading_${validLevel}`;
+
+  return {
+    object: 'block',
+    type: headingType,
+    [headingType]: {
+      rich_text: [createRichText(content)],
+    },
+  };
+}
+
+/**
+ * 創建圖片區塊
+ * @param {string} url - 圖片 URL
+ * @param {string} caption - 圖片說明 (可選)
+ * @returns {Object} Notion image block
+ */
+function createImage(url, caption = '') {
+  const block = {
+    object: 'block',
+    type: 'image',
+    image: {
+      type: 'external',
+      external: { url },
+    },
+  };
+
+  if (caption) {
+    block.image.caption = [createRichText(caption)];
+  }
+
+  return block;
+}
+
+/**
+ * 創建代碼區塊
+ * @param {string} code - 代碼內容
+ * @param {string} language - 程式語言 (默認 'plain text')
+ * @returns {Object} Notion code block
+ */
+function createCodeBlock(code, language = 'plain text') {
+  return {
+    object: 'block',
+    type: 'code',
+    code: {
+      rich_text: [createRichText(code)],
+      language,
+    },
+  };
+}
+
+/**
+ * 創建項目符號列表項
+ * @param {string} content - 列表項內容
+ * @returns {Object} Notion bulleted_list_item block
+ */
+function createBulletItem(content) {
+  return {
+    object: 'block',
+    type: 'bulleted_list_item',
+    bulleted_list_item: {
+      rich_text: [createRichText(content)],
+    },
+  };
+}
+
+/**
+ * 創建編號列表項
+ * @param {string} content - 列表項內容
+ * @returns {Object} Notion numbered_list_item block
+ */
+function createNumberedItem(content) {
+  return {
+    object: 'block',
+    type: 'numbered_list_item',
+    numbered_list_item: {
+      rich_text: [createRichText(content)],
+    },
+  };
+}
+
+/**
+ * 創建引用區塊
+ * @param {string} content - 引用內容
+ * @returns {Object} Notion quote block
+ */
+function createQuote(content) {
+  return {
+    object: 'block',
+    type: 'quote',
+    quote: {
+      rich_text: [createRichText(content)],
+    },
+  };
+}
+
+/**
+ * 創建分隔線
+ * @returns {Object} Notion divider block
+ */
+function createDivider() {
+  return {
+    object: 'block',
+    type: 'divider',
+    divider: {},
+  };
+}
+
+/**
+ * 創建標註區塊組（包含標題和標註內容）
+ * @param {Array} highlights - 標註數據數組 [{text, color}]
+ * @param {string} title - 標題 (默認 '📝 頁面標記')
+ * @returns {Array} Notion blocks 數組
+ */
+function buildHighlightBlocks(highlights, title = '📝 頁面標記') {
+  if (!highlights || highlights.length === 0) {
+    return [];
+  }
+
+  const blocks = [createHeading(title, 3)];
+
+  highlights.forEach(highlight => {
+    blocks.push(
+      createParagraph(highlight.text || '', {
+        color: highlight.color || 'default',
+      })
+    );
+  });
+
+  return blocks;
+}
+
+/**
+ * 將純文本內容轉換為段落區塊數組
+ * @param {string} text - 純文本內容
+ * @param {Object} options - 選項
+ * @param {number} options.minLength - 最小段落長度 (默認 10)
+ * @returns {Array} Notion paragraph blocks 數組
+ */
+function textToParagraphs(text, options = {}) {
+  const { minLength = 10 } = options;
+
+  if (!text || typeof text !== 'string') {
+    return [];
+  }
+
+  const paragraphs = text
+    .split('\n\n')
+    .map(para => para.trim())
+    .filter(para => para.length >= minLength);
+
+  return paragraphs.map(para => createParagraph(para));
+}
+
+/**
+ * 創建錯誤回退區塊
+ * @param {string} message - 錯誤訊息
+ * @returns {Array} 包含錯誤訊息的 blocks 數組
+ */
+function createFallbackBlocks(message = 'Content extraction failed.') {
+  return [createParagraph(message)];
+}
+
+/**
+ * 驗證區塊結構是否有效
+ * @param {Object} block - Notion block 對象
+ * @returns {boolean} 是否為有效區塊
+ */
+function isValidBlock(block) {
+  if (!block || typeof block !== 'object') {
+    return false;
+  }
+  return block.object === 'block' && typeof block.type === 'string';
+}
+
+// 模組導出
+module.exports = {
+  // 常量
+  MAX_TEXT_LENGTH,
+
+  // 基礎創建函數
+  createRichText,
+  createParagraph,
+  createHeading,
+  createImage,
+  createCodeBlock,
+  createBulletItem,
+  createNumberedItem,
+  createQuote,
+  createDivider,
+
+  // 高級構建函數
+  buildHighlightBlocks,
+  textToParagraphs,
+  createFallbackBlocks,
+
+  // 驗證函數
+  isValidBlock,
+};
