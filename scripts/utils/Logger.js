@@ -55,6 +55,8 @@ var Logger = (function () {
       if (!this.debugEnabled) {
         return;
       }
+
+      // skipcq: JS-0002
       console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
       sendToBackground('debug', message, args);
     }
@@ -63,6 +65,8 @@ var Logger = (function () {
       if (!this.debugEnabled) {
         return;
       }
+
+      // skipcq: JS-0002
       console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
       sendToBackground('log', message, args);
     }
@@ -71,18 +75,22 @@ var Logger = (function () {
       if (!this.debugEnabled) {
         return;
       }
+
+      // skipcq: JS-0002
       console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
       sendToBackground('info', message, args);
     }
 
     static warn(message, ...args) {
-      // Warn 總是輸出
-      console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
+      // Error 總是輸出
+      // skipcq: JS-0002
+      console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
       sendToBackground('warn', message, args);
     }
 
     static error(message, ...args) {
       // Error 總是輸出
+
       console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
       sendToBackground('error', message, args);
     }
@@ -131,6 +139,7 @@ function initDebugState() {
       }
     }
   } catch (err) {
+    // skipcq: JS-0002
     console.warn('[Logger] Failed to check manifest:', err);
   }
 
@@ -150,6 +159,7 @@ function initDebugState() {
           _debugEnabled = Boolean(changes.enableDebugLogs.newValue);
           // 在控制台輸出狀態變更，方便調試
           const status = _debugEnabled ? 'ENABLED' : 'DISABLED';
+          // skipcq: JS-0002
           console.info(`[Logger] Debug mode ${status}`);
         }
       });
@@ -224,70 +234,6 @@ function sendToBackground(level, message, args) {
     // 忽略發送錯誤
   }
 }
-
-/**
- * 統一日誌類
- * 提供靜態方法用於記錄不同級別的日誌
- */
-/**
- * 統一日誌類
- * 提供靜態方法用於記錄不同級別的日誌
- */
-// eslint-disable-next-line no-var
-var Logger = (function () {
-  // 如果已存在，直接返回
-  if (typeof window !== 'undefined' && window.Logger) {
-    return window.Logger;
-  }
-  if (typeof self !== 'undefined' && self.Logger) {
-    return self.Logger;
-  }
-
-  return class _Logger {
-    static get debugEnabled() {
-      if (!_isInitialized) {
-        initDebugState();
-      }
-      return _debugEnabled;
-    }
-
-    static debug(message, ...args) {
-      if (!this.debugEnabled) {
-        return;
-      }
-      console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
-      sendToBackground('debug', message, args);
-    }
-
-    static log(message, ...args) {
-      if (!this.debugEnabled) {
-        return;
-      }
-      console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
-      sendToBackground('log', message, args);
-    }
-
-    static info(message, ...args) {
-      if (!this.debugEnabled) {
-        return;
-      }
-      console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
-      sendToBackground('info', message, args);
-    }
-
-    static warn(message, ...args) {
-      // Warn 總是輸出
-      console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
-      sendToBackground('warn', message, args);
-    }
-
-    static error(message, ...args) {
-      // Error 總是輸出
-      console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
-      sendToBackground('error', message, args);
-    }
-  };
-})();
 
 // 自動初始化
 initDebugState();
