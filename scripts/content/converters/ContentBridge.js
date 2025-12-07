@@ -46,7 +46,11 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
   const { content, type, metadata = {}, rawArticle } = extractedContent;
 
   // 1. 提取標題
-  const title = metadata.title || rawArticle?.title || document.title || 'Untitled';
+  const title =
+    metadata.title ||
+    rawArticle?.title ||
+    (typeof document !== 'undefined' ? document.title : '') ||
+    'Untitled';
   Logger.log(`📌 [ContentBridge] 標題: ${title}`);
 
   // 2. 轉換內容為 Notion Blocks
