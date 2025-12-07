@@ -452,4 +452,151 @@ describe('NotionService', () => {
       expect(result.skippedCount).toBe(1);
     });
   });
+
+  describe('buildPageData', () => {
+    it('should build page data for data_source type', () => {
+      const result = service.buildPageData({
+        title: 'Test Page',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        dataSourceType: 'data_source',
+        blocks: [{ type: 'paragraph', paragraph: { rich_text: [] } }],
+      });
+
+      expect(result.pageData.parent.type).toBe('data_source_id');
+      expect(result.pageData.parent.data_source_id).toBe('db-123');
+      expect(result.pageData.properties.Title.title[0].text.content).toBe('Test Page');
+      expect(result.pageData.properties.URL.url).toBe('https://example.com');
+    });
+
+    it('should build page data for page type', () => {
+      const result = service.buildPageData({
+        title: 'Child Page',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'page-456',
+        dataSourceType: 'page',
+        blocks: [],
+      });
+
+      expect(result.pageData.parent.type).toBe('page_id');
+      expect(result.pageData.parent.page_id).toBe('page-456');
+    });
+
+    it('should add site icon when provided', () => {
+      const result = service.buildPageData({
+        title: 'With Icon',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        blocks: [],
+        siteIcon: 'https://example.com/icon.png',
+      });
+
+      expect(result.pageData.icon).toEqual({
+        type: 'external',
+        external: { url: 'https://example.com/icon.png' },
+      });
+    });
+
+    it('should filter image blocks and return skipped count', () => {
+      const blocks = [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+        { type: 'image', image: { external: { url: 'ftp://invalid.com/img.jpg' } } },
+      ];
+
+      const result = service.buildPageData({
+        title: 'Test',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        blocks,
+      });
+
+      expect(result.skippedCount).toBe(1);
+      expect(result.validBlocks.length).toBe(1);
+    });
+
+    it('should limit children to BATCH_SIZE', () => {
+      const blocks = Array(150)
+        .fill(null)
+        .map(() => ({ type: 'paragraph', paragraph: { rich_text: [] } }));
+
+      const result = service.buildPageData({
+        title: 'Long Article',
+        pageUrl: 'https://example.com',
+        dataSourceId: 'db-123',
+        blocks,
+      });
+
+      expect(result.pageData.children.length).toBe(100);
+      expect(result.validBlocks.length).toBe(150);
+    });
+
+    it('should use default values for missing options', () => {
+      const result = service.buildPageData({
+        dataSourceId: 'db-123',
+      });
+
+      expect(result.pageData.properties.Title.title[0].text.content).toBe('Untitled');
+      expect(result.pageData.properties.URL.url).toBe('');
+    });
+  });
+
+  describe('refreshPageContent', () => {
+    let originalFetch = null;
+
+    beforeEach(() => {
+      originalFetch = global.fetch;
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it('should return error when delete fails', async () => {
+      // Mock deleteAllBlocks 失敗
+      service.deleteAllBlocks = jest.fn().mockResolvedValue({
+        success: false,
+        deletedCount: 0,
+        error: 'Delete failed',
+      });
+
+      const result = await service.refreshPageContent('page-123', []);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('刪除區塊失敗');
+    });
+
+    it('should update title when option is set', async () => {
+      service.updatePageTitle = jest.fn().mockResolvedValue({ success: true });
+      service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true, deletedCount: 5 });
+      service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true, addedCount: 2 });
+
+      await service.refreshPageContent('page-123', [], {
+        updateTitle: true,
+        title: 'New Title',
+      });
+
+      expect(service.updatePageTitle).toHaveBeenCalledWith('page-123', 'New Title');
+    });
+
+    it('should return success with counts on completion', async () => {
+      service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true, deletedCount: 5 });
+      service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true, addedCount: 3 });
+
+      const result = await service.refreshPageContent('page-123', [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+      ]);
+
+      expect(result.success).toBe(true);
+      expect(result.deletedCount).toBe(5);
+    });
+
+    it('should handle exceptions gracefully', async () => {
+      service.deleteAllBlocks = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      const result = await service.refreshPageContent('page-123', []);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Network error');
+    });
+  });
 });
