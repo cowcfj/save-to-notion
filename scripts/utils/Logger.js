@@ -82,9 +82,9 @@ var Logger = (function () {
     }
 
     static warn(message, ...args) {
-      // Error 總是輸出
+      // Warn 總是輸出
       // skipcq: JS-0002
-      console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
+      console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
       sendToBackground('warn', message, args);
     }
 
