@@ -9,6 +9,7 @@
 
 // Import unified Logger (ES Module)
 import './utils/Logger.js';
+import { NOTION_API, TEXT_PROCESSING } from './config/index.js';
 
 // Import modular services (Phase 4 integration)
 import { StorageService, URL_TRACKING_PARAMS } from './background/services/StorageService.js';
@@ -53,7 +54,7 @@ const notionService = new NotionService({ logger: Logger });
  * 將長文本分割成符合 Notion 限制的片段
  * Notion API 限制每個 rich_text 區塊最多 2000 字符
  */
-function splitTextForHighlight(text, maxLength = 2000) {
+function splitTextForHighlight(text, maxLength = TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH) {
   if (!text || text.length <= maxLength) {
     return [text];
   }
@@ -118,8 +119,8 @@ function splitTextForHighlight(text, maxLength = 2000) {
  * @returns {Promise<{success: boolean, addedCount: number, totalCount: number}>}
  */
 async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
-  const BLOCKS_PER_BATCH = 100;
-  const DELAY_BETWEEN_BATCHES = 350; // ms，遵守 Notion API 速率限制（3 req/s）
+  const BLOCKS_PER_BATCH = NOTION_API.BLOCKS_PER_BATCH;
+  const DELAY_BETWEEN_BATCHES = NOTION_API.DELAY_BETWEEN_BATCHES; // ms，遵守 Notion API 速率限制（3 req/s）
 
   let addedCount = 0;
   const totalBlocks = blocks.length - startIndex;
@@ -141,13 +142,13 @@ async function appendBlocksInBatches(pageId, blocks, apiKey, startIndex = 0) {
 
       // 使用重試機制發送批次（處理 5xx/429/409/DatastoreInfraError）
       const response = await fetchNotionWithRetry(
-        `https://api.notion.com/v1/blocks/${pageId}/children`,
+        `${NOTION_API.BASE_URL}/blocks/${pageId}/children`,
         {
           method: 'PATCH',
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
-            'Notion-Version': '2025-09-03',
+            'Notion-Version': NOTION_API.VERSION,
           },
           body: JSON.stringify({
             children: batch,
@@ -326,7 +327,7 @@ async function saveToNotion(
   const startTime = performance.now();
   Logger.log('⏱️ 開始保存到 Notion...');
 
-  const notionApiUrl = 'https://api.notion.com/v1/pages';
+  const notionApiUrl = `${NOTION_API.BASE_URL}/pages`;
 
   // 使用 NotionService 的圖片過濾方法
   const { validBlocks, skippedCount } = notionService.filterValidImageBlocks(blocks, excludeImages);
@@ -532,7 +533,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
     // 使用 NotionService 的圖片過濾方法
     const { validBlocks, skippedCount } = notionService.filterValidImageBlocks(blocks);
 
-    const getResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+    const getResponse = await fetch(`${NOTION_API.BASE_URL}/blocks/${pageId}/children`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -543,7 +544,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
     if (getResponse.ok) {
       const existingContent = await getResponse.json();
       for (const block of existingContent.results) {
-        await fetch(`https://api.notion.com/v1/blocks/${block.id}`, {
+        await fetch(`${NOTION_API.BASE_URL}/blocks/${block.id}`, {
           method: 'DELETE',
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -554,7 +555,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
     }
 
     const updateResponse = await fetchNotionWithRetry(
-      `https://api.notion.com/v1/blocks/${pageId}/children`,
+      `${NOTION_API.BASE_URL}/blocks/${pageId}/children`,
       {
         method: 'PATCH',
         headers: {
@@ -585,7 +586,7 @@ async function updateNotionPage(pageId, title, blocks, pageUrl, apiKey, sendResp
       }
 
       const titleUpdatePromise = fetchNotionWithRetry(
-        `https://api.notion.com/v1/pages/${pageId}`,
+        `${NOTION_API.BASE_URL}/pages/${pageId}`,
         {
           method: 'PATCH',
           headers: {
@@ -649,7 +650,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
     Logger.log('🔄 開始更新標記 - 頁面ID:', pageId, '標記數量:', highlights.length);
 
     const getResponse = await fetch(
-      `https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`,
+      `${NOTION_API.BASE_URL}/blocks/${pageId}/children?page_size=100`,
       {
         method: 'GET',
         headers: {
@@ -702,7 +703,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
     for (const blockId of blocksToDelete) {
       try {
         Logger.log(`🗑️ 正在刪除區塊: ${blockId}`);
-        const deleteResponse = await fetch(`https://api.notion.com/v1/blocks/${blockId}`, {
+        const deleteResponse = await fetch(`${NOTION_API.BASE_URL}/blocks/${blockId}`, {
           method: 'DELETE',
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -779,7 +780,7 @@ async function updateHighlightsOnly(pageId, highlights, pageUrl, apiKey, sendRes
       Logger.log('➕ 準備添加的區塊數量:', highlightBlocks.length);
 
       const addResponse = await fetchNotionWithRetry(
-        `https://api.notion.com/v1/blocks/${pageId}/children`,
+        `${NOTION_API.BASE_URL}/blocks/${pageId}/children`,
         {
           method: 'PATCH',
           headers: {
