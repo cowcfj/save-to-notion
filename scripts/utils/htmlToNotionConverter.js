@@ -119,9 +119,431 @@ function initTurndownService() {
   return turndownService;
 }
 
+// Markdown 圖片正則
+const markdownImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g;
+
+/**
+ * 添加圖片區塊
+ * @param {Object} context - 處理上下文
+ * @param {string} url - 圖片 URL
+ * @param {string} altText - 圖片替代文本
+ */
+function appendImageBlock(context, url, altText) {
+  context.blocks.push({
+    object: 'block',
+    type: 'image',
+    image: {
+      type: 'external',
+      external: { url },
+      caption: altText ? [{ type: 'text', text: { content: altText } }] : [],
+    },
+  });
+  context.stats.images = (context.stats.images || 0) + 1;
+}
+
+/**
+ * 處理純圖片行
+ * @param {Object} context - 處理上下文
+ * @returns {boolean} 是否已處理
+ */
+function handleImage(context) {
+  const { lines, i } = context;
+  const line = lines[i];
+  const trimmed = line.trim();
+  const imageMatches = [...trimmed.matchAll(markdownImageRegex)].filter(match =>
+    isValidUrl(match[2])
+  );
+
+  if (imageMatches.length > 0 && trimmed.replace(markdownImageRegex, '').trim() === '') {
+    imageMatches.forEach(match => {
+      const url = match[2];
+      const alt = match[1]?.trim();
+      appendImageBlock(context, url, alt);
+    });
+    context.i++;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 處理段落
+ * @param {Object} context - 處理上下文
+ * @returns {boolean} 是否已處理
+ */
+function handleParagraph(context) {
+  const { lines, i, blocks, stats } = context;
+  const line = lines[i];
+  const trimmed = line.trim();
+
+  if (trimmed) {
+    // 收集連續的非空行作為一個段落
+    const paragraphLines = [];
+    let paragraphLine = trimmed;
+    const imageMatches = [...trimmed.matchAll(markdownImageRegex)].filter(match =>
+      isValidUrl(match[2])
+    );
+
+    if (imageMatches.length > 0) {
+      imageMatches.forEach(match => {
+        appendImageBlock(context, match[2], match[1]?.trim());
+        paragraphLine = paragraphLine.replace(match[0], match[1] || '');
+      });
+    }
+    paragraphLine = paragraphLine.trim();
+    if (paragraphLine) {
+      paragraphLines.push(paragraphLine);
+    }
+    context.i++;
+
+    while (context.i < lines.length) {
+      const nextLine = lines[context.i];
+      const nextTrimmed = nextLine.trim();
+
+      // 空行或特殊格式開始，結束段落
+      if (
+        !nextTrimmed ||
+        nextTrimmed.startsWith('#') ||
+        nextTrimmed.startsWith('-') ||
+        nextTrimmed.startsWith('*') ||
+        nextTrimmed.startsWith('+') ||
+        nextTrimmed.match(/^\d+\./) ||
+        nextTrimmed.startsWith('>') ||
+        nextTrimmed.startsWith('```')
+      ) {
+        break;
+      }
+      let nextParagraphLine = nextTrimmed;
+      const inlineImageMatches = [...nextTrimmed.matchAll(markdownImageRegex)].filter(match =>
+        isValidUrl(match[2])
+      );
+      if (inlineImageMatches.length > 0) {
+        inlineImageMatches.forEach(match => {
+          appendImageBlock(context, match[2], match[1]?.trim());
+          nextParagraphLine = nextParagraphLine.replace(match[0], match[1] || '');
+        });
+      }
+      nextParagraphLine = nextParagraphLine.trim();
+      if (nextParagraphLine) {
+        paragraphLines.push(nextParagraphLine);
+      }
+      context.i++;
+    }
+
+    const paragraphText = paragraphLines.join(' ').trim();
+    if (!paragraphText) {
+      return true;
+    }
+
+    const maxLength = 2000;
+    // 處理超長文本
+    if (paragraphText.length > maxLength) {
+      for (let pos = 0; pos < paragraphText.length; pos += maxLength) {
+        blocks.push({
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [
+              {
+                type: 'text',
+                text: { content: paragraphText.substring(pos, pos + maxLength) },
+              },
+            ],
+          },
+        });
+        stats.paragraphs++;
+      }
+    } else {
+      blocks.push({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: parseRichText(paragraphText),
+        },
+      });
+      stats.paragraphs++;
+    }
+    return true;
+  }
+  return false;
+}
+
 /**
  * 將 Markdown 轉換為 Notion blocks
  * 支持：標題、段落、列表（嵌套）、代碼塊、引用等
+ */
+/**
+ * 處理代碼塊
+ * @param {Object} context - 處理上下文
+ * @returns {boolean} 是否已處理
+ */
+function handleCodeBlock(context) {
+  const { lines, i, blocks, stats, state } = context;
+  const line = lines[i];
+  const trimmed = line.trim();
+
+  // 檢查是否是代碼塊標記
+  if (trimmed.startsWith('```')) {
+    if (state.inCodeBlock) {
+      // 結束代碼塊
+      if (state.codeContent.length > 0) {
+        blocks.push({
+          object: 'block',
+          type: 'code',
+          code: {
+            rich_text: [
+              {
+                type: 'text',
+                text: { content: state.codeContent.join('\n') },
+              },
+            ],
+            language: state.codeLanguage,
+          },
+        });
+        stats.codeBlocks++;
+      }
+      state.inCodeBlock = false;
+      state.codeContent = [];
+      state.codeLanguage = 'plain text';
+    } else {
+      // 開始代碼塊
+      state.inCodeBlock = true;
+      const lang = trimmed.substring(3).trim();
+      state.codeLanguage = mapLanguage(lang) || 'plain text';
+    }
+    context.i++;
+    return true;
+  }
+
+  // 如果在代碼塊內，收集內容
+  if (state.inCodeBlock) {
+    state.codeContent.push(line);
+    context.i++;
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * 處理標題
+ * @param {Object} context - 處理上下文
+ * @returns {boolean} 是否已處理
+ */
+function handleHeading(context) {
+  const { lines, i, blocks, stats } = context;
+  const line = lines[i];
+  const trimmed = line.trim();
+
+  const headingMatch = trimmed.match(/^(#{1,6})\s+(\S.*)$/);
+  if (headingMatch) {
+    const level = headingMatch[1].length;
+    const text = headingMatch[2];
+
+    // Notion 只支援 heading_1, heading_2, heading_3
+    // h4-h6 轉換為帶粗體格式的段落以保留語義
+    if (level <= 3) {
+      const blockType = level === 1 ? 'heading_1' : level === 2 ? 'heading_2' : 'heading_3';
+      blocks.push({
+        object: 'block',
+        type: blockType,
+        [blockType]: {
+          rich_text: parseRichText(text),
+        },
+      });
+      stats.headings++;
+    } else {
+      // h4-h6 轉為粗體段落
+      blocks.push({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [
+            {
+              type: 'text',
+              text: { content: text },
+              annotations: { bold: true },
+            },
+          ],
+        },
+      });
+      stats.paragraphs++;
+    }
+    context.i++;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 處理無序列表
+ * @param {Object} context - 處理上下文
+ * @returns {boolean} 是否已處理
+ */
+function handleUnorderedList(context) {
+  const { lines, i, blocks, stats } = context;
+  const line = lines[i];
+  const trimmed = line.trim();
+
+  // 處理無序列表
+  const unorderedListMatch = trimmed.match(/^[-*+]\s+(\S.*)$/);
+  if (unorderedListMatch) {
+    const content = unorderedListMatch[1];
+    const maxLength = 2000;
+
+    // 處理超長文本：分割成多個區塊
+    if (content.length > maxLength) {
+      for (let pos = 0; pos < content.length; pos += maxLength) {
+        blocks.push({
+          object: 'block',
+          type: 'bulleted_list_item',
+          bulleted_list_item: {
+            rich_text: [
+              { type: 'text', text: { content: content.substring(pos, pos + maxLength) } },
+            ],
+          },
+        });
+        stats.lists++;
+      }
+    } else {
+      blocks.push({
+        object: 'block',
+        type: 'bulleted_list_item',
+        bulleted_list_item: {
+          rich_text: parseRichText(content),
+        },
+      });
+      stats.lists++;
+    }
+    context.i++;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 處理有序列表
+ * @param {Object} context - 處理上下文
+ * @returns {boolean} 是否已處理
+ */
+function handleOrderedList(context) {
+  const { lines, i, blocks, stats } = context;
+  const line = lines[i];
+  const trimmed = line.trim();
+
+  // 處理有序列表
+  const orderedListMatch = trimmed.match(/^(\d+)\.\s+(\S.*)$/);
+  if (orderedListMatch) {
+    const content = orderedListMatch[2];
+    const maxLength = 2000;
+
+    // 處理超長文本：分割成多個區塊
+    if (content.length > maxLength) {
+      for (let pos = 0; pos < content.length; pos += maxLength) {
+        blocks.push({
+          object: 'block',
+          type: 'numbered_list_item',
+          numbered_list_item: {
+            rich_text: [
+              { type: 'text', text: { content: content.substring(pos, pos + maxLength) } },
+            ],
+          },
+        });
+        stats.lists++;
+      }
+    } else {
+      blocks.push({
+        object: 'block',
+        type: 'numbered_list_item',
+        numbered_list_item: {
+          rich_text: parseRichText(content),
+        },
+      });
+      stats.lists++;
+    }
+    context.i++;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 處理引用
+ * @param {Object} context - 處理上下文
+ * @returns {boolean} 是否已處理
+ */
+function handleQuote(context) {
+  const { lines, i, blocks, stats } = context;
+  const line = lines[i];
+  const trimmed = line.trim();
+
+  // 處理引用
+  if (trimmed.startsWith('>')) {
+    const quoteText = trimmed.substring(1).trim();
+    if (quoteText) {
+      const maxLength = 2000;
+
+      // 處理超長文本：分割成多個區塊
+      if (quoteText.length > maxLength) {
+        for (let pos = 0; pos < quoteText.length; pos += maxLength) {
+          blocks.push({
+            object: 'block',
+            type: 'quote',
+            quote: {
+              rich_text: [
+                { type: 'text', text: { content: quoteText.substring(pos, pos + maxLength) } },
+              ],
+            },
+          });
+          stats.quotes++;
+        }
+      } else {
+        blocks.push({
+          object: 'block',
+          type: 'quote',
+          quote: {
+            rich_text: parseRichText(quoteText),
+          },
+        });
+        stats.quotes++;
+      }
+    }
+    context.i++;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 處理分隔線
+ * @param {Object} context - 處理上下文
+ * @returns {boolean} 是否已處理
+ */
+function handleDivider(context) {
+  const { lines, i, blocks, stats } = context;
+  const line = lines[i];
+  const trimmed = line.trim();
+
+  // 處理分隔線
+  // skipcq: JS-0113 - Valid check for divider
+  if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+    blocks.push({
+      object: 'block',
+      type: 'divider',
+      divider: {},
+    });
+    stats.dividers++;
+    context.i++;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 將 Markdown 轉換為 Notion blocks
+ * 支持：標題、段落、列表（嵌套）、代碼塊、引用等
+ * @param {string} markdown - Markdown 文本
+ * @returns {Array} Notion blocks 數組
  */
 function convertMarkdownToNotionBlocks(markdown) {
   const blocks = [];
@@ -130,56 +552,57 @@ function convertMarkdownToNotionBlocks(markdown) {
   const startTime = Date.now();
   const maxProcessingTime = 30000; // 30秒超時
 
-  let i = 0;
-  let inCodeBlock = false;
-  let codeContent = [];
-  let codeLanguage = 'plain text';
+  let i = 0; // 恢復 i 變量
 
-  // 統計資訊
-  const stats = {
-    images: 0,
-    headings: 0,
-    paragraphs: 0,
-    lists: 0,
-    codeBlocks: 0,
-    quotes: 0,
-    dividers: 0,
+  // 初始化上下文
+  const context = {
+    lines,
+    i: 0,
+    blocks,
+    stats: {
+      images: 0,
+      headings: 0,
+      paragraphs: 0,
+      lists: 0,
+      codeBlocks: 0,
+      quotes: 0,
+      dividers: 0,
+    },
+    state: {
+      inCodeBlock: false,
+      codeContent: [],
+      codeLanguage: 'plain text',
+    },
   };
 
-  const markdownImageRegex = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g;
+  // 處理器列表
+  const handlers = [
+    handleCodeBlock,
+    handleImage,
+    handleHeading,
+    handleUnorderedList,
+    handleOrderedList,
+    handleQuote,
+    handleDivider,
+    handleParagraph,
+  ];
 
-  /**
-   * 添加圖片區塊
-   * @param {string} url - 圖片 URL
-   * @param {string} altText - 圖片替代文本
-   */
-  function appendImageBlock(url, altText) {
-    blocks.push({
-      object: 'block',
-      type: 'image',
-      image: {
-        type: 'external',
-        external: { url },
-        caption: altText ? [{ type: 'text', text: { content: altText } }] : [],
-      },
-    });
-    stats.images = (stats.images || 0) + 1;
-  }
+  // 為了方便訪問 stats，在局部作用域保留引用（或直接使用 context.stats）
+  // const stats = context.stats; // Unused
 
   while (i < lines.length) {
+    context.i = i; // 同步 context.i
+
     const line = lines[i];
     const trimmed = line.trim();
-    const imageMatches = [...trimmed.matchAll(markdownImageRegex)].filter(match =>
-      isValidUrl(match[2])
-    );
 
-    // 進度追蹤（每10行報告一次，提供詳細信息）
+    // 進度追蹤
     if (i > 0 && i % 10 === 0) {
       const elapsed = Date.now() - startTime;
       window.Logger.info(`📈 [進度] 已處理 ${i}/${lines.length} 行 (${elapsed}ms)`);
     }
 
-    // 安全檢查：避免無限循環和超時
+    // 安全檢查
     const startI = i;
     const elapsed = Date.now() - startTime;
     if (elapsed > maxProcessingTime) {
@@ -189,300 +612,21 @@ function convertMarkdownToNotionBlocks(markdown) {
     }
 
     try {
-      // 處理代碼塊
-      if (trimmed.startsWith('```')) {
-        if (inCodeBlock) {
-          // 結束代碼塊
-          if (codeContent.length > 0) {
-            blocks.push({
-              object: 'block',
-              type: 'code',
-              code: {
-                rich_text: [
-                  {
-                    type: 'text',
-                    text: { content: codeContent.join('\n') },
-                  },
-                ],
-                language: codeLanguage,
-              },
-            });
-            stats.codeBlocks++;
-          }
-          inCodeBlock = false;
-          codeContent = [];
-          codeLanguage = 'plain text';
-        } else {
-          // 開始代碼塊
-          inCodeBlock = true;
-          const lang = trimmed.substring(3).trim();
-          codeLanguage = mapLanguage(lang) || 'plain text';
+      let handled = false;
+      for (const handler of handlers) {
+        if (handler(context)) {
+          i = context.i; // 同步處理進度
+          handled = true;
+          break;
         }
-        i++;
+      }
+
+      if (handled) {
         continue;
       }
 
-      if (inCodeBlock) {
-        codeContent.push(line);
-        i++;
-        continue;
-      }
-
-      // 處理純圖片行
-      if (imageMatches.length > 0 && trimmed.replace(markdownImageRegex, '').trim() === '') {
-        imageMatches.forEach(match => {
-          const url = match[2];
-          const alt = match[1]?.trim();
-          appendImageBlock(url, alt);
-        });
-        i++;
-        continue;
-      }
-
-      // 處理標題
-      const headingMatch = trimmed.match(/^(#{1,6})\s+(\S.*)$/);
-      if (headingMatch) {
-        const level = headingMatch[1].length;
-        const text = headingMatch[2];
-
-        // Notion 只支援 heading_1, heading_2, heading_3
-        // h4-h6 轉換為帶粗體格式的段落以保留語義
-        if (level <= 3) {
-          const blockType = level === 1 ? 'heading_1' : level === 2 ? 'heading_2' : 'heading_3';
-          blocks.push({
-            object: 'block',
-            type: blockType,
-            [blockType]: {
-              rich_text: parseRichText(text),
-            },
-          });
-          stats.headings++;
-        } else {
-          // h4-h6 轉為粗體段落
-          blocks.push({
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-              rich_text: [
-                {
-                  type: 'text',
-                  text: { content: text },
-                  annotations: { bold: true },
-                },
-              ],
-            },
-          });
-          stats.paragraphs++;
-        }
-        i++;
-        continue;
-      }
-
-      // 處理無序列表（簡化處理，直接添加到 blocks）
-      const unorderedListMatch = trimmed.match(/^[-*+]\s+(\S.*)$/);
-      if (unorderedListMatch) {
-        const content = unorderedListMatch[1];
-        const maxLength = 2000;
-
-        // 處理超長文本：分割成多個區塊
-        if (content.length > maxLength) {
-          for (let pos = 0; pos < content.length; pos += maxLength) {
-            blocks.push({
-              object: 'block',
-              type: 'bulleted_list_item',
-              bulleted_list_item: {
-                rich_text: [
-                  { type: 'text', text: { content: content.substring(pos, pos + maxLength) } },
-                ],
-              },
-            });
-            stats.lists++;
-          }
-        } else {
-          blocks.push({
-            object: 'block',
-            type: 'bulleted_list_item',
-            bulleted_list_item: {
-              rich_text: parseRichText(content),
-            },
-          });
-          stats.lists++;
-        }
-        i++;
-        continue;
-      }
-
-      // 處理有序列表（簡化處理，直接添加到 blocks）
-      const orderedListMatch = trimmed.match(/^(\d+)\.\s+(\S.*)$/);
-      if (orderedListMatch) {
-        const content = orderedListMatch[2];
-        const maxLength = 2000;
-
-        // 處理超長文本：分割成多個區塊
-        if (content.length > maxLength) {
-          for (let pos = 0; pos < content.length; pos += maxLength) {
-            blocks.push({
-              object: 'block',
-              type: 'numbered_list_item',
-              numbered_list_item: {
-                rich_text: [
-                  { type: 'text', text: { content: content.substring(pos, pos + maxLength) } },
-                ],
-              },
-            });
-            stats.lists++;
-          }
-        } else {
-          blocks.push({
-            object: 'block',
-            type: 'numbered_list_item',
-            numbered_list_item: {
-              rich_text: parseRichText(content),
-            },
-          });
-          stats.lists++;
-        }
-        i++;
-        continue;
-      }
-
-      // 處理引用
-      if (trimmed.startsWith('>')) {
-        const quoteText = trimmed.substring(1).trim();
-        if (quoteText) {
-          const maxLength = 2000;
-
-          // 處理超長文本：分割成多個區塊
-          if (quoteText.length > maxLength) {
-            for (let pos = 0; pos < quoteText.length; pos += maxLength) {
-              blocks.push({
-                object: 'block',
-                type: 'quote',
-                quote: {
-                  rich_text: [
-                    { type: 'text', text: { content: quoteText.substring(pos, pos + maxLength) } },
-                  ],
-                },
-              });
-              stats.quotes++;
-            }
-          } else {
-            blocks.push({
-              object: 'block',
-              type: 'quote',
-              quote: {
-                rich_text: parseRichText(quoteText),
-              },
-            });
-            stats.quotes++;
-          }
-        }
-        i++;
-        continue;
-      }
-
-      // 處理分隔線
-      if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
-        blocks.push({
-          object: 'block',
-          type: 'divider',
-          divider: {},
-        });
-        stats.dividers++;
-        i++;
-        continue;
-      }
-
-      // 處理段落
-      if (trimmed) {
-        // 收集連續的非空行作為一個段落
-        const paragraphLines = [];
-        let paragraphLine = trimmed;
-        if (imageMatches.length > 0) {
-          imageMatches.forEach(match => {
-            appendImageBlock(match[2], match[1]?.trim());
-            paragraphLine = paragraphLine.replace(match[0], match[1] || '');
-          });
-        }
-        paragraphLine = paragraphLine.trim();
-        if (paragraphLine) {
-          paragraphLines.push(paragraphLine);
-        }
-        i++;
-        while (i < lines.length) {
-          const nextLine = lines[i];
-          const nextTrimmed = nextLine.trim();
-
-          // 空行或特殊格式開始，結束段落
-          if (
-            !nextTrimmed ||
-            nextTrimmed.startsWith('#') ||
-            nextTrimmed.startsWith('-') ||
-            nextTrimmed.startsWith('*') ||
-            nextTrimmed.startsWith('+') ||
-            nextTrimmed.match(/^\d+\./) ||
-            nextTrimmed.startsWith('>') ||
-            nextTrimmed.startsWith('```')
-          ) {
-            break;
-          }
-          let nextParagraphLine = nextTrimmed;
-          const inlineImageMatches = [...nextTrimmed.matchAll(markdownImageRegex)].filter(match =>
-            isValidUrl(match[2])
-          );
-          if (inlineImageMatches.length > 0) {
-            inlineImageMatches.forEach(match => {
-              appendImageBlock(match[2], match[1]?.trim());
-              nextParagraphLine = nextParagraphLine.replace(match[0], match[1] || '');
-            });
-          }
-          nextParagraphLine = nextParagraphLine.trim();
-          if (nextParagraphLine) {
-            paragraphLines.push(nextParagraphLine);
-          }
-          i++;
-        }
-
-        const paragraphText = paragraphLines.join(' ').trim(); // 用空格連接而不是\n
-        if (!paragraphText) {
-          continue;
-        }
-
-        if (paragraphText) {
-          // 檢查段落長度，Notion 每個 rich_text 有長度限制
-          const maxLength = 2000;
-          if (paragraphText.length <= maxLength) {
-            blocks.push({
-              object: 'block',
-              type: 'paragraph',
-              paragraph: {
-                rich_text: parseRichText(paragraphText),
-              },
-            });
-            stats.paragraphs++;
-          } else {
-            // 分割長段落
-            const chunks = [];
-            for (let pos = 0; pos < paragraphText.length; pos += maxLength) {
-              chunks.push(paragraphText.substring(pos, pos + maxLength));
-            }
-            chunks.forEach(chunk => {
-              blocks.push({
-                object: 'block',
-                type: 'paragraph',
-                paragraph: {
-                  rich_text: [{ type: 'text', text: { content: chunk } }],
-                },
-              });
-            });
-            stats.paragraphs += chunks.length;
-          }
-        }
-        // 不使用 continue，讓程序進入下一個循環
-      } else {
-        // 空行，直接跳過
-        i++;
-      }
+      // 如果沒有處理器處理（例如空行），手動前進
+      i++;
     } catch (error) {
       window.Logger.error(
         `❌ Error processing line ${i}: "${lines[i] ? lines[i].substring(0, 50) : 'undefined'}..."`
@@ -794,74 +938,11 @@ function parseRichText(text) {
 
 /**
  * 主要的 HTML 到 Notion blocks 轉換函數
+ *
+ * 注意：頁面類型檢測已由 ContentExtractor + pageComplexityDetector 完成，
+ * 此函數只負責將已提取的 HTML 轉換為 Notion blocks，不再重複檢測。
  */
 function convertHtmlToNotionBlocks(html) {
-  // ✅ 策略 1：對於 Markdown 網站，優先嘗試獲取原始 Markdown 文件
-  const currentUrl = window.location.href;
-
-  // 檢查是否是 GitHub Pages 或類似的 Markdown 網站
-  if (currentUrl.includes('github.io') || currentUrl.includes('/docs/')) {
-    window.Logger.info('📄 [策略1] 檢測到 Markdown 網站，嘗試獲取原始文件');
-
-    // 嘗試構建原始 Markdown URL
-    let markdownUrl = null;
-
-    if (currentUrl.includes('google-gemini.github.io/gemini-cli')) {
-      markdownUrl =
-        'https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/commands.md';
-    }
-    // 可以添加更多網站的規則
-
-    if (markdownUrl) {
-      window.Logger.info(`🔗 [策略1] 嘗試獲取: ${markdownUrl}`);
-
-      // 使用同步方法嘗試獲取（在 executeScript 上下文中）
-      try {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', markdownUrl, false); // 同步請求
-        xhr.send();
-
-        if (xhr.status === 200) {
-          const markdown = xhr.responseText;
-          window.Logger.info(`✅ [策略1] 成功獲取 Markdown (${markdown.length} 字符)`);
-
-          // 直接將 Markdown 轉換為 Notion 區塊
-          const blocks = convertMarkdownToNotionBlocks(markdown);
-
-          return blocks;
-        }
-      } catch (error) {
-        window.Logger.warn('Failed to fetch original Markdown:', error);
-      }
-    }
-  }
-
-  // ✅ 策略 2：智能檢測技術文檔並選擇最佳處理策略
-  const isTechnicalDoc =
-    currentUrl.includes('github.io') ||
-    currentUrl.includes('/docs/') ||
-    currentUrl.includes('/cli/') ||
-    currentUrl.includes('/api/') ||
-    document.querySelector('.markdown-body, .markdown, [class*="markdown"]') !== null;
-
-  if (isTechnicalDoc) {
-    window.Logger.info('🔧 [策略2] 檢測到技術文檔，使用智能內容提取');
-
-    // 對技術文檔使用特殊處理：直接提取最佳內容區域
-    const techSelectors = ['.markdown-body', '.docs-content', '.documentation', 'article', 'main'];
-    for (const selector of techSelectors) {
-      const element = document.querySelector(selector);
-      if (element && element.textContent.trim().length > 1000) {
-        window.Logger.info(
-          `📋 [策略2] 使用選擇器: ${selector} (${element.textContent.trim().length} 字符)`
-        );
-        html = element.innerHTML; // 更新為最佳內容
-
-        break;
-      }
-    }
-  }
-
   try {
     // 初始化 Turndown
     const turndownService = initTurndownService();
