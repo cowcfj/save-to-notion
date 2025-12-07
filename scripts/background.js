@@ -1319,6 +1319,18 @@ async function determineAndExecuteSaveAction(params) {
   if (savedData?.notionPageId) {
     const pageExists = await checkNotionPageExists(savedData.notionPageId, config.notionApiKey);
 
+    if (pageExists === null) {
+      Logger.warn(
+        `⚠️ 無法確認 Notion 頁面存在性 (Page ID: ${savedData.notionPageId})，中止保存操作。`
+      );
+      sendResponse({
+        success: false,
+        error:
+          'Network error or service unavailable while checking page existence. Please try again later.',
+      });
+      return;
+    }
+
     if (pageExists) {
       // 頁面存在：更新標註或內容
       if (highlights.length > 0) {
