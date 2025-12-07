@@ -1245,20 +1245,24 @@ function buildHighlightBlocks(highlights) {
   ];
 
   highlights.forEach(highlight => {
-    blocks.push({
-      object: 'block',
-      type: 'paragraph',
-      paragraph: {
-        rich_text: [
-          {
-            type: 'text',
-            text: { content: highlight.text || '' },
-            annotations: {
-              color: highlight.color || 'default',
+    const textChunks = splitTextForHighlight(highlight.text || '');
+
+    textChunks.forEach(chunk => {
+      blocks.push({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [
+            {
+              type: 'text',
+              text: { content: chunk },
+              annotations: {
+                color: highlight.color || 'default',
+              },
             },
-          },
-        ],
-      },
+          ],
+        },
+      });
     });
   });
 

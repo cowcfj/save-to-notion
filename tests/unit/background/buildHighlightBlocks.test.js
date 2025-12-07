@@ -91,4 +91,27 @@ describe('buildHighlightBlocks', () => {
       },
     });
   });
+
+  it('should split long highlight text into multiple blocks', () => {
+    // Creating text longer than 2000 chars (Notion limit is 2000)
+    const longText = 'A'.repeat(3000);
+    const highlights = [{ text: longText, color: 'red_background' }];
+
+    // We expect splitTextForHighlight to be used, splitting 3000 chars into 2000 + 1000 chunks
+    // Since buildHighlightBlocks prepends a heading block, we expect:
+    // 1 heading block + 2 paragraph blocks (chunks)
+    const result = buildHighlightBlocks(highlights);
+
+    expect(result.length).toBe(3);
+
+    // Check first chunk
+    expect(result[1].type).toBe('paragraph');
+    expect(result[1].paragraph.rich_text[0].text.content.length).toBe(2000);
+    expect(result[1].paragraph.rich_text[0].annotations.color).toBe('red_background');
+
+    // Check second chunk
+    expect(result[2].type).toBe('paragraph');
+    expect(result[2].paragraph.rich_text[0].text.content.length).toBe(1000);
+    expect(result[2].paragraph.rich_text[0].annotations.color).toBe('red_background');
+  });
 });
