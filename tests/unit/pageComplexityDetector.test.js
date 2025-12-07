@@ -14,6 +14,7 @@ const { JSDOM } = require('jsdom');
 let detectPageComplexity = null;
 let selectExtractor = null;
 let getAnalysisReport = null;
+const { isTechnicalDoc } = require('../../scripts/utils/pageComplexityDetector.js');
 let logAnalysis = null;
 
 // 模擬瀏覽器環境
@@ -346,44 +347,6 @@ function setupDetectorForTest(document, window, location) {
 
 describe('頁面複雜度檢測器', () => {
   describe('isTechnicalDoc 函數', () => {
-    // 模擬 isTechnicalDoc 的邏輯用於測試
-    function isTechnicalDoc(options = {}) {
-      const url = (options.url || '').toLowerCase();
-      const title = (options.title || '').toLowerCase();
-
-      const urlPatterns = [
-        /\/docs?\//,
-        /\/api\//,
-        /\/documentation\//,
-        /\/guide\//,
-        /\/manual\//,
-        /\/reference\//,
-        /\/cli\//,
-        /\/commands?\//,
-        /github\.io.*docs/,
-        /\.github\.io/,
-      ];
-
-      const titlePatterns = [
-        /documentation/,
-        /commands?/,
-        /reference/,
-        /guide/,
-        /manual/,
-        /cli/,
-        /api/,
-      ];
-
-      const matchedUrl = urlPatterns.some(pattern => pattern.test(url));
-      const matchedTitle = titlePatterns.some(pattern => pattern.test(title));
-
-      return {
-        isTechnical: matchedUrl || matchedTitle,
-        matchedUrl,
-        matchedTitle,
-      };
-    }
-
     test('should detect technical doc by URL pattern - /docs/', () => {
       const result = isTechnicalDoc({ url: 'https://example.com/docs/getting-started' });
       expect(result.isTechnical).toBe(true);
