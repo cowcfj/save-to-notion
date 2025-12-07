@@ -243,6 +243,11 @@ export function detectPageComplexity(document = window.document) {
       codeBlocks: countElements(document, 'pre, code, .highlight, .codehilite'),
       lists: countElements(document, 'ul li, ol li'),
       headings: countElements(document, 'h1, h2, h3, h4, h5, h6'),
+      // Markdown 容器檢測（GitHub, GitBook 等 Markdown 渲染頁面）
+      markdownContainers: countElements(
+        document,
+        '.markdown-body, .markdown, [class*="markdown"], .md-content, .prose'
+      ),
 
       // 媒體內容
       images: countElements(document, 'img'),
@@ -267,7 +272,8 @@ export function detectPageComplexity(document = window.document) {
         (metrics.adElements <= 2 && metrics.navElements <= 3 && metrics.contentElements >= 1),
 
       // 技術文檔特徵
-      hasMarkdownFeatures: metrics.codeBlocks >= 3 || metrics.lists >= 10,
+      hasMarkdownFeatures:
+        metrics.codeBlocks >= 3 || metrics.lists >= 10 || metrics.markdownContainers > 0,
       hasTechnicalContent: technicalFeatures.isTechnical,
 
       // 干擾因素
