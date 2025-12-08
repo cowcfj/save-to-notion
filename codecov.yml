@@ -8,36 +8,36 @@ coverage:
   status:
     project:
       default:
-        target: 28%  # 目標覆蓋率（當前: 28.81%）
-        threshold: 2%  # 允許的下降幅度
-        if_ci_failed: error  # CI 失敗時的行為
+        target: 28% # 目標覆蓋率（當前: 28.81%）
+        threshold: 2% # 允許的下降幅度
+        if_ci_failed: error # CI 失敗時的行為
     patch:
       default:
-        target: 40%  # 新代碼的目標覆蓋率
+        target: 40% # 新代碼的目標覆蓋率
         threshold: 5%
 
   # 精確度設置
-  precision: 2  # 小數位數
-  round: down  # 向下取整
-  range: "20...100"  # 顏色範圍（20% 以下紅色，100% 綠色）
+  precision: 2 # 小數位數
+  round: down # 向下取整
+  range: '20...100' # 顏色範圍（20% 以下紅色，100% 綠色）
 
 # 註釋設置
 comment:
-  layout: "reach,diff,flags,tree,files"
-  behavior: default  # 默認行為：如果有變化則註釋
-  require_changes: true  # 只在覆蓋率變化時註釋
+  layout: 'reach,diff,flags,tree,files'
+  behavior: default # 默認行為：如果有變化則註釋
+  require_changes: true # 只在覆蓋率變化時註釋
 
 # 忽略的文件和目錄
 ignore:
-  - "tests/**/*.test.js"  # 測試文件本身
-  - "**/*.spec.js"
-  - "node_modules/**"
-  - "archive/**"
-  - "internal/**"
-  - "demos/**"
-  - "promo-images/**"
-  - "build/**"
-  - "dist/**"  # Rollup 打包後的文件(避免重複計算覆蓋率)
+  - 'tests/**/*.test.js' # 測試文件本身
+  - '**/*.spec.js'
+  - 'node_modules/**'
+  - 'archive/**'
+  - 'internal/**'
+  - 'demos/**'
+  - 'promo-images/**'
+  - 'build/**'
+  - 'dist/**' # Rollup 打包後的文件(避免重複計算覆蓋率)
   # 注意：不忽略 tests/helpers/*.testable.js，因為這些是可測試的實際代碼
 
 # Flags 配置（用於追蹤不同類型的測試）
@@ -46,7 +46,7 @@ flags:
     paths:
       - scripts/
       - tests/helpers/
-    carryforward: true  # 保留先前的覆蓋率數據
+    carryforward: true # 保留先前的覆蓋率數據
 
 # 覆蓋率歷程：
 # - 2025-10-14: 28.81% (1087 個測試) - 測試覆蓋率修復

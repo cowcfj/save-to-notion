@@ -55,23 +55,23 @@ jobs:
           npm run build:prod
           echo "Verifying bundle was created..."
           ls -lh dist/highlighter-v2.bundle.js
-          
+
           # Verify bundle exists
           if [ ! -f "dist/highlighter-v2.bundle.js" ]; then
             echo "❌ Build failed: bundle not found!"
             exit 1
           fi
-          
+
           echo "✅ Bundle created successfully"
 
       - name: Prepare release dist
         run: |
           # Create releases directory (keep dist/ from build)
           mkdir -p releases
-          
+
           # Create temporary packaging directory
           mkdir -p release-package
-          
+
           # Copy all required files for Chrome Web Store
           cp -a manifest.json release-package/
           cp -a icons release-package/
@@ -80,10 +80,10 @@ jobs:
           cp -a lib release-package/
           cp -a update-notification release-package/
           cp -a help.html release-package/
-          
+
           # Copy dist folder (contains compressed bundle)
           cp -a dist release-package/
-          
+
           # Copy scripts folder but exclude highlighter source modules
           # (they're already bundled in dist/highlighter-v2.bundle.js)
           mkdir -p release-package/scripts
@@ -95,14 +95,14 @@ jobs:
           if [ -d "scripts/performance" ]; then cp -a scripts/performance release-package/scripts/; fi
           if [ -d "scripts/errorHandling" ]; then cp -a scripts/errorHandling release-package/scripts/; fi
           if [ -d "scripts/utils" ]; then cp -a scripts/utils release-package/scripts/; fi
-          
+
           # Debug: list copied scripts
-          echo "📂 Scrips folder content:"
+          echo "📂 Scripts folder content:"
           ls -R release-package/scripts/
-          
+
           # Note: scripts/highlighter/ source files are NOT included
           # Only the bundled version in dist/ is needed
-          
+
           echo "✅ Release package prepared"
           ls -la release-package/
 
@@ -110,7 +110,7 @@ jobs:
         run: |
           cd release-package
           zip -r "../releases/${{ steps.vars.outputs.zip_name }}" .
-          
+
           echo "✅ Release zip created"
           ls -lh "../releases/${{ steps.vars.outputs.zip_name }}"
 

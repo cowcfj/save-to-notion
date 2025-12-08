@@ -14,7 +14,7 @@ module.exports = {
     console.log('  1️⃣ 導航到 MDN JavaScript Guide...');
     await page.goto(config.testPages.mdn, {
       waitUntil: 'domcontentloaded', // 改用更寬鬆的等待條件
-      timeout: 60000 // 增加超時時間
+      timeout: 60000, // 增加超時時間
     });
 
     // 2. 等待頁面內容加載（使用多個備選選擇器）
@@ -24,7 +24,7 @@ module.exports = {
       'main article',
       '[role="main"]',
       'main',
-      '.main-page-content'
+      '.main-page-content',
     ];
 
     let articleFound = false;
@@ -52,7 +52,9 @@ module.exports = {
 
       for (const selector of selectors) {
         article = document.querySelector(selector);
-        if (article) break;
+        if (article) {
+          break;
+        }
       }
 
       const paragraphs = article?.querySelectorAll('p');
@@ -61,7 +63,7 @@ module.exports = {
         hasArticle: Boolean(article),
         paragraphCount: paragraphs?.length || 0,
         title: document.title,
-        foundSelector: article ? 'found' : 'not found'
+        foundSelector: article ? 'found' : 'not found',
       };
     });
 
@@ -81,7 +83,7 @@ module.exports = {
         'main p',
         '[role="main"] p',
         '.main-page-content p',
-        'p'
+        'p',
       ];
 
       let paragraph = null;
@@ -94,7 +96,9 @@ module.exports = {
             break;
           }
         }
-        if (paragraph) break;
+        if (paragraph) {
+          break;
+        }
       }
 
       if (!paragraph || !paragraph.firstChild) {
@@ -116,12 +120,12 @@ module.exports = {
         return {
           success: true,
           text: selection.toString(),
-          rangeCount: selection.rangeCount
+          rangeCount: selection.rangeCount,
         };
       } catch (error) {
         return {
           success: false,
-          error: error.message
+          error: error.message,
         };
       }
     });
@@ -137,7 +141,7 @@ module.exports = {
     const apiSupport = await page.evaluate(() => {
       return {
         hasHighlight: typeof window.Highlight !== 'undefined',
-        hasCSSHighlights: typeof CSS !== 'undefined' && typeof CSS.highlights !== 'undefined'
+        hasCSSHighlights: typeof CSS !== 'undefined' && typeof CSS.highlights !== 'undefined',
       };
     });
 
@@ -165,12 +169,12 @@ module.exports = {
           return {
             success: true,
             highlightCount: CSS.highlights.size,
-            text: range.toString()
+            text: range.toString(),
           };
         } catch (error) {
           return {
             success: false,
-            error: error.message
+            error: error.message,
           };
         }
       });
@@ -190,7 +194,7 @@ module.exports = {
           id: 'test-highlight-1',
           text: 'Sample highlight text',
           color: 'yellow',
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
 
         const storageKey = `highlights_${window.location.href}`;
@@ -203,12 +207,12 @@ module.exports = {
         return {
           success: true,
           count: parsed.length,
-          data: parsed[0]
+          data: parsed[0],
         };
       } catch (error) {
         return {
           success: false,
-          error: error.message
+          error: error.message,
         };
       }
     });
@@ -232,12 +236,12 @@ module.exports = {
         return {
           success: true,
           count: highlights.length,
-          restored: highlights
+          restored: highlights,
         };
       } catch (error) {
         return {
           success: false,
-          error: error.message
+          error: error.message,
         };
       }
     });
@@ -266,7 +270,7 @@ module.exports = {
       selectionResult,
       apiSupport,
       persistenceResult,
-      restoreResult
+      restoreResult,
     };
-  }
+  },
 };

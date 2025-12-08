@@ -9,6 +9,7 @@ npm install
 ```
 
 新增的依賴：
+
 - `puppeteer` - 瀏覽器自動化
 - `istanbul-lib-coverage` - 覆蓋率數據處理
 - `istanbul-lib-report` - 覆蓋率報告生成
@@ -182,14 +183,14 @@ coverage/
 
 ## 🎯 npm 腳本說明
 
-| 命令 | 說明 |
-|------|------|
-| `npm test` | 運行 Jest 單元測試 |
-| `npm run test:coverage` | 運行 Jest 單元測試 + 覆蓋率 |
-| `npm run test:e2e` | 運行 E2E 測試 + 合併覆蓋率 |
-| `npm run test:e2e:only` | 只運行 E2E 測試（不合併） |
-| `npm run test:merge-coverage` | 手動合併覆蓋率 |
-| `npm run test:all` | 運行所有測試 + 合併覆蓋率 ⭐ |
+| 命令                          | 說明                         |
+| ----------------------------- | ---------------------------- |
+| `npm test`                    | 運行 Jest 單元測試           |
+| `npm run test:coverage`       | 運行 Jest 單元測試 + 覆蓋率  |
+| `npm run test:e2e`            | 運行 E2E 測試 + 合併覆蓋率   |
+| `npm run test:e2e:only`       | 只運行 E2E 測試（不合併）    |
+| `npm run test:merge-coverage` | 手動合併覆蓋率               |
+| `npm run test:all`            | 運行所有測試 + 合併覆蓋率 ⭐ |
 
 ## 🔧 配置文件
 
@@ -213,7 +214,7 @@ module.exports = {
       return { title: document.title };
     });
     return result;
-  }
+  },
 };
 ```
 
@@ -225,9 +226,9 @@ testScenarios: [
   {
     name: 'My Test',
     file: 'tests/e2e/scenarios/my-test.e2e.js',
-    enabled: true
-  }
-]
+    enabled: true,
+  },
+];
 ```
 
 3. 運行測試：
@@ -241,6 +242,7 @@ npm run test:e2e
 ### Q1: 為什麼覆蓋率沒有提升？
 
 A: 檢查以下幾點：
+
 1. 是否運行了 `npm run build` 構建擴展？
 2. E2E 測試是否實際執行了目標代碼？
 3. 查看 `coverage/e2e/` 是否有覆蓋率數據？
@@ -257,7 +259,7 @@ PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install
 
 ```javascript
 puppeteer: {
-  executablePath: '/usr/bin/google-chrome'
+  executablePath: '/usr/bin/google-chrome';
 }
 ```
 
@@ -268,8 +270,8 @@ A: 減少測試場景數量：
 ```javascript
 testScenarios: [
   { name: 'Highlighter', enabled: true },
-  { name: 'Content Extraction', enabled: false }  // 暫時禁用
-]
+  { name: 'Content Extraction', enabled: false }, // 暫時禁用
+];
 ```
 
 ### Q4: 如何在 CI 中運行？

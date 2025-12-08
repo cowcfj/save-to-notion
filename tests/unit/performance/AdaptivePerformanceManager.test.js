@@ -1,8 +1,9 @@
 /* global document */
 
-
-const { AdaptivePerformanceManager } = require('../../../scripts/performance/AdaptivePerformanceManager');
-const { PerformanceOptimizer } = require('../../helpers/performance.testable');
+const {
+  AdaptivePerformanceManager,
+} = require('../../../scripts/performance/AdaptivePerformanceManager');
+const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
 
 describe('AdaptivePerformanceManager', () => {
   /** @type {PerformanceOptimizer|null} */

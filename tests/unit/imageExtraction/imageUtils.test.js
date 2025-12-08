@@ -2,10 +2,8 @@
 // 測試 cleanImageUrl 和 isValidImageUrl 函數
 
 // 先設置 Chrome Mock,再導入源碼
-require('../../mocks/chrome.js');
-
-// 導入實際的源碼函數
-const { cleanImageUrl, isValidImageUrl } = require('../../../scripts/utils/imageUtils.js');
+import '../../mocks/chrome.js';
+import { cleanImageUrl, isValidImageUrl } from '../../../scripts/utils/imageUtils.module.js';
 
 describe('cleanImageUrl', () => {
   describe('基本功能', () => {

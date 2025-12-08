@@ -1,14 +1,14 @@
 // Notion Smart Clipper - Background Script
 // Refactored for better organization
 
-/* global chrome, Logger */
+/* global chrome */
 
 // ==========================================
 // DEVELOPMENT MODE CONTROL
 // ==========================================
 
-// Import unified Logger (ES Module)
-import './utils/Logger.js';
+// Import unified Logger (ES Module Wrapper)
+import Logger from './utils/Logger.module.js';
 import { NOTION_API, TEXT_PROCESSING } from './config/index.js';
 
 // Import modular services (Phase 4 integration)

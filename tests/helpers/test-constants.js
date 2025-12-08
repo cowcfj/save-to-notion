@@ -10,7 +10,7 @@ const TEST_CONSTANTS = {
     TEST: 'https://test.com',
     DEMO: 'https://demo.com',
     INVALID: 'invalid-url',
-    LOCALHOST: 'http://localhost:3000'
+    LOCALHOST: 'http://localhost:3000',
   },
 
   // 錯誤消息
@@ -25,35 +25,35 @@ const TEST_CONSTANTS = {
     POST_CALLBACK_ERROR: 'Post-callback error',
     CONSOLE_ERROR: 'Console error',
     CANNOT_ADD_LISTENER: 'Cannot add listener',
-    ERRORHANDLER_EXCEPTION: 'ErrorHandler 異常'
+    ERRORHANDLER_EXCEPTION: 'ErrorHandler 異常',
   },
 
   // 測試數據大小
   TEST_SIZES: {
     SMALL: 5,
     MEDIUM: 20,
-    LARGE: 50,        // 從 1000 減少到 50
-    EXTRA_LARGE: 100  // 新增：用於特殊大數據測試
+    LARGE: 50, // 從 1000 減少到 50
+    EXTRA_LARGE: 100, // 新增：用於特殊大數據測試
   },
 
   // Storage 鍵名模式
   STORAGE_KEYS: {
     HIGHLIGHTS_PREFIX: 'highlights_',
     SAVED_PREFIX: 'saved_',
-    OTHER_PREFIX: 'other_key_'
+    OTHER_PREFIX: 'other_key_',
   },
 
   // 測試數據
   TEST_DATA: {
     HIGHLIGHT: { text: 'test', color: 'yellow' },
     HIGHLIGHT_WITH_TIMESTAMP: { text: 'test', color: 'yellow', timestamp: Date.now() },
-    INVALID_DATA_FORMAT: 'invalid_data_format'
+    INVALID_DATA_FORMAT: 'invalid_data_format',
   },
 
   // Chrome Extension 相關
   CHROME: {
     VERSION: '2.10.0',
-    MANIFEST_VERSION: 3
+    MANIFEST_VERSION: 3,
   },
 
   // 日誌前綴
@@ -62,14 +62,14 @@ const TEST_CONSTANTS = {
     WARNING: '⚠️',
     INFO: 'ℹ️',
     DEBUG: '🐛',
-    SUCCESS: '✅'
+    SUCCESS: '✅',
   },
 
   // 測試超時設置
   TIMEOUTS: {
     SHORT: 1000,
     MEDIUM: 5000,
-    LONG: 10000
+    LONG: 10000,
   },
 
   // 常用的測試標籤
@@ -77,8 +77,8 @@ const TEST_CONSTANTS = {
     UNIT: 'unit',
     INTEGRATION: 'integration',
     ERROR_HANDLING: 'error-handling',
-    PERFORMANCE: 'performance'
-  }
+    PERFORMANCE: 'performance',
+  },
 };
 
 // 輔助函數：生成測試 URL
@@ -97,30 +97,30 @@ TEST_CONSTANTS.generateStorageKey = (type, url) => {
 TEST_CONSTANTS.generateTestData = (count = 1, type = 'HIGHLIGHT') => {
   const baseData = TEST_CONSTANTS.TEST_DATA[type];
   const data = [];
-  
+
   for (let i = 0; i < count; i++) {
     data.push({
       ...baseData,
-      text: `${baseData.text}${i > 0 ? i : ''}`
+      text: `${baseData.text}${i > 0 ? i : ''}`,
     });
   }
-  
+
   return data;
 };
 
 // 輔助函數：生成大數據集
 TEST_CONSTANTS.generateLargeDataset = (size = TEST_CONSTANTS.TEST_SIZES.LARGE) => {
   const data = {};
-  
+
   for (let i = 0; i < size; i++) {
     const url = TEST_CONSTANTS.generateTestUrl('example', i);
     const highlightKey = TEST_CONSTANTS.generateStorageKey('highlights', url);
     const otherKey = `${TEST_CONSTANTS.STORAGE_KEYS.OTHER_PREFIX}${i}`;
-    
+
     data[highlightKey] = TEST_CONSTANTS.generateTestData(1);
     data[otherKey] = `value${i}`;
   }
-  
+
   return data;
 };
 

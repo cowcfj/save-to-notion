@@ -205,3 +205,9 @@ CLAUDE.md
 .qoder/rules/byterover-rules.md
 .augment/rules/byterover-rules.md
 CLAUDE.md
+.agent/rules/chrome.md
+.agent/rules/es6.md
+.agent/workflows/e2e-test.md
+.agent/workflows/fix-eslint.md
+.agent/workflows/js-bundle.md
+.agent/workflows/pr-temple.md

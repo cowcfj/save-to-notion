@@ -14,7 +14,7 @@ module.exports = {
     console.log('  1️⃣ 導航到測試頁面...');
     await page.goto(config.testPages.mdn, {
       waitUntil: 'networkidle2',
-      timeout: 30000
+      timeout: 30000,
     });
 
     // 2. 測試基礎內容提取
@@ -22,21 +22,20 @@ module.exports = {
     const basicContent = await page.evaluate(() => {
       const title = document.title;
       const paragraphs = Array.from(document.querySelectorAll('p'))
-        .map(p => p.textContent.trim())
+        .map(paragraph => paragraph.textContent.trim())
         .filter(text => text.length > 0);
 
-      const headings = Array.from(document.querySelectorAll('h1, h2, h3'))
-        .map(h => ({
-          level: parseInt(h.tagName[1]),
-          text: h.textContent.trim()
-        }));
+      const headings = Array.from(document.querySelectorAll('h1, h2, h3')).map(heading => ({
+        level: parseInt(heading.tagName[1]),
+        text: heading.textContent.trim(),
+      }));
 
       return {
         title,
         paragraphCount: paragraphs.length,
         headingCount: headings.length,
         firstParagraph: paragraphs[0]?.substring(0, 100),
-        headings: headings.slice(0, 5)
+        headings: headings.slice(0, 5),
       };
     });
 
@@ -53,14 +52,14 @@ module.exports = {
           alt: img.alt,
           width: img.naturalWidth || img.width,
           height: img.naturalHeight || img.height,
-          isVisible: img.offsetParent !== null
+          isVisible: img.offsetParent !== null,
         }))
         .filter(img => img.src && !img.src.includes('data:image'));
 
       return {
         totalImages: images.length,
         visibleImages: images.filter(img => img.isVisible).length,
-        images: images.slice(0, 3)
+        images: images.slice(0, 3),
       };
     });
 
@@ -70,18 +69,17 @@ module.exports = {
     // 4. 測試列表提取
     console.log('  4️⃣ 提取列表內容...');
     const listData = await page.evaluate(() => {
-      const lists = Array.from(document.querySelectorAll('ul, ol'))
-        .map(list => ({
-          type: list.tagName.toLowerCase(),
-          itemCount: list.querySelectorAll('li').length,
-          items: Array.from(list.querySelectorAll('li'))
-            .slice(0, 3)
-            .map(li => li.textContent.trim())
-        }));
+      const lists = Array.from(document.querySelectorAll('ul, ol')).map(list => ({
+        type: list.tagName.toLowerCase(),
+        itemCount: list.querySelectorAll('li').length,
+        items: Array.from(list.querySelectorAll('li'))
+          .slice(0, 3)
+          .map(li => li.textContent.trim()),
+      }));
 
       return {
         totalLists: lists.length,
-        lists: lists.slice(0, 3)
+        lists: lists.slice(0, 3),
       };
     });
 
@@ -90,19 +88,18 @@ module.exports = {
     // 5. 測試代碼區塊提取
     console.log('  5️⃣ 提取代碼區塊...');
     const codeData = await page.evaluate(() => {
-      const codeBlocks = Array.from(document.querySelectorAll('pre code, pre'))
-        .map(block => {
-          const code = block.textContent.trim();
-          return {
-            language: block.className.match(/language-(\w+)/)?.[1] || 'unknown',
-            lines: code.split('\n').length,
-            preview: code.substring(0, 100)
-          };
-        });
+      const codeBlocks = Array.from(document.querySelectorAll('pre code, pre')).map(block => {
+        const code = block.textContent.trim();
+        return {
+          language: block.className.match(/language-(\w+)/)?.[1] || 'unknown',
+          lines: code.split('\n').length,
+          preview: code.substring(0, 100),
+        };
+      });
 
       return {
         totalCodeBlocks: codeBlocks.length,
-        codeBlocks: codeBlocks.slice(0, 3)
+        codeBlocks: codeBlocks.slice(0, 3),
       };
     });
 
@@ -118,16 +115,17 @@ module.exports = {
       document.querySelectorAll('h1, h2, h3').forEach(heading => {
         blocks.push({
           type: `heading_${heading.tagName[1]}`,
-          content: heading.textContent.trim()
+          content: heading.textContent.trim(),
         });
       });
 
       // 段落區塊
-      document.querySelectorAll('article p, main p').forEach((p, index) => {
-        if (index < 5) { // 限制數量
+      document.querySelectorAll('article p, main p').forEach((paragraph, index) => {
+        if (index < 5) {
+          // 限制數量
           blocks.push({
             type: 'paragraph',
-            content: p.textContent.trim()
+            content: paragraph.textContent.trim(),
           });
         }
       });
@@ -135,19 +133,18 @@ module.exports = {
       // 列表區塊
       document.querySelectorAll('ul, ol').forEach((list, index) => {
         if (index < 3) {
-          const items = Array.from(list.querySelectorAll('li'))
-            .map(li => li.textContent.trim());
+          const items = Array.from(list.querySelectorAll('li')).map(li => li.textContent.trim());
           blocks.push({
             type: list.tagName === 'UL' ? 'bulleted_list' : 'numbered_list',
-            items
+            items,
           });
         }
       });
 
       return {
         totalBlocks: blocks.length,
-        blockTypes: [...new Set(blocks.map(b => b.type))],
-        blocks: blocks.slice(0, 10)
+        blockTypes: [...new Set(blocks.map(block => block.type))],
+        blocks: blocks.slice(0, 10),
       };
     });
 
@@ -157,7 +154,12 @@ module.exports = {
     // 7. 測試 Meta 數據提取
     console.log('  7️⃣ 提取 Meta 數據...');
     const metaData = await page.evaluate(() => {
-      const getMeta = (name) => {
+      /**
+       * 獲取 Meta 標籤內容
+       * @param {string} name - Meta 標籤的 name 或 property 屬性值
+       * @returns {string|null} Meta 標籤的 content 屬性值，如果未找到則返回 null
+       */
+      const getMeta = name => {
         const meta = document.querySelector(`meta[name="${name}"], meta[property="${name}"]`);
         return meta?.content || null;
       };
@@ -168,7 +170,7 @@ module.exports = {
         image: getMeta('og:image') || getMeta('twitter:image'),
         author: getMeta('author'),
         url: window.location.href,
-        favicon: document.querySelector('link[rel*="icon"]')?.href
+        favicon: document.querySelector('link[rel*="icon"]')?.href,
       };
     });
 
@@ -184,7 +186,7 @@ module.exports = {
       listData,
       codeData,
       structuredContent,
-      metaData
+      metaData,
     };
-  }
+  },
 };

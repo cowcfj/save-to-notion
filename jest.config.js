@@ -48,7 +48,8 @@ module.exports = {
     '/tests/e2e/', // e2e 測試單獨執行，不進入單元測試與覆蓋率
     '/tests/unit/content-extraction-comparison.test.js', // 暫時忽略有問題的測試文件
     '/tests/integration/thomas-frank-integration.test.js', // 尚未實作方案的實驗性測試，避免預設執行
-    '/tests/integration/thomas-frank-simple.test.js' // 尚未實作方案的簡化測試，暫時排除
+    '/tests/integration/thomas-frank-simple.test.js', // 尚未實作方案的簡化測試，暫時排除
+    '/tests/e2e/oauth-end-to-end.test.js' // OAuth 功能尚未實作，暫時排除測試
   ],
   // 忽略模組路徑以避免 Jest Haste Map 命名衝突（重複的 package.json）
   modulePathIgnorePatterns: ['<rootDir>/releases/'],

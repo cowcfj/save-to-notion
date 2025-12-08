@@ -68,7 +68,6 @@ async function main() {
     console.log(`${'='.repeat(60)}\n`);
 
     process.exit(result.success ? 0 : 1);
-
   } catch (error) {
     console.error('\n❌ 執行失敗:', error);
     console.error(error.stack);

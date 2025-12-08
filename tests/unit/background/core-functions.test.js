@@ -10,10 +10,19 @@ const backgroundFunctions = {
       const urlObj = new URL(rawUrl);
       urlObj.hash = '';
       const trackingParams = [
-        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-        'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'
+        'utm_source',
+        'utm_medium',
+        'utm_campaign',
+        'utm_term',
+        'utm_content',
+        'gclid',
+        'fbclid',
+        'mc_cid',
+        'mc_eid',
+        'igshid',
+        'vero_id',
       ];
-      trackingParams.forEach((p) => urlObj.searchParams.delete(p));
+      trackingParams.forEach(param => urlObj.searchParams.delete(param));
       if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
         urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
       }
@@ -24,7 +33,9 @@ const backgroundFunctions = {
   },
 
   cleanImageUrl(url) {
-    if (!url || typeof url !== 'string') return null;
+    if (!url || typeof url !== 'string') {
+      return null;
+    }
 
     try {
       const urlObj = new URL(url);
@@ -51,28 +62,49 @@ const backgroundFunctions = {
   },
 
   isValidImageUrl(url) {
-    if (!url || typeof url !== 'string') return false;
+    if (!url || typeof url !== 'string') {
+      return false;
+    }
 
     const cleanedUrl = this.cleanImageUrl(url);
-    if (!cleanedUrl) return false;
+    if (!cleanedUrl) {
+      return false;
+    }
 
-    if (!/^https?:\/\//i.test(cleanedUrl)) return false;
-    if (cleanedUrl.length > 2000) return false;
+    if (!/^https?:\/\//i.test(cleanedUrl)) {
+      return false;
+    }
+    if (cleanedUrl.length > 2000) {
+      return false;
+    }
 
-    const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
-    if (imageExtensions.test(cleanedUrl)) return true;
+    const imageExtensions =
+      /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
+    if (imageExtensions.test(cleanedUrl)) {
+      return true;
+    }
 
     const imagePathPatterns = [
-      /\/image[s]?\//i, /\/img[s]?\//i, /\/photo[s]?\//i, /\/picture[s]?\//i,
-      /\/media\//i, /\/upload[s]?\//i, /\/asset[s]?\//i, /\/file[s]?\//i
+      /\/image[s]?\//i,
+      /\/img[s]?\//i,
+      /\/photo[s]?\//i,
+      /\/picture[s]?\//i,
+      /\/media\//i,
+      /\/upload[s]?\//i,
+      /\/asset[s]?\//i,
+      /\/file[s]?\//i,
     ];
 
     const excludePatterns = [
       /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
-      /\/api\//i, /\/ajax\//i, /\/callback/i
+      /\/api\//i,
+      /\/ajax\//i,
+      /\/callback/i,
     ];
 
-    if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) return false;
+    if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
+      return false;
+    }
     return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
   },
 
@@ -124,22 +156,22 @@ const backgroundFunctions = {
   },
 
   shouldShowUpdateNotification(previousVersion, currentVersion) {
-    if (!previousVersion || !currentVersion) return false;
-    if (previousVersion.includes('dev') || currentVersion.includes('dev')) return false;
+    if (!previousVersion || !currentVersion) {
+      return false;
+    }
+    if (previousVersion.includes('dev') || currentVersion.includes('dev')) {
+      return false;
+    }
 
-    const importantUpdates = [
-      '2.8.0', '2.9.0', '3.0.0'
-    ];
+    const importantUpdates = ['2.8.0', '2.9.0', '3.0.0'];
 
     return importantUpdates.includes(currentVersion);
   },
 
   isImportantUpdate(version) {
-    const importantUpdates = [
-      '2.8.0', '2.9.0', '3.0.0'
-    ];
+    const importantUpdates = ['2.8.0', '2.9.0', '3.0.0'];
     return importantUpdates.includes(version);
-  }
+  },
 };
 
 describe('Background Core Functions', () => {
@@ -168,7 +200,9 @@ describe('Background Core Functions', () => {
     });
 
     it('應該標準化尾部斜杠', () => {
-      expect(backgroundFunctions.normalizeUrl('https://example.com/page/')).toBe('https://example.com/page');
+      expect(backgroundFunctions.normalizeUrl('https://example.com/page/')).toBe(
+        'https://example.com/page'
+      );
       expect(backgroundFunctions.normalizeUrl('https://example.com/')).toBe('https://example.com/');
     });
 
@@ -221,7 +255,7 @@ describe('Background Core Functions', () => {
       const urls = [
         'https://example.com/image.jpg',
         'https://example.com/photo.png',
-        'https://example.com/graphic.gif'
+        'https://example.com/graphic.gif',
       ];
       urls.forEach(url => {
         expect(backgroundFunctions.isValidImageUrl(url)).toBe(true);
@@ -232,7 +266,7 @@ describe('Background Core Functions', () => {
       const pathUrls = [
         'https://example.com/images/photo',
         'https://example.com/img/banner',
-        'https://example.com/media/cover'
+        'https://example.com/media/cover',
       ];
       pathUrls.forEach(url => {
         expect(backgroundFunctions.isValidImageUrl(url)).toBe(true);
@@ -243,7 +277,7 @@ describe('Background Core Functions', () => {
       const nonImageUrls = [
         'https://example.com/script.js',
         'https://example.com/style.css',
-        'https://example.com/api/data'
+        'https://example.com/api/data',
       ];
       nonImageUrls.forEach(url => {
         expect(backgroundFunctions.isValidImageUrl(url)).toBe(false);
@@ -392,7 +426,8 @@ describe('Background Core Functions', () => {
     });
 
     it('應該處理複雜的 URL 標準化場景', () => {
-      const complexUrl = 'https://example.com/page/?utm_source=google&utm_medium=cpc&normal=keep#section';
+      const complexUrl =
+        'https://example.com/page/?utm_source=google&utm_medium=cpc&normal=keep#section';
       const normalized = backgroundFunctions.normalizeUrl(complexUrl);
 
       expect(normalized).toBe('https://example.com/page?normal=keep');
@@ -449,7 +484,7 @@ describe('Background Core Functions', () => {
       const specialUrls = [
         'https://example.com/圖片.jpg',
         'https://example.com/image%20with%20spaces.jpg',
-        'https://example.com/image?param=value%26more'
+        'https://example.com/image?param=value%26more',
       ];
 
       specialUrls.forEach(url => {

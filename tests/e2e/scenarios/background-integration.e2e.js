@@ -51,16 +51,16 @@ module.exports = {
       const testCases = [
         {
           input: 'https://example.com/page?utm_source=google&id=123#section',
-          expected: 'https://example.com/page?id=123'
+          expected: 'https://example.com/page?id=123',
         },
         {
           input: 'https://example.com/page/',
-          expected: 'https://example.com/page'
+          expected: 'https://example.com/page',
         },
         {
           input: 'https://example.com/page?fbclid=abc123',
-          expected: 'https://example.com/page'
-        }
+          expected: 'https://example.com/page',
+        },
       ];
 
       const results = testCases.map(test => {
@@ -69,18 +69,20 @@ module.exports = {
           input: test.input,
           expected: test.expected,
           actual: result,
-          passed: result === test.expected
+          passed: result === test.expected,
         };
       });
 
       return {
         totalTests: results.length,
-        passedTests: results.filter(r => r.passed).length,
-        results
+        passedTests: results.filter(result => result.passed).length,
+        results,
       };
     });
 
-    console.log(`     ✅ URL 正規化測試: ${urlNormalizationResult.passedTests}/${urlNormalizationResult.totalTests} 通過`);
+    console.log(
+      `     ✅ URL 正規化測試: ${urlNormalizationResult.passedTests}/${urlNormalizationResult.totalTests} 通過`
+    );
 
     // 2. 測試圖片 URL 驗證
     console.log('  2️⃣ 測試圖片 URL 驗證...');
@@ -91,7 +93,9 @@ module.exports = {
        * @returns {boolean} URL 是否為有效的圖片 URL
        */
       function isValidImageUrl(url) {
-        if (!url || typeof url !== 'string') return false;
+        if (!url || typeof url !== 'string') {
+          return false;
+        }
 
         try {
           const urlObj = new URL(url);
@@ -119,23 +123,25 @@ module.exports = {
         { url: 'https://example.com/photo.png', expected: true },
         { url: 'data:image/png;base64,abc123', expected: false },
         { url: 'ftp://example.com/image.jpg', expected: false },
-        { url: 'https://example.com/image/cover', expected: true }
+        { url: 'https://example.com/image/cover', expected: true },
       ];
 
       const results = testCases.map(test => ({
         url: test.url,
         expected: test.expected,
         actual: isValidImageUrl(test.url),
-        passed: isValidImageUrl(test.url) === test.expected
+        passed: isValidImageUrl(test.url) === test.expected,
       }));
 
       return {
         totalTests: results.length,
-        passedTests: results.filter(r => r.passed).length
+        passedTests: results.filter(result => result.passed).length,
       };
     });
 
-    console.log(`     ✅ 圖片 URL 驗證: ${imageValidationResult.passedTests}/${imageValidationResult.totalTests} 通過`);
+    console.log(
+      `     ✅ 圖片 URL 驗證: ${imageValidationResult.passedTests}/${imageValidationResult.totalTests} 通過`
+    );
 
     // 3. 測試文本分割功能
     console.log('  3️⃣ 測試長文本分割...');
@@ -184,7 +190,7 @@ module.exports = {
       return {
         originalLength: testText.length,
         chunkCount: chunks.length,
-        allChunksValid: chunks.every(chunk => chunk.length <= 2000)
+        allChunksValid: chunks.every(chunk => chunk.length <= 2000),
       };
     });
 
@@ -196,7 +202,7 @@ module.exports = {
     return {
       urlNormalizationResult,
       imageValidationResult,
-      textSplitResult
+      textSplitResult,
     };
-  }
+  },
 };

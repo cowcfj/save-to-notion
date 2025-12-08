@@ -1,6 +1,6 @@
 /**
  * 性能基準測試工具
- * 
+ *
  * 提供統一的性能測試和數據收集功能，
  * 支持 Thomas Frank 方案對比和性能基準建立。
  */
@@ -19,11 +19,7 @@ class PerformanceBenchmark {
    * @returns {Promise<Object>} 測試結果
    */
   async runBenchmark(testName, testFunction, options = {}) {
-    const {
-      iterations = 1,
-      warmupRuns = 0,
-      collectMemory = false
-    } = options;
+    const { iterations = 1, warmupRuns = 0, collectMemory = false } = options;
 
     console.log(`🚀 開始性能測試: ${testName}`);
 
@@ -48,15 +44,16 @@ class PerformanceBenchmark {
           processingTime: endTime - startTime,
           success: result.success !== false,
           result,
-          memoryUsage: collectMemory ? {
-            start: startMemory,
-            end: endMemory,
-            delta: endMemory - startMemory
-          } : null
+          memoryUsage: collectMemory
+            ? {
+                start: startMemory,
+                end: endMemory,
+                delta: endMemory - startMemory,
+              }
+            : null,
         };
 
         results.push(benchmarkResult);
-
       } catch (error) {
         const endTime = performance.now();
 
@@ -64,7 +61,7 @@ class PerformanceBenchmark {
           iteration: i + 1,
           processingTime: endTime - startTime,
           success: false,
-          error: error.message
+          error: error.message,
         });
       }
     }
@@ -86,8 +83,8 @@ class PerformanceBenchmark {
    * @returns {Object} 摘要統計
    */
   static calculateSummary(testName, results) {
-    const successfulResults = results.filter(r => r.success);
-    const times = successfulResults.map(r => r.processingTime);
+    const successfulResults = results.filter(result => result.success);
+    const times = successfulResults.map(result => result.processingTime);
 
     return {
       testName,
@@ -95,13 +92,13 @@ class PerformanceBenchmark {
       totalIterations: results.length,
       successfulIterations: successfulResults.length,
       successRate: successfulResults.length / results.length,
-      averageTime: times.length > 0 ? times.reduce((a, b) => a + b, 0) / times.length : 0,
+      averageTime: times.length > 0 ? times.reduce((sum, val) => sum + val, 0) / times.length : 0,
       minTime: times.length > 0 ? Math.min(...times) : 0,
       maxTime: times.length > 0 ? Math.max(...times) : 0,
       standardDeviation: PerformanceBenchmark.calculateStandardDeviation(times),
       throughput: PerformanceBenchmark.calculateThroughput(successfulResults),
       memoryStats: PerformanceBenchmark.calculateMemoryStats(successfulResults),
-      rawResults: results
+      rawResults: results,
     };
   }
 
@@ -111,11 +108,13 @@ class PerformanceBenchmark {
    * @returns {number} 標準差
    */
   static calculateStandardDeviation(values) {
-    if (values.length === 0) return 0;
+    if (values.length === 0) {
+      return 0;
+    }
 
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
     const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
-    const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
+    const avgSquaredDiff = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
 
     return Math.sqrt(avgSquaredDiff);
   }
@@ -126,19 +125,23 @@ class PerformanceBenchmark {
    * @returns {Object} 吞吐量統計
    */
   static calculateThroughput(results) {
-    if (results.length === 0) return null;
+    if (results.length === 0) {
+      return null;
+    }
 
     const throughputs = results
-      .filter(r => r.result?.blocksProcessed)
-      .map(r => r.result.blocksProcessed / (r.processingTime / 1000));
+      .filter(result => result.result?.blocksProcessed)
+      .map(result => result.result.blocksProcessed / (result.processingTime / 1000));
 
-    if (throughputs.length === 0) return null;
+    if (throughputs.length === 0) {
+      return null;
+    }
 
     return {
-      average: throughputs.reduce((a, b) => a + b, 0) / throughputs.length,
+      average: throughputs.reduce((sum, val) => sum + val, 0) / throughputs.length,
       min: Math.min(...throughputs),
       max: Math.max(...throughputs),
-      unit: 'blocks/second'
+      unit: 'blocks/second',
     };
   }
 
@@ -148,17 +151,19 @@ class PerformanceBenchmark {
    * @returns {Object|null} 內存統計
    */
   static calculateMemoryStats(results) {
-    const memoryResults = results.filter(r => r.memoryUsage);
+    const memoryResults = results.filter(result => result.memoryUsage);
 
-    if (memoryResults.length === 0) return null;
+    if (memoryResults.length === 0) {
+      return null;
+    }
 
-    const deltas = memoryResults.map(r => r.memoryUsage.delta);
+    const deltas = memoryResults.map(result => result.memoryUsage.delta);
 
     return {
-      averageDelta: deltas.reduce((a, b) => a + b, 0) / deltas.length,
+      averageDelta: deltas.reduce((sum, val) => sum + val, 0) / deltas.length,
       maxDelta: Math.max(...deltas),
       minDelta: Math.min(...deltas),
-      unit: 'bytes'
+      unit: 'bytes',
     };
   }
 
@@ -181,7 +186,7 @@ class PerformanceBenchmark {
   setBaseline(name, baseline) {
     this.baselines.set(name, {
       ...baseline,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     console.log(`📊 設置性能基準線: ${name}`);
@@ -194,7 +199,7 @@ class PerformanceBenchmark {
    * @returns {Object|null} 對比結果
    */
   compareWithBaseline(testName, baselineName) {
-    const testResult = this.results.find(r => r.testName === testName);
+    const testResult = this.results.find(result => result.testName === testName);
     const baseline = this.baselines.get(baselineName);
 
     if (!testResult || !baseline) {
@@ -205,10 +210,14 @@ class PerformanceBenchmark {
     const comparison = {
       testName,
       baselineName,
-      timeImprovement: ((baseline.averageTime - testResult.averageTime) / baseline.averageTime) * 100,
+      timeImprovement:
+        ((baseline.averageTime - testResult.averageTime) / baseline.averageTime) * 100,
       successRateChange: (testResult.successRate - baseline.successRate) * 100,
-      throughputImprovement: PerformanceBenchmark.calculateThroughputImprovement(testResult, baseline),
-      timestamp: new Date().toISOString()
+      throughputImprovement: PerformanceBenchmark.calculateThroughputImprovement(
+        testResult,
+        baseline
+      ),
+      timestamp: new Date().toISOString(),
     };
 
     console.log(`📈 性能對比結果 (${testName} vs ${baselineName}):`);
@@ -225,9 +234,14 @@ class PerformanceBenchmark {
    * @returns {number|null} 吞吐量改進百分比
    */
   static calculateThroughputImprovement(current, baseline) {
-    if (!current.throughput || !baseline.throughput) return null;
+    if (!current.throughput || !baseline.throughput) {
+      return null;
+    }
 
-    return ((current.throughput.average - baseline.throughput.average) / baseline.throughput.average) * 100;
+    return (
+      ((current.throughput.average - baseline.throughput.average) / baseline.throughput.average) *
+      100
+    );
   }
 
   /**
@@ -239,11 +253,11 @@ class PerformanceBenchmark {
       summary: {
         totalTests: this.results.length,
         totalBaselines: this.baselines.size,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
       },
       results: this.results,
       baselines: Object.fromEntries(this.baselines),
-      comparisons: this.generateAllComparisons()
+      comparisons: this.generateAllComparisons(),
     };
 
     console.log('📋 性能測試報告已生成');
@@ -301,7 +315,7 @@ class ThomasFrankBenchmark extends PerformanceBenchmark {
     const results = {
       thomasFrank: {},
       current: {},
-      comparisons: {}
+      comparisons: {},
     };
 
     for (const size of testSizes) {
@@ -351,19 +365,20 @@ class ThomasFrankBenchmark extends PerformanceBenchmark {
       timeComparison: {
         thomasFrank: tfResult.averageTime,
         current: currentResult.averageTime,
-        improvement: ((tfResult.averageTime - currentResult.averageTime) / tfResult.averageTime) * 100
+        improvement:
+          ((tfResult.averageTime - currentResult.averageTime) / tfResult.averageTime) * 100,
       },
       successRateComparison: {
         thomasFrank: tfResult.successRate,
         current: currentResult.successRate,
-        difference: (currentResult.successRate - tfResult.successRate) * 100
+        difference: (currentResult.successRate - tfResult.successRate) * 100,
       },
       throughputComparison: {
         thomasFrank: tfResult.throughput?.average || 0,
         current: currentResult.throughput?.average || 0,
-        improvement: PerformanceBenchmark.calculateThroughputImprovement(currentResult, tfResult)
+        improvement: PerformanceBenchmark.calculateThroughputImprovement(currentResult, tfResult),
       },
-      scalabilityFactor: this.calculateScalabilityFactor(tfResult, currentResult, size)
+      scalabilityFactor: this.calculateScalabilityFactor(tfResult, currentResult, size),
     };
   }
 
@@ -375,7 +390,9 @@ class ThomasFrankBenchmark extends PerformanceBenchmark {
    * @returns {number} 擴展性因子
    */
   calculateScalabilityFactor(tfResult, currentResult, size) {
-    if (!this.thomasFrankBaseline || size === 200) return 1.0;
+    if (!this.thomasFrankBaseline || size === 200) {
+      return 1.0;
+    }
 
     const tfScaling = tfResult.averageTime / this.thomasFrankBaseline.averageTime;
     const currentScaling = currentResult.averageTime / this.thomasFrankBaseline.averageTime;
@@ -386,5 +403,5 @@ class ThomasFrankBenchmark extends PerformanceBenchmark {
 
 module.exports = {
   PerformanceBenchmark,
-  ThomasFrankBenchmark
+  ThomasFrankBenchmark,
 };

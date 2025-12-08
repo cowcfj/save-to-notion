@@ -4,7 +4,7 @@
  */
 
 // 從 imageUtils 導入函數
-const {
+import {
   cleanImageUrl,
   isValidImageUrl,
   isNotionCompatibleImageUrl,
@@ -15,10 +15,8 @@ const {
   extractFromPicture,
   extractFromBackgroundImage,
   extractFromNoscript,
-} = require('../../scripts/utils/imageUtils');
-
-// 從配置模組導入常量
-const { IMAGE_VALIDATION_CONSTANTS } = require('../../scripts/config/constants');
+  IMAGE_VALIDATION as IMAGE_VALIDATION_CONSTANTS,
+} from '../../scripts/utils/imageUtils.module';
 
 describe('imageUtils - 邊界條件測試', () => {
   describe('isValidImageUrl - URL 長度邊界', () => {

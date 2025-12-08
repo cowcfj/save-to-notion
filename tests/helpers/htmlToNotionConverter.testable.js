@@ -9,7 +9,9 @@
 function isValidAbsoluteUrl(href) {
   try {
     const urlObj = new URL(href);
-    if (!urlObj.protocol || !urlObj.host) return false;
+    if (!urlObj.protocol || !urlObj.host) {
+      return false;
+    }
     return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
   } catch {
     return false;
@@ -32,20 +34,20 @@ function convertMarkdownToNotionBlocks(markdown) {
       image: {
         type: 'external',
         external: { url },
-        caption: alt ? [{ type: 'text', text: { content: alt } }] : []
-      }
+        caption: alt ? [{ type: 'text', text: { content: alt } }] : [],
+      },
     });
   }
 
   function flushLists() {
     if (listBuffer.length) {
-      listBuffer.forEach((text) => {
+      listBuffer.forEach(text => {
         blocks.push({
           object: 'block',
           type: 'bulleted_list_item',
           bulleted_list_item: {
-            rich_text: [{ type: 'text', text: { content: text } }]
-          }
+            rich_text: [{ type: 'text', text: { content: text } }],
+          },
         });
       });
       listBuffer = [];
@@ -58,8 +60,8 @@ function convertMarkdownToNotionBlocks(markdown) {
         object: 'block',
         type: 'paragraph',
         paragraph: {
-          rich_text: [{ type: 'text', text: { content: paragraph.trim() } }]
-        }
+          rich_text: [{ type: 'text', text: { content: paragraph.trim() } }],
+        },
       });
       paragraph = '';
     }
@@ -78,8 +80,8 @@ function convertMarkdownToNotionBlocks(markdown) {
             type: 'code',
             code: {
               rich_text: [{ type: 'text', text: { content: codeContent.join('\n') } }],
-              language: codeLanguage
-            }
+              language: codeLanguage,
+            },
           });
         }
         inCodeBlock = false;
@@ -89,7 +91,9 @@ function convertMarkdownToNotionBlocks(markdown) {
         flushParagraph();
         inCodeBlock = true;
         const lang = trimmedLine.substring(3).trim();
-        if (lang) codeLanguage = lang;
+        if (lang) {
+          codeLanguage = lang;
+        }
       }
       continue;
     }
@@ -107,7 +111,7 @@ function convertMarkdownToNotionBlocks(markdown) {
       blocks.push({
         object: 'block',
         type: `heading_${level}`,
-        [`heading_${level}`]: { rich_text: [{ type: 'text', text: { content: text } }] }
+        [`heading_${level}`]: { rich_text: [{ type: 'text', text: { content: text } }] },
       });
       continue;
     }
@@ -124,18 +128,22 @@ function convertMarkdownToNotionBlocks(markdown) {
       continue;
     }
 
-    const imageMatches = [...trimmedLine.matchAll(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g)]
-      .filter((match) => isValidAbsoluteUrl(match[2]));
+    const imageMatches = [
+      ...trimmedLine.matchAll(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g),
+    ].filter(match => isValidAbsoluteUrl(match[2]));
 
-    if (imageMatches.length && trimmedLine.replace(/!\[[^\]]*\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, '').trim() === '') {
+    if (
+      imageMatches.length &&
+      trimmedLine.replace(/!\[[^\]]*\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, '').trim() === ''
+    ) {
       flushLists();
       flushParagraph();
-      imageMatches.forEach((match) => pushImage(match[2], match[1]?.trim()));
+      imageMatches.forEach(match => pushImage(match[2], match[1]?.trim()));
       continue;
     }
 
     let processedLine = trimmedLine;
-    imageMatches.forEach((match) => {
+    imageMatches.forEach(match => {
       processedLine = processedLine.replace(match[0], match[1] || '');
       pushImage(match[2], match[1]?.trim());
     });
@@ -143,15 +151,17 @@ function convertMarkdownToNotionBlocks(markdown) {
     paragraph = paragraph ? `${paragraph} ${processedLine}` : processedLine;
   }
 
-  if (paragraph.trim()) flushParagraph();
+  if (paragraph.trim()) {
+    flushParagraph();
+  }
   if (inCodeBlock && codeContent.length) {
     blocks.push({
       object: 'block',
       type: 'code',
       code: {
         rich_text: [{ type: 'text', text: { content: codeContent.join('\n') } }],
-        language: codeLanguage
-      }
+        language: codeLanguage,
+      },
     });
   }
   return blocks;
@@ -159,6 +169,5 @@ function convertMarkdownToNotionBlocks(markdown) {
 
 module.exports = {
   isValidAbsoluteUrl,
-  convertMarkdownToNotionBlocks
+  convertMarkdownToNotionBlocks,
 };
-

@@ -12,6 +12,10 @@ const { createCoverageMap } = require('istanbul-lib-coverage');
 const { createContext } = require('istanbul-lib-report');
 const reports = require('istanbul-reports');
 
+/**
+ * E2E 覆蓋率收集器類
+ * 負責管理 Puppeteer 瀏覽器實例並收集測試執行期間的代碼覆蓋率
+ */
 class E2ECoverageCollector {
   constructor(config) {
     this.config = config;
@@ -34,9 +38,9 @@ class E2ECoverageCollector {
         args: [
           ...this.config.puppeteer.args,
           `--disable-extensions-except=${path.resolve(this.config.puppeteer.extensionPath)}`,
-          `--load-extension=${path.resolve(this.config.puppeteer.extensionPath)}`
-        ]
-      })
+          `--load-extension=${path.resolve(this.config.puppeteer.extensionPath)}`,
+        ],
+      }),
     });
 
     this.page = await this.browser.newPage();
@@ -56,7 +60,7 @@ class E2ECoverageCollector {
     // 啟用 JS 覆蓋率
     await this.page.coverage.startJSCoverage({
       resetOnNavigation: false, // 跨頁面導航保留覆蓋率
-      reportAnonymousScripts: true // 包含匿名腳本
+      reportAnonymousScripts: true, // 包含匿名腳本
     });
 
     // 啟用 CSS 覆蓋率（可選）
@@ -122,11 +126,7 @@ class E2ECoverageCollector {
       }
 
       // 轉換範圍為 Istanbul 格式
-      const istanbulCoverage = this.convertRangesToIstanbul(
-        filePath,
-        entry.text,
-        entry.ranges
-      );
+      const istanbulCoverage = this.convertRangesToIstanbul(filePath, entry.text, entry.ranges);
 
       if (istanbulCoverage) {
         coverageMap.addFileCoverage(istanbulCoverage);
@@ -149,7 +149,9 @@ class E2ECoverageCollector {
 
     // 檢查是否在 include 列表中
     const fileName = this.constructor.extractFilePath(url);
-    if (!fileName) return false;
+    if (!fileName) {
+      return false;
+    }
 
     const { include, exclude } = this.config.coverage;
 
@@ -191,10 +193,7 @@ class E2ECoverageCollector {
   static matchPattern(str, pattern) {
     // 將 glob 模式轉換為正則表達式
     const regex = new RegExp(
-      `^${pattern
-        .replace(/\*\*/g, '.*')
-        .replace(/\*/g, '[^/]*')
-        .replace(/\?/g, '[^/]')}$`
+      `^${pattern.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]')}$`
     );
     return regex.test(str);
   }
@@ -212,14 +211,14 @@ class E2ECoverageCollector {
         branchMap: {},
         s: {}, // statement counters
         f: {}, // function counters
-        b: {}  // branch counters
+        b: {}, // branch counters
       };
 
       // 簡化版：將每個範圍視為一個語句
       ranges.forEach((range, index) => {
         coverage.statementMap[index] = {
           start: this.constructor.offsetToLocation(text, range.start),
-          end: this.constructor.offsetToLocation(text, range.end)
+          end: this.constructor.offsetToLocation(text, range.end),
         };
         coverage.s[index] = range.count || 1;
       });
@@ -238,7 +237,7 @@ class E2ECoverageCollector {
     const lines = text.substring(0, offset).split('\n');
     return {
       line: lines.length,
-      column: lines[lines.length - 1].length
+      column: lines[lines.length - 1].length,
     };
   }
 
@@ -257,7 +256,7 @@ class E2ECoverageCollector {
     const context = createContext({
       dir: outputDir,
       coverageMap,
-      defaultSummarizer: 'nested'
+      defaultSummarizer: 'nested',
     });
 
     // 生成不同格式的報告
@@ -294,7 +293,7 @@ class E2ECoverageCollector {
       await this.startCoverage();
 
       // 3. 執行所有啟用的測試場景
-      const enabledScenarios = this.config.testScenarios.filter(s => s.enabled);
+      const enabledScenarios = this.config.testScenarios.filter(scenario => scenario.enabled);
       const results = [];
 
       for (const scenario of enabledScenarios) {
@@ -321,7 +320,7 @@ class E2ECoverageCollector {
         console.log(`${icon} ${scenario}`);
       });
 
-      const passedCount = results.filter(r => r.success).length;
+      const passedCount = results.filter(result => result.success).length;
       const totalCount = results.length;
       console.log(`\n總計: ${passedCount}/${totalCount} 通過`);
       console.log(`${'='.repeat(60)}\n`);
@@ -329,9 +328,8 @@ class E2ECoverageCollector {
       return {
         success: passedCount === totalCount,
         coverageMap,
-        results
+        results,
       };
-
     } catch (error) {
       console.error('❌ E2E 測試執行失敗:', error);
       throw error;

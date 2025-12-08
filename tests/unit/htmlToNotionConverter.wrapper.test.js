@@ -1,4 +1,7 @@
-const { convertMarkdownToNotionBlocks, isValidAbsoluteUrl } = require('../helpers/htmlToNotionConverter.testable');
+const {
+  convertMarkdownToNotionBlocks,
+  isValidAbsoluteUrl,
+} = require('../helpers/htmlToNotionConverter.testable');
 
 describe('HTML → Markdown → Notion Blocks - Wrapper', () => {
   test('標題與段落轉換', () => {
@@ -11,19 +14,22 @@ describe('HTML → Markdown → Notion Blocks - Wrapper', () => {
   test('列表與代碼塊轉換', () => {
     const md = '- item1\n- item2\n\n```js\nconsole.log(1)\n```\n';
     const blocks = convertMarkdownToNotionBlocks(md);
-    const listItems = blocks.filter(b => b.type === 'bulleted_list_item');
-    const code = blocks.find(b => b.type === 'code');
+    const listItems = blocks.filter(block => block.type === 'bulleted_list_item');
+    const code = blocks.find(block => block.type === 'code');
     expect(listItems.length).toBe(2);
     expect(code.code.language).toBe('js');
     expect(code.code.rich_text[0].text.content).toContain('console.log');
   });
 
   test('編號列表與未閉合代碼塊處理', () => {
-    const md = '1. first\n2. second\n\n```py\nprint(\'hi\')\n'; // 未閉合，應收尾處理
+    const md = "1. first\n2. second\n\n```py\nprint('hi')\n"; // 未閉合，應收尾處理
     const blocks = convertMarkdownToNotionBlocks(md);
-    const listItems = blocks.filter(b => b.type === 'bulleted_list_item');
-    const code = blocks.find(b => b.type === 'code');
-    expect(listItems.map(b => b.bulleted_list_item.rich_text[0].text.content)).toEqual(['first','second']);
+    const listItems = blocks.filter(block => block.type === 'bulleted_list_item');
+    const code = blocks.find(block => block.type === 'code');
+    expect(listItems.map(block => block.bulleted_list_item.rich_text[0].text.content)).toEqual([
+      'first',
+      'second',
+    ]);
     expect(code).toBeTruthy();
     expect(code.code.language).toBe('py');
   });
@@ -47,8 +53,8 @@ describe('HTML → Markdown → Notion Blocks - Wrapper', () => {
   test('段落內含圖片時生成 image block 並保留文字', () => {
     const md = '段落前置 ![圖說](https://example.com/pic.png) 段落結尾';
     const blocks = convertMarkdownToNotionBlocks(md);
-    const imageBlocks = blocks.filter(b => b.type === 'image');
-    const paragraphBlock = blocks.find(b => b.type === 'paragraph');
+    const imageBlocks = blocks.filter(block => block.type === 'image');
+    const paragraphBlock = blocks.find(block => block.type === 'paragraph');
     expect(imageBlocks.length).toBe(1);
     expect(paragraphBlock).toBeTruthy();
     expect(paragraphBlock.paragraph.rich_text[0].text.content).toContain('段落前置');

@@ -29,12 +29,17 @@ global.Logger = {
   log: jest.fn((message, ...args) => {
     // Simulate dev mode: send background log and console.log
     if (global.chrome?.runtime?.sendMessage) {
-      global.chrome.runtime.sendMessage({
-        action: 'devLogSink',
-        level: 'log',
-        message,
-        args
-      }, () => { /* no-op */ });
+      global.chrome.runtime.sendMessage(
+        {
+          action: 'devLogSink',
+          level: 'log',
+          message,
+          args,
+        },
+        () => {
+          /* no-op */
+        }
+      );
     }
     // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
     // skipcq: JS-0002
@@ -43,12 +48,17 @@ global.Logger = {
   debug: jest.fn((message, ...args) => {
     // Simulate dev mode: send background log and console.log
     if (global.chrome?.runtime?.sendMessage) {
-      global.chrome.runtime.sendMessage({
-        action: 'devLogSink',
-        level: 'debug',
-        message,
-        args
-      }, () => { /* no-op */ });
+      global.chrome.runtime.sendMessage(
+        {
+          action: 'devLogSink',
+          level: 'debug',
+          message,
+          args,
+        },
+        () => {
+          /* no-op */
+        }
+      );
     }
     try {
       // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
@@ -61,12 +71,17 @@ global.Logger = {
   info: jest.fn((message, ...args) => {
     // Simulate dev mode: send background log and console.log
     if (global.chrome?.runtime?.sendMessage) {
-      global.chrome.runtime.sendMessage({
-        action: 'devLogSink',
-        level: 'info',
-        message,
-        args
-      }, () => { /* no-op */ });
+      global.chrome.runtime.sendMessage(
+        {
+          action: 'devLogSink',
+          level: 'info',
+          message,
+          args,
+        },
+        () => {
+          /* no-op */
+        }
+      );
     }
     try {
       // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
@@ -80,12 +95,17 @@ global.Logger = {
     // Always send background log, optionally console.warn in dev mode
     if (global.chrome?.runtime?.sendMessage) {
       try {
-        global.chrome.runtime.sendMessage({
-          action: 'devLogSink',
-          level: 'warn',
-          message,
-          args
-        }, () => { /* no-op */ });
+        global.chrome.runtime.sendMessage(
+          {
+            action: 'devLogSink',
+            level: 'warn',
+            message,
+            args,
+          },
+          () => {
+            /* no-op */
+          }
+        );
       } catch (_) {
         // Ignore sendMessage errors in tests
       }
@@ -102,23 +122,30 @@ global.Logger = {
   error: jest.fn((message, ...args) => {
     // Always send background log and console.error
     if (global.chrome?.runtime?.sendMessage) {
-      global.chrome.runtime.sendMessage({
-        action: 'devLogSink',
-        level: 'error',
-        message,
-        args
-      }, () => { /* no-op */ });
+      global.chrome.runtime.sendMessage(
+        {
+          action: 'devLogSink',
+          level: 'error',
+          message,
+          args,
+        },
+        () => {
+          /* no-op */
+        }
+      );
     }
     try {
       console.error(`[ERROR] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
     } catch (_e) {
       // 忽略 console 錯誤
     }
-  })
+  }),
 };
 // Mock chrome.runtime.sendMessage for Logger background logging
 global.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
-  if (typeof callback === 'function') callback();
+  if (typeof callback === 'function') {
+    callback();
+  }
 });
 
 // Mock fetch API
@@ -129,13 +156,13 @@ const localStorageMock = (() => {
   let store = {};
 
   return {
-    getItem: jest.fn((key) => {
+    getItem: jest.fn(key => {
       return store[key] !== undefined ? store[key] : null;
     }),
     setItem: jest.fn((key, value) => {
       store[key] = value.toString();
     }),
-    removeItem: jest.fn((key) => {
+    removeItem: jest.fn(key => {
       delete store[key];
     }),
     clear: jest.fn(() => {
@@ -144,7 +171,7 @@ const localStorageMock = (() => {
     get length() {
       return Object.keys(store).length;
     },
-    key: jest.fn((index) => {
+    key: jest.fn(index => {
       const keys = Object.keys(store);
       return keys[index] || null;
     }),
@@ -155,7 +182,7 @@ const localStorageMock = (() => {
       store = {};
     },
     // 輔助方法：獲取實際 store
-    _getStore: () => store
+    _getStore: () => store,
   };
 })();
 
@@ -168,7 +195,7 @@ global.console = {
   warn: jest.fn(),
   error: jest.fn(),
   info: jest.fn(),
-  debug: jest.fn()
+  debug: jest.fn(),
 };
 
 // 每個測試前清理 mocks（在 beforeEach 中已經有，但這裡確保 Logger 相關測試正常）
@@ -229,7 +256,7 @@ global.createMockResponse = (data, status = 200, ok = true) => ({
   statusText: ok ? 'OK' : 'Error',
   json: jest.fn().mockResolvedValue(data),
   text: jest.fn().mockResolvedValue(typeof data === 'string' ? data : JSON.stringify(data)),
-  headers: new Map()
+  headers: new Map(),
 });
 
 // 輔助函數：等待 Promise 解析
@@ -254,7 +281,7 @@ global.createDOMElement = (tag, attributes = {}, textContent = '') => {
 };
 
 // 輔助函數：創建完整的 HTML 結構
-global.createDOMFromHTML = (htmlString) => {
+global.createDOMFromHTML = htmlString => {
   const container = document.createElement('div');
   container.innerHTML = htmlString;
   return container;

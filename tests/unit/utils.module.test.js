@@ -4,10 +4,15 @@
  */
 
 // 不在頂部 require，而是在 beforeEach 中動態加載
-let normalizeUrl = null, StorageUtil = null, Logger = null;
+let normalizeUrl = null,
+  StorageUtil = null,
+  Logger = null;
 
 describe('utils.js - 模組測試', () => {
-  let originalGet = null, originalSet = null, originalRemove = null, originalStorage = null;
+  let originalGet = null,
+    originalSet = null,
+    originalRemove = null,
+    originalStorage = null;
   let mockLocalStorage = null;
 
   beforeEach(() => {
@@ -20,8 +25,8 @@ describe('utils.js - 模組測試', () => {
         local: {
           get: jest.fn(),
           set: jest.fn(),
-          remove: jest.fn()
-        }
+          remove: jest.fn(),
+        },
       };
     }
 
@@ -50,15 +55,15 @@ describe('utils.js - 模組測試', () => {
       setItem: jest.fn((key, value) => {
         mockLocalStorage.data[key] = value;
       }),
-      getItem: jest.fn((key) => {
+      getItem: jest.fn(key => {
         return mockLocalStorage.data[key] || null;
       }),
-      removeItem: jest.fn((key) => {
+      removeItem: jest.fn(key => {
         delete mockLocalStorage.data[key];
       }),
       clear: jest.fn(() => {
         mockLocalStorage.data = {};
-      })
+      }),
     };
     global.localStorage = mockLocalStorage;
 
@@ -78,9 +83,15 @@ describe('utils.js - 模組測試', () => {
 
     // 恢復原始方法
     if (chrome.storage?.local) {
-      if (originalGet) chrome.storage.local.get = originalGet;
-      if (originalSet) chrome.storage.local.set = originalSet;
-      if (originalRemove) chrome.storage.local.remove = originalRemove;
+      if (originalGet) {
+        chrome.storage.local.get = originalGet;
+      }
+      if (originalSet) {
+        chrome.storage.local.set = originalSet;
+      }
+      if (originalRemove) {
+        chrome.storage.local.remove = originalRemove;
+      }
     }
 
     // 清除錯誤狀態
@@ -90,7 +101,7 @@ describe('utils.js - 模組測試', () => {
   });
 
   // Helper 函數：從任何可能的 localStorage 來源讀取數據
-  const getStoredData = (key) => {
+  const getStoredData = key => {
     // 1. 檢查 mockLocalStorage.data
     if (mockLocalStorage.data[key]) {
       return mockLocalStorage.data[key];
@@ -99,20 +110,24 @@ describe('utils.js - 模組測試', () => {
     // 2. 檢查 global.localStorage（jsdom 提供的）
     if (global.localStorage.getItem) {
       const item = global.localStorage.getItem(key);
-      if (item) return item;
+      if (item) {
+        return item;
+      }
     }
 
     // 3. 檢查 window.localStorage（如果存在）
     if (typeof window !== 'undefined' && window.localStorage) {
       const item = window.localStorage.getItem(key);
-      if (item) return item;
+      if (item) {
+        return item;
+      }
     }
 
     return null;
   };
 
   // Helper 函數：檢查數據是否被從 localStorage 中移除
-  const isDataRemoved = (key) => {
+  const isDataRemoved = key => {
     return !getStoredData(key);
   };
 
@@ -128,7 +143,9 @@ describe('utils.js - 模組測試', () => {
     });
 
     test('應該移除多個追蹤參數', () => {
-      const result = normalizeUrl('https://example.com/page?utm_source=fb&utm_medium=cpc&fbclid=xyz&id=123');
+      const result = normalizeUrl(
+        'https://example.com/page?utm_source=fb&utm_medium=cpc&fbclid=xyz&id=123'
+      );
       expect(result).toBe('https://example.com/page?id=123');
     });
 
@@ -148,7 +165,9 @@ describe('utils.js - 模組測試', () => {
     });
 
     test('應該處理複雜的真實世界 URL', () => {
-      const result = normalizeUrl('https://example.com/article?utm_source=twitter&utm_campaign=2024#comments');
+      const result = normalizeUrl(
+        'https://example.com/article?utm_source=twitter&utm_campaign=2024#comments'
+      );
       expect(result).toBe('https://example.com/article');
     });
   });
@@ -179,7 +198,7 @@ describe('utils.js - 模組測試', () => {
       const url = 'https://example.com/page';
       const data = {
         url,
-        highlights: [{ text: 'test' }]
+        highlights: [{ text: 'test' }],
       };
 
       await StorageUtil.saveHighlights(url, data);
@@ -247,7 +266,7 @@ describe('utils.js - 模組測試', () => {
           globalHasData: 'data' in global.localStorage,
           mockKeys: Object.keys(mockLocalStorage.data || {}),
           hasWindow: typeof window !== 'undefined',
-          windowLocalStorage: typeof window !== 'undefined' ? typeof window.localStorage : 'N/A'
+          windowLocalStorage: typeof window !== 'undefined' ? typeof window.localStorage : 'N/A',
         };
         throw new Error(`Data not found. Debug: ${JSON.stringify(debugInfo, null, 2)}`);
       }
@@ -301,7 +320,7 @@ describe('utils.js - 模組測試', () => {
       const url = 'https://example.com/page';
       const data = {
         url,
-        highlights: [{ text: '1' }, { text: '2' }, { text: '3' }]
+        highlights: [{ text: '1' }, { text: '2' }, { text: '3' }],
       };
 
       await StorageUtil.saveHighlights(url, data);
@@ -320,7 +339,7 @@ describe('utils.js - 模組測試', () => {
       const highlights = [{ text: 'test 1' }, { text: 'test 2' }];
 
       await chrome.storage.local.set({
-        'highlights_https://example.com/page': highlights
+        'highlights_https://example.com/page': highlights,
       });
 
       const result = await StorageUtil.loadHighlights(url);
@@ -331,11 +350,11 @@ describe('utils.js - 模組測試', () => {
       const url = 'https://example.com/page';
       const data = {
         url,
-        highlights: [{ text: 'test 1' }]
+        highlights: [{ text: 'test 1' }],
       };
 
       await chrome.storage.local.set({
-        'highlights_https://example.com/page': data
+        'highlights_https://example.com/page': data,
       });
 
       const result = await StorageUtil.loadHighlights(url);
@@ -362,7 +381,7 @@ describe('utils.js - 模組測試', () => {
       const url = 'https://example.com/page';
       const data = {
         url,
-        highlights: [{ text: 'legacy' }]
+        highlights: [{ text: 'legacy' }],
       };
 
       const key = 'highlights_https://example.com/page';
@@ -375,10 +394,7 @@ describe('utils.js - 模組測試', () => {
     test('應該處理損壞的 JSON 數據', async () => {
       const url = 'https://example.com/page';
 
-      localStorage.setItem(
-        'highlights_https://example.com/page',
-        'invalid json {'
-      );
+      localStorage.setItem('highlights_https://example.com/page', 'invalid json {');
 
       const result = await StorageUtil.loadHighlights(url);
       expect(result).toEqual([]);
@@ -388,7 +404,7 @@ describe('utils.js - 模組測試', () => {
       const url = 'https://example.com/page';
 
       await chrome.storage.local.set({
-        'highlights_https://example.com/page': {}
+        'highlights_https://example.com/page': {},
       });
 
       const result = await StorageUtil.loadHighlights(url);
@@ -399,7 +415,7 @@ describe('utils.js - 模組測試', () => {
       const url = 'https://example.com/page';
 
       await chrome.storage.local.set({
-        'highlights_https://example.com/page': []
+        'highlights_https://example.com/page': [],
       });
 
       const result = await StorageUtil.loadHighlights(url);
@@ -428,7 +444,7 @@ describe('utils.js - 模組測試', () => {
       const url = 'https://example.com/page';
 
       await chrome.storage.local.set({
-        'highlights_https://example.com/page': [{ text: 'test' }]
+        'highlights_https://example.com/page': [{ text: 'test' }],
       });
 
       await StorageUtil.clearHighlights(url);
@@ -496,7 +512,7 @@ describe('utils.js - 模組測試', () => {
       await chrome.storage.local.set({
         'highlights_https://example.com/page1': [{ text: 'a' }],
         'highlights_https://example.com/page2': [{ text: 'b' }, { text: 'c' }],
-        'other_key': 'value'
+        other_key: 'value',
       });
 
       const keys = await StorageUtil.debugListAllKeys();
@@ -517,8 +533,8 @@ describe('utils.js - 模組測試', () => {
       await chrome.storage.local.set({
         'highlights_https://example.com/page': {
           url: 'https://example.com/page',
-          highlights: [{ text: 'a' }, { text: 'b' }]
-        }
+          highlights: [{ text: 'a' }, { text: 'b' }],
+        },
       });
 
       const keys = await StorageUtil.debugListAllKeys();
@@ -526,9 +542,7 @@ describe('utils.js - 模組測試', () => {
       expect(keys).toHaveLength(1);
       // 第二次調用應該顯示數量和 URL
       const calls = console.log.mock.calls;
-      const logLine = calls.find(call =>
-        call[0]?.includes('2 個標註')
-      );
+      const logLine = calls.find(call => call[0]?.includes('2 個標註'));
       expect(logLine).toBeDefined();
     });
   });
@@ -612,13 +626,13 @@ describe('utils.js - 模組測試', () => {
 
       // 模擬 chrome.storage 返回空（重要：確保完全為空）
       chrome.storage.local.get = jest.fn((keyParam, callback) => {
-        setTimeout(() => callback({}), 0);  // 返回空對象
+        setTimeout(() => callback({}), 0); // 返回空對象
       });
 
       // 使用 spyOn 替換 localStorage.getItem
-      const getItemSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation((keyParam) => {
+      const getItemSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(keyParam => {
         if (keyParam === key) {
-          return '{"invalid": json}';  // 損壞的 JSON
+          return '{"invalid": json}'; // 損壞的 JSON
         }
         return null;
       });
@@ -694,8 +708,8 @@ describe('utils.js - 模組測試', () => {
       chrome.storage.local.get = jest.fn((keys, callback) => {
         callback({
           'highlights_https://example.com': {
-            highlights: [{ text: 'a' }, { text: 'b' }]
-          }
+            highlights: [{ text: 'a' }, { text: 'b' }],
+          },
         });
       });
 

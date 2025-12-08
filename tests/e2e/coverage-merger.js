@@ -67,7 +67,7 @@ class CoverageMerger {
    * 生成合併後的報告
    */
   generateReports(outputDir, reporters = ['text', 'json', 'lcov', 'html']) {
-    console.log("\n📊 生成合併後的覆蓋率報告...");
+    console.log('\n📊 生成合併後的覆蓋率報告...');
 
     // 確保輸出目錄存在
     if (!fs.existsSync(outputDir)) {
@@ -78,7 +78,7 @@ class CoverageMerger {
     const context = createContext({
       dir: outputDir,
       coverageMap: this.coverageMap,
-      defaultSummarizer: 'nested'
+      defaultSummarizer: 'nested',
     });
 
     // 生成各種格式的報告
@@ -168,22 +168,15 @@ ${'='.repeat(60)}`);
     this.loadJestCoverage(jestCoverageFile);
 
     // 記錄 Jest 覆蓋率摘要（可能為空）
-    const jestSummary = Object.keys(this.coverageMap.data).length > 0
-      ? this.coverageMap.getCoverageSummary()
-      : null;
+    const jestSummary =
+      Object.keys(this.coverageMap.data).length > 0 ? this.coverageMap.getCoverageSummary() : null;
 
     // 2. 加載 E2E 覆蓋率
-    const e2eCoverageFile = path.join(
-      config.coverage.dir,
-      'coverage-final.json'
-    );
+    const e2eCoverageFile = path.join(config.coverage.dir, 'coverage-final.json');
     this.loadE2ECoverage(e2eCoverageFile);
 
     // 3. 生成合併報告
-    this.generateReports(
-      config.coverage.mergedDir,
-      config.coverage.reporters
-    );
+    this.generateReports(config.coverage.mergedDir, config.coverage.reporters);
 
     // 4. 打印摘要
     const mergedSummary = this.printSummary();
@@ -198,7 +191,7 @@ ${'='.repeat(60)}`);
     return {
       jestSummary,
       mergedSummary,
-      coverageMap: this.coverageMap
+      coverageMap: this.coverageMap,
     };
   }
 }

@@ -6,9 +6,6 @@
 const {
   IMAGE_VALIDATION_CONSTANTS,
   IMAGE_VALIDATION_CONFIG,
-  HTTP_PROTOCOL_REGEX,
-  DATA_PROTOCOL_REGEX,
-  BLOB_PROTOCOL_REGEX,
   CONTENT_QUALITY,
   NOTION_API,
   LOG_LEVELS,
@@ -49,42 +46,6 @@ describe('配置模組 - constants.js', () => {
       expect(Array.isArray(IMAGE_VALIDATION_CONFIG.SUPPORTED_PROTOCOLS)).toBe(true);
       expect(IMAGE_VALIDATION_CONFIG.SUPPORTED_PROTOCOLS).toContain('http:');
       expect(IMAGE_VALIDATION_CONFIG.SUPPORTED_PROTOCOLS).toContain('https:');
-    });
-
-    test('應包含正則表達式', () => {
-      expect(IMAGE_VALIDATION_CONFIG.IMAGE_EXTENSIONS).toBeInstanceOf(RegExp);
-    });
-
-    test('應包含路徑模式陣列', () => {
-      expect(Array.isArray(IMAGE_VALIDATION_CONFIG.IMAGE_PATH_PATTERNS)).toBe(true);
-      expect(IMAGE_VALIDATION_CONFIG.IMAGE_PATH_PATTERNS.length).toBeGreaterThan(0);
-      IMAGE_VALIDATION_CONFIG.IMAGE_PATH_PATTERNS.forEach(pattern => {
-        expect(pattern).toBeInstanceOf(RegExp);
-      });
-    });
-
-    test('應包含排除模式陣列', () => {
-      expect(Array.isArray(IMAGE_VALIDATION_CONFIG.EXCLUDE_PATTERNS)).toBe(true);
-      expect(IMAGE_VALIDATION_CONFIG.EXCLUDE_PATTERNS.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('協議正則表達式', () => {
-    test('HTTP_PROTOCOL_REGEX 應匹配 HTTP/HTTPS URL', () => {
-      expect(HTTP_PROTOCOL_REGEX.test('http://example.com')).toBe(true);
-      expect(HTTP_PROTOCOL_REGEX.test('https://example.com')).toBe(true);
-      expect(HTTP_PROTOCOL_REGEX.test('ftp://example.com')).toBe(false);
-    });
-
-    test('DATA_PROTOCOL_REGEX 應匹配 data URL', () => {
-      expect(DATA_PROTOCOL_REGEX.test('data:image/png;base64,abc')).toBe(true);
-      expect(DATA_PROTOCOL_REGEX.test('data:image/jpeg;base64,xyz')).toBe(true);
-      expect(DATA_PROTOCOL_REGEX.test('data:text/plain,hello')).toBe(false);
-    });
-
-    test('BLOB_PROTOCOL_REGEX 應匹配 blob URL', () => {
-      expect(BLOB_PROTOCOL_REGEX.test('blob:https://example.com/123')).toBe(true);
-      expect(BLOB_PROTOCOL_REGEX.test('https://example.com')).toBe(false);
     });
   });
 

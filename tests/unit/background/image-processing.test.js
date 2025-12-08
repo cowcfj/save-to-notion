@@ -11,9 +11,15 @@ describe('Background Image Processing', () => {
     }
 
     // 重置 console mocks
-    jest.spyOn(console, 'log').mockImplementation(() => { /* no-op */ });
-    jest.spyOn(console, 'warn').mockImplementation(() => { /* no-op */ });
-    jest.spyOn(console, 'error').mockImplementation(() => { /* no-op */ });
+    jest.spyOn(console, 'log').mockImplementation(() => {
+      /* no-op */
+    });
+    jest.spyOn(console, 'warn').mockImplementation(() => {
+      /* no-op */
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => {
+      /* no-op */
+    });
   });
 
   afterEach(() => {
@@ -134,7 +140,7 @@ describe('Background Image Processing', () => {
         'https://example.com/image.jpg',
         'https://example.com/photo.png',
         'https://example.com/graphic.gif',
-        'https://example.com/vector.svg'
+        'https://example.com/vector.svg',
       ];
 
       // Act & Assert
@@ -162,7 +168,21 @@ describe('Background Image Processing', () => {
 
     it('應該支援各種圖片格式', () => {
       // Arrange
-      const formats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif', 'avif', 'heic', 'heif'];
+      const formats = [
+        'jpg',
+        'jpeg',
+        'png',
+        'gif',
+        'webp',
+        'svg',
+        'bmp',
+        'ico',
+        'tiff',
+        'tif',
+        'avif',
+        'heic',
+        'heif',
+      ];
 
       // Act & Assert
       formats.forEach(format => {
@@ -181,7 +201,7 @@ describe('Background Image Processing', () => {
         'https://example.com/media/cover',
         'https://example.com/uploads/file',
         'https://example.com/assets/logo',
-        'https://example.com/files/image'
+        'https://example.com/files/image',
       ];
 
       // Act & Assert
@@ -198,7 +218,7 @@ describe('Background Image Processing', () => {
         'https://example.com/page.html',
         'https://example.com/api/data',
         'https://example.com/ajax/request',
-        'https://example.com/callback'
+        'https://example.com/callback',
       ];
 
       // Act & Assert
@@ -234,7 +254,7 @@ describe('Background Image Processing', () => {
       const nonHttpUrls = [
         'ftp://example.com/image.jpg',
         'file:///path/to/image.jpg',
-        'data:image/jpeg;base64,/9j/4AAQ...'
+        'data:image/jpeg;base64,/9j/4AAQ...',
       ];
 
       // Act & Assert
@@ -417,7 +437,7 @@ describe('Background Image Processing', () => {
       const complexUrls = [
         'https://images.unsplash.com/photo-1234567890?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
         'https://cdn.pixabay.com/photo/2023/01/01/12/34/56/image-7890123_1280.jpg',
-        'https://example.com/wp-content/uploads/2023/12/featured-image.webp'
+        'https://example.com/wp-content/uploads/2023/12/featured-image.webp',
       ];
 
       // Act & Assert
@@ -438,7 +458,9 @@ describe('Background Image Processing', () => {
  * 模擬的圖片處理函數（用於測試）
  */
 function cleanImageUrlSimulated(url) {
-  if (!url || typeof url !== 'string') return null;
+  if (!url || typeof url !== 'string') {
+    return null;
+  }
 
   try {
     const urlObj = new URL(url);
@@ -467,7 +489,9 @@ function cleanImageUrlSimulated(url) {
 }
 
 function isValidImageUrlSimulated(url) {
-  if (!url || typeof url !== 'string') return false;
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
 
   // 簡化的緩存實現
   const cache = isValidImageUrlSimulated._cache || (isValidImageUrlSimulated._cache = new Map());
@@ -492,7 +516,8 @@ function isValidImageUrlSimulated(url) {
     return false;
   }
 
-  const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
+  const imageExtensions =
+    /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
   if (imageExtensions.test(cleanedUrl)) {
     cache.set(url, true);
     return true;
@@ -506,14 +531,14 @@ function isValidImageUrlSimulated(url) {
     /\/media\//i,
     /\/upload[s]?\//i,
     /\/asset[s]?\//i,
-    /\/file[s]?\//i
+    /\/file[s]?\//i,
   ];
 
   const excludePatterns = [
     /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
     /\/api\//i,
     /\/ajax\//i,
-    /\/callback/i
+    /\/callback/i,
   ];
 
   if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {

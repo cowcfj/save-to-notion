@@ -3,11 +3,11 @@ name: Coverage
 on:
   # 僅在 push 到主線時執行覆蓋率上傳，避免與 PR 測試重複
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   # 支援手動與排程觸發，用於夜間覆蓋率任務
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'  # 每日 03:00 UTC 執行
+    - cron: '0 3 * * *' # 每日 03:00 UTC 執行
 
 jobs:
   coverage:

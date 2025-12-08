@@ -1,7 +1,7 @@
 /**
  * DOM 工具模組（Testable 版本）
  * 提供 DOM 操作相關的工具函式
- * 
+ *
  * 此檔案為測試版本，使用 CommonJS 格式
  * 源檔案：scripts/highlighter/utils/dom.js (ES6 模組)
  */
@@ -11,9 +11,7 @@
  * @returns {boolean} 如果支持則返回 true
  */
 function supportsHighlightAPI() {
-    return typeof CSS !== 'undefined' &&
-        'highlights' in CSS &&
-        CSS.highlights !== undefined;
+  return typeof CSS !== 'undefined' && 'highlights' in CSS && CSS.highlights !== undefined;
 }
 
 /**
@@ -22,9 +20,7 @@ function supportsHighlightAPI() {
  * @returns {boolean} 如果是有效的 Element 則返回 true
  */
 function isValidElement(element) {
-    return element !== null &&
-        element !== undefined &&
-        element instanceof Element;
+  return element !== null && element !== undefined && element instanceof Element;
 }
 
 /**
@@ -33,19 +29,17 @@ function isValidElement(element) {
  * @returns {string} 可見文本內容
  */
 function getVisibleText(element) {
-    if (!isValidElement(element)) {
-        return '';
-    }
+  if (!isValidElement(element)) {
+    return '';
+  }
 
-    // 排除不可見元素
-    const style = window.getComputedStyle(element);
-    if (style.display === 'none' ||
-        style.visibility === 'hidden' ||
-        style.opacity === '0') {
-        return '';
-    }
+  // 排除不可見元素
+  const style = window.getComputedStyle(element);
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+    return '';
+  }
 
-    return element.textContent?.trim() || '';
+  return element.textContent?.trim() || '';
 }
 
 /**
@@ -54,17 +48,17 @@ function getVisibleText(element) {
  * @returns {boolean} 如果在視口內則返回 true
  */
 function isInViewport(element) {
-    if (!isValidElement(element)) {
-        return false;
-    }
+  if (!isValidElement(element)) {
+    return false;
+  }
 
-    const rect = element.getBoundingClientRect();
-    return (
-        rect.top >= 0 &&
-        rect.left >= 0 &&
-        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-    );
+  const rect = element.getBoundingClientRect();
+  return (
+    rect.top >= 0 &&
+    rect.left >= 0 &&
+    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+  );
 }
 
 /**
@@ -75,20 +69,20 @@ function isInViewport(element) {
  * @returns {*} 屬性值或默認值
  */
 function getAttribute(element, attribute, defaultValue = null) {
-    if (!isValidElement(element)) {
-        return defaultValue;
-    }
+  if (!isValidElement(element)) {
+    return defaultValue;
+  }
 
-    return element.getAttribute(attribute) ?? defaultValue;
+  return element.getAttribute(attribute) ?? defaultValue;
 }
 
 // CommonJS exports for testing
 if (typeof module !== 'undefined') {
-    module.exports = {
-        supportsHighlightAPI,
-        isValidElement,
-        getVisibleText,
-        isInViewport,
-        getAttribute
-    };
+  module.exports = {
+    supportsHighlightAPI,
+    isValidElement,
+    getVisibleText,
+    isInViewport,
+    getAttribute,
+  };
 }

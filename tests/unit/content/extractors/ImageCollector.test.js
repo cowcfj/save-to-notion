@@ -7,8 +7,15 @@ jest.mock('../../../../scripts/content/extractors/ReadabilityAdapter', () => ({
   cachedQuery: jest.fn(),
 }));
 
+// Mock PerformanceOptimizer
+jest.mock('../../../../scripts/performance/PerformanceOptimizer', () => ({
+  batchProcess: jest.fn(),
+  batchProcessWithRetry: jest.fn(),
+}));
+
 import { ImageCollector } from '../../../../scripts/content/extractors/ImageCollector.js';
 import { cachedQuery } from '../../../../scripts/content/extractors/ReadabilityAdapter.js';
+import { batchProcessWithRetry } from '../../../../scripts/performance/PerformanceOptimizer.js';
 
 // Mock Globals
 global.Logger = {
@@ -27,9 +34,6 @@ global.ImageUtils = {
 global.ErrorHandler = {
   logError: jest.fn(),
 };
-
-global.batchProcess = jest.fn();
-global.batchProcessWithRetry = jest.fn();
 
 describe('ImageCollector', () => {
   beforeEach(() => {
@@ -52,6 +56,12 @@ describe('ImageCollector', () => {
         return [];
       }
       return null;
+    });
+
+    // Default batchProcessWithRetry mock (success case by default to avoid breaking other tests)
+    batchProcessWithRetry.mockResolvedValue({
+      results: [],
+      meta: {},
     });
   });
 
@@ -155,7 +165,32 @@ describe('ImageCollector', () => {
         image: { external: { url: img.src } },
       }));
 
+      // Mock batchProcessWithRetry to return the processed results
+      batchProcessWithRetry.mockResolvedValue({
+        results: [
+          {
+            object: 'block',
+            type: 'image',
+            image: { external: { url: 'https://example.com/1.jpg' } },
+          },
+          {
+            object: 'block',
+            type: 'image',
+            image: { external: { url: 'https://example.com/2.jpg' } },
+          },
+        ],
+        meta: {},
+      });
+
       const results = await ImageCollector.collectAdditionalImages(contentElement);
+
+      // Depending on implementation, it might use batch or sequential.
+      // If batch is used, it returns the mocked batch results.
+      // If sequential is used (e.g. < 5 images), it processes them.
+      // In this test setup, we have 2 images.
+      // The implementation checks: if (allImages.length > 5) for batch.
+      // So with 2 images, it will use sequential processing.
+      // batchProcessWithRetry won't be called.
 
       expect(results).toHaveLength(2);
       expect(results[0].image.external.url).toBe('https://example.com/1.jpg');
@@ -167,6 +202,7 @@ describe('ImageCollector', () => {
     test('should fallback to sequential processing if batch fails', async () => {
       // Setup
       const contentElement = document.createElement('div');
+      // Create 6 images to trigger batch processing (> 5)
       const mockImgs = Array(6)
         .fill(0)
         .map((_, idx) => {
@@ -184,11 +220,11 @@ describe('ImageCollector', () => {
 
       global.ImageUtils.extractImageSrc.mockImplementation(img => (img ? img.src : null));
 
-      // Mock batchProcessWithRetry to be undefined to force fallback to batchProcess
-      const originalBatchRetry = global.batchProcessWithRetry;
-      global.batchProcessWithRetry = undefined;
-
-      global.batchProcess = jest.fn().mockRejectedValue(new Error('Batch failed'));
+      // Mock batchProcessWithRetry to return null results (simulating failure)
+      batchProcessWithRetry.mockResolvedValue({
+        results: null,
+        meta: { lastError: new Error('Batch failed') },
+      });
 
       // Mock processImageForCollection
       const originalProcess = ImageCollector.processImageForCollection;
@@ -205,8 +241,7 @@ describe('ImageCollector', () => {
 
       expect(seqSpy).toHaveBeenCalled();
 
-      // Restore
-      global.batchProcessWithRetry = originalBatchRetry;
+      // Restore mocked methods
       ImageCollector.processImageForCollection = originalProcess;
       seqSpy.mockRestore();
     });

@@ -47,7 +47,7 @@ global.document.querySelector = dom.window.document.querySelector.bind(dom.windo
 global.document.querySelectorAll = dom.window.document.querySelectorAll.bind(dom.window.document);
 
 // 引入性能優化器
-const { PerformanceOptimizer } = require('../../helpers/performance.testable');
+const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
 
 describe('PerformanceOptimizer 進階功能測試', () => {
   /** @type {PerformanceOptimizer | null} */

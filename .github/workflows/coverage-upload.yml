@@ -2,8 +2,8 @@ name: Coverage Upload
 
 on:
   workflow_run:
-    workflows: ["Tests"]
-    types: ["completed"]
+    workflows: ['Tests']
+    types: ['completed']
 
 jobs:
   upload:
@@ -49,4 +49,3 @@ jobs:
 concurrency:
   group: coverage-upload-${{ github.event.workflow_run.id }}
   cancel-in-progress: true
-

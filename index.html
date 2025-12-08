@@ -1,214 +1,289 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Notion Smart Clipper - 智能網頁保存擴展</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-            color: #333;
-            background: #fff;
-        }
-        h1, h2, h3 { color: #2c3e50; }
-        h1 { border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        h2 { margin-top: 40px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
-        .badges { margin: 20px 0; }
-        .badges img { margin-right: 5px; }
-        .feature-showcase {
-            text-align: center;
-            margin: 40px 0;
-        }
-        .feature-showcase h3 {
-            font-size: 1.2em;
-            margin: 30px 0 15px 0;
-            color: #2980b9;
-        }
-        .feature-showcase img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin: 10px 0;
-        }
-        .button {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            margin: 10px 5px;
-            font-weight: bold;
-        }
-        .button:hover {
-            background: #2980b9;
-        }
-        ul { padding-left: 25px; }
-        li { margin: 8px 0; }
-        code {
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-        }
-        .highlight-box {
-            background: #f8f9fa;
-            border-left: 4px solid #3498db;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+        color: #333;
+        background: #fff;
+      }
+      h1,
+      h2,
+      h3 {
+        color: #2c3e50;
+      }
+      h1 {
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+      }
+      h2 {
+        margin-top: 40px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+      }
+      .badges {
+        margin: 20px 0;
+      }
+      .badges img {
+        margin-right: 5px;
+      }
+      .feature-showcase {
+        text-align: center;
+        margin: 40px 0;
+      }
+      .feature-showcase h3 {
+        font-size: 1.2em;
+        margin: 30px 0 15px 0;
+        color: #2980b9;
+      }
+      .feature-showcase img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin: 10px 0;
+      }
+      .button {
+        display: inline-block;
+        padding: 12px 24px;
+        background: #3498db;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        margin: 10px 5px;
+        font-weight: bold;
+      }
+      .button:hover {
+        background: #2980b9;
+      }
+      ul {
+        padding-left: 25px;
+      }
+      li {
+        margin: 8px 0;
+      }
+      code {
+        background: #f4f4f4;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: 'Courier New', monospace;
+      }
+      .highlight-box {
+        background: #f8f9fa;
+        border-left: 4px solid #3498db;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 4px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>🚀 Notion Smart Clipper</h1>
 
     <div class="badges">
-        <a href="https://github.com/cowcfj/save-to-notion/releases/latest">
-            <img src="https://img.shields.io/github/v/release/cowcfj/save-to-notion" alt="Latest Release">
-        </a>
-        <a href="https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml">
-            <img src="https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml/badge.svg" alt="Tests">
-        </a>
-        <a href="https://codecov.io/gh/cowcfj/save-to-notion">
-            <img src="https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg" alt="codecov">
-        </a>
-        <a href="https://opensource.org/licenses/MIT">
-            <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
-        </a>
+      <a href="https://github.com/cowcfj/save-to-notion/releases/latest">
+        <img
+          src="https://img.shields.io/github/v/release/cowcfj/save-to-notion"
+          alt="Latest Release"
+        />
+      </a>
+      <a href="https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml">
+        <img
+          src="https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml/badge.svg"
+          alt="Tests"
+        />
+      </a>
+      <a href="https://codecov.io/gh/cowcfj/save-to-notion">
+        <img
+          src="https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg"
+          alt="codecov"
+        />
+      </a>
+      <a href="https://opensource.org/licenses/MIT">
+        <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+      </a>
     </div>
 
-    <p style="font-size: 1.1em; color: #555;">
-        一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取。
+    <p style="font-size: 1.1em; color: #555">
+      一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取。
     </p>
 
-    <div style="margin: 30px 0;">
-        <a href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp" class="button">
-            📦 Chrome 商店安裝
-        </a>
-        <a href="https://github.com/cowcfj/save-to-notion" class="button" style="background: #333;">
-            💻 GitHub 倉庫
-        </a>
-        <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" class="button" style="background: #27ae60;">
-            📖 完整使用指南
-        </a>
+    <div style="margin: 30px 0">
+      <a
+        href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp"
+        class="button"
+      >
+        📦 Chrome 商店安裝
+      </a>
+      <a href="https://github.com/cowcfj/save-to-notion" class="button" style="background: #333">
+        💻 GitHub 倉庫
+      </a>
+      <a
+        href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md"
+        class="button"
+        style="background: #27ae60"
+      >
+        📖 完整使用指南
+      </a>
     </div>
 
     <h2>🎬 功能展示</h2>
 
     <div class="feature-showcase">
-        <h3>一鍵保存網頁到 Notion</h3>
-        <img src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image1-main-feature1280.jpg" alt="核心功能展示">
+      <h3>一鍵保存網頁到 Notion</h3>
+      <img
+        src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image1-main-feature1280.jpg"
+        alt="核心功能展示"
+      />
 
-        <h3>隨時標記重要內容</h3>
-        <img src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image2-highlight-feature1280.jpg" alt="文本標註功能">
+      <h3>隨時標記重要內容</h3>
+      <img
+        src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image2-highlight-feature1280.jpg"
+        alt="文本標註功能"
+      />
 
-        <h3>完美整合 Notion</h3>
-        <img src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image3-notion-integration1280.jpg" alt="Notion 整合展示">
+      <h3>完美整合 Notion</h3>
+      <img
+        src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image3-notion-integration1280.jpg"
+        alt="Notion 整合展示"
+      />
 
-        <h3>簡單設置，立即使用</h3>
-        <img src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image4-easy-setup1280.jpg" alt="設置界面">
+      <h3>簡單設置，立即使用</h3>
+      <img
+        src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image4-easy-setup1280.jpg"
+        alt="設置界面"
+      />
 
-        <h3>智能網站圖標選擇</h3>
-        <img src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image5-smart-icon1280.jpg" alt="智能圖標">
+      <h3>智能網站圖標選擇</h3>
+      <img
+        src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image5-smart-icon1280.jpg"
+        alt="智能圖標"
+      />
     </div>
 
     <h2>✨ 核心功能</h2>
 
     <h3>🎨 新一代標註系統</h3>
     <ul>
-        <li><strong>CSS Highlight API</strong>：使用瀏覽器原生功能，零 DOM 修改，完美跨元素支持</li>
-        <li><strong>多顏色標註</strong>：5 種顏色（🟡黃、🟢綠、🔵藍、🔴紅、🟣紫），適應不同使用場景</li>
-        <li><strong>自動遷移</strong>：智能遷移舊標註，自動回滾機制，確保數據安全</li>
-        <li><strong>實時同步</strong>：標記變更即時同步到 Notion 頁面</li>
-        <li><strong>雙重刪除</strong>：雙擊刪除或 Ctrl/Cmd + 點擊快速刪除</li>
+      <li><strong>CSS Highlight API</strong>：使用瀏覽器原生功能，零 DOM 修改，完美跨元素支持</li>
+      <li>
+        <strong>多顏色標註</strong>：5 種顏色（🟡黃、🟢綠、🔵藍、🔴紅、🟣紫），適應不同使用場景
+      </li>
+      <li><strong>自動遷移</strong>：智能遷移舊標註，自動回滾機制，確保數據安全</li>
+      <li><strong>實時同步</strong>：標記變更即時同步到 Notion 頁面</li>
+      <li><strong>雙重刪除</strong>：雙擊刪除或 Ctrl/Cmd + 點擊快速刪除</li>
     </ul>
 
     <h3>📄 智能內容提取</h3>
     <ul>
-        <li><strong>Mozilla Readability</strong>：智能提取文章主要內容，支持多種 CMS 系統</li>
-        <li><strong>自動過濾</strong>：自動過濾廣告和無關內容</li>
-        <li><strong>完整保存</strong>：支持超長文章（8000+ 字），自動分批處理</li>
+      <li><strong>Mozilla Readability</strong>：智能提取文章主要內容，支持多種 CMS 系統</li>
+      <li><strong>自動過濾</strong>：自動過濾廣告和無關內容</li>
+      <li><strong>完整保存</strong>：支持超長文章（8000+ 字），自動分批處理</li>
     </ul>
 
     <h3>🖼️ 圖片和圖標支持</h3>
     <ul>
-        <li><strong>網站 Icon</strong>：自動提取網站 favicon/logo 顯示在 Notion 頁面標題旁</li>
-        <li><strong>封面圖識別</strong>：自動識別文章封面圖（支持 20+ 種選擇器）</li>
-        <li><strong>智能過濾</strong>：自動排除作者頭像和無關圖片</li>
+      <li><strong>網站 Icon</strong>：自動提取網站 favicon/logo 顯示在 Notion 頁面標題旁</li>
+      <li><strong>封面圖識別</strong>：自動識別文章封面圖（支持 20+ 種選擇器）</li>
+      <li><strong>智能過濾</strong>：自動排除作者頭像和無關圖片</li>
     </ul>
 
     <h2>🚀 快速開始</h2>
 
     <div class="highlight-box">
-        <h3>1. 安裝擴展</h3>
-        <p><strong>方法一：Chrome 商店安裝（推薦）</strong></p>
-        <ul>
-            <li>訪問 <a href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp">Chrome Web Store - Save to Notion</a></li>
-            <li>點擊「加到 Chrome」即可安裝</li>
-        </ul>
+      <h3>1. 安裝擴展</h3>
+      <p><strong>方法一：Chrome 商店安裝（推薦）</strong></p>
+      <ul>
+        <li>
+          訪問
+          <a
+            href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp"
+            >Chrome Web Store - Save to Notion</a
+          >
+        </li>
+        <li>點擊「加到 Chrome」即可安裝</li>
+      </ul>
 
-        <p><strong>方法二：開發者模式安裝</strong></p>
-        <ol>
-            <li>從 <a href="https://github.com/cowcfj/save-to-notion/releases">Releases</a> 下載最新版本</li>
-            <li>打開 <code>chrome://extensions/</code>，開啟「開發者模式」</li>
-            <li>點擊「載入未封裝項目」，選擇下載的資料夾</li>
-        </ol>
+      <p><strong>方法二：開發者模式安裝</strong></p>
+      <ol>
+        <li>
+          從 <a href="https://github.com/cowcfj/save-to-notion/releases">Releases</a> 下載最新版本
+        </li>
+        <li>打開 <code>chrome://extensions/</code>，開啟「開發者模式」</li>
+        <li>點擊「載入未封裝項目」，選擇下載的資料夾</li>
+      </ol>
     </div>
 
     <div class="highlight-box">
-        <h3>2. 設置 Notion Integration</h3>
-        <ol>
-            <li>點擊擴展圖標 → Settings → 連接到 Notion</li>
-            <li>在 Notion 創建 Integration，複製 API Token</li>
-            <li>貼上 Token，選擇目標數據庫，保存設置</li>
-        </ol>
+      <h3>2. 設置 Notion Integration</h3>
+      <ol>
+        <li>點擊擴展圖標 → Settings → 連接到 Notion</li>
+        <li>在 Notion 創建 Integration，複製 API Token</li>
+        <li>貼上 Token，選擇目標數據庫，保存設置</li>
+      </ol>
     </div>
 
     <div class="highlight-box">
-        <h3>3. 授權數據庫</h3>
-        <p>在 Notion 數據庫中：點擊「...」→「Add connections」→ 選擇你的 Integration</p>
-        <p>📖 <strong>詳細配置步驟請參考</strong> → <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md">完整使用指南</a></p>
+      <h3>3. 授權數據庫</h3>
+      <p>在 Notion 數據庫中：點擊「...」→「Add connections」→ 選擇你的 Integration</p>
+      <p>
+        📖 <strong>詳細配置步驟請參考</strong> →
+        <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md">完整使用指南</a>
+      </p>
     </div>
 
     <h2>📖 使用說明</h2>
 
     <h3>保存網頁</h3>
     <ol>
-        <li>瀏覽到想保存的網頁，點擊擴展圖標</li>
-        <li>點擊「Save Page」，等待完成（擴展圖標會顯示綠色 "✓"）</li>
-        <li>點擊「Open in Notion」可直接打開保存的頁面</li>
+      <li>瀏覽到想保存的網頁，點擊擴展圖標</li>
+      <li>點擊「Save Page」，等待完成（擴展圖標會顯示綠色 "✓"）</li>
+      <li>點擊「Open in Notion」可直接打開保存的頁面</li>
     </ol>
 
     <h3>文本標註</h3>
     <ol>
-        <li>點擊「Start Highlighting」啟用標註模式</li>
-        <li>選擇標註顏色（🟡黃色、🟢綠色、🔵藍色、🔴紅色、🟣紫色）</li>
-        <li>選中文字自動創建標註（支持跨段落選擇）</li>
-        <li>點擊「同步」將標記保存到 Notion</li>
-        <li><strong>刪除標註</strong>：雙擊標記文本後確認刪除，或按住 Ctrl/Cmd + 點擊快速刪除</li>
+      <li>點擊「Start Highlighting」啟用標註模式</li>
+      <li>選擇標註顏色（🟡黃色、🟢綠色、🔵藍色、🔴紅色、🟣紫色）</li>
+      <li>選中文字自動創建標註（支持跨段落選擇）</li>
+      <li>點擊「同步」將標記保存到 Notion</li>
+      <li><strong>刪除標註</strong>：雙擊標記文本後確認刪除，或按住 Ctrl/Cmd + 點擊快速刪除</li>
     </ol>
 
     <h2>🛠️ 技術特性</h2>
     <ul>
-        <li><strong>Manifest V3</strong>：使用最新的 Chrome 擴展標準</li>
-        <li><strong>CSS Highlight API</strong>：使用瀏覽器原生 API，零 DOM 修改</li>
-        <li><strong>智能內容識別</strong>：多層回退機制確保內容提取成功</li>
-        <li><strong>圖片處理優化</strong>：支持現代網站的各種圖片載入技術</li>
-        <li><strong>模板系統</strong>：靈活的內容自定義功能</li>
+      <li><strong>Manifest V3</strong>：使用最新的 Chrome 擴展標準</li>
+      <li><strong>CSS Highlight API</strong>：使用瀏覽器原生 API，零 DOM 修改</li>
+      <li><strong>智能內容識別</strong>：多層回退機制確保內容提取成功</li>
+      <li><strong>圖片處理優化</strong>：支持現代網站的各種圖片載入技術</li>
+      <li><strong>模板系統</strong>：靈活的內容自定義功能</li>
     </ul>
 
     <h2>📚 更多資源</h2>
     <ul>
-        <li>📖 <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md">完整使用指南</a> - 包含詳細操作說明、FAQ 和故障排除</li>
-        <li>📝 <a href="https://github.com/cowcfj/save-to-notion/blob/main/CHANGELOG.md">更新日誌</a> - 查看所有版本更新</li>
-        <li>🔒 <a href="https://github.com/cowcfj/save-to-notion/blob/main/PRIVACY.md">隱私政策</a> - 了解數據處理方式</li>
-        <li>💻 <a href="https://github.com/cowcfj/save-to-notion">GitHub 倉庫</a> - 源代碼和問題追蹤</li>
+      <li>
+        📖
+        <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md">完整使用指南</a>
+        - 包含詳細操作說明、FAQ 和故障排除
+      </li>
+      <li>
+        📝 <a href="https://github.com/cowcfj/save-to-notion/blob/main/CHANGELOG.md">更新日誌</a> -
+        查看所有版本更新
+      </li>
+      <li>
+        🔒 <a href="https://github.com/cowcfj/save-to-notion/blob/main/PRIVACY.md">隱私政策</a> -
+        了解數據處理方式
+      </li>
+      <li>
+        💻 <a href="https://github.com/cowcfj/save-to-notion">GitHub 倉庫</a> - 源代碼和問題追蹤
+      </li>
     </ul>
 
     <h2>🤝 貢獻</h2>
@@ -217,11 +292,14 @@
     <h2>📄 許可證</h2>
     <p>MIT License</p>
 
-    <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee;">
-    <p style="text-align: center; color: #999; font-size: 0.9em;">
-        Made with ❤️ for Notion users |
-        <a href="https://github.com/cowcfj/save-to-notion">GitHub</a> |
-        <a href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp">Chrome Store</a>
+    <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee" />
+    <p style="text-align: center; color: #999; font-size: 0.9em">
+      Made with ❤️ for Notion users |
+      <a href="https://github.com/cowcfj/save-to-notion">GitHub</a> |
+      <a
+        href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp"
+        >Chrome Store</a
+      >
     </p>
-</body>
+  </body>
 </html>

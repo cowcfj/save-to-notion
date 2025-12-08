@@ -3,7 +3,7 @@ const {
   detectPageComplexity,
   selectExtractor,
   getAnalysisReport,
-  logAnalysis
+  logAnalysis,
 } = require('../helpers/pageComplexityDetector.testable');
 
 describe('PageComplexityDetector - Testable Wrapper', () => {
@@ -60,10 +60,15 @@ describe('PageComplexityDetector - Testable Wrapper', () => {
     global.console = { log: spy };
     const complexity = detectPageComplexity(document);
     const sel = selectExtractor(complexity);
-    logAnalysis(complexity, sel, { success: true, contentLength: 1000, processingTime: 200, fallbackUsed: false }, {
-      url: 'https://example.com',
-      analytics: { track: spy }
-    });
+    logAnalysis(
+      complexity,
+      sel,
+      { success: true, contentLength: 1000, processingTime: 200, fallbackUsed: false },
+      {
+        url: 'https://example.com',
+        analytics: { track: spy },
+      }
+    );
     expect(spy).toHaveBeenCalled();
   });
 });

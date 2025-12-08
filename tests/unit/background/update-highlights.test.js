@@ -43,7 +43,7 @@ describe('Background Update Highlights', () => {
       // Arrange
       const highlights = [
         { text: '重要內容1', color: 'yellow' },
-        { text: '重要內容2', color: 'green' }
+        { text: '重要內容2', color: 'green' },
       ];
 
       // Mock 獲取現有內容的響應
@@ -52,19 +52,19 @@ describe('Background Update Highlights', () => {
           {
             id: 'block-1',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '原有內容' } }] }
+            paragraph: { rich_text: [{ text: { content: '原有內容' } }] },
           },
           {
             id: 'block-2',
             type: 'heading_3',
-            heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] }
+            heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
           },
           {
             id: 'block-3',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '舊標註1' } }] }
-          }
-        ]
+            paragraph: { rich_text: [{ text: { content: '舊標註1' } }] },
+          },
+        ],
       };
 
       // Mock 刪除區塊的響應
@@ -75,8 +75,8 @@ describe('Background Update Highlights', () => {
         results: [
           { id: 'new-block-1', type: 'heading_3' },
           { id: 'new-block-2', type: 'paragraph' },
-          { id: 'new-block-3', type: 'paragraph' }
-        ]
+          { id: 'new-block-3', type: 'paragraph' },
+        ],
       };
 
       mockFetch
@@ -84,7 +84,7 @@ describe('Background Update Highlights', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(existingBlocks)
+          json: () => Promise.resolve(existingBlocks),
         })
         // 刪除舊標註區塊
         .mockResolvedValueOnce(deleteResponse)
@@ -93,7 +93,7 @@ describe('Background Update Highlights', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(addResponse)
+          json: () => Promise.resolve(addResponse),
         });
 
       const mockSendResponse = jest.fn();
@@ -111,24 +111,27 @@ describe('Background Update Highlights', () => {
       expect(mockFetch).toHaveBeenCalledTimes(4);
 
       // 驗證獲取現有內容的調用
-      expect(mockFetch).toHaveBeenNthCalledWith(1,
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
         `https://api.notion.com/v1/blocks/${mockPageId}/children?page_size=100`,
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
-            'Authorization': `Bearer ${mockApiKey}`,
-            'Notion-Version': '2025-09-03'
-          })
+            Authorization: `Bearer ${mockApiKey}`,
+            'Notion-Version': '2025-09-03',
+          }),
         })
       );
 
       // 驗證刪除舊區塊的調用
-      expect(mockFetch).toHaveBeenNthCalledWith(2,
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
         'https://api.notion.com/v1/blocks/block-2',
         expect.objectContaining({ method: 'DELETE' })
       );
 
-      expect(mockFetch).toHaveBeenNthCalledWith(3,
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        3,
         'https://api.notion.com/v1/blocks/block-3',
         expect.objectContaining({ method: 'DELETE' })
       );
@@ -149,9 +152,7 @@ describe('Background Update Highlights', () => {
 
     it('應該處理沒有現有標註區域的頁面', async () => {
       // Arrange
-      const highlights = [
-        { text: '新標註', color: 'blue' }
-      ];
+      const highlights = [{ text: '新標註', color: 'blue' }];
 
       // Mock 獲取現有內容的響應（沒有標註區域）
       const existingBlocks = {
@@ -159,29 +160,29 @@ describe('Background Update Highlights', () => {
           {
             id: 'block-1',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '原有內容' } }] }
-          }
-        ]
+            paragraph: { rich_text: [{ text: { content: '原有內容' } }] },
+          },
+        ],
       };
 
       // Mock 添加新標註的響應
       const addResponse = {
         results: [
           { id: 'new-block-1', type: 'heading_3' },
-          { id: 'new-block-2', type: 'paragraph' }
-        ]
+          { id: 'new-block-2', type: 'paragraph' },
+        ],
       };
 
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(existingBlocks)
+          json: () => Promise.resolve(existingBlocks),
         })
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(addResponse)
+          json: () => Promise.resolve(addResponse),
         });
 
       const mockSendResponse = jest.fn();
@@ -210,21 +211,21 @@ describe('Background Update Highlights', () => {
           {
             id: 'block-1',
             type: 'heading_3',
-            heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] }
+            heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
           },
           {
             id: 'block-2',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '舊標註' } }] }
-          }
-        ]
+            paragraph: { rich_text: [{ text: { content: '舊標註' } }] },
+          },
+        ],
       };
 
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(existingBlocks)
+          json: () => Promise.resolve(existingBlocks),
         })
         .mockResolvedValueOnce({ ok: true, status: 200 })
         .mockResolvedValueOnce({ ok: true, status: 200 });
@@ -248,9 +249,7 @@ describe('Background Update Highlights', () => {
     it('應該處理超長標註文本（需要分割）', async () => {
       // Arrange
       const longText = 'A'.repeat(3000); // 超過 2000 字元限制
-      const highlights = [
-        { text: longText, color: 'red' }
-      ];
+      const highlights = [{ text: longText, color: 'red' }];
 
       // Mock 獲取現有內容的響應（沒有標註區域）
       const existingBlocks = { results: [] };
@@ -260,20 +259,20 @@ describe('Background Update Highlights', () => {
         results: [
           { id: 'new-block-1', type: 'heading_3' },
           { id: 'new-block-2', type: 'paragraph' },
-          { id: 'new-block-3', type: 'paragraph' } // 分割後的第二部分
-        ]
+          { id: 'new-block-3', type: 'paragraph' }, // 分割後的第二部分
+        ],
       };
 
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(existingBlocks)
+          json: () => Promise.resolve(existingBlocks),
         })
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(addResponse)
+          json: () => Promise.resolve(addResponse),
         });
 
       const mockSendResponse = jest.fn();
@@ -307,7 +306,7 @@ describe('Background Update Highlights', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
-        json: () => Promise.resolve({ object: 'error', status: 404 })
+        json: () => Promise.resolve({ object: 'error', status: 404 }),
       });
 
       const mockSendResponse = jest.fn();
@@ -325,7 +324,7 @@ describe('Background Update Highlights', () => {
       expect(mockSendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('Failed to get existing page content')
+          error: expect.stringContaining('Failed to get existing page content'),
         })
       );
     });
@@ -340,28 +339,28 @@ describe('Background Update Highlights', () => {
           {
             id: 'block-1',
             type: 'heading_3',
-            heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] }
-          }
-        ]
+            heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
+          },
+        ],
       };
 
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(existingBlocks)
+          json: () => Promise.resolve(existingBlocks),
         })
         // 刪除失敗
         .mockResolvedValueOnce({
           ok: false,
           status: 400,
-          json: () => Promise.resolve({ object: 'error', message: 'Delete failed' })
+          json: () => Promise.resolve({ object: 'error', message: 'Delete failed' }),
         })
         // 添加新標註成功
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({ results: [] })
+          json: () => Promise.resolve({ results: [] }),
         });
 
       const mockSendResponse = jest.fn();
@@ -396,13 +395,13 @@ describe('Background Update Highlights', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(existingBlocks)
+          json: () => Promise.resolve(existingBlocks),
         })
         // 添加新標註失敗
         .mockResolvedValueOnce({
           ok: false,
           status: 400,
-          json: () => Promise.resolve({ object: 'error', message: 'Add failed' })
+          json: () => Promise.resolve({ object: 'error', message: 'Add failed' }),
         });
 
       const mockSendResponse = jest.fn();
@@ -420,7 +419,7 @@ describe('Background Update Highlights', () => {
       expect(mockSendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('Failed to add new highlights')
+          error: expect.stringContaining('Failed to add new highlights'),
         })
       );
     });
@@ -446,7 +445,7 @@ describe('Background Update Highlights', () => {
       expect(mockSendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'Network error'
+          error: 'Network error',
         })
       );
     });
@@ -461,41 +460,41 @@ describe('Background Update Highlights', () => {
           {
             id: 'block-1',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '正文內容1' } }] }
+            paragraph: { rich_text: [{ text: { content: '正文內容1' } }] },
           },
           {
             id: 'block-2',
             type: 'heading_3',
-            heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] }
+            heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
           },
           {
             id: 'block-3',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '舊標註1' } }] }
+            paragraph: { rich_text: [{ text: { content: '舊標註1' } }] },
           },
           {
             id: 'block-4',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '舊標註2' } }] }
+            paragraph: { rich_text: [{ text: { content: '舊標註2' } }] },
           },
           {
             id: 'block-5',
             type: 'heading_2',
-            heading_2: { rich_text: [{ text: { content: '其他章節' } }] }
+            heading_2: { rich_text: [{ text: { content: '其他章節' } }] },
           },
           {
             id: 'block-6',
             type: 'paragraph',
-            paragraph: { rich_text: [{ text: { content: '其他內容' } }] }
-          }
-        ]
+            paragraph: { rich_text: [{ text: { content: '其他內容' } }] },
+          },
+        ],
       };
 
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(existingBlocks)
+          json: () => Promise.resolve(existingBlocks),
         })
         // 刪除標註區域的3個區塊
         .mockResolvedValueOnce({ ok: true, status: 200 })
@@ -505,7 +504,7 @@ describe('Background Update Highlights', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({ results: [] })
+          json: () => Promise.resolve({ results: [] }),
         });
 
       const mockSendResponse = jest.fn();
@@ -555,18 +554,23 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
     console.log('🔄 開始更新標記 - 頁面ID:', pageId, '標記數量:', highlights.length);
 
     // 獲取現有頁面內容
-    const getResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Notion-Version': '2025-09-03'
+    const getResponse = await fetch(
+      `https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Notion-Version': '2025-09-03',
+        },
       }
-    });
+    );
 
     if (!getResponse.ok) {
       const errorData = await getResponse.json();
       console.error('❌ 獲取頁面內容失敗:', errorData);
-      throw new Error(`Failed to get existing page content: ${errorData.message || getResponse.statusText}`);
+      throw new Error(
+        `Failed to get existing page content: ${errorData.message || getResponse.statusText}`
+      );
     }
 
     const existingContent = await getResponse.json();
@@ -580,8 +584,10 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
     for (let i = 0; i < existingBlocks.length; i++) {
       const block = existingBlocks[i];
 
-      if (block.type === 'heading_3' &&
-        block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記') {
+      if (
+        block.type === 'heading_3' &&
+        block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記'
+      ) {
         foundHighlightSection = true;
         blocksToDelete.push(block.id);
         console.log(`🎯 找到標記區域標題 (索引 ${i}):`, block.id);
@@ -607,9 +613,9 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
         const deleteResponse = await fetch(`https://api.notion.com/v1/blocks/${blockId}`, {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Notion-Version': '2025-09-03'
-          }
+            Authorization: `Bearer ${apiKey}`,
+            'Notion-Version': '2025-09-03',
+          },
         });
 
         if (deleteResponse.ok) {
@@ -630,19 +636,25 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
     if (highlights.length > 0) {
       console.log('➕ 準備添加新的標記區域...');
 
-      const highlightBlocks = [{
-        object: 'block',
-        type: 'heading_3',
-        heading_3: {
-          rich_text: [{
-            type: 'text',
-            text: { content: '📝 頁面標記' }
-          }]
-        }
-      }];
+      const highlightBlocks = [
+        {
+          object: 'block',
+          type: 'heading_3',
+          heading_3: {
+            rich_text: [
+              {
+                type: 'text',
+                text: { content: '📝 頁面標記' },
+              },
+            ],
+          },
+        },
+      ];
 
       highlights.forEach((highlight, index) => {
-        console.log(`📝 準備添加標記 ${index + 1}: "${highlight.text.substring(0, 30)}..." (顏色: ${highlight.color})`);
+        console.log(
+          `📝 準備添加標記 ${index + 1}: "${highlight.text.substring(0, 30)}..." (顏色: ${highlight.color})`
+        );
 
         // 處理超長標註文本，需要分割成多個段落
         const textChunks = splitTextForNotionSimulated(highlight.text, 2000);
@@ -652,18 +664,22 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
             object: 'block',
             type: 'paragraph',
             paragraph: {
-              rich_text: [{
-                type: 'text',
-                text: { content: chunk },
-                annotations: {
-                  color: highlight.color
-                }
-              }]
-            }
+              rich_text: [
+                {
+                  type: 'text',
+                  text: { content: chunk },
+                  annotations: {
+                    color: highlight.color,
+                  },
+                },
+              ],
+            },
           });
 
           if (textChunks.length > 1) {
-            console.log(`   └─ 分割片段 ${chunkIndex + 1}/${textChunks.length}: ${chunk.length} 字元`);
+            console.log(
+              `   └─ 分割片段 ${chunkIndex + 1}/${textChunks.length}: ${chunk.length} 字元`
+            );
           }
         });
       });
@@ -673,13 +689,13 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
       const addResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2025-09-03'
+          'Notion-Version': '2025-09-03',
         },
         body: JSON.stringify({
-          children: highlightBlocks
-        })
+          children: highlightBlocks,
+        }),
       });
 
       console.log('📡 API 響應狀態:', addResponse.status, addResponse.statusText);
@@ -703,8 +719,8 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
       [`saved_${pageUrl}`]: {
         savedAt: Date.now(),
         notionPageId: pageId,
-        lastUpdated: Date.now()
-      }
+        lastUpdated: Date.now(),
+      },
     });
 
     console.log('🎉 標記更新完成！');

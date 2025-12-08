@@ -1,5 +1,5 @@
 import { TECHNICAL_CONTENT_SELECTORS } from '../config/selectors.js';
-import { TECHNICAL_TERMS } from '../config/constants.js';
+import { TECHNICAL_TERMS } from '../config/index.js';
 
 /**
  * 頁面複雜度檢測器

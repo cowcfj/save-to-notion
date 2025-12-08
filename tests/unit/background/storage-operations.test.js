@@ -31,13 +31,13 @@ describe('Background Storage Operations', () => {
       const mockConfig = {
         notionApiKey: 'secret_test_key',
         notionDataSourceId: 'ds-123',
-        notionDatabaseId: 'db-123'
+        notionDatabaseId: 'db-123',
       };
 
       await chrome.storage.local.set(mockConfig);
 
       // Act
-      const result = await new Promise((resolve) => {
+      const result = await new Promise(resolve => {
         getConfigSimulated(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'], resolve);
       });
 
@@ -49,7 +49,7 @@ describe('Background Storage Operations', () => {
 
     it('應該處理不存在的配置鍵', async () => {
       // Act
-      const result = await new Promise((resolve) => {
+      const result = await new Promise(resolve => {
         getConfigSimulated(['nonExistentKey'], resolve);
       });
 
@@ -59,7 +59,7 @@ describe('Background Storage Operations', () => {
 
     it('應該處理空配置請求', async () => {
       // Act
-      const result = await new Promise((resolve) => {
+      const result = await new Promise(resolve => {
         getConfigSimulated([], resolve);
       });
 
@@ -75,15 +75,15 @@ describe('Background Storage Operations', () => {
       const savedData = {
         notionPageId: 'page-123',
         notionUrl: 'https://notion.so/page123',
-        savedAt: Date.now()
+        savedAt: Date.now(),
       };
 
       await chrome.storage.local.set({
-        [`saved_${pageUrl}`]: savedData
+        [`saved_${pageUrl}`]: savedData,
       });
 
       // Act
-      const result = await new Promise((resolve) => {
+      const result = await new Promise(resolve => {
         getSavedPageDataSimulated(pageUrl, resolve);
       });
 
@@ -97,7 +97,7 @@ describe('Background Storage Operations', () => {
       const pageUrl = 'https://example.com/not-saved';
 
       // Act
-      const result = await new Promise((resolve) => {
+      const result = await new Promise(resolve => {
         getSavedPageDataSimulated(pageUrl, resolve);
       });
 
@@ -109,15 +109,15 @@ describe('Background Storage Operations', () => {
       // Arrange
       const pageUrl = 'https://example.com/文章?id=123&lang=zh';
       const savedData = {
-        notionPageId: 'page-456'
+        notionPageId: 'page-456',
       };
 
       await chrome.storage.local.set({
-        [`saved_${pageUrl}`]: savedData
+        [`saved_${pageUrl}`]: savedData,
       });
 
       // Act
-      const result = await new Promise((resolve) => {
+      const result = await new Promise(resolve => {
         getSavedPageDataSimulated(pageUrl, resolve);
       });
 
@@ -132,11 +132,11 @@ describe('Background Storage Operations', () => {
       const pageUrl = 'https://example.com/article';
       const data = {
         notionPageId: 'page-789',
-        notionUrl: 'https://notion.so/page789'
+        notionUrl: 'https://notion.so/page789',
       };
 
       // Act
-      await new Promise((resolve) => {
+      await new Promise(resolve => {
         setSavedPageDataSimulated(pageUrl, data, resolve);
       });
 
@@ -151,12 +151,12 @@ describe('Background Storage Operations', () => {
       // Arrange
       const pageUrl = 'https://example.com/article';
       const data = {
-        notionPageId: 'page-999'
+        notionPageId: 'page-999',
       };
       const beforeTime = Date.now();
 
       // Act
-      await new Promise((resolve) => {
+      await new Promise(resolve => {
         setSavedPageDataSimulated(pageUrl, data, resolve);
       });
 
@@ -173,19 +173,19 @@ describe('Background Storage Operations', () => {
       // Arrange
       const pageUrl = 'https://example.com/article';
       const oldData = {
-        notionPageId: 'old-page'
+        notionPageId: 'old-page',
       };
       const newData = {
         notionPageId: 'new-page',
-        notionUrl: 'https://notion.so/newpage'
+        notionUrl: 'https://notion.so/newpage',
       };
 
       await chrome.storage.local.set({
-        [`saved_${pageUrl}`]: oldData
+        [`saved_${pageUrl}`]: oldData,
       });
 
       // Act
-      await new Promise((resolve) => {
+      await new Promise(resolve => {
         setSavedPageDataSimulated(pageUrl, newData, resolve);
       });
 
@@ -202,19 +202,16 @@ describe('Background Storage Operations', () => {
       const pageUrl = 'https://example.com/article';
       await chrome.storage.local.set({
         [`saved_${pageUrl}`]: { notionPageId: 'page-123' },
-        [`highlights_${pageUrl}`]: [{ text: '標註1' }]
+        [`highlights_${pageUrl}`]: [{ text: '標註1' }],
       });
 
       // Act
-      await new Promise((resolve) => {
+      await new Promise(resolve => {
         clearPageStateSimulated(pageUrl, resolve);
       });
 
       // Assert
-      const result = await chrome.storage.local.get([
-        `saved_${pageUrl}`,
-        `highlights_${pageUrl}`
-      ]);
+      const result = await chrome.storage.local.get([`saved_${pageUrl}`, `highlights_${pageUrl}`]);
       expect(result[`saved_${pageUrl}`]).toBeUndefined();
       expect(result[`highlights_${pageUrl}`]).toBeUndefined();
     });
@@ -225,7 +222,7 @@ describe('Background Storage Operations', () => {
 
       // Act & Assert - 不應該拋出錯誤
       await expect(
-        new Promise((resolve) => {
+        new Promise(resolve => {
           clearPageStateSimulated(pageUrl, resolve);
         })
       ).resolves.toBeUndefined();
@@ -238,19 +235,16 @@ describe('Background Storage Operations', () => {
 
       await chrome.storage.local.set({
         [`saved_${pageUrl1}`]: { notionPageId: 'page-1' },
-        [`saved_${pageUrl2}`]: { notionPageId: 'page-2' }
+        [`saved_${pageUrl2}`]: { notionPageId: 'page-2' },
       });
 
       // Act
-      await new Promise((resolve) => {
+      await new Promise(resolve => {
         clearPageStateSimulated(pageUrl1, resolve);
       });
 
       // Assert
-      const result = await chrome.storage.local.get([
-        `saved_${pageUrl1}`,
-        `saved_${pageUrl2}`
-      ]);
+      const result = await chrome.storage.local.get([`saved_${pageUrl1}`, `saved_${pageUrl2}`]);
       expect(result[`saved_${pageUrl1}`]).toBeUndefined();
       expect(result[`saved_${pageUrl2}`]).toBeDefined();
       expect(result[`saved_${pageUrl2}`].notionPageId).toBe('page-2');
@@ -262,15 +256,15 @@ describe('Background Storage Operations', () => {
       // Arrange
       const largeData = {
         notionPageId: 'page-123',
-        content: 'x'.repeat(1000)
+        content: 'x'.repeat(1000),
       };
 
       await chrome.storage.local.set({
-        'saved_https://example.com': largeData
+        'saved_https://example.com': largeData,
       });
 
       // Act
-      const bytesInUse = await new Promise((resolve) => {
+      const bytesInUse = await new Promise(resolve => {
         chrome.storage.local.getBytesInUse(null, resolve);
       });
 
@@ -321,12 +315,12 @@ describe('Background Storage Operations', () => {
 
       // Act - 並發保存
       await Promise.all([
-        new Promise((resolve) => {
+        new Promise(resolve => {
           setSavedPageDataSimulated(pageUrl1, data1, resolve);
         }),
-        new Promise((resolve) => {
+        new Promise(resolve => {
           setSavedPageDataSimulated(pageUrl2, data2, resolve);
-        })
+        }),
       ]);
 
       // Assert
@@ -343,24 +337,24 @@ describe('Background Storage Operations', () => {
       const data = { notionPageId: 'page-123' };
 
       await chrome.storage.local.set({
-        [`saved_${pageUrl}`]: data
+        [`saved_${pageUrl}`]: data,
       });
 
       // Act - 並發讀取
       const results = await Promise.all([
-        new Promise((resolve) => {
+        new Promise(resolve => {
           getSavedPageDataSimulated(pageUrl, resolve);
         }),
-        new Promise((resolve) => {
+        new Promise(resolve => {
           getSavedPageDataSimulated(pageUrl, resolve);
         }),
-        new Promise((resolve) => {
+        new Promise(resolve => {
           getSavedPageDataSimulated(pageUrl, resolve);
-        })
+        }),
       ]);
 
       // Assert
-      results.forEach((result) => {
+      results.forEach(result => {
         expect(result.notionPageId).toBe('page-123');
       });
     });
@@ -371,12 +365,12 @@ describe('Background Storage Operations', () => {
       // Arrange
       const oldFormatData = {
         pageId: 'old-page-123', // 舊格式使用 pageId
-        url: 'https://example.com'
+        url: 'https://example.com',
       };
 
       const newFormatData = {
         notionPageId: 'new-page-123', // 新格式使用 notionPageId
-        notionUrl: 'https://notion.so/page'
+        notionUrl: 'https://notion.so/page',
       };
 
       // Act & Assert
@@ -389,7 +383,7 @@ describe('Background Storage Operations', () => {
       const oldData = {
         pageId: 'old-123',
         url: 'https://example.com',
-        savedAt: 1234567890
+        savedAt: 1234567890,
       };
 
       // Act
@@ -406,7 +400,7 @@ describe('Background Storage Operations', () => {
       const newData = {
         notionPageId: 'new-123',
         notionUrl: 'https://notion.so/new123',
-        savedAt: Date.now()
+        savedAt: Date.now(),
       };
 
       // Act
@@ -426,7 +420,7 @@ function getConfigSimulated(keys, callback) {
 }
 
 function getSavedPageDataSimulated(pageUrl, callback) {
-  chrome.storage.local.get([`saved_${pageUrl}`], (result) => {
+  chrome.storage.local.get([`saved_${pageUrl}`], result => {
     callback(result[`saved_${pageUrl}`] || null);
   });
 }
@@ -435,8 +429,8 @@ function setSavedPageDataSimulated(pageUrl, data, callback) {
   const storageData = {
     [`saved_${pageUrl}`]: {
       ...data,
-      lastUpdated: Date.now()
-    }
+      lastUpdated: Date.now(),
+    },
   };
   chrome.storage.local.set(storageData, callback);
 }
@@ -452,7 +446,9 @@ function clearPageStateSimulated(pageUrl, callback) {
  * 輔助函數：檢查是否為舊格式數據
  */
 function isOldFormatData(data) {
-  if (!data) return false;
+  if (!data) {
+    return false;
+  }
   return Boolean(data.pageId) && !data.notionPageId;
 }
 
@@ -465,7 +461,7 @@ function migrateToNewFormat(data) {
       notionPageId: data.pageId,
       notionUrl: `https://www.notion.so/${data.pageId.replace(/-/g, '')}`,
       savedAt: data.savedAt,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     };
   }
   return data;

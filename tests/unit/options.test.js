@@ -11,13 +11,13 @@ describe('Options - 授權管理', () => {
     mockGet = jest.fn();
     global.chrome = {
       runtime: { lastError: null },
-      storage: { sync: { remove: mockRemove, get: mockGet } }
+      storage: { sync: { remove: mockRemove, get: mockGet } },
     };
 
     // Spy on checkAuthStatus and mock its implementation
     checkAuthStatusSpy = jest.spyOn(optionsHandler, 'checkAuthStatus').mockResolvedValue({
-        hasAuth: false,
-        settings: {}
+      hasAuth: false,
+      settings: {},
     });
 
     // Default mock behaviors
