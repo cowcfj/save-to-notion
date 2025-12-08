@@ -9,11 +9,14 @@
  * @date 2025-12-07
  */
 
+// 導入統一配置（從統一入口點導入，保持一致性）
+import { TEXT_PROCESSING } from '../../config/index.js';
+
 /**
- * 文本內容最大長度（Notion API 限制）
+ * 文本內容最大長度（從統一配置獲取）
  * @constant {number}
  */
-const MAX_TEXT_LENGTH = 2000;
+const MAX_TEXT_LENGTH = TEXT_PROCESSING?.MAX_RICH_TEXT_LENGTH || 2000;
 
 /**
  * 創建 rich_text 對象
@@ -279,8 +282,8 @@ function isValidBlock(block) {
   return block.object === 'block' && typeof block.type === 'string';
 }
 
-// 模組導出
-module.exports = {
+// 模組導出（ES6 語法）
+export {
   // 常量
   MAX_TEXT_LENGTH,
 

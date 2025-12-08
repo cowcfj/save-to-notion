@@ -4,25 +4,23 @@
 
 import { ConverterFactory } from '../../../../scripts/content/converters/ConverterFactory.js';
 import { domConverter } from '../../../../scripts/content/converters/DomConverter.js';
-import { markdownConverter } from '../../../../scripts/content/converters/MarkdownConverter.js';
 
 // Mock converters
 jest.mock('../../../../scripts/content/converters/DomConverter', () => ({
   domConverter: { name: 'domConverter' },
 }));
-jest.mock('../../../../scripts/content/converters/MarkdownConverter', () => ({
-  markdownConverter: { name: 'markdownConverter' },
-}));
 
 describe('ConverterFactory', () => {
-  test('should return markdownConverter for "markdown"', () => {
+  test('should return domConverter for "markdown"', () => {
+    // Markdown now falls back to DomConverter or a specific handler
+    // But ConverterFactory just returns domConverter for everything now
     const converter = ConverterFactory.getConverter('markdown');
-    expect(converter).toBe(markdownConverter);
+    expect(converter).toBe(domConverter);
   });
 
-  test('should return markdownConverter for "md"', () => {
+  test('should return domConverter for "md"', () => {
     const converter = ConverterFactory.getConverter('md');
-    expect(converter).toBe(markdownConverter);
+    expect(converter).toBe(domConverter);
   });
 
   test('should return domConverter for "html"', () => {

@@ -7,24 +7,20 @@
  */
 
 import { domConverter } from './DomConverter.js';
-import { markdownConverter } from './MarkdownConverter.js';
-
+/**
+ * 轉換器工廠類
+ * 負責根據輸入類型提供適當的轉換器實例
+ */
 class ConverterFactory {
   /**
-   * 獲取轉換器實例
-   * @param {string} type - 內容類型 ('markdown' | 'html' | 'dom')
-   * @returns {Object} 轉換器實例 (具有 convert 方法)
+   * 獲取轉換器
+   * @param {string} [_type] - 內容類型 (已忽略，統一使用 DomConverter)
+   * @returns {DomConverter} 轉換器實例
    */
-  static getConverter(type) {
-    switch (type?.toLowerCase()) {
-      case 'markdown':
-      case 'md':
-        return markdownConverter;
-      case 'html':
-      case 'dom':
-      default:
-        return domConverter;
-    }
+  static getConverter(_type) {
+    // 所有的內容現在都視為 DOM/HTML 處理
+    // 即使源是 Markdown，ContentExtractor 也已將其提取為 HTML 格式
+    return domConverter;
   }
 }
 

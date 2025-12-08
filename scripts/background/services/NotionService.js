@@ -9,31 +9,17 @@
  * @module services/NotionService
  */
 
-// 嘗試從集中式常量模組導入，測試環境中使用默認值
-const NOTION_API_CONSTANTS = (() => {
-  // ES Module 環境（瀏覽器）
-  if (typeof window !== 'undefined' && window.NOTION_API) {
-    return window.NOTION_API;
-  }
-  // 預設值（用於 Node.js 測試環境或常量未加載時）
-  return {
-    VERSION: '2025-09-03',
-    BASE_URL: 'https://api.notion.com/v1',
-    BLOCKS_PER_BATCH: 100,
-    DELAY_BETWEEN_BATCHES: 350,
-    MAX_RETRIES: 3,
-    BASE_RETRY_DELAY: 800,
-  };
-})();
+// 導入統一配置
+import { NOTION_API, IMAGE_VALIDATION_CONSTANTS } from '../../config/index.js';
 
 // 使用統一常量構建配置
 const NOTION_CONFIG = {
-  API_VERSION: NOTION_API_CONSTANTS.VERSION,
-  BASE_URL: NOTION_API_CONSTANTS.BASE_URL,
-  BLOCKS_PER_BATCH: NOTION_API_CONSTANTS.BLOCKS_PER_BATCH,
-  DELAY_BETWEEN_BATCHES: NOTION_API_CONSTANTS.DELAY_BETWEEN_BATCHES,
-  DEFAULT_MAX_RETRIES: NOTION_API_CONSTANTS.MAX_RETRIES || 2,
-  DEFAULT_BASE_DELAY: NOTION_API_CONSTANTS.BASE_RETRY_DELAY || 600,
+  API_VERSION: NOTION_API.VERSION,
+  BASE_URL: NOTION_API.BASE_URL,
+  BLOCKS_PER_BATCH: NOTION_API.BLOCKS_PER_BATCH,
+  DELAY_BETWEEN_BATCHES: NOTION_API.DELAY_BETWEEN_BATCHES,
+  DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES || 2,
+  DEFAULT_BASE_DELAY: NOTION_API.BASE_RETRY_DELAY || 600,
 };
 
 /**
@@ -165,8 +151,11 @@ class NotionService {
         return false;
       }
 
-      // 檢查 URL 長度
-      if (imageUrl.length > 1500) {
+      // 檢查 URL 長度（使用統一配置的閾值，略低於最大限制以留安全餘量）
+      const maxUrlLength =
+        IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH -
+        IMAGE_VALIDATION_CONSTANTS.URL_LENGTH_SAFETY_MARGIN;
+      if (imageUrl.length > maxUrlLength) {
         this.logger.warn?.(
           `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
         );
@@ -324,12 +313,17 @@ class NotionService {
   /**
    * 創建新頁面
    * @param {Object} pageData - 頁面數據
-   * @returns {Promise<{success: boolean, pageId?: string, url?: string, error?: string}>}
+   * @param {Object} [options] - 選項
+   * @param {boolean} [options.autoBatch=false] - 是否自動批次添加超過 100 的區塊
+   * @param {Array} [options.allBlocks] - 完整區塊列表（當 autoBatch 為 true 時使用）
+   * @returns {Promise<{success: boolean, pageId?: string, url?: string, appendResult?: Object, error?: string}>}
    */
-  async createPage(pageData) {
+  async createPage(pageData, options = {}) {
     if (!this.apiKey) {
       throw new Error('API Key not configured');
     }
+
+    const { autoBatch = false, allBlocks = [] } = options;
 
     try {
       const response = await fetchWithRetry(
@@ -344,11 +338,28 @@ class NotionService {
 
       if (response.ok) {
         const data = await response.json();
-        return {
+        const result = {
           success: true,
           pageId: data.id,
           url: data.url,
         };
+
+        // 自動批次添加超過 100 的區塊
+        if (autoBatch && allBlocks.length > 100) {
+          this.logger.log?.(
+            `📚 檢測到超長文章: ${allBlocks.length} 個區塊，開始批次添加剩餘區塊...`
+          );
+          const appendResult = await this.appendBlocksInBatches(data.id, allBlocks, 100);
+          result.appendResult = appendResult;
+
+          if (!appendResult.success) {
+            this.logger.warn?.(
+              `⚠️ 部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`
+            );
+          }
+        }
+
+        return result;
       }
 
       const errorData = await response.json().catch(() => ({}));
@@ -577,6 +588,121 @@ class NotionService {
       };
     } catch (error) {
       this.logger.error?.('❌ 刷新頁面內容失敗:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 更新頁面的標記區域（僅更新 "📝 頁面標記" 部分）
+   * @param {string} pageId - Notion 頁面 ID
+   * @param {Array} highlightBlocks - 新的標記區塊（已構建好的 Notion block 格式）
+   * @returns {Promise<{success: boolean, deletedCount?: number, addedCount?: number, error?: string}>}
+   */
+  async updateHighlightsSection(pageId, highlightBlocks) {
+    try {
+      this.logger.log?.('🔄 開始更新標記區域...');
+
+      // 步驟 1: 獲取現有區塊
+      const response = await fetchWithRetry(
+        `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100`,
+        {
+          method: 'GET',
+          headers: this._getHeaders(),
+        },
+        { maxRetries: 2, baseDelay: 600 }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          error: `獲取頁面內容失敗: ${errorData.message || response.statusText}`,
+        };
+      }
+
+      const existingContent = await response.json();
+      const existingBlocks = existingContent.results;
+
+      // 步驟 2: 找出需要刪除的標記區塊
+      const blocksToDelete = [];
+      let foundHighlightSection = false;
+
+      for (let i = 0; i < existingBlocks.length; i++) {
+        const block = existingBlocks[i];
+
+        if (
+          block.type === 'heading_3' &&
+          block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記'
+        ) {
+          foundHighlightSection = true;
+          blocksToDelete.push(block.id);
+        } else if (foundHighlightSection) {
+          if (block.type.startsWith('heading_')) {
+            break; // 遇到下一個標題，停止收集
+          }
+          if (block.type === 'paragraph') {
+            blocksToDelete.push(block.id);
+          }
+        }
+      }
+
+      // 步驟 3: 刪除舊的標記區塊
+      let deletedCount = 0;
+      for (const blockId of blocksToDelete) {
+        try {
+          const deleteResponse = await fetchWithRetry(
+            `${this.config.BASE_URL}/blocks/${blockId}`,
+            {
+              method: 'DELETE',
+              headers: this._getHeaders(),
+            },
+            { maxRetries: 1, baseDelay: 300 }
+          );
+
+          if (deleteResponse.ok) {
+            deletedCount++;
+          }
+        } catch (deleteError) {
+          this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, deleteError.message);
+        }
+      }
+
+      this.logger.log?.(`🗑️ 刪除了 ${deletedCount}/${blocksToDelete.length} 個舊標記區塊`);
+
+      // 步驟 4: 添加新的標記區塊
+      if (highlightBlocks.length > 0) {
+        const addResponse = await fetchWithRetry(
+          `${this.config.BASE_URL}/blocks/${pageId}/children`,
+          {
+            method: 'PATCH',
+            headers: this._getHeaders(),
+            body: JSON.stringify({ children: highlightBlocks }),
+          },
+          { maxRetries: 2, baseDelay: 600 }
+        );
+
+        if (!addResponse.ok) {
+          const errorData = await addResponse.json().catch(() => ({}));
+          return {
+            success: false,
+            deletedCount,
+            error: `添加標記失敗: ${errorData.message || 'Unknown error'}`,
+          };
+        }
+
+        const addResult = await addResponse.json();
+        this.logger.log?.(`✅ 添加了 ${addResult.results?.length || 0} 個新標記區塊`);
+
+        return {
+          success: true,
+          deletedCount,
+          addedCount: addResult.results?.length || 0,
+        };
+      }
+
+      return { success: true, deletedCount, addedCount: 0 };
+    } catch (error) {
+      this.logger.error?.('❌ 更新標記區域失敗:', error);
       return { success: false, error: error.message };
     }
   }

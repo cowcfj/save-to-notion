@@ -17,7 +17,7 @@ import {
   extractLargestListFallback,
 } from './ReadabilityAdapter.js';
 import { MetadataExtractor } from './MetadataExtractor.js';
-import { TECHNICAL_CONTENT_SELECTORS } from '../../config/selectors.js';
+import { MarkdownExtractor } from './MarkdownExtractor.js';
 
 import { detectPageComplexity, selectExtractor } from '../../utils/pageComplexityDetector.js';
 
@@ -40,8 +40,8 @@ class ContentExtractor {
     let result = null;
 
     // 2. 根據選擇的策略執行提取
-    // 'extractus' 在這裡對應 Markdown/Technical 策略 (基於 pageComplexityDetector 的定義)
-    if (selection.extractor === 'extractus') {
+    // 'markdown' 在這裡對應 Markdown/Technical 策略 (基於 pageComplexityDetector 的定義)
+    if (selection.extractor === 'markdown') {
       result = ContentExtractor.extractTechnicalContent(doc);
     }
 
@@ -110,25 +110,10 @@ class ContentExtractor {
 
   /**
    * 提取技術文檔/Markdown 內容
-   * 嘗試獲取原始 Markdown 或提取特定 DOM 區域
+   * 委託給 MarkdownExtractor 處理 (支持 DOM 清洗和更精確的容器定位)
    */
   static extractTechnicalContent(doc) {
-    Logger.log('🔧 Executing Technical/Markdown extraction...');
-
-    // 策略 2: 提取特定 DOM 區域
-    for (const selector of TECHNICAL_CONTENT_SELECTORS) {
-      const element = doc.querySelector(selector);
-      if (element) {
-        Logger.log(`✅ Found technical content container: ${selector}`);
-        return {
-          content: element.innerHTML, // 返回 HTML，由 MarkdownConverter 轉換
-          type: 'html',
-          rawArticle: { title: doc.title, content: element.innerHTML },
-        };
-      }
-    }
-
-    return null;
+    return MarkdownExtractor.extract(doc);
   }
 }
 

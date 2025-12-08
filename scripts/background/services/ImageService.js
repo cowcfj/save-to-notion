@@ -7,16 +7,24 @@
  * @module services/ImageService
  */
 
+// 導入統一配置
+import { IMAGE_VALIDATION_CONFIG } from '../../config/index.js';
+
+// 從配置獲取默認值
+const DEFAULT_CACHE_SIZE = IMAGE_VALIDATION_CONFIG.MAX_CACHE_SIZE;
+const DEFAULT_CACHE_TTL = IMAGE_VALIDATION_CONFIG.CACHE_TTL;
+const DEFAULT_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 分鐘
+
 /**
  * 圖片 URL 驗證緩存類
  * 實現 LRU 緩存策略與 TTL 過期機制
  */
 class ImageUrlValidationCache {
   /**
-   * @param {number} maxSize - 緩存最大條目數（預設 500）
-   * @param {number} ttl - 條目存活時間（毫秒，預設 30 分鐘）
+   * @param {number} maxSize - 緩存最大條目數（預設來自配置）
+   * @param {number} ttl - 條目存活時間（毫秒，預設來自配置）
    */
-  constructor(maxSize = 500, ttl = 30 * 60 * 1000) {
+  constructor(maxSize = DEFAULT_CACHE_SIZE, ttl = DEFAULT_CACHE_TTL) {
     this.cache = new Map();
     this.maxSize = maxSize;
     this.ttl = ttl;
@@ -156,8 +164,8 @@ class ImageService {
    */
   constructor(options = {}) {
     this.cache = new ImageUrlValidationCache(
-      options.maxCacheSize ?? 500,
-      options.cacheTtl ?? 30 * 60 * 1000
+      options.maxCacheSize ?? DEFAULT_CACHE_SIZE,
+      options.cacheTtl ?? DEFAULT_CACHE_TTL
     );
     this.validator = options.validator ?? null;
     this.logger = options.logger ?? console;
@@ -284,7 +292,7 @@ class ImageService {
    * 啟動定期清理任務
    * @param {number} intervalMs - 清理間隔（毫秒，預設 5 分鐘）
    */
-  startCleanupTask(intervalMs = 5 * 60 * 1000) {
+  startCleanupTask(intervalMs = DEFAULT_CLEANUP_INTERVAL) {
     if (this.cleanupIntervalId) {
       return; // 已啟動
     }

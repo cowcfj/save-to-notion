@@ -1,6 +1,21 @@
 # 變更日誌 (CHANGELOG)
 
-## [Unreleased]
+## v2.14.1 - 2025-12-08
+
+### 📚 版本更新
+
+- **更新版本號**：更新至 v2.14.1。
+
+### 🐛 Bug 修復
+
+- **DomConverter Imports 順序修正**：修正了 `DomConverter.js` 中 `MAX_TEXT_LENGTH` 變數宣告在 import 語句之前的問題，使其符合 ESM 規範。
+- **DomConverter 嵌套連結處理**：修正了 `DomConverter.js` 在處理嵌套連結（如 `<a><b>Bold Link</b></a>`）時，連結無法正確應用到所有嵌套文本節點的問題。
+
+### 🏗️ 架構與代碼清理
+
+- **移除未使用的函式庫**：移除了專案中未使用的 `turndown.js` 相關檔案，減小專案體積。
+- **移除冗餘目錄**：移除了已被 `imageUtils` 和 `ImageCollector` 取代的 `scripts/imageExtraction` 目錄。
+- **Build 系統統一**：更新 `rollup.all.config.mjs` 和 `package.json`，實現透過單一命令同時構建和監聽 Content Script 與 Highlighter。
 
 ## v2.14.0 - 2025-12-07
 

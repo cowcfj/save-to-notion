@@ -237,10 +237,16 @@ export const AVATAR_KEYWORDS = [
 /**
  * 技術文檔/Markdown 內容選擇器（來自 ContentExtractor.js）
  */
+/**
+ * 技術文檔/Markdown 內容選擇器（來自 ContentExtractor.js）
+ * 注意：僅包含明確的容器類名，避免使用通用標籤（如 article, main）以防止誤抓
+ */
 export const TECHNICAL_CONTENT_SELECTORS = [
-  '.markdown-body',
-  '.docs-content',
-  '.documentation',
-  'article',
-  'main',
+  '.markdown-body', // GitHub
+  '.docs-content', // Generic Docs
+  '.documentation', // Generic Docs
+  '.gitbook-root', // GitBook
+  '.md-content', // MkDocs
+  '.prose', // Tailwind Typography (確認是否過於寬泛? 通常 safe)
+  '#readme', // GitHub/NPM
 ];

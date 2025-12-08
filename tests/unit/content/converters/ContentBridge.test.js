@@ -49,13 +49,15 @@ describe('ContentBridge', () => {
         metadata: { title: 'Custom Title' },
       };
 
-      const mockConverter = jest.fn(() => [
-        {
-          object: 'block',
-          type: 'paragraph',
-          paragraph: { rich_text: [{ type: 'text', text: { content: 'Test' } }] },
-        },
-      ]);
+      const mockConverter = {
+        convert: jest.fn(() => [
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: { rich_text: [{ type: 'text', text: { content: 'Test' } }] },
+          },
+        ]),
+      };
 
       const result = bridgeContentToBlocks(extractedContent, { htmlConverter: mockConverter });
 
@@ -70,7 +72,9 @@ describe('ContentBridge', () => {
         rawArticle: { title: 'Article Title' },
       };
 
-      const mockConverter = jest.fn(() => []);
+      const mockConverter = {
+        convert: jest.fn(() => []),
+      };
 
       const result = bridgeContentToBlocks(extractedContent, { htmlConverter: mockConverter });
 
@@ -79,7 +83,9 @@ describe('ContentBridge', () => {
 
     test('應調用 HTML 轉換器處理 HTML 內容', () => {
       const mockBlocks = [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }];
-      const mockConverter = jest.fn(() => mockBlocks);
+      const mockConverter = {
+        convert: jest.fn(() => mockBlocks),
+      };
 
       const extractedContent = {
         content: '<p>Hello World</p>',
@@ -89,13 +95,15 @@ describe('ContentBridge', () => {
 
       const result = bridgeContentToBlocks(extractedContent, { htmlConverter: mockConverter });
 
-      expect(mockConverter).toHaveBeenCalledWith('<p>Hello World</p>');
+      expect(mockConverter.convert).toHaveBeenCalledWith('<p>Hello World</p>');
       expect(result.blocks).toEqual(mockBlocks);
     });
 
     test('應在 blocks 開頭插入封面圖', () => {
       const mockBlocks = [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }];
-      const mockConverter = jest.fn(() => [...mockBlocks]);
+      const mockConverter = {
+        convert: jest.fn(() => [...mockBlocks]),
+      };
 
       const extractedContent = {
         content: '<p>Content</p>',
@@ -125,7 +133,9 @@ describe('ContentBridge', () => {
           image: { external: { url: featuredImageUrl } },
         },
       ];
-      const mockConverter = jest.fn(() => [...mockBlocks]);
+      const mockConverter = {
+        convert: jest.fn(() => [...mockBlocks]),
+      };
 
       const extractedContent = {
         content: '<p>Content</p>',
@@ -146,7 +156,9 @@ describe('ContentBridge', () => {
     });
 
     test('應正確提取 siteIcon', () => {
-      const mockConverter = jest.fn(() => []);
+      const mockConverter = {
+        convert: jest.fn(() => []),
+      };
 
       const extractedContent = {
         content: '<p>Test</p>',
@@ -163,7 +175,9 @@ describe('ContentBridge', () => {
     });
 
     test('應回退到 favicon 當 siteIcon 不存在', () => {
-      const mockConverter = jest.fn(() => []);
+      const mockConverter = {
+        convert: jest.fn(() => []),
+      };
 
       const extractedContent = {
         content: '<p>Test</p>',
@@ -180,9 +194,11 @@ describe('ContentBridge', () => {
     });
 
     test('應在轉換器拋出錯誤時使用回退處理', () => {
-      const mockConverter = jest.fn(() => {
-        throw new Error('Conversion failed');
-      });
+      const mockConverter = {
+        convert: jest.fn(() => {
+          throw new Error('Conversion failed');
+        }),
+      };
 
       // Mock document.createElement 更完整
       const originalCreateElement = global.document.createElement;
@@ -209,7 +225,9 @@ describe('ContentBridge', () => {
     });
 
     test('應在空 blocks 結果時創建回退區塊', () => {
-      const mockConverter = jest.fn(() => []);
+      const mockConverter = {
+        convert: jest.fn(() => []),
+      };
 
       const extractedContent = {
         content: '<p>Test</p>',
@@ -225,7 +243,9 @@ describe('ContentBridge', () => {
 
     test('應禁用封面圖插入當 includeFeaturedImage 為 false', () => {
       const mockBlocks = [{ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } }];
-      const mockConverter = jest.fn(() => [...mockBlocks]);
+      const mockConverter = {
+        convert: jest.fn(() => [...mockBlocks]),
+      };
 
       const extractedContent = {
         content: '<p>Content</p>',

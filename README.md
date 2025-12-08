@@ -163,13 +163,15 @@
 
 ---
 
-## 📁 項目結構
+### 項目結構
 
 ```
 notion-chrome/
 ├── .github/               # CI 與 workflow（test.yml、coverage.yml）
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
-├── rollup.config.mjs      # Rollup 構建配置
+├── rollup.all.config.mjs  # 🆕 統一構建配置
+├── rollup.config.mjs      # Highlighter 構建配置
+├── rollup.content.config.mjs # Content Script 構建配置
 ├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popup.css）
 ├── options/               # 設置頁面（options.html, options.js, options.css）
 ├── scripts/               # 核心腳本與子模組
@@ -181,28 +183,25 @@ notion-chrome/
 │   ├── content/           # 🆕 ES6 模塊化內容提取系統
 │   │   ├── index.js       #     入口文件
 │   │   ├── extractors/    #     提取層（ContentExtractor, ReadabilityAdapter, MetadataExtractor, ImageCollector）
-│   │   ├── converters/    #     轉換層（ConverterFactory, DomConverter, MarkdownConverter）
+│   │   ├── converters/    #     轉換層（ConverterFactory, DomConverter）
 │   │   └── adapters/      #     適配層（ReadabilityAdapter）
 │   ├── config/            # 🆕 集中化配置管理
 │   │   ├── constants.js   #     統一常量定義
 │   │   └── selectors.js   #     DOM 選擇器配置
 │   ├── utils.js           # 工具函數（文件）
-│   ├── highlighter/       # 🆕 ES6 模組化標註系統
+│   ├── highlighter/       # 🆕 ES6 模塊化標註系統
 │   │   ├── index.js       #     入口文件
 │   │   ├── core/          #     核心模組（Range, HighlightManager）
 │   │   ├── ui/            #     UI 組件（Toolbar, Components, Styles）
 │   │   └── utils/         #     工具模組（color, dom, validation, path, textSearch, domStability）
-│   ├── highlighter-v2.js  # 原始文件（保留向後兼容）
 │   ├── highlighter-migration.js
 │   ├── script-injector.js
 │   ├── seamless-migration.js
-│   ├── imageExtraction/   # 圖片提取策略
 │   ├── performance/       # 性能優化模組
 │   ├── errorHandling/     # 錯誤處理模組
 │   └── utils/             # 工具模組（目錄）
 │       ├── Logger.js      # 🆕 統一日誌系統
 │       ├── imageUtils.js  # 圖片處理
-│       ├── htmlToNotionConverter.js
 │       └── pageComplexityDetector.js
 ├── dist/                  # 🆕 構建產物
 │   ├── content.bundle.js         # Content Script 打包版 (211KB)
@@ -212,7 +211,7 @@ notion-chrome/
 ├── lib/                   # 第三方庫（Readability.js）
 ├── icons/                 # 圖標
 ├── promo-images/          # 宣傳圖片（Chrome Web Store）
-├── tests/                 # 測試文件（2379+ tests）
+├── tests/                 # 測試文件（2500+ tests）
 ├── README.md              # 用戶說明
 └── CHANGELOG.md           # 版本變更記錄
 ```
@@ -233,7 +232,7 @@ cd save-to-notion
 # 安裝依賴（會自動執行構建）
 npm install
 # → postinstall hook 會自動執行 npm run build
-# → dist/highlighter-v2.bundle.js 自動生成
+# → dist/highlighter-v2.bundle.js 與 dist/content.bundle.js 自動生成
 
 # 載入 Chrome Extension
 # Chrome → 擴展程式 → 開啟開發者模式 → 載入未封裝項目 → 選擇此目錄
@@ -242,10 +241,11 @@ npm install
 ### 開發模式
 
 ```bash
-# 🔥 推薦：實時編譯（修改源碼自動重新打包）
-npm run build:watch
+# 🔥 推薦：實時編譯（同時監控 Highlighter 與 Content Script）
+npm run dev
+# 或 npm run build:watch
 
-# 修改 highlighter 源碼（scripts/highlighter/）
+# 修改源碼 (scripts/highlighter/ 或 scripts/content/)
 # → 自動重新打包到 dist/
 # → 重新載入 Extension 即可看到變更
 
@@ -266,7 +266,7 @@ npm run lint
 
 **自動構建機制**：
 
-- ✅ `npm install` 後自動執行 `npm run build`（通過 postinstall hook）
+- ✅ `npm install` 後自動執行 `npm run build`
 - ✅ 開發者無需手動構建即可載入 Extension
 - ✅ `dist/` 目錄不被追蹤（在 `.gitignore` 中）
 
@@ -274,12 +274,14 @@ npm run lint
 
 ```bash
 # 1. 開啟實時編譯（推薦）
-npm run build:watch
+npm run dev
 
 # 2. 修改代碼
 vim scripts/highlighter/core/Range.js
+# 或 vim scripts/content/converters/DomConverter.js
 
 # 3. 查看 Terminal 確認重新打包
+# ✅ created dist/content.bundle.js in 40ms
 # ✅ created dist/highlighter-v2.bundle.js in 55ms
 
 # 4. 重新載入 Extension（Chrome Extension 頁面點擊刷新圖標）
@@ -292,7 +294,7 @@ vim scripts/highlighter/core/Range.js
   - 位置：`scripts/content/` (ES6 模塊)
   - 構建產物：`dist/content.bundle.js` (211KB)
   - **extractors/**：提取層（ContentExtractor, ReadabilityAdapter, MetadataExtractor, ImageCollector）
-  - **converters/**：轉換層（ConverterFactory, DomConverter, MarkdownConverter）
+  - **converters/**：轉換層（ConverterFactory, DomConverter）
   - **adapters/**：適配層（ReadabilityAdapter 整合 Readability.js）
 - **highlighter-v2.js**：基於 CSS Highlight API 的標註引擎（已模組化）
   - 位置：`scripts/highlighter/` (ES6 模塊)
