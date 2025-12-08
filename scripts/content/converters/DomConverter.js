@@ -60,7 +60,7 @@ class DomConverter {
 
       // 圖片
       IMG: node => DomConverter.createImageBlock(node),
-      FIGURE: node => this.processFigure(node),
+      FIGURE: node => DomConverter.processFigure(node),
 
       // 分隔線
       HR: () => ({ object: 'block', type: 'divider', divider: {} }),
@@ -378,7 +378,7 @@ class DomConverter {
     };
   }
 
-  processFigure(node) {
+  static processFigure(node) {
     // 處理 Figure，通常包含 Img 和 Figcaption
     const img = node.querySelector('img');
     if (img) {
