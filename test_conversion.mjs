@@ -23,7 +23,7 @@ const container = document.querySelector('.markdown-body');
 
 if (container) {
     const blocks = converter.convert(container);
-    console.log(`Total Blocks: ${blocks.length}`);
+    
 
     // Search for block matching error signature
     let matches = 0;
@@ -31,14 +31,14 @@ if (container) {
         if (block.children && block.children.length > 0) {
             const firstChild = block.children[0];
             if (firstChild.type === 'code') {
-                console.log(`\n!!! FOUND MATCH at Index ${index}`);
-                console.log(JSON.stringify(block, null, 2));
+                
+                
                 matches++;
             }
         }
     });
-    console.log(`\nTotal Matches Found: ${matches}`);
+    
 
 } else {
-    console.log("No .markdown-body");
+    
 }
