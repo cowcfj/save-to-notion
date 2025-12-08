@@ -1,5 +1,15 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.14.3 - 2025-12-09
+
+### 🧹 代碼品質與維護
+
+- **DeepSource 修復**：修復了大量由 DeepSource 報告的靜態分析問題，包括：
+  - 移除 `PerformanceOptimizer` 和 `ErrorHandler` 中的冗餘代碼與屬性
+  - 改進 `imageUtils` 的 URL 處理安全性
+  - 提升單元測試與 E2E 測試的可讀性與穩定性
+- **代碼重構**：持續推進 ES6 模組化與註解優化
+
 ## v2.14.2 - 2025-12-08
 
 ### 🐛 Bug 修復
