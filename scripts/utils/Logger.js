@@ -246,3 +246,5 @@ if (typeof module !== 'undefined' && module.exports) {
 } else if (typeof self !== 'undefined') {
   self.Logger = Logger;
 }
+
+export default Logger;

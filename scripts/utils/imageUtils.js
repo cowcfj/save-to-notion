@@ -648,3 +648,19 @@ if (typeof module !== 'undefined' && module.exports) {
     IMAGE_VALIDATION_CONSTANTS,
   };
 }
+
+export default {
+  cleanImageUrl,
+  isValidImageUrl,
+  isNotionCompatibleImageUrl,
+  extractImageSrc,
+  extractBestUrlFromSrcset,
+  generateImageCacheKey,
+  IMAGE_ATTRIBUTES,
+  IMAGE_VALIDATION_CONSTANTS,
+  extractFromSrcset,
+  extractFromAttributes,
+  extractFromPicture,
+  extractFromBackgroundImage,
+  extractFromNoscript,
+};

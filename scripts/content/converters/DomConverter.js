@@ -8,7 +8,7 @@
  * - 解析 Rich Text (B, I, A, CODE, S)
  */
 
-/* global ImageUtils */
+import ImageUtils from '../../utils/imageUtils.js';
 
 import {
   BLOCKS_SUPPORTING_CHILDREN,

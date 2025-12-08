@@ -8,7 +8,10 @@
  * - 處理圖片驗證、去重和批次處理
  */
 
-/* global Logger, ImageUtils, ErrorHandler, batchProcess, batchProcessWithRetry */
+import Logger from '../../utils/Logger.js';
+import ImageUtils from '../../utils/imageUtils.js';
+import { ErrorHandler } from '../../errorHandling/ErrorHandler.js';
+import { batchProcess, batchProcessWithRetry } from '../../performance/PerformanceOptimizer.js';
 
 import { cachedQuery } from './ReadabilityAdapter.js';
 import {

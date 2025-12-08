@@ -1143,3 +1143,5 @@ if (typeof module !== 'undefined' && module.exports) {
   window.batchProcess = batchProcess;
   window.batchProcessWithRetry = batchProcessWithRetry;
 }
+
+export { PerformanceOptimizer, cachedQuery, batchProcess, batchProcessWithRetry };

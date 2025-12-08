@@ -10,7 +10,10 @@ export default {
         format: 'umd',  // 改為 UMD 格式，自動處理全局變量
         name: 'ContentScript',
         sourcemap: isDev ? 'inline' : true,
-        banner: '/* Save to Notion - Content Script */'
+        banner: '/* eslint-disable */\n/* Save to Notion - Content Script */',
+        globals: {
+            'Readability': 'Readability'
+        }
     },
     plugins: [
         resolve(),
