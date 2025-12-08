@@ -82,6 +82,84 @@ export const CONTENT_QUALITY = {
   LIST_EXCEPTION_THRESHOLD: 8, // 列表項數量閾值（允許例外）
 };
 
+/**
+ * 技術內容關鍵詞（用於 pageComplexityDetector.js）
+ * 用於識別頁面是否包含大量技術術語
+ */
+export const TECHNICAL_TERMS = [
+  // 編程概念
+  'function',
+  'class',
+  'method',
+  'variable',
+  'constant',
+  'interface',
+  'callback',
+  'async',
+  'await',
+  'syntax',
+  'parameter',
+  'argument',
+  'return',
+  'exception',
+  'error',
+
+  // API & Web
+  'api',
+  'endpoint',
+  'request',
+  'response',
+  'header',
+  'json',
+  'xml',
+  'yaml',
+  'http',
+  'https',
+  'rest',
+  'graphql',
+
+  // 工具 & CLI
+  'cli',
+  'command',
+  'option',
+  'flag',
+  'usage',
+  'install',
+  'configure',
+  'build',
+  'deploy',
+  'npm',
+  'git',
+  'docker',
+  'kubernetes',
+  'sdk',
+
+  // 語言 & 框架
+  'javascript',
+  'python',
+  'java',
+  'go',
+  'rust',
+  'c++',
+  'typescript',
+  'react',
+  'vue',
+  'angular',
+  'node',
+  'express',
+  'django',
+  'flask',
+  'spring',
+
+  // 文檔特定
+  'example',
+  'tutorial',
+  'guide',
+  'reference',
+  'deprecated',
+  'version',
+];
+
 // ==========================================
 // Notion API 相關常量
 // ==========================================
@@ -94,6 +172,42 @@ export const NOTION_API = {
   MAX_RETRIES: 3, // 最大重試次數
   BASE_RETRY_DELAY: 800, // 基礎重試延遲（ms）
 };
+
+/**
+ * 支持嵌套 Children 的 Block 類型 (Notion API 2025-09-03)
+ */
+export const BLOCKS_SUPPORTING_CHILDREN = [
+  'bulleted_list_item',
+  'numbered_list_item',
+  'to_do',
+  'toggle',
+  'callout',
+  'column_list',
+  'column',
+];
+
+/**
+ * 在列表項 (List Item) 中不安全、需要被扁平化 (Flatten) 的子 Blocks 類型
+ * Notion API 對於列表內嵌套複雜 Block (如圖片、Code、Header) 往往校驗失敗。
+ */
+export const UNSAFE_LIST_CHILDREN_FOR_FLATTENING = [
+  'code',
+  'image',
+  'bookmark',
+  'embed',
+  'video',
+  'pdf',
+  'file',
+  'audio',
+  'equation',
+  'divider',
+  'table',
+  'callout',
+  'quote',
+  'heading_1',
+  'heading_2',
+  'heading_3',
+];
 
 // ==========================================
 // 日誌系統相關常量

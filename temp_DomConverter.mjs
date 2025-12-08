@@ -15,10 +15,6 @@
  * @constant {number}
  */
 const MAX_TEXT_LENGTH = 2000;
-import {
-  BLOCKS_SUPPORTING_CHILDREN,
-  UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
-} from '../../config/constants.js';
 
 /**
  * DomConverter 類
@@ -86,8 +82,7 @@ class DomConverter {
       rootNode = htmlOrNode;
     }
 
-    const blocks = this.processChildren(rootNode);
-    return DomConverter.cleanBlocks(blocks);
+    return this.processChildren(rootNode);
   }
 
   /**
@@ -451,7 +446,7 @@ class DomConverter {
     if (tagName === 'A') {
       const href = node.getAttribute('href');
       // 使用正則避免 "Script URL is a form of eval" 警告
-      if (href && !/^javascript:/iu.test(href)) {
+      if (href && !/^javascript:/i.test(href)) {
         try {
           link = { url: new URL(href, document.baseURI).href };
         } catch (_error) {
@@ -542,100 +537,6 @@ class DomConverter {
       rust: 'rust',
     };
     return map[lang.toLowerCase()] || lang;
-  }
-
-  /**
-   * 遞歸清洗 Block 結構，確保符合 Notion API 規範 (2025-09-03)
-   * 1. 移除不支持 children 的 block 的 children 屬性
-   * 2. 截斷過長的 rich_text
-   */
-  static cleanBlocks(blocks, depth = 0) {
-    if (!blocks || !Array.isArray(blocks)) {
-      return [];
-    }
-
-    return blocks.flatMap(block => {
-      const type = block.type;
-
-      // Safety Check: block[type] must exist
-      if (!block[type]) {
-        return [];
-      }
-
-      // 1. 處理 Rich Text: 截斷 & Trim & 防空
-      if (block[type]?.rich_text) {
-        if (block[type].rich_text.length === 0) {
-          block[type].rich_text = [{ type: 'text', text: { content: ' ' } }];
-        } else {
-          let totalLength = 0;
-          block[type].rich_text = block[type].rich_text.reduce((acc, rt) => {
-            // TRIM: Remove leading/trailing newlines which can confuse Notion
-            let content = rt.text?.content || '';
-            // Only trim if it's the first or last item? Or always?
-            // Safer to just trim. Notion blocks are block-level.
-            content = content.trim();
-            // If trim made it empty, but it's the only text?
-            if (!content && block[type].rich_text.length === 1) {
-              content = ' ';
-            }
-
-            if (totalLength + content.length > 2000) {
-              const remaining = 2000 - totalLength;
-              if (remaining > 0) {
-                rt.text.content = content.substring(0, remaining);
-                acc.push(rt);
-              }
-              totalLength = 2000;
-            } else if (content) {
-              // 如果 trim 後非空，或原本就是空(被上面的 guard 處理)
-              rt.text.content = content;
-              totalLength += content.length;
-              acc.push(rt);
-            }
-            return acc;
-          }, []);
-          // Final check: if reduce resulted in empty array
-          if (block[type].rich_text.length === 0) {
-            block[type].rich_text = [{ type: 'text', text: { content: ' ' } }];
-          }
-        }
-      }
-
-      // 2. 處理 Children (深度限制 & Flattening)
-      if (block.children && block.children.length > 0) {
-        const MAX_DEPTH = 1;
-        const isSupportedType = BLOCKS_SUPPORTING_CHILDREN.includes(type);
-
-        const hasUnsafeChild = block.children.some(child =>
-          UNSAFE_LIST_CHILDREN_FOR_FLATTENING.includes(child.type)
-        );
-        const shouldFlatten =
-          !isSupportedType ||
-          depth > MAX_DEPTH ||
-          (block.type.includes('list_item') && hasUnsafeChild);
-
-        if (!shouldFlatten) {
-          // 遞歸清洗子節點 (Keep Nesting)
-          block.children = DomConverter.cleanBlocks(block.children, depth + 1);
-          if (block.children.length === 0) {
-            delete block.children;
-          }
-          return [block];
-        }
-
-        // Flatten: 返回 [Parent, ...Children]
-        // 先移除父節點的 children 屬性
-        const children = block.children;
-        delete block.children;
-
-        // 遞歸清洗子節點（它們現在變成頂層/兄弟了，保持相對深度）
-        const cleanChildren = DomConverter.cleanBlocks(children, depth);
-
-        return [block, ...cleanChildren];
-      }
-
-      return [block];
-    });
   }
 }
 
