@@ -1110,10 +1110,6 @@ class PerformanceOptimizer {
 
     return result;
   }
-
-  /**
-   * 計算最佳批處理大小
-   */
 }
 
 // 創建默認實例
