@@ -241,7 +241,7 @@ describe('ImageCollector', () => {
 
       expect(seqSpy).toHaveBeenCalled();
 
-      // Restore
+      // Restore mocked methods
       ImageCollector.processImageForCollection = originalProcess;
       seqSpy.mockRestore();
     });

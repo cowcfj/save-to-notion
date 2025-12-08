@@ -4,7 +4,6 @@
  */
 
 // 從 imageUtils 導入函數
-// 從 imageUtils 導入函數
 import {
   cleanImageUrl,
   isValidImageUrl,

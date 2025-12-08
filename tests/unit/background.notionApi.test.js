@@ -732,7 +732,7 @@ describe('Notion API - 重試邏輯', () => {
           if (result.ok) {
             break;
           }
-        } catch {
+        } catch (error) {
           attempts++;
           if (attempts >= maxAttempts) {
             throw error;

@@ -20,7 +20,7 @@
    */
   const IMAGE_VALIDATION = {
     MAX_URL_LENGTH: 2000, // Notion API URL 長度限制
-    URL_LENGTH_SAFETY_MARGIN: 100, // 留 100 字符的安全餘量
+    URL_LENGTH_SAFETY_MARGIN: 500, // 留 500 字符的安全餘量
     MAX_QUERY_PARAMS: 10, // 查詢參數數量閾值（超過可能為動態 URL）
     SRCSET_WIDTH_MULTIPLIER: 1000, // srcset w 描述符權重（優先於 x）
     MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）

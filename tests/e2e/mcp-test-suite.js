@@ -126,8 +126,11 @@ function testHighlightPersistence() {
                     ];
 
                     return new Promise((resolve) => {
+                        const key = 'highlights_' + window.location.href;
+                        const data = {};
+                        data[key] = highlights;
                         chrome.storage.local.set(
-                            { 'highlights_' + window.location.href: highlights },
+                            data,
                             () => resolve({ success: true, count: highlights.length })
                         );
                     });

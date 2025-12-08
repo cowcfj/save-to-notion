@@ -524,8 +524,8 @@ describe('StorageUtil', () => {
             callback({
               [`highlights_${normalizeUrl(testUrl)}`]: testData,
             }),
-          Math.random() * 10
-        ); // 隨機延遲
+          10
+        ); // 固定延遲以消除不確定性
       });
 
       // 並發讀取同一個 URL

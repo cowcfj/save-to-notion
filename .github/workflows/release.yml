@@ -97,7 +97,7 @@ jobs:
           if [ -d "scripts/utils" ]; then cp -a scripts/utils release-package/scripts/; fi
 
           # Debug: list copied scripts
-          echo "📂 Scrips folder content:"
+          echo "📂 Scripts folder content:"
           ls -R release-package/scripts/
 
           # Note: scripts/highlighter/ source files are NOT included
