@@ -2,12 +2,10 @@
  * imageUtils.js 圖片工具函數測試
  * 測試 cleanImageUrl 和 isValidImageUrl 的功能
  */
+import '../mocks/chrome.js';
 
-// 先設置 Chrome Mock
-require('../mocks/chrome.js');
-
-// 直接從 imageUtils.js 導入
-const { cleanImageUrl, isValidImageUrl } = require('../../scripts/utils/imageUtils.js');
+// 直接從 imageUtils.module.js 導入 (Wrapper)
+import { cleanImageUrl, isValidImageUrl } from '../../scripts/utils/imageUtils.module.js';
 
 // 無需 afterAll 清理，因為不再依賴 background.js 的 cleanupInterval
 

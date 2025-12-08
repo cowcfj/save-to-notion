@@ -9,18 +9,16 @@
  * 圖片驗證常數
  * 用於 URL 長度、參數數量等限制
  */
-// 使用 var 避免重複注入時報錯 (SyntaxError: Identifier 'IMAGE_VALIDATION_CONSTANTS' has already been declared)
-// eslint-disable-next-line no-var
-var IMAGE_VALIDATION_CONSTANTS =
-  typeof window !== 'undefined' && window.IMAGE_VALIDATION_CONSTANTS
-    ? window.IMAGE_VALIDATION_CONSTANTS
-    : {
-        MAX_URL_LENGTH: 2000, // Notion API URL 長度限制
-        MAX_QUERY_PARAMS: 10, // 查詢參數數量閾值（超過可能為動態 URL）
-        SRCSET_WIDTH_MULTIPLIER: 1000, // srcset w 描述符權重（優先於 x）
-        MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）
-        MAX_RECURSION_DEPTH: 5, // cleanImageUrl 最大遞迴深度（防止無限遞迴）
-      };
+// 使用 var 避免重複注入時報錯 (SyntaxError: Identifier 'IMAGE_VALIDATION' has already been declared)
+
+const IMAGE_VALIDATION = {
+  MAX_URL_LENGTH: 2000, // Notion API URL 長度限制
+  URL_LENGTH_SAFETY_MARGIN: 100, // 留 100 字符的安全餘量
+  MAX_QUERY_PARAMS: 10, // 查詢參數數量閾值（超過可能為動態 URL）
+  SRCSET_WIDTH_MULTIPLIER: 1000, // srcset w 描述符權重（優先於 x）
+  MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）
+  MAX_RECURSION_DEPTH: 5, // cleanImageUrl 最大遞迴深度（防止無限遞迴）
+};
 
 /**
  * 統一的圖片屬性列表，涵蓋各種懶加載和響應式圖片的情況
@@ -63,10 +61,10 @@ var IMAGE_ATTRIBUTES =
 if (typeof module !== 'undefined' && typeof require !== 'undefined') {
   try {
     const config = require('../config/constants');
-    if (config.IMAGE_VALIDATION_CONSTANTS) {
+    if (config.IMAGE_VALIDATION) {
       // 使用 Object.assign 確保不覆蓋引用，雖然這裡是替換整個對象
       // 但考慮到代碼結構，直接賦值更簡單
-      Object.assign(IMAGE_VALIDATION_CONSTANTS, config.IMAGE_VALIDATION_CONSTANTS);
+      Object.assign(IMAGE_VALIDATION, config.IMAGE_VALIDATION);
     }
   } catch (_err) {
     // 忽略加載錯誤，保持默認值
@@ -85,7 +83,7 @@ function cleanImageUrl(url, depth = 0) {
   }
 
   // 防止無限遞迴
-  if (depth >= IMAGE_VALIDATION_CONSTANTS.MAX_RECURSION_DEPTH) {
+  if (depth >= IMAGE_VALIDATION.MAX_RECURSION_DEPTH) {
     if (typeof console !== 'undefined' && console.warn) {
       console.warn(
         `⚠️ [cleanImageUrl] 達到最大遞迴深度 (${depth})，停止處理: ${url.substring(0, 100)}`
@@ -231,7 +229,7 @@ function isValidImageUrl(url) {
   }
 
   // 檢查 URL 長度（Notion API 限制）
-  if (cleanedUrl.length > IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH) {
+  if (cleanedUrl.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
     return false;
   }
 
@@ -340,7 +338,7 @@ function isNotionCompatibleImageUrl(url) {
 
     // 檢查是否有過多的查詢參數（可能表示動態生成的 URL）
     const paramCount = Array.from(urlObj.searchParams.keys()).length;
-    if (paramCount > IMAGE_VALIDATION_CONSTANTS.MAX_QUERY_PARAMS) {
+    if (paramCount > IMAGE_VALIDATION.MAX_QUERY_PARAMS) {
       // 使用與 ErrorHandler 相同的防禦性檢查模式
       // Logger 在瀏覽器環境中定義於 utils.js，但這裡需要防禦性檢查
       if (typeof console !== 'undefined' && console.warn) {
@@ -425,7 +423,7 @@ function extractBestUrlFromSrcset(srcset) {
       const xMatch = descriptor?.match(/(\d+)x/i);
 
       if (wMatch) {
-        metric = parseInt(wMatch[1], 10) * IMAGE_VALIDATION_CONSTANTS.SRCSET_WIDTH_MULTIPLIER;
+        metric = parseInt(wMatch[1], 10) * IMAGE_VALIDATION.SRCSET_WIDTH_MULTIPLIER;
       } else if (xMatch) {
         metric = parseInt(xMatch[1], 10);
       } else {
@@ -523,7 +521,7 @@ function extractFromBackgroundImage(imgNode) {
       if (
         urlMatch?.[1] &&
         !urlMatch[1].startsWith('data:') &&
-        urlMatch[1].length < IMAGE_VALIDATION_CONSTANTS.MAX_BACKGROUND_URL_LENGTH
+        urlMatch[1].length < IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH
       ) {
         return urlMatch[1];
       }
@@ -541,7 +539,7 @@ function extractFromBackgroundImage(imgNode) {
         if (
           parentMatch?.[1] &&
           !parentMatch[1].startsWith('data:') &&
-          parentMatch[1].length < IMAGE_VALIDATION_CONSTANTS.MAX_BACKGROUND_URL_LENGTH
+          parentMatch[1].length < IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH
         ) {
           return parentMatch[1];
         }
@@ -616,40 +614,8 @@ function generateImageCacheKey(imgNode) {
   return `${src}|${dataSrc}|${className}|${id}`;
 }
 
-// 導出函數
-if (typeof module !== 'undefined' && module.exports) {
-  // Node.js 環境（測試）
-  module.exports = {
-    cleanImageUrl,
-    isValidImageUrl,
-    isNotionCompatibleImageUrl,
-    extractImageSrc,
-    extractBestUrlFromSrcset,
-    generateImageCacheKey,
-    IMAGE_ATTRIBUTES,
-    IMAGE_VALIDATION_CONSTANTS,
-    // 導出子函數供測試使用
-    extractFromSrcset,
-    extractFromAttributes,
-    extractFromPicture,
-    extractFromBackgroundImage,
-    extractFromNoscript,
-  };
-} else if (typeof window !== 'undefined') {
-  // 瀏覽器環境
-  window.ImageUtils = {
-    cleanImageUrl,
-    isValidImageUrl,
-    isNotionCompatibleImageUrl,
-    extractImageSrc,
-    extractBestUrlFromSrcset,
-    generateImageCacheKey,
-    IMAGE_ATTRIBUTES,
-    IMAGE_VALIDATION_CONSTANTS,
-  };
-}
-
-export default {
+// 最後導出
+const ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,
   isNotionCompatibleImageUrl,
@@ -657,10 +623,18 @@ export default {
   extractBestUrlFromSrcset,
   generateImageCacheKey,
   IMAGE_ATTRIBUTES,
-  IMAGE_VALIDATION_CONSTANTS,
+  IMAGE_VALIDATION,
   extractFromSrcset,
   extractFromAttributes,
   extractFromPicture,
   extractFromBackgroundImage,
   extractFromNoscript,
 };
+
+// Global Assignment
+if (typeof self !== 'undefined') {
+  self.ImageUtils = ImageUtils;
+}
+if (typeof window !== 'undefined') {
+  window.ImageUtils = ImageUtils;
+}

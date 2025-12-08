@@ -7,15 +7,12 @@
  * @module Logger
  */
 
-// 內部狀態 - 使用 var 支持重複注入
-// eslint-disable-next-line no-var
-var _debugEnabled = false;
-// eslint-disable-next-line no-var
-var _isInitialized = false;
+// 內部狀態
+let _debugEnabled = false;
+let _isInitialized = false;
 
-// 日誌級別常量 - 使用 var 支持重複注入
-// eslint-disable-next-line no-var
-var LOG_LEVELS = {
+// 日誌級別常量
+const LOG_LEVELS = {
   DEBUG: 0,
   LOG: 1,
   INFO: 2,
@@ -23,104 +20,78 @@ var LOG_LEVELS = {
   ERROR: 4,
 };
 
-// 環境檢測 - 使用 var 支持重複注入
-// eslint-disable-next-line no-var
-var isExtensionContext = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
-// eslint-disable-next-line no-var
-var isBackground = isExtensionContext && typeof window === 'undefined'; // Service Worker 環境通常沒有 window (或 self !== window)
+// 環境檢測
+const isExtensionContext = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
+const isBackground = isExtensionContext && typeof window === 'undefined'; // Service Worker 環境通常沒有 window (或 self !== window)
 
 /**
  * 統一日誌類
  * 提供靜態方法用於記錄不同級別的日誌
  */
-// eslint-disable-next-line no-var
-var Logger = (function () {
-  // 如果已存在，直接返回
-  if (typeof window !== 'undefined' && window.Logger) {
-    return window.Logger;
-  }
-  if (typeof self !== 'undefined' && self.Logger) {
-    return self.Logger;
+class Logger {
+  static get debugEnabled() {
+    if (!_isInitialized) {
+      initDebugState();
+    }
+    return _debugEnabled;
   }
 
-  return class _Logger {
-    static get debugEnabled() {
-      if (!_isInitialized) {
-        initDebugState();
-      }
-      return _debugEnabled;
+  static debug(message, ...args) {
+    if (!this.debugEnabled) {
+      return;
     }
 
-    static debug(message, ...args) {
-      if (!this.debugEnabled) {
-        return;
-      }
-
-      // skipcq: JS-0002
-      console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
-      sendToBackground('debug', message, args);
-    }
-
-    static log(message, ...args) {
-      if (!this.debugEnabled) {
-        return;
-      }
-
-      // skipcq: JS-0002
-      console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
-      sendToBackground('log', message, args);
-    }
-
-    static info(message, ...args) {
-      if (!this.debugEnabled) {
-        return;
-      }
-
-      // skipcq: JS-0002
-      console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
-      sendToBackground('info', message, args);
-    }
-
-    static warn(message, ...args) {
-      // Warn 總是輸出
-      // skipcq: JS-0002
-      console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
-      sendToBackground('warn', message, args);
-    }
-
-    static error(message, ...args) {
-      // 檢查是否為忽略的錯誤
-      const errorMsg = message instanceof Error ? message.message : String(message);
-      if (errorMsg.includes('Frame with ID 0 was removed')) {
-        return;
-      }
-
-      // Error 總是輸出
-      console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
-      sendToBackground('error', message, args);
-    }
-  };
-})();
-
-// Node.js 環境適配：嘗試從配置模組加載
-if (typeof module !== 'undefined' && typeof require !== 'undefined') {
-  try {
-    const config = require('../config/constants');
-    const env = require('../config/env');
-
-    if (config.LOG_LEVELS) {
-      LOG_LEVELS = config.LOG_LEVELS;
-    }
-
-    if (env.isExtensionContext) {
-      isExtensionContext = env.isExtensionContext();
-    }
-    if (env.isBackgroundContext) {
-      isBackground = env.isBackgroundContext();
-    }
-  } catch (_err) {
-    // 忽略加載錯誤，保持默認值
+    // skipcq: JS-0002
+    console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
+    sendToBackground('debug', message, args);
   }
+
+  static log(message, ...args) {
+    if (!this.debugEnabled) {
+      return;
+    }
+
+    // skipcq: JS-0002
+    console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
+    sendToBackground('log', message, args);
+  }
+
+  static info(message, ...args) {
+    if (!this.debugEnabled) {
+      return;
+    }
+
+    // skipcq: JS-0002
+    console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
+    sendToBackground('info', message, args);
+  }
+
+  static warn(message, ...args) {
+    // Warn 總是輸出
+    // skipcq: JS-0002
+    console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
+    sendToBackground('warn', message, args);
+  }
+
+  static error(message, ...args) {
+    // 檢查是否為忽略的錯誤
+    const errorMsg = message instanceof Error ? message.message : String(message);
+    if (errorMsg.includes('Frame with ID 0 was removed')) {
+      return;
+    }
+
+    // Error 總是輸出
+    console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
+    sendToBackground('error', message, args);
+  }
+}
+
+// Global Assignment (Module & Classic Script compatible fallback)
+if (typeof self !== 'undefined') {
+  self.Logger = Logger;
+}
+if (typeof window !== 'undefined') {
+  window.Logger = Logger;
 }
 
 /**
@@ -242,12 +213,3 @@ function sendToBackground(level, message, args) {
 
 // 自動初始化
 initDebugState();
-
-// 導出
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = Logger;
-} else if (typeof window !== 'undefined') {
-  window.Logger = Logger;
-} else if (typeof self !== 'undefined') {
-  self.Logger = Logger;
-}

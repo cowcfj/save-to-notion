@@ -2,9 +2,10 @@
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
-/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, module, AdaptivePerformanceManager */
-// 使用不與其他庫衝突的本地日誌別名，避免與 Leaflet 等全域變量 L 衝突
-const perfLogger = typeof window !== 'undefined' && window.Logger ? window.Logger : console;
+/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, AdaptivePerformanceManager */
+import Logger from '../utils/Logger.module.js';
+
+// 使用 Logger 直接記錄
 
 /**
  * 性能優化器類
@@ -107,12 +108,12 @@ class PerformanceOptimizer {
           performanceThreshold: 100,
           batchSizeAdjustmentFactor: 0.1,
         });
-        perfLogger.info('🤖 自適應性能管理器已初始化');
+        Logger.info('🤖 自適應性能管理器已初始化');
       } else {
-        perfLogger.warn('⚠️ AdaptivePerformanceManager not available, adaptive features disabled');
+        Logger.warn('⚠️ AdaptivePerformanceManager not available, adaptive features disabled');
       }
     } catch (error) {
-      perfLogger.error('❌ 初始化自適應管理器失敗:', error);
+      Logger.error('❌ 初始化自適應管理器失敗:', error);
     }
   }
 
@@ -165,13 +166,17 @@ class PerformanceOptimizer {
 
       // 檢查緩存是否過期
       const isExpired = Date.now() - cached.timestamp > this.options.cacheTTL;
+      const isValid = !isExpired && PerformanceOptimizer._validateCachedElements(cached.result);
 
-      if (!isExpired && PerformanceOptimizer._validateCachedElements(cached.result)) {
+      if (isValid) {
         this._recordQueryTime(startTime);
         return cached.result;
       }
       // 緩存過期或失效，移除
+      Logger.debug(`Cache miss: expired=${isExpired}, valid=${isValid}`);
       this.queryCache.delete(cacheKey);
+    } else {
+      Logger.debug(`Cache miss: key not found ${cacheKey}`);
     }
 
     // 執行查詢
@@ -209,11 +214,13 @@ class PerformanceOptimizer {
       return Promise.resolve(images.map(processor));
     }
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       const batchItem = {
+        type: 'images',
         images,
         processor,
         resolve,
+        reject,
         options,
         timestamp: Date.now(),
       };
@@ -234,10 +241,11 @@ class PerformanceOptimizer {
       return Promise.resolve(operations.map(op => op()));
     }
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       const batchItem = {
         operations,
         resolve,
+        reject,
         options,
         timestamp: Date.now(),
         type: 'dom',
@@ -287,7 +295,16 @@ class PerformanceOptimizer {
     const { maxAge = 300000, force = false } = options; // 默認 5 分鐘過期
 
     if (force) {
+      console.log('Force clearing cache. Size before:', this.queryCache.size);
       this.queryCache.clear();
+      // 重置統計數據
+      this.cacheStats = {
+        hits: 0,
+        misses: 0,
+        evictions: 0,
+        prewarms: 0,
+      };
+      console.log('Cache cleared. Size after:', this.queryCache.size);
       return;
     }
 
@@ -319,6 +336,11 @@ class PerformanceOptimizer {
       },
       batch: {
         ...this.batchStats,
+      },
+      queries: {
+        total: this.metrics.domQueries,
+        averageTime: this.metrics.averageQueryTime,
+        totalTime: this.metrics.totalQueryTime,
       },
       metrics: {
         ...this.metrics,
@@ -381,6 +403,7 @@ class PerformanceOptimizer {
       const result = context.querySelectorAll(selector);
       return result.length === 1 ? result[0] : result;
     } catch (error) {
+      console.error('DOM Query Error:', error);
       if (typeof ErrorHandler !== 'undefined') {
         ErrorHandler.logError({
           type: 'dom_error',
@@ -389,7 +412,7 @@ class PerformanceOptimizer {
           timestamp: Date.now(),
         });
       }
-      return null;
+      return single ? null : [];
     }
   }
 
@@ -447,17 +470,21 @@ class PerformanceOptimizer {
             return false;
           }
 
+          // Use isConnected if available (standard DOM)
+          if (typeof el.isConnected === 'boolean') {
+            return el.isConnected;
+          }
+
           try {
             return document.contains(el);
           } catch {
-            // document.contains 在 JSDOM 環境可能拋出錯誤
             return false;
           }
         });
       }
     } catch (error) {
       // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
-      perfLogger.warn('元素驗證失敗:', error.message);
+      Logger.warn('元素驗證失敗:', error.message);
       return false;
     }
 
@@ -475,7 +502,7 @@ class PerformanceOptimizer {
       return Promise.resolve([]);
     }
 
-    perfLogger.info(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
+    Logger.info(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
 
     // 使用批處理方式預熱選擇器
     const results = [];
@@ -499,10 +526,10 @@ class PerformanceOptimizer {
           this.cacheStats.prewarms++;
           this.prewarmedSelectors.add(selector);
 
-          perfLogger.info(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
+          Logger.info(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
         }
       } catch (error) {
-        perfLogger.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
+        Logger.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
 
         if (typeof ErrorHandler !== 'undefined') {
           ErrorHandler.logError({
@@ -521,7 +548,7 @@ class PerformanceOptimizer {
       }
     }
 
-    perfLogger.info(
+    Logger.info(
       `🔥 預熱完成: ${results.filter(result => result.cached).length}/${selectors.length} 個選擇器已預熱`
     );
     // 保守策略：統一以 Promise.resolve 返回，呼叫者可以使用 await 一致處理
@@ -545,7 +572,7 @@ class PerformanceOptimizer {
     const results = await this.preloadSelectors(allSelectors, context);
 
     const duration = performance.now() - startTime;
-    perfLogger.info(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
+    Logger.info(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
 
     return results;
   }
@@ -781,7 +808,7 @@ class PerformanceOptimizer {
             timestamp: Date.now(),
           });
         }
-        item.resolve([]);
+        item.reject(error);
       }
     }
 
@@ -927,8 +954,8 @@ class PerformanceOptimizer {
       const memory = PerformanceOptimizer._getMemoryStats();
 
       // 記錄到控制台（開發模式）
-      if (this.options.enableMetrics && perfLogger.debug) {
-        perfLogger.debug('Performance Metrics:', {
+      if (this.options.enableMetrics && Logger.debug) {
+        Logger.debug('Performance Metrics:', {
           cache: this.cacheStats,
           batch: this.batchStats,
           memory,
@@ -998,7 +1025,7 @@ class PerformanceOptimizer {
       this.adaptiveManager.destroy();
     }
 
-    perfLogger.info('🧹 PerformanceOptimizer 資源已清理');
+    Logger.info('🧹 PerformanceOptimizer 資源已清理');
   }
 
   /**
@@ -1011,13 +1038,13 @@ class PerformanceOptimizer {
     // 根據緩存命中率調整策略
     if (stats.cache.hitRate < 0.3) {
       // 緩存命中率低，可能需要增加緩存大小或清理策略
-      perfLogger.info('📊 緩存命中率較低，考慮調整緩存策略');
+      Logger.info('📊 緩存命中率較低，考慮調整緩存策略');
     }
 
     // 根據平均處理時間調整批處理大小
     if (stats.metrics.averageProcessingTime > 50) {
       // 處理時間過長，減少批處理大小
-      perfLogger.info('⏰ 處理時間過長，動態調整批處理大小');
+      Logger.info('⏰ 處理時間過長，動態調整批處理大小');
       if (this.adaptiveManager) {
         const currentBatchSize = this.options.batchSize || 100;
         this.adaptiveManager.adjustBatchSize(Math.floor(currentBatchSize * 0.8));
@@ -1027,11 +1054,61 @@ class PerformanceOptimizer {
     // 定期清理過期緩存
     const expiredCount = this.clearExpiredCache();
     if (expiredCount > 0) {
-      perfLogger.info(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
+      Logger.info(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
     }
 
     // 保持 API 回傳 Promise（與之前 async 一致）
     return Promise.resolve();
+  }
+
+  /**
+   * 測量函數執行時間
+   * @param {Function} fn - 要測量的函數
+   * @param {string} name - 函數名稱
+   * @returns {*} 函數執行結果
+   */
+  measure(fn, name = 'anonymous') {
+    const startTime = performance.now();
+    const result = fn();
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+
+    // 記錄測量結果到實例指標
+    if (this.options.enableMetrics) {
+      Logger.info(`Performance: ${name} took ${duration.toFixed(2)}ms`);
+    }
+
+    return result;
+  }
+
+  /**
+   * 測量異步函數執行時間
+   * @param {Function} asyncFn - 要測量的異步函數
+   * @param {string} name - 函數名稱
+   * @returns {Promise<*>} 函數執行結果
+   */
+  async measureAsync(asyncFn, name = 'anonymous') {
+    const startTime = performance.now();
+    const result = await asyncFn();
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+
+    // 記錄測量結果到實例指標
+    if (this.options.enableMetrics) {
+      Logger.info(`Performance: ${name} took ${duration.toFixed(2)}ms`);
+    }
+
+    return result;
+  }
+
+  /**
+   * 計算最佳批處理大小
+   */
+  _calculateOptimalBatchSize() {
+    // This method would contain logic to calculate the optimal batch size
+    // based on collected metrics, system load, and other factors.
+    // For now, it's a placeholder.
+    return this.options.batchSize || 100;
   }
 }
 
@@ -1132,16 +1209,6 @@ async function batchProcessWithRetry(items, processor, options = {}) {
   }
 
   return { results: null, meta: summary };
-}
-
-// 導出類和函數
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { PerformanceOptimizer, cachedQuery, batchProcess, batchProcessWithRetry };
-} else if (typeof window !== 'undefined') {
-  window.PerformanceOptimizer = PerformanceOptimizer;
-  window.cachedQuery = cachedQuery;
-  window.batchProcess = batchProcess;
-  window.batchProcessWithRetry = batchProcessWithRetry;
 }
 
 export { PerformanceOptimizer, cachedQuery, batchProcess, batchProcessWithRetry };

@@ -7,14 +7,16 @@
  */
 
 // 引入共用的圖片工具函數
-const ImageUtils = require('../../scripts/utils/imageUtils');
+// 引入共用的圖片工具函數 (Classic Script)
+require('../../scripts/utils/imageUtils.js');
+const ImageUtils = (typeof window !== 'undefined' ? window.ImageUtils : {}) || {};
 
 /**
  * 清理和標準化圖片 URL
  * 使用統一的 ImageUtils 實現
  */
 function cleanImageUrl(url) {
-    return ImageUtils.cleanImageUrl(url);
+  return ImageUtils.cleanImageUrl(url);
 }
 
 /**
@@ -22,7 +24,7 @@ function cleanImageUrl(url) {
  * 使用統一的 ImageUtils 實現
  */
 function isValidImageUrl(url) {
-    return ImageUtils.isValidImageUrl(url);
+  return ImageUtils.isValidImageUrl(url);
 }
 
 /**
@@ -30,47 +32,49 @@ function isValidImageUrl(url) {
  * 使用統一的 ImageUtils 實現
  */
 function extractImageSrc(imgNode) {
-    return ImageUtils.extractImageSrc(imgNode);
+  return ImageUtils.extractImageSrc(imgNode);
 }
 
 /**
  * 檢查內容質量（從 scripts/content.js 提取）
  */
 function isContentGood(article, MIN_CONTENT_LENGTH = 250, MAX_LINK_DENSITY = 0.3) {
-    if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) return false;
+  if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) {return false;}
 
-    // 需要 DOM 環境來創建 tempDiv
-    if (typeof document === 'undefined') {
-        // 在測試環境中，我們假設內容是好的（簡化版本）
-        return article.length >= MIN_CONTENT_LENGTH;
-    }
+  // 需要 DOM 環境來創建 tempDiv
+  if (typeof document === 'undefined') {
+    // 在測試環境中，我們假設內容是好的（簡化版本）
+    return article.length >= MIN_CONTENT_LENGTH;
+  }
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = article.content;
-    const links = tempDiv.querySelectorAll('a');
-    let linkTextLength = 0;
-    // 確保 links 是可迭代的數組或類數組對象
-    if (links && typeof links.forEach === 'function') {
-        links.forEach(link => linkTextLength += link.textContent.length);
-    } else {
-        // 回退到 for 循環
-        for (let i = 0; i < (links.length || 0); i++) {
-            const link = links[i];
-            linkTextLength += link.textContent.length;
-        }
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = article.content;
+  const links = tempDiv.querySelectorAll('a');
+  let linkTextLength = 0;
+  // 確保 links 是可迭代的數組或類數組對象
+  if (links && typeof links.forEach === 'function') {
+    links.forEach(link => (linkTextLength += link.textContent.length));
+  } else {
+    // 回退到 for 循環
+    for (let i = 0; i < (links.length || 0); i++) {
+      const link = links[i];
+      linkTextLength += link.textContent.length;
     }
-    const linkDensity = linkTextLength / article.length;
-    if (linkDensity > MAX_LINK_DENSITY) {
-        console.log(`Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`);
-        return false;
-    }
-    return true;
+  }
+  const linkDensity = linkTextLength / article.length;
+  if (linkDensity > MAX_LINK_DENSITY) {
+    console.log(
+      `Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`
+    );
+    return false;
+  }
+  return true;
 }
 
 // 導出函數供測試使用
 module.exports = {
-    cleanImageUrl,
-    isValidImageUrl,
-    extractImageSrc,
-    isContentGood
+  cleanImageUrl,
+  isValidImageUrl,
+  extractImageSrc,
+  isContentGood,
 };

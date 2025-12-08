@@ -25,6 +25,35 @@ export const IMAGE_VALIDATION_CONSTANTS = {
 /**
  * 圖片 URL 驗證配置（來自 background.js）
  */
+export const IMAGE_ATTRIBUTES = [
+  'src',
+  'data-src',
+  'data-lazy-src',
+  'data-original',
+  'data-srcset',
+  'data-lazy-srcset',
+  'data-original-src',
+  'data-actualsrc',
+  'data-src-original',
+  'data-echo',
+  'data-href',
+  'data-large',
+  'data-bigsrc',
+  'data-full-src',
+  'data-hi-res-src',
+  'data-large-src',
+  'data-zoom-src',
+  'data-image-src',
+  'data-img-src',
+  'data-real-src',
+  'data-lazy',
+  'data-url',
+  'data-image',
+  'data-img',
+  'data-fallback-src',
+  'data-origin',
+];
+
 export const IMAGE_VALIDATION_CONFIG = {
   // MAX_URL_LENGTH 已統一至 IMAGE_VALIDATION_CONSTANTS
   MAX_CACHE_SIZE: 500, // 緩存大小限制
