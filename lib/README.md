@@ -5,8 +5,7 @@
 ## 📋 包含的庫
 
 - **Readability.js** - Mozilla 的頁面內容提取庫
-- **turndown.js** - HTML 轉 Markdown 轉換器
-- **turndown-plugin-gfm.js** - Turndown 的 GitHub Flavored Markdown 插件
+- **Readability.js** - Mozilla 的頁面內容提取庫
 
 ## ⚠️ 重要說明
 
@@ -34,5 +33,3 @@
 ## 📚 上游來源
 
 - **Readability.js**: [mozilla/readability](https://github.com/mozilla/readability)
-- **Turndown**: [mixmark-io/turndown](https://github.com/mixmark-io/turndown)
-- **turndown-plugin-gfm**: [mixmark-io/turndown-plugin-gfm](https://github.com/mixmark-io/turndown-plugin-gfm)
