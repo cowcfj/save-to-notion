@@ -15,7 +15,6 @@
 # 內部文檔目錄（所有內部開發文檔）
 internal/
 archive/*
-!archive/highlighter-v2.legacy.js
 coverage/
 
 # 測試和開發文件
