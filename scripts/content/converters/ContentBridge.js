@@ -62,8 +62,9 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
         Logger.log(`🔄 [ContentBridge] 使用 DomConverter 轉換 (type: ${type})`);
         // 動態獲取 domConverter，假設它已掛載或通過模組加載
         // 在新架構中，建議直接使用 index.js 的 extractPageContent 流程
-        // 這裡作為兼容層，嘗試使用 window.domConverter 或 ConverterFactory
+        // 這裡作為兼容層，優先使用傳入的 htmlConverter，其次嘗試使用 window.domConverter 或 ConverterFactory
         const converter =
+          options.htmlConverter ||
           window.domConverter ||
           (window.ConverterFactory ? window.ConverterFactory.getConverter(type) : null);
 
