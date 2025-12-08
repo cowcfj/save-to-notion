@@ -89,8 +89,13 @@ var Logger = (function () {
     }
 
     static error(message, ...args) {
-      // Error 總是輸出
+      // 檢查是否為忽略的錯誤
+      const errorMsg = message instanceof Error ? message.message : String(message);
+      if (errorMsg.includes('Frame with ID 0 was removed')) {
+        return;
+      }
 
+      // Error 總是輸出
       console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
       sendToBackground('error', message, args);
     }
