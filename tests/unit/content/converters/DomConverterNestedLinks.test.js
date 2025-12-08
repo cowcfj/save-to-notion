@@ -15,7 +15,7 @@ global.Logger = {
 };
 
 describe('DomConverter Nested Links', () => {
-  let domConverter;
+  let domConverter = null;
 
   beforeEach(() => {
     domConverter = new DomConverter();
