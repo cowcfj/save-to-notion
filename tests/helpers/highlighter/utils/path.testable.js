@@ -22,7 +22,7 @@ function getNodePath(node) {
       const parent = current.parentNode;
       if (parent) {
         const textNodes = Array.from(parent.childNodes).filter(
-          node => node.nodeType === Node.TEXT_NODE
+          childNode => childNode.nodeType === Node.TEXT_NODE
         );
         const index = textNodes.indexOf(current);
         pathSteps.unshift(`text[${index}]`);
@@ -130,7 +130,7 @@ function getNodeByPath(path) {
           return null;
         }
 
-        const textNodes = Array.from(context.childNodes).filter(
+        const textNodes = Array.from(current.childNodes).filter(
           node => node.nodeType === Node.TEXT_NODE
         );
 
