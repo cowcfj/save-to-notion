@@ -87,12 +87,18 @@ jobs:
           # Copy scripts folder but exclude highlighter source modules
           # (they're already bundled in dist/highlighter-v2.bundle.js)
           mkdir -p release-package/scripts
+          # Explicitly copy specific directories to avoid wildcard issues
+          # Copy only existing directories
           cp -a scripts/*.js release-package/scripts/
-          cp -a scripts/background release-package/scripts/
-          cp -a scripts/config release-package/scripts/
-          cp -a scripts/performance release-package/scripts/
-          cp -a scripts/errorHandling release-package/scripts/
-          cp -a scripts/utils release-package/scripts/
+          if [ -d "scripts/background" ]; then cp -a scripts/background release-package/scripts/; fi
+          if [ -d "scripts/config" ]; then cp -a scripts/config release-package/scripts/; fi
+          if [ -d "scripts/performance" ]; then cp -a scripts/performance release-package/scripts/; fi
+          if [ -d "scripts/errorHandling" ]; then cp -a scripts/errorHandling release-package/scripts/; fi
+          if [ -d "scripts/utils" ]; then cp -a scripts/utils release-package/scripts/; fi
+          
+          # Debug: list copied scripts
+          echo "📂 Scrips folder content:"
+          ls -R release-package/scripts/
           
           # Note: scripts/highlighter/ source files are NOT included
           # Only the bundled version in dist/ is needed

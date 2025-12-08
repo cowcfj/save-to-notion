@@ -1,5 +1,11 @@
 # 變更日誌 (CHANGELOG)
 
+## v2.14.2 - 2025-12-08
+
+### 🐛 Bug 修復
+
+- **Build 流程修復**：修復 GitHub Actions 中 `release.yml` 腳本引用已不存在的目錄 `scripts/imageExtraction` 導致的構建失敗問題。
+
 ## v2.14.1 - 2025-12-08
 
 ### 📚 版本更新
