@@ -55,10 +55,10 @@ class DomConverter {
       BLOCKQUOTE: node => this.createQuoteBlock(node),
 
       // 代碼塊
-      PRE: node => this.createCodeBlock(node),
+      PRE: node => DomConverter.createCodeBlock(node),
 
       // 圖片
-      IMG: node => this.createImageBlock(node),
+      IMG: node => DomConverter.createImageBlock(node),
       FIGURE: node => this.processFigure(node),
 
       // 分隔線
@@ -185,7 +185,7 @@ class DomConverter {
     const img = node.querySelector('img');
     // 如果段落只包含圖片，直接返回圖片 Block
     if (img && node.textContent.trim().length === 0) {
-      return this.createImageBlock(img);
+      return DomConverter.createImageBlock(img);
     }
 
     // 檢查是否是 "偽裝列表" (List-like paragraph)
@@ -327,7 +327,7 @@ class DomConverter {
     };
   }
 
-  createCodeBlock(node) {
+  static createCodeBlock(node) {
     // PRE 通常包含 CODE
     const codeNode = node.querySelector('code') || node;
     const text = codeNode.textContent || '';
@@ -350,7 +350,7 @@ class DomConverter {
     };
   }
 
-  createImageBlock(node) {
+  static createImageBlock(node) {
     const src = ImageUtils.extractImageSrc(node);
     if (!src) {
       return null;
@@ -381,7 +381,7 @@ class DomConverter {
     // 處理 Figure，通常包含 Img 和 Figcaption
     const img = node.querySelector('img');
     if (img) {
-      const block = this.createImageBlock(img);
+      const block = DomConverter.createImageBlock(img);
       const caption = node.querySelector('figcaption');
       if (block && caption) {
         const captionText = caption.textContent.trim();
