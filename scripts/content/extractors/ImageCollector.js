@@ -40,7 +40,7 @@ class ImageCollector {
         if (img) {
           const src = extractImageSrc(img);
           // 使用 ImageUtils 進行驗證
-          const isValid = isValidImageUrl && isValidImageUrl(src);
+          const isValid = isValidImageUrl?.(src);
 
           if (src && isValid) {
             Logger.log(`✓ Found featured image via selector: ${selector}`);
@@ -95,7 +95,7 @@ class ImageCollector {
       // 使用 isNotionCompatibleImageUrl 如果可用，否則回退到 isValidImageUrl
       const isCompatible = isNotionCompatibleImageUrl
         ? isNotionCompatibleImageUrl(cleanedUrl)
-        : isValidImageUrl && isValidImageUrl(cleanedUrl);
+        : isValidImageUrl?.(cleanedUrl);
 
       if (!isCompatible) {
         Logger.log(`✗ Invalid or incompatible image: ${cleanedUrl}`);
