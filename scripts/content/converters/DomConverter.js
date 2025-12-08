@@ -465,13 +465,19 @@ class DomConverter {
     node.childNodes.forEach(child => {
       const rt = this.processInlineNode(child, newAnnotations);
       if (rt) {
-        if (link && rt.text) {
-          rt.text.link = link; // Apply link to text object
-        }
-
         if (Array.isArray(rt)) {
+          if (link) {
+            rt.forEach(item => {
+              if (item.text) {
+                item.text.link = link;
+              }
+            });
+          }
           childrenRichTexts.push(...rt);
         } else {
+          if (link && rt.text) {
+            rt.text.link = link;
+          }
           childrenRichTexts.push(rt);
         }
       }
