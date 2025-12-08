@@ -244,11 +244,6 @@
         ? new URL(cleanedUrl)
         : new URL(cleanedUrl, 'http://dummy-base.com');
 
-      // 檢查是否為 data URL (再次檢查，以防 cleanImageUrl 改變了什麼)
-      if (urlObj.protocol === 'data:') {
-        return urlObj.href.startsWith('data:image/');
-      }
-
       // 檢查文件擴展名
       const pathname = urlObj.pathname.toLowerCase();
       const imageExtensions = [
