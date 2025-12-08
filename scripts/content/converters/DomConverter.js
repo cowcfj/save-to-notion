@@ -10,15 +10,16 @@
 
 /* global ImageUtils */
 
+import {
+  BLOCKS_SUPPORTING_CHILDREN,
+  UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
+} from '../../config/constants.js';
+
 /**
  * Notion API 文本長度限制
  * @constant {number}
  */
 const MAX_TEXT_LENGTH = 2000;
-import {
-  BLOCKS_SUPPORTING_CHILDREN,
-  UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
-} from '../../config/constants.js';
 
 /**
  * DomConverter 類
