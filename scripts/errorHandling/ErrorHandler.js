@@ -61,8 +61,6 @@ class ErrorHandler {
       maxRetries: 3,
       ...options,
     };
-
-    this.errorStats = new Map();
   }
 
   /**

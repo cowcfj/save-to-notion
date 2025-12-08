@@ -570,13 +570,6 @@ describe('ErrorHandler - 全面測試', () => {
       expect(handler.options.maxRetries).toBe(5);
       expect(handler.options.enableRetry).toBe(true); // 默認值
     });
-
-    test('應該初始化錯誤統計 Map', () => {
-      const handler = new ErrorHandler();
-
-      expect(handler.errorStats).toBeInstanceOf(Map);
-      expect(handler.errorStats.size).toBe(0);
-    });
   });
 
   describe('模塊導出', () => {
