@@ -12,12 +12,12 @@ describe('Background 通知處理器', () => {
     mockChrome = {
       runtime: {
         getURL: jest.fn(),
-        lastError: null
+        lastError: null,
       },
       tabs: {
         create: jest.fn(),
-        sendMessage: jest.fn()
-      }
+        sendMessage: jest.fn(),
+      },
     };
     global.chrome = mockChrome;
 
@@ -25,7 +25,7 @@ describe('Background 通知處理器', () => {
     mockLogger = {
       log: jest.fn(),
       error: jest.fn(),
-      warn: jest.fn()
+      warn: jest.fn(),
     };
     global.Logger = mockLogger;
 
@@ -51,10 +51,12 @@ describe('Background 通知處理器', () => {
       const tab = await mockChrome.tabs.create({ url, active: true });
 
       // Assert
-      expect(mockChrome.runtime.getURL).toHaveBeenCalledWith('update-notification/update-notification.html');
+      expect(mockChrome.runtime.getURL).toHaveBeenCalledWith(
+        'update-notification/update-notification.html'
+      );
       expect(mockChrome.tabs.create).toHaveBeenCalledWith({
         url: 'chrome-extension://test/update.html',
-        active: true
+        active: true,
       });
       expect(tab.id).toBe(123);
     });
@@ -65,8 +67,9 @@ describe('Background 通知處理器', () => {
       mockChrome.tabs.create.mockRejectedValue(error);
 
       // Act & Assert
-      await expect(mockChrome.tabs.create({ url: 'test', active: true }))
-        .rejects.toThrow('Tab creation failed');
+      await expect(mockChrome.tabs.create({ url: 'test', active: true })).rejects.toThrow(
+        'Tab creation failed'
+      );
     });
 
     test('應該正確構建更新消息', () => {
@@ -78,14 +81,14 @@ describe('Background 通知處理器', () => {
       const message = {
         type: 'UPDATE_INFO',
         previousVersion,
-        currentVersion
+        currentVersion,
       };
 
       // Assert
       expect(message).toEqual({
         type: 'UPDATE_INFO',
         previousVersion: '2.8.0',
-        currentVersion: '2.9.0'
+        currentVersion: '2.9.0',
       });
     });
   });
@@ -100,7 +103,7 @@ describe('Background 通知處理器', () => {
         }
 
         // 在新標籤頁中打開 Notion 頁面
-        chrome.tabs.create({ url }, (tab) => {
+        chrome.tabs.create({ url }, tab => {
           if (chrome.runtime.lastError) {
             console.error('Failed to open Notion page:', chrome.runtime.lastError);
             sendResponse({ success: false, error: chrome.runtime.lastError.message });
@@ -135,7 +138,7 @@ describe('Background 通知處理器', () => {
       );
       expect(sendResponse).toHaveBeenCalledWith({
         success: true,
-        tabId: 123
+        tabId: 123,
       });
       expect(mockLogger.log).toHaveBeenCalledWith(
         '✅ Opened Notion page in new tab:',
@@ -154,7 +157,7 @@ describe('Background 通知處理器', () => {
       // Assert
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'No URL provided'
+        error: 'No URL provided',
       });
       expect(mockChrome.tabs.create).not.toHaveBeenCalled();
     });
@@ -170,7 +173,7 @@ describe('Background 通知處理器', () => {
       // Assert
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'No URL provided'
+        error: 'No URL provided',
       });
     });
 
@@ -185,7 +188,7 @@ describe('Background 通知處理器', () => {
       // Assert
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'No URL provided'
+        error: 'No URL provided',
       });
     });
 
@@ -207,7 +210,7 @@ describe('Background 通知處理器', () => {
       expect(console.error).toHaveBeenCalledWith('Failed to open Notion page:', error);
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Permission denied'
+        error: 'Permission denied',
       });
     });
 
@@ -228,7 +231,7 @@ describe('Background 通知處理器', () => {
       expect(console.error).toHaveBeenCalledWith('❌ handleOpenNotionPage 錯誤:', error);
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Unexpected error'
+        error: 'Unexpected error',
       });
     });
 
@@ -237,7 +240,7 @@ describe('Background 通知處理器', () => {
       const testUrls = [
         'https://www.notion.so/workspace/page-123',
         'https://notion.so/page-456',
-        'https://custom.notion.site/page-789'
+        'https://custom.notion.site/page-789',
       ];
 
       testUrls.forEach((url, index) => {
@@ -255,7 +258,7 @@ describe('Background 通知處理器', () => {
         // Assert
         expect(sendResponse).toHaveBeenCalledWith({
           success: true,
-          tabId: index + 1
+          tabId: index + 1,
         });
       });
     });
@@ -276,7 +279,7 @@ describe('Background 通知處理器', () => {
       // Assert
       expect(sendResponse).toHaveBeenCalledWith({
         success: true,
-        tabId: 999
+        tabId: 999,
       });
       expect(mockLogger.log).toHaveBeenCalledWith(
         '✅ Opened Notion page in new tab:',
@@ -296,7 +299,7 @@ describe('Background 通知處理器', () => {
       const showUpdateNotification = async (previousVersion, currentVersion) => {
         const tab = await chrome.tabs.create({
           url: chrome.runtime.getURL('update-notification/update-notification.html'),
-          active: true
+          active: true,
         });
         // 模擬真實實現：記錄版本信息（真實實現會通過 sendMessage 傳送）
         Logger.log(`已顯示更新通知頁面: ${previousVersion} → ${currentVersion}`);
@@ -308,7 +311,7 @@ describe('Background 通知處理器', () => {
           sendResponse({ success: false, error: 'No URL provided' });
           return;
         }
-        chrome.tabs.create({ url: request.url }, (tab) => {
+        chrome.tabs.create({ url: request.url }, tab => {
           sendResponse({ success: true, tabId: tab.id });
         });
       };
@@ -330,7 +333,7 @@ describe('Background 通知處理器', () => {
       expect(updateTab.id).toBe(100);
       expect(notionResponse).toHaveBeenCalledWith({
         success: true,
-        tabId: 200
+        tabId: 200,
       });
       expect(mockLogger.log).toHaveBeenCalledWith('已顯示更新通知頁面: 2.8.0 → 2.9.0');
     });

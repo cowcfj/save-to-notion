@@ -12,7 +12,7 @@ global.console = {
   log: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
-  info: jest.fn()
+  info: jest.fn(),
 };
 
 // Mock fetch
@@ -35,9 +35,9 @@ describe('Background Notion Page Operations', () => {
         const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Notion-Version': '2025-09-03'
-          }
+            Authorization: `Bearer ${apiKey}`,
+            'Notion-Version': '2025-09-03',
+          },
         });
 
         if (response.ok) {
@@ -45,27 +45,26 @@ describe('Background Notion Page Operations', () => {
           console.log('✅ Notion 頁面存在:', pageId);
           return {
             exists: true,
-            page: pageData
+            page: pageData,
           };
         } else if (response.status === 404) {
           console.log('❌ Notion 頁面不存在:', pageId);
           return {
             exists: false,
-            error: 'Page not found'
-          };
-        } else {
-          const errorData = await response.json();
-          console.error('❌ 檢查 Notion 頁面失敗:', errorData);
-          return {
-            exists: false,
-            error: errorData.message || 'Unknown error'
+            error: 'Page not found',
           };
         }
+        const errorData = await response.json();
+        console.error('❌ 檢查 Notion 頁面失敗:', errorData);
+        return {
+          exists: false,
+          error: errorData.message || 'Unknown error',
+        };
       } catch (error) {
         console.error('❌ 檢查 Notion 頁面異常:', error);
         return {
           exists: false,
-          error: error.message
+          error: error.message,
         };
       }
     });
@@ -78,21 +77,21 @@ describe('Background Notion Page Operations', () => {
         if (!pageId) {
           sendResponse({
             success: false,
-            error: 'Missing pageId parameter'
+            error: 'Missing pageId parameter',
           });
           return;
         }
 
         // 獲取 API Key，使用 Promise 包裝以維持 async/await 流程
-        await new Promise((resolve) => {
-          chrome.storage.sync.get(['notionApiToken'], async (result) => {
+        await new Promise(resolve => {
+          chrome.storage.sync.get(['notionApiToken'], async result => {
             try {
               const apiKey = result.notionApiToken;
 
               if (!apiKey) {
                 sendResponse({
                   success: false,
-                  error: 'Notion API token not configured'
+                  error: 'Notion API token not configured',
                 });
                 return;
               }
@@ -102,13 +101,13 @@ describe('Background Notion Page Operations', () => {
               sendResponse({
                 success: true,
                 exists: checkResult.exists,
-                error: checkResult.error
+                error: checkResult.error,
               });
             } catch (error) {
               console.error('❌ 處理檢查頁面存在消息失敗:', error);
               sendResponse({
                 success: false,
-                error: error.message
+                error: error.message,
               });
             } finally {
               resolve();
@@ -119,7 +118,7 @@ describe('Background Notion Page Operations', () => {
         console.error('❌ 處理檢查頁面存在消息失敗:', error);
         sendResponse({
           success: false,
-          error: error.message
+          error: error.message,
         });
       }
     };
@@ -132,25 +131,25 @@ describe('Background Notion Page Operations', () => {
         if (!url) {
           sendResponse({
             success: false,
-            error: 'Missing URL parameter'
+            error: 'Missing URL parameter',
           });
           return;
         }
 
         console.log('🔗 打開 Notion 頁面:', url);
 
-        chrome.tabs.create({ url }, (tab) => {
+        chrome.tabs.create({ url }, tab => {
           if (chrome.runtime.lastError) {
             console.error('❌ 打開標籤頁失敗:', chrome.runtime.lastError);
             sendResponse({
               success: false,
-              error: chrome.runtime.lastError.message
+              error: chrome.runtime.lastError.message,
             });
           } else {
             console.log('✅ 成功打開 Notion 頁面');
             sendResponse({
               success: true,
-              tabId: tab.id
+              tabId: tab.id,
             });
           }
         });
@@ -158,7 +157,7 @@ describe('Background Notion Page Operations', () => {
         console.error('❌ 處理打開 Notion 頁面失敗:', error);
         sendResponse({
           success: false,
-          error: error.message
+          error: error.message,
         });
       }
     });
@@ -172,32 +171,29 @@ describe('Background Notion Page Operations', () => {
       const mockPageData = {
         id: pageId,
         object: 'page',
-        properties: {}
+        properties: {},
       };
 
       global.fetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockPageData)
+        json: () => Promise.resolve(mockPageData),
       });
 
       // Act
       const result = await checkNotionPageExists(pageId, apiKey);
 
       // Assert
-      expect(global.fetch).toHaveBeenCalledWith(
-        `https://api.notion.com/v1/pages/${pageId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Notion-Version': '2025-09-03'
-          }
-        }
-      );
+      expect(global.fetch).toHaveBeenCalledWith(`https://api.notion.com/v1/pages/${pageId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Notion-Version': '2025-09-03',
+        },
+      });
       expect(result).toEqual({
         exists: true,
-        page: mockPageData
+        page: mockPageData,
       });
       expect(console.log).toHaveBeenCalledWith('✅ Notion 頁面存在:', pageId);
     });
@@ -210,7 +206,7 @@ describe('Background Notion Page Operations', () => {
       global.fetch.mockResolvedValue({
         ok: false,
         status: 404,
-        json: () => Promise.resolve({ message: 'Page not found' })
+        json: () => Promise.resolve({ message: 'Page not found' }),
       });
 
       // Act
@@ -219,7 +215,7 @@ describe('Background Notion Page Operations', () => {
       // Assert
       expect(result).toEqual({
         exists: false,
-        error: 'Page not found'
+        error: 'Page not found',
       });
       expect(console.log).toHaveBeenCalledWith('❌ Notion 頁面不存在:', pageId);
     });
@@ -230,13 +226,13 @@ describe('Background Notion Page Operations', () => {
       const apiKey = 'invalid-api-key';
       const errorData = {
         message: 'Unauthorized',
-        code: 'unauthorized'
+        code: 'unauthorized',
       };
 
       global.fetch.mockResolvedValue({
         ok: false,
         status: 401,
-        json: () => Promise.resolve(errorData)
+        json: () => Promise.resolve(errorData),
       });
 
       // Act
@@ -245,7 +241,7 @@ describe('Background Notion Page Operations', () => {
       // Assert
       expect(result).toEqual({
         exists: false,
-        error: 'Unauthorized'
+        error: 'Unauthorized',
       });
       expect(console.error).toHaveBeenCalledWith('❌ 檢查 Notion 頁面失敗:', errorData);
     });
@@ -264,7 +260,7 @@ describe('Background Notion Page Operations', () => {
       // Assert
       expect(result).toEqual({
         exists: false,
-        error: 'Network error'
+        error: 'Network error',
       });
       expect(console.error).toHaveBeenCalledWith('❌ 檢查 Notion 頁面異常:', networkError);
     });
@@ -277,7 +273,7 @@ describe('Background Notion Page Operations', () => {
       global.fetch.mockResolvedValue({
         ok: false,
         status: 500,
-        json: () => Promise.resolve({})
+        json: () => Promise.resolve({}),
       });
 
       // Act
@@ -286,7 +282,7 @@ describe('Background Notion Page Operations', () => {
       // Assert
       expect(result).toEqual({
         exists: false,
-        error: 'Unknown error'
+        error: 'Unknown error',
       });
     });
   });
@@ -303,19 +299,22 @@ describe('Background Notion Page Operations', () => {
 
       checkNotionPageExists.mockResolvedValue({
         exists: true,
-        page: { id: 'test-page-id' }
+        page: { id: 'test-page-id' },
       });
 
       // Act
       await handleCheckNotionPageExistsMessage(request, mockSendResponse);
 
       // Assert
-      expect(mockChrome.storage.sync.get).toHaveBeenCalledWith(['notionApiToken'], expect.any(Function));
+      expect(mockChrome.storage.sync.get).toHaveBeenCalledWith(
+        ['notionApiToken'],
+        expect.any(Function)
+      );
       expect(checkNotionPageExists).toHaveBeenCalledWith('test-page-id', 'test-api-key');
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: true,
         exists: true,
-        error: undefined
+        error: undefined,
       });
     });
 
@@ -330,7 +329,7 @@ describe('Background Notion Page Operations', () => {
       // Assert
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Missing pageId parameter'
+        error: 'Missing pageId parameter',
       });
     });
 
@@ -349,7 +348,7 @@ describe('Background Notion Page Operations', () => {
       // Assert
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Notion API token not configured'
+        error: 'Notion API token not configured',
       });
     });
 
@@ -375,7 +374,7 @@ describe('Background Notion Page Operations', () => {
       expect(console.error).toHaveBeenCalledWith('❌ 處理檢查頁面存在消息失敗:', expect.any(Error));
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Check failed'
+        error: 'Check failed',
       });
     });
   });
@@ -403,7 +402,7 @@ describe('Background Notion Page Operations', () => {
       expect(console.log).toHaveBeenCalledWith('✅ 成功打開 Notion 頁面');
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: true,
-        tabId: mockTab.id
+        tabId: mockTab.id,
       });
     });
 
@@ -418,7 +417,7 @@ describe('Background Notion Page Operations', () => {
       // Assert
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Missing URL parameter'
+        error: 'Missing URL parameter',
       });
     });
 
@@ -436,10 +435,13 @@ describe('Background Notion Page Operations', () => {
       handleOpenNotionPage(request, mockSendResponse);
 
       // Assert
-      expect(console.error).toHaveBeenCalledWith('❌ 打開標籤頁失敗:', mockChrome.runtime.lastError);
+      expect(console.error).toHaveBeenCalledWith(
+        '❌ 打開標籤頁失敗:',
+        mockChrome.runtime.lastError
+      );
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Tab creation failed'
+        error: 'Tab creation failed',
       });
     });
 
@@ -459,7 +461,7 @@ describe('Background Notion Page Operations', () => {
       expect(console.error).toHaveBeenCalledWith('❌ 處理打開 Notion 頁面失敗:', expect.any(Error));
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Unexpected error'
+        error: 'Unexpected error',
       });
     });
   });
@@ -480,7 +482,7 @@ describe('Background Notion Page Operations', () => {
       global.fetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockPageData)
+        json: () => Promise.resolve(mockPageData),
       });
 
       // Act
@@ -495,14 +497,14 @@ describe('Background Notion Page Operations', () => {
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
-            'Authorization': `Bearer ${apiKey}`
-          })
+            Authorization: `Bearer ${apiKey}`,
+          }),
         })
       );
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: true,
         exists: true,
-        error: undefined
+        error: undefined,
       });
     });
 
@@ -564,7 +566,7 @@ describe('Background Notion Page Operations', () => {
       // Assert
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: true,
-        tabId: 123
+        tabId: 123,
       });
     });
 
@@ -584,7 +586,7 @@ describe('Background Notion Page Operations', () => {
       // Assert
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Chrome API not available'
+        error: 'Chrome API not available',
       });
     });
   });

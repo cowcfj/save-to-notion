@@ -16,7 +16,7 @@
  * - batchProcess, batchProcessWithRetry - 批處理工具（可選）
  */
 
-import Logger from '../utils/Logger.js';
+import Logger from '../utils/Logger.module.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';

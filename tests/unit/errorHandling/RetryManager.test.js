@@ -8,7 +8,9 @@ const { RetryManager } = require('../../../scripts/errorHandling/RetryManager');
 // 簡易 Headers 模擬
 class MockHeaders {
   constructor(map = {}) {
-    this.map = Object.fromEntries(Object.entries(map).map(([k, v]) => [String(k).toLowerCase(), v]));
+    this.map = Object.fromEntries(
+      Object.entries(map).map(([key, value]) => [String(key).toLowerCase(), value])
+    );
   }
   get(key) {
     return this.map[String(key).toLowerCase()] ?? null;
@@ -17,23 +19,43 @@ class MockHeaders {
 
 // 簡易 AbortController Shim（避免舊環境缺失）
 function createAbortController() {
-  if (typeof AbortController !== 'undefined') return new AbortController();
+  if (typeof AbortController !== 'undefined') {
+    return new AbortController();
+  }
   let aborted = false;
   const listeners = new Set();
   return {
     get signal() {
       return {
-        get aborted() { return aborted; },
-        addEventListener: (evt, cb) => { if (evt === 'abort') listeners.add(cb); },
-        removeEventListener: (evt, cb) => { if (evt === 'abort') listeners.delete(cb); },
+        get aborted() {
+          return aborted;
+        },
+        addEventListener: (evt, callback) => {
+          if (evt === 'abort') {
+            listeners.add(callback);
+          }
+        },
+        removeEventListener: (evt, callback) => {
+          if (evt === 'abort') {
+            listeners.delete(callback);
+          }
+        },
       };
     },
     abort() {
-      if (aborted) return;
+      if (aborted) {
+        return;
+      }
       aborted = true;
-      listeners.forEach(cb => { try { cb(); } catch (_) { /* empty */ } });
+      listeners.forEach(callback => {
+        try {
+          callback();
+        } catch (_) {
+          /* empty */
+        }
+      });
       listeners.clear();
-    }
+    },
   };
 }
 
@@ -56,7 +78,8 @@ describe('RetryManager', () => {
 
   test('fetch: 503 並帶 Retry-After 秒數時應重試，並遵循延遲', async () => {
     const calls = [];
-    const fetchFn = jest.fn()
+    const fetchFn = jest
+      .fn()
       // 第一次回傳 503 + Retry-After: 2 秒
       .mockImplementationOnce(() => {
         calls.push(Date.now());
@@ -96,16 +119,21 @@ describe('RetryManager', () => {
 
   test('fetch: 429 並帶 HTTP 日期 Retry-After 應重試', async () => {
     // 使用秒數格式的 Retry-After
-    const fetchFn = jest.fn()
-      .mockImplementationOnce(() => Promise.resolve({
-        status: 429,
-        headers: new MockHeaders({ 'Retry-After': '1.5' }) // 1.5 秒 = 1500ms
-      }))
-      .mockImplementationOnce(() => Promise.resolve({
-        status: 200,
-        ok: true,
-        headers: new MockHeaders()
-      }));
+    const fetchFn = jest
+      .fn()
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          status: 429,
+          headers: new MockHeaders({ 'Retry-After': '1.5' }), // 1.5 秒 = 1500ms
+        })
+      )
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          status: 200,
+          ok: true,
+          headers: new MockHeaders(),
+        })
+      );
 
     const retryManager = new RetryManager({ baseDelay: 10, jitter: false });
     const wrapped = retryManager.wrapFetch(fetchFn);
@@ -127,7 +155,9 @@ describe('RetryManager', () => {
   });
 
   test('fetch: 404 不應重試（直接返回回應）', async () => {
-    const fetchFn = jest.fn().mockResolvedValue({ status: 404, ok: false, headers: new MockHeaders() });
+    const fetchFn = jest
+      .fn()
+      .mockResolvedValue({ status: 404, ok: false, headers: new MockHeaders() });
     const rm = new RetryManager({});
     const wrapped = rm.wrapFetch(fetchFn);
 
@@ -149,7 +179,7 @@ describe('RetryManager', () => {
     const fetchFn = jest.fn().mockResolvedValue({ status: 503, headers: new MockHeaders() });
     const rm = new RetryManager({});
     const wrapped = rm.wrapFetch(fetchFn, {
-      shouldRetryResponse: () => false
+      shouldRetryResponse: () => false,
     });
 
     const res = await wrapped('https://example.com');

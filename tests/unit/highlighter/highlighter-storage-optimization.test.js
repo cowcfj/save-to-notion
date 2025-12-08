@@ -21,7 +21,7 @@ describe('標註存儲優化 (v2.8.0)', () => {
           { type: 'element', tag: 'p', index: 0 },
           { type: 'text', index: 0 },
         ]),
-        serializeRange (range) {
+        serializeRange(range) {
           return {
             startContainerPath: this.getNodePath(range.startContainer),
             startOffset: range.startOffset,

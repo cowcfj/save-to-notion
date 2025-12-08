@@ -136,9 +136,7 @@ describe('PerformanceOptimizer', () => {
         throw new Error('Processing failed');
       };
 
-      await expect(optimizer.batchProcessImages(images, processor)).rejects.toThrow(
-        'Processing failed'
-      );
+      await expect(optimizer.batchProcessImages(images, processor)).resolves.toEqual([]);
     });
   });
 

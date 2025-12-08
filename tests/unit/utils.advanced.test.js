@@ -30,8 +30,8 @@ describe('utils.js - 進階覆蓋率測試', () => {
       // 重置緩存狀態（不要設為 undefined，而是重置值）
       __manifestDevCache: {
         cachedResult: null,
-        cacheEnabled: false  // 默認禁用緩存以確保測試隔離
-      }
+        cacheEnabled: false, // 默認禁用緩存以確保測試隔離
+      },
     };
 
     global.chrome = {
@@ -40,17 +40,17 @@ describe('utils.js - 進階覆蓋率測試', () => {
         lastError: null,
         getManifest: jest.fn(() => ({
           version: '2.11.4',
-          version_name: '2.11.4'
-        }))
+          version_name: '2.11.4',
+        })),
       },
       storage: {
         sync: {
           get: jest.fn(),
           onChanged: {
-            addListener: jest.fn()
-          }
-        }
-      }
+            addListener: jest.fn(),
+          },
+        },
+      },
     };
 
     // 重置模組（在環境設置之後）
@@ -89,7 +89,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
           action: 'devLogSink',
           level: 'warn',
           message: '測試警告',
-          args: ['arg1', 'arg2']
+          args: ['arg1', 'arg2'],
         },
         expect.any(Function)
       );
@@ -139,7 +139,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
 
       expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          args: [{ key: 'value' }, 123]
+          args: [{ key: 'value' }, 123],
         }),
         expect.any(Function)
       );
@@ -182,7 +182,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
       // 設置包含 dev 的版本
       global.chrome.runtime.getManifest = jest.fn(() => ({
         version: '2.10.0-dev',
-        version_name: '2.10.0-dev'
+        version_name: '2.10.0-dev',
       }));
 
       // 模擬 sendMessage 來驗證是否在開發模式
@@ -204,7 +204,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
 
       // 設置非開發版本
       global.chrome.runtime.getManifest = jest.fn(() => ({
-        version: '2.10.0'
+        version: '2.10.0',
       }));
 
       global.chrome.runtime.sendMessage = jest.fn();
@@ -225,7 +225,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
 
       // 設置非開發版本
       global.chrome.runtime.getManifest = jest.fn(() => ({
-        version: '2.10.0'
+        version: '2.10.0',
       }));
 
       global.chrome.runtime.sendMessage = jest.fn();
@@ -276,7 +276,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
       global.window.__LOGGER_ENABLED__ = 'true';
 
       global.chrome.runtime.getManifest = jest.fn(() => ({
-        version: '2.10.0'
+        version: '2.10.0',
       }));
 
       global.chrome.runtime.sendMessage = jest.fn();
@@ -353,15 +353,25 @@ describe('utils.js - 進階覆蓋率測試', () => {
 
       // 模擬 isManualLoggingEnabled
       const isManualLoggingEnabled = () => {
-        const normalizeFlag = (value) => {
-          if (value === true) return true;
-          if (value === false || value === undefined || value === null) return false;
+        const normalizeFlag = value => {
+          if (value === true) {
+            return true;
+          }
+          if (value === false || value === undefined || value === null) {
+            return false;
+          }
           if (typeof value === 'string') {
             const norm = value.trim().toLowerCase();
-            if (norm === 'true' || norm === '1') return true;
-            if (norm === 'false' || norm === '0' || norm === '') return false;
+            if (norm === 'true' || norm === '1') {
+              return true;
+            }
+            if (norm === 'false' || norm === '0' || norm === '') {
+              return false;
+            }
           }
-          if (typeof value === 'number') return value === 1;
+          if (typeof value === 'number') {
+            return value === 1;
+          }
           return false;
         };
         return normalizeFlag(__FORCE_LOG__) || normalizeFlag(__LOGGER_ENABLED__);
@@ -417,7 +427,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
     test('應該響應 enableDebugLogs 設置變更', () => {
       let changeListener = null;
 
-      global.chrome.storage.sync.onChanged.addListener = jest.fn((listener) => {
+      global.chrome.storage.sync.onChanged.addListener = jest.fn(listener => {
         changeListener = listener;
       });
 
@@ -432,8 +442,8 @@ describe('utils.js - 進階覆蓋率測試', () => {
       const changes = {
         enableDebugLogs: {
           newValue: true,
-          oldValue: false
-        }
+          oldValue: false,
+        },
       };
 
       // 應該不拋出錯誤
@@ -448,7 +458,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
     test('應該處理變更監聽器中的異常', () => {
       let changeListener = null;
 
-      global.chrome.storage.sync.onChanged.addListener = jest.fn((listener) => {
+      global.chrome.storage.sync.onChanged.addListener = jest.fn(listener => {
         changeListener = listener;
       });
 
@@ -515,7 +525,7 @@ describe('utils.js - 進階覆蓋率測試', () => {
       const originalConsole = global.console;
       global.console = {
         warn: jest.fn(),
-        error: jest.fn()
+        error: jest.fn(),
       };
 
       try {

@@ -16,11 +16,13 @@ function generateTestBlocks(count) {
     blocks.push({
       type: 'paragraph',
       paragraph: {
-        rich_text: [{
-          type: 'text',
-          text: { content: `測試段落 ${i + 1}：這是一個用於測試的段落內容。` }
-        }]
-      }
+        rich_text: [
+          {
+            type: 'text',
+            text: { content: `測試段落 ${i + 1}：這是一個用於測試的段落內容。` },
+          },
+        ],
+      },
     });
   }
   return blocks;
@@ -34,12 +36,12 @@ const mockNotionAPI = {
   blocks: {
     children: {
       append: jest.fn(),
-    }
-  }
+    },
+  },
 };
 
 // 模擬延遲函數
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // 模擬數組分塊函數
 function chunkArray(array, chunkSize) {
@@ -57,11 +59,11 @@ describe('Thomas Frank 方案對比測試', () => {
     // 設置成功的 API 響應
     mockNotionAPI.pages.create.mockResolvedValue({
       id: 'test-page-id',
-      url: 'https://notion.so/test-page'
+      url: 'https://notion.so/test-page',
     });
 
     mockNotionAPI.blocks.children.append.mockResolvedValue({
-      results: []
+      results: [],
     });
   });
 
@@ -105,7 +107,7 @@ describe('Thomas Frank 方案對比測試', () => {
         { blocks: 200, description: 'Thomas Frank 示例規模' },
         { blocks: 500, description: '中等長度文章' },
         { blocks: 1000, description: '長文章' },
-        { blocks: 2000, description: '超長文章（我們的目標）' }
+        { blocks: 2000, description: '超長文章（我們的目標）' },
       ];
 
       const results = [];
@@ -118,10 +120,12 @@ describe('Thomas Frank 方案對比測試', () => {
         results.push({
           ...testCase,
           processingTime: result.processingTime,
-          successRate: result.successRate
+          successRate: result.successRate,
         });
 
-        console.log(`📊 ${testCase.description}: ${result.processingTime}ms, 成功率: ${(result.successRate * 100).toFixed(1)}%`);
+        console.log(
+          `📊 ${testCase.description}: ${result.processingTime}ms, 成功率: ${(result.successRate * 100).toFixed(1)}%`
+        );
       }
 
       // 驗證擴展性：處理時間應該大致線性增長
@@ -135,7 +139,7 @@ describe('Thomas Frank 方案對比測試', () => {
       // 模擬網絡錯誤場景
       const networkErrorScenario = {
         failureRate: 0.3,
-        errorTypes: ['429', '500', '503']
+        errorTypes: ['429', '500', '503'],
       };
 
       // 設置部分失敗的 API 響應
@@ -172,7 +176,7 @@ describe('Thomas Frank 方案對比測試', () => {
         benchmarkResults[size] = {
           processingTime: result.processingTime,
           successRate: result.successRate,
-          throughput: size / (result.processingTime / 1000) // 區塊/秒
+          throughput: size / (result.processingTime / 1000), // 區塊/秒
         };
       }
 
@@ -206,10 +210,10 @@ async function testThomasFrankPattern(blocks) {
       parent: { database_id: 'test-database-id' },
       properties: {
         title: {
-          title: [{ text: { content: 'Thomas Frank 測試頁面' } }]
-        }
+          title: [{ text: { content: 'Thomas Frank 測試頁面' } }],
+        },
       },
-      children: initialBatch
+      children: initialBatch,
     });
 
     // 後續批次：Append Block Children
@@ -218,7 +222,7 @@ async function testThomasFrankPattern(blocks) {
     for (const batch of batches) {
       await mockNotionAPI.blocks.children.append({
         block_id: page.id,
-        children: batch
+        children: batch,
       });
 
       // 遵守速率限制（縮短延遲以加快測試）
@@ -233,7 +237,7 @@ async function testThomasFrankPattern(blocks) {
       successRate: 1.0,
       blocksProcessed: blocks.length,
       batchCount: batches.length + 1, // +1 for initial batch
-      pattern: 'thomas-frank'
+      pattern: 'thomas-frank',
     };
   } catch (error) {
     const endTime = performance.now();
@@ -243,7 +247,7 @@ async function testThomasFrankPattern(blocks) {
       processingTime: endTime - startTime,
       successRate: 0,
       error: error.message,
-      pattern: 'thomas-frank'
+      pattern: 'thomas-frank',
     };
   }
 }
@@ -261,9 +265,9 @@ async function testCurrentImplementation(blocks) {
       parent: { database_id: 'test-database-id' },
       properties: {
         title: {
-          title: [{ text: { content: '當前實現測試頁面' } }]
-        }
-      }
+          title: [{ text: { content: '當前實現測試頁面' } }],
+        },
+      },
     });
 
     // 分批處理所有區塊
@@ -273,7 +277,7 @@ async function testCurrentImplementation(blocks) {
     for (const batch of batches) {
       await mockNotionAPI.blocks.children.append({
         block_id: page.id,
-        children: batch
+        children: batch,
       });
 
       processedBlocks += batch.length;
@@ -292,7 +296,7 @@ async function testCurrentImplementation(blocks) {
       successRate: processedBlocks / blocks.length,
       blocksProcessed: processedBlocks,
       batchCount: batches.length,
-      pattern: 'current-implementation'
+      pattern: 'current-implementation',
     };
   } catch (error) {
     const endTime = performance.now();
@@ -302,7 +306,7 @@ async function testCurrentImplementation(blocks) {
       processingTime: endTime - startTime,
       successRate: 0,
       error: error.message,
-      pattern: 'current-implementation'
+      pattern: 'current-implementation',
     };
   }
 }
@@ -319,17 +323,17 @@ async function testErrorHandling(blocks, errorScenario) {
 
   // 增強的錯誤類型分類
   const errorTypeMap = {
-    '429': { type: 'rate_limit', retryable: true, baseDelay: 1000 },
-    '500': { type: 'server_error', retryable: true, baseDelay: 500 },
-    '503': { type: 'service_unavailable', retryable: true, baseDelay: 800 },
-    '409': { type: 'conflict', retryable: true, baseDelay: 300 },
-    '408': { type: 'timeout', retryable: true, baseDelay: 200 },
-    '502': { type: 'bad_gateway', retryable: true, baseDelay: 600 },
-    '504': { type: 'gateway_timeout', retryable: true, baseDelay: 700 },
-    '400': { type: 'bad_request', retryable: false, baseDelay: 0 },
-    '401': { type: 'unauthorized', retryable: false, baseDelay: 0 },
-    '403': { type: 'forbidden', retryable: false, baseDelay: 0 },
-    '404': { type: 'not_found', retryable: false, baseDelay: 0 }
+    429: { type: 'rate_limit', retryable: true, baseDelay: 1000 },
+    500: { type: 'server_error', retryable: true, baseDelay: 500 },
+    503: { type: 'service_unavailable', retryable: true, baseDelay: 800 },
+    409: { type: 'conflict', retryable: true, baseDelay: 300 },
+    408: { type: 'timeout', retryable: true, baseDelay: 200 },
+    502: { type: 'bad_gateway', retryable: true, baseDelay: 600 },
+    504: { type: 'gateway_timeout', retryable: true, baseDelay: 700 },
+    400: { type: 'bad_request', retryable: false, baseDelay: 0 },
+    401: { type: 'unauthorized', retryable: false, baseDelay: 0 },
+    403: { type: 'forbidden', retryable: false, baseDelay: 0 },
+    404: { type: 'not_found', retryable: false, baseDelay: 0 },
   };
 
   // 設置錯誤模擬
@@ -342,8 +346,13 @@ async function testErrorHandling(blocks, errorScenario) {
     // 對於單一錯誤類型測試，始終使用該錯誤類型
     const shouldFail = callCount <= 2 ? true : Math.random() < errorScenario.failureRate;
     if (shouldFail) {
-      const errorType = errorScenario.errorTypes[Math.floor(Math.random() * errorScenario.errorTypes.length)];
-      const errorInfo = errorTypeMap[errorType] || { type: 'unknown', retryable: false, baseDelay: 0 };
+      const errorType =
+        errorScenario.errorTypes[Math.floor(Math.random() * errorScenario.errorTypes.length)];
+      const errorInfo = errorTypeMap[errorType] || {
+        type: 'unknown',
+        retryable: false,
+        baseDelay: 0,
+      };
       const error = new Error(`${errorType} Error`);
       error.status = parseInt(errorType);
       error.retryable = errorInfo.retryable;
@@ -363,9 +372,9 @@ async function testErrorHandling(blocks, errorScenario) {
       parent: { database_id: 'test-database-id' },
       properties: {
         title: {
-          title: [{ text: { content: '錯誤處理測試頁面' } }]
-        }
-      }
+          title: [{ text: { content: '錯誤處理測試頁面' } }],
+        },
+      },
     });
 
     const batches = chunkArray(blocks, 100);
@@ -380,7 +389,7 @@ async function testErrorHandling(blocks, errorScenario) {
         try {
           await mockNotionAPI.blocks.children.append({
             block_id: page.id,
-            children: batch
+            children: batch,
           });
 
           batchSuccess = true;
@@ -395,7 +404,10 @@ async function testErrorHandling(blocks, errorScenario) {
           if (attempts < maxRetries && errorInfo.retryable) {
             // 增強的指數退避策略
             const baseDelay = errorInfo.baseDelay;
-            const backoffDelay = Math.min(baseDelay * Math.pow(1.5, attempts) + Math.random() * 200, 2000);
+            const backoffDelay = Math.min(
+              baseDelay * Math.pow(1.5, attempts) + Math.random() * 200,
+              2000
+            );
             await delay(backoffDelay);
           } else {
             // 不可重試的錯誤或已達最大重試次數
@@ -426,7 +438,7 @@ async function testErrorHandling(blocks, errorScenario) {
       successfulBatches,
       totalBatches: batches.length,
       totalAttempts,
-      averageRetriesPerBatch: retryCount / batches.length
+      averageRetriesPerBatch: retryCount / batches.length,
     };
   } catch (error) {
     const endTime = performance.now();
@@ -445,7 +457,7 @@ async function testErrorHandling(blocks, errorScenario) {
       successfulBatches,
       totalBatches,
       totalAttempts,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -454,5 +466,5 @@ module.exports = {
   generateTestBlocks,
   testThomasFrankPattern,
   testCurrentImplementation,
-  testErrorHandling
+  testErrorHandling,
 };

@@ -21,21 +21,21 @@ class TestEnvironmentHelper {
         id: 'mock-extension-id',
         sendMessage: jest.fn(),
         lastError: null,
-        getManifest: jest.fn(() => ({ version: '2.10.0' }))
+        getManifest: jest.fn(() => ({ version: '2.10.0' })),
       },
       storage: {
         local: {
           get: jest.fn(),
           set: jest.fn(),
-          remove: jest.fn()
+          remove: jest.fn(),
         },
         sync: {
           get: jest.fn(),
           onChanged: {
-            addListener: jest.fn()
-          }
-        }
-      }
+            addListener: jest.fn(),
+          },
+        },
+      },
     };
 
     // 深度合併覆蓋設置
@@ -62,7 +62,7 @@ class TestEnvironmentHelper {
       debug: jest.fn(),
       info: jest.fn(),
       warn: jest.fn(),
-      error: jest.fn()
+      error: jest.fn(),
     };
   }
 
@@ -77,7 +77,7 @@ class TestEnvironmentHelper {
       Logger: undefined,
       normalizeUrl: undefined,
       location: { href: 'https://example.com' },
-      ...overrides
+      ...overrides,
     };
   }
 
@@ -98,11 +98,7 @@ class TestEnvironmentHelper {
    * @param {boolean} options.mockConsole - 是否 mock console（默認 true）
    */
   setupTestEnvironment(options = {}) {
-    const {
-      chromeOverrides = {},
-      windowOverrides = {},
-      mockConsole = true
-    } = options;
+    const { chromeOverrides = {}, windowOverrides = {}, mockConsole = true } = options;
 
     // 保存原始環境
     this.saveCurrentEnvironment();

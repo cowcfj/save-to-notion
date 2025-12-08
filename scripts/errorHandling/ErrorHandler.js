@@ -336,12 +336,5 @@ class ErrorHandler {
 }
 
 // 導出類和常量
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ErrorHandler, ErrorTypes, ErrorSeverity };
-} else if (typeof window !== 'undefined') {
-  window.ErrorHandler = ErrorHandler;
-  window.ErrorTypes = ErrorTypes;
-  window.ErrorSeverity = ErrorSeverity;
-}
 
 export { ErrorHandler, ErrorTypes, ErrorSeverity };

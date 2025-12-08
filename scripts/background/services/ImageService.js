@@ -8,7 +8,11 @@
  */
 
 // 導入統一配置
-import { IMAGE_VALIDATION_CONFIG } from '../../config/index.js';
+import {
+  IMAGE_VALIDATION_CONFIG,
+  IMAGE_EXTENSIONS,
+  IMAGE_PATH_PATTERNS,
+} from '../../config/index.js';
 
 // 從配置獲取默認值
 const DEFAULT_CACHE_SIZE = IMAGE_VALIDATION_CONFIG.MAX_CACHE_SIZE;
@@ -201,26 +205,10 @@ class ImageService {
 
       // 檢查常見圖片擴展名
       const pathname = urlObj.pathname.toLowerCase();
-      const imageExtensions = [
-        '.jpg',
-        '.jpeg',
-        '.png',
-        '.gif',
-        '.webp',
-        '.svg',
-        '.bmp',
-        '.ico',
-        '.tiff',
-        '.tif',
-        '.avif',
-        '.heic',
-        '.heif',
-      ];
-      const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext));
+      const hasImageExtension = IMAGE_EXTENSIONS.test(pathname);
 
       // 檢查路徑是否包含圖片關鍵詞
-      const hasImageKeyword =
-        /\/(?:image[s]?|img[s]?|photo[s]?|picture[s]?|media|upload[s]?|cdn)\//i.test(pathname);
+      const hasImageKeyword = IMAGE_PATH_PATTERNS.some(pattern => pattern.test(pathname));
 
       // 至少滿足一個條件
       return hasImageExtension || hasImageKeyword;

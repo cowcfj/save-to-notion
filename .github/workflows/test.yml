@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   test:
@@ -18,135 +18,134 @@ jobs:
         node-version: [20.x]
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v6
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Node.js 20.x compatibility check
-      run: |
-        echo "Node.js version: $(node --version)"
-        echo "npm version: $(npm --version)"
-        echo "Jest version: $(npm list jest | grep jest)"
+      - name: Node.js 20.x compatibility check
+        run: |
+          echo "Node.js version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "Jest version: $(npm list jest | grep jest)"
 
-    - name: Lint regex patterns (non-blocking)
-      run: npm run lint
-      continue-on-error: true
+      - name: Lint regex patterns (non-blocking)
+        run: npm run lint
+        continue-on-error: true
 
-    - name: Build content script bundle
-      run: |
-        echo "Building content script bundle for tests..."
-        npm run build:content
-        echo "Verifying bundle was created..."
-        ls -lh dist/content.bundle.js
+      - name: Build content script bundle
+        run: |
+          echo "Building content script bundle for tests..."
+          npm run build:content
+          echo "Verifying bundle was created..."
+          ls -lh dist/content.bundle.js
 
-    - name: Run tests with Node.js 20.x optimizations
-      run: |
-        # 設置 Node.js 20.x 特定的環境變數
-        export NODE_OPTIONS="--max-old-space-size=4096"
-        export JEST_MAX_WORKERS=2
-        
-        # 根據事件類型決定測試範圍
-        if [ "${{ github.event_name }}" == "pull_request" ]; then
-          echo "Running tests for changed files only..."
-          npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit --changedSince=origin/${{ github.base_ref }}
-        else
-          echo "Running all tests..."
-          npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit
-        fi
+      - name: Run tests with Node.js 20.x optimizations
+        run: |
+          # 設置 Node.js 20.x 特定的環境變數
+          export NODE_OPTIONS="--max-old-space-size=4096"
+          export JEST_MAX_WORKERS=2
 
-    - name: Verify production build
-      run: |
-        echo "Building production bundle..."
-        npm run build:prod
-        echo "Checking bundle size..."
-        ls -lh dist/highlighter-v2.bundle.js
-        
-        # Verify bundle was created and is compressed
-        if [ ! -f "dist/highlighter-v2.bundle.js" ]; then
-          echo "❌ Bundle file not found!"
-          exit 1
-        fi
-        
-        # Check bundle size (should be around 15KB, fail if > 50KB)
-        SIZE=$(stat -f%z "dist/highlighter-v2.bundle.js" 2>/dev/null || stat -c%s "dist/highlighter-v2.bundle.js" 2>/dev/null)
-        if [ "$SIZE" -gt 51200 ]; then
-          echo "❌ Bundle size ($SIZE bytes) exceeds 50KB limit!"
-          exit 1
-        fi
-        
-        echo "✅ Bundle size: $SIZE bytes (OK)"
+          # 根據事件類型決定測試範圍
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "Running tests for changed files only..."
+            npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit --changedSince=origin/${{ github.base_ref }}
+          else
+            echo "Running all tests..."
+            npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit
+          fi
 
-    - name: Generate coverage report
-      run: |
-        export NODE_OPTIONS="--max-old-space-size=4096"
-        export JEST_MAX_WORKERS=2
-        
-        if [ "${{ github.event_name }}" == "pull_request" ]; then
-          echo "Generating coverage for changed files only..."
-          npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit --changedSince=origin/${{ github.base_ref }}
-        else
-          echo "Generating full coverage report..."
-          npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit
-        fi
-      continue-on-error: true
+      - name: Verify production build
+        run: |
+          echo "Building production bundle..."
+          npm run build:prod
+          echo "Checking bundle size..."
+          ls -lh dist/highlighter-v2.bundle.js
 
-    - name: Upload test report artifact (junit.xml)
-      if: always()
-      uses: actions/upload-artifact@v5
-      with:
-        name: junit-report
-        path: junit.xml
-        if-no-files-found: ignore
+          # Verify bundle was created and is compressed
+          if [ ! -f "dist/highlighter-v2.bundle.js" ]; then
+            echo "❌ Bundle file not found!"
+            exit 1
+          fi
 
-    - name: Upload HTML coverage artifact
-      if: always()
-      uses: actions/upload-artifact@v5
-      with:
-        name: coverage-html
-        path: coverage
-        if-no-files-found: ignore
+          # Check bundle size (should be around 15KB, fail if > 50KB)
+          SIZE=$(stat -f%z "dist/highlighter-v2.bundle.js" 2>/dev/null || stat -c%s "dist/highlighter-v2.bundle.js" 2>/dev/null)
+          if [ "$SIZE" -gt 51200 ]; then
+            echo "❌ Bundle size ($SIZE bytes) exceeds 50KB limit!"
+            exit 1
+          fi
 
-    - name: Coverage diagnostics (list files + head)
-      run: |
-        echo "-- coverage dir listing --"
-        ls -la coverage || true
-        echo "\n-- head of coverage/lcov.info (if exists) --"
-        if [ -f coverage/lcov.info ]; then
-          head -n 60 coverage/lcov.info
-        else
-          echo "coverage/lcov.info not found"
-        fi
-      continue-on-error: true
+          echo "✅ Bundle size: $SIZE bytes (OK)"
 
-    # 將 Codecov 上傳從 Test workflow 中移除，改由 workflow_run 的 Coverage Upload 接手
+      - name: Generate coverage report
+        run: |
+          export NODE_OPTIONS="--max-old-space-size=4096"
+          export JEST_MAX_WORKERS=2
 
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "Generating coverage for changed files only..."
+            npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit --changedSince=origin/${{ github.base_ref }}
+          else
+            echo "Generating full coverage report..."
+            npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit
+          fi
+        continue-on-error: true
 
-    - name: Report success
-      if: success()
-      run: echo "✅ All tests passed for Node.js ${{ matrix.node-version }}"
+      - name: Upload test report artifact (junit.xml)
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: junit-report
+          path: junit.xml
+          if-no-files-found: ignore
 
-    # 移除 Codecov 步驟後，不再回報其狀態
+      - name: Upload HTML coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage-html
+          path: coverage
+          if-no-files-found: ignore
 
-    - name: Upload LCOV coverage artifact
-      if: always()
-      uses: actions/upload-artifact@v5
-      with:
-        name: coverage-lcov
-        path: coverage/lcov.info
-        if-no-files-found: ignore
+      - name: Coverage diagnostics (list files + head)
+        run: |
+          echo "-- coverage dir listing --"
+          ls -la coverage || true
+          echo "\n-- head of coverage/lcov.info (if exists) --"
+          if [ -f coverage/lcov.info ]; then
+            head -n 60 coverage/lcov.info
+          else
+            echo "coverage/lcov.info not found"
+          fi
+        continue-on-error: true
 
-    - name: Report cancelled
-      if: cancelled()
-      run: echo "⏹️ Tests cancelled for Node.js ${{ matrix.node-version }}"
+      # 將 Codecov 上傳從 Test workflow 中移除，改由 workflow_run 的 Coverage Upload 接手
+
+      - name: Report success
+        if: success()
+        run: echo "✅ All tests passed for Node.js ${{ matrix.node-version }}"
+
+      # 移除 Codecov 步驟後，不再回報其狀態
+
+      - name: Upload LCOV coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: ignore
+
+      - name: Report cancelled
+        if: cancelled()
+        run: echo "⏹️ Tests cancelled for Node.js ${{ matrix.node-version }}"
 
     # 不需要手動失敗步驟，讓失敗留給實際出錯的步驟

@@ -1,5 +1,9 @@
 const { JSDOM } = require('jsdom');
-const { isContentGood, findContentCmsFallback, MIN_CONTENT_LENGTH } = require('../helpers/content-extraction.testable');
+const {
+  isContentGood,
+  findContentCmsFallback,
+  MIN_CONTENT_LENGTH,
+} = require('../helpers/content-extraction.testable');
 
 describe('Content Extraction - Testable Wrapper', () => {
   /** @type {JSDOM|null} */
@@ -33,7 +37,7 @@ describe('Content Extraction - Testable Wrapper', () => {
     const longWithLinks = {
       content: `<p>${'text '.repeat(10)} <a href="#">${longLinkText}</a> <a href="#">${longLinkText}</a></p>`,
       // 人為設定文章長度，模擬 Readability 的 length 欄位
-      length: MIN_CONTENT_LENGTH + 1 // 251
+      length: MIN_CONTENT_LENGTH + 1, // 251
     };
     // 連結文字長度 ~800，相對長度 800/251 > 0.3 → 應拒絕
     expect(isContentGood(longWithLinks)).toBe(false);
@@ -42,7 +46,7 @@ describe('Content Extraction - Testable Wrapper', () => {
   test('isContentGood: 接受合格內容', () => {
     const good = {
       content: `<p>${'content '.repeat(MIN_CONTENT_LENGTH / 3)}</p>`,
-      length: MIN_CONTENT_LENGTH + 300
+      length: MIN_CONTENT_LENGTH + 300,
     };
     expect(isContentGood(good)).toBe(true);
   });

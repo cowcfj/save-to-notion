@@ -7,12 +7,14 @@
 ## 為什麼使用 Chrome DevTools MCP？
 
 ### 優勢
+
 1. **真實環境** - 在真實的 Chrome 瀏覽器中運行，完整支持 Extension APIs
 2. **自動化** - 可編程控制瀏覽器操作（導航、點擊、輸入等）
 3. **調試友好** - 可以截圖、查看控制台、檢查 DOM
 4. **已集成** - Claude Code 已經配置好 MCP 工具
 
 ### vs. 現有方案
+
 - **vs. Jest + JSDOM**: 真實瀏覽器環境，支持 Extension APIs
 - **vs. Puppeteer**: MCP 已集成，無需額外配置
 - **vs. 手動測試**: 可重複、自動化、快速
@@ -20,6 +22,7 @@
 ## 可測試的功能模塊
 
 ### 1. Highlighter 功能
+
 - ✅ 文本選擇和高亮創建
 - ✅ 多顏色高亮 (yellow, green, blue, red, purple)
 - ✅ 高亮刪除 (Ctrl+Click, 雙擊)
@@ -27,12 +30,14 @@
 - ✅ CSS Highlight API vs. Span-based 回退
 
 ### 2. Content Extraction
+
 - ✅ Readability 內容提取
 - ✅ CMS 適配 (Drupal, WordPress)
 - ✅ 圖片提取
 - ✅ 網站圖標提取
 
 ### 3. Notion Integration
+
 - ✅ 保存頁面到 Notion
 - ✅ 同步高亮到 Notion
 - ✅ 更新已保存頁面
@@ -44,31 +49,35 @@
 
 ```javascript
 // 1. 創建新頁面
-await mcp__chrome-devtools__new_page()
+(await mcp__chrome) - devtools__new_page();
 
 // 2. 導航到測試頁面
-await mcp__chrome-devtools__navigate_page({
-    url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript'
-})
+(await mcp__chrome) -
+  devtools__navigate_page({
+    url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript',
+  });
 
 // 3. 等待頁面加載
-await mcp__chrome-devtools__wait_for({
+(await mcp__chrome) -
+  devtools__wait_for({
     selector: 'article',
-    timeout: 5000
-})
+    timeout: 5000,
+  });
 
 // 4. 執行腳本注入高亮器
-await mcp__chrome-devtools__evaluate_script({
+(await mcp__chrome) -
+  devtools__evaluate_script({
     script: `
         // 模擬擴展腳本加載
         const script = document.createElement('script');
         script.src = chrome.runtime.getURL('scripts/highlighter-v2.js');
         document.head.appendChild(script);
-    `
-})
+    `,
+  });
 
 // 5. 選擇文本並創建高亮
-await mcp__chrome-devtools__evaluate_script({
+(await mcp__chrome) -
+  devtools__evaluate_script({
     script: `
         const p = document.querySelector('article p');
         const range = document.createRange();
@@ -80,21 +89,23 @@ await mcp__chrome-devtools__evaluate_script({
 
         // 觸發 mouseup 事件
         document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-    `
-})
+    `,
+  });
 
 // 6. 驗證高亮創建
-await mcp__chrome-devtools__evaluate_script({
+(await mcp__chrome) -
+  devtools__evaluate_script({
     script: `
         const highlights = document.querySelectorAll('[data-highlight-id]');
         return highlights.length > 0;
-    `
-})
+    `,
+  });
 
 // 7. 截圖驗證
-await mcp__chrome-devtools__take_screenshot({
-    path: 'tests/e2e/screenshots/highlight-created.png'
-})
+(await mcp__chrome) -
+  devtools__take_screenshot({
+    path: 'tests/e2e/screenshots/highlight-created.png',
+  });
 ```
 
 ## 測試場景示例
@@ -136,6 +147,7 @@ await mcp__chrome-devtools__take_screenshot({
 ### 方法 1: 在 Claude Code Chat 中直接運行
 
 向 Claude Code 發送：
+
 ```
 使用 Chrome DevTools MCP 測試高亮功能：
 1. 打開 https://developer.mozilla.org/en-US/docs/Web/JavaScript
@@ -152,38 +164,42 @@ await mcp__chrome-devtools__take_screenshot({
 ```javascript
 // tests/e2e/mcp-tests/highlight-workflow.task.js
 module.exports = {
-    name: 'Highlight Workflow E2E Test',
-    steps: [
-        'new_page',
-        'navigate to MDN',
-        'wait for article',
-        'inject highlighter',
-        'create yellow highlight',
-        'verify highlight exists',
-        'delete highlight',
-        'verify highlight removed'
-    ]
-}
+  name: 'Highlight Workflow E2E Test',
+  steps: [
+    'new_page',
+    'navigate to MDN',
+    'wait for article',
+    'inject highlighter',
+    'create yellow highlight',
+    'verify highlight exists',
+    'delete highlight',
+    'verify highlight removed',
+  ],
+};
 ```
 
 ## 關鍵測試點
 
 ### Background.js (Service Worker)
+
 ```javascript
 // 測試消息處理
-await mcp__chrome-devtools__evaluate_script({
+(await mcp__chrome) -
+  devtools__evaluate_script({
     script: `
         chrome.runtime.sendMessage({ action: 'checkPageStatus' }, response => {
             console.log('Response:', response);
         });
-    `
-})
+    `,
+  });
 ```
 
 ### Content.js (Content Script)
+
 ```javascript
 // 測試內容提取
-await mcp__chrome-devtools__evaluate_script({
+(await mcp__chrome) -
+  devtools__evaluate_script({
     script: `
         const result = extractArticleContent();
         return {
@@ -191,14 +207,16 @@ await mcp__chrome-devtools__evaluate_script({
             blockCount: result.blocks.length,
             hasImages: result.blocks.some(b => b.type === 'image')
         };
-    `
-})
+    `,
+  });
 ```
 
 ### Highlighter-v2.js
+
 ```javascript
 // 測試高亮 API
-await mcp__chrome-devtools__evaluate_script({
+(await mcp__chrome) -
+  devtools__evaluate_script({
     script: `
         const manager = window.notionHighlighter?.manager;
         return {
@@ -206,19 +224,19 @@ await mcp__chrome-devtools__evaluate_script({
             highlightCount: manager?.getCount(),
             supportsAPI: typeof CSS?.highlights !== 'undefined'
         };
-    `
-})
+    `,
+  });
 ```
 
 ## 覆蓋率提升預期
 
 使用 MCP E2E 測試後，預期覆蓋率提升：
 
-| 模塊 | 當前 | E2E 後預期 | 提升 |
-|------|------|-----------|------|
-| background.js | 6.92% | 40-50% | +33-43% |
-| content.js | 31.53% | 60-70% | +28-38% |
-| highlighter-v2.js | 18.78% | 55-65% | +36-46% |
+| 模塊              | 當前   | E2E 後預期 | 提升    |
+| ----------------- | ------ | ---------- | ------- |
+| background.js     | 6.92%  | 40-50%     | +33-43% |
+| content.js        | 31.53% | 60-70%     | +28-38% |
+| highlighter-v2.js | 18.78% | 55-65%     | +36-46% |
 
 ## 最佳實踐
 

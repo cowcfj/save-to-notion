@@ -44,9 +44,9 @@ describe('Background Notion API Operations', () => {
         object: 'block',
         type: 'paragraph',
         paragraph: {
-          rich_text: [{ type: 'text', text: { content: 'Test content' } }]
-        }
-      }
+          rich_text: [{ type: 'text', text: { content: 'Test content' } }],
+        },
+      },
     ];
 
     it('應該成功保存頁面到 Notion', async () => {
@@ -54,13 +54,13 @@ describe('Background Notion API Operations', () => {
       const mockResponse = {
         id: 'page-123',
         url: 'https://notion.so/page123',
-        properties: {}
+        properties: {},
       };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockResponse)
+        json: () => Promise.resolve(mockResponse),
       });
 
       const mockSendResponse = jest.fn();
@@ -81,17 +81,17 @@ describe('Background Notion API Operations', () => {
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
-            'Authorization': `Bearer ${mockApiKey}`,
+            Authorization: `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-            'Notion-Version': '2025-09-03'
-          })
+            'Notion-Version': '2025-09-03',
+          }),
         })
       );
 
       expect(mockSendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-          notionPageId: 'page-123'
+          notionPageId: 'page-123',
         })
       );
     });
@@ -101,13 +101,13 @@ describe('Background Notion API Operations', () => {
       const siteIcon = 'https://example.com/favicon.ico';
       const mockResponse = {
         id: 'page-456',
-        url: 'https://notion.so/page456'
+        url: 'https://notion.so/page456',
       };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockResponse)
+        json: () => Promise.resolve(mockResponse),
       });
 
       const mockSendResponse = jest.fn();
@@ -130,8 +130,8 @@ describe('Background Notion API Operations', () => {
       expect(requestBody.icon).toEqual({
         type: 'external',
         external: {
-          url: siteIcon
-        }
+          url: siteIcon,
+        },
       });
     });
 
@@ -142,8 +142,8 @@ describe('Background Notion API Operations', () => {
           object: 'block',
           type: 'paragraph',
           paragraph: {
-            rich_text: [{ type: 'text', text: { content: 'Normal content' } }]
-          }
+            rich_text: [{ type: 'text', text: { content: 'Normal content' } }],
+          },
         },
         {
           object: 'block',
@@ -151,9 +151,9 @@ describe('Background Notion API Operations', () => {
           image: {
             type: 'external',
             external: {
-              url: 'https://example.com/image.jpg'
-            }
-          }
+              url: 'https://example.com/image.jpg',
+            },
+          },
         },
         {
           object: 'block',
@@ -161,9 +161,9 @@ describe('Background Notion API Operations', () => {
           image: {
             type: 'external',
             external: {
-              url: `https://example.com/${'x'.repeat(2000)}.jpg` // 過長的URL
-            }
-          }
+              url: `https://example.com/${'x'.repeat(2000)}.jpg`, // 過長的URL
+            },
+          },
         },
         {
           object: 'block',
@@ -171,21 +171,21 @@ describe('Background Notion API Operations', () => {
           image: {
             type: 'external',
             external: {
-              url: 'https://example.com/image<script>.jpg' // 包含特殊字符
-            }
-          }
-        }
+              url: 'https://example.com/image<script>.jpg', // 包含特殊字符
+            },
+          },
+        },
       ];
 
       const mockResponse = {
         id: 'page-789',
-        url: 'https://notion.so/page789'
+        url: 'https://notion.so/page789',
       };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockResponse)
+        json: () => Promise.resolve(mockResponse),
       });
 
       const mockSendResponse = jest.fn();
@@ -213,7 +213,7 @@ describe('Background Notion API Operations', () => {
       expect(mockSendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-          warning: expect.stringContaining('2 image(s) were skipped')
+          warning: expect.stringContaining('2 image(s) were skipped'),
         })
       );
     });
@@ -224,32 +224,32 @@ describe('Background Notion API Operations', () => {
         object: 'block',
         type: 'paragraph',
         paragraph: {
-          rich_text: [{ type: 'text', text: { content: `Paragraph ${i + 1}` } }]
-        }
+          rich_text: [{ type: 'text', text: { content: `Paragraph ${i + 1}` } }],
+        },
       }));
 
       const mockCreateResponse = {
         id: 'page-long',
-        url: 'https://notion.so/pagelong'
+        url: 'https://notion.so/pagelong',
       };
 
       const mockAppendResponse = {
         object: 'block',
-        id: 'block-123'
+        id: 'block-123',
       };
 
       // Mock 創建頁面的響應
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockCreateResponse)
+        json: () => Promise.resolve(mockCreateResponse),
       });
 
       // Mock 分批添加的響應
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockAppendResponse)
+        json: () => Promise.resolve(mockAppendResponse),
       });
 
       const mockSendResponse = jest.fn();
@@ -285,13 +285,13 @@ describe('Background Notion API Operations', () => {
         object: 'error',
         status: 400,
         code: 'validation_error',
-        message: 'Invalid request'
+        message: 'Invalid request',
       };
 
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
-        json: () => Promise.resolve(mockErrorResponse)
+        json: () => Promise.resolve(mockErrorResponse),
       });
 
       const mockSendResponse = jest.fn();
@@ -310,7 +310,7 @@ describe('Background Notion API Operations', () => {
       expect(mockSendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'Invalid request'
+          error: 'Invalid request',
         })
       );
     });
@@ -322,8 +322,8 @@ describe('Background Notion API Operations', () => {
           object: 'block',
           type: 'paragraph',
           paragraph: {
-            rich_text: [{ type: 'text', text: { content: 'Text content' } }]
-          }
+            rich_text: [{ type: 'text', text: { content: 'Text content' } }],
+          },
         },
         {
           object: 'block',
@@ -331,36 +331,36 @@ describe('Background Notion API Operations', () => {
           image: {
             type: 'external',
             external: {
-              url: 'https://example.com/problematic.jpg'
-            }
-          }
-        }
+              url: 'https://example.com/problematic.jpg',
+            },
+          },
+        },
       ];
 
       const mockErrorResponse = {
         object: 'error',
         status: 400,
         code: 'validation_error',
-        message: 'Invalid image URL'
+        message: 'Invalid image URL',
       };
 
       const mockSuccessResponse = {
         id: 'page-retry',
-        url: 'https://notion.so/pageretry'
+        url: 'https://notion.so/pageretry',
       };
 
       // 第一次調用失敗
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
-        json: () => Promise.resolve(mockErrorResponse)
+        json: () => Promise.resolve(mockErrorResponse),
       });
 
       // 第二次調用成功（無圖片）
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockSuccessResponse)
+        json: () => Promise.resolve(mockSuccessResponse),
       });
 
       const mockSendResponse = jest.fn();
@@ -407,7 +407,7 @@ describe('Background Notion API Operations', () => {
       expect(mockSendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'Network error'
+          error: 'Network error',
         })
       );
     });
@@ -422,13 +422,13 @@ describe('Background Notion API Operations', () => {
       const mockResponse = {
         object: 'page',
         id: mockPageId,
-        archived: false
+        archived: false,
       };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockResponse)
+        json: () => Promise.resolve(mockResponse),
       });
 
       // Act
@@ -441,9 +441,9 @@ describe('Background Notion API Operations', () => {
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
-            'Authorization': `Bearer ${mockApiKey}`,
-            'Notion-Version': '2025-09-03'
-          })
+            Authorization: `Bearer ${mockApiKey}`,
+            'Notion-Version': '2025-09-03',
+          }),
         })
       );
     });
@@ -453,13 +453,13 @@ describe('Background Notion API Operations', () => {
       const mockResponse = {
         object: 'page',
         id: mockPageId,
-        archived: true
+        archived: true,
       };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(mockResponse)
+        json: () => Promise.resolve(mockResponse),
       });
 
       // Act
@@ -474,7 +474,7 @@ describe('Background Notion API Operations', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
-        json: () => Promise.resolve({ object: 'error', status: 404 })
+        json: () => Promise.resolve({ object: 'error', status: 404 }),
       });
 
       // Act
@@ -504,7 +504,7 @@ describe('Background Notion API Operations', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
-        json: () => Promise.resolve({ object: 'error', status: 500 })
+        json: () => Promise.resolve({ object: 'error', status: 500 }),
       });
 
       // Act
@@ -525,8 +525,8 @@ describe('Background Notion API Operations', () => {
         object: 'block',
         type: 'paragraph',
         paragraph: {
-          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }]
-        }
+          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }],
+        },
       }));
 
       // Mock 3次成功的響應（250個區塊需要3批）
@@ -534,7 +534,7 @@ describe('Background Notion API Operations', () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({ object: 'block', id: `block-${i}` })
+          json: () => Promise.resolve({ object: 'block', id: `block-${i}` }),
         });
       }
 
@@ -560,22 +560,22 @@ describe('Background Notion API Operations', () => {
         object: 'block',
         type: 'paragraph',
         paragraph: {
-          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }]
-        }
+          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }],
+        },
       }));
 
       // 第一批成功
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ object: 'block' })
+        json: () => Promise.resolve({ object: 'block' }),
       });
 
       // 第二批失敗
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
-        text: () => Promise.resolve('Bad request')
+        text: () => Promise.resolve('Bad request'),
       });
 
       // Act
@@ -605,15 +605,15 @@ describe('Background Notion API Operations', () => {
         object: 'block',
         type: 'paragraph',
         paragraph: {
-          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }]
-        }
+          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }],
+        },
       }));
 
       // Mock 2次成功響應
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ object: 'block' })
+        json: () => Promise.resolve({ object: 'block' }),
       });
 
       const startTime = Date.now();
@@ -635,60 +635,79 @@ describe('Background Notion API Operations', () => {
 /**
  * 模擬的 Notion API 函數（用於測試）
  */
-async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon = null, excludeImages = false) {
+async function saveToNotionSimulated(
+  title,
+  blocks,
+  pageUrl,
+  apiKey,
+  dataSourceId,
+  sendResponse,
+  siteIcon = null,
+  excludeImages = false
+) {
   const startTime = performance.now();
 
   // 過濾圖片區塊的邏輯
   const validBlocks = excludeImages
     ? blocks.filter(block => block.type !== 'image')
     : blocks.filter(block => {
-      if (block.type === 'image') {
-        const imageUrl = block.image?.external?.url;
-        if (!imageUrl) return false;
+        if (block.type === 'image') {
+          const imageUrl = block.image?.external?.url;
+          if (!imageUrl) {
+            return false;
+          }
 
-        // 檢查 URL 長度
-        if (imageUrl.length > 1500) return false;
+          // 檢查 URL 長度
+          if (imageUrl.length > 1500) {
+            return false;
+          }
 
-        // 檢查特殊字符
-        const problematicChars = /[<>{}|\\^`[\]]/;
-        if (problematicChars.test(imageUrl)) return false;
+          // 檢查特殊字符
+          const problematicChars = /[<>{}|\\^`[\]]/;
+          if (problematicChars.test(imageUrl)) {
+            return false;
+          }
 
-        // 驗證 URL 格式
-        try {
-          const urlObj = new URL(imageUrl);
-          if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') return false;
-          if (!urlObj.hostname || urlObj.hostname.length < 3) return false;
-        } catch {
-          return false;
+          // 驗證 URL 格式
+          try {
+            const urlObj = new URL(imageUrl);
+            if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+              return false;
+            }
+            if (!urlObj.hostname || urlObj.hostname.length < 3) {
+              return false;
+            }
+          } catch {
+            return false;
+          }
         }
-      }
-      return true;
-    });
+        return true;
+      });
 
   const skippedCount = blocks.length - validBlocks.length;
 
   const pageData = {
     parent: {
       type: 'data_source_id',
-      data_source_id: dataSourceId
+      data_source_id: dataSourceId,
     },
     properties: {
-      'Title': {
-        title: [{ text: { content: title } }]
+      Title: {
+        title: [{ text: { content: title } }],
       },
-      'URL': {
-        url: pageUrl
-      }
+      URL: {
+        url: pageUrl,
+      },
     },
-    children: validBlocks.slice(0, 100)
+    children: validBlocks.slice(0, 100),
   };
 
   if (siteIcon) {
     pageData.icon = {
       type: 'external',
       external: {
-        url: siteIcon
-      }
+        url: siteIcon,
+      },
     };
   }
 
@@ -696,11 +715,11 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
     const response = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'Notion-Version': '2025-09-03'
+        'Notion-Version': '2025-09-03',
       },
-      body: JSON.stringify(pageData)
+      body: JSON.stringify(pageData),
     });
 
     if (response.ok) {
@@ -709,9 +728,17 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
 
       // 如果區塊數量超過 100，分批添加剩餘區塊
       if (validBlocks.length > 100) {
-        const appendResult = await appendBlocksInBatchesSimulated(notionPageId, validBlocks, apiKey, 100);
+        const appendResult = await appendBlocksInBatchesSimulated(
+          notionPageId,
+          validBlocks,
+          apiKey,
+          100
+        );
         if (!appendResult.success) {
-          console.warn(`部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`, appendResult.error);
+          console.warn(
+            `部分區塊添加失敗: ${appendResult.addedCount}/${appendResult.totalCount}`,
+            appendResult.error
+          );
         }
       }
 
@@ -727,8 +754,8 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
           title,
           savedAt: Date.now(),
           notionPageId,
-          notionUrl
-        }
+          notionUrl,
+        },
       });
 
       const duration = performance.now() - startTime;
@@ -739,7 +766,7 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
         sendResponse({
           success: true,
           notionPageId,
-          warning: `${totalSkipped} were skipped due to compatibility issues`
+          warning: `${totalSkipped} were skipped due to compatibility issues`,
         });
       } else {
         sendResponse({ success: true, notionPageId });
@@ -749,10 +776,23 @@ async function saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceI
       console.error('Notion API Error:', errorData);
 
       // 檢查是否是圖片驗證錯誤，如果是則自動重試
-      if (errorData.code === 'validation_error' && errorData.message && errorData.message.includes('image')) {
+      if (
+        errorData.code === 'validation_error' &&
+        errorData.message &&
+        errorData.message.includes('image')
+      ) {
         console.log('Auto-retry: Saving without ANY images...');
         setTimeout(() => {
-          saveToNotionSimulated(title, blocks, pageUrl, apiKey, dataSourceId, sendResponse, siteIcon, true);
+          saveToNotionSimulated(
+            title,
+            blocks,
+            pageUrl,
+            apiKey,
+            dataSourceId,
+            sendResponse,
+            siteIcon,
+            true
+          );
         }, 500);
         return;
       }
@@ -770,9 +810,9 @@ async function checkNotionPageExistsSimulated(pageId, apiKey) {
     const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Notion-Version': '2025-09-03'
-      }
+        Authorization: `Bearer ${apiKey}`,
+        'Notion-Version': '2025-09-03',
+      },
     });
 
     if (response.ok) {
@@ -780,9 +820,8 @@ async function checkNotionPageExistsSimulated(pageId, apiKey) {
       return !pageData.archived;
     } else if (response.status === 404) {
       return false;
-    } else {
-      return false;
     }
+    return false;
   } catch (error) {
     console.error('Error checking page existence:', error);
     return false;
@@ -813,13 +852,13 @@ async function appendBlocksInBatchesSimulated(pageId, blocks, apiKey, startIndex
       const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2025-09-03'
+          'Notion-Version': '2025-09-03',
         },
         body: JSON.stringify({
-          children: batch
-        })
+          children: batch,
+        }),
       });
 
       if (!response.ok) {
@@ -839,9 +878,8 @@ async function appendBlocksInBatchesSimulated(pageId, blocks, apiKey, startIndex
 
     console.log(`所有區塊添加完成: ${addedCount}/${totalBlocks}`);
     return { success: true, addedCount, totalCount: totalBlocks };
-
   } catch (error) {
-    console.error("分批添加區塊失敗:", error);
+    console.error('分批添加區塊失敗:', error);
     return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
   }
 }

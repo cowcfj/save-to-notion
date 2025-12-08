@@ -8,8 +8,13 @@
  * - 處理圖片驗證、去重和批次處理
  */
 
-import Logger from '../../utils/Logger.js';
-import ImageUtils from '../../utils/imageUtils.js';
+import Logger from '../../utils/Logger.module.js';
+import {
+  extractImageSrc,
+  isValidImageUrl,
+  cleanImageUrl,
+  isNotionCompatibleImageUrl,
+} from '../../utils/imageUtils.module.js';
 import { ErrorHandler } from '../../errorHandling/ErrorHandler.js';
 import { batchProcess, batchProcessWithRetry } from '../../performance/PerformanceOptimizer.js';
 
@@ -26,10 +31,6 @@ class ImageCollector {
    * 嘗試收集特色/封面圖片
    * @returns {string|null} 圖片 URL 或 null
    */
-  /**
-   * 嘗試收集特色/封面圖片
-   * @returns {string|null} 圖片 URL 或 null
-   */
   static collectFeaturedImage() {
     Logger.log('🎯 Attempting to collect featured/hero image...');
 
@@ -37,9 +38,9 @@ class ImageCollector {
       try {
         const img = cachedQuery(selector, document, { single: true });
         if (img) {
-          const src = ImageUtils.extractImageSrc(img);
+          const src = extractImageSrc(img);
           // 使用 ImageUtils 進行驗證
-          const isValid = ImageUtils.isValidImageUrl && ImageUtils.isValidImageUrl(src);
+          const isValid = isValidImageUrl && isValidImageUrl(src);
 
           if (src && isValid) {
             Logger.log(`✓ Found featured image via selector: ${selector}`);
@@ -73,7 +74,7 @@ class ImageCollector {
    * @returns {Object|null} 圖片對象或 null
    */
   static processImageForCollection(img, index, featuredImage) {
-    const src = ImageUtils.extractImageSrc(img);
+    const src = extractImageSrc(img);
     if (!src) {
       Logger.log(`✗ No src found for image ${index + 1}`);
       return null;
@@ -82,7 +83,7 @@ class ImageCollector {
     try {
       // 1. 清理 URL
       const absoluteUrl = new URL(src, document.baseURI).href;
-      const cleanedUrl = ImageUtils.cleanImageUrl(absoluteUrl);
+      const cleanedUrl = cleanImageUrl(absoluteUrl);
 
       // 2. 檢查是否與特色圖片重複
       if (featuredImage && cleanedUrl === featuredImage) {
@@ -91,10 +92,10 @@ class ImageCollector {
       }
 
       // 3. 驗證圖片
-      // 使用 ImageUtils.isNotionCompatibleImageUrl 如果可用，否則回退到 isValidImageUrl
-      const isCompatible = ImageUtils.isNotionCompatibleImageUrl
-        ? ImageUtils.isNotionCompatibleImageUrl(cleanedUrl)
-        : ImageUtils.isValidImageUrl && ImageUtils.isValidImageUrl(cleanedUrl);
+      // 使用 isNotionCompatibleImageUrl 如果可用，否則回退到 isValidImageUrl
+      const isCompatible = isNotionCompatibleImageUrl
+        ? isNotionCompatibleImageUrl(cleanedUrl)
+        : isValidImageUrl && isValidImageUrl(cleanedUrl);
 
       if (!isCompatible) {
         Logger.log(`✗ Invalid or incompatible image: ${cleanedUrl}`);

@@ -1,7 +1,7 @@
 /* global document */
 /* eslint-disable no-unused-vars */
 
-const { PerformanceOptimizer } = require('../../helpers/performance.testable');
+const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
 
 describe('PerformanceOptimizer (extra tests)', () => {
   /** @type {PerformanceOptimizer} 性能優化器實例,在 beforeEach 中初始化 */
@@ -13,7 +13,8 @@ describe('PerformanceOptimizer (extra tests)', () => {
   });
 
   test('cachedQuery caches and returns elements', () => {
-    document.body.innerHTML = '<div class="root"><span class="a">x</span><span class="a">y</span></div>';
+    document.body.innerHTML =
+      '<div class="root"><span class="a">x</span><span class="a">y</span></div>';
 
     const res1 = optimizer.cachedQuery('.a', document);
     expect(res1).toBeDefined();
@@ -35,16 +36,22 @@ describe('PerformanceOptimizer (extra tests)', () => {
   });
 
   test('batchDomOperations executes operations when processing runs', async () => {
-    const op1 = () => { document.body.appendChild(document.createElement('div')); return 1; };
-    const op2 = () => { document.body.appendChild(document.createElement('span')); return 2; };
+    const op1 = () => {
+      document.body.appendChild(document.createElement('div'));
+      return 1;
+    };
+    const op2 = () => {
+      document.body.appendChild(document.createElement('span'));
+      return 2;
+    };
 
-    const p = optimizer.batchDomOperations([op1, op2]);
+    const promise = optimizer.batchDomOperations([op1, op2]);
     // force processing synchronously by calling internal process
     if (typeof optimizer._processBatch === 'function') {
       optimizer._processBatch();
     }
 
-    const results = await p;
+    const results = await promise;
     expect(Array.isArray(results)).toBe(true);
     expect(results.length).toBe(2);
   });

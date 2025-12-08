@@ -8,7 +8,6 @@ require('../mocks/chrome.js');
 const { normalizeUrl } = require('../../scripts/background.js');
 
 describe('normalizeUrl', () => {
-
   describe('基本功能', () => {
     test('應該返回不變的簡單 URL', () => {
       const url = 'https://example.com/page';
@@ -48,7 +47,8 @@ describe('normalizeUrl', () => {
     });
 
     test('應該移除所有 UTM 參數', () => {
-      const url = 'https://example.com/page?utm_source=google&utm_medium=cpc&utm_campaign=test&id=123';
+      const url =
+        'https://example.com/page?utm_source=google&utm_medium=cpc&utm_campaign=test&id=123';
       const expected = 'https://example.com/page?id=123';
       expect(normalizeUrl(url)).toBe(expected);
     });
@@ -99,7 +99,8 @@ describe('normalizeUrl', () => {
     });
 
     test('應該處理複雜的真實世界 URL', () => {
-      const url = 'https://blog.example.com/article/2024/10/05/?utm_source=twitter&utm_campaign=launch&fbclid=abc123#comments';
+      const url =
+        'https://blog.example.com/article/2024/10/05/?utm_source=twitter&utm_campaign=launch&fbclid=abc123#comments';
       expect(normalizeUrl(url)).toContain('https://blog.example.com/article/2024/10/05');
       expect(normalizeUrl(url)).not.toContain('utm_');
       expect(normalizeUrl(url)).not.toContain('fbclid');

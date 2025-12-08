@@ -9,32 +9,39 @@
 ## 🎯 本版本重點
 
 ### 1. 封面圖/特色圖片提取功能
+
 **問題背景：**
+
 - 用戶反饋：許多新聞網站和博客的封面圖無法被提取
 - 具體案例：faroutmagazine.co.uk 的標題上方封面圖未能提取
 - 根本原因：封面圖通常位於文章主體之外，不在 Readability.js 提取範圍
 
 **解決方案：**
+
 - ✅ 新增封面圖優先收集機制
 - ✅ 20 個專門的封面圖選擇器
 - ✅ 封面圖作為第一張圖片顯示
 - ✅ 智能去重，避免重複添加
 
 ### 2. 修復關鍵技術問題
+
 **問題 1: 封面圖提取邏輯未生效**
+
 - content.js 中的新功能沒有被使用
 - background.js 使用舊版本的內聯提取邏輯
 - 導致封面圖提取功能完全無效
 
 **問題 2: StorageUtil 重複聲明錯誤**
+
 - `Uncaught SyntaxError: Identifier 'StorageUtil' has already been declared`
 - Chrome Extension 的 content_scripts 可能被多次注入
 - const 聲明在重複加載時會報錯
 
 **解決方案：**
+
 - ✅ 將封面圖提取邏輯同步到 background.js
 - ✅ 更新 isValidImageUrl() 到 v2.5.4 版本
-- ✅ 擴展 IMG 處理邏輯支持更多 data-* 屬性
+- ✅ 擴展 IMG 處理邏輯支持更多 data-\* 屬性
 - ✅ 防止 utils.js 重複注入的保護機制
 
 ---
@@ -44,6 +51,7 @@
 ### 1. 📸 封面圖/特色圖片專門處理
 
 **新增功能：**
+
 ```javascript
 // 新增 collectFeaturedImage() 專門函數
 // 在主要內容提取之前優先查找封面圖
@@ -52,6 +60,7 @@
 **20 個封面圖選擇器（按優先級排序）：**
 
 **WordPress 和常見 CMS：**
+
 - `.featured-image img`
 - `.hero-image img`
 - `.cover-image img`
@@ -60,12 +69,14 @@
 - `.wp-post-image`
 
 **文章頭部區域：**
+
 - `.article-header img`
 - `header.article-header img`
 - `.post-header img`
 - `.entry-header img`
 
 **通用特色圖片容器：**
+
 - `figure.featured img`
 - `figure.hero img`
 - `[class*="featured"] img:first-of-type`
@@ -73,12 +84,14 @@
 - `[class*="cover"] img:first-of-type`
 
 **文章開頭的第一張圖片：**
+
 - `article > figure:first-of-type img`
 - `article > div:first-of-type img`
 - `.article > figure:first-of-type img`
 - `.post > figure:first-of-type img`
 
 **使用場景：**
+
 - 📰 新聞網站的頭條圖片
 - 📝 博客文章的特色圖片
 - 🎨 雜誌網站的封面圖
@@ -87,49 +100,58 @@
 ### 2. 🔧 改進排除邏輯
 
 **問題：**
+
 - v2.5.5 排除了所有 header，但封面圖經常在 header 中
 - 可能誤殺文章頭部的封面圖
 
 **解決：**
+
 ```javascript
 // 排除普通 header，但保留文章 header
-'header:not(.article-header):not(.post-header)'
-'.header:not(.article-header):not(.post-header)'
+'header:not(.article-header):not(.post-header)';
+'.header:not(.article-header):not(.post-header)';
 ```
 
 **效果：**
+
 - ✅ 保護文章頭部的封面圖不被過濾
 - ✅ 仍然排除網站全局的 header（logo、導航等）
 
 ### 3. 📊 四層圖片收集策略
 
 **策略 0：封面圖優先（v2.5.6 新增）**
+
 - 使用 20 個封面圖選擇器
 - 優先查找並作為第一張圖片
 - 詳細的調試日誌
 
 **策略 1：內容元素**
+
 - 從 Readability.js 提取的內容中收集
 
 **策略 2：文章區域**
+
 - 從 article, main 等文章容器收集
 
 **策略 3：選擇性擴展**
+
 - 排除非內容區域後的謹慎擴展
 - 最多添加 10 張
 
 ### 4. 🛡️ 智能去重機制
 
 **避免重複：**
+
 ```javascript
 // 檢查是否與封面圖重複
 if (featuredImage && cleanedUrl === featuredImage) {
-    console.log(`✗ Skipped duplicate featured image`);
-    return;
+  console.log(`✗ Skipped duplicate featured image`);
+  return;
 }
 ```
 
 **效果：**
+
 - 封面圖只出現一次（在最前面）
 - 避免浪費 Notion API 配額
 
@@ -158,20 +180,20 @@ if (featuredImage && cleanedUrl === featuredImage) {
    - 問題：content.js 中的新功能沒有被 background.js 使用
    - 根本原因：background.js 使用內聯的舊版本內容提取邏輯
    - 解決：
-     * 將 collectFeaturedImage() 同步到 background.js
-     * 更新 isValidImageUrl() 到 v2.5.4（+11 路徑模式，+3 格式）
-     * 擴展 IMG 處理邏輯（+7 data-* 屬性，picture 元素支持）
-     * 封面圖在轉換完成後插入到 blocks 開頭
+     - 將 collectFeaturedImage() 同步到 background.js
+     - 更新 isValidImageUrl() 到 v2.5.4（+11 路徑模式，+3 格式）
+     - 擴展 IMG 處理邏輯（+7 data-\* 屬性，picture 元素支持）
+     - 封面圖在轉換完成後插入到 blocks 開頭
    - 狀態：✅ 已修復
 
 5. **🔥 StorageUtil 重複聲明錯誤（關鍵修復）**
    - 問題：`Uncaught SyntaxError: Identifier 'StorageUtil' has already been declared`
    - 根本原因：content_scripts 可能被多次注入，const 重複聲明
    - 解決：
-     * 在 utils.js 開頭檢查 window.StorageUtil 是否已存在
-     * 將所有定義改為 window 對象屬性
-     * 使用 if/else 包裹整個腳本內容
-     * StorageUtil, Logger, normalizeUrl 都改為條件定義
+     - 在 utils.js 開頭檢查 window.StorageUtil 是否已存在
+     - 將所有定義改為 window 對象屬性
+     - 使用 if/else 包裹整個腳本內容
+     - StorageUtil, Logger, normalizeUrl 都改為條件定義
    - 狀態：✅ 已修復
 
 ---
@@ -181,15 +203,18 @@ if (featuredImage && cleanedUrl === featuredImage) {
 ### 提升指標
 
 **圖片提取成功率：**
+
 - v2.5.4: 70% → 85%（基本功能增強）
 - v2.5.5: 85%（減少無關圖片）
 - v2.5.6: 85% → **92%**（封面圖提取）
 
 **封面圖提取率：**
+
 - 之前: **30-40%**（依賴 Readability.js）
 - 現在: **85-90%**（專門的封面圖邏輯）
 
 **支持的網站類型：**
+
 - ✅ 新聞網站（如 faroutmagazine.co.uk）
 - ✅ 博客和個人網站
 - ✅ WordPress 和其他 CMS
@@ -199,6 +224,7 @@ if (featuredImage && cleanedUrl === featuredImage) {
 ### 調試日誌改進
 
 **新增日誌：**
+
 ```
 === Image Collection Strategy 0: Featured Image ===
 🎯 Attempting to collect featured/hero image...
@@ -226,19 +252,22 @@ Successfully collected 7 valid images
 ### 圖片提取功能演進史
 
 **v2.5.4（2025-10-02）：基礎增強**
-- +7 data-* 屬性
+
+- +7 data-\* 屬性
 - +10 路徑模式
 - +4 圖片格式
 - Picture 元素支持
 - 三層收集策略
 
 **v2.5.5（2025-10-02）：質量優化**
+
 - 更嚴格的觸發條件
 - 22 個排除選擇器
 - 智能過濾機制
 - 限制擴展數量
 
 **v2.5.6（2025-10-02）：封面圖專項**
+
 - 封面圖優先收集
 - 20 個封面圖選擇器
 - 改進排除邏輯
@@ -287,14 +316,16 @@ Successfully collected 7 valid images
 ### 代碼結構
 
 **content.js 新增：**
+
 ```javascript
 function collectFeaturedImage() {
-    // 使用 20 個選擇器查找封面圖
-    // 返回第一個找到的有效圖片 URL
+  // 使用 20 個選擇器查找封面圖
+  // 返回第一個找到的有效圖片 URL
 }
 ```
 
 **background.js 同步：**
+
 ```javascript
 // 在內容提取邏輯中添加相同的封面圖收集函數
 function collectFeaturedImage() {
@@ -307,7 +338,7 @@ function collectFeaturedImage() {
 if (finalContent) {
     const blocks = convertHtmlToNotionBlocks(finalContent);
     const featuredImageUrl = collectFeaturedImage();
-    
+
     if (featuredImageUrl && !isDuplicate) {
         blocks.unshift({ type: 'image', ... });
     }
@@ -315,6 +346,7 @@ if (finalContent) {
 ```
 
 **utils.js 防重複注入：**
+
 ```javascript
 // 在文件開頭檢查
 if (typeof window.StorageUtil !== 'undefined') {
@@ -330,30 +362,35 @@ if (typeof window.StorageUtil !== 'undefined') {
 ### 文件變更
 
 **scripts/content.js**
+
 - +65 行（新增 collectFeaturedImage 函數）
 - 修改 collectAdditionalImages 函數
 - 修改排除選擇器列表
 - 新增調試日誌
 
 **scripts/background.js** （關鍵修復）
+
 - +179 行（同步 collectFeaturedImage 和相關邏輯）
 - 更新 isValidImageUrl() 到 v2.5.4
-- 擴展 IMG 處理邏輯（+7 data-* 屬性）
+- 擴展 IMG 處理邏輯（+7 data-\* 屬性）
 - 支持 picture 元素和 srcset
 - 封面圖在 blocks 開頭插入
 - 智能去重檢查
 
 **scripts/utils.js** （關鍵修復）
+
 - +26 行（防重複注入邏輯）
 - 將 const 聲明改為 window 對象屬性
 - 使用 if/else 包裹整個腳本
 - StorageUtil, Logger, normalizeUrl 條件定義
 
 **manifest.json**
+
 - version: 2.5.5 → 2.5.6
 - description: 更新包含"封面圖提取"
 
 **CHANGELOG.md**
+
 - 添加 v2.5.6 版本說明
 
 ---

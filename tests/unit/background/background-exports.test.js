@@ -9,27 +9,27 @@ global.chrome = {
     local: {
       get: jest.fn(),
       set: jest.fn(),
-      remove: jest.fn()
+      remove: jest.fn(),
     },
     sync: {
-      get: jest.fn()
-    }
+      get: jest.fn(),
+    },
   },
   runtime: {
     lastError: null,
-    getManifest: jest.fn(() => ({ version: '2.9.5' }))
+    getManifest: jest.fn(() => ({ version: '2.9.5' })),
   },
   tabs: {
     query: jest.fn(),
-    create: jest.fn()
+    create: jest.fn(),
   },
   scripting: {
-    executeScript: jest.fn()
+    executeScript: jest.fn(),
   },
   action: {
     setBadgeText: jest.fn(),
-    setBadgeBackgroundColor: jest.fn()
-  }
+    setBadgeBackgroundColor: jest.fn(),
+  },
 };
 
 // 模擬 fetch
@@ -37,7 +37,7 @@ global.fetch = jest.fn();
 
 // 模擬 performance API
 global.performance = {
-  now: jest.fn(() => Date.now())
+  now: jest.fn(() => Date.now()),
 };
 
 // 導入 background.js 的導出函數
@@ -53,10 +53,19 @@ const backgroundModule = (() => {
           const urlObj = new URL(rawUrl);
           urlObj.hash = '';
           const trackingParams = [
-            'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-            'gclid', 'fbclid', 'mc_cid', 'mc_eid', 'igshid', 'vero_id'
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_term',
+            'utm_content',
+            'gclid',
+            'fbclid',
+            'mc_cid',
+            'mc_eid',
+            'igshid',
+            'vero_id',
           ];
-          trackingParams.forEach((p) => urlObj.searchParams.delete(p));
+          trackingParams.forEach(param => urlObj.searchParams.delete(param));
           if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
             urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
           }
@@ -67,7 +76,9 @@ const backgroundModule = (() => {
       },
 
       cleanImageUrl(url) {
-        if (!url || typeof url !== 'string') return null;
+        if (!url || typeof url !== 'string') {
+          return null;
+        }
 
         try {
           const urlObj = new URL(url);
@@ -94,28 +105,49 @@ const backgroundModule = (() => {
       },
 
       isValidImageUrl(url) {
-        if (!url || typeof url !== 'string') return false;
+        if (!url || typeof url !== 'string') {
+          return false;
+        }
 
         const cleanedUrl = this.cleanImageUrl(url);
-        if (!cleanedUrl) return false;
+        if (!cleanedUrl) {
+          return false;
+        }
 
-        if (!/^https?:\/\//i.test(cleanedUrl)) return false;
-        if (cleanedUrl.length > 2000) return false;
+        if (!/^https?:\/\//i.test(cleanedUrl)) {
+          return false;
+        }
+        if (cleanedUrl.length > 2000) {
+          return false;
+        }
 
-        const imageExtensions = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
-        if (imageExtensions.test(cleanedUrl)) return true;
+        const imageExtensions =
+          /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
+        if (imageExtensions.test(cleanedUrl)) {
+          return true;
+        }
 
         const imagePathPatterns = [
-          /\/image[s]?\//i, /\/img[s]?\//i, /\/photo[s]?\//i, /\/picture[s]?\//i,
-          /\/media\//i, /\/upload[s]?\//i, /\/asset[s]?\//i, /\/file[s]?\//i
+          /\/image[s]?\//i,
+          /\/img[s]?\//i,
+          /\/photo[s]?\//i,
+          /\/picture[s]?\//i,
+          /\/media\//i,
+          /\/upload[s]?\//i,
+          /\/asset[s]?\//i,
+          /\/file[s]?\//i,
         ];
 
         const excludePatterns = [
           /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
-          /\/api\//i, /\/ajax\//i, /\/callback/i
+          /\/api\//i,
+          /\/ajax\//i,
+          /\/callback/i,
         ];
 
-        if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) return false;
+        if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
+          return false;
+        }
         return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
       },
 
@@ -176,13 +208,13 @@ const backgroundModule = (() => {
             const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
               method: 'PATCH',
               headers: {
-                'Authorization': `Bearer ${apiKey}`,
+                Authorization: `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
-                'Notion-Version': '2025-09-03'
+                'Notion-Version': '2025-09-03',
               },
               body: JSON.stringify({
-                children: batch
-              })
+                children: batch,
+              }),
             });
 
             if (!response.ok) {
@@ -201,7 +233,7 @@ const backgroundModule = (() => {
         } catch (error) {
           return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
         }
-      }
+      },
     };
   }
 })();
@@ -241,9 +273,13 @@ describe('Background.js Exported Functions', () => {
     });
 
     it('應該標準化尾部斜槓', () => {
-      expect(backgroundModule.normalizeUrl('https://example.com/page/')).toBe('https://example.com/page');
+      expect(backgroundModule.normalizeUrl('https://example.com/page/')).toBe(
+        'https://example.com/page'
+      );
       expect(backgroundModule.normalizeUrl('https://example.com/')).toBe('https://example.com/');
-      expect(backgroundModule.normalizeUrl('https://example.com/path/subpath/')).toBe('https://example.com/path/subpath');
+      expect(backgroundModule.normalizeUrl('https://example.com/path/subpath/')).toBe(
+        'https://example.com/path/subpath'
+      );
     });
 
     it('應該處理無效 URL', () => {
@@ -330,7 +366,7 @@ describe('Background.js Exported Functions', () => {
         'https://example.com/photo.png',
         'https://example.com/graphic.gif',
         'https://example.com/vector.svg',
-        'https://example.com/icon.ico'
+        'https://example.com/icon.ico',
       ];
       urls.forEach(url => {
         expect(backgroundModule.isValidImageUrl(url)).toBe(true);
@@ -343,7 +379,21 @@ describe('Background.js Exported Functions', () => {
     });
 
     it('應該支持各種圖片格式', () => {
-      const formats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif', 'avif', 'heic', 'heif'];
+      const formats = [
+        'jpg',
+        'jpeg',
+        'png',
+        'gif',
+        'webp',
+        'svg',
+        'bmp',
+        'ico',
+        'tiff',
+        'tif',
+        'avif',
+        'heic',
+        'heif',
+      ];
       formats.forEach(format => {
         const url = `https://example.com/image.${format}`;
         expect(backgroundModule.isValidImageUrl(url)).toBe(true);
@@ -359,7 +409,7 @@ describe('Background.js Exported Functions', () => {
         'https://example.com/media/cover',
         'https://example.com/uploads/file',
         'https://example.com/assets/logo',
-        'https://example.com/files/image'
+        'https://example.com/files/image',
       ];
       pathUrls.forEach(url => {
         expect(backgroundModule.isValidImageUrl(url)).toBe(true);
@@ -373,7 +423,7 @@ describe('Background.js Exported Functions', () => {
         'https://example.com/page.html',
         'https://example.com/api/data',
         'https://example.com/ajax/request',
-        'https://example.com/callback'
+        'https://example.com/callback',
       ];
       nonImageUrls.forEach(url => {
         expect(backgroundModule.isValidImageUrl(url)).toBe(false);
@@ -394,7 +444,7 @@ describe('Background.js Exported Functions', () => {
       const nonHttpUrls = [
         'ftp://example.com/image.jpg',
         'file:///path/to/image.jpg',
-        'data:image/jpeg;base64,/9j/4AAQ...'
+        'data:image/jpeg;base64,/9j/4AAQ...',
       ];
       nonHttpUrls.forEach(url => {
         expect(backgroundModule.isValidImageUrl(url)).toBe(false);
@@ -512,15 +562,15 @@ describe('Background.js Exported Functions', () => {
         object: 'block',
         type: 'paragraph',
         paragraph: {
-          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }]
-        }
+          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }],
+        },
       }));
 
       // Mock 3次成功的回應
       global.fetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ object: 'block' })
+        json: () => Promise.resolve({ object: 'block' }),
       });
 
       // Act
@@ -539,8 +589,8 @@ describe('Background.js Exported Functions', () => {
         object: 'block',
         type: 'paragraph',
         paragraph: {
-          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }]
-        }
+          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }],
+        },
       }));
 
       // 第一批成功，第二批失敗
@@ -548,12 +598,12 @@ describe('Background.js Exported Functions', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({ object: 'block' })
+          json: () => Promise.resolve({ object: 'block' }),
         })
         .mockResolvedValueOnce({
           ok: false,
           status: 400,
-          text: () => Promise.resolve('Bad request')
+          text: () => Promise.resolve('Bad request'),
         });
 
       // Act
@@ -583,18 +633,23 @@ describe('Background.js Exported Functions', () => {
         object: 'block',
         type: 'paragraph',
         paragraph: {
-          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }]
-        }
+          rich_text: [{ type: 'text', text: { content: `Block ${i + 1}` } }],
+        },
       }));
 
       global.fetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ object: 'block' })
+        json: () => Promise.resolve({ object: 'block' }),
       });
 
       // Act - 從索引100開始
-      const result = await backgroundModule.appendBlocksInBatches(mockPageId, blocks, mockApiKey, 100);
+      const result = await backgroundModule.appendBlocksInBatches(
+        mockPageId,
+        blocks,
+        mockApiKey,
+        100
+      );
 
       // Assert
       expect(result.success).toBe(true);
@@ -623,15 +678,15 @@ describe('Background.js Exported Functions', () => {
           object: 'block',
           type: 'paragraph',
           paragraph: {
-            rich_text: [{ type: 'text', text: { content: 'Test block' } }]
-          }
-        }
+            rich_text: [{ type: 'text', text: { content: 'Test block' } }],
+          },
+        },
       ];
 
       global.fetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ object: 'block' })
+        json: () => Promise.resolve({ object: 'block' }),
       });
 
       // Act
@@ -643,13 +698,13 @@ describe('Background.js Exported Functions', () => {
         {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${mockApiKey}`,
+            Authorization: `Bearer ${mockApiKey}`,
             'Content-Type': 'application/json',
-            'Notion-Version': '2025-09-03'
+            'Notion-Version': '2025-09-03',
           },
           body: JSON.stringify({
-            children: blocks
-          })
+            children: blocks,
+          }),
         }
       );
     });
@@ -667,7 +722,8 @@ describe('Background.js Exported Functions', () => {
     });
 
     it('應該處理複雜的 URL 標準化場景', () => {
-      const complexUrl = 'https://example.com/page/?utm_source=google&utm_medium=cpc&normal=keep#section';
+      const complexUrl =
+        'https://example.com/page/?utm_source=google&utm_medium=cpc&normal=keep#section';
       const normalized = backgroundModule.normalizeUrl(complexUrl);
 
       expect(normalized).toBe('https://example.com/page?normal=keep');

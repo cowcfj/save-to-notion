@@ -295,7 +295,7 @@ class PerformanceOptimizer {
     const { maxAge = 300000, force = false } = options; // 默認 5 分鐘過期
 
     if (force) {
-      console.log('Force clearing cache. Size before:', this.queryCache.size);
+      Logger.info('Force clearing cache. Size before:', this.queryCache.size);
       this.queryCache.clear();
       // 重置統計數據
       this.cacheStats = {
@@ -304,7 +304,7 @@ class PerformanceOptimizer {
         evictions: 0,
         prewarms: 0,
       };
-      console.log('Cache cleared. Size after:', this.queryCache.size);
+      Logger.info('Cache cleared. Size after:', this.queryCache.size);
       return;
     }
 
@@ -591,6 +591,15 @@ class PerformanceOptimizer {
    * @param {Element|Document} context - 要分析的上下文元素
    * @returns {Array<string>} 動態生成的選擇器數組
    */
+  /**
+   * 分析頁面內容以進行預熱 (實例方法，委託給靜態方法)
+   * @param {Document} doc - 文檔對象
+   * @returns {Array<string>} 建議預熱的選擇器
+   */
+  _analyzePageForPrewarming(doc) {
+    return this.constructor._analyzePageForPrewarming(doc);
+  }
+
   static _analyzePageForPrewarming(context) {
     const selectors = [];
 
@@ -808,7 +817,8 @@ class PerformanceOptimizer {
             timestamp: Date.now(),
           });
         }
-        item.reject(error);
+        // Return empty array on error so Promise.all (or map) doesn't fail entire batch
+        item.resolve([]);
       }
     }
 
@@ -1104,12 +1114,6 @@ class PerformanceOptimizer {
   /**
    * 計算最佳批處理大小
    */
-  _calculateOptimalBatchSize() {
-    // This method would contain logic to calculate the optimal batch size
-    // based on collected metrics, system load, and other factors.
-    // For now, it's a placeholder.
-    return this.options.batchSize || 100;
-  }
 }
 
 // 創建默認實例

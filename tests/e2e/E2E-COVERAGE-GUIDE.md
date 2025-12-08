@@ -82,6 +82,7 @@ npm run test:all
 ```
 
 這會自動執行：
+
 1. Jest 單元測試 + 覆蓋率收集 → `coverage/`
 2. E2E 測試 + Puppeteer 覆蓋率 → `coverage/e2e/`
 3. 合併兩者 → `coverage/merged/`
@@ -116,18 +117,18 @@ npm run test:merge-coverage
 module.exports = {
   // Puppeteer 配置
   puppeteer: {
-    headless: true,  // CI 環境使用 headless
+    headless: true, // CI 環境使用 headless
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    extensionPath: './dist'  // Chrome 擴展路徑
+    extensionPath: './dist', // Chrome 擴展路徑
   },
 
   // 覆蓋率收集配置
   coverage: {
-    include: ['scripts/**/*.js'],  // 包含的文件
-    exclude: ['scripts/**/*.test.js'],  // 排除的文件
+    include: ['scripts/**/*.js'], // 包含的文件
+    exclude: ['scripts/**/*.test.js'], // 排除的文件
     reporters: ['text', 'json', 'lcov', 'html'],
-    dir: 'coverage/e2e',  // E2E 覆蓋率輸出
-    mergedDir: 'coverage/merged'  // 合併後輸出
+    dir: 'coverage/e2e', // E2E 覆蓋率輸出
+    mergedDir: 'coverage/merged', // 合併後輸出
   },
 
   // 測試場景
@@ -135,9 +136,9 @@ module.exports = {
     {
       name: 'Highlighter Workflow',
       file: 'tests/e2e/scenarios/highlighter.e2e.js',
-      enabled: true
-    }
-  ]
+      enabled: true,
+    },
+  ],
 };
 ```
 
@@ -198,7 +199,7 @@ module.exports = {
       // 在頁面上下文執行的代碼
       return {
         title: document.title,
-        paragraphCount: document.querySelectorAll('p').length
+        paragraphCount: document.querySelectorAll('p').length,
       };
     });
 
@@ -209,7 +210,7 @@ module.exports = {
 
     console.log('✅ Test passed');
     return result;
-  }
+  },
 };
 ```
 
@@ -318,7 +319,7 @@ end_of_record
 ```javascript
 // 在 coverage-config.js 中配置擴展路徑
 puppeteer: {
-  extensionPath: './dist'  // 構建後的擴展目錄
+  extensionPath: './dist'; // 構建後的擴展目錄
 }
 ```
 
@@ -327,10 +328,7 @@ Puppeteer 會自動加載擴展：
 ```javascript
 // coverage-collector.js 中的實現
 this.browser = await puppeteer.launch({
-  args: [
-    `--disable-extensions-except=${extensionPath}`,
-    `--load-extension=${extensionPath}`
-  ]
+  args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
 });
 ```
 
@@ -517,9 +515,9 @@ puppeteer: {
 testScenarios: [
   {
     name: 'Complex Test',
-    timeout: 60000,  // 複雜測試給更長時間
-  }
-]
+    timeout: 60000, // 複雜測試給更長時間
+  },
+];
 ```
 
 ### 4. 定期更新覆蓋率基準
@@ -555,9 +553,9 @@ coverageThreshold: {
 
 **預期覆蓋率提升**：
 
-| 模塊 | 當前 | E2E 後 | 提升 |
-|------|------|--------|------|
-| background.js | 6.92% | 40-50% | +33-43% |
-| content.js | 31.53% | 60-70% | +28-38% |
-| highlighter-v2.js | 18.78% | 55-65% | +36-46% |
-| **整體** | **46.56%** | **65-75%** | **+18-28%** |
+| 模塊              | 當前       | E2E 後     | 提升        |
+| ----------------- | ---------- | ---------- | ----------- |
+| background.js     | 6.92%      | 40-50%     | +33-43%     |
+| content.js        | 31.53%     | 60-70%     | +28-38%     |
+| highlighter-v2.js | 18.78%     | 55-65%     | +36-46%     |
+| **整體**          | **46.56%** | **65-75%** | **+18-28%** |

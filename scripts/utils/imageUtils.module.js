@@ -1,5 +1,5 @@
 import './imageUtils.js';
-import { IMAGE_VALIDATION, IMAGE_ATTRIBUTES } from '../config/constants.js';
+import { IMAGE_VALIDATION, IMAGE_ATTRIBUTES } from '../config/index.js';
 
 // Retrieve global ImageUtils (set by side effect)
 const GlobalImageUtils =
@@ -21,9 +21,18 @@ export default ImageUtils;
 export const {
   cleanImageUrl,
   isValidImageUrl,
+  isNotionCompatibleImageUrl,
   extractFirstImage,
   validateAndCleanImages,
   processBlockImages,
+  extractImageSrc,
+  extractBestUrlFromSrcset,
+  generateImageCacheKey,
+  extractFromSrcset,
+  extractFromAttributes,
+  extractFromPicture,
+  extractFromBackgroundImage,
+  extractFromNoscript,
 } = ImageUtils || {}; // Prevent destructuring error if null
 
 export { IMAGE_VALIDATION, IMAGE_ATTRIBUTES };

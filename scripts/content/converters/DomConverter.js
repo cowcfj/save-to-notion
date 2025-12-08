@@ -8,7 +8,7 @@
  * - 解析 Rich Text (B, I, A, CODE, S)
  */
 
-import ImageUtils from '../../utils/imageUtils.js';
+import { extractImageSrc, cleanImageUrl } from '../../utils/imageUtils.module.js';
 
 import {
   BLOCKS_SUPPORTING_CHILDREN,
@@ -352,7 +352,7 @@ class DomConverter {
   }
 
   static createImageBlock(node) {
-    const src = ImageUtils.extractImageSrc(node);
+    const src = extractImageSrc(node);
     if (!src) {
       return null;
     }
@@ -360,7 +360,7 @@ class DomConverter {
     let finalUrl = src;
     try {
       finalUrl = new URL(src, document.baseURI).href;
-      finalUrl = ImageUtils.cleanImageUrl(finalUrl);
+      finalUrl = cleanImageUrl(finalUrl);
     } catch (_error) {
       // ignore invalid url
     }

@@ -1,29 +1,29 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "monthly"
-      day: "monday"
-      time: "04:00"
-      timezone: "Asia/Taipei"
+      interval: 'monthly'
+      day: 'monday'
+      time: '04:00'
+      timezone: 'Asia/Taipei'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore"
-      include: "scope"
+      prefix: 'chore'
+      include: 'scope'
     labels:
-      - "dependencies"
-      - "bot"
+      - 'dependencies'
+      - 'bot'
     reviewers:
-      - "cowcfj"
-  - package-ecosystem: "github-actions"
-    directory: "/"
+      - 'cowcfj'
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "monthly"
-      day: "monday"
-      time: "04:30"
-      timezone: "Asia/Taipei"
+      interval: 'monthly'
+      day: 'monday'
+      time: '04:30'
+      timezone: 'Asia/Taipei'
     open-pull-requests-limit: 2
     labels:
-      - "dependencies"
-      - "bot"
+      - 'dependencies'
+      - 'bot'

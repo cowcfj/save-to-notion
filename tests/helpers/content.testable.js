@@ -39,7 +39,9 @@ function extractImageSrc(imgNode) {
  * 檢查內容質量（從 scripts/content.js 提取）
  */
 function isContentGood(article, MIN_CONTENT_LENGTH = 250, MAX_LINK_DENSITY = 0.3) {
-  if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) {return false;}
+  if (!article || !article.content || article.length < MIN_CONTENT_LENGTH) {
+    return false;
+  }
 
   // 需要 DOM 環境來創建 tempDiv
   if (typeof document === 'undefined') {

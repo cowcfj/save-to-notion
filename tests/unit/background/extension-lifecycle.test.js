@@ -12,12 +12,12 @@ global.console = {
   log: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
-  info: jest.fn()
+  info: jest.fn(),
 };
 
 // Mock performance API
 global.performance = {
-  now: jest.fn(() => Date.now())
+  now: jest.fn(() => Date.now()),
 };
 
 // Mock fetch
@@ -35,15 +35,17 @@ describe('Background Extension Lifecycle', () => {
 
     // Reset Chrome API mocks
     mockChrome.runtime.getManifest.mockReturnValue({
-      version: '2.8.1'
+      version: '2.8.1',
     });
 
     mockChrome.tabs.create.mockImplementation((options, callback) => {
-      if (callback) callback({ id: 123, url: options.url });
+      if (callback) {
+        callback({ id: 123, url: options.url });
+      }
     });
 
     // 模擬 background.js 中的函數
-    handleExtensionUpdate = async (previousVersion) => {
+    handleExtensionUpdate = async previousVersion => {
       try {
         const currentVersion = chrome.runtime.getManifest().version;
         console.log(`擴展已更新: ${previousVersion} → ${currentVersion}`);
@@ -61,22 +63,20 @@ describe('Background Extension Lifecycle', () => {
     });
 
     shouldShowUpdateNotification = jest.fn((previousVersion, currentVersion) => {
-      if (!previousVersion || !currentVersion) return false;
-      if (currentVersion.includes('dev') || currentVersion.includes('beta')) return false;
+      if (!previousVersion || !currentVersion) {
+        return false;
+      }
+      if (currentVersion.includes('dev') || currentVersion.includes('beta')) {
+        return false;
+      }
 
-      const importantUpdates = [
-        '2.7.0', '2.7.1', '2.7.2', '2.7.3',
-        '2.8.0', '2.8.1'
-      ];
+      const importantUpdates = ['2.7.0', '2.7.1', '2.7.2', '2.7.3', '2.8.0', '2.8.1'];
 
       return importantUpdates.includes(currentVersion);
     });
 
-    isImportantUpdate = jest.fn((version) => {
-      const importantUpdates = [
-        '2.7.0', '2.7.1', '2.7.2', '2.7.3',
-        '2.8.0', '2.8.1'
-      ];
+    isImportantUpdate = jest.fn(version => {
+      const importantUpdates = ['2.7.0', '2.7.1', '2.7.2', '2.7.3', '2.8.0', '2.8.1'];
       return importantUpdates.includes(version);
     });
 
@@ -202,15 +202,19 @@ describe('Background Extension Lifecycle', () => {
       const previousVersion = '2.7.3';
       const currentVersion = '2.8.1';
 
-      mockChrome.runtime.getURL.mockReturnValue('chrome-extension://test/update-notification/update-notification.html');
+      mockChrome.runtime.getURL.mockReturnValue(
+        'chrome-extension://test/update-notification/update-notification.html'
+      );
 
       // Act
       await showUpdateNotification(previousVersion, currentVersion);
 
       // Assert
-      expect(mockChrome.runtime.getURL).toHaveBeenCalledWith('update-notification/update-notification.html');
+      expect(mockChrome.runtime.getURL).toHaveBeenCalledWith(
+        'update-notification/update-notification.html'
+      );
       expect(mockChrome.tabs.create).toHaveBeenCalledWith({
-        url: 'chrome-extension://test/update-notification/update-notification.html?from=2.7.3&to=2.8.1'
+        url: 'chrome-extension://test/update-notification/update-notification.html?from=2.7.3&to=2.8.1',
       });
     });
 
@@ -219,14 +223,16 @@ describe('Background Extension Lifecycle', () => {
       const previousVersion = '2.7.3-beta';
       const currentVersion = '2.8.1-rc';
 
-      mockChrome.runtime.getURL.mockReturnValue('chrome-extension://test/update-notification/update-notification.html');
+      mockChrome.runtime.getURL.mockReturnValue(
+        'chrome-extension://test/update-notification/update-notification.html'
+      );
 
       // Act
       await showUpdateNotification(previousVersion, currentVersion);
 
       // Assert
       expect(mockChrome.tabs.create).toHaveBeenCalledWith({
-        url: 'chrome-extension://test/update-notification/update-notification.html?from=2.7.3-beta&to=2.8.1-rc'
+        url: 'chrome-extension://test/update-notification/update-notification.html?from=2.7.3-beta&to=2.8.1-rc',
       });
     });
 
@@ -235,7 +241,9 @@ describe('Background Extension Lifecycle', () => {
       const previousVersion = '2.7.3';
       const currentVersion = '2.8.1';
 
-      mockChrome.runtime.getURL.mockReturnValue('chrome-extension://test/update-notification/update-notification.html');
+      mockChrome.runtime.getURL.mockReturnValue(
+        'chrome-extension://test/update-notification/update-notification.html'
+      );
       mockChrome.tabs.create.mockImplementation(() => {
         throw new Error('Failed to create tab');
       });
@@ -248,10 +256,7 @@ describe('Background Extension Lifecycle', () => {
   describe('版本比較邏輯', () => {
     test('應該正確處理版本號格式', () => {
       // 測試各種版本號格式
-      const versions = [
-        '2.7.0', '2.7.1', '2.7.2', '2.7.3',
-        '2.8.0', '2.8.1', '2.9.0', '3.0.0'
-      ];
+      const versions = ['2.7.0', '2.7.1', '2.7.2', '2.7.3', '2.8.0', '2.8.1', '2.9.0', '3.0.0'];
 
       versions.forEach(version => {
         expect(typeof version).toBe('string');
@@ -293,7 +298,9 @@ describe('Background Extension Lifecycle', () => {
     test('完整的更新流程應該正常工作', async () => {
       // Arrange
       const previousVersion = '2.7.3';
-      mockChrome.runtime.getURL.mockReturnValue('chrome-extension://test/update-notification/update-notification.html');
+      mockChrome.runtime.getURL.mockReturnValue(
+        'chrome-extension://test/update-notification/update-notification.html'
+      );
 
       // Act
       await handleExtensionUpdate(previousVersion);

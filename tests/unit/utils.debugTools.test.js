@@ -14,9 +14,9 @@ describe('StorageUtil 調試工具', () => {
     mockChrome = {
       storage: {
         local: {
-          get: jest.fn()
-        }
-      }
+          get: jest.fn(),
+        },
+      },
     };
     global.chrome = mockChrome;
 
@@ -34,15 +34,13 @@ describe('StorageUtil 調試工具', () => {
       const mockData = {
         'highlights_https://example.com': [
           { text: '測試標註1', color: 'yellow' },
-          { text: '測試標註2', color: 'green' }
+          { text: '測試標註2', color: 'green' },
         ],
         'highlights_https://test.com': {
-          highlights: [
-            { text: '測試標註3', color: 'blue' }
-          ]
+          highlights: [{ text: '測試標註3', color: 'blue' }],
         },
-        'other_key': 'some_value', // 非標註鍵，應該被過濾
-        'highlights_https://demo.com': []
+        other_key: 'some_value', // 非標註鍵，應該被過濾
+        'highlights_https://demo.com': [],
       };
 
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
@@ -118,8 +116,8 @@ describe('StorageUtil 調試工具', () => {
         'highlights_https://example.com': [
           { text: '標註1', color: 'yellow' },
           { text: '標註2', color: 'green' },
-          { text: '標註3', color: 'blue' }
-        ]
+          { text: '標註3', color: 'blue' },
+        ],
       };
 
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
@@ -140,9 +138,9 @@ describe('StorageUtil 調試工具', () => {
         'highlights_https://example.com': {
           highlights: [
             { text: '標註1', color: 'yellow' },
-            { text: '標註2', color: 'green' }
-          ]
-        }
+            { text: '標註2', color: 'green' },
+          ],
+        },
       };
 
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
@@ -162,7 +160,7 @@ describe('StorageUtil 調試工具', () => {
       const mockData = {
         'highlights_https://example.com': 'invalid_data',
         'highlights_https://test.com': null,
-        'highlights_https://demo.com': undefined
+        'highlights_https://demo.com': undefined,
       };
 
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
@@ -196,10 +194,10 @@ describe('StorageUtil 調試工具', () => {
       // Arrange
       const mockData = {
         'highlights_https://example.com': [],
-        'highlight_single': [], // 錯誤前綴
-        'highlights_test': [], // 正確前綴
+        highlight_single: [], // 錯誤前綴
+        highlights_test: [], // 正確前綴
         'saved_https://example.com': [], // 其他前綴
-        'highlights_': [] // 邊界情況
+        highlights_: [], // 邊界情況
       };
 
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {
@@ -224,19 +222,19 @@ describe('StorageUtil 調試工具', () => {
       // Arrange - 模擬真實的存儲數據
       const mockData = {
         'highlights_https://notion.so/article1': [
-          { text: 'Important insight', color: 'yellow', timestamp: Date.now() }
+          { text: 'Important insight', color: 'yellow', timestamp: Date.now() },
         ],
         'highlights_https://github.com/repo': {
           highlights: [
             { text: 'Code comment', color: 'green', timestamp: Date.now() },
-            { text: 'Bug note', color: 'red', timestamp: Date.now() }
-          ]
+            { text: 'Bug note', color: 'red', timestamp: Date.now() },
+          ],
         },
         'saved_https://notion.so/article1': {
           title: 'Article 1',
-          savedAt: Date.now()
+          savedAt: Date.now(),
         },
-        'config_key': 'some_config'
+        config_key: 'some_config',
       };
 
       mockChrome.storage.local.get.mockImplementation((keys, callback) => {

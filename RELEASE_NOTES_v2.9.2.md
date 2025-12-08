@@ -9,10 +9,12 @@
 ## 🎯 版本亮點
 
 ### 🐛 Bug 修復
+
 - **AttributeExtractor 修復**：修復 `isLazyLoadAttribute` 方法的誤判問題，避免將普通屬性（如 `data-testid`）錯誤識別為懶加載屬性
 - **測試穩定性提升**：修復多個測試文件中的實現問題，提升整體測試穩定性
 
 ### 🧪 測試覆蓋率提升
+
 - **測試覆蓋率達到 34.89%**：相比 2.9.1 版本提升 +3.48%（從 31.41% 提升）
 - **新增測試文件**：
   - `tests/unit/imageExtraction/AttributeExtractor.test.js` - 圖片屬性提取器測試（95% 覆蓋率）
@@ -27,9 +29,10 @@
 ### 🐛 Bug 修復詳情
 
 #### AttributeExtractor 修復
+
 ```javascript
 // 修復前可能錯誤識別的屬性
-<img data-testid="image" data-src="example.jpg" />
+<img data-testid="image" data-src="example.jpg" />;
 
 // 修復後正確識別懶加載屬性
 const isLazyLoad = isLazyLoadAttribute(element, attrName);
@@ -38,6 +41,7 @@ const isLazyLoad = isLazyLoadAttribute(element, attrName);
 修復了在圖片屬性提取過程中可能將普通屬性誤判為懶加載屬性的問題，提高了圖片提取的準確性。
 
 #### 測試穩定性提升
+
 - 修復了多個測試文件中的實現問題
 - 提升了測試環境的穩定性
 - 減少了測試失敗的不確定性
@@ -45,6 +49,7 @@ const isLazyLoad = isLazyLoadAttribute(element, attrName);
 ### 🧪 測試增強
 
 #### 新增測試文件
+
 1. **AttributeExtractor.test.js**：
    - 測試圖片屬性提取器的核心功能
    - 驗證懶加載屬性識別邏輯
@@ -61,6 +66,7 @@ const isLazyLoad = isLazyLoadAttribute(element, attrName);
    - 覆蓋率達 76%
 
 #### 測試基礎設施改進
+
 - 更新 Jest 配置以提高測試穩定性
 - 調整覆蓋率門檻以更好地反映項目進展
 - 改進測試報告生成
@@ -70,12 +76,14 @@ const isLazyLoad = isLazyLoadAttribute(element, attrName);
 ## 📈 數據統計
 
 ### 測試覆蓋率
-| 版本 | 覆蓋率 | 提升幅度 |
-|------|--------|----------|
-| v2.9.1 | 31.41% | 基準 |
-| v2.9.2 | 34.89% | +3.48% |
+
+| 版本   | 覆蓋率 | 提升幅度 |
+| ------ | ------ | -------- |
+| v2.9.1 | 31.41% | 基準     |
+| v2.9.2 | 34.89% | +3.48%   |
 
 ### 測試數量
+
 - **新增測試文件**: 3 個
 - **總測試數**: 持續增長中
 
@@ -84,11 +92,13 @@ const isLazyLoad = isLazyLoadAttribute(element, attrName);
 ## 🔧 技術改進
 
 ### 代碼質量
+
 - 提升了代碼的可測試性
 - 改進了錯誤處理機制
 - 增強了代碼的穩定性
 
 ### 開發體驗
+
 - 完善了測試基礎設施
 - 提供了更清晰的測試報告
 - 改進了開發流程
@@ -98,6 +108,7 @@ const isLazyLoad = isLazyLoadAttribute(element, attrName);
 ## 🔄 向後兼容性
 
 ### 完全兼容
+
 - 無需用戶進行任何操作
 - 現有數據和設置完全保留
 - 功能行為保持一致
@@ -107,11 +118,13 @@ const isLazyLoad = isLazyLoadAttribute(element, attrName);
 ## 📋 升級指南
 
 ### 自動升級
+
 1. Chrome 擴展商店會自動推送更新
 2. 重新載入擴展或重啟瀏覽器
 3. 無需額外配置
 
 ### 手動升級
+
 1. 下載最新版本的擴展包
 2. 在 Chrome 擴展管理頁面加載已解壓的擴展程序
 3. 選擇解壓後的文件夾
@@ -131,12 +144,15 @@ const isLazyLoad = isLazyLoadAttribute(element, attrName);
 ## 📞 支持與反饋
 
 ### 問題回報
+
 - **GitHub Issues**: [項目 Issues 頁面](https://github.com/cowcfj/save-to-notion/issues)
 
 ### 功能建議
+
 - 歡迎在 GitHub 提出功能建議
 
 ### 技術支持
+
 - 查看幫助文檔獲取自助解決方案
 - 聯繫開發團隊獲取技術支持
 
