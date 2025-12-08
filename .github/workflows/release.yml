@@ -88,7 +88,8 @@ jobs:
           # (they're already bundled in dist/highlighter-v2.bundle.js)
           mkdir -p release-package/scripts
           cp -a scripts/*.js release-package/scripts/
-          cp -a scripts/imageExtraction release-package/scripts/
+          cp -a scripts/background release-package/scripts/
+          cp -a scripts/config release-package/scripts/
           cp -a scripts/performance release-package/scripts/
           cp -a scripts/errorHandling release-package/scripts/
           cp -a scripts/utils release-package/scripts/
