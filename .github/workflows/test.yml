@@ -20,6 +20,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
 
     - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v6
@@ -52,8 +54,15 @@ jobs:
         # 設置 Node.js 20.x 特定的環境變數
         export NODE_OPTIONS="--max-old-space-size=4096"
         export JEST_MAX_WORKERS=2
-        # 使用更保守的 Jest 配置
-        npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit
+        
+        # 根據事件類型決定測試範圍
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          echo "Running tests for changed files only..."
+          npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit --changedSince=origin/${{ github.base_ref }}
+        else
+          echo "Running all tests..."
+          npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit
+        fi
 
     - name: Verify production build
       run: |
@@ -81,7 +90,14 @@ jobs:
       run: |
         export NODE_OPTIONS="--max-old-space-size=4096"
         export JEST_MAX_WORKERS=2
-        npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit
+        
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          echo "Generating coverage for changed files only..."
+          npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit --changedSince=origin/${{ github.base_ref }}
+        else
+          echo "Generating full coverage report..."
+          npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit
+        fi
       continue-on-error: true
 
     - name: Upload test report artifact (junit.xml)
