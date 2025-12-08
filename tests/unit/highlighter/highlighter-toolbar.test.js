@@ -78,7 +78,7 @@ describe('highlighter-v2 toolbar show/hide 穩定性', () => {
       window.StorageUtil = createStorageUtilMock(highlights);
       window.normalizeUrl = jest.fn(url => url);
       // 載入腳本（會自動初始化並在 window 上掛載 notionHighlighter）
-      require('../../../scripts/highlighter-v2.legacy.js');
+      require('../../../archive/highlighter-v2.legacy.js');
     });
     // 等待任何微任務（如 autoInit 異步）
     await new Promise(resolve => setTimeout(resolve, 0));
