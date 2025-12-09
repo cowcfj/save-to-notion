@@ -1,5 +1,36 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.14.4](https://github.com/cowcfj/save-to-notion/compare/v2.14.3...v2.14.4) (2025-12-09)
+
+
+### ✨ 新功能
+
+* 新增 CodeRabbit 自動程式碼審查設定並簡化 DeepSource 配置。 ([b7c34c1](https://github.com/cowcfj/save-to-notion/commit/b7c34c15c5cd028bf2505344dbdc5ef8dd0da65e))
+* 新增 release-please 工作流程與配置，整合自動化版本釋出與資產上傳 ([848c540](https://github.com/cowcfj/save-to-notion/commit/848c540888501ff8082f512664544d3858cdcd04))
+* 重構 CI 工作流程，新增測試與構建步驟，移除舊有的覆蓋率上傳與測試工作流程 ([ab59ef6](https://github.com/cowcfj/save-to-notion/commit/ab59ef662610ca7aa4afa86b356b6434b7927975))
+
+
+### 📝 文檔更新
+
+* 更新 README 檔案內容以提供最新資訊。 ([6883550](https://github.com/cowcfj/save-to-notion/commit/6883550a0ef17c315113fe4b245361f90247465c))
+
+
+### ♻️ 代碼重構
+
+* 更新 DeepSource 設定檔中排除模式的定義語法 ([45a2a88](https://github.com/cowcfj/save-to-notion/commit/45a2a88c6bf5a7b00e796cfc7bcc0ea42648050c))
+
+
+### 🧹 其他變更
+
+* **deps-dev:** bump @rollup/plugin-node-resolve from 15.3.1 to 16.0.3 ([#157](https://github.com/cowcfj/save-to-notion/issues/157)) ([621e32d](https://github.com/cowcfj/save-to-notion/commit/621e32da1e4d8ce42c4cb2304050a0a6e2144f9c))
+* **deps-dev:** bump lint-staged from 15.5.2 to 16.2.7 ([#159](https://github.com/cowcfj/save-to-notion/issues/159)) ([4e68539](https://github.com/cowcfj/save-to-notion/commit/4e6853970cc1e2f31b115f21a220cbb6c400a4c8))
+* **deps-dev:** bump prettier from 3.6.2 to 3.7.4 ([#158](https://github.com/cowcfj/save-to-notion/issues/158)) ([b0e8735](https://github.com/cowcfj/save-to-notion/commit/b0e873569cb95b52ca1d72f6d93e8fef41c47371))
+* **deps:** bump codecov/codecov-action from 4 to 5 ([#156](https://github.com/cowcfj/save-to-notion/issues/156)) ([509024a](https://github.com/cowcfj/save-to-notion/commit/509024aed0d79298b1920cb6aed3d172567b8595))
+* force release to 2.14.4 ([e8c77c2](https://github.com/cowcfj/save-to-notion/commit/e8c77c2740140998fda8bf0927b05129c5fa59f3))
+* 新增 DeepSource 測試與排除模式，並為 JavaScript 分析器配置文件覆蓋率、圈複雜度及問題過濾規則 ([47fcb1e](https://github.com/cowcfj/save-to-notion/commit/47fcb1eee51b629dbada624a94997bfa7723132a))
+* 更新 release-please action 的擁有者。 ([829ded7](https://github.com/cowcfj/save-to-notion/commit/829ded79c807dfaf77bbc01e0c8c014c3c813253))
+* 避免在 `release-please--` 分支上執行 CI 測試。 ([90cdb4b](https://github.com/cowcfj/save-to-notion/commit/90cdb4b4d6172f4cda3311b5dff8b67cc4653378))
+
 ## v2.14.3 - 2025-12-09
 
 ### 🧹 代碼品質與維護
