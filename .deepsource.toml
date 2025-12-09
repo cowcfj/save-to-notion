@@ -7,8 +7,7 @@ enabled = true
   [analyzers.meta]
   environment = ["browser", "nodejs"]
 
-[exclude_patterns]
-patterns = [
+exclude_patterns = [
   "dist/**",
   "releases/**",
   "CHANGELOG.md",
