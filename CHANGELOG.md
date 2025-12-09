@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.15.0](https://github.com/cowcfj/save-to-notion/compare/v2.14.4...v2.15.0) (2025-12-09)
+
+
+### ✨ 新功能
+
+* 支援手動觸發發布工作流程並調整資產打包與上傳的標籤處理邏輯。 ([58bf0af](https://github.com/cowcfj/save-to-notion/commit/58bf0af3b99326c59a0b83f2edee836b57773ffd))
+
+
+### 🐛 Bug 修復
+
+* force add package script ignored by gitignore ([54adefd](https://github.com/cowcfj/save-to-notion/commit/54adefd3952a7660435872d74551f94121019c29))
+
 ## [2.14.4](https://github.com/cowcfj/save-to-notion/compare/v2.14.3...v2.14.4) (2025-12-09)
 
 
