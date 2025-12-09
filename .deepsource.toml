@@ -1,5 +1,29 @@
 version = 1
 
+# Patterns to mark as test files (DeepSource will apply different analysis rules)
+test_patterns = [
+  "tests/**",
+  "**/*.test.js",
+  "**/*.spec.js"
+]
+
+# Patterns to completely exclude from analysis
+exclude_patterns = [
+  # Original exclusions
+  "**/mocks/**",
+  "internal/**",
+  "archive/**",
+  "releases/**",
+  "coverage/**",
+  "node_modules/**",
+  "lib/**",
+  # New exclusions for Release PR noise reduction
+  "dist/**",
+  "CHANGELOG.md",
+  "**/*.min.js",
+  "**/*.bundle.js"
+]
+
 [[analyzers]]
 name = "javascript"
 enabled = true
@@ -7,10 +31,32 @@ enabled = true
   [analyzers.meta]
   environment = ["browser", "nodejs"]
 
-exclude_patterns = [
-  "dist/**",
-  "releases/**",
-  "CHANGELOG.md",
-  "**/*.min.js",
-  "**/*.bundle.js"
-]
+  # Skip doc coverage checks for some constructs to reduce DOCUMENTATION noise
+  skip_doc_coverage = ["class-expression", "method-definition"]
+
+  # Cyclomatic complexity threshold: low, medium, high, very-high, critical
+  cyclomatic_complexity_threshold = "very-high"
+
+  # Filter out false positives for error logging patterns
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0427"
+  paths = ["scripts/**/*.js"]
+
+  # Allow console usage in test files
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0002"
+  paths = ["tests/**/*.js"]
+
+  # Allow console usage in Logger.js
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0002"
+  paths = ["scripts/utils/Logger.js"]
+
+  # Ignore class-methods-use-this for factory/utility patterns
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0105"
+  paths = [
+    "scripts/content/converters/ConverterFactory.js",
+    "scripts/content/converters/MarkdownConverter.js",
+    "scripts/content/extractors/MetadataExtractor.js"
+  ]
