@@ -1,0 +1,12 @@
+# CodeRabbit Configuration
+# Documentation: https://coderabbit.ai/docs/configure-coderabbit
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    ignore_usernames:
+      - "release-please[bot]"
+      - "github-actions[bot]"

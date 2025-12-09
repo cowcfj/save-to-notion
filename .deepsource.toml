@@ -1,72 +1,17 @@
 version = 1
 
-# Patterns to mark as test files (DeepSource will apply different analysis rules)
-test_patterns = [
-  "tests/**",
-  "**/*.test.js",
-  "**/*.spec.js"
-]
-
-# Patterns to completely exclude from analysis
-exclude_patterns = [
-  "**/mocks/**",
-  "internal/**",
-  "archive/**",
-  "releases/**",
-  "coverage/**",
-  "node_modules/**",
-  "lib/**"  # Exclude third-party libraries (e.g., Mozilla Readability.js)
-]
-
 [[analyzers]]
 name = "javascript"
 enabled = true
 
   [analyzers.meta]
-  # Valid values: "browser" or "nodejs" (string). Choose the runtime
-  # that best matches the analysed code. This repo is a Chrome extension,
-  # so using "browser" helps the analyzer reason about DOM globals.
-  environment = ["browser"]
+  environment = ["browser", "nodejs"]
 
-  # Skip doc coverage checks for some constructs to reduce DOCUMENTATION noise
-  # Possible values: "class-expression", "method-definition", "function-declaration", etc.
-  skip_doc_coverage = ["class-expression", "method-definition"]
-
-  # Cyclomatic complexity threshold: low, medium, high, very-high, critical
-  # "very-high" allows complexity up to 50, suitable for test files
-  cyclomatic_complexity_threshold = "very-high"
-
-  # Filter out false positives for error logging patterns
-  # JS-0427: "unused-expression" incorrectly flags error logging with side effects
-  [[analyzers.issue_filter]]
-  issue_code = "JS-0427"
-  paths = [
-    "scripts/**/*.js"
-  ]
-
-  # JS-0002: Allow console usage in test files (Node.js environment)
-  # E2E tests run in Node.js and need console output for test progress
-  [[analyzers.issue_filter]]
-  issue_code = "JS-0002"
-  paths = [
-    "tests/**/*.js"
-  ]
-
-  # JS-0002: Allow console usage in Logger.js (logging utility)
-  # Logger.js is a logging utility class - using console API is its core responsibility
-  [[analyzers.issue_filter]]
-  issue_code = "JS-0002"
-  paths = [
-    "scripts/utils/Logger.js"
-  ]
-
-  # JS-xxxx: Ignore class-methods-use-this warnings for factory/utility methods
-  # These are intentional design patterns (factory pattern, utility functions)
-  # that maintain instance interface for API consistency while being stateless
-  [[analyzers.issue_filter]]
-  issue_code = "JS-0105"  # class-methods-use-this
-  paths = [
-    "scripts/content/converters/ConverterFactory.js",
-    "scripts/content/converters/MarkdownConverter.js",
-    "scripts/content/extractors/MetadataExtractor.js"
-  ]
+[exclude_patterns]
+patterns = [
+  "dist/**",
+  "releases/**",
+  "CHANGELOG.md",
+  "**/*.min.js",
+  "**/*.bundle.js"
+]
