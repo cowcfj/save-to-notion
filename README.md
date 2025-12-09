@@ -1,7 +1,7 @@
 # Notion Smart Clipper
 
 [![Latest Release](https://img.shields.io/github/v/release/cowcfj/save-to-notion)](https://github.com/cowcfj/save-to-notion/releases/latest)
-[![Tests](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/test.yml)
+[![Tests](https://github.com/cowcfj/save-to-notion/actions/workflows/ci.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
