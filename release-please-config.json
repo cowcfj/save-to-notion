@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "extra-files": ["manifest.json"],
+      "include-component-in-tag": false,
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "✨ 新功能"
+        },
+        {
+          "type": "fix",
+          "section": "🐛 Bug 修復"
+        },
+        {
+          "type": "docs",
+          "section": "📝 文檔更新"
+        },
+        {
+          "type": "style",
+          "section": "♻️ 代碼重構"
+        },
+        {
+          "type": "refactor",
+          "section": "♻️ 代碼重構"
+        },
+        {
+          "type": "perf",
+          "section": "⚡ 效能優化"
+        },
+        {
+          "type": "test",
+          "section": "🧪 測試"
+        },
+        {
+          "type": "build",
+          "section": "👷 建置與 CI"
+        },
+        {
+          "type": "ci",
+          "section": "👷 建置與 CI"
+        },
+        {
+          "type": "chore",
+          "section": "🧹 其他變更"
+        }
+      ]
+    }
+  }
+}
