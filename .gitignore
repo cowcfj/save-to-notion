@@ -63,7 +63,7 @@ CLAUDE.md
 .serena/
 .claude/
 .kilocode/
-Agents.md
+AGENTS.md
 AI_AGENT_QUICK_REF.md
 *_GUIDE.md
 *_INTERNAL.md
@@ -149,6 +149,7 @@ RELEASE_CHECKLIST_*.md
 FIX_COMPLETE_*.md
 RELEASE_COMPLETE_*.md
 CHANGELOG_v*.md
+.eslintrc.json.backup
 
 # Chrome Store 發布相關（內部流程）
 GITHUB_RELEASE_v*.md
@@ -187,28 +188,17 @@ IMPLEMENTATION_COMPLETE.md
 FILE_ORGANIZATION.md
 popup/popup.js.backup
 scripts/background.js.bak
-
 PR64-FIX-REPORT.md
 PR64-COMPLETE-SOLUTION.md
-.gitignore
 REGEX_USAGE_ANALYSIS.md
-tests/reports/thomas-frank-test-report.md
-.trae/documents/修復 JS-0240 並建立物件屬性速記治理方案.md
-.agent/rules/core.md
-CLAUDE.md
-.clinerules/byterover-rules.md
-.kilocode/rules/byterover-rules.md
-.roo/rules/byterover-rules.md
-.windsurf/rules/byterover-rules.md
-.cursor/rules/byterover-rules.mdc
-.kiro/steering/byterover-rules.md
-.qoder/rules/byterover-rules.md
-.augment/rules/byterover-rules.md
-CLAUDE.md
-.agent/rules/chrome.md
-.agent/rules/es6.md
-.agent/workflows/e2e-test.md
-.agent/workflows/fix-eslint.md
-.agent/workflows/js-bundle.md
-.agent/workflows/pr-temple.md
-.agent/rules/language.md
+tests/reports/
+.trae/documents/
+.clinerules/
+.kilocode/rules/
+.roo/rules/
+.windsurf/rules/
+.kiro/steering/
+.qoder/rules/
+.augment/rules/
+.agent/rules/
+.agent/workflows/
