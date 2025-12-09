@@ -10,6 +10,7 @@ on:
 jobs:
   test:
     name: Test & Build
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write

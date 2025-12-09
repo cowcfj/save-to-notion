@@ -1,5 +1,6 @@
 [config]
 response_language = "zh-TW"
+ignore_pr_title = ["^chore: release", "^chore\\(main\\): release"]
 add_repo_metadata = true
 model="gpt-5"
 
