@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name to release (e.g., v2.14.4)'
+        required: true
 
 permissions:
   contents: write
@@ -11,6 +16,8 @@ permissions:
 
 jobs:
   release-please:
+    # Only run release-please logic on automatic push, not manual dispatch
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v4
@@ -27,7 +34,8 @@ jobs:
 
   release-assets:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    # Run if release was just created OR if manually triggered
+    if: ${{ needs.release-please.outputs.release_created || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -51,19 +59,16 @@ jobs:
 
       - name: Package Extension
         id: package
+        env:
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name || inputs.tag_name }}
         run: |
           chmod +x tools/package-extension.sh
-          ./tools/package-extension.sh ${{ needs.release-please.outputs.tag_name }}
+          ./tools/package-extension.sh "$TAG_NAME"
 
       - name: Upload Release Artifact
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name || inputs.tag_name }}
         run: |
-          # zip_path output format is ::set-output name=zip_path::path
-          # but we can rely on standard file location or extract it if needed.
-          # The script prints: ::set-output name=zip_path::releases/notion-smart-clipper-vX.Y.Z.zip
-          # But in newer actions we should use GITHUB_OUTPUT.
-          # For simplicity, we know the path pattern.
-          
           ZIP_FILE=$(ls releases/*.zip | head -n 1)
-          gh release upload ${{ needs.release-please.outputs.tag_name }} "$ZIP_FILE" --clobber
+          gh release upload "$TAG_NAME" "$ZIP_FILE" --clobber
