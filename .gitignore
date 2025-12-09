@@ -211,3 +211,4 @@ CLAUDE.md
 .agent/workflows/fix-eslint.md
 .agent/workflows/js-bundle.md
 .agent/workflows/pr-temple.md
+.agent/rules/language.md
