@@ -38,9 +38,9 @@ describe('Highlighter Integration Tests', () => {
     window.chrome = {
       runtime: {
         id: 'test-extension-id',
-        sendMessage: jest.fn((msg, callback) => {
-          if (callback) {
-            callback({ success: true });
+        sendMessage: jest.fn((msg, sendResponse) => {
+          if (sendResponse) {
+            sendResponse({ success: true });
           }
         }),
         lastError: null,

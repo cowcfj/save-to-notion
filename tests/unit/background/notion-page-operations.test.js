@@ -56,7 +56,7 @@ describe('Background Notion Page Operations', () => {
         }
         const errorData = await response.json();
 
-        console.error('❌ 檢查 Notion 頁面失敗:', errorData);
+        console.error('❌ 檢查 Notion 頁面失敗:', JSON.stringify(errorData));
         return {
           exists: false,
           error: errorData.message || 'Unknown error',
@@ -244,7 +244,10 @@ describe('Background Notion Page Operations', () => {
         exists: false,
         error: 'Unauthorized',
       });
-      expect(console.error).toHaveBeenCalledWith('❌ 檢查 Notion 頁面失敗:', errorData);
+      expect(console.error).toHaveBeenCalledWith(
+        '❌ 檢查 Notion 頁面失敗:',
+        JSON.stringify(errorData)
+      );
     });
 
     test('應該處理網路錯誤', async () => {

@@ -17,7 +17,7 @@ const {
 const { ThomasFrankBenchmark } = require('../utils/performance-benchmark.js');
 
 describe('Thomas Frank 方案整合測試', () => {
-  let benchmark;
+  let benchmark = null;
 
   beforeAll(() => {
     benchmark = new ThomasFrankBenchmark();
