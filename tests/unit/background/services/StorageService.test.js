@@ -62,12 +62,12 @@ describe('StorageService', () => {
     mockStorage = {
       local: {
         get: jest.fn((keys, sendResult) => sendResult({})),
-        set: jest.fn((data, callback) => callback?.()),
-        remove: jest.fn((keys, callback) => callback?.()),
+        set: jest.fn((data, sendResult) => sendResult?.()),
+        remove: jest.fn((keys, sendResult) => sendResult?.()),
       },
       sync: {
         get: jest.fn((keys, sendResult) => sendResult({})),
-        set: jest.fn((data, callback) => callback?.()),
+        set: jest.fn((data, sendResult) => sendResult?.()),
       },
     };
     mockLogger = {
