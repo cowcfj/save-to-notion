@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } else {
         const errorData = await response.json();
-        Logger.error('API 錯誤:', JSON.stringify(errorData));
+        Logger.error('API 錯誤:', errorData);
 
         let errorMessage = '載入保存目標失敗: ';
         if (response.status === 401) {
