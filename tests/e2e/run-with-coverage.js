@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  * E2E 測試覆蓋率執行器
  *
