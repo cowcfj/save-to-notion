@@ -63,8 +63,10 @@ describe('scripts/background.js require integration', () => {
         onUpdated,
         onActivated: createEvent(),
         onRemoved,
-        query: jest.fn((queryInfo, cb) => {
-          cb?.([{ id: 1, url: 'https://example.com/article', title: 'Article', active: true }]);
+        query: jest.fn((queryInfo, onQuery) => {
+          onQuery?.([
+            { id: 1, url: 'https://example.com/article', title: 'Article', active: true },
+          ]);
         }),
         create: jest.fn(createProps => Promise.resolve({ id: 99, ...createProps })),
         sendMessage: jest.fn(() => Promise.resolve({ success: true })),
@@ -74,7 +76,7 @@ describe('scripts/background.js require integration', () => {
         setBadgeBackgroundColor: jest.fn(),
       },
       scripting: {
-        executeScript: jest.fn((opts, cb) => cb?.([{ result: undefined }])),
+        executeScript: jest.fn((opts, onExecute) => onExecute?.([{ result: undefined }])),
       },
       storage: {
         local: {

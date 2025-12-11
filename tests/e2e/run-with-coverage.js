@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * E2E 測試覆蓋率執行器
  *
@@ -67,11 +65,11 @@ async function main() {
 
     console.log(`${'='.repeat(60)}\n`);
 
-    process.exit(result.success ? 0 : 1);
+    process.exitCode = result.success ? 0 : 1;
   } catch (error) {
     console.error('\n❌ 執行失敗:', error);
     console.error(error.stack);
-    process.exit(1);
+    process.exitCode = 1;
   }
 }
 

@@ -71,9 +71,9 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       const testUrl = TEST_CONSTANTS.URLS.EXAMPLE;
       const highlightKey = TEST_CONSTANTS.generateStorageKey('highlights', testUrl);
 
-      global.chrome.storage.local.get = jest.fn((keys, callback) => {
+      global.chrome.storage.local.get = jest.fn((keys, onGet) => {
         // 先調用回調
-        callback({
+        onGet({
           [highlightKey]: TEST_CONSTANTS.generateTestData(1),
         });
         // 然後拋出異常
@@ -95,8 +95,8 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       const demoKey = TEST_CONSTANTS.generateStorageKey('highlights', TEST_CONSTANTS.URLS.DEMO);
 
       // 模擬返回異常數據格式
-      global.chrome.storage.local.get = jest.fn((keys, callback) => {
-        callback({
+      global.chrome.storage.local.get = jest.fn((keys, onGet) => {
+        onGet({
           [exampleKey]: TEST_CONSTANTS.TEST_DATA.INVALID_DATA_FORMAT,
           [testKey]: null,
           [demoKey]: undefined,
@@ -114,8 +114,8 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       // 移除 console.log
       delete global.console.log;
 
-      global.chrome.storage.local.get = jest.fn((keys, callback) => {
-        callback({
+      global.chrome.storage.local.get = jest.fn((keys, onGet) => {
+        onGet({
           'highlights_https://example.com': [{ text: 'test' }],
         });
       });
@@ -129,8 +129,8 @@ describe('utils.js - 錯誤處理邊界測試', () => {
       // 使用常數生成大量測試數據（減少到 50 個）
       const largeData = TEST_CONSTANTS.generateLargeDataset(TEST_CONSTANTS.TEST_SIZES.LARGE);
 
-      global.chrome.storage.local.get = jest.fn((keys, callback) => {
-        callback(largeData);
+      global.chrome.storage.local.get = jest.fn((keys, onGet) => {
+        onGet(largeData);
       });
 
       const result = await utils.StorageUtil.debugListAllKeys();
