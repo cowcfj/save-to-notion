@@ -551,7 +551,7 @@ describe('Background Update Highlights', () => {
  */
 async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey, sendResponse) {
   try {
-    console.log('🔄 開始更新標記 - 頁面ID:', pageId, '標記數量:', highlights.length);
+    // console.log('🔄 開始更新標記 - 頁面ID:', pageId, '標記數量:', highlights.length);
 
     // 獲取現有頁面內容
     const getResponse = await fetch(
@@ -567,7 +567,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
 
     if (!getResponse.ok) {
       const errorData = await getResponse.json();
-      console.error('❌ 獲取頁面內容失敗:', errorData);
+      // console.error('❌ 獲取頁面內容失敗:', errorData);
       throw new Error(
         `Failed to get existing page content: ${errorData.message || getResponse.statusText}`
       );
@@ -575,7 +575,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
 
     const existingContent = await getResponse.json();
     const existingBlocks = existingContent.results;
-    console.log('📋 現有區塊數量:', existingBlocks.length);
+    // console.log('📋 現有區塊數量:', existingBlocks.length);
 
     // 查找並刪除現有的標註區域
     const blocksToDelete = [];
@@ -590,51 +590,55 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
       ) {
         foundHighlightSection = true;
         blocksToDelete.push(block.id);
-        console.log(`🎯 找到標記區域標題 (索引 ${i}):`, block.id);
+        // console.log(`🎯 找到標記區域標題 (索引 ${i}):`, block.id);
       } else if (foundHighlightSection) {
         if (block.type.startsWith('heading_')) {
-          console.log(`🛑 遇到下一個標題，停止收集標記區塊 (索引 ${i})`);
+          // console.log(`🛑 遇到下一個標題，停止收集標記區塊 (索引 ${i})`);
           break;
         }
         if (block.type === 'paragraph') {
           blocksToDelete.push(block.id);
-          console.log(`📝 標記為刪除的段落 (索引 ${i}):`, block.id);
+          // console.log(`📝 標記為刪除的段落 (索引 ${i}):`, block.id);
         }
       }
     }
 
-    console.log('🗑️ 需要刪除的區塊數量:', blocksToDelete.length);
+    // console.log('🗑️ 需要刪除的區塊數量:', blocksToDelete.length);
 
     // 刪除舊的標註區塊
-    let deletedCount = 0;
-    for (const blockId of blocksToDelete) {
-      try {
-        console.log(`🗑️ 正在刪除區塊: ${blockId}`);
-        const deleteResponse = await fetch(`https://api.notion.com/v1/blocks/${blockId}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Notion-Version': '2025-09-03',
-          },
-        });
+    // let deletedCount = 0;
+    if (blocksToDelete.length > 0) {
+      // console.log('🗑️ 準備刪除舊標記區塊:', blocksToDelete.length);
+      for (const blockId of blocksToDelete) {
+        try {
+          // console.log(`🗑️ 正在刪除區塊: ${blockId}`);
+          const deleteResponse = await fetch(`https://api.notion.com/v1/blocks/${blockId}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Notion-Version': '2025-09-03',
+            },
+          });
 
-        if (deleteResponse.ok) {
-          deletedCount++;
-          console.log(`✅ 成功刪除區塊: ${blockId}`);
-        } else {
-          const errorData = await deleteResponse.json();
-          console.error(`❌ 刪除區塊失敗 ${blockId}:`, errorData);
+          if (deleteResponse.ok) {
+            // deletedCount++;
+            // console.log(`✅ 成功刪除區塊: ${blockId}`);
+          } else {
+            const errorData = await deleteResponse.json();
+
+            console.error(`❌ 刪除區塊失敗 ${blockId}:`, errorData);
+          }
+        } catch (_deleteError) {
+          // console.error(`❌ 刪除區塊異常 ${blockId}:`, deleteError);
         }
-      } catch (deleteError) {
-        console.error(`❌ 刪除區塊異常 ${blockId}:`, deleteError);
       }
     }
 
-    console.log(`🗑️ 實際刪除了 ${deletedCount}/${blocksToDelete.length} 個區塊`);
+    // console.log(`🗑️ 實際刪除了 ${deletedCount}/${blocksToDelete.length} 個區塊`);
 
     // 添加新的標註（如果有）
     if (highlights.length > 0) {
-      console.log('➕ 準備添加新的標記區域...');
+      // console.log('➕ 準備添加新的標記區域...');
 
       const highlightBlocks = [
         {
@@ -651,15 +655,11 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
         },
       ];
 
-      highlights.forEach((highlight, index) => {
-        console.log(
-          `📝 準備添加標記 ${index + 1}: "${highlight.text.substring(0, 30)}..." (顏色: ${highlight.color})`
-        );
-
+      highlights.forEach((highlight, _index) => {
         // 處理超長標註文本，需要分割成多個段落
         const textChunks = splitTextForNotionSimulated(highlight.text, 2000);
 
-        textChunks.forEach((chunk, chunkIndex) => {
+        textChunks.forEach((chunk, _chunkIndex) => {
           highlightBlocks.push({
             object: 'block',
             type: 'paragraph',
@@ -675,16 +675,8 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
               ],
             },
           });
-
-          if (textChunks.length > 1) {
-            console.log(
-              `   └─ 分割片段 ${chunkIndex + 1}/${textChunks.length}: ${chunk.length} 字元`
-            );
-          }
         });
       });
-
-      console.log('➕ 準備添加的區塊數量:', highlightBlocks.length);
 
       const addResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
         method: 'PATCH',
@@ -698,23 +690,15 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
         }),
       });
 
-      console.log('📡 API 響應狀態:', addResponse.status, addResponse.statusText);
-
+      // console.log('📡 API 響應狀態:', addResponse.status, addResponse.statusText);
       if (!addResponse.ok) {
         const errorData = await addResponse.json();
-        console.error('❌ 添加標記失敗 - 錯誤詳情:', errorData);
         throw new Error(`Failed to add new highlights: ${errorData.message || 'Unknown error'}`);
       }
-
-      const addResult = await addResponse.json();
-      console.log('✅ 成功添加新標記 - 響應:', addResult);
-      console.log('✅ 添加的區塊數量:', addResult.results?.length || 0);
-    } else {
-      console.log('ℹ️ 沒有新標記需要添加');
+      await addResponse.json();
     }
 
     // 更新本地存儲
-    console.log('💾 更新本地保存記錄...');
     await chrome.storage.local.set({
       [`saved_${pageUrl}`]: {
         savedAt: Date.now(),
@@ -723,11 +707,8 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
       },
     });
 
-    console.log('🎉 標記更新完成！');
     sendResponse({ success: true });
   } catch (error) {
-    console.error('💥 標記更新錯誤:', error);
-    console.error('💥 錯誤堆疊:', error.stack);
     sendResponse({ success: false, error: error.message });
   }
 }

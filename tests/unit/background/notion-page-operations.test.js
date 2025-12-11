@@ -55,6 +55,7 @@ describe('Background Notion Page Operations', () => {
           };
         }
         const errorData = await response.json();
+
         console.error('❌ 檢查 Notion 頁面失敗:', errorData);
         return {
           exists: false,
@@ -293,8 +294,8 @@ describe('Background Notion Page Operations', () => {
       const request = { pageId: 'test-page-id' };
       const mockSendResponse = jest.fn();
 
-      mockChrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ notionApiToken: 'test-api-key' });
+      mockChrome.storage.sync.get.mockImplementation((keys, mockCb) => {
+        mockCb({ notionApiToken: 'test-api-key' });
       });
 
       checkNotionPageExists.mockResolvedValue({
@@ -338,8 +339,8 @@ describe('Background Notion Page Operations', () => {
       const request = { pageId: 'test-page-id' };
       const mockSendResponse = jest.fn();
 
-      mockChrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({}); // 沒有 API Token
+      mockChrome.storage.sync.get.mockImplementation((keys, mockCb) => {
+        mockCb({}); // 沒有 API Token
       });
 
       // Act
@@ -357,8 +358,8 @@ describe('Background Notion Page Operations', () => {
       const request = { pageId: 'test-page-id' };
       const mockSendResponse = jest.fn();
 
-      mockChrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ notionApiToken: 'test-api-key' });
+      mockChrome.storage.sync.get.mockImplementation((keys, mockCb) => {
+        mockCb({ notionApiToken: 'test-api-key' });
       });
 
       checkNotionPageExists.mockRejectedValue(new Error('Check failed'));
@@ -386,8 +387,8 @@ describe('Background Notion Page Operations', () => {
       const mockSendResponse = jest.fn();
       const mockTab = { id: 123, url: request.url };
 
-      mockChrome.tabs.create.mockImplementation((options, callback) => {
-        callback(mockTab);
+      mockChrome.tabs.create.mockImplementation((options, mockCb) => {
+        mockCb(mockTab);
       });
 
       // Act
@@ -427,8 +428,8 @@ describe('Background Notion Page Operations', () => {
       const mockSendResponse = jest.fn();
 
       mockChrome.runtime.lastError = { message: 'Tab creation failed' };
-      mockChrome.tabs.create.mockImplementation((options, callback) => {
-        callback(null);
+      mockChrome.tabs.create.mockImplementation((options, mockCb) => {
+        mockCb(null);
       });
 
       // Act
@@ -475,8 +476,8 @@ describe('Background Notion Page Operations', () => {
       const mockSendResponse = jest.fn();
       const mockPageData = { id: pageId, object: 'page' };
 
-      mockChrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({ notionApiToken: apiKey });
+      mockChrome.storage.sync.get.mockImplementation((keys, mockCb) => {
+        mockCb({ notionApiToken: apiKey });
       });
 
       global.fetch.mockResolvedValue({
@@ -515,9 +516,9 @@ describe('Background Notion Page Operations', () => {
       const mockSendResponse = jest.fn();
       const mockTab = { id: 456, url };
 
-      mockChrome.tabs.create.mockImplementation((options, callback) => {
+      mockChrome.tabs.create.mockImplementation((options, mockCb) => {
         expect(options.url).toBe(url);
-        callback(mockTab);
+        mockCb(mockTab);
       });
 
       // Act
@@ -555,9 +556,9 @@ describe('Background Notion Page Operations', () => {
       mockChrome.runtime.lastError = null;
 
       // 模擬標籤頁創建成功（Chrome 會處理無效 URL）
-      mockChrome.tabs.create.mockImplementation((options, callback) => {
+      mockChrome.tabs.create.mockImplementation((options, mockCb) => {
         const mockTab = { id: 123, url: options.url };
-        callback(mockTab);
+        mockCb(mockTab);
       });
 
       // Act
