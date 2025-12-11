@@ -204,10 +204,10 @@ if (require.main === module) {
   try {
     merger.merge(config);
     console.log('✅ 覆蓋率合併完成');
-    process.exit(0);
+    process.exitCode = 0;
   } catch (error) {
     console.error('❌ 覆蓋率合併失敗:', error);
-    process.exit(1);
+    process.exitCode = 1;
   }
 }
 

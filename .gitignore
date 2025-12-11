@@ -49,6 +49,7 @@ demos/
 promo-images/*.html
 release/
 tests/e2e/coverage-merger-lcov.js
+tests/integration/thomas-frank-integration.test.js
 
 # ============================================================
 # 📂 內部開發文檔（不同步到 GitHub）
