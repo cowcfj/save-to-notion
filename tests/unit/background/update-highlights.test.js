@@ -709,6 +709,10 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
 
     sendResponse({ success: true });
   } catch (error) {
+    console.error('💥 標記更新錯誤:', JSON.stringify(error.message));
+    if (error.stack) {
+      console.error('💥 錯誤堆疊:', JSON.stringify(error.stack));
+    }
     sendResponse({ success: false, error: error.message });
   }
 }
