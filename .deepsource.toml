@@ -21,7 +21,8 @@ exclude_patterns = [
   "dist/**",
   "CHANGELOG.md",
   "**/*.min.js",
-  "**/*.bundle.js"
+  "**/*.bundle.js",
+  "tests/e2e/run-with-coverage.js"
 ]
 
 [[analyzers]]

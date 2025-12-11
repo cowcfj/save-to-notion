@@ -87,7 +87,7 @@ describe('Background State Updates', () => {
     const normUrl = 'https://example.com/page';
 
     // Mock storage data
-    chrome.storage.local.get.mockImplementation((keys, callback) => {
+    chrome.storage.local.get.mockImplementation((keys, sendResult) => {
       // keys is array or string
       const keyList = Array.isArray(keys) ? keys : [keys];
       const result = {};
@@ -100,7 +100,7 @@ describe('Background State Updates', () => {
         }
       });
 
-      callback(result);
+      sendResult(result);
     });
 
     await tabService.updateTabStatus(tabId, url);
@@ -118,8 +118,8 @@ describe('Background State Updates', () => {
     const url = 'https://example.com/unsaved';
 
     // Mock storage data (empty)
-    chrome.storage.local.get.mockImplementation((keys, callback) => {
-      callback({});
+    chrome.storage.local.get.mockImplementation((keys, sendResult) => {
+      sendResult({});
     });
 
     await tabService.updateTabStatus(tabId, url);
