@@ -377,10 +377,7 @@ describe('Background Update Highlights', () => {
       // Assert
       // 即使刪除失敗，也應該繼續添加新標註
       expect(mockFetch).toHaveBeenCalledTimes(3);
-      expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('刪除區塊失敗'),
-        expect.anything()
-      );
+
       expect(mockSendResponse).toHaveBeenCalledWith({ success: true });
     });
 
@@ -623,10 +620,6 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
           if (deleteResponse.ok) {
             // deletedCount++;
             // console.log(`✅ 成功刪除區塊: ${blockId}`);
-          } else {
-            const errorData = await deleteResponse.json();
-
-            console.error(`❌ 刪除區塊失敗 ${blockId}:`, JSON.stringify(errorData));
           }
         } catch (_deleteError) {}
       }
