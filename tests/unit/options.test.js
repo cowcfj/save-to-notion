@@ -21,11 +21,11 @@ describe('Options - 授權管理', () => {
     });
 
     // Default mock behaviors
-    mockRemove.mockImplementation((keys, callback) => {
+    mockRemove.mockImplementation((keys, done) => {
       global.chrome.runtime.lastError = null;
-      callback();
+      done();
     });
-    mockGet.mockImplementation((keys, callback) => callback({}));
+    mockGet.mockImplementation((keys, done) => done({}));
   });
 
   afterEach(() => {
@@ -49,9 +49,9 @@ describe('Options - 授權管理', () => {
     test('應該正確處理斷開連接時的錯誤', async () => {
       // Arrange
       const testError = new Error('存儲清除失敗');
-      mockRemove.mockImplementation((keys, callback) => {
+      mockRemove.mockImplementation((keys, done) => {
         global.chrome.runtime.lastError = testError;
-        callback();
+        done();
       });
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 

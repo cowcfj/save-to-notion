@@ -35,14 +35,14 @@ describe('StorageUtil', () => {
     mockChrome = {
       storage: {
         local: {
-          set: jest.fn((items, callback) => {
-            setTimeout(() => callback?.(), 0);
+          set: jest.fn((items, done) => {
+            setTimeout(() => done?.(), 0);
           }),
-          get: jest.fn((keys, callback) => {
-            setTimeout(() => callback?.({}), 0);
+          get: jest.fn((keys, done) => {
+            setTimeout(() => done?.({}), 0);
           }),
-          remove: jest.fn((keys, callback) => {
-            setTimeout(() => callback?.(), 0);
+          remove: jest.fn((keys, done) => {
+            setTimeout(() => done?.(), 0);
           }),
         },
       },
@@ -323,10 +323,10 @@ describe('StorageUtil', () => {
       ];
 
       // 模擬 chrome.storage 返回數據
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
         setTimeout(
           () =>
-            callback({
+            done({
               [`highlights_${normalizeUrl(testUrl)}`]: testData,
             }),
           0
@@ -349,10 +349,10 @@ describe('StorageUtil', () => {
         ],
       };
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
         setTimeout(
           () =>
-            callback({
+            done({
               [`highlights_${normalizeUrl(testUrl)}`]: testData,
             }),
           0
@@ -370,8 +370,8 @@ describe('StorageUtil', () => {
       const testData = [{ text: 'legacy highlight', color: 'yellow' }];
 
       // chrome.storage 返回空
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({}), 0);
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
+        setTimeout(() => done({}), 0);
       });
 
       // 使用 Storage.prototype spy 來模擬 localStorage 有數據
@@ -392,8 +392,8 @@ describe('StorageUtil', () => {
     test('應該處理不存在的 URL', async () => {
       const testUrl = 'https://example.com/nonexistent';
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({}), 0);
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
+        setTimeout(() => done({}), 0);
       });
 
       const result = await StorageUtil.loadHighlights(testUrl);
@@ -404,8 +404,8 @@ describe('StorageUtil', () => {
     test('應該處理損壞的 localStorage 數據', async () => {
       const testUrl = 'https://example.com/page';
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({}), 0);
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
+        setTimeout(() => done({}), 0);
       });
 
       // localStorage 返回無效 JSON
@@ -421,11 +421,11 @@ describe('StorageUtil', () => {
       const normalizedUrl = normalizeUrl(testUrl);
       const testData = [{ text: 'highlight', color: 'yellow' }];
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
         expect(keys[0]).toBe(`highlights_${normalizedUrl}`);
         setTimeout(
           () =>
-            callback({
+            done({
               [keys[0]]: testData,
             }),
           0
@@ -518,10 +518,10 @@ describe('StorageUtil', () => {
       const testUrl = 'https://example.com/page';
       const testData = [{ text: 'highlight', color: 'yellow' }];
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
         setTimeout(
           () =>
-            callback({
+            done({
               [`highlights_${normalizeUrl(testUrl)}`]: testData,
             }),
           10
@@ -547,10 +547,10 @@ describe('StorageUtil', () => {
       const writeData = [{ text: 'new highlight', color: 'yellow' }];
       const readData = [{ text: 'old highlight', color: 'green' }];
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
         setTimeout(
           () =>
-            callback({
+            done({
               [`highlights_${normalizeUrl(testUrl)}`]: readData,
             }),
           5
@@ -593,8 +593,8 @@ describe('StorageUtil', () => {
       ];
 
       // 模擬 localStorage 有舊格式數據
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({}), 0);
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
+        setTimeout(() => done({}), 0);
       });
 
       // 使用 Storage.prototype spy
@@ -620,8 +620,8 @@ describe('StorageUtil', () => {
         timestamp: Date.now(),
       };
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({}), 0);
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
+        setTimeout(() => done({}), 0);
       });
 
       // 使用 Storage.prototype spy
@@ -645,10 +645,10 @@ describe('StorageUtil', () => {
       // chrome.storage 有新格式
       const newFormatData = [{ text: 'new highlight', color: 'yellow', timestamp: Date.now() }];
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
         setTimeout(
           () =>
-            callback({
+            done({
               [`highlights_${normalizeUrl(testUrl)}`]: newFormatData,
             }),
           0
@@ -664,8 +664,8 @@ describe('StorageUtil', () => {
     test('應該處理空的舊格式數據', async () => {
       const testUrl = 'https://example.com/page';
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({}), 0);
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
+        setTimeout(() => done({}), 0);
       });
 
       // localStorage 有空數組
@@ -679,8 +679,8 @@ describe('StorageUtil', () => {
     test('應該處理損壞的遷移數據', async () => {
       const testUrl = 'https://example.com/page';
 
-      mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({}), 0);
+      mockChrome.storage.local.get = jest.fn((keys, done) => {
+        setTimeout(() => done({}), 0);
       });
 
       // localStorage 有損壞的 JSON
@@ -780,14 +780,14 @@ describe('StorageUtil', () => {
 
       // 第一次調用失敗
       let callCount = 0;
-      mockChrome.storage.local.set = jest.fn((items, callback) => {
+      mockChrome.storage.local.set = jest.fn((items, done) => {
         callCount++;
         if (callCount === 1) {
           mockChrome.runtime.lastError = { message: 'Temporary error' };
         } else {
           mockChrome.runtime.lastError = null;
         }
-        setTimeout(() => callback?.(), 0);
+        setTimeout(() => done?.(), 0);
       });
 
       // 第一次保存（會失敗並回退到 localStorage）

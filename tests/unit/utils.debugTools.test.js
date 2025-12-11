@@ -7,7 +7,7 @@
 const { StorageUtil } = require('../helpers/utils.testable.js');
 
 describe('StorageUtil 調試工具', () => {
-  let mockChrome;
+  let mockChrome = null;
 
   beforeEach(() => {
     // 設置 Chrome API mock

@@ -63,7 +63,7 @@ describe('InjectionService', () => {
 
   describe('injectAndExecute', () => {
     it('should inject files successfully', async () => {
-      chrome.scripting.executeScript.mockImplementation((opts, cb) => cb([]));
+      chrome.scripting.executeScript.mockImplementation((opts, verifyResult) => verifyResult([]));
 
       await service.injectAndExecute(1, ['file.js']);
 
@@ -77,7 +77,9 @@ describe('InjectionService', () => {
     });
 
     it('should execute function successfully', async () => {
-      chrome.scripting.executeScript.mockImplementation((opts, cb) => cb([{ result: 'foo' }]));
+      chrome.scripting.executeScript.mockImplementation((opts, verifyResult) =>
+        verifyResult([{ result: 'foo' }])
+      );
 
       const func = () => 'foo';
       const result = await service.injectAndExecute(1, [], func, { returnResult: true });
@@ -111,7 +113,7 @@ describe('InjectionService', () => {
 
   describe('injectHighlighter', () => {
     it('should inject highlighter bundle', async () => {
-      chrome.scripting.executeScript.mockImplementation((opts, cb) => cb([]));
+      chrome.scripting.executeScript.mockImplementation((opts, verifyResult) => verifyResult([]));
 
       // Mock window for the callback function (note: this is tricky since callback runs in node context for this test)
       // For this test, we just check executeScript is called with correct file

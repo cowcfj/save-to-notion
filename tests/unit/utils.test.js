@@ -14,9 +14,9 @@ const mockChrome = {
   runtime: {
     id: 'mock-extension-id',
     lastError: null,
-    sendMessage: jest.fn((payload, callback) => {
-      if (typeof callback === 'function') {
-        callback();
+    sendMessage: jest.fn((payload, sendResponse) => {
+      if (typeof sendResponse === 'function') {
+        sendResponse();
       }
     }),
     getManifest: jest.fn(() => ({ version_name: 'dev' })),
@@ -71,8 +71,8 @@ describe('utils.js', () => {
   describe('StorageUtil', () => {
     describe('saveHighlights', () => {
       test('應該成功保存標註到 chrome.storage', async () => {
-        mockChrome.storage.local.set.mockImplementation((data, callback) => {
-          callback();
+        mockChrome.storage.local.set.mockImplementation((data, done) => {
+          done();
         });
 
         const result = await window.StorageUtil.saveHighlights('https://example.com/page', [
@@ -84,9 +84,9 @@ describe('utils.js', () => {
       });
 
       test('應該在 chrome.storage 失敗時回退到 localStorage', async () => {
-        mockChrome.storage.local.set.mockImplementation((data, callback) => {
+        mockChrome.storage.local.set.mockImplementation((data, done) => {
           mockChrome.runtime.lastError = { message: 'Storage failed' };
-          callback();
+          done();
         });
 
         await window.StorageUtil.saveHighlights('https://example.com/page', [
@@ -114,11 +114,11 @@ describe('utils.js', () => {
 
     describe('loadHighlights', () => {
       test('應該從 chrome.storage 加載標註', async () => {
-        mockChrome.storage.local.get.mockImplementation((keys, callback) => {
+        mockChrome.storage.local.get.mockImplementation((keys, done) => {
           const data = {
             'highlights_https://example.com/page': [{ text: 'test highlight' }],
           };
-          callback(data);
+          done(data);
         });
 
         const result = await window.StorageUtil.loadHighlights('https://example.com/page');
@@ -126,11 +126,11 @@ describe('utils.js', () => {
       });
 
       test('應該處理舊格式數據（數組）', async () => {
-        mockChrome.storage.local.get.mockImplementation((keys, callback) => {
+        mockChrome.storage.local.get.mockImplementation((keys, done) => {
           const data = {
             'highlights_https://example.com/page': [{ text: 'old format' }],
           };
-          callback(data);
+          done(data);
         });
 
         const result = await window.StorageUtil.loadHighlights('https://example.com/page');
@@ -138,14 +138,14 @@ describe('utils.js', () => {
       });
 
       test('應該處理新格式數據（對象）', async () => {
-        mockChrome.storage.local.get.mockImplementation((keys, callback) => {
+        mockChrome.storage.local.get.mockImplementation((keys, done) => {
           const data = {
             'highlights_https://example.com/page': {
               url: 'https://example.com/page',
               highlights: [{ text: 'new format' }],
             },
           };
-          callback(data);
+          done(data);
         });
 
         const result = await window.StorageUtil.loadHighlights('https://example.com/page');
@@ -153,8 +153,8 @@ describe('utils.js', () => {
       });
 
       test('應該在 chrome.storage 無數據時回退到 localStorage', async () => {
-        mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-          callback({});
+        mockChrome.storage.local.get.mockImplementation((keys, done) => {
+          done({});
         });
 
         localStorage.setItem(

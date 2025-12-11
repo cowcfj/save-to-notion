@@ -76,8 +76,8 @@ describe('Toolbar Actions', () => {
   describe('syncToNotion', () => {
     test('should show success message when sync is successful', async () => {
       // Setup success response via callback
-      sendMessageMock.mockImplementation((message, callback) => {
-        callback({ success: true });
+      sendMessageMock.mockImplementation((message, sendResponse) => {
+        sendResponse({ success: true });
       });
 
       await toolbar.syncToNotion();
@@ -94,8 +94,8 @@ describe('Toolbar Actions', () => {
 
     test('should show error message when sync fails with error message', async () => {
       // Setup failure response via callback
-      sendMessageMock.mockImplementation((message, callback) => {
-        callback({ success: false, error: 'API Key Missing' });
+      sendMessageMock.mockImplementation((message, sendResponse) => {
+        sendResponse({ success: false, error: 'API Key Missing' });
       });
 
       await toolbar.syncToNotion();
@@ -106,8 +106,8 @@ describe('Toolbar Actions', () => {
 
     test('should show default error message when sync fails without error message', async () => {
       // Setup failure response without specific error via callback
-      sendMessageMock.mockImplementation((message, callback) => {
-        callback({ success: false });
+      sendMessageMock.mockImplementation((message, sendResponse) => {
+        sendResponse({ success: false });
       });
 
       await toolbar.syncToNotion();
@@ -117,9 +117,9 @@ describe('Toolbar Actions', () => {
 
     test('should handle runtime errors (chrome.runtime.lastError)', async () => {
       // Setup runtime error
-      sendMessageMock.mockImplementation((message, callback) => {
+      sendMessageMock.mockImplementation((message, sendResponse) => {
         window.chrome.runtime.lastError = { message: 'Connection failed' };
-        callback();
+        sendResponse();
         delete window.chrome.runtime.lastError;
       });
 
