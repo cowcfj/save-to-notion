@@ -621,7 +621,9 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
             // deletedCount++;
             // console.log(`✅ 成功刪除區塊: ${blockId}`);
           }
-        } catch (_deleteError) {}
+        } catch (_deleteError) {
+          // Ignore errors during simulated deletion in tests
+        }
       }
     }
 
