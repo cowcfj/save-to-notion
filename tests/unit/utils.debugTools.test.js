@@ -63,8 +63,8 @@ describe('StorageUtil 調試工具', () => {
 
     test('應該處理空存儲', async () => {
       // Arrange
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({});
+      mockChrome.storage.local.get.mockImplementation((keys, done) => {
+        done({});
       });
 
       // Act
