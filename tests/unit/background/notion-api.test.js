@@ -781,7 +781,7 @@ async function saveToNotionSimulated(
       }
     } else {
       const errorData = await response.json();
-      Logger.error('Notion API Error:', JSON.stringify(errorData));
+      Logger.error('Notion API Error:', errorData);
 
       // 檢查是否是圖片驗證錯誤，如果是則自動重試
       if (
