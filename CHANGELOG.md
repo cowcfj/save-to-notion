@@ -1,5 +1,23 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.16.0](https://github.com/cowcfj/save-to-notion/compare/v2.15.0...v2.16.0) (2025-12-11)
+
+
+### ✨ 新功能
+
+* 新增多個 byterover 規則文件到 .gitignore ([8807bf9](https://github.com/cowcfj/save-to-notion/commit/8807bf924e0951883af89a9620762e374aace8a3))
+
+
+### 🐛 Bug 修復
+
+* 統一測試退出行為及排除未實作測試 ([#166](https://github.com/cowcfj/save-to-notion/issues/166)) ([57cf8da](https://github.com/cowcfj/save-to-notion/commit/57cf8da7675937940f93087330fe5ea5f034ed45))
+* 統一錯誤日誌記錄與回調參數名稱 ([#165](https://github.com/cowcfj/save-to-notion/issues/165)) ([2edab2e](https://github.com/cowcfj/save-to-notion/commit/2edab2ed304a6ed5700b67b5fe4bef35b59d7994))
+
+
+### 🧹 其他變更
+
+* 更新 .gitignore 忽略模式 ([1d7e15f](https://github.com/cowcfj/save-to-notion/commit/1d7e15f1ef7426587790d396fcba865b05d118e0))
+
 ## [2.15.0](https://github.com/cowcfj/save-to-notion/compare/v2.14.4...v2.15.0) (2025-12-09)
 
 
