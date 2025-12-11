@@ -88,8 +88,8 @@ describe('TabService', () => {
 
     it('should set badge for saved pages', async () => {
       service.getSavedPageData = jest.fn().mockResolvedValue({ pageId: '123' });
-      chrome.storage.local.get.mockImplementation((keys, onGet) => {
-        onGet({});
+      chrome.storage.local.get.mockImplementation((keys, sendResult) => {
+        sendResult({});
       });
 
       await service.updateTabStatus(1, 'https://example.com');
@@ -103,8 +103,8 @@ describe('TabService', () => {
 
     it('should clear badge for unsaved pages', async () => {
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
-      chrome.storage.local.get.mockImplementation((keys, onGet) => {
-        onGet({});
+      chrome.storage.local.get.mockImplementation((keys, sendResult) => {
+        sendResult({});
       });
 
       await service.updateTabStatus(1, 'https://example.com');
@@ -114,8 +114,8 @@ describe('TabService', () => {
 
     it('should inject highlighter when highlights exist', async () => {
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
-      chrome.storage.local.get.mockImplementation((keys, onGet) => {
-        onGet({ 'highlights_https://example.com': [{ id: '1' }] });
+      chrome.storage.local.get.mockImplementation((keys, sendResult) => {
+        sendResult({ 'highlights_https://example.com': [{ id: '1' }] });
       });
 
       await service.updateTabStatus(1, 'https://example.com');
@@ -125,8 +125,8 @@ describe('TabService', () => {
 
     it('should call migrateLegacyHighlights when no highlights exist', async () => {
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
-      chrome.storage.local.get.mockImplementation((keys, onGet) => {
-        onGet({});
+      chrome.storage.local.get.mockImplementation((keys, sendResult) => {
+        sendResult({});
       });
 
       const migrateSpy = jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();

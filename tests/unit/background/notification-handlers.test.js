@@ -323,8 +323,8 @@ describe('Background 通知處理器', () => {
       const notionRequest = { url: 'https://notion.so/new-feature' };
       const notionResponse = jest.fn();
 
-      mockChrome.tabs.create.mockImplementation((options, onCreated) => {
-        onCreated({ id: 200, url: options.url });
+      mockChrome.tabs.create.mockImplementation((options, sendTab) => {
+        sendTab({ id: 200, url: options.url });
       });
 
       handleOpenNotionPage(notionRequest, notionResponse);

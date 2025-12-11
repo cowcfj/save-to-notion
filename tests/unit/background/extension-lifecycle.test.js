@@ -38,9 +38,9 @@ describe('Background Extension Lifecycle', () => {
       version: '2.8.1',
     });
 
-    mockChrome.tabs.create.mockImplementation((options, onCreated) => {
-      if (onCreated) {
-        onCreated({ id: 123, url: options.url });
+    mockChrome.tabs.create.mockImplementation((options, sendTab) => {
+      if (sendTab) {
+        sendTab({ id: 123, url: options.url });
       }
     });
 
