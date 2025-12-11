@@ -180,6 +180,7 @@ console.log('==========================================');
 
 if (failedCount === 0) {
   console.log('🎉 所有測試通過！');
+  process.exitCode = 0;
 } else {
   console.log('⚠️  部分測試失敗，請檢查實現');
   process.exitCode = 1;

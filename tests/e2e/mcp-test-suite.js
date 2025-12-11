@@ -370,6 +370,7 @@ if (require.main === module) {
     .then(() => {
       console.log('\n✅ 測試套件執行完成');
       console.log('\n💡 提示: 這些是測試計劃，需要在 Claude Code 中使用 MCP 工具實際執行');
+      process.exitCode = 0;
     })
     .catch(error => {
       console.error('\n❌ 測試套件失敗:', error);
