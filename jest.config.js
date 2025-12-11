@@ -47,7 +47,7 @@ module.exports = {
     '/tests/manual/', // 手動測試放在此目錄，不應在 CI 或常規測試中執行
     '/tests/e2e/', // e2e 測試單獨執行，不進入單元測試與覆蓋率
     '/tests/unit/content-extraction-comparison.test.js', // 暫時忽略有問題的測試文件
-    '/tests/integration/thomas-frank-integration.test.js', // 尚未實作方案的實驗性測試，避免預設執行
+    '/tests/integration/thomas-frank-integration.test.js', // 未實現功能，暫時排除 (User Request)
     '/tests/integration/thomas-frank-simple.test.js', // 尚未實作方案的簡化測試，暫時排除
     '/tests/e2e/oauth-end-to-end.test.js' // OAuth 功能尚未實作，暫時排除測試
   ],
