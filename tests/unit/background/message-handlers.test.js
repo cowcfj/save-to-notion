@@ -31,8 +31,8 @@ describe('Background Message Handlers', () => {
         title: 'Test Article',
       };
 
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([mockTab]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([mockTab]);
         return Promise.resolve([mockTab]);
       });
 
@@ -69,8 +69,8 @@ describe('Background Message Handlers', () => {
         [`page_${normalizedUrl}`]: savedData,
       });
 
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([mockTab]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([mockTab]);
         return Promise.resolve([mockTab]);
       });
 
@@ -86,8 +86,8 @@ describe('Background Message Handlers', () => {
 
     it('應該處理無法獲取活動標籤頁的錯誤', async () => {
       // Arrange
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([]);
         return Promise.resolve([]);
       });
 
@@ -109,8 +109,8 @@ describe('Background Message Handlers', () => {
         url: 'https://example.com/article',
       };
 
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([mockTab]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([mockTab]);
         return Promise.resolve([mockTab]);
       });
 
@@ -128,8 +128,8 @@ describe('Background Message Handlers', () => {
 
     it('應該處理無活動標籤頁的錯誤', async () => {
       // Arrange
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([]);
         return Promise.resolve([]);
       });
 
@@ -169,8 +169,8 @@ describe('Background Message Handlers', () => {
         notionApiKey: 'secret_test_key',
       });
 
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([mockTab]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([mockTab]);
         return Promise.resolve([mockTab]);
       });
 
@@ -204,8 +204,8 @@ describe('Background Message Handlers', () => {
         notionApiKey: 'secret_test_key',
       });
 
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([mockTab]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([mockTab]);
         return Promise.resolve([mockTab]);
       });
 
@@ -228,8 +228,8 @@ describe('Background Message Handlers', () => {
         url: 'https://example.com/article',
       };
 
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([mockTab]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([mockTab]);
         return Promise.resolve([mockTab]);
       });
 
@@ -262,8 +262,8 @@ describe('Background Message Handlers', () => {
         notionApiKey: 'secret_test_key',
       });
 
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([mockTab]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([mockTab]);
         return Promise.resolve([mockTab]);
       });
 
@@ -299,8 +299,8 @@ describe('Background Message Handlers', () => {
         notionApiKey: 'secret_test_key',
       });
 
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([mockTab]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([mockTab]);
         return Promise.resolve([mockTab]);
       });
 
@@ -330,8 +330,8 @@ describe('Background Message Handlers', () => {
         notionApiKey: 'secret_test_key',
       });
 
-      chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-        callback([mockTab]);
+      chrome.tabs.query.mockImplementation((queryInfo, mockCb) => {
+        mockCb([mockTab]);
         return Promise.resolve([mockTab]);
       });
 
@@ -360,10 +360,10 @@ describe('Background Message Handlers', () => {
         },
       });
 
-      chrome.tabs.create.mockImplementation((createProperties, callback) => {
+      chrome.tabs.create.mockImplementation((createProperties, mockCb) => {
         const tab = { id: 2, url: createProperties.url };
-        if (callback) {
-          callback(tab);
+        if (mockCb) {
+          mockCb(tab);
         }
         return Promise.resolve(tab);
       });

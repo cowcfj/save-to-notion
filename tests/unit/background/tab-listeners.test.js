@@ -37,8 +37,8 @@ describe('Background Tab Listeners', () => {
 
     // Reset Chrome API mocks
     mockChrome.tabs.onUpdated.addListener.mockClear();
-    mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-      callback({});
+    mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
+      mockCb({});
     });
 
     // 模擬 normalizeUrl 函數
@@ -169,8 +169,8 @@ describe('Background Tab Listeners', () => {
       };
       const changeInfo = { status: 'complete' };
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({
+      mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
+        mockCb({
           'highlights_https://example.com/article': {
             highlights: [{ text: 'test highlight', color: 'yellow' }],
           },
@@ -231,8 +231,8 @@ describe('Background Tab Listeners', () => {
       const tab = { id: tabId, url: 'https://example.com/article' };
       const changeInfo = { status: 'complete' };
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({
+      mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
+        mockCb({
           'highlights_https://example.com/article': {
             highlights: [{ text: 'test highlight', color: 'yellow' }],
           },
@@ -407,9 +407,9 @@ describe('Background Tab Listeners', () => {
       const tab = { id: tabId, url: 'https://example.com/article?utm_source=google#section' };
       const changeInfo = { status: 'complete' };
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
+      mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
         // 立即調用回調
-        callback({
+        mockCb({
           'highlights_https://example.com/article': {
             highlights: [{ text: 'test highlight', color: 'yellow' }],
           },
@@ -453,8 +453,8 @@ describe('Background Tab Listeners', () => {
       const tab = { id: tabId, url: 'https://example.com/article' };
       const changeInfo = { status: 'complete' };
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({}); // 沒有標註數據
+      mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
+        mockCb({}); // 沒有標註數據
       });
 
       setupTabListeners();
