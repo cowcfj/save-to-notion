@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } else {
         const errorData = await response.json();
-        console.error('API 錯誤:', errorData);
+        Logger.error('API 錯誤:', errorData);
 
         let errorMessage = '載入保存目標失敗: ';
         if (response.status === 401) {
@@ -382,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
         databaseSelect.style.display = 'none';
       }
     } catch (error) {
-      console.error('載入保存目標失敗:', error);
+      Logger.error('載入保存目標失敗:', error);
 
       let errorMessage = '載入保存目標失敗: ';
       if (error.name === 'TypeError' && error.message.includes('fetch')) {

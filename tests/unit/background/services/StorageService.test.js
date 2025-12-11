@@ -61,13 +61,13 @@ describe('StorageService', () => {
   beforeEach(() => {
     mockStorage = {
       local: {
-        get: jest.fn((keys, callback) => callback({})),
-        set: jest.fn((data, callback) => callback?.()),
-        remove: jest.fn((keys, callback) => callback?.()),
+        get: jest.fn((keys, sendResult) => sendResult({})),
+        set: jest.fn((data, sendResult) => sendResult?.()),
+        remove: jest.fn((keys, sendResult) => sendResult?.()),
       },
       sync: {
-        get: jest.fn((keys, callback) => callback({})),
-        set: jest.fn((data, callback) => callback?.()),
+        get: jest.fn((keys, sendResult) => sendResult({})),
+        set: jest.fn((data, sendResult) => sendResult?.()),
       },
     };
     mockLogger = {
@@ -84,8 +84,8 @@ describe('StorageService', () => {
   describe('getSavedPageData', () => {
     it('應該正確獲取保存的頁面數據', async () => {
       const pageData = { title: 'Test Page', savedAt: 12345 };
-      mockStorage.local.get.mockImplementation((keys, callback) => {
-        callback({ 'saved_https://example.com/page': pageData });
+      mockStorage.local.get.mockImplementation((keys, sendResult) => {
+        sendResult({ 'saved_https://example.com/page': pageData });
       });
 
       const result = await service.getSavedPageData('https://example.com/page');
@@ -136,8 +136,8 @@ describe('StorageService', () => {
 
   describe('getConfig', () => {
     it('應該從 sync storage 獲取配置', async () => {
-      mockStorage.sync.get.mockImplementation((keys, callback) => {
-        callback({ apiKey: 'test-key' });
+      mockStorage.sync.get.mockImplementation((keys, sendResult) => {
+        sendResult({ apiKey: 'test-key' });
       });
 
       const result = await service.getConfig(['apiKey']);
@@ -158,8 +158,8 @@ describe('StorageService', () => {
   describe('getHighlights', () => {
     it('應該獲取標註數據', async () => {
       const highlights = [{ text: 'test', color: 'yellow' }];
-      mockStorage.local.get.mockImplementation((keys, callback) => {
-        callback({ 'highlights_https://example.com/page': highlights });
+      mockStorage.local.get.mockImplementation((keys, sendResult) => {
+        sendResult({ 'highlights_https://example.com/page': highlights });
       });
 
       const result = await service.getHighlights('https://example.com/page');
@@ -186,8 +186,8 @@ describe('StorageService', () => {
 
   describe('getAllSavedPageUrls', () => {
     it('應該返回所有已保存頁面的 URL', async () => {
-      mockStorage.local.get.mockImplementation((keys, callback) => {
-        callback({
+      mockStorage.local.get.mockImplementation((keys, sendResult) => {
+        sendResult({
           'saved_https://example.com/page1': {},
           'saved_https://example.com/page2': {},
           'highlights_https://example.com/page1': [],

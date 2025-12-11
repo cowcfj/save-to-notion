@@ -3,6 +3,14 @@
  * 測試與 Notion API 交互的核心函數
  */
 
+const Logger = {
+  error: jest.fn(),
+  warn: jest.fn(),
+  info: jest.fn(),
+  log: jest.fn(),
+  debug: jest.fn(),
+};
+
 describe('Background Notion API Operations', () => {
   let mockFetch = null;
   let originalFetch = global.fetch;
@@ -773,7 +781,7 @@ async function saveToNotionSimulated(
       }
     } else {
       const errorData = await response.json();
-      console.error('Notion API Error:', errorData);
+      Logger.error('Notion API Error:', errorData);
 
       // 檢查是否是圖片驗證錯誤，如果是則自動重試
       if (
@@ -800,7 +808,7 @@ async function saveToNotionSimulated(
       sendResponse({ success: false, error: errorData.message || 'Failed to save to Notion.' });
     }
   } catch (error) {
-    console.error('Fetch Error:', error);
+    Logger.error('Fetch Error:', error);
     sendResponse({ success: false, error: error.message });
   }
 }

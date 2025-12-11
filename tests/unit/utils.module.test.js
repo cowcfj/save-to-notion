@@ -212,9 +212,9 @@ describe('utils.js - 模組測試', () => {
       const highlights = [{ text: 'test' }];
 
       // 模擬 chrome.storage 錯誤
-      chrome.storage.local.set = jest.fn((items, callback) => {
+      chrome.storage.local.set = jest.fn((items, done) => {
         chrome.runtime.lastError = { message: 'Quota exceeded' };
-        setTimeout(() => callback(), 0);
+        setTimeout(() => done(), 0);
       });
 
       // 清空 data
@@ -288,9 +288,9 @@ describe('utils.js - 模組測試', () => {
       const highlights = [{ text: 'test' }];
 
       // 模擬兩種儲存都失敗
-      chrome.storage.local.set = jest.fn((items, callback) => {
+      chrome.storage.local.set = jest.fn((items, done) => {
         chrome.runtime.lastError = { message: 'Storage error' };
-        setTimeout(() => callback(), 0);
+        setTimeout(() => done(), 0);
       });
 
       // 使用 spyOn 替換 localStorage.setItem
@@ -476,9 +476,9 @@ describe('utils.js - 模組測試', () => {
         global.localStorage.setItem(key, JSON.stringify([{ text: 'test' }]));
       }
 
-      chrome.storage.local.remove = jest.fn((keys, callback) => {
+      chrome.storage.local.remove = jest.fn((keys, done) => {
         chrome.runtime.lastError = { message: 'Remove error' };
-        callback();
+        done();
       });
 
       await StorageUtil.clearHighlights(url);
@@ -595,9 +595,9 @@ describe('utils.js - 模組測試', () => {
   describe('StorageUtil - 錯誤處理補充', () => {
     test('saveHighlights 應該處理 localStorage.setItem 拋出異常', async () => {
       // 模擬 chrome.storage 失敗
-      chrome.storage.local.set = jest.fn((items, callback) => {
+      chrome.storage.local.set = jest.fn((items, done) => {
         chrome.runtime.lastError = { message: 'Storage error' };
-        setTimeout(() => callback(), 0);
+        setTimeout(() => done(), 0);
       });
 
       // 模擬 localStorage 拋出 QuotaExceededError
@@ -625,8 +625,8 @@ describe('utils.js - 模組測試', () => {
       const key = 'highlights_https://example.com/page';
 
       // 模擬 chrome.storage 返回空（重要：確保完全為空）
-      chrome.storage.local.get = jest.fn((keyParam, callback) => {
-        setTimeout(() => callback({}), 0); // 返回空對象
+      chrome.storage.local.get = jest.fn((keyParam, done) => {
+        setTimeout(() => done({}), 0); // 返回空對象
       });
 
       // 使用 spyOn 替換 localStorage.getItem
@@ -651,8 +651,8 @@ describe('utils.js - 模組測試', () => {
       const url = 'https://example.com/page';
 
       // chrome.storage 成功
-      chrome.storage.local.remove = jest.fn((key, callback) => {
-        callback();
+      chrome.storage.local.remove = jest.fn((key, done) => {
+        done();
       });
 
       // localStorage.removeItem 失敗
@@ -696,8 +696,8 @@ describe('utils.js - 模組測試', () => {
     });
 
     test('debugListAllKeys 應該處理空存儲', async () => {
-      chrome.storage.local.get = jest.fn((keys, callback) => {
-        callback({});
+      chrome.storage.local.get = jest.fn((keys, done) => {
+        done({});
       });
 
       const result = await StorageUtil.debugListAllKeys();
@@ -705,8 +705,8 @@ describe('utils.js - 模組測試', () => {
     });
 
     test('debugListAllKeys 應該正確處理對象格式的標註', async () => {
-      chrome.storage.local.get = jest.fn((keys, callback) => {
-        callback({
+      chrome.storage.local.get = jest.fn((keys, done) => {
+        done({
           'highlights_https://example.com': {
             highlights: [{ text: 'a' }, { text: 'b' }],
           },

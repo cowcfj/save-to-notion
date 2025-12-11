@@ -48,8 +48,8 @@ describe('HighlightMigrationManager', () => {
       const manager = new HighlightMigrationManager();
 
       // Mock getMigrationStatus 返回 'completed'
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({
+      mockChrome.storage.local.get.mockImplementation((keys, done) => {
+        done({
           [`highlight_migration_status_${window.location.href}`]: 'completed',
         });
       });
@@ -67,8 +67,8 @@ describe('HighlightMigrationManager', () => {
       span.textContent = 'test highlight';
       document.body.appendChild(span);
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({});
+      mockChrome.storage.local.get.mockImplementation((keys, done) => {
+        done({});
       });
 
       const result = await manager.needsMigration();
@@ -79,8 +79,8 @@ describe('HighlightMigrationManager', () => {
     test('應該在沒有舊版標註時返回 false', async () => {
       const manager = new HighlightMigrationManager();
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({});
+      mockChrome.storage.local.get.mockImplementation((keys, done) => {
+        done({});
       });
 
       const result = await manager.needsMigration();
@@ -99,8 +99,8 @@ describe('HighlightMigrationManager', () => {
         document.body.appendChild(span);
       }
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({});
+      mockChrome.storage.local.get.mockImplementation((keys, done) => {
+        done({});
       });
 
       const result = await manager.needsMigration();
@@ -128,8 +128,8 @@ describe('HighlightMigrationManager', () => {
     test('應該在無數據時返回 pending', async () => {
       const manager = new window.HighlightMigrationManager();
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({});
+      mockChrome.storage.local.get.mockImplementation((keys, done) => {
+        done({});
       });
 
       const status = await manager.getMigrationStatus();
@@ -534,8 +534,8 @@ describe('HighlightMigrationManager', () => {
     test('應該在無需遷移時跳過', async () => {
       const manager = new window.HighlightMigrationManager();
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({
+      mockChrome.storage.local.get.mockImplementation((keys, done) => {
+        done({
           [`highlight_migration_status_${window.location.href}`]: 'completed',
         });
       });
@@ -559,8 +559,8 @@ describe('HighlightMigrationManager', () => {
       span.textContent = 'test';
       document.body.appendChild(span);
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({});
+      mockChrome.storage.local.get.mockImplementation((keys, done) => {
+        done({});
       });
 
       // Mock showMigrationPrompt 返回 'keep'
@@ -593,8 +593,8 @@ describe('HighlightMigrationManager', () => {
       parent.appendChild(span);
       document.body.appendChild(parent);
 
-      mockChrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({});
+      mockChrome.storage.local.get.mockImplementation((keys, done) => {
+        done({});
       });
 
       // Mock showMigrationPrompt 返回 'migrate'
