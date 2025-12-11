@@ -628,9 +628,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
 
             console.error(`❌ 刪除區塊失敗 ${blockId}:`, JSON.stringify(errorData));
           }
-        } catch (_deleteError) {
-          // console.error(`❌ 刪除區塊異常 ${blockId}:`, deleteError);
-        }
+        } catch (_deleteError) {}
       }
     }
 
