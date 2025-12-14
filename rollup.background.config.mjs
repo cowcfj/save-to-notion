@@ -1,7 +1,20 @@
+
 import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 
 const isDev = process.env.NODE_ENV !== 'production';
+
+// Custom plugin to strip test exposure code in production
+const stripTestConfig = () => ({
+    name: 'strip-test-config',
+    transform(code) {
+        if (!isDev) {
+            return code.replace(/\/\/ TEST_EXPOSURE_START[\s\S]*?\/\/ TEST_EXPOSURE_END/g, '');
+        }
+        return null;
+    }
+});
+
 
 export default {
     input: 'scripts/background.js',
@@ -12,6 +25,7 @@ export default {
         banner: '/* eslint-disable */\n/* Save to Notion - Background Script */'
     },
     plugins: [
+        stripTestConfig(),
         resolve(),
         !isDev &&
         terser({
