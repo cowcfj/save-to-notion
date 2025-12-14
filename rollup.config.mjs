@@ -8,7 +8,7 @@ export default {
   output: {
     file: 'dist/highlighter-v2.bundle.js',
     format: 'iife',
-    name: 'HighlighterModule',
+    name: 'HighlighterV2',
     sourcemap: isDev ? 'inline' : true, // 開發：inline，生產：external
     banner: '/* Save to Notion - Highlighter V2 */',
   },
@@ -27,7 +27,7 @@ export default {
       mangle: {
         reserved: [
           // 保留這些全局名稱
-          'HighlighterModule', // 主要導出（與 output.name 一致）
+          'HighlighterV2', // 主要導出（與 output.name 及 window.HighlighterV2 一致）
           'Logger', // window.Logger
           'StorageUtil', // window.StorageUtil
         ],
