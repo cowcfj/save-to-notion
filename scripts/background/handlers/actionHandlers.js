@@ -13,6 +13,28 @@ import { normalizeUrl } from '../../utils/urlUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 
 /**
+ * 處理內容提取結果
+ * @param {Object} rawResult - 注入腳本返回的原始結果
+ * @param {Array} highlights - 標註數據
+ * @returns {Object} 處理後的內容結果 { title, blocks, siteIcon }
+ */
+export function processContentResult(rawResult, highlights) {
+  const contentResult = rawResult || {
+    title: 'Untitled',
+    blocks: [],
+    siteIcon: null,
+  };
+
+  // 添加標註區塊
+  if (highlights && highlights.length > 0) {
+    const highlightBlocks = buildHighlightBlocks(highlights);
+    contentResult.blocks.push(...highlightBlocks);
+  }
+
+  return contentResult;
+}
+
+/**
  * 創建並返回所有 Action Handlers
  * @param {Object} services - 服務實例集合
  * @param {NotionService} services.notionService
@@ -30,21 +52,6 @@ export function createActionHandlers(services) {
    * @param {Array} highlights - 標註數據
    * @returns {Object} 處理後的內容結果 { title, blocks, siteIcon }
    */
-  function processContentResult(rawResult, highlights) {
-    const contentResult = rawResult || {
-      title: 'Untitled',
-      blocks: [],
-      siteIcon: null,
-    };
-
-    // 添加標註區塊
-    if (highlights && highlights.length > 0) {
-      const highlightBlocks = buildHighlightBlocks(highlights);
-      contentResult.blocks.push(...highlightBlocks);
-    }
-
-    return contentResult;
-  }
 
   /**
    * 清理頁面標記的輔助函數

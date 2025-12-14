@@ -345,6 +345,7 @@ export {
 
   // 高級構建函數
   buildHighlightBlocks,
+  splitTextForHighlight,
   textToParagraphs,
   createFallbackBlocks,
 

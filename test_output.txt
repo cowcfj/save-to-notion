@@ -1,0 +1,470 @@
+
+> notion-smart-clipper@2.15.0 test:coverage
+> jest --config jest.config.js --coverage
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+PASS tests/unit/performance/PerformanceOptimizer.comprehensive.test.js (6.231 s)
+PASS tests/unit/thomas-frank-comparison.test.js
+PASS tests/unit/background/services/NotionService.test.js
+PASS tests/unit/background.notionApi.test.js
+PASS tests/unit/background/services/ImageService.test.js
+PASS tests/unit/errorHandling/RetryManager.comprehensive.test.js
+PASS tests/unit/background/notion-api.test.js
+PASS tests/unit/background/background-exports.test.js
+PASS tests/unit/backgroundUtils.test.js
+PASS tests/unit/errorHandling/ErrorHandler.comprehensive.test.js
+PASS tests/unit/background-utils.test.js
+PASS tests/unit/content/content-script.require.test.js
+PASS tests/unit/content/content-script.integration.test.js
+PASS tests/unit/utils.module.test.js
+PASS tests/unit/highlighter/highlight-interactions.test.js
+PASS tests/unit/pageComplexityDetector.test.js
+PASS tests/unit/content-extraction.wrapper.test.js
+PASS tests/unit/storageUtil.test.js
+PASS tests/unit/content.test.js
+PASS tests/unit/pageComplexityDetector.wrapper.test.js
+PASS tests/unit/performance/PerformanceOptimizerAdvanced.test.js
+PASS tests/unit/content/cms-extraction.test.js
+PASS tests/unit/performance/PerformanceOptimizer.test.js
+PASS tests/unit/imageUtils.utils.test.js
+PASS tests/unit/background/tab-listeners.test.js
+PASS tests/unit/utils.advanced.test.js
+PASS tests/unit/imageExtraction/imageUtils.test.js
+PASS tests/unit/content/extractors/MetadataExtractor.test.js
+PASS tests/integration/highlighter.integration.test.js
+PASS tests/unit/background/image-processing.test.js
+PASS tests/unit/background.imageUtils.test.js
+PASS tests/unit/imageUtils.boundary.test.js
+PASS tests/unit/performance/PerformanceOptimizer.batchProcessing.test.js
+PASS tests/unit/highlighter/ui/ToolbarState.test.js
+PASS tests/unit/highlighter/ui/components/HighlightList.test.js
+PASS tests/unit/background/handlers/MessageHandler.test.js
+PASS tests/unit/content/extractors/ReadabilityAdapter.test.js
+PASS tests/unit/content/extractors/ContentExtractor.test.js
+PASS tests/unit/background/notion-page-operations.test.js
+PASS tests/unit/content/converters/DomConverter.test.js
+PASS tests/unit/highlighter/utils/path.coverage.test.js
+PASS tests/unit/utils.errorHandling.test.js
+PASS tests/unit/config/patterns.test.js
+PASS tests/unit/background/core-functions.test.js
+PASS tests/unit/highlighter/highlighter-migration.test.js
+PASS tests/unit/utils.clearHighlights.improved.test.js
+PASS tests/unit/highlighter/core/HighlightManager.coverage.test.js
+PASS tests/unit/background/services/StorageService.test.js
+PASS tests/unit/splitTextForHighlight.test.js
+PASS tests/unit/background/utils/BlockBuilder.test.js
+PASS tests/unit/highlighter/utils/validation.coverage.test.js
+PASS tests/unit/content/converters/ContentBridge.test.js
+PASS tests/unit/seamless-migration.test.js
+PASS tests/unit/logger.test.js
+PASS tests/unit/utils.test.js
+PASS tests/unit/highlighter/core/HighlightManager.test.js
+PASS tests/integration/highlighter-migration.integration.test.js
+PASS tests/unit/highlighter/ui/components/ColorPicker.test.js
+PASS tests/unit/content/isContentGood.test.js
+PASS tests/unit/background/storage-operations.test.js
+PASS tests/unit/highlighter/utils/path.test.js
+PASS tests/unit/background/services/PageContentService.test.js
+PASS tests/unit/highlighter/utils/validation.test.js
+PASS tests/unit/highlighter/utils/textSearch.coverage.test.js
+PASS tests/unit/background/services/TabService.test.js
+PASS tests/unit/utils.dateFormat.test.js
+PASS tests/unit/highlighter/utils/dom.coverage.test.js
+PASS tests/unit/background/extension-lifecycle.test.js
+PASS tests/unit/utils.templateVars.test.js
+PASS tests/unit/highlighter/utils/dom.test.js
+PASS tests/unit/highlighter/highlighter-path-compression.test.js
+PASS tests/unit/utils.debugTools.test.js
+PASS tests/unit/highlighter/utils/color.coverage.test.js
+PASS tests/unit/config/constants.test.js
+PASS tests/unit/background/update-highlights.test.js
+PASS tests/unit/highlighter/ui/components/HighlightList.security.test.js
+PASS tests/unit/highlighter/ui/Toolbar_list.test.js
+PASS tests/unit/background/services/InjectionService.test.js
+PASS tests/unit/highlighter/core/Range.coverage.test.js
+PASS tests/unit/config/env.test.js
+PASS tests/unit/highlighter/ui/Toolbar_actions.test.js
+PASS tests/unit/highlighter/core/Range.test.js
+PASS tests/unit/background/notification-handlers.test.js
+PASS tests/unit/highlighter/utils/textSearch.test.js
+PASS tests/unit/highlighter/utils/color.test.js
+PASS tests/unit/background/background-require.integration.test.js
+PASS tests/unit/normalizeUrl.test.js
+PASS tests/unit/logger.advanced.test.js
+PASS tests/unit/highlighter/utils/domStability.coverage.test.js
+PASS tests/unit/errorHandling/RetryManager.test.js
+PASS tests/unit/background/buildHighlightBlocks.test.js
+PASS tests/unit/highlighter/highlighter-dom-stability.test.js
+PASS tests/unit/content/converters/DomConverterNestedLinks.test.js
+PASS tests/unit/background/message-handlers.test.js
+PASS tests/unit/content/extractors/ImageCollector.test.js
+PASS tests/unit/performance/PerformanceOptimizer.extra.test.js
+PASS tests/unit/background/background-state.test.js
+PASS tests/unit/highlight-restore.test.js
+PASS tests/unit/highlighter/ui/Toolbar_init.test.js
+PASS tests/unit/performance/AdaptivePerformanceManager.test.js
+PASS tests/unit/background/processContentResult.test.js
+PASS tests/unit/options.test.js
+PASS tests/unit/highlighter/utils/domStability.test.js
+PASS tests/unit/content/converters/ConverterFactory.test.js
+PASS tests/unit/highlighter/highlighter-storage-optimization.test.js
+FAIL tests/unit/background/background-errors.integration.test.js
+  ● Test suite failed to run
+
+    Jest encountered an unexpected token
+
+    Jest failed to parse a file. This happens e.g. when your code or its dependencies use non-standard JavaScript syntax, or when Jest is not configured to support such syntax.
+
+    Out of the box Jest supports Babel, which will be used to transform your files into valid JS based on your Babel configuration.
+
+    By default "node_modules" folder is ignored by transformers.
+
+    Here's what you can do:
+     • If you are trying to use ECMAScript Modules, see https://jestjs.io/docs/ecmascript-modules for how to enable it.
+     • If you are trying to use TypeScript, see https://jestjs.io/docs/getting-started#using-typescript
+     • To have some of your "node_modules" files transformed, you can specify a custom "transformIgnorePatterns" in your config.
+     • If you need a custom transformation, specify a "transform" option in your config.
+     • If you simply want to mock your non-JS modules (e.g. binary assets) you can stub them out with the "moduleNameMapper" config option.
+
+    You'll find more details and examples of these config options in the docs:
+    https://jestjs.io/docs/configuration
+    For information about custom transformations, see:
+    https://jestjs.io/docs/code-transformation
+
+    Details:
+
+    SyntaxError: /Volumes/WD1TMac/code/notion-chrome/tests/unit/background/background-errors.integration.test.js: Unexpected token (661:41)
+
+      659 |       expect.objectContaining({
+      660 |         success: false,
+    > 661 |         '批次添加失敗: 400 - image url invalid',
+          |                                          ^
+      662 |       })
+      663 |     );
+      664 |
+
+      at constructor (node_modules/@babel/parser/src/parse-error.ts:95:45)
+      at Parser.toParseError [as raise] (node_modules/@babel/parser/src/tokenizer/index.ts:1507:19)
+      at Parser.raise [as unexpected] (node_modules/@babel/parser/src/tokenizer/index.ts:1547:16)
+      at Parser.unexpected [as parseObjPropValue] (node_modules/@babel/parser/src/parser/expression.ts:2395:21)
+      at Parser.parseObjPropValue [as parsePropertyDefinition] (node_modules/@babel/parser/src/parser/expression.ts:2228:17)
+      at Parser.parsePropertyDefinition [as parseObjectLike] (node_modules/@babel/parser/src/parser/expression.ts:2095:21)
+      at Parser.parseObjectLike [as parseExprAtom] (node_modules/@babel/parser/src/parser/expression.ts:1181:21)
+      at Parser.parseExprAtom [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:742:23)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at parseMaybeAssign (node_modules/@babel/parser/src/parser/expression.ts:257:12)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3202:12)
+      at Parser.allowInAnd [as parseMaybeAssignAllowIn] (node_modules/@babel/parser/src/parser/expression.ts:256:17)
+      at Parser.parseMaybeAssignAllowIn [as parseMaybeAssignAllowInOrVoidPattern] (node_modules/@babel/parser/src/parser/expression.ts:3316:17)
+      at Parser.parseMaybeAssignAllowInOrVoidPattern [as parseExprListItem] (node_modules/@babel/parser/src/parser/expression.ts:2798:18)
+      at Parser.parseExprListItem [as parseCallExpressionArguments] (node_modules/@babel/parser/src/parser/expression.ts:1042:14)
+      at Parser.parseCallExpressionArguments [as parseCoverCallAndAsyncArrowHead] (node_modules/@babel/parser/src/parser/expression.ts:922:29)
+      at Parser.parseCoverCallAndAsyncArrowHead [as parseSubscript] (node_modules/@babel/parser/src/parser/expression.ts:804:19)
+      at Parser.parseSubscript [as parseSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:763:19)
+      at Parser.parseSubscripts [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:748:17)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at parseMaybeAssign (node_modules/@babel/parser/src/parser/expression.ts:257:12)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3202:12)
+      at Parser.allowInAnd [as parseMaybeAssignAllowIn] (node_modules/@babel/parser/src/parser/expression.ts:256:17)
+      at Parser.parseMaybeAssignAllowIn [as parseMaybeAssignAllowInOrVoidPattern] (node_modules/@babel/parser/src/parser/expression.ts:3316:17)
+      at Parser.parseMaybeAssignAllowInOrVoidPattern [as parseExprListItem] (node_modules/@babel/parser/src/parser/expression.ts:2798:18)
+      at Parser.parseExprListItem [as parseCallExpressionArguments] (node_modules/@babel/parser/src/parser/expression.ts:1042:14)
+      at Parser.parseCallExpressionArguments [as parseCoverCallAndAsyncArrowHead] (node_modules/@babel/parser/src/parser/expression.ts:922:29)
+      at Parser.parseCoverCallAndAsyncArrowHead [as parseSubscript] (node_modules/@babel/parser/src/parser/expression.ts:804:19)
+      at Parser.parseSubscript [as parseSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:763:19)
+      at Parser.parseSubscripts [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:748:17)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at Parser.parseMaybeAssign [as parseExpressionBase] (node_modules/@babel/parser/src/parser/expression.ts:226:23)
+      at parseExpressionBase (node_modules/@babel/parser/src/parser/expression.ts:217:39)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3197:16)
+      at Parser.allowInAnd [as parseExpression] (node_modules/@babel/parser/src/parser/expression.ts:217:17)
+      at Parser.parseExpression [as parseStatementContent] (node_modules/@babel/parser/src/parser/statement.ts:688:23)
+      at Parser.parseStatementContent [as parseStatementLike] (node_modules/@babel/parser/src/parser/statement.ts:482:17)
+      at Parser.parseStatementLike [as parseStatementListItem] (node_modules/@babel/parser/src/parser/statement.ts:431:17)
+      at Parser.parseStatementListItem [as parseBlockOrModuleBlockBody] (node_modules/@babel/parser/src/parser/statement.ts:1444:16)
+      at Parser.parseBlockOrModuleBlockBody [as parseBlockBody] (node_modules/@babel/parser/src/parser/statement.ts:1417:10)
+      at Parser.parseBlockBody [as parseBlock] (node_modules/@babel/parser/src/parser/statement.ts:1385:10)
+      at Parser.parseBlock [as parseFunctionBody] (node_modules/@babel/parser/src/parser/expression.ts:2626:24)
+      at Parser.parseFunctionBody [as parseArrowExpression] (node_modules/@babel/parser/src/parser/expression.ts:2563:10)
+      at Parser.parseArrowExpression [as parseAsyncArrowFromCallExpression] (node_modules/@babel/parser/src/parser/expression.ts:1067:10)
+      at Parser.parseAsyncArrowFromCallExpression [as parseCoverCallAndAsyncArrowHead] (node_modules/@babel/parser/src/parser/expression.ts:942:27)
+      at Parser.parseCoverCallAndAsyncArrowHead [as parseSubscript] (node_modules/@babel/parser/src/parser/expression.ts:804:19)
+      at Parser.parseSubscript [as parseSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:763:19)
+      at Parser.parseSubscripts [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:748:17)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at parseMaybeAssign (node_modules/@babel/parser/src/parser/expression.ts:257:12)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3202:12)
+      at Parser.allowInAnd [as parseMaybeAssignAllowIn] (node_modules/@babel/parser/src/parser/expression.ts:256:17)
+      at Parser.parseMaybeAssignAllowIn [as parseMaybeAssignAllowInOrVoidPattern] (node_modules/@babel/parser/src/parser/expression.ts:3316:17)
+      at Parser.parseMaybeAssignAllowInOrVoidPattern [as parseExprListItem] (node_modules/@babel/parser/src/parser/expression.ts:2798:18)
+      at Parser.parseExprListItem [as parseCallExpressionArguments] (node_modules/@babel/parser/src/parser/expression.ts:1042:14)
+      at Parser.parseCallExpressionArguments [as parseCoverCallAndAsyncArrowHead] (node_modules/@babel/parser/src/parser/expression.ts:922:29)
+      at Parser.parseCoverCallAndAsyncArrowHead [as parseSubscript] (node_modules/@babel/parser/src/parser/expression.ts:804:19)
+      at Parser.parseSubscript [as parseSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:763:19)
+      at Parser.parseSubscripts [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:748:17)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at Parser.parseMaybeAssign [as parseExpressionBase] (node_modules/@babel/parser/src/parser/expression.ts:226:23)
+      at parseExpressionBase (node_modules/@babel/parser/src/parser/expression.ts:217:39)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3197:16)
+      at Parser.allowInAnd [as parseExpression] (node_modules/@babel/parser/src/parser/expression.ts:217:17)
+      at Parser.parseExpression [as parseStatementContent] (node_modules/@babel/parser/src/parser/statement.ts:688:23)
+      at Parser.parseStatementContent [as parseStatementLike] (node_modules/@babel/parser/src/parser/statement.ts:482:17)
+      at Parser.parseStatementLike [as parseStatementListItem] (node_modules/@babel/parser/src/parser/statement.ts:431:17)
+      at Parser.parseStatementListItem [as parseBlockOrModuleBlockBody] (node_modules/@babel/parser/src/parser/statement.ts:1444:16)
+      at Parser.parseBlockOrModuleBlockBody [as parseBlockBody] (node_modules/@babel/parser/src/parser/statement.ts:1417:10)
+      at Parser.parseBlockBody [as parseBlock] (node_modules/@babel/parser/src/parser/statement.ts:1385:10)
+      at Parser.parseBlock [as parseFunctionBody] (node_modules/@babel/parser/src/parser/expression.ts:2626:24)
+      at Parser.parseFunctionBody [as parseArrowExpression] (node_modules/@babel/parser/src/parser/expression.ts:2563:10)
+      at Parser.parseArrowExpression [as parseParenAndDistinguishExpression] (node_modules/@babel/parser/src/parser/expression.ts:1847:12)
+      at Parser.parseParenAndDistinguishExpression [as parseExprAtom] (node_modules/@babel/parser/src/parser/expression.ts:1170:21)
+      at Parser.parseExprAtom [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:742:23)
+
+-----------------------------------|---------|----------|---------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+File                               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                                                                                                        
+-----------------------------------|---------|----------|---------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+All files                          |   70.15 |    62.71 |   75.09 |   70.36 |                                                                                                                                                                          
+ scripts                           |   82.76 |    60.94 |   84.93 |    82.9 |                                                                                                                                                                          
+  background.js                    |      75 |    54.54 |   66.66 |      75 | 85-86,107,117,130-149,172,178                                                                                                                                            
+  highlight-restore.js             |   85.71 |       90 |    87.5 |   88.23 | 20,39-41,71                                                                                                                                                              
+  highlighter-migration.js         |   95.65 |    89.28 |     100 |   95.65 | 27-28,89-90,138                                                                                                                                                          
+  seamless-migration.js            |   79.66 |    53.06 |    87.5 |   79.66 | 97-103,111-117,125,177-178,250,287-303,308-311,369-391                                                                                                                   
+  utils.js                         |   77.21 |    56.45 |   78.26 |   77.07 | 66,110-120,136-140,180-181,197-198,244-245,253-257,271-272,280-283,358,375-406                                                                                           
+ scripts/background/handlers       |   20.06 |    22.15 |   42.42 |   20.12 |                                                                                                                                                                          
+  MessageHandler.js                |      86 |    71.42 |    90.9 |      86 | 84-86,116,122,152-153                                                                                                                                                    
+  actionHandlers.js                |    7.57 |     9.92 |   18.18 |     7.6 | 61-202,213-301,312-313,320-324,329-330,334-335,340-341,348-672                                                                                                           
+ scripts/background/services       |      68 |    61.78 |   76.31 |   68.44 |                                                                                                                                                                          
+  ImageService.js                  |      91 |    77.96 |   94.11 |    90.9 | 76,114-115,195,233,289,310-313                                                                                                                                           
+  InjectionService.js              |    49.6 |    46.31 |   58.33 |   48.78 | 60-67,78,82,89-93,105,148,157-159,229-242,279-418,438-442                                                                                                                
+  NotionService.js                 |   71.07 |    68.87 |   81.81 |   71.55 | 82-85,243-244,257,323,349-356,371-372,384,406-407,418,442,474,480-481,565,602-706,716-719                                                                                
+  PageContentService.js            |   63.63 |    40.62 |      75 |   63.63 | 67-113                                                                                                                                                                   
+  StorageService.js                |   79.78 |    67.79 |     100 |   79.56 | 56,90,106,122,138,148,164,170,185,191,206,215,231,240,254,260,277-279                                                                                                    
+  TabService.js                    |   51.45 |    58.66 |   38.88 |   53.68 | 85-88,95-97,129-205                                                                                                                                                      
+ scripts/background/utils          |   97.43 |    95.45 |     100 |   97.36 |                                                                                                                                                                          
+  BlockBuilder.js                  |   97.43 |    95.45 |     100 |   97.36 | 59,62                                                                                                                                                                    
+ scripts/config                    |   94.64 |    82.35 |     100 |   94.64 |                                                                                                                                                                          
+  constants.js                     |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+  env.js                           |   86.36 |    82.35 |     100 |   86.36 | 54,62-63                                                                                                                                                                 
+  features.js                      |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+  index.js                         |       0 |        0 |       0 |       0 |                                                                                                                                                                          
+  patterns.js                      |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+  selectors.js                     |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+ scripts/content                   |       0 |        0 |       0 |       0 |                                                                                                                                                                          
+  index.js                         |       0 |        0 |       0 |       0 | 25-139                                                                                                                                                                   
+ scripts/content/converters        |   68.63 |    53.01 |   70.49 |   68.23 |                                                                                                                                                                          
+  ContentBridge.js                 |   81.42 |     61.9 |   83.33 |   80.88 | 74-79,180,191,233-245                                                                                                                                                    
+  ConverterFactory.js              |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+  DomConverter.js                  |    64.8 |     49.7 |   68.51 |   64.51 | 42-44,52,59,63-71,87,121,126,138,161-177,189,228-233,259-263,268-269,277,284-289,310,321,333-344,383-395,419,431,443,445,447,491-492,532-551,561,569,575,586,606,613-641 
+ scripts/content/extractors        |   48.51 |    51.75 |   46.77 |   49.24 |                                                                                                                                                                          
+  ContentExtractor.js              |   93.33 |    71.42 |     100 |   93.33 | 81,108                                                                                                                                                                   
+  ImageCollector.js                |   64.42 |    58.06 |   38.46 |   65.68 | 60,79-80,101-102,137-138,166-174,197-198,202,211-232,246-247,250,256-262                                                                                                 
+  MarkdownExtractor.js             |   85.18 |      100 |   55.55 |     100 |                                                                                                                                                                          
+  MetadataExtractor.js             |   84.55 |    71.62 |   86.66 |   84.96 | 27,99,152,249-255,277,308,333-336,342,346,348,355                                                                                                                        
+  ReadabilityAdapter.js            |   11.93 |    14.95 |   13.63 |   12.08 | 28,34-35,123-587                                                                                                                                                         
+ scripts/errorHandling             |    87.7 |    78.72 |     100 |   87.39 |                                                                                                                                                                          
+  ErrorHandler.js                  |    90.9 |    76.56 |     100 |   90.41 | 74-80,151,195                                                                                                                                                            
+  RetryManager.js                  |   86.22 |    79.53 |     100 |   86.06 | 19-27,67-69,144,171,188,195-199,377-378,434,516-519                                                                                                                      
+ scripts/highlighter               |   42.59 |    43.33 |      30 |   42.59 |                                                                                                                                                                          
+  index.js                         |   42.59 |    43.33 |      30 |   42.59 | 41-53,113,142-143,145,151-164,169-172,176-179,183-184                                                                                                                    
+ scripts/highlighter/core          |   72.69 |    60.96 |   91.89 |   72.66 |                                                                                                                                                                          
+  HighlightManager.js              |   68.72 |    57.14 |   90.62 |   68.75 | 90-91,136,142,196-203,215,250-256,275-279,292-294,312,334,413,422,444,449,459-473,489-490,496-497,529-596,622-623,632-633,639-650,655,661-665,688                        
+  Range.js                         |     100 |       92 |     100 |     100 | 66,82                                                                                                                                                                    
+ scripts/highlighter/ui            |   61.61 |    55.68 |   56.52 |   63.87 |                                                                                                                                                                          
+  Toolbar.js                       |   57.14 |    53.65 |   48.71 |   59.52 | 23,97,129-163,199-203,208-222,235-275,297,315,329,343-347,363-364,404,409,438-452                                                                                        
+  ToolbarState.js                  |   95.65 |    83.33 |     100 |   95.65 | 51                                                                                                                                                                       
+ scripts/highlighter/ui/components |    98.8 |    90.62 |     100 |    98.8 |                                                                                                                                                                          
+  ColorPicker.js                   |     100 |    85.71 |     100 |     100 | 18,63                                                                                                                                                                    
+  HighlightList.js                 |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+  MiniIcon.js                      |    87.5 |       75 |     100 |    87.5 | 32                                                                                                                                                                       
+  ToolbarContainer.js              |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+ scripts/highlighter/ui/styles     |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+  toolbarStyles.js                 |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+ scripts/highlighter/utils         |   92.67 |    86.45 |   94.11 |   92.61 |                                                                                                                                                                          
+  color.js                         |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+  dom.js                           |     100 |    93.33 |     100 |     100 | 74-75                                                                                                                                                                    
+  domStability.js                  |   79.36 |    66.66 |   77.77 |   79.36 | 69-70,84,90-91,94-95,100-103,111,128-129                                                                                                                                 
+  path.js                          |   94.18 |    91.17 |     100 |   94.18 | 36,123,137,157,165                                                                                                                                                       
+  textSearch.js                    |    97.8 |    82.85 |     100 |   97.75 | 48,125                                                                                                                                                                   
+  validation.js                    |     100 |      100 |     100 |     100 |                                                                                                                                                                          
+ scripts/performance               |   86.19 |    70.77 |   88.46 |   86.75 |                                                                                                                                                                          
+  AdaptivePerformanceManager.js    |   82.35 |    51.72 |     100 |   82.14 | 77-81,110,131,153-159,184,205-207,216,271,290-291                                                                                                                        
+  PerformanceOptimizer.js          |   87.08 |    75.66 |   86.95 |   87.85 | 116,276-277,281-282,408,458,470,478-481,491,532-543,701,713,741,779,813,828-834,861-873,922,948,1001,1019,1059-1060,1148-1168,1187-1188                                  
+ scripts/utils                     |   67.22 |    59.54 |    60.6 |   66.66 |                                                                                                                                                                          
+  Logger.js                        |     4.1 |     4.47 |    7.14 |     4.1 | 24-233                                                                                                                                                                   
+  Logger.module.js                 |     100 |    28.57 |     100 |     100 | 5-6                                                                                                                                                                      
+  imageUtils.js                    |   87.87 |    77.45 |     100 |   87.56 | 11,14,92-97,146,185,218,310,321,331,354,380-401,414,513,540-546                                                                                                          
+  imageUtils.module.js             |   83.33 |    38.46 |     100 |   83.33 | 13                                                                                                                                                                       
+  urlUtils.js                      |   88.88 |    88.88 |     100 |   88.88 | 58-59                                                                                                                                                                    
+ tests/helpers                     |   79.57 |    71.05 |   74.28 |    79.6 |                                                                                                                                                                          
+  background-utils.testable.js     |   96.42 |     93.1 |     100 |   96.31 | 200,301,394,417,430,443                                                                                                                                                  
+  content-extraction.testable.js   |   91.93 |    73.17 |     100 |   93.44 | 29-31,117                                                                                                                                                                
+  content.testable.js              |   80.76 |    71.42 |     100 |   83.33 | 49,61-63                                                                                                                                                                 
+  utils.testable.js                |   65.77 |    50.26 |   53.84 |   65.64 | 9-16,32-45,62-65,84-111,135-164,176,186,195,207-224,423-430,502-503,511-514,545,556,567,581-582,592-629,647-648,710-735                                                  
+-----------------------------------|---------|----------|---------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Summary of all failing tests
+FAIL tests/unit/background/background-errors.integration.test.js
+  ● Test suite failed to run
+
+    Jest encountered an unexpected token
+
+    Jest failed to parse a file. This happens e.g. when your code or its dependencies use non-standard JavaScript syntax, or when Jest is not configured to support such syntax.
+
+    Out of the box Jest supports Babel, which will be used to transform your files into valid JS based on your Babel configuration.
+
+    By default "node_modules" folder is ignored by transformers.
+
+    Here's what you can do:
+     • If you are trying to use ECMAScript Modules, see https://jestjs.io/docs/ecmascript-modules for how to enable it.
+     • If you are trying to use TypeScript, see https://jestjs.io/docs/getting-started#using-typescript
+     • To have some of your "node_modules" files transformed, you can specify a custom "transformIgnorePatterns" in your config.
+     • If you need a custom transformation, specify a "transform" option in your config.
+     • If you simply want to mock your non-JS modules (e.g. binary assets) you can stub them out with the "moduleNameMapper" config option.
+
+    You'll find more details and examples of these config options in the docs:
+    https://jestjs.io/docs/configuration
+    For information about custom transformations, see:
+    https://jestjs.io/docs/code-transformation
+
+    Details:
+
+    SyntaxError: /Volumes/WD1TMac/code/notion-chrome/tests/unit/background/background-errors.integration.test.js: Unexpected token (661:41)
+
+      659 |       expect.objectContaining({
+      660 |         success: false,
+    > 661 |         '批次添加失敗: 400 - image url invalid',
+          |                                          ^
+      662 |       })
+      663 |     );
+      664 |
+
+      at constructor (node_modules/@babel/parser/src/parse-error.ts:95:45)
+      at Parser.toParseError [as raise] (node_modules/@babel/parser/src/tokenizer/index.ts:1507:19)
+      at Parser.raise [as unexpected] (node_modules/@babel/parser/src/tokenizer/index.ts:1547:16)
+      at Parser.unexpected [as parseObjPropValue] (node_modules/@babel/parser/src/parser/expression.ts:2395:21)
+      at Parser.parseObjPropValue [as parsePropertyDefinition] (node_modules/@babel/parser/src/parser/expression.ts:2228:17)
+      at Parser.parsePropertyDefinition [as parseObjectLike] (node_modules/@babel/parser/src/parser/expression.ts:2095:21)
+      at Parser.parseObjectLike [as parseExprAtom] (node_modules/@babel/parser/src/parser/expression.ts:1181:21)
+      at Parser.parseExprAtom [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:742:23)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at parseMaybeAssign (node_modules/@babel/parser/src/parser/expression.ts:257:12)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3202:12)
+      at Parser.allowInAnd [as parseMaybeAssignAllowIn] (node_modules/@babel/parser/src/parser/expression.ts:256:17)
+      at Parser.parseMaybeAssignAllowIn [as parseMaybeAssignAllowInOrVoidPattern] (node_modules/@babel/parser/src/parser/expression.ts:3316:17)
+      at Parser.parseMaybeAssignAllowInOrVoidPattern [as parseExprListItem] (node_modules/@babel/parser/src/parser/expression.ts:2798:18)
+      at Parser.parseExprListItem [as parseCallExpressionArguments] (node_modules/@babel/parser/src/parser/expression.ts:1042:14)
+      at Parser.parseCallExpressionArguments [as parseCoverCallAndAsyncArrowHead] (node_modules/@babel/parser/src/parser/expression.ts:922:29)
+      at Parser.parseCoverCallAndAsyncArrowHead [as parseSubscript] (node_modules/@babel/parser/src/parser/expression.ts:804:19)
+      at Parser.parseSubscript [as parseSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:763:19)
+      at Parser.parseSubscripts [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:748:17)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at parseMaybeAssign (node_modules/@babel/parser/src/parser/expression.ts:257:12)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3202:12)
+      at Parser.allowInAnd [as parseMaybeAssignAllowIn] (node_modules/@babel/parser/src/parser/expression.ts:256:17)
+      at Parser.parseMaybeAssignAllowIn [as parseMaybeAssignAllowInOrVoidPattern] (node_modules/@babel/parser/src/parser/expression.ts:3316:17)
+      at Parser.parseMaybeAssignAllowInOrVoidPattern [as parseExprListItem] (node_modules/@babel/parser/src/parser/expression.ts:2798:18)
+      at Parser.parseExprListItem [as parseCallExpressionArguments] (node_modules/@babel/parser/src/parser/expression.ts:1042:14)
+      at Parser.parseCallExpressionArguments [as parseCoverCallAndAsyncArrowHead] (node_modules/@babel/parser/src/parser/expression.ts:922:29)
+      at Parser.parseCoverCallAndAsyncArrowHead [as parseSubscript] (node_modules/@babel/parser/src/parser/expression.ts:804:19)
+      at Parser.parseSubscript [as parseSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:763:19)
+      at Parser.parseSubscripts [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:748:17)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at Parser.parseMaybeAssign [as parseExpressionBase] (node_modules/@babel/parser/src/parser/expression.ts:226:23)
+      at parseExpressionBase (node_modules/@babel/parser/src/parser/expression.ts:217:39)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3197:16)
+      at Parser.allowInAnd [as parseExpression] (node_modules/@babel/parser/src/parser/expression.ts:217:17)
+      at Parser.parseExpression [as parseStatementContent] (node_modules/@babel/parser/src/parser/statement.ts:688:23)
+      at Parser.parseStatementContent [as parseStatementLike] (node_modules/@babel/parser/src/parser/statement.ts:482:17)
+      at Parser.parseStatementLike [as parseStatementListItem] (node_modules/@babel/parser/src/parser/statement.ts:431:17)
+      at Parser.parseStatementListItem [as parseBlockOrModuleBlockBody] (node_modules/@babel/parser/src/parser/statement.ts:1444:16)
+      at Parser.parseBlockOrModuleBlockBody [as parseBlockBody] (node_modules/@babel/parser/src/parser/statement.ts:1417:10)
+      at Parser.parseBlockBody [as parseBlock] (node_modules/@babel/parser/src/parser/statement.ts:1385:10)
+      at Parser.parseBlock [as parseFunctionBody] (node_modules/@babel/parser/src/parser/expression.ts:2626:24)
+      at Parser.parseFunctionBody [as parseArrowExpression] (node_modules/@babel/parser/src/parser/expression.ts:2563:10)
+      at Parser.parseArrowExpression [as parseAsyncArrowFromCallExpression] (node_modules/@babel/parser/src/parser/expression.ts:1067:10)
+      at Parser.parseAsyncArrowFromCallExpression [as parseCoverCallAndAsyncArrowHead] (node_modules/@babel/parser/src/parser/expression.ts:942:27)
+      at Parser.parseCoverCallAndAsyncArrowHead [as parseSubscript] (node_modules/@babel/parser/src/parser/expression.ts:804:19)
+      at Parser.parseSubscript [as parseSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:763:19)
+      at Parser.parseSubscripts [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:748:17)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at parseMaybeAssign (node_modules/@babel/parser/src/parser/expression.ts:257:12)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3202:12)
+      at Parser.allowInAnd [as parseMaybeAssignAllowIn] (node_modules/@babel/parser/src/parser/expression.ts:256:17)
+      at Parser.parseMaybeAssignAllowIn [as parseMaybeAssignAllowInOrVoidPattern] (node_modules/@babel/parser/src/parser/expression.ts:3316:17)
+      at Parser.parseMaybeAssignAllowInOrVoidPattern [as parseExprListItem] (node_modules/@babel/parser/src/parser/expression.ts:2798:18)
+      at Parser.parseExprListItem [as parseCallExpressionArguments] (node_modules/@babel/parser/src/parser/expression.ts:1042:14)
+      at Parser.parseCallExpressionArguments [as parseCoverCallAndAsyncArrowHead] (node_modules/@babel/parser/src/parser/expression.ts:922:29)
+      at Parser.parseCoverCallAndAsyncArrowHead [as parseSubscript] (node_modules/@babel/parser/src/parser/expression.ts:804:19)
+      at Parser.parseSubscript [as parseSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:763:19)
+      at Parser.parseSubscripts [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:748:17)
+      at Parser.parseExprSubscripts [as parseUpdate] (node_modules/@babel/parser/src/parser/expression.ts:721:21)
+      at Parser.parseUpdate [as parseMaybeUnary] (node_modules/@babel/parser/src/parser/expression.ts:683:23)
+      at Parser.parseMaybeUnary [as parseMaybeUnaryOrPrivate] (node_modules/@babel/parser/src/parser/expression.ts:417:14)
+      at Parser.parseMaybeUnaryOrPrivate [as parseExprOps] (node_modules/@babel/parser/src/parser/expression.ts:429:23)
+      at Parser.parseExprOps [as parseMaybeConditional] (node_modules/@babel/parser/src/parser/expression.ts:384:23)
+      at Parser.parseMaybeConditional [as parseMaybeAssign] (node_modules/@babel/parser/src/parser/expression.ts:301:21)
+      at Parser.parseMaybeAssign [as parseExpressionBase] (node_modules/@babel/parser/src/parser/expression.ts:226:23)
+      at parseExpressionBase (node_modules/@babel/parser/src/parser/expression.ts:217:39)
+      at Parser.callback [as allowInAnd] (node_modules/@babel/parser/src/parser/expression.ts:3197:16)
+      at Parser.allowInAnd [as parseExpression] (node_modules/@babel/parser/src/parser/expression.ts:217:17)
+      at Parser.parseExpression [as parseStatementContent] (node_modules/@babel/parser/src/parser/statement.ts:688:23)
+      at Parser.parseStatementContent [as parseStatementLike] (node_modules/@babel/parser/src/parser/statement.ts:482:17)
+      at Parser.parseStatementLike [as parseStatementListItem] (node_modules/@babel/parser/src/parser/statement.ts:431:17)
+      at Parser.parseStatementListItem [as parseBlockOrModuleBlockBody] (node_modules/@babel/parser/src/parser/statement.ts:1444:16)
+      at Parser.parseBlockOrModuleBlockBody [as parseBlockBody] (node_modules/@babel/parser/src/parser/statement.ts:1417:10)
+      at Parser.parseBlockBody [as parseBlock] (node_modules/@babel/parser/src/parser/statement.ts:1385:10)
+      at Parser.parseBlock [as parseFunctionBody] (node_modules/@babel/parser/src/parser/expression.ts:2626:24)
+      at Parser.parseFunctionBody [as parseArrowExpression] (node_modules/@babel/parser/src/parser/expression.ts:2563:10)
+      at Parser.parseArrowExpression [as parseParenAndDistinguishExpression] (node_modules/@babel/parser/src/parser/expression.ts:1847:12)
+      at Parser.parseParenAndDistinguishExpression [as parseExprAtom] (node_modules/@babel/parser/src/parser/expression.ts:1170:21)
+      at Parser.parseExprAtom [as parseExprSubscripts] (node_modules/@babel/parser/src/parser/expression.ts:742:23)
+
+
+Test Suites: 1 failed, 105 passed, 106 total
+Tests:       1 skipped, 2186 passed, 2187 total
+Snapshots:   0 total
+Time:        30.73 s
+Ran all test suites.
