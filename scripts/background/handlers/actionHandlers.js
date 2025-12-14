@@ -116,6 +116,11 @@ export function createActionHandlers(services) {
           if (result.success) {
             result.highlightCount = highlights.length;
             result.highlightsUpdated = true;
+            // 更新本地時間戳以保持數據一致性
+            await storageService.setSavedPageData(normUrl, {
+              ...savedData,
+              lastUpdated: new Date().toISOString(),
+            });
           }
           sendResponse(result);
         } else {
@@ -130,6 +135,11 @@ export function createActionHandlers(services) {
             result.imageCount = imageCount;
             result.blockCount = contentResult.blocks.length;
             result.updated = true;
+            // 更新本地時間戳以保持數據一致性
+            await storageService.setSavedPageData(normUrl, {
+              ...savedData,
+              lastUpdated: new Date().toISOString(),
+            });
           }
           sendResponse(result);
         }

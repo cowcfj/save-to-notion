@@ -8,7 +8,7 @@
 
 ### 1. 核心組件（Playwright 架構）
 
-| 美件                                | 說明                                        | 狀態 |
+| 元件                                | 說明                                        | 狀態 |
 | ----------------------------------- | ------------------------------------------- | ---- |
 | `playwright.config.js`              | Playwright 主配置文件                       | ✅   |
 | `tests/e2e/fixtures.js`             | 核心 Fixtures (Extension 加載, V8 Coverage) | ✅   |
