@@ -371,9 +371,9 @@ export function createActionHandlers(services) {
         }
 
         notionService.setApiKey(config.notionApiKey);
-        const exits = await notionService.checkPageExists(pageId);
+        const exists = await notionService.checkPageExists(pageId);
 
-        sendResponse({ success: true, exists: exits });
+        sendResponse({ success: true, exists });
       } catch (error) {
         sendResponse({ success: false, error: error.message });
       }
