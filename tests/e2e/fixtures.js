@@ -17,8 +17,10 @@ export const test = base.extend({
     }
 
     const context = await chromium.launchPersistentContext('', {
-      headless: Boolean(process.env.CI), // CI 環境使用 headless，本地使用 headed
+      channel: 'chromium', // 使用 Chromium channel 啟用完整 Extension 支持
+      headless: false, // Chrome Extension 測試必須使用 headed 模式
       args: [
+        '--no-sandbox',
         `--disable-extensions-except=${pathToExtension}`,
         `--load-extension=${pathToExtension}`,
       ],

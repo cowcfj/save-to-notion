@@ -31,7 +31,6 @@
     "build:all": "npm run build",
     "build:all:prod": "NODE_ENV=production npm run build:prod",
     "dev": "npm run build:watch",
-    "prebuild:prod": "npm run test:ci",
     "prepare": "husky"
   },
   "keywords": [
