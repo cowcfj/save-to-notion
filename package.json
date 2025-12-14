@@ -12,8 +12,8 @@
     "test:watch": "jest --config jest.config.js --watch",
     "test:coverage": "jest --config jest.config.js --coverage",
     "test:ci": "jest --config jest.config.js --ci --coverage --maxWorkers=2",
-    "test:e2e": "node tests/e2e/run-with-coverage.js",
-    "test:e2e:only": "node tests/e2e/coverage-collector.js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test:merge-coverage": "node tests/e2e/coverage-merger.js",
     "test:all": "npm run test:coverage && npm run test:e2e",
     "lint": "eslint .",
@@ -66,7 +66,8 @@
     "lint-staged": "^16.2.7",
     "prettier": "^3.7.4",
     "puppeteer": "^24.31.0",
-    "rollup": "^4.53.3"
+    "rollup": "^4.53.3",
+    "v8-to-istanbul": "^9.3.0"
   },
   "dependencies": {
     "@notionhq/client": "^5.4.0"

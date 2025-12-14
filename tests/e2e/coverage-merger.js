@@ -10,6 +10,9 @@ const { createCoverageMap } = require('istanbul-lib-coverage');
 const { createContext } = require('istanbul-lib-report');
 const reports = require('istanbul-reports');
 
+/**
+ * 負責合併 Jest 與 Playwright 覆蓋率報告的工具類別。
+ */
 class CoverageMerger {
   constructor() {
     this.coverageMap = createCoverageMap({});
@@ -41,26 +44,48 @@ class CoverageMerger {
 
   /**
    * 加載 E2E 覆蓋率數據
+   * 支援加載單個 coverage-final.json 或掃描目錄下的多個 JSON 文件
    */
-  loadE2ECoverage(e2eCoverageFile) {
-    console.log('📖 加載 E2E 測試覆蓋率...');
+  loadE2ECoverage(e2eCoveragePath) {
+    console.log(`📖 加載 E2E 測試覆蓋率 (路徑: ${e2eCoveragePath})...`);
 
-    if (!fs.existsSync(e2eCoverageFile)) {
-      console.warn(`⚠️ E2E 覆蓋率文件不存在: ${e2eCoverageFile}`);
+    let filesToLoad = [];
+
+    // 判斷是文件還是目錄
+    if (fs.existsSync(e2eCoveragePath)) {
+      const stats = fs.statSync(e2eCoveragePath);
+      if (stats.isDirectory()) {
+        // 是目錄，掃描所有 .json 文件
+        filesToLoad = fs
+          .readdirSync(e2eCoveragePath)
+          .filter(file => file.endsWith('.json'))
+          .map(file => path.join(e2eCoveragePath, file));
+      } else {
+        // 是文件
+        filesToLoad = [e2eCoveragePath];
+      }
+    } else {
+      console.warn(`⚠️ E2E 覆蓋率路徑不存在: ${e2eCoveragePath}`);
       return;
     }
 
-    try {
-      const e2eCoverage = JSON.parse(fs.readFileSync(e2eCoverageFile, 'utf8'));
-
-      // 合併到覆蓋率 map
-      this.coverageMap.merge(e2eCoverage);
-
-      const fileCount = Object.keys(e2eCoverage).length;
-      console.log(`✅ 已加載 ${fileCount} 個文件的 E2E 覆蓋率`);
-    } catch (error) {
-      console.error('❌ 加載 E2E 覆蓋率失敗:', error.message);
+    if (filesToLoad.length === 0) {
+      console.warn(`⚠️ 在 ${e2eCoveragePath} 中未找到覆蓋率文件`);
+      return;
     }
+
+    let loadedCount = 0;
+    for (const file of filesToLoad) {
+      try {
+        const coverageData = JSON.parse(fs.readFileSync(file, 'utf8'));
+        this.coverageMap.merge(coverageData);
+        loadedCount++;
+      } catch (error) {
+        console.error(`❌ 加載覆蓋率文件失敗 (${file}):`, error.message);
+      }
+    }
+
+    console.log(`✅ 已整合 ${loadedCount} 個 E2E 覆蓋率文件`);
   }
 
   /**
@@ -171,9 +196,9 @@ ${'='.repeat(60)}`);
     const jestSummary =
       Object.keys(this.coverageMap.data).length > 0 ? this.coverageMap.getCoverageSummary() : null;
 
-    // 2. 加載 E2E 覆蓋率
-    const e2eCoverageFile = path.join(config.coverage.dir, 'coverage-final.json');
-    this.loadE2ECoverage(e2eCoverageFile);
+    // 2. 加載 E2E 覆蓋率 (從 .nyc_output 目錄)
+    const e2eCoveragePath = path.join(__dirname, '../../.nyc_output');
+    this.loadE2ECoverage(e2eCoveragePath);
 
     // 3. 生成合併報告
     this.generateReports(config.coverage.mergedDir, config.coverage.reporters);
