@@ -48,13 +48,6 @@ export function createActionHandlers(services) {
   const { notionService, storageService, injectionService, pageContentService } = services;
 
   /**
-   * 處理內容提取結果
-   * @param {Object} rawResult - 注入腳本返回的原始結果
-   * @param {Array} highlights - 標註數據
-   * @returns {Object} 處理後的內容結果 { title, blocks, siteIcon }
-   */
-
-  /**
    * 清理頁面標記的輔助函數
    */
   async function clearPageHighlights(tabId) {
