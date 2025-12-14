@@ -205,6 +205,56 @@ function createDivider() {
 }
 
 /**
+ * 將長文本分割成符合 Notion 限制的片段 (智能分割)
+ * Notion API 限制每個 rich_text 區塊最多 2000 字符
+ * @param {string} text - 原始文本
+ * @param {number} maxLength - 最大長度
+ * @returns {string[]} 分割後的文本片段
+ */
+function splitTextForHighlight(text, maxLength = 2000) {
+  if (!text || text.length <= maxLength) {
+    return [text];
+  }
+
+  const chunks = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLength) {
+      chunks.push(remaining);
+      break;
+    }
+
+    // 嘗試在句號、問號、驚嘆號、換行符處分割
+    let splitIndex = -1;
+    const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
+
+    for (const punct of punctuation) {
+      const lastIndex = remaining.lastIndexOf(punct, maxLength);
+      if (lastIndex > maxLength * 0.5) {
+        // 至少分割到一半以上，避免片段太短
+        splitIndex = lastIndex + punct.length;
+        break;
+      }
+    }
+
+    // 如果找不到合適的標點，嘗試在空格處分割
+    if (splitIndex === -1) {
+      splitIndex = remaining.lastIndexOf(' ', maxLength);
+      if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
+        // 實在找不到，強制在 maxLength 處分割
+        splitIndex = maxLength;
+      }
+    }
+
+    chunks.push(remaining.substring(0, splitIndex).trim());
+    remaining = remaining.substring(splitIndex).trim();
+  }
+
+  return chunks.filter(chunk => chunk.length > 0);
+}
+
+/**
  * 創建標註區塊組（包含標題和標註內容）
  * @param {Array} highlights - 標註數據數組 [{text, color}]
  * @param {string} title - 標題 (默認 '📝 頁面標記')
@@ -219,13 +269,8 @@ function buildHighlightBlocks(highlights, title = '📝 頁面標記') {
 
   highlights.forEach(highlight => {
     const text = highlight.text || '';
-
-    // Split text if it exceeds MAX_TEXT_LENGTH
-    // skipcq: JS-0113 - Using valid regex for splitting string by length
-    const textChunks =
-      text.length > MAX_TEXT_LENGTH
-        ? text.match(new RegExp(`.{1,${MAX_TEXT_LENGTH}}`, 'g')) || []
-        : [text];
+    // Use smart splitting logic
+    const textChunks = splitTextForHighlight(text, MAX_TEXT_LENGTH);
 
     textChunks.forEach(chunk => {
       blocks.push(
