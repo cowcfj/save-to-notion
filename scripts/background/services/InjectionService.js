@@ -277,19 +277,31 @@ class InjectionService {
         // 我們只需要確保工具欄顯示即可
         // 使用 setTimeout 確保自動初始化完成
         return new Promise(resolve => {
-          setTimeout(() => {
+          const startTime = Date.now();
+          const timeout = 2000; // Max wait 2 seconds (increased robustness)
+          const interval = 100; // Check every 100ms for responsiveness
+
+          const checkInitialization = () => {
             if (window.notionHighlighter) {
               window.notionHighlighter.show();
               const count = window.HighlighterV2?.manager?.getCount() || 0;
-              // skipcq: JS-0002 - 此代碼在頁面上下文執行，無法訪問 this.logger
+              // skipcq: JS-0002 - Running in page context
               console.log(`✅ 標註工具已準備，共 ${count} 個標註`);
               resolve({ initialized: true, highlightCount: count });
-            } else {
-              // skipcq: JS-0002 - 此代碼在頁面上下文執行，無法訪問 this.logger
-              console.warn('⚠️ notionHighlighter 未初始化');
-              resolve({ initialized: false, highlightCount: 0 });
+              return;
             }
-          }, 1000); // Increased timeout to 1000ms
+
+            if (Date.now() - startTime > timeout) {
+              // skipcq: JS-0002 - Running in page context
+              console.warn('⚠️ notionHighlighter 初始化超時');
+              resolve({ initialized: false, highlightCount: 0 });
+              return;
+            }
+
+            setTimeout(checkInitialization, interval);
+          };
+
+          checkInitialization();
         });
       },
       {
