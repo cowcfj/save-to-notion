@@ -290,7 +290,6 @@ export function createActionHandlers(services) {
         await determineAndExecuteSaveAction({
           savedData,
           normUrl,
-          config,
           dataSourceId,
           dataSourceType,
           contentResult,
