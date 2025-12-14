@@ -179,6 +179,7 @@ export { PageContentService, CONTENT_EXTRACTION_SCRIPTS };
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     PageContentService,
+    CONTENT_EXTRACTION_SCRIPTS,
   };
 }
 // TEST_EXPOSURE_END
