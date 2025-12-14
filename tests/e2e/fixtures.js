@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import v8toIstanbul from 'v8-to-istanbul';
 
 export const test = base.extend({
-  context: async ({}, use) => {
+  context: async (_, use) => {
     // 構建後的擴充功能路徑
     const pathToExtension = path.join(__dirname, '../../dist');
 
