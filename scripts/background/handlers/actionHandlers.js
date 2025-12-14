@@ -11,6 +11,7 @@
 import Logger from '../../utils/Logger.module.js';
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
+import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 
 /**
  * 處理內容提取結果
@@ -476,6 +477,15 @@ export function createActionHandlers(services) {
 
         if (!activeTab || !activeTab.id) {
           sendResponse({ success: false, error: 'Could not get active tab.' });
+          return;
+        }
+
+        // 檢查是否為受限頁面（chrome://、chrome-extension:// 等）
+        if (isRestrictedInjectionUrl(activeTab.url)) {
+          sendResponse({
+            success: false,
+            error: '此頁面不支援標註功能（系統頁面或受限網址）',
+          });
           return;
         }
 
