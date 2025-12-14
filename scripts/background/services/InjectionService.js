@@ -278,10 +278,6 @@ class InjectionService {
         // 使用 setTimeout 確保自動初始化完成
         return new Promise(resolve => {
           setTimeout(() => {
-            console.log('🔍 Checking for notionHighlighter...', {
-              exists: Boolean(window.notionHighlighter),
-              v2Params: window.HighlighterV2,
-            });
             if (window.notionHighlighter) {
               window.notionHighlighter.show();
               const count = window.HighlighterV2?.manager?.getCount() || 0;
