@@ -139,6 +139,35 @@ class InjectionService {
   }
 
   /**
+   * Resolve the correct path for highlighter bundle
+   * Handles both 'dist' loading (tests) and 'root' loading (development)
+   * @private
+   */
+  async _resolveHighlighterPath() {
+    if (this._highlighterPath) {
+      return this._highlighterPath;
+    }
+
+    // Candidates: root first (dist config), then dist/ (dev config)
+    const candidates = ['highlighter-v2.bundle.js', 'dist/highlighter-v2.bundle.js'];
+
+    for (const path of candidates) {
+      try {
+        const response = await fetch(chrome.runtime.getURL(path), { method: 'HEAD' });
+        if (response.ok) {
+          this._highlighterPath = path;
+          return path;
+        }
+      } catch (_err) {
+        // Continue to next candidate
+      }
+    }
+
+    // Fallback to default
+    return 'dist/highlighter-v2.bundle.js';
+  }
+
+  /**
    * 注入文件並執行函數
    * @param {number} tabId - 目標標籤頁 ID
    * @param {string[]} files - 要注入的文件列表
@@ -238,10 +267,11 @@ class InjectionService {
    * @param {number} tabId
    * @returns {Promise<{initialized: boolean, highlightCount: number}>}
    */
-  injectHighlighter(tabId) {
+  async injectHighlighter(tabId) {
+    const bundlePath = await this._resolveHighlighterPath();
     return this.injectAndExecute(
       tabId,
-      ['dist/highlighter-v2.bundle.js'],
+      [bundlePath],
       () => {
         // highlighter-v2.bundle.js 會自動初始化（setupHighlighter）
         // 我們只需要確保工具欄顯示即可

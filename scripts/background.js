@@ -49,6 +49,11 @@ const actionHandlers = createActionHandlers({
 
 messageHandler.registerAll(actionHandlers);
 
+// Expose handlers for E2E testing
+if (typeof self !== 'undefined') {
+  self.actionHandlers = actionHandlers;
+}
+
 // Initialize TabService
 const tabService = new TabService({
   logger: Logger,
