@@ -67,7 +67,7 @@ test.describe('Highlighting Feature', () => {
       const originalQuery = chrome.tabs.query;
 
       // 覆寫 query 方法
-      chrome.tabs.query = function (queryInfo, callback) {
+      chrome.tabs.query = function (queryInfo, onQuery) {
         // Background Script 查找 active tab
         if (queryInfo.active && queryInfo.currentWindow) {
           const mockTab = {
@@ -78,15 +78,15 @@ test.describe('Highlighting Feature', () => {
             windowId: 1,
           };
 
-          callback([mockTab]);
+          onQuery([mockTab]);
           return;
         }
         if (originalQuery) {
-          originalQuery.call(this, queryInfo, callback);
+          originalQuery.call(this, queryInfo, onQuery);
           return;
         }
 
-        callback([]);
+        onQuery([]);
       };
     }, targetTabId);
 
