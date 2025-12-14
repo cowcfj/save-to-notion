@@ -11,6 +11,7 @@
 /* global Readability, Logger, PerformanceOptimizer */
 
 import { CONTENT_QUALITY } from '../../config/constants.js';
+import { LIST_PREFIX_PATTERNS } from '../../config/patterns.js';
 import { CMS_CONTENT_SELECTORS, ARTICLE_STRUCTURE_SELECTORS } from '../../config/selectors.js';
 
 // 從 CONTENT_QUALITY 解構常用常量到模組級別
@@ -376,7 +377,7 @@ function extractLargestListFallback() {
         return false;
       }
 
-      const bulletPattern = /^(?:[-\u{2022}*•·–—►▶✔▪]|\d+[.)])\s+/u;
+      const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
       const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
       return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
     });
@@ -407,7 +408,7 @@ function extractLargestListFallback() {
           .split(/\r?\n/)
           .map(line => line.trim())
           .filter(Boolean);
-        const bulletPattern = /^(?:[-\u{2022}*•·–—►▶✔▪]|\d+[.)])\s+/u;
+        const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
         effectiveItemCount = lines.filter(line => bulletPattern.test(line)).length;
       }
 
