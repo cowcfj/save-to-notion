@@ -184,6 +184,7 @@ async function showUpdateNotification(previousVersion, currentVersion) {
 // ============================================================
 // EXPORTS (For Testing)
 // ============================================================
+// TEST_EXPOSURE_START
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     storageService,
@@ -195,3 +196,4 @@ if (typeof module !== 'undefined' && module.exports) {
     actionHandlers,
   };
 }
+// TEST_EXPOSURE_END

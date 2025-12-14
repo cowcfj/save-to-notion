@@ -234,6 +234,12 @@ class TabService {
 // 導出
 export { TabService };
 
+// TEST_EXPOSURE_START
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { TabService };
+}
+// TEST_EXPOSURE_END
+
+if (typeof window !== 'undefined') {
+  window.TabService = TabService;
 }

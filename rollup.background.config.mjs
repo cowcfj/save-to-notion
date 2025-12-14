@@ -7,8 +7,12 @@ const isDev = process.env.NODE_ENV !== 'production';
 // Custom plugin to strip test exposure code in production
 const stripTestConfig = () => ({
     name: 'strip-test-config',
-    transform(code) {
+    transform(code, id) {
         if (!isDev) {
+            const matches = code.match(/\/\/ TEST_EXPOSURE_START[\s\S]*?\/\/ TEST_EXPOSURE_END/g);
+            if (matches) {
+                console.log(`[strip-test-config] Stripping ${matches.length} blocks from ${id}`);
+            }
             return code.replace(/\/\/ TEST_EXPOSURE_START[\s\S]*?\/\/ TEST_EXPOSURE_END/g, '');
         }
         return null;

@@ -304,11 +304,13 @@ class ImageService {
 // 導出
 export { ImageService, ImageUrlValidationCache };
 
+// TEST_EXPOSURE_START
 if (typeof module !== 'undefined' && module.exports) {
-  // Node.js 環境（測試）
   module.exports = { ImageService, ImageUrlValidationCache };
-} else if (typeof window !== 'undefined') {
-  // 瀏覽器環境
+}
+// TEST_EXPOSURE_END
+
+if (typeof window !== 'undefined') {
   window.ImageService = ImageService;
   window.ImageUrlValidationCache = ImageUrlValidationCache;
 }
