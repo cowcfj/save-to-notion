@@ -27,7 +27,7 @@ export default {
       mangle: {
         reserved: [
           // 保留這些全局名稱
-          'HighlighterV2', // 主要導出
+          'HighlighterModule', // 主要導出（與 output.name 一致）
           'Logger', // window.Logger
           'StorageUtil', // window.StorageUtil
         ],
