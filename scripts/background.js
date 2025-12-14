@@ -722,7 +722,7 @@ async function handleCheckPageStatus(sendResponse) {
             let notionUrl = savedData.notionUrl;
             if (!notionUrl && savedData.notionPageId) {
               notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
-              Logger.log('🔗 為舊版本數據生成 Notion URL:', notionUrl);
+              Logger.log('🔗 手動構建 Notion URL:', notionUrl);
             }
 
             sendResponse({
