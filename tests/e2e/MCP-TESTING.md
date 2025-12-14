@@ -15,7 +15,7 @@
 
 你可以在 Claude Code 中發送測試請求：
 
-```
+```text
 請幫我測試高亮功能：
 1. 打開 https://developer.mozilla.org/en-US/docs/Web/JavaScript
 2. 等待頁面加載
