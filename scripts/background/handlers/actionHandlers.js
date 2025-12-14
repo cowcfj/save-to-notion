@@ -20,19 +20,18 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
  * @returns {Object} 處理後的內容結果 { title, blocks, siteIcon }
  */
 export function processContentResult(rawResult, highlights) {
-  const contentResult = rawResult || {
-    title: 'Untitled',
-    blocks: [],
-    siteIcon: null,
-  };
+  // 正規化所有欄位，確保不修改原始輸入
+  const title = rawResult?.title || 'Untitled';
+  const siteIcon = rawResult?.siteIcon ?? null;
+  const blocks = Array.isArray(rawResult?.blocks) ? [...rawResult.blocks] : [];
 
   // 添加標註區塊
   if (highlights && highlights.length > 0) {
     const highlightBlocks = buildHighlightBlocks(highlights);
-    contentResult.blocks.push(...highlightBlocks);
+    blocks.push(...highlightBlocks);
   }
 
-  return contentResult;
+  return { title, blocks, siteIcon };
 }
 
 /**
