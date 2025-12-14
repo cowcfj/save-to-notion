@@ -15,7 +15,7 @@
  */
 export const LIST_PREFIX_PATTERNS = {
   // 移除列表前綴：連字符、項目符號、星號、數字、點、管道、括號和空格
-  bulletPrefix: /^[-•\u{2022}*\d+.|)\s]+/u,
+  bulletPrefix: /^(?:[-\u{2022}*•·–—►▶✔▪]|\d+[.)])\s+/u,
   // 多餘空格正規化
   multipleSpaces: /\s+/g,
   // 空白行檢測
