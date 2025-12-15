@@ -17,8 +17,11 @@ export const test = base.extend({
     }
 
     // CI 環境專用參數
+    // Chrome v109+ 支持 --headless=new 模式，可以運行 Extension
+    // 參考: https://github.com/microsoft/playwright/issues/26862
     const ciArgs = process.env.CI
       ? [
+          '--headless=new', // 新版 headless 模式，支持 Extension
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
@@ -29,7 +32,7 @@ export const test = base.extend({
 
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium', // 使用 Chromium channel 啟用完整 Extension 支持
-      headless: false, // Chrome Extension 測試必須使用 headed 模式
+      headless: false, // 必須設為 false，由 --headless=new 參數控制
       timeout: 60000, // 增加啟動超時時間
       args: [
         ...ciArgs,

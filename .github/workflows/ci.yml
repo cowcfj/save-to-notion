@@ -69,8 +69,9 @@ jobs:
 
       - name: Run E2E Tests
         run: |
-          # Chrome Extension tests require headed mode, use xvfb for virtual display
-          xvfb-run --auto-servernum npm run test:e2e
+          # 使用 --headless=new 模式運行 Extension 測試（不需要 xvfb）
+          export CI=true
+          npm run test:e2e
           
       - name: Merge Coverage Reports
         if: github.event_name == 'pull_request'
