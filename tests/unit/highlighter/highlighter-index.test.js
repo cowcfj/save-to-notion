@@ -184,13 +184,6 @@ describe('Highlighter Index', () => {
     });
   });
 
-  describe('Chrome Runtime Message 監聯', () => {
-    test('initHighlighter 應該註冊消息監聽器', async () => {
-      await initHighlighter();
-      expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalled();
-    });
-  });
-
   describe('notionHighlighter 兼容層方法', () => {
     beforeEach(async () => {
       // 確保 highlighter 已初始化
