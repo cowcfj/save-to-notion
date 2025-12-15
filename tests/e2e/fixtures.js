@@ -105,7 +105,7 @@ export const test = base.extend({
         // 轉換為 Istanbul 格式
         const istanbulCoverage = converter.toIstanbul();
 
-        // 4. 存儲到 .nyc_output 目錄，供 merge 使用
+        // 4. 存儲到 coverage/e2e 目錄，供 merge 使用
         const nycOutput = path.join(__dirname, '../../coverage/e2e');
         if (!fs.existsSync(nycOutput)) {
           fs.mkdirSync(nycOutput, { recursive: true });

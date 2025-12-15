@@ -196,7 +196,7 @@ ${'='.repeat(60)}`);
     const jestSummary =
       Object.keys(this.coverageMap.data).length > 0 ? this.coverageMap.getCoverageSummary() : null;
 
-    // 2. 加載 E2E 覆蓋率 (從 .nyc_output 目錄)
+    // 2. 加載 E2E 覆蓋率（從 coverage/e2e 目錄）
     const e2eCoveragePath = path.join(__dirname, '../../coverage/e2e');
     this.loadE2ECoverage(e2eCoveragePath);
 
