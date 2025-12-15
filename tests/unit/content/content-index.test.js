@@ -42,11 +42,11 @@ jest.mock('../../../scripts/content/extractors/ImageCollector.js', () => ({
 }));
 
 describe('Content Script Entry Point', () => {
-  let extractPageContent;
-  let ContentExtractor;
-  let ConverterFactory;
-  let ImageCollector;
-  let Logger;
+  let extractPageContent = null;
+  let ContentExtractor = null;
+  let ConverterFactory = null;
+  let ImageCollector = null;
+  let Logger = null;
 
   beforeEach(() => {
     jest.clearAllMocks();

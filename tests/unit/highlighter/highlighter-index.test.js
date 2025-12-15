@@ -78,8 +78,8 @@ jest.mock('../../../scripts/highlighter/ui/Toolbar.js', () => ({
 }));
 
 describe('Highlighter Index', () => {
-  let initHighlighter;
-  let initHighlighterWithToolbar;
+  let initHighlighter = null;
+  let initHighlighterWithToolbar = null;
 
   beforeEach(() => {
     jest.clearAllMocks();

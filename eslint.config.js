@@ -125,5 +125,16 @@ module.exports = [
       'tests/manual/**',
       '*.config.js',
     ]
+  },
+  {
+    // Test files - 針對測試文件的規則覆蓋
+    files: ['tests/**/*.js'],
+    rules: {
+      // Chrome APIs 不使用 Node.js 錯誤優先 callback 模式，使用結果優先模式
+      'n/no-callback-literal': 'off',
+      'node/no-callback-literal': 'off',
+      // Jest 測試需要在 describe 外聲明變量，在 beforeEach 中初始化
+      'init-declarations': 'off'
+    }
   }
 ];

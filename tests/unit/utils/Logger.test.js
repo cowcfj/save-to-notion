@@ -13,9 +13,9 @@
  */
 
 describe('Logger', () => {
-  let Logger;
-  let originalChrome;
-  let consoleSpy;
+  let Logger = null;
+  let originalChrome = null;
+  let consoleSpy = null;
 
   beforeEach(() => {
     // 清除所有模組快取
