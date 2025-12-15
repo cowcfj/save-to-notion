@@ -73,8 +73,29 @@ jobs:
             exit 1
           fi
 
+      - name: Validate coverage file
+        id: validate-coverage
+        run: |
+          LCOV_FILE="coverage/merged/lcov.info"
+          
+          if [ ! -f "$LCOV_FILE" ]; then
+            echo "⚠️ Coverage file not found: $LCOV_FILE"
+            echo "valid=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # 檢查文件是否包含有效的 LCOV 格式（至少包含 SF: 和 end_of_record）
+          if grep -q "^SF:" "$LCOV_FILE" && grep -q "end_of_record" "$LCOV_FILE"; then
+            LINE_COUNT=$(wc -l < "$LCOV_FILE")
+            echo "✅ Valid LCOV file detected ($LINE_COUNT lines)"
+            echo "valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Invalid LCOV format in $LCOV_FILE"
+            echo "valid=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload coverage to Codecov
-        if: always()
+        if: steps.validate-coverage.outputs.valid == 'true'
         uses: codecov/codecov-action@v5
         with:
           files: coverage/merged/lcov.info
