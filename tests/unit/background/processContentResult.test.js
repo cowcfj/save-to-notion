@@ -2,7 +2,7 @@
  * processContentResult 單元測試
  */
 
-const { processContentResult } = require('../../../scripts/background');
+const { processContentResult } = require('../../../scripts/background/handlers/actionHandlers.js');
 
 describe('processContentResult', () => {
   it('should return default content for null input', () => {

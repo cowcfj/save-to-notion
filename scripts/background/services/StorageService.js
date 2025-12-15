@@ -272,9 +272,13 @@ class StorageService {
 // 導出
 export { StorageService, normalizeUrl };
 
+// TEST_EXPOSURE_START
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { StorageService, normalizeUrl, URL_TRACKING_PARAMS };
-} else if (typeof window !== 'undefined') {
+}
+// TEST_EXPOSURE_END
+
+if (typeof window !== 'undefined') {
   window.StorageService = StorageService;
   window.normalizeUrl = normalizeUrl;
 }

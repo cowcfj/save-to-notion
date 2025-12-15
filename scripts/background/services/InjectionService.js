@@ -139,6 +139,35 @@ class InjectionService {
   }
 
   /**
+   * Resolve the correct path for highlighter bundle
+   * Handles both 'dist' loading (tests) and 'root' loading (development)
+   * @private
+   */
+  async _resolveHighlighterPath() {
+    if (this._highlighterPath) {
+      return this._highlighterPath;
+    }
+
+    // Candidates: root first (dist config), then dist/ (dev config)
+    const candidates = ['highlighter-v2.bundle.js', 'dist/highlighter-v2.bundle.js'];
+
+    for (const path of candidates) {
+      try {
+        const response = await fetch(chrome.runtime.getURL(path), { method: 'HEAD' });
+        if (response.ok) {
+          this._highlighterPath = path;
+          return path;
+        }
+      } catch (_err) {
+        // Continue to next candidate
+      }
+    }
+
+    // Fallback to default
+    return 'dist/highlighter-v2.bundle.js';
+  }
+
+  /**
    * 注入文件並執行函數
    * @param {number} tabId - 目標標籤頁 ID
    * @param {string[]} files - 要注入的文件列表
@@ -238,28 +267,41 @@ class InjectionService {
    * @param {number} tabId
    * @returns {Promise<{initialized: boolean, highlightCount: number}>}
    */
-  injectHighlighter(tabId) {
+  async injectHighlighter(tabId) {
+    const bundlePath = await this._resolveHighlighterPath();
     return this.injectAndExecute(
       tabId,
-      ['dist/highlighter-v2.bundle.js'],
+      [bundlePath],
       () => {
         // highlighter-v2.bundle.js 會自動初始化（setupHighlighter）
         // 我們只需要確保工具欄顯示即可
         // 使用 setTimeout 確保自動初始化完成
         return new Promise(resolve => {
-          setTimeout(() => {
+          const startTime = Date.now();
+          const timeout = 2000; // Max wait 2 seconds (increased robustness)
+          const interval = 100; // Check every 100ms for responsiveness
+
+          const checkInitialization = () => {
             if (window.notionHighlighter) {
               window.notionHighlighter.show();
               const count = window.HighlighterV2?.manager?.getCount() || 0;
-              // skipcq: JS-0002 - 此代碼在頁面上下文執行，無法訪問 this.logger
+              // skipcq: JS-0002 - Running in page context
               console.log(`✅ 標註工具已準備，共 ${count} 個標註`);
               resolve({ initialized: true, highlightCount: count });
-            } else {
-              // skipcq: JS-0002 - 此代碼在頁面上下文執行，無法訪問 this.logger
-              console.warn('⚠️ notionHighlighter 未初始化');
-              resolve({ initialized: false, highlightCount: 0 });
+              return;
             }
-          }, 500); // 等待 500ms 確保初始化完成
+
+            if (Date.now() - startTime > timeout) {
+              // skipcq: JS-0002 - Running in page context
+              console.warn('⚠️ notionHighlighter 初始化超時');
+              resolve({ initialized: false, highlightCount: 0 });
+              return;
+            }
+
+            setTimeout(checkInitialization, interval);
+          };
+
+          checkInitialization();
         });
       },
       {
@@ -394,6 +436,7 @@ export {
   isRecoverableInjectionError,
 };
 
+// TEST_EXPOSURE_START
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     InjectionService,
@@ -401,7 +444,10 @@ if (typeof module !== 'undefined' && module.exports) {
     getRuntimeErrorMessage,
     isRecoverableInjectionError,
   };
-} else if (typeof window !== 'undefined') {
+}
+// TEST_EXPOSURE_END
+
+if (typeof window !== 'undefined') {
   window.InjectionService = InjectionService;
   window.isRestrictedInjectionUrl = isRestrictedInjectionUrl;
   window.getRuntimeErrorMessage = getRuntimeErrorMessage;

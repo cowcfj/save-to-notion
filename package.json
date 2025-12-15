@@ -12,8 +12,8 @@
     "test:watch": "jest --config jest.config.js --watch",
     "test:coverage": "jest --config jest.config.js --coverage",
     "test:ci": "jest --config jest.config.js --ci --coverage --maxWorkers=2",
-    "test:e2e": "node tests/e2e/run-with-coverage.js",
-    "test:e2e:only": "node tests/e2e/coverage-collector.js",
+    "test:e2e": "npm run build:prod && playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test:merge-coverage": "node tests/e2e/coverage-merger.js",
     "test:all": "npm run test:coverage && npm run test:e2e",
     "lint": "eslint .",
@@ -31,7 +31,6 @@
     "build:all": "npm run build",
     "build:all:prod": "NODE_ENV=production npm run build:prod",
     "dev": "npm run build:watch",
-    "prebuild:prod": "npm run test:ci",
     "prepare": "husky"
   },
   "keywords": [
@@ -51,6 +50,7 @@
   "devDependencies": {
     "@babel/core": "^7.28.5",
     "@babel/preset-env": "^7.28.5",
+    "@playwright/test": "^1.57.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
     "babel-jest": "^30.2.0",
@@ -65,7 +65,8 @@
     "lint-staged": "^16.2.7",
     "prettier": "^3.7.4",
     "puppeteer": "^24.31.0",
-    "rollup": "^4.53.3"
+    "rollup": "^4.53.3",
+    "v8-to-istanbul": "^9.3.0"
   },
   "dependencies": {
     "@notionhq/client": "^5.4.0"

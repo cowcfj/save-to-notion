@@ -194,7 +194,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Page ID is required/i),
+        error: expect.stringMatching(/Page ID is missing/i),
       })
     );
   });
@@ -658,8 +658,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error:
-          'Update Failed. Some images may have invalid URLs. Try updating again - problematic images will be filtered out.',
+        error: '批次添加失敗: 400 - image url invalid',
       })
     );
 

@@ -7,7 +7,7 @@
 require('../mocks/chrome.js');
 
 // 導入原始源碼
-const { splitTextForHighlight } = require('../../scripts/background.js');
+const { splitTextForHighlight } = require('../../scripts/background/utils/BlockBuilder.js');
 
 describe('splitTextForHighlight', () => {
   // ==========================================

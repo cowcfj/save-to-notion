@@ -64,6 +64,10 @@ jobs:
             npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit
           fi
 
+      # 注意：E2E 測試已從 CI 移除
+      # 原因：Chrome headless 模式不支持 Extension Service Worker（Chromium Issue #41309918）
+      # E2E 測試可在本地使用 npm run test:e2e 運行（需要 headed 模式）
+
       - name: Verify Production Build
         run: |
           echo "Building production bundle..."

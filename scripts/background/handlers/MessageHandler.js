@@ -147,8 +147,12 @@ class MessageHandler {
 // 導出
 export { MessageHandler };
 
+// TEST_EXPOSURE_START
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { MessageHandler };
-} else if (typeof window !== 'undefined') {
+}
+// TEST_EXPOSURE_END
+
+if (typeof window !== 'undefined') {
   window.MessageHandler = MessageHandler;
 }

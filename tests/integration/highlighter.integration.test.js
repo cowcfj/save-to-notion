@@ -5,7 +5,8 @@
  * @jest-environment jsdom
  */
 
-import setupHighlighter, {
+import {
+  setupHighlighter,
   initHighlighter,
   HighlightManager,
   serializeRange,

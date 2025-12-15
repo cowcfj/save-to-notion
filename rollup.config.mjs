@@ -15,27 +15,27 @@ export default {
   plugins: [
     resolve(),
     !isDev &&
-      terser({
-        compress: {
-          drop_console: false, // 保留 console.log（除錯需要）
-          drop_debugger: true, // 移除 debugger
-          pure_funcs: [
-            // 移除特定 debug 函式
-            'console.debug',
-          ],
-        },
-        mangle: {
-          reserved: [
-            // 保留這些全局名稱
-            'HighlighterV2', // 主要導出
-            'Logger', // window.Logger
-            'StorageUtil', // window.StorageUtil
-          ],
-        },
-        format: {
-          comments: false, // 移除所有註釋
-        },
-      }),
+    terser({
+      compress: {
+        drop_console: false, // 保留 console.log（除錯需要）
+        drop_debugger: true, // 移除 debugger
+        pure_funcs: [
+          // 移除特定 debug 函式
+          'console.debug',
+        ],
+      },
+      mangle: {
+        reserved: [
+          // 保留這些全局名稱
+          'HighlighterV2', // 主要導出（與 output.name 及 window.HighlighterV2 一致）
+          'Logger', // window.Logger
+          'StorageUtil', // window.StorageUtil
+        ],
+      },
+      format: {
+        comments: false, // 移除所有註釋
+      },
+    }),
   ].filter(Boolean), // 過濾掉 false 值（開發環境時 terser 為 false）
   onwarn(warning, warn) {
     // 忽略某些常見警告

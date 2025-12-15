@@ -2,7 +2,7 @@
  * buildHighlightBlocks 單元測試
  */
 
-const { buildHighlightBlocks } = require('../../../scripts/background');
+const { buildHighlightBlocks } = require('../../../scripts/background/utils/BlockBuilder.js');
 
 describe('buildHighlightBlocks', () => {
   it('should return empty array for null input', () => {
@@ -55,7 +55,7 @@ describe('buildHighlightBlocks', () => {
     const highlights = [{ text: 'No color highlight' }];
     const result = buildHighlightBlocks(highlights);
 
-    expect(result[1].paragraph.rich_text[0].annotations.color).toBe('default');
+    expect(result[1].paragraph.rich_text[0].annotations).toBeUndefined();
   });
 
   it('should create valid Notion block structure', () => {

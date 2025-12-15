@@ -5,7 +5,7 @@
 require('../mocks/chrome.js');
 
 // 導入實際的源碼函數
-const { normalizeUrl } = require('../../scripts/background.js');
+const { normalizeUrl } = require('../../scripts/utils/urlUtils.js');
 
 describe('normalizeUrl', () => {
   describe('基本功能', () => {

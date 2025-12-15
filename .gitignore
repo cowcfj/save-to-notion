@@ -3,8 +3,9 @@
 .history/
 
 # 測試相關文件
-
-
+test_output.txt
+playwright-report/
+test-results/
 .nyc_output/
 *.lcov===========================================================
 # 🔒 GitHub 同步安全策略

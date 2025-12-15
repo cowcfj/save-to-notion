@@ -108,7 +108,7 @@ export {
 /**
  * 默認導出：自動初始化並設置到 window
  */
-export default function setupHighlighter() {
+export function setupHighlighter() {
   if (typeof window === 'undefined') {
     throw new Error('Highlighter V2 requires a browser environment');
   }

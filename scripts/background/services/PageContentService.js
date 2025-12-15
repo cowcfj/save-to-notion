@@ -175,12 +175,14 @@ class PageContentService {
 // 導出
 export { PageContentService, CONTENT_EXTRACTION_SCRIPTS };
 
+// TEST_EXPOSURE_START
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     PageContentService,
     CONTENT_EXTRACTION_SCRIPTS,
   };
 }
+// TEST_EXPOSURE_END
 
 if (typeof window !== 'undefined') {
   window.PageContentService = PageContentService;
