@@ -16,11 +16,23 @@ export const test = base.extend({
       );
     }
 
+    // CI 環境專用參數
+    const ciArgs = process.env.CI
+      ? [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+        ]
+      : [];
+
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium', // 使用 Chromium channel 啟用完整 Extension 支持
       headless: false, // Chrome Extension 測試必須使用 headed 模式
+      timeout: 60000, // 增加啟動超時時間
       args: [
-        '--no-sandbox',
+        ...ciArgs,
         `--disable-extensions-except=${pathToExtension}`,
         `--load-extension=${pathToExtension}`,
       ],

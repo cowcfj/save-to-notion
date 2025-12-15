@@ -6,6 +6,11 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
     testDir: './tests/e2e',
     testIgnore: ['**/oauth-end-to-end.test.js'],
+    /* 增加 CI 環境的超時時間 */
+    timeout: process.env.CI ? 60000 : 30000,
+    expect: {
+        timeout: process.env.CI ? 10000 : 5000,
+    },
     /* Run tests in files in parallel */
     fullyParallel: true,
     /* Fail the build on CI if you accidentally left test.only in the source code. */
