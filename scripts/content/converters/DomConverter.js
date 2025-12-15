@@ -102,8 +102,13 @@ class DomConverter {
       const result = this.processNode(child);
       if (result) {
         if (Array.isArray(result)) {
-          blocks.push(...result);
-        } else {
+          // 只 push 有效的 blocks（必須有 type）
+          result.forEach(item => {
+            if (item && typeof item === 'object' && item.type) {
+              blocks.push(item);
+            }
+          });
+        } else if (typeof result === 'object' && result.type) {
           blocks.push(result);
         }
       }
@@ -307,7 +312,7 @@ class DomConverter {
     };
 
     if (childrenBlocks.length > 0) {
-      block.children = childrenBlocks;
+      block[type].children = childrenBlocks;
     }
 
     return block;
@@ -562,6 +567,11 @@ class DomConverter {
     }
 
     return blocks.flatMap(block => {
+      // 基本驗證：必須有有效的 type
+      if (!block || typeof block !== 'object' || !block.type) {
+        return [];
+      }
+
       const type = block.type;
 
       // Safety Check: block[type] must exist
@@ -609,11 +619,15 @@ class DomConverter {
       }
 
       // 2. 處理 Children (深度限制 & Flattening)
-      if (block.children && block.children.length > 0) {
+      // Notion API 要求 children 在 block[type].children 內，不是 block.children
+      const blockTypeData = block[type];
+      const hasChildren = blockTypeData?.children && blockTypeData.children.length > 0;
+
+      if (hasChildren) {
         const MAX_DEPTH = 1;
         const isSupportedType = BLOCKS_SUPPORTING_CHILDREN.includes(type);
 
-        const hasUnsafeChild = block.children.some(child =>
+        const hasUnsafeChild = blockTypeData.children.some(child =>
           UNSAFE_LIST_CHILDREN_FOR_FLATTENING.includes(child.type)
         );
         const shouldFlatten =
@@ -623,17 +637,17 @@ class DomConverter {
 
         if (!shouldFlatten) {
           // 遞歸清洗子節點 (Keep Nesting)
-          block.children = DomConverter.cleanBlocks(block.children, depth + 1);
-          if (block.children.length === 0) {
-            delete block.children;
+          blockTypeData.children = DomConverter.cleanBlocks(blockTypeData.children, depth + 1);
+          if (blockTypeData.children.length === 0) {
+            delete blockTypeData.children;
           }
           return [block];
         }
 
         // Flatten: 返回 [Parent, ...Children]
         // 先移除父節點的 children 屬性
-        const children = block.children;
-        delete block.children;
+        const children = blockTypeData.children;
+        delete blockTypeData.children;
 
         // 遞歸清洗子節點（它們現在變成頂層/兄弟了，保持相對深度）
         const cleanChildren = DomConverter.cleanBlocks(children, depth);

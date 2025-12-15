@@ -141,6 +141,12 @@ class NotionService {
     }
 
     const validBlocks = blocks.filter(block => {
+      // 基本驗證：必須有有效的 type 且對應的類型屬性存在
+      if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
+        this.logger.warn?.('⚠️ Skipped invalid block (missing type or type property)');
+        return false;
+      }
+
       if (block.type !== 'image') {
         return true;
       }
