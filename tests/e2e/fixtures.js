@@ -126,14 +126,51 @@ export const test = base.extend({
      * 由於 Manifest V3 的 Background Service Worker 沒有總是開啟的頁面，
      * 我們可能需要由其他方式獲取，或者打開一個擴充功能頁面。
      *
-     * 一個簡單的方法是打開 chrome://extensions 頁面並解析，或者預設它是載入的第一個擴充功能。
-     * 但更可靠的是在測試開始時打開 popup 或 options 頁面時獲取。
-     * 這裡我們先留空，視具體測試需求獲取。
+     * Issue #37347: Manifest V3 的 Service Worker 是懶載入的，
+     * 需要先導航到一個頁面觸發 Extension 載入。
      */
 
+    // 先嘗試獲取已存在的 Service Worker
     let [background] = context.serviceWorkers();
+
     if (!background) {
-      background = await context.waitForEvent('serviceworker');
+      // Manifest V3 的 Service Worker 是懶載入的
+      // 需要先打開頁面觸發 Extension 載入
+      // 參考: https://github.com/microsoft/playwright/issues/37347
+      const serviceWorkerPromise = context.waitForEvent('serviceworker', {
+        timeout: 30000,
+      });
+
+      // 打開一個頁面觸發 Extension 載入
+      const tempPage = await context.newPage();
+      await tempPage.goto('https://example.com', {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+      });
+
+      try {
+        background = await serviceWorkerPromise;
+      } catch {
+        // 列出當前所有頁面和 Service Worker 幫助調試
+        const pages = context.pages();
+        const workers = context.serviceWorkers();
+        console.error(
+          `[E2E Debug] 等待 Service Worker 超時。當前頁面數: ${pages.length}, Service Workers: ${workers.length}`
+        );
+        pages.forEach((page, idx) => {
+          console.error(`[E2E Debug] 頁面 ${idx}: ${page.url()}`);
+        });
+
+        // 再次嘗試獲取 Service Worker
+        [background] = workers;
+        if (!background) {
+          await tempPage.close();
+          throw new Error('Extension Service Worker 未能啟動。請確認 Extension 構建正確。');
+        }
+      }
+
+      // 關閉臨時頁面
+      await tempPage.close();
     }
 
     const extensionId = background.url().split('/')[2];
