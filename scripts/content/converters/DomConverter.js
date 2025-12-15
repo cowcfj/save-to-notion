@@ -627,8 +627,8 @@ class DomConverter {
         const MAX_DEPTH = 1;
         const isSupportedType = BLOCKS_SUPPORTING_CHILDREN.includes(type);
 
-        const hasUnsafeChild = blockTypeData.children.some(child =>
-          UNSAFE_LIST_CHILDREN_FOR_FLATTENING.includes(child.type)
+        const hasUnsafeChild = blockTypeData.children.some(
+          child => child && UNSAFE_LIST_CHILDREN_FOR_FLATTENING.includes(child.type)
         );
         const shouldFlatten =
           !isSupportedType ||
