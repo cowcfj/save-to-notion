@@ -245,6 +245,34 @@ describe('Logger', () => {
     test('應該註冊 storage 變更監聽器', () => {
       expect(global.chrome.storage.onChanged.addListener).toHaveBeenCalled();
     });
+
+    test('onChanged 回調應該更新 debugEnabled 狀態', () => {
+      // 捕獲傳遞給 addListener 的回調函數
+      const onChangedCallback = global.chrome.storage.onChanged.addListener.mock.calls[0][0];
+
+      // 確認初始狀態為 true（來自 beforeEach 中的 mock）
+      expect(Logger.debugEnabled).toBe(true);
+
+      // 模擬 storage 變更事件：關閉 debug 模式
+      onChangedCallback({ enableDebugLogs: { newValue: false } }, 'sync');
+      expect(Logger.debugEnabled).toBe(false);
+
+      // 模擬 storage 變更事件：開啟 debug 模式
+      onChangedCallback({ enableDebugLogs: { newValue: true } }, 'sync');
+      expect(Logger.debugEnabled).toBe(true);
+    });
+
+    test('onChanged 回調應該忽略非 sync 區域的變更', () => {
+      const onChangedCallback = global.chrome.storage.onChanged.addListener.mock.calls[0][0];
+
+      // 使用 sync 變更設置初始狀態為 true
+      onChangedCallback({ enableDebugLogs: { newValue: true } }, 'sync');
+      expect(Logger.debugEnabled).toBe(true);
+
+      // 模擬 local storage 變更（不應影響 debugEnabled）
+      onChangedCallback({ enableDebugLogs: { newValue: false } }, 'local');
+      expect(Logger.debugEnabled).toBe(true);
+    });
   });
 
   describe('防止重複初始化', () => {
