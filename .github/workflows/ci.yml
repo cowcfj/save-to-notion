@@ -64,18 +64,9 @@ jobs:
             npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit
           fi
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
-
-      - name: Run E2E Tests
-        run: |
-          # 使用 --headless=new 模式運行 Extension 測試（不需要 xvfb）
-          export CI=true
-          npm run test:e2e
-          
-      - name: Merge Coverage Reports
-        if: github.event_name == 'pull_request'
-        run: npm run test:merge-coverage
+      # 注意：E2E 測試已從 CI 移除
+      # 原因：Chrome headless 模式不支持 Extension Service Worker（Chromium Issue #41309918）
+      # E2E 測試可在本地使用 npm run test:e2e 運行（需要 headed 模式）
 
       - name: Verify Production Build
         run: |
@@ -101,18 +92,10 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: codecov/codecov-action@v5
         with:
-          files: coverage/merged/lcov.info
+          files: coverage/lcov.info
           flags: unittests
           fail_ci_if_error: false
           use_oidc: true
-
-      - name: Upload Playwright Report
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
 
       - name: Upload Test Artifacts (Action Report)
         if: always()
