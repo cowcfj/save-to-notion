@@ -66,3 +66,8 @@ enabled = true
   [[analyzers.issue_filter]]
   issue_code = "JS-0417"
   paths = ["tests/**/*.js"]
+
+  # Ignore init-declarations in tests - Jest requires declaring variables outside describe() and initializing in beforeEach()
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0064"
+  paths = ["tests/**/*.js"]
