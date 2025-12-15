@@ -56,11 +56,11 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
           JEST_MAX_WORKERS: 2
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "PR Event: Running tests WITH coverage..."
+          if [ "${{ github.event_name }}" == "pull_request" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "PR or Main Branch: Running tests WITH coverage..."
             npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit
           else
-            echo "Push Event: Running tests WITHOUT coverage (Fast Mode)..."
+            echo "Other Event: Running tests WITHOUT coverage (Fast Mode)..."
             npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit
           fi
 
@@ -89,7 +89,7 @@ jobs:
           fi
 
       - name: Upload coverage to Codecov
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         uses: codecov/codecov-action@v5
         with:
           files: coverage/lcov.info
