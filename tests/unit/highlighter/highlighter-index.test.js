@@ -80,8 +80,6 @@ jest.mock('../../../scripts/highlighter/ui/Toolbar.js', () => ({
 describe('Highlighter Index', () => {
   let initHighlighter;
   let initHighlighterWithToolbar;
-  // setupHighlighter 在模組載入時自動執行，保留為 _setupHighlighter 避免 lint 警告
-  let _setupHighlighter;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -104,7 +102,6 @@ describe('Highlighter Index', () => {
     const module = require('../../../scripts/highlighter/index.js');
     initHighlighter = module.initHighlighter;
     initHighlighterWithToolbar = module.initHighlighterWithToolbar;
-    _setupHighlighter = module.setupHighlighter;
   });
 
   afterEach(() => {
