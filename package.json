@@ -15,7 +15,7 @@
     "test:e2e": "npm run build:prod && playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:merge-coverage": "node tests/e2e/coverage-merger.js",
-    "test:all": "npm run test:coverage && npm run test:e2e",
+    "test:all": "npm run test:coverage && npm run test:e2e && npm run test:merge-coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md}\"",

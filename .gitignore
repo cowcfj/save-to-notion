@@ -16,7 +16,11 @@ test-results/
 # 內部文檔目錄（所有內部開發文檔）
 internal/
 archive/*
-coverage/
+# 覆蓋率報告 - 允許提交合併後的 lcov.info
+coverage/*
+!coverage/merged/
+coverage/merged/*
+!coverage/merged/lcov.info
 
 # 測試和開發文件
 tests/manual/
