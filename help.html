@@ -1,196 +1,414 @@
 <!doctype html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Notion Smart Clipper 快速指南</title>
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        max-width: 800px;
-        margin: 0 auto;
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notion Smart Clipper 快速指南</title>
+  <style>
+    :root {
+      --primary-color: #2e3440;
+      --accent-color: #00b0ff;
+      --accent-gradient: linear-gradient(135deg, #00b0ff 0%, #0081cb 100%);
+      --bg-color: #f8f9fc;
+      --card-bg: #ffffff;
+      --text-primary: #1f2937;
+      --text-secondary: #4b5563;
+      --success-color: #10b981;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --radius-lg: 16px;
+      --radius-md: 8px;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      padding: 40px 20px;
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      background: var(--accent-gradient);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.025em;
+    }
+
+    .version-badge {
+      display: inline-block;
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+
+    /* Sections & Cards */
+    .section-card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: 30px;
+      margin-bottom: 24px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      border: 1px solid rgba(0, 0, 0, 0.02);
+    }
+
+    .section-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    h3 {
+      color: var(--text-primary);
+      font-size: 1.5rem;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Quick Start Steps */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      counter-reset: step;
+    }
+
+    .step-item {
+      position: relative;
+      padding: 20px;
+      background: #fdfdfd;
+      border-radius: var(--radius-md);
+      border: 1px solid #f3f4f6;
+      transition: border-color 0.2s;
+    }
+
+    .step-item:hover {
+      border-color: var(--accent-color);
+    }
+
+    .step-item::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      width: 30px;
+      height: 30px;
+      background: var(--accent-gradient);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Features Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      border-radius: var(--radius-md);
+    }
+
+    .feature-icon {
+      background: #ecfdf5;
+      color: #059669;
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 1.25rem;
+    }
+
+    /* FAQ Accordion Style */
+    .faq-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .faq-item:last-child {
+      border-bottom: none;
+    }
+
+    .faq-question {
+      padding: 16px 0;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-primary);
+    }
+
+    .faq-question:hover {
+      color: var(--accent-color);
+    }
+
+    .faq-answer {
+      padding-bottom: 16px;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    /* Buttons & Links */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 20px;
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--accent-gradient);
+      color: white;
+      box-shadow: 0 4px 6px -1px rgba(0, 176, 255, 0.4);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 8px -1px rgba(0, 176, 255, 0.5);
+    }
+
+    .btn-outline {
+      background: white;
+      border: 2px solid #e5e7eb;
+      color: var(--text-secondary);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent-color);
+      color: var(--accent-color);
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+      color: #9ca3af;
+      font-size: 0.875rem;
+    }
+
+    .code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #e11d48;
+      font-family: 'Monaco', monospace;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 640px) {
+      h1 {
+        font-size: 2rem;
+      }
+
+      .container {
         padding: 20px;
-        line-height: 1.6;
-        color: #333;
       }
 
-      .feature {
-        background: #f8f9fa;
-        border-left: 4px solid #28a745;
+      .section-card {
         padding: 20px;
-        margin: 20px 0;
-        border-radius: 0 8px 8px 0;
       }
+    }
+  </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Version Setting
+      const version = chrome.runtime.getManifest().version;
+      const versionStr = 'v' + version;
+      document.title = 'Notion Smart Clipper ' + versionStr;
+      document.querySelector('.version-display').textContent = versionStr;
 
-      .feature h3 {
-        margin-top: 0;
-        color: #28a745;
-      }
-
-      .code {
-        background: #f5f5f5;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-family: 'Monaco', 'Courier New', monospace;
-        font-size: 0.9em;
-      }
-
-      .success {
-        background: #d4edda;
-        border: 1px solid #c3e6cb;
-        border-radius: 6px;
-        padding: 15px;
-        margin: 15px 0;
-      }
-
-      .info-box {
-        background: #f0f8ff;
-        border: 2px solid #0066cc;
-        border-radius: 8px;
-        padding: 20px;
-        margin: 20px 0;
-        text-align: center;
-      }
-
-      .info-box a {
-        color: #0066cc;
-        font-weight: bold;
-        text-decoration: none;
-        font-size: 1.1em;
-      }
-
-      .info-box a:hover {
-        text-decoration: underline;
-      }
-    </style>
-    <script>
-      // 動態載入版本號
-      document.addEventListener('DOMContentLoaded', function () {
-        const version = chrome.runtime.getManifest().version;
-        const versionStr = 'v' + version;
-        document.title = 'Notion Smart Clipper ' + versionStr + ' 快速指南';
-        document.querySelector('h1').textContent =
-          '📚 Notion Smart Clipper ' + versionStr + ' 快速指南';
-        document.querySelector('.version-display').textContent = versionStr;
+      // Simple interaction for FAQ (optional visual toggle support)
+      const faqItems = document.querySelectorAll('.faq-item');
+      faqItems.forEach(item => {
+        item.addEventListener('click', () => {
+          // Add expand/collapse logic if needed, currently just plain clear layout
+        });
       });
-    </script>
-  </head>
+    });
+  </script>
+</head>
 
-  <body>
-    <h1>📚 Notion Smart Clipper 快速指南</h1>
+<body>
+  <div class="container">
+    <header>
+      <h1>Notion Smart Clipper</h1>
+      <div class="version-badge"><span class="version-display"></span> 快速指南</div>
+    </header>
 
-    <div class="info-box">
-      <p>📖 <strong>完整使用指南和 FAQ</strong></p>
-      <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank">
-        → 查看完整用戶指南 (USER_GUIDE.md)
-      </a>
-      <p style="font-size: 0.9em; color: #666; margin-top: 10px">
-        包含詳細操作步驟、30+ 常見問題、故障排除和最佳實踐
-      </p>
+    <!-- Quick Start -->
+    <div class="section-card">
+      <h3>🚀 快速開始</h3>
+      <div class="steps-grid">
+        <div class="step-item">
+          <strong>連接擴展</strong>
+          <p style="margin: 8px 0 0; font-size: 0.9rem; color: #666;">點擊擴展圖標 → Settings → 點擊「連接到 Notion」</p>
+        </div>
+        <div class="step-item">
+          <strong>授權訪問</strong>
+          <p style="margin: 8px 0 0; font-size: 0.9rem; color: #666;">在 Notion 創建 Integration，複製 Secret Key 並保存</p>
+        </div>
+        <div class="step-item">
+          <strong>開始使用</strong>
+          <p style="margin: 8px 0 0; font-size: 0.9rem; color: #666;">選擇目標數據庫，點擊保存按鈕即可剪藏！</p>
+        </div>
+      </div>
     </div>
 
-    <div
-      style="
-        background: #fff3cd;
-        border: 1px solid #ffeaa7;
-        border-radius: 6px;
-        padding: 15px;
-        margin: 15px 0;
-      "
-    >
-      <h4 style="margin-top: 0; color: #856404">🎉 最新更新 v2.9.2+</h4>
-      <ul style="margin-bottom: 0">
-        <li>🧪 <strong>測試覆蓋率提升：</strong>新增多個測試文件，顯著提升代碼質量和穩定性</li>
-        <li>
-          🐛 <strong>Bug 修復：</strong>修復 AttributeExtractor 中的 isLazyLoadAttribute 誤判問題
-        </li>
-        <li>🔧 <strong>性能優化：</strong>持續改進性能優化系統和錯誤處理</li>
-      </ul>
-    </div>
-
-    <div class="success">
-      <h3>🎯 快速開始 (3 步驟)</h3>
-      <ol>
-        <li>點擊擴展圖標 → Settings → 「連接到 Notion」</li>
-        <li>在 Notion 創建 Integration，複製 API Key 並貼上</li>
-        <li>選擇數據庫 → 開始保存網頁！</li>
-      </ol>
-    </div>
-
-    <div class="feature">
+    <!-- Features -->
+    <div class="section-card">
       <h3>⚡ 核心功能</h3>
-      <ul>
-        <li><strong>一鍵保存：</strong>智能提取文章內容、圖片、圖標</li>
-        <li><strong>多顏色標註：</strong>使用 5 種顏色標記重點內容</li>
-        <li><strong>自定義模板：</strong>使用變數 ({title}, {date}, {domain}) 自定義標題格式</li>
-        <li><strong>圖標徽章：</strong>擴展圖標顯示綠色 ✓ 表示頁面已保存</li>
-        <li><strong>Open in Notion：</strong>保存後一鍵打開對應頁面</li>
-        <li><strong>超長文章：</strong>自動分批處理，支持任意長度文章</li>
-      </ul>
+      <div class="features-grid">
+        <div class="feature-item">
+          <div class="feature-icon">📝</div>
+          <div>
+            <strong>一鍵保存</strong>
+            <div style="font-size: 0.875rem; color: #666;">智能提取文章內容、圖片與 icon</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🎨</div>
+          <div>
+            <strong>多色標註</strong>
+            <div style="font-size: 0.875rem; color: #666;">支持 5 種顏色高亮重點內容</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">⚙️</div>
+          <div>
+            <strong>自定義模板</strong>
+            <div style="font-size: 0.875rem; color: #666;">支持 {title}, {date} 等變數</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">✅</div>
+          <div>
+            <strong>狀態同步</strong>
+            <div style="font-size: 0.875rem; color: #666;">圖標徽章即時顯示保存狀態</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="feature">
-      <h3>💡 常見問題快速解答</h3>
-      <ol>
-        <li>
-          <strong>API Key 無法連接?</strong> → 確認 Token 格式正確 (以
-          <span class="code">secret_</span> 開頭)
+    <!-- Help & FAQ -->
+    <div class="section-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0;">💡 常見問題</h3>
+        <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank"
+          class="btn btn-outline" style="padding: 6px 12px; font-size: 0.875rem;">
+          查看完整指南
+        </a>
+      </div>
+
+      <ul class="faq-list">
+        <li class="faq-item">
+          <div class="faq-question">API Key 無法連接？</div>
+          <div class="faq-answer">請確認 Token 格式正確（以 <span class="code">secret_</span> 開頭），並確保網路連接正常。</div>
         </li>
-        <li><strong>數據庫列表為空?</strong> → 在 Notion 中添加 Integration Connection</li>
-        <li><strong>保存失敗?</strong> → 檢查 API Key 和數據庫權限</li>
-        <li><strong>標註沒有顯示?</strong> → 需要 Chrome 105+，嘗試刷新頁面</li>
-        <li><strong>存儲空間不足?</strong> → 設置頁面使用「數據管理」清理</li>
-      </ol>
-      <p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd">
-        <strong>📖 更多問題？</strong>
-        <a
-          href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq"
-          target="_blank"
-          style="color: #28a745"
-        >
-          查看完整 FAQ (30+ 問題) →
+        <li class="faq-item">
+          <div class="faq-question">數據庫列表為空？</div>
+          <div class="faq-answer">請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。</div>
+        </li>
+        <li class="faq-item">
+          <div class="faq-question">標註沒有顯示？</div>
+          <div class="faq-answer">請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。</div>
+        </li>
+      </ul>
+
+      <div style="margin-top: 24px; text-align: center;">
+        <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq" target="_blank"
+          class="btn btn-primary" style="width: 100%;">
+          📖 閱讀完整用戶指南與 FAQ
         </a>
-      </p>
+      </div>
     </div>
 
-    <div class="info-box" style="margin-top: 40px">
-      <p>🔧 <strong>需要詳細幫助？</strong></p>
-      <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank">
-        → 完整用戶指南 (USER_GUIDE.md)
-      </a>
-      <p style="font-size: 0.9em; color: #666; margin-top: 10px">
-        包含：詳細操作步驟 | 30+ FAQ | 故障排除 | 最佳實踐
-      </p>
-    </div>
-
-    <div
-      style="
-        text-align: center;
-        margin-top: 40px;
-        padding: 20px;
-        border-top: 1px solid #e0e0e0;
-        color: #666;
-      "
-    >
+    <footer>
       <p>
-        <strong>🌟 版本 <span class="version-display"></span></strong> | 最後更新：2025年10月31日
+        Notion Smart Clipper <span class="version-display"></span> <br>
+        Made with ❤️ for productivity
       </p>
-      <p style="font-size: 12px; color: #999; margin-top: 15px">
-        💝 感謝您使用 Notion Smart Clipper！
-      </p>
-      <p style="font-size: 12px; margin-top: 10px">
-        <a href="https://github.com/cowcfj/save-to-notion" target="_blank" style="color: #0066cc">
-          ⭐ GitHub 項目主頁
+      <div style="margin-top: 20px;">
+        <a href="https://github.com/cowcfj/save-to-notion" target="_blank"
+          style="color: inherit; text-decoration: none; margin: 0 10px; font-weight: 500;">
+          GitHub 主頁
         </a>
-        |
-        <a
-          href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md"
-          target="_blank"
-          style="color: #0066cc"
-        >
-          📖 完整用戶指南
+        •
+        <a href="https://github.com/cowcfj/save-to-notion/issues" target="_blank"
+          style="color: inherit; text-decoration: none; margin: 0 10px; font-weight: 500;">
+          回報問題
         </a>
-      </p>
-    </div>
-  </body>
+      </div>
+    </footer>
+  </div>
+</body>
+
 </html>
