@@ -1,3 +1,5 @@
+/* global chrome */
+
 // 測試 Open in Notion 按鈕功能的腳本
 // 在瀏覽器控制台中運行此腳本來測試功能
 

@@ -425,9 +425,9 @@ if (isReinjection) {
               localStorage.setItem(pageKey, JSON.stringify(highlightData));
               getLogger().info('Saved highlights to localStorage');
               resolve();
-            } catch (error) {
-              getLogger().error('Failed to save highlights:', error);
-              reject(error);
+            } catch (localStorageError) {
+              getLogger().error('Failed to save highlights:', localStorageError);
+              reject(localStorageError);
             }
           }
         });
