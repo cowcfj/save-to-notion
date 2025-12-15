@@ -200,7 +200,7 @@ describe('Content Script Entry Point', () => {
 
     test('應該處理未知錯誤（無 message）', async () => {
       ContentExtractor.extract.mockImplementation(() => {
-        throw 'Unknown error';
+        throw new Error('Unknown error');
       });
 
       const result = await extractPageContent();
@@ -238,7 +238,7 @@ describe('Content Script Entry Point', () => {
   });
 
   describe('全局導出', () => {
-    test('應該將 extractPageContent 設置到 window', async () => {
+    test('應該將 extractPageContent 設置到 window', () => {
       expect(window.extractPageContent).toBeDefined();
       expect(typeof window.extractPageContent).toBe('function');
     });
