@@ -160,6 +160,7 @@ CHANGELOG_v*.md
 # Chrome Store 發布相關（內部流程）
 GITHUB_RELEASE_v*.md
 RELEASE_NOTES_SHORT_*.md
+RELEASE_NOTES_v*.md
 github-release-*.md
 
 # 協作提案（內部討論）
