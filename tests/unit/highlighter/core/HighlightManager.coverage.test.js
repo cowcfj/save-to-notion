@@ -278,10 +278,15 @@ describe('HighlightManager Coverage Tests', () => {
       manager.addHighlight(range);
       expect(manager.highlights.size).toBe(1);
 
+      // 在 clearAll 前保存 highlightObjects 引用（clearAll 會重置它）
+      const yellowHighlight = manager.highlightObjects.yellow;
+
       manager.clearAll();
 
       expect(manager.highlights.size).toBe(0);
-      expect(manager.highlightObjects.yellow.clear).toHaveBeenCalled();
+      expect(yellowHighlight.clear).toHaveBeenCalled();
+      // 驗證 highlightObjects 已被重置
+      expect(manager.highlightObjects).toEqual({});
     });
   });
 

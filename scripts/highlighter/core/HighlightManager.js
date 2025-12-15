@@ -246,6 +246,8 @@ export class HighlightManager {
   clearAll() {
     if (supportsHighlightAPI()) {
       Object.values(this.highlightObjects).forEach(highlight => highlight.clear());
+      // 重置 highlightObjects 防止記憶體洩漏並確保狀態一致
+      this.highlightObjects = {};
     } else {
       document.querySelectorAll('.simple-highlight').forEach(span => {
         const parent = span.parentNode;
