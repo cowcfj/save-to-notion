@@ -18,7 +18,7 @@
          │ 覆蓋率收集            │ Coverage API
          ▼                       ▼
 ┌─────────────────┐     ┌─────────────────┐
-│ coverage/       │     │ .nyc_output/    │
+│ coverage/       │     │ coverage/e2e/  │
 │ coverage-final  │     │ playwright-*.   │
 │ .json           │     │ json            │
 └────────┬────────┘     └────────┬────────┘
@@ -74,7 +74,7 @@ npm run test:all
 這會自動執行：
 
 1.  Jest 單元測試 + 覆蓋率收集 → `coverage/`
-2.  Playwright E2E 測試 + V8 覆蓋率 → `.nyc_output/`
+2.  Playwright E2E 測試 + V8 覆蓋率 → `coverage/e2e/`
 3.  合併兩者 → `coverage/merged/`
 
 ### 方法 2: 單獨執行 E2E 測試
@@ -129,7 +129,7 @@ module.exports = defineConfig({
 2.  在測試結束時，停止收集 (`page.coverage.stopJSCoverage`)。
 3.  過濾 Chrome Extension 的腳本（移除 node_modules 和第三方庫）。
 4.  使用 `v8-to-istanbul` 將 V8 格式轉換為 Istanbul 格式。
-5.  將覆蓋率數據保存到 `.nyc_output/` 目錄下的 JSON 文件中。
+5.  將覆蓋率數據保存到 `coverage/e2e/` 目錄下的 JSON 文件中。
 
 ## 創建 E2E 測試場景
 
@@ -162,7 +162,7 @@ coverage/
 ├── coverage-final.json    # Jest 覆蓋率
 └── ...
 
-.nyc_output/               # Playwright 原始覆蓋率數據 (JSON)
+coverage/e2e/              # Playwright 原始覆蓋率數據 (JSON)
 
 coverage/merged/
 ├── coverage-final.json    # 合併覆蓋率（JSON）
@@ -210,11 +210,28 @@ npx playwright show-report
 
 1.  已執行 `npm run build` 生成 `dist/`。
 2.  測試實際執行了目標代碼路徑。
-3.  `.nyc_output` 目錄中有生成的 JSON 文件。
+3.  `coverage/e2e/` 目錄中有生成的 JSON 文件。
 
 ### 問題 3: 擴充功能未加載
 
 確保 `fixtures.js` 中的 `pathToExtension` 指向正確的 `dist/` 目錄。
+
+## 常見問題
+
+### Q: 為什麼選擇 Playwright 而非 Puppeteer？
+
+**A**:
+
+- **原生 Extension 支持**: Playwright 提供了更加簡潔的 Extension 加載方式。
+- **自動等待**: 減少了大量的 `wait_for` 樣板代碼，測試更穩定。
+- **UI 調試**: `npx playwright test --ui` 提供了極佳的開發體驗。
+
+### Q: 運行速度如何？
+
+**A**:
+
+- Playwright 支持並行測試，執行速度顯著優于串行的 Puppeteer。
+- 完整測試套件（Jest + Playwright）通常在 1 分鐘內完成。
 
 ## 總結
 

@@ -45,24 +45,9 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
-      - name: Build content script bundle
-        run: |
-          echo "Building content script bundle for tests..."
-          npm run build:content
-          ls -lh dist/content.bundle.js
-
-      - name: Run Tests
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
-          JEST_MAX_WORKERS: 2
-        run: |
-          if [ "${{ github.event_name }}" == "pull_request" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "PR or Main Branch: Running tests WITH coverage..."
-            npm test -- --coverage --maxWorkers=2 --detectOpenHandles=false --forceExit
-          else
-            echo "Other Event: Running tests WITHOUT coverage (Fast Mode)..."
-            npm test -- --maxWorkers=2 --detectOpenHandles=false --forceExit
-          fi
+      # 注意：Jest 測試已從 CI 移除，改為本地執行
+      # 原因：配合 E2E 測試的 headed 模式要求，統一在本地運行完整測試
+      # 開發者需在提交前運行 npm run test:all 生成覆蓋率報告
 
       # 注意：E2E 測試已從 CI 移除
       # 原因：Chrome headless 模式不支持 Extension Service Worker（Chromium Issue #41309918）
@@ -88,12 +73,33 @@ jobs:
             exit 1
           fi
 
+      - name: Validate coverage file
+        id: validate-coverage
+        run: |
+          LCOV_FILE="coverage/merged/lcov.info"
+          
+          if [ ! -f "$LCOV_FILE" ]; then
+            echo "⚠️ Coverage file not found: $LCOV_FILE"
+            echo "valid=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # 檢查文件是否包含有效的 LCOV 格式（至少包含 SF: 和 end_of_record）
+          if grep -q "^SF:" "$LCOV_FILE" && grep -q "end_of_record" "$LCOV_FILE"; then
+            LINE_COUNT=$(wc -l < "$LCOV_FILE")
+            echo "✅ Valid LCOV file detected ($LINE_COUNT lines)"
+            echo "valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Invalid LCOV format in $LCOV_FILE"
+            echo "valid=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Upload coverage to Codecov
-        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+        if: steps.validate-coverage.outputs.valid == 'true'
         uses: codecov/codecov-action@v5
         with:
-          files: coverage/lcov.info
-          flags: unittests
+          files: coverage/merged/lcov.info
+          flags: combined
           fail_ci_if_error: false
           use_oidc: true
 

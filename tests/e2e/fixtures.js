@@ -6,13 +6,13 @@ import v8toIstanbul from 'v8-to-istanbul';
 
 export const test = base.extend({
   context: async ({ browserName: _ }, use) => {
-    // 構建後的擴充功能路徑
-    const pathToExtension = path.join(__dirname, '../../dist');
+    // 擴充功能路徑 - 指向項目根目錄（manifest.json 所在位置）
+    const pathToExtension = path.join(__dirname, '../..');
 
-    // 檢查 dist 目錄是否存在
-    if (!fs.existsSync(pathToExtension)) {
+    // 檢查 manifest.json 是否存在
+    if (!fs.existsSync(path.join(pathToExtension, 'manifest.json'))) {
       throw new Error(
-        `Extension build not found at ${pathToExtension}. Please run 'npm run build' first.`
+        `Extension manifest not found at ${pathToExtension}. Please check the extension structure.`
       );
     }
 
@@ -105,8 +105,8 @@ export const test = base.extend({
         // 轉換為 Istanbul 格式
         const istanbulCoverage = converter.toIstanbul();
 
-        // 4. 存儲到 .nyc_output 目錄，供 merge 使用
-        const nycOutput = path.join(__dirname, '../../.nyc_output');
+        // 4. 存儲到 coverage/e2e 目錄，供 merge 使用
+        const nycOutput = path.join(__dirname, '../../coverage/e2e');
         if (!fs.existsSync(nycOutput)) {
           fs.mkdirSync(nycOutput, { recursive: true });
         }
