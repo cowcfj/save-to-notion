@@ -133,7 +133,7 @@ describe('Logger', () => {
         },
         storage: {
           sync: {
-            get: jest.fn((keys, callback) => callback({})),
+            get: jest.fn((_keys, callback) => callback({})),
           },
           onChanged: {
             addListener: jest.fn(),
@@ -197,7 +197,7 @@ describe('Logger', () => {
         },
         storage: {
           sync: {
-            get: jest.fn((keys, callback) => callback({})),
+            get: jest.fn((_keys, callback) => callback({})),
           },
           onChanged: {
             addListener: jest.fn(),
@@ -228,7 +228,7 @@ describe('Logger', () => {
         },
         storage: {
           sync: {
-            get: jest.fn((keys, callback) => {
+            get: jest.fn((_keys, callback) => {
               callback({ enableDebugLogs: true });
             }),
           },
@@ -300,7 +300,7 @@ describe('Logger', () => {
         },
         storage: {
           sync: {
-            get: jest.fn((keys, callback) => callback({})),
+            get: jest.fn((_keys, callback) => callback({})),
           },
           onChanged: {
             addListener: jest.fn(),
@@ -339,7 +339,7 @@ describe('Logger', () => {
         },
         storage: {
           sync: {
-            get: jest.fn((keys, callback) => callback({})),
+            get: jest.fn((_keys, callback) => callback({})),
           },
           onChanged: {
             addListener: jest.fn(),
@@ -376,7 +376,7 @@ describe('Logger', () => {
         },
         storage: {
           sync: {
-            get: jest.fn((keys, callback) => callback({})),
+            get: jest.fn((_keys, callback) => callback({})),
           },
           onChanged: {
             addListener: jest.fn(),

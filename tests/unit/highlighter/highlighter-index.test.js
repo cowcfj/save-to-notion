@@ -28,7 +28,7 @@ const mockChrome = {
     onMessage: {
       addListener: jest.fn(),
     },
-    sendMessage: jest.fn((msg, callback) => {
+    sendMessage: jest.fn((_msg, callback) => {
       if (callback) {
         callback({});
       }
