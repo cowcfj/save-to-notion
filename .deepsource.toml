@@ -61,3 +61,13 @@ enabled = true
     "scripts/content/converters/MarkdownConverter.js",
     "scripts/content/extractors/MetadataExtractor.js"
   ]
+
+  # Ignore callback literal in tests - Chrome APIs don't follow Node.js error-first callback convention
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0417"
+  paths = ["tests/**/*.js"]
+
+  # Ignore init-declarations in tests - Jest requires declaring variables outside describe() and initializing in beforeEach()
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0064"
+  paths = ["tests/**/*.js"]

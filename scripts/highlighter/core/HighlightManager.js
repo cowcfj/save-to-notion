@@ -245,6 +245,7 @@ export class HighlightManager {
    */
   clearAll() {
     if (supportsHighlightAPI()) {
+      // 只調用 .clear() 移除 ranges，保留 Highlight 對象引用和 CSS.highlights 註冊
       Object.values(this.highlightObjects).forEach(highlight => highlight.clear());
     } else {
       document.querySelectorAll('.simple-highlight').forEach(span => {

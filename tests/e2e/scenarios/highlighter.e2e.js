@@ -4,6 +4,8 @@
  * 測試高亮功能在真實瀏覽器環境中的表現
  */
 
+/* global Highlight, CSS */
+
 module.exports = {
   name: 'Highlighter Workflow',
 

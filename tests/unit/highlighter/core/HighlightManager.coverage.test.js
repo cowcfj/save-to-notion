@@ -266,9 +266,9 @@ describe('HighlightManager Coverage Tests', () => {
   });
 
   describe('clearAll', () => {
-    test('should clear all highlights via API', () => {
+    test('should clear all highlights via API and remain functional', () => {
       const div = document.createElement('div');
-      div.textContent = 'Content to clear';
+      div.textContent = 'Content to clear and reuse';
       document.body.appendChild(div);
 
       const range = document.createRange();
@@ -278,10 +278,27 @@ describe('HighlightManager Coverage Tests', () => {
       manager.addHighlight(range);
       expect(manager.highlights.size).toBe(1);
 
+      // 保留 highlightObjects 引用
+      const yellowHighlight = manager.highlightObjects.yellow;
+
       manager.clearAll();
 
+      // 驗證清除成功
       expect(manager.highlights.size).toBe(0);
-      expect(manager.highlightObjects.yellow.clear).toHaveBeenCalled();
+      expect(yellowHighlight.clear).toHaveBeenCalled();
+
+      // 驗證 clearAll 後仍可添加新標註（功能正常）
+      const range2 = document.createRange();
+      range2.setStart(div.firstChild, 10);
+      range2.setEnd(div.firstChild, 15);
+
+      const newId = manager.addHighlight(range2);
+      expect(newId).toBeTruthy();
+      expect(manager.highlights.size).toBe(1);
+
+      // 驗證 Highlight API 對象仍然可用
+      expect(manager.highlightObjects.yellow).toBeDefined();
+      expect(manager.highlightObjects.yellow.add).toHaveBeenCalled();
     });
   });
 
