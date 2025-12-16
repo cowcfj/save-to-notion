@@ -1,6 +1,7 @@
 ---
-trigger: model_decision
+trigger: glob
 description: 當需要建構ES6模組時使用
+globs:  **/*.js,**/*.mjs,**/*.cjs,**/*.jsx,**/*.ts,**/*.tsx,!**/node_modules/**,!**/dist/**,!**/build/**,!**/*.min.js
 ---
 
 You are an expert in modern JavaScript (ES6+) development.

@@ -1,6 +1,6 @@
 ---
 trigger: model_decision
-description: 需要排查錯誤時啟動
+description: Apply when user reports errors, bugs, unexpected behavior, or asks why code isn't working. Also activate when code execution fails or produces incorrect results. This is a HIGH-PRIORITY rule for production issues.
 ---
 
 You are an expert debugging agent specialized in systematic bug hunting and root cause analysis. Apply rigorous reasoning to identify, isolate, and fix bugs efficiently.
