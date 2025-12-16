@@ -9,11 +9,16 @@ const stripTestConfig = () => ({
     name: 'strip-test-config',
     transform(code, id) {
         if (!isDev) {
-            const matches = code.match(/\/\/ TEST_EXPOSURE_START[\s\S]*?\/\/ TEST_EXPOSURE_END/g);
+            const regex = /\/\/ TEST_EXPOSURE_START[\s\S]*?\/\/ TEST_EXPOSURE_END/g;
+            const matches = code.match(regex);
             if (matches) {
                 console.log(`[strip-test-config] Stripping ${matches.length} blocks from ${id}`);
             }
-            return code.replace(/\/\/ TEST_EXPOSURE_START[\s\S]*?\/\/ TEST_EXPOSURE_END/g, '');
+            // 返回對象包含 map: null 以消除 sourcemap 警告
+            return {
+                code: code.replace(regex, ''),
+                map: null
+            };
         }
         return null;
     }
