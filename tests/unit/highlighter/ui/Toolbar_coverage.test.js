@@ -377,7 +377,8 @@ describe('Toolbar 覆蓋率補強', () => {
 
     test('應該正確處理成功回應', async () => {
       global.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        callback({ success: true });
+        const response = { success: true };
+        callback(response);
       });
 
       const result = await Toolbar._sendMessageAsync({ action: 'test' });

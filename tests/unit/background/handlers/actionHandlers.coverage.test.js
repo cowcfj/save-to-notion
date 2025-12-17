@@ -263,7 +263,9 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('startHighlight handler', () => {
     test('應該在無法獲取 active tab 時返回錯誤', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) => callback([]));
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([]);
+      });
 
       await handlers.startHighlight({}, {}, sendResponse);
 
@@ -275,9 +277,9 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在受限頁面返回錯誤', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) =>
-        callback([{ id: 1, url: 'chrome://settings' }])
-      );
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([{ id: 1, url: 'chrome://settings' }]);
+      });
 
       await handlers.startHighlight({}, {}, sendResponse);
 
@@ -289,11 +291,12 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在 toggleHighlighter 成功時返回成功', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) =>
-        callback([{ id: 1, url: 'https://example.com' }])
-      );
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([{ id: 1, url: 'https://example.com' }]);
+      });
       chrome.tabs.sendMessage.mockImplementation((_tabId, _msg, callback) => {
-        callback({ success: true });
+        const response = { success: true };
+        callback(response);
       });
 
       await handlers.startHighlight({}, {}, sendResponse);
@@ -322,9 +325,9 @@ describe('actionHandlers 覆蓋率補強', () => {
 
   describe('syncHighlights handler', () => {
     beforeEach(() => {
-      chrome.tabs.query.mockImplementation((_query, callback) =>
-        callback([{ id: 1, url: 'https://example.com' }])
-      );
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([{ id: 1, url: 'https://example.com' }]);
+      });
     });
 
     test('應該在沒有標註時返回成功消息', async () => {
@@ -373,7 +376,9 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('checkPageStatus handler', () => {
     test('應該在無法獲取 tab 時返回錯誤', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) => callback([]));
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([]);
+      });
 
       await handlers.checkPageStatus({}, {}, sendResponse);
 
@@ -385,9 +390,9 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在頁面未保存時返回 isSaved: false', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) =>
-        callback([{ id: 1, url: 'https://example.com' }])
-      );
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([{ id: 1, url: 'https://example.com' }]);
+      });
       mockStorageService.getSavedPageData.mockResolvedValue(null);
 
       await handlers.checkPageStatus({}, {}, sendResponse);
@@ -400,9 +405,9 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在緩存有效時返回本地狀態', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) =>
-        callback([{ id: 1, url: 'https://example.com' }])
-      );
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([{ id: 1, url: 'https://example.com' }]);
+      });
       mockStorageService.getSavedPageData.mockResolvedValue({
         notionPageId: 'page-123',
         notionUrl: 'https://notion.so/page-123',
@@ -425,9 +430,9 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('updateHighlights handler', () => {
     test('應該在缺少 API Key 時返回錯誤', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) =>
-        callback([{ id: 1, url: 'https://example.com' }])
-      );
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([{ id: 1, url: 'https://example.com' }]);
+      });
       mockStorageService.getConfig.mockResolvedValue({});
 
       await handlers.updateHighlights({}, {}, sendResponse);
@@ -440,9 +445,9 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在頁面未保存時返回錯誤', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) =>
-        callback([{ id: 1, url: 'https://example.com' }])
-      );
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([{ id: 1, url: 'https://example.com' }]);
+      });
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
       mockStorageService.getSavedPageData.mockResolvedValue(null);
 
@@ -456,9 +461,9 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該成功更新標註', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) =>
-        callback([{ id: 1, url: 'https://example.com' }])
-      );
+      chrome.tabs.query.mockImplementation((_query, callback) => {
+        callback([{ id: 1, url: 'https://example.com' }]);
+      });
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page-123' });
       mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'highlight' }]);

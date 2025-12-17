@@ -72,7 +72,8 @@ describe('Highlighter Index 覆蓋率補強', () => {
         },
         sendMessage: jest.fn((_msg, callback) => {
           if (callback) {
-            callback({});
+            const response = {};
+            callback(response);
           }
         }),
         lastError: null,
