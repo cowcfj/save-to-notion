@@ -49,6 +49,7 @@ import {
   createActionHandlers,
   processContentResult,
 } from '../../../../scripts/background/handlers/actionHandlers.js';
+import Logger from '../../../../scripts/utils/Logger.module.js';
 
 describe('actionHandlers 覆蓋率補強', () => {
   // Mock services
@@ -130,6 +131,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       handlers.devLogSink({ level: 'warn', message: 'test warning' }, {}, sendResponse);
 
+      expect(Logger.warn).toHaveBeenCalledWith('[ClientLog]', 'test warning');
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
@@ -138,6 +140,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       handlers.devLogSink({ level: 'error', message: 'test error' }, {}, sendResponse);
 
+      expect(Logger.error).toHaveBeenCalledWith('[ClientLog]', 'test error');
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
@@ -146,6 +149,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       handlers.devLogSink({ level: 'info', message: 'test info' }, {}, sendResponse);
 
+      expect(Logger.info).toHaveBeenCalledWith('[ClientLog] test info');
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
@@ -154,6 +158,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       handlers.devLogSink({ message: 'test log' }, {}, sendResponse);
 
+      expect(Logger.log).toHaveBeenCalledWith('[ClientLog] test log');
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
@@ -166,6 +171,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         sendResponse
       );
 
+      expect(Logger.log).toHaveBeenCalledWith('[ClientLog] test', 'arg1', 'arg2');
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
   });
