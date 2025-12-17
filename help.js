@@ -21,11 +21,4 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.version-display').forEach(el => {
     el.textContent = versionStr;
   });
-
-  // FAQ 互動（可選的視覺切換支援）
-  document.querySelectorAll('.faq-item').forEach(item => {
-    item.addEventListener('click', () => {
-      // 如有需要，可在此添加展開/收合邏輯
-    });
-  });
 });
