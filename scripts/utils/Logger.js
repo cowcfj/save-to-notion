@@ -92,9 +92,9 @@
     }
 
     static error(message, ...args) {
-      // 檢查是否為忽略的錯誤
+      // 檢查是否為忽略的錯誤（Chrome 擴展框架相關的非關鍵錯誤）
       const errorMsg = message instanceof Error ? message.message : String(message);
-      if (errorMsg.includes('Frame with ID 0 was removed')) {
+      if (errorMsg.includes('Frame with ID') && errorMsg.includes('was removed')) {
         return;
       }
 
