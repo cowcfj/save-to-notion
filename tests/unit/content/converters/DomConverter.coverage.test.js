@@ -154,13 +154,15 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(blocks).toHaveLength(0);
     });
 
-    test('Figure 有空的 figcaption', () => {
+    test('Figure 有空的 figcaption 應保留空 caption', () => {
       const html =
         '<figure><img src="https://example.com/img.jpg"><figcaption>  </figcaption></figure>';
       const blocks = converter.convert(html);
 
       expect(blocks).toHaveLength(1);
-      // 空 figcaption 不應該覆蓋 alt
+      expect(blocks[0].type).toBe('image');
+      // 空 figcaption 應產生空的 caption 陣列，不覆蓋原有 alt
+      expect(blocks[0].image.caption).toHaveLength(0);
     });
   });
 
