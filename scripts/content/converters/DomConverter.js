@@ -456,12 +456,15 @@ class DomConverter {
     let link = null;
     if (tagName === 'A') {
       const href = node.getAttribute('href');
-      // 使用正則避免 "Script URL is a form of eval" 警告
-      if (href && !/^javascript:/iu.test(href)) {
+      if (href) {
         try {
-          link = { url: new URL(href, document.baseURI).href };
+          const url = new URL(href, document.baseURI);
+          // 白名單方式：只允許安全協議（http, https）
+          if (['http:', 'https:'].includes(url.protocol)) {
+            link = { url: url.href };
+          }
         } catch (_error) {
-          /* ignore */
+          /* ignore invalid URLs */
         }
       }
     }
