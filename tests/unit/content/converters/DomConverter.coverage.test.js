@@ -54,8 +54,8 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(blocks).toHaveLength(0);
     });
 
-    test('非文字類型 rich text 應該保持原樣', () => {
-      // 模擬含有非 text 類型的 rich_text（通過測試 map 分支）
+    test('所有 rich_text 節點應該被設置為加粗', () => {
+      // 驗證 createBoldParagraphBlock 將所有 rich_text 節點的 bold 設為 true
       const html = '<h4>Normal text</h4>';
       const blocks = converter.convert(html);
 
