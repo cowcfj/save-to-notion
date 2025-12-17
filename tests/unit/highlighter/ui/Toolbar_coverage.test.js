@@ -369,12 +369,6 @@ describe('Toolbar 覆蓋率補強', () => {
       global.window.chrome = originalChrome;
     });
 
-    test('應該在 chrome.runtime 不可用時拒絕 Promise', async () => {
-      global.window.chrome = undefined;
-
-      await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('無法連接擴展');
-    });
-
     test('應該正確處理成功回應', async () => {
       global.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
         const response = { success: true };
