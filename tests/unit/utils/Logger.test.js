@@ -107,6 +107,16 @@ describe('Logger', () => {
       expect(consoleSpy.error).not.toHaveBeenCalled();
     });
 
+    test('error 應該忽略包裝過的 Frame 移除錯誤', () => {
+      Logger.error('Function execution failed: Frame with ID 0 was removed.');
+      expect(consoleSpy.error).not.toHaveBeenCalled();
+    });
+
+    test('error 應該忽略任何 Frame ID 的移除錯誤', () => {
+      Logger.error('Frame with ID 123 was removed');
+      expect(consoleSpy.error).not.toHaveBeenCalled();
+    });
+
     test('error 應該處理 Error 對象中的忽略消息', () => {
       const error = new Error('Frame with ID 0 was removed');
       Logger.error(error);
