@@ -144,6 +144,9 @@ describe('scripts/background.js require integration', () => {
   });
 
   test('onInstalled(update) 會顯示更新通知並傳送版本訊息', async () => {
+    // 設置 tabs.get 返回已完成狀態（模擬頁面快速載入）
+    chrome.tabs.get = jest.fn(() => Promise.resolve({ id: 99, status: 'complete' }));
+
     // 載入背景腳本（會註冊事件 listener）
     jest.isolateModules(() => {
       const bg = require('../../../scripts/background.js');
@@ -155,15 +158,18 @@ describe('scripts/background.js require integration', () => {
     // 使用次版本升級（2.8.x -> 2.9.5）以命中顯示更新通知的條件
     chrome.runtime.onInstalled._emit({ reason: 'update', previousVersion: '2.8.5' });
 
+    // 等待異步操作完成
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
     // 應開啟更新通知頁
-    await Promise.resolve(); // 等待微任務
     expect(chrome.tabs.create).toHaveBeenCalledWith({
       url: expect.stringContaining('update-notification/update-notification.html'),
       active: true,
     });
 
-    // setTimeout 傳送版本訊息
-    jest.advanceTimersByTime(1000);
+    // 頁面載入完成後應發送版本訊息（事件驅動，不再使用 setTimeout）
     expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
       expect.any(Number),
       expect.objectContaining({
