@@ -278,23 +278,7 @@
       }
     }
   </style>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      // Version Setting
-      const version = chrome.runtime.getManifest().version;
-      const versionStr = 'v' + version;
-      document.title = 'Notion Smart Clipper ' + versionStr;
-      document.querySelector('.version-display').textContent = versionStr;
-
-      // Simple interaction for FAQ (optional visual toggle support)
-      const faqItems = document.querySelectorAll('.faq-item');
-      faqItems.forEach(item => {
-        item.addEventListener('click', () => {
-          // Add expand/collapse logic if needed, currently just plain clear layout
-        });
-      });
-    });
-  </script>
+  <script src="help.js"></script>
 </head>
 
 <body>
