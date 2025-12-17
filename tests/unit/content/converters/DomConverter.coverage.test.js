@@ -192,6 +192,7 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(blocks[0].paragraph.rich_text.some(rt => rt.text?.link?.url)).toBe(true);
     });
 
+    // skipcq: JS-0701 -- 測試 javascript: URL 過濾功能需要此模式
     test('javascript: URL 應該被忽略', () => {
       const jsUrl = 'java' + 'script:void(0)';
       const html = `<p><a href="${jsUrl}">Click me</a></p>`;
