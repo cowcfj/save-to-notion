@@ -162,29 +162,44 @@ async function showUpdateNotification(previousVersion, currentVersion) {
       active: true,
     });
 
-    // 等待頁面載入後傳送版本信息
-    setTimeout(async () => {
-      try {
-        // 先確認分頁是否還存在，避免競態條件錯誤
-        const existingTab = await chrome.tabs.get(tab.id).catch(() => null);
-        if (!existingTab) {
-          Logger.log('更新通知分頁已關閉，跳過發送訊息');
-          return;
-        }
+    // 使用 Promise 包裝 onUpdated 事件監聽，等待頁面載入完成
+    await new Promise((resolve, reject) => {
+      let timeoutId = null;
 
-        await chrome.tabs.sendMessage(tab.id, {
-          type: 'UPDATE_INFO',
-          previousVersion,
-          currentVersion,
-        });
-      } catch (err) {
-        Logger.log('發送更新信息失敗:', err);
-      }
-    }, 1000);
+      const listener = (tabId, changeInfo) => {
+        if (tabId === tab.id && changeInfo.status === 'complete') {
+          cleanup();
+          resolve();
+        }
+      };
+
+      const cleanup = () => {
+        chrome.tabs.onUpdated.removeListener(listener);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+
+      chrome.tabs.onUpdated.addListener(listener);
+
+      // 設置超時保護（10秒），避免無限等待
+      timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error('頁面載入超時'));
+      }, 10000);
+    });
+
+    // 頁面載入完成後發送版本信息
+    await chrome.tabs.sendMessage(tab.id, {
+      type: 'UPDATE_INFO',
+      previousVersion,
+      currentVersion,
+    });
 
     Logger.log('已顯示更新通知頁面');
   } catch (error) {
-    console.error('顯示更新通知失敗:', error);
+    // 處理分頁可能已被關閉、載入超時或其他錯誤
+    Logger.log('顯示更新通知失敗:', error);
   }
 }
 
