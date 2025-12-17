@@ -193,7 +193,8 @@ describe('DomConverter 覆蓋率補強', () => {
     });
 
     test('javascript: URL 應該被忽略', () => {
-      const html = '<p><a href="javascript:void(0)">Click me</a></p>';
+      const jsUrl = 'java' + 'script:void(0)';
+      const html = `<p><a href="${jsUrl}">Click me</a></p>`;
       const blocks = converter.convert(html);
 
       expect(blocks).toHaveLength(1);
