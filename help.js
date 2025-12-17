@@ -1,6 +1,8 @@
+/* global chrome */
+
 /**
  * help.html 頁面腳本
- * 處理版本顯示與 FAQ 互動
+ * 處理版本顯示
  */
 
 document.addEventListener('DOMContentLoaded', () => {
