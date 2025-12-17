@@ -1,5 +1,40 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.17.0](https://github.com/cowcfj/save-to-notion/compare/v2.16.0...v2.17.0) (2025-12-17)
+
+
+### ✨ 新功能
+
+* 優化生產環境下的測試代碼剝離插件 ([7cd0246](https://github.com/cowcfj/save-to-notion/commit/7cd02465598f4876a37ad6edc278d9daacaeaebf))
+* 全面改版說明頁面使用者介面與體驗，並更新使用者指南。 ([7b452eb](https://github.com/cowcfj/save-to-notion/commit/7b452eb2eb5e02ab2ec26195af6fb9c8e5c028a1))
+* 增加 Jest 覆蓋率報告格式的 JSON 輸出 ([328fed9](https://github.com/cowcfj/save-to-notion/commit/328fed94db401624f183a498e52bcd8220498de7))
+* 增強測試覆蓋率及新增用戶登錄功能 ([#174](https://github.com/cowcfj/save-to-notion/issues/174)) ([d6bc6dd](https://github.com/cowcfj/save-to-notion/commit/d6bc6dd695f6cba7acc63500a1d34bff264a428b))
+* 新增多個工作流程與規則文件以改善開發體驗 ([0ab8cbd](https://github.com/cowcfj/save-to-notion/commit/0ab8cbdf130c16e0c39b6e41f0772ab75dc0f0cd))
+* 新增拉取請求模板以標準化描述，改善代碼審查流程 ([a995d41](https://github.com/cowcfj/save-to-notion/commit/a995d416192213a5638db665e7e8fa8a4b2b5e9f))
+* 新增測試編寫原則與策略文檔 ([00aed57](https://github.com/cowcfj/save-to-notion/commit/00aed57f8dd6778698b557d9e2e7ff6c300c2469))
+* 新增用戶登錄功能 ([fbf1cb6](https://github.com/cowcfj/save-to-notion/commit/fbf1cb63a3d3c7d9c9ce08fac03d37f43d829300))
+* 新增程式碼審核規則文件以提升代碼審查質量 ([36d9f8b](https://github.com/cowcfj/save-to-notion/commit/36d9f8bd939179a7a3b305b62fcef2f6306018a3))
+* 新增調試規則文件以系統化錯誤排查流程 ([ced9647](https://github.com/cowcfj/save-to-notion/commit/ced96472b4b418d436ab112c47730e1b1acc27d9))
+* 新增重構代理規則並優化審閱者、除錯及 ES6 代理的觸發條件與 glob 模式。 ([d4e23be](https://github.com/cowcfj/save-to-notion/commit/d4e23befff9b389105c70152178cdfa33cf67352))
+* 模擬 tabs.get 返回已完成狀態以增強 onInstalled 測試覆蓋率 ([6db371f](https://github.com/cowcfj/save-to-notion/commit/6db371f63803c22ab6baa4fe16132aa5fa58b462))
+
+
+### 🐛 Bug 修復
+
+* 修正顯示更新通知的競態條件錯誤 ([#173](https://github.com/cowcfj/save-to-notion/issues/173)) ([6ac36b5](https://github.com/cowcfj/save-to-notion/commit/6ac36b5e6430d765cbf31b428650572a9afaf73d))
+
+
+### 👷 建置與 CI
+
+* 修復覆蓋率上傳問題，在 main 分支也收集並上傳覆蓋率數據 ([c38e9fb](https://github.com/cowcfj/save-to-notion/commit/c38e9fb0de1d4e8d3cf00357dcb47733c197092f))
+
+
+### 🧹 其他變更
+
+* 新增對 RELEASE_NOTES_v*.md 的忽略規則 ([163add1](https://github.com/cowcfj/save-to-notion/commit/163add1a73b28f3642caa1a42d8557a149f553a5))
+* 移除 CI 中的 Jest 測試並更新測試流程 ([#171](https://github.com/cowcfj/save-to-notion/issues/171)) ([9ac0c26](https://github.com/cowcfj/save-to-notion/commit/9ac0c26a675cb83882fbd5da12b2337f0cc9c6f0))
+* 移除過時的版本發布說明文件 ([edffb74](https://github.com/cowcfj/save-to-notion/commit/edffb749bfb6c98e2c2d148c153a8c69947cc27e))
+
 ## [2.16.0](https://github.com/cowcfj/save-to-notion/compare/v2.15.0...v2.16.0) (2025-12-15)
 
 
