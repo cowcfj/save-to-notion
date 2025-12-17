@@ -196,7 +196,7 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(blocks[0].paragraph.rich_text.some(rt => rt.text?.link?.url)).toBe(true);
     });
 
-    test('危險協議 URL 應該被忽略', () => {
+    test('非安全協議 URL（如 javascript:）應該被忽略', () => {
       // skipcq: JS-0087, JS-0096 -- 測試危險 URL 過濾功能
       const jsUrl = 'java' + 'script:void(0)';
       const html = `<p><a href="${jsUrl}">Click me</a></p>`;
@@ -204,6 +204,26 @@ describe('DomConverter 覆蓋率補強', () => {
 
       expect(blocks).toHaveLength(1);
       expect(blocks[0].paragraph.rich_text[0].text.link).toBeUndefined();
+    });
+
+    test('data: URL 應該被忽略', () => {
+      const html = '<p><a href="data:text/html,<script>alert(1)</script>">Click me</a></p>';
+      const blocks = converter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].paragraph.rich_text[0].text.link).toBeUndefined();
+    });
+
+    test('只有 http/https 協議的 URL 應該被保留', () => {
+      const html =
+        '<p><a href="https://example.com">HTTPS</a> and <a href="http://example.com">HTTP</a></p>';
+      const blocks = converter.convert(html);
+
+      expect(blocks).toHaveLength(1);
+      const richTexts = blocks[0].paragraph.rich_text;
+      // 驗證 https 和 http 連結都被保留
+      expect(richTexts.some(rt => rt.text?.link?.url?.startsWith('https://'))).toBe(true);
+      expect(richTexts.some(rt => rt.text?.link?.url?.startsWith('http://'))).toBe(true);
     });
   });
 
