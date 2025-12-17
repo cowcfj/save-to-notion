@@ -162,22 +162,87 @@ async function showUpdateNotification(previousVersion, currentVersion) {
       active: true,
     });
 
-    // 等待頁面載入後傳送版本信息
-    setTimeout(() => {
+    // 使用 Promise 包裝事件監聽，等待頁面載入完成
+    await new Promise((resolve, reject) => {
+      let timeoutId = null;
+      let updateListener = null;
+      let removeListener = null;
+
+      /**
+       * 清理函數：移除所有監聽器和計時器
+       * @returns {void}
+       */
+      const cleanup = () => {
+        if (updateListener) {
+          chrome.tabs.onUpdated.removeListener(updateListener);
+        }
+        if (removeListener) {
+          chrome.tabs.onRemoved.removeListener(removeListener);
+        }
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+
+      /**
+       * 監聽分頁載入狀態
+       * @param {number} tabId - 分頁 ID
+       * @param {object} changeInfo - 分頁變更資訊
+       * @returns {void}
+       */
+      updateListener = (tabId, changeInfo) => {
+        if (tabId === tab.id && changeInfo.status === 'complete') {
+          cleanup();
+          resolve();
+        }
+      };
+
+      /**
+       * 監聽分頁被關閉
+       * @param {number} removedTabId - 被關閉的分頁 ID
+       * @returns {void}
+       */
+      removeListener = removedTabId => {
+        if (removedTabId === tab.id) {
+          cleanup();
+          reject(new Error('更新通知分頁已被關閉'));
+        }
+      };
+
+      chrome.tabs.onUpdated.addListener(updateListener);
+      chrome.tabs.onRemoved.addListener(removeListener);
+
+      // 檢查分頁是否已經載入完成（處理競態條件：頁面可能在監聽器註冊前就已載入完成）
       chrome.tabs
-        .sendMessage(tab.id, {
-          type: 'UPDATE_INFO',
-          previousVersion,
-          currentVersion,
+        .get(tab.id)
+        .then(currentTab => {
+          if (currentTab?.status === 'complete') {
+            cleanup();
+            resolve();
+          }
         })
-        .catch(err => {
-          Logger.log('發送更新信息失敗:', err);
+        .catch(() => {
+          // 分頁可能已被關閉，忽略錯誤（onRemoved 監聽器會處理）
         });
-    }, 1000);
+
+      // 設置超時保護（10秒），避免無限等待
+      timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error('頁面載入超時'));
+      }, 10000);
+    });
+
+    // 頁面載入完成後發送版本信息
+    await chrome.tabs.sendMessage(tab.id, {
+      type: 'UPDATE_INFO',
+      previousVersion,
+      currentVersion,
+    });
 
     Logger.log('已顯示更新通知頁面');
   } catch (error) {
-    console.error('顯示更新通知失敗:', error);
+    // 處理分頁可能已被關閉、載入超時或其他錯誤
+    Logger.log('顯示更新通知失敗:', error);
   }
 }
 
