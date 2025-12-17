@@ -162,25 +162,68 @@ async function showUpdateNotification(previousVersion, currentVersion) {
       active: true,
     });
 
-    // 使用 Promise 包裝 onUpdated 事件監聽，等待頁面載入完成
+    // 使用 Promise 包裝事件監聽，等待頁面載入完成
     await new Promise((resolve, reject) => {
       let timeoutId = null;
+      let updateListener = null;
+      let removeListener = null;
 
-      const listener = (tabId, changeInfo) => {
+      /**
+       * 清理函數：移除所有監聽器和計時器
+       * @returns {void}
+       */
+      const cleanup = () => {
+        if (updateListener) {
+          chrome.tabs.onUpdated.removeListener(updateListener);
+        }
+        if (removeListener) {
+          chrome.tabs.onRemoved.removeListener(removeListener);
+        }
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+
+      /**
+       * 監聽分頁載入狀態
+       * @param {number} tabId - 分頁 ID
+       * @param {object} changeInfo - 分頁變更資訊
+       * @returns {void}
+       */
+      updateListener = (tabId, changeInfo) => {
         if (tabId === tab.id && changeInfo.status === 'complete') {
           cleanup();
           resolve();
         }
       };
 
-      const cleanup = () => {
-        chrome.tabs.onUpdated.removeListener(listener);
-        if (timeoutId) {
-          clearTimeout(timeoutId);
+      /**
+       * 監聽分頁被關閉
+       * @param {number} removedTabId - 被關閉的分頁 ID
+       * @returns {void}
+       */
+      removeListener = removedTabId => {
+        if (removedTabId === tab.id) {
+          cleanup();
+          reject(new Error('更新通知分頁已被關閉'));
         }
       };
 
-      chrome.tabs.onUpdated.addListener(listener);
+      chrome.tabs.onUpdated.addListener(updateListener);
+      chrome.tabs.onRemoved.addListener(removeListener);
+
+      // 檢查分頁是否已經載入完成（處理競態條件：頁面可能在監聽器註冊前就已載入完成）
+      chrome.tabs
+        .get(tab.id)
+        .then(currentTab => {
+          if (currentTab?.status === 'complete') {
+            cleanup();
+            resolve();
+          }
+        })
+        .catch(() => {
+          // 分頁可能已被關閉，忽略錯誤（onRemoved 監聽器會處理）
+        });
 
       // 設置超時保護（10秒），避免無限等待
       timeoutId = setTimeout(() => {
