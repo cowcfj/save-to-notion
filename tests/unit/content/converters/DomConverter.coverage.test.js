@@ -11,7 +11,7 @@
 import { DomConverter, domConverter } from '../../../../scripts/content/converters/DomConverter.js';
 
 describe('DomConverter 覆蓋率補強', () => {
-  let converter;
+  let converter = null;
 
   beforeEach(() => {
     converter = new DomConverter();

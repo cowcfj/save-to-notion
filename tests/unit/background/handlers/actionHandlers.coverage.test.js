@@ -52,11 +52,11 @@ import {
 
 describe('actionHandlers 覆蓋率補強', () => {
   // Mock services
-  let mockNotionService;
-  let mockStorageService;
-  let mockInjectionService;
-  let mockPageContentService;
-  let handlers;
+  let mockNotionService = null;
+  let mockStorageService = null;
+  let mockInjectionService = null;
+  let mockPageContentService = null;
+  let handlers = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
