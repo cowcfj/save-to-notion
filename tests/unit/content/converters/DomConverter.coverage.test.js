@@ -33,6 +33,7 @@ describe('DomConverter 覆蓋率補強', () => {
 
       expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('paragraph');
+      expect(blocks[0].paragraph.rich_text[0].annotations.bold).toBe(true);
     });
 
     test('H6 應該創建加粗段落', () => {
@@ -41,6 +42,7 @@ describe('DomConverter 覆蓋率補強', () => {
 
       expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('paragraph');
+      expect(blocks[0].paragraph.rich_text[0].annotations.bold).toBe(true);
     });
   });
 
