@@ -163,16 +163,23 @@ async function showUpdateNotification(previousVersion, currentVersion) {
     });
 
     // 等待頁面載入後傳送版本信息
-    setTimeout(() => {
-      chrome.tabs
-        .sendMessage(tab.id, {
+    setTimeout(async () => {
+      try {
+        // 先確認分頁是否還存在，避免競態條件錯誤
+        const existingTab = await chrome.tabs.get(tab.id).catch(() => null);
+        if (!existingTab) {
+          Logger.log('更新通知分頁已關閉，跳過發送訊息');
+          return;
+        }
+
+        await chrome.tabs.sendMessage(tab.id, {
           type: 'UPDATE_INFO',
           previousVersion,
           currentVersion,
-        })
-        .catch(err => {
-          Logger.log('發送更新信息失敗:', err);
         });
+      } catch (err) {
+        Logger.log('發送更新信息失敗:', err);
+      }
     }, 1000);
 
     Logger.log('已顯示更新通知頁面');
