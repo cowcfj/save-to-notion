@@ -19,8 +19,6 @@ module.exports = {
     'tests/helpers/utils.testable.js',  // 包含測試版本的 utils.js
     'tests/helpers/background-utils.testable.js',  // 包含 background.js 純函數
     'tests/helpers/highlighter-v2.testable.js',  // 包含測試版本的 highlighter-v2.js
-    'tests/helpers/content.testable.js',  // 包含測試版本的 content.js
-    'tests/helpers/content-extraction.testable.js', // 包含 content.js 內容提取函數
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**'
