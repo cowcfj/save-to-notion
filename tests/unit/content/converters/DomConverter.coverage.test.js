@@ -194,8 +194,8 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(blocks[0].paragraph.rich_text.some(rt => rt.text?.link?.url)).toBe(true);
     });
 
-    test('javascript: URL 應該被忽略', () => {
-      // skipcq: JS-0087, JS-0096 -- 測試 javascript: URL 過濾功能
+    test('危險協議 URL 應該被忽略', () => {
+      // skipcq: JS-0087, JS-0096 -- 測試危險 URL 過濾功能
       const jsUrl = 'java' + 'script:void(0)';
       const html = `<p><a href="${jsUrl}">Click me</a></p>`;
       const blocks = converter.convert(html);
