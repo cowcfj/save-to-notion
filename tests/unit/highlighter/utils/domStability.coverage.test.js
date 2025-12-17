@@ -168,5 +168,96 @@ describe('DOM Stability Utils Coverage Tests', () => {
       // Timers should be cleared
       expect(jest.getTimerCount()).toBe(0);
     });
+
+    describe('requestIdleCallback 支援', () => {
+      afterEach(() => {
+        delete global.requestIdleCallback;
+        delete global.cancelIdleCallback;
+      });
+
+      test('應該在 requestIdleCallback 可用時調用它', () => {
+        // Mock requestIdleCallback
+        const mockRequestIdleCallback = jest.fn(() => 123);
+        const mockCancelIdleCallback = jest.fn();
+
+        global.requestIdleCallback = mockRequestIdleCallback;
+        global.cancelIdleCallback = mockCancelIdleCallback;
+
+        // 啟動 - 不需要等待完成
+        waitForDOMStability({
+          stabilityThresholdMs: 100,
+          maxWaitMs: 300,
+        });
+
+        // 確認 requestIdleCallback 被調用
+        expect(mockRequestIdleCallback).toHaveBeenCalled();
+      });
+    });
+
+    describe('scheduleStabilityCheck 分支覆蓋', () => {
+      test('應該在已有 stabilityTimerId 時清除並重新排程', async () => {
+        const promise = waitForDOMStability({
+          stabilityThresholdMs: 100,
+          maxWaitMs: 500,
+        });
+
+        // 觸發多次 mutation 強制重新排程
+        for (let i = 0; i < 3; i++) {
+          jest.advanceTimersByTime(30);
+          document.body.appendChild(document.createElement('div'));
+        }
+
+        // 等待穩定
+        jest.advanceTimersByTime(200);
+
+        const result = await promise;
+        expect(result).toBe(true);
+      });
+
+      test('應該在 checkStability 返回 false 時繼續排程', async () => {
+        const promise = waitForDOMStability({
+          stabilityThresholdMs: 100,
+          maxWaitMs: 500,
+        });
+
+        // 在短時間內觸發 mutation
+        jest.advanceTimersByTime(50);
+        document.body.appendChild(document.createElement('div'));
+
+        // checkStability 會返回 false 因為還未達到穩定閾值
+        // 然後會繼續排程
+
+        jest.advanceTimersByTime(150);
+
+        const result = await promise;
+        expect(result).toBe(true);
+      });
+    });
+
+    describe('MutationObserver 回調測試', () => {
+      test('應該在 DOM mutation 時重置 lastMutationTime', async () => {
+        const promise = waitForDOMStability({
+          stabilityThresholdMs: 100,
+          maxWaitMs: 500,
+        });
+
+        // 等待一段時間後觸發 mutation
+        jest.advanceTimersByTime(80);
+
+        // 觸發 mutation - 這會重置 lastMutationTime
+        const newElement = document.createElement('span');
+        document.body.appendChild(newElement);
+
+        // 再次觸發 mutation
+        jest.advanceTimersByTime(50);
+        document.body.appendChild(document.createElement('div'));
+
+        // 等待足夠時間達到穩定
+        jest.advanceTimersByTime(200);
+
+        const result = await promise;
+        expect(result).toBe(true);
+      });
+    });
   });
 });
