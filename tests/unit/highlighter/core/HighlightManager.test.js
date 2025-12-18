@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+// 使用 testable 版本：源代碼依賴 CSS Highlight API，jsdom 不支援
 const {
   HighlightManager,
 } = require('../../../helpers/highlighter/core/HighlightManager.testable.js');

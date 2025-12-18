@@ -4,10 +4,17 @@
  * 此版本主要用於基礎邏輯測試
  */
 
-const { serializeRange } = require('../core/Range.testable.js');
-const { COLORS } = require('../utils/color.testable.js');
-const { supportsHighlightAPI } = require('../utils/dom.testable.js');
+// 更新導入：使用源代碼替代 testable 文件
+const { serializeRange } = require('../../../../scripts/highlighter/core/Range.js');
+const { COLORS } = require('../../../../scripts/highlighter/utils/color.js');
+const { supportsHighlightAPI } = require('../../../../scripts/highlighter/utils/dom.js');
 
+/* global Highlight */
+
+/**
+ * 標註管理器（測試用簡化版）
+ * @class
+ */
 class HighlightManager {
   constructor(options = {}) {
     this.highlights = new Map();

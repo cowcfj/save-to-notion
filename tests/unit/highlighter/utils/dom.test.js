@@ -2,13 +2,14 @@
  * @jest-environment jsdom
  */
 
+// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
 const {
   supportsHighlightAPI,
   isValidElement,
   getVisibleText,
   isInViewport,
   getAttribute,
-} = require('../../../helpers/highlighter/utils/dom.testable.js');
+} = require('../../../../scripts/highlighter/utils/dom.js');
 
 describe('utils/dom', () => {
   describe('supportsHighlightAPI', () => {
