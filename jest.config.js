@@ -14,7 +14,6 @@ module.exports = {
   // 覆蓋率收集
   collectCoverageFrom: [
     'scripts/**/*.js',
-    '!scripts/utils/htmlToNotionConverter.js', // 注入頁面腳本，待以整合測試覆蓋
     // 測試輔助檔案（tests/helpers/）不算入覆蓋率，因為它們不是生產代碼
     // - utils.testable.js, options.testable.js 等是測試專用邏輯
     // - 生產代碼覆蓋率應只追蹤 scripts/ 目錄
