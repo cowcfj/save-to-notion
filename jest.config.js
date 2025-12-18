@@ -15,7 +15,7 @@ module.exports = {
   collectCoverageFrom: [
     'scripts/**/*.js',
     '!scripts/utils/htmlToNotionConverter.js', // 注入頁面腳本，待以整合測試覆蓋
-    '!scripts/utils/pageComplexityDetector.js', // ESM 模組，暫以 testable 版本覆蓋
+    // pageComplexityDetector.js 已重構為直接測試源代碼，不再需要 testable 替身
     'tests/helpers/utils.testable.js',  // 包含測試版本的 utils.js
     'tests/helpers/background-utils.testable.js',  // 包含 background.js 純函數
     'tests/helpers/highlighter-v2.testable.js',  // 包含測試版本的 highlighter-v2.js
