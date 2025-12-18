@@ -15,10 +15,9 @@ module.exports = {
   collectCoverageFrom: [
     'scripts/**/*.js',
     '!scripts/utils/htmlToNotionConverter.js', // 注入頁面腳本，待以整合測試覆蓋
-    // pageComplexityDetector.js 已重構為直接測試源代碼，不再需要 testable 替身
-    // utils.testable.js 已重構 - Logger 和 StorageUtil 測試現在直接使用源代碼
-    'tests/helpers/background-utils.testable.js',  // 包含 background.js 純函數
-    'tests/helpers/highlighter-v2.testable.js',  // 包含測試版本的 highlighter-v2.js
+    // 測試輔助檔案（tests/helpers/）不算入覆蓋率，因為它們不是生產代碼
+    // - utils.testable.js, options.testable.js 等是測試專用邏輯
+    // - 生產代碼覆蓋率應只追蹤 scripts/ 目錄
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**'
