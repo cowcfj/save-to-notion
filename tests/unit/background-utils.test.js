@@ -1,4 +1,4 @@
-// 【重構】部分遷移到源代碼（只遷移 API 兼容的函數）
+// 【重構】部分遷移到源代碼（遷移具有相容 API 或可通過默認值兼容的函數）
 // 圖片處理函數 - 從 imageUtils.module.js
 const { cleanImageUrl, isValidImageUrl } = require('../../scripts/utils/imageUtils.module.js');
 
