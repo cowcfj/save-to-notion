@@ -3,8 +3,9 @@
  * 測試 Logger 的邊界情況、開發模式檢測和錯誤處理
  */
 
-// 導入測試工具
-const { Logger } = require('../helpers/utils.testable.js');
+// 【重構】直接導入源代碼
+require('../../scripts/utils/Logger.js');
+const Logger = global.window?.Logger || global.self?.Logger || global.Logger;
 
 describe('Logger 系統進階測試', () => {
   let originalChrome = null;

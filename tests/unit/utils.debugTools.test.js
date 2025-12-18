@@ -3,8 +3,9 @@
  * 測試 debugListAllKeys 方法和相關調試功能
  */
 
-// 導入測試工具
-const { StorageUtil } = require('../helpers/utils.testable.js');
+// 【重構】直接導入源代碼
+require('../../scripts/utils.js');
+const StorageUtil = global.window?.StorageUtil;
 
 describe('StorageUtil 調試工具', () => {
   let mockChrome = null;
