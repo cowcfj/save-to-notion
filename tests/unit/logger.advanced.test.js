@@ -5,7 +5,12 @@
 
 // 【重構】直接導入源代碼
 require('../../scripts/utils/Logger.js');
-const Logger = global.window?.Logger || global.self?.Logger || global.Logger;
+
+// 從全域取得 Logger（Jest jsdom 環境中附加到 window）
+const Logger = global.window.Logger;
+if (!Logger) {
+  throw new Error('Logger 未正確載入，請確認 Logger.js 導入成功且 jsdom 環境正確配置');
+}
 
 describe('Logger 系統進階測試', () => {
   let originalChrome = null;
