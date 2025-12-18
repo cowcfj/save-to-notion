@@ -25,6 +25,12 @@
 | ✅ ~~`expand.testable.js`~~ | 無消費者 | 已刪除（死代碼） | **已完成** |
 | ✅ ~~`background.testable.js`~~ | 無消費者 | 已刪除（死代碼） | **已完成** |
 
+### 待優化項目（橋接模組遷移）
+
+| 測試文件 | 當前方式 | 建議方式 | 優先級 |
+| :--- | :--- | :--- | :--- |
+| `logger.advanced.test.js` | `global.window.Logger` | `Logger.module.js` | 低（可選優化） |
+
 ## 3. 重構策略 (Strategy)
 
 ### 3.1 遷移原則
@@ -41,6 +47,15 @@
 #### 挑戰 B: 瀏覽器全局變數
 源代碼可能直接使用 `window` 或 `chrome`。
 *   **解法**：確保測試文件頂部聲明 `/** @jest-environment jsdom */`，並在 `beforeEach` 中設置 `global.chrome` 和 `global.window` 的 mock。
+
+#### 挑戰 C: IIFE 與 ES Module 橋接
+本專案使用 **IIFE + 橋接模組** 模式來同時支援瀏覽器和 ES Module 環境。
+*   **橋接模組列表**：
+    | IIFE 源文件 | 橋接模組 | 用途 |
+    |------------|---------|------|
+    | `Logger.js` | `Logger.module.js` | 日誌系統 |
+    | `imageUtils.js` | `imageUtils.module.js` | 圖片處理 |
+*   **測試最佳實踐**：優先使用橋接模組而非全域變數導入。
 
 ## 4. 執行階段 (Execution Phases)
 
