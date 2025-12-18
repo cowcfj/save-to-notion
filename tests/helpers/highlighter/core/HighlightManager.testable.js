@@ -9,6 +9,12 @@ const { serializeRange } = require('../core/Range.testable.js');
 const { COLORS } = require('../../../../scripts/highlighter/utils/color.js');
 const { supportsHighlightAPI } = require('../../../../scripts/highlighter/utils/dom.js');
 
+/* global Highlight */
+
+/**
+ * 標註管理器（測試用簡化版）
+ * @class
+ */
 class HighlightManager {
   constructor(options = {}) {
     this.highlights = new Map();
