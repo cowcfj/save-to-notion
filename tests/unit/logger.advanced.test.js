@@ -3,13 +3,11 @@
  * 測試 Logger 的邊界情況、開發模式檢測和錯誤處理
  */
 
-// 【重構】直接導入源代碼
-require('../../scripts/utils/Logger.js');
+// 【重構】使用橋接模組導入（推薦方式）
+const Logger = require('../../scripts/utils/Logger.module.js').default;
 
-// 從全域取得 Logger（Jest jsdom 環境中附加到 window）
-const Logger = global.window.Logger;
 if (!Logger) {
-  throw new Error('Logger 未正確載入，請確認 Logger.js 導入成功且 jsdom 環境正確配置');
+  throw new Error('Logger 未正確載入，請確認 Logger.module.js 導入成功');
 }
 
 describe('Logger 系統進階測試', () => {

@@ -1,9 +1,13 @@
-// background-utils.testable.js 單元測試
+// 【重構】部分遷移到源代碼（遷移具有相容 API 或可通過默認值兼容的函數）
+// 圖片處理函數 - 從 imageUtils.module.js
+const { cleanImageUrl, isValidImageUrl } = require('../../scripts/utils/imageUtils.module.js');
+
+// URL 處理函數 - 從 urlUtils.js
+const { normalizeUrl } = require('../../scripts/utils/urlUtils.js');
+
+// Notion Block 相關函數和工具函數 - 保留 testable（API 差異）
 const {
-  cleanImageUrl,
-  isValidImageUrl,
   splitTextForHighlight,
-  normalizeUrl,
   splitIntoBatches,
   calculateBatchStats,
   createNotionRichText,
@@ -21,7 +25,7 @@ const {
   safeJsonStringify,
 } = require('../helpers/background-utils.testable');
 
-describe('background-utils.testable.js', () => {
+describe('background-utils (部分重構版)', () => {
   describe('cleanImageUrl', () => {
     describe('基本功能', () => {
       test('應該返回有效的圖片 URL', () => {
