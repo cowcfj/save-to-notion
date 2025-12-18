@@ -2,12 +2,13 @@
  * @jest-environment jsdom
  */
 
+// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
 const {
   serializeRange,
   deserializeRange,
   validateRange,
   findRangeByTextContent,
-} = require('../../../helpers/highlighter/core/Range.testable.js');
+} = require('../../../../scripts/highlighter/core/Range.js');
 
 describe('core/Range', () => {
   beforeEach(() => {

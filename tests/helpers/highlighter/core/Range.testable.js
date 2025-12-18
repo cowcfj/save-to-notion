@@ -2,9 +2,10 @@
  * Range 模組 Testable 版本
  */
 
-const { getNodePath, getNodeByPath } = require('../utils/path.testable.js');
-const { findTextInPage } = require('../utils/textSearch.testable.js');
-const { waitForDOMStability } = require('../utils/domStability.testable.js');
+// 更新導入：使用源代碼替代已刪除的 testable 文件
+const { getNodePath, getNodeByPath } = require('../../../../scripts/highlighter/utils/path.js');
+const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+const { waitForDOMStability } = require('../../../../scripts/highlighter/utils/domStability.js');
 
 function serializeRange(range) {
   return {

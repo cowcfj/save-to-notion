@@ -2,11 +2,12 @@
  * @jest-environment jsdom
  */
 
+// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
 const {
   COLORS,
   convertBgColorToName,
   getColorCSSVar,
-} = require('../../../helpers/highlighter/utils/color.testable.js');
+} = require('../../../../scripts/highlighter/utils/color.js');
 
 describe('utils/color', () => {
   describe('COLORS constant', () => {

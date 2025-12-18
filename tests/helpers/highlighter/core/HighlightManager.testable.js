@@ -4,9 +4,10 @@
  * 此版本主要用於基礎邏輯測試
  */
 
+// 更新導入：使用源代碼替代已刪除的 testable 文件
 const { serializeRange } = require('../core/Range.testable.js');
-const { COLORS } = require('../utils/color.testable.js');
-const { supportsHighlightAPI } = require('../utils/dom.testable.js');
+const { COLORS } = require('../../../../scripts/highlighter/utils/color.js');
+const { supportsHighlightAPI } = require('../../../../scripts/highlighter/utils/dom.js');
 
 class HighlightManager {
   constructor(options = {}) {

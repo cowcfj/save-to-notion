@@ -2,12 +2,13 @@
  * @jest-environment jsdom
  */
 
+// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
 const {
   getNodePath,
   parsePathFromString,
   getNodeByPath,
   isValidPathString,
-} = require('../../../helpers/highlighter/utils/path.testable.js');
+} = require('../../../../scripts/highlighter/utils/path.js');
 
 describe('utils/path', () => {
   beforeEach(() => {

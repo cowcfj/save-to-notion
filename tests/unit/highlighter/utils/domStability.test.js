@@ -2,9 +2,8 @@
  * @jest-environment jsdom
  */
 
-const {
-  waitForDOMStability,
-} = require('../../../helpers/highlighter/utils/domStability.testable.js');
+// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
+const { waitForDOMStability } = require('../../../../scripts/highlighter/utils/domStability.js');
 
 describe('utils/domStability', () => {
   beforeEach(() => {
