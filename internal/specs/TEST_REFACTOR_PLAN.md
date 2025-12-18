@@ -29,7 +29,7 @@
 
 | 測試文件 | 當前方式 | 建議方式 | 優先級 |
 | :--- | :--- | :--- | :--- |
-| `logger.advanced.test.js` | `global.window.Logger` | `Logger.module.js` | 低（可選優化） |
+| ✅ ~~`logger.advanced.test.js`~~ | ~~`global.window.Logger`~~ | `Logger.module.js` | **已完成** |
 
 ## 3. 重構策略 (Strategy)
 
