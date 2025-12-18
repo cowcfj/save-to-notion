@@ -83,35 +83,115 @@
 | `createNotionImage` | Notion Block | ⚠️ API 差異 |
 | `isValidNotionBlock` | Notion Block | ⚠️ API 差異 |
 
-#### 模組化方案
+#### 模組化方案對比
 
-**方案 A：建立新工具模組**
+##### 現有 `scripts/utils/` 結構
+
+```
+scripts/utils/
+├── Logger.js              (日誌系統，IIFE)
+├── Logger.module.js       (Logger 橋接模組)
+├── imageUtils.js          (圖片處理，IIFE)
+├── imageUtils.module.js   (imageUtils 橋接模組)
+├── urlUtils.js            (URL 處理，ES Module)
+└── pageComplexityDetector.js (頁面複雜度，ES Module)
+
+scripts/utils.js           (StorageUtil + normalizeUrl，IIFE，424 行)
+```
+
+---
+
+##### 方案 A：建立新工具模組（純粹拆分）
+
+**策略**：每個功能類別建立獨立模組
+
+```
+scripts/utils/
+├── httpUtils.js      (NEW) - 6 個 HTTP 狀態碼 helpers
+├── batchUtils.js     (NEW) - splitIntoBatches, calculateBatchStats
+├── jsonUtils.js      (NEW) - safeJsonParse, safeJsonStringify
+└── textUtils.js      (NEW) - truncateText
+```
+
+| 優點 | 缺點 |
+|------|------|
+| ✅ 職責單一，易維護 | ⚠️ 新增 4 個文件 |
+| ✅ 未來擴展清晰 | ⚠️ 導入語句變多 |
+| ✅ 測試可針對單一模組 | |
+
+**工作量**：~3 小時 | **新增文件**：4 個
+
+---
+
+##### 方案 B：合併到現有模組（避免碎片化）
+
+**策略**：添加到現有 `scripts/utils.js` 或相近模組
+
+```
+scripts/utils.js  (MODIFY)
+  └── 新增: safeJsonParse, safeJsonStringify, truncateText, splitIntoBatches...
+```
+
+| 優點 | 缺點 |
+|------|------|
+| ✅ 無新增文件 | ⚠️ utils.js 膨脹（424→~500 行） |
+| ✅ 導入簡單 | ⚠️ 違反單一職責 |
+| | ⚠️ 需為 IIFE 添加更多 window 暴露 |
+
+**工作量**：~2 小時 | **新增文件**：0 個
+
+---
+
+##### ✅ 方案 A+B：結合策略（推薦）
+
+**策略**：基於現有模組結構，選擇性新增或合併
+
+```
+重構決策邏輯：
+1. 如果功能與現有模組高度相關 → 合併
+2. 如果功能獨立且可預見擴展 → 新建
+3. 如果只有 1-2 個小函數 → 合併到 utils.js
+```
+
+**具體分配**：
+
+| 函數 | 目標模組 | 策略 | 理由 |
+|------|---------|------|------|
+| HTTP 狀態碼 (6 個) | `httpUtils.js` (NEW) | 新建 | 獨立功能，可能擴展 |
+| `truncateText` | `urlUtils.js` (MODIFY) | 合併 | 文本/URL 處理相關 |
+| `safeJsonParse/Stringify` | `utils.js` (MODIFY) | 合併 | 通用工具，僅 2 個 |
+| `splitIntoBatches` | `utils.js` (MODIFY) | 合併 | 通用工具 |
+| `calculateBatchStats` | `utils.js` (MODIFY) | 合併 | 與 splitIntoBatches 配對 |
+
+**結果**：
 
 ```
 scripts/utils/
 ├── httpUtils.js      (NEW) - 6 個 HTTP helpers
-├── batchUtils.js     (NEW) - 2 個批次函數
-├── jsonUtils.js      (NEW) - 2 個 JSON 工具
-└── textUtils.js      (NEW) - 2 個文本工具
+├── urlUtils.js       (MODIFY) - 新增 truncateText
+└── ...其他不變
+
+scripts/utils.js      (MODIFY) - 新增 4 個通用工具
 ```
 
-**工作量估算**：~3 小時
-**影響測試**：188 個測試
+| 維度 | 方案 A | 方案 B | 方案 A+B |
+|------|--------|--------|----------|
+| 新增文件 | 4 個 | 0 個 | 1 個 |
+| 職責分離 | ✅ 好 | ⚠️ 差 | ✅ 平衡 |
+| 維護性 | ✅ 好 | ⚠️ 差 | ✅ 好 |
+| 工作量 | 3h | 2h | 2.5h |
 
-**方案 B：合併到現有模組**
+**結論**：⚠️ **建議採用方案 A+B**
 
-將工具函數添加到現有的 `scripts/utils/` 文件中。
+當有相關需求時實施，可在減少文件碎片化的同時保持良好架構。
 
-**工作量估算**：~2 小時
-**風險**：可能導致現有模組膨脹
+---
 
-**方案 C：保持現狀**
+##### 方案 C：保持現狀
 
-保留在 testable 文件中。
+保留在 testable 文件中，不做任何遷移。
 
-**結論**：⚠️ **可選擇性實施方案 A**
-
-如果專案有新功能需要這些工具函數，可順便抽取到源代碼。否則保持現狀。
+**結論**：如無具體需求驅動，選擇方案 C 最務實。
 
 ---
 
