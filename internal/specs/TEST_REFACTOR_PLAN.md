@@ -18,7 +18,7 @@
 | :--- | :--- | :--- | :--- |
 | ✅ ~~`pageComplexityDetector.testable.js`~~ | ~~`pageComplexityDetector.test.js`~~ | `scripts/utils/pageComplexityDetector.js` | **已完成** |
 | ✅ ~~`utils.testable.js`~~ | ~~`logger.advanced.test.js`~~<br>~~`utils.debugTools.test.js`~~ | `scripts/utils/Logger.js`<br>`scripts/utils.js` (StorageUtil) | **已完成** |
-| `background-utils.testable.js` | `background-utils.test.js` | `scripts/background/utils/*.js` (需詳細對應) | 中 |
+| ⚠️ `background-utils.testable.js` | `background-utils.test.js` | 部分完成：3 函數遷移 (`imageUtils.module.js`, `urlUtils.js`)，17 函數保留（API 差異） | 部分 |
 | `options.testable.js` | `options.test.js` | `options/options.js` | 高 (DOM 依賴) |
 | ✅ ~~`highlighter/utils/*.testable.js`~~ (6個) | `highlighter/utils/*.test.js` | `scripts/highlighter/utils/*.js` | **已完成** |
 | ⚠️ `highlighter/core/*.testable.js` (2個) | `highlighter/core/*.test.js` | 需保留（源代碼依賴 CSS Highlight API，jsdom 不支援） | 保留 |
