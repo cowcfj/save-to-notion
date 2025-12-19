@@ -126,7 +126,7 @@ describe('InjectionService', () => {
 
       expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
         expect.objectContaining({
-          files: ['dist/highlighter-v2.bundle.js'],
+          files: ['dist/content.bundle.js'],
         }),
         expect.any(Function)
       );

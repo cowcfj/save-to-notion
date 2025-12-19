@@ -142,25 +142,7 @@ global.Logger = {
   }),
 };
 
-// Mock ImageUtils (用於依賴 window.ImageUtils 的模組)
-// 注意：這個 mock 必須在模組載入前設定！
-global.ImageUtils = {
-  extractImageSrc: jest.fn(img => img?.getAttribute?.('src') || img?.src || null),
-  cleanImageUrl: jest.fn(url => url),
-  isValidImageUrl: jest.fn(() => true),
-  isNotionCompatibleImageUrl: jest.fn(() => true),
-  extractBestUrlFromSrcset: jest.fn(() => null),
-  generateImageCacheKey: jest.fn(url => url),
-  extractFromSrcset: jest.fn(() => null),
-  extractFromAttributes: jest.fn(() => null),
-  extractFromPicture: jest.fn(() => null),
-  extractFromBackgroundImage: jest.fn(() => null),
-  extractFromNoscript: jest.fn(() => null),
-};
-// 同時設定 window.ImageUtils（對於 jsdom 環境）
-if (typeof window !== 'undefined') {
-  window.ImageUtils = global.ImageUtils;
-}
+// ImageUtils mock is handled in presetup.js
 // Mock chrome.runtime.sendMessage for Logger background logging
 global.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
   if (typeof callback === 'function') {
