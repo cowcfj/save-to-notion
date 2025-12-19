@@ -250,3 +250,33 @@ export const TECHNICAL_CONTENT_SELECTORS = [
   '.prose', // Tailwind Typography (確認是否過於寬泛? 通常 safe)
   '#readme', // GitHub/NPM
 ];
+
+// ==========================================
+// 廣告元素選擇器
+// ==========================================
+
+/**
+ * 廣告元素選擇器（用於頁面複雜度檢測）
+ * 來源：Issue #178 - 擴充 pageComplexityDetector 廣告元素選擇器
+ *
+ * 注意事項：
+ * - 避免過於寬鬆的選擇器（如 [class*="ad"] 可能誤判 .add-button）
+ * - 使用 [class*="ad-"] 確保只匹配帶連字符的 class
+ */
+export const AD_SELECTORS = [
+  // 原有選擇器
+  '.advertisement',
+  '.ad-container',
+  '[id^="div-gpt-ad"]',
+  '.google-auto-placed',
+  '.adsbygoogle',
+  // 擴充選擇器（Issue #178）
+  '.ad-banner',
+  '.ad-widget',
+  '.sponsor',
+  '.sponsor-content',
+  // 屬性包含選擇器
+  '[class*="ad-"]',
+  '[id*="ad-"]',
+  '[id*="sponsor"]',
+];

@@ -1,4 +1,4 @@
-import { TECHNICAL_CONTENT_SELECTORS } from '../config/selectors.js';
+import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/selectors.js';
 import { TECHNICAL_TERMS } from '../config/index.js';
 
 /**
@@ -170,11 +170,8 @@ export function detectPageComplexity(document = window.document) {
       // 網站類型
       isDocSite: isDocumentationSite(document.location || document.URL || window.location),
 
-      // DOM結構分析
-      adElements: countElements(
-        document,
-        '.advertisement, .ad-container, [id^="div-gpt-ad"], .google-auto-placed, .adsbygoogle'
-      ),
+      // 廣告元素檢測（使用統一配置 scripts/config/selectors.js）
+      adElements: countElements(document, AD_SELECTORS.join(', ')),
       navElements: countElements(document, 'nav, header, footer, aside, .sidebar, .navigation'),
       contentElements: countElements(document, 'article, main, .content, .post, .entry, section'),
 
