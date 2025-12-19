@@ -9,8 +9,7 @@
  * - 保持 DOM 結構以供 DomConverter 進行高保真轉換
  */
 
-/* global Logger */
-
+import Logger from '../../utils/Logger.js';
 import { TECHNICAL_CONTENT_SELECTORS } from '../../config/selectors.js';
 
 export class MarkdownExtractor {

@@ -8,13 +8,17 @@
  * - 處理圖片驗證、去重和批次處理
  */
 
-import Logger from '../../utils/Logger.module.js';
+// ImageUtils Named Imports
 import {
   extractImageSrc,
   isValidImageUrl,
   cleanImageUrl,
   isNotionCompatibleImageUrl,
-} from '../../utils/imageUtils.module.js';
+} from '../../utils/imageUtils.js';
+import Logger from '../../utils/Logger.js';
+
+// Remove legacy getter
+// const getImageUtils = ...
 import { ErrorHandler } from '../../errorHandling/ErrorHandler.js';
 import { batchProcess, batchProcessWithRetry } from '../../performance/PerformanceOptimizer.js';
 
@@ -38,7 +42,7 @@ class ImageCollector {
       try {
         const img = cachedQuery(selector, document, { single: true });
         if (img) {
-          const src = extractImageSrc(img);
+          const src = extractImageSrc?.(img);
           // 使用 ImageUtils 進行驗證
           const isValid = isValidImageUrl?.(src);
 
@@ -74,7 +78,7 @@ class ImageCollector {
    * @returns {Object|null} 圖片對象或 null
    */
   static processImageForCollection(img, index, featuredImage) {
-    const src = extractImageSrc(img);
+    const src = extractImageSrc?.(img);
     if (!src) {
       Logger.log(`✗ No src found for image ${index + 1}`);
       return null;
@@ -83,7 +87,7 @@ class ImageCollector {
     try {
       // 1. 清理 URL
       const absoluteUrl = new URL(src, document.baseURI).href;
-      const cleanedUrl = cleanImageUrl(absoluteUrl);
+      const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
 
       // 2. 檢查是否與特色圖片重複
       if (featuredImage && cleanedUrl === featuredImage) {

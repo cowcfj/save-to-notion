@@ -12,16 +12,21 @@
  * - 圖片收集
  */
 
-// Mock Logger - 需要在模組載入前設置
-const mockLogger = {
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  info: jest.fn(),
-  debug: jest.fn(),
-};
+import Logger from '../../../scripts/utils/Logger.js';
+import { ContentExtractor } from '../../../scripts/content/extractors/ContentExtractor.js';
+import { ConverterFactory } from '../../../scripts/content/converters/ConverterFactory.js';
+import { ImageCollector } from '../../../scripts/content/extractors/ImageCollector.js';
+import { extractPageContent } from '../../../scripts/content/index.js';
 
-jest.mock('../../../scripts/utils/Logger.module.js', () => mockLogger);
+// Mock Logger
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
 
 jest.mock('../../../scripts/content/extractors/ContentExtractor.js', () => ({
   ContentExtractor: {
@@ -42,12 +47,6 @@ jest.mock('../../../scripts/content/extractors/ImageCollector.js', () => ({
 }));
 
 describe('Content Script Entry Point', () => {
-  let extractPageContent = null;
-  let ContentExtractor = null;
-  let ConverterFactory = null;
-  let ImageCollector = null;
-  let Logger = null;
-
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -61,21 +60,33 @@ describe('Content Script Entry Point', () => {
       configurable: true,
     });
 
-    // 重新載入模組
-    jest.resetModules();
+    // Use imported modules directly (resetModules removed)
+    // Ensure mocks are cleared
 
-    // 獲取 mock - Logger 直接使用頂層 mockLogger
-    ContentExtractor =
-      require('../../../scripts/content/extractors/ContentExtractor.js').ContentExtractor;
-    ConverterFactory =
-      require('../../../scripts/content/converters/ConverterFactory.js').ConverterFactory;
-    ImageCollector =
-      require('../../../scripts/content/extractors/ImageCollector.js').ImageCollector;
-    Logger = mockLogger;
+    // Use imported modules directly
+    // Note: Since we import them, we might not need to assign them if we use the imported names directly in tests.
+    // However, the tests use local variables with the same names (shadowing imports if declared).
+    // I removed the let declarations in Step 1563/4.
+    // So writing `extractPageContent = ...` is invalid if `extractPageContent` is an import (imports are const).
+    // BUT wait. `extractPageContent` is imported as a named export.
+    // `import { extractPageContent } from ...`
+    // I cannot reassign it.
+    // The previous code mocked the MODULE using `require`.
+    // Now I am using `import`.
+    // I cannot mock `extractPageContent` via reassignment if it is imported.
+    // BUT `extractPageContent` is the SUT (System Under Test). I don't need to mock it.
+    // I need to test IT.
+    // So I just need to call it.
+    // Variables `ContentExtractor`, `ConverterFactory`... are mocks.
+    // I need to access the mock functions.
+    // `import { ContentExtractor } from ...`
+    // And `jest.mock(...)`.
+    // So `ContentExtractor` IS the mock object.
 
-    // 載入模組並獲取函數
-    const module = require('../../../scripts/content/index.js');
-    extractPageContent = module.extractPageContent;
+    // So I just need to call it.
+
+    // Ensure window.extractPageContent is available (as index.js does this conditionally)
+    window.extractPageContent = extractPageContent;
   });
 
   afterEach(() => {

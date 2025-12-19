@@ -141,6 +141,8 @@ global.Logger = {
     }
   }),
 };
+
+// ImageUtils mock is handled in presetup.js
 // Mock chrome.runtime.sendMessage for Logger background logging
 global.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
   if (typeof callback === 'function') {

@@ -3,8 +3,17 @@
  * 測試極端情況、邊界值和錯誤處理
  */
 
-// 從 imageUtils 導入函數
-import {
+// 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
+delete global.ImageUtils;
+if (global.window) {
+  delete global.window.ImageUtils;
+}
+
+// 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
+require('../../scripts/utils/imageUtils.js');
+
+// 從 global.ImageUtils 獲取函數
+const {
   cleanImageUrl,
   isValidImageUrl,
   isNotionCompatibleImageUrl,
@@ -15,8 +24,8 @@ import {
   extractFromPicture,
   extractFromBackgroundImage,
   extractFromNoscript,
-  IMAGE_VALIDATION as IMAGE_VALIDATION_CONSTANTS,
-} from '../../scripts/utils/imageUtils.module';
+  IMAGE_VALIDATION: IMAGE_VALIDATION_CONSTANTS,
+} = global.ImageUtils || global.window?.ImageUtils || {};
 
 describe('imageUtils - 邊界條件測試', () => {
   describe('isValidImageUrl - URL 長度邊界', () => {
@@ -83,15 +92,15 @@ describe('imageUtils - 邊界條件測試', () => {
     });
 
     test('應處理只有逗號的字符串', () => {
-      // 實際會返回空字符串（最後一個條目），這是預期行為
+      // 所有條目都是空的，應返回 null
       const result = extractBestUrlFromSrcset(',,,,');
-      expect(result).toBe('');
+      expect(result).toBeNull();
     });
 
     test('應處理只有空格的字符串', () => {
-      // 實際會返回空字符串，這是預期行為
+      // 只有空格，沒有有效 URL，應返回 null
       const result = extractBestUrlFromSrcset('   ');
-      expect(result).toBe('');
+      expect(result).toBeNull();
     });
 
     test('應處理無效的 srcset 格式', () => {

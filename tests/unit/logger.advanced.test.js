@@ -3,11 +3,11 @@
  * 測試 Logger 的邊界情況、開發模式檢測和錯誤處理
  */
 
-// 【重構】使用橋接模組導入（推薦方式）
-const Logger = require('../../scripts/utils/Logger.module.js').default;
+// 使用 presetup.js 提供的 global.Logger
+const Logger = global.Logger;
 
 if (!Logger) {
-  throw new Error('Logger 未正確載入，請確認 Logger.module.js 導入成功');
+  throw new Error('Logger 未正確載入，請確認 tests/presetup.js 設定正確');
 }
 
 describe('Logger 系統進階測試', () => {

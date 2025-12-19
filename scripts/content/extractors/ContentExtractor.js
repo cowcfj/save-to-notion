@@ -8,8 +8,7 @@
  * - 返回標準化的提取結果
  */
 
-import Logger from '../../utils/Logger.module.js';
-
+import Logger from '../../utils/Logger.js';
 import {
   parseArticleWithReadability,
   isContentGood,

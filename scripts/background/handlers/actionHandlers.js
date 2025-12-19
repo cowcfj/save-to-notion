@@ -6,9 +6,10 @@
  * @module handlers/actionHandlers
  */
 
-/* global chrome */
+/* global chrome, Logger */
 
-import Logger from '../../utils/Logger.module.js';
+// Logger definition handled by build process (global injection)
+
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';

@@ -21,12 +21,9 @@
  * 使用 Rollup 打包的 bundle，包含所有 Content Extractors
  */
 const CONTENT_EXTRACTION_SCRIPTS = [
-  // 基礎依賴（content.bundle.js 不包含這些）
-  'scripts/utils.js',
-  'scripts/utils/Logger.js',
-  'scripts/utils/imageUtils.js', // ImageUtils - bundle 依賴此全局變量
+  // 基礎依賴
   'lib/Readability.js',
-  // Content Script bundle（包含 ContentExtractor, ConverterFactory 等）
+  // Content Script bundle（包含 ContentExtractor, ConverterFactory, Logger, ImageUtils 等）
   'dist/content.bundle.js',
 ];
 

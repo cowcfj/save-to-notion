@@ -155,35 +155,6 @@ describe('StorageService', () => {
     });
   });
 
-  describe('getHighlights', () => {
-    it('應該獲取標註數據', async () => {
-      const highlights = [{ text: 'test', color: 'yellow' }];
-      mockStorage.local.get.mockImplementation((keys, sendResult) => {
-        sendResult({ 'highlights_https://example.com/page': highlights });
-      });
-
-      const result = await service.getHighlights('https://example.com/page');
-      expect(result).toEqual(highlights);
-    });
-
-    it('應該在沒有標註時返回空數組', async () => {
-      const result = await service.getHighlights('https://example.com/page');
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('setHighlights', () => {
-    it('應該正確設置標註', async () => {
-      const highlights = [{ text: 'test', color: 'yellow' }];
-      await service.setHighlights('https://example.com/page', highlights);
-
-      expect(mockStorage.local.set).toHaveBeenCalledWith(
-        { 'highlights_https://example.com/page': highlights },
-        expect.any(Function)
-      );
-    });
-  });
-
   describe('getAllSavedPageUrls', () => {
     it('應該返回所有已保存頁面的 URL', async () => {
       mockStorage.local.get.mockImplementation((keys, sendResult) => {

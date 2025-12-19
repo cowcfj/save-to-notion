@@ -10,9 +10,13 @@ import { serializeRange, restoreRangeWithRetry } from './Range.js';
 import { COLORS } from '../utils/color.js';
 import { supportsHighlightAPI } from '../utils/dom.js';
 import { findTextInPage } from '../utils/textSearch.js';
+import Logger from '../../utils/Logger.js';
+import SeamlessMigrationManager from '../../seamless-migration.js';
 
 /**
- * 標註管理器類別
+ * HighlightManager
+ * 管理所有標註操作，包括創建、刪除、存儲和恢復標註。
+ * 同時支持現代 CSS Highlight API 和傳統 DOM 標註方式。
  */
 export class HighlightManager {
   constructor(options = {}) {
@@ -32,14 +36,14 @@ export class HighlightManager {
     }
   }
 
+  // ...
+
   /**
    * 異步初始化流程
    */
   async initialize() {
     try {
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.info('[HighlightManager] 開始初始化');
-      }
+      Logger.info('[HighlightManager] 開始初始化');
 
       // 步驟1：檢查並遷移 localStorage 數據
       await this.checkAndMigrateLegacyData();
@@ -50,13 +54,9 @@ export class HighlightManager {
       // 步驟3：執行無痛自動遷移（處理 DOM 中的舊 span）
       await this.performSeamlessMigration();
 
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.info('[HighlightManager] 初始化完成');
-      }
+      Logger.info('[HighlightManager] 初始化完成');
     } catch (error) {
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.error('[HighlightManager] 初始化失敗:', error);
-      }
+      Logger.error('[HighlightManager] 初始化失敗:', error);
     }
   }
 
@@ -71,7 +71,7 @@ export class HighlightManager {
 
     if (!isNativeHighlight || !window.CSS?.highlights) {
       if (typeof window.Highlight !== 'undefined' && !isNativeHighlight) {
-        window.Logger?.warn('[HighlightManager] 檢測到非原生的 Highlight 實作，已略過初始化');
+        Logger.warn('[HighlightManager] 檢測到非原生的 Highlight 實作，已略過初始化');
       }
       return;
     }
@@ -87,9 +87,7 @@ export class HighlightManager {
         // 註冊到 CSS.highlights
         CSS.highlights.set(`notion-${colorName}`, this.highlightObjects[colorName]);
       } catch (error) {
-        if (typeof window.Logger !== 'undefined') {
-          window.Logger?.error(`初始化 ${colorName} 顏色樣式失敗:`, error);
-        }
+        Logger.error(`初始化 ${colorName} 顏色樣式失敗:`, error);
       }
     });
 
@@ -199,9 +197,7 @@ export class HighlightManager {
         }
       });
     } catch (_error) {
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.error('傳統標註方法失敗:', _error);
-      }
+      Logger.error('傳統標註方法失敗:', _error);
     }
   }
 
@@ -379,19 +375,13 @@ export class HighlightManager {
     try {
       if (data.highlights.length === 0) {
         await window.StorageUtil.clearHighlights(currentUrl);
-        if (typeof window.Logger !== 'undefined') {
-          window.Logger?.info('已刪除空白標註記錄');
-        }
+        Logger.info('已刪除空白標註記錄');
       } else {
         await window.StorageUtil.saveHighlights(currentUrl, data);
-        if (typeof window.Logger !== 'undefined') {
-          window.Logger?.info(`已保存 ${data.highlights.length} 個標註`);
-        }
+        Logger.info(`已保存 ${data.highlights.length} 個標註`);
       }
     } catch (error) {
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.error('保存標註失敗:', error);
-      }
+      Logger.error('保存標註失敗:', error);
     }
   }
 
@@ -451,18 +441,14 @@ export class HighlightManager {
         }
       }
 
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.info(`恢復標註: 成功 ${restored}, 失敗 ${failed}`);
-      }
+      Logger.info(`恢復標註: 成功 ${restored}, 失敗 ${failed}`);
 
       // 如果有失敗且需要重新保存
       if (failed > 0) {
         await this.saveToStorage();
       }
     } catch (error) {
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.error('恢復標註失敗:', error);
-      }
+      Logger.error('恢復標註失敗:', error);
     }
   }
 
@@ -478,25 +464,19 @@ export class HighlightManager {
    * 執行無痛自動遷移
    */
   async performSeamlessMigration() {
-    if (typeof window === 'undefined' || typeof window.SeamlessMigrationManager === 'undefined') {
-      return;
-    }
+    // Import handles dependency, no need to check window (unless for safety, but ESM resolves this)
 
     try {
-      const migrationManager = new window.SeamlessMigrationManager();
+      const migrationManager = new SeamlessMigrationManager();
       const result = await migrationManager.performSeamlessMigration(this);
 
       if (result?.rolledBack) {
-        if (typeof window.Logger !== 'undefined') {
-          window.Logger?.warn(`遷移已回滾: ${result.reason}`);
-        }
+        Logger.warn(`遷移已回滾: ${result.reason}`);
       }
 
       await this.saveToStorage();
     } catch (error) {
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.error('無痛遷移過程出錯:', error);
-      }
+      Logger.error('無痛遷移過程出錯:', error);
     }
   }
 
@@ -593,9 +573,7 @@ export class HighlightManager {
         }
       }
     } catch (error) {
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.error('檢查舊數據失敗:', error);
-      }
+      Logger.error('檢查舊數據失敗:', error);
     }
   }
 
@@ -689,9 +667,7 @@ export class HighlightManager {
         localStorage.removeItem(oldKey);
       }
     } catch (_error) {
-      if (typeof window.Logger !== 'undefined') {
-        window.Logger?.error('數據遷移失敗:', _error);
-      }
+      Logger.error('數據遷移失敗:', _error);
     }
   }
 

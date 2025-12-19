@@ -58,18 +58,23 @@ jobs:
           echo "Building production bundle..."
           npm run build:prod
           
-          # Verify bundle existence
-          if [ ! -f "dist/highlighter-v2.bundle.js" ]; then
-            echo "❌ Bundle file not found!"
+          # Verify bundle existence (content + highlighter merged bundle)
+          if [ ! -f "dist/content.bundle.js" ]; then
+            echo "❌ Content bundle file not found!"
+            exit 1
+          fi
+          
+          if [ ! -f "dist/scripts/background.js" ]; then
+            echo "❌ Background script not found!"
             exit 1
           fi
 
-          # Check bundle size (should be around 15KB, fail if > 50KB)
-          SIZE=$(stat -f%z "dist/highlighter-v2.bundle.js" 2>/dev/null || stat -c%s "dist/highlighter-v2.bundle.js" 2>/dev/null)
-          echo "✅ Bundle size: $SIZE bytes"
+          # Check bundle size (merged content+highlighter bundle, fail if > 200KB)
+          SIZE=$(stat -f%z "dist/content.bundle.js" 2>/dev/null || stat -c%s "dist/content.bundle.js" 2>/dev/null)
+          echo "✅ Content bundle size: $SIZE bytes"
           
-          if [ "$SIZE" -gt 51200 ]; then
-            echo "❌ Bundle size ($SIZE bytes) exceeds 50KB limit!"
+          if [ "$SIZE" -gt 204800 ]; then
+            echo "❌ Bundle size ($SIZE bytes) exceeds 200KB limit!"
             exit 1
           fi
 

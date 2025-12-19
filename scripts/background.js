@@ -3,10 +3,11 @@
  * Refactored for modular service orchestration
  */
 
-/* global chrome */
+/* global chrome, Logger */
 
 // Import Utils
-import Logger from './utils/Logger.module.js';
+import './utils/Logger.js'; // Side-effect import to register self.Logger
+
 import { normalizeUrl } from './utils/urlUtils.js';
 
 // Import Services
