@@ -22,7 +22,6 @@
  */
 const CONTENT_EXTRACTION_SCRIPTS = [
   // 基礎依賴（content.bundle.js 不包含這些）
-  'scripts/utils.js',
   'scripts/utils/Logger.js',
   'scripts/utils/imageUtils.js', // ImageUtils - bundle 依賴此全局變量
   'lib/Readability.js',

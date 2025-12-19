@@ -364,15 +364,10 @@ class InjectionService {
    * @returns {Promise<void>}
    */
   injectHighlightRestore(tabId) {
-    return this.injectAndExecute(
-      tabId,
-      ['scripts/utils.js', 'scripts/highlight-restore.js'],
-      null,
-      {
-        errorMessage: 'Failed to inject highlight restore script',
-        successMessage: 'Highlight restore script injected successfully',
-      }
-    );
+    return this.injectAndExecute(tabId, ['scripts/highlight-restore.js'], null, {
+      errorMessage: 'Failed to inject highlight restore script',
+      successMessage: 'Highlight restore script injected successfully',
+    });
   }
 
   /**

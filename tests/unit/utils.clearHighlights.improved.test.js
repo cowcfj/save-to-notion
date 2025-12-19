@@ -23,9 +23,9 @@ global.localStorage = {
   },
 };
 
-// 加載測試用的 utils
-const utilsPath = require('path').resolve(__dirname, '../../scripts/utils.js');
-delete require.cache[utilsPath];
+// 加載測試用的 StorageUtil
+const storagePath = require('path').resolve(__dirname, '../../scripts/utils/StorageUtil.js');
+delete require.cache[storagePath];
 
 // 模擬 window 對象
 global.window = {
@@ -40,7 +40,7 @@ global.window = {
   __LOGGER_ENABLED__: false,
 };
 
-require('../../scripts/utils.js');
+require('../../scripts/utils/StorageUtil.js');
 const StorageUtil = global.window.StorageUtil;
 
 describe('StorageUtil.clearHighlights - 改進版測試', () => {

@@ -144,7 +144,7 @@ describe('PageContentService', () => {
     test('應包含必要的腳本', () => {
       const scripts = PageContentService.getRequiredScripts();
 
-      expect(scripts).toContain('scripts/utils.js');
+      expect(scripts).toContain('scripts/utils/Logger.js');
       expect(scripts).toContain('lib/Readability.js');
       expect(scripts).toContain('dist/content.bundle.js');
     });
