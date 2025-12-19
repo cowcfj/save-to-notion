@@ -5,6 +5,7 @@
 
 import Logger from './utils/Logger.js';
 import { normalizeUrl } from './utils/urlUtils.js';
+import { convertBgColorToName } from './highlighter/utils/color.js';
 
 /**
  * 智能遷移狀態
@@ -350,19 +351,11 @@ export class SeamlessMigrationManager {
 
   /**
    * 轉換顏色值
+   * @param {string} bgColor - 背景顏色（RGB 或 HEX 格式）
+   * @returns {string} 顏色名稱
    */
   static convertColorToName(bgColor) {
-    const colorMap = {
-      'rgb(255, 243, 205)': 'yellow',
-      '#fff3cd': 'yellow',
-      'rgb(212, 237, 218)': 'green',
-      '#d4edda': 'green',
-      'rgb(204, 231, 255)': 'blue',
-      '#cce7ff': 'blue',
-      'rgb(248, 215, 218)': 'red',
-      '#f8d7da': 'red',
-    };
-    return colorMap[bgColor] || 'yellow';
+    return convertBgColorToName(bgColor);
   }
 
   /**
