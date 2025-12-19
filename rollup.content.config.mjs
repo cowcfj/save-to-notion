@@ -11,9 +11,6 @@ export default {
     name: 'ContentScript',
     sourcemap: isDev ? 'inline' : true,
     banner: '/* eslint-disable */\n/* Save to Notion - Content Script */',
-    // 橋接：從 manifest.json 預載入的全域變數創建模組引用
-    intro: `
-    `,
     globals: {
       Readability: 'Readability',
     },
