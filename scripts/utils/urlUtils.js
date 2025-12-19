@@ -9,11 +9,21 @@ import { URL_NORMALIZATION } from '../config/constants.js';
 // Logger 回退定義：在 Rollup 打包時由 intro 注入自 self.Logger
 // 在直接載入時使用回退定義
 const Logger = (typeof self !== 'undefined' && self.Logger) || {
-  log: () => {},
-  warn: () => {},
-  error: () => {},
-  debug: () => {},
-  info: () => {},
+  log: () => {
+    /* no-op */
+  },
+  warn: () => {
+    /* no-op */
+  },
+  error: () => {
+    /* no-op */
+  },
+  debug: () => {
+    /* no-op */
+  },
+  info: () => {
+    /* no-op */
+  },
 };
 
 // 從配置導出 TRACKING_PARAMS（維持向後兼容）

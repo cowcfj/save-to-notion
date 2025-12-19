@@ -11,11 +11,21 @@
 // Logger 定義：在 Rollup 打包時由 intro 注入自 self.Logger
 // 在直接載入（manifest.json -> scripts/background.js）時使用回退定義
 const Logger = (typeof self !== 'undefined' && self.Logger) || {
-  log: () => {},
-  warn: () => {},
-  error: () => {},
-  debug: () => {},
-  info: () => {},
+  log: () => {
+    /* no-op */
+  },
+  warn: () => {
+    /* no-op */
+  },
+  error: () => {
+    /* no-op */
+  },
+  debug: () => {
+    /* no-op */
+  },
+  info: () => {
+    /* no-op */
+  },
 };
 
 import { normalizeUrl } from '../../utils/urlUtils.js';
