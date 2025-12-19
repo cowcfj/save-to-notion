@@ -370,8 +370,16 @@ function extractBestUrlFromSrcset(srcset) {
       }
     }
   }
+  // 回退：獲取最後一個有效條目（過濾空字串）
+  if (!bestUrl) {
+    const validEntries = srcsetEntries.filter(entry => entry.trim());
+    if (validEntries.length > 0) {
+      const lastEntry = validEntries[validEntries.length - 1];
+      bestUrl = lastEntry.split(/\s+/)[0] || null;
+    }
+  }
 
-  return bestUrl || srcsetEntries[srcsetEntries.length - 1].split(/\s+/)[0];
+  return bestUrl;
 }
 
 /**

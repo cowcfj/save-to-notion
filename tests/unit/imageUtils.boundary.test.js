@@ -92,15 +92,15 @@ describe('imageUtils - 邊界條件測試', () => {
     });
 
     test('應處理只有逗號的字符串', () => {
-      // 實際會返回空字符串（最後一個條目），這是預期行為
+      // 所有條目都是空的，應返回 null
       const result = extractBestUrlFromSrcset(',,,,');
-      expect(result).toBe('');
+      expect(result).toBeNull();
     });
 
     test('應處理只有空格的字符串', () => {
-      // 實際會返回空字符串，這是預期行為
+      // 只有空格，沒有有效 URL，應返回 null
       const result = extractBestUrlFromSrcset('   ');
-      expect(result).toBe('');
+      expect(result).toBeNull();
     });
 
     test('應處理無效的 srcset 格式', () => {
