@@ -157,7 +157,7 @@ const StorageUtil = {
           const parsed = JSON.parse(legacy);
           resolve(this._parseHighlightFormat(parsed));
         } catch (error) {
-          console.error('Failed to parse legacy highlights:', error);
+          Logger.error('Failed to parse legacy highlights:', error);
           resolve([]);
         }
       } catch (error) {
