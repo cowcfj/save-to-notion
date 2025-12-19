@@ -441,9 +441,7 @@ export class HighlightManager {
         }
       }
 
-      if (typeof window.Logger !== 'undefined') {
-        Logger.info(`恢復標註: 成功 ${restored}, 失敗 ${failed}`);
-      }
+      Logger.info(`恢復標註: 成功 ${restored}, 失敗 ${failed}`);
 
       // 如果有失敗且需要重新保存
       if (failed > 0) {
