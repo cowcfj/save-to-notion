@@ -29,43 +29,58 @@ const StorageUtil = {
    * @param {Object|Array} highlightData - 標註數據
    * @returns {Promise<void>}
    */
-  saveHighlights(pageUrl, highlightData) {
+  async saveHighlights(pageUrl, highlightData) {
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `highlights_${normalizedUrl}`;
 
+    try {
+      await this._saveToChromeStorage(pageKey, highlightData);
+    } catch (error) {
+      Logger.warn?.('Chrome storage unavailable/failed, falling back to localStorage:', error);
+      try {
+        await this._saveToLocalStorage(pageKey, highlightData);
+      } catch (localError) {
+        Logger.error('Failed to save highlights (both Chrome and local):', localError);
+        throw localError;
+      }
+    }
+  },
+
+  /**
+   * 保存到 Chrome Storage
+   * @private
+   */
+  _saveToChromeStorage(key, data) {
+    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+      return Promise.reject(new Error('Chrome storage not available'));
+    }
+
     return new Promise((resolve, reject) => {
       try {
-        if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-          chrome.storage.local.set({ [pageKey]: highlightData }, () => {
-            if (chrome.runtime.lastError) {
-              console.error(
-                'Failed to save highlights to chrome.storage:',
-                chrome.runtime.lastError
-              );
-              // 回退到 localStorage
-              try {
-                localStorage.setItem(pageKey, JSON.stringify(highlightData));
-                resolve();
-              } catch (error) {
-                console.error('Failed to save highlights to localStorage:', error);
-                reject(error);
-              }
-            } else {
-              resolve();
-            }
-          });
-        } else {
-          throw new Error('Chrome storage not available');
-        }
-      } catch (_) {
-        console.warn('Chrome storage not available, using localStorage');
-        try {
-          localStorage.setItem(pageKey, JSON.stringify(highlightData));
-          resolve();
-        } catch (err) {
-          console.error('Failed to save highlights:', err);
-          reject(err);
-        }
+        chrome.storage.local.set({ [key]: data }, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  },
+
+  /**
+   * 保存到 localStorage
+   * @private
+   */
+  _saveToLocalStorage(key, data) {
+    return new Promise((resolve, reject) => {
+      try {
+        localStorage.setItem(key, JSON.stringify(data));
+        resolve();
+      } catch (error) {
+        reject(error);
       }
     });
   },
