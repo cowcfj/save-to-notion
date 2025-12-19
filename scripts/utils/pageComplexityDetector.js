@@ -168,7 +168,7 @@ export function detectPageComplexity(document = window.document) {
     // 基礎指標統計
     const metrics = {
       // 網站類型
-      isDocSite: isDocumentationSite(document.location || document.URL || window.location),
+      isDocSite: isDocumentationSite(document?.location || document?.URL || window.location),
 
       // 廣告元素檢測（使用統一配置 scripts/config/selectors.js）
       adElements: countElements(document, AD_SELECTORS.join(', ')),
