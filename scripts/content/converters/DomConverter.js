@@ -8,7 +8,12 @@
  * - 解析 Rich Text (B, I, A, CODE, S)
  */
 
-import { extractImageSrc, cleanImageUrl } from '../../utils/imageUtils.module.js';
+// ImageUtils 由 Rollup intro 從 window.ImageUtils 注入
+// 使用 getter 函數以支持測試時的 mock 覆蓋
+const getImageUtils = () =>
+  (typeof window !== 'undefined' && window.ImageUtils) ||
+  (typeof global !== 'undefined' && global.ImageUtils) ||
+  {};
 
 import {
   BLOCKS_SUPPORTING_CHILDREN,
@@ -357,7 +362,8 @@ class DomConverter {
   }
 
   static createImageBlock(node) {
-    const src = extractImageSrc(node);
+    const { extractImageSrc, cleanImageUrl } = getImageUtils();
+    const src = extractImageSrc?.(node);
     if (!src) {
       return null;
     }
@@ -365,7 +371,7 @@ class DomConverter {
     let finalUrl = src;
     try {
       finalUrl = new URL(src, document.baseURI).href;
-      finalUrl = cleanImageUrl(finalUrl);
+      finalUrl = cleanImageUrl?.(finalUrl) ?? finalUrl;
     } catch (_error) {
       // ignore invalid url
     }

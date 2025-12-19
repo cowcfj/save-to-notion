@@ -2,7 +2,10 @@ module.exports = {
   // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
   testEnvironment: 'jsdom',
 
-  // 測試設置文件
+  // 預設置文件（在模組載入前執行，用於全局 mock）
+  setupFiles: ['<rootDir>/tests/presetup.js'],
+
+  // 測試設置文件（在模組載入後執行）
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
 
   // 測試文件匹配模式

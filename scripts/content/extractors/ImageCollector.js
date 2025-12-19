@@ -8,13 +8,13 @@
  * - 處理圖片驗證、去重和批次處理
  */
 
-import Logger from '../../utils/Logger.module.js';
-import {
-  extractImageSrc,
-  isValidImageUrl,
-  cleanImageUrl,
-  isNotionCompatibleImageUrl,
-} from '../../utils/imageUtils.module.js';
+// Logger 由 Rollup intro 從 window.Logger 注入
+// ImageUtils 由 Rollup intro 從 window.ImageUtils 注入
+// 使用 getter 函數以支持測試時的 mock 覆蓋
+const getImageUtils = () =>
+  (typeof window !== 'undefined' && window.ImageUtils) ||
+  (typeof global !== 'undefined' && global.ImageUtils) ||
+  {};
 import { ErrorHandler } from '../../errorHandling/ErrorHandler.js';
 import { batchProcess, batchProcessWithRetry } from '../../performance/PerformanceOptimizer.js';
 
@@ -33,12 +33,13 @@ class ImageCollector {
    */
   static collectFeaturedImage() {
     Logger.log('🎯 Attempting to collect featured/hero image...');
+    const { extractImageSrc, isValidImageUrl } = getImageUtils();
 
     for (const selector of FEATURED_IMAGE_SELECTORS) {
       try {
         const img = cachedQuery(selector, document, { single: true });
         if (img) {
-          const src = extractImageSrc(img);
+          const src = extractImageSrc?.(img);
           // 使用 ImageUtils 進行驗證
           const isValid = isValidImageUrl?.(src);
 
@@ -74,7 +75,9 @@ class ImageCollector {
    * @returns {Object|null} 圖片對象或 null
    */
   static processImageForCollection(img, index, featuredImage) {
-    const src = extractImageSrc(img);
+    const { extractImageSrc, cleanImageUrl, isValidImageUrl, isNotionCompatibleImageUrl } =
+      getImageUtils();
+    const src = extractImageSrc?.(img);
     if (!src) {
       Logger.log(`✗ No src found for image ${index + 1}`);
       return null;
@@ -83,7 +86,7 @@ class ImageCollector {
     try {
       // 1. 清理 URL
       const absoluteUrl = new URL(src, document.baseURI).href;
-      const cleanedUrl = cleanImageUrl(absoluteUrl);
+      const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
 
       // 2. 檢查是否與特色圖片重複
       if (featuredImage && cleanedUrl === featuredImage) {

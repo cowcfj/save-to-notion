@@ -8,7 +8,16 @@
 
 /* global chrome */
 
-import Logger from '../../utils/Logger.module.js';
+// Logger 定義：在 Rollup 打包時由 intro 注入自 self.Logger
+// 在直接載入（manifest.json -> scripts/background.js）時使用回退定義
+const Logger = (typeof self !== 'undefined' && self.Logger) || {
+  log: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
+  info: () => {},
+};
+
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';

@@ -2,10 +2,9 @@
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
-/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, AdaptivePerformanceManager */
-import Logger from '../utils/Logger.module.js';
+/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, AdaptivePerformanceManager, Logger */
 
-// 使用 Logger 直接記錄
+// Logger 由 Rollup intro 從 window.Logger 注入
 
 /**
  * 性能優化器類

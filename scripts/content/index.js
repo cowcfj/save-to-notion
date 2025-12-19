@@ -16,7 +16,7 @@
  * - batchProcess, batchProcessWithRetry - 批處理工具（可選）
  */
 
-import Logger from '../utils/Logger.module.js';
+// Logger 由 Rollup intro 從 window.Logger 注入
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';

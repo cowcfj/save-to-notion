@@ -31,7 +31,11 @@ export default {
         file: 'dist/scripts/background.js',
         format: 'es', // Service Worker supports ES modules
         sourcemap: isDev ? 'inline' : true,
-        banner: '/* eslint-disable */\n/* Save to Notion - Background Script */'
+        banner: '/* eslint-disable */\n/* Save to Notion - Background Script */',
+        // 橋接：Service Worker 環境使用 self，提供 Logger 回退
+        intro: `
+            const Logger = (typeof self !== 'undefined' && self.Logger) || { log: () => {}, warn: () => {}, error: () => {}, debug: () => {}, info: () => {} };
+        `,
     },
     plugins: [
         stripTestConfig(),

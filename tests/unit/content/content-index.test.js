@@ -12,16 +12,10 @@
  * - 圖片收集
  */
 
-// Mock Logger - 需要在模組載入前設置
-const mockLogger = {
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  info: jest.fn(),
-  debug: jest.fn(),
-};
+// Mock Logger - 使用 presetup.js 提供的 global.Logger
+const mockLogger = global.Logger;
 
-jest.mock('../../../scripts/utils/Logger.module.js', () => mockLogger);
+// Logger.module.js 已刪除，不需要 mock
 
 jest.mock('../../../scripts/content/extractors/ContentExtractor.js', () => ({
   ContentExtractor: {

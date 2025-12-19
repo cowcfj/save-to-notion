@@ -8,16 +8,7 @@
  * 針對 createActionHandlers 中的各種 handler 進行測試，包含 savePage 核心流程與其他輔助 handlers
  */
 
-// Mock dependencies
-jest.mock('../../../../scripts/utils/Logger.module.js', () => ({
-  __esModule: true,
-  default: {
-    log: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn(),
-  },
-}));
+// Logger.module.js 已刪除，使用 presetup.js 提供的 global.Logger
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   normalizeUrl: jest.fn(url => url),
@@ -49,7 +40,9 @@ import {
   createActionHandlers,
   processContentResult,
 } from '../../../../scripts/background/handlers/actionHandlers.js';
-import Logger from '../../../../scripts/utils/Logger.module.js';
+
+// 使用 presetup.js 提供的 global.Logger
+const Logger = global.Logger;
 
 describe('actionHandlers 覆蓋率補強', () => {
   // Mock services

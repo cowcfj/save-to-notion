@@ -1,4 +1,4 @@
-import Logger from './Logger.module.js';
+// Logger 由 Rollup intro 從 self.Logger/window.Logger 注入
 
 // 默認追蹤參數列表
 export const TRACKING_PARAMS = [
