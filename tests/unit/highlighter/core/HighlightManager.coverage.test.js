@@ -27,8 +27,8 @@ jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => ({
 
 describe('HighlightManager Coverage Tests', () => {
   let manager = null;
-  let HighlightManagerClass;
-  let MockSeamlessMigrationManagerConstructor;
+  let HighlightManagerClass = null;
+  let MockSeamlessMigrationManagerConstructor = null;
 
   beforeEach(() => {
     // Reset modules to ensure clean mocking
