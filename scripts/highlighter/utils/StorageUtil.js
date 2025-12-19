@@ -30,6 +30,10 @@ const StorageUtil = {
    * @returns {Promise<void>}
    */
   async saveHighlights(pageUrl, highlightData) {
+    if (!pageUrl || typeof pageUrl !== 'string') {
+      Logger.warn?.('saveHighlights: Invalid pageUrl provided');
+      return;
+    }
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `highlights_${normalizedUrl}`;
 
@@ -91,6 +95,10 @@ const StorageUtil = {
    * @returns {Promise<Array>}
    */
   async loadHighlights(pageUrl) {
+    if (!pageUrl || typeof pageUrl !== 'string') {
+      Logger.warn?.('loadHighlights: Invalid pageUrl provided');
+      return [];
+    }
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `highlights_${normalizedUrl}`;
 
