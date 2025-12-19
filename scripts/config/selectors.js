@@ -264,18 +264,14 @@ export const TECHNICAL_CONTENT_SELECTORS = [
  * - 使用 [class*="ad-"] 確保只匹配帶連字符的 class
  */
 export const AD_SELECTORS = [
-  // 原有選擇器
+  // 精確匹配選擇器（不被屬性選擇器涵蓋）
   '.advertisement',
-  '.ad-container',
   '[id^="div-gpt-ad"]',
   '.google-auto-placed',
   '.adsbygoogle',
-  // 擴充選擇器（Issue #178）
-  '.ad-banner',
-  '.ad-widget',
   '.sponsor',
   '.sponsor-content',
-  // 屬性包含選擇器
+  // 屬性包含選擇器（涵蓋 .ad-container, .ad-banner, .ad-widget 等）
   '[class*="ad-"]',
   '[id*="ad-"]',
   '[id*="sponsor"]',
