@@ -3,7 +3,7 @@
  * Refactored for modular service orchestration
  */
 
-/* global chrome */
+/* global chrome, Logger */
 
 // Import Utils
 // Import Utils

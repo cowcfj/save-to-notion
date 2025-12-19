@@ -6,7 +6,7 @@
  * @module handlers/actionHandlers
  */
 
-/* global chrome */
+/* global chrome, Logger */
 
 // Logger definition handled by build process (global injection)
 
