@@ -6,7 +6,9 @@ import '../mocks/chrome.js';
 
 // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
 delete global.ImageUtils;
-delete global.window?.ImageUtils;
+if (global.window) {
+  delete global.window.ImageUtils;
+}
 
 // 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
 require('../../scripts/utils/imageUtils.js');

@@ -175,10 +175,6 @@ describe('Content Script Entry Point', () => {
         'Content extraction failed'
       );
       expect(result.rawHtml).toBe('');
-      console.log('Logger in test:', Logger);
-      if (Logger.warn?.mock) {
-        console.log('Logger.warn calls:', Logger.warn.mock.calls.length);
-      }
       expect(Logger.warn).toHaveBeenCalled();
     });
 
