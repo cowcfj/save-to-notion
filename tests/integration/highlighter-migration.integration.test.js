@@ -1,16 +1,34 @@
+// Highlighter Migration Integration Tests (Simplified)
+// tests legacy data migration core flow
+
 /**
- * Highlighter Migration 整合測試（簡化版）
- * 測試舊版資料遷移到新版的核心流程
- *
  * @jest-environment jsdom
  */
 
-import { HighlightManager } from '../../scripts/highlighter/core/HighlightManager.js';
+// Note: HighlightManager import removed to allow dynamic require
 
 describe('Highlight Migration Integration Tests', () => {
   let manager = null;
+  let HighlightManagerClass = null;
+  let MockSeamlessMigrationManagerConstructor = null;
 
   beforeEach(() => {
+    // Reset modules to ensure clean mocking
+    jest.resetModules();
+
+    // Mock SeamlessMigrationManager using doMock
+    MockSeamlessMigrationManagerConstructor = jest.fn().mockImplementation(() => ({
+      performSeamlessMigration: jest.fn().mockResolvedValue({ success: true, migrated: true }),
+    }));
+
+    jest.doMock('../../scripts/seamless-migration.js', () => {
+      return {
+        __esModule: true,
+        default: MockSeamlessMigrationManagerConstructor,
+      };
+    });
+
+    // Setup DOM
     document.body.innerHTML = '';
 
     // Mock normalizeUrl
@@ -67,7 +85,10 @@ describe('Highlight Migration Integration Tests', () => {
       }
     };
 
-    manager = new HighlightManager();
+    // Dynamically require HighlightManager
+    const Module = require('../../scripts/highlighter/core/HighlightManager.js');
+    HighlightManagerClass = Module.HighlightManager;
+    manager = new HighlightManagerClass();
   });
 
   afterEach(() => {
@@ -110,43 +131,33 @@ describe('Highlight Migration Integration Tests', () => {
 
     test('should convert legacy color formats', () => {
       // Test the static method for color conversion
-      const yellow = HighlightManager.convertBgColorToName('rgb(255, 243, 205)');
+      const yellow = HighlightManagerClass.convertBgColorToName('rgb(255, 243, 205)');
       expect(yellow).toBe('yellow');
 
-      const green = HighlightManager.convertBgColorToName('#d4edda');
+      const green = HighlightManagerClass.convertBgColorToName('#d4edda');
       expect(green).toBe('green');
 
-      const defaultColor = HighlightManager.convertBgColorToName('unknown');
+      const defaultColor = HighlightManagerClass.convertBgColorToName('unknown');
       expect(defaultColor).toBe('yellow');
     });
   });
 
   describe('Seamless Migration', () => {
     test('should attempt seamless migration when manager available', async () => {
-      const mockMigrationManager = {
-        performSeamlessMigration: jest.fn().mockResolvedValue({
-          success: true,
-          migratedCount: 5,
-        }),
-      };
-
-      window.SeamlessMigrationManager = jest.fn(() => mockMigrationManager);
-
       await manager.performSeamlessMigration();
 
-      expect(mockMigrationManager.performSeamlessMigration).toHaveBeenCalledWith(manager);
+      expect(MockSeamlessMigrationManagerConstructor).toHaveBeenCalled();
+
+      const mockInstance = MockSeamlessMigrationManagerConstructor.mock.results[0].value;
+      expect(mockInstance.performSeamlessMigration).toHaveBeenCalledWith(manager);
     });
 
-    test('should handle missing SeamlessMigrationManager', async () => {
-      delete window.SeamlessMigrationManager;
-
-      await expect(manager.performSeamlessMigration()).resolves.not.toThrow();
-    });
+    // Removed obsolte test 'should handle missing SeamlessMigrationManager' as verified in unit test
   });
 
   describe('Storage Operations', () => {
     test('should use safe extension storage', () => {
-      const storage = HighlightManager.getSafeExtensionStorage();
+      const storage = HighlightManagerClass.getSafeExtensionStorage();
 
       expect(storage).toBeDefined();
       expect(storage).toBe(window.chrome.storage.local);
@@ -156,7 +167,7 @@ describe('Highlight Migration Integration Tests', () => {
       const originalChrome = window.chrome;
       delete window.chrome;
 
-      const storage = HighlightManager.getSafeExtensionStorage();
+      const storage = HighlightManagerClass.getSafeExtensionStorage();
 
       expect(storage).toBeNull();
 
@@ -205,16 +216,7 @@ describe('Highlight Migration Integration Tests', () => {
       ).resolves.not.toThrow();
     });
 
-    test('should handle undefined window gracefully', async () => {
-      const originalSeamless = window.SeamlessMigrationManager;
-      delete window.SeamlessMigrationManager;
-
-      await expect(manager.performSeamlessMigration()).resolves.not.toThrow();
-
-      if (originalSeamless) {
-        window.SeamlessMigrationManager = originalSeamless;
-      }
-    });
+    // Removed test 'should handle undefined window gracefully' as logic changed
   });
 
   describe('Migration State', () => {

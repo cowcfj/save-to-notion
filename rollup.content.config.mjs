@@ -13,8 +13,6 @@ export default {
     banner: '/* eslint-disable */\n/* Save to Notion - Content Script */',
     // 橋接：從 manifest.json 預載入的全域變數創建模組引用
     intro: `
-      const Logger = (typeof window !== 'undefined' && window.Logger) || { log: () => {}, warn: () => {}, error: () => {}, debug: () => {}, info: () => {} };
-      const ImageUtils = (typeof window !== 'undefined' && window.ImageUtils) || {};
     `,
     globals: {
       Readability: 'Readability',
@@ -38,7 +36,7 @@ export default {
           'ContentScript',
           'extractPageContent',
           'Logger',
-          'ImageUtils',
+
         ],
       },
       format: {

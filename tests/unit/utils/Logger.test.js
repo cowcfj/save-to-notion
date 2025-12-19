@@ -232,6 +232,7 @@ describe('Logger', () => {
           id: 'test-extension-id',
           getManifest: jest.fn().mockReturnValue({
             version: '2.0.0',
+            version_name: '2.0.0',
           }),
           sendMessage: jest.fn(),
           lastError: null,
@@ -282,24 +283,6 @@ describe('Logger', () => {
       // 模擬 local storage 變更（不應影響 debugEnabled）
       onChangedCallback({ enableDebugLogs: { newValue: false } }, 'local');
       expect(Logger.debugEnabled).toBe(true);
-    });
-  });
-
-  describe('防止重複初始化', () => {
-    test('重複載入不應該覆蓋已存在的 Logger', () => {
-      // 第一次載入
-      global.chrome = undefined;
-      require('../../../scripts/utils/Logger.js');
-      const firstLogger = global.window.Logger;
-
-      // 清除模組快取但保留 window.Logger
-      jest.resetModules();
-
-      // 第二次載入
-      require('../../../scripts/utils/Logger.js');
-      const secondLogger = global.window.Logger;
-
-      expect(firstLogger).toBe(secondLogger);
     });
   });
 

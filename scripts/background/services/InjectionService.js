@@ -148,8 +148,8 @@ class InjectionService {
       return this._highlighterPath;
     }
 
-    // Candidates: root first (dist config), then dist/ (dev config)
-    const candidates = ['dist/content.bundle.js']; // 使用合併後的 content bundle (包含 highlighter)
+    // Unified bundle is the only target now
+    const candidates = ['dist/content.bundle.js'];
 
     for (const path of candidates) {
       try {
@@ -163,8 +163,8 @@ class InjectionService {
       }
     }
 
-    // Fallback to default
-    return 'dist/highlighter-v2.bundle.js';
+    // Fallback (should typically be caught by candidates, but return unified bundle as default)
+    return 'dist/content.bundle.js';
   }
 
   /**

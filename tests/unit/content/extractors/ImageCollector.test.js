@@ -24,12 +24,21 @@ global.Logger = {
   error: jest.fn(),
 };
 
-global.ImageUtils = {
-  extractImageSrc: jest.fn(),
-  cleanImageUrl: jest.fn(url => url),
-  isValidImageUrl: jest.fn(() => true),
-  isNotionCompatibleImageUrl: jest.fn(() => true),
-};
+// Mock ImageUtils module
+jest.mock('../../../../scripts/utils/imageUtils.js', () => ({
+  __esModule: true, // Handle default export
+  default: {
+    extractImageSrc: jest.fn(),
+    cleanImageUrl: jest.fn(url => url),
+    isValidImageUrl: jest.fn(() => true),
+    isNotionCompatibleImageUrl: jest.fn(() => true),
+  },
+}));
+
+import ImageUtils from '../../../../scripts/utils/imageUtils.js';
+
+// Global mock not needed for ImageCollector but might be used by other parts if they fallback
+global.ImageUtils = ImageUtils;
 
 global.ErrorHandler = {
   logError: jest.fn(),
@@ -45,10 +54,10 @@ describe('ImageCollector', () => {
     global.Logger.warn.mockImplementation(() => undefined);
     global.Logger.error.mockImplementation(() => undefined);
 
-    global.ImageUtils.extractImageSrc.mockReturnValue(null);
-    global.ImageUtils.cleanImageUrl.mockImplementation(url => url);
-    global.ImageUtils.isValidImageUrl.mockReturnValue(true);
-    global.ImageUtils.isNotionCompatibleImageUrl.mockReturnValue(true);
+    ImageUtils.extractImageSrc.mockReturnValue(null);
+    ImageUtils.cleanImageUrl.mockImplementation(url => url);
+    ImageUtils.isValidImageUrl.mockReturnValue(true);
+    ImageUtils.isNotionCompatibleImageUrl.mockReturnValue(true);
 
     // Default cachedQuery mock
     cachedQuery.mockImplementation((selector, context, options) => {
@@ -76,7 +85,7 @@ describe('ImageCollector', () => {
         }
         return null;
       });
-      global.ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
+      ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
 
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBe('https://example.com/featured.jpg');
@@ -97,7 +106,7 @@ describe('ImageCollector', () => {
       Object.defineProperty(mockImg, 'naturalWidth', { value: 800 });
       Object.defineProperty(mockImg, 'naturalHeight', { value: 600 });
 
-      global.ImageUtils.extractImageSrc.mockReturnValue('https://example.com/img.jpg');
+      ImageUtils.extractImageSrc.mockReturnValue('https://example.com/img.jpg');
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
 
@@ -115,7 +124,7 @@ describe('ImageCollector', () => {
     test('should skip duplicate featured image', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/featured.jpg';
-      global.ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
+      ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
 
       const result = ImageCollector.processImageForCollection(
         mockImg,
@@ -131,7 +140,7 @@ describe('ImageCollector', () => {
       Object.defineProperty(mockImg, 'naturalWidth', { value: 100 });
       Object.defineProperty(mockImg, 'naturalHeight', { value: 50 });
 
-      global.ImageUtils.extractImageSrc.mockReturnValue('https://example.com/small.jpg');
+      ImageUtils.extractImageSrc.mockReturnValue('https://example.com/small.jpg');
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
       expect(result).toBeNull();
@@ -155,7 +164,7 @@ describe('ImageCollector', () => {
       });
 
       // Ensure collectFeaturedImage returns null
-      global.ImageUtils.extractImageSrc.mockImplementation(img => (img ? img.src : null));
+      ImageUtils.extractImageSrc.mockImplementation(img => (img ? img.src : null));
 
       // Mock processImageForCollection to return valid results
       const originalProcess = ImageCollector.processImageForCollection;
@@ -218,7 +227,7 @@ describe('ImageCollector', () => {
         return [];
       });
 
-      global.ImageUtils.extractImageSrc.mockImplementation(img => (img ? img.src : null));
+      ImageUtils.extractImageSrc.mockImplementation(img => (img ? img.src : null));
 
       // Mock batchProcessWithRetry to return null results (simulating failure)
       batchProcessWithRetry.mockResolvedValue({

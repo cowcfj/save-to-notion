@@ -8,13 +8,11 @@
  * - 處理圖片驗證、去重和批次處理
  */
 
-// Logger 由 Rollup intro 從 window.Logger 注入
-// ImageUtils 由 Rollup intro 從 window.ImageUtils 注入
-// 使用 getter 函數以支持測試時的 mock 覆蓋
-const getImageUtils = () =>
-  (typeof window !== 'undefined' && window.ImageUtils) ||
-  (typeof global !== 'undefined' && global.ImageUtils) ||
-  {};
+// ImageUtils Imported directly
+import ImageUtils from '../../utils/imageUtils.js';
+
+// Remove legacy getter
+// const getImageUtils = ...
 import { ErrorHandler } from '../../errorHandling/ErrorHandler.js';
 import { batchProcess, batchProcessWithRetry } from '../../performance/PerformanceOptimizer.js';
 
@@ -33,7 +31,8 @@ class ImageCollector {
    */
   static collectFeaturedImage() {
     Logger.log('🎯 Attempting to collect featured/hero image...');
-    const { extractImageSrc, isValidImageUrl } = getImageUtils();
+    Logger.log('🎯 Attempting to collect featured/hero image...');
+    const { extractImageSrc, isValidImageUrl } = ImageUtils;
 
     for (const selector of FEATURED_IMAGE_SELECTORS) {
       try {
@@ -76,7 +75,7 @@ class ImageCollector {
    */
   static processImageForCollection(img, index, featuredImage) {
     const { extractImageSrc, cleanImageUrl, isValidImageUrl, isNotionCompatibleImageUrl } =
-      getImageUtils();
+      ImageUtils;
     const src = extractImageSrc?.(img);
     if (!src) {
       Logger.log(`✗ No src found for image ${index + 1}`);

@@ -11,19 +11,13 @@
     "https://*/*"
   ],
   "background": {
-    "service_worker": "scripts/background.js",
+    "service_worker": "dist/scripts/background.js",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": [
-        "lib/Readability.js",
-        "scripts/utils/Logger.js",
-        "scripts/utils/imageUtils.js",
-        "scripts/seamless-migration.js",
-        "dist/content.bundle.js"
-      ],
+      "js": ["lib/Readability.js", "dist/content.bundle.js"],
       "run_at": "document_idle",
       "all_frames": false
     }
