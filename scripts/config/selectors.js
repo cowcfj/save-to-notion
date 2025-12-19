@@ -262,16 +262,24 @@ export const TECHNICAL_CONTENT_SELECTORS = [
  * 注意事項：
  * - 避免過於寬鬆的選擇器（如 [class*="ad"] 可能誤判 .add-button）
  * - 使用 [class*="ad-"] 確保只匹配帶連字符的 class
+ *
+ * 與 EXCLUSION_SELECTORS 的關係：
+ * - EXCLUSION_SELECTORS 用於圖片收集時排除非內容區域
+ * - AD_SELECTORS 用於頁面複雜度檢測計算廣告數量
+ * - 兩者的廣告選擇器應保持同步（.advertisement, .ads, .ad 等）
  */
 export const AD_SELECTORS = [
-  // 精確匹配選擇器（不被屬性選擇器涵蓋）
+  // 1. 精確類選擇器（與 EXCLUSION_SELECTORS 保持同步）
   '.advertisement',
-  '[id^="div-gpt-ad"]',
+  '.ads',
+  '.ad',
   '.google-auto-placed',
   '.adsbygoogle',
   '.sponsor',
   '.sponsor-content',
-  // 屬性包含選擇器（涵蓋 .ad-container, .ad-banner, .ad-widget 等）
+  // 2. 前綴匹配選擇器
+  '[id^="div-gpt-ad"]',
+  // 3. 包含匹配選擇器（涵蓋 .ad-container, .ad-banner, .ad-widget 等）
   '[class*="ad-"]',
   '[id*="ad-"]',
   '[id*="sponsor"]',
