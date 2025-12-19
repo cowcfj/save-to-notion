@@ -4,58 +4,20 @@
  * 職責：封裝 chrome.storage 操作，提供統一的異步接口
  * - 頁面保存狀態管理
  * - 配置讀取
- * - URL 標準化
+ * - URL 標準化（使用統一的 urlUtils）
  *
  * @module services/StorageService
  */
 
 /* global chrome */
 
-// 導入統一配置
-import { URL_NORMALIZATION } from '../../config/index.js';
+// 從統一工具函數導入（Single Source of Truth）
+import { normalizeUrl, TRACKING_PARAMS } from '../../utils/urlUtils.js';
 
 /**
- * URL 標準化相關常量（從統一配置導出，用於兼容既有導入）
+ * URL 標準化相關常量（從 urlUtils 導出，用於兼容既有導入）
  */
-export const URL_TRACKING_PARAMS = URL_NORMALIZATION.TRACKING_PARAMS;
-
-/**
- * 標準化 URL，用於生成一致的存儲鍵
- * @param {string} rawUrl - 原始 URL
- * @returns {string} 標準化後的 URL
- */
-function normalizeUrl(rawUrl) {
-  if (!rawUrl) {
-    return '';
-  }
-
-  // 確保轉換為字符串
-  if (typeof rawUrl !== 'string') {
-    rawUrl = String(rawUrl);
-  }
-
-  // 相對 URL 直接返回
-  if (!rawUrl.includes('://')) {
-    return rawUrl;
-  }
-
-  try {
-    const urlObj = new URL(rawUrl);
-    urlObj.hash = '';
-
-    // 移除追蹤參數
-    URL_TRACKING_PARAMS.forEach(param => urlObj.searchParams.delete(param));
-
-    // 標準化尾部斜線
-    if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
-      urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
-    }
-
-    return urlObj.toString();
-  } catch {
-    return rawUrl;
-  }
-}
+export const URL_TRACKING_PARAMS = TRACKING_PARAMS;
 
 /**
  * StorageService 類

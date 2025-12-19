@@ -1,19 +1,23 @@
-// Logger 由 Rollup intro 從 self.Logger/window.Logger 注入
+/**
+ * URL 工具函數
+ * 提供 URL 標準化功能，用於生成一致的存儲鍵
+ */
 
-// 默認追蹤參數列表
-export const TRACKING_PARAMS = [
-  'utm_source',
-  'utm_medium',
-  'utm_campaign',
-  'utm_term',
-  'utm_content',
-  'gclid',
-  'fbclid',
-  'mc_cid',
-  'mc_eid',
-  'igshid',
-  'vero_id',
-];
+// 從統一配置導入 TRACKING_PARAMS（Single Source of Truth）
+import { URL_NORMALIZATION } from '../config/constants.js';
+
+// Logger 回退定義：在 Rollup 打包時由 intro 注入自 self.Logger
+// 在直接載入時使用回退定義
+const Logger = (typeof self !== 'undefined' && self.Logger) || {
+  log: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
+  info: () => {},
+};
+
+// 從配置導出 TRACKING_PARAMS（維持向後兼容）
+export const TRACKING_PARAMS = URL_NORMALIZATION.TRACKING_PARAMS;
 
 /**
  * 標準化 URL，用於生成一致的存儲鍵
@@ -22,9 +26,14 @@ export const TRACKING_PARAMS = [
  * @returns {string} 標準化後的 URL，相對/無效 URL 返回原始輸入
  */
 export function normalizeUrl(rawUrl) {
-  // 輸入驗證
-  if (!rawUrl || typeof rawUrl !== 'string') {
-    return rawUrl || '';
+  // 空值檢查
+  if (!rawUrl) {
+    return '';
+  }
+
+  // 確保轉換為字符串
+  if (typeof rawUrl !== 'string') {
+    rawUrl = String(rawUrl);
   }
 
   // 快速檢查：相對 URL 直接返回（不進行標準化）
@@ -41,8 +50,7 @@ export function normalizeUrl(rawUrl) {
     }
 
     // 2. 移除常見的追蹤參數
-    const trackingParams = TRACKING_PARAMS;
-    trackingParams.forEach(param => {
+    TRACKING_PARAMS.forEach(param => {
       if (urlObj.searchParams.has(param)) {
         urlObj.searchParams.delete(param);
       }
