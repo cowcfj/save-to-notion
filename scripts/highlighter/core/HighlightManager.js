@@ -13,6 +13,11 @@ import { findTextInPage } from '../utils/textSearch.js';
 import Logger from '../../utils/Logger.js';
 import SeamlessMigrationManager from '../../seamless-migration.js';
 
+/**
+ * HighlightManager
+ * 管理所有標註操作，包括創建、刪除、存儲和恢復標註。
+ * 同時支持現代 CSS Highlight API 和傳統 DOM 標註方式。
+ */
 export class HighlightManager {
   constructor(options = {}) {
     // 核心數據結構
