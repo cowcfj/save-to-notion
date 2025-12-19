@@ -250,3 +250,42 @@ export const TECHNICAL_CONTENT_SELECTORS = [
   '.prose', // Tailwind Typography (確認是否過於寬泛? 通常 safe)
   '#readme', // GitHub/NPM
 ];
+
+// ==========================================
+// 廣告元素選擇器
+// ==========================================
+
+/**
+ * 廣告元素選擇器（用於頁面複雜度檢測）
+ * 來源：Issue #178 - 擴充 pageComplexityDetector 廣告元素選擇器
+ *
+ * 注意事項：
+ * - 使用空格邊界匹配避免誤判（如 .bad-element, #download-btn）
+ * - [class^="ad-"] 匹配開頭，[class*=" ad-"] 匹配空格後的 ad-
+ *
+ * 與 EXCLUSION_SELECTORS 的關係：
+ * - EXCLUSION_SELECTORS 用於圖片收集時排除非內容區域
+ * - AD_SELECTORS 用於頁面複雜度檢測計算廣告數量
+ * - 兩者的廣告選擇器應保持同步（.advertisement, .ads, .ad 等）
+ */
+export const AD_SELECTORS = [
+  // 1. 精確類選擇器（與 EXCLUSION_SELECTORS 保持同步）
+  '.advertisement',
+  '.ads',
+  '.ad',
+  '.google-auto-placed',
+  '.adsbygoogle',
+  '.sponsor',
+  '.sponsor-content',
+  // 2. 前綴匹配選擇器
+  '[id^="div-gpt-ad"]',
+  // 3. 邊界匹配選擇器（涵蓋 .ad-container, .ad-banner, .ad-widget 等）
+  // class 以 "ad-" 開頭，或空格後跟 "ad-"
+  '[class^="ad-"]',
+  '[class*=" ad-"]',
+  // id 以 "ad-" 開頭，或包含 "-ad-" 模式
+  '[id^="ad-"]',
+  '[id*="-ad-"]',
+  // sponsor 相關
+  '[id*="sponsor"]',
+];

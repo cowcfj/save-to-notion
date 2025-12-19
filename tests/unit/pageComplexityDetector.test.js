@@ -238,12 +238,14 @@ describe('頁面複雜度檢測器', () => {
         adSelectors: '[class*="ad"], [id*="ad"], .advertisement, .sponsor',
       });
 
-      // 源代碼使用更嚴格的 ad 選擇器，只有 1 個元素匹配 (.advertisement)
-      expect(complexity.metrics.adElements).toBeGreaterThanOrEqual(1);
-      // 因為少於 3 個，hasAds 為 false
-      expect(complexity.hasAds).toBe(false);
-      // 因此選 markdown
-      expect(selection.extractor).toBe('markdown');
+      // 擴充後的 AD_SELECTORS 現在能匹配所有 5 個廣告元素
+      // .advertisement, .ad-banner ([class^="ad-"]), #ad-section ([id^="ad-"]), .sponsor-content, .ad-widget ([class^="ad-"])
+      expect(complexity.metrics.adElements).toBe(5);
+      // 因為 > 3 個（5 > 3），hasAds 為 true
+      expect(complexity.hasAds).toBe(true);
+      // 因此選 readability
+      expect(selection.extractor).toBe('readability');
+      expect(selection.reasons).toContain('包含廣告元素');
     });
 
     test('複雜佈局的媒體網站', () => {
