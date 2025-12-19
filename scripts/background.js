@@ -7,7 +7,8 @@
 
 // Import Utils
 // Import Utils
-import Logger from './utils/Logger.js';
+// Import Utils
+import './utils/Logger.js'; // Side-effect import to register self.Logger
 
 import { normalizeUrl } from './utils/urlUtils.js';
 
