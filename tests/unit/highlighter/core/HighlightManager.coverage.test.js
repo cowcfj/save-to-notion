@@ -98,7 +98,7 @@ describe('HighlightManager Coverage Tests', () => {
   });
 
   afterEach(() => {
-    if (manager && manager.cleanup) {
+    if (manager?.cleanup) {
       manager.cleanup();
     }
     jest.clearAllMocks();
