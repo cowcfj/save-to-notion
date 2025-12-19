@@ -90,80 +90,97 @@ const StorageUtil = {
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<Array>}
    */
-  loadHighlights(pageUrl) {
+  async loadHighlights(pageUrl) {
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `highlights_${normalizedUrl}`;
 
-    return new Promise(resolve => {
+    try {
+      const data = await this._loadFromChromeStorage(pageKey);
+      if (data && data.length > 0) {
+        return data;
+      }
+    } catch (_) {
+      Logger.warn?.('Chrome storage unavailable, trying localStorage fallback');
+    }
+
+    try {
+      return await this._loadFromLocalStorage(pageKey);
+    } catch (error) {
+      Logger.error('Failed to load highlights from localStorage:', error);
+      return [];
+    }
+  },
+
+  /**
+   * 從 Chrome Storage 加載並解析格式
+   * @private
+   */
+  _loadFromChromeStorage(key) {
+    if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
+      return Promise.reject(new Error('Chrome storage not available'));
+    }
+
+    return new Promise((resolve, reject) => {
       try {
-        if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-          chrome.storage.local.get([pageKey], data => {
-            const stored = data?.[pageKey];
-            if (stored) {
-              // 支持兩種格式：數組（舊版）和對象（新版 {url, highlights}）
-              let highlights = [];
-              if (Array.isArray(stored)) {
-                highlights = stored;
-              } else if (stored.highlights && Array.isArray(stored.highlights)) {
-                highlights = stored.highlights;
-              }
-
-              if (highlights.length > 0) {
-                resolve(highlights);
-                return;
-              }
-            }
-
-            // 兼容舊版：從 localStorage 回退
-            const legacy = localStorage.getItem(pageKey);
-            if (legacy) {
-              try {
-                const parsed = JSON.parse(legacy);
-                let highlights = [];
-                if (Array.isArray(parsed)) {
-                  highlights = parsed;
-                } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
-                  highlights = parsed.highlights;
-                }
-
-                if (highlights.length > 0) {
-                  resolve(highlights);
-                  return;
-                }
-              } catch (error) {
-                console.error('Failed to parse legacy highlights:', error);
-              }
-            }
-
-            resolve([]);
-          });
-        } else {
-          throw new Error('Chrome storage not available');
-        }
-      } catch (_) {
-        console.warn('Chrome storage not available, falling back to localStorage');
-        const legacy = localStorage.getItem(pageKey);
-        if (legacy) {
-          try {
-            const parsed = JSON.parse(legacy);
-            let highlights = [];
-            if (Array.isArray(parsed)) {
-              highlights = parsed;
-            } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
-              highlights = parsed.highlights;
-            }
-
-            if (highlights.length > 0) {
-              resolve(highlights);
-              return;
-            }
-          } catch (errParseLocal) {
-            console.error('Failed to parse localStorage highlights:', errParseLocal);
+        chrome.storage.local.get([key], data => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
           }
-        }
-        resolve([]);
+          const stored = data?.[key];
+          resolve(this._parseHighlightFormat(stored));
+        });
+      } catch (error) {
+        reject(error);
       }
     });
+  },
+
+  /**
+   * 從 localStorage 加載並解析格式
+   * @private
+   */
+  _loadFromLocalStorage(key) {
+    return new Promise((resolve, reject) => {
+      try {
+        const legacy = localStorage.getItem(key);
+        if (!legacy) {
+          resolve([]);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(legacy);
+          resolve(this._parseHighlightFormat(parsed));
+        } catch (error) {
+          console.error('Failed to parse legacy highlights:', error);
+          resolve([]);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  },
+
+  /**
+   * 解析不同版本的標注數據格式
+   * @private
+   */
+  _parseHighlightFormat(data) {
+    if (!data) {
+      return [];
+    }
+
+    // 支援數組（舊版）
+    if (Array.isArray(data)) {
+      return data;
+    }
+
+    // 支援對象格式（新版 {url, highlights}）
+    if (data.highlights && Array.isArray(data.highlights)) {
+      return data.highlights;
+    }
+
+    return [];
   },
 
   /**
