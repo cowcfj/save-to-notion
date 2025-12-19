@@ -37,7 +37,6 @@ class ImageCollector {
    */
   static collectFeaturedImage() {
     Logger.log('🎯 Attempting to collect featured/hero image...');
-    Logger.log('🎯 Attempting to collect featured/hero image...');
 
     for (const selector of FEATURED_IMAGE_SELECTORS) {
       try {

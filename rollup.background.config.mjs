@@ -32,8 +32,6 @@ export default {
         format: 'es', // Service Worker supports ES modules
         sourcemap: isDev ? 'inline' : true,
         banner: '/* eslint-disable */\n/* Save to Notion - Background Script */',
-        // 橋接：Service Worker 環境使用 self，提供 Logger 回退
-
     },
     plugins: [
         stripTestConfig(),
