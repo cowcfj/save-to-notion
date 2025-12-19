@@ -8,8 +8,13 @@
  * - 處理圖片驗證、去重和批次處理
  */
 
-// ImageUtils Imported directly
-import ImageUtils from '../../utils/imageUtils.js';
+// ImageUtils Named Imports
+import {
+  extractImageSrc,
+  isValidImageUrl,
+  cleanImageUrl,
+  isNotionCompatibleImageUrl,
+} from '../../utils/imageUtils.js';
 import Logger from '../../utils/Logger.js';
 
 // Remove legacy getter
@@ -33,7 +38,6 @@ class ImageCollector {
   static collectFeaturedImage() {
     Logger.log('🎯 Attempting to collect featured/hero image...');
     Logger.log('🎯 Attempting to collect featured/hero image...');
-    const { extractImageSrc, isValidImageUrl } = ImageUtils;
 
     for (const selector of FEATURED_IMAGE_SELECTORS) {
       try {
@@ -75,8 +79,6 @@ class ImageCollector {
    * @returns {Object|null} 圖片對象或 null
    */
   static processImageForCollection(img, index, featuredImage) {
-    const { extractImageSrc, cleanImageUrl, isValidImageUrl, isNotionCompatibleImageUrl } =
-      ImageUtils;
     const src = extractImageSrc?.(img);
     if (!src) {
       Logger.log(`✗ No src found for image ${index + 1}`);
