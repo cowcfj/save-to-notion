@@ -239,7 +239,7 @@ describe('頁面複雜度檢測器', () => {
       });
 
       // 擴充後的 AD_SELECTORS 現在能匹配所有 5 個廣告元素
-      // .advertisement, .ad-banner, #ad-section ([id*="ad-"]), .sponsor-content, .ad-widget
+      // .advertisement, .ad-banner ([class^="ad-"]), #ad-section ([id^="ad-"]), .sponsor-content, .ad-widget ([class^="ad-"])
       expect(complexity.metrics.adElements).toBe(5);
       // 因為 > 3 個（5 > 3），hasAds 為 true
       expect(complexity.hasAds).toBe(true);
