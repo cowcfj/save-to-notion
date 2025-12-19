@@ -28,7 +28,7 @@ const StorageUtil = {
    */
   async saveHighlights(pageUrl, highlightData) {
     if (!pageUrl || typeof pageUrl !== 'string') {
-      Logger.warn?.('saveHighlights: Invalid pageUrl provided');
+      Logger.warn('saveHighlights: Invalid pageUrl provided');
       return;
     }
     const normalizedUrl = normalizeUrl(pageUrl);
@@ -37,7 +37,7 @@ const StorageUtil = {
     try {
       await this._saveToChromeStorage(pageKey, highlightData);
     } catch (error) {
-      Logger.warn?.('Chrome storage unavailable/failed, falling back to localStorage:', error);
+      Logger.warn('Chrome storage unavailable/failed, falling back to localStorage:', error);
       try {
         await this._saveToLocalStorage(pageKey, highlightData);
       } catch (localError) {
@@ -93,7 +93,7 @@ const StorageUtil = {
    */
   async loadHighlights(pageUrl) {
     if (!pageUrl || typeof pageUrl !== 'string') {
-      Logger.warn?.('loadHighlights: Invalid pageUrl provided');
+      Logger.warn('loadHighlights: Invalid pageUrl provided');
       return [];
     }
     const normalizedUrl = normalizeUrl(pageUrl);
@@ -105,7 +105,7 @@ const StorageUtil = {
         return data;
       }
     } catch (_) {
-      Logger.warn?.('Chrome storage unavailable, trying localStorage fallback');
+      Logger.warn('Chrome storage unavailable, trying localStorage fallback');
     }
 
     try {
@@ -204,7 +204,7 @@ const StorageUtil = {
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `highlights_${normalizedUrl}`;
 
-    Logger.log?.('🗑️ [clearHighlights] 開始清除標註:', pageKey);
+    Logger.log('🗑️ [clearHighlights] 開始清除標註:', pageKey);
 
     const results = await Promise.allSettled([
       this._clearFromChromeStorage(pageKey),
@@ -223,12 +223,12 @@ const StorageUtil = {
     }
 
     if (failures.length > 0) {
-      Logger.warn?.(
+      Logger.warn(
         '⚠️ [clearHighlights] 部分存儲清除失敗:',
         failures.map(failure => failure.reason)
       );
     } else {
-      Logger.log?.('✅ [clearHighlights] 標註清除完成');
+      Logger.log('✅ [clearHighlights] 標註清除完成');
     }
   },
 
