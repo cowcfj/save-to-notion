@@ -260,8 +260,8 @@ export const TECHNICAL_CONTENT_SELECTORS = [
  * 來源：Issue #178 - 擴充 pageComplexityDetector 廣告元素選擇器
  *
  * 注意事項：
- * - 避免過於寬鬆的選擇器（如 [class*="ad"] 可能誤判 .add-button）
- * - 使用 [class*="ad-"] 確保只匹配帶連字符的 class
+ * - 使用空格邊界匹配避免誤判（如 .bad-element, #download-btn）
+ * - [class^="ad-"] 匹配開頭，[class*=" ad-"] 匹配空格後的 ad-
  *
  * 與 EXCLUSION_SELECTORS 的關係：
  * - EXCLUSION_SELECTORS 用於圖片收集時排除非內容區域
@@ -279,8 +279,13 @@ export const AD_SELECTORS = [
   '.sponsor-content',
   // 2. 前綴匹配選擇器
   '[id^="div-gpt-ad"]',
-  // 3. 包含匹配選擇器（涵蓋 .ad-container, .ad-banner, .ad-widget 等）
-  '[class*="ad-"]',
-  '[id*="ad-"]',
+  // 3. 邊界匹配選擇器（涵蓋 .ad-container, .ad-banner, .ad-widget 等）
+  // class 以 "ad-" 開頭，或空格後跟 "ad-"
+  '[class^="ad-"]',
+  '[class*=" ad-"]',
+  // id 以 "ad-" 開頭，或包含 "-ad-" 模式
+  '[id^="ad-"]',
+  '[id*="-ad-"]',
+  // sponsor 相關
   '[id*="sponsor"]',
 ];
