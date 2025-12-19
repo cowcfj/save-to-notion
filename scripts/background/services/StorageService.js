@@ -6,6 +6,8 @@
  * - 配置讀取
  * - URL 標準化（使用統一的 urlUtils）
  *
+ * 注意：Highlights 存儲由 StorageUtil（Content Script）處理
+ *
  * @module services/StorageService
  */
 
@@ -149,55 +151,6 @@ class StorageService {
 
     return new Promise((resolve, reject) => {
       this.storage.sync.set(config, () => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  /**
-   * 獲取標註數據
-   * @param {string} pageUrl - 頁面 URL
-   * @returns {Promise<Array>}
-   */
-  getHighlights(pageUrl) {
-    if (!this.storage) {
-      throw new Error('Chrome storage not available');
-    }
-
-    const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `highlights_${normalizedUrl}`;
-
-    return new Promise((resolve, reject) => {
-      this.storage.local.get([key], result => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(result[key] || []);
-        }
-      });
-    });
-  }
-
-  /**
-   * 設置標註數據
-   * @param {string} pageUrl - 頁面 URL
-   * @param {Array} highlights - 標註數組
-   * @returns {Promise<void>}
-   */
-  setHighlights(pageUrl, highlights) {
-    if (!this.storage) {
-      throw new Error('Chrome storage not available');
-    }
-
-    const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `highlights_${normalizedUrl}`;
-
-    return new Promise((resolve, reject) => {
-      this.storage.local.set({ [key]: highlights }, () => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else {
