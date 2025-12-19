@@ -20,6 +20,12 @@
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
+// 合併 Highlighter bundle：導入並掛載到 window
+import * as HighlighterV2 from '../highlighter/index.js';
+
+if (typeof window !== 'undefined') {
+  window.HighlighterV2 = HighlighterV2;
+}
 
 // 立即打印日誌證明腳本已加載
 Logger.log('🚀 [Save to Notion] Content Bundle Loaded! Access via extension context.');

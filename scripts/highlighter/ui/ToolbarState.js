@@ -19,7 +19,16 @@ export class ToolbarStateManager {
   constructor() {
     this.listeners = new Set();
     // 從 localStorage 讀取初始狀態，默認為 HIDDEN
-    const savedState = localStorage.getItem('notion-highlighter-state');
+    // 從 localStorage 讀取初始狀態，默認為 HIDDEN
+    let savedState = null;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        savedState = window.localStorage.getItem('notion-highlighter-state');
+      } catch (_error) {
+        // 忽略訪問錯誤（如隱私模式禁用 localStorage）
+      }
+    }
+
     this._currentState = Object.values(ToolbarStates).includes(savedState)
       ? savedState
       : ToolbarStates.HIDDEN;
@@ -46,7 +55,9 @@ export class ToolbarStateManager {
       this._currentState = newState;
       // 保存狀態到 localStorage
       try {
-        localStorage.setItem('notion-highlighter-state', newState);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('notion-highlighter-state', newState);
+        }
       } catch (error) {
         console.warn('[ToolbarState] 無法保存狀態到 localStorage:', error);
       }

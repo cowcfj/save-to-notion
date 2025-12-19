@@ -27,7 +27,7 @@ import { findTextInPage, findTextWithTreeWalker, findTextFuzzy } from './utils/t
 import { waitForDOMStability } from './utils/domStability.js';
 
 // Storage utility - 導入以設置 window.StorageUtil（由 HighlightManager 使用）
-import '../utils/StorageUtil.js';
+import './utils/StorageUtil.js';
 
 /**
  * 初始化 Highlighter V2 (僅 Manager)

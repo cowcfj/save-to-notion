@@ -13,7 +13,8 @@
 /* global chrome */
 
 // 從統一工具函數導入 normalizeUrl
-import { normalizeUrl } from './urlUtils.js';
+// 從統一工具函數導入 normalizeUrl
+import { normalizeUrl } from '../../utils/urlUtils.js';
 
 // Logger 回退定義
 const Logger = (typeof window !== 'undefined' && window.Logger) || console;

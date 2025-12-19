@@ -149,7 +149,7 @@ class InjectionService {
     }
 
     // Candidates: root first (dist config), then dist/ (dev config)
-    const candidates = ['highlighter-v2.bundle.js', 'dist/highlighter-v2.bundle.js'];
+    const candidates = ['dist/content.bundle.js']; // 使用合併後的 content bundle (包含 highlighter)
 
     for (const path of candidates) {
       try {

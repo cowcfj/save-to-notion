@@ -32,7 +32,7 @@ global.chrome = mockChrome;
 // 重置模塊緩存並重新加載模組
 jest.resetModules();
 require('../../scripts/utils/Logger.js');
-require('../../scripts/utils/StorageUtil.js');
+require('../../scripts/highlighter/utils/StorageUtil.js');
 
 describe('StorageUtil', () => {
   beforeEach(() => {
