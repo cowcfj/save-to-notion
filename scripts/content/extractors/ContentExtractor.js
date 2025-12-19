@@ -8,7 +8,7 @@
  * - 返回標準化的提取結果
  */
 
-// Logger 由 Rollup intro 從 window.Logger 注入
+import Logger from '../../utils/Logger.js';
 import {
   parseArticleWithReadability,
   isContentGood,

@@ -10,6 +10,7 @@
 
 // ImageUtils Imported directly
 import ImageUtils from '../../utils/imageUtils.js';
+import Logger from '../../utils/Logger.js';
 
 // Remove legacy getter
 // const getImageUtils = ...
