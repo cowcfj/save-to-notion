@@ -4,7 +4,12 @@
  * Tests for exported helper functions in the main options controller
  */
 
-import { saveSettings, formatTitle, setupTemplatePreview } from '../../../options/options.js';
+import {
+  saveSettings,
+  formatTitle,
+  setupTemplatePreview,
+  cleanDatabaseId,
+} from '../../../options/options.js';
 
 describe('options.js', () => {
   describe('formatTitle', () => {
@@ -44,6 +49,48 @@ describe('options.js', () => {
     });
   });
 
+  describe('cleanDatabaseId', () => {
+    it('應移除連字符', () => {
+      expect(cleanDatabaseId('a1b2c3d4-e5f6-7890-abcd-ef1234567890')).toBe(
+        'a1b2c3d4e5f67890abcdef1234567890'
+      );
+    });
+
+    it('應從 URL 中提取 ID（帶連字符）', () => {
+      const url = 'https://www.notion.so/workspace/a1b2c3d4-e5f6-7890-abcd-ef1234567890?v=123';
+      expect(cleanDatabaseId(url)).toBe('a1b2c3d4e5f67890abcdef1234567890');
+    });
+
+    it('應從 URL 中提取 ID（無連字符）', () => {
+      const url = 'https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890?v=123';
+      expect(cleanDatabaseId(url)).toBe('a1b2c3d4e5f67890abcdef1234567890');
+    });
+
+    it('應處理已清理的 ID', () => {
+      expect(cleanDatabaseId('a1b2c3d4e5f67890abcdef1234567890')).toBe(
+        'a1b2c3d4e5f67890abcdef1234567890'
+      );
+    });
+
+    it('應處理帶空格的輸入', () => {
+      expect(cleanDatabaseId('  a1b2c3d4-e5f6-7890-abcd-ef1234567890  ')).toBe(
+        'a1b2c3d4e5f67890abcdef1234567890'
+      );
+    });
+
+    it('應拒絕無效格式', () => {
+      expect(cleanDatabaseId('invalid-id')).toBe('');
+      expect(cleanDatabaseId('12345')).toBe('');
+      expect(cleanDatabaseId('')).toBe('');
+      expect(cleanDatabaseId(null)).toBe('');
+    });
+
+    it('應拒絕非十六進制字符', () => {
+      expect(cleanDatabaseId('g1b2c3d4e5f67890abcdef1234567890')).toBe('');
+      expect(cleanDatabaseId('a1b2c3d4-e5f6-7890-abcd-zzzzzzzzzzzz')).toBe('');
+    });
+  });
+
   describe('saveSettings', () => {
     let mockUi = null;
     let mockAuth = null;
@@ -52,7 +99,7 @@ describe('options.js', () => {
     beforeEach(() => {
       document.body.innerHTML = `
         <input id="api-key" value="key_123" />
-        <input id="database-id" value="db_123" />
+        <input id="database-id" value="a1b2c3d4e5f67890abcdef1234567890" />
         <input id="title-template" value="{title}" />
         <input type="checkbox" id="add-source" checked />
         <input type="checkbox" id="add-timestamp" />
@@ -81,8 +128,8 @@ describe('options.js', () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           notionApiKey: 'key_123',
-          notionDatabaseId: 'db_123',
-          notionDataSourceId: 'db_123',
+          notionDatabaseId: 'a1b2c3d4e5f67890abcdef1234567890',
+          notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
           notionDataSourceType: 'page',
           addSource: true,
           addTimestamp: false,

@@ -58,13 +58,48 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * 清理並標準化 Database/Page ID
+ * - 移除 URL 前綴和查詢參數
+ * - 移除連字符
+ * - 提取純 32 字符的 ID
+ * @param {string} input - 使用者輸入的 ID 或 URL
+ * @returns {string} 清理後的 ID，格式無效時返回空字符串
+ */
+export function cleanDatabaseId(input) {
+  if (!input) {
+    return '';
+  }
+
+  let cleaned = input.trim();
+
+  // 如果是完整 URL，提取 ID 部分
+  // 例如: https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890?v=123
+  const urlMatch = cleaned.match(
+    /([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i
+  );
+  if (urlMatch) {
+    cleaned = urlMatch[0];
+  }
+
+  // 移除所有連字符
+  cleaned = cleaned.replace(/-/g, '');
+
+  // 驗證格式：應該是 32 字符的十六進制字符串
+  if (!/^[a-f0-9]{32}$/i.test(cleaned)) {
+    return '';
+  }
+
+  return cleaned;
+}
+
+/**
  * 保存設置
  * @param {UIManager} ui
  * @param {AuthManager} auth
  */
 export function saveSettings(ui, auth) {
   const apiKey = document.getElementById('api-key').value.trim();
-  const databaseId = document.getElementById('database-id').value.trim();
+  const rawDatabaseId = document.getElementById('database-id').value;
   const titleTemplate = document.getElementById('title-template').value;
   const addSource = document.getElementById('add-source').checked;
   const addTimestamp = document.getElementById('add-timestamp').checked;
@@ -76,8 +111,10 @@ export function saveSettings(ui, auth) {
     return;
   }
 
+  // 清理並驗證 Database ID
+  const databaseId = cleanDatabaseId(rawDatabaseId);
   if (!databaseId) {
-    ui.showStatus('請選擇或輸入資料來源 ID', 'error');
+    ui.showStatus('資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL', 'error');
     return;
   }
 
