@@ -784,8 +784,6 @@ export function createActionHandlers(services) {
 
         sendResponse({ success: false, error: error.message });
       }
-
-      return true; // 保持消息通道開啟以支持異步 sendResponse
     },
 
     /**
