@@ -46,8 +46,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const message = UI.formatSaveSuccessMessage(response);
       UI.setStatus(elements, message);
 
-      // 更新圖標徽章
-      await Actions.checkPageStatus();
+      // 更新圖標徽章並刷新 UI
+      const newStatus = await Actions.checkPageStatus();
+      if (newStatus?.isSaved) {
+        UI.updateUIForSavedPage(elements, newStatus);
+      }
     } else {
       UI.setStatus(elements, `Failed to save: ${response?.error || 'No response'}`);
     }
