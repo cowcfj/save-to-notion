@@ -179,14 +179,13 @@ describe('popupActions', () => {
 
   describe('checkSettings', () => {
     test('設置完整時應返回 valid: true', async () => {
+      const mockData = {
+        notionApiKey: 'test-key',
+        notionDataSourceId: 'test-datasource',
+      };
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback(
-          {
-            notionApiKey: 'test-key',
-            notionDataSourceId: 'test-datasource',
-          },
-          undefined
-        );
+        if (callback) {callback(mockData, undefined);}
+        return Promise.resolve(mockData);
       });
 
       const result = await Actions.checkSettings();
@@ -197,8 +196,10 @@ describe('popupActions', () => {
     });
 
     test('缺少設置時應返回 valid: false', async () => {
+      const mockData = {};
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({}, undefined);
+        if (callback) {callback(mockData, undefined);}
+        return Promise.resolve(mockData);
       });
 
       const result = await Actions.checkSettings();

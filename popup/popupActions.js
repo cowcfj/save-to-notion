@@ -12,20 +12,23 @@ import { URL_NORMALIZATION } from '../scripts/config/constants.js';
  * 檢查設置是否完整
  * @returns {Promise<{valid: boolean, apiKey?: string, dataSourceId?: string}>}
  */
-export function checkSettings() {
-  return new Promise(resolve => {
-    chrome.storage.sync.get(
-      ['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'],
-      (result, _error) => {
-        const dataSourceId = result.notionDataSourceId || result.notionDatabaseId;
-        resolve({
-          valid: Boolean(result.notionApiKey && dataSourceId),
-          apiKey: result.notionApiKey,
-          dataSourceId,
-        });
-      }
-    );
-  });
+export async function checkSettings() {
+  try {
+    const result = await chrome.storage.sync.get([
+      'notionApiKey',
+      'notionDataSourceId',
+      'notionDatabaseId',
+    ]);
+    const dataSourceId = result.notionDataSourceId || result.notionDatabaseId;
+    return {
+      valid: Boolean(result.notionApiKey && dataSourceId),
+      apiKey: result.notionApiKey,
+      dataSourceId,
+    };
+  } catch (error) {
+    console.warn('Failed to check settings:', error);
+    return { valid: false };
+  }
 }
 
 /**
