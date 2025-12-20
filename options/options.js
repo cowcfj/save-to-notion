@@ -1540,7 +1540,7 @@ document.addEventListener('DOMContentLoaded', () => {
        * 掃描舊版標註數據
        * @returns {Promise<import("../scripts/options/MigrationScanner.js").ScanResult>}
        */
-      async function scanForLegacyHighlights() {
+      function scanForLegacyHighlights() {
         return migrationScanner.scanStorage();
       }
 
@@ -1747,7 +1747,7 @@ document.addEventListener('DOMContentLoaded', () => {
        * 掃描舊版標註數據
        * @returns {Promise<import("../scripts/options/MigrationScanner.js").ScanResult>}
        */
-      async function scanForLegacyHighlights() {
+      function scanForLegacyHighlights() {
         return migrationScanner.scanStorage();
       }
     }
