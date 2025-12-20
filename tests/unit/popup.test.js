@@ -1,27 +1,19 @@
 /**
- * popup.js 單元測試
+ * Popup 模組單元測試
  *
- * 測試 Popup UI 邏輯，包括：
- * - 初始化與設置檢查
- * - UI 狀態更新函數
- * - 按鈕事件處理
+ * 測試 popupUI.js 和 popupActions.js 的邏輯
  */
 
 /* global chrome */
 
-describe('Popup UI', () => {
-  // DOM 元素（初始化為 null，在 beforeEach 中賦值）
-  let saveButton = null;
-  let highlightButton = null;
-  let clearHighlightsButton = null;
-  let openNotionButton = null;
-  let status = null;
-  let modal = null;
-  let modalMessage = null;
-  let _modalConfirm = null;
-  let _modalCancel = null;
+// 匯入被測試的模組
+import * as UI from '../../popup/popupUI.js';
+import * as Actions from '../../popup/popupActions.js';
 
-  // 設置 DOM 環境
+describe('popupUI', () => {
+  // DOM 元素 Mock
+  let elements = null;
+
   beforeEach(() => {
     // 創建 popup.html 所需的 DOM 結構
     document.body.innerHTML = `
@@ -37,276 +29,226 @@ describe('Popup UI', () => {
       </div>
     `;
 
-    // 獲取 DOM 元素引用
-    saveButton = document.getElementById('save-button');
-    highlightButton = document.getElementById('highlight-button');
-    clearHighlightsButton = document.getElementById('clear-highlights-button');
-    openNotionButton = document.getElementById('open-notion-button');
-    status = document.getElementById('status');
-    modal = document.getElementById('confirmation-modal');
-    modalMessage = document.getElementById('modal-message');
-    _modalConfirm = document.getElementById('modal-confirm');
-    _modalCancel = document.getElementById('modal-cancel');
-
-    // 重置 Chrome API Mocks
+    elements = UI.getElements();
     jest.clearAllMocks();
-    chrome._clearStorage();
   });
 
-  describe('設置檢查', () => {
-    test('缺少 API Key 時應禁用按鈕', () => {
-      // Arrange
-      chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        // Chrome API callback 第二個參數為 undefined 表示無錯誤
-        callback({}, undefined);
-      });
-
-      // Act - 手動執行設置檢查邏輯
-      chrome.storage.sync.get(
-        ['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'],
-        result => {
-          const dataSourceId = result.notionDataSourceId || result.notionDatabaseId;
-          if (!result.notionApiKey || !dataSourceId) {
-            status.textContent = 'Please set API Key and Data Source ID in settings.';
-            saveButton.disabled = true;
-            highlightButton.disabled = true;
-          }
-        }
-      );
-
-      // Assert
-      expect(status.textContent).toBe('Please set API Key and Data Source ID in settings.');
-      expect(saveButton.disabled).toBe(true);
-      expect(highlightButton.disabled).toBe(true);
-    });
-
-    test('有完整設置時應啟用按鈕', () => {
-      // Arrange
-      chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        // Chrome API callback 第二個參數為 undefined 表示無錯誤
-        callback(
-          {
-            notionApiKey: 'test-api-key',
-            notionDataSourceId: 'test-datasource-id',
-          },
-          undefined
-        );
-      });
-
-      // Act
-      chrome.storage.sync.get(
-        ['notionApiKey', 'notionDataSourceId', 'notionDatabaseId'],
-        result => {
-          const dataSourceId = result.notionDataSourceId || result.notionDatabaseId;
-          if (!result.notionApiKey || !dataSourceId) {
-            status.textContent = 'Please set API Key and Data Source ID in settings.';
-            saveButton.disabled = true;
-            highlightButton.disabled = true;
-          }
-        }
-      );
-
-      // Assert
-      expect(saveButton.disabled).toBe(false);
-      expect(highlightButton.disabled).toBe(false);
+  describe('getElements', () => {
+    test('應返回所有 DOM 元素', () => {
+      expect(elements.saveButton).toBeTruthy();
+      expect(elements.highlightButton).toBeTruthy();
+      expect(elements.clearHighlightsButton).toBeTruthy();
+      expect(elements.openNotionButton).toBeTruthy();
+      expect(elements.status).toBeTruthy();
+      expect(elements.modal).toBeTruthy();
+      expect(elements.modalMessage).toBeTruthy();
+      expect(elements.modalConfirm).toBeTruthy();
+      expect(elements.modalCancel).toBeTruthy();
     });
   });
 
-  describe('UI 狀態更新', () => {
-    // 提取 popup.js 中的 UI 更新函數用於測試
-    const updateUIForSavedPage = response => {
-      highlightButton.textContent = '📝 Start Highlighting';
-      highlightButton.disabled = false;
-      clearHighlightsButton.style.display = 'block';
-      saveButton.style.display = 'none';
+  describe('setStatus', () => {
+    test('應設置狀態文字', () => {
+      UI.setStatus(elements, 'Test message');
+      expect(elements.status.textContent).toBe('Test message');
+    });
 
-      if (response.notionUrl) {
-        openNotionButton.style.display = 'block';
-        openNotionButton.setAttribute('data-url', response.notionUrl);
-      }
+    test('應設置狀態文字和顏色', () => {
+      UI.setStatus(elements, 'Warning', '#d63384');
+      expect(elements.status.textContent).toBe('Warning');
+      expect(elements.status.style.color).toBe('rgb(214, 51, 132)');
+    });
+  });
 
-      status.textContent = 'Page saved. Ready to highlight or update.';
-    };
+  describe('setButtonState', () => {
+    test('應禁用按鈕', () => {
+      UI.setButtonState(elements.saveButton, true);
+      expect(elements.saveButton.disabled).toBe(true);
+    });
 
-    const updateUIForUnsavedPage = response => {
-      highlightButton.textContent = '📝 Save First to Highlight';
-      highlightButton.disabled = true;
-      clearHighlightsButton.style.display = 'none';
-      saveButton.style.display = 'block';
-      openNotionButton.style.display = 'none';
+    test('應啟用按鈕', () => {
+      elements.saveButton.disabled = true;
+      UI.setButtonState(elements.saveButton, false);
+      expect(elements.saveButton.disabled).toBe(false);
+    });
+  });
 
-      if (response.wasDeleted) {
-        status.textContent = 'Original page was deleted. Save to create new page.';
-        status.style.color = '#d63384';
-      } else {
-        status.textContent = 'Save page first to enable highlighting.';
-      }
-    };
-
-    test('已保存頁面應正確更新 UI', () => {
-      // Arrange
+  describe('updateUIForSavedPage', () => {
+    test('應正確更新已保存頁面的 UI', () => {
       const response = {
         success: true,
         isSaved: true,
         notionUrl: 'https://notion.so/test-page',
       };
 
-      // Act
-      updateUIForSavedPage(response);
+      UI.updateUIForSavedPage(elements, response);
 
-      // Assert
-      expect(highlightButton.textContent).toBe('📝 Start Highlighting');
-      expect(highlightButton.disabled).toBe(false);
-      expect(clearHighlightsButton.style.display).toBe('block');
-      expect(saveButton.style.display).toBe('none');
-      expect(openNotionButton.style.display).toBe('block');
-      expect(openNotionButton.getAttribute('data-url')).toBe('https://notion.so/test-page');
-      expect(status.textContent).toBe('Page saved. Ready to highlight or update.');
+      expect(elements.highlightButton.textContent).toBe('📝 Start Highlighting');
+      expect(elements.highlightButton.disabled).toBe(false);
+      expect(elements.clearHighlightsButton.style.display).toBe('block');
+      expect(elements.saveButton.style.display).toBe('none');
+      expect(elements.openNotionButton.style.display).toBe('block');
+      expect(elements.openNotionButton.getAttribute('data-url')).toBe(
+        'https://notion.so/test-page'
+      );
+      expect(elements.status.textContent).toBe('Page saved. Ready to highlight or update.');
     });
+  });
 
-    test('未保存頁面應正確更新 UI', () => {
-      // Arrange
-      const response = {
-        success: true,
-        isSaved: false,
-      };
+  describe('updateUIForUnsavedPage', () => {
+    test('應正確更新未保存頁面的 UI', () => {
+      const response = { success: true, isSaved: false };
 
-      // Act
-      updateUIForUnsavedPage(response);
+      UI.updateUIForUnsavedPage(elements, response);
 
-      // Assert
-      expect(highlightButton.textContent).toBe('📝 Save First to Highlight');
-      expect(highlightButton.disabled).toBe(true);
-      expect(clearHighlightsButton.style.display).toBe('none');
-      expect(saveButton.style.display).toBe('block');
-      expect(openNotionButton.style.display).toBe('none');
-      expect(status.textContent).toBe('Save page first to enable highlighting.');
+      expect(elements.highlightButton.textContent).toBe('📝 Save First to Highlight');
+      expect(elements.highlightButton.disabled).toBe(true);
+      expect(elements.clearHighlightsButton.style.display).toBe('none');
+      expect(elements.saveButton.style.display).toBe('block');
+      expect(elements.openNotionButton.style.display).toBe('none');
+      expect(elements.status.textContent).toBe('Save page first to enable highlighting.');
     });
 
     test('已刪除頁面應顯示警告訊息', () => {
-      // Arrange
+      const response = { success: true, isSaved: false, wasDeleted: true };
+
+      UI.updateUIForUnsavedPage(elements, response);
+
+      expect(elements.status.textContent).toBe(
+        'Original page was deleted. Save to create new page.'
+      );
+      expect(elements.status.style.color).toBe('rgb(214, 51, 132)');
+    });
+  });
+
+  describe('showModal / hideModal', () => {
+    test('showModal 應顯示對話框並設置訊息', () => {
+      UI.showModal(elements, '確定要清除嗎？');
+
+      expect(elements.modal.style.display).toBe('flex');
+      expect(elements.modalMessage.textContent).toBe('確定要清除嗎？');
+    });
+
+    test('hideModal 應隱藏對話框', () => {
+      elements.modal.style.display = 'flex';
+
+      UI.hideModal(elements);
+
+      expect(elements.modal.style.display).toBe('none');
+    });
+  });
+
+  describe('formatSaveSuccessMessage', () => {
+    test('應格式化創建成功訊息', () => {
+      const response = { success: true, created: true, blockCount: 5, imageCount: 2 };
+      const message = UI.formatSaveSuccessMessage(response);
+      expect(message).toBe('Created successfully! (5 blocks, 2 images)');
+    });
+
+    test('應格式化更新成功訊息', () => {
+      const response = { success: true, updated: true, blockCount: 3, imageCount: 1 };
+      const message = UI.formatSaveSuccessMessage(response);
+      expect(message).toBe('Updated successfully! (3 blocks, 1 images)');
+    });
+
+    test('應格式化標記更新訊息', () => {
+      const response = { success: true, highlightsUpdated: true, highlightCount: 10 };
+      const message = UI.formatSaveSuccessMessage(response);
+      expect(message).toBe('Highlights updated successfully! (10 highlights)');
+    });
+
+    test('應包含警告訊息', () => {
       const response = {
         success: true,
-        isSaved: false,
-        wasDeleted: true,
+        created: true,
+        blockCount: 5,
+        imageCount: 2,
+        warning: 'Some images filtered',
       };
+      const message = UI.formatSaveSuccessMessage(response);
+      expect(message).toContain('⚠️ Some images filtered');
+    });
+  });
+});
 
-      // Act
-      updateUIForUnsavedPage(response);
+describe('popupActions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    chrome._clearStorage();
+  });
 
-      // Assert
-      expect(status.textContent).toBe('Original page was deleted. Save to create new page.');
-      expect(status.style.color).toBe('rgb(214, 51, 132)'); // #d63384
+  describe('checkSettings', () => {
+    test('設置完整時應返回 valid: true', async () => {
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback(
+          {
+            notionApiKey: 'test-key',
+            notionDataSourceId: 'test-datasource',
+          },
+          undefined
+        );
+      });
+
+      const result = await Actions.checkSettings();
+
+      expect(result.valid).toBe(true);
+      expect(result.apiKey).toBe('test-key');
+      expect(result.dataSourceId).toBe('test-datasource');
+    });
+
+    test('缺少設置時應返回 valid: false', async () => {
+      chrome.storage.sync.get.mockImplementation((keys, callback) => {
+        callback({}, undefined);
+      });
+
+      const result = await Actions.checkSettings();
+
+      expect(result.valid).toBe(false);
     });
   });
 
-  describe('Modal 操作', () => {
-    test('取消按鈕應隱藏 Modal', () => {
-      // Arrange - 設置 Modal 為顯示狀態
-      modal.style.display = 'flex';
-      expect(modal.style.display).toBe('flex');
-
-      // Act - 模擬取消按鈕點擊後隱藏 Modal
-      const hideModal = () => {
-        modal.style.display = 'none';
-      };
-      hideModal();
-
-      // Assert
-      expect(modal.style.display).toBe('none');
-    });
-
-    test('清除標記按鈕應顯示確認 Modal', () => {
-      // Arrange
-      modal.style.display = 'none';
-
-      // Act - 模擬事件處理
-      modalMessage.textContent = '確定要清除頁面上的所有標記嗎？這個操作無法撤銷。';
-      modal.style.display = 'flex';
-
-      // Assert
-      expect(modalMessage.textContent).toBe('確定要清除頁面上的所有標記嗎？這個操作無法撤銷。');
-      expect(modal.style.display).toBe('flex');
-    });
-  });
-
-  describe('保存按鈕', () => {
-    test('點擊保存按鈕應更新狀態並禁用按鈕', () => {
-      // Arrange
+  describe('checkPageStatus', () => {
+    test('應返回頁面狀態', async () => {
       chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-        // Chrome API callback 第二個參數為 undefined 表示無錯誤
-        callback({ success: true, created: true, blockCount: 5, imageCount: 2 }, undefined);
+        callback({ success: true, isSaved: true, notionUrl: 'https://notion.so/test' }, undefined);
       });
 
-      // Act - 模擬保存按鈕點擊
-      status.textContent = 'Saving...';
-      saveButton.disabled = true;
+      const result = await Actions.checkPageStatus();
 
-      chrome.runtime.sendMessage({ action: 'savePage' }, response => {
-        if (response?.success) {
-          let action = 'Saved';
-          let details = '';
+      expect(result.success).toBe(true);
+      expect(result.isSaved).toBe(true);
+      expect(result.notionUrl).toBe('https://notion.so/test');
+    });
+  });
 
-          if (response.created) {
-            action = 'Created';
-            details = `(${response.blockCount} blocks, ${response.imageCount} images)`;
-          }
-
-          status.textContent = `${action} successfully! ${details}`;
-        }
+  describe('savePage', () => {
+    test('保存成功應返回結果', async () => {
+      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        callback({ success: true, created: true, blockCount: 5 }, undefined);
       });
 
-      // Assert
-      expect(status.textContent).toBe('Created successfully! (5 blocks, 2 images)');
+      const result = await Actions.savePage();
+
+      expect(result.success).toBe(true);
+      expect(result.created).toBe(true);
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
         { action: 'savePage' },
         expect.any(Function)
       );
     });
-
-    test('保存失敗應顯示錯誤訊息', () => {
-      // Arrange
-      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-        // Chrome API callback 第二個參數為 undefined 表示無錯誤
-        callback({ success: false, error: 'API Error' }, undefined);
-      });
-
-      // Act
-      chrome.runtime.sendMessage({ action: 'savePage' }, response => {
-        if (!response?.success) {
-          status.textContent = `Failed to save: ${response ? response.error : 'No response'}`;
-        }
-      });
-
-      // Assert
-      expect(status.textContent).toBe('Failed to save: API Error');
-    });
   });
 
-  describe('Notion 按鈕', () => {
-    test('打開 Notion 按鈕應調用 chrome.tabs.create', async () => {
-      // Arrange
-      openNotionButton.setAttribute('data-url', 'https://notion.so/test-page');
+  describe('openNotionPage', () => {
+    test('應打開新標籤頁', async () => {
       chrome.tabs.create.mockImplementation((props, callback) => {
-        // Chrome API callback 第二個參數為 undefined 表示無錯誤
         callback({ id: 123, ...props }, undefined);
       });
 
-      // Act
-      const notionUrl = openNotionButton.getAttribute('data-url');
-      await new Promise((resolve, reject) => {
-        chrome.tabs.create({ url: notionUrl }, tab => {
-          if (chrome.runtime.lastError) {
-            reject(chrome.runtime.lastError);
-          } else {
-            resolve(tab);
-          }
-        });
-      });
+      const result = await Actions.openNotionPage('https://notion.so/test');
 
-      // Assert
+      expect(result.success).toBe(true);
       expect(chrome.tabs.create).toHaveBeenCalledWith(
-        { url: 'https://notion.so/test-page' },
+        { url: 'https://notion.so/test' },
         expect.any(Function)
       );
     });
