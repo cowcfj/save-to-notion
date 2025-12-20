@@ -27,7 +27,9 @@ describe('RestoreManager', () => {
     };
 
     // Mock setTimeout
-    jest.useFakeTimers();
+    // Mock setTimeout
+    // Review: Use legacy timers to avoid async/await issues
+    jest.useFakeTimers({ legacyFakeTimers: true });
   });
 
   afterEach(() => {
