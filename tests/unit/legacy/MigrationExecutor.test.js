@@ -44,7 +44,7 @@ describe('MigrationExecutor', () => {
   });
 
   describe('constructor', () => {
-    let executor;
+    let executor = null;
 
     beforeEach(() => {
       executor = new MigrationExecutor();
@@ -112,7 +112,7 @@ describe('MigrationExecutor', () => {
   });
 
   describe('getStatistics', () => {
-    let executor;
+    let executor = null;
 
     beforeEach(() => {
       global.CSS = { highlights: {} };

@@ -7,8 +7,8 @@
 import { RestoreManager } from '../../../scripts/highlighter/core/RestoreManager.js';
 
 describe('RestoreManager', () => {
-  let mockManager;
-  let mockToolbar;
+  let mockManager = null;
+  let mockToolbar = null;
 
   beforeEach(() => {
     // 重置 mock

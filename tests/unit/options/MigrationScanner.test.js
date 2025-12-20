@@ -7,12 +7,12 @@
 import { MigrationScanner } from '../../../scripts/options/MigrationScanner';
 
 // Mock Chrome API (reset in beforeEach)
-let mockGet;
-let mockRemove;
-let mockSendMessage;
 
 describe('MigrationScanner', () => {
-  let scanner;
+  let mockGet = null;
+  let mockRemove = null;
+  let mockSendMessage = null;
+  let scanner = null;
 
   beforeEach(() => {
     // Initialize mocks in beforeEach to satisfy DeepSource JS-0119
