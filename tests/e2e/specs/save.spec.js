@@ -43,7 +43,7 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
   // 4. 獲取 target tab ID，用於 mock chrome.tabs.query
   const setupPage = await context.newPage();
   await setupPage.goto(optionsUrl);
-  const actualTabId = await setupPage.evaluate(async () => {
+  const actualTabId = await setupPage.evaluate(() => {
     // 獲取 example.com 頁面的 tab ID
     return new Promise(resolve => {
       chrome.tabs.query({}, tabs => {
