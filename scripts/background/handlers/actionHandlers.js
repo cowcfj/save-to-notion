@@ -701,6 +701,11 @@ export function createActionHandlers(services) {
 
           // 等待分頁加載完成
           await new Promise(resolve => {
+            /**
+             * 監聽分頁更新狀態的回調函數
+             * @param {number} tabId - 更新的分頁 ID
+             * @param {object} changeInfo - 分頁變更信息
+             */
             const listener = (tabId, changeInfo) => {
               if (tabId === targetTab.id && changeInfo.status === 'complete') {
                 chrome.tabs.onUpdated.removeListener(listener);
