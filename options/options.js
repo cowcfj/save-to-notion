@@ -1,4 +1,5 @@
 /* global chrome */
+import { MigrationScanner } from '../scripts/options/MigrationScanner.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const apiKeyInput = document.getElementById('api-key');
@@ -1553,7 +1554,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const urlDiv = document.createElement('div');
           urlDiv.className = 'migration-item-url';
-          urlDiv.textContent = truncateUrl(item.url, 80);
+          urlDiv.textContent = MigrationScanner.truncateUrl(item.url, 80);
 
           const metaDiv = document.createElement('div');
           metaDiv.className = 'migration-item-meta';
@@ -1665,11 +1666,11 @@ document.addEventListener('DOMContentLoaded', () => {
               item?.remove();
             } else {
               failed++;
-              errors.push(`${truncateUrl(url)}: ${response?.error || '未知錯誤'}`);
+              errors.push(`${MigrationScanner.truncateUrl(url)}: ${response?.error || '未知錯誤'}`);
             }
           } catch (error) {
             failed++;
-            errors.push(`${truncateUrl(url)}: ${error.message}`);
+            errors.push(`${MigrationScanner.truncateUrl(url)}: ${error.message}`);
           }
         }
 
@@ -1708,68 +1709,13 @@ document.addEventListener('DOMContentLoaded', () => {
        * 掃描舊版標註數據
        * @returns {Promise<{items: {url: string, highlightCount: number}[], totalHighlights: number, legacyCount: number, needsMigration: boolean}>}
        */
+      /**
+       * 掃描舊版標註數據
+       * @returns {Promise<import("../scripts/options/MigrationScanner.js").ScanResult>}
+       */
       async function scanForLegacyHighlights() {
-        const allData = await new Promise(resolve => {
-          chrome.storage.local.get(null, resolve);
-        });
-
-        const items = [];
-        let totalHighlights = 0;
-        let legacyCount = 0;
-
-        for (const [key, value] of Object.entries(allData)) {
-          if (!key.startsWith('highlights_')) {
-            continue;
-          }
-
-          const url = key.replace('highlights_', '');
-          let highlightCount = 0;
-
-          // 統計標註數
-          if (value?.highlights) {
-            highlightCount = value.highlights.length;
-          } else if (Array.isArray(value)) {
-            highlightCount = value.length;
-          }
-
-          totalHighlights += highlightCount;
-
-          // 檢查是否為舊版格式
-          if (isLegacyFormat(value)) {
-            items.push({ url, highlightCount });
-            legacyCount++;
-          }
-        }
-
-        return {
-          items,
-          totalHighlights,
-          legacyCount,
-          needsMigration: items.length > 0,
-        };
-      }
-
-      /**
-       * 檢查數據是否為舊版格式
-       */
-      function isLegacyFormat(data) {
-        if (Array.isArray(data)) {
-          return data.some(item => !item.rangeInfo);
-        }
-        if (data?.highlights) {
-          return data.highlights.some(item => !item.rangeInfo);
-        }
-        return false;
-      }
-
-      /**
-       * 截斷 URL 用於顯示
-       */
-      function truncateUrl(url, maxLength = 60) {
-        if (url.length <= maxLength) {
-          return url;
-        }
-        return `${url.substring(0, maxLength - 3)}...`;
+        const scanner = new MigrationScanner();
+        return await scanner.scanStorage();
       }
     }
   }
