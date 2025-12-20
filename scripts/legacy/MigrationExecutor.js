@@ -45,7 +45,6 @@ export class MigrationExecutor {
   // =====================================================
 
   /**
-  /**
    * 獲取當前頁面的遷移狀態
    * @returns {Promise<Object>}
    */
