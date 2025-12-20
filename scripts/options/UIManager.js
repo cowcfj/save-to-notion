@@ -91,7 +91,7 @@ export class UIManager {
    * 隱藏資料來源升級通知橫幅
    */
   hideDataSourceUpgradeNotice() {
-    this.upgradeNoticeBanner?.parentNode?.remove();
+    this.upgradeNoticeBanner?.remove();
     this.upgradeNoticeBanner = null;
   }
 
