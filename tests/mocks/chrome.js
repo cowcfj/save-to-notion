@@ -172,6 +172,16 @@ const chrome = {
     },
   },
 
+  scripting: {
+    executeScript: jest.fn((injection, callback) => {
+      const results = [{ result: 5 }]; // 默認模擬清除 5 個標記
+      if (callback) {
+        callback(results);
+      }
+      return Promise.resolve(results);
+    }),
+  },
+
   action: {
     setBadgeText: jest.fn((details, callback) => {
       if (callback) {

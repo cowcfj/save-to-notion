@@ -22,7 +22,7 @@ import {
   checkPageStatus,
   savePage,
   openNotionPage,
-  // clearHighlights is implicitly tested via popup.js flow in E2E but ensuring unit test coverage here if present
+  clearHighlights,
 } from '../../popup/popupActions.js';
 
 describe('popupUI', () => {
@@ -283,6 +283,41 @@ describe('popupActions', () => {
         { url: 'https://notion.so/test' },
         expect.any(Function)
       );
+    });
+  });
+
+  describe('clearHighlights', () => {
+    test('清除成功應返回結果', async () => {
+      chrome.scripting.executeScript.mockImplementation((injection, callback) => {
+        callback([{ result: 5 }]);
+      });
+
+      const result = await clearHighlights(123);
+
+      expect(result.success).toBe(true);
+      expect(result.clearedCount).toBe(5);
+      expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: { tabId: 123 },
+          func: expect.any(Function),
+        }),
+        expect.any(Function)
+      );
+    });
+
+    test('發生錯誤時應返回錯誤訊息', async () => {
+      chrome.runtime.lastError = { message: 'Execution failed' };
+      chrome.scripting.executeScript.mockImplementation((injection, callback) => {
+        callback([]);
+      });
+
+      const result = await clearHighlights(123);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Execution failed');
+
+      // 清理 lastError
+      delete chrome.runtime.lastError;
     });
   });
 });
