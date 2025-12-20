@@ -656,6 +656,78 @@ export function createActionHandlers(services) {
     },
 
     /**
+     * 執行標註數據遷移
+     * 從選項頁面發起，將舊版標註升級為現代格式
+     */
+    migration_execute: async (request, sender, sendResponse) => {
+      try {
+        const { url } = request;
+        if (!url) {
+          sendResponse({ success: false, error: '缺少 URL 參數' });
+          return;
+        }
+
+        Logger.log(`🔄 [Migration] 開始遷移: ${url}`);
+
+        // 讀取標註數據
+        const pageKey = `highlights_${url}`;
+        const data = await new Promise(resolve => {
+          chrome.storage.local.get(pageKey, result => resolve(result[pageKey]));
+        });
+
+        if (!data) {
+          sendResponse({ success: true, message: '無數據需要遷移' });
+          return;
+        }
+
+        // 轉換舊版格式
+        const highlights = Array.isArray(data) ? data : data.highlights || [];
+        const updatedHighlights = highlights.map(item => {
+          // 如果已有 rangeInfo，保留原樣
+          if (item.rangeInfo) {
+            return item;
+          }
+
+          // 為舊版標註生成模擬的 rangeInfo
+          return {
+            ...item,
+            rangeInfo: {
+              startContainerPath: item.xpath || '',
+              startOffset: item.startOffset || 0,
+              endContainerPath: item.xpath || '',
+              endOffset: item.endOffset || item.text?.length || 0,
+              commonAncestorPath: item.xpath || '',
+            },
+            migrated: true,
+            migratedAt: new Date().toISOString(),
+          };
+        });
+
+        // 保存更新後的數據
+        const updatedData = {
+          highlights: updatedHighlights,
+          version: '2.0',
+          migratedAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+        };
+
+        await new Promise(resolve => {
+          chrome.storage.local.set({ [pageKey]: updatedData }, resolve);
+        });
+
+        Logger.log(`✅ [Migration] 遷移完成: ${url} (${updatedHighlights.length} 個標註)`);
+        sendResponse({
+          success: true,
+          count: updatedHighlights.length,
+          message: `成功遷移 ${updatedHighlights.length} 個標註`,
+        });
+      } catch (error) {
+        Logger.error('❌ [Migration] 遷移失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
      * 處理來自 Content Script 的日誌轉發
      * 用於將 Content Script 的日誌集中到 Background Console
      */

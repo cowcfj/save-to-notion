@@ -1470,6 +1470,210 @@ document.addEventListener('DOMContentLoaded', () => {
         showDataStatus(`❌ 數據重整失敗：${error.message}`, 'error');
       }
     }
+
+    // ==========================================
+    // 標註遷移工具功能
+    // ==========================================
+    setupMigrationTool();
+
+    /**
+     * 設置遷移工具 UI 邏輯
+     */
+    function setupMigrationTool() {
+      const scanButton = document.getElementById('migration-scan-button');
+      const executeButton = document.getElementById('migration-execute-button');
+      const progressDiv = document.getElementById('migration-progress');
+      const progressBar = document.getElementById('migration-progress-bar');
+      const progressText = document.getElementById('migration-progress-text');
+      const resultDiv = document.getElementById('migration-result');
+
+      if (!scanButton) {
+        return; // 區塊不存在，可能是舊版 HTML
+      }
+
+      let pendingUrls = [];
+
+      // 掃描按鈕事件
+      scanButton.addEventListener('click', async () => {
+        scanButton.disabled = true;
+        scanButton.querySelector('.button-text').textContent = '掃描中...';
+        resultDiv.innerHTML = '';
+        resultDiv.className = 'migration-result';
+
+        try {
+          const result = await scanForLegacyHighlights();
+          pendingUrls = result.urls;
+
+          if (result.needsMigration) {
+            resultDiv.innerHTML = `
+              <strong>發現 ${result.legacyCount} 個舊版標註</strong>
+              <p>涉及 ${result.urls.length} 個頁面，共 ${result.totalHighlights} 個標註需要處理。</p>
+              <div class="url-list">
+                ${result.urls
+                  .slice(0, 10)
+                  .map(url => `<div class="url-item">${truncateUrl(url)}</div>`)
+                  .join('')}
+                ${result.urls.length > 10 ? `<div class="url-item">...及其他 ${result.urls.length - 10} 個頁面</div>` : ''}
+              </div>
+            `;
+            resultDiv.className = 'migration-result info';
+            executeButton.style.display = 'inline-flex';
+          } else {
+            resultDiv.innerHTML = '✅ 沒有發現需要遷移的舊版標註數據。所有標註數據已是最新格式！';
+            resultDiv.className = 'migration-result success';
+            executeButton.style.display = 'none';
+          }
+        } catch (error) {
+          console.error('Migration scan failed:', error);
+          resultDiv.innerHTML = `❌ 掃描失敗：${error.message}`;
+          resultDiv.className = 'migration-result error';
+        } finally {
+          scanButton.disabled = false;
+          scanButton.querySelector('.button-text').textContent = '開始檢查';
+        }
+      });
+
+      // 執行遷移按鈕事件
+      executeButton.addEventListener('click', async () => {
+        if (pendingUrls.length === 0) {
+          resultDiv.innerHTML = '沒有待遷移的頁面';
+          resultDiv.className = 'migration-result info';
+          return;
+        }
+
+        executeButton.disabled = true;
+        executeButton.querySelector('.button-text').textContent = '遷移中...';
+        progressDiv.style.display = 'block';
+
+        let success = 0;
+        let failed = 0;
+        const errors = [];
+
+        for (let i = 0; i < pendingUrls.length; i++) {
+          const url = pendingUrls[i];
+          const progress = Math.round(((i + 1) / pendingUrls.length) * 100);
+
+          progressBar.style.width = `${progress}%`;
+          progressText.textContent = `${progress}% (${i + 1}/${pendingUrls.length})`;
+
+          try {
+            // 透過 Background 執行遷移
+            const response = await chrome.runtime.sendMessage({
+              action: 'migration_execute',
+              url,
+            });
+
+            if (response?.success) {
+              success++;
+            } else {
+              failed++;
+              errors.push(`${truncateUrl(url)}: ${response?.error || '未知錯誤'}`);
+            }
+          } catch (error) {
+            failed++;
+            errors.push(`${truncateUrl(url)}: ${error.message}`);
+          }
+        }
+
+        // 顯示結果
+        progressDiv.style.display = 'none';
+        executeButton.style.display = 'none';
+
+        if (failed === 0) {
+          resultDiv.innerHTML = `✅ 遷移完成！成功處理 ${success} 個頁面。`;
+          resultDiv.className = 'migration-result success';
+        } else {
+          resultDiv.innerHTML = `
+            ⚠️ 遷移完成：${success} 成功，${failed} 失敗
+            <div class="url-list">
+              ${errors
+                .slice(0, 5)
+                .map(err => `<div class="url-item">${err}</div>`)
+                .join('')}
+              ${errors.length > 5 ? `<div class="url-item">...及其他 ${errors.length - 5} 個錯誤</div>` : ''}
+            </div>
+          `;
+          resultDiv.className = 'migration-result error';
+        }
+
+        executeButton.disabled = false;
+        executeButton.querySelector('.button-text').textContent = '一鍵修復';
+        pendingUrls = [];
+
+        // 刷新存儲使用情況
+        updateStorageUsage();
+      });
+
+      /**
+       * 掃描舊版標註數據
+       * @returns {Promise<{urls: string[], totalHighlights: number, legacyCount: number, needsMigration: boolean}>}
+       */
+      async function scanForLegacyHighlights() {
+        const allData = await new Promise(resolve => {
+          chrome.storage.local.get(null, resolve);
+        });
+
+        const urls = [];
+        let totalHighlights = 0;
+        let legacyCount = 0;
+
+        for (const [key, value] of Object.entries(allData)) {
+          if (!key.startsWith('highlights_')) {
+            continue;
+          }
+
+          const url = key.replace('highlights_', '');
+
+          // 統計總標註數
+          if (value && value.highlights) {
+            totalHighlights += value.highlights.length;
+          } else if (Array.isArray(value)) {
+            totalHighlights += value.length;
+          }
+
+          // 檢查是否為舊版格式
+          if (isLegacyFormat(value)) {
+            urls.push(url);
+            legacyCount++;
+          }
+        }
+
+        return {
+          urls,
+          totalHighlights,
+          legacyCount,
+          needsMigration: urls.length > 0,
+        };
+      }
+
+      /**
+       * 檢查數據是否為舊版格式
+       * @param {any} data
+       * @returns {boolean}
+       */
+      function isLegacyFormat(data) {
+        if (Array.isArray(data)) {
+          return data.some(item => !item.rangeInfo);
+        }
+        if (data && data.highlights) {
+          return data.highlights.some(item => !item.rangeInfo);
+        }
+        return false;
+      }
+
+      /**
+       * 截斷 URL 用於顯示
+       * @param {string} url
+       * @param {number} maxLength
+       * @returns {string}
+       */
+      function truncateUrl(url, maxLength = 60) {
+        if (url.length <= maxLength) {
+          return url;
+        }
+        return `${url.substring(0, maxLength - 3)}...`;
+      }
+    }
   }
 });
 // ==========================================

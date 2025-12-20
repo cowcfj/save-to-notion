@@ -1258,3 +1258,162 @@ input[type='checkbox'] {
     font-size: 10px;
   }
 }
+
+/* 遷移工具區塊樣式 */
+.migration-section {
+  background: #f0f9ff;
+  border: 2px solid #bee3f8;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.migration-section h3 {
+  margin: 0 0 10px 0;
+  color: #2c5282;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.migration-info {
+  margin-bottom: 15px;
+}
+
+.migration-info p {
+  margin: 0;
+  color: #4a5568;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.migration-info small {
+  display: block;
+  color: #718096;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.migration-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.scan-button,
+.migrate-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.scan-button {
+  background: #4299e1;
+  color: white;
+}
+
+.scan-button:hover:not(:disabled) {
+  background: #3182ce;
+  transform: translateY(-1px);
+}
+
+.scan-button:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.migrate-button {
+  background: #48bb78;
+  color: white;
+}
+
+.migrate-button:hover:not(:disabled) {
+  background: #38a169;
+  transform: translateY(-1px);
+}
+
+.migrate-button:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.migration-progress {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.progress-bar-container {
+  background: #e2e8f0;
+  border-radius: 10px;
+  height: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, #4299e1, #48bb78);
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+#migration-progress-text {
+  font-size: 13px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.migration-result {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.migration-result.success {
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  color: #276749;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.migration-result.error {
+  background: #fed7d7;
+  border: 1px solid #feb2b2;
+  color: #c53030;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.migration-result.info {
+  background: #ebf8ff;
+  border: 1px solid #bee3f8;
+  color: #2c5282;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.migration-result .url-list {
+  margin-top: 10px;
+  max-height: 150px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.migration-result .url-list .url-item {
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  word-break: break-all;
+}
