@@ -128,7 +128,7 @@ export class SearchableDatabaseSelector {
     }
 
     // 如果當前有選中的保存目標，在搜索框中顯示
-    if (this.databaseIdInput && this.databaseIdInput.value) {
+    if (this.databaseIdInput?.value) {
       const selectedDb = this.databases.find(db => db.id === this.databaseIdInput.value);
       if (selectedDb) {
         if (this.searchInput) {

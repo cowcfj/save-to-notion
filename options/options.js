@@ -106,7 +106,7 @@ export function saveSettings(ui, auth) {
 
         // 保存隱藏的類型欄位（如果存在）
         const typeInput = document.getElementById('database-type');
-        if (typeInput && typeInput.value) {
+        if (typeInput?.value) {
           chrome.storage.sync.set({ notionDataSourceType: typeInput.value });
         }
       }

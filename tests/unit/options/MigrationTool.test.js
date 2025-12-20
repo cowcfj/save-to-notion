@@ -137,7 +137,7 @@ describe('MigrationTool', () => {
       await migrationTool.performMigration();
 
       const scanStatus = document.getElementById('scan-status');
-      expect(scanStatus.innerHTML).toMatch(/遷移部分完成|部分完成/);
+      expect(scanStatus.innerHTML).toMatch(/遷移部分完成|部分完成/u);
       expect(scanStatus.innerHTML).toContain('成功: 1');
       expect(scanStatus.innerHTML).toContain('失敗: 1');
     });

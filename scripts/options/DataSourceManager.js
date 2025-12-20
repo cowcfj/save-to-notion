@@ -23,7 +23,7 @@ export class DataSourceManager {
   }
 
   handleDatabaseSelect() {
-    if (this.elements.databaseSelect && this.elements.databaseSelect.value) {
+    if (this.elements.databaseSelect?.value) {
       if (this.elements.databaseIdInput) {
         this.elements.databaseIdInput.value = this.elements.databaseSelect.value;
       }
