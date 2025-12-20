@@ -56,7 +56,7 @@ export function isDocumentation(options = {}) {
   const isDocPath = DOC_PATH_PATTERNS.some(pattern => pattern.test(pathname));
 
   // 2. 檢測技術文檔特徵
-  const isTechUrl = TECHNICAL_DOC_URL_PATTERNS.some(pattern => pattern.test(pathname));
+  const isTechUrl = TECHNICAL_DOC_URL_PATTERNS.some(pattern => pattern.test(urlStr.toLowerCase()));
   const isTechTitle = TECHNICAL_DOC_TITLE_PATTERNS.some(pattern => pattern.test(title));
 
   const isTechnical = isTechUrl || isTechTitle;
