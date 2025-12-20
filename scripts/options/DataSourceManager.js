@@ -5,6 +5,10 @@
 import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
 import Logger from '../utils/Logger.js';
 
+/**
+ * 資料來源管理器
+ * 負責從 Notion API 載入、篩選和處理資料庫與頁面清單
+ */
 export class DataSourceManager {
   constructor(uiManager) {
     this.ui = uiManager;

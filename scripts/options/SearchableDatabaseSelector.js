@@ -5,6 +5,10 @@
 
 import Logger from '../utils/Logger.js';
 
+/**
+ * 可搜索的資料來源選擇器組件
+ * 提供帶有搜索功能的下拉選單，用於選擇保存目標（Page 或 Database）
+ */
 export class SearchableDatabaseSelector {
   constructor(dependencies = {}) {
     const { showStatus, loadDatabases } = dependencies;

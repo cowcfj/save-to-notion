@@ -4,6 +4,10 @@
  */
 import { MigrationScanner } from './MigrationScanner.js';
 
+/**
+ * 遷移工具類別
+ * 負責協調舊版數據的掃描與遷移過程，並管理相關 UI
+ */
 export class MigrationTool {
   constructor(uiManager) {
     this.ui = uiManager;
@@ -31,6 +35,10 @@ export class MigrationTool {
     this.elements.migrateAllButton?.addEventListener('click', () => this.performMigration());
   }
 
+  /**
+   * 掃描存儲空間中的舊版標註數據
+   * @returns {Promise<void>}
+   */
   async scanForLegacyHighlights() {
     const { scanStatus, migrateAllButton, _migrationList, scanButton } = this.elements;
 

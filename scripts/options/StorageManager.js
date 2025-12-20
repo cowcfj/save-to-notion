@@ -7,6 +7,10 @@
 
 import Logger from '../utils/Logger.js';
 
+/**
+ * 管理存儲空間的類別
+ * 處理數據的備份、恢復、檢查、清理與優化
+ */
 export class StorageManager {
   constructor(uiManager) {
     this.ui = uiManager;

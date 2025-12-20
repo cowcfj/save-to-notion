@@ -48,6 +48,9 @@ export class AuthManager {
     // API Key 輸入防抖動處理
     if (this.elements.apiKeyInput) {
       let timeout = null;
+      /**
+       * 處理 API Key 輸入變更（防抖動）
+       */
       const handleInput = () => {
         const apiKey = this.elements.apiKeyInput.value.trim();
         if (timeout) {
