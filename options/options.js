@@ -1715,7 +1715,7 @@ document.addEventListener('DOMContentLoaded', () => {
        */
       async function scanForLegacyHighlights() {
         const scanner = new MigrationScanner();
-        return await scanner.scanStorage();
+        return scanner.scanStorage();
       }
     }
   }
