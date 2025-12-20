@@ -1,5 +1,32 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.18.0](https://github.com/cowcfj/save-to-notion/compare/v2.17.0...v2.18.0) (2025-12-20)
+
+
+### ✨ 新功能
+
+* 增強 actionHandlers 測試覆蓋率，新增 savePage 流程測試 ([d834e2e](https://github.com/cowcfj/save-to-notion/commit/d834e2e1f4fd5ee96eb46c8463ad4351669b51e4))
+* 擴充廣告元素選擇器以支持頁面複雜度檢測 ([#180](https://github.com/cowcfj/save-to-notion/issues/180)) ([f71d468](https://github.com/cowcfj/save-to-notion/commit/f71d468f7d8a83c7286800ba678e2121c103a462))
+
+
+### ♻️ 代碼重構
+
+* 刪除 ImageCollector 中重複的 Logger 記錄，提升代碼整潔度 ([23bb205](https://github.com/cowcfj/save-to-notion/commit/23bb2050f0685d9a939191853399a176b5c01510))
+* 刪除 Range.testable.js ([aea052b](https://github.com/cowcfj/save-to-notion/commit/aea052bbca6d3d54b74179539e2e068a3210da3f))
+* 刪除冗餘的 background-utils 測試檔 ([8d9a56a](https://github.com/cowcfj/save-to-notion/commit/8d9a56ab6e841b65f3b8fa4124228ab64824c2d1))
+* 模組化 Logger、ImageUtils 和 StorageUtil ([#181](https://github.com/cowcfj/save-to-notion/issues/181)) ([23bb205](https://github.com/cowcfj/save-to-notion/commit/23bb2050f0685d9a939191853399a176b5c01510))
+
+
+### 🧹 其他變更
+
+* 刪除未使用的 utils-wrapper.js ([c2d84e8](https://github.com/cowcfj/save-to-notion/commit/c2d84e888c4703c51e9336c14ae5e346b59d4795))
+* 在 actionHandlers 測試中添加 Chrome API 使用說明註解 ([#182](https://github.com/cowcfj/save-to-notion/issues/182)) ([eadfda0](https://github.com/cowcfj/save-to-notion/commit/eadfda0b5b49e6ae36f9e8c460f93cc7bd24c848))
+* 更新程式碼覆蓋率報告。 ([052f6e9](https://github.com/cowcfj/save-to-notion/commit/052f6e98a0f4318ca9b0a6f83961d955f2f9b79c))
+* 更新覆蓋率報告。 ([bd3103d](https://github.com/cowcfj/save-to-notion/commit/bd3103dfae7f74674038cc1a4f80bc968285ac78))
+* 清理 jest.config.js 中已刪除的 testable 檔案引用 ([a97c54b](https://github.com/cowcfj/save-to-notion/commit/a97c54b0a15468d42fa6a5b0c771657e869b04c1))
+* 移除 htmlToNotionConverter.js 的過時引用 ([7535347](https://github.com/cowcfj/save-to-notion/commit/7535347cd5ce81f5acaa371207cc108c036ad989))
+* 移除不再使用的測試替身文件以修復覆蓋率計算 ([72c2bfa](https://github.com/cowcfj/save-to-notion/commit/72c2bfac363373bb054e18eb5b35618a91c9bafa))
+
 ## [2.17.0](https://github.com/cowcfj/save-to-notion/compare/v2.16.0...v2.17.0) (2025-12-17)
 
 
