@@ -1,5 +1,11 @@
 import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/selectors.js';
-import { TECHNICAL_TERMS } from '../config/index.js';
+import {
+  TECHNICAL_TERMS,
+  DOC_HOST_PATTERNS,
+  DOC_PATH_PATTERNS,
+  TECHNICAL_DOC_URL_PATTERNS,
+  TECHNICAL_DOC_TITLE_PATTERNS,
+} from '../config/index.js';
 
 /**
  * 頁面複雜度檢測器
@@ -36,34 +42,9 @@ function isDocumentationSite(urlOrLocation = window.location) {
     pathname = (urlOrLocation.pathname || '').toLowerCase();
   }
 
-  // GitHub Pages 和常見文檔站點
-  const docHostPatterns = [
-    /\.github\.io$/,
-    /^docs?\./,
-    /\.readthedocs\.io$/,
-    /\.gitbook\.io$/,
-    /^wiki\./,
-    /^api\./,
-    /^developer\./,
-    /^guide\./,
-  ];
-
-  // 路徑中包含文檔特徵
-  const docPathPatterns = [
-    /\/docs?\//,
-    /\/documentation\//,
-    /\/guide\//,
-    /\/manual\//,
-    /\/wiki\//,
-    /\/api\//,
-    /\/reference\//,
-    /\/cli\//,
-    /\/getting-started\//,
-    /\/tutorial\//,
-  ];
-
-  const isDocHost = docHostPatterns.some(pattern => pattern.test(hostname));
-  const isDocPath = docPathPatterns.some(pattern => pattern.test(pathname));
+  // 使用統一配置 (scripts/config/patterns.js)
+  const isDocHost = DOC_HOST_PATTERNS.some(pattern => pattern.test(hostname));
+  const isDocPath = DOC_PATH_PATTERNS.some(pattern => pattern.test(pathname));
 
   return isDocHost || isDocPath;
 }
@@ -84,33 +65,9 @@ export function isTechnicalDoc(options = {}) {
     options.title || (typeof document !== 'undefined' ? document.title : '')
   ).toLowerCase();
 
-  // URL 模式檢測
-  const urlPatterns = [
-    /\/docs?\//,
-    /\/api\//,
-    /\/documentation\//,
-    /\/guide\//,
-    /\/manual\//,
-    /\/reference\//,
-    /\/cli\//,
-    /\/commands?\//,
-    /github\.io.*docs/,
-    /\.github\.io/,
-  ];
-
-  // 標題模式檢測
-  const titlePatterns = [
-    /documentation/,
-    /commands?/,
-    /reference/,
-    /guide/,
-    /manual/,
-    /cli/,
-    /api/,
-  ];
-
-  const matchedUrl = urlPatterns.some(pattern => pattern.test(url));
-  const matchedTitle = titlePatterns.some(pattern => pattern.test(title));
+  // 使用統一配置 (scripts/config/patterns.js)
+  const matchedUrl = TECHNICAL_DOC_URL_PATTERNS.some(pattern => pattern.test(url));
+  const matchedTitle = TECHNICAL_DOC_TITLE_PATTERNS.some(pattern => pattern.test(title));
 
   return {
     isTechnical: matchedUrl || matchedTitle,

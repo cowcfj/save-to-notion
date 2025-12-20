@@ -113,6 +113,71 @@ export const DATA_PROTOCOL_REGEX = /^data:image\/(?:png|jpg|jpeg|gif|webp|svg\+x
 export const BLOB_PROTOCOL_REGEX = /^blob:/i;
 
 // ==========================================
+// 文檔站點識別模式
+// ==========================================
+
+/**
+ * 文檔站點主機名模式（用於 pageComplexityDetector.js）
+ * 識別常見的文檔託管服務和子域名
+ */
+export const DOC_HOST_PATTERNS = [
+  /\.github\.io$/,
+  /^docs?\./,
+  /\.readthedocs\.io$/,
+  /\.gitbook\.io$/,
+  /^wiki\./,
+  /^api\./,
+  /^developer\./,
+  /^guide\./,
+];
+
+/**
+ * 文檔站點路徑模式（用於 pageComplexityDetector.js）
+ * 識別 URL 路徑中的文檔特徵
+ */
+export const DOC_PATH_PATTERNS = [
+  /\/docs?\//,
+  /\/documentation\//,
+  /\/guide\//,
+  /\/manual\//,
+  /\/wiki\//,
+  /\/api\//,
+  /\/reference\//,
+  /\/cli\//,
+  /\/getting-started\//,
+  /\/tutorial\//,
+];
+
+/**
+ * 技術文檔 URL 模式（用於 pageComplexityDetector.js isTechnicalDoc）
+ */
+export const TECHNICAL_DOC_URL_PATTERNS = [
+  /\/docs?\//,
+  /\/api\//,
+  /\/documentation\//,
+  /\/guide\//,
+  /\/manual\//,
+  /\/reference\//,
+  /\/cli\//,
+  /\/commands?\//,
+  /github\.io.*docs/,
+  /\.github\.io/,
+];
+
+/**
+ * 技術文檔標題模式（用於 pageComplexityDetector.js isTechnicalDoc）
+ */
+export const TECHNICAL_DOC_TITLE_PATTERNS = [
+  /documentation/,
+  /commands?/,
+  /reference/,
+  /guide/,
+  /manual/,
+  /cli/,
+  /api/,
+];
+
+// ==========================================
 // 技術內容關鍵詞
 // ==========================================
 
