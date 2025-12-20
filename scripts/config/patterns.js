@@ -132,33 +132,36 @@ export const DOC_HOST_PATTERNS = [
 ];
 
 /**
- * 文檔站點路徑模式（用於 pageComplexityDetector.js）
- * 識別 URL 路徑中的文檔特徵
+ * 基礎文檔路徑模式（共用模式，減少重複）
+ * DOC_PATH_PATTERNS 和 TECHNICAL_DOC_URL_PATTERNS 共用此基礎
  */
-export const DOC_PATH_PATTERNS = [
+const BASE_DOC_PATH_PATTERNS = [
   /\/docs?\//,
   /\/documentation\//,
   /\/guide\//,
   /\/manual\//,
-  /\/wiki\//,
   /\/api\//,
   /\/reference\//,
   /\/cli\//,
+];
+
+/**
+ * 文檔站點路徑模式（用於 pageComplexityDetector.js）
+ * 基於 BASE_DOC_PATH_PATTERNS 擴展
+ */
+export const DOC_PATH_PATTERNS = [
+  ...BASE_DOC_PATH_PATTERNS,
+  /\/wiki\//,
   /\/getting-started\//,
   /\/tutorial\//,
 ];
 
 /**
  * 技術文檔 URL 模式（用於 pageComplexityDetector.js isTechnicalDoc）
+ * 基於 BASE_DOC_PATH_PATTERNS 擴展
  */
 export const TECHNICAL_DOC_URL_PATTERNS = [
-  /\/docs?\//,
-  /\/api\//,
-  /\/documentation\//,
-  /\/guide\//,
-  /\/manual\//,
-  /\/reference\//,
-  /\/cli\//,
+  ...BASE_DOC_PATH_PATTERNS,
   /\/commands?\//,
   /github\.io.*docs/,
   /\.github\.io/,
@@ -168,13 +171,13 @@ export const TECHNICAL_DOC_URL_PATTERNS = [
  * 技術文檔標題模式（用於 pageComplexityDetector.js isTechnicalDoc）
  */
 export const TECHNICAL_DOC_TITLE_PATTERNS = [
-  /documentation/,
-  /commands?/,
-  /reference/,
-  /guide/,
-  /manual/,
-  /cli/,
-  /api/,
+  /documentation/i,
+  /commands?/i,
+  /reference/i,
+  /guide/i,
+  /manual/i,
+  /cli/i,
+  /api/i,
 ];
 
 // ==========================================

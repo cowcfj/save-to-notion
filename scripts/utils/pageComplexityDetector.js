@@ -24,29 +24,54 @@ import {
  * 基於URL特徵識別文檔類網站
  * @param {string|Location} urlOrLocation - URL 字符串或 Location 對象
  */
-function isDocumentationSite(urlOrLocation = window.location) {
+/**
+ * 檢測頁面是否為文檔類型的網站
+ * 結合 URL 模式、Host 模式和標題模式進行綜合判斷
+ * @param {Object} options - 檢測選項
+ * @param {string} options.url - 頁面 URL (可選，默認使用 window.location.href)
+ * @param {string} options.title - 頁面標題 (可選，默認使用 document.title)
+ * @returns {{isDoc: boolean, isTechnical: boolean, matched: {host: boolean, path: boolean, techUrl: boolean, techTitle: boolean}}}
+ */
+export function isDocumentation(options = {}) {
+  const urlStr = options.url || (typeof window !== 'undefined' ? window.location.href : '');
+  const title = (
+    options.title || (typeof document !== 'undefined' ? document.title : '')
+  ).toLowerCase();
+
   let hostname = '';
   let pathname = '';
 
-  if (typeof urlOrLocation === 'string') {
-    try {
-      const url = new URL(urlOrLocation);
-      hostname = url.hostname.toLowerCase();
-      pathname = url.pathname.toLowerCase();
-    } catch (_error) {
-      // 如果不是有效的 URL，嘗試直接作為路徑處理或忽略
-      return false;
+  try {
+    const url = new URL(urlStr);
+    hostname = url.hostname.toLowerCase();
+    pathname = url.pathname.toLowerCase();
+  } catch (_error) {
+    if (typeof urlStr === 'string' && urlStr.startsWith('/')) {
+      pathname = urlStr.toLowerCase();
     }
-  } else {
-    hostname = (urlOrLocation.hostname || '').toLowerCase();
-    pathname = (urlOrLocation.pathname || '').toLowerCase();
   }
 
-  // 使用統一配置 (scripts/config/patterns.js)
+  // 1. 檢測通用文檔特徵
   const isDocHost = DOC_HOST_PATTERNS.some(pattern => pattern.test(hostname));
   const isDocPath = DOC_PATH_PATTERNS.some(pattern => pattern.test(pathname));
 
-  return isDocHost || isDocPath;
+  // 2. 檢測技術文檔特徵
+  const isTechUrl = TECHNICAL_DOC_URL_PATTERNS.some(pattern => pattern.test(pathname));
+  const isTechTitle = TECHNICAL_DOC_TITLE_PATTERNS.some(pattern => pattern.test(title));
+
+  const isTechnical = isTechUrl || isTechTitle;
+  const isDoc = isDocHost || isDocPath || isTechnical;
+
+  return {
+    isDoc,
+    isTechnical,
+    matched: {
+      host: isDocHost,
+      path: isDocPath,
+      techUrl: isTechUrl,
+      techTitle: isTechTitle,
+    },
+  };
 }
 
 /**
@@ -57,24 +82,7 @@ function isDocumentationSite(urlOrLocation = window.location) {
  * @param {string} options.title - 頁面標題 (可選，默認使用 document.title)
  * @returns {{isTechnical: boolean, matchedUrl: boolean, matchedTitle: boolean}}
  */
-export function isTechnicalDoc(options = {}) {
-  const url = (
-    options.url || (typeof window !== 'undefined' ? window.location.href : '')
-  ).toLowerCase();
-  const title = (
-    options.title || (typeof document !== 'undefined' ? document.title : '')
-  ).toLowerCase();
-
-  // 使用統一配置 (scripts/config/patterns.js)
-  const matchedUrl = TECHNICAL_DOC_URL_PATTERNS.some(pattern => pattern.test(url));
-  const matchedTitle = TECHNICAL_DOC_TITLE_PATTERNS.some(pattern => pattern.test(title));
-
-  return {
-    isTechnical: matchedUrl || matchedTitle,
-    matchedUrl,
-    matchedTitle,
-  };
-}
+// isTechnicalDoc 已合併至 isDocumentation
 
 /**
  * 統計DOM元素數量
@@ -125,7 +133,10 @@ export function detectPageComplexity(document = window.document) {
     // 基礎指標統計
     const metrics = {
       // 網站類型
-      isDocSite: isDocumentationSite(document?.location || document?.URL || window.location),
+      isDocSite: isDocumentation({
+        url: document?.location?.href || document?.URL || window.location.href,
+        title: document?.title,
+      }).isDoc,
 
       // 廣告元素檢測（使用統一配置 scripts/config/selectors.js）
       adElements: countElements(document, AD_SELECTORS.join(', ')),
@@ -410,5 +421,5 @@ export default {
   selectExtractor,
   getAnalysisReport,
   logAnalysis,
-  isTechnicalDoc,
+  isDocumentation,
 };
