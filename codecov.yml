@@ -50,4 +50,12 @@ flags:
 # 說明：
 # - 所有生產代碼位於 scripts/ 目錄
 # - tests/helpers/ 僅包含測試工具（如 mock helpers），不計入覆蓋率
-# - 2025-12-20: 清理遺留的 *.testable.js 檔案
+#
+# 覆蓋率歷史變更：
+# - 2025-12-20: 移除 *.testable.js 檔案及其單元測試
+#   - 這些檔案原本是從 scripts/ 提取的可測試邏輯副本
+#   - 重構後生產代碼已模組化，testable 副本成為冗餘
+#   - 刪除約 2,600 行重複代碼（utils.testable.js 等）
+#   - 生產模組（Logger.js, urlUtils.js, StorageUtil.js）已有對應測試
+#   - 整體覆蓋率目標維持 28%（僅追蹤 scripts/ 目錄）
+
