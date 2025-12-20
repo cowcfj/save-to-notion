@@ -2,6 +2,11 @@
  * @jest-environment jsdom
  */
 
+/* skipcq: JS-0255
+ * Chrome 擴展 API 使用 chrome.runtime.lastError 而非 error-first callback 模式，
+ * 因此 mock 實作中的 callback 第一個參數是資料而非錯誤
+ */
+
 /**
  * actionHandlers.js 覆蓋率補強測試
  *
