@@ -736,12 +736,12 @@ export function createActionHandlers(services) {
             const manager = window.HighlighterV2.manager;
 
             // 執行遷移
-            const result = await executor.migrate(manager);
+            const outcome = await executor.migrate(manager);
             const stats = executor.getStatistics();
 
             return {
               success: true,
-              result,
+              result: outcome,
               statistics: stats,
             };
           },
