@@ -42,7 +42,6 @@ export class DataSourceManager {
   async loadDatabases(apiKey) {
     try {
       this.ui.showStatus('正在載入保存目標列表...', 'info');
-      this.ui.showStatus('正在載入保存目標列表...', 'info');
       Logger.info(`開始載入保存目標，API Key: ${apiKey.substring(0, 20)}...`);
 
       const response = await fetch('https://api.notion.com/v1/search', {
