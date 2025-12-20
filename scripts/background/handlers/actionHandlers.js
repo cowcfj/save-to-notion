@@ -719,7 +719,7 @@ export function createActionHandlers(services) {
         });
 
         // 4. 執行遷移
-        Logger.log(`🚀 [Migration] 執行 DOM 遷移...`);
+        Logger.log("🚀 [Migration] 執行 DOM 遷移...");
         const migrationResult = await chrome.scripting.executeScript({
           target: { tabId: targetTab.id },
           func: async () => {
