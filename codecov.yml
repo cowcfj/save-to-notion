@@ -36,7 +36,6 @@ ignore:
   - 'node_modules/**'
   - 'lib/**' # 第三方庫（Readability.js）
   - 'archive/**'
-  - 'internal/**'
   - 'demos/**'
   - 'promo-images/**'
   - 'build/**'
@@ -45,6 +44,10 @@ ignore:
   - 'scripts/utils.js' # 已拆分至 scripts/utils/*.js 模組
   - 'scripts/utils/Logger.module.js' # 已整合至 Logger.js
   - 'scripts/utils/imageUtils.module.js' # 已整合至 imageUtils.js
+  # 已重構並移至 internal/archive/ 的遷移檔案（不再計入覆蓋率）
+  - 'scripts/seamless-migration.js' # 已移至 internal/archive/
+  - 'scripts/highlighter-migration.js' # 已移至 internal/archive/
+  - 'scripts/highlight-restore.js' # 已移至 internal/archive/
 
 # Flags 配置（用於追蹤不同類型的測試）
 flags:
@@ -73,4 +76,9 @@ flags:
 #
 #   測試總行數：被刪除 ~700 行（舊副本）→ 現有 ~1,770 行（生產模組直接測試）
 #   整體覆蓋率目標維持 28%（僅追蹤 scripts/ 目錄）
+#
+# - 2025-12-21: 排除已重構的遷移檔案
+#   - seamless-migration.js、highlighter-migration.js、highlight-restore.js
+#   - 這些檔案已從 scripts/ 移至 internal/archive/
+#   - 明確排除舊路徑，防止 carryforward 繼續計算覆蓋率
 
