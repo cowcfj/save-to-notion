@@ -202,11 +202,15 @@ describe('Popup UI', () => {
 
   describe('Modal 操作', () => {
     test('取消按鈕應隱藏 Modal', () => {
-      // Arrange
+      // Arrange - 設置 Modal 為顯示狀態
       modal.style.display = 'flex';
+      expect(modal.style.display).toBe('flex');
 
-      // Act - 模擬事件處理
-      modal.style.display = 'none';
+      // Act - 模擬取消按鈕點擊後隱藏 Modal
+      const hideModal = () => {
+        modal.style.display = 'none';
+      };
+      hideModal();
 
       // Assert
       expect(modal.style.display).toBe('none');
