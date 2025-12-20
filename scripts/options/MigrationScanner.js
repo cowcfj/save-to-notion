@@ -7,6 +7,8 @@
  * @version 1.0.0
  */
 
+/* global chrome */
+
 /**
  * 遷移掃描結果類型
  * @typedef {Object} ScanResult

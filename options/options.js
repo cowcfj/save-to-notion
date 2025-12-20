@@ -1606,7 +1606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 確認刪除
         if (
-          !confirm(
+          !window.confirm(
             `確定要刪除選中的 ${selectedUrls.length} 個頁面的標註數據嗎？\n\n此操作不可恢復！`
           )
         ) {
