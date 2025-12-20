@@ -57,7 +57,8 @@ describe('Popup UI', () => {
     test('缺少 API Key 時應禁用按鈕', () => {
       // Arrange
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({});
+        // Chrome API callback 第二個參數為 undefined 表示無錯誤
+        callback({}, undefined);
       });
 
       // Act - 手動執行設置檢查邏輯
@@ -82,10 +83,14 @@ describe('Popup UI', () => {
     test('有完整設置時應啟用按鈕', () => {
       // Arrange
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        callback({
-          notionApiKey: 'test-api-key',
-          notionDataSourceId: 'test-datasource-id',
-        });
+        // Chrome API callback 第二個參數為 undefined 表示無錯誤
+        callback(
+          {
+            notionApiKey: 'test-api-key',
+            notionDataSourceId: 'test-datasource-id',
+          },
+          undefined
+        );
       });
 
       // Act
@@ -225,7 +230,8 @@ describe('Popup UI', () => {
     test('點擊保存按鈕應更新狀態並禁用按鈕', () => {
       // Arrange
       chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-        callback({ success: true, created: true, blockCount: 5, imageCount: 2 });
+        // Chrome API callback 第二個參數為 undefined 表示無錯誤
+        callback({ success: true, created: true, blockCount: 5, imageCount: 2 }, undefined);
       });
 
       // Act - 模擬保存按鈕點擊
@@ -257,7 +263,8 @@ describe('Popup UI', () => {
     test('保存失敗應顯示錯誤訊息', () => {
       // Arrange
       chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-        callback({ success: false, error: 'API Error' });
+        // Chrome API callback 第二個參數為 undefined 表示無錯誤
+        callback({ success: false, error: 'API Error' }, undefined);
       });
 
       // Act
@@ -277,7 +284,8 @@ describe('Popup UI', () => {
       // Arrange
       openNotionButton.setAttribute('data-url', 'https://notion.so/test-page');
       chrome.tabs.create.mockImplementation((props, callback) => {
-        callback({ id: 123, ...props });
+        // Chrome API callback 第二個參數為 undefined 表示無錯誤
+        callback({ id: 123, ...props }, undefined);
       });
 
       // Act
