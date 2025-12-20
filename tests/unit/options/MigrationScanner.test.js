@@ -15,7 +15,7 @@ describe('MigrationScanner', () => {
   let scanner = null;
 
   beforeEach(() => {
-    // Initialize mocks in beforeEach to satisfy DeepSource JS-0119
+    // Initialize mocks
     mockGet = jest.fn();
     mockRemove = jest.fn();
     mockSendMessage = jest.fn();
@@ -31,6 +31,19 @@ describe('MigrationScanner', () => {
         sendMessage: mockSendMessage,
       },
     };
+
+    // Mock Logger to prevent console pollution and ensure function existence
+    global.Logger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    };
+
+    // Explicitly set window.Logger for JSDOM
+    if (typeof window !== 'undefined') {
+      window.Logger = global.Logger;
+    }
 
     scanner = new MigrationScanner();
   });

@@ -223,7 +223,12 @@ export class MigrationExecutor {
   async executePhase2(highlightManager) {
     const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
     const newHighlightsCount = highlightManager.getCount();
-    const oldHighlightsFound = this.statistics.oldHighlightsFound || 0;
+    const oldHighlightsFound = this.statistics.oldHighlightsFound || oldSpans.length;
+
+    // 補回丟失的統計數據
+    if (this.statistics.oldHighlightsFound === 0) {
+      this.statistics.oldHighlightsFound = oldHighlightsFound;
+    }
 
     // 只有在原本有標註但新標註未恢復時才需要回滾
     if (oldHighlightsFound > 0 && newHighlightsCount === 0) {
