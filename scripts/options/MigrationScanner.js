@@ -26,11 +26,16 @@
  * @param {string} status - 狀態描述
  */
 
+import Logger from '../utils/Logger.js';
+
+/**
+ * 舊版數據遷移掃描器
+ * 負責掃描和識別存儲中需要從舊版格式遷移到新版格式的標註數據
+ */
 export class MigrationScanner {
   constructor() {
     this.LEGACY_KEY_PREFIX = 'highlights_';
     this.MIGRATION_STATE_PREFIX = 'seamless_migration_state_';
-    this.logger = typeof window !== 'undefined' && window.Logger ? window.Logger : console;
   }
 
   /**
@@ -69,7 +74,7 @@ export class MigrationScanner {
         totalHighlights += highlightCount;
       }
 
-      this.logger.info(
+      Logger.info(
         `[MigrationScanner] 掃描完成: ${items.length} 個待遷移, ${totalHighlights} 個總標註`
       );
 
@@ -80,7 +85,7 @@ export class MigrationScanner {
         needsMigration: items.length > 0,
       };
     } catch (error) {
-      this.logger.error('[MigrationScanner] 掃描失敗:', error);
+      Logger.error('[MigrationScanner] 掃描失敗:', error);
       throw error;
     }
   }
@@ -111,7 +116,7 @@ export class MigrationScanner {
    * @param {ProgressCallback} [onProgress] - 進度回調
    * @returns {Promise<{success: number, failed: number, errors: string[]}>}
    */
-  async requestBatchMigration(urls, onProgress) {
+  static async requestBatchMigration(urls, onProgress) {
     const results = {
       success: 0,
       failed: 0,
@@ -143,9 +148,7 @@ export class MigrationScanner {
       }
     }
 
-    this.logger.info(
-      `[MigrationScanner] 遷移完成: ${results.success} 成功, ${results.failed} 失敗`
-    );
+    Logger.info(`[MigrationScanner] 遷移完成: ${results.success} 成功, ${results.failed} 失敗`);
 
     return results;
   }
@@ -180,7 +183,7 @@ export class MigrationScanner {
 
       return { completed, pending, failed };
     } catch (error) {
-      this.logger.error('[MigrationScanner] 獲取狀態失敗:', error);
+      Logger.error('[MigrationScanner] 獲取狀態失敗:', error);
       return { completed: 0, pending: 0, failed: 0 };
     }
   }
@@ -204,10 +207,10 @@ export class MigrationScanner {
         await chrome.storage.local.remove(keysToRemove);
       }
 
-      this.logger.info(`[MigrationScanner] 已清理 ${keysToRemove.length} 個遷移記錄`);
+      Logger.info(`[MigrationScanner] 已清理 ${keysToRemove.length} 個遷移記錄`);
       return keysToRemove.length;
     } catch (error) {
-      this.logger.error('[MigrationScanner] 清理失敗:', error);
+      Logger.error('[MigrationScanner] 清理失敗:', error);
       return 0;
     }
   }

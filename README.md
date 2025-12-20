@@ -303,8 +303,8 @@ vim scripts/highlighter/core/Range.js
 - **config/**：🆕 集中化配置管理
   - `constants.js`：統一常量定義（圖片驗證、性能優化、錯誤處理）
   - `selectors.js`：DOM 選擇器配置（技術內容標記）
-- **options.js**：設置頁面邏輯，包含搜索式資料來源選擇器
-- **utils.js**：共享工具函數和 URL 處理（`scripts/utils.js` 文件）
+- **options.js**：設置頁面控制器，協調模組化的 UI、認證和數據管理
+  - 位置：`scripts/options/` (ES6 模塊：UIManager, AuthManager, DataSourceManager, StorageManager, MigrationTool)
 - **utils/Logger.js**：🆕 統一日誌系統，支持環境感知與調試模式控制（`scripts/utils/` 目錄下）
 
 ### 構建流程
