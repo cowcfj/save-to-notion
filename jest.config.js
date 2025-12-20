@@ -17,9 +17,8 @@ module.exports = {
   // 覆蓋率收集
   collectCoverageFrom: [
     'scripts/**/*.js',
-    // 測試輔助檔案（tests/helpers/）不算入覆蓋率，因為它們不是生產代碼
-    // - utils.testable.js, options.testable.js 等是測試專用邏輯
-    // - 生產代碼覆蓋率應只追蹤 scripts/ 目錄
+    // 所有生產代碼位於 scripts/ 目錄
+    // tests/helpers/ 僅包含測試工具，不計入覆蓋率
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**'
