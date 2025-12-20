@@ -181,7 +181,7 @@ describe('DataSourceManager', () => {
         },
       };
 
-      expect(dataSourceManager.isSavedWebPage(savedPage)).toBe(true);
+      expect(DataSourceManager.isSavedWebPage(savedPage)).toBe(true);
     });
 
     test('不誤判工作區頁面', () => {
@@ -193,7 +193,7 @@ describe('DataSourceManager', () => {
         },
       };
 
-      expect(dataSourceManager.isSavedWebPage(workspacePage)).toBe(false);
+      expect(DataSourceManager.isSavedWebPage(workspacePage)).toBe(false);
     });
   });
 
@@ -207,7 +207,7 @@ describe('DataSourceManager', () => {
         },
       };
 
-      expect(dataSourceManager.hasUrlProperty(database)).toBe(true);
+      expect(DataSourceManager.hasUrlProperty(database)).toBe(true);
     });
 
     test('偵測到 data_source 沒有 URL 屬性', () => {
@@ -218,7 +218,7 @@ describe('DataSourceManager', () => {
         },
       };
 
-      expect(dataSourceManager.hasUrlProperty(database)).toBe(false);
+      expect(DataSourceManager.hasUrlProperty(database)).toBe(false);
     });
   });
 });

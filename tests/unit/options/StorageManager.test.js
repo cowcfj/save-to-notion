@@ -108,7 +108,7 @@ describe('StorageManager', () => {
         });
       });
 
-      const usage = await storageManager.getStorageUsage();
+      const usage = await StorageManager.getStorageUsage();
 
       expect(usage.pages).toBe(1);
       expect(usage.highlights).toBe(1);

@@ -136,18 +136,21 @@ export class MigrationTool {
     }
 
     try {
-      const results = await this.scanner.requestBatchMigration(urls, (current, total, status) => {
-        if (scanStatus) {
-          const percent = Math.round((current / total) * 100);
-          scanStatus.innerHTML = `
+      const results = await MigrationScanner.requestBatchMigration(
+        urls,
+        (current, total, status) => {
+          if (scanStatus) {
+            const percent = Math.round((current / total) * 100);
+            scanStatus.innerHTML = `
             <div class="progress-box">
                 <div>正在遷移... ${percent}% (${current}/${total})</div>
                 <div class="progress-bar"><div class="fill" style="width: ${percent}%"></div></div>
                 <small>${status}</small>
             </div>
           `;
+          }
         }
-      });
+      );
 
       if (results.failed === 0) {
         if (scanStatus) {

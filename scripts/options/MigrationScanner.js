@@ -112,7 +112,7 @@ export class MigrationScanner {
    * @param {ProgressCallback} [onProgress] - 進度回調
    * @returns {Promise<{success: number, failed: number, errors: string[]}>}
    */
-  async requestBatchMigration(urls, onProgress) {
+  static async requestBatchMigration(urls, onProgress) {
     const results = {
       success: 0,
       failed: 0,

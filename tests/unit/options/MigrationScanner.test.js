@@ -148,7 +148,7 @@ describe('MigrationScanner', () => {
       const urls = ['https://example1.com', 'https://example2.com'];
       const onProgress = jest.fn();
 
-      const result = await scanner.requestBatchMigration(urls, onProgress);
+      const result = await MigrationScanner.requestBatchMigration(urls, onProgress);
 
       expect(result.success).toBe(2);
       expect(result.failed).toBe(0);
@@ -162,7 +162,7 @@ describe('MigrationScanner', () => {
         .mockResolvedValueOnce({ success: false, error: 'Migration failed' });
 
       const urls = ['https://success.com', 'https://fail.com'];
-      const result = await scanner.requestBatchMigration(urls);
+      const result = await MigrationScanner.requestBatchMigration(urls);
 
       expect(result.success).toBe(1);
       expect(result.failed).toBe(1);

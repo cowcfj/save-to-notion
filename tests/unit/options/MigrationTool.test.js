@@ -30,8 +30,10 @@ describe('MigrationTool', () => {
     // Mock scanner instance
     mockScanner = {
       scanStorage: jest.fn(),
-      requestBatchMigration: jest.fn(),
+      scanStorage: jest.fn(),
     };
+
+    MigrationScanner.requestBatchMigration = jest.fn();
 
     MigrationScanner.mockImplementation(() => mockScanner);
 
@@ -111,11 +113,11 @@ describe('MigrationTool', () => {
         errors: [],
       };
 
-      mockScanner.requestBatchMigration.mockResolvedValueOnce(mockMigrationResult);
+      MigrationScanner.requestBatchMigration.mockResolvedValueOnce(mockMigrationResult);
 
       await migrationTool.performMigration();
 
-      expect(mockScanner.requestBatchMigration).toHaveBeenCalledWith(
+      expect(MigrationScanner.requestBatchMigration).toHaveBeenCalledWith(
         ['https://example.com', 'https://test.com'],
         expect.any(Function)
       );
@@ -132,7 +134,7 @@ describe('MigrationTool', () => {
         errors: ['Failed to migrate https://test.com'],
       };
 
-      mockScanner.requestBatchMigration.mockResolvedValueOnce(mockMigrationResult);
+      MigrationScanner.requestBatchMigration.mockResolvedValueOnce(mockMigrationResult);
 
       await migrationTool.performMigration();
 
@@ -147,7 +149,7 @@ describe('MigrationTool', () => {
 
       await migrationTool.performMigration();
 
-      expect(mockScanner.requestBatchMigration).not.toHaveBeenCalled();
+      expect(MigrationScanner.requestBatchMigration).not.toHaveBeenCalled();
     });
   });
 

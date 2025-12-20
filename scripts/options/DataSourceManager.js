@@ -172,13 +172,13 @@ export class DataSourceManager {
         return;
       }
 
-      if (this.isSavedWebPage(item)) {
+      if (DataSourceManager.isSavedWebPage(item)) {
         excludedCount++;
         return;
       }
 
       if (item.object === 'data_source') {
-        if (this.hasUrlProperty(item)) {
+        if (DataSourceManager.hasUrlProperty(item)) {
           urlDatabases.push(item);
         } else {
           otherDatabases.push(item);
@@ -207,14 +207,14 @@ export class DataSourceManager {
     return filtered;
   }
 
-  hasUrlProperty(database) {
+  static hasUrlProperty(database) {
     if (database.object !== 'data_source' || !database.properties) {
       return false;
     }
     return Object.values(database.properties).some(prop => prop.type === 'url');
   }
 
-  isSavedWebPage(page) {
+  static isSavedWebPage(page) {
     if (page.object !== 'page') {
       return false;
     }

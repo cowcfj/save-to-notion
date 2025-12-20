@@ -161,7 +161,7 @@ export class StorageManager {
         chrome.storage.local.get(null, resolve);
       });
 
-      const report = this.analyzeData(data);
+      const report = StorageManager.analyzeData(data);
 
       let statusText = '📊 數據完整性報告：\n';
       statusText += `• 總共 ${report.totalKeys} 個數據項\n`;
@@ -189,7 +189,7 @@ export class StorageManager {
     }
   }
 
-  analyzeData(data) {
+  static analyzeData(data) {
     const report = {
       totalKeys: Object.keys(data).length,
       highlightPages: 0,
@@ -227,7 +227,7 @@ export class StorageManager {
     }
 
     try {
-      const usage = await this.getStorageUsage();
+      const usage = await StorageManager.getStorageUsage();
       this.updateUsageDisplay(usage);
 
       // 顯示成功提示
@@ -252,7 +252,7 @@ export class StorageManager {
     }
   }
 
-  async getStorageUsage() {
+  static async getStorageUsage() {
     const data = await new Promise((resolve, reject) => {
       chrome.storage.local.get(null, result => {
         if (chrome.runtime.lastError) {
@@ -427,7 +427,7 @@ export class StorageManager {
         }
 
         try {
-          const exists = await this.checkNotionPageExists(page.data.notionPageId);
+          const exists = await StorageManager.checkNotionPageExists(page.data.notionPageId);
 
           if (!exists) {
             const savedKey = page.key;
@@ -473,7 +473,7 @@ export class StorageManager {
     return plan;
   }
 
-  async checkNotionPageExists(pageId) {
+  static async checkNotionPageExists(pageId) {
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'checkNotionPageExists',
@@ -580,7 +580,7 @@ export class StorageManager {
   }
 
   async analyzeOptimization() {
-    const plan = await this.generateOptimizationPlan();
+    const plan = await StorageManager.generateOptimizationPlan();
     this.optimizationPlan = plan;
     this.displayOptimizationPreview(plan);
 
@@ -593,7 +593,7 @@ export class StorageManager {
     }
   }
 
-  generateOptimizationPlan() {
+  static generateOptimizationPlan() {
     return new Promise(resolve => {
       chrome.storage.local.get(null, data => {
         const plan = {
