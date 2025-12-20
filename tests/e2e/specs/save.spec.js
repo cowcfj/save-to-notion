@@ -23,7 +23,7 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
     }
   });
 
-  // 2. Seed Storage
+  // 2. Seed Storage - 設置 API 密鑰和資料庫 ID
   const optionsUrl = `chrome-extension://${extensionId}/options/options.html`;
   const optionsPage = await context.newPage();
   await optionsPage.goto(optionsUrl);
@@ -40,34 +40,75 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
   await page.goto('https://example.com');
   await page.bringToFront();
 
-  // 4. Trigger Save via Exposed Handler
+  // 4. 獲取 target tab ID，用於 mock chrome.tabs.query
+  const setupPage = await context.newPage();
+  await setupPage.goto(optionsUrl);
+  const actualTabId = await setupPage.evaluate(async () => {
+    // 獲取 example.com 頁面的 tab ID
+    return new Promise(resolve => {
+      chrome.tabs.query({}, tabs => {
+        const target = tabs.find(tab => tab.url?.includes('example.com'));
+        resolve(target ? target.id : null);
+      });
+    });
+  });
+  await setupPage.close();
+
+  // 5. Mock Service Worker 中的 chrome.tabs.query
   let [worker] = context.serviceWorkers();
   if (!worker) {
     worker = await context.waitForEvent('serviceworker');
   }
 
-  // Invoke the exposed handler directly
-  const response = await worker.evaluate(() => {
-    if (!self.actionHandlers || !self.actionHandlers.savePage) {
-      throw new Error('actionHandlers not exposed');
-    }
+  await worker.evaluate(mockId => {
+    const originalQuery = chrome.tabs.query;
+    chrome.tabs.query = function (queryInfo, onQuery) {
+      if (queryInfo.active && queryInfo.currentWindow) {
+        const mockTab = {
+          id: mockId,
+          url: 'https://example.com/',
+          title: 'Example Domain',
+          active: true,
+          windowId: 1,
+        };
+        onQuery([mockTab]);
+        return;
+      }
+      if (originalQuery) {
+        originalQuery.call(this, queryInfo, onQuery);
+        return;
+      }
+      onQuery([]);
+    };
+  }, actualTabId);
 
-    return new Promise(resolve => {
-      // Mock sendResponse to resolve the promise
-      const sendResponse = response => {
-        resolve(response);
-      };
+  // 6. 透過 Popup 頁面發送 savePage 消息（公開介面）
+  // 這模擬了真實用戶點擊「Save」按鈕的流程
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+  await popup.waitForLoadState('networkidle');
 
-      // Call the handler
-      self.actionHandlers.savePage(
-        { action: 'savePage' }, // request
-        {}, // sender (unused)
-        sendResponse
-      );
+  // 使用 chrome.runtime.sendMessage 發送保存請求
+  const response = await popup.evaluate(() => {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Save timeout'));
+      }, 30000);
+
+      chrome.runtime.sendMessage({ action: 'savePage' }, response => {
+        clearTimeout(timeout);
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
     });
   });
 
-  // 5. Assertions
+  await popup.close();
+
+  // 7. Assertions
   if (!response.success) {
     console.log('Save Failed Error:', response.error);
   }
