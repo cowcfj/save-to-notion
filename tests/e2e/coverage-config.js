@@ -16,7 +16,7 @@ module.exports = {
   // 覆蓋率收集配置
   coverage: {
     // 需要收集覆蓋率的文件模式
-    include: ['scripts/**/*.js', '!scripts/**/*.test.js', '!scripts/**/*.spec.js'],
+    include: ['scripts/**/*.js', 'popup/**/*.js', '!scripts/**/*.test.js', '!scripts/**/*.spec.js'],
 
     // 排除的文件
     exclude: [
