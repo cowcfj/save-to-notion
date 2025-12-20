@@ -2,6 +2,11 @@
  * @jest-environment jsdom
  */
 
+/* skipcq: JS-0255
+ * Chrome 擴展 API 使用 chrome.runtime.lastError 而非 error-first callback 模式，
+ * 因此 mock 實作中的 callback 第一個參數是資料而非錯誤
+ */
+
 /**
  * actionHandlers.js 覆蓋率補強測試
  *
@@ -127,7 +132,6 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     beforeEach(() => {
       // Default successful setup
-      // skipcq: JS-0255 -- Chrome API 使用 chrome.runtime.lastError 而非 error-first callback
       chrome.tabs.query.mockImplementation((_q, cb) => cb([mockTab]));
       mockStorageService.getConfig.mockResolvedValue(mockConfig);
       mockInjectionService.collectHighlights.mockResolvedValue([]);
@@ -136,7 +140,6 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在無法獲取 active tab 時失敗', async () => {
       const sendResponse = jest.fn();
-      // skipcq: JS-0255 -- Chrome API 使用 chrome.runtime.lastError 而非 error-first callback
       chrome.tabs.query.mockImplementation((_q, cb) => cb([]));
 
       await handlers.savePage({}, {}, sendResponse);
@@ -307,7 +310,6 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該打開 Notion 頁面', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page-123' });
-      // skipcq: JS-0255 -- Chrome API 使用 chrome.runtime.lastError 而非 error-first callback
       chrome.tabs.create.mockImplementation((opts, cb) => cb({ id: 1 }));
 
       await handlers.openNotionPage({ url: 'http://test.com' }, {}, sendResponse);
@@ -322,7 +324,6 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('startHighlight handler', () => {
     test('應該處理無法獲取 tab', async () => {
       const sendResponse = jest.fn();
-      // skipcq: JS-0255 -- Chrome API 使用 chrome.runtime.lastError 而非 error-first callback
       chrome.tabs.query.mockImplementation((_q, cb) => cb([]));
       await handlers.startHighlight({}, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
@@ -330,9 +331,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該成功注入並啟動', async () => {
       const sendResponse = jest.fn();
-      // skipcq: JS-0255 -- Chrome API 使用 chrome.runtime.lastError 而非 error-first callback
       chrome.tabs.query.mockImplementation((_q, cb) => cb([{ id: 1, url: 'http://test.com' }]));
-      // skipcq: JS-0255 -- Chrome API 使用 chrome.runtime.lastError 而非 error-first callback
       chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => cb({ success: true }));
 
       await handlers.startHighlight({}, {}, sendResponse);
@@ -386,7 +385,6 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('updateHighlights handler', () => {
     test('應該處理完整更新流程', async () => {
       const sendResponse = jest.fn();
-      // skipcq: JS-0255 -- Chrome API 使用 chrome.runtime.lastError 而非 error-first callback
       chrome.tabs.query.mockImplementation((_q, cb) => cb([{ id: 1, url: 'http://test.com' }]));
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
