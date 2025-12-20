@@ -94,5 +94,3 @@ export class RestoreManager {
     return this.isRestored;
   }
 }
-
-export default RestoreManager;

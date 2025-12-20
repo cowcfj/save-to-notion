@@ -1712,14 +1712,21 @@ document.addEventListener('DOMContentLoaded', () => {
           resultDiv.innerHTML = `✅ ${actionName}完成！成功處理 ${success} 個頁面。`;
           resultDiv.className = 'migration-result success';
         } else {
+          const errorListHtml = errors
+            .slice(0, 5)
+            .map(err => `<div class="url-item">${err}</div>`)
+            .join('');
+
+          const moreErrorsHtml =
+            errors.length > 5
+              ? `<div class="url-item">...及其他 ${errors.length - 5} 個錯誤</div>`
+              : '';
+
           resultDiv.innerHTML = `
             ⚠️ ${actionName}完成：${success} 成功，${failed} 失敗
             <div class="url-list">
-              ${errors
-                .slice(0, 5)
-                .map(err => `<div class="url-item">${err}</div>`)
-                .join('')}
-              ${errors.length > 5 ? `<div class="url-item">...及其他 ${errors.length - 5} 個錯誤</div>` : ''}
+              ${errorListHtml}
+              ${moreErrorsHtml}
             </div>
           `;
           resultDiv.className = 'migration-result error';

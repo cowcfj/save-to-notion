@@ -5,6 +5,21 @@
  */
 
 import { RestoreManager } from '../../../scripts/highlighter/core/RestoreManager.js';
+import Logger from '../../../scripts/utils/Logger.js';
+
+// Mock Logger module
+jest.mock('../../../scripts/utils/Logger.js', () => {
+  class LoggerMock {}
+  LoggerMock.info = jest.fn();
+  LoggerMock.warn = jest.fn();
+  LoggerMock.error = jest.fn();
+  LoggerMock.debug = jest.fn();
+
+  return {
+    __esModule: true,
+    default: LoggerMock,
+  };
+});
 
 describe('RestoreManager', () => {
   let mockManager = null;
@@ -19,14 +34,11 @@ describe('RestoreManager', () => {
       hide: jest.fn(),
     };
 
-    // Mock Logger
-    global.Logger = {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    };
+    // 清除 Logger mock 呼叫記錄
+    Logger.info.mockClear();
+    Logger.warn.mockClear();
+    Logger.error.mockClear();
 
-    // Mock setTimeout
     // Mock setTimeout
     // Review: Use legacy timers to avoid async/await issues
     jest.useFakeTimers({ legacyFakeTimers: true });
