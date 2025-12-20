@@ -40,7 +40,7 @@ export class MigrationTool {
    * @returns {Promise<void>}
    */
   async scanForLegacyHighlights() {
-    const { scanStatus, migrateAllButton, _migrationList, scanButton } = this.elements;
+    const { scanStatus, migrateAllButton, scanButton } = this.elements;
 
     if (scanStatus) {
       scanStatus.innerHTML = '<span class="loading"></span> 正在掃描...';
