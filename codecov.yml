@@ -34,6 +34,7 @@ ignore:
   - 'tests/**/*.spec.js' # E2E 測試文件
   - 'tests/helpers/**' # 測試輔助工具（非生產代碼）
   - 'node_modules/**'
+  - 'lib/**' # 第三方庫（Readability.js）
   - 'archive/**'
   - 'internal/**'
   - 'demos/**'
