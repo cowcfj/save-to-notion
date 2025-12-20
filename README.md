@@ -179,7 +179,7 @@ notion-chrome/
 │   │   ├── handlers/      #     消息處理 (MessageHandler)
 │   │   └── utils/         #     背景工具 (BlockBuilder)
 │   ├── content/           # 🆕 ES6 模塊化內容提取系統
-│   │   ├── index.js       #     入口文件
+│   │   ├── index.js       #     入口文件 (合併 Highlighter)
 │   │   ├── extractors/    #     提取層（ContentExtractor, ReadabilityAdapter, MetadataExtractor, ImageCollector）
 │   │   ├── converters/    #     轉換層（ConverterFactory, DomConverter）
 │   │   └── adapters/      #     適配層（ReadabilityAdapter）
@@ -190,7 +190,6 @@ notion-chrome/
 │   │   ├── features.js    #     功能開關配置
 │   │   ├── env.js         #     環境檢測工具
 │   │   └── index.js       #     統一導出入口
-│   ├── utils.js           # 工具函數（文件）
 │   ├── highlighter/       # 🆕 ES6 模塊化標註系統
 │   │   ├── index.js       #     入口文件
 │   │   ├── core/          #     核心模組（Range, HighlightManager）
@@ -203,13 +202,11 @@ notion-chrome/
 │   ├── errorHandling/     # 錯誤處理模組
 │   └── utils/             # 工具模組（目錄）
 │       ├── Logger.js      # 🆕 統一日誌系統
-│       ├── Logger.module.js # ES6 Wrapper
 │       ├── imageUtils.js  # 圖片處理
-│       ├── imageUtils.module.js # ES6 Wrapper
+│       ├── urlUtils.js    # URL 處理與常量
 │       └── pageComplexityDetector.js
 ├── dist/                  # 🆕 構建產物
-│   ├── content.bundle.js         # Content Script 打包版 (211KB)
-│   ├── highlighter-v2.bundle.js  # Highlighter 壓縮版 (15KB)
+│   ├── content.bundle.js         # Content Script 統一打包版
 │   └── *.js.map           # Source maps
 ├── update-notification/   # 更新通知頁面與邏輯
 ├── lib/                   # 第三方庫（Readability.js）
