@@ -2,7 +2,7 @@
  * Highlighter V2 - ES6 Module Entry Point
  *
  * 整合所有模組並提供統一導出
- * @version 2.9.12
+ * @version 2.19.0
  */
 
 // Core modules
@@ -28,6 +28,9 @@ import { waitForDOMStability } from './utils/domStability.js';
 
 // Storage utility - 導入以設置 window.StorageUtil（由 HighlightManager 使用）
 import './utils/StorageUtil.js';
+
+// Restore module - 標註恢復管理器
+import { RestoreManager } from './core/RestoreManager.js';
 
 /**
  * 初始化 Highlighter V2 (僅 Manager)
@@ -85,6 +88,7 @@ export {
   // Core
   HighlightManager,
   Toolbar,
+  RestoreManager,
   serializeRange,
   deserializeRange,
   restoreRangeWithRetry,
@@ -119,10 +123,14 @@ export function setupHighlighter() {
   // 初始化 manager 和 toolbar
   const { manager, toolbar } = initHighlighterWithToolbar();
 
+  // 🔑 初始化 RestoreManager 並自動恢復標註
+  const restoreManager = new RestoreManager(manager, toolbar);
+
   // 設置新版 API 到 window for Chrome Extension compatibility
   window.HighlighterV2 = {
     manager,
     toolbar,
+    restoreManager,
 
     // Core functions
     serializeRange,
@@ -146,11 +154,13 @@ export function setupHighlighter() {
     initWithToolbar: options => initHighlighterWithToolbar(options),
     getInstance: () => manager,
     getToolbar: () => toolbar,
+    getRestoreManager: () => restoreManager,
   };
 
   // 🔑 向後兼容：設置舊版 API
   window.notionHighlighter = {
     manager,
+    restoreManager,
     show: () => toolbar.show(),
     hide: () => toolbar.hide(),
     minimize: () => toolbar.minimize(),
@@ -165,6 +175,8 @@ export function setupHighlighter() {
     collectHighlights: () => manager.collectHighlightsForNotion(),
     clearAll: () => manager.clearAll(),
     getCount: () => manager.getCount(),
+    // 🔑 新增：暴露 forceRestoreHighlights 以保持與 highlight-restore.js 的兼容性
+    forceRestoreHighlights: () => restoreManager.restore(),
   };
 
   // 🔑 全域函數別名（向後兼容）
@@ -188,7 +200,7 @@ export function setupHighlighter() {
     }
   };
 
-  return { manager, toolbar };
+  return { manager, toolbar, restoreManager };
 }
 
 // 自動初始化（在 browser 環境中）

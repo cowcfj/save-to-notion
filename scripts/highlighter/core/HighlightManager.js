@@ -3,7 +3,7 @@
  * HighlightManager 核心類別
  * 管理所有標註操作、存儲、遷移和恢復
  *
- * @version 2.9.12
+ * @version 2.19.0
  */
 
 import { serializeRange, restoreRangeWithRetry } from './Range.js';
@@ -11,7 +11,7 @@ import { COLORS } from '../utils/color.js';
 import { supportsHighlightAPI } from '../utils/dom.js';
 import { findTextInPage } from '../utils/textSearch.js';
 import Logger from '../../utils/Logger.js';
-import SeamlessMigrationManager from '../../seamless-migration.js';
+// 注意：DOM span 遷移已改為 On-Demand 模式，由選項頁面觸發
 
 /**
  * HighlightManager
@@ -458,26 +458,6 @@ export class HighlightManager {
   async forceRestoreHighlights() {
     this.clearAll();
     await this.restoreHighlights();
-  }
-
-  /**
-   * 執行無痛自動遷移
-   */
-  async performSeamlessMigration() {
-    // Import handles dependency, no need to check window (unless for safety, but ESM resolves this)
-
-    try {
-      const migrationManager = new SeamlessMigrationManager();
-      const result = await migrationManager.performSeamlessMigration(this);
-
-      if (result?.rolledBack) {
-        Logger.warn(`遷移已回滾: ${result.reason}`);
-      }
-
-      await this.saveToStorage();
-    } catch (error) {
-      Logger.error('無痛遷移過程出錯:', error);
-    }
   }
 
   /**

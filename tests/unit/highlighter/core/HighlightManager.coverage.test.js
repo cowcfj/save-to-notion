@@ -28,30 +28,10 @@ jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => ({
 describe('HighlightManager Coverage Tests', () => {
   let manager = null;
   let HighlightManagerClass = null;
-  let MockSeamlessMigrationManagerConstructor = null;
 
   beforeEach(() => {
     // Reset modules to ensure clean mocking
     jest.resetModules();
-
-    // Mock SeamlessMigrationManager using doMock
-    MockSeamlessMigrationManagerConstructor = jest.fn().mockImplementation(() => ({
-      performSeamlessMigration: jest.fn().mockResolvedValue({ success: true }),
-    }));
-
-    jest.doMock('../../../../scripts/seamless-migration.js', () => {
-      console.log('DEBUG: doMock FACTORY EXECUTED');
-      return {
-        __esModule: true,
-        default: MockSeamlessMigrationManagerConstructor,
-      };
-    });
-
-    // Re-require other mocks if resetModules passes (static mocks persist? No, resetModules clears cache)
-    // We need to re-mock or ensure doMock covers them?
-    // Jest static mocks (jest.mock at top) PERSIST across resetModules usually?
-    // "Calling jest.resetModules() will reset the module registry... However, mocks defined with jest.mock are preserved."
-    // So static mocks above are safe.
 
     // Setup DOM
     document.body.innerHTML = '';
@@ -119,13 +99,12 @@ describe('HighlightManager Coverage Tests', () => {
     test('should call migration and restore methods', async () => {
       manager.checkAndMigrateLegacyData = jest.fn();
       manager.restoreHighlights = jest.fn();
-      manager.performSeamlessMigration = jest.fn();
 
       await manager.initialize();
 
       expect(manager.checkAndMigrateLegacyData).toHaveBeenCalled();
       expect(manager.restoreHighlights).toHaveBeenCalled();
-      expect(manager.performSeamlessMigration).toHaveBeenCalled();
+      // 注意：performSeamlessMigration 已改為 On-Demand 模式，不再自動調用
     });
   });
 
@@ -445,28 +424,6 @@ describe('HighlightManager Coverage Tests', () => {
     });
   });
 
-  describe('performSeamlessMigration', () => {
-    test('should call SeamlessMigrationManager when available', async () => {
-      window.StorageUtil = {
-        saveHighlights: jest.fn().mockResolvedValue(),
-        getHighlights: jest.fn().mockResolvedValue({}),
-      };
-
-      await manager.performSeamlessMigration();
-
-      // Check if the mock constructor was called
-      expect(MockSeamlessMigrationManagerConstructor).toHaveBeenCalled();
-
-      // Check instance call
-      // When mockImplementation returns an object, use results to get the return value
-      const headerMockInstance = MockSeamlessMigrationManagerConstructor.mock.results[0].value;
-
-      // Safety check to debug if needed
-      if (!headerMockInstance || !headerMockInstance.performSeamlessMigration) {
-        console.error('DEBUG: Mock Instance or method missing', headerMockInstance);
-      }
-
-      expect(headerMockInstance.performSeamlessMigration).toHaveBeenCalledWith(manager);
-    });
-  });
+  // 注意：performSeamlessMigration 測試已移除，因為該功能已改為 On-Demand 模式
+  // 遷移功能現由選項頁面通過 MigrationExecutor 按需觸發
 });
