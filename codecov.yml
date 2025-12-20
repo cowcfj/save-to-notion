@@ -1,6 +1,6 @@
 # Codecov Configuration
 # 文檔: https://docs.codecov.com/docs/codecov-yaml
-# 最後更新: 2025-10-14 - 覆蓋率調整至 28.81%
+# 最後更新: 2025-12-20 - 清理 testable 檔案後更新
 
 # 覆蓋率設置
 coverage:
@@ -8,7 +8,7 @@ coverage:
   status:
     project:
       default:
-        target: 28% # 目標覆蓋率（當前: 28.81%）
+        target: 28% # 目標覆蓋率
         threshold: 2% # 允許的下降幅度
         if_ci_failed: error # CI 失敗時的行為
     patch:
@@ -30,7 +30,8 @@ comment:
 # 忽略的文件和目錄
 ignore:
   - 'tests/**/*.test.js' # 測試文件本身
-  - '**/*.spec.js'
+  - 'tests/**/*.spec.js'
+  - 'tests/helpers/**' # 測試輔助工具（非生產代碼）
   - 'node_modules/**'
   - 'archive/**'
   - 'internal/**'
@@ -38,44 +39,15 @@ ignore:
   - 'promo-images/**'
   - 'build/**'
   - 'dist/**' # Rollup 打包後的文件(避免重複計算覆蓋率)
-  # 注意：不忽略 tests/helpers/*.testable.js，因為這些是可測試的實際代碼
 
 # Flags 配置（用於追蹤不同類型的測試）
 flags:
   unittests:
     paths:
       - scripts/
-      - tests/helpers/
     carryforward: true # 保留先前的覆蓋率數據
 
-# 覆蓋率歷程：
-# - 2025-10-14: 28.81% (1087 個測試) - 測試覆蓋率修復
-#   - 修復 smart-hybrid-mode-integration.test.js Jest 兼容性
-#   - 調整覆蓋率門檻至實際水平 (28%)
-#   - 生成完整 lcov.info 覆蓋率報告
-#   - 準備上傳至 codecov
-# - 2025-10-12: 31.41% (1056 個測試)
-#   - 新增 ErrorHandler 全面測試 (50+ 測試) - 覆蓋率: 92%
-#   - 新增 RetryManager 全面測試 (40+ 測試) - 覆蓋率: 93.15%
-#   - 新增 PerformanceOptimizer 全面測試 (60+ 測試) - 覆蓋率: 80.47%
-#   - 更新覆蓋率門檻至 31%
-# - 2025-10-07: 20.67% (764 個測試)
-#   - 新增 content-extraction 測試 (28 個測試)
-#   - 更新覆蓋率門檻至 20%
-# - 之前: 19.13% (736 個測試)
-#   - background.js, utils.js 測試增強
-
 # 說明：
-# - scripts/ 包含實際的 Chrome Extension 代碼（大部分依賴 Chrome API，難以測試）
-# - tests/helpers/*.testable.js 包含從 scripts/ 提取的可測試邏輯
-# - 兩者都計入覆蓋率，因為 testable.js 文件是實際業務邏輯的純函數版本
-# - 當前模塊覆蓋率：
-#   - ErrorHandler.js: 92%
-#   - RetryManager.js: 93.15%
-#   - PerformanceOptimizer.js: 80.47%
-#   - AdaptivePerformanceManager.js: 81.81%
-#   - background-utils.testable.js: 97.56%
-#   - content-extraction.testable.js: 98.21%
-#   - content.testable.js: 97.46%
-#   - highlighter-v2.testable.js: 98.90%
-#   - utils.testable.js: 88.53%
+# - 所有生產代碼位於 scripts/ 目錄
+# - tests/helpers/ 僅包含測試工具（如 mock helpers），不計入覆蓋率
+# - 2025-12-20: 清理遺留的 *.testable.js 檔案
