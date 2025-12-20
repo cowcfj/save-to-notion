@@ -55,7 +55,15 @@ flags:
 # - 2025-12-20: 移除 *.testable.js 檔案及其單元測試
 #   - 這些檔案原本是從 scripts/ 提取的可測試邏輯副本
 #   - 重構後生產代碼已模組化，testable 副本成為冗餘
-#   - 刪除約 2,600 行重複代碼（utils.testable.js 等）
-#   - 生產模組（Logger.js, urlUtils.js, StorageUtil.js）已有對應測試
-#   - 整體覆蓋率目標維持 28%（僅追蹤 scripts/ 目錄）
+#   - 刪除約 2,600 行重複測試代碼
+#
+#   現有生產模組測試（直接測試 scripts/ 目錄下的模組）：
+#   - scripts/utils/Logger.js       → tests/unit/utils/Logger.test.js (418 行)
+#   - scripts/utils/urlUtils.js     → tests/unit/normalizeUrl.test.js (148 行)
+#   - scripts/highlighter/utils/StorageUtil.js →
+#       - tests/unit/utils.test.js (256 行)
+#       - tests/unit/storageUtil.test.js (948 行)
+#
+#   測試總行數：被刪除 ~700 行（舊副本）→ 現有 ~1,770 行（生產模組直接測試）
+#   整體覆蓋率目標維持 28%（僅追蹤 scripts/ 目錄）
 
