@@ -30,7 +30,6 @@ describe('MigrationTool', () => {
     // Mock scanner instance
     mockScanner = {
       scanStorage: jest.fn(),
-      scanStorage: jest.fn(),
     };
 
     MigrationScanner.requestBatchMigration = jest.fn();
