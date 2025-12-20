@@ -57,7 +57,7 @@ export class MigrationScanner {
         }
 
         // 統計總標註數
-        if (value && value.highlights) {
+        if (value?.highlights) {
           totalHighlights += value.highlights.length;
         } else if (Array.isArray(value)) {
           totalHighlights += value.length;
@@ -93,7 +93,7 @@ export class MigrationScanner {
       return data.some(item => !item.rangeInfo);
     }
 
-    if (data && data.highlights) {
+    if (data?.highlights) {
       return data.highlights.some(item => !item.rangeInfo);
     }
 

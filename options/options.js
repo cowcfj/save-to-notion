@@ -1706,7 +1706,7 @@ document.addEventListener('DOMContentLoaded', () => {
           let highlightCount = 0;
 
           // 統計標註數
-          if (value && value.highlights) {
+          if (value?.highlights) {
             highlightCount = value.highlights.length;
           } else if (Array.isArray(value)) {
             highlightCount = value.length;
@@ -1736,7 +1736,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(data)) {
           return data.some(item => !item.rangeInfo);
         }
-        if (data && data.highlights) {
+        if (data?.highlights) {
           return data.highlights.some(item => !item.rangeInfo);
         }
         return false;

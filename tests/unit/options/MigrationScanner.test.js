@@ -124,7 +124,7 @@ describe('MigrationScanner', () => {
 
     it('should handle empty data', () => {
       expect(scanner.isLegacyFormat(null)).toBe(false);
-      expect(scanner.isLegacyFormat(undefined)).toBe(false);
+      expect(scanner.isLegacyFormat()).toBe(false);
       expect(scanner.isLegacyFormat([])).toBe(false);
     });
   });
