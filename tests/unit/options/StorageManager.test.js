@@ -101,8 +101,8 @@ describe('StorageManager', () => {
 
   describe('getStorageUsage', () => {
     it('should calculate usage correctly', async () => {
-      mockGet.mockImplementation((keys, callback) => {
-        callback({
+      mockGet.mockImplementation((keys, sendResponse) => {
+        sendResponse({
           highlights_page1: [{ text: 'abc' }],
           config_theme: 'dark',
         });
@@ -119,8 +119,8 @@ describe('StorageManager', () => {
 
   describe('exportData', () => {
     it('should export data as JSON file', async () => {
-      mockGet.mockImplementation((keys, callback) => {
-        callback({ key: 'value' });
+      mockGet.mockImplementation((keys, sendResponse) => {
+        sendResponse({ key: 'value' });
       });
 
       const clickSpy = jest.fn();
@@ -129,8 +129,8 @@ describe('StorageManager', () => {
         href: '',
         download: '',
       });
-      jest.spyOn(document.body, 'appendChild').mockImplementation(() => {});
-      jest.spyOn(document.body, 'removeChild').mockImplementation(() => {});
+      jest.spyOn(document.body, 'appendChild').mockImplementation(() => undefined);
+      jest.spyOn(document.body, 'removeChild').mockImplementation(() => undefined);
 
       await storageManager.exportData();
 
@@ -201,8 +201,8 @@ describe('StorageManager', () => {
 
   describe('analyzeOptimization', () => {
     it('should identify optimization opportunities', async () => {
-      mockGet.mockImplementation((keys, callback) =>
-        callback({
+      mockGet.mockImplementation((keys, sendResponse) =>
+        sendResponse({
           migration_file: {},
           highlights_empty: [],
           highlights_valid: [{ text: 'ok' }],
@@ -230,9 +230,9 @@ describe('StorageManager', () => {
         spaceSaved: 100,
       };
 
-      mockRemove.mockImplementation((keys, cb) => cb());
+      mockRemove.mockImplementation((keys, sendResponse) => sendResponse());
       mockGet.mockImplementation((keys, resolve) => resolve({ key2: 'old_val' }));
-      mockSet.mockImplementation((data, cb) => cb());
+      mockSet.mockImplementation((data, sendResponse) => sendResponse());
 
       await storageManager.executeOptimization();
 

@@ -63,8 +63,8 @@ describe('AuthManager', () => {
       notionDatabaseId: 'db_456',
     };
 
-    chrome.storage.sync.get.mockImplementation((keys, callback) => {
-      callback(mockData);
+    chrome.storage.sync.get.mockImplementation((keys, sendResponse) => {
+      sendResponse(mockData);
     });
 
     authManager.checkAuthStatus();
@@ -78,14 +78,14 @@ describe('AuthManager', () => {
   });
 
   test('disconnectFromNotion clears storage and updates UI', async () => {
-    chrome.storage.sync.remove.mockImplementation((keys, callback) => {
-      if (callback) {
-        callback();
+    chrome.storage.sync.remove.mockImplementation((keys, sendResponse) => {
+      if (sendResponse) {
+        sendResponse();
       }
     });
     // Mock checkAuthStatus behavior (simulate disconnected state)
-    chrome.storage.sync.get.mockImplementation((keys, callback) => {
-      callback({}); // Empty result
+    chrome.storage.sync.get.mockImplementation((keys, sendResponse) => {
+      sendResponse({}); // Empty result
     });
 
     await authManager.disconnectFromNotion();
