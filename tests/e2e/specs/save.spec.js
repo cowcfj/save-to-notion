@@ -52,6 +52,13 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
       });
     });
   });
+
+  // Fail-fast：確保成功獲取 target tab ID
+  expect(
+    actualTabId,
+    'example.com tab not found: cannot proceed with mocking chrome.tabs.query'
+  ).not.toBeNull();
+
   await setupPage.close();
 
   // 5. Mock Service Worker 中的 chrome.tabs.query
