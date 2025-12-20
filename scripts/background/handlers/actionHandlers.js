@@ -684,7 +684,7 @@ export function createActionHandlers(services) {
 
         // 2. 查找或創建分頁
         const tabs = await chrome.tabs.query({ url });
-        let targetTab;
+        let targetTab = null;
 
         if (tabs.length > 0) {
           // 使用已存在的分頁
@@ -719,7 +719,7 @@ export function createActionHandlers(services) {
         });
 
         // 4. 執行遷移
-        Logger.log("🚀 [Migration] 執行 DOM 遷移...");
+        Logger.log('🚀 [Migration] 執行 DOM 遷移...');
         const migrationResult = await chrome.scripting.executeScript({
           target: { tabId: targetTab.id },
           func: async () => {
