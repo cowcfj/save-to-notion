@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const result = await clearHighlights(activeTab.id);
+    const result = await clearHighlights(activeTab.id, activeTab.url);
 
     if (result.success) {
       setStatus(elements, `Cleared ${result.clearedCount} highlights successfully!`);

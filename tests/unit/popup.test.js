@@ -352,7 +352,7 @@ describe('clearHighlights', () => {
       callback([{ result: 5 }]);
     });
 
-    const result = await clearHighlights(123);
+    const result = await clearHighlights(123, 'https://example.com/page?utm_source=test');
 
     expect(result.success).toBe(true);
     expect(result.clearedCount).toBe(5);
@@ -360,6 +360,7 @@ describe('clearHighlights', () => {
       expect.objectContaining({
         target: { tabId: 123 },
         func: expect.any(Function),
+        args: expect.arrayContaining(['highlights_https://example.com/page']),
       }),
       expect.any(Function)
     );
@@ -371,7 +372,7 @@ describe('clearHighlights', () => {
       callback([]);
     });
 
-    const result = await clearHighlights(123);
+    const result = await clearHighlights(123, 'https://example.com');
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('Execution failed');
