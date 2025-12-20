@@ -671,9 +671,8 @@ export function createActionHandlers(services) {
 
         // 讀取標註數據
         const pageKey = `highlights_${url}`;
-        const data = await new Promise(resolve => {
-          chrome.storage.local.get(pageKey, result => resolve(result[pageKey]));
-        });
+        const result = await chrome.storage.local.get(pageKey);
+        const data = result[pageKey];
 
         if (!data) {
           sendResponse({ success: true, message: '無數據需要遷移' });
@@ -711,9 +710,7 @@ export function createActionHandlers(services) {
           lastUpdated: new Date().toISOString(),
         };
 
-        await new Promise(resolve => {
-          chrome.storage.local.set({ [pageKey]: updatedData }, resolve);
-        });
+        await chrome.storage.local.set({ [pageKey]: updatedData });
 
         Logger.log(`✅ [Migration] 遷移完成: ${url} (${updatedHighlights.length} 個標註)`);
         sendResponse({
@@ -744,9 +741,9 @@ export function createActionHandlers(services) {
         const pageKey = `highlights_${url}`;
 
         // 檢查數據是否存在
-        const data = await new Promise(resolve => {
-          chrome.storage.local.get(pageKey, result => resolve(result[pageKey]));
-        });
+        // 檢查數據是否存在
+        const result = await chrome.storage.local.get(pageKey);
+        const data = result[pageKey];
 
         if (!data) {
           sendResponse({ success: true, message: '數據不存在，無需刪除' });
@@ -754,9 +751,8 @@ export function createActionHandlers(services) {
         }
 
         // 刪除數據
-        await new Promise(resolve => {
-          chrome.storage.local.remove(pageKey, resolve);
-        });
+        // 刪除數據
+        await chrome.storage.local.remove(pageKey);
 
         Logger.log(`✅ [Migration] 刪除完成: ${url}`);
         sendResponse({
