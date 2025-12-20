@@ -3,6 +3,8 @@
  * 可搜索的資料來源選擇器 UI 組件
  */
 
+import Logger from '../utils/Logger.js';
+
 export class SearchableDatabaseSelector {
   constructor(dependencies = {}) {
     const { showStatus, loadDatabases } = dependencies;
@@ -36,7 +38,7 @@ export class SearchableDatabaseSelector {
     this.refreshButton = document.getElementById('refresh-databases');
     this.databaseIdInput = document.getElementById('database-id');
 
-    window.Logger?.info?.('SearchableDatabaseSelector 元素初始化:', {
+    Logger.info('SearchableDatabaseSelector 元素初始化:', {
       container: this.container,
       searchInput: this.searchInput,
       toggleButton: this.toggleButton,
@@ -48,10 +50,10 @@ export class SearchableDatabaseSelector {
     });
 
     if (!this.container) {
-      console.error('找不到 database-selector-container 元素！');
+      Logger.error('找不到 database-selector-container 元素！');
     }
     if (!this.searchInput) {
-      console.error('找不到 database-search 元素！');
+      Logger.error('找不到 database-search 元素！');
     }
   }
 
@@ -107,7 +109,7 @@ export class SearchableDatabaseSelector {
       lastEdited: db.last_edited_time,
     }));
 
-    window.Logger?.info?.('處理後的保存目標:', this.databases);
+    Logger.info('處理後的保存目標:', this.databases);
 
     this.filteredDatabases = [...this.databases];
     this.updateDatabaseCount();
@@ -282,7 +284,7 @@ export class SearchableDatabaseSelector {
       }
     }
 
-    window.Logger?.info?.(
+    Logger.info(
       `選擇了 ${database.type === 'page' ? '頁面' : '資料來源'}: ${database.title} (${database.id})`
     );
 

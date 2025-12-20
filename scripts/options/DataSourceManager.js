@@ -3,6 +3,7 @@
  * 負責資料庫清單的載入、篩選與選擇邏輯
  */
 import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
+import Logger from '../utils/Logger.js';
 
 export class DataSourceManager {
   constructor(uiManager) {
@@ -37,8 +38,8 @@ export class DataSourceManager {
   async loadDatabases(apiKey) {
     try {
       this.ui.showStatus('正在載入保存目標列表...', 'info');
-      const Logger = window.Logger || console;
-      Logger?.info?.(`開始載入保存目標，API Key: ${apiKey.substring(0, 20)}...`);
+      this.ui.showStatus('正在載入保存目標列表...', 'info');
+      Logger.info(`開始載入保存目標，API Key: ${apiKey.substring(0, 20)}...`);
 
       const response = await fetch('https://api.notion.com/v1/search', {
         method: 'POST',
@@ -58,7 +59,8 @@ export class DataSourceManager {
 
       if (response.ok) {
         const data = await response.json();
-        Logger?.info?.(`API 返回 ${data.results?.length || 0} 個項目`);
+
+        Logger.info(`API 返回 ${data.results?.length || 0} 個項目`);
 
         if (data.results && data.results.length > 0) {
           // 客戶端智能篩選和排序
@@ -103,7 +105,6 @@ export class DataSourceManager {
         }
       }
     } catch (error) {
-      const Logger = window.Logger || console;
       Logger.error('載入保存目標失敗:', error);
 
       let errorMessage = '載入保存目標失敗: ';
@@ -121,8 +122,7 @@ export class DataSourceManager {
   }
 
   populateDatabaseSelect(databases) {
-    const Logger = window.Logger || console;
-    Logger?.info?.('populateDatabaseSelect 被調用，資料來源數量:', databases.length);
+    Logger.info('populateDatabaseSelect 被調用，資料來源數量:', databases.length);
 
     // 初始化搜索式選擇器（如果還沒有）
     if (!this.selector) {
@@ -157,8 +157,7 @@ export class DataSourceManager {
   }
 
   filterAndSortResults(results, maxResults = 100) {
-    const Logger = window.Logger || console;
-    Logger?.info?.(`開始篩選 ${results.length} 個項目，目標: ${maxResults} 個`);
+    Logger.info(`開始篩選 ${results.length} 個項目，目標: ${maxResults} 個`);
 
     const workspacePages = [];
     const urlDatabases = [];
@@ -203,7 +202,7 @@ export class DataSourceManager {
       ...otherPages,
     ].slice(0, maxResults);
 
-    Logger?.info?.(`篩選完成: ${filtered.length} 個項目（排除 ${excludedCount} 個已保存網頁）`);
+    Logger.info(`篩選完成: ${filtered.length} 個項目（排除 ${excludedCount} 個已保存網頁）`);
 
     return filtered;
   }

@@ -3,6 +3,8 @@
  * 負責存儲空間分析、清理與優化
  */
 
+import Logger from '../utils/Logger.js';
+
 export class StorageManager {
   constructor(uiManager) {
     this.ui = uiManager;
@@ -102,7 +104,7 @@ export class StorageManager {
 
       this.showDataStatus('✅ 數據備份成功！備份文件已下載。', 'success');
     } catch (error) {
-      console.error('Backup failed:', error);
+      Logger.error('Backup failed:', error);
       this.showDataStatus(`❌ 備份失敗：${error.message}`, 'error');
     }
   }
@@ -141,7 +143,7 @@ export class StorageManager {
           window.location.reload();
         }, 2000);
       } catch (error) {
-        console.error('Import failed:', error);
+        Logger.error('Import failed:', error);
         this.showDataStatus(`❌ 恢復失敗：${error.message}`, 'error');
         this.elements.importFile.value = '';
       }
@@ -180,7 +182,7 @@ export class StorageManager {
         this.showDataStatus(statusText, 'success');
       }
     } catch (error) {
-      console.error('Data check failed:', error);
+      Logger.error('Data check failed:', error);
       this.showDataStatus(`❌ 檢查失敗：${error.message}`, 'error');
     }
   }
@@ -235,7 +237,7 @@ export class StorageManager {
         }, 1500);
       }
     } catch (error) {
-      console.error('Failed to get storage usage:', error);
+      Logger.error('Failed to get storage usage:', error);
 
       // 顯示錯誤狀態
       if (button) {
@@ -349,7 +351,7 @@ export class StorageManager {
         this.elements.executeCleanupButton.style.display = 'none';
       }
     } catch (error) {
-      console.error('預覽清理失敗:', error);
+      Logger.error('預覽清理失敗:', error);
       this.showDataStatus(`❌ 預覽清理失敗: ${error.message}`, 'error');
     } finally {
       this.setPreviewButtonLoading(false);
@@ -460,7 +462,7 @@ export class StorageManager {
             await new Promise(sleep => setTimeout(sleep, 350));
           }
         } catch (error) {
-          console.error(`檢查頁面失敗: ${page.url}`, error);
+          Logger.error(`檢查頁面失敗: ${page.url}`, error);
         }
       }
     }
@@ -477,7 +479,7 @@ export class StorageManager {
       });
       return response && response.exists === true;
     } catch (error) {
-      console.error('檢查頁面存在失敗:', error);
+      Logger.error('檢查頁面存在失敗:', error);
       return true;
     }
   }
@@ -570,7 +572,7 @@ export class StorageManager {
       }
       this.cleanupPlan = null;
     } catch (error) {
-      console.error('Cleanup failed:', error);
+      Logger.error('Cleanup failed:', error);
       this.showDataStatus(`❌ 清理失敗：${error.message}`, 'error');
     }
   }
@@ -779,7 +781,7 @@ export class StorageManager {
       }
       this.optimizationPlan = null;
     } catch (error) {
-      console.error('Optimization failed:', error);
+      Logger.error('Optimization failed:', error);
       this.showDataStatus(`❌ 數據重整失敗：${error.message}`, 'error');
     }
   }

@@ -1,3 +1,5 @@
+import Logger from '../utils/Logger.js';
+
 /**
  * AuthManager.js
  * 負責 Notion 授權流程與狀態管理
@@ -199,7 +201,6 @@ export class AuthManager {
 
   async disconnectFromNotion() {
     try {
-      const Logger = window.Logger || console;
       Logger.info('🔌 [斷開連接] 開始斷開 Notion 連接');
 
       await chrome.storage.sync.remove(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']);
@@ -218,7 +219,6 @@ export class AuthManager {
       this.ui.showStatus('已成功斷開與 Notion 的連接。', 'success');
       Logger.info('🔄 [斷開連接] UI 已更新為未連接狀態');
     } catch (error) {
-      const Logger = window.Logger || console;
       Logger.error('❌ [斷開連接] 斷開連接失敗:', error);
       this.ui.showStatus(`斷開連接失敗: ${error.message}`, 'error');
     }
