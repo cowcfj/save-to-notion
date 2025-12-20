@@ -1742,14 +1742,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // 刷新存儲使用情況
         updateStorageUsage();
       }
-
-      /**
-       * 掃描舊版標註數據
-       * @returns {Promise<import("../scripts/options/MigrationScanner.js").ScanResult>}
-       */
-      function scanForLegacyHighlights() {
-        return migrationScanner.scanStorage();
-      }
     }
   }
 });
