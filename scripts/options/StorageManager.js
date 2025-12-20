@@ -214,11 +214,37 @@ export class StorageManager {
   }
 
   async updateStorageUsage() {
+    const button = this.elements.refreshUsageButton;
+
+    // 添加加載狀態
+    if (button) {
+      button.disabled = true;
+      button.textContent = '🔄 更新中...';
+    }
+
     try {
       const usage = await this.getStorageUsage();
       this.updateUsageDisplay(usage);
+
+      // 顯示成功提示
+      if (button) {
+        button.textContent = '✅ 已更新';
+        setTimeout(() => {
+          button.textContent = '🔄 刷新使用情況';
+          button.disabled = false;
+        }, 1500);
+      }
     } catch (error) {
       console.error('Failed to get storage usage:', error);
+
+      // 顯示錯誤狀態
+      if (button) {
+        button.textContent = '❌ 更新失敗';
+        setTimeout(() => {
+          button.textContent = '🔄 刷新使用情況';
+          button.disabled = false;
+        }, 2000);
+      }
     }
   }
 

@@ -19,7 +19,7 @@ export class MigrationTool {
 
   initializeElements() {
     this.elements = {
-      scanButton: document.getElementById('scan-legacy-button'),
+      scanButton: document.getElementById('migration-scan-button'),
       scanStatus: document.getElementById('scan-status'),
       migrationList: document.getElementById('migration-list'),
       migrateAllButton: document.getElementById('migrate-all-button'),
