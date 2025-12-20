@@ -155,6 +155,17 @@ export function hideModal(elements) {
 }
 
 /**
+ * 格式化數量與名詞（自動處理單複數）
+ * @param {number} count - 數量
+ * @param {string} singular - 單數形式
+ * @param {string} plural - 複數形式
+ * @returns {string} 格式化後的字串，例如 "1 image" 或 "2 images"
+ */
+function formatCount(count, singular, plural) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+/**
  * 格式化保存成功訊息
  * @param {Object} response - 保存響應
  * @returns {string} 格式化的訊息
@@ -163,25 +174,27 @@ export function formatSaveSuccessMessage(response) {
   let action = 'Saved';
   let details = '';
 
+  const imageCount = response.imageCount || 0;
+  const blockCount = response.blockCount || 0;
+
+  const imagesText = formatCount(imageCount, 'image', 'images');
+  const blocksText = formatCount(blockCount, 'block', 'blocks');
+  const countsDetails = `(${blocksText}, ${imagesText})`;
+
   if (response.recreated) {
     action = 'Recreated (original was deleted)';
-    const imageCount = response.imageCount || 0;
-    const blockCount = response.blockCount || 0;
-    details = `(${blockCount} blocks, ${imageCount} images)`;
+    details = countsDetails;
   } else if (response.highlightsUpdated) {
     action = 'Highlights updated';
     const highlightCount = response.highlightCount || 0;
-    details = `(${highlightCount} highlights)`;
+    const highlightsText = formatCount(highlightCount, 'highlight', 'highlights');
+    details = `(${highlightsText})`;
   } else if (response.updated) {
     action = 'Updated';
-    const imageCount = response.imageCount || 0;
-    const blockCount = response.blockCount || 0;
-    details = `(${blockCount} blocks, ${imageCount} images)`;
+    details = countsDetails;
   } else if (response.created) {
     action = 'Created';
-    const imageCount = response.imageCount || 0;
-    const blockCount = response.blockCount || 0;
-    details = `(${blockCount} blocks, ${imageCount} images)`;
+    details = countsDetails;
 
     if (response.warning) {
       details += ` ⚠️ ${response.warning}`;

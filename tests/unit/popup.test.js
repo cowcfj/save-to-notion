@@ -139,22 +139,34 @@ describe('popupUI', () => {
   });
 
   describe('formatSaveSuccessMessage', () => {
-    test('應格式化創建成功訊息', () => {
+    test('應格式化創建成功訊息 (複數)', () => {
       const response = { success: true, created: true, blockCount: 5, imageCount: 2 };
       const message = UI.formatSaveSuccessMessage(response);
       expect(message).toBe('Created successfully! (5 blocks, 2 images)');
     });
 
-    test('應格式化更新成功訊息', () => {
-      const response = { success: true, updated: true, blockCount: 3, imageCount: 1 };
+    test('應格式化創建成功訊息 (單數)', () => {
+      const response = { success: true, created: true, blockCount: 1, imageCount: 1 };
       const message = UI.formatSaveSuccessMessage(response);
-      expect(message).toBe('Updated successfully! (3 blocks, 1 images)');
+      expect(message).toBe('Created successfully! (1 block, 1 image)');
+    });
+
+    test('應格式化更新成功訊息 (混合單複數)', () => {
+      const response = { success: true, updated: true, blockCount: 1, imageCount: 2 };
+      const message = UI.formatSaveSuccessMessage(response);
+      expect(message).toBe('Updated successfully! (1 block, 2 images)');
     });
 
     test('應格式化標記更新訊息', () => {
       const response = { success: true, highlightsUpdated: true, highlightCount: 10 };
       const message = UI.formatSaveSuccessMessage(response);
       expect(message).toBe('Highlights updated successfully! (10 highlights)');
+    });
+
+    test('應格式化高亮更新訊息 (單數)', () => {
+      const response = { success: true, highlightsUpdated: true, highlightCount: 1 };
+      const message = UI.formatSaveSuccessMessage(response);
+      expect(message).toBe('Highlights updated successfully! (1 highlight)');
     });
 
     test('應包含警告訊息', () => {
@@ -184,7 +196,9 @@ describe('popupActions', () => {
         notionDataSourceId: 'test-datasource',
       };
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        if (callback) {callback(mockData, undefined);}
+        if (callback) {
+          callback(mockData, undefined);
+        }
         return Promise.resolve(mockData);
       });
 
@@ -198,7 +212,9 @@ describe('popupActions', () => {
     test('缺少設置時應返回 valid: false', async () => {
       const mockData = {};
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        if (callback) {callback(mockData, undefined);}
+        if (callback) {
+          callback(mockData, undefined);
+        }
         return Promise.resolve(mockData);
       });
 
