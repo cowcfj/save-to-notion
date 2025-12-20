@@ -6,33 +6,33 @@
 
 import { MigrationScanner } from '../../../scripts/options/MigrationScanner';
 
-// Mock Chrome API (globally reset in beforeEach)
-const mockGet = jest.fn();
-const mockRemove = jest.fn();
-const mockSendMessage = jest.fn();
-
-global.chrome = {
-  storage: {
-    local: {
-      get: mockGet,
-      remove: mockRemove,
-    },
-  },
-  runtime: {
-    sendMessage: mockSendMessage,
-  },
-};
+// Mock Chrome API (reset in beforeEach)
+let mockGet;
+let mockRemove;
+let mockSendMessage;
 
 describe('MigrationScanner', () => {
   let scanner;
 
   beforeEach(() => {
+    // Initialize mocks in beforeEach to satisfy DeepSource JS-0119
+    mockGet = jest.fn();
+    mockRemove = jest.fn();
+    mockSendMessage = jest.fn();
+
+    global.chrome = {
+      storage: {
+        local: {
+          get: mockGet,
+          remove: mockRemove,
+        },
+      },
+      runtime: {
+        sendMessage: mockSendMessage,
+      },
+    };
+
     scanner = new MigrationScanner();
-    jest.clearAllMocks();
-    // Reset mock implementations
-    mockGet.mockReset();
-    mockRemove.mockReset();
-    mockSendMessage.mockReset();
   });
 
   describe('constructor', () => {
