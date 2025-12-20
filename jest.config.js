@@ -21,7 +21,8 @@ module.exports = {
     // tests/helpers/ 僅包含測試工具，不計入覆蓋率
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
-    '!**/node_modules/**'
+    '!**/node_modules/**',
+    '!lib/**' // 第三方庫（Readability.js）
   ],
 
   // 覆蓋率門檼 (當前基準: 29.51%, 逐步提升)
