@@ -51,9 +51,6 @@ export class HighlightManager {
       // 步驟2：從存儲恢復標註
       await this.restoreHighlights();
 
-      // 步驟3：執行無痛自動遷移（處理 DOM 中的舊 span）
-      await this.performSeamlessMigration();
-
       Logger.info('[HighlightManager] 初始化完成');
     } catch (error) {
       Logger.error('[HighlightManager] 初始化失敗:', error);
