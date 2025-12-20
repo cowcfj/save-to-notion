@@ -197,7 +197,7 @@ describe('popupActions', () => {
       };
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
         if (callback) {
-          callback(mockData, undefined);
+          callback(mockData);
         }
         return Promise.resolve(mockData);
       });
@@ -213,7 +213,7 @@ describe('popupActions', () => {
       const mockData = {};
       chrome.storage.sync.get.mockImplementation((keys, callback) => {
         if (callback) {
-          callback(mockData, undefined);
+          callback(mockData);
         }
         return Promise.resolve(mockData);
       });
@@ -227,7 +227,7 @@ describe('popupActions', () => {
   describe('checkPageStatus', () => {
     test('應返回頁面狀態', async () => {
       chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-        callback({ success: true, isSaved: true, notionUrl: 'https://notion.so/test' }, undefined);
+        callback({ success: true, isSaved: true, notionUrl: 'https://notion.so/test' });
       });
 
       const result = await Actions.checkPageStatus();
@@ -241,7 +241,7 @@ describe('popupActions', () => {
   describe('savePage', () => {
     test('保存成功應返回結果', async () => {
       chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-        callback({ success: true, created: true, blockCount: 5 }, undefined);
+        callback({ success: true, created: true, blockCount: 5 });
       });
 
       const result = await Actions.savePage();
@@ -258,7 +258,7 @@ describe('popupActions', () => {
   describe('openNotionPage', () => {
     test('應打開新標籤頁', async () => {
       chrome.tabs.create.mockImplementation((props, callback) => {
-        callback({ id: 123, ...props }, undefined);
+        callback({ id: 123, ...props });
       });
 
       const result = await Actions.openNotionPage('https://notion.so/test');
