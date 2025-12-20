@@ -192,12 +192,19 @@ export class SearchableDatabaseSelector {
     const isSelected = this.selectedDatabase && this.selectedDatabase.id === db.id;
     const isFocused = index === this.focusedIndex;
 
-    // 高亮搜索關鍵字
+    // 先轉義 HTML 以防止 XSS
+    let highlightedTitle = SearchableDatabaseSelector.escapeHtml(db.title);
+
+    // 然後進行搜索關鍵字高亮
     const query = this.searchInput ? this.searchInput.value.toLowerCase().trim() : '';
-    let highlightedTitle = db.title;
     if (query) {
-      const regex = new RegExp(`(${SearchableDatabaseSelector.escapeRegex(query)})`, 'gi');
-      highlightedTitle = db.title.replace(regex, '<span class="search-highlight">$1</span>');
+      // 也需要轉義 query 以確保正確匹配已轉義的標題
+      const escapedQuery = SearchableDatabaseSelector.escapeHtml(query);
+      const regex = new RegExp(`(${SearchableDatabaseSelector.escapeRegex(escapedQuery)})`, 'gi');
+      highlightedTitle = highlightedTitle.replace(
+        regex,
+        '<span class="search-highlight">$1</span>'
+      );
     }
 
     // 類型圖標和標籤
