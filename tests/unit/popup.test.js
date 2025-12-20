@@ -212,9 +212,9 @@ describe('popupActions', () => {
         notionApiKey: 'test-key',
         notionDataSourceId: 'test-datasource',
       };
-      chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        if (callback) {
-          callback(mockData);
+      chrome.storage.sync.get.mockImplementation((keys, respond) => {
+        if (respond) {
+          respond(mockData);
         }
         return Promise.resolve(mockData);
       });
@@ -228,9 +228,9 @@ describe('popupActions', () => {
 
     test('缺少設置時應返回 valid: false', async () => {
       const mockData = {};
-      chrome.storage.sync.get.mockImplementation((keys, callback) => {
-        if (callback) {
-          callback(mockData);
+      chrome.storage.sync.get.mockImplementation((keys, respond) => {
+        if (respond) {
+          respond(mockData);
         }
         return Promise.resolve(mockData);
       });
@@ -243,8 +243,8 @@ describe('popupActions', () => {
 
   describe('checkPageStatus', () => {
     test('應返回頁面狀態', async () => {
-      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-        callback({ success: true, isSaved: true, notionUrl: 'https://notion.so/test' });
+      chrome.runtime.sendMessage.mockImplementation((message, respond) => {
+        respond({ success: true, isSaved: true, notionUrl: 'https://notion.so/test' });
       });
 
       const result = await checkPageStatus();
@@ -257,8 +257,8 @@ describe('popupActions', () => {
 
   describe('savePage', () => {
     test('保存成功應返回結果', async () => {
-      chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-        callback({ success: true, created: true, blockCount: 5 });
+      chrome.runtime.sendMessage.mockImplementation((message, respond) => {
+        respond({ success: true, created: true, blockCount: 5 });
       });
 
       const result = await savePage();
@@ -275,8 +275,8 @@ describe('popupActions', () => {
 
 describe('startHighlight', () => {
   test('啟動標記模式應返回成功', async () => {
-    chrome.runtime.sendMessage.mockImplementation((message, callback) => {
-      callback({ success: true });
+    chrome.runtime.sendMessage.mockImplementation((message, respond) => {
+      respond({ success: true });
     });
 
     const result = await startHighlight();
@@ -290,9 +290,9 @@ describe('startHighlight', () => {
 
   test('發生錯誤時應返回錯誤訊息', async () => {
     chrome.runtime.lastError = { message: 'Failed to start' };
-    chrome.runtime.sendMessage.mockImplementation((message, callback) => {
+    chrome.runtime.sendMessage.mockImplementation((message, respond) => {
       // Mocking failure where no response is passed but lastError is set
-      callback();
+      respond();
     });
 
     const result = await startHighlight();
@@ -306,8 +306,8 @@ describe('startHighlight', () => {
 
 describe('getActiveTab', () => {
   test('應返回當前活動標籤頁', async () => {
-    chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-      callback([{ id: 123, url: 'https://example.com' }]);
+    chrome.tabs.query.mockImplementation((queryInfo, respond) => {
+      respond([{ id: 123, url: 'https://example.com' }]);
     });
 
     const tab = await getActiveTab();
@@ -320,8 +320,8 @@ describe('getActiveTab', () => {
   });
 
   test('如果沒有活動標籤頁應返回 null', async () => {
-    chrome.tabs.query.mockImplementation((queryInfo, callback) => {
-      callback([]);
+    chrome.tabs.query.mockImplementation((queryInfo, respond) => {
+      respond([]);
     });
 
     const tab = await getActiveTab();
@@ -332,8 +332,8 @@ describe('getActiveTab', () => {
 
 describe('openNotionPage', () => {
   test('應打開新標籤頁', async () => {
-    chrome.tabs.create.mockImplementation((props, callback) => {
-      callback({ id: 123, ...props });
+    chrome.tabs.create.mockImplementation((props, respond) => {
+      respond({ id: 123, ...props });
     });
 
     const result = await openNotionPage('https://notion.so/test');
@@ -348,8 +348,8 @@ describe('openNotionPage', () => {
 
 describe('clearHighlights', () => {
   test('清除成功應返回結果', async () => {
-    chrome.scripting.executeScript.mockImplementation((injection, callback) => {
-      callback([{ result: 5 }]);
+    chrome.scripting.executeScript.mockImplementation((injection, respond) => {
+      respond([{ result: 5 }]);
     });
 
     const result = await clearHighlights(123, 'https://example.com/page?utm_source=test');
@@ -368,8 +368,8 @@ describe('clearHighlights', () => {
 
   test('發生錯誤時應返回錯誤訊息', async () => {
     chrome.runtime.lastError = { message: 'Execution failed' };
-    chrome.scripting.executeScript.mockImplementation((injection, callback) => {
-      callback([]);
+    chrome.scripting.executeScript.mockImplementation((injection, respond) => {
+      respond([]);
     });
 
     const result = await clearHighlights(123, 'https://example.com');
