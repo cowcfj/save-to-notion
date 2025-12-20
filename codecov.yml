@@ -28,9 +28,10 @@ comment:
   require_changes: true # 只在覆蓋率變化時註釋
 
 # 忽略的文件和目錄
+# 注意：Codecov 不支持 brace expansion，無法使用 {test,spec} 語法，需分開列出
 ignore:
-  - 'tests/**/*.test.js' # 測試文件本身
-  - 'tests/**/*.spec.js'
+  - 'tests/**/*.test.js' # 單元測試文件
+  - 'tests/**/*.spec.js' # E2E 測試文件
   - 'tests/helpers/**' # 測試輔助工具（非生產代碼）
   - 'node_modules/**'
   - 'archive/**'
