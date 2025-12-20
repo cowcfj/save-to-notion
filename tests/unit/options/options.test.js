@@ -80,7 +80,11 @@ describe('options.js', () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           notionApiKey: 'key_123',
+          notionDatabaseId: 'db_123',
           notionDataSourceId: 'db_123',
+          notionDataSourceType: 'page',
+          addSource: true,
+          addTimestamp: false,
         }),
         expect.any(Function)
       );
@@ -107,6 +111,18 @@ describe('options.js', () => {
       global.chrome.runtime.lastError = { message: 'Storage error' };
       saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(expect.stringContaining('失敗'), 'error');
+    });
+
+    it('should not save notionDataSourceType if database-type input is empty', () => {
+      document.getElementById('database-type').value = '';
+      saveSettings(mockUi, mockAuth);
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          notionDataSourceType: expect.anything(),
+        }),
+        expect.any(Function)
+      );
     });
   });
 });

@@ -68,6 +68,7 @@ export function saveSettings(ui, auth) {
   const titleTemplate = document.getElementById('title-template').value;
   const addSource = document.getElementById('add-source').checked;
   const addTimestamp = document.getElementById('add-timestamp').checked;
+  const typeInput = document.getElementById('database-type');
 
   // 驗證
   if (!apiKey) {
@@ -80,38 +81,37 @@ export function saveSettings(ui, auth) {
     return;
   }
 
-  // 保存到 storage.sync
-  chrome.storage.sync.set(
-    {
-      notionApiKey: apiKey,
+  // 構建完整的設置對象
+  const settings = {
+    notionApiKey: apiKey,
 
-      // 為了兼容性，同時保存兩種 ID 格式
-      // notionDatabaseId 是舊版 (僅支援 Database)
-      // notionDataSourceId 是新版 (支援 Page 和 Database)
-      notionDatabaseId: databaseId,
-      notionDataSourceId: databaseId, // 統一存到兩個欄位，確保兼容
+    // 為了兼容性，同時保存兩種 ID 格式
+    // notionDatabaseId 是舊版 (僅支援 Database)
+    // notionDataSourceId 是新版 (支援 Page 和 Database)
+    notionDatabaseId: databaseId,
+    notionDataSourceId: databaseId, // 統一存到兩個欄位，確保兼容
 
-      titleTemplate,
-      addSource,
-      addTimestamp,
-    },
-    () => {
-      if (chrome.runtime.lastError) {
-        ui.showStatus(`保存失敗: ${chrome.runtime.lastError.message}`, 'error');
-      } else {
-        ui.showStatus('✅ 設置已成功保存！', 'success');
+    titleTemplate,
+    addSource,
+    addTimestamp,
+  };
 
-        // 刷新認證狀態以更新 UI
-        auth.checkAuthStatus();
+  // 如果類型欄位存在，一併保存
+  if (typeInput?.value) {
+    settings.notionDataSourceType = typeInput.value;
+  }
 
-        // 保存隱藏的類型欄位（如果存在）
-        const typeInput = document.getElementById('database-type');
-        if (typeInput?.value) {
-          chrome.storage.sync.set({ notionDataSourceType: typeInput.value });
-        }
-      }
+  // 單次原子操作保存所有設置
+  chrome.storage.sync.set(settings, () => {
+    if (chrome.runtime.lastError) {
+      ui.showStatus(`保存失敗: ${chrome.runtime.lastError.message}`, 'error');
+    } else {
+      ui.showStatus('✅ 設置已成功保存！', 'success');
+
+      // 刷新認證狀態以更新 UI
+      auth.checkAuthStatus();
     }
-  );
+  });
 }
 
 /**
