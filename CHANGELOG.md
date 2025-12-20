@@ -1,5 +1,25 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.18.1](https://github.com/cowcfj/save-to-notion/compare/v2.18.0...v2.18.1) (2025-12-20)
+
+
+### 🐛 Bug 修復
+
+* 修正 e2e 測試命令以使用非生產環境構建 ([#183](https://github.com/cowcfj/save-to-notion/issues/183)) ([d9cb27a](https://github.com/cowcfj/save-to-notion/commit/d9cb27a1eef6e763d38e6b74ea59d8004da8a810))
+
+
+### 👷 建置與 CI
+
+* 新增程式碼覆蓋率報告檔案。 ([600da1f](https://github.com/cowcfj/save-to-notion/commit/600da1fa6c735e538a1634666c0aa77c8dbe13b3))
+
+
+### 🧹 其他變更
+
+* 更新 README.md，合併 Highlighter 進入入口文件說明 ([6b17887](https://github.com/cowcfj/save-to-notion/commit/6b17887d2010d6d7c6cdafeb76ec308149a61fb9))
+* 更新文檔站點識別模式與單元測試 ([#186](https://github.com/cowcfj/save-to-notion/issues/186)) ([7e33d43](https://github.com/cowcfj/save-to-notion/commit/7e33d43cf8b499b45fee09ba65aea55fb6e6618e))
+* 更新程式碼覆蓋率報告資料。 ([831396b](https://github.com/cowcfj/save-to-notion/commit/831396b942dfb6f42d9ea5bcb76712e0ccab85f6))
+* 移除 utils.js 的單元測試及相關文件 ([#185](https://github.com/cowcfj/save-to-notion/issues/185)) ([6a21571](https://github.com/cowcfj/save-to-notion/commit/6a21571a9111b01702d64590ed5c2983e8f3e596))
+
 ## [2.18.0](https://github.com/cowcfj/save-to-notion/compare/v2.17.0...v2.18.0) (2025-12-20)
 
 
