@@ -1738,15 +1738,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       /**
        * 掃描舊版標註數據
-       * @returns {Promise<{items: {url: string, highlightCount: number}[], totalHighlights: number, legacyCount: number, needsMigration: boolean}>}
-       */
-      /**
-       * 掃描舊版標註數據
        * @returns {Promise<import("../scripts/options/MigrationScanner.js").ScanResult>}
        */
       async function scanForLegacyHighlights() {
-        const scanner = new MigrationScanner();
-        return scanner.scanStorage();
+        return migrationScanner.scanStorage();
       }
     }
   }

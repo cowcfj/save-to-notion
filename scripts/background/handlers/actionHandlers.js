@@ -805,7 +805,6 @@ export function createActionHandlers(services) {
         const pageKey = `highlights_${url}`;
 
         // 檢查數據是否存在
-        // 檢查數據是否存在
         const result = await chrome.storage.local.get(pageKey);
         const data = result[pageKey];
 
@@ -814,7 +813,6 @@ export function createActionHandlers(services) {
           return;
         }
 
-        // 刪除數據
         // 刪除數據
         await chrome.storage.local.remove(pageKey);
 
