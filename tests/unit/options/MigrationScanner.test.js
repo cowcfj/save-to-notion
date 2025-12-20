@@ -52,7 +52,7 @@ describe('MigrationScanner', () => {
 
       const result = await scanner.scanStorage();
 
-      expect(result.urls).toEqual([]);
+      expect(result.items).toEqual([]);
       expect(result.totalHighlights).toBe(0);
       expect(result.legacyCount).toBe(0);
       expect(result.needsMigration).toBe(false);
@@ -65,8 +65,11 @@ describe('MigrationScanner', () => {
 
       const result = await scanner.scanStorage();
 
-      expect(result.urls.length).toBe(1);
-      expect(result.urls[0]).toBe('https://example.com');
+      expect(result.items.length).toBe(1);
+      expect(result.items[0]).toEqual({
+        url: 'https://example.com',
+        highlightCount: 1,
+      });
       expect(result.needsMigration).toBe(true);
     });
 
@@ -79,7 +82,7 @@ describe('MigrationScanner', () => {
 
       const result = await scanner.scanStorage();
 
-      expect(result.urls.length).toBe(0);
+      expect(result.items.length).toBe(0);
       expect(result.needsMigration).toBe(false);
     });
 
@@ -102,7 +105,7 @@ describe('MigrationScanner', () => {
 
       const result = await scanner.scanStorage();
 
-      expect(result.urls.length).toBe(0);
+      expect(result.items.length).toBe(0);
     });
   });
 

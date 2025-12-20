@@ -40,7 +40,7 @@ export class MigrationScanner {
   async scanStorage() {
     try {
       const allData = await chrome.storage.local.get(null);
-      const urls = [];
+      const items = [];
       let totalHighlights = 0;
       let legacyCount = 0;
 
@@ -53,9 +53,16 @@ export class MigrationScanner {
         const url = key.replace(this.LEGACY_KEY_PREFIX, '');
 
         // 檢查是否有舊版格式的標註
-        // 檢查是否有舊版格式的標註
         if (MigrationScanner.isLegacyFormat(value)) {
-          urls.push(url);
+          // 計算該 URL 的標註數量
+          let highlightCount = 0;
+          if (value?.highlights) {
+            highlightCount = value.highlights.length;
+          } else if (Array.isArray(value)) {
+            highlightCount = value.length;
+          }
+
+          items.push({ url, highlightCount });
           legacyCount++;
         }
 
@@ -68,14 +75,14 @@ export class MigrationScanner {
       }
 
       this.logger.info(
-        `[MigrationScanner] 掃描完成: ${urls.length} 個待遷移, ${totalHighlights} 個總標註`
+        `[MigrationScanner] 掃描完成: ${items.length} 個待遷移, ${totalHighlights} 個總標註`
       );
 
       return {
-        urls,
+        items,
         totalHighlights,
         legacyCount,
-        needsMigration: urls.length > 0,
+        needsMigration: items.length > 0,
       };
     } catch (error) {
       this.logger.error('[MigrationScanner] 掃描失敗:', error);
