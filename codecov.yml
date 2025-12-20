@@ -40,6 +40,10 @@ ignore:
   - 'promo-images/**'
   - 'build/**'
   - 'dist/**' # Rollup 打包後的文件(避免重複計算覆蓋率)
+  # 已刪除的遺留文件（PR #181 重構後移除，因 carryforward 仍顯示於報告中）
+  - 'scripts/utils.js' # 已拆分至 scripts/utils/*.js 模組
+  - 'scripts/utils/Logger.module.js' # 已整合至 Logger.js
+  - 'scripts/utils/imageUtils.module.js' # 已整合至 imageUtils.js
 
 # Flags 配置（用於追蹤不同類型的測試）
 flags:
