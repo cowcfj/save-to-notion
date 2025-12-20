@@ -703,12 +703,13 @@ export function createActionHandlers(services) {
           await new Promise((resolve, reject) => {
             const TIMEOUT_MS = 15000;
             let timeoutId = null;
+            let listener = null; // 提前聲明變量以解決作用域問題
 
             /**
              * 清理監聽器和計時器
              */
             const cleanup = () => {
-              if (chrome.tabs.onUpdated.hasListener(listener)) {
+              if (listener && chrome.tabs.onUpdated.hasListener(listener)) {
                 chrome.tabs.onUpdated.removeListener(listener);
               }
               if (timeoutId) {
@@ -721,7 +722,7 @@ export function createActionHandlers(services) {
              * @param {number} tabId - 更新的分頁 ID
              * @param {object} changeInfo - 分頁變更信息
              */
-            const listener = (tabId, changeInfo) => {
+            listener = (tabId, changeInfo) => {
               if (tabId === targetTab.id && changeInfo.status === 'complete') {
                 cleanup();
                 resolve();
