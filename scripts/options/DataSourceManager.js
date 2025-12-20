@@ -68,7 +68,7 @@ export class DataSourceManager {
 
         if (data.results && data.results.length > 0) {
           // 客戶端智能篩選和排序
-          const filteredResults = this.filterAndSortResults(data.results, 100);
+          const filteredResults = DataSourceManager.filterAndSortResults(data.results, 100);
 
           if (filteredResults.length > 0) {
             this.populateDatabaseSelect(filteredResults);
@@ -160,7 +160,13 @@ export class DataSourceManager {
     }
   }
 
-  filterAndSortResults(results, maxResults = 100) {
+  /**
+   * 篩選並排序搜索結果
+   * @param {Array} results - 原始結果列表
+   * @param {number} maxResults - 最大結果數量
+   * @returns {Array} 篩選並排序後的結果
+   */
+  static filterAndSortResults(results, maxResults = 100) {
     Logger.info(`開始篩選 ${results.length} 個項目，目標: ${maxResults} 個`);
 
     const workspacePages = [];

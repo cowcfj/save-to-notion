@@ -91,7 +91,7 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      const filtered = dataSourceManager.filterAndSortResults(results);
+      const filtered = DataSourceManager.filterAndSortResults(results);
 
       expect(filtered[0].id).toBe('page-1'); // Workspace page 優先
     });
@@ -115,7 +115,7 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      const filtered = dataSourceManager.filterAndSortResults(results);
+      const filtered = DataSourceManager.filterAndSortResults(results);
 
       // page-1 應該被過濾掉（因為 parent 是 data_source_id 且有 URL 屬性）
       expect(filtered.length).toBe(1);
@@ -134,7 +134,7 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      const filtered = dataSourceManager.filterAndSortResults(results);
+      const filtered = DataSourceManager.filterAndSortResults(results);
 
       expect(filtered.length).toBe(1);
       expect(filtered[0].id).toBe('page-1');
@@ -163,7 +163,7 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      const filtered = dataSourceManager.filterAndSortResults(results);
+      const filtered = DataSourceManager.filterAndSortResults(results);
 
       expect(filtered.length).toBe(2);
       expect(filtered[0].id).toBe('db-2'); // URL database 優先
