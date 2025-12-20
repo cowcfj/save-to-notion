@@ -225,5 +225,3 @@ export class MigrationScanner {
     return `${url.substring(0, maxLength - 3)}...`;
   }
 }
-
-export default MigrationScanner;

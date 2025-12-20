@@ -1497,6 +1497,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return; // 區塊不存在，可能是舊版 HTML
       }
 
+      const migrationScanner = new MigrationScanner();
+
       let scanResults = []; // { url, highlightCount }
 
       // 掃描按鈕事件
@@ -1533,6 +1535,14 @@ document.addEventListener('DOMContentLoaded', () => {
           scanButton.querySelector('.button-text').textContent = '開始檢查';
         }
       });
+
+      /**
+       * 掃描舊版標註數據
+       * @returns {Promise<import("../scripts/options/MigrationScanner.js").ScanResult>}
+       */
+      async function scanForLegacyHighlights() {
+        return migrationScanner.scanStorage();
+      }
 
       // 渲染勾選列表
       function renderMigrationList(items) {
