@@ -17,7 +17,7 @@ const {
   selectExtractor,
   getAnalysisReport,
   logAnalysis,
-  isTechnicalDoc,
+  isDocumentation,
 } = require('../../scripts/utils/pageComplexityDetector.js');
 
 // 模擬瀏覽器環境
@@ -42,52 +42,75 @@ beforeEach(() => {
 });
 
 describe('頁面複雜度檢測器', () => {
-  describe('isTechnicalDoc 函數', () => {
+  describe('isDocumentation 函數 (替代 isTechnicalDoc)', () => {
+    test('should detect documentation by hostname pattern - docs.*', () => {
+      const result = isDocumentation({ url: 'https://docs.example.com/' });
+      expect(result.isDoc).toBe(true);
+      expect(result.matched.host).toBe(true);
+    });
+
+    test('should detect documentation by pathname pattern - /wiki/', () => {
+      const result = isDocumentation({ url: 'https://example.com/wiki/home' });
+      expect(result.isDoc).toBe(true);
+      expect(result.matched.path).toBe(true);
+    });
+
+    test('should verify matched.path boolean field', () => {
+      const result = isDocumentation({ url: 'https://example.com/documentation/api' });
+      expect(result.isDoc).toBe(true);
+      expect(result.matched.path).toBe(true);
+      expect(result.matched.host).toBe(false); // Host doesn't match
+    });
+
     test('should detect technical doc by URL pattern - /docs/', () => {
-      const result = isTechnicalDoc({ url: 'https://example.com/docs/getting-started' });
+      const result = isDocumentation({ url: 'https://example.com/docs/getting-started' });
       expect(result.isTechnical).toBe(true);
-      expect(result.matchedUrl).toBe(true);
+      expect(result.matched.techUrl).toBe(true);
+      expect(result.isDoc).toBe(true); // Should be true as tech doc is a subset of doc
     });
 
     test('should detect technical doc by URL pattern - /api/', () => {
-      const result = isTechnicalDoc({ url: 'https://example.com/api/v1/users' });
+      const result = isDocumentation({ url: 'https://example.com/api/v1/users' });
       expect(result.isTechnical).toBe(true);
-      expect(result.matchedUrl).toBe(true);
+      expect(result.matched.techUrl).toBe(true);
     });
 
     test('should detect technical doc by URL pattern - github.io', () => {
-      const result = isTechnicalDoc({ url: 'https://project.github.io/guide/' });
+      const result = isDocumentation({ url: 'https://project.github.io/guide/' });
       expect(result.isTechnical).toBe(true);
-      expect(result.matchedUrl).toBe(true);
+      expect(result.matched.techUrl).toBe(true);
     });
 
     test('should detect technical doc by title pattern - Documentation', () => {
-      const result = isTechnicalDoc({ url: 'https://example.com/', title: 'API Documentation v2' });
+      const result = isDocumentation({
+        url: 'https://example.com/',
+        title: 'API Documentation v2',
+      });
       expect(result.isTechnical).toBe(true);
-      expect(result.matchedTitle).toBe(true);
+      expect(result.matched.techTitle).toBe(true);
     });
 
     test('should detect technical doc by title pattern - CLI Commands', () => {
-      const result = isTechnicalDoc({
+      const result = isDocumentation({
         url: 'https://example.com/',
         title: 'CLI Commands Reference',
       });
       expect(result.isTechnical).toBe(true);
-      expect(result.matchedTitle).toBe(true);
+      expect(result.matched.techTitle).toBe(true);
     });
 
     test('should return false for non-technical pages', () => {
-      const result = isTechnicalDoc({
+      const result = isDocumentation({
         url: 'https://example.com/blog/post',
         title: 'My Blog Post',
       });
       expect(result.isTechnical).toBe(false);
-      expect(result.matchedUrl).toBe(false);
-      expect(result.matchedTitle).toBe(false);
+      expect(result.matched.techUrl).toBe(false);
+      expect(result.matched.techTitle).toBe(false);
     });
 
     test('should handle empty inputs', () => {
-      const result = isTechnicalDoc({});
+      const result = isDocumentation({});
       expect(result.isTechnical).toBe(false);
     });
   });

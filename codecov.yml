@@ -34,12 +34,17 @@ ignore:
   - 'tests/**/*.spec.js' # E2E 測試文件
   - 'tests/helpers/**' # 測試輔助工具（非生產代碼）
   - 'node_modules/**'
+  - 'lib/**' # 第三方庫（Readability.js）
   - 'archive/**'
   - 'internal/**'
   - 'demos/**'
   - 'promo-images/**'
   - 'build/**'
   - 'dist/**' # Rollup 打包後的文件(避免重複計算覆蓋率)
+  # 已刪除的遺留文件（PR #181 重構後移除，因 carryforward 仍顯示於報告中）
+  - 'scripts/utils.js' # 已拆分至 scripts/utils/*.js 模組
+  - 'scripts/utils/Logger.module.js' # 已整合至 Logger.js
+  - 'scripts/utils/imageUtils.module.js' # 已整合至 imageUtils.js
 
 # Flags 配置（用於追蹤不同類型的測試）
 flags:
