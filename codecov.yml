@@ -70,15 +70,18 @@ flags:
 #   現有生產模組測試（直接測試 scripts/ 目錄下的模組）：
 #   - scripts/utils/Logger.js       → tests/unit/utils/Logger.test.js (418 行)
 #   - scripts/utils/urlUtils.js     → tests/unit/normalizeUrl.test.js (148 行)
-#   - scripts/highlighter/utils/StorageUtil.js →
-#       - tests/unit/utils.test.js (256 行)
-#       - tests/unit/storageUtil.test.js (948 行)
+#   - scripts/highlighter/utils/StorageUtil.js → tests/unit/storageUtil.test.js (948 行)
 #
-#   測試總行數：被刪除 ~700 行（舊副本）→ 現有 ~1,770 行（生產模組直接測試）
+#   測試總行數：被刪除 ~700 行（舊副本）→ 現有 ~1,514 行（生產模組直接測試）
 #   整體覆蓋率目標維持 28%（僅追蹤 scripts/ 目錄）
 #
 # - 2025-12-21: 排除已重構的遷移檔案
 #   - seamless-migration.js、highlighter-migration.js、highlight-restore.js
 #   - 這些檔案已從 scripts/ 移至 internal/archive/
 #   - 明確排除舊路徑，防止 carryforward 繼續計算覆蓋率
+#
+#   歸檔過時測試：
+#   - tests/unit/utils.test.js (256 行) 已移至 internal/archive/
+#   - 該測試測試的是已拆分的舊 scripts/utils.js
+#   - 已被 storageUtil.test.js 和 Logger.test.js 的更完善測試取代
 
