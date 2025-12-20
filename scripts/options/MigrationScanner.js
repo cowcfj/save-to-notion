@@ -52,26 +52,21 @@ export class MigrationScanner {
 
         const url = key.replace(this.LEGACY_KEY_PREFIX, '');
 
+        let highlightCount = 0;
+        if (value?.highlights) {
+          highlightCount = value.highlights.length;
+        } else if (Array.isArray(value)) {
+          highlightCount = value.length;
+        }
+
         // 檢查是否有舊版格式的標註
         if (MigrationScanner.isLegacyFormat(value)) {
-          // 計算該 URL 的標註數量
-          let highlightCount = 0;
-          if (value?.highlights) {
-            highlightCount = value.highlights.length;
-          } else if (Array.isArray(value)) {
-            highlightCount = value.length;
-          }
-
           items.push({ url, highlightCount });
           legacyCount++;
         }
 
         // 統計總標註數
-        if (value?.highlights) {
-          totalHighlights += value.highlights.length;
-        } else if (Array.isArray(value)) {
-          totalHighlights += value.length;
-        }
+        totalHighlights += highlightCount;
       }
 
       this.logger.info(
