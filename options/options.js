@@ -1615,7 +1615,17 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        await processUrls(selectedUrls, 'migration_execute', '遷移');
+        try {
+          await processUrls(selectedUrls, 'migration_execute', '遷移');
+        } catch (error) {
+          console.error('遷移操作失敗:', error);
+          // 重置 UI 狀態
+          executeButton.disabled = false;
+          deleteButton.disabled = false;
+          progressDiv.style.display = 'none';
+          resultDiv.textContent = `❌ 遷移操作失敗: ${error.message}`;
+          resultDiv.className = 'migration-result error';
+        }
       });
 
       // 刪除按鈕事件
@@ -1635,7 +1645,17 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        await processUrls(selectedUrls, 'migration_delete', '刪除');
+        try {
+          await processUrls(selectedUrls, 'migration_delete', '刪除');
+        } catch (error) {
+          console.error('刪除操作失敗:', error);
+          // 重置 UI 狀態
+          executeButton.disabled = false;
+          deleteButton.disabled = false;
+          progressDiv.style.display = 'none';
+          resultDiv.textContent = `❌ 刪除操作失敗: ${error.message}`;
+          resultDiv.className = 'migration-result error';
+        }
       });
 
       // 處理選中的 URL（遷移或刪除）
