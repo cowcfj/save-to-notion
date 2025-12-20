@@ -658,8 +658,11 @@ export function createActionHandlers(services) {
     /**
      * 執行標註數據遷移
      * 從選項頁面發起，將舊版標註升級為現代格式
+     * 使用 Headless Tab 策略：在後台分頁中執行 DOM 感知的遷移
      */
     migration_execute: async (request, sender, sendResponse) => {
+      let createdTabId = null;
+
       try {
         const { url } = request;
         if (!url) {
@@ -669,7 +672,7 @@ export function createActionHandlers(services) {
 
         Logger.log(`🔄 [Migration] 開始遷移: ${url}`);
 
-        // 讀取標註數據
+        // 1. 檢查數據是否存在
         const pageKey = `highlights_${url}`;
         const result = await chrome.storage.local.get(pageKey);
         const data = result[pageKey];
@@ -679,47 +682,106 @@ export function createActionHandlers(services) {
           return;
         }
 
-        // 轉換舊版格式
-        const highlights = Array.isArray(data) ? data : data.highlights || [];
-        const updatedHighlights = highlights.map(item => {
-          // 如果已有 rangeInfo，保留原樣
-          if (item.rangeInfo) {
-            return item;
-          }
+        // 2. 查找或創建分頁
+        const tabs = await chrome.tabs.query({ url });
+        let targetTab;
 
-          // 為舊版標註生成模擬的 rangeInfo
-          return {
-            ...item,
-            rangeInfo: {
-              startContainerPath: item.xpath || '',
-              startOffset: item.startOffset || 0,
-              endContainerPath: item.xpath || '',
-              endOffset: item.endOffset || item.text?.length || 0,
-              commonAncestorPath: item.xpath || '',
-            },
-            migrated: true,
-            migratedAt: new Date().toISOString(),
-          };
+        if (tabs.length > 0) {
+          // 使用已存在的分頁
+          targetTab = tabs[0];
+          Logger.log(`📌 [Migration] 使用已存在的分頁: ${targetTab.id}`);
+        } else {
+          // 創建新的後台分頁（不激活）
+          targetTab = await chrome.tabs.create({
+            url,
+            active: false,
+          });
+          createdTabId = targetTab.id;
+          Logger.log(`🆕 [Migration] 創建新分頁: ${targetTab.id}`);
+
+          // 等待分頁加載完成
+          await new Promise(resolve => {
+            const listener = (tabId, changeInfo) => {
+              if (tabId === targetTab.id && changeInfo.status === 'complete') {
+                chrome.tabs.onUpdated.removeListener(listener);
+                resolve();
+              }
+            };
+            chrome.tabs.onUpdated.addListener(listener);
+          });
+        }
+
+        // 3. 注入 migration-executor.js
+        Logger.log(`💉 [Migration] 注入遷移執行器到分頁: ${targetTab.id}`);
+        await chrome.scripting.executeScript({
+          target: { tabId: targetTab.id },
+          files: ['dist/migration-executor.js'],
         });
 
-        // 保存更新後的數據
-        const updatedData = {
-          highlights: updatedHighlights,
-          version: '2.0',
-          migratedAt: new Date().toISOString(),
-          lastUpdated: new Date().toISOString(),
-        };
+        // 4. 執行遷移
+        Logger.log(`🚀 [Migration] 執行 DOM 遷移...`);
+        const migrationResult = await chrome.scripting.executeScript({
+          target: { tabId: targetTab.id },
+          func: async () => {
+            // 在分頁上下文中執行
+            if (!window.MigrationExecutor) {
+              return { error: 'MigrationExecutor 未載入' };
+            }
 
-        await chrome.storage.local.set({ [pageKey]: updatedData });
+            if (!window.HighlighterV2?.manager) {
+              return { error: 'HighlighterV2.manager 未初始化' };
+            }
 
-        Logger.log(`✅ [Migration] 遷移完成: ${url} (${updatedHighlights.length} 個標註)`);
+            const executor = new window.MigrationExecutor();
+            const manager = window.HighlighterV2.manager;
+
+            // 執行遷移
+            const result = await executor.migrate(manager);
+            const stats = executor.getStatistics();
+
+            return {
+              success: true,
+              result,
+              statistics: stats,
+            };
+          },
+        });
+
+        const execResult = migrationResult[0]?.result;
+
+        if (execResult?.error) {
+          throw new Error(execResult.error);
+        }
+
+        // 5. 清理創建的分頁
+        if (createdTabId) {
+          Logger.log(`🧹 [Migration] 關閉分頁: ${createdTabId}`);
+          await chrome.tabs.remove(createdTabId);
+          createdTabId = null;
+        }
+
+        // 6. 返回結果
+        const stats = execResult?.statistics || {};
+        Logger.log(`✅ [Migration] 遷移完成: ${url}`, stats);
+
         sendResponse({
           success: true,
-          count: updatedHighlights.length,
-          message: `成功遷移 ${updatedHighlights.length} 個標註`,
+          count: stats.newHighlightsCreated || 0,
+          message: `成功遷移 ${stats.newHighlightsCreated || 0} 個標註`,
+          statistics: stats,
         });
       } catch (error) {
         Logger.error('❌ [Migration] 遷移失敗:', error);
+
+        // 清理創建的分頁
+        if (createdTabId) {
+          try {
+            await chrome.tabs.remove(createdTabId);
+          } catch (cleanupError) {
+            Logger.warn('清理分頁失敗:', cleanupError);
+          }
+        }
+
         sendResponse({ success: false, error: error.message });
       }
     },
