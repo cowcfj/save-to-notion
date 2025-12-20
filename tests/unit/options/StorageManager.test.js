@@ -1,0 +1,243 @@
+/**
+ * StorageManager Unit Tests
+ *
+ * Tests for options page storage management including analysis, cleanup, and optimization
+ */
+
+import { StorageManager } from '../../../scripts/options/StorageManager';
+import Logger from '../../../scripts/utils/Logger';
+
+// Mock Logger
+jest.mock('../../../scripts/utils/Logger', () => ({
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn(),
+}));
+
+describe('StorageManager', () => {
+  let storageManager;
+  let mockUiManager;
+  let mockGet;
+  let mockSet;
+  let mockRemove;
+
+  beforeEach(() => {
+    // DOM Setup
+    document.body.innerHTML = `
+      <button id="export-data-button"></button>
+      <button id="import-data-button"></button>
+      <input type="file" id="import-data-file" />
+      <button id="check-data-button"></button>
+      <div id="data-status"></div>
+      <button id="refresh-usage-button"></button>
+      <div id="usage-fill"></div>
+      <div id="usage-percentage"></div>
+      <div id="usage-details"></div>
+      <div id="pages-count"></div>
+      <div id="highlights-count"></div>
+      <div id="config-count"></div>
+      <button id="preview-cleanup-button"><span class="button-text"></span></button>
+      <button id="execute-cleanup-button"></button>
+      <button id="analyze-optimization-button"></button>
+      <button id="execute-optimization-button"></button>
+      <div id="cleanup-preview"></div>
+      <div id="optimization-preview"></div>
+      <input type="checkbox" id="cleanup-deleted-pages" />
+    `;
+
+    // Chrome API Mocks
+    mockGet = jest.fn();
+    mockSet = jest.fn();
+    mockRemove = jest.fn();
+
+    global.chrome = {
+      storage: {
+        local: {
+          get: mockGet,
+          set: mockSet,
+          remove: mockRemove,
+        },
+      },
+      runtime: {
+        lastError: null,
+        getManifest: jest.fn(() => ({ version: '1.0.0' })),
+        sendMessage: jest.fn(),
+      },
+    };
+
+    // UI Manager Mock
+    mockUiManager = {
+      showStatus: jest.fn(),
+    };
+
+    // URL Mock
+    global.URL.createObjectURL = jest.fn(() => 'blob:url');
+    global.URL.revokeObjectURL = jest.fn();
+
+    storageManager = new StorageManager(mockUiManager);
+    storageManager.init();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('init', () => {
+    it('should initialize elements', () => {
+      expect(storageManager.elements.exportButton).toBeTruthy();
+      expect(storageManager.elements.importButton).toBeTruthy();
+    });
+
+    it('should setup event listeners', () => {
+      // Simulate click
+      storageManager.elements.exportButton.click();
+      // Since exportData is async and we don't await anything here, we check side effects
+      // But verify listeners are attached by spy or interaction
+      // Just basic check that init calls updateStorageUsage
+      expect(mockGet).toHaveBeenCalled();
+    });
+  });
+
+  describe('getStorageUsage', () => {
+    it('should calculate usage correctly', async () => {
+      mockGet.mockImplementation((keys, callback) => {
+        callback({
+          highlights_page1: [{ text: 'abc' }],
+          config_theme: 'dark',
+        });
+      });
+
+      const usage = await storageManager.getStorageUsage();
+
+      expect(usage.pages).toBe(1);
+      expect(usage.highlights).toBe(1);
+      expect(usage.configs).toBe(1);
+      expect(parseFloat(usage.used)).toBeGreaterThan(0);
+    });
+  });
+
+  describe('exportData', () => {
+    it('should export data as JSON file', async () => {
+      mockGet.mockImplementation((keys, callback) => {
+        callback({ key: 'value' });
+      });
+
+      const clickSpy = jest.fn();
+      jest.spyOn(document, 'createElement').mockReturnValue({
+        click: clickSpy,
+        href: '',
+        download: '',
+      });
+      jest.spyOn(document.body, 'appendChild').mockImplementation(() => {});
+      jest.spyOn(document.body, 'removeChild').mockImplementation(() => {});
+
+      await storageManager.exportData();
+
+      expect(mockGet).toHaveBeenCalled();
+      expect(document.createElement).toHaveBeenCalledWith('a');
+      expect(clickSpy).toHaveBeenCalled();
+      expect(Logger.error).not.toHaveBeenCalled();
+    });
+
+    it('should handle export error', async () => {
+      mockGet.mockImplementation((_keys, _callback) => {
+        // Simulate runtime.lastError behavior if needed, or throw
+        throw new Error('Export error');
+      });
+
+      await storageManager.exportData();
+      expect(Logger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('importData', () => {
+    it('should import valid JSON data', async () => {
+      const mockFile = new File([JSON.stringify({ data: { key: 'value' } })], 'backup.json', {
+        type: 'application/json',
+      });
+      const event = { target: { files: [mockFile] } };
+
+      // Mock FileReader
+      const mockReader = {
+        readAsText: jest.fn(),
+        onload: null, // Will be set by code
+      };
+      window.FileReader = jest.fn(() => mockReader);
+
+      // Trigger import
+      storageManager.importData(event);
+
+      // Simulate read completion
+      mockReader.onload({ target: { result: JSON.stringify({ data: { key: 'value' } }) } });
+
+      // Wait for async operations (using setImmediate or just expecting mocks)
+      // Since it's inside callback, we might need a small delay or check mocks
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(mockSet).toHaveBeenCalledWith({ key: 'value' }, expect.any(Function));
+    });
+  });
+
+  describe('checkDataIntegrity', () => {
+    it('should analyze data and report status', async () => {
+      mockGet.mockImplementation((keys, resolve) => {
+        resolve({
+          highlights_valid: [{ text: 'ok', rangeInfo: {} }],
+          highlights_corrupt: 'not-an-array',
+          migration_old: {},
+        });
+      });
+
+      await storageManager.checkDataIntegrity();
+
+      // Should report corrupted data and migration keys
+      const statusText = storageManager.elements.dataStatus.textContent;
+      // Since we mock DOM, we can check its content or class
+      expect(statusText).toBeDefined();
+      expect(storageManager.elements.dataStatus.className).toContain('error');
+    });
+  });
+
+  describe('analyzeOptimization', () => {
+    it('should identify optimization opportunities', async () => {
+      mockGet.mockImplementation((keys, callback) =>
+        callback({
+          migration_file: {},
+          highlights_empty: [],
+          highlights_valid: [{ text: 'ok' }],
+        })
+      );
+
+      await storageManager.analyzeOptimization();
+
+      expect(storageManager.optimizationPlan.canOptimize).toBe(true);
+      expect(storageManager.optimizationPlan.keysToRemove).toContain('migration_file');
+      expect(storageManager.optimizationPlan.keysToRemove).toContain('highlights_empty');
+
+      // Verify UI updated
+      expect(storageManager.elements.executeOptimizationButton.style.display).toBe('inline-block');
+    });
+  });
+
+  describe('executeOptimization', () => {
+    it('should execute optimization plan', async () => {
+      // Setup plan
+      storageManager.optimizationPlan = {
+        canOptimize: true,
+        keysToRemove: ['key1'],
+        optimizedData: { key2: 'val' },
+        spaceSaved: 100,
+      };
+
+      mockRemove.mockImplementation((keys, cb) => cb());
+      mockGet.mockImplementation((keys, resolve) => resolve({ key2: 'old_val' }));
+      mockSet.mockImplementation((data, cb) => cb());
+
+      await storageManager.executeOptimization();
+
+      expect(mockRemove).toHaveBeenCalledWith(['key1'], expect.any(Function));
+      expect(mockSet).toHaveBeenCalledWith({ key2: 'val' }, expect.any(Function));
+    });
+  });
+});
