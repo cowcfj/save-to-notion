@@ -176,10 +176,27 @@
             <span class="button-icon">🔍</span>
             <span class="button-text">開始檢查</span>
           </button>
-          <button id="migration-execute-button" class="migrate-button" style="display: none">
-            <span class="button-icon">⚡</span>
-            <span class="button-text">一鍵修復</span>
-          </button>
+        </div>
+        <!-- 掃描結果列表（含勾選框） -->
+        <div id="migration-list" class="migration-list" style="display: none">
+          <div class="migration-list-header">
+            <label class="select-all-label">
+              <input type="checkbox" id="migration-select-all" />
+              <span>全選</span>
+            </label>
+            <span id="migration-selected-count" class="selected-count">已選 0 項</span>
+          </div>
+          <div id="migration-items" class="migration-items"></div>
+          <div class="migration-list-actions">
+            <button id="migration-execute-button" class="migrate-button" disabled>
+              <span class="button-icon">⚡</span>
+              <span class="button-text">遷移選中項</span>
+            </button>
+            <button id="migration-delete-button" class="delete-button" disabled>
+              <span class="button-icon">🗑️</span>
+              <span class="button-text">刪除選中項</span>
+            </button>
+          </div>
         </div>
         <div id="migration-progress" class="migration-progress" style="display: none">
           <div class="progress-bar-container">

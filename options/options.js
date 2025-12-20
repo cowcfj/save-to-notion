@@ -1482,6 +1482,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupMigrationTool() {
       const scanButton = document.getElementById('migration-scan-button');
       const executeButton = document.getElementById('migration-execute-button');
+      const deleteButton = document.getElementById('migration-delete-button');
+      const selectAllCheckbox = document.getElementById('migration-select-all');
+      const selectedCountSpan = document.getElementById('migration-selected-count');
+      const migrationList = document.getElementById('migration-list');
+      const migrationItems = document.getElementById('migration-items');
       const progressDiv = document.getElementById('migration-progress');
       const progressBar = document.getElementById('migration-progress-bar');
       const progressText = document.getElementById('migration-progress-text');
@@ -1491,7 +1496,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return; // 區塊不存在，可能是舊版 HTML
       }
 
-      let pendingUrls = [];
+      let scanResults = []; // { url, highlightCount }
 
       // 掃描按鈕事件
       scanButton.addEventListener('click', async () => {
@@ -1499,29 +1504,20 @@ document.addEventListener('DOMContentLoaded', () => {
         scanButton.querySelector('.button-text').textContent = '掃描中...';
         resultDiv.innerHTML = '';
         resultDiv.className = 'migration-result';
+        migrationList.style.display = 'none';
 
         try {
           const result = await scanForLegacyHighlights();
-          pendingUrls = result.urls;
+          scanResults = result.items;
 
           if (result.needsMigration) {
-            resultDiv.innerHTML = `
-              <strong>發現 ${result.legacyCount} 個舊版標註</strong>
-              <p>涉及 ${result.urls.length} 個頁面，共 ${result.totalHighlights} 個標註需要處理。</p>
-              <div class="url-list">
-                ${result.urls
-                  .slice(0, 10)
-                  .map(url => `<div class="url-item">${truncateUrl(url)}</div>`)
-                  .join('')}
-                ${result.urls.length > 10 ? `<div class="url-item">...及其他 ${result.urls.length - 10} 個頁面</div>` : ''}
-              </div>
-            `;
+            renderMigrationList(scanResults);
+            migrationList.style.display = 'block';
+            resultDiv.innerHTML = `<strong>發現 ${result.legacyCount} 個頁面有舊版標註</strong>，共 ${result.totalHighlights} 個標註。請勾選需要處理的項目。`;
             resultDiv.className = 'migration-result info';
-            executeButton.style.display = 'inline-flex';
           } else {
             resultDiv.innerHTML = '✅ 沒有發現需要遷移的舊版標註數據。所有標註數據已是最新格式！';
             resultDiv.className = 'migration-result success';
-            executeButton.style.display = 'none';
           }
         } catch (error) {
           console.error('Migration scan failed:', error);
@@ -1533,38 +1529,120 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      // 執行遷移按鈕事件
-      executeButton.addEventListener('click', async () => {
-        if (pendingUrls.length === 0) {
-          resultDiv.innerHTML = '沒有待遷移的頁面';
-          resultDiv.className = 'migration-result info';
+      // 渲染勾選列表
+      function renderMigrationList(items) {
+        migrationItems.innerHTML = items
+          .map(
+            (item, index) => `
+          <div class="migration-item" data-index="${index}">
+            <input type="checkbox" class="migration-item-checkbox" data-url="${item.url}" />
+            <div class="migration-item-info">
+              <div class="migration-item-url">${truncateUrl(item.url, 80)}</div>
+              <div class="migration-item-meta">${item.highlightCount} 個標註</div>
+            </div>
+          </div>
+        `
+          )
+          .join('');
+
+        // 綁定勾選事件
+        migrationItems.querySelectorAll('.migration-item-checkbox').forEach(checkbox => {
+          checkbox.addEventListener('change', updateSelectionState);
+        });
+
+        selectAllCheckbox.checked = false;
+        updateSelectionState();
+      }
+
+      // 全選事件
+      selectAllCheckbox?.addEventListener('change', () => {
+        const checkboxes = migrationItems.querySelectorAll('.migration-item-checkbox');
+        checkboxes.forEach(cb => {
+          cb.checked = selectAllCheckbox.checked;
+        });
+        updateSelectionState();
+      });
+
+      // 更新選中狀態
+      function updateSelectionState() {
+        const checkboxes = migrationItems.querySelectorAll('.migration-item-checkbox');
+        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+
+        selectedCountSpan.textContent = `已選 ${checkedCount} 項`;
+
+        const hasSelection = checkedCount > 0;
+        executeButton.disabled = !hasSelection;
+        deleteButton.disabled = !hasSelection;
+
+        // 更新全選狀態
+        if (selectAllCheckbox) {
+          selectAllCheckbox.checked = checkedCount === checkboxes.length && checkedCount > 0;
+          selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+        }
+      }
+
+      // 獲取選中的 URL
+      function getSelectedUrls() {
+        const checkboxes = migrationItems.querySelectorAll('.migration-item-checkbox:checked');
+        return Array.from(checkboxes).map(cb => cb.dataset.url);
+      }
+
+      // 遷移按鈕事件
+      executeButton?.addEventListener('click', async () => {
+        const selectedUrls = getSelectedUrls();
+        if (selectedUrls.length === 0) {
           return;
         }
 
+        await processUrls(selectedUrls, 'migration_execute', '遷移');
+      });
+
+      // 刪除按鈕事件
+      deleteButton?.addEventListener('click', async () => {
+        const selectedUrls = getSelectedUrls();
+        if (selectedUrls.length === 0) {
+          return;
+        }
+
+        // 確認刪除
+        if (
+          !confirm(
+            `確定要刪除選中的 ${selectedUrls.length} 個頁面的標註數據嗎？\n\n此操作不可恢復！`
+          )
+        ) {
+          return;
+        }
+
+        await processUrls(selectedUrls, 'migration_delete', '刪除');
+      });
+
+      // 處理選中的 URL（遷移或刪除）
+      async function processUrls(urls, action, actionName) {
         executeButton.disabled = true;
-        executeButton.querySelector('.button-text').textContent = '遷移中...';
+        deleteButton.disabled = true;
         progressDiv.style.display = 'block';
 
         let success = 0;
         let failed = 0;
         const errors = [];
 
-        for (let i = 0; i < pendingUrls.length; i++) {
-          const url = pendingUrls[i];
-          const progress = Math.round(((i + 1) / pendingUrls.length) * 100);
+        for (let i = 0; i < urls.length; i++) {
+          const url = urls[i];
+          const progress = Math.round(((i + 1) / urls.length) * 100);
 
           progressBar.style.width = `${progress}%`;
-          progressText.textContent = `${progress}% (${i + 1}/${pendingUrls.length})`;
+          progressText.textContent = `${progress}% (${i + 1}/${urls.length})`;
 
           try {
-            // 透過 Background 執行遷移
-            const response = await chrome.runtime.sendMessage({
-              action: 'migration_execute',
-              url,
-            });
+            const response = await chrome.runtime.sendMessage({ action, url });
 
             if (response?.success) {
               success++;
+              // 從列表中移除已處理項目
+              const item = migrationItems
+                .querySelector(`[data-url="${url}"]`)
+                ?.closest('.migration-item');
+              item?.remove();
             } else {
               failed++;
               errors.push(`${truncateUrl(url)}: ${response?.error || '未知錯誤'}`);
@@ -1577,14 +1655,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 顯示結果
         progressDiv.style.display = 'none';
-        executeButton.style.display = 'none';
 
         if (failed === 0) {
-          resultDiv.innerHTML = `✅ 遷移完成！成功處理 ${success} 個頁面。`;
+          resultDiv.innerHTML = `✅ ${actionName}完成！成功處理 ${success} 個頁面。`;
           resultDiv.className = 'migration-result success';
         } else {
           resultDiv.innerHTML = `
-            ⚠️ 遷移完成：${success} 成功，${failed} 失敗
+            ⚠️ ${actionName}完成：${success} 成功，${failed} 失敗
             <div class="url-list">
               ${errors
                 .slice(0, 5)
@@ -1596,24 +1673,27 @@ document.addEventListener('DOMContentLoaded', () => {
           resultDiv.className = 'migration-result error';
         }
 
-        executeButton.disabled = false;
-        executeButton.querySelector('.button-text').textContent = '一鍵修復';
-        pendingUrls = [];
+        // 更新列表狀態
+        updateSelectionState();
+        const remainingItems = migrationItems.querySelectorAll('.migration-item');
+        if (remainingItems.length === 0) {
+          migrationList.style.display = 'none';
+        }
 
         // 刷新存儲使用情況
         updateStorageUsage();
-      });
+      }
 
       /**
        * 掃描舊版標註數據
-       * @returns {Promise<{urls: string[], totalHighlights: number, legacyCount: number, needsMigration: boolean}>}
+       * @returns {Promise<{items: {url: string, highlightCount: number}[], totalHighlights: number, legacyCount: number, needsMigration: boolean}>}
        */
       async function scanForLegacyHighlights() {
         const allData = await new Promise(resolve => {
           chrome.storage.local.get(null, resolve);
         });
 
-        const urls = [];
+        const items = [];
         let totalHighlights = 0;
         let legacyCount = 0;
 
@@ -1623,33 +1703,34 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           const url = key.replace('highlights_', '');
+          let highlightCount = 0;
 
-          // 統計總標註數
+          // 統計標註數
           if (value && value.highlights) {
-            totalHighlights += value.highlights.length;
+            highlightCount = value.highlights.length;
           } else if (Array.isArray(value)) {
-            totalHighlights += value.length;
+            highlightCount = value.length;
           }
+
+          totalHighlights += highlightCount;
 
           // 檢查是否為舊版格式
           if (isLegacyFormat(value)) {
-            urls.push(url);
+            items.push({ url, highlightCount });
             legacyCount++;
           }
         }
 
         return {
-          urls,
+          items,
           totalHighlights,
           legacyCount,
-          needsMigration: urls.length > 0,
+          needsMigration: items.length > 0,
         };
       }
 
       /**
        * 檢查數據是否為舊版格式
-       * @param {any} data
-       * @returns {boolean}
        */
       function isLegacyFormat(data) {
         if (Array.isArray(data)) {
@@ -1663,9 +1744,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       /**
        * 截斷 URL 用於顯示
-       * @param {string} url
-       * @param {number} maxLength
-       * @returns {string}
        */
       function truncateUrl(url, maxLength = 60) {
         if (url.length <= maxLength) {

@@ -728,6 +728,48 @@ export function createActionHandlers(services) {
     },
 
     /**
+     * 刪除標註數據
+     * 從選項頁面發起，刪除指定 URL 的所有標註
+     */
+    migration_delete: async (request, sender, sendResponse) => {
+      try {
+        const { url } = request;
+        if (!url) {
+          sendResponse({ success: false, error: '缺少 URL 參數' });
+          return;
+        }
+
+        Logger.log(`🗑️ [Migration] 開始刪除: ${url}`);
+
+        const pageKey = `highlights_${url}`;
+
+        // 檢查數據是否存在
+        const data = await new Promise(resolve => {
+          chrome.storage.local.get(pageKey, result => resolve(result[pageKey]));
+        });
+
+        if (!data) {
+          sendResponse({ success: true, message: '數據不存在，無需刪除' });
+          return;
+        }
+
+        // 刪除數據
+        await new Promise(resolve => {
+          chrome.storage.local.remove(pageKey, resolve);
+        });
+
+        Logger.log(`✅ [Migration] 刪除完成: ${url}`);
+        sendResponse({
+          success: true,
+          message: '成功刪除標註數據',
+        });
+      } catch (error) {
+        Logger.error('❌ [Migration] 刪除失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
      * 處理來自 Content Script 的日誌轉發
      * 用於將 Content Script 的日誌集中到 Background Console
      */
