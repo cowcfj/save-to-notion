@@ -10,16 +10,16 @@
 /* global chrome */
 
 describe('Popup UI', () => {
-  // DOM 元素
-  let saveButton;
-  let highlightButton;
-  let clearHighlightsButton;
-  let openNotionButton;
-  let status;
-  let modal;
-  let modalMessage;
-  let _modalConfirm;
-  let _modalCancel;
+  // DOM 元素（初始化為 null，在 beforeEach 中賦值）
+  let saveButton = null;
+  let highlightButton = null;
+  let clearHighlightsButton = null;
+  let openNotionButton = null;
+  let status = null;
+  let modal = null;
+  let modalMessage = null;
+  let _modalConfirm = null;
+  let _modalCancel = null;
 
   // 設置 DOM 環境
   beforeEach(() => {
