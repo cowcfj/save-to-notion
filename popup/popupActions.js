@@ -37,7 +37,7 @@ export async function checkSettings() {
  */
 export function checkPageStatus() {
   return new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'checkPageStatus' }, (response, _error) => {
+    chrome.runtime.sendMessage({ action: 'checkPageStatus' }, response => {
       resolve(response || { success: false });
     });
   });
@@ -49,7 +49,7 @@ export function checkPageStatus() {
  */
 export function savePage() {
   return new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'savePage' }, (response, _error) => {
+    chrome.runtime.sendMessage({ action: 'savePage' }, response => {
       if (chrome.runtime.lastError) {
         resolve({ success: false, error: chrome.runtime.lastError.message });
       } else {
@@ -65,7 +65,7 @@ export function savePage() {
  */
 export function startHighlight() {
   return new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'startHighlight' }, (response, _error) => {
+    chrome.runtime.sendMessage({ action: 'startHighlight' }, response => {
       if (chrome.runtime.lastError) {
         resolve({ success: false, error: chrome.runtime.lastError.message });
       } else {
@@ -82,7 +82,7 @@ export function startHighlight() {
  */
 export function openNotionPage(url) {
   return new Promise(resolve => {
-    chrome.tabs.create({ url }, (tab, _error) => {
+    chrome.tabs.create({ url }, tab => {
       if (chrome.runtime.lastError) {
         resolve({ success: false, error: chrome.runtime.lastError.message });
       } else {
@@ -98,7 +98,7 @@ export function openNotionPage(url) {
  */
 export function getActiveTab() {
   return new Promise(resolve => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs, _error) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
       resolve(tabs?.[0] || null);
     });
   });
