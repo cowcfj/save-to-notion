@@ -9,9 +9,9 @@ import { UIManager } from '../../../scripts/options/UIManager.js';
 jest.mock('../../../scripts/options/UIManager.js');
 
 describe('AuthManager', () => {
-  let authManager;
-  let mockUiManager;
-  let mockLoadDatabases;
+  let authManager = null;
+  let mockUiManager = null;
+  let mockLoadDatabases = null;
 
   beforeEach(() => {
     // DOM Setup

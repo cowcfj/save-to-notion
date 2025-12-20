@@ -5,9 +5,9 @@
 import { UIManager } from '../../../scripts/options/UIManager.js';
 
 describe('UIManager', () => {
-  let uiManager;
-  let mockManualSection;
-  let mockStatus;
+  let uiManager = null;
+  let mockManualSection = null;
+  let mockStatus = null;
 
   beforeEach(() => {
     // Setup DOM

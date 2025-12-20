@@ -14,9 +14,9 @@ jest.mock('../../../scripts/utils/Logger', () => ({
 }));
 
 describe('SearchableDatabaseSelector', () => {
-  let selector;
-  let mockShowStatus;
-  let mockLoadDatabases;
+  let selector = null;
+  let mockShowStatus = null;
+  let mockLoadDatabases = null;
 
   beforeEach(() => {
     // DOM Setup

@@ -13,8 +13,8 @@ jest.mock('../../../scripts/options/SearchableDatabaseSelector.js');
 global.fetch = jest.fn();
 
 describe('DataSourceManager', () => {
-  let dataSourceManager;
-  let mockUiManager;
+  let dataSourceManager = null;
+  let mockUiManager = null;
 
   beforeEach(() => {
     // DOM Setup

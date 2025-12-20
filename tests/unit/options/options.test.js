@@ -44,9 +44,9 @@ describe('options.js', () => {
   });
 
   describe('saveSettings', () => {
-    let mockUi;
-    let mockAuth;
-    let mockSet;
+    let mockUi = null;
+    let mockAuth = null;
+    let mockSet = null;
 
     beforeEach(() => {
       document.body.innerHTML = `

@@ -16,11 +16,11 @@ jest.mock('../../../scripts/utils/Logger', () => ({
 }));
 
 describe('StorageManager', () => {
-  let storageManager;
-  let mockUiManager;
-  let mockGet;
-  let mockSet;
-  let mockRemove;
+  let storageManager = null;
+  let mockUiManager = null;
+  let mockGet = null;
+  let mockSet = null;
+  let mockRemove = null;
 
   beforeEach(() => {
     // DOM Setup

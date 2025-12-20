@@ -11,9 +11,9 @@ jest.mock('../../../scripts/options/UIManager.js');
 jest.mock('../../../scripts/options/MigrationScanner.js');
 
 describe('MigrationTool', () => {
-  let migrationTool;
-  let mockUiManager;
-  let mockScanner;
+  let migrationTool = null;
+  let mockUiManager = null;
+  let mockScanner = null;
 
   beforeEach(() => {
     // DOM Setup
