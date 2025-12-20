@@ -50,7 +50,7 @@ describe('DataSourceManager', () => {
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
-        json: async () => ({ message: 'Unauthorized' }),
+        json: () => Promise.resolve({ message: 'Unauthorized' }),
       });
 
       await dataSourceManager.loadDatabases('invalid_key');
