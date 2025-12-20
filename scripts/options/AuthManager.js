@@ -1,3 +1,4 @@
+/* global chrome */
 import Logger from '../utils/Logger.js';
 
 /**

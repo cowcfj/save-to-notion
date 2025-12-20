@@ -3,6 +3,8 @@
  * 負責存儲空間分析、清理與優化
  */
 
+/* global chrome */
+
 import Logger from '../utils/Logger.js';
 
 export class StorageManager {
