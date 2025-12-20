@@ -138,10 +138,16 @@ export function setupTemplatePreview() {
 
       const preview = formatTitle(template, variables);
 
-      previewDiv.innerHTML = `
-                <strong>預覽結果：</strong><br>
-                ${preview}
-            `;
+      // 安全地構建 DOM 以防止 XSS
+      previewDiv.textContent = '';
+      const strong = document.createElement('strong');
+      strong.textContent = '預覽結果：';
+      const br = document.createElement('br');
+      const previewText = document.createTextNode(preview);
+
+      previewDiv.appendChild(strong);
+      previewDiv.appendChild(br);
+      previewDiv.appendChild(previewText);
       previewDiv.style.display = 'block';
     });
   }

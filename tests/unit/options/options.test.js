@@ -39,7 +39,8 @@ describe('options.js', () => {
 
       const previewDiv = document.getElementById('template-preview');
       expect(previewDiv.style.display).toBe('block');
-      expect(previewDiv.innerHTML).toContain('範例網頁標題');
+      expect(previewDiv.textContent).toContain('預覽結果：');
+      expect(previewDiv.textContent).toContain('範例網頁標題');
     });
   });
 
