@@ -45,12 +45,13 @@ export class MigrationExecutor {
   // =====================================================
 
   /**
+  /**
    * 獲取當前頁面的遷移狀態
    * @returns {Promise<Object>}
    */
   async getMigrationState() {
     try {
-      const normalized = this.normalizeCurrentUrl();
+      const normalized = MigrationExecutor.normalizeCurrentUrl();
       const key = `${this.storageKey}_${normalized}`;
       const data = await chrome.storage.local.get(key);
       return (
@@ -73,7 +74,7 @@ export class MigrationExecutor {
    */
   async updateMigrationState(phase, metadata = {}) {
     try {
-      const normalized = this.normalizeCurrentUrl();
+      const normalized = MigrationExecutor.normalizeCurrentUrl();
       const key = `${this.storageKey}_${normalized}`;
       const state = {
         phase,
@@ -91,7 +92,7 @@ export class MigrationExecutor {
    * 正規化當前頁面 URL
    * @returns {string}
    */
-  normalizeCurrentUrl() {
+  static normalizeCurrentUrl() {
     return typeof normalizeUrl === 'function'
       ? normalizeUrl(window.location.href)
       : window.location.href;
@@ -194,7 +195,7 @@ export class MigrationExecutor {
 
     for (const span of oldSpans) {
       try {
-        const result = this.convertSpanToRange(span, highlightManager);
+        const result = MigrationExecutor.convertSpanToRange(span, highlightManager);
         if (result) {
           newHighlights.push(result);
           this.statistics.newHighlightsCreated++;
@@ -252,7 +253,7 @@ export class MigrationExecutor {
 
     for (const span of oldSpans) {
       try {
-        this.removeOldSpan(span);
+        MigrationExecutor.removeOldSpan(span);
         removed++;
       } catch (error) {
         Logger.error('[MigrationExecutor] 移除 span 失敗:', error);
@@ -284,7 +285,7 @@ export class MigrationExecutor {
    * @param {Object} highlightManager
    * @returns {Object|null}
    */
-  convertSpanToRange(span, highlightManager) {
+  static convertSpanToRange(span, highlightManager) {
     try {
       const text = span.textContent;
       const bgColor = span.style.backgroundColor;
@@ -322,7 +323,7 @@ export class MigrationExecutor {
    * 移除舊的 span 元素
    * @param {HTMLElement} span
    */
-  removeOldSpan(span) {
+  static removeOldSpan(span) {
     const parent = span.parentNode;
 
     // 將 span 內容移到父節點
@@ -370,7 +371,7 @@ export class MigrationExecutor {
     try {
       const allData = await chrome.storage.local.get(null);
       const keysToRemove = [];
-      const currentUrl = this.normalizeCurrentUrl();
+      const currentUrl = MigrationExecutor.normalizeCurrentUrl();
       const currentKey = `${this.storageKey}_${currentUrl}`;
 
       for (const key of Object.keys(allData)) {

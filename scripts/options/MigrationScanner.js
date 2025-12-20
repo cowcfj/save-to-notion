@@ -53,7 +53,8 @@ export class MigrationScanner {
         const url = key.replace(this.LEGACY_KEY_PREFIX, '');
 
         // 檢查是否有舊版格式的標註
-        if (this.isLegacyFormat(value)) {
+        // 檢查是否有舊版格式的標註
+        if (MigrationScanner.isLegacyFormat(value)) {
           urls.push(url);
           legacyCount++;
         }
@@ -87,7 +88,7 @@ export class MigrationScanner {
    * @param {any} data - 標註數據
    * @returns {boolean}
    */
-  isLegacyFormat(data) {
+  static isLegacyFormat(data) {
     // 舊版格式判斷：
     // 1. 純陣列格式（沒有 rangeInfo）
     // 2. 有 highlights 但缺少 rangeInfo
@@ -120,7 +121,7 @@ export class MigrationScanner {
 
       try {
         if (onProgress) {
-          onProgress(i + 1, urls.length, `正在處理: ${this.truncateUrl(url)}`);
+          onProgress(i + 1, urls.length, `正在處理: ${MigrationScanner.truncateUrl(url)}`);
         }
 
         const response = await chrome.runtime.sendMessage({
@@ -215,7 +216,7 @@ export class MigrationScanner {
    * @param {number} maxLength
    * @returns {string}
    */
-  truncateUrl(url, maxLength = 50) {
+  static truncateUrl(url, maxLength = 50) {
     if (url.length <= maxLength) {
       return url;
     }

@@ -109,23 +109,23 @@ describe('MigrationScanner', () => {
   describe('isLegacyFormat', () => {
     it('should identify array format without rangeInfo', () => {
       const data = [{ text: 'test' }, { text: 'test2' }];
-      expect(scanner.isLegacyFormat(data)).toBe(true);
+      expect(MigrationScanner.isLegacyFormat(data)).toBe(true);
     });
 
     it('should identify highlights property without rangeInfo', () => {
       const data = { highlights: [{ text: 'test' }] };
-      expect(scanner.isLegacyFormat(data)).toBe(true);
+      expect(MigrationScanner.isLegacyFormat(data)).toBe(true);
     });
 
     it('should identify items with rangeInfo as modern format', () => {
       const data = [{ text: 'test', rangeInfo: { startOffset: 0 } }];
-      expect(scanner.isLegacyFormat(data)).toBe(false);
+      expect(MigrationScanner.isLegacyFormat(data)).toBe(false);
     });
 
     it('should handle empty data', () => {
-      expect(scanner.isLegacyFormat(null)).toBe(false);
-      expect(scanner.isLegacyFormat()).toBe(false);
-      expect(scanner.isLegacyFormat([])).toBe(false);
+      expect(MigrationScanner.isLegacyFormat(null)).toBe(false);
+      expect(MigrationScanner.isLegacyFormat()).toBe(false);
+      expect(MigrationScanner.isLegacyFormat([])).toBe(false);
     });
   });
 
@@ -215,14 +215,14 @@ describe('MigrationScanner', () => {
   describe('truncateUrl', () => {
     it('should truncate long URLs', () => {
       const longUrl = 'https://example.com/very/long/path/that/exceeds/maximum/length';
-      const result = scanner.truncateUrl(longUrl, 30);
+      const result = MigrationScanner.truncateUrl(longUrl, 30);
       expect(result.length).toBe(30);
       expect(result.endsWith('...')).toBe(true);
     });
 
     it('should preserve short URLs', () => {
       const shortUrl = 'https://example.com';
-      const result = scanner.truncateUrl(shortUrl, 50);
+      const result = MigrationScanner.truncateUrl(shortUrl, 50);
       expect(result).toBe(shortUrl);
     });
   });
