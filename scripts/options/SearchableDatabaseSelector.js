@@ -1,0 +1,472 @@
+/**
+ * SearchableDatabaseSelector.js
+ * 可搜索的資料來源選擇器 UI 組件
+ */
+
+export class SearchableDatabaseSelector {
+  constructor(dependencies = {}) {
+    const { showStatus, loadDatabases } = dependencies;
+
+    if (typeof showStatus !== 'function') {
+      throw new Error('SearchableDatabaseSelector 需要 showStatus 函式');
+    }
+    if (typeof loadDatabases !== 'function') {
+      throw new Error('SearchableDatabaseSelector 需要 loadDatabases 函式');
+    }
+
+    this.showStatus = showStatus;
+    this.loadDatabases = loadDatabases;
+    this.databases = [];
+    this.filteredDatabases = [];
+    this.selectedDatabase = null;
+    this.isOpen = false;
+    this.focusedIndex = -1;
+
+    this.initializeElements();
+    this.setupEventListeners();
+  }
+
+  initializeElements() {
+    this.container = document.getElementById('database-selector-container');
+    this.searchInput = document.getElementById('database-search');
+    this.toggleButton = document.getElementById('selector-toggle');
+    this.dropdown = document.getElementById('database-dropdown');
+    this.databaseList = document.getElementById('database-list');
+    this.databaseCount = document.getElementById('database-count');
+    this.refreshButton = document.getElementById('refresh-databases');
+    this.databaseIdInput = document.getElementById('database-id');
+
+    window.Logger?.info?.('SearchableDatabaseSelector 元素初始化:', {
+      container: this.container,
+      searchInput: this.searchInput,
+      toggleButton: this.toggleButton,
+      dropdown: this.dropdown,
+      databaseList: this.databaseList,
+      databaseCount: this.databaseCount,
+      refreshButton: this.refreshButton,
+      databaseIdInput: this.databaseIdInput,
+    });
+
+    if (!this.container) {
+      console.error('找不到 database-selector-container 元素！');
+    }
+    if (!this.searchInput) {
+      console.error('找不到 database-search 元素！');
+    }
+  }
+
+  setupEventListeners() {
+    // 搜索輸入
+    this.searchInput?.addEventListener('input', event => {
+      this.filterDatabases(event.target.value);
+      this.showDropdown();
+    });
+
+    // 搜索框焦點事件
+    this.searchInput?.addEventListener('focus', () => {
+      if (this.databases.length > 0) {
+        this.showDropdown();
+      }
+    });
+
+    // 切換下拉選單
+    this.toggleButton?.addEventListener('click', event => {
+      event.preventDefault();
+      this.toggleDropdown();
+    });
+
+    // 重新載入資料來源
+    this.refreshButton?.addEventListener('click', event => {
+      event.preventDefault();
+      this.refreshDatabases();
+    });
+
+    // 點擊外部關閉
+    document.addEventListener('click', event => {
+      if (this.container && !this.container.contains(event.target)) {
+        this.hideDropdown();
+      }
+    });
+
+    // 鍵盤導航
+    this.searchInput?.addEventListener('keydown', event => {
+      this.handleKeyNavigation(event);
+    });
+  }
+
+  populateDatabases(databases) {
+    // 映射數據，添加類型和父級信息
+    this.databases = databases.map(db => ({
+      id: db.id,
+      title: SearchableDatabaseSelector.extractDatabaseTitle(db),
+      type: db.object, // 'page' 或 'data_source'
+      isWorkspace: db.parent?.type === 'workspace', // 是否為工作區直屬項目
+      parent: db.parent, // 保留完整父級信息
+      raw: db,
+      created: db.created_time,
+      lastEdited: db.last_edited_time,
+    }));
+
+    window.Logger?.info?.('處理後的保存目標:', this.databases);
+
+    this.filteredDatabases = [...this.databases];
+    this.updateDatabaseCount();
+    this.renderDatabaseList();
+
+    // 顯示選擇器
+    if (this.container) {
+      this.container.style.display = 'block';
+    }
+
+    // 更新搜索框提示
+    const pageCount = databases.filter(db => db.object === 'page').length;
+    const dsCount = databases.filter(db => db.object === 'data_source').length;
+    if (this.searchInput) {
+      this.searchInput.placeholder = `搜索 ${databases.length} 個保存目標（${dsCount} 個資料來源 + ${pageCount} 個頁面）`;
+    }
+
+    // 如果當前有選中的保存目標，在搜索框中顯示
+    if (this.databaseIdInput && this.databaseIdInput.value) {
+      const selectedDb = this.databases.find(db => db.id === this.databaseIdInput.value);
+      if (selectedDb) {
+        if (this.searchInput) {
+          this.searchInput.value = selectedDb.title;
+        }
+        this.selectedDatabase = selectedDb;
+      }
+    }
+  }
+
+  filterDatabases(query) {
+    const lowerQuery = query.toLowerCase().trim();
+
+    if (!lowerQuery) {
+      this.filteredDatabases = [...this.databases];
+    } else {
+      this.filteredDatabases = this.databases.filter(
+        db =>
+          db.title.toLowerCase().includes(lowerQuery) || db.id.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    this.focusedIndex = -1;
+    this.updateDatabaseCount();
+    this.renderDatabaseList();
+  }
+
+  renderDatabaseList() {
+    if (!this.databaseList) {
+      return;
+    }
+
+    if (this.filteredDatabases.length === 0) {
+      this.databaseList.innerHTML = `
+                <div class="no-results">
+                    <span class="icon">🔍</span>
+                    <div>未找到匹配的資料來源</div>
+                    <small>嘗試使用不同的關鍵字搜索</small>
+                </div>
+            `;
+      return;
+    }
+
+    this.databaseList.innerHTML = this.filteredDatabases
+      .map((db, index) => this.createDatabaseItemHTML(db, index))
+      .join('');
+
+    // 添加點擊事件
+    this.databaseList.querySelectorAll('.database-item').forEach((item, index) => {
+      item.addEventListener('click', () => {
+        this.selectDatabase(this.filteredDatabases[index]);
+      });
+    });
+  }
+
+  createDatabaseItemHTML(db, index) {
+    const isSelected = this.selectedDatabase && this.selectedDatabase.id === db.id;
+    const isFocused = index === this.focusedIndex;
+
+    // 高亮搜索關鍵字
+    const query = this.searchInput ? this.searchInput.value.toLowerCase().trim() : '';
+    let highlightedTitle = db.title;
+    if (query) {
+      const regex = new RegExp(`(${SearchableDatabaseSelector.escapeRegex(query)})`, 'gi');
+      highlightedTitle = db.title.replace(regex, '<span class="search-highlight">$1</span>');
+    }
+
+    // 類型圖標和標籤
+    const typeIcon = db.type === 'page' ? '📄' : '📊';
+    const typeLabel = db.type === 'page' ? '頁面' : '資料來源';
+
+    // 工作區標記
+    const workspaceBadge = db.isWorkspace ? '<span class="workspace-badge">工作區</span>' : '';
+
+    // 容器頁面標記（啟發式判斷：workspace 直屬頁面更可能是容器）
+    const isLikelyContainer = db.type === 'page' && db.parent?.type === 'workspace';
+    const containerBadge = isLikelyContainer ? '<span class="container-badge">📁 容器</span>' : '';
+
+    // 分類頁面標記（啟發式判斷：page_id parent 的頁面可能是分類頁面）
+    const isLikelyCategory = db.type === 'page' && db.parent?.type === 'page_id';
+    const categoryBadge = isLikelyCategory ? '<span class="category-badge">🗂️ 分類</span>' : '';
+
+    // Parent 路徑信息
+    let parentPath = '';
+    if (db.parent) {
+      switch (db.parent.type) {
+        case 'workspace':
+          parentPath = '📁 工作區';
+          break;
+        case 'page_id':
+          parentPath = '📄 子頁面';
+          break;
+        case 'data_source_id':
+        case 'database_id': // 舊版 API 命名，映射到相同顯示
+          parentPath = '📊 資料庫項目';
+          break;
+        case 'block_id':
+          parentPath = '🧩 區塊項目';
+          break;
+        default:
+          // 記錄未知類型以便調試
+          parentPath = `❓ 其他 (${db.parent.type})`;
+      }
+    }
+
+    return `
+            <div class="database-item ${isSelected ? 'selected' : ''} ${isFocused ? 'keyboard-focus' : ''}"
+                 data-index="${index}"
+                 data-type="${db.type}"
+                 data-is-workspace="${db.isWorkspace}"
+                 data-is-container="${isLikelyContainer}"
+                 data-is-category="${isLikelyCategory}">
+                <div class="database-title">
+                    ${highlightedTitle}
+                    ${workspaceBadge}
+                    ${containerBadge}
+                    ${categoryBadge}
+                </div>
+                <div class="database-parent-path">${parentPath}</div>
+                <div class="database-id">${db.id}</div>
+                <div class="database-meta">
+                    <span class="database-icon">${typeIcon}</span>
+                    <span>${typeLabel}</span>
+                    ${db.created ? `<span>•</span><span>創建於 ${SearchableDatabaseSelector.formatDate(db.created)}</span>` : ''}
+                </div>
+            </div>
+        `;
+  }
+
+  selectDatabase(database) {
+    this.selectedDatabase = database;
+
+    // 更新搜索框顯示
+    if (this.searchInput) {
+      this.searchInput.value = database.title;
+    }
+
+    // 更新隱藏的資料來源 ID 輸入框
+    if (this.databaseIdInput) {
+      this.databaseIdInput.value = database.id;
+
+      // 保存類型信息到隱藏字段（用於後續保存）
+      const typeInput = document.getElementById('database-type');
+      if (typeInput) {
+        typeInput.value = database.type;
+      } else {
+        // 如果不存在，創建隱藏字段
+        const newTypeInput = document.createElement('input');
+        newTypeInput.type = 'hidden';
+        newTypeInput.id = 'database-type';
+        newTypeInput.value = database.type;
+        this.databaseIdInput.parentNode.appendChild(newTypeInput);
+      }
+    }
+
+    window.Logger?.info?.(
+      `選擇了 ${database.type === 'page' ? '頁面' : '資料來源'}: ${database.title} (${database.id})`
+    );
+
+    // 重新渲染以顯示選中狀態
+    this.renderDatabaseList();
+
+    this.hideDropdown();
+
+    // 顯示成功狀態
+    const typeLabel = database.type === 'page' ? '頁面' : '資料來源';
+    this.showStatus(`已選擇${typeLabel}: ${database.title}`, 'success');
+
+    // 觸發選擇事件（如果需要）
+    if (this.onDatabaseSelected) {
+      this.onDatabaseSelected(database);
+    }
+  }
+
+  showDropdown() {
+    if (this.dropdown) {
+      this.dropdown.style.display = 'block';
+    }
+    this.isOpen = true;
+    this.toggleButton?.classList.add('open');
+  }
+
+  hideDropdown() {
+    if (this.dropdown) {
+      this.dropdown.style.display = 'none';
+    }
+    this.isOpen = false;
+    this.focusedIndex = -1;
+    this.toggleButton?.classList.remove('open');
+    this.renderDatabaseList(); // 清除鍵盤焦點樣式
+  }
+
+  toggleDropdown() {
+    if (this.isOpen) {
+      this.hideDropdown();
+    } else if (this.databases.length > 0) {
+      this.showDropdown();
+    }
+  }
+
+  handleKeyNavigation(event) {
+    if (!this.isOpen) {
+      if (event.key === 'ArrowDown' || event.key === 'Enter') {
+        event.preventDefault();
+        this.showDropdown();
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        this.focusedIndex = Math.min(this.focusedIndex + 1, this.filteredDatabases.length - 1);
+        this.renderDatabaseList();
+        this.scrollToFocused();
+        break;
+
+      case 'ArrowUp':
+        event.preventDefault();
+        this.focusedIndex = Math.max(this.focusedIndex - 1, -1);
+        this.renderDatabaseList();
+        this.scrollToFocused();
+        break;
+
+      case 'Enter':
+        event.preventDefault();
+        if (this.focusedIndex >= 0 && this.filteredDatabases[this.focusedIndex]) {
+          this.selectDatabase(this.filteredDatabases[this.focusedIndex]);
+        }
+        break;
+
+      case 'Escape':
+        event.preventDefault();
+        this.hideDropdown();
+        break;
+
+      default:
+        // 其他按鍵不處理
+        break;
+    }
+  }
+
+  scrollToFocused() {
+    if (this.focusedIndex >= 0 && this.databaseList) {
+      const focusedElement = this.databaseList.querySelector('.keyboard-focus');
+      if (focusedElement) {
+        focusedElement.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
+  updateDatabaseCount() {
+    if (!this.databaseCount) {
+      return;
+    }
+    const total = this.databases.length;
+    const filtered = this.filteredDatabases.length;
+
+    if (filtered === total) {
+      this.databaseCount.textContent = `${total} 個資料來源`;
+    } else {
+      this.databaseCount.textContent = `${filtered} / ${total} 個資料來源`;
+    }
+  }
+
+  refreshDatabases() {
+    const apiKey = document.getElementById('api-key')?.value;
+    if (apiKey) {
+      this.showLoading();
+      this.loadDatabases(apiKey);
+    }
+  }
+
+  showLoading() {
+    if (this.databaseList) {
+      this.databaseList.innerHTML = `
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <span>重新載入資料來源中...</span>
+                </div>
+            `;
+    }
+    this.showDropdown();
+  }
+
+  /**
+   * 提取數據庫或頁面的標題
+   */
+  static extractDatabaseTitle(db) {
+    let title = db.object === 'page' ? '未命名頁面' : '未命名資料來源';
+
+    // 處理 page 對象（標題在 properties.title）
+    if (db.object === 'page' && db.properties?.title?.title) {
+      const titleContent = db.properties.title.title;
+      if (titleContent.length > 0) {
+        title = titleContent[0].plain_text || titleContent[0].text?.content || title;
+      }
+    }
+    // 處理 data_source 對象（標題在 title 或 properties）
+    else if (db.title && db.title.length > 0) {
+      title = db.title[0].plain_text || db.title[0].text?.content || title;
+    } else if (db.properties) {
+      const titleProp = Object.values(db.properties).find(prop => prop.type === 'title');
+      if (titleProp?.title && titleProp.title.length > 0) {
+        title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || title;
+      }
+    }
+
+    return title;
+  }
+
+  /**
+   * 格式化日期字串
+   */
+  static formatDate(dateString) {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('zh-TW', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch (_e) {
+      return '';
+    }
+  }
+
+  /**
+   * 轉義正則表示式中的特殊字符
+   */
+  static escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * 轉義 HTML 特殊字符
+   */
+  static escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+}
