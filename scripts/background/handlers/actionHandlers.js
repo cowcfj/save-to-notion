@@ -800,8 +800,17 @@ export function createActionHandlers(services) {
         // 5. 清理創建的分頁
         if (createdTabId) {
           Logger.log(`🧹 [Migration] 關閉分頁: ${createdTabId}`);
-          await chrome.tabs.remove(createdTabId);
-          createdTabId = null;
+          try {
+            // 先檢查分頁是否存在再刪除，避免無謂的報錯
+            const tab = await chrome.tabs.get(createdTabId).catch(() => null);
+            if (tab) {
+              await chrome.tabs.remove(createdTabId);
+            }
+          } catch (error) {
+            Logger.warn(`[Migration] 無法關閉分頁 ${createdTabId} (可能已關閉):`, error.message);
+          } finally {
+            createdTabId = null;
+          }
         }
 
         // 6. 返回結果
@@ -820,9 +829,18 @@ export function createActionHandlers(services) {
         // 清理創建的分頁
         if (createdTabId) {
           try {
-            await chrome.tabs.remove(createdTabId);
+            // 先檢查分頁是否存在再刪除
+            const tab = await chrome.tabs.get(createdTabId).catch(() => null);
+            if (tab) {
+              await chrome.tabs.remove(createdTabId);
+            }
           } catch (cleanupError) {
-            Logger.warn('清理分頁失敗:', cleanupError);
+            Logger.warn(
+              `[Migration] 清理分頁 ${createdTabId} 失敗 (可能已關閉):`,
+              cleanupError.message
+            );
+          } finally {
+            createdTabId = null;
           }
         }
 
