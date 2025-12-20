@@ -7,8 +7,23 @@
 /* global chrome */
 
 // 匯入被測試的模組
-import * as UI from '../../popup/popupUI.js';
-import * as Actions from '../../popup/popupActions.js';
+import {
+  getElements,
+  setStatus,
+  setButtonState,
+  updateUIForSavedPage,
+  updateUIForUnsavedPage,
+  showModal,
+  hideModal,
+  formatSaveSuccessMessage,
+} from '../../popup/popupUI.js';
+import {
+  checkSettings,
+  checkPageStatus,
+  savePage,
+  openNotionPage,
+  // clearHighlights is implicitly tested via popup.js flow in E2E but ensuring unit test coverage here if present
+} from '../../popup/popupActions.js';
 
 describe('popupUI', () => {
   // DOM 元素 Mock
@@ -29,7 +44,7 @@ describe('popupUI', () => {
       </div>
     `;
 
-    elements = UI.getElements();
+    elements = getElements();
     jest.clearAllMocks();
   });
 
@@ -49,12 +64,12 @@ describe('popupUI', () => {
 
   describe('setStatus', () => {
     test('應設置狀態文字', () => {
-      UI.setStatus(elements, 'Test message');
+      setStatus(elements, 'Test message');
       expect(elements.status.textContent).toBe('Test message');
     });
 
     test('應設置狀態文字和顏色', () => {
-      UI.setStatus(elements, 'Warning', '#d63384');
+      setStatus(elements, 'Warning', '#d63384');
       expect(elements.status.textContent).toBe('Warning');
       expect(elements.status.style.color).toBe('rgb(214, 51, 132)');
     });
@@ -62,13 +77,13 @@ describe('popupUI', () => {
 
   describe('setButtonState', () => {
     test('應禁用按鈕', () => {
-      UI.setButtonState(elements.saveButton, true);
+      setButtonState(elements.saveButton, true);
       expect(elements.saveButton.disabled).toBe(true);
     });
 
     test('應啟用按鈕', () => {
       elements.saveButton.disabled = true;
-      UI.setButtonState(elements.saveButton, false);
+      setButtonState(elements.saveButton, false);
       expect(elements.saveButton.disabled).toBe(false);
     });
   });
@@ -81,7 +96,7 @@ describe('popupUI', () => {
         notionUrl: 'https://notion.so/test-page',
       };
 
-      UI.updateUIForSavedPage(elements, response);
+      updateUIForSavedPage(elements, response);
 
       expect(elements.highlightButton.textContent).toBe('📝 Start Highlighting');
       expect(elements.highlightButton.disabled).toBe(false);
@@ -99,7 +114,7 @@ describe('popupUI', () => {
     test('應正確更新未保存頁面的 UI', () => {
       const response = { success: true, isSaved: false };
 
-      UI.updateUIForUnsavedPage(elements, response);
+      updateUIForUnsavedPage(elements, response);
 
       expect(elements.highlightButton.textContent).toBe('📝 Save First to Highlight');
       expect(elements.highlightButton.disabled).toBe(true);
@@ -112,7 +127,7 @@ describe('popupUI', () => {
     test('已刪除頁面應顯示警告訊息', () => {
       const response = { success: true, isSaved: false, wasDeleted: true };
 
-      UI.updateUIForUnsavedPage(elements, response);
+      updateUIForUnsavedPage(elements, response);
 
       expect(elements.status.textContent).toBe(
         'Original page was deleted. Save to create new page.'
@@ -123,7 +138,7 @@ describe('popupUI', () => {
 
   describe('showModal / hideModal', () => {
     test('showModal 應顯示對話框並設置訊息', () => {
-      UI.showModal(elements, '確定要清除嗎？');
+      showModal(elements, '確定要清除嗎？');
 
       expect(elements.modal.style.display).toBe('flex');
       expect(elements.modalMessage.textContent).toBe('確定要清除嗎？');
@@ -132,7 +147,7 @@ describe('popupUI', () => {
     test('hideModal 應隱藏對話框', () => {
       elements.modal.style.display = 'flex';
 
-      UI.hideModal(elements);
+      hideModal(elements);
 
       expect(elements.modal.style.display).toBe('none');
     });
@@ -141,31 +156,31 @@ describe('popupUI', () => {
   describe('formatSaveSuccessMessage', () => {
     test('應格式化創建成功訊息 (複數)', () => {
       const response = { success: true, created: true, blockCount: 5, imageCount: 2 };
-      const message = UI.formatSaveSuccessMessage(response);
+      const message = formatSaveSuccessMessage(response);
       expect(message).toBe('Created successfully! (5 blocks, 2 images)');
     });
 
     test('應格式化創建成功訊息 (單數)', () => {
       const response = { success: true, created: true, blockCount: 1, imageCount: 1 };
-      const message = UI.formatSaveSuccessMessage(response);
+      const message = formatSaveSuccessMessage(response);
       expect(message).toBe('Created successfully! (1 block, 1 image)');
     });
 
     test('應格式化更新成功訊息 (混合單複數)', () => {
       const response = { success: true, updated: true, blockCount: 1, imageCount: 2 };
-      const message = UI.formatSaveSuccessMessage(response);
+      const message = formatSaveSuccessMessage(response);
       expect(message).toBe('Updated successfully! (1 block, 2 images)');
     });
 
     test('應格式化標記更新訊息', () => {
       const response = { success: true, highlightsUpdated: true, highlightCount: 10 };
-      const message = UI.formatSaveSuccessMessage(response);
+      const message = formatSaveSuccessMessage(response);
       expect(message).toBe('Highlights updated successfully! (10 highlights)');
     });
 
     test('應格式化高亮更新訊息 (單數)', () => {
       const response = { success: true, highlightsUpdated: true, highlightCount: 1 };
-      const message = UI.formatSaveSuccessMessage(response);
+      const message = formatSaveSuccessMessage(response);
       expect(message).toBe('Highlights updated successfully! (1 highlight)');
     });
 
@@ -177,7 +192,7 @@ describe('popupUI', () => {
         imageCount: 2,
         warning: 'Some images filtered',
       };
-      const message = UI.formatSaveSuccessMessage(response);
+      const message = formatSaveSuccessMessage(response);
       expect(message).toContain('⚠️ Some images filtered');
     });
   });
@@ -202,7 +217,7 @@ describe('popupActions', () => {
         return Promise.resolve(mockData);
       });
 
-      const result = await Actions.checkSettings();
+      const result = await checkSettings();
 
       expect(result.valid).toBe(true);
       expect(result.apiKey).toBe('test-key');
@@ -218,7 +233,7 @@ describe('popupActions', () => {
         return Promise.resolve(mockData);
       });
 
-      const result = await Actions.checkSettings();
+      const result = await checkSettings();
 
       expect(result.valid).toBe(false);
     });
@@ -230,7 +245,7 @@ describe('popupActions', () => {
         callback({ success: true, isSaved: true, notionUrl: 'https://notion.so/test' });
       });
 
-      const result = await Actions.checkPageStatus();
+      const result = await checkPageStatus();
 
       expect(result.success).toBe(true);
       expect(result.isSaved).toBe(true);
@@ -244,7 +259,7 @@ describe('popupActions', () => {
         callback({ success: true, created: true, blockCount: 5 });
       });
 
-      const result = await Actions.savePage();
+      const result = await savePage();
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(true);
@@ -261,7 +276,7 @@ describe('popupActions', () => {
         callback({ id: 123, ...props });
       });
 
-      const result = await Actions.openNotionPage('https://notion.so/test');
+      const result = await openNotionPage('https://notion.so/test');
 
       expect(result.success).toBe(true);
       expect(chrome.tabs.create).toHaveBeenCalledWith(
