@@ -70,6 +70,7 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
   await worker.evaluate(mockId => {
     const originalQuery = chrome.tabs.query;
     chrome.tabs.query = function (queryInfo, onQuery) {
+      // Manifest V3 支持：同時支持 callback 和 Promise 模式
       if (queryInfo.active && queryInfo.currentWindow) {
         const mockTab = {
           id: mockId,
@@ -78,14 +79,24 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
           active: true,
           windowId: 1,
         };
-        onQuery([mockTab]);
-        return;
+        // 如果提供了 callback，呼叫它並返回 Promise
+        if (onQuery) {
+          onQuery([mockTab]);
+        }
+        return Promise.resolve([mockTab]);
       }
+
+      // 委派給原始 query
       if (originalQuery) {
-        originalQuery.call(this, queryInfo, onQuery);
-        return;
+        const result = originalQuery.call(this, queryInfo, onQuery);
+        return result ?? Promise.resolve([]);
       }
-      onQuery([]);
+
+      // Fallback
+      if (onQuery) {
+        onQuery([]);
+      }
+      return Promise.resolve([]);
     };
   }, actualTabId);
 
