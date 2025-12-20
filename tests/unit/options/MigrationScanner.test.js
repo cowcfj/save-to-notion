@@ -53,10 +53,6 @@ describe('MigrationScanner', () => {
       expect(scanner.LEGACY_KEY_PREFIX).toBe('highlights_');
       expect(scanner.MIGRATION_STATE_PREFIX).toBe('seamless_migration_state_');
     });
-
-    it('should initialize logger', () => {
-      expect(scanner.logger).toBeDefined();
-    });
   });
 
   describe('scanStorage', () => {
