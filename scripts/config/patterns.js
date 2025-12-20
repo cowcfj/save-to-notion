@@ -171,13 +171,13 @@ export const TECHNICAL_DOC_URL_PATTERNS = [
  * 技術文檔標題模式（用於 pageComplexityDetector.js isTechnicalDoc）
  */
 export const TECHNICAL_DOC_TITLE_PATTERNS = [
-  /documentation/i,
-  /commands?/i,
-  /reference/i,
-  /guide/i,
-  /manual/i,
-  /cli/i,
-  /api/i,
+  /documentation/,
+  /commands?/,
+  /reference/,
+  /guide/,
+  /manual/,
+  /cli/,
+  /api/,
 ];
 
 // ==========================================
