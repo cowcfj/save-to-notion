@@ -1513,15 +1513,19 @@ document.addEventListener('DOMContentLoaded', () => {
           if (result.needsMigration) {
             renderMigrationList(scanResults);
             migrationList.style.display = 'block';
-            resultDiv.innerHTML = `<strong>發現 ${result.legacyCount} 個頁面有舊版標註</strong>，共 ${result.totalHighlights} 個標註。請勾選需要處理的項目。`;
+            resultDiv.innerHTML = '';
+            const strong = document.createElement('strong');
+            strong.textContent = `發現 ${result.legacyCount} 個頁面有舊版標註`;
+            resultDiv.appendChild(strong);
+            resultDiv.append(`，共 ${result.totalHighlights} 個標註。請勾選需要處理的項目。`);
             resultDiv.className = 'migration-result info';
           } else {
-            resultDiv.innerHTML = '✅ 沒有發現需要遷移的舊版標註數據。所有標註數據已是最新格式！';
+            resultDiv.textContent = '✅ 沒有發現需要遷移的舊版標註數據。所有標註數據已是最新格式！';
             resultDiv.className = 'migration-result success';
           }
         } catch (error) {
           console.error('Migration scan failed:', error);
-          resultDiv.innerHTML = `❌ 掃描失敗：${error.message}`;
+          resultDiv.textContent = `❌ 掃描失敗：${error.message}`;
           resultDiv.className = 'migration-result error';
         } finally {
           scanButton.disabled = false;
@@ -1531,26 +1535,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 渲染勾選列表
       function renderMigrationList(items) {
-        migrationItems.innerHTML = items
-          .map(
-            (item, index) => `
-          <div class="migration-item" data-index="${index}">
-            <input type="checkbox" class="migration-item-checkbox" data-url="${item.url}" />
-            <div class="migration-item-info">
-              <div class="migration-item-url">${truncateUrl(item.url, 80)}</div>
-              <div class="migration-item-meta">${item.highlightCount} 個標註</div>
-            </div>
-          </div>
-        `
-          )
-          .join('');
+        migrationItems.innerHTML = ''; // 清空列表
 
-        // 綁定勾選事件
-        migrationItems.querySelectorAll('.migration-item-checkbox').forEach(checkbox => {
+        items.forEach((item, index) => {
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'migration-item';
+          itemDiv.dataset.index = index;
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'migration-item-checkbox';
+          checkbox.dataset.url = item.url;
           checkbox.addEventListener('change', updateSelectionState);
+
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'migration-item-info';
+
+          const urlDiv = document.createElement('div');
+          urlDiv.className = 'migration-item-url';
+          urlDiv.textContent = truncateUrl(item.url, 80);
+
+          const metaDiv = document.createElement('div');
+          metaDiv.className = 'migration-item-meta';
+          metaDiv.textContent = `${item.highlightCount} 個標註`;
+
+          infoDiv.appendChild(urlDiv);
+          infoDiv.appendChild(metaDiv);
+
+          itemDiv.appendChild(checkbox);
+          itemDiv.appendChild(infoDiv);
+
+          migrationItems.appendChild(itemDiv);
         });
 
-        selectAllCheckbox.checked = false;
+        if (selectAllCheckbox) {
+          selectAllCheckbox.checked = false;
+        }
         updateSelectionState();
       }
 
