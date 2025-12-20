@@ -28,6 +28,10 @@
 
 import Logger from '../utils/Logger.js';
 
+/**
+ * 舊版數據遷移掃描器
+ * 負責掃描和識別存儲中需要從舊版格式遷移到新版格式的標註數據
+ */
 export class MigrationScanner {
   constructor() {
     this.LEGACY_KEY_PREFIX = 'highlights_';
