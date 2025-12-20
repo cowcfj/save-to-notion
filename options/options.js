@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
  * @param {UIManager} ui
  * @param {AuthManager} auth
  */
-function saveSettings(ui, auth) {
+export function saveSettings(ui, auth) {
   const apiKey = document.getElementById('api-key').value.trim();
   const databaseId = document.getElementById('database-id').value.trim();
   const titleTemplate = document.getElementById('title-template').value;
@@ -117,7 +117,7 @@ function saveSettings(ui, auth) {
 /**
  * 設置標題模板預覽功能
  */
-function setupTemplatePreview() {
+export function setupTemplatePreview() {
   const previewButton = document.getElementById('preview-template');
   const templateInput = document.getElementById('title-template');
   const previewDiv = document.getElementById('template-preview');
@@ -152,7 +152,7 @@ function setupTemplatePreview() {
  * @param {string} template
  * @param {Object} variables
  */
-function formatTitle(template, variables) {
+export function formatTitle(template, variables) {
   return template.replace(/{(\w+)}/g, (match, key) => {
     return variables[key] || match;
   });

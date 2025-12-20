@@ -17,6 +17,7 @@ module.exports = {
   // 覆蓋率收集
   collectCoverageFrom: [
     'scripts/**/*.js',
+    'options/options.js',
     // 所有生產代碼位於 scripts/ 目錄
     // tests/helpers/ 僅包含測試工具，不計入覆蓋率
     '!scripts/**/*.test.js',
