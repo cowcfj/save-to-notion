@@ -699,8 +699,23 @@ export function createActionHandlers(services) {
           createdTabId = targetTab.id;
           Logger.log(`🆕 [Migration] 創建新分頁: ${targetTab.id}`);
 
-          // 等待分頁加載完成
-          await new Promise(resolve => {
+          // 等待分頁加載完成 (帶超時保護)
+          await new Promise((resolve, reject) => {
+            const TIMEOUT_MS = 15000;
+            let timeoutId = null;
+
+            /**
+             * 清理監聽器和計時器
+             */
+            const cleanup = () => {
+              if (chrome.tabs.onUpdated.hasListener(listener)) {
+                chrome.tabs.onUpdated.removeListener(listener);
+              }
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+              }
+            };
+
             /**
              * 監聽分頁更新狀態的回調函數
              * @param {number} tabId - 更新的分頁 ID
@@ -708,16 +723,40 @@ export function createActionHandlers(services) {
              */
             const listener = (tabId, changeInfo) => {
               if (tabId === targetTab.id && changeInfo.status === 'complete') {
-                chrome.tabs.onUpdated.removeListener(listener);
+                cleanup();
                 resolve();
               }
             };
+
+            // 設置監聽器
             chrome.tabs.onUpdated.addListener(listener);
+
+            // 設置超時
+            timeoutId = setTimeout(() => {
+              cleanup();
+              reject(new Error(`分頁加載超時 (${TIMEOUT_MS}ms)`));
+            }, TIMEOUT_MS);
+
+            // 檢查分頁當前狀態 (處理競態條件)
+            chrome.tabs
+              .get(targetTab.id)
+              .then(tab => {
+                if (tab && tab.status === 'complete') {
+                  cleanup();
+                  resolve();
+                }
+              })
+              .catch(error => {
+                // 如果分頁無法獲取 (例如已關閉)，則報錯
+                cleanup();
+                reject(new Error(`無法獲取分頁狀態: ${error.message}`));
+              });
           });
         }
 
         // 3. 注入 migration-executor.js
         Logger.log(`💉 [Migration] 注入遷移執行器到分頁: ${targetTab.id}`);
+        await new Promise(resolve => setTimeout(resolve, 500)); // 額外緩衝確保腳本環境就緒
         await chrome.scripting.executeScript({
           target: { tabId: targetTab.id },
           files: ['dist/migration-executor.js'],
