@@ -93,6 +93,9 @@
       sendResponse({ events });
       return true;
     }
+
+    // 未處理的消息不需要異步響應
+    return false;
   });
 
   // 除錯日誌（生產環境會被移除）

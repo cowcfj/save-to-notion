@@ -57,6 +57,8 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     });
     return true;
   }
+  // 未處理的消息不需要異步響應
+  return false;
 });
 
 // 立即打印日誌證明腳本已加載
