@@ -20,6 +20,7 @@ global.chrome = {
 // Mock Logger
 const mockLogger = {
   log: jest.fn(),
+  debug: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
 };
@@ -151,7 +152,9 @@ describe('InjectionService', () => {
       // Assert
       expect(result).toBe(true);
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
-      expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('Bundle already exists'));
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('Bundle already exists')
+      );
     });
 
     it('應在僅有 Preloader 時注入 Bundle', async () => {

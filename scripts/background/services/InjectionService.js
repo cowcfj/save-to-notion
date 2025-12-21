@@ -289,12 +289,12 @@ class InjectionService {
       ]);
 
       if (response?.status === 'bundle_ready') {
-        this.logger.log?.(`✅ Bundle already exists in tab ${tabId}`);
+        this.logger.debug?.(`✅ Bundle already exists in tab ${tabId}`);
         return true; // Bundle 已存在
       }
 
       // Bundle 不存在（僅 Preloader 或無回應），注入主程式
-      this.logger.log?.(`📦 Injecting Content Bundle into tab ${tabId}...`);
+      this.logger.debug?.(`📦 Injecting Content Bundle into tab ${tabId}...`);
 
       await new Promise((resolve, reject) => {
         chrome.scripting.executeScript(
