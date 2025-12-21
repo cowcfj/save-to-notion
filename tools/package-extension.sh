@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail  # Exit on error, undefined vars, and pipe failures
 
 # Default version from package.json if not provided
 VERSION=${1:-$(node -p "require('./package.json').version")}
@@ -20,6 +20,19 @@ mkdir -p releases
 RM_DIR="release-package"
 rm -rf "$RM_DIR"
 mkdir -p "$RM_DIR"
+
+# Safety check: Ensure RM_DIR is not empty and not a system directory
+if [ -z "$RM_DIR" ] || [ ! -d "$RM_DIR" ]; then
+    echo "❌ Error: RM_DIR is empty or does not exist. Aborting."
+    exit 1
+fi
+
+case "$RM_DIR" in
+    /|/usr|/var|/etc|/bin|/sbin|/lib|/home|/root)
+        echo "❌ Error: RM_DIR points to a system directory. Aborting."
+        exit 1
+        ;;
+esac
 
 echo "📂 Copying files..."
 
@@ -60,7 +73,7 @@ rm -rf "$RM_DIR"
 
 echo "✅ Package created: releases/$ZIP_NAME"
 
-if [ -n "$GITHUB_OUTPUT" ]; then
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
     echo "zip_path=releases/$ZIP_NAME" >> "$GITHUB_OUTPUT"
 else
     echo "::set-output name=zip_path::releases/$ZIP_NAME"
