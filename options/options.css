@@ -122,7 +122,7 @@ body {
 }
 
 .footer-link {
-  color: var(--secondary-text);
+  color: var(--text-secondary);
   text-decoration: none;
 }
 
@@ -201,6 +201,10 @@ body {
 }
 
 /* Forms */
+.form-item-row {
+  margin-bottom: var(--spacing-md);
+}
+
 .form-group {
   margin-bottom: var(--spacing-md);
 }
@@ -559,15 +563,16 @@ select:focus {
 }
 
 .status-message {
-  padding: 8px;
-  margin-top: 10px;
-  border-radius: 4px;
+  display: none;
   font-size: 13px;
   text-align: center;
 }
 
 .status-message:not(:empty) {
-  /* Only show styling if there is content */
+  display: block;
+  padding: 8px;
+  margin-top: 10px;
+  border-radius: 4px;
 }
 
 .status-message.success {
@@ -578,6 +583,40 @@ select:focus {
 .status-message.error {
   background-color: #fee2e2;
   color: #991b1b;
+}
+
+/* Migration & Optimization Tools */
+/* 
+.migration-tool,
+.optimization-tool {
+} 
+*/
+
+
+.migration-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.inline-status {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.progress-container {
+  margin-top: var(--spacing-md);
+}
+
+#migration-progress-text {
+  display: block;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
 }
 
 /* Button Group */
