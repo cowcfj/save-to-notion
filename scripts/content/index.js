@@ -26,7 +26,7 @@ import '../highlighter/index.js';
 // ============================================================
 const preloaderCache = window.__NOTION_PRELOADER_CACHE__;
 if (preloaderCache) {
-  Logger.log('🔄 [Content Bundle] Preloader cache detected:', {
+  Logger.debug('🔄 [Content Bundle] Preloader cache detected:', {
     hasArticle: Boolean(preloaderCache.article),
     hasMainContent: Boolean(preloaderCache.mainContent),
     age: `${Date.now() - preloaderCache.timestamp}ms`,
