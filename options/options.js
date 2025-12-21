@@ -4,6 +4,7 @@ import { AuthManager } from '../scripts/options/AuthManager.js';
 import { DataSourceManager } from '../scripts/options/DataSourceManager.js';
 import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
+import Logger from '../scripts/utils/Logger.js';
 
 /**
  * Options Page Main Controller
@@ -67,9 +68,27 @@ function setupSidebarNavigation() {
   const navItems = document.querySelectorAll('.nav-item');
   const sections = document.querySelectorAll('.settings-section');
 
+  if (navItems.length === 0 || sections.length === 0) {
+    Logger.warn('設定頁面：找不到導航項目或設定區塊。');
+    return;
+  }
+
   navItems.forEach(item => {
     item.addEventListener('click', () => {
-      const targetSectionId = `section-${item.dataset.section}`;
+      const sectionName = item.dataset.section;
+      if (!sectionName) {
+        Logger.warn('設定頁面：導航項目缺少 data-section 屬性', item);
+        return;
+      }
+
+      const targetSectionId = `section-${sectionName}`;
+      // Verify target section exists
+      const targetExists = Array.from(sections).some(section => section.id === targetSectionId);
+
+      if (!targetExists) {
+        Logger.warn(`設定頁面：找不到目標區塊：${targetSectionId}`);
+        return;
+      }
 
       // 1. Update Active Nav Item
       navItems.forEach(nav => {
