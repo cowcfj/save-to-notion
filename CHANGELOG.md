@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.19.1](https://github.com/cowcfj/save-to-notion/compare/v2.19.0...v2.19.1) (2025-12-21)
+
+
+### 🐛 Bug 修復
+
+* 移除打包過程中的 help.html 檔案複製 ([ab3c5ed](https://github.com/cowcfj/save-to-notion/commit/ab3c5ed37c57d4cae7167d4d60c28fac4425e52d))
+
 ## [2.19.0](https://github.com/cowcfj/save-to-notion/compare/v2.18.1...v2.19.0) (2025-12-21)
 
 
