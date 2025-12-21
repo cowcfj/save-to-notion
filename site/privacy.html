@@ -1,312 +1,317 @@
 <!doctype html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>隱私政策 - Notion Smart Clipper</title>
-    <meta name="description" content="Notion Smart Clipper 擴展的隱私政策，說明我們如何處理您的數據。" />
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-        line-height: 1.8;
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 20px;
-        color: #333;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
-      }
 
-      .container {
-        background: #fff;
-        border-radius: 16px;
-        padding: 40px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>隱私政策 - Notion Smart Clipper</title>
+  <meta name="description" content="Notion Smart Clipper 擴展的隱私政策，說明我們如何處理您的數據。" />
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      line-height: 1.8;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
 
-      h1 {
-        color: #2c3e50;
-        border-bottom: 3px solid #667eea;
-        padding-bottom: 15px;
-        margin-bottom: 10px;
-        font-size: 2em;
-      }
+    .container {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    }
 
-      .last-updated {
-        color: #888;
-        font-size: 0.9em;
-        margin-bottom: 30px;
-      }
+    h1 {
+      color: #2c3e50;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 15px;
+      margin-bottom: 10px;
+      font-size: 2em;
+    }
 
-      h2 {
-        color: #34495e;
-        margin-top: 35px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid #eee;
-        font-size: 1.4em;
-      }
+    .last-updated {
+      color: #888;
+      font-size: 0.9em;
+      margin-bottom: 30px;
+    }
 
-      h3 {
-        color: #667eea;
-        margin-top: 25px;
-        font-size: 1.1em;
-      }
+    h2 {
+      color: #34495e;
+      margin-top: 35px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #eee;
+      font-size: 1.4em;
+    }
 
-      p, li {
-        color: #555;
-      }
+    h3 {
+      color: #667eea;
+      margin-top: 25px;
+      font-size: 1.1em;
+    }
 
-      ul, ol {
-        padding-left: 25px;
-      }
+    p,
+    li {
+      color: #555;
+    }
 
-      li {
-        margin: 10px 0;
-      }
+    ul,
+    ol {
+      padding-left: 25px;
+    }
 
-      strong {
-        color: #2c3e50;
-      }
+    li {
+      margin: 10px 0;
+    }
 
-      .highlight-box {
-        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
-        border-left: 4px solid #667eea;
-        padding: 15px 20px;
-        margin: 20px 0;
-        border-radius: 0 8px 8px 0;
-      }
+    strong {
+      color: #2c3e50;
+    }
 
-      .highlight-box p {
-        margin: 0;
-      }
+    .highlight-box {
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+      border-left: 4px solid #667eea;
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 0 8px 8px 0;
+    }
 
-      a {
-        color: #667eea;
-        text-decoration: none;
-        transition: color 0.2s;
-      }
+    .highlight-box p {
+      margin: 0;
+    }
 
-      a:hover {
-        color: #764ba2;
-        text-decoration: underline;
-      }
+    a {
+      color: #667eea;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
 
-      .back-link {
-        display: inline-block;
-        margin-bottom: 20px;
-        padding: 10px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 25px;
-        text-decoration: none;
-        font-weight: 500;
-        transition: transform 0.2s, box-shadow 0.2s;
-      }
+    a:hover {
+      color: #764ba2;
+      text-decoration: underline;
+    }
 
-      .back-link:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-        text-decoration: none;
-        color: white;
-      }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 25px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
 
-      .contact-box {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 20px;
-        margin-top: 20px;
-      }
+    .back-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+      text-decoration: none;
+      color: white;
+    }
 
-      .contact-box ul {
-        list-style: none;
-        padding: 0;
-      }
+    .contact-box {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+    }
 
-      .contact-box li {
-        padding: 8px 0;
-        border-bottom: 1px solid #eee;
-      }
+    .contact-box ul {
+      list-style: none;
+      padding: 0;
+    }
 
-      .contact-box li:last-child {
-        border-bottom: none;
-      }
+    .contact-box li {
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
 
-      footer {
-        text-align: center;
-        margin-top: 40px;
-        padding-top: 20px;
-        border-top: 1px solid #eee;
-        color: #888;
-        font-size: 0.9em;
-      }
-    </style>
-  </head>
+    .contact-box li:last-child {
+      border-bottom: none;
+    }
 
-  <body>
-    <div class="container">
-      <a href="index.html" class="back-link">← 返回首頁</a>
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+      color: #888;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
 
-      <h1>🔒 隱私政策</h1>
-      <p class="last-updated">最後更新日期：2024年9月20日</p>
+<body>
+  <div class="container">
+    <a href="index.html" class="back-link">← 返回首頁</a>
 
-      <h2>1. 政策接受</h2>
-      <p>
-        歡迎使用 Notion Smart Clipper（以下簡稱「本服務」或「擴充功能」）。當您在 Chrome
-        瀏覽器中安裝和使用本服務時，即表示您同意本隱私政策的條款。如果您不同意本政策的任何部分，請勿安裝或使用本服務。
-      </p>
+    <h1>🔒 隱私政策</h1>
+    <p class="last-updated">最後更新日期：2024年9月20日</p>
 
-      <h2>2. 單一用途聲明</h2>
-      <p>本服務的唯一目的是讓使用者能夠將網頁內容一鍵保存到 Notion 筆記軟體中。本服務專門設計用於：</p>
-      <ul>
-        <li>從任何網頁提取文章內容、圖片和其他媒體</li>
-        <li>將提取的內容格式化後儲存到使用者指定的 Notion 資料庫中</li>
-        <li>提供內容標記和模板自訂功能</li>
-      </ul>
+    <h2>1. 政策接受</h2>
+    <p>
+      歡迎使用 Notion Smart Clipper（以下簡稱「本服務」或「擴充功能」）。當您在 Chrome
+      瀏覽器中安裝和使用本服務時，即表示您同意本隱私政策的條款。如果您不同意本政策的任何部分，請勿安裝或使用本服務。
+    </p>
 
-      <h2>3. 資料收集</h2>
+    <h2>2. 單一用途聲明</h2>
+    <p>本服務的唯一目的是讓使用者能夠將網頁內容一鍵保存到 Notion 筆記軟體中。本服務專門設計用於：</p>
+    <ul>
+      <li>從任何網頁提取文章內容、圖片和其他媒體</li>
+      <li>將提取的內容格式化後儲存到使用者指定的 Notion 資料庫中</li>
+      <li>提供內容標記和模板自訂功能</li>
+    </ul>
 
-      <h3>3.1 我們不收集的資料</h3>
-      <p>本服務<strong>不會</strong>收集、儲存或傳輸以下任何類型的個人資料：</p>
-      <ul>
-        <li>您的瀏覽歷史記錄</li>
-        <li>您訪問的網站內容</li>
-        <li>您的個人身份資訊</li>
-        <li>您的帳戶憑證</li>
-        <li>您的位置資訊</li>
-        <li>您的設備識別資訊</li>
-      </ul>
+    <h2>3. 資料收集</h2>
 
-      <h3>3.2 我們收集的必要資料</h3>
-      <p>本服務僅在您的本地設備上處理和儲存以下必要資訊：</p>
+    <h3>3.1 我們不收集的資料</h3>
+    <p>本服務<strong>不會</strong>收集、儲存或傳輸以下任何類型的個人資料：</p>
+    <ul>
+      <li>您的瀏覽歷史記錄</li>
+      <li>您訪問的網站內容</li>
+      <li>您的個人身份資訊</li>
+      <li>您的帳戶憑證</li>
+      <li>您的位置資訊</li>
+      <li>您的設備識別資訊</li>
+    </ul>
 
-      <h4>本地儲存的設定資料：</h4>
-      <ul>
-        <li>Notion API 金鑰（加密儲存在 Chrome 本地儲存中）</li>
-        <li>Notion 資料庫 ID</li>
-        <li>模板自訂設定</li>
-        <li>標記顏色偏好設定</li>
-      </ul>
+    <h3>3.2 我們收集的必要資料</h3>
+    <p>本服務僅在您的本地設備上處理和儲存以下必要資訊：</p>
 
-      <h4>本地處理的功能資料：</h4>
-      <ul>
-        <li>頁面標記狀態（用於標記功能的持久化）</li>
-        <li>標記位置資訊（僅在本地使用，用於恢復標記）</li>
-      </ul>
+    <h4>本地儲存的設定資料：</h4>
+    <ul>
+      <li>Notion API 金鑰（加密儲存在 Chrome 本地儲存中）</li>
+      <li>Notion 資料庫 ID</li>
+      <li>模板自訂設定</li>
+      <li>標記顏色偏好設定</li>
+    </ul>
 
-      <div class="highlight-box">
-        <p><strong>重要說明：</strong>所有上述資料都完全儲存在您的本地設備中，不會上傳到任何外部伺服器。</p>
-      </div>
+    <h4>本地處理的功能資料：</h4>
+    <ul>
+      <li>頁面標記狀態（用於標記功能的持久化）</li>
+      <li>標記位置資訊（僅在本地使用，用於恢復標記）</li>
+    </ul>
 
-      <h2>4. 資料使用</h2>
-      <p>本服務使用資料的唯一目的是實現其核心功能：</p>
-      <ul>
-        <li>使用 Notion API 金鑰與 Notion 伺服器通信以保存內容</li>
-        <li>根據您的模板設定格式化保存的內容</li>
-        <li>在您重新訪問已標記頁面時恢復標記狀態</li>
-      </ul>
-
-      <h2>5. 權限使用說明</h2>
-
-      <h3>5.1 activeTab 權限</h3>
-      <p>僅在您主動點擊擴充功能圖示並選擇保存頁面時，臨時存取當前分頁的內容以提取網頁資料。</p>
-
-      <h3>5.2 scripting 權限</h3>
-      <p>僅在您授權保存網頁時，在該網頁上執行必要的內容腳本以提取內容和實現標記功能。</p>
-
-      <h3>5.3 storage 權限</h3>
-      <p>用於在您的本地設備上安全儲存必要的設定和功能資料。</p>
-
-      <h3>5.4 identity 權限</h3>
-      <p>用於簡化 Notion OAuth 流程，確保 API 金鑰的安全傳輸和儲存。</p>
-
-      <h3>5.5 網站存取權限</h3>
-      <p>僅用於讀取您明確選擇保存的網頁公開內容，不會收集私人或敏感資訊。</p>
-
-      <h2>6. 資料分享與披露</h2>
-      <p>本服務<strong>不會</strong>：</p>
-      <ul>
-        <li>與任何第三方分享您的資料</li>
-        <li>出售您的任何資訊</li>
-        <li>將您的資料用於廣告或其他商業目的</li>
-        <li>將您的資料用於分析或市場研究</li>
-      </ul>
-
-      <h2>7. 資料安全</h2>
-      <p>我們採取以下措施保護您的資料：</p>
-      <ul>
-        <li>所有資料都儲存在您的本地設備上</li>
-        <li>Notion API 金鑰使用 Chrome 的安全儲存機制</li>
-        <li>不會將任何資料傳輸到外部伺服器</li>
-        <li>不會在背景收集或處理任何資料</li>
-      </ul>
-
-      <h2>8. 資料保留與刪除</h2>
-
-      <h3>8.1 本地資料</h3>
-      <p>所有本地儲存的資料將保留在您的設備上，直到：</p>
-      <ul>
-        <li>您卸載擴充功能</li>
-        <li>您手動清除 Chrome 的本地儲存資料</li>
-        <li>您手動刪除特定的設定資料</li>
-      </ul>
-
-      <h3>8.2 資料刪除</h3>
-      <p>您可以通過以下方式刪除您的資料：</p>
-      <ol>
-        <li>卸載擴充功能</li>
-        <li>在 Chrome 設定中清除擴充功能資料</li>
-        <li>手動清除 Notion 中保存的內容</li>
-      </ol>
-
-      <h2>9. Notion 服務整合</h2>
-      <p>本服務與 Notion 筆記軟體整合：</p>
-      <ul>
-        <li>使用 Notion 官方 API 進行資料傳輸</li>
-        <li>所有傳輸都通過 HTTPS 加密連接</li>
-        <li>僅將您明確選擇保存的網頁內容傳輸到 Notion</li>
-        <li>遵循 Notion 的 API 使用條款和限制</li>
-      </ul>
-
-      <h2>10. 兒童隱私</h2>
-      <p>
-        本服務不針對 13
-        歲以下兒童設計，也不會故意收集兒童的個人資訊。如果您是父母或監護人並發現您的孩子提供了個人資訊，請聯繫我們。
-      </p>
-
-      <h2>11. 政策變更</h2>
-      <p>我們可能會不時更新本隱私政策。重大變更將通過以下方式通知：</p>
-      <ul>
-        <li>在擴充功能中顯示通知</li>
-        <li>在更新說明中提及變更</li>
-        <li>在 GitHub 儲存庫中更新政策文件</li>
-      </ul>
-      <p>建議您定期查看本頁面以了解任何變更。</p>
-
-      <h2>12. 聯絡資訊</h2>
-      <p>如果您對本隱私政策有任何疑問或擔憂，請通過以下方式聯絡我們：</p>
-      <div class="contact-box">
-        <ul>
-          <li>📧 電子郵件：<a href="mailto:cowcfj@gmail.com">cowcfj@gmail.com</a></li>
-          <li>🐛 GitHub Issues：<a href="https://github.com/cowcfj/save-to-notion/issues">提交問題</a></li>
-          <li>💻 GitHub 倉庫：<a href="https://github.com/cowcfj/save-to-notion">cowcfj/save-to-notion</a></li>
-        </ul>
-      </div>
-
-      <h2>13. 開源許可</h2>
-      <p>
-        本服務是開源軟體，遵循 MIT 許可證條款。您可以在
-        <a href="https://github.com/cowcfj/save-to-notion">GitHub 儲存庫</a>中查看完整原始碼。
-      </p>
-
-      <footer>
-        <p>
-          Made with ❤️ for Notion users |
-          <a href="https://github.com/cowcfj/save-to-notion">GitHub</a> |
-          <a href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp">Chrome Store</a>
-        </p>
-      </footer>
+    <div class="highlight-box">
+      <p><strong>重要說明：</strong>所有上述資料都完全儲存在您的本地設備中，不會上傳到任何外部伺服器。</p>
     </div>
-  </body>
+
+    <h2>4. 資料使用</h2>
+    <p>本服務使用資料的唯一目的是實現其核心功能：</p>
+    <ul>
+      <li>使用 Notion API 金鑰與 Notion 伺服器通信以保存內容</li>
+      <li>根據您的模板設定格式化保存的內容</li>
+      <li>在您重新訪問已標記頁面時恢復標記狀態</li>
+    </ul>
+
+    <h2>5. 權限使用說明</h2>
+
+    <h3>5.1 activeTab 權限</h3>
+    <p>僅在您主動點擊擴充功能圖示並選擇保存頁面時，臨時存取當前分頁的內容以提取網頁資料。</p>
+
+    <h3>5.2 scripting 權限</h3>
+    <p>僅在您授權保存網頁時，在該網頁上執行必要的內容腳本以提取內容和實現標記功能。</p>
+
+    <h3>5.3 storage 權限</h3>
+    <p>用於在您的本地設備上安全儲存必要的設定和功能資料。</p>
+
+    <h3>5.4 identity 權限</h3>
+    <p>用於簡化 Notion OAuth 流程，確保 API 金鑰的安全傳輸和儲存。</p>
+
+    <h3>5.5 網站存取權限</h3>
+    <p>僅用於讀取您明確選擇保存的網頁公開內容，不會收集私人或敏感資訊。</p>
+
+    <h2>6. 資料分享與披露</h2>
+    <p>本服務<strong>不會</strong>：</p>
+    <ul>
+      <li>與任何第三方分享您的資料</li>
+      <li>出售您的任何資訊</li>
+      <li>將您的資料用於廣告或其他商業目的</li>
+      <li>將您的資料用於分析或市場研究</li>
+    </ul>
+
+    <h2>7. 資料安全</h2>
+    <p>我們採取以下措施保護您的資料：</p>
+    <ul>
+      <li>所有資料都儲存在您的本地設備上</li>
+      <li>Notion API 金鑰使用 Chrome 的安全儲存機制</li>
+      <li>不會將任何資料傳輸到外部伺服器</li>
+      <li>不會在背景收集或處理任何資料</li>
+    </ul>
+
+    <h2>8. 資料保留與刪除</h2>
+
+    <h3>8.1 本地資料</h3>
+    <p>所有本地儲存的資料將保留在您的設備上，直到：</p>
+    <ul>
+      <li>您卸載擴充功能</li>
+      <li>您手動清除 Chrome 的本地儲存資料</li>
+      <li>您手動刪除特定的設定資料</li>
+    </ul>
+
+    <h3>8.2 資料刪除</h3>
+    <p>您可以通過以下方式刪除您的資料：</p>
+    <ol>
+      <li>卸載擴充功能</li>
+      <li>在 Chrome 設定中清除擴充功能資料</li>
+      <li>手動清除 Notion 中保存的內容</li>
+    </ol>
+
+    <h2>9. Notion 服務整合</h2>
+    <p>本服務與 Notion 筆記軟體整合：</p>
+    <ul>
+      <li>使用 Notion 官方 API 進行資料傳輸</li>
+      <li>所有傳輸都通過 HTTPS 加密連接</li>
+      <li>僅將您明確選擇保存的網頁內容傳輸到 Notion</li>
+      <li>遵循 Notion 的 API 使用條款和限制</li>
+    </ul>
+
+    <h2>10. 兒童隱私</h2>
+    <p>
+      本服務不針對 13
+      歲以下兒童設計，也不會故意收集兒童的個人資訊。如果您是父母或監護人並發現您的孩子提供了個人資訊，請聯繫我們。
+    </p>
+
+    <h2>11. 政策變更</h2>
+    <p>我們可能會不時更新本隱私政策。重大變更將通過以下方式通知：</p>
+    <ul>
+      <li>在擴充功能中顯示通知</li>
+      <li>在更新說明中提及變更</li>
+      <li>在 GitHub 儲存庫中更新政策文件</li>
+    </ul>
+    <p>建議您定期查看本頁面以了解任何變更。</p>
+
+    <h2>12. 聯絡資訊</h2>
+    <p>如果您對本隱私政策有任何疑問或擔憂，請通過以下方式聯絡我們：</p>
+    <div class="contact-box">
+      <ul>
+        <li>📧 電子郵件：<a href="mailto:cowcfj@gmail.com">cowcfj@gmail.com</a></li>
+        <li>🐛 GitHub Issues：<a href="https://github.com/cowcfj/save-to-notion/issues">提交問題</a></li>
+        <li>💻 GitHub 倉庫：<a href="https://github.com/cowcfj/save-to-notion">cowcfj/save-to-notion</a></li>
+      </ul>
+    </div>
+
+    <h2>13. 開源許可</h2>
+    <p>
+      本服務是開源軟體，遵循 MIT 許可證條款。您可以在
+      <a href="https://github.com/cowcfj/save-to-notion">GitHub 儲存庫</a>中查看完整原始碼。
+    </p>
+
+    <footer>
+      <p>
+        Made with ❤️ for Notion users |
+        <a href="https://github.com/cowcfj/save-to-notion">GitHub</a> |
+        <a href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp">Chrome
+          Store</a>
+      </p>
+    </footer>
+  </div>
+</body>
+
 </html>
 </CodeContent>
-<parameter name="EmptyFile">false
+<parameter name="EmptyFile">
