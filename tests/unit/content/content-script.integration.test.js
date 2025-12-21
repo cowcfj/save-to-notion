@@ -3,7 +3,8 @@
  * minimal mocks (Readability, ImageUtils) and asserts that it produces a
  * valid extraction result exposed to window.__notion_extraction_result.
  */
-const { JSDOM } = require('jsdom');
+const jsdom = require('jsdom');
+const { JSDOM } = jsdom;
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -32,14 +33,44 @@ describe('content script integration test', () => {
     const html =
       '<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>';
 
-    const dom = new JSDOM(html, { runScripts: 'dangerously', resources: 'usable' });
+    const virtualConsole = new jsdom.VirtualConsole();
+    virtualConsole.sendTo(console);
+
+    const dom = new JSDOM(html, {
+      runScripts: 'dangerously',
+      resources: 'usable',
+      virtualConsole,
+    });
     const { window } = dom;
+
+    // Inject chrome mock into JSDOM window to enable Logger
+    window.chrome = {
+      runtime: {
+        id: 'test-extension-id',
+        getManifest: () => ({ version: '1.0.0-dev' }), // Enable debug logs
+        sendMessage: jest.fn(),
+        onMessage: { addListener: jest.fn() },
+      },
+      storage: {
+        sync: {
+          get: (keys, cb) => cb({}),
+          onChanged: { addListener: jest.fn() },
+        },
+      },
+    };
 
     // Minimal Readability mock that returns an object with parsed content
     window.Readability = function (doc) {
+      // Null 安全：使用傳入的 doc 或 fallback 到 window.document
+      const safeDoc = doc || window.document;
+
       return {
         parse() {
-          return { title: doc.title, content: '<p>Mock content</p>', length: 300 };
+          return {
+            title: safeDoc.title || 'Test Page',
+            content: '<p>Mock content</p>',
+            length: 300,
+          };
         },
       };
     };

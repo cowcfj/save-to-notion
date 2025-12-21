@@ -59,6 +59,9 @@ describe('Background State Updates', () => {
     // mocking it is safer for this unit test.
     jest.spyOn(injectionService, 'injectHighlighter').mockResolvedValue();
 
+    // Mock ensureBundleInjected（TabService 實際使用的方法）
+    jest.spyOn(injectionService, 'ensureBundleInjected').mockResolvedValue(true);
+
     // Also mock migrateLegacyHighlights if we want to isolate it,
     // but the review said "mocking ... migrateLegacyHighlights as needed".
     // Since it's exported, we can spy on it?
@@ -103,6 +106,11 @@ describe('Background State Updates', () => {
       sendResult(result);
     });
 
+    // Mock chrome.tabs.get to return complete status
+    chrome.tabs.get.mockImplementation((tabId, callback) => {
+      callback({ id: tabId, status: 'complete', url });
+    });
+
     await tabService.updateTabStatus(tabId, url);
 
     // Verify badge update
@@ -110,7 +118,8 @@ describe('Background State Updates', () => {
     expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#48bb78', tabId });
 
     // Verify highlighter injection
-    expect(injectionService.injectHighlighter).toHaveBeenCalledWith(tabId);
+    // TabService 調用 ensureBundleInjected 而非 injectHighlighter
+    expect(injectionService.ensureBundleInjected).toHaveBeenCalledWith(tabId);
   });
 
   test('tabService.updateTabStatus should clear badge when page is not saved', async () => {
