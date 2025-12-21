@@ -142,7 +142,7 @@ describe('InjectionService', () => {
       // Arrange: Bundle 已存在（返回 bundle_ready）
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
         chrome.runtime.lastError = undefined;
-        callback({ status: 'bundle_ready' }, undefined);
+        callback({ status: 'bundle_ready' });
       });
       chrome.runtime.lastError = null;
 
@@ -161,7 +161,7 @@ describe('InjectionService', () => {
       // Arrange: 僅 Preloader（返回 preloader_only）
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
         chrome.runtime.lastError = undefined;
-        callback({ status: 'preloader_only' }, undefined);
+        callback({ status: 'preloader_only' });
       });
       chrome.scripting.executeScript.mockImplementation((opts, callback) => {
         chrome.runtime.lastError = undefined;
