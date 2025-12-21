@@ -55,7 +55,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 7. 標題模板預覽邏輯
   setupTemplatePreview();
+
+  // 8. 側邊欄導航邏輯
+  setupSidebarNavigation();
 });
+
+/**
+ * 設置側邊欄導航
+ */
+function setupSidebarNavigation() {
+  const navItems = document.querySelectorAll('.nav-item');
+  const sections = document.querySelectorAll('.settings-section');
+
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const targetSectionId = `section-${item.dataset.section}`;
+
+      // 1. Update Active Nav Item
+      navItems.forEach(nav => nav.classList.remove('active'));
+      item.classList.add('active');
+
+      // 2. Show Target Section
+      sections.forEach(section => {
+        if (section.id === targetSectionId) {
+          section.classList.add('active');
+        } else {
+          section.classList.remove('active');
+        }
+      });
+    });
+  });
+}
 
 /**
  * 清理並標準化 Database/Page ID
