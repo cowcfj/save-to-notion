@@ -30,7 +30,7 @@ name = "javascript"
 enabled = true
 
   [analyzers.meta]
-  environment = ["browser", "nodejs"]
+  environment = ["browser", "nodejs", "jest"]
 
   # Skip doc coverage checks for some constructs to reduce DOCUMENTATION noise
   skip_doc_coverage = ["class-expression", "method-definition"]
@@ -76,3 +76,6 @@ enabled = true
   [[analyzers.issue_filter]]
   issue_code = "JS-0064"
   paths = ["tests/**/*.js"]
+
+[[code_formatters]]
+name = "prettier"
