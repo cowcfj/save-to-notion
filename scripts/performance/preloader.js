@@ -17,9 +17,9 @@
 
 /* global chrome */
 
-(function () {
-  'use strict';
+'use strict';
 
+(function () {
   // 防止重複初始化
   if (window.__NOTION_PRELOADER_INITIALIZED__) {
     return;
