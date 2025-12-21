@@ -234,6 +234,41 @@ export function createActionHandlers(services) {
         // 確保 Bundle 已注入
         await injectionService.ensureBundleInjected(tabId);
 
+        // 等待 Bundle 完全就緒（重試機制）
+        const maxRetries = 5;
+        const retryDelay = 100; // ms
+        let bundleReady = false;
+
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            const pingResponse = await new Promise((resolve, reject) => {
+              chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  resolve(result);
+                }
+              });
+            });
+
+            if (pingResponse?.status === 'bundle_ready') {
+              bundleReady = true;
+              break;
+            }
+          } catch (_error) {
+            // Bundle 還未就緒，等待後重試
+            if (i < maxRetries - 1) {
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
+          }
+        }
+
+        if (!bundleReady) {
+          Logger.warn(`Bundle not ready after ${maxRetries} retries for tab ${tabId}`);
+          sendResponse({ success: false, error: 'Bundle initialization timeout' });
+          return;
+        }
+
         // 發送消息顯示 highlighter
         chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, response => {
           if (chrome.runtime.lastError) {
