@@ -37,10 +37,9 @@ const mockLogger = {
 
 // Mock InjectionService
 const mockInjectionService = {
-  injectHighlighter: jest.fn().mockResolvedValue({ initialized: true }),
-  injectHighlightRestore: jest.fn().mockResolvedValue(),
-  injectWithResponse: jest.fn().mockResolvedValue({ migrated: false }),
   ensureBundleInjected: jest.fn().mockResolvedValue(true),
+  injectWithResponse: jest.fn().mockResolvedValue({ migrated: false }),
+  injectHighlightRestore: jest.fn().mockResolvedValue(),
 };
 
 describe('TabService', () => {
@@ -55,8 +54,11 @@ describe('TabService', () => {
       isRestrictedUrl: url => url.includes('chrome://'),
       isRecoverableError: msg => msg.includes('Cannot access'),
     });
+
+    // 初始化全局 chrome.runtime
+    chrome.runtime = { lastError: null };
+
     jest.clearAllMocks();
-    chrome.tabs.get.mockReset(); // Added as per instruction
   });
 
   describe('constructor', () => {
@@ -123,8 +125,6 @@ describe('TabService', () => {
 
       // Mock tab get 返回 complete 狀態
       chrome.tabs.get.mockImplementation((tabId, callback) => {
-        // 確保沒有 lastError
-        chrome.runtime = { lastError: null };
         callback({ id: 1, status: 'complete', url: 'https://example.com' });
       });
 
