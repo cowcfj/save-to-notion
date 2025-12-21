@@ -16,20 +16,23 @@
         <img src="../icons/icon48.png" alt="Logo" class="sidebar-logo" />
         <span class="sidebar-title">Save to Notion</span>
       </div>
-      <div class="nav-links">
-        <button class="nav-item active" data-section="general">
+      <div class="nav-links" role="tablist">
+        <button class="nav-item active" data-section="general" role="tab" aria-controls="section-general"
+          aria-selected="true">
           <span class="icon">⚙️</span>
           <span class="label">一般設定</span>
         </button>
-        <button class="nav-item" data-section="templates">
+        <button class="nav-item" data-section="templates" role="tab" aria-controls="section-templates"
+          aria-selected="false">
           <span class="icon">📝</span>
           <span class="label">模板設定</span>
         </button>
-        <button class="nav-item" data-section="data">
+        <button class="nav-item" data-section="data" role="tab" aria-controls="section-data" aria-selected="false">
           <span class="icon">💾</span>
           <span class="label">數據管理</span>
         </button>
-        <button class="nav-item" data-section="diagnostics">
+        <button class="nav-item" data-section="diagnostics" role="tab" aria-controls="section-diagnostics"
+          aria-selected="false">
           <span class="icon">🔧</span>
           <span class="label">診斷工具</span>
         </button>
@@ -105,7 +108,7 @@
             </select>
 
             <p class="help-text">
-              提示：若搜尋不到，可<a href="../USER_GUIDE.md#如何獲取-notion-id" target="_blank">手動輸入 ID</a>。
+              提示：若搜尋不到，可<a href="../USER_GUIDE.md#如何獲取-notion-id" target="_blank" rel="noopener noreferrer">手動輸入 ID</a>。
             </p>
           </div>
 
@@ -229,7 +232,7 @@
             </div>
             <div id="migration-progress" class="progress-container" style="display: none">
               <div class="progress-bar">
-                <div id="migration-progress-bar"></div>
+                <div id="migration-progress-bar" class="progress-fill"></div>
               </div>
               <span id="migration-progress-text">0%</span>
             </div>

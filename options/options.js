@@ -72,8 +72,12 @@ function setupSidebarNavigation() {
       const targetSectionId = `section-${item.dataset.section}`;
 
       // 1. Update Active Nav Item
-      navItems.forEach(nav => nav.classList.remove('active'));
+      navItems.forEach(nav => {
+        nav.classList.remove('active');
+        nav.setAttribute('aria-selected', 'false');
+      });
       item.classList.add('active');
+      item.setAttribute('aria-selected', 'true');
 
       // 2. Show Target Section
       sections.forEach(section => {
