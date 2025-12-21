@@ -51,6 +51,7 @@ copy_dir_if_exists "config"
 copy_dir_if_exists "performance"
 copy_dir_if_exists "errorHandling"
 copy_dir_if_exists "utils"
+copy_dir_if_exists "options"
 
 # Copy seamless-migration.js if it exists separately (it's in scripts/ based on manifest)
 # Checked manifest: "scripts/seamless-migration.js" is used.
