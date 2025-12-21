@@ -55,7 +55,11 @@
       // 發送訊息給 Background
       chrome.runtime.sendMessage({ action: 'USER_ACTIVATE_SHORTCUT' }, _response => {
         if (chrome.runtime.lastError) {
-          // 忽略連接錯誤（如 Background 尚未準備好）
+          // 記錄連接錯誤以便診斷（如 Background 未準備好、權限問題等）
+          console.warn(
+            '[Notion Preloader] Failed to send shortcut message:',
+            chrome.runtime.lastError.message
+          );
           return;
         }
 
