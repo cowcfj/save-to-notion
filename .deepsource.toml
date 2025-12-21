@@ -67,6 +67,11 @@ enabled = true
   issue_code = "JS-0417"
   paths = ["tests/**/*.js"]
 
+  # Ignore error-first callback pattern in tests - Chrome Extension APIs use (result) not (error, result)
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0255"
+  paths = ["tests/**/*.js"]
+
   # Ignore init-declarations in tests - Jest requires declaring variables outside describe() and initializing in beforeEach()
   [[analyzers.issue_filter]]
   issue_code = "JS-0064"
