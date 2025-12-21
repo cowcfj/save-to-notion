@@ -66,14 +66,14 @@ class TabService {
       const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
 
       // 調試日誌：確認 storage 查找結果
-      this.logger.log?.(`🔍 [TabService] Checking highlights for ${highlightsKey}:`, {
+      this.logger.debug?.(`🔍 [TabService] Checking highlights for ${highlightsKey}:`, {
         found: hasHighlights,
         count: hasHighlights ? highlights.length : 0,
         format: Array.isArray(storedData) ? 'array' : typeof storedData,
       });
 
       if (hasHighlights) {
-        this.logger.log?.(
+        this.logger.debug?.(
           `📦 [TabService] Found ${highlights.length} highlights, injecting bundle...`
         );
         // 使用 ensureBundleInjected 確保 Bundle 載入
