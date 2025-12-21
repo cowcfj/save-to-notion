@@ -170,6 +170,7 @@ notion-chrome/
 ├── rollup.all.config.mjs  # 🆕 統一構建配置
 ├── rollup.config.mjs      # Highlighter 構建配置
 ├── rollup.content.config.mjs # Content Script 構建配置
+├── dist/                  # 打包產物 (preloader.js, content.bundle.js)
 ├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popupUI.js, popupActions.js）
 ├── options/               # 設置頁面 UI（options.html, options.js, options.css）
 ├── scripts/               # 核心腳本與子模組
@@ -300,6 +301,9 @@ vim scripts/highlighter/core/Range.js
 - **popup/**：🆕 模塊化彈出頁面邏輯
   - 位置：`popup/` (ES6 模塊)
   - 職責：Actions (API 調用)、UI (DOM 更新)
+- **智慧型注入策略 (Smart Injection)**：
+  - **Preloader**：`< 5KB` 全域注入，負責快捷鍵監聽與性能預熱。
+  - **按需注入**：主程式 `content.bundle.js` 僅在頁面有標註或用戶主動點擊時才載入，大幅降低記憶體佔用。
 - **highlighter-v2.js**：基於 CSS Highlight API 的標註引擎（已模組化）
   - 位置：`scripts/highlighter/` (ES6 模塊)
   - 構建產物：`dist/highlighter-v2.bundle.js` (15KB 壓縮版)
