@@ -161,6 +161,7 @@ describe('InjectionService', () => {
         callback({ status: 'preloader_only' });
       });
       chrome.scripting.executeScript.mockImplementation((opts, callback) => {
+        chrome.runtime.lastError = undefined;
         callback();
       });
       chrome.runtime.lastError = null;
