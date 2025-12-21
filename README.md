@@ -170,8 +170,8 @@ notion-chrome/
 ├── rollup.all.config.mjs  # 🆕 統一構建配置
 ├── rollup.config.mjs      # Highlighter 構建配置
 ├── rollup.content.config.mjs # Content Script 構建配置
-├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popup.css）
-├── options/               # 設置頁面（options.html, options.js, options.css）
+├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popupUI.js, popupActions.js）
+├── options/               # 設置頁面 UI（options.html, options.js, options.css）
 ├── scripts/               # 核心腳本與子模組
 │   ├── background.js
 │   ├── background/        # 🆕 模塊化背景服務
@@ -297,13 +297,16 @@ vim scripts/highlighter/core/Range.js
   - **extractors/**：提取層（ContentExtractor, ReadabilityAdapter, MetadataExtractor, ImageCollector）
   - **converters/**：轉換層（ConverterFactory, DomConverter）
   - **adapters/**：適配層（ReadabilityAdapter 整合 Readability.js）
+- **popup/**：🆕 模塊化彈出頁面邏輯
+  - 位置：`popup/` (ES6 模塊)
+  - 職責：Actions (API 調用)、UI (DOM 更新)
 - **highlighter-v2.js**：基於 CSS Highlight API 的標註引擎（已模組化）
   - 位置：`scripts/highlighter/` (ES6 模塊)
   - 構建產物：`dist/highlighter-v2.bundle.js` (15KB 壓縮版)
 - **config/**：🆕 集中化配置管理
   - `constants.js`：統一常量定義（圖片驗證、性能優化、錯誤處理）
   - `selectors.js`：DOM 選擇器配置（技術內容標記）
-- **options.js**：設置頁面控制器，協調模組化的 UI、認證和數據管理
+- **options**：🆕 模塊化設置頁面核心邏輯
   - 位置：`scripts/options/` (ES6 模塊：UIManager, AuthManager, DataSourceManager, StorageManager, MigrationTool)
 - **utils/Logger.js**：🆕 統一日誌系統，支持環境感知與調試模式控制（`scripts/utils/` 目錄下）
 
