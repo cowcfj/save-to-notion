@@ -151,6 +151,35 @@ describe('TabService', () => {
       );
     });
 
+    it('should handle ensureBundleInjected rejection gracefully', async () => {
+      // Arrange: 模擬 highlights 存在
+      service.getSavedPageData = jest.fn().mockResolvedValue(null);
+      chrome.storage.local.get.mockImplementation((keys, callback) => {
+        callback({ 'highlights_https://example.com': [{ id: '1' }] });
+      });
+
+      chrome.tabs.get.mockImplementation((tabId, callback) => {
+        chrome.runtime = { lastError: null };
+        callback({ id: 1, status: 'complete', url: 'https://example.com' });
+      });
+
+      // Arrange: 模擬注入失敗
+      const injectionError = new Error('Bundle injection failed');
+      mockInjectionService.ensureBundleInjected.mockRejectedValue(injectionError);
+
+      // Act
+      await service.updateTabStatus(1, 'https://example.com');
+
+      // Assert: 錯誤被記錄
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to inject bundle'),
+        injectionError
+      );
+
+      // Assert: ensureBundleInjected 被調用
+      expect(mockInjectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
+    });
+
     it('should handle errors gracefully', async () => {
       service.getSavedPageData = jest.fn().mockRejectedValue(new Error('Storage error'));
 
