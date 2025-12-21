@@ -165,7 +165,7 @@
 
 ```
 notion-chrome/
-├── .github/               # CI 與 workflow（test.yml、coverage.yml）
+├── .github/               # CI 與 workflow（ci.yml、release-please.yml）
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
 ├── rollup.all.config.mjs  # 🆕 統一構建配置
 ├── rollup.config.mjs      # Highlighter 構建配置
