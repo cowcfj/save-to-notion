@@ -30,7 +30,7 @@ name = "javascript"
 enabled = true
 
   [analyzers.meta]
-  environment = ["browser", "nodejs"]
+  environment = ["browser", "nodejs", "jest"]
 
   # Skip doc coverage checks for some constructs to reduce DOCUMENTATION noise
   skip_doc_coverage = ["class-expression", "method-definition"]
@@ -67,7 +67,15 @@ enabled = true
   issue_code = "JS-0417"
   paths = ["tests/**/*.js"]
 
+  # Ignore error-first callback pattern in tests - Chrome Extension APIs use (result) not (error, result)
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0255"
+  paths = ["tests/**/*.js"]
+
   # Ignore init-declarations in tests - Jest requires declaring variables outside describe() and initializing in beforeEach()
   [[analyzers.issue_filter]]
   issue_code = "JS-0064"
   paths = ["tests/**/*.js"]
+
+[[code_formatters]]
+name = "prettier"

@@ -8,21 +8,88 @@
  * - 在頁面上下文中執行（可訪問 DOM、全局變量）
  * - 返回提取結果給 background.js
  *
- * 依賴（需要在 manifest.json 中先注入）：
- * - Readability.js - 第三方庫
- * - Logger.js - 日誌系統
- * - ImageUtils - 圖片處理工具
- * - PerformanceOptimizer - 性能優化（可選）
- * - batchProcess, batchProcessWithRetry - 批處理工具（可選）
+ * 依賴：
+ * - Readability.js - 第三方庫（與此 Bundle 一同注入）
  */
+
+/* global chrome */
 
 import Logger from '../utils/Logger.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
-// 合併 Highlighter bundle：導入並掛載到 window
 // 合併 Highlighter bundle：導入以執行其自動初始化邏輯 (setupHighlighter)
 import '../highlighter/index.js';
+
+// ============================================================
+// Preloader 快取接管
+// ============================================================
+const preloaderCache = window.__NOTION_PRELOADER_CACHE__;
+if (preloaderCache) {
+  Logger.debug('🔄 [Content Bundle] Preloader cache detected:', {
+    hasArticle: Boolean(preloaderCache.article),
+    hasMainContent: Boolean(preloaderCache.mainContent),
+    age: `${Date.now() - preloaderCache.timestamp}ms`,
+  });
+  // 快取可供 ContentExtractor 使用以跳過初始掃描
+}
+
+// 標記 Bundle 已就緒（供 Preloader 和 InjectionService 檢測）
+window.__NOTION_BUNDLE_READY__ = true;
+
+// ============================================================
+// PING 響應機制（供 InjectionService.ensureBundleInjected 使用）
+// ============================================================
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+  if (request.action === 'PING') {
+    sendResponse({
+      status: 'bundle_ready',
+      hasPreloaderCache: Boolean(preloaderCache),
+    });
+    return true;
+  }
+
+  if (request.action === 'showHighlighter') {
+    // 顯示 highlighter toolbar
+    if (window.notionHighlighter) {
+      window.notionHighlighter.show();
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: 'Highlighter not initialized' });
+    }
+    return true;
+  }
+
+  // 未處理的消息不需要異步響應
+  return false;
+});
+
+// ============================================================
+// 重放 Preloader 緩衝事件
+// ============================================================
+chrome.runtime.sendMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, response => {
+  if (chrome.runtime.lastError) {
+    // Preloader 可能尚未載入或已移除，忽略錯誤
+    return;
+  }
+
+  const events = response?.events;
+  if (Array.isArray(events) && events.length > 0) {
+    Logger.log(`🔄 [Content Bundle] Replaying ${events.length} buffered event(s)...`);
+
+    events.forEach(event => {
+      if (event.type === 'shortcut') {
+        // 觸發快捷鍵處理：顯示 highlighter toolbar
+        if (window.notionHighlighter) {
+          Logger.log('⚡ [Content Bundle] Replaying shortcut event → showing toolbar');
+          window.notionHighlighter.show();
+        } else {
+          Logger.warn('⚠️ [Content Bundle] notionHighlighter not available for replay');
+        }
+      }
+    });
+  }
+});
 
 // 立即打印日誌證明腳本已加載
 Logger.log('🚀 [Save to Notion] Content Bundle Loaded! Access via extension context.');

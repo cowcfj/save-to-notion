@@ -37,9 +37,9 @@ const mockLogger = {
 
 // Mock InjectionService
 const mockInjectionService = {
-  injectHighlighter: jest.fn().mockResolvedValue({ initialized: true }),
-  injectHighlightRestore: jest.fn().mockResolvedValue(),
+  ensureBundleInjected: jest.fn().mockResolvedValue(true),
   injectWithResponse: jest.fn().mockResolvedValue({ migrated: false }),
+  injectHighlightRestore: jest.fn().mockResolvedValue(),
 };
 
 describe('TabService', () => {
@@ -54,6 +54,10 @@ describe('TabService', () => {
       isRestrictedUrl: url => url.includes('chrome://'),
       isRecoverableError: msg => msg.includes('Cannot access'),
     });
+
+    // 初始化全局 chrome.runtime
+    chrome.runtime = { lastError: null };
+
     jest.clearAllMocks();
   });
 
@@ -112,15 +116,22 @@ describe('TabService', () => {
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
     });
 
-    it('should inject highlighter when highlights exist', async () => {
+    it('should inject bundle for auto-restore when highlights exist', async () => {
+      // Mock highlights 存在
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
-      chrome.storage.local.get.mockImplementation((keys, sendResult) => {
-        sendResult({ 'highlights_https://example.com': [{ id: '1' }] });
+      chrome.storage.local.get.mockImplementation((keys, callback) => {
+        callback({ 'highlights_https://example.com': [{ id: '1' }] });
+      });
+
+      // Mock tab get 返回 complete 狀態
+      chrome.tabs.get.mockImplementation((tabId, callback) => {
+        callback({ id: 1, status: 'complete', url: 'https://example.com' });
       });
 
       await service.updateTabStatus(1, 'https://example.com');
 
-      expect(mockInjectionService.injectHighlighter).toHaveBeenCalledWith(1);
+      // 驗證使用 ensureBundleInjected 而非 injectHighlighter
+      expect(mockInjectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
     });
 
     it('should call migrateLegacyHighlights when no highlights exist', async () => {
@@ -138,6 +149,35 @@ describe('TabService', () => {
         'https://example.com',
         'highlights_https://example.com'
       );
+    });
+
+    it('should handle ensureBundleInjected rejection gracefully', async () => {
+      // Arrange: 模擬 highlights 存在
+      service.getSavedPageData = jest.fn().mockResolvedValue(null);
+      chrome.storage.local.get.mockImplementation((keys, callback) => {
+        callback({ 'highlights_https://example.com': [{ id: '1' }] });
+      });
+
+      chrome.tabs.get.mockImplementation((tabId, callback) => {
+        chrome.runtime = { lastError: null };
+        callback({ id: 1, status: 'complete', url: 'https://example.com' });
+      });
+
+      // Arrange: 模擬注入失敗
+      const injectionError = new Error('Bundle injection failed');
+      mockInjectionService.ensureBundleInjected.mockRejectedValue(injectionError);
+
+      // Act
+      await service.updateTabStatus(1, 'https://example.com');
+
+      // Assert: 錯誤被記錄
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to inject bundle'),
+        injectionError
+      );
+
+      // Assert: ensureBundleInjected 被調用
+      expect(mockInjectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
     });
 
     it('should handle errors gracefully', async () => {

@@ -29,6 +29,12 @@ import { waitForDOMStability } from './utils/domStability.js';
 // Storage utility - 導入以設置 window.StorageUtil（由 HighlightManager 使用）
 import './utils/StorageUtil.js';
 
+// 導入並掛載 normalizeUrl（供 HighlightManager.restoreHighlights 使用）
+import { normalizeUrl } from '../utils/urlUtils.js';
+if (typeof window !== 'undefined' && !window.normalizeUrl) {
+  window.normalizeUrl = normalizeUrl;
+}
+
 // Restore module - 標註恢復管理器
 import { RestoreManager } from './core/RestoreManager.js';
 

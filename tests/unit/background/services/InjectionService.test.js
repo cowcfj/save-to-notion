@@ -9,6 +9,9 @@ global.chrome = {
   scripting: {
     executeScript: jest.fn(),
   },
+  tabs: {
+    sendMessage: jest.fn(),
+  },
   runtime: {
     lastError: null,
   },
@@ -17,6 +20,7 @@ global.chrome = {
 // Mock Logger
 const mockLogger = {
   log: jest.fn(),
+  debug: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
 };
@@ -129,6 +133,70 @@ describe('InjectionService', () => {
           files: ['dist/content.bundle.js'],
         }),
         expect.any(Function)
+      );
+    });
+  });
+
+  describe('ensureBundleInjected', () => {
+    it('應在 Bundle 已存在時不重複注入', async () => {
+      // Arrange: Bundle 已存在（返回 bundle_ready）
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = undefined;
+        callback({ status: 'bundle_ready' });
+      });
+      chrome.runtime.lastError = null;
+
+      // Act
+      const result = await service.ensureBundleInjected(1);
+
+      // Assert
+      expect(result).toBe(true);
+      expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('Bundle already exists')
+      );
+    });
+
+    it('應在僅有 Preloader 時注入 Bundle', async () => {
+      // Arrange: 僅 Preloader（返回 preloader_only）
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = undefined;
+        callback({ status: 'preloader_only' });
+      });
+      chrome.scripting.executeScript.mockImplementation((opts, callback) => {
+        chrome.runtime.lastError = undefined;
+        callback();
+      });
+      chrome.runtime.lastError = null;
+
+      // Act
+      const result = await service.ensureBundleInjected(1);
+
+      // Assert
+      expect(result).toBe(true);
+      expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
+        expect.objectContaining({
+          files: ['lib/Readability.js', 'dist/content.bundle.js'],
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('應在權限受限頁面時返回 false', async () => {
+      // Arrange: 權限受限（sendMessage 失敗）
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = { message: 'Cannot access contents of page' };
+        callback();
+      });
+
+      // Act
+      const result = await service.ensureBundleInjected(1);
+
+      // Assert
+      expect(result).toBe(false);
+      expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Bundle injection skipped')
       );
     });
   });

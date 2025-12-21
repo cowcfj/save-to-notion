@@ -56,9 +56,18 @@
             <span class="icon">🔧</span>
             <span class="label">診斷工具</span>
           </button>
+          <button
+            class="nav-item"
+            data-section="guide"
+            role="tab"
+            aria-controls="section-guide"
+            aria-selected="false"
+          >
+            <span class="icon">📖</span>
+            <span class="label">使用指南</span>
+          </button>
         </div>
         <div class="sidebar-footer">
-          <a href="../help.html" target="_blank" class="footer-link">使用指南</a>
           <span class="version">v2.18.1</span>
         </div>
       </nav>
@@ -316,6 +325,316 @@
                 <label for="enable-debug-logs">啟用除錯日誌 (Debug Logs)</label>
               </div>
               <p class="help-text">將前端操作日誌轉發到背景頁面 console，僅供開發排查使用。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 使用指南區塊 -->
+        <section id="section-guide" class="settings-section">
+          <header class="section-header">
+            <h2>使用指南</h2>
+            <p class="section-desc">了解如何最有效地使用 Notion Smart Clipper</p>
+          </header>
+
+          <!-- 快速開始 -->
+          <div class="card">
+            <h3>🚀 快速開始</h3>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 16px;
+                margin-top: 16px;
+              "
+            >
+              <div
+                style="
+                  padding: 16px;
+                  background: #f8f9fc;
+                  border-radius: 8px;
+                  border-left: 3px solid #00b0ff;
+                "
+              >
+                <strong style="display: block; margin-bottom: 8px">1. 連接擴展</strong>
+                <p style="margin: 0; font-size: 0.875rem; color: #666">
+                  點擊擴展圖標 → Settings → 點擊「連接到 Notion」
+                </p>
+              </div>
+              <div
+                style="
+                  padding: 16px;
+                  background: #f8f9fc;
+                  border-radius: 8px;
+                  border-left: 3px solid #00b0ff;
+                "
+              >
+                <strong style="display: block; margin-bottom: 8px">2. 授權訪問</strong>
+                <p style="margin: 0; font-size: 0.875rem; color: #666">
+                  在 Notion 創建 Integration，複製 Secret Key 並保存
+                </p>
+              </div>
+              <div
+                style="
+                  padding: 16px;
+                  background: #f8f9fc;
+                  border-radius: 8px;
+                  border-left: 3px solid #00b0ff;
+                "
+              >
+                <strong style="display: block; margin-bottom: 8px">3. 開始使用</strong>
+                <p style="margin: 0; font-size: 0.875rem; color: #666">
+                  選擇目標數據庫，點擊保存按鈕即可剪藏！
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 核心功能 -->
+          <div class="card">
+            <h3>⚡ 核心功能</h3>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 16px;
+                margin-top: 16px;
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  gap: 12px;
+                  padding: 12px;
+                  background: #f8f9fc;
+                  border-radius: 8px;
+                "
+              >
+                <div
+                  style="
+                    flex-shrink: 0;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #ecfdf5;
+                    border-radius: 8px;
+                    font-size: 1.25rem;
+                  "
+                >
+                  📝
+                </div>
+                <div>
+                  <strong style="display: block; margin-bottom: 4px">一鍵保存</strong>
+                  <div style="font-size: 0.875rem; color: #666">智能提取文章內容、圖片與 icon</div>
+                </div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  gap: 12px;
+                  padding: 12px;
+                  background: #f8f9fc;
+                  border-radius: 8px;
+                "
+              >
+                <div
+                  style="
+                    flex-shrink: 0;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #ecfdf5;
+                    border-radius: 8px;
+                    font-size: 1.25rem;
+                  "
+                >
+                  🎨
+                </div>
+                <div>
+                  <strong style="display: block; margin-bottom: 4px">多色標註</strong>
+                  <div style="font-size: 0.875rem; color: #666">支持 5 種顏色高亮重點內容</div>
+                </div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  gap: 12px;
+                  padding: 12px;
+                  background: #f8f9fc;
+                  border-radius: 8px;
+                "
+              >
+                <div
+                  style="
+                    flex-shrink: 0;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #ecfdf5;
+                    border-radius: 8px;
+                    font-size: 1.25rem;
+                  "
+                >
+                  ⌨️
+                </div>
+                <div>
+                  <strong style="display: block; margin-bottom: 4px">快捷鍵支援</strong>
+                  <div style="font-size: 0.875rem; color: #666">
+                    按
+                    <code
+                      style="
+                        background: #e2e8f0;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        font-size: 0.875em;
+                      "
+                      >Ctrl+S</code
+                    >
+                    (Mac:
+                    <code
+                      style="
+                        background: #e2e8f0;
+                        padding: 2px 6px;
+                        border-radius: 4px;
+                        font-size: 0.875em;
+                      "
+                      >Cmd+S</code
+                    >) 快速開啟標註工具
+                  </div>
+                </div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  gap: 12px;
+                  padding: 12px;
+                  background: #f8f9fc;
+                  border-radius: 8px;
+                "
+              >
+                <div
+                  style="
+                    flex-shrink: 0;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #ecfdf5;
+                    border-radius: 8px;
+                    font-size: 1.25rem;
+                  "
+                >
+                  ⚙️
+                </div>
+                <div>
+                  <strong style="display: block; margin-bottom: 4px">自定義模板</strong>
+                  <div style="font-size: 0.875rem; color: #666">支持 {title}, {date} 等變數</div>
+                </div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  gap: 12px;
+                  padding: 12px;
+                  background: #f8f9fc;
+                  border-radius: 8px;
+                "
+              >
+                <div
+                  style="
+                    flex-shrink: 0;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #ecfdf5;
+                    border-radius: 8px;
+                    font-size: 1.25rem;
+                  "
+                >
+                  ✅
+                </div>
+                <div>
+                  <strong style="display: block; margin-bottom: 4px">狀態同步</strong>
+                  <div style="font-size: 0.875rem; color: #666">圖標徽章即時顯示保存狀態</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 常見問題 -->
+          <div class="card">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+              "
+            >
+              <h3 style="margin: 0">💡 常見問題</h3>
+              <a
+                href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md"
+                target="_blank"
+                class="btn-secondary"
+                style="padding: 6px 12px; font-size: 0.875rem; text-decoration: none"
+              >
+                查看完整指南
+              </a>
+            </div>
+
+            <div style="border-top: 1px solid #e5e7eb">
+              <div style="padding: 16px 0; border-bottom: 1px solid #f3f4f6">
+                <div style="font-weight: 600; margin-bottom: 8px">API Key 無法連接？</div>
+                <div style="color: #666; font-size: 0.95rem">
+                  請確認 Token 格式正確（以
+                  <code
+                    style="
+                      background: #f1f5f9;
+                      padding: 2px 6px;
+                      border-radius: 4px;
+                      color: #e11d48;
+                    "
+                    >secret_</code
+                  >
+                  開頭），並確保網路連接正常。
+                </div>
+              </div>
+              <div style="padding: 16px 0; border-bottom: 1px solid #f3f4f6">
+                <div style="font-weight: 600; margin-bottom: 8px">數據庫列表為空？</div>
+                <div style="color: #666; font-size: 0.95rem">
+                  請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。
+                </div>
+              </div>
+              <div style="padding: 16px 0">
+                <div style="font-weight: 600; margin-bottom: 8px">標註沒有顯示？</div>
+                <div style="color: #666; font-size: 0.95rem">
+                  請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px; text-align: center">
+              <a
+                href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq"
+                target="_blank"
+                class="btn-primary"
+                style="
+                  display: inline-block;
+                  padding: 12px 24px;
+                  text-decoration: none;
+                  width: auto;
+                "
+              >
+                📖 閱讀完整用戶指南與 FAQ
+              </a>
             </div>
           </div>
         </section>

@@ -56,17 +56,73 @@ class TabService {
         chrome.action.setBadgeText({ text: '', tabId });
       }
 
-      // 2. 檢查是否有標註，注入高亮腳本
+      // 2. 檢查是否有標註，注入 Bundle 以自動恢復
       const data = await new Promise(resolve => chrome.storage.local.get([highlightsKey], resolve));
-      const highlights = data[highlightsKey];
+      const storedData = data[highlightsKey];
 
-      if (Array.isArray(highlights) && highlights.length > 0) {
-        if (this.logger.debug) {
-          this.logger.debug(
-            `Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`
+      // 解析 highlights 格式（支援數組和對象兩種格式）
+      // 新版格式: {highlights: [...], url: "..."} 舊版格式: [...]
+      const highlights = Array.isArray(storedData) ? storedData : storedData?.highlights;
+      const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
+
+      // 調試日誌：確認 storage 查找結果
+      this.logger.debug?.(`🔍 [TabService] Checking highlights for ${highlightsKey}:`, {
+        found: hasHighlights,
+        count: hasHighlights ? highlights.length : 0,
+        format: Array.isArray(storedData) ? 'array' : typeof storedData,
+      });
+
+      if (hasHighlights) {
+        this.logger.debug?.(
+          `📦 [TabService] Found ${highlights.length} highlights, preparing to inject bundle...`
+        );
+
+        // 確保頁面狀態是 complete 後再注入
+        try {
+          // 查詢 tab 的最新狀態
+          const tab = await new Promise((resolve, reject) =>
+            chrome.tabs.get(tabId, tabInfo => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(tabInfo);
+              }
+            })
+          );
+
+          if (!tab) {
+            this.logger.warn?.(`[TabService] Tab ${tabId} not found, skipping injection`);
+            return;
+          }
+
+          // 如果頁面還在載入，等待 complete
+          if (tab.status !== 'complete') {
+            this.logger.debug?.(`[TabService] Tab ${tabId} status is ${tab.status}, waiting...`);
+            // 註冊一次性監聽器，等待頁面 complete
+            const onUpdated = (updatedTabId, changeInfo) => {
+              if (updatedTabId === tabId && changeInfo.status === 'complete') {
+                chrome.tabs.onUpdated.removeListener(onUpdated);
+                this.logger.debug?.(`[TabService] Tab ${tabId} now complete, injecting bundle...`);
+                // 異步注入，不阻塞當前流程
+                this.injectionService
+                  .ensureBundleInjected(tabId)
+                  .catch(err => this.logger.error?.('[TabService] Delayed injection failed:', err));
+              }
+            };
+            chrome.tabs.onUpdated.addListener(onUpdated);
+            return;
+          }
+
+          // 頁面已 complete，直接注入
+          this.logger.debug?.(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
+          await this.injectionService.ensureBundleInjected(tabId);
+        } catch (injectionError) {
+          // 注入失敗不應該阻止整個流程
+          this.logger.error?.(
+            `[TabService] Failed to inject bundle for tab ${tabId}:`,
+            injectionError
           );
         }
-        await this.injectionService.injectHighlighter(tabId);
       } else {
         // 沒有找到現有標註，若曾有遷移資料則恢復一次後清理
         await this.migrateLegacyHighlights(tabId, normUrl, highlightsKey);

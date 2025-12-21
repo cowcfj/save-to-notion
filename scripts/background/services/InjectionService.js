@@ -12,6 +12,9 @@
 
 /* global chrome */
 
+// PING 請求超時時間（毫秒）
+const PING_TIMEOUT_MS = 2000;
+
 /**
  * 檢查 URL 是否限制注入腳本
  * @param {string} url - 要檢查的 URL
@@ -95,10 +98,10 @@ function getRuntimeErrorMessage(runtimeError) {
 }
 
 /**
- * 判斷是否為軟性（可恢復）錯誤
- * 常見於無法注入受限頁面或標籤已關閉
+ * 判斷注入錯誤是否可恢復（例如受限頁面、無權限等）
+ * 可恢復錯誤將被靜默處理，不視為真正的失敗
  * @param {string} message - 錯誤訊息
- * @returns {boolean}
+ * @returns {boolean} 是否為可恢復錯誤
  */
 function isRecoverableInjectionError(message) {
   if (!message) {
@@ -121,6 +124,10 @@ function isRecoverableInjectionError(message) {
     'ERR_INTERNET_DISCONNECTED',
     'ERR_TIMED_OUT',
     'ERR_SSL_PROTOCOL_ERROR',
+    // Content script 環境未就緒（Preloader 還未注入）
+    // 這是暫時性問題，通常在稍後重試會成功
+    'Receiving end does not exist',
+    'Could not establish connection',
   ];
 
   return patterns.some(pattern => message.includes(pattern));
@@ -257,6 +264,68 @@ class InjectionService {
       if (logErrors) {
         this.logger.error?.(errorMessage, error);
       }
+      throw error;
+    }
+  }
+
+  /**
+   * 確保 Content Bundle 已注入到指定標籤頁
+   * 使用 PING 機制檢測 Bundle 是否存在，若無則注入
+   * @param {number} tabId - 目標標籤頁 ID
+   * @returns {Promise<boolean>} 若已注入或成功注入返回 true
+   */
+  async ensureBundleInjected(tabId) {
+    try {
+      // 發送 PING 檢查 Bundle 是否存在（帶超時保護）
+      const response = await Promise.race([
+        new Promise((resolve, reject) => {
+          chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(result);
+            }
+          });
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('PING timeout')), PING_TIMEOUT_MS)
+        ),
+      ]);
+
+      if (response?.status === 'bundle_ready') {
+        this.logger.debug?.(`✅ Bundle already exists in tab ${tabId}`);
+        return true; // Bundle 已存在
+      }
+
+      // Bundle 不存在（僅 Preloader 或無回應），注入主程式
+      this.logger.debug?.(`📦 Injecting Content Bundle into tab ${tabId}...`);
+
+      await new Promise((resolve, reject) => {
+        chrome.scripting.executeScript(
+          {
+            target: { tabId },
+            files: ['lib/Readability.js', 'dist/content.bundle.js'],
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+
+      this.logger.log?.(`✅ Content Bundle injected into tab ${tabId}`);
+      return true;
+    } catch (error) {
+      // 處理錯誤（如無法連接、權限受限）
+      const errorMessage = error?.message || String(error);
+      if (isRecoverableInjectionError(errorMessage)) {
+        this.logger.warn?.(`⚠️ Bundle injection skipped (recoverable): ${errorMessage}`);
+        return false;
+      }
+      this.logger.error?.(`❌ Bundle injection failed: ${errorMessage}`);
       throw error;
     }
   }
