@@ -1,5 +1,50 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.19.0](https://github.com/cowcfj/save-to-notion/compare/v2.18.1...v2.19.0) (2025-12-21)
+
+
+### ✨ 新功能
+
+* **migration:** 完成標註數據遷移工具的重構與測試 ([#187](https://github.com/cowcfj/save-to-notion/issues/187)) ([cbd05f0](https://github.com/cowcfj/save-to-notion/commit/cbd05f072402b579a195bcc75526627be7651636))
+* **tests:** 增加背景狀態更新測試及內容腳本整合測試的模擬 ([6fd0172](https://github.com/cowcfj/save-to-notion/commit/6fd0172a44be1239ee0b31dedccc00f3e9ddc718))
+* **tests:** 更新背景狀態測試和內容腳本整合測試的模擬 ([bc748a4](https://github.com/cowcfj/save-to-notion/commit/bc748a4cdc8735002f0d97e08aac3e46c4aa26d3))
+* 新增 Preloader 功能及高亮標註自動恢復 ([#191](https://github.com/cowcfj/save-to-notion/issues/191)) ([dc8d261](https://github.com/cowcfj/save-to-notion/commit/dc8d261c44900b0b27f5ace5a1d318d349d62eda))
+* 新增功能以改善用戶體驗 ([0cf6d74](https://github.com/cowcfj/save-to-notion/commit/0cf6d74b7cdd60c780c7329f6aa048a5a60fc668))
+* 新增存儲和用戶界面管理功能 ([#189](https://github.com/cowcfj/save-to-notion/issues/189)) ([f56f6a9](https://github.com/cowcfj/save-to-notion/commit/f56f6a9151ded0ed1a7343aa00914b73296566f0))
+* 更新 Codecov 配置以允許攜帶上次覆蓋率並新增快速測試命令 ([0778b03](https://github.com/cowcfj/save-to-notion/commit/0778b03c496e00d6f01f7c2b64e98fe77b85e688))
+* 更新選項頁面 UI 與功能 ([#190](https://github.com/cowcfj/save-to-notion/issues/190)) ([d449a53](https://github.com/cowcfj/save-to-notion/commit/d449a5363443a75490cf298739baa4010bb33633))
+
+
+### 🐛 Bug 修復
+
+* 禁用 carryforward 以防止保留先前的覆蓋率數據 ([64b8e08](https://github.com/cowcfj/save-to-notion/commit/64b8e0842b0e7144ec51700727827657a88a9b67))
+
+
+### ♻️ 代碼重構
+
+* format code with Prettier ([#192](https://github.com/cowcfj/save-to-notion/issues/192)) ([4871a49](https://github.com/cowcfj/save-to-notion/commit/4871a4996bba0b33a6cba9b61d9330ad0f6e8a5e))
+* **MigrationExecutor:** 移除不必要的註解 ([cbd05f0](https://github.com/cowcfj/save-to-notion/commit/cbd05f072402b579a195bcc75526627be7651636))
+* **tests:** 更新 DataSourceManager 測試中的 json 方法，改用 Promise.resolve 以符合預期行為 ([f56f6a9](https://github.com/cowcfj/save-to-notion/commit/f56f6a9151ded0ed1a7343aa00914b73296566f0))
+* 更新 codecov.yml，排除已重構的遷移檔案以避免計算覆蓋率 ([2175ae1](https://github.com/cowcfj/save-to-notion/commit/2175ae16a07e38d89017a89a7e2c12f2fbcc9fe0))
+* 移除 HighlightManager 初始化中的無痛自動遷移步驟 ([24c9e03](https://github.com/cowcfj/save-to-notion/commit/24c9e03fa1edbea3bbc5391aa367fc85672b75a5))
+
+
+### 👷 建置與 CI
+
+* 優化 Rollup 配置 ([f56f6a9](https://github.com/cowcfj/save-to-notion/commit/f56f6a9151ded0ed1a7343aa00914b73296566f0))
+
+
+### 🧹 其他變更
+
+* 刪除 `utils.test.js` 單元測試檔案並修改 `codecov.yml` 配置。 ([03ddb59](https://github.com/cowcfj/save-to-notion/commit/03ddb5984ae291c085afc35e12364fd40693bfd4))
+* 忽略程式碼覆蓋率報告檔案並新增至 .gitignore。 ([176be72](https://github.com/cowcfj/save-to-notion/commit/176be7265fcdc518ba25d8260376e2d2c77aff04))
+* 更新 .gitignore 檔案以反映新的忽略規則。 ([88bb16d](https://github.com/cowcfj/save-to-notion/commit/88bb16d7aba162fd4b3bb86c43ac68ef26acf778))
+* 更新 Codecov 配置 ([99a10a3](https://github.com/cowcfj/save-to-notion/commit/99a10a3cc97489a9c0c4d35fd801dabc0c102edb))
+* 更新 lcov 覆蓋率數據。 ([b679d77](https://github.com/cowcfj/save-to-notion/commit/b679d772382d31ee67f9d4450a40e4f669c10047))
+* 移除 MCP 交互式測試指南文件 ([887557a](https://github.com/cowcfj/save-to-notion/commit/887557a2c2d19893e8066642c240e4fce3151aac))
+* 移除 Thomas Frank 方案的整合測試與對比測試文件 ([443cd19](https://github.com/cowcfj/save-to-notion/commit/443cd193fc384312fd5d8cd6a9764c80ba11e83d))
+* 移除過時的 MIGRATION-STATUS.md 文件 ([059a2cb](https://github.com/cowcfj/save-to-notion/commit/059a2cbd52b1c4ee9ba20ca6fff005154bdb5689))
+
 ## [2.18.1](https://github.com/cowcfj/save-to-notion/compare/v2.18.0...v2.18.1) (2025-12-20)
 
 
