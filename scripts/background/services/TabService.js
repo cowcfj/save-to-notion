@@ -81,11 +81,11 @@ class TabService {
         try {
           // 查詢 tab 的最新狀態
           const tab = await new Promise((resolve, reject) =>
-            chrome.tabs.get(tabId, tab => {
+            chrome.tabs.get(tabId, tabInfo => {
               if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
               } else {
-                resolve(tab);
+                resolve(tabInfo);
               }
             })
           );
