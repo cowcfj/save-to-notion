@@ -1,38 +1,36 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Save to Notion</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Save to Notion</title>
-  <link rel="stylesheet" href="popup.css" />
-</head>
+  <body>
+    <div class="container">
+      <h2>Save to Notion</h2>
+      <p id="status">Ready to save.</p>
+      <button id="highlight-button">📝 Start Highlighting</button>
+      <button id="save-button">💾 Save Page</button>
+      <button id="open-notion-button" style="display: none">🔗 Open in Notion</button>
+      <button id="clear-highlights-button" style="display: none">🗑️ Clear Highlights</button>
+      <div class="links">
+        <a href="../options/options.html" target="_blank">⚙️ Settings</a>
+      </div>
 
-<body>
-  <div class="container">
-    <h2>Save to Notion</h2>
-    <p id="status">Ready to save.</p>
-    <button id="highlight-button">📝 Start Highlighting</button>
-    <button id="save-button">💾 Save Page</button>
-    <button id="open-notion-button" style="display: none">🔗 Open in Notion</button>
-    <button id="clear-highlights-button" style="display: none">🗑️ Clear Highlights</button>
-    <div class="links">
-      <a href="../options/options.html" target="_blank">⚙️ Settings</a>
-    </div>
-
-    <!-- Confirmation Modal -->
-    <div id="confirmation-modal" class="modal" style="display: none">
-      <div class="modal-content">
-        <h3>Confirm Action</h3>
-        <p id="modal-message">Are you sure?</p>
-        <div class="modal-buttons">
-          <button id="modal-cancel">Cancel</button>
-          <button id="modal-confirm" class="danger">Confirm</button>
+      <!-- Confirmation Modal -->
+      <div id="confirmation-modal" class="modal" style="display: none">
+        <div class="modal-content">
+          <h3>Confirm Action</h3>
+          <p id="modal-message">Are you sure?</p>
+          <div class="modal-buttons">
+            <button id="modal-cancel">Cancel</button>
+            <button id="modal-confirm" class="danger">Confirm</button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-  <script src="popup.js" type="module"></script>
-</body>
-
+    <script src="popup.js" type="module"></script>
+  </body>
 </html>

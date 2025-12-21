@@ -1,62 +1,60 @@
 <!doctype html>
 <html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notion Smart Clipper - 更新說明</title>
+    <link rel="stylesheet" href="update-notification.css" />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Notion Smart Clipper - 更新說明</title>
-  <link rel="stylesheet" href="update-notification.css" />
-</head>
-
-<body>
-  <div class="container">
-    <header class="header">
-      <div class="logo">
-        <img src="../icons/icon48.png" alt="Notion Smart Clipper" class="logo-icon" />
-        <div class="logo-text">
-          <h1>Notion Smart Clipper</h1>
-          <div class="version-info">
-            <span class="version-badge" id="current-version"></span>
-            <span class="update-label">已更新</span>
+  <body>
+    <div class="container">
+      <header class="header">
+        <div class="logo">
+          <img src="../icons/icon48.png" alt="Notion Smart Clipper" class="logo-icon" />
+          <div class="logo-text">
+            <h1>Notion Smart Clipper</h1>
+            <div class="version-info">
+              <span class="version-badge" id="current-version"></span>
+              <span class="update-label">已更新</span>
+            </div>
           </div>
         </div>
-      </div>
-      <button class="close-btn" id="close-btn" title="關閉">✕</button>
-    </header>
+        <button class="close-btn" id="close-btn" title="關閉">✕</button>
+      </header>
 
-    <main class="content">
-      <div class="update-hero">
-        <div class="update-icon">🎉</div>
-        <h2>更新完成！</h2>
-        <p class="update-summary" id="update-summary">
-          從 <span id="prev-version"></span> 更新到 <span id="curr-version"></span>
-        </p>
-      </div>
-
-      <div class="update-content" id="update-content">
-        <!-- 動態載入更新內容 -->
-        <div class="loading">
-          <div class="spinner"></div>
-          <p>載入更新說明中...</p>
+      <main class="content">
+        <div class="update-hero">
+          <div class="update-icon">🎉</div>
+          <h2>更新完成！</h2>
+          <p class="update-summary" id="update-summary">
+            從 <span id="prev-version"></span> 更新到 <span id="curr-version"></span>
+          </p>
         </div>
-      </div>
 
-      <div class="actions">
-        <button class="btn btn-primary" id="try-now-btn">🚀 立即體驗</button>
-        <button class="btn btn-secondary" id="view-changelog-btn">📋 查看完整更新日誌</button>
-      </div>
+        <div class="update-content" id="update-content">
+          <!-- 動態載入更新內容 -->
+          <div class="loading">
+            <div class="spinner"></div>
+            <p>載入更新說明中...</p>
+          </div>
+        </div>
 
-      <div class="footer-info">
-        <p>
-          <span class="icon">💡</span>
-          需要幫助？查看
-          <a href="../options/options.html" target="_blank">設置頁面的使用指南</a>
-        </p>
-      </div>
-    </main>
-  </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="try-now-btn">🚀 立即體驗</button>
+          <button class="btn btn-secondary" id="view-changelog-btn">📋 查看完整更新日誌</button>
+        </div>
 
-  <script src="update-notification.js"></script>
-</body>
+        <div class="footer-info">
+          <p>
+            <span class="icon">💡</span>
+            需要幫助？查看
+            <a href="../options/options.html" target="_blank">設置頁面的使用指南</a>
+          </p>
+        </div>
+      </main>
+    </div>
 
+    <script src="update-notification.js"></script>
+  </body>
 </html>
