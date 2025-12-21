@@ -25,7 +25,7 @@ echo "📂 Copying files..."
 
 # Copy root files
 cp -a manifest.json "$RM_DIR/"
-cp -a help.html "$RM_DIR/"
+
 
 # Copy directories
 cp -a icons "$RM_DIR/"
