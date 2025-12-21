@@ -4,6 +4,7 @@ import { AuthManager } from '../scripts/options/AuthManager.js';
 import { DataSourceManager } from '../scripts/options/DataSourceManager.js';
 import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
+import Logger from '../scripts/utils/Logger.js';
 
 /**
  * Options Page Main Controller
@@ -55,7 +56,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 7. 標題模板預覽邏輯
   setupTemplatePreview();
+
+  // 8. 側邊欄導航邏輯
+  setupSidebarNavigation();
 });
+
+/**
+ * 設置側邊欄導航
+ */
+function setupSidebarNavigation() {
+  const navItems = document.querySelectorAll('.nav-item');
+  const sections = document.querySelectorAll('.settings-section');
+
+  if (navItems.length === 0 || sections.length === 0) {
+    Logger.warn('設定頁面：找不到導航項目或設定區塊。');
+    return;
+  }
+
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const sectionName = item.dataset.section;
+      if (!sectionName) {
+        Logger.warn('設定頁面：導航項目缺少 data-section 屬性', item);
+        return;
+      }
+
+      const targetSectionId = `section-${sectionName}`;
+      // 驗證目標區塊是否存在
+      const targetExists = Array.from(sections).some(section => section.id === targetSectionId);
+
+      if (!targetExists) {
+        Logger.warn(`設定頁面：找不到目標區塊：${targetSectionId}`);
+        return;
+      }
+
+      // 1. 更新當前導航項目
+      navItems.forEach(nav => {
+        nav.classList.remove('active');
+        nav.setAttribute('aria-selected', 'false');
+      });
+      item.classList.add('active');
+      item.setAttribute('aria-selected', 'true');
+
+      // 2. 顯示目標區塊
+      sections.forEach(section => {
+        if (section.id === targetSectionId) {
+          section.classList.add('active');
+          section.setAttribute('aria-hidden', 'false');
+        } else {
+          section.classList.remove('active');
+          section.setAttribute('aria-hidden', 'true');
+        }
+      });
+    });
+  });
+}
 
 /**
  * 清理並標準化 Database/Page ID
