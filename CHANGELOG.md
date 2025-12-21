@@ -1,5 +1,28 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.19.2](https://github.com/cowcfj/save-to-notion/compare/v2.19.1...v2.19.2) (2025-12-21)
+
+
+### 🐛 Bug 修復
+
+* 增加選項目錄的複製功能至打包腳本 ([#196](https://github.com/cowcfj/save-to-notion/issues/196)) ([23d727b](https://github.com/cowcfj/save-to-notion/commit/23d727b2f7516e116566ca0a25d71ec0d36be2d2))
+
+
+### 📝 文檔更新
+
+* 更新 README.md 說明文件。 ([6377f05](https://github.com/cowcfj/save-to-notion/commit/6377f05d9ec03b1ebca9ff0dd793849ef3b57b1a))
+* 更新專案文件 ([255f234](https://github.com/cowcfj/save-to-notion/commit/255f2344a895fd80c575e1e0f9985536d97dd571))
+
+
+### ♻️ 代碼重構
+
+* format code with Prettier ([#194](https://github.com/cowcfj/save-to-notion/issues/194)) ([3979a1c](https://github.com/cowcfj/save-to-notion/commit/3979a1c9462faa84894d44757165aaf735bb5b38))
+
+
+### 🧹 其他變更
+
+* 更新 README 檔案並調整首頁內容。 ([ba244dd](https://github.com/cowcfj/save-to-notion/commit/ba244ddd3b71325184aacba960234af738a70172))
+
 ## [2.19.1](https://github.com/cowcfj/save-to-notion/compare/v2.19.0...v2.19.1) (2025-12-21)
 
 
