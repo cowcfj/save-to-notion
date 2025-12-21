@@ -12,6 +12,9 @@
 
 /* global chrome */
 
+// PING 請求超時時間（毫秒）
+const PING_TIMEOUT_MS = 2000;
+
 /**
  * 檢查 URL 是否限制注入腳本
  * @param {string} url - 要檢查的 URL
@@ -269,16 +272,21 @@ class InjectionService {
    */
   async ensureBundleInjected(tabId) {
     try {
-      // 發送 PING 檢查 Bundle 是否存在
-      const response = await new Promise((resolve, reject) => {
-        chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(result);
-          }
-        });
-      });
+      // 發送 PING 檢查 Bundle 是否存在（帶超時保護）
+      const response = await Promise.race([
+        new Promise((resolve, reject) => {
+          chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(result);
+            }
+          });
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('PING timeout')), PING_TIMEOUT_MS)
+        ),
+      ]);
 
       if (response?.status === 'bundle_ready') {
         this.logger.log?.(`✅ Bundle already exists in tab ${tabId}`);
