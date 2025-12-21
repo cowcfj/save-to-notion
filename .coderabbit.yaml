@@ -1,14 +1,14 @@
 # CodeRabbit Configuration
 # Documentation: https://coderabbit.ai/docs/configure-coderabbit
 
-language: "zh-TW"
+language: 'zh-TW'
 
 reviews:
-  profile: "chill"
+  profile: 'chill'
   request_changes_workflow: false
   high_level_summary: false
   auto_review:
     enabled: true
     ignore_usernames:
-      - "release-please[bot]"
-      - "github-actions[bot]"
+      - 'release-please[bot]'
+      - 'github-actions[bot]'

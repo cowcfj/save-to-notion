@@ -35,15 +35,15 @@ export default {
     stripTestConfig(),
     resolve(),
     !isDev &&
-    terser({
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-      format: {
-        comments: false,
-      },
-    }),
+      terser({
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+        format: {
+          comments: false,
+        },
+      }),
   ].filter(Boolean),
   onwarn(warning, warn) {
     if (warning.code === 'THIS_IS_UNDEFINED') return;
