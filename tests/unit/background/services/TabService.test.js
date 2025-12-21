@@ -119,14 +119,14 @@ describe('TabService', () => {
       // Mock highlights 存在
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
       chrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({ 'highlights_https://example.com': [{ id: '1' }] });
+        callback({ 'highlights_https://example.com': [{ id: '1' }] }, undefined);
       });
 
       // Mock tab get 返回 complete 狀態
       chrome.tabs.get.mockImplementation((tabId, callback) => {
         // 確保沒有 lastError
         chrome.runtime = { lastError: null };
-        callback({ id: 1, status: 'complete', url: 'https://example.com' });
+        callback({ id: 1, status: 'complete', url: 'https://example.com' }, undefined);
       });
 
       await service.updateTabStatus(1, 'https://example.com');
@@ -138,7 +138,7 @@ describe('TabService', () => {
     it('should call migrateLegacyHighlights when no highlights exist', async () => {
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
       chrome.storage.local.get.mockImplementation((keys, sendResult) => {
-        sendResult({});
+        sendResult({}, undefined);
       });
 
       const migrateSpy = jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
