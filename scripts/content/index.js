@@ -18,8 +18,17 @@ import Logger from '../utils/Logger.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
+// 導入 normalizeUrl 供 HighlightManager 使用
+import { normalizeUrl } from '../utils/urlUtils.js';
 // 合併 Highlighter bundle：導入以執行其自動初始化邏輯 (setupHighlighter)
 import '../highlighter/index.js';
+
+// ============================================================
+// 掛載工具函數到 window（供 HighlightManager 等模組使用）
+// ============================================================
+if (typeof window !== 'undefined' && !window.normalizeUrl) {
+  window.normalizeUrl = normalizeUrl;
+}
 
 // ============================================================
 // Preloader 快取接管

@@ -56,17 +56,29 @@ class TabService {
         chrome.action.setBadgeText({ text: '', tabId });
       }
 
-      // 2. 檢查是否有標註，注入高亮腳本
+      // 2. 檢查是否有標註，注入 Bundle 以自動恢復
       const data = await new Promise(resolve => chrome.storage.local.get([highlightsKey], resolve));
-      const highlights = data[highlightsKey];
+      const storedData = data[highlightsKey];
 
-      if (Array.isArray(highlights) && highlights.length > 0) {
-        if (this.logger.debug) {
-          this.logger.debug(
-            `Found ${highlights.length} highlights for ${normUrl}, ensuring highlighter is initialized`
-          );
-        }
-        await this.injectionService.injectHighlighter(tabId);
+      // 解析 highlights 格式（支援數組和對象兩種格式）
+      // 新版格式: {highlights: [...], url: "..."} 舊版格式: [...]
+      const highlights = Array.isArray(storedData) ? storedData : storedData?.highlights;
+      const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
+
+      // 調試日誌：確認 storage 查找結果
+      this.logger.log?.(`🔍 [TabService] Checking highlights for ${highlightsKey}:`, {
+        found: hasHighlights,
+        count: hasHighlights ? highlights.length : 0,
+        format: Array.isArray(storedData) ? 'array' : typeof storedData,
+      });
+
+      if (hasHighlights) {
+        this.logger.log?.(
+          `📦 [TabService] Found ${highlights.length} highlights, injecting bundle...`
+        );
+        // 使用 ensureBundleInjected 確保 Bundle 載入
+        // Bundle 載入後，HighlightManager.initialize() 會自動恢復標註
+        await this.injectionService.ensureBundleInjected(tabId);
       } else {
         // 沒有找到現有標註，若曾有遷移資料則恢復一次後清理
         await this.migrateLegacyHighlights(tabId, normUrl, highlightsKey);

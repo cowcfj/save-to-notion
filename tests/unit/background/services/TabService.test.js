@@ -40,6 +40,7 @@ const mockInjectionService = {
   injectHighlighter: jest.fn().mockResolvedValue({ initialized: true }),
   injectHighlightRestore: jest.fn().mockResolvedValue(),
   injectWithResponse: jest.fn().mockResolvedValue({ migrated: false }),
+  ensureBundleInjected: jest.fn().mockResolvedValue(true),
 };
 
 describe('TabService', () => {
@@ -112,7 +113,7 @@ describe('TabService', () => {
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
     });
 
-    it('should inject highlighter when highlights exist', async () => {
+    it('should inject bundle for auto-restore when highlights exist', async () => {
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
       chrome.storage.local.get.mockImplementation((keys, sendResult) => {
         sendResult({ 'highlights_https://example.com': [{ id: '1' }] });
@@ -120,7 +121,8 @@ describe('TabService', () => {
 
       await service.updateTabStatus(1, 'https://example.com');
 
-      expect(mockInjectionService.injectHighlighter).toHaveBeenCalledWith(1);
+      // 驗證使用 ensureBundleInjected 而非 injectHighlighter
+      expect(mockInjectionService.ensureBundleInjected).toHaveBeenCalledWith(1);
     });
 
     it('should call migrateLegacyHighlights when no highlights exist', async () => {
