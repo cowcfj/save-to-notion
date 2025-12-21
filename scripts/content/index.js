@@ -52,6 +52,33 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   return false;
 });
 
+// ============================================================
+// 重放 Preloader 緩衝事件
+// ============================================================
+chrome.runtime.sendMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, response => {
+  if (chrome.runtime.lastError) {
+    // Preloader 可能尚未載入或已移除，忽略錯誤
+    return;
+  }
+
+  const events = response?.events;
+  if (Array.isArray(events) && events.length > 0) {
+    Logger.log(`🔄 [Content Bundle] Replaying ${events.length} buffered event(s)...`);
+
+    events.forEach(event => {
+      if (event.type === 'shortcut') {
+        // 觸發快捷鍵處理：顯示 highlighter toolbar
+        if (window.notionHighlighter) {
+          Logger.log('⚡ [Content Bundle] Replaying shortcut event → showing toolbar');
+          window.notionHighlighter.show();
+        } else {
+          Logger.warn('⚠️ [Content Bundle] notionHighlighter not available for replay');
+        }
+      }
+    });
+  }
+});
+
 // 立即打印日誌證明腳本已加載
 Logger.log('🚀 [Save to Notion] Content Bundle Loaded! Access via extension context.');
 
