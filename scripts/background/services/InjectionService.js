@@ -262,6 +262,63 @@ class InjectionService {
   }
 
   /**
+   * 確保 Content Bundle 已注入到指定標籤頁
+   * 使用 PING 機制檢測 Bundle 是否存在，若無則注入
+   * @param {number} tabId - 目標標籤頁 ID
+   * @returns {Promise<boolean>} 若已注入或成功注入返回 true
+   */
+  async ensureBundleInjected(tabId) {
+    try {
+      // 發送 PING 檢查 Bundle 是否存在
+      const response = await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(result);
+          }
+        });
+      });
+
+      if (response?.status === 'bundle_ready') {
+        this.logger.log?.(`✅ Bundle already exists in tab ${tabId}`);
+        return true; // Bundle 已存在
+      }
+
+      // Bundle 不存在（僅 Preloader 或無回應），注入主程式
+      this.logger.log?.(`📦 Injecting Content Bundle into tab ${tabId}...`);
+
+      await new Promise((resolve, reject) => {
+        chrome.scripting.executeScript(
+          {
+            target: { tabId },
+            files: ['lib/Readability.js', 'dist/content.bundle.js'],
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+
+      this.logger.log?.(`✅ Content Bundle injected into tab ${tabId}`);
+      return true;
+    } catch (error) {
+      // 處理錯誤（如無法連接、權限受限）
+      const errorMessage = error?.message || String(error);
+      if (isRecoverableInjectionError(errorMessage)) {
+        this.logger.warn?.(`⚠️ Bundle injection skipped (recoverable): ${errorMessage}`);
+        return false;
+      }
+      this.logger.error?.(`❌ Bundle injection failed: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  /**
    * 注入標記工具並初始化
    * v2.5.0: 使用新版 CSS Highlight API + 無痛自動遷移
    * @param {number} tabId
