@@ -35,23 +35,14 @@ cp -a lib "$RM_DIR/"
 cp -a update-notification "$RM_DIR/"
 cp -a dist "$RM_DIR/"
 
-# Copy scripts (selectively)
-mkdir -p "$RM_DIR/scripts"
-cp -a scripts/*.js "$RM_DIR/scripts/"
+# Copy scripts directory (will clean up unwanted subdirs later)
+cp -a scripts "$RM_DIR/"
 
-# Function to copy dir if exists
-copy_dir_if_exists() {
-    if [ -d "scripts/$1" ]; then
-        cp -a "scripts/$1" "$RM_DIR/scripts/"
-    fi
-}
-
-copy_dir_if_exists "background"
-copy_dir_if_exists "config"
-copy_dir_if_exists "performance"
-copy_dir_if_exists "errorHandling"
-copy_dir_if_exists "utils"
-copy_dir_if_exists "options"
+# Remove test-only and bundled directories
+rm -rf "$RM_DIR/scripts/__mocks__"     # Jest mock files
+rm -rf "$RM_DIR/scripts/content"       # Bundled into dist/content.bundle.js
+rm -rf "$RM_DIR/scripts/highlighter"   # Bundled into content bundle
+rm -rf "$RM_DIR/scripts/legacy"        # Bundled into dist/migration-executor.js
 
 # Copy seamless-migration.js if it exists separately (it's in scripts/ based on manifest)
 # Checked manifest: "scripts/seamless-migration.js" is used.
