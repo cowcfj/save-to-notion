@@ -18,21 +18,15 @@ mkdir -p releases
 
 # Create temporary packaging directory
 RM_DIR="release-package"
-rm -rf "$RM_DIR"
-mkdir -p "$RM_DIR"
 
-# Safety check: Ensure RM_DIR is not empty and not a system directory
-if [ -z "$RM_DIR" ] || [ ! -d "$RM_DIR" ]; then
-    echo "❌ Error: RM_DIR is empty or does not exist. Aborting."
+# Safety: Ensure RM_DIR is set (prevents rm -rf /)
+if [ -z "$RM_DIR" ]; then
+    echo "❌ Error: RM_DIR is empty. Aborting."
     exit 1
 fi
 
-case "$RM_DIR" in
-    /|/usr|/var|/etc|/bin|/sbin|/lib|/home|/root)
-        echo "❌ Error: RM_DIR points to a system directory. Aborting."
-        exit 1
-        ;;
-esac
+rm -rf "$RM_DIR"
+mkdir -p "$RM_DIR"
 
 echo "📂 Copying files..."
 
@@ -55,9 +49,6 @@ rsync -a \
     --exclude='highlighter' \
     --exclude='legacy' \
     scripts/ "$RM_DIR/scripts/"
-
-# Copy seamless-migration.js if it exists separately (it's in scripts/ based on manifest)
-# Checked manifest: "scripts/seamless-migration.js" is used.
 
 echo "📂 Scripts folder content:"
 ls -R "$RM_DIR/scripts/"
