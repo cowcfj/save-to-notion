@@ -50,11 +50,17 @@ ignore:
   - 'scripts/highlight-restore.js' # 已移至 internal/archive/
 
 # Flags 配置（用於追蹤不同類型的測試）
+# 使用多個 flags 支援增量測試
 flags:
-  unittests:
+  unit:
     paths:
       - scripts/
-    carryforward: false # 保留先前的覆蓋率數據
+    carryforward: true  # 允許攜帶上次覆蓋率
+  
+  e2e:
+    paths:
+      - scripts/
+    carryforward: true  # 允許攜帶上次覆蓋率
 
 
 # 說明：

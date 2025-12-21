@@ -66,7 +66,8 @@ class CoverageMerger {
       }
     } else {
       console.warn(`⚠️ E2E 覆蓋率路徑不存在: ${e2eCoveragePath}`);
-      return;
+      console.log('ℹ️  將只生成 Jest 單元測試覆蓋率報告');
+      return; // 繼續執行，生成僅包含 Jest 的報告
     }
 
     if (filesToLoad.length === 0) {

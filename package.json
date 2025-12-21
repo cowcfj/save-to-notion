@@ -11,6 +11,7 @@
     "test": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",
     "test:coverage": "jest --config jest.config.js --coverage",
+    "test:quick": "jest --config jest.config.js --onlyChanged --coverage",
     "test:ci": "jest --config jest.config.js --ci --coverage --maxWorkers=2",
     "test:e2e": "npm run build:prod && playwright test",
     "test:e2e:ui": "playwright test --ui",
