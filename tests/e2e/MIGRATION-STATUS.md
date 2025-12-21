@@ -22,7 +22,6 @@
 | ------------------- | ------------------- | ---- |
 | `COVERAGE-GUIDE.md` | 完整架構與整合指南  | ✅   |
 | `README.md`         | Playwright 快速開始 | ✅   |
-| `MCP-TESTING.md`    | MCP 交互式測試指南  | ✅   |
 
 ### 3. CI/CD 整合（已完成）
 

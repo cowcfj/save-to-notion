@@ -79,7 +79,6 @@ tests/e2e/
 ├── coverage-merger.js # 覆蓋率合併工具
 ├── playwright.config.js # 配置文件 (項目根目錄或此處)
 ├── README.md          # 本指南
-├── MCP-TESTING.md     # 交互式 MCP 測試指南
 └── COVERAGE-GUIDE.md  # 覆蓋率整合深度指南
 ```
 
