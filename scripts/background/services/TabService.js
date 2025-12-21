@@ -74,11 +74,55 @@ class TabService {
 
       if (hasHighlights) {
         this.logger.debug?.(
-          `📦 [TabService] Found ${highlights.length} highlights, injecting bundle...`
+          `📦 [TabService] Found ${highlights.length} highlights, preparing to inject bundle...`
         );
-        // 使用 ensureBundleInjected 確保 Bundle 載入
-        // Bundle 載入後，HighlightManager.initialize() 會自動恢復標註
-        await this.injectionService.ensureBundleInjected(tabId);
+
+        // 確保頁面狀態是 complete 後再注入
+        try {
+          // 查詢 tab 的最新狀態
+          const tab = await new Promise((resolve, reject) =>
+            chrome.tabs.get(tabId, tab => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(tab);
+              }
+            })
+          );
+
+          if (!tab) {
+            this.logger.warn?.(`[TabService] Tab ${tabId} not found, skipping injection`);
+            return;
+          }
+
+          // 如果頁面還在載入，等待 complete
+          if (tab.status !== 'complete') {
+            this.logger.debug?.(`[TabService] Tab ${tabId} status is ${tab.status}, waiting...`);
+            // 註冊一次性監聽器，等待頁面 complete
+            const onUpdated = (updatedTabId, changeInfo) => {
+              if (updatedTabId === tabId && changeInfo.status === 'complete') {
+                chrome.tabs.onUpdated.removeListener(onUpdated);
+                this.logger.debug?.(`[TabService] Tab ${tabId} now complete, injecting bundle...`);
+                // 異步注入，不阻塞當前流程
+                this.injectionService
+                  .ensureBundleInjected(tabId)
+                  .catch(err => this.logger.error?.('[TabService] Delayed injection failed:', err));
+              }
+            };
+            chrome.tabs.onUpdated.addListener(onUpdated);
+            return;
+          }
+
+          // 頁面已 complete，直接注入
+          this.logger.debug?.(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
+          await this.injectionService.ensureBundleInjected(tabId);
+        } catch (injectionError) {
+          // 注入失敗不應該阻止整個流程
+          this.logger.error?.(
+            `[TabService] Failed to inject bundle for tab ${tabId}:`,
+            injectionError
+          );
+        }
       } else {
         // 沒有找到現有標註，若曾有遷移資料則恢復一次後清理
         await this.migrateLegacyHighlights(tabId, normUrl, highlightsKey);

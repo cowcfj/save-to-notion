@@ -98,10 +98,10 @@ function getRuntimeErrorMessage(runtimeError) {
 }
 
 /**
- * 判斷是否為軟性（可恢復）錯誤
- * 常見於無法注入受限頁面或標籤已關閉
+ * 判斷注入錯誤是否可恢復（例如受限頁面、無權限等）
+ * 可恢復錯誤將被靜默處理，不視為真正的失敗
  * @param {string} message - 錯誤訊息
- * @returns {boolean}
+ * @returns {boolean} 是否為可恢復錯誤
  */
 function isRecoverableInjectionError(message) {
   if (!message) {
@@ -124,6 +124,10 @@ function isRecoverableInjectionError(message) {
     'ERR_INTERNET_DISCONNECTED',
     'ERR_TIMED_OUT',
     'ERR_SSL_PROTOCOL_ERROR',
+    // Content script 環境未就緒（Preloader 還未注入）
+    // 這是暫時性問題，通常在稍後重試會成功
+    'Receiving end does not exist',
+    'Could not establish connection',
   ];
 
   return patterns.some(pattern => message.includes(pattern));

@@ -215,15 +215,18 @@ export function createActionHandlers(services) {
     USER_ACTIVATE_SHORTCUT: async (request, sender, sendResponse) => {
       try {
         if (!sender.tab || !sender.tab.id) {
+          Logger.warn('[USER_ACTIVATE_SHORTCUT] No tab context');
           sendResponse({ success: false, error: 'No tab context' });
           return;
         }
 
         const tabId = sender.tab.id;
+        const tabUrl = sender.tab.url;
         Logger.log(`⚡ [USER_ACTIVATE_SHORTCUT] Triggered from tab ${tabId}`);
 
         // 檢查是否為受限頁面
-        if (sender.tab.url && isRestrictedInjectionUrl(sender.tab.url)) {
+        if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
+          Logger.warn(`[USER_ACTIVATE_SHORTCUT] Restricted URL: ${tabUrl}`);
           sendResponse({
             success: false,
             error: '此頁面不支援標註功能（系統頁面或受限網址）',
@@ -231,12 +234,21 @@ export function createActionHandlers(services) {
           return;
         }
 
-        // 確保 Bundle 已注入
-        await injectionService.ensureBundleInjected(tabId);
+        // 確保 Bundle 已注入（捕獲可能的注入錯誤）
+        try {
+          await injectionService.ensureBundleInjected(tabId);
+        } catch (injectionError) {
+          Logger.error('[USER_ACTIVATE_SHORTCUT] Bundle injection failed:', injectionError);
+          sendResponse({
+            success: false,
+            error: `Bundle 注入失敗: ${injectionError.message}`,
+          });
+          return;
+        }
 
         // 等待 Bundle 完全就緒（重試機制）
-        const maxRetries = 5;
-        const retryDelay = 100; // ms
+        const maxRetries = 10;
+        const retryDelay = 150; // ms
         let bundleReady = false;
 
         for (let i = 0; i < maxRetries; i++) {
@@ -253,9 +265,10 @@ export function createActionHandlers(services) {
 
             if (pingResponse?.status === 'bundle_ready') {
               bundleReady = true;
+              Logger.log(`[USER_ACTIVATE_SHORTCUT] Bundle ready on attempt ${i + 1}`);
               break;
             }
-          } catch (_error) {
+          } catch (_pingError) {
             // Bundle 還未就緒，等待後重試
             if (i < maxRetries - 1) {
               await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -264,22 +277,29 @@ export function createActionHandlers(services) {
         }
 
         if (!bundleReady) {
-          Logger.warn(`Bundle not ready after ${maxRetries} retries for tab ${tabId}`);
-          sendResponse({ success: false, error: 'Bundle initialization timeout' });
+          Logger.warn(`[USER_ACTIVATE_SHORTCUT] Bundle not ready after ${maxRetries} retries`);
+          sendResponse({
+            success: false,
+            error: 'Bundle 初始化超時，請重試或刷新頁面',
+          });
           return;
         }
 
         // 發送消息顯示 highlighter
         chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, response => {
           if (chrome.runtime.lastError) {
-            Logger.warn('Failed to show highlighter:', chrome.runtime.lastError.message);
+            Logger.warn(
+              '[USER_ACTIVATE_SHORTCUT] Failed to show highlighter:',
+              chrome.runtime.lastError.message
+            );
             sendResponse({ success: false, error: chrome.runtime.lastError.message });
           } else {
+            Logger.log('[USER_ACTIVATE_SHORTCUT] Highlighter shown successfully');
             sendResponse({ success: true, response });
           }
         });
       } catch (error) {
-        Logger.error('Error in USER_ACTIVATE_SHORTCUT:', error);
+        Logger.error('[USER_ACTIVATE_SHORTCUT] Unexpected error:', error);
         sendResponse({ success: false, error: error.message });
       }
     },

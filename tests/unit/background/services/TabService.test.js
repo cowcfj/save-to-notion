@@ -24,6 +24,7 @@ global.chrome = {
       addListener: jest.fn(),
     },
     get: jest.fn(),
+    query: jest.fn(),
   },
 };
 
@@ -56,6 +57,7 @@ describe('TabService', () => {
       isRecoverableError: msg => msg.includes('Cannot access'),
     });
     jest.clearAllMocks();
+    chrome.tabs.get.mockReset(); // Added as per instruction
   });
 
   describe('constructor', () => {
@@ -114,9 +116,17 @@ describe('TabService', () => {
     });
 
     it('should inject bundle for auto-restore when highlights exist', async () => {
+      // Mock highlights 存在
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
-      chrome.storage.local.get.mockImplementation((keys, sendResult) => {
-        sendResult({ 'highlights_https://example.com': [{ id: '1' }] });
+      chrome.storage.local.get.mockImplementation((keys, callback) => {
+        callback({ 'highlights_https://example.com': [{ id: '1' }] });
+      });
+
+      // Mock tab get 返回 complete 狀態
+      chrome.tabs.get.mockImplementation((tabId, callback) => {
+        // 確保沒有 lastError
+        chrome.runtime = { lastError: null };
+        callback({ id: 1, status: 'complete', url: 'https://example.com' });
       });
 
       await service.updateTabStatus(1, 'https://example.com');
