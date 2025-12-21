@@ -1,7 +1,7 @@
 # CodeRabbit Configuration
 # Documentation: https://coderabbit.ai/docs/configure-coderabbit
 
-language: 'zh-TW'
+language: 'zh'
 
 reviews:
   profile: 'chill'
