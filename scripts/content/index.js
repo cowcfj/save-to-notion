@@ -48,6 +48,18 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     });
     return true;
   }
+
+  if (request.action === 'showHighlighter') {
+    // 顯示 highlighter toolbar
+    if (window.notionHighlighter) {
+      window.notionHighlighter.show();
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: false, error: 'Highlighter not initialized' });
+    }
+    return true;
+  }
+
   // 未處理的消息不需要異步響應
   return false;
 });

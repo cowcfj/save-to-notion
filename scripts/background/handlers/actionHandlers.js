@@ -210,6 +210,46 @@ export function createActionHandlers(services) {
 
   return {
     /**
+     * 處理用戶快捷鍵激活（來自 Preloader）
+     */
+    USER_ACTIVATE_SHORTCUT: async (request, sender, sendResponse) => {
+      try {
+        if (!sender.tab || !sender.tab.id) {
+          sendResponse({ success: false, error: 'No tab context' });
+          return;
+        }
+
+        const tabId = sender.tab.id;
+        Logger.log(`⚡ [USER_ACTIVATE_SHORTCUT] Triggered from tab ${tabId}`);
+
+        // 檢查是否為受限頁面
+        if (sender.tab.url && isRestrictedInjectionUrl(sender.tab.url)) {
+          sendResponse({
+            success: false,
+            error: '此頁面不支援標註功能（系統頁面或受限網址）',
+          });
+          return;
+        }
+
+        // 確保 Bundle 已注入
+        await injectionService.ensureBundleInjected(tabId);
+
+        // 發送消息顯示 highlighter
+        chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, response => {
+          if (chrome.runtime.lastError) {
+            Logger.warn('Failed to show highlighter:', chrome.runtime.lastError.message);
+            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+          } else {
+            sendResponse({ success: true, response });
+          }
+        });
+      } catch (error) {
+        Logger.error('Error in USER_ACTIVATE_SHORTCUT:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
      * 保存頁面
      */
     savePage: async (request, sender, sendResponse) => {
