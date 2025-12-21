@@ -53,7 +53,10 @@ describe('content script integration test', () => {
       },
       storage: {
         sync: {
-          get: (keys, cb) => cb({}),
+          get: (keys, cb) => {
+            const result = {};
+            cb(result);
+          },
           onChanged: { addListener: jest.fn() },
         },
       },

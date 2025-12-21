@@ -108,7 +108,8 @@ describe('Background State Updates', () => {
 
     // Mock chrome.tabs.get to return complete status
     chrome.tabs.get.mockImplementation((tabId, callback) => {
-      callback({ id: tabId, status: 'complete', url });
+      const tab = { id: tabId, status: 'complete', url };
+      callback(tab);
     });
 
     await tabService.updateTabStatus(tabId, url);
