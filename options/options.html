@@ -1,326 +1,421 @@
 <!doctype html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Notion Clipper 設定</title>
-    <link rel="stylesheet" href="options.css" />
-  </head>
 
-  <body>
-    <div class="app-container">
-      <!-- 側邊欄導航 -->
-      <nav class="sidebar">
-        <div class="sidebar-header">
-          <img src="../icons/icon48.png" alt="Logo" class="sidebar-logo" />
-          <span class="sidebar-title">Save to Notion</span>
-        </div>
-        <div class="nav-links" role="tablist">
-          <button
-            class="nav-item active"
-            data-section="general"
-            role="tab"
-            aria-controls="section-general"
-            aria-selected="true"
-          >
-            <span class="icon">⚙️</span>
-            <span class="label">一般設定</span>
-          </button>
-          <button
-            class="nav-item"
-            data-section="templates"
-            role="tab"
-            aria-controls="section-templates"
-            aria-selected="false"
-          >
-            <span class="icon">📝</span>
-            <span class="label">模板設定</span>
-          </button>
-          <button
-            class="nav-item"
-            data-section="data"
-            role="tab"
-            aria-controls="section-data"
-            aria-selected="false"
-          >
-            <span class="icon">💾</span>
-            <span class="label">數據管理</span>
-          </button>
-          <button
-            class="nav-item"
-            data-section="diagnostics"
-            role="tab"
-            aria-controls="section-diagnostics"
-            aria-selected="false"
-          >
-            <span class="icon">🔧</span>
-            <span class="label">診斷工具</span>
-          </button>
-        </div>
-        <div class="sidebar-footer">
-          <a href="../help.html" target="_blank" class="footer-link">使用指南</a>
-          <span class="version">v2.18.1</span>
-        </div>
-      </nav>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notion Clipper 設定</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
 
-      <!-- 主要內容區域 -->
-      <main class="content-area">
-        <!-- 一般設定區塊 -->
-        <section id="section-general" class="settings-section active">
-          <header class="section-header">
-            <h2>一般設定</h2>
-            <p class="section-desc">管理您的 Notion 連接帳戶與基本配置</p>
-          </header>
+<body>
+  <div class="app-container">
+    <!-- 側邊欄導航 -->
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <img src="../icons/icon48.png" alt="Logo" class="sidebar-logo" />
+        <span class="sidebar-title">Save to Notion</span>
+      </div>
+      <div class="nav-links" role="tablist">
+        <button class="nav-item active" data-section="general" role="tab" aria-controls="section-general"
+          aria-selected="true">
+          <span class="icon">⚙️</span>
+          <span class="label">一般設定</span>
+        </button>
+        <button class="nav-item" data-section="templates" role="tab" aria-controls="section-templates"
+          aria-selected="false">
+          <span class="icon">📝</span>
+          <span class="label">模板設定</span>
+        </button>
+        <button class="nav-item" data-section="data" role="tab" aria-controls="section-data" aria-selected="false">
+          <span class="icon">💾</span>
+          <span class="label">數據管理</span>
+        </button>
+        <button class="nav-item" data-section="diagnostics" role="tab" aria-controls="section-diagnostics"
+          aria-selected="false">
+          <span class="icon">🔧</span>
+          <span class="label">診斷工具</span>
+        </button>
+        <button class="nav-item" data-section="guide" role="tab" aria-controls="section-guide" aria-selected="false">
+          <span class="icon">📖</span>
+          <span class="label">使用指南</span>
+        </button>
+      </div>
+      <div class="sidebar-footer">
+        <span class="version">v2.18.1</span>
+      </div>
+    </nav>
 
-          <div class="card">
-            <h3>Notion 連接</h3>
-            <div id="auth-status" class="auth-status"></div>
-            <div class="auth-actions">
-              <button id="oauth-button" class="btn-primary">
-                <span class="icon">🔗</span> 連接到 Notion
-              </button>
-              <button id="disconnect-button" class="btn-danger" style="display: none">
-                <span class="icon">❌</span> 斷開連接
-              </button>
+    <!-- 主要內容區域 -->
+    <main class="content-area">
+      <!-- 一般設定區塊 -->
+      <section id="section-general" class="settings-section active">
+        <header class="section-header">
+          <h2>一般設定</h2>
+          <p class="section-desc">管理您的 Notion 連接帳戶與基本配置</p>
+        </header>
+
+        <div class="card">
+          <h3>Notion 連接</h3>
+          <div id="auth-status" class="auth-status"></div>
+          <div class="auth-actions">
+            <button id="oauth-button" class="btn-primary">
+              <span class="icon">🔗</span> 連接到 Notion
+            </button>
+            <button id="disconnect-button" class="btn-danger" style="display: none">
+              <span class="icon">❌</span> 斷開連接
+            </button>
+          </div>
+          <p class="section-desc text-sm" style="margin-top: 10px">
+            點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>手動配置</h3>
+          <div class="form-group">
+            <label for="api-key">Notion API Key</label>
+            <div class="input-wrapper">
+              <input type="password" id="api-key" placeholder="輸入您的 Integration Token" />
+              <button type="button" id="test-api-button" class="btn-secondary">驗證</button>
             </div>
-            <p class="section-desc text-sm" style="margin-top: 10px">
-              點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
+          </div>
+
+          <div class="form-group">
+            <label for="database-id">資料來源 ID (Page/Database)</label>
+            <div class="input-wrapper">
+              <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
+            </div>
+
+            <!-- 可搜索的數據庫選擇器組件 -->
+            <div class="database-selector-container" id="database-selector-container" style="display: none">
+              <div class="searchable-selector">
+                <div class="selector-input">
+                  <input type="text" id="database-search" placeholder="搜尋資料來源..." autocomplete="off" />
+                  <button type="button" id="selector-toggle" class="selector-toggle">▼</button>
+                </div>
+                <div class="selector-dropdown" id="database-dropdown" style="display: none">
+                  <div class="dropdown-header">
+                    <span id="database-count">0 個來源</span>
+                    <button type="button" id="refresh-databases" class="btn-icon" title="重新整理">
+                      🔄
+                    </button>
+                  </div>
+                  <div class="dropdown-list" id="database-list">
+                    <div class="loading-state">載入中...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 回退選擇器 -->
+            <select id="database-select" style="display: none">
+              <option value="">選擇資料來源...</option>
+            </select>
+
+            <p class="help-text">
+              提示：若搜尋不到，可<a href="../USER_GUIDE.md#如何獲取-notion-id" target="_blank" rel="noopener noreferrer">手動輸入 ID</a>。
             </p>
           </div>
 
-          <div class="card">
-            <h3>手動配置</h3>
-            <div class="form-group">
-              <label for="api-key">Notion API Key</label>
-              <div class="input-wrapper">
-                <input type="password" id="api-key" placeholder="輸入您的 Integration Token" />
-                <button type="button" id="test-api-button" class="btn-secondary">驗證</button>
-              </div>
-            </div>
+          <button id="save-button" class="btn-primary full-width">儲存設定</button>
+          <p id="status" class="status-message"></p>
+        </div>
+      </section>
 
-            <div class="form-group">
-              <label for="database-id">資料來源 ID (Page/Database)</label>
-              <div class="input-wrapper">
-                <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
-              </div>
+      <!-- 模板設定區塊 -->
+      <section id="section-templates" class="settings-section">
+        <header class="section-header">
+          <h2>模板設定</h2>
+          <p class="section-desc">自定義儲存到 Notion 時的頁面格式</p>
+        </header>
 
-              <!-- 可搜索的數據庫選擇器組件 -->
-              <div
-                class="database-selector-container"
-                id="database-selector-container"
-                style="display: none"
-              >
-                <div class="searchable-selector">
-                  <div class="selector-input">
-                    <input
-                      type="text"
-                      id="database-search"
-                      placeholder="搜尋資料來源..."
-                      autocomplete="off"
-                    />
-                    <button type="button" id="selector-toggle" class="selector-toggle">▼</button>
-                  </div>
-                  <div class="selector-dropdown" id="database-dropdown" style="display: none">
-                    <div class="dropdown-header">
-                      <span id="database-count">0 個來源</span>
-                      <button
-                        type="button"
-                        id="refresh-databases"
-                        class="btn-icon"
-                        title="重新整理"
-                      >
-                        🔄
-                      </button>
-                    </div>
-                    <div class="dropdown-list" id="database-list">
-                      <div class="loading-state">載入中...</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <div class="card">
+          <h3>頁面屬性</h3>
+          <div class="form-group">
+            <label for="title-template">標題格式</label>
+            <input type="text" id="title-template" placeholder="{title} - {date}" />
+            <p class="help-text">
+              可用變數：{title}, {date}, {time}, {datetime}, {url}, {domain}
+            </p>
 
-              <!-- 回退選擇器 -->
-              <select id="database-select" style="display: none">
-                <option value="">選擇資料來源...</option>
-              </select>
-
-              <p class="help-text">
-                提示：若搜尋不到，可<a
-                  href="../USER_GUIDE.md#如何獲取-notion-id"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >手動輸入 ID</a
-                >。
-              </p>
-            </div>
-
-            <button id="save-button" class="btn-primary full-width">儲存設定</button>
-            <p id="status" class="status-message"></p>
+            <button type="button" id="preview-template" class="btn-secondary">預覽效果</button>
+            <div id="template-preview" class="preview-box"></div>
           </div>
-        </section>
 
-        <!-- 模板設定區塊 -->
-        <section id="section-templates" class="settings-section">
-          <header class="section-header">
-            <h2>模板設定</h2>
-            <p class="section-desc">自定義儲存到 Notion 時的頁面格式</p>
-          </header>
-
-          <div class="card">
-            <h3>頁面屬性</h3>
-            <div class="form-group">
-              <label for="title-template">標題格式</label>
-              <input type="text" id="title-template" placeholder="{title} - {date}" />
-              <p class="help-text">
-                可用變數：{title}, {date}, {time}, {datetime}, {url}, {domain}
-              </p>
-
-              <button type="button" id="preview-template" class="btn-secondary">預覽效果</button>
-              <div id="template-preview" class="preview-box"></div>
-            </div>
-
-            <div class="form-item-row">
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="add-source" checked />
-                <label for="add-source">在內容末尾添加來源連結</label>
-              </div>
-            </div>
-
-            <div class="form-item-row">
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="add-timestamp" checked />
-                <label for="add-timestamp">在內容開頭添加保存時間</label>
-              </div>
+          <div class="form-item-row">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="add-source" checked />
+              <label for="add-source">在內容末尾添加來源連結</label>
             </div>
           </div>
-        </section>
 
-        <!-- 數據管理區塊 -->
-        <section id="section-data" class="settings-section">
-          <header class="section-header">
-            <h2>數據管理</h2>
-            <p class="section-desc">管理本地存儲的標記數據與備份</p>
-          </header>
+          <div class="form-item-row">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="add-timestamp" checked />
+              <label for="add-timestamp">在內容開頭添加保存時間</label>
+            </div>
+          </div>
+        </div>
+      </section>
 
-          <div class="card">
-            <h3>存儲使用量</h3>
-            <div class="storage-visual">
+      <!-- 數據管理區塊 -->
+      <section id="section-data" class="settings-section">
+        <header class="section-header">
+          <h2>數據管理</h2>
+          <p class="section-desc">管理本地存儲的標記數據與備份</p>
+        </header>
+
+        <div class="card">
+          <h3>存儲使用量</h3>
+          <div class="storage-visual">
+            <div class="progress-bar">
+              <div id="usage-fill" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="storage-stats-row">
+              <span id="usage-details">0 MB</span>
+              <span id="usage-percentage">0%</span>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-label">已標記頁面</span>
+              <span id="pages-count" class="stat-value">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">總標記數</span>
+              <span id="highlights-count" class="stat-value">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">配置項目</span>
+              <span id="config-count" class="stat-value">0</span>
+            </div>
+          </div>
+          <button id="refresh-usage-button" class="btn-secondary">刷新統計</button>
+        </div>
+
+        <div class="card">
+          <h3>備份與還原</h3>
+          <div class="button-group">
+            <button id="export-data-button" class="btn-secondary">📥 匯出備份</button>
+            <button id="check-data-button" class="btn-secondary">🔍 檢查完整性</button>
+          </div>
+          <div class="button-group">
+            <input type="file" id="import-data-file" accept=".json" style="display: none" />
+            <button id="import-data-button" class="btn-secondary">📤 還原備份</button>
+          </div>
+          <div id="data-status" class="status-message"></div>
+        </div>
+
+        <div class="card">
+          <h3>資料遷移與優化</h3>
+
+          <!-- 遷移工具 -->
+          <div class="migration-tool">
+            <h4>舊版數據遷移</h4>
+            <p class="text-sm">將 v2.5 以前的 DOM 標記升級為現代 Highlight API 格式。</p>
+            <div class="migration-controls">
+              <button id="migration-scan-button" class="btn-secondary">開始掃描</button>
+              <div id="scan-status" class="inline-status"></div>
+            </div>
+
+            <!-- 隱藏的遷移列表 -->
+            <div id="migration-list" class="migration-list" style="display: none">
+              <div class="list-header">
+                <label><input type="checkbox" id="migration-select-all" /> 全選</label>
+                <span id="migration-selected-count">0 項</span>
+              </div>
+              <div id="migration-items" class="list-body"></div>
+              <div class="list-actions">
+                <button id="migration-execute-button" class="btn-primary" disabled>遷移</button>
+                <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
+              </div>
+            </div>
+            <div id="migration-progress" class="progress-container" style="display: none">
               <div class="progress-bar">
-                <div id="usage-fill" class="progress-fill" style="width: 0%"></div>
+                <div id="migration-progress-bar" class="progress-fill"></div>
               </div>
-              <div class="storage-stats-row">
-                <span id="usage-details">0 MB</span>
-                <span id="usage-percentage">0%</span>
-              </div>
+              <span id="migration-progress-text">0%</span>
             </div>
-
-            <div class="stats-grid">
-              <div class="stat-box">
-                <span class="stat-label">已標記頁面</span>
-                <span id="pages-count" class="stat-value">0</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">總標記數</span>
-                <span id="highlights-count" class="stat-value">0</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">配置項目</span>
-                <span id="config-count" class="stat-value">0</span>
-              </div>
-            </div>
-            <button id="refresh-usage-button" class="btn-secondary">刷新統計</button>
+            <div id="migration-result"></div>
           </div>
 
-          <div class="card">
-            <h3>備份與還原</h3>
-            <div class="button-group">
-              <button id="export-data-button" class="btn-secondary">📥 匯出備份</button>
-              <button id="check-data-button" class="btn-secondary">🔍 檢查完整性</button>
+          <hr class="divider" />
+
+          <!-- 優化工具 -->
+          <div class="optimization-tool">
+            <h4>數據庫優化</h4>
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="cleanup-deleted-pages" checked />
+              <label for="cleanup-deleted-pages">清理已失效頁面的標註數據</label>
             </div>
             <div class="button-group">
-              <input type="file" id="import-data-file" accept=".json" style="display: none" />
-              <button id="import-data-button" class="btn-secondary">📤 還原備份</button>
+              <button id="preview-cleanup-button" class="btn-secondary">預覽清理</button>
+              <button id="execute-cleanup-button" class="btn-danger" style="display: none">
+                執行清理
+              </button>
+              <button id="analyze-optimization-button" class="btn-secondary">分析結構優化</button>
+              <button id="execute-optimization-button" class="btn-primary" style="display: none">
+                執行重整
+              </button>
             </div>
-            <div id="data-status" class="status-message"></div>
+            <div id="cleanup-preview" class="preview-box"></div>
+            <div id="optimization-preview" class="preview-box"></div>
           </div>
+        </div>
+      </section>
 
-          <div class="card">
-            <h3>資料遷移與優化</h3>
+      <!-- 診斷工具區塊 -->
+      <section id="section-diagnostics" class="settings-section">
+        <header class="section-header">
+          <h2>診斷工具</h2>
+          <p class="section-desc">開發者選項與除錯</p>
+        </header>
 
-            <!-- 遷移工具 -->
-            <div class="migration-tool">
-              <h4>舊版數據遷移</h4>
-              <p class="text-sm">將 v2.5 以前的 DOM 標記升級為現代 Highlight API 格式。</p>
-              <div class="migration-controls">
-                <button id="migration-scan-button" class="btn-secondary">開始掃描</button>
-                <div id="scan-status" class="inline-status"></div>
-              </div>
-
-              <!-- 隱藏的遷移列表 -->
-              <div id="migration-list" class="migration-list" style="display: none">
-                <div class="list-header">
-                  <label><input type="checkbox" id="migration-select-all" /> 全選</label>
-                  <span id="migration-selected-count">0 項</span>
-                </div>
-                <div id="migration-items" class="list-body"></div>
-                <div class="list-actions">
-                  <button id="migration-execute-button" class="btn-primary" disabled>遷移</button>
-                  <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
-                </div>
-              </div>
-              <div id="migration-progress" class="progress-container" style="display: none">
-                <div class="progress-bar">
-                  <div id="migration-progress-bar" class="progress-fill"></div>
-                </div>
-                <span id="migration-progress-text">0%</span>
-              </div>
-              <div id="migration-result"></div>
+        <div class="card">
+          <div class="form-item-row">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="enable-debug-logs" />
+              <label for="enable-debug-logs">啟用除錯日誌 (Debug Logs)</label>
             </div>
-
-            <hr class="divider" />
-
-            <!-- 優化工具 -->
-            <div class="optimization-tool">
-              <h4>數據庫優化</h4>
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="cleanup-deleted-pages" checked />
-                <label for="cleanup-deleted-pages">清理已失效頁面的標註數據</label>
-              </div>
-              <div class="button-group">
-                <button id="preview-cleanup-button" class="btn-secondary">預覽清理</button>
-                <button id="execute-cleanup-button" class="btn-danger" style="display: none">
-                  執行清理
-                </button>
-                <button id="analyze-optimization-button" class="btn-secondary">分析結構優化</button>
-                <button id="execute-optimization-button" class="btn-primary" style="display: none">
-                  執行重整
-                </button>
-              </div>
-              <div id="cleanup-preview" class="preview-box"></div>
-              <div id="optimization-preview" class="preview-box"></div>
-            </div>
+            <p class="help-text">將前端操作日誌轉發到背景頁面 console，僅供開發排查使用。</p>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <!-- 診斷工具區塊 -->
-        <section id="section-diagnostics" class="settings-section">
-          <header class="section-header">
-            <h2>診斷工具</h2>
-            <p class="section-desc">開發者選項與除錯</p>
-          </header>
+      <!-- 使用指南區塊 -->
+      <section id="section-guide" class="settings-section">
+        <header class="section-header">
+          <h2>使用指南</h2>
+          <p class="section-desc">了解如何最有效地使用 Notion Smart Clipper</p>
+        </header>
 
-          <div class="card">
-            <div class="form-item-row">
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="enable-debug-logs" />
-                <label for="enable-debug-logs">啟用除錯日誌 (Debug Logs)</label>
-              </div>
-              <p class="help-text">將前端操作日誌轉發到背景頁面 console，僅供開發排查使用。</p>
+        <!-- 快速開始 -->
+        <div class="card">
+          <h3>🚀 快速開始</h3>
+          <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 16px">
+            <div style="padding: 16px; background: #f8f9fc; border-radius: 8px; border-left: 3px solid #00b0ff">
+              <strong style="display: block; margin-bottom: 8px">1. 連接擴展</strong>
+              <p style="margin: 0; font-size: 0.875rem; color: #666">
+                點擊擴展圖標 → Settings → 點擊「連接到 Notion」
+              </p>
+            </div>
+            <div style="padding: 16px; background: #f8f9fc; border-radius: 8px; border-left: 3px solid #00b0ff">
+              <strong style="display: block; margin-bottom: 8px">2. 授權訪問</strong>
+              <p style="margin: 0; font-size: 0.875rem; color: #666">
+                在 Notion 創建 Integration，複製 Secret Key 並保存
+              </p>
+            </div>
+            <div style="padding: 16px; background: #f8f9fc; border-radius: 8px; border-left: 3px solid #00b0ff">
+              <strong style="display: block; margin-bottom: 8px">3. 開始使用</strong>
+              <p style="margin: 0; font-size: 0.875rem; color: #666">
+                選擇目標數據庫，點擊保存按鈕即可剪藏！
+              </p>
             </div>
           </div>
-        </section>
-      </main>
-    </div>
-    <script type="module" src="options.js"></script>
-  </body>
+        </div>
+
+        <!-- 核心功能 -->
+        <div class="card">
+          <h3>⚡ 核心功能</h3>
+          <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px">
+            <div style="display: flex; gap: 12px; padding: 12px; background: #f8f9fc; border-radius: 8px">
+              <div
+                style="flex-shrink: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #ecfdf5; border-radius: 8px; font-size: 1.25rem">
+                📝</div>
+              <div>
+                <strong style="display: block; margin-bottom: 4px">一鍵保存</strong>
+                <div style="font-size: 0.875rem; color: #666">智能提取文章內容、圖片與 icon</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 12px; padding: 12px; background: #f8f9fc; border-radius: 8px">
+              <div
+                style="flex-shrink: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #ecfdf5; border-radius: 8px; font-size: 1.25rem">
+                🎨</div>
+              <div>
+                <strong style="display: block; margin-bottom: 4px">多色標註</strong>
+                <div style="font-size: 0.875rem; color: #666">支持 5 種顏色高亮重點內容</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 12px; padding: 12px; background: #f8f9fc; border-radius: 8px">
+              <div
+                style="flex-shrink: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #ecfdf5; border-radius: 8px; font-size: 1.25rem">
+                ⌨️</div>
+              <div>
+                <strong style="display: block; margin-bottom: 4px">快捷鍵支援</strong>
+                <div style="font-size: 0.875rem; color: #666">按 <code
+                    style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.875em">Ctrl+S</code>
+                  (Mac: <code
+                    style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.875em">Cmd+S</code>)
+                  快速開啟標註工具</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 12px; padding: 12px; background: #f8f9fc; border-radius: 8px">
+              <div
+                style="flex-shrink: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #ecfdf5; border-radius: 8px; font-size: 1.25rem">
+                ⚙️</div>
+              <div>
+                <strong style="display: block; margin-bottom: 4px">自定義模板</strong>
+                <div style="font-size: 0.875rem; color: #666">支持 {title}, {date} 等變數</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 12px; padding: 12px; background: #f8f9fc; border-radius: 8px">
+              <div
+                style="flex-shrink: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #ecfdf5; border-radius: 8px; font-size: 1.25rem">
+                ✅</div>
+              <div>
+                <strong style="display: block; margin-bottom: 4px">狀態同步</strong>
+                <div style="font-size: 0.875rem; color: #666">圖標徽章即時顯示保存狀態</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 常見問題 -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px">
+            <h3 style="margin: 0">💡 常見問題</h3>
+            <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank"
+              class="btn-secondary" style="padding: 6px 12px; font-size: 0.875rem; text-decoration: none">
+              查看完整指南
+            </a>
+          </div>
+
+          <div style="border-top: 1px solid #e5e7eb">
+            <div style="padding: 16px 0; border-bottom: 1px solid #f3f4f6">
+              <div style="font-weight: 600; margin-bottom: 8px">API Key 無法連接？</div>
+              <div style="color: #666; font-size: 0.95rem">
+                請確認 Token 格式正確（以 <code
+                  style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #e11d48">secret_</code>
+                開頭），並確保網路連接正常。
+              </div>
+            </div>
+            <div style="padding: 16px 0; border-bottom: 1px solid #f3f4f6">
+              <div style="font-weight: 600; margin-bottom: 8px">數據庫列表為空？</div>
+              <div style="color: #666; font-size: 0.95rem">
+                請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。
+              </div>
+            </div>
+            <div style="padding: 16px 0">
+              <div style="font-weight: 600; margin-bottom: 8px">標註沒有顯示？</div>
+              <div style="color: #666; font-size: 0.95rem">請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 24px; text-align: center">
+            <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq" target="_blank"
+              class="btn-primary" style="display: inline-block; padding: 12px 24px; text-decoration: none; width: auto">
+              📖 閱讀完整用戶指南與 FAQ
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="options.js"></script>
+</body>
+
 </html>
