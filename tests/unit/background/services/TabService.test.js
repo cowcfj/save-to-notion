@@ -24,7 +24,6 @@ global.chrome = {
       addListener: jest.fn(),
     },
     get: jest.fn(),
-    query: jest.fn(),
   },
 };
 
