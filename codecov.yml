@@ -54,7 +54,7 @@ flags:
   unittests:
     paths:
       - scripts/
-    carryforward: true # 保留先前的覆蓋率數據
+    carryforward: false # 保留先前的覆蓋率數據
 
 
 # 說明：
