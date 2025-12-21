@@ -77,8 +77,14 @@
   chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     // PING 檢測：用於 InjectionService.ensureBundleInjected
     if (request.action === 'PING') {
+      // 若 Bundle 已就緒，讓 Bundle 的監聽器處理（避免競爭條件）
+      if (window.__NOTION_BUNDLE_READY__) {
+        return false; // 不處理，讓 Bundle 監聽器響應
+      }
+
+      // Bundle 尚未載入，Preloader 響應
       sendResponse({
-        status: window.__NOTION_BUNDLE_READY__ ? 'bundle_ready' : 'preloader_only',
+        status: 'preloader_only',
         hasCache: Boolean(preloaderCache.article) || Boolean(preloaderCache.mainContent),
       });
       return true;
