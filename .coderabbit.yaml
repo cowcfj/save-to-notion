@@ -1,9 +1,10 @@
 # CodeRabbit Configuration
 # Documentation: https://coderabbit.ai/docs/configure-coderabbit
 
+language: "zh-TW"
+
 reviews:
   profile: "chill"
-  language: "zh-TW"
   request_changes_workflow: false
   high_level_summary: false
   auto_review:
