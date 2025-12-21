@@ -82,7 +82,7 @@ function setupSidebarNavigation() {
       }
 
       const targetSectionId = `section-${sectionName}`;
-      // Verify target section exists
+      // 驗證目標區塊是否存在
       const targetExists = Array.from(sections).some(section => section.id === targetSectionId);
 
       if (!targetExists) {
@@ -90,7 +90,7 @@ function setupSidebarNavigation() {
         return;
       }
 
-      // 1. Update Active Nav Item
+      // 1. 更新當前導航項目
       navItems.forEach(nav => {
         nav.classList.remove('active');
         nav.setAttribute('aria-selected', 'false');
@@ -98,12 +98,14 @@ function setupSidebarNavigation() {
       item.classList.add('active');
       item.setAttribute('aria-selected', 'true');
 
-      // 2. Show Target Section
+      // 2. 顯示目標區塊
       sections.forEach(section => {
         if (section.id === targetSectionId) {
           section.classList.add('active');
+          section.setAttribute('aria-hidden', 'false');
         } else {
           section.classList.remove('active');
+          section.setAttribute('aria-hidden', 'true');
         }
       });
     });

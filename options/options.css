@@ -340,6 +340,21 @@ select:focus {
   margin-top: var(--spacing-md);
 }
 
+/* Focus States */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-icon:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+}
+
+.btn-danger:focus-visible {
+  outline: 2px solid var(--danger-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+}
+
 /* Feature Specifics */
 
 /* Auth */
