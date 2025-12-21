@@ -48,14 +48,13 @@ cp -a lib "$RM_DIR/"
 cp -a update-notification "$RM_DIR/"
 cp -a dist "$RM_DIR/"
 
-# Copy scripts directory (will clean up unwanted subdirs later)
-cp -a scripts "$RM_DIR/"
-
-# Remove test-only and bundled directories
-rm -rf "$RM_DIR/scripts/__mocks__"     # Jest mock files
-rm -rf "$RM_DIR/scripts/content"       # Bundled into dist/content.bundle.js
-rm -rf "$RM_DIR/scripts/highlighter"   # Bundled into content bundle
-rm -rf "$RM_DIR/scripts/legacy"        # Bundled into dist/migration-executor.js
+# Copy scripts directory, excluding test-only and bundled directories
+rsync -a \
+    --exclude='__mocks__' \
+    --exclude='content' \
+    --exclude='highlighter' \
+    --exclude='legacy' \
+    scripts/ "$RM_DIR/scripts/"
 
 # Copy seamless-migration.js if it exists separately (it's in scripts/ based on manifest)
 # Checked manifest: "scripts/seamless-migration.js" is used.
