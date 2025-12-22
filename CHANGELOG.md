@@ -1,5 +1,22 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.20.0](https://github.com/cowcfj/save-to-notion/compare/v2.19.2...v2.20.0) (2025-12-22)
+
+
+### ✨ 新功能
+
+* Add Chrome Web Store and DeepSource badges to README.md ([#199](https://github.com/cowcfj/save-to-notion/issues/199)) ([1a82e58](https://github.com/cowcfj/save-to-notion/commit/1a82e58deba63537622c21aa57ec6d707f7d00f7))
+* 增強 validatePrivilegedRequest 函數的安全性檢查邏輯 ([#203](https://github.com/cowcfj/save-to-notion/issues/203)) ([6264e3a](https://github.com/cowcfj/save-to-notion/commit/6264e3a10bfae8ac9063234fcee8ca097f437b4f))
+* 新增遷移工具 UI 元素與應用程式版本號顯示功能 ([#201](https://github.com/cowcfj/save-to-notion/issues/201)) ([fc51a0b](https://github.com/cowcfj/save-to-notion/commit/fc51a0b667095db402204fef1f0c4dc3bc537a4c))
+* 更新 release-please 配置，新增排除路徑與檔案 ([1e63418](https://github.com/cowcfj/save-to-notion/commit/1e6341826d611ecb2355bdb62229bb0809834230))
+* 更新靜態網站部署工作流程及新增隱私政策頁面 ([c3442de](https://github.com/cowcfj/save-to-notion/commit/c3442dea575d8e3c44145a1b8408cffe6c4ba017))
+* 重構遷移處理邏輯至單獨模組 ([#202](https://github.com/cowcfj/save-to-notion/issues/202)) ([bfcdfaa](https://github.com/cowcfj/save-to-notion/commit/bfcdfaa40ea1f34dbd9e236d1340dd803a8b37b0))
+
+
+### 🧹 其他變更
+
+* 更新網站首頁內容並同步專案說明文件 ([01a3ed1](https://github.com/cowcfj/save-to-notion/commit/01a3ed1efd7d7d885f6fa3302b2d65f81ce2653e))
+
 ## [2.19.2](https://github.com/cowcfj/save-to-notion/compare/v2.19.1...v2.19.2) (2025-12-21)
 
 
