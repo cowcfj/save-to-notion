@@ -142,6 +142,7 @@ export class MigrationTool {
   hideMigrationList() {
     const {
       migrationList,
+      migrationItems,
       executeButton,
       deleteButton,
       progressContainer,
@@ -151,6 +152,9 @@ export class MigrationTool {
 
     if (migrationList) {
       migrationList.style.display = 'none';
+    }
+    if (migrationItems) {
+      migrationItems.innerHTML = '';
     }
     if (executeButton) {
       executeButton.disabled = true;
