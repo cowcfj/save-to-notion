@@ -838,3 +838,19 @@ select:focus {
 .hint strong {
   color: var(--primary-color);
 }
+
+/* 待完成遷移區塊 */
+.pending-migration-section {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.pending-migration-section h4 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}

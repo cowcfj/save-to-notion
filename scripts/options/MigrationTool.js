@@ -22,6 +22,8 @@ export class MigrationTool {
   init() {
     this.initializeElements();
     this.setupEventListeners();
+    // 頁面載入時自動載入待完成列表
+    this.loadPendingMigrations();
   }
 
   initializeElements() {
@@ -43,6 +45,9 @@ export class MigrationTool {
       progressText: document.getElementById('migration-progress-text'),
       // 結果顯示
       migrationResult: document.getElementById('migration-result'),
+      // 待完成列表
+      pendingSection: document.getElementById('pending-migration-section'),
+      pendingList: document.getElementById('pending-migration-list'),
     };
   }
 
@@ -630,5 +635,64 @@ export class MigrationTool {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  }
+
+  /**
+   * 載入待完成的遷移項目
+   * 獲取所有包含 needsRangeInfo 標記的標註
+   */
+  async loadPendingMigrations() {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'migration_get_pending',
+      });
+
+      if (response?.success) {
+        this.renderPendingList(response.items);
+      }
+    } catch (error) {
+      // 靜默失敗，不影響頁面正常使用
+      console.warn('[MigrationTool] 載入待完成列表失敗:', error);
+    }
+  }
+
+  /**
+   * 渲染待完成遷移列表
+   * @param {Array<{url: string, totalCount: number, pendingCount: number}>} items
+   */
+  renderPendingList(items) {
+    const { pendingSection, pendingList } = this.elements;
+
+    if (!pendingSection || !pendingList) {
+      return;
+    }
+
+    // 如果沒有待完成項目，隱藏區塊
+    if (!items || items.length === 0) {
+      pendingSection.style.display = 'none';
+      return;
+    }
+
+    // 顯示區塊
+    pendingSection.style.display = 'block';
+
+    // 渲染列表
+    const listHtml = items
+      .map(
+        item => `
+        <div class="migration-result-item">
+          <span class="result-url" title="${MigrationTool.escapeHtml(item.url)}">
+            🔸 ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(item.url))}
+            <span class="count-badge">${item.pendingCount} / ${item.totalCount} 待完成</span>
+          </span>
+          <a href="${MigrationTool.escapeHtml(item.url)}" target="_blank" class="open-page-link">
+            打開頁面
+          </a>
+        </div>
+      `
+      )
+      .join('');
+
+    pendingList.innerHTML = listHtml;
   }
 }

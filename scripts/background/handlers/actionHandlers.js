@@ -1088,6 +1088,50 @@ export function createActionHandlers(services) {
     },
 
     /**
+     * 獲取待完成 rangeInfo 的遷移項目
+     * 返回所有包含 needsRangeInfo: true 的標註頁面列表
+     */
+    migration_get_pending: async (request, sender, sendResponse) => {
+      try {
+        const allData = await chrome.storage.local.get(null);
+        const pendingItems = [];
+
+        for (const [key, value] of Object.entries(allData)) {
+          if (!key.startsWith('highlights_')) {
+            continue;
+          }
+
+          const url = key.replace('highlights_', '');
+          const highlights = value?.highlights || (Array.isArray(value) ? value : []);
+
+          // 計算需要 rangeInfo 的標註數量
+          const pendingCount = highlights.filter(
+            highlight => highlight.needsRangeInfo === true
+          ).length;
+
+          if (pendingCount > 0) {
+            pendingItems.push({
+              url,
+              totalCount: highlights.length,
+              pendingCount,
+            });
+          }
+        }
+
+        Logger.log(`📋 [Migration] 待完成項目: ${pendingItems.length} 個頁面`);
+        sendResponse({
+          success: true,
+          items: pendingItems,
+          totalPages: pendingItems.length,
+          totalPending: pendingItems.reduce((sum, item) => sum + item.pendingCount, 0),
+        });
+      } catch (error) {
+        Logger.error('❌ [Migration] 獲取待完成項目失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
      * 處理來自 Content Script 的日誌轉發
      * 用於將 Content Script 的日誌集中到 Background Console
      */
