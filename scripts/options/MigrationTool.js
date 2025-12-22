@@ -322,7 +322,7 @@ export class MigrationTool {
    * 更新操作按鈕的啟用狀態
    */
   updateActionButtons() {
-    const { executeButton, deleteButton } = this.elements;
+    const { executeButton, deleteButton, scanButton } = this.elements;
     const hasSelection = this.selectedUrls.size > 0;
 
     if (executeButton) {
@@ -330,6 +330,10 @@ export class MigrationTool {
     }
     if (deleteButton) {
       deleteButton.disabled = !hasSelection;
+    }
+    // 掃描按鈕始終啟用（除非正在處理中）
+    if (scanButton) {
+      scanButton.disabled = false;
     }
   }
 
@@ -388,7 +392,8 @@ export class MigrationTool {
       if (progressContainer) {
         progressContainer.style.display = 'none';
       }
-      this.setButtonsDisabled(false);
+      // 根據實際選擇狀態更新按鈕（而非無條件啟用）
+      this.updateActionButtons();
 
       // 觸發刷新儲存使用量
       document.dispatchEvent(new CustomEvent('storageUsageUpdate'));
@@ -459,7 +464,8 @@ export class MigrationTool {
       if (progressContainer) {
         progressContainer.style.display = 'none';
       }
-      this.setButtonsDisabled(false);
+      // 根據實際選擇狀態更新按鈕（而非無條件啟用）
+      this.updateActionButtons();
 
       // 觸發刷新儲存使用量
       document.dispatchEvent(new CustomEvent('storageUsageUpdate'));
