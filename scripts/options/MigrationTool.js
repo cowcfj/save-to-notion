@@ -307,7 +307,7 @@ export class MigrationTool {
   }
 
   /**
-   * 執行選中項目的遷移
+   * 執行選中項目的遷移（使用批量 API）
    */
   async performSelectedMigration() {
     if (this.selectedUrls.size === 0) {
@@ -315,11 +315,60 @@ export class MigrationTool {
     }
 
     const urls = Array.from(this.selectedUrls);
-    await this.executeMigration(urls, 'migrate');
+    const { progressContainer, progressBar, progressText } = this.elements;
+
+    // 禁用按鈕
+    this.setButtonsDisabled(true);
+
+    // 顯示進度（批量操作很快，顯示不確定進度）
+    if (progressContainer) {
+      progressContainer.style.display = 'block';
+    }
+    if (progressBar) {
+      progressBar.style.width = '50%';
+    }
+    if (progressText) {
+      progressText.textContent = '處理中...';
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'migration_batch',
+        urls,
+      });
+
+      // 完成進度
+      if (progressBar) {
+        progressBar.style.width = '100%';
+      }
+      if (progressText) {
+        progressText.textContent = '100%';
+      }
+
+      if (response?.success) {
+        this.showBatchMigrationResult(response.results);
+        this.selectedUrls.clear();
+        // 延遲後重新掃描
+        setTimeout(() => this.scanForLegacyHighlights(), 1500);
+      } else {
+        this.showErrorResult(response?.error || '批量遷移失敗');
+      }
+    } catch (error) {
+      this.showErrorResult(error.message);
+    } finally {
+      // 隱藏進度條
+      if (progressContainer) {
+        progressContainer.style.display = 'none';
+      }
+      this.setButtonsDisabled(false);
+
+      // 觸發刷新儲存使用量
+      document.dispatchEvent(new CustomEvent('storageUsageUpdate'));
+    }
   }
 
   /**
-   * 執行選中項目的刪除
+   * 執行選中項目的刪除（使用批量 API）
    */
   async performSelectedDeletion() {
     if (this.selectedUrls.size === 0) {
@@ -336,7 +385,73 @@ export class MigrationTool {
     }
 
     const urls = Array.from(this.selectedUrls);
-    await this.executeMigration(urls, 'delete');
+    const { progressContainer, progressBar, progressText } = this.elements;
+
+    // 禁用按鈕
+    this.setButtonsDisabled(true);
+
+    // 顯示進度
+    if (progressContainer) {
+      progressContainer.style.display = 'block';
+    }
+    if (progressBar) {
+      progressBar.style.width = '50%';
+    }
+    if (progressText) {
+      progressText.textContent = '刪除中...';
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'migration_batch_delete',
+        urls,
+      });
+
+      // 完成進度
+      if (progressBar) {
+        progressBar.style.width = '100%';
+      }
+      if (progressText) {
+        progressText.textContent = '100%';
+      }
+
+      if (response?.success) {
+        this.showDeleteResult(response.count);
+        this.selectedUrls.clear();
+        // 延遲後重新掃描
+        setTimeout(() => this.scanForLegacyHighlights(), 1500);
+      } else {
+        this.showErrorResult(response?.error || '批量刪除失敗');
+      }
+    } catch (error) {
+      this.showErrorResult(error.message);
+    } finally {
+      // 隱藏進度條
+      if (progressContainer) {
+        progressContainer.style.display = 'none';
+      }
+      this.setButtonsDisabled(false);
+
+      // 觸發刷新儲存使用量
+      document.dispatchEvent(new CustomEvent('storageUsageUpdate'));
+    }
+  }
+
+  /**
+   * 設置按鈕禁用狀態
+   * @param {boolean} disabled
+   */
+  setButtonsDisabled(disabled) {
+    const { executeButton, deleteButton, scanButton } = this.elements;
+    if (executeButton) {
+      executeButton.disabled = disabled;
+    }
+    if (deleteButton) {
+      deleteButton.disabled = disabled;
+    }
+    if (scanButton) {
+      scanButton.disabled = disabled;
+    }
   }
 
   /**
@@ -481,6 +596,96 @@ export class MigrationTool {
         </div>
       `;
     }
+  }
+
+  /**
+   * 顯示批量遷移結果（帶打開頁面連結）
+   * @param {Object} results - 批量遷移結果
+   */
+  showBatchMigrationResult(results) {
+    const { migrationResult } = this.elements;
+
+    if (!migrationResult) {
+      return;
+    }
+
+    // 構建成功項目列表（帶連結）
+    const successItems = results.details.filter(detail => detail.status === 'success');
+    const listHtml = successItems
+      .map(
+        detail => `
+        <div class="migration-result-item">
+          <span class="result-url" title="${MigrationTool.escapeHtml(detail.url)}">
+            ✅ ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(detail.url))}
+            <span class="count-badge">${detail.count} 個標註${detail.pending > 0 ? `，${detail.pending} 待完成` : ''}</span>
+          </span>
+          <a href="${MigrationTool.escapeHtml(detail.url)}" target="_blank" class="open-page-link">
+            打開頁面
+          </a>
+        </div>
+      `
+      )
+      .join('');
+
+    // 計算總計
+    const totalHighlights = successItems.reduce((sum, detail) => sum + detail.count, 0);
+    const totalPending = successItems.reduce((sum, detail) => sum + (detail.pending || 0), 0);
+
+    migrationResult.innerHTML = `
+      <div class="success-box">
+        <strong>✅ 批量遷移完成</strong>
+        <p>已轉換 ${results.success} 個頁面，共 ${totalHighlights} 個標註。</p>
+        ${
+          totalPending > 0
+            ? `
+          <p class="hint">
+            💡 <strong>${totalPending}</strong> 個標註等待完成位置定位。
+            訪問以下頁面時會自動完成，或點擊「打開頁面」立即完成。
+          </p>
+        `
+            : '<p class="hint">所有標註已完成遷移！</p>'
+        }
+        ${listHtml ? `<div class="result-list">${listHtml}</div>` : ''}
+      </div>
+    `;
+  }
+
+  /**
+   * 顯示批量刪除結果
+   * @param {number} count - 刪除的頁面數量
+   */
+  showDeleteResult(count) {
+    const { migrationResult } = this.elements;
+
+    if (!migrationResult) {
+      return;
+    }
+
+    migrationResult.innerHTML = `
+      <div class="success-box">
+        <strong>✅ 刪除成功</strong>
+        <p>已刪除 ${count} 個頁面的舊版標註數據。</p>
+      </div>
+    `;
+  }
+
+  /**
+   * 顯示錯誤結果
+   * @param {string} errorMessage - 錯誤訊息
+   */
+  showErrorResult(errorMessage) {
+    const { migrationResult } = this.elements;
+
+    if (!migrationResult) {
+      return;
+    }
+
+    migrationResult.innerHTML = `
+      <div class="error-box">
+        <strong>❌ 操作失敗</strong>
+        <p>${MigrationTool.escapeHtml(errorMessage)}</p>
+      </div>
+    `;
   }
 
   /**

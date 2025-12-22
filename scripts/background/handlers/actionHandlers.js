@@ -984,6 +984,110 @@ export function createActionHandlers(services) {
     },
 
     /**
+     * 批量遷移標註數據
+     * 直接在 Storage 中轉換格式，標記 needsRangeInfo
+     * 用戶訪問頁面時會自動完成 rangeInfo 生成
+     */
+    migration_batch: async (request, sender, sendResponse) => {
+      try {
+        const { urls } = request;
+        if (!urls || !Array.isArray(urls) || urls.length === 0) {
+          sendResponse({ success: false, error: '缺少 URLs 參數' });
+          return;
+        }
+
+        Logger.log(`📦 [Migration] 開始批量遷移: ${urls.length} 個頁面`);
+
+        const results = {
+          success: 0,
+          failed: 0,
+          details: [],
+        };
+
+        for (const url of urls) {
+          try {
+            const pageKey = `highlights_${url}`;
+            const storageResult = await chrome.storage.local.get(pageKey);
+            const data = storageResult[pageKey];
+
+            if (!data) {
+              results.details.push({ url, status: 'skipped', reason: '無數據' });
+              continue;
+            }
+
+            // 提取標註數據（支持新舊格式）
+            const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
+
+            if (oldHighlights.length === 0) {
+              results.details.push({ url, status: 'skipped', reason: '無標註' });
+              continue;
+            }
+
+            // 轉換格式：對於沒有 rangeInfo 的項目添加 needsRangeInfo 標記
+            const newHighlights = oldHighlights.map(item => ({
+              ...item,
+              needsRangeInfo: !item.rangeInfo,
+            }));
+
+            // 保存新格式數據
+            await chrome.storage.local.set({
+              [pageKey]: { url, highlights: newHighlights },
+            });
+
+            results.success++;
+            results.details.push({
+              url,
+              status: 'success',
+              count: newHighlights.length,
+              pending: newHighlights.filter(highlight => highlight.needsRangeInfo).length,
+            });
+
+            Logger.log(`✅ [Migration] 批量遷移: ${url} (${newHighlights.length} 個標註)`);
+          } catch (itemError) {
+            results.failed++;
+            results.details.push({ url, status: 'failed', reason: itemError.message });
+            Logger.error(`❌ [Migration] 批量遷移失敗: ${url}`, itemError);
+          }
+        }
+
+        Logger.log(`📦 [Migration] 批量遷移完成: 成功 ${results.success}, 失敗 ${results.failed}`);
+        sendResponse({ success: true, results });
+      } catch (error) {
+        Logger.error('❌ [Migration] 批量遷移失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
+     * 批量刪除標註數據
+     * 一次性刪除多個 URL 的標註數據
+     */
+    migration_batch_delete: async (request, sender, sendResponse) => {
+      try {
+        const { urls } = request;
+        if (!urls || !Array.isArray(urls) || urls.length === 0) {
+          sendResponse({ success: false, error: '缺少 URLs 參數' });
+          return;
+        }
+
+        Logger.log(`🗑️ [Migration] 開始批量刪除: ${urls.length} 個頁面`);
+
+        const keysToRemove = urls.map(url => `highlights_${url}`);
+        await chrome.storage.local.remove(keysToRemove);
+
+        Logger.log(`✅ [Migration] 批量刪除完成: ${urls.length} 個頁面`);
+        sendResponse({
+          success: true,
+          count: urls.length,
+          message: `成功刪除 ${urls.length} 個頁面的標註數據`,
+        });
+      } catch (error) {
+        Logger.error('❌ [Migration] 批量刪除失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
      * 處理來自 Content Script 的日誌轉發
      * 用於將 Content Script 的日誌集中到 Background Console
      */
