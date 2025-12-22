@@ -424,7 +424,10 @@ export class HighlightManager {
           // 使用文本搜索定位
           range = findTextInPage(highlightData.text);
 
-          if (range) {
+          // 驗證找到的 range 是否正確匹配預期文本
+          const isValidRange = range && range.toString() === highlightData.text;
+
+          if (isValidRange) {
             // 生成新的 rangeInfo
             highlightData.rangeInfo = serializeRange(range);
             delete highlightData.needsRangeInfo;
@@ -434,7 +437,10 @@ export class HighlightManager {
               `[HighlightManager] 延遲生成 rangeInfo: ${highlightData.text.substring(0, 30)}...`
             );
           } else {
-            // 恢復失敗，增加重試計數
+            // 恢復失敗（找不到或文本不匹配），清空 range 避免錯誤應用
+            range = null;
+
+            // 增加重試計數
             highlightData.retryCount = (highlightData.retryCount || 0) + 1;
 
             // 超過 3 次重試，標記為遷移失敗
