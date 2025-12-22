@@ -43,8 +43,6 @@ export class MigrationTool {
       progressText: document.getElementById('migration-progress-text'),
       // 結果顯示
       migrationResult: document.getElementById('migration-result'),
-      // 兼容舊版 UI
-      migrateAllButton: document.getElementById('migrate-all-button'),
     };
   }
 
@@ -62,9 +60,6 @@ export class MigrationTool {
 
     // 刪除按鈕
     this.elements.deleteButton?.addEventListener('click', () => this.performSelectedDeletion());
-
-    // 兼容舊版「遷移全部」按鈕
-    this.elements.migrateAllButton?.addEventListener('click', () => this.performMigration());
   }
 
   /**
@@ -483,87 +478,6 @@ export class MigrationTool {
           </div>
         </div>
       `;
-    }
-  }
-
-  /**
-   * 執行所有項目的遷移（兼容舊版「一鍵遷移」功能）
-   */
-  async performMigration() {
-    if (!this.scanResult || !this.scanResult.needsMigration) {
-      return;
-    }
-
-    const urls = this.scanResult.items.map(item => item.url);
-    const { scanStatus, migrateAllButton } = this.elements;
-
-    if (migrateAllButton) {
-      migrateAllButton.disabled = true;
-      migrateAllButton.innerHTML = '<span class="loading"></span> 遷移中...';
-    }
-
-    try {
-      const results = await MigrationScanner.requestBatchMigration(
-        urls,
-        (current, total, status) => {
-          if (scanStatus) {
-            const percent = Math.round((current / total) * 100);
-            scanStatus.innerHTML = `
-            <div class="progress-box">
-                <div>正在遷移... ${percent}% (${current}/${total})</div>
-                <div class="progress-bar"><div class="fill" style="width: ${percent}%"></div></div>
-                <small>${status}</small>
-            </div>
-          `;
-          }
-        }
-      );
-
-      if (results.failed === 0) {
-        if (scanStatus) {
-          scanStatus.innerHTML = `
-            <div class="success-box">
-                <strong>✅ 遷移成功！</strong>
-                <p>已成功遷移 ${results.success} 個頁面的數據。現在所有標註都已轉換為新版格式。</p>
-            </div>
-          `;
-          scanStatus.className = 'success';
-        }
-        this.hideMigrationList();
-        if (migrateAllButton) {
-          migrateAllButton.style.display = 'none';
-        }
-
-        // 觸發刷新儲存使用量
-        const storageUsageEvent = new CustomEvent('storageUsageUpdate');
-        document.dispatchEvent(storageUsageEvent);
-      } else {
-        if (scanStatus) {
-          scanStatus.innerHTML = `
-            <div class="warning-box">
-                <strong>⚠️ 遷移部分完成</strong>
-                <p>成功: ${results.success}, 失敗: ${results.failed}</p>
-                <div class="error-list">
-                    ${results.errors.map(err => `<div>${MigrationTool.escapeHtml(err)}</div>`).join('')}
-                </div>
-            </div>
-          `;
-          scanStatus.className = 'warning';
-        }
-        if (migrateAllButton) {
-          migrateAllButton.disabled = false;
-          migrateAllButton.textContent = '重試失敗的項目';
-        }
-      }
-    } catch (error) {
-      if (scanStatus) {
-        scanStatus.textContent = `遷移過程發生錯誤: ${error.message}`;
-        scanStatus.className = 'error';
-      }
-      if (migrateAllButton) {
-        migrateAllButton.disabled = false;
-        migrateAllButton.textContent = '重試遷移';
-      }
     }
   }
 

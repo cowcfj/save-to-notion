@@ -38,7 +38,6 @@ describe('MigrationTool', () => {
         <span id="migration-progress-text">0%</span>
       </div>
       <div id="migration-result"></div>
-      <button id="migrate-all-button"></button>
     `;
 
     mockUiManager = new UIManager();
@@ -107,65 +106,6 @@ describe('MigrationTool', () => {
       const scanStatus = document.getElementById('scan-status');
       expect(scanStatus.textContent).toContain('掃描錯誤');
       expect(scanStatus.textContent).toContain('Scan failed');
-    });
-  });
-
-  describe('performMigration', () => {
-    beforeEach(() => {
-      // Setup a scan result first
-      migrationTool.scanResult = {
-        needsMigration: true,
-        items: [
-          { url: 'https://example.com', highlightCount: 3 },
-          { url: 'https://test.com', highlightCount: 2 },
-        ],
-      };
-    });
-
-    test('成功遷移所有頁面', async () => {
-      const mockMigrationResult = {
-        success: 2,
-        failed: 0,
-        errors: [],
-      };
-
-      MigrationScanner.requestBatchMigration.mockResolvedValueOnce(mockMigrationResult);
-
-      await migrationTool.performMigration();
-
-      expect(MigrationScanner.requestBatchMigration).toHaveBeenCalledWith(
-        ['https://example.com', 'https://test.com'],
-        expect.any(Function)
-      );
-
-      const scanStatus = document.getElementById('scan-status');
-      expect(scanStatus.innerHTML).toContain('遷移成功');
-      expect(scanStatus.innerHTML).toContain('2 個頁面');
-    });
-
-    test('部分遷移成功', async () => {
-      const mockMigrationResult = {
-        success: 1,
-        failed: 1,
-        errors: ['Failed to migrate https://test.com'],
-      };
-
-      MigrationScanner.requestBatchMigration.mockResolvedValueOnce(mockMigrationResult);
-
-      await migrationTool.performMigration();
-
-      const scanStatus = document.getElementById('scan-status');
-      expect(scanStatus.innerHTML).toMatch(/遷移部分完成|部分完成/u);
-      expect(scanStatus.innerHTML).toContain('成功: 1');
-      expect(scanStatus.innerHTML).toContain('失敗: 1');
-    });
-
-    test('沒有掃描結果時不執行遷移', async () => {
-      migrationTool.scanResult = null;
-
-      await migrationTool.performMigration();
-
-      expect(MigrationScanner.requestBatchMigration).not.toHaveBeenCalled();
     });
   });
 
