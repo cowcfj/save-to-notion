@@ -30,8 +30,16 @@ export function createMigrationHandlers(services) {
 
   // 輔助函數：驗證特權請求和 URL 安全性
   const validatePrivilegedRequest = (sender, url = null) => {
-    // 1. 來源驗證：必須來自擴充功能內部頁面（Options/Popup），不能來自 Content Script
-    if (sender.id !== chrome.runtime.id || sender.tab) {
+    // 1. 來源驗證：必須來自擴充功能內部頁面（Options/Popup）
+    // 當 Options 頁面在分頁中打開時，sender.tab 會存在，因此不能僅憑 sender.tab 判斷
+    // 必須檢查 sender.url 是否為擴充功能自身的 URL
+    const isExtensionOrigin =
+      sender.url && sender.url.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+
+    // 允許的情況：
+    // 1.沒有 tab 對象 (Popup, Background) 且 ID 匹配
+    // 2.有 tab 對象，但 URL 是擴充功能自身的 URL (Options in Tab) 且 ID 匹配
+    if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionOrigin)) {
       return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
     }
 
