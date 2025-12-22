@@ -234,7 +234,7 @@ export function createMigrationHandlers(_services) {
         });
       } catch (error) {
         Logger.error('❌ [Migration] 遷移失敗:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: '遷移操作失敗，請查看擴充功能日誌以獲取詳細資訊' });
       } finally {
         // 清理創建的分頁（無論成功或失敗）
         if (createdTabId) {
@@ -300,7 +300,7 @@ export function createMigrationHandlers(_services) {
         });
       } catch (error) {
         Logger.error('❌ [Migration] 刪除失敗:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: '刪除操作失敗，請稍後重試' });
       }
     },
 
@@ -393,7 +393,7 @@ export function createMigrationHandlers(_services) {
         sendResponse({ success: true, results });
       } catch (error) {
         Logger.error('❌ [Migration] 批量遷移失敗:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: '批量遷移操作失敗，請查看擴充功能日誌' });
       }
     },
 
@@ -440,7 +440,7 @@ export function createMigrationHandlers(_services) {
         });
       } catch (error) {
         Logger.error('❌ [Migration] 批量刪除失敗:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: '批量刪除操作失敗，請稍後重試' });
       }
     },
 
@@ -510,7 +510,7 @@ export function createMigrationHandlers(_services) {
         });
       } catch (error) {
         Logger.error('❌ [Migration] 獲取待完成項目失敗:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: '獲取待完成項目失敗，請稍後重試' });
       }
     },
 
@@ -564,7 +564,7 @@ export function createMigrationHandlers(_services) {
         sendResponse({ success: true, deletedCount });
       } catch (error) {
         Logger.error('❌ [Migration] 刪除失敗標註失敗:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: '刪除操作失敗，請稍後重試' });
       }
     },
   };
