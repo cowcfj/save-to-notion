@@ -17,8 +17,23 @@
  * @returns {Object} 遷移處理函數映射
  */
 export function createMigrationHandlers(_services) {
-  // 目前 migration handlers 主要直接操作 chrome.storage
-  // services 參數保留以便未來擴展
+  // 輔助函數：驗證特權請求和 URL 安全性
+  const validatePrivilegedRequest = (sender, url = null) => {
+    // 1. 來源驗證：必須來自擴充功能內部頁面（Options/Popup），不能來自 Content Script
+    if (sender.id !== chrome.runtime.id || sender.tab) {
+      return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
+    }
+
+    // 2. URL 驗證：如果提供了 URL，必須是 http 或 https
+    if (url) {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return { success: false, error: '拒絕訪問：僅支持 HTTP/HTTPS 協議的 URL' };
+      }
+    }
+
+    return null; // 驗證通過
+  };
+
   return {
     /**
      * 執行標註數據遷移
@@ -30,6 +45,15 @@ export function createMigrationHandlers(_services) {
 
       try {
         const { url } = request;
+
+        // 安全性驗證
+        const validationError = validatePrivilegedRequest(sender, url);
+        if (validationError) {
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender, url });
+          sendResponse(validationError);
+          return;
+        }
+
         if (!url) {
           sendResponse({ success: false, error: '缺少 URL 參數' });
           return;
@@ -239,6 +263,15 @@ export function createMigrationHandlers(_services) {
     migration_delete: async (request, sender, sendResponse) => {
       try {
         const { url } = request;
+
+        // 安全性驗證
+        const validationError = validatePrivilegedRequest(sender, url);
+        if (validationError) {
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender, url });
+          sendResponse(validationError);
+          return;
+        }
+
         if (!url) {
           sendResponse({ success: false, error: '缺少 URL 參數' });
           return;
@@ -279,8 +312,26 @@ export function createMigrationHandlers(_services) {
     migration_batch: async (request, sender, sendResponse) => {
       try {
         const { urls } = request;
+
+        // 安全性驗證 (僅驗證來源，URL 在內部檢查)
+        const validationError = validatePrivilegedRequest(sender);
+        if (validationError) {
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender });
+          sendResponse(validationError);
+          return;
+        }
+
         if (!urls || !Array.isArray(urls) || urls.length === 0) {
           sendResponse({ success: false, error: '缺少 URLs 參數' });
+          return;
+        }
+
+        // 驗證 URLs 安全性
+        const invalidUrls = urls.filter(
+          urlItem => !urlItem.startsWith('http://') && !urlItem.startsWith('https://')
+        );
+        if (invalidUrls.length > 0) {
+          sendResponse({ success: false, error: '拒絕訪問：包含不支持的 URL 協議' });
           return;
         }
 
@@ -353,8 +404,26 @@ export function createMigrationHandlers(_services) {
     migration_batch_delete: async (request, sender, sendResponse) => {
       try {
         const { urls } = request;
+
+        // 安全性驗證
+        const validationError = validatePrivilegedRequest(sender);
+        if (validationError) {
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender });
+          sendResponse(validationError);
+          return;
+        }
+
         if (!urls || !Array.isArray(urls) || urls.length === 0) {
           sendResponse({ success: false, error: '缺少 URLs 參數' });
+          return;
+        }
+
+        // 驗證 URLs 安全性
+        const invalidUrls = urls.filter(
+          urlItem => !urlItem.startsWith('http://') && !urlItem.startsWith('https://')
+        );
+        if (invalidUrls.length > 0) {
+          sendResponse({ success: false, error: '拒絕訪問：包含不支持的 URL 協議' });
           return;
         }
 
@@ -381,6 +450,14 @@ export function createMigrationHandlers(_services) {
      */
     migration_get_pending: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證
+        const validationError = validatePrivilegedRequest(sender);
+        if (validationError) {
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender });
+          sendResponse(validationError);
+          return;
+        }
+
         const allData = await chrome.storage.local.get(null);
         const pendingItems = [];
         const failedItems = [];
@@ -443,6 +520,14 @@ export function createMigrationHandlers(_services) {
     migration_delete_failed: async (request, sender, sendResponse) => {
       try {
         const { url } = request;
+
+        // 安全性驗證
+        const validationError = validatePrivilegedRequest(sender, url);
+        if (validationError) {
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender, url });
+          sendResponse(validationError);
+          return;
+        }
 
         if (!url) {
           sendResponse({ success: false, error: '缺少 URL 參數' });
