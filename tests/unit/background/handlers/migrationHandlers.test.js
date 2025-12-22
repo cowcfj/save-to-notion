@@ -85,8 +85,11 @@ describe('migrationHandlers', () => {
 
         await handlers.migration_execute(request, sender, sendResponse);
 
-        // 如果通過了安全性檢查，它會嘗試讀取 storage
-        // 如果被拒絕，它會直接調用 sendResponse with error '拒絕訪問...'
+        // 正面斷言：驗證成功路徑被執行
+        // 如果安全性檢查通過，應該會調用 storage.local.get 來查詢數據
+        expect(chrome.storage.local.get).toHaveBeenCalled();
+
+        // 負面斷言：確認沒有返回拒絕訪問錯誤
         expect(sendResponse).not.toHaveBeenCalledWith(
           expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
         );
