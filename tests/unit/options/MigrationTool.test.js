@@ -16,11 +16,28 @@ describe('MigrationTool', () => {
   let mockScanner = null;
 
   beforeEach(() => {
-    // DOM Setup
+    // DOM Setup - 匹配 options.html 中的結構
     document.body.innerHTML = `
-      <button id="scan-legacy-button"></button>
+      <button id="migration-scan-button"></button>
       <div id="scan-status"></div>
-      <div id="migration-list"></div>
+      <div id="migration-list" style="display: none">
+        <div class="list-header">
+          <label><input type="checkbox" id="migration-select-all" /> 全選</label>
+          <span id="migration-selected-count">0 項</span>
+        </div>
+        <div id="migration-items" class="list-body"></div>
+        <div class="list-actions">
+          <button id="migration-execute-button" class="btn-primary" disabled>遷移</button>
+          <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
+        </div>
+      </div>
+      <div id="migration-progress" style="display: none">
+        <div class="progress-bar">
+          <div id="migration-progress-bar" class="progress-fill"></div>
+        </div>
+        <span id="migration-progress-text">0%</span>
+      </div>
+      <div id="migration-result"></div>
       <button id="migrate-all-button"></button>
     `;
 
@@ -164,17 +181,19 @@ describe('MigrationTool', () => {
 
       migrationTool.renderMigrationList(items);
 
-      const migrationList = document.getElementById('migration-list');
-      expect(migrationList.innerHTML).toContain('3 個標註');
-      expect(migrationList.innerHTML).toContain('2 個標註');
-      expect(migrationList.innerHTML).toContain('待遷移頁面');
+      // 新版代碼將項目渲染到 #migration-items
+      const migrationItems = document.getElementById('migration-items');
+      expect(migrationItems.innerHTML).toContain('3 個標註');
+      expect(migrationItems.innerHTML).toContain('2 個標註');
+      // 新版列表項目應包含 checkbox
+      expect(migrationItems.innerHTML).toContain('type="checkbox"');
     });
 
-    test('空列表清空內容', () => {
+    test('空列表顯示空狀態', () => {
       migrationTool.renderMigrationList([]);
 
-      const migrationList = document.getElementById('migration-list');
-      expect(migrationList.innerHTML).toBe('');
+      const migrationItems = document.getElementById('migration-items');
+      expect(migrationItems.innerHTML).toContain('沒有找到舊版數據');
     });
   });
 
