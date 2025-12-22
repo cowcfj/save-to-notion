@@ -116,10 +116,12 @@ export class MigrationTool {
 
     // 顯示警告訊息
     if (scanStatus) {
+      // 計算實際的標註總數
+      const totalHighlights = result.items.reduce((sum, item) => sum + item.highlightCount, 0);
       scanStatus.innerHTML = `
         <div class="warning-box">
           <strong>⚠️ 發現 ${result.items.length} 個頁面包含舊版標記</strong>
-          <p>共檢測到 ${result.legacyCount} 個舊版標記需遷移。請選擇要遷移或刪除的項目。</p>
+          <p>共檢測到 ${totalHighlights} 個舊版標記需遷移。請選擇要遷移或刪除的項目。</p>
         </div>
       `;
       scanStatus.className = '';
