@@ -140,8 +140,14 @@ export class MigrationTool {
    * 隱藏遷移列表和相關元素
    */
   hideMigrationList() {
-    const { migrationList, executeButton, deleteButton, progressContainer, migrationResult } =
-      this.elements;
+    const {
+      migrationList,
+      executeButton,
+      deleteButton,
+      progressContainer,
+      migrationResult,
+      selectAllCheckbox,
+    } = this.elements;
 
     if (migrationList) {
       migrationList.style.display = 'none';
@@ -157,6 +163,15 @@ export class MigrationTool {
     }
     if (migrationResult) {
       migrationResult.innerHTML = '';
+    }
+
+    // 清空選擇狀態，防止過時選擇殘留
+    this.selectedUrls.clear();
+    this.updateSelectedCount();
+
+    // 重置全選勾選框
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = false;
     }
   }
 
