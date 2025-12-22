@@ -33,8 +33,7 @@ export function createMigrationHandlers(services) {
     // 1. 來源驗證：必須來自擴充功能內部頁面（Options/Popup）
     // 當 Options 頁面在分頁中打開時，sender.tab 會存在，因此不能僅憑 sender.tab 判斷
     // 必須檢查 sender.url 是否為擴充功能自身的 URL
-    const isExtensionOrigin =
-      sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+    const isExtensionOrigin = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
 
     // 允許的情況：
     // 1.沒有 tab 對象 (Popup, Background) 且 ID 匹配
