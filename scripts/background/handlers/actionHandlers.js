@@ -984,6 +984,218 @@ export function createActionHandlers(services) {
     },
 
     /**
+     * 批量遷移標註數據
+     * 直接在 Storage 中轉換格式，標記 needsRangeInfo
+     * 用戶訪問頁面時會自動完成 rangeInfo 生成
+     */
+    migration_batch: async (request, sender, sendResponse) => {
+      try {
+        const { urls } = request;
+        if (!urls || !Array.isArray(urls) || urls.length === 0) {
+          sendResponse({ success: false, error: '缺少 URLs 參數' });
+          return;
+        }
+
+        Logger.log(`📦 [Migration] 開始批量遷移: ${urls.length} 個頁面`);
+
+        const results = {
+          success: 0,
+          failed: 0,
+          details: [],
+        };
+
+        for (const url of urls) {
+          try {
+            const pageKey = `highlights_${url}`;
+            const storageResult = await chrome.storage.local.get(pageKey);
+            const data = storageResult[pageKey];
+
+            if (!data) {
+              results.details.push({ url, status: 'skipped', reason: '無數據' });
+              continue;
+            }
+
+            // 提取標註數據（支持新舊格式）
+            const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
+
+            if (oldHighlights.length === 0) {
+              results.details.push({ url, status: 'skipped', reason: '無標註' });
+              continue;
+            }
+
+            // 轉換格式：對於沒有 rangeInfo 的項目添加 needsRangeInfo 標記
+            const newHighlights = oldHighlights.map(item => ({
+              ...item,
+              needsRangeInfo: !item.rangeInfo,
+            }));
+
+            // 保存新格式數據
+            await chrome.storage.local.set({
+              [pageKey]: { url, highlights: newHighlights },
+            });
+
+            results.success++;
+            results.details.push({
+              url,
+              status: 'success',
+              count: newHighlights.length,
+              pending: newHighlights.filter(highlight => highlight.needsRangeInfo).length,
+            });
+
+            Logger.log(`✅ [Migration] 批量遷移: ${url} (${newHighlights.length} 個標註)`);
+          } catch (itemError) {
+            results.failed++;
+            results.details.push({ url, status: 'failed', reason: itemError.message });
+            Logger.error(`❌ [Migration] 批量遷移失敗: ${url}`, itemError);
+          }
+        }
+
+        Logger.log(`📦 [Migration] 批量遷移完成: 成功 ${results.success}, 失敗 ${results.failed}`);
+        sendResponse({ success: true, results });
+      } catch (error) {
+        Logger.error('❌ [Migration] 批量遷移失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
+     * 批量刪除標註數據
+     * 一次性刪除多個 URL 的標註數據
+     */
+    migration_batch_delete: async (request, sender, sendResponse) => {
+      try {
+        const { urls } = request;
+        if (!urls || !Array.isArray(urls) || urls.length === 0) {
+          sendResponse({ success: false, error: '缺少 URLs 參數' });
+          return;
+        }
+
+        Logger.log(`🗑️ [Migration] 開始批量刪除: ${urls.length} 個頁面`);
+
+        const keysToRemove = urls.map(url => `highlights_${url}`);
+        await chrome.storage.local.remove(keysToRemove);
+
+        Logger.log(`✅ [Migration] 批量刪除完成: ${urls.length} 個頁面`);
+        sendResponse({
+          success: true,
+          count: urls.length,
+          message: `成功刪除 ${urls.length} 個頁面的標註數據`,
+        });
+      } catch (error) {
+        Logger.error('❌ [Migration] 批量刪除失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
+     * 獲取待完成 rangeInfo 的遷移項目
+     * 返回待完成項目和失敗項目
+     */
+    migration_get_pending: async (request, sender, sendResponse) => {
+      try {
+        const allData = await chrome.storage.local.get(null);
+        const pendingItems = [];
+        const failedItems = [];
+
+        for (const [key, value] of Object.entries(allData)) {
+          if (!key.startsWith('highlights_')) {
+            continue;
+          }
+
+          const url = key.replace('highlights_', '');
+          const highlights = value?.highlights || (Array.isArray(value) ? value : []);
+
+          // 計算需要 rangeInfo 的標註數量
+          const pendingCount = highlights.filter(
+            highlight => highlight.needsRangeInfo === true && !highlight.migrationFailed
+          ).length;
+
+          // 計算遷移失敗的標註數量
+          const failedCount = highlights.filter(
+            highlight => highlight.migrationFailed === true
+          ).length;
+
+          if (pendingCount > 0) {
+            pendingItems.push({
+              url,
+              totalCount: highlights.length,
+              pendingCount,
+            });
+          }
+
+          if (failedCount > 0) {
+            failedItems.push({
+              url,
+              totalCount: highlights.length,
+              failedCount,
+            });
+          }
+        }
+
+        Logger.log(
+          `📋 [Migration] 待完成: ${pendingItems.length} 頁, 失敗: ${failedItems.length} 頁`
+        );
+        sendResponse({
+          success: true,
+          items: pendingItems,
+          failedItems,
+          totalPages: pendingItems.length,
+          totalPending: pendingItems.reduce((sum, item) => sum + item.pendingCount, 0),
+          totalFailed: failedItems.reduce((sum, item) => sum + item.failedCount, 0),
+        });
+      } catch (error) {
+        Logger.error('❌ [Migration] 獲取待完成項目失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
+     * 刪除指定 URL 的失敗遷移標註
+     */
+    migration_delete_failed: async (request, sender, sendResponse) => {
+      try {
+        const { url } = request;
+
+        if (!url) {
+          sendResponse({ success: false, error: '缺少 URL 參數' });
+          return;
+        }
+
+        const key = `highlights_${url}`;
+        const result = await chrome.storage.local.get(key);
+
+        if (!result[key]) {
+          sendResponse({ success: false, error: '找不到該頁面的標註數據' });
+          return;
+        }
+
+        const data = result[key];
+        const highlights = data.highlights || (Array.isArray(data) ? data : []);
+
+        // 過濾掉失敗的標註
+        const remainingHighlights = highlights.filter(highlight => !highlight.migrationFailed);
+
+        const deletedCount = highlights.length - remainingHighlights.length;
+
+        if (remainingHighlights.length === 0) {
+          // 沒有剩餘標註，刪除整個 key
+          await chrome.storage.local.remove(key);
+        } else {
+          // 更新數據
+          await chrome.storage.local.set({
+            [key]: { ...data, highlights: remainingHighlights },
+          });
+        }
+
+        Logger.log(`🗑️ [Migration] 刪除失敗標註: ${url}, 數量: ${deletedCount}`);
+        sendResponse({ success: true, deletedCount });
+      } catch (error) {
+        Logger.error('❌ [Migration] 刪除失敗標註失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
      * 處理來自 Content Script 的日誌轉發
      * 用於將 Content Script 的日誌集中到 Background Console
      */

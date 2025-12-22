@@ -640,3 +640,247 @@ select:focus {
   flex-wrap: wrap;
   margin-top: 8px;
 }
+
+/* Migration Item Styles */
+.migration-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s;
+}
+
+.migration-item:last-child {
+  border-bottom: none;
+}
+
+.migration-item:hover {
+  background-color: #f8fafc;
+}
+
+.migration-item .item-checkbox {
+  flex-shrink: 0;
+}
+
+.migration-item .item-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.migration-item .item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.migration-item .item-url {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.migration-item .item-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* Message Boxes */
+.warning-box,
+.success-box,
+.error-box {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.warning-box {
+  background-color: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+
+.success-box {
+  background-color: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.error-box {
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.warning-box strong,
+.success-box strong,
+.error-box strong {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+}
+
+.warning-box p,
+.success-box p,
+.error-box p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.error-list {
+  margin-top: var(--spacing-sm);
+  max-height: 100px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.error-list .error-item {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.error-list .error-item:last-child {
+  border-bottom: none;
+}
+
+/* Loading Spinner */
+.loading {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Empty State */
+.empty-state {
+  padding: var(--spacing-lg);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* 批量遷移結果列表 */
+.result-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+}
+
+.migration-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.migration-result-item:last-child {
+  border-bottom: none;
+}
+
+.migration-result-item .result-url {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.migration-result-item .count-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.open-page-link {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 13px;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s;
+}
+
+.open-page-link:hover {
+  background: rgba(59, 130, 246, 0.1);
+  text-decoration: underline;
+}
+
+.hint {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: var(--spacing-sm);
+}
+
+.hint strong {
+  color: var(--primary-color);
+}
+
+/* 待完成遷移區塊 */
+.pending-migration-section {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.pending-migration-section h4 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 失敗遷移區塊 */
+.failed-migration-section {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: #fff5f5;
+  border-radius: var(--radius-md);
+  border: 1px solid #fecaca;
+}
+
+.failed-migration-section h4 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.failed-item {
+  background: #fef2f2;
+}
+
+.count-badge.failed {
+  background: #dc2626;
+  color: white;
+}
+
+.btn-small {
+  padding: 4px 8px;
+  font-size: 12px;
+}

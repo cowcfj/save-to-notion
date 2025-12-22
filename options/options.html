@@ -68,7 +68,7 @@
           </button>
         </div>
         <div class="sidebar-footer">
-          <span class="version">v2.18.1</span>
+          <span id="app-version" class="version"></span>
         </div>
       </nav>
 
@@ -284,6 +284,28 @@
                 <span id="migration-progress-text">0%</span>
               </div>
               <div id="migration-result"></div>
+
+              <!-- 待完成的遷移（需訪問頁面） -->
+              <div
+                id="pending-migration-section"
+                class="pending-migration-section"
+                style="display: none"
+              >
+                <h4>📋 待完成的遷移（需訪問頁面）</h4>
+                <div id="pending-migration-list" class="result-list"></div>
+                <p class="hint">提示：訪問上方頁面後標註會自動恢復，刷新此頁面可更新列表。</p>
+              </div>
+
+              <!-- 遷移失敗的標註 -->
+              <div
+                id="failed-migration-section"
+                class="failed-migration-section"
+                style="display: none"
+              >
+                <h4>❌ 無法恢復的標註</h4>
+                <div id="failed-migration-list" class="result-list"></div>
+                <p class="hint">這些標註因頁面內容已更改而無法恢復。您可以刪除這些數據。</p>
+              </div>
             </div>
 
             <hr class="divider" />

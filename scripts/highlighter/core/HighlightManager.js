@@ -403,6 +403,7 @@ export class HighlightManager {
 
       let restored = 0;
       let failed = 0;
+      let rangeInfoGenerated = 0;
 
       for (const highlightData of highlights) {
         // 清理舊格式的重複文本
@@ -410,7 +411,55 @@ export class HighlightManager {
           delete highlightData.rangeInfo.text;
         }
 
-        const range = await restoreRangeWithRetry(highlightData.rangeInfo, highlightData.text, 3);
+        // 跳過已標記為遷移失敗的項目
+        if (highlightData.migrationFailed) {
+          failed++;
+          continue;
+        }
+
+        let range = null;
+
+        // 檢查是否需要延遲生成 rangeInfo
+        if (highlightData.needsRangeInfo || !highlightData.rangeInfo) {
+          // 使用文本搜索定位
+          range = findTextInPage(highlightData.text);
+
+          // 驗證找到的 range 是否正確匹配預期文本
+          const isValidRange = range && range.toString() === highlightData.text;
+
+          if (isValidRange) {
+            // 生成新的 rangeInfo
+            highlightData.rangeInfo = serializeRange(range);
+            delete highlightData.needsRangeInfo;
+            delete highlightData.retryCount;
+            rangeInfoGenerated++;
+            Logger.info(
+              `[HighlightManager] 延遲生成 rangeInfo: ${highlightData.text.substring(0, 30)}...`
+            );
+          } else {
+            // 恢復失敗（找不到或文本不匹配），清空 range 避免錯誤應用
+            range = null;
+
+            // 增加重試計數
+            highlightData.retryCount = (highlightData.retryCount || 0) + 1;
+
+            // 超過 3 次重試，標記為遷移失敗
+            if (highlightData.retryCount >= 3) {
+              highlightData.migrationFailed = true;
+              delete highlightData.needsRangeInfo;
+              Logger.warn(
+                `[HighlightManager] 標註遷移失敗（已重試 ${highlightData.retryCount} 次）: ${highlightData.text.substring(0, 30)}...`
+              );
+            } else {
+              Logger.info(
+                `[HighlightManager] 標註恢復失敗，等待下次嘗試（第 ${highlightData.retryCount} 次）: ${highlightData.text.substring(0, 30)}...`
+              );
+            }
+          }
+        } else {
+          // 正常恢復
+          range = await restoreRangeWithRetry(highlightData.rangeInfo, highlightData.text, 3);
+        }
 
         if (range) {
           // 直接添加到內部結構，避免重複保存
@@ -438,11 +487,18 @@ export class HighlightManager {
         }
       }
 
-      Logger.info(`恢復標註: 成功 ${restored}, 失敗 ${failed}`);
+      Logger.info(
+        `恢復標註: 成功 ${restored}, 失敗 ${failed}, 新生成 rangeInfo ${rangeInfoGenerated}`
+      );
 
-      // 如果有失敗且需要重新保存
-      if (failed > 0) {
+      // 如果有生成新的 rangeInfo 或有失敗，需要重新保存
+      if (rangeInfoGenerated > 0 || failed > 0) {
         await this.saveToStorage();
+        if (rangeInfoGenerated > 0) {
+          Logger.info(
+            `[HighlightManager] 已完成 ${rangeInfoGenerated} 個延遲 rangeInfo 生成並保存`
+          );
+        }
       }
     } catch (error) {
       Logger.error('恢復標註失敗:', error);

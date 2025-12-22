@@ -59,6 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 8. 側邊欄導航邏輯
   setupSidebarNavigation();
+
+  // 9. 顯示動態版本號
+  displayAppVersion();
 });
 
 /**
@@ -254,4 +257,23 @@ export function formatTitle(template, variables) {
   return template.replace(/{(\w+)}/g, (match, key) => {
     return variables[key] || match;
   });
+}
+
+/**
+ * 動態顯示應用程式版本號
+ * 從 manifest.json 讀取版本號並顯示到側邊欄底部
+ */
+function displayAppVersion() {
+  const versionElement = document.getElementById('app-version');
+  if (!versionElement) {
+    return;
+  }
+
+  try {
+    const manifest = chrome.runtime.getManifest();
+    versionElement.textContent = `v${manifest.version}`;
+  } catch (error) {
+    // 如果無法獲取版本號，保持元素隱藏
+    Logger.warn('無法獲取應用程式版本號:', error);
+  }
 }
