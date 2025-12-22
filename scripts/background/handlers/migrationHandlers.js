@@ -13,10 +13,11 @@
  * 創建遷移處理函數
  * 沿用工廠模式，保持與 actionHandlers 一致的依賴注入風格
  *
- * @param {Object} _services - 服務實例集合（目前未使用，保留擴展性）
+ * @param {Object} services - 服務實例集合（目前未使用，保留擴展性）
  * @returns {Object} 遷移處理函數映射
  */
-export function createMigrationHandlers(_services) {
+export function createMigrationHandlers(services) {
+  void services; // 防止 ESLint 報錯：參數保留供未來擴展
   // 輔助函數：驗證 URL 格式與協議安全性
   const isValidUrl = urlString => {
     try {
