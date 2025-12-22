@@ -561,9 +561,13 @@ export function createMigrationHandlers(services) {
           // 沒有剩餘標註，刪除整個 key
           await chrome.storage.local.remove(key);
         } else {
-          // 更新數據
+          // 更新數據：確保格式正確，避免舊數組格式导致鍵值污染
+          const newData = Array.isArray(data)
+            ? { url, highlights: remainingHighlights }
+            : { ...data, highlights: remainingHighlights };
+
           await chrome.storage.local.set({
-            [key]: { ...data, highlights: remainingHighlights },
+            [key]: newData,
           });
         }
 
