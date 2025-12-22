@@ -543,17 +543,21 @@ export class MigrationTool {
       return;
     }
 
+    // 防禦性驗證：確保 results.details 是數組
+    const details = Array.isArray(results?.details) ? results.details : [];
+    const successCount = results?.success ?? 0;
+
     // 構建成功項目列表（帶連結）
-    const successItems = results.details.filter(detail => detail.status === 'success');
+    const successItems = details.filter(detail => detail?.status === 'success');
     const listHtml = successItems
       .map(
         detail => `
         <div class="migration-result-item">
-          <span class="result-url" title="${MigrationTool.escapeHtml(detail.url)}">
-            ✅ ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(detail.url))}
-            <span class="count-badge">${detail.count} 個標註${detail.pending > 0 ? `，${detail.pending} 待完成` : ''}</span>
+          <span class="result-url" title="${MigrationTool.escapeHtml(detail.url || '')}">
+            ✅ ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(detail.url || ''))}
+            <span class="count-badge">${detail.count ?? 0} 個標註${(detail.pending ?? 0) > 0 ? `，${detail.pending} 待完成` : ''}</span>
           </span>
-          <a href="${MigrationTool.escapeHtml(detail.url)}" target="_blank" class="open-page-link">
+          <a href="${MigrationTool.escapeHtml(detail.url || '')}" target="_blank" class="open-page-link">
             打開頁面
           </a>
         </div>
@@ -562,13 +566,13 @@ export class MigrationTool {
       .join('');
 
     // 計算總計
-    const totalHighlights = successItems.reduce((sum, detail) => sum + detail.count, 0);
-    const totalPending = successItems.reduce((sum, detail) => sum + (detail.pending || 0), 0);
+    const totalHighlights = successItems.reduce((sum, detail) => sum + (detail.count ?? 0), 0);
+    const totalPending = successItems.reduce((sum, detail) => sum + (detail.pending ?? 0), 0);
 
     migrationResult.innerHTML = `
       <div class="success-box">
         <strong>✅ 批量遷移完成</strong>
-        <p>已轉換 ${results.success} 個頁面，共 ${totalHighlights} 個標註。</p>
+        <p>已轉換 ${successCount} 個頁面，共 ${totalHighlights} 個標註。</p>
         ${
           totalPending > 0
             ? `
