@@ -122,11 +122,46 @@ export function createMigrationHandlers(_services) {
 
         // 3. 注入 migration-executor.js
         Logger.log(`💉 [Migration] 注入遷移執行器到分頁: ${targetTab.id}`);
-        await new Promise(resolve => setTimeout(resolve, 500)); // 額外緩衝確保腳本環境就緒
         await chrome.scripting.executeScript({
           target: { tabId: targetTab.id },
           files: ['dist/migration-executor.js'],
         });
+
+        // 等待腳本就緒（輪詢機制）
+        const maxRetries = 10;
+        const retryDelay = 200; // ms
+        let scriptReady = false;
+
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            const checkResult = await chrome.scripting.executeScript({
+              target: { tabId: targetTab.id },
+              func: () => {
+                return {
+                  ready:
+                    typeof window.MigrationExecutor !== 'undefined' &&
+                    typeof window.HighlighterV2?.manager !== 'undefined',
+                };
+              },
+            });
+
+            if (checkResult[0]?.result?.ready) {
+              scriptReady = true;
+              Logger.log(`[Migration] 腳本就緒（嘗試 ${i + 1} 次）`);
+              break;
+            }
+          } catch (_checkError) {
+            // 腳本還未就緒，繼續重試
+          }
+
+          if (i < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          }
+        }
+
+        if (!scriptReady) {
+          throw new Error('遷移執行器腳本載入超時');
+        }
 
         // 4. 執行遷移
         Logger.log('🚀 [Migration] 執行 DOM 遷移...');
