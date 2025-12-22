@@ -232,7 +232,7 @@ export function createMigrationHandlers(_services) {
           throw new Error(execResult.error);
         }
 
-        // 返回結果
+        // 5. 返回結果
         const stats = execResult?.statistics || {};
         Logger.log(`✅ [Migration] 遷移完成: ${url}`, stats);
 
@@ -246,7 +246,7 @@ export function createMigrationHandlers(_services) {
         Logger.error('❌ [Migration] 遷移失敗:', error);
         sendResponse({ success: false, error: '遷移操作失敗，請查看擴充功能日誌以獲取詳細資訊' });
       } finally {
-        // 清理創建的分頁（無論成功或失敗）
+        // 6. 清理創建的分頁（無論成功或失敗）
         if (createdTabId) {
           Logger.log(`🧹 [Migration] 關閉分頁: ${createdTabId}`);
           try {
