@@ -13,14 +13,12 @@
  * 創建遷移處理函數
  * 沿用工廠模式，保持與 actionHandlers 一致的依賴注入風格
  *
- * @param {Object} services - 服務實例集合（目前未使用，保留擴展性）
+ * @param {Object} _services - 服務實例集合（目前未使用，保留擴展性）
  * @returns {Object} 遷移處理函數映射
  */
-export function createMigrationHandlers(services) {
+export function createMigrationHandlers(_services) {
   // 目前 migration handlers 主要直接操作 chrome.storage
   // services 參數保留以便未來擴展
-  void services;
-
   return {
     /**
      * 執行標註數據遷移
