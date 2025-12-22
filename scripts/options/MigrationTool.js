@@ -48,6 +48,9 @@ export class MigrationTool {
       // 待完成列表
       pendingSection: document.getElementById('pending-migration-section'),
       pendingList: document.getElementById('pending-migration-list'),
+      // 失敗列表
+      failedSection: document.getElementById('failed-migration-section'),
+      failedList: document.getElementById('failed-migration-list'),
     };
   }
 
@@ -649,6 +652,7 @@ export class MigrationTool {
 
       if (response?.success) {
         this.renderPendingList(response.items);
+        this.renderFailedList(response.failedItems);
       }
     } catch (error) {
       // 靜默失敗，不影響頁面正常使用
@@ -694,5 +698,75 @@ export class MigrationTool {
       .join('');
 
     pendingList.innerHTML = listHtml;
+  }
+
+  /**
+   * 渲染失敗遷移列表
+   * @param {Array<{url: string, totalCount: number, failedCount: number}>} items
+   */
+  renderFailedList(items) {
+    const { failedSection, failedList } = this.elements;
+
+    if (!failedSection || !failedList) {
+      return;
+    }
+
+    // 如果沒有失敗項目，隱藏區塊
+    if (!items || items.length === 0) {
+      failedSection.style.display = 'none';
+      return;
+    }
+
+    // 顯示區塊
+    failedSection.style.display = 'block';
+
+    // 渲染列表
+    const listHtml = items
+      .map(
+        item => `
+        <div class="migration-result-item failed-item">
+          <span class="result-url" title="${MigrationTool.escapeHtml(item.url)}">
+            ⚠️ ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(item.url))}
+            <span class="count-badge failed">${item.failedCount} 個無法恢復</span>
+          </span>
+          <button class="btn-danger btn-small delete-failed-btn" data-url="${MigrationTool.escapeHtml(item.url)}">
+            刪除
+          </button>
+        </div>
+      `
+      )
+      .join('');
+
+    failedList.innerHTML = listHtml;
+
+    // 綁定刪除按鈕事件
+    failedList.querySelectorAll('.delete-failed-btn').forEach(btn => {
+      btn.addEventListener('click', event => {
+        const url = event.target.dataset.url;
+        this.deleteFailedHighlights(url);
+      });
+    });
+  }
+
+  /**
+   * 刪除指定 URL 的失敗標註
+   * @param {string} url
+   */
+  async deleteFailedHighlights(url) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'migration_delete_failed',
+        url,
+      });
+
+      if (response?.success) {
+        // 重新載入列表
+        await this.loadPendingMigrations();
+      } else {
+        console.error('[MigrationTool] 刪除失敗:', response?.error);
+      }
+    } catch (error) {
+      console.error('[MigrationTool] 刪除失敗標註失敗:', error);
+    }
   }
 }

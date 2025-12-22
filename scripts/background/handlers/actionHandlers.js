@@ -1089,12 +1089,13 @@ export function createActionHandlers(services) {
 
     /**
      * 獲取待完成 rangeInfo 的遷移項目
-     * 返回所有包含 needsRangeInfo: true 的標註頁面列表
+     * 返回待完成項目和失敗項目
      */
     migration_get_pending: async (request, sender, sendResponse) => {
       try {
         const allData = await chrome.storage.local.get(null);
         const pendingItems = [];
+        const failedItems = [];
 
         for (const [key, value] of Object.entries(allData)) {
           if (!key.startsWith('highlights_')) {
@@ -1106,7 +1107,12 @@ export function createActionHandlers(services) {
 
           // 計算需要 rangeInfo 的標註數量
           const pendingCount = highlights.filter(
-            highlight => highlight.needsRangeInfo === true
+            highlight => highlight.needsRangeInfo === true && !highlight.migrationFailed
+          ).length;
+
+          // 計算遷移失敗的標註數量
+          const failedCount = highlights.filter(
+            highlight => highlight.migrationFailed === true
           ).length;
 
           if (pendingCount > 0) {
@@ -1116,17 +1122,75 @@ export function createActionHandlers(services) {
               pendingCount,
             });
           }
+
+          if (failedCount > 0) {
+            failedItems.push({
+              url,
+              totalCount: highlights.length,
+              failedCount,
+            });
+          }
         }
 
-        Logger.log(`📋 [Migration] 待完成項目: ${pendingItems.length} 個頁面`);
+        Logger.log(
+          `📋 [Migration] 待完成: ${pendingItems.length} 頁, 失敗: ${failedItems.length} 頁`
+        );
         sendResponse({
           success: true,
           items: pendingItems,
+          failedItems,
           totalPages: pendingItems.length,
           totalPending: pendingItems.reduce((sum, item) => sum + item.pendingCount, 0),
+          totalFailed: failedItems.reduce((sum, item) => sum + item.failedCount, 0),
         });
       } catch (error) {
         Logger.error('❌ [Migration] 獲取待完成項目失敗:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    },
+
+    /**
+     * 刪除指定 URL 的失敗遷移標註
+     */
+    migration_delete_failed: async (request, sender, sendResponse) => {
+      try {
+        const { url } = request;
+
+        if (!url) {
+          sendResponse({ success: false, error: '缺少 URL 參數' });
+          return;
+        }
+
+        const key = `highlights_${url}`;
+        const result = await chrome.storage.local.get(key);
+
+        if (!result[key]) {
+          sendResponse({ success: false, error: '找不到該頁面的標註數據' });
+          return;
+        }
+
+        const data = result[key];
+        const highlights = data.highlights || (Array.isArray(data) ? data : []);
+
+        // 過濾掉失敗的標註
+        const remainingHighlights = highlights.filter(highlight => !highlight.migrationFailed);
+
+        const deletedCount = highlights.length - remainingHighlights.length;
+
+        if (remainingHighlights.length === 0) {
+          // 沒有剩餘標註，刪除整個 key
+          await chrome.storage.local.remove(key);
+        } else {
+          // 更新數據
+          await chrome.storage.local.set({
+            [key]: { ...data, highlights: remainingHighlights },
+          });
+        }
+
+        Logger.log(`🗑️ [Migration] 刪除失敗標註: ${url}, 數量: ${deletedCount}`);
+        sendResponse({ success: true, deletedCount });
+      } catch (error) {
+        Logger.error('❌ [Migration] 刪除失敗標註失敗:', error);
         sendResponse({ success: false, error: error.message });
       }
     },

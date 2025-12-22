@@ -854,3 +854,33 @@ select:focus {
   font-weight: 600;
   color: var(--text-primary);
 }
+
+/* 失敗遷移區塊 */
+.failed-migration-section {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: #fff5f5;
+  border-radius: var(--radius-md);
+  border: 1px solid #fecaca;
+}
+
+.failed-migration-section h4 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.failed-item {
+  background: #fef2f2;
+}
+
+.count-badge.failed {
+  background: #dc2626;
+  color: white;
+}
+
+.btn-small {
+  padding: 4px 8px;
+  font-size: 12px;
+}

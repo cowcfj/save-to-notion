@@ -411,6 +411,12 @@ export class HighlightManager {
           delete highlightData.rangeInfo.text;
         }
 
+        // 跳過已標記為遷移失敗的項目
+        if (highlightData.migrationFailed) {
+          failed++;
+          continue;
+        }
+
         let range = null;
 
         // 檢查是否需要延遲生成 rangeInfo
@@ -422,10 +428,27 @@ export class HighlightManager {
             // 生成新的 rangeInfo
             highlightData.rangeInfo = serializeRange(range);
             delete highlightData.needsRangeInfo;
+            delete highlightData.retryCount;
             rangeInfoGenerated++;
             Logger.info(
               `[HighlightManager] 延遲生成 rangeInfo: ${highlightData.text.substring(0, 30)}...`
             );
+          } else {
+            // 恢復失敗，增加重試計數
+            highlightData.retryCount = (highlightData.retryCount || 0) + 1;
+
+            // 超過 3 次重試，標記為遷移失敗
+            if (highlightData.retryCount >= 3) {
+              highlightData.migrationFailed = true;
+              delete highlightData.needsRangeInfo;
+              Logger.warn(
+                `[HighlightManager] 標註遷移失敗（已重試 ${highlightData.retryCount} 次）: ${highlightData.text.substring(0, 30)}...`
+              );
+            } else {
+              Logger.info(
+                `[HighlightManager] 標註恢復失敗，等待下次嘗試（第 ${highlightData.retryCount} 次）: ${highlightData.text.substring(0, 30)}...`
+              );
+            }
           }
         } else {
           // 正常恢復
