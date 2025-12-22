@@ -10,6 +10,8 @@
  * 重點測試安全性驗證邏輯 validatePrivilegedRequest
  */
 
+import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
+
 // Mock Logger
 global.Logger = {
   log: jest.fn(),
@@ -45,8 +47,6 @@ global.chrome = {
     executeScript: jest.fn(),
   },
 };
-
-import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 
 describe('migrationHandlers', () => {
   let handlers = null;
