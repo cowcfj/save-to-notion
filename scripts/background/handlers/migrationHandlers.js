@@ -17,6 +17,16 @@
  * @returns {Object} 遷移處理函數映射
  */
 export function createMigrationHandlers(_services) {
+  // 輔助函數：驗證 URL 格式與協議安全性
+  const isValidUrl = urlString => {
+    try {
+      const url = new URL(urlString);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   // 輔助函數：驗證特權請求和 URL 安全性
   const validatePrivilegedRequest = (sender, url = null) => {
     // 1. 來源驗證：必須來自擴充功能內部頁面（Options/Popup），不能來自 Content Script
@@ -24,10 +34,10 @@ export function createMigrationHandlers(_services) {
       return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
     }
 
-    // 2. URL 驗證：如果提供了 URL，必須是 http 或 https
+    // 2. URL 驗證：如果提供了 URL，必須是有效的 http 或 https URL
     if (url) {
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        return { success: false, error: '拒絕訪問：僅支持 HTTP/HTTPS 協議的 URL' };
+      if (!isValidUrl(url)) {
+        return { success: false, error: '拒絕訪問：僅支持 HTTP/HTTPS 協議的有效 URL' };
       }
     }
 
@@ -327,11 +337,9 @@ export function createMigrationHandlers(_services) {
         }
 
         // 驗證 URLs 安全性
-        const invalidUrls = urls.filter(
-          urlItem => !urlItem.startsWith('http://') && !urlItem.startsWith('https://')
-        );
+        const invalidUrls = urls.filter(urlItem => !isValidUrl(urlItem));
         if (invalidUrls.length > 0) {
-          sendResponse({ success: false, error: '拒絕訪問：包含不支持的 URL 協議' });
+          sendResponse({ success: false, error: '拒絕訪問：包含無效或不支持的 URL' });
           return;
         }
 
@@ -419,11 +427,9 @@ export function createMigrationHandlers(_services) {
         }
 
         // 驗證 URLs 安全性
-        const invalidUrls = urls.filter(
-          urlItem => !urlItem.startsWith('http://') && !urlItem.startsWith('https://')
-        );
+        const invalidUrls = urls.filter(urlItem => !isValidUrl(urlItem));
         if (invalidUrls.length > 0) {
-          sendResponse({ success: false, error: '拒絕訪問：包含不支持的 URL 協議' });
+          sendResponse({ success: false, error: '拒絕訪問：包含無效或不支持的 URL' });
           return;
         }
 
