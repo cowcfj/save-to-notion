@@ -45,6 +45,15 @@ export function createMigrationHandlers(services) {
     return null; // 驗證通過
   };
 
+  // 輔助函數：清理錯誤訊息以安全回傳，移除路徑並限制長度
+  const sanitizeError = error => {
+    const message = error instanceof Error ? error.message : String(error);
+    return message
+      .replace(/(\/[a-zA-Z0-9._-]+)+/g, '[PATH]') // 遮蔽 Unix 風格路徑
+      .replace(/([a-zA-Z]:\\[a-zA-Z0-9._\-\\]+)/g, '[PATH]') // 遮蔽 Windows 風格路徑
+      .slice(0, 200); // 限制長度
+  };
+
   return {
     /**
      * 執行標註數據遷移
@@ -245,7 +254,7 @@ export function createMigrationHandlers(services) {
         });
       } catch (error) {
         Logger.error('❌ [Migration] 遷移失敗:', error);
-        sendResponse({ success: false, error: '遷移操作失敗，請查看擴充功能日誌以獲取詳細資訊' });
+        sendResponse({ success: false, error: sanitizeError(error) });
       } finally {
         // 6. 清理創建的分頁（無論成功或失敗）
         if (createdTabId) {
@@ -311,7 +320,7 @@ export function createMigrationHandlers(services) {
         });
       } catch (error) {
         Logger.error('❌ [Migration] 刪除失敗:', error);
-        sendResponse({ success: false, error: '刪除操作失敗，請稍後重試' });
+        sendResponse({ success: false, error: sanitizeError(error) });
       }
     },
 
@@ -402,7 +411,7 @@ export function createMigrationHandlers(services) {
         sendResponse({ success: true, results });
       } catch (error) {
         Logger.error('❌ [Migration] 批量遷移失敗:', error);
-        sendResponse({ success: false, error: '批量遷移操作失敗，請查看擴充功能日誌' });
+        sendResponse({ success: false, error: sanitizeError(error) });
       }
     },
 
@@ -447,7 +456,7 @@ export function createMigrationHandlers(services) {
         });
       } catch (error) {
         Logger.error('❌ [Migration] 批量刪除失敗:', error);
-        sendResponse({ success: false, error: '批量刪除操作失敗，請稍後重試' });
+        sendResponse({ success: false, error: sanitizeError(error) });
       }
     },
 
@@ -517,7 +526,7 @@ export function createMigrationHandlers(services) {
         });
       } catch (error) {
         Logger.error('❌ [Migration] 獲取待完成項目失敗:', error);
-        sendResponse({ success: false, error: '獲取待完成項目失敗，請稍後重試' });
+        sendResponse({ success: false, error: sanitizeError(error) });
       }
     },
 
@@ -575,7 +584,7 @@ export function createMigrationHandlers(services) {
         sendResponse({ success: true, deletedCount });
       } catch (error) {
         Logger.error('❌ [Migration] 刪除失敗標註失敗:', error);
-        sendResponse({ success: false, error: '刪除操作失敗，請稍後重試' });
+        sendResponse({ success: false, error: sanitizeError(error) });
       }
     },
   };
