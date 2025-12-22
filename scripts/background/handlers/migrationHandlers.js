@@ -163,23 +163,7 @@ export function createMigrationHandlers(_services) {
           throw new Error(execResult.error);
         }
 
-        // 5. 清理創建的分頁
-        if (createdTabId) {
-          Logger.log(`🧹 [Migration] 關閉分頁: ${createdTabId}`);
-          try {
-            // 先檢查分頁是否存在再刪除，避免無謂的報錯
-            const tab = await chrome.tabs.get(createdTabId).catch(() => null);
-            if (tab) {
-              await chrome.tabs.remove(createdTabId);
-            }
-          } catch (error) {
-            Logger.warn(`[Migration] 無法關閉分頁 ${createdTabId} (可能已關閉):`, error.message);
-          } finally {
-            createdTabId = null;
-          }
-        }
-
-        // 6. 返回結果
+        // 返回結果
         const stats = execResult?.statistics || {};
         Logger.log(`✅ [Migration] 遷移完成: ${url}`, stats);
 
@@ -191,11 +175,12 @@ export function createMigrationHandlers(_services) {
         });
       } catch (error) {
         Logger.error('❌ [Migration] 遷移失敗:', error);
-
-        // 清理創建的分頁
+        sendResponse({ success: false, error: error.message });
+      } finally {
+        // 清理創建的分頁（無論成功或失敗）
         if (createdTabId) {
+          Logger.log(`🧹 [Migration] 關閉分頁: ${createdTabId}`);
           try {
-            // 先檢查分頁是否存在再刪除
             const tab = await chrome.tabs.get(createdTabId).catch(() => null);
             if (tab) {
               await chrome.tabs.remove(createdTabId);
@@ -209,8 +194,6 @@ export function createMigrationHandlers(_services) {
             createdTabId = null;
           }
         }
-
-        sendResponse({ success: false, error: error.message });
       }
     },
 
