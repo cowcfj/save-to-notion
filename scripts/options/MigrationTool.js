@@ -2,6 +2,7 @@
  * MigrationTool.js
  * 負責舊版標註數據的遷移 UI 與協調
  */
+/* global chrome */
 import { MigrationScanner } from './MigrationScanner.js';
 
 /**
