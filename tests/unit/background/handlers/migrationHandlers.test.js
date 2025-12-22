@@ -49,8 +49,8 @@ global.chrome = {
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 
 describe('migrationHandlers', () => {
-  let handlers;
-  let mockServices;
+  let handlers = null;
+  let mockServices = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
