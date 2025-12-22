@@ -367,8 +367,9 @@ export class MigrationTool {
       if (response?.success) {
         this.showBatchMigrationResult(response.results);
         this.selectedUrls.clear();
-        // 延遲後重新掃描
-        setTimeout(() => this.scanForLegacyHighlights(), 1500);
+        // 不自動重新掃描，讓用戶能看到結果連結
+        // 用戶可點擊連結打開頁面完成 rangeInfo 生成
+        // 或手動點擊掃描按鈕重新掃描
       } else {
         this.showErrorResult(response?.error || '批量遷移失敗');
       }
