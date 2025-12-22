@@ -394,7 +394,8 @@ export class MigrationTool {
       return;
     }
 
-    // 確認刪除
+    // 確認刪除（使用原生對話框確保用戶明確確認）
+
     const confirmed = window.confirm(
       `確定要刪除 ${this.selectedUrls.size} 個頁面的舊版標註數據嗎？\n此操作無法還原！`
     );
