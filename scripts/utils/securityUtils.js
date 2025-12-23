@@ -146,8 +146,8 @@ export function sanitizeUrlForLogging(url) {
  * @returns {string} 遮蔽後的文字
  *
  * @example
- * maskSensitiveString('sk_live_1234567890abcdefghijklmn')
- * // 返回: 'sk_l***klmn'
+ * maskSensitiveString('secret-token-example-1234567890')
+ * // 返回: 'secr***7890'
  */
 export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
   if (!text || typeof text !== 'string') {
