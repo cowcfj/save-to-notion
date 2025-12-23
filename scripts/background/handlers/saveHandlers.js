@@ -8,9 +8,9 @@
 
 /* global chrome, Logger */
 
-import { normalizeUrl } from '../../utils/urlUtils.js';
+import * as UrlUtils from '../../utils/urlUtils.js';
 import { validateInternalRequest, isValidNotionUrl } from '../../utils/securityUtils.js';
-import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
+import * as BlockBuilderUtils from '../utils/BlockBuilder.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 
 // ============================================================================
@@ -62,6 +62,7 @@ export function processContentResult(rawResult, highlights) {
 
   // 添加標註區塊
   if (highlights && highlights.length > 0) {
+    const buildHighlightBlocks = BlockBuilderUtils.buildHighlightBlocks || (() => []);
     const highlightBlocks = buildHighlightBlocks(highlights);
     blocks.push(...highlightBlocks);
   }
@@ -194,6 +195,8 @@ export function createSaveHandlers(services) {
         // 頁面存在：更新標註或內容
         if (highlights.length > 0) {
           // 只更新標註
+          // Build highlight blocks (safely)
+          const buildHighlightBlocks = BlockBuilderUtils.buildHighlightBlocks || (() => []);
           const highlightBlocks = buildHighlightBlocks(highlights);
           const result = await notionService.updateHighlightsSection(
             savedData.notionPageId,
@@ -298,6 +301,7 @@ export function createSaveHandlers(services) {
         // 重要：設置 Service 的 API Key
         notionService.setApiKey(config.notionApiKey);
 
+        const normalizeUrl = UrlUtils.normalizeUrl || (url => url);
         const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
@@ -377,6 +381,7 @@ export function createSaveHandlers(services) {
           return;
         }
 
+        const normalizeUrl = UrlUtils.normalizeUrl || (url => url);
         const normUrl = normalizeUrl(pageUrl);
         const savedData = await storageService.getSavedPageData(normUrl);
 
@@ -451,6 +456,7 @@ export function createSaveHandlers(services) {
       try {
         const activeTab = await getActiveTab();
 
+        const normalizeUrl = UrlUtils.normalizeUrl || (url => url);
         const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
