@@ -96,3 +96,159 @@ export function validateContentScriptRequest(sender) {
 
   return null; // 驗證通過
 }
+
+// ============================================================================
+// 日誌安全函數（防止敏感資訊洩露）
+// ============================================================================
+
+/**
+ * 清理 URL 用於日誌記錄，移除可能包含敏感資訊的部分
+ *
+ * 安全考量：
+ * - 移除查詢參數（可能包含 tokens、signatures、API keys）
+ * - 移除片段標識符（fragment）
+ * - 僅保留協議、主機名和路徑
+ *
+ * @param {string} url - 原始 URL
+ * @returns {string} 清理後的 URL（僅保留協議、主機名和路徑）
+ *
+ * @example
+ * // 敏感 URL（包含 token）
+ * sanitizeUrlForLogging('https://api.example.com/data?token=secret123&sig=xyz')
+ * // 返回: 'https://api.example.com/data'
+ *
+ * @example
+ * // 無效 URL
+ * sanitizeUrlForLogging('not-a-valid-url')
+ * // 返回: '[invalid-url]'
+ */
+export function sanitizeUrlForLogging(url) {
+  if (!url || typeof url !== 'string') {
+    return '[empty-url]';
+  }
+
+  try {
+    const urlObj = new URL(url);
+    // 只返回協議、主機名和路徑，移除查詢參數和片段
+    return `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+  } catch {
+    // 如果無法解析，返回通用描述（避免洩露無效 URL 內容）
+    return '[invalid-url]';
+  }
+}
+
+/**
+ * 遮蔽字串中的敏感部分（如 API keys、tokens）
+ *
+ * @param {string} text - 原始文字
+ * @param {number} visibleStart - 開始顯示的字元數（默認 4）
+ * @param {number} visibleEnd - 結尾顯示的字元數（默認 4）
+ * @returns {string} 遮蔽後的文字
+ *
+ * @example
+ * maskSensitiveString('secret-token-example-1234567890')
+ * // 返回: 'secr***7890'
+ */
+export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
+  if (!text || typeof text !== 'string') {
+    return '[empty]';
+  }
+
+  if (text.length <= visibleStart + visibleEnd) {
+    // 太短無法遮蔽，全部遮蔽
+    return '***';
+  }
+
+  const start = text.substring(0, visibleStart);
+  const end = text.substring(text.length - visibleEnd);
+  return `${start}***${end}`;
+}
+
+/**
+ * 清理外部 API 錯誤訊息，防止洩露技術細節
+ *
+ * 安全考量：
+ * - 外部 API 錯誤可能包含內部實現細節、stack traces、技術資訊
+ * - 這些資訊可能被攻擊者利用來探測系統弱點
+ * - 應將技術錯誤轉換為用戶友好的通用訊息
+ *
+ * @param {string|Object} apiError - API 錯誤訊息或錯誤對象
+ * @param {string} context - 錯誤上下文（如 'create_page', 'update_page'）
+ * @returns {string} 清理後的用戶友好錯誤訊息
+ *
+ * @example
+ * // API 返回技術錯誤
+ * sanitizeApiError('invalid_request_url: The request URL is not valid', 'create_page')
+ * // 返回: '操作失敗，請稍後再試'
+ *
+ * @example
+ * // 權限錯誤
+ * sanitizeApiError('unauthorized: API token is invalid', 'save_page')
+ * // 返回: 'API Key 無效或已過期，請檢查設置'
+ */
+export function sanitizeApiError(apiError, context = 'operation') {
+  const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
+  const lowerMessage = errorMessage.toLowerCase();
+
+  // 權限/認證錯誤
+  if (
+    lowerMessage.includes('unauthorized') ||
+    lowerMessage.includes('invalid token') ||
+    lowerMessage.includes('invalid api') ||
+    lowerMessage.includes('authentication')
+  ) {
+    return 'API Key 無效或已過期，請檢查設置';
+  }
+
+  // 權限不足錯誤
+  if (
+    lowerMessage.includes('forbidden') ||
+    lowerMessage.includes('permission') ||
+    lowerMessage.includes('access denied')
+  ) {
+    return '權限不足，請確認已授予擴充功能適當的 Notion 權限';
+  }
+
+  // 速率限制錯誤
+  if (lowerMessage.includes('rate limit') || lowerMessage.includes('too many requests')) {
+    return '請求過於頻繁，請稍候再試';
+  }
+
+  // 資源不存在錯誤
+  if (lowerMessage.includes('not found') || lowerMessage.includes('does not exist')) {
+    return '找不到指定的資源，可能已被刪除';
+  }
+
+  // 驗證錯誤（圖片、數據格式等）
+  if (
+    lowerMessage.includes('validation') ||
+    lowerMessage.includes('image') ||
+    lowerMessage.includes('media')
+  ) {
+    return '數據格式不符合要求，已嘗試自動修正';
+  }
+
+  // 網絡錯誤
+  if (
+    lowerMessage.includes('network') ||
+    lowerMessage.includes('fetch') ||
+    lowerMessage.includes('timeout') ||
+    lowerMessage.includes('enotfound')
+  ) {
+    return '網絡連接失敗，請檢查網絡狀態後重試';
+  }
+
+  // Notion 服務錯誤
+  if (lowerMessage.includes('service unavailable') || lowerMessage.includes('internal error')) {
+    return 'Notion 服務暫時不可用，請稍後再試';
+  }
+
+  // 數據庫相關錯誤
+  if (lowerMessage.includes('database') && context.includes('page')) {
+    return '無法訪問目標數據庫，請確認 API Key 權限設置';
+  }
+
+  // 通用錯誤（最後的兜底）
+  // 不洩露任何技術細節
+  return '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置';
+}

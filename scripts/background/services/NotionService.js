@@ -11,16 +11,35 @@
 
 // 導入統一配置
 import { NOTION_API, IMAGE_VALIDATION_CONSTANTS } from '../../config/index.js';
+// 導入安全工具
+import { sanitizeUrlForLogging, sanitizeApiError } from '../../utils/securityUtils.js';
 
 // 使用統一常量構建配置
 const NOTION_CONFIG = {
   API_VERSION: NOTION_API.VERSION,
   BASE_URL: NOTION_API.BASE_URL,
   BLOCKS_PER_BATCH: NOTION_API.BLOCKS_PER_BATCH,
-  DELAY_BETWEEN_BATCHES: NOTION_API.DELAY_BETWEEN_BATCHES,
-  DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES || 2,
-  DEFAULT_BASE_DELAY: NOTION_API.BASE_RETRY_DELAY || 600,
+  DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES,
+  DEFAULT_BASE_DELAY: NOTION_API.BASE_RETRY_DELAY,
+  // 操作特定配置
+  CHECK_RETRIES: NOTION_API.CHECK_RETRIES,
+  CHECK_DELAY: NOTION_API.CHECK_DELAY,
+  CREATE_RETRIES: NOTION_API.CREATE_RETRIES,
+  CREATE_DELAY: NOTION_API.CREATE_DELAY,
+  DELETE_RETRIES: NOTION_API.DELETE_RETRIES,
+  DELETE_DELAY: NOTION_API.DELETE_DELAY,
+  RATE_LIMIT_DELAY: NOTION_API.RATE_LIMIT_DELAY,
+  PAGE_SIZE: NOTION_API.PAGE_SIZE,
+  // 頁面結構配置
+  HIGHLIGHT_SECTION_HEADER: NOTION_API.HIGHLIGHT_SECTION_HEADER,
 };
+
+/**
+ * 延遲函數
+ * @param {number} ms - 毫秒
+ * @returns {Promise<void>}
+ */
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * 帶重試的 fetch 請求（處理暫時性錯誤）
@@ -60,7 +79,7 @@ async function fetchWithRetry(url, options, retryOptions = {}) {
 
       if (attempt < maxRetries && (retriableStatus || retriableMessage)) {
         const delay = baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 200);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await sleep(delay);
         attempt++;
         continue;
       }
@@ -71,7 +90,7 @@ async function fetchWithRetry(url, options, retryOptions = {}) {
       lastError = err;
       if (attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 200);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await sleep(delay);
         attempt++;
         continue;
       }
@@ -123,6 +142,233 @@ class NotionService {
   }
 
   /**
+   * 通用 API 調用方法
+   * @param {string} endpoint - API 端點（相對路徑，如 '/pages'）
+   * @param {Object} options - 請求選項
+   * @returns {Promise<Response>}
+   * @private
+   */
+  _apiRequest(endpoint, options = {}) {
+    if (!this.apiKey) {
+      return Promise.reject(new Error('API Key not configured'));
+    }
+
+    const {
+      method = 'GET',
+      body = null,
+      queryParams = {},
+      maxRetries = this.config.DEFAULT_MAX_RETRIES,
+      baseDelay = this.config.DEFAULT_BASE_DELAY,
+    } = options;
+
+    const url = this._buildUrl(endpoint, queryParams);
+
+    return fetchWithRetry(
+      url,
+      {
+        method,
+        headers: this._getHeaders(),
+        ...(body !== null && body !== undefined && { body: JSON.stringify(body) }),
+      },
+      { maxRetries, baseDelay }
+    );
+  }
+
+  /**
+   * 構建 API URL
+   * @param {string} path - 路徑（相對於 BASE_URL）
+   * @param {Object} params - 查詢參數（null 和 undefined 的值會被自動過濾）
+   * @returns {string}
+   * @private
+   */
+  _buildUrl(path, params = {}) {
+    const url = new URL(path, this.config.BASE_URL);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        url.searchParams.set(key, value);
+      }
+    });
+    return url.toString();
+  }
+
+  /**
+   * 獲取頁面區塊列表
+   * @param {string} pageId - 頁面 ID
+   * @returns {Promise<{success: boolean, blocks?: Array, error?: string}>}
+   * @private
+   */
+  async _fetchPageBlocks(pageId) {
+    const allBlocks = [];
+    let hasMore = true;
+    let startCursor = null;
+
+    while (hasMore) {
+      const response = await this._apiRequest(`/blocks/${pageId}/children`, {
+        method: 'GET',
+        queryParams: {
+          page_size: this.config.PAGE_SIZE,
+          start_cursor: startCursor,
+        },
+        maxRetries: this.config.CHECK_RETRIES,
+        baseDelay: this.config.CHECK_DELAY,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const rawError = errorData.message || response.statusText;
+        return {
+          success: false,
+          error: sanitizeApiError(rawError, 'fetch_blocks'),
+        };
+      }
+
+      const data = await response.json();
+      const results = data.results || [];
+      allBlocks.push(...results);
+
+      hasMore = data.has_more;
+      startCursor = data.next_cursor;
+    }
+
+    return { success: true, blocks: allBlocks };
+  }
+
+  /**
+   * 找出標記區域的區塊 ID
+   * @param {Array} blocks - 區塊列表
+   * @returns {Array<string>} 需要刪除的區塊 ID 列表
+   * @private
+   */
+  static _findHighlightSectionBlocks(blocks) {
+    const blocksToDelete = [];
+    let foundHighlightSection = false;
+
+    for (const block of blocks) {
+      if (
+        block.type === 'heading_3' &&
+        block.heading_3?.rich_text?.[0]?.text?.content === NOTION_CONFIG.HIGHLIGHT_SECTION_HEADER
+      ) {
+        foundHighlightSection = true;
+        blocksToDelete.push(block.id);
+      } else if (foundHighlightSection) {
+        if (block.type.startsWith('heading_')) {
+          break; // 遇到下一個標題，停止收集
+        }
+        // 收集所有非標題類型的區塊（包含 paragraph, quote, callout 等）
+        blocksToDelete.push(block.id);
+      }
+    }
+
+    return blocksToDelete;
+  }
+
+  /**
+   * 批量刪除區塊
+   * @param {Array<string>} blockIds - 區塊 ID 列表
+   * @returns {Promise<{successCount: number, failureCount: number, errors: Array<{id: string, error: string}>}>}
+   * @private
+   */
+  async _deleteBlocksByIds(blockIds) {
+    let successCount = 0;
+    const errors = [];
+
+    for (const blockId of blockIds) {
+      try {
+        const response = await this._apiRequest(`/blocks/${blockId}`, {
+          method: 'DELETE',
+          maxRetries: this.config.DELETE_RETRIES,
+          baseDelay: this.config.DELETE_DELAY,
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          // 嘗試獲取錯誤細節
+          const errorText = await response.text().catch(() => response.statusText);
+          errors.push({ id: blockId, error: errorText });
+          this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, errorText);
+        }
+      } catch (deleteError) {
+        errors.push({ id: blockId, error: deleteError.message });
+        this.logger.warn?.(`刪除區塊異常 ${blockId}:`, deleteError.message);
+      }
+
+      // 速率限制：防止快速連續刪除觸發 429 錯誤
+      await sleep(this.config.RATE_LIMIT_DELAY);
+    }
+
+    return { successCount, failureCount: errors.length, errors };
+  }
+
+  /**
+   * 驗證區塊基本結構
+   * @param {Object} block - 區塊對象
+   * @returns {boolean}
+   * @private
+   */
+  _isValidBlock(block) {
+    if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
+      this.logger.warn?.('⚠️ Skipped invalid block (missing type or type property)');
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * 驗證圖片 URL 是否有效
+   * @param {string} imageUrl - 圖片 URL
+   * @returns {boolean}
+   * @private
+   */
+  _isValidImageUrl(imageUrl) {
+    if (!imageUrl) {
+      this.logger.warn?.('⚠️ Skipped image block without URL');
+      return false;
+    }
+
+    // 檢查 URL 長度
+    const maxUrlLength =
+      IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH -
+      IMAGE_VALIDATION_CONSTANTS.URL_LENGTH_SAFETY_MARGIN;
+    if (imageUrl.length > maxUrlLength) {
+      this.logger.warn?.(`⚠️ Skipped image with too long URL (${imageUrl.length} chars)`);
+      return false;
+    }
+
+    // 檢查特殊字符
+    const problematicChars = /[<>{}|\\^`[\]]/;
+    if (problematicChars.test(imageUrl)) {
+      // 使用共用安全工具清理 URL
+      const sanitizedUrl = sanitizeUrlForLogging(imageUrl);
+      this.logger.warn?.(`⚠️ Skipped image with problematic characters: ${sanitizedUrl}`);
+      return false;
+    }
+
+    // 驗證 URL 格式
+    try {
+      const urlObj = new URL(imageUrl);
+
+      // 只接受 http/https
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        this.logger.warn?.(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
+        return false;
+      }
+
+      // 檢查 hostname
+      if (!urlObj.hostname || urlObj.hostname.length < 3) {
+        this.logger.warn?.(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
+        return false;
+      }
+    } catch (error) {
+      this.logger.warn?.('⚠️ Skipped image with invalid URL format', error);
+      return false;
+    }
+
+    // 驗證通過 - 不記錄日誌以避免圖片較多時產生過多輸出
+    return true;
+  }
+
+  /**
    * 過濾有效的圖片區塊
    * 移除可能導致 Notion API 錯誤的圖片（URL 過長、無效格式、特殊字符等）
    * @param {Array} blocks - 區塊數組
@@ -141,67 +387,22 @@ class NotionService {
     }
 
     const validBlocks = blocks.filter(block => {
-      // 基本驗證：必須有有效的 type 且對應的類型屬性存在
-      if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
-        this.logger.warn?.('⚠️ Skipped invalid block (missing type or type property)');
+      // 基本區塊驗證
+      if (!this._isValidBlock(block)) {
         return false;
       }
 
+      // 非圖片區塊直接通過
       if (block.type !== 'image') {
         return true;
       }
 
-      const imageUrl = block.image?.external?.url;
-      if (!imageUrl) {
-        this.logger.warn?.('⚠️ Skipped image block without URL');
-        return false;
-      }
-
-      // 檢查 URL 長度（使用統一配置的閾值，略低於最大限制以留安全餘量）
-      const maxUrlLength =
-        IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH -
-        IMAGE_VALIDATION_CONSTANTS.URL_LENGTH_SAFETY_MARGIN;
-      if (imageUrl.length > maxUrlLength) {
-        this.logger.warn?.(
-          `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
-        );
-        return false;
-      }
-
-      // 檢查特殊字符
-      const problematicChars = /[<>{}|\\^`[\]]/;
-      if (problematicChars.test(imageUrl)) {
-        this.logger.warn?.(
-          `⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`
-        );
-        return false;
-      }
-
-      // 驗證 URL 格式
-      try {
-        const urlObj = new URL(imageUrl);
-
-        // 只接受 http/https
-        if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-          this.logger.warn?.(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
-          return false;
-        }
-
-        // 檢查 hostname
-        if (!urlObj.hostname || urlObj.hostname.length < 3) {
-          this.logger.warn?.(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
-          return false;
-        }
-      } catch (error) {
-        this.logger.warn?.(
-          `⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`,
-          error
-        );
-        return false;
-      }
-
-      this.logger.log?.(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
-      return true;
+      // 圖片 URL 驗證
+      // Notion 支援兩種圖片類型：
+      // 1. external: 外部托管的圖片 (block.image.external.url)
+      // 2. file: Notion 內部托管的圖片 (block.image.file.url)
+      const imageUrl = block.image?.external?.url || block.image?.file?.url;
+      return this._isValidImageUrl(imageUrl);
     });
 
     const skippedCount = blocks.length - validBlocks.length;
@@ -225,14 +426,11 @@ class NotionService {
     }
 
     try {
-      const response = await fetchWithRetry(
-        `${this.config.BASE_URL}/pages/${pageId}`,
-        {
-          method: 'GET',
-          headers: this._getHeaders(),
-        },
-        { maxRetries: 2, baseDelay: 500 }
-      );
+      const response = await this._apiRequest(`/pages/${pageId}`, {
+        method: 'GET',
+        maxRetries: this.config.CHECK_RETRIES,
+        baseDelay: this.config.CHECK_DELAY,
+      });
 
       if (response.ok) {
         const pageData = await response.json();
@@ -263,7 +461,7 @@ class NotionService {
       throw new Error('API Key not configured');
     }
 
-    const { BLOCKS_PER_BATCH, DELAY_BETWEEN_BATCHES } = this.config;
+    const { BLOCKS_PER_BATCH } = this.config;
     let addedCount = 0;
     const totalBlocks = blocks.length - startIndex;
 
@@ -281,15 +479,12 @@ class NotionService {
 
         this.logger.log?.(`📤 發送批次 ${batchNumber}/${totalBatches}: ${batch.length} 個區塊`);
 
-        const response = await fetchWithRetry(
-          `${this.config.BASE_URL}/blocks/${pageId}/children`,
-          {
-            method: 'PATCH',
-            headers: this._getHeaders(),
-            body: JSON.stringify({ children: batch }),
-          },
-          { maxRetries: 3, baseDelay: 800 }
-        );
+        const response = await this._apiRequest(`/blocks/${pageId}/children`, {
+          method: 'PATCH',
+          body: { children: batch },
+          maxRetries: this.config.CREATE_RETRIES,
+          baseDelay: this.config.CREATE_DELAY,
+        });
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -302,9 +497,9 @@ class NotionService {
           `✅ 批次 ${batchNumber} 成功: 已添加 ${addedCount}/${totalBlocks} 個區塊`
         );
 
-        // 添加延遲以遵守速率限制
+        // 速率限制：批次間延遲
         if (i + BLOCKS_PER_BATCH < blocks.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+          await sleep(this.config.RATE_LIMIT_DELAY);
         }
       }
 
@@ -312,7 +507,12 @@ class NotionService {
       return { success: true, addedCount, totalCount: totalBlocks };
     } catch (error) {
       this.logger.error?.('❌ 分批添加區塊失敗:', error);
-      return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
+      return {
+        success: false,
+        addedCount,
+        totalCount: totalBlocks,
+        error: sanitizeApiError(error, 'append_blocks'),
+      };
     }
   }
 
@@ -332,15 +532,12 @@ class NotionService {
     const { autoBatch = false, allBlocks = [] } = options;
 
     try {
-      const response = await fetchWithRetry(
-        `${this.config.BASE_URL}/pages`,
-        {
-          method: 'POST',
-          headers: this._getHeaders(),
-          body: JSON.stringify(pageData),
-        },
-        { maxRetries: 2, baseDelay: 600 }
-      );
+      const response = await this._apiRequest('/pages', {
+        method: 'POST',
+        body: pageData,
+        maxRetries: this.config.CREATE_RETRIES,
+        baseDelay: this.config.CREATE_DELAY,
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -369,13 +566,14 @@ class NotionService {
       }
 
       const errorData = await response.json().catch(() => ({}));
+      const rawError = errorData.message || `API Error: ${response.status}`;
       return {
         success: false,
-        error: errorData.message || `API Error: ${response.status}`,
+        error: sanitizeApiError(rawError, 'create_page'),
       };
     } catch (error) {
       this.logger.error?.('❌ 創建頁面失敗:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: sanitizeApiError(error, 'create_page') };
     }
   }
 
@@ -386,31 +584,24 @@ class NotionService {
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   async updatePageTitle(pageId, title) {
-    if (!this.apiKey) {
-      throw new Error('API Key not configured');
-    }
-
     try {
-      const response = await fetchWithRetry(
-        `${this.config.BASE_URL}/pages/${pageId}`,
-        {
-          method: 'PATCH',
-          headers: this._getHeaders(),
-          body: JSON.stringify({
-            properties: {
-              title: {
-                title: [{ type: 'text', text: { content: title } }],
-              },
+      const response = await this._apiRequest(`/pages/${pageId}`, {
+        method: 'PATCH',
+        body: {
+          properties: {
+            title: {
+              title: [{ type: 'text', text: { content: title } }],
             },
-          }),
+          },
         },
-        { maxRetries: 2, baseDelay: 600 }
-      );
+        maxRetries: this.config.CREATE_RETRIES,
+        baseDelay: this.config.CREATE_DELAY,
+      });
 
       return { success: response.ok };
     } catch (error) {
       this.logger.error?.('❌ 更新標題失敗:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: sanitizeApiError(error, 'update_title') };
     }
   }
 
@@ -420,10 +611,6 @@ class NotionService {
    * @returns {Promise<{success: boolean, deletedCount: number, error?: string}>}
    */
   async deleteAllBlocks(pageId) {
-    if (!this.apiKey) {
-      throw new Error('API Key not configured');
-    }
-
     try {
       // 收集所有區塊（處理分頁）
       const allBlocks = [];
@@ -431,18 +618,15 @@ class NotionService {
       let hasMore = true;
 
       while (hasMore) {
-        const url = startCursor
-          ? `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100&start_cursor=${startCursor}`
-          : `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100`;
-
-        const listResponse = await fetchWithRetry(
-          url,
-          {
-            method: 'GET',
-            headers: this._getHeaders(),
+        const listResponse = await this._apiRequest(`/blocks/${pageId}/children`, {
+          method: 'GET',
+          queryParams: {
+            page_size: this.config.PAGE_SIZE,
+            start_cursor: startCursor,
           },
-          { maxRetries: 2, baseDelay: 500 }
-        );
+          maxRetries: this.config.CHECK_RETRIES,
+          baseDelay: this.config.CHECK_DELAY,
+        });
 
         if (!listResponse.ok) {
           return { success: false, deletedCount: 0, error: 'Failed to list blocks' };
@@ -460,31 +644,18 @@ class NotionService {
         return { success: true, deletedCount: 0 };
       }
 
-      // 逐個刪除區塊
-      let deletedCount = 0;
-      for (const block of allBlocks) {
-        try {
-          await fetchWithRetry(
-            `${this.config.BASE_URL}/blocks/${block.id}`,
-            {
-              method: 'DELETE',
-              headers: this._getHeaders(),
-            },
-            { maxRetries: 1, baseDelay: 300 }
-          );
-          deletedCount++;
+      // 提取區塊 ID 並委託給 _deleteBlocksByIds
+      const blockIds = allBlocks.map(block => block.id);
+      const { successCount, failureCount, errors } = await this._deleteBlocksByIds(blockIds);
 
-          // 速率限制
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (err) {
-          this.logger.warn?.(`Failed to delete block ${block.id}:`, err);
-        }
+      if (failureCount > 0) {
+        this.logger.warn?.(`⚠️ 部分區塊刪除失敗: ${failureCount}/${allBlocks.length}`, errors);
       }
 
-      return { success: true, deletedCount };
+      return { success: true, deletedCount: successCount, failureCount, errors };
     } catch (error) {
       this.logger.error?.('❌ 刪除區塊失敗:', error);
-      return { success: false, deletedCount: 0, error: error.message };
+      return { success: false, deletedCount: 0, error: sanitizeApiError(error, 'delete_blocks') };
     }
   }
 
@@ -594,7 +765,7 @@ class NotionService {
       };
     } catch (error) {
       this.logger.error?.('❌ 刷新頁面內容失敗:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: sanitizeApiError(error, 'refresh_page') };
     }
   }
 
@@ -609,90 +780,39 @@ class NotionService {
       this.logger.log?.('🔄 開始更新標記區域...');
 
       // 步驟 1: 獲取現有區塊
-      const response = await fetchWithRetry(
-        `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100`,
-        {
-          method: 'GET',
-          headers: this._getHeaders(),
-        },
-        { maxRetries: 2, baseDelay: 600 }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return {
-          success: false,
-          error: `獲取頁面內容失敗: ${errorData.message || response.statusText}`,
-        };
+      const fetchResult = await this._fetchPageBlocks(pageId);
+      if (!fetchResult.success) {
+        return { success: false, error: fetchResult.error };
       }
-
-      const existingContent = await response.json();
-      const existingBlocks = existingContent.results;
 
       // 步驟 2: 找出需要刪除的標記區塊
-      const blocksToDelete = [];
-      let foundHighlightSection = false;
-
-      for (let i = 0; i < existingBlocks.length; i++) {
-        const block = existingBlocks[i];
-
-        if (
-          block.type === 'heading_3' &&
-          block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記'
-        ) {
-          foundHighlightSection = true;
-          blocksToDelete.push(block.id);
-        } else if (foundHighlightSection) {
-          if (block.type.startsWith('heading_')) {
-            break; // 遇到下一個標題，停止收集
-          }
-          if (block.type === 'paragraph') {
-            blocksToDelete.push(block.id);
-          }
-        }
-      }
+      const blocksToDelete = NotionService._findHighlightSectionBlocks(fetchResult.blocks);
 
       // 步驟 3: 刪除舊的標記區塊
-      let deletedCount = 0;
-      for (const blockId of blocksToDelete) {
-        try {
-          const deleteResponse = await fetchWithRetry(
-            `${this.config.BASE_URL}/blocks/${blockId}`,
-            {
-              method: 'DELETE',
-              headers: this._getHeaders(),
-            },
-            { maxRetries: 1, baseDelay: 300 }
-          );
+      const { successCount: deletedCount, errors: deleteErrors } =
+        await this._deleteBlocksByIds(blocksToDelete);
 
-          if (deleteResponse.ok) {
-            deletedCount++;
-          }
-        } catch (deleteError) {
-          this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, deleteError.message);
-        }
+      if (deleteErrors.length > 0) {
+        this.logger.warn?.(`⚠️ 部分標記區塊刪除失敗: ${deleteErrors.length} 個`, deleteErrors);
       }
-
       this.logger.log?.(`🗑️ 刪除了 ${deletedCount}/${blocksToDelete.length} 個舊標記區塊`);
 
       // 步驟 4: 添加新的標記區塊
       if (highlightBlocks.length > 0) {
-        const addResponse = await fetchWithRetry(
-          `${this.config.BASE_URL}/blocks/${pageId}/children`,
-          {
-            method: 'PATCH',
-            headers: this._getHeaders(),
-            body: JSON.stringify({ children: highlightBlocks }),
-          },
-          { maxRetries: 2, baseDelay: 600 }
-        );
+        const addResponse = await this._apiRequest(`/blocks/${pageId}/children`, {
+          method: 'PATCH',
+          body: { children: highlightBlocks },
+          maxRetries: this.config.CREATE_RETRIES,
+          baseDelay: this.config.CREATE_DELAY,
+        });
 
         if (!addResponse.ok) {
           const errorData = await addResponse.json().catch(() => ({}));
+          const rawError = errorData.message || 'Unknown error';
           return {
             success: false,
             deletedCount,
-            error: `添加標記失敗: ${errorData.message || 'Unknown error'}`,
+            error: sanitizeApiError(rawError, 'add_highlights'),
           };
         }
 
@@ -709,7 +829,7 @@ class NotionService {
       return { success: true, deletedCount, addedCount: 0 };
     } catch (error) {
       this.logger.error?.('❌ 更新標記區域失敗:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: sanitizeApiError(error, 'update_highlights') };
     }
   }
 }

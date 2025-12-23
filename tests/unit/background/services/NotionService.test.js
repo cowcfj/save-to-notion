@@ -176,6 +176,18 @@ describe('NotionService', () => {
       service.setApiKey(null);
       await expect(service.checkPageExists('page-123')).rejects.toThrow('API Key not configured');
     });
+
+    it('應該處理非 JSON 錯誤響應', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Server Error',
+        json: () => Promise.reject(new Error('Not JSON')),
+      });
+
+      const result = await service.checkPageExists('page-123');
+      expect(result).toBeNull();
+    });
   });
 
   describe('appendBlocksInBatches', () => {
@@ -215,7 +227,8 @@ describe('NotionService', () => {
 
       expect(result.success).toBe(false);
       expect(result.addedCount).toBe(100);
-      expect(result.error).toContain('批次添加失敗');
+      // 驗證返回清理後的用戶友好錯誤訊息
+      expect(result.error).toContain('操作失敗');
     });
   });
 
@@ -240,12 +253,13 @@ describe('NotionService', () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 400,
-        json: () => Promise.resolve({ message: 'Invalid page data' }),
+        json: () => Promise.resolve({ message: 'Validation failed for page data' }),
       });
 
       const result = await service.createPage({ title: 'Test Page' });
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Invalid page data');
+      // 驗證返回清理後的用戶友好錯誤訊息
+      expect(result.error).toContain('數據格式不符合要求');
     });
   });
 
@@ -595,7 +609,414 @@ describe('NotionService', () => {
       const result = await service.refreshPageContent('page-123', []);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Network error');
+      // 驗證返回清理後的用戶友好錯誤訊息
+      expect(result.error).toContain('網絡連接失敗');
+    });
+  });
+  describe('_findHighlightSectionBlocks', () => {
+    it('應該找出標記區域的標題區塊及隨後的內容', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        {
+          id: '2',
+          type: 'heading_3',
+          heading_3: {
+            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+          },
+        },
+        { id: '3', type: 'paragraph' }, // Changed to paragraph to match strict logic
+        { id: '4', type: 'heading_2' }, // 停止點
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toHaveLength(2); // ID: 2 and 3
+      expect(result).toEqual(['2', '3']);
+    });
+
+    it('應該處理只有標題沒有內容的情況', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        {
+          id: '2',
+          type: 'heading_3',
+          heading_3: {
+            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+          },
+        },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toHaveLength(1);
+      expect(result).toEqual(['2']);
+    });
+
+    it('應該處理沒有標記區域的情況', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        {
+          id: '2',
+          type: 'heading_3',
+          heading_3: {
+            rich_text: [{ text: { content: '其他標題' }, plain_text: '其他標題' }],
+          },
+        },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toHaveLength(0);
+    });
+
+    it('應收集所有非標題類型的區塊', () => {
+      const blocks = [
+        {
+          id: '1',
+          type: 'heading_3',
+          heading_3: {
+            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+          },
+        },
+        { id: '2', type: 'bulleted_list_item', has_children: true }, // 應收集
+        { id: '3', type: 'paragraph' }, // 應收集
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['1', '2', '3']); // 收集所有非標題區塊
+    });
+  });
+
+  describe('updateHighlightsSection', () => {
+    const pageId = 'page-123';
+    const highlightBlocks = [
+      { type: 'paragraph', paragraph: { rich_text: [{ plain_text: 'New Highlight' }] } },
+    ];
+
+    it('應該成功更新標記區域（刪除舊的並添加新的）', async () => {
+      // Mock 獲取現有區塊
+      service._fetchPageBlocks = jest.fn().mockResolvedValue({
+        success: true,
+        blocks: [
+          { id: '1', type: 'paragraph' },
+          {
+            id: '2',
+            type: 'heading_3',
+            heading_3: {
+              rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+            },
+          },
+          { id: '3', type: 'paragraph' }, // 舊標記 (changed to paragraph)
+        ],
+      });
+
+      // Mock 刪除操作
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 2, // 刪除了 ID 2 和 3
+        failureCount: 0,
+        errors: [],
+      });
+
+      // Mock 添加操作 (_apiRequest PATCH children)
+      service._apiRequest = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ results: [{}, {}] }),
+      });
+
+      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
+
+      expect(service._fetchPageBlocks).toHaveBeenCalledWith(pageId);
+      expect(service._deleteBlocksByIds).toHaveBeenCalledWith(['2', '3']);
+      expect(service._apiRequest).toHaveBeenCalledWith(
+        `/blocks/${pageId}/children`,
+        expect.objectContaining({
+          method: 'PATCH',
+          body: { children: highlightBlocks },
+        })
+      );
+
+      expect(result).toEqual({
+        success: true,
+        deletedCount: 2,
+        addedCount: 2,
+        skippedImageCount: undefined,
+        error: undefined,
+      });
+    });
+
+    it('應該處理獲取現有區塊失敗', async () => {
+      service._fetchPageBlocks = jest.fn().mockResolvedValue({
+        success: false,
+        error: 'Fetch failed',
+      });
+      service._deleteBlocksByIds = jest.fn();
+
+      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
+
+      expect(result).toEqual({
+        success: false,
+        error: 'Fetch failed',
+      });
+      expect(service._deleteBlocksByIds).not.toHaveBeenCalled();
+    });
+
+    it('應該處理添加新標記失敗', async () => {
+      // Mock 獲取成功
+      service._fetchPageBlocks = jest.fn().mockResolvedValue({
+        success: true,
+        blocks: [],
+      });
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 0,
+        failureCount: 0,
+        errors: [],
+      });
+
+      // Mock 添加失敗
+      service._apiRequest = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: jest.fn().mockResolvedValue({ message: 'Invalid data' }),
+        text: jest.fn().mockResolvedValue('Invalid data'),
+      });
+
+      const result = await service.updateHighlightsSection(pageId, highlightBlocks);
+
+      expect(result.success).toBe(false);
+      expect(result.deletedCount).toBe(0);
+      expect(result.error).toBeDefined();
+    });
+
+    it('應該正確處理分頁以獲取所有區塊', async () => {
+      // 第一頁響應（還有更多）
+      service._apiRequest = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [{ id: 'block-1' }],
+            has_more: true,
+            next_cursor: 'cursor-2',
+          }),
+        })
+        // 第二頁響應（結束）
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [{ id: 'block-2' }],
+            has_more: false,
+            next_cursor: null,
+          }),
+        });
+
+      // Mock 刪除操作
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 0,
+        failureCount: 0,
+        errors: [],
+      });
+
+      // Mock 添加操作
+      service._apiRequest.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ results: [] }),
+      });
+
+      // 觸發調用
+      await service.updateHighlightsSection(pageId, highlightBlocks);
+
+      // 驗證 API 調用次數
+      // 1. fetch page 1
+      // 2. fetch page 2
+      // 3. delete (if any) - here none
+      // 4. add new blocks
+      // 注意：由於 _fetchPageBlocks 內部循環調用了 _apiRequest，我們需要檢查 mock 的調用參數
+
+      // 檢查第一次調用 (Page 1)
+      expect(service._apiRequest).toHaveBeenNthCalledWith(
+        1,
+        `/blocks/${pageId}/children`,
+        expect.objectContaining({
+          queryParams: expect.objectContaining({ start_cursor: null }),
+        })
+      );
+
+      // 檢查第二次調用 (Page 2)
+      expect(service._apiRequest).toHaveBeenNthCalledWith(
+        2,
+        `/blocks/${pageId}/children`,
+        expect.objectContaining({
+          queryParams: expect.objectContaining({ start_cursor: 'cursor-2' }),
+        })
+      );
+    });
+
+    it('應該正確處理空標記列表（只刪除不添加）', async () => {
+      service._fetchPageBlocks = jest.fn().mockResolvedValue({
+        success: true,
+        blocks: [
+          {
+            id: '2',
+            type: 'heading_3',
+            heading_3: {
+              rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+            },
+          },
+        ],
+      });
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        errors: [],
+      });
+      service._apiRequest = jest.fn();
+
+      const result = await service.updateHighlightsSection(pageId, []);
+
+      expect(service._deleteBlocksByIds).toHaveBeenCalled();
+      expect(service._apiRequest).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        success: true,
+        deletedCount: 1,
+        addedCount: 0,
+      });
+    });
+  });
+
+  describe('_apiRequest', () => {
+    it('應該在 body 為 null 時不包含 body', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+      await service._apiRequest('/test', { method: 'POST', body: null });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+      const callArgs = global.fetch.mock.calls[0][1];
+      expect(callArgs).not.toHaveProperty('body');
+    });
+
+    it('應該在 body 為 undefined 時不包含 body', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+      await service._apiRequest('/test', { method: 'POST', body: undefined });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.not.objectContaining({ body: expect.anything() })
+      );
+      const callArgs = global.fetch.mock.calls[0][1];
+      expect(callArgs).not.toHaveProperty('body');
+    });
+
+    it('應該在 body 為空對象時包含 body', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+      await service._apiRequest('/test', { method: 'POST', body: {} });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.objectContaining({
+          body: '{}',
+        })
+      );
+    });
+
+    it('應該正常處理普通對象 body', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+      const body = { key: 'value' };
+
+      await service._apiRequest('/test', { method: 'POST', body });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.objectContaining({
+          body: JSON.stringify(body),
+        })
+      );
+    });
+  });
+
+  describe('_findHighlightSectionBlocks (靜態方法)', () => {
+    const HEADER = '📝 頁面標記';
+
+    it('應該正確識別標記區塊', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        {
+          id: '2',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ text: { content: HEADER } }] },
+        },
+        { id: '3', type: 'paragraph' },
+        { id: '4', type: 'paragraph' },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['2', '3', '4']);
+    });
+
+    it('應該在遇到下一個標題時停止收集', () => {
+      const blocks = [
+        {
+          id: '1',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ text: { content: HEADER } }] },
+        },
+        { id: '2', type: 'paragraph' },
+        { id: '3', type: 'heading_2', heading_2: { rich_text: [] } },
+        { id: '4', type: 'paragraph' },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['1', '2']);
+    });
+
+    it('應該正確處理沒有標記區域的情況', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        { id: '2', type: 'heading_2', heading_2: { rich_text: [] } },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual([]);
+    });
+
+    it('應該處理空區塊數組', () => {
+      const result = NotionService._findHighlightSectionBlocks([]);
+      expect(result).toEqual([]);
+    });
+
+    it('應收集所有非標題類型的區塊', () => {
+      const blocks = [
+        {
+          id: '1',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ text: { content: HEADER } }] },
+        },
+        { id: '2', type: 'paragraph' },
+        { id: '3', type: 'image', image: {} }, // 非標題，應收集
+        { id: '4', type: 'paragraph' },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['1', '2', '3', '4']); // 收集所有非標題區塊
+    });
+
+    it('應該處理標記區域在頁面末尾的情況', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        { id: '2', type: 'paragraph' },
+        {
+          id: '3',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ text: { content: HEADER } }] },
+        },
+        { id: '4', type: 'paragraph' },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['3', '4']);
     });
   });
 });

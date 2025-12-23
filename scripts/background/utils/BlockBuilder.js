@@ -10,13 +10,19 @@
  */
 
 // 導入統一配置（從統一入口點導入，保持一致性）
-import { TEXT_PROCESSING } from '../../config/index.js';
+import { TEXT_PROCESSING, NOTION_API } from '../../config/index.js';
 
 /**
  * 文本內容最大長度（從統一配置獲取）
  * @constant {number}
  */
 const MAX_TEXT_LENGTH = TEXT_PROCESSING?.MAX_RICH_TEXT_LENGTH || 2000;
+
+/**
+ * 高亮標記區域標題（從統一配置獲取）
+ * @constant {string}
+ */
+const HIGHLIGHT_SECTION_HEADER = NOTION_API?.HIGHLIGHT_SECTION_HEADER || '📝 頁面標記';
 
 /**
  * 創建 rich_text 對象
@@ -257,10 +263,10 @@ function splitTextForHighlight(text, maxLength = 2000) {
 /**
  * 創建標註區塊組（包含標題和標註內容）
  * @param {Array} highlights - 標註數據數組 [{text, color}]
- * @param {string} title - 標題 (默認 '📝 頁面標記')
+ * @param {string} title - 標題（默認使用配置的標記區域標題）
  * @returns {Array} Notion blocks 數組
  */
-function buildHighlightBlocks(highlights, title = '📝 頁面標記') {
+function buildHighlightBlocks(highlights, title = HIGHLIGHT_SECTION_HEADER) {
   if (!highlights || highlights.length === 0) {
     return [];
   }
