@@ -99,9 +99,6 @@ export function createSaveHandlers(services) {
   }
 
   /**
-   * 根據頁面狀態決定並執行保存操作
-   */
-  /**
    * 執行頁面創建（包含圖片錯誤重試邏輯）
    */
   async function performCreatePage(params) {
