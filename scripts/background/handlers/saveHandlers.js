@@ -8,9 +8,9 @@
 
 /* global chrome, Logger */
 
-import * as UrlUtils from '../../utils/urlUtils.js';
+import { normalizeUrl } from '../../utils/urlUtils.js';
 import { validateInternalRequest, isValidNotionUrl } from '../../utils/securityUtils.js';
-import * as BlockBuilderUtils from '../utils/BlockBuilder.js';
+import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 
 // ============================================================================
@@ -62,8 +62,8 @@ export function processContentResult(rawResult, highlights) {
 
   // 添加標註區塊
   if (highlights && highlights.length > 0) {
-    const buildHighlightBlocks = BlockBuilderUtils.buildHighlightBlocks || (() => []);
-    const highlightBlocks = buildHighlightBlocks(highlights);
+    const buildBlocks = buildHighlightBlocks || (() => []);
+    const highlightBlocks = buildBlocks(highlights);
     blocks.push(...highlightBlocks);
   }
 
@@ -196,8 +196,8 @@ export function createSaveHandlers(services) {
         if (highlights.length > 0) {
           // 只更新標註
           // Build highlight blocks (safely)
-          const buildHighlightBlocks = BlockBuilderUtils.buildHighlightBlocks || (() => []);
-          const highlightBlocks = buildHighlightBlocks(highlights);
+          const buildBlocks = buildHighlightBlocks || (() => []);
+          const highlightBlocks = buildBlocks(highlights);
           const result = await notionService.updateHighlightsSection(
             savedData.notionPageId,
             highlightBlocks
@@ -301,8 +301,8 @@ export function createSaveHandlers(services) {
         // 重要：設置 Service 的 API Key
         notionService.setApiKey(config.notionApiKey);
 
-        const normalizeUrl = UrlUtils.normalizeUrl || (url => url);
-        const normUrl = normalizeUrl(activeTab.url || '');
+        const normalize = normalizeUrl || (url => url);
+        const normUrl = normalize(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         // 注入 highlighter 並收集標記
@@ -381,8 +381,8 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const normalizeUrl = UrlUtils.normalizeUrl || (url => url);
-        const normUrl = normalizeUrl(pageUrl);
+        const normalize = normalizeUrl || (url => url);
+        const normUrl = normalize(pageUrl);
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData || !savedData.notionPageId) {
@@ -456,8 +456,8 @@ export function createSaveHandlers(services) {
       try {
         const activeTab = await getActiveTab();
 
-        const normalizeUrl = UrlUtils.normalizeUrl || (url => url);
-        const normUrl = normalizeUrl(activeTab.url || '');
+        const normalize = normalizeUrl || (url => url);
+        const normUrl = normalize(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (savedData?.notionPageId) {
