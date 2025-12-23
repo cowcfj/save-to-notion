@@ -18,6 +18,47 @@ import { HANDLER_CONSTANTS } from '../../config/constants.js';
 // ============================================================================
 
 /**
+ * 驗證請求來源是否為擴充功能內部
+ * @param {object} sender - Chrome message sender object
+ * @returns {object|null} 錯誤對象或 null（驗證通過）
+ */
+function validateInternalRequest(sender) {
+  // 來源驗證：必須來自擴充功能內部
+  const isExtensionOrigin = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+
+  // 允許的情況：
+  // 1. 沒有 tab 對象 (Popup, Background) 且 ID 匹配
+  // 2. 有 tab 對象，但 URL 是擴充功能自身的 URL (Options in Tab) 且 ID 匹配
+  if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionOrigin)) {
+    return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
+  }
+
+  return null; // 驗證通過
+}
+
+/**
+ * 驗證請求是否來自我們自己的 content script
+ * @param {object} sender - Chrome message sender object
+ * @returns {object|null} 錯誤對象或 null（驗證通過）
+ */
+function validateContentScriptRequest(sender) {
+  // Content script 的特徵：
+  // 1. sender.id 必須是我們的擴充功能
+  // 2. sender.tab 必須存在（在網頁上下文中）
+  // 3. sender.url 是網頁 URL（不是 chrome-extension://）
+
+  if (sender.id !== chrome.runtime.id) {
+    return { success: false, error: '拒絕訪問：僅限本擴充功能的 content script 調用' };
+  }
+
+  if (!sender.tab || !sender.tab.id) {
+    return { success: false, error: '拒絕訪問：此操作必須在標籤頁上下文中調用' };
+  }
+
+  return null; // 驗證通過
+}
+
+/**
  * 獲取活動標籤頁
  * @returns {Promise<chrome.tabs.Tab>}
  * @throws {Error} 如果無法獲取標籤頁
@@ -102,6 +143,17 @@ export function createHighlightHandlers(services) {
      */
     USER_ACTIVATE_SHORTCUT: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：確保請求來自我們自己的 content script
+        // 這個處理器會執行腳本注入，必須確保僅限我們的 preloader.js 調用
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          Logger.warn('⚠️ [USER_ACTIVATE_SHORTCUT] 安全性阻擋:', validationError.error, {
+            sender,
+          });
+          sendResponse(validationError);
+          return;
+        }
+
         if (!sender.tab || !sender.tab.id) {
           Logger.warn('[USER_ACTIVATE_SHORTCUT] No tab context');
           sendResponse({ success: false, error: 'No tab context' });
@@ -170,6 +222,15 @@ export function createHighlightHandlers(services) {
      */
     startHighlight: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：檢查請求來源
+        // startHighlight 會執行腳本注入，必須確保僅限內部調用
+        const validationError = validateInternalRequest(sender);
+        if (validationError) {
+          Logger.warn('⚠️ [startHighlight] 安全性阻擋:', validationError.error, { sender });
+          sendResponse(validationError);
+          return;
+        }
+
         const activeTab = await getActiveTab();
 
         // 檢查是否為受限頁面（chrome://、chrome-extension:// 等）

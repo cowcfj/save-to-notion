@@ -276,7 +276,8 @@ describe('background error branches (integration)', () => {
   // ===== savePage 錯誤分支 =====
   test('savePage：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -292,7 +293,8 @@ describe('background error branches (integration)', () => {
     );
     // 預設 sync.get 回傳 {}，觸發缺少 API Key/DB ID
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -425,7 +427,8 @@ describe('background error branches (integration)', () => {
     });
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     // 注入函數失敗後，handleSavePage 會走回退內容提取並繼續保存邏輯；
     // 這裡只驗證最終為失敗（error 字段存在），不綁定具體錯誤訊息以避免外部 fetch 影響。
@@ -492,7 +495,8 @@ describe('background error branches (integration)', () => {
     );
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({ success: false, error: 'Invalid request' })
@@ -578,7 +582,8 @@ describe('background error branches (integration)', () => {
     });
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
 
     // 嘗試執行待處理計時器並讓出微任務，直到回傳
     for (let i = 0; i < 50 && sendResponse.mock.calls.length === 0; i++) {
@@ -683,7 +688,8 @@ describe('background error branches (integration)', () => {
     });
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -770,7 +776,8 @@ describe('background error branches (integration)', () => {
     });
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -852,7 +859,8 @@ describe('background error branches (integration)', () => {
     });
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     const resp = sendResponse.mock.calls[0]?.[0];
     // 500 錯誤會觸發 fetchWithRetry 重試機制，最終可能超時
