@@ -95,18 +95,11 @@ class TabService {
             let timeoutId = null;
             let isCleanedUp = false;
 
-            const cleanup = () => {
-              if (isCleanedUp) {
-                return;
-              }
-              isCleanedUp = true;
-              chrome.tabs.onUpdated.removeListener(onUpdated);
-              chrome.tabs.onRemoved.removeListener(onRemoved);
-              if (timeoutId) {
-                clearTimeout(timeoutId);
-              }
-            };
-
+            /**
+             * 標籤頁更新監聽器（等待頁面載入完成）
+             * @param {number} updatedTabId - 更新的標籤頁 ID
+             * @param {Object} changeInfo - 變更信息
+             */
             const onUpdated = (updatedTabId, changeInfo) => {
               if (updatedTabId === tabId && changeInfo.status === 'complete') {
                 cleanup();
@@ -118,10 +111,29 @@ class TabService {
               }
             };
 
+            /**
+             * 標籤頁關閉監聽器（清理資源）
+             * @param {number} removedTabId - 被關閉的標籤頁 ID
+             */
             const onRemoved = removedTabId => {
               if (removedTabId === tabId) {
                 cleanup();
                 this.logger.debug?.(`[TabService] Tab ${tabId} was closed, cleanup listeners`);
+              }
+            };
+
+            /**
+             * 清理函數 - 移除所有監聽器和超時
+             */
+            const cleanup = () => {
+              if (isCleanedUp) {
+                return;
+              }
+              isCleanedUp = true;
+              chrome.tabs.onUpdated.removeListener(onUpdated);
+              chrome.tabs.onRemoved.removeListener(onRemoved);
+              if (timeoutId) {
+                clearTimeout(timeoutId);
               }
             };
 

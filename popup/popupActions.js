@@ -29,11 +29,7 @@ function isValidNotionUrl(url) {
 
     // 允許 notion.so 的子網域（例如 xxx.notion.so）
     const hostname = urlObj.hostname.toLowerCase();
-    if (allowedDomains.includes(hostname) || hostname.endsWith('.notion.so')) {
-      return true;
-    }
-
-    return false;
+    return allowedDomains.includes(hostname) || hostname.endsWith('.notion.so');
   } catch {
     // URL 解析失敗
     return false;
