@@ -193,7 +193,7 @@ class NotionService {
     const response = await fetchWithRetry(
       url,
       { method: 'GET', headers: this._getHeaders() },
-      { maxRetries: this.config.CHECK_RETRIES, baseDelay: this.config.CREATE_DELAY }
+      { maxRetries: this.config.CHECK_RETRIES, baseDelay: this.config.CHECK_DELAY }
     );
 
     if (!response.ok) {
