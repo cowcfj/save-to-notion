@@ -71,7 +71,7 @@ export const NOTION_API = {
   CHECK_DELAY: 500, // 檢查操作延遲（ms）
   DELETE_RETRIES: 1, // 刪除操作重試次數
   DELETE_DELAY: 300, // 刪除操作延遲（ms）
-  RATE_LIMIT_DELAY: 100, // 速率限制延遲（ms）
+  RATE_LIMIT_DELAY: 350, // 速率限制延遲（ms），符合 Notion API 限制（3 req/s）
   PAGE_SIZE: 100, // 分頁大小
   CREATE_DELAY: 600, // 創建操作延遲（ms）
 };
