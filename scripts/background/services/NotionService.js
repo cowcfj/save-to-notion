@@ -158,7 +158,7 @@ class NotionService {
       {
         method,
         headers: this._getHeaders(),
-        ...(body && { body: JSON.stringify(body) }),
+        ...(body !== null && body !== undefined && { body: JSON.stringify(body) }),
       },
       { maxRetries, baseDelay }
     );

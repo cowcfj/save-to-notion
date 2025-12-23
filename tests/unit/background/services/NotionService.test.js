@@ -801,4 +801,61 @@ describe('NotionService', () => {
       });
     });
   });
+
+  describe('_apiRequest', () => {
+    it('應該在 body 為 null 時不包含 body', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+      await service._apiRequest('/test', { method: 'POST', body: null });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+      const callArgs = global.fetch.mock.calls[0][1];
+      expect(callArgs).not.toHaveProperty('body');
+    });
+
+    it('應該在 body 為 undefined 時不包含 body', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+      await service._apiRequest('/test', { method: 'POST', body: undefined });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.not.objectContaining({ body: expect.anything() })
+      );
+      const callArgs = global.fetch.mock.calls[0][1];
+      expect(callArgs).not.toHaveProperty('body');
+    });
+
+    it('應該在 body 為空對象時包含 body', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+
+      await service._apiRequest('/test', { method: 'POST', body: {} });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.objectContaining({
+          body: '{}',
+        })
+      );
+    });
+
+    it('應該正常處理普通對象 body', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+      const body = { key: 'value' };
+
+      await service._apiRequest('/test', { method: 'POST', body });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.objectContaining({
+          body: JSON.stringify(body),
+        })
+      );
+    });
+  });
 });
