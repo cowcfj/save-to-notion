@@ -177,7 +177,7 @@ class NotionService {
   /**
    * 構建 API URL
    * @param {string} path - 路徑（相對於 BASE_URL）
-   * @param {Object} params - 查詢參數
+   * @param {Object} params - 查詢參數（null 和 undefined 的值會被自動過濾）
    * @returns {string}
    * @private
    */
