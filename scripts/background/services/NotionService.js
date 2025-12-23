@@ -198,24 +198,39 @@ class NotionService {
    * @private
    */
   async _fetchPageBlocks(pageId) {
-    const response = await this._apiRequest(`/blocks/${pageId}/children`, {
-      method: 'GET',
-      queryParams: { page_size: this.config.PAGE_SIZE },
-      maxRetries: this.config.CHECK_RETRIES,
-      baseDelay: this.config.CHECK_DELAY,
-    });
+    const allBlocks = [];
+    let hasMore = true;
+    let startCursor = undefined;
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const rawError = errorData.message || response.statusText;
-      return {
-        success: false,
-        error: sanitizeApiError(rawError, 'fetch_blocks'),
-      };
+    while (hasMore) {
+      const response = await this._apiRequest(`/blocks/${pageId}/children`, {
+        method: 'GET',
+        queryParams: {
+          page_size: this.config.PAGE_SIZE,
+          start_cursor: startCursor,
+        },
+        maxRetries: this.config.CHECK_RETRIES,
+        baseDelay: this.config.CHECK_DELAY,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const rawError = errorData.message || response.statusText;
+        return {
+          success: false,
+          error: sanitizeApiError(rawError, 'fetch_blocks'),
+        };
+      }
+
+      const data = await response.json();
+      const results = data.results || [];
+      allBlocks.push(...results);
+
+      hasMore = data.has_more;
+      startCursor = data.next_cursor;
     }
 
-    const data = await response.json();
-    return { success: true, blocks: data.results || [] };
+    return { success: true, blocks: allBlocks };
   }
 
   /**
