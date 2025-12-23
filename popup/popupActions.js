@@ -11,21 +11,6 @@ import { normalizeUrl } from '../scripts/utils/urlUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
 /**
- * 安全地提取錯誤訊息
- * @param {unknown} error - 錯誤對象（可能不是 Error 類型）
- * @returns {string} 錯誤訊息字符串
- */
-function getErrorMessage(error) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === 'string') {
-    return error;
-  }
-  return String(error);
-}
-
-/**
  * 檢查設置是否完整
  * @returns {Promise<{valid: boolean, apiKey?: string, dataSourceId?: string}>}
  */
@@ -73,7 +58,7 @@ export async function savePage() {
     return response || { success: false, error: 'No response' };
   } catch (error) {
     Logger.warn('savePage failed:', error);
-    return { success: false, error: getErrorMessage(error) };
+    return { success: false, error: '無法儲存頁面，請稍後再試' };
   }
 }
 
@@ -87,7 +72,7 @@ export async function startHighlight() {
     return response || { success: false, error: 'No response' };
   } catch (error) {
     Logger.warn('startHighlight failed:', error);
-    return { success: false, error: getErrorMessage(error) };
+    return { success: false, error: '無法啟動標記模式，請稍後再試' };
   }
 }
 
@@ -102,7 +87,7 @@ export async function openNotionPage(url) {
     return { success: true, tab };
   } catch (error) {
     Logger.warn('openNotionPage failed:', error);
-    return { success: false, error: getErrorMessage(error) };
+    return { success: false, error: '無法開啟 Notion 頁面' };
   }
 }
 
@@ -139,7 +124,7 @@ export async function clearHighlights(tabId, tabUrl) {
     return { success: true, clearedCount };
   } catch (error) {
     Logger.warn('clearHighlights failed:', error);
-    return { success: false, error: getErrorMessage(error) };
+    return { success: false, error: '無法清除標記' };
   }
 }
 
