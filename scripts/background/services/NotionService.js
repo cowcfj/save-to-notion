@@ -616,12 +616,16 @@ class NotionService {
       let deletedCount = 0;
       for (const block of allBlocks) {
         try {
-          await this._apiRequest(`/blocks/${block.id}`, {
+          const response = await this._apiRequest(`/blocks/${block.id}`, {
             method: 'DELETE',
             maxRetries: this.config.DELETE_RETRIES,
             baseDelay: this.config.DELETE_DELAY,
           });
-          deletedCount++;
+
+          // 只有成功時才增加計數
+          if (response.ok) {
+            deletedCount++;
+          }
 
           // 速率限制
           await new Promise(resolve => setTimeout(resolve, this.config.RATE_LIMIT_DELAY));
