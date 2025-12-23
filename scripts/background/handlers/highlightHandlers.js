@@ -8,7 +8,7 @@
 
 /* global chrome, Logger */
 
-import { normalizeUrl } from '../../utils/urlUtils.js';
+import * as UrlUtils from '../../utils/urlUtils.js';
 import {
   validateInternalRequest,
   validateContentScriptRequest,
@@ -251,6 +251,7 @@ export function createHighlightHandlers(services) {
 
         await ensureNotionApiKey(storageService, notionService);
 
+        const normalizeUrl = UrlUtils.normalizeUrl || (url => url);
         const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
@@ -293,6 +294,7 @@ export function createHighlightHandlers(services) {
 
         await ensureNotionApiKey(storageService, notionService);
 
+        const normalizeUrl = UrlUtils.normalizeUrl || (url => url);
         const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
