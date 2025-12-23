@@ -96,3 +96,70 @@ export function validateContentScriptRequest(sender) {
 
   return null; // 驗證通過
 }
+
+// ============================================================================
+// 日誌安全函數（防止敏感資訊洩露）
+// ============================================================================
+
+/**
+ * 清理 URL 用於日誌記錄，移除可能包含敏感資訊的部分
+ *
+ * 安全考量：
+ * - 移除查詢參數（可能包含 tokens、signatures、API keys）
+ * - 移除片段標識符（fragment）
+ * - 僅保留協議、主機名和路徑
+ *
+ * @param {string} url - 原始 URL
+ * @returns {string} 清理後的 URL（僅保留協議、主機名和路徑）
+ *
+ * @example
+ * // 敏感 URL（包含 token）
+ * sanitizeUrlForLogging('https://api.example.com/data?token=secret123&sig=xyz')
+ * // 返回: 'https://api.example.com/data'
+ *
+ * @example
+ * // 無效 URL
+ * sanitizeUrlForLogging('not-a-valid-url')
+ * // 返回: '[invalid-url]'
+ */
+export function sanitizeUrlForLogging(url) {
+  if (!url || typeof url !== 'string') {
+    return '[empty-url]';
+  }
+
+  try {
+    const urlObj = new URL(url);
+    // 只返回協議、主機名和路徑，移除查詢參數和片段
+    return `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+  } catch {
+    // 如果無法解析，返回通用描述（避免洩露無效 URL 內容）
+    return '[invalid-url]';
+  }
+}
+
+/**
+ * 遮蔽字串中的敏感部分（如 API keys、tokens）
+ *
+ * @param {string} text - 原始文字
+ * @param {number} visibleStart - 開始顯示的字元數（默認 4）
+ * @param {number} visibleEnd - 結尾顯示的字元數（默認 4）
+ * @returns {string} 遮蔽後的文字
+ *
+ * @example
+ * maskSensitiveString('sk_live_1234567890abcdefghijklmn')
+ * // 返回: 'sk_l***klmn'
+ */
+export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
+  if (!text || typeof text !== 'string') {
+    return '[empty]';
+  }
+
+  if (text.length <= visibleStart + visibleEnd) {
+    // 太短無法遮蔽，全部遮蔽
+    return '***';
+  }
+
+  const start = text.substring(0, visibleStart);
+  const end = text.substring(text.length - visibleEnd);
+  return `${start}***${end}`;
+}

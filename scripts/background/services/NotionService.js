@@ -11,6 +11,8 @@
 
 // 導入統一配置
 import { NOTION_API, IMAGE_VALIDATION_CONSTANTS } from '../../config/index.js';
+// 導入安全工具
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 // 使用統一常量構建配置
 const NOTION_CONFIG = {
@@ -281,23 +283,6 @@ class NotionService {
   }
 
   /**
-   * 清理 URL 用於日誌記錄（移除敏感查詢參數）
-   * @param {string} url - 原始 URL
-   * @returns {string} 清理後的 URL（僅保留協議、主機名和路徑）
-   * @private
-   */
-  static _sanitizeUrlForLogging(url) {
-    try {
-      const urlObj = new URL(url);
-      // 只返回協議、主機名和路徑，移除查詢參數和片段
-      return `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
-    } catch {
-      // 如果無法解析，返回通用描述
-      return '[invalid-url]';
-    }
-  }
-
-  /**
    * 驗證圖片 URL 是否有效
    * @param {string} imageUrl - 圖片 URL
    * @returns {boolean}
@@ -321,8 +306,8 @@ class NotionService {
     // 檢查特殊字符
     const problematicChars = /[<>{}|\\^`[\]]/;
     if (problematicChars.test(imageUrl)) {
-      // 清理 URL 用於日誌
-      const sanitizedUrl = NotionService._sanitizeUrlForLogging(imageUrl);
+      // 使用共用安全工具清理 URL
+      const sanitizedUrl = sanitizeUrlForLogging(imageUrl);
       this.logger.warn?.(`⚠️ Skipped image with problematic characters: ${sanitizedUrl}`);
       return false;
     }
@@ -347,8 +332,8 @@ class NotionService {
       return false;
     }
 
-    // 使用清理後的 URL 記錄成功
-    const sanitizedUrl = NotionService._sanitizeUrlForLogging(imageUrl);
+    // 使用共用安全工具清理 URL
+    const sanitizedUrl = sanitizeUrlForLogging(imageUrl);
     this.logger.log?.(`✓ Valid image URL: ${sanitizedUrl}`);
     return true;
   }
