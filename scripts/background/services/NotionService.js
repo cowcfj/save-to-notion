@@ -156,12 +156,15 @@ class NotionService {
     const {
       method = 'GET',
       body = null,
+      queryParams = {},
       maxRetries = this.config.DEFAULT_MAX_RETRIES,
       baseDelay = this.config.DEFAULT_BASE_DELAY,
     } = options;
 
+    const url = this._buildUrl(endpoint, queryParams);
+
     return await fetchWithRetry(
-      `${this.config.BASE_URL}${endpoint}`,
+      url,
       {
         method,
         headers: this._getHeaders(),
