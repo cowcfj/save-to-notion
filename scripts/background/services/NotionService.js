@@ -12,7 +12,7 @@
 // 導入統一配置
 import { NOTION_API, IMAGE_VALIDATION_CONSTANTS } from '../../config/index.js';
 // 導入安全工具
-import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { sanitizeUrlForLogging, sanitizeApiError } from '../../utils/securityUtils.js';
 
 // 使用統一常量構建配置
 const NOTION_CONFIG = {
@@ -200,9 +200,10 @@ class NotionService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      const rawError = errorData.message || response.statusText;
       return {
         success: false,
-        error: `獲取頁面內容失敗: ${errorData.message || response.statusText}`,
+        error: sanitizeApiError(rawError, 'fetch_blocks'),
       };
     }
 
@@ -474,7 +475,12 @@ class NotionService {
       return { success: true, addedCount, totalCount: totalBlocks };
     } catch (error) {
       this.logger.error?.('❌ 分批添加區塊失敗:', error);
-      return { success: false, addedCount, totalCount: totalBlocks, error: error.message };
+      return {
+        success: false,
+        addedCount,
+        totalCount: totalBlocks,
+        error: sanitizeApiError(error, 'append_blocks'),
+      };
     }
   }
 
@@ -528,13 +534,14 @@ class NotionService {
       }
 
       const errorData = await response.json().catch(() => ({}));
+      const rawError = errorData.message || `API Error: ${response.status}`;
       return {
         success: false,
-        error: errorData.message || `API Error: ${response.status}`,
+        error: sanitizeApiError(rawError, 'create_page'),
       };
     } catch (error) {
       this.logger.error?.('❌ 創建頁面失敗:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: sanitizeApiError(error, 'create_page') };
     }
   }
 
@@ -562,7 +569,7 @@ class NotionService {
       return { success: response.ok };
     } catch (error) {
       this.logger.error?.('❌ 更新標題失敗:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: sanitizeApiError(error, 'update_title') };
     }
   }
 
@@ -630,7 +637,7 @@ class NotionService {
       return { success: true, deletedCount };
     } catch (error) {
       this.logger.error?.('❌ 刪除區塊失敗:', error);
-      return { success: false, deletedCount: 0, error: error.message };
+      return { success: false, deletedCount: 0, error: sanitizeApiError(error, 'delete_blocks') };
     }
   }
 
@@ -740,7 +747,7 @@ class NotionService {
       };
     } catch (error) {
       this.logger.error?.('❌ 刷新頁面內容失敗:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: sanitizeApiError(error, 'refresh_page') };
     }
   }
 
@@ -778,10 +785,11 @@ class NotionService {
 
         if (!addResponse.ok) {
           const errorData = await addResponse.json().catch(() => ({}));
+          const rawError = errorData.message || 'Unknown error';
           return {
             success: false,
             deletedCount,
-            error: `添加標記失敗: ${errorData.message || 'Unknown error'}`,
+            error: sanitizeApiError(rawError, 'add_highlights'),
           };
         }
 
@@ -798,7 +806,7 @@ class NotionService {
       return { success: true, deletedCount, addedCount: 0 };
     } catch (error) {
       this.logger.error?.('❌ 更新標記區域失敗:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: sanitizeApiError(error, 'update_highlights') };
     }
   }
 }

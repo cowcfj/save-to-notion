@@ -215,7 +215,8 @@ describe('NotionService', () => {
 
       expect(result.success).toBe(false);
       expect(result.addedCount).toBe(100);
-      expect(result.error).toContain('批次添加失敗');
+      // 驗證返回清理後的用戶友好錯誤訊息
+      expect(result.error).toContain('操作失敗');
     });
   });
 
@@ -245,7 +246,8 @@ describe('NotionService', () => {
 
       const result = await service.createPage({ title: 'Test Page' });
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Invalid page data');
+      // 驗證返回清理後的用戶友好錯誤訊息
+      expect(result.error).toContain('數據格式不符合要求');
     });
   });
 
@@ -595,7 +597,8 @@ describe('NotionService', () => {
       const result = await service.refreshPageContent('page-123', []);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Network error');
+      // 驗證返回清理後的用戶友好錯誤訊息
+      expect(result.error).toContain('網絡連接失敗');
     });
   });
 });
