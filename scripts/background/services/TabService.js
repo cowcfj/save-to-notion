@@ -31,6 +31,9 @@ class TabService {
     this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
     this.isRestrictedUrl = options.isRestrictedUrl || (() => false);
     this.isRecoverableError = options.isRecoverableError || (() => false);
+
+    // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
+    this.pendingListeners = new Map();
   }
 
   /**
@@ -91,6 +94,14 @@ class TabService {
           if (tab.status !== 'complete') {
             this.logger.debug?.(`[TabService] Tab ${tabId} status is ${tab.status}, waiting...`);
 
+            // 檢查是否已經有待處理的監聽器，避免重複註冊
+            if (this.pendingListeners.has(tabId)) {
+              this.logger.debug?.(
+                `[TabService] Tab ${tabId} already has pending listener, skipping`
+              );
+              return;
+            }
+
             // 註冊一次性監聽器，等待頁面 complete
             let timeoutId = null;
             let isCleanedUp = false;
@@ -135,9 +146,30 @@ class TabService {
               if (timeoutId) {
                 clearTimeout(timeoutId);
               }
+              // 從 Map 中移除
+              this.pendingListeners.delete(tabId);
             };
 
-            // 添加監聽器
+            // 儲存到 Map
+            this.pendingListeners.set(tabId, { cleanup, onUpdated, onRemoved });
+
+            // 添加監聽器前再次檢查狀態（防止競態條件）
+            const recheckTab = await chrome.tabs.get(tabId).catch(() => null);
+            if (recheckTab?.status === 'complete') {
+              // Tab 已經完成，清理並直接注入
+              cleanup();
+              this.logger.debug?.(
+                `[TabService] Tab ${tabId} completed before listener registration`
+              );
+              await this.injectionService
+                .ensureBundleInjected(tabId)
+                .catch(err =>
+                  this.logger.error?.('[TabService] Race condition injection failed:', err)
+                );
+              return;
+            }
+
+            // Tab 仍在載入，註冊監聽器
             chrome.tabs.onUpdated.addListener(onUpdated);
             chrome.tabs.onRemoved.addListener(onRemoved);
 
