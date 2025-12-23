@@ -41,23 +41,35 @@ global.chrome = {
   },
 };
 
-import {
-  createSaveHandlers,
-  processContentResult,
-} from '../../../../scripts/background/handlers/saveHandlers.js';
-import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
-import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
-
 // 使用 presetup.js 提供的 global.Logger
 const Logger = global.Logger;
 
 describe('actionHandlers 覆蓋率補強', () => {
+  // Handler Creators (Dynamic Import for safety)
+  let createSaveHandlers;
+  let createHighlightHandlers;
+  let createMigrationHandlers;
+  let processContentResult;
+
   // Mock services
   let mockNotionService = null;
   let mockStorageService = null;
   let mockInjectionService = null;
   let mockPageContentService = null;
   let handlers = null;
+
+  beforeAll(() => {
+    // 動態導入以確保 mock 生效並解決循環依賴問題
+    const SaveHandlers = require('../../../../scripts/background/handlers/saveHandlers.js');
+    createSaveHandlers = SaveHandlers.createSaveHandlers;
+    processContentResult = SaveHandlers.processContentResult;
+
+    const HighlightHandlers = require('../../../../scripts/background/handlers/highlightHandlers.js');
+    createHighlightHandlers = HighlightHandlers.createHighlightHandlers;
+
+    const MigrationHandlers = require('../../../../scripts/background/handlers/migrationHandlers.js');
+    createMigrationHandlers = MigrationHandlers.createMigrationHandlers;
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
