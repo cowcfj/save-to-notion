@@ -212,7 +212,7 @@ class NotionService {
    * @returns {Array<string>} 需要刪除的區塊 ID 列表
    * @private
    */
-  _findHighlightSectionBlocks(blocks) {
+  static _findHighlightSectionBlocks(blocks) {
     const blocksToDelete = [];
     let foundHighlightSection = false;
 
@@ -760,7 +760,7 @@ class NotionService {
       }
 
       // 步驟 2: 找出需要刪除的標記區塊
-      const blocksToDelete = this._findHighlightSectionBlocks(fetchResult.blocks);
+      const blocksToDelete = NotionService._findHighlightSectionBlocks(fetchResult.blocks);
 
       // 步驟 3: 刪除舊的標記區塊
       const deletedCount = await this._deleteBlocksByIds(blocksToDelete);
