@@ -312,7 +312,7 @@ export function createSaveHandlers(services) {
         Logger.log('📊 收集到的標註數據:', highlights);
 
         // 注入並執行內容提取
-        let result;
+        let result = null;
 
         try {
           result = await pageContentService.extractContent(activeTab.id);

@@ -48,10 +48,10 @@ const { TabService } = require('../../../scripts/background/services/TabService.
 const { InjectionService } = require('../../../scripts/background/services/InjectionService.js');
 
 describe('Background State Updates', () => {
-  let tabService;
-  let injectionService;
-  let mockGetSavedPageData;
-  let mockNormalizeUrl;
+  let tabService = null;
+  let injectionService = null;
+  let mockGetSavedPageData = null;
+  let mockNormalizeUrl = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
