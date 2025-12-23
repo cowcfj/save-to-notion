@@ -290,15 +290,27 @@ class TabService {
               }
             } catch (_parseError) {
               // 注入腳本上下文中無法使用外部 Logger
-              // 不記錄具體錯誤以保護隱私
+              // 生產環境：不記錄具體錯誤以保護隱私
+              // 開發環境：記錄錯誤詳情以便除錯
 
-              console.error('[InjectedScript:legacyMigration] Failed to parse highlight data');
+              const isDev = chrome?.runtime?.getManifest?.()?.version_name?.includes('dev');
+              if (isDev) {
+                console.error('[InjectedScript:legacyMigration] Parse error:', _parseError);
+              } else {
+                console.error('[InjectedScript:legacyMigration] Failed to parse highlight data');
+              }
             }
           }
         } catch (_migrationError) {
-          // 不記錄具體錯誤以保護隱私
+          // 生產環境：不記錄具體錯誤以保護隱私
+          // 開發環境：記錄錯誤詳情以便除錯
 
-          console.error('[InjectedScript:legacyMigration] Migration error');
+          const isDev = chrome?.runtime?.getManifest?.()?.version_name?.includes('dev');
+          if (isDev) {
+            console.error('[InjectedScript:legacyMigration] Migration error:', _migrationError);
+          } else {
+            console.error('[InjectedScript:legacyMigration] Migration error');
+          }
         }
         return { migrated: false };
       });
