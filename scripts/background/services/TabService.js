@@ -31,6 +31,11 @@ class TabService {
     this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
     this.isRestrictedUrl = options.isRestrictedUrl || (() => false);
     this.isRecoverableError = options.isRecoverableError || (() => false);
+
+    // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
+    this.pendingListeners = new Map();
+    // 追蹤正在處理中的 tab，防止並發調用
+    this.processingTabs = new Map();
   }
 
   /**
@@ -43,6 +48,30 @@ class TabService {
       return;
     }
 
+    // 防止並發調用：檢查是否正在處理
+    if (this.processingTabs.has(tabId)) {
+      this.logger.debug?.(`[TabService] Tab ${tabId} is already being processed, skipping`);
+      return;
+    }
+
+    // 標記為處理中
+    this.processingTabs.set(tabId, Date.now());
+
+    try {
+      await this._updateTabStatusInternal(tabId, url);
+    } finally {
+      // 無論成功或失敗，都移除處理中標記
+      this.processingTabs.delete(tabId);
+    }
+  }
+
+  /**
+   * 內部方法：實際的狀態更新邏輯
+   * @param {number} tabId - 標籤頁 ID
+   * @param {string} url - 標籤頁 URL
+   * @private
+   */
+  async _updateTabStatusInternal(tabId, url) {
     const normUrl = this.normalizeUrl(url);
     const highlightsKey = `highlights_${normUrl}`;
 
@@ -57,7 +86,7 @@ class TabService {
       }
 
       // 2. 檢查是否有標註，注入 Bundle 以自動恢復
-      const data = await new Promise(resolve => chrome.storage.local.get([highlightsKey], resolve));
+      const data = await chrome.storage.local.get([highlightsKey]);
       const storedData = data[highlightsKey];
 
       // 解析 highlights 格式（支援數組和對象兩種格式）
@@ -80,15 +109,7 @@ class TabService {
         // 確保頁面狀態是 complete 後再注入
         try {
           // 查詢 tab 的最新狀態
-          const tab = await new Promise((resolve, reject) =>
-            chrome.tabs.get(tabId, tabInfo => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                resolve(tabInfo);
-              }
-            })
-          );
+          const tab = await chrome.tabs.get(tabId);
 
           if (!tab) {
             this.logger.warn?.(`[TabService] Tab ${tabId} not found, skipping injection`);
@@ -98,10 +119,34 @@ class TabService {
           // 如果頁面還在載入，等待 complete
           if (tab.status !== 'complete') {
             this.logger.debug?.(`[TabService] Tab ${tabId} status is ${tab.status}, waiting...`);
+
+            // 檢查是否已經有待處理的監聽器，避免重複註冊
+            if (this.pendingListeners.has(tabId)) {
+              this.logger.debug?.(
+                `[TabService] Tab ${tabId} already has pending listener, skipping`
+              );
+              return;
+            }
+
             // 註冊一次性監聽器，等待頁面 complete
+            let timeoutId = null;
+            let isCleanedUp = false;
+
+            /**
+             * 清理函數（前置聲明，稍後賦值實際邏輯）
+             */
+            let cleanup = () => {
+              /* no-op: 稍後賦值實際邏輯 */
+            };
+
+            /**
+             * 標籤頁更新監聽器（等待頁面載入完成）
+             * @param {number} updatedTabId - 更新的標籤頁 ID
+             * @param {Object} changeInfo - 變更信息
+             */
             const onUpdated = (updatedTabId, changeInfo) => {
               if (updatedTabId === tabId && changeInfo.status === 'complete') {
-                chrome.tabs.onUpdated.removeListener(onUpdated);
+                cleanup();
                 this.logger.debug?.(`[TabService] Tab ${tabId} now complete, injecting bundle...`);
                 // 異步注入，不阻塞當前流程
                 this.injectionService
@@ -109,7 +154,64 @@ class TabService {
                   .catch(err => this.logger.error?.('[TabService] Delayed injection failed:', err));
               }
             };
+
+            /**
+             * 標籤頁關閉監聽器（清理資源）
+             * @param {number} removedTabId - 被關閉的標籤頁 ID
+             */
+            const onRemoved = removedTabId => {
+              if (removedTabId === tabId) {
+                cleanup();
+                this.logger.debug?.(`[TabService] Tab ${tabId} was closed, cleanup listeners`);
+              }
+            };
+
+            /**
+             * 清理函數 - 移除所有監聽器和超時
+             */
+            cleanup = () => {
+              if (isCleanedUp) {
+                return;
+              }
+              isCleanedUp = true;
+              chrome.tabs.onUpdated.removeListener(onUpdated);
+              chrome.tabs.onRemoved.removeListener(onRemoved);
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+              }
+              // 從 Map 中移除
+              this.pendingListeners.delete(tabId);
+            };
+
+            // 儲存到 Map
+            this.pendingListeners.set(tabId, { cleanup, onUpdated, onRemoved });
+
+            // 添加監聽器前再次檢查狀態（防止競態條件）
+            const recheckTab = await chrome.tabs.get(tabId).catch(() => null);
+            if (recheckTab?.status === 'complete') {
+              // Tab 已經完成，清理並直接注入
+              cleanup();
+              this.logger.debug?.(
+                `[TabService] Tab ${tabId} completed before listener registration`
+              );
+              await this.injectionService
+                .ensureBundleInjected(tabId)
+                .catch(err =>
+                  this.logger.error?.('[TabService] Race condition injection failed:', err)
+                );
+              return;
+            }
+
+            // Tab 仍在載入，註冊監聽器
             chrome.tabs.onUpdated.addListener(onUpdated);
+            chrome.tabs.onRemoved.addListener(onRemoved);
+
+            // 10 秒超時保護
+            timeoutId = setTimeout(() => {
+              cleanup();
+              this.logger.warn?.(`[TabService] Tab ${tabId} loading timeout, cleanup listeners`);
+            }, 10000);
+
             return;
           }
 
@@ -147,12 +249,16 @@ class TabService {
     });
 
     // 監聽標籤頁切換
-    chrome.tabs.onActivated.addListener(activeInfo => {
-      chrome.tabs.get(activeInfo.tabId, tab => {
+    chrome.tabs.onActivated.addListener(async activeInfo => {
+      try {
+        const tab = await chrome.tabs.get(activeInfo.tabId);
         if (tab?.url) {
           this.updateTabStatus(activeInfo.tabId, tab.url);
         }
-      });
+      } catch (error) {
+        // Tab 可能已被關閉，靜默處理
+        this.logger.debug?.(`[TabService] Failed to get tab ${activeInfo.tabId}:`, error);
+      }
     });
   }
 
@@ -251,12 +357,29 @@ class TabService {
                 localStorage.removeItem(key);
                 return { migrated: true, data, foundKey: key };
               }
-            } catch (error) {
-              console.error('Failed to parse legacy highlight data:', error);
+            } catch (_parseError) {
+              // 注入腳本上下文中無法使用外部 Logger
+              // 生產環境：不記錄具體錯誤以保護隱私
+              // 開發環境：記錄錯誤詳情以便除錯
+
+              const isDev = chrome?.runtime?.getManifest?.()?.version_name?.includes('dev');
+              if (isDev) {
+                console.error('[InjectedScript:legacyMigration] Parse error:', _parseError);
+              } else {
+                console.error('[InjectedScript:legacyMigration] Failed to parse highlight data');
+              }
             }
           }
-        } catch (error) {
-          console.error('Error during migration:', error);
+        } catch (_migrationError) {
+          // 生產環境：不記錄具體錯誤以保護隱私
+          // 開發環境：記錄錯誤詳情以便除錯
+
+          const isDev = chrome?.runtime?.getManifest?.()?.version_name?.includes('dev');
+          if (isDev) {
+            console.error('[InjectedScript:legacyMigration] Migration error:', _migrationError);
+          } else {
+            console.error('[InjectedScript:legacyMigration] Migration error');
+          }
         }
         return { migrated: false };
       });
@@ -264,13 +387,10 @@ class TabService {
       // injectWithResponse 已經解包回傳值，直接使用 result
       const res = result;
       if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {
-        this.logger.log(
-          `Migrating ${res.data.length} highlights from localStorage key: ${res.foundKey}`
-        );
+        // 不記錄 foundKey 以保護用戶 URL 隱私
+        this.logger.log(`Migrating ${res.data.length} legacy highlights`);
 
-        await new Promise(resolve => {
-          chrome.storage.local.set({ [storageKey]: res.data }, resolve);
-        });
+        await chrome.storage.local.set({ [storageKey]: res.data });
 
         this.logger.log('Legacy highlights migrated successfully, injecting restore script');
         await this.injectionService.injectHighlightRestore(tabId);

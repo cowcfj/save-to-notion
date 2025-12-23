@@ -8,6 +8,34 @@
 
 import { URL_NORMALIZATION } from '../scripts/config/constants.js';
 import { normalizeUrl } from '../scripts/utils/urlUtils.js';
+import Logger from '../scripts/utils/Logger.js';
+
+/**
+ * 驗證 URL 是否為安全的 Notion URL
+ * @param {string} url - 要驗證的 URL
+ * @returns {boolean} 是否為有效的 Notion URL
+ */
+function isValidNotionUrl(url) {
+  try {
+    const urlObj = new URL(url);
+
+    // 只允許 HTTPS 協議
+    if (urlObj.protocol !== 'https:') {
+      return false;
+    }
+
+    // Notion 網域白名單
+    const allowedDomains = ['notion.so', 'www.notion.so'];
+
+    // 允許 notion.so 的子網域（例如 xxx.notion.so）
+    // 規範化 hostname：轉小寫並移除 trailing dot
+    const hostname = urlObj.hostname.toLowerCase().replace(/\.+$/, '');
+    return allowedDomains.includes(hostname) || hostname.endsWith('.notion.so');
+  } catch {
+    // URL 解析失敗
+    return false;
+  }
+}
 
 /**
  * 檢查設置是否完整
@@ -27,7 +55,7 @@ export async function checkSettings() {
       dataSourceId,
     };
   } catch (error) {
-    console.warn('Failed to check settings:', error);
+    Logger.warn('Failed to check settings:', error);
     return { valid: false };
   }
 }
@@ -36,44 +64,43 @@ export async function checkSettings() {
  * 檢查頁面狀態
  * @returns {Promise<{success: boolean, isSaved?: boolean, notionUrl?: string, wasDeleted?: boolean}>}
  */
-export function checkPageStatus() {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'checkPageStatus' }, response => {
-      resolve(response || { success: false });
-    });
-  });
+export async function checkPageStatus() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'checkPageStatus' });
+    return response || { success: false };
+  } catch (error) {
+    // 當 background 未準備好或連接失敗時
+    Logger.warn('checkPageStatus failed:', error);
+    return { success: false };
+  }
 }
 
 /**
  * 保存頁面到 Notion
  * @returns {Promise<Object>} 保存結果
  */
-export function savePage() {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'savePage' }, response => {
-      if (chrome.runtime.lastError) {
-        resolve({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        resolve(response || { success: false, error: 'No response' });
-      }
-    });
-  });
+export async function savePage() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'savePage' });
+    return response || { success: false, error: 'No response' };
+  } catch (error) {
+    Logger.warn('savePage failed:', error);
+    return { success: false, error: '無法儲存頁面，請稍後再試' };
+  }
 }
 
 /**
  * 啟動標記模式
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export function startHighlight() {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'startHighlight' }, response => {
-      if (chrome.runtime.lastError) {
-        resolve({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        resolve(response || { success: false, error: 'No response' });
-      }
-    });
-  });
+export async function startHighlight() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'startHighlight' });
+    return response || { success: false, error: 'No response' };
+  } catch (error) {
+    Logger.warn('startHighlight failed:', error);
+    return { success: false, error: '無法啟動標記模式，請稍後再試' };
+  }
 }
 
 /**
@@ -81,28 +108,34 @@ export function startHighlight() {
  * @param {string} url - Notion 頁面 URL
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export function openNotionPage(url) {
-  return new Promise(resolve => {
-    chrome.tabs.create({ url }, tab => {
-      if (chrome.runtime.lastError) {
-        resolve({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        resolve({ success: true, tab });
-      }
-    });
-  });
+export async function openNotionPage(url) {
+  // 驗證 URL 安全性
+  if (!isValidNotionUrl(url)) {
+    Logger.warn('Blocked invalid URL:', url);
+    return { success: false, error: '無效的 Notion URL' };
+  }
+
+  try {
+    const tab = await chrome.tabs.create({ url });
+    return { success: true, tab };
+  } catch (error) {
+    Logger.warn('openNotionPage failed:', error);
+    return { success: false, error: '無法開啟 Notion 頁面' };
+  }
 }
 
 /**
  * 獲取當前活動標籤頁
  * @returns {Promise<chrome.tabs.Tab|null>}
  */
-export function getActiveTab() {
-  return new Promise(resolve => {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      resolve(tabs?.[0] || null);
-    });
-  });
+export async function getActiveTab() {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tabs?.[0] || null;
+  } catch (error) {
+    Logger.warn('getActiveTab failed:', error);
+    return null;
+  }
 }
 
 /**
@@ -111,26 +144,24 @@ export function getActiveTab() {
  * @param {string} tabUrl - 標籤頁 URL
  * @returns {Promise<{success: boolean, clearedCount?: number, error?: string}>}
  */
-export function clearHighlights(tabId, tabUrl) {
+export async function clearHighlights(tabId, tabUrl) {
   const pageKey = `highlights_${normalizeUrl(tabUrl)}`;
 
-  return new Promise(resolve => {
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        func: clearHighlightsInPage,
-        args: [URL_NORMALIZATION.TRACKING_PARAMS, pageKey],
-      },
-      results => {
-        if (chrome.runtime.lastError) {
-          resolve({ success: false, error: chrome.runtime.lastError.message });
-        } else {
-          const clearedCount = results?.[0]?.result || 0;
-          resolve({ success: true, clearedCount });
-        }
-      }
-    );
-  });
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: clearHighlightsInPage,
+      args: [URL_NORMALIZATION.TRACKING_PARAMS, pageKey],
+    });
+    const clearedCount =
+      results && Array.isArray(results) && results[0] && typeof results[0].result === 'number'
+        ? results[0].result
+        : 0;
+    return { success: true, clearedCount };
+  } catch (error) {
+    Logger.warn('clearHighlights failed:', error);
+    return { success: false, error: '無法清除標記' };
+  }
 }
 
 /**
@@ -152,9 +183,22 @@ function clearHighlightsInPage(trackingParams, pageKey) {
 
   // 清除本地存儲
   try {
-    chrome.storage?.local?.remove([pageKey]);
+    // 檢查 chrome.storage 是否可用（content script 環境）
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.remove([pageKey]);
+    } else {
+      // 降級到 localStorage（舊版或受限環境）
+      localStorage.removeItem(pageKey);
+    }
   } catch (_) {
-    localStorage.removeItem(pageKey);
+    // chrome.storage.local.remove 失敗時再嘗試 localStorage
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(pageKey);
+      } catch (_err) {
+        // 完全失敗，靜默忽略
+      }
+    }
   }
 
   // 更新工具欄計數（如果存在）

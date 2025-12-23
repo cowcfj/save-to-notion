@@ -40,7 +40,7 @@ class StorageService {
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<Object|null>}
    */
-  getSavedPageData(pageUrl) {
+  async getSavedPageData(pageUrl) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -48,15 +48,13 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const key = `saved_${normalizedUrl}`;
 
-    return new Promise((resolve, reject) => {
-      this.storage.local.get([key], result => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(result[key] || null);
-        }
-      });
-    });
+    try {
+      const result = await this.storage.local.get([key]);
+      return result[key] || null;
+    } catch (error) {
+      this.logger.error?.('[StorageService] getSavedPageData failed:', error);
+      throw error;
+    }
   }
 
   /**
@@ -65,7 +63,7 @@ class StorageService {
    * @param {Object} data - 保存數據
    * @returns {Promise<void>}
    */
-  setSavedPageData(pageUrl, data) {
+  async setSavedPageData(pageUrl, data) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -73,23 +71,17 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const key = `saved_${normalizedUrl}`;
 
-    return new Promise((resolve, reject) => {
-      this.storage.local.set(
-        {
-          [key]: {
-            ...data,
-            lastUpdated: Date.now(),
-          },
+    try {
+      await this.storage.local.set({
+        [key]: {
+          ...data,
+          lastUpdated: Date.now(),
         },
-        () => {
-          if (chrome.runtime.lastError) {
-            reject(chrome.runtime.lastError);
-          } else {
-            resolve();
-          }
-        }
-      );
-    });
+      });
+    } catch (error) {
+      this.logger.error?.('[StorageService] setSavedPageData failed:', error);
+      throw error;
+    }
   }
 
   /**
@@ -97,7 +89,7 @@ class StorageService {
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
    */
-  clearPageState(pageUrl) {
+  async clearPageState(pageUrl) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
@@ -106,16 +98,13 @@ class StorageService {
     const savedKey = `saved_${normalizedUrl}`;
     const highlightsKey = `highlights_${normalizedUrl}`;
 
-    return new Promise((resolve, reject) => {
-      this.storage.local.remove([savedKey, highlightsKey], () => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          this.logger.log?.('✅ Cleared all data for:', normalizedUrl);
-          resolve();
-        }
-      });
-    });
+    try {
+      await this.storage.local.remove([savedKey, highlightsKey]);
+      this.logger.log?.('✅ Cleared all data for:', normalizedUrl);
+    } catch (error) {
+      this.logger.error?.('[StorageService] clearPageState failed:', error);
+      throw error;
+    }
   }
 
   /**
@@ -123,20 +112,17 @@ class StorageService {
    * @param {string[]} keys - 要獲取的配置鍵
    * @returns {Promise<Object>}
    */
-  getConfig(keys) {
+  async getConfig(keys) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
 
-    return new Promise((resolve, reject) => {
-      this.storage.sync.get(keys, result => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(result);
-        }
-      });
-    });
+    try {
+      return await this.storage.sync.get(keys);
+    } catch (error) {
+      this.logger.error?.('[StorageService] getConfig failed:', error);
+      throw error;
+    }
   }
 
   /**
@@ -144,43 +130,37 @@ class StorageService {
    * @param {Object} config - 配置對象
    * @returns {Promise<void>}
    */
-  setConfig(config) {
+  async setConfig(config) {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
 
-    return new Promise((resolve, reject) => {
-      this.storage.sync.set(config, () => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve();
-        }
-      });
-    });
+    try {
+      await this.storage.sync.set(config);
+    } catch (error) {
+      this.logger.error?.('[StorageService] setConfig failed:', error);
+      throw error;
+    }
   }
 
   /**
    * 獲取所有已保存頁面的 URL
    * @returns {Promise<string[]>}
    */
-  getAllSavedPageUrls() {
+  async getAllSavedPageUrls() {
     if (!this.storage) {
       throw new Error('Chrome storage not available');
     }
 
-    return new Promise((resolve, reject) => {
-      this.storage.local.get(null, result => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          const urls = Object.keys(result)
-            .filter(key => key.startsWith('saved_'))
-            .map(key => key.replace('saved_', ''));
-          resolve(urls);
-        }
-      });
-    });
+    try {
+      const result = await this.storage.local.get(null);
+      return Object.keys(result)
+        .filter(key => key.startsWith('saved_'))
+        .map(key => key.replace('saved_', ''));
+    } catch (error) {
+      this.logger.error?.('[StorageService] getAllSavedPageUrls failed:', error);
+      throw error;
+    }
   }
 }
 
