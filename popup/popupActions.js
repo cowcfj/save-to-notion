@@ -28,7 +28,8 @@ function isValidNotionUrl(url) {
     const allowedDomains = ['notion.so', 'www.notion.so'];
 
     // 允許 notion.so 的子網域（例如 xxx.notion.so）
-    const hostname = urlObj.hostname.toLowerCase();
+    // 規範化 hostname：轉小寫並移除 trailing dot
+    const hostname = urlObj.hostname.toLowerCase().replace(/\.+$/, '');
     return allowedDomains.includes(hostname) || hostname.endsWith('.notion.so');
   } catch {
     // URL 解析失敗
@@ -190,11 +191,13 @@ function clearHighlightsInPage(trackingParams, pageKey) {
       localStorage.removeItem(pageKey);
     }
   } catch (_) {
-    // 最後備選方案
-    try {
-      localStorage.removeItem(pageKey);
-    } catch (_err) {
-      // 忽略存儲清除失敗
+    // chrome.storage.local.remove 失敗時再嘗試 localStorage
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(pageKey);
+      } catch (_err) {
+        // 完全失敗，靜默忽略
+      }
     }
   }
 
