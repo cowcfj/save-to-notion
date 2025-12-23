@@ -540,9 +540,9 @@ export function createSaveHandlers(services) {
 
         // 使用 Logger 輸出，這樣可以利用 Logger 的過濾和格式化功能
         if (level === 'warn') {
-          Logger.warn(prefix, message, ...args);
+          Logger.warn(`${prefix} ${message}`, ...args);
         } else if (level === 'error') {
-          Logger.error(prefix, message, ...args);
+          Logger.error(`${prefix} ${message}`, ...args);
         } else if (level === 'info') {
           Logger.info(`${prefix} ${message}`, ...args);
         } else {

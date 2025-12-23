@@ -280,10 +280,10 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
 
       handlers.devLogSink({ level: 'warn', message: 'test warn' }, {}, sendResponse);
-      expect(Logger.warn).toHaveBeenCalledWith('[ClientLog]', 'test warn');
+      expect(Logger.warn).toHaveBeenCalledWith('[ClientLog] test warn');
 
       handlers.devLogSink({ level: 'error', message: 'test error' }, {}, sendResponse);
-      expect(Logger.error).toHaveBeenCalledWith('[ClientLog]', 'test error');
+      expect(Logger.error).toHaveBeenCalledWith('[ClientLog] test error');
 
       handlers.devLogSink({ level: 'info', message: 'test info' }, {}, sendResponse);
       expect(Logger.info).toHaveBeenCalledWith('[ClientLog] test info');
