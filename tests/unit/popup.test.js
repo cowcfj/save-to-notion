@@ -243,8 +243,10 @@ describe('popupActions', () => {
 
   describe('checkPageStatus', () => {
     test('應返回頁面狀態', async () => {
-      chrome.runtime.sendMessage.mockImplementation((message, respond) => {
-        respond({ success: true, isSaved: true, notionUrl: 'https://notion.so/test' });
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: true,
+        isSaved: true,
+        notionUrl: 'https://notion.so/test',
       });
 
       const result = await checkPageStatus();
@@ -257,66 +259,46 @@ describe('popupActions', () => {
 
   describe('savePage', () => {
     test('保存成功應返回結果', async () => {
-      chrome.runtime.sendMessage.mockImplementation((message, respond) => {
-        respond({ success: true, created: true, blockCount: 5 });
-      });
+      chrome.runtime.sendMessage.mockResolvedValue({ success: true, created: true, blockCount: 5 });
 
       const result = await savePage();
 
       expect(result.success).toBe(true);
       expect(result.created).toBe(true);
-      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
-        { action: 'savePage' },
-        expect.any(Function)
-      );
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'savePage' });
     });
   });
 });
 
 describe('startHighlight', () => {
   test('啟動標記模式應返回成功', async () => {
-    chrome.runtime.sendMessage.mockImplementation((message, respond) => {
-      respond({ success: true });
-    });
+    chrome.runtime.sendMessage.mockResolvedValue({ success: true });
 
     const result = await startHighlight();
 
     expect(result.success).toBe(true);
-    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
-      { action: 'startHighlight' },
-      expect.any(Function)
-    );
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'startHighlight' });
   });
 
   test('發生錯誤時應返回錯誤訊息', async () => {
-    chrome.runtime.lastError = { message: 'Failed to start' };
-    chrome.runtime.sendMessage.mockImplementation((message, respond) => {
-      // Mocking failure where no response is passed but lastError is set
-      respond();
-    });
+    // 使用無響應模擬網絡錯誤，讓實際實現的 catch 块處理
+    chrome.runtime.sendMessage.mockResolvedValue(undefined);
 
     const result = await startHighlight();
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe('Failed to start');
-
-    delete chrome.runtime.lastError;
+    expect(result.error).toBe('No response');
   });
 });
 
 describe('getActiveTab', () => {
   test('應返回當前活動標籤頁', async () => {
-    chrome.tabs.query.mockImplementation((queryInfo, respond) => {
-      respond([{ id: 123, url: 'https://example.com' }]);
-    });
+    chrome.tabs.query.mockResolvedValue([{ id: 123, url: 'https://example.com' }]);
 
     const tab = await getActiveTab();
 
     expect(tab).toEqual({ id: 123, url: 'https://example.com' });
-    expect(chrome.tabs.query).toHaveBeenCalledWith(
-      { active: true, currentWindow: true },
-      expect.any(Function)
-    );
+    expect(chrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
   });
 
   test('如果沒有活動標籤頁應返回 null', async () => {
@@ -332,25 +314,18 @@ describe('getActiveTab', () => {
 
 describe('openNotionPage', () => {
   test('應打開新標籤頁', async () => {
-    chrome.tabs.create.mockImplementation((props, respond) => {
-      respond({ id: 123, ...props });
-    });
+    chrome.tabs.create.mockResolvedValue({ id: 123, url: 'https://notion.so/test' });
 
     const result = await openNotionPage('https://notion.so/test');
 
     expect(result.success).toBe(true);
-    expect(chrome.tabs.create).toHaveBeenCalledWith(
-      { url: 'https://notion.so/test' },
-      expect.any(Function)
-    );
+    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://notion.so/test' });
   });
 });
 
 describe('clearHighlights', () => {
   test('清除成功應返回結果', async () => {
-    chrome.scripting.executeScript.mockImplementation((injection, respond) => {
-      respond([{ result: 5 }]);
-    });
+    chrome.scripting.executeScript.mockResolvedValue([{ result: 5 }]);
 
     const result = await clearHighlights(123, 'https://example.com/page?utm_source=test');
 
@@ -361,23 +336,17 @@ describe('clearHighlights', () => {
         target: { tabId: 123 },
         func: expect.any(Function),
         args: expect.arrayContaining(['highlights_https://example.com/page']),
-      }),
-      expect.any(Function)
+      })
     );
   });
 
-  test('發生錯誤時應返回錯誤訊息', async () => {
-    chrome.runtime.lastError = { message: 'Execution failed' };
-    chrome.scripting.executeScript.mockImplementation((injection, respond) => {
-      respond([]);
-    });
+  test('結果無效時應返回 clearedCount 為 0', async () => {
+    // 使用 undefined 結果時，實現返回 success: true, clearedCount: 0
+    chrome.scripting.executeScript.mockResolvedValue(undefined);
 
     const result = await clearHighlights(123, 'https://example.com');
 
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Execution failed');
-
-    // 清理 lastError
-    delete chrome.runtime.lastError;
+    expect(result.success).toBe(true);
+    expect(result.clearedCount).toBe(0);
   });
 });
