@@ -105,8 +105,8 @@ class TabService {
             // 註冊一次性監聽器，等待頁面 complete
             let timeoutId = null;
             let isCleanedUp = false;
-            // eslint-disable-next-line prefer-const -- 必須用 let：先聲明後賦值以解決循環引用
-            let cleanup; // 前置聲明，避免 'used before defined' 錯誤
+
+            let cleanup = () => {}; // 初始化為空函數，稍後賦值實際邏輯
 
             /**
              * 標籤頁更新監聽器（等待頁面載入完成）
