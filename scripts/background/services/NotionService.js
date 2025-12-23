@@ -644,39 +644,15 @@ class NotionService {
         return { success: true, deletedCount: 0 };
       }
 
-      // 逐個刪除區塊
-      let deletedCount = 0;
-      const errors = [];
+      // 提取區塊 ID 並委託給 _deleteBlocksByIds
+      const blockIds = allBlocks.map(block => block.id);
+      const { successCount, failureCount, errors } = await this._deleteBlocksByIds(blockIds);
 
-      for (const block of allBlocks) {
-        try {
-          const response = await this._apiRequest(`/blocks/${block.id}`, {
-            method: 'DELETE',
-            maxRetries: this.config.DELETE_RETRIES,
-            baseDelay: this.config.DELETE_DELAY,
-          });
-
-          if (response.ok) {
-            deletedCount++;
-          } else {
-            const errorText = await response.text().catch(() => response.statusText);
-            errors.push({ id: block.id, error: errorText });
-            this.logger.warn?.(`Failed to delete block ${block.id}:`, errorText);
-          }
-        } catch (err) {
-          errors.push({ id: block.id, error: err.message });
-          this.logger.warn?.(`Failed to delete block ${block.id}:`, err);
-        }
-
-        // 速率限制
-        await sleep(this.config.RATE_LIMIT_DELAY);
+      if (failureCount > 0) {
+        this.logger.warn?.(`⚠️ 部分區塊刪除失敗: ${failureCount}/${allBlocks.length}`, errors);
       }
 
-      if (errors.length > 0) {
-        this.logger.warn?.(`⚠️ 部分區塊刪除失敗: ${errors.length}/${allBlocks.length}`, errors);
-      }
-
-      return { success: true, deletedCount, failureCount: errors.length, errors };
+      return { success: true, deletedCount: successCount, failureCount, errors };
     } catch (error) {
       this.logger.error?.('❌ 刪除區塊失敗:', error);
       return { success: false, deletedCount: 0, error: sanitizeApiError(error, 'delete_blocks') };
