@@ -708,7 +708,11 @@ describe('NotionService', () => {
       });
 
       // Mock 刪除操作
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue(2); // 刪除了 ID 2 和 3
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 2, // 刪除了 ID 2 和 3
+        failureCount: 0,
+        errors: [],
+      });
 
       // Mock 添加操作 (_apiRequest PATCH children)
       service._apiRequest = jest.fn().mockResolvedValue({
@@ -732,6 +736,8 @@ describe('NotionService', () => {
         success: true,
         deletedCount: 2,
         addedCount: 2,
+        skippedImageCount: undefined,
+        error: undefined,
       });
     });
 
@@ -757,7 +763,11 @@ describe('NotionService', () => {
         success: true,
         blocks: [],
       });
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue(0);
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 0,
+        failureCount: 0,
+        errors: [],
+      });
 
       // Mock 添加失敗
       service._apiRequest = jest.fn().mockResolvedValue({
@@ -787,7 +797,11 @@ describe('NotionService', () => {
           },
         ],
       });
-      service._deleteBlocksByIds = jest.fn().mockResolvedValue(1);
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        errors: [],
+      });
       service._apiRequest = jest.fn();
 
       const result = await service.updateHighlightsSection(pageId, []);

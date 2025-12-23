@@ -251,11 +251,12 @@ class NotionService {
   /**
    * 批量刪除區塊
    * @param {Array<string>} blockIds - 區塊 ID 列表
-   * @returns {Promise<number>} 成功刪除的數量
+   * @returns {Promise<{successCount: number, failureCount: number, errors: Array<{id: string, error: string}>}>}
    * @private
    */
   async _deleteBlocksByIds(blockIds) {
-    let deletedCount = 0;
+    let successCount = 0;
+    const errors = [];
 
     for (const blockId of blockIds) {
       try {
@@ -266,17 +267,23 @@ class NotionService {
         });
 
         if (response.ok) {
-          deletedCount++;
+          successCount++;
+        } else {
+          // 嘗試獲取錯誤細節
+          const errorText = await response.text().catch(() => response.statusText);
+          errors.push({ id: blockId, error: errorText });
+          this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, errorText);
         }
       } catch (deleteError) {
-        this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, deleteError.message);
+        errors.push({ id: blockId, error: deleteError.message });
+        this.logger.warn?.(`刪除區塊異常 ${blockId}:`, deleteError.message);
       }
 
       // 速率限制：防止快速連續刪除觸發 429 錯誤
       await sleep(this.config.RATE_LIMIT_DELAY);
     }
 
-    return deletedCount;
+    return { successCount, failureCount: errors.length, errors };
   }
 
   /**
@@ -625,6 +632,8 @@ class NotionService {
 
       // 逐個刪除區塊
       let deletedCount = 0;
+      const errors = [];
+
       for (const block of allBlocks) {
         try {
           const response = await this._apiRequest(`/blocks/${block.id}`, {
@@ -633,11 +642,15 @@ class NotionService {
             baseDelay: this.config.DELETE_DELAY,
           });
 
-          // 只有成功時才增加計數
           if (response.ok) {
             deletedCount++;
+          } else {
+            const errorText = await response.text().catch(() => response.statusText);
+            errors.push({ id: block.id, error: errorText });
+            this.logger.warn?.(`Failed to delete block ${block.id}:`, errorText);
           }
         } catch (err) {
+          errors.push({ id: block.id, error: err.message });
           this.logger.warn?.(`Failed to delete block ${block.id}:`, err);
         }
 
@@ -645,7 +658,11 @@ class NotionService {
         await sleep(this.config.RATE_LIMIT_DELAY);
       }
 
-      return { success: true, deletedCount };
+      if (errors.length > 0) {
+        this.logger.warn?.(`⚠️ 部分區塊刪除失敗: ${errors.length}/${allBlocks.length}`, errors);
+      }
+
+      return { success: true, deletedCount, failureCount: errors.length, errors };
     } catch (error) {
       this.logger.error?.('❌ 刪除區塊失敗:', error);
       return { success: false, deletedCount: 0, error: sanitizeApiError(error, 'delete_blocks') };
@@ -782,7 +799,12 @@ class NotionService {
       const blocksToDelete = NotionService._findHighlightSectionBlocks(fetchResult.blocks);
 
       // 步驟 3: 刪除舊的標記區塊
-      const deletedCount = await this._deleteBlocksByIds(blocksToDelete);
+      const { successCount: deletedCount, errors: deleteErrors } =
+        await this._deleteBlocksByIds(blocksToDelete);
+
+      if (deleteErrors.length > 0) {
+        this.logger.warn?.(`⚠️ 部分標記區塊刪除失敗: ${deleteErrors.length} 個`, deleteErrors);
+      }
       this.logger.log?.(`🗑️ 刪除了 ${deletedCount}/${blocksToDelete.length} 個舊標記區塊`);
 
       // 步驟 4: 添加新的標記區塊
