@@ -11,6 +11,21 @@ import { normalizeUrl } from '../scripts/utils/urlUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
 /**
+ * 安全地提取錯誤訊息
+ * @param {unknown} error - 錯誤對象（可能不是 Error 類型）
+ * @returns {string} 錯誤訊息字符串
+ */
+function getErrorMessage(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return String(error);
+}
+
+/**
  * 檢查設置是否完整
  * @returns {Promise<{valid: boolean, apiKey?: string, dataSourceId?: string}>}
  */
@@ -43,7 +58,7 @@ export async function checkPageStatus() {
     return response || { success: false };
   } catch (error) {
     // 當 background 未準備好或連接失敗時
-    Logger.warn('checkPageStatus failed:', error.message);
+    Logger.warn('checkPageStatus failed:', error);
     return { success: false };
   }
 }
@@ -57,8 +72,8 @@ export async function savePage() {
     const response = await chrome.runtime.sendMessage({ action: 'savePage' });
     return response || { success: false, error: 'No response' };
   } catch (error) {
-    Logger.warn('savePage failed:', error.message);
-    return { success: false, error: error.message };
+    Logger.warn('savePage failed:', error);
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
@@ -71,8 +86,8 @@ export async function startHighlight() {
     const response = await chrome.runtime.sendMessage({ action: 'startHighlight' });
     return response || { success: false, error: 'No response' };
   } catch (error) {
-    Logger.warn('startHighlight failed:', error.message);
-    return { success: false, error: error.message };
+    Logger.warn('startHighlight failed:', error);
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
@@ -86,8 +101,8 @@ export async function openNotionPage(url) {
     const tab = await chrome.tabs.create({ url });
     return { success: true, tab };
   } catch (error) {
-    Logger.warn('openNotionPage failed:', error.message);
-    return { success: false, error: error.message };
+    Logger.warn('openNotionPage failed:', error);
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
@@ -100,7 +115,7 @@ export async function getActiveTab() {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     return tabs?.[0] || null;
   } catch (error) {
-    Logger.warn('getActiveTab failed:', error.message);
+    Logger.warn('getActiveTab failed:', error);
     return null;
   }
 }
@@ -123,8 +138,8 @@ export async function clearHighlights(tabId, tabUrl) {
     const clearedCount = results?.[0]?.result || 0;
     return { success: true, clearedCount };
   } catch (error) {
-    Logger.warn('clearHighlights failed:', error.message);
-    return { success: false, error: error.message };
+    Logger.warn('clearHighlights failed:', error);
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
