@@ -52,7 +52,6 @@ async function ensureNotionApiKey(storageService, notionService) {
   notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
 }
-
 /**
  * 確保 Bundle 已就緒
  * @param {number} tabId

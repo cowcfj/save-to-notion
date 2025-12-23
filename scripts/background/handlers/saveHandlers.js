@@ -48,7 +48,6 @@ async function ensureNotionApiKey(storageService, notionService) {
   notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
 }
-
 /**
  * 處理內容提取結果
  * @param {Object} rawResult - 注入腳本返回的原始結果
