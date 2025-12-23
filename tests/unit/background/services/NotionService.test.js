@@ -253,7 +253,7 @@ describe('NotionService', () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 400,
-        json: () => Promise.resolve({ message: 'Invalid page data' }),
+        json: () => Promise.resolve({ message: 'Validation failed for page data' }),
       });
 
       const result = await service.createPage({ title: 'Test Page' });

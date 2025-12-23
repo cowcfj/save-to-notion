@@ -222,7 +222,6 @@ export function sanitizeApiError(apiError, context = 'operation') {
   // 驗證錯誤（圖片、數據格式等）
   if (
     lowerMessage.includes('validation') ||
-    lowerMessage.includes('invalid') ||
     lowerMessage.includes('image') ||
     lowerMessage.includes('media')
   ) {
