@@ -148,9 +148,9 @@ class NotionService {
    * @returns {Promise<Response>}
    * @private
    */
-  async _apiRequest(endpoint, options = {}) {
+  _apiRequest(endpoint, options = {}) {
     if (!this.apiKey) {
-      throw new Error('API Key not configured');
+      return Promise.reject(new Error('API Key not configured'));
     }
 
     const {
@@ -163,7 +163,7 @@ class NotionService {
 
     const url = this._buildUrl(endpoint, queryParams);
 
-    return await fetchWithRetry(
+    return fetchWithRetry(
       url,
       {
         method,
