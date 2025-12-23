@@ -282,7 +282,7 @@ describe('startHighlight', () => {
 
   test('發生錯誤時應返回錯誤訊息', async () => {
     // 使用無響應模擬網絡錯誤，讓實際實現的 catch 块處理
-    chrome.runtime.sendMessage.mockResolvedValue(undefined);
+    chrome.runtime.sendMessage.mockResolvedValue();
 
     const result = await startHighlight();
 
@@ -342,7 +342,7 @@ describe('clearHighlights', () => {
 
   test('結果無效時應返回 clearedCount 為 0', async () => {
     // 使用 undefined 結果時，實現返回 success: true, clearedCount: 0
-    chrome.scripting.executeScript.mockResolvedValue(undefined);
+    chrome.scripting.executeScript.mockResolvedValue();
 
     const result = await clearHighlights(123, 'https://example.com');
 
