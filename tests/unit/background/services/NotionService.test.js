@@ -936,4 +936,87 @@ describe('NotionService', () => {
       );
     });
   });
+
+  describe('_findHighlightSectionBlocks (靜態方法)', () => {
+    const HEADER = '📝 頁面標記';
+
+    it('應該正確識別標記區塊', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        {
+          id: '2',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ text: { content: HEADER } }] },
+        },
+        { id: '3', type: 'paragraph' },
+        { id: '4', type: 'paragraph' },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['2', '3', '4']);
+    });
+
+    it('應該在遇到下一個標題時停止收集', () => {
+      const blocks = [
+        {
+          id: '1',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ text: { content: HEADER } }] },
+        },
+        { id: '2', type: 'paragraph' },
+        { id: '3', type: 'heading_2', heading_2: { rich_text: [] } },
+        { id: '4', type: 'paragraph' },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['1', '2']);
+    });
+
+    it('應該正確處理沒有標記區域的情況', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        { id: '2', type: 'heading_2', heading_2: { rich_text: [] } },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual([]);
+    });
+
+    it('應該處理空區塊數組', () => {
+      const result = NotionService._findHighlightSectionBlocks([]);
+      expect(result).toEqual([]);
+    });
+
+    it('應該忽略非 paragraph 類型的區塊', () => {
+      const blocks = [
+        {
+          id: '1',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ text: { content: HEADER } }] },
+        },
+        { id: '2', type: 'paragraph' },
+        { id: '3', type: 'image', image: {} }, // 非 paragraph，應被忽略
+        { id: '4', type: 'paragraph' },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['1', '2', '4']);
+    });
+
+    it('應該處理標記區域在頁面末尾的情況', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        { id: '2', type: 'paragraph' },
+        {
+          id: '3',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ text: { content: HEADER } }] },
+        },
+        { id: '4', type: 'paragraph' },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['3', '4']);
+    });
+  });
 });
