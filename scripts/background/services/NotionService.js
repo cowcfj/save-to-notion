@@ -281,6 +281,23 @@ class NotionService {
   }
 
   /**
+   * 清理 URL 用於日誌記錄（移除敏感查詢參數）
+   * @param {string} url - 原始 URL
+   * @returns {string} 清理後的 URL（僅保留協議、主機名和路徑）
+   * @private
+   */
+  static _sanitizeUrlForLogging(url) {
+    try {
+      const urlObj = new URL(url);
+      // 只返回協議、主機名和路徑，移除查詢參數和片段
+      return `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+    } catch {
+      // 如果無法解析，返回通用描述
+      return '[invalid-url]';
+    }
+  }
+
+  /**
    * 驗證圖片 URL 是否有效
    * @param {string} imageUrl - 圖片 URL
    * @returns {boolean}
@@ -297,18 +314,16 @@ class NotionService {
       IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH -
       IMAGE_VALIDATION_CONSTANTS.URL_LENGTH_SAFETY_MARGIN;
     if (imageUrl.length > maxUrlLength) {
-      this.logger.warn?.(
-        `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
-      );
+      this.logger.warn?.(`⚠️ Skipped image with too long URL (${imageUrl.length} chars)`);
       return false;
     }
 
     // 檢查特殊字符
     const problematicChars = /[<>{}|\\^`[\]]/;
     if (problematicChars.test(imageUrl)) {
-      this.logger.warn?.(
-        `⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`
-      );
+      // 清理 URL 用於日誌
+      const sanitizedUrl = NotionService._sanitizeUrlForLogging(imageUrl);
+      this.logger.warn?.(`⚠️ Skipped image with problematic characters: ${sanitizedUrl}`);
       return false;
     }
 
@@ -328,14 +343,13 @@ class NotionService {
         return false;
       }
     } catch (error) {
-      this.logger.warn?.(
-        `⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`,
-        error
-      );
+      this.logger.warn?.('⚠️ Skipped image with invalid URL format', error);
       return false;
     }
 
-    this.logger.log?.(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
+    // 使用清理後的 URL 記錄成功
+    const sanitizedUrl = NotionService._sanitizeUrlForLogging(imageUrl);
+    this.logger.log?.(`✓ Valid image URL: ${sanitizedUrl}`);
     return true;
   }
 
