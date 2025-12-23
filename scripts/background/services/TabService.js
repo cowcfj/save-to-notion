@@ -90,10 +90,26 @@ class TabService {
           // 如果頁面還在載入，等待 complete
           if (tab.status !== 'complete') {
             this.logger.debug?.(`[TabService] Tab ${tabId} status is ${tab.status}, waiting...`);
+
             // 註冊一次性監聽器，等待頁面 complete
+            let timeoutId = null;
+            let isCleanedUp = false;
+
+            const cleanup = () => {
+              if (isCleanedUp) {
+                return;
+              }
+              isCleanedUp = true;
+              chrome.tabs.onUpdated.removeListener(onUpdated);
+              chrome.tabs.onRemoved.removeListener(onRemoved);
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+              }
+            };
+
             const onUpdated = (updatedTabId, changeInfo) => {
               if (updatedTabId === tabId && changeInfo.status === 'complete') {
-                chrome.tabs.onUpdated.removeListener(onUpdated);
+                cleanup();
                 this.logger.debug?.(`[TabService] Tab ${tabId} now complete, injecting bundle...`);
                 // 異步注入，不阻塞當前流程
                 this.injectionService
@@ -101,7 +117,24 @@ class TabService {
                   .catch(err => this.logger.error?.('[TabService] Delayed injection failed:', err));
               }
             };
+
+            const onRemoved = removedTabId => {
+              if (removedTabId === tabId) {
+                cleanup();
+                this.logger.debug?.(`[TabService] Tab ${tabId} was closed, cleanup listeners`);
+              }
+            };
+
+            // 添加監聽器
             chrome.tabs.onUpdated.addListener(onUpdated);
+            chrome.tabs.onRemoved.addListener(onRemoved);
+
+            // 10 秒超時保護
+            timeoutId = setTimeout(() => {
+              cleanup();
+              this.logger.warn?.(`[TabService] Tab ${tabId} loading timeout, cleanup listeners`);
+            }, 10000);
+
             return;
           }
 
