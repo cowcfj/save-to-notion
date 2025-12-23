@@ -156,7 +156,10 @@ export async function clearHighlights(tabId, tabUrl) {
       func: clearHighlightsInPage,
       args: [URL_NORMALIZATION.TRACKING_PARAMS, pageKey],
     });
-    const clearedCount = results?.[0]?.result || 0;
+    const clearedCount =
+      results && Array.isArray(results) && results[0] && typeof results[0].result === 'number'
+        ? results[0].result
+        : 0;
     return { success: true, clearedCount };
   } catch (error) {
     Logger.warn('clearHighlights failed:', error);
@@ -183,9 +186,20 @@ function clearHighlightsInPage(trackingParams, pageKey) {
 
   // 清除本地存儲
   try {
-    chrome.storage?.local?.remove([pageKey]);
+    // 檢查 chrome.storage 是否可用（content script 環境）
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.remove([pageKey]);
+    } else {
+      // 降級到 localStorage（舊版或受限環境）
+      localStorage.removeItem(pageKey);
+    }
   } catch (_) {
-    localStorage.removeItem(pageKey);
+    // 最後備選方案
+    try {
+      localStorage.removeItem(pageKey);
+    } catch (_err) {
+      // 忽略存儲清除失敗
+    }
   }
 
   // 更新工具欄計數（如果存在）
