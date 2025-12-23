@@ -46,10 +46,10 @@ const Logger = global.Logger;
 
 describe('actionHandlers 覆蓋率補強', () => {
   // Handler Creators (Dynamic Import for safety)
-  let createSaveHandlers;
-  let createHighlightHandlers;
-  let createMigrationHandlers;
-  let processContentResult;
+  let createSaveHandlers = null;
+  let createHighlightHandlers = null;
+  let createMigrationHandlers = null;
+  let processContentResult = null;
 
   // Mock services
   let mockNotionService = null;
