@@ -28,6 +28,8 @@ const NOTION_CONFIG = {
   RATE_LIMIT_DELAY: NOTION_API.RATE_LIMIT_DELAY,
   PAGE_SIZE: NOTION_API.PAGE_SIZE,
   CREATE_DELAY: NOTION_API.CREATE_DELAY,
+  // 頁面結構配置
+  HIGHLIGHT_SECTION_HEADER: NOTION_API.HIGHLIGHT_SECTION_HEADER,
 };
 
 /**
@@ -219,7 +221,7 @@ class NotionService {
     for (const block of blocks) {
       if (
         block.type === 'heading_3' &&
-        block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記'
+        block.heading_3?.rich_text?.[0]?.text?.content === NOTION_CONFIG.HIGHLIGHT_SECTION_HEADER
       ) {
         foundHighlightSection = true;
         blocksToDelete.push(block.id);

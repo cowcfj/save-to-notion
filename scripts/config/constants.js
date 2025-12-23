@@ -74,6 +74,8 @@ export const NOTION_API = {
   RATE_LIMIT_DELAY: 350, // 速率限制延遲（ms），符合 Notion API 限制（3 req/s）
   PAGE_SIZE: 100, // 分頁大小
   CREATE_DELAY: 600, // 創建操作延遲（ms）
+  // 頁面結構配置
+  HIGHLIGHT_SECTION_HEADER: '📝 頁面標記', // 高亮標記區域的標題
 };
 
 /**
