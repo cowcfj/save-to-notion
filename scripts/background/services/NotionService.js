@@ -200,7 +200,7 @@ class NotionService {
   async _fetchPageBlocks(pageId) {
     const allBlocks = [];
     let hasMore = true;
-    let startCursor;
+    let startCursor = null;
 
     while (hasMore) {
       const response = await this._apiRequest(`/blocks/${pageId}/children`, {

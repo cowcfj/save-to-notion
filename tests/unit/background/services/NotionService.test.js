@@ -834,7 +834,7 @@ describe('NotionService', () => {
         1,
         `/blocks/${pageId}/children`,
         expect.objectContaining({
-          queryParams: expect.objectContaining({ start_cursor: undefined }),
+          queryParams: expect.objectContaining({ start_cursor: null }),
         })
       );
 
