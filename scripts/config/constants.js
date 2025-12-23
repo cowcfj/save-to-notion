@@ -66,6 +66,14 @@ export const NOTION_API = {
   DELAY_BETWEEN_BATCHES: 350, // 批次間延遲（ms），遵守速率限制（3 req/s）
   MAX_RETRIES: 3, // 最大重試次數
   BASE_RETRY_DELAY: 800, // 基礎重試延遲（ms）
+  // 操作特定配置
+  CHECK_RETRIES: 2, // 檢查操作重試次數
+  CHECK_DELAY: 500, // 檢查操作延遲（ms）
+  DELETE_RETRIES: 1, // 刪除操作重試次數
+  DELETE_DELAY: 300, // 刪除操作延遲（ms）
+  RATE_LIMIT_DELAY: 100, // 速率限制延遲（ms）
+  PAGE_SIZE: 100, // 分頁大小
+  CREATE_DELAY: 600, // 創建操作延遲（ms）
 };
 
 /**

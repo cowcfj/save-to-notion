@@ -18,8 +18,16 @@ const NOTION_CONFIG = {
   BASE_URL: NOTION_API.BASE_URL,
   BLOCKS_PER_BATCH: NOTION_API.BLOCKS_PER_BATCH,
   DELAY_BETWEEN_BATCHES: NOTION_API.DELAY_BETWEEN_BATCHES,
-  DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES || 2,
-  DEFAULT_BASE_DELAY: NOTION_API.BASE_RETRY_DELAY || 600,
+  DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES,
+  DEFAULT_BASE_DELAY: NOTION_API.BASE_RETRY_DELAY,
+  // 操作特定配置
+  CHECK_RETRIES: NOTION_API.CHECK_RETRIES,
+  CHECK_DELAY: NOTION_API.CHECK_DELAY,
+  DELETE_RETRIES: NOTION_API.DELETE_RETRIES,
+  DELETE_DELAY: NOTION_API.DELETE_DELAY,
+  RATE_LIMIT_DELAY: NOTION_API.RATE_LIMIT_DELAY,
+  PAGE_SIZE: NOTION_API.PAGE_SIZE,
+  CREATE_DELAY: NOTION_API.CREATE_DELAY,
 };
 
 /**
@@ -120,6 +128,140 @@ class NotionService {
       'Content-Type': 'application/json',
       'Notion-Version': this.config.API_VERSION,
     };
+  }
+
+  /**
+   * 通用 API 調用方法
+   * @param {string} endpoint - API 端點（相對路徑，如 '/pages'）
+   * @param {Object} options - 請求選項
+   * @returns {Promise<Response>}
+   * @private
+   */
+  async _apiRequest(endpoint, options = {}) {
+    if (!this.apiKey) {
+      throw new Error('API Key not configured');
+    }
+
+    const {
+      method = 'GET',
+      body = null,
+      maxRetries = this.config.DEFAULT_MAX_RETRIES,
+      baseDelay = this.config.DEFAULT_BASE_DELAY,
+    } = options;
+
+    return fetchWithRetry(
+      `${this.config.BASE_URL}${endpoint}`,
+      {
+        method,
+        headers: this._getHeaders(),
+        ...(body && { body: JSON.stringify(body) }),
+      },
+      { maxRetries, baseDelay }
+    );
+  }
+
+  /**
+   * 構建 API URL
+   * @param {string} path - 路徑（相對於 BASE_URL）
+   * @param {Object} params - 查詢參數
+   * @returns {string}
+   * @private
+   */
+  _buildUrl(path, params = {}) {
+    const url = new URL(`${this.config.BASE_URL}${path}`);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        url.searchParams.set(key, value);
+      }
+    });
+    return url.toString();
+  }
+
+  /**
+   * 獲取頁面區塊列表
+   * @param {string} pageId - 頁面 ID
+   * @returns {Promise<{success: boolean, blocks?: Array, error?: string}>}
+   * @private
+   */
+  async _fetchPageBlocks(pageId) {
+    const url = this._buildUrl(`/blocks/${pageId}/children`, {
+      page_size: this.config.PAGE_SIZE,
+    });
+
+    const response = await fetchWithRetry(
+      url,
+      { method: 'GET', headers: this._getHeaders() },
+      { maxRetries: this.config.CHECK_RETRIES, baseDelay: this.config.CREATE_DELAY }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: `獲取頁面內容失敗: ${errorData.message || response.statusText}`,
+      };
+    }
+
+    const data = await response.json();
+    return { success: true, blocks: data.results || [] };
+  }
+
+  /**
+   * 找出標記區域的區塊 ID
+   * @param {Array} blocks - 區塊列表
+   * @returns {Array<string>} 需要刪除的區塊 ID 列表
+   * @private
+   */
+  _findHighlightSectionBlocks(blocks) {
+    const blocksToDelete = [];
+    let foundHighlightSection = false;
+
+    for (const block of blocks) {
+      if (
+        block.type === 'heading_3' &&
+        block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記'
+      ) {
+        foundHighlightSection = true;
+        blocksToDelete.push(block.id);
+      } else if (foundHighlightSection) {
+        if (block.type.startsWith('heading_')) {
+          break; // 遇到下一個標題，停止收集
+        }
+        if (block.type === 'paragraph') {
+          blocksToDelete.push(block.id);
+        }
+      }
+    }
+
+    return blocksToDelete;
+  }
+
+  /**
+   * 批量刪除區塊
+   * @param {Array<string>} blockIds - 區塊 ID 列表
+   * @returns {Promise<number>} 成功刪除的數量
+   * @private
+   */
+  async _deleteBlocksByIds(blockIds) {
+    let deletedCount = 0;
+
+    for (const blockId of blockIds) {
+      try {
+        const response = await this._apiRequest(`/blocks/${blockId}`, {
+          method: 'DELETE',
+          maxRetries: this.config.DELETE_RETRIES,
+          baseDelay: this.config.DELETE_DELAY,
+        });
+
+        if (response.ok) {
+          deletedCount++;
+        }
+      } catch (deleteError) {
+        this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, deleteError.message);
+      }
+    }
+
+    return deletedCount;
   }
 
   /**
@@ -225,14 +367,11 @@ class NotionService {
     }
 
     try {
-      const response = await fetchWithRetry(
-        `${this.config.BASE_URL}/pages/${pageId}`,
-        {
-          method: 'GET',
-          headers: this._getHeaders(),
-        },
-        { maxRetries: 2, baseDelay: 500 }
-      );
+      const response = await this._apiRequest(`/pages/${pageId}`, {
+        method: 'GET',
+        maxRetries: this.config.CHECK_RETRIES,
+        baseDelay: this.config.CHECK_DELAY,
+      });
 
       if (response.ok) {
         const pageData = await response.json();
@@ -281,15 +420,12 @@ class NotionService {
 
         this.logger.log?.(`📤 發送批次 ${batchNumber}/${totalBatches}: ${batch.length} 個區塊`);
 
-        const response = await fetchWithRetry(
-          `${this.config.BASE_URL}/blocks/${pageId}/children`,
-          {
-            method: 'PATCH',
-            headers: this._getHeaders(),
-            body: JSON.stringify({ children: batch }),
-          },
-          { maxRetries: 3, baseDelay: 800 }
-        );
+        const response = await this._apiRequest(`/blocks/${pageId}/children`, {
+          method: 'PATCH',
+          body: { children: batch },
+          maxRetries: this.config.DEFAULT_MAX_RETRIES,
+          baseDelay: this.config.DEFAULT_BASE_DELAY,
+        });
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -332,15 +468,12 @@ class NotionService {
     const { autoBatch = false, allBlocks = [] } = options;
 
     try {
-      const response = await fetchWithRetry(
-        `${this.config.BASE_URL}/pages`,
-        {
-          method: 'POST',
-          headers: this._getHeaders(),
-          body: JSON.stringify(pageData),
-        },
-        { maxRetries: 2, baseDelay: 600 }
-      );
+      const response = await this._apiRequest('/pages', {
+        method: 'POST',
+        body: pageData,
+        maxRetries: this.config.CHECK_RETRIES,
+        baseDelay: this.config.CREATE_DELAY,
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -386,26 +519,19 @@ class NotionService {
    * @returns {Promise<{success: boolean, error?: string}>}
    */
   async updatePageTitle(pageId, title) {
-    if (!this.apiKey) {
-      throw new Error('API Key not configured');
-    }
-
     try {
-      const response = await fetchWithRetry(
-        `${this.config.BASE_URL}/pages/${pageId}`,
-        {
-          method: 'PATCH',
-          headers: this._getHeaders(),
-          body: JSON.stringify({
-            properties: {
-              title: {
-                title: [{ type: 'text', text: { content: title } }],
-              },
+      const response = await this._apiRequest(`/pages/${pageId}`, {
+        method: 'PATCH',
+        body: {
+          properties: {
+            title: {
+              title: [{ type: 'text', text: { content: title } }],
             },
-          }),
+          },
         },
-        { maxRetries: 2, baseDelay: 600 }
-      );
+        maxRetries: this.config.CHECK_RETRIES,
+        baseDelay: this.config.CREATE_DELAY,
+      });
 
       return { success: response.ok };
     } catch (error) {
@@ -420,10 +546,6 @@ class NotionService {
    * @returns {Promise<{success: boolean, deletedCount: number, error?: string}>}
    */
   async deleteAllBlocks(pageId) {
-    if (!this.apiKey) {
-      throw new Error('API Key not configured');
-    }
-
     try {
       // 收集所有區塊（處理分頁）
       const allBlocks = [];
@@ -431,9 +553,10 @@ class NotionService {
       let hasMore = true;
 
       while (hasMore) {
-        const url = startCursor
-          ? `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100&start_cursor=${startCursor}`
-          : `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100`;
+        const url = this._buildUrl(`/blocks/${pageId}/children`, {
+          page_size: this.config.PAGE_SIZE,
+          start_cursor: startCursor,
+        });
 
         const listResponse = await fetchWithRetry(
           url,
@@ -441,7 +564,7 @@ class NotionService {
             method: 'GET',
             headers: this._getHeaders(),
           },
-          { maxRetries: 2, baseDelay: 500 }
+          { maxRetries: this.config.CHECK_RETRIES, baseDelay: this.config.CHECK_DELAY }
         );
 
         if (!listResponse.ok) {
@@ -464,18 +587,15 @@ class NotionService {
       let deletedCount = 0;
       for (const block of allBlocks) {
         try {
-          await fetchWithRetry(
-            `${this.config.BASE_URL}/blocks/${block.id}`,
-            {
-              method: 'DELETE',
-              headers: this._getHeaders(),
-            },
-            { maxRetries: 1, baseDelay: 300 }
-          );
+          await this._apiRequest(`/blocks/${block.id}`, {
+            method: 'DELETE',
+            maxRetries: this.config.DELETE_RETRIES,
+            baseDelay: this.config.DELETE_DELAY,
+          });
           deletedCount++;
 
           // 速率限制
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, this.config.RATE_LIMIT_DELAY));
         } catch (err) {
           this.logger.warn?.(`Failed to delete block ${block.id}:`, err);
         }
@@ -609,83 +729,26 @@ class NotionService {
       this.logger.log?.('🔄 開始更新標記區域...');
 
       // 步驟 1: 獲取現有區塊
-      const response = await fetchWithRetry(
-        `${this.config.BASE_URL}/blocks/${pageId}/children?page_size=100`,
-        {
-          method: 'GET',
-          headers: this._getHeaders(),
-        },
-        { maxRetries: 2, baseDelay: 600 }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return {
-          success: false,
-          error: `獲取頁面內容失敗: ${errorData.message || response.statusText}`,
-        };
+      const fetchResult = await this._fetchPageBlocks(pageId);
+      if (!fetchResult.success) {
+        return { success: false, error: fetchResult.error };
       }
-
-      const existingContent = await response.json();
-      const existingBlocks = existingContent.results;
 
       // 步驟 2: 找出需要刪除的標記區塊
-      const blocksToDelete = [];
-      let foundHighlightSection = false;
-
-      for (let i = 0; i < existingBlocks.length; i++) {
-        const block = existingBlocks[i];
-
-        if (
-          block.type === 'heading_3' &&
-          block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記'
-        ) {
-          foundHighlightSection = true;
-          blocksToDelete.push(block.id);
-        } else if (foundHighlightSection) {
-          if (block.type.startsWith('heading_')) {
-            break; // 遇到下一個標題，停止收集
-          }
-          if (block.type === 'paragraph') {
-            blocksToDelete.push(block.id);
-          }
-        }
-      }
+      const blocksToDelete = this._findHighlightSectionBlocks(fetchResult.blocks);
 
       // 步驟 3: 刪除舊的標記區塊
-      let deletedCount = 0;
-      for (const blockId of blocksToDelete) {
-        try {
-          const deleteResponse = await fetchWithRetry(
-            `${this.config.BASE_URL}/blocks/${blockId}`,
-            {
-              method: 'DELETE',
-              headers: this._getHeaders(),
-            },
-            { maxRetries: 1, baseDelay: 300 }
-          );
-
-          if (deleteResponse.ok) {
-            deletedCount++;
-          }
-        } catch (deleteError) {
-          this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, deleteError.message);
-        }
-      }
-
+      const deletedCount = await this._deleteBlocksByIds(blocksToDelete);
       this.logger.log?.(`🗑️ 刪除了 ${deletedCount}/${blocksToDelete.length} 個舊標記區塊`);
 
       // 步驟 4: 添加新的標記區塊
       if (highlightBlocks.length > 0) {
-        const addResponse = await fetchWithRetry(
-          `${this.config.BASE_URL}/blocks/${pageId}/children`,
-          {
-            method: 'PATCH',
-            headers: this._getHeaders(),
-            body: JSON.stringify({ children: highlightBlocks }),
-          },
-          { maxRetries: 2, baseDelay: 600 }
-        );
+        const addResponse = await this._apiRequest(`/blocks/${pageId}/children`, {
+          method: 'PATCH',
+          body: { children: highlightBlocks },
+          maxRetries: this.config.CHECK_RETRIES,
+          baseDelay: this.config.CREATE_DELAY,
+        });
 
         if (!addResponse.ok) {
           const errorData = await addResponse.json().catch(() => ({}));
