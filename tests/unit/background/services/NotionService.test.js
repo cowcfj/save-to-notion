@@ -784,6 +784,70 @@ describe('NotionService', () => {
       expect(result.error).toBeDefined();
     });
 
+    it('應該正確處理分頁以獲取所有區塊', async () => {
+      // 第一頁響應（還有更多）
+      service._apiRequest = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [{ id: 'block-1' }],
+            has_more: true,
+            next_cursor: 'cursor-2',
+          }),
+        })
+        // 第二頁響應（結束）
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: [{ id: 'block-2' }],
+            has_more: false,
+            next_cursor: null,
+          }),
+        });
+
+      // Mock 刪除操作
+      service._deleteBlocksByIds = jest.fn().mockResolvedValue({
+        successCount: 0,
+        failureCount: 0,
+        errors: [],
+      });
+
+      // Mock 添加操作
+      service._apiRequest.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ results: [] }),
+      });
+
+      // 觸發調用
+      await service.updateHighlightsSection(pageId, highlightBlocks);
+
+      // 驗證 API 調用次數
+      // 1. fetch page 1
+      // 2. fetch page 2
+      // 3. delete (if any) - here none
+      // 4. add new blocks
+      // 注意：由於 _fetchPageBlocks 內部循環調用了 _apiRequest，我們需要檢查 mock 的調用參數
+
+      // 檢查第一次調用 (Page 1)
+      expect(service._apiRequest).toHaveBeenNthCalledWith(
+        1,
+        `/blocks/${pageId}/children`,
+        expect.objectContaining({
+          queryParams: expect.objectContaining({ start_cursor: undefined }),
+        })
+      );
+
+      // 檢查第二次調用 (Page 2)
+      expect(service._apiRequest).toHaveBeenNthCalledWith(
+        2,
+        `/blocks/${pageId}/children`,
+        expect.objectContaining({
+          queryParams: expect.objectContaining({ start_cursor: 'cursor-2' }),
+        })
+      );
+    });
+
     it('應該正確處理空標記列表（只刪除不添加）', async () => {
       service._fetchPageBlocks = jest.fn().mockResolvedValue({
         success: true,
