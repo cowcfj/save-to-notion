@@ -244,12 +244,16 @@ class TabService {
     });
 
     // 監聽標籤頁切換
-    chrome.tabs.onActivated.addListener(activeInfo => {
-      chrome.tabs.get(activeInfo.tabId, tab => {
+    chrome.tabs.onActivated.addListener(async activeInfo => {
+      try {
+        const tab = await chrome.tabs.get(activeInfo.tabId);
         if (tab?.url) {
           this.updateTabStatus(activeInfo.tabId, tab.url);
         }
-      });
+      } catch (error) {
+        // Tab 可能已被關閉，靜默處理
+        this.logger.debug?.(`[TabService] Failed to get tab ${activeInfo.tabId}:`, error);
+      }
     });
   }
 
