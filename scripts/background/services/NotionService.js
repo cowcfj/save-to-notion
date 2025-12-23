@@ -149,7 +149,7 @@ class NotionService {
       baseDelay = this.config.DEFAULT_BASE_DELAY,
     } = options;
 
-    return fetchWithRetry(
+    return await fetchWithRetry(
       `${this.config.BASE_URL}${endpoint}`,
       {
         method,
