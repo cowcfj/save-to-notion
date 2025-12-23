@@ -169,7 +169,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/API Key is not set|Notion API Key 未設置/i),
+        error: expect.stringMatching(/API Key is not set|Notion API Key 未設置/iu),
       })
     );
   });
@@ -192,7 +192,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Page not saved yet|頁面尚未保存/i),
+        error: expect.stringMatching(/Page not saved yet|頁面尚未保存/iu),
       })
     );
   });
@@ -204,7 +204,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Page ID is missing|缺少 Notion Page ID/i),
+        error: expect.stringMatching(/Page ID is missing|缺少 Notion Page ID/iu),
       })
     );
   });
@@ -220,7 +220,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Notion API Key not configured|Notion API Key 未設置/i),
+        error: expect.stringMatching(/Notion API Key not configured|Notion API Key 未設置/iu),
       })
     );
   });
@@ -232,7 +232,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/No URL provided|未提供 Notion URL/i),
+        error: expect.stringMatching(/No URL provided|未提供 Notion URL/iu),
       })
     );
   });
@@ -275,7 +275,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Could not get active tab|無法獲取當前標籤頁/i),
+        error: expect.stringMatching(/Could not get active tab|無法獲取當前標籤頁/iu),
       })
     );
   });
@@ -292,7 +292,7 @@ describe('background error branches (integration)', () => {
       expect.objectContaining({
         success: false,
         error: expect.stringMatching(
-          /API Key or Data Source ID is not set|API Key 或 Data Source ID 未設置/i
+          /API Key or Data Source ID is not set|API Key 或 Data Source ID 未設置/iu
         ),
       })
     );
