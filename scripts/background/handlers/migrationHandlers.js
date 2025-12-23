@@ -102,10 +102,10 @@ export function createMigrationHandlers(services) {
           // 等待分頁加載完成 (帶超時保護)
           await new Promise((resolve, reject) => {
             const TIMEOUT_MS = 15000;
-            // eslint-disable-next-line prefer-const -- 需要延遲初始化以在 cleanup 中檢查
+            // eslint-disable-next-line prefer-const -- 需要在 cleanup 中引用此變數，但其賦值發生在 cleanup 定義之後，因此無法使用 const
             let timeoutId;
-            // eslint-disable-next-line prefer-const -- 需要延遲初始化以在 cleanup 中檢查
-            let listener; // 提前聲明變量以解決作用域問題
+            // eslint-disable-next-line prefer-const -- 為了解決與 cleanup 函數的循環依賴（互相引用），需使用 let 提前聲明
+            let listener;
 
             /**
              * 清理監聽器和計時器
