@@ -268,13 +268,7 @@ export function createSaveHandlers(services) {
      */
     savePage: async (request, sender, sendResponse) => {
       try {
-        let activeTab;
-        try {
-          activeTab = await getActiveTab();
-        } catch (_error) {
-          sendResponse({ success: false, error: 'Could not get active tab.' });
-          return;
-        }
+        const activeTab = await getActiveTab();
 
         const config = await storageService.getConfig([
           'notionApiKey',
@@ -306,7 +300,7 @@ export function createSaveHandlers(services) {
         Logger.log('📊 收集到的標註數據:', highlights);
 
         // 注入並執行內容提取
-        let result = null;
+        let result;
 
         try {
           result = await pageContentService.extractContent(activeTab.id);
@@ -429,13 +423,7 @@ export function createSaveHandlers(services) {
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
-        let activeTab;
-        try {
-          activeTab = await getActiveTab();
-        } catch (_error) {
-          sendResponse({ success: false, error: 'Could not get active tab.' });
-          return;
-        }
+        const activeTab = await getActiveTab();
 
         const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);

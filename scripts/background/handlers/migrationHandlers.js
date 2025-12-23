@@ -68,7 +68,7 @@ export function createMigrationHandlers(services) {
      * 使用 Headless Tab 策略：在後台分頁中執行 DOM 感知的遷移
      */
     migration_execute: async (request, sender, sendResponse) => {
-      let createdTabId = null;
+      let createdTabId;
 
       try {
         const { url } = request;
@@ -100,7 +100,7 @@ export function createMigrationHandlers(services) {
 
         // 2. 查找或創建分頁
         const tabs = await chrome.tabs.query({ url });
-        let targetTab = null;
+        let targetTab;
 
         if (tabs.length > 0) {
           // 使用已存在的分頁
@@ -118,8 +118,10 @@ export function createMigrationHandlers(services) {
           // 等待分頁加載完成 (帶超時保護)
           await new Promise((resolve, reject) => {
             const TIMEOUT_MS = 15000;
-            let timeoutId = null;
-            let listener = null; // 提前聲明變量以解決作用域問題
+            // eslint-disable-next-line prefer-const -- 需要延遲初始化以在 cleanup 中檢查
+            let timeoutId;
+            // eslint-disable-next-line prefer-const -- 需要延遲初始化以在 cleanup 中檢查
+            let listener; // 提前聲明變量以解決作用域問題
 
             /**
              * 清理監聽器和計時器

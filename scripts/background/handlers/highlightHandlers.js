@@ -170,13 +170,7 @@ export function createHighlightHandlers(services) {
      */
     startHighlight: async (request, sender, sendResponse) => {
       try {
-        let activeTab;
-        try {
-          activeTab = await getActiveTab();
-        } catch (_error) {
-          sendResponse({ success: false, error: 'Could not get active tab.' });
-          return;
-        }
+        const activeTab = await getActiveTab();
 
         // 檢查是否為受限頁面（chrome://、chrome-extension:// 等）
         if (isRestrictedInjectionUrl(activeTab.url)) {
@@ -230,13 +224,7 @@ export function createHighlightHandlers(services) {
      */
     updateHighlights: async (request, sender, sendResponse) => {
       try {
-        let activeTab;
-        try {
-          activeTab = await getActiveTab();
-        } catch (_error) {
-          sendResponse({ success: false, error: 'Could not get active tab.' });
-          return;
-        }
+        const activeTab = await getActiveTab();
 
         await ensureNotionApiKey(storageService, notionService);
 
@@ -278,13 +266,7 @@ export function createHighlightHandlers(services) {
      */
     syncHighlights: async (request, sender, sendResponse) => {
       try {
-        let activeTab;
-        try {
-          activeTab = await getActiveTab();
-        } catch (_error) {
-          sendResponse({ success: false, error: '無法獲取當前標籤頁' });
-          return;
-        }
+        const activeTab = await getActiveTab();
 
         await ensureNotionApiKey(storageService, notionService);
 
