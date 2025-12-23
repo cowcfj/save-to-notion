@@ -43,41 +43,41 @@ global.ImageUtils = { cleanImageUrl: jest.fn(), isValidImageUrl: jest.fn() };
 global.ErrorHandler = {};
 global.PerformanceOptimizer = {};
 
-// Import background script
-// This will execute the background script, so we need mocks ready before this
-const background = require('../../../scripts/background.js');
-const { tabService, injectionService } = background;
+// Import services directly
+const { TabService } = require('../../../scripts/background/services/TabService.js');
+const { InjectionService } = require('../../../scripts/background/services/InjectionService.js');
 
 describe('Background State Updates', () => {
+  let tabService = null;
+  let injectionService = null;
+  let mockGetSavedPageData = null;
+  let mockNormalizeUrl = null;
+
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Spy on ScriptInjector.injectHighlighter
-    // We need to spy on the real method to prevent actual injection logic if needed,
-    // or just to verify it was called.
-    // Since we want to verify it was called, and we don't want side effects (though executeScript is mocked),
-    // mocking it is safer for this unit test.
+    // Mock injectionService
+    injectionService = new InjectionService();
+    // Spy and mock methods
     jest.spyOn(injectionService, 'injectHighlighter').mockResolvedValue();
-
-    // Mock ensureBundleInjected（TabService 實際使用的方法）
     jest.spyOn(injectionService, 'ensureBundleInjected').mockResolvedValue(true);
+    // Needed for internal calls
+    injectionService.injectWithResponse = jest.fn().mockResolvedValue({ migrated: false });
+    injectionService.injectHighlightRestore = jest.fn().mockResolvedValue();
 
-    // Also mock migrateLegacyHighlights if we want to isolate it,
-    // but the review said "mocking ... migrateLegacyHighlights as needed".
-    // Since it's exported, we can spy on it?
-    // Wait, updateTabStatus calls the local function migrateLegacyHighlights.
-    // In CommonJS, if it's not called via `exports.migrateLegacyHighlights`,
-    // spying on the export WON'T work for internal calls.
-    //
-    // However, the review suggested: "mocking ... migrateLegacyHighlights ... as needed".
-    // If we can't easily mock internal calls in this structure, we should ensure the real implementation
-    // is safe to run.
-    // migrateLegacyHighlights uses chrome.storage, which is mocked. So it is safe to run.
-    // We can verify its behavior by checking storage calls or just let it run.
-    //
-    // If we really need to mock it, we would need to change how it's called in background.js
-    // (e.g. call `module.exports.migrateLegacyHighlights` or `exports.migrateLegacyHighlights`).
-    // But for now, let's assume running the real one is fine since dependencies are mocked.
+    // Mock dependencies for TabService
+    mockGetSavedPageData = jest.fn().mockResolvedValue(null);
+    mockNormalizeUrl = jest.fn(url => url);
+
+    // Instantiate TabService
+    tabService = new TabService({
+      logger: global.Logger,
+      injectionService,
+      normalizeUrl: mockNormalizeUrl,
+      getSavedPageData: mockGetSavedPageData,
+      isRestrictedUrl: () => false,
+      isRecoverableError: () => false,
+    });
   });
 
   afterEach(() => {
@@ -89,27 +89,28 @@ describe('Background State Updates', () => {
     const url = 'https://example.com/page';
     const normUrl = 'https://example.com/page';
 
-    // Mock storage data
+    // Setup mocks
+    mockGetSavedPageData.mockResolvedValue({ savedAt: Date.now(), notionPageId: 'page-id' });
+
+    // Mock highlights in storage
+    const highlightsKey = `highlights_${normUrl}`;
     chrome.storage.local.get.mockImplementation((keys, sendResult) => {
-      // keys is array or string
-      const keyList = Array.isArray(keys) ? keys : [keys];
-      const result = {};
-
-      keyList.forEach(key => {
-        if (key === `saved_${normUrl}`) {
-          result[`saved_${normUrl}`] = { savedAt: Date.now() };
-        } else if (key === `highlights_${normUrl}`) {
-          result[`highlights_${normUrl}`] = [{ id: 1, text: 'highlight' }];
-        }
-      });
-
-      sendResult(result);
+      // keys is array check
+      const k = Array.isArray(keys) ? keys[0] : keys;
+      if (k === highlightsKey) {
+        const res = { [highlightsKey]: [{ id: 1, text: 'highlight' }] };
+        sendResult?.(res);
+        return Promise.resolve(res);
+      }
+      sendResult?.({});
+      return Promise.resolve({});
     });
 
     // Mock chrome.tabs.get to return complete status
     chrome.tabs.get.mockImplementation((tabId, callback) => {
       const tab = { id: tabId, status: 'complete', url };
-      callback(tab);
+      callback?.(tab);
+      return Promise.resolve(tab);
     });
 
     await tabService.updateTabStatus(tabId, url);
@@ -119,7 +120,6 @@ describe('Background State Updates', () => {
     expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#48bb78', tabId });
 
     // Verify highlighter injection
-    // TabService 調用 ensureBundleInjected 而非 injectHighlighter
     expect(injectionService.ensureBundleInjected).toHaveBeenCalledWith(tabId);
   });
 
@@ -127,9 +127,13 @@ describe('Background State Updates', () => {
     const tabId = 123;
     const url = 'https://example.com/unsaved';
 
-    // Mock storage data (empty)
+    // Setup mocks
+    mockGetSavedPageData.mockResolvedValue(null);
+
+    // Mock chrome.storage.local.get (no highlights)
     chrome.storage.local.get.mockImplementation((keys, sendResult) => {
-      sendResult({});
+      sendResult?.({});
+      return Promise.resolve({});
     });
 
     await tabService.updateTabStatus(tabId, url);
@@ -139,13 +143,6 @@ describe('Background State Updates', () => {
 
     // Verify no injection if no highlights
     expect(injectionService.injectHighlighter).not.toHaveBeenCalled();
-
-    // Since we can't easily spy on internal migrateLegacyHighlights call without changing source,
-    // we can check if storage.remove was called (which migrateLegacyHighlights does if no legacy data).
-    // Or just trust it ran.
-    // The original test had: expect(migrateLegacyHighlights).toHaveBeenCalled();
-    // But that was when it was a global mock.
-    // Now it's the real function.
   });
 
   test('tabService.updateTabStatus should ignore non-http URLs', async () => {

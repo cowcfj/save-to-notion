@@ -92,9 +92,7 @@ describe('TabService', () => {
 
     it('should set badge for saved pages', async () => {
       service.getSavedPageData = jest.fn().mockResolvedValue({ pageId: '123' });
-      chrome.storage.local.get.mockImplementation((keys, sendResult) => {
-        sendResult({});
-      });
+      chrome.storage.local.get.mockImplementation(_keys => Promise.resolve({}));
 
       await service.updateTabStatus(1, 'https://example.com');
 
@@ -107,9 +105,7 @@ describe('TabService', () => {
 
     it('should clear badge for unsaved pages', async () => {
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
-      chrome.storage.local.get.mockImplementation((keys, sendResult) => {
-        sendResult({});
-      });
+      chrome.storage.local.get.mockImplementation(_keys => Promise.resolve({}));
 
       await service.updateTabStatus(1, 'https://example.com');
 
@@ -119,14 +115,14 @@ describe('TabService', () => {
     it('should inject bundle for auto-restore when highlights exist', async () => {
       // Mock highlights 存在
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
-      chrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({ 'highlights_https://example.com': [{ id: '1' }] });
-      });
+      chrome.storage.local.get.mockImplementation(_keys =>
+        Promise.resolve({ 'highlights_https://example.com': [{ id: '1' }] })
+      );
 
       // Mock tab get 返回 complete 狀態
-      chrome.tabs.get.mockImplementation((tabId, callback) => {
-        callback({ id: 1, status: 'complete', url: 'https://example.com' });
-      });
+      chrome.tabs.get.mockImplementation(_tabId =>
+        Promise.resolve({ id: 1, status: 'complete', url: 'https://example.com' })
+      );
 
       await service.updateTabStatus(1, 'https://example.com');
 
@@ -136,9 +132,7 @@ describe('TabService', () => {
 
     it('should call migrateLegacyHighlights when no highlights exist', async () => {
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
-      chrome.storage.local.get.mockImplementation((keys, sendResult) => {
-        sendResult({});
-      });
+      chrome.storage.local.get.mockImplementation(_keys => Promise.resolve({}));
 
       const migrateSpy = jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
 
@@ -154,13 +148,13 @@ describe('TabService', () => {
     it('should handle ensureBundleInjected rejection gracefully', async () => {
       // Arrange: 模擬 highlights 存在
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
-      chrome.storage.local.get.mockImplementation((keys, callback) => {
-        callback({ 'highlights_https://example.com': [{ id: '1' }] });
-      });
+      chrome.storage.local.get.mockImplementation(_keys =>
+        Promise.resolve({ 'highlights_https://example.com': [{ id: '1' }] })
+      );
 
-      chrome.tabs.get.mockImplementation((tabId, callback) => {
+      chrome.tabs.get.mockImplementation(_tabId => {
         chrome.runtime = { lastError: null };
-        callback({ id: 1, status: 'complete', url: 'https://example.com' });
+        return Promise.resolve({ id: 1, status: 'complete', url: 'https://example.com' });
       });
 
       // Arrange: 模擬注入失敗
@@ -249,7 +243,7 @@ describe('TabService', () => {
         data: [{ id: '1', text: 'highlight' }],
         foundKey: 'highlights_old',
       });
-      chrome.storage.local.set.mockImplementation((data, callback) => callback());
+      chrome.storage.local.set.mockImplementation(_data => Promise.resolve());
 
       await service.migrateLegacyHighlights(
         1,
@@ -257,10 +251,9 @@ describe('TabService', () => {
         'highlights_https://example.com'
       );
 
-      expect(chrome.storage.local.set).toHaveBeenCalledWith(
-        { 'highlights_https://example.com': [{ id: '1', text: 'highlight' }] },
-        expect.any(Function)
-      );
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        'highlights_https://example.com': [{ id: '1', text: 'highlight' }],
+      });
       expect(mockInjectionService.injectHighlightRestore).toHaveBeenCalledWith(1);
     });
 

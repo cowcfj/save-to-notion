@@ -23,7 +23,9 @@ import { TabService } from './background/services/TabService.js';
 
 // Import Handlers
 import { MessageHandler } from './background/handlers/MessageHandler.js';
-import { createActionHandlers } from './background/handlers/actionHandlers.js';
+import { createSaveHandlers } from './background/handlers/saveHandlers.js';
+import { createHighlightHandlers } from './background/handlers/highlightHandlers.js';
+import { createMigrationHandlers } from './background/handlers/migrationHandlers.js';
 
 // ==========================================
 // SERVICE INITIALIZATION
@@ -41,12 +43,23 @@ const notionService = new NotionService({ logger: Logger });
 const messageHandler = new MessageHandler({ logger: Logger });
 
 // Create and Register Action Handlers
-const actionHandlers = createActionHandlers({
-  notionService,
-  storageService,
-  injectionService,
-  pageContentService,
-});
+const actionHandlers = {
+  ...createSaveHandlers({
+    notionService,
+    storageService,
+    injectionService,
+    pageContentService,
+  }),
+  ...createHighlightHandlers({
+    notionService,
+    storageService,
+    injectionService,
+  }),
+  ...createMigrationHandlers({
+    storageService,
+    notionService,
+  }),
+};
 
 messageHandler.registerAll(actionHandlers);
 

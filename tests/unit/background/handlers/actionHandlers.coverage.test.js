@@ -41,21 +41,35 @@ global.chrome = {
   },
 };
 
-import {
-  createActionHandlers,
-  processContentResult,
-} from '../../../../scripts/background/handlers/actionHandlers.js';
-
 // 使用 presetup.js 提供的 global.Logger
 const Logger = global.Logger;
 
 describe('actionHandlers 覆蓋率補強', () => {
+  // Handler Creators (Dynamic Import for safety)
+  let createSaveHandlers = null;
+  let createHighlightHandlers = null;
+  let createMigrationHandlers = null;
+  let processContentResult = null;
+
   // Mock services
   let mockNotionService = null;
   let mockStorageService = null;
   let mockInjectionService = null;
   let mockPageContentService = null;
   let handlers = null;
+
+  beforeAll(() => {
+    // 動態導入以確保 mock 生效並解決循環依賴問題
+    const SaveHandlers = require('../../../../scripts/background/handlers/saveHandlers.js');
+    createSaveHandlers = SaveHandlers.createSaveHandlers;
+    processContentResult = SaveHandlers.processContentResult;
+
+    const HighlightHandlers = require('../../../../scripts/background/handlers/highlightHandlers.js');
+    createHighlightHandlers = HighlightHandlers.createHighlightHandlers;
+
+    const MigrationHandlers = require('../../../../scripts/background/handlers/migrationHandlers.js');
+    createMigrationHandlers = MigrationHandlers.createMigrationHandlers;
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -89,12 +103,25 @@ describe('actionHandlers 覆蓋率補強', () => {
       extractContent: jest.fn(),
     };
 
-    handlers = createActionHandlers({
-      notionService: mockNotionService,
-      storageService: mockStorageService,
-      injectionService: mockInjectionService,
-      pageContentService: mockPageContentService,
-    });
+    // Manually aggregate handlers to mimic background.js behavior
+    handlers = {
+      ...createSaveHandlers({
+        notionService: mockNotionService,
+        storageService: mockStorageService,
+        injectionService: mockInjectionService,
+        pageContentService: mockPageContentService,
+      }),
+      ...createHighlightHandlers({
+        notionService: mockNotionService,
+        storageService: mockStorageService,
+        injectionService: mockInjectionService,
+      }),
+      ...createMigrationHandlers({
+        notionService: mockNotionService,
+        storageService: mockStorageService,
+        // migrationHandlers 不需要 injectionService 參數
+      }),
+    };
   });
 
   describe('processContentResult', () => {
@@ -265,10 +292,10 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
 
       handlers.devLogSink({ level: 'warn', message: 'test warn' }, {}, sendResponse);
-      expect(Logger.warn).toHaveBeenCalledWith('[ClientLog]', 'test warn');
+      expect(Logger.warn).toHaveBeenCalledWith('[ClientLog] test warn');
 
       handlers.devLogSink({ level: 'error', message: 'test error' }, {}, sendResponse);
-      expect(Logger.error).toHaveBeenCalledWith('[ClientLog]', 'test error');
+      expect(Logger.error).toHaveBeenCalledWith('[ClientLog] test error');
 
       handlers.devLogSink({ level: 'info', message: 'test info' }, {}, sendResponse);
       expect(Logger.info).toHaveBeenCalledWith('[ClientLog] test info');

@@ -30,6 +30,21 @@ function createEvent() {
   };
 }
 
+/**
+ * 清空 Promise 微任務隊列以確保異步操作完成。
+ *
+ * 預設值 3 是一個經驗值，通常足以覆蓋大多數「事件觸發 -> 處理函數 -> 服務調用」
+ * 的簡單非同步鏈。如果測試涉及更深層的嵌套 Promise 或連續回調，
+ * 可能需要增加此數值以確保所有微任務都已處理完畢。
+ *
+ * @param {number} ticks - 要刷新的 microtask 週期數（tick）。預設為 3。
+ */
+async function flushPromises(ticks = 3) {
+  for (let i = 0; i < ticks; i++) {
+    await Promise.resolve();
+  }
+}
+
 describe('scripts/background.js require integration', () => {
   let originalChrome = null;
   let originalFetch = null;
@@ -96,14 +111,17 @@ describe('scripts/background.js require integration', () => {
               Object.assign(res, storageData);
             }
             cb?.(res);
+            return Promise.resolve(res);
           }),
           set: jest.fn((items, cb) => {
             Object.assign(storageData, items);
             cb?.();
+            return Promise.resolve();
           }),
           remove: jest.fn((keys, cb) => {
             (Array.isArray(keys) ? keys : [keys]).forEach(k => delete storageData[k]);
             cb?.();
+            return Promise.resolve();
           }),
         },
         sync: {
@@ -120,6 +138,7 @@ describe('scripts/background.js require integration', () => {
               res[keys] = 'test-key';
             }
             cb?.(res);
+            return Promise.resolve(res);
           }),
         },
       },
@@ -159,9 +178,7 @@ describe('scripts/background.js require integration', () => {
     chrome.runtime.onInstalled._emit({ reason: 'update', previousVersion: '2.8.5' });
 
     // 等待異步操作完成
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPromises();
 
     // 應開啟更新通知頁
     expect(chrome.tabs.create).toHaveBeenCalledWith({
@@ -201,13 +218,15 @@ describe('scripts/background.js require integration', () => {
     });
 
     const sendResponse = jest.fn();
+    const sender = { id: 'test-id', url: 'chrome-extension://test-id/popup.html' };
     chrome.runtime.onMessage._emit(
       { action: 'openNotionPage', url: 'https://www.notion.so/test' },
-      {},
+      sender,
       sendResponse
     );
 
-    await Promise.resolve();
+    await flushPromises();
+
     expect(chrome.tabs.create).toHaveBeenCalledWith(
       { url: 'https://www.notion.so/test' },
       expect.any(Function)

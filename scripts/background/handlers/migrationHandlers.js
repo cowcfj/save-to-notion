@@ -9,6 +9,8 @@
 
 /* global chrome, Logger */
 
+import { validateInternalRequest, isValidUrl } from '../../utils/securityUtils.js';
+
 /**
  * 創建遷移處理函數
  * 沿用工廠模式，保持與 actionHandlers 一致的依賴注入風格
@@ -18,35 +20,17 @@
  */
 // eslint-disable-next-line no-unused-vars
 export function createMigrationHandlers(services) {
-  // 輔助函數：驗證 URL 格式與協議安全性
-  const isValidUrl = urlString => {
-    try {
-      const url = new URL(urlString);
-      return url.protocol === 'http:' || url.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  };
-
-  // 輔助函數：驗證特權請求和 URL 安全性
+  // 輔助函數：驗證特權請求和 URL 安全性（使用共享驗證函數）
   const validatePrivilegedRequest = (sender, url = null) => {
-    // 1. 來源驗證：必須來自擴充功能內部頁面（Options/Popup）
-    // 當 Options 頁面在分頁中打開時，sender.tab 會存在，因此不能僅憑 sender.tab 判斷
-    // 必須檢查 sender.url 是否為擴充功能自身的 URL
-    const isExtensionOrigin = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
-
-    // 允許的情況：
-    // 1.沒有 tab 對象 (Popup, Background) 且 ID 匹配
-    // 2.有 tab 對象，但 URL 是擴充功能自身的 URL (Options in Tab) 且 ID 匹配
-    if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionOrigin)) {
-      return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
+    // 1. 來源驗證：使用共享函數
+    const senderError = validateInternalRequest(sender);
+    if (senderError) {
+      return senderError;
     }
 
     // 2. URL 驗證：如果提供了 URL，必須是有效的 http 或 https URL
-    if (url) {
-      if (!isValidUrl(url)) {
-        return { success: false, error: '拒絕訪問：僅支持 HTTP/HTTPS 協議的有效 URL' };
-      }
+    if (url && !isValidUrl(url)) {
+      return { success: false, error: '拒絕訪問：僅支持 HTTP/HTTPS 協議的有效 URL' };
     }
 
     return null; // 驗證通過
@@ -119,7 +103,7 @@ export function createMigrationHandlers(services) {
           await new Promise((resolve, reject) => {
             const TIMEOUT_MS = 15000;
             let timeoutId = null;
-            let listener = null; // 提前聲明變量以解決作用域問題
+            let listener = null;
 
             /**
              * 清理監聽器和計時器
