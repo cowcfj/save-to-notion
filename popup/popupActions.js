@@ -11,6 +11,36 @@ import { normalizeUrl } from '../scripts/utils/urlUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
 /**
+ * 驗證 URL 是否為安全的 Notion URL
+ * @param {string} url - 要驗證的 URL
+ * @returns {boolean} 是否為有效的 Notion URL
+ */
+function isValidNotionUrl(url) {
+  try {
+    const urlObj = new URL(url);
+
+    // 只允許 HTTPS 協議
+    if (urlObj.protocol !== 'https:') {
+      return false;
+    }
+
+    // Notion 網域白名單
+    const allowedDomains = ['notion.so', 'www.notion.so'];
+
+    // 允許 notion.so 的子網域（例如 xxx.notion.so）
+    const hostname = urlObj.hostname.toLowerCase();
+    if (allowedDomains.includes(hostname) || hostname.endsWith('.notion.so')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    // URL 解析失敗
+    return false;
+  }
+}
+
+/**
  * 檢查設置是否完整
  * @returns {Promise<{valid: boolean, apiKey?: string, dataSourceId?: string}>}
  */
@@ -82,6 +112,12 @@ export async function startHighlight() {
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function openNotionPage(url) {
+  // 驗證 URL 安全性
+  if (!isValidNotionUrl(url)) {
+    Logger.warn('Blocked invalid URL:', url);
+    return { success: false, error: '無效的 Notion URL' };
+  }
+
   try {
     const tab = await chrome.tabs.create({ url });
     return { success: true, tab };
