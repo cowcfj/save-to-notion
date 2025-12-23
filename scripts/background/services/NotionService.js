@@ -182,7 +182,7 @@ class NotionService {
    * @private
    */
   _buildUrl(path, params = {}) {
-    const url = new URL(`${this.config.BASE_URL}${path}`);
+    const url = new URL(path, this.config.BASE_URL);
     Object.entries(params).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
         url.searchParams.set(key, value);
@@ -254,9 +254,8 @@ class NotionService {
         if (block.type.startsWith('heading_')) {
           break; // 遇到下一個標題，停止收集
         }
-        if (block.type === 'paragraph') {
-          blocksToDelete.push(block.id);
-        }
+        // 收集所有非標題類型的區塊（包含 paragraph, quote, callout 等）
+        blocksToDelete.push(block.id);
       }
     }
 
@@ -483,8 +482,8 @@ class NotionService {
         const response = await this._apiRequest(`/blocks/${pageId}/children`, {
           method: 'PATCH',
           body: { children: batch },
-          maxRetries: this.config.DEFAULT_MAX_RETRIES,
-          baseDelay: this.config.DEFAULT_BASE_DELAY,
+          maxRetries: this.config.CREATE_RETRIES,
+          baseDelay: this.config.CREATE_DELAY,
         });
 
         if (!response.ok) {

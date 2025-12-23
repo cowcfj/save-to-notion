@@ -666,7 +666,7 @@ describe('NotionService', () => {
       expect(result).toHaveLength(0);
     });
 
-    it('應該跳過非段落區塊（目前限制）', () => {
+    it('應收集所有非標題類型的區塊', () => {
       const blocks = [
         {
           id: '1',
@@ -675,12 +675,12 @@ describe('NotionService', () => {
             rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
           },
         },
-        { id: '2', type: 'bulleted_list_item', has_children: true }, // Should skip
-        { id: '3', type: 'paragraph' }, // Should collect
+        { id: '2', type: 'bulleted_list_item', has_children: true }, // 應收集
+        { id: '3', type: 'paragraph' }, // 應收集
       ];
 
       const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toEqual(['1', '3']);
+      expect(result).toEqual(['1', '2', '3']); // 收集所有非標題區塊
     });
   });
 
@@ -987,7 +987,7 @@ describe('NotionService', () => {
       expect(result).toEqual([]);
     });
 
-    it('應該忽略非 paragraph 類型的區塊', () => {
+    it('應收集所有非標題類型的區塊', () => {
       const blocks = [
         {
           id: '1',
@@ -995,12 +995,12 @@ describe('NotionService', () => {
           heading_3: { rich_text: [{ text: { content: HEADER } }] },
         },
         { id: '2', type: 'paragraph' },
-        { id: '3', type: 'image', image: {} }, // 非 paragraph，應被忽略
+        { id: '3', type: 'image', image: {} }, // 非標題，應收集
         { id: '4', type: 'paragraph' },
       ];
 
       const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toEqual(['1', '2', '4']);
+      expect(result).toEqual(['1', '2', '3', '4']); // 收集所有非標題區塊
     });
 
     it('應該處理標記區域在頁面末尾的情況', () => {
