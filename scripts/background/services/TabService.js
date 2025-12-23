@@ -58,7 +58,7 @@ class TabService {
     this.processingTabs.set(tabId, Date.now());
 
     try {
-      return await this._updateTabStatusInternal(tabId, url);
+      await this._updateTabStatusInternal(tabId, url);
     } finally {
       // 無論成功或失敗，都移除處理中標記
       this.processingTabs.delete(tabId);
@@ -132,6 +132,9 @@ class TabService {
             let timeoutId = null;
             let isCleanedUp = false;
 
+            /**
+             * 清理函數（前置聲明，稍後賦值實際邏輯）
+             */
             let cleanup = () => {
               /* no-op: 稍後賦值實際邏輯 */
             };
