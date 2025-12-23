@@ -57,7 +57,7 @@ class TabService {
       }
 
       // 2. 檢查是否有標註，注入 Bundle 以自動恢復
-      const data = await new Promise(resolve => chrome.storage.local.get([highlightsKey], resolve));
+      const data = await chrome.storage.local.get([highlightsKey]);
       const storedData = data[highlightsKey];
 
       // 解析 highlights 格式（支援數組和對象兩種格式）
@@ -80,15 +80,7 @@ class TabService {
         // 確保頁面狀態是 complete 後再注入
         try {
           // 查詢 tab 的最新狀態
-          const tab = await new Promise((resolve, reject) =>
-            chrome.tabs.get(tabId, tabInfo => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                resolve(tabInfo);
-              }
-            })
-          );
+          const tab = await chrome.tabs.get(tabId);
 
           if (!tab) {
             this.logger.warn?.(`[TabService] Tab ${tabId} not found, skipping injection`);
@@ -268,9 +260,7 @@ class TabService {
           `Migrating ${res.data.length} highlights from localStorage key: ${res.foundKey}`
         );
 
-        await new Promise(resolve => {
-          chrome.storage.local.set({ [storageKey]: res.data }, resolve);
-        });
+        await chrome.storage.local.set({ [storageKey]: res.data });
 
         this.logger.log('Legacy highlights migrated successfully, injecting restore script');
         await this.injectionService.injectHighlightRestore(tabId);

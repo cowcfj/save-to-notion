@@ -36,44 +36,41 @@ export async function checkSettings() {
  * 檢查頁面狀態
  * @returns {Promise<{success: boolean, isSaved?: boolean, notionUrl?: string, wasDeleted?: boolean}>}
  */
-export function checkPageStatus() {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'checkPageStatus' }, response => {
-      resolve(response || { success: false });
-    });
-  });
+export async function checkPageStatus() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'checkPageStatus' });
+    return response || { success: false };
+  } catch (error) {
+    // 當 background 未準備好或連接失敗時
+    console.warn('checkPageStatus failed:', error.message);
+    return { success: false };
+  }
 }
 
 /**
  * 保存頁面到 Notion
  * @returns {Promise<Object>} 保存結果
  */
-export function savePage() {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'savePage' }, response => {
-      if (chrome.runtime.lastError) {
-        resolve({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        resolve(response || { success: false, error: 'No response' });
-      }
-    });
-  });
+export async function savePage() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'savePage' });
+    return response || { success: false, error: 'No response' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 }
 
 /**
  * 啟動標記模式
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export function startHighlight() {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage({ action: 'startHighlight' }, response => {
-      if (chrome.runtime.lastError) {
-        resolve({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        resolve(response || { success: false, error: 'No response' });
-      }
-    });
-  });
+export async function startHighlight() {
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'startHighlight' });
+    return response || { success: false, error: 'No response' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 }
 
 /**
@@ -81,28 +78,27 @@ export function startHighlight() {
  * @param {string} url - Notion 頁面 URL
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export function openNotionPage(url) {
-  return new Promise(resolve => {
-    chrome.tabs.create({ url }, tab => {
-      if (chrome.runtime.lastError) {
-        resolve({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        resolve({ success: true, tab });
-      }
-    });
-  });
+export async function openNotionPage(url) {
+  try {
+    const tab = await chrome.tabs.create({ url });
+    return { success: true, tab };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 }
 
 /**
  * 獲取當前活動標籤頁
  * @returns {Promise<chrome.tabs.Tab|null>}
  */
-export function getActiveTab() {
-  return new Promise(resolve => {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      resolve(tabs?.[0] || null);
-    });
-  });
+export async function getActiveTab() {
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tabs?.[0] || null;
+  } catch (error) {
+    console.warn('getActiveTab failed:', error.message);
+    return null;
+  }
 }
 
 /**
@@ -111,26 +107,20 @@ export function getActiveTab() {
  * @param {string} tabUrl - 標籤頁 URL
  * @returns {Promise<{success: boolean, clearedCount?: number, error?: string}>}
  */
-export function clearHighlights(tabId, tabUrl) {
+export async function clearHighlights(tabId, tabUrl) {
   const pageKey = `highlights_${normalizeUrl(tabUrl)}`;
 
-  return new Promise(resolve => {
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        func: clearHighlightsInPage,
-        args: [URL_NORMALIZATION.TRACKING_PARAMS, pageKey],
-      },
-      results => {
-        if (chrome.runtime.lastError) {
-          resolve({ success: false, error: chrome.runtime.lastError.message });
-        } else {
-          const clearedCount = results?.[0]?.result || 0;
-          resolve({ success: true, clearedCount });
-        }
-      }
-    );
-  });
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: clearHighlightsInPage,
+      args: [URL_NORMALIZATION.TRACKING_PARAMS, pageKey],
+    });
+    const clearedCount = results?.[0]?.result || 0;
+    return { success: true, clearedCount };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 }
 
 /**
