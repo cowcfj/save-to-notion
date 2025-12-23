@@ -132,7 +132,9 @@ class TabService {
             let timeoutId = null;
             let isCleanedUp = false;
 
-            let cleanup = () => {}; // 初始化為空函數，稍後賦值實際邏輯
+            let cleanup = () => {
+              /* no-op: 稍後賦值實際邏輯 */
+            };
 
             /**
              * 標籤頁更新監聽器（等待頁面載入完成）
