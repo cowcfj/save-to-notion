@@ -102,12 +102,12 @@ export function createSaveHandlers(services) {
    * 根據頁面狀態決定並執行保存操作
    */
   /**
-   * 执行页面创建（包含图片错误重试逻辑）
+   * 執行頁面創建（包含圖片錯誤重試邏輯）
    */
   async function performCreatePage(params) {
     const { normUrl, dataSourceId, dataSourceType, contentResult } = params;
 
-    // 第一次尝试
+    // 第一次嘗試
     const buildOptions = {
       title: contentResult.title,
       pageUrl: normUrl,
