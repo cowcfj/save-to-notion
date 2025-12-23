@@ -35,6 +35,13 @@ const NOTION_CONFIG = {
 };
 
 /**
+ * 延遲函數
+ * @param {number} ms - 毫秒
+ * @returns {Promise<void>}
+ */
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
  * 帶重試的 fetch 請求（處理暫時性錯誤）
  * @param {string} url - 請求 URL
  * @param {Object} options - fetch 選項
@@ -72,7 +79,7 @@ async function fetchWithRetry(url, options, retryOptions = {}) {
 
       if (attempt < maxRetries && (retriableStatus || retriableMessage)) {
         const delay = baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 200);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await sleep(delay);
         attempt++;
         continue;
       }
@@ -83,7 +90,7 @@ async function fetchWithRetry(url, options, retryOptions = {}) {
       lastError = err;
       if (attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt) + Math.floor(Math.random() * 200);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await sleep(delay);
         attempt++;
         continue;
       }
@@ -263,7 +270,7 @@ class NotionService {
       }
 
       // 速率限制：防止快速連續刪除觸發 429 錯誤
-      await new Promise(resolve => setTimeout(resolve, this.config.RATE_LIMIT_DELAY));
+      await sleep(this.config.RATE_LIMIT_DELAY);
     }
 
     return deletedCount;
@@ -468,7 +475,7 @@ class NotionService {
 
         // 速率限制：批次間延遲
         if (i + BLOCKS_PER_BATCH < blocks.length) {
-          await new Promise(resolve => setTimeout(resolve, this.config.RATE_LIMIT_DELAY));
+          await sleep(this.config.RATE_LIMIT_DELAY);
         }
       }
 
@@ -632,7 +639,7 @@ class NotionService {
         }
 
         // 速率限制
-        await new Promise(resolve => setTimeout(resolve, this.config.RATE_LIMIT_DELAY));
+        await sleep(this.config.RATE_LIMIT_DELAY);
       }
 
       return { success: true, deletedCount };
