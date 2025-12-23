@@ -366,7 +366,10 @@ class NotionService {
       }
 
       // 圖片 URL 驗證
-      const imageUrl = block.image?.external?.url;
+      // Notion 支援兩種圖片類型：
+      // 1. external: 外部托管的圖片 (block.image.external.url)
+      // 2. file: Notion 內部托管的圖片 (block.image.file.url)
+      const imageUrl = block.image?.external?.url || block.image?.file?.url;
       return this._isValidImageUrl(imageUrl);
     });
 
