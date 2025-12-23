@@ -57,6 +57,7 @@ export async function savePage() {
     const response = await chrome.runtime.sendMessage({ action: 'savePage' });
     return response || { success: false, error: 'No response' };
   } catch (error) {
+    Logger.warn('savePage failed:', error.message);
     return { success: false, error: error.message };
   }
 }
@@ -70,6 +71,7 @@ export async function startHighlight() {
     const response = await chrome.runtime.sendMessage({ action: 'startHighlight' });
     return response || { success: false, error: 'No response' };
   } catch (error) {
+    Logger.warn('startHighlight failed:', error.message);
     return { success: false, error: error.message };
   }
 }
@@ -84,6 +86,7 @@ export async function openNotionPage(url) {
     const tab = await chrome.tabs.create({ url });
     return { success: true, tab };
   } catch (error) {
+    Logger.warn('openNotionPage failed:', error.message);
     return { success: false, error: error.message };
   }
 }
@@ -120,6 +123,7 @@ export async function clearHighlights(tabId, tabUrl) {
     const clearedCount = results?.[0]?.result || 0;
     return { success: true, clearedCount };
   } catch (error) {
+    Logger.warn('clearHighlights failed:', error.message);
     return { success: false, error: error.message };
   }
 }
