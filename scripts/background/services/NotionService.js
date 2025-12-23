@@ -19,7 +19,6 @@ const NOTION_CONFIG = {
   API_VERSION: NOTION_API.VERSION,
   BASE_URL: NOTION_API.BASE_URL,
   BLOCKS_PER_BATCH: NOTION_API.BLOCKS_PER_BATCH,
-  DELAY_BETWEEN_BATCHES: NOTION_API.DELAY_BETWEEN_BATCHES,
   DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES,
   DEFAULT_BASE_DELAY: NOTION_API.BASE_RETRY_DELAY,
   // 操作特定配置
@@ -431,7 +430,7 @@ class NotionService {
       throw new Error('API Key not configured');
     }
 
-    const { BLOCKS_PER_BATCH, DELAY_BETWEEN_BATCHES } = this.config;
+    const { BLOCKS_PER_BATCH } = this.config;
     let addedCount = 0;
     const totalBlocks = blocks.length - startIndex;
 
@@ -467,9 +466,9 @@ class NotionService {
           `✅ 批次 ${batchNumber} 成功: 已添加 ${addedCount}/${totalBlocks} 個區塊`
         );
 
-        // 添加延遲以遵守速率限制
+        // 速率限制：批次間延遲
         if (i + BLOCKS_PER_BATCH < blocks.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+          await new Promise(resolve => setTimeout(resolve, this.config.RATE_LIMIT_DELAY));
         }
       }
 

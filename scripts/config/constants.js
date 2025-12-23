@@ -63,9 +63,9 @@ export const NOTION_API = {
   VERSION: '2025-09-03', // Notion API 版本
   BASE_URL: 'https://api.notion.com/v1',
   BLOCKS_PER_BATCH: 100, // 每批次最多區塊數
-  DELAY_BETWEEN_BATCHES: 350, // 批次間延遲（ms），遵守速率限制（3 req/s）
   MAX_RETRIES: 3, // 最大重試次數
   BASE_RETRY_DELAY: 800, // 基礎重試延遲（ms）
+
   // 操作特定配置
   CHECK_RETRIES: 2, // 檢查操作重試次數
   CHECK_DELAY: 500, // 檢查操作延遲（ms）
@@ -73,7 +73,15 @@ export const NOTION_API = {
   CREATE_DELAY: 600, // 創建操作延遲（ms）
   DELETE_RETRIES: 1, // 刪除操作重試次數
   DELETE_DELAY: 300, // 刪除操作延遲（ms）
-  RATE_LIMIT_DELAY: 350, // 速率限制延遲（ms），符合 Notion API 限制（3 req/s）
+
+  // 速率限制配置
+  // Notion API 限制：每秒最多 3 個請求（3 req/s = 333ms/req）
+  // 使用 350ms 確保安全範圍，適用於：
+  // - 批次操作間延遲（appendBlocksInBatches）
+  // - 連續刪除操作間延遲（_deleteBlocksByIds, deleteAllBlocks）
+  // - 任何需要遵守速率限制的連續 API 調用
+  RATE_LIMIT_DELAY: 350,
+
   PAGE_SIZE: 100, // 分頁大小
   // 頁面結構配置
   HIGHLIGHT_SECTION_HEADER: '📝 頁面標記', // 高亮標記區域的標題
