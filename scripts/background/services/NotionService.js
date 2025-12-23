@@ -259,6 +259,9 @@ class NotionService {
         if (response.ok) {
           deletedCount++;
         }
+
+        // 速率限制：防止快速連續刪除觸發 429 錯誤
+        await new Promise(resolve => setTimeout(resolve, this.config.RATE_LIMIT_DELAY));
       } catch (deleteError) {
         this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, deleteError.message);
       }
