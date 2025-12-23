@@ -188,15 +188,12 @@ class NotionService {
    * @private
    */
   async _fetchPageBlocks(pageId) {
-    const url = this._buildUrl(`/blocks/${pageId}/children`, {
-      page_size: this.config.PAGE_SIZE,
+    const response = await this._apiRequest(`/blocks/${pageId}/children`, {
+      method: 'GET',
+      queryParams: { page_size: this.config.PAGE_SIZE },
+      maxRetries: this.config.CHECK_RETRIES,
+      baseDelay: this.config.CHECK_DELAY,
     });
-
-    const response = await fetchWithRetry(
-      url,
-      { method: 'GET', headers: this._getHeaders() },
-      { maxRetries: this.config.CHECK_RETRIES, baseDelay: this.config.CHECK_DELAY }
-    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -586,19 +583,15 @@ class NotionService {
       let hasMore = true;
 
       while (hasMore) {
-        const url = this._buildUrl(`/blocks/${pageId}/children`, {
-          page_size: this.config.PAGE_SIZE,
-          start_cursor: startCursor,
-        });
-
-        const listResponse = await fetchWithRetry(
-          url,
-          {
-            method: 'GET',
-            headers: this._getHeaders(),
+        const listResponse = await this._apiRequest(`/blocks/${pageId}/children`, {
+          method: 'GET',
+          queryParams: {
+            page_size: this.config.PAGE_SIZE,
+            start_cursor: startCursor,
           },
-          { maxRetries: this.config.CHECK_RETRIES, baseDelay: this.config.CHECK_DELAY }
-        );
+          maxRetries: this.config.CHECK_RETRIES,
+          baseDelay: this.config.CHECK_DELAY,
+        });
 
         if (!listResponse.ok) {
           return { success: false, deletedCount: 0, error: 'Failed to list blocks' };
