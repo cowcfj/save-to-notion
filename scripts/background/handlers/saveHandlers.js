@@ -126,9 +126,11 @@ export function createSaveHandlers(services) {
 
     // 失敗重試邏輯：如果是圖片驗證錯誤
     if (!result.success && result.error && /image|media|validation/i.test(result.error)) {
-      Logger.warn('收到 Notion 圖片驗證錯誤，500ms 後嘗試排除圖片並重試...');
+      Logger.warn(
+        `收到 Notion 圖片驗證錯誤，${HANDLER_CONSTANTS.IMAGE_RETRY_DELAY}ms 後嘗試排除圖片並重試...`
+      );
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.IMAGE_RETRY_DELAY));
 
       // 重建數據，排除圖片
       buildOptions.excludeImages = true;

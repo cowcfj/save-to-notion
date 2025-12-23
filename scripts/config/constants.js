@@ -156,4 +156,5 @@ export const HANDLER_CONSTANTS = {
   BUNDLE_READY_RETRY_DELAY: 150, // Bundle 就緒檢查重試延遲 (ms)
   BUNDLE_READY_MAX_RETRIES: 10, // Bundle 就緒檢查最大重試次數
   PAGE_STATUS_CACHE_TTL: 60 * 1000, // 頁面保存狀態緩存時間 (60秒)
+  IMAGE_RETRY_DELAY: 500, // 圖片驗證錯誤重試延遲 (ms)
 };
