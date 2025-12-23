@@ -169,8 +169,6 @@ notion-chrome/
 ├── .github/               # CI 與 workflow（ci.yml、release-please.yml）
 ├── manifest.json          # 擴展配置與權限（Manifest V3）
 ├── rollup.all.config.mjs  # 🆕 統一構建配置
-├── rollup.config.mjs      # Highlighter 構建配置
-├── rollup.content.config.mjs # Content Script 構建配置
 ├── dist/                  # 打包產物 (preloader.js, content.bundle.js)
 ├── popup/                 # 彈出窗口 UI（popup.html, popup.js, popupUI.js, popupActions.js）
 ├── options/               # 設置頁面 UI（options.html, options.js, options.css）
@@ -178,14 +176,14 @@ notion-chrome/
 │   ├── background.js
 │   ├── background/        # 🆕 模塊化背景服務
 │   │   ├── services/      #     服務層 (Notion, Storage, Injection, Tab, PageContent)
-│   │   ├── handlers/      #     消息處理 (MessageHandler)
+│   │   ├── handlers/      #     業務處理器 (Save, Highlight, Migration)
 │   │   └── utils/         #     背景工具 (BlockBuilder)
 │   ├── content/           # 🆕 ES6 模塊化內容提取系統
 │   │   ├── index.js       #     入口文件 (合併 Highlighter)
 │   │   ├── extractors/    #     提取層（ContentExtractor, ReadabilityAdapter, MetadataExtractor, ImageCollector）
 │   │   ├── converters/    #     轉換層（ConverterFactory, DomConverter）
 │   │   └── adapters/      #     適配層（ReadabilityAdapter）
-│   ├── config/            # 🆕 集中化配置管理
+│   ├── config/            # 集中化配置管理
 │   │   ├── constants.js   #     統一常量定義
 │   │   ├── selectors.js   #     DOM 選擇器配置
 │   │   ├── patterns.js    #     正則表達式配置
@@ -197,13 +195,11 @@ notion-chrome/
 │   │   ├── core/          #     核心模組（Range, HighlightManager）
 │   │   ├── ui/            #     UI 組件（Toolbar, Components, Styles）
 │   │   └── utils/         #     工具模組（color, dom, validation, path, textSearch, domStability）
-│   ├── highlighter-migration.js
-│   ├── script-injector.js
-│   ├── seamless-migration.js
 │   ├── performance/       # 性能優化模組
 │   ├── errorHandling/     # 錯誤處理模組
 │   └── utils/             # 工具模組（目錄）
 │       ├── Logger.js      # 🆕 統一日誌系統
+│       ├── securityUtils.js # 🆕 安全驗證工具 (URL, 請求來源)
 │       ├── imageUtils.js  # 圖片處理
 │       ├── urlUtils.js    # URL 處理與常量
 │       └── pageComplexityDetector.js
