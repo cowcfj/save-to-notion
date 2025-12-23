@@ -69,11 +69,12 @@ export const NOTION_API = {
   // 操作特定配置
   CHECK_RETRIES: 2, // 檢查操作重試次數
   CHECK_DELAY: 500, // 檢查操作延遲（ms）
+  CREATE_RETRIES: 3, // 創建操作重試次數
+  CREATE_DELAY: 600, // 創建操作延遲（ms）
   DELETE_RETRIES: 1, // 刪除操作重試次數
   DELETE_DELAY: 300, // 刪除操作延遲（ms）
   RATE_LIMIT_DELAY: 350, // 速率限制延遲（ms），符合 Notion API 限制（3 req/s）
   PAGE_SIZE: 100, // 分頁大小
-  CREATE_DELAY: 600, // 創建操作延遲（ms）
   // 頁面結構配置
   HIGHLIGHT_SECTION_HEADER: '📝 頁面標記', // 高亮標記區域的標題
 };

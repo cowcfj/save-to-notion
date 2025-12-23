@@ -25,11 +25,12 @@ const NOTION_CONFIG = {
   // 操作特定配置
   CHECK_RETRIES: NOTION_API.CHECK_RETRIES,
   CHECK_DELAY: NOTION_API.CHECK_DELAY,
+  CREATE_RETRIES: NOTION_API.CREATE_RETRIES,
+  CREATE_DELAY: NOTION_API.CREATE_DELAY,
   DELETE_RETRIES: NOTION_API.DELETE_RETRIES,
   DELETE_DELAY: NOTION_API.DELETE_DELAY,
   RATE_LIMIT_DELAY: NOTION_API.RATE_LIMIT_DELAY,
   PAGE_SIZE: NOTION_API.PAGE_SIZE,
-  CREATE_DELAY: NOTION_API.CREATE_DELAY,
   // 頁面結構配置
   HIGHLIGHT_SECTION_HEADER: NOTION_API.HIGHLIGHT_SECTION_HEADER,
 };
@@ -330,9 +331,7 @@ class NotionService {
       return false;
     }
 
-    // 使用共用安全工具清理 URL
-    const sanitizedUrl = sanitizeUrlForLogging(imageUrl);
-    this.logger.log?.(`✓ Valid image URL: ${sanitizedUrl}`);
+    // 驗證通過 - 不記錄日誌以避免圖片較多時產生過多輸出
     return true;
   }
 
@@ -503,7 +502,7 @@ class NotionService {
       const response = await this._apiRequest('/pages', {
         method: 'POST',
         body: pageData,
-        maxRetries: this.config.CHECK_RETRIES,
+        maxRetries: this.config.CREATE_RETRIES,
         baseDelay: this.config.CREATE_DELAY,
       });
 
