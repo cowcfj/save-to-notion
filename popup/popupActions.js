@@ -8,6 +8,7 @@
 
 import { URL_NORMALIZATION } from '../scripts/config/constants.js';
 import { normalizeUrl } from '../scripts/utils/urlUtils.js';
+import { Logger } from '../scripts/utils/Logger.js';
 
 /**
  * 檢查設置是否完整
@@ -27,7 +28,7 @@ export async function checkSettings() {
       dataSourceId,
     };
   } catch (error) {
-    console.warn('Failed to check settings:', error);
+    Logger.warn('Failed to check settings:', error);
     return { valid: false };
   }
 }
@@ -42,7 +43,7 @@ export async function checkPageStatus() {
     return response || { success: false };
   } catch (error) {
     // 當 background 未準備好或連接失敗時
-    console.warn('checkPageStatus failed:', error.message);
+    Logger.warn('checkPageStatus failed:', error.message);
     return { success: false };
   }
 }
@@ -96,7 +97,7 @@ export async function getActiveTab() {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     return tabs?.[0] || null;
   } catch (error) {
-    console.warn('getActiveTab failed:', error.message);
+    Logger.warn('getActiveTab failed:', error.message);
     return null;
   }
 }

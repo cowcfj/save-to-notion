@@ -244,11 +244,13 @@ class TabService {
                 return { migrated: true, data, foundKey: key };
               }
             } catch (error) {
-              console.error('Failed to parse legacy highlight data:', error);
+              // 注入腳本上下文中無法使用外部 Logger
+
+              console.error('[TabService:inject] Failed to parse legacy highlight data:', error);
             }
           }
         } catch (error) {
-          console.error('Error during migration:', error);
+          console.error('[TabService:inject] Error during migration:', error);
         }
         return { migrated: false };
       });
