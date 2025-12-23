@@ -265,6 +265,79 @@ class NotionService {
   }
 
   /**
+   * 驗證區塊基本結構
+   * @param {Object} block - 區塊對象
+   * @returns {boolean}
+   * @private
+   */
+  _isValidBlock(block) {
+    if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
+      this.logger.warn?.('⚠️ Skipped invalid block (missing type or type property)');
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * 驗證圖片 URL 是否有效
+   * @param {string} imageUrl - 圖片 URL
+   * @returns {boolean}
+   * @private
+   */
+  _isValidImageUrl(imageUrl) {
+    if (!imageUrl) {
+      this.logger.warn?.('⚠️ Skipped image block without URL');
+      return false;
+    }
+
+    // 檢查 URL 長度
+    const maxUrlLength =
+      IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH -
+      IMAGE_VALIDATION_CONSTANTS.URL_LENGTH_SAFETY_MARGIN;
+    if (imageUrl.length > maxUrlLength) {
+      this.logger.warn?.(
+        `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
+      );
+      return false;
+    }
+
+    // 檢查特殊字符
+    const problematicChars = /[<>{}|\\^`[\]]/;
+    if (problematicChars.test(imageUrl)) {
+      this.logger.warn?.(
+        `⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`
+      );
+      return false;
+    }
+
+    // 驗證 URL 格式
+    try {
+      const urlObj = new URL(imageUrl);
+
+      // 只接受 http/https
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        this.logger.warn?.(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
+        return false;
+      }
+
+      // 檢查 hostname
+      if (!urlObj.hostname || urlObj.hostname.length < 3) {
+        this.logger.warn?.(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
+        return false;
+      }
+    } catch (error) {
+      this.logger.warn?.(
+        `⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`,
+        error
+      );
+      return false;
+    }
+
+    this.logger.log?.(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
+    return true;
+  }
+
+  /**
    * 過濾有效的圖片區塊
    * 移除可能導致 Notion API 錯誤的圖片（URL 過長、無效格式、特殊字符等）
    * @param {Array} blocks - 區塊數組
@@ -283,67 +356,19 @@ class NotionService {
     }
 
     const validBlocks = blocks.filter(block => {
-      // 基本驗證：必須有有效的 type 且對應的類型屬性存在
-      if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
-        this.logger.warn?.('⚠️ Skipped invalid block (missing type or type property)');
+      // 基本區塊驗證
+      if (!this._isValidBlock(block)) {
         return false;
       }
 
+      // 非圖片區塊直接通過
       if (block.type !== 'image') {
         return true;
       }
 
+      // 圖片 URL 驗證
       const imageUrl = block.image?.external?.url;
-      if (!imageUrl) {
-        this.logger.warn?.('⚠️ Skipped image block without URL');
-        return false;
-      }
-
-      // 檢查 URL 長度（使用統一配置的閾值，略低於最大限制以留安全餘量）
-      const maxUrlLength =
-        IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH -
-        IMAGE_VALIDATION_CONSTANTS.URL_LENGTH_SAFETY_MARGIN;
-      if (imageUrl.length > maxUrlLength) {
-        this.logger.warn?.(
-          `⚠️ Skipped image with too long URL (${imageUrl.length} chars): ${imageUrl.substring(0, 100)}...`
-        );
-        return false;
-      }
-
-      // 檢查特殊字符
-      const problematicChars = /[<>{}|\\^`[\]]/;
-      if (problematicChars.test(imageUrl)) {
-        this.logger.warn?.(
-          `⚠️ Skipped image with problematic characters: ${imageUrl.substring(0, 100)}...`
-        );
-        return false;
-      }
-
-      // 驗證 URL 格式
-      try {
-        const urlObj = new URL(imageUrl);
-
-        // 只接受 http/https
-        if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-          this.logger.warn?.(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
-          return false;
-        }
-
-        // 檢查 hostname
-        if (!urlObj.hostname || urlObj.hostname.length < 3) {
-          this.logger.warn?.(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
-          return false;
-        }
-      } catch (error) {
-        this.logger.warn?.(
-          `⚠️ Skipped image with invalid URL format: ${imageUrl.substring(0, 100)}...`,
-          error
-        );
-        return false;
-      }
-
-      this.logger.log?.(`✓ Valid image URL: ${imageUrl.substring(0, 80)}...`);
-      return true;
+      return this._isValidImageUrl(imageUrl);
     });
 
     const skippedCount = blocks.length - validBlocks.length;
