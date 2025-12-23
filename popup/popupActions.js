@@ -8,7 +8,7 @@
 
 import { URL_NORMALIZATION } from '../scripts/config/constants.js';
 import { normalizeUrl } from '../scripts/utils/urlUtils.js';
-import { Logger } from '../scripts/utils/Logger.js';
+import Logger from '../scripts/utils/Logger.js';
 
 /**
  * 檢查設置是否完整
