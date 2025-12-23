@@ -280,13 +280,13 @@ class TabService {
               // 注入腳本上下文中無法使用外部 Logger
               // 不記錄具體錯誤以保護隱私
 
-              console.error('[TabService:inject] Failed to parse legacy highlight data');
+              console.error('[InjectedScript:legacyMigration] Failed to parse highlight data');
             }
           }
         } catch (_migrationError) {
           // 不記錄具體錯誤以保護隱私
 
-          console.error('[TabService:inject] Error during migration');
+          console.error('[InjectedScript:legacyMigration] Migration error');
         }
         return { migrated: false };
       });
