@@ -306,7 +306,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/無法獲取當前標籤頁/u),
+        error: expect.stringMatching(/Could not get active tab/iu),
       })
     );
   });

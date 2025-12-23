@@ -28,7 +28,7 @@ async function getActiveTab() {
   );
   const activeTab = tabs[0];
   if (!activeTab || !activeTab.id) {
-    throw new Error('無法獲取當前標籤頁');
+    throw new Error('Could not get active tab.');
   }
   return activeTab;
 }
@@ -214,7 +214,7 @@ export function createHighlightHandlers(services) {
           sendResponse({ success: false, error: 'Highlighter initialization failed' });
         }
       } catch (error) {
-        console.error('Error in startHighlight:', error);
+        Logger.error('Error in startHighlight:', error);
         sendResponse({ success: false, error: error.message });
       }
     },
@@ -256,7 +256,7 @@ export function createHighlightHandlers(services) {
         }
         sendResponse(result);
       } catch (error) {
-        console.error('Error in handleUpdateHighlights:', error);
+        Logger.error('Error in handleUpdateHighlights:', error);
         sendResponse({ success: false, error: error.message });
       }
     },
@@ -307,11 +307,11 @@ export function createHighlightHandlers(services) {
           result.highlightCount = highlights.length;
           result.message = `成功同步 ${highlights.length} 個標註`;
         } else {
-          console.error('❌ 同步標註失敗:', result.error);
+          Logger.error('❌ 同步標註失敗:', result.error);
         }
         sendResponse(result);
       } catch (error) {
-        console.error('❌ handleSyncHighlights 錯誤:', error);
+        Logger.error('❌ handleSyncHighlights 錯誤:', error);
         sendResponse({ success: false, error: error.message });
       }
     },

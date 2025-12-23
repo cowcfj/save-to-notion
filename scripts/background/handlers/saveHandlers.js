@@ -27,7 +27,7 @@ async function getActiveTab() {
   );
   const activeTab = tabs[0];
   if (!activeTab || !activeTab.id) {
-    throw new Error('無法獲取當前標籤頁');
+    throw new Error('Could not get active tab.');
   }
   return activeTab;
 }
@@ -94,7 +94,7 @@ export function createSaveHandlers(services) {
         }
       });
     } catch (error) {
-      console.warn('Failed to clear page highlights:', error);
+      Logger.warn('Failed to clear page highlights:', error);
     }
   }
 
@@ -310,7 +310,7 @@ export function createSaveHandlers(services) {
         }
 
         if (!result || !result.title || !result.blocks) {
-          console.error('❌ Content extraction result validation failed:', {
+          Logger.error('❌ Content extraction result validation failed:', {
             result,
             url: activeTab.url,
           });
@@ -345,7 +345,7 @@ export function createSaveHandlers(services) {
           sendResponse,
         });
       } catch (error) {
-        console.error('Error in handleSavePage:', error);
+        Logger.error('Error in handleSavePage:', error);
         sendResponse({ success: false, error: error.message });
       }
     },
@@ -385,7 +385,7 @@ export function createSaveHandlers(services) {
 
         chrome.tabs.create({ url: notionUrl }, tab => {
           if (chrome.runtime.lastError) {
-            console.error('Failed to open Notion page:', chrome.runtime.lastError);
+            Logger.error('Failed to open Notion page:', chrome.runtime.lastError);
             sendResponse({ success: false, error: chrome.runtime.lastError.message });
           } else {
             Logger.log('✅ Opened Notion page in new tab:', notionUrl);
@@ -393,7 +393,7 @@ export function createSaveHandlers(services) {
           }
         });
       } catch (error) {
-        console.error('❌ handleOpenNotionPage 錯誤:', error);
+        Logger.error('❌ handleOpenNotionPage 錯誤:', error);
         sendResponse({ success: false, error: error.message });
       }
     },
@@ -493,7 +493,7 @@ export function createSaveHandlers(services) {
           });
         }
       } catch (error) {
-        console.error('Error in checkPageStatus:', error);
+        Logger.error('Error in checkPageStatus:', error);
         sendResponse({ success: false, error: error.message });
       }
     },
