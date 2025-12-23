@@ -1,19 +1,52 @@
 /**
- * Action Handlers
+ * Save Handlers
  *
- * 包含所有具體的消息處理邏輯，通過依賴注入接收服務實例。
+ * 處理頁面保存、狀態檢查與相關導航操作。
  *
- * @module handlers/actionHandlers
+ * @module handlers/saveHandlers
  */
 
 /* global chrome, Logger */
 
-// Logger definition handled by build process (global injection)
-
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
-import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
-import { createMigrationHandlers } from './migrationHandlers.js';
+import { HANDLER_CONSTANTS } from '../../config/constants.js';
+
+// ============================================================================
+// 內部輔助函數 (Local Helpers)
+// ============================================================================
+
+/**
+ * 獲取活動標籤頁
+ * @returns {Promise<chrome.tabs.Tab>}
+ * @throws {Error} 如果無法獲取標籤頁
+ */
+async function getActiveTab() {
+  const tabs = await new Promise(resolve =>
+    chrome.tabs.query({ active: true, currentWindow: true }, resolve)
+  );
+  const activeTab = tabs[0];
+  if (!activeTab || !activeTab.id) {
+    throw new Error('無法獲取當前標籤頁');
+  }
+  return activeTab;
+}
+
+/**
+ * 獲取並設置 Notion API Key
+ * @param {StorageService} storageService
+ * @param {NotionService} notionService
+ * @returns {Promise<string>} API Key
+ * @throws {Error} 如果 API Key 未設置
+ */
+async function ensureNotionApiKey(storageService, notionService) {
+  const config = await storageService.getConfig(['notionApiKey']);
+  if (!config.notionApiKey) {
+    throw new Error('Notion API Key 未設置');
+  }
+  notionService.setApiKey(config.notionApiKey);
+  return config.notionApiKey;
+}
 
 /**
  * 處理內容提取結果
@@ -36,20 +69,21 @@ export function processContentResult(rawResult, highlights) {
   return { title, blocks, siteIcon };
 }
 
+// ============================================================================
+// 工廠函數
+// ============================================================================
+
 /**
- * 創建並返回所有 Action Handlers
+ * 創建 Save Handlers
  * @param {Object} services - 服務實例集合
- * @param {NotionService} services.notionService
- * @param {StorageService} services.storageService
- * @param {InjectionService} services.injectionService
- * @param {PageContentService} services.pageContentService
  * @returns {Object} 處理函數映射
  */
-export function createActionHandlers(services) {
+export function createSaveHandlers(services) {
   const { notionService, storageService, injectionService, pageContentService } = services;
 
   /**
-   * 清理頁面標記的輔助函數
+   * 清理頁面標記的輔助函數 (跨模組調用時可能需要，暫時保留在此，若 highlightHandlers 也需要則各自實現)
+   * 注意：savePage 中會調用 clearPageHighlights
    */
   async function clearPageHighlights(tabId) {
     try {
@@ -62,6 +96,66 @@ export function createActionHandlers(services) {
     } catch (error) {
       console.warn('Failed to clear page highlights:', error);
     }
+  }
+
+  /**
+   * 根據頁面狀態決定並執行保存操作
+   */
+  /**
+   * 执行页面创建（包含图片错误重试逻辑）
+   */
+  async function performCreatePage(params) {
+    const { normUrl, dataSourceId, dataSourceType, contentResult } = params;
+
+    // 第一次尝试
+    const buildOptions = {
+      title: contentResult.title,
+      pageUrl: normUrl,
+      dataSourceId,
+      dataSourceType,
+      blocks: contentResult.blocks,
+      siteIcon: contentResult.siteIcon,
+    };
+
+    const { pageData, validBlocks } = notionService.buildPageData(buildOptions);
+
+    let result = await notionService.createPage(pageData, {
+      autoBatch: true,
+      allBlocks: validBlocks,
+    });
+
+    // 失敗重試邏輯：如果是圖片驗證錯誤
+    if (!result.success && result.error && /image|media|validation/i.test(result.error)) {
+      Logger.warn('收到 Notion 圖片驗證錯誤，500ms 後嘗試排除圖片並重試...');
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 重建數據，排除圖片
+      buildOptions.excludeImages = true;
+      const rebuild = notionService.buildPageData(buildOptions);
+
+      result = await notionService.createPage(rebuild.pageData, {
+        autoBatch: true,
+        allBlocks: rebuild.validBlocks,
+      });
+    }
+
+    if (result.success) {
+      // 保存狀態
+      await storageService.setSavedPageData(normUrl, {
+        notionPageId: result.pageId,
+        notionUrl: result.url,
+        title: contentResult.title,
+        savedAt: Date.now(),
+      });
+
+      // 補充統計數據
+      result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
+      result.blockCount = contentResult.blocks.length;
+      result.created = true;
+    }
+
+    return result;
   }
 
   /**
@@ -143,179 +237,41 @@ export function createActionHandlers(services) {
         await storageService.clearPageState(normUrl);
         await clearPageHighlights(activeTabId);
 
-        // 創建新頁面
-        const { pageData, validBlocks } = notionService.buildPageData({
-          title: contentResult.title,
-          pageUrl: normUrl,
+        // 使用 performCreatePage 統一處理創建與重試
+        const result = await performCreatePage({
+          normUrl,
           dataSourceId,
           dataSourceType,
-          blocks: contentResult.blocks,
-          siteIcon: contentResult.siteIcon,
-        });
-
-        const result = await notionService.createPage(pageData, {
-          autoBatch: true,
-          allBlocks: validBlocks,
+          contentResult,
         });
 
         if (result.success) {
-          // 保存狀態
-          await storageService.setSavedPageData(normUrl, {
-            notionPageId: result.pageId,
-            notionUrl: result.url,
-            title: contentResult.title,
-            savedAt: Date.now(),
-          });
-
-          result.imageCount = imageCount;
-          result.blockCount = contentResult.blocks.length;
-          result.created = true;
           result.recreated = true;
         }
         sendResponse(result);
       }
     } else {
       // 首次保存
-      const { pageData, validBlocks } = notionService.buildPageData({
-        title: contentResult.title,
-        pageUrl: normUrl,
+      const result = await performCreatePage({
+        normUrl,
         dataSourceId,
         dataSourceType,
-        blocks: contentResult.blocks,
-        siteIcon: contentResult.siteIcon,
+        contentResult,
       });
-
-      const result = await notionService.createPage(pageData, {
-        autoBatch: true,
-        allBlocks: validBlocks,
-      });
-
-      if (result.success) {
-        // 保存狀態
-        await storageService.setSavedPageData(normUrl, {
-          notionPageId: result.pageId,
-          notionUrl: result.url,
-          title: contentResult.title,
-          savedAt: Date.now(),
-        });
-
-        result.imageCount = imageCount;
-        result.blockCount = contentResult.blocks.length;
-        result.created = true;
-      }
       sendResponse(result);
     }
   }
 
-  // --- Handlers ---
-
   return {
-    /**
-     * 處理用戶快捷鍵激活（來自 Preloader）
-     */
-    USER_ACTIVATE_SHORTCUT: async (request, sender, sendResponse) => {
-      try {
-        if (!sender.tab || !sender.tab.id) {
-          Logger.warn('[USER_ACTIVATE_SHORTCUT] No tab context');
-          sendResponse({ success: false, error: 'No tab context' });
-          return;
-        }
-
-        const tabId = sender.tab.id;
-        const tabUrl = sender.tab.url;
-        Logger.log(`⚡ [USER_ACTIVATE_SHORTCUT] Triggered from tab ${tabId}`);
-
-        // 檢查是否為受限頁面
-        if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
-          Logger.warn(`[USER_ACTIVATE_SHORTCUT] Restricted URL: ${tabUrl}`);
-          sendResponse({
-            success: false,
-            error: '此頁面不支援標註功能（系統頁面或受限網址）',
-          });
-          return;
-        }
-
-        // 確保 Bundle 已注入（捕獲可能的注入錯誤）
-        try {
-          await injectionService.ensureBundleInjected(tabId);
-        } catch (injectionError) {
-          Logger.error('[USER_ACTIVATE_SHORTCUT] Bundle injection failed:', injectionError);
-          sendResponse({
-            success: false,
-            error: `Bundle 注入失敗: ${injectionError.message}`,
-          });
-          return;
-        }
-
-        // 等待 Bundle 完全就緒（重試機制）
-        const maxRetries = 10;
-        const retryDelay = 150; // ms
-        let bundleReady = false;
-
-        for (let i = 0; i < maxRetries; i++) {
-          try {
-            const pingResponse = await new Promise((resolve, reject) => {
-              chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                  resolve(result);
-                }
-              });
-            });
-
-            if (pingResponse?.status === 'bundle_ready') {
-              bundleReady = true;
-              Logger.log(`[USER_ACTIVATE_SHORTCUT] Bundle ready on attempt ${i + 1}`);
-              break;
-            }
-          } catch (_pingError) {
-            // Bundle 還未就緒，等待後重試
-            if (i < maxRetries - 1) {
-              await new Promise(resolve => setTimeout(resolve, retryDelay));
-            }
-          }
-        }
-
-        if (!bundleReady) {
-          Logger.warn(`[USER_ACTIVATE_SHORTCUT] Bundle not ready after ${maxRetries} retries`);
-          sendResponse({
-            success: false,
-            error: 'Bundle 初始化超時，請重試或刷新頁面',
-          });
-          return;
-        }
-
-        // 發送消息顯示 highlighter
-        chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, response => {
-          if (chrome.runtime.lastError) {
-            Logger.warn(
-              '[USER_ACTIVATE_SHORTCUT] Failed to show highlighter:',
-              chrome.runtime.lastError.message
-            );
-            sendResponse({ success: false, error: chrome.runtime.lastError.message });
-          } else {
-            Logger.log('[USER_ACTIVATE_SHORTCUT] Highlighter shown successfully');
-            sendResponse({ success: true, response });
-          }
-        });
-      } catch (error) {
-        Logger.error('[USER_ACTIVATE_SHORTCUT] Unexpected error:', error);
-        sendResponse({ success: false, error: error.message });
-      }
-    },
-
     /**
      * 保存頁面
      */
     savePage: async (request, sender, sendResponse) => {
       try {
-        const tabs = await new Promise(resolve =>
-          chrome.tabs.query({ active: true, currentWindow: true }, resolve)
-        );
-
-        const activeTab = tabs[0];
-        if (!activeTab || !activeTab.id) {
+        let activeTab;
+        try {
+          activeTab = await getActiveTab();
+        } catch (_error) {
           sendResponse({ success: false, error: 'Could not get active tab.' });
           return;
         }
@@ -459,15 +415,9 @@ export function createActionHandlers(services) {
           return;
         }
 
-        const config = await storageService.getConfig(['notionApiKey']);
-        if (!config.notionApiKey) {
-          sendResponse({ success: false, error: 'Notion API Key not configured' });
-          return;
-        }
+        await ensureNotionApiKey(storageService, notionService);
 
-        notionService.setApiKey(config.notionApiKey);
         const exists = await notionService.checkPageExists(pageId);
-
         sendResponse({ success: true, exists });
       } catch (error) {
         sendResponse({ success: false, error: error.message });
@@ -479,12 +429,10 @@ export function createActionHandlers(services) {
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
-        const tabs = await new Promise(resolve =>
-          chrome.tabs.query({ active: true, currentWindow: true }, resolve)
-        );
-        const activeTab = tabs[0];
-
-        if (!activeTab || !activeTab.id) {
+        let activeTab;
+        try {
+          activeTab = await getActiveTab();
+        } catch (_error) {
           sendResponse({ success: false, error: 'Could not get active tab.' });
           return;
         }
@@ -493,9 +441,8 @@ export function createActionHandlers(services) {
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (savedData?.notionPageId) {
-          // 緩存驗證機制 (TTL: 60秒)
-          // 避免每次點擊都請求 Notion API，提高響應速度
-          const TTL = 60 * 1000;
+          // 緩存驗證機制
+          const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
           const lastVerified = savedData.lastVerifiedAt || 0;
           const now = Date.now();
           const isFresh = now - lastVerified < TTL;
@@ -535,7 +482,7 @@ export function createActionHandlers(services) {
             } else if (exists === true) {
               // 頁面存在，更新驗證時間
               savedData.lastVerifiedAt = now;
-              // 注意：setSavedPageData 會覆蓋寫入，需傳入完整對象 (除了 lastUpdated 會自動更新)
+              // setSavedPageData 會自動更新 lastUpdated，但這裡是更新 metadata，可以接受
               await storageService.setSavedPageData(normUrl, savedData);
             } else if (exists === null) {
               Logger.warn(
@@ -562,197 +509,6 @@ export function createActionHandlers(services) {
         sendResponse({ success: false, error: error.message });
       }
     },
-
-    /**
-     * 啟動/切換高亮工具
-     */
-    startHighlight: async (request, sender, sendResponse) => {
-      try {
-        const tabs = await new Promise(resolve =>
-          chrome.tabs.query({ active: true, currentWindow: true }, resolve)
-        );
-        const activeTab = tabs[0];
-
-        if (!activeTab || !activeTab.id) {
-          sendResponse({ success: false, error: 'Could not get active tab.' });
-          return;
-        }
-
-        // 檢查是否為受限頁面（chrome://、chrome-extension:// 等）
-        if (isRestrictedInjectionUrl(activeTab.url)) {
-          sendResponse({
-            success: false,
-            error: '此頁面不支援標註功能（系統頁面或受限網址）',
-          });
-          return;
-        }
-
-        // 嘗試先發送消息切換（如果腳本已加載）
-        try {
-          const response = await new Promise((resolve, reject) => {
-            chrome.tabs.sendMessage(
-              activeTab.id,
-              { action: 'toggleHighlighter' },
-              messageResponse => {
-                if (chrome.runtime.lastError) {
-                  // 如果最後一個錯誤存在，說明沒有監聽器或其他問題
-                  reject(chrome.runtime.lastError);
-                } else {
-                  resolve(messageResponse);
-                }
-              }
-            );
-          });
-
-          if (response?.success) {
-            sendResponse({ success: true });
-            return;
-          }
-        } catch (error) {
-          // 消息發送失敗，說明腳本可能未加載，繼續執行注入
-          Logger.log('發送 toggleHighlighter 失敗，嘗試注入腳本:', error);
-        }
-
-        const result = await injectionService.injectHighlighter(activeTab.id);
-        if (result?.initialized) {
-          sendResponse({ success: true });
-        } else {
-          sendResponse({ success: false, error: 'Highlighter initialization failed' });
-        }
-      } catch (error) {
-        console.error('Error in startHighlight:', error);
-        sendResponse({ success: false, error: error.message });
-      }
-    },
-
-    /**
-     * 更新現有頁面的標註
-     */
-    updateHighlights: async (request, sender, sendResponse) => {
-      try {
-        const tabs = await new Promise(resolve =>
-          chrome.tabs.query({ active: true, currentWindow: true }, resolve)
-        );
-        const activeTab = tabs[0];
-
-        if (!activeTab || !activeTab.id) {
-          sendResponse({ success: false, error: 'Could not get active tab.' });
-          return;
-        }
-
-        const config = await storageService.getConfig(['notionApiKey']);
-        if (!config.notionApiKey) {
-          sendResponse({ success: false, error: 'API Key is not set.' });
-          return;
-        }
-
-        notionService.setApiKey(config.notionApiKey);
-
-        const normUrl = normalizeUrl(activeTab.url || '');
-        const savedData = await storageService.getSavedPageData(normUrl);
-
-        if (!savedData || !savedData.notionPageId) {
-          sendResponse({
-            success: false,
-            error: 'Page not saved yet. Please save the page first.',
-          });
-          return;
-        }
-
-        const highlights = await injectionService.collectHighlights(activeTab.id);
-
-        // 轉換標記為 Blocks
-        const highlightBlocks = buildHighlightBlocks(highlights);
-
-        // 調用 NotionService 更新標記
-        const result = await notionService.updateHighlightsSection(
-          savedData.notionPageId,
-          highlightBlocks
-        );
-
-        if (result.success) {
-          result.highlightsUpdated = true;
-          result.highlightCount = highlights.length;
-        }
-        sendResponse(result);
-      } catch (error) {
-        console.error('Error in handleUpdateHighlights:', error);
-        sendResponse({ success: false, error: error.message });
-      }
-    },
-
-    /**
-     * 同步標註 (從請求 payload 中獲取)
-     */
-    syncHighlights: async (request, sender, sendResponse) => {
-      try {
-        const tabs = await new Promise(resolve =>
-          chrome.tabs.query({ active: true, currentWindow: true }, resolve)
-        );
-
-        const activeTab = tabs[0];
-        if (!activeTab || !activeTab.id) {
-          sendResponse({ success: false, error: '無法獲取當前標籤頁' });
-          return;
-        }
-
-        const config = await storageService.getConfig(['notionApiKey']);
-
-        if (!config.notionApiKey) {
-          sendResponse({ success: false, error: 'API Key 未設置' });
-          return;
-        }
-
-        notionService.setApiKey(config.notionApiKey);
-
-        const normUrl = normalizeUrl(activeTab.url || '');
-        const savedData = await storageService.getSavedPageData(normUrl);
-
-        if (!savedData || !savedData.notionPageId) {
-          sendResponse({
-            success: false,
-            error: '頁面尚未保存到 Notion，請先點擊「保存頁面」',
-          });
-          return;
-        }
-
-        const highlights = request.highlights || [];
-        Logger.log(`📊 準備同步 ${highlights.length} 個標註到頁面: ${savedData.notionPageId}`);
-
-        if (highlights.length === 0) {
-          sendResponse({
-            success: true,
-            message: '沒有新標註需要同步',
-            highlightCount: 0,
-          });
-          return;
-        }
-
-        // 轉換標記為 Blocks
-        const highlightBlocks = buildHighlightBlocks(highlights);
-
-        // 調用 NotionService 更新標記
-        const result = await notionService.updateHighlightsSection(
-          savedData.notionPageId,
-          highlightBlocks
-        );
-
-        if (result.success) {
-          Logger.log(`✅ 成功同步 ${highlights.length} 個標註`);
-          result.highlightCount = highlights.length;
-          result.message = `成功同步 ${highlights.length} 個標註`;
-        } else {
-          console.error('❌ 同步標註失敗:', result.error);
-        }
-        sendResponse(result);
-      } catch (error) {
-        console.error('❌ handleSyncHighlights 錯誤:', error);
-        sendResponse({ success: false, error: error.message });
-      }
-    },
-
-    // 展開遷移處理函數
-    ...createMigrationHandlers(services),
 
     /**
      * 處理來自 Content Script 的日誌轉發

@@ -96,14 +96,17 @@ describe('scripts/background.js require integration', () => {
               Object.assign(res, storageData);
             }
             cb?.(res);
+            return Promise.resolve(res);
           }),
           set: jest.fn((items, cb) => {
             Object.assign(storageData, items);
             cb?.();
+            return Promise.resolve();
           }),
           remove: jest.fn((keys, cb) => {
             (Array.isArray(keys) ? keys : [keys]).forEach(k => delete storageData[k]);
             cb?.();
+            return Promise.resolve();
           }),
         },
         sync: {
@@ -120,6 +123,7 @@ describe('scripts/background.js require integration', () => {
               res[keys] = 'test-key';
             }
             cb?.(res);
+            return Promise.resolve(res);
           }),
         },
       },
@@ -207,6 +211,8 @@ describe('scripts/background.js require integration', () => {
       sendResponse
     );
 
+    await Promise.resolve();
+    await Promise.resolve();
     await Promise.resolve();
     expect(chrome.tabs.create).toHaveBeenCalledWith(
       { url: 'https://www.notion.so/test' },

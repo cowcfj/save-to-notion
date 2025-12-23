@@ -61,13 +61,13 @@ describe('StorageService', () => {
   beforeEach(() => {
     mockStorage = {
       local: {
-        get: jest.fn((keys, sendResult) => sendResult({})),
-        set: jest.fn((data, sendResult) => sendResult?.()),
-        remove: jest.fn((keys, sendResult) => sendResult?.()),
+        get: jest.fn(_keys => Promise.resolve({})),
+        set: jest.fn(_data => Promise.resolve()),
+        remove: jest.fn(_keys => Promise.resolve()),
       },
       sync: {
-        get: jest.fn((keys, sendResult) => sendResult({})),
-        set: jest.fn((data, sendResult) => sendResult?.()),
+        get: jest.fn(_keys => Promise.resolve({})),
+        set: jest.fn(_data => Promise.resolve()),
       },
     };
     mockLogger = {
@@ -84,9 +84,9 @@ describe('StorageService', () => {
   describe('getSavedPageData', () => {
     it('應該正確獲取保存的頁面數據', async () => {
       const pageData = { title: 'Test Page', savedAt: 12345 };
-      mockStorage.local.get.mockImplementation((keys, sendResult) => {
-        sendResult({ 'saved_https://example.com/page': pageData });
-      });
+      mockStorage.local.get.mockImplementation(_keys =>
+        Promise.resolve({ 'saved_https://example.com/page': pageData })
+      );
 
       const result = await service.getSavedPageData('https://example.com/page');
       expect(result).toEqual(pageData);
@@ -99,10 +99,7 @@ describe('StorageService', () => {
 
     it('應該標準化 URL', async () => {
       await service.getSavedPageData('https://example.com/page#section');
-      expect(mockStorage.local.get).toHaveBeenCalledWith(
-        ['saved_https://example.com/page'],
-        expect.any(Function)
-      );
+      expect(mockStorage.local.get).toHaveBeenCalledWith(['saved_https://example.com/page']);
     });
   });
 
@@ -117,8 +114,7 @@ describe('StorageService', () => {
             title: 'Test Page',
             lastUpdated: expect.any(Number),
           }),
-        }),
-        expect.any(Function)
+        })
       );
     });
   });
@@ -127,18 +123,16 @@ describe('StorageService', () => {
     it('應該清除頁面狀態和標註', async () => {
       await service.clearPageState('https://example.com/page');
 
-      expect(mockStorage.local.remove).toHaveBeenCalledWith(
-        ['saved_https://example.com/page', 'highlights_https://example.com/page'],
-        expect.any(Function)
-      );
+      expect(mockStorage.local.remove).toHaveBeenCalledWith([
+        'saved_https://example.com/page',
+        'highlights_https://example.com/page',
+      ]);
     });
   });
 
   describe('getConfig', () => {
     it('應該從 sync storage 獲取配置', async () => {
-      mockStorage.sync.get.mockImplementation((keys, sendResult) => {
-        sendResult({ apiKey: 'test-key' });
-      });
+      mockStorage.sync.get.mockImplementation(_keys => Promise.resolve({ apiKey: 'test-key' }));
 
       const result = await service.getConfig(['apiKey']);
       expect(result).toEqual({ apiKey: 'test-key' });
@@ -148,23 +142,20 @@ describe('StorageService', () => {
   describe('setConfig', () => {
     it('應該正確設置配置', async () => {
       await service.setConfig({ apiKey: 'new-key' });
-      expect(mockStorage.sync.set).toHaveBeenCalledWith(
-        { apiKey: 'new-key' },
-        expect.any(Function)
-      );
+      expect(mockStorage.sync.set).toHaveBeenCalledWith({ apiKey: 'new-key' });
     });
   });
 
   describe('getAllSavedPageUrls', () => {
     it('應該返回所有已保存頁面的 URL', async () => {
-      mockStorage.local.get.mockImplementation((keys, sendResult) => {
-        sendResult({
+      mockStorage.local.get.mockImplementation(_keys =>
+        Promise.resolve({
           'saved_https://example.com/page1': {},
           'saved_https://example.com/page2': {},
           'highlights_https://example.com/page1': [],
           other_key: 'value',
-        });
-      });
+        })
+      );
 
       const result = await service.getAllSavedPageUrls();
       expect(result).toEqual(['https://example.com/page1', 'https://example.com/page2']);
@@ -172,13 +163,13 @@ describe('StorageService', () => {
   });
 
   describe('error handling', () => {
-    it('應該在沒有 storage 時拋出錯誤', () => {
+    it('應該在沒有 storage 時拋出錯誤', async () => {
       // 暫時移除 global.chrome 以確保 storage 為 null
       const originalChrome = global.chrome;
       delete global.chrome;
 
       const serviceNoStorage = new StorageService({ chromeStorage: null });
-      expect(() => serviceNoStorage.getSavedPageData('url')).toThrow(
+      await expect(serviceNoStorage.getSavedPageData('url')).rejects.toThrow(
         'Chrome storage not available'
       );
 

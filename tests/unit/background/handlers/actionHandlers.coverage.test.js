@@ -42,9 +42,11 @@ global.chrome = {
 };
 
 import {
-  createActionHandlers,
+  createSaveHandlers,
   processContentResult,
-} from '../../../../scripts/background/handlers/actionHandlers.js';
+} from '../../../../scripts/background/handlers/saveHandlers.js';
+import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
+import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 
 // 使用 presetup.js 提供的 global.Logger
 const Logger = global.Logger;
@@ -89,12 +91,25 @@ describe('actionHandlers 覆蓋率補強', () => {
       extractContent: jest.fn(),
     };
 
-    handlers = createActionHandlers({
-      notionService: mockNotionService,
-      storageService: mockStorageService,
-      injectionService: mockInjectionService,
-      pageContentService: mockPageContentService,
-    });
+    // Manually aggregate handlers to mimic background.js behavior
+    handlers = {
+      ...createSaveHandlers({
+        notionService: mockNotionService,
+        storageService: mockStorageService,
+        injectionService: mockInjectionService,
+        pageContentService: mockPageContentService,
+      }),
+      ...createHighlightHandlers({
+        notionService: mockNotionService,
+        storageService: mockStorageService,
+        injectionService: mockInjectionService,
+      }),
+      ...createMigrationHandlers({
+        notionService: mockNotionService,
+        storageService: mockStorageService,
+        // injectionService is not needed for migrationHandlers based on its signature usually, check if needed
+      }),
+    };
   });
 
   describe('processContentResult', () => {
