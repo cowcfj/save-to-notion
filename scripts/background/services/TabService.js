@@ -243,14 +243,17 @@ class TabService {
                 localStorage.removeItem(key);
                 return { migrated: true, data, foundKey: key };
               }
-            } catch (error) {
+            } catch (_parseError) {
               // 注入腳本上下文中無法使用外部 Logger
+              // 不記錄具體錯誤以保護隱私
 
-              console.error('[TabService:inject] Failed to parse legacy highlight data:', error);
+              console.error('[TabService:inject] Failed to parse legacy highlight data');
             }
           }
-        } catch (error) {
-          console.error('[TabService:inject] Error during migration:', error);
+        } catch (_migrationError) {
+          // 不記錄具體錯誤以保護隱私
+
+          console.error('[TabService:inject] Error during migration');
         }
         return { migrated: false };
       });
@@ -258,9 +261,8 @@ class TabService {
       // injectWithResponse 已經解包回傳值，直接使用 result
       const res = result;
       if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {
-        this.logger.log(
-          `Migrating ${res.data.length} highlights from localStorage key: ${res.foundKey}`
-        );
+        // 不記錄 foundKey 以保護用戶 URL 隱私
+        this.logger.log(`Migrating ${res.data.length} legacy highlights`);
 
         await chrome.storage.local.set({ [storageKey]: res.data });
 
