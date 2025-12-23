@@ -124,7 +124,8 @@ describe('background error branches (integration)', () => {
 
   test('startHighlight：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'startHighlight' }, {}, sendResponse);
+    const validSender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'startHighlight' }, validSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({ success: false, error: expect.stringMatching(/active tab/i) })
@@ -148,7 +149,8 @@ describe('background error branches (integration)', () => {
     });
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'startHighlight' }, {}, sendResponse);
+    const validSender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'startHighlight' }, validSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({ success: false, error: 'Injection failed' })
@@ -314,7 +316,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Could not get active tab/iu),
+        error: expect.stringMatching(/Could not get active tab|無法獲取當前標籤頁/iu),
       })
     );
   });
