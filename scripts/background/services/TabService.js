@@ -34,6 +34,8 @@ class TabService {
 
     // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
     this.pendingListeners = new Map();
+    // 追蹤正在處理中的 tab，防止並發調用
+    this.processingTabs = new Map();
   }
 
   /**
@@ -46,6 +48,30 @@ class TabService {
       return;
     }
 
+    // 防止並發調用：檢查是否正在處理
+    if (this.processingTabs.has(tabId)) {
+      this.logger.debug?.(`[TabService] Tab ${tabId} is already being processed, skipping`);
+      return;
+    }
+
+    // 標記為處理中
+    this.processingTabs.set(tabId, Date.now());
+
+    try {
+      return await this._updateTabStatusInternal(tabId, url);
+    } finally {
+      // 無論成功或失敗，都移除處理中標記
+      this.processingTabs.delete(tabId);
+    }
+  }
+
+  /**
+   * 內部方法：實際的狀態更新邏輯
+   * @param {number} tabId - 標籤頁 ID
+   * @param {string} url - 標籤頁 URL
+   * @private
+   */
+  async _updateTabStatusInternal(tabId, url) {
     const normUrl = this.normalizeUrl(url);
     const highlightsKey = `highlights_${normUrl}`;
 
