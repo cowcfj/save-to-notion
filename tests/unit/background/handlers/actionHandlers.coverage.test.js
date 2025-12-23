@@ -107,7 +107,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       ...createMigrationHandlers({
         notionService: mockNotionService,
         storageService: mockStorageService,
-        // injectionService is not needed for migrationHandlers based on its signature usually, check if needed
+        // migrationHandlers 不需要 injectionService 參數
       }),
     };
   });
