@@ -216,7 +216,7 @@ describe('scripts/background.js require integration', () => {
     });
 
     const sendResponse = jest.fn();
-    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    const sender = { id: 'test-id', url: 'chrome-extension://test-id/popup.html' };
     chrome.runtime.onMessage._emit(
       { action: 'openNotionPage', url: 'https://www.notion.so/test' },
       sender,
