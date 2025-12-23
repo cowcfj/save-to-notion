@@ -182,7 +182,7 @@ describe('NotionService', () => {
         ok: false,
         status: 500,
         statusText: 'Server Error',
-        json: () => Promise.reject('Not JSON'),
+        json: () => Promise.reject(new Error('Not JSON')),
       });
 
       const result = await service.checkPageExists('page-123');

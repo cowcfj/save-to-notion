@@ -163,7 +163,7 @@ class NotionService {
 
     const url = this._buildUrl(endpoint, queryParams);
 
-    return fetchWithRetry(
+    return await fetchWithRetry(
       url,
       {
         method,
