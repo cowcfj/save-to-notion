@@ -30,6 +30,17 @@ function createEvent() {
   };
 }
 
+/**
+ * 清空 Promise 微任務隊列
+ * 在測試環境中，確保所有 Promise 鏈完成執行
+ * @param {number} ticks - 要執行的 microtask tick 次數（預設 3）
+ */
+async function flushPromises(ticks = 3) {
+  for (let i = 0; i < ticks; i++) {
+    await Promise.resolve();
+  }
+}
+
 describe('scripts/background.js require integration', () => {
   let originalChrome = null;
   let originalFetch = null;
@@ -211,9 +222,7 @@ describe('scripts/background.js require integration', () => {
       sendResponse
     );
 
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPromises();
     expect(chrome.tabs.create).toHaveBeenCalledWith(
       { url: 'https://www.notion.so/test' },
       expect.any(Function)
