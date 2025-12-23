@@ -17,6 +17,43 @@ import { HANDLER_CONSTANTS } from '../../config/constants.js';
 // ============================================================================
 
 /**
+ * 驗證請求來源是否為擴充功能內部
+ * @param {object} sender - Chrome message sender object
+ * @returns {object|null} 錯誤對象或 null（驗證通過）
+ */
+function validateInternalRequest(sender) {
+  // 來源驗證：必須來自擴充功能內部
+  const isExtensionOrigin = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+
+  // 允許的情況：
+  // 1. 沒有 tab 對象 (Popup, Background) 且 ID 匹配
+  // 2. 有 tab 對象，但 URL 是擴充功能自身的 URL (Options in Tab) 且 ID 匹配
+  if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionOrigin)) {
+    return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
+  }
+
+  return null; // 驗證通過
+}
+
+/**
+ * 驗證 URL 是否為有效的 Notion URL
+ * @param {string} urlString - 要驗證的 URL
+ * @returns {boolean} 是否為有效的 Notion URL
+ */
+function isValidNotionUrl(urlString) {
+  try {
+    const url = new URL(urlString);
+    // 僅允許 HTTPS 協議的 Notion 域名
+    return (
+      url.protocol === 'https:' &&
+      (url.hostname === 'www.notion.so' || url.hostname === 'notion.so')
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 獲取活動標籤頁
  * @returns {Promise<chrome.tabs.Tab>}
  * @throws {Error} 如果無法獲取標籤頁
@@ -270,6 +307,15 @@ export function createSaveHandlers(services) {
      */
     savePage: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：檢查請求來源
+        // savePage 會執行腳本注入和內容提取，必須確保僅限內部調用
+        const validationError = validateInternalRequest(sender);
+        if (validationError) {
+          Logger.warn('⚠️ [savePage] 安全性阻擋:', validationError.error, { sender });
+          sendResponse(validationError);
+          return;
+        }
+
         const activeTab = await getActiveTab();
 
         const config = await storageService.getConfig([
@@ -357,6 +403,14 @@ export function createSaveHandlers(services) {
      */
     openNotionPage: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：檢查請求來源
+        const validationError = validateInternalRequest(sender);
+        if (validationError) {
+          Logger.warn('⚠️ [openNotionPage] 安全性阻擋:', validationError.error, { sender });
+          sendResponse(validationError);
+          return;
+        }
+
         const pageUrl = request.url;
         if (!pageUrl) {
           sendResponse({ success: false, error: 'No URL provided' });
@@ -382,6 +436,16 @@ export function createSaveHandlers(services) {
 
         if (!notionUrl) {
           sendResponse({ success: false, error: '無法獲取 Notion 頁面 URL' });
+          return;
+        }
+
+        // 安全性驗證：確保 URL 是有效的 Notion URL
+        if (!isValidNotionUrl(notionUrl)) {
+          Logger.error('❌ [openNotionPage] 非法 Notion URL 被阻擋:', notionUrl);
+          sendResponse({
+            success: false,
+            error: '安全性錯誤：僅允許打開 Notion 官方網域的頁面',
+          });
           return;
         }
 

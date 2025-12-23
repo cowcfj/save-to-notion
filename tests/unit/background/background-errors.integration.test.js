@@ -227,7 +227,8 @@ describe('background error branches (integration)', () => {
 
   test('openNotionPage：缺少 URL → 返回錯誤', async () => {
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'openNotionPage' }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit({ action: 'openNotionPage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -259,7 +260,12 @@ describe('background error branches (integration)', () => {
       chrome.runtime.lastError = { message: 'Create failed' };
       mockCb?.();
     });
-    chrome.runtime.onMessage._emit({ action: 'openNotionPage', url: pageUrl }, {}, sendResponse);
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+    chrome.runtime.onMessage._emit(
+      { action: 'openNotionPage', url: pageUrl },
+      sender,
+      sendResponse
+    );
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({ success: false, error: 'Create failed' })

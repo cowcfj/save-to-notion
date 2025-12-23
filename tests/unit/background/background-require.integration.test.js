@@ -216,13 +216,15 @@ describe('scripts/background.js require integration', () => {
     });
 
     const sendResponse = jest.fn();
+    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
     chrome.runtime.onMessage._emit(
       { action: 'openNotionPage', url: 'https://www.notion.so/test' },
-      {},
+      sender,
       sendResponse
     );
 
     await flushPromises();
+
     expect(chrome.tabs.create).toHaveBeenCalledWith(
       { url: 'https://www.notion.so/test' },
       expect.any(Function)
