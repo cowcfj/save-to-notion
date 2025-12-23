@@ -31,9 +31,13 @@ function createEvent() {
 }
 
 /**
- * 清空 Promise 微任務隊列
- * 在測試環境中，確保所有 Promise 鏈完成執行
- * @param {number} ticks - 要執行的 microtask tick 次數（預設 3）
+ * 清空 Promise 微任務隊列以確保異步操作完成。
+ *
+ * 預設值 3 是一個經驗值，通常足以覆蓋大多數「事件觸發 -> 處理函數 -> 服務調用」
+ * 的簡單非同步鏈。如果測試涉及更深層的嵌套 Promise 或連續回調，
+ * 可能需要增加此數值以確保所有微任務都已處理完畢。
+ *
+ * @param {number} ticks - 要刷新的 microtask 週期數（tick）。預設為 3。
  */
 async function flushPromises(ticks = 3) {
   for (let i = 0; i < ticks; i++) {
