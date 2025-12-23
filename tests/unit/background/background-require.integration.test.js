@@ -178,9 +178,7 @@ describe('scripts/background.js require integration', () => {
     chrome.runtime.onInstalled._emit({ reason: 'update', previousVersion: '2.8.5' });
 
     // 等待異步操作完成
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPromises();
 
     // 應開啟更新通知頁
     expect(chrome.tabs.create).toHaveBeenCalledWith({
