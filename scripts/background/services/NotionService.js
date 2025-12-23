@@ -627,12 +627,12 @@ class NotionService {
           if (response.ok) {
             deletedCount++;
           }
-
-          // 速率限制
-          await new Promise(resolve => setTimeout(resolve, this.config.RATE_LIMIT_DELAY));
         } catch (err) {
           this.logger.warn?.(`Failed to delete block ${block.id}:`, err);
         }
+
+        // 速率限制
+        await new Promise(resolve => setTimeout(resolve, this.config.RATE_LIMIT_DELAY));
       }
 
       return { success: true, deletedCount };
