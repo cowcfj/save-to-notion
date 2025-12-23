@@ -9,49 +9,13 @@
 /* global chrome, Logger */
 
 import { normalizeUrl } from '../../utils/urlUtils.js';
+import { validateInternalRequest, isValidNotionUrl } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
 // ============================================================================
-
-/**
- * 驗證請求來源是否為擴充功能內部
- * @param {object} sender - Chrome message sender object
- * @returns {object|null} 錯誤對象或 null（驗證通過）
- */
-function validateInternalRequest(sender) {
-  // 來源驗證：必須來自擴充功能內部
-  const isExtensionOrigin = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
-
-  // 允許的情況：
-  // 1. 沒有 tab 對象 (Popup, Background) 且 ID 匹配
-  // 2. 有 tab 對象，但 URL 是擴充功能自身的 URL (Options in Tab) 且 ID 匹配
-  if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionOrigin)) {
-    return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
-  }
-
-  return null; // 驗證通過
-}
-
-/**
- * 驗證 URL 是否為有效的 Notion URL
- * @param {string} urlString - 要驗證的 URL
- * @returns {boolean} 是否為有效的 Notion URL
- */
-function isValidNotionUrl(urlString) {
-  try {
-    const url = new URL(urlString);
-    // 僅允許 HTTPS 協議的 Notion 域名
-    return (
-      url.protocol === 'https:' &&
-      (url.hostname === 'www.notion.so' || url.hostname === 'notion.so')
-    );
-  } catch {
-    return false;
-  }
-}
 
 /**
  * 獲取活動標籤頁

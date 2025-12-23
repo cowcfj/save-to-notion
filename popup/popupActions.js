@@ -8,34 +8,8 @@
 
 import { URL_NORMALIZATION } from '../scripts/config/constants.js';
 import { normalizeUrl } from '../scripts/utils/urlUtils.js';
+import { isValidNotionUrl } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
-
-/**
- * 驗證 URL 是否為安全的 Notion URL
- * @param {string} url - 要驗證的 URL
- * @returns {boolean} 是否為有效的 Notion URL
- */
-function isValidNotionUrl(url) {
-  try {
-    const urlObj = new URL(url);
-
-    // 只允許 HTTPS 協議
-    if (urlObj.protocol !== 'https:') {
-      return false;
-    }
-
-    // Notion 網域白名單
-    const allowedDomains = ['notion.so', 'www.notion.so'];
-
-    // 允許 notion.so 的子網域（例如 xxx.notion.so）
-    // 規範化 hostname：轉小寫並移除 trailing dot
-    const hostname = urlObj.hostname.toLowerCase().replace(/\.+$/, '');
-    return allowedDomains.includes(hostname) || hostname.endsWith('.notion.so');
-  } catch {
-    // URL 解析失敗
-    return false;
-  }
-}
 
 /**
  * 檢查設置是否完整
