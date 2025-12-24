@@ -40,9 +40,15 @@ export async function checkSettings() {
  */
 export async function checkPageStatus(options = {}) {
   try {
+    // Security: Validate and sanitize input options before passing to background
+    // Ensure forceRefresh is strictly a boolean to prevent injection or unexpected behavior
+    const safeOptions = {
+      forceRefresh: Boolean(options?.forceRefresh),
+    };
+
     const response = await chrome.runtime.sendMessage({
       action: 'checkPageStatus',
-      forceRefresh: options.forceRefresh,
+      forceRefresh: safeOptions.forceRefresh,
     });
     return response || { success: false };
   } catch (error) {
