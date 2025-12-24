@@ -127,6 +127,17 @@ function isValidImageUrl(url) {
     return false;
   }
 
+  // 統一驗證：確保 patterns.js 常量已正確載入
+  const patternsLoaded =
+    IMAGE_EXTENSIONS && EXCLUDE_PATTERNS && IMAGE_PATH_PATTERNS && PLACEHOLDER_KEYWORDS;
+  if (!patternsLoaded) {
+    Logger.warn?.(
+      '⚠️ [isValidImageUrl] Pattern constants not loaded, falling back to basic validation'
+    );
+    // 基本驗證：只檢查協議
+    return /^https?:\/\//i.test(url);
+  }
+
   // 排除 data: 和 blob: URL（來自 AttributeExtractor）
   if (url.startsWith('data:') || url.startsWith('blob:')) {
     return false;
@@ -134,7 +145,7 @@ function isValidImageUrl(url) {
 
   // 排除明顯的佔位符（使用 patterns.js 的配置）
   const lowerUrl = url.toLowerCase();
-  if (PLACEHOLDER_KEYWORDS?.some(placeholder => lowerUrl.includes(placeholder))) {
+  if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {
     return false;
   }
 
@@ -164,7 +175,7 @@ function isValidImageUrl(url) {
 
     // 檢查文件擴展名（使用 patterns.js 的配置）
     const pathname = urlObj.pathname.toLowerCase();
-    const hasImageExtension = IMAGE_EXTENSIONS?.test(pathname) ?? false;
+    const hasImageExtension = IMAGE_EXTENSIONS.test(pathname);
 
     // 如果 URL 包含圖片擴展名，直接返回 true
     if (hasImageExtension) {
@@ -172,12 +183,12 @@ function isValidImageUrl(url) {
     }
 
     // 排除明顯不是圖片的 URL（使用 patterns.js 的配置）
-    if (EXCLUDE_PATTERNS?.some(pattern => pattern.test(cleanedUrl))) {
+    if (EXCLUDE_PATTERNS.some(pattern => pattern.test(cleanedUrl))) {
       return false;
     }
 
     // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
-    return IMAGE_PATH_PATTERNS?.some(pattern => pattern.test(cleanedUrl)) ?? false;
+    return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(cleanedUrl));
   } catch (_error) {
     return false;
   }
