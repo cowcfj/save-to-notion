@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.21.0](https://github.com/cowcfj/save-to-notion/compare/v2.20.0...v2.21.0) (2025-12-24)
+
+
+### ✨ 新功能
+
+* 增加 Notion API 操作特定配置及驗證功能 ([#207](https://github.com/cowcfj/save-to-notion/issues/207)) ([f7e833f](https://github.com/cowcfj/save-to-notion/commit/f7e833f29de2ab31880fbbc2ae6e099e52350f8a))
+* 新增頁面驗證與強制刷新功能 ([#209](https://github.com/cowcfj/save-to-notion/issues/209)) ([f02edc6](https://github.com/cowcfj/save-to-notion/commit/f02edc651e0f591f0f9cd311b856a520a6c6a602))
+* 重構 NotionService 圖片過濾邏輯及更新 API 路徑 ([#208](https://github.com/cowcfj/save-to-notion/issues/208)) ([0da3d5c](https://github.com/cowcfj/save-to-notion/commit/0da3d5c7458926405ac2efdcce5c944628b5a85a))
+* 重構異步操作並改進日誌記錄 ([#204](https://github.com/cowcfj/save-to-notion/issues/204)) ([d7b82f2](https://github.com/cowcfj/save-to-notion/commit/d7b82f21a30f168896147c8736cb31189cb348e2))
+* 重構目錄結構，模塊化背景服務與內容提取系統 ([b2e8224](https://github.com/cowcfj/save-to-notion/commit/b2e8224e60e27cf7c015572bfdbd60ec12e0975c))
+* 重構背景服務與測試改善 ([#206](https://github.com/cowcfj/save-to-notion/issues/206)) ([4e98f3f](https://github.com/cowcfj/save-to-notion/commit/4e98f3fb36d7875c2bc6e4b6100a71280fa0c156))
+
 ## [2.20.0](https://github.com/cowcfj/save-to-notion/compare/v2.19.2...v2.20.0) (2025-12-22)
 
 
