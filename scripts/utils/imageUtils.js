@@ -12,6 +12,7 @@ import {
   IMAGE_EXTENSIONS,
   IMAGE_PATH_PATTERNS,
   EXCLUDE_PATTERNS,
+  PLACEHOLDER_KEYWORDS,
 } from '../config/patterns.js';
 
 // 圖片驗證 constant 默認值，如果 config 導入失敗或缺漏則使用這些
@@ -131,19 +132,9 @@ function isValidImageUrl(url) {
     return false;
   }
 
-  // 排除明顯的佔位符（來自 AttributeExtractor）
-  const placeholders = [
-    'placeholder',
-    'loading',
-    'spinner',
-    'blank',
-    'empty',
-    '1x1',
-    'transparent',
-  ];
-
+  // 排除明顯的佔位符（使用 patterns.js 的配置）
   const lowerUrl = url.toLowerCase();
-  if (placeholders.some(placeholder => lowerUrl.includes(placeholder))) {
+  if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {
     return false;
   }
 
