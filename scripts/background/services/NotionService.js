@@ -198,8 +198,10 @@ class NotionService {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
     // 4. 安全的 URL 建構 (Safe URL Construction)
-    // 使用字串拼接全路徑，再傳入 URL 建構函數，這是最穩健的方式，
-    // 避免了 new URL(path, base) 在 path 為絕對路徑時會忽略 base path 的行為特徵。
+    // 使用字串拼接全路徑以避免 new URL(path, base) 的陷阱：
+    // 當 path 以 / 開頭時，new URL 會忽略 base path。
+    // 例如：new URL('/pages', 'https://api.notion.com/v1') 會得到 https://api.notion.com/pages (錯誤，丟失 /v1)
+    // 我們需要的是：https://api.notion.com/v1/pages (正確)
     const fullUrl = `${baseUrl}${normalizedPath}`;
 
     try {
