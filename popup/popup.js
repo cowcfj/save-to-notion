@@ -41,13 +41,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 檢查頁面狀態並更新 UI（強制刷新以獲取最新狀態）
-  const pageStatus = await checkPageStatus({ forceRefresh: true });
-  if (pageStatus?.success) {
-    if (pageStatus.isSaved) {
-      updateUIForSavedPage(elements, pageStatus);
-    } else {
-      updateUIForUnsavedPage(elements, pageStatus);
+  try {
+    if (typeof checkPageStatus !== 'function') {
+      throw new Error('checkPageStatus is not a function');
     }
+
+    const pageStatus = await checkPageStatus({ forceRefresh: true });
+
+    if (pageStatus?.success) {
+      if (pageStatus.isSaved) {
+        if (typeof updateUIForSavedPage === 'function') {
+          updateUIForSavedPage(elements, pageStatus);
+        } else {
+          console.error('updateUIForSavedPage is not a function');
+        }
+      } else if (typeof updateUIForUnsavedPage === 'function') {
+          updateUIForUnsavedPage(elements, pageStatus);
+        } else {
+          console.error('updateUIForUnsavedPage is not a function');
+        }
+    }
+  } catch (error) {
+    console.error('Failed to initialize popup:', error);
+    setStatus(elements, 'Error initializing popup. Please close and reopen.', '#d63384');
   }
 
   // ========== 事件監聽器 ==========
