@@ -57,6 +57,7 @@ const mockManager = {
 
 // Mock Toolbar
 const mockToolbar = {
+  initialize: jest.fn(),
   show: jest.fn(),
   hide: jest.fn(),
   toggle: jest.fn(),
@@ -196,6 +197,9 @@ describe('Highlighter Index', () => {
     });
 
     test('hide() 應該調用 toolbar.hide()', async () => {
+      // 先調用 show() 確保 toolbar 已創建（currentToolbar 不為 null）
+      await window.notionHighlighter.show();
+      jest.clearAllMocks(); // 清除 show 的調用記錄
       await window.notionHighlighter.hide();
       expect(mockToolbar.hide).toHaveBeenCalled();
     });
