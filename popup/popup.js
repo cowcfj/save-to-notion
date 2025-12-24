@@ -45,23 +45,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 檢查頁面狀態並更新 UI（強制刷新以獲取最新狀態）
   try {
-    if (typeof checkPageStatus !== 'function') {
-      throw new Error('checkPageStatus is not a function');
-    }
-
     const pageStatus = await checkPageStatus({ forceRefresh: true });
 
     if (pageStatus?.success) {
       if (pageStatus.isSaved) {
-        if (typeof updateUIForSavedPage === 'function') {
-          updateUIForSavedPage(elements, pageStatus);
-        } else {
-          Logger.error('updateUIForSavedPage is not a function');
-        }
-      } else if (typeof updateUIForUnsavedPage === 'function') {
-        updateUIForUnsavedPage(elements, pageStatus);
+        updateUIForSavedPage(elements, pageStatus);
       } else {
-        Logger.error('updateUIForUnsavedPage is not a function');
+        updateUIForUnsavedPage(elements, pageStatus);
       }
     }
   } catch (error) {
@@ -93,11 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         title: response.title || 'Untitled',
       };
 
-      if (typeof updateUIForSavedPage === 'function') {
-        updateUIForSavedPage(elements, directPageStatus);
-      } else {
-        Logger.error('updateUIForSavedPage is not a function');
-      }
+      updateUIForSavedPage(elements, directPageStatus);
 
       // 🔑 保存完成後，通知 Content Script 創建並顯示 Toolbar
       try {
