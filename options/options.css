@@ -884,3 +884,37 @@ select:focus {
   padding: 4px 8px;
   font-size: 12px;
 }
+
+/* Backup Info Styles */
+.backup-info {
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.backup-data-list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.backup-data-list li {
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 4px 0;
+}
+
+.backup-data-list li strong {
+  color: var(--text-primary);
+}
+
+.text-warning {
+  color: var(--warning-color) !important;
+}
+
+.text-warning strong {
+  color: var(--warning-color);
+}
+
