@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       setStatus(elements, message);
 
       // 更新圖標徽章並刷新 UI
-      const newStatus = await checkPageStatus();
+      const newStatus = await checkPageStatus({ forceRefresh: true });
       if (newStatus?.isSaved) {
         updateUIForSavedPage(elements, newStatus);
       }
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 標記按鈕
   elements.highlightButton.addEventListener('click', async () => {
     // 檢查頁面是否已保存
-    const statusResponse = await checkPageStatus();
+    const statusResponse = await checkPageStatus({ forceRefresh: true });
 
     if (!statusResponse?.isSaved) {
       setStatus(elements, 'Please save the page first!', '#d63384');
