@@ -47,15 +47,14 @@ export class Toolbar {
 
   /**
    * 異步初始化：從 storage 讀取狀態並應用
-   * @returns {Promise<void>}
    */
-  async initialize() {
+  initialize() {
     if (this._initialized) {
       return;
     }
 
-    // 初始化 stateManager（從 chrome.storage.session 讀取狀態）
-    await this.stateManager.initialize();
+    // 初始化 stateManager（從 sessionStorage 讀取狀態）
+    this.stateManager.initialize();
 
     // 應用保存的狀態
     this.handleStateChange(this.stateManager.currentState);

@@ -31,10 +31,9 @@ export class ToolbarStateManager {
   }
 
   /**
-   * 異步初始化：從 sessionStorage 讀取狀態
-   * @returns {Promise<void>}
+   * 初始化：從 sessionStorage 讀取狀態
    */
-  async initialize() {
+  initialize() {
     if (this._initialized) {
       return;
     }

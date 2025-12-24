@@ -92,7 +92,7 @@ export function initHighlighterWithToolbar(options = {}) {
 
     // 如果有 Toolbar，初始化並更新計數
     if (toolbar) {
-      await toolbar.initialize();
+      toolbar.initialize();
       toolbar.updateHighlightCount();
     }
   })();
@@ -193,14 +193,14 @@ export function setupHighlighter(options = {}) {
    * 動態創建 Toolbar（如果尚未創建）
    * @returns {Promise<Toolbar>}
    */
-  const ensureToolbar = async () => {
+  const ensureToolbar = () => {
     if (currentToolbar) {
       return currentToolbar;
     }
 
     // 動態創建 Toolbar
     currentToolbar = new Toolbar(manager);
-    await currentToolbar.initialize();
+    currentToolbar.initialize();
     currentToolbar.updateHighlightCount();
 
     // 更新 window.HighlighterV2.toolbar 引用
@@ -214,14 +214,14 @@ export function setupHighlighter(options = {}) {
   window.notionHighlighter = {
     manager,
     restoreManager,
-    show: async () => {
-      const tb = await ensureToolbar();
+    show: () => {
+      const tb = ensureToolbar();
       tb.show();
     },
     hide: () => currentToolbar?.hide(),
     minimize: () => currentToolbar?.minimize(),
-    toggle: async () => {
-      const tb = await ensureToolbar();
+    toggle: () => {
+      const tb = ensureToolbar();
       const state = tb.stateManager.currentState;
       if (state === 'hidden') {
         tb.show();
@@ -235,8 +235,8 @@ export function setupHighlighter(options = {}) {
     // 🔑 新增：暴露 forceRestoreHighlights 以保持與 highlight-restore.js 的兼容性
     forceRestoreHighlights: () => restoreManager.restore(),
     // 🔑 新增：創建並顯示 Toolbar（保存完成後調用）
-    createAndShowToolbar: async () => {
-      const tb = await ensureToolbar();
+    createAndShowToolbar: () => {
+      const tb = ensureToolbar();
       tb.show();
       return tb;
     },
@@ -313,13 +313,15 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
       if (request.action === 'showToolbar') {
         // 保存完成後，創建並顯示 Toolbar
         if (window.notionHighlighter?.createAndShowToolbar) {
-          window.notionHighlighter
-            .createAndShowToolbar()
-            .then(() => sendResponse({ success: true }))
-            .catch(error => sendResponse({ success: false, error: error.message }));
-          return true; // 表示異步響應
+          try {
+            window.notionHighlighter.createAndShowToolbar();
+            sendResponse({ success: true });
+          } catch (error) {
+            sendResponse({ success: false, error: error.message });
+          }
+        } else {
+          sendResponse({ success: false, error: 'notionHighlighter not initialized' });
         }
-        sendResponse({ success: false, error: 'notionHighlighter not initialized' });
       }
     });
   }
