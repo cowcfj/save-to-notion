@@ -491,7 +491,7 @@ export function createSaveHandlers(services) {
             // 如果第一次檢查返回 null (不確定/錯誤)，嘗試重試一次以排除冷啟動或暫時性網絡問題
             if (exists === null) {
               Logger.warn('⚠️ First check for page existence failed, retrying...');
-              await new Promise(resolve => setTimeout(resolve, 500)); // 500ms 延遲
+              await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
               exists = await notionService.checkPageExists(savedData.notionPageId);
             }
 
