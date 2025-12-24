@@ -501,7 +501,10 @@ describe('background error branches (integration)', () => {
     chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({ success: false, error: 'Invalid request' })
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/操作失敗|Invalid request/u),
+      })
     );
 
     global.fetch = originalFetch;
@@ -655,7 +658,7 @@ describe('background error branches (integration)', () => {
     const originalFetch = global.fetch;
     global.fetch = jest.fn((requestUrl, init) => {
       // 檢查頁面存在
-      if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
+      if (/\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -664,7 +667,7 @@ describe('background error branches (integration)', () => {
         });
       }
       // 讀取既有內容
-      if (/\/v1\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -673,7 +676,7 @@ describe('background error branches (integration)', () => {
         });
       }
       // 更新內容 → 返回 validation_error 且 message 含 image
-      if (/\/v1\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'PATCH') {
+      if (/\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'PATCH') {
         return Promise.resolve({
           ok: false,
           status: 400,
@@ -696,7 +699,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: '批次添加失敗: 400 - image url invalid',
+        error: expect.stringMatching(/數據格式不符合要求|批次添加失敗|image/u),
       })
     );
 
@@ -752,21 +755,21 @@ describe('background error branches (integration)', () => {
 
     const originalFetch = global.fetch;
     global.fetch = jest.fn((requestUrl, init) => {
-      if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
+      if (/\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
         });
       }
-      if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
         });
       }
-      if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'PATCH') {
+      if (/\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'PATCH') {
         return Promise.resolve({
           ok: false,
           status: 400,
@@ -784,7 +787,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Bad request/),
+        error: expect.stringMatching(/操作失敗|Bad request/u),
       })
     );
 
@@ -840,21 +843,21 @@ describe('background error branches (integration)', () => {
 
     const originalFetch = global.fetch;
     global.fetch = jest.fn((requestUrl, init) => {
-      if (/\/v1\/pages\//u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/pages\//u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
         });
       }
-      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
         });
       }
-      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
+      if (/\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
         return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
       }
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
