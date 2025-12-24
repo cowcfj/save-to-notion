@@ -87,6 +87,7 @@ export class ToolbarStateManager {
    * @param {string} state
    * @private
    */
+
   _saveState(state) {
     try {
       if (typeof window !== 'undefined' && window.sessionStorage) {
