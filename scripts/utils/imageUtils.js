@@ -134,7 +134,7 @@ function isValidImageUrl(url) {
 
   // 排除明顯的佔位符（使用 patterns.js 的配置）
   const lowerUrl = url.toLowerCase();
-  if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {
+  if (PLACEHOLDER_KEYWORDS?.some(placeholder => lowerUrl.includes(placeholder))) {
     return false;
   }
 
