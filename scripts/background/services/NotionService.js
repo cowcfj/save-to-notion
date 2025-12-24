@@ -10,9 +10,11 @@
  */
 
 // 導入統一配置
-import { NOTION_API, IMAGE_VALIDATION_CONSTANTS } from '../../config/index.js';
+import { NOTION_API } from '../../config/index.js';
 // 導入安全工具
-import { sanitizeUrlForLogging, sanitizeApiError } from '../../utils/securityUtils.js';
+import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+// 導入圖片區塊過濾函數（整合自 imageUtils）
+import { filterNotionImageBlocks } from '../../utils/imageUtils.js';
 
 // 使用統一常量構建配置
 const NOTION_CONFIG = {
@@ -176,13 +178,16 @@ class NotionService {
 
   /**
    * 構建 API URL
-   * @param {string} path - 路徑（相對於 BASE_URL）
+   * @param {string} path - 路徑（相對於 BASE_URL，如 '/pages' 或 '/blocks/xxx/children'）
    * @param {Object} params - 查詢參數（null 和 undefined 的值會被自動過濾）
    * @returns {string}
    * @private
    */
   _buildUrl(path, params = {}) {
-    const url = new URL(path, this.config.BASE_URL);
+    // 確保路徑正確拼接到 BASE_URL（處理開頭的斜線）
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const fullUrl = `${this.config.BASE_URL}${normalizedPath}`;
+    const url = new URL(fullUrl);
     Object.entries(params).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
         url.searchParams.set(key, value);
@@ -301,114 +306,56 @@ class NotionService {
   }
 
   /**
-   * 驗證區塊基本結構
-   * @param {Object} block - 區塊對象
-   * @returns {boolean}
-   * @private
-   */
-  _isValidBlock(block) {
-    if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
-      this.logger.warn?.('⚠️ Skipped invalid block (missing type or type property)');
-      return false;
-    }
-    return true;
-  }
-
-  /**
-   * 驗證圖片 URL 是否有效
-   * @param {string} imageUrl - 圖片 URL
-   * @returns {boolean}
-   * @private
-   */
-  _isValidImageUrl(imageUrl) {
-    if (!imageUrl) {
-      this.logger.warn?.('⚠️ Skipped image block without URL');
-      return false;
-    }
-
-    // 檢查 URL 長度
-    const maxUrlLength =
-      IMAGE_VALIDATION_CONSTANTS.MAX_URL_LENGTH -
-      IMAGE_VALIDATION_CONSTANTS.URL_LENGTH_SAFETY_MARGIN;
-    if (imageUrl.length > maxUrlLength) {
-      this.logger.warn?.(`⚠️ Skipped image with too long URL (${imageUrl.length} chars)`);
-      return false;
-    }
-
-    // 檢查特殊字符
-    const problematicChars = /[<>{}|\\^`[\]]/;
-    if (problematicChars.test(imageUrl)) {
-      // 使用共用安全工具清理 URL
-      const sanitizedUrl = sanitizeUrlForLogging(imageUrl);
-      this.logger.warn?.(`⚠️ Skipped image with problematic characters: ${sanitizedUrl}`);
-      return false;
-    }
-
-    // 驗證 URL 格式
-    try {
-      const urlObj = new URL(imageUrl);
-
-      // 只接受 http/https
-      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-        this.logger.warn?.(`⚠️ Skipped image with invalid protocol: ${urlObj.protocol}`);
-        return false;
-      }
-
-      // 檢查 hostname
-      if (!urlObj.hostname || urlObj.hostname.length < 3) {
-        this.logger.warn?.(`⚠️ Skipped image with invalid hostname: ${urlObj.hostname}`);
-        return false;
-      }
-    } catch (error) {
-      this.logger.warn?.('⚠️ Skipped image with invalid URL format', error);
-      return false;
-    }
-
-    // 驗證通過 - 不記錄日誌以避免圖片較多時產生過多輸出
-    return true;
-  }
-
-  /**
    * 過濾有效的圖片區塊
-   * 移除可能導致 Notion API 錯誤的圖片（URL 過長、無效格式、特殊字符等）
+   * 委託給 imageUtils.filterNotionImageBlocks 處理，保留日誌輸出
    * @param {Array} blocks - 區塊數組
    * @param {boolean} excludeImages - 是否排除所有圖片（重試模式）
    * @returns {{validBlocks: Array, skippedCount: number}}
    */
   filterValidImageBlocks(blocks, excludeImages = false) {
-    if (!blocks || !Array.isArray(blocks)) {
-      return { validBlocks: [], skippedCount: 0 };
+    // 防禦性檢查：確保 filterNotionImageBlocks 存在
+    if (typeof filterNotionImageBlocks !== 'function') {
+      this.logger.error?.('❌ filterNotionImageBlocks is not available');
+      return { validBlocks: blocks ?? [], skippedCount: 0 };
     }
 
-    if (excludeImages) {
+    const { validBlocks, skippedCount, invalidReasons } = filterNotionImageBlocks(
+      blocks,
+      excludeImages
+    );
+
+    // 日誌輸出（保留原有行為）
+    if (excludeImages && skippedCount > 0) {
       this.logger.log?.('🚫 Retry mode: Excluding ALL images');
-      const validBlocks = blocks.filter(block => block.type !== 'image');
-      return { validBlocks, skippedCount: blocks.length - validBlocks.length };
     }
 
-    const validBlocks = blocks.filter(block => {
-      // 基本區塊驗證
-      if (!this._isValidBlock(block)) {
-        return false;
-      }
-
-      // 非圖片區塊直接通過
-      if (block.type !== 'image') {
-        return true;
-      }
-
-      // 圖片 URL 驗證
-      // Notion 支援兩種圖片類型：
-      // 1. external: 外部托管的圖片 (block.image.external.url)
-      // 2. file: Notion 內部托管的圖片 (block.image.file.url)
-      const imageUrl = block.image?.external?.url || block.image?.file?.url;
-      return this._isValidImageUrl(imageUrl);
-    });
-
-    const skippedCount = blocks.length - validBlocks.length;
-    if (skippedCount > 0) {
+    if (skippedCount > 0 && !excludeImages) {
       this.logger.log?.(
         `📊 Filtered ${skippedCount} potentially problematic image blocks from ${blocks.length} total blocks`
+      );
+    }
+
+    // 詳細日誌（供調試，設定上限避免日誌爆炸）
+    const MAX_DETAILED_LOGS = 5;
+    const loggedCount = Math.min(invalidReasons.length, MAX_DETAILED_LOGS);
+
+    for (let i = 0; i < loggedCount; i++) {
+      const reason = invalidReasons[i];
+      if (reason.reason === 'invalid_structure') {
+        this.logger.warn?.('⚠️ Skipped invalid block (missing type or type property)');
+      } else if (reason.reason === 'missing_url') {
+        this.logger.warn?.('⚠️ Skipped image block without URL');
+      } else if (reason.reason === 'invalid_url') {
+        this.logger.warn?.(
+          `⚠️ Skipped image with invalid URL: ${sanitizeUrlForLogging(reason.url)}`
+        );
+      }
+    }
+
+    // 如有更多問題，輸出摘要
+    if (invalidReasons.length > MAX_DETAILED_LOGS) {
+      this.logger.warn?.(
+        `⚠️ ... and ${invalidReasons.length - MAX_DETAILED_LOGS} more skipped blocks`
       );
     }
 

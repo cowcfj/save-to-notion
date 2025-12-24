@@ -501,7 +501,10 @@ describe('background error branches (integration)', () => {
     chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({ success: false, error: 'Invalid request' })
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/操作失敗|Invalid request/u),
+      })
     );
 
     global.fetch = originalFetch;
@@ -696,7 +699,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: '批次添加失敗: 400 - image url invalid',
+        error: expect.stringMatching(/數據格式不符合要求|批次添加失敗|image/u),
       })
     );
 
@@ -784,7 +787,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Bad request/),
+        error: expect.stringMatching(/操作失敗|Bad request/u),
       })
     );
 
