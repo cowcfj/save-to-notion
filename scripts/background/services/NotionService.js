@@ -12,7 +12,7 @@
 // 導入統一配置
 import { NOTION_API } from '../../config/index.js';
 // 導入安全工具
-import { sanitizeApiError } from '../../utils/securityUtils.js';
+import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 // 導入圖片區塊過濾函數（整合自 imageUtils）
 import { filterNotionImageBlocks } from '../../utils/imageUtils.js';
 
@@ -329,15 +329,28 @@ class NotionService {
       );
     }
 
-    // 詳細日誌（供調試）
-    for (const reason of invalidReasons) {
+    // 詳細日誌（供調試，設定上限避免日誌爆炸）
+    const MAX_DETAILED_LOGS = 5;
+    const loggedCount = Math.min(invalidReasons.length, MAX_DETAILED_LOGS);
+
+    for (let i = 0; i < loggedCount; i++) {
+      const reason = invalidReasons[i];
       if (reason.reason === 'invalid_structure') {
         this.logger.warn?.('⚠️ Skipped invalid block (missing type or type property)');
       } else if (reason.reason === 'missing_url') {
         this.logger.warn?.('⚠️ Skipped image block without URL');
       } else if (reason.reason === 'invalid_url') {
-        this.logger.warn?.(`⚠️ Skipped image with invalid URL: ${reason.url?.substring(0, 50)}`);
+        this.logger.warn?.(
+          `⚠️ Skipped image with invalid URL: ${sanitizeUrlForLogging(reason.url)}`
+        );
       }
+    }
+
+    // 如有更多問題，輸出摘要
+    if (invalidReasons.length > MAX_DETAILED_LOGS) {
+      this.logger.warn?.(
+        `⚠️ ... and ${invalidReasons.length - MAX_DETAILED_LOGS} more skipped blocks`
+      );
     }
 
     return { validBlocks, skippedCount };
