@@ -29,6 +29,9 @@ import { waitForDOMStability } from './utils/domStability.js';
 // Storage utility - 導入以設置 window.StorageUtil（由 HighlightManager 使用）
 import './utils/StorageUtil.js';
 
+// Logger - 統一日誌記錄
+import Logger from '../utils/Logger.js';
+
 // 導入並掛載 normalizeUrl（供 HighlightManager.restoreHighlights 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
 if (typeof window !== 'undefined' && !window.normalizeUrl) {
@@ -73,17 +76,26 @@ export function initHighlighter(options = {}) {
  * 初始化 Highlighter V2 (包含工具欄)
  * @param {Object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
- * @returns {{manager: HighlightManager, toolbar: Toolbar}}
+ * @param {boolean} [options.skipToolbar] - 是否跳過創建工具欄
+ * @returns {{manager: HighlightManager, toolbar: Toolbar|null}}
  */
 export function initHighlighterWithToolbar(options = {}) {
   const manager = new HighlightManager(options);
-  const toolbar = new Toolbar(manager);
 
-  // 自動執行初始化（傳遞 skipRestore 選項）
-  manager.initializationComplete = manager.initialize(options.skipRestore).then(() => {
-    // 初始化完成後更新計數
-    toolbar.updateHighlightCount();
-  });
+  // 如果 skipToolbar 為 true，不創建 Toolbar
+  const toolbar = options.skipToolbar ? null : new Toolbar(manager);
+
+  // 自動執行初始化
+  manager.initializationComplete = (async () => {
+    // 初始化 Manager
+    await manager.initialize(options.skipRestore);
+
+    // 如果有 Toolbar，初始化並更新計數
+    if (toolbar) {
+      await toolbar.initialize();
+      toolbar.updateHighlightCount();
+    }
+  })();
 
   return { manager, toolbar };
 }
@@ -123,21 +135,23 @@ export {
  * 默認導出：自動初始化並設置到 window
  * @param {Object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
+ * @param {boolean} [options.skipToolbar] - 是否跳過創建工具欄
  */
 export function setupHighlighter(options = {}) {
   if (typeof window === 'undefined') {
     throw new Error('Highlighter V2 requires a browser environment');
   }
 
-  // 初始化 manager 和 toolbar（傳遞 skipRestore 選項）
-  const { manager, toolbar } = initHighlighterWithToolbar(options);
+  // 初始化 manager 和 toolbar
+  // 如果 skipRestore 為 true（頁面已刪除），同時跳過 Toolbar
+  const effectiveOptions = {
+    ...options,
+    skipToolbar: options.skipToolbar ?? options.skipRestore,
+  };
 
-  // 🔑 如果需要跳過恢復（頁面已刪除），隱藏 Toolbar
-  if (options.skipRestore) {
-    toolbar.hide();
-  }
+  const { manager, toolbar } = initHighlighterWithToolbar(effectiveOptions);
 
-  // 🔑 初始化 RestoreManager 並自動恢復標註
+  // 🔑 初始化 RestoreManager（即使沒有 toolbar 也需要）
   const restoreManager = new RestoreManager(manager, toolbar);
 
   // 設置新版 API 到 window for Chrome Extension compatibility
@@ -164,21 +178,24 @@ export function setupHighlighter(options = {}) {
     waitForDOMStability,
 
     // Convenience methods
-    init: options => initHighlighter(options),
-    initWithToolbar: options => initHighlighterWithToolbar(options),
+    init: opts => initHighlighter(opts),
+    initWithToolbar: opts => initHighlighterWithToolbar(opts),
     getInstance: () => manager,
     getToolbar: () => toolbar,
     getRestoreManager: () => restoreManager,
   };
 
-  // 🔑 向後兼容：設置舊版 API
+  // 🔑 向後兼容：設置舊版 API（處理 toolbar 為 null 的情況）
   window.notionHighlighter = {
     manager,
     restoreManager,
-    show: () => toolbar.show(),
-    hide: () => toolbar.hide(),
-    minimize: () => toolbar.minimize(),
+    show: () => toolbar?.show(),
+    hide: () => toolbar?.hide(),
+    minimize: () => toolbar?.minimize(),
     toggle: () => {
+      if (!toolbar) {
+        return;
+      }
       const state = toolbar.stateManager.currentState;
       if (state === 'hidden') {
         toolbar.show();
@@ -219,18 +236,16 @@ export function setupHighlighter(options = {}) {
 
 // 自動初始化（在 browser 環境中）
 if (typeof window !== 'undefined' && !window.HighlighterV2) {
-  // 🔑 異步初始化：先檢查頁面狀態，防止在已刪除頁面上恢復標註
+  // 🔑 異步初始化：先檢查頁面狀態，決定是否恢復標註和創建 Toolbar
   const initializeExtension = async () => {
     let skipRestore = false;
+    let skipToolbar = true; // 默認不創建 Toolbar（頁面未保存或已刪除）
 
-    // 檢查頁面狀態（使用正常緩存機制，不帶 forceRefresh）
-    // 只有當緩存過期（>60s）時，Background 才會進行 API 檢查
-    // 如果發現頁面已刪除，會返回 wasDeleted: true
+    // 檢查頁面狀態
     if (window.chrome?.runtime?.sendMessage) {
       try {
         const response = await new Promise(resolve => {
           window.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, result => {
-            // 處理 Chrome runtime 錯誤（例如 extension context invalidated）
             if (window.chrome.runtime.lastError) {
               resolve(null);
             } else {
@@ -240,18 +255,22 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
         });
 
         if (response?.wasDeleted) {
-          // 頁面已在 Notion 刪除，跳過標註恢復
+          // 頁面已在 Notion 刪除，跳過標註恢復和 Toolbar
           skipRestore = true;
-          console.log('[Highlighter] Page was deleted in Notion, skipping highlight restore.');
+          skipToolbar = true;
+          Logger.log('[Highlighter] Page was deleted, skipping toolbar and restore.');
+        } else if (response?.isSaved) {
+          // 頁面已保存，創建 Toolbar
+          skipToolbar = false;
         }
+        // 如果 isSaved === false 且 wasDeleted === false，表示頁面未保存，不創建 Toolbar
       } catch (error) {
-        // 如果檢查失敗，默認恢復標註（Fail Safe）
-        console.warn('[Highlighter] Failed to check page status:', error);
+        Logger.warn('[Highlighter] Failed to check page status:', error);
       }
     }
 
-    // 初始化 Highlighter（傳入 skipRestore 選項）
-    setupHighlighter({ skipRestore });
+    // 初始化 Highlighter
+    setupHighlighter({ skipRestore, skipToolbar });
   };
 
   initializeExtension();

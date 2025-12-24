@@ -26,6 +26,7 @@ export class Toolbar {
     this.manager = highlightManager;
     this.stateManager = new ToolbarStateManager();
     this.isHighlightModeActive = false;
+    this._initialized = false;
 
     // 注入全局樣式
     injectGlobalStyles();
@@ -34,13 +35,32 @@ export class Toolbar {
     this.container = createToolbarContainer();
     this.miniIcon = createMiniIcon();
 
-    // 插入到 DOM
+    // 插入到 DOM（默認隱藏）
+    this.container.style.display = 'none';
+    this.miniIcon.style.display = 'none';
     document.body.appendChild(this.container);
     document.body.appendChild(this.miniIcon);
 
-    // 初始化
+    // 綁定事件
     this.bindEvents();
+  }
+
+  /**
+   * 異步初始化：從 storage 讀取狀態並應用
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    if (this._initialized) {
+      return;
+    }
+
+    // 初始化 stateManager（從 chrome.storage.session 讀取狀態）
+    await this.stateManager.initialize();
+
+    // 應用保存的狀態
     this.handleStateChange(this.stateManager.currentState);
+
+    this._initialized = true;
   }
 
   /**

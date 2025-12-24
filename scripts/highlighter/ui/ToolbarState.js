@@ -1,7 +1,11 @@
 /**
  * 工具欄狀態管理器
  * 負責管理工具欄的三種狀態：展開、最小化、隱藏
+ *
+ * 使用 chrome.storage.session 儲存狀態（瀏覽器關閉後自動清除）
  */
+
+const STORAGE_KEY = 'toolbarState';
 
 /**
  * 工具欄狀態常量
@@ -18,20 +22,35 @@ export const ToolbarStates = {
 export class ToolbarStateManager {
   constructor() {
     this.listeners = new Set();
-    // 從 localStorage 讀取初始狀態，默認為 HIDDEN
-    // 從 localStorage 讀取初始狀態，默認為 HIDDEN
-    let savedState = null;
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        savedState = window.localStorage.getItem('notion-highlighter-state');
-      } catch (_error) {
-        // 忽略訪問錯誤（如隱私模式禁用 localStorage）
-      }
+    // 默認為 HIDDEN，稍後通過 initialize() 從 storage 讀取
+    this._currentState = ToolbarStates.HIDDEN;
+    this._initialized = false;
+  }
+
+  /**
+   * 異步初始化：從 chrome.storage.session 讀取狀態
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    if (this._initialized) {
+      return;
     }
 
-    this._currentState = Object.values(ToolbarStates).includes(savedState)
-      ? savedState
-      : ToolbarStates.HIDDEN;
+    try {
+      // 檢查 chrome.storage.session 是否可用
+      if (typeof chrome !== 'undefined' && chrome.storage?.session) {
+        const result = await chrome.storage.session.get([STORAGE_KEY]);
+        const savedState = result[STORAGE_KEY];
+
+        if (Object.values(ToolbarStates).includes(savedState)) {
+          this._currentState = savedState;
+        }
+      }
+    } catch (error) {
+      console.warn('[ToolbarState] 無法從 storage 讀取狀態:', error);
+    }
+
+    this._initialized = true;
   }
 
   /**
@@ -53,15 +72,28 @@ export class ToolbarStateManager {
 
     if (this._currentState !== newState) {
       this._currentState = newState;
-      // 保存狀態到 localStorage
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem('notion-highlighter-state', newState);
-        }
-      } catch (error) {
-        console.warn('[ToolbarState] 無法保存狀態到 localStorage:', error);
-      }
+
+      // 保存狀態到 chrome.storage.session
+      this._saveState(newState);
+
       this.notifyListeners();
+    }
+  }
+
+  /**
+   * 保存狀態到 storage（異步，不阻塞）
+   * @param {string} state
+   * @private
+   */
+  _saveState(state) {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage?.session) {
+        chrome.storage.session.set({ [STORAGE_KEY]: state }).catch(error => {
+          console.warn('[ToolbarState] 無法保存狀態:', error);
+        });
+      }
+    } catch (error) {
+      console.warn('[ToolbarState] 保存狀態時出錯:', error);
     }
   }
 
@@ -75,7 +107,7 @@ export class ToolbarStateManager {
     try {
       listener(this._currentState);
     } catch (error) {
-      console.error('[ToolbarState] 監聽器執行錯誤:', error);
+      console.error('[ToolbarState] 監聯器執行錯誤:', error);
     }
   }
 
