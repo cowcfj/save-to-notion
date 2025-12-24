@@ -486,7 +486,14 @@ export function createSaveHandlers(services) {
             notionService.setApiKey(config.notionApiKey);
 
             // 嚴格檢查：確認頁面在 Notion 中是否真的存在
-            const exists = await notionService.checkPageExists(savedData.notionPageId);
+            let exists = await notionService.checkPageExists(savedData.notionPageId);
+
+            // 如果第一次檢查返回 null (不確定/錯誤)，嘗試重試一次以排除冷啟動或暫時性網絡問題
+            if (exists === null) {
+              Logger.warn('⚠️ First check for page existence failed, retrying...');
+              await new Promise(resolve => setTimeout(resolve, 500)); // 500ms 延遲
+              exists = await notionService.checkPageExists(savedData.notionPageId);
+            }
 
             if (exists === false) {
               // 頁面已在 Notion 刪除，清理本地狀態
@@ -507,7 +514,7 @@ export function createSaveHandlers(services) {
               await storageService.setSavedPageData(normUrl, savedData);
             } else if (exists === null) {
               Logger.warn(
-                '⚠️ Failed to verify page existence (network/API error). Assuming local state is correct.'
+                '⚠️ Failed to verify page existence (network/API error) after retry. Assuming local state is correct.'
               );
             }
           }
