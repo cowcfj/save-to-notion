@@ -7,6 +7,12 @@
 
 import Logger from './Logger.js';
 import { IMAGE_VALIDATION as CONFIG_VALIDATION } from '../config/constants.js';
+import {
+  IMAGE_ATTRIBUTES,
+  IMAGE_EXTENSIONS,
+  IMAGE_PATH_PATTERNS,
+  EXCLUDE_PATTERNS,
+} from '../config/patterns.js';
 
 // 圖片驗證 constant 默認值，如果 config 導入失敗或缺漏則使用這些
 const DEFAULT_VALIDATION = {
@@ -20,37 +26,8 @@ const DEFAULT_VALIDATION = {
 
 const IMAGE_VALIDATION = { ...DEFAULT_VALIDATION, ...(CONFIG_VALIDATION || {}) };
 
-/**
- * 統一的圖片屬性列表，涵蓋各種懶加載和響應式圖片的情況
- */
-export const IMAGE_ATTRIBUTES = [
-  'src',
-  'data-src',
-  'data-lazy-src',
-  'data-original',
-  'data-srcset',
-  'data-lazy-srcset',
-  'data-original-src',
-  'data-actualsrc',
-  'data-src-original',
-  'data-echo',
-  'data-href',
-  'data-large',
-  'data-bigsrc',
-  'data-full-src',
-  'data-hi-res-src',
-  'data-large-src',
-  'data-zoom-src',
-  'data-image-src',
-  'data-img-src',
-  'data-real-src',
-  'data-lazy',
-  'data-url',
-  'data-image',
-  'data-img',
-  'data-fallback-src',
-  'data-origin',
-];
+// 重新導出 IMAGE_ATTRIBUTES 以維持向後兼容
+export { IMAGE_ATTRIBUTES };
 
 /**
  * 清理和標準化圖片 URL
@@ -194,68 +171,22 @@ function isValidImageUrl(url) {
     // 為了後續檢查，如果是相對路徑，再次轉為對象
     const urlObj = isAbsolute ? new URL(cleanedUrl) : new URL(cleanedUrl, 'http://dummy-base.com');
 
-    // 檢查文件擴展名
+    // 檢查文件擴展名（使用 patterns.js 的配置）
     const pathname = urlObj.pathname.toLowerCase();
-    const imageExtensions = [
-      '.jpg',
-      '.jpeg',
-      '.png',
-      '.gif',
-      '.webp',
-      '.svg',
-      '.bmp',
-      '.ico',
-      '.tiff',
-      '.tif',
-      '.avif',
-      '.heic',
-      '.heif',
-    ];
-    const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext));
+    const hasImageExtension = IMAGE_EXTENSIONS.test(pathname);
 
     // 如果 URL 包含圖片擴展名，直接返回 true
     if (hasImageExtension) {
       return true;
     }
 
-    // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
-    const imagePathPatterns = [
-      /\/image[s]?\//i,
-      /\/img[s]?\//i,
-      /\/photo[s]?\//i,
-      /\/picture[s]?\//i,
-      /\/media\//i,
-      /\/upload[s]?\//i,
-      /\/asset[s]?\//i,
-      /\/file[s]?\//i,
-      /\/content\//i,
-      /\/wp-content\//i,
-      /\/cdn\//i,
-      /cdn\d*\./i, // cdn1.example.com, cdn2.example.com
-      /\/static\//i,
-      /\/thumb[s]?\//i,
-      /\/thumbnail[s]?\//i,
-      /\/resize\//i,
-      /\/crop\//i,
-      /\/(\d{4})\/(\d{2})\//, // 日期路徑如 /2025/10/
-    ];
-
-    // 排除明顯不是圖片的 URL
-    const excludePatterns = [
-      /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
-      /\/api\//i,
-      /\/ajax\//i,
-      /\/callback/i,
-      /\/track/i,
-      /\/analytics/i,
-      /\/pixel/i,
-    ];
-
-    if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
+    // 排除明顯不是圖片的 URL（使用 patterns.js 的配置）
+    if (EXCLUDE_PATTERNS.some(pattern => pattern.test(cleanedUrl))) {
       return false;
     }
 
-    return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+    // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
+    return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(cleanedUrl));
   } catch (_error) {
     return false;
   }

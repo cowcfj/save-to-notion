@@ -178,13 +178,16 @@ class NotionService {
 
   /**
    * 構建 API URL
-   * @param {string} path - 路徑（相對於 BASE_URL）
+   * @param {string} path - 路徑（相對於 BASE_URL，如 '/pages' 或 '/blocks/xxx/children'）
    * @param {Object} params - 查詢參數（null 和 undefined 的值會被自動過濾）
    * @returns {string}
    * @private
    */
   _buildUrl(path, params = {}) {
-    const url = new URL(path, this.config.BASE_URL);
+    // 確保路徑正確拼接到 BASE_URL（處理開頭的斜線）
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const fullUrl = `${this.config.BASE_URL}${normalizedPath}`;
+    const url = new URL(fullUrl);
     Object.entries(params).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
         url.searchParams.set(key, value);

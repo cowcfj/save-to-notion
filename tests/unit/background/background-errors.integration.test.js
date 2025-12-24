@@ -658,7 +658,7 @@ describe('background error branches (integration)', () => {
     const originalFetch = global.fetch;
     global.fetch = jest.fn((requestUrl, init) => {
       // 檢查頁面存在
-      if (/\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
+      if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -667,7 +667,7 @@ describe('background error branches (integration)', () => {
         });
       }
       // 讀取既有內容
-      if (/\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/v1\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -676,7 +676,7 @@ describe('background error branches (integration)', () => {
         });
       }
       // 更新內容 → 返回 validation_error 且 message 含 image
-      if (/\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'PATCH') {
+      if (/\/v1\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'PATCH') {
         return Promise.resolve({
           ok: false,
           status: 400,
@@ -755,21 +755,21 @@ describe('background error branches (integration)', () => {
 
     const originalFetch = global.fetch;
     global.fetch = jest.fn((requestUrl, init) => {
-      if (/\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
+      if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
         });
       }
-      if (/\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
         });
       }
-      if (/\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'PATCH') {
+      if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'PATCH') {
         return Promise.resolve({
           ok: false,
           status: 400,
@@ -843,21 +843,21 @@ describe('background error branches (integration)', () => {
 
     const originalFetch = global.fetch;
     global.fetch = jest.fn((requestUrl, init) => {
-      if (/\/pages\//u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/v1\/pages\//u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
         });
       }
-      if (/\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
         });
       }
-      if (/\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
+      if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
         return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
       }
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
