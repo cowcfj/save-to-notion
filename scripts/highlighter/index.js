@@ -218,21 +218,20 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
   const initializeExtension = async () => {
     let skipRestore = false;
 
-    // 優先檢查頁面狀態（使用 forceRefresh 繞過緩存）
+    // 檢查頁面狀態（使用正常緩存機制，不帶 forceRefresh）
+    // 只有當緩存過期（>60s）時，Background 才會進行 API 檢查
+    // 如果發現頁面已刪除，會返回 wasDeleted: true
     if (window.chrome?.runtime?.sendMessage) {
       try {
         const response = await new Promise(resolve => {
-          window.chrome.runtime.sendMessage(
-            { action: 'checkPageStatus', forceRefresh: true },
-            result => {
-              // 處理 Chrome runtime 錯誤（例如 extension context invalidated）
-              if (window.chrome.runtime.lastError) {
-                resolve(null);
-              } else {
-                resolve(result);
-              }
+          window.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, result => {
+            // 處理 Chrome runtime 錯誤（例如 extension context invalidated）
+            if (window.chrome.runtime.lastError) {
+              resolve(null);
+            } else {
+              resolve(result);
             }
-          );
+          });
         });
 
         if (response?.wasDeleted) {
