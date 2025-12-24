@@ -2,12 +2,13 @@
  * 工具欄狀態管理器
  * 負責管理工具欄的三種狀態：展開、最小化、隱藏
  *
- * 使用 chrome.storage.session 儲存狀態（瀏覽器關閉後自動清除）
+ * 使用 sessionStorage 儲存狀態（每個標籤頁獨立，刷新頁面後保持）
+ * 注意：chrome.storage.session 在 Content Script 中無法訪問
  */
 
 import Logger from '../../utils/Logger.js';
 
-const STORAGE_KEY = 'toolbarState';
+const STORAGE_KEY = 'notion-highlighter-toolbar-state';
 
 /**
  * 工具欄狀態常量
@@ -30,7 +31,7 @@ export class ToolbarStateManager {
   }
 
   /**
-   * 異步初始化：從 chrome.storage.session 讀取狀態
+   * 異步初始化：從 sessionStorage 讀取狀態
    * @returns {Promise<void>}
    */
   async initialize() {
@@ -39,16 +40,16 @@ export class ToolbarStateManager {
     }
 
     try {
-      // 檢查 chrome.storage.session 是否可用
-      if (typeof chrome !== 'undefined' && chrome.storage?.session) {
-        const result = await chrome.storage.session.get([STORAGE_KEY]);
-        const savedState = result[STORAGE_KEY];
+      // 使用 sessionStorage（每個標籤頁獨立，刷新頁面後保持）
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        const savedState = window.sessionStorage.getItem(STORAGE_KEY);
 
-        if (Object.values(ToolbarStates).includes(savedState)) {
+        if (savedState && Object.values(ToolbarStates).includes(savedState)) {
           this._currentState = savedState;
         }
       }
     } catch (error) {
+      // 在某些環境（如隱私模式）sessionStorage 可能不可用
       Logger.warn('[ToolbarState] 無法從 storage 讀取狀態:', error);
     }
 
@@ -75,7 +76,7 @@ export class ToolbarStateManager {
     if (this._currentState !== newState) {
       this._currentState = newState;
 
-      // 保存狀態到 chrome.storage.session
+      // 保存狀態到 sessionStorage
       this._saveState(newState);
 
       this.notifyListeners();
@@ -83,19 +84,17 @@ export class ToolbarStateManager {
   }
 
   /**
-   * 保存狀態到 storage（異步，不阻塞）
+   * 保存狀態到 storage
    * @param {string} state
    * @private
    */
   _saveState(state) {
     try {
-      if (typeof chrome !== 'undefined' && chrome.storage?.session) {
-        chrome.storage.session.set({ [STORAGE_KEY]: state }).catch(error => {
-          Logger.warn('[ToolbarState] 無法保存狀態:', error);
-        });
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.setItem(STORAGE_KEY, state);
       }
     } catch (error) {
-      Logger.warn('[ToolbarState] 保存狀態時出錯:', error);
+      Logger.warn('[ToolbarState] 無法保存狀態:', error);
     }
   }
 
@@ -114,7 +113,7 @@ export class ToolbarStateManager {
   }
 
   /**
-   * 移除監聽器
+   * 移除監聯器
    * @param {Function} listener
    */
   removeListener(listener) {
