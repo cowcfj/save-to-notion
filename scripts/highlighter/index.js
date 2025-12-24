@@ -132,6 +132,11 @@ export function setupHighlighter(options = {}) {
   // 初始化 manager 和 toolbar（傳遞 skipRestore 選項）
   const { manager, toolbar } = initHighlighterWithToolbar(options);
 
+  // 🔑 如果需要跳過恢復（頁面已刪除），隱藏 Toolbar
+  if (options.skipRestore) {
+    toolbar.hide();
+  }
+
   // 🔑 初始化 RestoreManager 並自動恢復標註
   const restoreManager = new RestoreManager(manager, toolbar);
 
