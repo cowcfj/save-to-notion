@@ -11,6 +11,8 @@
 
 /* global chrome */
 
+import { TAB_SERVICE } from '../../config/constants.js';
+
 /**
  * TabService 類
  */
@@ -211,7 +213,7 @@ class TabService {
             timeoutId = setTimeout(() => {
               cleanup();
               this.logger.warn?.(`[TabService] Tab ${tabId} loading timeout, cleanup listeners`);
-            }, 10000);
+            }, TAB_SERVICE.LOADING_TIMEOUT_MS);
 
             return;
           }
@@ -245,7 +247,7 @@ class TabService {
         // 添加延遲，確保頁面完全載入
         setTimeout(() => {
           this.updateTabStatus(tabId, tab.url);
-        }, 1000);
+        }, TAB_SERVICE.STATUS_UPDATE_DELAY_MS);
       }
     });
 
