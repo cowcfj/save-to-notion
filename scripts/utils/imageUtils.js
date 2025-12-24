@@ -500,17 +500,24 @@ function filterNotionImageBlocks(blocks, excludeImages = false) {
   }
 
   const invalidReasons = [];
+  const validBlocks = [];
 
-  const validBlocks = blocks.filter(block => {
+  blocks.forEach((block, index) => {
     // 基本區塊驗證（從 NotionService._isValidBlock 移植）
     if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
-      invalidReasons.push({ blockId: block?.id, reason: 'invalid_structure' });
-      return false;
+      invalidReasons.push({
+        index,
+        blockId: block?.id,
+        blockType: block?.type ?? 'unknown',
+        reason: 'invalid_structure',
+      });
+      return;
     }
 
     // 非圖片區塊直接通過
     if (block.type !== 'image') {
-      return true;
+      validBlocks.push(block);
+      return;
     }
 
     // 圖片 URL 驗證
@@ -519,16 +526,27 @@ function filterNotionImageBlocks(blocks, excludeImages = false) {
     // 2. file: Notion 內部托管的圖片 (block.image.file.url)
     const imageUrl = block.image?.external?.url || block.image?.file?.url;
     if (!imageUrl) {
-      invalidReasons.push({ blockId: block.id, reason: 'missing_url' });
-      return false;
+      invalidReasons.push({
+        index,
+        blockId: block.id,
+        blockType: 'image',
+        reason: 'missing_url',
+      });
+      return;
     }
 
     if (!isNotionCompatibleImageUrl(imageUrl)) {
-      invalidReasons.push({ blockId: block.id, reason: 'invalid_url', url: imageUrl });
-      return false;
+      invalidReasons.push({
+        index,
+        blockId: block.id,
+        blockType: 'image',
+        reason: 'invalid_url',
+        url: imageUrl,
+      });
+      return;
     }
 
-    return true;
+    validBlocks.push(block);
   });
 
   return {
