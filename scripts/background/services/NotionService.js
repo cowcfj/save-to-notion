@@ -343,9 +343,10 @@ class NotionService {
         }
       });
 
-      // 批次間延遲，確保不超過速率限制
+      // 批次間延遲：並發 3 請求用盡 1 秒配額，需等待 1 秒
+      // Notion API 限制: 3 req/s，每批 3 請求後等待 1000ms
       if (i + CONCURRENCY < blockIds.length) {
-        await sleep(this.config.RATE_LIMIT_DELAY);
+        await sleep(1000);
       }
     }
 
