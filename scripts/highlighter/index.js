@@ -215,6 +215,7 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
 
   // 🔑 通知 background 檢查頁面狀態並更新 badge
   // 這確保在頁面載入後 extension icon 的 badge 立即更新
+  // 同時，如果頁面已在 Notion 刪除，background 會清除本地數據
   if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
     window.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, _response => {
       // 靜默處理，不需要回應

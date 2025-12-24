@@ -45,6 +45,13 @@ export class HighlightManager {
     try {
       Logger.info('[HighlightManager] 開始初始化');
 
+      // 步驟0：先驗證頁面狀態（確認 Notion 頁面仍存在）
+      const shouldRestore = await this.validatePageStatus();
+      if (!shouldRestore) {
+        Logger.info('[HighlightManager] 頁面未保存或已刪除，跳過標註恢復');
+        return;
+      }
+
       // 步驟1：檢查並遷移 localStorage 數據
       await this.checkAndMigrateLegacyData();
 
@@ -54,6 +61,55 @@ export class HighlightManager {
       Logger.info('[HighlightManager] 初始化完成');
     } catch (error) {
       Logger.error('[HighlightManager] 初始化失敗:', error);
+    }
+  }
+
+  /**
+   * 驗證頁面狀態
+   * 在恢復標註前先確認對應的 Notion 頁面是否仍存在
+   * @returns {Promise<boolean>} 是否應該恢復標註
+   */
+  async validatePageStatus() {
+    // 非擴充功能環境，允許恢復（測試環境等）
+    if (typeof window === 'undefined' || !window.chrome?.runtime?.sendMessage) {
+      return true;
+    }
+
+    try {
+      const response = await new Promise(resolve => {
+        window.chrome.runtime.sendMessage(
+          { action: 'checkPageStatus', forceRefresh: true },
+          res => {
+            // 處理可能的連接錯誤
+            if (window.chrome.runtime.lastError) {
+              Logger.warn(
+                '[HighlightManager] 驗證頁面狀態時發生錯誤:',
+                window.chrome.runtime.lastError.message
+              );
+              resolve(null);
+              return;
+            }
+            resolve(res);
+          }
+        );
+      });
+
+      // 頁面已在 Notion 刪除
+      if (response?.wasDeleted) {
+        Logger.info('[HighlightManager] 偵測到頁面已在 Notion 刪除，跳過標註恢復');
+        return false;
+      }
+
+      // 頁面未保存也不需要恢復標註
+      if (response?.isSaved === false) {
+        return false;
+      }
+
+      // 其他情況（包含錯誤、未知狀態）允許恢復
+      return true;
+    } catch (error) {
+      Logger.warn('[HighlightManager] 無法驗證頁面狀態，允許恢復:', error);
+      return true;
     }
   }
 

@@ -465,7 +465,8 @@ export function createSaveHandlers(services) {
           const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
           const lastVerified = savedData.lastVerifiedAt || 0;
           const now = Date.now();
-          const isFresh = now - lastVerified < TTL;
+          // forceRefresh 會繞過緩存，強制重新驗證
+          const isFresh = !request.forceRefresh && now - lastVerified < TTL;
 
           if (isFresh) {
             // 緩存有效，直接返回本地狀態

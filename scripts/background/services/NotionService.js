@@ -176,13 +176,23 @@ class NotionService {
 
   /**
    * 構建 API URL
-   * @param {string} path - 路徑（相對於 BASE_URL）
+   * @param {string} path - 路徑（相對於 BASE_URL，應帶前導斜線如 '/pages'）
    * @param {Object} params - 查詢參數（null 和 undefined 的值會被自動過濾）
    * @returns {string}
    * @private
    */
   _buildUrl(path, params = {}) {
-    const url = new URL(path, this.config.BASE_URL);
+    // 使用字串拼接而非 new URL(path, BASE_URL)
+    // 因為 new URL 會將絕對路徑（以 / 開頭）解析為從 origin 開始，
+    // 導致 BASE_URL 中的 /v1 路徑被覆蓋
+    // 例如：new URL('/pages/abc', 'https://api.notion.com/v1') 會得到
+    //       https://api.notion.com/pages/abc（錯誤！）而非
+    //       https://api.notion.com/v1/pages/abc（正確）
+    const baseUrl = this.config.BASE_URL.replace(/\/$/, ''); // 移除尾部斜線
+    const fullUrl = `${baseUrl}${path}`;
+
+    // 處理查詢參數
+    const url = new URL(fullUrl);
     Object.entries(params).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
         url.searchParams.set(key, value);
