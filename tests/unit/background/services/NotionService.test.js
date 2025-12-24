@@ -154,7 +154,7 @@ describe('NotionService', () => {
     it('應該在路徑不是字串時拋出錯誤', () => {
       expect(() => service._buildUrl(123)).toThrow('Invalid path: must be a string');
       expect(() => service._buildUrl(null)).toThrow('Invalid path: must be a string');
-      expect(() => service._buildUrl(undefined)).toThrow('Invalid path: must be a string');
+      expect(() => service._buildUrl()).toThrow('Invalid path: must be a string');
     });
 
     it('應該正確處理包含特殊字符的路徑', () => {
