@@ -114,7 +114,7 @@ export class ToolbarStateManager {
   }
 
   /**
-   * 移除監聯器
+   * 移除監聽器
    * @param {Function} listener
    */
   removeListener(listener) {
