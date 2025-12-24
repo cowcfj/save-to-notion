@@ -25,6 +25,7 @@ class TabService {
    * @param {Function} options.getSavedPageData - 獲取已保存頁面數據的函數
    * @param {Function} options.isRestrictedUrl - 檢查受限 URL 的函數
    * @param {Function} options.isRecoverableError - 檢查可恢復錯誤的函數
+   * @param {Function} options.onNoHighlightsFound - 無標註時的回調（用於遷移邏輯解耦）
    */
   constructor(options = {}) {
     this.logger = options.logger || console;
@@ -33,6 +34,8 @@ class TabService {
     this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
     this.isRestrictedUrl = options.isRestrictedUrl || (() => false);
     this.isRecoverableError = options.isRecoverableError || (() => false);
+    // 回調：無標註時觸發（可用於遷移或其他邏輯）
+    this.onNoHighlightsFound = options.onNoHighlightsFound || null;
     // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
     this.pendingListeners = new Map();
     // 追蹤正在處理中的 tab，防止並發調用
@@ -229,8 +232,9 @@ class TabService {
           );
         }
       } else {
-        // 沒有找到現有標註，若曾有遷移資料則恢復一次後清理
-        await this.migrateLegacyHighlights(tabId, normUrl, highlightsKey);
+        // 沒有找到現有標註，執行回調或預設遷移
+        const handler = this.onNoHighlightsFound ?? this.migrateLegacyHighlights.bind(this);
+        await handler(tabId, normUrl, highlightsKey);
       }
     } catch (error) {
       this.logger.error?.('Error updating tab status:', error);

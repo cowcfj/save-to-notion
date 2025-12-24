@@ -298,16 +298,19 @@ class NotionService {
   }
 
   /**
-   * 批量刪除區塊
+   * 批量刪除區塊（並發控制版本）
+   * 使用 3 並發符合 Notion API 限流 (3 req/s)
    * @param {Array<string>} blockIds - 區塊 ID 列表
    * @returns {Promise<{successCount: number, failureCount: number, errors: Array<{id: string, error: string}>}>}
    * @private
    */
   async _deleteBlocksByIds(blockIds) {
-    let successCount = 0;
+    const CONCURRENCY = 3; // Notion API 限制: 3 req/s
     const errors = [];
+    let successCount = 0;
 
-    for (const blockId of blockIds) {
+    // 刪除單個區塊的函數
+    const deleteBlock = async blockId => {
       try {
         const response = await this._apiRequest(`/blocks/${blockId}`, {
           method: 'DELETE',
@@ -316,20 +319,34 @@ class NotionService {
         });
 
         if (response.ok) {
+          return { success: true, id: blockId };
+        }
+        const errorText = await response.text().catch(() => response.statusText);
+        this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, errorText);
+        return { success: false, id: blockId, error: errorText };
+      } catch (deleteError) {
+        this.logger.warn?.(`刪除區塊異常 ${blockId}:`, deleteError.message);
+        return { success: false, id: blockId, error: deleteError.message };
+      }
+    };
+
+    // 分批並發處理（每批 CONCURRENCY 個）
+    for (let i = 0; i < blockIds.length; i += CONCURRENCY) {
+      const batch = blockIds.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(batch.map(deleteBlock));
+
+      results.forEach(result => {
+        if (result.success) {
           successCount++;
         } else {
-          // 嘗試獲取錯誤細節
-          const errorText = await response.text().catch(() => response.statusText);
-          errors.push({ id: blockId, error: errorText });
-          this.logger.warn?.(`刪除區塊失敗 ${blockId}:`, errorText);
+          errors.push({ id: result.id, error: result.error });
         }
-      } catch (deleteError) {
-        errors.push({ id: blockId, error: deleteError.message });
-        this.logger.warn?.(`刪除區塊異常 ${blockId}:`, deleteError.message);
-      }
+      });
 
-      // 速率限制：防止快速連續刪除觸發 429 錯誤
-      await sleep(this.config.RATE_LIMIT_DELAY);
+      // 批次間延遲，確保不超過速率限制
+      if (i + CONCURRENCY < blockIds.length) {
+        await sleep(this.config.RATE_LIMIT_DELAY);
+      }
     }
 
     return { successCount, failureCount: errors.length, errors };
