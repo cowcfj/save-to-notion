@@ -40,8 +40,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // 檢查頁面狀態並更新 UI
-  const pageStatus = await checkPageStatus();
+  // 檢查頁面狀態並更新 UI（強制刷新以獲取最新狀態）
+  const pageStatus = await checkPageStatus({ forceRefresh: true });
   if (pageStatus?.success) {
     if (pageStatus.isSaved) {
       updateUIForSavedPage(elements, pageStatus);

@@ -78,21 +78,6 @@ const tabService = new TabService({
   getSavedPageData: url => storageService.getSavedPageData(url),
   isRestrictedUrl: isRestrictedInjectionUrl,
   isRecoverableError: isRecoverableInjectionError,
-  // 新增：頁面驗證和清除函數
-  verifyPageStatus: async notionPageId => {
-    try {
-      const config = await storageService.getConfig(['notionApiKey']);
-      if (!config.notionApiKey) {
-        return null; // 無 API Key，無法驗證
-      }
-      notionService.setApiKey(config.notionApiKey);
-      return notionService.checkPageExists(notionPageId);
-    } catch (error) {
-      Logger.warn('[TabService] verifyPageStatus error:', error);
-      return null; // 驗證失敗，不阻止流程
-    }
-  },
-  clearPageState: url => storageService.clearPageState(url),
 });
 
 // ==========================================

@@ -23,8 +23,6 @@ class TabService {
    * @param {Function} options.getSavedPageData - 獲取已保存頁面數據的函數
    * @param {Function} options.isRestrictedUrl - 檢查受限 URL 的函數
    * @param {Function} options.isRecoverableError - 檢查可恢復錯誤的函數
-   * @param {Function} options.verifyPageStatus - 驗證 Notion 頁面是否存在的函數
-   * @param {Function} options.clearPageState - 清除頁面狀態的函數
    */
   constructor(options = {}) {
     this.logger = options.logger || console;
@@ -33,10 +31,6 @@ class TabService {
     this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
     this.isRestrictedUrl = options.isRestrictedUrl || (() => false);
     this.isRecoverableError = options.isRecoverableError || (() => false);
-    // 新增：頁面狀態驗證和清除函數
-    this.verifyPageStatus = options.verifyPageStatus || null;
-    this.clearPageState = options.clearPageState || null;
-
     // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
     this.pendingListeners = new Map();
     // 追蹤正在處理中的 tab，防止並發調用
@@ -84,26 +78,7 @@ class TabService {
       // 0. 獲取本地保存數據
       const savedData = await this.getSavedPageData(normUrl);
 
-      // 如果有本地保存數據且配置了驗證函數，先驗證 Notion 頁面是否仍存在
-      if (savedData?.notionPageId && this.verifyPageStatus) {
-        try {
-          const pageExists = await this.verifyPageStatus(savedData.notionPageId);
-          if (pageExists === false) {
-            // 頁面已在 Notion 刪除，清除本地數據
-            this.logger.info?.(`[TabService] Notion 頁面已刪除，清除本地數據: ${normUrl}`);
-            if (this.clearPageState) {
-              await this.clearPageState(normUrl);
-            }
-            chrome.action.setBadgeText({ text: '', tabId });
-            return; // 不注入 Bundle，不恢復標註
-          }
-        } catch (verifyError) {
-          // 驗證失敗時不阻止流程，允許顯示本地數據
-          this.logger.warn?.('[TabService] 驗證頁面狀態失敗:', verifyError);
-        }
-      }
-
-      // 1. 根據驗證結果更新徽章
+      // 1. 檢查是否已保存，更新徽章
       if (savedData) {
         chrome.action.setBadgeText({ text: '✓', tabId });
         chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId });
