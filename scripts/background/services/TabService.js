@@ -31,7 +31,6 @@ class TabService {
     this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
     this.isRestrictedUrl = options.isRestrictedUrl || (() => false);
     this.isRecoverableError = options.isRecoverableError || (() => false);
-
     // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
     this.pendingListeners = new Map();
     // 追蹤正在處理中的 tab，防止並發調用
@@ -76,8 +75,10 @@ class TabService {
     const highlightsKey = `highlights_${normUrl}`;
 
     try {
-      // 1. 檢查是否已保存，更新徽章
+      // 1. 獲取本地保存數據
       const savedData = await this.getSavedPageData(normUrl);
+
+      // 2. 檢查是否已保存，更新徽章
       if (savedData) {
         chrome.action.setBadgeText({ text: '✓', tabId });
         chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId });
@@ -85,7 +86,7 @@ class TabService {
         chrome.action.setBadgeText({ text: '', tabId });
       }
 
-      // 2. 檢查是否有標註，注入 Bundle 以自動恢復
+      // 3. 檢查是否有標註，注入 Bundle 以自動恢復
       const data = await chrome.storage.local.get([highlightsKey]);
       const storedData = data[highlightsKey];
 

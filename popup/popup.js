@@ -3,9 +3,11 @@
  *
  * 職責：
  * - 獲取 DOM 元素
- * - 綁定事件監聽器
+ * - 綁定事件監聯器
  * - 調用 UI 和 Actions 模組
  */
+
+/* global chrome */
 
 import {
   getElements,
@@ -26,6 +28,7 @@ import {
   getActiveTab,
   clearHighlights,
 } from './popupActions.js';
+import Logger from '../scripts/utils/Logger.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   // 獲取所有 DOM 元素
@@ -40,14 +43,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // 檢查頁面狀態並更新 UI
-  const pageStatus = await checkPageStatus();
-  if (pageStatus?.success) {
-    if (pageStatus.isSaved) {
-      updateUIForSavedPage(elements, pageStatus);
-    } else {
-      updateUIForUnsavedPage(elements, pageStatus);
+  // 檢查頁面狀態並更新 UI（強制刷新以獲取最新狀態）
+  try {
+    const pageStatus = await checkPageStatus({ forceRefresh: true });
+
+    if (pageStatus?.success) {
+      if (pageStatus.isSaved) {
+        updateUIForSavedPage(elements, pageStatus);
+      } else {
+        updateUIForUnsavedPage(elements, pageStatus);
+      }
     }
+  } catch (error) {
+    Logger.error('Failed to initialize popup:', error);
+    setStatus(elements, 'Error initializing popup. Please close and reopen.', '#d63384');
   }
 
   // ========== 事件監聽器 ==========
@@ -63,10 +72,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       const message = formatSaveSuccessMessage(response);
       setStatus(elements, message);
 
-      // 更新圖標徽章並刷新 UI
-      const newStatus = await checkPageStatus();
-      if (newStatus?.isSaved) {
-        updateUIForSavedPage(elements, newStatus);
+      // 直接更新 UI，避免額外的 API 請求和潛在的一致性延遲
+      // Mapping savePage response to pageStatus format
+      const directPageStatus = {
+        success: true,
+        isSaved: true,
+        notionUrl: response.url,
+        // notionPageId 並非必須用於 updateUIForSavedPage，除非需要鏈接
+        notionPageId: response.notionPageId || response.pageId,
+        title: response.title || 'Untitled',
+      };
+
+      updateUIForSavedPage(elements, directPageStatus);
+
+      // 🔑 保存完成後，通知 Content Script 創建並顯示 Toolbar
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id) {
+          await chrome.tabs.sendMessage(tab.id, { action: 'showToolbar' });
+        }
+      } catch (error) {
+        // 如果 Content Script 尚未注入，忽略錯誤
+        Logger.warn('Failed to show toolbar after save:', error);
       }
     } else {
       setStatus(elements, `Failed to save: ${response?.error || 'No response'}`);
@@ -81,7 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 標記按鈕
   elements.highlightButton.addEventListener('click', async () => {
     // 檢查頁面是否已保存
-    const statusResponse = await checkPageStatus();
+    const statusResponse = await checkPageStatus({ forceRefresh: true });
 
     if (!statusResponse?.isSaved) {
       setStatus(elements, 'Please save the page first!', '#d63384');

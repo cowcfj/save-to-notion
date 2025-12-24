@@ -40,16 +40,21 @@ export class HighlightManager {
 
   /**
    * 異步初始化流程
+   * @param {boolean} [skipRestore=false] - 是否跳過恢復標註（用於頁面已刪除的情況）
    */
-  async initialize() {
+  async initialize(skipRestore = false) {
     try {
       Logger.info('[HighlightManager] 開始初始化');
 
       // 步驟1：檢查並遷移 localStorage 數據
       await this.checkAndMigrateLegacyData();
 
-      // 步驟2：從存儲恢復標註
-      await this.restoreHighlights();
+      // 步驟2：從存儲恢復標註（如果允許）
+      if (!skipRestore) {
+        await this.restoreHighlights();
+      } else {
+        Logger.info('[HighlightManager] 跳過恢復標註（頁面已刪除）');
+      }
 
       Logger.info('[HighlightManager] 初始化完成');
     } catch (error) {

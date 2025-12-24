@@ -15,6 +15,8 @@ import { NOTION_API } from '../../config/index.js';
 import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 // 導入圖片區塊過濾函數（整合自 imageUtils）
 import { filterNotionImageBlocks } from '../../utils/imageUtils.js';
+// 導入統一日誌記錄器
+import Logger from '../../utils/Logger.js';
 
 // 使用統一常量構建配置
 const NOTION_CONFIG = {
@@ -184,16 +186,44 @@ class NotionService {
    * @private
    */
   _buildUrl(path, params = {}) {
-    // 確保路徑正確拼接到 BASE_URL（處理開頭的斜線）
+    // 1. 輸入驗證 (Input Validation)
+    if (typeof path !== 'string') {
+      throw new Error(`[NotionService] Invalid path: must be a string, got ${typeof path}`);
+    }
+
+    // 2. Base URL 準備 (確保無尾部斜線)
+    // 這是為了標準化拼接基礎，避免雙重斜線或缺少斜線
+    const baseUrl = this.config.BASE_URL.replace(/\/$/, '');
+
+    // 3. 路徑正規化 (Path normalization)
+    // 確保 path 總是以 / 開頭，這樣與 baseUrl 拼接時格式統一
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    const fullUrl = `${this.config.BASE_URL}${normalizedPath}`;
-    const url = new URL(fullUrl);
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        url.searchParams.set(key, value);
+
+    // 4. 安全的 URL 建構 (Safe URL Construction)
+    // 使用字串拼接全路徑以避免 new URL(path, base) 的陷阱：
+    // 當 path 以 / 開頭時，new URL 會忽略 base path。
+    // 例如：new URL('/pages', 'https://api.notion.com/v1') 會得到 https://api.notion.com/pages (錯誤，丟失 /v1)
+    // 我們需要的是：https://api.notion.com/v1/pages (正確)
+    const fullUrl = `${baseUrl}${normalizedPath}`;
+
+    try {
+      const url = new URL(fullUrl);
+
+      // 5. 附加查詢參數 (Append Query Parameters)
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            url.searchParams.append(key, String(value));
+          }
+        });
       }
-    });
-    return url.toString();
+
+      return url.toString();
+    } catch (error) {
+      // 捕獲所有 URL 建構錯誤，記錄詳細日誌
+      Logger.error(`[NotionService] Failed to construct URL: ${fullUrl}`, error);
+      throw error;
+    }
   }
 
   /**

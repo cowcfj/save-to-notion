@@ -38,9 +38,18 @@ export async function checkSettings() {
  * 檢查頁面狀態
  * @returns {Promise<{success: boolean, isSaved?: boolean, notionUrl?: string, wasDeleted?: boolean}>}
  */
-export async function checkPageStatus() {
+export async function checkPageStatus(options = {}) {
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'checkPageStatus' });
+    // Security: Validate and sanitize input options before passing to background
+    // Ensure forceRefresh is strictly a boolean to prevent injection or unexpected behavior
+    const safeOptions = {
+      forceRefresh: Boolean(options?.forceRefresh),
+    };
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'checkPageStatus',
+      forceRefresh: safeOptions.forceRefresh,
+    });
     return response || { success: false };
   } catch (error) {
     // 當 background 未準備好或連接失敗時

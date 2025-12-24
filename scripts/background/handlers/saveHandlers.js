@@ -465,7 +465,8 @@ export function createSaveHandlers(services) {
           const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
           const lastVerified = savedData.lastVerifiedAt || 0;
           const now = Date.now();
-          const isFresh = now - lastVerified < TTL;
+          // forceRefresh 會繞過緩存，強制重新驗證
+          const isFresh = !request.forceRefresh && now - lastVerified < TTL;
 
           if (isFresh) {
             // 緩存有效，直接返回本地狀態
@@ -485,7 +486,14 @@ export function createSaveHandlers(services) {
             notionService.setApiKey(config.notionApiKey);
 
             // 嚴格檢查：確認頁面在 Notion 中是否真的存在
-            const exists = await notionService.checkPageExists(savedData.notionPageId);
+            let exists = await notionService.checkPageExists(savedData.notionPageId);
+
+            // 如果第一次檢查返回 null (不確定/錯誤)，嘗試重試一次以排除冷啟動或暫時性網絡問題
+            if (exists === null) {
+              Logger.warn('⚠️ First check for page existence failed, retrying...');
+              await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
+              exists = await notionService.checkPageExists(savedData.notionPageId);
+            }
 
             if (exists === false) {
               // 頁面已在 Notion 刪除，清理本地狀態
@@ -493,6 +501,14 @@ export function createSaveHandlers(services) {
                 '⚠️ Page found in local storage but deleted in Notion. Clearing local state.'
               );
               await storageService.clearPageState(normUrl);
+
+              // 🔑 更新 badge 為「未保存」狀態
+              try {
+                chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
+              } catch (badgeError) {
+                Logger.warn('Failed to update badge:', badgeError);
+              }
+
               sendResponse({
                 success: true,
                 isSaved: false,
@@ -506,7 +522,7 @@ export function createSaveHandlers(services) {
               await storageService.setSavedPageData(normUrl, savedData);
             } else if (exists === null) {
               Logger.warn(
-                '⚠️ Failed to verify page existence (network/API error). Assuming local state is correct.'
+                '⚠️ Failed to verify page existence (network/API error) after retry. Assuming local state is correct.'
               );
             }
           }
