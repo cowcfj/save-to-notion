@@ -335,13 +335,13 @@ class NotionService {
       const batch = blockIds.slice(i, i + CONCURRENCY);
       const results = await Promise.all(batch.map(deleteBlock));
 
-      results.forEach(result => {
+      for (const result of results) {
         if (result.success) {
           successCount++;
         } else {
           errors.push({ id: result.id, error: result.error });
         }
-      });
+      }
 
       // 批次間延遲：並發 3 請求用盡 1 秒配額，需等待 1 秒
       // Notion API 限制: 3 req/s，每批 3 請求後等待 1000ms
