@@ -87,7 +87,8 @@ export class ToolbarStateManager {
    * @param {string} state
    * @private
    */
-
+  // DeepSource: 此方法故意不使用 this，因為它是純工具函數
+  // skipcq: JS-0105
   _saveState(state) {
     try {
       if (typeof window !== 'undefined' && window.sessionStorage) {
