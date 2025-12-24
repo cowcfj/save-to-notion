@@ -184,25 +184,42 @@ class NotionService {
    * @private
    */
   _buildUrl(path, params = {}) {
-    // 使用字串拼接而非 new URL(path, BASE_URL)
-    // 因為 new URL 會將絕對路徑（以 / 開頭）解析為從 origin 開始，
-    // 導致 BASE_URL 中的 /v1 路徑被覆蓋
-    // 例如：new URL('/pages/abc', 'https://api.notion.com/v1') 會得到
-    //       https://api.notion.com/pages/abc（錯誤！）而非
-    //       https://api.notion.com/v1/pages/abc（正確）
-    const baseUrl = this.config.BASE_URL.replace(/\/$/, ''); // 移除尾部斜線
-    const fullUrl = `${baseUrl}${path}`;
+    // 1. 輸入驗證 (Input Validation)
+    if (typeof path !== 'string') {
+      throw new Error(`[NotionService] Invalid path: must be a string, got ${typeof path}`);
+    }
 
-    // 構建 URL 對象以處理查詢參數
-    const url = new URL(fullUrl);
+    // 2. Base URL 準備 (確保無尾部斜線)
+    // 這是為了標準化拼接基礎，避免雙重斜線或缺少斜線
+    const baseUrl = this.config.BASE_URL.replace(/\/$/, '');
 
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        url.searchParams.set(key, value);
+    // 3. 路徑正規化 (Path normalization)
+    // 確保 path 總是以 / 開頭，這樣與 baseUrl 拼接時格式統一
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    // 4. 安全的 URL 建構 (Safe URL Construction)
+    // 使用字串拼接全路徑，再傳入 URL 建構函數，這是最穩健的方式，
+    // 避免了 new URL(path, base) 在 path 為絕對路徑時會忽略 base path 的行為特徵。
+    const fullUrl = `${baseUrl}${normalizedPath}`;
+
+    try {
+      const url = new URL(fullUrl);
+
+      // 5. 附加查詢參數 (Append Query Parameters)
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            url.searchParams.append(key, String(value));
+          }
+        });
       }
-    });
 
-    return url.toString();
+      return url.toString();
+    } catch (error) {
+      // 捕獲所有 URL 建構錯誤，記錄詳細日誌
+      Logger.error(`[NotionService] Failed to construct URL: ${fullUrl}`, error);
+      throw error;
+    }
   }
 
   /**

@@ -130,6 +130,52 @@ describe('NotionService', () => {
     });
   });
 
+  describe('_buildUrl', () => {
+    it('應該正確處理帶有前導斜線的路徑', () => {
+      const url = service._buildUrl('/pages/123');
+      expect(url).toBe('https://api.notion.com/v1/pages/123');
+    });
+
+    it('應該自動為缺少斜線的路徑添加前導斜線', () => {
+      const url = service._buildUrl('pages/123');
+      expect(url).toBe('https://api.notion.com/v1/pages/123');
+    });
+
+    it('應該正確處理查詢參數', () => {
+      const url = service._buildUrl('/search', { query: 'test', limit: 10 });
+      expect(url).toBe('https://api.notion.com/v1/search?query=test&limit=10');
+    });
+
+    it('應該過濾 null 和 undefined 的查詢參數', () => {
+      const url = service._buildUrl('/search', { query: 'test', filter: null, sort: undefined });
+      expect(url).toBe('https://api.notion.com/v1/search?query=test');
+    });
+
+    it('應該在路徑不是字串時拋出錯誤', () => {
+      expect(() => service._buildUrl(123)).toThrow('Invalid path: must be a string');
+      expect(() => service._buildUrl(null)).toThrow('Invalid path: must be a string');
+      expect(() => service._buildUrl(undefined)).toThrow('Invalid path: must be a string');
+    });
+
+    it('應該正確處理包含特殊字符的路徑', () => {
+      const url = service._buildUrl('/blocks/123-456/children');
+      expect(url).toBe('https://api.notion.com/v1/blocks/123-456/children');
+    });
+
+    it('應該確保 Base URL 與路徑之間只有一個斜線', () => {
+      // 模擬 Base URL 結尾帶有斜線的情況 (雖然 config 中通常沒有，但以防萬一)
+      service.config.BASE_URL = 'https://api.notion.com/v1/';
+      const url1 = service._buildUrl('/pages');
+      const url2 = service._buildUrl('pages');
+
+      expect(url1).toBe('https://api.notion.com/v1/pages');
+      expect(url2).toBe('https://api.notion.com/v1/pages');
+
+      // 恢復原始配置
+      service.config.BASE_URL = NOTION_CONFIG.BASE_URL;
+    });
+  });
+
   describe('checkPageExists', () => {
     it('應該在頁面存在時返回 true', async () => {
       global.fetch = jest.fn().mockResolvedValue({
