@@ -295,6 +295,11 @@ function isNotionCompatibleImageUrl(url) {
       return false;
     }
 
+    // 檢查 hostname 有效性（從 NotionService 移植）
+    if (!urlObj.hostname || urlObj.hostname.length < 3) {
+      return false;
+    }
+
     return true;
   } catch (_error) {
     return false;
@@ -555,10 +560,71 @@ function generateImageCacheKey(imgNode) {
   return `${src}|${dataSrc}|${className}|${id}`;
 }
 
+/**
+ * 過濾 Notion 區塊中的有效圖片
+ * 純函數版本，無日誌依賴，適用於 Background/Service Worker 環境
+ * @param {Array} blocks - Notion 區塊數組
+ * @param {boolean} excludeImages - 是否排除所有圖片（重試模式）
+ * @returns {{validBlocks: Array, skippedCount: number, invalidReasons: Array}}
+ */
+function filterNotionImageBlocks(blocks, excludeImages = false) {
+  if (!blocks || !Array.isArray(blocks)) {
+    return { validBlocks: [], skippedCount: 0, invalidReasons: [] };
+  }
+
+  if (excludeImages) {
+    const validBlocks = blocks.filter(block => block.type !== 'image');
+    return {
+      validBlocks,
+      skippedCount: blocks.length - validBlocks.length,
+      invalidReasons: [],
+    };
+  }
+
+  const invalidReasons = [];
+
+  const validBlocks = blocks.filter(block => {
+    // 基本區塊驗證（從 NotionService._isValidBlock 移植）
+    if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
+      invalidReasons.push({ blockId: block?.id, reason: 'invalid_structure' });
+      return false;
+    }
+
+    // 非圖片區塊直接通過
+    if (block.type !== 'image') {
+      return true;
+    }
+
+    // 圖片 URL 驗證
+    // Notion 支援兩種圖片類型：
+    // 1. external: 外部托管的圖片 (block.image.external.url)
+    // 2. file: Notion 內部托管的圖片 (block.image.file.url)
+    const imageUrl = block.image?.external?.url || block.image?.file?.url;
+    if (!imageUrl) {
+      invalidReasons.push({ blockId: block.id, reason: 'missing_url' });
+      return false;
+    }
+
+    if (!isNotionCompatibleImageUrl(imageUrl)) {
+      invalidReasons.push({ blockId: block.id, reason: 'invalid_url', url: imageUrl });
+      return false;
+    }
+
+    return true;
+  });
+
+  return {
+    validBlocks,
+    skippedCount: blocks.length - validBlocks.length,
+    invalidReasons,
+  };
+}
+
 const ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,
   isNotionCompatibleImageUrl,
+  filterNotionImageBlocks,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,
@@ -580,6 +646,7 @@ export {
   cleanImageUrl,
   isValidImageUrl,
   isNotionCompatibleImageUrl,
+  filterNotionImageBlocks,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,
