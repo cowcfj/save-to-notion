@@ -71,15 +71,16 @@ export function initHighlighter(options = {}) {
 
 /**
  * 初始化 Highlighter V2 (包含工具欄)
+ * @param {Object} [options] - 初始化選項
+ * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
  * @returns {{manager: HighlightManager, toolbar: Toolbar}}
  */
 export function initHighlighterWithToolbar(options = {}) {
   const manager = new HighlightManager(options);
   const toolbar = new Toolbar(manager);
 
-  // 自動執行初始化
-  // 自動執行初始化
-  manager.initializationComplete = manager.initialize().then(() => {
+  // 自動執行初始化（傳遞 skipRestore 選項）
+  manager.initializationComplete = manager.initialize(options.skipRestore).then(() => {
     // 初始化完成後更新計數
     toolbar.updateHighlightCount();
   });
@@ -120,14 +121,16 @@ export {
 
 /**
  * 默認導出：自動初始化並設置到 window
+ * @param {Object} [options] - 初始化選項
+ * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
  */
-export function setupHighlighter() {
+export function setupHighlighter(options = {}) {
   if (typeof window === 'undefined') {
     throw new Error('Highlighter V2 requires a browser environment');
   }
 
-  // 初始化 manager 和 toolbar
-  const { manager, toolbar } = initHighlighterWithToolbar();
+  // 初始化 manager 和 toolbar（傳遞 skipRestore 選項）
+  const { manager, toolbar } = initHighlighterWithToolbar(options);
 
   // 🔑 初始化 RestoreManager 並自動恢復標註
   const restoreManager = new RestoreManager(manager, toolbar);
@@ -211,17 +214,41 @@ export function setupHighlighter() {
 
 // 自動初始化（在 browser 環境中）
 if (typeof window !== 'undefined' && !window.HighlighterV2) {
-  setupHighlighter();
+  // 🔑 異步初始化：先檢查頁面狀態，防止在已刪除頁面上恢復標註
+  const initializeExtension = async () => {
+    let skipRestore = false;
 
-  // 🔑 通知 background 檢查頁面狀態並更新 badge
-  // 這確保在頁面載入後 extension icon 的 badge 立即更新
-  // 同時，如果頁面已在 Notion 刪除，background 會清除本地數據
-  if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
-    window.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, _response => {
-      // 靜默處理，不需要回應
-      if (window.chrome.runtime.lastError) {
-        // 忽略錯誤（例如 background script 未就緒）
+    // 優先檢查頁面狀態（使用 forceRefresh 繞過緩存）
+    if (window.chrome?.runtime?.sendMessage) {
+      try {
+        const response = await new Promise(resolve => {
+          window.chrome.runtime.sendMessage(
+            { action: 'checkPageStatus', forceRefresh: true },
+            result => {
+              // 處理 Chrome runtime 錯誤（例如 extension context invalidated）
+              if (window.chrome.runtime.lastError) {
+                resolve(null);
+              } else {
+                resolve(result);
+              }
+            }
+          );
+        });
+
+        if (response?.wasDeleted) {
+          // 頁面已在 Notion 刪除，跳過標註恢復
+          skipRestore = true;
+          console.log('[Highlighter] Page was deleted in Notion, skipping highlight restore.');
+        }
+      } catch (error) {
+        // 如果檢查失敗，默認恢復標註（Fail Safe）
+        console.warn('[Highlighter] Failed to check page status:', error);
       }
-    });
-  }
+    }
+
+    // 初始化 Highlighter（傳入 skipRestore 選項）
+    setupHighlighter({ skipRestore });
+  };
+
+  initializeExtension();
 }
