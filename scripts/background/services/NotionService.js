@@ -15,6 +15,8 @@ import { NOTION_API } from '../../config/index.js';
 import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 // 導入圖片區塊過濾函數（整合自 imageUtils）
 import { filterNotionImageBlocks } from '../../utils/imageUtils.js';
+// 導入統一日誌記錄器
+import Logger from '../../utils/Logger.js';
 
 // 使用統一常量構建配置
 const NOTION_CONFIG = {

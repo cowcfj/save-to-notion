@@ -3,9 +3,11 @@
  *
  * 職責：
  * - 獲取 DOM 元素
- * - 綁定事件監聽器
+ * - 綁定事件監聯器
  * - 調用 UI 和 Actions 模組
  */
+
+/* global chrome */
 
 import {
   getElements,
