@@ -323,6 +323,7 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
           sendResponse({ success: false, error: 'notionHighlighter not initialized' });
         }
       }
+      return undefined;
     });
   }
 }
