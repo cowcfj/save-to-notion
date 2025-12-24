@@ -96,6 +96,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         Logger.error('updateUIForSavedPage is not a function');
       }
+
+      // 🔑 保存完成後，通知 Content Script 創建並顯示 Toolbar
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id) {
+          await chrome.tabs.sendMessage(tab.id, { action: 'showToolbar' });
+        }
+      } catch (error) {
+        // 如果 Content Script 尚未注入，忽略錯誤
+        Logger.warn('Failed to show toolbar after save:', error);
+      }
     } else {
       setStatus(elements, `Failed to save: ${response?.error || 'No response'}`);
     }

@@ -186,21 +186,47 @@ export function setupHighlighter(options = {}) {
   };
 
   // 🔑 向後兼容：設置舊版 API（處理 toolbar 為 null 的情況）
+  // 使用閉包變量來追蹤動態創建的 toolbar
+  let currentToolbar = toolbar;
+
+  /**
+   * 動態創建 Toolbar（如果尚未創建）
+   * @returns {Promise<Toolbar>}
+   */
+  const ensureToolbar = async () => {
+    if (currentToolbar) {
+      return currentToolbar;
+    }
+
+    // 動態創建 Toolbar
+    currentToolbar = new Toolbar(manager);
+    await currentToolbar.initialize();
+    currentToolbar.updateHighlightCount();
+
+    // 更新 window.HighlighterV2.toolbar 引用
+    if (window.HighlighterV2) {
+      window.HighlighterV2.toolbar = currentToolbar;
+    }
+
+    return currentToolbar;
+  };
+
   window.notionHighlighter = {
     manager,
     restoreManager,
-    show: () => toolbar?.show(),
-    hide: () => toolbar?.hide(),
-    minimize: () => toolbar?.minimize(),
-    toggle: () => {
-      if (!toolbar) {
-        return;
-      }
-      const state = toolbar.stateManager.currentState;
+    show: async () => {
+      const tb = await ensureToolbar();
+      tb.show();
+    },
+    hide: () => currentToolbar?.hide(),
+    minimize: () => currentToolbar?.minimize(),
+    toggle: async () => {
+      const tb = await ensureToolbar();
+      const state = tb.stateManager.currentState;
       if (state === 'hidden') {
-        toolbar.show();
+        tb.show();
       } else {
-        toolbar.hide();
+        tb.hide();
       }
     },
     collectHighlights: () => manager.collectHighlightsForNotion(),
@@ -208,6 +234,12 @@ export function setupHighlighter(options = {}) {
     getCount: () => manager.getCount(),
     // 🔑 新增：暴露 forceRestoreHighlights 以保持與 highlight-restore.js 的兼容性
     forceRestoreHighlights: () => restoreManager.restore(),
+    // 🔑 新增：創建並顯示 Toolbar（保存完成後調用）
+    createAndShowToolbar: async () => {
+      const tb = await ensureToolbar();
+      tb.show();
+      return tb;
+    },
   };
 
   // 🔑 全域函數別名（向後兼容）
@@ -274,4 +306,21 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
   };
 
   initializeExtension();
+
+  // 🔑 監聽來自 Popup 的消息（如保存完成後顯示 Toolbar）
+  if (window.chrome?.runtime?.onMessage) {
+    window.chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+      if (request.action === 'showToolbar') {
+        // 保存完成後，創建並顯示 Toolbar
+        if (window.notionHighlighter?.createAndShowToolbar) {
+          window.notionHighlighter
+            .createAndShowToolbar()
+            .then(() => sendResponse({ success: true }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+          return true; // 表示異步響應
+        }
+        sendResponse({ success: false, error: 'notionHighlighter not initialized' });
+      }
+    });
+  }
 }
