@@ -188,27 +188,41 @@ export function setupHighlighter(options = {}) {
   // 🔑 向後兼容：設置舊版 API（處理 toolbar 為 null 的情況）
   // 使用閉包變量來追蹤動態創建的 toolbar
   let currentToolbar = toolbar;
+  let isCreatingToolbar = false; // 防止重複創建的鎖
 
   /**
    * 動態創建 Toolbar（如果尚未創建）
-   * @returns {Promise<Toolbar>}
+   * 使用 isCreatingToolbar 標誌防止重複創建
+   * @returns {Toolbar}
    */
   const ensureToolbar = () => {
+    // 如果已存在，直接返回
     if (currentToolbar) {
       return currentToolbar;
     }
 
-    // 動態創建 Toolbar
-    currentToolbar = new Toolbar(manager);
-    currentToolbar.initialize();
-    currentToolbar.updateHighlightCount();
-
-    // 更新 window.HighlighterV2.toolbar 引用
-    if (window.HighlighterV2) {
-      window.HighlighterV2.toolbar = currentToolbar;
+    // 防止重複創建（理論上在同步代碼中不會發生，但作為防禦性編程）
+    if (isCreatingToolbar) {
+      throw new Error('Toolbar is being created, please wait');
     }
 
-    return currentToolbar;
+    try {
+      isCreatingToolbar = true;
+
+      // 動態創建 Toolbar
+      currentToolbar = new Toolbar(manager);
+      currentToolbar.initialize();
+      currentToolbar.updateHighlightCount();
+
+      // 更新 window.HighlighterV2.toolbar 引用
+      if (window.HighlighterV2) {
+        window.HighlighterV2.toolbar = currentToolbar;
+      }
+
+      return currentToolbar;
+    } finally {
+      isCreatingToolbar = false;
+    }
   };
 
   window.notionHighlighter = {
