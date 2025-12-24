@@ -218,11 +218,7 @@ function isNotionCompatibleImageUrl(url) {
     }
 
     // 檢查 hostname 有效性（從 NotionService 移植）
-    if (!urlObj.hostname || urlObj.hostname.length < 3) {
-      return false;
-    }
-
-    return true;
+    return Boolean(urlObj.hostname && urlObj.hostname.length >= 3);
   } catch (_error) {
     return false;
   }
