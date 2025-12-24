@@ -163,16 +163,21 @@ describe('NotionService', () => {
     });
 
     it('應該確保 Base URL 與路徑之間只有一個斜線', () => {
-      // 模擬 Base URL 結尾帶有斜線的情況 (雖然 config 中通常沒有，但以防萬一)
-      service.config.BASE_URL = 'https://api.notion.com/v1/';
-      const url1 = service._buildUrl('/pages');
-      const url2 = service._buildUrl('pages');
+      // 保存原始值以確保測試隔離
+      const originalBaseUrl = service.config.BASE_URL;
 
-      expect(url1).toBe('https://api.notion.com/v1/pages');
-      expect(url2).toBe('https://api.notion.com/v1/pages');
+      try {
+        // 模擬 Base URL 結尾帶有斜線的情況 (雖然 config 中通常沒有，但以防萬一)
+        service.config.BASE_URL = 'https://api.notion.com/v1/';
+        const url1 = service._buildUrl('/pages');
+        const url2 = service._buildUrl('pages');
 
-      // 恢復原始配置
-      service.config.BASE_URL = NOTION_CONFIG.BASE_URL;
+        expect(url1).toBe('https://api.notion.com/v1/pages');
+        expect(url2).toBe('https://api.notion.com/v1/pages');
+      } finally {
+        // 確保即使測試失敗也恢復原始配置
+        service.config.BASE_URL = originalBaseUrl;
+      }
     });
   });
 
