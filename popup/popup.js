@@ -80,10 +80,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       const message = formatSaveSuccessMessage(response);
       setStatus(elements, message);
 
-      // 更新圖標徽章並刷新 UI
-      const newStatus = await checkPageStatus({ forceRefresh: true });
-      if (newStatus?.isSaved) {
-        updateUIForSavedPage(elements, newStatus);
+      // 直接更新 UI，避免額外的 API 請求和潛在的一致性延遲
+      // Mapping savePage response to pageStatus format
+      const directPageStatus = {
+        success: true,
+        isSaved: true,
+        notionUrl: response.url,
+        // notionPageId 並非必須用於 updateUIForSavedPage，除非需要鏈接
+        notionPageId: response.notionPageId || response.pageId,
+        title: response.title || 'Untitled',
+      };
+
+      if (typeof updateUIForSavedPage === 'function') {
+        updateUIForSavedPage(elements, directPageStatus);
+      } else {
+        Logger.error('updateUIForSavedPage is not a function');
       }
     } else {
       setStatus(elements, `Failed to save: ${response?.error || 'No response'}`);
