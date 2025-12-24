@@ -164,7 +164,7 @@ function isValidImageUrl(url) {
 
     // 檢查文件擴展名（使用 patterns.js 的配置）
     const pathname = urlObj.pathname.toLowerCase();
-    const hasImageExtension = IMAGE_EXTENSIONS.test(pathname);
+    const hasImageExtension = IMAGE_EXTENSIONS?.test(pathname) ?? false;
 
     // 如果 URL 包含圖片擴展名，直接返回 true
     if (hasImageExtension) {
@@ -172,12 +172,12 @@ function isValidImageUrl(url) {
     }
 
     // 排除明顯不是圖片的 URL（使用 patterns.js 的配置）
-    if (EXCLUDE_PATTERNS.some(pattern => pattern.test(cleanedUrl))) {
+    if (EXCLUDE_PATTERNS?.some(pattern => pattern.test(cleanedUrl))) {
       return false;
     }
 
     // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
-    return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(cleanedUrl));
+    return IMAGE_PATH_PATTERNS?.some(pattern => pattern.test(cleanedUrl)) ?? false;
   } catch (_error) {
     return false;
   }

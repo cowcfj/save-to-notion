@@ -313,6 +313,12 @@ class NotionService {
    * @returns {{validBlocks: Array, skippedCount: number}}
    */
   filterValidImageBlocks(blocks, excludeImages = false) {
+    // 防禦性檢查：確保 filterNotionImageBlocks 存在
+    if (typeof filterNotionImageBlocks !== 'function') {
+      this.logger.error?.('❌ filterNotionImageBlocks is not available');
+      return { validBlocks: blocks ?? [], skippedCount: 0 };
+    }
+
     const { validBlocks, skippedCount, invalidReasons } = filterNotionImageBlocks(
       blocks,
       excludeImages
