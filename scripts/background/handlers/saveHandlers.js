@@ -501,6 +501,14 @@ export function createSaveHandlers(services) {
                 '⚠️ Page found in local storage but deleted in Notion. Clearing local state.'
               );
               await storageService.clearPageState(normUrl);
+
+              // 🔑 更新 badge 為「未保存」狀態
+              try {
+                chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
+              } catch (badgeError) {
+                Logger.warn('Failed to update badge:', badgeError);
+              }
+
               sendResponse({
                 success: true,
                 isSaved: false,
