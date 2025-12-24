@@ -26,6 +26,7 @@ import {
   getActiveTab,
   clearHighlights,
 } from './popupActions.js';
+import Logger from '../scripts/utils/Logger.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   // 獲取所有 DOM 元素
@@ -53,16 +54,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (typeof updateUIForSavedPage === 'function') {
           updateUIForSavedPage(elements, pageStatus);
         } else {
-          console.error('updateUIForSavedPage is not a function');
+          Logger.error('updateUIForSavedPage is not a function');
         }
       } else if (typeof updateUIForUnsavedPage === 'function') {
-          updateUIForUnsavedPage(elements, pageStatus);
-        } else {
-          console.error('updateUIForUnsavedPage is not a function');
-        }
+        updateUIForUnsavedPage(elements, pageStatus);
+      } else {
+        Logger.error('updateUIForUnsavedPage is not a function');
+      }
     }
   } catch (error) {
-    console.error('Failed to initialize popup:', error);
+    Logger.error('Failed to initialize popup:', error);
     setStatus(elements, 'Error initializing popup. Please close and reopen.', '#d63384');
   }
 
