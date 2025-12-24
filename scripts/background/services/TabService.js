@@ -25,7 +25,11 @@ class TabService {
    * @param {Function} options.getSavedPageData - 獲取已保存頁面數據的函數
    * @param {Function} options.isRestrictedUrl - 檢查受限 URL 的函數
    * @param {Function} options.isRecoverableError - 檢查可恢復錯誤的函數
-   * @param {Function} options.onNoHighlightsFound - 無標註時的回調（用於遷移邏輯解耦）
+   * @param {Function} [options.onNoHighlightsFound] - 無標註時的回調（用於遷移邏輯解耦）
+   *   簽名: (tabId: number, normUrl: string, highlightsKey: string) => Promise<void>
+   *   - tabId: 標籤頁 ID
+   *   - normUrl: 標準化後的 URL
+   *   - highlightsKey: 標註存儲鍵名（格式: "highlights_{normUrl}"）
    */
   constructor(options = {}) {
     this.logger = options.logger || console;
