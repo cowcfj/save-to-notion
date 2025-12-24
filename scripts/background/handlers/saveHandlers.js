@@ -23,9 +23,7 @@ import { HANDLER_CONSTANTS } from '../../config/constants.js';
  * @throws {Error} 如果無法獲取標籤頁
  */
 async function getActiveTab() {
-  const tabs = await new Promise(resolve =>
-    chrome.tabs.query({ active: true, currentWindow: true }, resolve)
-  );
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const activeTab = tabs[0];
   if (!activeTab || !activeTab.id) {
     throw new Error('Could not get active tab.');

@@ -159,7 +159,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     beforeEach(() => {
       // Default successful setup
-      chrome.tabs.query.mockImplementation((_q, cb) => cb([mockTab]));
+      chrome.tabs.query.mockResolvedValue([mockTab]);
       mockStorageService.getConfig.mockResolvedValue(mockConfig);
       mockInjectionService.collectHighlights.mockResolvedValue([]);
       mockPageContentService.extractContent.mockResolvedValue(mockContentResult);
@@ -167,7 +167,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該在無法獲取 active tab 時失敗', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_q, cb) => cb([]));
+      chrome.tabs.query.mockResolvedValue([]);
 
       await handlers.savePage({}, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
@@ -351,14 +351,14 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('startHighlight handler', () => {
     test('應該處理無法獲取 tab', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_q, cb) => cb([]));
+      chrome.tabs.query.mockResolvedValue([]);
       await handlers.startHighlight({}, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 
     test('應該成功注入並啟動', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_q, cb) => cb([{ id: 1, url: 'http://test.com' }]));
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
       chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => cb({ success: true }));
 
       await handlers.startHighlight({}, {}, sendResponse);
@@ -389,10 +389,7 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('checkPageStatus handler', () => {
     test('應該在緩存有效時返回本地狀態', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_query, callback) => {
-        const tabs = [{ id: 1, url: 'https://example.com' }];
-        callback(tabs);
-      });
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
       // 必須 mock config，因為 checkPageStatus 會獲取 config
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
       mockStorageService.getSavedPageData.mockResolvedValue({
@@ -412,7 +409,7 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('updateHighlights handler', () => {
     test('應該處理完整更新流程', async () => {
       const sendResponse = jest.fn();
-      chrome.tabs.query.mockImplementation((_q, cb) => cb([{ id: 1, url: 'http://test.com' }]));
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
       mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'hi' }]);

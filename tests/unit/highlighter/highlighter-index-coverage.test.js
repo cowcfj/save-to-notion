@@ -32,6 +32,7 @@ const mockManager = {
 
 // Mock Toolbar
 const mockToolbar = {
+  initialize: jest.fn(),
   show: jest.fn(),
   hide: jest.fn(),
   toggle: jest.fn(),
@@ -52,6 +53,14 @@ jest.mock('../../../scripts/highlighter/ui/Toolbar.js', () => ({
 }));
 
 describe('Highlighter Index 覆蓋率補強', () => {
+  // 輔助函數：載入模組並等待異步初始化完成
+  const loadModuleAndWait = async () => {
+    require('../../../scripts/highlighter/index.js');
+    // 等待兩個 microtask tick 確保異步初始化完成
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -124,8 +133,8 @@ describe('Highlighter Index 覆蓋率補強', () => {
   });
 
   describe('notionHighlighter.toggle 分支覆蓋', () => {
-    test('toggle 在非 hidden 狀態時應該調用 hide()', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('toggle 在非 hidden 狀態時應該調用 hide()', async () => {
+      await loadModuleAndWait();
 
       // 設置狀態為非 hidden
       mockToolbar.stateManager.currentState = 'expanded';
@@ -136,8 +145,8 @@ describe('Highlighter Index 覆蓋率補強', () => {
       expect(mockToolbar.show).not.toHaveBeenCalled();
     });
 
-    test('toggle 在 hidden 狀態時應該調用 show()', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('toggle 在 hidden 狀態時應該調用 show()', async () => {
+      await loadModuleAndWait();
 
       // 設置狀態為 hidden
       mockToolbar.stateManager.currentState = 'hidden';
@@ -149,8 +158,8 @@ describe('Highlighter Index 覆蓋率補強', () => {
   });
 
   describe('全局函數別名實際調用', () => {
-    test('window.initHighlighter 應該調用 show() 並返回 notionHighlighter', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('window.initHighlighter 應該調用 show() 並返回 notionHighlighter', async () => {
+      await loadModuleAndWait();
 
       const result = window.initHighlighter();
 
@@ -158,8 +167,8 @@ describe('Highlighter Index 覆蓋率補強', () => {
       expect(result).toBe(window.notionHighlighter);
     });
 
-    test('window.collectHighlights 應該調用 collectHighlightsForNotion()', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('window.collectHighlights 應該調用 collectHighlightsForNotion()', async () => {
+      await loadModuleAndWait();
 
       const result = window.collectHighlights();
 
@@ -167,16 +176,16 @@ describe('Highlighter Index 覆蓋率補強', () => {
       expect(result).toEqual([]);
     });
 
-    test('window.clearPageHighlights 應該調用 clearAll()', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('window.clearPageHighlights 應該調用 clearAll()', async () => {
+      await loadModuleAndWait();
 
       window.clearPageHighlights();
 
       expect(mockManager.clearAll).toHaveBeenCalled();
     });
 
-    test('window.collectHighlights 在 notionHighlighter 不存在時返回空數組', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('window.collectHighlights 在 notionHighlighter 不存在時返回空數組', async () => {
+      await loadModuleAndWait();
 
       // 暫時移除 notionHighlighter
       const original = window.notionHighlighter;
@@ -190,8 +199,8 @@ describe('Highlighter Index 覆蓋率補強', () => {
       window.notionHighlighter = original;
     });
 
-    test('window.clearPageHighlights 在 notionHighlighter 不存在時安全返回', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('window.clearPageHighlights 在 notionHighlighter 不存在時安全返回', async () => {
+      await loadModuleAndWait();
 
       const original = window.notionHighlighter;
       delete window.notionHighlighter;
@@ -201,8 +210,8 @@ describe('Highlighter Index 覆蓋率補強', () => {
       window.notionHighlighter = original;
     });
 
-    test('window.initHighlighter 在 notionHighlighter 不存在時返回 undefined', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('window.initHighlighter 在 notionHighlighter 不存在時返回 undefined', async () => {
+      await loadModuleAndWait();
 
       const original = window.notionHighlighter;
       delete window.notionHighlighter;
@@ -216,16 +225,16 @@ describe('Highlighter Index 覆蓋率補強', () => {
   });
 
   describe('HighlighterV2 API', () => {
-    test('getInstance 應該返回 manager', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('getInstance 應該返回 manager', async () => {
+      await loadModuleAndWait();
 
       const instance = window.HighlighterV2.getInstance();
 
       expect(instance).toBeDefined();
     });
 
-    test('getToolbar 應該返回 toolbar', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('getToolbar 應該返回 toolbar', async () => {
+      await loadModuleAndWait();
 
       const toolbar = window.HighlighterV2.getToolbar();
 
@@ -234,8 +243,11 @@ describe('Highlighter Index 覆蓋率補強', () => {
   });
 
   describe('notionHighlighter.minimize', () => {
-    test('minimize 應該調用 toolbar.minimize()', () => {
-      require('../../../scripts/highlighter/index.js');
+    test('minimize 應該調用 toolbar.minimize()', async () => {
+      await loadModuleAndWait();
+      // 先調用 show 確保 toolbar 已創建
+      window.notionHighlighter.show();
+      jest.clearAllMocks();
 
       window.notionHighlighter.minimize();
 

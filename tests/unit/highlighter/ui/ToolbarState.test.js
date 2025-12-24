@@ -67,7 +67,10 @@ describe('ToolbarStateManager', () => {
     test('應該拒絕無效狀態', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       stateManager.currentState = 'invalid_state';
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('無效的狀態'));
+      // Logger 格式化後，第二個參數包含實際訊息
+      expect(consoleSpy).toHaveBeenCalled();
+      const callArgs = consoleSpy.mock.calls[0];
+      expect(callArgs.some(arg => String(arg).includes('無效的狀態'))).toBe(true);
       consoleSpy.mockRestore();
     });
 

@@ -176,4 +176,14 @@ export const HANDLER_CONSTANTS = {
   BUNDLE_READY_MAX_RETRIES: 10, // Bundle 就緒檢查最大重試次數
   PAGE_STATUS_CACHE_TTL: 60 * 1000, // 頁面保存狀態緩存時間 (60秒)
   IMAGE_RETRY_DELAY: 500, // 圖片驗證錯誤重試延遲 (ms)
+  CHECK_DELAY: 500, // 頁面存在性檢查延遲 (ms)
+};
+
+// ==========================================
+// TabService 相關常量
+// ==========================================
+
+export const TAB_SERVICE = {
+  LOADING_TIMEOUT_MS: 10000, // 頁面載入超時時間 (ms)
+  STATUS_UPDATE_DELAY_MS: 1000, // 狀態更新延遲 (ms)
 };
