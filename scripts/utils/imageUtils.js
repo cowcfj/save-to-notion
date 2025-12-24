@@ -217,6 +217,13 @@ function isNotionCompatibleImageUrl(url) {
       return false;
     }
 
+    // Notion API 的 URL 長度安全邊際（預留 API 請求的空間）
+    const safeMaxLength =
+      IMAGE_VALIDATION.MAX_URL_LENGTH - IMAGE_VALIDATION.URL_LENGTH_SAFETY_MARGIN;
+    if (url.length > safeMaxLength) {
+      return false;
+    }
+
     // 檢查 hostname 有效性（從 NotionService 移植）
     return Boolean(urlObj.hostname && urlObj.hostname.length >= 3);
   } catch (_error) {
