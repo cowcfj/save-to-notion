@@ -5,6 +5,8 @@
  * 使用 chrome.storage.session 儲存狀態（瀏覽器關閉後自動清除）
  */
 
+import Logger from '../../utils/Logger.js';
+
 const STORAGE_KEY = 'toolbarState';
 
 /**
@@ -47,7 +49,7 @@ export class ToolbarStateManager {
         }
       }
     } catch (error) {
-      console.warn('[ToolbarState] 無法從 storage 讀取狀態:', error);
+      Logger.warn('[ToolbarState] 無法從 storage 讀取狀態:', error);
     }
 
     this._initialized = true;
@@ -66,7 +68,7 @@ export class ToolbarStateManager {
    */
   set currentState(newState) {
     if (!Object.values(ToolbarStates).includes(newState)) {
-      console.warn(`[ToolbarState] 無效的狀態: ${newState}`);
+      Logger.warn(`[ToolbarState] 無效的狀態: ${newState}`);
       return;
     }
 
@@ -89,11 +91,11 @@ export class ToolbarStateManager {
     try {
       if (typeof chrome !== 'undefined' && chrome.storage?.session) {
         chrome.storage.session.set({ [STORAGE_KEY]: state }).catch(error => {
-          console.warn('[ToolbarState] 無法保存狀態:', error);
+          Logger.warn('[ToolbarState] 無法保存狀態:', error);
         });
       }
     } catch (error) {
-      console.warn('[ToolbarState] 保存狀態時出錯:', error);
+      Logger.warn('[ToolbarState] 保存狀態時出錯:', error);
     }
   }
 
@@ -107,7 +109,7 @@ export class ToolbarStateManager {
     try {
       listener(this._currentState);
     } catch (error) {
-      console.error('[ToolbarState] 監聯器執行錯誤:', error);
+      Logger.error('[ToolbarState] 監聽器執行錯誤:', error);
     }
   }
 
@@ -127,7 +129,7 @@ export class ToolbarStateManager {
       try {
         listener(this._currentState);
       } catch (error) {
-        console.error('[ToolbarState] 監聽器執行錯誤:', error);
+        Logger.error('[ToolbarState] 監聽器執行錯誤:', error);
       }
     });
   }
