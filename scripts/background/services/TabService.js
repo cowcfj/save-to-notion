@@ -75,10 +75,10 @@ class TabService {
     const highlightsKey = `highlights_${normUrl}`;
 
     try {
-      // 0. 獲取本地保存數據
+      // 1. 獲取本地保存數據
       const savedData = await this.getSavedPageData(normUrl);
 
-      // 1. 檢查是否已保存，更新徽章
+      // 2. 檢查是否已保存，更新徽章
       if (savedData) {
         chrome.action.setBadgeText({ text: '✓', tabId });
         chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId });
@@ -86,7 +86,7 @@ class TabService {
         chrome.action.setBadgeText({ text: '', tabId });
       }
 
-      // 2. 檢查是否有標註，注入 Bundle 以自動恢復
+      // 3. 檢查是否有標註，注入 Bundle 以自動恢復
       const data = await chrome.storage.local.get([highlightsKey]);
       const storedData = data[highlightsKey];
 
