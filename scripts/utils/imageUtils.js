@@ -7,6 +7,13 @@
 
 import Logger from './Logger.js';
 import { IMAGE_VALIDATION as CONFIG_VALIDATION } from '../config/constants.js';
+import {
+  IMAGE_ATTRIBUTES,
+  IMAGE_EXTENSIONS,
+  IMAGE_PATH_PATTERNS,
+  EXCLUDE_PATTERNS,
+  PLACEHOLDER_KEYWORDS,
+} from '../config/patterns.js';
 
 // 圖片驗證 constant 默認值，如果 config 導入失敗或缺漏則使用這些
 const DEFAULT_VALIDATION = {
@@ -20,37 +27,8 @@ const DEFAULT_VALIDATION = {
 
 const IMAGE_VALIDATION = { ...DEFAULT_VALIDATION, ...(CONFIG_VALIDATION || {}) };
 
-/**
- * 統一的圖片屬性列表，涵蓋各種懶加載和響應式圖片的情況
- */
-export const IMAGE_ATTRIBUTES = [
-  'src',
-  'data-src',
-  'data-lazy-src',
-  'data-original',
-  'data-srcset',
-  'data-lazy-srcset',
-  'data-original-src',
-  'data-actualsrc',
-  'data-src-original',
-  'data-echo',
-  'data-href',
-  'data-large',
-  'data-bigsrc',
-  'data-full-src',
-  'data-hi-res-src',
-  'data-large-src',
-  'data-zoom-src',
-  'data-image-src',
-  'data-img-src',
-  'data-real-src',
-  'data-lazy',
-  'data-url',
-  'data-image',
-  'data-img',
-  'data-fallback-src',
-  'data-origin',
-];
+// 重新導出 IMAGE_ATTRIBUTES 以維持向後兼容
+export { IMAGE_ATTRIBUTES };
 
 /**
  * 清理和標準化圖片 URL
@@ -149,24 +127,25 @@ function isValidImageUrl(url) {
     return false;
   }
 
+  // 統一驗證：確保 patterns.js 常量已正確載入
+  const patternsLoaded =
+    IMAGE_EXTENSIONS && EXCLUDE_PATTERNS && IMAGE_PATH_PATTERNS && PLACEHOLDER_KEYWORDS;
+  if (!patternsLoaded) {
+    Logger.warn?.(
+      '⚠️ [isValidImageUrl] Pattern constants not loaded, falling back to basic validation'
+    );
+    // 基本驗證：只檢查協議
+    return /^https?:\/\//i.test(url);
+  }
+
   // 排除 data: 和 blob: URL（來自 AttributeExtractor）
   if (url.startsWith('data:') || url.startsWith('blob:')) {
     return false;
   }
 
-  // 排除明顯的佔位符（來自 AttributeExtractor）
-  const placeholders = [
-    'placeholder',
-    'loading',
-    'spinner',
-    'blank',
-    'empty',
-    '1x1',
-    'transparent',
-  ];
-
+  // 排除明顯的佔位符（使用 patterns.js 的配置）
   const lowerUrl = url.toLowerCase();
-  if (placeholders.some(placeholder => lowerUrl.includes(placeholder))) {
+  if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {
     return false;
   }
 
@@ -194,68 +173,22 @@ function isValidImageUrl(url) {
     // 為了後續檢查，如果是相對路徑，再次轉為對象
     const urlObj = isAbsolute ? new URL(cleanedUrl) : new URL(cleanedUrl, 'http://dummy-base.com');
 
-    // 檢查文件擴展名
+    // 檢查文件擴展名（使用 patterns.js 的配置）
     const pathname = urlObj.pathname.toLowerCase();
-    const imageExtensions = [
-      '.jpg',
-      '.jpeg',
-      '.png',
-      '.gif',
-      '.webp',
-      '.svg',
-      '.bmp',
-      '.ico',
-      '.tiff',
-      '.tif',
-      '.avif',
-      '.heic',
-      '.heif',
-    ];
-    const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext));
+    const hasImageExtension = IMAGE_EXTENSIONS.test(pathname);
 
     // 如果 URL 包含圖片擴展名，直接返回 true
     if (hasImageExtension) {
       return true;
     }
 
-    // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
-    const imagePathPatterns = [
-      /\/image[s]?\//i,
-      /\/img[s]?\//i,
-      /\/photo[s]?\//i,
-      /\/picture[s]?\//i,
-      /\/media\//i,
-      /\/upload[s]?\//i,
-      /\/asset[s]?\//i,
-      /\/file[s]?\//i,
-      /\/content\//i,
-      /\/wp-content\//i,
-      /\/cdn\//i,
-      /cdn\d*\./i, // cdn1.example.com, cdn2.example.com
-      /\/static\//i,
-      /\/thumb[s]?\//i,
-      /\/thumbnail[s]?\//i,
-      /\/resize\//i,
-      /\/crop\//i,
-      /\/(\d{4})\/(\d{2})\//, // 日期路徑如 /2025/10/
-    ];
-
-    // 排除明顯不是圖片的 URL
-    const excludePatterns = [
-      /\.(js|css|html|htm|php|asp|jsp|json|xml)(\?|$)/i,
-      /\/api\//i,
-      /\/ajax\//i,
-      /\/callback/i,
-      /\/track/i,
-      /\/analytics/i,
-      /\/pixel/i,
-    ];
-
-    if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
+    // 排除明顯不是圖片的 URL（使用 patterns.js 的配置）
+    if (EXCLUDE_PATTERNS.some(pattern => pattern.test(cleanedUrl))) {
       return false;
     }
 
-    return imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
+    // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
+    return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(cleanedUrl));
   } catch (_error) {
     return false;
   }
@@ -295,7 +228,15 @@ function isNotionCompatibleImageUrl(url) {
       return false;
     }
 
-    return true;
+    // Notion API 的 URL 長度安全邊際（預留 API 請求的空間）
+    const safeMaxLength =
+      IMAGE_VALIDATION.MAX_URL_LENGTH - IMAGE_VALIDATION.URL_LENGTH_SAFETY_MARGIN;
+    if (url.length > safeMaxLength) {
+      return false;
+    }
+
+    // 檢查 hostname 有效性（從 NotionService 移植）
+    return Boolean(urlObj.hostname && urlObj.hostname.length >= 3);
   } catch (_error) {
     return false;
   }
@@ -555,10 +496,89 @@ function generateImageCacheKey(imgNode) {
   return `${src}|${dataSrc}|${className}|${id}`;
 }
 
+/**
+ * 過濾 Notion 區塊中的有效圖片
+ * 純函數版本，無日誌依賴，適用於 Background/Service Worker 環境
+ * @param {Array} blocks - Notion 區塊數組
+ * @param {boolean} excludeImages - 是否排除所有圖片（重試模式）
+ * @returns {{validBlocks: Array, skippedCount: number, invalidReasons: Array}}
+ */
+function filterNotionImageBlocks(blocks, excludeImages = false) {
+  if (!blocks || !Array.isArray(blocks)) {
+    return { validBlocks: [], skippedCount: 0, invalidReasons: [] };
+  }
+
+  if (excludeImages) {
+    const validBlocks = blocks.filter(block => block.type !== 'image');
+    return {
+      validBlocks,
+      skippedCount: blocks.length - validBlocks.length,
+      invalidReasons: [],
+    };
+  }
+
+  const invalidReasons = [];
+  const validBlocks = [];
+
+  blocks.forEach((block, index) => {
+    // 基本區塊驗證（從 NotionService._isValidBlock 移植）
+    if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
+      invalidReasons.push({
+        index,
+        blockId: block?.id,
+        blockType: block?.type ?? 'unknown',
+        reason: 'invalid_structure',
+      });
+      return;
+    }
+
+    // 非圖片區塊直接通過
+    if (block.type !== 'image') {
+      validBlocks.push(block);
+      return;
+    }
+
+    // 圖片 URL 驗證
+    // Notion 支援兩種圖片類型：
+    // 1. external: 外部托管的圖片 (block.image.external.url)
+    // 2. file: Notion 內部托管的圖片 (block.image.file.url)
+    const imageUrl = block.image?.external?.url || block.image?.file?.url;
+    if (!imageUrl) {
+      invalidReasons.push({
+        index,
+        blockId: block.id,
+        blockType: 'image',
+        reason: 'missing_url',
+      });
+      return;
+    }
+
+    if (!isNotionCompatibleImageUrl(imageUrl)) {
+      invalidReasons.push({
+        index,
+        blockId: block.id,
+        blockType: 'image',
+        reason: 'invalid_url',
+        url: imageUrl,
+      });
+      return;
+    }
+
+    validBlocks.push(block);
+  });
+
+  return {
+    validBlocks,
+    skippedCount: blocks.length - validBlocks.length,
+    invalidReasons,
+  };
+}
+
 const ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,
   isNotionCompatibleImageUrl,
+  filterNotionImageBlocks,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,
@@ -580,6 +600,7 @@ export {
   cleanImageUrl,
   isValidImageUrl,
   isNotionCompatibleImageUrl,
+  filterNotionImageBlocks,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,

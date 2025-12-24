@@ -58,22 +58,6 @@ export class HighlightManager {
   }
 
   /**
-      }
-
-      // 頁面未保存也不需要恢復標註
-      if (response?.isSaved === false) {
-        return false;
-      }
-
-      // 其他情況（包含錯誤、未知狀態）允許恢復
-      return true;
-    } catch (error) {
-      Logger.warn('[HighlightManager] 無法驗證頁面狀態，允許恢復:', error);
-      return true;
-    }
-  }
-
-  /**
    * 初始化 CSS Highlight 樣式
    */
   initializeHighlightStyles() {

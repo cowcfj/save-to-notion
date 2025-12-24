@@ -74,7 +74,7 @@ describe('配置模組 - constants.js', () => {
 
     test('應包含批次處理配置', () => {
       expect(NOTION_API.BLOCKS_PER_BATCH).toBe(100);
-      expect(NOTION_API.DELAY_BETWEEN_BATCHES).toBe(350);
+      expect(NOTION_API.RATE_LIMIT_DELAY).toBe(350);
     });
 
     test('應包含重試配置', () => {
@@ -84,7 +84,7 @@ describe('配置模組 - constants.js', () => {
 
     test('配置值應為合理範圍', () => {
       expect(NOTION_API.BLOCKS_PER_BATCH).toBeGreaterThan(0);
-      expect(NOTION_API.DELAY_BETWEEN_BATCHES).toBeGreaterThan(0);
+      expect(NOTION_API.RATE_LIMIT_DELAY).toBeGreaterThan(0);
       expect(NOTION_API.MAX_RETRIES).toBeGreaterThan(0);
     });
   });
