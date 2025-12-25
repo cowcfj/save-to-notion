@@ -1,0 +1,316 @@
+/**
+ * Highlighter StorageUtil 擴充測試
+ *
+ * 針對 scripts/highlighter/utils/StorageUtil.js 的私有方法和邊緣情況測試
+ * 補充現有 storageUtil.test.js 的覆蓋率
+ */
+
+import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
+
+describe('Highlighter StorageUtil', () => {
+  let mockChrome;
+
+  beforeEach(() => {
+    // Mock Chrome Storage API
+    mockChrome = {
+      storage: {
+        local: {
+          set: jest.fn((data, callback) => {
+            setTimeout(() => callback?.(), 0);
+          }),
+          get: jest.fn((keys, callback) => {
+            setTimeout(() => callback?.({}), 0);
+          }),
+          remove: jest.fn((keys, callback) => {
+            setTimeout(() => callback?.(), 0);
+          }),
+        },
+      },
+      runtime: {
+        lastError: null,
+      },
+    };
+    global.chrome = mockChrome;
+
+    // Mock localStorage
+    const localStorageData = {};
+    Object.defineProperty(global, 'localStorage', {
+      value: {
+        getItem: jest.fn(key => localStorageData[key] || null),
+        setItem: jest.fn((key, value) => {
+          localStorageData[key] = value;
+        }),
+        removeItem: jest.fn(key => {
+          delete localStorageData[key];
+        }),
+        clear: jest.fn(() => {
+          Object.keys(localStorageData).forEach(key => delete localStorageData[key]);
+        }),
+      },
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('saveHighlights', () => {
+    test('無效的 pageUrl 應觸發警告並返回', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await StorageUtil.saveHighlights('', { text: 'test' });
+
+      expect(warnSpy).toHaveBeenCalled();
+      expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    test('null pageUrl 應觸發警告並返回', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      await StorageUtil.saveHighlights(null, { text: 'test' });
+
+      expect(warnSpy).toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    test('Chrome Storage 失敗時應回退到 localStorage', async () => {
+      // 模擬 Chrome Storage 不可用
+      mockChrome.storage.local.set = jest.fn((data, callback) => {
+        mockChrome.runtime.lastError = { message: 'Storage error' };
+        setTimeout(() => callback?.(), 0);
+      });
+
+      const testData = [{ text: 'test', color: 'yellow' }];
+
+      await StorageUtil.saveHighlights('https://example.com', testData);
+
+      expect(localStorage.setItem).toHaveBeenCalled();
+    });
+  });
+
+  describe('loadHighlights', () => {
+    test('無效的 pageUrl 應返回空陣列', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      const result = await StorageUtil.loadHighlights('');
+
+      expect(result).toEqual([]);
+      expect(warnSpy).toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    test('null pageUrl 應返回空陣列', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      const result = await StorageUtil.loadHighlights(null);
+
+      expect(result).toEqual([]);
+
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe('_saveToChromeStorage', () => {
+    test('Chrome Storage 不可用時應拒絕', async () => {
+      // 移除 Chrome Storage
+      global.chrome = undefined;
+
+      await expect(StorageUtil._saveToChromeStorage('test_key', {})).rejects.toThrow(
+        'Chrome storage not available'
+      );
+
+      // 恢復
+      global.chrome = mockChrome;
+    });
+
+    test('lastError 時應拒絕', async () => {
+      mockChrome.storage.local.set = jest.fn((data, callback) => {
+        mockChrome.runtime.lastError = { message: 'Quota exceeded' };
+        setTimeout(() => callback?.(), 0);
+      });
+
+      await expect(StorageUtil._saveToChromeStorage('test_key', { data: 'test' })).rejects.toThrow(
+        'Quota exceeded'
+      );
+    });
+
+    test('成功保存時應解析', async () => {
+      await expect(
+        StorageUtil._saveToChromeStorage('test_key', { data: 'test' })
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('_loadFromChromeStorage', () => {
+    test('Chrome Storage 不可用時應拒絕', async () => {
+      global.chrome = undefined;
+
+      await expect(StorageUtil._loadFromChromeStorage('test_key')).rejects.toThrow(
+        'Chrome storage not available'
+      );
+
+      global.chrome = mockChrome;
+    });
+
+    test('成功加載陣列格式應正確解析', async () => {
+      const testData = [{ text: 'highlight', color: 'yellow' }];
+
+      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+        setTimeout(() => callback({ [keys[0]]: testData }), 0);
+      });
+
+      const result = await StorageUtil._loadFromChromeStorage('test_key');
+
+      expect(result).toEqual(testData);
+    });
+
+    test('成功加載對象格式應正確解析', async () => {
+      const testData = {
+        url: 'https://example.com',
+        highlights: [{ text: 'highlight', color: 'yellow' }],
+      };
+
+      mockChrome.storage.local.get = jest.fn((keys, callback) => {
+        setTimeout(() => callback({ [keys[0]]: testData }), 0);
+      });
+
+      const result = await StorageUtil._loadFromChromeStorage('test_key');
+
+      expect(result).toEqual(testData.highlights);
+    });
+  });
+
+  describe('_saveToLocalStorage', () => {
+    test('成功保存應解析', async () => {
+      await expect(
+        StorageUtil._saveToLocalStorage('test_key', { data: 'test' })
+      ).resolves.toBeUndefined();
+
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        'test_key',
+        JSON.stringify({ data: 'test' })
+      );
+    });
+
+    test('localStorage 錯誤應拒絕', async () => {
+      localStorage.setItem.mockImplementation(() => {
+        throw new Error('Storage full');
+      });
+
+      await expect(StorageUtil._saveToLocalStorage('test_key', { data: 'test' })).rejects.toThrow(
+        'Storage full'
+      );
+    });
+  });
+
+  describe('_loadFromLocalStorage', () => {
+    test('空數據應返回空陣列', async () => {
+      localStorage.getItem.mockReturnValue(null);
+
+      const result = await StorageUtil._loadFromLocalStorage('test_key');
+
+      expect(result).toEqual([]);
+    });
+
+    test('有效 JSON 應正確解析', async () => {
+      const testData = [{ text: 'legacy', color: 'green' }];
+      localStorage.getItem.mockReturnValue(JSON.stringify(testData));
+
+      const result = await StorageUtil._loadFromLocalStorage('test_key');
+
+      expect(result).toEqual(testData);
+    });
+
+    test('無效 JSON 應返回空陣列', async () => {
+      localStorage.getItem.mockReturnValue('invalid json {{{');
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      const result = await StorageUtil._loadFromLocalStorage('test_key');
+
+      expect(result).toEqual([]);
+      expect(errorSpy).toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe('_parseHighlightFormat', () => {
+    test('null 應返回空陣列', () => {
+      expect(StorageUtil._parseHighlightFormat(null)).toEqual([]);
+    });
+
+    test('undefined 應返回空陣列', () => {
+      expect(StorageUtil._parseHighlightFormat(undefined)).toEqual([]);
+    });
+
+    test('陣列格式應直接返回', () => {
+      const input = [{ text: 'test' }];
+      expect(StorageUtil._parseHighlightFormat(input)).toEqual(input);
+    });
+
+    test('對象格式應提取 highlights 屬性', () => {
+      const input = {
+        url: 'https://example.com',
+        highlights: [{ text: 'test' }],
+      };
+      expect(StorageUtil._parseHighlightFormat(input)).toEqual(input.highlights);
+    });
+
+    test('無效對象應返回空陣列', () => {
+      expect(StorageUtil._parseHighlightFormat({ foo: 'bar' })).toEqual([]);
+    });
+  });
+
+  describe('clearHighlights', () => {
+    test('無效的 pageUrl 應拋出錯誤', async () => {
+      await expect(StorageUtil.clearHighlights('')).rejects.toThrow('Invalid pageUrl');
+    });
+
+    test('null pageUrl 應拋出錯誤', async () => {
+      await expect(StorageUtil.clearHighlights(null)).rejects.toThrow('Invalid pageUrl');
+    });
+
+    test('成功清除應不拋出錯誤', async () => {
+      await expect(StorageUtil.clearHighlights('https://example.com')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('_clearFromChromeStorage', () => {
+    test('Chrome Storage 不可用時應拒絕', async () => {
+      global.chrome = undefined;
+
+      await expect(StorageUtil._clearFromChromeStorage('test_key')).rejects.toThrow(
+        'Chrome storage not available'
+      );
+
+      global.chrome = mockChrome;
+    });
+
+    test('成功清除應解析', async () => {
+      await expect(StorageUtil._clearFromChromeStorage('test_key')).resolves.toBeUndefined();
+
+      expect(mockChrome.storage.local.remove).toHaveBeenCalled();
+    });
+  });
+
+  describe('_clearFromLocalStorage', () => {
+    test('成功清除應解析', async () => {
+      await expect(StorageUtil._clearFromLocalStorage('test_key')).resolves.toBeUndefined();
+
+      expect(localStorage.removeItem).toHaveBeenCalledWith('test_key');
+    });
+
+    test('localStorage 錯誤應拒絕', async () => {
+      localStorage.removeItem.mockImplementation(() => {
+        throw new Error('Cannot remove');
+      });
+
+      await expect(StorageUtil._clearFromLocalStorage('test_key')).rejects.toThrow('Cannot remove');
+    });
+  });
+});
