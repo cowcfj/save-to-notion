@@ -8,7 +8,7 @@
 import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
 
 describe('Highlighter StorageUtil', () => {
-  let mockChrome;
+  let mockChrome = null;
 
   beforeEach(() => {
     // Mock Chrome Storage API
@@ -16,13 +16,25 @@ describe('Highlighter StorageUtil', () => {
       storage: {
         local: {
           set: jest.fn((data, callback) => {
-            setTimeout(() => callback?.(), 0);
+            setTimeout(() => {
+              if (callback) {
+                callback();
+              }
+            }, 0);
           }),
           get: jest.fn((keys, callback) => {
-            setTimeout(() => callback?.({}), 0);
+            setTimeout(() => {
+              if (callback) {
+                callback({});
+              }
+            }, 0);
           }),
           remove: jest.fn((keys, callback) => {
-            setTimeout(() => callback?.(), 0);
+            setTimeout(() => {
+              if (callback) {
+                callback();
+              }
+            }, 0);
           }),
         },
       },
@@ -81,7 +93,11 @@ describe('Highlighter StorageUtil', () => {
       // 模擬 Chrome Storage 不可用
       mockChrome.storage.local.set = jest.fn((data, callback) => {
         mockChrome.runtime.lastError = { message: 'Storage error' };
-        setTimeout(() => callback?.(), 0);
+        setTimeout(() => {
+          if (callback) {
+            callback();
+          }
+        }, 0);
       });
 
       const testData = [{ text: 'test', color: 'yellow' }];
@@ -131,7 +147,11 @@ describe('Highlighter StorageUtil', () => {
     test('lastError 時應拒絕', async () => {
       mockChrome.storage.local.set = jest.fn((data, callback) => {
         mockChrome.runtime.lastError = { message: 'Quota exceeded' };
-        setTimeout(() => callback?.(), 0);
+        setTimeout(() => {
+          if (callback) {
+            callback();
+          }
+        }, 0);
       });
 
       await expect(StorageUtil._saveToChromeStorage('test_key', { data: 'test' })).rejects.toThrow(
@@ -268,11 +288,15 @@ describe('Highlighter StorageUtil', () => {
 
   describe('clearHighlights', () => {
     test('無效的 pageUrl 應拋出錯誤', async () => {
-      await expect(StorageUtil.clearHighlights('')).rejects.toThrow('Invalid pageUrl');
+      await expect(StorageUtil.clearHighlights('')).rejects.toThrow(
+        'Invalid pageUrl: must be a non-empty string'
+      );
     });
 
     test('null pageUrl 應拋出錯誤', async () => {
-      await expect(StorageUtil.clearHighlights(null)).rejects.toThrow('Invalid pageUrl');
+      await expect(StorageUtil.clearHighlights(null)).rejects.toThrow(
+        'Invalid pageUrl: must be a non-empty string'
+      );
     });
 
     test('成功清除應不拋出錯誤', async () => {

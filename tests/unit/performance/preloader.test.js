@@ -9,10 +9,10 @@
  */
 
 describe('Preloader', () => {
-  let originalWindow;
-  let mockChrome;
-  let keydownHandler;
-  let messageHandler;
+  let originalWindow = null;
+  let mockChrome = null;
+  let keydownHandler = null;
+  let messageHandler = null;
 
   beforeEach(() => {
     // 保存原始狀態
@@ -47,9 +47,10 @@ describe('Preloader', () => {
     // Mock chrome API
     mockChrome = {
       runtime: {
+        // Chrome API callback - 非 Node.js error-first 模式
         sendMessage: jest.fn((message, callback) => {
           if (callback) {
-            callback({ success: true });
+            callback({ success: true }); // Chrome sendMessage response
           }
         }),
         onMessage: {
