@@ -20,7 +20,8 @@
 import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
 
 describe('Highlighter StorageUtil', () => {
-  let mockChrome = null;
+  /** @type {Object} */
+  let mockChrome;
 
   beforeEach(() => {
     // Mock Chrome Storage API

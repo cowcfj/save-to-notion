@@ -9,9 +9,13 @@
  */
 
 describe('Preloader', () => {
-  let originalWindow = null;
-  let mockChrome = null;
+  /** @type {Object} */
+  let originalWindow;
+  /** @type {Object} */
+  let mockChrome;
+  /** @type {Function|null} */
   let keydownHandler = null;
+  /** @type {Function|null} */
   let messageHandler = null;
 
   beforeEach(() => {
