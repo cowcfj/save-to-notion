@@ -19,7 +19,7 @@ import Logger from '../../utils/Logger.js';
 
 // Remove legacy getter
 // const getImageUtils = ...
-import { ErrorHandler } from '../../errorHandling/ErrorHandler.js';
+import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { batchProcess, batchProcessWithRetry } from '../../performance/PerformanceOptimizer.js';
 
 import { cachedQuery } from './ReadabilityAdapter.js';
