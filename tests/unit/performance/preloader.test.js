@@ -9,6 +9,7 @@
  */
 
 describe('Preloader', () => {
+  // skipcq: JS-0119 - Jest beforeEach 模式：變數在 beforeEach 中初始化
   /** @type {Object} */
   let originalWindow;
   /** @type {Object} */

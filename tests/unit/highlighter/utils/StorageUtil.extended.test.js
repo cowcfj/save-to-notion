@@ -20,6 +20,7 @@
 import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
 
 describe('Highlighter StorageUtil', () => {
+  // skipcq: JS-0119 - Jest beforeEach 模式：變數在 beforeEach 中初始化
   /** @type {Object} */
   let mockChrome;
 
@@ -31,21 +32,21 @@ describe('Highlighter StorageUtil', () => {
           set: jest.fn((data, callback) => {
             setTimeout(() => {
               if (callback) {
-                callback();
+                callback(); // skipcq: JS-0255
               }
             }, 0);
           }),
           get: jest.fn((keys, callback) => {
             setTimeout(() => {
               if (callback) {
-                callback({});
+                callback({}); // skipcq: JS-0255
               }
             }, 0);
           }),
           remove: jest.fn((keys, callback) => {
             setTimeout(() => {
               if (callback) {
-                callback();
+                callback(); // skipcq: JS-0255
               }
             }, 0);
           }),
@@ -108,7 +109,7 @@ describe('Highlighter StorageUtil', () => {
         mockChrome.runtime.lastError = { message: 'Storage error' };
         setTimeout(() => {
           if (callback) {
-            callback();
+            callback(); // skipcq: JS-0255
           }
         }, 0);
       });
@@ -162,7 +163,7 @@ describe('Highlighter StorageUtil', () => {
         mockChrome.runtime.lastError = { message: 'Quota exceeded' };
         setTimeout(() => {
           if (callback) {
-            callback();
+            callback(); // skipcq: JS-0255
           }
         }, 0);
       });
@@ -194,7 +195,7 @@ describe('Highlighter StorageUtil', () => {
       const testData = [{ text: 'highlight', color: 'yellow' }];
 
       mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({ [keys[0]]: testData }), 0);
+        setTimeout(() => callback({ [keys[0]]: testData }), 0); // skipcq: JS-0255
       });
 
       const result = await StorageUtil._loadFromChromeStorage('test_key');
@@ -209,7 +210,7 @@ describe('Highlighter StorageUtil', () => {
       };
 
       mockChrome.storage.local.get = jest.fn((keys, callback) => {
-        setTimeout(() => callback({ [keys[0]]: testData }), 0);
+        setTimeout(() => callback({ [keys[0]]: testData }), 0); // skipcq: JS-0255
       });
 
       const result = await StorageUtil._loadFromChromeStorage('test_key');
