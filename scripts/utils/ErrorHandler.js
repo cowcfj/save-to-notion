@@ -29,6 +29,20 @@ const ErrorSeverity = {
 };
 
 /**
+ * 錯誤類型對應的日誌級別
+ */
+const LOG_LEVELS = {
+  [ErrorTypes.EXTRACTION_FAILED]: 'warn',
+  [ErrorTypes.INVALID_URL]: 'warn',
+  [ErrorTypes.NETWORK_ERROR]: 'error',
+  [ErrorTypes.PARSING_ERROR]: 'warn',
+  [ErrorTypes.PERFORMANCE_WARNING]: 'info',
+  [ErrorTypes.DOM_ERROR]: 'warn',
+  [ErrorTypes.VALIDATION_ERROR]: 'warn',
+  [ErrorTypes.TIMEOUT_ERROR]: 'error',
+};
+
+/**
  * 統一錯誤處理器
  * 提供標準化的錯誤日誌記錄
  */
@@ -73,7 +87,13 @@ class ErrorHandler {
    * @param {Error} [errorInfo.originalError] - 原始錯誤對象
    */
   static logError(errorInfo) {
-    const { type, context, originalError } = errorInfo;
+    // 防禦性檢查：確保輸入有效
+    if (!errorInfo || typeof errorInfo !== 'object') {
+      this.logger.warn('[ErrorHandler] logError called with invalid input');
+      return;
+    }
+
+    const { type = 'unknown', context = '', originalError } = errorInfo;
 
     // 淨化日誌內容
     const safeContext = this.sanitizeLogContent(context);
@@ -104,18 +124,7 @@ class ErrorHandler {
    * @returns {string} 日誌級別
    */
   static getLogLevel(errorType) {
-    const logLevels = {
-      [ErrorTypes.EXTRACTION_FAILED]: 'warn',
-      [ErrorTypes.INVALID_URL]: 'warn',
-      [ErrorTypes.NETWORK_ERROR]: 'error',
-      [ErrorTypes.PARSING_ERROR]: 'warn',
-      [ErrorTypes.PERFORMANCE_WARNING]: 'info',
-      [ErrorTypes.DOM_ERROR]: 'warn',
-      [ErrorTypes.VALIDATION_ERROR]: 'warn',
-      [ErrorTypes.TIMEOUT_ERROR]: 'error',
-    };
-
-    return logLevels[errorType] || 'warn';
+    return LOG_LEVELS[errorType] || 'warn';
   }
 }
 
