@@ -51,6 +51,21 @@ class ErrorHandler {
   }
 
   /**
+   * 淨化日誌內容（防止日誌注入和敏感資訊外洩）
+   * @param {string} str - 要淨化的字串
+   * @param {number} maxLength - 最大長度
+   * @returns {string} 淨化後的字串
+   */
+  static sanitizeLogContent(str, maxLength = 200) {
+    if (!str) {
+      return '';
+    }
+    return String(str)
+      .replace(/[\r\n]+/g, ' ') // 移除換行防止日誌注入
+      .slice(0, maxLength);
+  }
+
+  /**
    * 記錄錯誤信息
    * @param {Object} errorInfo - 錯誤信息對象
    * @param {string} errorInfo.type - 錯誤類型
@@ -60,22 +75,26 @@ class ErrorHandler {
   static logError(errorInfo) {
     const { type, context, originalError } = errorInfo;
 
+    // 淨化日誌內容
+    const safeContext = this.sanitizeLogContent(context);
+    const safeMessage = this.sanitizeLogContent(originalError?.message);
+
     // 根據錯誤類型選擇日誌級別
     const logLevel = this.getLogLevel(type);
-    const message = `[${type}] ${context}: ${originalError?.message || 'Unknown error'}`;
+    const message = `[${type}] ${safeContext}: ${safeMessage || 'Unknown error'}`;
 
     switch (logLevel) {
       case 'error':
-        this.logger.error(message, originalError);
+        this.logger.error(message);
         break;
       case 'warn':
-        this.logger.warn(message, originalError);
+        this.logger.warn(message);
         break;
       case 'info':
-        this.logger.info(message, originalError);
+        this.logger.info(message);
         break;
       default:
-        this.logger.warn(message, originalError);
+        this.logger.warn(message);
     }
   }
 
