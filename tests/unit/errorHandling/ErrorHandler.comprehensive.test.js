@@ -37,9 +37,6 @@ describe('ErrorHandler - 測試', () => {
     if (typeof window !== 'undefined') {
       window.Logger = mockLogger;
     }
-
-    // 重置錯誤統計
-    ErrorHandler.errorStats = new Map();
   });
 
   afterEach(() => {
@@ -78,7 +75,6 @@ describe('ErrorHandler - 測試', () => {
         type: ErrorTypes.NETWORK_ERROR,
         context: 'fetch data',
         originalError: new Error('Network failed'),
-        timestamp: Date.now(),
       };
 
       ErrorHandler.logError(errorInfo);
@@ -91,7 +87,6 @@ describe('ErrorHandler - 測試', () => {
         type: ErrorTypes.EXTRACTION_FAILED,
         context: 'extract images',
         originalError: new Error('Extraction failed'),
-        timestamp: Date.now(),
       };
 
       ErrorHandler.logError(errorInfo);
@@ -104,7 +99,6 @@ describe('ErrorHandler - 測試', () => {
         type: ErrorTypes.PERFORMANCE_WARNING,
         context: 'performance check',
         originalError: new Error('Slow operation'),
-        timestamp: Date.now(),
       };
 
       ErrorHandler.logError(errorInfo);
@@ -116,25 +110,11 @@ describe('ErrorHandler - 測試', () => {
       const errorInfo = {
         type: ErrorTypes.VALIDATION_ERROR,
         context: 'validate input',
-        timestamp: Date.now(),
       };
 
       ErrorHandler.logError(errorInfo);
 
       expect(console.warn).toHaveBeenCalled();
-    });
-
-    test('應該更新錯誤統計', () => {
-      const errorInfo = {
-        type: ErrorTypes.DOM_ERROR,
-        context: 'DOM operation',
-        originalError: new Error('DOM error'),
-        timestamp: Date.now(),
-      };
-
-      ErrorHandler.logError(errorInfo);
-
-      expect(ErrorHandler.errorStats.get(ErrorTypes.DOM_ERROR)).toBe(1);
     });
   });
 
@@ -149,25 +129,6 @@ describe('ErrorHandler - 測試', () => {
 
     test('應該為未知錯誤類型返回默認級別', () => {
       expect(ErrorHandler.getLogLevel('unknown_error')).toBe('warn');
-    });
-  });
-
-  describe('updateErrorStats - 錯誤統計', () => {
-    test('應該正確統計錯誤次數', () => {
-      ErrorHandler.updateErrorStats(ErrorTypes.NETWORK_ERROR);
-      ErrorHandler.updateErrorStats(ErrorTypes.NETWORK_ERROR);
-      ErrorHandler.updateErrorStats(ErrorTypes.DOM_ERROR);
-
-      expect(ErrorHandler.errorStats.get(ErrorTypes.NETWORK_ERROR)).toBe(2);
-      expect(ErrorHandler.errorStats.get(ErrorTypes.DOM_ERROR)).toBe(1);
-    });
-
-    test('應該在 errorStats 不存在時初始化它', () => {
-      ErrorHandler.errorStats = null;
-      ErrorHandler.updateErrorStats(ErrorTypes.PARSING_ERROR);
-
-      expect(ErrorHandler.errorStats).toBeDefined();
-      expect(ErrorHandler.errorStats.get(ErrorTypes.PARSING_ERROR)).toBe(1);
     });
   });
 

@@ -77,9 +77,6 @@ class ErrorHandler {
       default:
         this.logger.warn(message, originalError);
     }
-
-    // 更新錯誤統計
-    this.updateErrorStats(type);
   }
 
   /**
@@ -100,19 +97,6 @@ class ErrorHandler {
     };
 
     return logLevels[errorType] || 'warn';
-  }
-
-  /**
-   * 更新錯誤統計（內部使用）
-   * @param {string} errorType - 錯誤類型
-   */
-  static updateErrorStats(errorType) {
-    if (!this.errorStats) {
-      this.errorStats = new Map();
-    }
-
-    const current = this.errorStats.get(errorType) || 0;
-    this.errorStats.set(errorType, current + 1);
   }
 }
 
