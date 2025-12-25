@@ -208,9 +208,10 @@ notion-chrome/
 │   │   ├── ui/            #     UI 組件（Toolbar, Components, Styles）
 │   │   └── utils/         #     工具模組（color, dom, validation, path, textSearch, domStability）
 │   ├── performance/       # 性能優化模組
-│   ├── errorHandling/     # 錯誤處理模組
 │   └── utils/             # 工具模組（目錄）
 │       ├── Logger.js      # 🆕 統一日誌系統
+│       ├── ErrorHandler.js # 🆕 錯誤處理（從 errorHandling 遷移）
+│       ├── RetryManager.js # 🆕 重試管理（從 errorHandling 遷移）
 │       ├── securityUtils.js # 🆕 安全驗證工具 (URL, 請求來源)
 │       ├── imageUtils.js  # 圖片處理
 │       ├── urlUtils.js    # URL 處理與常量
