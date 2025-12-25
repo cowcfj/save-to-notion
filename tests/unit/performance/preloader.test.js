@@ -78,9 +78,10 @@ describe('Preloader', () => {
   /**
    * 執行實際的 preloader.js 腳本
    * 通過讀取並執行實際文件，確保測試與實現同步
+   *
+   * skipcq: JS-0083 - 在測試環境中執行受信任的本地腳本是安全的
    */
   function executePreloader() {
-    // 使用 require 加載文件系統模組
     const fs = require('fs');
     const path = require('path');
 
@@ -93,9 +94,10 @@ describe('Preloader', () => {
     console.log = jest.fn();
 
     try {
-      // 執行腳本（IIFE 會立即執行）
-
-      eval(preloaderCode);
+      // 使用 Function 構造函數執行腳本（提供全域上下文）
+      // skipcq: JS-0083 - 執行受信任的本地腳本
+      const executeScript = new Function('window', 'document', 'chrome', 'console', preloaderCode);
+      executeScript(global.window, global.document, global.chrome, console);
     } finally {
       // 恢復 console.log
       console.log = originalConsoleLog;
