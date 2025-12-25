@@ -108,7 +108,6 @@ describe('Preloader', () => {
     test('應該阻止重複初始化', () => {
       // 第一次初始化
       executePreloader();
-      const _firstCache = window.__NOTION_PRELOADER_CACHE__;
 
       // 模擬第二次呼叫
       window.__NOTION_PRELOADER_CACHE__ = null;

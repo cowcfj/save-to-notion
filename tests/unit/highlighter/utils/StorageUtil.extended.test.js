@@ -1,8 +1,18 @@
 /**
- * Highlighter StorageUtil 擴充測試
+ * Highlighter StorageUtil 擴充測試（白盒測試）
  *
  * 針對 scripts/highlighter/utils/StorageUtil.js 的私有方法和邊緣情況測試
  * 補充現有 storageUtil.test.js 的覆蓋率
+ *
+ * ⚠️ 測試策略說明：
+ * 此文件直接測試「私有」方法（以 _ 前綴命名），這違反了傳統的黑盒測試原則。
+ * 但考慮到以下因素，這是一個有意的權衡：
+ * 1. JavaScript 沒有真正的私有方法，這些方法實際上是公開可訪問的
+ * 2. 這些方法包含關鍵的存儲邏輯，需要確保其正確性
+ * 3. 通過公共 API 測試所有存儲分支（Chrome Storage、localStorage 回退）會更加複雜
+ * 4. 這是專門用於提高覆蓋率的擴充測試文件
+ *
+ * 如果重構 StorageUtil 的內部實現，這些測試可能需要更新。
  *
  * skipcq: JS-0255 - Chrome API callback 非 Node.js error-first 模式
  */
