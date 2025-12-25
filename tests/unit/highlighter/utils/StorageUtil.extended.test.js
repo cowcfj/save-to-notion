@@ -3,6 +3,8 @@
  *
  * 針對 scripts/highlighter/utils/StorageUtil.js 的私有方法和邊緣情況測試
  * 補充現有 storageUtil.test.js 的覆蓋率
+ *
+ * skipcq: JS-0255 - Chrome API callback 非 Node.js error-first 模式
  */
 
 import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';

@@ -50,7 +50,7 @@ describe('Preloader', () => {
         // Chrome API callback - 非 Node.js error-first 模式
         sendMessage: jest.fn((message, callback) => {
           if (callback) {
-            callback({ success: true }); // Chrome sendMessage response
+            callback({ success: true }); // skipcq: JS-0255
           }
         }),
         onMessage: {
