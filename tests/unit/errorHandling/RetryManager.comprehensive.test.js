@@ -4,11 +4,7 @@
  */
 /* eslint-env jest */
 
-const {
-  RetryManager,
-  withRetry,
-  fetchWithRetry,
-} = require('../../../scripts/errorHandling/RetryManager');
+const { RetryManager, withRetry, fetchWithRetry } = require('../../../scripts/utils/RetryManager');
 
 describe('RetryManager - 全面測試', () => {
   let retryManager = null;
@@ -665,7 +661,7 @@ describe('RetryManager - 全面測試', () => {
 
   describe('模塊導出', () => {
     test('應該正確導出到 module.exports', () => {
-      const exported = require('../../../scripts/errorHandling/RetryManager');
+      const exported = require('../../../scripts/utils/RetryManager');
 
       expect(exported.RetryManager).toBeDefined();
       expect(exported.withRetry).toBeDefined();

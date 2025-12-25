@@ -3,7 +3,7 @@
  * 覆蓋重試條件、Retry-After、AbortSignal、超時、jitter 注入、DOM context 與覆寫回應判斷。
  */
 
-const { RetryManager } = require('../../../scripts/errorHandling/RetryManager');
+const { RetryManager } = require('../../../scripts/utils/RetryManager');
 
 // 簡易 Headers 模擬
 class MockHeaders {

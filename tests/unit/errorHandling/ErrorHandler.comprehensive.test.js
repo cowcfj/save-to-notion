@@ -4,11 +4,7 @@
  */
 /* eslint-env jest */
 
-const {
-  ErrorHandler,
-  ErrorTypes,
-  ErrorSeverity,
-} = require('../../../scripts/errorHandling/ErrorHandler');
+const { ErrorHandler, ErrorTypes, ErrorSeverity } = require('../../../scripts/utils/ErrorHandler');
 
 describe('ErrorHandler - 全面測試', () => {
   // 保存原始的 console 方法
@@ -574,7 +570,7 @@ describe('ErrorHandler - 全面測試', () => {
 
   describe('模塊導出', () => {
     test('應該正確導出到 module.exports', () => {
-      const exported = require('../../../scripts/errorHandling/ErrorHandler');
+      const exported = require('../../../scripts/utils/ErrorHandler');
 
       expect(exported.ErrorHandler).toBeDefined();
       expect(exported.ErrorTypes).toBeDefined();
