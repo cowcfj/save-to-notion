@@ -20,9 +20,9 @@
 import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
 
 describe('Highlighter StorageUtil', () => {
-  // skipcq: JS-0119 - Jest beforeEach 模式：變數在 beforeEach 中初始化
+  // Jest beforeEach 模式：變數在 beforeEach 中初始化
   /** @type {Object} */
-  let mockChrome;
+  let mockChrome; // skipcq: JS-0119
 
   beforeEach(() => {
     // Mock Chrome Storage API
