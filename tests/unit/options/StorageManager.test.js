@@ -241,3 +241,222 @@ describe('StorageManager', () => {
     });
   });
 });
+
+describe('StorageManager Extended', () => {
+  let storageManager = null;
+  let mockUiManager = null;
+  let mockGet = null;
+  let mockSet = null;
+  let mockRemove = null;
+
+  beforeEach(() => {
+    // DOM Setup
+    document.body.innerHTML = `
+      <button id="export-data-button"></button>
+      <button id="import-data-button"></button>
+      <input type="file" id="import-data-file" />
+      <button id="check-data-button"></button>
+      <div id="data-status"></div>
+      <button id="refresh-usage-button"></button>
+      <div id="usage-fill"></div>
+      <div id="usage-percentage"></div>
+      <div id="usage-details"></div>
+      <div id="pages-count"></div>
+      <div id="highlights-count"></div>
+      <div id="config-count"></div>
+      <button id="preview-cleanup-button"><span class="button-text"></span></button>
+      <button id="execute-cleanup-button"></button>
+      <button id="analyze-optimization-button"></button>
+      <button id="execute-optimization-button"></button>
+      <div id="cleanup-preview"></div>
+      <div id="optimization-preview"></div>
+      <input type="checkbox" id="cleanup-deleted-pages" />
+    `;
+
+    // Chrome API Mocks
+    mockGet = jest.fn();
+    mockSet = jest.fn();
+    mockRemove = jest.fn();
+
+    global.chrome = {
+      storage: {
+        local: {
+          get: mockGet,
+          set: mockSet,
+          remove: mockRemove,
+        },
+      },
+      runtime: {
+        lastError: null,
+        getManifest: jest.fn(() => ({ version: '1.0.0' })),
+        sendMessage: jest.fn(),
+      },
+    };
+
+    mockUiManager = { showStatus: jest.fn() };
+
+    global.URL.createObjectURL = jest.fn(() => 'blob:url');
+    global.URL.revokeObjectURL = jest.fn();
+
+    storageManager = new StorageManager(mockUiManager);
+    storageManager.init();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('previewSafeCleanup', () => {
+    test('應生成清理預覽', async () => {
+      mockGet.mockImplementation((keys, sendResponse) =>
+        sendResponse({
+          highlights_page1: [{ text: 'test' }],
+          migration_old: {},
+        })
+      );
+
+      await storageManager.previewSafeCleanup();
+
+      expect(mockGet).toHaveBeenCalled();
+    });
+  });
+
+  describe('generateSafeCleanupPlan', () => {
+    test('應生成清理計劃', async () => {
+      mockGet.mockImplementation((keys, sendResponse) =>
+        sendResponse({
+          saved_page1: { notionPageId: 'page-123' },
+          highlights_page1: [{ text: 'ok' }],
+        })
+      );
+
+      const plan = await storageManager.generateSafeCleanupPlan(false);
+
+      expect(plan.items).toBeDefined();
+      expect(plan.totalKeys).toBeDefined();
+    });
+
+    test('無可清理項目時應返回空計劃', async () => {
+      mockGet.mockImplementation((keys, sendResponse) =>
+        sendResponse({
+          highlights_page1: [{ text: 'valid', rangeInfo: {} }],
+          config_theme: 'dark',
+        })
+      );
+
+      const plan = await storageManager.generateSafeCleanupPlan(false);
+
+      expect(plan.items.length).toBe(0);
+      expect(plan.totalKeys).toBe(0);
+    });
+  });
+
+  describe('executeSafeCleanup', () => {
+    test('無計劃時應返回', async () => {
+      storageManager.cleanupPlan = null;
+
+      await storageManager.executeSafeCleanup();
+
+      expect(mockRemove).not.toHaveBeenCalled();
+    });
+
+    test('有計劃時應執行清理', async () => {
+      storageManager.cleanupPlan = {
+        items: [{ key: 'old_key', url: 'test', size: 100, reason: 'test' }],
+        totalKeys: 1,
+        spaceFreed: 100,
+        deletedPages: 0,
+      };
+
+      mockRemove.mockImplementation((keys, sendResponse) => sendResponse());
+
+      await storageManager.executeSafeCleanup();
+
+      expect(mockRemove).toHaveBeenCalledWith(['old_key'], expect.any(Function));
+    });
+  });
+
+  describe('updateUsageDisplay', () => {
+    test('應更新 UI 元素', () => {
+      const usage = {
+        total: 5242880,
+        used: '1.50',
+        percentage: 30,
+        pages: 5,
+        highlights: 25,
+        configs: 3,
+      };
+
+      storageManager.updateUsageDisplay(usage);
+
+      expect(storageManager.elements.usagePercentage.textContent).toBe('30%');
+      expect(storageManager.elements.pagesCount.textContent).toBe('5');
+      expect(storageManager.elements.highlightsCount.textContent).toBe('25');
+      expect(storageManager.elements.configCount.textContent).toBe('3');
+    });
+  });
+
+  describe('showDataStatus', () => {
+    test('應顯示成功狀態', () => {
+      storageManager.showDataStatus('操作成功', 'success');
+
+      expect(storageManager.elements.dataStatus.textContent).toBe('操作成功');
+      expect(storageManager.elements.dataStatus.className).toContain('success');
+    });
+
+    test('應顯示錯誤狀態', () => {
+      storageManager.showDataStatus('發生錯誤', 'error');
+
+      expect(storageManager.elements.dataStatus.textContent).toBe('發生錯誤');
+      expect(storageManager.elements.dataStatus.className).toContain('error');
+    });
+  });
+
+  describe('dataAnalysis', () => {
+    test('應可存取統計數據', async () => {
+      mockGet.mockImplementation((keys, sendResponse) =>
+        sendResponse({
+          highlights_page1: [{ text: 'test1' }, { text: 'test2' }],
+          highlights_page2: [{ text: 'test3' }],
+          config_theme: 'dark',
+        })
+      );
+
+      const usage = await StorageManager.getStorageUsage();
+
+      expect(usage.pages).toBeGreaterThanOrEqual(0);
+      expect(usage.highlights).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('setPreviewButtonLoading', () => {
+    test('應設置加載狀態', () => {
+      storageManager.setPreviewButtonLoading(true);
+
+      expect(storageManager.elements.previewCleanupButton.disabled).toBe(true);
+    });
+
+    test('應取消加載狀態', () => {
+      storageManager.setPreviewButtonLoading(false);
+
+      expect(storageManager.elements.previewCleanupButton.disabled).toBe(false);
+    });
+  });
+
+  describe('analyzeOptimization extended', () => {
+    test('應識別可優化項目', async () => {
+      mockGet.mockImplementation((keys, sendResponse) =>
+        sendResponse({
+          migration_file: {},
+          highlights_empty: [],
+          highlights_valid: [{ text: 'ok' }],
+          seamless_migration_state_old: {},
+        })
+      );
+
+      await storageManager.analyzeOptimization();
+
+      expect(storageManager.optimizationPlan).toBeDefined();
+    });
+  });
+});
