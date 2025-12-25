@@ -265,7 +265,7 @@ describe('Highlighter StorageUtil', () => {
     });
 
     test('undefined 應返回空陣列', () => {
-      expect(StorageUtil._parseHighlightFormat(undefined)).toEqual([]);
+      expect(StorageUtil._parseHighlightFormat()).toEqual([]);
     });
 
     test('陣列格式應直接返回', () => {

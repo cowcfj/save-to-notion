@@ -214,7 +214,7 @@ describe('securityUtils', () => {
     });
 
     test('undefined 應返回 [empty-url]', () => {
-      expect(sanitizeUrlForLogging(undefined)).toBe('[empty-url]');
+      expect(sanitizeUrlForLogging()).toBe('[empty-url]');
     });
   });
 
@@ -243,7 +243,7 @@ describe('securityUtils', () => {
     });
 
     test('undefined 應返回 [empty]', () => {
-      expect(maskSensitiveString(undefined)).toBe('[empty]');
+      expect(maskSensitiveString()).toBe('[empty]');
     });
 
     test('剛好等於可見長度的字串應全部遮蔽', () => {
