@@ -82,21 +82,13 @@ describe('Highlighter StorageUtil', () => {
   });
 
   describe('saveHighlights', () => {
-    test('無效的 pageUrl 應觸發警告並返回', async () => {
+    test.each([
+      ['空字串', ''],
+      ['null', null],
+    ])('無效的 pageUrl (%s) 應觸發警告並返回', async (description, invalidUrl) => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      await StorageUtil.saveHighlights('', { text: 'test' });
-
-      expect(warnSpy).toHaveBeenCalled();
-      expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
-
-      warnSpy.mockRestore();
-    });
-
-    test('null pageUrl 應觸發警告並返回', async () => {
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
-
-      await StorageUtil.saveHighlights(null, { text: 'test' });
+      await StorageUtil.saveHighlights(invalidUrl, { text: 'test' });
 
       expect(warnSpy).toHaveBeenCalled();
 
@@ -123,23 +115,16 @@ describe('Highlighter StorageUtil', () => {
   });
 
   describe('loadHighlights', () => {
-    test('無效的 pageUrl 應返回空陣列', async () => {
+    test.each([
+      ['空字串', ''],
+      ['null', null],
+    ])('無效的 pageUrl (%s) 應返回空陣列', async (description, invalidUrl) => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
-      const result = await StorageUtil.loadHighlights('');
+      const result = await StorageUtil.loadHighlights(invalidUrl);
 
       expect(result).toEqual([]);
       expect(warnSpy).toHaveBeenCalled();
-
-      warnSpy.mockRestore();
-    });
-
-    test('null pageUrl 應返回空陣列', async () => {
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
-
-      const result = await StorageUtil.loadHighlights(null);
-
-      expect(result).toEqual([]);
 
       warnSpy.mockRestore();
     });
