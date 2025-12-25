@@ -72,68 +72,30 @@ describe('Preloader', () => {
   });
 
   /**
-   * 執行 preloader IIFE 代碼的輔助函數
+   * 執行實際的 preloader.js 腳本
+   * 通過讀取並執行實際文件，確保測試與實現同步
    */
   function executePreloader() {
-    // 模擬 IIFE 執行
-    if (window.__NOTION_PRELOADER_INITIALIZED__) {
-      return;
+    // 使用 require 加載文件系統模組
+    const fs = require('fs');
+    const path = require('path');
+
+    // 讀取實際的 preloader.js 腳本
+    const preloaderPath = path.resolve(__dirname, '../../../scripts/performance/preloader.js');
+    const preloaderCode = fs.readFileSync(preloaderPath, 'utf8');
+
+    // 抑制 console.log 輸出（preloader 會輸出載入日誌）
+    const originalConsoleLog = console.log;
+    console.log = jest.fn();
+
+    try {
+      // 執行腳本（IIFE 會立即執行）
+
+      eval(preloaderCode);
+    } finally {
+      // 恢復 console.log
+      console.log = originalConsoleLog;
     }
-    window.__NOTION_PRELOADER_INITIALIZED__ = true;
-
-    // 建立快取
-    const preloaderCache = {
-      article: document.querySelector('article'),
-      mainContent: document.querySelector('main, [role="main"], #content, .content'),
-      timestamp: Date.now(),
-    };
-    window.__NOTION_PRELOADER_CACHE__ = preloaderCache;
-
-    // 事件緩衝區
-    const eventBuffer = [];
-
-    // 監聽快捷鍵
-    document.addEventListener('keydown', event => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-        event.preventDefault();
-        chrome.runtime.sendMessage({ action: 'USER_ACTIVATE_SHORTCUT' }, _response => {
-          if (chrome.runtime.lastError) {
-            return;
-          }
-          if (!window.__NOTION_BUNDLE_READY__) {
-            eventBuffer.push({ type: 'shortcut', timestamp: Date.now() });
-          }
-        });
-      }
-    });
-
-    // 監聽消息
-    chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-      if (request.action === 'PING') {
-        if (window.__NOTION_BUNDLE_READY__) {
-          return false;
-        }
-        sendResponse({
-          status: 'preloader_only',
-          hasCache: Boolean(preloaderCache.article) || Boolean(preloaderCache.mainContent),
-        });
-        return true;
-      }
-
-      if (request.action === 'INIT_BUNDLE') {
-        sendResponse({ ready: true, bufferedEvents: eventBuffer.length });
-        return true;
-      }
-
-      if (request.action === 'REPLAY_BUFFERED_EVENTS') {
-        const events = [...eventBuffer];
-        eventBuffer.length = 0;
-        sendResponse({ events });
-        return true;
-      }
-
-      return false;
-    });
   }
 
   describe('初始化防護', () => {
