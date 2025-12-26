@@ -455,6 +455,14 @@ function extractFromNoscript(imgNode) {
 
       const html = noscript.textContent;
 
+      // 長度限制檢查，防止資源消耗型 DoS 攻擊
+      // noscript 內容通常很短（只包含一個 img 標籤），超長內容視為異常
+      const MAX_NOSCRIPT_LENGTH = IMAGE_VALIDATION.MAX_URL_LENGTH * 2; // 4000 字符
+      if (html.length > MAX_NOSCRIPT_LENGTH) {
+        Logger.warn(`⚠️ [extractFromNoscript] noscript 內容過長 (${html.length})，跳過解析`);
+        continue;
+      }
+
       // 優先使用 DOMParser（Content Script 環境可用，更穩健）
       if (typeof DOMParser !== 'undefined') {
         try {
