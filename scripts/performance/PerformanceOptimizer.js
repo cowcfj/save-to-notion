@@ -4,6 +4,7 @@
  */
 /* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, Logger */
 import { AdaptivePerformanceManager } from './AdaptivePerformanceManager.js';
+import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
 
 /**
  * 性能優化器類
@@ -35,10 +36,10 @@ class PerformanceOptimizer {
       enableCache: true,
       enableBatching: true,
       enableMetrics: true,
-      cacheMaxSize: 100,
+      cacheMaxSize: PERFORMANCE_OPTIMIZER.DEFAULT_CACHE_MAX_SIZE,
       batchDelay: 16, // 一個動畫幀的時間
       metricsInterval: 5000, // 5秒收集一次指標
-      cacheTTL: 300000, // 5分鐘 TTL
+      cacheTTL: PERFORMANCE_OPTIMIZER.CACHE_TTL_MS,
       prewarmSelectors: [
         // 預設的預熱選擇器
         'img[src]',
@@ -287,7 +288,7 @@ class PerformanceOptimizer {
    * @param {Object} options - 清理選項
    */
   clearCache(options = {}) {
-    const { maxAge = 300000, force = false } = options; // 默認 5 分鐘過期
+    const { force = false, maxAge } = options;
 
     if (force) {
       Logger.info('Force clearing cache. Size before:', this.queryCache.size);
@@ -303,18 +304,8 @@ class PerformanceOptimizer {
       return;
     }
 
-    const now = Date.now();
-    const keysToDelete = [];
-
-    for (const [key, cached] of this.queryCache.entries()) {
-      if (now - cached.timestamp > maxAge) {
-        keysToDelete.push(key);
-      }
-    }
-
-    keysToDelete.forEach(key => {
-      this.queryCache.delete(key);
-    });
+    // 委託給 clearExpiredCache 處理過期清理
+    this.clearExpiredCache({ maxAge: maxAge || this.options.cacheTTL });
   }
 
   /**
@@ -893,7 +884,7 @@ class PerformanceOptimizer {
       return Math.max(1, Math.floor(currentSize * 0.7));
     } else if (this.metrics.averageProcessingTime && this.metrics.averageProcessingTime < 10) {
       // 如果處理很快，可以增加批次大小
-      return Math.min(500, currentSize * 1.5);
+      return Math.min(PERFORMANCE_OPTIMIZER.MAX_BATCH_SIZE, currentSize * 1.5);
     }
     return currentSize;
   }

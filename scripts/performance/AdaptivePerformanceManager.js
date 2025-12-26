@@ -4,6 +4,8 @@
  */
 /* global document, performance */
 import Logger from '../utils/Logger.js';
+import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
+
 class AdaptivePerformanceManager {
   /**
    * 創建自適應性能管理器實例
@@ -12,7 +14,6 @@ class AdaptivePerformanceManager {
    */
   constructor(performanceOptimizer, options = {}) {
     // 防禦性檢查：確保 performanceOptimizer 和其 options 存在
-    const DEFAULT_CACHE_MAX_SIZE = 100;
     const validOptimizer = performanceOptimizer && typeof performanceOptimizer === 'object';
 
     this.performanceOptimizer = validOptimizer ? performanceOptimizer : null;
@@ -27,11 +28,11 @@ class AdaptivePerformanceManager {
     const cacheMaxSize =
       (validOptimizer && performanceOptimizer.options?.cacheMaxSize) ||
       options.cacheMaxSize ||
-      DEFAULT_CACHE_MAX_SIZE;
+      PERFORMANCE_OPTIMIZER.DEFAULT_CACHE_MAX_SIZE;
 
     this.performanceHistory = []; // 性能歷史記錄
     this.currentSettings = {
-      batchSize: 100,
+      batchSize: PERFORMANCE_OPTIMIZER.DEFAULT_BATCH_SIZE,
       cacheSize: cacheMaxSize,
       enableCache: true,
       enableBatching: true,
@@ -170,8 +171,9 @@ class AdaptivePerformanceManager {
     const newSettings = { ...this.currentSettings };
 
     // 安全獲取 cacheMaxSize，如果 performanceOptimizer 不可用則使用默認值
-    const DEFAULT_CACHE_MAX_SIZE = 100;
-    const cacheMaxSize = this.performanceOptimizer?.options?.cacheMaxSize || DEFAULT_CACHE_MAX_SIZE;
+    const cacheMaxSize =
+      this.performanceOptimizer?.options?.cacheMaxSize ||
+      PERFORMANCE_OPTIMIZER.DEFAULT_CACHE_MAX_SIZE;
 
     // 根據頁面複雜度調整緩存大小
     const cacheFactor =
@@ -183,7 +185,7 @@ class AdaptivePerformanceManager {
       // 複雜頁面 -> 增加緩存大小
       newSettings.cacheSize = Math.min(
         Math.floor(cacheMaxSize * (1 + cacheFactor)),
-        2000 // 最大緩存限制
+        PERFORMANCE_OPTIMIZER.MAX_CACHE_SIZE
       );
     } else if (pageAnalysis.complexityScore < 2) {
       // 簡單頁面 -> 減少緩存大小以節省內存
@@ -200,13 +202,13 @@ class AdaptivePerformanceManager {
       // 高性能系統 -> 增加批處理大小
       newSettings.batchSize = Math.min(
         Math.floor(this.currentSettings.batchSize * (1 + batchFactor)),
-        500 // 最大批處理大小
+        PERFORMANCE_OPTIMIZER.MAX_BATCH_SIZE
       );
     } else if (systemPerformance.performanceScore > 50) {
       // 低性能系統 -> 減少批處理大小
       newSettings.batchSize = Math.max(
         Math.floor(this.currentSettings.batchSize * Math.max(0.1, 1 - batchFactor)),
-        10 // 最小批處理大小
+        PERFORMANCE_OPTIMIZER.MIN_BATCH_SIZE
       );
     }
 
@@ -262,7 +264,10 @@ class AdaptivePerformanceManager {
    * @param {number} newCacheSize - 新的緩存大小
    */
   adjustCacheSize(newCacheSize) {
-    this.currentSettings.cacheSize = Math.max(50, Math.min(2000, newCacheSize));
+    this.currentSettings.cacheSize = Math.max(
+      PERFORMANCE_OPTIMIZER.MIN_CACHE_SIZE,
+      Math.min(PERFORMANCE_OPTIMIZER.MAX_CACHE_SIZE, newCacheSize)
+    );
 
     // 檢查 performanceOptimizer 是否存在並且有 options 屬性
     if (this.performanceOptimizer?.options) {
