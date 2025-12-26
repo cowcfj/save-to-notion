@@ -2,8 +2,6 @@
  * @jest-environment jsdom
  */
 
-// 使用 testable 版本
-// 使用源代碼版本
 import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
 import { TEXT_COLORS } from '../../../../scripts/highlighter/utils/color.js';
 
