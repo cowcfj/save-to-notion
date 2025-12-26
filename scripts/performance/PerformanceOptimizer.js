@@ -2,7 +2,7 @@
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
-/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, Logger */
+/* global ErrorHandler, Logger */
 import { AdaptivePerformanceManager } from './AdaptivePerformanceManager.js';
 import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
 

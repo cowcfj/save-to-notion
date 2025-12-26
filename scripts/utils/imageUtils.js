@@ -54,7 +54,7 @@ function cleanImageUrl(url, depth = 0) {
 
   try {
     urlObj = new URL(url);
-  } catch (_error) {
+  } catch {
     // 嘗試作為相對 URL 解析
     try {
       // 簡單啟發式檢查：如果是相對路徑，應該看起來像路徑
@@ -111,7 +111,7 @@ function cleanImageUrl(url, depth = 0) {
     }
 
     return urlObj.href;
-  } catch (_error) {
+  } catch {
     return null;
   }
 }
@@ -189,7 +189,7 @@ function isValidImageUrl(url) {
 
     // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
     return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(cleanedUrl));
-  } catch (_error) {
+  } catch {
     return false;
   }
 }
@@ -236,7 +236,7 @@ function isNotionCompatibleImageUrl(url) {
 
     // 檢查 hostname 有效性（從 NotionService 移植）
     return Boolean(urlObj.hostname?.length >= 3);
-  } catch (_error) {
+  } catch {
     return false;
   }
 }
@@ -432,7 +432,7 @@ function extractFromBackgroundImage(imgNode) {
         }
       }
     }
-  } catch (_error) {
+  } catch {
     // 忽略樣式計算錯誤
   }
   return null;
@@ -487,7 +487,7 @@ function extractFromNoscript(imgNode) {
         return match[1];
       }
     }
-  } catch (_error) {
+  } catch {
     // 忽略 noscript 解析錯誤
   }
   return null;
