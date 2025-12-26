@@ -12,11 +12,13 @@ describe('fetchWithRetry', () => {
   let originalFetch = null;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     originalFetch = global.fetch;
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
+    jest.useRealTimers();
   });
 
   it('應該在成功時直接返回響應', async () => {
@@ -43,11 +45,16 @@ describe('fetchWithRetry', () => {
         status: 200,
       });
 
-    const result = await fetchWithRetry(
+    const promise = fetchWithRetry(
       'https://api.notion.com/test',
       {},
-      { maxRetries: 1, baseDelay: 10 }
+      { maxRetries: 1, baseDelay: 1000 }
     );
+
+    // 快進時間以處理延遲
+    await jest.advanceTimersByTimeAsync(10000);
+
+    const result = await promise;
     expect(result.ok).toBe(true);
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
@@ -59,11 +66,16 @@ describe('fetchWithRetry', () => {
       clone: () => ({ json: () => Promise.resolve({}) }),
     });
 
-    const result = await fetchWithRetry(
+    const promise = fetchWithRetry(
       'https://api.notion.com/test',
       {},
-      { maxRetries: 1, baseDelay: 10 }
+      { maxRetries: 1, baseDelay: 1000 }
     );
+
+    // 快進時間以處理延遲
+    await jest.advanceTimersByTimeAsync(10000);
+
+    const result = await promise;
     expect(result.ok).toBe(false);
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
@@ -77,11 +89,16 @@ describe('fetchWithRetry', () => {
         status: 200,
       });
 
-    const result = await fetchWithRetry(
+    const promise = fetchWithRetry(
       'https://api.notion.com/test',
       {},
-      { maxRetries: 1, baseDelay: 10 }
+      { maxRetries: 1, baseDelay: 1000 }
     );
+
+    // 快進時間以處理延遲
+    await jest.advanceTimersByTimeAsync(10000);
+
+    const result = await promise;
     expect(result.ok).toBe(true);
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
@@ -89,9 +106,17 @@ describe('fetchWithRetry', () => {
   it('應該在達到最大重試次數後拋出網絡錯誤', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
 
-    await expect(
-      fetchWithRetry('https://api.notion.com/test', {}, { maxRetries: 1, baseDelay: 10 })
-    ).rejects.toThrow('Network error');
+    const promise = fetchWithRetry(
+      'https://api.notion.com/test',
+      {},
+      { maxRetries: 1, baseDelay: 1000 }
+    );
+    const expectation = expect(promise).rejects.toThrow('Network error');
+
+    // 快進時間以處理延遲
+    await jest.advanceTimersByTimeAsync(10000);
+
+    await expectation;
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });
@@ -102,6 +127,7 @@ describe('NotionService', () => {
   let originalFetch = null;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     originalFetch = global.fetch;
     mockLogger = {
       log: jest.fn(),
@@ -116,6 +142,7 @@ describe('NotionService', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    jest.useRealTimers();
   });
 
   describe('constructor', () => {
@@ -219,7 +246,9 @@ describe('NotionService', () => {
         clone: () => ({ json: () => Promise.resolve({}) }),
       });
 
-      const result = await service.checkPageExists('page-123');
+      const promise = service.checkPageExists('page-123');
+      await jest.advanceTimersByTimeAsync(10000);
+      const result = await promise;
       expect(result).toBeNull();
     });
 
@@ -236,7 +265,9 @@ describe('NotionService', () => {
         json: () => Promise.reject(new Error('Not JSON')),
       });
 
-      const result = await service.checkPageExists('page-123');
+      const promise = service.checkPageExists('page-123');
+      await jest.advanceTimersByTimeAsync(10000);
+      const result = await promise;
       expect(result).toBeNull();
     });
   });
@@ -249,7 +280,13 @@ describe('NotionService', () => {
       });
 
       const blocks = Array.from({ length: 150 }, (_, i) => ({ type: 'paragraph', id: i }));
-      const result = await service.appendBlocksInBatches('page-123', blocks);
+
+      const promise = service.appendBlocksInBatches('page-123', blocks);
+
+      // 快進時間以處理批次間的延遲
+      await jest.advanceTimersByTimeAsync(10000);
+
+      const result = await promise;
 
       expect(result.success).toBe(true);
       expect(result.addedCount).toBe(150);
@@ -274,7 +311,10 @@ describe('NotionService', () => {
         });
 
       const blocks = Array.from({ length: 150 }, (_, i) => ({ type: 'paragraph', id: i }));
-      const result = await service.appendBlocksInBatches('page-123', blocks);
+
+      const promise = service.appendBlocksInBatches('page-123', blocks);
+      await jest.advanceTimersByTimeAsync(10000);
+      const result = await promise;
 
       expect(result.success).toBe(false);
       expect(result.addedCount).toBe(100);
@@ -378,7 +418,12 @@ describe('NotionService', () => {
         // Delete block 2
         .mockResolvedValueOnce({ ok: true });
 
-      const result = await service.deleteAllBlocks('page-123');
+      const promise = service.deleteAllBlocks('page-123');
+
+      // 無論是否有延遲，快進時間總是安全的
+      await jest.advanceTimersByTimeAsync(10000);
+
+      const result = await promise;
       expect(result.success).toBe(true);
       expect(result.deletedCount).toBe(2);
       // Calls: 1. List page 1, 2. List page 2, 3. Delete block 1, 4. Delete block 2
@@ -657,7 +702,11 @@ describe('NotionService', () => {
     it('should handle exceptions gracefully', async () => {
       service.deleteAllBlocks = jest.fn().mockRejectedValue(new Error('Network error'));
 
-      const result = await service.refreshPageContent('page-123', []);
+      const promise = service.refreshPageContent('page-123', []);
+
+      await jest.advanceTimersByTimeAsync(10000);
+
+      const result = await promise;
 
       expect(result.success).toBe(false);
       // 驗證返回清理後的用戶友好錯誤訊息
