@@ -42,7 +42,7 @@ export class UIManager {
     if (type === 'success') {
       setTimeout(() => {
         status.textContent = '';
-        status.classList.remove('success', 'error', 'info');
+        status.classList.remove('success', 'error', 'info', 'status-message');
       }, 3000);
     }
   }

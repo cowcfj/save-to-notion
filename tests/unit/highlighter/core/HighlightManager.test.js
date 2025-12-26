@@ -2,16 +2,43 @@
  * @jest-environment jsdom
  */
 
-// 使用 testable 版本：源代碼依賴 CSS Highlight API，jsdom 不支援
-const {
-  HighlightManager,
-} = require('../../../helpers/highlighter/core/HighlightManager.testable.js');
+// 使用源代碼版本
+import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
+// Mock dependencies
+jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
+  supportsHighlightAPI: jest.fn(() => true),
+}));
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+}));
 
 describe('core/HighlightManager', () => {
   let manager = null;
 
   beforeEach(() => {
     document.body.innerHTML = '';
+
+    // 模擬 browser Highlight API
+    global.CSS = {
+      highlights: {
+        set: jest.fn(),
+        get: jest.fn(),
+        delete: jest.fn(),
+        clear: jest.fn(),
+      },
+    };
+
+    // Mock Highlight constructor
+    global.Highlight = jest.fn().mockImplementation(() => ({
+      add: jest.fn(),
+      delete: jest.fn(),
+      clear: jest.fn(),
+    }));
+
     manager = new HighlightManager();
   });
 

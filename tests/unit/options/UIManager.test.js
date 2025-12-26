@@ -37,7 +37,7 @@ describe('UIManager', () => {
     uiManager.showStatus('Test Message', 'success');
 
     expect(mockStatus.textContent).toBe('Test Message');
-    expect(mockStatus.className).toBe('success');
+    expect(mockStatus.className).toBe('status-message success');
   });
 
   test('showStatus (success) clears message after timeout', () => {
