@@ -208,6 +208,7 @@ tests/reports/
 .kiro/steering/
 .qoder/rules/
 .augment/rules/
+.agent/rules/
 .clinerules/byterover-rules.md
 .kilocode/rules/byterover-rules.md
 .roo/rules/byterover-rules.md
