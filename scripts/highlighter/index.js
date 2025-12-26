@@ -329,9 +329,13 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
         }),
       ]);
 
-      // 處理樣式配置
-      if (settings?.highlightStyle) {
+      // 處理樣式配置，驗證值是否在允許的集合中
+      const VALID_STYLES = ['background', 'text', 'underline'];
+      if (settings?.highlightStyle && VALID_STYLES.includes(settings.highlightStyle)) {
         styleMode = settings.highlightStyle;
+      } else if (settings?.highlightStyle) {
+        // 設定值無效，記錄警告並使用預設值
+        Logger.warn('[Highlighter] Invalid highlightStyle value:', settings.highlightStyle);
       }
 
       // 處理頁面狀態
