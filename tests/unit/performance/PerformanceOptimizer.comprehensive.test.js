@@ -417,7 +417,7 @@ describe('PerformanceOptimizer - 全面測試', () => {
     test('應該預加載圖片', async () => {
       const urls = ['test1.jpg', 'test2.jpg'];
 
-      const promise = optimizer.preloadImages(urls, { timeout: 5000, concurrent: 2 });
+      const promise = optimizer.preloadImages(urls, { timeout: 100, concurrent: 2 });
 
       // 觸發所有異步操作
       jest.runAllTimers();
