@@ -882,8 +882,8 @@ class PerformanceOptimizer {
       // 如果平均處理時間過長，減少批次大小
       return Math.max(1, Math.floor(currentSize * 0.7));
     } else if (this.metrics.averageProcessingTime && this.metrics.averageProcessingTime < 10) {
-      // 如果處理很快，可以增加批次大小
-      return Math.min(PERFORMANCE_OPTIMIZER.MAX_BATCH_SIZE, currentSize * 1.5);
+      // 如果處理很快，可以增加批次大小（確保使用整數）
+      return Math.min(PERFORMANCE_OPTIMIZER.MAX_BATCH_SIZE, Math.floor(currentSize * 1.5));
     }
     return currentSize;
   }
