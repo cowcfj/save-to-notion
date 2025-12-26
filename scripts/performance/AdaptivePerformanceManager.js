@@ -2,8 +2,8 @@
  * 自適應性能管理器
  * 根據頁面和系統性能動態調整優化策略
  */
-/* global window, document, performance, module */
-const Logger = typeof window !== 'undefined' && window.Logger ? window.Logger : console;
+/* global document, performance */
+import Logger from '../utils/Logger.js';
 class AdaptivePerformanceManager {
   /**
    * 創建自適應性能管理器實例
@@ -284,9 +284,6 @@ class AdaptivePerformanceManager {
   }
 }
 
-// 導出類
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { AdaptivePerformanceManager };
-} else if (typeof window !== 'undefined') {
-  window.AdaptivePerformanceManager = AdaptivePerformanceManager;
-}
+// ES Module 導出
+export { AdaptivePerformanceManager };
+export default AdaptivePerformanceManager;

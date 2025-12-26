@@ -558,21 +558,22 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
   describe('enableAdaptiveOptimization - 啟用自適應優化', () => {
     test('應該啟用自適應管理器', () => {
-      // Mock AdaptivePerformanceManager
-      global.AdaptivePerformanceManager = jest.fn();
-
+      // 現在是 ES Module 硬依賴，無需 mock 全局變量
       optimizer.enableAdaptiveOptimization();
 
       expect(optimizer.options.enableAdaptive).toBe(true);
+      // 由於現在是硬依賴，adaptiveManager 應該被初始化
+      expect(optimizer.adaptiveManager).not.toBeNull();
     });
 
     test('應該在已有管理器時不重複創建', () => {
-      global.AdaptivePerformanceManager = jest.fn();
-      optimizer.adaptiveManager = { existing: true };
+      const existingManager = { existing: true };
+      optimizer.adaptiveManager = existingManager;
 
       optimizer.enableAdaptiveOptimization();
 
-      expect(AdaptivePerformanceManager).not.toHaveBeenCalled();
+      // 應該保留原有的管理器，不重複創建
+      expect(optimizer.adaptiveManager).toBe(existingManager);
     });
   });
 

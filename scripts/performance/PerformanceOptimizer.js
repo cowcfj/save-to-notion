@@ -2,9 +2,8 @@
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
-/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, AdaptivePerformanceManager, Logger */
-
-// Logger 由 Rollup intro 從 window.Logger 注入
+/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, Logger */
+import { AdaptivePerformanceManager } from './AdaptivePerformanceManager.js';
 
 /**
  * 性能優化器類
@@ -102,15 +101,12 @@ class PerformanceOptimizer {
    */
   _initAdaptiveManager() {
     try {
-      if (typeof AdaptivePerformanceManager !== 'undefined') {
-        this.adaptiveManager = new AdaptivePerformanceManager(this, {
-          performanceThreshold: 100,
-          batchSizeAdjustmentFactor: 0.1,
-        });
-        Logger.info('🤖 自適應性能管理器已初始化');
-      } else {
-        Logger.warn('⚠️ AdaptivePerformanceManager not available, adaptive features disabled');
-      }
+      // 現在是 ES Module 硬依賴，直接初始化
+      this.adaptiveManager = new AdaptivePerformanceManager(this, {
+        performanceThreshold: 100,
+        batchSizeAdjustmentFactor: 0.1,
+      });
+      Logger.info('🤖 自適應性能管理器已初始化');
     } catch (error) {
       Logger.error('❌ 初始化自適應管理器失敗:', error);
     }
