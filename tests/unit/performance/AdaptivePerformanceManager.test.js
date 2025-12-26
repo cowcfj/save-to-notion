@@ -4,6 +4,7 @@ const {
   AdaptivePerformanceManager,
 } = require('../../../scripts/performance/AdaptivePerformanceManager');
 const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
+const { PERFORMANCE_OPTIMIZER } = require('../../../scripts/config/constants');
 
 describe('AdaptivePerformanceManager', () => {
   /** @type {PerformanceOptimizer|null} */
@@ -52,15 +53,17 @@ describe('AdaptivePerformanceManager', () => {
   });
 
   test('adjustBatchSize respects MIN and MAX_BATCH_SIZE bounds', () => {
-    // Test lower bound (should clamp to MIN_BATCH_SIZE = 10)
+    const { MIN_BATCH_SIZE, MAX_BATCH_SIZE } = PERFORMANCE_OPTIMIZER;
+
+    // Test lower bound (should clamp to MIN_BATCH_SIZE)
     manager.adjustBatchSize(1);
-    expect(manager.getCurrentStrategy().batchSize).toBe(10);
+    expect(manager.getCurrentStrategy().batchSize).toBe(MIN_BATCH_SIZE);
 
-    // Test upper bound (should clamp to MAX_BATCH_SIZE = 500)
+    // Test upper bound (should clamp to MAX_BATCH_SIZE)
     manager.adjustBatchSize(1000);
-    expect(manager.getCurrentStrategy().batchSize).toBe(500);
+    expect(manager.getCurrentStrategy().batchSize).toBe(MAX_BATCH_SIZE);
 
-    // Test normal value
+    // Test normal value within bounds
     manager.adjustBatchSize(200);
     expect(manager.getCurrentStrategy().batchSize).toBe(200);
   });
