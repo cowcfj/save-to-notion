@@ -7,7 +7,7 @@
  */
 
 import { serializeRange, restoreRangeWithRetry } from './Range.js';
-import { COLORS, TEXT_COLORS } from '../utils/color.js';
+import { COLORS, TEXT_COLORS, VALID_STYLES } from '../utils/color.js';
 import { supportsHighlightAPI } from '../utils/dom.js';
 import { findTextInPage } from '../utils/textSearch.js';
 import Logger from '../../utils/Logger.js';
@@ -171,7 +171,6 @@ export class HighlightManager {
    * @param {string} newStyleMode - 新的樣式模式 ('background' | 'text' | 'underline')
    */
   updateStyleMode(newStyleMode) {
-    const VALID_STYLES = ['background', 'text', 'underline'];
     if (!VALID_STYLES.includes(newStyleMode)) {
       Logger.warn('[HighlightManager] Invalid style mode:', newStyleMode);
       return;

@@ -19,7 +19,7 @@ import {
 import { Toolbar } from './ui/Toolbar.js';
 
 // Utility modules
-import { COLORS, convertBgColorToName } from './utils/color.js';
+import { COLORS, convertBgColorToName, VALID_STYLES } from './utils/color.js';
 import { supportsHighlightAPI, isValidElement, getVisibleText } from './utils/dom.js';
 import { isValidColor, isValidRange, isValidHighlightData } from './utils/validation.js';
 import { getNodePath, getNodeByPath } from './utils/path.js';
@@ -330,7 +330,6 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
       ]);
 
       // 處理樣式配置，驗證值是否在允許的集合中
-      const VALID_STYLES = ['background', 'text', 'underline'];
       if (settings?.highlightStyle && VALID_STYLES.includes(settings.highlightStyle)) {
         styleMode = settings.highlightStyle;
       } else if (settings?.highlightStyle) {
@@ -392,7 +391,6 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
     window.chrome.storage.onChanged.addListener((changes, namespace) => {
       if (namespace === 'sync' && changes.highlightStyle) {
         const newStyle = changes.highlightStyle.newValue;
-        const VALID_STYLES = ['background', 'text', 'underline'];
         if (newStyle && VALID_STYLES.includes(newStyle) && window.HighlighterV2?.manager) {
           window.HighlighterV2.manager.updateStyleMode(newStyle);
         }

@@ -27,6 +27,12 @@ export const TEXT_COLORS = {
 };
 
 /**
+ * 有效的標註樣式模式
+ * @type {string[]}
+ */
+export const VALID_STYLES = ['background', 'text', 'underline'];
+
+/**
  * 轉換背景顏色（RGB 或 HEX）到顏色名稱
  * @param {string} bgColor - 背景顏色（RGB 格式或 HEX 格式）
  * @returns {string} 顏色名稱（yellow|green|blue|red），默認 'yellow'
