@@ -125,15 +125,14 @@ class PerformanceOptimizer {
 
   /**
    * 執行自適應性能調整
-   * @param {Object} pageData - 頁面數據
    */
-  adaptiveAdjustment(pageData = {}) {
+  adaptiveAdjustment() {
     if (!this.adaptiveManager) {
       return Promise.resolve(null);
     }
 
     // 返回 underlying promise 讓呼叫者自行 await，避免額外的 microtask
-    return this.adaptiveManager.analyzeAndAdjust(pageData);
+    return this.adaptiveManager.analyzeAndAdjust();
   }
 
   /**

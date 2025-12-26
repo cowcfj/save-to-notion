@@ -44,4 +44,10 @@ describe('AdaptivePerformanceManager', () => {
     // optimizer options also updated
     expect(optimizer.options.cacheMaxSize).toBe(strategy.cacheSize);
   });
+
+  test('destroy cleans up resources', () => {
+    manager.destroy();
+    expect(manager.performanceHistory).toEqual([]);
+    expect(manager.performanceOptimizer).toBeNull();
+  });
 });

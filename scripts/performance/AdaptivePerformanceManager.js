@@ -44,24 +44,22 @@ class AdaptivePerformanceManager {
    * @param {Object} pageData - 頁面數據
    * @returns {Promise<Object>} 調整後的策略
    */
-  async analyzeAndAdjust(_pageData = {}) {
+  async analyzeAndAdjust() {
     const startTime = performance.now();
 
     // 分析頁面內容
-    // 將傳入的 pageData 命名為 _pageData 表示在某些執行環境中該參數可能未被使用
-    const pageAnalysis = AdaptivePerformanceManager._analyzePageContent(_pageData);
+    // 分析頁面內容
+    const pageAnalysis = AdaptivePerformanceManager._analyzePageContent();
 
     // 分析系統性能
     const systemPerformance = await AdaptivePerformanceManager._analyzeSystemPerformance();
-    // 參考配置中的 performanceThreshold 避免被靜態分析標記為未使用
-    const perfThreshold =
-      typeof this.options.performanceThreshold === 'number'
-        ? this.options.performanceThreshold
-        : 100;
-    Logger.info(`⚙️ 使用 performanceThreshold = ${perfThreshold}`);
 
     // 基於分析結果調整策略
-    const strategy = this._adjustStrategyBasedOnAnalysis(pageAnalysis, systemPerformance);
+    const strategy = this._adjustStrategyBasedOnAnalysis(
+      pageAnalysis,
+      systemPerformance,
+      startTime
+    );
 
     const duration = performance.now() - startTime;
     // 將本次分析結果推入歷史以供後續決策或診斷使用（防止未使用變數警告，且保留診斷信息）
@@ -82,7 +80,7 @@ class AdaptivePerformanceManager {
       Logger.warn('記錄性能歷史失敗:', error);
     }
 
-    Logger.info(`📊 自適應性能分析完成，耗時: ${duration.toFixed(2)}ms`);
+    // Logger.info(`📊 自適應性能分析完成，耗時: ${duration.toFixed(2)}ms`);
     return strategy;
   }
 
@@ -90,7 +88,7 @@ class AdaptivePerformanceManager {
    * 分析頁面內容以調整性能策略
    * @private
    */
-  static _analyzePageContent(_pageData) {
+  static _analyzePageContent() {
     const analysis = {
       elementCount: 0,
       imageCount: 0,
@@ -167,8 +165,10 @@ class AdaptivePerformanceManager {
    * 根據分析結果調整策略
    * @private
    */
-  _adjustStrategyBasedOnAnalysis(pageAnalysis, systemPerformance) {
+  _adjustStrategyBasedOnAnalysis(pageAnalysis, systemPerformance, startTime) {
+    const oldSettings = { ...this.currentSettings };
     const newSettings = { ...this.currentSettings };
+    const duration = performance.now() - startTime;
 
     // 安全獲取 cacheMaxSize，如果 performanceOptimizer 不可用則使用默認值
     const cacheMaxSize =
@@ -198,13 +198,18 @@ class AdaptivePerformanceManager {
         ? this.options.batchSizeAdjustmentFactor
         : 0.2; // 預設回退值
 
-    if (systemPerformance.performanceScore < 20) {
+    // 使用配置的 performanceThreshold 作為判斷基準
+    const threshold = this.options.performanceThreshold;
+    const highPerfThreshold = threshold * 0.2; // 默認 20ms
+    const lowPerfThreshold = threshold * 0.5; // 默認 50ms
+
+    if (systemPerformance.performanceScore < highPerfThreshold) {
       // 高性能系統 -> 增加批處理大小
       newSettings.batchSize = Math.min(
         Math.floor(this.currentSettings.batchSize * (1 + batchFactor)),
         PERFORMANCE_OPTIMIZER.MAX_BATCH_SIZE
       );
-    } else if (systemPerformance.performanceScore > 50) {
+    } else if (systemPerformance.performanceScore > lowPerfThreshold) {
       // 低性能系統 -> 減少批處理大小
       newSettings.batchSize = Math.max(
         Math.floor(this.currentSettings.batchSize * Math.max(0.1, 1 - batchFactor)),
@@ -224,9 +229,26 @@ class AdaptivePerformanceManager {
     // 應用新設置到性能優化器
     this._applySettingsToOptimizer();
 
-    Logger.info('🔄 自適應性能策略調整完成:', newSettings);
-    Logger.info('📊 頁面分析:', pageAnalysis);
-    Logger.info('📊 系統性能:', systemPerformance);
+    // 優化日誌：檢查設置是否變更
+    const settingsChanged = JSON.stringify(oldSettings) !== JSON.stringify(newSettings);
+    if (settingsChanged) {
+      Logger.info('🔄 自適應策略調整:', {
+        from: oldSettings,
+        to: newSettings,
+        reason: {
+          pageScore: pageAnalysis.complexityScore,
+          sysScore: systemPerformance.performanceScore,
+        },
+      });
+    }
+
+    // 詳細日誌降級為 debug
+    Logger.debug('📊 自適應分析詳情:', {
+      duration: `${duration.toFixed(2)}ms`,
+      pageAnalysis,
+      systemPerformance,
+      settings: newSettings,
+    });
 
     return {
       settings: newSettings,
@@ -245,7 +267,7 @@ class AdaptivePerformanceManager {
       this.performanceOptimizer.options.cacheMaxSize = this.currentSettings.cacheSize;
 
       // 這裡可以添加更多設置的動態更新邏輯
-      Logger.info('🔧 已將新的性能設置應用到優化器:', this.currentSettings);
+      Logger.debug('🔧 已將新的性能設置應用到優化器:', this.currentSettings);
     }
   }
 
@@ -254,7 +276,7 @@ class AdaptivePerformanceManager {
    * @param {number} newBatchSize - 新的批處理大小
    */
   adjustBatchSize(newBatchSize) {
-    const applied = Math.max(1, Math.min(1000, newBatchSize));
+    const applied = Math.max(1, Math.min(PERFORMANCE_OPTIMIZER.MAX_BATCH_SIZE, newBatchSize));
     this.currentSettings.batchSize = applied;
     Logger.info(`🔄 批處理大小調整為: ${applied}`);
   }
@@ -286,6 +308,15 @@ class AdaptivePerformanceManager {
    */
   getCurrentStrategy() {
     return { ...this.currentSettings };
+  }
+
+  /**
+   * 清理資源
+   */
+  destroy() {
+    this.performanceHistory = [];
+    this.performanceOptimizer = null;
+    Logger.debug('🧹 AdaptivePerformanceManager 資源已清理');
   }
 }
 

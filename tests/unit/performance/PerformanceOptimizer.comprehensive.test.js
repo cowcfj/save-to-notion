@@ -588,9 +588,9 @@ describe('PerformanceOptimizer - 全面測試', () => {
         analyzeAndAdjust: jest.fn().mockResolvedValue({ adjusted: true }),
       };
 
-      const result = await optimizer.adaptiveAdjustment({ test: 'data' });
+      const result = await optimizer.adaptiveAdjustment();
 
-      expect(optimizer.adaptiveManager.analyzeAndAdjust).toHaveBeenCalledWith({ test: 'data' });
+      expect(optimizer.adaptiveManager.analyzeAndAdjust).toHaveBeenCalled();
       expect(result).toEqual({ adjusted: true });
     });
   });
