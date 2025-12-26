@@ -276,7 +276,6 @@ export function setupHighlighter(options = {}) {
       window.notionHighlighter.clearAll();
     }
   };
-
   return { manager, toolbar, restoreManager };
 }
 
@@ -286,11 +285,13 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
   const initializeExtension = async () => {
     let skipRestore = false;
     let skipToolbar = true; // 默認不創建 Toolbar（頁面未保存或已刪除）
+    let styleMode = 'background';
 
-    // 檢查頁面狀態
-    if (window.chrome?.runtime?.sendMessage) {
-      try {
-        const response = await new Promise(resolve => {
+    // 並行加載配置和頁面狀態
+    const [pageStatus, settings] = await Promise.all([
+      // 1. 檢查頁面狀態
+      new Promise(resolve => {
+        if (window.chrome?.runtime?.sendMessage) {
           window.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, result => {
             if (window.chrome.runtime.lastError) {
               resolve(null);
@@ -298,25 +299,44 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
               resolve(result);
             }
           });
-        });
-
-        if (response?.wasDeleted) {
-          // 頁面已在 Notion 刪除，跳過標註恢復和 Toolbar
-          skipRestore = true;
-          skipToolbar = true;
-          Logger.log('[Highlighter] Page was deleted, skipping toolbar and restore.');
-        } else if (response?.isSaved) {
-          // 頁面已保存，創建 Toolbar
-          skipToolbar = false;
+        } else {
+          resolve(null);
         }
-        // 如果 isSaved === false 且 wasDeleted === false，表示頁面未保存，不創建 Toolbar
-      } catch (error) {
-        Logger.warn('[Highlighter] Failed to check page status:', error);
-      }
+      }),
+      // 2. 加載標註樣式配置
+      new Promise(resolve => {
+        if (window.chrome?.storage?.sync) {
+          window.chrome.storage.sync.get(['highlightStyle'], result => {
+            Logger.info('📝 [Highlighter] Loaded sync settings:', result);
+            resolve(result || {});
+          });
+        } else {
+          Logger.warn('⚠️ [Highlighter] chrome.storage.sync not available');
+          resolve({});
+        }
+      }),
+    ]);
+
+    // 處理樣式配置
+    if (settings?.highlightStyle) {
+      styleMode = settings.highlightStyle;
     }
+    Logger.info(`🎨 [Highlighter] Using style mode: ${styleMode}`);
+
+    // 處理頁面狀態
+    if (pageStatus?.wasDeleted) {
+      // 頁面已在 Notion 刪除，跳過標註恢復和 Toolbar
+      skipRestore = true;
+      skipToolbar = true;
+      Logger.log('[Highlighter] Page was deleted, skipping toolbar and restore.');
+    } else if (pageStatus?.isSaved) {
+      // 頁面已保存，創建 Toolbar
+      skipToolbar = false;
+    }
+    // 如果 isSaved === false 且 wasDeleted === false，表示頁面未保存，不創建 Toolbar
 
     // 初始化 Highlighter
-    setupHighlighter({ skipRestore, skipToolbar });
+    setupHighlighter({ skipRestore, skipToolbar, styleMode });
   };
 
   initializeExtension();

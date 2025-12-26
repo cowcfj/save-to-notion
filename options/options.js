@@ -51,7 +51,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // 6. 保存設置邏輯
   const saveButton = document.getElementById('save-button');
   if (saveButton) {
-    saveButton.addEventListener('click', () => saveSettings(ui, auth));
+    saveButton.addEventListener('click', () => saveSettings(ui, auth, 'status'));
+  }
+
+  const saveTemplatesButton = document.getElementById('save-templates-button');
+  if (saveTemplatesButton) {
+    saveTemplatesButton.addEventListener('click', () => saveSettings(ui, auth, 'template-status'));
   }
 
   // 7. 標題模板預覽邏輯
@@ -154,8 +159,9 @@ export function cleanDatabaseId(input) {
  * 保存設置
  * @param {UIManager} ui
  * @param {AuthManager} auth
+ * @param {string} [statusId='status']
  */
-export function saveSettings(ui, auth) {
+export function saveSettings(ui, auth, statusId = 'status') {
   const apiKey = document.getElementById('api-key').value.trim();
   const rawDatabaseId = document.getElementById('database-id').value;
   const titleTemplate = document.getElementById('title-template').value;
@@ -165,14 +171,18 @@ export function saveSettings(ui, auth) {
 
   // 驗證
   if (!apiKey) {
-    ui.showStatus('請輸入 API Key', 'error');
+    ui.showStatus('請輸入 API Key', 'error', statusId);
     return;
   }
 
   // 清理並驗證 Database ID
   const databaseId = cleanDatabaseId(rawDatabaseId);
   if (!databaseId) {
-    ui.showStatus('資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL', 'error');
+    ui.showStatus(
+      '資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
+      'error',
+      statusId
+    );
     return;
   }
 
@@ -196,12 +206,18 @@ export function saveSettings(ui, auth) {
     settings.notionDataSourceType = typeInput.value;
   }
 
+  // 保存標註樣式
+  const highlightStyle = document.getElementById('highlight-style');
+  if (highlightStyle) {
+    settings.highlightStyle = highlightStyle.value;
+  }
+
   // 單次原子操作保存所有設置
   chrome.storage.sync.set(settings, () => {
     if (chrome.runtime.lastError) {
-      ui.showStatus(`保存失敗: ${chrome.runtime.lastError.message}`, 'error');
+      ui.showStatus(`保存失敗: ${chrome.runtime.lastError.message}`, 'error', statusId);
     } else {
-      ui.showStatus('✅ 設置已成功保存！', 'success');
+      ui.showStatus('✅ 設置已成功保存！', 'success', statusId);
 
       // 刷新認證狀態以更新 UI
       auth.checkAuthStatus();

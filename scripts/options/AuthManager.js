@@ -34,6 +34,7 @@ export class AuthManager {
     this.elements.titleTemplateInput = document.getElementById('title-template');
     this.elements.addSourceCheckbox = document.getElementById('add-source');
     this.elements.addTimestampCheckbox = document.getElementById('add-timestamp');
+    this.elements.highlightStyleSelect = document.getElementById('highlight-style');
     this.elements.debugToggle = document.getElementById('enable-debug-logs');
 
     // 綁定事件
@@ -102,6 +103,7 @@ export class AuthManager {
         'titleTemplate',
         'addSource',
         'addTimestamp',
+        'highlightStyle',
         'enableDebugLogs',
       ],
       result => {
@@ -120,6 +122,9 @@ export class AuthManager {
         }
         if (this.elements.addTimestampCheckbox) {
           this.elements.addTimestampCheckbox.checked = result.addTimestamp !== false;
+        }
+        if (this.elements.highlightStyleSelect) {
+          this.elements.highlightStyleSelect.value = result.highlightStyle || 'background';
         }
         if (this.elements.debugToggle) {
           this.elements.debugToggle.checked = Boolean(result.enableDebugLogs);

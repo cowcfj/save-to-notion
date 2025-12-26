@@ -15,6 +15,18 @@ export const COLORS = {
 };
 
 /**
+ * 標註文字顏色常量 (用於 Text Mode)
+ * 使用較深/飽和的顏色以確保在淺色背景上的可讀性
+ * @type {Object.<string, string>}
+ */
+export const TEXT_COLORS = {
+  yellow: '#d97706', // Amber 600
+  green: '#059669', // Emerald 600
+  blue: '#2563eb', // Blue 600
+  red: '#dc2626', // Red 600
+};
+
+/**
  * 轉換背景顏色（RGB 或 HEX）到顏色名稱
  * @param {string} bgColor - 背景顏色（RGB 格式或 HEX 格式）
  * @returns {string} 顏色名稱（yellow|green|blue|red），默認 'yellow'
