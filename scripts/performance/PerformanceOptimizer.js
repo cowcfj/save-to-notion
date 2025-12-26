@@ -2,9 +2,9 @@
  * 性能優化器
  * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
  */
-/* global window, document, Image, requestIdleCallback, requestAnimationFrame, performance, ErrorHandler, AdaptivePerformanceManager, Logger */
-
-// Logger 由 Rollup intro 從 window.Logger 注入
+/* global ErrorHandler, Logger */
+import { AdaptivePerformanceManager } from './AdaptivePerformanceManager.js';
+import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
 
 /**
  * 性能優化器類
@@ -36,10 +36,10 @@ class PerformanceOptimizer {
       enableCache: true,
       enableBatching: true,
       enableMetrics: true,
-      cacheMaxSize: 100,
+      cacheMaxSize: PERFORMANCE_OPTIMIZER.DEFAULT_CACHE_MAX_SIZE,
       batchDelay: 16, // 一個動畫幀的時間
       metricsInterval: 5000, // 5秒收集一次指標
-      cacheTTL: 300000, // 5分鐘 TTL
+      cacheTTL: PERFORMANCE_OPTIMIZER.CACHE_TTL_MS,
       prewarmSelectors: [
         // 預設的預熱選擇器
         'img[src]',
@@ -102,15 +102,12 @@ class PerformanceOptimizer {
    */
   _initAdaptiveManager() {
     try {
-      if (typeof AdaptivePerformanceManager !== 'undefined') {
-        this.adaptiveManager = new AdaptivePerformanceManager(this, {
-          performanceThreshold: 100,
-          batchSizeAdjustmentFactor: 0.1,
-        });
-        Logger.info('🤖 自適應性能管理器已初始化');
-      } else {
-        Logger.warn('⚠️ AdaptivePerformanceManager not available, adaptive features disabled');
-      }
+      // 現在是 ES Module 硬依賴，直接初始化
+      this.adaptiveManager = new AdaptivePerformanceManager(this, {
+        performanceThreshold: 100,
+        batchSizeAdjustmentFactor: 0.1,
+      });
+      Logger.info('🤖 自適應性能管理器已初始化');
     } catch (error) {
       Logger.error('❌ 初始化自適應管理器失敗:', error);
     }
@@ -128,15 +125,14 @@ class PerformanceOptimizer {
 
   /**
    * 執行自適應性能調整
-   * @param {Object} pageData - 頁面數據
    */
-  adaptiveAdjustment(pageData = {}) {
+  adaptiveAdjustment() {
     if (!this.adaptiveManager) {
       return Promise.resolve(null);
     }
 
     // 返回 underlying promise 讓呼叫者自行 await，避免額外的 microtask
-    return this.adaptiveManager.analyzeAndAdjust(pageData);
+    return this.adaptiveManager.analyzeAndAdjust();
   }
 
   /**
@@ -291,7 +287,7 @@ class PerformanceOptimizer {
    * @param {Object} options - 清理選項
    */
   clearCache(options = {}) {
-    const { maxAge = 300000, force = false } = options; // 默認 5 分鐘過期
+    const { force = false, maxAge } = options;
 
     if (force) {
       Logger.info('Force clearing cache. Size before:', this.queryCache.size);
@@ -307,18 +303,8 @@ class PerformanceOptimizer {
       return;
     }
 
-    const now = Date.now();
-    const keysToDelete = [];
-
-    for (const [key, cached] of this.queryCache.entries()) {
-      if (now - cached.timestamp > maxAge) {
-        keysToDelete.push(key);
-      }
-    }
-
-    keysToDelete.forEach(key => {
-      this.queryCache.delete(key);
-    });
+    // 委託給 clearExpiredCache 處理過期清理
+    this.clearExpiredCache({ maxAge: maxAge || this.options.cacheTTL });
   }
 
   /**
@@ -896,8 +882,8 @@ class PerformanceOptimizer {
       // 如果平均處理時間過長，減少批次大小
       return Math.max(1, Math.floor(currentSize * 0.7));
     } else if (this.metrics.averageProcessingTime && this.metrics.averageProcessingTime < 10) {
-      // 如果處理很快，可以增加批次大小
-      return Math.min(500, currentSize * 1.5);
+      // 如果處理很快，可以增加批次大小（確保使用整數）
+      return Math.min(PERFORMANCE_OPTIMIZER.MAX_BATCH_SIZE, Math.floor(currentSize * 1.5));
     }
     return currentSize;
   }

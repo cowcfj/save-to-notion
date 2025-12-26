@@ -187,3 +187,23 @@ export const TAB_SERVICE = {
   LOADING_TIMEOUT_MS: 10000, // 頁面載入超時時間 (ms)
   STATUS_UPDATE_DELAY_MS: 1000, // 狀態更新延遲 (ms)
 };
+
+// ==========================================
+// Performance 模組相關常量
+// ==========================================
+
+/**
+ * PerformanceOptimizer 和 AdaptivePerformanceManager 共用常量
+ */
+export const PERFORMANCE_OPTIMIZER = {
+  // 緩存設定
+  DEFAULT_CACHE_MAX_SIZE: 100, // 預設緩存大小
+  MAX_CACHE_SIZE: 2000, // 最大緩存限制
+  MIN_CACHE_SIZE: 50, // 最小緩存大小
+  CACHE_TTL_MS: 5 * 60 * 1000, // 5 分鐘 TTL
+
+  // 批處理設定
+  DEFAULT_BATCH_SIZE: 100, // 預設批處理大小
+  MAX_BATCH_SIZE: 500, // 最大批處理大小
+  MIN_BATCH_SIZE: 10, // 最小批處理大小
+};

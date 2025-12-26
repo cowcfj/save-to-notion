@@ -54,7 +54,7 @@ function cleanImageUrl(url, depth = 0) {
 
   try {
     urlObj = new URL(url);
-  } catch (_error) {
+  } catch {
     // 嘗試作為相對 URL 解析
     try {
       // 簡單啟發式檢查：如果是相對路徑，應該看起來像路徑
@@ -78,8 +78,8 @@ function cleanImageUrl(url, depth = 0) {
         urlObj = new URL(url, 'http://dummy-base.com');
         isRelative = true;
       }
-    } catch (_e) {
-      Logger.error(`[cleanImageUrl] URL transformation failed: ${url}`, _e);
+    } catch {
+      Logger.error(`[cleanImageUrl] URL transformation failed: ${url}`);
       return null;
     }
   }
@@ -111,7 +111,7 @@ function cleanImageUrl(url, depth = 0) {
     }
 
     return urlObj.href;
-  } catch (_error) {
+  } catch {
     return null;
   }
 }
@@ -189,7 +189,7 @@ function isValidImageUrl(url) {
 
     // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
     return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(cleanedUrl));
-  } catch (_error) {
+  } catch {
     return false;
   }
 }
@@ -205,9 +205,8 @@ function isNotionCompatibleImageUrl(url) {
   }
 
   try {
-    // 處理相對 URL
-    const baseUrl = typeof window !== 'undefined' ? window.location.href : 'http://localhost';
-    const urlObj = new URL(url, baseUrl);
+    // Notion API 僅接受絕對 URL，相對 URL 會導致異常並返回 false
+    const urlObj = new URL(url);
 
     // Notion 不支持某些特殊協議
     if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
@@ -236,8 +235,8 @@ function isNotionCompatibleImageUrl(url) {
     }
 
     // 檢查 hostname 有效性（從 NotionService 移植）
-    return Boolean(urlObj.hostname && urlObj.hostname.length >= 3);
-  } catch (_error) {
+    return Boolean(urlObj.hostname?.length >= 3);
+  } catch {
     return false;
   }
 }
@@ -263,7 +262,7 @@ function extractBestUrlFromSrcset(srcset) {
         ? SrcsetParser
         : null;
 
-  if (SrcsetParserRef && typeof SrcsetParserRef.parse === 'function') {
+  if (typeof SrcsetParserRef?.parse === 'function') {
     try {
       const bestUrl = SrcsetParserRef.parse(srcset, {
         preferredWidth: 1920, // 預設首選寬度
@@ -398,8 +397,11 @@ function extractFromBackgroundImage(imgNode) {
       computedStyle.backgroundImage || computedStyle.getPropertyValue?.('background-image');
 
     if (backgroundImage && backgroundImage !== 'none') {
-      // 限制捕獲組長度，防止 ReDoS 攻擊
-      const urlMatch = backgroundImage.match(/url\(['"]?([^'"]{1,2000})['"]?\)/);
+      // 限制捕獲組長度，防止 ReDoS 攻擊，使用 IMAGE_VALIDATION.MAX_URL_LENGTH 常量
+      const bgUrlPattern = new RegExp(
+        `url\\(['"]?([^'"]{1,${IMAGE_VALIDATION.MAX_URL_LENGTH}})['"]?\\)`
+      );
+      const urlMatch = backgroundImage.match(bgUrlPattern);
       if (
         urlMatch?.[1] &&
         !urlMatch[1].startsWith('data:') &&
@@ -417,7 +419,10 @@ function extractFromBackgroundImage(imgNode) {
         parentStyle.backgroundImage || parentStyle.getPropertyValue?.('background-image');
 
       if (parentBg && parentBg !== 'none') {
-        const parentMatch = parentBg.match(/url\(['"]?([^'"]{1,2000})['"]?\)/);
+        const parentBgPattern = new RegExp(
+          `url\\(['"]?([^'"]{1,${IMAGE_VALIDATION.MAX_URL_LENGTH}})['"]?\\)`
+        );
+        const parentMatch = parentBg.match(parentBgPattern);
         if (
           parentMatch?.[1] &&
           !parentMatch[1].startsWith('data:') &&
@@ -427,7 +432,7 @@ function extractFromBackgroundImage(imgNode) {
         }
       }
     }
-  } catch (_error) {
+  } catch {
     // 忽略樣式計算錯誤
   }
   return null;
@@ -435,6 +440,7 @@ function extractFromBackgroundImage(imgNode) {
 
 /**
  * 從 noscript 標籤提取 URL
+ * 使用 DOMParser 優先策略（更穩健）+ Regex 回退（相容性）
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -442,16 +448,46 @@ function extractFromNoscript(imgNode) {
   try {
     const candidates = [imgNode, imgNode.parentElement].filter(Boolean);
     for (const el of candidates) {
-      const noscript = el.querySelector && el.querySelector('noscript');
-      if (noscript?.textContent) {
-        const html = noscript.textContent;
-        const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-        if (match?.[1] && !match[1].startsWith('data:')) {
-          return match[1];
+      const noscript = el.querySelector?.('noscript');
+      if (!noscript?.textContent) {
+        continue;
+      }
+
+      const html = noscript.textContent;
+
+      // 長度限制檢查，防止資源消耗型 DoS 攻擊
+      // noscript 內容通常很短（只包含一個 img 標籤），超長內容視為異常
+      const MAX_NOSCRIPT_LENGTH = IMAGE_VALIDATION.MAX_URL_LENGTH * 2; // 4000 字符
+      if (html.length > MAX_NOSCRIPT_LENGTH) {
+        Logger.warn(`⚠️ [extractFromNoscript] noscript 內容過長 (${html.length})，跳過解析`);
+        continue;
+      }
+
+      // 優先使用 DOMParser（Content Script 環境可用，更穩健）
+      if (typeof DOMParser !== 'undefined') {
+        try {
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const img = doc.querySelector('img[src]');
+          const src = img?.getAttribute('src');
+          if (src && !src.startsWith('data:')) {
+            return src;
+          }
+        } catch {
+          // DOMParser 失敗，回退到 Regex
         }
       }
+
+      // 回退：Regex 解析（加入長度限制防止 ReDoS，使用 IMAGE_VALIDATION.MAX_URL_LENGTH 常量）
+      const noscriptImgPattern = new RegExp(
+        `<img[^>]+src=["']([^"']{1,${IMAGE_VALIDATION.MAX_URL_LENGTH}})["']`,
+        'i'
+      );
+      const match = html.match(noscriptImgPattern);
+      if (match?.[1] && !match[1].startsWith('data:')) {
+        return match[1];
+      }
     }
-  } catch (_error) {
+  } catch {
     // 忽略 noscript 解析錯誤
   }
   return null;
