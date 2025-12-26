@@ -205,9 +205,8 @@ function isNotionCompatibleImageUrl(url) {
   }
 
   try {
-    // 處理相對 URL
-    const baseUrl = typeof window !== 'undefined' ? window.location.href : 'http://localhost';
-    const urlObj = new URL(url, baseUrl);
+    // Notion API 僅接受絕對 URL，相對 URL 會導致異常並返回 false
+    const urlObj = new URL(url);
 
     // Notion 不支持某些特殊協議
     if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
@@ -236,7 +235,7 @@ function isNotionCompatibleImageUrl(url) {
     }
 
     // 檢查 hostname 有效性（從 NotionService 移植）
-    return Boolean(urlObj.hostname && urlObj.hostname.length >= 3);
+    return Boolean(urlObj.hostname?.length >= 3);
   } catch (_error) {
     return false;
   }
@@ -263,7 +262,7 @@ function extractBestUrlFromSrcset(srcset) {
         ? SrcsetParser
         : null;
 
-  if (SrcsetParserRef && typeof SrcsetParserRef.parse === 'function') {
+  if (typeof SrcsetParserRef?.parse === 'function') {
     try {
       const bestUrl = SrcsetParserRef.parse(srcset, {
         preferredWidth: 1920, // 預設首選寬度
@@ -435,6 +434,7 @@ function extractFromBackgroundImage(imgNode) {
 
 /**
  * 從 noscript 標籤提取 URL
+ * 使用 DOMParser 優先策略（更穩健）+ Regex 回退（相容性）
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -442,13 +442,31 @@ function extractFromNoscript(imgNode) {
   try {
     const candidates = [imgNode, imgNode.parentElement].filter(Boolean);
     for (const el of candidates) {
-      const noscript = el.querySelector && el.querySelector('noscript');
-      if (noscript?.textContent) {
-        const html = noscript.textContent;
-        const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-        if (match?.[1] && !match[1].startsWith('data:')) {
-          return match[1];
+      const noscript = el.querySelector?.('noscript');
+      if (!noscript?.textContent) {
+        continue;
+      }
+
+      const html = noscript.textContent;
+
+      // 優先使用 DOMParser（Content Script 環境可用，更穩健）
+      if (typeof DOMParser !== 'undefined') {
+        try {
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const img = doc.querySelector('img[src]');
+          const src = img?.getAttribute('src');
+          if (src && !src.startsWith('data:')) {
+            return src;
+          }
+        } catch (_parseError) {
+          // DOMParser 失敗，回退到 Regex
         }
+      }
+
+      // 回退：Regex 解析（加入長度限制防止 ReDoS）
+      const match = html.match(/<img[^>]+src=["']([^"']{1,2000})["']/i);
+      if (match?.[1] && !match[1].startsWith('data:')) {
+        return match[1];
       }
     }
   } catch (_error) {
