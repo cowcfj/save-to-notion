@@ -80,4 +80,27 @@ describe('AdaptivePerformanceManager', () => {
     expect(result).toHaveProperty('settings');
     expect(result.settings).toHaveProperty('batchSize');
   });
+
+  test('handles invalid performanceThreshold gracefully (NaN, negative, non-number)', async () => {
+    // Test with NaN
+    const nanManager = new AdaptivePerformanceManager(optimizer, {
+      performanceThreshold: NaN,
+    });
+    const nanResult = await nanManager.analyzeAndAdjust();
+    expect(nanResult.settings.batchSize).toBeGreaterThanOrEqual(10);
+
+    // Test with negative
+    const negManager = new AdaptivePerformanceManager(optimizer, {
+      performanceThreshold: -50,
+    });
+    const negResult = await negManager.analyzeAndAdjust();
+    expect(negResult.settings.batchSize).toBeGreaterThanOrEqual(10);
+
+    // Test with string
+    const strManager = new AdaptivePerformanceManager(optimizer, {
+      performanceThreshold: 'invalid',
+    });
+    const strResult = await strManager.analyzeAndAdjust();
+    expect(strResult.settings.batchSize).toBeGreaterThanOrEqual(10);
+  });
 });

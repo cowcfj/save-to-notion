@@ -197,8 +197,13 @@ class AdaptivePerformanceManager {
         ? this.options.batchSizeAdjustmentFactor
         : 0.2; // 預設回退值
 
-    // 使用配置的 performanceThreshold 作為判斷基準
-    const threshold = this.options.performanceThreshold;
+    // 使用配置的 performanceThreshold 作為判斷基準（驗證為有效數字，否則使用默認值 100）
+    const threshold =
+      typeof this.options.performanceThreshold === 'number' &&
+      Number.isFinite(this.options.performanceThreshold) &&
+      this.options.performanceThreshold > 0
+        ? this.options.performanceThreshold
+        : 100;
     const highPerfThreshold = threshold * 0.2; // 默認 20ms
     const lowPerfThreshold = threshold * 0.5; // 默認 50ms
 
