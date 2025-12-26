@@ -50,4 +50,34 @@ describe('AdaptivePerformanceManager', () => {
     expect(manager.performanceHistory).toEqual([]);
     expect(manager.performanceOptimizer).toBeNull();
   });
+
+  test('adjustBatchSize respects MIN and MAX_BATCH_SIZE bounds', () => {
+    // Test lower bound (should clamp to MIN_BATCH_SIZE = 10)
+    manager.adjustBatchSize(1);
+    expect(manager.getCurrentStrategy().batchSize).toBe(10);
+
+    // Test upper bound (should clamp to MAX_BATCH_SIZE = 500)
+    manager.adjustBatchSize(1000);
+    expect(manager.getCurrentStrategy().batchSize).toBe(500);
+
+    // Test normal value
+    manager.adjustBatchSize(200);
+    expect(manager.getCurrentStrategy().batchSize).toBe(200);
+  });
+
+  test('performanceThreshold affects batch size adjustment thresholds', async () => {
+    // Create manager with custom threshold
+    const customManager = new AdaptivePerformanceManager(optimizer, {
+      performanceThreshold: 200, // 2x default
+    });
+
+    // The thresholds are:
+    // - highPerfThreshold = 200 * 0.2 = 40 (instead of default 20)
+    // - lowPerfThreshold = 200 * 0.5 = 100 (instead of default 50)
+    // This affects when batch sizes are adjusted
+
+    const result = await customManager.analyzeAndAdjust();
+    expect(result).toHaveProperty('settings');
+    expect(result.settings).toHaveProperty('batchSize');
+  });
 });

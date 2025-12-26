@@ -48,7 +48,6 @@ class AdaptivePerformanceManager {
     const startTime = performance.now();
 
     // 分析頁面內容
-    // 分析頁面內容
     const pageAnalysis = AdaptivePerformanceManager._analyzePageContent();
 
     // 分析系統性能
