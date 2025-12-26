@@ -2,7 +2,10 @@
 set -euo pipefail  # Exit on error, undefined vars, and pipe failures
 
 # Default version from package.json if not provided
-VERSION=${1:-$(node -p "require('./package.json').version")}
+# Default version from package.json if not provided
+RAW_VERSION=${1:-$(node -p "require('./package.json').version")}
+# Strip leading 'v' if present to avoid "vv" prefix (e.g. vv2.22.0)
+VERSION="${RAW_VERSION#v}"
 ZIP_NAME="notion-smart-clipper-v${VERSION}.zip"
 
 echo "📦 Packaging Extension v${VERSION}..."
