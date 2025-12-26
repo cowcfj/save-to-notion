@@ -276,7 +276,10 @@ class AdaptivePerformanceManager {
    * @param {number} newBatchSize - 新的批處理大小
    */
   adjustBatchSize(newBatchSize) {
-    const applied = Math.max(1, Math.min(PERFORMANCE_OPTIMIZER.MAX_BATCH_SIZE, newBatchSize));
+    const applied = Math.max(
+      PERFORMANCE_OPTIMIZER.MIN_BATCH_SIZE,
+      Math.min(PERFORMANCE_OPTIMIZER.MAX_BATCH_SIZE, newBatchSize)
+    );
     this.currentSettings.batchSize = applied;
     Logger.info(`🔄 批處理大小調整為: ${applied}`);
   }
