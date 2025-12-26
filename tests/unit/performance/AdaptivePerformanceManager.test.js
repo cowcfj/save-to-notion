@@ -52,6 +52,30 @@ describe('AdaptivePerformanceManager', () => {
     expect(manager.performanceOptimizer).toBeNull();
   });
 
+  test('destroy is idempotent (can be called multiple times safely)', () => {
+    // First call
+    manager.destroy();
+    expect(manager.performanceOptimizer).toBeNull();
+
+    // Second call should not throw
+    expect(() => manager.destroy()).not.toThrow();
+    expect(manager.performanceOptimizer).toBeNull();
+  });
+
+  test('methods handle destroyed state gracefully', () => {
+    manager.destroy();
+
+    // adjustBatchSize should still work (updates internal state only)
+    expect(() => manager.adjustBatchSize(100)).not.toThrow();
+
+    // adjustCacheSize should warn but not throw (optimizer is null)
+    expect(() => manager.adjustCacheSize(100)).not.toThrow();
+
+    // getCurrentStrategy should still return settings
+    const strategy = manager.getCurrentStrategy();
+    expect(strategy).toHaveProperty('batchSize');
+  });
+
   test('adjustBatchSize respects MIN and MAX_BATCH_SIZE bounds', () => {
     const { MIN_BATCH_SIZE, MAX_BATCH_SIZE } = PERFORMANCE_OPTIMIZER;
 
@@ -69,41 +93,54 @@ describe('AdaptivePerformanceManager', () => {
   });
 
   test('performanceThreshold affects batch size adjustment thresholds', async () => {
-    // Create manager with custom threshold
+    // Create manager with custom threshold (2x default)
     const customManager = new AdaptivePerformanceManager(optimizer, {
-      performanceThreshold: 200, // 2x default
+      performanceThreshold: 200,
     });
 
-    // The thresholds are:
-    // - highPerfThreshold = 200 * 0.2 = 40 (instead of default 20)
-    // - lowPerfThreshold = 200 * 0.5 = 100 (instead of default 50)
-    // This affects when batch sizes are adjusted
+    // Create manager with default threshold for comparison
+    const defaultManager = new AdaptivePerformanceManager(optimizer, {
+      performanceThreshold: 100,
+    });
 
-    const result = await customManager.analyzeAndAdjust();
-    expect(result).toHaveProperty('settings');
-    expect(result.settings).toHaveProperty('batchSize');
+    // Both should complete without error and return valid settings
+    const customResult = await customManager.analyzeAndAdjust();
+    const defaultResult = await defaultManager.analyzeAndAdjust();
+
+    // Verify structure
+    expect(customResult).toHaveProperty('settings');
+    expect(customResult.settings).toHaveProperty('batchSize');
+    expect(defaultResult).toHaveProperty('settings');
+    expect(defaultResult.settings).toHaveProperty('batchSize');
+
+    // Both batch sizes should be valid (within bounds)
+    const { MIN_BATCH_SIZE, MAX_BATCH_SIZE } = PERFORMANCE_OPTIMIZER;
+    expect(customResult.settings.batchSize).toBeGreaterThanOrEqual(MIN_BATCH_SIZE);
+    expect(customResult.settings.batchSize).toBeLessThanOrEqual(MAX_BATCH_SIZE);
   });
 
   test('handles invalid performanceThreshold gracefully (NaN, negative, non-number)', async () => {
+    const { MIN_BATCH_SIZE } = PERFORMANCE_OPTIMIZER;
+
     // Test with NaN
     const nanManager = new AdaptivePerformanceManager(optimizer, {
       performanceThreshold: NaN,
     });
     const nanResult = await nanManager.analyzeAndAdjust();
-    expect(nanResult.settings.batchSize).toBeGreaterThanOrEqual(10);
+    expect(nanResult.settings.batchSize).toBeGreaterThanOrEqual(MIN_BATCH_SIZE);
 
     // Test with negative
     const negManager = new AdaptivePerformanceManager(optimizer, {
       performanceThreshold: -50,
     });
     const negResult = await negManager.analyzeAndAdjust();
-    expect(negResult.settings.batchSize).toBeGreaterThanOrEqual(10);
+    expect(negResult.settings.batchSize).toBeGreaterThanOrEqual(MIN_BATCH_SIZE);
 
     // Test with string
     const strManager = new AdaptivePerformanceManager(optimizer, {
       performanceThreshold: 'invalid',
     });
     const strResult = await strManager.analyzeAndAdjust();
-    expect(strResult.settings.batchSize).toBeGreaterThanOrEqual(10);
+    expect(strResult.settings.batchSize).toBeGreaterThanOrEqual(MIN_BATCH_SIZE);
   });
 });
