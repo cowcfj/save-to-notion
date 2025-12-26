@@ -79,7 +79,7 @@ function cleanImageUrl(url, depth = 0) {
         isRelative = true;
       }
     } catch {
-      Logger.error(`[cleanImageUrl] URL transformation failed: ${url}`, _e);
+      Logger.error(`[cleanImageUrl] URL transformation failed: ${url}`);
       return null;
     }
   }
