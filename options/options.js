@@ -215,7 +215,8 @@ export function saveSettings(ui, auth, statusId = 'status') {
   // 單次原子操作保存所有設置
   chrome.storage.sync.set(settings, () => {
     if (chrome.runtime.lastError) {
-      ui.showStatus(`保存失敗: ${chrome.runtime.lastError.message}`, 'error', statusId);
+      Logger.error('Settings save failed:', chrome.runtime.lastError);
+      ui.showStatus('保存失敗，請查看控制台日誌或稍後再試。', 'error', statusId);
     } else {
       ui.showStatus('✅ 設置已成功保存！', 'success', statusId);
 
