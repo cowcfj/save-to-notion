@@ -307,11 +307,9 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
       new Promise(resolve => {
         if (window.chrome?.storage?.sync) {
           window.chrome.storage.sync.get(['highlightStyle'], result => {
-            Logger.info('📝 [Highlighter] Loaded sync settings:', result);
             resolve(result || {});
           });
         } else {
-          Logger.warn('⚠️ [Highlighter] chrome.storage.sync not available');
           resolve({});
         }
       }),
@@ -321,7 +319,6 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
     if (settings?.highlightStyle) {
       styleMode = settings.highlightStyle;
     }
-    Logger.info(`🎨 [Highlighter] Using style mode: ${styleMode}`);
 
     // 處理頁面狀態
     if (pageStatus?.wasDeleted) {
