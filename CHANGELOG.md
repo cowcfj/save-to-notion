@@ -1,5 +1,31 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.22.0](https://github.com/cowcfj/save-to-notion/compare/v2.21.0...v2.22.0) (2025-12-26)
+
+
+### ✨ 新功能
+
+* 優化 TabService 和 Promise 使用邏輯 ([#210](https://github.com/cowcfj/save-to-notion/issues/210)) ([c59df77](https://github.com/cowcfj/save-to-notion/commit/c59df7771abb798bd6caaeee13888aec12ebdf53))
+* 增加標註樣式選擇功能及清理代碼 ([#217](https://github.com/cowcfj/save-to-notion/issues/217)) ([d1fa92e](https://github.com/cowcfj/save-to-notion/commit/d1fa92efcb96ce02f711ac448bafa92bdb8deadf))
+* 改進性能優化器和自適應性能管理器 ([#216](https://github.com/cowcfj/save-to-notion/issues/216)) ([2f83a2d](https://github.com/cowcfj/save-to-notion/commit/2f83a2d77405cdda16373f49acfaaa19dcec2d66))
+* 新增 .agent/rules/ 到 .gitignore ([5831e48](https://github.com/cowcfj/save-to-notion/commit/5831e4827ba1f258ab4752c79423592b7e2571ba))
+* 更新 README 和 index.html，新增圖片展示及輕盒子功能 ([8df8a16](https://github.com/cowcfj/save-to-notion/commit/8df8a16f07e3afefe47c3119f430e80ebb096241))
+
+
+### 🐛 Bug 修復
+
+* 確保在已銷毀狀態下，方法能正常處理並返回預期結果 ([2f83a2d](https://github.com/cowcfj/save-to-notion/commit/2f83a2d77405cdda16373f49acfaaa19dcec2d66))
+
+
+### ♻️ 代碼重構
+
+* format code with Prettier ([#213](https://github.com/cowcfj/save-to-notion/issues/213)) ([e676619](https://github.com/cowcfj/save-to-notion/commit/e676619e1a41e8c71c9fb7b2b640b0ac6c01b7c3))
+
+
+### 🧹 其他變更
+
+* 移除設定頁面使用者介面。 ([dd667c9](https://github.com/cowcfj/save-to-notion/commit/dd667c98e7a3f869a9603ed328c60966f533ca28))
+
 ## [2.21.0](https://github.com/cowcfj/save-to-notion/compare/v2.20.0...v2.21.0) (2025-12-24)
 
 
