@@ -78,7 +78,7 @@ function cleanImageUrl(url, depth = 0) {
         urlObj = new URL(url, 'http://dummy-base.com');
         isRelative = true;
       }
-    } catch (_e) {
+    } catch {
       Logger.error(`[cleanImageUrl] URL transformation failed: ${url}`, _e);
       return null;
     }
@@ -472,7 +472,7 @@ function extractFromNoscript(imgNode) {
           if (src && !src.startsWith('data:')) {
             return src;
           }
-        } catch (_parseError) {
+        } catch {
           // DOMParser 失敗，回退到 Regex
         }
       }
