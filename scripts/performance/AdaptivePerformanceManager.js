@@ -2,7 +2,6 @@
  * 自適應性能管理器
  * 根據頁面和系統性能動態調整優化策略
  */
-/* global document, performance */
 import Logger from '../utils/Logger.js';
 import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
 
