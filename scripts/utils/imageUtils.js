@@ -397,8 +397,11 @@ function extractFromBackgroundImage(imgNode) {
       computedStyle.backgroundImage || computedStyle.getPropertyValue?.('background-image');
 
     if (backgroundImage && backgroundImage !== 'none') {
-      // 限制捕獲組長度，防止 ReDoS 攻擊
-      const urlMatch = backgroundImage.match(/url\(['"]?([^'"]{1,2000})['"]?\)/);
+      // 限制捕獲組長度，防止 ReDoS 攻擊，使用 IMAGE_VALIDATION.MAX_URL_LENGTH 常量
+      const bgUrlPattern = new RegExp(
+        `url\\(['"]?([^'"]{1,${IMAGE_VALIDATION.MAX_URL_LENGTH}})['"]?\\)`
+      );
+      const urlMatch = backgroundImage.match(bgUrlPattern);
       if (
         urlMatch?.[1] &&
         !urlMatch[1].startsWith('data:') &&
@@ -416,7 +419,10 @@ function extractFromBackgroundImage(imgNode) {
         parentStyle.backgroundImage || parentStyle.getPropertyValue?.('background-image');
 
       if (parentBg && parentBg !== 'none') {
-        const parentMatch = parentBg.match(/url\(['"]?([^'"]{1,2000})['"]?\)/);
+        const parentBgPattern = new RegExp(
+          `url\\(['"]?([^'"]{1,${IMAGE_VALIDATION.MAX_URL_LENGTH}})['"]?\\)`
+        );
+        const parentMatch = parentBg.match(parentBgPattern);
         if (
           parentMatch?.[1] &&
           !parentMatch[1].startsWith('data:') &&
@@ -463,8 +469,12 @@ function extractFromNoscript(imgNode) {
         }
       }
 
-      // 回退：Regex 解析（加入長度限制防止 ReDoS）
-      const match = html.match(/<img[^>]+src=["']([^"']{1,2000})["']/i);
+      // 回退：Regex 解析（加入長度限制防止 ReDoS，使用 IMAGE_VALIDATION.MAX_URL_LENGTH 常量）
+      const noscriptImgPattern = new RegExp(
+        `<img[^>]+src=["']([^"']{1,${IMAGE_VALIDATION.MAX_URL_LENGTH}})["']`,
+        'i'
+      );
+      const match = html.match(noscriptImgPattern);
       if (match?.[1] && !match[1].startsWith('data:')) {
         return match[1];
       }
