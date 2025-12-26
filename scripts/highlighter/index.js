@@ -19,7 +19,7 @@ import {
 import { Toolbar } from './ui/Toolbar.js';
 
 // Utility modules
-import { COLORS, convertBgColorToName } from './utils/color.js';
+import { COLORS, convertBgColorToName, VALID_STYLES } from './utils/color.js';
 import { supportsHighlightAPI, isValidElement, getVisibleText } from './utils/dom.js';
 import { isValidColor, isValidRange, isValidHighlightData } from './utils/validation.js';
 import { getNodePath, getNodeByPath } from './utils/path.js';
@@ -276,7 +276,6 @@ export function setupHighlighter(options = {}) {
       window.notionHighlighter.clearAll();
     }
   };
-
   return { manager, toolbar, restoreManager };
 }
 
@@ -284,39 +283,84 @@ export function setupHighlighter(options = {}) {
 if (typeof window !== 'undefined' && !window.HighlighterV2) {
   // 🔑 異步初始化：先檢查頁面狀態，決定是否恢復標註和創建 Toolbar
   const initializeExtension = async () => {
-    let skipRestore = false;
-    let skipToolbar = true; // 默認不創建 Toolbar（頁面未保存或已刪除）
+    try {
+      let skipRestore = false;
+      let skipToolbar = true; // 默認不創建 Toolbar（頁面未保存或已刪除）
+      let styleMode = 'background';
 
-    // 檢查頁面狀態
-    if (window.chrome?.runtime?.sendMessage) {
+      // 並行加載配置和頁面狀態
+      const [pageStatus, settings] = await Promise.all([
+        // 1. 檢查頁面狀態
+        new Promise(resolve => {
+          if (window.chrome?.runtime?.sendMessage) {
+            window.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, result => {
+              // 檢查 lastError 以避免 runtime 錯誤（例如 extension context 無效）
+              if (window.chrome.runtime.lastError) {
+                Logger.warn(
+                  '[Highlighter] checkPageStatus failed:',
+                  window.chrome.runtime.lastError
+                );
+                resolve(null);
+              } else {
+                resolve(result);
+              }
+            });
+          } else {
+            resolve(null);
+          }
+        }),
+        // 2. 加載標註樣式配置
+        new Promise(resolve => {
+          if (window.chrome?.storage?.sync) {
+            window.chrome.storage.sync.get(['highlightStyle'], result => {
+              if (window.chrome.runtime.lastError) {
+                Logger.warn(
+                  '[Highlighter] Failed to load settings:',
+                  window.chrome.runtime.lastError
+                );
+                resolve({});
+              } else {
+                resolve(result || {});
+              }
+            });
+          } else {
+            resolve({});
+          }
+        }),
+      ]);
+
+      // 處理樣式配置，驗證值是否在允許的集合中
+      if (settings?.highlightStyle && VALID_STYLES.includes(settings.highlightStyle)) {
+        styleMode = settings.highlightStyle;
+      } else if (settings?.highlightStyle) {
+        // 設定值無效，記錄警告並使用預設值
+        Logger.warn('[Highlighter] Invalid highlightStyle value:', settings.highlightStyle);
+      }
+
+      // 處理頁面狀態
+      if (pageStatus?.wasDeleted) {
+        // 頁面已在 Notion 刪除，跳過標註恢復和 Toolbar
+        skipRestore = true;
+        skipToolbar = true;
+        Logger.log('[Highlighter] Page was deleted, skipping toolbar and restore.');
+      } else if (pageStatus?.isSaved) {
+        // 頁面已保存，創建 Toolbar
+        skipToolbar = false;
+      }
+      // 如果 isSaved === false 且 wasDeleted === false，表示頁面未保存，不創建 Toolbar
+
+      // 初始化 Highlighter
+      setupHighlighter({ skipRestore, skipToolbar, styleMode });
+    } catch (error) {
+      Logger.error('[Highlighter] Initialization failed:', error);
+      // 發生嚴重錯誤時，嘗試以安全模式初始化（不帶 Toolbar 和 Restore）
+      // 以確保基本功能可用，或至少不導致頁面其他腳本崩潰
       try {
-        const response = await new Promise(resolve => {
-          window.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, result => {
-            if (window.chrome.runtime.lastError) {
-              resolve(null);
-            } else {
-              resolve(result);
-            }
-          });
-        });
-
-        if (response?.wasDeleted) {
-          // 頁面已在 Notion 刪除，跳過標註恢復和 Toolbar
-          skipRestore = true;
-          skipToolbar = true;
-          Logger.log('[Highlighter] Page was deleted, skipping toolbar and restore.');
-        } else if (response?.isSaved) {
-          // 頁面已保存，創建 Toolbar
-          skipToolbar = false;
-        }
-        // 如果 isSaved === false 且 wasDeleted === false，表示頁面未保存，不創建 Toolbar
-      } catch (error) {
-        Logger.warn('[Highlighter] Failed to check page status:', error);
+        setupHighlighter({ skipRestore: true, skipToolbar: true });
+      } catch (fallbackError) {
+        console.error('[Highlighter] Fallback initialization failed:', fallbackError);
       }
     }
-
-    // 初始化 Highlighter
-    setupHighlighter({ skipRestore, skipToolbar });
   };
 
   initializeExtension();
@@ -331,6 +375,7 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
             window.notionHighlighter.createAndShowToolbar();
             sendResponse({ success: true });
           } catch (error) {
+            Logger.error('[Highlighter] Failed to show toolbar:', error);
             sendResponse({ success: false, error: error.message });
           }
         } else {
@@ -338,6 +383,18 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
         }
       }
       return undefined;
+    });
+  }
+
+  // 🔑 監聽設定變更以動態更新標註樣式
+  if (window.chrome?.storage?.onChanged) {
+    window.chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'sync' && changes.highlightStyle) {
+        const newStyle = changes.highlightStyle.newValue;
+        if (newStyle && VALID_STYLES.includes(newStyle) && window.HighlighterV2?.manager) {
+          window.HighlighterV2.manager.updateStyleMode(newStyle);
+        }
+      }
     });
   }
 }

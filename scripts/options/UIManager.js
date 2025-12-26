@@ -27,20 +27,22 @@ export class UIManager {
    * 顯示狀態消息
    * @param {string} message - 訊息內容
    * @param {string} type - 訊息類型 (info, success, error)
+   * @param {string} [targetId='status'] - 目標元素 ID
    */
-  showStatus(message, type = 'info') {
-    const status = this.elements.status || document.getElementById('status');
+  showStatus(message, type = 'info', targetId = 'status') {
+    const status = document.getElementById(targetId) || this.elements.status;
     if (!status) {
       return;
     }
 
     status.textContent = message;
-    status.className = type;
+    status.classList.remove('success', 'error', 'info', 'status-message'); // 清除舊類
+    status.classList.add('status-message', type); // 添加基礎類和類型類
 
     if (type === 'success') {
       setTimeout(() => {
         status.textContent = '';
-        status.className = '';
+        status.classList.remove('success', 'error', 'info', 'status-message');
       }, 3000);
     }
   }

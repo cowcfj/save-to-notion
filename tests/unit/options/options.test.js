@@ -104,6 +104,11 @@ describe('options.js', () => {
         <input type="checkbox" id="add-source" checked />
         <input type="checkbox" id="add-timestamp" />
         <input id="database-type" value="page" />
+        <select id="highlight-style">
+          <option value="background" selected>背景顏色</option>
+          <option value="text">文字顏色</option>
+          <option value="underline">底線</option>
+        </select>
       `;
 
       mockUi = { showStatus: jest.fn() };
@@ -137,28 +142,44 @@ describe('options.js', () => {
         expect.any(Function)
       );
 
-      expect(mockUi.showStatus).toHaveBeenCalledWith(expect.stringContaining('成功'), 'success');
+      expect(mockUi.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('成功'),
+        'success',
+        'status'
+      );
       expect(mockAuth.checkAuthStatus).toHaveBeenCalled();
     });
 
     it('should validate empty API key', () => {
       document.getElementById('api-key').value = '';
       saveSettings(mockUi, mockAuth);
-      expect(mockUi.showStatus).toHaveBeenCalledWith(expect.stringContaining('API Key'), 'error');
+      expect(mockUi.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('API Key'),
+        'error',
+        'status'
+      );
       expect(mockSet).not.toHaveBeenCalled();
     });
 
     it('should validate empty Database ID', () => {
       document.getElementById('database-id').value = '';
       saveSettings(mockUi, mockAuth);
-      expect(mockUi.showStatus).toHaveBeenCalledWith(expect.stringContaining('ID'), 'error');
+      expect(mockUi.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('ID'),
+        'error',
+        'status'
+      );
       expect(mockSet).not.toHaveBeenCalled();
     });
 
     it('should handle save error', () => {
       global.chrome.runtime.lastError = { message: 'Storage error' };
       saveSettings(mockUi, mockAuth);
-      expect(mockUi.showStatus).toHaveBeenCalledWith(expect.stringContaining('失敗'), 'error');
+      expect(mockUi.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('失敗'),
+        'error',
+        'status'
+      );
     });
 
     it('should not save notionDataSourceType if database-type input is empty', () => {
@@ -168,6 +189,41 @@ describe('options.js', () => {
       expect(mockSet).toHaveBeenCalledWith(
         expect.not.objectContaining({
           notionDataSourceType: expect.anything(),
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('should save highlightStyle when element exists', () => {
+      document.getElementById('highlight-style').value = 'text';
+      saveSettings(mockUi, mockAuth);
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          highlightStyle: 'text',
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('should save default highlightStyle (background)', () => {
+      saveSettings(mockUi, mockAuth);
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          highlightStyle: 'background',
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('should save underline highlightStyle', () => {
+      document.getElementById('highlight-style').value = 'underline';
+      saveSettings(mockUi, mockAuth);
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          highlightStyle: 'underline',
         }),
         expect.any(Function)
       );

@@ -202,6 +202,29 @@
               </div>
             </div>
           </div>
+
+          <!-- 外觀設定卡片 -->
+          <div class="card">
+            <h3>外觀設定</h3>
+            <div class="form-group">
+              <label for="highlight-style">標註樣式</label>
+              <div class="input-wrapper">
+                <select
+                  id="highlight-style"
+                  class="form-select"
+                  style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0"
+                >
+                  <option value="background">背景顏色</option>
+                  <option value="text">文字顏色</option>
+                  <option value="underline">底線</option>
+                </select>
+              </div>
+              <p class="help-text">選擇標註在網頁上的顯示方式。</p>
+            </div>
+          </div>
+
+          <button id="save-templates-button" class="btn-primary full-width">儲存模板設定</button>
+          <p id="template-status" class="status-message"></p>
         </section>
 
         <!-- 數據管理區塊 -->
@@ -494,7 +517,9 @@
                 </div>
                 <div>
                   <strong style="display: block; margin-bottom: 4px">多色標註</strong>
-                  <div style="font-size: 0.875rem; color: #666">支持 5 種顏色高亮重點內容</div>
+                  <div style="font-size: 0.875rem; color: #666">
+                    支持 4 種顏色與 3 種樣式（背景/文字/底線）
+                  </div>
                 </div>
               </div>
               <div

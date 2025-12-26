@@ -7,7 +7,7 @@
  */
 
 import { serializeRange, restoreRangeWithRetry } from './Range.js';
-import { COLORS } from '../utils/color.js';
+import { COLORS, TEXT_COLORS, VALID_STYLES } from '../utils/color.js';
 import { supportsHighlightAPI } from '../utils/dom.js';
 import { findTextInPage } from '../utils/textSearch.js';
 import Logger from '../../utils/Logger.js';
@@ -24,7 +24,12 @@ export class HighlightManager {
     this.highlights = new Map(); // ID -> {range, color, text, timestamp, rangeInfo}
     this.nextId = 1;
     this.currentColor = options.defaultColor || 'yellow';
+
+    // 樣式模式: 'background' (default) | 'text' | 'underline'
+    this.styleMode = options.styleMode || 'background';
+
     this.colors = COLORS;
+    this.textColors = TEXT_COLORS;
     this.highlightObjects = {}; // 顏色 -> Highlight 對象
 
     // 初始化標誌
@@ -102,22 +107,82 @@ export class HighlightManager {
    */
   injectHighlightStyles() {
     if (document.querySelector('#notion-highlight-styles')) {
-      return;
+      // 如果樣式已存在，檢查是否需要更新（例如樣式模式改變）
+      const existingStyle = document.querySelector('#notion-highlight-styles');
+      if (existingStyle.dataset.styleMode === this.styleMode) {
+        return;
+      }
+      existingStyle.remove();
     }
 
     const style = document.createElement('style');
     style.id = 'notion-highlight-styles';
+    style.dataset.styleMode = this.styleMode;
+
     style.textContent = Object.entries(this.colors)
-      .map(
-        ([colorName, bgColor]) => `
-                ::highlight(notion-${colorName}) {
-                    background-color: ${bgColor};
-                    cursor: pointer;
-                }
-            `
-      )
+      .map(([colorName, bgColor]) => {
+        let cssRules = '';
+        const textColor = this.textColors[colorName] || bgColor;
+
+        switch (this.styleMode) {
+          case 'text':
+            // 文字顏色模式
+            cssRules = `
+              background-color: transparent;
+              color: ${textColor};
+            `;
+            break;
+
+          case 'underline':
+            // 底線模式
+            cssRules = `
+              background-color: transparent;
+              color: inherit;
+              text-decoration: underline;
+              text-decoration-color: ${textColor};
+              text-decoration-thickness: 3px;
+              text-underline-offset: 3px;
+            `;
+            break;
+
+          case 'background':
+          default:
+            // 預設背景模式（強制黑色文字以確保對比度）
+            cssRules = `
+              background-color: ${bgColor};
+              color: black; 
+            `;
+            break;
+        }
+
+        return `
+            ::highlight(notion-${colorName}) {
+                ${cssRules}
+                cursor: pointer;
+            }
+        `;
+      })
       .join('\n');
     document.head.appendChild(style);
+  }
+
+  /**
+   * 動態更新標註樣式模式
+   * @param {string} newStyleMode - 新的樣式模式 ('background' | 'text' | 'underline')
+   */
+  updateStyleMode(newStyleMode) {
+    if (!VALID_STYLES.includes(newStyleMode)) {
+      Logger.warn('[HighlightManager] Invalid style mode:', newStyleMode);
+      return;
+    }
+
+    if (this.styleMode === newStyleMode) {
+      return; // 樣式未變更，無需更新
+    }
+
+    this.styleMode = newStyleMode;
+    this.injectHighlightStyles(); // 重新注入樣式
+    Logger.log(`[HighlightManager] Style mode updated to: ${newStyleMode}`);
   }
 
   /**
