@@ -386,4 +386,17 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
       return undefined;
     });
   }
+
+  // 🔑 監聽設定變更以動態更新標註樣式
+  if (window.chrome?.storage?.onChanged) {
+    window.chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'sync' && changes.highlightStyle) {
+        const newStyle = changes.highlightStyle.newValue;
+        const VALID_STYLES = ['background', 'text', 'underline'];
+        if (newStyle && VALID_STYLES.includes(newStyle) && window.HighlighterV2?.manager) {
+          window.HighlighterV2.manager.updateStyleMode(newStyle);
+        }
+      }
+    });
+  }
 }

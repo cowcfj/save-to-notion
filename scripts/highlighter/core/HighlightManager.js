@@ -167,6 +167,26 @@ export class HighlightManager {
   }
 
   /**
+   * 動態更新標註樣式模式
+   * @param {string} newStyleMode - 新的樣式模式 ('background' | 'text' | 'underline')
+   */
+  updateStyleMode(newStyleMode) {
+    const VALID_STYLES = ['background', 'text', 'underline'];
+    if (!VALID_STYLES.includes(newStyleMode)) {
+      Logger.warn('[HighlightManager] Invalid style mode:', newStyleMode);
+      return;
+    }
+
+    if (this.styleMode === newStyleMode) {
+      return; // 樣式未變更，無需更新
+    }
+
+    this.styleMode = newStyleMode;
+    this.injectHighlightStyles(); // 重新注入樣式
+    Logger.log(`[HighlightManager] Style mode updated to: ${newStyleMode}`);
+  }
+
+  /**
    * 添加標註
    * @param {Range} range - DOM Range
    * @param {string} color - 顏色名稱
