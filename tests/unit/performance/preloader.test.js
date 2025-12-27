@@ -446,5 +446,31 @@ describe('Preloader', () => {
         }
       }
     });
+    test('當 localStorage 拋出異常時應優雅處理', () => {
+      const originalDescriptor = Object.getOwnPropertyDescriptor(global.window, 'localStorage');
+
+      try {
+        // Mock localStorage throwing error
+        Object.defineProperty(global.window, 'localStorage', {
+          get: () => {
+            throw new Error('Access denied');
+          },
+          configurable: true,
+        });
+
+        // 執行應該不拋出錯誤
+        expect(() => executePreloader()).not.toThrow();
+
+        // 核心功能（如初始化標記）應該仍然生效
+        expect(window.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
+      } finally {
+        // Restore functionality to avoid affecting other tests or cleanup
+        if (originalDescriptor) {
+          Object.defineProperty(global.window, 'localStorage', originalDescriptor);
+        } else {
+          delete global.window.localStorage;
+        }
+      }
+    });
   });
 });

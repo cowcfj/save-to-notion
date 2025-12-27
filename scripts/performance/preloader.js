@@ -118,10 +118,15 @@
 
   // 調試模式：在 DevTools Console 執行 localStorage.setItem('NOTION_DEBUG', '1') 啟用
   // 啟用後重新載入頁面即可看到調試訊息
-  if (localStorage.getItem('NOTION_DEBUG')) {
-    console.log('🔌 [Notion Preloader] Loaded, cache:', {
-      hasArticle: Boolean(preloaderCache.article),
-      hasMainContent: Boolean(preloaderCache.mainContent),
-    });
+  try {
+    if (localStorage.getItem('NOTION_DEBUG')) {
+      console.log('🔌 [Notion Preloader] Loaded, cache:', {
+        hasArticle: Boolean(preloaderCache.article),
+        hasMainContent: Boolean(preloaderCache.mainContent),
+      });
+    }
+  } catch (_e) {
+    // 忽略 localStorage 訪問錯誤（如隱私模式或禁用 Cookie）
+    // 避免因調試功能導致整個腳本崩潰
   }
 })();
