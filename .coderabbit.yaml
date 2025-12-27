@@ -7,6 +7,7 @@ reviews:
   profile: 'chill'
   request_changes_workflow: false
   high_level_summary: false
+  review_status: false
   auto_review:
     enabled: true
     ignore_usernames:

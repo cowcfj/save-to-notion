@@ -226,4 +226,53 @@ describe('PerformanceOptimizer', () => {
       expect(stats.cache.size).toBe(1); // 只剩下 'div.other'
     });
   });
+
+  describe('快取接管 (takeoverPreloaderCache)', () => {
+    beforeEach(() => {
+      // 清理全域快取
+      delete window.__NOTION_PRELOADER_CACHE__;
+    });
+
+    test('如果無快取應返回 0', () => {
+      const result = optimizer.takeoverPreloaderCache();
+      expect(result).toEqual({ taken: 0 });
+    });
+
+    test('如果快取已過期應返回 expired', () => {
+      global.window.__NOTION_PRELOADER_CACHE__ = {
+        timestamp: Date.now() - 60000, // 1 分鐘前
+        article: document.createElement('article'),
+      };
+
+      const result = optimizer.takeoverPreloaderCache({ maxAge: 30000 });
+      expect(result).toEqual({ taken: 0, expired: true });
+    });
+
+    test('應該成功接管有效的快取', () => {
+      const article = document.createElement('article');
+      const main = document.createElement('main');
+
+      // 確保元素附加到 DOM，否則 _validateCachedElements 會返回 false
+      document.body.appendChild(article);
+      document.body.appendChild(main);
+
+      global.window.__NOTION_PRELOADER_CACHE__ = {
+        timestamp: Date.now(),
+        article,
+        mainContent: main,
+      };
+
+      const result = optimizer.takeoverPreloaderCache();
+
+      expect(result.taken).toBe(2);
+
+      // 驗證快取是否已進入 PerformanceOptimizer
+      const stats = optimizer.getPerformanceStats();
+      expect(stats.cache.size).toBe(2);
+
+      // 驗證能否從快取讀取
+      const cachedArticle = optimizer.cachedQuery('article', document, { single: true });
+      expect(cachedArticle).toBe(article);
+    });
+  });
 });

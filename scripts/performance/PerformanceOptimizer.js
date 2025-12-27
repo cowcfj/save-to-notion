@@ -667,7 +667,9 @@ class PerformanceOptimizer {
 
     // 遷移 article 快取
     if (preloaderCache.article) {
-      const cacheKey = PerformanceOptimizer._generateCacheKey('article', document, {});
+      const cacheKey = PerformanceOptimizer._generateCacheKey('article', document, {
+        single: true,
+      });
       this.queryCache.set(cacheKey, {
         result: preloaderCache.article,
         timestamp: preloaderCache.timestamp,
@@ -681,7 +683,7 @@ class PerformanceOptimizer {
     // 遷移 mainContent 快取
     if (preloaderCache.mainContent) {
       const selector = 'main, [role="main"], #content, .content';
-      const cacheKey = PerformanceOptimizer._generateCacheKey(selector, document, {});
+      const cacheKey = PerformanceOptimizer._generateCacheKey(selector, document, { single: true });
       this.queryCache.set(cacheKey, {
         result: preloaderCache.mainContent,
         timestamp: preloaderCache.timestamp,
