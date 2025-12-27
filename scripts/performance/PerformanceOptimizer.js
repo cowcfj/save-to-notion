@@ -1,14 +1,13 @@
 /**
  * 性能優化器
- * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
+ * 提供 DOM 查詢緩存和批處理隊列功能
  */
 /* global ErrorHandler, Logger */
-import { AdaptivePerformanceManager } from './AdaptivePerformanceManager.js';
 import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
 
 /**
  * 性能優化器類
- * 提供 DOM 查詢緩存、批處理隊列、性能監控和自適應優化功能
+ * 提供 DOM 查詢緩存和批處理隊列功能
  *
  * 架構設計說明：
  *
@@ -35,10 +34,8 @@ class PerformanceOptimizer {
     this.options = {
       enableCache: true,
       enableBatching: true,
-      enableMetrics: true,
       cacheMaxSize: PERFORMANCE_OPTIMIZER.DEFAULT_CACHE_MAX_SIZE,
       batchDelay: 16, // 一個動畫幀的時間
-      metricsInterval: 5000, // 5秒收集一次指標
       cacheTTL: PERFORMANCE_OPTIMIZER.CACHE_TTL_MS,
       prewarmSelectors: [
         // 預設的預熱選擇器
@@ -50,7 +47,6 @@ class PerformanceOptimizer {
         '.post-content',
         '.entry-content',
       ],
-      enableAdaptive: false, // 是否啟用自適應功能
       ...options,
     };
 
@@ -83,56 +79,6 @@ class PerformanceOptimizer {
       totalProcessingTime: 0,
       averageProcessingTime: 0,
     };
-
-    // 自適應性能管理
-    this.adaptiveManager = null;
-    if (this.options.enableAdaptive) {
-      this._initAdaptiveManager();
-    }
-
-    // 初始化性能監控
-    if (this.options.enableMetrics) {
-      this._initMetricsCollection();
-    }
-  }
-
-  /**
-   * 初始化自適應性能管理器
-   * @private
-   */
-  _initAdaptiveManager() {
-    try {
-      // 現在是 ES Module 硬依賴，直接初始化
-      this.adaptiveManager = new AdaptivePerformanceManager(this, {
-        performanceThreshold: 100,
-        batchSizeAdjustmentFactor: 0.1,
-      });
-      Logger.info('🤖 自適應性能管理器已初始化');
-    } catch (error) {
-      Logger.error('❌ 初始化自適應管理器失敗:', error);
-    }
-  }
-
-  /**
-   * 啟用自適應性能優化
-   */
-  enableAdaptiveOptimization() {
-    if (!this.adaptiveManager) {
-      this.options.enableAdaptive = true;
-      this._initAdaptiveManager();
-    }
-  }
-
-  /**
-   * 執行自適應性能調整
-   */
-  adaptiveAdjustment() {
-    if (!this.adaptiveManager) {
-      return Promise.resolve(null);
-    }
-
-    // 返回 underlying promise 讓呼叫者自行 await，避免額外的 microtask
-    return this.adaptiveManager.analyzeAndAdjust();
   }
 
   /**
@@ -923,43 +869,6 @@ class PerformanceOptimizer {
   }
 
   /**
-   * 初始化性能指標收集
-   * @private
-   */
-  _initMetricsCollection() {
-    if (typeof window !== 'undefined' && window.performance) {
-      // 防止重複創建定時器
-      if (this._metricsIntervalId) {
-        return;
-      }
-
-      // 存儲 interval ID 以便後續清理
-      this._metricsIntervalId = setInterval(() => {
-        this._collectPerformanceMetrics();
-      }, this.options.metricsInterval);
-    }
-  }
-
-  /**
-   * 收集性能指標
-   * @private
-   */
-  _collectPerformanceMetrics() {
-    if (typeof window !== 'undefined' && window.performance) {
-      const memory = PerformanceOptimizer._getMemoryStats();
-
-      // 記錄到控制台（開發模式）
-      if (this.options.enableMetrics && Logger.debug) {
-        Logger.debug('Performance Metrics:', {
-          cache: this.cacheStats,
-          batch: this.batchStats,
-          memory,
-        });
-      }
-    }
-  }
-
-  /**
    * 獲取內存統計
    *
    * 設計說明：
@@ -1006,54 +915,10 @@ class PerformanceOptimizer {
       this.batchTimer = null;
     }
 
-    // 清理性能指標收集定時器
-    if (this._metricsIntervalId) {
-      clearInterval(this._metricsIntervalId);
-      this._metricsIntervalId = null;
-    }
-
     // 清理緩存
     this.queryCache.clear();
 
-    // 清理自適應管理器
-    if (this.adaptiveManager && typeof this.adaptiveManager.destroy === 'function') {
-      this.adaptiveManager.destroy();
-    }
-
     Logger.info('🧹 PerformanceOptimizer 資源已清理');
-  }
-
-  /**
-   * 根據當前系統負載調整性能參數
-   */
-  adjustForSystemLoad() {
-    // 獲取當前性能指標
-    const stats = this.getStats();
-
-    // 根據緩存命中率調整策略
-    if (stats.cache.hitRate < 0.3) {
-      // 緩存命中率低，可能需要增加緩存大小或清理策略
-      Logger.info('📊 緩存命中率較低，考慮調整緩存策略');
-    }
-
-    // 根據平均處理時間調整批處理大小
-    if (stats.metrics.averageProcessingTime > 50) {
-      // 處理時間過長，減少批處理大小
-      Logger.info('⏰ 處理時間過長，動態調整批處理大小');
-      if (this.adaptiveManager) {
-        const currentBatchSize = this.options.batchSize || 100;
-        this.adaptiveManager.adjustBatchSize(Math.floor(currentBatchSize * 0.8));
-      }
-    }
-
-    // 定期清理過期緩存
-    const expiredCount = this.clearExpiredCache();
-    if (expiredCount > 0) {
-      Logger.info(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
-    }
-
-    // 保持 API 回傳 Promise（與之前 async 一致）
-    return Promise.resolve();
   }
 
   /**

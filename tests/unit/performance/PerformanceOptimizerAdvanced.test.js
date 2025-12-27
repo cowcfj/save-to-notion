@@ -1,6 +1,6 @@
 /**
  * PerformanceOptimizer 進階功能測試
- * 測試新增的緩存預熱、TTL 機制、批處理優化和自適應功能
+ * 測試新增的緩存預熱、TTL 機制和批處理優化功能
  */
 
 // 模擬 DOM 環境
@@ -57,7 +57,6 @@ describe('PerformanceOptimizer 進階功能測試', () => {
     optimizer = new PerformanceOptimizer({
       enableCache: true,
       enableBatching: true,
-      enableMetrics: true,
       cacheMaxSize: 100,
       cacheTTL: 300000, // 5分鐘 TTL
     });
@@ -235,21 +234,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
     });
   });
 
-  describe('自適應性能功能', () => {
-    test('應該初始化自適應管理器', () => {
-      // 創建帶有自適應功能的優化器
-      const adaptiveOptimizer = new PerformanceOptimizer({
-        enableCache: true,
-        enableBatching: true,
-        enableMetrics: true,
-        enableAdaptive: true,
-      });
-
-      // 檢查是否初始化了自適應管理器
-      // 由於 AdaptivePerformanceManager 可能不存在於測試環境中，我們測試它的存在性
-      expect(adaptiveOptimizer).toBeDefined();
-    });
-
+  describe('頁面分析功能', () => {
     test('應該分析頁面內容', () => {
       const analysis = optimizer._analyzePageForPrewarming(document);
       expect(Array.isArray(analysis)).toBe(true);
@@ -262,16 +247,6 @@ describe('PerformanceOptimizer 進階功能測試', () => {
       // 測試讓出控制權功能
       const _result = await PerformanceOptimizer._yieldToMain();
       expect(_result).toBeUndefined(); // setTimeout(resolve) 返回 undefined
-    });
-  });
-
-  describe('系統負載調整', () => {
-    test('應該根據系統負載調整性能參數', async () => {
-      // 模擬不同性能場景並測試調整
-      optimizer.metrics.averageProcessingTime = 100; // 假設處理時間較長
-
-      // 測試調整功能不拋出錯誤
-      await expect(optimizer.adjustForSystemLoad()).resolves.not.toThrow();
     });
   });
 });

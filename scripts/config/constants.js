@@ -193,7 +193,7 @@ export const TAB_SERVICE = {
 // ==========================================
 
 /**
- * PerformanceOptimizer 和 AdaptivePerformanceManager 共用常量
+ * PerformanceOptimizer 相關常量
  */
 export const PERFORMANCE_OPTIMIZER = {
   // 緩存設定

@@ -63,22 +63,6 @@ describe('PerformanceOptimizer - 批次處理邏輯', () => {
     });
   });
 
-  describe('adjustForSystemLoad 屬性修復驗證', () => {
-    test('應該正確執行系統負載調整', async () => {
-      optimizer.options.batchSize = 100;
-      optimizer.metrics.averageProcessingTime = 100;
-
-      await expect(optimizer.adjustForSystemLoad()).resolves.not.toThrow();
-    });
-
-    test('當沒有 adaptiveManager 時不應該報錯', async () => {
-      optimizer.adaptiveManager = null;
-      optimizer.metrics.averageProcessingTime = 100;
-
-      await expect(optimizer.adjustForSystemLoad()).resolves.not.toThrow();
-    });
-  });
-
   describe('destroy() 方法測試', () => {
     test('應該清理批處理定時器', () => {
       optimizer.batchTimer = setTimeout(() => {
@@ -97,21 +81,6 @@ describe('PerformanceOptimizer - 批次處理邏輯', () => {
       optimizer.destroy();
 
       expect(optimizer.queryCache.size).toBe(0);
-    });
-
-    test('應該調用 adaptiveManager 的 destroy 方法', () => {
-      const mockDestroy = jest.fn();
-      optimizer.adaptiveManager = { destroy: mockDestroy };
-
-      optimizer.destroy();
-
-      expect(mockDestroy).toHaveBeenCalled();
-    });
-
-    test('當 adaptiveManager 沒有 destroy 方法時不應該報錯', () => {
-      optimizer.adaptiveManager = {};
-
-      expect(() => optimizer.destroy()).not.toThrow();
     });
 
     test('多次調用 destroy 不應該報錯', () => {

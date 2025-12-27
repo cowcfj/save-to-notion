@@ -76,7 +76,6 @@ describe('PerformanceOptimizer - 全面測試', () => {
     optimizer = new PerformanceOptimizer({
       enableCache: true,
       enableBatching: true,
-      enableMetrics: true,
       cacheMaxSize: 10,
       cacheTTL: 300000,
       batchDelay: 16,
@@ -528,70 +527,6 @@ describe('PerformanceOptimizer - 全面測試', () => {
       expect(optimizer.cacheStats.misses).toBe(0);
       expect(optimizer.batchStats.totalBatches).toBe(0);
       expect(optimizer.metrics.domQueries).toBe(0);
-    });
-  });
-
-  describe('adjustForSystemLoad - 系統負載調整', () => {
-    test('應該根據性能調整參數', async () => {
-      // 執行一些操作
-      optimizer.cachedQuery('img', mockDocument);
-
-      await optimizer.adjustForSystemLoad();
-
-      // 應該沒有拋出錯誤
-      expect(true).toBe(true);
-    });
-
-    test('應該清理過期緩存', async () => {
-      optimizer.cachedQuery('img', mockDocument);
-
-      // 修改時間戳
-      const key = optimizer.queryCache.keys().next().value;
-      const entry = optimizer.queryCache.get(key);
-      entry.timestamp = Date.now() - 400000;
-
-      await optimizer.adjustForSystemLoad();
-
-      expect(optimizer.queryCache.size).toBe(0);
-    });
-  });
-
-  describe('enableAdaptiveOptimization - 啟用自適應優化', () => {
-    test('應該啟用自適應管理器', () => {
-      // 現在是 ES Module 硬依賴，無需 mock 全局變量
-      optimizer.enableAdaptiveOptimization();
-
-      expect(optimizer.options.enableAdaptive).toBe(true);
-      // 由於現在是硬依賴，adaptiveManager 應該被初始化
-      expect(optimizer.adaptiveManager).not.toBeNull();
-    });
-
-    test('應該在已有管理器時不重複創建', () => {
-      const existingManager = { existing: true };
-      optimizer.adaptiveManager = existingManager;
-
-      optimizer.enableAdaptiveOptimization();
-
-      // 應該保留原有的管理器，不重複創建
-      expect(optimizer.adaptiveManager).toBe(existingManager);
-    });
-  });
-
-  describe('adaptiveAdjustment - 自適應調整', () => {
-    test('應該在沒有管理器時返回 null', async () => {
-      const result = await optimizer.adaptiveAdjustment();
-      expect(result).toBeNull();
-    });
-
-    test('應該調用管理器的 analyzeAndAdjust 方法', async () => {
-      optimizer.adaptiveManager = {
-        analyzeAndAdjust: jest.fn().mockResolvedValue({ adjusted: true }),
-      };
-
-      const result = await optimizer.adaptiveAdjustment();
-
-      expect(optimizer.adaptiveManager.analyzeAndAdjust).toHaveBeenCalled();
-      expect(result).toEqual({ adjusted: true });
     });
   });
 
