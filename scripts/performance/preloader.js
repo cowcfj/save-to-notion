@@ -108,10 +108,12 @@
     return false;
   });
 
-  // 除錯日誌（生產環境會被移除）
-
-  console.log('🔌 [Notion Preloader] Loaded, cache:', {
-    hasArticle: Boolean(preloaderCache.article),
-    hasMainContent: Boolean(preloaderCache.mainContent),
-  });
+  // 調試模式：在 DevTools Console 執行 localStorage.setItem('NOTION_DEBUG', '1') 啟用
+  // 啟用後重新載入頁面即可看到調試訊息
+  if (localStorage.getItem('NOTION_DEBUG')) {
+    console.log('🔌 [Notion Preloader] Loaded, cache:', {
+      hasArticle: Boolean(preloaderCache.article),
+      hasMainContent: Boolean(preloaderCache.mainContent),
+    });
+  }
 })();

@@ -634,6 +634,73 @@ class PerformanceOptimizer {
   }
 
   /**
+   * 接管 preloader 的預載快取（可選調用）
+   *
+   * 適用場景：主 Bundle 初始化後，若希望複用 preloader 已查詢的 DOM 節點，
+   * 可調用此方法將快取遷移到 PerformanceOptimizer，避免重複 DOM 查詢。
+   *
+   * @param {Object} options - 接管選項
+   * @param {number} [options.maxAge=30000] - 快取有效期（毫秒），預設 30 秒
+   * @returns {{ taken: number, expired?: boolean }} 接管結果
+   *
+   * @example
+   * const optimizer = new PerformanceOptimizer();
+   * const result = optimizer.takeoverPreloaderCache();
+   * // result: { taken: 2 } 或 { taken: 0, expired: true }
+   */
+  takeoverPreloaderCache(options = {}) {
+    const { maxAge = 30000 } = options;
+    const preloaderCache = window.__NOTION_PRELOADER_CACHE__;
+
+    if (!preloaderCache) {
+      Logger.debug('無 preloader 快取可接管');
+      return { taken: 0 };
+    }
+
+    const cacheAge = Date.now() - preloaderCache.timestamp;
+    if (cacheAge > maxAge) {
+      Logger.debug(`preloader 快取已過期: ${cacheAge}ms > ${maxAge}ms`);
+      return { taken: 0, expired: true };
+    }
+
+    let takenCount = 0;
+
+    // 遷移 article 快取
+    if (preloaderCache.article) {
+      const cacheKey = PerformanceOptimizer._generateCacheKey('article', document, {});
+      this.queryCache.set(cacheKey, {
+        result: preloaderCache.article,
+        timestamp: preloaderCache.timestamp,
+        selector: 'article',
+        ttl: this.options.cacheTTL,
+      });
+      takenCount++;
+      Logger.debug('已接管 preloader article 快取');
+    }
+
+    // 遷移 mainContent 快取
+    if (preloaderCache.mainContent) {
+      const selector = 'main, [role="main"], #content, .content';
+      const cacheKey = PerformanceOptimizer._generateCacheKey(selector, document, {});
+      this.queryCache.set(cacheKey, {
+        result: preloaderCache.mainContent,
+        timestamp: preloaderCache.timestamp,
+        selector,
+        ttl: this.options.cacheTTL,
+      });
+      takenCount++;
+      Logger.debug('已接管 preloader mainContent 快取');
+    }
+
+    if (takenCount > 0) {
+      Logger.info(`🔄 已接管 ${takenCount} 個 preloader 快取項目`);
+    }
+
+    return { taken: takenCount };
+  }
+
+  /**
+
    * 安排批處理
    * @private
    */
@@ -915,6 +982,7 @@ class PerformanceOptimizer {
 
     // 清理緩存
     this.queryCache.clear();
+    this.prewarmedSelectors.clear();
 
     Logger.info('🧹 PerformanceOptimizer 資源已清理');
   }
