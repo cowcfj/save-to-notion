@@ -2,9 +2,14 @@
  * 性能優化器
  * 提供 DOM 查詢緩存和批處理隊列功能
  */
-/* global ErrorHandler, Logger */
 import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
-import { ARTICLE_SELECTORS, CMS_CONTENT_SELECTORS } from '../config/selectors.js';
+import {
+  ARTICLE_SELECTORS,
+  CMS_CONTENT_SELECTORS, // Added missing import
+  PRELOADER_SELECTORS,
+} from '../config/selectors.js';
+import Logger from '../utils/Logger.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js'; // Fixed import
 
 /**
  * 性能優化器類
@@ -647,6 +652,43 @@ class PerformanceOptimizer {
    * const optimizer = new PerformanceOptimizer();
    * const result = optimizer.takeoverPreloaderCache();
    * // result: { taken: 2 } 或 { taken: 0, expired: true }
+  /**
+   * 遷移單個快取項目
+   *
+   * @private
+   * @param {Element} element - DOM 元素
+   * @param {string} selector - CSS 選擇器
+   * @param {number} timestamp - 時間戳
+   * @returns {boolean} 是否遷移成功
+   */
+  _migrateCacheItem(element, selector, timestamp) {
+    if (!element) {
+      return false;
+    }
+
+    // 使用 single: true 生成緩存鍵，與單一元素查詢邏輯保持一致
+    const cacheKey = PerformanceOptimizer._generateCacheKey(selector, document, { single: true });
+
+    this.queryCache.set(cacheKey, {
+      result: element,
+      timestamp,
+      selector,
+      ttl: this.options.cacheTTL,
+    });
+
+    Logger.debug(`已接管 preloader ${selector} 快取`);
+    return true;
+  }
+
+  /**
+   * 嘗試接管 Preloader 的快取
+   *
+   * Preloader 在頁面加載初期可能會緩存一些關鍵節點（如 article）
+   * 如果這些緩存有效，PerformanceOptimizer 可以直接接管，避免重複查詢
+   *
+   * @param {Object} options - 接管選項
+   * @param {number} [options.maxAge=30000] - 快取最大有效期（毫秒）
+   * @returns {Object} 接管結果 { taken: number, expired: boolean }
    */
   takeoverPreloaderCache(options = {}) {
     const { maxAge = 30000 } = options;
@@ -666,43 +708,32 @@ class PerformanceOptimizer {
     let takenCount = 0;
 
     // 遷移 article 快取
-    if (preloaderCache.article) {
-      const cacheKey = PerformanceOptimizer._generateCacheKey('article', document, {
-        single: true,
-      });
-      this.queryCache.set(cacheKey, {
-        result: preloaderCache.article,
-        timestamp: preloaderCache.timestamp,
-        selector: 'article',
-        ttl: this.options.cacheTTL,
-      });
+    if (
+      this._migrateCacheItem(
+        preloaderCache.article,
+        PRELOADER_SELECTORS.article,
+        preloaderCache.timestamp
+      )
+    ) {
       takenCount++;
-      Logger.debug('已接管 preloader article 快取');
     }
 
     // 遷移 mainContent 快取
-    if (preloaderCache.mainContent) {
-      const selector = 'main, [role="main"], #content, .content';
-      const cacheKey = PerformanceOptimizer._generateCacheKey(selector, document, { single: true });
-      this.queryCache.set(cacheKey, {
-        result: preloaderCache.mainContent,
-        timestamp: preloaderCache.timestamp,
-        selector,
-        ttl: this.options.cacheTTL,
-      });
+    if (
+      this._migrateCacheItem(
+        preloaderCache.mainContent,
+        PRELOADER_SELECTORS.mainContent,
+        preloaderCache.timestamp
+      )
+    ) {
       takenCount++;
-      Logger.debug('已接管 preloader mainContent 快取');
-    }
-
-    if (takenCount > 0) {
-      Logger.info(`🔄 已接管 ${takenCount} 個 preloader 快取項目`);
     }
 
     return { taken: takenCount };
   }
 
   /**
-
+  
    * 安排批處理
    * @private
    */
