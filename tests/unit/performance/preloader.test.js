@@ -441,8 +441,10 @@ describe('Preloader', () => {
         consoleSpy.mockRestore();
         if (originalLocalStorage) {
           global.window.localStorage = originalLocalStorage;
+          global.localStorage = originalLocalStorage;
         } else {
           delete global.window.localStorage;
+          delete global.localStorage;
         }
       }
     });
