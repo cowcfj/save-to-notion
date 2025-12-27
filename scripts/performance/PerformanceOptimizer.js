@@ -4,6 +4,7 @@
  */
 /* global ErrorHandler, Logger */
 import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
+import { ARTICLE_SELECTORS, CMS_CONTENT_SELECTORS } from '../config/selectors.js';
 
 /**
  * 性能優化器類
@@ -38,14 +39,11 @@ class PerformanceOptimizer {
       batchDelay: 16, // 一個動畫幀的時間
       cacheTTL: PERFORMANCE_OPTIMIZER.CACHE_TTL_MS,
       prewarmSelectors: [
-        // 預設的預熱選擇器
+        // 圖片預熱選擇器
         'img[src]',
         'img[data-src]',
-        'article',
-        'main',
-        '.content',
-        '.post-content',
-        '.entry-content',
+        // 文章區域選擇器（來自 selectors.js）
+        ...ARTICLE_SELECTORS,
       ],
       ...options,
     };
@@ -543,8 +541,8 @@ class PerformanceOptimizer {
       selectors.push('[role="main"] *');
     }
 
-    // 檢查是否有常見的 CMS 類名
-    const cmsPatterns = ['.entry-content', '.post-content', '.article-content', '.content-area'];
+    // 檢查是否有常見的 CMS 類名（使用 CMS_CONTENT_SELECTORS 前 4 個核心選擇器）
+    const cmsPatterns = CMS_CONTENT_SELECTORS.slice(0, 4);
     cmsPatterns.forEach(pattern => {
       if (context.querySelector(pattern)) {
         selectors.push(
