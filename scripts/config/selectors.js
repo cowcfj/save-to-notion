@@ -289,3 +289,18 @@ export const AD_SELECTORS = [
   // sponsor 相關
   '[id*="sponsor"]',
 ];
+
+// ==========================================
+// Preloader 選擇器
+// ==========================================
+
+/**
+ * Preloader 使用的選擇器
+ * 用於 PerformanceOptimizer 接管 Preloader 快取時使用
+ *
+ * 注意：此配置必須與 scripts/performance/preloader.js 中的硬編碼選擇器保持同步
+ */
+export const PRELOADER_SELECTORS = {
+  article: 'article',
+  mainContent: 'main, [role="main"], #content, .content',
+};

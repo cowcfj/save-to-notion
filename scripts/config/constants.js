@@ -193,7 +193,7 @@ export const TAB_SERVICE = {
 // ==========================================
 
 /**
- * PerformanceOptimizer 和 AdaptivePerformanceManager 共用常量
+ * PerformanceOptimizer 相關常量
  */
 export const PERFORMANCE_OPTIMIZER = {
   // 緩存設定
@@ -206,4 +206,12 @@ export const PERFORMANCE_OPTIMIZER = {
   DEFAULT_BATCH_SIZE: 100, // 預設批處理大小
   MAX_BATCH_SIZE: 500, // 最大批處理大小
   MIN_BATCH_SIZE: 10, // 最小批處理大小
+};
+
+/**
+ * Preloader 事件名稱（解耦 Phase 8）
+ */
+export const PRELOADER_EVENTS = {
+  REQUEST: 'notion-preloader-request',
+  RESPONSE: 'notion-preloader-response',
 };

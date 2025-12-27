@@ -1,14 +1,20 @@
 /**
  * 性能優化器
- * 提供 DOM 查詢緩存、批處理隊列和性能監控功能
+ * 提供 DOM 查詢緩存和批處理隊列功能
  */
-/* global ErrorHandler, Logger */
-import { AdaptivePerformanceManager } from './AdaptivePerformanceManager.js';
-import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
+import { PERFORMANCE_OPTIMIZER, PRELOADER_EVENTS } from '../config/constants.js';
+import {
+  ARTICLE_SELECTORS,
+  CMS_CONTENT_SELECTORS,
+  PRELOADER_SELECTORS,
+} from '../config/selectors.js';
+import Logger from '../utils/Logger.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js';
+import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
 
 /**
  * 性能優化器類
- * 提供 DOM 查詢緩存、批處理隊列、性能監控和自適應優化功能
+ * 提供 DOM 查詢緩存和批處理隊列功能
  *
  * 架構設計說明：
  *
@@ -35,22 +41,16 @@ class PerformanceOptimizer {
     this.options = {
       enableCache: true,
       enableBatching: true,
-      enableMetrics: true,
       cacheMaxSize: PERFORMANCE_OPTIMIZER.DEFAULT_CACHE_MAX_SIZE,
       batchDelay: 16, // 一個動畫幀的時間
-      metricsInterval: 5000, // 5秒收集一次指標
       cacheTTL: PERFORMANCE_OPTIMIZER.CACHE_TTL_MS,
       prewarmSelectors: [
-        // 預設的預熱選擇器
+        // 圖片預熱選擇器
         'img[src]',
         'img[data-src]',
-        'article',
-        'main',
-        '.content',
-        '.post-content',
-        '.entry-content',
+        // 文章區域選擇器（來自 selectors.js）
+        ...ARTICLE_SELECTORS,
       ],
-      enableAdaptive: false, // 是否啟用自適應功能
       ...options,
     };
 
@@ -83,56 +83,37 @@ class PerformanceOptimizer {
       totalProcessingTime: 0,
       averageProcessingTime: 0,
     };
-
-    // 自適應性能管理
-    this.adaptiveManager = null;
-    if (this.options.enableAdaptive) {
-      this._initAdaptiveManager();
-    }
-
-    // 初始化性能監控
-    if (this.options.enableMetrics) {
-      this._initMetricsCollection();
-    }
   }
 
   /**
-   * 初始化自適應性能管理器
+   * 遷移單個快取項目
+   *
    * @private
+   * @param {Element} element - DOM 元素
+   * @param {string} selector - CSS 選擇器
+   * @param {number} timestamp - 時間戳
+   * @returns {boolean} 是否遷移成功
    */
-  _initAdaptiveManager() {
-    try {
-      // 現在是 ES Module 硬依賴，直接初始化
-      this.adaptiveManager = new AdaptivePerformanceManager(this, {
-        performanceThreshold: 100,
-        batchSizeAdjustmentFactor: 0.1,
-      });
-      Logger.info('🤖 自適應性能管理器已初始化');
-    } catch (error) {
-      Logger.error('❌ 初始化自適應管理器失敗:', error);
-    }
-  }
-
-  /**
-   * 啟用自適應性能優化
-   */
-  enableAdaptiveOptimization() {
-    if (!this.adaptiveManager) {
-      this.options.enableAdaptive = true;
-      this._initAdaptiveManager();
-    }
-  }
-
-  /**
-   * 執行自適應性能調整
-   */
-  adaptiveAdjustment() {
-    if (!this.adaptiveManager) {
-      return Promise.resolve(null);
+  _migrateCacheItem(element, selector, timestamp) {
+    // SECURITY: 使用共享的安全驗證函數進行檢查
+    // 包含：類型檢查、防篡改 (ownerDocument)、防過期 (isConnected)、選擇器匹配
+    if (!validateSafeDomElement(element, document, selector)) {
+      Logger.warn(`拒絕接管不安全的 preloader 快取: ${selector}`);
+      return false;
     }
 
-    // 返回 underlying promise 讓呼叫者自行 await，避免額外的 microtask
-    return this.adaptiveManager.analyzeAndAdjust();
+    // 使用 single: true 生成緩存鍵，與單一元素查詢邏輯保持一致
+    const cacheKey = PerformanceOptimizer._generateCacheKey(selector, document, { single: true });
+
+    this.queryCache.set(cacheKey, {
+      result: element,
+      timestamp,
+      selector,
+      ttl: this.options.cacheTTL,
+    });
+
+    Logger.debug(`已接管 preloader ${selector} 快取`);
+    return true;
   }
 
   /**
@@ -597,8 +578,8 @@ class PerformanceOptimizer {
       selectors.push('[role="main"] *');
     }
 
-    // 檢查是否有常見的 CMS 類名
-    const cmsPatterns = ['.entry-content', '.post-content', '.article-content', '.content-area'];
+    // 檢查是否有常見的 CMS 類名（使用 CMS_CONTENT_SELECTORS 前 4 個核心選擇器）
+    const cmsPatterns = CMS_CONTENT_SELECTORS.slice(0, 4);
     cmsPatterns.forEach(pattern => {
       if (context.querySelector(pattern)) {
         selectors.push(
@@ -687,6 +668,73 @@ class PerformanceOptimizer {
         }
       }
     }
+  }
+
+  /**
+   * 嘗試接管 Preloader 的快取
+   *
+   * Preloader 在頁面加載初期可能會緩存一些關鍵節點（如 article）
+   * 如果這些緩存有效，PerformanceOptimizer 可以直接接管，避免重複查詢
+   *
+   * @param {Object} options - 接管選項
+   * @param {number} [options.maxAge=30000] - 快取最大有效期（毫秒）
+   * @returns {{ taken: number, expired?: boolean }} 接管結果
+   */
+  takeoverPreloaderCache(options = {}) {
+    const { maxAge = 30000 } = options;
+    let preloaderCache = null;
+
+    // 嘗試透過事件獲取快取 (Decoupling Phase 8)
+    const responseHandler = event => {
+      preloaderCache = event.detail;
+    };
+
+    document.addEventListener(PRELOADER_EVENTS.RESPONSE, responseHandler, { once: true });
+    document.dispatchEvent(new CustomEvent(PRELOADER_EVENTS.REQUEST));
+
+    // 1. 基礎結構驗證：使用 securityUtils 檢查
+    if (!validatePreloaderCache(preloaderCache)) {
+      if (preloaderCache) {
+        // 只有當它存在但無效時才記錄 Warning
+        Logger.warn('Preloader 快取結構無效，拒絕接管');
+      } else {
+        Logger.debug('無 preloader 快取可接管');
+      }
+      return { taken: 0 };
+    }
+
+    // 2. 檢查是否過期
+    const cacheAge = Date.now() - preloaderCache.timestamp;
+    if (cacheAge > maxAge) {
+      Logger.debug(`preloader 快取已過期: ${cacheAge}ms > ${maxAge}ms`);
+      return { taken: 0, expired: true };
+    }
+
+    let takenCount = 0;
+
+    // 遷移 article 快取
+    if (
+      this._migrateCacheItem(
+        preloaderCache.article,
+        PRELOADER_SELECTORS.article,
+        preloaderCache.timestamp
+      )
+    ) {
+      takenCount++;
+    }
+
+    // 遷移 mainContent 快取
+    if (
+      this._migrateCacheItem(
+        preloaderCache.mainContent,
+        PRELOADER_SELECTORS.mainContent,
+        preloaderCache.timestamp
+      )
+    ) {
+      takenCount++;
+    }
+
+    return { taken: takenCount };
   }
 
   /**
@@ -923,43 +971,6 @@ class PerformanceOptimizer {
   }
 
   /**
-   * 初始化性能指標收集
-   * @private
-   */
-  _initMetricsCollection() {
-    if (typeof window !== 'undefined' && window.performance) {
-      // 防止重複創建定時器
-      if (this._metricsIntervalId) {
-        return;
-      }
-
-      // 存儲 interval ID 以便後續清理
-      this._metricsIntervalId = setInterval(() => {
-        this._collectPerformanceMetrics();
-      }, this.options.metricsInterval);
-    }
-  }
-
-  /**
-   * 收集性能指標
-   * @private
-   */
-  _collectPerformanceMetrics() {
-    if (typeof window !== 'undefined' && window.performance) {
-      const memory = PerformanceOptimizer._getMemoryStats();
-
-      // 記錄到控制台（開發模式）
-      if (this.options.enableMetrics && Logger.debug) {
-        Logger.debug('Performance Metrics:', {
-          cache: this.cacheStats,
-          batch: this.batchStats,
-          memory,
-        });
-      }
-    }
-  }
-
-  /**
    * 獲取內存統計
    *
    * 設計說明：
@@ -1006,54 +1017,11 @@ class PerformanceOptimizer {
       this.batchTimer = null;
     }
 
-    // 清理性能指標收集定時器
-    if (this._metricsIntervalId) {
-      clearInterval(this._metricsIntervalId);
-      this._metricsIntervalId = null;
-    }
-
     // 清理緩存
     this.queryCache.clear();
-
-    // 清理自適應管理器
-    if (this.adaptiveManager && typeof this.adaptiveManager.destroy === 'function') {
-      this.adaptiveManager.destroy();
-    }
+    this.prewarmedSelectors.clear();
 
     Logger.info('🧹 PerformanceOptimizer 資源已清理');
-  }
-
-  /**
-   * 根據當前系統負載調整性能參數
-   */
-  adjustForSystemLoad() {
-    // 獲取當前性能指標
-    const stats = this.getStats();
-
-    // 根據緩存命中率調整策略
-    if (stats.cache.hitRate < 0.3) {
-      // 緩存命中率低，可能需要增加緩存大小或清理策略
-      Logger.info('📊 緩存命中率較低，考慮調整緩存策略');
-    }
-
-    // 根據平均處理時間調整批處理大小
-    if (stats.metrics.averageProcessingTime > 50) {
-      // 處理時間過長，減少批處理大小
-      Logger.info('⏰ 處理時間過長，動態調整批處理大小');
-      if (this.adaptiveManager) {
-        const currentBatchSize = this.options.batchSize || 100;
-        this.adaptiveManager.adjustBatchSize(Math.floor(currentBatchSize * 0.8));
-      }
-    }
-
-    // 定期清理過期緩存
-    const expiredCount = this.clearExpiredCache();
-    if (expiredCount > 0) {
-      Logger.info(`🧹 清理了 ${expiredCount} 個過期的緩存項目`);
-    }
-
-    // 保持 API 回傳 Promise（與之前 async 一致）
-    return Promise.resolve();
   }
 
   /**

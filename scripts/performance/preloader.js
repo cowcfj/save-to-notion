@@ -36,8 +36,16 @@
     timestamp: Date.now(),
   };
 
-  // 暴露快取供主 Bundle 接管
-  window.__NOTION_PRELOADER_CACHE__ = preloaderCache;
+  // 監聽請求事件並回應快取 (Decoupling Phase 8)
+  document.addEventListener('notion-preloader-request', () => {
+    document.dispatchEvent(
+      new CustomEvent('notion-preloader-response', {
+        detail: preloaderCache,
+        bubbles: false,
+        cancelable: false,
+      })
+    );
+  });
 
   /**
    * 事件緩衝區
@@ -108,10 +116,17 @@
     return false;
   });
 
-  // 除錯日誌（生產環境會被移除）
-
-  console.log('🔌 [Notion Preloader] Loaded, cache:', {
-    hasArticle: Boolean(preloaderCache.article),
-    hasMainContent: Boolean(preloaderCache.mainContent),
-  });
+  // 調試模式：在 DevTools Console 執行 localStorage.setItem('NOTION_DEBUG', '1') 啟用
+  // 啟用後重新載入頁面即可看到調試訊息
+  try {
+    if (localStorage.getItem('NOTION_DEBUG')) {
+      console.log('🔌 [Notion Preloader] Loaded, cache:', {
+        hasArticle: Boolean(preloaderCache.article),
+        hasMainContent: Boolean(preloaderCache.mainContent),
+      });
+    }
+  } catch (_e) {
+    // 忽略 localStorage 訪問錯誤（如隱私模式或禁用 Cookie）
+    // 避免因調試功能導致整個腳本崩潰
+  }
 })();
