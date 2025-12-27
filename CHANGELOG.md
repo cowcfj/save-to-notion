@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.22.1](https://github.com/cowcfj/save-to-notion/compare/v2.22.0...v2.22.1) (2025-12-27)
+
+
+### 📝 文檔更新
+
+* 更新 README.md 說明文件。 ([f292a2d](https://github.com/cowcfj/save-to-notion/commit/f292a2d856a1fb267a99f37abfe8a35cbe94538b))
+
 ## [2.22.0](https://github.com/cowcfj/save-to-notion/compare/v2.21.0...v2.22.0) (2025-12-26)
 
 
