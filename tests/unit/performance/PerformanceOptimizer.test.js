@@ -216,21 +216,30 @@ describe('PerformanceOptimizer', () => {
   });
 
   describe('快取接管 (takeoverPreloaderCache)', () => {
-    beforeEach(() => {
-      // 清理全域快取
-      delete window.__NOTION_PRELOADER_CACHE__;
-    });
+    // Helper helper to simulate preloader response
+    const mockPreloader = cacheData => {
+      document.addEventListener(
+        'notion-preloader-request',
+        () => {
+          document.dispatchEvent(
+            new CustomEvent('notion-preloader-response', { detail: cacheData })
+          );
+        },
+        { once: true }
+      );
+    };
 
     test('如果無快取應返回 0', () => {
+      // 不調用 mockPreloader，模擬無回應
       const result = optimizer.takeoverPreloaderCache();
       expect(result).toEqual({ taken: 0 });
     });
 
     test('如果快取已過期應返回 expired', () => {
-      global.window.__NOTION_PRELOADER_CACHE__ = {
+      mockPreloader({
         timestamp: Date.now() - 60000, // 1 分鐘前
         article: document.createElement('article'),
-      };
+      });
 
       const result = optimizer.takeoverPreloaderCache({ maxAge: 30000 });
       expect(result).toEqual({ taken: 0, expired: true });
@@ -244,11 +253,11 @@ describe('PerformanceOptimizer', () => {
       document.body.appendChild(article);
       document.body.appendChild(main);
 
-      global.window.__NOTION_PRELOADER_CACHE__ = {
+      mockPreloader({
         timestamp: Date.now(),
         article,
         mainContent: main,
-      };
+      });
 
       const result = optimizer.takeoverPreloaderCache();
 
@@ -267,10 +276,10 @@ describe('PerformanceOptimizer', () => {
       const article = document.createElement('article');
       // 不執行 document.body.appendChild(article)
 
-      global.window.__NOTION_PRELOADER_CACHE__ = {
+      mockPreloader({
         timestamp: Date.now(),
         article, // 未連接
-      };
+      });
 
       const result = optimizer.takeoverPreloaderCache();
       expect(result.taken).toBe(0);
@@ -280,10 +289,10 @@ describe('PerformanceOptimizer', () => {
       const div = document.createElement('div'); // 不是 article
       document.body.appendChild(div);
 
-      global.window.__NOTION_PRELOADER_CACHE__ = {
+      mockPreloader({
         timestamp: Date.now(),
         article: div, // 類型錯誤
-      };
+      });
 
       const result = optimizer.takeoverPreloaderCache();
       expect(result.taken).toBe(0);
@@ -299,39 +308,39 @@ describe('PerformanceOptimizer', () => {
         configurable: true,
       });
 
-      global.window.__NOTION_PRELOADER_CACHE__ = {
+      mockPreloader({
         timestamp: Date.now(),
         article,
-      };
+      });
 
       const result = optimizer.takeoverPreloaderCache();
       expect(result.taken).toBe(0);
     });
 
     test('應該拒絕結構無效的快取 (缺少 timestamp)', () => {
-      global.window.__NOTION_PRELOADER_CACHE__ = {
+      mockPreloader({
         article: document.createElement('article'),
-      };
+      });
 
       const result = optimizer.takeoverPreloaderCache();
       expect(result.taken).toBe(0);
     });
 
     test('應該拒絕無效的 timestamp (非數值)', () => {
-      global.window.__NOTION_PRELOADER_CACHE__ = {
+      mockPreloader({
         timestamp: 'invalid', // 字串
         article: document.createElement('article'),
-      };
+      });
 
       const result = optimizer.takeoverPreloaderCache();
       expect(result.taken).toBe(0);
     });
 
     test('應該拒絕無效的 timestamp (NaN)', () => {
-      global.window.__NOTION_PRELOADER_CACHE__ = {
+      mockPreloader({
         timestamp: NaN, // NaN
         article: document.createElement('article'),
-      };
+      });
 
       const result = optimizer.takeoverPreloaderCache();
       expect(result.taken).toBe(0);

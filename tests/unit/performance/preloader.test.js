@@ -18,6 +18,8 @@ describe('Preloader', () => {
   let keydownHandler = null;
   /** @type {Function|null} */
   let messageHandler = null;
+  /** @type {Function|null} */
+  let requestHandler = null;
 
   beforeEach(() => {
     // 保存原始狀態
@@ -25,19 +27,25 @@ describe('Preloader', () => {
 
     // 重置全域變數
     delete global.window.__NOTION_PRELOADER_INITIALIZED__;
-    delete global.window.__NOTION_PRELOADER_CACHE__;
     delete global.window.__NOTION_BUNDLE_READY__;
 
     // 捕獲事件監聽器
     keydownHandler = null;
     messageHandler = null;
+    requestHandler = null;
 
-    // Mock document
+    // Mock document.addEventListener
     document.addEventListener = jest.fn((event, handler) => {
       if (event === 'keydown') {
         keydownHandler = handler;
       }
+      if (event === 'notion-preloader-request') {
+        requestHandler = handler;
+      }
     });
+
+    // Mock document.dispatchEvent to capture response
+    document.dispatchEvent = jest.fn();
 
     document.querySelector = jest.fn(selector => {
       if (selector === 'article') {
@@ -110,27 +118,51 @@ describe('Preloader', () => {
       executePreloader();
 
       expect(window.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
+      expect(requestHandler).toBeInstanceOf(Function);
     });
 
     test('應該阻止重複初始化', () => {
       // 第一次初始化
       executePreloader();
+      expect(document.addEventListener).toHaveBeenCalledWith(
+        'notion-preloader-request',
+        expect.any(Function)
+      );
+
+      const firstHandler = requestHandler;
+
+      // 清除調用記錄以便驗證第二次
+      document.addEventListener.mockClear();
 
       // 模擬第二次呼叫
-      window.__NOTION_PRELOADER_CACHE__ = null;
       executePreloader();
 
-      // 快取不應被重新創建（因為已初始化標記存在）
-      expect(window.__NOTION_PRELOADER_CACHE__).toBeNull();
+      // 不應該再次註冊監聽器
+      expect(document.addEventListener).not.toHaveBeenCalledWith(
+        'notion-preloader-request',
+        expect.any(Function)
+      );
+      // 標記應保持
+      expect(window.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
+      // Handler 應該保持不變
+      expect(requestHandler).toBe(firstHandler);
     });
 
-    test('應該正確創建預載快取', () => {
+    test('應該正確回應預載快取請求', () => {
       executePreloader();
 
-      expect(window.__NOTION_PRELOADER_CACHE__).toBeDefined();
-      expect(window.__NOTION_PRELOADER_CACHE__.article).toBeDefined();
-      expect(window.__NOTION_PRELOADER_CACHE__.mainContent).toBeDefined();
-      expect(window.__NOTION_PRELOADER_CACHE__.timestamp).toBeDefined();
+      // 觸發請求
+      expect(requestHandler).toBeInstanceOf(Function);
+      requestHandler();
+
+      // 驗證回應
+      expect(document.dispatchEvent).toHaveBeenCalledWith(expect.any(CustomEvent));
+
+      const event = document.dispatchEvent.mock.calls[0][0];
+      expect(event.type).toBe('notion-preloader-response');
+      expect(event.detail).toBeDefined();
+      expect(event.detail.article).toBeDefined();
+      expect(event.detail.timestamp).toBeDefined();
     });
   });
 
@@ -283,7 +315,13 @@ describe('Preloader', () => {
     test('快取應包含正確的結構', () => {
       executePreloader();
 
-      const cache = window.__NOTION_PRELOADER_CACHE__;
+      // 觸發請求以獲取快取
+      requestHandler();
+
+      // 從 dispatchEvent 參數中獲取快取
+      const event = document.dispatchEvent.mock.calls[0][0];
+      const cache = event.detail;
+
       expect(cache).toHaveProperty('article');
       expect(cache).toHaveProperty('mainContent');
       expect(cache).toHaveProperty('timestamp');
@@ -292,14 +330,22 @@ describe('Preloader', () => {
 
     test('快取應正確識別 article 元素', () => {
       executePreloader();
+      requestHandler();
 
-      expect(window.__NOTION_PRELOADER_CACHE__.article.tagName).toBe('ARTICLE');
+      const event = document.dispatchEvent.mock.calls[0][0];
+      const cache = event.detail;
+
+      expect(cache.article.tagName).toBe('ARTICLE');
     });
 
     test('快取應正確識別 main content 元素', () => {
       executePreloader();
+      requestHandler();
 
-      expect(window.__NOTION_PRELOADER_CACHE__.mainContent.tagName).toBe('MAIN');
+      const event = document.dispatchEvent.mock.calls[0][0];
+      const cache = event.detail;
+
+      expect(cache.mainContent.tagName).toBe('MAIN');
     });
   });
 

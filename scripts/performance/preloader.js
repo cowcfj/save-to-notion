@@ -36,8 +36,16 @@
     timestamp: Date.now(),
   };
 
-  // 暴露快取供主 Bundle 接管
-  window.__NOTION_PRELOADER_CACHE__ = preloaderCache;
+  // 監聽請求事件並回應快取 (Decoupling Phase 8)
+  document.addEventListener('notion-preloader-request', () => {
+    document.dispatchEvent(
+      new CustomEvent('notion-preloader-response', {
+        detail: preloaderCache,
+        bubbles: false,
+        cancelable: false,
+      })
+    );
+  });
 
   /**
    * 事件緩衝區

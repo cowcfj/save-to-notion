@@ -8,6 +8,7 @@ import {
   CMS_CONTENT_SELECTORS, // Added missing import
   PRELOADER_SELECTORS,
 } from '../config/selectors.js';
+import { PRELOADER_EVENTS } from '../config/constants.js';
 import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js'; // Fixed import
 import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
@@ -682,7 +683,15 @@ class PerformanceOptimizer {
    */
   takeoverPreloaderCache(options = {}) {
     const { maxAge = 30000 } = options;
-    const preloaderCache = window.__NOTION_PRELOADER_CACHE__;
+    let preloaderCache = null;
+
+    // 嘗試透過事件獲取快取 (Decoupling Phase 8)
+    const responseHandler = event => {
+      preloaderCache = event.detail;
+    };
+
+    document.addEventListener(PRELOADER_EVENTS.RESPONSE, responseHandler, { once: true });
+    document.dispatchEvent(new CustomEvent(PRELOADER_EVENTS.REQUEST));
 
     // 1. 基礎結構驗證：使用 securityUtils 檢查
     if (!validatePreloaderCache(preloaderCache)) {

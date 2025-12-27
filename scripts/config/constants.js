@@ -207,3 +207,11 @@ export const PERFORMANCE_OPTIMIZER = {
   MAX_BATCH_SIZE: 500, // 最大批處理大小
   MIN_BATCH_SIZE: 10, // 最小批處理大小
 };
+
+/**
+ * Preloader 事件名稱（解耦 Phase 8）
+ */
+export const PRELOADER_EVENTS = {
+  REQUEST: 'notion-preloader-request',
+  RESPONSE: 'notion-preloader-response',
+};
