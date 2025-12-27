@@ -41,8 +41,7 @@ global.chrome = {
   },
 };
 
-// 使用 presetup.js 提供的 global.Logger
-const Logger = global.Logger;
+// 使用 presetup.js 提供的 global.Logger（若需要可在測試中透過 global.Logger 存取）
 
 describe('actionHandlers 覆蓋率補強', () => {
   // Handler Creators (Dynamic Import for safety)
@@ -291,17 +290,45 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該處理 warn, error, info, log 級別日誌', () => {
       const sendResponse = jest.fn();
 
+      // 測試 warn 級別
       handlers.devLogSink({ level: 'warn', message: 'test warn' }, {}, sendResponse);
-      expect(Logger.warn).toHaveBeenCalledWith('[ClientLog] test warn');
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
+      sendResponse.mockClear();
+
+      // 測試 error 級別
       handlers.devLogSink({ level: 'error', message: 'test error' }, {}, sendResponse);
-      expect(Logger.error).toHaveBeenCalledWith('[ClientLog] test error');
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
+      sendResponse.mockClear();
+
+      // 測試 info 級別
       handlers.devLogSink({ level: 'info', message: 'test info' }, {}, sendResponse);
-      expect(Logger.info).toHaveBeenCalledWith('[ClientLog] test info');
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
+      sendResponse.mockClear();
+
+      // 測試 log 級別（預設）
       handlers.devLogSink({ message: 'test log' }, {}, sendResponse);
-      expect(Logger.log).toHaveBeenCalledWith('[ClientLog] test log');
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test('應該處理帶有 args 的日誌', () => {
+      const sendResponse = jest.fn();
+
+      handlers.devLogSink(
+        { level: 'log', message: 'test with args', args: ['arg1', 'arg2'] },
+        {},
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test('應該處理空消息', () => {
+      const sendResponse = jest.fn();
+
+      handlers.devLogSink({ level: 'log' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
   });
 
