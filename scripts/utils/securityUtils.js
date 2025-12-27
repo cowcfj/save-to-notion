@@ -308,11 +308,7 @@ export function validatePreloaderCache(cache) {
     return false;
   }
 
-  // Check 2: timestamp must be a valid number
+  // Check 2: timestamp must be a valid finite number
   // 使用 Number.isFinite 比 !isNaN 更嚴格，排除 Infinity
-  if (typeof cache.timestamp !== 'number' || !Number.isFinite(cache.timestamp)) {
-    return false;
-  }
-
-  return true;
+  return typeof cache.timestamp === 'number' && Number.isFinite(cache.timestamp);
 }
