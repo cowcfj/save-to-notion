@@ -5,12 +5,12 @@
 import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
 import {
   ARTICLE_SELECTORS,
-  CMS_CONTENT_SELECTORS, // Added missing import
+  CMS_CONTENT_SELECTORS,
   PRELOADER_SELECTORS,
 } from '../config/selectors.js';
 import { PRELOADER_EVENTS } from '../config/constants.js';
 import Logger from '../utils/Logger.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js'; // Fixed import
+import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
 
 /**
