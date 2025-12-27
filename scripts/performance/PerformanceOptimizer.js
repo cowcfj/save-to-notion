@@ -2,13 +2,12 @@
  * 性能優化器
  * 提供 DOM 查詢緩存和批處理隊列功能
  */
-import { PERFORMANCE_OPTIMIZER } from '../config/constants.js';
+import { PERFORMANCE_OPTIMIZER, PRELOADER_EVENTS } from '../config/constants.js';
 import {
   ARTICLE_SELECTORS,
   CMS_CONTENT_SELECTORS,
   PRELOADER_SELECTORS,
 } from '../config/selectors.js';
-import { PRELOADER_EVENTS } from '../config/constants.js';
 import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
@@ -739,7 +738,6 @@ class PerformanceOptimizer {
   }
 
   /**
-  
    * 安排批處理
    * @private
    */
