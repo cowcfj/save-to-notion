@@ -4,45 +4,33 @@
  */
 /* eslint-env jest */
 
-/* eslint-disable no-unused-vars */
-
 // 模擬 DOM 環境
-const { JSDOM } = require('jsdom');
-const dom = new JSDOM(
-  `
-<!DOCTYPE html>
-<html>
-<head><title>Test</title></head>
-<body>
-    <div class="test-container">
-        <img src="test1.jpg" alt="Test 1">
-        <img src="test2.jpg" alt="Test 2">
-        <p>Test paragraph 1</p>
-        <p>Test paragraph 2</p>
-        <a href="#test">Test link</a>
-    </div>
-</body>
-</html>
-`,
-  { url: 'http://localhost' }
-);
-// 設置所需的全局引用（使用解構以減少未宣告變數警告）
-const { document, window, performance } = dom.window;
-global.document = document;
-global.window = window;
-global.performance = { now: () => Date.now() };
-
-// 確保 DOM 查詢方法可用（已綁定於 document）
-document.querySelector = dom.window.document.querySelector.bind(dom.window.document);
-document.querySelectorAll = dom.window.document.querySelectorAll.bind(dom.window.document);
-
-// 引入性能優化器
 const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
 
 describe('PerformanceOptimizer', () => {
   let optimizer = null;
 
   beforeEach(() => {
+    // Setup DOM for tests
+    document.title = 'Test';
+    document.body.innerHTML = `
+      <div class="test-container">
+          <img src="test1.jpg" alt="Test 1">
+          <img src="test2.jpg" alt="Test 2">
+          <p>Test paragraph 1</p>
+          <p>Test paragraph 2</p>
+          <a href="#test">Test link</a>
+      </div>
+    `;
+
+    // Mock performance.now
+    if (!global.performance) {
+      global.performance = { now: () => Date.now() };
+    }
+
+    // Mock window.__NOTION_PRELOADER_CACHE__
+    delete window.__NOTION_PRELOADER_CACHE__;
+
     optimizer = new PerformanceOptimizer({
       enableCache: true,
       enableBatching: true,
@@ -273,6 +261,51 @@ describe('PerformanceOptimizer', () => {
       // 驗證能否從快取讀取
       const cachedArticle = optimizer.cachedQuery('article', document, { single: true });
       expect(cachedArticle).toBe(article);
+    });
+
+    test('應該拒絕未連接到 DOM 的元素 (isConnected: false)', () => {
+      const article = document.createElement('article');
+      // 不執行 document.body.appendChild(article)
+
+      global.window.__NOTION_PRELOADER_CACHE__ = {
+        timestamp: Date.now(),
+        article, // 未連接
+      };
+
+      const result = optimizer.takeoverPreloaderCache();
+      expect(result.taken).toBe(0);
+    });
+
+    test('應該拒絕不匹配選擇器的元素', () => {
+      const div = document.createElement('div'); // 不是 article
+      document.body.appendChild(div);
+
+      global.window.__NOTION_PRELOADER_CACHE__ = {
+        timestamp: Date.now(),
+        article: div, // 類型錯誤
+      };
+
+      const result = optimizer.takeoverPreloaderCache();
+      expect(result.taken).toBe(0);
+    });
+
+    test('應該拒絕來自不同文檔的元素 (防篡改)', () => {
+      const article = document.createElement('article');
+      document.body.appendChild(article);
+
+      // 模擬 ownerDocument 不匹配
+      Object.defineProperty(article, 'ownerDocument', {
+        value: {}, // 偽造一個不同的 document 對象
+        configurable: true,
+      });
+
+      global.window.__NOTION_PRELOADER_CACHE__ = {
+        timestamp: Date.now(),
+        article,
+      };
+
+      const result = optimizer.takeoverPreloaderCache();
+      expect(result.taken).toBe(0);
     });
   });
 });

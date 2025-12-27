@@ -10,6 +10,7 @@ import {
 } from '../config/selectors.js';
 import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js'; // Fixed import
+import { validateSafeDomElement } from '../utils/securityUtils.js';
 
 /**
  * 性能優化器類
@@ -82,6 +83,37 @@ class PerformanceOptimizer {
       totalProcessingTime: 0,
       averageProcessingTime: 0,
     };
+  }
+
+  /**
+   * 遷移單個快取項目
+   *
+   * @private
+   * @param {Element} element - DOM 元素
+   * @param {string} selector - CSS 選擇器
+   * @param {number} timestamp - 時間戳
+   * @returns {boolean} 是否遷移成功
+   */
+  _migrateCacheItem(element, selector, timestamp) {
+    // SECURITY: 使用共享的安全驗證函數進行檢查
+    // 包含：類型檢查、防篡改 (ownerDocument)、防過期 (isConnected)、選擇器匹配
+    if (!validateSafeDomElement(element, document, selector)) {
+      Logger.warn(`拒絕接管不安全的 preloader 快取: ${selector}`);
+      return false;
+    }
+
+    // 使用 single: true 生成緩存鍵，與單一元素查詢邏輯保持一致
+    const cacheKey = PerformanceOptimizer._generateCacheKey(selector, document, { single: true });
+
+    this.queryCache.set(cacheKey, {
+      result: element,
+      timestamp,
+      selector,
+      ttl: this.options.cacheTTL,
+    });
+
+    Logger.debug(`已接管 preloader ${selector} 快取`);
+    return true;
   }
 
   /**
@@ -636,48 +668,6 @@ class PerformanceOptimizer {
         }
       }
     }
-  }
-
-  /**
-   * 接管 preloader 的預載快取（可選調用）
-   *
-   * 適用場景：主 Bundle 初始化後，若希望複用 preloader 已查詢的 DOM 節點，
-   * 可調用此方法將快取遷移到 PerformanceOptimizer，避免重複 DOM 查詢。
-   *
-   * @param {Object} options - 接管選項
-   * @param {number} [options.maxAge=30000] - 快取有效期（毫秒），預設 30 秒
-   * @returns {{ taken: number, expired?: boolean }} 接管結果
-   *
-   * @example
-   * const optimizer = new PerformanceOptimizer();
-   * const result = optimizer.takeoverPreloaderCache();
-   * // result: { taken: 2 } 或 { taken: 0, expired: true }
-  /**
-   * 遷移單個快取項目
-   *
-   * @private
-   * @param {Element} element - DOM 元素
-   * @param {string} selector - CSS 選擇器
-   * @param {number} timestamp - 時間戳
-   * @returns {boolean} 是否遷移成功
-   */
-  _migrateCacheItem(element, selector, timestamp) {
-    if (!element) {
-      return false;
-    }
-
-    // 使用 single: true 生成緩存鍵，與單一元素查詢邏輯保持一致
-    const cacheKey = PerformanceOptimizer._generateCacheKey(selector, document, { single: true });
-
-    this.queryCache.set(cacheKey, {
-      result: element,
-      timestamp,
-      selector,
-      ttl: this.options.cacheTTL,
-    });
-
-    Logger.debug(`已接管 preloader ${selector} 快取`);
-    return true;
   }
 
   /**

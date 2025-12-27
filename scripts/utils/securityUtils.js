@@ -252,3 +252,46 @@ export function sanitizeApiError(apiError, context = 'operation') {
   // 不洩露任何技術細節
   return '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置';
 }
+
+// ============================================================================
+// DOM 安全驗證函數
+// ============================================================================
+
+/**
+ * 驗證 DOM 元素的安全性和有效性
+ * 防禦第三方腳本篡改或無效的 DOM 引用
+ *
+ * @param {Element} element - 待驗證的 DOM 元素
+ * @param {Document} contextDocument - 預期的文檔上下文（通常是 document）
+ * @param {string} [expectedSelector] - 預期的 CSS 選擇器（可選）
+ * @returns {boolean} 是否為安全有效的元素
+ */
+export function validateSafeDomElement(element, contextDocument, expectedSelector) {
+  // 1. 基礎類型檢查
+  if (!element || typeof element !== 'object' || element.nodeType !== 1) {
+    console.log('[Security] Invalid element type:', element);
+    return false;
+  }
+
+  // 2. 防篡改：必須屬於當前文檔上下文
+  // 防止惡意腳本注入來自 iframe 或其他上下文的元素
+  if (contextDocument && element.ownerDocument !== contextDocument) {
+    return false;
+  }
+
+  // 3. 防過期：必須連接到 DOM 樹
+  // 防止引用已被移除的節點（避免內存洩漏和邏輯錯誤）
+  if (!element.isConnected) {
+    return false;
+  }
+
+  // 4. 正確性：如果提供了選擇器，必須匹配
+  // 防止元素標籤或屬性被篡改
+  if (expectedSelector && typeof element.matches === 'function') {
+    if (!element.matches(expectedSelector)) {
+      return false;
+    }
+  }
+
+  return true;
+}
