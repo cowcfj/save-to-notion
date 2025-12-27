@@ -8,6 +8,8 @@
 
 /* global chrome */
 
+import Logger from './Logger.js';
+
 // ============================================================================
 // URL 驗證函數
 // ============================================================================
@@ -269,7 +271,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
 export function validateSafeDomElement(element, contextDocument, expectedSelector) {
   // 1. 基礎類型檢查
   if (!element || typeof element !== 'object' || element.nodeType !== 1) {
-    console.log('[Security] Invalid element type:', element);
+    Logger.debug('[Security] Invalid element type:', element);
     return false;
   }
 
