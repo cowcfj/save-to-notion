@@ -678,7 +678,7 @@ class PerformanceOptimizer {
    *
    * @param {Object} options - 接管選項
    * @param {number} [options.maxAge=30000] - 快取最大有效期（毫秒）
-   * @returns {Object} 接管結果 { taken: number, expired: boolean }
+   * @returns {{ taken: number, expired?: boolean }} 接管結果
    */
   takeoverPreloaderCache(options = {}) {
     const { maxAge = 30000 } = options;
