@@ -295,3 +295,24 @@ export function validateSafeDomElement(element, contextDocument, expectedSelecto
 
   return true;
 }
+
+/**
+ * 驗證 Preloader 快取對象的結構完整性
+ *
+ * @param {Object} cache - 待驗證的快取對象
+ * @returns {boolean} 是否為有效的快取結構
+ */
+export function validatePreloaderCache(cache) {
+  // Check 1: Must be non-null object
+  if (!cache || typeof cache !== 'object') {
+    return false;
+  }
+
+  // Check 2: timestamp must be a valid number
+  // 使用 Number.isFinite 比 !isNaN 更嚴格，排除 Infinity
+  if (typeof cache.timestamp !== 'number' || !Number.isFinite(cache.timestamp)) {
+    return false;
+  }
+
+  return true;
+}

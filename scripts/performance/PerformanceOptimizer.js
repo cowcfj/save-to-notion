@@ -10,7 +10,7 @@ import {
 } from '../config/selectors.js';
 import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js'; // Fixed import
-import { validateSafeDomElement } from '../utils/securityUtils.js';
+import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
 
 /**
  * 性能優化器類
@@ -684,11 +684,18 @@ class PerformanceOptimizer {
     const { maxAge = 30000 } = options;
     const preloaderCache = window.__NOTION_PRELOADER_CACHE__;
 
-    if (!preloaderCache) {
-      Logger.debug('無 preloader 快取可接管');
+    // 1. 基礎結構驗證：使用 securityUtils 檢查
+    if (!validatePreloaderCache(preloaderCache)) {
+      if (preloaderCache) {
+        // 只有當它存在但無效時才記錄 Warning
+        Logger.warn('Preloader 快取結構無效，拒絕接管');
+      } else {
+        Logger.debug('無 preloader 快取可接管');
+      }
       return { taken: 0 };
     }
 
+    // 2. 檢查是否過期
     const cacheAge = Date.now() - preloaderCache.timestamp;
     if (cacheAge > maxAge) {
       Logger.debug(`preloader 快取已過期: ${cacheAge}ms > ${maxAge}ms`);

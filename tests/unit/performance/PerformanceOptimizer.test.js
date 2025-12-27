@@ -307,5 +307,34 @@ describe('PerformanceOptimizer', () => {
       const result = optimizer.takeoverPreloaderCache();
       expect(result.taken).toBe(0);
     });
+
+    test('應該拒絕結構無效的快取 (缺少 timestamp)', () => {
+      global.window.__NOTION_PRELOADER_CACHE__ = {
+        article: document.createElement('article'),
+      };
+
+      const result = optimizer.takeoverPreloaderCache();
+      expect(result.taken).toBe(0);
+    });
+
+    test('應該拒絕無效的 timestamp (非數值)', () => {
+      global.window.__NOTION_PRELOADER_CACHE__ = {
+        timestamp: 'invalid', // 字串
+        article: document.createElement('article'),
+      };
+
+      const result = optimizer.takeoverPreloaderCache();
+      expect(result.taken).toBe(0);
+    });
+
+    test('應該拒絕無效的 timestamp (NaN)', () => {
+      global.window.__NOTION_PRELOADER_CACHE__ = {
+        timestamp: NaN, // NaN
+        article: document.createElement('article'),
+      };
+
+      const result = optimizer.takeoverPreloaderCache();
+      expect(result.taken).toBe(0);
+    });
   });
 });
