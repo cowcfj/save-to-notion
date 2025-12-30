@@ -251,7 +251,11 @@ export class HighlightManager {
    * @returns {boolean} 是否處理了點擊
    */
   handleDocumentClick(event) {
-    return this.interaction ? this.interaction.handleClick(event) : false;
+    if (!this.interaction) {
+      Logger.warn('[HighlightManager] handleDocumentClick called but interaction not injected');
+      return false;
+    }
+    return this.interaction.handleClick(event);
   }
 
   /**
@@ -261,7 +265,11 @@ export class HighlightManager {
    * @returns {string|null}
    */
   getHighlightAtPoint(x, y) {
-    return this.interaction ? this.interaction.getHighlightAtPoint(x, y) : null;
+    if (!this.interaction) {
+      Logger.warn('[HighlightManager] getHighlightAtPoint called but interaction not injected');
+      return null;
+    }
+    return this.interaction.getHighlightAtPoint(x, y);
   }
 
   /**
@@ -314,7 +322,11 @@ export class HighlightManager {
   }
 
   collectHighlightsForNotion() {
-    return this.storage ? this.storage.collectForNotion() : [];
+    if (!this.storage) {
+      Logger.warn('[HighlightManager] collectHighlightsForNotion called but storage not injected');
+      return [];
+    }
+    return this.storage.collectForNotion();
   }
 
   // --- Restoration Implementation ---
