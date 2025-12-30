@@ -8,7 +8,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import StorageUtil from '../utils/StorageUtil.js';
+import { StorageUtil } from '../utils/StorageUtil.js';
 
 /**
  * HighlightStorage

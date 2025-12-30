@@ -11,7 +11,7 @@ import { serializeRange } from './Range.js';
 import { findTextInPage } from '../utils/textSearch.js';
 import Logger from '../../utils/Logger.js';
 import { HighlightManager } from './HighlightManager.js';
-import StorageUtil from '../utils/StorageUtil.js';
+import { StorageUtil } from '../utils/StorageUtil.js';
 
 /**
  * HighlightMigration

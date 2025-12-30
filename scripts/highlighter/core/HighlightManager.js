@@ -8,7 +8,7 @@
 import { serializeRange, deserializeRange, findRangeByTextContent } from './Range.js';
 import { COLORS } from '../utils/color.js';
 import Logger from '../../utils/Logger.js';
-import StorageUtil from '../utils/StorageUtil.js';
+import { StorageUtil } from '../utils/StorageUtil.js';
 
 /**
  * HighlightManager
