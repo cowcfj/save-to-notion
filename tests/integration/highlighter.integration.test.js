@@ -296,8 +296,8 @@ describe('Highlighter Integration Tests', () => {
       range.setEnd(textNode, 10);
       manager.addHighlight(range, 'green');
 
-      // Save - 由於使用真實的 StorageUtil，只驗證不拋錯
-      await expect(manager.saveToStorage()).resolves.not.toThrow();
+      // Save - 由於使用真實的 StorageUtil，驗證 Promise 正常 resolve
+      await expect(manager.saveToStorage()).resolves.toBeUndefined();
     });
   });
 

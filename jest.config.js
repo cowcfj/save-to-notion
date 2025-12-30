@@ -50,8 +50,6 @@ module.exports = {
     '/tests/unit/content.test.js', // 依賴已刪除的 content.testable.js，待重構
     '/tests/unit/content-extraction.wrapper.test.js', // 依賴已刪除的 content-extraction.testable.js
     '/tests/unit/pageComplexityDetector.wrapper.test.js', // 已被 pageComplexityDetector.test.js 取代
-    '/tests/unit/highlighter/RestoreManager.test.js', // RestoreManager 已改名為 HighlightStorage
-    '/tests/unit/highlighter/highlighter-index-coverage.test.js', // 依賴模組自動初始化，需重寫
     '/tests/integration/thomas-frank-integration.test.js', // 未實現功能，暫時排除 (User Request)
     '/tests/integration/thomas-frank-simple.test.js', // 尚未實作方案的簡化測試，暫時排除
     '/tests/e2e/oauth-end-to-end.test.js' // OAuth 功能尚未實作，暫時排除測試
