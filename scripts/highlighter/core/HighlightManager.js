@@ -24,7 +24,10 @@ export class HighlightManager {
     // 顏色配置（向後兼容，供 Toolbar 等組件使用）
     this.colors = COLORS;
 
-    // 初始化標誌
+    // 初始化 Promise（預設為已解決狀態）
+    // 注意：此屬性會在 index.js 中被覆寫為實際的 initialize() Promise，
+    // 以便外部代碼可以 await manager.initializationComplete 來等待初始化完成。
+    // 預設值確保在未調用 initialize() 時，await 不會阻塞。
     this.initializationComplete = Promise.resolve();
 
     // 子模組依賴（通過 setDependencies 注入）
@@ -341,6 +344,16 @@ export class HighlightManager {
   }
 
   // --- Restoration Implementation ---
+  //
+  // 架構說明：恢復邏輯保留在 HighlightManager 而非 HighlightStorage 的原因：
+  // 1. 需要直接操作 this.highlights Map（核心數據結構）
+  // 2. 需要調用 this.applyHighlightAPI() 應用視覺效果
+  // 3. 需要更新 this.nextId 以避免 ID 衝突
+  // 4. 需要訪問 this.styleManager 進行樣式操作
+  //
+  // 如果移至 HighlightStorage，需要通過回調或暴露內部狀態來完成這些操作，
+  // 反而會增加耦合度。HighlightStorage 負責「何時恢復」和「從哪裡讀取數據」，
+  // 而 HighlightManager 負責「如何重建標註」。
 
   /**
    * 僅恢復單個標註（由 Storage 調用）

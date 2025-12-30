@@ -44,9 +44,11 @@ if (typeof window !== 'undefined' && !window.normalizeUrl) {
 
 /**
  * 創建並注入所有依賴模組到 HighlightManager
- * @param {HighlightManager} manager
- * @param {Object} options
- * @param {Toolbar} [toolbar]
+ * @param {HighlightManager} manager - HighlightManager 實例
+ * @param {Object} options - 配置選項
+ * @param {Toolbar} [toolbar=null] - 工具欄實例（可選）。
+ *   僅由 HighlightStorage 使用，用於在恢復標註後自動隱藏工具欄。
+ *   如果不需要此功能，可傳入 null 或省略此參數。
  * @returns {Object} 包含所有創建的模組實例
  */
 function createAndInjectDependencies(manager, options, toolbar = null) {
