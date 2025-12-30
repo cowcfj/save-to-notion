@@ -3,18 +3,9 @@
  */
 
 import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
-import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
-
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
   supportsHighlightAPI: jest.fn(() => true),
-}));
-
-jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
-  StorageUtil: {
-    loadHighlights: jest.fn(),
-    saveHighlights: jest.fn(),
-  },
 }));
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
@@ -23,6 +14,12 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   error: jest.fn(),
   log: jest.fn(),
   debug: jest.fn(),
+}));
+
+jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
+  serializeRange: jest.fn(),
+  deserializeRange: jest.fn(),
+  findRangeByTextContent: jest.fn(),
 }));
 
 describe('core/HighlightManager', () => {
@@ -50,9 +47,6 @@ describe('core/HighlightManager', () => {
     };
 
     // Reset StorageUtil mock
-    StorageUtil.loadHighlights.mockReset();
-    StorageUtil.saveHighlights.mockReset();
-
     mockStorage = {
       save: jest.fn(),
       restore: jest.fn(),
@@ -266,32 +260,38 @@ describe('core/HighlightManager', () => {
     });
   });
 
-  describe('forceRestoreHighlights', () => {
-    test('should return false if window is undefined', async () => {
-      // tough to mock window in jsdom env without tearing down
-      // we'll assume environment is sane thanks to jsdom
+  describe('restoreLocalHighlight', () => {
+    test('should restore highlight from valid item', () => {
+      const item = {
+        id: 'h1',
+        text: 'test',
+        color: 'yellow',
+        rangeInfo: { startContainer: [], endContainer: [] }, // simplified mock
+      };
+
+      // Mock deserializeRange
+      const mockRange = document.createRange();
+      require('../../../../scripts/highlighter/core/Range.js').deserializeRange.mockReturnValue(
+        mockRange
+      );
+
+      const result = manager.restoreLocalHighlight(item);
+
+      expect(result).toBe(true);
+      expect(manager.highlights.size).toBe(1);
+      expect(mockStyleManager.getHighlightObject).toHaveBeenCalledWith('yellow');
     });
 
-    test('should load highlights from StorageUtil', async () => {
-      const mockData = [{ id: 'h1', text: 'test', color: 'yellow' }];
-      StorageUtil.loadHighlights.mockResolvedValue(mockData);
+    test('should return false if range creation fails', () => {
+      const item = { id: 'h1', text: 'test' };
+      require('../../../../scripts/highlighter/core/Range.js').deserializeRange.mockReturnValue(
+        null
+      );
+      require('../../../../scripts/highlighter/core/Range.js').findRangeByTextContent.mockReturnValue(
+        null
+      );
 
-      // need to mock Range deserialization or text search specifically for this to fully work
-      // but here we just want to verify interaction with StorageUtil
-      await manager.forceRestoreHighlights();
-
-      expect(StorageUtil.loadHighlights).toHaveBeenCalled();
-    });
-
-    test('should handle empty data', async () => {
-      StorageUtil.loadHighlights.mockResolvedValue([]);
-      const result = await manager.forceRestoreHighlights();
-      expect(result).toBe(false);
-    });
-
-    test('should handle load error', async () => {
-      StorageUtil.loadHighlights.mockRejectedValue(new Error('Load failed'));
-      const result = await manager.forceRestoreHighlights();
+      const result = manager.restoreLocalHighlight(item);
       expect(result).toBe(false);
     });
   });

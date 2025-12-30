@@ -78,28 +78,35 @@ export class HighlightStorage {
     }
 
     try {
-      Logger.info('🔧 [HighlightStorage] 開始執行標註恢復...');
+      const currentUrl = HighlightStorage._getNormalizedUrl();
+      const data = await StorageUtil.loadHighlights(currentUrl);
+      const highlights = Array.isArray(data) ? data : data?.highlights || [];
 
-      // 嘗試強制恢復標註
-      const canForceRestore = typeof this.manager.forceRestoreHighlights === 'function';
-
-      if (!canForceRestore) {
-        Logger.warn('⚠️ [HighlightStorage] 無法找到 forceRestoreHighlights 方法，跳過恢復');
+      if (highlights.length === 0) {
+        Logger.info('[HighlightStorage] 無標註可恢復');
         return false;
       }
 
-      const result = await this.manager.forceRestoreHighlights();
+      // 清除現有（避免重複）
+      this.manager.clearAll({ skipStorage: true });
 
-      // 若沒有明確的布林規約，僅在明確 true 時標記成功
-      if (result === true) {
-        Logger.info('✅ [HighlightStorage] 標註恢復成功');
-        this.isRestored = true;
-        this.hideToolbarAfterRestore();
-        return true;
+      let successCount = 0;
+      for (const item of highlights) {
+        try {
+          // 委託 Manager 僅負責創建單個標註
+          const result = this.manager.restoreLocalHighlight(item);
+          if (result) {
+            successCount++;
+          }
+        } catch (error) {
+          Logger.warn(`Failed to restore highlight ${item.id}`, error);
+        }
       }
 
-      Logger.warn('⚠️ [HighlightStorage] 標註恢復失敗或無標註可恢復');
-      return false;
+      Logger.info(`[HighlightStorage] Restored ${successCount} highlights`);
+      this.isRestored = true;
+      this.hideToolbarAfterRestore();
+      return true;
     } catch (error) {
       Logger.error('❌ [HighlightStorage] 標註恢復過程中出錯:', error);
       return false;

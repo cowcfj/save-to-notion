@@ -6,11 +6,14 @@ import {
   HighlightStorage,
   RestoreManager,
 } from '../../../../scripts/highlighter/core/HighlightStorage.js';
-import StorageUtil from '../../../../scripts/highlighter/utils/StorageUtil.js';
+import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
 
 jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
-  saveHighlights: jest.fn(),
-  clearHighlights: jest.fn(),
+  StorageUtil: {
+    saveHighlights: jest.fn(),
+    loadHighlights: jest.fn(),
+    clearHighlights: jest.fn(),
+  },
 }));
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
@@ -31,7 +34,8 @@ describe('core/HighlightStorage', () => {
     // 創建 mock manager
     mockManager = {
       highlights: new Map(),
-      forceRestoreHighlights: jest.fn().mockResolvedValue(true),
+      restoreLocalHighlight: jest.fn(),
+      clearAll: jest.fn(),
     };
 
     // 創建 mock toolbar
@@ -109,48 +113,42 @@ describe('core/HighlightStorage', () => {
   });
 
   describe('restore', () => {
-    test('should call forceRestoreHighlights on manager', async () => {
-      await storage.restore();
+    test('should load highlights from StorageUtil and restore them', async () => {
+      const mockData = [
+        { id: 'h1', text: 'test1', color: 'yellow' },
+        { id: 'h2', text: 'test2', color: 'green' },
+      ];
+      StorageUtil.loadHighlights.mockResolvedValue(mockData);
+      mockManager.restoreLocalHighlight = jest.fn().mockReturnValue(true);
+      mockManager.clearAll = jest.fn();
 
-      expect(mockManager.forceRestoreHighlights).toHaveBeenCalled();
-    });
-
-    test('should return true on successful restore', async () => {
       const result = await storage.restore();
 
+      expect(StorageUtil.loadHighlights).toHaveBeenCalled();
+      expect(mockManager.clearAll).toHaveBeenCalledWith({ skipStorage: true });
+      expect(mockManager.restoreLocalHighlight).toHaveBeenCalledTimes(2);
       expect(result).toBe(true);
       expect(storage.isRestored).toBe(true);
     });
 
+    test('should return false when no highlights found', async () => {
+      StorageUtil.loadHighlights.mockResolvedValue([]);
+
+      const result = await storage.restore();
+
+      expect(result).toBe(false);
+      expect(mockManager.restoreLocalHighlight).not.toHaveBeenCalled();
+    });
+
     test('should return false when manager is null', async () => {
       storage.manager = null;
-
       const result = await storage.restore();
-
-      expect(result).toBe(false);
-    });
-
-    test('should return false when forceRestoreHighlights is not available', async () => {
-      delete mockManager.forceRestoreHighlights;
-
-      const result = await storage.restore();
-
-      expect(result).toBe(false);
-    });
-
-    test('should return false when restore fails', async () => {
-      mockManager.forceRestoreHighlights.mockResolvedValue(false);
-
-      const result = await storage.restore();
-
       expect(result).toBe(false);
     });
 
     test('should handle restore errors gracefully', async () => {
-      mockManager.forceRestoreHighlights.mockRejectedValue(new Error('Restore failed'));
-
+      StorageUtil.loadHighlights.mockRejectedValue(new Error('Load failed'));
       const result = await storage.restore();
-
       expect(result).toBe(false);
     });
   });

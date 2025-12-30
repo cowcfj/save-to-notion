@@ -3,7 +3,7 @@
  */
 
 import { HighlightMigration } from '../../../../scripts/highlighter/core/HighlightMigration.js';
-import StorageUtil from '../../../../scripts/highlighter/utils/StorageUtil.js';
+import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
@@ -27,8 +27,10 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 }));
 
 jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
-  saveHighlights: jest.fn(),
-  clearHighlights: jest.fn(),
+  StorageUtil: {
+    saveHighlights: jest.fn(),
+    clearHighlights: jest.fn(),
+  },
 }));
 
 describe('core/HighlightMigration', () => {

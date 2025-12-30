@@ -8,7 +8,6 @@
 import { serializeRange, deserializeRange, findRangeByTextContent } from './Range.js';
 import { COLORS } from '../utils/color.js';
 import Logger from '../../utils/Logger.js';
-import { StorageUtil } from '../utils/StorageUtil.js';
 
 /**
  * HighlightManager
@@ -167,7 +166,7 @@ export class HighlightManager {
   /**
    * 清除所有標註
    */
-  clearAll() {
+  clearAll(options = {}) {
     // 清除視覺效果
     if (this.styleManager) {
       this.styleManager.clearAllHighlights();
@@ -177,7 +176,7 @@ export class HighlightManager {
     Logger.info('[HighlightManager] 已清除所有標註');
 
     // 保存變更（清空存儲）
-    if (this.storage) {
+    if (this.storage && !options.skipStorage) {
       this.storage.save();
     }
   }
@@ -307,77 +306,49 @@ export class HighlightManager {
 
   // --- Restoration Implementation ---
 
-  async forceRestoreHighlights() {
-    if (typeof window === 'undefined') {
-      return false;
-    }
-
+  /**
+   * 僅恢復單個標註（由 Storage 調用）
+   * @param {Object} item - 標註數據
+   * @returns {boolean}
+   */
+  restoreLocalHighlight(item) {
     try {
-      const currentUrl = window.normalizeUrl
-        ? window.normalizeUrl(window.location.href)
-        : window.location.href;
+      let range = null;
+      if (item.rangeInfo) {
+        range = deserializeRange(item.rangeInfo);
+      }
 
-      const data = await StorageUtil.loadHighlights(currentUrl);
+      // 如果反序列化失敗，嘗試文本搜尋
+      if (!range && item.text) {
+        range = findRangeByTextContent(item.text);
+      }
 
-      // StorageUtil.loadHighlights 返回數組（已經過 _parseHighlightFormat 處理）
-      const highlights = Array.isArray(data) ? data : data?.highlights || [];
+      if (range) {
+        // 重建 highlight
+        const highlight = {
+          id: item.id,
+          range,
+          color: item.color || 'yellow',
+          text: item.text,
+          timestamp: item.timestamp || Date.now(),
+          rangeInfo: item.rangeInfo,
+        };
 
-      if (highlights.length > 0) {
-        // 清除現有（避免重複）
-        this.highlights.clear();
-        if (this.styleManager) {
-          this.styleManager.clearAllHighlights();
+        this.highlights.set(item.id, highlight);
+        this.applyHighlightAPI(range, highlight.color);
+
+        // 更新 nextId 以避免衝突
+        const numId = parseInt(item.id.replace('h', ''), 10);
+        if (!isNaN(numId) && numId >= this.nextId) {
+          this.nextId = numId + 1;
         }
 
-        let successCount = 0;
-
-        for (const item of highlights) {
-          try {
-            let range = null;
-            if (item.rangeInfo) {
-              range = deserializeRange(item.rangeInfo);
-            }
-
-            // 如果反序列化失敗，嘗試文本搜尋
-            if (!range && item.text) {
-              range = findRangeByTextContent(item.text);
-            }
-
-            if (range) {
-              // 重建 highlight
-              const highlight = {
-                id: item.id,
-                range,
-                color: item.color || 'yellow',
-                text: item.text,
-                timestamp: item.timestamp || Date.now(),
-                rangeInfo: item.rangeInfo,
-              };
-
-              this.highlights.set(item.id, highlight);
-              this.applyHighlightAPI(range, highlight.color);
-
-              // 更新 nextId 以避免衝突
-              const numId = parseInt(item.id.replace('h', ''), 10);
-              if (!isNaN(numId) && numId >= this.nextId) {
-                this.nextId = numId + 1;
-              }
-
-              successCount++;
-            }
-          } catch (error) {
-            Logger.warn(`Failed to restore highlight ${item.id}`, error);
-          }
-        }
-
-        Logger.info(`[HighlightManager] Restored ${successCount} highlights`);
         return true;
       }
-      return false;
     } catch (error) {
-      Logger.error('[HighlightManager] forceRestoreHighlights failed:', error);
-      return false;
+      Logger.warn(`Failed to restore highlight ${item.id}`, error);
     }
+    return false;
   }
 
   // --- Migration ---
