@@ -57,11 +57,11 @@ export class HighlightManager {
    * @param {boolean} [skipRestore=false] - 是否跳過恢復標註（用於頁面已刪除的情況）
    */
   async initialize(skipRestore = false) {
-    if (!this.migration || !this.storage || !this.styleManager) {
-      Logger.warn('[HighlightManager] 依賴未注入，初始化可能不完整');
-    }
-
     try {
+      if (!this.migration || !this.storage || !this.styleManager) {
+        throw new Error('依賴未注入，初始化中止');
+      }
+
       Logger.info('[HighlightManager] 開始初始化');
 
       // 初始化樣式管理器

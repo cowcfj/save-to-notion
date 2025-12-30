@@ -338,10 +338,14 @@ describe('core/HighlightManager', () => {
       jest.clearAllMocks();
     });
 
-    test('initialize should handle missing dependencies safely', async () => {
+    test('initialize should log error and abort when dependencies missing', async () => {
       await emptyManager.initialize();
-      // Should not throw
-      expect(true).toBe(true);
+
+      // Should catch the error internally and log it
+      expect(Logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('[HighlightManager] 初始化失敗'),
+        expect.objectContaining({ message: expect.stringContaining('依賴未注入') })
+      );
     });
 
     test('handleDocumentClick should return false and warn when interaction missing', () => {
