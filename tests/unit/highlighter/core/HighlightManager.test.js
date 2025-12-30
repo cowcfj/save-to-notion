@@ -4,6 +4,7 @@
 
 import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
+import * as RangeMock from '../../../../scripts/highlighter/core/Range.js';
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
   supportsHighlightAPI: jest.fn(() => true),
@@ -476,9 +477,7 @@ describe('core/HighlightManager', () => {
 
       // Mock deserializeRange
       const mockRange = document.createRange();
-      require('../../../../scripts/highlighter/core/Range.js').deserializeRange.mockReturnValue(
-        mockRange
-      );
+      RangeMock.deserializeRange.mockReturnValue(mockRange);
 
       const result = manager.restoreLocalHighlight(item);
 
@@ -489,12 +488,8 @@ describe('core/HighlightManager', () => {
 
     test('should return false if range creation fails', () => {
       const item = { id: 'h1', text: 'test' };
-      require('../../../../scripts/highlighter/core/Range.js').deserializeRange.mockReturnValue(
-        null
-      );
-      require('../../../../scripts/highlighter/core/Range.js').findRangeByTextContent.mockReturnValue(
-        null
-      );
+      RangeMock.deserializeRange.mockReturnValue(null);
+      RangeMock.findRangeByTextContent.mockReturnValue(null);
 
       const result = manager.restoreLocalHighlight(item);
       expect(result).toBe(false);
