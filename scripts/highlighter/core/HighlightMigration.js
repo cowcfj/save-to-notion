@@ -127,6 +127,11 @@ export class HighlightMigration {
       let successCount = 0;
       let failCount = 0;
 
+      // 預先保留 ID 區間，避免與用戶操作產生競爭條件
+      const baseId = this.manager.nextId;
+      this.manager.nextId += legacyData.length;
+      let localIdCounter = 0;
+
       for (const oldItem of legacyData) {
         try {
           let textToFind = null;
@@ -146,13 +151,15 @@ export class HighlightMigration {
 
           if (!textToFind || textToFind.trim().length === 0) {
             failCount++;
+            localIdCounter++;
             continue;
           }
 
           const range = findTextInPage(textToFind);
 
           if (range) {
-            const newId = `h${this.manager.nextId++}`;
+            // 使用預留區間內的 ID
+            const newId = `h${baseId + localIdCounter}`;
             const rangeInfo = serializeRange(range);
 
             migratedHighlights.push({
@@ -167,8 +174,10 @@ export class HighlightMigration {
           } else {
             failCount++;
           }
+          localIdCounter++;
         } catch (_error) {
           failCount++;
+          localIdCounter++;
         }
       }
 
