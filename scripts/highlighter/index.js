@@ -75,7 +75,13 @@ export function initHighlighter(options = {}) {
   const manager = new HighlightManager(options);
 
   // 注入依賴
-  createAndInjectDependencies(manager, options);
+  const deps = createAndInjectDependencies(manager, options);
+
+  // 驗證關鍵依賴是否成功創建
+  if (!deps.styleManager || !deps.storage) {
+    Logger.error('[initHighlighter] 關鍵依賴創建失敗，初始化中止');
+    return manager; // 返回未初始化的 manager，避免後續錯誤
+  }
 
   // 自動執行初始化
   manager.initializationComplete = manager.initialize();
