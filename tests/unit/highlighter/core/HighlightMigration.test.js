@@ -51,8 +51,6 @@ describe('core/HighlightMigration', () => {
 
     // Mock window objects
     window.normalizeUrl = jest.fn(url => url);
-    // Mock window objects
-    window.normalizeUrl = jest.fn(url => url);
     // Reset mocks
     StorageUtil.saveHighlights.mockResolvedValue();
   });
