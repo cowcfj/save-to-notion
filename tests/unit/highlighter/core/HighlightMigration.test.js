@@ -79,36 +79,6 @@ describe('core/HighlightMigration', () => {
     });
   });
 
-  describe('getSafeExtensionStorage', () => {
-    test('should return null when chrome is not available', () => {
-      const originalChrome = window.chrome;
-      delete window.chrome;
-
-      expect(HighlightMigration.getSafeExtensionStorage()).toBeNull();
-
-      window.chrome = originalChrome;
-    });
-
-    test('should return null when runtime.id is not available', () => {
-      window.chrome = {
-        runtime: {},
-        storage: { local: {} },
-      };
-
-      expect(HighlightMigration.getSafeExtensionStorage()).toBeNull();
-    });
-
-    test('should return storage when chrome is available', () => {
-      const mockStorage = { get: jest.fn(), set: jest.fn() };
-      window.chrome = {
-        runtime: { id: 'test-extension-id' },
-        storage: { local: mockStorage },
-      };
-
-      expect(HighlightMigration.getSafeExtensionStorage()).toBe(mockStorage);
-    });
-  });
-
   describe('checkAndMigrate', () => {
     test('should skip when normalizeUrl is not available', async () => {
       delete window.normalizeUrl;

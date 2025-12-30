@@ -10,6 +10,7 @@
 import { serializeRange } from './Range.js';
 import { findTextInPage } from '../utils/textSearch.js';
 import Logger from '../../utils/Logger.js';
+import { HighlightManager } from './HighlightManager.js';
 
 /**
  * HighlightMigration
@@ -85,7 +86,7 @@ export class HighlightMigration {
       if (legacyData && foundKey) {
         // 檢查是否已經遷移過
         const migrationKey = `migration_completed_${normalizedUrl}`;
-        const storage = HighlightMigration.getSafeExtensionStorage();
+        const storage = HighlightManager.getSafeExtensionStorage();
 
         // 只有在 storage 可用時才執行遷移檢查
         if (storage) {
@@ -172,7 +173,7 @@ export class HighlightMigration {
       }
 
       // 標記遷移完成
-      const storage = HighlightMigration.getSafeExtensionStorage();
+      const storage = HighlightManager.getSafeExtensionStorage();
       if (storage && window.normalizeUrl) {
         const normalizedUrl = window.normalizeUrl(window.location.href);
         await storage.set({
@@ -215,24 +216,5 @@ export class HighlightMigration {
     };
 
     return colorMap[bgColor] || 'yellow';
-  }
-
-  /**
-   * 安全獲取擴充功能存儲對象
-   * 防止在非受信環境中被注入偽造的 chrome 對象
-   * @returns {Object|null} chrome.storage.local 或 null
-   */
-  static getSafeExtensionStorage() {
-    // 優先使用全域 chrome 對象（在擴充功能環境中通常可用）
-    // 驗證 runtime.id 存在以確保是在擴充功能上下文中
-    if (
-      typeof window !== 'undefined' &&
-      window.chrome &&
-      window.chrome.runtime &&
-      window.chrome.runtime.id
-    ) {
-      return window.chrome.storage?.local || null;
-    }
-    return null;
   }
 }
