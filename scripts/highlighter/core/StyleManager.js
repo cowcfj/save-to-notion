@@ -1,4 +1,3 @@
-/* global CSS */
 /**
  * StyleManager - CSS Highlight API 樣式管理
  *
