@@ -77,5 +77,10 @@ enabled = true
   issue_code = "JS-0064"
   paths = ["tests/**/*.js"]
 
+  # Ignore no-callback-literal in tests - Chrome Extension APIs use (result) callback, not error-first (err, result)
+  [[analyzers.issue_filter]]
+  issue_code = "JS-0241"
+  paths = ["tests/**/*.js"]
+
 [[code_formatters]]
 name = "prettier"

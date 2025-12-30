@@ -41,6 +41,7 @@ global.chrome = mockChrome;
 // Mock HighlightManager
 const mockManager = {
   initialize: jest.fn().mockResolvedValue(),
+  setDependencies: jest.fn(), // 添加依賴注入方法
   enable: jest.fn(),
   disable: jest.fn(),
   toggle: jest.fn(),
