@@ -24,9 +24,9 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 }));
 
 describe('core/HighlightStorage', () => {
-  let storage;
-  let mockManager;
-  let mockToolbar;
+  let storage = null;
+  let mockManager = null;
+  let mockToolbar = null;
 
   beforeEach(() => {
     jest.useFakeTimers();

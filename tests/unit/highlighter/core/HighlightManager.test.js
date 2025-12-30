@@ -24,11 +24,11 @@ jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
 }));
 
 describe('core/HighlightManager', () => {
-  let manager;
-  let mockStyleManager;
-  let mockStorage;
-  let mockInteraction;
-  let mockMigration;
+  let manager = null;
+  let mockStyleManager = null;
+  let mockStorage = null;
+  let mockInteraction = null;
+  let mockMigration = null;
 
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -326,7 +326,7 @@ describe('core/HighlightManager', () => {
   });
 
   describe('Dependency Injection Errors', () => {
-    let emptyManager;
+    let emptyManager = null;
 
     beforeEach(() => {
       emptyManager = new HighlightManager();

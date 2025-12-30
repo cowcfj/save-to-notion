@@ -35,8 +35,8 @@ jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
 }));
 
 describe('core/HighlightMigration', () => {
-  let migration;
-  let mockManager;
+  let migration = null;
+  let mockManager = null;
 
   beforeEach(() => {
     // 創建 mock manager

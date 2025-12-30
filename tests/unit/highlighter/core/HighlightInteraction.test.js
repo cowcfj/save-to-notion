@@ -5,8 +5,8 @@
 import { HighlightInteraction } from '../../../../scripts/highlighter/core/HighlightInteraction.js';
 
 describe('core/HighlightInteraction', () => {
-  let interaction;
-  let mockManager;
+  let interaction = null;
+  let mockManager = null;
 
   beforeEach(() => {
     document.body.innerHTML = '';
