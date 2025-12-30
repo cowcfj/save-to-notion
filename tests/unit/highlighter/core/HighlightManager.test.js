@@ -47,7 +47,6 @@ describe('core/HighlightManager', () => {
       cleanup: jest.fn(),
     };
 
-    // Reset StorageUtil mock
     mockStorage = {
       save: jest.fn(),
       restore: jest.fn(),
@@ -323,6 +322,59 @@ describe('core/HighlightManager', () => {
 
       // 清理
       document.body.removeChild(div);
+    });
+  });
+
+  describe('Dependency Injection Errors', () => {
+    let emptyManager;
+
+    beforeEach(() => {
+      emptyManager = new HighlightManager();
+      // Not calling setDependencies
+    });
+
+    afterEach(() => {
+      emptyManager.cleanup();
+      jest.clearAllMocks();
+    });
+
+    test('initialize should handle missing dependencies safely', async () => {
+      await emptyManager.initialize();
+      // Should not throw
+      expect(true).toBe(true);
+    });
+
+    test('handleDocumentClick should return false and warn when interaction missing', () => {
+      const result = emptyManager.handleDocumentClick({});
+      expect(result).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('handleDocumentClick called but interaction not injected')
+      );
+    });
+
+    test('getHighlightAtPoint should return null and warn when interaction missing', () => {
+      const result = emptyManager.getHighlightAtPoint(0, 0);
+      expect(result).toBe(null);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('getHighlightAtPoint called but interaction not injected')
+      );
+    });
+
+    test('applyHighlightAPI should return false and warn when styleManager missing', () => {
+      const range = document.createRange();
+      const result = emptyManager.applyHighlightAPI(range, 'yellow');
+      expect(result).toBe(false);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('applyHighlightAPI called but styleManager not injected')
+      );
+    });
+
+    test('collectHighlightsForNotion should return empty array and warn when storage missing', () => {
+      const result = emptyManager.collectHighlightsForNotion();
+      expect(result).toEqual([]);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('collectHighlightsForNotion called but storage not injected')
+      );
     });
   });
 
