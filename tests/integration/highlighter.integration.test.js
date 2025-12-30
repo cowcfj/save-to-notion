@@ -346,7 +346,7 @@ describe('Highlighter Integration Tests', () => {
       expect(manager.currentColor).toBe('blue'); // Should not change
     });
 
-    // TODO: 此測試在 fake timers 環境下會掛起，需要進一步調查
+    // SKIP: 此測試在 fake timers 環境下會掛起，需要進一步調查
     // 可能的問題：MutationObserver 與 fake timers 的兼容性
     test.skip('should integrate DOM stability waiting', async () => {
       jest.useFakeTimers();
