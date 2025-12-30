@@ -43,7 +43,7 @@ describe('core/HighlightMigration', () => {
     // Mock window objects
     window.normalizeUrl = jest.fn(url => url);
     window.StorageUtil = {
-      saveHighlights: jest.fn().mockResolvedValue(undefined),
+      saveHighlights: jest.fn().mockResolvedValue(),
     };
   });
 
