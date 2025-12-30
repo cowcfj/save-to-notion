@@ -136,7 +136,8 @@ export class HighlightManager {
       if (!applied) {
         // 如果視覺效果應用失敗，回滾標註添加
         this.highlights.delete(id);
-        this.nextId--; // 回收 ID
+
+        // 不回收 ID (this.nextId--) 以保持 ID 單調遞增，避免並發問題
         Logger.warn('[HighlightManager] 無法應用視覺效果，標註已取消');
         return null;
       }

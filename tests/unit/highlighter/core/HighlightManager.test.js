@@ -175,6 +175,67 @@ describe('core/HighlightManager', () => {
       // 驗證警告被記錄
       expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('Invalid color'));
     });
+
+    test('should NOT reclaim ID when highlight addition fails', () => {
+      // 模擬 applyHighlightAPI 失敗
+      mockStyleManager.getHighlightObject.mockReturnValue({
+        add: () => {
+          throw new Error('Failed to add range');
+        },
+      });
+      // 這裡我们需要 mock applyHighlightAPI 返回 false，或者讓它內部失敗。
+      // 由於 applyHighlightAPI 內部捕獲了 styleManager 的錯誤嗎？不，它只是調用它。
+      // 根據代碼，HighlightManager.js:219 getHighlightObject 返回對象，然後调 add。
+      // add 是同步的。如果 add 拋出錯誤，HighlightManager.js:152 catch 块會捕獲。
+      // 等等，代碼是：
+      /*
+        const applied = this.applyHighlightAPI(range, validatedColor);
+        if (!applied) { ... }
+      */
+      // applyHighlightAPI 實現：
+      /*
+        const highlightObject = this.styleManager.getHighlightObject(color);
+        if (highlightObject) {
+          highlightObject.add(range);
+          return true;
+        }
+        return false;
+      */
+      // 所以如果我们要觸發 "if (!applied)" 分支，需讓 applyHighlightAPI 返回 false。
+      // 這可以通過讓 getHighlightObject 返回 undefined 來實現，或者 mock applyHighlightAPI 本身。
+      // 當前測試使用的 `manager` 是真實的 HighlightManager 實例，不是 mock。
+      // 所以我們可以 mock styleManager.getHighlightObject 返回 undefined (無效顏色)，
+      // 但上面已經有個測試 "fallback to currentColor" 處理了無效顏色。
+
+      // 讓我們模擬一個情境：applyHighlightAPI 返回 false。
+      // 可以通過 spyOn manager.applyHighlightAPI
+      jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
+
+      const div = document.createElement('div');
+      div.textContent = 'Retry Test';
+      document.body.appendChild(div);
+
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 5);
+
+      const initialId = manager.nextId;
+
+      // 第一次嘗試添加，失敗
+      const id1 = manager.addHighlight(range, 'yellow');
+      expect(id1).toBeNull();
+
+      // 驗證 ID 已增加 (因為我們不回收)
+      expect(manager.nextId).toBe(initialId + 1);
+
+      // 下一次添加應該使用新 ID
+      manager.applyHighlightAPI.mockRestore(); // 恢復正常
+      // Reset mockStyleManager to default behavior
+      mockStyleManager.getHighlightObject.mockReturnValue({ add: jest.fn() });
+
+      const id2 = manager.addHighlight(range, 'yellow');
+      expect(id2).toBe(`h${initialId + 1}`);
+    });
   });
 
   describe('removeHighlight', () => {
