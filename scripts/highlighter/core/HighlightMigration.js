@@ -173,7 +173,7 @@ export class HighlightMigration {
             failCount++;
           }
           localIdCounter++;
-        } catch (_error) {
+        } catch {
           failCount++;
           localIdCounter++;
         }

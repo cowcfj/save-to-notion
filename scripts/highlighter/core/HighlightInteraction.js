@@ -74,7 +74,7 @@ export class HighlightInteraction {
       }
 
       return null;
-    } catch (_error) {
+    } catch {
       return null;
     }
   }
