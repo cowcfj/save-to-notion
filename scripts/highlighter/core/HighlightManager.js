@@ -129,7 +129,14 @@ export class HighlightManager {
       this.highlights.set(id, highlight);
 
       // 應用視覺效果
-      this.applyHighlightAPI(range, validatedColor);
+      const applied = this.applyHighlightAPI(range, validatedColor);
+      if (!applied) {
+        // 如果視覺效果應用失敗，回滾標註添加
+        this.highlights.delete(id);
+        this.nextId--; // 回收 ID
+        Logger.warn('[HighlightManager] 無法應用視覺效果，標註已取消');
+        return null;
+      }
 
       Logger.debug(`[HighlightManager] Added highlight ${id} (${validatedColor})`);
 
@@ -198,16 +205,20 @@ export class HighlightManager {
    * 應用 Highlight API 樣式
    * @param {Range} range
    * @param {string} color
+   * @returns {boolean} 是否成功應用
    */
   applyHighlightAPI(range, color) {
     if (!this.styleManager) {
-      return;
+      Logger.warn('[HighlightManager] applyHighlightAPI called but styleManager not injected');
+      return false;
     }
 
     const highlightObject = this.styleManager.getHighlightObject(color);
     if (highlightObject) {
       highlightObject.add(range);
+      return true;
     }
+    return false;
   }
 
   /**
