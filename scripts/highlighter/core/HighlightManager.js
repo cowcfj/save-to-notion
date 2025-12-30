@@ -1,8 +1,6 @@
 /**
  * HighlightManager 核心類別
  * 管理標註的核心邏輯，並協調其他模組完成樣式、交互、存儲和遷移工作。
- *
- * @version 2.19.0
  */
 
 import { serializeRange, deserializeRange, findRangeByTextContent } from './Range.js';

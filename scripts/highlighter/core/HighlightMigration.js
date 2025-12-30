@@ -3,8 +3,6 @@
  *
  * 從 HighlightManager 抽取的遷移相關邏輯
  * 負責將 localStorage 中的舊格式標註數據遷移到 chrome.storage
- *
- * @version 2.19.0
  */
 
 import { serializeRange } from './Range.js';

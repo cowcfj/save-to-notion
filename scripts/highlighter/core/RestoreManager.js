@@ -3,8 +3,6 @@
  *
  * 負責從 Storage 讀取標註數據並重建。
  * 從 highlight-restore.js 移植，轉為 ES6 模組。
- *
- * @version 2.19.0
  */
 
 import Logger from '../../utils/Logger.js';

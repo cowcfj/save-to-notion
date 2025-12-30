@@ -2,7 +2,6 @@
  * Highlighter V2 - ES6 Module Entry Point
  *
  * 整合所有模組並提供統一導出
- * @version 2.20.0
  */
 
 // Core modules

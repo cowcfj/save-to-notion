@@ -3,8 +3,6 @@
  *
  * 從 RestoreManager 重命名並擴展
  * 負責標註的保存、恢復和數據收集
- *
- * @version 2.19.0
  */
 
 import Logger from '../../utils/Logger.js';

@@ -4,8 +4,6 @@
  *
  * 從 HighlightManager 抽取的樣式相關邏輯
  * 負責初始化 Highlight 對象、注入 CSS 樣式、處理樣式模式切換
- *
- * @version 2.19.0
  */
 
 import { COLORS, TEXT_COLORS, VALID_STYLES } from '../utils/color.js';
