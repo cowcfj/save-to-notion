@@ -366,20 +366,6 @@ export class HighlightManager {
     return Promise.resolve();
   }
 
-  static convertBgColorToName(bgColor) {
-    const colorMap = {
-      'rgb(255, 243, 205)': 'yellow',
-      '#fff3cd': 'yellow',
-      'rgb(212, 237, 218)': 'green',
-      '#d4edda': 'green',
-      'rgb(204, 231, 255)': 'blue',
-      '#cce7ff': 'blue',
-      'rgb(248, 215, 218)': 'red',
-      '#f8d7da': 'red',
-    };
-    return colorMap[bgColor] || 'yellow';
-  }
-
   static getSafeExtensionStorage() {
     if (
       typeof window !== 'undefined' &&

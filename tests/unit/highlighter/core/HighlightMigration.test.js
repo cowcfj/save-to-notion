@@ -67,27 +67,6 @@ describe('core/HighlightMigration', () => {
     });
   });
 
-  describe('convertBgColorToName', () => {
-    test('should convert hex colors', () => {
-      expect(HighlightMigration.convertBgColorToName('#fff3cd')).toBe('yellow');
-      expect(HighlightMigration.convertBgColorToName('#d4edda')).toBe('green');
-      expect(HighlightMigration.convertBgColorToName('#cce7ff')).toBe('blue');
-      expect(HighlightMigration.convertBgColorToName('#f8d7da')).toBe('red');
-    });
-
-    test('should convert rgb colors', () => {
-      expect(HighlightMigration.convertBgColorToName('rgb(255, 243, 205)')).toBe('yellow');
-      expect(HighlightMigration.convertBgColorToName('rgb(212, 237, 218)')).toBe('green');
-      expect(HighlightMigration.convertBgColorToName('rgb(204, 231, 255)')).toBe('blue');
-      expect(HighlightMigration.convertBgColorToName('rgb(248, 215, 218)')).toBe('red');
-    });
-
-    test('should return default for unknown color', () => {
-      expect(HighlightMigration.convertBgColorToName('#unknown')).toBe('yellow');
-      expect(HighlightMigration.convertBgColorToName('rgb(0, 0, 0)')).toBe('yellow');
-    });
-  });
-
   describe('checkAndMigrate', () => {
     test('should skip when normalizeUrl is not available', async () => {
       delete window.normalizeUrl;

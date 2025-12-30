@@ -250,10 +250,6 @@ describe('core/HighlightManager', () => {
   });
 
   describe('Static Methods', () => {
-    test('should convert valid colors', () => {
-      expect(HighlightManager.convertBgColorToName('#fff3cd')).toBe('yellow');
-    });
-
     test('should handle rangesOverlap safely', () => {
       // Basic test to ensure static method exists and doesn't crash
       expect(HighlightManager.rangesOverlap({}, {})).toBe(false);

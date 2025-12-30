@@ -12,6 +12,7 @@ import { findTextInPage } from '../utils/textSearch.js';
 import Logger from '../../utils/Logger.js';
 import { HighlightManager } from './HighlightManager.js';
 import { StorageUtil } from '../utils/StorageUtil.js';
+import { convertBgColorToName } from '../utils/color.js';
 
 /**
  * HighlightMigration
@@ -125,9 +126,7 @@ export class HighlightMigration {
             if (oldItem.color) {
               color = oldItem.color;
             } else if (oldItem.bgColor || oldItem.backgroundColor) {
-              color = HighlightMigration.convertBgColorToName(
-                oldItem.bgColor || oldItem.backgroundColor
-              );
+              color = convertBgColorToName(oldItem.bgColor || oldItem.backgroundColor);
             }
           } else if (typeof oldItem === 'string') {
             textToFind = oldItem;
@@ -197,25 +196,5 @@ export class HighlightMigration {
     } catch (_error) {
       Logger.error('[HighlightMigration] 數據遷移失敗:', _error);
     }
-  }
-
-  /**
-   * 轉換背景顏色到顏色名稱
-   * @param {string} bgColor - 背景顏色（hex 或 rgb）
-   * @returns {string} 顏色名稱
-   */
-  static convertBgColorToName(bgColor) {
-    const colorMap = {
-      'rgb(255, 243, 205)': 'yellow',
-      '#fff3cd': 'yellow',
-      'rgb(212, 237, 218)': 'green',
-      '#d4edda': 'green',
-      'rgb(204, 231, 255)': 'blue',
-      '#cce7ff': 'blue',
-      'rgb(248, 215, 218)': 'red',
-      '#f8d7da': 'red',
-    };
-
-    return colorMap[bgColor] || 'yellow';
   }
 }
