@@ -8,6 +8,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
+import StorageUtil from '../utils/StorageUtil.js';
 
 /**
  * HighlightStorage
@@ -31,7 +32,8 @@ export class HighlightStorage {
    * 保存標註到存儲
    */
   async save() {
-    if (typeof window === 'undefined' || !window.StorageUtil) {
+    // StorageUtil is imported, so we don't need to check window property
+    if (typeof window === 'undefined') {
       return;
     }
 
@@ -50,10 +52,10 @@ export class HighlightStorage {
 
     try {
       if (data.highlights.length === 0) {
-        await window.StorageUtil.clearHighlights(currentUrl);
+        await StorageUtil.clearHighlights(currentUrl);
         Logger.info('[HighlightStorage] 已刪除空白標註記錄');
       } else {
-        await window.StorageUtil.saveHighlights(currentUrl, data);
+        await StorageUtil.saveHighlights(currentUrl, data);
         Logger.info(`[HighlightStorage] 已保存 ${data.highlights.length} 個標註`);
       }
     } catch (error) {

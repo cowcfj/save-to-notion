@@ -3,6 +3,7 @@
  */
 
 import { HighlightMigration } from '../../../../scripts/highlighter/core/HighlightMigration.js';
+import StorageUtil from '../../../../scripts/highlighter/utils/StorageUtil.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
@@ -25,6 +26,11 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   log: jest.fn(),
 }));
 
+jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
+  saveHighlights: jest.fn(),
+  clearHighlights: jest.fn(),
+}));
+
 describe('core/HighlightMigration', () => {
   let migration;
   let mockManager;
@@ -42,9 +48,10 @@ describe('core/HighlightMigration', () => {
 
     // Mock window objects
     window.normalizeUrl = jest.fn(url => url);
-    window.StorageUtil = {
-      saveHighlights: jest.fn().mockResolvedValue(),
-    };
+    // Mock window objects
+    window.normalizeUrl = jest.fn(url => url);
+    // Reset mocks
+    StorageUtil.saveHighlights.mockResolvedValue();
   });
 
   afterEach(() => {
@@ -102,7 +109,8 @@ describe('core/HighlightMigration', () => {
       await migration.checkAndMigrate();
 
       // Should not call StorageUtil.saveHighlights
-      expect(window.StorageUtil.saveHighlights).not.toHaveBeenCalled();
+      // Should not call StorageUtil.saveHighlights
+      expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
     });
 
     test('should find legacy data with possible keys', async () => {
@@ -124,7 +132,7 @@ describe('core/HighlightMigration', () => {
 
       await migration.checkAndMigrate();
 
-      expect(window.StorageUtil.saveHighlights).toHaveBeenCalled();
+      expect(StorageUtil.saveHighlights).toHaveBeenCalled();
     });
   });
 
@@ -150,7 +158,7 @@ describe('core/HighlightMigration', () => {
       await migration.migrateToNewFormat(legacyData, 'old_key');
 
       expect(findTextInPage).toHaveBeenCalledWith('test content');
-      expect(window.StorageUtil.saveHighlights).toHaveBeenCalled();
+      expect(StorageUtil.saveHighlights).toHaveBeenCalled();
     });
 
     test('should migrate string items', async () => {
@@ -173,7 +181,8 @@ describe('core/HighlightMigration', () => {
       await migration.migrateToNewFormat(legacyData, 'old_key');
 
       // 驗證調用時的顏色應該是 green
-      const saveCall = window.StorageUtil.saveHighlights.mock.calls[0][1];
+      // 驗證調用時的顏色應該是 green
+      const saveCall = StorageUtil.saveHighlights.mock.calls[0][1];
       expect(saveCall.highlights[0].color).toBe('green');
     });
 
@@ -195,7 +204,7 @@ describe('core/HighlightMigration', () => {
 
       await migration.migrateToNewFormat(legacyData, 'old_key');
 
-      expect(window.StorageUtil.saveHighlights).not.toHaveBeenCalled();
+      expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
     });
 
     test('should remove old key after successful migration', async () => {

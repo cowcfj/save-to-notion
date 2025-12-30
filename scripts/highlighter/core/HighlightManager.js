@@ -8,6 +8,7 @@
 import { serializeRange, deserializeRange, findRangeByTextContent } from './Range.js';
 import { COLORS } from '../utils/color.js';
 import Logger from '../../utils/Logger.js';
+import StorageUtil from '../utils/StorageUtil.js';
 
 /**
  * HighlightManager
@@ -307,7 +308,7 @@ export class HighlightManager {
   // --- Restoration Implementation ---
 
   async forceRestoreHighlights() {
-    if (typeof window === 'undefined' || !window.StorageUtil) {
+    if (typeof window === 'undefined') {
       return false;
     }
 
@@ -316,7 +317,7 @@ export class HighlightManager {
         ? window.normalizeUrl(window.location.href)
         : window.location.href;
 
-      const data = await window.StorageUtil.loadHighlights(currentUrl);
+      const data = await StorageUtil.loadHighlights(currentUrl);
 
       // StorageUtil.loadHighlights 返回數組（已經過 _parseHighlightFormat 處理）
       const highlights = Array.isArray(data) ? data : data?.highlights || [];

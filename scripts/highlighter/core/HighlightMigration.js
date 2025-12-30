@@ -11,6 +11,7 @@ import { serializeRange } from './Range.js';
 import { findTextInPage } from '../utils/textSearch.js';
 import Logger from '../../utils/Logger.js';
 import { HighlightManager } from './HighlightManager.js';
+import StorageUtil from '../utils/StorageUtil.js';
 
 /**
  * HighlightMigration
@@ -160,13 +161,13 @@ export class HighlightMigration {
         }
       }
 
-      if (migratedHighlights.length > 0 && window.StorageUtil) {
+      if (migratedHighlights.length > 0) {
         // 使用標準化 URL 保持與存儲格式一致
         const currentUrl = window.normalizeUrl
           ? window.normalizeUrl(window.location.href)
           : window.location.href;
 
-        await window.StorageUtil.saveHighlights(currentUrl, {
+        await StorageUtil.saveHighlights(currentUrl, {
           url: currentUrl,
           highlights: migratedHighlights,
         });

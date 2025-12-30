@@ -6,6 +6,12 @@ import {
   HighlightStorage,
   RestoreManager,
 } from '../../../../scripts/highlighter/core/HighlightStorage.js';
+import StorageUtil from '../../../../scripts/highlighter/utils/StorageUtil.js';
+
+jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
+  saveHighlights: jest.fn(),
+  clearHighlights: jest.fn(),
+}));
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   info: jest.fn(),
@@ -37,10 +43,10 @@ describe('core/HighlightStorage', () => {
 
     // Mock window objects
     window.normalizeUrl = jest.fn(url => url);
-    window.StorageUtil = {
-      saveHighlights: jest.fn().mockResolvedValue(),
-      clearHighlights: jest.fn().mockResolvedValue(),
-    };
+
+    // Reset mocks
+    StorageUtil.saveHighlights.mockResolvedValue();
+    StorageUtil.clearHighlights.mockResolvedValue();
   });
 
   afterEach(() => {
@@ -72,7 +78,7 @@ describe('core/HighlightStorage', () => {
 
       await storage.save();
 
-      expect(window.StorageUtil.saveHighlights).toHaveBeenCalledWith(
+      expect(StorageUtil.saveHighlights).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
           highlights: expect.arrayContaining([expect.objectContaining({ id: 'h1', text: 'Test' })]),
@@ -84,20 +90,17 @@ describe('core/HighlightStorage', () => {
       // 空的 highlights Map
       await storage.save();
 
-      expect(window.StorageUtil.clearHighlights).toHaveBeenCalled();
+      expect(StorageUtil.clearHighlights).toHaveBeenCalled();
     });
 
     test('should skip when StorageUtil is not available', async () => {
-      delete window.StorageUtil;
-
-      await storage.save();
-
-      // 不應該拋出錯誤
+      // This test is no longer relevant as StorageUtil is imported
+      // valid test for window check removal, maybe just remove it
     });
 
     test('should handle save errors gracefully', async () => {
       mockManager.highlights.set('h1', { id: 'h1', text: 'Test' });
-      window.StorageUtil.saveHighlights.mockRejectedValue(new Error('Save failed'));
+      StorageUtil.saveHighlights.mockRejectedValue(new Error('Save failed'));
 
       await storage.save();
 
