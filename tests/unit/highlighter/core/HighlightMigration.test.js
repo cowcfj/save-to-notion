@@ -93,6 +93,33 @@ describe('core/HighlightMigration', () => {
       expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
     });
 
+    test('should skip migration if already completed', async () => {
+      // Setup legacy data (which would normally trigger migration)
+      const legacyData = [{ text: 'test', color: 'yellow' }];
+      localStorage.setItem('highlights_http://localhost/', JSON.stringify(legacyData));
+
+      // Setup window.chrome with migration flag set to true
+      window.chrome = {
+        runtime: { id: 'test-id' },
+        storage: {
+          local: {
+            get: jest.fn().mockResolvedValue({
+              'migration_completed_http://localhost/': true,
+            }),
+            set: jest.fn().mockResolvedValue({}),
+          },
+        },
+      };
+
+      await migration.checkAndMigrate();
+
+      // Should verify access but NOT save (skip migration)
+      expect(window.chrome.storage.local.get).toHaveBeenCalledWith(
+        'migration_completed_http://localhost/'
+      );
+      expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
+    });
+
     test('should find legacy data with possible keys', async () => {
       const legacyData = [{ text: 'test', color: 'yellow' }];
       localStorage.setItem('highlights_http://localhost/', JSON.stringify(legacyData));
