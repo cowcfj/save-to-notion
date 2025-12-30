@@ -94,7 +94,7 @@ export class HighlightManager {
    * @returns {string|null} 標註 ID
    */
   addHighlight(range, color = this.currentColor) {
-    if (!range || range.collapsed) {
+    if (!range || range.collapsed || range.toString().trim().length === 0) {
       return null;
     }
 

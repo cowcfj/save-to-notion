@@ -3,7 +3,7 @@
  */
 
 import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
-import StorageUtil from '../../../../scripts/highlighter/utils/StorageUtil.js';
+import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
 
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
@@ -11,8 +11,10 @@ jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
 }));
 
 jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
-  loadHighlights: jest.fn(),
-  saveHighlights: jest.fn(),
+  StorageUtil: {
+    loadHighlights: jest.fn(),
+    saveHighlights: jest.fn(),
+  },
 }));
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
@@ -140,6 +142,19 @@ describe('core/HighlightManager', () => {
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
       range.setEnd(div.firstChild, 0);
+
+      const id = manager.addHighlight(range);
+      expect(id).toBe(null);
+    });
+
+    test('should return null for empty or whitespace-only range', () => {
+      const div = document.createElement('div');
+      div.textContent = '   ';
+      document.body.appendChild(div);
+
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 3);
 
       const id = manager.addHighlight(range);
       expect(id).toBe(null);
