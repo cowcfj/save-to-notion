@@ -2,11 +2,16 @@
  * Highlighter V2 - ES6 Module Entry Point
  *
  * 整合所有模組並提供統一導出
- * @version 2.19.0
+ * @version 2.20.0
  */
 
 // Core modules
 import { HighlightManager } from './core/HighlightManager.js';
+import { StyleManager } from './core/StyleManager.js';
+import { HighlightInteraction } from './core/HighlightInteraction.js';
+import { HighlightMigration } from './core/HighlightMigration.js';
+import { HighlightStorage, RestoreManager } from './core/HighlightStorage.js';
+
 import {
   serializeRange,
   deserializeRange,
@@ -26,20 +31,40 @@ import { getNodePath, getNodeByPath } from './utils/path.js';
 import { findTextInPage, findTextWithTreeWalker, findTextFuzzy } from './utils/textSearch.js';
 import { waitForDOMStability } from './utils/domStability.js';
 
-// Storage utility - 導入以設置 window.StorageUtil（由 HighlightManager 使用）
+// Storage utility - 導入以設置 window.StorageUtil（由 HighlightStorage 使用）
 import './utils/StorageUtil.js';
 
 // Logger - 統一日誌記錄
 import Logger from '../utils/Logger.js';
 
-// 導入並掛載 normalizeUrl（供 HighlightManager.restoreHighlights 使用）
+// 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
 if (typeof window !== 'undefined' && !window.normalizeUrl) {
   window.normalizeUrl = normalizeUrl;
 }
 
-// Restore module - 標註恢復管理器
-import { RestoreManager } from './core/RestoreManager.js';
+/**
+ * 創建並注入所有依賴模組到 HighlightManager
+ * @param {HighlightManager} manager
+ * @param {Object} options
+ * @param {Toolbar} [toolbar]
+ * @returns {Object} 包含所有創建的模組實例
+ */
+function createAndInjectDependencies(manager, options, toolbar = null) {
+  const styleManager = new StyleManager(options);
+  const interaction = new HighlightInteraction(manager);
+  const migration = new HighlightMigration(manager);
+  const storage = new HighlightStorage(manager, toolbar);
+
+  manager.setDependencies({
+    styleManager,
+    interaction,
+    migration,
+    storage,
+  });
+
+  return { styleManager, interaction, migration, storage };
+}
 
 /**
  * 初始化 Highlighter V2 (僅 Manager)
@@ -47,6 +72,9 @@ import { RestoreManager } from './core/RestoreManager.js';
  */
 export function initHighlighter(options = {}) {
   const manager = new HighlightManager(options);
+
+  // 注入依賴
+  createAndInjectDependencies(manager, options);
 
   // 自動執行初始化
   manager.initializationComplete = manager.initialize();
@@ -85,6 +113,9 @@ export function initHighlighterWithToolbar(options = {}) {
   // 如果 skipToolbar 為 true，不創建 Toolbar
   const toolbar = options.skipToolbar ? null : new Toolbar(manager);
 
+  // 注入依賴 (注意：HighlightStorage 需要 toolbar)
+  const { storage } = createAndInjectDependencies(manager, options, toolbar);
+
   // 自動執行初始化
   manager.initializationComplete = (async () => {
     // 初始化 Manager
@@ -97,7 +128,8 @@ export function initHighlighterWithToolbar(options = {}) {
     }
   })();
 
-  return { manager, toolbar };
+  // 附加 storage 到返回值，方便 setupHighlighter 使用
+  return { manager, toolbar, storage };
 }
 
 /**
@@ -107,7 +139,11 @@ export {
   // Core
   HighlightManager,
   Toolbar,
-  RestoreManager,
+  RestoreManager, // Alias for HighlightStorage
+  HighlightStorage,
+  StyleManager,
+  HighlightInteraction,
+  HighlightMigration,
   serializeRange,
   deserializeRange,
   restoreRangeWithRetry,
@@ -149,10 +185,11 @@ export function setupHighlighter(options = {}) {
     skipToolbar: options.skipToolbar ?? options.skipRestore,
   };
 
-  const { manager, toolbar } = initHighlighterWithToolbar(effectiveOptions);
+  // initHighlighterWithToolbar 現在返回注入的 storage
+  const { manager, toolbar, storage } = initHighlighterWithToolbar(effectiveOptions);
 
-  // 🔑 初始化 RestoreManager（即使沒有 toolbar 也需要）
-  const restoreManager = new RestoreManager(manager, toolbar);
+  // 使用已經創建並注入的 HighlighStorage 作為 restoreManager
+  const restoreManager = storage;
 
   // 設置新版 API 到 window for Chrome Extension compatibility
   window.HighlighterV2 = {
@@ -213,6 +250,11 @@ export function setupHighlighter(options = {}) {
       currentToolbar = new Toolbar(manager);
       currentToolbar.initialize();
       currentToolbar.updateHighlightCount();
+
+      // 更新 storage 的 toolbar 引用 (如果需要)
+      if (storage) {
+        storage.toolbar = currentToolbar;
+      }
 
       // 更新 window.HighlighterV2.toolbar 引用
       if (window.HighlighterV2) {
