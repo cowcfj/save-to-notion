@@ -348,37 +348,59 @@ describe('core/HighlightManager', () => {
       );
     });
 
-    test('handleDocumentClick should return false and warn when interaction missing', () => {
-      const result = emptyManager.handleDocumentClick({});
-      expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('handleDocumentClick called but interaction not injected')
-      );
+    test('handleDocumentClick should throw error when interaction missing', () => {
+      expect(() => {
+        emptyManager.handleDocumentClick({});
+      }).toThrow('handleDocumentClick called but interaction not injected');
     });
 
-    test('getHighlightAtPoint should return null and warn when interaction missing', () => {
-      const result = emptyManager.getHighlightAtPoint(0, 0);
-      expect(result).toBe(null);
-      expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('getHighlightAtPoint called but interaction not injected')
-      );
+    test('getHighlightAtPoint should throw error when interaction missing', () => {
+      expect(() => {
+        emptyManager.getHighlightAtPoint(0, 0);
+      }).toThrow('getHighlightAtPoint called but interaction not injected');
     });
 
-    test('applyHighlightAPI should return false and warn when styleManager missing', () => {
+    test('applyHighlightAPI should throw error when styleManager missing', () => {
       const range = document.createRange();
-      const result = emptyManager.applyHighlightAPI(range, 'yellow');
-      expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('applyHighlightAPI called but styleManager not injected')
+      expect(() => {
+        emptyManager.applyHighlightAPI(range, 'yellow');
+      }).toThrow('applyHighlightAPI called but styleManager not injected');
+    });
+
+    test('collectHighlightsForNotion should throw error when storage missing', () => {
+      expect(() => {
+        emptyManager.collectHighlightsForNotion();
+      }).toThrow('collectHighlightsForNotion called but storage not injected');
+    });
+
+    test('updateStyleMode should throw error when styleManager missing', () => {
+      expect(() => {
+        emptyManager.updateStyleMode('text');
+      }).toThrow('updateStyleMode called but styleManager not injected');
+    });
+
+    test('saveToStorage should throw error when storage missing', async () => {
+      await expect(emptyManager.saveToStorage()).rejects.toThrow(
+        'saveToStorage called but storage not injected'
       );
     });
 
-    test('collectHighlightsForNotion should return empty array and warn when storage missing', () => {
-      const result = emptyManager.collectHighlightsForNotion();
-      expect(result).toEqual([]);
-      expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('collectHighlightsForNotion called but storage not injected')
+    test('restoreHighlights should throw error when storage missing', async () => {
+      await expect(emptyManager.restoreHighlights()).rejects.toThrow(
+        'restoreHighlights called but storage not injected'
       );
+    });
+
+    test('injectHighlightStyles should throw error when styleManager missing', () => {
+      expect(() => {
+        emptyManager.injectHighlightStyles();
+      }).toThrow('injectHighlightStyles called but styleManager not injected');
+    });
+
+    test('initializeHighlightStyles should throw error when styleManager missing', () => {
+      expect(() => {
+        emptyManager.initializeHighlightStyles();
+      }).toThrow('initializeHighlightStyles called but styleManager not injected');
     });
   });
 

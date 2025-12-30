@@ -212,8 +212,7 @@ export class HighlightManager {
    */
   applyHighlightAPI(range, color) {
     if (!this.styleManager) {
-      Logger.warn('[HighlightManager] applyHighlightAPI called but styleManager not injected');
-      return false;
+      throw new Error('applyHighlightAPI called but styleManager not injected');
     }
 
     const highlightObject = this.styleManager.getHighlightObject(color);
@@ -266,8 +265,7 @@ export class HighlightManager {
    */
   handleDocumentClick(event) {
     if (!this.interaction) {
-      Logger.warn('[HighlightManager] handleDocumentClick called but interaction not injected');
-      return false;
+      throw new Error('handleDocumentClick called but interaction not injected');
     }
     return this.interaction.handleClick(event);
   }
@@ -280,8 +278,7 @@ export class HighlightManager {
    */
   getHighlightAtPoint(x, y) {
     if (!this.interaction) {
-      Logger.warn('[HighlightManager] getHighlightAtPoint called but interaction not injected');
-      return null;
+      throw new Error('getHighlightAtPoint called but interaction not injected');
     }
     return this.interaction.getHighlightAtPoint(x, y);
   }
@@ -304,41 +301,45 @@ export class HighlightManager {
   // --- Style ---
 
   initializeHighlightStyles() {
-    if (this.styleManager) {
-      this.styleManager.initialize();
+    if (!this.styleManager) {
+      throw new Error('initializeHighlightStyles called but styleManager not injected');
     }
+    this.styleManager.initialize();
   }
 
   injectHighlightStyles() {
-    if (this.styleManager) {
-      this.styleManager.injectStyles();
+    if (!this.styleManager) {
+      throw new Error('injectHighlightStyles called but styleManager not injected');
     }
+    this.styleManager.injectStyles();
   }
 
   updateStyleMode(newStyleMode) {
-    if (this.styleManager) {
-      this.styleManager.updateMode(newStyleMode);
+    if (!this.styleManager) {
+      throw new Error('updateStyleMode called but styleManager not injected');
     }
+    this.styleManager.updateMode(newStyleMode);
   }
 
   // --- Storage ---
 
   async saveToStorage() {
-    if (this.storage) {
-      await this.storage.save();
+    if (!this.storage) {
+      throw new Error('saveToStorage called but storage not injected');
     }
+    await this.storage.save();
   }
 
   async restoreHighlights() {
-    if (this.storage) {
-      await this.storage.restore();
+    if (!this.storage) {
+      throw new Error('restoreHighlights called but storage not injected');
     }
+    await this.storage.restore();
   }
 
   collectHighlightsForNotion() {
     if (!this.storage) {
-      Logger.warn('[HighlightManager] collectHighlightsForNotion called but storage not injected');
-      return [];
+      throw new Error('collectHighlightsForNotion called but storage not injected');
     }
     return this.storage.collectForNotion();
   }
