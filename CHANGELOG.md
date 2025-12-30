@@ -1,5 +1,22 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.23.0](https://github.com/cowcfj/save-to-notion/compare/v2.22.0...v2.23.0) (2025-12-30)
+
+
+### ✨ 新功能
+
+* 新增標註持久化和樣式管理功能 ([#220](https://github.com/cowcfj/save-to-notion/issues/220)) ([a8ab942](https://github.com/cowcfj/save-to-notion/commit/a8ab942aa778ab0f4c34e2cc8b29f29b45054ee0))
+
+
+### 📝 文檔更新
+
+* 更新 README.md 說明文件。 ([f292a2d](https://github.com/cowcfj/save-to-notion/commit/f292a2d856a1fb267a99f37abfe8a35cbe94538b))
+
+
+### ♻️ 代碼重構
+
+* **HighlightStorage.test:** 增加 collectForNotion 方法的邊界檢查與高亮映射測試 ([a8ab942](https://github.com/cowcfj/save-to-notion/commit/a8ab942aa778ab0f4c34e2cc8b29f29b45054ee0))
+
 ## [2.22.0](https://github.com/cowcfj/save-to-notion/compare/v2.21.0...v2.22.0) (2025-12-26)
 
 
