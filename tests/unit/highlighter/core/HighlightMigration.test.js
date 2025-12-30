@@ -72,7 +72,11 @@ describe('core/HighlightMigration', () => {
 
       await migration.checkAndMigrate();
 
-      // Should not throw
+      await migration.checkAndMigrate();
+
+      // Should verify calling checkAndMigrate without normalizeUrl is safe
+      // and doesn't proceed with migration logic (e.g. accessing storage)
+      expect(window.chrome.storage.local.get).not.toHaveBeenCalled();
     });
 
     test('should skip when no legacy data exists', async () => {
@@ -88,7 +92,6 @@ describe('core/HighlightMigration', () => {
 
       await migration.checkAndMigrate();
 
-      // Should not call StorageUtil.saveHighlights
       // Should not call StorageUtil.saveHighlights
       expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
     });
@@ -210,7 +213,6 @@ describe('core/HighlightMigration', () => {
 
       await migration.migrateToNewFormat(legacyData, 'old_key');
 
-      // 驗證調用時的顏色應該是 green
       // 驗證調用時的顏色應該是 green
       const saveCall = StorageUtil.saveHighlights.mock.calls[0][1];
       expect(saveCall.highlights[0].color).toBe('green');

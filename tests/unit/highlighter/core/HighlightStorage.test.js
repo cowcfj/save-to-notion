@@ -97,11 +97,6 @@ describe('core/HighlightStorage', () => {
       expect(StorageUtil.clearHighlights).toHaveBeenCalled();
     });
 
-    test('should skip when StorageUtil is not available', async () => {
-      // This test is no longer relevant as StorageUtil is imported
-      // valid test for window check removal, maybe just remove it
-    });
-
     test('should handle save errors gracefully', async () => {
       mockManager.highlights.set('h1', { id: 'h1', text: 'Test' });
       StorageUtil.saveHighlights.mockRejectedValue(new Error('Save failed'));
