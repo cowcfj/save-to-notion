@@ -25,9 +25,9 @@ jest.mock('../../../../scripts/highlighter/utils/domStability.js', () => ({
 }));
 
 describe('Range Module Coverage Tests', () => {
-  let pathUtils = null;
-  let textSearchUtils = null;
-  let domStabilityUtils = null;
+  let pathUtils;
+  let textSearchUtils;
+  let domStabilityUtils;
 
   beforeEach(() => {
     document.body.innerHTML = '';

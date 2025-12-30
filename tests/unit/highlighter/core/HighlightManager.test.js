@@ -18,7 +18,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 }));
 
 describe('core/HighlightManager', () => {
-  let manager = null;
+  let manager;
   let mockStyleManager;
   let mockStorage;
   let mockInteraction;

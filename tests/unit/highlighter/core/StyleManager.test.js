@@ -18,7 +18,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 }));
 
 describe('core/StyleManager', () => {
-  let styleManager = null;
+  let styleManager;
 
   beforeEach(() => {
     document.body.innerHTML = '';

@@ -26,8 +26,8 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 }));
 
 describe('core/HighlightMigration', () => {
-  let migration = null;
-  let mockManager = null;
+  let migration;
+  let mockManager;
 
   beforeEach(() => {
     // 創建 mock manager
