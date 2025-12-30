@@ -185,6 +185,36 @@ describe('core/HighlightStorage', () => {
 
       expect(collected).toEqual([]);
     });
+
+    test('should return empty array if manager or highlights missing', () => {
+      // Test missing manager
+      const storageNoManager = new HighlightStorage();
+      expect(storageNoManager.collectForNotion()).toEqual([]);
+
+      // Test missing highlights
+      storage.manager.highlights = null;
+      expect(storage.collectForNotion()).toEqual([]);
+
+      // Test invalid highlights (not iterable)
+      storage.manager.highlights = {};
+      expect(storage.collectForNotion()).toEqual([]);
+    });
+
+    test('should map highlights correctly and exclude extra properties', () => {
+      const mockHighlight = { text: 't', color: 'c', timestamp: 123, other: 'ignored' };
+      mockManager.highlights.set('h1', mockHighlight);
+
+      const result = storage.collectForNotion();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        text: 't',
+        color: 'c',
+        timestamp: 123,
+      });
+      // Verify 'other' property is not included
+      expect(result[0]).not.toHaveProperty('other');
+    });
   });
 
   describe('hideToolbarAfterRestore', () => {
@@ -223,36 +253,6 @@ describe('core/HighlightStorage', () => {
       storage.isRestored = true;
 
       expect(storage.hasRestored()).toBe(true);
-    });
-  });
-
-  describe('collectForNotion', () => {
-    test('should return empty array if manager or highlights missing', () => {
-      // Test missing manager
-      const storageNoManager = new HighlightStorage();
-      expect(storageNoManager.collectForNotion()).toEqual([]);
-
-      // Test missing highlights
-      storage.manager.highlights = null;
-      expect(storage.collectForNotion()).toEqual([]);
-
-      // Test invalid highlights (not iterable)
-      storage.manager.highlights = {};
-      expect(storage.collectForNotion()).toEqual([]);
-    });
-
-    test('should map highlights correctly', () => {
-      const mockHighlight = { text: 't', color: 'c', timestamp: 123, other: 'ignored' };
-      mockManager.highlights.set('h1', mockHighlight);
-
-      const result = storage.collectForNotion();
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({
-        text: 't',
-        color: 'c',
-        timestamp: 123,
-      });
     });
   });
 
