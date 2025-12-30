@@ -36,7 +36,7 @@ export class HighlightStorage {
     }
 
     // 使用標準化 URL 確保存儲鍵一致性
-    const currentUrl = this._getNormalizedUrl();
+    const currentUrl = HighlightStorage._getNormalizedUrl();
     const data = {
       url: currentUrl,
       highlights: Array.from(this.manager.highlights.values()).map(highlight => ({
@@ -153,7 +153,7 @@ export class HighlightStorage {
    * @returns {string}
    * @private
    */
-  _getNormalizedUrl() {
+  static _getNormalizedUrl() {
     return window.normalizeUrl ? window.normalizeUrl(window.location.href) : window.location.href;
   }
 }
