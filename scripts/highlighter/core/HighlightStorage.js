@@ -118,6 +118,13 @@ export class HighlightStorage {
    * @returns {Array} 標註數據數組
    */
   collectForNotion() {
+    if (
+      !this.manager ||
+      !this.manager.highlights ||
+      typeof this.manager.highlights.values !== 'function'
+    ) {
+      return [];
+    }
     return Array.from(this.manager.highlights.values()).map(highlight => ({
       text: highlight.text,
       color: highlight.color,
