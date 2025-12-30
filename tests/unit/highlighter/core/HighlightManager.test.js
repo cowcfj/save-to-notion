@@ -3,6 +3,7 @@
  */
 
 import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 // Mock dependencies
 jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
   supportsHighlightAPI: jest.fn(() => true),
@@ -153,6 +154,28 @@ describe('core/HighlightManager', () => {
       const id = manager.addHighlight(range);
       expect(id).toBe(null);
     });
+
+    test('should fallback to currentColor when styleManager returns no style', () => {
+      // 設置 styleManager 返回 undefined（模擬無效顏色）
+      mockStyleManager.getHighlightObject.mockReturnValueOnce(undefined);
+
+      const div = document.createElement('div');
+      div.textContent = 'Test text';
+      document.body.appendChild(div);
+
+      const range = document.createRange();
+      range.setStart(div.firstChild, 0);
+      range.setEnd(div.firstChild, 4);
+
+      const id = manager.addHighlight(range, 'invalid-color');
+
+      expect(id).not.toBeNull();
+      // 驗證使用回退顏色存儲
+      const highlight = manager.highlights.get(id);
+      expect(highlight.color).toBe('yellow'); // currentColor 預設值
+      // 驗證警告被記錄
+      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('Invalid color'));
+    });
   });
 
   describe('removeHighlight', () => {
@@ -250,9 +273,56 @@ describe('core/HighlightManager', () => {
   });
 
   describe('Static Methods', () => {
-    test('should handle rangesOverlap safely', () => {
-      // Basic test to ensure static method exists and doesn't crash
+    test('should handle rangesOverlap safely with invalid input', () => {
+      // 異常路徑：空物件觸發 catch → false
       expect(HighlightManager.rangesOverlap({}, {})).toBe(false);
+    });
+
+    test('should detect overlapping ranges correctly', () => {
+      // 建立真實 DOM 結構
+      const div = document.createElement('div');
+      div.textContent = 'Hello World Test';
+      document.body.appendChild(div);
+
+      const textNode = div.firstChild;
+
+      // Range 1: "Hello"（0-5）
+      const range1 = document.createRange();
+      range1.setStart(textNode, 0);
+      range1.setEnd(textNode, 5);
+
+      // Range 2: "lo Wo"（3-8）— 與 Range 1 重疊
+      const range2 = document.createRange();
+      range2.setStart(textNode, 3);
+      range2.setEnd(textNode, 8);
+
+      expect(HighlightManager.rangesOverlap(range1, range2)).toBe(true);
+
+      // 清理
+      document.body.removeChild(div);
+    });
+
+    test('should detect non-overlapping ranges correctly', () => {
+      const div = document.createElement('div');
+      div.textContent = 'Hello World Test';
+      document.body.appendChild(div);
+
+      const textNode = div.firstChild;
+
+      // Range 1: "Hello"（0-5）
+      const range1 = document.createRange();
+      range1.setStart(textNode, 0);
+      range1.setEnd(textNode, 5);
+
+      // Range 2: "Test"（12-16）— 與 Range 1 不重疊
+      const range2 = document.createRange();
+      range2.setStart(textNode, 12);
+      range2.setEnd(textNode, 16);
+
+      expect(HighlightManager.rangesOverlap(range1, range2)).toBe(false);
+
+      // 清理
+      document.body.removeChild(div);
     });
   });
 

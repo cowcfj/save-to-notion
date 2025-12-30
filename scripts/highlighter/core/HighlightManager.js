@@ -97,6 +97,21 @@ export class HighlightManager {
       return null;
     }
 
+    // 驗證顏色：確保 styleManager 支援該顏色
+    let validatedColor = color;
+    if (this.styleManager) {
+      const style = this.styleManager.getHighlightObject(color);
+      if (!style) {
+        Logger.warn(
+          `[HighlightManager] Invalid color "${color}", falling back to "${this.currentColor}"`
+        );
+        validatedColor = this.currentColor;
+      }
+    } else if (!color || typeof color !== 'string') {
+      // 無 styleManager 時的基本驗證
+      validatedColor = this.currentColor;
+    }
+
     try {
       const id = `h${this.nextId++}`;
       const text = range.toString();
@@ -107,7 +122,7 @@ export class HighlightManager {
       const highlight = {
         id,
         range,
-        color,
+        color: validatedColor,
         text,
         timestamp: Date.now(),
         rangeInfo,
@@ -116,9 +131,9 @@ export class HighlightManager {
       this.highlights.set(id, highlight);
 
       // 應用視覺效果
-      this.applyHighlightAPI(range, color);
+      this.applyHighlightAPI(range, validatedColor);
 
-      Logger.debug(`[HighlightManager] Added highlight ${id} (${color})`);
+      Logger.debug(`[HighlightManager] Added highlight ${id} (${validatedColor})`);
 
       // 自動保存到存儲
       if (this.storage) {
