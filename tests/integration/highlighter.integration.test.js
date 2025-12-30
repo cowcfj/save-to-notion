@@ -45,7 +45,7 @@ describe('Highlighter Integration Tests', () => {
       },
       storage: {
         local: {
-          // Chrome Storage API 使用 callback 風格，不是 Promise
+          // Chrome Storage API 使用 callback 風格（非 error-first 模式）
           get: jest.fn((keys, callback) => {
             if (callback) {
               callback({});
