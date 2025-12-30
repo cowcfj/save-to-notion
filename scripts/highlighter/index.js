@@ -112,7 +112,11 @@ export function initHighlighter(options = {}) {
  * @param {Object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
  * @param {boolean} [options.skipToolbar] - 是否跳過創建工具欄
- * @returns {{manager: HighlightManager, toolbar: Toolbar|null}}
+ * @returns {{manager: HighlightManager, toolbar: Toolbar|null, storage: HighlightStorage}}
+ *   返回值包含：
+ *   - manager: HighlightManager 實例
+ *   - toolbar: Toolbar 實例，如果 skipToolbar 為 true 則為 null
+ *   - storage: HighlightStorage 實例（v2.19+ 新增，用於 setupHighlighter 訪問恢復功能）
  */
 export function initHighlighterWithToolbar(options = {}) {
   const manager = new HighlightManager(options);
