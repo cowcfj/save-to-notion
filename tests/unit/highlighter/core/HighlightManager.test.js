@@ -156,7 +156,7 @@ describe('core/HighlightManager', () => {
 
     test('should fallback to currentColor when styleManager returns no style', () => {
       // 設置 styleManager 返回 undefined（模擬無效顏色）
-      mockStyleManager.getHighlightObject.mockReturnValueOnce(undefined);
+      mockStyleManager.getHighlightObject.mockReturnValueOnce();
 
       const div = document.createElement('div');
       div.textContent = 'Test text';
