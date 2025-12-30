@@ -13,6 +13,7 @@ import Logger from '../../utils/Logger.js';
 import { HighlightManager } from './HighlightManager.js';
 import { StorageUtil } from '../utils/StorageUtil.js';
 import { convertBgColorToName } from '../utils/color.js';
+import { HIGHLIGHT_MIGRATION } from '../../config/constants.js';
 
 /**
  * HighlightMigration
@@ -48,7 +49,7 @@ export class HighlightMigration {
       let legacyData = null;
       let foundKey = null;
 
-      // 嘗試所有可能的 key
+      // 優先檢查標準 key
       for (const key of possibleKeys) {
         const raw = localStorage.getItem(key);
         if (raw) {
@@ -65,9 +66,20 @@ export class HighlightMigration {
         }
       }
 
-      // 如果沒找到，遍歷所有 localStorage
+      // 如果沒找到，遍歷所有 localStorage（限制數量以優化性能）
       if (!legacyData) {
-        for (let i = 0; i < localStorage.length; i++) {
+        // 使用 this.constructor 確保測試時修改靜態屬性生效
+        const maxLimit = this.constructor.MAX_SCAN_LIMIT;
+
+        if (localStorage.length > maxLimit) {
+          Logger.warn(
+            `[HighlightMigration] localStorage items (${localStorage.length}) exceed scan limit (${maxLimit}). Only scanning first ${maxLimit} items.`
+          );
+        }
+
+        const scanCount = Math.min(localStorage.length, maxLimit);
+
+        for (let i = 0; i < scanCount; i++) {
           const key = localStorage.key(i);
           if (key?.startsWith('highlights_')) {
             const raw = localStorage.getItem(key);
@@ -198,3 +210,9 @@ export class HighlightMigration {
     }
   }
 }
+
+/**
+ * 限制 localStorage 遍歷數量，避免性能問題
+ * @type {number}
+ */
+HighlightMigration.MAX_SCAN_LIMIT = HIGHLIGHT_MIGRATION.MAX_SCAN_LIMIT;

@@ -215,3 +215,11 @@ export const PRELOADER_EVENTS = {
   REQUEST: 'notion-preloader-request',
   RESPONSE: 'notion-preloader-response',
 };
+
+// ==========================================
+// 標註遷移相關常量
+// ==========================================
+
+export const HIGHLIGHT_MIGRATION = {
+  MAX_SCAN_LIMIT: 500, // localStorage 遍歷上限，避免性能問題
+};

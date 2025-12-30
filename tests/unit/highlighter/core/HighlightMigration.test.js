@@ -3,6 +3,7 @@
  */
 
 import { HighlightMigration } from '../../../../scripts/highlighter/core/HighlightMigration.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.js';
 
 // Mock dependencies
@@ -23,7 +24,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
-  log: jest.fn(),
+  debug: jest.fn(),
 }));
 
 jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
@@ -114,6 +115,29 @@ describe('core/HighlightMigration', () => {
       await migration.checkAndMigrate();
 
       expect(StorageUtil.saveHighlights).toHaveBeenCalled();
+    });
+
+    test('should limit localStorage scan and warn when exceeding limit', async () => {
+      // Modify limit for testing
+      const originalLimit = HighlightMigration.MAX_SCAN_LIMIT;
+      HighlightMigration.MAX_SCAN_LIMIT = 5;
+
+      localStorage.clear();
+
+      // Add items exceeding limit
+      for (let i = 0; i < 10; i++) {
+        localStorage.setItem(`dummy_${i}`, '{}');
+      }
+
+      // Verify setup
+      expect(localStorage.length).toBe(10);
+
+      await migration.checkAndMigrate();
+
+      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('exceed scan limit'));
+
+      // Restore limit
+      HighlightMigration.MAX_SCAN_LIMIT = originalLimit;
     });
   });
 
