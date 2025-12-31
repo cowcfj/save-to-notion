@@ -198,6 +198,11 @@ const Errors = {
   permission: (msg, details) => new AppError(ErrorTypes.PERMISSION, msg, details),
   internal: (msg, details) => new AppError(ErrorTypes.INTERNAL, msg, details),
   timeout: (msg, details) => new AppError(ErrorTypes.TIMEOUT_ERROR, msg, details),
+  extractionFailed: (msg, details) => new AppError(ErrorTypes.EXTRACTION_FAILED, msg, details),
+  invalidUrl: (msg, details) => new AppError(ErrorTypes.INVALID_URL, msg, details),
+  parsingError: (msg, details) => new AppError(ErrorTypes.PARSING_ERROR, msg, details),
+  performanceWarning: (msg, details) => new AppError(ErrorTypes.PERFORMANCE_WARNING, msg, details),
+  domError: (msg, details) => new AppError(ErrorTypes.DOM_ERROR, msg, details),
 };
 
 // 導出類和常量
