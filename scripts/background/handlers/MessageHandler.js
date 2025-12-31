@@ -64,7 +64,7 @@ class MessageHandler {
    * @returns {Object} 格式化的錯誤響應
    * @private
    */
-  _formatError(error, action) {
+  static _formatError(error, action) {
     if (error instanceof AppError) {
       return error.toResponse();
     }
@@ -99,7 +99,7 @@ class MessageHandler {
 
       // 執行處理函數，支持 Promise
       Promise.resolve(handler(request, sender, sendResponse)).catch(error => {
-        const errorResponse = this._formatError(error, action);
+        const errorResponse = MessageHandler._formatError(error, action);
         this.logger.error?.(`Handler error for action '${action}':`, error);
         try {
           sendResponse(errorResponse);
@@ -110,7 +110,7 @@ class MessageHandler {
 
       return true; // 表示異步響應
     } catch (error) {
-      const errorResponse = this._formatError(error, action);
+      const errorResponse = MessageHandler._formatError(error, action);
       this.logger.error?.('MessageHandler error:', error);
       sendResponse(errorResponse);
       return true;
