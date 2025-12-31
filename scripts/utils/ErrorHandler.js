@@ -203,10 +203,3 @@ const Errors = {
 // 導出類和常量
 
 export { ErrorHandler, ErrorTypes, ErrorSeverity, AppError, Errors };
-
-// CommonJS 兼容（用於測試環境）
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ErrorHandler, ErrorTypes, ErrorSeverity, AppError, Errors };
-}
-// TEST_EXPOSURE_END

@@ -837,12 +837,7 @@ class NotionService {
 // 導出
 export { NotionService, fetchWithRetry, NOTION_CONFIG };
 
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NotionService, fetchWithRetry, NOTION_CONFIG };
-}
-// TEST_EXPOSURE_END
-
+// 向後兼容：掛載到 window（用於非模組環境）
 if (typeof window !== 'undefined') {
   window.NotionService = NotionService;
   window.fetchWithRetry = fetchWithRetry;

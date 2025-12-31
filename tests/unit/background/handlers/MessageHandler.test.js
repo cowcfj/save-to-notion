@@ -2,7 +2,7 @@
  * MessageHandler 單元測試
  */
 
-const { MessageHandler } = require('../../../../scripts/background/handlers/MessageHandler');
+import { MessageHandler } from '../../../../scripts/background/handlers/MessageHandler';
 
 describe('MessageHandler', () => {
   let handler = null;

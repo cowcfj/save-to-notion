@@ -2,11 +2,11 @@
  * StorageService 單元測試
  */
 
-const {
+import {
   StorageService,
   normalizeUrl,
   URL_TRACKING_PARAMS,
-} = require('../../../../scripts/background/services/StorageService');
+} from '../../../../scripts/background/services/StorageService';
 
 describe('normalizeUrl', () => {
   it('應該移除 hash', () => {
