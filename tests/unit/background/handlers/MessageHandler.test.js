@@ -83,6 +83,34 @@ describe('MessageHandler', () => {
       });
     });
 
+    it('應該正確處理字串類型的錯誤', async () => {
+      const action = 'TEST_STRING_ERROR';
+      const errorMessage = 'Something went wrong';
+      handler.register(
+        action,
+        jest.fn(() => {
+          throw errorMessage;
+        })
+      );
+
+      const sendResponse = jest.fn();
+      const sender = {};
+      const request = { action };
+      handler.handle(request, sender, sendResponse);
+
+      // Give a moment for the async error handling to complete
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: errorMessage,
+          errorType: 'internal', // Matching existing errorType format
+          action,
+        })
+      );
+    });
+
     it('應該處理異步處理函數', async () => {
       const asyncHandler = jest.fn(async (req, sender, sendResponse) => {
         await new Promise(resolve => setTimeout(resolve, 10));

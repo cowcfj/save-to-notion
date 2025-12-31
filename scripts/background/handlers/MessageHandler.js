@@ -69,10 +69,21 @@ class MessageHandler {
       return error.toResponse();
     }
 
+    let errorMessage;
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'object' && error !== null && error.message) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else {
+      errorMessage = String(error || 'Unknown error');
+    }
+
     // 普通錯誤包裝為 INTERNAL 類型
     return {
       success: false,
-      error: error.message || 'Unknown error',
+      error: errorMessage,
       errorType: ErrorTypes.INTERNAL,
       action,
     };
