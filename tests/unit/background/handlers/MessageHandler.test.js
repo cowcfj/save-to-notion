@@ -105,7 +105,7 @@ describe('MessageHandler', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: 'An internal error occurred. Please try again.',
+          error: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
           errorType: 'internal',
           action,
         })
@@ -141,7 +141,7 @@ describe('MessageHandler', () => {
       // 應返回通用訊息，而非原始錯誤訊息，以防止敏感資訊洩漏
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'An internal error occurred. Please try again.',
+        error: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
         errorType: 'internal',
         action: 'errorAction',
       });

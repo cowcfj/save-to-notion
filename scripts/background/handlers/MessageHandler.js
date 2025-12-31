@@ -12,6 +12,7 @@
 /* global chrome */
 
 import { AppError, ErrorTypes } from '../../utils/ErrorHandler.js';
+import { sanitizeApiError } from '../../utils/securityUtils.js';
 
 /**
  * MessageHandler 類
@@ -71,11 +72,11 @@ class MessageHandler {
       return error.toResponse();
     }
 
-    // 對於非 AppError：返回通用訊息，防止敏感資訊洩漏
+    // 對於非 AppError：使用 securityUtils 進行訊息消毒
     // 完整錯誤細節已由調用方（handle 方法）記錄到日誌
     return {
       success: false,
-      error: 'An internal error occurred. Please try again.',
+      error: sanitizeApiError(error, action),
       errorType: ErrorTypes.INTERNAL,
       action,
     };
