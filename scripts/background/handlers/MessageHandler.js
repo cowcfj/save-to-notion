@@ -3,13 +3,15 @@
  *
  * 職責：統一處理來自 popup/content script 的消息
  * - 按 action 分派到對應的處理函數
- * - 統一錯誤處理
+ * - 統一錯誤處理（支持結構化的 AppError）
  * - 支持異步響應
  *
  * @module handlers/MessageHandler
  */
 
 /* global chrome */
+
+import { AppError, ErrorTypes } from '../../utils/ErrorHandler.js';
 
 /**
  * MessageHandler 類
@@ -55,6 +57,28 @@ class MessageHandler {
   }
 
   /**
+   * 格式化錯誤響應
+   * 支持結構化的 AppError 和普通 Error
+   * @param {Error} error - 錯誤對象
+   * @param {string} action - 動作名稱
+   * @returns {Object} 格式化的錯誤響應
+   * @private
+   */
+  _formatError(error, action) {
+    if (error instanceof AppError) {
+      return error.toResponse();
+    }
+
+    // 普通錯誤包裝為 INTERNAL 類型
+    return {
+      success: false,
+      error: error.message || 'Unknown error',
+      errorType: ErrorTypes.INTERNAL,
+      action,
+    };
+  }
+
+  /**
    * 處理消息
    * @param {Object} request - 請求對象
    * @param {Object} sender - 發送者信息
@@ -75,9 +99,10 @@ class MessageHandler {
 
       // 執行處理函數，支持 Promise
       Promise.resolve(handler(request, sender, sendResponse)).catch(error => {
+        const errorResponse = this._formatError(error, action);
         this.logger.error?.(`Handler error for action '${action}':`, error);
         try {
-          sendResponse({ success: false, error: error.message || 'Handler failed' });
+          sendResponse(errorResponse);
         } catch {
           /* 忽略 sendResponse 錯誤 */
         }
@@ -85,8 +110,9 @@ class MessageHandler {
 
       return true; // 表示異步響應
     } catch (error) {
+      const errorResponse = this._formatError(error, action);
       this.logger.error?.('MessageHandler error:', error);
-      sendResponse({ success: false, error: error.message });
+      sendResponse(errorResponse);
       return true;
     }
   }

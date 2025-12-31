@@ -99,7 +99,7 @@ describe('MessageHandler', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: true, data: 'async result' });
     });
 
-    it('應該捕獲處理函數拋出的錯誤', async () => {
+    it('應該捕獲處理函數拋出的錯誤並返回結構化響應', async () => {
       const errorHandler = jest.fn(() => {
         throw new Error('Test error');
       });
@@ -112,6 +112,8 @@ describe('MessageHandler', () => {
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
         error: 'Test error',
+        errorType: 'internal',
+        action: 'errorAction',
       });
     });
   });
