@@ -17,7 +17,7 @@ const ErrorTypes = {
   DOM_ERROR: 'dom_error',
   VALIDATION_ERROR: 'validation_error',
   TIMEOUT_ERROR: 'timeout_error',
-  // 新增類型（2025-12-31）
+  // 背景服務相關類型
   STORAGE: 'storage', // 存儲操作錯誤
   NOTION_API: 'notion_api', // Notion API 錯誤
   INJECTION: 'injection', // 腳本注入錯誤
