@@ -305,7 +305,3 @@ class ImageService {
 export { ImageService, ImageUrlValidationCache };
 
 // 向後兼容：掛載到 window（用於非模組環境）
-if (typeof window !== 'undefined') {
-  window.ImageService = ImageService;
-  window.ImageUrlValidationCache = ImageUrlValidationCache;
-}

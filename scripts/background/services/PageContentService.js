@@ -173,7 +173,3 @@ class PageContentService {
 export { PageContentService, CONTENT_EXTRACTION_SCRIPTS };
 
 // 向後兼容：掛載到 window（用於非模組環境）
-if (typeof window !== 'undefined') {
-  window.PageContentService = PageContentService;
-  window.CONTENT_EXTRACTION_SCRIPTS = CONTENT_EXTRACTION_SCRIPTS;
-}

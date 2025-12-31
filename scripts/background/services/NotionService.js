@@ -836,10 +836,3 @@ class NotionService {
 
 // 導出
 export { NotionService, fetchWithRetry, NOTION_CONFIG };
-
-// 向後兼容：掛載到 window（用於非模組環境）
-if (typeof window !== 'undefined') {
-  window.NotionService = NotionService;
-  window.fetchWithRetry = fetchWithRetry;
-  window.NOTION_CONFIG = NOTION_CONFIG;
-}
