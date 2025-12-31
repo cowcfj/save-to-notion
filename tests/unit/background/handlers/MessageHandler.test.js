@@ -2,7 +2,7 @@
  * MessageHandler 單元測試
  */
 
-import { MessageHandler } from '../../../../scripts/background/handlers/MessageHandler';
+import { MessageHandler } from '../../../../scripts/background/handlers/MessageHandler.js';
 
 describe('MessageHandler', () => {
   let handler = null;

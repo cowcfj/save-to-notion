@@ -6,7 +6,7 @@
 import {
   ImageService,
   ImageUrlValidationCache,
-} from '../../../../scripts/background/services/ImageService';
+} from '../../../../scripts/background/services/ImageService.js';
 
 describe('ImageUrlValidationCache', () => {
   let cache = null;

@@ -6,7 +6,7 @@ import {
   StorageService,
   normalizeUrl,
   URL_TRACKING_PARAMS,
-} from '../../../../scripts/background/services/StorageService';
+} from '../../../../scripts/background/services/StorageService.js';
 
 describe('normalizeUrl', () => {
   it('應該移除 hash', () => {
