@@ -67,12 +67,6 @@ class MessageHandler {
     try {
       // 檢查是否有對應的處理函數
       if (!this.handlers.has(action)) {
-        // 特殊處理：devLogSink 直接處理
-        if (action === 'devLogSink') {
-          this._handleDevLog(request, sendResponse);
-          return true;
-        }
-
         sendResponse({ success: false, error: `Unknown action: ${action}` });
         return true;
       }
@@ -94,32 +88,6 @@ class MessageHandler {
       this.logger.error?.('MessageHandler error:', error);
       sendResponse({ success: false, error: error.message });
       return true;
-    }
-  }
-
-  /**
-   * 處理開發日誌
-   * @private
-   */
-  _handleDevLog(request, sendResponse) {
-    try {
-      const level = request.level || 'log';
-      const message = request.message || '';
-      const args = Array.isArray(request.args) ? request.args : [];
-      const prefix = '[ClientLog]';
-
-      if (level === 'warn') {
-        this.logger.warn?.(prefix, message, ...args);
-      } else if (level === 'error') {
-        this.logger.error?.(prefix, message, ...args);
-      } else if (level === 'info') {
-        this.logger.info?.(`${prefix} ${message}`, ...args);
-      } else {
-        this.logger.log?.(`${prefix} ${message}`, ...args);
-      }
-      sendResponse({ success: true });
-    } catch (error) {
-      sendResponse({ success: false, error: error.message });
     }
   }
 

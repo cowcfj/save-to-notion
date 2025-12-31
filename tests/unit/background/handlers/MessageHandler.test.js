@@ -116,42 +116,6 @@ describe('MessageHandler', () => {
     });
   });
 
-  describe('devLogSink', () => {
-    it('應該處理 log 級別', () => {
-      const sendResponse = jest.fn();
-      handler.handle(
-        { action: 'devLogSink', level: 'log', message: 'test message', args: ['arg1'] },
-        {},
-        sendResponse
-      );
-
-      expect(mockLogger.log).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
-    });
-
-    it('應該處理 warn 級別', () => {
-      const sendResponse = jest.fn();
-      handler.handle(
-        { action: 'devLogSink', level: 'warn', message: 'warning message' },
-        {},
-        sendResponse
-      );
-
-      expect(mockLogger.warn).toHaveBeenCalled();
-    });
-
-    it('應該處理 error 級別', () => {
-      const sendResponse = jest.fn();
-      handler.handle(
-        { action: 'devLogSink', level: 'error', message: 'error message' },
-        {},
-        sendResponse
-      );
-
-      expect(mockLogger.error).toHaveBeenCalled();
-    });
-  });
-
   describe('getRegisteredActions', () => {
     it('應該返回已註冊的動作列表', () => {
       handler.register('action1', jest.fn());
