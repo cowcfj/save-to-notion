@@ -305,11 +305,10 @@ class NotionService {
    * @private
    */
   async _deleteBlocksByIds(blockIds) {
-    // 並發數 3 配合批次間 1000ms 延遲，共同確保遵守 Notion API 速率限制（3 req/s）
-    // 此值與 NOTION_API.RATE_LIMIT_DELAY (350ms) 是互補設計：
-    // - 單請求模式：使用 350ms 間隔確保 < 3 req/s
-    // - 並發刪除模式：每批 3 請求後等待 1000ms（見 L346-350）
-    // 參見：scripts/config/constants.js NOTION_API 配置
+    // 並發數 3 配合批次間延遲，共同確保遵守 Notion API 速率限制（3 req/s）
+    // - 單請求模式：由 NOTION_API.RATE_LIMIT_DELAY (350ms) 控制間隔
+    // - 並發刪除模式：每批 3 請求後等待 1000ms（見下方批次延遲邏輯）
+    // 兩者適用於不同場景，不會同時生效
     const CONCURRENCY = 3;
     const errors = [];
     let successCount = 0;
