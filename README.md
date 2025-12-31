@@ -209,7 +209,7 @@ notion-chrome/
 │   │   └── index.js       #     統一導出入口
 │   ├── highlighter/       # 🆕 ES6 模塊化標註系統
 │   │   ├── index.js       #     入口文件
-│   │   ├── core/          #     核心模組（Range, HighlightManager）
+│   │   ├── core/          #     核心模組（Range, HighlightManager, Storage, Style, Interaction）
 │   │   ├── ui/            #     UI 組件（Toolbar, Components, Styles）
 │   │   └── utils/         #     工具模組（color, dom, validation, path, textSearch, domStability）
 │   ├── performance/       # 性能優化模組
