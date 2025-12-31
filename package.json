@@ -71,7 +71,7 @@
     "v8-to-istanbul": "^9.3.0"
   },
   "dependencies": {
-    "@notionhq/client": "^5.4.0"
+    "@notionhq/client": "^5.6.0"
   },
   "lint-staged": {
     "*.config.js": [
