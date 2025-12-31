@@ -1,8 +1,6 @@
 /**
  * 測試改進後的 clearHighlights 方法
  * 包含輸入驗證、並行清除、錯誤處理等新功能
- *
- * 注意：此測試使用 jest.doMock 模式以支援 ESM 模組
  */
 
 const chrome = require('../mocks/chrome');
@@ -25,28 +23,20 @@ global.localStorage = {
   },
 };
 
-// Logger mock - 會被 StorageUtil 通過 ESM import 使用
-const mockLogger = {
-  log: jest.fn(),
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-};
+jest.mock('../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    log: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
 
-// Mock Logger 模組
-jest.mock('../../scripts/utils/Logger.js', () => mockLogger);
-
-// 現在可以安全地導入 StorageUtil
-const path = require('path');
-const storagePath = path.resolve(__dirname, '../../scripts/highlighter/utils/StorageUtil.js');
-
-// 清除緩存以確保使用新的 mock
-delete require.cache[storagePath];
-
-// 加載模組
-require('../../scripts/highlighter/utils/StorageUtil.js');
-const StorageUtil = global.window?.StorageUtil;
+// ES Module 導入
+import { StorageUtil } from '../../scripts/highlighter/utils/StorageUtil.js';
+import Logger from '../../scripts/utils/Logger.js';
 
 describe('StorageUtil.clearHighlights - 改進版測試', () => {
   beforeEach(() => {
@@ -75,11 +65,11 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
     global.localStorage.clear();
 
     // 重置 Logger mocks
-    mockLogger.log.mockClear();
-    mockLogger.debug.mockClear();
-    mockLogger.info.mockClear();
-    mockLogger.warn.mockClear();
-    mockLogger.error.mockClear();
+    Logger.log.mockClear();
+    Logger.debug.mockClear();
+    Logger.info.mockClear();
+    Logger.warn.mockClear();
+    Logger.error.mockClear();
   });
 
   afterEach(() => {
@@ -100,7 +90,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
         'Invalid pageUrl: must be a non-empty string'
       );
 
-      expect(mockLogger.error).toHaveBeenCalled();
+      expect(Logger.error).toHaveBeenCalled();
     });
 
     test('應該拒絕空字串 URL', async () => {
@@ -153,7 +143,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
 
       expect(chrome.storage.local.remove).toHaveBeenCalledWith([pageKey], expect.any(Function));
       expect(global.localStorage.getItem(pageKey)).toBeNull();
-      expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('標註清除完成'));
+      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('標註清除完成'));
     });
 
     test('應該記錄清除開始', async () => {
@@ -164,7 +154,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
 
       await StorageUtil.clearHighlights(testUrl);
 
-      expect(mockLogger.log).toHaveBeenCalledWith(
+      expect(Logger.log).toHaveBeenCalledWith(
         expect.stringContaining('開始清除標註'),
         expect.any(String)
       );
@@ -188,7 +178,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
 
       await StorageUtil.clearHighlights(testUrl);
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect(Logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('部分存儲清除失敗'),
         expect.any(Array)
       );
@@ -210,7 +200,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       await StorageUtil.clearHighlights(testUrl);
 
       expect(global.localStorage.getItem(pageKey)).toBeNull();
-      expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect(Logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('部分存儲清除失敗'),
         expect.any(Array)
       );

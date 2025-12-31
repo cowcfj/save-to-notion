@@ -580,9 +580,3 @@ export function createMigrationHandlers(services) {
     },
   };
 }
-
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { createMigrationHandlers };
-}
-// TEST_EXPOSURE_END
