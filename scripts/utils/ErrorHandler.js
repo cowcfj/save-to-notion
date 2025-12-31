@@ -8,6 +8,7 @@
  * 錯誤類型枚舉
  */
 const ErrorTypes = {
+  // 原有類型
   EXTRACTION_FAILED: 'extraction_failed',
   INVALID_URL: 'invalid_url',
   NETWORK_ERROR: 'network_error',
@@ -16,6 +17,12 @@ const ErrorTypes = {
   DOM_ERROR: 'dom_error',
   VALIDATION_ERROR: 'validation_error',
   TIMEOUT_ERROR: 'timeout_error',
+  // 背景服務相關類型
+  STORAGE: 'storage', // 存儲操作錯誤
+  NOTION_API: 'notion_api', // Notion API 錯誤
+  INJECTION: 'injection', // 腳本注入錯誤
+  PERMISSION: 'permission', // 權限不足
+  INTERNAL: 'internal', // 內部錯誤
 };
 
 /**
@@ -40,6 +47,12 @@ const LOG_LEVELS = {
   [ErrorTypes.DOM_ERROR]: 'warn',
   [ErrorTypes.VALIDATION_ERROR]: 'warn',
   [ErrorTypes.TIMEOUT_ERROR]: 'error',
+  // 新增類型的日誌級別
+  [ErrorTypes.STORAGE]: 'error',
+  [ErrorTypes.NOTION_API]: 'error',
+  [ErrorTypes.INJECTION]: 'warn',
+  [ErrorTypes.PERMISSION]: 'warn',
+  [ErrorTypes.INTERNAL]: 'error',
 };
 
 /**
@@ -128,13 +141,70 @@ class ErrorHandler {
   }
 }
 
+/**
+ * 應用錯誤類別
+ * 提供結構化的錯誤信息，便於前端根據錯誤類型顯示適當的提示
+ */
+class AppError extends Error {
+  /**
+   * @param {string} type - 錯誤類型（使用 ErrorTypes）
+   * @param {string} message - 錯誤訊息
+   * @param {Object} details - 額外詳情
+   */
+  constructor(type, message, details = {}) {
+    super(message);
+    this.name = 'AppError';
+    this.type = type;
+    this.details = details;
+    this.timestamp = Date.now();
+  }
+
+  /**
+   * 轉換為 JSON 格式（用於 sendResponse）
+   * @returns {Object}
+   */
+  toJSON() {
+    return {
+      type: this.type,
+      message: this.message,
+      details: this.details,
+    };
+  }
+
+  /**
+   * 轉換為標準響應格式
+   * @returns {Object}
+   */
+  toResponse() {
+    return {
+      success: false,
+      error: this.message,
+      errorType: this.type,
+      details: this.details,
+    };
+  }
+}
+
+/**
+ * 便捷工廠函數
+ * 用於快速創建特定類型的 AppError
+ */
+const Errors = {
+  network: (msg, details) => new AppError(ErrorTypes.NETWORK_ERROR, msg, details),
+  storage: (msg, details) => new AppError(ErrorTypes.STORAGE, msg, details),
+  validation: (msg, details) => new AppError(ErrorTypes.VALIDATION_ERROR, msg, details),
+  notionApi: (msg, details) => new AppError(ErrorTypes.NOTION_API, msg, details),
+  injection: (msg, details) => new AppError(ErrorTypes.INJECTION, msg, details),
+  permission: (msg, details) => new AppError(ErrorTypes.PERMISSION, msg, details),
+  internal: (msg, details) => new AppError(ErrorTypes.INTERNAL, msg, details),
+  timeout: (msg, details) => new AppError(ErrorTypes.TIMEOUT_ERROR, msg, details),
+  extractionFailed: (msg, details) => new AppError(ErrorTypes.EXTRACTION_FAILED, msg, details),
+  invalidUrl: (msg, details) => new AppError(ErrorTypes.INVALID_URL, msg, details),
+  parsingError: (msg, details) => new AppError(ErrorTypes.PARSING_ERROR, msg, details),
+  performanceWarning: (msg, details) => new AppError(ErrorTypes.PERFORMANCE_WARNING, msg, details),
+  domError: (msg, details) => new AppError(ErrorTypes.DOM_ERROR, msg, details),
+};
+
 // 導出類和常量
 
-export { ErrorHandler, ErrorTypes, ErrorSeverity };
-
-// CommonJS 兼容（用於測試環境）
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ErrorHandler, ErrorTypes, ErrorSeverity };
-}
-// TEST_EXPOSURE_END
+export { ErrorHandler, ErrorTypes, ErrorSeverity, AppError, Errors };

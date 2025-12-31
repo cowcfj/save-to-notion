@@ -499,21 +499,3 @@ export {
   getRuntimeErrorMessage,
   isRecoverableInjectionError,
 };
-
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    InjectionService,
-    isRestrictedInjectionUrl,
-    getRuntimeErrorMessage,
-    isRecoverableInjectionError,
-  };
-}
-// TEST_EXPOSURE_END
-
-if (typeof window !== 'undefined') {
-  window.InjectionService = InjectionService;
-  window.isRestrictedInjectionUrl = isRestrictedInjectionUrl;
-  window.getRuntimeErrorMessage = getRuntimeErrorMessage;
-  window.isRecoverableInjectionError = isRecoverableInjectionError;
-}

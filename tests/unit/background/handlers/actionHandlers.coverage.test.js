@@ -43,32 +43,21 @@ global.chrome = {
 
 // 使用 presetup.js 提供的 global.Logger（若需要可在測試中透過 global.Logger 存取）
 
-describe('actionHandlers 覆蓋率補強', () => {
-  // Handler Creators (Dynamic Import for safety)
-  let createSaveHandlers = null;
-  let createHighlightHandlers = null;
-  let createMigrationHandlers = null;
-  let processContentResult = null;
+// ES Module 導入 - 在 jest.mock 後執行
+import {
+  createSaveHandlers,
+  processContentResult,
+} from '../../../../scripts/background/handlers/saveHandlers.js';
+import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
+import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 
+describe('actionHandlers 覆蓋率補強', () => {
   // Mock services
   let mockNotionService = null;
   let mockStorageService = null;
   let mockInjectionService = null;
   let mockPageContentService = null;
   let handlers = null;
-
-  beforeAll(() => {
-    // 動態導入以確保 mock 生效並解決循環依賴問題
-    const SaveHandlers = require('../../../../scripts/background/handlers/saveHandlers.js');
-    createSaveHandlers = SaveHandlers.createSaveHandlers;
-    processContentResult = SaveHandlers.processContentResult;
-
-    const HighlightHandlers = require('../../../../scripts/background/handlers/highlightHandlers.js');
-    createHighlightHandlers = HighlightHandlers.createHighlightHandlers;
-
-    const MigrationHandlers = require('../../../../scripts/background/handlers/migrationHandlers.js');
-    createMigrationHandlers = MigrationHandlers.createMigrationHandlers;
-  });
 
   beforeEach(() => {
     jest.clearAllMocks();

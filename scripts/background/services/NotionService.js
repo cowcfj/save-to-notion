@@ -305,7 +305,11 @@ class NotionService {
    * @private
    */
   async _deleteBlocksByIds(blockIds) {
-    const CONCURRENCY = 3; // Notion API 限制: 3 req/s
+    // 並發數 3 配合批次間延遲，共同確保遵守 Notion API 速率限制（3 req/s）
+    // - 單請求模式：由 NOTION_API.RATE_LIMIT_DELAY (350ms) 控制間隔
+    // - 並發刪除模式：每批 3 請求後等待 1000ms（見下方批次延遲邏輯）
+    // 兩者適用於不同場景，不會同時生效
+    const CONCURRENCY = 3;
     const errors = [];
     let successCount = 0;
 
@@ -831,15 +835,3 @@ class NotionService {
 
 // 導出
 export { NotionService, fetchWithRetry, NOTION_CONFIG };
-
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { NotionService, fetchWithRetry, NOTION_CONFIG };
-}
-// TEST_EXPOSURE_END
-
-if (typeof window !== 'undefined') {
-  window.NotionService = NotionService;
-  window.fetchWithRetry = fetchWithRetry;
-  window.NOTION_CONFIG = NOTION_CONFIG;
-}

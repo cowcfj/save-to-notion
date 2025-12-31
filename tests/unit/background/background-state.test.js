@@ -44,8 +44,8 @@ global.ErrorHandler = {};
 global.PerformanceOptimizer = {};
 
 // Import services directly
-const { TabService } = require('../../../scripts/background/services/TabService.js');
-const { InjectionService } = require('../../../scripts/background/services/InjectionService.js');
+import { TabService } from '../../../scripts/background/services/TabService.js';
+import { InjectionService } from '../../../scripts/background/services/InjectionService.js';
 
 describe('Background State Updates', () => {
   let tabService = null;

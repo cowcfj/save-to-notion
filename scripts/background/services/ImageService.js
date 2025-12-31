@@ -303,14 +303,3 @@ class ImageService {
 
 // 導出
 export { ImageService, ImageUrlValidationCache };
-
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ImageService, ImageUrlValidationCache };
-}
-// TEST_EXPOSURE_END
-
-if (typeof window !== 'undefined') {
-  window.ImageService = ImageService;
-  window.ImageUrlValidationCache = ImageUrlValidationCache;
-}

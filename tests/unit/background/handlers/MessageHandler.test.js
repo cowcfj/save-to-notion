@@ -2,7 +2,7 @@
  * MessageHandler 單元測試
  */
 
-const { MessageHandler } = require('../../../../scripts/background/handlers/MessageHandler');
+import { MessageHandler } from '../../../../scripts/background/handlers/MessageHandler.js';
 
 describe('MessageHandler', () => {
   let handler = null;
@@ -83,6 +83,35 @@ describe('MessageHandler', () => {
       });
     });
 
+    it('應該正確處理字串類型的錯誤（返回通用訊息以防止洩漏）', async () => {
+      const action = 'TEST_STRING_ERROR';
+      const errorMessage = 'Something went wrong';
+      handler.register(
+        action,
+        jest.fn(() => {
+          throw errorMessage;
+        })
+      );
+
+      const sendResponse = jest.fn();
+      const sender = {};
+      const request = { action };
+      handler.handle(request, sender, sendResponse);
+
+      // Give a moment for the async error handling to complete
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // 應返回通用訊息，而非原始錯誤訊息，以防止敏感資訊洩漏
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
+          errorType: 'internal',
+          action,
+        })
+      );
+    });
+
     it('應該處理異步處理函數', async () => {
       const asyncHandler = jest.fn(async (req, sender, sendResponse) => {
         await new Promise(resolve => setTimeout(resolve, 10));
@@ -99,7 +128,7 @@ describe('MessageHandler', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: true, data: 'async result' });
     });
 
-    it('應該捕獲處理函數拋出的錯誤', async () => {
+    it('應該捕獲處理函數拋出的錯誤並返回結構化響應', async () => {
       const errorHandler = jest.fn(() => {
         throw new Error('Test error');
       });
@@ -109,46 +138,13 @@ describe('MessageHandler', () => {
       handler.handle({ action: 'errorAction' }, {}, sendResponse);
 
       await new Promise(resolve => setTimeout(resolve, 10));
+      // 應返回通用訊息，而非原始錯誤訊息，以防止敏感資訊洩漏
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Test error',
+        error: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
+        errorType: 'internal',
+        action: 'errorAction',
       });
-    });
-  });
-
-  describe('devLogSink', () => {
-    it('應該處理 log 級別', () => {
-      const sendResponse = jest.fn();
-      handler.handle(
-        { action: 'devLogSink', level: 'log', message: 'test message', args: ['arg1'] },
-        {},
-        sendResponse
-      );
-
-      expect(mockLogger.log).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
-    });
-
-    it('應該處理 warn 級別', () => {
-      const sendResponse = jest.fn();
-      handler.handle(
-        { action: 'devLogSink', level: 'warn', message: 'warning message' },
-        {},
-        sendResponse
-      );
-
-      expect(mockLogger.warn).toHaveBeenCalled();
-    });
-
-    it('應該處理 error 級別', () => {
-      const sendResponse = jest.fn();
-      handler.handle(
-        { action: 'devLogSink', level: 'error', message: 'error message' },
-        {},
-        sendResponse
-      );
-
-      expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 

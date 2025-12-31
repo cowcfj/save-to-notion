@@ -1,10 +1,10 @@
 /**
  * PageContentService 單元測試
  */
-const {
+import {
   PageContentService,
   CONTENT_EXTRACTION_SCRIPTS,
-} = require('../../../../scripts/background/services/PageContentService.js');
+} from '../../../../scripts/background/services/PageContentService.js';
 
 describe('PageContentService', () => {
   let mockInjectionService = null;

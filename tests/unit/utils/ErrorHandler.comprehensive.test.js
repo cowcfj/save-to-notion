@@ -4,7 +4,13 @@
  */
 /* eslint-env jest */
 
-const { ErrorHandler, ErrorTypes, ErrorSeverity } = require('../../../scripts/utils/ErrorHandler');
+import {
+  ErrorHandler,
+  ErrorTypes,
+  ErrorSeverity,
+  AppError,
+  Errors,
+} from '../../../scripts/utils/ErrorHandler';
 
 describe('ErrorHandler - 測試', () => {
   // 保存原始的 console 方法
@@ -142,12 +148,46 @@ describe('ErrorHandler - 測試', () => {
   });
 
   describe('模塊導出', () => {
-    test('應該正確導出到 module.exports', () => {
-      const exported = require('../../../scripts/utils/ErrorHandler');
+    test('應該正確導出所有類別和常量', () => {
+      expect(ErrorHandler).toBeDefined();
+      expect(ErrorTypes).toBeDefined();
+      expect(ErrorSeverity).toBeDefined();
+      expect(AppError).toBeDefined();
+      expect(Errors).toBeDefined();
+    });
 
-      expect(exported.ErrorHandler).toBeDefined();
-      expect(exported.ErrorTypes).toBeDefined();
-      expect(exported.ErrorSeverity).toBeDefined();
+    test('AppError 應該提供結構化錯誤信息', () => {
+      const error = new AppError(ErrorTypes.NETWORK_ERROR, '網絡錯誤', { url: 'test.com' });
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error.name).toBe('AppError');
+      expect(error.type).toBe(ErrorTypes.NETWORK_ERROR);
+      expect(error.message).toBe('網絡錯誤');
+      expect(error.details).toEqual({ url: 'test.com' });
+      expect(error.timestamp).toBeDefined();
+    });
+
+    test('AppError.toResponse 應該返回標準響應格式', () => {
+      const error = new AppError(ErrorTypes.STORAGE, '存儲錯誤');
+      const response = error.toResponse();
+
+      expect(response).toEqual({
+        success: false,
+        error: '存儲錯誤',
+        errorType: ErrorTypes.STORAGE,
+        details: {},
+      });
+    });
+
+    test('Errors 工廠函數應該創建正確類型的 AppError', () => {
+      expect(Errors.network('msg').type).toBe(ErrorTypes.NETWORK_ERROR);
+      expect(Errors.storage('msg').type).toBe(ErrorTypes.STORAGE);
+      expect(Errors.validation('msg').type).toBe(ErrorTypes.VALIDATION_ERROR);
+      expect(Errors.notionApi('msg').type).toBe(ErrorTypes.NOTION_API);
+      expect(Errors.injection('msg').type).toBe(ErrorTypes.INJECTION);
+      expect(Errors.permission('msg').type).toBe(ErrorTypes.PERMISSION);
+      expect(Errors.internal('msg').type).toBe(ErrorTypes.INTERNAL);
+      expect(Errors.timeout('msg').type).toBe(ErrorTypes.TIMEOUT_ERROR);
     });
   });
 });

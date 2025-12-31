@@ -1,8 +1,8 @@
-const {
+import {
   InjectionService,
   isRestrictedInjectionUrl,
   isRecoverableInjectionError,
-} = require('../../../../scripts/background/services/InjectionService');
+} from '../../../../scripts/background/services/InjectionService.js';
 
 // Mock chrome API
 global.chrome = {

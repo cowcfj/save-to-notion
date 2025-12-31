@@ -279,9 +279,3 @@ export { StorageUtil };
 if (typeof window !== 'undefined') {
   window.StorageUtil = StorageUtil;
 }
-
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { StorageUtil };
-}
-// TEST_EXPOSURE_END

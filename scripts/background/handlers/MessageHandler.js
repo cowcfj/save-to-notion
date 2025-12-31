@@ -3,13 +3,16 @@
  *
  * 職責：統一處理來自 popup/content script 的消息
  * - 按 action 分派到對應的處理函數
- * - 統一錯誤處理
+ * - 統一錯誤處理（支持結構化的 AppError）
  * - 支持異步響應
  *
  * @module handlers/MessageHandler
  */
 
 /* global chrome */
+
+import { AppError, ErrorTypes } from '../../utils/ErrorHandler.js';
+import { sanitizeApiError } from '../../utils/securityUtils.js';
 
 /**
  * MessageHandler 類
@@ -55,6 +58,31 @@ class MessageHandler {
   }
 
   /**
+   * 格式化錯誤響應
+   * 支持結構化的 AppError 和普通 Error
+   * 注意：為防止敏感資訊洩漏，非 AppError 類型的錯誤會返回通用訊息
+   * @param {Error} error - 錯誤對象
+   * @param {string} action - 動作名稱
+   * @returns {Object} 格式化的錯誤響應
+   * @private
+   */
+  static _formatError(error, action) {
+    if (error instanceof AppError) {
+      // AppError 的訊息由開發者控制，視為安全
+      return error.toResponse();
+    }
+
+    // 對於非 AppError：使用 securityUtils 進行訊息消毒
+    // 完整錯誤細節已由調用方（handle 方法）記錄到日誌
+    return {
+      success: false,
+      error: sanitizeApiError(error, action),
+      errorType: ErrorTypes.INTERNAL,
+      action,
+    };
+  }
+
+  /**
    * 處理消息
    * @param {Object} request - 請求對象
    * @param {Object} sender - 發送者信息
@@ -67,12 +95,6 @@ class MessageHandler {
     try {
       // 檢查是否有對應的處理函數
       if (!this.handlers.has(action)) {
-        // 特殊處理：devLogSink 直接處理
-        if (action === 'devLogSink') {
-          this._handleDevLog(request, sendResponse);
-          return true;
-        }
-
         sendResponse({ success: false, error: `Unknown action: ${action}` });
         return true;
       }
@@ -81,9 +103,10 @@ class MessageHandler {
 
       // 執行處理函數，支持 Promise
       Promise.resolve(handler(request, sender, sendResponse)).catch(error => {
+        const errorResponse = MessageHandler._formatError(error, action);
         this.logger.error?.(`Handler error for action '${action}':`, error);
         try {
-          sendResponse({ success: false, error: error.message || 'Handler failed' });
+          sendResponse(errorResponse);
         } catch {
           /* 忽略 sendResponse 錯誤 */
         }
@@ -91,35 +114,10 @@ class MessageHandler {
 
       return true; // 表示異步響應
     } catch (error) {
+      const errorResponse = MessageHandler._formatError(error, action);
       this.logger.error?.('MessageHandler error:', error);
-      sendResponse({ success: false, error: error.message });
+      sendResponse(errorResponse);
       return true;
-    }
-  }
-
-  /**
-   * 處理開發日誌
-   * @private
-   */
-  _handleDevLog(request, sendResponse) {
-    try {
-      const level = request.level || 'log';
-      const message = request.message || '';
-      const args = Array.isArray(request.args) ? request.args : [];
-      const prefix = '[ClientLog]';
-
-      if (level === 'warn') {
-        this.logger.warn?.(prefix, message, ...args);
-      } else if (level === 'error') {
-        this.logger.error?.(prefix, message, ...args);
-      } else if (level === 'info') {
-        this.logger.info?.(`${prefix} ${message}`, ...args);
-      } else {
-        this.logger.log?.(`${prefix} ${message}`, ...args);
-      }
-      sendResponse({ success: true });
-    } catch (error) {
-      sendResponse({ success: false, error: error.message });
     }
   }
 
@@ -146,13 +144,3 @@ class MessageHandler {
 
 // 導出
 export { MessageHandler };
-
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { MessageHandler };
-}
-// TEST_EXPOSURE_END
-
-if (typeof window !== 'undefined') {
-  window.MessageHandler = MessageHandler;
-}

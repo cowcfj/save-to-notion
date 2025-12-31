@@ -2,7 +2,7 @@
  * TabService 單元測試
  */
 
-const { TabService } = require('../../../../scripts/background/services/TabService');
+import { TabService } from '../../../../scripts/background/services/TabService.js';
 
 // Mock chrome API
 global.chrome = {

@@ -2,11 +2,11 @@
  * NotionService 單元測試
  */
 
-const {
+import {
   NotionService,
   fetchWithRetry,
   NOTION_CONFIG,
-} = require('../../../../scripts/background/services/NotionService');
+} from '../../../../scripts/background/services/NotionService.js';
 
 describe('fetchWithRetry', () => {
   let originalFetch = null;
