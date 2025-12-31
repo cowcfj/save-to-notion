@@ -59,6 +59,7 @@ class MessageHandler {
   /**
    * 格式化錯誤響應
    * 支持結構化的 AppError 和普通 Error
+   * 注意：為防止敏感資訊洩漏，非 AppError 類型的錯誤會返回通用訊息
    * @param {Error} error - 錯誤對象
    * @param {string} action - 動作名稱
    * @returns {Object} 格式化的錯誤響應
@@ -66,24 +67,15 @@ class MessageHandler {
    */
   static _formatError(error, action) {
     if (error instanceof AppError) {
+      // AppError 的訊息由開發者控制，視為安全
       return error.toResponse();
     }
 
-    let errorMessage;
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (typeof error === 'object' && error !== null && error.message) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    } else {
-      errorMessage = String(error || 'Unknown error');
-    }
-
-    // 普通錯誤包裝為 INTERNAL 類型
+    // 對於非 AppError：返回通用訊息，防止敏感資訊洩漏
+    // 完整錯誤細節已由調用方（handle 方法）記錄到日誌
     return {
       success: false,
-      error: errorMessage,
+      error: 'An internal error occurred. Please try again.',
       errorType: ErrorTypes.INTERNAL,
       action,
     };

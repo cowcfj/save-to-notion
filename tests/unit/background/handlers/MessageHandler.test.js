@@ -83,7 +83,7 @@ describe('MessageHandler', () => {
       });
     });
 
-    it('應該正確處理字串類型的錯誤', async () => {
+    it('應該正確處理字串類型的錯誤（返回通用訊息以防止洩漏）', async () => {
       const action = 'TEST_STRING_ERROR';
       const errorMessage = 'Something went wrong';
       handler.register(
@@ -101,11 +101,12 @@ describe('MessageHandler', () => {
       // Give a moment for the async error handling to complete
       await new Promise(resolve => setTimeout(resolve, 10));
 
+      // 應返回通用訊息，而非原始錯誤訊息，以防止敏感資訊洩漏
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: errorMessage,
-          errorType: 'internal', // Matching existing errorType format
+          error: 'An internal error occurred. Please try again.',
+          errorType: 'internal',
           action,
         })
       );
@@ -137,9 +138,10 @@ describe('MessageHandler', () => {
       handler.handle({ action: 'errorAction' }, {}, sendResponse);
 
       await new Promise(resolve => setTimeout(resolve, 10));
+      // 應返回通用訊息，而非原始錯誤訊息，以防止敏感資訊洩漏
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
-        error: 'Test error',
+        error: 'An internal error occurred. Please try again.',
         errorType: 'internal',
         action: 'errorAction',
       });
