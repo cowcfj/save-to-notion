@@ -1,5 +1,18 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.23.1](https://github.com/cowcfj/save-to-notion/compare/v2.23.0...v2.23.1) (2025-12-31)
+
+
+### 📝 文檔更新
+
+* 更新 README.md 專案說明。 ([aa3df49](https://github.com/cowcfj/save-to-notion/commit/aa3df49e2a91b5d189829444c202c77d6617ce67))
+
+
+### ♻️ 代碼重構
+
+* 更新技術架構與核心技術說明 ([a950085](https://github.com/cowcfj/save-to-notion/commit/a9500853612127d0c0e1fd26125db9600af72a01))
+* 重構錯誤處理及移除不必要的代碼 ([#222](https://github.com/cowcfj/save-to-notion/issues/222)) ([db20a0b](https://github.com/cowcfj/save-to-notion/commit/db20a0b7ec672e0a7b8834ae7408c08fdacc6876))
+
 ## [2.23.0](https://github.com/cowcfj/save-to-notion/compare/v2.22.0...v2.23.0) (2025-12-30)
 
 
