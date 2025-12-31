@@ -304,12 +304,7 @@ class ImageService {
 // 導出
 export { ImageService, ImageUrlValidationCache };
 
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ImageService, ImageUrlValidationCache };
-}
-// TEST_EXPOSURE_END
-
+// 向後兼容：掛載到 window（用於非模組環境）
 if (typeof window !== 'undefined') {
   window.ImageService = ImageService;
   window.ImageUrlValidationCache = ImageUrlValidationCache;

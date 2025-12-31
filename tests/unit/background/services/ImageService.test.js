@@ -3,10 +3,10 @@
  * 測試 LRU 緩存行為、TTL 過期、驗證委派
  */
 
-const {
+import {
   ImageService,
   ImageUrlValidationCache,
-} = require('../../../../scripts/background/services/ImageService');
+} from '../../../../scripts/background/services/ImageService';
 
 describe('ImageUrlValidationCache', () => {
   let cache = null;

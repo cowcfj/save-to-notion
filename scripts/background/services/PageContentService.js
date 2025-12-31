@@ -172,15 +172,7 @@ class PageContentService {
 // 導出
 export { PageContentService, CONTENT_EXTRACTION_SCRIPTS };
 
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    PageContentService,
-    CONTENT_EXTRACTION_SCRIPTS,
-  };
-}
-// TEST_EXPOSURE_END
-
+// 向後兼容：掛載到 window（用於非模組環境）
 if (typeof window !== 'undefined') {
   window.PageContentService = PageContentService;
   window.CONTENT_EXTRACTION_SCRIPTS = CONTENT_EXTRACTION_SCRIPTS;
