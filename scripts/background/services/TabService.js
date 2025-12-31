@@ -420,5 +420,3 @@ class TabService {
 
 // 導出
 export { TabService };
-
-// 向後兼容：掛載到 window（用於非模組環境）

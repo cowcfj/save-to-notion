@@ -303,5 +303,3 @@ class ImageService {
 
 // 導出
 export { ImageService, ImageUrlValidationCache };
-
-// 向後兼容：掛載到 window（用於非模組環境）

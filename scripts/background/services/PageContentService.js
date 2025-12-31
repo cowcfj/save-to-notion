@@ -171,5 +171,3 @@ class PageContentService {
 
 // 導出
 export { PageContentService, CONTENT_EXTRACTION_SCRIPTS };
-
-// 向後兼容：掛載到 window（用於非模組環境）
