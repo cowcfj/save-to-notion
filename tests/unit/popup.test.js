@@ -36,7 +36,7 @@ describe('popupUI', () => {
     document.body.innerHTML = `
       <div id="status"></div>
       <button id="save-button">Save</button>
-      <button id="highlight-button">Highlight</button>
+      <button id="highlight-button"><span class="btn-text">Highlight</span></button>
       <button id="clear-highlights-button" style="display: none;">Clear</button>
       <button id="open-notion-button" style="display: none;">Open Notion</button>
       <div id="confirmation-modal" style="display: none;">
@@ -100,7 +100,7 @@ describe('popupUI', () => {
 
       updateUIForSavedPage(elements, response);
 
-      expect(elements.highlightButton.textContent).toBe('📝 Start Highlighting');
+      expect(elements.highlightButton.textContent).toBe('Start Highlighting');
       expect(elements.highlightButton.disabled).toBe(false);
       expect(elements.clearHighlightsButton.style.display).toBe('block');
       expect(elements.saveButton.style.display).toBe('none');
@@ -118,7 +118,7 @@ describe('popupUI', () => {
 
       updateUIForUnsavedPage(elements, response);
 
-      expect(elements.highlightButton.textContent).toBe('📝 Save First to Highlight');
+      expect(elements.highlightButton.textContent).toBe('Save First to Highlight');
       expect(elements.highlightButton.disabled).toBe(true);
       expect(elements.clearHighlightsButton.style.display).toBe('none');
       expect(elements.saveButton.style.display).toBe('block');
@@ -195,7 +195,8 @@ describe('popupUI', () => {
         warning: 'Some images filtered',
       };
       const message = formatSaveSuccessMessage(response);
-      expect(message).toContain('⚠️ Some images filtered');
+      expect(message).toContain('Some images filtered');
+      expect(message).toContain('<svg'); // Check for SVG icon usage
     });
   });
 });

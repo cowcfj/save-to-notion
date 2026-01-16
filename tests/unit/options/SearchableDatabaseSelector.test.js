@@ -88,6 +88,24 @@ describe('SearchableDatabaseSelector', () => {
       expect(selector.searchInput.value).toBe('DB One');
       expect(selector.selectedDatabase.id).toBe('db1');
     });
+
+    it('should extract title from properties if top-level title is missing', () => {
+      const complexDb = {
+        id: 'db-complex',
+        object: 'database',
+        // no top-level title array
+        properties: {
+          Name: {
+            type: 'title',
+            title: [{ plain_text: 'Complex Title' }],
+          },
+          Tags: { type: 'multi_select' },
+        },
+      };
+
+      selector.populateDatabases([complexDb]);
+      expect(selector.databases[0].title).toBe('Complex Title');
+    });
   });
 
   describe('filterDatabases', () => {
@@ -161,6 +179,24 @@ describe('SearchableDatabaseSelector', () => {
 
       selector.refreshButton.click();
       expect(mockLoadDatabases).toHaveBeenCalledWith('secret_123');
+    });
+  });
+
+  describe('Static Helpers', () => {
+    describe('formatDate', () => {
+      it('should return empty string for invalid date', () => {
+        const result = SearchableDatabaseSelector.formatDate('invalid-date-string');
+        // new Date('invalid') is "Invalid Date", toLocaleDateString might behave differently or throw depending on environment
+        // The implementation has a try-catch, so we expect empty string or fallback in case of error.
+        // If new Date('invalid') results in "Invalid Date" object, toLocaleDateString throws RangeError.
+        expect(result).toBe('');
+      });
+
+      it('should format valid date', () => {
+        // Mock locale if necessary or check loosely
+        const result = SearchableDatabaseSelector.formatDate('2023-01-01T12:00:00Z');
+        expect(result).toContain('2023');
+      });
     });
   });
 });

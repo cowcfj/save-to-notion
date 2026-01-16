@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-/* global document */
+/* global document, chrome */
 import { AuthManager } from '../../../scripts/options/AuthManager.js';
 import { UIManager } from '../../../scripts/options/UIManager.js';
 
@@ -249,6 +249,18 @@ describe('AuthManager Extended', () => {
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(expect.any(String), 'error');
     });
+
+    test('當 loadDatabases 不返回 Promise 時應處理按鈕狀態', () => {
+      document.getElementById('api-key').value = 'secret_test_long_enough_12345';
+      // Mock return non-promise
+      mockLoadDatabases.mockReturnValueOnce();
+
+      authManager.testApiKey();
+
+      const btn = document.getElementById('test-api-button');
+      expect(btn.disabled).toBe(false);
+      expect(btn.textContent).toBe('測試 API Key');
+    });
   });
 
   describe('checkAuthStatus', () => {
@@ -279,6 +291,17 @@ describe('AuthManager Extended', () => {
       await authManager.disconnectFromNotion();
 
       expect(document.getElementById('api-key').value).toBe('');
+    });
+
+    test('斷開連接失敗應處理錯誤', async () => {
+      chrome.storage.sync.remove.mockRejectedValueOnce(new Error('Storage failure'));
+
+      await authManager.disconnectFromNotion();
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('斷開連接失敗'),
+        'error'
+      );
     });
   });
 });

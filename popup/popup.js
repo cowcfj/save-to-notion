@@ -30,7 +30,8 @@ import {
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
+// Export initialization function for testing
+export async function initPopup() {
   // 獲取所有 DOM 元素
   const elements = getElements();
 
@@ -156,6 +157,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     showModal(elements, '確定要清除頁面上的所有標記嗎？這個操作無法撤銷。');
   });
 
+  // Modal Overlay 點擊關閉 (Click to close)
+  if (elements.modal) {
+    elements.modal.addEventListener('click', event => {
+      // 確保只在點擊 overlay 本身時關閉，而不是點擊內容時
+      if (event.target === elements.modal) {
+        hideModal(elements);
+      }
+    });
+  }
+
   // Modal 取消按鈕
   elements.modalCancel.addEventListener('click', () => {
     hideModal(elements);
@@ -188,4 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.error('Error:', result.error);
     }
   });
-});
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', initPopup);

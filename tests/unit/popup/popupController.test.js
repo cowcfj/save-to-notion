@@ -1,0 +1,249 @@
+/**
+ * Popup Controller 測試
+ *
+ * 測試 popup/popup.js 的初始化和事件協調邏輯
+ */
+
+import { initPopup } from '../../../popup/popup.js';
+import {
+  getElements,
+  updateUIForSavedPage,
+  setStatus,
+  setButtonState,
+  formatSaveSuccessMessage,
+  showModal,
+  hideModal,
+} from '../../../popup/popupUI.js';
+import {
+  checkSettings,
+  checkPageStatus,
+  savePage,
+  startHighlight,
+  openNotionPage,
+  getActiveTab,
+  clearHighlights,
+} from '../../../popup/popupActions.js';
+import Logger from '../../../scripts/utils/Logger.js';
+
+// Mock dependencies
+jest.mock('../../../popup/popupUI.js');
+jest.mock('../../../popup/popupActions.js');
+jest.mock('../../../scripts/utils/Logger.js');
+
+describe('popup.js Controller', () => {
+  const setup = () => {
+    const mockElements = {
+      saveButton: { addEventListener: jest.fn(), style: {} },
+      highlightButton: { addEventListener: jest.fn(), style: {} },
+      clearHighlightsButton: { addEventListener: jest.fn(), style: {} },
+      openNotionButton: { addEventListener: jest.fn(), getAttribute: jest.fn(), style: {} },
+      status: { textContent: '', style: {} },
+      modal: { addEventListener: jest.fn(), style: {} },
+      modalMessage: { textContent: '' },
+      modalConfirm: { addEventListener: jest.fn() },
+      modalCancel: { addEventListener: jest.fn() },
+    };
+
+    getElements.mockReturnValue(mockElements);
+
+    // Default mocks
+    checkSettings.mockResolvedValue({ valid: true });
+    checkPageStatus.mockResolvedValue({ success: true, isSaved: true });
+
+    // Mock global chrome
+    global.chrome = {
+      tabs: {
+        query: jest.fn().mockResolvedValue([{ id: 123, url: 'http://example.com' }]),
+        sendMessage: jest.fn().mockResolvedValue({}),
+      },
+    };
+    global.window.close = jest.fn();
+
+    return { mockElements };
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should initialize successfully with valid settings and saved page', async () => {
+    const { mockElements } = setup();
+    await initPopup();
+
+    expect(getElements).toHaveBeenCalled();
+    expect(checkSettings).toHaveBeenCalled();
+    expect(checkPageStatus).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, expect.anything());
+  });
+
+  it('should handle missing settings', async () => {
+    const { mockElements } = setup();
+    checkSettings.mockResolvedValue({ valid: false });
+
+    await initPopup();
+
+    expect(setStatus).toHaveBeenCalledWith(
+      mockElements,
+      expect.stringContaining('Please set API Key')
+    );
+    expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
+    expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
+  });
+
+  it('should handle initialization error', async () => {
+    setup();
+    checkPageStatus.mockRejectedValue(new Error('Init failed'));
+
+    await initPopup();
+
+    expect(Logger.error).toHaveBeenCalled();
+    expect(setStatus).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('Error initializing'),
+      expect.anything()
+    );
+  });
+
+  it('should setup event listeners', async () => {
+    const { mockElements } = setup();
+    await initPopup();
+
+    expect(mockElements.saveButton.addEventListener).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function)
+    );
+    expect(mockElements.highlightButton.addEventListener).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function)
+    );
+    expect(mockElements.openNotionButton.addEventListener).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function)
+    );
+    expect(mockElements.clearHighlightsButton.addEventListener).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function)
+    );
+  });
+
+  describe('Event Handlers', () => {
+    // Helper to trigger event
+    async function triggerEvent(element, eventType = 'click') {
+      const handler = element.addEventListener.mock.calls.find(call => call[0] === eventType)[1];
+      await handler({ target: element });
+    }
+
+    it('saveButton click should save page', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+
+      savePage.mockResolvedValue({ success: true, url: 'http://notion.so/page' });
+
+      await triggerEvent(mockElements.saveButton);
+
+      expect(setStatus).toHaveBeenCalledWith(mockElements, 'Saving...');
+      expect(savePage).toHaveBeenCalled();
+      expect(formatSaveSuccessMessage).toHaveBeenCalled();
+      expect(updateUIForSavedPage).toHaveBeenCalled();
+    });
+
+    it('saveButton click failure should show error', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+
+      savePage.mockResolvedValue({ success: false, error: 'Save failed' });
+
+      await triggerEvent(mockElements.saveButton);
+
+      expect(setStatus).toHaveBeenCalledWith(
+        mockElements,
+        expect.stringContaining('Failed to save')
+      );
+    });
+
+    it('highlightButton click should start highlight if saved', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      checkPageStatus.mockResolvedValue({ isSaved: true });
+      startHighlight.mockResolvedValue({ success: true });
+
+      await triggerEvent(mockElements.highlightButton);
+
+      expect(setStatus).toHaveBeenCalledWith(
+        mockElements,
+        expect.stringContaining('Starting highlight')
+      );
+      expect(startHighlight).toHaveBeenCalled();
+    });
+
+    it('highlightButton click should warn if not saved', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      checkPageStatus.mockResolvedValue({ isSaved: false });
+
+      await triggerEvent(mockElements.highlightButton);
+
+      // The actual message is "Please save the page first!"
+      expect(setStatus).toHaveBeenCalledWith(
+        mockElements,
+        expect.stringContaining('Please save the page first'),
+        expect.anything()
+      );
+    });
+
+    it('openNotionButton click should open notion page', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      mockElements.openNotionButton.getAttribute.mockReturnValue('http://notion.so/new');
+      openNotionPage.mockResolvedValue({ success: true });
+
+      await triggerEvent(mockElements.openNotionButton);
+
+      expect(openNotionPage).toHaveBeenCalledWith('http://notion.so/new');
+    });
+
+    it('clearHighlightsButton click should show modal', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      await triggerEvent(mockElements.clearHighlightsButton);
+      expect(showModal).toHaveBeenCalled();
+    });
+
+    it('modal cancel should hide modal', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      await triggerEvent(mockElements.modalCancel);
+      expect(hideModal).toHaveBeenCalled();
+    });
+
+    it('modal confirm should clear highlights', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+      getActiveTab.mockResolvedValue({ id: 123, url: 'http://page.com' });
+      clearHighlights.mockResolvedValue({ success: true, clearedCount: 5 });
+
+      await triggerEvent(mockElements.modalConfirm);
+
+      expect(hideModal).toHaveBeenCalled();
+      expect(setStatus).toHaveBeenCalledWith(mockElements, 'Clearing highlights...');
+      expect(clearHighlights).toHaveBeenCalledWith(123, 'http://page.com');
+      expect(setStatus).toHaveBeenCalledWith(
+        mockElements,
+        expect.stringContaining('Cleared 5 highlights')
+      );
+    });
+
+    it('modal overlay click should close modal', async () => {
+      const { mockElements } = setup();
+      await initPopup();
+
+      // Trigger click on modal element itself
+      const handler = mockElements.modal.addEventListener.mock.calls.find(
+        call => call[0] === 'click'
+      )[1];
+      await handler({ target: mockElements.modal }); // Click on overlay
+
+      expect(hideModal).toHaveBeenCalled();
+    });
+  });
+});

@@ -8,5 +8,7 @@
   "arrowParens": "avoid",
   "endOfLine": "lf",
   "bracketSpacing": true,
-  "quoteProps": "as-needed"
+  "quoteProps": "as-needed",
+  "htmlWhitespaceSensitivity": "strict",
+  "bracketSameLine": false
 }

@@ -76,4 +76,82 @@ describe('UIManager', () => {
     banner = document.querySelector('.upgrade-notice');
     expect(banner).toBeFalsy();
   });
+
+  describe('SVG Security Validation', () => {
+    test('should accept safe SVG content', () => {
+      const safeSvg = '<svg width="16" height="16"><circle cx="8" cy="8" r="8"/></svg>';
+      uiManager.showStatus(`${safeSvg}安全的 SVG 圖標`, 'info');
+
+      const iconSpan = mockStatus.querySelector('.status-icon');
+      const textSpan = mockStatus.querySelector('.status-text');
+
+      expect(iconSpan).toBeTruthy();
+      expect(iconSpan.innerHTML).toContain('<svg');
+      expect(textSpan.textContent).toBe('安全的 SVG 圖標');
+    });
+
+    test('should reject SVG with script tags', () => {
+      const maliciousSvg = '<svg><script>alert("XSS")</script><circle cx="8" cy="8" r="8"/></svg>';
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      uiManager.showStatus(`${maliciousSvg}惡意 SVG`, 'info');
+
+      const iconSpan = mockStatus.querySelector('.status-icon');
+      const textSpan = mockStatus.querySelector('.status-text');
+
+      // 圖標應該被拒絕（不存在或為空）
+      expect(iconSpan).toBeFalsy();
+      expect(textSpan.textContent).toBe('惡意 SVG');
+      // Logger.warn 會添加時間戳前綴，檢查第二個參數包含 [Security]
+      expect(consoleWarnSpy).toHaveBeenCalled();
+      const warnCall = consoleWarnSpy.mock.calls[0];
+      expect(warnCall[1]).toContain('[Security]');
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    test('should reject SVG with javascript: protocol', () => {
+      const maliciousSvg = '<svg><a href="javascript:alert(1)"><circle/></a></svg>';
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      uiManager.showStatus(`${maliciousSvg}惡意連結`, 'info');
+
+      const iconSpan = mockStatus.querySelector('.status-icon');
+      expect(iconSpan).toBeFalsy();
+      expect(consoleWarnSpy).toHaveBeenCalled();
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    test('should reject SVG with event handlers', () => {
+      const maliciousSvg = '<svg><circle onload="alert(1)" cx="8" cy="8" r="8"/></svg>';
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      uiManager.showStatus(`${maliciousSvg}惡意事件`, 'info');
+
+      const iconSpan = mockStatus.querySelector('.status-icon');
+      expect(iconSpan).toBeFalsy();
+      expect(consoleWarnSpy).toHaveBeenCalled();
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    test('should handle object format with icon and text', () => {
+      const safeSvg = '<svg width="16" height="16"><path d="M5 13l4 4L19 7"/></svg>';
+      uiManager.showStatus(
+        {
+          icon: safeSvg,
+          text: '使用對象格式',
+        },
+        'success'
+      );
+
+      const iconSpan = mockStatus.querySelector('.status-icon');
+      const textSpan = mockStatus.querySelector('.status-text');
+
+      expect(iconSpan).toBeTruthy();
+      expect(iconSpan.innerHTML).toContain('<svg');
+      expect(textSpan.textContent).toBe('使用對象格式');
+    });
+  });
 });

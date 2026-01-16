@@ -15,6 +15,8 @@ import {
   sanitizeUrlForLogging,
   maskSensitiveString,
   sanitizeApiError,
+  validateSafeSvg,
+  separateIconAndText,
 } from '../../../scripts/utils/securityUtils.js';
 
 describe('securityUtils', () => {
@@ -351,6 +353,283 @@ describe('securityUtils', () => {
       test('空錯誤應返回通用訊息', () => {
         const result = sanitizeApiError({});
         expect(result).toBe('操作失敗，請稍後再試。如問題持續，請查看擴充功能設置');
+      });
+    });
+  });
+
+  describe('validateSafeSvg', () => {
+    describe('安全的 SVG', () => {
+      test('基本的安全 SVG 應通過驗證', () => {
+        const safeSvg = '<svg width="16" height="16"><circle cx="8" cy="8" r="8"/></svg>';
+        expect(validateSafeSvg(safeSvg)).toBe(true);
+      });
+
+      test('包含多個元素的 SVG 應通過驗證', () => {
+        const safeSvg =
+          '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/><circle cx="12" cy="12" r="10"/></svg>';
+        expect(validateSafeSvg(safeSvg)).toBe(true);
+      });
+
+      test('包含安全屬性的 SVG 應通過驗證', () => {
+        const safeSvg =
+          '<svg width="16" height="16" fill="none" stroke="currentColor"><rect x="0" y="0" width="16" height="16"/></svg>';
+        expect(validateSafeSvg(safeSvg)).toBe(true);
+      });
+
+      test('包含漸變的 SVG 應通過驗證', () => {
+        const safeSvg =
+          '<svg><defs><linearGradient id="grad"><stop offset="0%"/><stop offset="100%"/></linearGradient></defs><circle fill="url(#grad)"/></svg>';
+        expect(validateSafeSvg(safeSvg)).toBe(true);
+      });
+    });
+
+    describe('格式完整性驗證', () => {
+      test('缺少結束標籤的 SVG 應被拒絕', () => {
+        const incompleteSvg = '<svg width="16" height="16"><circle cx="8" cy="8" r="8"/>';
+        expect(validateSafeSvg(incompleteSvg)).toBe(false);
+      });
+
+      test('只有開始標籤的 SVG 應被拒絕', () => {
+        const incompleteSvg = '<svg width="16" height="16">';
+        expect(validateSafeSvg(incompleteSvg)).toBe(false);
+      });
+
+      test('結束標籤寫錯的 SVG 應被拒絕', () => {
+        const invalidSvg = '<svg width="16" height="16"></svgg>';
+        expect(validateSafeSvg(invalidSvg)).toBe(false);
+      });
+    });
+
+    describe('危險模式偵測', () => {
+      test('包含 <script> 標籤的 SVG 應被拒絕', () => {
+        const dangerousSvg = '<svg><script>alert("XSS")</script></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 javascript: 協議的 SVG 應被拒絕', () => {
+        const dangerousSvg =
+          '<svg><a href="javascript:alert(\'XSS\')"><text>Click</text></a></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 onerror 事件的 SVG 應被拒絕', () => {
+        const dangerousSvg = '<svg><image href="invalid.jpg" onerror="alert(\'XSS\')"/></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 onload 事件的 SVG 應被拒絕', () => {
+        const dangerousSvg = '<svg onload="alert(\'XSS\')"><circle/></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 onclick 事件的 SVG 應被拒絕', () => {
+        const dangerousSvg = '<svg><rect onclick="alert(\'XSS\')" /></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 onanimationstart 事件的 SVG 應被拒絕', () => {
+        const dangerousSvg = '<svg><circle onanimationstart="alert(\'XSS\')"/></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 <embed> 標籤的 SVG 應被拒絕', () => {
+        const dangerousSvg = '<svg><embed src="malicious.swf"/></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 <object> 標籤的 SVG 應被拒絕', () => {
+        const dangerousSvg = '<svg><object data="malicious.html"/></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 <iframe> 標籤的 SVG 應被拒絕', () => {
+        const dangerousSvg = '<svg><iframe src="http://evil.com"/></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 <foreignObject> 標籤的 SVG 應被拒絕', () => {
+        const dangerousSvg =
+          '<svg><foreignObject><body onload="alert(\'XSS\')"/></foreignObject></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('包含 data:text/html 協議的 SVG 應被拒絕', () => {
+        const dangerousSvg =
+          '<svg><image href="data:text/html,<script>alert(\'XSS\')</script>"/></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+    });
+
+    describe('白名單機制', () => {
+      test('包含未在白名單中的標籤應被拒絕', () => {
+        const invalidSvg = '<svg><video src="malicious.mp4"/></svg>';
+        expect(validateSafeSvg(invalidSvg)).toBe(false);
+      });
+
+      test('包含 <div> 標籤的 SVG 應被拒絕', () => {
+        const invalidSvg = '<svg><div>Content</div></svg>';
+        expect(validateSafeSvg(invalidSvg)).toBe(false);
+      });
+
+      test('包含 <style> 標籤的 SVG 應被拒絕（不在白名單）', () => {
+        const invalidSvg = '<svg><style>circle { fill: red; }</style><circle/></svg>';
+        expect(validateSafeSvg(invalidSvg)).toBe(false);
+      });
+
+      test('所有白名單標籤都應被接受', () => {
+        const validTags = [
+          'path',
+          'circle',
+          'rect',
+          'line',
+          'polyline',
+          'polygon',
+          'ellipse',
+          'g',
+          'defs',
+          'use',
+          'symbol',
+          'linearGradient',
+          'radialGradient',
+        ];
+
+        validTags.forEach(tag => {
+          const svg = `<svg><${tag}/></svg>`;
+          expect(validateSafeSvg(svg)).toBe(true);
+        });
+      });
+    });
+
+    describe('邊界情況', () => {
+      test('空字串應返回 true（視為安全）', () => {
+        expect(validateSafeSvg('')).toBe(true);
+      });
+
+      test('null 應返回 true', () => {
+        expect(validateSafeSvg(null)).toBe(true);
+      });
+
+      test('undefined 應返回 true', () => {
+        expect(validateSafeSvg()).toBe(true);
+      });
+
+      test('非 SVG 內容應返回 true（不在驗證範圍）', () => {
+        expect(validateSafeSvg('普通文本')).toBe(true);
+        expect(validateSafeSvg('✅ 成功')).toBe(true);
+      });
+
+      test('帶有空白前後綴的 SVG 應正確驗證', () => {
+        const svgWithWhitespace = '  <svg><circle/></svg>  ';
+        expect(validateSafeSvg(svgWithWhitespace)).toBe(true);
+      });
+
+      test('大小寫混合的危險標籤應被檢測', () => {
+        const dangerousSvg = '<svg><SCRIPT>alert("XSS")</SCRIPT></svg>';
+        expect(validateSafeSvg(dangerousSvg)).toBe(false);
+      });
+
+      test('複雜嵌套的安全 SVG 應通過驗證', () => {
+        const complexSvg = '<svg><g><g><circle/></g><rect/></g></svg>';
+        expect(validateSafeSvg(complexSvg)).toBe(true);
+      });
+    });
+  });
+
+  describe('separateIconAndText', () => {
+    describe('SVG 圖標分離', () => {
+      test('應正確分離 SVG 圖標和文本', () => {
+        const message = '<svg width="16" height="16"></svg> 操作成功';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('<svg width="16" height="16"></svg>');
+        expect(result.text).toBe(' 操作成功');
+      });
+
+      test('應處理複雜的 SVG 標籤', () => {
+        const svgIcon = '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/></svg>';
+        const message = `${svgIcon}載入中...`;
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe(svgIcon);
+        expect(result.text).toBe('載入中...');
+      });
+
+      test('應處理包含屬性的 SVG', () => {
+        const message = '<svg width="16" height="16" fill="none" stroke="currentColor"></svg>完成';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe(
+          '<svg width="16" height="16" fill="none" stroke="currentColor"></svg>'
+        );
+        expect(result.text).toBe('完成');
+      });
+    });
+
+    describe('Emoji 圖標分離', () => {
+      test('應正確分離 Emoji 圖標和文本', () => {
+        const message = '✅ 操作成功';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('✅');
+        expect(result.text).toBe(' 操作成功');
+      });
+
+      test('應處理其他 Emoji', () => {
+        const message = '❌ 操作失敗';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('❌');
+        expect(result.text).toBe(' 操作失敗');
+      });
+
+      test('應處理表情符號', () => {
+        const message = '🎉 慶祝成功';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('🎉');
+        expect(result.text).toBe(' 慶祝成功');
+      });
+    });
+
+    describe('純文本消息', () => {
+      test('應正確處理不含圖標的純文本', () => {
+        const message = '這是純文本消息';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('這是純文本消息');
+      });
+
+      test('應處理中間包含 SVG 文本的消息（不應分離）', () => {
+        const message = '文本 <svg> 標籤';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('文本 <svg> 標籤');
+      });
+    });
+
+    describe('邊界情況', () => {
+      test('空字串應返回空結果', () => {
+        const result = separateIconAndText('');
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('');
+      });
+
+      test('null 應返回空結果', () => {
+        const result = separateIconAndText(null);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('');
+      });
+
+      test('undefined 應返回空結果', () => {
+        const result = separateIconAndText();
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('');
+      });
+
+      test('只有圖標無文本應正確處理', () => {
+        const result = separateIconAndText('✅');
+        expect(result.icon).toBe('✅');
+        expect(result.text).toBe('');
+      });
+
+      test('只有 SVG 無文本應正確處理', () => {
+        const result = separateIconAndText('<svg></svg>');
+        expect(result.icon).toBe('<svg></svg>');
+        expect(result.text).toBe('');
       });
     });
   });

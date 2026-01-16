@@ -62,6 +62,26 @@ export function setButtonState(button, disabled) {
 }
 
 /**
+ * 設置按鈕文字的輔助函數
+ * 優先使用 .btn-text 元素，若不存在則直接設置 button.textContent
+ * @param {HTMLButtonElement} button - 按鈕元素
+ * @param {string} text - 要設置的文字
+ */
+export function setButtonText(button, text) {
+  if (!button) {
+    return;
+  }
+  /* 優先使用 .btn-text 元素，若不存在則直接設置 button.textContent */
+  const textSpan = button.querySelector('.btn-text');
+  if (textSpan) {
+    textSpan.textContent = text;
+  } else {
+    // 備用方案：直接設置按鈕文字
+    button.textContent = text;
+  }
+}
+
+/**
  * 更新 UI 為「已保存」狀態
  * @param {PopupElements} elements - DOM 元素集合
  * @param {Object} response - 頁面狀態響應
@@ -70,7 +90,7 @@ export function setButtonState(button, disabled) {
 export function updateUIForSavedPage(elements, response) {
   // 啟用標記按鈕
   if (elements.highlightButton) {
-    elements.highlightButton.textContent = '📝 Start Highlighting';
+    setButtonText(elements.highlightButton, 'Start Highlighting');
     elements.highlightButton.disabled = false;
   }
 
@@ -103,7 +123,7 @@ export function updateUIForSavedPage(elements, response) {
 export function updateUIForUnsavedPage(elements, response) {
   // 禁用標記按鈕
   if (elements.highlightButton) {
-    elements.highlightButton.textContent = '📝 Save First to Highlight';
+    setButtonText(elements.highlightButton, 'Save First to Highlight');
     elements.highlightButton.disabled = true;
   }
 
@@ -197,7 +217,9 @@ export function formatSaveSuccessMessage(response) {
     details = countsDetails;
 
     if (response.warning) {
-      details += ` ⚠️ ${response.warning}`;
+      const warnIcon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+      details += ` ${warnIcon} ${response.warning}`;
     }
   }
 

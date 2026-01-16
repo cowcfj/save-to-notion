@@ -314,3 +314,193 @@ export function validatePreloaderCache(cache) {
   // 使用 Number.isFinite 比 !isNaN 更嚴格，排除 Infinity
   return typeof cache.timestamp === 'number' && Number.isFinite(cache.timestamp);
 }
+
+/**
+ * 驗證 SVG 內容是否安全（防止 XSS 攻擊）
+ *
+ * 安全考量：
+ * - 即使在預期只接收內部生成的 SVG 的情況下，仍應驗證內容
+ * - 作為縱深防禦（Defense in Depth）的一環
+ * - 防止意外引入外部或未清理的 SVG 內容
+ *
+ * 驗證策略：
+ * 1. 格式完整性：必須以 <svg 開頭且以 </svg> 結尾
+ * 2. 危險模式偵測：拒絕包含可執行代碼的 SVG
+ * 3. 白名單機制：只允許已知安全的 SVG 屬性和標籤
+ *
+ * @param {string} svgContent - SVG 字串內容
+ * @returns {boolean} 是否為安全的 SVG（true = 安全，false = 包含危險內容）
+ *
+ * @example
+ * // 安全的 SVG
+ * validateSafeSvg('<svg width="16" height="16"><circle cx="8" cy="8" r="8"/></svg>')
+ * // 返回: true
+ *
+ * @example
+ * // 危險的 SVG（包含 script）
+ * validateSafeSvg('<svg><script>alert("XSS")</script></svg>')
+ * // 返回: false
+ *
+ * @example
+ * // 格式不完整的 SVG（缺少結束標籤）
+ * validateSafeSvg('<svg width="16" height="16"><circle/>')
+ * // 返回: false
+ */
+export function validateSafeSvg(svgContent) {
+  if (!svgContent || typeof svgContent !== 'string') {
+    return true; // 空內容視為安全（會被忽略）
+  }
+
+  const trimmedContent = svgContent.trim();
+
+  // 只驗證 SVG 標籤
+  if (!trimmedContent.startsWith('<svg')) {
+    return true; // 非 SVG 內容不在此函數驗證範圍
+  }
+
+  // ============================================================================
+  // 防禦性檢查 1：格式完整性驗證
+  // ============================================================================
+  // 審核建議：驗證 SVG 是否真的以 <svg 開頭且以 </svg> 結尾
+  if (!trimmedContent.endsWith('</svg>')) {
+    Logger.warn('[Security] SVG 格式不完整（缺少結束標籤），已拒絕', svgContent);
+    return false;
+  }
+
+  // ============================================================================
+  // 防禦性檢查 2：危險模式偵測（擴展清單）
+  // ============================================================================
+  // 危險模式列表（擴展版）：
+  // - <script> 標籤：可執行 JavaScript
+  // - <embed>, <object>, <iframe>：可嵌入外部資源
+  // - javascript: 協議：可在事件或連結中執行 JavaScript
+  // - data: 協議：可能包含 base64 編碼的惡意代碼
+  // - on* 事件處理器：
+  //   - onclick, onload, onerror, onmouseover（常見）
+  //   - onanimationstart, onanimationend（CSS 動畫觸發）
+  //   - ontransitionend（CSS 過渡觸發）
+  //   - onfocus, onblur（焦點事件）
+  // - <foreignObject>：可嵌入 HTML 內容（潛在風險）
+  const dangerousPatterns =
+    /<script|<embed|<object|<iframe|<foreignObject|javascript:|data:text\/html|onerror|onload|onclick|onmouseover|onfocus|onblur|onanimationstart|onanimationend|ontransitionend/i;
+
+  const hasDangerousContent = dangerousPatterns.test(svgContent);
+
+  if (hasDangerousContent) {
+    Logger.warn('[Security] 偵測到可疑的 SVG 內容（包含危險模式），已拒絕', svgContent);
+    return false;
+  }
+
+  // ============================================================================
+  // 防禦性檢查 3：白名單機制（基礎實現）
+  // ============================================================================
+  // 允許的 SVG 標籤（常見且安全的圖形元素）
+  // 注意：這是基礎白名單，可根據實際需求擴展
+  const allowedTags = [
+    'svg',
+    'path',
+    'circle',
+    'rect',
+    'line',
+    'polyline',
+    'polygon',
+    'ellipse',
+    'g',
+    'defs',
+    'use',
+    'symbol',
+    'title',
+    'desc',
+    'lineargradient', // 注意：轉為小寫比較
+    'radialgradient',
+    'stop',
+    'clippath',
+    'mask',
+    'pattern',
+    'text',
+    'tspan',
+    'image', // 允許圖片（但已在危險模式中檢查 data: 協議）
+    'a', // 允許連結（但已在危險模式中檢查 javascript: 協議）
+  ];
+
+  // 提取所有標籤名稱（簡化驗證，不使用完整 XML 解析器）
+  // 正則說明：匹配 <tagname 或 </tagname 格式，支援駝峰命名
+  const tagPattern = /<\/?([a-z][a-z0-9]*)/gi;
+  const foundTags = new Set();
+  let match = null;
+
+  while ((match = tagPattern.exec(svgContent)) !== null) {
+    foundTags.add(match[1].toLowerCase()); // 轉為小寫進行比較
+  }
+
+  // 檢查是否所有標籤都在白名單中
+  for (const tag of foundTags) {
+    if (!allowedTags.includes(tag)) {
+      Logger.warn(`[Security] SVG 包含未在白名單中的標籤 <${tag}>,已拒絕`, svgContent);
+      return false;
+    }
+  }
+
+  // 通過所有安全檢查
+  return true;
+}
+
+/**
+ * 從消息字串中分離圖標（Emoji 或 SVG）和純文本內容
+ *
+ * 此函數統一處理 UIManager 和 StorageManager 中的圖標分離邏輯，
+ * 避免重複維護相同的正則表達式模式。
+ *
+ * 支持的圖標格式：
+ * - Unicode Emoji（範圍：U+1F300 to U+1F9FF）
+ * - SVG 標籤（格式：<svg...>...</svg>）
+ *
+ * @param {string} message - 原始消息字串（可能包含圖標前綴）
+ * @returns {{icon: string, text: string}} 分離後的圖標和文本
+ *
+ * @example
+ * // SVG 圖標 + 文本
+ * separateIconAndText('<svg>...</svg> 操作成功')
+ * // 返回: {icon: '<svg>...</svg>', text: ' 操作成功'}
+ *
+ * @example
+ * // Emoji 圖標 + 文本
+ * separateIconAndText('✅ 操作成功')
+ * // 返回: {icon: '✅', text: ' 操作成功'}
+ *
+ * @example
+ * // 純文本（無圖標）
+ * separateIconAndText('操作成功')
+ * // 返回: {icon: '', text: '操作成功'}
+ */
+export function separateIconAndText(message) {
+  if (!message || typeof message !== 'string') {
+    return { icon: '', text: '' };
+  }
+
+  // 升級版正則表達式，支持現代 Emoji 序列（膚色、ZWJ、旗幟等）：
+  // 1. SVG 標籤：<svg...>...</svg>
+  // 2. Emoji 序列：
+  //    - 旗幟 (Regional Indicators): \p{RI}\p{RI}
+  //    - 複雜 Emoji 序列 (含 ZWJ, 膚色修飾符, 變體選擇符): \p{Emoji}(...)*
+  // 使用 'u' 標誌啟用 Unicode 屬性轉義
+  // Note: Removed (.*) group to prevent ReDoS by avoiding backtracking interaction between emoji quantifier and catch-all.
+  const iconPattern =
+    /^(?:<svg[^>]*>.*?<\/svg>|(?:\p{RI}\p{RI}|\p{Emoji}(?:\p{Emoji_Modifier}|\u{FE0F}|\u{200D}\p{Emoji})*))/su;
+
+  const match = message.match(iconPattern);
+
+  if (match) {
+    const icon = match[0];
+    return {
+      icon,
+      text: message.slice(icon.length),
+    };
+  }
+
+  // 無匹配：視為純文本消息
+  return {
+    icon: '',
+    text: message,
+  };
+}

@@ -80,7 +80,7 @@ describe('StorageManager', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('init', () => {
@@ -96,6 +96,17 @@ describe('StorageManager', () => {
       // But verify listeners are attached by spy or interaction
       // Just basic check that init calls updateStorageUsage
       expect(mockGet).toHaveBeenCalled();
+    });
+
+    it('should trigger checkDataIntegrity when check button is clicked', () => {
+      const checkSpy = jest
+        .spyOn(storageManager, 'checkDataIntegrity')
+        .mockImplementation(() => Promise.resolve());
+      storageManager.init(); // re-init to attach listeners again or attach manually if needed
+      // Note: init was called in beforeEach, so listeners are already attached.
+      storageManager.elements.checkButton.click();
+      expect(checkSpy).toHaveBeenCalled();
+      checkSpy.mockRestore();
     });
   });
 
@@ -124,10 +135,16 @@ describe('StorageManager', () => {
       });
 
       const clickSpy = jest.fn();
-      jest.spyOn(document, 'createElement').mockReturnValue({
-        click: clickSpy,
-        href: '',
-        download: '',
+      const originalCreateElement = document.createElement.bind(document);
+      jest.spyOn(document, 'createElement').mockImplementation(tagName => {
+        if (tagName === 'a') {
+          return {
+            click: clickSpy,
+            href: '',
+            download: '',
+          };
+        }
+        return originalCreateElement(tagName);
       });
       jest.spyOn(document.body, 'appendChild').mockImplementation(() => undefined);
       jest.spyOn(document.body, 'removeChild').mockImplementation(() => undefined);
@@ -239,6 +256,29 @@ describe('StorageManager', () => {
       expect(mockRemove).toHaveBeenCalledWith(['key1'], expect.any(Function));
       expect(mockSet).toHaveBeenCalledWith({ key2: 'val' }, expect.any(Function));
     });
+
+    it('should handle optimization error', async () => {
+      storageManager.optimizationPlan = {
+        canOptimize: true,
+        keysToRemove: ['key1'],
+        optimizedData: { key2: 'val' },
+        spaceSaved: 100,
+      };
+      // Simulate error in remove
+      mockRemove.mockImplementation((keys, callback) => {
+        // simulate lastError
+        // In the implementation: if (chrome.runtime.lastError) reject(...)
+        // We need to mock chrome.runtime.lastError AND callback
+        global.chrome.runtime.lastError = { message: 'Remove failed' };
+        callback();
+        global.chrome.runtime.lastError = null; // cleanup
+      });
+
+      await storageManager.executeOptimization();
+
+      expect(Logger.error).toHaveBeenCalled();
+      expect(storageManager.elements.dataStatus.textContent).toContain('數據重整失敗');
+    });
   });
 });
 
@@ -293,7 +333,7 @@ describe('StorageManager Extended', () => {
       },
     };
 
-    mockUiManager = { showStatus: jest.fn() };
+    mockUiManager = { showStatus: jest.fn(), showDataStatus: jest.fn() };
 
     global.URL.createObjectURL = jest.fn(() => 'blob:url');
     global.URL.revokeObjectURL = jest.fn();
@@ -380,19 +420,63 @@ describe('StorageManager Extended', () => {
     test('應更新 UI 元素', () => {
       const usage = {
         total: 5242880,
-        used: '1.50',
-        percentage: 30,
+        usedMB: '5.00',
+        percentage: 5,
         pages: 5,
         highlights: 25,
         configs: 3,
+        isUnlimited: true,
       };
 
       storageManager.updateUsageDisplay(usage);
 
-      expect(storageManager.elements.usagePercentage.textContent).toBe('30%');
+      expect(storageManager.elements.usagePercentage.textContent).toBe('5%');
       expect(storageManager.elements.pagesCount.textContent).toBe('5');
       expect(storageManager.elements.highlightsCount.textContent).toBe('25');
       expect(storageManager.elements.configCount.textContent).toBe('3');
+    });
+
+    // Test for storage warning prioritization
+    test('當使用量 > 100MB 時應顯示嚴重錯誤警告 (error)', () => {
+      const showDataStatusSpy = jest.spyOn(storageManager, 'showDataStatus');
+      const usage = {
+        total: 105 * 1024 * 1024,
+        usedMB: '105.00',
+        percentage: 95,
+        pages: 100,
+        highlights: 500,
+        configs: 10,
+        isUnlimited: true,
+      };
+
+      storageManager.updateUsageDisplay(usage);
+
+      // Verify that showDataStatus was called with 'error' type
+      expect(showDataStatusSpy).toHaveBeenCalledWith(
+        expect.stringContaining('數據量過大'),
+        'error'
+      );
+    });
+
+    test('當使用量 > 80MB (但在 100MB 以下) 時應顯示警告 (warning)', () => {
+      const showDataStatusSpy = jest.spyOn(storageManager, 'showDataStatus');
+      const usage = {
+        total: 85 * 1024 * 1024,
+        usedMB: '85.00',
+        percentage: 85,
+        pages: 80,
+        highlights: 400,
+        configs: 10,
+        isUnlimited: true,
+      };
+
+      storageManager.updateUsageDisplay(usage);
+
+      // Verify that showDataStatus was called with 'warning' type
+      expect(showDataStatusSpy).toHaveBeenCalledWith(
+        expect.stringContaining('數據量較大'),
+        'warning'
+      );
     });
   });
 
@@ -409,6 +493,12 @@ describe('StorageManager Extended', () => {
 
       expect(storageManager.elements.dataStatus.textContent).toBe('發生錯誤');
       expect(storageManager.elements.dataStatus.className).toContain('error');
+    });
+
+    test('如果元素不存在應安全返回', () => {
+      storageManager.elements.dataStatus = null;
+      storageManager.showDataStatus('test', 'info');
+      // Should not throw
     });
   });
 

@@ -3,6 +3,12 @@
  * 負責選項頁面的共用 UI 邏輯
  */
 
+import { validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
+
+/**
+ * UI 管理器類別
+ * 負責選項頁面的共用 UI 邏輯，包括狀態顯示、升級通知和設置指南
+ */
 export class UIManager {
   constructor() {
     this.elements = {};
@@ -24,8 +30,16 @@ export class UIManager {
   }
 
   /**
-   * 顯示狀態消息
-   * @param {string} message - 訊息內容
+   * 顯示狀態消息（安全版本：分離圖標與文本）
+   *
+   * @SECURITY_NOTE 此函數僅應接收內部可信的訊息字串
+   * - SVG 圖標內容應由系統內部生成，不應來自外部輸入
+   * - 所有外部錯誤訊息必須先經過 sanitizeApiError() 清理
+   * - message 參數不應直接包含未經驗證的用戶輸入或 API 響應
+   *
+   * @param {string|Object} message - 訊息內容（字串或對象 {icon, text}）
+   *   - 字串格式：可包含系統生成的 SVG 標籤（會自動分離）或純文本
+   *   - 對象格式：{icon: '內部生成的SVG', text: '已清理的文本'}
    * @param {string} type - 訊息類型 (info, success, error)
    * @param {string} [targetId='status'] - 目標元素 ID
    */
@@ -35,13 +49,57 @@ export class UIManager {
       return;
     }
 
-    status.textContent = message;
+    // 向後兼容：支持對象或字串格式
+    let icon = '';
+    let text = '';
+
+    if (typeof message === 'object' && message !== null) {
+      // 新格式：{icon: '...', text: '...'}
+      icon = message.icon || '';
+      text = message.text || '';
+    } else if (typeof message === 'string') {
+      // 使用共用函數分離圖標和文本（統一處理 Emoji 和 SVG）
+      const separated = separateIconAndText(message);
+      icon = separated.icon;
+      text = separated.text;
+    }
+
+    // SVG 安全驗證：使用 securityUtils 統一處理
+    // 即使預期只接收內部生成的 SVG，仍進行驗證作為縱深防禦
+    if (icon && !validateSafeSvg(icon)) {
+      icon = ''; // 拒絕不安全的 SVG
+    }
+
+    // 清空並重建內容（安全方式）
+    status.innerHTML = '';
+
+    // 如果有圖標，插入圖標
+    if (icon) {
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'status-icon';
+      // 區分 Emoji 和 SVG：Emoji 用 textContent（更安全），SVG 用 innerHTML（必要）
+      if (icon.startsWith('<svg')) {
+        iconSpan.innerHTML = icon; // SVG 需要使用 innerHTML
+      } else {
+        iconSpan.textContent = icon; // Emoji 使用 textContent
+      }
+      status.appendChild(iconSpan);
+    }
+
+    // 使用 textContent 設置文本（防止 XSS）
+    if (text) {
+      const textSpan = document.createElement('span');
+      textSpan.className = 'status-text';
+      textSpan.textContent = text;
+      status.appendChild(textSpan);
+    }
+
     status.classList.remove('success', 'error', 'info', 'status-message'); // 清除舊類
     status.classList.add('status-message', type); // 添加基礎類和類型類
 
     if (type === 'success') {
       setTimeout(() => {
-        status.textContent = '';
+        status.innerHTML = '';
         status.classList.remove('success', 'error', 'info', 'status-message');
       }, 3000);
     }

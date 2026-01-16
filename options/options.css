@@ -24,10 +24,16 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  /* Icon Alignment - 圖標對齊偏移量 */
+  /* 用於將 SVG 圖標向下微調，使其視覺中心與文字基線對齊 */
+  --icon-baseline-offset: 2px;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   background-color: var(--bg-color);
   color: var(--text-primary);
   margin: 0;
@@ -106,8 +112,22 @@ body {
   color: var(--primary-color);
 }
 
+.nav-item:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
 .nav-item .icon {
   font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+}
+
+.nav-item .icon svg {
+  flex-shrink: 0;
 }
 
 .sidebar-footer {
@@ -184,6 +204,16 @@ body {
   padding: var(--spacing-lg);
   margin-bottom: var(--spacing-lg);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .card h3 {
@@ -291,6 +321,21 @@ select:focus {
   gap: var(--spacing-xs);
 }
 
+/* 按鈕內圖標對齊 */
+.btn-primary .icon,
+.btn-secondary .icon,
+.btn-danger .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary .icon svg,
+.btn-secondary .icon svg,
+.btn-danger .icon svg {
+  display: block;
+}
+
 .btn-primary {
   background-color: var(--primary-color);
   color: white;
@@ -375,10 +420,18 @@ select:focus {
 }
 
 .auth-status.error {
-  display: block;
+  display: flex;
+  align-items: center;
   background-color: #fee2e2;
   color: #991b1b;
   border: 1px solid #fecaca;
+}
+
+.auth-status svg,
+.status-message svg {
+  flex-shrink: 0;
+  margin-right: 8px;
+  vertical-align: text-bottom;
 }
 
 .auth-actions {
@@ -469,11 +522,6 @@ select:focus {
   margin-top: var(--spacing-sm);
   font-size: 14px;
   color: var(--text-primary);
-  display: none;
-}
-
-.preview-box.show {
-  display: block;
 }
 
 /* Storage Stats */
@@ -916,4 +964,393 @@ select:focus {
 
 .text-warning strong {
   color: var(--warning-color);
+}
+
+/* =========================================
+   Refactoring Phase 1: New Component Classes
+   ========================================= */
+
+/* 快速開始區域 */
+.quick-start-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.step-card {
+  padding: var(--spacing-md);
+  background: #f8f9fc;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--primary-color);
+}
+
+.step-card strong {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.step-card p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* 功能卡片網格 */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.feature-card {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: #f8f9fc;
+  border-radius: var(--radius-md);
+  align-items: flex-start;
+}
+
+.feature-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ecfdf5;
+  border-radius: var(--radius-md);
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.feature-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.feature-content {
+  flex: 1;
+}
+
+.feature-content strong {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-primary);
+}
+
+.feature-content > div {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* FAQ 區域 */
+.faq-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.faq-list {
+  border-top: 1px solid var(--border-color);
+}
+
+.faq-item {
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-question {
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.faq-answer {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* 代碼與快捷鍵 */
+.inline-code {
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.875em;
+  color: var(--primary-color);
+  font-family: monospace;
+}
+
+.inline-code.highlight {
+  color: #e11d48;
+  background: #fff1f2;
+}
+
+.kbd {
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.875em;
+  font-family: monospace;
+  color: var(--text-primary);
+  border: 1px solid #cbd5e1;
+}
+
+.faq-actions {
+  text-align: center;
+  margin-top: 24px;
+}
+
+.faq-actions .btn-primary {
+  display: inline-block;
+  width: auto;
+  text-decoration: none;
+  padding: 12px 24px;
+}
+
+.faq-header h3 {
+  margin: 0;
+}
+
+.faq-header .btn-secondary {
+  padding: 6px 12px;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+/* =========================================
+   Refactoring Phase 4: Icon Standardization
+   ========================================= */
+
+.list-icon {
+  width: 16px;
+  height: 16px;
+  vertical-align: text-bottom;
+  margin-right: 6px;
+  color: var(--primary-color);
+}
+
+h3 .icon-svg,
+h4 .icon-svg {
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: text-bottom;
+  margin-right: 8px;
+  display: inline-block;
+}
+
+/* 讓按鈕中的 SVG 正確對齊 (如果沒有被 .btn .icon 覆蓋) */
+.btn-secondary .icon-svg,
+.btn-danger .icon-svg,
+.btn-primary .icon-svg {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  vertical-align: text-bottom;
+}
+
+/* 
+ * 修正警示文字與圖標的對齊問題
+ * .help-text (12px) 較小，需要特別調整圖標對齊
+ */
+.help-text .icon-svg,
+.help-text .list-icon {
+  width: 14px;
+  /* 縮小一點以配合 12px 文字 */
+  height: 14px;
+  vertical-align: -3px;
+  /* 微調垂直位置 */
+  margin-right: 4px;
+}
+
+/* Utility Classes for Refactoring Inline Styles */
+.hidden {
+  display: none;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.gap-top-sm {
+  margin-top: 10px;
+}
+
+.mb-12 {
+  margin-bottom: 12px;
+}
+
+.mt-8 {
+  margin-top: 8px;
+}
+
+.text-warning-color {
+  color: var(--warning-color);
+}
+
+.form-select-enhanced {
+  padding: 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* Icon Colors for Database Selector */
+.icon-page {
+  color: var(--text-secondary);
+}
+
+.icon-database {
+  color: var(--primary-color);
+}
+
+.icon-workspace {
+  color: #8b5cf6;
+  /* Violet-500 */
+}
+
+.icon-block {
+  color: var(--text-secondary);
+}
+
+.icon-folder {
+  color: #f59e0b;
+  /* Amber-500 */
+}
+
+.icon-category {
+  color: #10b981;
+  /* Emerald-500 */
+}
+
+/* Ensure SVGs in badges/meta inherit these colors if applied */
+.database-icon svg {
+  display: block;
+}
+
+/* Compact Database Item Styles */
+.database-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.database-item:hover {
+  background-color: #f8fafc;
+}
+
+.database-item.selected {
+  background-color: #eff6ff;
+  /* blue-50 */
+}
+
+.database-item.keyboard-focus {
+  background-color: #f1f5f9;
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+.database-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.database-meta-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-wrap: nowrap;
+}
+
+.meta-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.meta-separator {
+  color: #cbd5e1;
+  /* slate-300 */
+}
+
+/* Badge styles */
+.workspace-badge,
+.container-badge,
+.category-badge,
+.search-highlight {
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.workspace-badge {
+  background-color: #f3e8ff;
+  /* purple-100 */
+  color: #7e22ce;
+  /* purple-700 */
+}
+
+.container-badge {
+  background-color: #fef3c7;
+  /* amber-100 */
+  color: #b45309;
+  /* amber-700 */
+}
+
+.category-badge {
+  background-color: #d1fae5;
+  /* emerald-100 */
+  color: #047857;
+  /* emerald-700 */
+}
+
+.search-highlight {
+  background-color: #fffbeb;
+  /* yellow-50 */
+  color: #b45309;
+  /* yellow-700 */
+  border-bottom: 2px solid #fcd34d;
+}
+
+/* 突顯文字樣式 - 用於重要數據展示 */
+/* 這些類別用於替代內聯樣式，保持樣式與邏輯分離 */
+
+/* 成功狀態突顯（綠色） - 用於顯示成功、節省空間等正面數據 */
+.highlight-success {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+/* 主要狀態突顯（藍色） - 用於顯示主要操作或重點數據 */
+.highlight-primary {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* 文字突顯（深色） - 用於一般重要文字 */
+.highlight-text {
+  color: var(--text-primary);
+  font-weight: 600;
 }

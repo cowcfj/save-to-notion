@@ -1,6 +1,14 @@
+:root {
+  /* Icon Alignment - 圖標對齊偏移量 */
+  /* 用於將 SVG 圖標向下微調，使其視覺中心與文字基線對齊 */
+  --icon-baseline-offset: 2px;
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  width: 250px;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  width: 320px;
   padding: 10px;
   text-align: center;
 }
@@ -29,18 +37,55 @@ button {
   padding: 10px 20px;
   border-radius: 5px;
   cursor: pointer;
-  font-size: 14px;
   width: 100%;
+  transition: all 0.2s ease;
+  transform: translateY(0);
   margin-bottom: 8px;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 使用 margin 而非 gap 的原因：
+   * 1. 精確單向間距：只需要圖標右側有間距，gap 會在所有子元素間產生雙向間距
+   * 2. 避免與 transform 干擾：圖標使用 translateY() 對齊，gap 可能導致渲染問題
+   * 3. 居中計算準確性：gap 會影響 justify-content: center 的計算基準
+   * 4. 固定值穩定性：margin 不受 text-transform: uppercase 導致的文字寬度變化影響
+   * 註：Flexbox gap 在 Chrome 84+ 已支援，但基於上述精確控制需求選擇 margin
+   * 參考：internal/reports/FLEXBOX_GAP_ANALYSIS.md
+   */
+
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 13px;
+  /* Slightly smaller font for uppercase to balance weight */
+  line-height: 1;
+  /* Enforce tight line height to prevent text box from being taller than icon */
 }
 
 #highlight-button {
   background-color: #48bb78;
 }
 
+/* SVG 圖標樣式 */
+.btn-icon,
+.link-icon {
+  flex-shrink: 0;
+  margin-right: 8px;
+  /* 圖標與文字的間距，配合 button 的 margin 策略而非使用 gap */
+
+  /* 圖標基線對齊調整：
+   * SVG 圖標預設垂直置中（vertical-align: middle），但與文字基線不對齊
+   * 透過 translateY 向下微調，使圖標視覺中心與文字基線對齊
+   * 此偏移量根據當前字體大小（13px）和行高（line-height: 1）計算得出
+   */
+  transform: translateY(var(--icon-baseline-offset));
+}
+
 #highlight-button:hover {
   background-color: #38a169;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 #save-button {
@@ -49,6 +94,8 @@ button {
 
 #save-button:hover {
   background-color: #005ecb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* v2.7.0: Open in Notion 按鈕樣式 */
@@ -59,6 +106,8 @@ button {
 
 #open-notion-button:hover {
   background-color: #1a1a1a;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 button:disabled {
@@ -66,8 +115,23 @@ button:disabled {
   cursor: not-allowed;
 }
 
-button:hover {
-  background-color: #005ecb;
+/* Specific style for Clear Highlights button */
+#clear-highlights-button {
+  background-color: #ef4444;
+  /* Danger red */
+  margin-bottom: 8px;
+}
+
+#clear-highlights-button:hover {
+  background-color: #dc2626;
+}
+
+/* Focus Accessibility */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.2);
 }
 
 .links {

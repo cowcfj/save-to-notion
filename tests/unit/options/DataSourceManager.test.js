@@ -67,7 +67,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('secret_test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('Network error'),
+        expect.stringContaining('網絡連接失敗'),
         'error'
       );
     });
