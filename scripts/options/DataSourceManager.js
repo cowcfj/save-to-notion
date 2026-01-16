@@ -194,21 +194,23 @@ export class DataSourceManager {
       `開始篩選 ${results.length} 個項目，目標: ${maxResults} 個，保留順序: ${preserveOrder}`
     );
 
-    let excludedCount = 0;
+    // 使用 reduce 同時完成篩選和計數（避免 filter 中的副作用）
+    const { validItems, excludedCount } = results.reduce(
+      (acc, item) => {
+        // 過濾非頁面/資料來源
+        if (item.object !== 'page' && item.object !== 'data_source') {
+          return acc;
+        }
 
-    // 篩選有效項目（過濾掉非頁面/資料來源和已保存的網頁）
-    const validItems = results.filter(item => {
-      if (item.object !== 'page' && item.object !== 'data_source') {
-        return false;
-      }
+        // 過濾已保存的網頁
+        if (DataSourceManager.isSavedWebPage(item)) {
+          return { ...acc, excludedCount: acc.excludedCount + 1 };
+        }
 
-      if (DataSourceManager.isSavedWebPage(item)) {
-        excludedCount++;
-        return false;
-      }
-
-      return true;
-    });
+        return { ...acc, validItems: [...acc.validItems, item] };
+      },
+      { validItems: [], excludedCount: 0 }
+    );
 
     // 如果是搜尋結果，保留 Notion API 的關聯度排序
     if (preserveOrder) {
