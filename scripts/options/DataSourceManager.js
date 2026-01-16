@@ -39,11 +39,34 @@ export class DataSourceManager {
   /**
    * 載入資料來源列表（支援頁面和數據庫）
    * @param {string} apiKey - Notion API Key
+   * @param {string|null} query - 可選的搜尋關鍵字
+   * @returns {Promise<Array>} 過濾後的資料來源列表
    */
-  async loadDatabases(apiKey) {
+  async loadDatabases(apiKey, query = null) {
+    const isSearchQuery = Boolean(query);
+
     try {
-      this.ui.showStatus('正在載入保存目標列表...', 'info');
-      Logger.info(`開始載入保存目標，API Key: ${apiKey.substring(0, 20)}...`);
+      // 狀態訊息中使用純文字格式，showStatus 內部會使用 textContent 防止 XSS
+      const statusMessage = query ? `正在搜尋 "${query}"...` : '正在載入保存目標列表...';
+      this.ui.showStatus(statusMessage, 'info');
+      // 不記錄 API Key 內容以避免敏感資訊洩漏
+      Logger.info(`開始載入保存目標，API Key: [已提供], Query: ${query || '(無)'}`);
+
+      // 構建請求主體
+      const requestBody = {
+        page_size: 100,
+      };
+
+      if (query) {
+        // 有搜尋關鍵字時，使用 query 參數（Notion API 限制：有 query 時不能使用 sort）
+        requestBody.query = query;
+      } else {
+        // 無搜尋時，按最近編輯時間排序
+        requestBody.sort = {
+          direction: 'descending',
+          timestamp: 'last_edited_time',
+        };
+      }
 
       const response = await fetch('https://api.notion.com/v1/search', {
         method: 'POST',
@@ -52,13 +75,7 @@ export class DataSourceManager {
           'Content-Type': 'application/json',
           'Notion-Version': '2025-09-03',
         },
-        body: JSON.stringify({
-          page_size: 100,
-          sort: {
-            direction: 'descending',
-            timestamp: 'last_edited_time',
-          },
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -67,25 +84,30 @@ export class DataSourceManager {
         Logger.info(`API 返回 ${data.results?.length || 0} 個項目`);
 
         if (data.results && data.results.length > 0) {
-          // 客戶端智能篩選和排序
-          const filteredResults = DataSourceManager.filterAndSortResults(data.results, 100);
+          // 客戶端智能篩選和排序（搜尋結果保留關聯度排序）
+          const filteredResults = DataSourceManager.filterAndSortResults(
+            data.results,
+            100,
+            isSearchQuery
+          );
 
           if (filteredResults.length > 0) {
-            this.populateDatabaseSelect(filteredResults);
-          } else {
-            this.ui.showStatus(
-              '未找到可用的保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源',
-              'error'
-            );
-            if (this.elements.databaseSelect) {
-              this.elements.databaseSelect.style.display = 'none';
-            }
+            this.populateDatabaseSelect(filteredResults, isSearchQuery);
+            return filteredResults;
           }
-        } else {
           this.ui.showStatus(
-            '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源',
+            '未找到可用的保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源',
             'error'
           );
+          if (this.elements.databaseSelect) {
+            this.elements.databaseSelect.style.display = 'none';
+          }
+        } else {
+          // 狀態訊息使用純文字，避免 XSS 風險
+          const msg = isSearchQuery
+            ? `未找到 "${query}" 相關的保存目標`
+            : '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源';
+          this.ui.showStatus(msg, isSearchQuery ? 'info' : 'error');
           if (this.elements.databaseSelect) {
             this.elements.databaseSelect.style.display = 'none';
           }
@@ -117,21 +139,29 @@ export class DataSourceManager {
         this.elements.databaseSelect.style.display = 'none';
       }
     }
+
+    return [];
   }
 
-  populateDatabaseSelect(databases) {
-    Logger.info('populateDatabaseSelect 被調用，資料來源數量:', databases.length);
+  populateDatabaseSelect(databases, isSearchResult = false) {
+    Logger.info(
+      'populateDatabaseSelect 被調用，資料來源數量:',
+      databases.length,
+      '是否為搜尋結果:',
+      isSearchResult
+    );
 
     // 初始化搜索式選擇器（如果還沒有）
     if (!this.selector) {
       this.selector = new SearchableDatabaseSelector({
         showStatus: this.ui.showStatus.bind(this.ui),
         loadDatabases: this.loadDatabases.bind(this),
+        getApiKey: () => document.getElementById('api-key')?.value || '',
       });
     }
 
-    // 使用新的搜索式選擇器
-    this.selector.populateDatabases(databases);
+    // 使用新的搜索式選擇器，傳入 isSearchResult 標記
+    this.selector.populateDatabases(databases, isSearchResult);
 
     // 隱藏原有的簡單選擇器
     if (this.elements.databaseSelect) {
@@ -158,29 +188,52 @@ export class DataSourceManager {
    * 篩選並排序搜索結果
    * @param {Array} results - 原始結果列表
    * @param {number} maxResults - 最大結果數量
-   * @returns {Array} 篩選並排序後的結果
+   * @param {boolean} preserveOrder - 是否保留原始順序（用於搜尋結果的關聯度排序）
+   * @returns {Array} 篩選後的結果
    */
-  static filterAndSortResults(results, maxResults = 100) {
-    Logger.info(`開始篩選 ${results.length} 個項目，目標: ${maxResults} 個`);
+  static filterAndSortResults(results, maxResults = 100, preserveOrder = false) {
+    Logger.info(
+      `開始篩選 ${results.length} 個項目，目標: ${maxResults} 個，保留順序: ${preserveOrder}`
+    );
 
+    // 使用 reduce 同時完成篩選和計數
+    // 使用 push 修改累積器陣列（O(n)），而非展開運算子（O(n²)）
+    const { validItems, excludedCount } = results.reduce(
+      (acc, item) => {
+        // 過濾非頁面/資料來源
+        if (item.object !== 'page' && item.object !== 'data_source') {
+          return acc;
+        }
+
+        // 過濾已保存的網頁
+        if (DataSourceManager.isSavedWebPage(item)) {
+          acc.excludedCount += 1;
+          return acc;
+        }
+
+        acc.validItems.push(item);
+        return acc;
+      },
+      { validItems: [], excludedCount: 0 }
+    );
+
+    // 如果是搜尋結果，保留 Notion API 的關聯度排序
+    if (preserveOrder) {
+      const filtered = validItems.slice(0, maxResults);
+      Logger.info(
+        `篩選完成（保留關聯度順序）: ${filtered.length} 個項目（排除 ${excludedCount} 個已保存網頁）`
+      );
+      return filtered;
+    }
+
+    // 否則按類型重新排序（用於初始列表載入）
     const workspacePages = [];
     const urlDatabases = [];
     const categoryPages = [];
     const otherDatabases = [];
     const otherPages = [];
 
-    let excludedCount = 0;
-
-    results.forEach(item => {
-      if (item.object !== 'page' && item.object !== 'data_source') {
-        return;
-      }
-
-      if (DataSourceManager.isSavedWebPage(item)) {
-        excludedCount++;
-        return;
-      }
-
+    validItems.forEach(item => {
       if (item.object === 'data_source') {
         if (DataSourceManager.hasUrlProperty(item)) {
           urlDatabases.push(item);

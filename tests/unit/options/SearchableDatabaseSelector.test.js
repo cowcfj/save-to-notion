@@ -17,8 +17,12 @@ describe('SearchableDatabaseSelector', () => {
   let selector = null;
   let mockShowStatus = null;
   let mockLoadDatabases = null;
+  let mockGetApiKey = null;
 
   beforeEach(() => {
+    // Mock scrollIntoView (jsdom 不支援此方法)
+    Element.prototype.scrollIntoView = jest.fn();
+
     // DOM Setup
     document.body.innerHTML = `
       <div id="database-selector-container" style="display: none;">
@@ -35,10 +39,12 @@ describe('SearchableDatabaseSelector', () => {
 
     mockShowStatus = jest.fn();
     mockLoadDatabases = jest.fn();
+    mockGetApiKey = jest.fn(() => 'mock_api_key');
 
     selector = new SearchableDatabaseSelector({
       showStatus: mockShowStatus,
       loadDatabases: mockLoadDatabases,
+      getApiKey: mockGetApiKey,
     });
   });
 
@@ -50,6 +56,9 @@ describe('SearchableDatabaseSelector', () => {
     it('should throw if dependencies are missing', () => {
       expect(() => new SearchableDatabaseSelector({})).toThrow();
       expect(() => new SearchableDatabaseSelector({ showStatus: jest.fn() })).toThrow();
+      expect(
+        () => new SearchableDatabaseSelector({ showStatus: jest.fn(), loadDatabases: jest.fn() })
+      ).toThrow('getApiKey');
     });
 
     it('should initialize elements', () => {
@@ -173,9 +182,7 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should handle refresh button', () => {
-      document
-        .getElementById('database-selector-container')
-        .insertAdjacentHTML('beforebegin', '<input id="api-key" value="secret_123" />');
+      mockGetApiKey.mockReturnValue('secret_123');
 
       selector.refreshButton.click();
       expect(mockLoadDatabases).toHaveBeenCalledWith('secret_123');
@@ -197,6 +204,468 @@ describe('SearchableDatabaseSelector', () => {
         const result = SearchableDatabaseSelector.formatDate('2023-01-01T12:00:00Z');
         expect(result).toContain('2023');
       });
+    });
+
+    describe('escapeHtml', () => {
+      it('should escape HTML special characters', () => {
+        const result = SearchableDatabaseSelector.escapeHtml('<script>alert("xss")</script>');
+        expect(result).not.toContain('<script>');
+        expect(result).toContain('&lt;');
+      });
+    });
+
+    describe('escapeRegex', () => {
+      it('should escape regex special characters', () => {
+        const result = SearchableDatabaseSelector.escapeRegex('test.*+?^${}()|[]\\');
+        expect(result).toBe('test\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\');
+      });
+    });
+  });
+
+  describe('performServerSearch', () => {
+    beforeEach(() => {
+      mockGetApiKey.mockReturnValue('secret_test_key');
+    });
+
+    it('should not trigger search for query less than 2 characters', async () => {
+      await selector.performServerSearch('a');
+      expect(mockLoadDatabases).not.toHaveBeenCalled();
+    });
+
+    it('should not trigger search if API key is missing', async () => {
+      mockGetApiKey.mockReturnValue('');
+      await selector.performServerSearch('test query');
+      expect(mockLoadDatabases).not.toHaveBeenCalled();
+    });
+
+    it('should call loadDatabases with query for valid search', async () => {
+      await selector.performServerSearch('test query');
+      expect(mockLoadDatabases).toHaveBeenCalledWith('secret_test_key', 'test query');
+    });
+
+    it('should show searching state before API call', async () => {
+      const showSearchingStateSpy = jest.spyOn(selector, 'showSearchingState');
+      await selector.performServerSearch('test query');
+
+      // showSearchingState 應該被調用
+      expect(showSearchingStateSpy).toHaveBeenCalledWith('test query');
+      // finally 後 isSearching 應該被重置為 false
+      expect(selector.isSearching).toBe(false);
+
+      showSearchingStateSpy.mockRestore();
+    });
+
+    it('should handle search error gracefully', async () => {
+      mockLoadDatabases.mockRejectedValueOnce(new Error('API Error'));
+      await selector.performServerSearch('test query');
+      expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
+      // 即使出錯，isSearching 也應該被重置
+      expect(selector.isSearching).toBe(false);
+    });
+
+    it('should handle error without message property', async () => {
+      mockLoadDatabases.mockRejectedValueOnce({});
+      await selector.performServerSearch('test query');
+      expect(mockShowStatus).toHaveBeenCalledWith('搜尋失敗: 未知錯誤', 'error');
+    });
+  });
+
+  describe('showSearchingState', () => {
+    it('should display loading spinner with search query', () => {
+      selector.showSearchingState('my search');
+      expect(selector.databaseList.innerHTML).toContain('正在搜尋');
+      expect(selector.databaseList.innerHTML).toContain('my search');
+      expect(selector.databaseList.innerHTML).toContain('spinner');
+    });
+
+    it('should escape HTML in search query', () => {
+      selector.showSearchingState('<script>alert("xss")</script>');
+      expect(selector.databaseList.innerHTML).not.toContain('<script>');
+    });
+  });
+
+  describe('restoreInitialDatabases', () => {
+    const mockDatabases = [
+      { id: '1', object: 'database', title: [{ plain_text: 'Initial DB 1' }] },
+      { id: '2', object: 'database', title: [{ plain_text: 'Initial DB 2' }] },
+    ];
+
+    it('should restore initial database list after search', () => {
+      // 設置初始列表
+      selector.populateDatabases(mockDatabases);
+      expect(selector.databases.length).toBe(2);
+      expect(selector.initialDatabases.length).toBe(2);
+
+      // 模擬搜尋結果修改了 databases
+      selector.databases = [{ id: '3', title: 'Search Result' }];
+      selector.filteredDatabases = [...selector.databases];
+
+      // 還原初始列表
+      selector.restoreInitialDatabases();
+
+      expect(selector.databases.length).toBe(2);
+      expect(selector.filteredDatabases.length).toBe(2);
+      expect(selector.databases[0].id).toBe('1');
+    });
+  });
+
+  describe('handleKeyNavigation', () => {
+    const mockDatabases = [
+      { id: '1', object: 'database', title: [{ plain_text: 'DB 1' }] },
+      { id: '2', object: 'database', title: [{ plain_text: 'DB 2' }] },
+      { id: '3', object: 'database', title: [{ plain_text: 'DB 3' }] },
+    ];
+
+    beforeEach(() => {
+      selector.populateDatabases(mockDatabases);
+    });
+
+    it('should open dropdown on ArrowDown when closed', () => {
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+      expect(selector.isOpen).toBe(true);
+    });
+
+    it('should open dropdown on Enter when closed', () => {
+      const event = new KeyboardEvent('keydown', { key: 'Enter' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+      expect(selector.isOpen).toBe(true);
+    });
+
+    it('should navigate down with ArrowDown when open', () => {
+      selector.showDropdown();
+      selector.focusedIndex = 0;
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(selector.focusedIndex).toBe(1);
+    });
+
+    it('should not go below last item with ArrowDown', () => {
+      selector.showDropdown();
+      selector.focusedIndex = 2; // 最後一個
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(selector.focusedIndex).toBe(2); // 保持不變
+    });
+
+    it('should navigate up with ArrowUp when open', () => {
+      selector.showDropdown();
+      selector.focusedIndex = 1;
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowUp' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(selector.focusedIndex).toBe(0);
+    });
+
+    it('should not go above -1 with ArrowUp', () => {
+      selector.showDropdown();
+      selector.focusedIndex = -1;
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowUp' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(selector.focusedIndex).toBe(-1);
+    });
+
+    it('should select focused item on Enter when open', () => {
+      selector.showDropdown();
+      selector.focusedIndex = 1;
+
+      const event = new KeyboardEvent('keydown', { key: 'Enter' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(selector.selectedDatabase.id).toBe('2');
+    });
+
+    it('should close dropdown on Escape', () => {
+      selector.showDropdown();
+      expect(selector.isOpen).toBe(true);
+
+      const event = new KeyboardEvent('keydown', { key: 'Escape' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(selector.isOpen).toBe(false);
+    });
+
+    it('should ignore other keys when open', () => {
+      selector.showDropdown();
+      const initialIndex = selector.focusedIndex;
+
+      const event = new KeyboardEvent('keydown', { key: 'a' });
+      event.preventDefault = jest.fn();
+      selector.handleKeyNavigation(event);
+
+      expect(selector.focusedIndex).toBe(initialIndex);
+    });
+  });
+
+  describe('scrollToFocused', () => {
+    const mockDatabases = [
+      { id: '1', object: 'database', title: [{ plain_text: 'DB 1' }] },
+      { id: '2', object: 'database', title: [{ plain_text: 'DB 2' }] },
+    ];
+
+    it('should call scrollIntoView on focused element', () => {
+      selector.populateDatabases(mockDatabases);
+      selector.showDropdown();
+      selector.focusedIndex = 0;
+      selector.renderDatabaseList();
+
+      // Mock scrollIntoView
+      const focusedElement = selector.databaseList.querySelector('.keyboard-focus');
+      if (focusedElement) {
+        focusedElement.scrollIntoView = jest.fn();
+        selector.scrollToFocused();
+        expect(focusedElement.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+      }
+    });
+
+    it('should not error when focusedIndex is -1', () => {
+      selector.populateDatabases(mockDatabases);
+      selector.focusedIndex = -1;
+      expect(() => selector.scrollToFocused()).not.toThrow();
+    });
+  });
+
+  describe('showLoading', () => {
+    it('should display loading spinner', () => {
+      selector.showLoading();
+      expect(selector.databaseList.innerHTML).toContain('重新載入資料來源中');
+      expect(selector.databaseList.innerHTML).toContain('spinner');
+      expect(selector.isOpen).toBe(true);
+    });
+  });
+
+  describe('createDatabaseItemHTML', () => {
+    it('should render page item with page icon', () => {
+      const pageDb = {
+        id: 'page-1',
+        title: 'Test Page',
+        type: 'page',
+        isWorkspace: false,
+        parent: { type: 'page_id' },
+      };
+
+      const html = selector.createDatabaseItemHTML(pageDb, 0);
+      expect(html).toContain('icon-page');
+      expect(html).toContain('頁面');
+    });
+
+    it('should render database item with database icon', () => {
+      const db = {
+        id: 'db-1',
+        title: 'Test Database',
+        type: 'data_source',
+        isWorkspace: true,
+        parent: { type: 'workspace' },
+      };
+
+      const html = selector.createDatabaseItemHTML(db, 0);
+      expect(html).toContain('icon-database');
+      expect(html).toContain('資料來源');
+      expect(html).toContain('workspace-badge');
+    });
+
+    it('should add container badge for workspace pages', () => {
+      const containerPage = {
+        id: 'container-1',
+        title: 'Container Page',
+        type: 'page',
+        isWorkspace: true,
+        parent: { type: 'workspace' },
+      };
+
+      const html = selector.createDatabaseItemHTML(containerPage, 0);
+      expect(html).toContain('container-badge');
+      expect(html).toContain('容器');
+    });
+
+    it('should add category badge for child pages', () => {
+      const categoryPage = {
+        id: 'category-1',
+        title: 'Category Page',
+        type: 'page',
+        isWorkspace: false,
+        parent: { type: 'page_id' },
+      };
+
+      const html = selector.createDatabaseItemHTML(categoryPage, 0);
+      expect(html).toContain('category-badge');
+      expect(html).toContain('分類');
+    });
+
+    it('should show parent path for database_id parent', () => {
+      const dbItem = {
+        id: 'item-1',
+        title: 'DB Item',
+        type: 'page',
+        parent: { type: 'database_id' },
+      };
+
+      const html = selector.createDatabaseItemHTML(dbItem, 0);
+      expect(html).toContain('資料庫項目');
+    });
+
+    it('should show parent path for block_id parent', () => {
+      const blockItem = {
+        id: 'block-item-1',
+        title: 'Block Item',
+        type: 'page',
+        parent: { type: 'block_id' },
+      };
+
+      const html = selector.createDatabaseItemHTML(blockItem, 0);
+      expect(html).toContain('區塊項目');
+    });
+
+    it('should show parent path for data_source_id parent', () => {
+      const dsItem = {
+        id: 'ds-item-1',
+        title: 'DS Item',
+        type: 'page',
+        parent: { type: 'data_source_id' },
+      };
+
+      const html = selector.createDatabaseItemHTML(dsItem, 0);
+      expect(html).toContain('資料庫項目');
+    });
+
+    it('should show unknown parent type with fallback', () => {
+      const unknownItem = {
+        id: 'unknown-1',
+        title: 'Unknown Parent',
+        type: 'page',
+        parent: { type: 'unknown_type' },
+      };
+
+      const html = selector.createDatabaseItemHTML(unknownItem, 0);
+      expect(html).toContain('❓');
+      expect(html).toContain('unknown_type');
+    });
+
+    it('should highlight search query in title', () => {
+      selector.searchInput.value = 'test';
+      const db = {
+        id: 'db-1',
+        title: 'Test Database',
+        type: 'database',
+        parent: { type: 'workspace' },
+      };
+
+      const html = selector.createDatabaseItemHTML(db, 0);
+      expect(html).toContain('search-highlight');
+    });
+
+    it('should show date when available', () => {
+      const db = {
+        id: 'db-1',
+        title: 'Test Database',
+        type: 'database',
+        parent: { type: 'workspace' },
+        created: '2023-05-15T10:00:00Z',
+      };
+
+      const html = selector.createDatabaseItemHTML(db, 0);
+      expect(html).toContain('2023');
+    });
+  });
+
+  describe('updateDatabaseCount', () => {
+    it('should show total count when all items are visible', () => {
+      selector.populateDatabases([
+        { id: '1', object: 'database', title: [{ plain_text: 'DB 1' }] },
+        { id: '2', object: 'database', title: [{ plain_text: 'DB 2' }] },
+      ]);
+
+      expect(selector.databaseCount.textContent).toContain('2 個資料來源');
+    });
+
+    it('should show filtered count when filtering', () => {
+      selector.populateDatabases([
+        { id: '1', object: 'database', title: [{ plain_text: 'Apple' }] },
+        { id: '2', object: 'database', title: [{ plain_text: 'Banana' }] },
+      ]);
+
+      selector.filterDatabases('app');
+      expect(selector.databaseCount.textContent).toContain('1 / 2');
+    });
+  });
+
+  describe('extractDatabaseTitle', () => {
+    it('should extract title from page with text content', () => {
+      const page = {
+        object: 'page',
+        properties: {
+          title: {
+            title: [{ plain_text: '', text: { content: 'Text Content Title' } }],
+          },
+        },
+      };
+
+      const title = SearchableDatabaseSelector.extractDatabaseTitle(page);
+      expect(title).toBe('Text Content Title');
+    });
+
+    it('should return default title for empty page', () => {
+      const page = {
+        object: 'page',
+        properties: {},
+      };
+
+      const title = SearchableDatabaseSelector.extractDatabaseTitle(page);
+      expect(title).toBe('未命名頁面');
+    });
+
+    it('should return default title for empty database', () => {
+      const db = {
+        object: 'database',
+        properties: {},
+      };
+
+      const title = SearchableDatabaseSelector.extractDatabaseTitle(db);
+      expect(title).toBe('未命名資料來源');
+    });
+
+    it('should extract title from database with text content', () => {
+      const db = {
+        object: 'database',
+        title: [{ plain_text: '', text: { content: 'DB Text Content' } }],
+      };
+
+      const title = SearchableDatabaseSelector.extractDatabaseTitle(db);
+      expect(title).toBe('DB Text Content');
+    });
+  });
+
+  describe('populateDatabases with isSearchResult', () => {
+    it('should not save to initialDatabases when isSearchResult is true', () => {
+      // 首先設置初始列表
+      selector.populateDatabases([
+        { id: '1', object: 'database', title: [{ plain_text: 'Initial' }] },
+      ]);
+      expect(selector.initialDatabases.length).toBe(1);
+
+      // 添加搜尋結果（不應覆蓋初始列表）
+      selector.populateDatabases(
+        [{ id: '2', object: 'database', title: [{ plain_text: 'Search Result' }] }],
+        true
+      );
+
+      expect(selector.initialDatabases.length).toBe(1);
+      expect(selector.initialDatabases[0].id).toBe('1');
     });
   });
 });
