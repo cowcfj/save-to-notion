@@ -364,7 +364,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('test_key', 'nonexistent');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('未找到「nonexistent」'),
+        expect.stringContaining('未找到 "nonexistent"'),
         'info'
       );
     });

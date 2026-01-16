@@ -46,7 +46,8 @@ export class DataSourceManager {
     const isSearchQuery = Boolean(query);
 
     try {
-      const statusMessage = query ? `正在搜尋「${query}」...` : '正在載入保存目標列表...';
+      // 狀態訊息中使用純文字格式，showStatus 內部會使用 textContent 防止 XSS
+      const statusMessage = query ? `正在搜尋 "${query}"...` : '正在載入保存目標列表...';
       this.ui.showStatus(statusMessage, 'info');
       // 不記錄 API Key 內容以避免敏感資訊洩漏
       Logger.info(`開始載入保存目標，API Key: [已提供], Query: ${query || '(無)'}`);
@@ -102,8 +103,9 @@ export class DataSourceManager {
             this.elements.databaseSelect.style.display = 'none';
           }
         } else {
+          // 狀態訊息使用純文字，避免 XSS 風險
           const msg = isSearchQuery
-            ? `未找到「${query}」相關的保存目標`
+            ? `未找到 "${query}" 相關的保存目標`
             : '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源';
           this.ui.showStatus(msg, isSearchQuery ? 'info' : 'error');
           if (this.elements.databaseSelect) {
