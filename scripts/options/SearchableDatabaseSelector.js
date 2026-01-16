@@ -202,6 +202,12 @@ export class SearchableDatabaseSelector {
 
   /**
    * 還原初始資料來源列表
+   *
+   * @performance 使用淺拷貝 (O(n)) 而非深拷貝以提升效能
+   * @note 淺拷貝在此情境下是安全的，因為：
+   *   1. 資料庫物件在組件內是唯讀的（不會修改物件屬性）
+   *   2. 物件僅用於顯示和選擇，不會被外部修改
+   *   3. Notion API 每次返回的是新物件，不存在共享引用問題
    */
   restoreInitialDatabases() {
     this.databases = [...this.initialDatabases];
