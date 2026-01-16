@@ -27,6 +27,7 @@
  */
 
 import Logger from '../utils/Logger.js';
+import { sanitizeApiError } from '../utils/securityUtils.js';
 
 /**
  * 舊版數據遷移掃描器
@@ -144,7 +145,8 @@ export class MigrationScanner {
         }
       } catch (error) {
         results.failed++;
-        results.errors.push(`${url}: ${error.message}`);
+        const safeMessage = sanitizeApiError(error, 'scan_storage');
+        results.errors.push(`${url}: ${safeMessage}`);
       }
     }
 

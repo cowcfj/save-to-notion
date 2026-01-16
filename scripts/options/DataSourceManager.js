@@ -4,6 +4,7 @@
  */
 import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
 import Logger from '../utils/Logger.js';
+import { sanitizeApiError } from '../utils/securityUtils.js';
 
 /**
  * 資料來源管理器
@@ -110,14 +111,8 @@ export class DataSourceManager {
     } catch (error) {
       Logger.error('載入保存目標失敗:', error);
 
-      let errorMessage = '載入保存目標失敗: ';
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        errorMessage += '網絡連接問題，請檢查網絡連接';
-      } else {
-        errorMessage += error.message;
-      }
-
-      this.ui.showStatus(errorMessage, 'error');
+      const safeMessage = sanitizeApiError(error, 'load_databases');
+      this.ui.showStatus(`載入保存目標失敗: ${safeMessage}`, 'error');
       if (this.elements.databaseSelect) {
         this.elements.databaseSelect.style.display = 'none';
       }

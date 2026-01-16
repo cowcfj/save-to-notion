@@ -6,6 +6,7 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
+import { sanitizeApiError } from '../utils/securityUtils.js';
 
 /**
  * 管理存儲空間的類別
@@ -115,7 +116,8 @@ export class StorageManager {
       Logger.error('Backup failed:', error);
       const icon =
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      this.showDataStatus(`${icon} 備份失敗：${error.message}`, 'error');
+      const safeMessage = sanitizeApiError(error, 'export_backup');
+      this.showDataStatus(`${icon} 備份失敗：${safeMessage}`, 'error');
     }
   }
 
@@ -158,7 +160,8 @@ export class StorageManager {
         Logger.error('Import failed:', error);
         const icon =
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-        this.showDataStatus(`${icon} 恢復失敗：${error.message}`, 'error');
+        const safeMessage = sanitizeApiError(error, 'import_backup');
+        this.showDataStatus(`${icon} 恢復失敗：${safeMessage}`, 'error');
         this.elements.importFile.value = '';
       }
     };
@@ -209,7 +212,8 @@ export class StorageManager {
       Logger.error('Data check failed:', error);
       const icon =
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      this.showDataStatus(`${icon} 檢查失敗：${error.message}`, 'error');
+      const safeMessage = sanitizeApiError(error, 'check_duplicates');
+      this.showDataStatus(`${icon} 檢查失敗：${safeMessage}`, 'error');
     }
   }
 
@@ -415,7 +419,8 @@ export class StorageManager {
       }
     } catch (error) {
       Logger.error('預覽清理失敗:', error);
-      this.showDataStatus(`❌ 預覽清理失敗: ${error.message}`, 'error');
+      const safeMessage = sanitizeApiError(error, 'preview_cleanup');
+      this.showDataStatus(`❌ 預覽清理失敗: ${safeMessage}`, 'error');
     } finally {
       this.setPreviewButtonLoading(false);
     }
@@ -657,7 +662,8 @@ export class StorageManager {
       Logger.error('Cleanup failed:', error);
       const failIcon =
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      this.showDataStatus(`${failIcon} 清理失敗：${error.message}`, 'error');
+      const safeMessage = sanitizeApiError(error, 'cleanup');
+      this.showDataStatus(`${failIcon} 清理失敗：${safeMessage}`, 'error');
     }
   }
 
@@ -892,15 +898,57 @@ export class StorageManager {
       Logger.error('Optimization failed:', error);
       const failIcon =
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      this.showDataStatus(`${failIcon} 數據重整失敗：${error.message}`, 'error');
+      const safeMessage = sanitizeApiError(error, 'organize_highlights');
+      this.showDataStatus(`${failIcon} 數據重整失敗：${safeMessage}`, 'error');
     }
   }
 
+  /**
+   * 顯示資料管理狀態消息（安全版本）
+   * @param {string} message - 訊息內容（可包含圖標）
+   * @param {string} type - 訊息類型
+   */
   showDataStatus(message, type) {
     if (!this.elements.dataStatus) {
       return;
     }
-    this.elements.dataStatus.innerHTML = message;
+
+    // 向後兼容：分離 emoji/SVG 圖標和文本（使用更安全的正則表達式）
+    const emojiOrSvgMatch = message.match(/^([\u{1F300}-\u{1F9FF}]|<svg[^>]*>.*?<\/svg>)(.*)$/su);
+    let icon = '';
+    let text = '';
+
+    if (emojiOrSvgMatch) {
+      icon = emojiOrSvgMatch[1];
+      text = emojiOrSvgMatch[2];
+    } else {
+      text = message;
+    }
+
+    // 清空內容
+    this.elements.dataStatus.innerHTML = '';
+
+    // 如果有圖標，插入圖標
+    if (icon) {
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'status-icon';
+      // Emoji 可以直接用 textContent，SVG 需要 innerHTML
+      if (icon.startsWith('<svg')) {
+        iconSpan.innerHTML = icon;
+      } else {
+        iconSpan.textContent = icon;
+      }
+      this.elements.dataStatus.appendChild(iconSpan);
+    }
+
+    // 使用 textContent 設置文本（防止 XSS）
+    if (text) {
+      const textSpan = document.createElement('span');
+      textSpan.className = 'status-text';
+      textSpan.textContent = text;
+      this.elements.dataStatus.appendChild(textSpan);
+    }
+
     this.elements.dataStatus.className = `data-status ${type}`;
   }
 }

@@ -1,5 +1,6 @@
 /* global chrome */
 import Logger from '../utils/Logger.js';
+import { sanitizeApiError } from '../utils/securityUtils.js';
 
 /**
  * AuthManager.js
@@ -85,7 +86,8 @@ export class AuthManager {
             }
           );
         } catch (error) {
-          this.ui.showStatus(`切換日誌模式失敗: ${error.message}`, 'error');
+          const safeMessage = sanitizeApiError(error, 'toggle_debug_logs');
+          this.ui.showStatus(`切換日誌模式失敗: ${safeMessage}`, 'error');
         }
       });
     }
@@ -210,7 +212,8 @@ export class AuthManager {
         this.elements.oauthButton.innerHTML =
           '<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>連接到 Notion</span>';
       }
-      this.ui.showStatus(`打開 Notion 頁面失敗: ${error.message}`, 'error');
+      const safeMessage = sanitizeApiError(error, 'open_notion_page');
+      this.ui.showStatus(`打開 Notion 頁面失敗: ${safeMessage}`, 'error');
     }
   }
 
@@ -235,7 +238,8 @@ export class AuthManager {
       Logger.info('🔄 [斷開連接] UI 已更新為未連接狀態');
     } catch (error) {
       Logger.error('❌ [斷開連接] 斷開連接失敗:', error);
-      this.ui.showStatus(`斷開連接失敗: ${error.message}`, 'error');
+      const safeMessage = sanitizeApiError(error, 'disconnect');
+      this.ui.showStatus(`斷開連接失敗: ${safeMessage}`, 'error');
     }
   }
 

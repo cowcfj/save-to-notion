@@ -24,8 +24,8 @@ export class UIManager {
   }
 
   /**
-   * 顯示狀態消息
-   * @param {string} message - 訊息內容
+   * 顯示狀態消息（安全版本：分離圖標與文本）
+   * @param {string|Object} message - 訊息內容（字串或對象 {icon, text}）
    * @param {string} type - 訊息類型 (info, success, error)
    * @param {string} [targetId='status'] - 目標元素 ID
    */
@@ -35,7 +35,45 @@ export class UIManager {
       return;
     }
 
-    status.innerHTML = message;
+    // 向後兼容：如果 message 是字串，檢查是否包含 SVG 標籤
+    let icon = '';
+    let text = '';
+
+    if (typeof message === 'object' && message !== null) {
+      // 新格式：{icon: '...', text: '...'}
+      icon = message.icon || '';
+      text = message.text || '';
+    } else if (typeof message === 'string') {
+      // 向後兼容：如果包含 SVG，嘗試分離（使用非貪婪匹配防止 ReDoS）
+      const svgMatch = message.match(/^(<svg[^>]*>.*?<\/svg>)(.*)$/s);
+      if (svgMatch) {
+        icon = svgMatch[1];
+        text = svgMatch[2];
+      } else {
+        // 純文本訊息
+        text = message;
+      }
+    }
+
+    // 清空並重建內容（安全方式）
+    status.innerHTML = '';
+
+    // 如果有圖標，使用 innerHTML 插入（圖標是受控的 SVG）
+    if (icon) {
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'status-icon';
+      iconSpan.innerHTML = icon;
+      status.appendChild(iconSpan);
+    }
+
+    // 使用 textContent 設置文本（防止 XSS）
+    if (text) {
+      const textSpan = document.createElement('span');
+      textSpan.className = 'status-text';
+      textSpan.textContent = text;
+      status.appendChild(textSpan);
+    }
+
     status.classList.remove('success', 'error', 'info', 'status-message'); // 清除舊類
     status.classList.add('status-message', type); // 添加基礎類和類型類
 
