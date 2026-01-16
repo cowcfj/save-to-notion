@@ -217,9 +217,9 @@ tests/reports/
 .kiro/steering/byterover-rules.md
 .qoder/rules/byterover-rules.md
 .augment/rules/byterover-rules.md*.bak
+.agent/skills/browser-automation/SKILL.md
 .agent/skills/claude-memory/SKILL.md
 .agent/skills/claude-memory/resources/comprehensive-example.md
 .agent/skills/claude-memory/resources/project-patterns.md
 .agent/skills/claude-memory/resources/prompting-techniques.md
 .agent/skills/claude-memory/resources/section-templates.md
-.agent/skills/browser-automation/SKILL.md
