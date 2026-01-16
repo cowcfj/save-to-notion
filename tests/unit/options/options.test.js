@@ -52,7 +52,7 @@ describe('options.js', () => {
       document.body.innerHTML = `
         <button id="preview-template"></button>
         <input id="title-template" value="{title}" />
-        <div id="template-preview"></div>
+        <div id="template-preview" class="hidden"></div>
       `;
     });
 
@@ -63,7 +63,7 @@ describe('options.js', () => {
       button.click();
 
       const previewDiv = document.getElementById('template-preview');
-      expect(previewDiv.style.display).toBe('block');
+      expect(previewDiv.classList.contains('hidden')).toBe(false);
       expect(previewDiv.textContent).toContain('預覽結果：');
       expect(previewDiv.textContent).toContain('範例網頁標題');
     });

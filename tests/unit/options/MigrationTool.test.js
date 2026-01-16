@@ -105,7 +105,7 @@ describe('MigrationTool', () => {
 
       const scanStatus = document.getElementById('scan-status');
       expect(scanStatus.textContent).toContain('掃描錯誤');
-      expect(scanStatus.textContent).toContain('Scan failed');
+      expect(scanStatus.textContent).toContain('操作失敗，請稍後再試');
     });
   });
 
