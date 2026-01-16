@@ -3,8 +3,12 @@
  * 負責選項頁面的共用 UI 邏輯
  */
 
-import { validateSafeSvg } from '../utils/securityUtils.js';
+import { validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
 
+/**
+ * UI 管理器類別
+ * 負責選項頁面的共用 UI 邏輯，包括狀態顯示、升級通知和設置指南
+ */
 export class UIManager {
   constructor() {
     this.elements = {};
@@ -45,7 +49,7 @@ export class UIManager {
       return;
     }
 
-    // 向後兼容：如果 message 是字串，檢查是否包含 SVG 標籤
+    // 向後兼容：支持對象或字串格式
     let icon = '';
     let text = '';
 
@@ -54,15 +58,10 @@ export class UIManager {
       icon = message.icon || '';
       text = message.text || '';
     } else if (typeof message === 'string') {
-      // 向後兼容：如果包含 SVG，嘗試分離（使用非貪婪匹配防止 ReDoS）
-      const svgMatch = message.match(/^(<svg[^>]*>.*?<\/svg>)(.*)$/s);
-      if (svgMatch) {
-        icon = svgMatch[1];
-        text = svgMatch[2];
-      } else {
-        // 純文本訊息
-        text = message;
-      }
+      // 使用共用函數分離圖標和文本（統一處理 Emoji 和 SVG）
+      const separated = separateIconAndText(message);
+      icon = separated.icon;
+      text = separated.text;
     }
 
     // SVG 安全驗證：使用 securityUtils 統一處理

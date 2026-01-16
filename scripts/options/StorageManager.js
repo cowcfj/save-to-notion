@@ -6,7 +6,7 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import { sanitizeApiError, validateSafeSvg } from '../utils/securityUtils.js';
+import { sanitizeApiError, validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
 
 /**
  * 管理存儲空間的類別
@@ -919,36 +919,28 @@ export class StorageManager {
       return;
     }
 
-    // 向後兼容：分離 emoji/SVG 圖標和文本（使用更安全的正則表達式）
-    const emojiOrSvgMatch = message.match(/^([\u{1F300}-\u{1F9FF}]|<svg[^>]*>.*?<\/svg>)(.*)$/su);
-    let icon = '';
-    let text = '';
-
-    if (emojiOrSvgMatch) {
-      icon = emojiOrSvgMatch[1];
-      text = emojiOrSvgMatch[2];
-    } else {
-      text = message;
-    }
+    // 使用共用函數分離圖標和文本（統一處理 Emoji 和 SVG）
+    const { icon, text } = separateIconAndText(message);
 
     // SVG 安全驗證：使用 securityUtils 統一處理
     // 即使預期只接收內部生成的 SVG，仍進行驗證作為縱深防禦
+    let safeIcon = icon;
     if (icon && !validateSafeSvg(icon)) {
-      icon = ''; // 拒絕不安全的 SVG
+      safeIcon = ''; // 拒絕不安全的 SVG
     }
 
     // 清空內容
     this.elements.dataStatus.innerHTML = '';
 
     // 如果有圖標，插入圖標
-    if (icon) {
+    if (safeIcon) {
       const iconSpan = document.createElement('span');
       iconSpan.className = 'status-icon';
       // Emoji 可以直接用 textContent，SVG 需要 innerHTML（已通過安全驗證）
-      if (icon.startsWith('<svg')) {
-        iconSpan.innerHTML = icon;
+      if (safeIcon.startsWith('<svg')) {
+        iconSpan.innerHTML = safeIcon;
       } else {
-        iconSpan.textContent = icon;
+        iconSpan.textContent = safeIcon;
       }
       this.elements.dataStatus.appendChild(iconSpan);
     }

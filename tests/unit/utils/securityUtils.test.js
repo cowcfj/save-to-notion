@@ -15,6 +15,7 @@ import {
   sanitizeUrlForLogging,
   maskSensitiveString,
   sanitizeApiError,
+  separateIconAndText,
 } from '../../../scripts/utils/securityUtils.js';
 
 describe('securityUtils', () => {
@@ -351,6 +352,105 @@ describe('securityUtils', () => {
       test('空錯誤應返回通用訊息', () => {
         const result = sanitizeApiError({});
         expect(result).toBe('操作失敗，請稍後再試。如問題持續，請查看擴充功能設置');
+      });
+    });
+  });
+
+  describe('separateIconAndText', () => {
+    describe('SVG 圖標分離', () => {
+      test('應正確分離 SVG 圖標和文本', () => {
+        const message = '<svg width="16" height="16"></svg> 操作成功';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('<svg width="16" height="16"></svg>');
+        expect(result.text).toBe(' 操作成功');
+      });
+
+      test('應處理複雜的 SVG 標籤', () => {
+        const svgIcon = '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/></svg>';
+        const message = `${svgIcon}載入中...`;
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe(svgIcon);
+        expect(result.text).toBe('載入中...');
+      });
+
+      test('應處理包含屬性的 SVG', () => {
+        const message = '<svg width="16" height="16" fill="none" stroke="currentColor"></svg>完成';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe(
+          '<svg width="16" height="16" fill="none" stroke="currentColor"></svg>'
+        );
+        expect(result.text).toBe('完成');
+      });
+    });
+
+    describe('Emoji 圖標分離', () => {
+      test('應正確分離 Emoji 圖標和文本', () => {
+        const message = '✅ 操作成功';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('✅');
+        expect(result.text).toBe(' 操作成功');
+      });
+
+      test('應處理其他 Emoji', () => {
+        const message = '❌ 操作失敗';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('❌');
+        expect(result.text).toBe(' 操作失敗');
+      });
+
+      test('應處理表情符號', () => {
+        const message = '🎉 慶祝成功';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('🎉');
+        expect(result.text).toBe(' 慶祝成功');
+      });
+    });
+
+    describe('純文本消息', () => {
+      test('應正確處理不含圖標的純文本', () => {
+        const message = '這是純文本消息';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('這是純文本消息');
+      });
+
+      test('應處理中間包含 SVG 文本的消息（不應分離）', () => {
+        const message = '文本 <svg> 標籤';
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('文本 <svg> 標籤');
+      });
+    });
+
+    describe('邊界情況', () => {
+      test('空字串應返回空結果', () => {
+        const result = separateIconAndText('');
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('');
+      });
+
+      test('null 應返回空結果', () => {
+        const result = separateIconAndText(null);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('');
+      });
+
+      test('undefined 應返回空結果', () => {
+        const result = separateIconAndText(undefined);
+        expect(result.icon).toBe('');
+        expect(result.text).toBe('');
+      });
+
+      test('只有圖標無文本應正確處理', () => {
+        const result = separateIconAndText('✅');
+        expect(result.icon).toBe('✅');
+        expect(result.text).toBe('');
+      });
+
+      test('只有 SVG 無文本應正確處理', () => {
+        const result = separateIconAndText('<svg></svg>');
+        expect(result.icon).toBe('<svg></svg>');
+        expect(result.text).toBe('');
       });
     });
   });

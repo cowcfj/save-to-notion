@@ -360,3 +360,62 @@ export function validateSafeSvg(svgContent) {
 
   return !hasDangerousContent;
 }
+
+/**
+ * 從消息字串中分離圖標（Emoji 或 SVG）和純文本內容
+ *
+ * 此函數統一處理 UIManager 和 StorageManager 中的圖標分離邏輯，
+ * 避免重複維護相同的正則表達式模式。
+ *
+ * 支持的圖標格式：
+ * - Unicode Emoji（範圍：U+1F300 to U+1F9FF）
+ * - SVG 標籤（格式：<svg...>...</svg>）
+ *
+ * @param {string} message - 原始消息字串（可能包含圖標前綴）
+ * @returns {{icon: string, text: string}} 分離後的圖標和文本
+ *
+ * @example
+ * // SVG 圖標 + 文本
+ * separateIconAndText('<svg>...</svg> 操作成功')
+ * // 返回: {icon: '<svg>...</svg>', text: ' 操作成功'}
+ *
+ * @example
+ * // Emoji 圖標 + 文本
+ * separateIconAndText('✅ 操作成功')
+ * // 返回: {icon: '✅', text: ' 操作成功'}
+ *
+ * @example
+ * // 純文本（無圖標）
+ * separateIconAndText('操作成功')
+ * // 返回: {icon: '', text: '操作成功'}
+ */
+export function separateIconAndText(message) {
+  if (!message || typeof message !== 'string') {
+    return { icon: '', text: '' };
+  }
+
+  // 統一的正則表達式模式（支持 Emoji 和 SVG）
+  // Emoji 範圍包括：
+  // - \u{2600}-\u{27BF}：雜項符號（Miscellaneous Symbols），包括 ✅ ❌ 等
+  // - \u{1F300}-\u{1F9FF}：表情符號與符號（Emoticons and Pictographs）
+  // - \u{1FA00}-\u{1FA6F}：擴展符號 A
+  // SVG：<svg[^>]*>.*?</svg> 匹配 SVG 標籤（使用非貪婪匹配防止 ReDoS）
+  // 使用 'su' 標誌：s = dotAll 模式，u = Unicode 模式
+  const iconPattern =
+    /^([\u{2600}-\u{27BF}\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]|<svg[^>]*>.*?<\/svg>)(.*)$/su;
+
+  const match = message.match(iconPattern);
+
+  if (match) {
+    return {
+      icon: match[1], // 第一個捕獲組：Emoji 或 SVG
+      text: match[2], // 第二個捕獲組：剩餘文本
+    };
+  }
+
+  // 無匹配：視為純文本消息
+  return {
+    icon: '',
+    text: message,
+  };
+}
