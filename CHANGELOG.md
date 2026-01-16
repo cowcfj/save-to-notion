@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.25.0](https://github.com/cowcfj/save-to-notion/compare/v2.24.0...v2.25.0) (2026-01-16)
+
+
+### ✨ 新功能
+
+* 增加資料庫搜尋功能及排序邏輯 ([#230](https://github.com/cowcfj/save-to-notion/issues/230)) ([b8c5e4a](https://github.com/cowcfj/save-to-notion/commit/b8c5e4aa9dbb0c42c6955ce26fedfb4dca238b1b))
+
 ## [2.24.0](https://github.com/cowcfj/save-to-notion/compare/v2.23.0...v2.24.0) (2026-01-16)
 
 
