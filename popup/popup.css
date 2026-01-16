@@ -39,6 +39,14 @@ button {
   background-color: #48bb78;
 }
 
+/* SVG 圖標樣式 */
+.btn-icon,
+.link-icon {
+  vertical-align: middle;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
 #highlight-button:hover {
   background-color: #38a169;
 }
