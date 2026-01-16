@@ -9,7 +9,27 @@ import {
   formatTitle,
   setupTemplatePreview,
   cleanDatabaseId,
+  initOptions,
 } from '../../../options/options.js';
+
+import { UIManager } from '../../../scripts/options/UIManager.js';
+import { AuthManager } from '../../../scripts/options/AuthManager.js';
+import { DataSourceManager } from '../../../scripts/options/DataSourceManager.js';
+import { StorageManager } from '../../../scripts/options/StorageManager.js';
+import { MigrationTool } from '../../../scripts/options/MigrationTool.js';
+import Logger from '../../../scripts/utils/Logger.js';
+
+// Mocks for dependencies
+jest.mock('../../../scripts/options/UIManager.js');
+jest.mock('../../../scripts/options/AuthManager.js');
+jest.mock('../../../scripts/options/DataSourceManager.js');
+jest.mock('../../../scripts/options/StorageManager.js');
+jest.mock('../../../scripts/options/MigrationTool.js');
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+}));
 
 describe('options.js', () => {
   describe('formatTitle', () => {
@@ -227,6 +247,114 @@ describe('options.js', () => {
         }),
         expect.any(Function)
       );
+    });
+  });
+
+  describe('Initialization (initOptions)', () => {
+    let mockUiInstance,
+      mockAuthInstance,
+      mockDataSourceInstance,
+      mockStorageInstance,
+      mockMigrationInstance;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+
+      // Setup mock instances
+      mockUiInstance = { init: jest.fn(), showStatus: jest.fn() };
+      mockAuthInstance = { init: jest.fn(), checkAuthStatus: jest.fn() };
+      mockDataSourceInstance = { init: jest.fn(), loadDatabases: jest.fn() };
+      mockStorageInstance = { init: jest.fn(), updateStorageUsage: jest.fn() };
+      mockMigrationInstance = { init: jest.fn() };
+
+      // Setup implementations
+      UIManager.mockImplementation(() => mockUiInstance);
+      AuthManager.mockImplementation(() => mockAuthInstance);
+      DataSourceManager.mockImplementation(() => mockDataSourceInstance);
+      StorageManager.mockImplementation(() => mockStorageInstance);
+      MigrationTool.mockImplementation(() => mockMigrationInstance);
+
+      // Setup DOM
+      document.body.innerHTML = `
+            <button id="save-button"></button>
+            <button id="save-templates-button"></button>
+            <div id="app-version"></div>
+            <div class="nav-item" data-section="general"></div>
+            <div id="section-general" class="settings-section"></div>
+            <button id="preview-template"></button>
+            <input id="title-template" />
+            <div id="template-preview"></div>
+        `;
+
+      global.chrome.runtime.onMessage = {
+        addListener: jest.fn(),
+      };
+    });
+
+    it('should initialize all managers and check auth status', () => {
+      initOptions();
+
+      expect(UIManager).toHaveBeenCalled();
+      expect(AuthManager).toHaveBeenCalled();
+      expect(DataSourceManager).toHaveBeenCalled();
+      expect(StorageManager).toHaveBeenCalled();
+      expect(MigrationTool).toHaveBeenCalled();
+
+      expect(mockUiInstance.init).toHaveBeenCalled();
+      expect(mockAuthInstance.init).toHaveBeenCalled();
+      expect(mockDataSourceInstance.init).toHaveBeenCalled();
+      expect(mockStorageInstance.init).toHaveBeenCalled();
+      expect(mockMigrationInstance.init).toHaveBeenCalled();
+      expect(mockAuthInstance.checkAuthStatus).toHaveBeenCalled();
+    });
+
+    it('should display app version', () => {
+      global.chrome.runtime.getManifest = jest.fn(() => ({ version: '1.2.3' }));
+      initOptions();
+      const versionEl = document.getElementById('app-version');
+      expect(versionEl.textContent).toBe('v1.2.3');
+    });
+
+    it('should handle version display error gracefully', () => {
+      global.chrome.runtime.getManifest = jest.fn(() => {
+        throw new Error('No manifest');
+      });
+      initOptions();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('無法獲取應用程式版本號'),
+        expect.any(Error)
+      );
+    });
+
+    it('should handle oauth messages', () => {
+      initOptions();
+
+      const messageListener = global.chrome.runtime.onMessage.addListener.mock.calls[0][0];
+
+      // Test Success
+      messageListener({ action: 'oauth_success' });
+      expect(mockAuthInstance.checkAuthStatus).toHaveBeenCalledTimes(2); // 1 initial + 1 event
+      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('連接成功'),
+        'success'
+      );
+
+      // Test Failure
+      messageListener({ action: 'oauth_failed' });
+      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('連接失敗'),
+        'error'
+      );
+    });
+
+    it('should handle navigation', () => {
+      initOptions();
+      const navItem = document.querySelector('.nav-item');
+      const section = document.getElementById('section-general');
+
+      navItem.click();
+      expect(navItem.classList.contains('active')).toBe(true);
+      expect(section.classList.contains('active')).toBe(true);
     });
   });
 });

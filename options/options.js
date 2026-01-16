@@ -10,7 +10,7 @@ import Logger from '../scripts/utils/Logger.js';
  * Options Page Main Controller
  * 負責協調各个模組，處理全域事件與設置保存
  */
-document.addEventListener('DOMContentLoaded', () => {
+export function initOptions() {
   // 1. 初始化各管理器
   const ui = new UIManager();
   const auth = new AuthManager(ui);
@@ -73,7 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 9. 顯示動態版本號
   displayAppVersion();
-});
+}
+
+document.addEventListener('DOMContentLoaded', initOptions);
 
 /**
  * 設置側邊欄導航

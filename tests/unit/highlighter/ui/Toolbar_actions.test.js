@@ -89,7 +89,8 @@ describe('Toolbar Actions', () => {
         },
         expect.any(Function)
       );
-      expect(statusDiv.textContent).toBe('✅ 同步成功');
+      expect(statusDiv.textContent).toContain('同步成功');
+      expect(statusDiv.innerHTML).toContain('<svg');
     });
 
     test('should show error message when sync fails with error message', async () => {
@@ -101,7 +102,9 @@ describe('Toolbar Actions', () => {
       await toolbar.syncToNotion();
 
       expect(sendMessageMock).toHaveBeenCalled();
-      expect(statusDiv.textContent).toBe('❌ API Key Missing');
+      expect(sendMessageMock).toHaveBeenCalled();
+      expect(statusDiv.textContent).toContain('API Key Missing');
+      expect(statusDiv.innerHTML).toContain('<svg');
     });
 
     test('should show default error message when sync fails without error message', async () => {
@@ -112,7 +115,9 @@ describe('Toolbar Actions', () => {
 
       await toolbar.syncToNotion();
 
-      expect(statusDiv.textContent).toBe('❌ 未知錯誤');
+      await toolbar.syncToNotion();
+      expect(statusDiv.textContent).toContain('未知錯誤');
+      expect(statusDiv.innerHTML).toContain('<svg');
     });
 
     test('should handle runtime errors (chrome.runtime.lastError)', async () => {
@@ -125,7 +130,9 @@ describe('Toolbar Actions', () => {
 
       await toolbar.syncToNotion();
 
-      expect(statusDiv.textContent).toBe('❌ 同步失敗');
+      await toolbar.syncToNotion();
+      expect(statusDiv.textContent).toContain('同步失敗');
+      expect(statusDiv.innerHTML).toContain('<svg');
       expect(window.Logger.error).toHaveBeenCalledWith('同步失敗:', expect.any(Error));
     });
   });

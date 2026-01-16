@@ -30,7 +30,8 @@ import {
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
+// Export initialization function for testing
+export async function initPopup() {
   // 獲取所有 DOM 元素
   const elements = getElements();
 
@@ -198,4 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.error('Error:', result.error);
     }
   });
-});
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', initPopup);

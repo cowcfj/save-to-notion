@@ -97,6 +97,17 @@ describe('StorageManager', () => {
       // Just basic check that init calls updateStorageUsage
       expect(mockGet).toHaveBeenCalled();
     });
+
+    it('should trigger checkDataIntegrity when check button is clicked', () => {
+      const checkSpy = jest
+        .spyOn(storageManager, 'checkDataIntegrity')
+        .mockImplementation(() => Promise.resolve());
+      storageManager.init(); // re-init to attach listeners again or attach manually if needed
+      // Note: init was called in beforeEach, so listeners are already attached.
+      storageManager.elements.checkButton.click();
+      expect(checkSpy).toHaveBeenCalled();
+      checkSpy.mockRestore();
+    });
   });
 
   describe('getStorageUsage', () => {
@@ -238,6 +249,29 @@ describe('StorageManager', () => {
 
       expect(mockRemove).toHaveBeenCalledWith(['key1'], expect.any(Function));
       expect(mockSet).toHaveBeenCalledWith({ key2: 'val' }, expect.any(Function));
+    });
+
+    it('should handle optimization error', async () => {
+      storageManager.optimizationPlan = {
+        canOptimize: true,
+        keysToRemove: ['key1'],
+        optimizedData: { key2: 'val' },
+        spaceSaved: 100,
+      };
+      // Simulate error in remove
+      mockRemove.mockImplementation((keys, callback) => {
+        // simulate lastError
+        // In the implementation: if (chrome.runtime.lastError) reject(...)
+        // We need to mock chrome.runtime.lastError AND callback
+        global.chrome.runtime.lastError = { message: 'Remove failed' };
+        callback();
+        global.chrome.runtime.lastError = null; // cleanup
+      });
+
+      await storageManager.executeOptimization();
+
+      expect(Logger.error).toHaveBeenCalled();
+      expect(storageManager.elements.dataStatus.textContent).toContain('數據重整失敗');
     });
   });
 });
@@ -409,6 +443,12 @@ describe('StorageManager Extended', () => {
 
       expect(storageManager.elements.dataStatus.textContent).toBe('發生錯誤');
       expect(storageManager.elements.dataStatus.className).toContain('error');
+    });
+
+    test('如果元素不存在應安全返回', () => {
+      storageManager.elements.dataStatus = null;
+      storageManager.showDataStatus('test', 'info');
+      // Should not throw
     });
   });
 

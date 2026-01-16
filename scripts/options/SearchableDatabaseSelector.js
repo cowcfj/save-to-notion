@@ -483,6 +483,9 @@ export class SearchableDatabaseSelector {
   static formatDate(dateString) {
     try {
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return '';
+      }
       return date.toLocaleDateString('zh-TW', {
         year: 'numeric',
         month: 'short',
