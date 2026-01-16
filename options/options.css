@@ -1335,3 +1335,24 @@ h4 .icon-svg {
   /* yellow-700 */
   border-bottom: 2px solid #fcd34d;
 }
+
+/* 突顯文字樣式 - 用於重要數據展示 */
+/* 這些類別用於替代內聯樣式，保持樣式與邏輯分離 */
+
+/* 成功狀態突顯（綠色） - 用於顯示成功、節省空間等正面數據 */
+.highlight-success {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+/* 主要狀態突顯（藍色） - 用於顯示主要操作或重點數據 */
+.highlight-primary {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* 文字突顯（深色） - 用於一般重要文字 */
+.highlight-text {
+  color: var(--text-primary);
+  font-weight: 600;
+}
