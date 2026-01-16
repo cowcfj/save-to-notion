@@ -71,10 +71,12 @@ export function setButtonText(button, text) {
   if (!button) {
     return;
   }
+  /* 優先使用 .btn-text 元素，若不存在則直接設置 button.textContent */
   const textSpan = button.querySelector('.btn-text');
   if (textSpan) {
     textSpan.textContent = text;
   } else {
+    // 備用方案：直接設置按鈕文字
     button.textContent = text;
   }
 }
