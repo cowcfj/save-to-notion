@@ -244,9 +244,13 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should show searching state before API call', async () => {
-      selector.showSearchingState = jest.fn(selector.showSearchingState.bind(selector));
+      const showSearchingStateSpy = jest.spyOn(selector, 'showSearchingState');
       await selector.performServerSearch('test query');
+
       expect(selector.isSearching).toBe(true);
+      expect(showSearchingStateSpy).toHaveBeenCalledWith('test query');
+
+      showSearchingStateSpy.mockRestore();
     });
 
     it('should handle search error gracefully', async () => {
