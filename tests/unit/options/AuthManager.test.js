@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-/* global document */
+/* global document, chrome */
 import { AuthManager } from '../../../scripts/options/AuthManager.js';
 import { UIManager } from '../../../scripts/options/UIManager.js';
 
