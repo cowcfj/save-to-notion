@@ -84,8 +84,12 @@ export class DataSourceManager {
         Logger.info(`API 返回 ${data.results?.length || 0} 個項目`);
 
         if (data.results && data.results.length > 0) {
-          // 客戶端智能篩選和排序
-          const filteredResults = DataSourceManager.filterAndSortResults(data.results, 100);
+          // 客戶端智能篩選和排序（搜尋結果保留關聯度排序）
+          const filteredResults = DataSourceManager.filterAndSortResults(
+            data.results,
+            100,
+            isSearchQuery
+          );
 
           if (filteredResults.length > 0) {
             this.populateDatabaseSelect(filteredResults, isSearchQuery);
@@ -182,29 +186,47 @@ export class DataSourceManager {
    * 篩選並排序搜索結果
    * @param {Array} results - 原始結果列表
    * @param {number} maxResults - 最大結果數量
-   * @returns {Array} 篩選並排序後的結果
+   * @param {boolean} preserveOrder - 是否保留原始順序（用於搜尋結果的關聯度排序）
+   * @returns {Array} 篩選後的結果
    */
-  static filterAndSortResults(results, maxResults = 100) {
-    Logger.info(`開始篩選 ${results.length} 個項目，目標: ${maxResults} 個`);
+  static filterAndSortResults(results, maxResults = 100, preserveOrder = false) {
+    Logger.info(
+      `開始篩選 ${results.length} 個項目，目標: ${maxResults} 個，保留順序: ${preserveOrder}`
+    );
 
+    let excludedCount = 0;
+
+    // 篩選有效項目（過濾掉非頁面/資料來源和已保存的網頁）
+    const validItems = results.filter(item => {
+      if (item.object !== 'page' && item.object !== 'data_source') {
+        return false;
+      }
+
+      if (DataSourceManager.isSavedWebPage(item)) {
+        excludedCount++;
+        return false;
+      }
+
+      return true;
+    });
+
+    // 如果是搜尋結果，保留 Notion API 的關聯度排序
+    if (preserveOrder) {
+      const filtered = validItems.slice(0, maxResults);
+      Logger.info(
+        `篩選完成（保留關聯度順序）: ${filtered.length} 個項目（排除 ${excludedCount} 個已保存網頁）`
+      );
+      return filtered;
+    }
+
+    // 否則按類型重新排序（用於初始列表載入）
     const workspacePages = [];
     const urlDatabases = [];
     const categoryPages = [];
     const otherDatabases = [];
     const otherPages = [];
 
-    let excludedCount = 0;
-
-    results.forEach(item => {
-      if (item.object !== 'page' && item.object !== 'data_source') {
-        return;
-      }
-
-      if (DataSourceManager.isSavedWebPage(item)) {
-        excludedCount++;
-        return;
-      }
-
+    validItems.forEach(item => {
       if (item.object === 'data_source') {
         if (DataSourceManager.hasUrlProperty(item)) {
           urlDatabases.push(item);
