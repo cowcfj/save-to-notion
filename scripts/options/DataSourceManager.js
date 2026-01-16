@@ -196,7 +196,8 @@ export class DataSourceManager {
       `開始篩選 ${results.length} 個項目，目標: ${maxResults} 個，保留順序: ${preserveOrder}`
     );
 
-    // 使用 reduce 同時完成篩選和計數（避免 filter 中的副作用）
+    // 使用 reduce 同時完成篩選和計數
+    // 使用 push 修改累積器陣列（O(n)），而非展開運算子（O(n²)）
     const { validItems, excludedCount } = results.reduce(
       (acc, item) => {
         // 過濾非頁面/資料來源
@@ -206,10 +207,12 @@ export class DataSourceManager {
 
         // 過濾已保存的網頁
         if (DataSourceManager.isSavedWebPage(item)) {
-          return { ...acc, excludedCount: acc.excludedCount + 1 };
+          acc.excludedCount += 1;
+          return acc;
         }
 
-        return { ...acc, validItems: [...acc.validItems, item] };
+        acc.validItems.push(item);
+        return acc;
       },
       { validItems: [], excludedCount: 0 }
     );
