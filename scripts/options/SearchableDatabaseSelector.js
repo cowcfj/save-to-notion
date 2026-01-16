@@ -69,8 +69,8 @@ export class SearchableDatabaseSelector {
   }
 
   setupEventListeners() {
-    // 搜索輸入（帶防抖動的伺服器端搜尋）
-    this.searchInput?.addEventListener('input', event => {
+    // 儲存綁定的事件處理函式以便後續移除
+    this._handleSearchInput = event => {
       const query = event.target.value.trim();
 
       // 清除之前的計時器
@@ -93,38 +93,41 @@ export class SearchableDatabaseSelector {
       this.searchTimeout = setTimeout(() => {
         this.performServerSearch(query);
       }, 500);
-    });
+    };
 
-    // 搜索框焦點事件
-    this.searchInput?.addEventListener('focus', () => {
+    this._handleSearchFocus = () => {
       if (this.databases.length > 0) {
         this.showDropdown();
       }
-    });
+    };
 
-    // 切換下拉選單
-    this.toggleButton?.addEventListener('click', event => {
+    this._handleToggleClick = event => {
       event.preventDefault();
       this.toggleDropdown();
-    });
+    };
 
-    // 重新載入資料來源
-    this.refreshButton?.addEventListener('click', event => {
+    this._handleRefreshClick = event => {
       event.preventDefault();
       this.refreshDatabases();
-    });
+    };
 
-    // 點擊外部關閉
-    document.addEventListener('click', event => {
+    this._handleDocumentClick = event => {
       if (this.container && !this.container.contains(event.target)) {
         this.hideDropdown();
       }
-    });
+    };
 
-    // 鍵盤導航
-    this.searchInput?.addEventListener('keydown', event => {
+    this._handleKeydown = event => {
       this.handleKeyNavigation(event);
-    });
+    };
+
+    // 綁定事件監聽器
+    this.searchInput?.addEventListener('input', this._handleSearchInput);
+    this.searchInput?.addEventListener('focus', this._handleSearchFocus);
+    this.toggleButton?.addEventListener('click', this._handleToggleClick);
+    this.refreshButton?.addEventListener('click', this._handleRefreshClick);
+    document.addEventListener('click', this._handleDocumentClick);
+    this.searchInput?.addEventListener('keydown', this._handleKeydown);
   }
 
   populateDatabases(databases, isSearchResult = false) {
@@ -637,6 +640,24 @@ export class SearchableDatabaseSelector {
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);
       this.searchTimeout = null;
+    }
+
+    // 移除事件監聽器（使用儲存的處理函式引用）
+    if (this._handleSearchInput) {
+      this.searchInput?.removeEventListener('input', this._handleSearchInput);
+      this.searchInput?.removeEventListener('focus', this._handleSearchFocus);
+      this.searchInput?.removeEventListener('keydown', this._handleKeydown);
+      this.toggleButton?.removeEventListener('click', this._handleToggleClick);
+      this.refreshButton?.removeEventListener('click', this._handleRefreshClick);
+      document.removeEventListener('click', this._handleDocumentClick);
+
+      // 清空處理函式引用以便 GC
+      this._handleSearchInput = null;
+      this._handleSearchFocus = null;
+      this._handleToggleClick = null;
+      this._handleRefreshClick = null;
+      this._handleDocumentClick = null;
+      this._handleKeydown = null;
     }
 
     // 重置狀態
