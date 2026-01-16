@@ -333,7 +333,7 @@ describe('StorageManager Extended', () => {
       },
     };
 
-    mockUiManager = { showStatus: jest.fn() };
+    mockUiManager = { showStatus: jest.fn(), showDataStatus: jest.fn() };
 
     global.URL.createObjectURL = jest.fn(() => 'blob:url');
     global.URL.revokeObjectURL = jest.fn();
@@ -420,19 +420,63 @@ describe('StorageManager Extended', () => {
     test('應更新 UI 元素', () => {
       const usage = {
         total: 5242880,
-        used: '1.50',
-        percentage: 30,
+        usedMB: '5.00',
+        percentage: 5,
         pages: 5,
         highlights: 25,
         configs: 3,
+        isUnlimited: true,
       };
 
       storageManager.updateUsageDisplay(usage);
 
-      expect(storageManager.elements.usagePercentage.textContent).toBe('30%');
+      expect(storageManager.elements.usagePercentage.textContent).toBe('5%');
       expect(storageManager.elements.pagesCount.textContent).toBe('5');
       expect(storageManager.elements.highlightsCount.textContent).toBe('25');
       expect(storageManager.elements.configCount.textContent).toBe('3');
+    });
+
+    // Test for storage warning prioritization
+    test('當使用量 > 100MB 時應顯示嚴重錯誤警告 (error)', () => {
+      const showDataStatusSpy = jest.spyOn(storageManager, 'showDataStatus');
+      const usage = {
+        total: 105 * 1024 * 1024,
+        usedMB: '105.00',
+        percentage: 95,
+        pages: 100,
+        highlights: 500,
+        configs: 10,
+        isUnlimited: true,
+      };
+
+      storageManager.updateUsageDisplay(usage);
+
+      // Verify that showDataStatus was called with 'error' type
+      expect(showDataStatusSpy).toHaveBeenCalledWith(
+        expect.stringContaining('數據量過大'),
+        'error'
+      );
+    });
+
+    test('當使用量 > 80MB (但在 100MB 以下) 時應顯示警告 (warning)', () => {
+      const showDataStatusSpy = jest.spyOn(storageManager, 'showDataStatus');
+      const usage = {
+        total: 85 * 1024 * 1024,
+        usedMB: '85.00',
+        percentage: 85,
+        pages: 80,
+        highlights: 400,
+        configs: 10,
+        isUnlimited: true,
+      };
+
+      storageManager.updateUsageDisplay(usage);
+
+      // Verify that showDataStatus was called with 'warning' type
+      expect(showDataStatusSpy).toHaveBeenCalledWith(
+        expect.stringContaining('數據量較大'),
+        'warning'
+      );
     });
   });
 
