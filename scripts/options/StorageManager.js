@@ -224,10 +224,37 @@ export class StorageManager {
   async updateStorageUsage() {
     const button = this.elements.refreshUsageButton;
 
+    // SVG Icons
+    const ICONS = {
+      refresh:
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>',
+      check:
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      error:
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    };
+
+    // Helper to update button content
+    const setButtonState = (state, text, disabled = false) => {
+      if (!button) {return;}
+
+      let icon = ICONS.refresh; // default
+      if (state === 'success') {icon = ICONS.check;}
+      if (state === 'error') {icon = ICONS.error;}
+
+      // Add spinning class for loading state if needed, or handle via CSS
+      if (state === 'loading') {
+        // You might want to add a spinning class to the svg if you have one
+        // icon = icon.replace('class="icon-svg"', 'class="icon-svg spin"');
+      }
+
+      button.innerHTML = `${icon} ${text}`;
+      button.disabled = disabled;
+    };
+
     // 添加加載狀態
     if (button) {
-      button.disabled = true;
-      button.textContent = '🔄 更新中...';
+      setButtonState('loading', '更新中...', true);
     }
 
     try {
@@ -236,9 +263,9 @@ export class StorageManager {
 
       // 顯示成功提示
       if (button) {
-        button.textContent = '✅ 已更新';
+        setButtonState('success', '已更新');
         setTimeout(() => {
-          button.textContent = '🔄 刷新使用情況';
+          setButtonState('default', '刷新統計');
           button.disabled = false;
         }, 1500);
       }
@@ -247,9 +274,9 @@ export class StorageManager {
 
       // 顯示錯誤狀態
       if (button) {
-        button.textContent = '❌ 更新失敗';
+        setButtonState('error', '更新失敗');
         setTimeout(() => {
-          button.textContent = '🔄 刷新使用情況';
+          setButtonState('default', '刷新統計');
           button.disabled = false;
         }, 2000);
       }

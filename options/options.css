@@ -1138,3 +1138,15 @@ h4 .icon-svg {
   margin-right: 6px;
   vertical-align: text-bottom;
 }
+
+/* 
+ * 修正警示文字與圖標的對齊問題
+ * .help-text (12px) 較小，需要特別調整圖標對齊
+ */
+.help-text .icon-svg,
+.help-text .list-icon {
+  width: 14px; /* 縮小一點以配合 12px 文字 */
+  height: 14px;
+  vertical-align: -3px; /* 微調垂直位置 */
+  margin-right: 4px;
+}
