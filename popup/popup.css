@@ -46,7 +46,16 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* gap: 8px; - Reverting to margin for reliability */
+
+  /* 使用 margin 而非 gap 的原因：
+   * 1. 精確單向間距：只需要圖標右側有間距，gap 會在所有子元素間產生雙向間距
+   * 2. 避免與 transform 干擾：圖標使用 translateY() 對齊，gap 可能導致渲染問題
+   * 3. 居中計算準確性：gap 會影響 justify-content: center 的計算基準
+   * 4. 固定值穩定性：margin 不受 text-transform: uppercase 導致的文字寬度變化影響
+   * 註：Flexbox gap 在 Chrome 84+ 已支援，但基於上述精確控制需求選擇 margin
+   * 參考：internal/reports/FLEXBOX_GAP_ANALYSIS.md
+   */
+
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-size: 13px;
@@ -64,7 +73,7 @@ button {
 .link-icon {
   flex-shrink: 0;
   margin-right: 8px;
-  /* Restored for spacing */
+  /* 圖標與文字的間距，配合 button 的 margin 策略而非使用 gap */
 
   /* 圖標基線對齊調整：
    * SVG 圖標預設垂直置中（vertical-align: middle），但與文字基線不對齊
