@@ -616,4 +616,23 @@ export class SearchableDatabaseSelector {
     div.textContent = text;
     return div.innerHTML;
   }
+
+  /**
+   * 清理組件資源（防止記憶體洩漏）
+   * 應在組件銷毀時調用
+   */
+  destroy() {
+    // 清除防抖動計時器
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+      this.searchTimeout = null;
+    }
+
+    // 重置狀態
+    this.isSearching = false;
+    this.databases = [];
+    this.initialDatabases = [];
+    this.filteredDatabases = [];
+    this.selectedDatabase = null;
+  }
 }
