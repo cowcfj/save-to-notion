@@ -70,7 +70,10 @@ export function setButtonState(button, disabled) {
 export function updateUIForSavedPage(elements, response) {
   // 啟用標記按鈕
   if (elements.highlightButton) {
-    elements.highlightButton.textContent = '📝 Start Highlighting';
+    const textSpan = elements.highlightButton.querySelector('.btn-text');
+    if (textSpan) {
+      textSpan.textContent = 'Start Highlighting';
+    }
     elements.highlightButton.disabled = false;
   }
 
@@ -103,7 +106,10 @@ export function updateUIForSavedPage(elements, response) {
 export function updateUIForUnsavedPage(elements, response) {
   // 禁用標記按鈕
   if (elements.highlightButton) {
-    elements.highlightButton.textContent = '📝 Save First to Highlight';
+    const textSpan = elements.highlightButton.querySelector('.btn-text');
+    if (textSpan) {
+      textSpan.textContent = 'Save First to Highlight';
+    }
     elements.highlightButton.disabled = true;
   }
 
