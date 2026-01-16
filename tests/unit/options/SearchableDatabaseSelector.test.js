@@ -247,8 +247,10 @@ describe('SearchableDatabaseSelector', () => {
       const showSearchingStateSpy = jest.spyOn(selector, 'showSearchingState');
       await selector.performServerSearch('test query');
 
-      expect(selector.isSearching).toBe(true);
+      // showSearchingState 應該被調用
       expect(showSearchingStateSpy).toHaveBeenCalledWith('test query');
+      // finally 後 isSearching 應該被重置為 false
+      expect(selector.isSearching).toBe(false);
 
       showSearchingStateSpy.mockRestore();
     });
@@ -257,6 +259,14 @@ describe('SearchableDatabaseSelector', () => {
       mockLoadDatabases.mockRejectedValueOnce(new Error('API Error'));
       await selector.performServerSearch('test query');
       expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
+      // 即使出錯，isSearching 也應該被重置
+      expect(selector.isSearching).toBe(false);
+    });
+
+    it('should handle error without message property', async () => {
+      mockLoadDatabases.mockRejectedValueOnce({});
+      await selector.performServerSearch('test query');
+      expect(mockShowStatus).toHaveBeenCalledWith('搜尋失敗: 未知錯誤', 'error');
     });
   });
 

@@ -244,7 +244,12 @@ export class SearchableDatabaseSelector {
       Logger.info(`伺服器端搜尋完成: "${query}"`);
     } catch (error) {
       Logger.error('伺服器端搜尋失敗:', error);
-      this.showStatus(`搜尋失敗: ${error.message}`, 'error');
+      // 使用安全的錯誤訊息（避免 undefined）
+      const errorMessage = error?.message || '未知錯誤';
+      this.showStatus(`搜尋失敗: ${errorMessage}`, 'error');
+    } finally {
+      // 確保在所有路徑下都重置搜尋狀態
+      this.isSearching = false;
     }
   }
 
