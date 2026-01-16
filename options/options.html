@@ -129,7 +129,13 @@
                   <div class="dropdown-header">
                     <span id="database-count">0 個來源</span>
                     <button type="button" id="refresh-databases" class="btn-icon" title="重新整理">
-                      🔄
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                        <path d="M21 21v-5h-5" />
+                      </svg>
                     </button>
                   </div>
                   <div class="dropdown-list" id="database-list">
@@ -250,28 +256,80 @@
           <h3>備份與還原</h3>
           <div class="backup-info">
             <p class="help-text" style="margin-bottom: 12px">
-              <strong>📦 備份包含的數據：</strong>
+              <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="list-icon">
+                  <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+                  <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+                  <line x1="6" y1="6" x2="6.01" y2="6" />
+                  <line x1="6" y1="18" x2="6.01" y2="18" />
+                </svg> 備份包含的數據：</strong>
             </p>
             <ul class="backup-data-list">
-              <li>🎯 <strong>標註數據</strong>：所有頁面的高亮標記（文字、顏色、位置）</li>
-              <li>💾 <strong>保存記錄</strong>：已同步到 Notion 的頁面狀態</li>
-              <li>🔄 <strong>遷移數據</strong>：舊版本資料的暫存記錄</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="list-icon">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
+                </svg> <strong>標註數據</strong>：所有頁面的高亮標記（文字、顏色、位置）</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="list-icon">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg> <strong>保存記錄</strong>：已同步到 Notion 的頁面狀態</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="list-icon">
+                  <path d="M8 3 4 7l4 4" />
+                  <path d="M4 7h16" />
+                  <path d="m16 21 4-4-4-4" />
+                  <path d="M20 17H4" />
+                </svg> <strong>遷移數據</strong>：舊版本資料的暫存記錄</li>
             </ul>
             <p class="help-text text-warning" style="margin-top: 8px">
-              ⚠️ <strong>注意</strong>：API Key 和 Database ID 等配置會透過 Google
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="list-icon" style="color: var(--warning-color)">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg> <strong>注意</strong>：API Key 和 Database ID 等配置會透過 Google
               帳號自動同步，不包含在備份中。
             </p>
           </div>
           <div class="button-group">
-            <button id="export-data-button" class="btn-secondary">📥 匯出備份</button>
-            <button id="check-data-button" class="btn-secondary">🔍 檢查完整性</button>
+            <button id="export-data-button" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg> 匯出備份
+            </button>
+            <button id="check-data-button" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg> 檢查完整性
+            </button>
           </div>
           <div class="button-group">
             <input type="file" id="import-data-file" accept=".json" style="display: none" />
-            <button id="import-data-button" class="btn-secondary">📤 還原備份</button>
+            <button id="import-data-button" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg> 還原備份
+            </button>
           </div>
           <p class="help-text text-warning" style="margin-top: 8px">
-            ⚠️ 還原備份將<strong>覆蓋</strong>現有的標註數據，建議先匯出當前數據。
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="icon-svg" style="color: var(--warning-color)">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg> 還原備份將<strong>覆蓋</strong>現有的標註數據，建議先匯出當前數據。
           </p>
           <div id="data-status" class="status-message"></div>
         </div>
@@ -310,14 +368,27 @@
 
             <!-- 待完成的遷移（需訪問頁面） -->
             <div id="pending-migration-section" class="pending-migration-section" style="display: none">
-              <h4>📋 待完成的遷移（需訪問頁面）</h4>
+              <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                  <path d="M12 11h4" />
+                  <path d="M12 16h4" />
+                  <path d="M8 11h.01" />
+                  <path d="M8 16h.01" />
+                </svg> 待完成的遷移（需訪問頁面）</h4>
               <div id="pending-migration-list" class="result-list"></div>
               <p class="hint">提示：訪問上方頁面後標註會自動恢復，刷新此頁面可更新列表。</p>
             </div>
 
             <!-- 遷移失敗的標註 -->
             <div id="failed-migration-section" class="failed-migration-section" style="display: none">
-              <h4>❌ 無法恢復的標註</h4>
+              <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m15 9-6 6" />
+                  <path d="m9 9 6 6" />
+                </svg> 無法恢復的標註</h4>
               <div id="failed-migration-list" class="result-list"></div>
               <p class="hint">這些標註因頁面內容已更改而無法恢復。您可以刪除這些數據。</p>
             </div>
@@ -375,7 +446,14 @@
 
         <!-- 快速開始 -->
         <div class="card">
-          <h3>🚀 快速開始</h3>
+          <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+              <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+              <path
+                d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+              <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+              <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+            </svg> 快速開始</h3>
           <div class="quick-start-grid">
             <div class="step-card">
               <strong>1. 連接擴展</strong>
@@ -394,7 +472,10 @@
 
         <!-- 核心功能 -->
         <div class="card">
-          <h3>⚡ 核心功能</h3>
+          <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg> 核心功能</h3>
           <div class="feature-grid">
             <div class="feature-card">
               <div class="feature-icon">
@@ -489,7 +570,13 @@
         <!-- 常見問題 -->
         <div class="card">
           <div class="faq-header">
-            <h3>💡 常見問題</h3>
+            <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <path
+                  d="M15 14c.2-1 .7-1.7 1.5-2.5 1-1 1.5-2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+                <path d="M9 18h6" />
+                <path d="M10 22h4" />
+              </svg> 常見問題</h3>
             <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank"
               class="btn-secondary">
               查看完整指南
@@ -522,7 +609,11 @@
           <div class="faq-actions">
             <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq" target="_blank"
               class="btn-primary">
-              📖 閱讀完整用戶指南與 FAQ
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+              </svg> 閱讀完整用戶指南與 FAQ
             </a>
           </div>
         </div>

@@ -1107,3 +1107,34 @@ select:focus {
   font-size: 0.875rem;
   text-decoration: none;
 }
+
+/* =========================================
+   Refactoring Phase 4: Icon Standardization
+   ========================================= */
+
+.list-icon {
+  width: 16px;
+  height: 16px;
+  vertical-align: text-bottom;
+  margin-right: 6px;
+  color: var(--primary-color);
+}
+
+h3 .icon-svg, 
+h4 .icon-svg {
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: text-bottom;
+  margin-right: 8px;
+  display: inline-block;
+}
+
+/* 讓按鈕中的 SVG 正確對齊 (如果沒有被 .btn .icon 覆蓋) */
+.btn-secondary .icon-svg,
+.btn-danger .icon-svg,
+.btn-primary .icon-svg {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  vertical-align: text-bottom;
+}
