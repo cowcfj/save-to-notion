@@ -1,5 +1,35 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.24.0](https://github.com/cowcfj/save-to-notion/compare/v2.23.0...v2.24.0) (2026-01-16)
+
+
+### ✨ 新功能
+
+* 改善用戶界面與可用性 ([#229](https://github.com/cowcfj/save-to-notion/issues/229)) ([811059d](https://github.com/cowcfj/save-to-notion/commit/811059d83b8979127c366558580d50109aae50d1))
+
+
+### 🐛 Bug 修復
+
+* upgrade @notionhq/client from 5.4.0 to 5.6.0 ([#228](https://github.com/cowcfj/save-to-notion/issues/228)) ([ccc321f](https://github.com/cowcfj/save-to-notion/commit/ccc321f687eecd8872a44b957d469c14602665e4))
+
+
+### 📝 文檔更新
+
+* 更新 README.md 專案說明。 ([aa3df49](https://github.com/cowcfj/save-to-notion/commit/aa3df49e2a91b5d189829444c202c77d6617ce67))
+
+
+### ♻️ 代碼重構
+
+* 更新技術架構與核心技術說明 ([a950085](https://github.com/cowcfj/save-to-notion/commit/a9500853612127d0c0e1fd26125db9600af72a01))
+* 重構錯誤處理及移除不必要的代碼 ([#222](https://github.com/cowcfj/save-to-notion/issues/222)) ([db20a0b](https://github.com/cowcfj/save-to-notion/commit/db20a0b7ec672e0a7b8834ae7408c08fdacc6876))
+
+
+### 🧹 其他變更
+
+* **deps-dev:** bump jsdom from 26.1.0 to 27.4.0 ([#225](https://github.com/cowcfj/save-to-notion/issues/225)) ([5d2f6a6](https://github.com/cowcfj/save-to-notion/commit/5d2f6a6f93600b40d7ec786df50f79538c974eaf))
+* **deps-dev:** bump rollup from 4.53.3 to 4.54.0 ([#226](https://github.com/cowcfj/save-to-notion/issues/226)) ([9a87706](https://github.com/cowcfj/save-to-notion/commit/9a877066e3f1e7b7d2fc46d9206e0d23118730a8))
+* 更新 .gitignore 以排除新的代理技能文檔 ([a163937](https://github.com/cowcfj/save-to-notion/commit/a1639374f26a35d85da8f4a36b742ef6a94b3def))
+
 ## [2.23.0](https://github.com/cowcfj/save-to-notion/compare/v2.22.0...v2.23.0) (2025-12-30)
 
 
