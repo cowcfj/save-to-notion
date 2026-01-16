@@ -947,4 +947,163 @@ select:focus {
 
 .text-warning strong {
   color: var(--warning-color);
+}/* =========================================
+   Refactoring Phase 1: New Component Classes
+   ========================================= */
+
+/* 快速開始區域 */
+.quick-start-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+}
+
+.step-card {
+    padding: var(--spacing-md);
+    background: #f8f9fc;
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--primary-color);
+}
+
+.step-card strong {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+}
+
+.step-card p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* 功能卡片網格 */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+}
+
+.feature-card {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: #f8f9fc;
+    border-radius: var(--radius-md);
+    align-items: flex-start;
+}
+
+.feature-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ecfdf5;
+    border-radius: var(--radius-md);
+    font-size: 1.25rem;
+    color: var(--text-primary);
+}
+
+.feature-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.feature-content {
+    flex: 1;
+}
+
+.feature-content strong {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    color: var(--text-primary);
+}
+
+.feature-content>div {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* FAQ 區域 */
+.faq-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.faq-list {
+    border-top: 1px solid var(--border-color);
+}
+
+.faq-item {
+    padding: var(--spacing-md) 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.faq-item:last-child {
+    border-bottom: none;
+}
+
+.faq-question {
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+}
+
+.faq-answer {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* 代碼與快捷鍵 */
+.inline-code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 0.875em;
+    color: var(--primary-color);
+    font-family: monospace;
+}
+
+.inline-code.highlight {
+    color: #e11d48;
+    background: #fff1f2;
+}
+
+.kbd {
+    background: #e2e8f0;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 0.875em;
+    font-family: monospace;
+    color: var(--text-primary);
+    border: 1px solid #cbd5e1;
+}
+.faq-actions {
+  text-align: center;
+  margin-top: 24px;
+}
+
+.faq-actions .btn-primary {
+  display: inline-block;
+  width: auto;
+  text-decoration: none;
+  padding: 12px 24px;
+}
+
+.faq-header h3 {
+  margin: 0;
+}
+
+.faq-header .btn-secondary {
+  padding: 6px 12px;
+  font-size: 0.875rem;
+  text-decoration: none;
 }

@@ -376,44 +376,18 @@
         <!-- 快速開始 -->
         <div class="card">
           <h3>🚀 快速開始</h3>
-          <div style="
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 16px;
-                margin-top: 16px;
-              ">
-            <div style="
-                  padding: 16px;
-                  background: #f8f9fc;
-                  border-radius: 8px;
-                  border-left: 3px solid #00b0ff;
-                ">
-              <strong style="display: block; margin-bottom: 8px">1. 連接擴展</strong>
-              <p style="margin: 0; font-size: 0.875rem; color: #666">
-                點擊擴展圖標 → Settings → 點擊「連接到 Notion」
-              </p>
+          <div class="quick-start-grid">
+            <div class="step-card">
+              <strong>1. 連接擴展</strong>
+              <p>點擊擴展圖標 → Settings → 點擊「連接到 Notion」</p>
             </div>
-            <div style="
-                  padding: 16px;
-                  background: #f8f9fc;
-                  border-radius: 8px;
-                  border-left: 3px solid #00b0ff;
-                ">
-              <strong style="display: block; margin-bottom: 8px">2. 授權訪問</strong>
-              <p style="margin: 0; font-size: 0.875rem; color: #666">
-                在 Notion 創建 Integration，複製 Secret Key 並保存
-              </p>
+            <div class="step-card">
+              <strong>2. 授權訪問</strong>
+              <p>在 Notion 創建 Integration，複製 Secret Key 並保存</p>
             </div>
-            <div style="
-                  padding: 16px;
-                  background: #f8f9fc;
-                  border-radius: 8px;
-                  border-left: 3px solid #00b0ff;
-                ">
-              <strong style="display: block; margin-bottom: 8px">3. 開始使用</strong>
-              <p style="margin: 0; font-size: 0.875rem; color: #666">
-                選擇目標數據庫，點擊保存按鈕即可剪藏！
-              </p>
+            <div class="step-card">
+              <strong>3. 開始使用</strong>
+              <p>選擇目標數據庫，點擊保存按鈕即可剪藏！</p>
             </div>
           </div>
         </div>
@@ -421,152 +395,92 @@
         <!-- 核心功能 -->
         <div class="card">
           <h3>⚡ 核心功能</h3>
-          <div style="
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-                gap: 16px;
-                margin-top: 16px;
-              ">
-            <div style="
-                  display: flex;
-                  gap: 12px;
-                  padding: 12px;
-                  background: #f8f9fc;
-                  border-radius: 8px;
-                ">
-              <div style="
-                    flex-shrink: 0;
-                    width: 40px;
-                    height: 40px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #ecfdf5;
-                    border-radius: 8px;
-                    font-size: 1.25rem;
-                  ">
-                📝
+          <div class="feature-grid">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
               </div>
-              <div>
-                <strong style="display: block; margin-bottom: 4px">一鍵保存</strong>
-                <div style="font-size: 0.875rem; color: #666">智能提取文章內容、圖片與 icon</div>
+              <div class="feature-content">
+                <strong>一鍵保存</strong>
+                <div>智能提取文章內容、圖片與 icon</div>
               </div>
             </div>
-            <div style="
-                  display: flex;
-                  gap: 12px;
-                  padding: 12px;
-                  background: #f8f9fc;
-                  border-radius: 8px;
-                ">
-              <div style="
-                    flex-shrink: 0;
-                    width: 40px;
-                    height: 40px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #ecfdf5;
-                    border-radius: 8px;
-                    font-size: 1.25rem;
-                  ">
-                🎨
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="13.5" cy="6.5" r=".5" />
+                  <circle cx="17.5" cy="10.5" r=".5" />
+                  <circle cx="8.5" cy="7.5" r=".5" />
+                  <circle cx="6.5" cy="12.5" r=".5" />
+                  <path
+                    d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.744 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+                </svg>
               </div>
-              <div>
-                <strong style="display: block; margin-bottom: 4px">多色標註</strong>
-                <div style="font-size: 0.875rem; color: #666">
-                  支持 4 種顏色與 3 種樣式（背景/文字/底線）
-                </div>
+              <div class="feature-content">
+                <strong>多色標註</strong>
+                <div>支持 4 種顏色與 3 種樣式（背景/文字/底線）</div>
               </div>
             </div>
-            <div style="
-                  display: flex;
-                  gap: 12px;
-                  padding: 12px;
-                  background: #f8f9fc;
-                  border-radius: 8px;
-                ">
-              <div style="
-                    flex-shrink: 0;
-                    width: 40px;
-                    height: 40px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #ecfdf5;
-                    border-radius: 8px;
-                    font-size: 1.25rem;
-                  ">
-                ⌨️
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+                  <line x1="6" y1="8" x2="6" y2="8" />
+                  <line x1="10" y1="8" x2="10" y2="8" />
+                  <line x1="14" y1="8" x2="14" y2="8" />
+                  <line x1="18" y1="8" x2="18" y2="8" />
+                  <line x1="6" y1="12" x2="6" y2="12" />
+                  <line x1="10" y1="12" x2="10" y2="12" />
+                  <line x1="14" y1="12" x2="14" y2="12" />
+                  <line x1="18" y1="12" x2="18" y2="12" />
+                  <line x1="6" y1="16" x2="6" y2="16" />
+                  <line x1="10" y1="16" x2="14" y2="16" />
+                  <line x1="18" y1="16" x2="18" y2="16" />
+                </svg>
               </div>
-              <div>
-                <strong style="display: block; margin-bottom: 4px">快捷鍵支援</strong>
-                <div style="font-size: 0.875rem; color: #666">
-                  按
-                  <code style="
-                        background: #e2e8f0;
-                        padding: 2px 6px;
-                        border-radius: 4px;
-                        font-size: 0.875em;
-                      ">Ctrl+S</code>
-                  (Mac:
-                  <code style="
-                        background: #e2e8f0;
-                        padding: 2px 6px;
-                        border-radius: 4px;
-                        font-size: 0.875em;
-                      ">Cmd+S</code>) 快速開啟標註工具
-                </div>
+              <div class="feature-content">
+                <strong>快捷鍵支援</strong>
+                <div>按 <code class="kbd">Ctrl+S</code> (Mac: <code class="kbd">Cmd+S</code>) 快速開啟標註工具</div>
               </div>
             </div>
-            <div style="
-                  display: flex;
-                  gap: 12px;
-                  padding: 12px;
-                  background: #f8f9fc;
-                  border-radius: 8px;
-                ">
-              <div style="
-                    flex-shrink: 0;
-                    width: 40px;
-                    height: 40px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #ecfdf5;
-                    border-radius: 8px;
-                    font-size: 1.25rem;
-                  ">
-                ⚙️
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
               </div>
-              <div>
-                <strong style="display: block; margin-bottom: 4px">自定義模板</strong>
-                <div style="font-size: 0.875rem; color: #666">支持 {title}, {date} 等變數</div>
+              <div class="feature-content">
+                <strong>自定義模板</strong>
+                <div>支持 {title}, {date} 等變數</div>
               </div>
             </div>
-            <div style="
-                  display: flex;
-                  gap: 12px;
-                  padding: 12px;
-                  background: #f8f9fc;
-                  border-radius: 8px;
-                ">
-              <div style="
-                    flex-shrink: 0;
-                    width: 40px;
-                    height: 40px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: #ecfdf5;
-                    border-radius: 8px;
-                    font-size: 1.25rem;
-                  ">
-                ✅
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
               </div>
-              <div>
-                <strong style="display: block; margin-bottom: 4px">狀態同步</strong>
-                <div style="font-size: 0.875rem; color: #666">圖標徽章即時顯示保存狀態</div>
+              <div class="feature-content">
+                <strong>狀態同步</strong>
+                <div>圖標徽章即時顯示保存狀態</div>
               </div>
             </div>
           </div>
@@ -574,55 +488,40 @@
 
         <!-- 常見問題 -->
         <div class="card">
-          <div style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 20px;
-              ">
-            <h3 style="margin: 0">💡 常見問題</h3>
+          <div class="faq-header">
+            <h3>💡 常見問題</h3>
             <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank"
-              class="btn-secondary" style="padding: 6px 12px; font-size: 0.875rem; text-decoration: none">
+              class="btn-secondary">
               查看完整指南
             </a>
           </div>
 
-          <div style="border-top: 1px solid #e5e7eb">
-            <div style="padding: 16px 0; border-bottom: 1px solid #f3f4f6">
-              <div style="font-weight: 600; margin-bottom: 8px">API Key 無法連接？</div>
-              <div style="color: #666; font-size: 0.95rem">
+          <div class="faq-list">
+            <div class="faq-item">
+              <div class="faq-question">API Key 無法連接？</div>
+              <div class="faq-answer">
                 請確認 Token 格式正確（以
-                <code style="
-                      background: #f1f5f9;
-                      padding: 2px 6px;
-                      border-radius: 4px;
-                      color: #e11d48;
-                    ">secret_</code>
+                <code class="inline-code highlight">secret_</code>
                 開頭），並確保網路連接正常。
               </div>
             </div>
-            <div style="padding: 16px 0; border-bottom: 1px solid #f3f4f6">
-              <div style="font-weight: 600; margin-bottom: 8px">數據庫列表為空？</div>
-              <div style="color: #666; font-size: 0.95rem">
+            <div class="faq-item">
+              <div class="faq-question">數據庫列表為空？</div>
+              <div class="faq-answer">
                 請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。
               </div>
             </div>
-            <div style="padding: 16px 0">
-              <div style="font-weight: 600; margin-bottom: 8px">標註沒有顯示？</div>
-              <div style="color: #666; font-size: 0.95rem">
+            <div class="faq-item">
+              <div class="faq-question">標註沒有顯示？</div>
+              <div class="faq-answer">
                 請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。
               </div>
             </div>
           </div>
 
-          <div style="margin-top: 24px; text-align: center">
+          <div class="faq-actions">
             <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq" target="_blank"
-              class="btn-primary" style="
-                  display: inline-block;
-                  padding: 12px 24px;
-                  text-decoration: none;
-                  width: auto;
-                ">
+              class="btn-primary">
               📖 閱讀完整用戶指南與 FAQ
             </a>
           </div>
