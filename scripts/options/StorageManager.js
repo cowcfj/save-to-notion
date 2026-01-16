@@ -108,10 +108,14 @@ export class StorageManager {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      this.showDataStatus('✅ 數據備份成功！備份文件已下載。', 'success');
+      const icon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+      this.showDataStatus(`${icon} 數據備份成功！備份文件已下載。`, 'success');
     } catch (error) {
       Logger.error('Backup failed:', error);
-      this.showDataStatus(`❌ 備份失敗：${error.message}`, 'error');
+      const icon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      this.showDataStatus(`${icon} 備份失敗：${error.message}`, 'error');
     }
   }
 
@@ -136,8 +140,10 @@ export class StorageManager {
           chrome.storage.local.set(backup.data, resolve);
         });
 
+        const icon =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
         this.showDataStatus(
-          `✅ 數據恢復成功！已恢復 ${Object.keys(backup.data).length} 項數據。正在重新整理...`,
+          `${icon} 數據恢復成功！已恢復 ${Object.keys(backup.data).length} 項數據。正在重新整理...`,
           'success'
         );
 
@@ -150,7 +156,9 @@ export class StorageManager {
         }, 2000);
       } catch (error) {
         Logger.error('Import failed:', error);
-        this.showDataStatus(`❌ 恢復失敗：${error.message}`, 'error');
+        const icon =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+        this.showDataStatus(`${icon} 恢復失敗：${error.message}`, 'error');
         this.elements.importFile.value = '';
       }
     };
@@ -167,29 +175,41 @@ export class StorageManager {
 
       const report = StorageManager.analyzeData(data);
 
-      let statusText = '📊 數據完整性報告：\n';
+      const icon =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
+      let statusText = `${icon} 數據完整性報告：\n`;
       statusText += `• 總共 ${report.totalKeys} 個數據項\n`;
       statusText += `• ${report.highlightPages} 個頁面有標記\n`;
       statusText += `• ${report.configKeys} 個配置項\n`;
 
       if (report.migrationKeys > 0) {
         const migrationSizeKB = (report.migrationDataSize / 1024).toFixed(1);
-        statusText += `• ⚠️ ${report.migrationKeys} 個遷移數據（${migrationSizeKB} KB，可清理）\n`;
+        const warnIcon =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        statusText += `• ${warnIcon} ${report.migrationKeys} 個遷移數據（${migrationSizeKB} KB，可清理）\n`;
       }
 
       if (report.corruptedData.length > 0) {
-        statusText += `• ⚠️ ${report.corruptedData.length} 個損壞的數據項`;
+        const warnIcon =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        statusText += `• ${warnIcon} ${report.corruptedData.length} 個損壞的數據項`;
         this.showDataStatus(statusText, 'error');
       } else if (report.migrationKeys > 0) {
-        statusText += '• 💡 建議使用「數據重整」功能清理遷移數據';
+        const bulbIcon =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+        statusText += `• ${bulbIcon} 建議使用「數據重整」功能清理遷移數據`;
         this.showDataStatus(statusText, 'warning');
       } else {
-        statusText += '• ✅ 所有數據完整無損';
+        const checkIcon =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+        statusText += `• ${checkIcon} 所有數據完整無損`;
         this.showDataStatus(statusText, 'success');
       }
     } catch (error) {
       Logger.error('Data check failed:', error);
-      this.showDataStatus(`❌ 檢查失敗：${error.message}`, 'error');
+      const icon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      this.showDataStatus(`${icon} 檢查失敗：${error.message}`, 'error');
     }
   }
 
@@ -236,11 +256,17 @@ export class StorageManager {
 
     // Helper to update button content
     const setButtonState = (state, text, disabled = false) => {
-      if (!button) {return;}
+      if (!button) {
+        return;
+      }
 
       let icon = ICONS.refresh; // default
-      if (state === 'success') {icon = ICONS.check;}
-      if (state === 'error') {icon = ICONS.error;}
+      if (state === 'success') {
+        icon = ICONS.check;
+      }
+      if (state === 'error') {
+        icon = ICONS.error;
+      }
 
       // Add spinning class for loading state if needed, or handle via CSS
       if (state === 'loading') {
@@ -354,13 +380,17 @@ export class StorageManager {
     this.elements.configCount.textContent = usage.configs;
 
     if (usedMB > 80) {
+      const icon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
       this.showDataStatus(
-        `⚠️ 數據量較大 (${usage.usedMB} MB)，建議清理不需要的標記數據以維持最佳性能`,
+        `${icon} 數據量較大 (${usage.usedMB} MB)，建議清理不需要的標記數據以維持最佳性能`,
         'warning'
       );
     } else if (usedMB > 100) {
+      const alertIcon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
       this.showDataStatus(
-        `🚨 數據量過大 (${usage.usedMB} MB)，可能影響擴展性能，建議立即清理`,
+        `${alertIcon} 數據量過大 (${usage.usedMB} MB)，可能影響擴展性能，建議立即清理`,
         'error'
       );
     }
@@ -402,13 +432,17 @@ export class StorageManager {
       button.classList.add('loading');
       button.disabled = true;
       if (buttonText) {
-        buttonText.textContent = '🔍 檢查中...';
+        const icon =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+        buttonText.textContent = `${icon} 檢查中...`;
       }
     } else {
       button.classList.remove('loading');
       button.disabled = false;
       if (buttonText) {
-        buttonText.textContent = '👀 預覽清理效果';
+        const icon =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+        buttonText.textContent = `${icon} 預覽清理效果`;
       }
     }
   }
@@ -422,7 +456,9 @@ export class StorageManager {
 
     if (total > 0 && buttonText) {
       const percentage = Math.round((current / total) * 100);
-      buttonText.textContent = `🔍 檢查中... ${current}/${total} (${percentage}%)`;
+      const icon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+      buttonText.textContent = `${icon} 檢查中... ${current}/${total} (${percentage}%)`;
     }
   }
 
@@ -524,9 +560,11 @@ export class StorageManager {
     this.elements.cleanupPreview.className = 'cleanup-preview show';
 
     if (plan.items.length === 0) {
+      const icon =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
       this.elements.cleanupPreview.innerHTML = `
                 <div class="cleanup-summary">
-                    <strong>✅ 沒有發現需要清理的數據</strong>
+                    <strong>${icon} 沒有發現需要清理的數據</strong>
                     <p>所有頁面記錄都是有效的，無需清理。</p>
                 </div>
             `;
@@ -539,14 +577,19 @@ export class StorageManager {
     if (plan.deletedPages > 0) {
       summaryText += `• ${plan.deletedPages} 個已刪除頁面的數據\n`;
     }
-    summaryText += `\n釋放約 ${spaceMB} MB 空間`;
+    summaryText += `\n釋放約 <span style="color: var(--success-color); font-weight: 600;">${spaceMB} MB</span> 空間`;
+
+    const icon =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+    const warnIcon =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 
     this.elements.cleanupPreview.innerHTML = `
             <div class="cleanup-summary">
-                <strong>🧹 安全清理預覽</strong>
+                <strong>${icon} 安全清理預覽</strong>
                 <p>${summaryText.replace(/\n/g, '<br>')}</p>
                 <div class="warning-notice">
-                    ⚠️ <strong>重要提醒：</strong>這只會清理擴展中的無效記錄，<strong>絕對不會影響您在 Notion 中保存的任何頁面</strong>。
+                    ${warnIcon} <strong>重要提醒：</strong>這只會清理擴展中的無效記錄，<strong>絕對不會影響您在 Notion 中保存的任何頁面</strong>。
                 </div>
             </div>
             <div class="cleanup-list">
@@ -568,12 +611,16 @@ export class StorageManager {
 
   async executeSafeCleanup() {
     if (!this.cleanupPlan || this.cleanupPlan.items.length === 0) {
-      this.showDataStatus('❌ 沒有清理計劃可執行', 'error');
+      const icon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      this.showDataStatus(`${icon} 沒有清理計劃可執行`, 'error');
       return;
     }
 
     try {
-      this.showDataStatus('🔄 正在執行安全清理...', 'info');
+      const icon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>';
+      this.showDataStatus(`${icon} 正在執行安全清理...`, 'info');
 
       const keysToRemove = this.cleanupPlan.items.map(item => item.key);
 
@@ -588,7 +635,9 @@ export class StorageManager {
       });
 
       const spaceKB = (this.cleanupPlan.spaceFreed / 1024).toFixed(1);
-      let message = `✅ 安全清理完成！已移除 ${this.cleanupPlan.totalKeys} 個無效記錄，釋放 ${spaceKB} KB 空間`;
+      const successIcon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+      let message = `${successIcon} 安全清理完成！已移除 ${this.cleanupPlan.totalKeys} 個無效記錄，釋放 ${spaceKB} KB 空間`;
 
       if (this.cleanupPlan.deletedPages > 0) {
         message += `\n• 清理了 ${this.cleanupPlan.deletedPages} 個已刪除頁面的數據`;
@@ -606,7 +655,9 @@ export class StorageManager {
       this.cleanupPlan = null;
     } catch (error) {
       Logger.error('Cleanup failed:', error);
-      this.showDataStatus(`❌ 清理失敗：${error.message}`, 'error');
+      const failIcon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      this.showDataStatus(`${failIcon} 清理失敗：${error.message}`, 'error');
     }
   }
 
@@ -719,14 +770,23 @@ export class StorageManager {
     this.elements.optimizationPreview.className = 'optimization-preview show';
 
     if (!plan.canOptimize) {
+      const icon =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+      const statsIcon1 =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
+      const statsIcon2 =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
+      const statsIcon3 =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+
       this.elements.optimizationPreview.innerHTML = `
                 <div class="optimization-summary">
-                    <strong>✅ 數據已經處於最佳狀態</strong>
+                    <strong>${icon} 數據已經處於最佳狀態</strong>
                     <p>當前數據結構已經很好，暫時不需要重整優化。</p>
                     <div class="data-stats">
-                        <div>📑 標記頁面：${plan.highlightPages}</div>
-                        <div>🎯 總標記數：${plan.totalHighlights}</div>
-                        <div>💾 數據大小：${(plan.originalSize / 1024).toFixed(1)} KB</div>
+                        <div>${statsIcon1} 標記頁面：${plan.highlightPages}</div>
+                        <div>${statsIcon2} 總標記數：${plan.totalHighlights}</div>
+                        <div>${statsIcon3} 數據大小：${(plan.originalSize / 1024).toFixed(1)} KB</div>
                     </div>
                 </div>
             `;
@@ -736,19 +796,28 @@ export class StorageManager {
     const spaceSavedMB = (plan.spaceSaved / (1024 * 1024)).toFixed(3);
     const percentSaved = ((plan.spaceSaved / plan.originalSize) * 100).toFixed(1);
 
+    const icon =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+    const chartIcon =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
+    const diskIcon =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+    const checkIcon =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+
     this.elements.optimizationPreview.innerHTML = `
             <div class="optimization-summary">
-                <strong>⚡ 數據重整分析結果</strong>
+                <strong>${icon} 數據重整分析結果</strong>
                 <p>可以優化您的數據結構，預計節省 <strong>${spaceSavedMB} MB</strong> 空間（<strong>${percentSaved}%</strong>）</p>
                 <div class="optimization-details">
                     <div class="size-comparison">
-                        <div>📊 當前大小：${(plan.originalSize / 1024).toFixed(1)} KB</div>
-                        <div>📊 優化後：${(plan.optimizedSize / 1024).toFixed(1)} KB</div>
-                        <div>💾 節省空間：${(plan.spaceSaved / 1024).toFixed(1)} KB</div>
+                        <div>${chartIcon} 當前大小：<span style="color: var(--text-primary); font-weight: 600;">${(plan.originalSize / 1024).toFixed(1)} KB</span></div>
+                        <div>${chartIcon} 優化後：<span style="color: var(--success-color); font-weight: 600;">${(plan.optimizedSize / 1024).toFixed(1)} KB</span></div>
+                        <div>${diskIcon} 節省空間：<span style="color: var(--primary-color); font-weight: 600;">${(plan.spaceSaved / 1024).toFixed(1)} KB</span></div>
                     </div>
                     <div class="optimization-list">
                         <strong>將執行的優化：</strong>
-                        ${plan.optimizations.map(opt => `<div class="optimization-item">✅ ${opt}</div>`).join('')}
+                        ${plan.optimizations.map(opt => `<div class="optimization-item">${checkIcon} ${opt}</div>`).join('')}
                     </div>
                 </div>
             </div>
@@ -757,12 +826,16 @@ export class StorageManager {
 
   async executeOptimization() {
     if (!this.optimizationPlan || !this.optimizationPlan.canOptimize) {
-      this.showDataStatus('❌ 沒有優化計劃可執行', 'error');
+      const icon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      this.showDataStatus(`${icon} 沒有優化計劃可執行`, 'error');
       return;
     }
 
     try {
-      this.showDataStatus('🔄 正在執行數據重整...', 'info');
+      const icon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>';
+      this.showDataStatus(`${icon} 正在執行數據重整...`, 'info');
 
       const optimizedData = this.optimizationPlan.optimizedData;
       const keysToRemove = this.optimizationPlan.keysToRemove;
@@ -800,8 +873,10 @@ export class StorageManager {
       }
 
       const spaceSavedKB = (this.optimizationPlan.spaceSaved / 1024).toFixed(1);
+      const successIcon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
       this.showDataStatus(
-        `✅ 數據重整完成！已清理遷移數據，節省 ${spaceSavedKB} KB 空間，所有標記內容完整保留`,
+        `${successIcon} 數據重整完成！已清理遷移數據，節省 ${spaceSavedKB} KB 空間，所有標記內容完整保留`,
         'success'
       );
 
@@ -815,7 +890,9 @@ export class StorageManager {
       this.optimizationPlan = null;
     } catch (error) {
       Logger.error('Optimization failed:', error);
-      this.showDataStatus(`❌ 數據重整失敗：${error.message}`, 'error');
+      const failIcon =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      this.showDataStatus(`${failIcon} 數據重整失敗：${error.message}`, 'error');
     }
   }
 
@@ -823,7 +900,7 @@ export class StorageManager {
     if (!this.elements.dataStatus) {
       return;
     }
-    this.elements.dataStatus.textContent = message;
+    this.elements.dataStatus.innerHTML = message;
     this.elements.dataStatus.className = `data-status ${type}`;
   }
 }
