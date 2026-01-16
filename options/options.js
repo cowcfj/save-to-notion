@@ -272,7 +272,7 @@ export function setupTemplatePreview() {
       previewDiv.appendChild(strong);
       previewDiv.appendChild(br);
       previewDiv.appendChild(previewText);
-      previewDiv.style.display = 'block';
+      previewDiv.classList.remove('hidden');
     });
   }
 }

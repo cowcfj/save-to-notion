@@ -522,11 +522,6 @@ select:focus {
   margin-top: var(--spacing-sm);
   font-size: 14px;
   color: var(--text-primary);
-  display: none;
-}
-
-.preview-box.show {
-  display: block;
 }
 
 /* Storage Stats */
