@@ -73,11 +73,16 @@ export class UIManager {
     // 清空並重建內容（安全方式）
     status.innerHTML = '';
 
-    // 如果有圖標，使用 innerHTML 插入（圖標已通過安全驗證）
+    // 如果有圖標，插入圖標
     if (icon) {
       const iconSpan = document.createElement('span');
       iconSpan.className = 'status-icon';
-      iconSpan.innerHTML = icon;
+      // 區分 Emoji 和 SVG：Emoji 用 textContent（更安全），SVG 用 innerHTML（必要）
+      if (icon.startsWith('<svg')) {
+        iconSpan.innerHTML = icon; // SVG 需要使用 innerHTML
+      } else {
+        iconSpan.textContent = icon; // Emoji 使用 textContent
+      }
       status.appendChild(iconSpan);
     }
 
