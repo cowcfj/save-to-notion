@@ -1199,10 +1199,8 @@ h4 .icon-svg {
 }
 
 .form-select-enhanced {
-  width: 100%;
   padding: 8px;
-  border-radius: 4px;
-  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
 }
 
 /* Icon Colors for Database Selector */
