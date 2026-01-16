@@ -1235,3 +1235,101 @@ h4 .icon-svg {
 .database-icon svg {
   display: block;
 }
+
+/* Compact Database Item Styles */
+.database-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.database-item:hover {
+  background-color: #f8fafc;
+}
+
+.database-item.selected {
+  background-color: #eff6ff;
+  /* blue-50 */
+}
+
+.database-item.keyboard-focus {
+  background-color: #f1f5f9;
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+.database-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.database-meta-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-wrap: nowrap;
+}
+
+.meta-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.meta-separator {
+  color: #cbd5e1;
+  /* slate-300 */
+}
+
+/* Badge styles */
+.workspace-badge,
+.container-badge,
+.category-badge,
+.search-highlight {
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.workspace-badge {
+  background-color: #f3e8ff;
+  /* purple-100 */
+  color: #7e22ce;
+  /* purple-700 */
+}
+
+.container-badge {
+  background-color: #fef3c7;
+  /* amber-100 */
+  color: #b45309;
+  /* amber-700 */
+}
+
+.category-badge {
+  background-color: #d1fae5;
+  /* emerald-100 */
+  color: #047857;
+  /* emerald-700 */
+}
+
+.search-highlight {
+  background-color: #fffbeb;
+  /* yellow-50 */
+  color: #b45309;
+  /* yellow-700 */
+  border-bottom: 2px solid #fcd34d;
+}

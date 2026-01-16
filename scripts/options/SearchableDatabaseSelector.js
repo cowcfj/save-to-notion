@@ -265,18 +265,31 @@ export class SearchableDatabaseSelector {
                  data-is-workspace="${db.isWorkspace}"
                  data-is-container="${isLikelyContainer}"
                  data-is-category="${isLikelyCategory}">
+                
+                 <!-- Row 1: Title and Badges -->
                 <div class="database-title">
                     ${highlightedTitle}
                     ${workspaceBadge}
                     ${containerBadge}
                     ${categoryBadge}
                 </div>
-                <div class="database-parent-path">${parentPath}</div>
-                <div class="database-id">${db.id}</div>
-                <div class="database-meta">
-                    <span class="database-icon">${typeIcon}</span>
-                    <span>${typeLabel}</span>
-                    ${db.created ? `<span>•</span><span>創建於 ${SearchableDatabaseSelector.formatDate(db.created)}</span>` : ''}
+
+                <!-- Row 2: Meta Info (Compact) -->
+                <div class="database-meta-compact">
+                    ${parentPath ? `<span class="meta-group">${parentPath}</span><span class="meta-separator">|</span>` : ''}
+                    
+                    <span class="meta-group">
+                        <span class="database-icon">${typeIcon}</span>
+                        <span>${typeLabel}</span>
+                    </span>
+                    
+                    <span class="meta-separator">|</span>
+                    
+                    <span class="meta-group" title="${db.id}">
+                       ${db.id.slice(0, 4)}...${db.id.slice(-4)}
+                    </span>
+
+                    ${db.created ? `<span class="meta-separator">|</span><span class="meta-group">${SearchableDatabaseSelector.formatDate(db.created)}</span>` : ''}
                 </div>
             </div>
         `;
