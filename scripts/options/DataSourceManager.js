@@ -48,9 +48,8 @@ export class DataSourceManager {
     try {
       const statusMessage = query ? `正在搜尋「${query}」...` : '正在載入保存目標列表...';
       this.ui.showStatus(statusMessage, 'info');
-      Logger.info(
-        `開始載入保存目標，API Key: ${apiKey.substring(0, 20)}..., Query: ${query || '(無)'}`
-      );
+      // 不記錄 API Key 內容以避免敏感資訊洩漏
+      Logger.info(`開始載入保存目標，API Key: [已提供], Query: ${query || '(無)'}`);
 
       // 構建請求主體
       const requestBody = {
