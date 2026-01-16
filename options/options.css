@@ -1043,7 +1043,7 @@ select:focus {
   color: var(--text-primary);
 }
 
-.feature-content > div {
+.feature-content>div {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.5;
@@ -1200,9 +1200,6 @@ h4 .icon-svg {
 }
 
 .form-select-enhanced {
-  width: 100%;
-  padding: 8px;
-  border-radius: 4px;
   width: 100%;
   padding: 8px;
   border-radius: 4px;
