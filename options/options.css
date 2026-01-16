@@ -1167,3 +1167,35 @@ h4 .icon-svg {
   /* 微調垂直位置 */
   margin-right: 4px;
 }
+
+/* Utility Classes for Refactoring Inline Styles */
+.hidden {
+  display: none;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.gap-top-sm {
+  margin-top: 10px;
+}
+
+.mb-12 {
+  margin-bottom: 12px;
+}
+
+.mt-8 {
+  margin-top: 8px;
+}
+
+.text-warning-color {
+  color: var(--warning-color);
+}
+
+.form-select-enhanced {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}

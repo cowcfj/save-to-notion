@@ -88,7 +88,7 @@
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                 </svg></span><span>連接到 Notion</span>
             </button>
-            <button id="disconnect-button" class="btn-danger" style="display: none">
+            <button id="disconnect-button" class="btn-danger hidden">
               <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="10" />
@@ -97,7 +97,7 @@
                 </svg></span><span>斷開連接</span>
             </button>
           </div>
-          <p class="section-desc text-sm" style="margin-top: 10px">
+          <p class="section-desc text-sm gap-top-sm">
             點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
           </p>
         </div>
@@ -119,13 +119,13 @@
             </div>
 
             <!-- 可搜索的數據庫選擇器組件 -->
-            <div class="database-selector-container" id="database-selector-container" style="display: none">
+            <div class="database-selector-container hidden" id="database-selector-container">
               <div class="searchable-selector">
                 <div class="selector-input">
                   <input type="text" id="database-search" placeholder="搜尋資料來源..." autocomplete="off" />
                   <button type="button" id="selector-toggle" class="selector-toggle">▼</button>
                 </div>
-                <div class="selector-dropdown" id="database-dropdown" style="display: none">
+                <div class="selector-dropdown hidden" id="database-dropdown">
                   <div class="dropdown-header">
                     <span id="database-count">0 個來源</span>
                     <button type="button" id="refresh-databases" class="btn-icon" title="重新整理">
@@ -146,7 +146,7 @@
             </div>
 
             <!-- 回退選擇器 -->
-            <select id="database-select" style="display: none">
+            <select id="database-select" class="hidden">
               <option value="">選擇資料來源...</option>
             </select>
 
@@ -201,8 +201,7 @@
           <div class="form-group">
             <label for="highlight-style">標註樣式</label>
             <div class="input-wrapper">
-              <select id="highlight-style" class="form-select"
-                style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0">
+              <select id="highlight-style" class="form-select form-select-enhanced">
                 <option value="background">背景顏色</option>
                 <option value="text">文字顏色</option>
                 <option value="underline">底線</option>
@@ -263,7 +262,7 @@
         <div class="card">
           <h3>備份與還原</h3>
           <div class="backup-info">
-            <p class="help-text" style="margin-bottom: 12px">
+            <p class="help-text mb-12">
               <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round" class="list-icon">
                   <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
@@ -293,9 +292,9 @@
                   <path d="M20 17H4" />
                 </svg> <strong>遷移數據</strong>：舊版本資料的暫存記錄</li>
             </ul>
-            <p class="help-text text-warning" style="margin-top: 8px">
+            <p class="help-text text-warning mt-8">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" class="list-icon" style="color: var(--warning-color)">
+                stroke-linecap="round" stroke-linejoin="round" class="list-icon text-warning-color">
                 <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -321,7 +320,7 @@
             </button>
           </div>
           <div class="button-group">
-            <input type="file" id="import-data-file" accept=".json" style="display: none" />
+            <input type="file" id="import-data-file" accept=".json" class="hidden" />
             <button id="import-data-button" class="btn-secondary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
@@ -331,9 +330,9 @@
               </svg> 還原備份
             </button>
           </div>
-          <p class="help-text text-warning" style="margin-top: 8px">
+          <p class="help-text text-warning mt-8">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" class="icon-svg" style="color: var(--warning-color)">
+              stroke-linecap="round" stroke-linejoin="round" class="icon-svg text-warning-color">
               <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
               <line x1="12" y1="9" x2="12" y2="13" />
               <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -355,7 +354,7 @@
             </div>
 
             <!-- 隱藏的遷移列表 -->
-            <div id="migration-list" class="migration-list" style="display: none">
+            <div id="migration-list" class="migration-list hidden">
               <div class="list-header">
                 <label><input type="checkbox" id="migration-select-all" /> 全選</label>
                 <span id="migration-selected-count">0 項</span>
@@ -366,7 +365,7 @@
                 <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
               </div>
             </div>
-            <div id="migration-progress" class="progress-container" style="display: none">
+            <div id="migration-progress" class="progress-container hidden">
               <div class="progress-bar">
                 <div id="migration-progress-bar" class="progress-fill"></div>
               </div>
@@ -375,7 +374,7 @@
             <div id="migration-result"></div>
 
             <!-- 待完成的遷移（需訪問頁面） -->
-            <div id="pending-migration-section" class="pending-migration-section" style="display: none">
+            <div id="pending-migration-section" class="pending-migration-section hidden">
               <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
                   <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
@@ -390,7 +389,7 @@
             </div>
 
             <!-- 遷移失敗的標註 -->
-            <div id="failed-migration-section" class="failed-migration-section" style="display: none">
+            <div id="failed-migration-section" class="failed-migration-section hidden">
               <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
                   <circle cx="12" cy="12" r="10" />
@@ -413,11 +412,11 @@
             </div>
             <div class="button-group">
               <button id="preview-cleanup-button" class="btn-secondary">預覽清理</button>
-              <button id="execute-cleanup-button" class="btn-danger" style="display: none">
+              <button id="execute-cleanup-button" class="btn-danger hidden">
                 執行清理
               </button>
               <button id="analyze-optimization-button" class="btn-secondary">分析結構優化</button>
-              <button id="execute-optimization-button" class="btn-primary" style="display: none">
+              <button id="execute-optimization-button" class="btn-primary hidden">
                 執行重整
               </button>
             </div>
