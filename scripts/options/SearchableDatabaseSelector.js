@@ -23,10 +23,13 @@ export class SearchableDatabaseSelector {
     this.showStatus = showStatus;
     this.loadDatabases = loadDatabases;
     this.databases = [];
+    this.initialDatabases = []; // 儲存初始列表，用於清空搜尋時還原
     this.filteredDatabases = [];
     this.selectedDatabase = null;
     this.isOpen = false;
     this.focusedIndex = -1;
+    this.searchTimeout = null; // 防抖動計時器
+    this.isSearching = false; // 搜尋狀態標記
 
     this.initializeElements();
     this.setupEventListeners();
@@ -62,10 +65,30 @@ export class SearchableDatabaseSelector {
   }
 
   setupEventListeners() {
-    // 搜索輸入
+    // 搜索輸入（帶防抖動的伺服器端搜尋）
     this.searchInput?.addEventListener('input', event => {
-      this.filterDatabases(event.target.value);
+      const query = event.target.value.trim();
+
+      // 清除之前的計時器
+      if (this.searchTimeout) {
+        clearTimeout(this.searchTimeout);
+      }
+
+      // 如果搜尋框為空，立即還原初始列表（無需等待）
+      if (!query) {
+        this.restoreInitialDatabases();
+        this.showDropdown();
+        return;
+      }
+
+      // 先進行本地過濾（即時回饋）
+      this.filterDatabasesLocally(query);
       this.showDropdown();
+
+      // 防抖動：500ms 後觸發伺服器端搜尋
+      this.searchTimeout = setTimeout(() => {
+        this.performServerSearch(query);
+      }, 500);
     });
 
     // 搜索框焦點事件
@@ -100,9 +123,9 @@ export class SearchableDatabaseSelector {
     });
   }
 
-  populateDatabases(databases) {
+  populateDatabases(databases, isSearchResult = false) {
     // 映射數據，添加類型和父級信息
-    this.databases = databases.map(db => ({
+    const mappedDatabases = databases.map(db => ({
       id: db.id,
       title: SearchableDatabaseSelector.extractDatabaseTitle(db),
       type: db.object, // 'page' 或 'data_source'
@@ -113,9 +136,18 @@ export class SearchableDatabaseSelector {
       lastEdited: db.last_edited_time,
     }));
 
+    this.databases = mappedDatabases;
+
+    // 只有非搜尋結果才保存為初始列表
+    if (!isSearchResult) {
+      this.initialDatabases = [...mappedDatabases];
+      Logger.info('已保存初始資料來源列表:', this.initialDatabases.length);
+    }
+
     Logger.info('處理後的保存目標:', this.databases);
 
     this.filteredDatabases = [...this.databases];
+    this.isSearching = false;
     this.updateDatabaseCount();
     this.renderDatabaseList();
 
@@ -143,7 +175,11 @@ export class SearchableDatabaseSelector {
     }
   }
 
-  filterDatabases(query) {
+  /**
+   * 本地過濾資料庫（即時回饋，不觸發 API）
+   * @param {string} query - 搜尋關鍵字
+   */
+  filterDatabasesLocally(query) {
     const lowerQuery = query.toLowerCase().trim();
 
     if (!lowerQuery) {
@@ -158,6 +194,71 @@ export class SearchableDatabaseSelector {
     this.focusedIndex = -1;
     this.updateDatabaseCount();
     this.renderDatabaseList();
+  }
+
+  /**
+   * 還原初始資料來源列表
+   */
+  restoreInitialDatabases() {
+    this.databases = [...this.initialDatabases];
+    this.filteredDatabases = [...this.initialDatabases];
+    this.isSearching = false;
+    this.focusedIndex = -1;
+    this.updateDatabaseCount();
+    this.renderDatabaseList();
+    Logger.info('已還原初始資料來源列表');
+  }
+
+  /**
+   * 執行伺服器端搜尋
+   * @param {string} query - 搜尋關鍵字
+   */
+  async performServerSearch(query) {
+    if (!query || query.length < 2) {
+      // 關鍵字太短，不觸發伺服器搜尋
+      return;
+    }
+
+    const apiKey = document.getElementById('api-key')?.value;
+    if (!apiKey) {
+      Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
+      return;
+    }
+
+    this.isSearching = true;
+    this.showSearchingState(query);
+
+    try {
+      // 呼叫 DataSourceManager.loadDatabases 並傳入 query
+      await this.loadDatabases(apiKey, query);
+      Logger.info(`伺服器端搜尋完成: "${query}"`);
+    } catch (error) {
+      Logger.error('伺服器端搜尋失敗:', error);
+      this.showStatus(`搜尋失敗: ${error.message}`, 'error');
+    }
+  }
+
+  /**
+   * 顯示搜尋中狀態
+   * @param {string} query - 搜尋關鍵字
+   */
+  showSearchingState(query) {
+    if (this.databaseList) {
+      this.databaseList.innerHTML = `
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <span>正在搜尋「${SearchableDatabaseSelector.escapeHtml(query)}」...</span>
+        </div>
+      `;
+    }
+  }
+
+  /**
+   * 原有的 filterDatabases 方法（保留兼容性）
+   * @deprecated 請使用 filterDatabasesLocally
+   */
+  filterDatabases(query) {
+    this.filterDatabasesLocally(query);
   }
 
   renderDatabaseList() {

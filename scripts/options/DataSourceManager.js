@@ -39,11 +39,34 @@ export class DataSourceManager {
   /**
    * 載入資料來源列表（支援頁面和數據庫）
    * @param {string} apiKey - Notion API Key
+   * @param {string|null} query - 可選的搜尋關鍵字
+   * @returns {Promise<Array>} 過濾後的資料來源列表
    */
-  async loadDatabases(apiKey) {
+  async loadDatabases(apiKey, query = null) {
+    const isSearchQuery = Boolean(query);
+
     try {
-      this.ui.showStatus('正在載入保存目標列表...', 'info');
-      Logger.info(`開始載入保存目標，API Key: ${apiKey.substring(0, 20)}...`);
+      const statusMessage = query ? `正在搜尋「${query}」...` : '正在載入保存目標列表...';
+      this.ui.showStatus(statusMessage, 'info');
+      Logger.info(
+        `開始載入保存目標，API Key: ${apiKey.substring(0, 20)}..., Query: ${query || '(無)'}`
+      );
+
+      // 構建請求主體
+      const requestBody = {
+        page_size: 100,
+      };
+
+      if (query) {
+        // 有搜尋關鍵字時，使用 query 參數（Notion API 限制：有 query 時不能使用 sort）
+        requestBody.query = query;
+      } else {
+        // 無搜尋時，按最近編輯時間排序
+        requestBody.sort = {
+          direction: 'descending',
+          timestamp: 'last_edited_time',
+        };
+      }
 
       const response = await fetch('https://api.notion.com/v1/search', {
         method: 'POST',
@@ -52,13 +75,7 @@ export class DataSourceManager {
           'Content-Type': 'application/json',
           'Notion-Version': '2025-09-03',
         },
-        body: JSON.stringify({
-          page_size: 100,
-          sort: {
-            direction: 'descending',
-            timestamp: 'last_edited_time',
-          },
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -71,21 +88,21 @@ export class DataSourceManager {
           const filteredResults = DataSourceManager.filterAndSortResults(data.results, 100);
 
           if (filteredResults.length > 0) {
-            this.populateDatabaseSelect(filteredResults);
-          } else {
-            this.ui.showStatus(
-              '未找到可用的保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源',
-              'error'
-            );
-            if (this.elements.databaseSelect) {
-              this.elements.databaseSelect.style.display = 'none';
-            }
+            this.populateDatabaseSelect(filteredResults, isSearchQuery);
+            return filteredResults;
           }
-        } else {
           this.ui.showStatus(
-            '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源',
+            '未找到可用的保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源',
             'error'
           );
+          if (this.elements.databaseSelect) {
+            this.elements.databaseSelect.style.display = 'none';
+          }
+        } else {
+          const msg = isSearchQuery
+            ? `未找到「${query}」相關的保存目標`
+            : '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源';
+          this.ui.showStatus(msg, isSearchQuery ? 'info' : 'error');
           if (this.elements.databaseSelect) {
             this.elements.databaseSelect.style.display = 'none';
           }
@@ -117,10 +134,17 @@ export class DataSourceManager {
         this.elements.databaseSelect.style.display = 'none';
       }
     }
+
+    return [];
   }
 
-  populateDatabaseSelect(databases) {
-    Logger.info('populateDatabaseSelect 被調用，資料來源數量:', databases.length);
+  populateDatabaseSelect(databases, isSearchResult = false) {
+    Logger.info(
+      'populateDatabaseSelect 被調用，資料來源數量:',
+      databases.length,
+      '是否為搜尋結果:',
+      isSearchResult
+    );
 
     // 初始化搜索式選擇器（如果還沒有）
     if (!this.selector) {
@@ -130,8 +154,8 @@ export class DataSourceManager {
       });
     }
 
-    // 使用新的搜索式選擇器
-    this.selector.populateDatabases(databases);
+    // 使用新的搜索式選擇器，傳入 isSearchResult 標記
+    this.selector.populateDatabases(databases, isSearchResult);
 
     // 隱藏原有的簡單選擇器
     if (this.elements.databaseSelect) {

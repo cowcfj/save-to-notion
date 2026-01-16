@@ -71,6 +71,49 @@ describe('DataSourceManager', () => {
         'error'
       );
     });
+
+    test('帶有 query 參數時發送正確的請求主體', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ results: [] }),
+      });
+
+      await dataSourceManager.loadDatabases('secret_test_key', 'test_query');
+
+      // 驗證 fetch 被調用且包含 query 參數
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.notion.com/v1/search',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.any(String),
+        })
+      );
+
+      // 解析請求主體並驗證
+      const callArgs = global.fetch.mock.calls[0][1];
+      const requestBody = JSON.parse(callArgs.body);
+
+      expect(requestBody.query).toBe('test_query');
+      expect(requestBody.sort).toBeUndefined(); // 有 query 時不應該有 sort
+    });
+
+    test('無 query 參數時使用時間排序', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ results: [] }),
+      });
+
+      await dataSourceManager.loadDatabases('secret_test_key');
+
+      const callArgs = global.fetch.mock.calls[0][1];
+      const requestBody = JSON.parse(callArgs.body);
+
+      expect(requestBody.query).toBeUndefined();
+      expect(requestBody.sort).toEqual({
+        direction: 'descending',
+        timestamp: 'last_edited_time',
+      });
+    });
   });
 
   describe('filterAndSortResults', () => {
