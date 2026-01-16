@@ -1197,5 +1197,41 @@ h4 .icon-svg {
   width: 100%;
   padding: 8px;
   border-radius: 4px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
   border: 1px solid #e2e8f0;
+}
+
+/* Icon Colors for Database Selector */
+.icon-page {
+  color: var(--text-secondary);
+}
+
+.icon-database {
+  color: var(--primary-color);
+}
+
+.icon-workspace {
+  color: #8b5cf6;
+  /* Violet-500 */
+}
+
+.icon-block {
+  color: var(--text-secondary);
+}
+
+.icon-folder {
+  color: #f59e0b;
+  /* Amber-500 */
+}
+
+.icon-category {
+  color: #10b981;
+  /* Emerald-500 */
+}
+
+/* Ensure SVGs in badges/meta inherit these colors if applied */
+.database-icon svg {
+  display: block;
 }
