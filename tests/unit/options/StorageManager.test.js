@@ -80,7 +80,7 @@ describe('StorageManager', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('init', () => {
@@ -135,10 +135,16 @@ describe('StorageManager', () => {
       });
 
       const clickSpy = jest.fn();
-      jest.spyOn(document, 'createElement').mockReturnValue({
-        click: clickSpy,
-        href: '',
-        download: '',
+      const originalCreateElement = document.createElement.bind(document);
+      jest.spyOn(document, 'createElement').mockImplementation(tagName => {
+        if (tagName === 'a') {
+          return {
+            click: clickSpy,
+            href: '',
+            download: '',
+          };
+        }
+        return originalCreateElement(tagName);
       });
       jest.spyOn(document.body, 'appendChild').mockImplementation(() => undefined);
       jest.spyOn(document.body, 'removeChild').mockImplementation(() => undefined);

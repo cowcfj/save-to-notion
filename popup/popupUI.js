@@ -62,6 +62,24 @@ export function setButtonState(button, disabled) {
 }
 
 /**
+ * 設置按鈕文字的輔助函數
+ * 優先使用 .btn-text 元素，若不存在則直接設置 button.textContent
+ * @param {HTMLButtonElement} button - 按鈕元素
+ * @param {string} text - 要設置的文字
+ */
+export function setButtonText(button, text) {
+  if (!button) {
+    return;
+  }
+  const textSpan = button.querySelector('.btn-text');
+  if (textSpan) {
+    textSpan.textContent = text;
+  } else {
+    button.textContent = text;
+  }
+}
+
+/**
  * 更新 UI 為「已保存」狀態
  * @param {PopupElements} elements - DOM 元素集合
  * @param {Object} response - 頁面狀態響應
@@ -70,10 +88,7 @@ export function setButtonState(button, disabled) {
 export function updateUIForSavedPage(elements, response) {
   // 啟用標記按鈕
   if (elements.highlightButton) {
-    const textSpan = elements.highlightButton.querySelector('.btn-text');
-    if (textSpan) {
-      textSpan.textContent = 'Start Highlighting';
-    }
+    setButtonText(elements.highlightButton, 'Start Highlighting');
     elements.highlightButton.disabled = false;
   }
 
@@ -106,10 +121,7 @@ export function updateUIForSavedPage(elements, response) {
 export function updateUIForUnsavedPage(elements, response) {
   // 禁用標記按鈕
   if (elements.highlightButton) {
-    const textSpan = elements.highlightButton.querySelector('.btn-text');
-    if (textSpan) {
-      textSpan.textContent = 'Save First to Highlight';
-    }
+    setButtonText(elements.highlightButton, 'Save First to Highlight');
     elements.highlightButton.disabled = true;
   }
 
