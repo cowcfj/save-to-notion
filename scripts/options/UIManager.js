@@ -3,6 +3,8 @@
  * 負責選項頁面的共用 UI 邏輯
  */
 
+import { validateSafeSvg } from '../utils/securityUtils.js';
+
 export class UIManager {
   constructor() {
     this.elements = {};
@@ -25,7 +27,15 @@ export class UIManager {
 
   /**
    * 顯示狀態消息（安全版本：分離圖標與文本）
+   *
+   * @SECURITY_NOTE 此函數僅應接收內部可信的訊息字串
+   * - SVG 圖標內容應由系統內部生成，不應來自外部輸入
+   * - 所有外部錯誤訊息必須先經過 sanitizeApiError() 清理
+   * - message 參數不應直接包含未經驗證的用戶輸入或 API 響應
+   *
    * @param {string|Object} message - 訊息內容（字串或對象 {icon, text}）
+   *   - 字串格式：可包含系統生成的 SVG 標籤（會自動分離）或純文本
+   *   - 對象格式：{icon: '內部生成的SVG', text: '已清理的文本'}
    * @param {string} type - 訊息類型 (info, success, error)
    * @param {string} [targetId='status'] - 目標元素 ID
    */
@@ -55,10 +65,16 @@ export class UIManager {
       }
     }
 
+    // SVG 安全驗證：使用 securityUtils 統一處理
+    // 即使預期只接收內部生成的 SVG，仍進行驗證作為縱深防禦
+    if (icon && !validateSafeSvg(icon)) {
+      icon = ''; // 拒絕不安全的 SVG
+    }
+
     // 清空並重建內容（安全方式）
     status.innerHTML = '';
 
-    // 如果有圖標，使用 innerHTML 插入（圖標是受控的 SVG）
+    // 如果有圖標，使用 innerHTML 插入（圖標已通過安全驗證）
     if (icon) {
       const iconSpan = document.createElement('span');
       iconSpan.className = 'status-icon';

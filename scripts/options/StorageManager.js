@@ -6,7 +6,7 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
+import { sanitizeApiError, validateSafeSvg } from '../utils/securityUtils.js';
 
 /**
  * 管理存儲空間的類別
@@ -905,8 +905,14 @@ export class StorageManager {
 
   /**
    * 顯示資料管理狀態消息（安全版本）
-   * @param {string} message - 訊息內容（可包含圖標）
-   * @param {string} type - 訊息類型
+   *
+   * @SECURITY_NOTE 此函數僅應接收內部可信的訊息字串
+   * - SVG/Emoji 圖標內容應由系統內部生成，不應來自外部輸入
+   * - 所有外部錯誤訊息必須先經過 sanitizeApiError() 清理
+   * - message 參數不應直接包含未經驗證的用戶輸入或 API 響應
+   *
+   * @param {string} message - 訊息內容（可包含 Emoji 或系統生成的 SVG）
+   * @param {string} type - 訊息類型（success, error, info）
    */
   showDataStatus(message, type) {
     if (!this.elements.dataStatus) {
@@ -925,6 +931,12 @@ export class StorageManager {
       text = message;
     }
 
+    // SVG 安全驗證：使用 securityUtils 統一處理
+    // 即使預期只接收內部生成的 SVG，仍進行驗證作為縱深防禦
+    if (icon && !validateSafeSvg(icon)) {
+      icon = ''; // 拒絕不安全的 SVG
+    }
+
     // 清空內容
     this.elements.dataStatus.innerHTML = '';
 
@@ -932,7 +944,7 @@ export class StorageManager {
     if (icon) {
       const iconSpan = document.createElement('span');
       iconSpan.className = 'status-icon';
-      // Emoji 可以直接用 textContent，SVG 需要 innerHTML
+      // Emoji 可以直接用 textContent，SVG 需要 innerHTML（已通過安全驗證）
       if (icon.startsWith('<svg')) {
         iconSpan.innerHTML = icon;
       } else {

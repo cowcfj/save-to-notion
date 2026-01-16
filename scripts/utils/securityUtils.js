@@ -314,3 +314,49 @@ export function validatePreloaderCache(cache) {
   // 使用 Number.isFinite 比 !isNaN 更嚴格，排除 Infinity
   return typeof cache.timestamp === 'number' && Number.isFinite(cache.timestamp);
 }
+
+/**
+ * 驗證 SVG 內容是否安全（防止 XSS 攻擊）
+ *
+ * 安全考量：
+ * - 即使在預期只接收內部生成的 SVG 的情況下，仍應驗證內容
+ * - 作為縱深防禦（Defense in Depth）的一環
+ * - 防止意外引入外部或未清理的 SVG 內容
+ *
+ * @param {string} svgContent - SVG 字串內容
+ * @returns {boolean} 是否為安全的 SVG（true = 安全，false = 包含危險內容）
+ *
+ * @example
+ * // 安全的 SVG
+ * validateSafeSvg('<svg width="16" height="16"><circle cx="8" cy="8" r="8"/></svg>')
+ * // 返回: true
+ *
+ * @example
+ * // 危險的 SVG（包含 script）
+ * validateSafeSvg('<svg><script>alert("XSS")</script></svg>')
+ * // 返回: false
+ */
+export function validateSafeSvg(svgContent) {
+  if (!svgContent || typeof svgContent !== 'string') {
+    return true; // 空內容視為安全（會被忽略）
+  }
+
+  // 只驗證 SVG 標籤
+  if (!svgContent.trim().startsWith('<svg')) {
+    return true; // 非 SVG 內容不在此函數驗證範圍
+  }
+
+  // 危險模式列表：
+  // - <script> 標籤：可執行 JavaScript
+  // - javascript: 協議：可在事件或連結中執行 JavaScript
+  // - on* 事件處理器：如 onload, onerror, onclick 等
+  const dangerousPatterns = /<script|javascript:|onerror|onload|onclick|onmouseover/i;
+
+  const hasDangerousContent = dangerousPatterns.test(svgContent);
+
+  if (hasDangerousContent) {
+    Logger.warn('[Security] 偵測到可疑的 SVG 內容，已拒絕', svgContent);
+  }
+
+  return !hasDangerousContent;
+}
