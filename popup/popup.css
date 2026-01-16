@@ -1,3 +1,9 @@
+:root {
+  /* Icon Alignment - 圖標對齊偏移量 */
+  /* 用於將 SVG 圖標向下微調，使其視覺中心與文字基線對齊 */
+  --icon-baseline-offset: 2px;
+}
+
 body {
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
@@ -54,14 +60,18 @@ button {
 }
 
 /* SVG 圖標樣式 */
-/* SVG 圖標樣式 */
 .btn-icon,
 .link-icon {
   flex-shrink: 0;
   margin-right: 8px;
   /* Restored for spacing */
-  transform: translateY(2px);
-  /* Move icon DOWN to align with text baseline */
+
+  /* 圖標基線對齊調整：
+   * SVG 圖標預設垂直置中（vertical-align: middle），但與文字基線不對齊
+   * 透過 translateY 向下微調，使圖標視覺中心與文字基線對齊
+   * 此偏移量根據當前字體大小（13px）和行高（line-height: 1）計算得出
+   */
+  transform: translateY(var(--icon-baseline-offset));
 }
 
 #highlight-button:hover {

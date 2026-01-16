@@ -24,6 +24,10 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+
+  /* Icon Alignment - 圖標對齊偏移量 */
+  /* 用於將 SVG 圖標向下微調，使其視覺中心與文字基線對齊 */
+  --icon-baseline-offset: 2px;
 }
 
 body {
@@ -1043,7 +1047,7 @@ select:focus {
   color: var(--text-primary);
 }
 
-.feature-content > div {
+.feature-content>div {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.5;
