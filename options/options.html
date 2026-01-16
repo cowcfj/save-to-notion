@@ -1,984 +1,669 @@
 <!doctype html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Notion Clipper 設定</title>
-    <link rel="stylesheet" href="options.css" />
-  </head>
 
-  <body>
-    <div class="app-container">
-      <!-- 側邊欄導航 -->
-      <nav class="sidebar">
-        <div class="sidebar-header">
-          <img src="../icons/icon48.png" alt="Logo" class="sidebar-logo" />
-          <span class="sidebar-title">Save to Notion</span>
-        </div>
-        <div class="nav-links" role="tablist">
-          <button
-            class="nav-item active"
-            data-section="general"
-            role="tab"
-            aria-controls="section-general"
-            aria-selected="true"
-          >
-            <span class="icon"
-              ><svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="12" cy="12" r="3" />
-                <path
-                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-                /></svg
-            ></span>
-            <span class="label">一般設定</span>
-          </button>
-          <button
-            class="nav-item"
-            data-section="templates"
-            role="tab"
-            aria-controls="section-templates"
-            aria-selected="false"
-          >
-            <span class="icon"
-              ><svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg
-            ></span>
-            <span class="label">模板設定</span>
-          </button>
-          <button
-            class="nav-item"
-            data-section="data"
-            role="tab"
-            aria-controls="section-data"
-            aria-selected="false"
-          >
-            <span class="icon"
-              ><svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" />
-                <polyline points="7 3 7 8 15 8" /></svg
-            ></span>
-            <span class="label">數據管理</span>
-          </button>
-          <button
-            class="nav-item"
-            data-section="diagnostics"
-            role="tab"
-            aria-controls="section-diagnostics"
-            aria-selected="false"
-          >
-            <span class="icon"
-              ><svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path
-                  d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
-                /></svg
-            ></span>
-            <span class="label">診斷工具</span>
-          </button>
-          <button
-            class="nav-item"
-            data-section="guide"
-            role="tab"
-            aria-controls="section-guide"
-            aria-selected="false"
-          >
-            <span class="icon"
-              ><svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg
-            ></span>
-            <span class="label">使用指南</span>
-          </button>
-        </div>
-        <div class="sidebar-footer">
-          <span id="app-version" class="version"></span>
-        </div>
-      </nav>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notion Clipper 設定</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
 
-      <!-- 主要內容區域 -->
-      <main class="content-area">
-        <!-- 一般設定區塊 -->
-        <section id="section-general" class="settings-section active">
-          <header class="section-header">
-            <h2>一般設定</h2>
-            <p class="section-desc">管理您的 Notion 連接帳戶與基本配置</p>
-          </header>
+<body>
+  <div class="app-container">
+    <!-- 側邊欄導航 -->
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <img src="../icons/icon48.png" alt="Logo" class="sidebar-logo" />
+        <span class="sidebar-title">Save to Notion</span>
+      </div>
+      <div class="nav-links" role="tablist">
+        <button class="nav-item active" data-section="general" role="tab" aria-controls="section-general"
+          aria-selected="true">
+          <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg></span>
+          <span class="label">一般設定</span>
+        </button>
+        <button class="nav-item" data-section="templates" role="tab" aria-controls="section-templates"
+          aria-selected="false">
+          <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg></span>
+          <span class="label">模板設定</span>
+        </button>
+        <button class="nav-item" data-section="data" role="tab" aria-controls="section-data" aria-selected="false">
+          <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+          </span>
+          <span class="label">數據管理</span>
+        </button>
+        <button class="nav-item" data-section="diagnostics" role="tab" aria-controls="section-diagnostics"
+          aria-selected="false">
+          <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg></span>
+          <span class="label">診斷工具</span>
+        </button>
+        <button class="nav-item" data-section="guide" role="tab" aria-controls="section-guide" aria-selected="false">
+          <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+            </svg></span>
+          <span class="label">使用指南</span>
+        </button>
+      </div>
+      <div class="sidebar-footer">
+        <span id="app-version" class="version"></span>
+      </div>
+    </nav>
 
-          <div class="card">
-            <h3>Notion 連接</h3>
-            <div id="auth-status" class="auth-status"></div>
-            <div class="auth-actions">
-              <button id="oauth-button" class="btn-primary">
-                <span class="icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path
-                      d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-                    /></svg></span
-                ><span>連接到 Notion</span>
-              </button>
-              <button id="disconnect-button" class="btn-danger hidden">
-                <span class="icon"
-                  ><svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="15" y1="9" x2="9" y2="15" />
-                    <line x1="9" y1="9" x2="15" y2="15" /></svg></span
-                ><span>斷開連接</span>
-              </button>
+    <!-- 主要內容區域 -->
+    <main class="content-area">
+      <!-- 一般設定區塊 -->
+      <section id="section-general" class="settings-section active">
+        <header class="section-header">
+          <h2>一般設定</h2>
+          <p class="section-desc">管理您的 Notion 連接帳戶與基本配置</p>
+        </header>
+
+        <div class="card">
+          <h3>Notion 連接</h3>
+          <div id="auth-status" class="auth-status"></div>
+          <div class="auth-actions">
+            <button id="oauth-button" class="btn-primary">
+              <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+              </span>
+              <span>連接到 Notion</span>
+            </button>
+            <button id="disconnect-button" class="btn-danger hidden">
+              <span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              </span>
+              <span>斷開連接</span>
+            </button>
+          </div>
+          <p class="section-desc text-sm gap-top-sm">
+            點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>手動配置</h3>
+          <div class="form-group">
+            <label for="api-key">Notion API Key</label>
+            <div class="input-wrapper">
+              <input type="password" id="api-key" placeholder="輸入您的 Integration Token" />
+              <button type="button" id="test-api-button" class="btn-secondary">驗證</button>
             </div>
-            <p class="section-desc text-sm gap-top-sm">
-              點擊上方按鈕將跳轉到 Notion 集成頁面，創建 Integration 並獲取 API 密鑰。
-            </p>
           </div>
 
-          <div class="card">
-            <h3>手動配置</h3>
-            <div class="form-group">
-              <label for="api-key">Notion API Key</label>
-              <div class="input-wrapper">
-                <input type="password" id="api-key" placeholder="輸入您的 Integration Token" />
-                <button type="button" id="test-api-button" class="btn-secondary">驗證</button>
-              </div>
+          <div class="form-group">
+            <label for="database-id">資料來源 ID (Page/Database)</label>
+            <div class="input-wrapper">
+              <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
             </div>
 
-            <div class="form-group">
-              <label for="database-id">資料來源 ID (Page/Database)</label>
-              <div class="input-wrapper">
-                <input type="text" id="database-id" placeholder="輸入 Page ID 或 Database ID" />
-              </div>
-
-              <!-- 可搜索的數據庫選擇器組件 -->
-              <div class="database-selector-container hidden" id="database-selector-container">
-                <div class="searchable-selector">
-                  <div class="selector-input">
-                    <input
-                      type="text"
-                      id="database-search"
-                      placeholder="搜尋資料來源..."
-                      autocomplete="off"
-                    />
-                    <button type="button" id="selector-toggle" class="selector-toggle">▼</button>
+            <!-- 可搜索的數據庫選擇器組件 -->
+            <div class="database-selector-container hidden" id="database-selector-container">
+              <div class="searchable-selector">
+                <div class="selector-input">
+                  <input type="text" id="database-search" placeholder="搜尋資料來源..." autocomplete="off" />
+                  <button type="button" id="selector-toggle" class="selector-toggle">▼</button>
+                </div>
+                <div class="selector-dropdown hidden" id="database-dropdown">
+                  <div class="dropdown-header">
+                    <span id="database-count">0 個來源</span>
+                    <button type="button" id="refresh-databases" class="btn-icon" title="重新整理">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                        <path d="M21 21v-5h-5" />
+                      </svg>
+                    </button>
                   </div>
-                  <div class="selector-dropdown hidden" id="database-dropdown">
-                    <div class="dropdown-header">
-                      <span id="database-count">0 個來源</span>
-                      <button
-                        type="button"
-                        id="refresh-databases"
-                        class="btn-icon"
-                        title="重新整理"
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          class="icon-svg"
-                        >
-                          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                          <path d="M3 3v5h5" />
-                          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-                          <path d="M21 21v-5h-5" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div class="dropdown-list" id="database-list">
-                      <div class="loading-state">載入中...</div>
-                    </div>
+                  <div class="dropdown-list" id="database-list">
+                    <div class="loading-state">載入中...</div>
                   </div>
                 </div>
               </div>
+            </div>
 
-              <!-- 回退選擇器 -->
-              <select id="database-select" class="hidden">
-                <option value="">選擇資料來源...</option>
+            <!-- 回退選擇器 -->
+            <select id="database-select" class="hidden">
+              <option value="">選擇資料來源...</option>
+            </select>
+
+            <p class="help-text">
+              提示：若搜尋不到，可<a href="../USER_GUIDE.md#如何獲取-notion-id" target="_blank" rel="noopener noreferrer">手動輸入 ID</a>。
+            </p>
+          </div>
+
+          <button id="save-button" class="btn-primary full-width">儲存設定</button>
+          <p id="status" class="status-message"></p>
+        </div>
+      </section>
+
+      <!-- 模板設定區塊 -->
+      <section id="section-templates" class="settings-section">
+        <header class="section-header">
+          <h2>模板設定</h2>
+          <p class="section-desc">自定義儲存到 Notion 時的頁面格式</p>
+        </header>
+
+        <div class="card">
+          <h3>頁面屬性</h3>
+          <div class="form-group">
+            <label for="title-template">標題格式</label>
+            <input type="text" id="title-template" placeholder="{title} - {date}" />
+            <p class="help-text">
+              可用變數：{title}, {date}, {time}, {datetime}, {url}, {domain}
+            </p>
+
+            <button type="button" id="preview-template" class="btn-secondary">預覽效果</button>
+            <div id="template-preview" class="preview-box"></div>
+          </div>
+
+          <div class="form-item-row">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="add-source" checked />
+              <label for="add-source">在內容末尾添加來源連結</label>
+            </div>
+          </div>
+
+          <div class="form-item-row">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="add-timestamp" checked />
+              <label for="add-timestamp">在內容開頭添加保存時間</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 外觀設定卡片 -->
+        <div class="card">
+          <h3>外觀設定</h3>
+          <div class="form-group">
+            <label for="highlight-style">標註樣式</label>
+            <div class="input-wrapper">
+              <select id="highlight-style" class="form-select form-select-enhanced">
+                <option value="background">背景顏色</option>
+                <option value="text">文字顏色</option>
+                <option value="underline">底線</option>
               </select>
-
-              <p class="help-text">
-                提示：若搜尋不到，可<a
-                  href="../USER_GUIDE.md#如何獲取-notion-id"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >手動輸入 ID</a
-                >。
-              </p>
             </div>
-
-            <button id="save-button" class="btn-primary full-width">儲存設定</button>
-            <p id="status" class="status-message"></p>
+            <p class="help-text">選擇標註在網頁上的顯示方式。</p>
           </div>
-        </section>
+        </div>
 
-        <!-- 模板設定區塊 -->
-        <section id="section-templates" class="settings-section">
-          <header class="section-header">
-            <h2>模板設定</h2>
-            <p class="section-desc">自定義儲存到 Notion 時的頁面格式</p>
-          </header>
+        <button id="save-templates-button" class="btn-primary full-width">儲存模板設定</button>
+        <p id="template-status" class="status-message"></p>
+      </section>
 
-          <div class="card">
-            <h3>頁面屬性</h3>
-            <div class="form-group">
-              <label for="title-template">標題格式</label>
-              <input type="text" id="title-template" placeholder="{title} - {date}" />
-              <p class="help-text">
-                可用變數：{title}, {date}, {time}, {datetime}, {url}, {domain}
-              </p>
+      <!-- 數據管理區塊 -->
+      <section id="section-data" class="settings-section">
+        <header class="section-header">
+          <h2>數據管理</h2>
+          <p class="section-desc">管理本地存儲的標記數據與備份</p>
+        </header>
 
-              <button type="button" id="preview-template" class="btn-secondary">預覽效果</button>
-              <div id="template-preview" class="preview-box"></div>
+        <div class="card">
+          <h3>存儲使用量</h3>
+          <div class="storage-visual">
+            <div class="progress-bar">
+              <div id="usage-fill" class="progress-fill" style="width: 0%"></div>
             </div>
-
-            <div class="form-item-row">
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="add-source" checked />
-                <label for="add-source">在內容末尾添加來源連結</label>
-              </div>
-            </div>
-
-            <div class="form-item-row">
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="add-timestamp" checked />
-                <label for="add-timestamp">在內容開頭添加保存時間</label>
-              </div>
+            <div class="storage-stats-row">
+              <span id="usage-details">0 MB</span>
+              <span id="usage-percentage">0%</span>
             </div>
           </div>
 
-          <!-- 外觀設定卡片 -->
-          <div class="card">
-            <h3>外觀設定</h3>
-            <div class="form-group">
-              <label for="highlight-style">標註樣式</label>
-              <div class="input-wrapper">
-                <select id="highlight-style" class="form-select form-select-enhanced">
-                  <option value="background">背景顏色</option>
-                  <option value="text">文字顏色</option>
-                  <option value="underline">底線</option>
-                </select>
-              </div>
-              <p class="help-text">選擇標註在網頁上的顯示方式。</p>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-label">已標記頁面</span>
+              <span id="pages-count" class="stat-value">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">總標記數</span>
+              <span id="highlights-count" class="stat-value">0</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">配置項目</span>
+              <span id="config-count" class="stat-value">0</span>
             </div>
           </div>
+          <button id="refresh-usage-button" class="btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M21 21v-5h-5" />
+            </svg>
+            刷新統計
+          </button>
+        </div>
 
-          <button id="save-templates-button" class="btn-primary full-width">儲存模板設定</button>
-          <p id="template-status" class="status-message"></p>
-        </section>
-
-        <!-- 數據管理區塊 -->
-        <section id="section-data" class="settings-section">
-          <header class="section-header">
-            <h2>數據管理</h2>
-            <p class="section-desc">管理本地存儲的標記數據與備份</p>
-          </header>
-
-          <div class="card">
-            <h3>存儲使用量</h3>
-            <div class="storage-visual">
-              <div class="progress-bar">
-                <div id="usage-fill" class="progress-fill" style="width: 0%"></div>
-              </div>
-              <div class="storage-stats-row">
-                <span id="usage-details">0 MB</span>
-                <span id="usage-percentage">0%</span>
-              </div>
-            </div>
-
-            <div class="stats-grid">
-              <div class="stat-box">
-                <span class="stat-label">已標記頁面</span>
-                <span id="pages-count" class="stat-value">0</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">總標記數</span>
-                <span id="highlights-count" class="stat-value">0</span>
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">配置項目</span>
-                <span id="config-count" class="stat-value">0</span>
-              </div>
-            </div>
-            <button id="refresh-usage-button" class="btn-secondary">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="icon-svg"
-              >
-                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-                <path d="M21 21v-5h-5" />
-              </svg>
-              刷新統計
-            </button>
-          </div>
-
-          <div class="card">
-            <h3>備份與還原</h3>
-            <div class="backup-info">
-              <p class="help-text mb-12">
-                <strong
-                  ><svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="list-icon"
-                  >
-                    <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
-                    <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
-                    <line x1="6" y1="6" x2="6.01" y2="6" />
-                    <line x1="6" y1="18" x2="6.01" y2="18" />
-                  </svg>
-                  備份包含的數據：</strong
-                >
-              </p>
-              <ul class="backup-data-list">
-                <li>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="list-icon"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <circle cx="12" cy="12" r="6" />
-                    <circle cx="12" cy="12" r="2" />
-                  </svg>
-                  <strong>標註數據</strong>：所有頁面的高亮標記（文字、顏色、位置）
-                </li>
-                <li>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="list-icon"
-                  >
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                    <polyline points="17 21 17 13 7 13 7 21" />
-                    <polyline points="7 3 7 8 15 8" />
-                  </svg>
-                  <strong>保存記錄</strong>：已同步到 Notion 的頁面狀態
-                </li>
-                <li>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="list-icon"
-                  >
-                    <path d="M8 3 4 7l4 4" />
-                    <path d="M4 7h16" />
-                    <path d="m16 21 4-4-4-4" />
-                    <path d="M20 17H4" />
-                  </svg>
-                  <strong>遷移數據</strong>：舊版本資料的暫存記錄
-                </li>
-              </ul>
-              <p class="help-text text-warning mt-8">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="list-icon text-warning-color"
-                >
-                  <path
-                    d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
-                  />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
+        <div class="card">
+          <h3>備份與還原</h3>
+          <div class="backup-info">
+            <p class="help-text mb-12">
+              <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="list-icon">
+                  <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+                  <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+                  <line x1="6" y1="6" x2="6.01" y2="6" />
+                  <line x1="6" y1="18" x2="6.01" y2="18" />
                 </svg>
-                <strong>注意</strong>：API Key 和 Database ID 等配置會透過 Google
-                帳號自動同步，不包含在備份中。
-              </p>
-            </div>
-            <div class="button-group">
-              <button id="export-data-button" class="btn-secondary">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="icon-svg"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
+                備份包含的數據：</strong>
+            </p>
+            <ul class="backup-data-list">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="list-icon">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
                 </svg>
-                匯出備份
-              </button>
-              <button id="check-data-button" class="btn-secondary">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="icon-svg"
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.3-4.3" />
+                <strong>標註數據</strong>：所有頁面的高亮標記（文字、顏色、位置）
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="list-icon">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
                 </svg>
-                檢查完整性
-              </button>
-            </div>
-            <div class="button-group">
-              <input type="file" id="import-data-file" accept=".json" class="hidden" />
-              <button id="import-data-button" class="btn-secondary">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="icon-svg"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
+                <strong>保存記錄</strong>：已同步到 Notion 的頁面狀態
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="list-icon">
+                  <path d="M8 3 4 7l4 4" />
+                  <path d="M4 7h16" />
+                  <path d="m16 21 4-4-4-4" />
+                  <path d="M20 17H4" />
                 </svg>
-                還原備份
-              </button>
-            </div>
+                <strong>遷移數據</strong>：舊版本資料的暫存記錄
+              </li>
+            </ul>
             <p class="help-text text-warning mt-8">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="icon-svg text-warning-color"
-              >
-                <path
-                  d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
-                />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="list-icon text-warning-color">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
-              還原備份將<strong>覆蓋</strong>現有的標註數據，建議先匯出當前數據。
+              <strong>注意</strong>：API Key 和 Database ID 等配置會透過 Google
+              帳號自動同步，不包含在備份中。
             </p>
-            <div id="data-status" class="status-message"></div>
           </div>
-
-          <div class="card">
-            <h3>資料遷移與優化</h3>
-
-            <!-- 遷移工具 -->
-            <div class="migration-tool">
-              <h4>舊版數據遷移</h4>
-              <p class="text-sm">將 v2.5 以前的 DOM 標記升級為現代 Highlight API 格式。</p>
-              <div class="migration-controls">
-                <button id="migration-scan-button" class="btn-secondary">開始掃描</button>
-                <div id="scan-status" class="inline-status"></div>
-              </div>
-
-              <!-- 隱藏的遷移列表 -->
-              <div id="migration-list" class="migration-list hidden">
-                <div class="list-header">
-                  <label><input type="checkbox" id="migration-select-all" /> 全選</label>
-                  <span id="migration-selected-count">0 項</span>
-                </div>
-                <div id="migration-items" class="list-body"></div>
-                <div class="list-actions">
-                  <button id="migration-execute-button" class="btn-primary" disabled>遷移</button>
-                  <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
-                </div>
-              </div>
-              <div id="migration-progress" class="progress-container hidden">
-                <div class="progress-bar">
-                  <div id="migration-progress-bar" class="progress-fill"></div>
-                </div>
-                <span id="migration-progress-text">0%</span>
-              </div>
-              <div id="migration-result"></div>
-
-              <!-- 待完成的遷移（需訪問頁面） -->
-              <div id="pending-migration-section" class="pending-migration-section hidden">
-                <h4>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="icon-svg"
-                  >
-                    <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
-                    <path
-                      d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
-                    />
-                    <path d="M12 11h4" />
-                    <path d="M12 16h4" />
-                    <path d="M8 11h.01" />
-                    <path d="M8 16h.01" />
-                  </svg>
-                  待完成的遷移（需訪問頁面）
-                </h4>
-                <div id="pending-migration-list" class="result-list"></div>
-                <p class="hint">提示：訪問上方頁面後標註會自動恢復，刷新此頁面可更新列表。</p>
-              </div>
-
-              <!-- 遷移失敗的標註 -->
-              <div id="failed-migration-section" class="failed-migration-section hidden">
-                <h4>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="icon-svg"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="m15 9-6 6" />
-                    <path d="m9 9 6 6" />
-                  </svg>
-                  無法恢復的標註
-                </h4>
-                <div id="failed-migration-list" class="result-list"></div>
-                <p class="hint">這些標註因頁面內容已更改而無法恢復。您可以刪除這些數據。</p>
-              </div>
-            </div>
-
-            <hr class="divider" />
-
-            <!-- 優化工具 -->
-            <div class="optimization-tool">
-              <h4>數據庫優化</h4>
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="cleanup-deleted-pages" checked />
-                <label for="cleanup-deleted-pages">清理已失效頁面的標註數據</label>
-              </div>
-              <div class="button-group">
-                <button id="preview-cleanup-button" class="btn-secondary">預覽清理</button>
-                <button id="execute-cleanup-button" class="btn-danger hidden">執行清理</button>
-                <button id="analyze-optimization-button" class="btn-secondary">分析結構優化</button>
-                <button id="execute-optimization-button" class="btn-primary hidden">
-                  執行重整
-                </button>
-              </div>
-              <div id="cleanup-preview" class="preview-box"></div>
-              <div id="optimization-preview" class="preview-box"></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 診斷工具區塊 -->
-        <section id="section-diagnostics" class="settings-section">
-          <header class="section-header">
-            <h2>診斷工具</h2>
-            <p class="section-desc">開發者選項與除錯</p>
-          </header>
-
-          <div class="card">
-            <div class="form-item-row">
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="enable-debug-logs" />
-                <label for="enable-debug-logs">啟用除錯日誌 (Debug Logs)</label>
-              </div>
-              <p class="help-text">將前端操作日誌轉發到背景頁面 console，僅供開發排查使用。</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- 使用指南區塊 -->
-        <section id="section-guide" class="settings-section">
-          <header class="section-header">
-            <h2>使用指南</h2>
-            <p class="section-desc">了解如何最有效地使用 Notion Smart Clipper</p>
-          </header>
-
-          <!-- 快速開始 -->
-          <div class="card">
-            <h3>
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="icon-svg"
-              >
-                <path
-                  d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"
-                />
-                <path
-                  d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"
-                />
-                <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
-                <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+          <div class="button-group">
+            <button id="export-data-button" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              快速開始
-            </h3>
-            <div class="quick-start-grid">
-              <div class="step-card">
-                <strong>1. 連接擴展</strong>
-                <p>點擊擴展圖標 → Settings → 點擊「連接到 Notion」</p>
-              </div>
-              <div class="step-card">
-                <strong>2. 授權訪問</strong>
-                <p>在 Notion 創建 Integration，複製 Secret Key 並保存</p>
-              </div>
-              <div class="step-card">
-                <strong>3. 開始使用</strong>
-                <p>選擇目標數據庫，點擊保存按鈕即可剪藏！</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- 核心功能 -->
-          <div class="card">
-            <h3>
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="icon-svg"
-              >
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              匯出備份
+            </button>
+            <button id="check-data-button" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
               </svg>
-              核心功能
-            </h3>
-            <div class="feature-grid">
-              <div class="feature-card">
-                <div class="feature-icon">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                    <polyline points="10 9 9 9 8 9" />
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <strong>一鍵保存</strong>
-                  <div>智能提取文章內容、圖片與 icon</div>
-                </div>
-              </div>
+              檢查完整性
+            </button>
+          </div>
+          <div class="button-group">
+            <input type="file" id="import-data-file" accept=".json" class="hidden" />
+            <button id="import-data-button" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              還原備份
+            </button>
+          </div>
+          <p class="help-text text-warning mt-8">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="icon-svg text-warning-color">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            還原備份將<strong>覆蓋</strong>現有的標註數據，建議先匯出當前數據。
+          </p>
+          <div id="data-status" class="status-message"></div>
+        </div>
 
-              <div class="feature-card">
-                <div class="feature-icon">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <circle cx="13.5" cy="6.5" r=".5" />
-                    <circle cx="17.5" cy="10.5" r=".5" />
-                    <circle cx="8.5" cy="7.5" r=".5" />
-                    <circle cx="6.5" cy="12.5" r=".5" />
-                    <path
-                      d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.744 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"
-                    />
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <strong>多色標註</strong>
-                  <div>支持 4 種顏色與 3 種樣式（背景/文字/底線）</div>
-                </div>
-              </div>
+        <div class="card">
+          <h3>資料遷移與優化</h3>
 
-              <div class="feature-card">
-                <div class="feature-icon">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
-                    <line x1="6" y1="8" x2="6" y2="8" />
-                    <line x1="10" y1="8" x2="10" y2="8" />
-                    <line x1="14" y1="8" x2="14" y2="8" />
-                    <line x1="18" y1="8" x2="18" y2="8" />
-                    <line x1="6" y1="12" x2="6" y2="12" />
-                    <line x1="10" y1="12" x2="10" y2="12" />
-                    <line x1="14" y1="12" x2="14" y2="12" />
-                    <line x1="18" y1="12" x2="18" y2="12" />
-                    <line x1="6" y1="16" x2="6" y2="16" />
-                    <line x1="10" y1="16" x2="14" y2="16" />
-                    <line x1="18" y1="16" x2="18" y2="16" />
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <strong>快捷鍵支援</strong>
-                  <div>
-                    按 <code class="kbd">Ctrl+S</code> (Mac: <code class="kbd">Cmd+S</code>)
-                    快速開啟標註工具
-                  </div>
-                </div>
-              </div>
+          <!-- 遷移工具 -->
+          <div class="migration-tool">
+            <h4>舊版數據遷移</h4>
+            <p class="text-sm">將 v2.5 以前的 DOM 標記升級為現代 Highlight API 格式。</p>
+            <div class="migration-controls">
+              <button id="migration-scan-button" class="btn-secondary">開始掃描</button>
+              <div id="scan-status" class="inline-status"></div>
+            </div>
 
-              <div class="feature-card">
-                <div class="feature-icon">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="3" />
-                    <path
-                      d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-                    />
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <strong>自定義模板</strong>
-                  <div>支持 {title}, {date} 等變數</div>
-                </div>
+            <!-- 隱藏的遷移列表 -->
+            <div id="migration-list" class="migration-list hidden">
+              <div class="list-header">
+                <label><input type="checkbox" id="migration-select-all" /> 全選</label>
+                <span id="migration-selected-count">0 項</span>
               </div>
+              <div id="migration-items" class="list-body"></div>
+              <div class="list-actions">
+                <button id="migration-execute-button" class="btn-primary" disabled>遷移</button>
+                <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
+              </div>
+            </div>
+            <div id="migration-progress" class="progress-container hidden">
+              <div class="progress-bar">
+                <div id="migration-progress-bar" class="progress-fill"></div>
+              </div>
+              <span id="migration-progress-text">0%</span>
+            </div>
+            <div id="migration-result"></div>
 
-              <div class="feature-card">
-                <div class="feature-icon">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <strong>狀態同步</strong>
-                  <div>圖標徽章即時顯示保存狀態</div>
-                </div>
-              </div>
+            <!-- 待完成的遷移（需訪問頁面） -->
+            <div id="pending-migration-section" class="pending-migration-section hidden">
+              <h4>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                  <path d="M12 11h4" />
+                  <path d="M12 16h4" />
+                  <path d="M8 11h.01" />
+                  <path d="M8 16h.01" />
+                </svg>
+                待完成的遷移（需訪問頁面）
+              </h4>
+              <div id="pending-migration-list" class="result-list"></div>
+              <p class="hint">提示：訪問上方頁面後標註會自動恢復，刷新此頁面可更新列表。</p>
+            </div>
+
+            <!-- 遷移失敗的標註 -->
+            <div id="failed-migration-section" class="failed-migration-section hidden">
+              <h4>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m15 9-6 6" />
+                  <path d="m9 9 6 6" />
+                </svg>
+                無法恢復的標註
+              </h4>
+              <div id="failed-migration-list" class="result-list"></div>
+              <p class="hint">這些標註因頁面內容已更改而無法恢復。您可以刪除這些數據。</p>
             </div>
           </div>
 
-          <!-- 常見問題 -->
-          <div class="card">
-            <div class="faq-header">
-              <h3>
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="icon-svg"
-                >
+          <hr class="divider" />
+
+          <!-- 優化工具 -->
+          <div class="optimization-tool">
+            <h4>數據庫優化</h4>
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="cleanup-deleted-pages" checked />
+              <label for="cleanup-deleted-pages">清理已失效頁面的標註數據</label>
+            </div>
+            <div class="button-group">
+              <button id="preview-cleanup-button" class="btn-secondary">預覽清理</button>
+              <button id="execute-cleanup-button" class="btn-danger hidden">執行清理</button>
+              <button id="analyze-optimization-button" class="btn-secondary">分析結構優化</button>
+              <button id="execute-optimization-button" class="btn-primary hidden">
+                執行重整
+              </button>
+            </div>
+            <div id="cleanup-preview" class="preview-box"></div>
+            <div id="optimization-preview" class="preview-box"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 診斷工具區塊 -->
+      <section id="section-diagnostics" class="settings-section">
+        <header class="section-header">
+          <h2>診斷工具</h2>
+          <p class="section-desc">開發者選項與除錯</p>
+        </header>
+
+        <div class="card">
+          <div class="form-item-row">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="enable-debug-logs" />
+              <label for="enable-debug-logs">啟用除錯日誌 (Debug Logs)</label>
+            </div>
+            <p class="help-text">將前端操作日誌轉發到背景頁面 console，僅供開發排查使用。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 使用指南區塊 -->
+      <section id="section-guide" class="settings-section">
+        <header class="section-header">
+          <h2>使用指南</h2>
+          <p class="section-desc">了解如何最有效地使用 Notion Smart Clipper</p>
+        </header>
+
+        <!-- 快速開始 -->
+        <div class="card">
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+              <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+              <path
+                d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+              <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+              <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+            </svg>
+            快速開始
+          </h3>
+          <div class="quick-start-grid">
+            <div class="step-card">
+              <strong>1. 連接擴展</strong>
+              <p>點擊擴展圖標 → Settings → 點擊「連接到 Notion」</p>
+            </div>
+            <div class="step-card">
+              <strong>2. 授權訪問</strong>
+              <p>在 Notion 創建 Integration，複製 Secret Key 並保存</p>
+            </div>
+            <div class="step-card">
+              <strong>3. 開始使用</strong>
+              <p>選擇目標數據庫，點擊保存按鈕即可剪藏！</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 核心功能 -->
+        <div class="card">
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            核心功能
+          </h3>
+          <div class="feature-grid">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+              </div>
+              <div class="feature-content">
+                <strong>一鍵保存</strong>
+                <div>智能提取文章內容、圖片與 icon</div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="13.5" cy="6.5" r=".5" />
+                  <circle cx="17.5" cy="10.5" r=".5" />
+                  <circle cx="8.5" cy="7.5" r=".5" />
+                  <circle cx="6.5" cy="12.5" r=".5" />
                   <path
-                    d="M15 14c.2-1 .7-1.7 1.5-2.5 1-1 1.5-2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"
-                  />
-                  <path d="M9 18h6" />
-                  <path d="M10 22h4" />
+                    d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.744 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
                 </svg>
-                常見問題
-              </h3>
-              <a
-                href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md"
-                target="_blank"
-                class="btn-secondary"
-              >
-                查看完整指南
-              </a>
-            </div>
-
-            <div class="faq-list">
-              <div class="faq-item">
-                <div class="faq-question">API Key 無法連接？</div>
-                <div class="faq-answer">
-                  請確認 Token 格式正確（以
-                  <code class="inline-code highlight">secret_</code>
-                  開頭），並確保網路連接正常。
-                </div>
               </div>
-              <div class="faq-item">
-                <div class="faq-question">數據庫列表為空？</div>
-                <div class="faq-answer">
-                  請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。
-                </div>
-              </div>
-              <div class="faq-item">
-                <div class="faq-question">標註沒有顯示？</div>
-                <div class="faq-answer">請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。</div>
+              <div class="feature-content">
+                <strong>多色標註</strong>
+                <div>支持 4 種顏色與 3 種樣式（背景/文字/底線）</div>
               </div>
             </div>
 
-            <div class="faq-actions">
-              <a
-                href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq"
-                target="_blank"
-                class="btn-primary"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="icon-svg"
-                >
-                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+                  <line x1="6" y1="8" x2="6" y2="8" />
+                  <line x1="10" y1="8" x2="10" y2="8" />
+                  <line x1="14" y1="8" x2="14" y2="8" />
+                  <line x1="18" y1="8" x2="18" y2="8" />
+                  <line x1="6" y1="12" x2="6" y2="12" />
+                  <line x1="10" y1="12" x2="10" y2="12" />
+                  <line x1="14" y1="12" x2="14" y2="12" />
+                  <line x1="18" y1="12" x2="18" y2="12" />
+                  <line x1="6" y1="16" x2="6" y2="16" />
+                  <line x1="10" y1="16" x2="14" y2="16" />
+                  <line x1="18" y1="16" x2="18" y2="16" />
                 </svg>
-                閱讀完整用戶指南與 FAQ
-              </a>
+              </div>
+              <div class="feature-content">
+                <strong>快捷鍵支援</strong>
+                <div>
+                  按 <code class="kbd">Ctrl+S</code> (Mac: <code class="kbd">Cmd+S</code>)
+                  快速開啟標註工具
+                </div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path
+                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              </div>
+              <div class="feature-content">
+                <strong>自定義模板</strong>
+                <div>支持 {title}, {date} 等變數</div>
+              </div>
+            </div>
+
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              </div>
+              <div class="feature-content">
+                <strong>狀態同步</strong>
+                <div>圖標徽章即時顯示保存狀態</div>
+              </div>
             </div>
           </div>
-        </section>
-      </main>
-    </div>
-    <script type="module" src="options.js"></script>
-  </body>
+        </div>
+
+        <!-- 常見問題 -->
+        <div class="card">
+          <div class="faq-header">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <path
+                  d="M15 14c.2-1 .7-1.7 1.5-2.5 1-1 1.5-2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+                <path d="M9 18h6" />
+                <path d="M10 22h4" />
+              </svg>
+              常見問題
+            </h3>
+            <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank"
+              class="btn-secondary">
+              查看完整指南
+            </a>
+          </div>
+
+          <div class="faq-list">
+            <div class="faq-item">
+              <div class="faq-question">API Key 無法連接？</div>
+              <div class="faq-answer">
+                請確認 Token 格式正確（以
+                <code class="inline-code highlight">secret_</code>
+                開頭），並確保網路連接正常。
+              </div>
+            </div>
+            <div class="faq-item">
+              <div class="faq-question">數據庫列表為空？</div>
+              <div class="faq-answer">
+                請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。
+              </div>
+            </div>
+            <div class="faq-item">
+              <div class="faq-question">標註沒有顯示？</div>
+              <div class="faq-answer">請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。</div>
+            </div>
+          </div>
+
+          <div class="faq-actions">
+            <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq" target="_blank"
+              class="btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+              </svg>
+              閱讀完整用戶指南與 FAQ
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="options.js"></script>
+</body>
+
 </html>
