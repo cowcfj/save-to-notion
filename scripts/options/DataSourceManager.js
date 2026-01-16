@@ -155,6 +155,7 @@ export class DataSourceManager {
       this.selector = new SearchableDatabaseSelector({
         showStatus: this.ui.showStatus.bind(this.ui),
         loadDatabases: this.loadDatabases.bind(this),
+        getApiKey: () => document.getElementById('api-key')?.value || '',
       });
     }
 

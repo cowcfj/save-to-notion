@@ -17,6 +17,7 @@ describe('SearchableDatabaseSelector', () => {
   let selector = null;
   let mockShowStatus = null;
   let mockLoadDatabases = null;
+  let mockGetApiKey = null;
 
   beforeEach(() => {
     // Mock scrollIntoView (jsdom 不支援此方法)
@@ -38,10 +39,12 @@ describe('SearchableDatabaseSelector', () => {
 
     mockShowStatus = jest.fn();
     mockLoadDatabases = jest.fn();
+    mockGetApiKey = jest.fn(() => 'mock_api_key');
 
     selector = new SearchableDatabaseSelector({
       showStatus: mockShowStatus,
       loadDatabases: mockLoadDatabases,
+      getApiKey: mockGetApiKey,
     });
   });
 
@@ -53,6 +56,9 @@ describe('SearchableDatabaseSelector', () => {
     it('should throw if dependencies are missing', () => {
       expect(() => new SearchableDatabaseSelector({})).toThrow();
       expect(() => new SearchableDatabaseSelector({ showStatus: jest.fn() })).toThrow();
+      expect(
+        () => new SearchableDatabaseSelector({ showStatus: jest.fn(), loadDatabases: jest.fn() })
+      ).toThrow('getApiKey');
     });
 
     it('should initialize elements', () => {
@@ -176,9 +182,7 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should handle refresh button', () => {
-      document
-        .getElementById('database-selector-container')
-        .insertAdjacentHTML('beforebegin', '<input id="api-key" value="secret_123" />');
+      mockGetApiKey.mockReturnValue('secret_123');
 
       selector.refreshButton.click();
       expect(mockLoadDatabases).toHaveBeenCalledWith('secret_123');
@@ -220,17 +224,7 @@ describe('SearchableDatabaseSelector', () => {
 
   describe('performServerSearch', () => {
     beforeEach(() => {
-      document.body.insertAdjacentHTML(
-        'beforeend',
-        '<input id="api-key" value="secret_test_key" />'
-      );
-    });
-
-    afterEach(() => {
-      const apiKeyInput = document.getElementById('api-key');
-      if (apiKeyInput) {
-        apiKeyInput.remove();
-      }
+      mockGetApiKey.mockReturnValue('secret_test_key');
     });
 
     it('should not trigger search for query less than 2 characters', async () => {
@@ -239,7 +233,7 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should not trigger search if API key is missing', async () => {
-      document.getElementById('api-key').value = '';
+      mockGetApiKey.mockReturnValue('');
       await selector.performServerSearch('test query');
       expect(mockLoadDatabases).not.toHaveBeenCalled();
     });

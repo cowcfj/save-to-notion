@@ -11,7 +11,7 @@ import Logger from '../utils/Logger.js';
  */
 export class SearchableDatabaseSelector {
   constructor(dependencies = {}) {
-    const { showStatus, loadDatabases } = dependencies;
+    const { showStatus, loadDatabases, getApiKey } = dependencies;
 
     if (typeof showStatus !== 'function') {
       throw new Error('SearchableDatabaseSelector 需要 showStatus 函式');
@@ -19,9 +19,13 @@ export class SearchableDatabaseSelector {
     if (typeof loadDatabases !== 'function') {
       throw new Error('SearchableDatabaseSelector 需要 loadDatabases 函式');
     }
+    if (typeof getApiKey !== 'function') {
+      throw new Error('SearchableDatabaseSelector 需要 getApiKey 函式');
+    }
 
     this.showStatus = showStatus;
     this.loadDatabases = loadDatabases;
+    this.getApiKey = getApiKey;
     this.databases = [];
     this.initialDatabases = []; // 儲存初始列表，用於清空搜尋時還原
     this.filteredDatabases = [];
@@ -219,7 +223,7 @@ export class SearchableDatabaseSelector {
       return;
     }
 
-    const apiKey = document.getElementById('api-key')?.value;
+    const apiKey = this.getApiKey();
     if (!apiKey) {
       Logger.warn('無法執行伺服器端搜尋：缺少 API Key');
       return;
@@ -533,7 +537,7 @@ export class SearchableDatabaseSelector {
   }
 
   refreshDatabases() {
-    const apiKey = document.getElementById('api-key')?.value;
+    const apiKey = this.getApiKey();
     if (apiKey) {
       this.showLoading();
       this.loadDatabases(apiKey);
