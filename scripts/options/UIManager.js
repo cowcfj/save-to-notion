@@ -35,13 +35,13 @@ export class UIManager {
       return;
     }
 
-    status.textContent = message;
+    status.innerHTML = message;
     status.classList.remove('success', 'error', 'info', 'status-message'); // 清除舊類
     status.classList.add('status-message', type); // 添加基礎類和類型類
 
     if (type === 'success') {
       setTimeout(() => {
-        status.textContent = '';
+        status.innerHTML = '';
         status.classList.remove('success', 'error', 'info', 'status-message');
       }, 3000);
     }

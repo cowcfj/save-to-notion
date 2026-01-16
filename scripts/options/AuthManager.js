@@ -135,14 +135,16 @@ export class AuthManager {
 
   handleConnectedState(result) {
     if (this.elements.authStatus) {
-      this.elements.authStatus.textContent = '✅ 已連接到 Notion';
+      this.elements.authStatus.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>已連接到 Notion</span>';
       this.elements.authStatus.className = 'auth-status success';
     }
     if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML = '<span class="notion-icon">🔄</span>重新設置';
+      this.elements.oauthButton.innerHTML =
+        '<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg></span><span>重新設置</span>';
     }
     if (this.elements.disconnectButton) {
-      this.elements.disconnectButton.style.display = 'inline-block';
+      this.elements.disconnectButton.style.display = 'inline-flex';
     }
 
     if (this.elements.apiKeyInput) {
@@ -173,7 +175,8 @@ export class AuthManager {
       this.elements.authStatus.className = 'auth-status';
     }
     if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
+      this.elements.oauthButton.innerHTML =
+        '<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>連接到 Notion</span>';
     }
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'none';
@@ -184,7 +187,8 @@ export class AuthManager {
   async startNotionSetup() {
     try {
       this.elements.oauthButton.disabled = true;
-      this.elements.oauthButton.innerHTML = '<span class="loading"></span>正在打開 Notion...';
+      this.elements.oauthButton.innerHTML =
+        '<span class="loading"></span><span>正在打開 Notion...</span>';
 
       // 打開 Notion 集成頁面
       const integrationUrl = 'https://www.notion.so/my-integrations';
@@ -196,13 +200,15 @@ export class AuthManager {
       setTimeout(() => {
         if (this.elements.oauthButton) {
           this.elements.oauthButton.disabled = false;
-          this.elements.oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
+          this.elements.oauthButton.innerHTML =
+            '<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>連接到 Notion</span>';
         }
       }, 2000);
     } catch (error) {
       if (this.elements.oauthButton) {
         this.elements.oauthButton.disabled = false;
-        this.elements.oauthButton.innerHTML = '<span class="notion-icon">📝</span>連接到 Notion';
+        this.elements.oauthButton.innerHTML =
+          '<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>連接到 Notion</span>';
       }
       this.ui.showStatus(`打開 Notion 頁面失敗: ${error.message}`, 'error');
     }

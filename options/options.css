@@ -108,6 +108,14 @@ body {
 
 .nav-item .icon {
   font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+}
+
+.nav-item .icon svg {
+  flex-shrink: 0;
 }
 
 .sidebar-footer {
@@ -291,6 +299,21 @@ select:focus {
   gap: var(--spacing-xs);
 }
 
+/* 按鈕內圖標對齊 */
+.btn-primary .icon,
+.btn-secondary .icon,
+.btn-danger .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary .icon svg,
+.btn-secondary .icon svg,
+.btn-danger .icon svg {
+  display: block;
+}
+
 .btn-primary {
   background-color: var(--primary-color);
   color: white;
@@ -375,10 +398,18 @@ select:focus {
 }
 
 .auth-status.error {
-  display: block;
+  display: flex;
+  align-items: center;
   background-color: #fee2e2;
   color: #991b1b;
   border: 1px solid #fecaca;
+}
+
+.auth-status svg,
+.status-message svg {
+  flex-shrink: 0;
+  margin-right: 8px;
+  vertical-align: text-bottom;
 }
 
 .auth-actions {
