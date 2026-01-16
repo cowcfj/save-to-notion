@@ -251,11 +251,11 @@ describe('options.js', () => {
   });
 
   describe('Initialization (initOptions)', () => {
-    let mockUiInstance,
-      mockAuthInstance,
-      mockDataSourceInstance,
-      mockStorageInstance,
-      mockMigrationInstance;
+    let mockUiInstance = null;
+    let mockAuthInstance = null;
+    let mockDataSourceInstance = null;
+    let mockStorageInstance = null;
+    let mockMigrationInstance = null;
 
     beforeEach(() => {
       jest.clearAllMocks();
