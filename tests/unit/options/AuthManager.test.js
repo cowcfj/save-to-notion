@@ -253,7 +253,7 @@ describe('AuthManager Extended', () => {
     test('當 loadDatabases 不返回 Promise 時應處理按鈕狀態', () => {
       document.getElementById('api-key').value = 'secret_test_long_enough_12345';
       // Mock return non-promise
-      mockLoadDatabases.mockReturnValueOnce(undefined);
+      mockLoadDatabases.mockReturnValueOnce();
 
       authManager.testApiKey();
 
