@@ -178,34 +178,24 @@ export class StorageManager {
 
       const report = StorageManager.analyzeData(data);
 
-      const icon =
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
-      let statusText = `${icon} 數據完整性報告：\n`;
+      let statusText = '📊 數據完整性報告：\n';
       statusText += `• 總共 ${report.totalKeys} 個數據項\n`;
       statusText += `• ${report.highlightPages} 個頁面有標記\n`;
       statusText += `• ${report.configKeys} 個配置項\n`;
 
       if (report.migrationKeys > 0) {
         const migrationSizeKB = (report.migrationDataSize / 1024).toFixed(1);
-        const warnIcon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-        statusText += `• ${warnIcon} ${report.migrationKeys} 個遷移數據（${migrationSizeKB} KB，可清理）\n`;
+        statusText += `• ⚠️ ${report.migrationKeys} 個遷移數據（${migrationSizeKB} KB，可清理）\n`;
       }
 
       if (report.corruptedData.length > 0) {
-        const warnIcon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-        statusText += `• ${warnIcon} ${report.corruptedData.length} 個損壞的數據項`;
+        statusText += `• ⚠️ ${report.corruptedData.length} 個損壞的數據項`;
         this.showDataStatus(statusText, 'error');
       } else if (report.migrationKeys > 0) {
-        const bulbIcon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
-        statusText += `• ${bulbIcon} 建議使用「數據重整」功能清理遷移數據`;
+        statusText += '• 💡 建議使用「數據重整」功能清理遷移數據';
         this.showDataStatus(statusText, 'warning');
       } else {
-        const checkIcon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-        statusText += `• ${checkIcon} 所有數據完整無損`;
+        statusText += '• ✅ 所有數據完整無損';
         this.showDataStatus(statusText, 'success');
       }
     } catch (error) {
@@ -946,11 +936,20 @@ export class StorageManager {
       this.elements.dataStatus.appendChild(iconSpan);
     }
 
-    // 使用 textContent 設置文本（防止 XSS）
+    // 使用 textContent 設置文本（防止 XSS），並支持換行
     if (text) {
       const textSpan = document.createElement('span');
       textSpan.className = 'status-text';
-      textSpan.textContent = text;
+
+      // 處理換行符：將文本按 \n 分割，並插入 <br> 標籤
+      const lines = text.split('\n');
+      lines.forEach((line, index) => {
+        textSpan.appendChild(document.createTextNode(line));
+        if (index < lines.length - 1) {
+          textSpan.appendChild(document.createElement('br'));
+        }
+      });
+
       this.elements.dataStatus.appendChild(textSpan);
     }
 

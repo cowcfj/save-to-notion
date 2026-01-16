@@ -478,22 +478,23 @@ export function separateIconAndText(message) {
     return { icon: '', text: '' };
   }
 
-  // 統一的正則表達式模式（支持 Emoji 和 SVG）
-  // Emoji 範圍包括：
-  // - \u{2600}-\u{27BF}：雜項符號（Miscellaneous Symbols），包括 ✅ ❌ 等
-  // - \u{1F300}-\u{1F9FF}：表情符號與符號（Emoticons and Pictographs）
-  // - \u{1FA00}-\u{1FA6F}：擴展符號 A
-  // SVG：<svg[^>]*>.*?</svg> 匹配 SVG 標籤（使用非貪婪匹配防止 ReDoS）
-  // 使用 'su' 標誌：s = dotAll 模式，u = Unicode 模式
+  // 升級版正則表達式，支持現代 Emoji 序列（膚色、ZWJ、旗幟等）：
+  // 1. SVG 標籤：<svg...>...</svg>
+  // 2. Emoji 序列：
+  //    - 旗幟 (Regional Indicators): \p{RI}\p{RI}
+  //    - 複雜 Emoji 序列 (含 ZWJ, 膚色修飾符, 變體選擇符): \p{Emoji}(...)*
+  // 使用 'u' 標誌啟用 Unicode 屬性轉義
+  // Note: Removed (.*) group to prevent ReDoS by avoiding backtracking interaction between emoji quantifier and catch-all.
   const iconPattern =
-    /^([\u{2600}-\u{27BF}\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FA6F}]|<svg[^>]*>.*?<\/svg>)(.*)$/su;
+    /^(?:<svg[^>]*>.*?<\/svg>|(?:\p{RI}\p{RI}|\p{Emoji}(?:\p{Emoji_Modifier}|\u{FE0F}|\u{200D}\p{Emoji})*))/su;
 
   const match = message.match(iconPattern);
 
   if (match) {
+    const icon = match[0];
     return {
-      icon: match[1], // 第一個捕獲組：Emoji 或 SVG
-      text: match[2], // 第二個捕獲組：剩餘文本
+      icon,
+      text: message.slice(icon.length),
     };
   }
 
