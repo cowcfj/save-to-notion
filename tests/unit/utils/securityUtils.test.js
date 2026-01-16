@@ -510,7 +510,7 @@ describe('securityUtils', () => {
       });
 
       test('undefined 應返回 true', () => {
-        expect(validateSafeSvg(undefined)).toBe(true);
+        expect(validateSafeSvg()).toBe(true);
       });
 
       test('非 SVG 內容應返回 true（不在驗證範圍）', () => {
@@ -615,7 +615,7 @@ describe('securityUtils', () => {
       });
 
       test('undefined 應返回空結果', () => {
-        const result = separateIconAndText(undefined);
+        const result = separateIconAndText();
         expect(result.icon).toBe('');
         expect(result.text).toBe('');
       });

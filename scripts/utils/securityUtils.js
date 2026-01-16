@@ -427,7 +427,7 @@ export function validateSafeSvg(svgContent) {
   // 正則說明：匹配 <tagname 或 </tagname 格式，支援駝峰命名
   const tagPattern = /<\/?([a-z][a-z0-9]*)/gi;
   const foundTags = new Set();
-  let match;
+  let match = null;
 
   while ((match = tagPattern.exec(svgContent)) !== null) {
     foundTags.add(match[1].toLowerCase()); // 轉為小寫進行比較

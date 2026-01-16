@@ -34,7 +34,7 @@ export function initOptions() {
   auth.checkAuthStatus();
 
   // 4. 全域事件監聽：OAuth 回調
-  chrome.runtime.onMessage.addListener((request, _sender, _sendResponse) => {
+  chrome.runtime.onMessage.addListener(request => {
     if (request.action === 'oauth_success') {
       auth.checkAuthStatus();
       ui.showStatus(
