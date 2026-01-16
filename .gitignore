@@ -222,3 +222,4 @@ tests/reports/
 .agent/skills/claude-memory/resources/project-patterns.md
 .agent/skills/claude-memory/resources/prompting-techniques.md
 .agent/skills/claude-memory/resources/section-templates.md
+.agent/skills/browser-automation/SKILL.md
