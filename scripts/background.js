@@ -94,7 +94,7 @@ tabService.setupListeners();
 
 // Initialize the extension
 chrome.runtime.onInstalled.addListener(details => {
-  Logger.log('Notion Smart Clipper extension installed/updated');
+  Logger.info('Notion Smart Clipper extension installed/updated');
 
   // 處理擴展更新
   if (details.reason === 'update') {
@@ -109,7 +109,7 @@ chrome.runtime.onInstalled.addListener(details => {
  */
 async function handleExtensionUpdate(previousVersion) {
   const currentVersion = chrome.runtime.getManifest().version;
-  Logger.log(`擴展已更新: ${previousVersion} → ${currentVersion}`);
+  Logger.info(`擴展已更新: ${previousVersion} → ${currentVersion}`);
 
   // 檢查是否需要顯示更新說明
   if (shouldShowUpdateNotification(previousVersion, currentVersion)) {
@@ -121,7 +121,7 @@ async function handleExtensionUpdate(previousVersion) {
  * 處理擴展安裝
  */
 function handleExtensionInstall() {
-  Logger.log('擴展首次安裝');
+  Logger.info('擴展首次安裝');
   // 可以在這裡添加歡迎頁面或設置引導
 }
 
@@ -254,10 +254,10 @@ async function showUpdateNotification(previousVersion, currentVersion) {
       currentVersion,
     });
 
-    Logger.log('已顯示更新通知頁面');
+    Logger.info('已顯示更新通知頁面');
   } catch (error) {
     // 處理分頁可能已被關閉、載入超時或其他錯誤
-    Logger.log('顯示更新通知失敗:', error);
+    Logger.warn('顯示更新通知失敗:', error);
   }
 }
 
