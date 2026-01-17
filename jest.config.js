@@ -18,8 +18,7 @@ module.exports = {
   collectCoverageFrom: [
     'scripts/**/*.js',
     'options/options.js',
-    // 所有生產代碼位於 scripts/ 目錄
-    // tests/helpers/ 僅包含測試工具，不計入覆蓋率
+    'popup/**/*.js', // 新增 popup 目錄
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**',
@@ -64,7 +63,7 @@ module.exports = {
 
   // 轉換 node_modules 中的 ES 模組
   transformIgnorePatterns: [
-    'node_modules/(?!(jsdom|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree)/)'
+    'node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree)/)'
   ],
 
   // 模組名稱映射（用於模擬 Chrome API）

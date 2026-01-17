@@ -48,6 +48,11 @@ global.chrome = {
   },
 };
 
+const defaultSender = {
+  id: 'test-extension-id',
+  url: 'chrome-extension://test-extension-id/popup.html',
+};
+
 describe('migrationHandlers', () => {
   let handlers = null;
   let mockServices = null;
@@ -131,6 +136,185 @@ describe('migrationHandlers', () => {
           expect.objectContaining({ error: '拒絕訪問：此操作僅限擴充功能內部調用' })
         );
       });
+    });
+  });
+
+  describe('migration_delete', () => {
+    test('應該成功刪除現有數據', async () => {
+      const url = 'https://example.com/data';
+      const sendResponse = jest.fn();
+
+      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: [{ id: '1' }] });
+      chrome.storage.local.remove.mockResolvedValue();
+
+      await handlers.migration_delete({ url }, defaultSender, sendResponse);
+
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(`highlights_${url}`);
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    });
+
+    test('數據不存在時應返回成功訊息', async () => {
+      const url = 'https://example.com/no-data';
+      const sendResponse = jest.fn();
+
+      chrome.storage.local.get.mockResolvedValue({});
+
+      await handlers.migration_delete({ url }, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ message: '數據不存在，無需刪除' })
+      );
+    });
+  });
+
+  describe('migration_batch', () => {
+    test('應該成功批量遷移數據並轉換格式', async () => {
+      const urls = ['https://a.com', 'https://b.com'];
+      const sendResponse = jest.fn();
+
+      chrome.storage.local.get.mockImplementation(key => {
+        if (key === 'highlights_https://a.com') {
+          return Promise.resolve({ 'highlights_https://a.com': [{ id: '1' }] });
+        }
+        if (key === 'highlights_https://b.com') {
+          return Promise.resolve({ 'highlights_https://b.com': [{ id: '2' }] });
+        }
+        return Promise.resolve({});
+      });
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      expect(chrome.storage.local.set).toHaveBeenCalledTimes(2);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({ success: 2 }),
+        })
+      );
+    });
+
+    test('應該拒絕無效的 URLs', async () => {
+      const urls = ['invalid-url'];
+      const sendResponse = jest.fn();
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+  });
+
+  describe('migration_get_pending', () => {
+    test('應該正確回收待處理和失敗的項目', async () => {
+      const sendResponse = jest.fn();
+      chrome.storage.local.get.mockResolvedValue({
+        'highlights_https://pending.com': { highlights: [{ id: 'p1', needsRangeInfo: true }] },
+        'highlights_https://failed.com': { highlights: [{ id: 'f1', migrationFailed: true }] },
+        other_key: 'random',
+      });
+
+      await handlers.migration_get_pending({}, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          totalPages: 1,
+          totalPending: 1,
+          totalFailed: 1,
+        })
+      );
+    });
+  });
+
+  describe('migration_delete_failed', () => {
+    test('應該只刪除標記為失敗的標註', async () => {
+      const url = 'https://example.com/mixed';
+      const sendResponse = jest.fn();
+      const existingData = {
+        url,
+        highlights: [
+          { id: 'good', text: 'ok' },
+          { id: 'bad', migrationFailed: true },
+        ],
+      };
+
+      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: existingData });
+
+      await handlers.migration_delete_failed({ url }, defaultSender, sendResponse);
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [`highlights_${url}`]: expect.objectContaining({
+            highlights: [{ id: 'good', text: 'ok' }],
+          }),
+        })
+      );
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, deletedCount: 1 })
+      );
+    });
+  });
+
+  describe('migration_batch_delete', () => {
+    test('應該成功批量刪除多個 URL 的數據', async () => {
+      const urls = ['https://del1.com', 'https://del2.com'];
+      const sendResponse = jest.fn();
+
+      await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
+
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith([
+        'highlights_https://del1.com',
+        'highlights_https://del2.com',
+      ]);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, count: 2 })
+      );
+    });
+  });
+
+  describe('migration_execute (Unit Mock)', () => {
+    test('應該處理無數據需要遷移的情況', async () => {
+      const url = 'https://example.com/empty';
+      const sendResponse = jest.fn();
+      chrome.storage.local.get.mockResolvedValue({});
+
+      await handlers.migration_execute({ url }, defaultSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ message: '無數據需要遷移' })
+      );
+    });
+
+    test('應該處理分頁加載成功後的腳本注入流程', async () => {
+      const url = 'https://example.com/full';
+      const sendResponse = jest.fn();
+
+      // 1. Storage 有數據
+      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: [{ id: '1' }] });
+
+      // 2. Mock Tab 操作
+      chrome.tabs.query.mockResolvedValue([]); // 無現成分頁
+      chrome.tabs.create.mockResolvedValue({ id: 999 });
+      chrome.tabs.get.mockResolvedValue({ id: 999, status: 'complete' });
+
+      // 3. Mock Scripting
+      chrome.scripting.executeScript.mockResolvedValueOnce([]); // 注入檔案
+      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { ready: true } }]); // 準備就緒檢查
+      chrome.scripting.executeScript.mockResolvedValueOnce([
+        {
+          result: { statistics: { newHighlightsCreated: 5 } },
+        },
+      ]); // 執行遷移
+
+      await handlers.migration_execute({ url }, defaultSender, sendResponse);
+
+      expect(chrome.tabs.create).toHaveBeenCalled();
+      expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(3);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, count: 5 })
+      );
+      expect(chrome.tabs.remove).toHaveBeenCalledWith(999);
     });
   });
 });

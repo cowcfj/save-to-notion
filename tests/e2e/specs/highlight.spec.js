@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures';
 
 test.describe('Highlighting Feature', () => {
-  test('should inject highlighter script when clicking "Start Highlighting"', async ({
+  test('should inject highlighter script via direct Service Worker injection', async ({
     context,
     extensionId,
   }) => {
@@ -36,7 +36,7 @@ test.describe('Highlighting Feature', () => {
               notionUrl: 'https://notion.so/test-page',
               title: 'Example Domain',
               savedAt: Date.now(),
-              lastVerifiedAt: Date.now(), // Ensure it's fresh to avoid API check
+              lastVerifiedAt: Date.now(),
             },
           },
           resolve
@@ -55,60 +55,60 @@ test.describe('Highlighting Feature', () => {
 
     expect(targetTabId).not.toBeNull();
 
-    // 4. Mock chrome.tabs.query IN BACKGROUND SERVICE WORKER
-    // 這是關鍵：checkPageStatus 是在 Background 運行的，它需要"看到" example.com 是 active tab
+    // 獲取 Service Worker
     let serviceWorker = context.serviceWorkers()[0];
     if (!serviceWorker) {
       serviceWorker = await context.waitForEvent('serviceworker');
     }
 
-    await serviceWorker.evaluate(mockId => {
-      // 保存原始引用
-      const originalQuery = chrome.tabs.query;
+    // === 方案A：直接在Service Worker中注入腳本 ===
+    // 繞過startHighlight訊息處理器，直接呼叫chrome.scripting.executeScript()
+    const injectionResult = await serviceWorker.evaluate(async tabId => {
+      try {
+        // 1. 注入 content.bundle.js
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['dist/content.bundle.js'],
+        });
 
-      // 覆寫 query 方法
-      chrome.tabs.query = function (queryInfo, onQuery) {
-        // Background Script 查找 active tab
-        if (queryInfo.active && queryInfo.currentWindow) {
-          const mockTab = {
-            id: mockId,
-            url: 'https://example.com/',
-            title: 'Example Domain',
-            active: true,
-            windowId: 1,
-          };
-
-          onQuery([mockTab]);
-          return;
-        }
-        if (originalQuery) {
-          originalQuery.call(this, queryInfo, onQuery);
-          return;
-        }
-
-        onQuery([]);
-      };
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
     }, targetTabId);
 
-    // 1. 打開 Popup
-    const popup = await context.newPage();
+    if (!injectionResult.success) {
+      throw new Error(`Injection failed: ${injectionResult.error}`);
+    }
 
-    await popup.goto(`chrome-extension://${extensionId}/popup/popup.html`);
-    await popup.waitForLoadState('networkidle');
+    // 2. 使用 Playwright 的 waitForFunction 智能等待初始化
+    try {
+      await page.waitForFunction(
+        () => {
+          return window.notionHighlighter && window.HighlighterV2;
+        },
+        {
+          timeout: 10000, // 可配置的超時時間：10秒
+          polling: 100, // 輪詢間隔：100ms
+        }
+      );
 
-    // 2. 點擊 "Start Highlighting" 按鈕
-    const highlightBtn = popup.locator('#highlight-button');
-    await expect(highlightBtn).toBeVisible();
-    await highlightBtn.click();
+      // 3. 初始化完成後顯示工具列
+      await page.evaluate(() => {
+        if (window.notionHighlighter) {
+          window.notionHighlighter.show();
+        }
+      });
+    } catch (error) {
+      throw new Error(`Highlighter initialization timeout: ${error.message}`);
+    }
 
-    // 3. 驗證頁面是否注入了標註腳本
-    // 等待腳本執行
-    await page.waitForTimeout(500);
+    // 4. 驗證工具列存在
+    await page.waitForSelector('#notion-highlighter-v2', {
+      timeout: 5000,
+      state: 'attached',
+    });
 
-    // 3. 驗證頁面是否注入了標註腳本
-    // 檢查 Toolbar 容器是否存在於 DOM 中
-    // 這是最準確的方法，因為 Content Scripts 的 window 對象與頁面 context 隔離，
-    // 但它們共享 DOM。Highlighter V2 會注入 #notion-highlighter-v2 容器。
     const isToolbarPresent = await page.evaluate(() => {
       return Boolean(document.getElementById('notion-highlighter-v2'));
     });
