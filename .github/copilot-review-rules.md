@@ -72,6 +72,28 @@ try {
 }
 ```
 
+### 3. 遺留 Callback 模式檢測
+
+**審核時應指出以下情況**：
+
+| 模式                             | 問題                             | 建議                     |
+| -------------------------------- | -------------------------------- | ------------------------ |
+| 使用 callback 版本 Chrome API    | 遺留代碼，MV3 已原生支援 Promise | 建議遷移至 `async/await` |
+| 同一文件混用 callback 和 Promise | 重構不完整                       | 統一為 Promise 模式      |
+| 手動包裝 `new Promise()`         | 不必要的包裝                     | 直接使用 `await`         |
+
+**典型遺留模式範例**：
+
+```javascript
+// ⚠️ 遺留 callback 模式 - 應建議遷移
+chrome.storage.sync.get(['key'], result => {
+  // 舊式 callback
+});
+
+// ✅ 應遷移為
+const result = await chrome.storage.sync.get(['key']);
+```
+
 ---
 
 ## 🎨 代碼風格
@@ -144,11 +166,19 @@ if (typeof module !== 'undefined' && module.exports) {
 
 ### SVG 驗證
 
-本專案使用統一的 `validateSafeSvg()` 函數處理 SVG 安全驗證：
+本專案使用 [`validateSafeSvg()`](file:///Volumes/WD1TMac/code/notion-chrome/scripts/utils/securityUtils.js) 函數處理 SVG 安全驗證，已覆蓋已知 XSS 攻擊向量。
 
-- 位於 `scripts/utils/securityUtils.js`
-- 已處理 XSS 攻擊向量
-- 不需重複建議「驗證 SVG 內容」
+**審核時應檢查**：
+
+- [ ] 新的 SVG 來源是否經過 `validateSafeSvg()` 驗證？
+- [ ] 動態生成的 SVG 內容是否調用了 `validateSafeSvg()`？
+- [ ] 新增的 SVG 處理代碼是否引用並使用了 `validateSafeSvg()`？
+
+**可跳過 SVG 安全建議的情況**（僅限已驗證的代碼）：
+
+- ✅ 代碼已確認調用 `validateSafeSvg()` 進行驗證
+- ✅ SVG 為靜態資源且來自專案內部 `icons/` 目錄
+- ✅ 已在 `StorageManager.js` 或 `UIManager.js` 中使用統一的驗證流程
 
 ---
 
@@ -197,7 +227,8 @@ if (typeof module !== 'undefined' && module.exports) {
 
 以下事項**值得**在審核中指出：
 
-1. **安全漏洞**：XSS、注入攻擊、敏感信息洩漏
+1. **安全漏洞**：XSS（包括 SVG 內容驗證）、注入攻擊、敏感信息洩漏
+   - SVG 處理代碼必須確認調用 `validateSafeSvg()`
 2. **邏輯錯誤**：條件判斷錯誤、邊界情況未處理
 3. **測試缺失**：新功能沒有對應測試
 4. **向後兼容**：可能破壞現有功能的變更
