@@ -9,6 +9,7 @@
 import './utils/Logger.js'; // Side-effect import to register self.Logger
 
 import { normalizeUrl } from './utils/urlUtils.js';
+import { TAB_SERVICE } from './config/constants.js';
 
 // Import Services
 import { StorageService } from './background/services/StorageService.js';
@@ -239,11 +240,11 @@ async function showUpdateNotification(previousVersion, currentVersion) {
           // 分頁可能已被關閉，忽略錯誤（onRemoved 監聽器會處理）
         });
 
-      // 設置超時保護（10秒），避免無限等待
+      // 設置超時保護，避免無限等待
       timeoutId = setTimeout(() => {
         cleanup();
         reject(new Error('頁面載入超時'));
-      }, 10000);
+      }, TAB_SERVICE.LOADING_TIMEOUT_MS);
     });
 
     // 頁面載入完成後發送版本信息

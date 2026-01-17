@@ -36,6 +36,9 @@ const NOTION_CONFIG = {
   PAGE_SIZE: NOTION_API.PAGE_SIZE,
   // 頁面結構配置
   HIGHLIGHT_SECTION_HEADER: NOTION_API.HIGHLIGHT_SECTION_HEADER,
+  // 批量刪除配置
+  DELETE_CONCURRENCY: NOTION_API.DELETE_CONCURRENCY,
+  DELETE_BATCH_DELAY_MS: NOTION_API.DELETE_BATCH_DELAY_MS,
 };
 
 /**
@@ -305,11 +308,11 @@ class NotionService {
    * @private
    */
   async _deleteBlocksByIds(blockIds) {
-    // 並發數 3 配合批次間延遲，共同確保遵守 Notion API 速率限制（3 req/s）
+    // 並發數配合批次間延遲，共同確保遵守 Notion API 速率限制（3 req/s）
     // - 單請求模式：由 NOTION_API.RATE_LIMIT_DELAY (350ms) 控制間隔
-    // - 並發刪除模式：每批 3 請求後等待 1000ms（見下方批次延遲邏輯）
+    // - 並發刪除模式：每批請求後等待延遲（見下方批次延遲邏輯）
     // 兩者適用於不同場景，不會同時生效
-    const CONCURRENCY = 3;
+    const { DELETE_CONCURRENCY: CONCURRENCY, DELETE_BATCH_DELAY_MS } = this.config;
     const errors = [];
     let successCount = 0;
 
@@ -347,10 +350,9 @@ class NotionService {
         }
       }
 
-      // 批次間延遲：並發 3 請求用盡 1 秒配額，需等待 1 秒
-      // Notion API 限制: 3 req/s，每批 3 請求後等待 1000ms
+      // 批次間延遲：確保符合 Notion API 限制
       if (i + CONCURRENCY < blockIds.length) {
-        await sleep(1000);
+        await sleep(DELETE_BATCH_DELAY_MS);
       }
     }
 

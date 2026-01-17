@@ -82,6 +82,11 @@ export const NOTION_API = {
   // - 任何需要遵守速率限制的連續 API 調用
   RATE_LIMIT_DELAY: 350,
 
+  // 批量刪除配置
+  // Notion API 限制: 3 req/s，並發 3 後需等待 1 秒
+  DELETE_CONCURRENCY: 3, // 刪除操作並發數
+  DELETE_BATCH_DELAY_MS: 1000, // 批次刪除間延遲（ms）
+
   PAGE_SIZE: 100, // 分頁大小
   // 頁面結構配置
   HIGHLIGHT_SECTION_HEADER: '📝 頁面標記', // 高亮標記區域的標題
