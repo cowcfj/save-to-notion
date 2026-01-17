@@ -34,7 +34,10 @@ describe('content script integration test', () => {
       '<!doctype html><html><head><title>Test Page</title></head><body><article><h1>Heading</h1><p>This is some long article content that should be picked up by Readability.</p></article></body></html>';
 
     const virtualConsole = new jsdom.VirtualConsole();
-    virtualConsole.sendTo(console);
+    // 新版 jsdom 的 VirtualConsole 使用 on() 而非 sendTo()
+    virtualConsole.on('error', () => {
+      // 忽略虛擬控制台錯誤
+    });
 
     const dom = new JSDOM(html, {
       runScripts: 'dangerously',

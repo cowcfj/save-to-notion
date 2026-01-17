@@ -63,7 +63,7 @@ module.exports = {
 
   // 轉換 node_modules 中的 ES 模組
   transformIgnorePatterns: [
-    'node_modules/(?!(jsdom|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree)/)'
+    'node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree)/)'
   ],
 
   // 模組名稱映射（用於模擬 Chrome API）
