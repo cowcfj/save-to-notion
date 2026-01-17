@@ -47,24 +47,28 @@ describe('StorageManager Branch Coverage', () => {
   `;
 
     // Chrome API Mocks
-    // 重要：必須確保 chrome.storage.local.get 調用回呼函數，否則 Promise 會超時
-    mockGet = jest.fn().mockImplementation((keys, respond) => {
+    // 模擬真實的 Chrome Storage API 行為
+    // API 簽名：get(keys?: string | string[] | object | null, callback?: function)
+    mockGet = jest.fn().mockImplementation((keys, callback) => {
       const emptyData = {};
-      if (typeof respond === 'function') {
-        respond(emptyData);
-      } else if (typeof keys === 'function') {
-        keys(emptyData);
+      // 真實 API 中，callback 永遠是第二個參數
+      if (typeof callback === 'function') {
+        callback(emptyData);
       }
+      // 返回 Promise 以支持 async/await 模式
+      return Promise.resolve(emptyData);
     });
-    mockSet = jest.fn().mockImplementation((data, respond) => {
-      if (typeof respond === 'function') {
-        respond();
+    mockSet = jest.fn().mockImplementation((data, callback) => {
+      if (typeof callback === 'function') {
+        callback();
       }
+      return Promise.resolve();
     });
-    mockRemove = jest.fn().mockImplementation((keys, respond) => {
-      if (typeof respond === 'function') {
-        respond();
+    mockRemove = jest.fn().mockImplementation((keys, callback) => {
+      if (typeof callback === 'function') {
+        callback();
       }
+      return Promise.resolve();
     });
 
     global.chrome = {

@@ -27,7 +27,18 @@ test.describe('Popup UI', () => {
         notionDataSourceId: 'test-db',
       });
     });
+
+    // 驗證 storage 已經寫入
+    const storageVerified = await optionsPage.evaluate(async () => {
+      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
+      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
+    });
+    expect(storageVerified).toBe(true);
+
     await optionsPage.close();
+
+    // 等待 storage 同步
+    await page.waitForTimeout(300);
 
     // 重新載入 popup
     await page.reload();
@@ -50,7 +61,18 @@ test.describe('Popup UI', () => {
         notionDataSourceId: 'test-db',
       });
     });
+
+    // 驗證 storage 已經寫入
+    const storageVerified = await optionsPage.evaluate(async () => {
+      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
+      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
+    });
+    expect(storageVerified).toBe(true);
+
     await optionsPage.close();
+
+    // 等待 storage 同步
+    await page.waitForTimeout(300);
 
     // 2. 透過 evaluate 直接修改 popup 內的邏輯來測試 UI 更新
     await page.reload();
@@ -82,7 +104,18 @@ test.describe('Popup UI', () => {
         notionDataSourceId: 'test-db',
       });
     });
+
+    // 驗證 storage 已經寫入
+    const storageVerified = await optionsPage.evaluate(async () => {
+      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
+      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
+    });
+    expect(storageVerified).toBe(true);
+
     await optionsPage.close();
+
+    // 等待 storage 同步
+    await page.waitForTimeout(300);
 
     await page.reload();
 

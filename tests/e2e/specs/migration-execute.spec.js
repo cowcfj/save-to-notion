@@ -44,8 +44,8 @@ test.describe('Migration Execute', () => {
   test('應該成功執行 DOM 遷移流程', async ({ page }) => {
     await page.goto(popupUrl);
 
-    await page.evaluate(url => {
-      chrome.storage.local.set({
+    await page.evaluate(async url => {
+      await chrome.storage.local.set({
         [`highlights_${url}`]: {
           url,
           highlights: [{ id: 'o1', text: 'Text', needsRangeInfo: true }],

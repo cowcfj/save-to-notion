@@ -71,34 +71,7 @@ test.describe('Highlighting Feature', () => {
           files: ['dist/content.bundle.js'],
         });
 
-        // 2. 輪詢等待初始化並顯示工具列
-        const checkAndShow = async () => {
-          const result = await chrome.scripting.executeScript({
-            target: { tabId },
-            func: () => {
-              if (window.notionHighlighter && window.HighlighterV2) {
-                window.notionHighlighter.show();
-                return {
-                  ready: true,
-                  hasToolbar: Boolean(document.getElementById('notion-highlighter-v2')),
-                };
-              }
-              return { ready: false };
-            },
-          });
-          return result[0]?.result;
-        };
-
-        // 等待最多5秒
-        for (let i = 0; i < 50; i++) {
-          const status = await checkAndShow();
-          if (status?.ready) {
-            return { success: true, status };
-          }
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-
-        return { success: false, error: 'Timeout waiting for highlighter initialization' };
+        return { success: true };
       } catch (error) {
         return { success: false, error: error.message };
       }
@@ -108,7 +81,29 @@ test.describe('Highlighting Feature', () => {
       throw new Error(`Injection failed: ${injectionResult.error}`);
     }
 
-    // 3. 驗證工具列存在
+    // 2. 使用 Playwright 的 waitForFunction 智能等待初始化
+    try {
+      await page.waitForFunction(
+        () => {
+          return window.notionHighlighter && window.HighlighterV2;
+        },
+        {
+          timeout: 10000, // 可配置的超時時間：10秒
+          polling: 100, // 輪詢間隔：100ms
+        }
+      );
+
+      // 3. 初始化完成後顯示工具列
+      await page.evaluate(() => {
+        if (window.notionHighlighter) {
+          window.notionHighlighter.show();
+        }
+      });
+    } catch (error) {
+      throw new Error(`Highlighter initialization timeout: ${error.message}`);
+    }
+
+    // 4. 驗證工具列存在
     await page.waitForSelector('#notion-highlighter-v2', {
       timeout: 5000,
       state: 'attached',
