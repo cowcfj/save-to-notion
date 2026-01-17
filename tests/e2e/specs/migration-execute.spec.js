@@ -53,7 +53,7 @@ test.describe('Migration Execute', () => {
       });
     }, TEST_URL);
 
-    const response = await page.evaluate(async url => {
+    const response = await page.evaluate(url => {
       return new Promise(resolve => {
         chrome.runtime.sendMessage({ action: 'migration_execute', url }, resolve);
       });

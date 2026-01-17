@@ -49,10 +49,11 @@ describe('StorageManager Branch Coverage', () => {
     // Chrome API Mocks
     // 重要：必須確保 chrome.storage.local.get 調用回呼函數，否則 Promise 會超時
     mockGet = jest.fn().mockImplementation((keys, respond) => {
+      const emptyData = {};
       if (typeof respond === 'function') {
-        respond({});
+        respond(emptyData);
       } else if (typeof keys === 'function') {
-        keys({});
+        keys(emptyData);
       }
     });
     mockSet = jest.fn().mockImplementation((data, respond) => {
@@ -168,7 +169,8 @@ describe('StorageManager Branch Coverage', () => {
 
       // 模擬 storage 中的數據與 optimizedData 相同
       mockGet.mockImplementation((key, respond) => {
-        respond({ key1: 'same' });
+        const mockData = { key1: 'same' };
+        respond(mockData);
       });
 
       await storageManager.executeOptimization();
@@ -184,7 +186,10 @@ describe('StorageManager Branch Coverage', () => {
         spaceSaved: 100,
       };
 
-      mockGet.mockImplementation((k, respond) => respond({}));
+      mockGet.mockImplementation((k, respond) => {
+        const emptyData = {};
+        respond(emptyData);
+      });
       mockSet.mockImplementation((data, respond) => {
         global.chrome.runtime.lastError = { message: 'Set error' };
         respond();
@@ -198,11 +203,12 @@ describe('StorageManager Branch Coverage', () => {
 
   describe('generateSafeCleanupPlan Branches', () => {
     test('應處理檢測 Notion 頁面是否存在時的失敗情況', async () => {
-      mockGet.mockImplementation((k, respond) =>
-        respond({
+      mockGet.mockImplementation((k, respond) => {
+        const mockData = {
           saved_page1: { notionPageId: 'p1' },
-        })
-      );
+        };
+        respond(mockData);
+      });
 
       global.chrome.runtime.sendMessage.mockRejectedValue(new Error('API Down'));
 
@@ -213,12 +219,13 @@ describe('StorageManager Branch Coverage', () => {
     });
 
     test('當 Notion 頁面不存在時應將該頁面及其標註加入清理清單', async () => {
-      mockGet.mockImplementation((k, respond) =>
-        respond({
+      mockGet.mockImplementation((k, respond) => {
+        const mockData = {
           saved_page1: { notionPageId: 'p1' },
           highlights_page1: [{ id: 'h1' }],
-        })
-      );
+        };
+        respond(mockData);
+      });
 
       global.chrome.runtime.sendMessage.mockResolvedValue({ exists: false });
 
@@ -260,7 +267,10 @@ describe('StorageManager Branch Coverage', () => {
 
       mockRemove.mockImplementation((keys, respond) => respond());
       // 模擬 updateStorageUsage 內部調用的 getStorageUsage
-      mockGet.mockImplementation((k, respond) => respond({}));
+      mockGet.mockImplementation((k, respond) => {
+        const emptyData = {};
+        respond(emptyData);
+      });
 
       await storageManager.executeSafeCleanup();
 
@@ -313,11 +323,12 @@ describe('StorageManager Branch Coverage', () => {
     test('generateOptimizationPlan 應識別大體積遷移數據 (Lines 727-729)', async () => {
       // 需要大於 1024 bytes
       const largeData = 'x'.repeat(2000);
-      mockGet.mockImplementation((k, respond) =>
-        respond({
+      mockGet.mockImplementation((k, respond) => {
+        const mockData = {
           migration_backup: largeData,
-        })
-      );
+        };
+        respond(mockData);
+      });
 
       const plan = await StorageManager.generateOptimizationPlan();
       expect(plan.canOptimize).toBe(true);
@@ -325,11 +336,12 @@ describe('StorageManager Branch Coverage', () => {
     });
 
     test('generateOptimizationPlan 應識別數據碎片 (Lines 754-755)', async () => {
-      mockGet.mockImplementation((k, respond) =>
-        respond({
+      mockGet.mockImplementation((k, respond) => {
+        const mockData = {
           highlights_page1: { not_an_array: true },
-        })
-      );
+        };
+        respond(mockData);
+      });
 
       const plan = await StorageManager.generateOptimizationPlan();
       expect(plan.canOptimize).toBe(true);
@@ -337,11 +349,12 @@ describe('StorageManager Branch Coverage', () => {
     });
 
     test('analyzeOptimization 當不可優化時應隱藏按鈕 (Lines 670-671)', async () => {
-      mockGet.mockImplementation((k, respond) =>
-        respond({
+      mockGet.mockImplementation((k, respond) => {
+        const mockData = {
           regular_config: 'value', // Covers line 722 as well
-        })
-      );
+        };
+        respond(mockData);
+      });
 
       // 確保按鈕初始是顯示的，以便驗證它被隱藏
       storageManager.elements.executeOptimizationButton.style.display = 'inline-block';
