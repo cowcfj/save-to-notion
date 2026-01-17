@@ -16,7 +16,7 @@ import {
 } from '../../../popup/popupUI.js';
 
 describe('popupUI.js', () => {
-  let mockElements;
+  let mockElements = {};
 
   beforeEach(() => {
     // 建立模擬 DOM 元素

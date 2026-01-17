@@ -60,11 +60,11 @@ describe('popupActions.js', () => {
 
   describe('checkPageStatus', () => {
     it('應該發送正確的訊息', async () => {
-      chrome.runtime.sendMessage.mockImplementation(async msg => {
+      chrome.runtime.sendMessage.mockImplementation(msg => {
         if (msg.action === 'checkPageStatus') {
-          return { success: true, isSaved: true };
+          return Promise.resolve({ success: true, isSaved: true });
         }
-        return { success: true };
+        return Promise.resolve({ success: true });
       });
       const result = await checkPageStatus({ forceRefresh: true });
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
@@ -77,11 +77,11 @@ describe('popupActions.js', () => {
     });
 
     it('當失敗時應該返回 success: false', async () => {
-      chrome.runtime.sendMessage.mockImplementation(async msg => {
+      chrome.runtime.sendMessage.mockImplementation(msg => {
         if (msg.action === 'checkPageStatus') {
           throw new Error('Fail');
         }
-        return { success: true };
+        return Promise.resolve({ success: true });
       });
       const result = await checkPageStatus();
       expect(result.success).toBe(false);
@@ -90,11 +90,11 @@ describe('popupActions.js', () => {
 
   describe('savePage', () => {
     it('應該調用 savePage 動作', async () => {
-      chrome.runtime.sendMessage.mockImplementation(async msg => {
+      chrome.runtime.sendMessage.mockImplementation(msg => {
         if (msg.action === 'savePage') {
-          return { success: true };
+          return Promise.resolve({ success: true });
         }
-        return { success: true };
+        return Promise.resolve({ success: true });
       });
       const result = await savePage();
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
@@ -106,13 +106,14 @@ describe('popupActions.js', () => {
 
   describe('startHighlight', () => {
     it('應該調用 startHighlight 動作', async () => {
-      chrome.runtime.sendMessage.mockImplementation(async msg => {
+      chrome.runtime.sendMessage.mockImplementation(msg => {
         if (msg.action === 'startHighlight') {
-          return { success: true };
+          return Promise.resolve({ success: true });
         }
-        return { success: true };
+        return Promise.resolve({ success: true });
       });
       const result = await startHighlight();
+
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'startHighlight' })
       );

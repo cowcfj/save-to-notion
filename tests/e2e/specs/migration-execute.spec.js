@@ -6,7 +6,7 @@ const { test, expect } = require('../fixtures');
  */
 
 test.describe('Migration Execute', () => {
-  let popupUrl;
+  let popupUrl = '';
   const TEST_URL = `https://www.example.com/migration-run-${Date.now()}`;
 
   test.beforeEach(async ({ context, extensionId }) => {
@@ -24,7 +24,7 @@ test.describe('Migration Execute', () => {
       }
     });
 
-    await context.route(new RegExp('migration-run'), async route => {
+    await context.route(/migration-run/, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'text/html',
@@ -44,8 +44,8 @@ test.describe('Migration Execute', () => {
   test('應該成功執行 DOM 遷移流程', async ({ page }) => {
     await page.goto(popupUrl);
 
-    await page.evaluate(async url => {
-      await chrome.storage.local.set({
+    await page.evaluate(url => {
+      chrome.storage.local.set({
         [`highlights_${url}`]: {
           url,
           highlights: [{ id: 'o1', text: 'Text', needsRangeInfo: true }],
@@ -68,7 +68,7 @@ test.describe('Migration Execute', () => {
 
   test('應該拒絕無效協議', async ({ page }) => {
     await page.goto(popupUrl);
-    const response = await page.evaluate(async () => {
+    const response = await page.evaluate(() => {
       return new Promise(resolve => {
         chrome.runtime.sendMessage({ action: 'migration_execute', url: 'ftp://host' }, resolve);
       });
