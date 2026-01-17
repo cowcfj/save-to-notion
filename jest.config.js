@@ -18,8 +18,7 @@ module.exports = {
   collectCoverageFrom: [
     'scripts/**/*.js',
     'options/options.js',
-    // 所有生產代碼位於 scripts/ 目錄
-    // tests/helpers/ 僅包含測試工具，不計入覆蓋率
+    'popup/**/*.js', // 新增 popup 目錄
     '!scripts/**/*.test.js',
     '!scripts/**/*.spec.js',
     '!**/node_modules/**',
