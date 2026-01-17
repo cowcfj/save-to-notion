@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.26.0](https://github.com/cowcfj/save-to-notion/compare/v2.25.0...v2.26.0) (2026-01-17)
+
+
+### ✨ 新功能
+
+* 新增 `baseline-browser-mapping` 依賴並更新背景腳本與設定以支援瀏覽器映射功能。 ([e46da8a](https://github.com/cowcfj/save-to-notion/commit/e46da8abf16f74d4a992ad0880dbaa0d195a744d))
+
+
+### 🧹 其他變更
+
+* 更新 .gitignore 檔案以調整忽略規則 ([b7c7557](https://github.com/cowcfj/save-to-notion/commit/b7c755739cd669deda85bf6f320e7b1ec5d69089))
+
 ## [2.25.0](https://github.com/cowcfj/save-to-notion/compare/v2.24.0...v2.25.0) (2026-01-16)
 
 
