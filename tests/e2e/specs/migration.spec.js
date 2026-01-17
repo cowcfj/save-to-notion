@@ -133,9 +133,9 @@ test.describe('Migration Handlers E2E Tests', () => {
     expect(response.success).toBe(true);
     expect(response.count).toBe(2);
 
-    const storageData = await page.evaluate(async testUrls => {
+    const storageData = await page.evaluate(testUrls => {
       const keys = testUrls.map(url => `highlights_${url}`);
-      return await chrome.storage.local.get(keys);
+      return chrome.storage.local.get(keys);
     }, urls);
     expect(Object.keys(storageData).length).toBe(0);
     await page.close();

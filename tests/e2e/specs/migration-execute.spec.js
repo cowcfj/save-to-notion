@@ -59,8 +59,6 @@ test.describe('Migration Execute', () => {
       });
     }, TEST_URL);
 
-    console.log('Final Response:', JSON.stringify(response));
-
     expect(response.success).toBe(true);
     // 即使 count 為 0，只要流程完成且返回統計對象結構，說明邏輯通行
     expect(response.statistics).toBeDefined();
