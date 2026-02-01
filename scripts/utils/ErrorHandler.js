@@ -155,6 +155,11 @@ class ErrorHandler {
    *
    * @param {Error|string} error - 原始錯誤物件或錯誤代碼字串
    * @returns {string} 格式化後的用戶友善錯誤訊息
+   *
+   * @example
+   * // 有效的 Error Code 範例（來自 ERROR_MESSAGES.PATTERNS 的 key）：
+   * // 'API Key', 'rate limit', 'Network error', 'Page not saved'
+   * formatUserMessage('API Key'); // 返回「請先在設定頁面配置 Notion API Key」
    */
   static formatUserMessage(error) {
     if (!error) {
