@@ -291,10 +291,12 @@ describe('background error branches (integration)', () => {
       sendResponse
     );
     await waitForSend(sendResponse);
+    // 'Create failed' 經過 sanitizeApiError 清洗後會返回 'Unknown Error'，
+    // ErrorHandler.formatUserMessage('Unknown Error') 返回預設錯誤訊息
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ErrorHandler.formatUserMessage('Create failed'),
+        error: ErrorHandler.formatUserMessage('Unknown Error'),
       })
     );
     chrome.runtime.lastError = null;

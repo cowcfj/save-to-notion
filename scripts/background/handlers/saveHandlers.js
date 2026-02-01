@@ -431,9 +431,10 @@ export function createSaveHandlers(services) {
         chrome.tabs.create({ url: notionUrl }, tab => {
           if (chrome.runtime.lastError) {
             Logger.error('Failed to open Notion page:', chrome.runtime.lastError);
+            const safeMessage = sanitizeApiError(chrome.runtime.lastError, 'open_page');
             sendResponse({
               success: false,
-              error: ErrorHandler.formatUserMessage(chrome.runtime.lastError.message),
+              error: ErrorHandler.formatUserMessage(safeMessage),
             });
           } else {
             Logger.log('✅ Opened Notion page in new tab:', notionUrl);
