@@ -195,6 +195,19 @@ describe('actionHandlers 覆蓋率補強', () => {
       );
     });
 
+    test('應該在有 API Key 但缺少 Data Source ID 時失敗', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'valid-key' });
+
+      await handlers.savePage({}, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+        })
+      );
+    });
+
     test('應該在內容提取失敗時失敗', async () => {
       const sendResponse = jest.fn();
       mockPageContentService.extractContent.mockRejectedValue(new Error('Extract failed'));

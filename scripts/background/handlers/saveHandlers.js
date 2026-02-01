@@ -291,10 +291,18 @@ export function createSaveHandlers(services) {
 
         Logger.log(`保存目標: ID=${dataSourceId}, 類型=${dataSourceType}`);
 
-        if (!config.notionApiKey || !dataSourceId) {
+        if (!config.notionApiKey) {
           sendResponse({
             success: false,
             error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+          });
+          return;
+        }
+
+        if (!dataSourceId) {
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
           });
           return;
         }

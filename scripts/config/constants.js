@@ -247,7 +247,8 @@ export const ERROR_MESSAGES = {
    */
   TECHNICAL: {
     NO_ACTIVE_TAB: 'Could not get active tab.',
-    MISSING_API_KEY: 'API Key or Data Source ID is not set.',
+    MISSING_API_KEY: 'API Key is missing.',
+    MISSING_DATA_SOURCE: 'Data Source ID is missing.',
     MISSING_PAGE_ID: 'Page ID is missing',
     PAGE_NOT_SAVED: 'Page not saved yet. Please save the page first.',
     NO_NOTION_URL: 'No URL provided',
