@@ -224,6 +224,8 @@ export function sanitizeApiError(apiError, context = 'operation') {
   }
 
   // 2. API Key 格式無效
+  // 注意：若錯誤同時包含 unauthorized（如 "unauthorized: invalid token"），
+  // 會被上方第 1 條規則攔截並返回 Integration disconnected，這裡僅處理純格式錯誤
   if (
     lowerMessage.includes('invalid token') ||
     lowerMessage.includes('invalid api key') ||
