@@ -896,7 +896,8 @@ export class StorageManager {
       const failIcon =
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
       const safeMessage = sanitizeApiError(error, 'organize_highlights');
-      this.showDataStatus(`${failIcon} 數據重整失敗：${safeMessage}`, 'error');
+      const translated = ErrorHandler.formatUserMessage(safeMessage);
+      this.showDataStatus(`${failIcon} 數據重整失敗：${translated}`, 'error');
     }
   }
 
