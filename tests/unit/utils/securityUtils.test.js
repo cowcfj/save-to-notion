@@ -356,6 +356,28 @@ describe('securityUtils', () => {
       });
     });
 
+    describe('優先順序邊緣情況', () => {
+      test('"unauthorized: invalid token" 應返回 Integration disconnected（優先於 Invalid API Key format）', () => {
+        const result = sanitizeApiError('unauthorized: invalid token');
+        expect(result).toBe('Integration disconnected');
+      });
+
+      test('"database permission denied" 應返回 Database access denied（優先於 Cannot access contents）', () => {
+        const result = sanitizeApiError('database permission denied');
+        expect(result).toBe('Database access denied');
+      });
+
+      test('"unauthorized" 純粹無其他關鍵字應返回 API Key', () => {
+        const result = sanitizeApiError('unauthorized');
+        expect(result).toBe('API Key');
+      });
+
+      test('"invalid token" 無 unauthorized 應返回 Invalid API Key format', () => {
+        const result = sanitizeApiError('invalid token provided');
+        expect(result).toBe('Invalid API Key format');
+      });
+    });
+
     describe('速率限制錯誤', () => {
       test.each([['rate limit exceeded'], ['too many requests'], ['Rate Limit']])(
         '"%s" 應返回速率限制訊息',
