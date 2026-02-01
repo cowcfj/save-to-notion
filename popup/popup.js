@@ -40,14 +40,11 @@ export async function initPopup() {
   const settings = await checkSettings();
   if (!settings.valid) {
     // 根據實際缺失的設定顯示對應的提示訊息
-    let msg;
-    if (!settings.apiKey) {
-      msg = '請先在設定頁面配置 Notion API Key';
-    } else if (!settings.dataSourceId) {
-      msg = '請先在設定頁面選擇 Notion 資料庫';
-    } else {
-      msg = '請先完成設定頁面的配置';
-    }
+    const msg = !settings.apiKey
+      ? '請先在設定頁面配置 Notion API Key'
+      : !settings.dataSourceId
+        ? '請先在設定頁面選擇 Notion 資料庫'
+        : '請先完成設定頁面的配置';
     setStatus(elements, msg);
     setButtonState(elements.saveButton, true);
     setButtonState(elements.highlightButton, true);
