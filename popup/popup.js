@@ -122,7 +122,9 @@ export async function initPopup() {
 
     if (!statusResponse?.isSaved) {
       const msg = ErrorHandler.formatUserMessage('Page not saved');
+      // 先以警告色 (#d63384) 顯示訊息，提供即時視覺回饋
       setStatus(elements, msg, '#d63384');
+      // 2 秒後重置為預設顏色，但保留訊息內容（紅色短暫閃現後淡化為預設色）
       setTimeout(() => {
         setStatus(elements, msg);
       }, 2000);

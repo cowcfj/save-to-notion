@@ -66,9 +66,10 @@ describe('ErrorHandler.formatUserMessage', () => {
     );
   });
 
-  test('應處理 Error 物件輸入（需先經過標準化）', () => {
+  test('應防禦性處理原始 Error 物件輸入', () => {
     mockLogger.debugEnabled = false;
-    // 實際使用中，Error 物件應先經過 sanitizeApiError 標準化
+    // 測試 formatUserMessage 對原始 Error 物件的防禦性處理
+    // 注意：正規流程應先經過 sanitizeApiError 標準化，此測試驗證直接傳入 Error 物件時的容錯機制
     const error = new Error('Network error');
     expect(ErrorHandler.formatUserMessage(error)).toBe(ERROR_MESSAGES.PATTERNS['Network error']);
   });
