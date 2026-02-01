@@ -355,7 +355,7 @@ export function createSaveHandlers(services) {
         await injectionService.injectHighlighter(activeTab.id);
         const highlights = await injectionService.collectHighlights(activeTab.id);
 
-        Logger.log('收集到的標註數據', { count: highlights.length, data: highlights });
+        Logger.log('收集到的標註數據', { action: 'collectHighlights', count: highlights.length });
 
         // 注入並執行內容提取
         let result = null;
@@ -370,8 +370,11 @@ export function createSaveHandlers(services) {
         if (!result || !result.title || !result.blocks) {
           Logger.error('內容提取結果驗證失敗', {
             action: 'validateContent',
-            result,
-            url: activeTab.url,
+            hasResult: Boolean(result),
+            hasTitle: Boolean(result?.title),
+            hasBlocks: Array.isArray(result?.blocks),
+            blocksCount: result?.blocks?.length ?? 0,
+            url: sanitizeUrlForLogging(activeTab.url),
           });
           const errorMessage = !result
             ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED
