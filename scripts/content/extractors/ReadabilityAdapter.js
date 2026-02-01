@@ -136,8 +136,11 @@ async function expandCollapsibleElements(timeout = 300) {
       try {
         detail.setAttribute('open', '');
         expanded.push(detail);
-      } catch (_error) {
-        Logger.warn('開啟 details 元素失敗', { action: 'expandCollapsibleElements' });
+      } catch (error) {
+        Logger.warn('開啟 details 元素失敗', {
+          action: 'expandCollapsibleElements',
+          error: error.message,
+        });
       }
     });
 
@@ -149,8 +152,12 @@ async function expandCollapsibleElements(timeout = 300) {
         trigger.setAttribute('aria-expanded', 'true');
         try {
           trigger.click();
-        } catch {
-          /* ignore click failures */
+        } catch (clickError) {
+          /* ignore click failures but log for debug */
+          Logger.log('觸發元素點擊失敗', {
+            action: 'expandCollapsibleElements',
+            error: clickError.message,
+          });
         }
 
         // 如果有 aria-controls，嘗試移除 aria-hidden 或 collapsed 類別
@@ -164,8 +171,12 @@ async function expandCollapsibleElements(timeout = 300) {
             expanded.push(target);
           }
         }
-      } catch {
-        // 忽略單一項目錯誤
+      } catch (error) {
+        // 忽略單一項目錯誤但記錄警告
+        Logger.warn('處理 aria-expanded 元素失敗', {
+          action: 'expandCollapsibleElements',
+          error: error.message,
+        });
       }
     });
 
@@ -178,8 +189,12 @@ async function expandCollapsibleElements(timeout = 300) {
         el.classList.add('expanded-by-clipper');
         el.removeAttribute('aria-hidden');
         expanded.push(el);
-      } catch {
-        // 忽略
+      } catch (error) {
+        // 忽略但在開發模式表記錄
+        Logger.log('處理 collapsed 類別元素失敗', {
+          action: 'expandCollapsibleElements',
+          error: error.message,
+        });
       }
     });
 
@@ -196,8 +211,11 @@ async function expandCollapsibleElements(timeout = 300) {
           el.removeAttribute('hidden');
           expanded.push(el);
         }
-      } catch (_error) {
-        Logger.warn('展開隱藏元素失敗', { action: 'expandCollapsibleElements' });
+      } catch (error) {
+        Logger.warn('展開隱藏元素失敗', {
+          action: 'expandCollapsibleElements',
+          error: error.message,
+        });
       }
     });
 

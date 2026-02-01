@@ -14,7 +14,105 @@ const Logger = {
 global.Logger = Logger;
 
 // 引用 ReadabilityAdapter 模組
-const { isContentGood } = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
+const {
+  isContentGood,
+  expandCollapsibleElements,
+} = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
+
+describe('ReadabilityAdapter - expandCollapsibleElements', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    document.body.innerHTML = '';
+  });
+
+  test('應該正確展開 <details> 元素', async () => {
+    document.body.innerHTML = '<details id="d1"><summary>Summary</summary>Content</details>';
+    const details = document.getElementById('d1');
+    expect(details.hasAttribute('open')).toBe(false);
+
+    await expandCollapsibleElements(0);
+
+    expect(details.hasAttribute('open')).toBe(true);
+  });
+
+  test('當 click() 拋出錯誤時應該記錄 debug 日誌並繼續執行', async () => {
+    document.body.innerHTML = '<button aria-expanded="false" id="btn1">Expand</button>';
+    const btn = document.getElementById('btn1');
+
+    // Mock click to throw error
+    const clickSpy = jest.spyOn(btn, 'click').mockImplementation(() => {
+      throw new Error('Click failed');
+    });
+
+    await expandCollapsibleElements(0);
+
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+    expect(Logger.log).toHaveBeenCalledWith(
+      '觸發元素點擊失敗',
+      expect.objectContaining({
+        action: 'expandCollapsibleElements',
+        error: 'Click failed',
+      })
+    );
+
+    clickSpy.mockRestore();
+  });
+
+  test('當處理 aria-expanded 元素發生錯誤時應該記錄警告', async () => {
+    // 設置一個無論如何都會讓 setAttribute 拋出錯誤的物件 (透過一些 tricky 的方式或直接 mock querySelectorAll)
+    // 但在 jsdom 中直接讓 setAttribute throw error 比較難，我們用另一個方式：
+    // Mock setAttribute
+    const btn = document.createElement('button');
+    btn.setAttribute('aria-expanded', 'false');
+    document.body.appendChild(btn);
+
+    jest.spyOn(btn, 'setAttribute').mockImplementation(() => {
+      throw new Error('Set attribute failed');
+    });
+
+    // 我們需要攔截 document.querySelectorAll 回傳這個特定元素
+    const qsaSpy = jest.spyOn(document, 'querySelectorAll').mockReturnValue([btn]);
+
+    await expandCollapsibleElements(0);
+
+    expect(Logger.warn).toHaveBeenCalledWith(
+      '處理 aria-expanded 元素失敗',
+      expect.objectContaining({
+        action: 'expandCollapsibleElements',
+        error: 'Set attribute failed',
+      })
+    );
+
+    qsaSpy.mockRestore();
+  });
+
+  test('當處理 collapsed 類別元素發生錯誤時應該記錄 debug 日誌', async () => {
+    const div = document.createElement('div');
+    div.className = 'collapsed';
+    document.body.appendChild(div);
+
+    // Mock classList.remove to throw error
+    Object.defineProperty(div, 'classList', {
+      get: () => {
+        throw new Error('ClassList access failed');
+      },
+    });
+
+    const qsaSpy = jest.spyOn(document, 'querySelectorAll').mockReturnValue([div]);
+
+    await expandCollapsibleElements(0);
+
+    expect(Logger.log).toHaveBeenCalledWith(
+      '處理 collapsed 類別元素失敗',
+      expect.objectContaining({
+        action: 'expandCollapsibleElements',
+        error: 'ClassList access failed',
+      })
+    );
+
+    qsaSpy.mockRestore();
+  });
+});
 
 describe('ReadabilityAdapter - isContentGood', () => {
   beforeEach(() => {
