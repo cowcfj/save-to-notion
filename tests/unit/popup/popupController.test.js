@@ -76,15 +76,33 @@ describe('popup.js Controller', () => {
     expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, expect.anything());
   });
 
-  it('should handle missing settings', async () => {
+  it('should handle missing API Key', async () => {
     const { mockElements } = setup();
-    checkSettings.mockResolvedValue({ valid: false });
+    checkSettings.mockResolvedValue({ valid: false, apiKey: undefined, dataSourceId: undefined });
 
     await initPopup();
 
     expect(setStatus).toHaveBeenCalledWith(
       mockElements,
       expect.stringContaining('請先在設定頁面配置 Notion API Key')
+    );
+    expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
+    expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
+  });
+
+  it('should handle missing Data Source ID when API Key exists', async () => {
+    const { mockElements } = setup();
+    checkSettings.mockResolvedValue({
+      valid: false,
+      apiKey: 'test-api-key',
+      dataSourceId: undefined,
+    });
+
+    await initPopup();
+
+    expect(setStatus).toHaveBeenCalledWith(
+      mockElements,
+      expect.stringContaining('請先在設定頁面選擇 Notion 資料庫')
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
