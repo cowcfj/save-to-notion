@@ -119,7 +119,10 @@ export class DataSourceManager {
 
         // 統一使用 sanitizeApiError 處理 API 錯誤，提供更詳細的錯誤分類
         // errorData.message 包含原始錯誤訊息，可提供更準確的錯誤類型判斷
-        const errorMessage = errorData?.message || `HTTP ${response.status}`;
+        // 若無錯誤訊息，針對 5xx 狀態碼提供明確的預設值，以便 sanitizeApiError 正確分類
+        const errorMessage =
+          errorData?.message ||
+          (response.status >= 500 ? 'Internal Server Error' : `HTTP ${response.status}`);
         const safeMessage = sanitizeApiError(errorMessage, 'load_databases');
         const translated = ErrorHandler.formatUserMessage(safeMessage);
         this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');

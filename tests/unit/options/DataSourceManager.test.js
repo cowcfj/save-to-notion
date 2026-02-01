@@ -341,6 +341,22 @@ describe('DataSourceManager', () => {
       );
     });
 
+    test('處理無內容的 503 錯誤', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: () => Promise.resolve({}), // 空回應
+      });
+
+      await dataSourceManager.loadDatabases('test_key');
+
+      // 應自動識別為 Internal Server Error 並翻譯
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('Notion 服務暫時不可用'),
+        'error'
+      );
+    });
+
     test('處理空結果', async () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
