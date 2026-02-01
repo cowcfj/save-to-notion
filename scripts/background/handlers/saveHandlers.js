@@ -323,12 +323,6 @@ export function createSaveHandlers(services) {
         const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
         const dataSourceType = config.notionDataSourceType || 'data_source';
 
-        Logger.log('開始保存頁面', {
-          action: 'savePage',
-          dataSourceId,
-          dataSourceType,
-        });
-
         if (!config.notionApiKey) {
           sendResponse({
             success: false,
