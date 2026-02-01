@@ -77,7 +77,7 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
         Logger.log('Bundle 已就緒', { action: 'ensureBundleReady', attempts: i + 1 });
         return true;
       }
-    } catch (_pingError) {
+    } catch {
       // Bundle 還未就緒，等待後重試
       if (i < maxRetries - 1) {
         await new Promise(resolve => setTimeout(resolve, retryDelay));
