@@ -268,6 +268,9 @@ export const ERROR_MESSAGES = {
     HIGHLIGHT_NOT_SUPPORTED: '此頁面不支援標註功能（系統頁面或受限網址）',
     BUNDLE_INIT_TIMEOUT: 'Bundle 初始化超時，請重試或刷新頁面',
 
+    // === 保存功能限制 ===
+    SAVE_NOT_SUPPORTED_RESTRICTED_PAGE: '此頁面無法保存（受限頁面不支援擴展運作）',
+
     // === 安全性檢查 ===
     INVALID_URL_PROTOCOL: '拒絕訪問：僅支持 HTTP/HTTPS 協議的有效 URL',
     INVALID_URLS_IN_BATCH: '拒絕訪問：包含無效或不支持的 URL',

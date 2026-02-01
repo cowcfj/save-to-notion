@@ -173,6 +173,19 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockPageContentService.extractContent.mockResolvedValue(mockContentResult);
     });
 
+    test('應該在受限頁面（如 chrome://extensions/）返回明確錯誤訊息', async () => {
+      const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'chrome://extensions/' }]);
+
+      await handlers.savePage({}, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
+        })
+      );
+    });
+
     test('應該在無法獲取 active tab 時失敗', async () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([]);
