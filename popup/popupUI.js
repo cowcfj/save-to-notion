@@ -38,9 +38,9 @@ export function getElements() {
 }
 
 /**
- * 設置狀態文字
+ * 設置狀態訊息
  * @param {PopupElements} elements - DOM 元素集合
- * @param {string} text - 狀態文字
+ * @param {string|Array<string|{type: string, content: string}>} content - 狀態內容，可為純字串或結構化陣列
  * @param {string} [color=''] - 文字顏色（可選）
  */
 export function setStatus(elements, content, color = '') {
@@ -214,7 +214,7 @@ function formatCount(count, singular, plural) {
 /**
  * 格式化保存成功訊息
  * @param {Object} response - 保存響應
- * @returns {string} 格式化的訊息
+ * @returns {string|Array<string|{type: string, content: string}>} 格式化的訊息或結構化內容（含 SVG 警告）
  */
 export function formatSaveSuccessMessage(response) {
   let action = 'Saved';

@@ -3,8 +3,8 @@
  */
 /* eslint-env jest */
 
-import { ErrorHandler } from '../../../scripts/utils/ErrorHandler';
-import { ERROR_MESSAGES } from '../../../scripts/config/constants';
+import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
+import { ERROR_MESSAGES } from '../../../scripts/config/constants.js';
 
 describe('ErrorHandler.formatUserMessage', () => {
   let mockLogger = null;

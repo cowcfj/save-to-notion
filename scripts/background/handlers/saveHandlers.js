@@ -42,7 +42,7 @@ async function getActiveTab() {
 async function ensureNotionApiKey(storageService, notionService) {
   const config = await storageService.getConfig(['notionApiKey']);
   if (!config.notionApiKey) {
-    throw new Error('Notion API Key 未設置');
+    throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
   notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
@@ -437,7 +437,7 @@ export function createSaveHandlers(services) {
         });
       } catch (error) {
         Logger.error('❌ handleOpenNotionPage 錯誤:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
