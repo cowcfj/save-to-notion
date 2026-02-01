@@ -369,48 +369,6 @@ describe('actionHandlers 覆蓋率補強', () => {
     });
 
     /**
-     * [補強測試] 驗證 performCreatePage 的圖片錯誤重試邏輯
-     * 覆蓋 saveHandlers.js:131-148
-     */
-    test.skip('應該在收到 Notion 圖片驗證錯誤時嘗試排除圖片並重試', async () => {
-      const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue(null);
-
-      // 第一次嘗試失敗 (Image validation error)
-      mockNotionService.createPage.mockResolvedValueOnce({
-        success: false,
-        error: 'validation error: image block',
-      });
-
-      // 重試成功
-      mockNotionService.createPage.mockResolvedValueOnce({
-        success: true,
-        pageId: 'retry-page-id',
-        url: 'notion.so/retry',
-      });
-
-      // 設置 timer mock 以跳過等待
-      jest.useFakeTimers();
-
-      const savePromise = handlers.savePage({}, {}, sendResponse);
-
-      // 快進時間以觸發 setTimeout
-      jest.runAllTimers();
-
-      await savePromise;
-
-      expect(mockNotionService.createPage).toHaveBeenCalledTimes(2);
-      expect(mockNotionService.buildPageData).toHaveBeenCalledWith(
-        expect.objectContaining({ excludeImages: true })
-      );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true })
-      );
-
-      jest.useRealTimers();
-    });
-
-    /**
      * [補強測試] 驗證頁面已被刪除時的重建流程
      * 覆蓋 saveHandlers.js:245-265
      */
