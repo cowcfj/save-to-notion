@@ -147,10 +147,11 @@ class ErrorHandler {
    * 格式化用戶可見的錯誤訊息
    *
    * 實作分層架構下的錯誤翻譯邏輯：
-   * 1. 兼容性檢查：如果訊息本身已包含中文字符，視為已翻譯訊息，直接返回。
-   * 2. 精確匹配：優先查找是否為預定義的 Error Code 鍵（如 'rate_limit'）。
-   * 3. 模式匹配：回退到傳統的關鍵字子字串匹配（如 'API Key'）。
-   * 4. 兜底保護：若均未命中，返回統一的預設友善訊息。
+   * 1. 安全性檢查：如果訊息本身已包含中文字符，視為已翻譯訊息，轉義後返回。
+   * 2. 精確匹配：查找是否為預定義的 Error Code 鍵（由 sanitizeApiError 標準化）。
+   * 3. 兜底保護：若未命中，返回統一的預設友善訊息。
+   *
+   * 注意：所有外部錯誤應先經過 sanitizeApiError 標準化後再傳入此函數。
    *
    * @param {Error|string} error - 原始錯誤物件或錯誤代碼字串
    * @returns {string} 格式化後的用戶友善錯誤訊息
@@ -168,22 +169,14 @@ class ErrorHandler {
       return escapeHtml(message);
     }
 
-    // [第一層：精確匹配]
-    // 檢查 message 是否完全等於 PATTERNS 中的某個 Key (Error Code 模式)
+    // [精確匹配]
+    // 檢查 message 是否完全等於 PATTERNS 中的某個 Key
+    // 所有外部錯誤應先經過 sanitizeApiError 標準化，故此處只需精確匹配
     if (ERROR_MESSAGES.PATTERNS[message]) {
       return ERROR_MESSAGES.PATTERNS[message];
     }
 
-    // [第二層：模式匹配]
-    // 傳統的關鍵字子字串檢查 (Legacy 模式)
-    const lowerMessage = message.toLowerCase();
-    for (const [pattern, friendly] of Object.entries(ERROR_MESSAGES.PATTERNS)) {
-      if (lowerMessage.includes(pattern.toLowerCase())) {
-        return friendly;
-      }
-    }
-
-    // [第三層：兜底保護]
+    // [兜底保護]
     // 防止直接將技術代碼 (如 'unknown_api_response') 顯示給用戶
     return ERROR_MESSAGES.DEFAULT;
   }

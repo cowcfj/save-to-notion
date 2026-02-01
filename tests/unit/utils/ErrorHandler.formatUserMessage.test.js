@@ -28,10 +28,10 @@ describe('ErrorHandler.formatUserMessage', () => {
     jest.restoreAllMocks();
   });
 
-  test('即使 debugEnabled 為 true，也應返回友善訊息以防止資訊洩漏', () => {
+  test('精確匹配標準化的 Error Code 應返回友善訊息', () => {
     mockLogger.debugEnabled = true;
-    const technicalError = 'No tab with id: 123';
-    expect(ErrorHandler.formatUserMessage(technicalError)).toBe(
+    // 現在只進行精確匹配，錯誤應先經過 sanitizeApiError 標準化
+    expect(ErrorHandler.formatUserMessage('No tab with id')).toBe(
       ERROR_MESSAGES.PATTERNS['No tab with id']
     );
   });
@@ -42,17 +42,20 @@ describe('ErrorHandler.formatUserMessage', () => {
     expect(ErrorHandler.formatUserMessage(secretError)).toBe(ERROR_MESSAGES.DEFAULT);
   });
 
-  test('當為已知錯誤模式且 debugEnabled 為 false 時，應返回友善訊息', () => {
+  test('多個標準化 Error Code 應正確匹配', () => {
     mockLogger.debugEnabled = false;
 
-    // 測試 "No tab with id"
-    expect(ErrorHandler.formatUserMessage('No tab with id: 456')).toBe(
+    // 測試精確匹配 "No tab with id"（完全等於 PATTERNS 的 key）
+    expect(ErrorHandler.formatUserMessage('No tab with id')).toBe(
       ERROR_MESSAGES.PATTERNS['No tab with id']
     );
 
-    // 測試 "API Key"
-    expect(ErrorHandler.formatUserMessage('Notion API Key is missing')).toBe(
-      ERROR_MESSAGES.PATTERNS['API Key']
+    // 測試精確匹配 "API Key"
+    expect(ErrorHandler.formatUserMessage('API Key')).toBe(ERROR_MESSAGES.PATTERNS['API Key']);
+
+    // 測試精確匹配 "rate limit"
+    expect(ErrorHandler.formatUserMessage('rate limit')).toBe(
+      ERROR_MESSAGES.PATTERNS['rate limit']
     );
   });
 
@@ -63,17 +66,18 @@ describe('ErrorHandler.formatUserMessage', () => {
     );
   });
 
-  test('應處理 Error 物件輸入', () => {
+  test('應處理 Error 物件輸入（需先經過標準化）', () => {
     mockLogger.debugEnabled = false;
-    const error = new Error('No tab with id: 789');
-    expect(ErrorHandler.formatUserMessage(error)).toBe(ERROR_MESSAGES.PATTERNS['No tab with id']);
+    // 實際使用中，Error 物件應先經過 sanitizeApiError 標準化
+    const error = new Error('Network error');
+    expect(ErrorHandler.formatUserMessage(error)).toBe(ERROR_MESSAGES.PATTERNS['Network error']);
   });
 
-  test('應不分大小寫匹配模式', () => {
+  test('非精確匹配的訊息應返回預設錯誤（不再支援模糊匹配）', () => {
     mockLogger.debugEnabled = false;
-    expect(ErrorHandler.formatUserMessage('NO TAB WITH ID: 999')).toBe(
-      ERROR_MESSAGES.PATTERNS['No tab with id']
-    );
+    // 舊的模糊匹配邏輯已移除，非精確匹配的訊息會返回預設錯誤
+    expect(ErrorHandler.formatUserMessage('NO TAB WITH ID: 999')).toBe(ERROR_MESSAGES.DEFAULT);
+    expect(ErrorHandler.formatUserMessage('api key is missing')).toBe(ERROR_MESSAGES.DEFAULT);
   });
 
   describe('XSS 防護', () => {
