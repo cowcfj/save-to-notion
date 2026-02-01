@@ -224,7 +224,11 @@ class NotionService {
       return url.toString();
     } catch (error) {
       // 捕獲所有 URL 建構錯誤，記錄詳細日誌
-      Logger.error(`[NotionService] Failed to construct URL: ${fullUrl}`, error);
+      Logger.error('URL 建構失敗', {
+        action: '_buildUrl',
+        fullUrl,
+        error: error.message,
+      });
       throw error;
     }
   }

@@ -128,7 +128,10 @@ export function createHighlightHandlers(services) {
 
         // 檢查是否為受限頁面
         if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
-          Logger.warn(`[USER_ACTIVATE_SHORTCUT] Restricted URL: ${tabUrl}`);
+          Logger.warn('受限頁面無法使用標註', {
+            action: 'USER_ACTIVATE_SHORTCUT',
+            url: tabUrl,
+          });
           sendResponse({
             success: false,
             error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
