@@ -110,7 +110,7 @@ const StorageUtil = {
       if (data && data.length > 0) {
         return data;
       }
-    } catch (_) {
+    } catch {
       Logger.warn('Chrome Storage 不可用，嘗試 localStorage 備案', { action: 'loadHighlights' });
     }
 
