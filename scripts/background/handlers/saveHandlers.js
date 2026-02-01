@@ -388,7 +388,7 @@ export function createSaveHandlers(services) {
         if (!pageUrl) {
           sendResponse({
             success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_NOTION_URL),
+            error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL,
           });
           return;
         }
