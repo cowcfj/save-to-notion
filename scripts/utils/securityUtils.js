@@ -244,13 +244,8 @@ export function sanitizeApiError(apiError, context = 'operation') {
     return 'Page ID is missing'; // 映射至資源遺失類錯誤
   }
 
-  // 5. 數據數據庫/頁面上下文錯誤 (映射至 constants.js: 'Data Source ID' 或 'Invalid request')
-  // 如果 context 包含 page 且訊息提到 database，通常意味著權限不足以訪問該資料庫
-  if (
-    lowerMessage.includes('database') ||
-    lowerMessage.includes('object_not_found') ||
-    (lowerMessage.includes('database') && context.includes('page'))
-  ) {
+  // 5. 數據庫/頁面上下文錯誤 (映射至 constants.js: 'Data Source ID')
+  if (lowerMessage.includes('database') || lowerMessage.includes('object_not_found')) {
     return 'Data Source ID';
   }
 
