@@ -709,7 +709,7 @@ class PerformanceOptimizer {
     if (!validatePreloaderCache(preloaderCache)) {
       if (preloaderCache) {
         // 只有當它存在但無效時才記錄 Warning
-        Logger.warn('Preloader 快取結構無效，拒絕接管');
+        Logger.warn('Preloader 快取結構無效，拒絕接管', { action: 'takeoverPreloaderCache' });
       } else {
         Logger.debug('無 preloader 快取可接管', { action: 'takeoverPreloaderCache' });
       }
