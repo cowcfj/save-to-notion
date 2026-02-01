@@ -12,6 +12,8 @@
 
 /* global chrome */
 
+import { RESTRICTED_PROTOCOLS } from '../../config/constants.js';
+
 // PING 請求超時時間（毫秒）
 const PING_TIMEOUT_MS = 2000;
 
@@ -27,17 +29,8 @@ function isRestrictedInjectionUrl(url) {
   }
 
   try {
-    // 檢查協議
-    const restrictedProtocols = [
-      'chrome:',
-      'edge:',
-      'about:',
-      'data:',
-      'chrome-extension:',
-      'view-source:',
-    ];
-
-    if (restrictedProtocols.some(protocol => url.startsWith(protocol))) {
+    // 使用統一配置的受限協議列表
+    if (RESTRICTED_PROTOCOLS.some(protocol => url.startsWith(protocol))) {
       return true;
     }
 

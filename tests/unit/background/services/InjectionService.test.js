@@ -39,6 +39,10 @@ describe('InjectionService', () => {
       expect(isRestrictedInjectionUrl('chrome://extensions')).toBe(true);
     });
 
+    it('should return true for file:// urls (local PDF, etc.)', () => {
+      expect(isRestrictedInjectionUrl('file:///path/to/document.pdf')).toBe(true);
+    });
+
     it('should return true for webstore urls', () => {
       expect(isRestrictedInjectionUrl('https://chrome.google.com/webstore/detail/xyz')).toBe(true);
     });

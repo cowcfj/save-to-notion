@@ -41,6 +41,24 @@ export const IMAGE_VALIDATION_CONFIG = {
 // Protocol regexes moved to patterns.js
 
 // ==========================================
+// 受限協議配置（擴展無法注入的頁面類型）
+// ==========================================
+
+/**
+ * 受限協議列表（擴展無法注入腳本的頁面）
+ * 用於 InjectionService 和 saveHandlers 的前置檢查
+ */
+export const RESTRICTED_PROTOCOLS = [
+  'chrome:',
+  'edge:',
+  'about:',
+  'data:',
+  'chrome-extension:',
+  'view-source:',
+  'file:', // 本地文件（PDF 等）
+];
+
+// ==========================================
 // 內容提取相關常量
 // ==========================================
 
@@ -268,6 +286,9 @@ export const ERROR_MESSAGES = {
     HIGHLIGHT_NOT_SUPPORTED: '此頁面不支援標註功能（系統頁面或受限網址）',
     BUNDLE_INIT_TIMEOUT: 'Bundle 初始化超時，請重試或刷新頁面',
 
+    // === 保存功能限制 ===
+    SAVE_NOT_SUPPORTED_RESTRICTED_PAGE: '此頁面無法保存（受限頁面不支援擴展運作）',
+
     // === 安全性檢查 ===
     INVALID_URL_PROTOCOL: '拒絕訪問：僅支持 HTTP/HTTPS 協議的有效 URL',
     INVALID_URLS_IN_BATCH: '拒絕訪問：包含無效或不支持的 URL',
@@ -289,6 +310,11 @@ export const ERROR_MESSAGES = {
     CONTENT_PARSE_FAILED: '無法解析頁面內容，請查看瀏覽器控制台或稍後再試。',
     CONTENT_TITLE_MISSING: '無法獲取頁面標題，請查看瀏覽器控制台。',
     CONTENT_BLOCKS_MISSING: '無法獲取頁面內容區塊，請查看瀏覽器控制台。',
+
+    // === API 認證與權限 ===
+    INVALID_API_KEY_FORMAT: 'API Key 格式無效，請確認是否完整複製',
+    DATABASE_ACCESS_DENIED: '無法存取此資料庫，請確認已授權擴展存取權限',
+    INTEGRATION_DISCONNECTED: '與 Notion 的連接已斷開，請重新授權',
   },
 
   /**
@@ -306,7 +332,10 @@ export const ERROR_MESSAGES = {
 
     // Notion API 錯誤
     'API Key': '請先在設定頁面配置 Notion API Key',
+    'Invalid API Key format': 'API Key 格式無效，請確認是否完整複製',
     'Data Source ID': '請先在設定頁面選擇 Notion 資料庫',
+    'Database access denied': '無法存取此資料庫，請確認已授權擴展存取權限',
+    'Integration disconnected': '與 Notion 的連接已斷開，請重新授權',
     'Page ID is missing': '無法識別頁面，請重回 Notion 頁面再試',
     'Page not saved': '頁面尚未保存，請先保存頁面',
     'Invalid request': '請求無效，請檢查設定與內容格式',
