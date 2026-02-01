@@ -292,7 +292,10 @@ export function sanitizeApiError(apiError, context = 'operation') {
 
   // 10. 兜底處理：將不可識別的技術訊息清洗為通用標籤
   // 不直接返回 errorMessage 以防洩露敏感資訊
-  Logger.warn(`[Security] Unrecognized API error sanitized: ${errorMessage.substring(0, 50)}...`);
+  // [安全性修復] 不記錄原始錯誤訊息，避免敏感資訊（如 token、URL、識別碼）洩露到日誌
+  Logger.warn(
+    `[Security] Unrecognized API error sanitized (context: ${context}, length: ${errorMessage.length})`
+  );
   return 'Unknown Error';
 }
 
