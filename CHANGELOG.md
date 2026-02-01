@@ -1,5 +1,36 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.26.0](https://github.com/cowcfj/save-to-notion/compare/v2.25.0...v2.26.0) (2026-02-01)
+
+
+### ✨ 新功能
+
+* 優化錯誤處理及訊息格式化 ([#239](https://github.com/cowcfj/save-to-notion/issues/239)) ([0359721](https://github.com/cowcfj/save-to-notion/commit/0359721923c72d73eec16636046a97bb75a5da33))
+* 新增 `baseline-browser-mapping` 依賴並更新背景腳本與設定以支援瀏覽器映射功能。 ([e46da8a](https://github.com/cowcfj/save-to-notion/commit/e46da8abf16f74d4a992ad0880dbaa0d195a744d))
+
+
+### 🐛 Bug 修復
+
+* **background:** 改進錯誤處理 ([0359721](https://github.com/cowcfj/save-to-notion/commit/0359721923c72d73eec16636046a97bb75a5da33))
+
+
+### ♻️ 代碼重構
+
+* **tests:** 調整測試導入路徑 ([0359721](https://github.com/cowcfj/save-to-notion/commit/0359721923c72d73eec16636046a97bb75a5da33))
+
+
+### 🧪 測試
+
+* 增加 e2e 測試覆蓋率及修復測試問題 ([#233](https://github.com/cowcfj/save-to-notion/issues/233)) ([906fa07](https://github.com/cowcfj/save-to-notion/commit/906fa07302aed3a3e7050b4fb58528e617129f18))
+
+
+### 🧹 其他變更
+
+* **deps-dev:** bump @babel/core from 7.28.5 to 7.29.0 ([#235](https://github.com/cowcfj/save-to-notion/issues/235)) ([b92d517](https://github.com/cowcfj/save-to-notion/commit/b92d517032979145196511a4fed6264fb7a30e07))
+* **deps-dev:** bump @playwright/test from 1.57.0 to 1.58.1 ([#237](https://github.com/cowcfj/save-to-notion/issues/237)) ([008a91d](https://github.com/cowcfj/save-to-notion/commit/008a91dc7d88449088036779aada0641dbb26955))
+* **deps:** bump @notionhq/client from 5.6.0 to 5.9.0 ([#236](https://github.com/cowcfj/save-to-notion/issues/236)) ([febb411](https://github.com/cowcfj/save-to-notion/commit/febb41127c452d6f61d00dc48d3fafd3da89df89))
+* 更新 .gitignore 檔案以調整忽略規則 ([b7c7557](https://github.com/cowcfj/save-to-notion/commit/b7c755739cd669deda85bf6f320e7b1ec5d69089))
+
 ## [2.25.0](https://github.com/cowcfj/save-to-notion/compare/v2.24.0...v2.25.0) (2026-01-16)
 
 
