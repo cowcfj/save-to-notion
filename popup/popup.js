@@ -30,6 +30,7 @@ import {
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
 // Export initialization function for testing
 export async function initPopup() {
@@ -64,7 +65,9 @@ export async function initPopup() {
     }
   } catch (error) {
     Logger.error('Failed to initialize popup:', error);
-    const msg = ErrorHandler.formatUserMessage('Network error');
+    // 將實際錯誤經過 sanitizeApiError 清洗後再格式化，提供更精確的錯誤提示
+    const safeMessage = sanitizeApiError(error, 'popup_init');
+    const msg = ErrorHandler.formatUserMessage(safeMessage);
     setStatus(elements, msg, '#d63384');
   }
 

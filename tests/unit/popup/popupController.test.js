@@ -115,10 +115,11 @@ describe('popup.js Controller', () => {
     await initPopup();
 
     expect(Logger.error).toHaveBeenCalled();
-    // 錯誤訊息已被 ErrorHandler.formatUserMessage 轉換為友善訊息
+    // 錯誤訊息經過 sanitizeApiError 清洗後再由 ErrorHandler.formatUserMessage 轉換
+    // 'Init failed' 不匹配任何已知模式，會返回預設錯誤訊息
     expect(setStatus).toHaveBeenCalledWith(
       expect.anything(),
-      expect.stringContaining('網路連線異常'),
+      expect.stringContaining('發生未知錯誤'),
       expect.anything()
     );
   });
