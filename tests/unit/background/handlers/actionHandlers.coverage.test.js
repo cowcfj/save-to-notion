@@ -128,6 +128,10 @@ describe('actionHandlers 覆蓋率補強', () => {
     };
   });
 
+  afterEach(() => {
+    chrome.runtime.lastError = null;
+  });
+
   describe('processContentResult', () => {
     test('應該在沒有標註時返回原始 blocks', () => {
       const result = processContentResult({ title: 'Test', blocks: [{ type: 'paragraph' }] }, []);
@@ -466,7 +470,6 @@ describe('actionHandlers 覆蓋率補強', () => {
       chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => {
         chrome.runtime.lastError = { message: 'Receiving end does not exist' };
         cb(null);
-        chrome.runtime.lastError = null; // Reset
       });
 
       mockInjectionService.injectHighlighter.mockResolvedValue({ initialized: true });
