@@ -39,8 +39,8 @@ export async function initPopup() {
   // 檢查設置
   const settings = await checkSettings();
   if (!settings.valid) {
-    const msg = ErrorHandler.formatUserMessage('API Key'); // 示範：手動調用代碼翻譯
-    setStatus(elements, msg);
+    // 直接使用明確的設定提示訊息，而非透過 ErrorHandler 間接獲取
+    setStatus(elements, '請先在設定頁面配置 Notion API Key');
     setButtonState(elements.saveButton, true);
     setButtonState(elements.highlightButton, true);
     return;
