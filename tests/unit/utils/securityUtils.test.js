@@ -14,6 +14,7 @@ import {
   validateContentScriptRequest,
   sanitizeUrlForLogging,
   maskSensitiveString,
+  escapeHtml,
   sanitizeApiError,
   validateSafeSvg,
   separateIconAndText,
@@ -254,6 +255,54 @@ describe('securityUtils', () => {
     });
   });
 
+  describe('escapeHtml', () => {
+    test('應轉義 < 字符', () => {
+      expect(escapeHtml('<')).toBe('&lt;');
+    });
+
+    test('應轉義 > 字符', () => {
+      expect(escapeHtml('>')).toBe('&gt;');
+    });
+
+    test('應轉義 & 字符', () => {
+      expect(escapeHtml('&')).toBe('&amp;');
+    });
+
+    test('應轉義雙引號', () => {
+      expect(escapeHtml('"')).toBe('&quot;');
+    });
+
+    test('應轉義單引號', () => {
+      expect(escapeHtml("'")).toBe('&#x27;');
+    });
+
+    test('應轉義 script 標籤', () => {
+      const result = escapeHtml('<script>alert("XSS")</script>');
+      expect(result).toBe('&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;');
+    });
+
+    test('應轉義包含中文的惡意字串', () => {
+      const result = escapeHtml('發生錯誤<script>惡意代碼</script>');
+      expect(result).toBe('發生錯誤&lt;script&gt;惡意代碼&lt;/script&gt;');
+    });
+
+    test('空字串應返回空字串', () => {
+      expect(escapeHtml('')).toBe('');
+    });
+
+    test('null 應返回空字串', () => {
+      expect(escapeHtml(null)).toBe('');
+    });
+
+    test('undefined 應返回空字串', () => {
+      expect(escapeHtml()).toBe('');
+    });
+
+    test('不包含特殊字符的字串應保持不變', () => {
+      expect(escapeHtml('正常文字')).toBe('正常文字');
+    });
+  });
+
   describe('sanitizeApiError', () => {
     describe('權限/認證錯誤', () => {
       test.each([
@@ -353,6 +402,34 @@ describe('securityUtils', () => {
       test('空錯誤應返回通用訊息', () => {
         const result = sanitizeApiError({});
         expect(result).toBe('Unknown Error');
+      });
+    });
+
+    describe('XSS 防護', () => {
+      test('包含中文的惡意字串應被轉義', () => {
+        const malicious = '發生錯誤<script>alert("XSS")</script>';
+        const result = sanitizeApiError(malicious);
+        expect(result).toBe('發生錯誤&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;');
+        expect(result).not.toContain('<script>');
+      });
+
+      test('包含中文的 img onerror 攻擊應被轉義', () => {
+        const malicious = '請稍後再試<img src=x onerror=alert(1)>';
+        const result = sanitizeApiError(malicious);
+        expect(result).toContain('&lt;img');
+        expect(result).not.toContain('<img');
+      });
+
+      test('純中文字串應保持不變', () => {
+        const chinese = '這是一段中文錯誤訊息';
+        const result = sanitizeApiError(chinese);
+        expect(result).toBe(chinese);
+      });
+
+      test('含特殊字符的中文訊息應被轉義', () => {
+        const withSpecialChars = '錯誤: "a" & "b"';
+        const result = sanitizeApiError(withSpecialChars);
+        expect(result).toBe('錯誤: &quot;a&quot; &amp; &quot;b&quot;');
       });
     });
   });

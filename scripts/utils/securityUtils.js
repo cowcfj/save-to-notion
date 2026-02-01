@@ -167,6 +167,39 @@ export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
 }
 
 /**
+ * 轉義 HTML 特殊字符，防止 XSS 攻擊
+ *
+ * 當字串可能被用於 innerHTML 或其他 HTML 上下文時，
+ * 必須先經過此函數轉義，以防止惡意腳本執行。
+ *
+ * @param {string} text - 原始文字
+ * @returns {string} 轉義後的安全字串
+ *
+ * @example
+ * escapeHtml('<script>alert("XSS")</script>')
+ * // 返回: '&lt;script&gt;alert("XSS")&lt;/script&gt;'
+ *
+ * @example
+ * escapeHtml('發生錯誤<script>惡意代碼</script>')
+ * // 返回: '發生錯誤&lt;script&gt;惡意代碼&lt;/script&gt;'
+ */
+export function escapeHtml(text) {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+
+  const htmlEntities = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#x27;',
+  };
+
+  return text.replace(/[&<>"']/g, char => htmlEntities[char]);
+}
+
+/**
  * 清理外部 API 錯誤訊息，防止洩露技術細節並標準化錯誤分類
  *
  * 安全與架構考量：
@@ -250,9 +283,11 @@ export function sanitizeApiError(apiError, context = 'operation') {
   }
 
   // 9. 如果是已知友善字串（兼容性墊片）：
-  // 如果字串中包含中文字符，視為已經是友善訊息，原樣返回
-  if (/[\u4e00-\u9fa5]/u.test(errorMessage)) {
-    return errorMessage;
+  // 如果字串中包含中文字符，視為已經是友善訊息
+  // [安全性修復] 即使是中文訊息，也必須轉義 HTML 特殊字符，
+  // 防止攻擊者構造如 "發生錯誤<script>...</script>" 的惡意字串繞過安全檢查
+  if (/[\u{4e00}-\u{9fa5}]/u.test(errorMessage)) {
+    return escapeHtml(errorMessage);
   }
 
   // 10. 兜底處理：將不可識別的技術訊息清洗為通用標籤
