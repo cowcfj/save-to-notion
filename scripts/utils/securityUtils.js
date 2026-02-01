@@ -242,6 +242,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
   }
 
   // 4. 資料庫權限不足
+  // 注意：此檢查必須在第 276 行的通用 database 檢查之前，否則權限錯誤會被錯誤分類為 'Data Source ID'
   if (
     lowerMessage.includes('database') &&
     (lowerMessage.includes('forbidden') || lowerMessage.includes('permission'))
@@ -274,6 +275,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
   }
 
   // 5. 數據庫/頁面上下文錯誤 (映射至 constants.js: 'Data Source ID')
+  // 注意：此檢查必須在第 244-250 行的資料庫權限檢查之後，因為那個檢查更具體
   if (lowerMessage.includes('database') || lowerMessage.includes('object_not_found')) {
     return 'Data Source ID';
   }
