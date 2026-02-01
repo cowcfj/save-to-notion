@@ -275,11 +275,13 @@ describe('MigrationTool Extended', () => {
       expect(escaped).toContain('&gt;');
     });
 
-    test('應轉義單引號和雙引號', () => {
+    test('應保留引號不變（textContent/innerHTML 方法不轉義引號）', () => {
       const str = 'Test "quoted" and \'single\' quotes';
       const escaped = MigrationTool.escapeHtml(str);
-      // textContent 會保留引號，但轉換為 innerHTML 時會被轉義
-      expect(escaped).toBeDefined();
+      // textContent/innerHTML 方法只轉義 <, >, &，不轉義引號
+      expect(escaped).toContain('"');
+      expect(escaped).toContain("'");
+      expect(escaped).toBe('Test "quoted" and \'single\' quotes');
     });
 
     test('應處理空字符串', () => {
