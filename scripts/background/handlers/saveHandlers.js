@@ -11,6 +11,7 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import { validateInternalRequest, isValidNotionUrl } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
+import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 
 // ============================================================================
@@ -356,7 +357,7 @@ export function createSaveHandlers(services) {
         });
       } catch (error) {
         Logger.error('Error in handleSavePage:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -415,7 +416,10 @@ export function createSaveHandlers(services) {
         chrome.tabs.create({ url: notionUrl }, tab => {
           if (chrome.runtime.lastError) {
             Logger.error('Failed to open Notion page:', chrome.runtime.lastError);
-            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+            sendResponse({
+              success: false,
+              error: ErrorHandler.formatUserMessage(chrome.runtime.lastError.message),
+            });
           } else {
             Logger.log('✅ Opened Notion page in new tab:', notionUrl);
             sendResponse({ success: true, tabId: tab.id, notionUrl });
@@ -443,7 +447,7 @@ export function createSaveHandlers(services) {
         const exists = await notionService.checkPageExists(pageId);
         sendResponse({ success: true, exists });
       } catch (error) {
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -540,7 +544,7 @@ export function createSaveHandlers(services) {
         }
       } catch (error) {
         Logger.error('Error in checkPageStatus:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -569,7 +573,7 @@ export function createSaveHandlers(services) {
         sendResponse({ success: true });
       } catch (error) {
         // 日誌處理不應崩潰
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
   };

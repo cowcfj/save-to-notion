@@ -15,6 +15,7 @@ import {
 } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
+import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 
 // ============================================================================
@@ -141,7 +142,7 @@ export function createHighlightHandlers(services) {
           Logger.error('[USER_ACTIVATE_SHORTCUT] Bundle injection failed:', injectionError);
           sendResponse({
             success: false,
-            error: `Bundle 注入失敗: ${injectionError.message}`,
+            error: ErrorHandler.formatUserMessage(injectionError),
           });
           return;
         }
@@ -165,7 +166,10 @@ export function createHighlightHandlers(services) {
               '[USER_ACTIVATE_SHORTCUT] Failed to show highlighter:',
               chrome.runtime.lastError.message
             );
-            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+            sendResponse({
+              success: false,
+              error: ErrorHandler.formatUserMessage(chrome.runtime.lastError.message),
+            });
           } else {
             Logger.log('[USER_ACTIVATE_SHORTCUT] Highlighter shown successfully');
             sendResponse({ success: true, response });
@@ -173,7 +177,7 @@ export function createHighlightHandlers(services) {
         });
       } catch (error) {
         Logger.error('[USER_ACTIVATE_SHORTCUT] Unexpected error:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -236,7 +240,7 @@ export function createHighlightHandlers(services) {
         }
       } catch (error) {
         Logger.error('Error in startHighlight:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -279,7 +283,7 @@ export function createHighlightHandlers(services) {
         sendResponse(result);
       } catch (error) {
         Logger.error('Error in handleUpdateHighlights:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -335,7 +339,7 @@ export function createHighlightHandlers(services) {
         sendResponse(result);
       } catch (error) {
         Logger.error('❌ handleSyncHighlights 錯誤:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
   };

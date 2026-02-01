@@ -161,7 +161,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('Could not get active tab'),
+          error: expect.stringMatching(/無法獲取當前分頁|Could not get active tab/iu),
         })
       );
     });
@@ -172,7 +172,10 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.savePage({}, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringContaining('not set') })
+        expect.objectContaining({
+          success: false,
+          error: expect.stringMatching(/請先在設定頁面配置 Notion API Key|not set/iu),
+        })
       );
     });
 
@@ -328,7 +331,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('Page ID is missing'),
+          error: expect.stringMatching(/無法識別頁面|Page ID is missing/iu),
         })
       );
     });

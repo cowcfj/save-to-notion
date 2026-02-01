@@ -228,3 +228,29 @@ export const PRELOADER_EVENTS = {
 export const HIGHLIGHT_MIGRATION = {
   MAX_SCAN_LIMIT: 500, // localStorage 遍歷上限，避免性能問題
 };
+
+// ==========================================
+// 錯誤訊息相關常量
+// ==========================================
+
+/**
+ * 錯誤模式 → 友善訊息映射
+ * 用於根據技術錯誤訊息返回用戶友善的顯示文字
+ */
+export const ERROR_MESSAGES = {
+  PATTERNS: {
+    'No tab with id': '頁面狀態已變更，請重新整理頁面後再試',
+    'active tab': '無法獲取當前分頁，請確保擴展有權限存取此頁面',
+    'Cannot access contents': '無法存取此頁面內容，可能是受保護的系統頁面',
+    'Receiving end does not exist': '頁面載入中，請稍候再試',
+    'Could not establish connection': '頁面通訊失敗，請重新整理頁面',
+    'API Key': '請先在設定頁面配置 Notion API Key',
+    'Data Source ID': '請先在設定頁面選擇 Notion 資料庫',
+    'Page ID is missing': '無法識別頁面，請重回 Notion 頁面再試',
+    'Page not saved': '頁面尚未保存，請先保存頁面',
+    'Network error': '網路連線異常，請檢查網路後重試',
+    'rate limit': '請求過於頻繁，請稍後再試',
+    'Invalid request': '請求無效，請檢查設定與內容格式',
+  },
+  DEFAULT: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
+};

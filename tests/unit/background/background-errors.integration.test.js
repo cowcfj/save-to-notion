@@ -128,7 +128,10 @@ describe('background error branches (integration)', () => {
     chrome.runtime.onMessage._emit({ action: 'startHighlight' }, validSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({ success: false, error: expect.stringMatching(/active tab/i) })
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/無法獲取當前分頁|active tab/i),
+      })
     );
   });
 
@@ -153,7 +156,10 @@ describe('background error branches (integration)', () => {
     chrome.runtime.onMessage._emit({ action: 'startHighlight' }, validSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({ success: false, error: 'Injection failed' })
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/操作失敗|Injection failed/u),
+      })
     );
     // 清理 lastError
     chrome.runtime.lastError = null;
@@ -171,7 +177,9 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/API Key is not set|Notion API Key 未設置/iu),
+        error: expect.stringMatching(
+          /請先在設定頁面配置 Notion API Key|API Key is not set|Notion API Key 未設置/iu
+        ),
       })
     );
   });
@@ -194,7 +202,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Page not saved yet|頁面尚未保存/iu),
+        error: expect.stringMatching(/頁面尚未保存|Page not saved/iu),
       })
     );
   });
@@ -206,7 +214,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Page ID is missing|缺少 Notion Page ID/iu),
+        error: expect.stringMatching(/無法識別頁面|Page ID is missing/iu),
       })
     );
   });
@@ -222,7 +230,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Notion API Key not configured|Notion API Key 未設置/iu),
+        error: expect.stringMatching(/請先在設定頁面配置 Notion API Key|Notion API Key 未設置/iu),
       })
     );
   });
@@ -235,7 +243,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/No URL provided|未提供 Notion URL/iu),
+        error: expect.stringMatching(/無法獲取 Notion 頁面 URL|No URL provided/iu),
       })
     );
   });
@@ -270,7 +278,10 @@ describe('background error branches (integration)', () => {
     );
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({ success: false, error: 'Create failed' })
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/操作失敗|Create failed/u),
+      })
     );
     chrome.runtime.lastError = null;
   });
@@ -284,7 +295,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Could not get active tab|無法獲取當前標籤頁/iu),
+        error: expect.stringMatching(/無法獲取當前分頁|Could not get active tab/iu),
       })
     );
   });
@@ -302,7 +313,7 @@ describe('background error branches (integration)', () => {
       expect.objectContaining({
         success: false,
         error: expect.stringMatching(
-          /API Key or Data Source ID is not set|API Key 或 Data Source ID 未設置/iu
+          /請先在設定頁面配置 Notion API Key|請先在設定頁面選擇 Notion 資料庫|API Key or Data Source ID is not set/iu
         ),
       })
     );
@@ -316,7 +327,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/Could not get active tab|無法獲取當前標籤頁/iu),
+        error: expect.stringMatching(/無法獲取當前分頁|Could not get active tab/iu),
       })
     );
   });
@@ -334,7 +345,10 @@ describe('background error branches (integration)', () => {
     );
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({ success: false, error: expect.stringMatching(/API Key 未設置/u) })
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/請先在設定頁面配置 Notion API Key|API Key 未設置/u),
+      })
     );
   });
 
@@ -358,7 +372,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/頁面尚未保存到 Notion/u),
+        error: expect.stringMatching(/頁面尚未保存|頁面尚未保存到 Notion/u),
       })
     );
   });
