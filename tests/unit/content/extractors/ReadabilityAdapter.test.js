@@ -26,25 +26,37 @@ describe('ReadabilityAdapter - isContentGood', () => {
     test('應該拒絕空輸入', () => {
       const result = isContentGood(null);
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith('[內容質量] article 或 article.content 為空');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '文章對象或內容為空',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該拒絕沒有 content 屬性的對象', () => {
       const result = isContentGood({});
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith('[內容質量] article 或 article.content 為空');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '文章對象或內容為空',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該拒絕 content 為 null 的對象', () => {
       const result = isContentGood({ content: null });
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith('[內容質量] article 或 article.content 為空');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '文章對象或內容為空',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該拒絕 content 為空字符串的對象', () => {
       const result = isContentGood({ content: '' });
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith('[內容質量] article 或 article.content 為空');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '文章對象或內容為空',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
   });
 
@@ -53,7 +65,10 @@ describe('ReadabilityAdapter - isContentGood', () => {
       const content = 'a'.repeat(249);
       const result = isContentGood({ content });
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('內容長度不足'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '內容長度不足',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該接受長度剛好 250 字符的內容', () => {
@@ -89,7 +104,10 @@ describe('ReadabilityAdapter - isContentGood', () => {
       const result = isContentGood({ content });
       // 鏈接密度 = 350 / 1000+ = 0.35 > 0.3，且 liCount = 5 < 8
       expect(result).toBe(false);
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('high link density'));
+      expect(Logger.log).toHaveBeenCalledWith(
+        '內容因鏈接密度過高被拒絕',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該正確處理沒有 textContent 的鏈接', () => {
@@ -125,7 +143,10 @@ describe('ReadabilityAdapter - isContentGood', () => {
       const result = isContentGood({ content });
       // 鏈接密度 = 400 / 1000+ = 0.4 > 0.3，但有 8 個 li >= 8（例外）
       expect(result).toBe(true);
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('list-heavy'));
+      expect(Logger.log).toHaveBeenCalledWith(
+        '內容被判定為有效清單',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該接受 10 個列表項的內容', () => {
@@ -138,7 +159,10 @@ describe('ReadabilityAdapter - isContentGood', () => {
       const result = isContentGood({ content });
       // 即使鏈接密度 = 600 / 1000+ = 0.6 > 0.3，但有 10 個 li >= 8
       expect(result).toBe(true);
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('list-heavy'));
+      expect(Logger.log).toHaveBeenCalledWith(
+        '內容被判定為有效清單',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
   });
 
@@ -205,7 +229,10 @@ describe('ReadabilityAdapter - isContentGood', () => {
 
       // 如果被拒絕，應該記錄高鏈接密度
       if (result === false) {
-        expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('high link density'));
+        expect(Logger.log).toHaveBeenCalledWith(
+          '內容因鏈接密度過高被拒絕',
+          expect.objectContaining({ action: 'isContentGood' })
+        );
       }
     });
   });

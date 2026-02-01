@@ -143,7 +143,10 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
 
       expect(chrome.storage.local.remove).toHaveBeenCalledWith([pageKey], expect.any(Function));
       expect(global.localStorage.getItem(pageKey)).toBeNull();
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('標註清除完成'));
+      expect(Logger.log).toHaveBeenCalledWith(
+        '標註清除完成',
+        expect.objectContaining({ action: 'clearHighlights' })
+      );
     });
 
     test('應該記錄清除開始', async () => {
@@ -155,8 +158,8 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       await StorageUtil.clearHighlights(testUrl);
 
       expect(Logger.log).toHaveBeenCalledWith(
-        expect.stringContaining('開始清除標註'),
-        expect.any(String)
+        '開始清除標註',
+        expect.objectContaining({ action: 'clearHighlights' })
       );
     });
   });
@@ -179,8 +182,8 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       await StorageUtil.clearHighlights(testUrl);
 
       expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('部分存儲清除失敗'),
-        expect.any(Array)
+        '部分存儲清除失敗',
+        expect.objectContaining({ action: 'clearHighlights' })
       );
       expect(global.localStorage.getItem(pageKey)).toBeNull();
     });
@@ -201,8 +204,8 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
 
       expect(global.localStorage.getItem(pageKey)).toBeNull();
       expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('部分存儲清除失敗'),
-        expect.any(Array)
+        '部分存儲清除失敗',
+        expect.objectContaining({ action: 'clearHighlights' })
       );
 
       global.chrome = originalChrome;

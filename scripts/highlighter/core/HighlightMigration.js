@@ -70,9 +70,11 @@ export class HighlightMigration {
         const maxLimit = this.constructor.MAX_SCAN_LIMIT;
 
         if (localStorage.length > maxLimit) {
-          Logger.warn(
-            `[HighlightMigration] localStorage items (${localStorage.length}) exceed scan limit (${maxLimit}). Only scanning first ${maxLimit} items.`
-          );
+          Logger.warn('localStorage 項目超過掃描限制，僅掃描部分項目', {
+            action: 'checkAndMigrate',
+            count: localStorage.length,
+            limit: maxLimit,
+          });
         }
 
         const scanCount = Math.min(localStorage.length, maxLimit);
@@ -110,7 +112,7 @@ export class HighlightMigration {
         }
       }
     } catch (error) {
-      Logger.error('[HighlightMigration] 檢查舊數據失敗:', error);
+      Logger.error('檢查舊數據失敗', { action: 'checkAndMigrate', error: error.message });
     }
   }
 
@@ -211,9 +213,9 @@ export class HighlightMigration {
         localStorage.removeItem(oldKey);
       }
 
-      Logger.info(`[HighlightMigration] 遷移完成: 成功 ${successCount}, 失敗 ${failCount}`);
+      Logger.info('數據遷移完成', { action: 'migrateToNewFormat', successCount, failCount });
     } catch (_error) {
-      Logger.error('[HighlightMigration] 數據遷移失敗:', _error);
+      Logger.error('數據遷移失敗', { action: 'migrateToNewFormat', error: _error.message });
     }
   }
 }

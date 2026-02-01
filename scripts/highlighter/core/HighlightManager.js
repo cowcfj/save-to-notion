@@ -62,7 +62,7 @@ export class HighlightManager {
         throw new Error('依賴未注入，初始化中止');
       }
 
-      Logger.info('[HighlightManager] 開始初始化');
+      Logger.info('開始初始化', { action: 'initialize' });
 
       // 初始化樣式管理器
       if (this.styleManager) {
@@ -78,12 +78,12 @@ export class HighlightManager {
       if (!skipRestore) {
         await this.restoreHighlights();
       } else {
-        Logger.info('[HighlightManager] 跳過恢復標註（頁面已刪除）');
+        Logger.info('跳過恢復標註（頁面已刪除）', { action: 'initialize' });
       }
 
-      Logger.info('[HighlightManager] 初始化完成');
+      Logger.info('初始化完成', { action: 'initialize' });
     } catch (error) {
-      Logger.error('[HighlightManager] 初始化失敗:', error);
+      Logger.error('初始化失敗', { action: 'initialize', error: error.message });
     }
   }
 
@@ -103,9 +103,11 @@ export class HighlightManager {
     if (this.styleManager) {
       const style = this.styleManager.getHighlightObject(color);
       if (!style) {
-        Logger.warn(
-          `[HighlightManager] Invalid color "${color}", falling back to "${this.currentColor}"`
-        );
+        Logger.warn('顏色無效，回退到預設顏色', {
+          action: 'addHighlight',
+          color,
+          fallback: this.currentColor,
+        });
         validatedColor = this.currentColor;
       }
     } else if (!color || typeof color !== 'string') {
@@ -138,11 +140,11 @@ export class HighlightManager {
         this.highlights.delete(id);
 
         // 不回收 ID (this.nextId--) 以保持 ID 單調遞增，避免並發問題
-        Logger.warn('[HighlightManager] 無法應用視覺效果，標註已取消');
+        Logger.warn('無法應用視覺效果，標註已取消', { action: 'addHighlight' });
         return null;
       }
 
-      Logger.debug(`[HighlightManager] Added highlight ${id} (${validatedColor})`);
+      Logger.debug('已添加標註', { action: 'addHighlight', id, color: validatedColor });
 
       // 自動保存到存儲
       if (this.storage) {
@@ -151,7 +153,7 @@ export class HighlightManager {
 
       return id;
     } catch (error) {
-      Logger.error('[HighlightManager] 添加標註失敗:', error);
+      Logger.error('添加標註失敗', { action: 'addHighlight', error: error.message });
       return null;
     }
   }
@@ -177,7 +179,7 @@ export class HighlightManager {
 
     // 從 Map 移除
     this.highlights.delete(id);
-    Logger.debug(`[HighlightManager] Removed highlight ${id}`);
+    Logger.debug('已移除標註', { action: 'removeHighlight', id });
 
     // 保存變更（如有 storage）
     if (this.storage) {
@@ -197,7 +199,7 @@ export class HighlightManager {
     }
 
     this.highlights.clear();
-    Logger.info('[HighlightManager] 已清除所有標註');
+    Logger.info('已清除所有標註', { action: 'clearAll' });
 
     // 保存變更（清空存儲）
     if (this.storage && !options.skipStorage) {
@@ -232,7 +234,7 @@ export class HighlightManager {
     if (COLORS[color]) {
       this.currentColor = color;
     } else {
-      Logger.warn(`[HighlightManager] Invalid color: ${color}`);
+      Logger.warn('顏色無效', { action: 'setColor', color });
     }
   }
 
@@ -397,7 +399,11 @@ export class HighlightManager {
         return true;
       }
     } catch (error) {
-      Logger.warn(`Failed to restore highlight ${item.id}`, error);
+      Logger.warn('恢復標註失敗', {
+        action: 'restoreLocalHighlight',
+        id: item.id,
+        error: error.message,
+      });
     }
     return false;
   }

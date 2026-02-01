@@ -28,13 +28,17 @@ class ContentExtractor {
    * @returns {Object} 提取結果 { content, type, metadata, rawArticle }
    */
   static extract(doc, _options = {}) {
-    Logger.log('🚀 Starting content extraction...');
+    Logger.log('開始內容提取', { action: 'extract' });
 
     // 1. 檢測頁面複雜度與類型
     const complexity = detectPageComplexity(doc);
     const selection = selectExtractor(complexity);
 
-    Logger.log(`📊 Page analysis: ${selection.extractor} (Confidence: ${selection.confidence}%)`);
+    Logger.log('頁面分析結果', {
+      action: 'extract',
+      extractor: selection.extractor,
+      confidence: `${selection.confidence}%`,
+    });
 
     let result = null;
 
@@ -70,14 +74,17 @@ class ContentExtractor {
    * 使用 Readability 提取內容
    */
   static extractReadability(doc) {
-    Logger.log('📖 Executing Readability extraction...');
+    Logger.log('執行 Readability 提取', { action: 'extractReadability' });
 
     // 使用 ReadabilityAdapter (包裝在 try-catch 中以確保 fallback 可以執行)
     let article = null;
     try {
       article = parseArticleWithReadability(doc);
     } catch (readabilityError) {
-      Logger.warn('⚠️ Readability parsing failed:', readabilityError.message);
+      Logger.warn('Readability 解析失敗', {
+        action: 'extractReadability',
+        error: readabilityError.message,
+      });
       // 繼續執行 fallback 邏輯
     }
 
@@ -90,17 +97,17 @@ class ContentExtractor {
     }
 
     // 嘗試 Fallback
-    Logger.warn('⚠️ Readability quality check failed, attempting fallbacks...');
+    Logger.warn('Readability 質量檢查失敗，嘗試備案程序', { action: 'extractReadability' });
 
     const cmsContent = findContentCmsFallback();
     if (cmsContent) {
-      Logger.log('✅ Using CMS fallback content');
+      Logger.log('利用 CMS 備案內容', { action: 'extractReadability' });
       return { content: cmsContent, type: 'html', rawArticle: null };
     }
 
     const listContent = extractLargestListFallback();
     if (listContent) {
-      Logger.log('✅ Using List fallback content');
+      Logger.log('利用列表備案內容', { action: 'extractReadability' });
       return { content: listContent, type: 'html', rawArticle: null };
     }
 

@@ -43,9 +43,11 @@ function cleanImageUrl(url, depth = 0) {
 
   // 防止無限遞迴
   if (depth >= IMAGE_VALIDATION.MAX_RECURSION_DEPTH) {
-    Logger.warn(
-      `⚠️ [cleanImageUrl] 達到最大遞迴深度 (${depth})，停止處理: ${url.substring(0, 100)}`
-    );
+    Logger.warn('達到最大遞迴深度，停止處理', {
+      action: 'cleanImageUrl',
+      depth,
+      url: url.substring(0, 100),
+    });
     return url; // 返回當前 URL 而不是 null，避免丟失數據
   }
 
@@ -79,7 +81,7 @@ function cleanImageUrl(url, depth = 0) {
         isRelative = true;
       }
     } catch {
-      Logger.error(`[cleanImageUrl] URL transformation failed: ${url}`);
+      Logger.error('URL 轉換失敗', { action: 'cleanImageUrl', url });
       return null;
     }
   }
@@ -131,9 +133,7 @@ function isValidImageUrl(url) {
   const patternsLoaded =
     IMAGE_EXTENSIONS && EXCLUDE_PATTERNS && IMAGE_PATH_PATTERNS && PLACEHOLDER_KEYWORDS;
   if (!patternsLoaded) {
-    Logger.warn?.(
-      '⚠️ [isValidImageUrl] Pattern constants not loaded, falling back to basic validation'
-    );
+    Logger.warn?.('Pattern 常量未載入，回退到基本驗證', { action: 'isValidImageUrl' });
     // 基本驗證：只檢查協議
     return /^https?:\/\//i.test(url);
   }
@@ -223,7 +223,11 @@ function isNotionCompatibleImageUrl(url) {
     // 檢查是否有過多的查詢參數（可能表示動態生成的 URL）
     const paramCount = Array.from(urlObj.searchParams.keys()).length;
     if (paramCount > IMAGE_VALIDATION.MAX_QUERY_PARAMS) {
-      Logger.warn(`⚠️ [圖片驗證] URL 查詢參數過多 (${paramCount}): ${url.substring(0, 100)}`);
+      Logger.warn('URL 查詢參數過多', {
+        action: 'isNotionCompatibleImageUrl',
+        count: paramCount,
+        url: url.substring(0, 100),
+      });
       return false;
     }
 
@@ -272,10 +276,10 @@ function extractBestUrlFromSrcset(srcset) {
         return bestUrl;
       }
     } catch (error) {
-      Logger.error(
-        '[extractBestUrlFromSrcset] SrcsetParser failed, falling back to simple implementation',
-        error
-      );
+      Logger.error('SrcsetParser 失敗，回退到簡單實現', {
+        action: 'extractBestUrlFromSrcset',
+        error: error.message,
+      });
     }
   }
 
@@ -459,7 +463,10 @@ function extractFromNoscript(imgNode) {
       // noscript 內容通常很短（只包含一個 img 標籤），超長內容視為異常
       const MAX_NOSCRIPT_LENGTH = IMAGE_VALIDATION.MAX_URL_LENGTH * 2; // 4000 字符
       if (html.length > MAX_NOSCRIPT_LENGTH) {
-        Logger.warn(`⚠️ [extractFromNoscript] noscript 內容過長 (${html.length})，跳過解析`);
+        Logger.warn('noscript 內容過長，跳過解析', {
+          action: 'extractFromNoscript',
+          length: html.length,
+        });
         continue;
       }
 

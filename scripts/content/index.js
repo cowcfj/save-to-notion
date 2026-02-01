@@ -26,7 +26,8 @@ import '../highlighter/index.js';
 // ============================================================
 const preloaderCache = window.__NOTION_PRELOADER_CACHE__;
 if (preloaderCache) {
-  Logger.debug('🔄 [Content Bundle] Preloader cache detected:', {
+  Logger.debug('偵測到 Preloader 快取', {
+    action: 'initializeContentBundle',
     hasArticle: Boolean(preloaderCache.article),
     hasMainContent: Boolean(preloaderCache.mainContent),
     age: `${Date.now() - preloaderCache.timestamp}ms`,
@@ -75,16 +76,16 @@ chrome.runtime.sendMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, response => {
 
   const events = response?.events;
   if (Array.isArray(events) && events.length > 0) {
-    Logger.log(`🔄 [Content Bundle] Replaying ${events.length} buffered event(s)...`);
+    Logger.log('正在重放緩衝事件', { action: 'replayEvents', count: events.length });
 
     events.forEach(event => {
       if (event.type === 'shortcut') {
         // 觸發快捷鍵處理：顯示 highlighter toolbar
         if (window.notionHighlighter) {
-          Logger.log('⚡ [Content Bundle] Replaying shortcut event → showing toolbar');
+          Logger.log('重放快捷鍵事件，顯示工具欄', { action: 'replayEvents' });
           window.notionHighlighter.show();
         } else {
-          Logger.warn('⚠️ [Content Bundle] notionHighlighter not available for replay');
+          Logger.warn('Highlighter 不可用，無法重放', { action: 'replayEvents' });
         }
       }
     });
@@ -92,7 +93,7 @@ chrome.runtime.sendMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, response => {
 });
 
 // 立即打印日誌證明腳本已加載
-Logger.log('🚀 [Save to Notion] Content Bundle Loaded! Access via extension context.');
+Logger.log('Content Bundle 已載入', { action: 'loadBundle' });
 
 /**
  * 主要內容提取函數
@@ -101,14 +102,14 @@ Logger.log('🚀 [Save to Notion] Content Bundle Loaded! Access via extension co
  * @returns {Promise<{title: string, blocks: Array, rawHtml: string}>}
  */
 async function extractPageContent() {
-  Logger.log('🚀 [Content Script] Starting content extraction...');
+  Logger.log('開始內容提取', { action: 'extractPageContent' });
 
   try {
     // 1. 提取內容和元數據
     const extractResult = ContentExtractor.extract(document);
 
     if (!extractResult || !extractResult.content) {
-      Logger.warn('⚠️ Content extraction failed or returned empty content');
+      Logger.warn('內容提取失敗或返回空內容', { action: 'extractPageContent' });
       return {
         title: document.title || 'Untitled Page',
         blocks: [
@@ -134,11 +135,11 @@ async function extractPageContent() {
     const { content, type, metadata } = extractResult;
 
     // 2. 轉換為 Notion Blocks
-    Logger.log(`📝 Converting content (type: ${type}) to Notion Blocks...`);
+    Logger.log('正在將內容轉換為 Notion 區塊', { action: 'extractPageContent', type });
     const converter = ConverterFactory.getConverter(type);
     const blocks = converter.convert(content);
 
-    Logger.log(`✅ Converted ${blocks.length} blocks`);
+    Logger.log('內容轉換完成', { action: 'extractPageContent', blockCount: blocks.length });
 
     // 3. 收集額外圖片（可選）
     let additionalImages = [];
@@ -148,9 +149,12 @@ async function extractPageContent() {
       tempDiv.innerHTML = content;
 
       additionalImages = await ImageCollector.collectAdditionalImages(tempDiv);
-      Logger.log(`📸 Collected ${additionalImages.length} additional images`);
+      Logger.log('額外圖片收集完成', {
+        action: 'extractPageContent',
+        imageCount: additionalImages.length,
+      });
     } catch (imageError) {
-      Logger.warn('⚠️ Image collection failed:', imageError);
+      Logger.warn('圖片收集失敗', { action: 'extractPageContent', error: imageError.message });
     }
 
     // 4. 返回結果
@@ -169,7 +173,7 @@ async function extractPageContent() {
       },
     };
   } catch (error) {
-    Logger.error('❌ [Content Script] Extraction failed:', error);
+    Logger.error('內容提取發生異常', { action: 'extractPageContent', error: error.message });
 
     return {
       title: document.title || 'Untitled Page',

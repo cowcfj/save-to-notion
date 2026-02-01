@@ -36,7 +36,7 @@ class ImageCollector {
    * @returns {string|null} 圖片 URL 或 null
    */
   static collectFeaturedImage() {
-    Logger.log('🎯 Attempting to collect featured/hero image...');
+    Logger.log('嘗試收集特色/封面圖片', { action: 'collectFeaturedImage' });
 
     for (const selector of FEATURED_IMAGE_SELECTORS) {
       try {
@@ -47,8 +47,7 @@ class ImageCollector {
           const isValid = isValidImageUrl?.(src);
 
           if (src && isValid) {
-            Logger.log(`✓ Found featured image via selector: ${selector}`);
-            Logger.log(`  Image URL: ${src}`);
+            Logger.log('找到特色圖片', { action: 'collectFeaturedImage', selector, url: src });
             return src;
           }
         }
@@ -61,12 +60,16 @@ class ImageCollector {
             timestamp: Date.now(),
           });
         } else {
-          Logger.warn(`Error checking selector ${selector}:`, error);
+          Logger.warn('檢查選擇器出錯', {
+            action: 'collectFeaturedImage',
+            selector,
+            error: error.message,
+          });
         }
       }
     }
 
-    Logger.log('✗ No featured image found');
+    Logger.log('未找到特色圖片', { action: 'collectFeaturedImage' });
     return null;
   }
 
@@ -80,7 +83,7 @@ class ImageCollector {
   static processImageForCollection(img, index, featuredImage) {
     const src = extractImageSrc?.(img);
     if (!src) {
-      Logger.log(`✗ No src found for image ${index + 1}`);
+      Logger.log('圖片缺少 src 屬性', { action: 'processImageForCollection', index: index + 1 });
       return null;
     }
 
@@ -91,7 +94,7 @@ class ImageCollector {
 
       // 2. 檢查是否與特色圖片重複
       if (featuredImage && cleanedUrl === featuredImage) {
-        Logger.log(`ℹ️ Skipping duplicate featured image: ${cleanedUrl}`);
+        Logger.log('跳過重複的特色圖片', { action: 'processImageForCollection', url: cleanedUrl });
         return null;
       }
 
@@ -102,7 +105,10 @@ class ImageCollector {
         : isValidImageUrl?.(cleanedUrl);
 
       if (!isCompatible) {
-        Logger.log(`✗ Invalid or incompatible image: ${cleanedUrl}`);
+        Logger.log('無效或不相容的圖片 URL', {
+          action: 'processImageForCollection',
+          url: cleanedUrl,
+        });
         return null;
       }
 
@@ -117,7 +123,11 @@ class ImageCollector {
           img.naturalWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
           img.naturalHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT
         ) {
-          Logger.log(`✗ Image too small: ${img.naturalWidth}x${img.naturalHeight}`);
+          Logger.log('圖片尺寸太小', {
+            action: 'processImageForCollection',
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+          });
           return null;
         }
       }
@@ -138,7 +148,11 @@ class ImageCollector {
         },
       };
     } catch (error) {
-      Logger.warn(`Failed to process image ${src}:`, error);
+      Logger.warn('處理圖片失敗', {
+        action: 'processImageForCollection',
+        src,
+        error: error.message,
+      });
       return null;
     }
   }
@@ -164,7 +178,7 @@ class ImageCollector {
     const additionalImages = [];
 
     // 策略 0: 優先查找封面圖/特色圖片
-    Logger.log('=== Image Collection Strategy 0: Featured Image ===');
+    Logger.log('圖片收集策略：特色圖片', { action: 'collectAdditionalImages' });
     const featuredImage = ImageCollector.collectFeaturedImage();
     if (featuredImage) {
       additionalImages.push({
@@ -175,27 +189,34 @@ class ImageCollector {
           external: { url: featuredImage },
         },
       });
-      Logger.log('✓ Featured image added as first image');
+      Logger.log('特色圖片已作為首張圖片添加', { action: 'collectAdditionalImages' });
     }
 
     // 策略 1: 從指定的內容元素收集
-    Logger.log('=== Image Collection Strategy 1: Content Element ===');
+    Logger.log('圖片收集策略：內容元素', { action: 'collectAdditionalImages' });
     let allImages = [];
     if (contentElement) {
       const imgElements = cachedQuery('img', contentElement, { all: true });
       allImages = Array.from(imgElements);
-      Logger.log(`Found ${allImages.length} images in content element`);
+      Logger.log('在內容元素中找到圖片', {
+        action: 'collectAdditionalImages',
+        count: allImages.length,
+      });
     }
 
     // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
-    Logger.log('=== Image Collection Strategy 2: Article Regions ===');
+    Logger.log('圖片收集策略：文章區域', { action: 'collectAdditionalImages' });
     if (allImages.length < 3) {
       for (const selector of ARTICLE_SELECTORS) {
         const articleElement = cachedQuery(selector, document, { single: true });
         if (articleElement) {
           const imgElements = cachedQuery('img', articleElement, { all: true });
           const articleImages = Array.from(imgElements);
-          Logger.log(`Found ${articleImages.length} images in ${selector}`);
+          Logger.log('在指定區域找到圖片', {
+            action: 'collectAdditionalImages',
+            selector,
+            count: articleImages.length,
+          });
 
           articleImages.forEach(img => {
             if (!allImages.includes(img)) {
@@ -210,9 +231,9 @@ class ImageCollector {
     }
 
     // 策略 3: 如果仍然沒有圖片（< 1張），謹慎地擴展搜索
-    Logger.log('=== Image Collection Strategy 3: Selective Expansion ===');
+    Logger.log('圖片收集策略：選擇性擴展', { action: 'collectAdditionalImages' });
     if (allImages.length < 1) {
-      Logger.log('Very few images found, attempting selective expansion...');
+      Logger.log('找到的圖片極少，嘗試選擇性擴展搜尋', { action: 'collectAdditionalImages' });
 
       const imgElements = cachedQuery('img', document, { all: true });
       const docImages = Array.from(imgElements);
@@ -238,11 +259,14 @@ class ImageCollector {
       });
     }
 
-    Logger.log(`Total images to process: ${allImages.length}`);
+    Logger.log('待處理圖片總數', { action: 'collectAdditionalImages', count: allImages.length });
 
     // 使用批處理優化
     if (typeof batchProcess !== 'undefined' && allImages.length > 5) {
-      Logger.log(`🚀 Using batch processing for ${allImages.length} images`);
+      Logger.log('對圖片使用批次處理', {
+        action: 'collectAdditionalImages',
+        count: allImages.length,
+      });
 
       if (typeof batchProcessWithRetry === 'function') {
         const { results } = await batchProcessWithRetry(
@@ -270,7 +294,10 @@ class ImageCollector {
       ImageCollector.processImagesSequentially(allImages, featuredImage, additionalImages);
     }
 
-    Logger.log(`Successfully collected ${additionalImages.length} valid images`);
+    Logger.log('已成功收集有效圖片', {
+      action: 'collectAdditionalImages',
+      count: additionalImages.length,
+    });
     return additionalImages;
   }
 }

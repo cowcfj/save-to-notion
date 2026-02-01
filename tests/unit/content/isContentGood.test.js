@@ -24,7 +24,7 @@ function isContentGood(article) {
 
   // 驗證輸入
   if (!article || !article.content) {
-    Logger.warn('[內容質量] article 或 article.content 為空');
+    Logger.warn('文章對象或內容為空', { action: 'isContentGood' });
     return false;
   }
 
@@ -33,7 +33,11 @@ function isContentGood(article) {
 
   // 內容太短，質量不佳
   if (contentLength < MIN_CONTENT_LENGTH) {
-    Logger.warn(`[內容質量] 內容長度不足: ${contentLength} < ${MIN_CONTENT_LENGTH}`);
+    Logger.warn('內容長度不足', {
+      action: 'isContentGood',
+      length: contentLength,
+      minRequired: MIN_CONTENT_LENGTH,
+    });
     return false;
   }
 
@@ -59,17 +63,20 @@ function isContentGood(article) {
 
   // 如果頁面以長清單為主（如文件、命令列清單），允許通過
   if (liCount >= LIST_EXCEPTION_THRESHOLD) {
-    Logger.log(
-      `Readability.js content accepted as list-heavy (liCount=${liCount}) despite link density ${linkDensity.toFixed(2)}`
-    );
+    Logger.log('內容被判定為有效清單', {
+      action: 'isContentGood',
+      liCount,
+      linkDensity: linkDensity.toFixed(2),
+    });
     return true;
   }
 
   // 檢查鏈接密度
   if (linkDensity > MAX_LINK_DENSITY) {
-    Logger.log(
-      `Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`
-    );
+    Logger.log('內容因鏈接密度過高被拒絕', {
+      action: 'isContentGood',
+      linkDensity: linkDensity.toFixed(2),
+    });
     return false;
   }
 
@@ -86,25 +93,37 @@ describe('isContentGood', () => {
     test('應該拒絕空輸入', () => {
       const result = isContentGood(null);
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith('[內容質量] article 或 article.content 為空');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '文章對象或內容為空',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該拒絕沒有 content 屬性的對象', () => {
       const result = isContentGood({});
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith('[內容質量] article 或 article.content 為空');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '文章對象或內容為空',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該拒絕 content 為 null 的對象', () => {
       const result = isContentGood({ content: null });
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith('[內容質量] article 或 article.content 為空');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '文章對象或內容為空',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該拒絕 content 為空字符串的對象', () => {
       const result = isContentGood({ content: '' });
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith('[內容質量] article 或 article.content 為空');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '文章對象或內容為空',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
   });
 
@@ -113,7 +132,10 @@ describe('isContentGood', () => {
       const content = 'a'.repeat(249);
       const result = isContentGood({ content });
       expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('內容長度不足'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '內容長度不足',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該接受長度剛好 250 字符的內容', () => {
@@ -149,7 +171,10 @@ describe('isContentGood', () => {
       const result = isContentGood({ content });
       // 鏈接密度 = 350 / 1000+ = 0.35 > 0.3，且 liCount = 5 < 8
       expect(result).toBe(false);
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('high link density'));
+      expect(Logger.log).toHaveBeenCalledWith(
+        '內容因鏈接密度過高被拒絕',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該正確處理沒有 textContent 的鏈接', () => {
@@ -185,7 +210,10 @@ describe('isContentGood', () => {
       const result = isContentGood({ content });
       // 鏈接密度 = 400 / 1000+ = 0.4 > 0.3，但有 8 個 li >= 8（例外）
       expect(result).toBe(true);
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('list-heavy'));
+      expect(Logger.log).toHaveBeenCalledWith(
+        '內容被判定為有效清單',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
 
     test('應該接受 10 個列表項的內容', () => {
@@ -198,7 +226,10 @@ describe('isContentGood', () => {
       const result = isContentGood({ content });
       // 即使鏈接密度 = 600 / 1000+ = 0.6 > 0.3，但有 10 個 li >= 8
       expect(result).toBe(true);
-      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('list-heavy'));
+      expect(Logger.log).toHaveBeenCalledWith(
+        '內容被判定為有效清單',
+        expect.objectContaining({ action: 'isContentGood' })
+      );
     });
   });
 
@@ -265,7 +296,10 @@ describe('isContentGood', () => {
 
       // 如果被拒絕，應該記錄高鏈接密度
       if (result === false) {
-        expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('high link density'));
+        expect(Logger.log).toHaveBeenCalledWith(
+          '內容因鏈接密度過高被拒絕',
+          expect.objectContaining({ action: 'isContentGood' })
+        );
       }
     });
   });
