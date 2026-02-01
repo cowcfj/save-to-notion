@@ -290,6 +290,8 @@ export function createSaveHandlers(services) {
           Logger.warn('受限頁面無法保存', {
             action: 'savePage',
             url: sanitizeUrlForLogging(activeTab.url),
+            result: 'blocked',
+            reason: 'restricted_url',
           });
           sendResponse({
             success: false,

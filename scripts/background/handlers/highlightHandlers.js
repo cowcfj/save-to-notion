@@ -131,6 +131,8 @@ export function createHighlightHandlers(services) {
           Logger.warn('受限頁面無法使用標註', {
             action: 'USER_ACTIVATE_SHORTCUT',
             url: tabUrl,
+            result: 'blocked',
+            reason: 'restricted_url',
           });
           sendResponse({
             success: false,
