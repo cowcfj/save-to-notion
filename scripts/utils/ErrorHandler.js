@@ -1,5 +1,6 @@
 /* global Logger */
 import { ERROR_MESSAGES } from '../config/constants.js';
+import { escapeHtml } from './securityUtils.js';
 
 /**
  * 統一錯誤處理系統
@@ -161,9 +162,10 @@ class ErrorHandler {
 
     const message = error instanceof Error ? error.message : String(error);
 
-    // [兼容性墊片]：如果訊息已經包含中文字符，說明已經是友善訊息，直接返回
-    if (/[\u4e00-\u9fa5]/u.test(message)) {
-      return message;
+    // [安全性修復] 如果訊息已經包含中文字符，說明已經是友善訊息
+    // 但仍需轉義 HTML 特殊字符，防止攻擊者構造如 "發生錯誤<script>...</script>" 的惡意字串
+    if (/[\u{4e00}-\u{9fa5}]/u.test(message)) {
+      return escapeHtml(message);
     }
 
     // [第一層：精確匹配]

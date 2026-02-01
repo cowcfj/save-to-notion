@@ -75,4 +75,32 @@ describe('ErrorHandler.formatUserMessage', () => {
       ERROR_MESSAGES.PATTERNS['No tab with id']
     );
   });
+
+  describe('XSS 防護', () => {
+    test('包含中文的惡意字串應被轉義', () => {
+      const malicious = '發生錯誤<script>alert("XSS")</script>';
+      const result = ErrorHandler.formatUserMessage(malicious);
+      expect(result).toBe('發生錯誤&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;');
+      expect(result).not.toContain('<script>');
+    });
+
+    test('包含中文的 img onerror 攻擊應被轉義', () => {
+      const malicious = '請稍後再試<img src=x onerror=alert(1)>';
+      const result = ErrorHandler.formatUserMessage(malicious);
+      expect(result).toContain('&lt;img');
+      expect(result).not.toContain('<img');
+    });
+
+    test('純中文字串應保持不變', () => {
+      const chinese = '這是一段中文錯誤訊息';
+      const result = ErrorHandler.formatUserMessage(chinese);
+      expect(result).toBe(chinese);
+    });
+
+    test('含特殊字符的中文訊息應被轉義', () => {
+      const withSpecialChars = '錯誤: "a" & "b"';
+      const result = ErrorHandler.formatUserMessage(withSpecialChars);
+      expect(result).toBe('錯誤: &quot;a&quot; &amp; &quot;b&quot;');
+    });
+  });
 });

@@ -84,7 +84,7 @@ describe('popup.js Controller', () => {
 
     expect(setStatus).toHaveBeenCalledWith(
       mockElements,
-      expect.stringContaining('Please set API Key')
+      expect.stringContaining('請先在設定頁面配置 Notion API Key')
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
@@ -97,9 +97,10 @@ describe('popup.js Controller', () => {
     await initPopup();
 
     expect(Logger.error).toHaveBeenCalled();
+    // 錯誤訊息已被 ErrorHandler.formatUserMessage 轉換為友善訊息
     expect(setStatus).toHaveBeenCalledWith(
       expect.anything(),
-      expect.stringContaining('Error initializing'),
+      expect.stringContaining('網路連線異常'),
       expect.anything()
     );
   });
@@ -183,10 +184,10 @@ describe('popup.js Controller', () => {
 
       await triggerEvent(mockElements.highlightButton);
 
-      // The actual message is "Please save the page first!"
+      // 錯誤訊息已被 ErrorHandler.formatUserMessage 轉換為友善訊息
       expect(setStatus).toHaveBeenCalledWith(
         mockElements,
-        expect.stringContaining('Please save the page first'),
+        expect.stringContaining('頁面尚未保存'),
         expect.anything()
       );
     });
