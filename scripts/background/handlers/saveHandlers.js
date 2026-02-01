@@ -335,14 +335,11 @@ export function createSaveHandlers(services) {
             result,
             url: activeTab.url,
           });
-          let errorMessage;
-          if (!result) {
-            errorMessage = ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED;
-          } else if (!result.title) {
-            errorMessage = ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING;
-          } else if (!result.blocks) {
-            errorMessage = ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING;
-          }
+          const errorMessage = !result
+            ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED
+            : !result.title
+              ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING
+              : ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING;
 
           sendResponse({
             success: false,
