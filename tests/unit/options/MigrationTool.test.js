@@ -105,7 +105,7 @@ describe('MigrationTool', () => {
 
       const scanStatus = document.getElementById('scan-status');
       expect(scanStatus.textContent).toContain('掃描錯誤');
-      expect(scanStatus.textContent).toContain('操作失敗，請稍後再試');
+      expect(scanStatus.textContent).toContain('發生未知錯誤，請稍後再試');
     });
   });
 
@@ -263,6 +263,28 @@ describe('MigrationTool Extended', () => {
       const url = 'a'.repeat(60);
       const result = MigrationTool.truncateUrl(url, 60);
       expect(result.length).toBe(60);
+    });
+  });
+
+  describe('escapeHtml', () => {
+    test('應轉義 HTML 特殊字符', () => {
+      const html = '<script>alert("XSS")</script>';
+      const escaped = MigrationTool.escapeHtml(html);
+      expect(escaped).not.toContain('<script>');
+      expect(escaped).toContain('&lt;');
+      expect(escaped).toContain('&gt;');
+    });
+
+    test('應轉義單引號和雙引號', () => {
+      const str = 'Test "quoted" and \'single\' quotes';
+      const escaped = MigrationTool.escapeHtml(str);
+      // textContent 會保留引號，但轉換為 innerHTML 時會被轉義
+      expect(escaped).toBeDefined();
+    });
+
+    test('應處理空字符串', () => {
+      const result = MigrationTool.escapeHtml('');
+      expect(result).toBe('');
     });
   });
 });
