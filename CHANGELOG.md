@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.27.0](https://github.com/cowcfj/save-to-notion/compare/v2.26.0...v2.27.0) (2026-02-01)
+
+
+### ✨ 新功能
+
+* 優化錯誤處理和訊息格式化 ([#240](https://github.com/cowcfj/save-to-notion/issues/240)) ([98ec23b](https://github.com/cowcfj/save-to-notion/commit/98ec23b930f34f5fb375466c38274038c0610dfe))
+
 ## [2.26.0](https://github.com/cowcfj/save-to-notion/compare/v2.25.0...v2.26.0) (2026-02-01)
 
 
