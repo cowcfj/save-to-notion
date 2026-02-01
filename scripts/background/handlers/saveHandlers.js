@@ -189,7 +189,7 @@ export function createSaveHandlers(services) {
       if (pageExists === null) {
         Logger.warn('無法確認 Notion 頁面存在性', {
           action: 'checkPageExists',
-          pageId: savedData.notionPageId,
+          pageId: savedData.notionPageId ? `${savedData.notionPageId.slice(0, 4)}***` : 'unknown',
           result: 'aborted',
         });
         sendResponse({
@@ -245,7 +245,7 @@ export function createSaveHandlers(services) {
         // 頁面已刪除：清理狀態並創建新頁面
         Logger.log('Notion 頁面已被刪除，正在清理本地狀態並重新創建', {
           action: 'recreatePage',
-          url: normUrl,
+          url: sanitizeUrlForLogging(normUrl),
         });
         await storageService.clearPageState(normUrl);
         await clearPageHighlights(activeTabId);
@@ -289,7 +289,8 @@ export function createSaveHandlers(services) {
             action: 'savePage',
             reason: 'invalid_internal_request',
             error: validationError.error,
-            sender,
+            senderId: sender?.id,
+            origin: sender?.origin,
           });
           sendResponse(validationError);
           return;
@@ -422,7 +423,8 @@ export function createSaveHandlers(services) {
             action: 'openNotionPage',
             reason: 'invalid_internal_request',
             error: validationError.error,
-            sender,
+            senderId: sender?.id,
+            origin: sender?.origin,
           });
           sendResponse(validationError);
           return;
@@ -452,7 +454,10 @@ export function createSaveHandlers(services) {
         let notionUrl = savedData.notionUrl;
         if (!notionUrl && savedData.notionPageId) {
           notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
-          Logger.log('為頁面生成 Notion URL', { action: 'generateNotionUrl', notionUrl });
+          Logger.log('為頁面生成 Notion URL', {
+            action: 'generateNotionUrl',
+            notionUrl: sanitizeUrlForLogging(notionUrl),
+          });
         }
 
         if (!notionUrl) {
@@ -462,7 +467,10 @@ export function createSaveHandlers(services) {
 
         // 安全性驗證：確保 URL 是有效的 Notion URL
         if (!isValidNotionUrl(notionUrl)) {
-          Logger.error('非法 Notion URL 被阻擋', { action: 'openNotionPage', notionUrl });
+          Logger.error('非法 Notion URL 被阻擋', {
+            action: 'openNotionPage',
+            notionUrl: sanitizeUrlForLogging(notionUrl),
+          });
           sendResponse({
             success: false,
             error: ERROR_MESSAGES.USER_MESSAGES.NOTION_DOMAIN_ONLY,
@@ -482,7 +490,10 @@ export function createSaveHandlers(services) {
               error: ErrorHandler.formatUserMessage(safeMessage),
             });
           } else {
-            Logger.log('成功在分頁中打開 Notion 頁面', { action: 'openNotionPage', notionUrl });
+            Logger.log('成功在分頁中打開 Notion 頁面', {
+              action: 'openNotionPage',
+              notionUrl: sanitizeUrlForLogging(notionUrl),
+            });
             sendResponse({ success: true, tabId: tab.id, notionUrl });
           }
         });
@@ -563,7 +574,9 @@ export function createSaveHandlers(services) {
             if (exists === null) {
               Logger.warn('首次檢查頁面存在性失敗，正在重試', {
                 action: 'checkPageExists',
-                pageId: savedData.notionPageId,
+                pageId: savedData.notionPageId
+                  ? `${savedData.notionPageId.slice(0, 4)}***`
+                  : 'unknown',
               });
               await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
               exists = await notionService.checkPageExists(savedData.notionPageId);
@@ -573,7 +586,9 @@ export function createSaveHandlers(services) {
               // 頁面已在 Notion 刪除，清理本地狀態
               Logger.log('頁面在本地存儲中存在但已在 Notion 中刪除，正在清理狀態', {
                 action: 'syncLocalState',
-                pageId: savedData.notionPageId,
+                pageId: savedData.notionPageId
+                  ? `${savedData.notionPageId.slice(0, 4)}***`
+                  : 'unknown',
               });
               await storageService.clearPageState(normUrl);
 
@@ -598,7 +613,9 @@ export function createSaveHandlers(services) {
             } else if (exists === null) {
               Logger.warn('重試後仍無法驗證頁面存在性，暫時假設本地狀態正確', {
                 action: 'checkPageExists',
-                pageId: savedData.notionPageId,
+                pageId: savedData.notionPageId
+                  ? `${savedData.notionPageId.slice(0, 4)}***`
+                  : 'unknown',
               });
             }
           }
