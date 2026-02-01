@@ -29,6 +29,10 @@ jest.mock('../../../../scripts/background/services/InjectionService.js', () => (
   isRestrictedInjectionUrl: jest.fn(url => url?.startsWith('chrome://')),
 }));
 
+// 引入測試所需模組
+import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/constants.js';
+
 // Mock chrome API
 global.chrome = {
   tabs: {
@@ -61,6 +65,16 @@ describe('actionHandlers 覆蓋率補強', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Mock Logger 為非調試模式
+    global.Logger = {
+      debugEnabled: false,
+      error: jest.fn(),
+      warn: jest.fn(),
+      info: jest.fn(),
+      log: jest.fn(),
+      debug: jest.fn(),
+    };
 
     mockNotionService = {
       setApiKey: jest.fn(),
@@ -161,7 +175,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/無法獲取當前分頁|Could not get active tab/iu),
+          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
         })
       );
     });
@@ -174,7 +188,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/請先在設定頁面配置 Notion API Key|not set/iu),
+          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
         })
       );
     });

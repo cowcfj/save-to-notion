@@ -16,7 +16,7 @@ import {
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { HANDLER_CONSTANTS } from '../../config/constants.js';
+import { HANDLER_CONSTANTS, ERROR_MESSAGES } from '../../config/constants.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -31,7 +31,7 @@ async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const activeTab = tabs[0];
   if (!activeTab || !activeTab.id) {
-    throw new Error('Could not get active tab.');
+    throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   }
   return activeTab;
 }
@@ -260,7 +260,7 @@ export function createHighlightHandlers(services) {
         if (!savedData || !savedData.notionPageId) {
           sendResponse({
             success: false,
-            error: 'Page not saved yet. Please save the page first.',
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
           });
           return;
         }

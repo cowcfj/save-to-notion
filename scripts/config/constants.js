@@ -238,6 +238,17 @@ export const HIGHLIGHT_MIGRATION = {
  * 用於根據技術錯誤訊息返回用戶友善的顯示文字
  */
 export const ERROR_MESSAGES = {
+  // 技術錯誤訊息（開發者使用）
+  TECHNICAL: {
+    NO_ACTIVE_TAB: 'Could not get active tab.',
+    MISSING_API_KEY: 'API Key or Data Source ID is not set.',
+    MISSING_PAGE_ID: 'Page ID is missing',
+    PAGE_NOT_SAVED: 'Page not saved yet. Please save the page first.',
+    NO_NOTION_URL: 'No URL provided',
+    API_KEY_NOT_CONFIGURED: 'Notion API Key not configured',
+  },
+
+  // 友善訊息映射（用戶可見）
   PATTERNS: {
     'No tab with id': '頁面狀態已變更，請重新整理頁面後再試',
     'active tab': '無法獲取當前分頁，請確保擴展有權限存取此頁面',
@@ -252,5 +263,6 @@ export const ERROR_MESSAGES = {
     'rate limit': '請求過於頻繁，請稍後再試',
     'Invalid request': '請求無效，請檢查設定與內容格式',
   },
+
   DEFAULT: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
 };

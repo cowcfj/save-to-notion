@@ -2,6 +2,9 @@
  * Background.js - 錯誤分支整合測試（require 真實腳本 + 事件觸發）
  */
 
+import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
+import { ERROR_MESSAGES } from '../../../scripts/config/constants.js';
+
 function createEvent() {
   const listeners = [];
   return {
@@ -33,6 +36,16 @@ describe('background error branches (integration)', () => {
   beforeEach(() => {
     jest.resetModules();
     originalChrome = global.chrome;
+
+    // 明確設定 Logger 為非調試模式
+    global.Logger = {
+      debugEnabled: false,
+      error: jest.fn(),
+      warn: jest.fn(),
+      info: jest.fn(),
+      log: jest.fn(),
+      debug: jest.fn(),
+    };
 
     const onMessage = createEvent();
     const onInstalled = createEvent();
@@ -130,7 +143,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/無法獲取當前分頁|active tab/i),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
       })
     );
   });
@@ -177,9 +190,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(
-          /請先在設定頁面配置 Notion API Key|API Key is not set|Notion API Key 未設置/iu
-        ),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
       })
     );
   });
@@ -202,7 +213,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/頁面尚未保存|Page not saved/iu),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
       })
     );
   });
@@ -214,7 +225,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/無法識別頁面|Page ID is missing/iu),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_PAGE_ID),
       })
     );
   });
@@ -230,7 +241,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/請先在設定頁面配置 Notion API Key|Notion API Key 未設置/iu),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
       })
     );
   });
@@ -295,7 +306,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/無法獲取當前分頁|Could not get active tab/iu),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
       })
     );
   });
@@ -327,7 +338,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/無法獲取當前分頁|Could not get active tab/iu),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
       })
     );
   });
@@ -347,7 +358,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/請先在設定頁面配置 Notion API Key|API Key 未設置/u),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
       })
     );
   });

@@ -12,7 +12,7 @@ import { normalizeUrl } from '../../utils/urlUtils.js';
 import { validateInternalRequest, isValidNotionUrl } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { HANDLER_CONSTANTS } from '../../config/constants.js';
+import { HANDLER_CONSTANTS, ERROR_MESSAGES } from '../../config/constants.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -27,7 +27,7 @@ async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const activeTab = tabs[0];
   if (!activeTab || !activeTab.id) {
-    throw new Error('Could not get active tab.');
+    throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   }
   return activeTab;
 }
@@ -293,7 +293,10 @@ export function createSaveHandlers(services) {
         Logger.log(`保存目標: ID=${dataSourceId}, 類型=${dataSourceType}`);
 
         if (!config.notionApiKey || !dataSourceId) {
-          sendResponse({ success: false, error: 'API Key or Data Source ID is not set.' });
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+          });
           return;
         }
 
@@ -438,7 +441,10 @@ export function createSaveHandlers(services) {
       try {
         const { pageId } = request;
         if (!pageId) {
-          sendResponse({ success: false, error: 'Page ID is missing' });
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_PAGE_ID),
+          });
           return;
         }
 
