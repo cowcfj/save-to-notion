@@ -335,13 +335,14 @@ describe('securityUtils', () => {
     });
 
     describe('資料庫權限不足', () => {
-      test.each([['database forbidden'], ['database permission denied']])(
-        '"%s" 應返回資料庫權限不足訊息',
-        input => {
-          const result = sanitizeApiError(input);
-          expect(result).toBe('Database access denied');
-        }
-      );
+      test.each([
+        ['database forbidden'],
+        ['database permission denied'],
+        ['database access denied'],
+      ])('"%s" 應返回資料庫權限不足訊息', input => {
+        const result = sanitizeApiError(input);
+        expect(result).toBe('Database access denied');
+      });
     });
 
     describe('一般權限不足錯誤', () => {

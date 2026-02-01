@@ -249,7 +249,9 @@ export function sanitizeApiError(apiError, context = 'operation') {
   // 注意：此檢查必須在第 276 行的通用 database 檢查之前，否則權限錯誤會被錯誤分類為 'Data Source ID'
   if (
     lowerMessage.includes('database') &&
-    (lowerMessage.includes('forbidden') || lowerMessage.includes('permission'))
+    (lowerMessage.includes('forbidden') ||
+      lowerMessage.includes('permission') ||
+      lowerMessage.includes('access denied'))
   ) {
     return 'Database access denied';
   }
