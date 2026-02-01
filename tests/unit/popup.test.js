@@ -359,3 +359,123 @@ describe('clearHighlights', () => {
     expect(result.clearedCount).toBe(0);
   });
 });
+
+describe('initPopup integration', () => {
+  beforeEach(() => {
+    // 創建 popup.html 所需的 DOM 結構
+    document.body.innerHTML = `
+      <div id="status"></div>
+      <button id="save-button">Save</button>
+      <button id="highlight-button"><span class="btn-text">Highlight</span></button>
+      <button id="clear-highlights-button" style="display: none;">Clear</button>
+      <button id="open-notion-button" style="display: none;">Open Notion</button>
+      <div id="confirmation-modal" style="display: none;">
+        <p id="modal-message"></p>
+        <button id="modal-confirm">確認</button>
+        <button id="modal-cancel">取消</button>
+      </div>
+    `;
+    jest.clearAllMocks();
+    chrome._clearStorage();
+  });
+
+  test('保存成功後應發送 showToolbar 訊息給 content script', async () => {
+    // 動態 import initPopup
+    const { initPopup } = await import('../../popup/popup.js');
+
+    // Mock 設置完整
+    const mockSettings = {
+      notionApiKey: 'test-key',
+      notionDataSourceId: 'test-datasource',
+    };
+    chrome.storage.sync.get.mockResolvedValue(mockSettings);
+
+    // Mock 頁面狀態：未保存
+    chrome.runtime.sendMessage.mockResolvedValue({
+      success: true,
+      isSaved: false,
+    });
+
+    // Mock tabs.query 返回活動標籤頁
+    chrome.tabs.query.mockResolvedValue([{ id: 123, url: 'https://example.com' }]);
+
+    // Mock tabs.sendMessage 成功
+    chrome.tabs.sendMessage.mockResolvedValue({});
+
+    // 初始化 popup
+    await initPopup();
+
+    // 模擬點擊保存按鈕
+    const saveButton = document.getElementById('save-button');
+
+    // Mock savePage 成功響應
+    chrome.runtime.sendMessage.mockResolvedValueOnce({
+      success: true,
+      created: true,
+      url: 'https://notion.so/test-page',
+      notionPageId: 'page-123',
+      title: 'Test Page',
+      blockCount: 5,
+      imageCount: 2,
+    });
+
+    // 點擊保存按鈕
+    saveButton.click();
+
+    // 等待異步操作完成
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 驗證是否調用了 tabs.sendMessage
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(123, { action: 'showToolbar' });
+  });
+
+  test('Content Script 未注入時應忽略錯誤', async () => {
+    // 動態 import initPopup
+    const { initPopup } = await import('../../popup/popup.js');
+
+    // Mock 設置完整
+    const mockSettings = {
+      notionApiKey: 'test-key',
+      notionDataSourceId: 'test-datasource',
+    };
+    chrome.storage.sync.get.mockResolvedValue(mockSettings);
+
+    // Mock 頁面狀態：未保存
+    chrome.runtime.sendMessage.mockResolvedValue({
+      success: true,
+      isSaved: false,
+    });
+
+    // Mock tabs.query 返回活動標籤頁
+    chrome.tabs.query.mockResolvedValue([{ id: 123, url: 'https://example.com' }]);
+
+    // Mock tabs.sendMessage 拋出錯誤（模擬 content script 未注入）
+    chrome.tabs.sendMessage.mockRejectedValue(new Error('Could not establish connection'));
+
+    // 初始化 popup
+    await initPopup();
+
+    // 模擬點擊保存按鈕
+    const saveButton = document.getElementById('save-button');
+
+    // Mock savePage 成功響應
+    chrome.runtime.sendMessage.mockResolvedValueOnce({
+      success: true,
+      created: true,
+      url: 'https://notion.so/test-page',
+      notionPageId: 'page-123',
+      title: 'Test Page',
+      blockCount: 5,
+      imageCount: 2,
+    });
+
+    // 點擊保存按鈕（應該不會拋出錯誤）
+    expect(() => saveButton.click()).not.toThrow();
+
+    // 等待異步操作完成
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 驗證調用了 tabs.sendMessage，但錯誤被捕獲
+    expect(chrome.tabs.sendMessage).toHaveBeenCalled();
+  });
+});

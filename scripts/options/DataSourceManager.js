@@ -5,6 +5,7 @@
 import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeApiError } from '../utils/securityUtils.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js';
 
 /**
  * 資料來源管理器
@@ -116,16 +117,16 @@ export class DataSourceManager {
         const errorData = await response.json();
         Logger.error('API 錯誤:', errorData);
 
-        let errorMessage = '載入保存目標失敗: ';
-        if (response.status === 401) {
-          errorMessage += 'API Key 無效或已過期';
-        } else if (response.status === 403) {
-          errorMessage += 'API Key 沒有足夠的權限';
-        } else {
-          errorMessage += errorData.message || `HTTP ${response.status}`;
-        }
+        // 統一使用 sanitizeApiError 處理 API 錯誤，提供更詳細的錯誤分類
+        // errorData.message 包含原始錯誤訊息，可提供更準確的錯誤類型判斷
+        // 若無錯誤訊息，針對 5xx 狀態碼提供明確的預設值，以便 sanitizeApiError 正確分類
+        const errorMessage =
+          errorData?.message ||
+          (response.status >= 500 ? 'Internal Server Error' : `HTTP ${response.status}`);
+        const safeMessage = sanitizeApiError(errorMessage, 'load_databases');
+        const translated = ErrorHandler.formatUserMessage(safeMessage);
+        this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');
 
-        this.ui.showStatus(errorMessage, 'error');
         if (this.elements.databaseSelect) {
           this.elements.databaseSelect.style.display = 'none';
         }
@@ -134,7 +135,8 @@ export class DataSourceManager {
       Logger.error('載入保存目標失敗:', error);
 
       const safeMessage = sanitizeApiError(error, 'load_databases');
-      this.ui.showStatus(`載入保存目標失敗: ${safeMessage}`, 'error');
+      const translated = ErrorHandler.formatUserMessage(safeMessage);
+      this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');
       if (this.elements.databaseSelect) {
         this.elements.databaseSelect.style.display = 'none';
       }

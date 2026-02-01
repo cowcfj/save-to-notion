@@ -29,6 +29,8 @@ import {
   clearHighlights,
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
 // Export initialization function for testing
 export async function initPopup() {
@@ -38,7 +40,13 @@ export async function initPopup() {
   // 檢查設置
   const settings = await checkSettings();
   if (!settings.valid) {
-    setStatus(elements, 'Please set API Key and Data Source ID in settings.');
+    // 根據實際缺失的設定顯示對應的提示訊息
+    const msg = !settings.apiKey
+      ? '請先在設定頁面配置 Notion API Key'
+      : !settings.dataSourceId
+        ? '請先在設定頁面選擇 Notion 資料庫'
+        : '請先完成設定頁面的配置';
+    setStatus(elements, msg);
     setButtonState(elements.saveButton, true);
     setButtonState(elements.highlightButton, true);
     return;
@@ -57,7 +65,10 @@ export async function initPopup() {
     }
   } catch (error) {
     Logger.error('Failed to initialize popup:', error);
-    setStatus(elements, 'Error initializing popup. Please close and reopen.', '#d63384');
+    // 將實際錯誤經過 sanitizeApiError 清洗後再格式化，提供更精確的錯誤提示
+    const safeMessage = sanitizeApiError(error, 'popup_init');
+    const msg = ErrorHandler.formatUserMessage(safeMessage);
+    setStatus(elements, msg, '#d63384');
   }
 
   // ========== 事件監聽器 ==========
@@ -97,7 +108,8 @@ export async function initPopup() {
         Logger.warn('Failed to show toolbar after save:', error);
       }
     } else {
-      setStatus(elements, `Failed to save: ${response?.error || 'No response'}`);
+      const errorMsg = ErrorHandler.formatUserMessage(response?.error);
+      setStatus(elements, `Failed to save: ${errorMsg}`);
     }
 
     // 延遲後重新啟用按鈕
@@ -112,9 +124,12 @@ export async function initPopup() {
     const statusResponse = await checkPageStatus({ forceRefresh: true });
 
     if (!statusResponse?.isSaved) {
-      setStatus(elements, 'Please save the page first!', '#d63384');
+      const msg = ErrorHandler.formatUserMessage('Page not saved');
+      // 先以警告色 (#d63384) 顯示訊息，提供即時視覺回饋
+      setStatus(elements, msg, '#d63384');
+      // 2 秒後重置為預設顏色，但保留訊息內容（紅色短暫閃現後淡化為預設色）
       setTimeout(() => {
-        setStatus(elements, 'Save page first to enable highlighting.');
+        setStatus(elements, msg);
       }, 2000);
       return;
     }

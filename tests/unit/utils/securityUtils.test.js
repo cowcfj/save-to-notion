@@ -14,6 +14,7 @@ import {
   validateContentScriptRequest,
   sanitizeUrlForLogging,
   maskSensitiveString,
+  escapeHtml,
   sanitizeApiError,
   validateSafeSvg,
   separateIconAndText,
@@ -254,6 +255,54 @@ describe('securityUtils', () => {
     });
   });
 
+  describe('escapeHtml', () => {
+    test('應轉義 < 字符', () => {
+      expect(escapeHtml('<')).toBe('&lt;');
+    });
+
+    test('應轉義 > 字符', () => {
+      expect(escapeHtml('>')).toBe('&gt;');
+    });
+
+    test('應轉義 & 字符', () => {
+      expect(escapeHtml('&')).toBe('&amp;');
+    });
+
+    test('應轉義雙引號', () => {
+      expect(escapeHtml('"')).toBe('&quot;');
+    });
+
+    test('應轉義單引號', () => {
+      expect(escapeHtml("'")).toBe('&#x27;');
+    });
+
+    test('應轉義 script 標籤', () => {
+      const result = escapeHtml('<script>alert("XSS")</script>');
+      expect(result).toBe('&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;');
+    });
+
+    test('應轉義包含中文的惡意字串', () => {
+      const result = escapeHtml('發生錯誤<script>惡意代碼</script>');
+      expect(result).toBe('發生錯誤&lt;script&gt;惡意代碼&lt;/script&gt;');
+    });
+
+    test('空字串應返回空字串', () => {
+      expect(escapeHtml('')).toBe('');
+    });
+
+    test('null 應返回空字串', () => {
+      expect(escapeHtml(null)).toBe('');
+    });
+
+    test('undefined 應返回空字串', () => {
+      expect(escapeHtml()).toBe('');
+    });
+
+    test('不包含特殊字符的字串應保持不變', () => {
+      expect(escapeHtml('正常文字')).toBe('正常文字');
+    });
+  });
+
   describe('sanitizeApiError', () => {
     describe('權限/認證錯誤', () => {
       test.each([
@@ -264,7 +313,7 @@ describe('securityUtils', () => {
         ['authentication failed'],
       ])('"%s" 應返回 API Key 錯誤訊息', input => {
         const result = sanitizeApiError(input);
-        expect(result).toBe('API Key 無效或已過期，請檢查設置');
+        expect(result).toBe('API Key');
       });
     });
 
@@ -276,7 +325,7 @@ describe('securityUtils', () => {
         ['access denied to resource'],
       ])('"%s" 應返回權限不足訊息', input => {
         const result = sanitizeApiError(input);
-        expect(result).toBe('權限不足，請確認已授予擴充功能適當的 Notion 權限');
+        expect(result).toBe('Cannot access contents');
       });
     });
 
@@ -285,7 +334,7 @@ describe('securityUtils', () => {
         '"%s" 應返回速率限制訊息',
         input => {
           const result = sanitizeApiError(input);
-          expect(result).toBe('請求過於頻繁，請稍候再試');
+          expect(result).toBe('rate limit');
         }
       );
     });
@@ -295,7 +344,7 @@ describe('securityUtils', () => {
         '"%s" 應返回資源不存在訊息',
         input => {
           const result = sanitizeApiError(input);
-          expect(result).toBe('找不到指定的資源，可能已被刪除');
+          expect(result).toBe('Page ID is missing');
         }
       );
     });
@@ -305,7 +354,7 @@ describe('securityUtils', () => {
         '"%s" 應返回數據格式訊息',
         input => {
           const result = sanitizeApiError(input);
-          expect(result).toBe('數據格式不符合要求，已嘗試自動修正');
+          expect(result).toBe('Invalid request');
         }
       );
     });
@@ -318,7 +367,7 @@ describe('securityUtils', () => {
         ['ENOTFOUND api.notion.com'],
       ])('"%s" 應返回網絡錯誤訊息', input => {
         const result = sanitizeApiError(input);
-        expect(result).toBe('網絡連接失敗，請檢查網絡狀態後重試');
+        expect(result).toBe('Network error');
       });
     });
 
@@ -327,7 +376,7 @@ describe('securityUtils', () => {
         '"%s" 應返回服務不可用訊息',
         input => {
           const result = sanitizeApiError(input);
-          expect(result).toBe('Notion 服務暫時不可用，請稍後再試');
+          expect(result).toBe('Internal Server Error');
         }
       );
     });
@@ -335,24 +384,52 @@ describe('securityUtils', () => {
     describe('數據庫錯誤', () => {
       test('數據庫相關錯誤（帶頁面上下文）應返回權限提示', () => {
         const result = sanitizeApiError('database not accessible', 'create_page');
-        expect(result).toBe('無法訪問目標數據庫，請確認 API Key 權限設置');
+        expect(result).toBe('Data Source ID');
       });
     });
 
     describe('通用錯誤', () => {
       test('未知錯誤應返回通用訊息', () => {
         const result = sanitizeApiError('some unknown error xyz');
-        expect(result).toBe('操作失敗，請稍後再試。如問題持續，請查看擴充功能設置');
+        expect(result).toBe('Unknown Error');
       });
 
       test('錯誤對象應被正確處理', () => {
         const result = sanitizeApiError({ message: 'unauthorized' });
-        expect(result).toBe('API Key 無效或已過期，請檢查設置');
+        expect(result).toBe('API Key');
       });
 
       test('空錯誤應返回通用訊息', () => {
         const result = sanitizeApiError({});
-        expect(result).toBe('操作失敗，請稍後再試。如問題持續，請查看擴充功能設置');
+        expect(result).toBe('Unknown Error');
+      });
+    });
+
+    describe('XSS 防護', () => {
+      test('包含中文的惡意字串應被轉義', () => {
+        const malicious = '發生錯誤<script>alert("XSS")</script>';
+        const result = sanitizeApiError(malicious);
+        expect(result).toBe('發生錯誤&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;');
+        expect(result).not.toContain('<script>');
+      });
+
+      test('包含中文的 img onerror 攻擊應被轉義', () => {
+        const malicious = '請稍後再試<img src=x onerror=alert(1)>';
+        const result = sanitizeApiError(malicious);
+        expect(result).toContain('&lt;img');
+        expect(result).not.toContain('<img');
+      });
+
+      test('純中文字串應保持不變', () => {
+        const chinese = '這是一段中文錯誤訊息';
+        const result = sanitizeApiError(chinese);
+        expect(result).toBe(chinese);
+      });
+
+      test('含特殊字符的中文訊息應被轉義', () => {
+        const withSpecialChars = '錯誤: "a" & "b"';
+        const result = sanitizeApiError(withSpecialChars);
+        expect(result).toBe('錯誤: &quot;a&quot; &amp; &quot;b&quot;');
       });
     });
   });

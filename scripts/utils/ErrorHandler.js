@@ -1,5 +1,6 @@
 /* global Logger */
 import { ERROR_MESSAGES } from '../config/constants.js';
+import { escapeHtml } from './securityUtils.js';
 
 /**
  * 統一錯誤處理系統
@@ -144,27 +145,44 @@ class ErrorHandler {
 
   /**
    * 格式化用戶可見的錯誤訊息
-   * 根據調試模式返回不同詳細程度的訊息
-   * @param {Error|string} error - 原始錯誤
-   * @returns {string} 格式化後的錯誤訊息
+   *
+   * 實作分層架構下的錯誤翻譯邏輯：
+   * 1. 安全性檢查：如果訊息本身已包含中文字符，視為已翻譯訊息，轉義後返回。
+   * 2. 精確匹配：查找是否為預定義的 Error Code 鍵（由 sanitizeApiError 標準化）。
+   * 3. 兜底保護：若未命中，返回統一的預設友善訊息。
+   *
+   * 注意：所有外部錯誤應先經過 sanitizeApiError 標準化後再傳入此函數。
+   *
+   * @param {Error|string} error - 原始錯誤物件或錯誤代碼字串
+   * @returns {string} 格式化後的用戶友善錯誤訊息
+   *
+   * @example
+   * // 有效的 Error Code 範例（來自 ERROR_MESSAGES.PATTERNS 的 key）：
+   * // 'API Key', 'rate limit', 'Network error', 'Page not saved'
+   * formatUserMessage('API Key'); // 返回「請先在設定頁面配置 Notion API Key」
    */
   static formatUserMessage(error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    // 安全修復：即使在調試模式下，也不應向用戶顯示原始錯誤訊息
-    // 原始錯誤訊息應通過日誌查看
-    // if (this.logger.debugEnabled) {
-    //   return message;
-    // }
-
-    // 一般模式：檢查已知錯誤模式
-    for (const [pattern, friendly] of Object.entries(ERROR_MESSAGES.PATTERNS)) {
-      if (message.toLowerCase().includes(pattern.toLowerCase())) {
-        return friendly;
-      }
+    if (!error) {
+      return ERROR_MESSAGES.DEFAULT;
     }
 
-    // 未知錯誤：返回通用訊息
+    const message = error instanceof Error ? error.message : String(error);
+
+    // [安全性修復] 如果訊息已經包含中文字符，說明已經是友善訊息
+    // 但仍需轉義 HTML 特殊字符，防止攻擊者構造如 "發生錯誤<script>...</script>" 的惡意字串
+    if (/[\u{4e00}-\u{9fa5}]/u.test(message)) {
+      return escapeHtml(message);
+    }
+
+    // [精確匹配]
+    // 檢查 message 是否完全等於 PATTERNS 中的某個 Key
+    // 所有外部錯誤應先經過 sanitizeApiError 標準化，故此處只需精確匹配
+    if (ERROR_MESSAGES.PATTERNS[message]) {
+      return ERROR_MESSAGES.PATTERNS[message];
+    }
+
+    // [兜底保護]
+    // 防止直接將技術代碼 (如 'unknown_api_response') 顯示給用戶
     return ERROR_MESSAGES.DEFAULT;
   }
 }

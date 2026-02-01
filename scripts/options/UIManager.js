@@ -59,6 +59,7 @@ export class UIManager {
       text = message.text || '';
     } else if (typeof message === 'string') {
       // 使用共用函數分離圖標和文本（統一處理 Emoji 和 SVG）
+      // 注意：訊息翻譯應由呼叫端負責，UIManager 僅負責顯示
       const separated = separateIconAndText(message);
       icon = separated.icon;
       text = separated.text;

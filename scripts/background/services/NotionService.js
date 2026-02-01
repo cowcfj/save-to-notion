@@ -490,7 +490,7 @@ class NotionService {
         if (!response.ok) {
           const errorText = await response.text();
           this.logger.error?.(`❌ 批次 ${batchNumber} 失敗:`, errorText);
-          throw new Error(`批次添加失敗: ${response.status} - ${errorText}`);
+          throw new Error(`Batch append failed: ${response.status} - ${errorText}`);
         }
 
         addedCount += batch.length;

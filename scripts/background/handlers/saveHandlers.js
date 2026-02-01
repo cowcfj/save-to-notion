@@ -9,7 +9,11 @@
 /* global chrome, Logger */
 
 import { normalizeUrl } from '../../utils/urlUtils.js';
-import { validateInternalRequest, isValidNotionUrl } from '../../utils/securityUtils.js';
+import {
+  validateInternalRequest,
+  isValidNotionUrl,
+  sanitizeApiError,
+} from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS, ERROR_MESSAGES } from '../../config/constants.js';
@@ -364,7 +368,8 @@ export function createSaveHandlers(services) {
         });
       } catch (error) {
         Logger.error('Error in handleSavePage:', error);
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
+        const safeMessage = sanitizeApiError(error, 'save_page');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
 
@@ -426,9 +431,10 @@ export function createSaveHandlers(services) {
         chrome.tabs.create({ url: notionUrl }, tab => {
           if (chrome.runtime.lastError) {
             Logger.error('Failed to open Notion page:', chrome.runtime.lastError);
+            const safeMessage = sanitizeApiError(chrome.runtime.lastError, 'open_page');
             sendResponse({
               success: false,
-              error: ErrorHandler.formatUserMessage(chrome.runtime.lastError.message),
+              error: ErrorHandler.formatUserMessage(safeMessage),
             });
           } else {
             Logger.log('✅ Opened Notion page in new tab:', notionUrl);
@@ -437,7 +443,8 @@ export function createSaveHandlers(services) {
         });
       } catch (error) {
         Logger.error('❌ handleOpenNotionPage 錯誤:', error);
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
+        const safeMessage = sanitizeApiError(error, 'open_page');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
 
@@ -460,7 +467,8 @@ export function createSaveHandlers(services) {
         const exists = await notionService.checkPageExists(pageId);
         sendResponse({ success: true, exists });
       } catch (error) {
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
+        const safeMessage = sanitizeApiError(error, 'check_page_exists');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
 
@@ -557,7 +565,8 @@ export function createSaveHandlers(services) {
         }
       } catch (error) {
         Logger.error('Error in checkPageStatus:', error);
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
+        const safeMessage = sanitizeApiError(error, 'check_page_status');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
 
@@ -586,7 +595,8 @@ export function createSaveHandlers(services) {
         sendResponse({ success: true });
       } catch (error) {
         // 日誌處理不應崩潰
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
+        const safeMessage = sanitizeApiError(error, 'dev_log_sink');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
   };

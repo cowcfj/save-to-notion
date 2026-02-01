@@ -5,6 +5,7 @@
 /* global chrome */
 import { MigrationScanner } from './MigrationScanner.js';
 import { sanitizeApiError } from '../utils/securityUtils.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js';
 
 /**
  * 遷移工具類別
@@ -98,7 +99,8 @@ export class MigrationTool {
     } catch (error) {
       if (scanStatus) {
         const safeMessage = sanitizeApiError(error, 'scan_legacy_highlights');
-        scanStatus.textContent = `掃描錯誤: ${safeMessage}`;
+        const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+        scanStatus.textContent = `掃描錯誤: ${errorMsg}`;
         scanStatus.className = 'error';
       }
     } finally {
@@ -391,7 +393,8 @@ export class MigrationTool {
       }
     } catch (error) {
       const safeMessage = sanitizeApiError(error, 'batch_migration');
-      this.showErrorResult(safeMessage);
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.showErrorResult(errorMsg);
     } finally {
       // 隱藏進度條
       if (progressContainer) {
@@ -464,7 +467,8 @@ export class MigrationTool {
       }
     } catch (error) {
       const safeMessage = sanitizeApiError(error, 'batch_deletion');
-      this.showErrorResult(safeMessage);
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.showErrorResult(errorMsg);
     } finally {
       // 隱藏進度條
       if (progressContainer) {

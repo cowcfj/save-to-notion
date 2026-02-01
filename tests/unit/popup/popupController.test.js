@@ -76,15 +76,33 @@ describe('popup.js Controller', () => {
     expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, expect.anything());
   });
 
-  it('should handle missing settings', async () => {
+  it('should handle missing API Key', async () => {
     const { mockElements } = setup();
-    checkSettings.mockResolvedValue({ valid: false });
+    checkSettings.mockResolvedValue({ valid: false, apiKey: undefined, dataSourceId: undefined });
 
     await initPopup();
 
     expect(setStatus).toHaveBeenCalledWith(
       mockElements,
-      expect.stringContaining('Please set API Key')
+      expect.stringContaining('請先在設定頁面配置 Notion API Key')
+    );
+    expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
+    expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
+  });
+
+  it('should handle missing Data Source ID when API Key exists', async () => {
+    const { mockElements } = setup();
+    checkSettings.mockResolvedValue({
+      valid: false,
+      apiKey: 'test-api-key',
+      dataSourceId: undefined,
+    });
+
+    await initPopup();
+
+    expect(setStatus).toHaveBeenCalledWith(
+      mockElements,
+      expect.stringContaining('請先在設定頁面選擇 Notion 資料庫')
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
@@ -97,9 +115,11 @@ describe('popup.js Controller', () => {
     await initPopup();
 
     expect(Logger.error).toHaveBeenCalled();
+    // 錯誤訊息經過 sanitizeApiError 清洗後再由 ErrorHandler.formatUserMessage 轉換
+    // 'Init failed' 不匹配任何已知模式，會返回預設錯誤訊息
     expect(setStatus).toHaveBeenCalledWith(
       expect.anything(),
-      expect.stringContaining('Error initializing'),
+      expect.stringContaining('發生未知錯誤'),
       expect.anything()
     );
   });
@@ -183,10 +203,10 @@ describe('popup.js Controller', () => {
 
       await triggerEvent(mockElements.highlightButton);
 
-      // The actual message is "Please save the page first!"
+      // 錯誤訊息已被 ErrorHandler.formatUserMessage 轉換為友善訊息
       expect(setStatus).toHaveBeenCalledWith(
         mockElements,
-        expect.stringContaining('Please save the page first'),
+        expect.stringContaining('頁面尚未保存'),
         expect.anything()
       );
     });

@@ -56,7 +56,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('invalid_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('API Key 無效'),
+        expect.stringContaining('請先在設定頁面配置 Notion API Key'),
         'error'
       );
     });
@@ -67,7 +67,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('secret_test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('網絡連接失敗'),
+        expect.stringContaining('網路連線異常'),
         'error'
       );
     });
@@ -320,7 +320,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('permission_denied_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('沒有足夠的權限'),
+        expect.stringContaining('無法存取此頁面內容'),
         'error'
       );
     });
@@ -334,8 +334,25 @@ describe('DataSourceManager', () => {
 
       await dataSourceManager.loadDatabases('test_key');
 
+      // sanitizeApiError 會正確識別 Internal Server Error 為服務不可用錯誤
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('Internal Server Error'),
+        expect.stringContaining('Notion 服務暫時不可用'),
+        'error'
+      );
+    });
+
+    test('處理無內容的 503 錯誤', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: () => Promise.resolve({}), // 空回應
+      });
+
+      await dataSourceManager.loadDatabases('test_key');
+
+      // 應自動識別為 Internal Server Error 並翻譯
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('Notion 服務暫時不可用'),
         'error'
       );
     });
