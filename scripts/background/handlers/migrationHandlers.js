@@ -203,14 +203,14 @@ export function createMigrationHandlers(services) {
         Logger.log('🚀 [Migration] 執行 DOM 遷移...');
         const migrationResult = await chrome.scripting.executeScript({
           target: { tabId: targetTab.id },
-          func: async () => {
+          func: async (executorErrorMsg, managerErrorMsg) => {
             // 在分頁上下文中執行
             if (!window.MigrationExecutor) {
-              return { error: ERROR_MESSAGES.USER_MESSAGES.MIGRATION_EXECUTOR_NOT_LOADED };
+              return { error: executorErrorMsg };
             }
 
             if (!window.HighlighterV2?.manager) {
-              return { error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHTER_MANAGER_NOT_INITIALIZED };
+              return { error: managerErrorMsg };
             }
 
             const executor = new window.MigrationExecutor();
@@ -226,6 +226,10 @@ export function createMigrationHandlers(services) {
               statistics: stats,
             };
           },
+          args: [
+            ERROR_MESSAGES.USER_MESSAGES.MIGRATION_EXECUTOR_NOT_LOADED,
+            ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHTER_MANAGER_NOT_INITIALIZED,
+          ],
         });
 
         const execResult = migrationResult[0]?.result;
