@@ -43,10 +43,36 @@ export function getElements() {
  * @param {string} text - 狀態文字
  * @param {string} [color=''] - 文字顏色（可選）
  */
-export function setStatus(elements, text, color = '') {
+export function setStatus(elements, content, color = '') {
   if (elements.status) {
-    elements.status.textContent = text;
+    elements.status.innerHTML = '';
     elements.status.style.color = color;
+
+    // Support simple string
+    if (typeof content === 'string') {
+      elements.status.textContent = content;
+      return;
+    }
+
+    // Support structured content (array of parts)
+    if (Array.isArray(content)) {
+      content.forEach(part => {
+        if (typeof part === 'string') {
+          // Pure text part -> safe textContent
+          elements.status.appendChild(document.createTextNode(part));
+        } else if (part && part.type === 'svg') {
+          // Structured SVG part -> specific handling
+          // Assume content is a safe SVG string from internal source
+          const span = document.createElement('span');
+          span.innerHTML = part.content;
+          // Add some basic styling for alignment
+          span.style.display = 'inline-flex';
+          span.style.verticalAlign = 'text-bottom';
+          span.style.margin = '0 4px';
+          elements.status.appendChild(span);
+        }
+      });
+    }
   }
 }
 
@@ -218,10 +244,17 @@ export function formatSaveSuccessMessage(response) {
 
     if (response.warning) {
       const warnIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-      details += ` ${warnIcon} ${response.warning}`;
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+
+      // Return structured array for safe rendering
+      return [
+        `${action} successfully! ${details}`,
+        { type: 'svg', content: warnIcon },
+        response.warning,
+      ];
     }
   }
 
+  // Default return string
   return `${action} successfully! ${details}`;
 }
