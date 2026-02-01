@@ -4,7 +4,6 @@
  */
 
 import { validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
 
 /**
  * UI 管理器類別
@@ -59,11 +58,9 @@ export class UIManager {
       icon = message.icon || '';
       text = message.text || '';
     } else if (typeof message === 'string') {
-      // [職責分層]：如果是錯誤消息，先進行翻譯轉換
-      const finalMessage = type === 'error' ? ErrorHandler.formatUserMessage(message) : message;
-
       // 使用共用函數分離圖標和文本（統一處理 Emoji 和 SVG）
-      const separated = separateIconAndText(finalMessage);
+      // 注意：訊息翻譯應由呼叫端負責，UIManager 僅負責顯示
+      const separated = separateIconAndText(message);
       icon = separated.icon;
       text = separated.text;
     }

@@ -56,7 +56,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('invalid_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('API Key 無效'),
+        expect.stringContaining('請先在設定頁面配置 Notion API Key'),
         'error'
       );
     });
@@ -67,7 +67,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('secret_test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('網絡連接失敗'),
+        expect.stringContaining('網路連線異常'),
         'error'
       );
     });
@@ -320,7 +320,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('permission_denied_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('沒有足夠的權限'),
+        expect.stringContaining('無法存取此頁面內容'),
         'error'
       );
     });
@@ -335,7 +335,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('Internal Server Error'),
+        expect.stringContaining('請求無效'),
         'error'
       );
     });
