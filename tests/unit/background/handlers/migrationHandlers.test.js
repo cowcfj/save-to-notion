@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+/* global chrome */
+
 /* skipcq: JS-0255 */
 
 /**
