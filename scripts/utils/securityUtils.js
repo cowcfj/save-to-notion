@@ -233,6 +233,8 @@ export function sanitizeApiError(apiError, context = 'operation') {
   }
 
   // 3. 一般認證錯誤 (映射至 constants.js: 'API Key')
+  // 注意：此檢查在第 218-224 行的 Integration 檢查之後執行
+  // 若錯誤訊息包含 unauthorized + token/integration 會被上方攔截，這裡只處理純 unauthorized 類錯誤
   if (
     lowerMessage.includes('unauthorized') ||
     lowerMessage.includes('authentication') ||
