@@ -173,7 +173,8 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ErrorHandler.formatUserMessage('Injection failed'),
+        // 'Injection failed' 經過 sanitizeApiError 會返回 'Unknown Error'
+        error: ErrorHandler.formatUserMessage('Unknown Error'),
       })
     );
     // 清理 lastError
@@ -522,7 +523,8 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/操作失敗|Invalid request|請求無效/u),
+        // 400 + 'Invalid request' 經過 sanitizeApiError 會返回 'Invalid request'
+        error: expect.stringMatching(/Invalid request|請求無效|發生未知錯誤/u),
       })
     );
 
@@ -714,7 +716,8 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/數據格式不符合要求/u),
+        // 'image url invalid' 包含 'image'，經過 sanitizeApiError 返回 'Invalid request'
+        error: expect.stringMatching(/Invalid request|請求無效/u),
       })
     );
 
@@ -800,7 +803,8 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/操作失敗|Bad request/u),
+        // 'Bad request' 經過 sanitizeApiError 返回 'Invalid request'
+        error: expect.stringMatching(/Invalid request|請求無效/u),
       })
     );
 

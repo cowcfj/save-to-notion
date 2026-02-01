@@ -246,13 +246,13 @@ export const ERROR_MESSAGES = {
    * 這些是業務代碼中拋出的原始錯誤訊息，會被 ErrorHandler 轉換為友善訊息
    */
   TECHNICAL: {
-    NO_ACTIVE_TAB: 'Could not get active tab.',
-    MISSING_API_KEY: 'API Key is missing.',
-    MISSING_DATA_SOURCE: 'Data Source ID is missing.',
+    NO_ACTIVE_TAB: 'active tab',
+    MISSING_API_KEY: 'API Key',
+    MISSING_DATA_SOURCE: 'Data Source ID',
     MISSING_PAGE_ID: 'Page ID is missing',
-    PAGE_NOT_SAVED: 'Page not saved yet. Please save the page first.',
-    NO_NOTION_URL: 'No URL provided',
-    API_KEY_NOT_CONFIGURED: 'Notion API Key not configured',
+    PAGE_NOT_SAVED: 'Page not saved',
+    NO_NOTION_URL: 'No URL provided', // 這個好像沒有對應的 PATTERN？如果有，需要確認
+    API_KEY_NOT_CONFIGURED: 'API Key',
   },
 
   /**

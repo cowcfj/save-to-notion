@@ -318,8 +318,8 @@ describe('NotionService', () => {
 
       expect(result.success).toBe(false);
       expect(result.addedCount).toBe(100);
-      // 驗證返回清理後的用戶友好錯誤訊息
-      expect(result.error).toContain('操作失敗');
+      // 應該返回標準化的 Invalid request
+      expect(result.error).toBe('Invalid request');
     });
   });
 
@@ -349,8 +349,8 @@ describe('NotionService', () => {
 
       const result = await service.createPage({ title: 'Test Page' });
       expect(result.success).toBe(false);
-      // 驗證返回清理後的用戶友好錯誤訊息
-      expect(result.error).toContain('數據格式不符合要求');
+      // 應該返回標準化的 Invalid request
+      expect(result.error).toBe('Invalid request');
     });
   });
 
@@ -710,7 +710,8 @@ describe('NotionService', () => {
 
       expect(result.success).toBe(false);
       // 驗證返回清理後的用戶友好錯誤訊息
-      expect(result.error).toContain('網絡連接失敗');
+      // 應該返回標準化的 Network error
+      expect(result.error).toContain('Network error');
     });
   });
   describe('_findHighlightSectionBlocks', () => {

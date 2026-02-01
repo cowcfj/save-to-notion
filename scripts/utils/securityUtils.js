@@ -220,7 +220,8 @@ export function sanitizeApiError(apiError, context = 'operation') {
     lowerMessage.includes('unauthorized') ||
     lowerMessage.includes('invalid token') ||
     lowerMessage.includes('invalid api') ||
-    lowerMessage.includes('authentication')
+    lowerMessage.includes('authentication') ||
+    lowerMessage.includes('api key')
   ) {
     return 'API Key';
   }
@@ -244,6 +245,11 @@ export function sanitizeApiError(apiError, context = 'operation') {
     return 'Page ID is missing'; // 映射至資源遺失類錯誤
   }
 
+  // 4a. Tab 相關錯誤 (映射至 constants.js: 'active tab')
+  if (lowerMessage.includes('active tab')) {
+    return 'active tab';
+  }
+
   // 5. 數據庫/頁面上下文錯誤 (映射至 constants.js: 'Data Source ID')
   if (lowerMessage.includes('database') || lowerMessage.includes('object_not_found')) {
     return 'Data Source ID';
@@ -254,7 +260,10 @@ export function sanitizeApiError(apiError, context = 'operation') {
     lowerMessage.includes('validation') ||
     lowerMessage.includes('image') ||
     lowerMessage.includes('media') ||
-    lowerMessage.includes('conflict')
+    lowerMessage.includes('conflict') ||
+    lowerMessage.includes('bad request') ||
+    lowerMessage.includes('invalid') ||
+    lowerMessage.includes('400')
   ) {
     return 'Invalid request';
   }

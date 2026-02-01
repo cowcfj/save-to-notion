@@ -12,6 +12,7 @@ import { normalizeUrl } from '../../utils/urlUtils.js';
 import {
   validateInternalRequest,
   validateContentScriptRequest,
+  sanitizeApiError,
 } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
@@ -140,9 +141,10 @@ export function createHighlightHandlers(services) {
           await injectionService.ensureBundleInjected(tabId);
         } catch (injectionError) {
           Logger.error('[USER_ACTIVATE_SHORTCUT] Bundle injection failed:', injectionError);
+          const safeMessage = sanitizeApiError(injectionError, 'bundle_injection');
           sendResponse({
             success: false,
-            error: ErrorHandler.formatUserMessage(injectionError),
+            error: ErrorHandler.formatUserMessage(safeMessage),
           });
           return;
         }
@@ -166,9 +168,13 @@ export function createHighlightHandlers(services) {
               '[USER_ACTIVATE_SHORTCUT] Failed to show highlighter:',
               chrome.runtime.lastError.message
             );
+            const safeMessage = sanitizeApiError(
+              chrome.runtime.lastError.message,
+              'show_highlighter'
+            );
             sendResponse({
               success: false,
-              error: ErrorHandler.formatUserMessage(chrome.runtime.lastError.message),
+              error: ErrorHandler.formatUserMessage(safeMessage),
             });
           } else {
             Logger.log('[USER_ACTIVATE_SHORTCUT] Highlighter shown successfully');
@@ -177,7 +183,8 @@ export function createHighlightHandlers(services) {
         });
       } catch (error) {
         Logger.error('[USER_ACTIVATE_SHORTCUT] Unexpected error:', error);
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
+        const safeMessage = sanitizeApiError(error, 'user_activate_shortcut');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
 
@@ -240,7 +247,8 @@ export function createHighlightHandlers(services) {
         }
       } catch (error) {
         Logger.error('Error in startHighlight:', error);
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
+        const safeMessage = sanitizeApiError(error, 'start_highlight');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
 
@@ -283,7 +291,8 @@ export function createHighlightHandlers(services) {
         sendResponse(result);
       } catch (error) {
         Logger.error('Error in handleUpdateHighlights:', error);
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
+        const safeMessage = sanitizeApiError(error, 'update_highlights');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
 
@@ -339,7 +348,8 @@ export function createHighlightHandlers(services) {
         sendResponse(result);
       } catch (error) {
         Logger.error('❌ handleSyncHighlights 錯誤:', error);
-        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
+        const safeMessage = sanitizeApiError(error, 'sync_highlights');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
   };
