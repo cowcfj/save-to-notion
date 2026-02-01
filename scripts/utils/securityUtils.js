@@ -261,28 +261,28 @@ export function sanitizeApiError(apiError, context = 'operation') {
     return 'Cannot access contents';
   }
 
-  // 3. 速率限制錯誤 (映射至 constants.js: 'rate limit')
+  // 6. 速率限制錯誤 (映射至 constants.js: 'rate limit')
   if (lowerMessage.includes('rate limit') || lowerMessage.includes('too many requests')) {
     return 'rate limit';
   }
 
-  // 4. 資源不存在錯誤
+  // 7. 資源不存在錯誤
   if (lowerMessage.includes('not found') || lowerMessage.includes('does not exist')) {
     return 'Page ID is missing'; // 映射至資源遺失類錯誤
   }
 
-  // 4a. Tab 相關錯誤 (映射至 constants.js: 'active tab')
+  // 7a. Tab 相關錯誤 (映射至 constants.js: 'active tab')
   if (lowerMessage.includes('active tab')) {
     return 'active tab';
   }
 
-  // 5. 數據庫/頁面上下文錯誤 (映射至 constants.js: 'Data Source ID')
-  // 注意：此檢查必須在第 244-250 行的資料庫權限檢查之後，因為那個檢查更具體
+  // 8. 數據庫/頁面上下文錯誤 (映射至 constants.js: 'Data Source ID')
+  // 注意：此檢查必須在第 246-253 行的資料庫權限檢查之後，因為那個檢查更具體
   if (lowerMessage.includes('database') || lowerMessage.includes('object_not_found')) {
     return 'Data Source ID';
   }
 
-  // 6. 驗證錯誤（圖片、數據格式等）
+  // 9. 驗證錯誤（圖片、數據格式等）
   if (
     lowerMessage.includes('validation') ||
     lowerMessage.includes('image') ||
@@ -295,7 +295,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
     return 'Invalid request';
   }
 
-  // 7. 網絡/超時錯誤 (映射至 constants.js: 'Network error')
+  // 10. 網絡/超時錯誤 (映射至 constants.js: 'Network error')
   if (
     lowerMessage.includes('network') ||
     lowerMessage.includes('fetch') ||
@@ -305,7 +305,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
     return 'Network error';
   }
 
-  // 8. Notion 服務器內部錯誤
+  // 11. Notion 服務器內部錯誤
   if (
     (lowerMessage.includes('service') && lowerMessage.includes('unavailable')) ||
     (lowerMessage.includes('internal') && lowerMessage.includes('error'))
