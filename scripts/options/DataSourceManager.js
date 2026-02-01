@@ -117,14 +117,14 @@ export class DataSourceManager {
         const errorData = await response.json();
         Logger.error('API 錯誤:', errorData);
 
-        let errorKey = 'Invalid request';
-        if (response.status === 401) {
-          errorKey = 'API Key';
-        } else if (response.status === 403) {
-          errorKey = 'Cannot access contents';
-        } else if (response.status === 429) {
-          errorKey = 'rate limit';
-        }
+        // HTTP 狀態碼到錯誤關鍵字的映射（宣告式，易於擴展）
+        const HTTP_ERROR_KEY_MAP = {
+          401: 'API Key',
+          403: 'Cannot access contents',
+          429: 'rate limit',
+        };
+
+        const errorKey = HTTP_ERROR_KEY_MAP[response.status] || 'Invalid request';
 
         const translated = ErrorHandler.formatUserMessage(errorKey);
         this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');
