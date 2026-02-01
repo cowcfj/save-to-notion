@@ -13,6 +13,7 @@ import {
   validateInternalRequest,
   isValidNotionUrl,
   sanitizeApiError,
+  sanitizeUrlForLogging,
 } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
@@ -286,7 +287,7 @@ export function createSaveHandlers(services) {
 
         // 檢查是否為受限頁面（chrome://、chrome-extension://、擴展商店等）
         if (isRestrictedInjectionUrl(activeTab.url)) {
-          Logger.warn(`⚠️ [savePage] 受限頁面無法保存: ${activeTab.url}`);
+          Logger.warn(`⚠️ [savePage] 受限頁面無法保存: ${sanitizeUrlForLogging(activeTab.url)}`);
           sendResponse({
             success: false,
             error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
