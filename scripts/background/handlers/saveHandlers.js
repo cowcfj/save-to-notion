@@ -327,7 +327,7 @@ export function createSaveHandlers(services) {
             result,
             url: activeTab.url,
           });
-          let errorMessage = ERROR_MESSAGES.USER_MESSAGES.CONTENT_PARSE_FAILED;
+          let errorMessage;
           if (!result) {
             errorMessage = ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED;
           } else if (!result.title) {
