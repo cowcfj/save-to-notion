@@ -590,6 +590,25 @@ describe('actionHandlers 覆蓋率補強', () => {
         expect.objectContaining({ success: true, isSaved: true })
       );
     });
+    test('checkPageStatus 在重試後仍返回 null 應暫時假設本地狀態正確', async () => {
+      const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
+      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        lastVerifiedAt: 0,
+      });
+
+      // 一直返回 null
+      mockNotionService.checkPageExists.mockResolvedValue(null);
+
+      await handlers.checkPageStatus({}, {}, sendResponse);
+
+      expect(mockNotionService.checkPageExists).toHaveBeenCalledTimes(2);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, isSaved: true })
+      );
+    });
   });
 
   describe('updateHighlights handler', () => {
@@ -619,30 +638,6 @@ describe('actionHandlers 覆蓋率補強', () => {
           success: false,
           error: expect.stringMatching(/Notion API Key|configured/),
         })
-      );
-    });
-
-    /**
-     * [補強測試] 驗證 checkPageStatus 中 API 返回 null 且重試失敗
-     * 覆蓋 saveHandlers.js:595-600
-     */
-    test.skip('checkPageStatus 在重試後仍返回 null 應暫時假設本地狀態正確', async () => {
-      const sendResponse = jest.fn();
-      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
-      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
-      mockStorageService.getSavedPageData.mockResolvedValue({
-        notionPageId: 'page-123',
-        lastVerifiedAt: 0,
-      });
-
-      // 一直返回 null
-      mockNotionService.checkPageExists.mockResolvedValue(null);
-
-      await handlers.checkPageStatus({}, {}, sendResponse);
-
-      expect(mockNotionService.checkPageExists).toHaveBeenCalledTimes(2);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, isSaved: true })
       );
     });
   });
