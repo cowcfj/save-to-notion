@@ -202,7 +202,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('returned no result'),
+          error: ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED,
         })
       );
     });
@@ -285,7 +285,10 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.savePage({}, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringContaining('Network error') })
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+        })
       );
     });
   });

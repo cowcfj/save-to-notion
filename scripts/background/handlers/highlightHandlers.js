@@ -46,7 +46,7 @@ async function getActiveTab() {
 async function ensureNotionApiKey(storageService, notionService) {
   const config = await storageService.getConfig(['notionApiKey']);
   if (!config.notionApiKey) {
-    throw new Error('Notion API Key 未設置');
+    throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
   notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
@@ -130,7 +130,7 @@ export function createHighlightHandlers(services) {
           Logger.warn(`[USER_ACTIVATE_SHORTCUT] Restricted URL: ${tabUrl}`);
           sendResponse({
             success: false,
-            error: '此頁面不支援標註功能（系統頁面或受限網址）',
+            error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
           });
           return;
         }
@@ -154,7 +154,7 @@ export function createHighlightHandlers(services) {
           Logger.warn('[USER_ACTIVATE_SHORTCUT] Bundle not ready after retries');
           sendResponse({
             success: false,
-            error: 'Bundle 初始化超時，請重試或刷新頁面',
+            error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
           });
           return;
         }
@@ -201,7 +201,7 @@ export function createHighlightHandlers(services) {
         if (isRestrictedInjectionUrl(activeTab.url)) {
           sendResponse({
             success: false,
-            error: '此頁面不支援標註功能（系統頁面或受限網址）',
+            error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
           });
           return;
         }
@@ -303,7 +303,7 @@ export function createHighlightHandlers(services) {
         if (!savedData || !savedData.notionPageId) {
           sendResponse({
             success: false,
-            error: '頁面尚未保存到 Notion，請先點擊「保存頁面」',
+            error: ERROR_MESSAGES.USER_MESSAGES.PAGE_NOT_SAVED_TO_NOTION,
           });
           return;
         }

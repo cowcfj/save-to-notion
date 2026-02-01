@@ -184,8 +184,7 @@ export function createSaveHandlers(services) {
         );
         sendResponse({
           success: false,
-          error:
-            'Network error or service unavailable while checking page existence. Please try again later.',
+          error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
         });
         return;
       }
@@ -328,18 +327,18 @@ export function createSaveHandlers(services) {
             result,
             url: activeTab.url,
           });
-          let errorMessage = 'Could not parse the article content.';
+          let errorMessage = ERROR_MESSAGES.USER_MESSAGES.CONTENT_PARSE_FAILED;
           if (!result) {
-            errorMessage = 'Content extraction script returned no result.';
+            errorMessage = ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED;
           } else if (!result.title) {
-            errorMessage = 'Content extraction failed to get page title.';
+            errorMessage = ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING;
           } else if (!result.blocks) {
-            errorMessage = 'Content extraction failed to generate content blocks.';
+            errorMessage = ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING;
           }
 
           sendResponse({
             success: false,
-            error: `${errorMessage} Please check the browser console for details.`,
+            error: errorMessage,
           });
           return;
         }
@@ -379,7 +378,10 @@ export function createSaveHandlers(services) {
 
         const pageUrl = request.url;
         if (!pageUrl) {
-          sendResponse({ success: false, error: 'No URL provided' });
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_NOTION_URL),
+          });
           return;
         }
 
@@ -390,7 +392,7 @@ export function createSaveHandlers(services) {
         if (!savedData || !savedData.notionPageId) {
           sendResponse({
             success: false,
-            error: '此頁面尚未保存到 Notion，請先點擊「保存頁面」',
+            error: ERROR_MESSAGES.USER_MESSAGES.PAGE_NOT_SAVED_TO_NOTION,
           });
           return;
         }
@@ -402,7 +404,7 @@ export function createSaveHandlers(services) {
         }
 
         if (!notionUrl) {
-          sendResponse({ success: false, error: '無法獲取 Notion 頁面 URL' });
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.NO_NOTION_PAGE_URL });
           return;
         }
 
@@ -411,7 +413,7 @@ export function createSaveHandlers(services) {
           Logger.error('❌ [openNotionPage] 非法 Notion URL 被阻擋:', notionUrl);
           sendResponse({
             success: false,
-            error: '安全性錯誤：僅允許打開 Notion 官方網域的頁面',
+            error: ERROR_MESSAGES.USER_MESSAGES.NOTION_DOMAIN_ONLY,
           });
           return;
         }

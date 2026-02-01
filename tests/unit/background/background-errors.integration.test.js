@@ -171,7 +171,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/操作失敗|Injection failed/u),
+        error: ErrorHandler.formatUserMessage('Injection failed'),
       })
     );
     // 清理 lastError
@@ -254,7 +254,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/無法獲取 Notion 頁面 URL|No URL provided/iu),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_NOTION_URL),
       })
     );
   });
@@ -291,7 +291,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/操作失敗|Create failed/u),
+        error: ErrorHandler.formatUserMessage('Create failed'),
       })
     );
     chrome.runtime.lastError = null;
@@ -323,9 +323,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(
-          /請先在設定頁面配置 Notion API Key|請先在設定頁面選擇 Notion 資料庫|API Key or Data Source ID is not set/iu
-        ),
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
       })
     );
   });
@@ -383,7 +381,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/頁面尚未保存|頁面尚未保存到 Notion/u),
+        error: expect.stringMatching(/頁面尚未保存到 Notion/u),
       })
     );
   });
@@ -522,7 +520,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/操作失敗|Invalid request/u),
+        error: expect.stringMatching(/操作失敗|Invalid request|請求無效/u),
       })
     );
 
@@ -714,7 +712,7 @@ describe('background error branches (integration)', () => {
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: expect.stringMatching(/數據格式不符合要求|批次添加失敗|image/u),
+        error: expect.stringMatching(/數據格式不符合要求/u),
       })
     );
 
