@@ -27,7 +27,7 @@ class ContentExtractor {
    * @param {Object} _options - 配置選項
    * @returns {Object} 提取結果 { content, type, metadata, rawArticle }
    */
-  static extract(doc, _options = {}) {
+  static extract(doc) {
     Logger.log('開始內容提取', { action: 'extract' });
 
     // 1. 檢測頁面複雜度與類型
