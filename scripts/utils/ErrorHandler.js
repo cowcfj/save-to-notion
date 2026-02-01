@@ -162,7 +162,7 @@ class ErrorHandler {
     const message = error instanceof Error ? error.message : String(error);
 
     // [兼容性墊片]：如果訊息已經包含中文字符，說明已經是友善訊息，直接返回
-    if (/[\u4e00-\u9fa5]/.test(message)) {
+    if (/[\u4e00-\u9fa5]/u.test(message)) {
       return message;
     }
 

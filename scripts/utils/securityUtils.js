@@ -251,7 +251,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
 
   // 9. 如果是已知友善字串（兼容性墊片）：
   // 如果字串中包含中文字符，視為已經是友善訊息，原樣返回
-  if (/[\u4e00-\u9fa5]/.test(errorMessage)) {
+  if (/[\u4e00-\u9fa5]/u.test(errorMessage)) {
     return errorMessage;
   }
 
