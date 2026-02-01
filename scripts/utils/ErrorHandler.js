@@ -151,10 +151,11 @@ class ErrorHandler {
   static formatUserMessage(error) {
     const message = error instanceof Error ? error.message : String(error);
 
-    // 調試模式：返回完整技術訊息
-    if (this.logger.debugEnabled) {
-      return message;
-    }
+    // 安全修復：即使在調試模式下，也不應向用戶顯示原始錯誤訊息
+    // 原始錯誤訊息應通過日誌查看
+    // if (this.logger.debugEnabled) {
+    //   return message;
+    // }
 
     // 一般模式：檢查已知錯誤模式
     for (const [pattern, friendly] of Object.entries(ERROR_MESSAGES.PATTERNS)) {

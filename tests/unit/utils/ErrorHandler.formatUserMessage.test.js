@@ -28,10 +28,18 @@ describe('ErrorHandler.formatUserMessage', () => {
     jest.restoreAllMocks();
   });
 
-  test('當 debugEnabled 為 true 時，應返回原始錯誤訊息', () => {
+  test('即使 debugEnabled 為 true，也應返回友善訊息以防止資訊洩漏', () => {
     mockLogger.debugEnabled = true;
     const technicalError = 'No tab with id: 123';
-    expect(ErrorHandler.formatUserMessage(technicalError)).toBe(technicalError);
+    expect(ErrorHandler.formatUserMessage(technicalError)).toBe(
+      ERROR_MESSAGES.PATTERNS['No tab with id']
+    );
+  });
+
+  test('當為未知錯誤且 debugEnabled 為 true 時，應返回預設友善訊息', () => {
+    mockLogger.debugEnabled = true;
+    const secretError = 'Database connection failed with password: confirm_password';
+    expect(ErrorHandler.formatUserMessage(secretError)).toBe(ERROR_MESSAGES.DEFAULT);
   });
 
   test('當為已知錯誤模式且 debugEnabled 為 false 時，應返回友善訊息', () => {
