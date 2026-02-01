@@ -2,6 +2,8 @@
  * Background.js - 錯誤分支整合測試（require 真實腳本 + 事件觸發）
  */
 
+/* global chrome */
+
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../scripts/config/constants.js';
 
