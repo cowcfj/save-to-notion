@@ -5,6 +5,7 @@
 
 /* global SrcsetParser */
 
+import { sanitizeUrlForLogging } from './securityUtils.js';
 import Logger from './Logger.js';
 import { IMAGE_VALIDATION as CONFIG_VALIDATION } from '../config/constants.js';
 import {
@@ -46,7 +47,7 @@ function cleanImageUrl(url, depth = 0) {
     Logger.warn('達到最大遞迴深度，停止處理', {
       action: 'cleanImageUrl',
       depth,
-      url: url.substring(0, 100),
+      url: sanitizeUrlForLogging(url),
     });
     return url; // 返回當前 URL 而不是 null，避免丟失數據
   }
@@ -81,7 +82,10 @@ function cleanImageUrl(url, depth = 0) {
         isRelative = true;
       }
     } catch {
-      Logger.error('URL 轉換失敗', { action: 'cleanImageUrl', url });
+      Logger.error('URL 轉換失敗', {
+        action: 'cleanImageUrl',
+        url: sanitizeUrlForLogging(url),
+      });
       return null;
     }
   }
@@ -226,7 +230,7 @@ function isNotionCompatibleImageUrl(url) {
       Logger.warn('URL 查詢參數過多', {
         action: 'isNotionCompatibleImageUrl',
         count: paramCount,
-        url: url.substring(0, 100),
+        url: sanitizeUrlForLogging(url),
       });
       return false;
     }

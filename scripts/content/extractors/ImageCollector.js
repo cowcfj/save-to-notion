@@ -15,6 +15,7 @@ import {
   cleanImageUrl,
   isNotionCompatibleImageUrl,
 } from '../../utils/imageUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import Logger from '../../utils/Logger.js';
 
 // Remove legacy getter
@@ -47,7 +48,11 @@ class ImageCollector {
           const isValid = isValidImageUrl?.(src);
 
           if (src && isValid) {
-            Logger.log('找到特色圖片', { action: 'collectFeaturedImage', selector, url: src });
+            Logger.log('找到特色圖片', {
+              action: 'collectFeaturedImage',
+              selector,
+              url: sanitizeUrlForLogging(src),
+            });
             return src;
           }
         }
@@ -94,7 +99,10 @@ class ImageCollector {
 
       // 2. 檢查是否與特色圖片重複
       if (featuredImage && cleanedUrl === featuredImage) {
-        Logger.log('跳過重複的特色圖片', { action: 'processImageForCollection', url: cleanedUrl });
+        Logger.log('跳過重複的特色圖片', {
+          action: 'processImageForCollection',
+          url: sanitizeUrlForLogging(cleanedUrl),
+        });
         return null;
       }
 
@@ -107,7 +115,7 @@ class ImageCollector {
       if (!isCompatible) {
         Logger.log('無效或不相容的圖片 URL', {
           action: 'processImageForCollection',
-          url: cleanedUrl,
+          url: sanitizeUrlForLogging(cleanedUrl),
         });
         return null;
       }
@@ -150,7 +158,7 @@ class ImageCollector {
     } catch (error) {
       Logger.warn('處理圖片失敗', {
         action: 'processImageForCollection',
-        src,
+        src: sanitizeUrlForLogging(src),
         error: error.message,
       });
       return null;
