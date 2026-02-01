@@ -303,7 +303,7 @@ export function createHighlightHandlers(services) {
         if (!savedData || !savedData.notionPageId) {
           sendResponse({
             success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.PAGE_NOT_SAVED_TO_NOTION,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
           });
           return;
         }
