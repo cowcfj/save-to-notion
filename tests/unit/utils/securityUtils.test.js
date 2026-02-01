@@ -304,20 +304,47 @@ describe('securityUtils', () => {
   });
 
   describe('sanitizeApiError', () => {
-    describe('權限/認證錯誤', () => {
-      test.each([
-        ['unauthorized: API token is invalid'],
-        ['Unauthorized access'],
-        ['invalid token provided'],
-        ['invalid api key'],
-        ['authentication failed'],
-      ])('"%s" 應返回 API Key 錯誤訊息', input => {
-        const result = sanitizeApiError(input);
-        expect(result).toBe('API Key');
-      });
+    describe('API Key 格式無效', () => {
+      test.each([['invalid token provided'], ['invalid api key'], ['malformed api token']])(
+        '"%s" 應返回 API Key 格式無效訊息',
+        input => {
+          const result = sanitizeApiError(input);
+          expect(result).toBe('Invalid API Key format');
+        }
+      );
     });
 
-    describe('權限不足錯誤', () => {
+    describe('Integration 連接斷開', () => {
+      test.each([['unauthorized: API token is invalid'], ['unauthorized: integration not found']])(
+        '"%s" 應返回 連接斷開訊息',
+        input => {
+          const result = sanitizeApiError(input);
+          expect(result).toBe('Integration disconnected');
+        }
+      );
+    });
+
+    describe('一般認證錯誤', () => {
+      test.each([['Unauthorized access'], ['authentication failed'], ['api key required']])(
+        '"%s" 應返回 API Key 錯誤訊息',
+        input => {
+          const result = sanitizeApiError(input);
+          expect(result).toBe('API Key');
+        }
+      );
+    });
+
+    describe('資料庫權限不足', () => {
+      test.each([['database forbidden'], ['database permission denied']])(
+        '"%s" 應返回資料庫權限不足訊息',
+        input => {
+          const result = sanitizeApiError(input);
+          expect(result).toBe('Database access denied');
+        }
+      );
+    });
+
+    describe('一般權限不足錯誤', () => {
       test.each([
         ['forbidden: access denied'],
         ['Forbidden'],

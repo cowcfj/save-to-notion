@@ -215,24 +215,47 @@ export function sanitizeApiError(apiError, context = 'operation') {
   const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
   const lowerMessage = errorMessage.toLowerCase();
 
-  // 1. 權限/認證錯誤 (映射至 constants.js: 'API Key')
+  // 1. API Key 格式無效（區分於連接斷開）
+  if (
+    lowerMessage.includes('invalid token') ||
+    lowerMessage.includes('invalid api key') ||
+    lowerMessage.includes('malformed')
+  ) {
+    return 'Invalid API Key format';
+  }
+
+  // 2. Integration 連接斷開（token 被撤銷或過期）
+  if (
+    lowerMessage.includes('unauthorized') &&
+    (lowerMessage.includes('token') || lowerMessage.includes('integration'))
+  ) {
+    return 'Integration disconnected';
+  }
+
+  // 3. 一般認證錯誤 (映射至 constants.js: 'API Key')
   if (
     lowerMessage.includes('unauthorized') ||
-    lowerMessage.includes('invalid token') ||
-    lowerMessage.includes('invalid api') ||
     lowerMessage.includes('authentication') ||
     lowerMessage.includes('api key')
   ) {
     return 'API Key';
   }
 
-  // 2. 權限不足錯誤 (通常與 API Token 範圍有關)
+  // 4. 資料庫權限不足
+  if (
+    lowerMessage.includes('database') &&
+    (lowerMessage.includes('forbidden') || lowerMessage.includes('permission'))
+  ) {
+    return 'Database access denied';
+  }
+
+  // 5. 一般權限不足錯誤
   if (
     lowerMessage.includes('forbidden') ||
     lowerMessage.includes('permission') ||
     lowerMessage.includes('access denied')
   ) {
-    return 'Cannot access contents'; // 映射至資產存取類錯誤
+    return 'Cannot access contents';
   }
 
   // 3. 速率限制錯誤 (映射至 constants.js: 'rate limit')
