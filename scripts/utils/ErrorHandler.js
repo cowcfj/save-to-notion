@@ -1,4 +1,6 @@
 /* global Logger */
+import { ERROR_MESSAGES } from '../config/constants.js';
+
 /**
  * 統一錯誤處理系統
  * 提供標準化的錯誤類型和日誌記錄
@@ -138,6 +140,32 @@ class ErrorHandler {
    */
   static getLogLevel(errorType) {
     return LOG_LEVELS[errorType] || 'warn';
+  }
+
+  /**
+   * 格式化用戶可見的錯誤訊息
+   * 根據調試模式返回不同詳細程度的訊息
+   * @param {Error|string} error - 原始錯誤
+   * @returns {string} 格式化後的錯誤訊息
+   */
+  static formatUserMessage(error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    // 安全修復：即使在調試模式下，也不應向用戶顯示原始錯誤訊息
+    // 原始錯誤訊息應通過日誌查看
+    // if (this.logger.debugEnabled) {
+    //   return message;
+    // }
+
+    // 一般模式：檢查已知錯誤模式
+    for (const [pattern, friendly] of Object.entries(ERROR_MESSAGES.PATTERNS)) {
+      if (message.toLowerCase().includes(pattern.toLowerCase())) {
+        return friendly;
+      }
+    }
+
+    // 未知錯誤：返回通用訊息
+    return ERROR_MESSAGES.DEFAULT;
   }
 }
 

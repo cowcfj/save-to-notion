@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+/* global chrome */
+
 /* skipcq: JS-0255 */
 
 /**
@@ -315,6 +317,59 @@ describe('migrationHandlers', () => {
         expect.objectContaining({ success: true, count: 5 })
       );
       expect(chrome.tabs.remove).toHaveBeenCalledWith(999);
+    });
+
+    test('應該優雅處理分頁清理失敗', async () => {
+      const url = 'https://example.com/cleanup-fail';
+      const sendResponse = jest.fn();
+
+      // Ensure data exists so logic proceeds to tab creation
+      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: [{ id: '1' }] });
+      chrome.tabs.query.mockResolvedValue([]); // Force create new tab
+
+      chrome.tabs.create.mockResolvedValue({ id: 888 });
+      chrome.tabs.get.mockResolvedValue({ id: 888, status: 'complete' });
+
+      // Mock cleanup failure
+      chrome.tabs.remove.mockRejectedValue(new Error('Tab closed'));
+
+      // Mock executeScript to avoid errors during execution phase causing early exit before cleanup
+      // Inject:
+      chrome.scripting.executeScript.mockResolvedValueOnce([]);
+      // Ready check:
+      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { ready: true } }]);
+      // Execute:
+      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { success: true } }]);
+
+      await handlers.migration_execute({ url }, defaultSender, sendResponse);
+
+      // 驗證即使清理失敗，主流程也是成功的
+      // 重點是代碼執行沒有崩潰
+      expect(chrome.tabs.remove).toHaveBeenCalledWith(888);
+      expect(sendResponse).toHaveBeenCalled();
+    });
+
+    test('應該處理腳本就緒檢查時的錯誤', async () => {
+      const url = 'https://example.com/script-fail';
+      const sendResponse = jest.fn();
+
+      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: [{ id: '1' }] });
+      chrome.tabs.query.mockResolvedValue([{ id: 777 }]); // Use existing tab
+
+      // Inject script success
+      chrome.scripting.executeScript.mockResolvedValueOnce([]);
+
+      // ready check fails once then succeeds
+      chrome.scripting.executeScript.mockRejectedValueOnce(new Error('Context invalid'));
+      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { ready: true } }]);
+
+      // migrate succeeds
+      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { success: true } }]);
+
+      await handlers.migration_execute({ url }, defaultSender, sendResponse);
+
+      expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(4); // Inject + 2 checks + execute
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
   });
 });

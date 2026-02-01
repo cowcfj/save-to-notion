@@ -195,8 +195,16 @@ describe('popupUI', () => {
         warning: 'Some images filtered',
       };
       const message = formatSaveSuccessMessage(response);
+
+      // 因為包含警告時會返回陣列
+      expect(Array.isArray(message)).toBe(true);
       expect(message).toContain('Some images filtered');
-      expect(message).toContain('<svg'); // Check for SVG icon usage
+
+      // 檢查是否包含 SVG 物件
+      const hasSvg = message.some(
+        part => typeof part === 'object' && part.type === 'svg' && part.content.includes('<svg')
+      );
+      expect(hasSvg).toBe(true);
     });
   });
 });

@@ -15,7 +15,8 @@ import {
 } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
-import { HANDLER_CONSTANTS } from '../../config/constants.js';
+import { ErrorHandler } from '../../utils/ErrorHandler.js';
+import { HANDLER_CONSTANTS, ERROR_MESSAGES } from '../../config/constants.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -30,7 +31,7 @@ async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const activeTab = tabs[0];
   if (!activeTab || !activeTab.id) {
-    throw new Error('Could not get active tab.');
+    throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   }
   return activeTab;
 }
@@ -45,7 +46,7 @@ async function getActiveTab() {
 async function ensureNotionApiKey(storageService, notionService) {
   const config = await storageService.getConfig(['notionApiKey']);
   if (!config.notionApiKey) {
-    throw new Error('Notion API Key 未設置');
+    throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
   notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
@@ -129,7 +130,7 @@ export function createHighlightHandlers(services) {
           Logger.warn(`[USER_ACTIVATE_SHORTCUT] Restricted URL: ${tabUrl}`);
           sendResponse({
             success: false,
-            error: '此頁面不支援標註功能（系統頁面或受限網址）',
+            error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
           });
           return;
         }
@@ -141,7 +142,7 @@ export function createHighlightHandlers(services) {
           Logger.error('[USER_ACTIVATE_SHORTCUT] Bundle injection failed:', injectionError);
           sendResponse({
             success: false,
-            error: `Bundle 注入失敗: ${injectionError.message}`,
+            error: ErrorHandler.formatUserMessage(injectionError),
           });
           return;
         }
@@ -153,7 +154,7 @@ export function createHighlightHandlers(services) {
           Logger.warn('[USER_ACTIVATE_SHORTCUT] Bundle not ready after retries');
           sendResponse({
             success: false,
-            error: 'Bundle 初始化超時，請重試或刷新頁面',
+            error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
           });
           return;
         }
@@ -165,7 +166,10 @@ export function createHighlightHandlers(services) {
               '[USER_ACTIVATE_SHORTCUT] Failed to show highlighter:',
               chrome.runtime.lastError.message
             );
-            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+            sendResponse({
+              success: false,
+              error: ErrorHandler.formatUserMessage(chrome.runtime.lastError.message),
+            });
           } else {
             Logger.log('[USER_ACTIVATE_SHORTCUT] Highlighter shown successfully');
             sendResponse({ success: true, response });
@@ -173,7 +177,7 @@ export function createHighlightHandlers(services) {
         });
       } catch (error) {
         Logger.error('[USER_ACTIVATE_SHORTCUT] Unexpected error:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -197,7 +201,7 @@ export function createHighlightHandlers(services) {
         if (isRestrictedInjectionUrl(activeTab.url)) {
           sendResponse({
             success: false,
-            error: '此頁面不支援標註功能（系統頁面或受限網址）',
+            error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
           });
           return;
         }
@@ -236,7 +240,7 @@ export function createHighlightHandlers(services) {
         }
       } catch (error) {
         Logger.error('Error in startHighlight:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -256,7 +260,7 @@ export function createHighlightHandlers(services) {
         if (!savedData || !savedData.notionPageId) {
           sendResponse({
             success: false,
-            error: 'Page not saved yet. Please save the page first.',
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
           });
           return;
         }
@@ -279,7 +283,7 @@ export function createHighlightHandlers(services) {
         sendResponse(result);
       } catch (error) {
         Logger.error('Error in handleUpdateHighlights:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -299,7 +303,7 @@ export function createHighlightHandlers(services) {
         if (!savedData || !savedData.notionPageId) {
           sendResponse({
             success: false,
-            error: '頁面尚未保存到 Notion，請先點擊「保存頁面」',
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
           });
           return;
         }
@@ -335,7 +339,7 @@ export function createHighlightHandlers(services) {
         sendResponse(result);
       } catch (error) {
         Logger.error('❌ handleSyncHighlights 錯誤:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
   };

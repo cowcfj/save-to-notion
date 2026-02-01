@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+/* global chrome */
+
 /* skipcq: JS-0255
  * Chrome 擴展 API 使用 chrome.runtime.lastError 而非 error-first callback 模式，
  * 因此 mock 實作中的 callback 第一個參數是資料而非錯誤
@@ -28,6 +30,10 @@ jest.mock('../../../../scripts/background/utils/BlockBuilder.js', () => ({
 jest.mock('../../../../scripts/background/services/InjectionService.js', () => ({
   isRestrictedInjectionUrl: jest.fn(url => url?.startsWith('chrome://')),
 }));
+
+// 引入測試所需模組
+import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/constants.js';
 
 // Mock chrome API
 global.chrome = {
@@ -61,6 +67,16 @@ describe('actionHandlers 覆蓋率補強', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Mock Logger 為非調試模式
+    global.Logger = {
+      debugEnabled: false,
+      error: jest.fn(),
+      warn: jest.fn(),
+      info: jest.fn(),
+      log: jest.fn(),
+      debug: jest.fn(),
+    };
 
     mockNotionService = {
       setApiKey: jest.fn(),
@@ -112,6 +128,10 @@ describe('actionHandlers 覆蓋率補強', () => {
     };
   });
 
+  afterEach(() => {
+    chrome.runtime.lastError = null;
+  });
+
   describe('processContentResult', () => {
     test('應該在沒有標註時返回原始 blocks', () => {
       const result = processContentResult({ title: 'Test', blocks: [{ type: 'paragraph' }] }, []);
@@ -161,7 +181,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('Could not get active tab'),
+          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
         })
       );
     });
@@ -172,7 +192,23 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.savePage({}, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringContaining('not set') })
+        expect.objectContaining({
+          success: false,
+          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+        })
+      );
+    });
+
+    test('應該在有 API Key 但缺少 Data Source ID 時失敗', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'valid-key' });
+
+      await handlers.savePage({}, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+        })
       );
     });
 
@@ -185,7 +221,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('returned no result'),
+          error: ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED,
         })
       );
     });
@@ -268,7 +304,38 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       await handlers.savePage({}, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringContaining('Network error') })
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+        })
+      );
+    });
+
+    test('應該在收到圖片驗證錯誤時嘗試排除圖片並重試', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getSavedPageData.mockResolvedValue(null);
+
+      // 第一次嘗試失敗 (Image validation error)
+      mockNotionService.createPage.mockResolvedValueOnce({
+        success: false,
+        error: 'validation error: image block',
+      });
+
+      // 重試成功
+      mockNotionService.createPage.mockResolvedValueOnce({
+        success: true,
+        pageId: 'retry-page-id',
+        url: 'notion.so/retry',
+      });
+
+      await handlers.savePage({}, {}, sendResponse);
+
+      expect(mockNotionService.createPage).toHaveBeenCalledTimes(2);
+      // 第一次調用包含 blocks
+      expect(mockNotionService.createPage.mock.calls[0][1].allBlocks).toBeDefined();
+      // 第二次調用是重試
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
       );
     });
   });
@@ -328,7 +395,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringContaining('Page ID is missing'),
+          error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_PAGE_ID),
         })
       );
     });
@@ -339,6 +406,20 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockNotionService.checkPageExists.mockResolvedValue(true);
       await handlers.checkNotionPageExists({ pageId: '123' }, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true, exists: true });
+    });
+
+    test('應該在 API Key 未設置時報錯', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getConfig.mockResolvedValue({}); // No API Key
+
+      await handlers.checkNotionPageExists({ pageId: '123' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringMatching(/Notion API Key/), // Match partial string to handle formatting
+        })
+      );
     });
   });
 
@@ -378,6 +459,24 @@ describe('actionHandlers 覆蓋率補強', () => {
       chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => cb({ success: true }));
 
       await handlers.startHighlight({}, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test('當 sendMessage 失敗時應該回退到 injectHighlighter', async () => {
+      const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
+
+      // Mock sendMessage 失敗 (例如腳本未加載)
+      chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => {
+        chrome.runtime.lastError = { message: 'Receiving end does not exist' };
+        cb(null);
+      });
+
+      mockInjectionService.injectHighlighter.mockResolvedValue({ initialized: true });
+
+      await handlers.startHighlight({}, {}, sendResponse);
+
+      expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
   });
@@ -420,6 +519,29 @@ describe('actionHandlers 覆蓋率補強', () => {
         expect.objectContaining({ isSaved: true, title: 'Start' })
       );
     });
+
+    test('應該在 API 檢查返回 null 時進行重試', async () => {
+      const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
+      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      // 緩存過期
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        lastVerifiedAt: 0,
+      });
+
+      // 第一次返回 null (失敗)
+      mockNotionService.checkPageExists.mockResolvedValueOnce(null);
+      // 第二次返回 true (成功)
+      mockNotionService.checkPageExists.mockResolvedValueOnce(true);
+
+      await handlers.checkPageStatus({}, {}, sendResponse);
+
+      expect(mockNotionService.checkPageExists).toHaveBeenCalledTimes(2);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, isSaved: true })
+      );
+    });
   });
 
   describe('updateHighlights handler', () => {
@@ -434,6 +556,21 @@ describe('actionHandlers 覆蓋率補強', () => {
       await handlers.updateHighlights({}, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, highlightCount: 1 })
+      );
+    });
+
+    test('應該在 API Key 未設置時報錯', async () => {
+      const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
+      mockStorageService.getConfig.mockResolvedValue({}); // No API Key
+
+      await handlers.updateHighlights({}, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringMatching(/Notion API Key|configured/),
+        })
       );
     });
   });

@@ -11,7 +11,8 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import { validateInternalRequest, isValidNotionUrl } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
-import { HANDLER_CONSTANTS } from '../../config/constants.js';
+import { ErrorHandler } from '../../utils/ErrorHandler.js';
+import { HANDLER_CONSTANTS, ERROR_MESSAGES } from '../../config/constants.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -26,7 +27,7 @@ async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const activeTab = tabs[0];
   if (!activeTab || !activeTab.id) {
-    throw new Error('Could not get active tab.');
+    throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   }
   return activeTab;
 }
@@ -41,7 +42,7 @@ async function getActiveTab() {
 async function ensureNotionApiKey(storageService, notionService) {
   const config = await storageService.getConfig(['notionApiKey']);
   if (!config.notionApiKey) {
-    throw new Error('Notion API Key 未設置');
+    throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
   notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
@@ -183,8 +184,7 @@ export function createSaveHandlers(services) {
         );
         sendResponse({
           success: false,
-          error:
-            'Network error or service unavailable while checking page existence. Please try again later.',
+          error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
         });
         return;
       }
@@ -291,8 +291,19 @@ export function createSaveHandlers(services) {
 
         Logger.log(`保存目標: ID=${dataSourceId}, 類型=${dataSourceType}`);
 
-        if (!config.notionApiKey || !dataSourceId) {
-          sendResponse({ success: false, error: 'API Key or Data Source ID is not set.' });
+        if (!config.notionApiKey) {
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+          });
+          return;
+        }
+
+        if (!dataSourceId) {
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+          });
           return;
         }
 
@@ -324,18 +335,15 @@ export function createSaveHandlers(services) {
             result,
             url: activeTab.url,
           });
-          let errorMessage = 'Could not parse the article content.';
-          if (!result) {
-            errorMessage = 'Content extraction script returned no result.';
-          } else if (!result.title) {
-            errorMessage = 'Content extraction failed to get page title.';
-          } else if (!result.blocks) {
-            errorMessage = 'Content extraction failed to generate content blocks.';
-          }
+          const errorMessage = !result
+            ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED
+            : !result.title
+              ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING
+              : ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING;
 
           sendResponse({
             success: false,
-            error: `${errorMessage} Please check the browser console for details.`,
+            error: errorMessage,
           });
           return;
         }
@@ -356,7 +364,7 @@ export function createSaveHandlers(services) {
         });
       } catch (error) {
         Logger.error('Error in handleSavePage:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -375,7 +383,10 @@ export function createSaveHandlers(services) {
 
         const pageUrl = request.url;
         if (!pageUrl) {
-          sendResponse({ success: false, error: 'No URL provided' });
+          sendResponse({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL,
+          });
           return;
         }
 
@@ -386,7 +397,7 @@ export function createSaveHandlers(services) {
         if (!savedData || !savedData.notionPageId) {
           sendResponse({
             success: false,
-            error: '此頁面尚未保存到 Notion，請先點擊「保存頁面」',
+            error: ERROR_MESSAGES.USER_MESSAGES.PAGE_NOT_SAVED_TO_NOTION,
           });
           return;
         }
@@ -398,7 +409,7 @@ export function createSaveHandlers(services) {
         }
 
         if (!notionUrl) {
-          sendResponse({ success: false, error: '無法獲取 Notion 頁面 URL' });
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.NO_NOTION_PAGE_URL });
           return;
         }
 
@@ -407,7 +418,7 @@ export function createSaveHandlers(services) {
           Logger.error('❌ [openNotionPage] 非法 Notion URL 被阻擋:', notionUrl);
           sendResponse({
             success: false,
-            error: '安全性錯誤：僅允許打開 Notion 官方網域的頁面',
+            error: ERROR_MESSAGES.USER_MESSAGES.NOTION_DOMAIN_ONLY,
           });
           return;
         }
@@ -415,7 +426,10 @@ export function createSaveHandlers(services) {
         chrome.tabs.create({ url: notionUrl }, tab => {
           if (chrome.runtime.lastError) {
             Logger.error('Failed to open Notion page:', chrome.runtime.lastError);
-            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+            sendResponse({
+              success: false,
+              error: ErrorHandler.formatUserMessage(chrome.runtime.lastError.message),
+            });
           } else {
             Logger.log('✅ Opened Notion page in new tab:', notionUrl);
             sendResponse({ success: true, tabId: tab.id, notionUrl });
@@ -423,7 +437,7 @@ export function createSaveHandlers(services) {
         });
       } catch (error) {
         Logger.error('❌ handleOpenNotionPage 錯誤:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -434,7 +448,10 @@ export function createSaveHandlers(services) {
       try {
         const { pageId } = request;
         if (!pageId) {
-          sendResponse({ success: false, error: 'Page ID is missing' });
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_PAGE_ID),
+          });
           return;
         }
 
@@ -443,7 +460,7 @@ export function createSaveHandlers(services) {
         const exists = await notionService.checkPageExists(pageId);
         sendResponse({ success: true, exists });
       } catch (error) {
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -540,7 +557,7 @@ export function createSaveHandlers(services) {
         }
       } catch (error) {
         Logger.error('Error in checkPageStatus:', error);
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
 
@@ -569,7 +586,7 @@ export function createSaveHandlers(services) {
         sendResponse({ success: true });
       } catch (error) {
         // 日誌處理不應崩潰
-        sendResponse({ success: false, error: error.message });
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(error) });
       }
     },
   };

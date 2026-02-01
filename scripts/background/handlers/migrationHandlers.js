@@ -10,6 +10,7 @@
 /* global chrome, Logger */
 
 import { validateInternalRequest, isValidUrl } from '../../utils/securityUtils.js';
+import { ERROR_MESSAGES } from '../../config/constants.js';
 
 /**
  * 創建遷移處理函數
@@ -30,7 +31,7 @@ export function createMigrationHandlers(services) {
 
     // 2. URL 驗證：如果提供了 URL，必須是有效的 http 或 https URL
     if (url && !isValidUrl(url)) {
-      return { success: false, error: '拒絕訪問：僅支持 HTTP/HTTPS 協議的有效 URL' };
+      return { success: false, error: ERROR_MESSAGES.USER_MESSAGES.INVALID_URL_PROTOCOL };
     }
 
     return null; // 驗證通過
@@ -66,7 +67,7 @@ export function createMigrationHandlers(services) {
         }
 
         if (!url) {
-          sendResponse({ success: false, error: '缺少 URL 參數' });
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL });
           return;
         }
 
@@ -202,14 +203,14 @@ export function createMigrationHandlers(services) {
         Logger.log('🚀 [Migration] 執行 DOM 遷移...');
         const migrationResult = await chrome.scripting.executeScript({
           target: { tabId: targetTab.id },
-          func: async () => {
+          func: async (executorErrorMsg, managerErrorMsg) => {
             // 在分頁上下文中執行
             if (!window.MigrationExecutor) {
-              return { error: 'MigrationExecutor 未載入' };
+              return { error: executorErrorMsg };
             }
 
             if (!window.HighlighterV2?.manager) {
-              return { error: 'HighlighterV2.manager 未初始化' };
+              return { error: managerErrorMsg };
             }
 
             const executor = new window.MigrationExecutor();
@@ -225,6 +226,10 @@ export function createMigrationHandlers(services) {
               statistics: stats,
             };
           },
+          args: [
+            ERROR_MESSAGES.USER_MESSAGES.MIGRATION_EXECUTOR_NOT_LOADED,
+            ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHTER_MANAGER_NOT_INITIALIZED,
+          ],
         });
 
         const execResult = migrationResult[0]?.result;
@@ -284,7 +289,7 @@ export function createMigrationHandlers(services) {
         }
 
         if (!url) {
-          sendResponse({ success: false, error: '缺少 URL 參數' });
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL });
           return;
         }
 
@@ -333,14 +338,17 @@ export function createMigrationHandlers(services) {
         }
 
         if (!urls || !Array.isArray(urls) || urls.length === 0) {
-          sendResponse({ success: false, error: '缺少 URLs 參數' });
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL });
           return;
         }
 
         // 驗證 URLs 安全性
         const invalidUrls = urls.filter(urlItem => !isValidUrl(urlItem));
         if (invalidUrls.length > 0) {
-          sendResponse({ success: false, error: '拒絕訪問：包含無效或不支持的 URL' });
+          sendResponse({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.INVALID_URLS_IN_BATCH,
+          });
           return;
         }
 
@@ -423,14 +431,17 @@ export function createMigrationHandlers(services) {
         }
 
         if (!urls || !Array.isArray(urls) || urls.length === 0) {
-          sendResponse({ success: false, error: '缺少 URLs 參數' });
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL });
           return;
         }
 
         // 驗證 URLs 安全性
         const invalidUrls = urls.filter(urlItem => !isValidUrl(urlItem));
         if (invalidUrls.length > 0) {
-          sendResponse({ success: false, error: '拒絕訪問：包含無效或不支持的 URL' });
+          sendResponse({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.INVALID_URLS_IN_BATCH,
+          });
           return;
         }
 
@@ -537,7 +548,7 @@ export function createMigrationHandlers(services) {
         }
 
         if (!url) {
-          sendResponse({ success: false, error: '缺少 URL 參數' });
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL });
           return;
         }
 
@@ -545,7 +556,7 @@ export function createMigrationHandlers(services) {
         const result = await chrome.storage.local.get(key);
 
         if (!result[key]) {
-          sendResponse({ success: false, error: '找不到該頁面的標註數據' });
+          sendResponse({ success: false, error: ERROR_MESSAGES.USER_MESSAGES.NO_HIGHLIGHT_DATA });
           return;
         }
 

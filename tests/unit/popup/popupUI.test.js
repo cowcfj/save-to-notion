@@ -166,8 +166,13 @@ describe('popupUI.js', () => {
     it('應該包含警告圖標（如果存在 warning）', () => {
       const response = { created: true, warning: 'Size limit' };
       const msg = formatSaveSuccessMessage(response);
-      expect(msg).toContain('<svg');
-      expect(msg).toContain('Size limit');
+      expect(Array.isArray(msg)).toBe(true);
+      expect(msg[0]).toContain('Created successfully!');
+      expect(msg[1]).toEqual({
+        type: 'svg',
+        content: expect.stringContaining('<svg'),
+      });
+      expect(msg[2]).toBe('Size limit');
     });
   });
 });

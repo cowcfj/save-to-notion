@@ -11,8 +11,7 @@
 
 /* global chrome */
 
-import { AppError, ErrorTypes } from '../../utils/ErrorHandler.js';
-import { sanitizeApiError } from '../../utils/securityUtils.js';
+import { ErrorHandler, AppError, ErrorTypes } from '../../utils/ErrorHandler.js';
 
 /**
  * MessageHandler 類
@@ -72,11 +71,11 @@ class MessageHandler {
       return error.toResponse();
     }
 
-    // 對於非 AppError：使用 securityUtils 進行訊息消毒
+    // 對於非 AppError：使用 ErrorHandler 進行格式化
     // 完整錯誤細節已由調用方（handle 方法）記錄到日誌
     return {
       success: false,
-      error: sanitizeApiError(error, action),
+      error: ErrorHandler.formatUserMessage(error),
       errorType: ErrorTypes.INTERNAL,
       action,
     };
