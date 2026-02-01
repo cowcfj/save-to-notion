@@ -314,6 +314,11 @@ export const ERROR_MESSAGES = {
     // 網路與限流
     'Network error': '網路連線異常，請檢查網路後重試',
     'rate limit': '請求過於頻繁，請稍後再試',
+    timeout: '請求超時，請檢查網路連線',
+
+    // 內部與其他錯誤
+    'Internal Server Error': 'Notion 服務暫時不可用，請稍後再試',
+    'Unknown Error': '發生未知錯誤，請稍後再試',
   },
 
   /**

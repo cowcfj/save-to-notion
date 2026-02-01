@@ -264,7 +264,7 @@ describe('securityUtils', () => {
         ['authentication failed'],
       ])('"%s" 應返回 API Key 錯誤訊息', input => {
         const result = sanitizeApiError(input);
-        expect(result).toBe('API Key 無效或已過期，請檢查設置');
+        expect(result).toBe('API Key');
       });
     });
 
@@ -276,7 +276,7 @@ describe('securityUtils', () => {
         ['access denied to resource'],
       ])('"%s" 應返回權限不足訊息', input => {
         const result = sanitizeApiError(input);
-        expect(result).toBe('權限不足，請確認已授予擴充功能適當的 Notion 權限');
+        expect(result).toBe('Cannot access contents');
       });
     });
 
@@ -285,7 +285,7 @@ describe('securityUtils', () => {
         '"%s" 應返回速率限制訊息',
         input => {
           const result = sanitizeApiError(input);
-          expect(result).toBe('請求過於頻繁，請稍候再試');
+          expect(result).toBe('rate limit');
         }
       );
     });
@@ -295,7 +295,7 @@ describe('securityUtils', () => {
         '"%s" 應返回資源不存在訊息',
         input => {
           const result = sanitizeApiError(input);
-          expect(result).toBe('找不到指定的資源，可能已被刪除');
+          expect(result).toBe('Page ID is missing');
         }
       );
     });
@@ -305,7 +305,7 @@ describe('securityUtils', () => {
         '"%s" 應返回數據格式訊息',
         input => {
           const result = sanitizeApiError(input);
-          expect(result).toBe('數據格式不符合要求，已嘗試自動修正');
+          expect(result).toBe('Invalid request');
         }
       );
     });
@@ -318,7 +318,7 @@ describe('securityUtils', () => {
         ['ENOTFOUND api.notion.com'],
       ])('"%s" 應返回網絡錯誤訊息', input => {
         const result = sanitizeApiError(input);
-        expect(result).toBe('網絡連接失敗，請檢查網絡狀態後重試');
+        expect(result).toBe('Network error');
       });
     });
 
@@ -327,7 +327,7 @@ describe('securityUtils', () => {
         '"%s" 應返回服務不可用訊息',
         input => {
           const result = sanitizeApiError(input);
-          expect(result).toBe('Notion 服務暫時不可用，請稍後再試');
+          expect(result).toBe('Internal Server Error');
         }
       );
     });
@@ -335,24 +335,24 @@ describe('securityUtils', () => {
     describe('數據庫錯誤', () => {
       test('數據庫相關錯誤（帶頁面上下文）應返回權限提示', () => {
         const result = sanitizeApiError('database not accessible', 'create_page');
-        expect(result).toBe('無法訪問目標數據庫，請確認 API Key 權限設置');
+        expect(result).toBe('Data Source ID');
       });
     });
 
     describe('通用錯誤', () => {
       test('未知錯誤應返回通用訊息', () => {
         const result = sanitizeApiError('some unknown error xyz');
-        expect(result).toBe('操作失敗，請稍後再試。如問題持續，請查看擴充功能設置');
+        expect(result).toBe('Unknown Error');
       });
 
       test('錯誤對象應被正確處理', () => {
         const result = sanitizeApiError({ message: 'unauthorized' });
-        expect(result).toBe('API Key 無效或已過期，請檢查設置');
+        expect(result).toBe('API Key');
       });
 
       test('空錯誤應返回通用訊息', () => {
         const result = sanitizeApiError({});
-        expect(result).toBe('操作失敗，請稍後再試。如問題持續，請查看擴充功能設置');
+        expect(result).toBe('Unknown Error');
       });
     });
   });

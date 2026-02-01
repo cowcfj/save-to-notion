@@ -7,6 +7,7 @@
 
 import Logger from '../utils/Logger.js';
 import { sanitizeApiError, validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js';
 
 /**
  * 管理存儲空間的類別
@@ -117,7 +118,8 @@ export class StorageManager {
       const icon =
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
       const safeMessage = sanitizeApiError(error, 'export_backup');
-      this.showDataStatus(`${icon} 備份失敗：${safeMessage}`, 'error');
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.showDataStatus(`${icon} 備份失敗：${errorMsg}`, 'error');
     }
   }
 
@@ -161,7 +163,8 @@ export class StorageManager {
         const icon =
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
         const safeMessage = sanitizeApiError(error, 'import_backup');
-        this.showDataStatus(`${icon} 恢復失敗：${safeMessage}`, 'error');
+        const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+        this.showDataStatus(`${icon} 恢復失敗：${errorMsg}`, 'error');
         this.elements.importFile.value = '';
       }
     };
@@ -203,7 +206,8 @@ export class StorageManager {
       const icon =
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
       const safeMessage = sanitizeApiError(error, 'check_duplicates');
-      this.showDataStatus(`${icon} 檢查失敗：${safeMessage}`, 'error');
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.showDataStatus(`${icon} 檢查失敗：${errorMsg}`, 'error');
     }
   }
 
@@ -411,7 +415,8 @@ export class StorageManager {
     } catch (error) {
       Logger.error('預覽清理失敗:', error);
       const safeMessage = sanitizeApiError(error, 'preview_cleanup');
-      this.showDataStatus(`❌ 預覽清理失敗: ${safeMessage}`, 'error');
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.showDataStatus(`❌ 預覽清理失敗: ${errorMsg}`, 'error');
     } finally {
       this.setPreviewButtonLoading(false);
     }
@@ -654,7 +659,8 @@ export class StorageManager {
       const failIcon =
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
       const safeMessage = sanitizeApiError(error, 'cleanup');
-      this.showDataStatus(`${failIcon} 清理失敗：${safeMessage}`, 'error');
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.showDataStatus(`${failIcon} 清理失敗：${errorMsg}`, 'error');
     }
   }
 

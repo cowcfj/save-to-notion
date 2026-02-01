@@ -167,92 +167,98 @@ export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
 }
 
 /**
- * 清理外部 API 錯誤訊息，防止洩露技術細節
+ * 清理外部 API 錯誤訊息，防止洩露技術細節並標準化錯誤分類
  *
- * 安全考量：
- * - 外部 API 錯誤可能包含內部實現細節、stack traces、技術資訊
- * - 這些資訊可能被攻擊者利用來探測系統弱點
- * - 應將技術錯誤轉換為用戶友好的通用訊息
+ * 安全與架構考量：
+ * 1. 職責分離：此函數僅負責「分類」與「清洗」，不包含 UI 文案。
+ * 2. 縱深防禦：防止內部實現細節、Stack Traces 等洩露。
+ * 3. 翻譯橋接：返回的字串（如 'API Key'）應與 constants.js 中的 ERROR_MESSAGES.PATTERNS 鍵對應。
  *
  * @param {string|Object} apiError - API 錯誤訊息或錯誤對象
  * @param {string} context - 錯誤上下文（如 'create_page', 'update_page'）
- * @returns {string} 清理後的用戶友好錯誤訊息
- *
- * @example
- * // API 返回技術錯誤
- * sanitizeApiError('invalid_request_url: The request URL is not valid', 'create_page')
- * // 返回: '操作失敗，請稍後再試'
- *
- * @example
- * // 權限錯誤
- * sanitizeApiError('unauthorized: API token is invalid', 'save_page')
- * // 返回: 'API Key 無效或已過期，請檢查設置'
+ * @returns {string} 錯誤代碼或清洗後的安全錯誤訊息（由 ErrorHandler 轉換為友善語句）
  */
 export function sanitizeApiError(apiError, context = 'operation') {
   const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
   const lowerMessage = errorMessage.toLowerCase();
 
-  // 權限/認證錯誤
+  // 1. 權限/認證錯誤 (映射至 constants.js: 'API Key')
   if (
     lowerMessage.includes('unauthorized') ||
     lowerMessage.includes('invalid token') ||
     lowerMessage.includes('invalid api') ||
     lowerMessage.includes('authentication')
   ) {
-    return 'API Key 無效或已過期，請檢查設置';
+    return 'API Key';
   }
 
-  // 權限不足錯誤
+  // 2. 權限不足錯誤 (通常與 API Token 範圍有關)
   if (
     lowerMessage.includes('forbidden') ||
     lowerMessage.includes('permission') ||
     lowerMessage.includes('access denied')
   ) {
-    return '權限不足，請確認已授予擴充功能適當的 Notion 權限';
+    return 'Cannot access contents'; // 映射至資產存取類錯誤
   }
 
-  // 速率限制錯誤
+  // 3. 速率限制錯誤 (映射至 constants.js: 'rate limit')
   if (lowerMessage.includes('rate limit') || lowerMessage.includes('too many requests')) {
-    return '請求過於頻繁，請稍候再試';
+    return 'rate limit';
   }
 
-  // 資源不存在錯誤
+  // 4. 資源不存在錯誤
   if (lowerMessage.includes('not found') || lowerMessage.includes('does not exist')) {
-    return '找不到指定的資源，可能已被刪除';
+    return 'Page ID is missing'; // 映射至資源遺失類錯誤
   }
 
-  // 驗證錯誤（圖片、數據格式等）
+  // 5. 數據數據庫/頁面上下文錯誤 (映射至 constants.js: 'Data Source ID' 或 'Invalid request')
+  // 如果 context 包含 page 且訊息提到 database，通常意味著權限不足以訪問該資料庫
+  if (
+    lowerMessage.includes('database') ||
+    lowerMessage.includes('object_not_found') ||
+    (lowerMessage.includes('database') && context.includes('page'))
+  ) {
+    return 'Data Source ID';
+  }
+
+  // 6. 驗證錯誤（圖片、數據格式等）
   if (
     lowerMessage.includes('validation') ||
     lowerMessage.includes('image') ||
-    lowerMessage.includes('media')
+    lowerMessage.includes('media') ||
+    lowerMessage.includes('conflict')
   ) {
-    return '數據格式不符合要求，已嘗試自動修正';
+    return 'Invalid request';
   }
 
-  // 網絡錯誤
+  // 7. 網絡/超時錯誤 (映射至 constants.js: 'Network error')
   if (
     lowerMessage.includes('network') ||
     lowerMessage.includes('fetch') ||
     lowerMessage.includes('timeout') ||
     lowerMessage.includes('enotfound')
   ) {
-    return '網絡連接失敗，請檢查網絡狀態後重試';
+    return 'Network error';
   }
 
-  // Notion 服務錯誤
-  if (lowerMessage.includes('service unavailable') || lowerMessage.includes('internal error')) {
-    return 'Notion 服務暫時不可用，請稍後再試';
+  // 8. Notion 服務器內部錯誤
+  if (
+    (lowerMessage.includes('service') && lowerMessage.includes('unavailable')) ||
+    (lowerMessage.includes('internal') && lowerMessage.includes('error'))
+  ) {
+    return 'Internal Server Error';
   }
 
-  // 數據庫相關錯誤
-  if (lowerMessage.includes('database') && context.includes('page')) {
-    return '無法訪問目標數據庫，請確認 API Key 權限設置';
+  // 9. 如果是已知友善字串（兼容性墊片）：
+  // 如果字串中包含中文字符，視為已經是友善訊息，原樣返回
+  if (/[\u4e00-\u9fa5]/.test(errorMessage)) {
+    return errorMessage;
   }
 
-  // 通用錯誤（最後的兜底）
-  // 不洩露任何技術細節
-  return '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置';
+  // 10. 兜底處理：將不可識別的技術訊息清洗為通用標籤
+  // 不直接返回 errorMessage 以防洩露敏感資訊
+  Logger.warn(`[Security] Unrecognized API error sanitized: ${errorMessage.substring(0, 50)}...`);
+  return 'Unknown Error';
 }
 
 // ============================================================================

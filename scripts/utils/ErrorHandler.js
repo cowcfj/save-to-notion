@@ -144,27 +144,45 @@ class ErrorHandler {
 
   /**
    * 格式化用戶可見的錯誤訊息
-   * 根據調試模式返回不同詳細程度的訊息
-   * @param {Error|string} error - 原始錯誤
-   * @returns {string} 格式化後的錯誤訊息
+   *
+   * 實作分層架構下的錯誤翻譯邏輯：
+   * 1. 兼容性檢查：如果訊息本身已包含中文字符，視為已翻譯訊息，直接返回。
+   * 2. 精確匹配：優先查找是否為預定義的 Error Code 鍵（如 'rate_limit'）。
+   * 3. 模式匹配：回退到傳統的關鍵字子字串匹配（如 'API Key'）。
+   * 4. 兜底保護：若均未命中，返回統一的預設友善訊息。
+   *
+   * @param {Error|string} error - 原始錯誤物件或錯誤代碼字串
+   * @returns {string} 格式化後的用戶友善錯誤訊息
    */
   static formatUserMessage(error) {
+    if (!error) {
+      return ERROR_MESSAGES.DEFAULT;
+    }
+
     const message = error instanceof Error ? error.message : String(error);
 
-    // 安全修復：即使在調試模式下，也不應向用戶顯示原始錯誤訊息
-    // 原始錯誤訊息應通過日誌查看
-    // if (this.logger.debugEnabled) {
-    //   return message;
-    // }
+    // [兼容性墊片]：如果訊息已經包含中文字符，說明已經是友善訊息，直接返回
+    if (/[\u4e00-\u9fa5]/.test(message)) {
+      return message;
+    }
 
-    // 一般模式：檢查已知錯誤模式
+    // [第一層：精確匹配]
+    // 檢查 message 是否完全等於 PATTERNS 中的某個 Key (Error Code 模式)
+    if (ERROR_MESSAGES.PATTERNS[message]) {
+      return ERROR_MESSAGES.PATTERNS[message];
+    }
+
+    // [第二層：模式匹配]
+    // 傳統的關鍵字子字串檢查 (Legacy 模式)
+    const lowerMessage = message.toLowerCase();
     for (const [pattern, friendly] of Object.entries(ERROR_MESSAGES.PATTERNS)) {
-      if (message.toLowerCase().includes(pattern.toLowerCase())) {
+      if (lowerMessage.includes(pattern.toLowerCase())) {
         return friendly;
       }
     }
 
-    // 未知錯誤：返回通用訊息
+    // [第三層：兜底保護]
+    // 防止直接將技術代碼 (如 'unknown_api_response') 顯示給用戶
     return ERROR_MESSAGES.DEFAULT;
   }
 }

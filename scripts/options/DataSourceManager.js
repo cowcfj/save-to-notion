@@ -5,6 +5,7 @@
 import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeApiError } from '../utils/securityUtils.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js';
 
 /**
  * 資料來源管理器
@@ -116,16 +117,18 @@ export class DataSourceManager {
         const errorData = await response.json();
         Logger.error('API 錯誤:', errorData);
 
-        let errorMessage = '載入保存目標失敗: ';
+        let errorKey = 'Invalid request';
         if (response.status === 401) {
-          errorMessage += 'API Key 無效或已過期';
+          errorKey = 'API Key';
         } else if (response.status === 403) {
-          errorMessage += 'API Key 沒有足夠的權限';
-        } else {
-          errorMessage += errorData.message || `HTTP ${response.status}`;
+          errorKey = 'Cannot access contents';
+        } else if (response.status === 429) {
+          errorKey = 'rate limit';
         }
 
-        this.ui.showStatus(errorMessage, 'error');
+        const translated = ErrorHandler.formatUserMessage(errorKey);
+        this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');
+
         if (this.elements.databaseSelect) {
           this.elements.databaseSelect.style.display = 'none';
         }
@@ -134,7 +137,8 @@ export class DataSourceManager {
       Logger.error('載入保存目標失敗:', error);
 
       const safeMessage = sanitizeApiError(error, 'load_databases');
-      this.ui.showStatus(`載入保存目標失敗: ${safeMessage}`, 'error');
+      const translated = ErrorHandler.formatUserMessage(safeMessage);
+      this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');
       if (this.elements.databaseSelect) {
         this.elements.databaseSelect.style.display = 'none';
       }
