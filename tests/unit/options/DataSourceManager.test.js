@@ -334,8 +334,9 @@ describe('DataSourceManager', () => {
 
       await dataSourceManager.loadDatabases('test_key');
 
+      // sanitizeApiError 會正確識別 Internal Server Error 為服務不可用錯誤
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('請求無效'),
+        expect.stringContaining('Notion 服務暫時不可用'),
         'error'
       );
     });
