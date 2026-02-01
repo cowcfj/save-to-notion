@@ -215,21 +215,21 @@ export function sanitizeApiError(apiError, context = 'operation') {
   const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
   const lowerMessage = errorMessage.toLowerCase();
 
-  // 1. API Key 格式無效（區分於連接斷開）
+  // 1. Integration 連接斷開（token 被撤銷或過期）- 最具體，優先檢查
+  if (
+    lowerMessage.includes('unauthorized') &&
+    (lowerMessage.includes('token') || lowerMessage.includes('integration'))
+  ) {
+    return 'Integration disconnected';
+  }
+
+  // 2. API Key 格式無效
   if (
     lowerMessage.includes('invalid token') ||
     lowerMessage.includes('invalid api key') ||
     lowerMessage.includes('malformed')
   ) {
     return 'Invalid API Key format';
-  }
-
-  // 2. Integration 連接斷開（token 被撤銷或過期）
-  if (
-    lowerMessage.includes('unauthorized') &&
-    (lowerMessage.includes('token') || lowerMessage.includes('integration'))
-  ) {
-    return 'Integration disconnected';
   }
 
   // 3. 一般認證錯誤 (映射至 constants.js: 'API Key')
