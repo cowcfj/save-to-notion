@@ -345,7 +345,7 @@ export function createHighlightHandlers(services) {
         Logger.log('準備同步標註到頁面', {
           action: 'syncHighlights',
           count: highlights.length,
-          pageId: savedData.notionPageId,
+          pageId: savedData.notionPageId ? `${savedData.notionPageId.slice(0, 4)}***` : 'unknown',
         });
 
         if (highlights.length === 0) {

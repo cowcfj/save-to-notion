@@ -558,6 +558,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該成功同步', async () => {
       const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
