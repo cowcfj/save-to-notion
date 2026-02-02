@@ -224,7 +224,8 @@ beforeEach(() => {
 // 每個測試前重置 mocks
 beforeEach(() => {
   // 清理 DOM
-  if (document.body) {
+  // 清理 DOM
+  if (typeof document !== 'undefined' && document.body) {
     document.body.innerHTML = '';
   }
 

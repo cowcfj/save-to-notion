@@ -8,6 +8,7 @@
  */
 
 import { LogBuffer } from './LogBuffer.js';
+import { LogSanitizer } from './LogSanitizer.js';
 
 // 內部狀態
 let _debugEnabled = false;
@@ -121,11 +122,14 @@ function writeToBuffer(level, message, args) {
         context = { details: args };
       }
 
+      // 即時脫敏：確保存儲在 LogBuffer 中的數據是安全的
+      const safeEntry = LogSanitizer.sanitizeEntry(String(message), context);
+
       _logBuffer.push({
         level,
         source: 'background', // 暫時假設都在 background 寫入，content script 透過 sendToBackground 過來
-        message: String(message),
-        context,
+        message: safeEntry.message,
+        context: safeEntry.context,
       });
     } catch (err) {
       console.error('[Logger] Failed to write to buffer', err);

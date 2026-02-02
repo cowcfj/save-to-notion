@@ -26,6 +26,25 @@ export class LogSanitizer {
    * @param {Array<Object>} logs - 原始日誌陣列
    * @returns {Array<Object>} 脫敏後的日誌副本
    */
+
+  /**
+   * 清洗單條日誌條目
+   * @param {string} message - 日誌訊息
+   * @param {Object} context - 日誌上下文
+   * @returns {Object} { message, context } 脫敏後的結果
+   */
+  static sanitizeEntry(message, context) {
+    return {
+      message: this._sanitizeString(message),
+      context: this._sanitizeValue(context, 0),
+    };
+  }
+
+  /**
+   * 清洗日誌列表
+   * @param {Array<Object>} logs - 原始日誌陣列
+   * @returns {Array<Object>} 脫敏後的日誌副本
+   */
   static sanitize(logs) {
     if (!Array.isArray(logs)) {
       return [];
@@ -34,8 +53,7 @@ export class LogSanitizer {
     // Map returns a new array, deep cloning is done during sanitization properties
     return logs.map(log => ({
       ...log,
-      message: this._sanitizeString(log.message),
-      context: this._sanitizeValue(log.context, 0),
+      ...this.sanitizeEntry(log.message, log.context),
     }));
   }
 

@@ -1,6 +1,5 @@
 /* global chrome */
 import Logger from './Logger.js'; // Default export
-import { LogSanitizer } from './LogSanitizer.js';
 
 export class LogExporter {
   /**
@@ -20,7 +19,9 @@ export class LogExporter {
     const count = rawLogs.length;
 
     // 2. 脫敏處理
-    const safeLogs = LogSanitizer.sanitize(rawLogs);
+    // 注意：Logger 已在寫入緩衝區時進行即時脫敏 (Sanitize-on-Write)
+    // 因此這裡取得的日誌已經是安全的，無需再次脫敏。
+    const safeLogs = rawLogs;
 
     // 3. 格式化輸出
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
