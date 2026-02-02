@@ -360,7 +360,7 @@ describe('StorageManager Extended', () => {
       expect(mockGet).toHaveBeenCalled();
     });
 
-    test('應正確轉義惡意 URL 以防止 XSS', async () => {
+    test('應正確轉義惡意 URL 以防止 XSS', () => {
       const maliciousUrl = 'http://example.com/search?q=<script>alert(1)</script>';
       const encodedUrl = encodeURIComponent(maliciousUrl);
 

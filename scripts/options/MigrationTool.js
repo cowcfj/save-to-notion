@@ -160,7 +160,7 @@ export class MigrationTool {
       const paragraph = document.createElement('p');
       const totalHighlights = result.items.reduce((sum, item) => sum + item.highlightCount, 0);
       paragraph.textContent = `共檢測到 ${totalHighlights} 個舊版標記需遷移。請選擇要遷移或刪除的項目。`;
-      box.appendChild(paragraph);
+      warningBox.appendChild(paragraph);
 
       scanStatus.appendChild(warningBox);
       scanStatus.className = '';

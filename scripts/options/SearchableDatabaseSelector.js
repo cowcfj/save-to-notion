@@ -363,7 +363,10 @@ export class SearchableDatabaseSelector {
 
     // 搜索關鍵字高亮
     const query = this.searchInput ? this.searchInput.value.trim() : '';
-    const highlightedTitleFragment = this._createHighlightedText(db.title, query);
+    const highlightedTitleFragment = SearchableDatabaseSelector._createHighlightedText(
+      db.title,
+      query
+    );
     titleRow.appendChild(highlightedTitleFragment);
 
     // Badges
@@ -489,9 +492,10 @@ export class SearchableDatabaseSelector {
    * @param {string} text - 原始文字
    * @param {string} query - 搜尋關鍵字
    * @returns {DocumentFragment}
+   * @static
    * @private
    */
-  _createHighlightedText(text, query) {
+  static _createHighlightedText(text, query) {
     const fragment = document.createDocumentFragment();
     if (!query) {
       fragment.appendChild(document.createTextNode(text));
