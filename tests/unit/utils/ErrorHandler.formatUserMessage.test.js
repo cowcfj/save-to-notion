@@ -4,7 +4,7 @@
 /* eslint-env jest */
 
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
-import { ERROR_MESSAGES } from '../../../scripts/config/constants.js';
+import { ERROR_MESSAGES } from '../../../scripts/config/messages.js';
 
 describe('ErrorHandler.formatUserMessage', () => {
   let mockLogger = null;
@@ -81,19 +81,19 @@ describe('ErrorHandler.formatUserMessage', () => {
     expect(ErrorHandler.formatUserMessage('api key is missing')).toBe(ERROR_MESSAGES.DEFAULT);
   });
 
-  describe('XSS 防護', () => {
-    test('包含中文的惡意字串應被轉義', () => {
+  describe('XSS 防護 (安全渲染策略)', () => {
+    test('包含中文的惡意字串應保持原樣 (由 UI 層負責轉義)', () => {
       const malicious = '發生錯誤<script>alert("XSS")</script>';
       const result = ErrorHandler.formatUserMessage(malicious);
-      expect(result).toBe('發生錯誤&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;');
-      expect(result).not.toContain('<script>');
+      // 驗證 ErrorHandler 不進行轉義，而是由這裡的 expect 確認它“未被轉義”
+      // 實際的安全防護由 textContent 在 UI 層完成
+      expect(result).toBe(malicious);
     });
 
-    test('包含中文的 img onerror 攻擊應被轉義', () => {
+    test('包含中文的 img onerror 攻擊應保持原樣 (由 UI 層負責轉義)', () => {
       const malicious = '請稍後再試<img src=x onerror=alert(1)>';
       const result = ErrorHandler.formatUserMessage(malicious);
-      expect(result).toContain('&lt;img');
-      expect(result).not.toContain('<img');
+      expect(result).toBe(malicious);
     });
 
     test('純中文字串應保持不變', () => {
@@ -102,10 +102,10 @@ describe('ErrorHandler.formatUserMessage', () => {
       expect(result).toBe(chinese);
     });
 
-    test('含特殊字符的中文訊息應被轉義', () => {
+    test('含特殊字符的中文訊息應保持不變', () => {
       const withSpecialChars = '錯誤: "a" & "b"';
       const result = ErrorHandler.formatUserMessage(withSpecialChars);
-      expect(result).toBe('錯誤: &quot;a&quot; &amp; &quot;b&quot;');
+      expect(result).toBe(withSpecialChars);
     });
   });
 });
