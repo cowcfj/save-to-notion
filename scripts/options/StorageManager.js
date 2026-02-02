@@ -602,7 +602,7 @@ export class StorageManager {
 
     // summaryText variable removed as it was unused
 
-    const warnIcon = UI_ICONS.WARNING;
+    const icon = UI_ICONS.WARNING;
 
     this.elements.cleanupPreview.textContent = '';
 
@@ -622,8 +622,8 @@ export class StorageManager {
 
     const warningDiv = document.createElement('div');
     warningDiv.className = 'warning-notice';
-    // warnIcon 是受信任的 SVG 字串
-    warningDiv.appendChild(createSafeIcon(warnIcon));
+    // icon 是受信任的 SVG 字串
+    warningDiv.appendChild(createSafeIcon(icon));
 
     // " 重要提醒："
     warningDiv.appendChild(document.createTextNode(' '));
