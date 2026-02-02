@@ -571,6 +571,7 @@ export class StorageManager {
       container.className = 'cleanup-summary';
 
       const strong = document.createElement('strong');
+      const icon = UI_ICONS.SUCCESS;
       strong.appendChild(createSafeIcon(icon));
       strong.appendChild(document.createTextNode(' 沒有發現需要清理的數據'));
       container.appendChild(strong);
