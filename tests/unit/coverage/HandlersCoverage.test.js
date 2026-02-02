@@ -113,6 +113,9 @@ describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
         const sendResponse = jest.fn();
         const evilSender = { id: 'mock-id', tab: { id: 1, url: 'https://evil.com' } };
         await handlers.startHighlight({}, evilSender, sendResponse);
-        expect(sendResponse).toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            success: false,
+            error: expect.stringMatching(/拒絕訪問|此操作僅限擴充功能內部調用/),
+        });
     });
 });
