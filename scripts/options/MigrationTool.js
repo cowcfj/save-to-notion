@@ -6,6 +6,7 @@
 import { MigrationScanner } from './MigrationScanner.js';
 import { sanitizeApiError } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
+import { UI_ICONS } from '../config/index.js';
 
 /**
  * 遷移工具類別
@@ -119,9 +120,7 @@ export class MigrationTool {
 
     if (!result.needsMigration) {
       if (scanStatus) {
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-        scanStatus.innerHTML = `${icon} 未發現舊版格式的標註，所有數據均為最新格式。`;
+        scanStatus.innerHTML = `${UI_ICONS.CHECK} 未發現舊版格式的標註，所有數據均為最新格式。`;
         scanStatus.className = 'success';
       }
       this.hideMigrationList();
@@ -134,7 +133,7 @@ export class MigrationTool {
       const totalHighlights = result.items.reduce((sum, item) => sum + item.highlightCount, 0);
       scanStatus.innerHTML = `
         <div class="warning-box">
-          <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 發現 ${result.items.length} 個頁面包含舊版標記</strong>
+          <strong>${UI_ICONS.WARNING} 發現 ${result.items.length} 個頁面包含舊版標記</strong>
           <p>共檢測到 ${totalHighlights} 個舊版標記需遷移。請選擇要遷移或刪除的項目。</p>
         </div>
       `;
@@ -515,14 +514,14 @@ export class MigrationTool {
     if (results.failed === 0) {
       migrationResult.innerHTML = `
         <div class="success-box">
-          <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg> ${actionText}成功！</strong>
+          <strong>${UI_ICONS.CHECK} ${actionText}成功！</strong>
           <p>已成功${actionText} ${results.success} 個頁面的數據。</p>
         </div>
       `;
     } else if (results.success > 0) {
       migrationResult.innerHTML = `
         <div class="warning-box">
-          <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 部分${actionText}完成</strong>
+          <strong>${UI_ICONS.WARNING} 部分${actionText}完成</strong>
           <p>成功: ${results.success}, 失敗: ${results.failed}</p>
           <div class="error-list">
             ${results.errors.map(err => `<div class="error-item">${MigrationTool.escapeHtml(err)}</div>`).join('')}
@@ -532,7 +531,7 @@ export class MigrationTool {
     } else {
       migrationResult.innerHTML = `
         <div class="error-box">
-          <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ${actionText}失敗</strong>
+          <strong>${UI_ICONS.ERROR} ${actionText}失敗</strong>
           <p>所有項目${actionText}失敗</p>
           <div class="error-list">
             ${results.errors.map(err => `<div class="error-item">${MigrationTool.escapeHtml(err)}</div>`).join('')}
@@ -564,7 +563,7 @@ export class MigrationTool {
         detail => `
         <div class="migration-result-item">
           <span class="result-url" title="${MigrationTool.escapeHtml(detail.url || '')}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg> ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(detail.url || ''))}
+            ${UI_ICONS.CHECK} ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(detail.url || ''))}
             <span class="count-badge">${detail.count ?? 0} 個標註${(detail.pending ?? 0) > 0 ? `，${detail.pending} 待完成` : ''}</span>
           </span>
           <a href="${MigrationTool.escapeHtml(detail.url || '')}" target="_blank" class="open-page-link">
@@ -581,13 +580,13 @@ export class MigrationTool {
 
     migrationResult.innerHTML = `
       <div class="success-box">
-        <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg> 批量遷移完成</strong>
+        <strong>${UI_ICONS.CHECK} 批量遷移完成</strong>
         <p>已轉換 ${successCount} 個頁面，共 ${totalHighlights} 個標註。</p>
         ${
           totalPending > 0
             ? `
           <p class="hint">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> <strong>${totalPending}</strong> 個標註等待完成位置定位。
+            ${UI_ICONS.INFO} <strong>${totalPending}</strong> 個標註等待完成位置定位。
             訪問以下頁面時會自動完成，或點擊「打開頁面」立即完成。
           </p>
         `
@@ -611,7 +610,7 @@ export class MigrationTool {
 
     migrationResult.innerHTML = `
       <div class="success-box">
-        <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg> 刪除成功</strong>
+        <strong>${UI_ICONS.CHECK} 刪除成功</strong>
         <p>已刪除 ${count} 個頁面的舊版標註數據。</p>
       </div>
     `;
@@ -630,7 +629,7 @@ export class MigrationTool {
 
     migrationResult.innerHTML = `
       <div class="error-box">
-        <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> 操作失敗</strong>
+        <strong>${UI_ICONS.ERROR} 操作失敗</strong>
         <p>${MigrationTool.escapeHtml(errorMessage)}</p>
       </div>
     `;
@@ -706,7 +705,7 @@ export class MigrationTool {
         item => `
         <div class="migration-result-item">
           <span class="result-url" title="${MigrationTool.escapeHtml(item.url)}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(item.url))}
+            ${UI_ICONS.STAR} ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(item.url))}
             <span class="count-badge">${item.pendingCount} / ${item.totalCount} 待完成</span>
           </span>
           <a href="${MigrationTool.escapeHtml(item.url)}" target="_blank" class="open-page-link">
@@ -746,7 +745,7 @@ export class MigrationTool {
         item => `
         <div class="migration-result-item failed-item">
           <span class="result-url" title="${MigrationTool.escapeHtml(item.url)}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px; color: var(--warning-color);"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(item.url))}
+            ${UI_ICONS.WARNING} ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(item.url))}
             <span class="count-badge failed">${item.failedCount} 個無法恢復</span>
           </span>
           <button class="btn-danger btn-small delete-failed-btn" data-url="${MigrationTool.escapeHtml(item.url)}">

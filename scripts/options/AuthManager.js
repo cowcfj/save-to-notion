@@ -2,7 +2,7 @@
 import Logger from '../utils/Logger.js';
 import { sanitizeApiError } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { UI_MESSAGES } from '../config/index.js';
+import { UI_MESSAGES, UI_ICONS } from '../config/index.js';
 
 /**
  * AuthManager.js
@@ -144,11 +144,11 @@ export class AuthManager {
 
   handleConnectedState(result) {
     if (this.elements.authStatus) {
-      this.elements.authStatus.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>${UI_MESSAGES.AUTH.CONNECTED}</span>`;
+      this.elements.authStatus.innerHTML = `${UI_ICONS.SUCCESS}<span>${UI_MESSAGES.AUTH.STATUS_CONNECTED}</span>`;
       this.elements.authStatus.className = 'auth-status success';
     }
     if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML = `<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg></span><span>${UI_MESSAGES.AUTH.RECONNECT}</span>`;
+      this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.REFRESH}</span><span>${UI_MESSAGES.AUTH.ACTION_RECONNECT}</span>`;
     }
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'inline-flex';
@@ -178,11 +178,11 @@ export class AuthManager {
 
   handleDisconnectedState() {
     if (this.elements.authStatus) {
-      this.elements.authStatus.textContent = UI_MESSAGES.AUTH.NOT_CONNECTED;
+      this.elements.authStatus.textContent = UI_MESSAGES.AUTH.STATUS_DISCONNECTED;
       this.elements.authStatus.className = 'auth-status';
     }
     if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML = `<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>${UI_MESSAGES.AUTH.CONNECT}</span>`;
+      this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
     }
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'none';
@@ -205,13 +205,13 @@ export class AuthManager {
       setTimeout(() => {
         if (this.elements.oauthButton) {
           this.elements.oauthButton.disabled = false;
-          this.elements.oauthButton.innerHTML = `<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>${UI_MESSAGES.AUTH.CONNECT}</span>`;
+          this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
         }
       }, 2000);
     } catch (error) {
       if (this.elements.oauthButton) {
         this.elements.oauthButton.disabled = false;
-        this.elements.oauthButton.innerHTML = `<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>${UI_MESSAGES.AUTH.CONNECT}</span>`;
+        this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
       }
       const safeMessage = sanitizeApiError(error, 'open_notion_page');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);

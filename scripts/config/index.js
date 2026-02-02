@@ -29,3 +29,6 @@ export * from './messages.js';
 
 // 環境檢測配置
 export * from './env.js';
+
+// UI 圖標配置
+export * from './icons.js';

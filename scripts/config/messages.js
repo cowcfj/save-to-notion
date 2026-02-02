@@ -37,10 +37,19 @@ export const UI_MESSAGES = {
     TESTING_LABEL: '測試中...',
   },
   AUTH: {
-    CONNECTED: '已連接到 Notion',
-    NOT_CONNECTED: '未連接到 Notion',
-    CONNECT: '連接到 Notion',
-    RECONNECT: '重新設置',
+    // 狀態標籤
+    STATUS_CONNECTED: '已連接到 Notion',
+    STATUS_DISCONNECTED: '未連接到 Notion',
+
+    // 按鈕動作
+    ACTION_CONNECT: '連接到 Notion',
+    ACTION_RECONNECT: '重新設置',
+
+    // 即時提示
+    NOTIFY_SUCCESS: 'Notion 連接成功！',
+    NOTIFY_ERROR: 'Notion 連接失敗，請重試。',
+
+    // 導航/其他
     OPENING_NOTION: '正在打開 Notion...',
     OPEN_NOTION_FAILED: error => `打開 Notion 頁面失敗: ${error}`,
   },
@@ -170,6 +179,8 @@ export const ERROR_MESSAGES = {
     NAV_MISSING_ATTR: '設定頁面：導航項目缺少 data-section 屬性',
     NAV_TARGET_NOT_FOUND: '設定頁面：找不到目標區塊',
     TOOLBAR_SHOW_FAILED: 'Failed to show toolbar after save',
+    BACKGROUND_NO_RESPONSE: '未收到背景頁回應',
+    LOG_EXPORT_FAILED: '日誌導出失敗',
   },
 
   /**

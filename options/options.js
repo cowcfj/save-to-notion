@@ -39,9 +39,9 @@ export function initOptions() {
   chrome.runtime.onMessage.addListener(request => {
     if (request.action === 'oauth_success') {
       auth.checkAuthStatus();
-      ui.showStatus('Notion 連接成功！', 'success');
+      ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_SUCCESS, 'success');
     } else if (request.action === 'oauth_failed') {
-      ui.showStatus('Notion 連接失敗，請重試。', 'error');
+      ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_ERROR, 'error');
     }
   });
 
@@ -332,7 +332,7 @@ function setupLogExport() {
         });
 
         if (!response) {
-          throw new Error('未收到 Background 回應');
+          throw new Error(ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE);
         }
 
         // 檢查 error 屬性 (優先處理明確的錯誤訊息)
@@ -342,7 +342,7 @@ function setupLogExport() {
 
         // 檢查 success 欄位
         if (!response.success) {
-          throw new Error('日誌導出失敗');
+          throw new Error(ERROR_MESSAGES.TECHNICAL.LOG_EXPORT_FAILED);
         }
 
         const { filename, content, mimeType, count } = response.data;

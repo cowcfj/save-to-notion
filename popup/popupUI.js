@@ -4,6 +4,7 @@
  * 提供純函數來更新 Popup UI 狀態，便於單元測試。
  * 這些函數不直接依賴 Chrome API，僅操作 DOM 元素。
  */
+import { UI_ICONS } from '../scripts/config/index.js';
 
 /**
  * DOM 元素集合類型定義
@@ -66,6 +67,7 @@ export function setStatus(elements, content, color = '') {
           const span = document.createElement('span');
           span.innerHTML = part.content;
           // Add some basic styling for alignment
+          span.classList.add('status-icon-inline');
           span.style.display = 'inline-flex';
           span.style.verticalAlign = 'text-bottom';
           span.style.margin = '0 4px';
@@ -243,8 +245,7 @@ export function formatSaveSuccessMessage(response) {
     details = countsDetails;
 
     if (response.warning) {
-      const warnIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+      const warnIcon = UI_ICONS.WARNING;
 
       // Return structured array for safe rendering
       return [
