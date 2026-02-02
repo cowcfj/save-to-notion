@@ -122,6 +122,4 @@ class ContentExtractor {
   }
 }
 
-const contentExtractor = new ContentExtractor();
-
-export { ContentExtractor, contentExtractor };
+export { ContentExtractor };
