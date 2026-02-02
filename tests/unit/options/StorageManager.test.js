@@ -359,6 +359,31 @@ describe('StorageManager Extended', () => {
 
       expect(mockGet).toHaveBeenCalled();
     });
+
+    test('應正確轉義惡意 URL 以防止 XSS', async () => {
+      const maliciousUrl = 'http://example.com/search?q=<script>alert(1)</script>';
+      const encodedUrl = encodeURIComponent(maliciousUrl);
+
+      storageManager.cleanupPlan = {
+        items: [
+          {
+            key: 'malicious_key',
+            url: encodedUrl,
+            size: 100,
+            reason: 'test',
+          },
+        ],
+        totalKeys: 1,
+        spaceFreed: 100,
+        deletedPages: 0,
+      };
+
+      storageManager.displayCleanupPreview(storageManager.cleanupPlan);
+
+      const previewHtml = storageManager.elements.cleanupPreview.innerHTML;
+      expect(previewHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+      expect(previewHtml).not.toContain('<script>alert(1)</script>');
+    });
   });
 
   describe('generateSafeCleanupPlan', () => {

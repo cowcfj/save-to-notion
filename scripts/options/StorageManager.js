@@ -6,7 +6,12 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import { sanitizeApiError, validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
+import {
+  sanitizeApiError,
+  validateSafeSvg,
+  separateIconAndText,
+  escapeHtml,
+} from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_ICONS } from '../config/icons.js';
 import { UI_MESSAGES } from '../config/messages.js';
@@ -593,7 +598,7 @@ export class StorageManager {
                   .map(
                     item => `
                     <div class="cleanup-item">
-                        <strong>${decodeURIComponent(item.url)}</strong> - ${item.reason}
+                        <strong>${escapeHtml(decodeURIComponent(item.url))}</strong> - ${item.reason}
                         <br><small>${(item.size / 1024).toFixed(1)} KB</small>
                     </div>
                 `
