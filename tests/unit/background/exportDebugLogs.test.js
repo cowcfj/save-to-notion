@@ -13,8 +13,8 @@ global.Logger = {
 };
 
 describe('exportDebugLogs Handler - Error Handling', () => {
-  let handler;
-  let mockSendResponse;
+  let handler = null;
+  let mockSendResponse = null;
 
   beforeEach(() => {
     // 清除 mocks
@@ -22,7 +22,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
 
     // 模擬 production 代碼中的處理器結構（不含 try/catch，依靠 MessageHandler 捕獲）
     const actionHandlers = {
-      exportDebugLogs: async (message, sender, sendResponse) => {
+      exportDebugLogs: (message, sender, sendResponse) => {
         const result = LogExporter.exportLogs({ format: message.format });
         sendResponse({
           success: true,
@@ -112,8 +112,10 @@ describe('exportDebugLogs Handler - Error Handling', () => {
     test('當錯誤沒有 message 時應使用預設錯誤訊息', async () => {
       // Arrange
       jest.spyOn(LogExporter, 'exportLogs').mockImplementation(() => {
-        // 故意拋出非標準 Error 對象來測試預設錯誤訊息處理
-        throw { someProperty: 'value' };
+        // 故意拋出缺乏 message 的 Error 對象來測試預設錯誤訊息處理
+        const error = new Error();
+        error.message = undefined;
+        throw error;
       });
 
       const message = { format: 'json' };

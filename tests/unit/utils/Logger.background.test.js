@@ -9,10 +9,10 @@ jest.mock('../../../scripts/utils/LogBuffer.js');
 jest.mock('../../../scripts/utils/LogSanitizer.js');
 
 describe('Logger (Background Context)', () => {
-  let Logger;
-  let LogBufferMock;
-  let LogSanitizerMock;
-  let mockBufferInstance;
+  let Logger = null;
+  let LogBufferMock = null;
+  let LogSanitizerMock = null;
+  let mockBufferInstance = null;
 
   beforeEach(() => {
     jest.resetModules();
@@ -26,7 +26,10 @@ describe('Logger (Background Context)', () => {
       },
       storage: {
         sync: {
-          get: jest.fn((keys, cb) => cb({})),
+          get: jest.fn((keys, cb) => {
+            const data = {};
+            cb(data);
+          }),
         },
         onChanged: {
           addListener: jest.fn(),
@@ -42,11 +45,17 @@ describe('Logger (Background Context)', () => {
 
     // Import mocked modules so we can retrieve the mocks
     const LogBufferModule = require('../../../scripts/utils/LogBuffer.js');
-    LogBufferMock = LogBufferModule.LogBuffer;
-    LogBufferMock.mockImplementation(() => mockBufferInstance);
+    LogBufferMock =
+      LogBufferModule.LogBuffer || LogBufferModule.default?.LogBuffer || LogBufferModule;
+    if (LogBufferMock.mockImplementation) {
+      LogBufferMock.mockImplementation(() => mockBufferInstance);
+    }
 
     const LogSanitizerModule = require('../../../scripts/utils/LogSanitizer.js');
-    LogSanitizerMock = LogSanitizerModule.LogSanitizer;
+    LogSanitizerMock =
+      LogSanitizerModule.LogSanitizer ||
+      LogSanitizerModule.default?.LogSanitizer ||
+      LogSanitizerModule;
     LogSanitizerMock.sanitizeEntry = jest.fn((msg, ctx) => ({
       message: `SANITIZED_${msg}`,
       context: ctx,

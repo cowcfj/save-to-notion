@@ -10,7 +10,7 @@ import Logger from '../../../scripts/utils/Logger.js';
 jest.mock('../../../scripts/utils/Logger.js');
 
 describe('LogExporter', () => {
-  let mockBuffer;
+  let mockBuffer = null;
   const originalNavigator = global.navigator;
 
   beforeEach(() => {
@@ -95,7 +95,10 @@ describe('LogExporter', () => {
     mockBuffer.getAll.mockReturnValue(mockLogs);
 
     // Suppress console.error for this test as we expect it
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
+      // 避免空函數
+      return args;
+    });
 
     const result = LogExporter.exportLogs();
 

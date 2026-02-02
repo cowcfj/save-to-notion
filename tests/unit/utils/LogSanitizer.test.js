@@ -83,7 +83,7 @@ describe('LogSanitizer', () => {
       ];
 
       // Should not throw and should handle circularity
-      let sanitized;
+      let sanitized = null;
       expect(() => {
         sanitized = LogSanitizer.sanitize(logs);
       }).not.toThrow();
