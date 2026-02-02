@@ -643,18 +643,35 @@ export function createSaveHandlers(services) {
         const level = request.level || 'log';
         const message = request.message || '';
         const args = Array.isArray(request.args) ? request.args : [];
-        const prefix = '[ClientLog]';
 
-        // 使用 Logger 輸出，這樣可以利用 Logger 的過濾和格式化功能
-        if (level === 'warn') {
-          Logger.warn(`${prefix} ${message}`, ...args);
-        } else if (level === 'error') {
-          Logger.error(`${prefix} ${message}`, ...args);
-        } else if (level === 'info') {
-          Logger.info(`${prefix} ${message}`, ...args);
-        } else {
-          Logger.log(`${prefix} ${message}`, ...args);
+        // 1. 輸出到 Background Console (方便即時調試)
+        // 使用 console 直接輸出避免再次觸發 writeToBuffer (避免雙重記錄)
+        // 但我們仍希望保留它的格式化輸出
+        const logMethod = console[level] || console.log;
+        logMethod(`[ClientLog] ${message}`, ...args);
+
+        // 2. 寫入 LogBuffer (保留原始時間戳與來源)
+        // 解析 args 作為 context
+        let context = {};
+        if (args.length > 0) {
+          if (typeof args[0] === 'object' && args[0] !== null) {
+            context = { ...args[0] };
+            if (args.length > 1) {
+              context.details = args.slice(1);
+            }
+          } else {
+            context = { details: args };
+          }
         }
+
+        // 顯式調用 addLogToBuffer
+        Logger.addLogToBuffer({
+          level,
+          message: `[ClientLog] ${message}`,
+          context,
+          source: 'content_script', // 明確標記來源
+          timestamp: request.timestamp, // 假設前端有傳，或者在這裡生成
+        });
 
         sendResponse({ success: true });
       } catch (error) {

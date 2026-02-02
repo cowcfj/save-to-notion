@@ -274,6 +274,29 @@ export default class Logger {
   static getBuffer() {
     return _logBuffer;
   }
+
+  /**
+   * 直接寫入日誌到緩衝區 (供 devLogSink 使用，保留原始來源和時間戳)
+   * @param {Object} logEntry
+   */
+  static addLogToBuffer({ level, message, context, source, timestamp }) {
+    if (_logBuffer) {
+      try {
+        // 即時脫敏
+        const safeEntry = LogSanitizer.sanitizeEntry(String(message), context);
+
+        _logBuffer.push({
+          level,
+          source: source || 'unknown',
+          message: safeEntry.message,
+          context: safeEntry.context,
+          timestamp: timestamp || new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error('[Logger] Failed to add external log to buffer', { error: err });
+      }
+    }
+  }
 }
 
 // 自動初始化 (嘗試)
