@@ -238,8 +238,22 @@ export class LogSanitizer {
    * 清理字串內容
    */
   static _sanitizeString(str) {
-    if (!str || typeof str !== 'string') {
-      return str;
+    if (str === null || str === undefined) {
+      return '';
+    }
+
+    if (typeof str !== 'string') {
+      // 強制轉換為字串，確保後續的正則表達式能正常運作
+      // 這也解決了呼叫者傳入非字串（如錯誤物件、數字）時直接返回原值的問題
+      try {
+        str = String(str);
+      } catch (_error) {
+        return '[INVALID_STRING_INPUT]';
+      }
+    }
+
+    if (!str) {
+      return '';
     }
 
     let safeStr = str;

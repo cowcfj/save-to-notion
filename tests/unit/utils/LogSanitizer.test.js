@@ -322,5 +322,26 @@ describe('LogSanitizer', () => {
         expect(sanitized[0].message).toContain('[REDACTED_API_KEY]');
       });
     });
+
+    describe('_sanitizeString edge cases', () => {
+      test('should handles null/undefined/non-string values effectively', () => {
+        // Direct method testing if possible, or via sanitizeEntry
+        const inputs = [null, undefined, 123, { toString: () => 'secret_123' }];
+
+        inputs.forEach(input => {
+          const entry = LogSanitizer.sanitizeEntry(input, {});
+          expect(typeof entry.message).toBe('string');
+        });
+
+        // Specific checks
+        expect(LogSanitizer.sanitizeEntry(null, {}).message).toBe('');
+        expect(LogSanitizer.sanitizeEntry(undefined, {}).message).toBe('');
+        expect(LogSanitizer.sanitizeEntry(123, {}).message).toBe('123');
+
+        // Ensure sanitization happens after string conversion
+        const secretObj = { toString: () => 'Token is secret_123' };
+        expect(LogSanitizer.sanitizeEntry(secretObj, {}).message).toContain('[REDACTED_TOKEN]');
+      });
+    });
   });
 });
