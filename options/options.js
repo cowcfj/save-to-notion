@@ -319,7 +319,7 @@ function setupLogExport() {
 
   if (exportBtn && statusEl) {
     exportBtn.addEventListener('click', async () => {
-      let originalBtnHTML = '';
+      let originalBtnHTML = null;
       try {
         exportBtn.disabled = true;
         originalBtnHTML = exportBtn.innerHTML; // 保存原始按鈕內容
@@ -335,9 +335,14 @@ function setupLogExport() {
           throw new Error('未收到 Background 回應');
         }
 
+        // 檢查 error 屬性 (優先處理明確的錯誤訊息)
+        if (response.error) {
+          throw new Error(response.error);
+        }
+
         // 檢查 success 欄位
         if (!response.success) {
-          throw new Error(response.error || '日誌導出失敗');
+          throw new Error('日誌導出失敗');
         }
 
         const { filename, content, mimeType, count } = response.data;
@@ -368,7 +373,7 @@ function setupLogExport() {
       } finally {
         exportBtn.disabled = false;
         // 恢復按鈕內容
-        if (originalBtnHTML) {
+        if (originalBtnHTML !== null) {
           exportBtn.innerHTML = originalBtnHTML;
         }
       }
