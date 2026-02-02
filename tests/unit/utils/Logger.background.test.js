@@ -95,4 +95,23 @@ describe('Logger (Background Context)', () => {
 
     expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(String(objMsg), expect.anything());
   });
+
+  test('should capture all arguments when first arg is object', () => {
+    const msg = 'test multi args';
+    const firstArg = { foo: 'bar' };
+    const secondArg = 'extra data';
+    const thirdArg = 123;
+
+    Logger.info(msg, firstArg, secondArg, thirdArg);
+
+    // Previously, secondArg and thirdArg would be lost.
+    // We expect them to be in context.details
+    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(
+      msg,
+      expect.objectContaining({
+        foo: 'bar',
+        details: [secondArg, thirdArg],
+      })
+    );
+  });
 });

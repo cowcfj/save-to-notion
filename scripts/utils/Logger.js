@@ -116,10 +116,18 @@ function writeToBuffer(level, message, args) {
       // 如果 args[0] 不是對象，則視為普通參數放入 details
       let context = {};
 
-      if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-        context = args[0];
-      } else if (args.length > 0) {
-        context = { details: args };
+      if (args.length > 0) {
+        if (typeof args[0] === 'object' && args[0] !== null) {
+          // Use the first object as the main context
+          context = { ...args[0] };
+          // Collect any remaining arguments into context.details
+          if (args.length > 1) {
+            context.details = args.slice(1);
+          }
+        } else {
+          // If first arg is not an object, treat all args as details
+          context = { details: args };
+        }
       }
 
       // 即時脫敏：確保存儲在 LogBuffer 中的數據是安全的
