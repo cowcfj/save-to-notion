@@ -76,7 +76,7 @@ export async function initPopup() {
 
   // 保存按鈕
   elements.saveButton.addEventListener('click', async () => {
-    setStatus(elements, 'Saving...');
+    setStatus(elements, UI_MESSAGES.POPUP.SAVING);
     setButtonState(elements.saveButton, true);
 
     const response = await savePage();
@@ -113,7 +113,7 @@ export async function initPopup() {
       }
     } else {
       const errorMsg = ErrorHandler.formatUserMessage(response?.error);
-      setStatus(elements, `Failed to save: ${errorMsg}`);
+      setStatus(elements, `${UI_MESSAGES.POPUP.SAVE_FAILED_PREFIX}${errorMsg}`);
     }
 
     // 延遲後重新啟用按鈕
@@ -139,19 +139,22 @@ export async function initPopup() {
     }
 
     // 啟動標記模式
-    setStatus(elements, 'Starting highlight mode...');
+    setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_STARTING);
     setButtonState(elements.highlightButton, true);
 
     const response = await startHighlight();
 
     if (response?.success) {
-      setStatus(elements, 'Highlight mode activated!');
+      setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_ACTIVATED);
       setTimeout(() => {
         window.close();
       }, 1000);
     } else {
-      setStatus(elements, 'Failed to start highlight mode.');
-      console.error('Error:', response?.error);
+      setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_FAILED);
+      Logger.error('Failed to start highlight mode', {
+        action: 'startHighlight',
+        error: response?.error,
+      });
     }
 
     setTimeout(() => {
@@ -165,15 +168,18 @@ export async function initPopup() {
     if (notionUrl) {
       const result = await openNotionPage(notionUrl);
       if (!result.success) {
-        setStatus(elements, 'Failed to open Notion page.');
-        console.error('Error:', result.error);
+        setStatus(elements, UI_MESSAGES.POPUP.OPEN_NOTION_FAILED);
+        Logger.error('Failed to open Notion page', {
+          action: 'openNotionPage',
+          error: result.error,
+        });
       }
     }
   });
 
   // 清除標記按鈕
   elements.clearHighlightsButton.addEventListener('click', () => {
-    showModal(elements, '確定要清除頁面上的所有標記嗎？這個操作無法撤銷。');
+    showModal(elements, UI_MESSAGES.POPUP.CLEAR_CONFIRM);
   });
 
   // Modal Overlay 點擊關閉 (Click to close)
@@ -194,12 +200,12 @@ export async function initPopup() {
   // Modal 確認按鈕
   elements.modalConfirm.addEventListener('click', async () => {
     hideModal(elements);
-    setStatus(elements, 'Clearing highlights...');
+    setStatus(elements, UI_MESSAGES.POPUP.CLEARING);
     setButtonState(elements.clearHighlightsButton, true);
 
     const activeTab = await getActiveTab();
     if (!activeTab?.id) {
-      setStatus(elements, 'Failed to clear highlights.');
+      setStatus(elements, UI_MESSAGES.POPUP.CLEAR_FAILED);
       setButtonState(elements.clearHighlightsButton, false);
       return;
     }
@@ -207,15 +213,18 @@ export async function initPopup() {
     const result = await clearHighlights(activeTab.id, activeTab.url);
 
     if (result.success) {
-      setStatus(elements, `Cleared ${result.clearedCount} highlights successfully!`);
+      setStatus(elements, UI_MESSAGES.POPUP.CLEAR_SUCCESS(result.clearedCount));
       setTimeout(() => {
         setButtonState(elements.clearHighlightsButton, false);
-        setStatus(elements, 'Page saved. Ready to highlight or save again.');
+        setStatus(elements, UI_MESSAGES.POPUP.PAGE_READY);
       }, 2000);
     } else {
-      setStatus(elements, 'Failed to clear highlights.');
+      setStatus(elements, UI_MESSAGES.POPUP.CLEAR_FAILED);
       setButtonState(elements.clearHighlightsButton, false);
-      console.error('Error:', result.error);
+      Logger.error('Failed to clear highlights', {
+        action: 'clearHighlights',
+        error: result.error,
+      });
     }
   });
 }

@@ -32,6 +32,19 @@ export const UI_MESSAGES = {
   SETUP: {
     MISSING_CONFIG: '請先完成設定頁面的配置',
   },
+  POPUP: {
+    SAVING: 'Saving...',
+    SAVE_FAILED_PREFIX: 'Failed to save: ',
+    HIGHLIGHT_STARTING: 'Starting highlight mode...',
+    HIGHLIGHT_ACTIVATED: 'Highlight mode activated!',
+    HIGHLIGHT_FAILED: 'Failed to start highlight mode.',
+    OPEN_NOTION_FAILED: 'Failed to open Notion page.',
+    CLEAR_CONFIRM: '確定要清除頁面上的所有標記嗎？這個操作無法撤銷。',
+    CLEARING: 'Clearing highlights...',
+    CLEAR_FAILED: 'Failed to clear highlights.',
+    CLEAR_SUCCESS: count => `Cleared ${count} highlights successfully!`,
+    PAGE_READY: 'Page saved. Ready to highlight or save again.',
+  },
 };
 
 const USER_MESSAGES = {
