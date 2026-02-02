@@ -1354,3 +1354,10 @@ h4 .icon-svg {
   color: var(--text-primary);
   font-weight: 600;
 }
+
+/* Log Privacy Notice - 用於日誌導出說明的隱私提示樣式 */
+.log-privacy-notice {
+  display: block;
+  margin-top: 4px;
+  color: var(--success-color);
+}
