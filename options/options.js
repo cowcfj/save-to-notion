@@ -369,10 +369,7 @@ function setupLogExport() {
       } catch (err) {
         Logger.error('Log export failed', err);
         // 顯示具體錯誤訊息（如果有的話），否則顯示通用錯誤
-        const errorMessage =
-          err.message && err.message !== 'Log export failed'
-            ? `❌ ${err.message}`
-            : '❌ 導出失敗，請稍後再試';
+        const errorMessage = `❌ ${err.message || '導出失敗，請稍後再試'}`;
         statusEl.textContent = errorMessage;
         statusEl.className = 'status-message error';
 

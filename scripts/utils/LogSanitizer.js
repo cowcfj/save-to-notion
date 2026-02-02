@@ -179,7 +179,7 @@ export class LogSanitizer {
     const lines = stack.split('\n');
     const sanitizedLines = lines.map(line => {
       // 移除 Extension ID（chrome-extension://xxx）
-      let sanitized = line.replace(/chrome-extension:\/\/[a-z]+/g, 'chrome-extension://[ID]');
+      let sanitized = line.replace(/chrome-extension:\/\/[a-z0-9]+/gi, 'chrome-extension://[ID]');
 
       // 移除完整路徑，只保留檔案名稱
       // 範例：scripts/utils/LogExporter.js -> LogExporter.js

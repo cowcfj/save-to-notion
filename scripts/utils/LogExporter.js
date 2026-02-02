@@ -25,11 +25,10 @@ export class LogExporter {
 
     // 3. 格式化輸出
     // 格式化為: YYYYMMDD-HHmmss
-    const now = new Date();
-    const timestamp = `${now
-      .toISOString()
-      .slice(0, 10)
-      .replace(/-/g, '')}-${now.toISOString().slice(11, 19).replace(/:/g, '')}`;
+    const nowISO = new Date().toISOString();
+    const timestamp = `${nowISO.slice(0, 10).replace(/-/g, '')}-${nowISO
+      .slice(11, 19)
+      .replace(/:/g, '')}`;
     let content = '';
     let filename = '';
     let mimeType = '';
@@ -37,7 +36,7 @@ export class LogExporter {
     if (format === 'json') {
       const exportData = {
         version: '1.0',
-        exportedAt: new Date().toISOString(),
+        exportedAt: nowISO,
         extensionVersion: chrome.runtime.getManifest().version,
         userAgent: navigator.userAgent,
         logCount: count,

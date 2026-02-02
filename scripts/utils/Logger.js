@@ -54,7 +54,6 @@ function formatMessage(level, args) {
       [LOG_LEVELS.INFO]: 'ℹ️ [INFO]',
       [LOG_LEVELS.WARN]: '⚠️ [WARN]',
       [LOG_LEVELS.ERROR]: '❌ [ERROR]',
-      // ...
     }[level] || '[UNKNOWN]';
 
   return [`${levelPrefix} ${timestamp}:`, ...args];
