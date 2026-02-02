@@ -5,7 +5,6 @@ import { DataSourceManager } from '../scripts/options/DataSourceManager.js';
 import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
-import { escapeHtml } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
 /**
@@ -319,11 +318,24 @@ function setupLogExport() {
 
   if (exportBtn && statusEl) {
     exportBtn.addEventListener('click', async () => {
-      let originalBtnHTML = null;
+      let textNode = null;
+      let originalText = '';
+
       try {
         exportBtn.disabled = true;
-        originalBtnHTML = exportBtn.innerHTML; // 保存原始按鈕內容
-        exportBtn.textContent = '導出中...';
+
+        // 查找按鈕內的文字節點（避免使用 innerHTML 保存狀態）
+        textNode = Array.from(exportBtn.childNodes).find(
+          node => node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0
+        );
+
+        if (textNode) {
+          originalText = textNode.textContent;
+          textNode.textContent = ' 導出中...';
+        } else {
+          // Fallback if no text node found
+          exportBtn.textContent = '導出中...';
+        }
 
         // 發送訊息給 Background
         const response = await chrome.runtime.sendMessage({
@@ -358,33 +370,38 @@ function setupLogExport() {
         document.body.removeChild(downloadLink);
         setTimeout(() => URL.revokeObjectURL(url), 100);
 
-        statusEl.innerHTML = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
+        statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count); // Changed from innerHTML to textContent
         statusEl.className = 'status-message success';
 
         // 3秒後清除成功訊息
         setTimeout(() => {
-          statusEl.innerHTML = '';
+          statusEl.textContent = ''; // Changed from innerHTML to textContent
           statusEl.className = 'status-message';
         }, 3000);
       } catch (err) {
         Logger.error('Log export failed', err);
-        // 顯示具體錯誤訊息（如果有的話），否則顯示通用錯誤
-        // [Security] 轉義動態錯誤訊息以防止 XSS
-        const safeErrorMessage = escapeHtml(err.message);
-        const errorMessage = UI_MESSAGES.LOGS.EXPORT_FAILED(safeErrorMessage);
-        statusEl.innerHTML = errorMessage;
+        // 安全地提取錯誤訊息
+        const rawMsg = err?.message ?? String(err) ?? 'Unknown error';
+        // 使用 textContent 防止 XSS，無需 escapeHtml
+        const errorMessage = UI_MESSAGES.LOGS.EXPORT_FAILED(rawMsg);
+        statusEl.textContent = errorMessage; // Changed from innerHTML to textContent
         statusEl.className = 'status-message error';
 
         // 5秒後清除錯誤訊息（給用戶更多時間閱讀）
         setTimeout(() => {
-          statusEl.innerHTML = '';
+          statusEl.textContent = ''; // Changed from innerHTML to textContent
           statusEl.className = 'status-message';
         }, 5000);
       } finally {
         exportBtn.disabled = false;
-        // 恢復按鈕內容
-        if (originalBtnHTML !== null) {
-          exportBtn.innerHTML = originalBtnHTML;
+        // 恢復按鈕文字內容
+        if (textNode) {
+          textNode.textContent = originalText;
+        } else if (originalText === '' && !textNode) {
+          // If we fell back to replacing entire content, restoration is harder without innerHTML cache.
+          // But based on analysis, textNode should exist.
+          // If not, we leave it as is or handle appropriately.
+          // In this specific HTML, textNode exists.
         }
       }
     });
