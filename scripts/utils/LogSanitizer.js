@@ -7,9 +7,6 @@ const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 const SENSITIVE_KEY_PATTERN =
   /(?:auth|token|secret|credential|password|pwd|key|cookie|session|authorization|bearer|viewer|access|refresh|api|private)/i;
 
-// 敏感值模式（偵測看起來像 Token 的字串）
-const SENSITIVE_VALUE_PATTERN = /^(?:Bearer|Basic)\s+[A-Za-z0-9+/=._-]+$/;
-
 // 安全的 HTTP Headers 白名單（不包含敏感資訊）
 const SAFE_HEADERS = new Set([
   'content-type',
@@ -188,23 +185,36 @@ export class LogSanitizer {
 
     let safeStr = str;
 
-    // 0. 檢查整個字串是否為 Bearer/Basic Token
-    if (SENSITIVE_VALUE_PATTERN.test(str)) {
-      return '[REDACTED_AUTH_HEADER]';
-    }
+    // 1. URL 脫敏 (優先處理，避免 URL 中的參數被誤判為其他 Token)
+    // 找出字串中的 URL 並進行清理
+    safeStr = safeStr.replace(/https?:\/\/[^\s"',]+/g, url => sanitizeUrlForLogging(url));
 
-    // 1. 特殊 Token 模式 (Notion Tokens often start with secret_)
+    // 2. Embedded Bearer/Basic Tokens
+    // 移除錨點 ^$ 以支援字串中的 Token
+    safeStr = safeStr.replace(/(?:Bearer|Basic)\s+[A-Za-z0-9+/=._-]+/g, '[REDACTED_AUTH_HEADER]');
+
+    // 3. JWT Tokens (eyJ...)
+    // 匹配標準 JWT 格式：header.payload.signature
+    safeStr = safeStr.replace(
+      /\beyJ[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]{10,}\b/g,
+      '[REDACTED_JWT]'
+    );
+
+    // 4. 常見 API Key 格式 (sk-, gh-, key-)
+    safeStr = safeStr.replace(
+      /\b(?:sk|ghp|gho|xoxb|xoxp|key)-[A-Za-z0-9]{20,}\b/g,
+      '[REDACTED_API_KEY]'
+    );
+
+    // 5. 特殊 Token 模式 (Notion Tokens often start with secret_)
     safeStr = safeStr.replace(/secret_[a-zA-Z0-9]+/g, SANITIZED_LABEL);
 
-    // 2. Email 脫敏
-    // 簡單的 Email 正則，匹配常見格式
+    // 6. Email 脫敏
     safeStr = safeStr.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, email => {
-      // 保留首尾字符，遮蔽中間
       return maskSensitiveString(email, 1, 4);
     });
 
-    // 3. UUID 截斷 (8-4-4-4-12 format)
-    // 避免誤殺，從嚴匹配
+    // 7. UUID 截斷
     safeStr = safeStr.replace(
       /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
       uuid => {
