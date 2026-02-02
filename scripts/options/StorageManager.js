@@ -6,37 +6,15 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import { sanitizeApiError, validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
+import {
+  sanitizeApiError,
+  validateSafeSvg,
+  separateIconAndText,
+  createSafeIcon,
+} from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_ICONS } from '../config/icons.js';
-import { UI_MESSAGES, ERROR_MESSAGES } from '../config/messages.js';
-
-// Helper: Safe Icon Creation
-const createSafeIcon = svgString => {
-  if (!svgString || !svgString.startsWith('<svg')) {
-    const span = document.createElement('span');
-    span.textContent = svgString || '';
-    return span;
-  }
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svgString, 'image/svg+xml');
-  const svgElement = doc.documentElement;
-
-  if (svgElement.tagName === 'parsererror') {
-    Logger.warn(ERROR_MESSAGES.TECHNICAL.SVG_PARSE_ERROR, {
-      action: 'create_safe_icon',
-      reason: 'xml_parser_error',
-      content: svgString,
-    });
-    return document.createElement('span');
-  }
-
-  const span = document.createElement('span');
-  span.className = 'icon-wrapper'; // Optional styling hook
-  span.appendChild(svgElement);
-  return span;
-};
+import { UI_MESSAGES } from '../config/messages.js';
 
 /**
  * 管理存儲空間的類別

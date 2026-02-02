@@ -6,7 +6,7 @@
 import { UI_ICONS } from '../config/index.js';
 import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
+import { sanitizeApiError, createSafeIcon } from '../utils/securityUtils.js';
 import { MigrationScanner } from './MigrationScanner.js';
 
 /**
@@ -126,8 +126,7 @@ export class MigrationTool {
     if (!result.needsMigration) {
       if (scanStatus) {
         scanStatus.textContent = '';
-        const iconSpan = document.createElement('span');
-        iconSpan.innerHTML = UI_ICONS.CHECK;
+        const iconSpan = createSafeIcon(UI_ICONS.CHECK);
         scanStatus.appendChild(iconSpan);
         scanStatus.appendChild(
           document.createTextNode(' 未發現舊版格式的標註，所有數據均為最新格式。')
@@ -145,8 +144,7 @@ export class MigrationTool {
       warningBox.className = 'warning-box';
 
       const strong = document.createElement('strong');
-      const iconSpan = document.createElement('span');
-      iconSpan.innerHTML = UI_ICONS.WARNING;
+      const iconSpan = createSafeIcon(UI_ICONS.WARNING);
       strong.appendChild(iconSpan);
       strong.appendChild(
         document.createTextNode(` 發現 ${result.items.length} 個頁面包含舊版標記`)
@@ -560,8 +558,7 @@ export class MigrationTool {
     if (results.failed === 0) {
       box.className = 'success-box';
       const strong = document.createElement('strong');
-      const iconSpan = document.createElement('span');
-      iconSpan.innerHTML = UI_ICONS.CHECK;
+      const iconSpan = createSafeIcon(UI_ICONS.CHECK);
       strong.appendChild(iconSpan);
       strong.appendChild(document.createTextNode(` ${actionText}成功！`));
       box.appendChild(strong);
@@ -572,8 +569,7 @@ export class MigrationTool {
     } else if (results.success > 0) {
       box.className = 'warning-box';
       const strong = document.createElement('strong');
-      const iconSpan = document.createElement('span');
-      iconSpan.innerHTML = UI_ICONS.WARNING;
+      const iconSpan = createSafeIcon(UI_ICONS.WARNING);
       strong.appendChild(iconSpan);
       strong.appendChild(document.createTextNode(` 部分${actionText}完成`));
       box.appendChild(strong);
@@ -594,8 +590,7 @@ export class MigrationTool {
     } else {
       box.className = 'error-box';
       const strong = document.createElement('strong');
-      const iconSpan = document.createElement('span');
-      iconSpan.innerHTML = UI_ICONS.ERROR;
+      const iconSpan = createSafeIcon(UI_ICONS.ERROR);
       strong.appendChild(iconSpan);
       strong.appendChild(document.createTextNode(` ${actionText}失敗`));
       box.appendChild(strong);
@@ -644,8 +639,7 @@ export class MigrationTool {
     box.className = 'success-box';
 
     const headerStrong = document.createElement('strong');
-    const headerIcon = document.createElement('span');
-    headerIcon.innerHTML = UI_ICONS.CHECK;
+    const headerIcon = createSafeIcon(UI_ICONS.CHECK);
     headerStrong.appendChild(headerIcon);
     headerStrong.appendChild(document.createTextNode(' 批量遷移完成'));
     box.appendChild(headerStrong);
@@ -658,8 +652,7 @@ export class MigrationTool {
       const hintP = document.createElement('p');
       hintP.className = 'hint';
 
-      const infoIcon = document.createElement('span');
-      infoIcon.innerHTML = UI_ICONS.INFO;
+      const infoIcon = createSafeIcon(UI_ICONS.INFO);
       hintP.appendChild(infoIcon);
       hintP.appendChild(document.createTextNode(' '));
 
@@ -693,8 +686,7 @@ export class MigrationTool {
         const urlTitle = detail.url || '';
         spanUrl.title = urlTitle;
 
-        const checkIcon = document.createElement('span');
-        checkIcon.innerHTML = UI_ICONS.CHECK;
+        const checkIcon = createSafeIcon(UI_ICONS.CHECK);
         spanUrl.appendChild(checkIcon);
         spanUrl.appendChild(document.createTextNode(` ${MigrationTool.truncateUrl(urlTitle)}`));
 
@@ -737,8 +729,7 @@ export class MigrationTool {
     box.className = 'success-box';
 
     const strong = document.createElement('strong');
-    const iconSpan = document.createElement('span');
-    iconSpan.innerHTML = UI_ICONS.CHECK;
+    const iconSpan = createSafeIcon(UI_ICONS.CHECK);
     strong.appendChild(iconSpan);
     strong.appendChild(document.createTextNode(' 刪除成功'));
     box.appendChild(strong);
@@ -766,8 +757,7 @@ export class MigrationTool {
     box.className = 'error-box';
 
     const strong = document.createElement('strong');
-    const iconSpan = document.createElement('span');
-    iconSpan.innerHTML = UI_ICONS.ERROR;
+    const iconSpan = createSafeIcon(UI_ICONS.ERROR);
     strong.appendChild(iconSpan);
     strong.appendChild(document.createTextNode(' 操作失敗'));
     box.appendChild(strong);
@@ -837,7 +827,7 @@ export class MigrationTool {
     // 顯示區塊
     pendingSection.style.display = 'block';
 
-    pendingList.innerHTML = '';
+    pendingList.textContent = '';
     const fragment = document.createDocumentFragment();
 
     items.forEach(item => {
@@ -848,8 +838,7 @@ export class MigrationTool {
       spanUrl.className = 'result-url';
       spanUrl.title = item.url;
 
-      const iconSpan = document.createElement('span');
-      iconSpan.innerHTML = UI_ICONS.STAR;
+      const iconSpan = createSafeIcon(UI_ICONS.STAR);
       spanUrl.appendChild(iconSpan);
       spanUrl.appendChild(document.createTextNode(` ${MigrationTool.truncateUrl(item.url)}`));
 

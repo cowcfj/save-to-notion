@@ -9,6 +9,7 @@
 /* global chrome */
 
 import Logger from './Logger.js';
+import { ERROR_MESSAGES } from '../config/messages.js';
 
 // ============================================================================
 // URL 驗證函數
@@ -494,3 +495,45 @@ export function separateIconAndText(message) {
     text: message,
   };
 }
+
+/**
+ * 創建安全的 SVG 圖示元素
+ * 使用 DOMParser 解析 SVG 字串，避免直接使用 innerHTML
+ *
+ * @param {string} svgString - SVG 字串
+ * @returns {HTMLElement} 包含 SVG 的 span 元素
+ */
+export const createSafeIcon = svgString => {
+  if (!svgString || !svgString.startsWith('<svg')) {
+    const span = document.createElement('span');
+    span.textContent = svgString || '';
+    return span;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+  const svgElement = doc.documentElement;
+
+  if (svgElement.tagName === 'parsererror') {
+    Logger.warn(ERROR_MESSAGES.TECHNICAL.SVG_PARSE_ERROR, {
+      action: 'create_safe_icon',
+      reason: 'xml_parser_error',
+      content: svgString,
+    });
+    return document.createElement('span');
+  }
+
+  // 額外的安全性檢查：確保解析出的確實是 SVG 元素
+  if (svgElement.tagName !== 'svg') {
+    Logger.warn('[Security] Parsed element is not an SVG', {
+      action: 'create_safe_icon',
+      content: svgString,
+    });
+    return document.createElement('span');
+  }
+
+  const span = document.createElement('span');
+  span.className = 'icon-wrapper';
+  span.appendChild(svgElement);
+  return span;
+};
