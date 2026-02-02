@@ -33,7 +33,7 @@ jest.mock('../../../../scripts/background/services/InjectionService.js', () => (
 
 // 引入測試所需模組
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/constants.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
 
 jest.mock('../../../../scripts/config/constants.js', () => {
   const original = jest.requireActual('../../../../scripts/config/constants.js');
@@ -92,6 +92,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       info: jest.fn(),
       log: jest.fn(),
       debug: jest.fn(),
+      addLogToBuffer: jest.fn(),
     };
 
     mockNotionService = {

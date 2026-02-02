@@ -5,7 +5,7 @@
 /* global chrome */
 
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
-import { ERROR_MESSAGES } from '../../../scripts/config/constants.js';
+import { ERROR_MESSAGES } from '../../../scripts/config/messages.js';
 
 function createEvent() {
   const listeners = [];

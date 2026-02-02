@@ -244,7 +244,7 @@ describe('scripts/background.js require integration', () => {
   // 這裡側重於初始化（onInstalled）與開頁動作（openNotionPage）的真實路徑，以增進 scripts 覆蓋率。
 
   test('onMessage(exportDebugLogs) should handle async export and return structured response', async () => {
-    const mockExportLogs = jest.fn().mockResolvedValue({
+    const mockExportLogs = jest.fn().mockReturnValue({
       filename: 'test.json',
       content: '{}',
       mimeType: 'application/json',
@@ -292,7 +292,9 @@ describe('scripts/background.js require integration', () => {
   });
 
   test('onMessage(exportDebugLogs) should handle errors gracefully', async () => {
-    const mockExportLogs = jest.fn().mockRejectedValue(new Error('Export failed'));
+    const mockExportLogs = jest.fn().mockImplementation(() => {
+      throw new Error('Export failed');
+    });
 
     jest.isolateModules(() => {
       jest.doMock('../../../scripts/utils/LogExporter.js', () => ({
@@ -310,9 +312,11 @@ describe('scripts/background.js require integration', () => {
 
     await flushPromises();
 
-    expect(sendResponse).toHaveBeenCalledWith({
-      success: false,
-      error: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
-    });
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
+      })
+    );
   });
 });

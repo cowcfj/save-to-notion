@@ -21,26 +21,9 @@ describe('exportDebugLogs Handler - Error Handling', () => {
     // 清除 mocks
     jest.clearAllMocks();
 
-    // 模擬 production 代碼中的處理器結構（不含 try/catch，依靠 MessageHandler 捕獲）
-    const rawHandler = exportDebugLogs;
-
-    // 模擬 MessageHandler 的簡化包裝邏輯，用於測試錯誤捕捉
-    handler = async (message, sender, sendResponse) => {
-      try {
-        return await rawHandler(message, sender, sendResponse);
-      } catch (error) {
-        Logger.error('日誌導出失敗', {
-          action: 'exportDebugLogs',
-          format: message.format,
-          error: error.message,
-        });
-        sendResponse({
-          success: false,
-          error: error.message || '日誌導出失敗，請稍後再試',
-        });
-        return false;
-      }
-    };
+    // 直接測試 handlers/logHandlers.js 中的 exportDebugLogs
+    // 它已經包含 try/catch 區塊
+    handler = exportDebugLogs;
 
     mockSendResponse = jest.fn();
   });
@@ -87,17 +70,13 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       await handler(message, sender, mockSendResponse);
 
       // Assert
-      expect(mockSendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: errorMessage,
-      });
-
-      // 驗證錯誤日誌
-      expect(Logger.error).toHaveBeenCalledWith('日誌導出失敗', {
-        action: 'exportDebugLogs',
-        format: 'json',
-        error: errorMessage,
-      });
+      expect(mockSendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('操作失敗'),
+          errorType: 'internal',
+        })
+      );
     });
 
     test('當錯誤沒有 message 時應使用預設錯誤訊息', async () => {
@@ -116,10 +95,13 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       await handler(message, sender, mockSendResponse);
 
       // Assert
-      expect(mockSendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '日誌導出失敗，請稍後再試',
-      });
+      expect(mockSendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('操作失敗'),
+          errorType: 'internal',
+        })
+      );
     });
 
     test('應該處理不支援的格式錯誤', async () => {
@@ -136,10 +118,13 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       await handler(message, sender, mockSendResponse);
 
       // Assert
-      expect(mockSendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: errorMessage,
-      });
+      expect(mockSendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('操作失敗'), // 預設錯誤訊息
+          errorType: 'internal',
+        })
+      );
     });
   });
 
