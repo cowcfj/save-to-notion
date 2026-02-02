@@ -504,7 +504,7 @@ export class SearchableDatabaseSelector {
 
     try {
       // 轉義正則特殊字符
-      const escapedQuery = SearchableDatabaseSelector.escapeRegex(query);
+      const escapedQuery = this.escapeRegex(query);
       // 使用括號包含模式以在 split 結果中保留分隔符 (即匹配到的關鍵字)
       const regex = new RegExp(`(${escapedQuery})`, 'gi');
       const parts = text.split(regex);

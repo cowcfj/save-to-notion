@@ -140,8 +140,8 @@ export class MigrationTool {
     // 顯示警告訊息
     if (scanStatus) {
       scanStatus.textContent = '';
-      const box = document.createElement('div');
-      box.className = 'warning-box';
+      const warningBox = document.createElement('div');
+      warningBox.className = 'warning-box';
 
       const strong = document.createElement('strong');
       const iconSpan = createSafeIcon(UI_ICONS.WARNING);
@@ -149,14 +149,14 @@ export class MigrationTool {
       strong.appendChild(
         document.createTextNode(` 發現 ${result.items.length} 個頁面包含舊版標記`)
       );
-      box.appendChild(strong);
+      warningBox.appendChild(strong);
 
       const paragraph = document.createElement('p');
       const totalHighlights = result.items.reduce((sum, item) => sum + item.highlightCount, 0);
       paragraph.textContent = `共檢測到 ${totalHighlights} 個舊版標記需遷移。請選擇要遷移或刪除的項目。`;
-      box.appendChild(paragraph);
+      warningBox.appendChild(paragraph);
 
-      scanStatus.appendChild(box);
+      scanStatus.appendChild(warningBox);
       scanStatus.className = '';
     }
 

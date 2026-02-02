@@ -440,8 +440,8 @@ export class StorageManager {
       button.disabled = false;
       if (buttonText) {
         buttonText.textContent = '';
-        const icon = UI_ICONS.INFO; // 使用預設圖標
-        buttonText.appendChild(createSafeIcon(icon));
+        const defaultIcon = UI_ICONS.INFO; // 使用預設圖標
+        buttonText.appendChild(createSafeIcon(defaultIcon));
         buttonText.appendChild(document.createTextNode(' 預覽清理效果'));
       }
     }

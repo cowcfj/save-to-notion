@@ -188,8 +188,7 @@ describe('StorageManager', () => {
       // Simulate read completion
       mockReader.onload({ target: { result: JSON.stringify({ data: { key: 'value' } }) } });
 
-      // Wait for async operations (using setImmediate or just expecting mocks)
-      // Since it's inside callback, we might need a small delay or check mocks
+      // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(mockSet).toHaveBeenCalledWith({ key: 'value' }, expect.any(Function));
