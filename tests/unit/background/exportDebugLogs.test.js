@@ -38,6 +38,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
           success: false,
           error: error.message || '日誌導出失敗，請稍後再試',
         });
+        return false;
       }
     };
 

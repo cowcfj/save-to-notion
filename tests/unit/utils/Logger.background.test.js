@@ -75,7 +75,7 @@ describe('Logger (Background Context)', () => {
   test('should initialize LogBuffer in background context', () => {
     // Access internal state indirectly or trigger initialization
     // Trigger initDebugState
-    expect(LogBufferMock).toHaveBeenCalled();
+    expect(LogBufferMock).toHaveBeenCalledWith(500);
   });
 
   test('should sanitize logs before writing to buffer', () => {
