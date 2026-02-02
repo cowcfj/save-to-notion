@@ -740,15 +740,6 @@ export class SearchableDatabaseSelector {
   }
 
   /**
-   * 轉義 HTML 特殊字符
-   */
-  static escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  /**
    * 清理組件資源（防止記憶體洩漏）
    * 應在組件銷毀時調用
    */
