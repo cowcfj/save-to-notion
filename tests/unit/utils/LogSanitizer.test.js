@@ -49,8 +49,6 @@ describe('LogSanitizer', () => {
       expect(ctx.raw).toContain('[REDACTED_TOKEN]');
       // URL sanitization (from securityUtils)
       expect(ctx.url).toBe('https://notion.so/my-page-123'); // Path is preserved by default sanitizeUrl logic unless specific rules apply
-      // Wait, let's check what securityUtils.sanitizeUrlForLogging does
-      // It keeps protocol, hostname, path. Removes query/hash.
     });
 
     test('should handle arrays in context', () => {
