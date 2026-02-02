@@ -41,6 +41,7 @@ export class LogSanitizer {
    * 清洗日誌列表
    * @param {Array<Object>} logs - 原始日誌陣列
    * @returns {Array<Object>} 脫敏後的日誌副本
+   * @note 除了 `message` 和 `context` 會被重新處理外，其他頂層屬性僅進行淺拷貝 (Shallow Copy)。
    */
   static sanitize(logs) {
     if (!Array.isArray(logs)) {
