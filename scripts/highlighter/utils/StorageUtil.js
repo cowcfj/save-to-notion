@@ -167,7 +167,8 @@ const StorageUtil = {
           resolve(this._parseHighlightFormat(parsed));
         } catch (error) {
           Logger.error('解析舊版標註失敗', {
-            action: '_loadFromLocalStorage',
+            action: 'loadHighlights',
+            operation: 'parseLocalStorage',
             error: error.message,
           });
           resolve([]);

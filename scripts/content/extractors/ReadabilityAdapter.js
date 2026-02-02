@@ -154,7 +154,7 @@ async function expandCollapsibleElements(timeout = 300) {
           trigger.click();
         } catch (clickError) {
           /* ignore click failures but log for debug */
-          Logger.log('觸發元素點擊失敗', {
+          Logger.debug('觸發元素點擊失敗', {
             action: 'expandCollapsibleElements',
             error: clickError.message,
           });
@@ -191,7 +191,7 @@ async function expandCollapsibleElements(timeout = 300) {
         expanded.push(el);
       } catch (error) {
         // 忽略但在開發模式表記錄
-        Logger.log('處理 collapsed 類別元素失敗', {
+        Logger.debug('處理 collapsed 類別元素失敗', {
           action: 'expandCollapsibleElements',
           error: error.message,
         });

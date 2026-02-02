@@ -47,7 +47,7 @@ describe('ReadabilityAdapter - expandCollapsibleElements', () => {
     await expandCollapsibleElements(0);
 
     expect(btn.getAttribute('aria-expanded')).toBe('true');
-    expect(Logger.log).toHaveBeenCalledWith(
+    expect(Logger.debug).toHaveBeenCalledWith(
       '觸發元素點擊失敗',
       expect.objectContaining({
         action: 'expandCollapsibleElements',
@@ -102,7 +102,7 @@ describe('ReadabilityAdapter - expandCollapsibleElements', () => {
 
     await expandCollapsibleElements(0);
 
-    expect(Logger.log).toHaveBeenCalledWith(
+    expect(Logger.debug).toHaveBeenCalledWith(
       '處理 collapsed 類別元素失敗',
       expect.objectContaining({
         action: 'expandCollapsibleElements',
