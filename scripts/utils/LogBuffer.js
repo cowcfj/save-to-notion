@@ -16,7 +16,9 @@ export class LogBuffer {
   constructor(capacity = 500) {
     // 確保容量為正整數
     this.capacity = Math.max(1, Math.floor(capacity));
-    this.buffer = [];
+    this.buffer = new Array(this.capacity);
+    this.head = 0; // 指向最舊記錄的索引
+    this.size = 0; // 當前記錄數量
   }
 
   /**
@@ -24,18 +26,24 @@ export class LogBuffer {
    * @param {Object} entry - 日誌對象
    */
   push(entry) {
-    // 如果緩衝區已滿，移除最舊的（第一個）
-    if (this.buffer.length >= this.capacity) {
-      this.buffer.shift();
-    }
-
     // 確保有時間戳
     const entryWithTimestamp = {
       timestamp: new Date().toISOString(),
       ...entry,
     };
 
-    this.buffer.push(entryWithTimestamp);
+    // 計算寫入位置：(head + size) % capacity
+    // 假如滿了，(head + size) 會剛好指回 head 所在位置，進行覆蓋
+    const writeIndex = (this.head + this.size) % this.capacity;
+
+    this.buffer[writeIndex] = entryWithTimestamp;
+
+    if (this.size < this.capacity) {
+      this.size++;
+    } else {
+      // 緩衝區已滿，覆蓋了最舊的，head 往前移
+      this.head = (this.head + 1) % this.capacity;
+    }
   }
 
   /**
@@ -43,17 +51,22 @@ export class LogBuffer {
    * @returns {Array<Object>} 按時間排序的日誌陣列
    */
   getAll() {
-    // 返回淺拷貝，防止外部修改影響緩衝區
-    // deep clone 開銷太大，且日誌通常不會被修改，淺拷貝 + 對象重建在 push 時通常足夠
-    // 為了更安全，這裡做一個簡單的 map copy
-    return this.buffer.map(entry => ({ ...entry }));
+    const result = new Array(this.size);
+    for (let i = 0; i < this.size; i++) {
+      const index = (this.head + i) % this.capacity;
+      // 返回淺拷貝
+      result[i] = { ...this.buffer[index] };
+    }
+    return result;
   }
 
   /**
    * 清空緩衝區
    */
   clear() {
-    this.buffer = [];
+    this.buffer = new Array(this.capacity);
+    this.head = 0;
+    this.size = 0;
   }
 
   /**
@@ -61,17 +74,17 @@ export class LogBuffer {
    * @returns {Object} { count, capacity, oldest, newest }
    */
   getStats() {
-    const count = this.buffer.length;
     let oldest = null;
     let newest = null;
 
-    if (count > 0) {
-      oldest = this.buffer[0].timestamp;
-      newest = this.buffer[count - 1].timestamp;
+    if (this.size > 0) {
+      oldest = this.buffer[this.head].timestamp;
+      const newestIndex = (this.head + this.size - 1) % this.capacity;
+      newest = this.buffer[newestIndex].timestamp;
     }
 
     return {
-      count,
+      count: this.size,
       capacity: this.capacity,
       oldest,
       newest,
