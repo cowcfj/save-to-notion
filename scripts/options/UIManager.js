@@ -4,7 +4,7 @@
  */
 
 import { validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
-import { UI_ICONS } from '../config/icons.js';
+import { UI_ICONS, NOTION_API } from '../config/index.js';
 
 /**
  * UI 管理器類別
@@ -139,7 +139,7 @@ export class UIManager {
       this.upgradeNoticeBanner = document.createElement('div');
       this.upgradeNoticeBanner.className = 'upgrade-notice';
       this.upgradeNoticeBanner.innerHTML = `
-                <strong>Notion API 已升級至 2025-09-03 版本</strong>
+                <strong>Notion API 已升級至 ${NOTION_API.VERSION} 版本</strong>
                 <p>偵測到您仍在使用舊的 Database ID：<code class="upgrade-notice-id">${legacyDatabaseId || '未設定'}</code>。請重新載入並選擇資料來源（Data Source），以儲存新的 Data Source ID，確保同步與標註完全正常。</p>
                 <div class="upgrade-hint">提示：點擊下方按鈕重新載入資料來源後，從列表重新選擇並儲存設定即可完成升級。</div>
                 <div class="upgrade-actions">

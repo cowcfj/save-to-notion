@@ -6,7 +6,7 @@ import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeApiError } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { UI_MESSAGES } from '../config/index.js';
+import { UI_MESSAGES, NOTION_API } from '../config/index.js';
 
 /**
  * 資料來源管理器
@@ -81,7 +81,7 @@ export class DataSourceManager {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2025-09-03',
+          'Notion-Version': NOTION_API.VERSION,
         },
         body: JSON.stringify(requestBody),
       });

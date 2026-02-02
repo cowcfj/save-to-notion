@@ -3,10 +3,8 @@
  * 負責舊版標註數據的遷移 UI 與協調
  */
 /* global chrome */
-import { MigrationScanner } from './MigrationScanner.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_ICONS } from '../config/index.js';
+import Logger from '../utils/Logger.js';
 
 /**
  * 遷移工具類別
@@ -675,7 +673,10 @@ export class MigrationTool {
       }
     } catch (error) {
       // 靜默失敗，不影響頁面正常使用
-      console.warn('[MigrationTool] 載入待完成列表失敗:', error);
+      Logger.warn('載入待完成遷移列表失敗', {
+        action: 'loadPendingMigrations',
+        error: error.message || error,
+      });
     }
   }
 
@@ -782,10 +783,18 @@ export class MigrationTool {
         // 重新載入列表
         await this.loadPendingMigrations();
       } else {
-        console.error('[MigrationTool] 刪除失敗:', response?.error);
+        Logger.error('刪除失敗標註失敗', {
+          action: 'deleteFailedHighlights',
+          url,
+          error: response?.error,
+        });
       }
     } catch (error) {
-      console.error('[MigrationTool] 刪除失敗標註失敗:', error);
+      Logger.error('執行刪除失敗標註時出錯', {
+        action: 'deleteFailedHighlights',
+        url,
+        error: error.message || error,
+      });
     }
   }
 }
