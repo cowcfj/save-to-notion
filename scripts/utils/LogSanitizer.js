@@ -57,14 +57,25 @@ export class LogSanitizer {
 
   /**
    * 遞歸清理值（支持對象、數組、字符串）
+   * @param {*} value - 要清理的值
+   * @param {number} depth - 當前遞歸深度
+   * @param {WeakSet} seen - 用於檢測循環引用的集合
    */
-  static _sanitizeValue(value, depth) {
+  static _sanitizeValue(value, depth, seen = new WeakSet()) {
     if (depth > MAX_DEPTH) {
       return '[MAX_DEPTH_REACHED]';
     }
 
     if (value === null || value === undefined) {
       return value;
+    }
+
+    // 處理循環引用
+    if (typeof value === 'object' || typeof value === 'function') {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
     }
 
     // 處理字串
@@ -77,7 +88,7 @@ export class LogSanitizer {
 
     // 處理陣列
     if (Array.isArray(value)) {
-      return value.map(item => this._sanitizeValue(item, depth + 1));
+      return value.map(item => this._sanitizeValue(item, depth + 1, seen));
     }
 
     // 處理 Error 對象 (優先處理，因為 Error 也是 Object)
@@ -89,7 +100,7 @@ export class LogSanitizer {
       // 嘗試保留其他自定義屬性 (手動迭代以避免展開運算符的問題)
       for (const key of Object.keys(value)) {
         if (key !== 'message' && key !== 'stack' && key !== 'name') {
-          sanitized[key] = this._sanitizeValue(value[key], depth + 1);
+          sanitized[key] = this._sanitizeValue(value[key], depth + 1, seen);
         }
       }
 
@@ -126,7 +137,7 @@ export class LogSanitizer {
           // 屬性字段脫敏 (隱藏 Schema)
           safeObj[key] = '[REDACTED_PROPERTIES]';
         } else {
-          safeObj[key] = this._sanitizeValue(val, depth + 1);
+          safeObj[key] = this._sanitizeValue(val, depth + 1, seen);
         }
       }
       return safeObj;
