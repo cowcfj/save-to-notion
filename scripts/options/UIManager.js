@@ -80,6 +80,9 @@ export class UIManager {
           case 'info':
             icon = UI_ICONS.INFO;
             break;
+          default:
+            icon = UI_ICONS.INFO;
+            break;
         }
       }
     }

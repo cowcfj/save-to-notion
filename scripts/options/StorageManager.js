@@ -920,6 +920,9 @@ export class StorageManager {
         case 'info':
           safeIcon = UI_ICONS.INFO;
           break;
+        default:
+          safeIcon = UI_ICONS.INFO;
+          break;
       }
     }
 

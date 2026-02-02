@@ -5,6 +5,8 @@
 /* global chrome */
 import { UI_ICONS } from '../config/index.js';
 import Logger from '../utils/Logger.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js';
+import { sanitizeApiError } from '../utils/securityUtils.js';
 
 /**
  * 遷移工具類別
