@@ -305,7 +305,8 @@ describe('Logger', () => {
   });
 
   describe('sendToBackground 功能', () => {
-    test('在擴展環境中應該發送消息到 background', () => {
+    beforeEach(() => {
+      // Setup default mock specifically for this suite
       global.chrome = {
         runtime: {
           id: 'test-extension-id',
@@ -331,7 +332,9 @@ describe('Logger', () => {
 
       require('../../../scripts/utils/Logger.js');
       Logger = global.window.Logger;
+    });
 
+    test('在擴展環境中應該發送消息到 background', () => {
       Logger.warn('test message', { extra: 'data' });
 
       expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
@@ -345,32 +348,6 @@ describe('Logger', () => {
     });
 
     test('應該正確序列化 Error 對象', () => {
-      global.chrome = {
-        runtime: {
-          id: 'test-extension-id',
-          getManifest: jest.fn().mockReturnValue({
-            version_name: '1.0.0-dev',
-          }),
-          sendMessage: jest.fn((msg, callback) => {
-            if (callback) {
-              callback();
-            }
-          }),
-          lastError: null,
-        },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
-
-      require('../../../scripts/utils/Logger.js');
-      Logger = global.window.Logger;
-
       const testError = new Error('Test error');
       Logger.warn('Error occurred', testError);
 
@@ -384,28 +361,6 @@ describe('Logger', () => {
     });
 
     test('應該正確處理純量參數 (數字, 字串)', () => {
-      global.chrome = {
-        runtime: {
-          id: 'test-extension-id',
-          getManifest: jest.fn().mockReturnValue({
-            version_name: '1.0.0-dev',
-          }),
-          sendMessage: jest.fn(),
-          lastError: null,
-        },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
-
-      require('../../../scripts/utils/Logger.js');
-      Logger = global.window.Logger;
-
       Logger.info('Scalar test', 123, 'test-string');
 
       const sentArgs = global.chrome.runtime.sendMessage.mock.calls[0][0].args;
@@ -413,28 +368,6 @@ describe('Logger', () => {
     });
 
     test('應該優雅處理無法序列化的對象 (Circular Reference)', () => {
-      global.chrome = {
-        runtime: {
-          id: 'test-extension-id',
-          getManifest: jest.fn().mockReturnValue({
-            version_name: '1.0.0-dev',
-          }),
-          sendMessage: jest.fn(),
-          lastError: null,
-        },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
-
-      require('../../../scripts/utils/Logger.js');
-      Logger = global.window.Logger;
-
       const circular = {};
       circular.myself = circular;
 
