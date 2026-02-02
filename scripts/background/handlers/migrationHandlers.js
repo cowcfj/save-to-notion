@@ -57,7 +57,10 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender, url);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender, url });
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+            senderId: sender?.id,
+            url,
+          });
           sendResponse(validationError);
           return;
         }
@@ -280,7 +283,10 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender, url);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender, url });
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+            senderId: sender?.id,
+            url,
+          });
           sendResponse(validationError);
           return;
         }
@@ -330,7 +336,9 @@ export function createMigrationHandlers(services) {
         // 安全性驗證 (僅驗證來源，URL 在內部檢查)
         const validationError = validatePrivilegedRequest(sender);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender });
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+            senderId: sender?.id,
+          });
           sendResponse(validationError);
           return;
         }
@@ -424,7 +432,9 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender });
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+            senderId: sender?.id,
+          });
           sendResponse(validationError);
           return;
         }
@@ -471,7 +481,9 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender });
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+            senderId: sender?.id,
+          });
           sendResponse(validationError);
           return;
         }
@@ -543,7 +555,10 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender, url);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, { sender, url });
+          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+            senderId: sender?.id,
+            url,
+          });
           sendResponse(validationError);
           return;
         }

@@ -113,7 +113,8 @@ export function createHighlightHandlers(services) {
             action: 'USER_ACTIVATE_SHORTCUT',
             reason: 'invalid_content_script_request',
             error: validationError.error,
-            sender,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
           });
           sendResponse(validationError);
           return;
@@ -215,7 +216,8 @@ export function createHighlightHandlers(services) {
             action: 'startHighlight',
             reason: 'invalid_internal_request',
             error: validationError.error,
-            sender,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
           });
           sendResponse(validationError);
           return;
