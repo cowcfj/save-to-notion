@@ -263,12 +263,24 @@ export class SearchableDatabaseSelector {
    */
   showSearchingState(query) {
     if (this.databaseList) {
-      this.databaseList.innerHTML = `
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <span>正在搜尋「${SearchableDatabaseSelector.escapeHtml(query)}」...</span>
-        </div>
-      `;
+      this.databaseList.innerHTML = '';
+
+      const container = document.createElement('div');
+      container.className = 'loading-state';
+
+      const spinner = document.createElement('div');
+      spinner.className = 'spinner';
+      container.appendChild(spinner);
+
+      const textSpan = document.createElement('span');
+      textSpan.textContent = '正在搜尋「';
+      const querySpan = document.createElement('span');
+      querySpan.textContent = query;
+      textSpan.appendChild(querySpan);
+      textSpan.appendChild(document.createTextNode('」...'));
+      container.appendChild(textSpan);
+
+      this.databaseList.appendChild(container);
     }
   }
 
@@ -285,129 +297,232 @@ export class SearchableDatabaseSelector {
       return;
     }
 
+    this.databaseList.innerHTML = '';
+
     if (this.filteredDatabases.length === 0) {
-      this.databaseList.innerHTML = `
-                <div class="no-results">
-                    <span class="icon">
-                      ${UI_ICONS.SEARCH}
-                    </span>
-                    <div>未找到匹配的資料來源</div>
-                    <small>嘗試使用不同的關鍵字搜索</small>
-                </div>
-            `;
+      const noResultsDiv = document.createElement('div');
+      noResultsDiv.className = 'no-results';
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'icon';
+      iconSpan.innerHTML = UI_ICONS.SEARCH;
+      noResultsDiv.appendChild(iconSpan);
+
+      const msgDiv = document.createElement('div');
+      msgDiv.textContent = '未找到匹配的資料來源';
+      noResultsDiv.appendChild(msgDiv);
+
+      const small = document.createElement('small');
+      small.textContent = '嘗試使用不同的關鍵字搜索';
+      noResultsDiv.appendChild(small);
+
+      this.databaseList.appendChild(noResultsDiv);
       return;
     }
 
-    this.databaseList.innerHTML = this.filteredDatabases
-      .map((db, index) => this.createDatabaseItemHTML(db, index))
-      .join('');
+    const fragment = document.createDocumentFragment();
 
-    // 添加點擊事件
-    this.databaseList.querySelectorAll('.database-item').forEach((item, index) => {
-      item.addEventListener('click', () => {
+    this.filteredDatabases.forEach((db, index) => {
+      const itemElement = this.createDatabaseItem(db, index);
+      // 直接綁定點擊事件
+      itemElement.addEventListener('click', () => {
         this.selectDatabase(this.filteredDatabases[index]);
       });
+      fragment.appendChild(itemElement);
     });
+
+    this.databaseList.appendChild(fragment);
   }
 
-  createDatabaseItemHTML(db, index) {
+  /**
+   * 構建資料庫項目的 DOM 元素
+   * @param {Object} db - 資料庫對象
+   * @param {number} index - 索引
+   * @returns {HTMLElement}
+   */
+  createDatabaseItem(db, index) {
     const isSelected = this.selectedDatabase && this.selectedDatabase.id === db.id;
     const isFocused = index === this.focusedIndex;
 
-    // 先轉義 HTML 以防止 XSS
-    let highlightedTitle = SearchableDatabaseSelector.escapeHtml(db.title);
-
-    // 然後進行搜索關鍵字高亮
-    const query = this.searchInput ? this.searchInput.value.toLowerCase().trim() : '';
-    if (query) {
-      // 也需要轉義 query 以確保正確匹配已轉義的標題
-      const escapedQuery = SearchableDatabaseSelector.escapeHtml(query);
-      const regex = new RegExp(`(${SearchableDatabaseSelector.escapeRegex(escapedQuery)})`, 'gi');
-      highlightedTitle = highlightedTitle.replace(
-        regex,
-        '<span class="search-highlight">$1</span>'
-      );
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'database-item';
+    if (isSelected) {
+      itemDiv.classList.add('selected');
+    }
+    if (isFocused) {
+      itemDiv.classList.add('keyboard-focus');
     }
 
-    // 類型圖標和標籤
-    const typeIcon = db.type === 'page' ? UI_ICONS.PAGE : UI_ICONS.DATABASE;
-    const typeLabel = db.type === 'page' ? '頁面' : '資料來源';
+    itemDiv.dataset.index = index;
+    itemDiv.dataset.type = db.type;
+    itemDiv.dataset.isWorkspace = db.isWorkspace;
 
-    // 工作區標記
-    const workspaceBadge = db.isWorkspace ? '<span class="workspace-badge">工作區</span>' : '';
+    // Row 1: Title and Badges
+    const titleRow = document.createElement('div');
+    titleRow.className = 'database-title';
 
-    // Container badge
+    // 搜索關鍵字高亮
+    const query = this.searchInput ? this.searchInput.value.trim() : '';
+    const highlightedTitleFragment = this._createHighlightedText(db.title, query);
+    titleRow.appendChild(highlightedTitleFragment);
+
+    // Badges
+    if (db.isWorkspace) {
+      const badge = document.createElement('span');
+      badge.className = 'workspace-badge';
+      badge.textContent = '工作區';
+      titleRow.appendChild(document.createTextNode(' ')); // Spacer
+      titleRow.appendChild(badge);
+    }
+
     const isLikelyContainer = db.type === 'page' && db.parent?.type === 'workspace';
-    const containerBadge = isLikelyContainer
-      ? `<span class="container-badge">${UI_ICONS.WORKSPACE} 容器</span>`
-      : '';
+    if (isLikelyContainer) {
+      itemDiv.dataset.isContainer = 'true';
+      const badge = document.createElement('span');
+      badge.className = 'container-badge';
+      badge.innerHTML = `${UI_ICONS.WORKSPACE} 容器`;
+      titleRow.appendChild(document.createTextNode(' ')); // Spacer
+      titleRow.appendChild(badge);
+    }
 
-    // Category badge
     const isLikelyCategory = db.type === 'page' && db.parent?.type === 'page_id';
-    const categoryBadge = isLikelyCategory
-      ? `<span class="category-badge">${UI_ICONS.CATEGORY} 分類</span>`
-      : '';
+    if (isLikelyCategory) {
+      itemDiv.dataset.isCategory = 'true';
+      const badge = document.createElement('span');
+      badge.className = 'category-badge';
+      badge.innerHTML = `${UI_ICONS.CATEGORY} 分類`;
+      titleRow.appendChild(document.createTextNode(' ')); // Spacer
+      titleRow.appendChild(badge);
+    }
+
+    itemDiv.appendChild(titleRow);
+
+    // Row 2: Meta Info (Compact)
+    const metaRow = document.createElement('div');
+    metaRow.className = 'database-meta-compact';
 
     // Parent 路徑信息
-    let parentPath = '';
     if (db.parent) {
+      let parentIcon = '';
+      let parentText = '';
+
       switch (db.parent.type) {
         case 'workspace':
-          parentPath = `${UI_ICONS.WORKSPACE} 工作區`;
+          parentIcon = UI_ICONS.WORKSPACE;
+          parentText = ' 工作區';
           break;
         case 'page_id':
-          parentPath = `${UI_ICONS.PAGE} 子頁面`;
+          parentIcon = UI_ICONS.PAGE;
+          parentText = ' 子頁面';
           break;
         case 'data_source_id':
-        case 'database_id': // 舊版 API 命名，映射到相同顯示
-          parentPath = `${UI_ICONS.DATABASE} 資料庫項目`;
+        case 'database_id':
+          parentIcon = UI_ICONS.DATABASE;
+          parentText = ' 資料庫項目';
           break;
         case 'block_id':
-          parentPath = `${UI_ICONS.BLOCK} 區塊項目`;
+          parentIcon = UI_ICONS.BLOCK;
+          parentText = ' 區塊項目';
           break;
         default:
-          // 記錄未知類型以便調試
-          parentPath = `❓ 其他 (${db.parent.type})`;
+          parentText = `❓ 其他 (${db.parent.type})`;
       }
+
+      const parentGroup = document.createElement('span');
+      parentGroup.className = 'meta-group';
+      parentGroup.innerHTML = parentIcon + parentText;
+      metaRow.appendChild(parentGroup);
+
+      const separator = document.createElement('span');
+      separator.className = 'meta-separator';
+      separator.textContent = '|';
+      metaRow.appendChild(separator);
     }
 
-    return `
-            <div class="database-item ${isSelected ? 'selected' : ''} ${isFocused ? 'keyboard-focus' : ''}"
-                 data-index="${index}"
-                 data-type="${db.type}"
-                 data-is-workspace="${db.isWorkspace}"
-                 data-is-container="${isLikelyContainer}"
-                 data-is-category="${isLikelyCategory}">
-                
-                 <!-- Row 1: Title and Badges -->
-                <div class="database-title">
-                    ${highlightedTitle}
-                    ${workspaceBadge}
-                    ${containerBadge}
-                    ${categoryBadge}
-                </div>
+    // Type
+    const typeGroup = document.createElement('span');
+    typeGroup.className = 'meta-group';
 
-                <!-- Row 2: Meta Info (Compact) -->
-                <div class="database-meta-compact">
-                    ${parentPath ? `<span class="meta-group">${parentPath}</span><span class="meta-separator">|</span>` : ''}
-                    
-                    <span class="meta-group">
-                        <span class="database-icon">${typeIcon}</span>
-                        <span>${typeLabel}</span>
-                    </span>
-                    
-                    <span class="meta-separator">|</span>
-                    
-                    <span class="meta-group" title="${db.id}">
-                       ${db.id.slice(0, 4)}...${db.id.slice(-4)}
-                    </span>
+    const typeIconSpan = document.createElement('span');
+    typeIconSpan.className = 'database-icon';
+    typeIconSpan.innerHTML = db.type === 'page' ? UI_ICONS.PAGE : UI_ICONS.DATABASE;
+    typeGroup.appendChild(typeIconSpan);
 
-                    ${db.created ? `<span class="meta-separator">|</span><span class="meta-group">${SearchableDatabaseSelector.formatDate(db.created)}</span>` : ''}
-                </div>
-            </div>
-        `;
+    const typeLabelSpan = document.createElement('span');
+    typeLabelSpan.textContent = db.type === 'page' ? '頁面' : '資料來源';
+    typeGroup.appendChild(typeLabelSpan);
+
+    metaRow.appendChild(typeGroup);
+
+    // Separator
+    const sep2 = document.createElement('span');
+    sep2.className = 'meta-separator';
+    sep2.textContent = '|';
+    metaRow.appendChild(sep2);
+
+    // ID
+    const idGroup = document.createElement('span');
+    idGroup.className = 'meta-group';
+    idGroup.title = db.id;
+    idGroup.textContent = `${db.id.slice(0, 4)}...${db.id.slice(-4)}`;
+    metaRow.appendChild(idGroup);
+
+    // Date
+    if (db.created) {
+      const sep3 = document.createElement('span');
+      sep3.className = 'meta-separator';
+      sep3.textContent = '|';
+      metaRow.appendChild(sep3);
+
+      const dateGroup = document.createElement('span');
+      dateGroup.className = 'meta-group';
+      dateGroup.textContent = SearchableDatabaseSelector.formatDate(db.created);
+      metaRow.appendChild(dateGroup);
+    }
+
+    itemDiv.appendChild(metaRow);
+    return itemDiv;
   }
 
+  /**
+   * 安全地創建帶有搜尋高亮的文字片段 (DOM Node Splitting)
+   * @param {string} text - 原始文字
+   * @param {string} query - 搜尋關鍵字
+   * @returns {DocumentFragment}
+   * @private
+   */
+  _createHighlightedText(text, query) {
+    const fragment = document.createDocumentFragment();
+    if (!query) {
+      fragment.appendChild(document.createTextNode(text));
+      return fragment;
+    }
+
+    try {
+      // 轉義正則特殊字符
+      const escapedQuery = SearchableDatabaseSelector.escapeRegex(query);
+      // 使用括號包含模式以在 split 結果中保留分隔符 (即匹配到的關鍵字)
+      const regex = new RegExp(`(${escapedQuery})`, 'gi');
+      const parts = text.split(regex);
+
+      parts.forEach(part => {
+        if (part.toLowerCase() === query.toLowerCase()) {
+          const span = document.createElement('span');
+          span.className = 'search-highlight';
+          span.textContent = part;
+          fragment.appendChild(span);
+        } else if (part) {
+          // 對於非關鍵字部分，直接作為文字節點插入（自動轉義）
+          fragment.appendChild(document.createTextNode(part));
+        }
+      });
+    } catch (_e) {
+      // Fallback in case of regex error
+      fragment.appendChild(document.createTextNode(text));
+    }
+
+    return fragment;
+  }
   selectDatabase(database) {
     this.selectedDatabase = database;
 
@@ -554,12 +669,20 @@ export class SearchableDatabaseSelector {
 
   showLoading() {
     if (this.databaseList) {
-      this.databaseList.innerHTML = `
-                <div class="loading-state">
-                    <div class="spinner"></div>
-                    <span>重新載入資料來源中...</span>
-                </div>
-            `;
+      this.databaseList.innerHTML = '';
+
+      const container = document.createElement('div');
+      container.className = 'loading-state';
+
+      const spinner = document.createElement('div');
+      spinner.className = 'spinner';
+      container.appendChild(spinner);
+
+      const span = document.createElement('span');
+      span.textContent = '重新載入資料來源中...';
+      container.appendChild(span);
+
+      this.databaseList.appendChild(container);
     }
     this.showDropdown();
   }
