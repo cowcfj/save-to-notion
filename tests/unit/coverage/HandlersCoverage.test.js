@@ -74,12 +74,20 @@ describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
 
         // 1. 安全性驗證失敗
         await handlers.USER_ACTIVATE_SHORTCUT({}, { id: 'wrong' }, sendResponse);
-        expect(sendResponse).toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            success: false,
+            error: expect.stringMatching(/拒絕訪問|Security check failed/),
+        });
+
+        sendResponse.mockClear();
 
         // 2. 受限頁面
         const restrictedSender = { id: 'mock-id', tab: { id: 1, url: 'chrome://settings' } };
         await handlers.USER_ACTIVATE_SHORTCUT({}, restrictedSender, sendResponse);
-        expect(sendResponse).toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            success: false,
+            error: expect.any(String),
+        });
     });
 
     test('USER_ACTIVATE_SHORTCUT: showHighlighter 消息發送失敗', async () => {
@@ -94,7 +102,11 @@ describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
         });
 
         await handlers.USER_ACTIVATE_SHORTCUT({}, mockSender, sendResponse);
-        expect(sendResponse).toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith({
+            success: false,
+            // 這裡錯誤訊息可能已被 sanitizeApiError 處理成通用用戶訊息
+            error: expect.any(String),
+        });
     });
 
     test('startHighlight: 安全性驗證失敗', async () => {
