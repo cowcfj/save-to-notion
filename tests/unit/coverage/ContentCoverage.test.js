@@ -5,7 +5,7 @@
 import { PerformanceOptimizer } from '../../../scripts/performance/PerformanceOptimizer.js';
 import { ImageCollector } from '../../../scripts/content/extractors/ImageCollector.js';
 import { bridgeContentToBlocks, createTextBlocks } from '../../../scripts/content/converters/ContentBridge.js';
-import * as imageUtils from '../../../scripts/utils/imageUtils.js';
+import { extractFromNoscript, isNotionCompatibleImageUrl } from '../../../scripts/utils/imageUtils.js';
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
     debug: jest.fn(),
@@ -29,17 +29,19 @@ describe('ContentParts 覆蓋率補強 (整合)', () => {
         optimizer._maintainCacheSizeLimit('c');
         expect(optimizer.queryCache.has('a')).toBe(false);
 
-        // 無效選擇器
-        const spy = jest.spyOn(console, 'error').mockImplementation(() => { });
+        // 無效選擇器 - 抑制 console.error 輸出
+        const spy = jest.spyOn(console, 'error').mockImplementation(jest.fn());
         PerformanceOptimizer._performQuery('!!!', document, { single: true });
         spy.mockRestore();
     });
 
     // --- ImageCollector ---
-    test('ImageCollector: processImageForCollection 過濾', () => {
+    test('ImageCollector: processImageForCollection 過濾', async () => {
         const img = document.createElement('img');
         img.src = 'https://example.com/test.jpg';
 
+        // 需要導入整個模組來 spy
+        const imageUtils = await import('../../../scripts/utils/imageUtils.js');
         jest.spyOn(imageUtils, 'extractImageSrc').mockReturnValue(null);
         expect(ImageCollector.processImageForCollection(img, 0, null)).toBeNull();
     });
@@ -63,11 +65,11 @@ describe('ContentParts 覆蓋率補強 (整合)', () => {
         div.appendChild(noscript);
 
         // 模擬 DOMParser
-        const result = imageUtils.extractFromNoscript(div);
+        const result = extractFromNoscript(div);
         expect(result).toBe('https://example.com/img.jpg');
     });
 
     test('imageUtils: isNotionCompatibleImageUrl', () => {
-        expect(imageUtils.isNotionCompatibleImageUrl('https://ab/img.jpg')).toBe(false);
+        expect(isNotionCompatibleImageUrl('https://ab/img.jpg')).toBe(false);
     });
 });

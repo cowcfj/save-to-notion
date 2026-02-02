@@ -44,7 +44,7 @@ global.chrome = {
 };
 
 describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
-    let handlers;
+    let handlers = null;
     const mockSender = { id: 'mock-id', tab: { id: 1, url: 'https://example.com' } };
 
     beforeEach(() => {
@@ -84,7 +84,7 @@ describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
                 cb({ status: 'bundle_ready' });
             } else if (msg.action === 'showHighlighter') {
                 chrome.runtime.lastError = { message: 'Internal error' };
-                cb(null);
+                cb(); // 當有 lastError 時，callback 不應傳遞參數
             }
         });
 

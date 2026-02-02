@@ -517,7 +517,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       // Mock sendMessage 失敗 (例如腳本未加載)
       chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => {
         chrome.runtime.lastError = { message: 'Receiving end does not exist' };
-        cb(null);
+        cb(); // 當有 lastError 時，callback 不應傳遞參數
       });
 
       mockInjectionService.injectHighlighter.mockResolvedValue({ initialized: true });
@@ -708,7 +708,7 @@ describe('actionHandlers 覆蓋率補強', () => {
           cb({ status: 'bundle_ready' });
         } else if (msg.action === 'showHighlighter') {
           chrome.runtime.lastError = { message: 'Internal error' };
-          cb(null);
+          cb(); // 當有 lastError 時，callback 不應傳遞參數
         }
       });
 
