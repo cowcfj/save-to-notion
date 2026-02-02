@@ -654,7 +654,17 @@ export class StorageManager {
 
       const urlStrong = document.createElement('strong');
       // 安全核心：textContent 自動轉義
-      urlStrong.textContent = decodeURIComponent(item.url);
+      try {
+        urlStrong.textContent = decodeURIComponent(item.url);
+      } catch (error) {
+        // 如果 URL 編碼格式錯誤，則回退顯示原始 URL 並記錄警告
+        Logger.warn('Failed to decode URL in cleanup preview', {
+          action: 'preview_decode_url',
+          url: item.url,
+          error,
+        });
+        urlStrong.textContent = item.url;
+      }
       itemDiv.appendChild(urlStrong);
 
       itemDiv.appendChild(document.createTextNode(` - ${item.reason}`));

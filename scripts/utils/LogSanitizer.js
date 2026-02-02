@@ -57,12 +57,6 @@ export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
 
 export class LogSanitizer {
   /**
-   * 清洗日誌列表
-   * @param {Array<Object>} logs - 原始日誌陣列
-   * @returns {Array<Object>} 脫敏後的日誌副本
-   */
-
-  /**
    * 清洗單條日誌條目
    * @param {string} message - 日誌訊息
    * @param {Object} context - 日誌上下文

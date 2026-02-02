@@ -206,14 +206,6 @@ describe('SearchableDatabaseSelector', () => {
       });
     });
 
-    describe('escapeHtml', () => {
-      it('should escape HTML special characters', () => {
-        const result = SearchableDatabaseSelector.escapeHtml('<script>alert("xss")</script>');
-        expect(result).not.toContain('<script>');
-        expect(result).toContain('&lt;');
-      });
-    });
-
     describe('escapeRegex', () => {
       it('should escape regex special characters', () => {
         const result = SearchableDatabaseSelector.escapeRegex('test.*+?^${}()|[]\\');
@@ -449,7 +441,7 @@ describe('SearchableDatabaseSelector', () => {
     });
   });
 
-  describe('createDatabaseItemHTML', () => {
+  describe('createDatabaseItem', () => {
     it('should render page item with page icon', () => {
       const pageDb = {
         id: 'page-1',
@@ -459,9 +451,11 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'page_id' },
       };
 
-      const html = selector.createDatabaseItemHTML(pageDb, 0);
-      expect(html).toContain('icon-page');
-      expect(html).toContain('頁面');
+      const element = selector.createDatabaseItem(pageDb, 0);
+      expect(element.outerHTML).toContain('頁面');
+      expect(element.outerHTML).toContain('Test Page');
+      // 檢查是否存在 SVG 圖標
+      expect(element.querySelector('svg')).toBeTruthy();
     });
 
     it('should render database item with database icon', () => {
@@ -473,10 +467,10 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'workspace' },
       };
 
-      const html = selector.createDatabaseItemHTML(db, 0);
-      expect(html).toContain('icon-database');
-      expect(html).toContain('資料來源');
-      expect(html).toContain('workspace-badge');
+      const element = selector.createDatabaseItem(db, 0);
+      expect(element.outerHTML).toContain('資料來源');
+      expect(element.outerHTML).toContain('Test Database');
+      expect(element.outerHTML).toContain('workspace-badge');
     });
 
     it('should add container badge for workspace pages', () => {
@@ -488,9 +482,9 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'workspace' },
       };
 
-      const html = selector.createDatabaseItemHTML(containerPage, 0);
-      expect(html).toContain('container-badge');
-      expect(html).toContain('容器');
+      const element = selector.createDatabaseItem(containerPage, 0);
+      expect(element.outerHTML).toContain('container-badge');
+      expect(element.outerHTML).toContain('容器');
     });
 
     it('should add category badge for child pages', () => {
@@ -502,9 +496,9 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'page_id' },
       };
 
-      const html = selector.createDatabaseItemHTML(categoryPage, 0);
-      expect(html).toContain('category-badge');
-      expect(html).toContain('分類');
+      const element = selector.createDatabaseItem(categoryPage, 0);
+      expect(element.outerHTML).toContain('category-badge');
+      expect(element.outerHTML).toContain('分類');
     });
 
     it('should show parent path for database_id parent', () => {
@@ -515,8 +509,8 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'database_id' },
       };
 
-      const html = selector.createDatabaseItemHTML(dbItem, 0);
-      expect(html).toContain('資料庫項目');
+      const element = selector.createDatabaseItem(dbItem, 0);
+      expect(element.outerHTML).toContain('資料庫項目');
     });
 
     it('should show parent path for block_id parent', () => {
@@ -527,8 +521,8 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'block_id' },
       };
 
-      const html = selector.createDatabaseItemHTML(blockItem, 0);
-      expect(html).toContain('區塊項目');
+      const element = selector.createDatabaseItem(blockItem, 0);
+      expect(element.outerHTML).toContain('區塊項目');
     });
 
     it('should show parent path for data_source_id parent', () => {
@@ -539,8 +533,8 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'data_source_id' },
       };
 
-      const html = selector.createDatabaseItemHTML(dsItem, 0);
-      expect(html).toContain('資料庫項目');
+      const element = selector.createDatabaseItem(dsItem, 0);
+      expect(element.outerHTML).toContain('資料庫項目');
     });
 
     it('should show unknown parent type with fallback', () => {
@@ -551,9 +545,9 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'unknown_type' },
       };
 
-      const html = selector.createDatabaseItemHTML(unknownItem, 0);
-      expect(html).toContain('❓');
-      expect(html).toContain('unknown_type');
+      const element = selector.createDatabaseItem(unknownItem, 0);
+      expect(element.textContent).toContain('❓');
+      expect(element.outerHTML).toContain('unknown_type');
     });
 
     it('should highlight search query in title', () => {
@@ -565,8 +559,10 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'workspace' },
       };
 
-      const html = selector.createDatabaseItemHTML(db, 0);
-      expect(html).toContain('search-highlight');
+      const element = selector.createDatabaseItem(db, 0);
+      expect(element.outerHTML).toContain('search-highlight');
+      const highlight = element.querySelector('.search-highlight');
+      expect(highlight.textContent.toLowerCase()).toBe('test');
     });
 
     it('should show date when available', () => {
@@ -578,8 +574,8 @@ describe('SearchableDatabaseSelector', () => {
         created: '2023-05-15T10:00:00Z',
       };
 
-      const html = selector.createDatabaseItemHTML(db, 0);
-      expect(html).toContain('2023');
+      const element = selector.createDatabaseItem(db, 0);
+      expect(element.outerHTML).toContain('2023');
     });
   });
 

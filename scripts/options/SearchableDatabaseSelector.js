@@ -4,6 +4,7 @@
  */
 
 import Logger from '../utils/Logger.js';
+import { createSafeIcon } from '../utils/securityUtils.js';
 import { UI_ICONS } from '../config/index.js';
 
 /**
@@ -305,7 +306,7 @@ export class SearchableDatabaseSelector {
 
       const iconSpan = document.createElement('span');
       iconSpan.className = 'icon';
-      iconSpan.innerHTML = UI_ICONS.SEARCH;
+      iconSpan.appendChild(createSafeIcon(UI_ICONS.SEARCH));
       noResultsDiv.appendChild(iconSpan);
 
       const msgDiv = document.createElement('div');
@@ -383,7 +384,8 @@ export class SearchableDatabaseSelector {
       itemDiv.dataset.isContainer = 'true';
       const badge = document.createElement('span');
       badge.className = 'container-badge';
-      badge.innerHTML = `${UI_ICONS.WORKSPACE} 容器`;
+      badge.appendChild(createSafeIcon(UI_ICONS.WORKSPACE));
+      badge.appendChild(document.createTextNode(' 容器'));
       titleRow.appendChild(document.createTextNode(' ')); // Spacer
       titleRow.appendChild(badge);
     }
@@ -393,7 +395,8 @@ export class SearchableDatabaseSelector {
       itemDiv.dataset.isCategory = 'true';
       const badge = document.createElement('span');
       badge.className = 'category-badge';
-      badge.innerHTML = `${UI_ICONS.CATEGORY} 分類`;
+      badge.appendChild(createSafeIcon(UI_ICONS.CATEGORY));
+      badge.appendChild(document.createTextNode(' 分類'));
       titleRow.appendChild(document.createTextNode(' ')); // Spacer
       titleRow.appendChild(badge);
     }
@@ -433,7 +436,8 @@ export class SearchableDatabaseSelector {
 
       const parentGroup = document.createElement('span');
       parentGroup.className = 'meta-group';
-      parentGroup.innerHTML = parentIcon + parentText;
+      parentGroup.appendChild(createSafeIcon(parentIcon));
+      parentGroup.appendChild(document.createTextNode(parentText));
       metaRow.appendChild(parentGroup);
 
       const separator = document.createElement('span');
@@ -448,7 +452,9 @@ export class SearchableDatabaseSelector {
 
     const typeIconSpan = document.createElement('span');
     typeIconSpan.className = 'database-icon';
-    typeIconSpan.innerHTML = db.type === 'page' ? UI_ICONS.PAGE : UI_ICONS.DATABASE;
+    typeIconSpan.appendChild(
+      createSafeIcon(db.type === 'page' ? UI_ICONS.PAGE : UI_ICONS.DATABASE)
+    );
     typeGroup.appendChild(typeIconSpan);
 
     const typeLabelSpan = document.createElement('span');

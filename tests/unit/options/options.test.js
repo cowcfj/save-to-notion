@@ -393,10 +393,10 @@ describe('options.js', () => {
       const exportBtn = document.getElementById('export-logs-button');
 
       // Trigger click
-      const clickPromise = exportBtn.click(); // eslint-disable-line no-unused-vars
+      exportBtn.click();
 
       // Check intermediate state immediately after click (before await resolves)
-      expect(exportBtn.textContent).toBe(' 導出中...');
+      expect(exportBtn.textContent).toBe('導出中...');
       expect(exportBtn.getAttribute('data-original-text')).toBe('導出日誌');
       expect(exportBtn.disabled).toBe(true);
 
@@ -424,7 +424,7 @@ describe('options.js', () => {
       exportBtn.click();
 
       // Check intermediate state
-      expect(exportBtn.textContent).toBe(' 導出中...');
+      expect(exportBtn.textContent).toBe('導出中...');
 
       // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 0));

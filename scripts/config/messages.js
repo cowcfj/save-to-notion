@@ -21,7 +21,7 @@ export const UI_MESSAGES = {
   LOGS: {
     EXPORT_SUCCESS: count => `已成功導出 ${count} 條日誌`,
     EXPORT_FAILED: error => error || '導出失敗，請稍後再試',
-    EXPORTING: ' 導出中...',
+    EXPORTING: '導出中...',
   },
   SETTINGS: {
     SAVE_SUCCESS: '設置已成功保存！',

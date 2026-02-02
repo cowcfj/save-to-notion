@@ -383,6 +383,33 @@ describe('StorageManager Extended', () => {
       expect(previewHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
       expect(previewHtml).not.toContain('<script>alert(1)</script>');
     });
+
+    test('應優雅處理無效的 URL 編碼 (URIError)', () => {
+      const malformedUrl = 'https://example.com/search?q=%E0%A4';
+
+      storageManager.cleanupPlan = {
+        items: [
+          {
+            key: 'malformed_key',
+            url: malformedUrl,
+            size: 100,
+            reason: 'test',
+          },
+        ],
+        totalKeys: 1,
+        spaceFreed: 100,
+        deletedPages: 0,
+      };
+
+      // 應該不會拋出錯誤
+      expect(() => {
+        storageManager.displayCleanupPreview(storageManager.cleanupPlan);
+      }).not.toThrow();
+
+      // 驗證是否回退顯示原始 URL
+      const previewText = storageManager.elements.cleanupPreview.textContent;
+      expect(previewText).toContain(malformedUrl);
+    });
   });
 
   describe('generateSafeCleanupPlan', () => {

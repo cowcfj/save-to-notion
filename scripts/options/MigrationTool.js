@@ -893,8 +893,7 @@ export class MigrationTool {
       spanUrl.className = 'result-url';
       spanUrl.title = item.url;
 
-      const iconSpan = document.createElement('span');
-      iconSpan.innerHTML = UI_ICONS.WARNING;
+      const iconSpan = createSafeIcon(UI_ICONS.WARNING);
       spanUrl.appendChild(iconSpan);
       spanUrl.appendChild(document.createTextNode(` ${MigrationTool.truncateUrl(item.url)}`));
 
