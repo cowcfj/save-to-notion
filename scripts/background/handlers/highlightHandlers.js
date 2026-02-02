@@ -152,6 +152,7 @@ export function createHighlightHandlers(services) {
           Logger.error('Bundle 注入失敗', {
             action: 'USER_ACTIVATE_SHORTCUT',
             error: injectionError.message,
+            stack: injectionError.stack,
           });
           const safeMessage = sanitizeApiError(injectionError, 'bundle_injection');
           sendResponse({
