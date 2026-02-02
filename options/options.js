@@ -340,7 +340,7 @@ function setupLogExport() {
           throw new Error(response.error || '日誌導出失敗');
         }
 
-        const { filename, content, mimeType, count } = response;
+        const { filename, content, mimeType, count } = response.data;
 
         // 觸發下載
         const blob = new Blob([content], { type: mimeType });

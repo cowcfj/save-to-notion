@@ -62,12 +62,13 @@ const actionHandlers = {
     notionService,
   }),
   // Log Export Handler
-  exportDebugLogs: (message, sender, sendResponse) => {
+  exportDebugLogs: async (message, sender, sendResponse) => {
     try {
-      const result = LogExporter.exportLogs({ format: message.format });
+      // Handle async exportLogs by awaiting (future-proofing if it becomes async)
+      const result = await LogExporter.exportLogs({ format: message.format });
       sendResponse({
         success: true,
-        ...result,
+        data: result,
       });
     } catch (error) {
       Logger.error('日誌導出失敗', {
@@ -75,11 +76,14 @@ const actionHandlers = {
         format: message.format,
         error: error.message,
       });
+      // Send structured error payload instead of throwing
       sendResponse({
         success: false,
-        error: error.message || '日誌導出失敗，請稍後再試',
+        error: error.message || String(error),
       });
     }
+    // Return true to keep the channel open for async sendResponse
+    return true;
   },
 };
 
