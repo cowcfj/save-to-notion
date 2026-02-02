@@ -65,7 +65,7 @@ describe('Logger (Background Context)', () => {
 
   test('should initialize LogBuffer in background context', () => {
     // Access internal state indirectly or trigger initialization
-    Logger.debugEnabled; // Trigger initDebugState
+     // Trigger initDebugState
     expect(LogBufferMock).toHaveBeenCalled();
   });
 
