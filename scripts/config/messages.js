@@ -15,19 +15,37 @@ export const UI_MESSAGES = {
     NO_RESULT: keyword => `未找到 "${keyword}" 相關的保存目標`,
     NO_DATA_SOURCE_FOUND:
       '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源',
+    LOAD_FAILED: error => `載入保存目標失敗: ${error}`,
+    DEFAULT_OPTION: '選擇資料來源...',
   },
   LOGS: {
     EXPORT_SUCCESS: count =>
-      `<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 已成功導出 ${count} 條日誌</span>`,
+      `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 已成功導出 ${count} 條日誌`,
     EXPORT_FAILED: error =>
-      `<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ${error || '導出失敗，請稍後再試'}</span>`,
+      `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ${error || '導出失敗，請稍後再試'}`,
   },
   SETTINGS: {
     SAVE_SUCCESS:
-      '<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 設置已成功保存！</span>',
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 設置已成功保存！',
     SAVE_FAILED: '保存失敗，請查看控制台日誌或稍後再試。',
     MISSING_API_KEY: '請輸入 API Key',
     INVALID_ID: '資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
+    DEBUG_LOGS_ENABLED: '已啟用偵測日誌（前端日誌將轉送到背景頁）',
+    DEBUG_LOGS_DISABLED: '已停用偵測日誌',
+    DEBUG_LOGS_TOGGLE_FAILED: error => `切換日誌模式失敗: ${error}`,
+    DISCONNECT_SUCCESS: '已成功斷開與 Notion 的連接。',
+    DISCONNECT_FAILED: error => `斷開連接失敗: ${error}`,
+    API_KEY_FORMAT_ERROR: 'API Key 格式不正確，長度太短',
+    TEST_API_LABEL: '測試 API Key',
+    TESTING_LABEL: '測試中...',
+  },
+  AUTH: {
+    CONNECTED: '已連接到 Notion',
+    NOT_CONNECTED: '未連接到 Notion',
+    CONNECT: '連接到 Notion',
+    RECONNECT: '重新設置',
+    OPENING_NOTION: '正在打開 Notion...',
+    OPEN_NOTION_FAILED: error => `打開 Notion 頁面失敗: ${error}`,
   },
   SETUP: {
     MISSING_CONFIG: '請先完成設定頁面的配置',

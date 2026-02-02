@@ -122,7 +122,11 @@ export class DataSourceManager {
         }
       } else {
         const errorData = await response.json();
-        Logger.error('API 錯誤:', errorData);
+        Logger.error('API 載入保存目標失敗', {
+          action: 'loadDatabases',
+          status: response.status,
+          error: errorData,
+        });
 
         // 統一使用 sanitizeApiError 處理 API 錯誤，提供更詳細的錯誤分類
         // errorData.message 包含原始錯誤訊息，可提供更準確的錯誤類型判斷
@@ -132,18 +136,21 @@ export class DataSourceManager {
           (response.status >= 500 ? 'Internal Server Error' : `HTTP ${response.status}`);
         const safeMessage = sanitizeApiError(errorMessage, 'load_databases');
         const translated = ErrorHandler.formatUserMessage(safeMessage);
-        this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');
+        this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(translated), 'error');
 
         if (this.elements.databaseSelect) {
           this.elements.databaseSelect.style.display = 'none';
         }
       }
     } catch (error) {
-      Logger.error('載入保存目標失敗:', error);
+      Logger.error('載入保存目標失敗', {
+        action: 'loadDatabases',
+        error,
+      });
 
       const safeMessage = sanitizeApiError(error, 'load_databases');
       const translated = ErrorHandler.formatUserMessage(safeMessage);
-      this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');
+      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(translated), 'error');
       if (this.elements.databaseSelect) {
         this.elements.databaseSelect.style.display = 'none';
       }
@@ -174,7 +181,7 @@ export class DataSourceManager {
     // 隱藏原有的簡單選擇器
     if (this.elements.databaseSelect) {
       this.elements.databaseSelect.style.display = 'none';
-      this.elements.databaseSelect.innerHTML = '<option value="">選擇資料來源...</option>';
+      this.elements.databaseSelect.innerHTML = `<option value="">${UI_MESSAGES.DATA_SOURCE.DEFAULT_OPTION}</option>`;
 
       databases.forEach(db => {
         const option = document.createElement('option');

@@ -5,6 +5,7 @@ import { DataSourceManager } from '../scripts/options/DataSourceManager.js';
 import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
+import { escapeHtml } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
 
 /**
@@ -39,12 +40,12 @@ export function initOptions() {
     if (request.action === 'oauth_success') {
       auth.checkAuthStatus();
       ui.showStatus(
-        '<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Notion 連接成功！</span>',
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Notion 連接成功！',
         'success'
       );
     } else if (request.action === 'oauth_failed') {
       ui.showStatus(
-        '<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Notion 連接失敗，請重試。</span>',
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Notion 連接失敗，請重試。',
         'error'
       );
     }
@@ -363,24 +364,26 @@ function setupLogExport() {
         document.body.removeChild(downloadLink);
         setTimeout(() => URL.revokeObjectURL(url), 100);
 
-        statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
+        statusEl.innerHTML = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
         statusEl.className = 'status-message success';
 
         // 3秒後清除成功訊息
         setTimeout(() => {
-          statusEl.textContent = '';
+          statusEl.innerHTML = '';
           statusEl.className = 'status-message';
         }, 3000);
       } catch (err) {
         Logger.error('Log export failed', err);
         // 顯示具體錯誤訊息（如果有的話），否則顯示通用錯誤
-        const errorMessage = UI_MESSAGES.LOGS.EXPORT_FAILED(err.message);
-        statusEl.textContent = errorMessage;
+        // [Security] 轉義動態錯誤訊息以防止 XSS
+        const safeErrorMessage = escapeHtml(err.message);
+        const errorMessage = UI_MESSAGES.LOGS.EXPORT_FAILED(safeErrorMessage);
+        statusEl.innerHTML = errorMessage;
         statusEl.className = 'status-message error';
 
         // 5秒後清除錯誤訊息（給用戶更多時間閱讀）
         setTimeout(() => {
-          statusEl.textContent = '';
+          statusEl.innerHTML = '';
           statusEl.className = 'status-message';
         }, 5000);
       } finally {
