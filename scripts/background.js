@@ -63,12 +63,8 @@ const actionHandlers = {
   }),
   // Log Export Handler
   exportDebugLogs: (message, sender, sendResponse) => {
-    try {
-      const result = LogExporter.exportLogs({ format: message.format });
-      sendResponse(result);
-    } catch (error) {
-      throw error;
-    }
+    const result = LogExporter.exportLogs({ format: message.format });
+    sendResponse(result);
   },
 };
 
