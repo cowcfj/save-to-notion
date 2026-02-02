@@ -37,6 +37,7 @@ import { createHighlightHandlers } from '../../../scripts/background/handlers/hi
 
 // Global mocks
 global.Logger = {
+    log: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
