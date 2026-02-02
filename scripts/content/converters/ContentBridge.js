@@ -39,7 +39,7 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
 
   // 驗證輸入
   if (!extractedContent) {
-    Logger.warn('⚠️ [ContentBridge] 收到空的 extractedContent');
+    Logger.warn('收到空的提取內容', { action: 'bridgeContentToBlocks' });
     return createFallbackResult('Untitled', 'No content was extracted.');
   }
 
@@ -51,7 +51,7 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
     rawArticle?.title ||
     (typeof document !== 'undefined' ? document.title : '') ||
     'Untitled';
-  Logger.log(`📌 [ContentBridge] 標題: ${title}`);
+  Logger.log('處理標題', { action: 'bridgeContentToBlocks', title });
 
   // 2. 轉換內容為 Notion Blocks
   let blocks = [];
@@ -59,7 +59,7 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
   if (content) {
     try {
       if (type === 'html' || type === 'markdown') {
-        Logger.log(`🔄 [ContentBridge] 使用 DomConverter 轉換 (type: ${type})`);
+        Logger.log('準備轉換內容', { action: 'bridgeContentToBlocks', type });
         // 動態獲取 domConverter，假設它已掛載或通過模組加載
         // 在新架構中，建議直接使用 index.js 的 extractPageContent 流程
         // 這裡作為兼容層，優先使用傳入的 htmlConverter，其次嘗試使用 window.domConverter 或 ConverterFactory
@@ -71,22 +71,22 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
         if (converter) {
           blocks = converter.convert(content);
         } else {
-          Logger.warn('⚠️ [ContentBridge] Converter 不可用');
+          Logger.warn('轉換器不可用', { action: 'bridgeContentToBlocks', type });
           blocks = createTextBlocks(content);
         }
       } else {
-        Logger.warn('⚠️ [ContentBridge] 未知內容類型，使用回退處理');
+        Logger.warn('未知內容類型，使用回退處理', { action: 'bridgeContentToBlocks', type });
         blocks = createTextBlocks(content);
       }
     } catch (error) {
-      Logger.error('❌ [ContentBridge] 內容轉換失敗:', error);
+      Logger.error('內容轉換失敗', { action: 'bridgeContentToBlocks', error: error.message });
       blocks = createTextBlocks(content);
     }
   }
 
   // 確保 blocks 是有效的陣列
   if (!Array.isArray(blocks) || blocks.length === 0) {
-    Logger.warn('⚠️ [ContentBridge] 轉換結果為空，創建回退區塊');
+    Logger.warn('轉換結果為空，創建回退區塊', { action: 'bridgeContentToBlocks' });
     blocks = [
       {
         object: 'block',
@@ -103,7 +103,7 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
     ];
   }
 
-  Logger.log(`✅ [ContentBridge] 生成了 ${blocks.length} 個區塊`);
+  Logger.log('區塊生成完成', { action: 'bridgeContentToBlocks', count: blocks.length });
 
   // 3. 插入封面圖
   if (includeFeaturedImage && metadata.featuredImage) {
@@ -123,9 +123,9 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
           external: { url: featuredImageUrl },
         },
       });
-      Logger.log('✓ [ContentBridge] 封面圖已插入到區塊開頭');
+      Logger.log('封面圖已插入到區塊開頭', { action: 'bridgeContentToBlocks' });
     } else {
-      Logger.log('✗ [ContentBridge] 封面圖已存在，跳過插入');
+      Logger.log('封面圖已存在，跳過插入', { action: 'bridgeContentToBlocks' });
     }
   }
 
@@ -233,13 +233,13 @@ function extractAndBridge(doc, options = {}) {
   const ContentExtractor = window.ContentExtractor;
 
   if (!ContentExtractor) {
-    Logger.warn('⚠️ [ContentBridge] ContentExtractor 未載入，使用回退');
+    Logger.warn('ContentExtractor 未載入，使用回退', { action: 'extractAndBridge' });
     return createFallbackResult(doc.title || 'Untitled', 'ContentExtractor is not available.');
   }
 
   // 1. 使用 ContentExtractor 提取內容
-  const extractedContent = ContentExtractor.extract(doc, options);
-  Logger.log('📦 [ContentBridge] ContentExtractor 提取完成');
+  const extractedContent = ContentExtractor.extract(doc);
+  Logger.log('ContentExtractor 提取完成', { action: 'extractAndBridge' });
 
   // 2. 轉換為 blocks 格式
   return bridgeContentToBlocks(extractedContent, options);

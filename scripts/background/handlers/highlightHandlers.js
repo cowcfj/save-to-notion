@@ -74,10 +74,10 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
       });
 
       if (pingResponse?.status === 'bundle_ready') {
-        Logger.log(`[USER_ACTIVATE_SHORTCUT] Bundle ready on attempt ${i + 1}`);
+        Logger.log('Bundle 已就緒', { action: 'ensureBundleReady', attempts: i + 1 });
         return true;
       }
-    } catch (_pingError) {
+    } catch {
       // Bundle 還未就緒，等待後重試
       if (i < maxRetries - 1) {
         await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -109,22 +109,26 @@ export function createHighlightHandlers(services) {
         // 這個處理器會執行腳本注入，必須確保僅限我們的 preloader.js 調用
         const validationError = validateContentScriptRequest(sender);
         if (validationError) {
-          Logger.warn('⚠️ [USER_ACTIVATE_SHORTCUT] 安全性阻擋:', validationError.error, {
-            sender,
+          Logger.warn('安全性阻擋', {
+            action: 'USER_ACTIVATE_SHORTCUT',
+            reason: 'invalid_content_script_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
           });
           sendResponse(validationError);
           return;
         }
 
         if (!sender.tab || !sender.tab.id) {
-          Logger.warn('[USER_ACTIVATE_SHORTCUT] No tab context');
+          Logger.warn('缺少標籤頁上下文', { action: 'USER_ACTIVATE_SHORTCUT' });
           sendResponse({ success: false, error: 'No tab context' });
           return;
         }
 
         const tabId = sender.tab.id;
         const tabUrl = sender.tab.url;
-        Logger.log(`⚡ [USER_ACTIVATE_SHORTCUT] Triggered from tab ${tabId}`);
+        Logger.log('觸發快捷鍵激活', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
 
         // 檢查是否為受限頁面
         if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
@@ -145,7 +149,11 @@ export function createHighlightHandlers(services) {
         try {
           await injectionService.ensureBundleInjected(tabId);
         } catch (injectionError) {
-          Logger.error('[USER_ACTIVATE_SHORTCUT] Bundle injection failed:', injectionError);
+          Logger.error('Bundle 注入失敗', {
+            action: 'USER_ACTIVATE_SHORTCUT',
+            error: injectionError.message,
+            stack: injectionError.stack,
+          });
           const safeMessage = sanitizeApiError(injectionError, 'bundle_injection');
           sendResponse({
             success: false,
@@ -158,7 +166,7 @@ export function createHighlightHandlers(services) {
         const bundleReady = await ensureBundleReady(tabId);
 
         if (!bundleReady) {
-          Logger.warn('[USER_ACTIVATE_SHORTCUT] Bundle not ready after retries');
+          Logger.warn('Bundle 初始化超時', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
           sendResponse({
             success: false,
             error: ERROR_MESSAGES.USER_MESSAGES.BUNDLE_INIT_TIMEOUT,
@@ -169,10 +177,10 @@ export function createHighlightHandlers(services) {
         // 發送消息顯示 highlighter
         chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, response => {
           if (chrome.runtime.lastError) {
-            Logger.warn(
-              '[USER_ACTIVATE_SHORTCUT] Failed to show highlighter:',
-              chrome.runtime.lastError.message
-            );
+            Logger.warn('顯示高亮工具失敗', {
+              action: 'USER_ACTIVATE_SHORTCUT',
+              error: chrome.runtime.lastError.message,
+            });
             const safeMessage = sanitizeApiError(
               chrome.runtime.lastError.message,
               'show_highlighter'
@@ -182,12 +190,15 @@ export function createHighlightHandlers(services) {
               error: ErrorHandler.formatUserMessage(safeMessage),
             });
           } else {
-            Logger.log('[USER_ACTIVATE_SHORTCUT] Highlighter shown successfully');
+            Logger.log('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
             sendResponse({ success: true, response });
           }
         });
       } catch (error) {
-        Logger.error('[USER_ACTIVATE_SHORTCUT] Unexpected error:', error);
+        Logger.error('執行快捷鍵激活時發生意外錯誤', {
+          action: 'USER_ACTIVATE_SHORTCUT',
+          error: error.message,
+        });
         const safeMessage = sanitizeApiError(error, 'user_activate_shortcut');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -202,7 +213,13 @@ export function createHighlightHandlers(services) {
         // startHighlight 會執行腳本注入，必須確保僅限內部調用
         const validationError = validateInternalRequest(sender);
         if (validationError) {
-          Logger.warn('⚠️ [startHighlight] 安全性阻擋:', validationError.error, { sender });
+          Logger.warn('安全性阻擋', {
+            action: 'startHighlight',
+            reason: 'invalid_internal_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
+          });
           sendResponse(validationError);
           return;
         }
@@ -241,7 +258,10 @@ export function createHighlightHandlers(services) {
           }
         } catch (error) {
           // 消息發送失敗，說明腳本可能未加載，繼續執行注入
-          Logger.log('發送 toggleHighlighter 失敗，嘗試注入腳本:', error);
+          Logger.log('發送切換消息失敗，嘗試注入腳本', {
+            action: 'startHighlight',
+            error: error.message,
+          });
         }
 
         const result = await injectionService.injectHighlighter(activeTab.id);
@@ -251,7 +271,7 @@ export function createHighlightHandlers(services) {
           sendResponse({ success: false, error: 'Highlighter initialization failed' });
         }
       } catch (error) {
-        Logger.error('Error in startHighlight:', error);
+        Logger.error('啟動高亮工具時出錯', { action: 'startHighlight', error: error.message });
         const safeMessage = sanitizeApiError(error, 'start_highlight');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -295,7 +315,7 @@ export function createHighlightHandlers(services) {
         }
         sendResponse(result);
       } catch (error) {
-        Logger.error('Error in handleUpdateHighlights:', error);
+        Logger.error('更新標註時出錯', { action: 'updateHighlights', error: error.message });
         const safeMessage = sanitizeApiError(error, 'update_highlights');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -323,7 +343,11 @@ export function createHighlightHandlers(services) {
         }
 
         const highlights = request.highlights || [];
-        Logger.log(`📊 準備同步 ${highlights.length} 個標註到頁面: ${savedData.notionPageId}`);
+        Logger.log('準備同步標註到頁面', {
+          action: 'syncHighlights',
+          count: highlights.length,
+          pageId: savedData.notionPageId ? `${savedData.notionPageId.slice(0, 4)}***` : 'unknown',
+        });
 
         if (highlights.length === 0) {
           sendResponse({
@@ -344,15 +368,18 @@ export function createHighlightHandlers(services) {
         );
 
         if (result.success) {
-          Logger.log(`✅ 成功同步 ${highlights.length} 個標註`);
+          Logger.log('成功同步標註', { action: 'syncHighlights', count: highlights.length });
           result.highlightCount = highlights.length;
           result.message = `成功同步 ${highlights.length} 個標註`;
         } else {
-          Logger.error('❌ 同步標註失敗:', result.error);
+          Logger.error('同步標註失敗', { action: 'syncHighlights', error: result.error });
         }
         sendResponse(result);
       } catch (error) {
-        Logger.error('❌ handleSyncHighlights 錯誤:', error);
+        Logger.error('執行 syncHighlights 時出錯', {
+          action: 'syncHighlights',
+          error: error.message,
+        });
         const safeMessage = sanitizeApiError(error, 'sync_highlights');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }

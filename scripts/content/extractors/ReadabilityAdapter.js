@@ -31,7 +31,7 @@ function safeQueryElements(container, selector) {
   try {
     return container.querySelectorAll(selector);
   } catch (error) {
-    Logger.warn(`查詢選擇器失敗: ${selector}`, error);
+    Logger.warn('查詢選擇器失敗', { action: 'safeQueryElements', selector, error: error.message });
     return [];
   }
 }
@@ -61,7 +61,7 @@ function isContentGood(article) {
 
   // 驗證輸入
   if (!article || !article.content) {
-    Logger.warn('[內容質量] article 或 article.content 為空');
+    Logger.warn('文章對象或內容為空', { action: 'isContentGood' });
     return false;
   }
 
@@ -70,7 +70,11 @@ function isContentGood(article) {
 
   // 內容太短，質量不佳
   if (contentLength < MIN_CONTENT_LENGTH) {
-    Logger.warn(`[內容質量] 內容長度不足: ${contentLength} < ${MIN_CONTENT_LENGTH}`);
+    Logger.warn('內容長度不足', {
+      action: 'isContentGood',
+      length: contentLength,
+      minRequired: MIN_CONTENT_LENGTH,
+    });
     return false;
   }
 
@@ -96,17 +100,20 @@ function isContentGood(article) {
 
   // 如果頁面以長清單為主（如文件、命令列清單），允許通過
   if (liCount >= LIST_EXCEPTION_THRESHOLD) {
-    Logger.log(
-      `Readability.js content accepted as list-heavy (liCount=${liCount}) despite link density ${linkDensity.toFixed(2)}`
-    );
+    Logger.log('內容被判定為有效清單', {
+      action: 'isContentGood',
+      liCount,
+      linkDensity: linkDensity.toFixed(2),
+    });
     return true;
   }
 
   // 檢查鏈接密度
   if (linkDensity > MAX_LINK_DENSITY) {
-    Logger.log(
-      `Readability.js content rejected due to high link density: ${linkDensity.toFixed(2)}`
-    );
+    Logger.log('內容因鏈接密度過高被拒絕', {
+      action: 'isContentGood',
+      linkDensity: linkDensity.toFixed(2),
+    });
     return false;
   }
 
@@ -130,7 +137,10 @@ async function expandCollapsibleElements(timeout = 300) {
         detail.setAttribute('open', '');
         expanded.push(detail);
       } catch (error) {
-        Logger.warn('Failed to open <details> element', error);
+        Logger.warn('開啟 details 元素失敗', {
+          action: 'expandCollapsibleElements',
+          error: error.message,
+        });
       }
     });
 
@@ -142,8 +152,12 @@ async function expandCollapsibleElements(timeout = 300) {
         trigger.setAttribute('aria-expanded', 'true');
         try {
           trigger.click();
-        } catch {
-          /* ignore click failures */
+        } catch (clickError) {
+          /* ignore click failures but log for debug */
+          Logger.debug('觸發元素點擊失敗', {
+            action: 'expandCollapsibleElements',
+            error: clickError.message,
+          });
         }
 
         // 如果有 aria-controls，嘗試移除 aria-hidden 或 collapsed 類別
@@ -157,8 +171,12 @@ async function expandCollapsibleElements(timeout = 300) {
             expanded.push(target);
           }
         }
-      } catch {
-        // 忽略單一項目錯誤
+      } catch (error) {
+        // 忽略單一項目錯誤但記錄警告
+        Logger.warn('處理 aria-expanded 元素失敗', {
+          action: 'expandCollapsibleElements',
+          error: error.message,
+        });
       }
     });
 
@@ -171,8 +189,12 @@ async function expandCollapsibleElements(timeout = 300) {
         el.classList.add('expanded-by-clipper');
         el.removeAttribute('aria-hidden');
         expanded.push(el);
-      } catch {
-        // 忽略
+      } catch (error) {
+        // 忽略但在開發模式表記錄
+        Logger.debug('處理 collapsed 類別元素失敗', {
+          action: 'expandCollapsibleElements',
+          error: error.message,
+        });
       }
     });
 
@@ -190,17 +212,26 @@ async function expandCollapsibleElements(timeout = 300) {
           expanded.push(el);
         }
       } catch (error) {
-        Logger.warn('Failed to expand hidden element', error);
+        Logger.warn('展開隱藏元素失敗', {
+          action: 'expandCollapsibleElements',
+          error: error.message,
+        });
       }
     });
 
     // 等待短暫時間讓任何 JS 綁定或懶載入觸發
     await new Promise(resolve => setTimeout(resolve, timeout));
 
-    Logger.log(`✅ expandCollapsibleElements: expanded ${expanded.length} candidates`);
+    Logger.log('可折疊元素展開完成', {
+      action: 'expandCollapsibleElements',
+      count: expanded.length,
+    });
     return expanded;
   } catch (error) {
-    Logger.warn('expandCollapsibleElements failed:', error);
+    Logger.warn('展開可折疊元素失敗', {
+      action: 'expandCollapsibleElements',
+      error: error.message,
+    });
     return [];
   }
 }
@@ -229,7 +260,7 @@ function cachedQuery(selector, context = document, options = {}) {
  * @returns {string|null} The combined innerHTML of the article components.
  */
 function findContentCmsFallback() {
-  Logger.log('Executing CMS-aware fallback finder...');
+  Logger.log('執行 CMS 導向的備案尋找', { action: 'findContentCmsFallback' });
 
   // Strategy 1: Look for Drupal's typical structure
   const drupalNodeContent = cachedQuery('.node__content', document, { single: true });
@@ -240,7 +271,7 @@ function findContentCmsFallback() {
     const bodyField = cachedQuery('.field--name-field-body', drupalNodeContent, { single: true });
 
     if (bodyField) {
-      Logger.log('Drupal structure detected. Combining fields.');
+      Logger.log('偵測到 Drupal 結構，正在合併欄位', { action: 'findContentCmsFallback' });
       const imageHtml = imageField ? imageField.innerHTML : '';
       const bodyHtml = bodyField.innerHTML;
       return imageHtml + bodyHtml;
@@ -252,16 +283,27 @@ function findContentCmsFallback() {
     const element = cachedQuery(selector, document, { single: true });
     if (element) {
       const textLength = element.textContent.trim().length;
-      Logger.log(`Found element with selector "${selector}": ${textLength} characters`);
+      Logger.log('找到潛在 CMS 元素', {
+        action: 'findContentCmsFallback',
+        selector,
+        length: textLength,
+      });
       if (textLength >= MIN_CONTENT_LENGTH) {
-        Logger.log(`✅ CMS content found with selector: ${selector} (${textLength} chars)`);
+        Logger.log('成功找到 CMS 內容', {
+          action: 'findContentCmsFallback',
+          selector,
+          length: textLength,
+        });
         return element.innerHTML;
       }
-      Logger.log(
-        `❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`
-      );
+      Logger.log('內容太短，跳過該 CMS 選擇器', {
+        action: 'findContentCmsFallback',
+        selector,
+        length: textLength,
+        minRequired: MIN_CONTENT_LENGTH,
+      });
     } else {
-      Logger.log(`❌ No element found with selector: ${selector}`);
+      Logger.log('未找到該 CMS 選擇器對應的元素', { action: 'findContentCmsFallback', selector });
     }
   }
 
@@ -270,25 +312,41 @@ function findContentCmsFallback() {
     const element = cachedQuery(selector, document, { single: true });
     if (element) {
       const textLength = element.textContent.trim().length;
-      Logger.log(`Found element with selector "${selector}": ${textLength} characters`);
+      Logger.log('找到潛在文章結構元素', {
+        action: 'findContentCmsFallback',
+        selector,
+        length: textLength,
+      });
       if (textLength >= MIN_CONTENT_LENGTH) {
-        Logger.log(`✅ Article content found with selector: ${selector} (${textLength} chars)`);
+        Logger.log('成功找到文章結構內容', {
+          action: 'findContentCmsFallback',
+          selector,
+          length: textLength,
+        });
         return element.innerHTML;
       }
-      Logger.log(
-        `❌ Content too short with selector: ${selector} (${textLength} < ${MIN_CONTENT_LENGTH})`
-      );
+      Logger.log('內容太短，跳過該文章結構選擇器', {
+        action: 'findContentCmsFallback',
+        selector,
+        length: textLength,
+        minRequired: MIN_CONTENT_LENGTH,
+      });
     } else {
-      Logger.log(`❌ No element found with selector: ${selector}`);
+      Logger.log('未找到該文章結構選擇器對應的元素', {
+        action: 'findContentCmsFallback',
+        selector,
+      });
     }
   }
 
   // Strategy 4: Generic "biggest content block" as a final attempt
-  Logger.log('🔍 CMS structure not found. Reverting to generic content finder...');
-  Logger.log(`📏 Minimum content length required: ${MIN_CONTENT_LENGTH} characters`);
+  Logger.log('未找到 CMS 結構，回退到通用內容尋找', {
+    action: 'findContentCmsFallback',
+    minRequired: MIN_CONTENT_LENGTH,
+  });
 
   const candidates = cachedQuery('article, section, main, div', document);
-  Logger.log(`🎯 Found ${candidates.length} potential content candidates`);
+  Logger.log('找到潛在內容候選者', { action: 'findContentCmsFallback', count: candidates.length });
 
   let bestElement = null;
   let maxScore = 0;
@@ -299,9 +357,12 @@ function findContentCmsFallback() {
     candidateCount++;
 
     if (text.length < MIN_CONTENT_LENGTH) {
-      Logger.log(
-        `❌ Candidate ${candidateCount}: Too short (${text.length} < ${MIN_CONTENT_LENGTH})`
-      );
+      Logger.log('候選者內容太短', {
+        action: 'findContentCmsFallback',
+        index: candidateCount,
+        length: text.length,
+        minRequired: MIN_CONTENT_LENGTH,
+      });
       continue;
     }
 
@@ -312,41 +373,54 @@ function findContentCmsFallback() {
     // 給圖片加分，因為我們想要包含圖片的內容
     const score = text.length + paragraphs * 50 + images * 30 - links * 25;
 
-    Logger.log(
-      `📊 Candidate ${candidateCount}: ${text.length} chars, ${paragraphs}p, ${images}img, ${links}links, score: ${score}`
-    );
+    Logger.log('候選者評分詳情', {
+      action: 'findContentCmsFallback',
+      index: candidateCount,
+      length: text.length,
+      paragraphs,
+      images,
+      links,
+      score,
+    });
 
     if (score > maxScore) {
       // 避免選擇嵌套的父元素
       if (bestElement && el.contains(bestElement)) {
-        Logger.log('⚠️ Skipping nested parent element');
+        Logger.log('跳過嵌套的父元素', { action: 'findContentCmsFallback' });
         continue;
       }
       maxScore = score;
       bestElement = el;
-      Logger.log(`✅ New best candidate found with score: ${score}`);
+      Logger.log('找到新的最佳候選者', { action: 'findContentCmsFallback', score });
     }
   }
 
   if (bestElement) {
-    Logger.log(`🎉 Best content found with ${bestElement.textContent.trim().length} characters`);
+    Logger.log('找到最佳內容', {
+      action: 'findContentCmsFallback',
+      length: bestElement.textContent.trim().length,
+    });
     return bestElement.innerHTML;
   }
-  Logger.log(
-    `❌ No suitable content found. All ${candidateCount} candidates were too short or scored too low.`
-  );
+  Logger.log('未找到合適內容', {
+    action: 'findContentCmsFallback',
+    totalCandidates: candidateCount,
+  });
 
   // 最後的嘗試：降低標準
-  Logger.log(`🔄 Trying with lower standards (${MIN_CONTENT_LENGTH / 2} chars)...`);
+  Logger.log('正在降低標準重新嘗試', {
+    action: 'findContentCmsFallback',
+    newMin: MIN_CONTENT_LENGTH / 2,
+  });
   for (const el of candidates) {
     const text = el.textContent?.trim() || '';
     if (text.length >= MIN_CONTENT_LENGTH / 2) {
-      Logger.log(`🆘 Emergency fallback: Found content with ${text.length} characters`);
+      Logger.log('緊急備案：找到內容', { action: 'findContentCmsFallback', length: text.length });
       return el.innerHTML;
     }
   }
 
-  Logger.log('💥 Complete failure: No content found even with lower standards');
+  Logger.log('最終失敗：即使降低標準也未找到內容', { action: 'findContentCmsFallback' });
   return null;
 }
 
@@ -357,11 +431,13 @@ function findContentCmsFallback() {
  */
 function extractLargestListFallback() {
   try {
-    Logger.log('🔎 Running extractLargestListFallback to find large <ul>/<ol>');
+    Logger.log('正在執行 extractLargestListFallback 尋找大型列表', {
+      action: 'extractLargestListFallback',
+    });
 
     // 策略 1: 尋找真正的 <ul> / <ol>
     const lists = Array.from(document.querySelectorAll('ul, ol'));
-    Logger.log(`Found ${lists.length} actual <ul>/<ol> elements`);
+    Logger.log('找到實際的列表元素', { action: 'extractLargestListFallback', count: lists.length });
 
     // 策略 2: 尋找可能是清單但用 div/section 呈現的內容
     const possibleListContainers = Array.from(
@@ -382,13 +458,16 @@ function extractLargestListFallback() {
       return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
     });
 
-    Logger.log(`Found ${possibleListContainers.length} possible list containers`);
+    Logger.log('找到可能的列表容器', {
+      action: 'extractLargestListFallback',
+      count: possibleListContainers.length,
+    });
 
     // 合併真正的清單和可能的清單容器
     const allCandidates = [...lists, ...possibleListContainers];
 
     if (!allCandidates || allCandidates.length === 0) {
-      Logger.log('✗ No lists or list-like containers found on page');
+      Logger.log('頁面上未找到列表或類列表容器', { action: 'extractLargestListFallback' });
       return null;
     }
 
@@ -414,9 +493,14 @@ function extractLargestListFallback() {
 
       const score = effectiveItemCount * 10 + Math.min(500, Math.floor(textLength / 10));
 
-      Logger.log(
-        `Candidate ${idx + 1}: itemCount=${effectiveItemCount}, textLength=${textLength}, score=${score}, tagName=${candidate.tagName}`
-      );
+      Logger.log('清單候選者統計', {
+        action: 'extractLargestListFallback',
+        index: idx + 1,
+        itemCount: effectiveItemCount,
+        textLength,
+        score,
+        tagName: candidate.tagName,
+      });
 
       // 過濾太短或只有單一項目的容器
       if (effectiveItemCount < 4) {
@@ -430,23 +514,28 @@ function extractLargestListFallback() {
     });
 
     if (best) {
-      Logger.log(
-        `✅ extractLargestListFallback chose a container with score ${bestScore}, tagName=${best.tagName}`
-      );
+      Logger.log('選擇了最佳清單容器', {
+        action: 'extractLargestListFallback',
+        score: bestScore,
+        tagName: best.tagName,
+      });
       // 嘗試把周邊標題包含進去（若存在相鄰的 <h1>-<h3>）
       let containerHtml = best.innerHTML;
       const prev = best.previousElementSibling;
       if (prev && /^H[1-3]$/.test(prev.nodeName)) {
         containerHtml = `${prev.outerHTML}\n${containerHtml}`;
-        Logger.log('Included preceding heading in fallback content');
+        Logger.log('在備案內容中包含前置標題', { action: 'extractLargestListFallback' });
       }
       return containerHtml;
     }
 
-    Logger.log('✗ No suitable large list or list-like container found');
+    Logger.log('未找到合適的大型列表或類列表容器', { action: 'extractLargestListFallback' });
     return null;
   } catch (error) {
-    Logger.warn('extractLargestListFallback failed:', error);
+    Logger.warn('extractLargestListFallback 失敗', {
+      action: 'extractLargestListFallback',
+      error: error.message,
+    });
     return null;
   }
 }
@@ -458,7 +547,7 @@ function extractLargestListFallback() {
  */
 function createOptimizedDocumentClone() {
   try {
-    Logger.log('🔧 Creating optimized document clone for parsing...');
+    Logger.log('正在創建優化的文檔副本', { action: 'createOptimizedDocumentClone' });
 
     // 克隆文檔
     const clonedDoc = document.cloneNode(true);
@@ -506,21 +595,30 @@ function createOptimizedDocumentClone() {
         });
       } catch {
         // 忽略選擇器錯誤，繼續處理其他選擇器
-        Logger.log(`⚠️ Failed to remove elements with selector: ${selector}`);
+        Logger.log('移除元素失敗', { action: 'createOptimizedDocumentClone', selector });
       }
     });
 
-    Logger.log(`🧹 Removed ${removedCount} non-content elements from cloned document`);
-    Logger.log('📄 Optimized document ready for parsing');
+    Logger.log('移除文檔中非內容元素完成', {
+      action: 'createOptimizedDocumentClone',
+      removedCount,
+    });
+    Logger.log('優化後的文檔已就緒', { action: 'createOptimizedDocumentClone' });
 
     return clonedDoc;
   } catch (error) {
-    Logger.error('❌ Failed to create optimized document clone:', error);
+    Logger.error('創建優化文檔副本失敗', {
+      action: 'createOptimizedDocumentClone',
+      error: error.message,
+    });
     // 回退到簡單克隆
     try {
       return document.cloneNode(true);
     } catch (fallbackError) {
-      Logger.error('❌ Even fallback document cloning failed:', fallbackError);
+      Logger.error('最終文檔克隆失敗', {
+        action: 'createOptimizedDocumentClone',
+        error: fallbackError.message,
+      });
       return null;
     }
   }
@@ -535,11 +633,11 @@ function createOptimizedDocumentClone() {
 function parseArticleWithReadability() {
   // 1. 驗證 Readability 依賴項
   if (typeof Readability === 'undefined') {
-    Logger.error('❌ Readability library is not available');
+    Logger.error('Readability 函式庫不可用', { action: 'parseArticleWithReadability' });
     throw new Error('Readability library not loaded');
   }
 
-  Logger.log('🚀 Starting Readability content parsing...');
+  Logger.log('開始 Readability 內容解析', { action: 'parseArticleWithReadability' });
 
   // 2. 克隆文檔（與舊邏輯一致，不做預處理）
   // 注意：之前使用 createOptimizedDocumentClone() 進行 DOM 預處理，
@@ -552,38 +650,45 @@ function parseArticleWithReadability() {
   let parsedArticle = null;
 
   try {
-    Logger.log('📖 Initializing Readability parser...');
+    Logger.log('正在初始化 Readability 解析器', { action: 'parseArticleWithReadability' });
     const readabilityInstance = new Readability(clonedDocument);
 
-    Logger.log('🔍 Parsing document content...');
+    Logger.log('正在解析文檔內容', { action: 'parseArticleWithReadability' });
     parsedArticle = readabilityInstance.parse();
 
-    Logger.log('✅ Readability parsing completed');
+    Logger.log('Readability 解析完成', { action: 'parseArticleWithReadability' });
   } catch (parseError) {
-    Logger.error('❌ Readability parsing failed:', parseError);
+    Logger.error('Readability 解析失敗', {
+      action: 'parseArticleWithReadability',
+      error: parseError.message,
+    });
     throw new Error(`Readability parsing error: ${parseError.message}`);
   }
 
   // 4. 驗證解析結果
   if (!parsedArticle) {
-    Logger.warn('⚠️ Readability returned null/undefined result');
+    Logger.warn('Readability 返回空結果', { action: 'parseArticleWithReadability' });
     throw new Error('Readability parsing returned no result');
   }
 
   // 5. 驗證基本屬性
   if (!parsedArticle.content || typeof parsedArticle.content !== 'string') {
-    Logger.warn('⚠️ Readability result missing or invalid content property');
+    Logger.warn('Readability 結果缺少內容屬性', { action: 'parseArticleWithReadability' });
     throw new Error('Parsed article has no valid content');
   }
 
   if (!parsedArticle.title || typeof parsedArticle.title !== 'string') {
-    Logger.warn('⚠️ Readability result missing title, using document title as fallback');
+    Logger.warn('Readability 結果缺少標題，使用備用標題', {
+      action: 'parseArticleWithReadability',
+    });
     parsedArticle.title = document.title || 'Untitled Page';
   }
 
-  Logger.log(
-    `📊 Parsed article: ${parsedArticle.content.length} chars, title: "${parsedArticle.title}"`
-  );
+  Logger.log('解析完成統計', {
+    action: 'parseArticleWithReadability',
+    length: parsedArticle.content.length,
+    title: parsedArticle.title,
+  });
   return parsedArticle;
 }
 

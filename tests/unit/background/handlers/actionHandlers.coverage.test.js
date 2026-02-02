@@ -35,6 +35,22 @@ jest.mock('../../../../scripts/background/services/InjectionService.js', () => (
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/constants.js';
 
+jest.mock('../../../../scripts/config/constants.js', () => {
+  const original = jest.requireActual('../../../../scripts/config/constants.js');
+  return {
+    __esModule: true,
+    ...original,
+    HANDLER_CONSTANTS: {
+      ...original.HANDLER_CONSTANTS,
+      BUNDLE_READY_RETRY_DELAY: 1,
+      BUNDLE_READY_MAX_RETRIES: 2,
+      CHECK_DELAY: 1,
+      IMAGE_RETRY_DELAY: 1,
+      PAGE_STATUS_CACHE_TTL: 1000,
+    },
+  };
+});
+
 // Mock chrome API
 global.chrome = {
   tabs: {
@@ -324,7 +340,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       );
     });
 
-    test('應該在收到圖片驗證錯誤時嘗試排除圖片並重試', async () => {
+    test('應該在收到 Notion 圖片驗證錯誤時嘗試排除圖片並重試', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue(null);
 
@@ -341,14 +357,51 @@ describe('actionHandlers 覆蓋率補強', () => {
         url: 'notion.so/retry',
       });
 
+      // 使用 fake timers 來控制重試延遲
+      jest.useFakeTimers();
+
+      try {
+        // 調用 savePage
+        const savePromise = handlers.savePage({}, {}, sendResponse);
+
+        // 使用 runAllTimersAsync 來處理異步 timers
+        await jest.runAllTimersAsync();
+
+        // 等待 promise 完成
+        await savePromise;
+
+        expect(mockNotionService.createPage).toHaveBeenCalledTimes(2);
+        // 第一次調用包含 blocks
+        expect(mockNotionService.createPage.mock.calls[0][1].allBlocks).toBeDefined();
+        // 第二次調用應該設置 excludeImages
+        expect(mockNotionService.buildPageData).toHaveBeenCalledWith(
+          expect.objectContaining({ excludeImages: true })
+        );
+        // 第二次調用是重試成功
+        expect(sendResponse).toHaveBeenCalledWith(
+          expect.objectContaining({ success: true, created: true })
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    /**
+     * [補強測試] 驗證頁面已被刪除時的重建流程
+     * 覆蓋 saveHandlers.js:245-265
+     */
+    test('頁面已刪除時應清理狀態並重新創建', async () => {
+      const sendResponse = jest.fn();
+      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'deleted-id' });
+      mockNotionService.checkPageExists.mockResolvedValue(false); // 頁面已刪除
+      mockNotionService.createPage.mockResolvedValue({ success: true, pageId: 'new-id' });
+
       await handlers.savePage({}, {}, sendResponse);
 
-      expect(mockNotionService.createPage).toHaveBeenCalledTimes(2);
-      // 第一次調用包含 blocks
-      expect(mockNotionService.createPage.mock.calls[0][1].allBlocks).toBeDefined();
-      // 第二次調用是重試
+      expect(mockStorageService.clearPageState).toHaveBeenCalled();
+      expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true })
+        expect.objectContaining({ created: true, recreated: true })
       );
     });
   });
@@ -482,7 +535,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       // Mock sendMessage 失敗 (例如腳本未加載)
       chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => {
         chrome.runtime.lastError = { message: 'Receiving end does not exist' };
-        cb(null);
+        cb(); // 當有 lastError 時，callback 不應傳遞參數
       });
 
       mockInjectionService.injectHighlighter.mockResolvedValue({ initialized: true });
@@ -505,6 +558,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該成功同步', async () => {
       const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
@@ -555,6 +609,25 @@ describe('actionHandlers 覆蓋率補強', () => {
         expect.objectContaining({ success: true, isSaved: true })
       );
     });
+    test('checkPageStatus 在重試後仍返回 null 應暫時假設本地狀態正確', async () => {
+      const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
+      mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockStorageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        lastVerifiedAt: 0,
+      });
+
+      // 一直返回 null
+      mockNotionService.checkPageExists.mockResolvedValue(null);
+
+      await handlers.checkPageStatus({}, {}, sendResponse);
+
+      expect(mockNotionService.checkPageExists).toHaveBeenCalledTimes(2);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, isSaved: true })
+      );
+    });
   });
 
   describe('updateHighlights handler', () => {
@@ -583,6 +656,108 @@ describe('actionHandlers 覆蓋率補強', () => {
         expect.objectContaining({
           success: false,
           error: expect.stringMatching(/Notion API Key|configured/),
+        })
+      );
+    });
+  });
+
+  // === USER_ACTIVATE_SHORTCUT (HighlightHandlers) 測試 ===
+  describe('USER_ACTIVATE_SHORTCUT handler', () => {
+    const mockSender = { id: 'mock-ext-id', tab: { id: 1, url: 'https://example.com' } };
+
+    beforeEach(() => {
+      chrome.runtime.id = 'mock-ext-id';
+    });
+
+    test('應該在安全性驗證失敗時拒絕', async () => {
+      const sendResponse = jest.fn();
+      // 模擬非 content script 請求 (缺少 tab)
+      await handlers.USER_ACTIVATE_SHORTCUT({}, { id: 'wrong-id' }, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+
+    test('應該處理缺少標籤頁上下文', async () => {
+      const sendResponse = jest.fn();
+      await handlers.USER_ACTIVATE_SHORTCUT({}, { id: 'mock-ext-id' }, sendResponse);
+      // 觸發 validateContentScriptRequest 失敗
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('必須在標籤頁上下文中調用'),
+        })
+      );
+    });
+
+    test('應該在受限頁面返回錯誤', async () => {
+      const sendResponse = jest.fn();
+      const restrictedSender = { id: 'mock-ext-id', tab: { id: 1, url: 'chrome://extensions' } };
+      await handlers.USER_ACTIVATE_SHORTCUT({}, restrictedSender, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
+        })
+      );
+    });
+
+    test('應該處理 Bundle 注入失敗', async () => {
+      const sendResponse = jest.fn();
+      mockInjectionService.ensureBundleInjected = jest
+        .fn()
+        .mockRejectedValue(new Error('Injection failed'));
+
+      await handlers.USER_ACTIVATE_SHORTCUT({}, mockSender, sendResponse);
+
+      // sanitizeApiError('Injection failed') -> 'Invalid request'
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.any(String) })
+      );
+    });
+
+    // 已在 highlightHandlers.minimal.test.js 補完覆蓋率，移除此處不穩定的測試
+
+    test('應該在顯示高亮工具失敗時返回錯誤', async () => {
+      const sendResponse = jest.fn();
+      mockInjectionService.ensureBundleInjected = jest.fn().mockResolvedValue();
+
+      chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
+        if (msg.action === 'PING') {
+          cb({ status: 'bundle_ready' });
+        } else if (msg.action === 'showHighlighter') {
+          chrome.runtime.lastError = { message: 'Internal error' };
+          cb(); // 當有 lastError 時，callback 不應傳遞參數
+        }
+      });
+
+      await handlers.USER_ACTIVATE_SHORTCUT({}, mockSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.any(String) })
+      );
+    });
+  });
+
+  describe('startHighlight handler (Security)', () => {
+    test('應該在安全性驗證失敗時拒絕', async () => {
+      const sendResponse = jest.fn();
+      // 模擬非內部請求 (有 tab 但 URL 不對)
+      const evilSender = { id: 'mock-ext-id', tab: { id: 1, url: 'https://evil.com' } };
+      await handlers.startHighlight({}, evilSender, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+
+    test('應該在受限頁面返回錯誤', async () => {
+      const sendResponse = jest.fn();
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'chrome://settings' }]);
+      await handlers.startHighlight({}, { id: 'mock-ext-id' }, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
         })
       );
     });

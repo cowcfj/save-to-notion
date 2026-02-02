@@ -177,7 +177,10 @@ describe('core/HighlightManager', () => {
       const highlight = manager.highlights.get(id);
       expect(highlight.color).toBe('yellow'); // currentColor 預設值
       // 驗證警告被記錄
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('Invalid color'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '顏色無效，回退到預設顏色',
+        expect.objectContaining({ action: 'addHighlight' })
+      );
     });
 
     test('should NOT reclaim ID when highlight addition fails', () => {
@@ -408,8 +411,8 @@ describe('core/HighlightManager', () => {
 
       // Should catch the error internally and log it
       expect(Logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[HighlightManager] 初始化失敗'),
-        expect.objectContaining({ message: expect.stringContaining('依賴未注入') })
+        '初始化失敗',
+        expect.objectContaining({ action: 'initialize' })
       );
     });
 

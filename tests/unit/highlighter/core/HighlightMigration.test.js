@@ -162,7 +162,10 @@ describe('core/HighlightMigration', () => {
 
       await migration.checkAndMigrate();
 
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('exceed scan limit'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        'localStorage 項目超過掃描限制，僅掃描部分項目',
+        expect.objectContaining({ action: 'checkAndMigrate' })
+      );
 
       // Restore limit
       HighlightMigration.MAX_SCAN_LIMIT = originalLimit;

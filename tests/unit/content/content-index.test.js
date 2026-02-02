@@ -175,7 +175,10 @@ describe('Content Script Entry Point', () => {
         'Content extraction failed'
       );
       expect(result.rawHtml).toBe('');
-      expect(Logger.warn).toHaveBeenCalled();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '內容提取失敗或返回空內容',
+        expect.objectContaining({ action: 'extractPageContent' })
+      );
     });
 
     test('當 content 為空時應該返回錯誤區塊', async () => {
@@ -206,7 +209,10 @@ describe('Content Script Entry Point', () => {
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].paragraph.rich_text[0].text.content).toContain('Extraction error');
       expect(result.error).toBe('Extraction failed');
-      expect(Logger.error).toHaveBeenCalled();
+      expect(Logger.error).toHaveBeenCalledWith(
+        '內容提取發生異常',
+        expect.objectContaining({ action: 'extractPageContent' })
+      );
     });
 
     test('應該處理未知錯誤（無 message）', async () => {
@@ -242,8 +248,8 @@ describe('Content Script Entry Point', () => {
       expect(result.title).toBe('Title');
       expect(result.additionalImages).toEqual([]);
       expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Image collection failed'),
-        expect.any(Error)
+        '圖片收集失敗',
+        expect.objectContaining({ action: 'extractPageContent' })
       );
     });
   });

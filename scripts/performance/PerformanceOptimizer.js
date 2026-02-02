@@ -98,7 +98,10 @@ class PerformanceOptimizer {
     // SECURITY: 使用共享的安全驗證函數進行檢查
     // 包含：類型檢查、防篡改 (ownerDocument)、防過期 (isConnected)、選擇器匹配
     if (!validateSafeDomElement(element, document, selector)) {
-      Logger.warn(`拒絕接管不安全的 preloader 快取: ${selector}`);
+      Logger.warn('拒絕接管不安全的 preloader 快取', {
+        action: 'takeoverPreloaderCache',
+        selector,
+      });
       return false;
     }
 
@@ -112,7 +115,7 @@ class PerformanceOptimizer {
       ttl: this.options.cacheTTL,
     });
 
-    Logger.debug(`已接管 preloader ${selector} 快取`);
+    Logger.debug('已接管 preloader 快取', { action: 'takeoverPreloaderCache', selector });
     return true;
   }
 
@@ -149,10 +152,10 @@ class PerformanceOptimizer {
         return cached.result;
       }
       // 緩存過期或失效，移除
-      Logger.debug(`Cache miss: expired=${isExpired}, valid=${isValid}`);
+      Logger.debug('快取未命中（已過期或無效）', { action: 'cachedQuery', isExpired, isValid });
       this.queryCache.delete(cacheKey);
     } else {
-      Logger.debug(`Cache miss: key not found ${cacheKey}`);
+      Logger.debug('快取未命中（鍵值未找到）', { action: 'cachedQuery', cacheKey });
     }
 
     // 執行查詢
@@ -271,7 +274,7 @@ class PerformanceOptimizer {
     const { force = false, maxAge } = options;
 
     if (force) {
-      Logger.info('Force clearing cache. Size before:', this.queryCache.size);
+      Logger.info('強制清理快取', { action: 'clearCache', sizeBefore: this.queryCache.size });
       this.queryCache.clear();
       // 重置統計數據
       this.cacheStats = {
@@ -280,7 +283,7 @@ class PerformanceOptimizer {
         evictions: 0,
         prewarms: 0,
       };
-      Logger.info('Cache cleared. Size after:', this.queryCache.size);
+      Logger.info('快取清理完成', { action: 'clearCache', sizeAfter: this.queryCache.size });
       return;
     }
 
@@ -450,7 +453,7 @@ class PerformanceOptimizer {
       }
     } catch (error) {
       // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
-      Logger.warn('元素驗證失敗:', error.message);
+      Logger.warn('元素驗證失敗', { action: 'validateCachedElements', error: error.message });
       return false;
     }
 
@@ -468,7 +471,7 @@ class PerformanceOptimizer {
       return Promise.resolve([]);
     }
 
-    Logger.info(`🔥 開始預熱 ${selectors.length} 個選擇器...`);
+    Logger.info('開始預熱選擇器', { action: 'preloadSelectors', count: selectors.length });
 
     // 使用批處理方式預熱選擇器
     const results = [];
@@ -492,10 +495,18 @@ class PerformanceOptimizer {
           this.cacheStats.prewarms++;
           this.prewarmedSelectors.add(selector);
 
-          Logger.info(`✓ 預熱成功: ${selector} (${results[results.length - 1].count} 個元素)`);
+          Logger.info('預熱成功', {
+            action: 'preloadSelectors',
+            selector,
+            count: results[results.length - 1].count,
+          });
         }
       } catch (error) {
-        Logger.warn(`⚠️ 預熱選擇器失敗: ${selector}`, error);
+        Logger.warn('預熱選擇器失敗', {
+          action: 'preloadSelectors',
+          selector,
+          error: error.message,
+        });
 
         if (typeof ErrorHandler !== 'undefined') {
           ErrorHandler.logError({
@@ -514,9 +525,11 @@ class PerformanceOptimizer {
       }
     }
 
-    Logger.info(
-      `🔥 預熱完成: ${results.filter(result => result.cached).length}/${selectors.length} 個選擇器已預熱`
-    );
+    Logger.info('預熱完成', {
+      action: 'preloadSelectors',
+      successCount: results.filter(result => result.cached).length,
+      totalCount: selectors.length,
+    });
     // 保守策略：統一以 Promise.resolve 返回，呼叫者可以使用 await 一致處理
     return Promise.resolve(results);
   }
@@ -538,7 +551,7 @@ class PerformanceOptimizer {
     const results = await this.preloadSelectors(allSelectors, context);
 
     const duration = performance.now() - startTime;
-    Logger.info(`🧠 智能預熱完成，耗時: ${duration.toFixed(2)}ms`);
+    Logger.info('智能預熱完成', { action: 'smartPrewarm', duration: `${duration.toFixed(2)}ms` });
 
     return results;
   }
@@ -696,9 +709,9 @@ class PerformanceOptimizer {
     if (!validatePreloaderCache(preloaderCache)) {
       if (preloaderCache) {
         // 只有當它存在但無效時才記錄 Warning
-        Logger.warn('Preloader 快取結構無效，拒絕接管');
+        Logger.warn('Preloader 快取結構無效，拒絕接管', { action: 'takeoverPreloaderCache' });
       } else {
-        Logger.debug('無 preloader 快取可接管');
+        Logger.debug('無 preloader 快取可接管', { action: 'takeoverPreloaderCache' });
       }
       return { taken: 0 };
     }
@@ -706,7 +719,11 @@ class PerformanceOptimizer {
     // 2. 檢查是否過期
     const cacheAge = Date.now() - preloaderCache.timestamp;
     if (cacheAge > maxAge) {
-      Logger.debug(`preloader 快取已過期: ${cacheAge}ms > ${maxAge}ms`);
+      Logger.debug('preloader 快取已過期', {
+        action: 'takeoverPreloaderCache',
+        age: cacheAge,
+        maxAge,
+      });
       return { taken: 0, expired: true };
     }
 
@@ -1021,7 +1038,7 @@ class PerformanceOptimizer {
     this.queryCache.clear();
     this.prewarmedSelectors.clear();
 
-    Logger.info('🧹 PerformanceOptimizer 資源已清理');
+    Logger.info('PerformanceOptimizer 資源已清理', { action: 'destroy' });
   }
 
   /**
@@ -1038,7 +1055,7 @@ class PerformanceOptimizer {
 
     // 記錄測量結果到實例指標
     if (this.options.enableMetrics) {
-      Logger.info(`Performance: ${name} took ${duration.toFixed(2)}ms`);
+      Logger.info('性能測量', { action: 'measure', name, duration: `${duration.toFixed(2)}ms` });
     }
 
     return result;
@@ -1058,7 +1075,11 @@ class PerformanceOptimizer {
 
     // 記錄測量結果到實例指標
     if (this.options.enableMetrics) {
-      Logger.info(`Performance: ${name} took ${duration.toFixed(2)}ms`);
+      Logger.info('性能測量 (Async)', {
+        action: 'measureAsync',
+        name,
+        duration: `${duration.toFixed(2)}ms`,
+      });
     }
 
     return result;
