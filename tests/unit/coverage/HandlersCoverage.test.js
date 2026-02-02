@@ -58,6 +58,11 @@ describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
         });
     });
 
+    afterEach(() => {
+        // 清除 chrome.runtime.lastError 避免狀態洩漏到其他測試
+        chrome.runtime.lastError = null;
+    });
+
     // --- highlightHandlers.js 測試 ---
     test('USER_ACTIVATE_SHORTCUT: 各種失敗路徑', async () => {
         const sendResponse = jest.fn();
