@@ -92,12 +92,12 @@ describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
 
     test('USER_ACTIVATE_SHORTCUT: showHighlighter 消息發送失敗', async () => {
         const sendResponse = jest.fn();
-        chrome.tabs.sendMessage.mockImplementation((id, msg, cb) => {
+        chrome.tabs.sendMessage.mockImplementation((id, msg, responseCallback) => {
             if (msg.action === 'PING') {
-                cb({ status: 'bundle_ready' });
+                responseCallback({ status: 'bundle_ready' });
             } else if (msg.action === 'showHighlighter') {
                 chrome.runtime.lastError = { message: 'Internal error' };
-                cb(); // 當有 lastError 時，callback 不應傳遞參數
+                responseCallback(); // 當有 lastError 時，callback 不應傳遞參數
             }
         });
 
