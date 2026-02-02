@@ -382,6 +382,67 @@ describe('Logger', () => {
         })
       );
     });
+
+    test('應該正確處理純量參數 (數字, 字串)', () => {
+      global.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({
+            version_name: '1.0.0-dev',
+          }),
+          sendMessage: jest.fn(),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+      Logger = global.window.Logger;
+
+      Logger.info('Scalar test', 123, 'test-string');
+
+      const sentArgs = global.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs).toEqual([123, 'test-string']);
+    });
+
+    test('應該優雅處理無法序列化的對象 (Circular Reference)', () => {
+      global.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({
+            version_name: '1.0.0-dev',
+          }),
+          sendMessage: jest.fn(),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+      Logger = global.window.Logger;
+
+      const circular = {};
+      circular.myself = circular;
+
+      Logger.warn('Circular test', circular);
+
+      const sentArgs = global.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toBe('[Unserializable Object]');
+    });
   });
 
   describe('manifest 錯誤處理', () => {
