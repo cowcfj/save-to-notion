@@ -268,8 +268,9 @@ export class LogSanitizer {
 
     // 3. JWT Tokens (eyJ...)
     // 匹配標準 JWT 格式：header.payload.signature
+    // 注意：長度閾值為啟發式設定，並非 RFC 強制要求；此處放寬以支援短 Token
     safeStr = safeStr.replace(
-      /\beyJ[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]{10,}\b/g,
+      /\beyJ[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\b/g,
       '[REDACTED_JWT]'
     );
 
