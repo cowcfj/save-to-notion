@@ -6,12 +6,7 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import {
-  sanitizeApiError,
-  validateSafeSvg,
-  separateIconAndText,
-  escapeHtml,
-} from '../utils/securityUtils.js';
+import { sanitizeApiError, validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_ICONS } from '../config/icons.js';
 import { UI_MESSAGES } from '../config/messages.js';
@@ -581,32 +576,87 @@ export class StorageManager {
     summaryLines.push('');
     summaryLines.push(UI_MESSAGES.STORAGE.SPACE_FREED_ESTIMATE(spaceMB));
 
-    const summaryText = summaryLines.join('\n');
+    // summaryText variable removed as it was unused
 
     const warnIcon = UI_ICONS.WARNING;
 
-    this.elements.cleanupPreview.innerHTML = `
-            <div class="cleanup-summary">
-                <p>${summaryText.replace(/\n/g, '<br>')}</p>
-                <div class="warning-notice">
-                    ${warnIcon} <strong>重要提醒：</strong>這只會清理擴展中的無效記錄，<strong>絕對不會影響您在 Notion 中保存的任何頁面</strong>。
-                </div>
-            </div>
-            <div class="cleanup-list">
-                ${plan.items
-                  .slice(0, 10)
-                  .map(
-                    item => `
-                    <div class="cleanup-item">
-                        <strong>${escapeHtml(decodeURIComponent(item.url))}</strong> - ${item.reason}
-                        <br><small>${(item.size / 1024).toFixed(1)} KB</small>
-                    </div>
-                `
-                  )
-                  .join('')}
-                ${plan.items.length > 10 ? `<div class="cleanup-item"><em>... 還有 ${plan.items.length - 10} 個項目</em></div>` : ''}
-            </div>
-        `;
+    this.elements.cleanupPreview.innerHTML = '';
+
+    // 1. 構建 Summary 區塊
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'cleanup-summary';
+
+    const paragraph = document.createElement('p');
+    // 處理換行
+    summaryLines.forEach((line, index) => {
+      paragraph.appendChild(document.createTextNode(line));
+      if (index < summaryLines.length - 1) {
+        paragraph.appendChild(document.createElement('br'));
+      }
+    });
+    summaryDiv.appendChild(paragraph);
+
+    const warningDiv = document.createElement('div');
+    warningDiv.className = 'warning-notice';
+    // warnIcon 是受信任的 SVG 字串，且警告文本是靜態的，這裡可以使用 innerHTML 簡化，或是進一步拆解
+    // 為了徹底貫徹 DOM API，我們這裡混合處理：Icon 用 innerHTML (因為它是 SVG 字串)，文本用 textContent
+    const iconSpan = document.createElement('span');
+    iconSpan.innerHTML = warnIcon; // warnIcon 來自內部常量 UI_ICONS
+    warningDiv.appendChild(iconSpan);
+
+    // " 重要提醒："
+    warningDiv.appendChild(document.createTextNode(' '));
+    const labelStrong = document.createElement('strong');
+    labelStrong.textContent = '重要提醒：';
+    warningDiv.appendChild(labelStrong);
+    warningDiv.appendChild(document.createTextNode('這只會清理擴展中的無效記錄，'));
+
+    // "絕對不會影響您在 Notion 中保存的任何頁面"
+    const panicStrong = document.createElement('strong');
+    panicStrong.textContent = '絕對不會影響您在 Notion 中保存的任何頁面';
+    warningDiv.appendChild(panicStrong);
+    warningDiv.appendChild(document.createTextNode('。'));
+
+    summaryDiv.appendChild(warningDiv);
+    this.elements.cleanupPreview.appendChild(summaryDiv);
+
+    // 2. 構建 List 區塊
+    const listDiv = document.createElement('div');
+    listDiv.className = 'cleanup-list';
+
+    // 使用 DocumentFragment 優化效能
+    const fragment = document.createDocumentFragment();
+
+    plan.items.slice(0, 10).forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'cleanup-item';
+
+      const urlStrong = document.createElement('strong');
+      // 安全核心：textContent 自動轉義
+      urlStrong.textContent = decodeURIComponent(item.url);
+      itemDiv.appendChild(urlStrong);
+
+      itemDiv.appendChild(document.createTextNode(` - ${item.reason}`));
+      itemDiv.appendChild(document.createElement('br'));
+
+      const sizeSmall = document.createElement('small');
+      sizeSmall.textContent = `${(item.size / 1024).toFixed(1)} KB`;
+      itemDiv.appendChild(sizeSmall);
+
+      fragment.appendChild(itemDiv);
+    });
+
+    if (plan.items.length > 10) {
+      const moreDiv = document.createElement('div');
+      moreDiv.className = 'cleanup-item';
+      const em = document.createElement('em');
+      em.textContent = `... 還有 ${plan.items.length - 10} 個項目`;
+      moreDiv.appendChild(em);
+      fragment.appendChild(moreDiv);
+    }
+
+    listDiv.appendChild(fragment);
+    this.elements.cleanupPreview.appendChild(listDiv);
   }
 
   async executeSafeCleanup() {
