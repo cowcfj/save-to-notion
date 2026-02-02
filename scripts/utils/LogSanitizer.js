@@ -3,6 +3,23 @@ import { maskSensitiveString, sanitizeUrlForLogging } from './securityUtils.js';
 const MAX_DEPTH = 3;
 const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 
+// 敏感鍵名模式（涵蓋常見的敏感欄位名稱，包括複合詞）
+const SENSITIVE_KEY_PATTERN =
+  /(?:auth|token|secret|credential|password|pwd|key|cookie|session|authorization|bearer|viewer|access|refresh|api|private)/i;
+
+// 敏感值模式（偵測看起來像 Token 的字串）
+const SENSITIVE_VALUE_PATTERN = /^(?:Bearer|Basic)\s+[A-Za-z0-9+/=._-]+$/;
+
+// 安全的 HTTP Headers 白名單（不包含敏感資訊）
+const SAFE_HEADERS = new Set([
+  'content-type',
+  'content-length',
+  'user-agent',
+  'accept',
+  'accept-language',
+  'cache-control',
+]);
+
 export class LogSanitizer {
   /**
    * 清洗日誌列表
@@ -62,7 +79,19 @@ export class LogSanitizer {
     if (typeof value === 'object') {
       const safeObj = {};
       for (const [key, val] of Object.entries(value)) {
-        // 特定字段名的特殊處理 (Heuristics)
+        // 1. 檢查鍵名是否為敏感鍵（優先級最高）
+        if (SENSITIVE_KEY_PATTERN.test(key)) {
+          safeObj[key] = '[REDACTED_SENSITIVE_KEY]';
+          continue;
+        }
+
+        // 2. 特殊處理 headers 物件
+        if (key.toLowerCase() === 'headers' && typeof val === 'object' && val !== null) {
+          safeObj[key] = this._sanitizeHeaders(val);
+          continue;
+        }
+
+        // 3. 特定字段名的特殊處理 (Heuristics)
         if (/url/i.test(key) && typeof val === 'string') {
           safeObj[key] = sanitizeUrlForLogging(val);
         } else if (/^(?:title|name)$/i.test(key) && typeof val === 'string') {
@@ -83,6 +112,24 @@ export class LogSanitizer {
   }
 
   /**
+   * 清理 HTTP Headers 物件（採用白名單策略）
+   * @param {Object} headers - Headers 物件
+   * @returns {Object} 清理後的 Headers
+   */
+  static _sanitizeHeaders(headers) {
+    const safeHeaders = {};
+    for (const [key, val] of Object.entries(headers)) {
+      const lowerKey = key.toLowerCase();
+      if (SAFE_HEADERS.has(lowerKey)) {
+        safeHeaders[key] = val;
+      } else {
+        safeHeaders[key] = '[REDACTED_HEADER]';
+      }
+    }
+    return safeHeaders;
+  }
+
+  /**
    * 清理字串內容
    */
   static _sanitizeString(str) {
@@ -91,6 +138,11 @@ export class LogSanitizer {
     }
 
     let safeStr = str;
+
+    // 0. 檢查整個字串是否為 Bearer/Basic Token
+    if (SENSITIVE_VALUE_PATTERN.test(str)) {
+      return '[REDACTED_AUTH_HEADER]';
+    }
 
     // 1. 特殊 Token 模式 (Notion Tokens often start with secret_)
     safeStr = safeStr.replace(/secret_[a-zA-Z0-9]+/g, SANITIZED_LABEL);

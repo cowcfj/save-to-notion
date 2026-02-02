@@ -45,7 +45,7 @@ describe('LogSanitizer', () => {
       const ctx = sanitized[0].context;
 
       expect(ctx.user.email).not.toContain('admin@test.com');
-      expect(ctx.user.apiKey).toBe('[REDACTED_TOKEN]');
+      expect(ctx.user.apiKey).toBe('[REDACTED_SENSITIVE_KEY]');
       expect(ctx.raw).toContain('[REDACTED_TOKEN]');
       // URL sanitization (from securityUtils)
       expect(ctx.url).toBe('https://notion.so/my-page-123'); // Path is preserved by default sanitizeUrl logic unless specific rules apply
@@ -138,6 +138,95 @@ describe('LogSanitizer', () => {
       const sanitized = LogSanitizer.sanitize(logs);
       expect(sanitized[0].context.properties).toBe('[REDACTED_PROPERTIES]');
       expect(sanitized[0].context.other).toBe('Safe');
+    });
+
+    test('should redact authorization headers (Bearer/Basic)', () => {
+      const logs = [
+        {
+          context: {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+              Cookie: 'session_id=abc123',
+            },
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      const headers = sanitized[0].context.headers;
+
+      // Content-Type 應保留
+      expect(headers['Content-Type']).toBe('application/json');
+      // Authorization 和 Cookie 應被脫敏
+      expect(headers.Authorization).toBe('[REDACTED_HEADER]');
+      expect(headers.Cookie).toBe('[REDACTED_HEADER]');
+    });
+
+    test('should redact sensitive key names', () => {
+      const logs = [
+        {
+          context: {
+            apiKey: 'my-secret-key-123',
+            userToken: 'abc-xyz-999',
+            session: 'session-data',
+            normalField: 'safe-value',
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      expect(sanitized[0].context.apiKey).toBe('[REDACTED_SENSITIVE_KEY]');
+      expect(sanitized[0].context.userToken).toBe('[REDACTED_SENSITIVE_KEY]');
+      expect(sanitized[0].context.session).toBe('[REDACTED_SENSITIVE_KEY]');
+      expect(sanitized[0].context.normalField).toBe('safe-value');
+    });
+
+    test('should redact Bearer token in string values', () => {
+      const logs = [
+        {
+          message: 'Auth header is Bearer abc123xyz',
+          context: {
+            authHeader: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+            plainValue: 'Basic dXNlcjpwYXNz',
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      // 在 message 字串中，因為不是整個字串都是 Bearer token，所以不會被替換
+      // authHeader 因為鍵名匹配而被脫敏
+      expect(sanitized[0].context.authHeader).toBe('[REDACTED_SENSITIVE_KEY]');
+      // plainValue 的鍵名安全，但值符合 Basic token 格式
+      expect(sanitized[0].context.plainValue).toBe('[REDACTED_AUTH_HEADER]');
+    });
+
+    test('should handle nested sensitive objects', () => {
+      const logs = [
+        {
+          context: {
+            request: {
+              headers: {
+                Authorization: 'Basic dXNlcjpwYXNz',
+                'User-Agent': 'Mozilla/5.0',
+              },
+              credentials: {
+                apiKey: 'secret-123',
+              },
+            },
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      const req = sanitized[0].context.request;
+
+      // Headers 應被清洗
+      expect(req.headers.Authorization).toBe('[REDACTED_HEADER]');
+      expect(req.headers['User-Agent']).toBe('Mozilla/5.0');
+
+      // credentials 鍵名本身包含敏感關鍵字，整個物件被替換
+      expect(req.credentials).toBe('[REDACTED_SENSITIVE_KEY]');
     });
   });
 });
