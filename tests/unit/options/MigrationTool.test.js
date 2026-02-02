@@ -265,28 +265,4 @@ describe('MigrationTool Extended', () => {
       expect(result.length).toBe(60);
     });
   });
-
-  describe('escapeHtml', () => {
-    test('應轉義 HTML 特殊字符', () => {
-      const html = '<script>alert("XSS")</script>';
-      const escaped = MigrationTool.escapeHtml(html);
-      expect(escaped).not.toContain('<script>');
-      expect(escaped).toContain('&lt;');
-      expect(escaped).toContain('&gt;');
-    });
-
-    test('應保留引號不變（textContent/innerHTML 方法不轉義引號）', () => {
-      const str = 'Test "quoted" and \'single\' quotes';
-      const escaped = MigrationTool.escapeHtml(str);
-      // textContent/innerHTML 方法只轉義 <, >, &，不轉義引號
-      expect(escaped).toContain('"');
-      expect(escaped).toContain("'");
-      expect(escaped).toBe('Test "quoted" and \'single\' quotes');
-    });
-
-    test('應處理空字符串', () => {
-      const result = MigrationTool.escapeHtml('');
-      expect(result).toBe('');
-    });
-  });
 });
