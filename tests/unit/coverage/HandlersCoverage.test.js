@@ -77,7 +77,7 @@ describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
         await handlers.USER_ACTIVATE_SHORTCUT({}, { id: 'wrong' }, sendResponse);
         expect(sendResponse).toHaveBeenCalledWith({
             success: false,
-            error: expect.stringMatching(/拒絕訪問|Security check failed/),
+            error: expect.stringMatching(/拒絕訪問|Security check failed/u),
         });
 
         sendResponse.mockClear();
@@ -116,7 +116,7 @@ describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
         await handlers.startHighlight({}, evilSender, sendResponse);
         expect(sendResponse).toHaveBeenCalledWith({
             success: false,
-            error: expect.stringMatching(/拒絕訪問|此操作僅限擴充功能內部調用/),
+            error: expect.stringMatching(/拒絕訪問|此操作僅限擴充功能內部調用/u),
         });
     });
 });
