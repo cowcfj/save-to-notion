@@ -368,8 +368,19 @@ function setupLogExport() {
         }, 3000);
       } catch (err) {
         Logger.error('Log export failed', err);
-        statusEl.textContent = '❌ 導出失敗，請查看控制台';
+        // 顯示具體錯誤訊息（如果有的話），否則顯示通用錯誤
+        const errorMessage =
+          err.message && err.message !== 'Log export failed'
+            ? `❌ ${err.message}`
+            : '❌ 導出失敗，請稍後再試';
+        statusEl.textContent = errorMessage;
         statusEl.className = 'status-message error';
+
+        // 5秒後清除錯誤訊息（給用戶更多時間閱讀）
+        setTimeout(() => {
+          statusEl.textContent = '';
+          statusEl.className = 'status-message';
+        }, 5000);
       } finally {
         exportBtn.disabled = false;
         // 恢復按鈕內容
