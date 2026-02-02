@@ -238,7 +238,7 @@ function extractAndBridge(doc, options = {}) {
   }
 
   // 1. 使用 ContentExtractor 提取內容
-  const extractedContent = ContentExtractor.extract(doc, options);
+  const extractedContent = ContentExtractor.extract(doc);
   Logger.log('ContentExtractor 提取完成', { action: 'extractAndBridge' });
 
   // 2. 轉換為 blocks 格式
