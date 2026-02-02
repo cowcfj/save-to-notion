@@ -4,6 +4,7 @@
  */
 
 import { LogExporter } from '../../../scripts/utils/LogExporter.js';
+import { exportDebugLogs } from '../../../scripts/background/handlers/logHandlers.js';
 
 // Mock Logger
 global.Logger = {
@@ -21,18 +22,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
     jest.clearAllMocks();
 
     // 模擬 production 代碼中的處理器結構（不含 try/catch，依靠 MessageHandler 捕獲）
-    const actionHandlers = {
-      exportDebugLogs: (message, sender, sendResponse) => {
-        const result = LogExporter.exportLogs({ format: message.format });
-        sendResponse({
-          success: true,
-          data: result,
-        });
-        return true;
-      },
-    };
-
-    const rawHandler = actionHandlers.exportDebugLogs;
+    const rawHandler = exportDebugLogs;
 
     // 模擬 MessageHandler 的簡化包裝邏輯，用於測試錯誤捕捉
     handler = async (message, sender, sendResponse) => {

@@ -112,7 +112,7 @@ describe('LogExporter', () => {
     consoleSpy.mockRestore();
   });
 
-  test('should validation filename format (YYYYMMDD-HHmmss)', () => {
+  test('should validate filename format (YYYYMMDD-HHmmss)', () => {
     mockBuffer.getAll.mockReturnValue([]);
     const result = LogExporter.exportLogs();
 

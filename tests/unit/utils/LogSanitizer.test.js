@@ -283,42 +283,42 @@ describe('LogSanitizer', () => {
       expect(sanitizedStack).toContain('LogExporter.exportLogs');
       expect(sanitizedStack).toContain('exportDebugLogs');
     });
-  });
 
-  test('should redact embedded Bearer tokens in strings', () => {
-    const msg =
-      'Request failed with token: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
-    const sanitized = LogSanitizer.sanitize([{ message: msg }]);
-    expect(sanitized[0].message).not.toContain('eyJhbGci');
-    expect(sanitized[0].message).toContain('[REDACTED_AUTH_HEADER]');
-  });
+    test('should redact embedded Bearer tokens in strings', () => {
+      const msg =
+        'Request failed with token: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+      const sanitized = LogSanitizer.sanitize([{ message: msg }]);
+      expect(sanitized[0].message).not.toContain('eyJhbGci');
+      expect(sanitized[0].message).toContain('[REDACTED_AUTH_HEADER]');
+    });
 
-  test('should redact raw JWT tokens without Bearer prefix', () => {
-    const jwt =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
-    const msg = `Token is ${jwt}`;
-    const sanitized = LogSanitizer.sanitize([{ message: msg }]);
-    expect(sanitized[0].message).not.toContain(jwt);
-    expect(sanitized[0].message).toContain('[REDACTED_JWT]');
-  });
+    test('should redact raw JWT tokens without Bearer prefix', () => {
+      const jwt =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+      const msg = `Token is ${jwt}`;
+      const sanitized = LogSanitizer.sanitize([{ message: msg }]);
+      expect(sanitized[0].message).not.toContain(jwt);
+      expect(sanitized[0].message).toContain('[REDACTED_JWT]');
+    });
 
-  test('should redact query parameters in URLs embedded in strings', () => {
-    const url = 'https://api.notion.com/v1/page?token=secret_12345&user_id=admins';
-    const msg = `Fetcher failed for ${url}`;
-    const sanitized = LogSanitizer.sanitize([{ message: msg }]);
+    test('should redact query parameters in URLs embedded in strings', () => {
+      const url = 'https://api.notion.com/v1/page?token=secret_12345&user_id=admins';
+      const msg = `Fetcher failed for ${url}`;
+      const sanitized = LogSanitizer.sanitize([{ message: msg }]);
 
-    expect(sanitized[0].message).not.toContain('secret_12345');
-    expect(sanitized[0].message).not.toContain('user_id=admins');
-    // Real sanitizeUrlForLogging returns protocol+host+path
-    expect(sanitized[0].message).toContain('https://api.notion.com/v1/page');
-  });
+      expect(sanitized[0].message).not.toContain('secret_12345');
+      expect(sanitized[0].message).not.toContain('user_id=admins');
+      // Real sanitizeUrlForLogging returns protocol+host+path
+      expect(sanitized[0].message).toContain('https://api.notion.com/v1/page');
+    });
 
-  test('should redact Generic API Keys match specific patterns', () => {
-    const apiKey = 'sk-1234567890abcdef1234567890abcdef'; // 32 chars
-    const msg = `Using key ${apiKey} for request`;
+    test('should redact Generic API Keys match specific patterns', () => {
+      const apiKey = 'sk-1234567890abcdef1234567890abcdef'; // 32 chars
+      const msg = `Using key ${apiKey} for request`;
 
-    const sanitized = LogSanitizer.sanitize([{ message: msg }]);
-    expect(sanitized[0].message).not.toContain(apiKey);
-    expect(sanitized[0].message).toContain('[REDACTED_API_KEY]');
+      const sanitized = LogSanitizer.sanitize([{ message: msg }]);
+      expect(sanitized[0].message).not.toContain(apiKey);
+      expect(sanitized[0].message).toContain('[REDACTED_API_KEY]');
+    });
   });
 });

@@ -9,7 +9,7 @@
 import './utils/Logger.js'; // Side-effect import to register self.Logger
 
 import { normalizeUrl } from './utils/urlUtils.js';
-import { LogExporter } from './utils/LogExporter.js';
+
 import { TAB_SERVICE } from './config/constants.js';
 
 // Import Services
@@ -28,6 +28,7 @@ import { MessageHandler } from './background/handlers/MessageHandler.js';
 import { createSaveHandlers } from './background/handlers/saveHandlers.js';
 import { createHighlightHandlers } from './background/handlers/highlightHandlers.js';
 import { createMigrationHandlers } from './background/handlers/migrationHandlers.js';
+import { createLogHandlers } from './background/handlers/logHandlers.js';
 
 // ==========================================
 // SERVICE INITIALIZATION
@@ -61,17 +62,7 @@ const actionHandlers = {
     storageService,
     notionService,
   }),
-  // Log Export Handler
-  exportDebugLogs: async (message, sender, sendResponse) => {
-    // LogExporter.exportLogs 內含即時脫敏邏輯，MessageHandler 將處理任何未預期的拋錯
-    const result = await LogExporter.exportLogs({ format: message.format });
-    sendResponse({
-      success: true,
-      data: result,
-    });
-    // 返回 true 以保持訊息通道，支持異步 sendResponse
-    return true;
-  },
+  ...createLogHandlers(),
 };
 
 messageHandler.registerAll(actionHandlers);
