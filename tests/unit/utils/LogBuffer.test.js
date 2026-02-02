@@ -1,7 +1,7 @@
 import { LogBuffer } from '../../../scripts/utils/LogBuffer.js';
 
 describe('LogBuffer', () => {
-  let logBuffer;
+  let logBuffer = null;
   const DEFAULT_CAPACITY = 5; // A small capacity for easier testing
 
   beforeEach(() => {

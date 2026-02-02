@@ -1,3 +1,4 @@
+/* global chrome */
 import Logger from './Logger.js'; // Default export
 import { LogSanitizer } from './LogSanitizer.js';
 
@@ -41,7 +42,6 @@ export class LogExporter {
       filename = `notion-debug-${timestamp}.json`;
       mimeType = 'application/json';
     } else {
-      // TODO: Implement text format if needed
       throw new Error(`Unsupported format: ${format}`);
     }
 
