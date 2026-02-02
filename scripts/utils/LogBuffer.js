@@ -27,9 +27,11 @@ export class LogBuffer {
    */
   push(entry) {
     // 確保有時間戳
+    // 確保有時間戳
+    const timestamp = entry.timestamp || new Date().toISOString();
     const entryWithTimestamp = {
-      timestamp: new Date().toISOString(),
       ...entry,
+      timestamp,
     };
 
     // 計算寫入位置：(head + size) % capacity
