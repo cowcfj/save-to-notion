@@ -68,7 +68,7 @@ export class LogSanitizer {
     if (value instanceof Error) {
       return {
         message: this._sanitizeString(value.message),
-        stack: this._sanitizeString(value.stack),
+        stack: this._sanitizeStackTrace(value.stack),
         name: value.name || 'Error',
         // 嘗試保留其他自定義屬性
         ...this._sanitizeValue({ ...value }, depth + 1),
@@ -127,6 +127,37 @@ export class LogSanitizer {
       }
     }
     return safeHeaders;
+  }
+
+  /**
+   * 清洗錯誤堆疊追蹤，移除內部路徑和精確位置資訊
+   * @param {string} stack - 原始 stack trace
+   * @returns {string} 清洗後的 stack trace
+   */
+  static _sanitizeStackTrace(stack) {
+    if (!stack || typeof stack !== 'string') {
+      return stack;
+    }
+
+    // 清洗每一行 stack trace
+    const lines = stack.split('\n');
+    const sanitizedLines = lines.map(line => {
+      // 移除 Extension ID（chrome-extension://xxx）
+      let sanitized = line.replace(/chrome-extension:\/\/[a-z]+/g, 'chrome-extension://[ID]');
+
+      // 移除完整路徑，只保留檔案名稱
+      // 範例：scripts/utils/LogExporter.js -> LogExporter.js
+      // 使用非貪婪匹配避免回溯問題
+      sanitized = sanitized.replace(/[a-zA-Z0-9_/-]*\/([a-zA-Z0-9_.-]+\.js)/g, '$1');
+
+      // 移除精確的行號和列號（:16:13），只保留檔案名
+      // 保留函數名稱但移除位置資訊，以平衡除錯需求和安全性
+      sanitized = sanitized.replace(/\.js:\d+:\d+/g, '.js:[位置已隱藏]');
+
+      return sanitized;
+    });
+
+    return sanitizedLines.join('\n');
   }
 
   /**

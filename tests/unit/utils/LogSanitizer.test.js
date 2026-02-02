@@ -228,5 +228,45 @@ describe('LogSanitizer', () => {
       // credentials 鍵名本身包含敏感關鍵字，整個物件被替換
       expect(req.credentials).toBe('[REDACTED_SENSITIVE_KEY]');
     });
+
+    test('should sanitize Error stack traces to prevent path leakage', () => {
+      const error = new Error('Test error');
+      // 模擬真實的 Chrome Extension stack trace
+      error.stack = `Error: Test error
+    at LogExporter.exportLogs (chrome-extension://abcdefgh/scripts/utils/LogExporter.js:16:13)
+    at exportDebugLogs (chrome-extension://abcdefgh/scripts/background.js:67:42)
+    at chrome.runtime.sendMessage.then (chrome-extension://abcdefgh/options/options.js:330:15)`;
+
+      const logs = [
+        {
+          message: 'Export failed',
+          context: {
+            error,
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      const sanitizedStack = sanitized[0].context.error.stack;
+
+      // 應該移除 Extension ID
+      expect(sanitizedStack).toContain('chrome-extension://[ID]');
+      expect(sanitizedStack).not.toContain('abcdefgh');
+
+      // 應該移除內部路徑，只保留檔案名
+      expect(sanitizedStack).toContain('LogExporter.js');
+      expect(sanitizedStack).not.toContain('scripts/utils/LogExporter.js');
+      expect(sanitizedStack).toContain('background.js');
+      expect(sanitizedStack).not.toContain('scripts/background.js');
+
+      // 應該移除精確的行號和列號
+      expect(sanitizedStack).toContain('[位置已隱藏]');
+      expect(sanitizedStack).not.toContain(':16:13');
+      expect(sanitizedStack).not.toContain(':67:42');
+
+      // 應該保留函數名稱（除錯用）
+      expect(sanitizedStack).toContain('LogExporter.exportLogs');
+      expect(sanitizedStack).toContain('exportDebugLogs');
+    });
   });
 });
