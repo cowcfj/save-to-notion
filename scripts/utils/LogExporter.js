@@ -39,8 +39,26 @@ export class LogExporter {
         logs: safeLogs,
       };
 
-      content = JSON.stringify(exportData, null, 2);
-      filename = `notion-debug-${timestamp}.json`;
+      try {
+        content = JSON.stringify(exportData, null, 2);
+      } catch (error) {
+        console.error('Log serialization failed:', error);
+        // Fallback: Create a minimal valid JSON with error details
+        const errorReport = {
+          error: 'Log_Serialization_Failed',
+          message: 'Unable to serialize logs due to invalid content (e.g. circular references).',
+          originalError: error.message,
+          exportedAt: exportData.exportedAt,
+          extensionVersion: exportData.extensionVersion,
+        };
+        content = JSON.stringify(errorReport, null, 2);
+        // Adjust filename to indicate error
+        filename = `notion-debug-error-${timestamp}.json`;
+      }
+
+      if (!filename) {
+        filename = `notion-debug-${timestamp}.json`;
+      }
       mimeType = 'application/json';
     } else {
       throw new Error(`Unsupported format: ${format}`);
