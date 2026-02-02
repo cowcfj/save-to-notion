@@ -62,8 +62,13 @@ const actionHandlers = {
     notionService,
   }),
   // Log Export Handler
-  exportDebugLogs: message => {
-    return LogExporter.exportLogs({ format: message.format });
+  exportDebugLogs: (message, sender, sendResponse) => {
+    try {
+      const result = LogExporter.exportLogs({ format: message.format });
+      sendResponse(result);
+    } catch (error) {
+      throw error;
+    }
   },
 };
 
