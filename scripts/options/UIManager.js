@@ -4,6 +4,7 @@
  */
 
 import { validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
+import { UI_ICONS } from '../config/icons.js';
 
 /**
  * UI 管理器類別
@@ -63,6 +64,24 @@ export class UIManager {
       const separated = separateIconAndText(message);
       icon = separated.icon;
       text = separated.text;
+
+      // [優化] 如果訊息本身不帶圖標，根據 type 自動匹配預設圖標
+      if (!icon) {
+        switch (type) {
+          case 'success':
+            icon = UI_ICONS.SUCCESS;
+            break;
+          case 'error':
+            icon = UI_ICONS.ERROR;
+            break;
+          case 'warning':
+            icon = UI_ICONS.WARNING;
+            break;
+          case 'info':
+            icon = UI_ICONS.INFO;
+            break;
+        }
+      }
     }
 
     // SVG 安全驗證：使用 securityUtils 統一處理

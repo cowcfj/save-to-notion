@@ -8,6 +8,8 @@
 import Logger from '../utils/Logger.js';
 import { sanitizeApiError, validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
+import { UI_ICONS } from '../config/icons.js';
+import { UI_MESSAGES } from '../config/messages.js';
 
 /**
  * 管理存儲空間的類別
@@ -85,7 +87,7 @@ export class StorageManager {
 
   async exportData() {
     try {
-      this.showDataStatus('正在備份數據...', 'info');
+      this.showDataStatus(UI_MESSAGES.STORAGE.BACKUP_START, 'info');
 
       const data = await new Promise(resolve => {
         chrome.storage.local.get(null, resolve);
@@ -110,16 +112,14 @@ export class StorageManager {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-      this.showDataStatus(`${icon} 數據備份成功！備份文件已下載。`, 'success');
+      const icon = UI_ICONS.SUCCESS;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.BACKUP_SUCCESS}`, 'success');
     } catch (error) {
-      Logger.error('Backup failed:', error);
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      Logger.error('Backup failed', { action: 'export_backup', error });
+      const icon = UI_ICONS.ERROR;
       const safeMessage = sanitizeApiError(error, 'export_backup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${icon} 備份失敗：${errorMsg}`, 'error');
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.BACKUP_FAILED}${errorMsg}`, 'error');
     }
   }
 
@@ -132,22 +132,21 @@ export class StorageManager {
     const reader = new FileReader();
     reader.onload = async readerEvent => {
       try {
-        this.showDataStatus('正在恢復數據...', 'info');
+        this.showDataStatus(UI_MESSAGES.STORAGE.RESTORE_START, 'info');
 
         const backup = JSON.parse(readerEvent.target.result);
 
         if (!backup.data) {
-          throw new Error('無效的備份文件格式');
+          throw new Error(UI_MESSAGES.STORAGE.INVALID_BACKUP_FORMAT);
         }
 
         await new Promise(resolve => {
           chrome.storage.local.set(backup.data, resolve);
         });
 
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+        const icon = UI_ICONS.SUCCESS;
         this.showDataStatus(
-          `${icon} 數據恢復成功！已恢復 ${Object.keys(backup.data).length} 項數據。正在重新整理...`,
+          `${icon} ${UI_MESSAGES.STORAGE.RESTORE_SUCCESS(Object.keys(backup.data).length)}`,
           'success'
         );
 
@@ -159,12 +158,11 @@ export class StorageManager {
           window.location.reload();
         }, 2000);
       } catch (error) {
-        Logger.error('Import failed:', error);
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+        Logger.error('Import failed', { action: 'import_backup', error });
+        const icon = UI_ICONS.ERROR;
         const safeMessage = sanitizeApiError(error, 'import_backup');
         const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-        this.showDataStatus(`${icon} 恢復失敗：${errorMsg}`, 'error');
+        this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.RESTORE_FAILED}${errorMsg}`, 'error');
         this.elements.importFile.value = '';
       }
     };
@@ -173,7 +171,7 @@ export class StorageManager {
 
   async checkDataIntegrity() {
     try {
-      this.showDataStatus('正在檢查數據完整性...', 'info');
+      this.showDataStatus(UI_MESSAGES.STORAGE.CHECKING, 'info');
 
       const data = await new Promise(resolve => {
         chrome.storage.local.get(null, resolve);
@@ -181,33 +179,32 @@ export class StorageManager {
 
       const report = StorageManager.analyzeData(data);
 
-      let statusText = '📊 數據完整性報告：\n';
-      statusText += `• 總共 ${report.totalKeys} 個數據項\n`;
-      statusText += `• ${report.highlightPages} 個頁面有標記\n`;
-      statusText += `• ${report.configKeys} 個配置項\n`;
+      let statusText = `${UI_MESSAGES.STORAGE.REPORT_TITLE}\n`;
+      statusText += `${UI_MESSAGES.STORAGE.TOTAL_ITEMS(report.totalKeys)}\n`;
+      statusText += `${UI_MESSAGES.STORAGE.HIGHLIGHT_PAGES(report.highlightPages)}\n`;
+      statusText += `${UI_MESSAGES.STORAGE.CONFIG_ITEMS(report.configKeys)}\n`;
 
       if (report.migrationKeys > 0) {
         const migrationSizeKB = (report.migrationDataSize / 1024).toFixed(1);
-        statusText += `• ⚠️ ${report.migrationKeys} 個遷移數據（${migrationSizeKB} KB，可清理）\n`;
+        statusText += `${UI_MESSAGES.STORAGE.MIGRATION_DATA(report.migrationKeys, migrationSizeKB)}\n`;
       }
 
       if (report.corruptedData.length > 0) {
-        statusText += `• ⚠️ ${report.corruptedData.length} 個損壞的數據項`;
+        statusText += UI_MESSAGES.STORAGE.CORRUPTED_DATA(report.corruptedData.length);
         this.showDataStatus(statusText, 'error');
       } else if (report.migrationKeys > 0) {
-        statusText += '• 💡 建議使用「數據重整」功能清理遷移數據';
+        statusText += UI_MESSAGES.STORAGE.OPTIMIZATION_SUGGESTION;
         this.showDataStatus(statusText, 'warning');
       } else {
-        statusText += '• ✅ 所有數據完整無損';
+        statusText += UI_MESSAGES.STORAGE.INTEGRITY_OK;
         this.showDataStatus(statusText, 'success');
       }
     } catch (error) {
-      Logger.error('Data check failed:', error);
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      Logger.error('Data check failed', { action: 'check_integrity', error });
+      const icon = UI_ICONS.ERROR;
       const safeMessage = sanitizeApiError(error, 'check_duplicates');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${icon} 檢查失敗：${errorMsg}`, 'error');
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.CHECK_FAILED}${errorMsg}`, 'error');
     }
   }
 
@@ -244,12 +241,9 @@ export class StorageManager {
 
     // SVG Icons
     const ICONS = {
-      refresh:
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>',
-      check:
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-      error:
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+      refresh: UI_ICONS.REFRESH,
+      check: UI_ICONS.SUCCESS,
+      error: UI_ICONS.ERROR,
     };
 
     // Helper to update button content
@@ -294,7 +288,7 @@ export class StorageManager {
         }, 1500);
       }
     } catch (error) {
-      Logger.error('Failed to get storage usage:', error);
+      Logger.error('Failed to get storage usage', { action: 'get_usage', error });
 
       // 顯示錯誤狀態
       if (button) {
@@ -379,19 +373,14 @@ export class StorageManager {
 
     // 條件判斷順序：先檢查更高的閾值（>100MB），再檢查較低的閾值（>80MB）
     if (usedMB > 100) {
-      const alertIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+      const alertIcon = UI_ICONS.WARNING;
       this.showDataStatus(
-        `${alertIcon} 數據量過大 (${usage.usedMB} MB)，可能影響擴展性能，建議立即清理`,
+        `${alertIcon} ${UI_MESSAGES.STORAGE.USAGE_TOO_LARGE(usage.usedMB)}`,
         'error'
       );
     } else if (usedMB > 80) {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-      this.showDataStatus(
-        `${icon} 數據量較大 (${usage.usedMB} MB)，建議清理不需要的標記數據以維持最佳性能`,
-        'warning'
-      );
+      const icon = UI_ICONS.WARNING;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.USAGE_LARGE(usage.usedMB)}`, 'warning');
     }
   }
 
@@ -413,10 +402,10 @@ export class StorageManager {
         this.elements.executeCleanupButton.style.display = 'none';
       }
     } catch (error) {
-      Logger.error('預覽清理失敗:', error);
+      Logger.error('Cleanup preview failed', { action: 'cleanup_preview', error });
       const safeMessage = sanitizeApiError(error, 'preview_cleanup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`❌ 預覽清理失敗: ${errorMsg}`, 'error');
+      this.showDataStatus(`${UI_MESSAGES.STORAGE.PREVIEW_CLEANUP_FAILED}${errorMsg}`, 'error');
     } finally {
       this.setPreviewButtonLoading(false);
     }
@@ -433,16 +422,14 @@ export class StorageManager {
       button.classList.add('loading');
       button.disabled = true;
       if (buttonText) {
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+        const icon = UI_ICONS.INFO; // 使用資訊或搜索圖標
         buttonText.innerHTML = `${icon} 檢查中...`;
       }
     } else {
       button.classList.remove('loading');
       button.disabled = false;
       if (buttonText) {
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+        const icon = UI_ICONS.INFO; // 預覽
         buttonText.innerHTML = `${icon} 預覽清理效果`;
       }
     }
@@ -457,8 +444,7 @@ export class StorageManager {
 
     if (total > 0 && buttonText) {
       const percentage = Math.round((current / total) * 100);
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+      const icon = UI_ICONS.INFO;
       buttonText.innerHTML = `${icon} 檢查中... ${current}/${total} (${percentage}%)`;
     }
   }
@@ -532,7 +518,11 @@ export class StorageManager {
             await new Promise(sleep => setTimeout(sleep, 350));
           }
         } catch (error) {
-          Logger.error(`檢查頁面失敗: ${page.url}`, error);
+          Logger.error('Page existence check failed', {
+            action: 'check_page_existence',
+            url: page.url,
+            error,
+          });
         }
       }
     }
@@ -549,7 +539,7 @@ export class StorageManager {
       });
       return response && response.exists === true;
     } catch (error) {
-      Logger.error('檢查頁面存在失敗:', error);
+      Logger.error('Batch page check failed', { action: 'batch_check_existence', error });
       return true;
     }
   }
@@ -561,8 +551,7 @@ export class StorageManager {
     this.elements.cleanupPreview.className = 'cleanup-preview show';
 
     if (plan.items.length === 0) {
-      const icon =
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+      const icon = UI_ICONS.SUCCESS;
       this.elements.cleanupPreview.innerHTML = `
                 <div class="cleanup-summary">
                     <strong>${icon} 沒有發現需要清理的數據</strong>
@@ -574,20 +563,25 @@ export class StorageManager {
 
     const spaceMB = (plan.spaceFreed / (1024 * 1024)).toFixed(3);
 
-    let summaryText = '🧹 安全清理預覽\n\n將清理：\n';
-    if (plan.deletedPages > 0) {
-      summaryText += `• ${plan.deletedPages} 個已刪除頁面的數據\n`;
-    }
-    summaryText += `\n釋放約 <span class="highlight-success">${spaceMB} MB</span> 空間`;
+    const summaryLines = [
+      UI_MESSAGES.STORAGE.CLEANUP_TITLE,
+      '',
+      UI_MESSAGES.STORAGE.CLEANUP_WILL_CLEAN,
+    ];
 
-    const icon =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
-    const warnIcon =
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    if (plan.deletedPages > 0) {
+      summaryLines.push(UI_MESSAGES.STORAGE.DELETED_PAGES_DATA(plan.deletedPages));
+    }
+
+    summaryLines.push('');
+    summaryLines.push(UI_MESSAGES.STORAGE.SPACE_FREED_ESTIMATE(spaceMB));
+
+    const summaryText = summaryLines.join('\n');
+
+    const warnIcon = UI_ICONS.WARNING;
 
     this.elements.cleanupPreview.innerHTML = `
             <div class="cleanup-summary">
-                <strong>${icon} 安全清理預覽</strong>
                 <p>${summaryText.replace(/\n/g, '<br>')}</p>
                 <div class="warning-notice">
                     ${warnIcon} <strong>重要提醒：</strong>這只會清理擴展中的無效記錄，<strong>絕對不會影響您在 Notion 中保存的任何頁面</strong>。
@@ -612,16 +606,14 @@ export class StorageManager {
 
   async executeSafeCleanup() {
     if (!this.cleanupPlan || this.cleanupPlan.items.length === 0) {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      this.showDataStatus(`${icon} 沒有清理計劃可執行`, 'error');
+      const icon = UI_ICONS.ERROR;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.EXECUTE_CLEANUP_NONE}`, 'error');
       return;
     }
 
     try {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>';
-      this.showDataStatus(`${icon} 正在執行安全清理...`, 'info');
+      const icon = UI_ICONS.REFRESH;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.CLEANUP_EXECUTING}`, 'info');
 
       const keysToRemove = this.cleanupPlan.items.map(item => item.key);
 
@@ -636,12 +628,11 @@ export class StorageManager {
       });
 
       const spaceKB = (this.cleanupPlan.spaceFreed / 1024).toFixed(1);
-      const successIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-      let message = `${successIcon} 安全清理完成！已移除 ${this.cleanupPlan.totalKeys} 個無效記錄，釋放 ${spaceKB} KB 空間`;
+      const successIcon = UI_ICONS.SUCCESS;
+      let message = `${successIcon} ${UI_MESSAGES.STORAGE.CLEANUP_SUCCESS(this.cleanupPlan.totalKeys, spaceKB)}`;
 
       if (this.cleanupPlan.deletedPages > 0) {
-        message += `\n• 清理了 ${this.cleanupPlan.deletedPages} 個已刪除頁面的數據`;
+        message += `\n${UI_MESSAGES.STORAGE.CLEANUP_DELETED_PAGES(this.cleanupPlan.deletedPages)}`;
       }
 
       this.showDataStatus(message, 'success');
@@ -655,12 +646,11 @@ export class StorageManager {
       }
       this.cleanupPlan = null;
     } catch (error) {
-      Logger.error('Cleanup failed:', error);
-      const failIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      Logger.error('Cleanup execution failed', { action: 'execute_cleanup', error });
+      const failIcon = UI_ICONS.ERROR;
       const safeMessage = sanitizeApiError(error, 'cleanup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${failIcon} 清理失敗：${errorMsg}`, 'error');
+      this.showDataStatus(`${failIcon} ${UI_MESSAGES.STORAGE.CLEANUP_FAILED}${errorMsg}`, 'error');
     }
   }
 
@@ -773,14 +763,10 @@ export class StorageManager {
     this.elements.optimizationPreview.className = 'optimization-preview show';
 
     if (!plan.canOptimize) {
-      const icon =
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-      const statsIcon1 =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
-      const statsIcon2 =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
-      const statsIcon3 =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+      const icon = UI_ICONS.SUCCESS;
+      const statsIcon1 = UI_ICONS.INFO; // 標記頁面
+      const statsIcon2 = UI_ICONS.INFO; // 總標記數
+      const statsIcon3 = UI_ICONS.INFO; // 數據大小
 
       this.elements.optimizationPreview.innerHTML = `
                 <div class="optimization-summary">
@@ -799,14 +785,10 @@ export class StorageManager {
     const spaceSavedMB = (plan.spaceSaved / (1024 * 1024)).toFixed(3);
     const percentSaved = ((plan.spaceSaved / plan.originalSize) * 100).toFixed(1);
 
-    const icon =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
-    const chartIcon =
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
-    const diskIcon =
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
-    const checkIcon =
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+    const icon = UI_ICONS.BOLT;
+    const chartIcon = UI_ICONS.BAR_CHART;
+    const diskIcon = UI_ICONS.SAVE;
+    const checkIcon = UI_ICONS.CHECK;
 
     this.elements.optimizationPreview.innerHTML = `
             <div class="optimization-summary">
@@ -828,17 +810,15 @@ export class StorageManager {
   }
 
   async executeOptimization() {
-    if (!this.optimizationPlan || !this.optimizationPlan.canOptimize) {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      this.showDataStatus(`${icon} 沒有優化計劃可執行`, 'error');
-      return;
-    }
-
     try {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>';
-      this.showDataStatus(`${icon} 正在執行數據重整...`, 'info');
+      if (!this.optimizationPlan || !this.optimizationPlan.canOptimize) {
+        const icon = UI_ICONS.ERROR;
+        this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.OPTIMIZE_EXECUTE_NONE}`, 'error');
+        return;
+      }
+
+      const icon = UI_ICONS.REFRESH;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.OPTIMIZING}`, 'info');
 
       const optimizedData = this.optimizationPlan.optimizedData;
       const keysToRemove = this.optimizationPlan.keysToRemove;
@@ -876,10 +856,9 @@ export class StorageManager {
       }
 
       const spaceSavedKB = (this.optimizationPlan.spaceSaved / 1024).toFixed(1);
-      const successIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+      const successIcon = UI_ICONS.SUCCESS;
       this.showDataStatus(
-        `${successIcon} 數據重整完成！已清理遷移數據，節省 ${spaceSavedKB} KB 空間，所有標記內容完整保留`,
+        `${successIcon} ${UI_MESSAGES.STORAGE.OPTIMIZE_SUCCESS(spaceSavedKB)}`,
         'success'
       );
 
@@ -892,12 +871,11 @@ export class StorageManager {
       }
       this.optimizationPlan = null;
     } catch (error) {
-      Logger.error('Optimization failed:', error);
-      const failIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      const safeMessage = sanitizeApiError(error, 'organize_highlights');
-      const translated = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${failIcon} 數據重整失敗：${translated}`, 'error');
+      Logger.error('Optimization failed', { action: 'execute_optimization', error });
+      const failIcon = UI_ICONS.ERROR;
+      const safeMessage = sanitizeApiError(error, 'optimization');
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.showDataStatus(`${failIcon} ${UI_MESSAGES.STORAGE.OPTIMIZE_FAILED}${errorMsg}`, 'error');
     }
   }
 
@@ -925,6 +903,24 @@ export class StorageManager {
     let safeIcon = icon;
     if (icon && !validateSafeSvg(icon)) {
       safeIcon = ''; // 拒絕不安全的 SVG
+    }
+
+    // [優化] 如果訊息本身不帶圖標，根據 type 自動匹配預設圖標
+    if (!safeIcon) {
+      switch (type) {
+        case 'success':
+          safeIcon = UI_ICONS.SUCCESS;
+          break;
+        case 'error':
+          safeIcon = UI_ICONS.ERROR;
+          break;
+        case 'warning':
+          safeIcon = UI_ICONS.WARNING;
+          break;
+        case 'info':
+          safeIcon = UI_ICONS.INFO;
+          break;
+      }
     }
 
     // 清空內容

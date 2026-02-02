@@ -19,14 +19,11 @@ export const UI_MESSAGES = {
     DEFAULT_OPTION: '選擇資料來源...',
   },
   LOGS: {
-    EXPORT_SUCCESS: count =>
-      `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 已成功導出 ${count} 條日誌`,
-    EXPORT_FAILED: error =>
-      `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ${error || '導出失敗，請稍後再試'}`,
+    EXPORT_SUCCESS: count => `已成功導出 ${count} 條日誌`,
+    EXPORT_FAILED: error => error || '導出失敗，請稍後再試',
   },
   SETTINGS: {
-    SAVE_SUCCESS:
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 設置已成功保存！',
+    SAVE_SUCCESS: '設置已成功保存！',
     SAVE_FAILED: '保存失敗，請查看控制台日誌或稍後再試。',
     MISSING_API_KEY: '請輸入 API Key',
     INVALID_ID: '資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
@@ -62,6 +59,45 @@ export const UI_MESSAGES = {
     CLEAR_FAILED: '清除標註失敗。',
     CLEAR_SUCCESS: count => `已成功清除 ${count} 條標註！`,
     PAGE_READY: '頁面已儲存，可以開始標註或再次儲存。',
+  },
+  STORAGE: {
+    CHECKING: '正在檢查數據完整性...',
+    REPORT_TITLE: '數據完整性報告：',
+    TOTAL_ITEMS: count => `• 總共 ${count} 個數據項`,
+    HIGHLIGHT_PAGES: count => `• ${count} 個頁面有標記`,
+    CONFIG_ITEMS: count => `• ${count} 個配置項`,
+    MIGRATION_DATA: (count, size) => `• ${count} 個遷移數據（${size} KB，可清理）`,
+    CORRUPTED_DATA: count => `• ${count} 個損壞的數據項`,
+    OPTIMIZATION_SUGGESTION: '• 建議使用「數據重整」功能清理遷移數據',
+    INTEGRITY_OK: '• 所有數據完整無損',
+    BACKUP_START: '正在備份數據...',
+    RESTORE_START: '正在恢復數據...',
+    INVALID_BACKUP_FORMAT: '無效的備份文件格式',
+    CLEANUP_NONE: '沒有需要清理的數據',
+    OPTIMIZE_NONE: '數據已經處於最佳狀態',
+    CLEANUP_TITLE: '安全清理預覽',
+    CLEANUP_WILL_CLEAN: '將清理：',
+    DELETED_PAGES_DATA: count => `• ${count} 個已刪除頁面的數據`,
+    SPACE_FREED_ESTIMATE: size => `釋放約 ${size} MB 空間`,
+    EXECUTE_CLEANUP_NONE: '沒有清理計劃可執行',
+    CLEANUP_EXECUTING: '正在執行安全清理...',
+    CLEANUP_SUCCESS: (keys, size) =>
+      `安全清理完成！已移除 ${keys} 個無效記錄，釋放 ${size} KB 空間`,
+    CLEANUP_DELETED_PAGES: count => `• 清理了 ${count} 個已刪除頁面的數據`,
+    CLEANUP_FAILED: '清理失敗：',
+    PREVIEW_CLEANUP_FAILED: '預覽清理失敗：',
+    OPTIMIZE_SUCCESS: size =>
+      `數據重整完成！已清理遷移數據，節省 ${size} KB 空間，所有標記內容完整保留`,
+    OPTIMIZE_FAILED: '數據重整失敗：',
+    BACKUP_SUCCESS: '數據備份成功！備份文件已下載。',
+    BACKUP_FAILED: '備份失敗：',
+    RESTORE_SUCCESS: count => `數據恢復成功！已恢復 ${count} 項數據。正在重新整理...`,
+    RESTORE_FAILED: '恢復失敗：',
+    CHECK_FAILED: '檢查失敗：',
+    OPTIMIZE_EXECUTE_NONE: '沒有重整計劃可執行',
+    OPTIMIZING: '正在執行數據重整...',
+    USAGE_TOO_LARGE: size => `數據量過大 (${size} MB)，可能影響擴展性能，建議立即清理`,
+    USAGE_LARGE: size => `數據量較大 (${size} MB)，建議清理不需要的標記數據以維持最佳性能`,
   },
 };
 
