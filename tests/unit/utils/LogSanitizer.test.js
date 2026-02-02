@@ -85,5 +85,24 @@ describe('LogSanitizer', () => {
       // Ideally it shouldn't crash
       // For now, let's see if our implementation naturally handles it or limits depth
     });
+
+    test('should preserve Error object properties', () => {
+      const error = new Error('Something went wrong');
+      error.stack = 'Error: Something went wrong\n    at Test (test.js:1:1)';
+
+      const logs = [
+        {
+          message: 'Error occurred',
+          context: { error },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      const sanitizedError = sanitized[0].context.error;
+
+      expect(sanitizedError).toHaveProperty('message', 'Something went wrong');
+      expect(sanitizedError).toHaveProperty('stack');
+      expect(sanitizedError).toHaveProperty('name', 'Error');
+    });
   });
 });

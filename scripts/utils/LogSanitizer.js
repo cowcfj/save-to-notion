@@ -47,6 +47,17 @@ export class LogSanitizer {
       return value.map(item => this._sanitizeValue(item, depth + 1));
     }
 
+    // 處理 Error 對象 (優先處理，因為 Error 也是 Object)
+    if (value instanceof Error) {
+      return {
+        message: this._sanitizeString(value.message),
+        stack: this._sanitizeString(value.stack),
+        name: value.name || 'Error',
+        // 嘗試保留其他自定義屬性
+        ...this._sanitizeValue({ ...value }, depth + 1),
+      };
+    }
+
     // 處理對象
     if (typeof value === 'object') {
       const safeObj = {};
