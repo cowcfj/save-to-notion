@@ -10,7 +10,6 @@ import './utils/Logger.js'; // Side-effect import to register self.Logger
 
 import { normalizeUrl } from './utils/urlUtils.js';
 import { LogExporter } from './utils/LogExporter.js';
-import { ErrorHandler } from './utils/ErrorHandler.js';
 import { TAB_SERVICE } from './config/constants.js';
 
 // Import Services
@@ -64,26 +63,13 @@ const actionHandlers = {
   }),
   // Log Export Handler
   exportDebugLogs: async (message, sender, sendResponse) => {
-    try {
-      // Handle async exportLogs by awaiting (future-proofing if it becomes async)
-      const result = await LogExporter.exportLogs({ format: message.format });
-      sendResponse({
-        success: true,
-        data: result,
-      });
-    } catch (error) {
-      Logger.error('日誌導出失敗', {
-        action: 'exportDebugLogs',
-        format: message.format,
-        error: error.message,
-      });
-      // Send structured error payload instead of throwing
-      sendResponse({
-        success: false,
-        error: ErrorHandler.formatUserMessage(error),
-      });
-    }
-    // Return true to keep the channel open for async sendResponse
+    // LogExporter.exportLogs 內含即時脫敏邏輯，MessageHandler 將處理任何未預期的拋錯
+    const result = await LogExporter.exportLogs({ format: message.format });
+    sendResponse({
+      success: true,
+      data: result,
+    });
+    // 返回 true 以保持訊息通道，支持異步 sendResponse
     return true;
   },
 };
