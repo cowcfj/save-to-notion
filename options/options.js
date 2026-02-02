@@ -4,6 +4,7 @@ import { AuthManager } from '../scripts/options/AuthManager.js';
 import { DataSourceManager } from '../scripts/options/DataSourceManager.js';
 import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import Logger from '../scripts/utils/Logger.js';
 
 /**
@@ -88,7 +89,10 @@ function setupSidebarNavigation() {
   const sections = document.querySelectorAll('.settings-section');
 
   if (navItems.length === 0 || sections.length === 0) {
-    Logger.warn('設定頁面：找不到導航項目或設定區塊。');
+    Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_MISSING_ITEMS, {
+      action: 'setupSidebarNavigation',
+      reason: 'missing_dom_elements',
+    });
     return;
   }
 
@@ -96,7 +100,10 @@ function setupSidebarNavigation() {
     item.addEventListener('click', () => {
       const sectionName = item.dataset.section;
       if (!sectionName) {
-        Logger.warn('設定頁面：導航項目缺少 data-section 屬性', item);
+        Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_MISSING_ATTR, {
+          action: 'setupSidebarNavigation',
+          element: item,
+        });
         return;
       }
 
@@ -105,7 +112,10 @@ function setupSidebarNavigation() {
       const targetExists = Array.from(sections).some(section => section.id === targetSectionId);
 
       if (!targetExists) {
-        Logger.warn(`設定頁面：找不到目標區塊：${targetSectionId}`);
+        Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_TARGET_NOT_FOUND, {
+          action: 'setupSidebarNavigation',
+          targetId: targetSectionId,
+        });
         return;
       }
 
@@ -182,18 +192,14 @@ export function saveSettings(ui, auth, statusId = 'status') {
 
   // 驗證
   if (!apiKey) {
-    ui.showStatus('請輸入 API Key', 'error', statusId);
+    ui.showStatus(UI_MESSAGES.SETTINGS.MISSING_API_KEY, 'error', statusId);
     return;
   }
 
   // 清理並驗證 Database ID
   const databaseId = cleanDatabaseId(rawDatabaseId);
   if (!databaseId) {
-    ui.showStatus(
-      '資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
-      'error',
-      statusId
-    );
+    ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error', statusId);
     return;
   }
 
@@ -227,13 +233,9 @@ export function saveSettings(ui, auth, statusId = 'status') {
   chrome.storage.sync.set(settings, () => {
     if (chrome.runtime.lastError) {
       Logger.error('Settings save failed:', chrome.runtime.lastError);
-      ui.showStatus('保存失敗，請查看控制台日誌或稍後再試。', 'error', statusId);
+      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
     } else {
-      ui.showStatus(
-        '<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 設置已成功保存！</span>',
-        'success',
-        statusId
-      );
+      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
 
       // 刷新認證狀態以更新 UI
       auth.checkAuthStatus();
@@ -306,7 +308,10 @@ function displayAppVersion() {
     versionElement.textContent = `v${manifest.version}`;
   } catch (error) {
     // 如果無法獲取版本號，保持元素隱藏
-    Logger.warn('無法獲取應用程式版本號:', error);
+    Logger.warn(ERROR_MESSAGES.TECHNICAL.GET_VERSION_FAILED, {
+      action: 'displayAppVersion',
+      error,
+    });
   }
 }
 
@@ -358,7 +363,7 @@ function setupLogExport() {
         document.body.removeChild(downloadLink);
         setTimeout(() => URL.revokeObjectURL(url), 100);
 
-        statusEl.textContent = `✅ 已成功導出 ${count} 條日誌`;
+        statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
         statusEl.className = 'status-message success';
 
         // 3秒後清除成功訊息
@@ -369,7 +374,7 @@ function setupLogExport() {
       } catch (err) {
         Logger.error('Log export failed', err);
         // 顯示具體錯誤訊息（如果有的話），否則顯示通用錯誤
-        const errorMessage = `❌ ${err.message || '導出失敗，請稍後再試'}`;
+        const errorMessage = UI_MESSAGES.LOGS.EXPORT_FAILED(err.message);
         statusEl.textContent = errorMessage;
         statusEl.className = 'status-message error';
 

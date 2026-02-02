@@ -1,5 +1,5 @@
 /* global Logger */
-import { ERROR_MESSAGES } from '../config/constants.js';
+import { ERROR_MESSAGES } from '../config/messages.js';
 import { escapeHtml } from './securityUtils.js';
 
 /**

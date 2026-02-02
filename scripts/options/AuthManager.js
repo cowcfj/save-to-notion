@@ -222,11 +222,17 @@ export class AuthManager {
 
   async disconnectFromNotion() {
     try {
-      Logger.info('🔌 [斷開連接] 開始斷開 Notion 連接');
+      Logger.info('開始斷開 Notion 連接', {
+        action: 'disconnect',
+        phase: 'start',
+      });
 
       await chrome.storage.sync.remove(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']);
 
-      Logger.info('✅ [斷開連接] 已清除授權數據');
+      Logger.info('已清除授權數據', {
+        action: 'disconnect',
+        phase: 'clearData',
+      });
 
       this.checkAuthStatus();
 
@@ -238,9 +244,15 @@ export class AuthManager {
       }
 
       this.ui.showStatus('已成功斷開與 Notion 的連接。', 'success');
-      Logger.info('🔄 [斷開連接] UI 已更新為未連接狀態');
+      Logger.info('UI 已更新為未連接狀態', {
+        action: 'disconnect',
+        phase: 'uiUpdate',
+      });
     } catch (error) {
-      Logger.error('❌ [斷開連接] 斷開連接失敗:', error);
+      Logger.error('斷開連接失敗', {
+        action: 'disconnect',
+        error: error.message || error,
+      });
       const safeMessage = sanitizeApiError(error, 'disconnect');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
       this.ui.showStatus(`斷開連接失敗: ${errorMsg}`, 'error');

@@ -30,6 +30,7 @@ import {
 } from './popupActions.js';
 import Logger from '../scripts/utils/Logger.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/messages.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
 // Export initialization function for testing
@@ -42,10 +43,10 @@ export async function initPopup() {
   if (!settings.valid) {
     // 根據實際缺失的設定顯示對應的提示訊息
     const msg = !settings.apiKey
-      ? '請先在設定頁面配置 Notion API Key'
+      ? ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_API_KEY
       : !settings.dataSourceId
-        ? '請先在設定頁面選擇 Notion 資料庫'
-        : '請先完成設定頁面的配置';
+        ? ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE
+        : UI_MESSAGES.SETUP.MISSING_CONFIG;
     setStatus(elements, msg);
     setButtonState(elements.saveButton, true);
     setButtonState(elements.highlightButton, true);
@@ -105,7 +106,10 @@ export async function initPopup() {
         }
       } catch (error) {
         // 如果 Content Script 尚未注入，忽略錯誤
-        Logger.warn('Failed to show toolbar after save:', error);
+        Logger.warn(ERROR_MESSAGES.TECHNICAL.TOOLBAR_SHOW_FAILED, {
+          action: 'showToolbar',
+          error,
+        });
       }
     } else {
       const errorMsg = ErrorHandler.formatUserMessage(response?.error);

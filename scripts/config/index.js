@@ -24,5 +24,8 @@ export * from './patterns.js';
 // 功能開關配置
 export * from './features.js';
 
+// 訊息配置
+export * from './messages.js';
+
 // 環境檢測配置
 export * from './env.js';

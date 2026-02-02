@@ -17,7 +17,8 @@ import {
 } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { HANDLER_CONSTANTS, ERROR_MESSAGES } from '../../config/constants.js';
+import { HANDLER_CONSTANTS } from '../../config/constants.js';
+import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 
 // ============================================================================
