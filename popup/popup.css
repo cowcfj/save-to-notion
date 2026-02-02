@@ -82,6 +82,12 @@ button {
   transform: translateY(var(--icon-baseline-offset));
 }
 
+.status-icon-inline {
+  display: inline-flex;
+  vertical-align: text-bottom;
+  margin: 0 4px;
+}
+
 #highlight-button:hover {
   background-color: #38a169;
   transform: translateY(-1px);

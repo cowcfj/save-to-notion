@@ -68,9 +68,6 @@ export function setStatus(elements, content, color = '') {
           span.innerHTML = part.content;
           // Add some basic styling for alignment
           span.classList.add('status-icon-inline');
-          span.style.display = 'inline-flex';
-          span.style.verticalAlign = 'text-bottom';
-          span.style.margin = '0 4px';
           elements.status.appendChild(span);
         }
       });
