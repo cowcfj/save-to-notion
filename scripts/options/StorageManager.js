@@ -9,7 +9,34 @@ import Logger from '../utils/Logger.js';
 import { sanitizeApiError, validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_ICONS } from '../config/icons.js';
-import { UI_MESSAGES } from '../config/messages.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../config/messages.js';
+
+// Helper: Safe Icon Creation
+const createSafeIcon = svgString => {
+  if (!svgString || !svgString.startsWith('<svg')) {
+    const span = document.createElement('span');
+    span.textContent = svgString || '';
+    return span;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+  const svgElement = doc.documentElement;
+
+  if (svgElement.tagName === 'parsererror') {
+    Logger.warn(ERROR_MESSAGES.TECHNICAL.SVG_PARSE_ERROR, {
+      action: 'create_safe_icon',
+      reason: 'xml_parser_error',
+      content: svgString,
+    });
+    return document.createElement('span');
+  }
+
+  const span = document.createElement('span');
+  span.className = 'icon-wrapper'; // Optional styling hook
+  span.appendChild(svgElement);
+  return span;
+};
 
 /**
  * 管理存儲空間的類別
@@ -266,7 +293,10 @@ export class StorageManager {
         // icon = icon.replace('class="icon-svg"', 'class="icon-svg spin"');
       }
 
-      button.innerHTML = `${icon} ${text}`;
+      // Use safe DOM construction instead of innerHTML
+      button.textContent = ''; // Clear
+      button.appendChild(createSafeIcon(icon));
+      button.appendChild(document.createTextNode(` ${text}`));
       button.disabled = disabled;
     };
 
@@ -423,14 +453,17 @@ export class StorageManager {
       button.disabled = true;
       if (buttonText) {
         const icon = UI_ICONS.INFO; // 使用資訊或搜索圖標
-        buttonText.innerHTML = `${icon} 檢查中...`;
+        buttonText.textContent = '';
+        buttonText.appendChild(createSafeIcon(icon));
+        buttonText.appendChild(document.createTextNode(' 檢查中...'));
       }
     } else {
       button.classList.remove('loading');
       button.disabled = false;
       if (buttonText) {
-        const icon = UI_ICONS.INFO; // 預覽
-        buttonText.innerHTML = `${icon} 預覽清理效果`;
+        buttonText.textContent = '';
+        buttonText.appendChild(createSafeIcon(icon));
+        buttonText.appendChild(document.createTextNode(' 預覽清理效果'));
       }
     }
   }
@@ -445,7 +478,11 @@ export class StorageManager {
     if (total > 0 && buttonText) {
       const percentage = Math.round((current / total) * 100);
       const icon = UI_ICONS.INFO;
-      buttonText.innerHTML = `${icon} 檢查中... ${current}/${total} (${percentage}%)`;
+      buttonText.textContent = '';
+      buttonText.appendChild(createSafeIcon(icon));
+      buttonText.appendChild(
+        document.createTextNode(` 檢查中... ${current}/${total} (${percentage}%)`)
+      );
     }
   }
 
@@ -551,13 +588,20 @@ export class StorageManager {
     this.elements.cleanupPreview.className = 'cleanup-preview show';
 
     if (plan.items.length === 0) {
-      const icon = UI_ICONS.SUCCESS;
-      this.elements.cleanupPreview.innerHTML = `
-                <div class="cleanup-summary">
-                    <strong>${icon} 沒有發現需要清理的數據</strong>
-                    <p>所有頁面記錄都是有效的，無需清理。</p>
-                </div>
-            `;
+      const container = document.createElement('div');
+      container.className = 'cleanup-summary';
+
+      const strong = document.createElement('strong');
+      strong.appendChild(createSafeIcon(icon));
+      strong.appendChild(document.createTextNode(' 沒有發現需要清理的數據'));
+      container.appendChild(strong);
+
+      const paragraph = document.createElement('p');
+      paragraph.textContent = '所有頁面記錄都是有效的，無需清理。';
+      container.appendChild(paragraph);
+
+      this.elements.cleanupPreview.textContent = '';
+      this.elements.cleanupPreview.appendChild(container);
       return;
     }
 
@@ -580,7 +624,7 @@ export class StorageManager {
 
     const warnIcon = UI_ICONS.WARNING;
 
-    this.elements.cleanupPreview.innerHTML = '';
+    this.elements.cleanupPreview.textContent = '';
 
     // 1. 構建 Summary 區塊
     const summaryDiv = document.createElement('div');
@@ -598,10 +642,9 @@ export class StorageManager {
 
     const warningDiv = document.createElement('div');
     warningDiv.className = 'warning-notice';
-    // warnIcon 是受信任的 SVG 字串，且警告文本是靜態的，這裡可以使用 innerHTML 簡化，或是進一步拆解
-    // 為了徹底貫徹 DOM API，我們這裡混合處理：Icon 用 innerHTML (因為它是 SVG 字串)，文本用 textContent
+    // warnIcon 是受信任的 SVG 字串
     const iconSpan = document.createElement('span');
-    iconSpan.innerHTML = warnIcon; // warnIcon 來自內部常量 UI_ICONS
+    iconSpan.appendChild(createSafeIcon(warnIcon).firstChild); // Unwrap helper span if needed or just use helper
     warningDiv.appendChild(iconSpan);
 
     // " 重要提醒："
@@ -817,51 +860,140 @@ export class StorageManager {
     }
     this.elements.optimizationPreview.className = 'optimization-preview show';
 
-    if (!plan.canOptimize) {
-      const icon = UI_ICONS.SUCCESS;
-      const statsIcon1 = UI_ICONS.INFO; // 標記頁面
-      const statsIcon2 = UI_ICONS.INFO; // 總標記數
-      const statsIcon3 = UI_ICONS.INFO; // 數據大小
+    // 清空舊內容
+    this.elements.optimizationPreview.textContent = '';
 
-      this.elements.optimizationPreview.innerHTML = `
-                <div class="optimization-summary">
-                    <strong>${icon} 數據已經處於最佳狀態</strong>
-                    <p>當前數據結構已經很好，暫時不需要重整優化。</p>
-                    <div class="data-stats">
-                        <div>${statsIcon1} 標記頁面：${plan.highlightPages}</div>
-                        <div>${statsIcon2} 總標記數：${plan.totalHighlights}</div>
-                        <div>${statsIcon3} 數據大小：${(plan.originalSize / 1024).toFixed(1)} KB</div>
-                    </div>
-                </div>
-            `;
+    // Use shared createSafeIcon helper
+
+    if (!plan.canOptimize) {
+      const container = document.createElement('div');
+      container.className = 'optimization-summary';
+
+      // Header
+      const strong = document.createElement('strong');
+      strong.appendChild(createSafeIcon(UI_ICONS.SUCCESS));
+      strong.appendChild(document.createTextNode(' 數據已經處於最佳狀態'));
+      container.appendChild(strong);
+
+      // Description
+      const paragraph = document.createElement('p');
+      paragraph.textContent = '當前數據結構已經很好，暫時不需要重整優化。';
+      container.appendChild(paragraph);
+
+      // Stats
+      const statsDiv = document.createElement('div');
+      statsDiv.className = 'data-stats';
+
+      const items = [
+        { icon: UI_ICONS.INFO, text: ` 標記頁面：${plan.highlightPages}` },
+        { icon: UI_ICONS.INFO, text: ` 總標記數：${plan.totalHighlights}` },
+        { icon: UI_ICONS.INFO, text: ` 數據大小：${(plan.originalSize / 1024).toFixed(1)} KB` },
+      ];
+
+      items.forEach(item => {
+        const div = document.createElement('div');
+        div.appendChild(createSafeIcon(item.icon));
+        div.appendChild(document.createTextNode(item.text));
+        statsDiv.appendChild(div);
+      });
+
+      container.appendChild(statsDiv);
+      this.elements.optimizationPreview.appendChild(container);
       return;
     }
 
     const spaceSavedMB = (plan.spaceSaved / (1024 * 1024)).toFixed(3);
     const percentSaved = ((plan.spaceSaved / plan.originalSize) * 100).toFixed(1);
 
-    const icon = UI_ICONS.BOLT;
-    const chartIcon = UI_ICONS.BAR_CHART;
-    const diskIcon = UI_ICONS.SAVE;
-    const checkIcon = UI_ICONS.CHECK;
+    const container = document.createElement('div');
+    container.className = 'optimization-summary';
 
-    this.elements.optimizationPreview.innerHTML = `
-            <div class="optimization-summary">
-                <strong>${icon} 數據重整分析結果</strong>
-                <p>可以優化您的數據結構，預計節省 <strong>${spaceSavedMB} MB</strong> 空間（<strong>${percentSaved}%</strong>）</p>
-                <div class="optimization-details">
-                    <div class="size-comparison">
-                        <div>${chartIcon} 當前大小：<span class="highlight-text">${(plan.originalSize / 1024).toFixed(1)} KB</span></div>
-                        <div>${chartIcon} 優化後：<span class="highlight-success">${(plan.optimizedSize / 1024).toFixed(1)} KB</span></div>
-                        <div>${diskIcon} 節省空間：<span class="highlight-primary">${(plan.spaceSaved / 1024).toFixed(1)} KB</span></div>
-                    </div>
-                    <div class="optimization-list">
-                        <strong>將執行的優化：</strong>
-                        ${plan.optimizations.map(opt => `<div class="optimization-item">${checkIcon} ${opt}</div>`).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
+    // Header
+    const strong = document.createElement('strong');
+    strong.appendChild(createSafeIcon(UI_ICONS.BOLT));
+    strong.appendChild(document.createTextNode(' 數據重整分析結果'));
+    container.appendChild(strong);
+
+    // Description
+    const paragraph = document.createElement('p');
+    paragraph.appendChild(document.createTextNode('可以優化您的數據結構，預計節省 '));
+
+    const mbStrong = document.createElement('strong');
+    mbStrong.textContent = `${spaceSavedMB} MB`;
+    paragraph.appendChild(mbStrong);
+
+    paragraph.appendChild(document.createTextNode(' 空間（'));
+
+    const pctStrong = document.createElement('strong');
+    pctStrong.textContent = `${percentSaved}%`;
+    paragraph.appendChild(pctStrong);
+
+    paragraph.appendChild(document.createTextNode('）'));
+    container.appendChild(paragraph);
+
+    // Details Container
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'optimization-details';
+
+    // Size Comparison Grid
+    const comparisonDiv = document.createElement('div');
+    comparisonDiv.className = 'size-comparison';
+
+    const comparisonItems = [
+      {
+        icon: UI_ICONS.BAR_CHART,
+        label: ' 當前大小：',
+        value: `${(plan.originalSize / 1024).toFixed(1)} KB`,
+        className: 'highlight-text',
+      },
+      {
+        icon: UI_ICONS.BAR_CHART,
+        label: ' 優化後：',
+        value: `${(plan.optimizedSize / 1024).toFixed(1)} KB`,
+        className: 'highlight-success',
+      },
+      {
+        icon: UI_ICONS.SAVE,
+        label: ' 節省空間：',
+        value: `${(plan.spaceSaved / 1024).toFixed(1)} KB`,
+        className: 'highlight-primary',
+      },
+    ];
+
+    comparisonItems.forEach(item => {
+      const div = document.createElement('div');
+      div.appendChild(createSafeIcon(item.icon));
+      div.appendChild(document.createTextNode(item.label));
+
+      const span = document.createElement('span');
+      span.className = item.className;
+      span.textContent = item.value;
+      div.appendChild(span);
+
+      comparisonDiv.appendChild(div);
+    });
+
+    detailsDiv.appendChild(comparisonDiv);
+
+    // Optimization List
+    const listDiv = document.createElement('div');
+    listDiv.className = 'optimization-list';
+
+    const listStrong = document.createElement('strong');
+    listStrong.textContent = '將執行的優化：';
+    listDiv.appendChild(listStrong);
+
+    plan.optimizations.forEach(opt => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'optimization-item';
+      itemDiv.appendChild(createSafeIcon(UI_ICONS.CHECK));
+      itemDiv.appendChild(document.createTextNode(` ${opt}`));
+      listDiv.appendChild(itemDiv);
+    });
+
+    detailsDiv.appendChild(listDiv);
+    container.appendChild(detailsDiv);
+    this.elements.optimizationPreview.appendChild(container);
   }
 
   async executeOptimization() {
@@ -982,18 +1114,12 @@ export class StorageManager {
     }
 
     // 清空內容
-    this.elements.dataStatus.innerHTML = '';
+    this.elements.dataStatus.textContent = '';
 
     // 如果有圖標，插入圖標
     if (safeIcon) {
-      const iconSpan = document.createElement('span');
+      const iconSpan = createSafeIcon(safeIcon);
       iconSpan.className = 'status-icon';
-      // Emoji 可以直接用 textContent，SVG 需要 innerHTML（已通過安全驗證）
-      if (safeIcon.startsWith('<svg')) {
-        iconSpan.innerHTML = safeIcon;
-      } else {
-        iconSpan.textContent = safeIcon;
-      }
       this.elements.dataStatus.appendChild(iconSpan);
     }
 
@@ -1004,8 +1130,30 @@ export class StorageManager {
 
       // 處理換行符：將文本按 \n 分割，並插入 <br> 標籤
       const lines = text.split('\n');
+      const numberRegex = /^\d+$/; // 嚴格匹配純數字
+
       lines.forEach((line, index) => {
-        textSpan.appendChild(document.createTextNode(line));
+        // Tokenization: 將字串分割為 [文字, 數字, 文字...]
+        // 使用 capture group Keeping the separator in the result
+        const tokens = line.split(/(\d+)/);
+
+        tokens.forEach(token => {
+          if (!token) {
+            return;
+          } // 忽略空字串
+
+          if (numberRegex.test(token)) {
+            // 如果是純數字，這是我們生成的數據，安全地套用樣式
+            const numSpan = document.createElement('span');
+            numSpan.className = 'highlight-primary';
+            numSpan.textContent = token; // 使用 textContent
+            textSpan.appendChild(numSpan);
+          } else {
+            // 其他文字，使用 TextNode 自動轉義
+            textSpan.appendChild(document.createTextNode(token));
+          }
+        });
+
         if (index < lines.length - 1) {
           textSpan.appendChild(document.createElement('br'));
         }

@@ -181,6 +181,7 @@ export const ERROR_MESSAGES = {
     TOOLBAR_SHOW_FAILED: 'Failed to show toolbar after save',
     BACKGROUND_NO_RESPONSE: '未收到背景頁回應',
     LOG_EXPORT_FAILED: '日誌導出失敗',
+    SVG_PARSE_ERROR: 'SVG parse error',
   },
 
   /**
