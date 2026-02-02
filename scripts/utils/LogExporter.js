@@ -24,7 +24,12 @@ export class LogExporter {
     const safeLogs = rawLogs;
 
     // 3. 格式化輸出
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    // 格式化為: YYYYMMDD-HHmmss
+    const now = new Date();
+    const timestamp = `${now
+      .toISOString()
+      .slice(0, 10)
+      .replace(/-/g, '')}-${now.toISOString().slice(11, 19).replace(/:/g, '')}`;
     let content = '';
     let filename = '';
     let mimeType = '';
