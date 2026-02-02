@@ -10,6 +10,7 @@ import './utils/Logger.js'; // Side-effect import to register self.Logger
 
 import { normalizeUrl } from './utils/urlUtils.js';
 import { LogExporter } from './utils/LogExporter.js';
+import { ErrorHandler } from './utils/ErrorHandler.js';
 import { TAB_SERVICE } from './config/constants.js';
 
 // Import Services
@@ -79,7 +80,7 @@ const actionHandlers = {
       // Send structured error payload instead of throwing
       sendResponse({
         success: false,
-        error: error.message || String(error),
+        error: ErrorHandler.formatUserMessage(error),
       });
     }
     // Return true to keep the channel open for async sendResponse

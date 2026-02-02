@@ -312,7 +312,7 @@ describe('scripts/background.js require integration', () => {
 
     expect(sendResponse).toHaveBeenCalledWith({
       success: false,
-      error: 'Export failed',
+      error: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
     });
   });
 });
