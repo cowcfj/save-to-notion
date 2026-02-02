@@ -74,16 +74,28 @@ describe('LogSanitizer', () => {
       expect(sanitized[0].message).toBe('[REDACTED_TOKEN]');
     });
 
-    test('should handle circular references (optional)', () => {
-      // If implementation supports it, fine. If not, it might throw.
-      // JSON.stringify fails on circular.
-      // Let's assume input to Logger are largely safe or we handle it.
+    test('should handle circular references gracefully', () => {
       const obj = { a: 1 };
       obj.self = obj;
-      // const logs = [{ context: obj }];
+      const logs = [
+        {
+          message: 'Circular test',
+          context: obj,
+        },
+      ];
 
-      // Ideally it shouldn't crash
-      // For now, let's see if our implementation naturally handles it or limits depth
+      // Should not throw
+      let sanitized;
+      expect(() => {
+        sanitized = LogSanitizer.sanitize(logs);
+      }).not.toThrow();
+
+      // Ensure processed output is safe
+      // Assuming Implementation uses MAX_DEPTH/clone which breaks circular or Redacts
+      // LogSanitizer normally uses cloneDeep with recursion limit or JSON-stringify safe approach
+      // Based on typical behavior, we check it doesn't crash and returns structure
+      expect(sanitized).toHaveLength(1);
+      expect(sanitized[0].context).toBeDefined();
     });
 
     test('should preserve Error object properties', () => {
