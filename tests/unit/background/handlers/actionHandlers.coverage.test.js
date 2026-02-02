@@ -340,7 +340,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       );
     });
 
-    test('應該在收到圖片驗證錯誤時嘗試排除圖片並重試', async () => {
+    test('應該在收到 Notion 圖片驗證錯誤時嘗試排除圖片並重試', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue(null);
 
@@ -357,15 +357,33 @@ describe('actionHandlers 覆蓋率補強', () => {
         url: 'notion.so/retry',
       });
 
-      await handlers.savePage({}, {}, sendResponse);
+      // 使用 fake timers 來控制重試延遲
+      jest.useFakeTimers();
 
-      expect(mockNotionService.createPage).toHaveBeenCalledTimes(2);
-      // 第一次調用包含 blocks
-      expect(mockNotionService.createPage.mock.calls[0][1].allBlocks).toBeDefined();
-      // 第二次調用是重試
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, created: true })
-      );
+      try {
+        // 調用 savePage
+        const savePromise = handlers.savePage({}, {}, sendResponse);
+
+        // 使用 runAllTimersAsync 來處理異步 timers
+        await jest.runAllTimersAsync();
+
+        // 等待 promise 完成
+        await savePromise;
+
+        expect(mockNotionService.createPage).toHaveBeenCalledTimes(2);
+        // 第一次調用包含 blocks
+        expect(mockNotionService.createPage.mock.calls[0][1].allBlocks).toBeDefined();
+        // 第二次調用應該設置 excludeImages
+        expect(mockNotionService.buildPageData).toHaveBeenCalledWith(
+          expect.objectContaining({ excludeImages: true })
+        );
+        // 第二次調用是重試成功
+        expect(sendResponse).toHaveBeenCalledWith(
+          expect.objectContaining({ success: true, created: true })
+        );
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     /**
