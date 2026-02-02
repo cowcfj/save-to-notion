@@ -57,9 +57,11 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender, url);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+          Logger.warn('安全性阻擋', {
+            action: 'migration_execute',
             senderId: sender?.id,
             url,
+            error: validationError.error,
           });
           sendResponse(validationError);
           return;
@@ -70,7 +72,7 @@ export function createMigrationHandlers(services) {
           return;
         }
 
-        Logger.log(`🔄 [Migration] 開始遷移: ${url}`);
+        Logger.log('開始遷移', { action: 'migration_execute', url });
 
         // 1. 檢查數據是否存在
         const pageKey = `highlights_${url}`;
@@ -89,7 +91,7 @@ export function createMigrationHandlers(services) {
         if (tabs.length > 0) {
           // 使用已存在的分頁
           targetTab = tabs[0];
-          Logger.log(`📌 [Migration] 使用已存在的分頁: ${targetTab.id}`);
+          Logger.log('使用已存在的分頁', { action: 'migration_execute', tabId: targetTab.id });
         } else {
           // 創建新的後台分頁（不激活）
           targetTab = await chrome.tabs.create({
@@ -97,7 +99,7 @@ export function createMigrationHandlers(services) {
             active: false,
           });
           createdTabId = targetTab.id;
-          Logger.log(`🆕 [Migration] 創建新分頁: ${targetTab.id}`);
+          Logger.log('創建新分頁', { action: 'migration_execute', tabId: targetTab.id });
 
           // 等待分頁加載完成 (帶超時保護)
           await new Promise((resolve, reject) => {
@@ -156,7 +158,7 @@ export function createMigrationHandlers(services) {
         }
 
         // 3. 注入 migration-executor.js
-        Logger.log(`💉 [Migration] 注入遷移執行器到分頁: ${targetTab.id}`);
+        Logger.log('注入遷移執行器', { action: 'migration_execute', tabId: targetTab.id });
         await chrome.scripting.executeScript({
           target: { tabId: targetTab.id },
           files: ['dist/migration-executor.js'],
@@ -182,7 +184,7 @@ export function createMigrationHandlers(services) {
 
             if (checkResult[0]?.result?.ready) {
               scriptReady = true;
-              Logger.log(`[Migration] 腳本就緒（嘗試 ${i + 1} 次）`);
+              Logger.log('腳本就緒', { action: 'migration_execute', attempt: i + 1 });
               break;
             }
           } catch (_checkError) {
@@ -239,7 +241,7 @@ export function createMigrationHandlers(services) {
 
         // 5. 返回結果
         const stats = execResult?.statistics || {};
-        Logger.log(`✅ [Migration] 遷移完成: ${url}`, stats);
+        Logger.log('遷移完成', { action: 'migration_execute', url, ...stats });
 
         sendResponse({
           success: true,
@@ -248,23 +250,26 @@ export function createMigrationHandlers(services) {
           statistics: stats,
         });
       } catch (error) {
-        Logger.error('❌ [Migration] 遷移失敗:', error);
+        Logger.error('遷移失敗', { action: 'migration_execute', error: error.message });
         const safeMessage = sanitizeApiError(error, 'migration_execute');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       } finally {
         // 6. 清理創建的分頁（無論成功或失敗）
         if (createdTabId) {
-          Logger.log(`🧹 [Migration] 關閉分頁: ${createdTabId}`);
+          Logger.log('關閉分頁', { action: 'migration_execute', tabId: createdTabId });
           try {
             const tab = await chrome.tabs.get(createdTabId).catch(() => null);
             if (tab) {
               await chrome.tabs.remove(createdTabId);
             }
           } catch (cleanupError) {
-            Logger.warn(
-              `[Migration] 清理分頁 ${createdTabId} 失敗 (可能已關閉):`,
-              cleanupError.message
-            );
+            Logger.warn('清理分頁失敗', {
+              action: 'migration_execute',
+              phase: 'cleanup',
+              tabId: createdTabId,
+              error: cleanupError.message,
+              reason: 'tab_may_be_closed',
+            });
           } finally {
             createdTabId = null;
           }
@@ -283,9 +288,11 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender, url);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+          Logger.warn('安全性阻擋', {
+            action: 'migration_delete',
             senderId: sender?.id,
             url,
+            error: validationError.error,
           });
           sendResponse(validationError);
           return;
@@ -296,7 +303,7 @@ export function createMigrationHandlers(services) {
           return;
         }
 
-        Logger.log(`🗑️ [Migration] 開始刪除: ${url}`);
+        Logger.log('開始刪除', { action: 'migration_delete', url });
 
         const pageKey = `highlights_${url}`;
 
@@ -312,13 +319,13 @@ export function createMigrationHandlers(services) {
         // 刪除數據
         await chrome.storage.local.remove(pageKey);
 
-        Logger.log(`✅ [Migration] 刪除完成: ${url}`);
+        Logger.log('刪除完成', { action: 'migration_delete', url });
         sendResponse({
           success: true,
           message: '成功刪除標註數據',
         });
       } catch (error) {
-        Logger.error('❌ [Migration] 刪除失敗:', error);
+        Logger.error('刪除失敗', { action: 'migration_delete', error: error.message });
         const safeMessage = sanitizeApiError(error, 'migration_delete');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -336,8 +343,10 @@ export function createMigrationHandlers(services) {
         // 安全性驗證 (僅驗證來源，URL 在內部檢查)
         const validationError = validatePrivilegedRequest(sender);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+          Logger.warn('安全性阻擋', {
+            action: 'migration_batch',
             senderId: sender?.id,
+            error: validationError.error,
           });
           sendResponse(validationError);
           return;
@@ -358,7 +367,7 @@ export function createMigrationHandlers(services) {
           return;
         }
 
-        Logger.log(`📦 [Migration] 開始批量遷移: ${urls.length} 個頁面`);
+        Logger.log('開始批量遷移', { action: 'migration_batch', pageCount: urls.length });
 
         const results = {
           success: 0,
@@ -404,18 +413,30 @@ export function createMigrationHandlers(services) {
               pending: newHighlights.filter(highlight => highlight.needsRangeInfo).length,
             });
 
-            Logger.log(`✅ [Migration] 批量遷移: ${url} (${newHighlights.length} 個標註)`);
+            Logger.log('批量遷移成功', {
+              action: 'migration_batch',
+              url,
+              highlightCount: newHighlights.length,
+            });
           } catch (itemError) {
             results.failed++;
             results.details.push({ url, status: 'failed', reason: itemError.message });
-            Logger.error(`❌ [Migration] 批量遷移失敗: ${url}`, itemError);
+            Logger.error('批量遷移失敗', {
+              action: 'migration_batch',
+              url,
+              error: itemError.message,
+            });
           }
         }
 
-        Logger.log(`📦 [Migration] 批量遷移完成: 成功 ${results.success}, 失敗 ${results.failed}`);
+        Logger.log('批量遷移完成', {
+          action: 'migration_batch',
+          successCount: results.success,
+          failedCount: results.failed,
+        });
         sendResponse({ success: true, results });
       } catch (error) {
-        Logger.error('❌ [Migration] 批量遷移失敗:', error);
+        Logger.error('批量遷移失敗', { action: 'migration_batch', error: error.message });
         const safeMessage = sanitizeApiError(error, 'migration_batch');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -432,8 +453,10 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+          Logger.warn('安全性阻擋', {
+            action: 'migration_batch_delete',
             senderId: sender?.id,
+            error: validationError.error,
           });
           sendResponse(validationError);
           return;
@@ -454,19 +477,19 @@ export function createMigrationHandlers(services) {
           return;
         }
 
-        Logger.log(`🗑️ [Migration] 開始批量刪除: ${urls.length} 個頁面`);
+        Logger.log('開始批量刪除', { action: 'migration_batch_delete', pageCount: urls.length });
 
         const keysToRemove = urls.map(url => `highlights_${url}`);
         await chrome.storage.local.remove(keysToRemove);
 
-        Logger.log(`✅ [Migration] 批量刪除完成: ${urls.length} 個頁面`);
+        Logger.log('批量刪除完成', { action: 'migration_batch_delete', pageCount: urls.length });
         sendResponse({
           success: true,
           count: urls.length,
           message: `成功刪除 ${urls.length} 個頁面的標註數據`,
         });
       } catch (error) {
-        Logger.error('❌ [Migration] 批量刪除失敗:', error);
+        Logger.error('批量刪除失敗', { action: 'migration_batch_delete', error: error.message });
         const safeMessage = sanitizeApiError(error, 'migration_batch_delete');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -481,8 +504,10 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+          Logger.warn('安全性阻擋', {
+            action: 'migration_get_pending',
             senderId: sender?.id,
+            error: validationError.error,
           });
           sendResponse(validationError);
           return;
@@ -527,9 +552,11 @@ export function createMigrationHandlers(services) {
           }
         }
 
-        Logger.log(
-          `📋 [Migration] 待完成: ${pendingItems.length} 頁, 失敗: ${failedItems.length} 頁`
-        );
+        Logger.log('查詢待完成項目', {
+          action: 'migration_get_pending',
+          pendingPages: pendingItems.length,
+          failedPages: failedItems.length,
+        });
         sendResponse({
           success: true,
           items: pendingItems,
@@ -539,7 +566,10 @@ export function createMigrationHandlers(services) {
           totalFailed: failedItems.reduce((sum, item) => sum + item.failedCount, 0),
         });
       } catch (error) {
-        Logger.error('❌ [Migration] 獲取待完成項目失敗:', error);
+        Logger.error('獲取待完成項目失敗', {
+          action: 'migration_get_pending',
+          error: error.message,
+        });
         const safeMessage = sanitizeApiError(error, 'migration_get_pending');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -555,9 +585,11 @@ export function createMigrationHandlers(services) {
         // 安全性驗證
         const validationError = validatePrivilegedRequest(sender, url);
         if (validationError) {
-          Logger.warn(`⚠️ [Migration] 安全性阻擋: ${validationError.error}`, {
+          Logger.warn('安全性阻擋', {
+            action: 'migration_delete_failed',
             senderId: sender?.id,
             url,
+            error: validationError.error,
           });
           sendResponse(validationError);
           return;
@@ -598,10 +630,13 @@ export function createMigrationHandlers(services) {
           });
         }
 
-        Logger.log(`🗑️ [Migration] 刪除失敗標註: ${url}, 數量: ${deletedCount}`);
+        Logger.log('刪除失敗標註', { action: 'migration_delete_failed', url, deletedCount });
         sendResponse({ success: true, deletedCount });
       } catch (error) {
-        Logger.error('❌ [Migration] 刪除失敗標註失敗:', error);
+        Logger.error('刪除失敗標註失敗', {
+          action: 'migration_delete_failed',
+          error: error.message,
+        });
         const safeMessage = sanitizeApiError(error, 'migration_delete_failed');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
