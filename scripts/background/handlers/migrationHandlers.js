@@ -13,6 +13,7 @@ import {
   validateInternalRequest,
   isValidUrl,
   sanitizeApiError,
+  sanitizeUrlForLogging,
 } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
@@ -60,7 +61,7 @@ export function createMigrationHandlers(services) {
           Logger.warn('安全性阻擋', {
             action: 'migration_execute',
             senderId: sender?.id,
-            url,
+            url: sanitizeUrlForLogging(url),
             error: validationError.error,
           });
           sendResponse(validationError);
@@ -72,7 +73,7 @@ export function createMigrationHandlers(services) {
           return;
         }
 
-        Logger.log('開始遷移', { action: 'migration_execute', url });
+        Logger.log('開始遷移', { action: 'migration_execute', url: sanitizeUrlForLogging(url) });
 
         // 1. 檢查數據是否存在
         const pageKey = `highlights_${url}`;
@@ -152,7 +153,7 @@ export function createMigrationHandlers(services) {
               .catch(error => {
                 // 如果分頁無法獲取 (例如已關閉)，則報錯
                 cleanup();
-                reject(new Error(`無法獲取分頁狀態: ${error.message}`));
+                reject(new Error(`無法獲取分頁狀態: ${error?.message ?? String(error)}`));
               });
           });
         }
@@ -241,7 +242,11 @@ export function createMigrationHandlers(services) {
 
         // 5. 返回結果
         const stats = execResult?.statistics || {};
-        Logger.log('遷移完成', { action: 'migration_execute', url, ...stats });
+        Logger.log('遷移完成', {
+          action: 'migration_execute',
+          url: sanitizeUrlForLogging(url),
+          ...stats,
+        });
 
         sendResponse({
           success: true,
@@ -250,7 +255,8 @@ export function createMigrationHandlers(services) {
           statistics: stats,
         });
       } catch (error) {
-        Logger.error('遷移失敗', { action: 'migration_execute', error: error.message });
+        const errorMsg = error?.message ?? String(error);
+        Logger.error('遷移失敗', { action: 'migration_execute', error: errorMsg });
         const safeMessage = sanitizeApiError(error, 'migration_execute');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       } finally {
@@ -267,7 +273,7 @@ export function createMigrationHandlers(services) {
               action: 'migration_execute',
               phase: 'cleanup',
               tabId: createdTabId,
-              error: cleanupError.message,
+              error: cleanupError?.message ?? String(cleanupError),
               reason: 'tab_may_be_closed',
             });
           } finally {
@@ -291,7 +297,7 @@ export function createMigrationHandlers(services) {
           Logger.warn('安全性阻擋', {
             action: 'migration_delete',
             senderId: sender?.id,
-            url,
+            url: sanitizeUrlForLogging(url),
             error: validationError.error,
           });
           sendResponse(validationError);
@@ -303,7 +309,7 @@ export function createMigrationHandlers(services) {
           return;
         }
 
-        Logger.log('開始刪除', { action: 'migration_delete', url });
+        Logger.log('開始刪除', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
 
         const pageKey = `highlights_${url}`;
 
@@ -319,13 +325,14 @@ export function createMigrationHandlers(services) {
         // 刪除數據
         await chrome.storage.local.remove(pageKey);
 
-        Logger.log('刪除完成', { action: 'migration_delete', url });
+        Logger.log('刪除完成', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
         sendResponse({
           success: true,
           message: '成功刪除標註數據',
         });
       } catch (error) {
-        Logger.error('刪除失敗', { action: 'migration_delete', error: error.message });
+        const errorMsg = error?.message ?? String(error);
+        Logger.error('刪除失敗', { action: 'migration_delete', error: errorMsg });
         const safeMessage = sanitizeApiError(error, 'migration_delete');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -382,7 +389,11 @@ export function createMigrationHandlers(services) {
             const data = storageResult[pageKey];
 
             if (!data) {
-              results.details.push({ url, status: 'skipped', reason: '無數據' });
+              results.details.push({
+                url: sanitizeUrlForLogging(url),
+                status: 'skipped',
+                reason: '無數據',
+              });
               continue;
             }
 
@@ -390,7 +401,11 @@ export function createMigrationHandlers(services) {
             const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
 
             if (oldHighlights.length === 0) {
-              results.details.push({ url, status: 'skipped', reason: '無標註' });
+              results.details.push({
+                url: sanitizeUrlForLogging(url),
+                status: 'skipped',
+                reason: '無標註',
+              });
               continue;
             }
 
@@ -407,7 +422,7 @@ export function createMigrationHandlers(services) {
 
             results.success++;
             results.details.push({
-              url,
+              url: sanitizeUrlForLogging(url),
               status: 'success',
               count: newHighlights.length,
               pending: newHighlights.filter(highlight => highlight.needsRangeInfo).length,
@@ -415,16 +430,20 @@ export function createMigrationHandlers(services) {
 
             Logger.log('批量遷移成功', {
               action: 'migration_batch',
-              url,
+              url: sanitizeUrlForLogging(url),
               highlightCount: newHighlights.length,
             });
           } catch (itemError) {
             results.failed++;
-            results.details.push({ url, status: 'failed', reason: itemError.message });
+            results.details.push({
+              url: sanitizeUrlForLogging(url),
+              status: 'failed',
+              reason: itemError?.message ?? String(itemError),
+            });
             Logger.error('批量遷移失敗', {
               action: 'migration_batch',
-              url,
-              error: itemError.message,
+              url: sanitizeUrlForLogging(url),
+              error: itemError?.message ?? String(itemError),
             });
           }
         }
@@ -436,7 +455,8 @@ export function createMigrationHandlers(services) {
         });
         sendResponse({ success: true, results });
       } catch (error) {
-        Logger.error('批量遷移失敗', { action: 'migration_batch', error: error.message });
+        const errorMsg = error?.message ?? String(error);
+        Logger.error('批量遷移失敗', { action: 'migration_batch', error: errorMsg });
         const safeMessage = sanitizeApiError(error, 'migration_batch');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -489,7 +509,8 @@ export function createMigrationHandlers(services) {
           message: `成功刪除 ${urls.length} 個頁面的標註數據`,
         });
       } catch (error) {
-        Logger.error('批量刪除失敗', { action: 'migration_batch_delete', error: error.message });
+        const errorMsg = error?.message ?? String(error);
+        Logger.error('批量刪除失敗', { action: 'migration_batch_delete', error: errorMsg });
         const safeMessage = sanitizeApiError(error, 'migration_batch_delete');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
@@ -566,9 +587,10 @@ export function createMigrationHandlers(services) {
           totalFailed: failedItems.reduce((sum, item) => sum + item.failedCount, 0),
         });
       } catch (error) {
+        const errorMsg = error?.message ?? String(error);
         Logger.error('獲取待完成項目失敗', {
           action: 'migration_get_pending',
-          error: error.message,
+          error: errorMsg,
         });
         const safeMessage = sanitizeApiError(error, 'migration_get_pending');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
@@ -588,7 +610,7 @@ export function createMigrationHandlers(services) {
           Logger.warn('安全性阻擋', {
             action: 'migration_delete_failed',
             senderId: sender?.id,
-            url,
+            url: sanitizeUrlForLogging(url),
             error: validationError.error,
           });
           sendResponse(validationError);
@@ -630,12 +652,17 @@ export function createMigrationHandlers(services) {
           });
         }
 
-        Logger.log('刪除失敗標註', { action: 'migration_delete_failed', url, deletedCount });
+        Logger.log('刪除失敗標註', {
+          action: 'migration_delete_failed',
+          url: sanitizeUrlForLogging(url),
+          deletedCount,
+        });
         sendResponse({ success: true, deletedCount });
       } catch (error) {
+        const errorMsg = error?.message ?? String(error);
         Logger.error('刪除失敗標註失敗', {
           action: 'migration_delete_failed',
-          error: error.message,
+          error: errorMsg,
         });
         const safeMessage = sanitizeApiError(error, 'migration_delete_failed');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
