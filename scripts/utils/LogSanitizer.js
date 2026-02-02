@@ -81,13 +81,21 @@ export class LogSanitizer {
 
     // 處理 Error 對象 (優先處理，因為 Error 也是 Object)
     if (value instanceof Error) {
-      return {
-        message: this._sanitizeString(value.message),
-        stack: this._sanitizeStackTrace(value.stack),
+      const sanitized = {
         name: value.name || 'Error',
-        // 嘗試保留其他自定義屬性
-        ...this._sanitizeValue({ ...value }, depth + 1),
       };
+
+      // 嘗試保留其他自定義屬性
+      const customProps = this._sanitizeValue({ ...value }, depth + 1);
+      if (customProps && typeof customProps === 'object') {
+        Object.assign(sanitized, customProps);
+      }
+
+      // 強制覆蓋核心屬性以確保正確脫敏
+      sanitized.message = this._sanitizeString(value.message);
+      sanitized.stack = this._sanitizeStackTrace(value.stack);
+
+      return sanitized;
     }
 
     // 處理對象
