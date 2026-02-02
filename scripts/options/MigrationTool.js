@@ -78,10 +78,6 @@ export class MigrationTool {
    * 掃描存儲空間中的舊版標註數據
    * @returns {Promise<void>}
    */
-  /**
-   * 掃描存儲空間中的舊版標註數據
-   * @returns {Promise<void>}
-   */
   async scanForLegacyHighlights() {
     const { scanStatus, scanButton } = this.elements;
 

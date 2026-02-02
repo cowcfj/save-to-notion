@@ -318,24 +318,16 @@ function setupLogExport() {
 
   if (exportBtn && statusEl) {
     exportBtn.addEventListener('click', async () => {
-      let textNode = null;
-      let originalText = '';
-
       try {
         exportBtn.disabled = true;
 
-        // 查找按鈕內的文字節點（避免使用 innerHTML 保存狀態）
-        textNode = Array.from(exportBtn.childNodes).find(
-          node => node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0
-        );
-
-        if (textNode) {
-          originalText = textNode.textContent;
-          textNode.textContent = ' 導出中...';
-        } else {
-          // Fallback if no text node found
-          exportBtn.textContent = '導出中...';
+        // 使用 data 屬性保存原始文字，避免脆弱的 DOM 查找
+        if (!exportBtn.hasAttribute('data-original-text')) {
+          exportBtn.setAttribute('data-original-text', exportBtn.textContent);
         }
+
+        // 設置導出中狀態
+        exportBtn.textContent = UI_MESSAGES.LOGS.EXPORTING;
 
         // 發送訊息給 Background
         const response = await chrome.runtime.sendMessage({
@@ -370,12 +362,12 @@ function setupLogExport() {
         document.body.removeChild(downloadLink);
         setTimeout(() => URL.revokeObjectURL(url), 100);
 
-        statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count); // Changed from innerHTML to textContent
+        statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
         statusEl.className = 'status-message success';
 
         // 3秒後清除成功訊息
         setTimeout(() => {
-          statusEl.textContent = ''; // Changed from innerHTML to textContent
+          statusEl.textContent = '';
           statusEl.className = 'status-message';
         }, 3000);
       } catch (err) {
@@ -384,24 +376,19 @@ function setupLogExport() {
         const rawMsg = err?.message ?? String(err) ?? 'Unknown error';
         // 使用 textContent 防止 XSS，無需 escapeHtml
         const errorMessage = UI_MESSAGES.LOGS.EXPORT_FAILED(rawMsg);
-        statusEl.textContent = errorMessage; // Changed from innerHTML to textContent
+        statusEl.textContent = errorMessage;
         statusEl.className = 'status-message error';
 
         // 5秒後清除錯誤訊息（給用戶更多時間閱讀）
         setTimeout(() => {
-          statusEl.textContent = ''; // Changed from innerHTML to textContent
+          statusEl.textContent = '';
           statusEl.className = 'status-message';
         }, 5000);
       } finally {
         exportBtn.disabled = false;
         // 恢復按鈕文字內容
-        if (textNode) {
-          textNode.textContent = originalText;
-        } else if (originalText === '' && !textNode) {
-          // If we fell back to replacing entire content, restoration is harder without innerHTML cache.
-          // But based on analysis, textNode should exist.
-          // If not, we leave it as is or handle appropriately.
-          // In this specific HTML, textNode exists.
+        if (exportBtn.hasAttribute('data-original-text')) {
+          exportBtn.textContent = exportBtn.getAttribute('data-original-text');
         }
       }
     });
