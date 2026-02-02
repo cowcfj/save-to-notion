@@ -319,9 +319,10 @@ function setupLogExport() {
 
   if (exportBtn && statusEl) {
     exportBtn.addEventListener('click', async () => {
+      let originalBtnHTML = '';
       try {
         exportBtn.disabled = true;
-        // const originalText = exportBtn.innerHTML; // 保存原始按鈕內容
+        originalBtnHTML = exportBtn.innerHTML; // 保存原始按鈕內容
         exportBtn.textContent = '導出中...';
 
         // 發送訊息給 Background
@@ -361,24 +362,10 @@ function setupLogExport() {
         statusEl.className = 'status-message error';
       } finally {
         exportBtn.disabled = false;
-        // 恢復按鈕內容 (SVG + Text)
-        exportBtn.innerHTML = `
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="icon-svg"
-                  >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  導出偵錯日誌`;
+        // 恢復按鈕內容
+        if (originalBtnHTML) {
+          exportBtn.innerHTML = originalBtnHTML;
+        }
       }
     });
   }
