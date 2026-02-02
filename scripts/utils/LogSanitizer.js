@@ -65,6 +65,12 @@ export class LogSanitizer {
         // 特定字段名的特殊處理 (Heuristics)
         if (/url/i.test(key) && typeof val === 'string') {
           safeObj[key] = sanitizeUrlForLogging(val);
+        } else if (/^(?:title|name)$/i.test(key) && typeof val === 'string') {
+          // 標題類字段脫敏
+          safeObj[key] = '[REDACTED_TITLE]';
+        } else if (/^properties$/i.test(key)) {
+          // 屬性字段脫敏 (隱藏 Schema)
+          safeObj[key] = '[REDACTED_PROPERTIES]';
         } else {
           safeObj[key] = this._sanitizeValue(val, depth + 1);
         }

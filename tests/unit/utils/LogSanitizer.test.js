@@ -104,5 +104,40 @@ describe('LogSanitizer', () => {
       expect(sanitizedError).toHaveProperty('stack');
       expect(sanitizedError).toHaveProperty('name', 'Error');
     });
+
+    test('should sanitize title and name fields', () => {
+      const logs = [
+        {
+          context: {
+            title: 'Sensitive Project Plan',
+            Name: 'Confidential Client List',
+            other: 'Safe content',
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      expect(sanitized[0].context.title).toBe('[REDACTED_TITLE]');
+      expect(sanitized[0].context.Name).toBe('[REDACTED_TITLE]');
+      expect(sanitized[0].context.other).toBe('Safe content');
+    });
+
+    test('should redact properties object entirely', () => {
+      const logs = [
+        {
+          context: {
+            properties: {
+              'Schema Key 1': '[MAX_DEPTH]',
+              'Schema Key 2': 'value',
+            },
+            other: 'Safe',
+          },
+        },
+      ];
+
+      const sanitized = LogSanitizer.sanitize(logs);
+      expect(sanitized[0].context.properties).toBe('[REDACTED_PROPERTIES]');
+      expect(sanitized[0].context.other).toBe('Safe');
+    });
   });
 });
