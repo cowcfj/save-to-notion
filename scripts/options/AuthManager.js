@@ -2,6 +2,7 @@
 import Logger from '../utils/Logger.js';
 import { sanitizeApiError } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
+import { UI_MESSAGES, UI_ICONS } from '../config/index.js';
 
 /**
  * AuthManager.js
@@ -80,16 +81,20 @@ export class AuthManager {
             () => {
               this.ui.showStatus(
                 this.elements.debugToggle.checked
-                  ? '已啟用偵錯日誌（前端日誌將轉送到背景頁）'
-                  : '已停用偵錯日誌',
+                  ? UI_MESSAGES.SETTINGS.DEBUG_LOGS_ENABLED
+                  : UI_MESSAGES.SETTINGS.DEBUG_LOGS_DISABLED,
                 'success'
               );
             }
           );
         } catch (error) {
+          Logger.error('切換日誌模式失敗', {
+            action: 'toggleDebugLogs',
+            error,
+          });
           const safeMessage = sanitizeApiError(error, 'toggle_debug_logs');
           const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-          this.ui.showStatus(`切換日誌模式失敗: ${errorMsg}`, 'error');
+          this.ui.showStatus(UI_MESSAGES.SETTINGS.DEBUG_LOGS_TOGGLE_FAILED(errorMsg), 'error');
         }
       });
     }
@@ -139,13 +144,11 @@ export class AuthManager {
 
   handleConnectedState(result) {
     if (this.elements.authStatus) {
-      this.elements.authStatus.innerHTML =
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>已連接到 Notion</span>';
+      this.elements.authStatus.innerHTML = `${UI_ICONS.SUCCESS}<span>${UI_MESSAGES.AUTH.STATUS_CONNECTED}</span>`;
       this.elements.authStatus.className = 'auth-status success';
     }
     if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML =
-        '<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg></span><span>重新設置</span>';
+      this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.REFRESH}</span><span>${UI_MESSAGES.AUTH.ACTION_RECONNECT}</span>`;
     }
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'inline-flex';
@@ -175,12 +178,11 @@ export class AuthManager {
 
   handleDisconnectedState() {
     if (this.elements.authStatus) {
-      this.elements.authStatus.textContent = '未連接到 Notion';
+      this.elements.authStatus.textContent = UI_MESSAGES.AUTH.STATUS_DISCONNECTED;
       this.elements.authStatus.className = 'auth-status';
     }
     if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML =
-        '<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>連接到 Notion</span>';
+      this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
     }
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'none';
@@ -191,8 +193,7 @@ export class AuthManager {
   async startNotionSetup() {
     try {
       this.elements.oauthButton.disabled = true;
-      this.elements.oauthButton.innerHTML =
-        '<span class="loading"></span><span>正在打開 Notion...</span>';
+      this.elements.oauthButton.innerHTML = `<span class="loading"></span><span>${UI_MESSAGES.AUTH.OPENING_NOTION}</span>`;
 
       // 打開 Notion 集成頁面
       const integrationUrl = 'https://www.notion.so/my-integrations';
@@ -204,29 +205,37 @@ export class AuthManager {
       setTimeout(() => {
         if (this.elements.oauthButton) {
           this.elements.oauthButton.disabled = false;
-          this.elements.oauthButton.innerHTML =
-            '<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>連接到 Notion</span>';
+          this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
         }
       }, 2000);
     } catch (error) {
       if (this.elements.oauthButton) {
         this.elements.oauthButton.disabled = false;
-        this.elements.oauthButton.innerHTML =
-          '<span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span>連接到 Notion</span>';
+        this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
       }
       const safeMessage = sanitizeApiError(error, 'open_notion_page');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.ui.showStatus(`打開 Notion 頁面失敗: ${errorMsg}`, 'error');
+      Logger.error('打開 Notion 頁面失敗', {
+        action: 'startNotionSetup',
+        error,
+      });
+      this.ui.showStatus(UI_MESSAGES.AUTH.OPEN_NOTION_FAILED(errorMsg), 'error');
     }
   }
 
   async disconnectFromNotion() {
     try {
-      Logger.info('🔌 [斷開連接] 開始斷開 Notion 連接');
+      Logger.info('開始斷開 Notion 連接', {
+        action: 'disconnect',
+        phase: 'start',
+      });
 
       await chrome.storage.sync.remove(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']);
 
-      Logger.info('✅ [斷開連接] 已清除授權數據');
+      Logger.info('已清除授權數據', {
+        action: 'disconnect',
+        phase: 'clearData',
+      });
 
       this.checkAuthStatus();
 
@@ -237,30 +246,36 @@ export class AuthManager {
         this.elements.databaseIdInput.value = '';
       }
 
-      this.ui.showStatus('已成功斷開與 Notion 的連接。', 'success');
-      Logger.info('🔄 [斷開連接] UI 已更新為未連接狀態');
+      this.ui.showStatus(UI_MESSAGES.SETTINGS.DISCONNECT_SUCCESS, 'success');
+      Logger.info('UI 已更新為未連接狀態', {
+        action: 'disconnect',
+        phase: 'uiUpdate',
+      });
     } catch (error) {
-      Logger.error('❌ [斷開連接] 斷開連接失敗:', error);
+      Logger.error('斷開連接失敗', {
+        action: 'disconnect',
+        error: error.message || error,
+      });
       const safeMessage = sanitizeApiError(error, 'disconnect');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.ui.showStatus(`斷開連接失敗: ${errorMsg}`, 'error');
+      this.ui.showStatus(UI_MESSAGES.SETTINGS.DISCONNECT_FAILED(errorMsg), 'error');
     }
   }
 
   testApiKey() {
     const apiKey = this.elements.apiKeyInput?.value.trim();
     if (!apiKey) {
-      this.ui.showStatus('請先輸入 API Key', 'error');
+      this.ui.showStatus(UI_MESSAGES.SETTINGS.MISSING_API_KEY, 'error');
       return;
     }
 
     if (apiKey.length < 20) {
-      this.ui.showStatus('API Key 格式不正確，長度太短', 'error');
+      this.ui.showStatus(UI_MESSAGES.SETTINGS.API_KEY_FORMAT_ERROR, 'error');
       return;
     }
 
     this.elements.testApiButton.disabled = true;
-    this.elements.testApiButton.textContent = '測試中...';
+    this.elements.testApiButton.textContent = UI_MESSAGES.SETTINGS.TESTING_LABEL;
 
     // 使用 loadDatabases 進行測試
     const promise = this.dependencies.loadDatabases?.(apiKey);
@@ -270,13 +285,13 @@ export class AuthManager {
       promise.finally(() => {
         if (this.elements.testApiButton) {
           this.elements.testApiButton.disabled = false;
-          this.elements.testApiButton.textContent = '測試 API Key';
+          this.elements.testApiButton.textContent = UI_MESSAGES.SETTINGS.TEST_API_LABEL;
         }
       });
     } else if (this.elements.testApiButton) {
       // Fallback if not promise
       this.elements.testApiButton.disabled = false;
-      this.elements.testApiButton.textContent = '測試 API Key';
+      this.elements.testApiButton.textContent = UI_MESSAGES.SETTINGS.TEST_API_LABEL;
     }
   }
 }

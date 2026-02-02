@@ -24,6 +24,7 @@ import {
   clearHighlights,
 } from '../../../popup/popupActions.js';
 import Logger from '../../../scripts/utils/Logger.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/messages.js';
 
 // Mock dependencies
 jest.mock('../../../popup/popupUI.js');
@@ -84,7 +85,7 @@ describe('popup.js Controller', () => {
 
     expect(setStatus).toHaveBeenCalledWith(
       mockElements,
-      expect.stringContaining('請先在設定頁面配置 Notion API Key')
+      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_API_KEY)
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
@@ -102,7 +103,7 @@ describe('popup.js Controller', () => {
 
     expect(setStatus).toHaveBeenCalledWith(
       mockElements,
-      expect.stringContaining('請先在設定頁面選擇 Notion 資料庫')
+      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE)
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
@@ -161,7 +162,7 @@ describe('popup.js Controller', () => {
 
       await triggerEvent(mockElements.saveButton);
 
-      expect(setStatus).toHaveBeenCalledWith(mockElements, 'Saving...');
+      expect(setStatus).toHaveBeenCalledWith(mockElements, UI_MESSAGES.POPUP.SAVING);
       expect(savePage).toHaveBeenCalled();
       expect(formatSaveSuccessMessage).toHaveBeenCalled();
       expect(updateUIForSavedPage).toHaveBeenCalled();
@@ -177,7 +178,7 @@ describe('popup.js Controller', () => {
 
       expect(setStatus).toHaveBeenCalledWith(
         mockElements,
-        expect.stringContaining('Failed to save')
+        expect.stringContaining(ERROR_MESSAGES.DEFAULT)
       );
     });
 
@@ -191,7 +192,7 @@ describe('popup.js Controller', () => {
 
       expect(setStatus).toHaveBeenCalledWith(
         mockElements,
-        expect.stringContaining('Starting highlight')
+        expect.stringContaining(UI_MESSAGES.POPUP.HIGHLIGHT_STARTING)
       );
       expect(startHighlight).toHaveBeenCalled();
     });
@@ -245,11 +246,11 @@ describe('popup.js Controller', () => {
       await triggerEvent(mockElements.modalConfirm);
 
       expect(hideModal).toHaveBeenCalled();
-      expect(setStatus).toHaveBeenCalledWith(mockElements, 'Clearing highlights...');
+      expect(setStatus).toHaveBeenCalledWith(mockElements, UI_MESSAGES.POPUP.CLEARING);
       expect(clearHighlights).toHaveBeenCalledWith(123, 'http://page.com');
       expect(setStatus).toHaveBeenCalledWith(
         mockElements,
-        expect.stringContaining('Cleared 5 highlights')
+        expect.stringContaining(UI_MESSAGES.POPUP.CLEAR_SUCCESS(5))
       );
     });
 

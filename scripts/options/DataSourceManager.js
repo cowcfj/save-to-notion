@@ -6,6 +6,7 @@ import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeApiError } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
+import { UI_MESSAGES, NOTION_API } from '../config/index.js';
 
 /**
  * 資料來源管理器
@@ -33,7 +34,7 @@ export class DataSourceManager {
       if (this.elements.databaseIdInput) {
         this.elements.databaseIdInput.value = this.elements.databaseSelect.value;
       }
-      this.ui.showStatus('資料來源已選擇，請點擊保存設置', 'info');
+      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.SELECT_REMINDER, 'info');
     }
   }
 
@@ -48,10 +49,16 @@ export class DataSourceManager {
 
     try {
       // 狀態訊息中使用純文字格式，showStatus 內部會使用 textContent 防止 XSS
-      const statusMessage = query ? `正在搜尋 "${query}"...` : '正在載入保存目標列表...';
+      const statusMessage = query
+        ? UI_MESSAGES.DATA_SOURCE.SEARCHING(query)
+        : UI_MESSAGES.DATA_SOURCE.LOADING;
       this.ui.showStatus(statusMessage, 'info');
       // 不記錄 API Key 內容以避免敏感資訊洩漏
-      Logger.info(`開始載入保存目標，API Key: [已提供], Query: ${query || '(無)'}`);
+      Logger.info('開始載入保存目標', {
+        action: 'loadDatabases',
+        hasApiKey: true,
+        query: query || null,
+      });
 
       // 構建請求主體
       const requestBody = {
@@ -74,7 +81,7 @@ export class DataSourceManager {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2025-09-03',
+          'Notion-Version': NOTION_API.VERSION,
         },
         body: JSON.stringify(requestBody),
       });
@@ -82,7 +89,10 @@ export class DataSourceManager {
       if (response.ok) {
         const data = await response.json();
 
-        Logger.info(`API 返回 ${data.results?.length || 0} 個項目`);
+        Logger.info('API 返回結果', {
+          action: 'loadDatabases',
+          count: data.results?.length || 0,
+        });
 
         if (data.results && data.results.length > 0) {
           // 客戶端智能篩選和排序（搜尋結果保留關聯度排序）
@@ -96,18 +106,15 @@ export class DataSourceManager {
             this.populateDatabaseSelect(filteredResults, isSearchQuery);
             return filteredResults;
           }
-          this.ui.showStatus(
-            '未找到可用的保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源',
-            'error'
-          );
+          this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND, 'error');
           if (this.elements.databaseSelect) {
             this.elements.databaseSelect.style.display = 'none';
           }
         } else {
           // 狀態訊息使用純文字，避免 XSS 風險
           const msg = isSearchQuery
-            ? `未找到 "${query}" 相關的保存目標`
-            : '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源';
+            ? UI_MESSAGES.DATA_SOURCE.NO_RESULT(query)
+            : UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND;
           this.ui.showStatus(msg, isSearchQuery ? 'info' : 'error');
           if (this.elements.databaseSelect) {
             this.elements.databaseSelect.style.display = 'none';
@@ -115,7 +122,11 @@ export class DataSourceManager {
         }
       } else {
         const errorData = await response.json();
-        Logger.error('API 錯誤:', errorData);
+        Logger.error('API 載入保存目標失敗', {
+          action: 'loadDatabases',
+          status: response.status,
+          error: errorData,
+        });
 
         // 統一使用 sanitizeApiError 處理 API 錯誤，提供更詳細的錯誤分類
         // errorData.message 包含原始錯誤訊息，可提供更準確的錯誤類型判斷
@@ -125,18 +136,21 @@ export class DataSourceManager {
           (response.status >= 500 ? 'Internal Server Error' : `HTTP ${response.status}`);
         const safeMessage = sanitizeApiError(errorMessage, 'load_databases');
         const translated = ErrorHandler.formatUserMessage(safeMessage);
-        this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');
+        this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(translated), 'error');
 
         if (this.elements.databaseSelect) {
           this.elements.databaseSelect.style.display = 'none';
         }
       }
     } catch (error) {
-      Logger.error('載入保存目標失敗:', error);
+      Logger.error('載入保存目標失敗', {
+        action: 'loadDatabases',
+        error,
+      });
 
       const safeMessage = sanitizeApiError(error, 'load_databases');
       const translated = ErrorHandler.formatUserMessage(safeMessage);
-      this.ui.showStatus(`載入保存目標失敗: ${translated}`, 'error');
+      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(translated), 'error');
       if (this.elements.databaseSelect) {
         this.elements.databaseSelect.style.display = 'none';
       }
@@ -146,12 +160,11 @@ export class DataSourceManager {
   }
 
   populateDatabaseSelect(databases, isSearchResult = false) {
-    Logger.info(
-      'populateDatabaseSelect 被調用，資料來源數量:',
-      databases.length,
-      '是否為搜尋結果:',
-      isSearchResult
-    );
+    Logger.info('populateDatabaseSelect 被調用', {
+      action: 'populateDatabaseSelect',
+      count: databases.length,
+      isSearchResult,
+    });
 
     // 初始化搜索式選擇器（如果還沒有）
     if (!this.selector) {
@@ -168,7 +181,7 @@ export class DataSourceManager {
     // 隱藏原有的簡單選擇器
     if (this.elements.databaseSelect) {
       this.elements.databaseSelect.style.display = 'none';
-      this.elements.databaseSelect.innerHTML = '<option value="">選擇資料來源...</option>';
+      this.elements.databaseSelect.innerHTML = `<option value="">${UI_MESSAGES.DATA_SOURCE.DEFAULT_OPTION}</option>`;
 
       databases.forEach(db => {
         const option = document.createElement('option');
@@ -180,9 +193,9 @@ export class DataSourceManager {
     }
 
     if (databases.length > 0) {
-      this.ui.showStatus(`找到 ${databases.length} 個資料來源，請從下拉選單中選擇`, 'success');
+      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(databases.length), 'success');
     } else {
-      this.ui.showStatus('未找到任何資料來源，請確保 API Key 有權限訪問資料來源', 'error');
+      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND, 'error');
     }
   }
 
@@ -194,9 +207,12 @@ export class DataSourceManager {
    * @returns {Array} 篩選後的結果
    */
   static filterAndSortResults(results, maxResults = 100, preserveOrder = false) {
-    Logger.info(
-      `開始篩選 ${results.length} 個項目，目標: ${maxResults} 個，保留順序: ${preserveOrder}`
-    );
+    Logger.info('開始篩選', {
+      action: 'filterAndSortResults',
+      itemCount: results.length,
+      targetCount: maxResults,
+      preserveOrder,
+    });
 
     // 使用 reduce 同時完成篩選和計數
     // 使用 push 修改累積器陣列（O(n)），而非展開運算子（O(n²)）
@@ -222,9 +238,12 @@ export class DataSourceManager {
     // 如果是搜尋結果，保留 Notion API 的關聯度排序
     if (preserveOrder) {
       const filtered = validItems.slice(0, maxResults);
-      Logger.info(
-        `篩選完成（保留關聯度順序）: ${filtered.length} 個項目（排除 ${excludedCount} 個已保存網頁）`
-      );
+      Logger.info('篩選完成', {
+        action: 'filterAndSortResults',
+        count: filtered.length,
+        excluded: excludedCount,
+        preserveOrder: true,
+      });
       return filtered;
     }
 
@@ -261,7 +280,11 @@ export class DataSourceManager {
       ...otherPages,
     ].slice(0, maxResults);
 
-    Logger.info(`篩選完成: ${filtered.length} 個項目（排除 ${excludedCount} 個已保存網頁）`);
+    Logger.info('篩選完成', {
+      action: 'filterAndSortResults',
+      count: filtered.length,
+      excluded: excludedCount,
+    });
 
     return filtered;
   }

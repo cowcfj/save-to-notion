@@ -3,9 +3,11 @@
  * 負責舊版標註數據的遷移 UI 與協調
  */
 /* global chrome */
-import { MigrationScanner } from './MigrationScanner.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
+import { UI_ICONS } from '../config/index.js';
+import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
+import { sanitizeApiError, createSafeIcon } from '../utils/securityUtils.js';
+import { MigrationScanner } from './MigrationScanner.js';
 
 /**
  * 遷移工具類別
@@ -81,7 +83,11 @@ export class MigrationTool {
 
     // 顯示掃描中狀態
     if (scanStatus) {
-      scanStatus.innerHTML = '<span class="loading"></span> 正在掃描...';
+      scanStatus.textContent = '';
+      const span = document.createElement('span');
+      span.className = 'loading';
+      scanStatus.appendChild(span);
+      scanStatus.appendChild(document.createTextNode(' 正在掃描...'));
     }
 
     // 隱藏列表和操作按鈕
@@ -119,9 +125,12 @@ export class MigrationTool {
 
     if (!result.needsMigration) {
       if (scanStatus) {
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-        scanStatus.innerHTML = `${icon} 未發現舊版格式的標註，所有數據均為最新格式。`;
+        scanStatus.textContent = '';
+        const iconSpan = createSafeIcon(UI_ICONS.CHECK);
+        scanStatus.appendChild(iconSpan);
+        scanStatus.appendChild(
+          document.createTextNode(' 未發現舊版格式的標註，所有數據均為最新格式。')
+        );
         scanStatus.className = 'success';
       }
       this.hideMigrationList();
@@ -130,14 +139,24 @@ export class MigrationTool {
 
     // 顯示警告訊息
     if (scanStatus) {
-      // 計算實際的標註總數
+      scanStatus.textContent = '';
+      const warningBox = document.createElement('div');
+      warningBox.className = 'warning-box';
+
+      const strong = document.createElement('strong');
+      const iconSpan = createSafeIcon(UI_ICONS.WARNING);
+      strong.appendChild(iconSpan);
+      strong.appendChild(
+        document.createTextNode(` 發現 ${result.items.length} 個頁面包含舊版標記`)
+      );
+      warningBox.appendChild(strong);
+
+      const paragraph = document.createElement('p');
       const totalHighlights = result.items.reduce((sum, item) => sum + item.highlightCount, 0);
-      scanStatus.innerHTML = `
-        <div class="warning-box">
-          <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 發現 ${result.items.length} 個頁面包含舊版標記</strong>
-          <p>共檢測到 ${totalHighlights} 個舊版標記需遷移。請選擇要遷移或刪除的項目。</p>
-        </div>
-      `;
+      paragraph.textContent = `共檢測到 ${totalHighlights} 個舊版標記需遷移。請選擇要遷移或刪除的項目。`;
+      warningBox.appendChild(paragraph);
+
+      scanStatus.appendChild(warningBox);
       scanStatus.className = '';
     }
 
@@ -168,7 +187,7 @@ export class MigrationTool {
       migrationList.style.display = 'none';
     }
     if (migrationItems) {
-      migrationItems.innerHTML = '';
+      migrationItems.textContent = '';
     }
     if (executeButton) {
       executeButton.disabled = true;
@@ -180,7 +199,7 @@ export class MigrationTool {
       progressContainer.style.display = 'none';
     }
     if (migrationResult) {
-      migrationResult.innerHTML = '';
+      migrationResult.textContent = '';
     }
 
     // 清空選擇狀態，防止過時選擇殘留
@@ -204,33 +223,54 @@ export class MigrationTool {
       return;
     }
 
+    migrationItems.textContent = '';
+
     if (items.length === 0) {
-      migrationItems.innerHTML = '<div class="empty-state">沒有找到舊版數據</div>';
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'empty-state';
+      emptyDiv.textContent = '沒有找到舊版數據';
+      migrationItems.appendChild(emptyDiv);
       return;
     }
 
-    // 渲染每個項目
-    migrationItems.innerHTML = items
-      .map(
-        item => `
-          <div class="migration-item" data-url="${MigrationTool.escapeHtml(item.url)}">
-            <label class="item-checkbox">
-              <input type="checkbox" value="${MigrationTool.escapeHtml(item.url)}" />
-            </label>
-            <div class="item-info">
-              <div class="item-url" title="${MigrationTool.escapeHtml(item.url)}">${MigrationTool.escapeHtml(MigrationTool.truncateUrl(item.url))}</div>
-              <div class="item-count">${item.highlightCount} 個標註</div>
-            </div>
-          </div>
-        `
-      )
-      .join('');
+    const fragment = document.createDocumentFragment();
 
-    // 為每個 checkbox 添加事件監聽
-    const checkboxes = migrationItems.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
+    items.forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'migration-item';
+      itemDiv.dataset.url = item.url;
+
+      const label = document.createElement('label');
+      label.className = 'item-checkbox';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = item.url;
+      // 直接綁定事件，不依賴 querySelectorAll
       checkbox.addEventListener('change', () => this.handleItemSelection(checkbox));
+
+      label.appendChild(checkbox);
+      itemDiv.appendChild(label);
+
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'item-info';
+
+      const urlDiv = document.createElement('div');
+      urlDiv.className = 'item-url';
+      urlDiv.title = item.url;
+      urlDiv.textContent = MigrationTool.truncateUrl(item.url);
+      infoDiv.appendChild(urlDiv);
+
+      const countDiv = document.createElement('div');
+      countDiv.className = 'item-count';
+      countDiv.textContent = `${item.highlightCount} 個標註`;
+      infoDiv.appendChild(countDiv);
+
+      itemDiv.appendChild(infoDiv);
+      fragment.appendChild(itemDiv);
     });
+
+    migrationItems.appendChild(fragment);
 
     // 重置全選狀態
     if (selectAllCheckbox) {
@@ -512,34 +552,65 @@ export class MigrationTool {
       return;
     }
 
+    migrationResult.textContent = '';
+    const box = document.createElement('div');
+
     if (results.failed === 0) {
-      migrationResult.innerHTML = `
-        <div class="success-box">
-          <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg> ${actionText}成功！</strong>
-          <p>已成功${actionText} ${results.success} 個頁面的數據。</p>
-        </div>
-      `;
+      box.className = 'success-box';
+      const strong = document.createElement('strong');
+      const iconSpan = createSafeIcon(UI_ICONS.CHECK);
+      strong.appendChild(iconSpan);
+      strong.appendChild(document.createTextNode(` ${actionText}成功！`));
+      box.appendChild(strong);
+
+      const paragraph = document.createElement('p');
+      paragraph.textContent = `已成功${actionText} ${results.success} 個頁面的數據。`;
+      box.appendChild(paragraph);
     } else if (results.success > 0) {
-      migrationResult.innerHTML = `
-        <div class="warning-box">
-          <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 部分${actionText}完成</strong>
-          <p>成功: ${results.success}, 失敗: ${results.failed}</p>
-          <div class="error-list">
-            ${results.errors.map(err => `<div class="error-item">${MigrationTool.escapeHtml(err)}</div>`).join('')}
-          </div>
-        </div>
-      `;
+      box.className = 'warning-box';
+      const strong = document.createElement('strong');
+      const iconSpan = createSafeIcon(UI_ICONS.WARNING);
+      strong.appendChild(iconSpan);
+      strong.appendChild(document.createTextNode(` 部分${actionText}完成`));
+      box.appendChild(strong);
+
+      const paragraph = document.createElement('p');
+      paragraph.textContent = `成功: ${results.success}, 失敗: ${results.failed}`;
+      box.appendChild(paragraph);
+
+      const list = document.createElement('div');
+      list.className = 'error-list';
+      results.errors.forEach(err => {
+        const item = document.createElement('div');
+        item.className = 'error-item';
+        item.textContent = err;
+        list.appendChild(item);
+      });
+      box.appendChild(list);
     } else {
-      migrationResult.innerHTML = `
-        <div class="error-box">
-          <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ${actionText}失敗</strong>
-          <p>所有項目${actionText}失敗</p>
-          <div class="error-list">
-            ${results.errors.map(err => `<div class="error-item">${MigrationTool.escapeHtml(err)}</div>`).join('')}
-          </div>
-        </div>
-      `;
+      box.className = 'error-box';
+      const strong = document.createElement('strong');
+      const iconSpan = createSafeIcon(UI_ICONS.ERROR);
+      strong.appendChild(iconSpan);
+      strong.appendChild(document.createTextNode(` ${actionText}失敗`));
+      box.appendChild(strong);
+
+      const paragraph = document.createElement('p');
+      paragraph.textContent = `所有項目${actionText}失敗`;
+      box.appendChild(paragraph);
+
+      const list = document.createElement('div');
+      list.className = 'error-list';
+      results.errors.forEach(err => {
+        const item = document.createElement('div');
+        item.className = 'error-item';
+        item.textContent = err;
+        list.appendChild(item);
+      });
+      box.appendChild(list);
     }
+
+    migrationResult.appendChild(box);
   }
 
   /**
@@ -557,45 +628,89 @@ export class MigrationTool {
     const details = Array.isArray(results?.details) ? results.details : [];
     const successCount = results?.success ?? 0;
 
-    // 構建成功項目列表（帶連結）
-    const successItems = details.filter(detail => detail?.status === 'success');
-    const listHtml = successItems
-      .map(
-        detail => `
-        <div class="migration-result-item">
-          <span class="result-url" title="${MigrationTool.escapeHtml(detail.url || '')}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg> ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(detail.url || ''))}
-            <span class="count-badge">${detail.count ?? 0} 個標註${(detail.pending ?? 0) > 0 ? `，${detail.pending} 待完成` : ''}</span>
-          </span>
-          <a href="${MigrationTool.escapeHtml(detail.url || '')}" target="_blank" class="open-page-link">
-            打開頁面
-          </a>
-        </div>
-      `
-      )
-      .join('');
-
     // 計算總計
+    const successItems = details.filter(detail => detail?.status === 'success');
     const totalHighlights = successItems.reduce((sum, detail) => sum + (detail.count ?? 0), 0);
     const totalPending = successItems.reduce((sum, detail) => sum + (detail.pending ?? 0), 0);
 
-    migrationResult.innerHTML = `
-      <div class="success-box">
-        <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg> 批量遷移完成</strong>
-        <p>已轉換 ${successCount} 個頁面，共 ${totalHighlights} 個標註。</p>
-        ${
-          totalPending > 0
-            ? `
-          <p class="hint">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> <strong>${totalPending}</strong> 個標註等待完成位置定位。
-            訪問以下頁面時會自動完成，或點擊「打開頁面」立即完成。
-          </p>
-        `
-            : '<p class="hint">所有標註已完成遷移！</p>'
-        }
-        ${listHtml ? `<div class="result-list">${listHtml}</div>` : ''}
-      </div>
-    `;
+    migrationResult.textContent = '';
+
+    const box = document.createElement('div');
+    box.className = 'success-box';
+
+    const headerStrong = document.createElement('strong');
+    const headerIcon = createSafeIcon(UI_ICONS.CHECK);
+    headerStrong.appendChild(headerIcon);
+    headerStrong.appendChild(document.createTextNode(' 批量遷移完成'));
+    box.appendChild(headerStrong);
+
+    const summaryP = document.createElement('p');
+    summaryP.textContent = `已轉換 ${successCount} 個頁面，共 ${totalHighlights} 個標註。`;
+    box.appendChild(summaryP);
+
+    if (totalPending > 0) {
+      const hintP = document.createElement('p');
+      hintP.className = 'hint';
+
+      const infoIcon = createSafeIcon(UI_ICONS.INFO);
+      hintP.appendChild(infoIcon);
+      hintP.appendChild(document.createTextNode(' '));
+
+      const pendingStrong = document.createElement('strong');
+      pendingStrong.textContent = totalPending;
+      hintP.appendChild(pendingStrong);
+
+      hintP.appendChild(
+        document.createTextNode(
+          ' 個標註等待完成位置定位。\n訪問以下頁面時會自動完成，或點擊「打開頁面」立即完成。'
+        )
+      );
+      box.appendChild(hintP);
+    } else {
+      const hintP = document.createElement('p');
+      hintP.className = 'hint';
+      hintP.textContent = '所有標註已完成遷移！';
+      box.appendChild(hintP);
+    }
+
+    if (successItems.length > 0) {
+      const listDiv = document.createElement('div');
+      listDiv.className = 'result-list';
+
+      successItems.forEach(detail => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'migration-result-item';
+
+        const spanUrl = document.createElement('span');
+        spanUrl.className = 'result-url';
+        const urlTitle = detail.url || '';
+        spanUrl.title = urlTitle;
+
+        const checkIcon = createSafeIcon(UI_ICONS.CHECK);
+        spanUrl.appendChild(checkIcon);
+        spanUrl.appendChild(document.createTextNode(` ${MigrationTool.truncateUrl(urlTitle)}`));
+
+        const badge = document.createElement('span');
+        badge.className = 'count-badge';
+        const pendingCount = detail.pending ?? 0;
+        badge.textContent = `${detail.count ?? 0} 個標註${pendingCount > 0 ? `，${pendingCount} 待完成` : ''}`;
+        spanUrl.appendChild(badge);
+
+        itemDiv.appendChild(spanUrl);
+
+        const link = document.createElement('a');
+        link.href = urlTitle;
+        link.target = '_blank';
+        link.className = 'open-page-link';
+        link.textContent = '打開頁面';
+        itemDiv.appendChild(link);
+
+        listDiv.appendChild(itemDiv);
+      });
+      box.appendChild(listDiv);
+    }
+
+    migrationResult.appendChild(box);
   }
 
   /**
@@ -609,12 +724,21 @@ export class MigrationTool {
       return;
     }
 
-    migrationResult.innerHTML = `
-      <div class="success-box">
-        <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg> 刪除成功</strong>
-        <p>已刪除 ${count} 個頁面的舊版標註數據。</p>
-      </div>
-    `;
+    migrationResult.textContent = '';
+    const box = document.createElement('div');
+    box.className = 'success-box';
+
+    const strong = document.createElement('strong');
+    const iconSpan = createSafeIcon(UI_ICONS.CHECK);
+    strong.appendChild(iconSpan);
+    strong.appendChild(document.createTextNode(' 刪除成功'));
+    box.appendChild(strong);
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = `已刪除 ${count} 個頁面的舊版標註數據。`;
+    box.appendChild(paragraph);
+
+    migrationResult.appendChild(box);
   }
 
   /**
@@ -628,12 +752,21 @@ export class MigrationTool {
       return;
     }
 
-    migrationResult.innerHTML = `
-      <div class="error-box">
-        <strong><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> 操作失敗</strong>
-        <p>${MigrationTool.escapeHtml(errorMessage)}</p>
-      </div>
-    `;
+    migrationResult.textContent = '';
+    const box = document.createElement('div');
+    box.className = 'error-box';
+
+    const strong = document.createElement('strong');
+    const iconSpan = createSafeIcon(UI_ICONS.ERROR);
+    strong.appendChild(iconSpan);
+    strong.appendChild(document.createTextNode(' 操作失敗'));
+    box.appendChild(strong);
+
+    const paragraph = document.createElement('p');
+    paragraph.textContent = errorMessage; // textContent 自動轉義
+    box.appendChild(paragraph);
+
+    migrationResult.appendChild(box);
   }
 
   /**
@@ -649,16 +782,7 @@ export class MigrationTool {
     return `${url.substring(0, maxLength - 3)}...`;
   }
 
-  /**
-   * HTML 轉義防止 XSS
-   * @param {string} str - 要轉義的字符串
-   * @returns {string} 轉義後的字符串
-   */
-  static escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
+  /* escapeHtml static method removed as it is no longer needed with DOM API refactoring */
 
   /**
    * 載入待完成的遷移項目
@@ -676,7 +800,10 @@ export class MigrationTool {
       }
     } catch (error) {
       // 靜默失敗，不影響頁面正常使用
-      console.warn('[MigrationTool] 載入待完成列表失敗:', error);
+      Logger.warn('載入待完成遷移列表失敗', {
+        action: 'loadPendingMigrations',
+        error: error.message || error,
+      });
     }
   }
 
@@ -700,24 +827,39 @@ export class MigrationTool {
     // 顯示區塊
     pendingSection.style.display = 'block';
 
-    // 渲染列表
-    const listHtml = items
-      .map(
-        item => `
-        <div class="migration-result-item">
-          <span class="result-url" title="${MigrationTool.escapeHtml(item.url)}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(item.url))}
-            <span class="count-badge">${item.pendingCount} / ${item.totalCount} 待完成</span>
-          </span>
-          <a href="${MigrationTool.escapeHtml(item.url)}" target="_blank" class="open-page-link">
-            打開頁面
-          </a>
-        </div>
-      `
-      )
-      .join('');
+    pendingList.textContent = '';
+    const fragment = document.createDocumentFragment();
 
-    pendingList.innerHTML = listHtml;
+    items.forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'migration-result-item';
+
+      const spanUrl = document.createElement('span');
+      spanUrl.className = 'result-url';
+      spanUrl.title = item.url;
+
+      const iconSpan = createSafeIcon(UI_ICONS.STAR);
+      spanUrl.appendChild(iconSpan);
+      spanUrl.appendChild(document.createTextNode(` ${MigrationTool.truncateUrl(item.url)}`));
+
+      const badge = document.createElement('span');
+      badge.className = 'count-badge';
+      badge.textContent = `${item.pendingCount} / ${item.totalCount} 待完成`;
+      spanUrl.appendChild(badge);
+
+      itemDiv.appendChild(spanUrl);
+
+      const link = document.createElement('a');
+      link.href = item.url;
+      link.target = '_blank';
+      link.className = 'open-page-link';
+      link.textContent = '打開頁面';
+      itemDiv.appendChild(link);
+
+      fragment.appendChild(itemDiv);
+    });
+
+    pendingList.appendChild(fragment);
   }
 
   /**
@@ -740,32 +882,41 @@ export class MigrationTool {
     // 顯示區塊
     failedSection.style.display = 'block';
 
-    // 渲染列表
-    const listHtml = items
-      .map(
-        item => `
-        <div class="migration-result-item failed-item">
-          <span class="result-url" title="${MigrationTool.escapeHtml(item.url)}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px; color: var(--warning-color);"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ${MigrationTool.escapeHtml(MigrationTool.truncateUrl(item.url))}
-            <span class="count-badge failed">${item.failedCount} 個無法恢復</span>
-          </span>
-          <button class="btn-danger btn-small delete-failed-btn" data-url="${MigrationTool.escapeHtml(item.url)}">
-            刪除
-          </button>
-        </div>
-      `
-      )
-      .join('');
+    failedList.innerHTML = '';
+    const fragment = document.createDocumentFragment();
 
-    failedList.innerHTML = listHtml;
+    items.forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'migration-result-item failed-item';
 
-    // 綁定刪除按鈕事件
-    failedList.querySelectorAll('.delete-failed-btn').forEach(btn => {
-      btn.addEventListener('click', event => {
-        const url = event.target.dataset.url;
-        this.deleteFailedHighlights(url);
-      });
+      const spanUrl = document.createElement('span');
+      spanUrl.className = 'result-url';
+      spanUrl.title = item.url;
+
+      const iconSpan = createSafeIcon(UI_ICONS.WARNING);
+      spanUrl.appendChild(iconSpan);
+      spanUrl.appendChild(document.createTextNode(` ${MigrationTool.truncateUrl(item.url)}`));
+
+      const badge = document.createElement('span');
+      badge.className = 'count-badge failed';
+      badge.textContent = `${item.failedCount} 個無法恢復`;
+      spanUrl.appendChild(badge);
+
+      itemDiv.appendChild(spanUrl);
+
+      const button = document.createElement('button');
+      button.className = 'btn-danger btn-small delete-failed-btn';
+      button.dataset.url = item.url;
+      button.textContent = '刪除';
+      // 直接綁定事件
+      button.addEventListener('click', () => this.deleteFailedHighlights(item.url));
+
+      itemDiv.appendChild(button);
+
+      fragment.appendChild(itemDiv);
     });
+
+    failedList.appendChild(fragment);
   }
 
   /**
@@ -783,10 +934,18 @@ export class MigrationTool {
         // 重新載入列表
         await this.loadPendingMigrations();
       } else {
-        console.error('[MigrationTool] 刪除失敗:', response?.error);
+        Logger.error('刪除失敗標註失敗', {
+          action: 'deleteFailedHighlights',
+          url,
+          error: response?.error,
+        });
       }
     } catch (error) {
-      console.error('[MigrationTool] 刪除失敗標註失敗:', error);
+      Logger.error('執行刪除失敗標註時出錯', {
+        action: 'deleteFailedHighlights',
+        url,
+        error: error.message || error,
+      });
     }
   }
 }

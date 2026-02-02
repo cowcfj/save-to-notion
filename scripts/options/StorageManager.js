@@ -6,8 +6,15 @@
 /* global chrome */
 
 import Logger from '../utils/Logger.js';
-import { sanitizeApiError, validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
+import {
+  sanitizeApiError,
+  validateSafeSvg,
+  separateIconAndText,
+  createSafeIcon,
+} from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
+import { UI_ICONS } from '../config/icons.js';
+import { UI_MESSAGES } from '../config/messages.js';
 
 /**
  * 管理存儲空間的類別
@@ -85,7 +92,7 @@ export class StorageManager {
 
   async exportData() {
     try {
-      this.showDataStatus('正在備份數據...', 'info');
+      this.showDataStatus(UI_MESSAGES.STORAGE.BACKUP_START, 'info');
 
       const data = await new Promise(resolve => {
         chrome.storage.local.get(null, resolve);
@@ -110,16 +117,14 @@ export class StorageManager {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-      this.showDataStatus(`${icon} 數據備份成功！備份文件已下載。`, 'success');
+      const icon = UI_ICONS.SUCCESS;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.BACKUP_SUCCESS}`, 'success');
     } catch (error) {
-      Logger.error('Backup failed:', error);
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      Logger.error('Backup failed', { action: 'export_backup', error });
+      const icon = UI_ICONS.ERROR;
       const safeMessage = sanitizeApiError(error, 'export_backup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${icon} 備份失敗：${errorMsg}`, 'error');
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.BACKUP_FAILED}${errorMsg}`, 'error');
     }
   }
 
@@ -132,22 +137,21 @@ export class StorageManager {
     const reader = new FileReader();
     reader.onload = async readerEvent => {
       try {
-        this.showDataStatus('正在恢復數據...', 'info');
+        this.showDataStatus(UI_MESSAGES.STORAGE.RESTORE_START, 'info');
 
         const backup = JSON.parse(readerEvent.target.result);
 
         if (!backup.data) {
-          throw new Error('無效的備份文件格式');
+          throw new Error(UI_MESSAGES.STORAGE.INVALID_BACKUP_FORMAT);
         }
 
         await new Promise(resolve => {
           chrome.storage.local.set(backup.data, resolve);
         });
 
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+        const icon = UI_ICONS.SUCCESS;
         this.showDataStatus(
-          `${icon} 數據恢復成功！已恢復 ${Object.keys(backup.data).length} 項數據。正在重新整理...`,
+          `${icon} ${UI_MESSAGES.STORAGE.RESTORE_SUCCESS(Object.keys(backup.data).length)}`,
           'success'
         );
 
@@ -159,12 +163,11 @@ export class StorageManager {
           window.location.reload();
         }, 2000);
       } catch (error) {
-        Logger.error('Import failed:', error);
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+        Logger.error('Import failed', { action: 'import_backup', error });
+        const icon = UI_ICONS.ERROR;
         const safeMessage = sanitizeApiError(error, 'import_backup');
         const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-        this.showDataStatus(`${icon} 恢復失敗：${errorMsg}`, 'error');
+        this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.RESTORE_FAILED}${errorMsg}`, 'error');
         this.elements.importFile.value = '';
       }
     };
@@ -173,7 +176,7 @@ export class StorageManager {
 
   async checkDataIntegrity() {
     try {
-      this.showDataStatus('正在檢查數據完整性...', 'info');
+      this.showDataStatus(UI_MESSAGES.STORAGE.CHECKING, 'info');
 
       const data = await new Promise(resolve => {
         chrome.storage.local.get(null, resolve);
@@ -181,33 +184,32 @@ export class StorageManager {
 
       const report = StorageManager.analyzeData(data);
 
-      let statusText = '📊 數據完整性報告：\n';
-      statusText += `• 總共 ${report.totalKeys} 個數據項\n`;
-      statusText += `• ${report.highlightPages} 個頁面有標記\n`;
-      statusText += `• ${report.configKeys} 個配置項\n`;
+      let statusText = `${UI_MESSAGES.STORAGE.REPORT_TITLE}\n`;
+      statusText += `${UI_MESSAGES.STORAGE.TOTAL_ITEMS(report.totalKeys)}\n`;
+      statusText += `${UI_MESSAGES.STORAGE.HIGHLIGHT_PAGES(report.highlightPages)}\n`;
+      statusText += `${UI_MESSAGES.STORAGE.CONFIG_ITEMS(report.configKeys)}\n`;
 
       if (report.migrationKeys > 0) {
         const migrationSizeKB = (report.migrationDataSize / 1024).toFixed(1);
-        statusText += `• ⚠️ ${report.migrationKeys} 個遷移數據（${migrationSizeKB} KB，可清理）\n`;
+        statusText += `${UI_MESSAGES.STORAGE.MIGRATION_DATA(report.migrationKeys, migrationSizeKB)}\n`;
       }
 
       if (report.corruptedData.length > 0) {
-        statusText += `• ⚠️ ${report.corruptedData.length} 個損壞的數據項`;
+        statusText += UI_MESSAGES.STORAGE.CORRUPTED_DATA(report.corruptedData.length);
         this.showDataStatus(statusText, 'error');
       } else if (report.migrationKeys > 0) {
-        statusText += '• 💡 建議使用「數據重整」功能清理遷移數據';
+        statusText += UI_MESSAGES.STORAGE.OPTIMIZATION_SUGGESTION;
         this.showDataStatus(statusText, 'warning');
       } else {
-        statusText += '• ✅ 所有數據完整無損';
+        statusText += UI_MESSAGES.STORAGE.INTEGRITY_OK;
         this.showDataStatus(statusText, 'success');
       }
     } catch (error) {
-      Logger.error('Data check failed:', error);
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      Logger.error('Data check failed', { action: 'check_integrity', error });
+      const icon = UI_ICONS.ERROR;
       const safeMessage = sanitizeApiError(error, 'check_duplicates');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${icon} 檢查失敗：${errorMsg}`, 'error');
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.CHECK_FAILED}${errorMsg}`, 'error');
     }
   }
 
@@ -244,12 +246,9 @@ export class StorageManager {
 
     // SVG Icons
     const ICONS = {
-      refresh:
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M21 21v-5h-5"/></svg>',
-      check:
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-      error:
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+      refresh: UI_ICONS.REFRESH,
+      check: UI_ICONS.SUCCESS,
+      error: UI_ICONS.ERROR,
     };
 
     // Helper to update button content
@@ -272,7 +271,10 @@ export class StorageManager {
         // icon = icon.replace('class="icon-svg"', 'class="icon-svg spin"');
       }
 
-      button.innerHTML = `${icon} ${text}`;
+      // Use safe DOM construction instead of innerHTML
+      button.textContent = ''; // Clear
+      button.appendChild(createSafeIcon(icon));
+      button.appendChild(document.createTextNode(` ${text}`));
       button.disabled = disabled;
     };
 
@@ -294,7 +296,7 @@ export class StorageManager {
         }, 1500);
       }
     } catch (error) {
-      Logger.error('Failed to get storage usage:', error);
+      Logger.error('Failed to get storage usage', { action: 'get_usage', error });
 
       // 顯示錯誤狀態
       if (button) {
@@ -379,19 +381,14 @@ export class StorageManager {
 
     // 條件判斷順序：先檢查更高的閾值（>100MB），再檢查較低的閾值（>80MB）
     if (usedMB > 100) {
-      const alertIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+      const alertIcon = UI_ICONS.WARNING;
       this.showDataStatus(
-        `${alertIcon} 數據量過大 (${usage.usedMB} MB)，可能影響擴展性能，建議立即清理`,
+        `${alertIcon} ${UI_MESSAGES.STORAGE.USAGE_TOO_LARGE(usage.usedMB)}`,
         'error'
       );
     } else if (usedMB > 80) {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-      this.showDataStatus(
-        `${icon} 數據量較大 (${usage.usedMB} MB)，建議清理不需要的標記數據以維持最佳性能`,
-        'warning'
-      );
+      const icon = UI_ICONS.WARNING;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.USAGE_LARGE(usage.usedMB)}`, 'warning');
     }
   }
 
@@ -413,10 +410,10 @@ export class StorageManager {
         this.elements.executeCleanupButton.style.display = 'none';
       }
     } catch (error) {
-      Logger.error('預覽清理失敗:', error);
+      Logger.error('Cleanup preview failed', { action: 'cleanup_preview', error });
       const safeMessage = sanitizeApiError(error, 'preview_cleanup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`❌ 預覽清理失敗: ${errorMsg}`, 'error');
+      this.showDataStatus(`${UI_MESSAGES.STORAGE.PREVIEW_CLEANUP_FAILED}${errorMsg}`, 'error');
     } finally {
       this.setPreviewButtonLoading(false);
     }
@@ -433,17 +430,19 @@ export class StorageManager {
       button.classList.add('loading');
       button.disabled = true;
       if (buttonText) {
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
-        buttonText.innerHTML = `${icon} 檢查中...`;
+        const icon = UI_ICONS.INFO; // 使用資訊或搜索圖標
+        buttonText.textContent = '';
+        buttonText.appendChild(createSafeIcon(icon));
+        buttonText.appendChild(document.createTextNode(' 檢查中...'));
       }
     } else {
       button.classList.remove('loading');
       button.disabled = false;
       if (buttonText) {
-        const icon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
-        buttonText.innerHTML = `${icon} 預覽清理效果`;
+        buttonText.textContent = '';
+        const defaultIcon = UI_ICONS.INFO; // 使用預設圖標
+        buttonText.appendChild(createSafeIcon(defaultIcon));
+        buttonText.appendChild(document.createTextNode(' 預覽清理效果'));
       }
     }
   }
@@ -457,9 +456,12 @@ export class StorageManager {
 
     if (total > 0 && buttonText) {
       const percentage = Math.round((current / total) * 100);
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
-      buttonText.innerHTML = `${icon} 檢查中... ${current}/${total} (${percentage}%)`;
+      const icon = UI_ICONS.INFO;
+      buttonText.textContent = '';
+      buttonText.appendChild(createSafeIcon(icon));
+      buttonText.appendChild(
+        document.createTextNode(` 檢查中... ${current}/${total} (${percentage}%)`)
+      );
     }
   }
 
@@ -532,7 +534,11 @@ export class StorageManager {
             await new Promise(sleep => setTimeout(sleep, 350));
           }
         } catch (error) {
-          Logger.error(`檢查頁面失敗: ${page.url}`, error);
+          Logger.error('Page existence check failed', {
+            action: 'check_page_existence',
+            url: page.url,
+            error,
+          });
         }
       }
     }
@@ -549,7 +555,7 @@ export class StorageManager {
       });
       return response && response.exists === true;
     } catch (error) {
-      Logger.error('檢查頁面存在失敗:', error);
+      Logger.error('Batch page check failed', { action: 'batch_check_existence', error });
       return true;
     }
   }
@@ -561,67 +567,139 @@ export class StorageManager {
     this.elements.cleanupPreview.className = 'cleanup-preview show';
 
     if (plan.items.length === 0) {
-      const icon =
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-      this.elements.cleanupPreview.innerHTML = `
-                <div class="cleanup-summary">
-                    <strong>${icon} 沒有發現需要清理的數據</strong>
-                    <p>所有頁面記錄都是有效的，無需清理。</p>
-                </div>
-            `;
+      const container = document.createElement('div');
+      container.className = 'cleanup-summary';
+
+      const strong = document.createElement('strong');
+      const icon = UI_ICONS.SUCCESS;
+      strong.appendChild(createSafeIcon(icon));
+      strong.appendChild(document.createTextNode(' 沒有發現需要清理的數據'));
+      container.appendChild(strong);
+
+      const paragraph = document.createElement('p');
+      paragraph.textContent = '所有頁面記錄都是有效的，無需清理。';
+      container.appendChild(paragraph);
+
+      this.elements.cleanupPreview.textContent = '';
+      this.elements.cleanupPreview.appendChild(container);
       return;
     }
 
     const spaceMB = (plan.spaceFreed / (1024 * 1024)).toFixed(3);
 
-    let summaryText = '🧹 安全清理預覽\n\n將清理：\n';
+    const summaryLines = [
+      UI_MESSAGES.STORAGE.CLEANUP_TITLE,
+      '',
+      UI_MESSAGES.STORAGE.CLEANUP_WILL_CLEAN,
+    ];
+
     if (plan.deletedPages > 0) {
-      summaryText += `• ${plan.deletedPages} 個已刪除頁面的數據\n`;
+      summaryLines.push(UI_MESSAGES.STORAGE.DELETED_PAGES_DATA(plan.deletedPages));
     }
-    summaryText += `\n釋放約 <span class="highlight-success">${spaceMB} MB</span> 空間`;
 
-    const icon =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
-    const warnIcon =
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    summaryLines.push('');
+    summaryLines.push(UI_MESSAGES.STORAGE.SPACE_FREED_ESTIMATE(spaceMB));
 
-    this.elements.cleanupPreview.innerHTML = `
-            <div class="cleanup-summary">
-                <strong>${icon} 安全清理預覽</strong>
-                <p>${summaryText.replace(/\n/g, '<br>')}</p>
-                <div class="warning-notice">
-                    ${warnIcon} <strong>重要提醒：</strong>這只會清理擴展中的無效記錄，<strong>絕對不會影響您在 Notion 中保存的任何頁面</strong>。
-                </div>
-            </div>
-            <div class="cleanup-list">
-                ${plan.items
-                  .slice(0, 10)
-                  .map(
-                    item => `
-                    <div class="cleanup-item">
-                        <strong>${decodeURIComponent(item.url)}</strong> - ${item.reason}
-                        <br><small>${(item.size / 1024).toFixed(1)} KB</small>
-                    </div>
-                `
-                  )
-                  .join('')}
-                ${plan.items.length > 10 ? `<div class="cleanup-item"><em>... 還有 ${plan.items.length - 10} 個項目</em></div>` : ''}
-            </div>
-        `;
+    // summaryText variable removed as it was unused
+
+    const icon = UI_ICONS.WARNING;
+
+    this.elements.cleanupPreview.textContent = '';
+
+    // 1. 構建 Summary 區塊
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'cleanup-summary';
+
+    const paragraph = document.createElement('p');
+    // 處理換行
+    summaryLines.forEach((line, index) => {
+      paragraph.appendChild(document.createTextNode(line));
+      if (index < summaryLines.length - 1) {
+        paragraph.appendChild(document.createElement('br'));
+      }
+    });
+    summaryDiv.appendChild(paragraph);
+
+    const warningDiv = document.createElement('div');
+    warningDiv.className = 'warning-notice';
+    // icon 是受信任的 SVG 字串
+    warningDiv.appendChild(createSafeIcon(icon));
+
+    // " 重要提醒："
+    warningDiv.appendChild(document.createTextNode(' '));
+    const labelStrong = document.createElement('strong');
+    labelStrong.textContent = '重要提醒：';
+    warningDiv.appendChild(labelStrong);
+    warningDiv.appendChild(document.createTextNode('這只會清理擴展中的無效記錄，'));
+
+    // "絕對不會影響您在 Notion 中保存的任何頁面"
+    const panicStrong = document.createElement('strong');
+    panicStrong.textContent = '絕對不會影響您在 Notion 中保存的任何頁面';
+    warningDiv.appendChild(panicStrong);
+    warningDiv.appendChild(document.createTextNode('。'));
+
+    summaryDiv.appendChild(warningDiv);
+    this.elements.cleanupPreview.appendChild(summaryDiv);
+
+    // 2. 構建 List 區塊
+    const listDiv = document.createElement('div');
+    listDiv.className = 'cleanup-list';
+
+    // 使用 DocumentFragment 優化效能
+    const fragment = document.createDocumentFragment();
+
+    plan.items.slice(0, 10).forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'cleanup-item';
+
+      const urlStrong = document.createElement('strong');
+      // 安全核心：textContent 自動轉義
+      try {
+        urlStrong.textContent = decodeURIComponent(item.url);
+      } catch (error) {
+        // 如果 URL 編碼格式錯誤，則回退顯示原始 URL 並記錄警告
+        Logger.warn('Failed to decode URL in cleanup preview', {
+          action: 'preview_decode_url',
+          url: item.url,
+          error,
+        });
+        urlStrong.textContent = item.url;
+      }
+      itemDiv.appendChild(urlStrong);
+
+      itemDiv.appendChild(document.createTextNode(` - ${item.reason}`));
+      itemDiv.appendChild(document.createElement('br'));
+
+      const sizeSmall = document.createElement('small');
+      sizeSmall.textContent = `${(item.size / 1024).toFixed(1)} KB`;
+      itemDiv.appendChild(sizeSmall);
+
+      fragment.appendChild(itemDiv);
+    });
+
+    if (plan.items.length > 10) {
+      const moreDiv = document.createElement('div');
+      moreDiv.className = 'cleanup-item';
+      const em = document.createElement('em');
+      em.textContent = `... 還有 ${plan.items.length - 10} 個項目`;
+      moreDiv.appendChild(em);
+      fragment.appendChild(moreDiv);
+    }
+
+    listDiv.appendChild(fragment);
+    this.elements.cleanupPreview.appendChild(listDiv);
   }
 
   async executeSafeCleanup() {
     if (!this.cleanupPlan || this.cleanupPlan.items.length === 0) {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      this.showDataStatus(`${icon} 沒有清理計劃可執行`, 'error');
+      const icon = UI_ICONS.ERROR;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.EXECUTE_CLEANUP_NONE}`, 'error');
       return;
     }
 
     try {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>';
-      this.showDataStatus(`${icon} 正在執行安全清理...`, 'info');
+      const icon = UI_ICONS.REFRESH;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.CLEANUP_EXECUTING}`, 'info');
 
       const keysToRemove = this.cleanupPlan.items.map(item => item.key);
 
@@ -636,12 +714,11 @@ export class StorageManager {
       });
 
       const spaceKB = (this.cleanupPlan.spaceFreed / 1024).toFixed(1);
-      const successIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-      let message = `${successIcon} 安全清理完成！已移除 ${this.cleanupPlan.totalKeys} 個無效記錄，釋放 ${spaceKB} KB 空間`;
+      const successIcon = UI_ICONS.SUCCESS;
+      let message = `${successIcon} ${UI_MESSAGES.STORAGE.CLEANUP_SUCCESS(this.cleanupPlan.totalKeys, spaceKB)}`;
 
       if (this.cleanupPlan.deletedPages > 0) {
-        message += `\n• 清理了 ${this.cleanupPlan.deletedPages} 個已刪除頁面的數據`;
+        message += `\n${UI_MESSAGES.STORAGE.CLEANUP_DELETED_PAGES(this.cleanupPlan.deletedPages)}`;
       }
 
       this.showDataStatus(message, 'success');
@@ -655,12 +732,11 @@ export class StorageManager {
       }
       this.cleanupPlan = null;
     } catch (error) {
-      Logger.error('Cleanup failed:', error);
-      const failIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      Logger.error('Cleanup execution failed', { action: 'execute_cleanup', error });
+      const failIcon = UI_ICONS.ERROR;
       const safeMessage = sanitizeApiError(error, 'cleanup');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${failIcon} 清理失敗：${errorMsg}`, 'error');
+      this.showDataStatus(`${failIcon} ${UI_MESSAGES.STORAGE.CLEANUP_FAILED}${errorMsg}`, 'error');
     }
   }
 
@@ -772,73 +848,152 @@ export class StorageManager {
     }
     this.elements.optimizationPreview.className = 'optimization-preview show';
 
-    if (!plan.canOptimize) {
-      const icon =
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-      const statsIcon1 =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
-      const statsIcon2 =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
-      const statsIcon3 =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+    // 清空舊內容
+    this.elements.optimizationPreview.textContent = '';
 
-      this.elements.optimizationPreview.innerHTML = `
-                <div class="optimization-summary">
-                    <strong>${icon} 數據已經處於最佳狀態</strong>
-                    <p>當前數據結構已經很好，暫時不需要重整優化。</p>
-                    <div class="data-stats">
-                        <div>${statsIcon1} 標記頁面：${plan.highlightPages}</div>
-                        <div>${statsIcon2} 總標記數：${plan.totalHighlights}</div>
-                        <div>${statsIcon3} 數據大小：${(plan.originalSize / 1024).toFixed(1)} KB</div>
-                    </div>
-                </div>
-            `;
+    // Use shared createSafeIcon helper
+
+    if (!plan.canOptimize) {
+      const container = document.createElement('div');
+      container.className = 'optimization-summary';
+
+      // Header
+      const strong = document.createElement('strong');
+      strong.appendChild(createSafeIcon(UI_ICONS.SUCCESS));
+      strong.appendChild(document.createTextNode(' 數據已經處於最佳狀態'));
+      container.appendChild(strong);
+
+      // Description
+      const paragraph = document.createElement('p');
+      paragraph.textContent = '當前數據結構已經很好，暫時不需要重整優化。';
+      container.appendChild(paragraph);
+
+      // Stats
+      const statsDiv = document.createElement('div');
+      statsDiv.className = 'data-stats';
+
+      const items = [
+        { icon: UI_ICONS.INFO, text: ` 標記頁面：${plan.highlightPages}` },
+        { icon: UI_ICONS.INFO, text: ` 總標記數：${plan.totalHighlights}` },
+        { icon: UI_ICONS.INFO, text: ` 數據大小：${(plan.originalSize / 1024).toFixed(1)} KB` },
+      ];
+
+      items.forEach(item => {
+        const div = document.createElement('div');
+        div.appendChild(createSafeIcon(item.icon));
+        div.appendChild(document.createTextNode(item.text));
+        statsDiv.appendChild(div);
+      });
+
+      container.appendChild(statsDiv);
+      this.elements.optimizationPreview.appendChild(container);
       return;
     }
 
     const spaceSavedMB = (plan.spaceSaved / (1024 * 1024)).toFixed(3);
     const percentSaved = ((plan.spaceSaved / plan.originalSize) * 100).toFixed(1);
 
-    const icon =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
-    const chartIcon =
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
-    const diskIcon =
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
-    const checkIcon =
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+    const container = document.createElement('div');
+    container.className = 'optimization-summary';
 
-    this.elements.optimizationPreview.innerHTML = `
-            <div class="optimization-summary">
-                <strong>${icon} 數據重整分析結果</strong>
-                <p>可以優化您的數據結構，預計節省 <strong>${spaceSavedMB} MB</strong> 空間（<strong>${percentSaved}%</strong>）</p>
-                <div class="optimization-details">
-                    <div class="size-comparison">
-                        <div>${chartIcon} 當前大小：<span class="highlight-text">${(plan.originalSize / 1024).toFixed(1)} KB</span></div>
-                        <div>${chartIcon} 優化後：<span class="highlight-success">${(plan.optimizedSize / 1024).toFixed(1)} KB</span></div>
-                        <div>${diskIcon} 節省空間：<span class="highlight-primary">${(plan.spaceSaved / 1024).toFixed(1)} KB</span></div>
-                    </div>
-                    <div class="optimization-list">
-                        <strong>將執行的優化：</strong>
-                        ${plan.optimizations.map(opt => `<div class="optimization-item">${checkIcon} ${opt}</div>`).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
+    // Header
+    const strong = document.createElement('strong');
+    strong.appendChild(createSafeIcon(UI_ICONS.BOLT));
+    strong.appendChild(document.createTextNode(' 數據重整分析結果'));
+    container.appendChild(strong);
+
+    // Description
+    const paragraph = document.createElement('p');
+    paragraph.appendChild(document.createTextNode('可以優化您的數據結構，預計節省 '));
+
+    const mbStrong = document.createElement('strong');
+    mbStrong.textContent = `${spaceSavedMB} MB`;
+    paragraph.appendChild(mbStrong);
+
+    paragraph.appendChild(document.createTextNode(' 空間（'));
+
+    const pctStrong = document.createElement('strong');
+    pctStrong.textContent = `${percentSaved}%`;
+    paragraph.appendChild(pctStrong);
+
+    paragraph.appendChild(document.createTextNode('）'));
+    container.appendChild(paragraph);
+
+    // Details Container
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'optimization-details';
+
+    // Size Comparison Grid
+    const comparisonDiv = document.createElement('div');
+    comparisonDiv.className = 'size-comparison';
+
+    const comparisonItems = [
+      {
+        icon: UI_ICONS.BAR_CHART,
+        label: ' 當前大小：',
+        value: `${(plan.originalSize / 1024).toFixed(1)} KB`,
+        className: 'highlight-text',
+      },
+      {
+        icon: UI_ICONS.BAR_CHART,
+        label: ' 優化後：',
+        value: `${(plan.optimizedSize / 1024).toFixed(1)} KB`,
+        className: 'highlight-success',
+      },
+      {
+        icon: UI_ICONS.SAVE,
+        label: ' 節省空間：',
+        value: `${(plan.spaceSaved / 1024).toFixed(1)} KB`,
+        className: 'highlight-primary',
+      },
+    ];
+
+    comparisonItems.forEach(item => {
+      const div = document.createElement('div');
+      div.appendChild(createSafeIcon(item.icon));
+      div.appendChild(document.createTextNode(item.label));
+
+      const span = document.createElement('span');
+      span.className = item.className;
+      span.textContent = item.value;
+      div.appendChild(span);
+
+      comparisonDiv.appendChild(div);
+    });
+
+    detailsDiv.appendChild(comparisonDiv);
+
+    // Optimization List
+    const listDiv = document.createElement('div');
+    listDiv.className = 'optimization-list';
+
+    const listStrong = document.createElement('strong');
+    listStrong.textContent = '將執行的優化：';
+    listDiv.appendChild(listStrong);
+
+    plan.optimizations.forEach(opt => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'optimization-item';
+      itemDiv.appendChild(createSafeIcon(UI_ICONS.CHECK));
+      itemDiv.appendChild(document.createTextNode(` ${opt}`));
+      listDiv.appendChild(itemDiv);
+    });
+
+    detailsDiv.appendChild(listDiv);
+    container.appendChild(detailsDiv);
+    this.elements.optimizationPreview.appendChild(container);
   }
 
   async executeOptimization() {
-    if (!this.optimizationPlan || !this.optimizationPlan.canOptimize) {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      this.showDataStatus(`${icon} 沒有優化計劃可執行`, 'error');
-      return;
-    }
-
     try {
-      const icon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>';
-      this.showDataStatus(`${icon} 正在執行數據重整...`, 'info');
+      if (!this.optimizationPlan || !this.optimizationPlan.canOptimize) {
+        const icon = UI_ICONS.ERROR;
+        this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.OPTIMIZE_EXECUTE_NONE}`, 'error');
+        return;
+      }
+
+      const icon = UI_ICONS.REFRESH;
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.OPTIMIZING}`, 'info');
 
       const optimizedData = this.optimizationPlan.optimizedData;
       const keysToRemove = this.optimizationPlan.keysToRemove;
@@ -876,10 +1031,9 @@ export class StorageManager {
       }
 
       const spaceSavedKB = (this.optimizationPlan.spaceSaved / 1024).toFixed(1);
-      const successIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
+      const successIcon = UI_ICONS.SUCCESS;
       this.showDataStatus(
-        `${successIcon} 數據重整完成！已清理遷移數據，節省 ${spaceSavedKB} KB 空間，所有標記內容完整保留`,
+        `${successIcon} ${UI_MESSAGES.STORAGE.OPTIMIZE_SUCCESS(spaceSavedKB)}`,
         'success'
       );
 
@@ -892,12 +1046,11 @@ export class StorageManager {
       }
       this.optimizationPlan = null;
     } catch (error) {
-      Logger.error('Optimization failed:', error);
-      const failIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-      const safeMessage = sanitizeApiError(error, 'organize_highlights');
-      const translated = ErrorHandler.formatUserMessage(safeMessage);
-      this.showDataStatus(`${failIcon} 數據重整失敗：${translated}`, 'error');
+      Logger.error('Optimization failed', { action: 'execute_optimization', error });
+      const failIcon = UI_ICONS.ERROR;
+      const safeMessage = sanitizeApiError(error, 'optimization');
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.showDataStatus(`${failIcon} ${UI_MESSAGES.STORAGE.OPTIMIZE_FAILED}${errorMsg}`, 'error');
     }
   }
 
@@ -927,19 +1080,34 @@ export class StorageManager {
       safeIcon = ''; // 拒絕不安全的 SVG
     }
 
+    // [優化] 如果訊息本身不帶圖標，根據 type 自動匹配預設圖標
+    if (!safeIcon) {
+      switch (type) {
+        case 'success':
+          safeIcon = UI_ICONS.SUCCESS;
+          break;
+        case 'error':
+          safeIcon = UI_ICONS.ERROR;
+          break;
+        case 'warning':
+          safeIcon = UI_ICONS.WARNING;
+          break;
+        case 'info':
+          safeIcon = UI_ICONS.INFO;
+          break;
+        default:
+          safeIcon = UI_ICONS.INFO;
+          break;
+      }
+    }
+
     // 清空內容
-    this.elements.dataStatus.innerHTML = '';
+    this.elements.dataStatus.textContent = '';
 
     // 如果有圖標，插入圖標
     if (safeIcon) {
-      const iconSpan = document.createElement('span');
+      const iconSpan = createSafeIcon(safeIcon);
       iconSpan.className = 'status-icon';
-      // Emoji 可以直接用 textContent，SVG 需要 innerHTML（已通過安全驗證）
-      if (safeIcon.startsWith('<svg')) {
-        iconSpan.innerHTML = safeIcon;
-      } else {
-        iconSpan.textContent = safeIcon;
-      }
       this.elements.dataStatus.appendChild(iconSpan);
     }
 
@@ -950,8 +1118,30 @@ export class StorageManager {
 
       // 處理換行符：將文本按 \n 分割，並插入 <br> 標籤
       const lines = text.split('\n');
+      const numberRegex = /^\d+$/; // 嚴格匹配純數字
+
       lines.forEach((line, index) => {
-        textSpan.appendChild(document.createTextNode(line));
+        // Tokenization: 將字串分割為 [文字, 數字, 文字...]
+        // 使用 capture group Keeping the separator in the result
+        const tokens = line.split(/(\d+)/);
+
+        tokens.forEach(token => {
+          if (!token) {
+            return;
+          } // 忽略空字串
+
+          if (numberRegex.test(token)) {
+            // 如果是純數字，這是我們生成的數據，安全地套用樣式
+            const numSpan = document.createElement('span');
+            numSpan.className = 'highlight-primary';
+            numSpan.textContent = token; // 使用 textContent
+            textSpan.appendChild(numSpan);
+          } else {
+            // 其他文字，使用 TextNode 自動轉義
+            textSpan.appendChild(document.createTextNode(token));
+          }
+        });
+
         if (index < lines.length - 1) {
           textSpan.appendChild(document.createElement('br'));
         }

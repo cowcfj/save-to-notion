@@ -4,6 +4,7 @@
  */
 
 import { validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
+import { UI_ICONS, NOTION_API } from '../config/index.js';
 
 /**
  * UI 管理器類別
@@ -63,6 +64,24 @@ export class UIManager {
       const separated = separateIconAndText(message);
       icon = separated.icon;
       text = separated.text;
+
+      // [優化] 如果訊息本身不帶圖標，根據 type 自動匹配預設圖標
+      if (!icon) {
+        switch (type) {
+          case 'success':
+            icon = UI_ICONS.SUCCESS;
+            break;
+          case 'error':
+            icon = UI_ICONS.ERROR;
+            break;
+          case 'warning':
+            icon = UI_ICONS.WARNING;
+            break;
+          default:
+            icon = UI_ICONS.INFO;
+            break;
+        }
+      }
     }
 
     // SVG 安全驗證：使用 securityUtils 統一處理
@@ -120,7 +139,7 @@ export class UIManager {
       this.upgradeNoticeBanner = document.createElement('div');
       this.upgradeNoticeBanner.className = 'upgrade-notice';
       this.upgradeNoticeBanner.innerHTML = `
-                <strong>Notion API 已升級至 2025-09-03 版本</strong>
+                <strong>Notion API 已升級至 ${NOTION_API.VERSION} 版本</strong>
                 <p>偵測到您仍在使用舊的 Database ID：<code class="upgrade-notice-id">${legacyDatabaseId || '未設定'}</code>。請重新載入並選擇資料來源（Data Source），以儲存新的 Data Source ID，確保同步與標註完全正常。</p>
                 <div class="upgrade-hint">提示：點擊下方按鈕重新載入資料來源後，從列表重新選擇並儲存設定即可完成升級。</div>
                 <div class="upgrade-actions">

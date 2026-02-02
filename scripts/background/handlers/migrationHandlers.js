@@ -16,7 +16,7 @@ import {
   sanitizeUrlForLogging,
 } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { ERROR_MESSAGES } from '../../config/constants.js';
+import { ERROR_MESSAGES } from '../../config/messages.js';
 
 /**
  * 創建遷移處理函數

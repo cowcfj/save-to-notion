@@ -4,6 +4,7 @@ import { AuthManager } from '../scripts/options/AuthManager.js';
 import { DataSourceManager } from '../scripts/options/DataSourceManager.js';
 import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import Logger from '../scripts/utils/Logger.js';
 
 /**
@@ -37,15 +38,9 @@ export function initOptions() {
   chrome.runtime.onMessage.addListener(request => {
     if (request.action === 'oauth_success') {
       auth.checkAuthStatus();
-      ui.showStatus(
-        '<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Notion 連接成功！</span>',
-        'success'
-      );
+      ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_SUCCESS, 'success');
     } else if (request.action === 'oauth_failed') {
-      ui.showStatus(
-        '<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Notion 連接失敗，請重試。</span>',
-        'error'
-      );
+      ui.showStatus(UI_MESSAGES.AUTH.NOTIFY_ERROR, 'error');
     }
   });
 
@@ -73,6 +68,9 @@ export function initOptions() {
 
   // 9. 顯示動態版本號
   displayAppVersion();
+
+  // 10. 設置日誌導出
+  setupLogExport();
 }
 
 document.addEventListener('DOMContentLoaded', initOptions);
@@ -85,7 +83,10 @@ function setupSidebarNavigation() {
   const sections = document.querySelectorAll('.settings-section');
 
   if (navItems.length === 0 || sections.length === 0) {
-    Logger.warn('設定頁面：找不到導航項目或設定區塊。');
+    Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_MISSING_ITEMS, {
+      action: 'setupSidebarNavigation',
+      reason: 'missing_dom_elements',
+    });
     return;
   }
 
@@ -93,7 +94,10 @@ function setupSidebarNavigation() {
     item.addEventListener('click', () => {
       const sectionName = item.dataset.section;
       if (!sectionName) {
-        Logger.warn('設定頁面：導航項目缺少 data-section 屬性', item);
+        Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_MISSING_ATTR, {
+          action: 'setupSidebarNavigation',
+          element: item,
+        });
         return;
       }
 
@@ -102,7 +106,10 @@ function setupSidebarNavigation() {
       const targetExists = Array.from(sections).some(section => section.id === targetSectionId);
 
       if (!targetExists) {
-        Logger.warn(`設定頁面：找不到目標區塊：${targetSectionId}`);
+        Logger.warn(ERROR_MESSAGES.TECHNICAL.NAV_TARGET_NOT_FOUND, {
+          action: 'setupSidebarNavigation',
+          targetId: targetSectionId,
+        });
         return;
       }
 
@@ -179,18 +186,14 @@ export function saveSettings(ui, auth, statusId = 'status') {
 
   // 驗證
   if (!apiKey) {
-    ui.showStatus('請輸入 API Key', 'error', statusId);
+    ui.showStatus(UI_MESSAGES.SETTINGS.MISSING_API_KEY, 'error', statusId);
     return;
   }
 
   // 清理並驗證 Database ID
   const databaseId = cleanDatabaseId(rawDatabaseId);
   if (!databaseId) {
-    ui.showStatus(
-      '資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
-      'error',
-      statusId
-    );
+    ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error', statusId);
     return;
   }
 
@@ -224,13 +227,9 @@ export function saveSettings(ui, auth, statusId = 'status') {
   chrome.storage.sync.set(settings, () => {
     if (chrome.runtime.lastError) {
       Logger.error('Settings save failed:', chrome.runtime.lastError);
-      ui.showStatus('保存失敗，請查看控制台日誌或稍後再試。', 'error', statusId);
+      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
     } else {
-      ui.showStatus(
-        '<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 設置已成功保存！</span>',
-        'success',
-        statusId
-      );
+      ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
 
       // 刷新認證狀態以更新 UI
       auth.checkAuthStatus();
@@ -303,6 +302,95 @@ function displayAppVersion() {
     versionElement.textContent = `v${manifest.version}`;
   } catch (error) {
     // 如果無法獲取版本號，保持元素隱藏
-    Logger.warn('無法獲取應用程式版本號:', error);
+    Logger.warn(ERROR_MESSAGES.TECHNICAL.GET_VERSION_FAILED, {
+      action: 'displayAppVersion',
+      error,
+    });
+  }
+}
+
+/**
+ * 設置日誌導出
+ */
+function setupLogExport() {
+  const exportBtn = document.getElementById('export-logs-button');
+  const statusEl = document.getElementById('export-status');
+
+  if (exportBtn && statusEl) {
+    exportBtn.addEventListener('click', async () => {
+      try {
+        exportBtn.disabled = true;
+
+        // 使用 data 屬性保存原始文字，避免脆弱的 DOM 查找
+        if (!exportBtn.hasAttribute('data-original-text')) {
+          exportBtn.setAttribute('data-original-text', exportBtn.textContent);
+        }
+
+        // 設置導出中狀態
+        exportBtn.textContent = UI_MESSAGES.LOGS.EXPORTING;
+
+        // 發送訊息給 Background
+        const response = await chrome.runtime.sendMessage({
+          action: 'exportDebugLogs',
+          format: 'json',
+        });
+
+        if (!response) {
+          throw new Error(ERROR_MESSAGES.TECHNICAL.BACKGROUND_NO_RESPONSE);
+        }
+
+        // 檢查 error 屬性 (優先處理明確的錯誤訊息)
+        if (response.error) {
+          throw new Error(response.error);
+        }
+
+        // 檢查 success 欄位
+        if (!response.success) {
+          throw new Error(ERROR_MESSAGES.TECHNICAL.LOG_EXPORT_FAILED);
+        }
+
+        const { filename, content, mimeType, count } = response.data;
+
+        // 觸發下載
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = filename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+
+        statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
+        statusEl.className = 'status-message success';
+
+        // 3秒後清除成功訊息
+        setTimeout(() => {
+          statusEl.textContent = '';
+          statusEl.className = 'status-message';
+        }, 3000);
+      } catch (err) {
+        Logger.error('Log export failed', err);
+        // 安全地提取錯誤訊息
+        const rawMsg = err?.message ?? String(err) ?? 'Unknown error';
+        // 使用 textContent 防止 XSS，無需 escapeHtml
+        const errorMessage = UI_MESSAGES.LOGS.EXPORT_FAILED(rawMsg);
+        statusEl.textContent = errorMessage;
+        statusEl.className = 'status-message error';
+
+        // 5秒後清除錯誤訊息（給用戶更多時間閱讀）
+        setTimeout(() => {
+          statusEl.textContent = '';
+          statusEl.className = 'status-message';
+        }, 5000);
+      } finally {
+        exportBtn.disabled = false;
+        // 恢復按鈕文字內容
+        if (exportBtn.hasAttribute('data-original-text')) {
+          exportBtn.textContent = exportBtn.getAttribute('data-original-text');
+        }
+      }
+    });
   }
 }

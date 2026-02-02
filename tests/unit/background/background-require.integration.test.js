@@ -242,4 +242,81 @@ describe('scripts/background.js require integration', () => {
 
   // 備註：checkPageStatus 路徑較重，已由其他單元測試覆蓋。
   // 這裡側重於初始化（onInstalled）與開頁動作（openNotionPage）的真實路徑，以增進 scripts 覆蓋率。
+
+  test('onMessage(exportDebugLogs) should handle async export and return structured response', async () => {
+    const mockExportLogs = jest.fn().mockReturnValue({
+      filename: 'test.json',
+      content: '{}',
+      mimeType: 'application/json',
+      count: 0,
+    });
+
+    jest.isolateModules(() => {
+      // Mock LogExporter specifically for this isolation
+      jest.doMock('../../../scripts/utils/LogExporter.js', () => ({
+        LogExporter: {
+          exportLogs: mockExportLogs,
+        },
+      }));
+
+      // Require background to register listeners with mocked dependencies
+      const bg = require('../../../scripts/background.js');
+      bg._test?.clearCleanupInterval();
+    });
+
+    const sendResponse = jest.fn();
+    const sender = { id: 'test-id' };
+
+    // Emit message
+    chrome.runtime.onMessage._emit(
+      { action: 'exportDebugLogs', format: 'json' },
+      sender,
+      sendResponse
+    );
+
+    await flushPromises();
+
+    // Expect exportLogs to be called
+    expect(mockExportLogs).toHaveBeenCalledWith({ format: 'json' });
+
+    // Expect successful structured response
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: true,
+      data: {
+        filename: 'test.json',
+        content: '{}',
+        mimeType: 'application/json',
+        count: 0,
+      },
+    });
+  });
+
+  test('onMessage(exportDebugLogs) should handle errors gracefully', async () => {
+    const mockExportLogs = jest.fn().mockImplementation(() => {
+      throw new Error('Export failed');
+    });
+
+    jest.isolateModules(() => {
+      jest.doMock('../../../scripts/utils/LogExporter.js', () => ({
+        LogExporter: {
+          exportLogs: mockExportLogs,
+        },
+      }));
+
+      const bg = require('../../../scripts/background.js');
+      bg._test?.clearCleanupInterval();
+    });
+
+    const sendResponse = jest.fn();
+    chrome.runtime.onMessage._emit({ action: 'exportDebugLogs', format: 'json' }, {}, sendResponse);
+
+    await flushPromises();
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
+      })
+    );
+  });
 });

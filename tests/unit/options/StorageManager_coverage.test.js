@@ -135,9 +135,13 @@ describe('StorageManager Branch Coverage', () => {
       storageManager.showDataStatus(`${unsafeSvg} 危險內容`, 'error');
 
       const iconSpan = storageManager.elements.dataStatus.querySelector('.status-icon');
-      // 驗證 iconSpan 是否不存在（或者是空標籤，取決於實作）
-      // 根據 code: if (safeIcon) {...}, 若 safeIcon 為空則不建立 iconSpan
-      expect(iconSpan).toBeNull();
+      // 根據代碼邏輯，不安全的 SVG 會被過濾掉，然後因為 type='error'，會使用預設的錯誤圖標 (UI_ICONS.ERROR)
+      // 所以這裡我們應該期望看到一個 iconSpan，而不是 null
+      expect(iconSpan).not.toBeNull();
+      // 驗證它是一個 span
+      expect(iconSpan.tagName).toBe('SPAN');
+      // 可以進一步驗證它包含預設錯誤圖標的特徵 (svg)
+      expect(iconSpan.innerHTML).toContain('<svg');
     });
 
     test('應處理包含多行文本的消息 (\n)', () => {
@@ -160,7 +164,7 @@ describe('StorageManager Branch Coverage', () => {
       storageManager.optimizationPlan = null;
       await storageManager.executeOptimization();
 
-      expect(storageManager.elements.dataStatus.textContent).toContain('沒有優化計劃可執行');
+      expect(storageManager.elements.dataStatus.textContent).toContain('沒有重整計劃可執行');
     });
 
     test('不需要更新數據時應跳過 chrome.storage.local.set', async () => {

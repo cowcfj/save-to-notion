@@ -4,6 +4,7 @@
 /* global document */
 import { DataSourceManager } from '../../../scripts/options/DataSourceManager.js';
 import { UIManager } from '../../../scripts/options/UIManager.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/messages.js';
 
 // Mock dependencies
 jest.mock('../../../scripts/options/UIManager.js');
@@ -56,7 +57,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('invalid_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('請先在設定頁面配置 Notion API Key'),
+        expect.stringContaining(ERROR_MESSAGES.PATTERNS['API Key']),
         'error'
       );
     });
@@ -67,7 +68,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('secret_test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('網路連線異常'),
+        expect.stringContaining(ERROR_MESSAGES.PATTERNS['Network error'].split('，')[0]),
         'error'
       );
     });
@@ -294,7 +295,7 @@ describe('DataSourceManager', () => {
 
       expect(document.getElementById('database-id').value).toBe('db-123');
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        '資料來源已選擇，請點擊保存設置',
+        UI_MESSAGES.DATA_SOURCE.SELECT_REMINDER,
         'info'
       );
     });
@@ -320,7 +321,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('permission_denied_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('無法存取此頁面內容'),
+        expect.stringContaining('無法存取'), // 簡化匹配，甚至可以用 constants
         'error'
       );
     });
@@ -336,7 +337,7 @@ describe('DataSourceManager', () => {
 
       // sanitizeApiError 會正確識別 Internal Server Error 為服務不可用錯誤
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('Notion 服務暫時不可用'),
+        expect.stringContaining(ERROR_MESSAGES.PATTERNS['Internal Server Error']),
         'error'
       );
     });
@@ -352,7 +353,7 @@ describe('DataSourceManager', () => {
 
       // 應自動識別為 Internal Server Error 並翻譯
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('Notion 服務暫時不可用'),
+        expect.stringContaining(ERROR_MESSAGES.PATTERNS['Internal Server Error']),
         'error'
       );
     });
@@ -367,7 +368,7 @@ describe('DataSourceManager', () => {
 
       expect(result).toEqual([]);
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('未找到任何保存目標'),
+        expect.stringContaining(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND),
         'error'
       );
     });
@@ -381,7 +382,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('test_key', 'nonexistent');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('未找到 "nonexistent"'),
+        expect.stringContaining(UI_MESSAGES.DATA_SOURCE.NO_RESULT('nonexistent')),
         'info'
       );
     });
@@ -428,7 +429,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('未找到可用的保存目標'),
+        expect.stringContaining(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND),
         'error'
       );
     });

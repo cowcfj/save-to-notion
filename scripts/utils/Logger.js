@@ -7,9 +7,14 @@
  * @module Logger
  */
 
+import { LogBuffer } from './LogBuffer.js';
+import { LogSanitizer } from './LogSanitizer.js';
+
 // 內部狀態
 let _debugEnabled = false;
 let _isInitialized = false;
+// 背景環境下的日誌緩衝區 (Singleton)
+let _logBuffer = null;
 
 // 日誌級別常量
 const LOG_LEVELS = {
@@ -19,6 +24,8 @@ const LOG_LEVELS = {
   WARN: 3,
   ERROR: 4,
 };
+
+const DEFAULT_BUFFER_CAPACITY = 500;
 
 // 環境檢測
 // 檢查是否在 Chrome 擴展環境中
@@ -99,6 +106,48 @@ function sendToBackground(level, message, args) {
 }
 
 /**
+ * 寫入 LogBuffer (僅 Background 有效)
+ * @param {string} level
+ * @param {string} message
+ * @param {Array} args
+ */
+function writeToBuffer(level, message, args) {
+  if (_logBuffer) {
+    try {
+      // 提取第一個參數作為 context (如果是對象)，符合導出規格
+      // 如果 args[0] 不是對象，則視為普通參數放入 details
+      let context = {};
+
+      if (args.length > 0) {
+        if (typeof args[0] === 'object' && args[0] !== null) {
+          // Use the first object as the main context
+          context = { ...args[0] };
+          // Collect any remaining arguments into context.details
+          if (args.length > 1) {
+            context.details = args.slice(1);
+          }
+        } else {
+          // If first arg is not an object, treat all args as details
+          context = { details: args };
+        }
+      }
+
+      // 即時脫敏：確保存儲在 LogBuffer 中的數據是安全的
+      const safeEntry = LogSanitizer.sanitizeEntry(String(message), context);
+
+      _logBuffer.push({
+        level,
+        source: 'background', // 暫時假設都在 background 寫入，content script 透過 sendToBackground 過來
+        message: safeEntry.message,
+        context: safeEntry.context,
+      });
+    } catch (err) {
+      console.error('[Logger] Failed to write to buffer', err);
+    }
+  }
+}
+
+/**
  * 初始化調試狀態
  * 優先級：
  * 1. Manifest version_name (包含 'dev')
@@ -146,6 +195,11 @@ function initDebugState() {
     }
   }
 
+  // 初始化 LogBuffer (僅 Background)
+  if (isBackground && !_logBuffer) {
+    _logBuffer = new LogBuffer(DEFAULT_BUFFER_CAPACITY);
+  }
+
   _isInitialized = true;
 }
 
@@ -169,6 +223,7 @@ export default class Logger {
     // skipcq: JS-0002
     console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
     sendToBackground('debug', message, args);
+    writeToBuffer('debug', message, args);
   }
 
   static log(message, ...args) {
@@ -176,9 +231,9 @@ export default class Logger {
       return;
     }
 
-    // skipcq: JS-0002
     console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
     sendToBackground('log', message, args);
+    writeToBuffer('log', message, args);
   }
 
   static info(message, ...args) {
@@ -186,9 +241,9 @@ export default class Logger {
       return;
     }
 
-    // skipcq: JS-0002
     console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
     sendToBackground('info', message, args);
+    writeToBuffer('info', message, args);
   }
 
   static warn(message, ...args) {
@@ -196,6 +251,7 @@ export default class Logger {
     // skipcq: JS-0002
     console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
     sendToBackground('warn', message, args);
+    writeToBuffer('warn', message, args);
   }
 
   static error(message, ...args) {
@@ -208,6 +264,37 @@ export default class Logger {
     // Error 總是輸出
     console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
     sendToBackground('error', message, args);
+    writeToBuffer('error', message, args);
+  }
+
+  /**
+   * 獲取日誌緩衝區實例 (供 LogExporter 使用)
+   */
+  static getBuffer() {
+    return _logBuffer;
+  }
+
+  /**
+   * 直接寫入日誌到緩衝區 (供 devLogSink 使用，保留原始來源和時間戳)
+   * @param {Object} logEntry
+   */
+  static addLogToBuffer({ level, message, context, source, timestamp }) {
+    if (_logBuffer) {
+      try {
+        // 即時脫敏
+        const safeEntry = LogSanitizer.sanitizeEntry(String(message), context);
+
+        _logBuffer.push({
+          level,
+          source: source || 'unknown',
+          message: safeEntry.message,
+          context: safeEntry.context,
+          timestamp: timestamp || new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error('[Logger] Failed to add external log to buffer', { error: err });
+      }
+    }
   }
 }
 

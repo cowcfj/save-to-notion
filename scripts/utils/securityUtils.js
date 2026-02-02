@@ -9,6 +9,7 @@
 /* global chrome */
 
 import Logger from './Logger.js';
+import { ERROR_MESSAGES } from '../config/messages.js';
 
 // ============================================================================
 // URL 驗證函數
@@ -103,101 +104,13 @@ export function validateContentScriptRequest(sender) {
 // 日誌安全函數（防止敏感資訊洩露）
 // ============================================================================
 
-/**
- * 清理 URL 用於日誌記錄，移除可能包含敏感資訊的部分
- *
- * 安全考量：
- * - 移除查詢參數（可能包含 tokens、signatures、API keys）
- * - 移除片段標識符（fragment）
- * - 僅保留協議、主機名和路徑
- *
- * @param {string} url - 原始 URL
- * @returns {string} 清理後的 URL（僅保留協議、主機名和路徑）
- *
- * @example
- * // 敏感 URL（包含 token）
- * sanitizeUrlForLogging('https://api.example.com/data?token=secret123&sig=xyz')
- * // 返回: 'https://api.example.com/data'
- *
- * @example
- * // 無效 URL
- * sanitizeUrlForLogging('not-a-valid-url')
- * // 返回: '[invalid-url]'
- */
-export function sanitizeUrlForLogging(url) {
-  if (!url || typeof url !== 'string') {
-    return '[empty-url]';
-  }
+// [REMOVED] sanitizeUrlForLogging moved to LogSanitizer.js
+import { sanitizeUrlForLogging } from './LogSanitizer.js';
+export { sanitizeUrlForLogging }; // Re-export for compatibility if needed
 
-  try {
-    const urlObj = new URL(url);
-    // 只返回協議、主機名和路徑，移除查詢參數和片段
-    return `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
-  } catch {
-    // 如果無法解析，返回通用描述（避免洩露無效 URL 內容）
-    return '[invalid-url]';
-  }
-}
+// [REMOVED] maskSensitiveString moved to LogSanitizer.js
 
-/**
- * 遮蔽字串中的敏感部分（如 API keys、tokens）
- *
- * @param {string} text - 原始文字
- * @param {number} visibleStart - 開始顯示的字元數（默認 4）
- * @param {number} visibleEnd - 結尾顯示的字元數（默認 4）
- * @returns {string} 遮蔽後的文字
- *
- * @example
- * maskSensitiveString('secret-token-example-1234567890')
- * // 返回: 'secr***7890'
- */
-export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
-  if (!text || typeof text !== 'string') {
-    return '[empty]';
-  }
-
-  if (text.length <= visibleStart + visibleEnd) {
-    // 太短無法遮蔽，全部遮蔽
-    return '***';
-  }
-
-  const start = text.substring(0, visibleStart);
-  const end = text.substring(text.length - visibleEnd);
-  return `${start}***${end}`;
-}
-
-/**
- * 轉義 HTML 特殊字符，防止 XSS 攻擊
- *
- * 當字串可能被用於 innerHTML 或其他 HTML 上下文時，
- * 必須先經過此函數轉義，以防止惡意腳本執行。
- *
- * @param {string} text - 原始文字
- * @returns {string} 轉義後的安全字串
- *
- * @example
- * escapeHtml('<script>alert("XSS")</script>')
- * // 返回: '&lt;script&gt;alert("XSS")&lt;/script&gt;'
- *
- * @example
- * escapeHtml('發生錯誤<script>惡意代碼</script>')
- * // 返回: '發生錯誤&lt;script&gt;惡意代碼&lt;/script&gt;'
- */
-export function escapeHtml(text) {
-  if (!text || typeof text !== 'string') {
-    return '';
-  }
-
-  const htmlEntities = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#x27;',
-  };
-
-  return text.replace(/[&<>"']/g, char => htmlEntities[char]);
-}
+// [REMOVED] escapeHtml as it is no longer needed with DOM API refactoring
 
 /**
  * 清理外部 API 錯誤訊息，防止洩露技術細節並標準化錯誤分類
@@ -319,10 +232,9 @@ export function sanitizeApiError(apiError, context = 'operation') {
 
   // 9. 如果是已知友善字串（兼容性墊片）：
   // 如果字串中包含中文字符，視為已經是友善訊息
-  // [安全性修復] 即使是中文訊息，也必須轉義 HTML 特殊字符，
-  // 防止攻擊者構造如 "發生錯誤<script>...</script>" 的惡意字串繞過安全檢查
+  // [安全更正] 因 UI 已全面改用 textContent，此處不再需要 escapeHtml
   if (/[\u{4e00}-\u{9fa5}]/u.test(errorMessage)) {
-    return escapeHtml(errorMessage);
+    return errorMessage;
   }
 
   // 10. 兜底處理：將不可識別的技術訊息清洗為通用標籤
@@ -583,3 +495,45 @@ export function separateIconAndText(message) {
     text: message,
   };
 }
+
+/**
+ * 創建安全的 SVG 圖示元素
+ * 使用 DOMParser 解析 SVG 字串，避免直接使用 innerHTML
+ *
+ * @param {string} svgString - SVG 字串
+ * @returns {HTMLElement} 包含 SVG 的 span 元素
+ */
+export const createSafeIcon = svgString => {
+  if (!svgString || !svgString.startsWith('<svg')) {
+    const span = document.createElement('span');
+    span.textContent = svgString || '';
+    return span;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+  const svgElement = doc.documentElement;
+
+  if (svgElement.tagName === 'parsererror') {
+    Logger.warn(ERROR_MESSAGES.TECHNICAL.SVG_PARSE_ERROR, {
+      action: 'create_safe_icon',
+      reason: 'xml_parser_error',
+      content: svgString,
+    });
+    return document.createElement('span');
+  }
+
+  // 額外的安全性檢查：確保解析出的確實是 SVG 元素
+  if (svgElement.tagName !== 'svg') {
+    Logger.warn('[Security] Parsed element is not an SVG', {
+      action: 'create_safe_icon',
+      content: svgString,
+    });
+    return document.createElement('span');
+  }
+
+  const span = document.createElement('span');
+  span.className = 'icon-wrapper';
+  span.appendChild(svgElement);
+  return span;
+};

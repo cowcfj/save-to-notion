@@ -322,7 +322,7 @@ describe('options.js', () => {
       initOptions();
       expect(Logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('無法獲取應用程式版本號'),
-        expect.any(Error)
+        expect.objectContaining({ error: expect.any(Error) })
       );
     });
 
@@ -355,6 +355,86 @@ describe('options.js', () => {
       navItem.click();
       expect(navItem.classList.contains('active')).toBe(true);
       expect(section.classList.contains('active')).toBe(true);
+    });
+  });
+
+  describe('Log Export', () => {
+    let mockSendMessage = null;
+
+    beforeEach(() => {
+      document.body.innerHTML = `
+        <button id="export-logs-button">導出日誌</button>
+        <div id="export-status"></div>
+      `;
+
+      mockSendMessage = jest.fn();
+      global.chrome.runtime.sendMessage = mockSendMessage;
+    });
+
+    it('should update button text while exporting and restore it afterwards', async () => {
+      // Mock successful response
+      mockSendMessage.mockResolvedValue({
+        success: true,
+        data: {
+          filename: 'test.log',
+          content: 'log content',
+          mimeType: 'text/plain',
+          count: 10,
+        },
+      });
+
+      // Mock URL.createObjectURL and URL.revokeObjectURL
+      global.URL.createObjectURL = jest.fn(() => 'blob:url');
+      global.URL.revokeObjectURL = jest.fn();
+
+      // Initialize to attach event listeners
+      initOptions();
+
+      const exportBtn = document.getElementById('export-logs-button');
+
+      // Trigger click
+      exportBtn.click();
+
+      // Check intermediate state immediately after click (before await resolves)
+      expect(exportBtn.textContent).toBe('導出中...');
+      expect(exportBtn.getAttribute('data-original-text')).toBe('導出日誌');
+      expect(exportBtn.disabled).toBe(true);
+
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Check final state
+      expect(exportBtn.textContent).toBe('導出日誌');
+      expect(exportBtn.disabled).toBe(false);
+
+      const statusEl = document.getElementById('export-status');
+      expect(statusEl.textContent).toContain('已成功導出 10 條日誌');
+    });
+
+    it('should restore button text even on error', async () => {
+      // Mock error response
+      mockSendMessage.mockRejectedValue(new Error('Network error'));
+
+      // Initialize to attach event listeners
+      initOptions();
+
+      const exportBtn = document.getElementById('export-logs-button');
+
+      // Trigger click
+      exportBtn.click();
+
+      // Check intermediate state
+      expect(exportBtn.textContent).toBe('導出中...');
+
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Check final state
+      expect(exportBtn.textContent).toBe('導出日誌');
+      expect(exportBtn.disabled).toBe(false);
+
+      const statusEl = document.getElementById('export-status');
+      expect(statusEl.textContent).toContain('Network error');
     });
   });
 });

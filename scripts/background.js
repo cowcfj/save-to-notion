@@ -9,6 +9,7 @@
 import './utils/Logger.js'; // Side-effect import to register self.Logger
 
 import { normalizeUrl } from './utils/urlUtils.js';
+
 import { TAB_SERVICE } from './config/constants.js';
 
 // Import Services
@@ -27,6 +28,7 @@ import { MessageHandler } from './background/handlers/MessageHandler.js';
 import { createSaveHandlers } from './background/handlers/saveHandlers.js';
 import { createHighlightHandlers } from './background/handlers/highlightHandlers.js';
 import { createMigrationHandlers } from './background/handlers/migrationHandlers.js';
+import { createLogHandlers } from './background/handlers/logHandlers.js';
 
 // ==========================================
 // SERVICE INITIALIZATION
@@ -60,6 +62,7 @@ const actionHandlers = {
     storageService,
     notionService,
   }),
+  ...createLogHandlers(),
 };
 
 messageHandler.registerAll(actionHandlers);
@@ -109,7 +112,10 @@ chrome.runtime.onInstalled.addListener(details => {
  */
 async function handleExtensionUpdate(previousVersion) {
   const currentVersion = chrome.runtime.getManifest().version;
-  Logger.info(`擴展已更新: ${previousVersion} → ${currentVersion}`);
+  Logger.info('擴展已更新', {
+    previousVersion,
+    currentVersion,
+  });
 
   // 檢查是否需要顯示更新說明
   if (shouldShowUpdateNotification(previousVersion, currentVersion)) {
