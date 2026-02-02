@@ -86,11 +86,11 @@ export class LogSanitizer {
         name: value.name || 'Error',
       };
 
-      // 嘗試保留其他自定義屬性
-      const customProps = this._sanitizeValue({ ...value }, depth + 1);
-      if (customProps && typeof customProps === 'object') {
-        const { message: _message, stack: _stack, name: _name, ...rest } = customProps; // 排除已 sanitize 的欄位，避免覆蓋
-        Object.assign(sanitized, rest);
+      // 嘗試保留其他自定義屬性 (手動迭代以避免展開運算符的問題)
+      for (const key of Object.keys(value)) {
+        if (key !== 'message' && key !== 'stack' && key !== 'name') {
+          sanitized[key] = this._sanitizeValue(value[key], depth + 1);
+        }
       }
 
       // 強制覆蓋核心屬性以確保正確脫敏

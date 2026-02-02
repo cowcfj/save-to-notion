@@ -99,6 +99,8 @@ describe('LogSanitizer', () => {
     test('should preserve Error object properties', () => {
       const error = new Error('Something went wrong');
       error.stack = 'Error: Something went wrong\n    at Test (test.js:1:1)';
+      error.code = 'ERR_TEST';
+      error.details = 'Extra info';
 
       const logs = [
         {
@@ -113,6 +115,10 @@ describe('LogSanitizer', () => {
       expect(sanitizedError).toHaveProperty('message', 'Something went wrong');
       expect(sanitizedError).toHaveProperty('stack');
       expect(sanitizedError).toHaveProperty('name', 'Error');
+
+      // Verify custom properties
+      expect(sanitizedError).toHaveProperty('code', 'ERR_TEST');
+      expect(sanitizedError).toHaveProperty('details', 'Extra info');
     });
 
     test('should sanitize title and name fields', () => {
