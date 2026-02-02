@@ -26,7 +26,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
         const result = LogExporter.exportLogs({ format: message.format });
         sendResponse({
           success: true,
-          ...result,
+          data: result,
         });
         return true;
       },
@@ -75,7 +75,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       // Assert
       expect(mockSendResponse).toHaveBeenCalledWith({
         success: true,
-        ...mockResult,
+        data: mockResult,
       });
       expect(Logger.error).not.toHaveBeenCalled();
     });
