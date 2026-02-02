@@ -27,12 +27,42 @@ export class LogBuffer {
    */
   push(entry) {
     // 確保有時間戳
-    // 確保有時間戳
     const timestamp = entry.timestamp || new Date().toISOString();
-    const entryWithTimestamp = {
+    let entryWithTimestamp = {
       ...entry,
       timestamp,
     };
+
+    // [Memory Safety] 檢查單條日誌大小
+    // 簡單估算：JSON序列化長度。限制為 25KB (約 25000 字符)
+    // 這是一個折衷方案：避免 buffer 存儲過大對象，但會消耗一次 serialization 成本
+    const MAX_ENTRY_SIZE = 25000;
+
+    try {
+      const serialized = JSON.stringify(entryWithTimestamp);
+      if (serialized.length > MAX_ENTRY_SIZE) {
+        // 如果過大，移除 context 並標記
+        entryWithTimestamp = {
+          level: entry.level,
+          timestamp,
+          message: entry.message,
+          source: entry.source,
+          context: {
+            truncated: true,
+            reason: 'entry_exceeds_size_limit',
+            originalSize: serialized.length,
+          },
+        };
+      }
+    } catch (_err) {
+      // 序列化失敗（可能已經已經被 LogSanitizer 處理過所以不該發生，但為了安全）
+      entryWithTimestamp = {
+        ...entryWithTimestamp,
+        context: {
+          error: 'serialization_failed_during_size_check',
+        },
+      };
+    }
 
     // 計算寫入位置：(head + size) % capacity
     // 假如滿了，(head + size) 會剛好指回 head 所在位置，進行覆蓋
@@ -56,7 +86,9 @@ export class LogBuffer {
     const result = new Array(this.size);
     for (let i = 0; i < this.size; i++) {
       const index = (this.head + i) % this.capacity;
-      // 返回淺拷貝
+      // [Security] 返回副本防止外部修改內部 buffer
+      // 雖然是淺拷貝，但對於日誌導出用途通常足夠。
+      // 若需要完全不可變，需要做 Deep Clone，但考量效能暫時維持淺拷貝
       result[i] = { ...this.buffer[index] };
     }
     return result;
