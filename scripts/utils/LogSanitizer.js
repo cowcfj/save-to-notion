@@ -1,5 +1,3 @@
-import { maskSensitiveString, sanitizeUrlForLogging } from './securityUtils.js';
-
 const MAX_DEPTH = 3;
 const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 
@@ -16,6 +14,46 @@ const SAFE_HEADERS = new Set([
   'accept-language',
   'cache-control',
 ]);
+
+/**
+ * 清理 URL 用於日誌記錄，移除可能包含敏感資訊的部分
+ * @param {string} url - 原始 URL
+ * @returns {string} 清理後的 URL
+ */
+export function sanitizeUrlForLogging(url) {
+  if (!url || typeof url !== 'string') {
+    return '[empty-url]';
+  }
+
+  try {
+    const urlObj = new URL(url);
+    // 只返回協議、主機名和路徑，移除查詢參數和片段
+    return `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+  } catch {
+    // 如果無法解析，返回通用描述（避免洩露無效 URL 內容）
+    return '[invalid-url]';
+  }
+}
+
+/**
+ * 遮蔽字串中的敏感部分
+ * @param {string} text
+ * @param {number} visibleStart
+ * @param {number} visibleEnd
+ */
+export function maskSensitiveString(text, visibleStart = 4, visibleEnd = 4) {
+  if (!text || typeof text !== 'string') {
+    return '[empty]';
+  }
+
+  if (text.length <= visibleStart + visibleEnd) {
+    return '***';
+  }
+
+  const start = text.substring(0, visibleStart);
+  const end = text.substring(text.length - visibleEnd);
+  return `${start}***${end}`;
+}
 
 export class LogSanitizer {
   /**

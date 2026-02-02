@@ -1,6 +1,7 @@
 /* global Logger */
 import { ERROR_MESSAGES } from '../config/messages.js';
-import { escapeHtml } from './securityUtils.js';
+// [REMOVED] escapeHtml as it is no longer needed
+// import { escapeHtml } from './securityUtils.js';
 
 /**
  * 統一錯誤處理系統
@@ -169,9 +170,9 @@ class ErrorHandler {
     const message = error instanceof Error ? error.message : String(error);
 
     // [安全性修復] 如果訊息已經包含中文字符，說明已經是友善訊息
-    // 但仍需轉義 HTML 特殊字符，防止攻擊者構造如 "發生錯誤<script>...</script>" 的惡意字串
+    // 因 UI 已全面改用 textContent，此處不再需要 escapeHtml
     if (/[\u{4e00}-\u{9fa5}]/u.test(message)) {
-      return escapeHtml(message);
+      return message;
     }
 
     // [精確匹配]
