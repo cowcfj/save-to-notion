@@ -77,9 +77,6 @@ export class UIManager {
           case 'warning':
             icon = UI_ICONS.WARNING;
             break;
-          case 'info':
-            icon = UI_ICONS.INFO;
-            break;
           default:
             icon = UI_ICONS.INFO;
             break;
