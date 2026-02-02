@@ -1,8 +1,8 @@
 import { LogExporter } from '../../utils/LogExporter.js';
 
-export const exportDebugLogs = async (message, sender, sendResponse) => {
+export const exportDebugLogs = (message, sender, sendResponse) => {
   // LogExporter.exportLogs 內含即時脫敏邏輯，MessageHandler 將處理任何未預期的拋錯
-  const result = await LogExporter.exportLogs({ format: message.format });
+  const result = LogExporter.exportLogs({ format: message.format });
   sendResponse({
     success: true,
     data: result,
