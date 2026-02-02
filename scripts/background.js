@@ -63,8 +63,23 @@ const actionHandlers = {
   }),
   // Log Export Handler
   exportDebugLogs: (message, sender, sendResponse) => {
-    const result = LogExporter.exportLogs({ format: message.format });
-    sendResponse(result);
+    try {
+      const result = LogExporter.exportLogs({ format: message.format });
+      sendResponse({
+        success: true,
+        ...result,
+      });
+    } catch (error) {
+      Logger.error('日誌導出失敗', {
+        action: 'exportDebugLogs',
+        format: message.format,
+        error: error.message,
+      });
+      sendResponse({
+        success: false,
+        error: error.message || '日誌導出失敗，請稍後再試',
+      });
+    }
   },
 };
 
@@ -115,7 +130,10 @@ chrome.runtime.onInstalled.addListener(details => {
  */
 async function handleExtensionUpdate(previousVersion) {
   const currentVersion = chrome.runtime.getManifest().version;
-  Logger.info(`擴展已更新: ${previousVersion} → ${currentVersion}`);
+  Logger.info('擴展已更新', {
+    previousVersion,
+    currentVersion,
+  });
 
   // 檢查是否需要顯示更新說明
   if (shouldShowUpdateNotification(previousVersion, currentVersion)) {

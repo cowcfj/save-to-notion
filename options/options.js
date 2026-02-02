@@ -332,7 +332,12 @@ function setupLogExport() {
         });
 
         if (!response) {
-          throw new Error('No response from background service');
+          throw new Error('未收到 Background 回應');
+        }
+
+        // 檢查 success 欄位
+        if (!response.success) {
+          throw new Error(response.error || '日誌導出失敗');
         }
 
         const { filename, content, mimeType, count } = response;
