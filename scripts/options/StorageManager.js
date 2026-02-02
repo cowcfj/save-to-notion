@@ -622,9 +622,7 @@ export class StorageManager {
     const warningDiv = document.createElement('div');
     warningDiv.className = 'warning-notice';
     // warnIcon 是受信任的 SVG 字串
-    const iconSpan = document.createElement('span');
-    iconSpan.appendChild(createSafeIcon(warnIcon).firstChild); // Unwrap helper span if needed or just use helper
-    warningDiv.appendChild(iconSpan);
+    warningDiv.appendChild(createSafeIcon(warnIcon));
 
     // " 重要提醒："
     warningDiv.appendChild(document.createTextNode(' '));
