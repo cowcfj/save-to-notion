@@ -25,6 +25,8 @@ const LOG_LEVELS = {
   ERROR: 4,
 };
 
+const DEFAULT_BUFFER_CAPACITY = 500;
+
 // 環境檢測
 // 檢查是否在 Chrome 擴展環境中
 const isExtensionContext =
@@ -52,6 +54,7 @@ function formatMessage(level, args) {
       [LOG_LEVELS.INFO]: 'ℹ️ [INFO]',
       [LOG_LEVELS.WARN]: '⚠️ [WARN]',
       [LOG_LEVELS.ERROR]: '❌ [ERROR]',
+      // ...
     }[level] || '[UNKNOWN]';
 
   return [`${levelPrefix} ${timestamp}:`, ...args];
@@ -195,7 +198,7 @@ function initDebugState() {
 
   // 初始化 LogBuffer (僅 Background)
   if (isBackground && !_logBuffer) {
-    _logBuffer = new LogBuffer(500); // Default capacity
+    _logBuffer = new LogBuffer(DEFAULT_BUFFER_CAPACITY);
   }
 
   _isInitialized = true;
