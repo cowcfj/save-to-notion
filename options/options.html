@@ -697,6 +697,36 @@
               </div>
               <p class="help-text">將前端操作日誌轉發到背景頁面 console，僅供開發排查使用。</p>
             </div>
+
+            <hr class="divider" />
+
+            <div class="setting-item">
+              <h3>導出日誌</h3>
+              <p class="help-text">
+                將最近的系統運作記錄導出為 JSON 文件，以便進行問題診斷。
+              </p>
+              <div class="mt-12">
+                <button id="export-logs-button" class="btn-secondary">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="icon-svg"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  導出偵錯日誌
+                </button>
+              </div>
+              <p id="export-status" class="status-message"></p>
+            </div>
           </div>
         </section>
 

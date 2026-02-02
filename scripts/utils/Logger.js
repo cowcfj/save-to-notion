@@ -7,9 +7,13 @@
  * @module Logger
  */
 
+import { LogBuffer } from './LogBuffer.js';
+
 // 內部狀態
 let _debugEnabled = false;
 let _isInitialized = false;
+// 背景環境下的日誌緩衝區 (Singleton)
+let _logBuffer = null;
 
 // 日誌級別常量
 const LOG_LEVELS = {
@@ -99,6 +103,37 @@ function sendToBackground(level, message, args) {
 }
 
 /**
+ * 寫入 LogBuffer (僅 Background 有效)
+ * @param {string} level
+ * @param {string} message
+ * @param {Array} args
+ */
+function writeToBuffer(level, message, args) {
+  if (_logBuffer) {
+    try {
+      // 提取第一個參數作為 context (如果是對象)，符合導出規格
+      // 如果 args[0] 不是對象，則視為普通參數放入 details
+      let context = {};
+
+      if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
+        context = args[0];
+      } else if (args.length > 0) {
+        context = { details: args };
+      }
+
+      _logBuffer.push({
+        level,
+        source: 'background', // 暫時假設都在 background 寫入，content script 透過 sendToBackground 過來
+        message: String(message),
+        context,
+      });
+    } catch (err) {
+      console.error('[Logger] Failed to write to buffer', err);
+    }
+  }
+}
+
+/**
  * 初始化調試狀態
  * 優先級：
  * 1. Manifest version_name (包含 'dev')
@@ -146,6 +181,11 @@ function initDebugState() {
     }
   }
 
+  // 初始化 LogBuffer (僅 Background)
+  if (isBackground && !_logBuffer) {
+    _logBuffer = new LogBuffer(500); // Default capacity
+  }
+
   _isInitialized = true;
 }
 
@@ -169,6 +209,7 @@ export default class Logger {
     // skipcq: JS-0002
     console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
     sendToBackground('debug', message, args);
+    writeToBuffer('debug', message, args);
   }
 
   static log(message, ...args) {
@@ -176,9 +217,9 @@ export default class Logger {
       return;
     }
 
-    // skipcq: JS-0002
     console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
     sendToBackground('log', message, args);
+    writeToBuffer('log', message, args);
   }
 
   static info(message, ...args) {
@@ -186,9 +227,9 @@ export default class Logger {
       return;
     }
 
-    // skipcq: JS-0002
     console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
     sendToBackground('info', message, args);
+    writeToBuffer('info', message, args);
   }
 
   static warn(message, ...args) {
@@ -196,6 +237,7 @@ export default class Logger {
     // skipcq: JS-0002
     console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
     sendToBackground('warn', message, args);
+    writeToBuffer('warn', message, args);
   }
 
   static error(message, ...args) {
@@ -208,6 +250,14 @@ export default class Logger {
     // Error 總是輸出
     console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
     sendToBackground('error', message, args);
+    writeToBuffer('error', message, args);
+  }
+
+  /**
+   * 獲取日誌緩衝區實例 (供 LogExporter 使用)
+   */
+  static getBuffer() {
+    return _logBuffer;
   }
 }
 

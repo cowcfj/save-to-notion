@@ -9,6 +9,7 @@
 import './utils/Logger.js'; // Side-effect import to register self.Logger
 
 import { normalizeUrl } from './utils/urlUtils.js';
+import { LogExporter } from './utils/LogExporter.js';
 import { TAB_SERVICE } from './config/constants.js';
 
 // Import Services
@@ -60,6 +61,10 @@ const actionHandlers = {
     storageService,
     notionService,
   }),
+  // Log Export Handler
+  exportDebugLogs: message => {
+    return LogExporter.exportLogs({ format: message.format });
+  },
 };
 
 messageHandler.registerAll(actionHandlers);

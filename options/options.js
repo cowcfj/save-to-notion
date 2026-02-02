@@ -73,6 +73,9 @@ export function initOptions() {
 
   // 9. 顯示動態版本號
   displayAppVersion();
+
+  // 10. 設置日誌導出
+  setupLogExport();
 }
 
 document.addEventListener('DOMContentLoaded', initOptions);
@@ -304,5 +307,79 @@ function displayAppVersion() {
   } catch (error) {
     // 如果無法獲取版本號，保持元素隱藏
     Logger.warn('無法獲取應用程式版本號:', error);
+  }
+}
+
+/**
+ * 設置日誌導出
+ */
+function setupLogExport() {
+  const exportBtn = document.getElementById('export-logs-button');
+  const statusEl = document.getElementById('export-status');
+
+  if (exportBtn && statusEl) {
+    exportBtn.addEventListener('click', async () => {
+      try {
+        exportBtn.disabled = true;
+        // const originalText = exportBtn.innerHTML; // 保存原始按鈕內容
+        exportBtn.textContent = '導出中...';
+
+        // 發送訊息給 Background
+        const response = await chrome.runtime.sendMessage({
+          action: 'exportDebugLogs',
+          format: 'json',
+        });
+
+        if (!response) {
+          throw new Error('No response from background service');
+        }
+
+        const { filename, content, mimeType, count } = response;
+
+        // 觸發下載
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = filename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+
+        statusEl.textContent = `✅ 已成功導出 ${count} 條日誌`;
+        statusEl.className = 'status-message success';
+
+        // 3秒後清除成功訊息
+        setTimeout(() => {
+          statusEl.textContent = '';
+          statusEl.className = 'status-message';
+        }, 3000);
+      } catch (err) {
+        Logger.error('Log export failed', err);
+        statusEl.textContent = '❌ 導出失敗，請查看控制台';
+        statusEl.className = 'status-message error';
+      } finally {
+        exportBtn.disabled = false;
+        // 恢復按鈕內容 (SVG + Text)
+        exportBtn.innerHTML = `
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="icon-svg"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  導出偵錯日誌`;
+      }
+    });
   }
 }
