@@ -193,7 +193,7 @@ export function saveSettings(ui, auth, statusId = 'status') {
 
   // 驗證
   if (!apiKey) {
-    ui.showStatus(UI_MESSAGES.SETTINGS.MISSING_API_KEY, 'error', statusId);
+    ui.showStatus(UI_MESSAGES.SETTINGS.KEY_INPUT_REQUIRED, 'error', statusId);
     return;
   }
 

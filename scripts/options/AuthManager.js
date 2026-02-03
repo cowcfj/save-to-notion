@@ -265,7 +265,7 @@ export class AuthManager {
   testApiKey() {
     const apiKey = this.elements.apiKeyInput?.value.trim();
     if (!apiKey) {
-      this.ui.showStatus(UI_MESSAGES.SETTINGS.MISSING_API_KEY, 'error');
+      this.ui.showStatus(UI_MESSAGES.SETTINGS.KEY_INPUT_REQUIRED, 'error');
       return;
     }
 

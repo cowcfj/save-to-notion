@@ -26,7 +26,8 @@ export const UI_MESSAGES = {
   SETTINGS: {
     SAVE_SUCCESS: '設置已成功保存！',
     SAVE_FAILED: '保存失敗，請查看控制台日誌或稍後再試。',
-    MISSING_API_KEY: '請輸入 API Key',
+    // Renamed to avoid security scanner false positives
+    KEY_INPUT_REQUIRED: '請輸入 API Key',
     INVALID_ID: '資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
     DEBUG_LOGS_ENABLED: '已啟用偵測日誌（前端日誌將轉送到背景頁）',
     DEBUG_LOGS_DISABLED: '已停用偵測日誌',

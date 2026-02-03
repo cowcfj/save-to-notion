@@ -145,10 +145,12 @@ async function extractPageContent() {
     let additionalImages = [];
     try {
       // 創建臨時容器來查找圖片
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = content;
+      // 使用 DOMParser 安全解析 HTML 內容，避免直接操作 innerHTML
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(content, 'text/html');
 
-      additionalImages = await ImageCollector.collectAdditionalImages(tempDiv);
+      // ImageCollector 預期一個 Element，傳入 doc.body 即可
+      additionalImages = await ImageCollector.collectAdditionalImages(doc.body);
       Logger.log('額外圖片收集完成', {
         action: 'extractPageContent',
         imageCount: additionalImages.length,
