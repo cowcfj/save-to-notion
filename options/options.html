@@ -564,10 +564,57 @@
             </div>
           </div>
         </div>
+
+        <!-- 常見問題 (FAQ) -->
+        <div class="card">
+          <div class="faq-header">
+            <h3>
+              <svg aria-hidden="true" focusable="false" width="20" height="20" class="icon-svg">
+                <use href="#icon-help" />
+              </svg>
+              常見問題
+            </h3>
+            <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md" target="_blank"
+              class="btn-secondary btn-small">
+              查看完整指南
+            </a>
+          </div>
+
+          <ul class="faq-list">
+            <li class="faq-item">
+              <div class="faq-question">API Key 無法連接？</div>
+              <div class="faq-answer">
+                請確認 Token 格式正確（以 <code class="inline-code">secret_</code> 開頭），並確保網路連接正常。
+              </div>
+            </li>
+            <li class="faq-item">
+              <div class="faq-question">數據庫列表為空？</div>
+              <div class="faq-answer">
+                請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。
+              </div>
+            </li>
+            <li class="faq-item">
+              <div class="faq-question">標註沒有顯示？</div>
+              <div class="faq-answer">請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。</div>
+            </li>
+          </ul>
+
+          <div class="faq-actions">
+            <a href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md#-常見問題-faq" target="_blank"
+              class="btn-primary">
+              <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
+                <use href="#icon-book" />
+              </svg>
+              閱讀完整用戶指南與 FAQ
+            </a>
+          </div>
+        </div>
       </section>
     </main>
   </div>
 
   <!-- 腳本 -->
   <script type="module" src="options.js"></script>
-</body></html>
+</body>
+
+</html>

@@ -466,19 +466,15 @@ export class StorageManager {
       button.classList.add('loading');
       button.disabled = true;
       if (buttonText) {
-        const icon = UI_ICONS.INFO; // 使用資訊或搜索圖標
-        buttonText.textContent = '';
-        buttonText.appendChild(createSafeIcon(icon));
-        buttonText.appendChild(document.createTextNode(' 檢查中...'));
+        // 僅更新文字，保留原有圖標
+        buttonText.textContent = ' 檢查中...';
       }
     } else {
       button.classList.remove('loading');
       button.disabled = false;
       if (buttonText) {
-        buttonText.textContent = '';
-        const defaultIcon = UI_ICONS.INFO; // 使用預設圖標
-        buttonText.appendChild(createSafeIcon(defaultIcon));
-        buttonText.appendChild(document.createTextNode(' 預覽清理效果'));
+        // 僅更新文字，保留原有圖標
+        buttonText.textContent = ' 預覽清理效果';
       }
     }
   }
@@ -492,12 +488,8 @@ export class StorageManager {
 
     if (total > 0 && buttonText) {
       const percentage = Math.round((current / total) * 100);
-      const icon = UI_ICONS.INFO;
-      buttonText.textContent = '';
-      buttonText.appendChild(createSafeIcon(icon));
-      buttonText.appendChild(
-        document.createTextNode(` 檢查中... ${current}/${total} (${percentage}%)`)
-      );
+      // 僅更新文字，避免重複插入圖標
+      buttonText.textContent = ` 檢查中... ${current}/${total} (${percentage}%)`;
     }
   }
 
