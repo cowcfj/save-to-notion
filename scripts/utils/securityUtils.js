@@ -510,8 +510,21 @@ export const createSafeIcon = svgString => {
     return span;
   }
 
+  // Defense in Depth: 在解析前先驗證內容安全性
+  // 這可以防止惡意構造的 SVG 繞過後續處理，或利用解析器的漏洞
+  if (!validateSafeSvg(svgString)) {
+    // validateSafeSvg 內部已經會記錄警告日誌
+    return document.createElement('span');
+  }
+
+  // 確保 SVG 具有 XML 命名空間，這對於 DOMParser ('image/svg+xml') 是必須的
+  let validSvgString = svgString;
+  if (!validSvgString.includes('xmlns=')) {
+    validSvgString = validSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  }
+
   const parser = new DOMParser();
-  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+  const doc = parser.parseFromString(validSvgString, 'image/svg+xml');
   const svgElement = doc.documentElement;
 
   if (svgElement.tagName === 'parsererror') {

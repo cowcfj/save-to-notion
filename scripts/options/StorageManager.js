@@ -257,24 +257,83 @@ export class StorageManager {
         return;
       }
 
-      let icon = ICONS.refresh; // default
+      let iconHtml = ICONS.refresh; // default
       if (state === 'success') {
-        icon = ICONS.check;
+        iconHtml = ICONS.check;
       }
       if (state === 'error') {
-        icon = ICONS.error;
+        iconHtml = ICONS.error;
       }
 
-      // Add spinning class for loading state if needed, or handle via CSS
+      // Add spinning class for loading state
       if (state === 'loading') {
-        // You might want to add a spinning class to the svg if you have one
-        // icon = icon.replace('class="icon-svg"', 'class="icon-svg spin"');
+        // 簡單的替換來添加旋轉類
+        iconHtml = iconHtml.replace('<svg', '<svg class="icon-svg spin"');
+      } else if (!iconHtml.includes('class="icon-svg"')) {
+        // 確保有 icon-svg 類（如果不是 loading 狀態）
+        iconHtml = iconHtml.replace('<svg', '<svg class="icon-svg"');
       }
 
-      // Use safe DOM construction instead of innerHTML
-      button.textContent = ''; // Clear
-      button.appendChild(createSafeIcon(icon));
-      button.appendChild(document.createTextNode(` ${text}`));
+      // 嘗試獲取現有的元素
+      const iconElement = button.querySelector('.icon-svg') || button.querySelector('svg');
+      let textElement = button.querySelector('.button-text');
+
+      // 更新或創建 Text
+      if (textElement) {
+        textElement.textContent = text;
+      } else {
+        // 如果結構不符，創建 .button-text
+        // 注意：這裡可能會清除舊的文本節點，但為了統一結構是必要的
+        // 先移除所有非 SVG 節點
+        Array.from(button.childNodes).forEach(node => {
+          if (node !== iconElement && (!iconElement || !iconElement.contains(node))) {
+            button.removeChild(node);
+          }
+        });
+
+        textElement = document.createElement('span');
+        textElement.className = 'button-text';
+        textElement.textContent = text;
+        button.appendChild(textElement);
+      }
+
+      // 更新或創建 Icon
+      // 使用 createSafeIcon 生成新的 icon 結構
+      const newIconContainer = createSafeIcon(iconHtml);
+      // createSafeIcon 返回的是 span.icon > svg.icon-svg
+      // 我們需要提取 svg 或使用整個 span，取決於 DOM 結構
+      // 由於 options.html 定義的是 button > svg.icon-svg，我們嘗試保持這種結構
+      // 或者如果 createSafeIcon 強制 span 包裹，我們就使用 span
+
+      const newSvg = newIconContainer.querySelector('svg');
+
+      if (iconElement) {
+        // 如果原本是 svg 直接作為子元素 (HTML 定義的結構)
+        if (iconElement.tagName.toLowerCase() === 'svg' && iconElement.parentNode === button) {
+          if (newSvg) {
+            // 替換舊 SVG
+            button.replaceChild(newSvg, iconElement);
+          } else {
+            // 如果 createSafeIcon 沒返回 SVG (例如是純文字或 emoji)，則替換為容器
+            button.replaceChild(newIconContainer, iconElement);
+          }
+        } else {
+          // 如果原本是在 wrapper 裡，直接替換 wrapper
+          // 尋找 wrapper
+          const wrapper = iconElement.closest('.icon') || iconElement.closest('.icon-wrapper');
+          if (wrapper && wrapper.parentNode === button) {
+            button.replaceChild(newIconContainer, wrapper);
+          } else {
+            // Fallback: remove iconElement and prepend new one
+            iconElement.remove();
+            button.insertBefore(newIconContainer, button.firstChild);
+          }
+        }
+      } else {
+        // 沒有圖標，插入到最前面
+        button.insertBefore(newIconContainer, button.firstChild);
+      }
+
       button.disabled = disabled;
     };
 
