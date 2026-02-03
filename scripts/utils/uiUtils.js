@@ -7,6 +7,7 @@ import Logger from './Logger.js';
 import { validateSafeSvg, isSafeSvgAttribute } from './securityUtils.js';
 
 let __spriteInjectionScheduled = false;
+let __pendingSpriteContainer = null;
 
 /**
  * 將 SVG 圖標精靈 (sprite) 注入至當前文件。
@@ -32,7 +33,8 @@ export function injectIcons(icons) {
     const parser = new DOMParser();
 
     // 若已存在 sprite，僅合併缺失；否則建立新的容器
-    let spriteContainer = existingSprite;
+    // 優先使用 DOM 中的元素，若無則使用待掛載的共享容器，防止競態條件
+    let spriteContainer = existingSprite || __pendingSpriteContainer;
     let defs = null;
     if (spriteContainer) {
       defs =
@@ -47,6 +49,8 @@ export function injectIcons(icons) {
       spriteContainer.style.display = 'none';
       defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
       spriteContainer.appendChild(defs);
+      // 暫存此容器供後續並發呼叫使用
+      __pendingSpriteContainer = spriteContainer;
     }
 
     if (!icons || typeof icons !== 'object') {
@@ -98,7 +102,9 @@ export function injectIcons(icons) {
                 el.removeAttribute(attr.name);
               }
             });
-            Array.from(el.children).forEach(child => sanitizeElement(child));
+            Array.from(el.children).forEach(child => {
+              sanitizeElement(child);
+            });
           }
         };
 
@@ -164,6 +170,8 @@ export function injectIcons(icons) {
         const parent = document.body || document.documentElement;
         parent.prepend(spriteContainer);
       }
+      // 掛載完成後清除暫存引用
+      __pendingSpriteContainer = null;
       verifySymbols();
     };
 
