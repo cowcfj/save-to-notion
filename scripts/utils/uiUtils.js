@@ -188,3 +188,19 @@ export function injectIcons(icons) {
   // 執行注入（單例守衛：避免重複排程）
   performInjection();
 }
+
+/**
+ * 創建使用 Sprite 的 SVG 圖標
+ * @param {string} name - 圖標名稱 (不含 icon- 前綴)
+ * @returns {SVGElement}
+ */
+export const createSpriteIcon = name => {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('icon-svg');
+  svg.setAttribute('width', '16');
+  svg.setAttribute('height', '16');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `#icon-${name}`);
+  svg.appendChild(use);
+  return svg;
+};
