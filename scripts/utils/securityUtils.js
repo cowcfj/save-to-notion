@@ -628,32 +628,34 @@ export function validateBackupData(backup) {
     throw new Error('Invalid backup data structure');
   }
 
-  // 2. 數據鍵值檢查 (防止 Prototype Pollution) - 遞歸檢查
+  _checkForbiddenKeys(backup.data);
+}
+
+/**
+ * 遞歸檢查對象中的禁止鍵
+ * 防止 Prototype Pollution 攻擊
+ *
+ * @param {Object} obj - 待檢查的對象
+ * @throws {Error} 如果發現禁止的鍵
+ */
+function _checkForbiddenKeys(obj) {
+  // 禁止的鍵名列表
   const FORBIDDEN_KEYS = ['__proto__', 'constructor', 'prototype'];
 
-  /**
-   * 遞歸檢查對象中的禁止鍵
-   * @param {Object} obj - 待檢查的對象
-   * @throws {Error} 如果發現禁止的鍵
-   */
-  function checkForbiddenKeys(obj) {
-    if (!obj || typeof obj !== 'object') {
-      return;
-    }
-
-    // 檢查當前對象的鍵
-    for (const key of Object.keys(obj)) {
-      if (FORBIDDEN_KEYS.includes(key)) {
-        throw new Error(`Security Alert: Malicious key detected (${key})`);
-      }
-
-      // 遞歸檢查值 (如果是對象或陣列)
-      const value = obj[key];
-      if (value && typeof value === 'object') {
-        checkForbiddenKeys(value);
-      }
-    }
+  if (!obj || typeof obj !== 'object') {
+    return;
   }
 
-  checkForbiddenKeys(backup.data);
+  // 檢查當前對象的鍵
+  for (const key of Object.keys(obj)) {
+    if (FORBIDDEN_KEYS.includes(key)) {
+      throw new Error(`Security Alert: Malicious key detected (${key})`);
+    }
+
+    // 遞歸檢查值 (如果是對象或陣列)
+    const value = obj[key];
+    if (value && typeof value === 'object') {
+      _checkForbiddenKeys(value);
+    }
+  }
 }
