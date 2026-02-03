@@ -70,6 +70,12 @@ export const UI_MESSAGES = {
     CLEAR_SUCCESS: count => `已成功清除 ${count} 條標註！`,
     PAGE_READY: '頁面已儲存，可以開始標註或再次儲存。',
   },
+  TOOLBAR: {
+    SYNCING: '正在同步...',
+    SYNC_SUCCESS: '同步成功',
+    SYNC_FAILED: '同步失敗',
+    SYNC_FAILED_PREFIX: '同步失敗：',
+  },
   STORAGE: {
     CHECKING: '正在檢查數據完整性...',
     REPORT_TITLE: '數據完整性報告：',

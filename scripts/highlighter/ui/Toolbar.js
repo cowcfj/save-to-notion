@@ -9,6 +9,10 @@ import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { renderHighlightList } from './components/HighlightList.js';
+import { injectIcons } from '../../utils/uiUtils.js';
+import { UI_ICONS } from '../../config/icons.js';
+import { UI_MESSAGES } from '../../config/messages.js';
+import Logger from '../../utils/Logger.js';
 
 /**
  * 工具欄管理器類別
@@ -19,6 +23,9 @@ export class Toolbar {
    * @param {HighlightManager} highlightManager - 標註管理器實例
    */
   constructor(highlightManager) {
+    // 注入 SVG 圖標到當前頁面
+    injectIcons(UI_ICONS);
+
     if (!highlightManager) {
       throw new Error('HighlightManager is required');
     }
@@ -178,9 +185,10 @@ export class Toolbar {
             selection.removeAllRanges();
           }
         } catch (error) {
-          if (typeof window.Logger !== 'undefined') {
-            window.Logger?.error('添加標註失敗:', error);
-          }
+          Logger.error('添加標註失敗', {
+            action: 'selectionHandler',
+            error,
+          });
         }
       }, 10);
     };
@@ -224,7 +232,11 @@ export class Toolbar {
         this.hide();
         break;
       default:
-        console.warn(`[Toolbar] 未知狀態: ${state}`);
+        Logger.warn('Toolbar received unknown state', {
+          action: 'handleStateChange',
+          state,
+          component: 'Toolbar',
+        });
         this.hide();
     }
   }
@@ -400,10 +412,20 @@ export class Toolbar {
     const statusDiv = this.container.querySelector('#highlight-status-v2');
 
     if (statusDiv) {
-      const loadingIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px; animation: spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
-      const originalText = statusDiv.innerHTML;
-      statusDiv.innerHTML = `${loadingIcon} 正在同步...`;
+      const originalText = statusDiv.textContent; // Use textContent for safety
+
+      // Update UI to Loading State
+      statusDiv.textContent = ''; // Clear content safely
+      const loadingIcon = document.createElement('span');
+      // Use SYNC icon and add spinning animation style
+      loadingIcon.innerHTML = UI_ICONS.SYNC;
+      loadingIcon.style.display = 'inline-block';
+      loadingIcon.style.marginRight = '4px';
+      loadingIcon.style.verticalAlign = 'text-bottom';
+      loadingIcon.style.animation = 'spin 1s linear infinite';
+
+      statusDiv.appendChild(loadingIcon);
+      statusDiv.appendChild(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNCING}`));
 
       try {
         // 收集標註數據
@@ -415,33 +437,52 @@ export class Toolbar {
         });
 
         if (response?.success) {
-          const successIcon =
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-          statusDiv.innerHTML = `${successIcon} 同步成功`;
+          statusDiv.textContent = '';
+          const successIcon = document.createElement('span');
+          successIcon.innerHTML = UI_ICONS.SUCCESS;
+          successIcon.style.display = 'inline-block';
+          successIcon.style.marginRight = '4px';
+          successIcon.style.verticalAlign = 'text-bottom';
+
+          statusDiv.appendChild(successIcon);
+          statusDiv.appendChild(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_SUCCESS}`));
         } else {
-          const errorMsg = response?.error || '未知錯誤';
-          const errorIcon =
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-          // 使用 innerHTML 設置圖標（固定內容），textContent 添加錯誤訊息（動態內容）以避免 XSS
-          statusDiv.innerHTML = errorIcon;
-          const msgSpan = document.createElement('span');
-          msgSpan.textContent = ` ${errorMsg}`;
-          statusDiv.appendChild(msgSpan);
+          const errorMsg = response?.error || 'Unknown error';
+          statusDiv.textContent = ''; // Clear
+          const errorIcon = document.createElement('span');
+          errorIcon.innerHTML = UI_ICONS.ERROR; // Use standardized Error icon
+          errorIcon.style.display = 'inline-block';
+          errorIcon.style.marginRight = '4px';
+          errorIcon.style.verticalAlign = 'text-bottom';
+
+          statusDiv.appendChild(errorIcon);
+          statusDiv.appendChild(document.createTextNode(` ${errorMsg}`));
         }
 
         setTimeout(() => {
-          statusDiv.innerHTML = originalText;
+          // Restore original text safely
+          statusDiv.textContent = originalText;
         }, 2000);
       } catch (error) {
-        const errorIcon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-        statusDiv.innerHTML = `${errorIcon} 同步失敗`;
+        statusDiv.textContent = '';
+        const errorIcon = document.createElement('span');
+        errorIcon.innerHTML = UI_ICONS.ERROR;
+        errorIcon.style.display = 'inline-block';
+        errorIcon.style.marginRight = '4px';
+        errorIcon.style.verticalAlign = 'text-bottom';
+
+        statusDiv.appendChild(errorIcon);
+        statusDiv.appendChild(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_FAILED}`));
+
         setTimeout(() => {
-          statusDiv.innerHTML = originalText;
+          statusDiv.textContent = originalText;
         }, 2000);
 
         if (typeof window.Logger !== 'undefined') {
-          window.Logger?.error('同步失敗:', error);
+          Logger.error('同步失敗', {
+            action: 'syncToNotion',
+            error,
+          });
         }
       }
     }

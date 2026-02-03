@@ -31,37 +31,6 @@ export class UIManager {
   }
 
   /**
-   * 注入 SVG Sprite Sheet 定義 (Single Source of Truth from icons.js)
-   * 取代原本獨立的 IconLoader.js，減少過度設計
-   */
-  static injectIcons() {
-    if (document.getElementById('svg-sprite-definitions')) {
-      return;
-    }
-
-    const symbols = Object.entries(UI_ICONS).map(([key, svgString]) => {
-      // 簡單解析取出 innerHTML 與 viewBox，無需完整的 DOMParser 遍歷
-      // 假設 icons.js 格式統一： <svg ... viewBox="..." ...> content </svg>
-      const viewBoxMatch = svgString.match(/viewBox="([^"]+)"/);
-      const viewBox = viewBoxMatch ? viewBoxMatch[1] : '0 0 24 24';
-
-      // 取出 <svg> 標籤內的內容
-      const innerContent = svgString.replace(/^<svg[^>]*>|<\/svg>$/g, '');
-      const id = `icon-${key.toLowerCase().replace(/_/g, '-')}`;
-
-      return `<symbol id="${id}" viewBox="${viewBox}">${innerContent}</symbol>`;
-    });
-
-    const spriteSheet = `
-      <svg id="svg-sprite-definitions" style="display: none;">
-        <defs>${symbols.join('')}</defs>
-      </svg>
-    `;
-
-    document.body.insertAdjacentHTML('afterbegin', spriteSheet);
-  }
-
-  /**
    * 顯示狀態消息（安全版本：分離圖標與文本）
    *
    * @SECURITY_NOTE 此函數僅應接收內部可信的訊息字串

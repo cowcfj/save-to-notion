@@ -19,6 +19,8 @@ import {
   hideModal,
   formatSaveSuccessMessage,
 } from './popupUI.js';
+import { injectIcons } from '../scripts/utils/uiUtils.js';
+import { UI_ICONS } from '../scripts/config/index.js';
 import {
   checkSettings,
   checkPageStatus,
@@ -35,6 +37,9 @@ import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
 // Export initialization function for testing
 export async function initPopup() {
+  // 注入 SVG 圖標
+  injectIcons(UI_ICONS);
+
   // 獲取所有 DOM 元素
   const elements = getElements();
 
