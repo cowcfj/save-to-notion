@@ -211,8 +211,13 @@ if (globalThis.window !== undefined) {
 
   // 單元測試支持：如果檢測到測試環境，自動執行並暴露結果
   if (globalThis.__UNIT_TESTING__) {
-    extractPageContent().then(result => {
-      globalThis.__notion_extraction_result = result;
-    });
+    (async () => {
+      try {
+        globalThis.__notion_extraction_result = await extractPageContent();
+      } catch (error) {
+        // 僅在測試環境下記錄
+        console.error('[Test] Failed to extract page content:', error);
+      }
+    })();
   }
 }
