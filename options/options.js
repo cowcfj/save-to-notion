@@ -321,14 +321,6 @@ function setupLogExport() {
       try {
         exportBtn.disabled = true;
 
-        // 使用 data 屬性保存原始文字，避免脆弱的 DOM 查找
-        if (!exportBtn.hasAttribute('data-original-text')) {
-          exportBtn.setAttribute('data-original-text', exportBtn.textContent);
-        }
-
-        // 設置導出中狀態
-        exportBtn.textContent = UI_MESSAGES.LOGS.EXPORTING;
-
         // 發送訊息給 Background
         const response = await chrome.runtime.sendMessage({
           action: 'exportDebugLogs',
@@ -386,10 +378,6 @@ function setupLogExport() {
         }, 5000);
       } finally {
         exportBtn.disabled = false;
-        // 恢復按鈕文字內容
-        if (exportBtn.hasAttribute('data-original-text')) {
-          exportBtn.textContent = exportBtn.getAttribute('data-original-text');
-        }
       }
     });
   }

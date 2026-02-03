@@ -371,7 +371,7 @@ describe('options.js', () => {
       global.chrome.runtime.sendMessage = mockSendMessage;
     });
 
-    it('should update button text while exporting and restore it afterwards', async () => {
+    it('should stay disabled while exporting and restore afterwards without changing text', async () => {
       // Mock successful response
       mockSendMessage.mockResolvedValue({
         success: true,
@@ -391,27 +391,27 @@ describe('options.js', () => {
       initOptions();
 
       const exportBtn = document.getElementById('export-logs-button');
+      const originalText = exportBtn.textContent;
 
       // Trigger click
       exportBtn.click();
 
-      // Check intermediate state immediately after click (before await resolves)
-      expect(exportBtn.textContent).toBe('導出中...');
-      expect(exportBtn.getAttribute('data-original-text')).toBe('導出日誌');
+      // Check state immediately after click
       expect(exportBtn.disabled).toBe(true);
+      expect(exportBtn.textContent).toBe(originalText); //文字不應該改變
 
       // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 0));
 
       // Check final state
-      expect(exportBtn.textContent).toBe('導出日誌');
       expect(exportBtn.disabled).toBe(false);
+      expect(exportBtn.textContent).toBe(originalText); // 文字不應該改變
 
       const statusEl = document.getElementById('export-status');
       expect(statusEl.textContent).toContain('已成功導出 10 條日誌');
     });
 
-    it('should restore button text even on error', async () => {
+    it('should restore disabled state even on error without changing text', async () => {
       // Mock error response
       mockSendMessage.mockRejectedValue(new Error('Network error'));
 
@@ -419,19 +419,21 @@ describe('options.js', () => {
       initOptions();
 
       const exportBtn = document.getElementById('export-logs-button');
+      const originalText = exportBtn.textContent;
 
       // Trigger click
       exportBtn.click();
 
       // Check intermediate state
-      expect(exportBtn.textContent).toBe('導出中...');
+      expect(exportBtn.disabled).toBe(true);
+      expect(exportBtn.textContent).toBe(originalText);
 
       // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 0));
 
       // Check final state
-      expect(exportBtn.textContent).toBe('導出日誌');
       expect(exportBtn.disabled).toBe(false);
+      expect(exportBtn.textContent).toBe(originalText);
 
       const statusEl = document.getElementById('export-status');
       expect(statusEl.textContent).toContain('Network error');
