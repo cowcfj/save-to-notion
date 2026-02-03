@@ -532,8 +532,13 @@ export const createSafeIcon = svgString => {
     return document.createElement('span');
   }
 
+  // 標準化：為 SVG 添加 CSS 類以便正確樣式化
+  if (!svgElement.classList.contains('icon-svg')) {
+    svgElement.classList.add('icon-svg');
+  }
+
   const span = document.createElement('span');
-  span.className = 'icon-wrapper';
+  span.className = 'icon'; // 使用標準的 icon 類別
   span.appendChild(svgElement);
   return span;
 };
