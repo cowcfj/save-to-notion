@@ -73,6 +73,7 @@ describe('securityUtils', () => {
     });
 
     test('HTTP 協議應返回 false（僅允許 HTTPS）', () => {
+      // eslint-disable-next-line
       expect(isValidNotionUrl('http://notion.so')).toBe(false);
     });
 

@@ -4,7 +4,7 @@
  */
 
 import { validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
-import { UI_ICONS, NOTION_API } from '../config/index.js';
+import { UI_ICONS, NOTION_API, UI_STATUS_TYPES, OPTIONS_PAGE_SELECTORS } from '../config/index.js';
 
 /**
  * UI 管理器類別
@@ -19,33 +19,36 @@ export class UIManager {
 
   /**
    * 初始化 UI 管理器
-   * @param {Object} dependencies - 依賴項 (e.g., { loadDatabases })
+   *
+   * @param {object} dependencies - 依賴項 (e.g., { loadDatabases })
    */
   init(dependencies = {}) {
     this.dependencies = dependencies;
 
     // 快取主要 DOM 元素
-    this.elements.status = document.getElementById('status');
-    this.elements.manualSection = document.querySelector('.manual-section');
-    this.elements.testApiButton = document.getElementById('test-api-button');
+    this.elements.status = document.querySelector(OPTIONS_PAGE_SELECTORS.STATUS_CONTAINER);
+    this.elements.manualSection = document.querySelector(OPTIONS_PAGE_SELECTORS.MANUAL_SECTION);
+    this.elements.testApiButton = document.querySelector(OPTIONS_PAGE_SELECTORS.TEST_API_BUTTON);
   }
 
   /**
    * 顯示狀態消息（安全版本：分離圖標與文本）
    *
-   * @SECURITY_NOTE 此函數僅應接收內部可信的訊息字串
+   * NOTE: 此函數僅應接收內部可信的訊息字串
    * - SVG 圖標內容應由系統內部生成，不應來自外部輸入
    * - 所有外部錯誤訊息必須先經過 sanitizeApiError() 清理
    * - message 參數不應直接包含未經驗證的用戶輸入或 API 響應
    *
-   * @param {string|Object} message - 訊息內容（字串或對象 {icon, text}）
+   * @param {string|object} message - 訊息內容（字串或對象 {icon, text}）
    *   - 字串格式：可包含系統生成的 SVG 標籤（會自動分離）或純文本
    *   - 對象格式：{icon: '內部生成的SVG', text: '已清理的文本'}
    * @param {string} type - 訊息類型 (info, success, error)
    * @param {string} [targetId='status'] - 目標元素 ID
    */
-  showStatus(message, type = 'info', targetId = 'status') {
-    const status = document.getElementById(targetId) || this.elements.status;
+  showStatus(message, type = UI_STATUS_TYPES.INFO, targetId = 'status') {
+    const selector =
+      targetId === 'status' ? OPTIONS_PAGE_SELECTORS.STATUS_CONTAINER : `#${targetId}`;
+    const status = document.querySelector(selector) || this.elements.status;
     if (!status) {
       return;
     }
@@ -60,13 +63,19 @@ export class UIManager {
 
   /**
    * 解析圖標與文本 (私有)
+   *
+   * @param {string|object} message - 原始消息
+   * @param {string} type - 消息類型
+   * @returns {object} 解析後的 {icon, text}
    */
   _resolveMessage(message, type) {
     if (typeof message === 'object' && message !== null) {
       return { icon: message.icon || '', text: message.text || '' };
     }
 
-    const separated = separateIconAndText(String(message || ''));
+    // 僅處理字串類型的訊息，非字串則預設為空
+    const messageStr = typeof message === 'string' ? message : '';
+    const separated = separateIconAndText(messageStr);
     let icon = separated.icon;
     const text = separated.text;
 
@@ -84,6 +93,11 @@ export class UIManager {
 
   /**
    * 渲染狀態內容 (私有)
+   *
+   * @param {HTMLElement} status - 容器元素
+   * @param {string} icon - SVG 圖標字串
+   * @param {string} text - 文字內容
+   * @param {string} type - 狀態類型
    */
   _renderStatus(status, icon, text, type) {
     status.innerHTML = '';
@@ -96,33 +110,47 @@ export class UIManager {
       } else {
         iconSpan.textContent = icon;
       }
-      status.appendChild(iconSpan);
+      status.append(iconSpan);
     }
 
     if (text) {
       const textSpan = document.createElement('span');
       textSpan.className = 'status-text';
       textSpan.textContent = text;
-      status.appendChild(textSpan);
+      status.append(textSpan);
     }
 
-    status.classList.remove('success', 'error', 'info', 'warning', 'status-message');
-    status.classList.add('status-message', type);
+    status.classList.remove(
+      UI_STATUS_TYPES.SUCCESS,
+      UI_STATUS_TYPES.ERROR,
+      UI_STATUS_TYPES.INFO,
+      UI_STATUS_TYPES.WARNING,
+      OPTIONS_PAGE_SELECTORS.STATUS_MESSAGE_CLASS
+    );
+    status.classList.add(OPTIONS_PAGE_SELECTORS.STATUS_MESSAGE_CLASS, type);
 
-    if (type === 'success') {
+    if (type === UI_STATUS_TYPES.SUCCESS) {
       setTimeout(() => {
         status.innerHTML = '';
-        status.classList.remove('success', 'error', 'info', 'warning', 'status-message');
+        status.classList.remove(
+          UI_STATUS_TYPES.SUCCESS,
+          UI_STATUS_TYPES.ERROR,
+          UI_STATUS_TYPES.INFO,
+          UI_STATUS_TYPES.WARNING,
+          OPTIONS_PAGE_SELECTORS.STATUS_MESSAGE_CLASS
+        );
       }, 3000);
     }
   }
 
   /**
    * 顯示資料來源升級通知橫幅
+   *
    * @param {string} legacyDatabaseId - 舊的資料庫ID
    */
   showDataSourceUpgradeNotice(legacyDatabaseId = '') {
-    const manualSection = this.elements.manualSection || document.querySelector('.manual-section');
+    const manualSection =
+      this.elements.manualSection || document.querySelector(OPTIONS_PAGE_SELECTORS.MANUAL_SECTION);
     if (!manualSection) {
       return;
     }
@@ -145,7 +173,8 @@ export class UIManager {
       if (refreshButton) {
         refreshButton.addEventListener('click', () => {
           const testApiButton =
-            this.elements.testApiButton || document.getElementById('test-api-button');
+            this.elements.testApiButton ||
+            document.querySelector(OPTIONS_PAGE_SELECTORS.TEST_API_BUTTON);
           if (testApiButton && !testApiButton.disabled) {
             testApiButton.click();
           }
@@ -171,7 +200,8 @@ export class UIManager {
    * 顯示簡化設置指南
    */
   showSetupGuide() {
-    const manualSection = this.elements.manualSection || document.querySelector('.manual-section');
+    const manualSection =
+      this.elements.manualSection || document.querySelector(OPTIONS_PAGE_SELECTORS.MANUAL_SECTION);
     if (!manualSection) {
       return;
     }

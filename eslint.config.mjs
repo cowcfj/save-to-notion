@@ -236,8 +236,6 @@ export default [
       'jest/no-identical-title': 'error',
       'jest/prefer-to-have-length': 'warn',
       'jest/valid-expect': 'error',
-      'n/no-callback-literal': 'off',
-      'node/no-callback-literal': 'off',
       'init-declarations': 'off',
       'sonarjs/no-duplicate-string': 'off',
       'security/detect-object-injection': 'off',

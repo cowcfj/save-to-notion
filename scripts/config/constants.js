@@ -161,6 +161,16 @@ export const LOG_LEVELS = {
   ERROR: 4,
 };
 
+/**
+ * UI 提示狀態類型
+ */
+export const UI_STATUS_TYPES = {
+  SUCCESS: 'success',
+  ERROR: 'error',
+  INFO: 'info',
+  WARNING: 'warning',
+};
+
 // ==========================================
 // 文本處理相關常量
 // ==========================================
@@ -207,7 +217,7 @@ export const HANDLER_CONSTANTS = {
 // ==========================================
 
 export const TAB_SERVICE = {
-  LOADING_TIMEOUT_MS: 10000, // 頁面載入超時時間 (ms)
+  LOADING_TIMEOUT_MS: 10_000, // 頁面載入超時時間 (ms)
   STATUS_UPDATE_DELAY_MS: 1000, // 狀態更新延遲 (ms)
 };
 

@@ -8,6 +8,7 @@ import { validateSafeSvg, isSafeSvgAttribute } from './securityUtils.js';
 
 let __spriteInjectionScheduled = false;
 let __pendingSpriteContainer = null;
+const __expectedSymbolIds = new Set();
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -30,10 +31,9 @@ const SPRITE_ID = 'svg-sprite-definitions';
  * 驗證 SVG symbol 是否正確注入
  *
  * @param {Element} spriteContainer - The SVG container element
- * @param {object} icons - The icons object being injected
  * @returns {void}
  */
-const _verifySymbols = (spriteContainer, icons) => {
+const _verifySymbols = spriteContainer => {
   try {
     const defsEl = spriteContainer.querySelector('defs');
     if (!defsEl) {
@@ -43,10 +43,12 @@ const _verifySymbols = (spriteContainer, icons) => {
       });
       return;
     }
-    const required = Object.keys(icons).map(key => `icon-${key.toLowerCase()}`);
-    required.forEach(id => {
-      if (!defsEl.querySelector(`#${id}`)) {
-        Logger.warn('Missing SVG symbol', {
+
+    // 進行全量完整性檢查
+    __expectedSymbolIds.forEach(id => {
+      // 使用 CSS.escape 轉義 ID 以支援特殊字元
+      if (!defsEl.querySelector(`#${CSS.escape(id)}`)) {
+        Logger.warn('Missing SVG symbol in final sprite', {
           action: 'injectIcons',
           operation: 'verifySymbols',
           id,
@@ -66,10 +68,9 @@ const _verifySymbols = (spriteContainer, icons) => {
  * 將 sprite 掛載到 DOM
  *
  * @param {Element} spriteContainer - The SVG container element
- * @param {object} icons - The icons object being injected (for verification)
  * @returns {void}
  */
-const _attachSprite = (spriteContainer, icons) => {
+const _attachSprite = spriteContainer => {
   if (!spriteContainer.parentNode) {
     // 優先掛在 <body>，否則退回 <html>
     const parent = document.body || document.documentElement;
@@ -77,7 +78,7 @@ const _attachSprite = (spriteContainer, icons) => {
   }
   // 掛載完成後清除暫存引用
   __pendingSpriteContainer = null;
-  _verifySymbols(spriteContainer, icons);
+  _verifySymbols(spriteContainer);
 };
 
 // ============================================================================
@@ -96,6 +97,14 @@ const _attachSprite = (spriteContainer, icons) => {
  */
 export function injectIcons(icons) {
   if (typeof document === 'undefined') {
+    return;
+  }
+
+  if (!icons || typeof icons !== 'object') {
+    Logger.warn('Invalid icons object provided to injectIcons', {
+      action: 'injectIcons',
+      icons,
+    });
     return;
   }
 
@@ -127,14 +136,6 @@ export function injectIcons(icons) {
     __pendingSpriteContainer = spriteContainer;
   }
 
-  if (!icons || typeof icons !== 'object') {
-    Logger.warn('Invalid icons object provided to injectIcons', {
-      action: 'injectIcons',
-      icons,
-    });
-    return;
-  }
-
   Object.entries(icons).forEach(([key, svgString]) => {
     try {
       // 安全性檢查：阻擋可疑 SVG
@@ -147,7 +148,11 @@ export function injectIcons(icons) {
       }
 
       const symbolId = `icon-${key.toLowerCase()}`;
-      if (defs.querySelector(`#${symbolId}`)) {
+      // 記錄預期注入的 ID 用於全量驗證
+      __expectedSymbolIds.add(symbolId);
+
+      // 使用 CSS.escape 轉義 ID，解決 key 包含點號或括號時的選擇器失效問題
+      if (document.querySelector(`#${CSS.escape(symbolId)}`)) {
         return; // 已存在，跳過（冪等）
       }
 
@@ -217,13 +222,13 @@ export function injectIcons(icons) {
     document.addEventListener(
       'DOMContentLoaded',
       () => {
-        _attachSprite(spriteContainer, icons);
+        _attachSprite(spriteContainer);
         __spriteInjectionScheduled = false;
       },
       { once: true }
     );
   } else {
-    _attachSprite(spriteContainer, icons);
+    _attachSprite(spriteContainer);
   }
 }
 
@@ -238,6 +243,12 @@ export const createSpriteIcon = name => {
   svg.classList.add('icon-svg');
   svg.setAttribute('width', '16');
   svg.setAttribute('height', '16');
+
+  if (typeof name !== 'string' || !name) {
+    Logger.warn('Invalid icon name provided to createSpriteIcon', { name });
+    return svg;
+  }
+
   const use = document.createElementNS(SVG_NS, 'use');
   use.setAttribute('href', `#icon-${name.toLowerCase()}`);
   svg.append(use);

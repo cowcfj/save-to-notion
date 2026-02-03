@@ -304,3 +304,15 @@ export const PRELOADER_SELECTORS = {
   article: 'article',
   mainContent: 'main, [role="main"], #content, .content',
 };
+
+// ==========================================
+// 選項頁面 (Options Page) 選擇器
+// ==========================================
+
+export const OPTIONS_PAGE_SELECTORS = {
+  STATUS_CONTAINER: '#status',
+  MANUAL_SECTION: '.manual-section',
+  TEST_API_BUTTON: '#test-api-button',
+  HIDDEN_CLASS: 'hidden',
+  STATUS_MESSAGE_CLASS: 'status-message',
+};

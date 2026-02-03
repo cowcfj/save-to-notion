@@ -60,7 +60,7 @@ describe('popup.js Controller', () => {
     // Mock global chrome
     globalThis.chrome = {
       tabs: {
-        query: jest.fn().mockResolvedValue([{ id: 123, url: 'http://example.com' }]),
+        query: jest.fn().mockResolvedValue([{ id: 123, url: 'https://example.com' }]),
         sendMessage: jest.fn().mockResolvedValue({}),
       },
     };
@@ -158,7 +158,7 @@ describe('popup.js Controller', () => {
       const { mockElements } = setup();
       await initPopup();
 
-      savePage.mockResolvedValue({ success: true, url: 'http://notion.so/page' });
+      savePage.mockResolvedValue({ success: true, url: 'https://notion.so/page' });
 
       await triggerEvent(mockElements.saveButton);
 
@@ -215,12 +215,12 @@ describe('popup.js Controller', () => {
     it('openNotionButton click should open notion page', async () => {
       const { mockElements } = setup();
       await initPopup();
-      mockElements.openNotionButton.getAttribute.mockReturnValue('http://notion.so/new');
+      mockElements.openNotionButton.getAttribute.mockReturnValue('https://notion.so/new');
       openNotionPage.mockResolvedValue({ success: true });
 
       await triggerEvent(mockElements.openNotionButton);
 
-      expect(openNotionPage).toHaveBeenCalledWith('http://notion.so/new');
+      expect(openNotionPage).toHaveBeenCalledWith('https://notion.so/new');
     });
 
     it('clearHighlightsButton click should show modal', async () => {
@@ -240,14 +240,14 @@ describe('popup.js Controller', () => {
     it('modal confirm should clear highlights', async () => {
       const { mockElements } = setup();
       await initPopup();
-      getActiveTab.mockResolvedValue({ id: 123, url: 'http://page.com' });
+      getActiveTab.mockResolvedValue({ id: 123, url: 'https://page.com' });
       clearHighlights.mockResolvedValue({ success: true, clearedCount: 5 });
 
       await triggerEvent(mockElements.modalConfirm);
 
       expect(hideModal).toHaveBeenCalled();
       expect(setStatus).toHaveBeenCalledWith(mockElements, UI_MESSAGES.POPUP.CLEARING);
-      expect(clearHighlights).toHaveBeenCalledWith(123, 'http://page.com');
+      expect(clearHighlights).toHaveBeenCalledWith(123, 'https://page.com');
       expect(setStatus).toHaveBeenCalledWith(
         mockElements,
         expect.stringContaining(UI_MESSAGES.POPUP.CLEAR_SUCCESS(5))
