@@ -555,3 +555,34 @@ export const createSafeIcon = svgString => {
   span.appendChild(svgElement);
   return span;
 };
+
+/**
+ * 驗證日誌導出數據的安全性
+ * 確保從 Background 返回的數據結構符合預期且不包含惡意內容
+ *
+ * @param {Object} data - 待驗證的數據對象
+ * @throws {Error} 如果驗證失敗，拋出具體錯誤
+ */
+export function validateLogExportData(data) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid response format: missing data object');
+  }
+
+  const { filename, content, mimeType } = data;
+
+  // 1. 驗證文件名 (防止 Path Traversal 或惡意擴展名)
+  // 僅允許字母、數字、點、下劃線、連字符，且必須以 .json 結尾
+  if (!filename || typeof filename !== 'string' || !/^[a-zA-Z0-9._-]+\.json$/i.test(filename)) {
+    throw new Error('Security check failed: Invalid filename format');
+  }
+
+  // 2. 驗證內容 (必須是字串)
+  if (typeof content !== 'string') {
+    throw new Error('Security check failed: Invalid content type');
+  }
+
+  // 3. 驗證 MIME 類型 (僅允許 application/json)
+  if (mimeType !== 'application/json') {
+    throw new Error('Security check failed: Invalid MIME type');
+  }
+}

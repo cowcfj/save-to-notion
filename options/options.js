@@ -6,7 +6,7 @@ import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import Logger from '../scripts/utils/Logger.js';
-import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
+import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 
 /**
@@ -343,7 +343,18 @@ function setupLogExport() {
           throw new Error(ERROR_MESSAGES.TECHNICAL.LOG_EXPORT_FAILED);
         }
 
-        const { filename, content, mimeType, count } = response.data;
+        // 審核要求：驗證外部輸入 (Security-First Input Validation)
+        const data = response.data;
+
+        // 使用 securityUtils 中的集中驗證邏輯
+        try {
+          validateLogExportData(data);
+        } catch (validationError) {
+          // 重新拋出以進入錯誤處理流程
+          throw validationError;
+        }
+
+        const { filename, content, mimeType, count } = data;
 
         // 觸發下載
         const blob = new Blob([content], { type: mimeType });
