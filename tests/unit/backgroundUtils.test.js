@@ -5,7 +5,7 @@
 
 describe('background.js - 工具函數', () => {
   // Mock cleanImageUrl 函數
-  global.cleanImageUrl = function (url) {
+  globalThis.cleanImageUrl = function (url) {
     if (!url || typeof url !== 'string') {
       return null;
     }
@@ -31,13 +31,13 @@ describe('background.js - 工具函數', () => {
       urlObj.search = params.toString();
 
       return urlObj.href;
-    } catch (_e) {
+    } catch {
       return null;
     }
   };
 
   // Mock isValidImageUrl 函數
-  global.isValidImageUrl = function (url) {
+  globalThis.isValidImageUrl = function (url) {
     if (!url || typeof url !== 'string') {
       return false;
     }
@@ -61,14 +61,14 @@ describe('background.js - 工具函數', () => {
     }
 
     const imagePathPatterns = [
-      /\/image[s]?\//i,
-      /\/img[s]?\//i,
-      /\/photo[s]?\//i,
-      /\/picture[s]?\//i,
+      /\/images?\//i,
+      /\/imgs?\//i,
+      /\/photos?\//i,
+      /\/pictures?\//i,
       /\/media\//i,
-      /\/upload[s]?\//i,
-      /\/asset[s]?\//i,
-      /\/file[s]?\//i,
+      /\/uploads?\//i,
+      /\/assets?\//i,
+      /\/files?\//i,
     ];
 
     const excludePatterns = [
@@ -231,26 +231,26 @@ describe('background.js - 工具函數', () => {
     let mockFetch = null;
     /** @type {Function|null} */
     let originalFetch = null;
-    /** @type {Object|null} */
+    /** @type {object | null} */
     let consoleSpy = null;
 
     beforeEach(() => {
       // 保存原始 fetch
-      originalFetch = global.fetch;
+      originalFetch = globalThis.fetch;
 
       // Mock fetch
       mockFetch = jest.fn();
-      global.fetch = mockFetch;
+      globalThis.fetch = mockFetch;
 
       // Mock console
       consoleSpy = {
         log: jest.fn(),
         error: jest.fn(),
       };
-      global.console = consoleSpy;
+      globalThis.console = consoleSpy;
 
       // 定義 appendBlocksInBatches 函數
-      global.appendBlocksInBatches = async function (pageId, blocks, apiKey, startIndex = 0) {
+      globalThis.appendBlocksInBatches = async function (pageId, blocks, apiKey, startIndex = 0) {
         const BLOCKS_PER_BATCH = 100;
         const DELAY_BETWEEN_BATCHES = 350;
 
@@ -311,7 +311,7 @@ describe('background.js - 工具函數', () => {
     });
 
     afterEach(() => {
-      global.fetch = originalFetch;
+      globalThis.fetch = originalFetch;
       jest.clearAllMocks();
     });
 
@@ -321,7 +321,7 @@ describe('background.js - 工具函數', () => {
         text: jest.fn().mockResolvedValue('{}'),
       });
 
-      const blocks = Array(50).fill({ type: 'paragraph' });
+      const blocks = Array.from({ length: 50 }).fill({ type: 'paragraph' });
       const result = await appendBlocksInBatches('page123', blocks, 'api_key');
 
       expect(result.success).toBe(true);
@@ -336,7 +336,7 @@ describe('background.js - 工具函數', () => {
         text: jest.fn().mockResolvedValue('{}'),
       });
 
-      const blocks = Array(250).fill({ type: 'paragraph' });
+      const blocks = Array.from({ length: 250 }).fill({ type: 'paragraph' });
       const result = await appendBlocksInBatches('page123', blocks, 'api_key');
 
       expect(result.success).toBe(true);
@@ -360,7 +360,7 @@ describe('background.js - 工具函數', () => {
         text: jest.fn().mockResolvedValue('{}'),
       });
 
-      const blocks = Array(150).fill({ type: 'paragraph' });
+      const blocks = Array.from({ length: 150 }).fill({ type: 'paragraph' });
       const result = await appendBlocksInBatches('page123', blocks, 'api_key', 50);
 
       expect(result.success).toBe(true);
@@ -375,7 +375,7 @@ describe('background.js - 工具函數', () => {
         text: jest.fn().mockResolvedValue('Bad Request'),
       });
 
-      const blocks = Array(50).fill({ type: 'paragraph' });
+      const blocks = Array.from({ length: 50 }).fill({ type: 'paragraph' });
       const result = await appendBlocksInBatches('page123', blocks, 'api_key');
 
       expect(result.success).toBe(false);
@@ -388,7 +388,7 @@ describe('background.js - 工具函數', () => {
         text: jest.fn().mockResolvedValue('{}'),
       });
 
-      const blocks = Array(10).fill({ type: 'paragraph' });
+      const blocks = Array.from({ length: 10 }).fill({ type: 'paragraph' });
       await appendBlocksInBatches('page123', blocks, 'test_api_key');
 
       expect(mockFetch).toHaveBeenCalledWith(

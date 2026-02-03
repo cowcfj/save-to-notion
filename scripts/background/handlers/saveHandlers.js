@@ -27,6 +27,7 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 
 /**
  * 獲取活動標籤頁
+ *
  * @returns {Promise<chrome.tabs.Tab>}
  * @throws {Error} 如果無法獲取標籤頁
  */
@@ -41,6 +42,7 @@ async function getActiveTab() {
 
 /**
  * 獲取並設置 Notion API Key
+ *
  * @param {StorageService} storageService
  * @param {NotionService} notionService
  * @returns {Promise<string>} API Key
@@ -56,9 +58,10 @@ async function ensureNotionApiKey(storageService, notionService) {
 }
 /**
  * 處理內容提取結果
- * @param {Object} rawResult - 注入腳本返回的原始結果
+ *
+ * @param {object} rawResult - 注入腳本返回的原始結果
  * @param {Array} highlights - 標註數據
- * @returns {Object} 處理後的內容結果 { title, blocks, siteIcon }
+ * @returns {object} 處理後的內容結果 { title, blocks, siteIcon }
  */
 export function processContentResult(rawResult, highlights) {
   // 正規化所有欄位，確保不修改原始輸入
@@ -82,8 +85,9 @@ export function processContentResult(rawResult, highlights) {
 
 /**
  * 創建 Save Handlers
- * @param {Object} services - 服務實例集合
- * @returns {Object} 處理函數映射
+ *
+ * @param {object} services - 服務實例集合
+ * @returns {object} 處理函數映射
  */
 export function createSaveHandlers(services) {
   const { notionService, storageService, injectionService, pageContentService } = services;
@@ -91,13 +95,15 @@ export function createSaveHandlers(services) {
   /**
    * 清理頁面標記的輔助函數 (跨模組調用時可能需要，暫時保留在此，若 highlightHandlers 也需要則各自實現)
    * 注意：savePage 中會調用 clearPageHighlights
+   *
+   * @param tabId
    */
   async function clearPageHighlights(tabId) {
     try {
       await injectionService.injectHighlighter(tabId);
       await injectionService.inject(tabId, () => {
-        if (window.clearPageHighlights) {
-          window.clearPageHighlights();
+        if (globalThis.clearPageHighlights) {
+          globalThis.clearPageHighlights();
         }
       });
     } catch (error) {
@@ -107,6 +113,8 @@ export function createSaveHandlers(services) {
 
   /**
    * 執行頁面創建（包含圖片錯誤重試邏輯）
+   *
+   * @param params
    */
   async function performCreatePage(params) {
     const { normUrl, dataSourceId, dataSourceType, contentResult } = params;
@@ -168,6 +176,8 @@ export function createSaveHandlers(services) {
 
   /**
    * 根據頁面狀態決定並執行保存操作
+   *
+   * @param params
    */
   async function determineAndExecuteSaveAction(params) {
     const {
@@ -279,6 +289,10 @@ export function createSaveHandlers(services) {
   return {
     /**
      * 保存頁面
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     savePage: async (request, sender, sendResponse) => {
       try {
@@ -372,11 +386,11 @@ export function createSaveHandlers(services) {
             blocksCount: result?.blocks?.length ?? 0,
             url: sanitizeUrlForLogging(activeTab.url),
           });
-          const errorMessage = !result
-            ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED
-            : !result.title
-              ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING
-              : ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING;
+          const errorMessage = result
+            ? (result.title
+              ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING
+              : ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING)
+            : ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED;
 
           sendResponse({
             success: false,
@@ -408,6 +422,10 @@ export function createSaveHandlers(services) {
 
     /**
      * 打開 Notion 頁面
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     openNotionPage: async (request, sender, sendResponse) => {
       try {
@@ -448,7 +466,7 @@ export function createSaveHandlers(services) {
 
         let notionUrl = savedData.notionUrl;
         if (!notionUrl && savedData.notionPageId) {
-          notionUrl = `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
+          notionUrl = `https://www.notion.so/${savedData.notionPageId.replaceAll('-', '')}`;
           Logger.log('為頁面生成 Notion URL', {
             action: 'generateNotionUrl',
             notionUrl: sanitizeUrlForLogging(notionUrl),
@@ -504,6 +522,10 @@ export function createSaveHandlers(services) {
 
     /**
      * 檢查頁面是否存在
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     checkNotionPageExists: async (request, sender, sendResponse) => {
       try {
@@ -528,6 +550,10 @@ export function createSaveHandlers(services) {
 
     /**
      * 檢查頁面保存狀態
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
@@ -577,41 +603,50 @@ export function createSaveHandlers(services) {
               exists = await notionService.checkPageExists(savedData.notionPageId);
             }
 
-            if (exists === false) {
-              // 頁面已在 Notion 刪除，清理本地狀態
-              Logger.log('頁面在本地存儲中存在但已在 Notion 中刪除，正在清理狀態', {
-                action: 'syncLocalState',
-                pageId: savedData.notionPageId
-                  ? `${savedData.notionPageId.slice(0, 4)}***`
-                  : 'unknown',
-              });
-              await storageService.clearPageState(normUrl);
+            switch (exists) {
+              case false: {
+                // 頁面已在 Notion 刪除，清理本地狀態
+                Logger.log('頁面在本地存儲中存在但已在 Notion 中刪除，正在清理狀態', {
+                  action: 'syncLocalState',
+                  pageId: savedData.notionPageId
+                    ? `${savedData.notionPageId.slice(0, 4)}***`
+                    : 'unknown',
+                });
+                await storageService.clearPageState(normUrl);
 
-              // 🔑 更新 badge 為「未保存」狀態
-              try {
-                chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
-              } catch (badgeError) {
-                Logger.warn('更新標記失敗', { action: 'updateBadge', error: badgeError.message });
+                // 🔑 更新 badge 為「未保存」狀態
+                try {
+                  chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
+                } catch (badgeError) {
+                  Logger.warn('更新標記失敗', { action: 'updateBadge', error: badgeError.message });
+                }
+
+                sendResponse({
+                  success: true,
+                  isSaved: false,
+                  wasDeleted: true,
+                });
+                return;
               }
+              case true: {
+                // 頁面存在，更新驗證時間
+                savedData.lastVerifiedAt = now;
+                // setSavedPageData 會自動更新 lastUpdated，但這裡是更新 metadata，可以接受
+                await storageService.setSavedPageData(normUrl, savedData);
 
-              sendResponse({
-                success: true,
-                isSaved: false,
-                wasDeleted: true,
-              });
-              return;
-            } else if (exists === true) {
-              // 頁面存在，更新驗證時間
-              savedData.lastVerifiedAt = now;
-              // setSavedPageData 會自動更新 lastUpdated，但這裡是更新 metadata，可以接受
-              await storageService.setSavedPageData(normUrl, savedData);
-            } else if (exists === null) {
-              Logger.warn('重試後仍無法驗證頁面存在性，暫時假設本地狀態正確', {
-                action: 'checkPageExists',
-                pageId: savedData.notionPageId
-                  ? `${savedData.notionPageId.slice(0, 4)}***`
-                  : 'unknown',
-              });
+                break;
+              }
+              case null: {
+                Logger.warn('重試後仍無法驗證頁面存在性，暫時假設本地狀態正確', {
+                  action: 'checkPageExists',
+                  pageId: savedData.notionPageId
+                    ? `${savedData.notionPageId.slice(0, 4)}***`
+                    : 'unknown',
+                });
+
+                break;
+              }
+              // No default
             }
           }
 
@@ -638,6 +673,10 @@ export function createSaveHandlers(services) {
     /**
      * 處理來自 Content Script 的日誌轉發
      * 用於將 Content Script 的日誌集中到 Background Console
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     devLogSink: (request, sender, sendResponse) => {
       try {

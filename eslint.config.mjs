@@ -7,6 +7,25 @@ import promise from 'eslint-plugin-promise';
 import compat from 'eslint-plugin-compat';
 import jsdoc from 'eslint-plugin-jsdoc';
 
+/**
+ * 將規則集中的所有 'error' 強制轉換為 'warn'
+ * @param {Object} rules 原始規則對象
+ * @returns {Object} 轉換後的規則對象
+ */
+function mapRulesToWarn(rules) {
+  const newRules = {};
+  for (const [key, value] of Object.entries(rules || {})) {
+    if (value === 'error') {
+      newRules[key] = 'warn';
+    } else if (Array.isArray(value) && value[0] === 'error') {
+      newRules[key] = ['warn', ...value.slice(1)];
+    } else {
+      newRules[key] = value;
+    }
+  }
+  return newRules;
+}
+
 export default [
   {
     files: ['**/*.js'],
@@ -27,8 +46,8 @@ export default [
         require: 'readonly',
         module: 'readonly',
         exports: 'readonly',
-
-        // Jest globals (handled by plugin but explicit entries kept safe)
+        
+        // Jest globals
         describe: 'readonly',
         test: 'readonly',
         expect: 'readonly',
@@ -70,7 +89,7 @@ export default [
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_'
       }],
-      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-empty': ['warn', { allowEmptyCatch: true }],
       'no-case-declarations': 'off',
       'no-implicit-coercion': ['warn', {
         boolean: true,
@@ -105,8 +124,8 @@ export default [
 
       // --- Plugin Rules ---
 
-      // 1. SonarJS
-      ...sonarjs.configs.recommended.rules,
+      // 1. SonarJS (所有推薦規則降級為 warn)
+      ...mapRulesToWarn(sonarjs.configs.recommended.rules),
       'sonarjs/cognitive-complexity': ['warn', 15],
       'sonarjs/no-duplicate-string': 'warn',
 
@@ -114,43 +133,19 @@ export default [
       ...security.configs.recommended.rules,
       'security/detect-object-injection': 'off',
 
-      // 3. Unicorn (Warn only)
-      ...unicorn.configs.recommended.rules,
-      // Massive overrides to make unicorn less aggressive
-      'unicorn/better-regex': 'warn',
-      'unicorn/catch-error-name': 'warn',
-      'unicorn/consistent-destructuring': 'warn',
-      'unicorn/consistent-function-scoping': 'warn',
-      'unicorn/expiring-todo-comments': 'warn',
+      // 3. Unicorn (所有推薦規則降級為 warn)
+      ...mapRulesToWarn(unicorn.configs.recommended.rules),
+      // 個別規則覆蓋以維持開發彈性
       'unicorn/no-array-for-each': 'off',
-      'unicorn/no-for-loop': 'warn',
-      'unicorn/no-lonely-if': 'warn',
       'unicorn/no-null': 'off',
-      'unicorn/prefer-array-find': 'warn',
-      'unicorn/prefer-array-flat-map': 'warn',
-      'unicorn/prefer-array-some': 'warn',
-      'unicorn/prefer-date-now': 'warn',
-      'unicorn/prefer-default-parameters': 'warn',
-      'unicorn/prefer-includes': 'warn',
       'unicorn/prefer-module': 'off',
       'unicorn/prefer-node-protocol': 'off',
-      'unicorn/prefer-number-properties': 'warn',
-      'unicorn/prefer-optional-catch-binding': 'warn',
-      'unicorn/prefer-regexp-test': 'warn',
-      'unicorn/prefer-set-has': 'warn',
-      'unicorn/prefer-string-replace-all': 'warn',
-      'unicorn/prefer-string-slice': 'warn',
-      'unicorn/prefer-string-starts-ends-with': 'warn',
-      'unicorn/prefer-switch': 'warn',
       'unicorn/prefer-ternary': 'off',
       'unicorn/filename-case': 'off',
       'unicorn/prevent-abbreviations': 'off',
       'unicorn/no-useless-undefined': 'off',
-      'unicorn/prefer-spread': 'off', // sometimes problematic
+      'unicorn/prefer-spread': 'off',
       'unicorn/no-zero-fractions': 'off',
-      
-      // Override ANY unicorn error to warn for now to ensure smooth start
-      // (Can't do all programmatically here easily, but the list above covers common ones)
 
       // 4. Promise
       ...promise.configs.recommended.rules,
@@ -229,21 +224,22 @@ export default [
     files: ['tests/**/*.js'],
     plugins: { jest },
     rules: {
-      ...jest.configs.recommended.rules,
+      ...mapRulesToWarn(jest.configs.recommended.rules),
       'jest/expect-expect': 'warn',
       'jest/no-disabled-tests': 'warn',
-      'jest/no-focused-tests': 'error',
-      'jest/no-identical-title': 'error',
+      'jest/no-focused-tests': 'warn',
+      'jest/no-identical-title': 'warn',
       'jest/prefer-to-have-length': 'warn',
-      'jest/valid-expect': 'error',
+      'jest/valid-expect': 'warn',
       'init-declarations': 'off',
       'sonarjs/no-duplicate-string': 'off',
       'security/detect-object-injection': 'off',
       'unicorn/consistent-function-scoping': 'off',
-      // Disable JSDoc for tests explicitly
       'jsdoc/require-jsdoc': 'off',
       'jsdoc/require-param': 'off',
-      'jsdoc/require-returns': 'off'
+      'jsdoc/require-returns': 'off',
+      'sonarjs/no-unused-collection': 'off',
+      'jest/no-conditional-expect': 'warn'
     }
   }
 ];

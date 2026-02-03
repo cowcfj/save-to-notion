@@ -9,14 +9,14 @@ describe('HighlightManager.waitForDOMStability', () => {
 
   beforeEach(() => {
     // 模擬 document 和 body
-    global.document = {
+    globalThis.document = {
       body: document.createElement('div'),
       querySelector: jest.fn(),
     };
 
     // 保存原始的 requestIdleCallback 和 cancelIdleCallback
-    originalRequestIdleCallback = global.requestIdleCallback;
-    originalCancelIdleCallback = global.cancelIdleCallback;
+    originalRequestIdleCallback = globalThis.requestIdleCallback;
+    originalCancelIdleCallback = globalThis.cancelIdleCallback;
 
     // 載入 HighlightManager（需要根據實際路徑調整）
     // 這裡假設我們可以直接訪問類
@@ -25,8 +25,8 @@ describe('HighlightManager.waitForDOMStability', () => {
 
   afterEach(() => {
     // 恢復原始函數
-    global.requestIdleCallback = originalRequestIdleCallback;
-    global.cancelIdleCallback = originalCancelIdleCallback;
+    globalThis.requestIdleCallback = originalRequestIdleCallback;
+    globalThis.cancelIdleCallback = originalCancelIdleCallback;
 
     // 清理
     jest.clearAllMocks();
@@ -39,7 +39,7 @@ describe('HighlightManager.waitForDOMStability', () => {
       const mockDisconnect = jest.fn();
       const mockObserve = jest.fn();
 
-      global.MutationObserver = jest.fn(_callback => {
+      globalThis.MutationObserver = jest.fn(_callback => {
         return {
           observe: mockObserve,
           disconnect: mockDisconnect,
@@ -47,14 +47,14 @@ describe('HighlightManager.waitForDOMStability', () => {
       });
 
       // 模擬 requestIdleCallback 不可用，使用 setTimeout
-      global.requestIdleCallback = undefined;
+      globalThis.requestIdleCallback = undefined;
 
       // 使用 fake timers
       jest.useFakeTimers();
 
       // 創建測試用的 HighlightManager 類
-      class TestHighlightManager {
-        static waitForDOMStability(options = {}) {
+      const TestHighlightManager = {
+        waitForDOMStability(options = {}) {
           const {
             containerSelector = null,
             stabilityThresholdMs = 150,
@@ -137,13 +137,13 @@ describe('HighlightManager.waitForDOMStability', () => {
                 subtree: true,
               });
               scheduleStabilityCheck();
-            } catch (_error) {
+            } catch {
               cleanup();
               resolve(false);
             }
           });
-        }
-      }
+        },
+      };
 
       // 執行測試
       const promise = TestHighlightManager.waitForDOMStability({
@@ -176,7 +176,7 @@ describe('HighlightManager.waitForDOMStability', () => {
       const mockContainer = document.createElement('div');
       mockContainer.id = 'test-container';
 
-      global.document.querySelector = jest.fn(selector => {
+      globalThis.document.querySelector = jest.fn(selector => {
         if (selector === '#test-container') {
           return mockContainer;
         }
@@ -186,16 +186,16 @@ describe('HighlightManager.waitForDOMStability', () => {
       const mockDisconnect = jest.fn();
       const mockObserve = jest.fn();
 
-      global.MutationObserver = jest.fn(() => ({
+      globalThis.MutationObserver = jest.fn(() => ({
         observe: mockObserve,
         disconnect: mockDisconnect,
       }));
 
-      global.requestIdleCallback = undefined;
+      globalThis.requestIdleCallback = undefined;
       jest.useFakeTimers();
 
-      class TestHighlightManager {
-        static waitForDOMStability(options = {}) {
+      const TestHighlightManager = {
+        waitForDOMStability(options = {}) {
           const {
             containerSelector = null,
             stabilityThresholdMs = 150,
@@ -272,8 +272,8 @@ describe('HighlightManager.waitForDOMStability', () => {
             });
             scheduleStabilityCheck();
           });
-        }
-      }
+        },
+      };
 
       const promise = TestHighlightManager.waitForDOMStability({
         containerSelector: '#test-container',
@@ -284,7 +284,7 @@ describe('HighlightManager.waitForDOMStability', () => {
       const result = await promise;
 
       expect(result).toBe(true);
-      expect(global.document.querySelector).toHaveBeenCalledWith('#test-container');
+      expect(globalThis.document.querySelector).toHaveBeenCalledWith('#test-container');
       expect(mockObserve).toHaveBeenCalledWith(
         mockContainer,
         expect.objectContaining({
@@ -303,7 +303,7 @@ describe('HighlightManager.waitForDOMStability', () => {
       const mockObserve = jest.fn();
       let mutationCallback = null;
 
-      global.MutationObserver = jest.fn(callback => {
+      globalThis.MutationObserver = jest.fn(callback => {
         mutationCallback = callback;
         return {
           observe: mockObserve,
@@ -311,11 +311,11 @@ describe('HighlightManager.waitForDOMStability', () => {
         };
       });
 
-      global.requestIdleCallback = undefined;
+      globalThis.requestIdleCallback = undefined;
       jest.useFakeTimers();
 
-      class TestHighlightManager {
-        static waitForDOMStability(options = {}) {
+      const TestHighlightManager = {
+        waitForDOMStability(options = {}) {
           const { stabilityThresholdMs = 150, maxWaitMs = 5000 } = options;
 
           return new Promise(resolve => {
@@ -375,8 +375,8 @@ describe('HighlightManager.waitForDOMStability', () => {
               }
             }, stabilityThresholdMs);
           });
-        }
-      }
+        },
+      };
 
       const promise = TestHighlightManager.waitForDOMStability({
         stabilityThresholdMs: 150,
@@ -403,10 +403,10 @@ describe('HighlightManager.waitForDOMStability', () => {
     });
 
     test('應該在找不到指定容器時返回 false', async () => {
-      global.document.querySelector = jest.fn(() => null);
+      globalThis.document.querySelector = jest.fn(() => null);
 
-      class TestHighlightManager {
-        static waitForDOMStability(options = {}) {
+      const TestHighlightManager = {
+        waitForDOMStability(options = {}) {
           const { containerSelector = null } = options;
 
           return new Promise(resolve => {
@@ -425,28 +425,28 @@ describe('HighlightManager.waitForDOMStability', () => {
 
             resolve(true);
           });
-        }
-      }
+        },
+      };
 
       const result = await TestHighlightManager.waitForDOMStability({
         containerSelector: '#non-existent',
       });
 
       expect(result).toBe(false);
-      expect(global.document.querySelector).toHaveBeenCalledWith('#non-existent');
+      expect(globalThis.document.querySelector).toHaveBeenCalledWith('#non-existent');
     });
 
     test('應該在 document.body 不存在時返回 false', async () => {
       // 使用 Object.defineProperty 暫時覆蓋 document.body
-      const originalDescriptor = Object.getOwnPropertyDescriptor(global.document, 'body');
+      const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis.document, 'body');
 
-      Object.defineProperty(global.document, 'body', {
+      Object.defineProperty(globalThis.document, 'body', {
         configurable: true,
         get: () => null,
       });
 
-      class TestHighlightManager {
-        static waitForDOMStability() {
+      const TestHighlightManager = {
+        waitForDOMStability() {
           return new Promise(resolve => {
             if (typeof document === 'undefined' || !document.body) {
               resolve(false);
@@ -454,8 +454,8 @@ describe('HighlightManager.waitForDOMStability', () => {
             }
             resolve(true);
           });
-        }
-      }
+        },
+      };
 
       const result = await TestHighlightManager.waitForDOMStability();
 
@@ -463,7 +463,7 @@ describe('HighlightManager.waitForDOMStability', () => {
 
       // 恢復 document.body
       if (originalDescriptor) {
-        Object.defineProperty(global.document, 'body', originalDescriptor);
+        Object.defineProperty(globalThis.document, 'body', originalDescriptor);
       }
     });
   });
@@ -475,22 +475,22 @@ describe('HighlightManager.waitForDOMStability', () => {
       const mockDisconnect = jest.fn();
       const mockObserve = jest.fn();
       let clearTimeoutCallCount = 0;
-      const originalClearTimeout = global.clearTimeout;
+      const originalClearTimeout = globalThis.clearTimeout;
 
-      global.clearTimeout = jest.fn(timerId => {
+      globalThis.clearTimeout = jest.fn(timerId => {
         clearTimeoutCallCount++;
         return originalClearTimeout(timerId);
       });
 
-      global.MutationObserver = jest.fn(() => ({
+      globalThis.MutationObserver = jest.fn(() => ({
         observe: mockObserve,
         disconnect: mockDisconnect,
       }));
 
-      global.requestIdleCallback = undefined;
+      globalThis.requestIdleCallback = undefined;
 
-      class TestHighlightManager {
-        static waitForDOMStability(options = {}) {
+      const TestHighlightManager = {
+        waitForDOMStability(options = {}) {
           const { stabilityThresholdMs = 150, maxWaitMs = 200 } = options;
 
           return new Promise(resolve => {
@@ -550,8 +550,8 @@ describe('HighlightManager.waitForDOMStability', () => {
             });
             scheduleStabilityCheck();
           });
-        }
-      }
+        },
+      };
 
       const promise = TestHighlightManager.waitForDOMStability();
 
@@ -564,7 +564,7 @@ describe('HighlightManager.waitForDOMStability', () => {
       expect(mockDisconnect).toHaveBeenCalled();
       expect(clearTimeoutCallCount).toBeGreaterThan(0);
 
-      global.clearTimeout = originalClearTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
       jest.useRealTimers();
     });
   });

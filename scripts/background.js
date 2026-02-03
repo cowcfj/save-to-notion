@@ -69,8 +69,8 @@ messageHandler.registerAll(actionHandlers);
 
 // TEST_EXPOSURE_START
 // Expose handlers for E2E testing (Development/Test only)
-if (typeof self !== 'undefined') {
-  self.actionHandlers = actionHandlers;
+if (globalThis.self !== undefined) {
+  globalThis.actionHandlers = actionHandlers;
 }
 // TEST_EXPOSURE_END
 
@@ -109,6 +109,8 @@ chrome.runtime.onInstalled.addListener(details => {
 
 /**
  * 處理擴展更新
+ *
+ * @param previousVersion
  */
 async function handleExtensionUpdate(previousVersion) {
   const currentVersion = chrome.runtime.getManifest().version;
@@ -133,6 +135,9 @@ function handleExtensionInstall() {
 
 /**
  * 判斷是否需要顯示更新通知
+ *
+ * @param previousVersion
+ * @param currentVersion
  */
 function shouldShowUpdateNotification(previousVersion, currentVersion) {
   // 跳過開發版本或測試版本
@@ -160,6 +165,8 @@ function shouldShowUpdateNotification(previousVersion, currentVersion) {
 
 /**
  * 檢查是否為重要更新
+ *
+ * @param version
  */
 function isImportantUpdate(version) {
   // 定義重要更新的版本列表
@@ -174,6 +181,9 @@ function isImportantUpdate(version) {
 
 /**
  * 顯示更新通知
+ *
+ * @param previousVersion
+ * @param currentVersion
  */
 async function showUpdateNotification(previousVersion, currentVersion) {
   try {
@@ -191,6 +201,7 @@ async function showUpdateNotification(previousVersion, currentVersion) {
 
       /**
        * 清理函數：移除所有監聽器和計時器
+       *
        * @returns {void}
        */
       const cleanup = () => {
@@ -207,6 +218,7 @@ async function showUpdateNotification(previousVersion, currentVersion) {
 
       /**
        * 監聽分頁載入狀態
+       *
        * @param {number} tabId - 分頁 ID
        * @param {object} changeInfo - 分頁變更資訊
        * @returns {void}
@@ -220,6 +232,7 @@ async function showUpdateNotification(previousVersion, currentVersion) {
 
       /**
        * 監聽分頁被關閉
+       *
        * @param {number} removedTabId - 被關閉的分頁 ID
        * @returns {void}
        */

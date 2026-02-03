@@ -5,6 +5,7 @@
 
 /**
  * 創建工具欄容器
+ *
  * @returns {HTMLElement} 工具欄 DOM 元素
  */
 export function createToolbarContainer() {

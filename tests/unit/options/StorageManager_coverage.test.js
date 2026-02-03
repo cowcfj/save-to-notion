@@ -71,7 +71,7 @@ describe('StorageManager Branch Coverage', () => {
       return Promise.resolve();
     });
 
-    global.chrome = {
+    globalThis.chrome = {
       storage: {
         local: {
           get: mockGet,
@@ -199,9 +199,9 @@ describe('StorageManager Branch Coverage', () => {
         respond(emptyData);
       });
       mockSet.mockImplementation((data, respond) => {
-        global.chrome.runtime.lastError = { message: 'Set error' };
+        globalThis.chrome.runtime.lastError = { message: 'Set error' };
         respond();
-        global.chrome.runtime.lastError = null;
+        globalThis.chrome.runtime.lastError = null;
       });
 
       await storageManager.executeOptimization();
@@ -218,11 +218,11 @@ describe('StorageManager Branch Coverage', () => {
         respond(mockData);
       });
 
-      global.chrome.runtime.sendMessage.mockRejectedValue(new Error('API Down'));
+      globalThis.chrome.runtime.sendMessage.mockRejectedValue(new Error('API Down'));
 
       const plan = await storageManager.generateSafeCleanupPlan(true);
 
-      expect(plan.items.length).toBe(0);
+      expect(plan.items).toHaveLength(0);
       expect(Logger.error).toHaveBeenCalled();
     });
 
@@ -235,7 +235,7 @@ describe('StorageManager Branch Coverage', () => {
         respond(mockData);
       });
 
-      global.chrome.runtime.sendMessage.mockResolvedValue({ exists: false });
+      globalThis.chrome.runtime.sendMessage.mockResolvedValue({ exists: false });
 
       const plan = await storageManager.generateSafeCleanupPlan(true);
 
@@ -255,9 +255,9 @@ describe('StorageManager Branch Coverage', () => {
       };
 
       mockRemove.mockImplementation((keys, respond) => {
-        global.chrome.runtime.lastError = { message: 'Remove failed' };
+        globalThis.chrome.runtime.lastError = { message: 'Remove failed' };
         respond();
-        global.chrome.runtime.lastError = null;
+        globalThis.chrome.runtime.lastError = null;
       });
 
       await storageManager.executeSafeCleanup();
@@ -301,9 +301,9 @@ describe('StorageManager Branch Coverage', () => {
 
     test('StorageManager.getStorageUsage 應該處理 runtime.lastError', async () => {
       mockGet.mockImplementation((k, respond) => {
-        global.chrome.runtime.lastError = { message: 'Get fatal' };
+        globalThis.chrome.runtime.lastError = { message: 'Get fatal' };
         respond();
-        global.chrome.runtime.lastError = null;
+        globalThis.chrome.runtime.lastError = null;
       });
       await expect(StorageManager.getStorageUsage()).rejects.toEqual({ message: 'Get fatal' });
     });

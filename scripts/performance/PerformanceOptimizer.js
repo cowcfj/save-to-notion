@@ -121,9 +121,10 @@ class PerformanceOptimizer {
 
   /**
    * 緩存的 DOM 查詢
+   *
    * @param {string} selector - CSS 選擇器
    * @param {Element} context - 查詢上下文，默認為 document
-   * @param {Object} options - 查詢選項
+   * @param {object} options - 查詢選項
    * @returns {NodeList|Element|null} 查詢結果
    */
   cachedQuery(selector, context = document, options = {}) {
@@ -183,9 +184,10 @@ class PerformanceOptimizer {
 
   /**
    * 批處理圖片處理
+   *
    * @param {Array} images - 圖片元素數組
    * @param {Function} processor - 處理函數
-   * @param {Object} options - 批處理選項
+   * @param {object} options - 批處理選項
    * @returns {Promise<Array>} 處理結果
    */
   batchProcessImages(images, processor, options = {}) {
@@ -211,8 +213,9 @@ class PerformanceOptimizer {
 
   /**
    * 批處理 DOM 操作
+   *
    * @param {Array} operations - 操作數組
-   * @param {Object} options - 批處理選項
+   * @param {object} options - 批處理選項
    * @returns {Promise<Array>} 操作結果
    */
   batchDomOperations(operations, options = {}) {
@@ -237,8 +240,9 @@ class PerformanceOptimizer {
 
   /**
    * 預加載圖片
+   *
    * @param {Array} urls - 圖片 URL 數組
-   * @param {Object} options - 預加載選項
+   * @param {object} options - 預加載選項
    * @returns {Promise<Array>} 預加載結果
    */
   preloadImages(urls, options = {}) {
@@ -251,10 +255,10 @@ class PerformanceOptimizer {
           reject(new Error(`Image preload timeout: ${url}`));
         }, timeout);
 
-        img.onload = () => {
+        img.addEventListener('load', () => {
           clearTimeout(timer);
           resolve({ url, success: true, image: img });
-        };
+        });
 
         img.onerror = () => {
           clearTimeout(timer);
@@ -268,7 +272,8 @@ class PerformanceOptimizer {
 
   /**
    * 清理緩存
-   * @param {Object} options - 清理選項
+   *
+   * @param {object} options - 清理選項
    */
   clearCache(options = {}) {
     const { force = false, maxAge } = options;
@@ -293,7 +298,8 @@ class PerformanceOptimizer {
 
   /**
    * 獲取性能統計
-   * @returns {Object} 性能統計信息
+   *
+   * @returns {object} 性能統計信息
    */
   getStats() {
     return {
@@ -320,7 +326,8 @@ class PerformanceOptimizer {
 
   /**
    * 獲取性能統計（別名方法）
-   * @returns {Object} 性能統計信息
+   *
+   * @returns {object} 性能統計信息
    */
   getPerformanceStats() {
     return this.getStats();
@@ -354,7 +361,7 @@ class PerformanceOptimizer {
    * @static
    * @param {string} selector - CSS 選擇器
    * @param {Element|Document} context - 查詢上下文
-   * @param {Object} options - 查詢選項
+   * @param {object} options - 查詢選項
    * @param {boolean} [options.single=false] - 是否只返回單個元素
    * @param {boolean} [options.all=false] - 是否強制返回所有元素
    * @returns {NodeList|Element|null} 查詢結果
@@ -373,7 +380,7 @@ class PerformanceOptimizer {
       return result.length === 1 ? result[0] : result;
     } catch (error) {
       console.error('DOM Query Error:', error);
-      if (typeof ErrorHandler !== 'undefined') {
+      if (ErrorHandler !== undefined) {
         ErrorHandler.logError({
           type: 'dom_error',
           context: `DOM query: ${selector}`,
@@ -398,7 +405,7 @@ class PerformanceOptimizer {
    * @static
    * @param {string} selector - CSS 選擇器
    * @param {Element|Document} context - 查詢上下文
-   * @param {Object} options - 查詢選項
+   * @param {object} options - 查詢選項
    * @returns {string} 緩存鍵（格式：selector:contextId:optionsJson）
    */
   static _generateCacheKey(selector, context, options) {
@@ -462,6 +469,7 @@ class PerformanceOptimizer {
 
   /**
    * 預熱選擇器緩存
+   *
    * @param {Array} selectors - 要預熱的 CSS 選擇器數組
    * @param {Element} context - 查詢上下文，默認為 document
    * @returns {Promise<Array>} 預熱結果
@@ -498,7 +506,7 @@ class PerformanceOptimizer {
           Logger.info('預熱成功', {
             action: 'preloadSelectors',
             selector,
-            count: results[results.length - 1].count,
+            count: results.at(-1).count,
           });
         }
       } catch (error) {
@@ -508,7 +516,7 @@ class PerformanceOptimizer {
           error: error.message,
         });
 
-        if (typeof ErrorHandler !== 'undefined') {
+        if (ErrorHandler !== undefined) {
           ErrorHandler.logError({
             type: 'preload_error',
             context: `preloading selector: ${selector}`,
@@ -536,6 +544,7 @@ class PerformanceOptimizer {
 
   /**
    * 智能預熱 - 基於當前頁面內容自動預熱相關選擇器
+   *
    * @param {Element} context - 查詢上下文，默認為 document
    * @returns {Promise<Array>} 預熱結果
    */
@@ -572,6 +581,7 @@ class PerformanceOptimizer {
    */
   /**
    * 分析頁面內容以進行預熱 (實例方法，委託給靜態方法)
+   *
    * @param {Document} doc - 文檔對象
    * @returns {Array<string>} 建議預熱的選擇器
    */
@@ -610,6 +620,8 @@ class PerformanceOptimizer {
 
   /**
    * 維護緩存大小限制，實現 LRU 策略
+   *
+   * @param newKey
    * @private
    */
   _maintainCacheSizeLimit(newKey) {
@@ -627,7 +639,8 @@ class PerformanceOptimizer {
 
   /**
    * 清理過期的緩存項目
-   * @param {Object} options - 清理選項
+   *
+   * @param {object} options - 清理選項
    * @returns {number} 清理的項目數量
    */
   clearExpiredCache(options = {}) {
@@ -655,9 +668,10 @@ class PerformanceOptimizer {
 
   /**
    * 強制刷新特定選擇器的緩存
+   *
    * @param {string|Array} selectors - 要刷新的選擇器或選擇器數組
    * @param {Element} context - 查詢上下文
-   * @param {Object} options - 查詢選項
+   * @param {object} options - 查詢選項
    */
   refreshCache(selectors, context = document, options = {}) {
     const selectorList = Array.isArray(selectors) ? selectors : [selectors];
@@ -689,12 +703,12 @@ class PerformanceOptimizer {
    * Preloader 在頁面加載初期可能會緩存一些關鍵節點（如 article）
    * 如果這些緩存有效，PerformanceOptimizer 可以直接接管，避免重複查詢
    *
-   * @param {Object} options - 接管選項
+   * @param {object} options - 接管選項
    * @param {number} [options.maxAge=30000] - 快取最大有效期（毫秒）
    * @returns {{ taken: number, expired?: boolean }} 接管結果
    */
   takeoverPreloaderCache(options = {}) {
-    const { maxAge = 30000 } = options;
+    const { maxAge = 30_000 } = options;
     let preloaderCache = null;
 
     // 嘗試透過事件獲取快取 (Decoupling Phase 8)
@@ -756,6 +770,7 @@ class PerformanceOptimizer {
 
   /**
    * 安排批處理
+   *
    * @private
    */
   _scheduleBatchProcessing() {
@@ -765,7 +780,13 @@ class PerformanceOptimizer {
 
     // 使用 requestAnimationFrame 進行更優化的調度
     // 如果支持 requestIdleCallback，則優先使用它
-    if (typeof requestIdleCallback !== 'undefined') {
+    if (typeof requestIdleCallback === 'undefined') {
+      // 回退到 setTimeout
+      this.batchTimer = setTimeout(() => {
+        this._processBatch();
+        this.batchTimer = null;
+      }, this.options.batchDelay);
+    } else {
       this.batchTimer = requestIdleCallback(
         () => {
           this._processBatch();
@@ -773,17 +794,12 @@ class PerformanceOptimizer {
         },
         { timeout: this.options.batchDelay }
       );
-    } else {
-      // 回退到 setTimeout
-      this.batchTimer = setTimeout(() => {
-        this._processBatch();
-        this.batchTimer = null;
-      }, this.options.batchDelay);
     }
   }
 
   /**
    * 處理批處理隊列
+   *
    * @private
    */
   _processBatch() {
@@ -808,6 +824,7 @@ class PerformanceOptimizer {
 
   /**
    * 計算最佳批處理大小
+   *
    * @private
    */
   _calculateOptimalBatchSize() {
@@ -835,6 +852,11 @@ class PerformanceOptimizer {
 
   /**
    * 分批處理項目以避免阻塞 UI
+   *
+   * @param items
+   * @param startTime
+   * @param index
+   * @param results
    * @private
    */
   _processBatchItems(items, startTime, index = 0, results = []) {
@@ -859,7 +881,7 @@ class PerformanceOptimizer {
           results.push(result);
         }
       } catch (error) {
-        if (typeof ErrorHandler !== 'undefined') {
+        if (ErrorHandler !== undefined) {
           ErrorHandler.logError({
             type: 'performance_warning',
             context: 'batch processing',
@@ -875,14 +897,14 @@ class PerformanceOptimizer {
     // 如果還有更多項目，安排下一塊處理
     if (endIndex < items.length) {
       // 使用 requestAnimationFrame 或 setTimeout 來讓出控制權
-      if (typeof requestAnimationFrame !== 'undefined') {
-        requestAnimationFrame(() => {
-          this._processBatchItems(items, startTime, endIndex, results);
-        });
-      } else {
+      if (typeof requestAnimationFrame === 'undefined') {
         setTimeout(() => {
           this._processBatchItems(items, startTime, endIndex, results);
         }, 0);
+      } else {
+        requestAnimationFrame(() => {
+          this._processBatchItems(items, startTime, endIndex, results);
+        });
       }
     } else {
       // 所有項目已完成處理
@@ -896,6 +918,10 @@ class PerformanceOptimizer {
 
   /**
    * 分批處理數組
+   *
+   * @param items
+   * @param batchSize
+   * @param processor
    * @private
    */
   async _processInBatches(items, batchSize, processor) {
@@ -939,6 +965,8 @@ class PerformanceOptimizer {
 
   /**
    * 根據性能動態調整批處理大小
+   *
+   * @param currentSize
    * @private
    */
   _adjustBatchSizeForPerformance(currentSize) {
@@ -968,16 +996,18 @@ class PerformanceOptimizer {
    */
   static _yieldToMain() {
     return new Promise(resolve => {
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(() => resolve());
-      } else {
+      if (typeof requestIdleCallback === 'undefined') {
         setTimeout(() => resolve(), 1); // 給瀏覽器機會處理其他任務
+      } else {
+        requestIdleCallback(() => resolve());
       }
     });
   }
 
   /**
    * 記錄查詢時間
+   *
+   * @param startTime
    * @private
    */
   _recordQueryTime(startTime) {
@@ -998,7 +1028,7 @@ class PerformanceOptimizer {
    *
    * @private
    * @static
-   * @returns {Object|null} 內存統計對象或 null（如果不支持）
+   * @returns {object | null} 內存統計對象或 null（如果不支持）
    * @returns {number} returns.usedJSHeapSize - 已使用的 JS 堆大小（字節）
    * @returns {number} returns.totalJSHeapSize - JS 堆總大小（字節）
    * @returns {number} returns.jsHeapSizeLimit - JS 堆大小限制（字節）
@@ -1006,8 +1036,8 @@ class PerformanceOptimizer {
   static _getMemoryStats() {
     // 檢查 window.performance.memory 或 global.performance.memory（測試環境）
     const perf =
-      (typeof window !== 'undefined' && window.performance) ||
-      (typeof global !== 'undefined' && global.performance) ||
+      (globalThis.window !== undefined && globalThis.performance) ||
+      (globalThis.global !== undefined && globalThis.performance) ||
       (typeof performance !== 'undefined' && performance);
 
     if (perf?.memory) {
@@ -1026,10 +1056,10 @@ class PerformanceOptimizer {
   destroy() {
     // 清理批處理定時器
     if (this.batchTimer) {
-      if (typeof cancelIdleCallback !== 'undefined') {
-        cancelIdleCallback(this.batchTimer);
-      } else {
+      if (typeof cancelIdleCallback === 'undefined') {
         clearTimeout(this.batchTimer);
+      } else {
+        cancelIdleCallback(this.batchTimer);
       }
       this.batchTimer = null;
     }
@@ -1043,6 +1073,7 @@ class PerformanceOptimizer {
 
   /**
    * 測量函數執行時間
+   *
    * @param {Function} fn - 要測量的函數
    * @param {string} name - 函數名稱
    * @returns {*} 函數執行結果
@@ -1063,6 +1094,7 @@ class PerformanceOptimizer {
 
   /**
    * 測量異步函數執行時間
+   *
    * @param {Function} asyncFn - 要測量的異步函數
    * @param {string} name - 函數名稱
    * @returns {Promise<*>} 函數執行結果
@@ -1091,9 +1123,10 @@ const defaultOptimizer = new PerformanceOptimizer();
 
 /**
  * 便捷的緩存查詢函數
+ *
  * @param {string} selector - CSS 選擇器
  * @param {Element} context - 查詢上下文
- * @param {Object} options - 查詢選項
+ * @param {object} options - 查詢選項
  * @returns {NodeList|Element|null} 查詢結果
  */
 function cachedQuery(selector, context = document, options = {}) {
@@ -1102,6 +1135,7 @@ function cachedQuery(selector, context = document, options = {}) {
 
 /**
  * 便捷的批處理函數
+ *
  * @param {Array} items - 要處理的項目
  * @param {Function} processor - 處理函數
  * @returns {Promise<Array>} 處理結果
@@ -1112,6 +1146,7 @@ function batchProcess(items, processor) {
 
 /**
  * 等待指定的時間
+ *
  * @param {number} ms - 等待的毫秒數
  * @returns {Promise<void>}
  */
@@ -1124,22 +1159,23 @@ function waitForDelay(ms) {
 
 /**
  * 具備重試與失敗統計的批處理封裝
+ *
  * @param {Array} items - 要處理的項目
  * @param {Function} processor - 單項處理函數
- * @param {Object} options - 設定
+ * @param {object} options - 設定
  * @param {number} [options.maxAttempts=2] - 最大嘗試次數
  * @param {number} [options.baseDelay=120] - 初始延遲（毫秒），會以 2 的冪次增加
  * @param {boolean} [options.captureFailedResults=false] - 是否收集失敗索引
  * @param {Function} [options.isResultSuccessful] - 自訂成功判斷函數
  * @param {Function} [options.customBatchFn] - 測試用自訂批處理函數
- * @returns {Promise<{results: Array|null, meta: Object}>}
+ * @returns {Promise<{results: Array | null, meta: object}>}
  */
 async function batchProcessWithRetry(items, processor, options = {}) {
   const {
     maxAttempts = 2,
     baseDelay = 120,
     captureFailedResults = false,
-    isResultSuccessful = result => Boolean(result),
+    isResultSuccessful = Boolean,
     customBatchFn,
   } = options;
 

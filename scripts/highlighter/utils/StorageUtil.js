@@ -22,8 +22,9 @@ import Logger from '../../utils/Logger.js';
 const StorageUtil = {
   /**
    * 保存標記數據
+   *
    * @param {string} pageUrl - 頁面 URL
-   * @param {Object|Array} highlightData - 標註數據
+   * @param {object | Array} highlightData - 標註數據
    * @returns {Promise<void>}
    */
   async saveHighlights(pageUrl, highlightData) {
@@ -55,6 +56,9 @@ const StorageUtil = {
 
   /**
    * 保存到 Chrome Storage
+   *
+   * @param key
+   * @param data
    * @private
    */
   _saveToChromeStorage(key, data) {
@@ -79,6 +83,9 @@ const StorageUtil = {
 
   /**
    * 保存到 localStorage
+   *
+   * @param key
+   * @param data
    * @private
    */
   _saveToLocalStorage(key, data) {
@@ -94,6 +101,7 @@ const StorageUtil = {
 
   /**
    * 加載標記數據
+   *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<Array>}
    */
@@ -127,6 +135,8 @@ const StorageUtil = {
 
   /**
    * 從 Chrome Storage 加載並解析格式
+   *
+   * @param key
    * @private
    */
   _loadFromChromeStorage(key) {
@@ -152,6 +162,8 @@ const StorageUtil = {
 
   /**
    * 從 localStorage 加載並解析格式
+   *
+   * @param key
    * @private
    */
   _loadFromLocalStorage(key) {
@@ -181,6 +193,8 @@ const StorageUtil = {
 
   /**
    * 解析不同版本的標注數據格式
+   *
+   * @param data
    * @private
    */
   _parseHighlightFormat(data) {
@@ -203,6 +217,7 @@ const StorageUtil = {
 
   /**
    * 清除指定頁面的標記數據
+   *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
    */
@@ -247,6 +262,8 @@ const StorageUtil = {
 
   /**
    * 從 Chrome Storage 清除數據
+   *
+   * @param key
    * @private
    */
   _clearFromChromeStorage(key) {
@@ -271,6 +288,8 @@ const StorageUtil = {
 
   /**
    * 從 localStorage 清除數據
+   *
+   * @param key
    * @private
    */
   _clearFromLocalStorage(key) {
@@ -289,6 +308,6 @@ const StorageUtil = {
 export { StorageUtil };
 
 // 掛載到 window 供 IIFE 環境使用
-if (typeof window !== 'undefined') {
-  window.StorageUtil = StorageUtil;
+if (globalThis.window !== undefined) {
+  globalThis.StorageUtil = StorageUtil;
 }

@@ -14,7 +14,7 @@ import {
 
 describe('ErrorHandler - 測試', () => {
   // 保存原始的 console 方法
-  /** @type {Object|null} */
+  /** @type {object | null} */
   let originalConsole = null;
 
   beforeEach(() => {
@@ -39,9 +39,9 @@ describe('ErrorHandler - 測試', () => {
       log: console.log,
       debug: console.log,
     };
-    global.Logger = mockLogger;
-    if (typeof window !== 'undefined') {
-      window.Logger = mockLogger;
+    globalThis.Logger = mockLogger;
+    if (globalThis.window !== undefined) {
+      globalThis.Logger = mockLogger;
     }
   });
 

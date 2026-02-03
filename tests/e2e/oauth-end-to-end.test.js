@@ -12,7 +12,7 @@ describe('OAuth 端到端整合測試', () => {
 
   beforeEach(() => {
     // 重置 Chrome API 模擬
-    global.chrome = {
+    globalThis.chrome = {
       identity: {
         launchWebAuthFlow: jest.fn(),
         getRedirectURL: jest.fn(() => 'chrome-extension://test/oauth-callback.html'),
@@ -63,7 +63,7 @@ describe('OAuth 端到端整合測試', () => {
       );
 
       // 模擬權杖交換 API 回應
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockTokens),
       });
@@ -119,7 +119,7 @@ describe('OAuth 端到端整合測試', () => {
       );
 
       // 模擬權杖交換 API 失敗
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 400,
         json: () =>
@@ -158,7 +158,7 @@ describe('OAuth 端到端整合測試', () => {
       });
 
       // 模擬權杖重新整理 API 回應
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockNewTokens),
       });
@@ -202,7 +202,7 @@ describe('OAuth 端到端整合測試', () => {
       });
 
       // 模擬權杖重新整理失敗
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 400,
         json: () =>
@@ -228,7 +228,7 @@ describe('OAuth 端到端整合測試', () => {
       const mockTokens = {
         access_token: 'valid_access_token',
         refresh_token: 'refresh_token',
-        expires_at: Date.now() + 3600000,
+        expires_at: Date.now() + 3_600_000,
       };
 
       const mockDatabases = {
@@ -252,7 +252,7 @@ describe('OAuth 端到端整合測試', () => {
       });
 
       // 模擬 Notion API 回應
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockDatabases),
       });
@@ -297,13 +297,13 @@ describe('OAuth 端到端整合測試', () => {
       chrome.storage.local.get
         .mockResolvedValueOnce({ notion_oauth_tokens: mockExpiredTokens })
         .mockResolvedValueOnce({
-          notion_oauth_tokens: { ...mockNewTokens, expires_at: Date.now() + 3600000 },
+          notion_oauth_tokens: { ...mockNewTokens, expires_at: Date.now() + 3_600_000 },
         });
 
       chrome.storage.local.set.mockResolvedValue();
 
       // 模擬權杖重新整理和 API 調用
-      global.fetch = jest
+      globalThis.fetch = jest
         .fn()
         .mockResolvedValueOnce({
           // 權杖重新整理
@@ -347,7 +347,7 @@ describe('OAuth 端到端整合測試', () => {
       const mockTokens = {
         access_token: 'valid_access_token',
         refresh_token: 'refresh_token',
-        expires_at: Date.now() + 3600000,
+        expires_at: Date.now() + 3_600_000,
       };
 
       // 模擬有效權杖
@@ -356,7 +356,7 @@ describe('OAuth 端到端整合測試', () => {
       });
 
       // 模擬 API 錯誤
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 403,
         json: () =>
@@ -398,7 +398,7 @@ describe('OAuth 端到端整合測試', () => {
         'chrome-extension://test/oauth-callback.html?code=auth_code&state=test_state'
       );
 
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockOAuthTokens),
       });
@@ -456,8 +456,8 @@ describe('OAuth 端到端整合測試', () => {
       const pkceParams = await oauthManager.generatePKCEParams();
 
       // 驗證 PKCE 參數格式
-      expect(pkceParams.codeVerifier).toMatch(/^[A-Za-z0-9\-._~]{43,128}$/);
-      expect(pkceParams.codeChallenge).toMatch(/^[A-Za-z0-9\-_]{43}$/);
+      expect(pkceParams.codeVerifier).toMatch(/^[\w.~\-]{43,128}$/);
+      expect(pkceParams.codeChallenge).toMatch(/^[\w\-]{43}$/);
       expect(pkceParams.codeChallengeMethod).toBe('S256');
 
       // 模擬完整的 PKCE 流程
@@ -472,7 +472,7 @@ describe('OAuth 端到端整合測試', () => {
         `chrome-extension://test/oauth-callback.html?code=${mockAuthCode}&state=test_state`
       );
 
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockTokens),
       });
@@ -550,7 +550,7 @@ describe('OAuth 端到端整合測試', () => {
       ];
 
       // 模擬 API 回應
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ results: mockDatabases }),
       });
@@ -558,7 +558,7 @@ describe('OAuth 端到端整合測試', () => {
       chrome.storage.local.get.mockResolvedValue({
         notion_oauth_tokens: {
           access_token: 'valid_token',
-          expires_at: Date.now() + 3600000,
+          expires_at: Date.now() + 3_600_000,
         },
       });
 
@@ -578,7 +578,7 @@ describe('OAuth 端到端整合測試', () => {
     test('E2E-015: 網路錯誤重試機制', async () => {
       const mockTokens = {
         access_token: 'valid_token',
-        expires_at: Date.now() + 3600000,
+        expires_at: Date.now() + 3_600_000,
       };
 
       chrome.storage.local.get.mockResolvedValue({
@@ -586,7 +586,7 @@ describe('OAuth 端到端整合測試', () => {
       });
 
       // 模擬網路錯誤然後成功
-      global.fetch = jest
+      globalThis.fetch = jest
         .fn()
         .mockRejectedValueOnce(new Error('Network error'))
         .mockRejectedValueOnce(new Error('Network error'))
@@ -606,7 +606,7 @@ describe('OAuth 端到端整合測試', () => {
     test('E2E-016: 最大重試次數限制', async () => {
       const mockTokens = {
         access_token: 'valid_token',
-        expires_at: Date.now() + 3600000,
+        expires_at: Date.now() + 3_600_000,
       };
 
       chrome.storage.local.get.mockResolvedValue({
@@ -614,7 +614,7 @@ describe('OAuth 端到端整合測試', () => {
       });
 
       // 模擬持續的網路錯誤
-      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+      globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
 
       // 執行 API 調用
       const result = await apiClient.loadDatabases();

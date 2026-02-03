@@ -8,11 +8,42 @@
  * - 快取機制
  */
 
+/**
+ * 執行實際的 preloader.js 腳本
+ * 通過讀取並執行實際文件，確保測試與實現同步
+ *
+ * skipcq: JS-0083 - 在測試環境中執行受信任的本地腳本是安全的
+ */
+function executePreloader() {
+  const fs = require('node:fs');
+  const path = require('node:path');
+
+  // 讀取實際的 preloader.js 腳本
+  const preloaderPath = path.resolve(__dirname, '../../../scripts/performance/preloader.js');
+  const preloaderCode = fs.readFileSync(preloaderPath, 'utf8');
+
+  // 抑制 console.log 輸出（preloader 會輸出載入日誌）
+  const originalConsoleLog = console.log;
+  console.log = jest.fn();
+
+  try {
+    // 使用 Function 構造函數執行腳本（提供全域上下文）
+    // skipcq: JS-0083 - 執行受信任的本地腳本
+    // eslint-disable-next-line sonarjs/code-eval
+    const executeScript = new Function('window', 'document', 'chrome', 'console', preloaderCode);
+    // eslint-disable-next-line sonarjs/code-eval
+    executeScript(globalThis.window, globalThis.document, globalThis.chrome, console);
+  } finally {
+    // 恢復 console.log
+    console.log = originalConsoleLog;
+  }
+}
+
 describe('Preloader', () => {
   // Jest beforeEach 模式：變數在 beforeEach 中初始化
-  /** @type {Object} */
+  /** @type {object} */
   let originalWindow; // skipcq: JS-0119
-  /** @type {Object} */
+  /** @type {object} */
   let mockChrome; // skipcq: JS-0119
   /** @type {Function|null} */
   let keydownHandler = null;
@@ -23,11 +54,11 @@ describe('Preloader', () => {
 
   beforeEach(() => {
     // 保存原始狀態
-    originalWindow = { ...global.window };
+    originalWindow = { ...globalThis.window };
 
     // 重置全域變數
-    delete global.window.__NOTION_PRELOADER_INITIALIZED__;
-    delete global.window.__NOTION_BUNDLE_READY__;
+    delete globalThis.window.__NOTION_PRELOADER_INITIALIZED__;
+    delete globalThis.window.__NOTION_BUNDLE_READY__;
 
     // 捕獲事件監聽器
     keydownHandler = null;
@@ -75,12 +106,12 @@ describe('Preloader', () => {
       },
     };
 
-    global.chrome = mockChrome;
-    global.window = global.window || {};
+    globalThis.chrome = mockChrome;
+    globalThis.window = globalThis.window || {};
   });
 
   afterEach(() => {
-    global.window = originalWindow;
+    globalThis.window = originalWindow;
     jest.clearAllMocks();
   });
 
@@ -90,34 +121,12 @@ describe('Preloader', () => {
    *
    * skipcq: JS-0083 - 在測試環境中執行受信任的本地腳本是安全的
    */
-  function executePreloader() {
-    const fs = require('fs');
-    const path = require('path');
-
-    // 讀取實際的 preloader.js 腳本
-    const preloaderPath = path.resolve(__dirname, '../../../scripts/performance/preloader.js');
-    const preloaderCode = fs.readFileSync(preloaderPath, 'utf8');
-
-    // 抑制 console.log 輸出（preloader 會輸出載入日誌）
-    const originalConsoleLog = console.log;
-    console.log = jest.fn();
-
-    try {
-      // 使用 Function 構造函數執行腳本（提供全域上下文）
-      // skipcq: JS-0083 - 執行受信任的本地腳本
-      const executeScript = new Function('window', 'document', 'chrome', 'console', preloaderCode);
-      executeScript(global.window, global.document, global.chrome, console);
-    } finally {
-      // 恢復 console.log
-      console.log = originalConsoleLog;
-    }
-  }
 
   describe('初始化防護', () => {
     test('應該正確初始化並設置標記', () => {
       executePreloader();
 
-      expect(window.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
+      expect(globalThis.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
       expect(requestHandler).toBeInstanceOf(Function);
     });
 
@@ -143,7 +152,7 @@ describe('Preloader', () => {
         expect.any(Function)
       );
       // 標記應保持
-      expect(window.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
+      expect(globalThis.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
       // Handler 應該保持不變
       expect(requestHandler).toBe(firstHandler);
     });
@@ -266,7 +275,7 @@ describe('Preloader', () => {
 
     test('PING 在 Bundle 已載入時不應響應', () => {
       executePreloader();
-      window.__NOTION_BUNDLE_READY__ = true;
+      globalThis.__NOTION_BUNDLE_READY__ = true;
 
       const sendResponse = jest.fn();
       const result = messageHandler({ action: 'PING' }, {}, sendResponse);
@@ -370,11 +379,11 @@ describe('Preloader', () => {
   describe('調試日誌', () => {
     test('當 localStorage 啟用調試時應輸出日誌', () => {
       // Mock localStorage
-      const originalLocalStorage = global.window.localStorage;
+      const originalLocalStorage = globalThis.window.localStorage;
       const mockGetItem = jest.fn(key => (key === 'NOTION_DEBUG' ? '1' : null));
 
       // 確保 localStorage 在全局 window 上可用
-      Object.defineProperty(global.window, 'localStorage', {
+      Object.defineProperty(globalThis.window, 'localStorage', {
         value: {
           getItem: mockGetItem,
           setItem: jest.fn(),
@@ -383,14 +392,14 @@ describe('Preloader', () => {
         writable: true,
       });
       // 同時也設置到 global，以防 executeScript 環境需要
-      global.localStorage = global.window.localStorage;
+      globalThis.localStorage = globalThis.window.localStorage;
 
       // 監聽 console.log
       const consoleSpy = jest.spyOn(console, 'log');
 
       try {
         // Force reset flag
-        window.__NOTION_PRELOADER_INITIALIZED__ = false;
+        globalThis.__NOTION_PRELOADER_INITIALIZED__ = false;
 
         executePreloader();
 
@@ -402,21 +411,21 @@ describe('Preloader', () => {
         // 恢復環境
         consoleSpy.mockRestore();
         if (originalLocalStorage) {
-          global.window.localStorage = originalLocalStorage;
-          global.localStorage = originalLocalStorage;
+          globalThis.window.localStorage = originalLocalStorage;
+          globalThis.localStorage = originalLocalStorage;
         } else {
-          delete global.window.localStorage;
-          delete global.localStorage;
+          delete globalThis.window.localStorage;
+          delete globalThis.localStorage;
         }
       }
     });
 
     test('當 localStorage 未啟用調試時不應輸出日誌', () => {
       // Mock localStorage returning null
-      const originalLocalStorage = global.window.localStorage;
+      const originalLocalStorage = globalThis.window.localStorage;
       const mockGetItem = jest.fn(() => null);
 
-      Object.defineProperty(global.window, 'localStorage', {
+      Object.defineProperty(globalThis.window, 'localStorage', {
         value: {
           getItem: mockGetItem,
           setItem: jest.fn(),
@@ -440,20 +449,20 @@ describe('Preloader', () => {
       } finally {
         consoleSpy.mockRestore();
         if (originalLocalStorage) {
-          global.window.localStorage = originalLocalStorage;
-          global.localStorage = originalLocalStorage;
+          globalThis.window.localStorage = originalLocalStorage;
+          globalThis.localStorage = originalLocalStorage;
         } else {
-          delete global.window.localStorage;
-          delete global.localStorage;
+          delete globalThis.window.localStorage;
+          delete globalThis.localStorage;
         }
       }
     });
     test('當 localStorage 拋出異常時應優雅處理', () => {
-      const originalDescriptor = Object.getOwnPropertyDescriptor(global.window, 'localStorage');
+      const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis.window, 'localStorage');
 
       try {
         // Mock localStorage throwing error
-        Object.defineProperty(global.window, 'localStorage', {
+        Object.defineProperty(globalThis.window, 'localStorage', {
           get: () => {
             throw new Error('Access denied');
           },
@@ -464,13 +473,13 @@ describe('Preloader', () => {
         expect(() => executePreloader()).not.toThrow();
 
         // 核心功能（如初始化標記）應該仍然生效
-        expect(window.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
+        expect(globalThis.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
       } finally {
         // Restore functionality to avoid affecting other tests or cleanup
         if (originalDescriptor) {
-          Object.defineProperty(global.window, 'localStorage', originalDescriptor);
+          Object.defineProperty(globalThis.window, 'localStorage', originalDescriptor);
         } else {
-          delete global.window.localStorage;
+          delete globalThis.window.localStorage;
         }
       }
     });

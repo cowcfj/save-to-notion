@@ -20,7 +20,7 @@ describe('splitTextForHighlight', () => {
       const result = splitTextForHighlight(text);
 
       expect(result).toEqual([text]);
-      expect(result.length).toBe(1);
+      expect(result).toHaveLength(1);
     });
 
     test('空字符串返回空字符串', () => {
@@ -38,7 +38,7 @@ describe('splitTextForHighlight', () => {
       const result = splitTextForHighlight(text, 2000);
 
       expect(result).toEqual([text]);
-      expect(result.length).toBe(1);
+      expect(result).toHaveLength(1);
     });
   });
 
@@ -54,7 +54,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
       expect(result[0]).toBe(part1);
       expect(result[1]).toBe(part2);
     });
@@ -66,7 +66,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
       expect(result[0]).toBe(part1);
       expect(result[1]).toBe(part2);
     });
@@ -78,7 +78,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
       expect(result[0]).toBe(part1);
       expect(result[1]).toBe(part2);
     });
@@ -90,7 +90,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
       expect(result[0]).toBe(part1);
       expect(result[1]).toBe(part2);
     });
@@ -117,7 +117,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
       expect(result[0]).toBe(part1.trim());
       expect(result[1]).toBe(part2);
     });
@@ -135,7 +135,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
       expect(result[0]).toBe(part1.trim());
       expect(result[1]).toBe(part2);
     });
@@ -162,9 +162,9 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(2);
-      expect(result[0].length).toBe(2000);
-      expect(result[1].length).toBe(1000);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toHaveLength(2000);
+      expect(result[1]).toHaveLength(1000);
     });
 
     test('連續無間斷文本正確分割', () => {
@@ -218,10 +218,10 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(3);
-      expect(result[0].length).toBe(2000);
-      expect(result[1].length).toBe(2000);
-      expect(result[2].length).toBe(1000);
+      expect(result).toHaveLength(3);
+      expect(result[0]).toHaveLength(2000);
+      expect(result[1]).toHaveLength(2000);
+      expect(result[2]).toHaveLength(1000);
     });
 
     test('帶標點的超長文本正確分割', () => {
@@ -257,10 +257,10 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 100);
 
-      expect(result.length).toBe(3);
-      expect(result[0].length).toBe(100);
-      expect(result[1].length).toBe(100);
-      expect(result[2].length).toBe(50);
+      expect(result).toHaveLength(3);
+      expect(result[0]).toHaveLength(100);
+      expect(result[1]).toHaveLength(100);
+      expect(result[2]).toHaveLength(50);
     });
 
     test('使用自定義 maxLength = 500', () => {
@@ -268,7 +268,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 500);
 
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
       expect(result[0]).toContain('。');
     });
 
@@ -277,7 +277,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 1);
 
-      expect(result.length).toBe(3);
+      expect(result).toHaveLength(3);
       expect(result).toEqual(['a', 'b', 'c']);
     });
   });
@@ -292,7 +292,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(1);
+      expect(result).toHaveLength(1);
       expect(result[0]).toBe(text);
     });
 
@@ -301,7 +301,7 @@ describe('splitTextForHighlight', () => {
 
       const result = splitTextForHighlight(text, 2000);
 
-      expect(result.length).toBe(1);
+      expect(result).toHaveLength(1);
       expect(result[0]).toBe(text);
     });
 
@@ -387,18 +387,18 @@ describe('splitTextForHighlight', () => {
 
   describe('性能測試', () => {
     test('處理超大文本（10000 字符）', () => {
-      const text = 'a'.repeat(10000);
+      const text = 'a'.repeat(10_000);
 
       const start = Date.now();
       const result = splitTextForHighlight(text, 2000);
       const elapsed = Date.now() - start;
 
-      expect(result.length).toBe(5);
+      expect(result).toHaveLength(5);
       expect(elapsed).toBeLessThan(100); // 應該在 100ms 內完成
     });
 
     test('處理超大文本（50000 字符）', () => {
-      const text = 'word '.repeat(10000); // 50000 字符
+      const text = 'word '.repeat(10_000); // 50000 字符
 
       const start = Date.now();
       const result = splitTextForHighlight(text, 2000);

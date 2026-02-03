@@ -5,10 +5,10 @@
 
 // Mock Chrome APIs
 const mockChrome = require('../../mocks/chrome');
-global.chrome = mockChrome;
+globalThis.chrome = mockChrome;
 
 // Mock console methods
-global.console = {
+globalThis.console = {
   log: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
@@ -21,8 +21,8 @@ const mockInjectionService = {
   injectHighlightRestore: jest.fn(),
 };
 
-global.injectionService = mockInjectionService;
-global.migrateLegacyHighlights = jest.fn();
+globalThis.injectionService = mockInjectionService;
+globalThis.migrateLegacyHighlights = jest.fn();
 
 describe('Background Tab Listeners', () => {
   /** @type {Function|null} 設置標籤頁監聽器的函數 */
@@ -90,7 +90,7 @@ describe('Background Tab Listeners', () => {
               await migrateLegacyHighlights(tabId, normUrl, storageKey);
 
               // 注入標註恢復腳本
-              await global.injectionService.injectHighlightRestore(tabId);
+              await globalThis.injectionService.injectHighlightRestore(tabId);
             }
           }
         } catch (error) {
@@ -102,9 +102,9 @@ describe('Background Tab Listeners', () => {
     // 模擬 migrateLegacyHighlights 函數
     migrateLegacyHighlights = jest.fn(async (tabId, normUrl, storageKey) => {
       try {
-        const result = await global.injectionService.injectWithResponse(tabId, () => {
+        const result = await globalThis.injectionService.injectWithResponse(tabId, () => {
           // 檢查 localStorage 中是否有舊版標註
-          const legacyKey = `highlights_${window.location.href}`;
+          const legacyKey = `highlights_${globalThis.location.href}`;
           const legacyData = localStorage.getItem(legacyKey);
 
           if (legacyData) {

@@ -19,6 +19,7 @@ const PING_TIMEOUT_MS = 2000;
 
 /**
  * 檢查 URL 是否限制注入腳本
+ *
  * @param {string} url - 要檢查的 URL
  * @returns {boolean} 是否受限
  */
@@ -66,7 +67,8 @@ function isRestrictedInjectionUrl(url) {
 
 /**
  * 解析 chrome.runtime.lastError 的文字內容
- * @param {Object|string} runtimeError - 運行時錯誤對象
+ *
+ * @param {object | string} runtimeError - 運行時錯誤對象
  * @returns {string} 錯誤訊息
  */
 function getRuntimeErrorMessage(runtimeError) {
@@ -86,13 +88,14 @@ function getRuntimeErrorMessage(runtimeError) {
     return JSON.stringify(runtimeError);
   } catch (error) {
     console.warn('Unable to stringify runtime error:', error);
-    return String(runtimeError);
+    return `[Runtime Error: ${Object.prototype.toString.call(runtimeError)}]`;
   }
 }
 
 /**
  * 判斷注入錯誤是否可恢復（例如受限頁面、無權限等）
  * 可恢復錯誤將被靜默處理，不視為真正的失敗
+ *
  * @param {string} message - 錯誤訊息
  * @returns {boolean} 是否為可恢復錯誤
  */
@@ -131,8 +134,8 @@ function isRecoverableInjectionError(message) {
  */
 class InjectionService {
   /**
-   * @param {Object} options - 配置選項
-   * @param {Object} options.logger - 日誌對象
+   * @param {object} options - 配置選項
+   * @param {object} options.logger - 日誌對象
    */
   constructor(options = {}) {
     this.logger = options.logger || console;
@@ -141,6 +144,8 @@ class InjectionService {
   /**
    * Resolve the correct path for highlighter bundle
    * Handles both 'dist' loading (tests) and 'root' loading (development)
+   *
+   * @returns {Promise<string>}
    * @private
    */
   async _resolveHighlighterPath() {
@@ -149,7 +154,8 @@ class InjectionService {
     }
 
     // Unified bundle is the only target now
-    const candidates = ['dist/content.bundle.js'];
+    const bundlePath = 'dist/content.bundle.js';
+    const candidates = [bundlePath];
 
     for (const path of candidates) {
       try {
@@ -158,112 +164,144 @@ class InjectionService {
           this._highlighterPath = path;
           return path;
         }
-      } catch (_err) {
+      } catch {
         // Continue to next candidate
       }
     }
 
     // Fallback (should typically be caught by candidates, but return unified bundle as default)
-    return 'dist/content.bundle.js';
+    return bundlePath;
   }
 
   /**
    * 注入文件並執行函數
+   *
    * @param {number} tabId - 目標標籤頁 ID
    * @param {string[]} files - 要注入的文件列表
    * @param {Function} func - 要執行的函數
-   * @param {Object} options - 注入選項
+   * @param {object} options - 注入選項
    * @returns {Promise<any>}
    */
   async injectAndExecute(tabId, files = [], func = null, options = {}) {
-    const {
-      errorMessage = 'Script injection failed',
-      successMessage = 'Script executed successfully',
-      logErrors = true,
-      returnResult = false,
-    } = options;
+    this._validateInjectOptions(options);
 
     try {
-      // 首先注入文件
       if (files.length > 0) {
-        await new Promise((resolve, reject) => {
-          chrome.scripting.executeScript(
-            {
-              target: { tabId },
-              files,
-            },
-            () => {
-              if (chrome.runtime.lastError) {
-                const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
-                const isRecoverable = isRecoverableInjectionError(errMsg);
-                if (logErrors) {
-                  if (isRecoverable) {
-                    this.logger.warn?.('⚠️ File injection skipped (recoverable):', errMsg);
-                  } else {
-                    this.logger.error?.('File injection failed:', errMsg);
-                  }
-                }
-                if (isRecoverable) {
-                  resolve();
-                  return;
-                }
-                reject(new Error(errMsg || errorMessage));
-              } else {
-                resolve();
-              }
-            }
-          );
-        });
+        await this._injectFiles(tabId, files, options);
       }
 
-      // 然後執行函數
       if (func) {
-        return new Promise((resolve, reject) => {
-          chrome.scripting.executeScript(
-            {
-              target: { tabId },
-              func,
-            },
-            results => {
-              if (chrome.runtime.lastError) {
-                const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
-                const isRecoverable = isRecoverableInjectionError(errMsg);
-                if (logErrors) {
-                  if (isRecoverable) {
-                    this.logger.warn?.('⚠️ Function execution skipped (recoverable):', errMsg);
-                  } else {
-                    this.logger.error?.('Function execution failed:', errMsg);
-                  }
-                }
-                if (isRecoverable) {
-                  resolve(returnResult ? null : undefined);
-                  return;
-                }
-                reject(new Error(errMsg || errorMessage));
-              } else {
-                if (successMessage && logErrors) {
-                  this.logger.log(successMessage);
-                }
-                const result = returnResult && results && results[0] ? results[0].result : null;
-                resolve(result);
-              }
-            }
-          );
-        });
+        return await this._executeFunction(tabId, func, options);
       }
-
-      return Promise.resolve();
     } catch (error) {
-      if (logErrors) {
-        this.logger.error?.(errorMessage, error);
+      if (options.logErrors !== false) {
+        this.logger.error?.(options.errorMessage || 'Script injection failed', error);
       }
       throw error;
+    }
+  }
+
+  _validateInjectOptions(options) {
+    options.errorMessage = options.errorMessage || 'Script injection failed';
+    options.successMessage = options.successMessage || 'Script executed successfully';
+    if (options.logErrors === undefined) {
+      options.logErrors = true;
+    }
+    if (options.returnResult === undefined) {
+      options.returnResult = false;
+    }
+  }
+
+  async _injectFiles(tabId, files, options) {
+    return new Promise((resolve, reject) => {
+      chrome.scripting.executeScript({ target: { tabId }, files }, () =>
+        this._handleScriptResult(resolve, reject, options, false)
+      );
+    });
+  }
+
+  async _executeFunction(tabId, func, options) {
+    return new Promise((resolve, reject) => {
+      chrome.scripting.executeScript({ target: { tabId }, func }, results =>
+        this._handleScriptResult(resolve, reject, options, true, results)
+      );
+    });
+  }
+
+  _handleScriptResult(resolve, reject, options, isFunction, results = null) {
+    if (chrome.runtime.lastError) {
+      return this._handleInjectionError(resolve, reject, options, isFunction);
+    }
+    this._handleInjectionSuccess(resolve, options, isFunction, results);
+  }
+
+  /**
+   * 處理注入錯誤
+   *
+   * @param {Function} resolve - Promise resolve 函數
+   * @param {Function} reject - Promise reject 函數
+   * @param {object} options - 注入選項
+   * @param {boolean} isFunction - 是否為函數執行
+   * @private
+   */
+  _handleInjectionError(resolve, reject, options, isFunction) {
+    const errMsg = getRuntimeErrorMessage(chrome.runtime.lastError);
+    const isRecoverable = isRecoverableInjectionError(errMsg);
+
+    if (options.logErrors) {
+      this._logInjectionStatus(false, isFunction, isRecoverable, errMsg);
+    }
+
+    if (isRecoverable) {
+      resolve(options.returnResult && isFunction ? null : undefined);
+      return;
+    }
+    reject(new Error(errMsg || options.errorMessage));
+  }
+
+  /**
+   * 處理注入成功
+   *
+   * @param {Function} resolve - Promise resolve 函數
+   * @param {object} options - 注入選項
+   * @param {boolean} isFunction - 是否為函數執行
+   * @param {Array} results - 注入結果清單
+   * @private
+   */
+  _handleInjectionSuccess(resolve, options, isFunction, results) {
+    if (isFunction && options.successMessage && options.logErrors) {
+      this.logger.log(options.successMessage);
+    }
+    const result = (options.returnResult && results?.[0]?.result) ?? null;
+    resolve(result);
+  }
+
+  /**
+   * 記錄注入狀態
+   *
+   * @param {boolean} isSuccess - 是否成功
+   * @param {boolean} isFunction - 是否為函數執行
+   * @param {boolean} isRecoverable - 是否為可恢復錯誤
+   * @param {string} errMsg - 錯誤訊息
+   * @private
+   */
+  _logInjectionStatus(isSuccess, isFunction, isRecoverable, errMsg) {
+    if (isSuccess) {
+      return;
+    }
+
+    const msgPrefix = isFunction ? 'Function execution' : 'File injection';
+    if (isRecoverable) {
+      this.logger.warn?.(`⚠️ ${msgPrefix} skipped (recoverable):`, errMsg);
+    } else {
+      this.logger.error?.(`${msgPrefix} failed:`, errMsg);
     }
   }
 
   /**
    * 確保 Content Bundle 已注入到指定標籤頁
    * 使用 PING 機制檢測 Bundle 是否存在，若無則注入
+   *
    * @param {number} tabId - 目標標籤頁 ID
    * @returns {Promise<boolean>} 若已注入或成功注入返回 true
    */
@@ -280,7 +318,7 @@ class InjectionService {
             }
           });
         }),
-        new Promise((_, reject) =>
+        new Promise((resolve, reject) =>
           setTimeout(() => reject(new Error('PING timeout')), PING_TIMEOUT_MS)
         ),
       ]);
@@ -326,6 +364,7 @@ class InjectionService {
   /**
    * 注入標記工具並初始化
    * v2.5.0: 使用新版 CSS Highlight API + 無痛自動遷移
+   *
    * @param {number} tabId
    * @returns {Promise<{initialized: boolean, highlightCount: number}>}
    */
@@ -344,9 +383,9 @@ class InjectionService {
           const interval = 100; // Check every 100ms for responsiveness
 
           const checkInitialization = () => {
-            if (window.notionHighlighter) {
-              window.notionHighlighter.show();
-              const count = window.HighlighterV2?.manager?.getCount() || 0;
+            if (globalThis.notionHighlighter) {
+              globalThis.notionHighlighter.show();
+              const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
               // skipcq: JS-0002 - Running in page context
               console.log(`✅ 標註工具已準備，共 ${count} 個標註`);
               resolve({ initialized: true, highlightCount: count });
@@ -377,6 +416,7 @@ class InjectionService {
   /**
    * 注入並收集標記
    * v2.5.0: 使用新版標註系統
+   *
    * @param {number} tabId
    * @returns {Promise<Array>}
    */
@@ -386,8 +426,8 @@ class InjectionService {
       tabId,
       [], // 所有腳本已由 manifest.json 注入
       () => {
-        if (window.collectHighlights) {
-          return window.collectHighlights();
+        if (globalThis.collectHighlights) {
+          return globalThis.collectHighlights();
         }
         return [];
       },
@@ -401,6 +441,7 @@ class InjectionService {
   /**
    * 注入並清除頁面標記
    * v2.5.0: 使用新版標註系統
+   *
    * @param {number} tabId
    * @returns {Promise<void>}
    */
@@ -410,8 +451,8 @@ class InjectionService {
       tabId,
       [], // 所有腳本已由 manifest.json 注入
       () => {
-        if (window.clearPageHighlights) {
-          window.clearPageHighlights();
+        if (globalThis.clearPageHighlights) {
+          globalThis.clearPageHighlights();
         }
       },
       {
@@ -422,6 +463,7 @@ class InjectionService {
 
   /**
    * 注入標記恢復腳本
+   *
    * @param {number} tabId
    * @returns {Promise<void>}
    */
@@ -434,6 +476,7 @@ class InjectionService {
 
   /**
    * 注入腳本並執行函數，返回結果
+   *
    * @param {number} tabId
    * @param {Function} func
    * @param {string[]} files
@@ -454,10 +497,10 @@ class InjectionService {
         });
       } else if (files && files.length > 0) {
         // 如果只注入文件而不執行函數，等待注入完成後返回成功標記
-        return Promise.resolve([{ result: { success: true } }]);
+        return [{ result: { success: true } }];
       }
 
-      return Promise.resolve(null);
+      return null;
     } catch (error) {
       this.logger.error?.('injectWithResponse failed:', error);
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
@@ -467,6 +510,7 @@ class InjectionService {
 
   /**
    * 簡單的腳本注入（不返回結果）
+   *
    * @param {number} tabId
    * @param {Function} func
    * @param {string[]} files

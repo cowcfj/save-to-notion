@@ -85,18 +85,18 @@ test.describe('Highlighting Feature', () => {
     try {
       await page.waitForFunction(
         () => {
-          return window.notionHighlighter && window.HighlighterV2;
+          return globalThis.notionHighlighter && globalThis.HighlighterV2;
         },
         {
-          timeout: 10000, // 可配置的超時時間：10秒
+          timeout: 10_000, // 可配置的超時時間：10秒
           polling: 100, // 輪詢間隔：100ms
         }
       );
 
       // 3. 初始化完成後顯示工具列
       await page.evaluate(() => {
-        if (window.notionHighlighter) {
-          window.notionHighlighter.show();
+        if (globalThis.notionHighlighter) {
+          globalThis.notionHighlighter.show();
         }
       });
     } catch (error) {
@@ -110,7 +110,7 @@ test.describe('Highlighting Feature', () => {
     });
 
     const isToolbarPresent = await page.evaluate(() => {
-      return Boolean(document.getElementById('notion-highlighter-v2'));
+      return Boolean(document.querySelector('#notion-highlighter-v2'));
     });
 
     expect(isToolbarPresent).toBe(true);

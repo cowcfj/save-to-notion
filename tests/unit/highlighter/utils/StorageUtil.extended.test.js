@@ -21,7 +21,7 @@ import { StorageUtil } from '../../../../scripts/highlighter/utils/StorageUtil.j
 
 describe('Highlighter StorageUtil', () => {
   // Jest beforeEach 模式：變數在 beforeEach 中初始化
-  /** @type {Object} */
+  /** @type {object} */
   let mockChrome; // skipcq: JS-0119
 
   beforeEach(() => {
@@ -56,11 +56,11 @@ describe('Highlighter StorageUtil', () => {
         lastError: null,
       },
     };
-    global.chrome = mockChrome;
+    globalThis.chrome = mockChrome;
 
     // Mock localStorage
     const localStorageData = {};
-    Object.defineProperty(global, 'localStorage', {
+    Object.defineProperty(globalThis, 'localStorage', {
       value: {
         getItem: jest.fn(key => localStorageData[key] || null),
         setItem: jest.fn((key, value) => {
@@ -133,14 +133,14 @@ describe('Highlighter StorageUtil', () => {
   describe('_saveToChromeStorage', () => {
     test('Chrome Storage 不可用時應拒絕', async () => {
       // 移除 Chrome Storage
-      global.chrome = undefined;
+      globalThis.chrome = undefined;
 
       await expect(StorageUtil._saveToChromeStorage('test_key', {})).rejects.toThrow(
         'Chrome storage not available'
       );
 
       // 恢復
-      global.chrome = mockChrome;
+      globalThis.chrome = mockChrome;
     });
 
     test('lastError 時應拒絕', async () => {
@@ -167,13 +167,13 @@ describe('Highlighter StorageUtil', () => {
 
   describe('_loadFromChromeStorage', () => {
     test('Chrome Storage 不可用時應拒絕', async () => {
-      global.chrome = undefined;
+      globalThis.chrome = undefined;
 
       await expect(StorageUtil._loadFromChromeStorage('test_key')).rejects.toThrow(
         'Chrome storage not available'
       );
 
-      global.chrome = mockChrome;
+      globalThis.chrome = mockChrome;
     });
 
     test('成功加載陣列格式應正確解析', async () => {
@@ -305,13 +305,13 @@ describe('Highlighter StorageUtil', () => {
 
   describe('_clearFromChromeStorage', () => {
     test('Chrome Storage 不可用時應拒絕', async () => {
-      global.chrome = undefined;
+      globalThis.chrome = undefined;
 
       await expect(StorageUtil._clearFromChromeStorage('test_key')).rejects.toThrow(
         'Chrome storage not available'
       );
 
-      global.chrome = mockChrome;
+      globalThis.chrome = mockChrome;
     });
 
     test('成功清除應解析', async () => {

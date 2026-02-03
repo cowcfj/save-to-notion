@@ -62,13 +62,13 @@ describe('日期格式化函數', () => {
       const fewSecondsAgo = now - 5000; // 5 秒前
       const diff = now - fewSecondsAgo;
 
-      expect(diff).toBeLessThan(60000); // 小於 1 分鐘
+      expect(diff).toBeLessThan(60_000); // 小於 1 分鐘
     });
 
     test('應該返回「X 分鐘前」', () => {
       const now = Date.now();
       const minutesAgo = now - 5 * 60 * 1000; // 5 分鐘前
-      const diff = Math.floor((now - minutesAgo) / 60000);
+      const diff = Math.floor((now - minutesAgo) / 60_000);
 
       expect(diff).toBe(5);
     });
@@ -76,7 +76,7 @@ describe('日期格式化函數', () => {
     test('應該返回「X 小時前」', () => {
       const now = Date.now();
       const hoursAgo = now - 3 * 60 * 60 * 1000; // 3 小時前
-      const diff = Math.floor((now - hoursAgo) / 3600000);
+      const diff = Math.floor((now - hoursAgo) / 3_600_000);
 
       expect(diff).toBe(3);
     });
@@ -84,7 +84,7 @@ describe('日期格式化函數', () => {
     test('應該返回「X 天前」', () => {
       const now = Date.now();
       const daysAgo = now - 2 * 24 * 60 * 60 * 1000; // 2 天前
-      const diff = Math.floor((now - daysAgo) / 86400000);
+      const diff = Math.floor((now - daysAgo) / 86_400_000);
 
       expect(diff).toBe(2);
     });
@@ -101,7 +101,7 @@ describe('日期格式化函數', () => {
     });
 
     test('應該解析時間戳', () => {
-      const timestamp = 1728211800000;
+      const timestamp = 1_728_211_800_000;
       const date = new Date(timestamp);
 
       expect(date.getTime()).toBe(timestamp);

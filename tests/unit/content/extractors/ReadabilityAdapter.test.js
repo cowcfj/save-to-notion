@@ -11,7 +11,7 @@ const Logger = {
   debug: jest.fn(),
 };
 
-global.Logger = Logger;
+globalThis.Logger = Logger;
 
 // 引用 ReadabilityAdapter 模組
 const {
@@ -27,7 +27,7 @@ describe('ReadabilityAdapter - expandCollapsibleElements', () => {
 
   test('應該正確展開 <details> 元素', async () => {
     document.body.innerHTML = '<details id="d1"><summary>Summary</summary>Content</details>';
-    const details = document.getElementById('d1');
+    const details = document.querySelector('#d1');
     expect(details.hasAttribute('open')).toBe(false);
 
     await expandCollapsibleElements(0);
@@ -37,7 +37,7 @@ describe('ReadabilityAdapter - expandCollapsibleElements', () => {
 
   test('當 click() 拋出錯誤時應該記錄 debug 日誌並繼續執行', async () => {
     document.body.innerHTML = '<button aria-expanded="false" id="btn1">Expand</button>';
-    const btn = document.getElementById('btn1');
+    const btn = document.querySelector('#btn1');
 
     // Mock click to throw error
     const clickSpy = jest.spyOn(btn, 'click').mockImplementation(() => {
@@ -64,7 +64,7 @@ describe('ReadabilityAdapter - expandCollapsibleElements', () => {
     // Mock setAttribute
     const btn = document.createElement('button');
     btn.setAttribute('aria-expanded', 'false');
-    document.body.appendChild(btn);
+    document.body.append(btn);
 
     jest.spyOn(btn, 'setAttribute').mockImplementation(() => {
       throw new Error('Set attribute failed');
@@ -89,7 +89,7 @@ describe('ReadabilityAdapter - expandCollapsibleElements', () => {
   test('當處理 collapsed 類別元素發生錯誤時應該記錄 debug 日誌', async () => {
     const div = document.createElement('div');
     div.className = 'collapsed';
-    document.body.appendChild(div);
+    document.body.append(div);
 
     // Mock classList.remove to throw error
     Object.defineProperty(div, 'classList', {

@@ -7,7 +7,7 @@ import { LogExporter } from '../../../scripts/utils/LogExporter.js';
 import { exportDebugLogs } from '../../../scripts/background/handlers/logHandlers.js';
 
 // Mock Logger
-global.Logger = {
+globalThis.Logger = {
   error: jest.fn(),
   warn: jest.fn(),
   info: jest.fn(),

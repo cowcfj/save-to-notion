@@ -30,6 +30,7 @@ const SafeLogger =
 export class Toolbar {
   /**
    * 創建工具欄實例
+   *
    * @param {HighlightManager} highlightManager - 標註管理器實例
    */
   constructor(highlightManager) {
@@ -55,8 +56,8 @@ export class Toolbar {
     // 插入到 DOM（默認隱藏）
     this.container.style.display = 'none';
     this.miniIcon.style.display = 'none';
-    document.body.appendChild(this.container);
-    document.body.appendChild(this.miniIcon);
+    document.body.append(this.container);
+    document.body.append(this.miniIcon);
 
     // 綁定事件
     this.bindEvents();
@@ -228,26 +229,31 @@ export class Toolbar {
 
   /**
    * 處理狀態變更
+   *
    * @param {string} state - 新狀態
    */
   handleStateChange(state) {
     switch (state) {
-      case ToolbarStates.EXPANDED:
+      case ToolbarStates.EXPANDED: {
         this.show();
         break;
-      case ToolbarStates.MINIMIZED:
+      }
+      case ToolbarStates.MINIMIZED: {
         this.minimize();
         break;
-      case ToolbarStates.HIDDEN:
+      }
+      case ToolbarStates.HIDDEN: {
         this.hide();
         break;
-      default:
+      }
+      default: {
         SafeLogger.warn('Toolbar received unknown state', {
           action: 'handleStateChange',
           state,
           component: 'Toolbar',
         });
         this.hide();
+      }
     }
   }
 
@@ -394,8 +400,9 @@ export class Toolbar {
    */
   /**
    * 封裝 chrome.runtime.sendMessage 為 Promise
-   * @param {Object} message - 要發送的消息
-   * @returns {Promise<Object>}
+   *
+   * @param {object} message - 要發送的消息
+   * @returns {Promise<object>}
    * @private
    */
   static _sendMessageAsync(message) {
@@ -428,14 +435,14 @@ export class Toolbar {
       statusDiv.textContent = ''; // Clear content safely
       const loadingIcon = document.createElement('span');
       // Use SYNC icon and add spinning animation style
-      loadingIcon.appendChild(createSpriteIcon('sync'));
+      loadingIcon.append(createSpriteIcon('sync'));
       loadingIcon.style.display = 'inline-block';
       loadingIcon.style.marginRight = '4px';
       loadingIcon.style.verticalAlign = 'text-bottom';
       loadingIcon.style.animation = 'spin 1s linear infinite';
 
-      statusDiv.appendChild(loadingIcon);
-      statusDiv.appendChild(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNCING}`));
+      statusDiv.append(loadingIcon);
+      statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNCING}`));
 
       try {
         // 收集標註數據
@@ -449,24 +456,24 @@ export class Toolbar {
         if (response?.success) {
           statusDiv.textContent = '';
           const successIcon = document.createElement('span');
-          successIcon.appendChild(createSpriteIcon('success'));
+          successIcon.append(createSpriteIcon('success'));
           successIcon.style.display = 'inline-block';
           successIcon.style.marginRight = '4px';
           successIcon.style.verticalAlign = 'text-bottom';
 
-          statusDiv.appendChild(successIcon);
-          statusDiv.appendChild(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_SUCCESS}`));
+          statusDiv.append(successIcon);
+          statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_SUCCESS}`));
         } else {
           const errorMsg = sanitizeApiError(response?.error || 'Unknown error');
           statusDiv.textContent = ''; // Clear
           const errorIcon = document.createElement('span');
-          errorIcon.appendChild(createSpriteIcon('error')); // Use standardized Error icon
+          errorIcon.append(createSpriteIcon('error')); // Use standardized Error icon
           errorIcon.style.display = 'inline-block';
           errorIcon.style.marginRight = '4px';
           errorIcon.style.verticalAlign = 'text-bottom';
 
-          statusDiv.appendChild(errorIcon);
-          statusDiv.appendChild(document.createTextNode(` ${errorMsg}`));
+          statusDiv.append(errorIcon);
+          statusDiv.append(document.createTextNode(` ${errorMsg}`));
         }
 
         setTimeout(() => {
@@ -476,13 +483,13 @@ export class Toolbar {
       } catch (error) {
         statusDiv.textContent = '';
         const errorIcon = document.createElement('span');
-        errorIcon.appendChild(createSpriteIcon('error'));
+        errorIcon.append(createSpriteIcon('error'));
         errorIcon.style.display = 'inline-block';
         errorIcon.style.marginRight = '4px';
         errorIcon.style.verticalAlign = 'text-bottom';
 
-        statusDiv.appendChild(errorIcon);
-        statusDiv.appendChild(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_FAILED}`));
+        statusDiv.append(errorIcon);
+        statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_FAILED}`));
 
         setTimeout(() => {
           statusDiv.textContent = originalText;
@@ -499,6 +506,7 @@ export class Toolbar {
   /**
    * 在 Notion 中打開當前頁面
    * 發送當前頁面 URL 給 background,由 background 查詢對應的 Notion 頁面 URL
+   *
    * @static
    */
   static openInNotion() {

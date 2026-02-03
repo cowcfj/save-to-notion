@@ -9,11 +9,11 @@ describe('Background Update Highlights', () => {
 
   beforeEach(() => {
     // 保存原始 fetch
-    originalFetch = global.fetch;
+    originalFetch = globalThis.fetch;
 
     // 創建 fetch mock
     mockFetch = jest.fn();
-    global.fetch = mockFetch;
+    globalThis.fetch = mockFetch;
 
     // 清理存儲
     if (chrome._clearStorage) {
@@ -28,7 +28,7 @@ describe('Background Update Highlights', () => {
 
   afterEach(() => {
     // 恢復原始 fetch
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
 
     // 清理 mocks
     jest.restoreAllMocks();
@@ -578,9 +578,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
     const blocksToDelete = [];
     let foundHighlightSection = false;
 
-    for (let i = 0; i < existingBlocks.length; i++) {
-      const block = existingBlocks[i];
-
+    for (const block of existingBlocks) {
       if (
         block.type === 'heading_3' &&
         block.heading_3?.rich_text?.[0]?.text?.content === '📝 頁面標記'
@@ -621,7 +619,7 @@ async function updateHighlightsOnlySimulated(pageId, highlights, pageUrl, apiKey
             // deletedCount++;
             // console.log(`✅ 成功刪除區塊: ${blockId}`);
           }
-        } catch (_deleteError) {
+        } catch {
           // Ignore errors during simulated deletion in tests
         }
       }
@@ -745,8 +743,8 @@ function splitTextForNotionSimulated(text, maxLength = 2000) {
       }
     }
 
-    chunks.push(remaining.substring(0, splitIndex).trim());
-    remaining = remaining.substring(splitIndex).trim();
+    chunks.push(remaining.slice(0, Math.max(0, splitIndex)).trim());
+    remaining = remaining.slice(Math.max(0, splitIndex)).trim();
   }
 
   return chunks;

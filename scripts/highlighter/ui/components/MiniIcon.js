@@ -5,6 +5,7 @@
 
 /**
  * 創建最小化圖標
+ *
  * @returns {HTMLElement} 最小化圖標 DOM 元素
  */
 export function createMiniIcon() {
@@ -24,6 +25,7 @@ export function createMiniIcon() {
 
 /**
  * 綁定最小化圖標事件
+ *
  * @param {HTMLElement} miniIcon - 最小化圖標元素
  * @param {Function} onExpand - 展開回調函數
  */

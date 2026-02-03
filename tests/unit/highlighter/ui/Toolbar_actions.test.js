@@ -30,14 +30,14 @@ describe('Toolbar Actions', () => {
 
     // Mock chrome.runtime.sendMessage
     sendMessageMock = jest.fn();
-    global.window.chrome = {
+    globalThis.window.chrome = {
       runtime: {
         sendMessage: sendMessageMock,
       },
     };
 
     // Mock Logger
-    window.Logger = {
+    globalThis.Logger = {
       error: jest.fn(),
       log: jest.fn(),
     };
@@ -48,12 +48,12 @@ describe('Toolbar Actions', () => {
     statusDiv.textContent = 'Original Status';
 
     const container = document.createElement('div');
-    container.appendChild(statusDiv);
+    container.append(statusDiv);
 
     // Add other required elements to container to prevent errors during initialization
     const countSpan = document.createElement('span');
     countSpan.id = 'highlight-count-v2';
-    container.appendChild(countSpan);
+    container.append(countSpan);
 
     createToolbarContainer.mockReturnValue(container);
     createMiniIcon.mockReturnValue(document.createElement('div'));
@@ -121,16 +121,16 @@ describe('Toolbar Actions', () => {
     test('should handle runtime errors (chrome.runtime.lastError)', async () => {
       // Setup runtime error
       sendMessageMock.mockImplementation((message, sendResponse) => {
-        window.chrome.runtime.lastError = { message: 'Connection failed' };
+        globalThis.chrome.runtime.lastError = { message: 'Connection failed' };
         sendResponse();
-        delete window.chrome.runtime.lastError;
+        delete globalThis.chrome.runtime.lastError;
       });
 
       await toolbar.syncToNotion();
 
       expect(statusDiv.textContent).toContain('同步失敗');
       expect(statusDiv.innerHTML).toContain('<svg');
-      expect(window.Logger.error).toHaveBeenCalledWith('同步失敗:', expect.any(Error));
+      expect(globalThis.Logger.error).toHaveBeenCalledWith('同步失敗:', expect.any(Error));
     });
   });
 
@@ -143,7 +143,7 @@ describe('Toolbar Actions', () => {
       // 在 jsdom 環境中默認是 'http://localhost/'
       expect(sendMessageMock).toHaveBeenCalledWith({
         action: 'openNotionPage',
-        url: window.location.href,
+        url: globalThis.location.href,
       });
     });
   });

@@ -392,9 +392,9 @@ describe('Background Image Processing', () => {
       const result = splitTextForHighlightSimulated(text, 2000);
 
       // Assert
-      expect(result.length).toBe(2);
-      expect(result[0].length).toBe(2000);
-      expect(result[1].length).toBe(1000);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toHaveLength(2000);
+      expect(result[1]).toHaveLength(1000);
     });
 
     it('應該處理空文本', () => {
@@ -483,7 +483,7 @@ function cleanImageUrlSimulated(url) {
     urlObj.search = params.toString();
 
     return urlObj.href;
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -524,14 +524,14 @@ function isValidImageUrlSimulated(url) {
   }
 
   const imagePathPatterns = [
-    /\/image[s]?\//i,
-    /\/img[s]?\//i,
-    /\/photo[s]?\//i,
-    /\/picture[s]?\//i,
+    /\/images?\//i,
+    /\/imgs?\//i,
+    /\/photos?\//i,
+    /\/pictures?\//i,
     /\/media\//i,
-    /\/upload[s]?\//i,
-    /\/asset[s]?\//i,
-    /\/file[s]?\//i,
+    /\/uploads?\//i,
+    /\/assets?\//i,
+    /\/files?\//i,
   ];
 
   const excludePatterns = [
@@ -591,8 +591,8 @@ function splitTextForHighlightSimulated(text, maxLength = 2000) {
       }
     }
 
-    chunks.push(remaining.substring(0, splitIndex).trim());
-    remaining = remaining.substring(splitIndex).trim();
+    chunks.push(remaining.slice(0, Math.max(0, splitIndex)).trim());
+    remaining = remaining.slice(Math.max(0, splitIndex)).trim();
   }
 
   return chunks.filter(chunk => chunk.trim().length > 0);

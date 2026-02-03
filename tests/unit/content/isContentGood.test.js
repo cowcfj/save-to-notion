@@ -11,7 +11,7 @@ const Logger = {
   debug: jest.fn(),
 };
 
-global.Logger = Logger;
+globalThis.Logger = Logger;
 
 /**
  * 模擬 isContentGood 函數的測試版本

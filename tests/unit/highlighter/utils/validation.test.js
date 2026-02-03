@@ -66,7 +66,7 @@ describe('utils/validation', () => {
     test('should return false for non-collapsed ranges', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello World';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -74,7 +74,7 @@ describe('utils/validation', () => {
 
       expect(isCollapsedRange(range)).toBe(false);
 
-      document.body.removeChild(div);
+      div.remove();
     });
 
     test('should return true for invalid ranges', () => {

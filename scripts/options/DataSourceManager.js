@@ -20,8 +20,8 @@ export class DataSourceManager {
   }
 
   init() {
-    this.elements.databaseSelect = document.getElementById('database-select');
-    this.elements.databaseIdInput = document.getElementById('database-id');
+    this.elements.databaseSelect = document.querySelector('#database-select');
+    this.elements.databaseIdInput = document.querySelector('#database-id');
 
     // 綁定舊的選擇框邏輯（回退用）
     if (this.elements.databaseSelect) {
@@ -40,6 +40,7 @@ export class DataSourceManager {
 
   /**
    * 載入資料來源列表（支援頁面和數據庫）
+   *
    * @param {string} apiKey - Notion API Key
    * @param {string|null} query - 可選的搜尋關鍵字
    * @returns {Promise<Array>} 過濾後的資料來源列表
@@ -171,7 +172,7 @@ export class DataSourceManager {
       this.selector = new SearchableDatabaseSelector({
         showStatus: this.ui.showStatus.bind(this.ui),
         loadDatabases: this.loadDatabases.bind(this),
-        getApiKey: () => document.getElementById('api-key')?.value || '',
+        getApiKey: () => document.querySelector('#api-key')?.value || '',
       });
     }
 
@@ -188,7 +189,7 @@ export class DataSourceManager {
         option.value = db.id;
         const title = SearchableDatabaseSelector.extractDatabaseTitle(db);
         option.textContent = title;
-        this.elements.databaseSelect.appendChild(option);
+        this.elements.databaseSelect.append(option);
       });
     }
 
@@ -201,6 +202,7 @@ export class DataSourceManager {
 
   /**
    * 篩選並排序搜索結果
+   *
    * @param {Array} results - 原始結果列表
    * @param {number} maxResults - 最大結果數量
    * @param {boolean} preserveOrder - 是否保留原始順序（用於搜尋結果的關聯度排序）

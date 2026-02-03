@@ -29,8 +29,6 @@ export const MigrationPhase = {
  */
 export class MigrationExecutor {
   constructor() {
-    this.storageKey = 'seamless_migration_state';
-    this.migrationKey = 'highlight_migration_status';
     this.statistics = {
       oldHighlightsFound: 0,
       newHighlightsCreated: 0,
@@ -46,7 +44,8 @@ export class MigrationExecutor {
 
   /**
    * 獲取當前頁面的遷移狀態
-   * @returns {Promise<Object>}
+   *
+   * @returns {Promise<object>}
    */
   async getMigrationState() {
     try {
@@ -68,8 +67,9 @@ export class MigrationExecutor {
 
   /**
    * 更新遷移狀態
+   *
    * @param {string} phase - 遷移階段
-   * @param {Object} metadata - 附加元數據
+   * @param {object} metadata - 附加元數據
    */
   async updateMigrationState(phase, metadata = {}) {
     try {
@@ -89,12 +89,13 @@ export class MigrationExecutor {
 
   /**
    * 正規化當前頁面 URL
+   *
    * @returns {string}
    */
   static normalizeCurrentUrl() {
     return typeof normalizeUrl === 'function'
-      ? normalizeUrl(window.location.href)
-      : window.location.href;
+      ? normalizeUrl(globalThis.location.href)
+      : globalThis.location.href;
   }
 
   // =====================================================
@@ -103,6 +104,7 @@ export class MigrationExecutor {
 
   /**
    * 檢查是否需要遷移
+   *
    * @returns {Promise<boolean>}
    */
   async needsMigration() {
@@ -127,8 +129,9 @@ export class MigrationExecutor {
 
   /**
    * 執行遷移
-   * @param {Object} highlightManager - HighlightManager 實例
-   * @returns {Promise<Object>}
+   *
+   * @param {object} highlightManager - HighlightManager 實例
+   * @returns {Promise<object>}
    */
   async migrate(highlightManager) {
     Logger.info('[MigrationExecutor] 🚀 開始遷移流程...');
@@ -143,17 +146,21 @@ export class MigrationExecutor {
 
     // 根據階段執行相應操作
     switch (state.phase) {
-      case MigrationPhase.NOT_STARTED:
+      case MigrationPhase.NOT_STARTED: {
         return this.executePhase1(highlightManager);
+      }
 
-      case MigrationPhase.PHASE_1_CREATED:
+      case MigrationPhase.PHASE_1_CREATED: {
         return this.executePhase2(highlightManager);
+      }
 
-      case MigrationPhase.PHASE_2_VERIFIED:
+      case MigrationPhase.PHASE_2_VERIFIED: {
         return this.executePhase3(highlightManager);
+      }
 
-      case MigrationPhase.COMPLETED:
+      case MigrationPhase.COMPLETED: {
         return { completed: true };
+      }
 
       case MigrationPhase.FAILED: {
         const retryCount = state.metadata?.retryCount || 0;
@@ -173,14 +180,16 @@ export class MigrationExecutor {
         return { error: 'Migration failed after max retries' };
       }
 
-      default:
+      default: {
         return { skipped: true };
+      }
     }
   }
 
   /**
    * 階段1：創建新標註，隱藏舊 span
-   * @param {Object} highlightManager
+   *
+   * @param {object} highlightManager
    */
   async executePhase1(highlightManager) {
     const oldSpans = document.querySelectorAll('.simple-highlight');
@@ -218,7 +227,8 @@ export class MigrationExecutor {
 
   /**
    * 階段2：驗證新標註能正常恢復
-   * @param {Object} highlightManager
+   *
+   * @param {object} highlightManager
    */
   async executePhase2(highlightManager) {
     const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
@@ -249,7 +259,8 @@ export class MigrationExecutor {
 
   /**
    * 階段3：完全移除舊 span
-   * @param {Object} _highlightManager - 保留參數以維持接口一致性
+   *
+   * @param {object} _highlightManager - 保留參數以維持接口一致性
    */
   async executePhase3(_highlightManager) {
     const oldSpans = document.querySelectorAll('.simple-highlight[data-migrated="true"]');
@@ -285,9 +296,10 @@ export class MigrationExecutor {
 
   /**
    * 將舊的 span 元素轉換為 Range 並添加新標註
+   *
    * @param {HTMLElement} span
-   * @param {Object} highlightManager
-   * @returns {Object|null}
+   * @param {object} highlightManager
+   * @returns {object | null}
    */
   static convertSpanToRange(span, highlightManager) {
     try {
@@ -304,15 +316,15 @@ export class MigrationExecutor {
 
       if (id) {
         // 標記舊 span（添加特殊屬性，但不移除）
-        span.setAttribute('data-migrated', 'true');
-        span.setAttribute('data-new-id', id);
+        span.dataset.migrated = 'true';
+        span.dataset.newId = id;
 
         // 隱藏舊 span（視覺上看不到，但 DOM 中保留）
         span.style.opacity = '0';
         span.style.pointerEvents = 'none';
 
-        Logger.info(`[MigrationExecutor] ✓ 成功遷移: ${text.substring(0, 20)}...`);
-        return { id, text: text.substring(0, 30), color };
+        Logger.info(`[MigrationExecutor] ✓ 成功遷移: ${text.slice(0, 20)}...`);
+        return { id, text: text.slice(0, 30), color };
       }
 
       Logger.warn('[MigrationExecutor] 新標註添加失敗');
@@ -325,6 +337,7 @@ export class MigrationExecutor {
 
   /**
    * 移除舊的 span 元素
+   *
    * @param {HTMLElement} span
    */
   static removeOldSpan(span) {
@@ -336,7 +349,7 @@ export class MigrationExecutor {
     }
 
     // 移除 span
-    parent.removeChild(span);
+    span.remove();
 
     // 合併文本節點
     parent.normalize();
@@ -344,6 +357,7 @@ export class MigrationExecutor {
 
   /**
    * 回滾：恢復舊標註顯示
+   *
    * @param {string} reason - 回滾原因
    */
   async rollback(reason) {
@@ -353,8 +367,8 @@ export class MigrationExecutor {
     oldSpans.forEach(span => {
       span.style.opacity = '1';
       span.style.pointerEvents = 'auto';
-      span.removeAttribute('data-migrated');
-      span.removeAttribute('data-new-id');
+      delete span.dataset.migrated;
+      delete span.dataset.newId;
     });
 
     await this.updateMigrationState(MigrationPhase.FAILED, {
@@ -415,6 +429,7 @@ export class MigrationExecutor {
 
   /**
    * 檢查瀏覽器是否支持 CSS Highlight API
+   *
    * @returns {boolean}
    */
   static checkBrowserSupport() {
@@ -423,6 +438,7 @@ export class MigrationExecutor {
 
   /**
    * 轉換顏色值到顏色名稱
+   *
    * @param {string} bgColor - 背景顏色（RGB 或 HEX 格式）
    * @returns {string} 顏色名稱
    */
@@ -449,7 +465,8 @@ export class MigrationExecutor {
 
   /**
    * 獲取遷移統計信息
-   * @returns {Object}
+   *
+   * @returns {object}
    */
   getStatistics() {
     return {
@@ -457,12 +474,14 @@ export class MigrationExecutor {
       supportsCSSHighlight: MigrationExecutor.checkBrowserSupport(),
     };
   }
+  storageKey = 'seamless_migration_state';
+  migrationKey = 'highlight_migration_status';
 }
 
 // 全域暴露供動態注入後調用
-if (typeof window !== 'undefined') {
-  window.MigrationExecutor = MigrationExecutor;
-  window.MigrationPhase = MigrationPhase;
+if (globalThis.window !== undefined) {
+  globalThis.MigrationExecutor = MigrationExecutor;
+  globalThis.MigrationPhase = MigrationPhase;
 }
 
 export default MigrationExecutor;

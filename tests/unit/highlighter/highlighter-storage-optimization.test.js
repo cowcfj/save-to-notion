@@ -181,7 +181,7 @@ describe('標註存儲優化 (v2.8.0)', () => {
 
       // 驗證節省效果
       expect(saved).toBeGreaterThan(0);
-      expect(parseFloat(savedKB)).toBeGreaterThan(20); // 至少節省 20 KB
+      expect(Number.parseFloat(savedKB)).toBeGreaterThan(20); // 至少節省 20 KB
     });
   });
 });

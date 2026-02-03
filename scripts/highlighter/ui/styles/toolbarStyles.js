@@ -315,5 +315,5 @@ export function injectGlobalStyles() {
         }
     `;
 
-  document.head.appendChild(style);
+  document.head.append(style);
 }

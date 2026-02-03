@@ -19,6 +19,7 @@ import { ERROR_MESSAGES } from '../config/messages.js';
 
 /**
  * 驗證 URL 格式是否有效
+ *
  * @param {string} urlString - 要驗證的 URL 字串
  * @returns {boolean} 是否為有效的 URL
  */
@@ -33,6 +34,7 @@ export function isValidUrl(urlString) {
 
 /**
  * 驗證是否為安全的 Notion URL
+ *
  * @param {string} urlString - 要驗證的 URL 字串
  * @returns {boolean} 是否為有效的 Notion URL
  */
@@ -49,7 +51,10 @@ export function isValidNotionUrl(urlString) {
     const allowedDomains = ['notion.so', 'www.notion.so'];
 
     // 規範化 hostname：轉小寫並移除 trailing dot
-    const hostname = url.hostname.toLowerCase().replace(/\.+$/, '');
+    let hostname = url.hostname.toLowerCase();
+    while (hostname.endsWith('.')) {
+      hostname = hostname.slice(0, -1);
+    }
 
     // 允許 notion.so 的子網域（例如 xxx.notion.so）
     return allowedDomains.includes(hostname) || hostname.endsWith('.notion.so');
@@ -64,6 +69,7 @@ export function isValidNotionUrl(urlString) {
 
 /**
  * 驗證請求來源是否為擴充功能內部
+ *
  * @param {object} sender - Chrome message sender object
  * @returns {object|null} 錯誤對象或 null（驗證通過）
  */
@@ -83,6 +89,7 @@ export function validateInternalRequest(sender) {
 
 /**
  * 驗證請求是否來自我們自己的 content script
+ *
  * @param {object} sender - Chrome message sender object
  * @returns {object|null} 錯誤對象或 null（驗證通過）
  */
@@ -122,7 +129,7 @@ export { sanitizeUrlForLogging } from './LogSanitizer.js';
  * 2. 縱深防禦：防止內部實現細節、Stack Traces 等洩露。
  * 3. 翻譯橋接：返回的字串（如 'API Key'）應與 constants.js 中的 ERROR_MESSAGES.PATTERNS 鍵對應。
  *
- * @param {string|Object} apiError - API 錯誤訊息或錯誤對象
+ * @param {string | object} apiError - API 錯誤訊息或錯誤對象
  * @param {string} context - 錯誤上下文（如 'create_page', 'update_page'）
  * @returns {string} 錯誤代碼或清洗後的安全錯誤訊息（由 ErrorHandler 轉換為友善語句）
  */
@@ -200,7 +207,8 @@ export function sanitizeApiError(apiError, context = 'operation') {
   }
 
   // 2. 處理中文字串 (友善訊息)
-  if (/[\u{4e00}-\u{9fa5}]/u.test(errorMessage)) {
+  // 限制檢查長度防止 ReDoS
+  if (/\p{Unified_Ideograph}/u.test(errorMessage.slice(0, 500))) {
     return errorMessage;
   }
 
@@ -245,10 +253,12 @@ export function validateSafeDomElement(element, contextDocument, expectedSelecto
 
   // 4. 正確性：如果提供了選擇器，必須匹配
   // 防止元素標籤或屬性被篡改
-  if (expectedSelector && typeof element.matches === 'function') {
-    if (!element.matches(expectedSelector)) {
-      return false;
-    }
+  if (
+    expectedSelector &&
+    typeof element.matches === 'function' &&
+    !element.matches(expectedSelector)
+  ) {
+    return false;
   }
 
   return true;
@@ -257,7 +267,7 @@ export function validateSafeDomElement(element, contextDocument, expectedSelecto
 /**
  * 驗證 Preloader 快取對象的結構完整性
  *
- * @param {Object} cache - 待驗證的快取對象
+ * @param {object} cache - 待驗證的快取對象
  * @returns {boolean} 是否為有效的快取結構
  */
 export function validatePreloaderCache(cache) {
@@ -286,17 +296,14 @@ export function validatePreloaderCache(cache) {
  *
  * @param {string} svgContent - SVG 字串內容
  * @returns {boolean} 是否為安全的 SVG（true = 安全，false = 包含危險內容）
- *
  * @example
  * // 安全的 SVG
  * validateSafeSvg('<svg width="16" height="16"><circle cx="8" cy="8" r="8"/></svg>')
  * // 返回: true
- *
  * @example
  * // 危險的 SVG（包含 script）
  * validateSafeSvg('<svg><script>alert("XSS")</script></svg>')
  * // 返回: false
- *
  * @example
  * // 格式不完整的 SVG（缺少結束標籤）
  * validateSafeSvg('<svg width="16" height="16"><circle/>')
@@ -338,7 +345,7 @@ export function validateSafeSvg(svgContent) {
   //   - onfocus, onblur（焦點事件）
   // - <foreignObject>：可嵌入 HTML 內容（潛在風險）
   const dangerousPatterns =
-    /<script|<embed|<object|<iframe|<foreignObject|javascript:|data:text\/html|onerror|onload|onclick|onmouseover|onfocus|onblur|onanimationstart|onanimationend|ontransitionend/i;
+    /<script|<embed|<object|<iframe|<foreignobject|javascript:|data:text\/html|onerror|onload|onclick|onmouseover|onfocus|onblur|onanimationstart|onanimationend|ontransitionend/i;
 
   const hasDangerousContent = dangerousPatterns.test(svgContent);
 
@@ -356,7 +363,7 @@ export function validateSafeSvg(svgContent) {
 
   // 提取所有標籤名稱（簡化驗證，不使用完整 XML 解析器）
   // 正則說明：匹配 <tagname 或 </tagname 格式，支援駝峰命名
-  const tagPattern = /<\/?([a-z][a-z0-9]*)/gi;
+  const tagPattern = /<\/?([a-z][\da-z]*)/gi;
   const foundTags = new Set();
   let match = null;
 
@@ -388,17 +395,14 @@ export function validateSafeSvg(svgContent) {
  *
  * @param {string} message - 原始消息字串（可能包含圖標前綴）
  * @returns {{icon: string, text: string}} 分離後的圖標和文本
- *
  * @example
  * // SVG 圖標 + 文本
  * separateIconAndText('<svg>...</svg> 操作成功')
  * // 返回: {icon: '<svg>...</svg>', text: ' 操作成功'}
- *
  * @example
  * // Emoji 圖標 + 文本
  * separateIconAndText('✅ 操作成功')
  * // 返回: {icon: '✅', text: ' 操作成功'}
- *
  * @example
  * // 純文本（無圖標）
  * separateIconAndText('操作成功')
@@ -492,7 +496,7 @@ export const createSafeIcon = svgString => {
 
   const span = document.createElement('span');
   span.className = 'icon'; // 使用標準的 icon 類別
-  span.appendChild(svgElement);
+  span.append(svgElement);
   return span;
 };
 
@@ -500,7 +504,7 @@ export const createSafeIcon = svgString => {
  * 驗證日誌導出數據的安全性
  * 確保從 Background 返回的數據結構符合預期且不包含惡意內容
  *
- * @param {Object} data - 待驗證的數據對象
+ * @param {object} data - 待驗證的數據對象
  * @throws {Error} 如果驗證失敗，拋出具體錯誤
  */
 export function validateLogExportData(data) {
@@ -512,7 +516,7 @@ export function validateLogExportData(data) {
 
   // 1. 驗證文件名 (防止 Path Traversal 或惡意擴展名)
   // 僅允許字母、數字、點、下劃線、連字符，且必須以 .json 結尾
-  if (!filename || typeof filename !== 'string' || !/^[a-z0-9._-]+\.json$/i.test(filename)) {
+  if (!filename || typeof filename !== 'string' || !/^[\w.-]+\.json$/i.test(filename)) {
     throw new TypeError('Security check failed: Invalid filename format');
   }
 
@@ -530,6 +534,10 @@ export function validateLogExportData(data) {
 /**
  * 允許的 SVG 屬性白名單與安全協議（屬性級過濾）
  * 注意：定義已移動至 constants.js，此函數負責邏輯檢查
+ *
+ * @param {string} name - 屬性名
+ * @param {string} value - 屬性值
+ * @returns {boolean} 是否安全
  */
 export function isSafeSvgAttribute(name, value) {
   const attrName = String(name || '').toLowerCase();
@@ -569,7 +577,7 @@ export function isSafeSvgAttribute(name, value) {
 /**
  * 驗證備份數據的結構安全性
  *
- * @param {Object} backup - 用戶上傳的備份對象
+ * @param {object} backup - 用戶上傳的備份對象
  * @throws {Error} 如果驗證失敗
  */
 export function validateBackupData(backup) {
@@ -598,7 +606,7 @@ export function validateBackupData(backup) {
  * 遞歸檢查對象中的禁止鍵
  * 防止 Prototype Pollution 攻擊
  *
- * @param {Object} obj - 待檢查的對象
+ * @param {object} obj - 待檢查的對象
  * @throws {Error} 如果發現禁止的鍵
  */
 function _checkForbiddenKeys(obj) {

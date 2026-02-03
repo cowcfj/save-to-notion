@@ -4,14 +4,14 @@
  */
 
 describe('Logger', () => {
-  /** @type {Object} Console spy 對象,在 beforeEach 中初始化 */
+  /** @type {object} Console spy 對象,在 beforeEach 中初始化 */
   let consoleSpy = null;
   /** @type {Console} 原始 console 對象,在 beforeEach 中保存 */
   let originalConsole = null;
 
   beforeEach(() => {
     // 保存原始 console
-    originalConsole = global.console;
+    originalConsole = globalThis.console;
 
     // Mock console 方法
     consoleSpy = {
@@ -19,10 +19,10 @@ describe('Logger', () => {
       warn: jest.fn(),
       error: jest.fn(),
     };
-    global.console = consoleSpy;
+    globalThis.console = consoleSpy;
 
     // 定義 Logger（模擬 utils.js 中的實現）
-    global.Logger = {
+    globalThis.Logger = {
       debug: (message, ...args) => {
         console.log(`[DEBUG] ${message}`, ...args);
       },
@@ -43,7 +43,7 @@ describe('Logger', () => {
 
   afterEach(() => {
     // 恢復原始 console
-    global.console = originalConsole;
+    globalThis.console = originalConsole;
     jest.clearAllMocks();
   });
 

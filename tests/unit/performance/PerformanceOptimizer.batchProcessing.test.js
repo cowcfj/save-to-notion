@@ -7,11 +7,11 @@
 const { JSDOM } = require('jsdom');
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
 
-global.document = dom.window.document;
-global.window = dom.window;
-global.performance = { now: () => Date.now() };
-global.requestIdleCallback = cb => setTimeout(cb, 0);
-global.cancelIdleCallback = clearTimeout;
+globalThis.document = dom.window.document;
+globalThis.window = dom.window;
+globalThis.performance = { now: () => Date.now() };
+globalThis.requestIdleCallback = cb => setTimeout(cb, 0);
+globalThis.cancelIdleCallback = clearTimeout;
 
 const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
 

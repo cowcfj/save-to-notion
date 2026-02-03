@@ -33,7 +33,7 @@ export const test = base.extend({
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium', // 使用 Chromium channel 啟用完整 Extension 支持
       headless: false, // 必須設為 false，由 --headless=new 參數控制
-      timeout: 60000, // 增加啟動超時時間
+      timeout: 60_000, // 增加啟動超時時間
       args: [
         ...ciArgs,
         `--disable-extensions-except=${pathToExtension}`,
@@ -52,7 +52,7 @@ export const test = base.extend({
         await page.coverage.startJSCoverage({
           resetOnNavigation: false,
         });
-      } catch (_err) {
+      } catch {
         // 忽略錯誤
       }
     });
@@ -73,7 +73,7 @@ export const test = base.extend({
       try {
         const coverage = await page.coverage.stopJSCoverage();
         allCoverage.push(...coverage);
-      } catch (_err) {
+      } catch {
         // 忽略錯誤
       }
     }
@@ -138,14 +138,14 @@ export const test = base.extend({
       // 需要先打開頁面觸發 Extension 載入
       // 參考: https://github.com/microsoft/playwright/issues/37347
       const serviceWorkerPromise = context.waitForEvent('serviceworker', {
-        timeout: 30000,
+        timeout: 30_000,
       });
 
       // 打開一個頁面觸發 Extension 載入
       const tempPage = await context.newPage();
       await tempPage.goto('https://example.com', {
         waitUntil: 'domcontentloaded',
-        timeout: 30000,
+        timeout: 30_000,
       });
 
       try {

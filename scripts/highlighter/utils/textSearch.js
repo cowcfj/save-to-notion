@@ -9,7 +9,6 @@
  *
  * @param {string} textToFind - 要查找的文本
  * @returns {Range|null} 找到的 Range 或 null
- *
  * @example
  * const range = findTextInPage('Hello World');
  * if (range) {
@@ -19,7 +18,7 @@
 export function findTextInPage(textToFind) {
   try {
     // 清理文本（移除多餘空白）
-    const cleanText = textToFind.trim().replace(/\s+/g, ' ');
+    const cleanText = textToFind.trim().replaceAll(/\s+/g, ' ');
 
     // 空字符串直接返回 null
     if (!cleanText) {
@@ -27,10 +26,10 @@ export function findTextInPage(textToFind) {
     }
 
     // 方法1：使用 window.find() API（最快，但可能不夠精確）
-    const selection = window.getSelection();
+    const selection = globalThis.getSelection();
     selection.removeAllRanges();
 
-    const found = window.find(cleanText, false, false, false, false, true, false);
+    const found = globalThis.find(cleanText, false, false, false, false, true, false);
 
     if (found && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0).cloneRange();
@@ -47,8 +46,8 @@ export function findTextInPage(textToFind) {
     // 方法3：模糊匹配（處理空白字符差異）
     return findTextFuzzy(cleanText);
   } catch (error) {
-    if (typeof window.Logger !== 'undefined') {
-      window.Logger?.error('[textSearch]', '查找文本失敗:', error);
+    if (globalThis.Logger !== undefined) {
+      globalThis.Logger?.error('[textSearch]', '查找文本失敗:', error);
     }
     return null;
   }
@@ -56,9 +55,9 @@ export function findTextInPage(textToFind) {
 
 /**
  * 使用 TreeWalker 精確查找文本
+ *
  * @param {string} textToFind - 要查找的文本
  * @returns {Range|null} 找到的 Range 或 null
- *
  * @example
  * const range = findTextWithTreeWalker('Hello');
  */
@@ -147,8 +146,8 @@ export function findTextWithTreeWalker(textToFind) {
             range.setEnd(endNode, endOffset);
             return range;
           } catch (error) {
-            if (typeof window.Logger !== 'undefined') {
-              window.Logger?.warn('[textSearch]', '創建跨節點 Range 失敗:', error);
+            if (globalThis.Logger !== undefined) {
+              globalThis.Logger?.warn('[textSearch]', '創建跨節點 Range 失敗:', error);
             }
           }
         }
@@ -161,18 +160,18 @@ export function findTextWithTreeWalker(textToFind) {
 
 /**
  * 模糊查找文本（處理空白字符差異）
+ *
  * @param {string} textToFind - 要查找的文本
  * @returns {Range|null} 找到的 Range 或 null
- *
  * @example
  * const range = findTextFuzzy('Hello  World'); // 可找到 "Hello World"
  */
 export function findTextFuzzy(textToFind) {
   // 首先轉義所有正則表達式元字符，使其被當作普通字符處理
-  const escapedText = textToFind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedText = textToFind.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
 
   // 然後將連續的空白字符轉換為 \s+ 以實現寬鬆匹配
-  const normalizedSearch = escapedText.replace(/\s+/g, '\\s+');
+  const normalizedSearch = escapedText.replaceAll(/\s+/g, String.raw`\s+`);
   const regex = new RegExp(normalizedSearch, 'i');
 
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);

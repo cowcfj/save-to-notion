@@ -22,20 +22,22 @@ import {
 /**
  * 檢測技術文檔站點
  * 基於URL特徵識別文檔類網站
+ *
  * @param {string|Location} urlOrLocation - URL 字符串或 Location 對象
  */
 /**
  * 檢測頁面是否為文檔類型的網站
  * 結合 URL 模式、Host 模式和標題模式進行綜合判斷
- * @param {Object} options - 檢測選項
+ *
+ * @param {object} options - 檢測選項
  * @param {string} options.url - 頁面 URL (可選，默認使用 window.location.href)
  * @param {string} options.title - 頁面標題 (可選，默認使用 document.title)
  * @returns {{isDoc: boolean, isTechnical: boolean, matched: {host: boolean, path: boolean, techUrl: boolean, techTitle: boolean}}}
  */
 export function isDocumentation(options = {}) {
-  const urlStr = options.url || (typeof window !== 'undefined' ? window.location.href : '');
+  const urlStr = options.url || (globalThis.window === undefined ? '' : globalThis.location.href);
   const title = (
-    options.title || (typeof document !== 'undefined' ? document.title : '')
+    options.title || (typeof document === 'undefined' ? '' : document.title)
   ).toLowerCase();
 
   let hostname = '';
@@ -45,7 +47,7 @@ export function isDocumentation(options = {}) {
     const url = new URL(urlStr);
     hostname = url.hostname.toLowerCase();
     pathname = url.pathname.toLowerCase();
-  } catch (_error) {
+  } catch {
     if (typeof urlStr === 'string' && urlStr.startsWith('/')) {
       pathname = urlStr.toLowerCase();
     }
@@ -77,7 +79,8 @@ export function isDocumentation(options = {}) {
 /**
  * 檢測是否為技術文檔頁面
  * 結合 URL 模式和標題模式進行綜合判斷
- * @param {Object} options - 檢測選項
+ *
+ * @param {object} options - 檢測選項
  * @param {string} options.url - 頁面 URL (可選，默認使用 window.location.href)
  * @param {string} options.title - 頁面標題 (可選，默認使用 document.title)
  * @returns {{isTechnical: boolean, matchedUrl: boolean, matchedTitle: boolean}}
@@ -86,6 +89,9 @@ export function isDocumentation(options = {}) {
 
 /**
  * 統計DOM元素數量
+ *
+ * @param container
+ * @param selector
  */
 function countElements(container, selector) {
   try {
@@ -100,6 +106,8 @@ function countElements(container, selector) {
 /**
  * 檢測技術內容特徵
  * 檢查頁面是否包含大量技術相關的內容
+ *
+ * @param document
  */
 function hasTechnicalFeatures(document) {
   const textContent = (document.body?.textContent || '').toLowerCase();
@@ -107,8 +115,8 @@ function hasTechnicalFeatures(document) {
   // 技術關鍵詞計數 (使用統一配置)
   const technicalTermCount = TECHNICAL_TERMS.reduce((count, term) => {
     // Escape special characters in the term to support terms like 'c++'
-    const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`\\b${escapedTerm}\\b`, 'gi');
+    const escapedTerm = term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+    const regex = new RegExp(String.raw`\b${escapedTerm}\b`, 'gi');
     const termMatches = textContent.match(regex);
     return count + (termMatches ? termMatches.length : 0);
   }, 0);
@@ -127,14 +135,16 @@ function hasTechnicalFeatures(document) {
 /**
  * 檢測頁面複雜度
  * 分析頁面結構，返回複雜度指標
+ *
+ * @param document
  */
-export function detectPageComplexity(document = window.document) {
+export function detectPageComplexity(document = globalThis.document) {
   try {
     // 基礎指標統計
     const metrics = {
       // 網站類型
       isDocSite: isDocumentation({
-        url: document?.location?.href || document?.URL || window.location.href,
+        url: document?.location?.href || document?.URL || globalThis.location.href,
         title: document?.title,
       }).isDoc,
 
@@ -219,6 +229,8 @@ export function detectPageComplexity(document = window.document) {
 /**
  * 選擇最佳提取器
  * 基於頁面複雜度分析結果，選擇最適合的提取器
+ *
+ * @param complexity
  */
 export function selectExtractor(complexity) {
   const reasons = [];
@@ -288,6 +300,9 @@ export function selectExtractor(complexity) {
 /**
  * 計算選擇信心度
  * 返回 0-100 的信心分數
+ *
+ * @param complexity
+ * @param selectedExtractor
  */
 function calculateConfidence(complexity, selectedExtractor) {
   let confidence = 50; // 基礎信心度
@@ -331,6 +346,8 @@ function calculateConfidence(complexity, selectedExtractor) {
 
 /**
  * 判斷是否需要備用方案
+ *
+ * @param complexity
  */
 function shouldUseFallback(complexity) {
   // 如果頁面特徵不明顯，建議使用備用方案驗證
@@ -343,10 +360,13 @@ function shouldUseFallback(complexity) {
 /**
  * 獲取詳細的分析報告
  * 用於調試和監控
+ *
+ * @param complexity
+ * @param selection
  */
 export function getAnalysisReport(complexity, selection) {
   const report = {
-    url: window.location.href,
+    url: globalThis.location.href,
     timestamp: new Date().toISOString(),
 
     pageType: {
@@ -372,6 +392,9 @@ export function getAnalysisReport(complexity, selection) {
 
 /**
  * 生成優化建議
+ *
+ * @param complexity
+ * @param selection
  */
 function generateRecommendations(complexity, selection) {
   const recommendations = [];
@@ -393,6 +416,10 @@ function generateRecommendations(complexity, selection) {
 
 /**
  * 記錄分析結果 (用於效能監控)
+ *
+ * @param complexity
+ * @param selection
+ * @param extractionResult
  */
 export function logAnalysis(complexity, selection, extractionResult) {
   if (typeof console === 'undefined') {
@@ -400,7 +427,7 @@ export function logAnalysis(complexity, selection, extractionResult) {
   }
 
   const logData = {
-    url: window.location.href,
+    url: globalThis.location.href,
     extractor: selection.extractor,
     confidence: selection.confidence,
     success: extractionResult.success,
@@ -410,8 +437,8 @@ export function logAnalysis(complexity, selection, extractionResult) {
   };
 
   // 發送到監控系統 (如果需要)
-  if (window.analytics) {
-    window.analytics.track('content_extraction_analysis', logData);
+  if (globalThis.analytics) {
+    globalThis.analytics.track('content_extraction_analysis', logData);
   }
 }
 

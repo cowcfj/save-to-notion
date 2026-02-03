@@ -59,10 +59,10 @@ describe('options.js', () => {
     it('should setup event listener and show preview', () => {
       setupTemplatePreview();
 
-      const button = document.getElementById('preview-template');
+      const button = document.querySelector('#preview-template');
       button.click();
 
-      const previewDiv = document.getElementById('template-preview');
+      const previewDiv = document.querySelector('#template-preview');
       expect(previewDiv.classList.contains('hidden')).toBe(false);
       expect(previewDiv.textContent).toContain('預覽結果：');
       expect(previewDiv.textContent).toContain('範例網頁標題');
@@ -139,7 +139,7 @@ describe('options.js', () => {
         }
       });
 
-      global.chrome = {
+      globalThis.chrome = {
         storage: {
           sync: { set: mockSet },
         },
@@ -171,7 +171,7 @@ describe('options.js', () => {
     });
 
     it('should validate empty API key', () => {
-      document.getElementById('api-key').value = '';
+      document.querySelector('#api-key').value = '';
       saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('API Key'),
@@ -182,7 +182,7 @@ describe('options.js', () => {
     });
 
     it('should validate empty Database ID', () => {
-      document.getElementById('database-id').value = '';
+      document.querySelector('#database-id').value = '';
       saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('ID'),
@@ -193,7 +193,7 @@ describe('options.js', () => {
     });
 
     it('should handle save error', () => {
-      global.chrome.runtime.lastError = { message: 'Storage error' };
+      globalThis.chrome.runtime.lastError = { message: 'Storage error' };
       saveSettings(mockUi, mockAuth);
       expect(mockUi.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('失敗'),
@@ -203,7 +203,7 @@ describe('options.js', () => {
     });
 
     it('should not save notionDataSourceType if database-type input is empty', () => {
-      document.getElementById('database-type').value = '';
+      document.querySelector('#database-type').value = '';
       saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
@@ -215,7 +215,7 @@ describe('options.js', () => {
     });
 
     it('should save highlightStyle when element exists', () => {
-      document.getElementById('highlight-style').value = 'text';
+      document.querySelector('#highlight-style').value = 'text';
       saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
@@ -238,7 +238,7 @@ describe('options.js', () => {
     });
 
     it('should save underline highlightStyle', () => {
-      document.getElementById('highlight-style').value = 'underline';
+      document.querySelector('#highlight-style').value = 'underline';
       saveSettings(mockUi, mockAuth);
 
       expect(mockSet).toHaveBeenCalledWith(
@@ -286,7 +286,7 @@ describe('options.js', () => {
             <div id="template-preview"></div>
         `;
 
-      global.chrome.runtime.onMessage = {
+      globalThis.chrome.runtime.onMessage = {
         addListener: jest.fn(),
       };
     });
@@ -309,14 +309,14 @@ describe('options.js', () => {
     });
 
     it('should display app version', () => {
-      global.chrome.runtime.getManifest = jest.fn(() => ({ version: '1.2.3' }));
+      globalThis.chrome.runtime.getManifest = jest.fn(() => ({ version: '1.2.3' }));
       initOptions();
-      const versionEl = document.getElementById('app-version');
+      const versionEl = document.querySelector('#app-version');
       expect(versionEl.textContent).toBe('v1.2.3');
     });
 
     it('should handle version display error gracefully', () => {
-      global.chrome.runtime.getManifest = jest.fn(() => {
+      globalThis.chrome.runtime.getManifest = jest.fn(() => {
         throw new Error('No manifest');
       });
       initOptions();
@@ -329,7 +329,7 @@ describe('options.js', () => {
     it('should handle oauth messages', () => {
       initOptions();
 
-      const messageListener = global.chrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const messageListener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
 
       // Test Success
       messageListener({ action: 'oauth_success' });
@@ -350,7 +350,7 @@ describe('options.js', () => {
     it('should handle navigation', () => {
       initOptions();
       const navItem = document.querySelector('.nav-item');
-      const section = document.getElementById('section-general');
+      const section = document.querySelector('#section-general');
 
       navItem.click();
       expect(navItem.classList.contains('active')).toBe(true);
@@ -368,7 +368,7 @@ describe('options.js', () => {
       `;
 
       mockSendMessage = jest.fn();
-      global.chrome.runtime.sendMessage = mockSendMessage;
+      globalThis.chrome.runtime.sendMessage = mockSendMessage;
     });
 
     it('should stay disabled while exporting and restore afterwards without changing text', async () => {
@@ -384,13 +384,13 @@ describe('options.js', () => {
       });
 
       // Mock URL.createObjectURL and URL.revokeObjectURL
-      global.URL.createObjectURL = jest.fn(() => 'blob:url');
-      global.URL.revokeObjectURL = jest.fn();
+      globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
+      globalThis.URL.revokeObjectURL = jest.fn();
 
       // Initialize to attach event listeners
       initOptions();
 
-      const exportBtn = document.getElementById('export-logs-button');
+      const exportBtn = document.querySelector('#export-logs-button');
       const originalText = exportBtn.textContent;
 
       // Trigger click
@@ -407,7 +407,7 @@ describe('options.js', () => {
       expect(exportBtn.disabled).toBe(false);
       expect(exportBtn.textContent).toBe(originalText); // 文字不應該改變
 
-      const statusEl = document.getElementById('export-status');
+      const statusEl = document.querySelector('#export-status');
       expect(statusEl.textContent).toContain('已成功導出 10 條日誌');
     });
 
@@ -418,7 +418,7 @@ describe('options.js', () => {
       // Initialize to attach event listeners
       initOptions();
 
-      const exportBtn = document.getElementById('export-logs-button');
+      const exportBtn = document.querySelector('#export-logs-button');
       const originalText = exportBtn.textContent;
 
       // Trigger click
@@ -435,7 +435,7 @@ describe('options.js', () => {
       expect(exportBtn.disabled).toBe(false);
       expect(exportBtn.textContent).toBe(originalText);
 
-      const statusEl = document.getElementById('export-status');
+      const statusEl = document.querySelector('#export-status');
       expect(statusEl.textContent).toContain('Network error');
     });
   });

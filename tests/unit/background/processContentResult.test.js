@@ -30,7 +30,7 @@ describe('processContentResult', () => {
     const result = processContentResult(rawResult, []);
 
     expect(result.title).toBe('Test Page');
-    expect(result.blocks.length).toBe(1);
+    expect(result.blocks).toHaveLength(1);
     expect(result.siteIcon).toBe('https://example.com/icon.png');
   });
 
@@ -45,7 +45,7 @@ describe('processContentResult', () => {
     const result = processContentResult(rawResult, highlights);
 
     // Original block + heading block + 1 highlight paragraph
-    expect(result.blocks.length).toBe(3);
+    expect(result.blocks).toHaveLength(3);
     expect(result.blocks[1].type).toBe('heading_3');
     expect(result.blocks[2].type).toBe('paragraph');
   });
@@ -59,7 +59,7 @@ describe('processContentResult', () => {
 
     const result = processContentResult(rawResult, []);
 
-    expect(result.blocks.length).toBe(1);
+    expect(result.blocks).toHaveLength(1);
   });
 
   it('should handle null highlights', () => {
@@ -71,7 +71,7 @@ describe('processContentResult', () => {
 
     const result = processContentResult(rawResult, null);
 
-    expect(result.blocks.length).toBe(0);
+    expect(result.blocks).toHaveLength(0);
   });
 
   it('should preserve original blocks when adding highlights', () => {

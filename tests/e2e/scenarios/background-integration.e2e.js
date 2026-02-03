@@ -19,6 +19,7 @@ module.exports = {
     const urlNormalizationResult = await page.evaluate(() => {
       /**
        * 正規化 URL（移除追蹤參數、hash 和尾部斜線）
+       *
        * @param {string} url - 要正規化的 URL
        * @returns {string} 正規化後的 URL
        */
@@ -43,7 +44,7 @@ module.exports = {
           urlObj.pathname = pathname;
 
           return urlObj.href;
-        } catch (_error) {
+        } catch {
           return url;
         }
       }
@@ -89,6 +90,7 @@ module.exports = {
     const imageValidationResult = await page.evaluate(() => {
       /**
        * 驗證圖片 URL 是否有效
+       *
        * @param {string} url - 要驗證的圖片 URL
        * @returns {boolean} URL 是否為有效的圖片 URL
        */
@@ -113,7 +115,7 @@ module.exports = {
           const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext));
 
           return hasImageExtension || pathname.includes('/image') || url.includes('image');
-        } catch (_error) {
+        } catch {
           return false;
         }
       }
@@ -148,6 +150,7 @@ module.exports = {
     const textSplitResult = await page.evaluate(() => {
       /**
        * 將長文本分割成符合長度限制的區塊
+       *
        * @param {string} text - 要分割的文本
        * @param {number} [maxLength=2000] - 每個區塊的最大長度
        * @returns {string[]} 分割後的文本區塊陣列
@@ -159,7 +162,7 @@ module.exports = {
 
         const chunks = [];
         let currentChunk = '';
-        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+        const sentences = text.match(/[^!.?]+[!.?]+/g) || [text];
 
         for (const sentence of sentences) {
           if ((currentChunk + sentence).length <= maxLength) {

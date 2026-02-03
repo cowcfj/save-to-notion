@@ -50,7 +50,7 @@ describe('core/HighlightMigration', () => {
     localStorage.clear();
 
     // Mock window objects
-    window.normalizeUrl = jest.fn(url => url);
+    globalThis.normalizeUrl = jest.fn(url => url);
     // Reset mocks
     StorageUtil.saveHighlights.mockResolvedValue();
   });
@@ -68,7 +68,7 @@ describe('core/HighlightMigration', () => {
 
   describe('checkAndMigrate', () => {
     test('should skip when normalizeUrl is not available', async () => {
-      delete window.normalizeUrl;
+      delete globalThis.normalizeUrl;
 
       await migration.checkAndMigrate();
 
@@ -76,11 +76,11 @@ describe('core/HighlightMigration', () => {
 
       // Should verify calling checkAndMigrate without normalizeUrl is safe
       // and doesn't proceed with migration logic (e.g. accessing storage)
-      expect(window.chrome.storage.local.get).not.toHaveBeenCalled();
+      expect(globalThis.chrome.storage.local.get).not.toHaveBeenCalled();
     });
 
     test('should skip when no legacy data exists', async () => {
-      window.chrome = {
+      globalThis.chrome = {
         runtime: { id: 'test-id' },
         storage: {
           local: {
@@ -102,7 +102,7 @@ describe('core/HighlightMigration', () => {
       localStorage.setItem('highlights_http://localhost/', JSON.stringify(legacyData));
 
       // Setup window.chrome with migration flag set to true
-      window.chrome = {
+      globalThis.chrome = {
         runtime: { id: 'test-id' },
         storage: {
           local: {
@@ -117,7 +117,7 @@ describe('core/HighlightMigration', () => {
       await migration.checkAndMigrate();
 
       // Should verify access but NOT save (skip migration)
-      expect(window.chrome.storage.local.get).toHaveBeenCalledWith(
+      expect(globalThis.chrome.storage.local.get).toHaveBeenCalledWith(
         'migration_completed_http://localhost/'
       );
       expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
@@ -127,7 +127,7 @@ describe('core/HighlightMigration', () => {
       const legacyData = [{ text: 'test', color: 'yellow' }];
       localStorage.setItem('highlights_http://localhost/', JSON.stringify(legacyData));
 
-      window.chrome = {
+      globalThis.chrome = {
         runtime: { id: 'test-id' },
         storage: {
           local: {
@@ -158,7 +158,7 @@ describe('core/HighlightMigration', () => {
       }
 
       // Verify setup
-      expect(localStorage.length).toBe(10);
+      expect(localStorage).toHaveLength(10);
 
       await migration.checkAndMigrate();
 
@@ -174,7 +174,7 @@ describe('core/HighlightMigration', () => {
 
   describe('migrateToNewFormat', () => {
     beforeEach(() => {
-      window.chrome = {
+      globalThis.chrome = {
         runtime: { id: 'test-id' },
         storage: {
           local: {

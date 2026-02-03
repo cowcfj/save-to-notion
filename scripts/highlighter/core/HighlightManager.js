@@ -13,7 +13,7 @@ import Logger from '../../utils/Logger.js';
  */
 export class HighlightManager {
   /**
-   * @param {Object} options - 配置選項
+   * @param {object} options - 配置選項
    */
   constructor(options = {}) {
     // 核心數據結構
@@ -39,7 +39,8 @@ export class HighlightManager {
 
   /**
    * 注入依賴模組
-   * @param {Object} dependencies
+   *
+   * @param {object} dependencies
    * @param {StyleManager} dependencies.styleManager
    * @param {HighlightInteraction} dependencies.interaction
    * @param {HighlightStorage} dependencies.storage
@@ -54,6 +55,7 @@ export class HighlightManager {
 
   /**
    * 異步初始化流程
+   *
    * @param {boolean} [skipRestore=false] - 是否跳過恢復標註（用於頁面已刪除的情況）
    */
   async initialize(skipRestore = false) {
@@ -75,10 +77,10 @@ export class HighlightManager {
       }
 
       // 步驟2：從存儲恢復標註（如果允許）
-      if (!skipRestore) {
-        await this.restoreHighlights();
-      } else {
+      if (skipRestore) {
         Logger.info('跳過恢復標註（頁面已刪除）', { action: 'initialize' });
+      } else {
+        await this.restoreHighlights();
       }
 
       Logger.info('初始化完成', { action: 'initialize' });
@@ -89,6 +91,7 @@ export class HighlightManager {
 
   /**
    * 添加標註
+   *
    * @param {Range} range - 選區範圍
    * @param {string} [color] - 標註顏色
    * @returns {string|null} 標註 ID
@@ -160,6 +163,7 @@ export class HighlightManager {
 
   /**
    * 移除標註
+   *
    * @param {string} id - 標註 ID
    * @returns {boolean} 是否成功移除
    */
@@ -191,6 +195,8 @@ export class HighlightManager {
 
   /**
    * 清除所有標註
+   *
+   * @param options
    */
   clearAll(options = {}) {
     // 清除視覺效果
@@ -209,6 +215,7 @@ export class HighlightManager {
 
   /**
    * 應用 Highlight API 樣式
+   *
    * @param {Range} range
    * @param {string} color
    * @returns {boolean} 是否成功應用
@@ -228,6 +235,7 @@ export class HighlightManager {
 
   /**
    * 設置當前高亮顏色
+   *
    * @param {string} color
    */
   setColor(color) {
@@ -240,6 +248,7 @@ export class HighlightManager {
 
   /**
    * 獲取當前標註數量
+   *
    * @returns {number}
    */
   getCount() {
@@ -263,6 +272,7 @@ export class HighlightManager {
 
   /**
    * 處理文檔點擊事件
+   *
    * @param {MouseEvent} event
    * @returns {boolean} 是否處理了點擊
    */
@@ -275,6 +285,7 @@ export class HighlightManager {
 
   /**
    * 檢測點擊位置是否在標註內
+   *
    * @param {number} x
    * @param {number} y
    * @returns {string|null}
@@ -288,6 +299,9 @@ export class HighlightManager {
 
   /**
    * 檢測兩個 Range 是否重疊
+   *
+   * @param range1
+   * @param range2
    */
   static rangesOverlap(range1, range2) {
     try {
@@ -361,7 +375,8 @@ export class HighlightManager {
 
   /**
    * 僅恢復單個標註（由 Storage 調用）
-   * @param {Object} item - 標註數據
+   *
+   * @param {object} item - 標註數據
    * @returns {boolean}
    */
   restoreLocalHighlight(item) {
@@ -391,7 +406,7 @@ export class HighlightManager {
         this.applyHighlightAPI(range, highlight.color);
 
         // 更新 nextId 以避免衝突
-        const numId = parseInt(item.id.replace('h', ''), 10);
+        const numId = Number.parseInt(item.id.replace('h', ''), 10);
         if (!isNaN(numId) && numId >= this.nextId) {
           this.nextId = numId + 1;
         }
@@ -425,12 +440,12 @@ export class HighlightManager {
 
   static getSafeExtensionStorage() {
     if (
-      typeof window !== 'undefined' &&
-      window.chrome &&
-      window.chrome.runtime &&
-      window.chrome.runtime.id
+      globalThis.window !== undefined &&
+      globalThis.chrome &&
+      globalThis.chrome.runtime &&
+      globalThis.chrome.runtime.id
     ) {
-      return window.chrome.storage?.local || null;
+      return globalThis.chrome.storage?.local || null;
     }
     return null;
   }

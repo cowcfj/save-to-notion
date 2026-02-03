@@ -83,7 +83,7 @@ describe('StorageService', () => {
 
   describe('getSavedPageData', () => {
     it('應該正確獲取保存的頁面數據', async () => {
-      const pageData = { title: 'Test Page', savedAt: 12345 };
+      const pageData = { title: 'Test Page', savedAt: 12_345 };
       mockStorage.local.get.mockImplementation(_keys =>
         Promise.resolve({ 'saved_https://example.com/page': pageData })
       );
@@ -165,15 +165,15 @@ describe('StorageService', () => {
   describe('error handling', () => {
     it('應該在沒有 storage 時拋出錯誤', async () => {
       // 暫時移除 global.chrome 以確保 storage 為 null
-      const originalChrome = global.chrome;
-      delete global.chrome;
+      const originalChrome = globalThis.chrome;
+      delete globalThis.chrome;
 
       const serviceNoStorage = new StorageService({ chromeStorage: null });
       await expect(serviceNoStorage.getSavedPageData('url')).rejects.toThrow(
         'Chrome storage not available'
       );
 
-      global.chrome = originalChrome;
+      globalThis.chrome = originalChrome;
     });
   });
 });

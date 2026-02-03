@@ -15,7 +15,7 @@ import Logger from '../../utils/Logger.js';
  */
 export class StyleManager {
   /**
-   * @param {Object} options - 配置選項
+   * @param {object} options - 配置選項
    * @param {string} [options.styleMode='background'] - 樣式模式
    */
   constructor(options = {}) {
@@ -30,24 +30,24 @@ export class StyleManager {
    * 創建 Highlight 對象並註冊到 CSS.highlights
    */
   initialize() {
-    if (typeof window === 'undefined' || !supportsHighlightAPI()) {
+    if (globalThis.window === undefined || !supportsHighlightAPI()) {
       return;
     }
 
     // 安全性檢查：確保 Highlight 是原生實作，防止原型污染
     const isNativeHighlight =
-      typeof window.Highlight === 'function' &&
-      window.Highlight.toString().includes('[native code]');
+      typeof globalThis.Highlight === 'function' &&
+      globalThis.Highlight.toString().includes('[native code]');
 
-    if (!isNativeHighlight || !window.CSS?.highlights) {
-      if (typeof window.Highlight !== 'undefined' && !isNativeHighlight) {
+    if (!isNativeHighlight || !globalThis.CSS?.highlights) {
+      if (globalThis.Highlight !== undefined && !isNativeHighlight) {
         Logger.warn('[StyleManager] 檢測到非原生的 Highlight 實作，已略過初始化');
       }
       return;
     }
 
     // 使用全域 Highlight 建構函式
-    const HighlightConstructor = window.Highlight;
+    const HighlightConstructor = globalThis.Highlight;
 
     Object.keys(this.colors).forEach(colorName => {
       try {
@@ -92,15 +92,16 @@ export class StyleManager {
         const textColor = this.textColors[colorName] || bgColor;
 
         switch (this.styleMode) {
-          case 'text':
+          case 'text': {
             // 文字顏色模式
             cssRules = `
               background-color: transparent;
               color: ${textColor};
             `;
             break;
+          }
 
-          case 'underline':
+          case 'underline': {
             // 底線模式
             cssRules = `
               background-color: transparent;
@@ -111,15 +112,17 @@ export class StyleManager {
               text-underline-offset: 3px;
             `;
             break;
+          }
 
           case 'background':
-          default:
+          default: {
             // 預設背景模式（強制黑色文字以確保對比度）
             cssRules = `
               background-color: ${bgColor};
               color: black; 
             `;
             break;
+          }
         }
 
         return `
@@ -130,11 +133,12 @@ export class StyleManager {
         `;
       })
       .join('\n');
-    document.head.appendChild(style);
+    document.head.append(style);
   }
 
   /**
    * 動態更新標註樣式模式
+   *
    * @param {string} newStyleMode - 新的樣式模式 ('background' | 'text' | 'underline')
    */
   updateMode(newStyleMode) {
@@ -154,6 +158,7 @@ export class StyleManager {
 
   /**
    * 獲取指定顏色的 Highlight 對象
+   *
    * @param {string} color - 顏色名稱
    * @returns {Highlight|undefined} Highlight 對象
    */
@@ -163,6 +168,7 @@ export class StyleManager {
 
   /**
    * 獲取當前樣式模式
+   *
    * @returns {string} 樣式模式
    */
   getStyleMode() {

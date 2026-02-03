@@ -32,7 +32,7 @@ describe('Toolbar Highlight List Management', () => {
     document.body.innerHTML = '';
 
     // Mock chrome API
-    global.window.chrome = {
+    globalThis.window.chrome = {
       runtime: {
         sendMessage: jest.fn(),
       },
@@ -44,12 +44,12 @@ describe('Toolbar Highlight List Management', () => {
     listContainer.style.display = 'none';
 
     container = document.createElement('div');
-    container.appendChild(listContainer);
+    container.append(listContainer);
 
     // Add other required elements
     const countSpan = document.createElement('span');
     countSpan.id = 'highlight-count-v2';
-    container.appendChild(countSpan);
+    container.append(countSpan);
 
     createToolbarContainer.mockReturnValue(container);
 
@@ -57,9 +57,10 @@ describe('Toolbar Highlight List Management', () => {
     createMiniIcon.mockReturnValue(document.createElement('div'));
 
     // Mock Manager with some highlights
-    const highlights = new Map();
-    highlights.set('id1', { id: 'id1', text: 'Highlight 1', color: 'yellow' });
-    highlights.set('id2', { id: 'id2', text: 'Highlight 2', color: 'green' });
+    const highlights = new Map([
+      ['id1', { id: 'id1', text: 'Highlight 1', color: 'yellow' }],
+      ['id2', { id: 'id2', text: 'Highlight 2', color: 'green' }],
+    ]);
 
     managerMock = {
       highlights,

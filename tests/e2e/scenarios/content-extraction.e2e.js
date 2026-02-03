@@ -14,7 +14,7 @@ module.exports = {
     console.log('  1️⃣ 導航到測試頁面...');
     await page.goto(config.testPages.mdn, {
       waitUntil: 'networkidle2',
-      timeout: 30000,
+      timeout: 30_000,
     });
 
     // 2. 測試基礎內容提取
@@ -26,7 +26,7 @@ module.exports = {
         .filter(text => text.length > 0);
 
       const headings = Array.from(document.querySelectorAll('h1, h2, h3')).map(heading => ({
-        level: parseInt(heading.tagName[1]),
+        level: Number.parseInt(heading.tagName[1]),
         text: heading.textContent.trim(),
       }));
 
@@ -34,7 +34,7 @@ module.exports = {
         title,
         paragraphCount: paragraphs.length,
         headingCount: headings.length,
-        firstParagraph: paragraphs[0]?.substring(0, 100),
+        firstParagraph: paragraphs[0]?.slice(0, 100),
         headings: headings.slice(0, 5),
       };
     });
@@ -93,7 +93,7 @@ module.exports = {
         return {
           language: block.className.match(/language-(\w+)/)?.[1] || 'unknown',
           lines: code.split('\n').length,
-          preview: code.substring(0, 100),
+          preview: code.slice(0, 100),
         };
       });
 
@@ -156,6 +156,7 @@ module.exports = {
     const metaData = await page.evaluate(() => {
       /**
        * 獲取 Meta 標籤內容
+       *
        * @param {string} name - Meta 標籤的 name 或 property 屬性值
        * @returns {string|null} Meta 標籤的 content 屬性值，如果未找到則返回 null
        */
@@ -169,12 +170,12 @@ module.exports = {
         description: getMeta('description') || getMeta('og:description'),
         image: getMeta('og:image') || getMeta('twitter:image'),
         author: getMeta('author'),
-        url: window.location.href,
+        url: globalThis.location.href,
         favicon: document.querySelector('link[rel*="icon"]')?.href,
       };
     });
 
-    console.log(`     ✅ 描述: ${metaData.description?.substring(0, 50)}...`);
+    console.log(`     ✅ 描述: ${metaData.description?.slice(0, 50)}...`);
     console.log(`     ✅ 封面圖: ${metaData.image ? '已找到' : '未找到'}`);
     console.log(`     ✅ Favicon: ${metaData.favicon ? '已找到' : '未找到'}`);
 

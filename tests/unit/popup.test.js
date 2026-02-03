@@ -105,9 +105,7 @@ describe('popupUI', () => {
       expect(elements.clearHighlightsButton.style.display).toBe('block');
       expect(elements.saveButton.style.display).toBe('none');
       expect(elements.openNotionButton.style.display).toBe('block');
-      expect(elements.openNotionButton.getAttribute('data-url')).toBe(
-        'https://notion.so/test-page'
-      );
+      expect(elements.openNotionButton.dataset.url).toBe('https://notion.so/test-page');
       expect(elements.status.textContent).toBe('Page saved. Ready to highlight or update.');
     });
   });
@@ -406,7 +404,7 @@ describe('initPopup integration', () => {
     await initPopup();
 
     // 模擬點擊保存按鈕
-    const saveButton = document.getElementById('save-button');
+    const saveButton = document.querySelector('#save-button');
 
     // Mock savePage 成功響應
     chrome.runtime.sendMessage.mockResolvedValueOnce({
@@ -456,7 +454,7 @@ describe('initPopup integration', () => {
     await initPopup();
 
     // 模擬點擊保存按鈕
-    const saveButton = document.getElementById('save-button');
+    const saveButton = document.querySelector('#save-button');
 
     // Mock savePage 成功響應
     chrome.runtime.sendMessage.mockResolvedValueOnce({

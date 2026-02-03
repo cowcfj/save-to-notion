@@ -8,7 +8,8 @@ import { UI_ICONS } from '../scripts/config/index.js';
 
 /**
  * DOM 元素集合類型定義
- * @typedef {Object} PopupElements
+ *
+ * @typedef {object} PopupElements
  * @property {HTMLButtonElement} saveButton - 保存按鈕
  * @property {HTMLButtonElement} highlightButton - 標記按鈕
  * @property {HTMLButtonElement} clearHighlightsButton - 清除標記按鈕
@@ -22,24 +23,26 @@ import { UI_ICONS } from '../scripts/config/index.js';
 
 /**
  * 獲取所有 Popup DOM 元素
+ *
  * @returns {PopupElements}
  */
 export function getElements() {
   return {
-    saveButton: document.getElementById('save-button'),
-    highlightButton: document.getElementById('highlight-button'),
-    clearHighlightsButton: document.getElementById('clear-highlights-button'),
-    openNotionButton: document.getElementById('open-notion-button'),
-    status: document.getElementById('status'),
-    modal: document.getElementById('confirmation-modal'),
-    modalMessage: document.getElementById('modal-message'),
-    modalConfirm: document.getElementById('modal-confirm'),
-    modalCancel: document.getElementById('modal-cancel'),
+    saveButton: document.querySelector('#save-button'),
+    highlightButton: document.querySelector('#highlight-button'),
+    clearHighlightsButton: document.querySelector('#clear-highlights-button'),
+    openNotionButton: document.querySelector('#open-notion-button'),
+    status: document.querySelector('#status'),
+    modal: document.querySelector('#confirmation-modal'),
+    modalMessage: document.querySelector('#modal-message'),
+    modalConfirm: document.querySelector('#modal-confirm'),
+    modalCancel: document.querySelector('#modal-cancel'),
   };
 }
 
 /**
  * 設置狀態訊息
+ *
  * @param {PopupElements} elements - DOM 元素集合
  * @param {string|Array<string|{type: string, content: string}>} content - 狀態內容，可為純字串或結構化陣列
  * @param {string} [color=''] - 文字顏色（可選）
@@ -60,15 +63,15 @@ export function setStatus(elements, content, color = '') {
       content.forEach(part => {
         if (typeof part === 'string') {
           // Pure text part -> safe textContent
-          elements.status.appendChild(document.createTextNode(part));
-        } else if (part && part.type === 'svg') {
+          elements.status.append(document.createTextNode(part));
+        } else if (part?.type === 'svg') {
           // Structured SVG part -> specific handling
           // Assume content is a safe SVG string from internal source
           const span = document.createElement('span');
           span.innerHTML = part.content;
           // Add some basic styling for alignment
           span.classList.add('status-icon-inline');
-          elements.status.appendChild(span);
+          elements.status.append(span);
         }
       });
     }
@@ -77,6 +80,7 @@ export function setStatus(elements, content, color = '') {
 
 /**
  * 設置按鈕狀態
+ *
  * @param {HTMLButtonElement} button - 按鈕元素
  * @param {boolean} disabled - 是否禁用
  */
@@ -89,6 +93,7 @@ export function setButtonState(button, disabled) {
 /**
  * 設置按鈕文字的輔助函數
  * 優先使用 .btn-text 元素，若不存在則直接設置 button.textContent
+ *
  * @param {HTMLButtonElement} button - 按鈕元素
  * @param {string} text - 要設置的文字
  */
@@ -108,8 +113,9 @@ export function setButtonText(button, text) {
 
 /**
  * 更新 UI 為「已保存」狀態
+ *
  * @param {PopupElements} elements - DOM 元素集合
- * @param {Object} response - 頁面狀態響應
+ * @param {object} response - 頁面狀態響應
  * @param {string} [response.notionUrl] - Notion 頁面 URL
  */
 export function updateUIForSavedPage(elements, response) {
@@ -132,7 +138,7 @@ export function updateUIForSavedPage(elements, response) {
   // 顯示打開 Notion 按鈕
   if (response.notionUrl && elements.openNotionButton) {
     elements.openNotionButton.style.display = 'block';
-    elements.openNotionButton.setAttribute('data-url', response.notionUrl);
+    elements.openNotionButton.dataset.url = response.notionUrl;
   }
 
   // 更新狀態
@@ -141,8 +147,9 @@ export function updateUIForSavedPage(elements, response) {
 
 /**
  * 更新 UI 為「未保存」狀態
+ *
  * @param {PopupElements} elements - DOM 元素集合
- * @param {Object} response - 頁面狀態響應
+ * @param {object} response - 頁面狀態響應
  * @param {boolean} [response.wasDeleted] - 頁面是否已被刪除
  */
 export function updateUIForUnsavedPage(elements, response) {
@@ -177,6 +184,7 @@ export function updateUIForUnsavedPage(elements, response) {
 
 /**
  * 顯示確認對話框
+ *
  * @param {PopupElements} elements - DOM 元素集合
  * @param {string} message - 對話框訊息
  */
@@ -191,6 +199,7 @@ export function showModal(elements, message) {
 
 /**
  * 隱藏確認對話框
+ *
  * @param {PopupElements} elements - DOM 元素集合
  */
 export function hideModal(elements) {
@@ -201,6 +210,7 @@ export function hideModal(elements) {
 
 /**
  * 格式化數量與名詞（自動處理單複數）
+ *
  * @param {number} count - 數量
  * @param {string} singular - 單數形式
  * @param {string} plural - 複數形式
@@ -212,7 +222,8 @@ function formatCount(count, singular, plural) {
 
 /**
  * 格式化保存成功訊息
- * @param {Object} response - 保存響應
+ *
+ * @param {object} response - 保存響應
  * @returns {string|Array<string|{type: string, content: string}>} 格式化的訊息或結構化內容（含 SVG 警告）
  */
 export function formatSaveSuccessMessage(response) {

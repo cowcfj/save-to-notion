@@ -5,8 +5,8 @@
 import '../mocks/chrome.js';
 
 // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
-delete global.ImageUtils;
-delete global.window?.ImageUtils;
+delete globalThis.ImageUtils;
+delete globalThis.window?.ImageUtils;
 
 // 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
 require('../../scripts/utils/imageUtils.js');
@@ -19,7 +19,7 @@ const {
   extractBestUrlFromSrcset,
   generateImageCacheKey,
   IMAGE_ATTRIBUTES,
-} = global.ImageUtils || global.window?.ImageUtils || {};
+} = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
 
 describe('ImageUtils - cleanImageUrl', () => {
   describe('基本功能', () => {

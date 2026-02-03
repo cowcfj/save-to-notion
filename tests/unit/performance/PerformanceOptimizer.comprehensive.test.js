@@ -46,22 +46,22 @@ describe('PerformanceOptimizer - 全面測試', () => {
     mockWindow = dom.window;
 
     // 設置全局對象
-    global.document = mockDocument;
-    global.window = mockWindow;
-    global.performance = {
+    globalThis.document = mockDocument;
+    globalThis.window = mockWindow;
+    globalThis.performance = {
       now: jest.fn(() => Date.now()),
       memory: {
-        usedJSHeapSize: 10000000,
-        totalJSHeapSize: 20000000,
-        jsHeapSizeLimit: 100000000,
+        usedJSHeapSize: 10_000_000,
+        totalJSHeapSize: 20_000_000,
+        jsHeapSizeLimit: 100_000_000,
       },
     };
-    global.Image = mockWindow.Image;
-    global.requestIdleCallback = jest.fn(callback => setTimeout(callback, 0));
-    global.requestAnimationFrame = jest.fn(callback => setTimeout(callback, 16));
+    globalThis.Image = mockWindow.Image;
+    globalThis.requestIdleCallback = jest.fn(callback => setTimeout(callback, 0));
+    globalThis.requestAnimationFrame = jest.fn(callback => setTimeout(callback, 16));
 
     // Mock Logger
-    global.Logger = {
+    globalThis.Logger = {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
@@ -77,7 +77,7 @@ describe('PerformanceOptimizer - 全面測試', () => {
       enableCache: true,
       enableBatching: true,
       cacheMaxSize: 10,
-      cacheTTL: 300000,
+      cacheTTL: 300_000,
       batchDelay: 16,
     });
   });
@@ -140,7 +140,7 @@ describe('PerformanceOptimizer - 全面測試', () => {
       // 驗證緩存命中統計 - 第二次查詢應該命中緩存
       expect(freshOptimizer.cacheStats.hits).toBeGreaterThan(0);
       // 兩次查詢應該返回相同數量的元素
-      expect(result2.length).toBe(result1.length);
+      expect(result2).toHaveLength(result1.length);
     });
 
     test('應該支持 single 選項', () => {
@@ -195,9 +195,9 @@ describe('PerformanceOptimizer - 全面測試', () => {
       // 修改緩存時間戳
       const firstKey = optimizer.queryCache.keys().next().value;
       const firstEntry = optimizer.queryCache.get(firstKey);
-      firstEntry.timestamp = Date.now() - 400000; // 過期
+      firstEntry.timestamp = Date.now() - 400_000; // 過期
 
-      const clearedCount = optimizer.clearExpiredCache({ maxAge: 300000 });
+      const clearedCount = optimizer.clearExpiredCache({ maxAge: 300_000 });
       expect(clearedCount).toBe(1);
     });
 
@@ -227,7 +227,7 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
       // 獲取緩存鍵（可能不是簡單的字符串）
       const cacheKeys = Array.from(optimizer.queryCache.keys());
-      expect(cacheKeys.length).toBe(1);
+      expect(cacheKeys).toHaveLength(1);
 
       const firstResult = optimizer.queryCache.get(cacheKeys[0]);
       const firstTimestamp = firstResult.timestamp;
@@ -451,9 +451,9 @@ describe('PerformanceOptimizer - 全面測試', () => {
       // 修改時間戳
       const key = optimizer.queryCache.keys().next().value;
       const entry = optimizer.queryCache.get(key);
-      entry.timestamp = Date.now() - 400000;
+      entry.timestamp = Date.now() - 400_000;
 
-      optimizer.clearCache({ maxAge: 300000 });
+      optimizer.clearCache({ maxAge: 300_000 });
       expect(optimizer.queryCache.size).toBe(0);
     });
 
@@ -462,7 +462,7 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
       const key = optimizer.queryCache.keys().next().value;
       const entry = optimizer.queryCache.get(key);
-      entry.timestamp = Date.now() - 400000;
+      entry.timestamp = Date.now() - 400_000;
 
       optimizer.clearCache();
       expect(optimizer.queryCache.size).toBe(0);

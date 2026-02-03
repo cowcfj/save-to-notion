@@ -4,7 +4,7 @@
  */
 
 // 模擬 Chrome API 環境
-global.chrome = {
+globalThis.chrome = {
   storage: {
     local: {
       get: jest.fn(),
@@ -33,10 +33,10 @@ global.chrome = {
 };
 
 // 模擬 fetch
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 // 模擬 performance API
-global.performance = {
+globalThis.performance = {
   now: jest.fn(() => Date.now()),
 };
 
@@ -128,14 +128,14 @@ const backgroundModule = (() => {
         }
 
         const imagePathPatterns = [
-          /\/image[s]?\//i,
-          /\/img[s]?\//i,
-          /\/photo[s]?\//i,
-          /\/picture[s]?\//i,
+          /\/images?\//i,
+          /\/imgs?\//i,
+          /\/photos?\//i,
+          /\/pictures?\//i,
           /\/media\//i,
-          /\/upload[s]?\//i,
-          /\/asset[s]?\//i,
-          /\/file[s]?\//i,
+          /\/uploads?\//i,
+          /\/assets?\//i,
+          /\/files?\//i,
         ];
 
         const excludePatterns = [
@@ -183,8 +183,8 @@ const backgroundModule = (() => {
             }
           }
 
-          chunks.push(remaining.substring(0, splitIndex).trim());
-          remaining = remaining.substring(splitIndex).trim();
+          chunks.push(remaining.slice(0, Math.max(0, splitIndex)).trim());
+          remaining = remaining.slice(Math.max(0, splitIndex)).trim();
         }
 
         return chunks.filter(chunk => chunk.length > 0);
@@ -511,9 +511,9 @@ describe('Background.js Exported Functions', () => {
     it('應該強制分割無間斷文本', () => {
       const text = 'A'.repeat(3000);
       const result = backgroundModule.splitTextForHighlight(text, 2000);
-      expect(result.length).toBe(2);
-      expect(result[0].length).toBe(2000);
-      expect(result[1].length).toBe(1000);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toHaveLength(2000);
+      expect(result[1]).toHaveLength(1000);
     });
 
     it('應該處理空文本', () => {
@@ -553,7 +553,7 @@ describe('Background.js Exported Functions', () => {
     const mockPageId = 'page-123';
 
     beforeEach(() => {
-      global.fetch = jest.fn();
+      globalThis.fetch = jest.fn();
     });
 
     it('應該成功分批添加區塊', async () => {
@@ -567,7 +567,7 @@ describe('Background.js Exported Functions', () => {
       }));
 
       // Mock 3次成功的回應
-      global.fetch.mockResolvedValue({
+      globalThis.fetch.mockResolvedValue({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ object: 'block' }),
@@ -580,7 +580,7 @@ describe('Background.js Exported Functions', () => {
       expect(result.success).toBe(true);
       expect(result.addedCount).toBe(250);
       expect(result.totalCount).toBe(250);
-      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(3);
     });
 
     it('應該處理部分批次失敗的情況', async () => {
@@ -594,7 +594,7 @@ describe('Background.js Exported Functions', () => {
       }));
 
       // 第一批成功，第二批失敗
-      global.fetch
+      globalThis.fetch
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
@@ -624,7 +624,7 @@ describe('Background.js Exported Functions', () => {
       expect(result.success).toBe(true);
       expect(result.addedCount).toBe(0);
       expect(result.totalCount).toBe(0);
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
     it('應該處理從指定索引開始的情況', async () => {
@@ -637,7 +637,7 @@ describe('Background.js Exported Functions', () => {
         },
       }));
 
-      global.fetch.mockResolvedValue({
+      globalThis.fetch.mockResolvedValue({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ object: 'block' }),
@@ -655,13 +655,13 @@ describe('Background.js Exported Functions', () => {
       expect(result.success).toBe(true);
       expect(result.addedCount).toBe(50); // 只處理剩餘的50個區塊
       expect(result.totalCount).toBe(50);
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
     it('應該處理網路錯誤', async () => {
       // Arrange
       const blocks = [{ object: 'block', type: 'paragraph' }];
-      global.fetch.mockRejectedValue(new Error('Network error'));
+      globalThis.fetch.mockRejectedValue(new Error('Network error'));
 
       // Act
       const result = await backgroundModule.appendBlocksInBatches(mockPageId, blocks, mockApiKey);
@@ -683,7 +683,7 @@ describe('Background.js Exported Functions', () => {
         },
       ];
 
-      global.fetch.mockResolvedValue({
+      globalThis.fetch.mockResolvedValue({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ object: 'block' }),
@@ -693,7 +693,7 @@ describe('Background.js Exported Functions', () => {
       await backgroundModule.appendBlocksInBatches(mockPageId, blocks, mockApiKey);
 
       // Assert
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         `https://api.notion.com/v1/blocks/${mockPageId}/children`,
         {
           method: 'PATCH',

@@ -5,19 +5,19 @@
 import { domConverter } from '../../../../scripts/content/converters/DomConverter.js';
 
 // Mock dependencies
-global.Logger = {
+globalThis.Logger = {
   log: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
 };
 
-global.ImageUtils = {
+globalThis.ImageUtils = {
   extractImageSrc: jest.fn(),
   cleanImageUrl: jest.fn(url => url),
   isNotionCompatibleImageUrl: jest.fn(() => true),
 };
 
-global.ErrorHandler = {
+globalThis.ErrorHandler = {
   logError: jest.fn(),
 };
 
@@ -99,7 +99,7 @@ describe('DomConverter', () => {
   describe('Images', () => {
     test('should convert IMG to image block', () => {
       const src = 'https://example.com/image.jpg';
-      global.ImageUtils.extractImageSrc.mockReturnValue(src);
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
 
       const html = `<img src="${src}" />`;
       const blocks = domConverter.convert(html);
@@ -118,7 +118,7 @@ describe('DomConverter', () => {
 
     test('should skip duplicate images', () => {
       const src = 'https://example.com/image.jpg';
-      global.ImageUtils.extractImageSrc.mockReturnValue(src);
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
 
       const html = `<img src="${src}" /><img src="${src}" />`;
       const blocks = domConverter.convert(html);
@@ -128,7 +128,7 @@ describe('DomConverter', () => {
     });
 
     test('should handle invalid image URLs gracefully', () => {
-      global.ImageUtils.extractImageSrc.mockReturnValue(null);
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(null);
       const html = '<img src="" />';
       const blocks = domConverter.convert(html);
       expect(blocks).toHaveLength(0);
@@ -173,7 +173,7 @@ describe('DomConverter', () => {
       const blocks = domConverter.convert(html);
 
       // DomConverter truncates instead of splitting
-      expect(blocks.length).toBe(1);
+      expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('bulleted_list_item');
       expect(blocks[0].bulleted_list_item.rich_text[0].text.content.length).toBeLessThanOrEqual(
         2000
@@ -186,7 +186,7 @@ describe('DomConverter', () => {
       const blocks = domConverter.convert(html);
 
       // DomConverter truncates instead of splitting
-      expect(blocks.length).toBe(1);
+      expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('quote');
       expect(blocks[0].quote.rich_text[0].text.content.length).toBeLessThanOrEqual(2000);
     });
@@ -197,7 +197,7 @@ describe('DomConverter', () => {
       const blocks = domConverter.convert(html);
 
       // DomConverter truncates instead of splitting
-      expect(blocks.length).toBe(1);
+      expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('paragraph');
       expect(blocks[0].paragraph.rich_text[0].text.content.length).toBeLessThanOrEqual(2000);
     });
@@ -209,7 +209,7 @@ describe('DomConverter', () => {
 
       expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('bulleted_list_item');
-      expect(blocks[0].bulleted_list_item.rich_text[0].text.content.length).toBe(1500);
+      expect(blocks[0].bulleted_list_item.rich_text[0].text.content).toHaveLength(1500);
     });
   });
 });

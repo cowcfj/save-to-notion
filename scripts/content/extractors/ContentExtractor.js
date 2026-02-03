@@ -20,13 +20,14 @@ import { MarkdownExtractor } from './MarkdownExtractor.js';
 
 import { detectPageComplexity, selectExtractor } from '../../utils/pageComplexityDetector.js';
 
-class ContentExtractor {
+const ContentExtractor = {
   /**
    * 執行內容提取
+   *
    * @param {Document} doc - DOM Document
-   * @returns {Object} 提取結果 { content, type, metadata, rawArticle }
+   * @returns {object} 提取結果 { content, type, metadata, rawArticle }
    */
-  static extract(doc) {
+  extract(doc) {
     Logger.log('開始內容提取', { action: 'extract' });
 
     // 1. 檢測頁面複雜度與類型
@@ -67,12 +68,14 @@ class ContentExtractor {
         selection,
       },
     };
-  }
+  },
 
   /**
    * 使用 Readability 提取內容
+   *
+   * @param doc
    */
-  static extractReadability(doc) {
+  extractReadability(doc) {
     Logger.log('執行 Readability 提取', { action: 'extractReadability' });
 
     // 使用 ReadabilityAdapter (包裝在 try-catch 中以確保 fallback 可以執行)
@@ -111,15 +114,17 @@ class ContentExtractor {
     }
 
     return null;
-  }
+  },
 
   /**
    * 提取技術文檔/Markdown 內容
    * 委託給 MarkdownExtractor 處理 (支持 DOM 清洗和更精確的容器定位)
+   *
+   * @param doc
    */
-  static extractTechnicalContent(doc) {
+  extractTechnicalContent(doc) {
     return MarkdownExtractor.extract(doc);
-  }
-}
+  },
+};
 
 export { ContentExtractor };

@@ -69,7 +69,7 @@ const TEST_CONSTANTS = {
   TIMEOUTS: {
     SHORT: 1000,
     MEDIUM: 5000,
-    LONG: 10000,
+    LONG: 10_000,
   },
 
   // 常用的測試標籤
@@ -79,13 +79,13 @@ const TEST_CONSTANTS = {
     ERROR_HANDLING: 'error-handling',
     PERFORMANCE: 'performance',
   },
+  generateTestUrl: (domain = 'example', index = '') => {
+    const suffix = index ? index.toString() : '';
+    return `https://${domain}${suffix}.com`;
+  },
 };
 
 // 輔助函數：生成測試 URL
-TEST_CONSTANTS.generateTestUrl = (domain = 'example', index = '') => {
-  const suffix = index ? index.toString() : '';
-  return `https://${domain}${suffix}.com`;
-};
 
 // 輔助函數：生成 Storage 鍵名
 TEST_CONSTANTS.generateStorageKey = (type, url) => {

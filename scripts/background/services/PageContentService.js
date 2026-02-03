@@ -32,9 +32,9 @@ const CONTENT_EXTRACTION_SCRIPTS = [
  */
 class PageContentService {
   /**
-   * @param {Object} options - 配置選項
-   * @param {Object} options.injectionService - InjectionService 實例
-   * @param {Object} options.logger - 日誌對象
+   * @param {object} options - 配置選項
+   * @param {object} options.injectionService - InjectionService 實例
+   * @param {object} options.logger - 日誌對象
    */
   constructor(options = {}) {
     this.injectionService = options.injectionService;
@@ -45,7 +45,7 @@ class PageContentService {
    * 提取頁面內容並轉換為 Notion blocks
    *
    * @param {number} tabId - 目標標籤頁 ID
-   * @param {Object} _options - 提取選項（保留供未來使用）
+   * @param {object} _options - 提取選項（保留供未來使用）
    * @returns {Promise<{title: string, blocks: Array, siteIcon: string|null}>}
    */
   async extractContent(tabId, _options = {}) {
@@ -61,14 +61,14 @@ class PageContentService {
         tabId,
         async () => {
           // 此函數在頁面上下文中執行
-          const PageLogger = window.Logger || console;
+          const PageLogger = globalThis.Logger || console;
 
           try {
             PageLogger.log?.('🚀 [PageContentService] 調用 extractPageContent...');
 
             // 使用 content.bundle.js 暴露的 extractPageContent
-            if (typeof window.extractPageContent === 'function') {
-              const extractResult = await window.extractPageContent();
+            if (typeof globalThis.extractPageContent === 'function') {
+              const extractResult = await globalThis.extractPageContent();
 
               if (extractResult?.blocks) {
                 PageLogger.log?.(
@@ -162,6 +162,7 @@ class PageContentService {
 
   /**
    * 獲取內容提取所需的腳本列表
+   *
    * @returns {string[]}
    */
   static getRequiredScripts() {

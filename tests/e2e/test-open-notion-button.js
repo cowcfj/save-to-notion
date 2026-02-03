@@ -7,7 +7,7 @@ console.log('🧪 開始測試 Open in Notion 按鈕功能...');
 
 // 測試函數：檢查工具欄是否存在
 function testToolbarExists() {
-  const toolbar = document.getElementById('notion-highlighter-v2');
+  const toolbar = document.querySelector('#notion-highlighter-v2');
   if (toolbar) {
     console.log('✅ 標註工具欄已找到');
     return toolbar;
@@ -66,14 +66,14 @@ function testPageStatusCheck() {
 function testHighlightManager() {
   console.log('🔍 檢查標註管理器...');
 
-  if (window.notionHighlighter) {
+  if (globalThis.notionHighlighter) {
     console.log('✅ notionHighlighter 對象已找到');
-    console.log('   - 管理器:', window.notionHighlighter.manager ? '✅' : '❌');
-    console.log('   - 工具欄:', window.notionHighlighter.toolbar ? '✅' : '❌');
-    console.log('   - 是否激活:', window.notionHighlighter.isActive());
+    console.log('   - 管理器:', globalThis.notionHighlighter.manager ? '✅' : '❌');
+    console.log('   - 工具欄:', globalThis.notionHighlighter.toolbar ? '✅' : '❌');
+    console.log('   - 是否激活:', globalThis.notionHighlighter.isActive());
 
-    if (window.notionHighlighter.manager) {
-      const count = window.notionHighlighter.manager.getCount();
+    if (globalThis.notionHighlighter.manager) {
+      const count = globalThis.notionHighlighter.manager.getCount();
       console.log('   - 標註數量:', count);
     }
   } else {
@@ -85,7 +85,7 @@ function testHighlightManager() {
 function testSyncOperation() {
   console.log('🔍 測試同步操作...');
 
-  const toolbar = document.getElementById('notion-highlighter-v2');
+  const toolbar = document.querySelector('#notion-highlighter-v2');
   if (!toolbar) {
     console.log('❌ 無法測試同步操作：工具欄未找到');
     return;
@@ -133,7 +133,7 @@ function runAllTests() {
 setTimeout(runAllTests, 1000);
 
 // 導出測試函數供手動調用
-window.testOpenNotionButton = {
+globalThis.testOpenNotionButton = {
   runAllTests,
   testToolbarExists,
   testOpenNotionButtons,

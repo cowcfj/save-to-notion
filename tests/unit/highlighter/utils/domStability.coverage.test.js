@@ -57,7 +57,7 @@ describe('DOM Stability Utils Coverage Tests', () => {
     test('should monitor specified container when selector provided', async () => {
       const container = document.createElement('div');
       container.id = 'test-container';
-      document.body.appendChild(container);
+      document.body.append(container);
 
       const promise = waitForDOMStability({
         containerSelector: '#test-container',
@@ -92,11 +92,11 @@ describe('DOM Stability Utils Coverage Tests', () => {
 
       // Add mutation after 50ms
       jest.advanceTimersByTime(50);
-      document.body.appendChild(document.createElement('div'));
+      document.body.append(document.createElement('div'));
 
       // Add another mutation after 50ms
       jest.advanceTimersByTime(50);
-      document.body.appendChild(document.createElement('div'));
+      document.body.append(document.createElement('div'));
 
       // Now wait for stability
       jest.advanceTimersByTime(150);
@@ -107,8 +107,8 @@ describe('DOM Stability Utils Coverage Tests', () => {
 
     test('should handle observer errors gracefully', async () => {
       // Mock MutationObserver to throw on observe
-      const originalMutationObserver = global.MutationObserver;
-      global.MutationObserver = class {
+      const originalMutationObserver = globalThis.MutationObserver;
+      globalThis.MutationObserver = class {
         constructor() {
           this.observe = () => {
             throw new Error('Observer error');
@@ -123,7 +123,7 @@ describe('DOM Stability Utils Coverage Tests', () => {
 
       expect(result).toBe(false);
 
-      global.MutationObserver = originalMutationObserver;
+      globalThis.MutationObserver = originalMutationObserver;
     });
 
     test('should use default options when not specified', async () => {
@@ -157,7 +157,7 @@ describe('DOM Stability Utils Coverage Tests', () => {
 
       // Keep mutating
       const interval = setInterval(() => {
-        document.body.appendChild(document.createElement('div'));
+        document.body.append(document.createElement('div'));
       }, 50);
 
       jest.advanceTimersByTime(250);
@@ -171,8 +171,8 @@ describe('DOM Stability Utils Coverage Tests', () => {
 
     describe('requestIdleCallback 支援', () => {
       afterEach(() => {
-        delete global.requestIdleCallback;
-        delete global.cancelIdleCallback;
+        delete globalThis.requestIdleCallback;
+        delete globalThis.cancelIdleCallback;
       });
 
       test('應該在 requestIdleCallback 可用時調用它', () => {
@@ -180,8 +180,8 @@ describe('DOM Stability Utils Coverage Tests', () => {
         const mockRequestIdleCallback = jest.fn(() => 123);
         const mockCancelIdleCallback = jest.fn();
 
-        global.requestIdleCallback = mockRequestIdleCallback;
-        global.cancelIdleCallback = mockCancelIdleCallback;
+        globalThis.requestIdleCallback = mockRequestIdleCallback;
+        globalThis.cancelIdleCallback = mockCancelIdleCallback;
 
         // 啟動 - 不需要等待完成
         waitForDOMStability({
@@ -204,7 +204,7 @@ describe('DOM Stability Utils Coverage Tests', () => {
         // 觸發多次 mutation 強制重新排程
         for (let i = 0; i < 3; i++) {
           jest.advanceTimersByTime(30);
-          document.body.appendChild(document.createElement('div'));
+          document.body.append(document.createElement('div'));
         }
 
         // 等待穩定
@@ -222,7 +222,7 @@ describe('DOM Stability Utils Coverage Tests', () => {
 
         // 在短時間內觸發 mutation
         jest.advanceTimersByTime(50);
-        document.body.appendChild(document.createElement('div'));
+        document.body.append(document.createElement('div'));
 
         // checkStability 會返回 false 因為還未達到穩定閾值
         // 然後會繼續排程
@@ -246,11 +246,11 @@ describe('DOM Stability Utils Coverage Tests', () => {
 
         // 觸發 mutation - 這會重置 lastMutationTime
         const newElement = document.createElement('span');
-        document.body.appendChild(newElement);
+        document.body.append(newElement);
 
         // 再次觸發 mutation
         jest.advanceTimersByTime(50);
-        document.body.appendChild(document.createElement('div'));
+        document.body.append(document.createElement('div'));
 
         // 等待足夠時間達到穩定
         jest.advanceTimersByTime(200);

@@ -1,0 +1,404 @@
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/background.js
+  113:1  warning  Missing JSDoc @param "previousVersion" type  jsdoc/require-param-type
+  136:1  warning  Missing JSDoc @returns declaration           jsdoc/require-returns
+  139:1  warning  Missing JSDoc @param "previousVersion" type  jsdoc/require-param-type
+  140:1  warning  Missing JSDoc @param "currentVersion" type   jsdoc/require-param-type
+  166:1  warning  Missing JSDoc @returns declaration           jsdoc/require-returns
+  169:1  warning  Missing JSDoc @param "version" type          jsdoc/require-param-type
+  185:1  warning  Missing JSDoc @param "previousVersion" type  jsdoc/require-param-type
+  186:1  warning  Missing JSDoc @param "currentVersion" type   jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/background/handlers/highlightHandlers.js
+  111:1  warning  Missing JSDoc @param "request" type       jsdoc/require-param-type
+  112:1  warning  Missing JSDoc @param "sender" type        jsdoc/require-param-type
+  113:1  warning  Missing JSDoc @param "sendResponse" type  jsdoc/require-param-type
+  219:1  warning  Missing JSDoc @param "request" type       jsdoc/require-param-type
+  220:1  warning  Missing JSDoc @param "sender" type        jsdoc/require-param-type
+  221:1  warning  Missing JSDoc @param "sendResponse" type  jsdoc/require-param-type
+  296:1  warning  Missing JSDoc @param "request" type       jsdoc/require-param-type
+  297:1  warning  Missing JSDoc @param "sender" type        jsdoc/require-param-type
+  298:1  warning  Missing JSDoc @param "sendResponse" type  jsdoc/require-param-type
+  344:1  warning  Missing JSDoc @param "request" type       jsdoc/require-param-type
+  345:1  warning  Missing JSDoc @param "sender" type        jsdoc/require-param-type
+  346:1  warning  Missing JSDoc @param "sendResponse" type  jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/background/handlers/migrationHandlers.js
+   31:58  warning  Move arrow function 'validatePrivilegedRequest' to the outer scope                   unicorn/consistent-function-scoping
+   52:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+   53:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+   54:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+   56:62  warning  Refactor this function to reduce its Cognitive Complexity from 20 to the 15 allowed  sonarjs/cognitive-complexity
+  295:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  296:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  297:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+  355:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  356:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  357:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+  482:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  483:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  484:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+  540:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  541:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  542:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+  624:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  625:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  626:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/background/handlers/saveHandlers.js
+   99:1   warning  Missing JSDoc @param "tabId" type                                                    jsdoc/require-param-type
+  114:3   warning  Missing JSDoc @returns declaration                                                   jsdoc/require-returns
+  117:1   warning  Missing JSDoc @param "params" type                                                   jsdoc/require-param-type
+  180:1   warning  Missing JSDoc @param "params" type                                                   jsdoc/require-param-type
+  182:18  warning  Refactor this function to reduce its Cognitive Complexity from 25 to the 15 allowed  sonarjs/cognitive-complexity
+  293:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  294:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  295:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+  390:16  error    Extract this nested ternary operation into an independent statement                  sonarjs/no-nested-conditional
+  426:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  427:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  428:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+  526:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  527:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  528:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+  554:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  555:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  556:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+  558:60  warning  Refactor this function to reduce its Cognitive Complexity from 30 to the 15 allowed  sonarjs/cognitive-complexity
+  677:1   warning  Missing JSDoc @param "request" type                                                  jsdoc/require-param-type
+  678:1   warning  Missing JSDoc @param "sender" type                                                   jsdoc/require-param-type
+  679:1   warning  Missing JSDoc @param "sendResponse" type                                             jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/background/services/InjectionService.js
+  234:21  warning  Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed  sonarjs/cognitive-complexity
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/background/services/NotionService.js
+  340:23  warning  Use destructured variables over properties  unicorn/consistent-destructuring
+  341:22  warning  Use destructured variables over properties  unicorn/consistent-destructuring
+  555:23  warning  Use destructured variables over properties  unicorn/consistent-destructuring
+  556:22  warning  Use destructured variables over properties  unicorn/consistent-destructuring
+  580:23  warning  Use destructured variables over properties  unicorn/consistent-destructuring
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/background/services/StorageService.js
+  45:23  warning  Define a constant instead of duplicating this literal 6 times  sonarjs/no-duplicate-string
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/background/services/TabService.js
+   84:9   warning  Refactor this function to reduce its Cognitive Complexity from 21 to the 15 allowed  sonarjs/cognitive-complexity
+  308:79  warning  Refactor this function to reduce its Cognitive Complexity from 24 to the 15 allowed  sonarjs/cognitive-complexity
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/background/utils/BlockBuilder.js
+  8:1  warning  Invalid JSDoc @version: "1.0"  jsdoc/check-values
+  9:1  warning  Invalid JSDoc tag name "date"  jsdoc/check-tag-names
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/config/patterns.js
+  74:3  warning  Unsafe Regular Expression  security/detect-unsafe-regex
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/content/converters/ContentBridge.js
+   37:10  warning  Refactor this function to reduce its Cognitive Complexity from 21 to the 15 allowed  sonarjs/cognitive-complexity
+   67:11  warning  Use destructured variables over properties                                           unicorn/consistent-destructuring
+  213:48  warning  Prefer `String#slice()` over `String#substring()`                                    unicorn/prefer-string-slice
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/content/converters/DomConverter.js
+   39:3   warning  Missing JSDoc @returns declaration                                                   jsdoc/require-returns
+  270:35  warning  Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed  sonarjs/cognitive-complexity
+  432:3   warning  Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed  sonarjs/cognitive-complexity
+  574:3   warning  Missing JSDoc @returns declaration                                                   jsdoc/require-returns
+  579:1   warning  Missing JSDoc @param "blocks" type                                                   jsdoc/require-param-type
+  580:1   warning  Missing JSDoc @param "depth" type                                                    jsdoc/require-param-type
+  587:33  warning  Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed  sonarjs/cognitive-complexity
+  606:57  error    `Array#reduce()` is not allowed. Prefer other types of loop for readability          unicorn/no-array-reduce
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/content/extractors/ContentExtractor.js
+   73:3  warning  Missing JSDoc @returns declaration  jsdoc/require-returns
+   76:1  warning  Missing JSDoc @param "doc" type     jsdoc/require-param-type
+  119:3  warning  Missing JSDoc @returns declaration  jsdoc/require-returns
+  123:1  warning  Missing JSDoc @param "doc" type     jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/content/extractors/ImageCollector.js
+  173:1  warning  Missing JSDoc @param "images" type                                                   jsdoc/require-param-type
+  174:1  warning  Missing JSDoc @param "featuredImage" type                                            jsdoc/require-param-type
+  175:1  warning  Missing JSDoc @param "additionalImages" type                                         jsdoc/require-param-type
+  192:9  warning  Refactor this function to reduce its Cognitive Complexity from 26 to the 15 allowed  sonarjs/cognitive-complexity
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/content/extractors/MarkdownExtractor.js
+  49:3  warning  Missing JSDoc @returns declaration  jsdoc/require-returns
+  52:1  warning  Missing JSDoc @param "doc" type     jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/content/extractors/MetadataExtractor.js
+   39:3   warning  Missing JSDoc @returns declaration                                                                                                jsdoc/require-returns
+   43:1   warning  Missing JSDoc @param "doc" type                                                                                                   jsdoc/require-param-type
+   44:1   warning  Missing JSDoc @param "readabilityArticle" type                                                                                    jsdoc/require-param-type
+   53:3   warning  Missing JSDoc @returns declaration                                                                                                jsdoc/require-returns
+   57:1   warning  Missing JSDoc @param "doc" type                                                                                                   jsdoc/require-param-type
+   58:1   warning  Missing JSDoc @param "readabilityArticle" type                                                                                    jsdoc/require-param-type
+   73:3   warning  Missing JSDoc @returns declaration                                                                                                jsdoc/require-returns
+   77:1   warning  Missing JSDoc @param "doc" type                                                                                                   jsdoc/require-param-type
+   78:1   warning  Missing JSDoc @param "readabilityArticle" type                                                                                    jsdoc/require-param-type
+   93:3   warning  Missing JSDoc @returns declaration                                                                                                jsdoc/require-returns
+   96:1   warning  Missing JSDoc @param "doc" type                                                                                                   jsdoc/require-param-type
+  120:3   warning  Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed                                               sonarjs/cognitive-complexity
+  175:3   warning  Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed                                               sonarjs/cognitive-complexity
+  315:33  error    Make sure the regex used here, which is vulnerable to super-linear runtime due to backtracking, cannot lead to denial of service  sonarjs/slow-regex
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/content/extractors/ReadabilityAdapter.js
+  167:35  error    Prefer `.querySelector()` over `.getElementById()`                                   unicorn/prefer-query-selector
+  263:10  warning  Refactor this function to reduce its Cognitive Complexity from 33 to the 15 allowed  sonarjs/cognitive-complexity
+  428:1   warning  Missing JSDoc @returns declaration                                                   jsdoc/require-returns
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/content/index.js
+  114:34  warning  Define a constant instead of duplicating this literal 3 times  sonarjs/no-duplicate-string
+  174:21  warning  Use destructured variables over properties                     unicorn/consistent-destructuring
+  215:15  error    Prefer top-level await over an async IIFE                      unicorn/prefer-top-level-await
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/core/HighlightManager.js
+  199:1   warning  Missing JSDoc @param "options" type  jsdoc/require-param-type
+  300:3   warning  Missing JSDoc @returns declaration   jsdoc/require-returns
+  303:1   warning  Missing JSDoc @param "range1" type   jsdoc/require-param-type
+  304:1   warning  Missing JSDoc @param "range2" type   jsdoc/require-param-type
+  410:14  warning  Prefer `Number.isNaN` over `isNaN`   unicorn/prefer-number-properties
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/core/HighlightMigration.js
+   31:9  warning  Refactor this function to reduce its Cognitive Complexity from 36 to the 15 allowed  sonarjs/cognitive-complexity
+  125:9  warning  Refactor this function to reduce its Cognitive Complexity from 22 to the 15 allowed  sonarjs/cognitive-complexity
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/core/StyleManager.js
+   76:32  warning  Define a constant instead of duplicating this literal 3 times  sonarjs/no-duplicate-string
+  117:11  error    Useless case in switch statement                               unicorn/no-useless-switch-case
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/index.js
+   74:1   warning  Missing JSDoc @param "options" type                                                                         jsdoc/require-param-type
+  159:3   error    Use `export…from` to re-export `StyleManager`                                                               unicorn/prefer-export-from
+  160:3   error    Use `export…from` to re-export `HighlightInteraction`                                                       unicorn/prefer-export-from
+  161:3   error    Use `export…from` to re-export `HighlightMigration`                                                         unicorn/prefer-export-from
+  162:3   error    Use `export…from` to re-export `serializeRange`                                                             unicorn/prefer-export-from
+  163:3   error    Use `export…from` to re-export `deserializeRange`                                                           unicorn/prefer-export-from
+  165:3   error    Use `export…from` to re-export `findRangeByTextContent`                                                     unicorn/prefer-export-from
+  166:3   error    Use `export…from` to re-export `validateRange`                                                              unicorn/prefer-export-from
+  169:3   error    Use `export…from` to re-export `COLORS`                                                                     unicorn/prefer-export-from
+  171:3   error    Use `export…from` to re-export `supportsHighlightAPI`                                                       unicorn/prefer-export-from
+  174:3   error    Use `export…from` to re-export `isValidColor`                                                               unicorn/prefer-export-from
+  175:3   error    Use `export…from` to re-export `isValidRange`                                                               unicorn/prefer-export-from
+  176:3   error    Use `export…from` to re-export `isValidHighlightData`                                                       unicorn/prefer-export-from
+  177:3   error    Use `export…from` to re-export `getNodePath`                                                                unicorn/prefer-export-from
+  178:3   error    Use `export…from` to re-export `getNodeByPath`                                                              unicorn/prefer-export-from
+  179:3   error    Use `export…from` to re-export `findTextInPage`                                                             unicorn/prefer-export-from
+  182:3   error    Use `export…from` to re-export `waitForDOMStability`                                                        unicorn/prefer-export-from
+  185:1   warning  Missing JSDoc @returns declaration                                                                          jsdoc/require-returns
+  186:1   warning  Expected 1 lines after block description                                                                    jsdoc/tag-lines
+  187:1   warning  Invalid JSDoc @param "options" type "Object"; prefer: "object"                                              jsdoc/check-types
+  192:14  error    Prefer `globalThis.window` over `window`                                                                    unicorn/prefer-global-this
+  193:15  error    `new Error()` is too unspecific for a type check. Use `new TypeError()` instead                             unicorn/prefer-type-error
+  210:3   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  247:1   warning  Expected 1 lines after block description                                                                    jsdoc/tag-lines
+  275:11  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  276:9   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  285:3   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  317:3   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  318:9   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  319:7   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  321:12  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  324:3   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  325:9   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  326:14  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  331:3   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  332:9   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  333:7   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  340:12  error    Prefer `globalThis.window` over `window`                                                                    unicorn/prefer-global-this
+  340:39  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  352:15  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  353:13  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  355:19  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  358:19  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  371:15  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  372:13  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  373:19  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  376:19  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  401:23  error    Review this redundant assignment: "skipToolbar" already holds the assigned value along all execution paths  sonarjs/no-redundant-assignments
+  423:3   error    Prefer top-level await over an async function `initializeExtension` call                                    unicorn/prefer-top-level-await
+  426:7   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  427:5   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  430:13  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  432:13  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  447:7   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  448:5   error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  451:60  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+  452:11  error    Prefer `globalThis` over `window`                                                                           unicorn/prefer-global-this
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/ui/Toolbar.js
+  220:60  warning  Define a constant instead of duplicating this literal 3 times  sonarjs/no-duplicate-string
+  439:35  warning  Define a constant instead of duplicating this literal 4 times  sonarjs/no-duplicate-string
+  441:41  warning  Define a constant instead of duplicating this literal 4 times  sonarjs/no-duplicate-string
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/ui/ToolbarState.js
+  58:3  warning  Missing JSDoc @returns declaration  jsdoc/require-returns
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/ui/styles/toolbarStyles.js
+  13:16  error  Prefer `.querySelector()` over `.getElementById()`  unicorn/prefer-query-selector
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/utils/StorageUtil.js
+   57:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+   60:1   warning  Missing JSDoc @param "key" type                                jsdoc/require-param-type
+   61:1   warning  Missing JSDoc @param "data" type                               jsdoc/require-param-type
+   66:39  warning  Define a constant instead of duplicating this literal 3 times  sonarjs/no-duplicate-string
+   87:1   warning  Missing JSDoc @param "key" type                                jsdoc/require-param-type
+   88:1   warning  Missing JSDoc @param "data" type                               jsdoc/require-param-type
+  136:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  139:1   warning  Missing JSDoc @param "key" type                                jsdoc/require-param-type
+  163:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  166:1   warning  Missing JSDoc @param "key" type                                jsdoc/require-param-type
+  194:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  197:1   warning  Missing JSDoc @param "data" type                               jsdoc/require-param-type
+  263:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  266:1   warning  Missing JSDoc @param "key" type                                jsdoc/require-param-type
+  292:1   warning  Missing JSDoc @param "key" type                                jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/utils/color.js
+   9:1  warning  Use object shorthand or index signatures instead of `Object`, e.g., `{[key: string]: string}`  jsdoc/check-types
+  22:1  warning  Use object shorthand or index signatures instead of `Object`, e.g., `{[key: string]: string}`  jsdoc/check-types
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/utils/path.js
+  112:17  warning  Refactor this function to reduce its Cognitive Complexity from 27 to the 15 allowed  sonarjs/cognitive-complexity
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/highlighter/utils/textSearch.js
+   64:17  warning  Refactor this function to reduce its Cognitive Complexity from 46 to the 15 allowed  sonarjs/cognitive-complexity
+  175:17  warning  Found non-literal argument to RegExp Constructor                                     security/detect-non-literal-regexp
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/legacy/MigrationExecutor.js
+  189:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  228:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  234:48  warning  Define a constant instead of duplicating this literal 3 times  sonarjs/no-duplicate-string
+  236:70  error    Use `.length > 0` when checking length is not zero             unicorn/explicit-length-check
+  260:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  358:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/options/DataSourceManager.js
+   48:9   warning  Refactor this function to reduce its Cognitive Complexity from 31 to the 15 allowed  sonarjs/cognitive-complexity
+  221:51  error    `Array#reduce()` is not allowed. Prefer other types of loop for readability          unicorn/no-array-reduce
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/options/MigrationTool.js
+  562:23  warning  Define a constant instead of duplicating this literal 3 times  sonarjs/no-duplicate-string
+  689:29  warning  Define a constant instead of duplicating this literal 3 times  sonarjs/no-duplicate-string
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/options/SearchableDatabaseSelector.js
+  212:1   warning  Invalid JSDoc tag name "performance"                           jsdoc/check-tag-names
+  213:1   warning  Invalid JSDoc tag name "note"                                  jsdoc/check-tag-names
+  294:1   warning  Missing JSDoc @param "query" type                              jsdoc/require-param-type
+  449:31  warning  Define a constant instead of duplicating this literal 4 times  sonarjs/no-duplicate-string
+  455:29  warning  Define a constant instead of duplicating this literal 3 times  sonarjs/no-duplicate-string
+  525:21  warning  Found non-literal argument to RegExp Constructor               security/detect-non-literal-regexp
+  715:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  718:1   warning  Missing JSDoc @param "db" type                                 jsdoc/require-param-type
+  743:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  746:1   warning  Missing JSDoc @param "dateString" type                         jsdoc/require-param-type
+  751:11  warning  Prefer `Number.isNaN` over `isNaN`                             unicorn/prefer-number-properties
+  764:3   warning  Missing JSDoc @returns declaration                             jsdoc/require-returns
+  767:1   warning  Missing JSDoc @param "string" type                             jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/performance/PerformanceOptimizer.js
+   195:41  error    Do not pass function `processor` directly to `.map(…)`                                                                                                       unicorn/no-array-callback-reference
+   263:13  error    Prefer `addEventListener` over `onerror`. Note that there is difference between `{window,element}.onerror` and `{window,element}.addEventListener('error')`  unicorn/prefer-add-event-listener
+   499:20  error    Use `.length > 0` when checking length is not zero                                                                                                           unicorn/explicit-length-check
+   624:1   warning  Missing JSDoc @param "newKey" type                                                                                                                           jsdoc/require-param-type
+   825:3   warning  Missing JSDoc @returns declaration                                                                                                                           jsdoc/require-returns
+   856:1   warning  Missing JSDoc @param "items" type                                                                                                                            jsdoc/require-param-type
+   857:1   warning  Missing JSDoc @param "startTime" type                                                                                                                        jsdoc/require-param-type
+   858:1   warning  Missing JSDoc @param "index" type                                                                                                                            jsdoc/require-param-type
+   859:1   warning  Missing JSDoc @param "results" type                                                                                                                          jsdoc/require-param-type
+   862:3   warning  Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed                                                                          sonarjs/cognitive-complexity
+   919:3   warning  Missing JSDoc @returns declaration                                                                                                                           jsdoc/require-returns
+   922:1   warning  Missing JSDoc @param "items" type                                                                                                                            jsdoc/require-param-type
+   923:1   warning  Missing JSDoc @param "batchSize" type                                                                                                                        jsdoc/require-param-type
+   924:1   warning  Missing JSDoc @param "processor" type                                                                                                                        jsdoc/require-param-type
+   939:49  error    Do not pass function `processor` directly to `.map(…)`                                                                                                       unicorn/no-array-callback-reference
+   952:41  error    Do not pass function `processor` directly to `.map(…)`                                                                                                       unicorn/no-array-callback-reference
+   966:3   warning  Missing JSDoc @returns declaration                                                                                                                           jsdoc/require-returns
+   969:1   warning  Missing JSDoc @param "currentSize" type                                                                                                                      jsdoc/require-param-type
+  1010:1   warning  Missing JSDoc @param "startTime" type                                                                                                                        jsdoc/require-param-type
+  1020:3   warning  Found more than one @returns declaration                                                                                                                     jsdoc/require-returns
+  1020:3   warning  Found more than one @returns declaration                                                                                                                     jsdoc/require-returns-check
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/utils/ErrorHandler.js
+  181:9  warning  Unsafe Regular Expression  security/detect-unsafe-regex
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/utils/LogSanitizer.js
+   39:1   warning  Missing JSDoc @returns declaration                                                                                                jsdoc/require-returns
+   80:1   warning  Invalid JSDoc tag name "note"                                                                                                     jsdoc/check-tag-names
+   94:3   warning  Missing JSDoc @returns declaration                                                                                                jsdoc/require-returns
+  101:3   warning  Refactor this function to reduce its Cognitive Complexity from 32 to the 15 allowed                                               sonarjs/cognitive-complexity
+  226:40  error    Make sure the regex used here, which is vulnerable to super-linear runtime due to backtracking, cannot lead to denial of service  sonarjs/slow-regex
+  238:3   warning  Missing JSDoc @returns declaration                                                                                                jsdoc/require-returns
+  241:1   warning  Missing JSDoc @param "str" type                                                                                                   jsdoc/require-param-type
+  275:34  warning  Unsafe Regular Expression                                                                                                         security/detect-unsafe-regex
+  287:34  error    Make sure the regex used here, which is vulnerable to super-linear runtime due to backtracking, cannot lead to denial of service  sonarjs/slow-regex
+  292:34  warning  Unsafe Regular Expression                                                                                                         security/detect-unsafe-regex
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/utils/Logger.js
+   38:3   error    Refactor the code to avoid using this boolean literal                                    sonarjs/no-redundant-boolean
+   83:18  error    Prefer `structuredClone(…)` over `JSON.parse(JSON.stringify(…))` to create a deep clone  unicorn/prefer-structured-clone
+  213:16  error    Use an object instead of a class with only static members                                unicorn/no-static-only-class
+  273:3   warning  Missing JSDoc @returns declaration                                                       jsdoc/require-returns
+  284:1   warning  Missing JSDoc @param "logEntry.level" type                                               jsdoc/require-param-type
+  285:1   warning  Missing JSDoc @param "logEntry.message" type                                             jsdoc/require-param-type
+  286:1   warning  Missing JSDoc @param "logEntry.context" type                                             jsdoc/require-param-type
+  287:1   warning  Missing JSDoc @param "logEntry.source" type                                              jsdoc/require-param-type
+  288:1   warning  Missing JSDoc @param "logEntry.timestamp" type                                           jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/utils/RetryManager.js
+    1:1   warning  Missing JSDoc @returns declaration                                                   jsdoc/require-returns
+   60:9   warning  Refactor this function to reduce its Cognitive Complexity from 23 to the 15 allowed  sonarjs/cognitive-complexity
+  159:18  warning  Refactor this function to reduce its Cognitive Complexity from 36 to the 15 allowed  sonarjs/cognitive-complexity
+  337:75  error    Make sure that using this pseudorandom number generator is safe here                 sonarjs/pseudo-random
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/utils/imageUtils.js
+   40:10  warning  Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed  sonarjs/cognitive-complexity
+  260:10  warning  Refactor this function to reduce its Cognitive Complexity from 32 to the 15 allowed  sonarjs/cognitive-complexity
+  413:28  warning  Found non-literal argument to RegExp Constructor                                     security/detect-non-literal-regexp
+  434:33  warning  Found non-literal argument to RegExp Constructor                                     security/detect-non-literal-regexp
+  460:10  warning  Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed  sonarjs/cognitive-complexity
+  497:34  warning  Found non-literal argument to RegExp Constructor                                     security/detect-non-literal-regexp
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/utils/pageComplexityDetector.js
+   18:1   warning  Invalid JSDoc @version: "1.1"                                                                                     jsdoc/check-values
+   19:1   warning  Invalid JSDoc tag name "date"                                                                                     jsdoc/check-tag-names
+   90:1   warning  Missing JSDoc @returns declaration                                                                                jsdoc/require-returns
+   93:1   warning  Missing JSDoc @param "container" type                                                                             jsdoc/require-param-type
+   94:1   warning  Missing JSDoc @param "selector" type                                                                              jsdoc/require-param-type
+  106:1   warning  Missing JSDoc @returns declaration                                                                                jsdoc/require-returns
+  110:1   warning  Missing JSDoc @param "document" type                                                                              jsdoc/require-param-type
+  116:46  error    `Array#reduce()` is not allowed. Prefer other types of loop for readability                                       unicorn/no-array-reduce
+  119:19  warning  Found non-literal argument to RegExp Constructor                                                                  security/detect-non-literal-regexp
+  135:1   warning  Missing JSDoc @returns declaration                                                                                jsdoc/require-returns
+  139:1   warning  Missing JSDoc @param "document" type                                                                              jsdoc/require-param-type
+  225:1   warning  Invalid JSDoc @version: "1.2"                                                                                     jsdoc/check-values
+  226:1   warning  Invalid JSDoc tag name "date"                                                                                     jsdoc/check-tag-names
+  229:1   warning  Missing JSDoc @returns declaration                                                                                jsdoc/require-returns
+  233:1   warning  Missing JSDoc @param "complexity" type                                                                            jsdoc/require-param-type
+  235:17  warning  Refactor this function to reduce its Cognitive Complexity from 18 to the 15 allowed                               sonarjs/cognitive-complexity
+  259:7   error    Remove this useless assignment to variable "selectedExtractor"                                                    sonarjs/no-dead-store
+  262:25  error    Review this redundant assignment: "selectedExtractor" already holds the assigned value along all execution paths  sonarjs/no-redundant-assignments
+  288:25  error    Review this redundant assignment: "selectedExtractor" already holds the assigned value along all execution paths  sonarjs/no-redundant-assignments
+  300:1   warning  Missing JSDoc @returns declaration                                                                                jsdoc/require-returns
+  304:1   warning  Missing JSDoc @param "complexity" type                                                                            jsdoc/require-param-type
+  305:1   warning  Missing JSDoc @param "selectedExtractor" type                                                                     jsdoc/require-param-type
+  307:10  warning  Refactor this function to reduce its Cognitive Complexity from 23 to the 15 allowed                               sonarjs/cognitive-complexity
+  347:1   warning  Missing JSDoc @returns declaration                                                                                jsdoc/require-returns
+  350:1   warning  Missing JSDoc @param "complexity" type                                                                            jsdoc/require-param-type
+  360:1   warning  Missing JSDoc @returns declaration                                                                                jsdoc/require-returns
+  364:1   warning  Missing JSDoc @param "complexity" type                                                                            jsdoc/require-param-type
+  365:1   warning  Missing JSDoc @param "selection" type                                                                             jsdoc/require-param-type
+  393:1   warning  Missing JSDoc @returns declaration                                                                                jsdoc/require-returns
+  396:1   warning  Missing JSDoc @param "complexity" type                                                                            jsdoc/require-param-type
+  397:1   warning  Missing JSDoc @param "selection" type                                                                             jsdoc/require-param-type
+  420:1   warning  Missing JSDoc @param "complexity" type                                                                            jsdoc/require-param-type
+  421:1   warning  Missing JSDoc @param "selection" type                                                                             jsdoc/require-param-type
+  422:1   warning  Missing JSDoc @param "extractionResult" type                                                                      jsdoc/require-param-type
+
+/Volumes/WD1TMac/code/notion-chrome/scripts/utils/securityUtils.js
+  210:7  warning  Unsafe Regular Expression           security/detect-unsafe-regex
+  533:1  warning  Missing JSDoc @returns declaration  jsdoc/require-returns
+  537:1  warning  Missing JSDoc @param "name" type    jsdoc/require-param-type
+  538:1  warning  Missing JSDoc @param "value" type   jsdoc/require-param-type
+
+✖ 318 problems (76 errors, 242 warnings)
+  50 errors and 3 warnings potentially fixable with the `--fix` option.
+

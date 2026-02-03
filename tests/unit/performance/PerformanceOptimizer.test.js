@@ -24,12 +24,12 @@ describe('PerformanceOptimizer', () => {
     `;
 
     // Mock performance.now
-    if (!global.performance) {
-      global.performance = { now: () => Date.now() };
+    if (!globalThis.performance) {
+      globalThis.performance = { now: () => Date.now() };
     }
 
     // Mock window.__NOTION_PRELOADER_CACHE__
-    delete window.__NOTION_PRELOADER_CACHE__;
+    delete globalThis.__NOTION_PRELOADER_CACHE__;
 
     optimizer = new PerformanceOptimizer({
       enableCache: true,
@@ -46,7 +46,7 @@ describe('PerformanceOptimizer', () => {
       // 第一次查詢
       const result1 = optimizer.cachedQuery(selector, document);
       expect(result1).toBeDefined();
-      expect(Array.from(result1).length).toBe(2);
+      expect(Array.from(result1)).toHaveLength(2);
 
       // 第二次查詢應該使用緩存
       const result2 = optimizer.cachedQuery(selector, document);
@@ -157,7 +157,7 @@ describe('PerformanceOptimizer', () => {
       };
 
       const result = optimizer.measure(testFunction, 'test-function');
-      expect(result).toBe(499500); // 0+1+2+...+999 = 499500
+      expect(result).toBe(499_500); // 0+1+2+...+999 = 499500
     });
 
     test('應該測量異步函數執行時間', async () => {
@@ -237,11 +237,11 @@ describe('PerformanceOptimizer', () => {
 
     test('如果快取已過期應返回 expired', () => {
       mockPreloader({
-        timestamp: Date.now() - 60000, // 1 分鐘前
+        timestamp: Date.now() - 60_000, // 1 分鐘前
         article: document.createElement('article'),
       });
 
-      const result = optimizer.takeoverPreloaderCache({ maxAge: 30000 });
+      const result = optimizer.takeoverPreloaderCache({ maxAge: 30_000 });
       expect(result).toEqual({ taken: 0, expired: true });
     });
 
@@ -250,8 +250,8 @@ describe('PerformanceOptimizer', () => {
       const main = document.createElement('main');
 
       // 確保元素附加到 DOM，否則 _validateCachedElements 會返回 false
-      document.body.appendChild(article);
-      document.body.appendChild(main);
+      document.body.append(article);
+      document.body.append(main);
 
       mockPreloader({
         timestamp: Date.now(),
@@ -287,7 +287,7 @@ describe('PerformanceOptimizer', () => {
 
     test('應該拒絕不匹配選擇器的元素', () => {
       const div = document.createElement('div'); // 不是 article
-      document.body.appendChild(div);
+      document.body.append(div);
 
       mockPreloader({
         timestamp: Date.now(),
@@ -300,7 +300,7 @@ describe('PerformanceOptimizer', () => {
 
     test('應該拒絕來自不同文檔的元素 (防篡改)', () => {
       const article = document.createElement('article');
-      document.body.appendChild(article);
+      document.body.append(article);
 
       // 模擬 ownerDocument 不匹配
       Object.defineProperty(article, 'ownerDocument', {
@@ -338,7 +338,7 @@ describe('PerformanceOptimizer', () => {
 
     test('應該拒絕無效的 timestamp (NaN)', () => {
       mockPreloader({
-        timestamp: NaN, // NaN
+        timestamp: Number.NaN, // NaN
         article: document.createElement('article'),
       });
 

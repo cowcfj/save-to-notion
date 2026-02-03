@@ -14,31 +14,31 @@
 /* global chrome */
 
 // 從統一工具函數導入（Single Source of Truth）
-import { normalizeUrl, TRACKING_PARAMS } from '../../utils/urlUtils.js';
+import { normalizeUrl } from '../../utils/urlUtils.js';
 
 /**
  * URL 標準化相關常量（從 urlUtils 導出，用於兼容既有導入）
  */
-export const URL_TRACKING_PARAMS = TRACKING_PARAMS;
 
 /**
  * StorageService 類
  */
 class StorageService {
   /**
-   * @param {Object} options - 配置選項
-   * @param {Object} options.chromeStorage - chrome.storage 對象（用於測試注入）
-   * @param {Object} options.logger - 日誌對象
+   * @param {object} options - 配置選項
+   * @param {object} options.chromeStorage - chrome.storage 對象（用於測試注入）
+   * @param {object} options.logger - 日誌對象
    */
   constructor(options = {}) {
-    this.storage = options.chromeStorage || (typeof chrome !== 'undefined' ? chrome.storage : null);
+    this.storage = options.chromeStorage || (typeof chrome === 'undefined' ? null : chrome.storage);
     this.logger = options.logger || console;
   }
 
   /**
    * 獲取頁面保存狀態
+   *
    * @param {string} pageUrl - 頁面 URL
-   * @returns {Promise<Object|null>}
+   * @returns {Promise<object | null>}
    */
   async getSavedPageData(pageUrl) {
     if (!this.storage) {
@@ -59,8 +59,9 @@ class StorageService {
 
   /**
    * 設置頁面保存狀態
+   *
    * @param {string} pageUrl - 頁面 URL
-   * @param {Object} data - 保存數據
+   * @param {object} data - 保存數據
    * @returns {Promise<void>}
    */
   async setSavedPageData(pageUrl, data) {
@@ -86,6 +87,7 @@ class StorageService {
 
   /**
    * 清除頁面狀態
+   *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
    */
@@ -109,8 +111,9 @@ class StorageService {
 
   /**
    * 獲取配置（從 sync storage）
+   *
    * @param {string[]} keys - 要獲取的配置鍵
-   * @returns {Promise<Object>}
+   * @returns {Promise<object>}
    */
   async getConfig(keys) {
     if (!this.storage) {
@@ -127,7 +130,8 @@ class StorageService {
 
   /**
    * 設置配置（到 sync storage）
-   * @param {Object} config - 配置對象
+   *
+   * @param {object} config - 配置對象
    * @returns {Promise<void>}
    */
   async setConfig(config) {
@@ -145,6 +149,7 @@ class StorageService {
 
   /**
    * 獲取所有已保存頁面的 URL
+   *
    * @returns {Promise<string[]>}
    */
   async getAllSavedPageUrls() {
@@ -165,4 +170,5 @@ class StorageService {
 }
 
 // 導出
-export { StorageService, normalizeUrl };
+export { StorageService };
+export { TRACKING_PARAMS as URL_TRACKING_PARAMS, normalizeUrl } from '../../utils/urlUtils.js';

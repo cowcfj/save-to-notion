@@ -156,7 +156,7 @@ describe('MessageHandler', () => {
       const actions = handler.getRegisteredActions();
       expect(actions).toContain('action1');
       expect(actions).toContain('action2');
-      expect(actions.length).toBe(2);
+      expect(actions).toHaveLength(2);
     });
   });
 });

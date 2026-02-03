@@ -5,9 +5,9 @@
  */
 const jsdom = require('jsdom');
 const { JSDOM } = jsdom;
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+const { execSync } = require('node:child_process');
 
 describe('content script integration test', () => {
   // Ensure bundle exists before running tests
@@ -17,9 +17,11 @@ describe('content script integration test', () => {
       console.log('⚠️ Content bundle not found. Building it now for integration test...');
       try {
         // Execute build command in project root
+        // eslint-disable-next-line sonarjs/no-os-command-from-path
         execSync('npm run build:content', {
           stdio: 'inherit',
           cwd: path.resolve(__dirname, '../../../'),
+          shell: true,
         });
         console.log('✅ Content bundle built successfully.');
       } catch (error) {
@@ -27,7 +29,7 @@ describe('content script integration test', () => {
         throw error;
       }
     }
-  }, 60000); // Increase timeout for build
+  }, 60_000); // Increase timeout for build
 
   test('runs content.js and exposes result when window.__UNIT_TESTING__ is true', async () => {
     const html =
@@ -97,7 +99,7 @@ describe('content script integration test', () => {
     const loggerCode = fs.readFileSync(loggerPath, 'utf8');
     const loggerEl = window.document.createElement('script');
     loggerEl.textContent = loggerCode;
-    window.document.body.appendChild(loggerEl);
+    window.document.body.append(loggerEl);
 
     // Load the script file content and evaluate it in the window
     const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
@@ -106,7 +108,7 @@ describe('content script integration test', () => {
     // Evaluate the content script inside the jsdom window
     const scriptEl = window.document.createElement('script');
     scriptEl.textContent = scriptCode;
-    window.document.body.appendChild(scriptEl);
+    window.document.body.append(scriptEl);
 
     // Wait for the script to execute and set window.__notion_extraction_result with polling
     /** @type {*} 提取結果,在輪詢循環中初始化 */
@@ -122,5 +124,5 @@ describe('content script integration test', () => {
     expect(result).toBeDefined();
     expect(result.title).toBe('Test Page');
     expect(Array.isArray(result.blocks)).toBe(true);
-  }, 10000);
+  }, 10_000);
 });

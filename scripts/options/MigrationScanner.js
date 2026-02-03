@@ -11,7 +11,8 @@
 
 /**
  * 遷移掃描結果類型
- * @typedef {Object} ScanResult
+ *
+ * @typedef {object} ScanResult
  * @property {string[]} urls - 待遷移的 URL 清單
  * @property {number} totalHighlights - 總標註數量
  * @property {number} legacyCount - 舊版格式數量
@@ -20,6 +21,7 @@
 
 /**
  * 遷移進度回調類型
+ *
  * @callback ProgressCallback
  * @param {number} current - 當前進度
  * @param {number} total - 總數
@@ -35,13 +37,11 @@ import { ErrorHandler } from '../utils/ErrorHandler.js';
  * 負責掃描和識別存儲中需要從舊版格式遷移到新版格式的標註數據
  */
 export class MigrationScanner {
-  constructor() {
-    this.LEGACY_KEY_PREFIX = 'highlights_';
-    this.MIGRATION_STATE_PREFIX = 'seamless_migration_state_';
-  }
+  constructor() {}
 
   /**
    * 掃描所有待遷移數據
+   *
    * @returns {Promise<ScanResult>}
    */
   async scanStorage() {
@@ -94,6 +94,7 @@ export class MigrationScanner {
 
   /**
    * 檢查數據是否為舊版格式
+   *
    * @param {any} data - 標註數據
    * @returns {boolean}
    */
@@ -114,6 +115,7 @@ export class MigrationScanner {
 
   /**
    * 請求 Background 執行批次遷移
+   *
    * @param {string[]} urls - 待遷移的網址清單
    * @param {ProgressCallback} [onProgress] - 進度回調
    * @returns {Promise<{success: number, failed: number, errors: string[]}>}
@@ -159,6 +161,7 @@ export class MigrationScanner {
 
   /**
    * 獲取遷移狀態摘要
+   *
    * @returns {Promise<{completed: number, pending: number, failed: number}>}
    */
   async getMigrationStatusSummary() {
@@ -174,14 +177,17 @@ export class MigrationScanner {
         }
 
         switch (value?.phase) {
-          case 'completed':
+          case 'completed': {
             completed++;
             break;
-          case 'failed':
+          }
+          case 'failed': {
             failed++;
             break;
-          default:
+          }
+          default: {
             pending++;
+          }
         }
       }
 
@@ -194,6 +200,7 @@ export class MigrationScanner {
 
   /**
    * 清理已完成的遷移狀態記錄
+   *
    * @returns {Promise<number>} 清理的記錄數
    */
   async cleanupCompletedMigrations() {
@@ -221,6 +228,7 @@ export class MigrationScanner {
 
   /**
    * 截斷 URL 用於顯示
+   *
    * @param {string} url
    * @param {number} maxLength
    * @returns {string}
@@ -229,6 +237,8 @@ export class MigrationScanner {
     if (url.length <= maxLength) {
       return url;
     }
-    return `${url.substring(0, maxLength - 3)}...`;
+    return `${url.slice(0, Math.max(0, maxLength - 3))}...`;
   }
+  LEGACY_KEY_PREFIX = 'highlights_';
+  MIGRATION_STATE_PREFIX = 'seamless_migration_state_';
 }

@@ -44,7 +44,7 @@ describe('Range Module Coverage Tests', () => {
     test('should serialize range correctly', () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -70,7 +70,7 @@ describe('Range Module Coverage Tests', () => {
     test('should deserialize range successfully', () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const rangeInfo = {
         startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
@@ -109,7 +109,7 @@ describe('Range Module Coverage Tests', () => {
     test('should return null if text does not match', () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const rangeInfo = {
         startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
@@ -145,7 +145,7 @@ describe('Range Module Coverage Tests', () => {
     test('should restore range on first try', async () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const rangeInfo = {
         startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
@@ -165,7 +165,7 @@ describe('Range Module Coverage Tests', () => {
     test('should retry and succeed after DOM stabilizes', async () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const rangeInfo = {
         startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
@@ -191,7 +191,7 @@ describe('Range Module Coverage Tests', () => {
     test('should use text search as fallback', async () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const rangeInfo = {
         startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
@@ -258,7 +258,7 @@ describe('Range Module Coverage Tests', () => {
     test('should validate range with correct text', () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -271,7 +271,7 @@ describe('Range Module Coverage Tests', () => {
     test('should return false for incorrect text', () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);

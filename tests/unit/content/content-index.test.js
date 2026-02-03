@@ -51,7 +51,7 @@ describe('Content Script Entry Point', () => {
     jest.clearAllMocks();
 
     // 設置 window.__UNIT_TESTING__ 為 false 避免自動執行
-    window.__UNIT_TESTING__ = false;
+    globalThis.__UNIT_TESTING__ = false;
 
     // 設置基本的 document.title
     Object.defineProperty(document, 'title', {
@@ -86,13 +86,13 @@ describe('Content Script Entry Point', () => {
     // So I just need to call it.
 
     // Ensure window.extractPageContent is available (as index.js does this conditionally)
-    window.extractPageContent = extractPageContent;
+    globalThis.extractPageContent = extractPageContent;
   });
 
   afterEach(() => {
-    delete window.__UNIT_TESTING__;
-    delete window.extractPageContent;
-    delete window.__notion_extraction_result;
+    delete globalThis.__UNIT_TESTING__;
+    delete globalThis.extractPageContent;
+    delete globalThis.__notion_extraction_result;
   });
 
   describe('成功提取路徑', () => {
@@ -256,8 +256,8 @@ describe('Content Script Entry Point', () => {
 
   describe('全局導出', () => {
     test('應該將 extractPageContent 設置到 window', () => {
-      expect(window.extractPageContent).toBeDefined();
-      expect(typeof window.extractPageContent).toBe('function');
+      expect(globalThis.extractPageContent).toBeDefined();
+      expect(typeof globalThis.extractPageContent).toBe('function');
     });
   });
 
@@ -278,12 +278,12 @@ describe('Content Script Entry Point', () => {
       ImageCollector.collectAdditionalImages.mockResolvedValue([]);
 
       // 模擬單元測試模式下的手動調用
-      window.__UNIT_TESTING__ = true;
+      globalThis.__UNIT_TESTING__ = true;
       const result = await extractPageContent();
-      window.__notion_extraction_result = result;
+      globalThis.__notion_extraction_result = result;
 
-      expect(window.__notion_extraction_result).toBeDefined();
-      expect(window.__notion_extraction_result.title).toBe('Auto Title');
+      expect(globalThis.__notion_extraction_result).toBeDefined();
+      expect(globalThis.__notion_extraction_result.title).toBe('Auto Title');
     });
   });
 });

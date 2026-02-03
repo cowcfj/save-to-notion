@@ -21,10 +21,10 @@
 
 (function () {
   // 防止重複初始化
-  if (window.__NOTION_PRELOADER_INITIALIZED__) {
+  if (globalThis.__NOTION_PRELOADER_INITIALIZED__) {
     return;
   }
-  window.__NOTION_PRELOADER_INITIALIZED__ = true;
+  globalThis.__NOTION_PRELOADER_INITIALIZED__ = true;
 
   /**
    * 輕量預熱：快取關鍵節點
@@ -72,7 +72,7 @@
         }
 
         // 若 Bundle 尚未注入，緩衝事件
-        if (!window.__NOTION_BUNDLE_READY__) {
+        if (!globalThis.__NOTION_BUNDLE_READY__) {
           eventBuffer.push({ type: 'shortcut', timestamp: Date.now() });
         }
       });
@@ -86,7 +86,7 @@
     // PING 檢測：用於 InjectionService.ensureBundleInjected
     if (request.action === 'PING') {
       // 若 Bundle 已就緒，讓 Bundle 的監聽器處理（避免競爭條件）
-      if (window.__NOTION_BUNDLE_READY__) {
+      if (globalThis.__NOTION_BUNDLE_READY__) {
         return false; // 不處理，讓 Bundle 監聽器響應
       }
 
@@ -125,7 +125,7 @@
         hasMainContent: Boolean(preloaderCache.mainContent),
       });
     }
-  } catch (_e) {
+  } catch {
     // 忽略 localStorage 訪問錯誤（如隱私模式或禁用 Cookie）
     // 避免因調試功能導致整個腳本崩潰
   }

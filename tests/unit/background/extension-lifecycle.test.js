@@ -5,10 +5,10 @@
 
 // Mock Chrome APIs
 const mockChrome = require('../../mocks/chrome');
-global.chrome = mockChrome;
+globalThis.chrome = mockChrome;
 
 // Mock console methods
-global.console = {
+globalThis.console = {
   log: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
@@ -16,12 +16,12 @@ global.console = {
 };
 
 // Mock performance API
-global.performance = {
+globalThis.performance = {
   now: jest.fn(() => Date.now()),
 };
 
 // Mock fetch
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 describe('Background Extension Lifecycle', () => {
   let handleExtensionUpdate = null;

@@ -35,6 +35,8 @@ import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/messages.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
+const DEFAULT_ERROR = 'Unknown Error';
+
 // Export initialization function for testing
 export async function initPopup() {
   // 注入 SVG 圖標
@@ -118,8 +120,7 @@ export async function initPopup() {
         });
       }
     } else {
-      // 統一錯誤處理流程：sanitize → ErrorHandler
-      const safe = sanitizeApiError(response?.error || 'Unknown Error', 'popup_save');
+      const safe = sanitizeApiError(response?.error || DEFAULT_ERROR, 'popup_save');
       const errorMsg = ErrorHandler.formatUserMessage(safe);
       setStatus(elements, `${UI_MESSAGES.POPUP.SAVE_FAILED_PREFIX}${errorMsg}`);
     }
@@ -158,7 +159,7 @@ export async function initPopup() {
         window.close();
       }, 1000);
     } else {
-      const safe = sanitizeApiError(response?.error || 'Unknown Error', 'popup_start_highlight');
+      const safe = sanitizeApiError(response?.error || DEFAULT_ERROR, 'popup_start_highlight');
       const msg = ErrorHandler.formatUserMessage(safe);
       setStatus(elements, `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`);
       Logger.error('Failed to start highlight mode', {
@@ -178,7 +179,7 @@ export async function initPopup() {
     if (notionUrl) {
       const result = await openNotionPage(notionUrl);
       if (!result.success) {
-        const safe = sanitizeApiError(result.error || 'Unknown Error', 'popup_open_notion');
+        const safe = sanitizeApiError(result.error || DEFAULT_ERROR, 'popup_open_notion');
         const msg = ErrorHandler.formatUserMessage(safe);
         setStatus(elements, msg);
         Logger.error('Failed to open Notion page', {

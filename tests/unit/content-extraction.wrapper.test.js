@@ -18,8 +18,8 @@ describe('Content Extraction - Testable Wrapper', () => {
     window = dom.window;
     document = window.document;
     // 使用 Jest 的 jsdom 環境提供的全域 document，無需覆蓋/刪除
-    global.window = window;
-    global.document = document;
+    globalThis.window = window;
+    globalThis.document = document;
   });
 
   afterEach(() => {

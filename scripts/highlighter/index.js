@@ -9,12 +9,11 @@ import { HighlightManager } from './core/HighlightManager.js';
 import { StyleManager } from './core/StyleManager.js';
 import { HighlightInteraction } from './core/HighlightInteraction.js';
 import { HighlightMigration } from './core/HighlightMigration.js';
-import { HighlightStorage, RestoreManager } from './core/HighlightStorage.js';
+import { HighlightStorage } from './core/HighlightStorage.js';
 
 import {
   serializeRange,
   deserializeRange,
-  restoreRangeWithRetry,
   findRangeByTextContent,
   validateRange,
 } from './core/Range.js';
@@ -23,11 +22,11 @@ import {
 import { Toolbar } from './ui/Toolbar.js';
 
 // Utility modules
-import { COLORS, convertBgColorToName, VALID_STYLES } from './utils/color.js';
-import { supportsHighlightAPI, isValidElement, getVisibleText } from './utils/dom.js';
+import { COLORS, VALID_STYLES } from './utils/color.js';
+import { supportsHighlightAPI } from './utils/dom.js';
 import { isValidColor, isValidRange, isValidHighlightData } from './utils/validation.js';
 import { getNodePath, getNodeByPath } from './utils/path.js';
-import { findTextInPage, findTextWithTreeWalker, findTextFuzzy } from './utils/textSearch.js';
+import { findTextInPage } from './utils/textSearch.js';
 import { waitForDOMStability } from './utils/domStability.js';
 
 // Storage utility - 導入以設置 window.StorageUtil（由 HighlightStorage 使用）
@@ -38,18 +37,19 @@ import Logger from '../utils/Logger.js';
 
 // 導入並掛載 normalizeUrl（供 HighlightManager/Storage 使用）
 import { normalizeUrl } from '../utils/urlUtils.js';
-if (typeof window !== 'undefined' && !window.normalizeUrl) {
-  window.normalizeUrl = normalizeUrl;
+if (globalThis.window !== undefined && !globalThis.normalizeUrl) {
+  globalThis.normalizeUrl = normalizeUrl;
 }
 
 /**
  * 創建並注入所有依賴模組到 HighlightManager
+ *
  * @param {HighlightManager} manager - HighlightManager 實例
- * @param {Object} options - 配置選項
+ * @param {object} options - 配置選項
  * @param {Toolbar} [toolbar=null] - 工具欄實例（可選）。
  *   僅由 HighlightStorage 使用，用於在恢復標註後自動隱藏工具欄。
  *   如果不需要此功能，可傳入 null 或省略此參數。
- * @returns {Object} 包含所有創建的模組實例
+ * @returns {object} 包含所有創建的模組實例
  */
 function createAndInjectDependencies(manager, options, toolbar = null) {
   const styleManager = new StyleManager(options);
@@ -69,6 +69,8 @@ function createAndInjectDependencies(manager, options, toolbar = null) {
 
 /**
  * 初始化 Highlighter V2 (僅 Manager)
+ *
+ * @param options
  * @returns {HighlightManager}
  */
 export function initHighlighter(options = {}) {
@@ -87,12 +89,12 @@ export function initHighlighter(options = {}) {
   manager.initializationComplete = manager.initialize();
 
   // 監聽來自 background 的消息
-  if (window.chrome?.runtime && window.chrome.runtime.onMessage) {
-    window.chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (globalThis.chrome?.runtime && globalThis.chrome.runtime.onMessage) {
+    globalThis.chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.action === 'toggleHighlighter') {
-        if (window.notionHighlighter) {
-          window.notionHighlighter.toggle();
-          sendResponse({ success: true, isActive: window.notionHighlighter.isActive() });
+        if (globalThis.notionHighlighter) {
+          globalThis.notionHighlighter.toggle();
+          sendResponse({ success: true, isActive: globalThis.notionHighlighter.isActive() });
           return true; // 只在實際發送響應時返回 true
         }
         // notionHighlighter 未初始化
@@ -109,7 +111,8 @@ export function initHighlighter(options = {}) {
 
 /**
  * 初始化 Highlighter V2 (包含工具欄)
- * @param {Object} [options] - 初始化選項
+ *
+ * @param {object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
  * @param {boolean} [options.skipToolbar] - 是否跳過創建工具欄
  * @returns {{manager: HighlightManager, toolbar: Toolbar|null, storage: HighlightStorage}}
@@ -146,47 +149,17 @@ export function initHighlighterWithToolbar(options = {}) {
 /**
  * 導出所有模組供外部使用
  */
-export {
-  // Core
-  HighlightManager,
-  Toolbar,
-  RestoreManager, // Alias for HighlightStorage
-  HighlightStorage,
-  StyleManager,
-  HighlightInteraction,
-  HighlightMigration,
-  serializeRange,
-  deserializeRange,
-  restoreRangeWithRetry,
-  findRangeByTextContent,
-  validateRange,
-
-  // Utils
-  COLORS,
-  convertBgColorToName,
-  supportsHighlightAPI,
-  isValidElement,
-  getVisibleText,
-  isValidColor,
-  isValidRange,
-  isValidHighlightData,
-  getNodePath,
-  getNodeByPath,
-  findTextInPage,
-  findTextWithTreeWalker,
-  findTextFuzzy,
-  waitForDOMStability,
-};
 
 /**
  * 默認導出：自動初始化並設置到 window
- * @param {Object} [options] - 初始化選項
+ *
+ * @param {object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
  * @param {boolean} [options.skipToolbar] - 是否跳過創建工具欄
  */
 export function setupHighlighter(options = {}) {
-  if (typeof window === 'undefined') {
-    throw new Error('Highlighter V2 requires a browser environment');
+  if (globalThis.window === undefined) {
+    throw new TypeError('Highlighter V2 requires a browser environment');
   }
 
   // 初始化 manager 和 toolbar
@@ -203,7 +176,7 @@ export function setupHighlighter(options = {}) {
   const restoreManager = storage;
 
   // 設置新版 API 到 window for Chrome Extension compatibility
-  window.HighlighterV2 = {
+  globalThis.HighlighterV2 = {
     manager,
     toolbar,
     restoreManager,
@@ -241,6 +214,7 @@ export function setupHighlighter(options = {}) {
   /**
    * 動態創建 Toolbar（如果尚未創建）
    * 使用 isCreatingToolbar 標誌防止重複創建
+   *
    * @returns {Toolbar}
    */
   const ensureToolbar = () => {
@@ -268,8 +242,8 @@ export function setupHighlighter(options = {}) {
       }
 
       // 更新 window.HighlighterV2.toolbar 引用
-      if (window.HighlighterV2) {
-        window.HighlighterV2.toolbar = currentToolbar;
+      if (globalThis.HighlighterV2) {
+        globalThis.HighlighterV2.toolbar = currentToolbar;
       }
 
       return currentToolbar;
@@ -278,7 +252,7 @@ export function setupHighlighter(options = {}) {
     }
   };
 
-  window.notionHighlighter = {
+  globalThis.notionHighlighter = {
     manager,
     restoreManager,
     show: () => {
@@ -310,30 +284,30 @@ export function setupHighlighter(options = {}) {
   };
 
   // 🔑 全域函數別名（向後兼容）
-  window.initHighlighter = () => {
-    if (window.notionHighlighter) {
-      window.notionHighlighter.show();
+  globalThis.initHighlighter = () => {
+    if (globalThis.notionHighlighter) {
+      globalThis.notionHighlighter.show();
     }
-    return window.notionHighlighter;
+    return globalThis.notionHighlighter;
   };
 
-  window.collectHighlights = () => {
-    if (window.notionHighlighter) {
-      return window.notionHighlighter.collectHighlights();
+  globalThis.collectHighlights = () => {
+    if (globalThis.notionHighlighter) {
+      return globalThis.notionHighlighter.collectHighlights();
     }
     return [];
   };
 
-  window.clearPageHighlights = () => {
-    if (window.notionHighlighter) {
-      window.notionHighlighter.clearAll();
+  globalThis.clearPageHighlights = () => {
+    if (globalThis.notionHighlighter) {
+      globalThis.notionHighlighter.clearAll();
     }
   };
   return { manager, toolbar, restoreManager };
 }
 
 // 自動初始化（在 browser 環境中）
-if (typeof window !== 'undefined' && !window.HighlighterV2) {
+if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
   // 🔑 異步初始化：先檢查頁面狀態，決定是否恢復標註和創建 Toolbar
   const initializeExtension = async () => {
     try {
@@ -345,13 +319,13 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
       const [pageStatus, settings] = await Promise.all([
         // 1. 檢查頁面狀態
         new Promise(resolve => {
-          if (window.chrome?.runtime?.sendMessage) {
-            window.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, result => {
+          if (globalThis.chrome?.runtime?.sendMessage) {
+            globalThis.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, result => {
               // 檢查 lastError 以避免 runtime 錯誤（例如 extension context 無效）
-              if (window.chrome.runtime.lastError) {
+              if (globalThis.chrome.runtime.lastError) {
                 Logger.warn(
                   '[Highlighter] checkPageStatus failed:',
-                  window.chrome.runtime.lastError
+                  globalThis.chrome.runtime.lastError
                 );
                 resolve(null);
               } else {
@@ -364,12 +338,12 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
         }),
         // 2. 加載標註樣式配置
         new Promise(resolve => {
-          if (window.chrome?.storage?.sync) {
-            window.chrome.storage.sync.get(['highlightStyle'], result => {
-              if (window.chrome.runtime.lastError) {
+          if (globalThis.chrome?.storage?.sync) {
+            globalThis.chrome.storage.sync.get(['highlightStyle'], result => {
+              if (globalThis.chrome.runtime.lastError) {
                 Logger.warn(
                   '[Highlighter] Failed to load settings:',
-                  window.chrome.runtime.lastError
+                  globalThis.chrome.runtime.lastError
                 );
                 resolve({});
               } else {
@@ -419,13 +393,13 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
   initializeExtension();
 
   // 🔑 監聽來自 Popup 的消息（如保存完成後顯示 Toolbar）
-  if (window.chrome?.runtime?.onMessage) {
-    window.chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+  if (globalThis.chrome?.runtime?.onMessage) {
+    globalThis.chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       if (request.action === 'showToolbar') {
         // 保存完成後，創建並顯示 Toolbar
-        if (window.notionHighlighter?.createAndShowToolbar) {
+        if (globalThis.notionHighlighter?.createAndShowToolbar) {
           try {
-            window.notionHighlighter.createAndShowToolbar();
+            globalThis.notionHighlighter.createAndShowToolbar();
             sendResponse({ success: true });
           } catch (error) {
             Logger.error('[Highlighter] Failed to show toolbar:', error);
@@ -440,14 +414,33 @@ if (typeof window !== 'undefined' && !window.HighlighterV2) {
   }
 
   // 🔑 監聽設定變更以動態更新標註樣式
-  if (window.chrome?.storage?.onChanged) {
-    window.chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (globalThis.chrome?.storage?.onChanged) {
+    globalThis.chrome.storage.onChanged.addListener((changes, namespace) => {
       if (namespace === 'sync' && changes.highlightStyle) {
         const newStyle = changes.highlightStyle.newValue;
-        if (newStyle && VALID_STYLES.includes(newStyle) && window.HighlighterV2?.manager) {
-          window.HighlighterV2.manager.updateStyleMode(newStyle);
+        if (newStyle && VALID_STYLES.includes(newStyle) && globalThis.HighlighterV2?.manager) {
+          globalThis.HighlighterV2.manager.updateStyleMode(newStyle);
         }
       }
     });
   }
 }
+export { RestoreManager, HighlightStorage } from './core/HighlightStorage.js';
+export {
+  restoreRangeWithRetry,
+  serializeRange,
+  deserializeRange,
+  findRangeByTextContent,
+  validateRange,
+} from './core/Range.js';
+export { convertBgColorToName, COLORS } from './utils/color.js';
+export { isValidElement, getVisibleText, supportsHighlightAPI } from './utils/dom.js';
+export { findTextWithTreeWalker, findTextFuzzy, findTextInPage } from './utils/textSearch.js';
+export { HighlightManager } from './core/HighlightManager.js';
+export { Toolbar } from './ui/Toolbar.js';
+export { StyleManager } from './core/StyleManager.js';
+export { HighlightInteraction } from './core/HighlightInteraction.js';
+export { HighlightMigration } from './core/HighlightMigration.js';
+export { isValidColor, isValidRange, isValidHighlightData } from './utils/validation.js';
+export { getNodePath, getNodeByPath } from './utils/path.js';
+export { waitForDOMStability } from './utils/domStability.js';

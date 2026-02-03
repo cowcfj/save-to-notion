@@ -8,7 +8,7 @@
 
 // Mock ImageUtils (用於依賴 window.ImageUtils 的模組)
 // 這個 mock 必須在任何模組載入前設定，否則解構會失敗
-global.ImageUtils = {
+globalThis.ImageUtils = {
   extractImageSrc: jest.fn(img => img?.getAttribute?.('src') || img?.src || null),
   cleanImageUrl: jest.fn(url => url),
   isValidImageUrl: jest.fn(() => true),
@@ -23,12 +23,12 @@ global.ImageUtils = {
 };
 
 // 同時設定 window.ImageUtils（對於 jsdom 環境）
-if (typeof window !== 'undefined') {
-  window.ImageUtils = global.ImageUtils;
+if (globalThis.window !== undefined) {
+  globalThis.ImageUtils = globalThis.ImageUtils;
 }
 
 // Mock Logger (基本實現，在 setup.js 中會被更完整的版本覆蓋)
-global.Logger = {
+globalThis.Logger = {
   log: jest.fn(),
   debug: jest.fn(),
   info: jest.fn(),
@@ -37,6 +37,6 @@ global.Logger = {
 };
 
 // 同時設定 window.Logger
-if (typeof window !== 'undefined') {
-  window.Logger = global.Logger;
+if (globalThis.window !== undefined) {
+  globalThis.Logger = globalThis.Logger;
 }

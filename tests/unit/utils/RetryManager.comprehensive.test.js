@@ -107,7 +107,7 @@ describe('RetryManager - 全面測試', () => {
         warn: jest.fn(),
         error: jest.fn(),
       };
-      global.Logger = mockLogger;
+      globalThis.Logger = mockLogger;
 
       const error = new Error('Network error');
       error.name = 'NetworkError';
@@ -127,7 +127,7 @@ describe('RetryManager - 全面測試', () => {
       expect(logCalled || infoCalled).toBe(true);
 
       // 清理
-      delete global.Logger;
+      delete globalThis.Logger;
     });
 
     test('應該記錄重試失敗', async () => {
@@ -138,7 +138,7 @@ describe('RetryManager - 全面測試', () => {
         warn: jest.fn(),
         error: jest.fn(),
       };
-      global.Logger = mockLogger;
+      globalThis.Logger = mockLogger;
 
       const operation = jest.fn().mockRejectedValue(new Error('Final error'));
 
@@ -148,7 +148,7 @@ describe('RetryManager - 全面測試', () => {
       expect(mockLogger.error).toHaveBeenCalled();
 
       // 清理
-      delete global.Logger;
+      delete globalThis.Logger;
     });
 
     test('應該使用自定義的 shouldRetry 函數', async () => {
@@ -469,7 +469,7 @@ describe('RetryManager - 全面測試', () => {
         warn: jest.fn(),
         error: jest.fn(),
       };
-      global.Logger = mockLogger;
+      globalThis.Logger = mockLogger;
 
       const error = new Error('Test error');
 
@@ -478,20 +478,20 @@ describe('RetryManager - 全面測試', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('重試'));
 
       // 清理
-      delete global.Logger;
+      delete globalThis.Logger;
     });
 
     test('應該使用 ErrorHandler 如果可用', () => {
-      global.ErrorHandler = {
+      globalThis.ErrorHandler = {
         logError: jest.fn(),
       };
 
       const error = new Error('Test error');
       RetryManager._logRetryAttempt(error, 1, 3, 100);
 
-      expect(global.ErrorHandler.logError).toHaveBeenCalled();
+      expect(globalThis.ErrorHandler.logError).toHaveBeenCalled();
 
-      delete global.ErrorHandler;
+      delete globalThis.ErrorHandler;
     });
   });
 
@@ -504,7 +504,7 @@ describe('RetryManager - 全面測試', () => {
         warn: jest.fn(),
         error: jest.fn(),
       };
-      global.Logger = mockLogger;
+      globalThis.Logger = mockLogger;
 
       RetryManager._logRetrySuccess(2);
 
@@ -519,7 +519,7 @@ describe('RetryManager - 全面測試', () => {
       expect(logCalled || infoCalled).toBe(true);
 
       // 清理
-      delete global.Logger;
+      delete globalThis.Logger;
     });
   });
 
@@ -532,7 +532,7 @@ describe('RetryManager - 全面測試', () => {
         warn: jest.fn(),
         error: jest.fn(),
       };
-      global.Logger = mockLogger;
+      globalThis.Logger = mockLogger;
 
       const error = new Error('Final error');
 
@@ -541,20 +541,20 @@ describe('RetryManager - 全面測試', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('失敗'), error);
 
       // 清理
-      delete global.Logger;
+      delete globalThis.Logger;
     });
 
     test('應該使用 ErrorHandler 如果可用', () => {
-      global.ErrorHandler = {
+      globalThis.ErrorHandler = {
         logError: jest.fn(),
       };
 
       const error = new Error('Final error');
       RetryManager._logRetryFailure(error, 3);
 
-      expect(global.ErrorHandler.logError).toHaveBeenCalled();
+      expect(globalThis.ErrorHandler.logError).toHaveBeenCalled();
 
-      delete global.ErrorHandler;
+      delete globalThis.ErrorHandler;
     });
   });
 
@@ -614,37 +614,37 @@ describe('RetryManager - 全面測試', () => {
     });
 
     test('fetchWithRetry 應該創建帶重試的 fetch', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, data: 'response' });
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, data: 'response' });
 
       const result = await fetchWithRetry('https://example.com');
 
       expect(result).toEqual({ ok: true, data: 'response' });
-      expect(global.fetch).toHaveBeenCalledWith('https://example.com', {});
+      expect(globalThis.fetch).toHaveBeenCalledWith('https://example.com', {});
 
-      delete global.fetch;
+      delete globalThis.fetch;
     });
 
     test('fetchWithRetry 應該支持 fetch 選項', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true });
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true });
 
       await fetchWithRetry('https://example.com', {
         method: 'POST',
         body: JSON.stringify({ data: 'test' }),
       });
 
-      expect(global.fetch).toHaveBeenCalledWith('https://example.com', {
+      expect(globalThis.fetch).toHaveBeenCalledWith('https://example.com', {
         method: 'POST',
         body: JSON.stringify({ data: 'test' }),
       });
 
-      delete global.fetch;
+      delete globalThis.fetch;
     });
 
     test('fetchWithRetry 應該支持重試選項', async () => {
       const error = new Error('Network error');
       error.name = 'NetworkError';
 
-      global.fetch = jest.fn().mockRejectedValueOnce(error).mockResolvedValue({ ok: true });
+      globalThis.fetch = jest.fn().mockRejectedValueOnce(error).mockResolvedValue({ ok: true });
 
       const result = await fetchWithRetry(
         'https://example.com',
@@ -653,9 +653,9 @@ describe('RetryManager - 全面測試', () => {
       );
 
       expect(result).toEqual({ ok: true });
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
 
-      delete global.fetch;
+      delete globalThis.fetch;
     });
   });
 

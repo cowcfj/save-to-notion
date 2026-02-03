@@ -6,10 +6,10 @@ import { DomConverter } from '../../../../scripts/content/converters/DomConverte
 import { jest } from '@jest/globals';
 
 // Mock dependencies
-global.ImageUtils = {
+globalThis.ImageUtils = {
   extractImageSrc: jest.fn(),
 };
-global.Logger = {
+globalThis.Logger = {
   log: jest.fn(),
   warn: jest.fn(),
 };

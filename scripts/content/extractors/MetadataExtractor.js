@@ -16,14 +16,15 @@ import {
   AVATAR_KEYWORDS,
 } from '../../config/selectors.js';
 
-class MetadataExtractor {
+const MetadataExtractor = {
   /**
    * 提取頁面元數據（完整版本）
+   *
    * @param {Document} doc - DOM Document 對象
-   * @param {Object} [readabilityArticle] - Readability 解析結果 (可選)
-   * @returns {Object} 元數據對象
+   * @param {object} [readabilityArticle] - Readability 解析結果 (可選)
+   * @returns {object} 元數據對象
    */
-  static extract(doc, readabilityArticle = null) {
+  extract(doc, readabilityArticle = null) {
     return {
       title: MetadataExtractor.extractTitle(doc, readabilityArticle),
       url: doc.location ? doc.location.href : '',
@@ -33,24 +34,32 @@ class MetadataExtractor {
       siteIcon: MetadataExtractor.extractSiteIcon(doc),
       featuredImage: MetadataExtractor.extractFeaturedImage(doc),
     };
-  }
+  },
 
   /**
    * 提取標題
    * 優先級: Readability.title > document.title > 'Untitled Page'
+   *
+   * @param {Document} doc - DOM Document 對象
+   * @param {object} [readabilityArticle] - Readability 解析結果
+   * @returns {string} 頁面標題
    */
-  static extractTitle(doc, readabilityArticle) {
+  extractTitle(doc, readabilityArticle) {
     if (readabilityArticle?.title && typeof readabilityArticle.title === 'string') {
       return readabilityArticle.title;
     }
     return doc.title || 'Untitled Page';
-  }
+  },
 
   /**
    * 提取作者
    * 優先級: Readability.byline > meta[name="author"] > meta[property="article:author"]
+   *
+   * @param {Document} doc - DOM Document 對象
+   * @param {object} [readabilityArticle] - Readability 解析結果
+   * @returns {string|null} 作者名稱或 null
    */
-  static extractAuthor(doc, readabilityArticle) {
+  extractAuthor(doc, readabilityArticle) {
     if (readabilityArticle?.byline) {
       return readabilityArticle.byline;
     }
@@ -61,13 +70,17 @@ class MetadataExtractor {
       doc.querySelector('meta[name="twitter:creator"]');
 
     return authorMeta ? authorMeta.getAttribute('content') : null;
-  }
+  },
 
   /**
    * 提取描述
    * 優先級: Readability.excerpt > meta[name="description"] > meta[property="og:description"]
+   *
+   * @param {Document} doc - DOM Document 對象
+   * @param {object} [readabilityArticle] - Readability 解析結果
+   * @returns {string|null} 頁面描述或 null
    */
-  static extractDescription(doc, readabilityArticle) {
+  extractDescription(doc, readabilityArticle) {
     if (readabilityArticle?.excerpt) {
       return readabilityArticle.excerpt;
     }
@@ -78,12 +91,15 @@ class MetadataExtractor {
       doc.querySelector('meta[name="twitter:description"]');
 
     return descMeta ? descMeta.getAttribute('content') : null;
-  }
+  },
 
   /**
    * 提取 Favicon（簡單版本）
+   *
+   * @param {Document} doc - DOM Document 對象
+   * @returns {string|null} Favicon URL
    */
-  static extractFavicon(doc) {
+  extractFavicon(doc) {
     const selectors = FAVICON_SELECTORS;
 
     for (const selector of selectors) {
@@ -97,46 +113,16 @@ class MetadataExtractor {
       return new URL('/favicon.ico', doc.location.origin).href;
     }
     return null;
-  }
+  },
 
   /**
    * 提取網站 Icon（智能版本，帶評分選擇）
+   *
    * @param {Document} doc - DOM Document 對象
    * @returns {string|null} 最佳 icon URL
    */
-  static extractSiteIcon(doc) {
-    const candidates = [];
-
-    for (const { selector, attr, priority, iconType } of SITE_ICON_SELECTORS) {
-      try {
-        const elements = doc.querySelectorAll(selector);
-        for (const element of elements) {
-          const iconUrl = element.getAttribute(attr);
-          if (iconUrl?.trim() && !iconUrl.startsWith('data:')) {
-            try {
-              const absoluteUrl = new URL(iconUrl, doc.baseURI).href;
-              const sizes = element.getAttribute('sizes') || '';
-              const type = element.getAttribute('type') || '';
-              const size = MetadataExtractor.parseSizeString(sizes);
-
-              candidates.push({
-                url: absoluteUrl,
-                priority,
-                size,
-                type,
-                iconType,
-                sizes,
-                selector,
-              });
-            } catch {
-              // 忽略無效 URL
-            }
-          }
-        }
-      } catch {
-        // 忽略選擇器錯誤
-      }
-    }
+  extractSiteIcon(doc) {
+    const candidates = this._collectSiteIconCandidates(doc);
 
     if (candidates.length > 0) {
       const bestIcon = MetadataExtractor.selectBestIcon(candidates);
@@ -151,43 +137,60 @@ class MetadataExtractor {
     } catch {
       return null;
     }
-  }
+  },
 
   /**
    * 提取封面圖/特色圖片
+   *
    * @param {Document} doc - DOM Document 對象
    * @returns {string|null} 封面圖 URL
    */
-  static extractFeaturedImage(doc) {
+  extractFeaturedImage(doc) {
     for (const selector of FEATURED_IMAGE_SELECTORS) {
-      try {
-        const img = doc.querySelector(selector);
-        if (img && !MetadataExtractor.isAvatarImage(img)) {
-          const src = MetadataExtractor.extractImageSrc(img);
-          if (src) {
-            try {
-              const absoluteUrl = new URL(src, doc.baseURI).href;
-              if (MetadataExtractor.isValidImageUrl(absoluteUrl)) {
-                return absoluteUrl;
-              }
-            } catch {
-              // 忽略無效 URL
-            }
-          }
-        }
-      } catch {
-        // 忽略選擇器錯誤
+      const imageUrl = this._tryExtractImageFromSelector(doc, selector);
+      if (imageUrl) {
+        return imageUrl;
       }
     }
     return null;
-  }
+  },
+
+  /**
+   * 嘗試從選擇器提取有效的圖片 URL
+   *
+   * @param {Document} doc
+   * @param {string} selector
+   * @returns {string|null}
+   */
+  _tryExtractImageFromSelector(doc, selector) {
+    try {
+      const img = doc.querySelector(selector);
+      if (img && !MetadataExtractor.isAvatarImage(img)) {
+        const src = MetadataExtractor.extractImageSrc(img);
+        if (src) {
+          try {
+            const absoluteUrl = new URL(src, doc.baseURI).href;
+            if (MetadataExtractor.isValidImageUrl(absoluteUrl)) {
+              return absoluteUrl;
+            }
+          } catch {
+            // 忽略無效 URL
+          }
+        }
+      }
+    } catch {
+      // 忽略選擇器錯誤
+    }
+    return null;
+  },
 
   /**
    * 檢查圖片是否為作者頭像/Logo
+   *
    * @param {HTMLImageElement} img - 圖片元素
    * @returns {boolean} 是否為頭像
    */
-  static isAvatarImage(img) {
+  isAvatarImage(img) {
     const imgClass = (img.className || '').toLowerCase();
     const imgId = (img.id || '').toLowerCase();
     const imgAlt = (img.alt || '').toLowerCase();
@@ -218,14 +221,15 @@ class MetadataExtractor {
     const height = img.naturalHeight || img.height || 0;
 
     return width > 0 && height > 0 && width < 200 && height < 200;
-  }
+  },
 
   /**
    * 提取圖片 src（支持懶加載屬性）
+   *
    * @param {HTMLImageElement} img - 圖片元素
    * @returns {string|null} 圖片 URL
    */
-  static extractImageSrc(img) {
+  extractImageSrc(img) {
     const srcAttributes = [
       'src',
       'data-src',
@@ -248,7 +252,7 @@ class MetadataExtractor {
     if (picture) {
       const source = picture.querySelector('source');
       if (source) {
-        const srcset = source.getAttribute('srcset') || source.getAttribute('data-srcset');
+        const srcset = source.getAttribute('srcset') || source.dataset.srcset;
         if (srcset) {
           const urls = srcset.split(',').map(str => str.trim().split(' ')[0]);
           if (urls.length > 0 && !urls[0].startsWith('data:')) {
@@ -259,14 +263,15 @@ class MetadataExtractor {
     }
 
     return null;
-  }
+  },
 
   /**
    * 驗證圖片 URL 是否有效
+   *
    * @param {string} url - 圖片 URL
    * @returns {boolean} 是否有效
    */
-  static isValidImageUrl(url) {
+  isValidImageUrl(url) {
     if (!url || typeof url !== 'string') {
       return false;
     }
@@ -276,44 +281,62 @@ class MetadataExtractor {
     } catch {
       return false;
     }
-  }
+  },
 
   /**
    * 解析尺寸字符串（如 "180x180"）
+   *
    * @param {string} sizeStr - 尺寸字符串
    * @returns {number} 尺寸數值
    */
-  static parseSizeString(sizeStr) {
-    if (!sizeStr || !sizeStr.trim()) {
+  parseSizeString(sizeStr) {
+    if (!sizeStr?.trim()) {
       return 0;
     }
 
+    const trimmed = sizeStr.trim();
+
     // 處理 "any" 格式（通常是 SVG）
-    if (sizeStr.toLowerCase() === 'any') {
+    if (trimmed.toLowerCase() === 'any') {
       return 999;
     }
 
     // 處理 "180x180" 格式
-    const match = sizeStr.match(/(\d+)x(\d+)/i);
+    // 使用錨點 ^ 並移除不必要的捕獲組，避免回溯攻擊
+    const match = /^(\d+)x\d+/i.exec(trimmed);
     if (match) {
-      return parseInt(match[1]);
+      return Number.parseInt(match[1]);
     }
 
     // 處理只有數字的情況
-    const numMatch = sizeStr.match(/\d+/);
+    const numMatch = /^\d+/.exec(trimmed);
     if (numMatch) {
-      return parseInt(numMatch[0]);
+      return Number.parseInt(numMatch[0]);
     }
 
     return 0;
-  }
+  },
+
+  /**
+   * 解析尺寸字符串（內部輔助）
+   *
+   * @param {string} sizeStr
+   * @returns {number}
+   */
+  _parseAnySize(sizeStr) {
+    if (sizeStr.toLowerCase() === 'any') {
+      return 999;
+    }
+    return 0;
+  },
 
   /**
    * 從候選 icons 中智能選擇最佳的
+   *
    * @param {Array} candidates - 候選 icon 列表
-   * @returns {Object|null} 最佳 icon
+   * @returns {object | null} 最佳 icon
    */
-  static selectBestIcon(candidates) {
+  selectBestIcon(candidates) {
     if (candidates.length === 0) {
       return null;
     }
@@ -321,51 +344,124 @@ class MetadataExtractor {
       return candidates[0];
     }
 
-    const scored = candidates.map(icon => {
-      let score = 0;
-      const url = icon.url.toLowerCase();
-
-      // 格式評分
-      if (url.endsWith('.svg') || url.includes('image/svg') || icon.type.includes('svg')) {
-        score += 1000; // SVG 矢量圖
-      } else if (url.endsWith('.png') || icon.type.includes('png')) {
-        score += 500;
-      } else if (url.endsWith('.ico') || icon.type.includes('ico')) {
-        score += 100;
-      } else if (url.endsWith('.jpg') || url.endsWith('.jpeg') || icon.type.includes('jpeg')) {
-        score += 200;
-      }
-
-      // 尺寸評分
-      const size = icon.size || 0;
-      if (size === 999) {
-        score += 500; // SVG "any"
-      } else if (size >= 180 && size <= 256) {
-        score += 300; // 理想尺寸
-      } else if (size > 256) {
-        score += 200;
-      } else if (size >= 120) {
-        score += 100;
-      } else if (size > 0) {
-        score += 50;
-      }
-
-      // 類型評分
-      if (icon.iconType === 'apple-touch') {
-        score += 50;
-      }
-
-      // 優先級評分
-      score += (10 - icon.priority) * 10;
-
-      return { ...icon, score };
-    });
+    const scored = candidates.map(icon => ({
+      ...icon,
+      score: this._calculateIconScore(icon),
+    }));
 
     scored.sort((iconA, iconB) => iconB.score - iconA.score);
     return scored[0];
-  }
-}
+  },
 
-const metadataExtractor = new MetadataExtractor();
+  /**
+   * 收集站點圖標候選者
+   *
+   * @param {Document} doc
+   * @returns {Array}
+   */
+  _collectSiteIconCandidates(doc) {
+    const candidates = [];
+
+    for (const { selector, attr, priority, iconType } of SITE_ICON_SELECTORS) {
+      try {
+        const elements = doc.querySelectorAll(selector);
+        for (const element of elements) {
+          const candidate = this._processIconElement(element, doc, attr, priority, iconType);
+          if (candidate) {
+            candidates.push(candidate);
+          }
+        }
+      } catch {
+        // 忽略選擇器錯誤
+      }
+    }
+
+    return candidates;
+  },
+
+  /**
+   * 處理單個圖標元素
+   *
+   * @param {Element} element - DOM 元素
+   * @param {Document} doc - 文檔對象
+   * @param {string} attr - 屬性名
+   * @param {number} priority - 優先級
+   * @param {string} iconType - 圖標類型
+   * @returns {object|null} 處理後的圖標對象或 null
+   */
+  _processIconElement(element, doc, attr, priority, iconType) {
+    const iconUrl = element.getAttribute(attr);
+    if (!iconUrl?.trim() || iconUrl.startsWith('data:')) {
+      return null;
+    }
+
+    try {
+      const absoluteUrl = new URL(iconUrl, doc.baseURI).href;
+      const sizes = element.getAttribute('sizes') || '';
+      const type = element.getAttribute('type') || '';
+      const size = MetadataExtractor.parseSizeString(sizes);
+
+      return {
+        url: absoluteUrl,
+        priority,
+        size,
+        type,
+        iconType,
+        sizes,
+        selector: attr,
+      };
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * 計算圖標分數
+   *
+   * @param {object} icon
+   * @returns {number}
+   */
+  _calculateIconScore(icon) {
+    let score = 0;
+    const url = icon.url.toLowerCase();
+
+    // 格式評分
+    if (url.endsWith('.svg') || url.includes('image/svg') || icon.type.includes('svg')) {
+      score += 1000; // SVG 矢量圖
+    } else if (url.endsWith('.png') || icon.type.includes('png')) {
+      score += 500;
+    } else if (url.endsWith('.ico') || icon.type.includes('ico')) {
+      score += 100;
+    } else if (url.endsWith('.jpg') || url.endsWith('.jpeg') || icon.type.includes('jpeg')) {
+      score += 200;
+    }
+
+    // 尺寸評分
+    const size = icon.size || 0;
+    if (size === 999) {
+      score += 500; // SVG "any"
+    } else if (size >= 180 && size <= 256) {
+      score += 300; // 理想尺寸
+    } else if (size > 256) {
+      score += 200;
+    } else if (size >= 120) {
+      score += 100;
+    } else if (size > 0) {
+      score += 50;
+    }
+
+    // 類型評分
+    if (icon.iconType === 'apple-touch') {
+      score += 50;
+    }
+
+    // 優先級評分
+    score += (10 - icon.priority) * 10;
+
+    return score;
+  },
+};
+
+const metadataExtractor = MetadataExtractor;
 
 export { MetadataExtractor, metadataExtractor };

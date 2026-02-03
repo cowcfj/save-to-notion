@@ -5,9 +5,9 @@
 
 /**
  * 獲取節點的路徑（從當前節點到 document.body）
+ *
  * @param {Node} node - DOM 節點
  * @returns {string} 路徑字符串，格式：'div[0]/p[2]/text[0]'
- *
  * @example
  * const path = getNodePath(textNode);
  * // 返回: 'div[0]/p[2]/text[0]'
@@ -58,9 +58,9 @@ export function getNodePath(node) {
 
 /**
  * 從字符串路徑解析為路徑對象數組
- * @param {string} pathString - 路徑字符串
- * @returns {Array<Object>|null} 路徑對象數組或 null
  *
+ * @param {string} pathString - 路徑字符串
+ * @returns {Array<object> | null} 路徑對象數組或 null
  * @example
  * parsePathFromString('div[0]/p[2]/text[0]')
  * // 返回: [{ type: 'element', tag: 'div', index: 0 }, ...]
@@ -83,13 +83,13 @@ export function parsePathFromString(pathString) {
       continue;
     }
 
-    const match = step.match(/^(\w+)\[(\d+)\]$/);
+    const match = step.match(/^(\w+)\[(\d+)]$/);
     if (!match) {
       return null; // 格式錯誤
     }
 
     const [, tag, indexStr] = match;
-    const index = parseInt(indexStr, 10);
+    const index = Number.parseInt(indexStr, 10);
 
     if (tag === 'text') {
       path.push({ type: 'text', index });
@@ -103,9 +103,9 @@ export function parsePathFromString(pathString) {
 
 /**
  * 根據路徑對象數組獲取 DOM 節點
- * @param {Array<Object>|string} path - 路徑對象數組或路徑字符串
- * @returns {Node|null} DOM 節點或 null
  *
+ * @param {Array<object> | string} path - 路徑對象數組或路徑字符串
+ * @returns {Node|null} DOM 節點或 null
  * @example
  * const node = getNodeByPath('div[0]/p[2]/text[0]');
  */
@@ -167,7 +167,7 @@ export function getNodeByPath(path) {
 
         current = textNodes[step.index];
       }
-    } catch (_error) {
+    } catch {
       return null;
     }
   }
@@ -177,9 +177,9 @@ export function getNodeByPath(path) {
 
 /**
  * 驗證路徑字符串格式是否正確
+ *
  * @param {string} pathString - 路徑字符串
  * @returns {boolean} 如果格式正確則返回 true
- *
  * @example
  * isValidPathString('div[0]/p[2]/text[0]') // true
  * isValidPathString('invalid') // false
@@ -194,7 +194,7 @@ export function isValidPathString(pathString) {
   }
 
   const steps = pathString.split('/');
-  const regex = /^\w+\[\d+\]$/;
+  const regex = /^\w+\[\d+]$/;
 
   for (const step of steps) {
     if (!step || !regex.test(step)) {

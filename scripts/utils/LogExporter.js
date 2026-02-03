@@ -1,14 +1,15 @@
 /* global chrome */
 import Logger from './Logger.js'; // Default export
 
-export class LogExporter {
+export const LogExporter = {
   /**
    * 導出偵錯日誌
-   * @param {Object} options
+   *
+   * @param {object} options
    * @param {string} options.format - 'json' | 'text' (目前主要支援 json)
-   * @returns {Object} { filename, content, mimeType, count }
+   * @returns {object} { filename, content, mimeType, count }
    */
-  static exportLogs({ format = 'json' } = {}) {
+  exportLogs({ format = 'json' } = {}) {
     // 1. 獲取原始日誌
     const buffer = Logger.getBuffer();
     if (!buffer) {
@@ -26,9 +27,9 @@ export class LogExporter {
     // 3. 格式化輸出
     // 格式化為: YYYYMMDD-HHmmss
     const nowISO = new Date().toISOString();
-    const timestamp = `${nowISO.slice(0, 10).replace(/-/g, '')}-${nowISO
+    const timestamp = `${nowISO.slice(0, 10).replaceAll('-', '')}-${nowISO
       .slice(11, 19)
-      .replace(/:/g, '')}`;
+      .replaceAll(':', '')}`;
     let content = '';
     let filename = '';
     let mimeType = '';
@@ -74,5 +75,5 @@ export class LogExporter {
       mimeType,
       count,
     };
-  }
-}
+  },
+};

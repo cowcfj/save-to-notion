@@ -5,7 +5,7 @@
 import { TabService } from '../../../../scripts/background/services/TabService.js';
 
 // Mock chrome API
-global.chrome = {
+globalThis.chrome = {
   action: {
     setBadgeText: jest.fn(),
     setBadgeBackgroundColor: jest.fn(),
@@ -166,7 +166,7 @@ describe('TabService', () => {
 
       // Assert: 錯誤被記錄
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to inject bundle'),
+        expect.stringContaining('[TabService] Error updating tab status:'),
         injectionError
       );
 

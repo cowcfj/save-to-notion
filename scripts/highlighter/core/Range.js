@@ -9,8 +9,9 @@ import { waitForDOMStability } from '../utils/domStability.js';
 
 /**
  * 序列化 Range 對象
+ *
  * @param {Range} range - DOM Range
- * @returns {Object} 序列化的 Range 資訊
+ * @returns {object} 序列化的 Range 資訊
  */
 export function serializeRange(range) {
   return {
@@ -23,7 +24,8 @@ export function serializeRange(range) {
 
 /**
  * 反序列化 Range 對象
- * @param {Object} rangeInfo - 序列化的 Range 資訊
+ *
+ * @param {object} rangeInfo - 序列化的 Range 資訊
  * @param {string} expectedText - 預期的文本內容
  * @returns {Range|null} 恢復的 Range 或 null
  */
@@ -51,14 +53,15 @@ export function deserializeRange(rangeInfo, expectedText) {
     }
 
     return range;
-  } catch (_error) {
+  } catch {
     return null;
   }
 }
 
 /**
  * 帶重試機制的 Range 恢復
- * @param {Object} rangeInfo - Range 資訊
+ *
+ * @param {object} rangeInfo - Range 資訊
  * @param {string} text - 文本內容
  * @param {number} maxRetries - 最大重試次數
  * @returns {Promise<Range|null>}
@@ -98,6 +101,7 @@ export async function restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
 
 /**
  * 基於文本內容查找 Range
+ *
  * @param {string} targetText - 目標文本
  * @returns {Range|null}
  */
@@ -111,6 +115,7 @@ export function findRangeByTextContent(targetText) {
 
 /**
  * 驗證 Range 是否有效
+ *
  * @param {Range} range - Range 對象
  * @param {string} expectedText - 預期文本
  * @returns {boolean}
@@ -123,7 +128,7 @@ export function validateRange(range, expectedText) {
   try {
     const actualText = range.toString();
     return actualText === expectedText;
-  } catch (_error) {
+  } catch {
     return false;
   }
 }

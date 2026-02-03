@@ -23,14 +23,14 @@ const Logger = {
   info: jest.fn(),
   debug: jest.fn(),
 };
-global.Logger = Logger;
+globalThis.Logger = Logger;
 
 // Mock PerformanceOptimizer（可選依賴）
-global.PerformanceOptimizer = undefined;
-global.performanceOptimizer = undefined;
+globalThis.PerformanceOptimizer = undefined;
+globalThis.performanceOptimizer = undefined;
 
 // Mock Readability（用於 parseArticleWithReadability）
-global.Readability = undefined;
+globalThis.Readability = undefined;
 
 // 引入模組
 const {
@@ -89,8 +89,8 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
 
     test('當 PerformanceOptimizer 可用時應該使用緩存查詢', () => {
       const mockCachedQuery = jest.fn().mockReturnValue(['mock result']);
-      window.performanceOptimizer = { cachedQuery: mockCachedQuery };
-      global.PerformanceOptimizer = {};
+      globalThis.performanceOptimizer = { cachedQuery: mockCachedQuery };
+      globalThis.PerformanceOptimizer = {};
 
       const result = cachedQuery('.test', document, { single: true });
 
@@ -98,8 +98,8 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
       expect(result).toEqual(['mock result']);
 
       // 清理
-      delete window.performanceOptimizer;
-      global.PerformanceOptimizer = undefined;
+      delete globalThis.performanceOptimizer;
+      globalThis.PerformanceOptimizer = undefined;
     });
   });
 
@@ -122,7 +122,7 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
       await expandCollapsibleElements(50);
 
       const button = document.querySelector('button');
-      const content = document.getElementById('content');
+      const content = document.querySelector('#content');
 
       expect(button.getAttribute('aria-expanded')).toBe('true');
       expect(content.hasAttribute('aria-hidden')).toBe(false);
@@ -333,14 +333,14 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
 
   describe('parseArticleWithReadability', () => {
     test('當 Readability 不可用時應該拋出錯誤', () => {
-      global.Readability = undefined;
+      globalThis.Readability = undefined;
 
       expect(() => parseArticleWithReadability()).toThrow('Readability library not loaded');
     });
 
     test('應該成功解析文章', () => {
       // Mock Readability
-      global.Readability = jest.fn().mockImplementation(() => ({
+      globalThis.Readability = jest.fn().mockImplementation(() => ({
         parse: () => ({
           title: 'Test Article',
           content: '<p>Article content here</p>',
@@ -357,7 +357,7 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
     });
 
     test('當 Readability 返回 null 時應該拋出錯誤', () => {
-      global.Readability = jest.fn().mockImplementation(() => ({
+      globalThis.Readability = jest.fn().mockImplementation(() => ({
         parse: () => null,
       }));
 
@@ -365,7 +365,7 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
     });
 
     test('當解析結果無 content 時應該拋出錯誤', () => {
-      global.Readability = jest.fn().mockImplementation(() => ({
+      globalThis.Readability = jest.fn().mockImplementation(() => ({
         parse: () => ({
           title: 'Title',
           content: null,
@@ -382,7 +382,7 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
         configurable: true,
       });
 
-      global.Readability = jest.fn().mockImplementation(() => ({
+      globalThis.Readability = jest.fn().mockImplementation(() => ({
         parse: () => ({
           title: null,
           content: '<p>Content</p>',
@@ -395,7 +395,7 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
     });
 
     test('當 Readability.parse 拋出錯誤時應該重新拋出', () => {
-      global.Readability = jest.fn().mockImplementation(() => ({
+      globalThis.Readability = jest.fn().mockImplementation(() => ({
         parse: () => {
           throw new Error('Parse error');
         },

@@ -5,6 +5,7 @@
 
 /**
  * 標註顏色常量
+ *
  * @type {Object.<string, string>}
  */
 export const COLORS = {
@@ -17,6 +18,7 @@ export const COLORS = {
 /**
  * 標註文字顏色常量 (用於 Text Mode)
  * 使用較深/飽和的顏色以確保在淺色背景上的可讀性
+ *
  * @type {Object.<string, string>}
  */
 export const TEXT_COLORS = {
@@ -28,15 +30,16 @@ export const TEXT_COLORS = {
 
 /**
  * 有效的標註樣式模式
+ *
  * @type {string[]}
  */
 export const VALID_STYLES = ['background', 'text', 'underline'];
 
 /**
  * 轉換背景顏色（RGB 或 HEX）到顏色名稱
+ *
  * @param {string} bgColor - 背景顏色（RGB 格式或 HEX 格式）
  * @returns {string} 顏色名稱（yellow|green|blue|red），默認 'yellow'
- *
  * @example
  * convertBgColorToName('#fff3cd') // 'yellow'
  * convertBgColorToName('rgb(255, 243, 205)') // 'yellow'
@@ -60,9 +63,9 @@ export function convertBgColorToName(bgColor) {
 
 /**
  * 獲取顏色的 CSS 變數名
+ *
  * @param {string} colorName - 顏色名稱
  * @returns {string} CSS 變數名
- *
  * @example
  * getColorCSSVar('yellow') // '--highlight-yellow'
  */

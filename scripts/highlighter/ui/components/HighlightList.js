@@ -5,6 +5,7 @@
 
 /**
  * 獲取顏色的中文名稱
+ *
  * @param {string} color - 顏色英文名稱
  * @returns {string} 顏色的中文名稱
  */
@@ -20,6 +21,7 @@ function getColorName(color) {
 
 /**
  * 渲染標註列表
+ *
  * @param {HTMLElement} container - 容器元素
  * @param {Array} highlights - 標註數組，每個元素包含 {id, text, color}
  * @param {Function} onDelete - 刪除回調函數，接收標註 id
@@ -30,10 +32,10 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     throw new Error('Container is required');
   }
   if (!Array.isArray(highlights)) {
-    throw new Error('Highlights must be an array');
+    throw new TypeError('Highlights must be an array');
   }
   if (typeof onDelete !== 'function') {
-    throw new Error('onDelete must be a function');
+    throw new TypeError('onDelete must be a function');
   }
 
   // 清空容器
@@ -44,7 +46,7 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     const emptyDiv = document.createElement('div');
     emptyDiv.style.cssText = 'padding: 16px; text-align: center; color: #9ca3af; font-size: 13px;';
     emptyDiv.textContent = '暫無標註';
-    container.appendChild(emptyDiv);
+    container.append(emptyDiv);
     return;
   }
 
@@ -54,7 +56,7 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
 
   const headerSpan = document.createElement('span');
   headerSpan.textContent = '標註列表';
-  headerDiv.appendChild(headerSpan);
+  headerDiv.append(headerSpan);
 
   // 打開 Notion 按鈕（可選）
   if (onOpenNotion) {
@@ -63,15 +65,15 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     openBtn.className = 'nh-btn nh-btn-mini';
     openBtn.textContent = '🔗 打開';
     openBtn.addEventListener('click', onOpenNotion);
-    headerDiv.appendChild(openBtn);
+    headerDiv.append(openBtn);
   }
 
-  container.appendChild(headerDiv);
+  container.append(headerDiv);
 
   // 標註項目
   highlights.forEach((highlight, index) => {
     // 截斷過長的文本
-    const text = highlight.text.substring(0, 40) + (highlight.text.length > 40 ? '...' : '');
+    const text = highlight.text.slice(0, 40) + (highlight.text.length > 40 ? '...' : '');
     const colorName = getColorName(highlight.color);
 
     // 創建項目容器
@@ -92,12 +94,12 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     textDiv.className = 'nh-list-text';
     textDiv.textContent = text;
 
-    contentDiv.appendChild(titleDiv);
-    contentDiv.appendChild(textDiv);
+    contentDiv.append(titleDiv);
+    contentDiv.append(textDiv);
 
     // 刪除按鈕
     const deleteBtn = document.createElement('button');
-    deleteBtn.setAttribute('data-highlight-id', highlight.id);
+    deleteBtn.dataset.highlightId = highlight.id;
     deleteBtn.className = 'nh-btn-delete';
     deleteBtn.title = '刪除此標註';
 
@@ -113,8 +115,8 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
       onDelete(highlight.id);
     });
 
-    itemDiv.appendChild(contentDiv);
-    itemDiv.appendChild(deleteBtn);
-    container.appendChild(itemDiv);
+    itemDiv.append(contentDiv);
+    itemDiv.append(deleteBtn);
+    container.append(itemDiv);
   });
 }

@@ -26,7 +26,7 @@
   function initializeUpdateNotification() {
     // 設置當前版本
     const currentVersion = chrome.runtime.getManifest().version;
-    document.getElementById('current-version').textContent = `v${currentVersion}`;
+    document.querySelector('#current-version').textContent = `v${currentVersion}`;
 
     // 如果沒有收到更新信息，使用默認值
     setTimeout(() => {
@@ -41,18 +41,18 @@
    */
   function setupEventListeners() {
     // 關閉按鈕
-    document.getElementById('close-btn').addEventListener('click', () => {
+    document.querySelector('#close-btn').addEventListener('click', () => {
       window.close();
     });
 
     // 立即體驗按鈕
-    document.getElementById('try-now-btn').addEventListener('click', () => {
+    document.querySelector('#try-now-btn').addEventListener('click', () => {
       // 打開擴展彈出窗口或設置頁面
       chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html') });
     });
 
     // 查看完整更新日誌按鈕
-    document.getElementById('view-changelog-btn').addEventListener('click', () => {
+    document.querySelector('#view-changelog-btn').addEventListener('click', () => {
       chrome.tabs.create({
         url: 'https://github.com/cowcfj/save-to-notion/blob/main/CHANGELOG.md',
       });
@@ -68,11 +68,13 @@
 
   /**
    * 顯示更新信息
+   *
+   * @param info
    */
   function displayUpdateInfo(info) {
     // 更新版本信息
-    document.getElementById('prev-version').textContent = `v${info.previousVersion}`;
-    document.getElementById('curr-version').textContent = `v${info.currentVersion}`;
+    document.querySelector('#prev-version').textContent = `v${info.previousVersion}`;
+    document.querySelector('#curr-version').textContent = `v${info.currentVersion}`;
 
     // 載入對應版本的更新內容
     loadUpdateContent(info.currentVersion);
@@ -80,19 +82,23 @@
 
   /**
    * 顯示默認更新信息
+   *
+   * @param currentVersion
    */
   function displayDefaultUpdateInfo(currentVersion) {
-    document.getElementById('prev-version').textContent = 'v—';
-    document.getElementById('curr-version').textContent = `v${currentVersion}`;
+    document.querySelector('#prev-version').textContent = 'v—';
+    document.querySelector('#curr-version').textContent = `v${currentVersion}`;
     loadUpdateContent(currentVersion);
   }
 
   /**
    * 載入更新內容
+   *
+   * @param version
    */
   function loadUpdateContent(version) {
     const updateContent = getUpdateContentByVersion(version);
-    const contentContainer = document.getElementById('update-content');
+    const contentContainer = document.querySelector('#update-content');
 
     if (updateContent) {
       contentContainer.innerHTML = updateContent;
@@ -104,6 +110,8 @@
 
   /**
    * 根據版本獲取更新內容
+   *
+   * @param version
    */
   function getUpdateContentByVersion(version) {
     const updateContents = {

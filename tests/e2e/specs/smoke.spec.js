@@ -11,7 +11,7 @@ test('Popup should load successfully', async ({ page, extensionId }) => {
   await page.goto(popupUrl);
 
   // 3. 驗證標題或其他關鍵元素存在
-  await expect(page).toHaveTitle(/Save to Notion/i);
+  await expect(page).toHaveTitle(/save to notion/i);
 
   // 驗證保存按鈕存在
   const saveBtn = page.locator('#save-button');

@@ -85,14 +85,14 @@ const backgroundFunctions = {
     }
 
     const imagePathPatterns = [
-      /\/image[s]?\//i,
-      /\/img[s]?\//i,
-      /\/photo[s]?\//i,
-      /\/picture[s]?\//i,
+      /\/images?\//i,
+      /\/imgs?\//i,
+      /\/photos?\//i,
+      /\/pictures?\//i,
       /\/media\//i,
-      /\/upload[s]?\//i,
-      /\/asset[s]?\//i,
-      /\/file[s]?\//i,
+      /\/uploads?\//i,
+      /\/assets?\//i,
+      /\/files?\//i,
     ];
 
     const excludePatterns = [
@@ -140,8 +140,8 @@ const backgroundFunctions = {
         }
       }
 
-      chunks.push(remaining.substring(0, splitIndex).trim());
-      remaining = remaining.substring(splitIndex).trim();
+      chunks.push(remaining.slice(0, Math.max(0, splitIndex)).trim());
+      remaining = remaining.slice(Math.max(0, splitIndex)).trim();
     }
 
     return chunks.filter(chunk => chunk.length > 0);
@@ -326,9 +326,9 @@ describe('Background Core Functions', () => {
     it('應該強制分割無間斷文本', () => {
       const text = 'A'.repeat(3000);
       const result = backgroundFunctions.splitTextForHighlight(text, 2000);
-      expect(result.length).toBe(2);
-      expect(result[0].length).toBe(2000);
-      expect(result[1].length).toBe(1000);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toHaveLength(2000);
+      expect(result[1]).toHaveLength(1000);
     });
 
     it('應該處理空文本', () => {
@@ -445,8 +445,8 @@ describe('Background Core Functions', () => {
       // 驗證重新組合後的文本
       const rejoined = chunks.join('');
       // 由於分割可能會在標點符號後添加空格，我們需要更寬鬆的比較
-      const normalizedRejoined = rejoined.replace(/\s+/g, ' ').trim();
-      const normalizedOriginal = longText.replace(/\s+/g, ' ').trim();
+      const normalizedRejoined = rejoined.replaceAll(/\s+/g, ' ').trim();
+      const normalizedOriginal = longText.replaceAll(/\s+/g, ' ').trim();
 
       // 檢查內容是否基本相同（允許輕微的空格差異）
       expect(normalizedRejoined.length).toBeGreaterThan(normalizedOriginal.length * 0.95);
@@ -469,8 +469,8 @@ describe('Background Core Functions', () => {
     });
 
     it('應該處理極端長度的輸入', () => {
-      const veryLongUrl = `https://example.com/${'x'.repeat(10000)}.jpg`;
-      const veryLongText = 'A'.repeat(50000);
+      const veryLongUrl = `https://example.com/${'x'.repeat(10_000)}.jpg`;
+      const veryLongText = 'A'.repeat(50_000);
 
       expect(() => {
         backgroundFunctions.normalizeUrl(veryLongUrl);

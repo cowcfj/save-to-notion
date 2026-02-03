@@ -18,9 +18,9 @@ import { ErrorHandler, AppError, ErrorTypes } from '../../utils/ErrorHandler.js'
  */
 class MessageHandler {
   /**
-   * @param {Object} options - 配置選項
-   * @param {Object} options.logger - 日誌對象
-   * @param {Object} options.handlers - 處理函數映射
+   * @param {object} options - 配置選項
+   * @param {object} options.logger - 日誌對象
+   * @param {object} options.handlers - 處理函數映射
    */
   constructor(options = {}) {
     this.logger = options.logger || console;
@@ -36,19 +36,21 @@ class MessageHandler {
 
   /**
    * 註冊消息處理函數
+   *
    * @param {string} action - 動作名稱
    * @param {Function} handler - 處理函數
    */
   register(action, handler) {
     if (typeof handler !== 'function') {
-      throw new Error(`Handler for action '${action}' must be a function`);
+      throw new TypeError(`Handler for action '${action}' must be a function`);
     }
     this.handlers.set(action, handler);
   }
 
   /**
    * 批量註冊處理函數
-   * @param {Object} handlersMap - 處理函數映射
+   *
+   * @param {object} handlersMap - 處理函數映射
    */
   registerAll(handlersMap) {
     Object.entries(handlersMap).forEach(([action, handler]) => {
@@ -60,9 +62,10 @@ class MessageHandler {
    * 格式化錯誤響應
    * 支持結構化的 AppError 和普通 Error
    * 注意：為防止敏感資訊洩漏，非 AppError 類型的錯誤會返回通用訊息
+   *
    * @param {Error} error - 錯誤對象
    * @param {string} action - 動作名稱
-   * @returns {Object} 格式化的錯誤響應
+   * @returns {object} 格式化的錯誤響應
    * @private
    */
   static _formatError(error, action) {
@@ -83,8 +86,9 @@ class MessageHandler {
 
   /**
    * 處理消息
-   * @param {Object} request - 請求對象
-   * @param {Object} sender - 發送者信息
+   *
+   * @param {object} request - 請求對象
+   * @param {object} sender - 發送者信息
    * @param {Function} sendResponse - 響應函數
    * @returns {boolean} 是否為異步處理
    */
@@ -95,7 +99,7 @@ class MessageHandler {
       // 檢查是否有對應的處理函數
       if (!this.handlers.has(action)) {
         sendResponse({ success: false, error: `Unknown action: ${action}` });
-        return true;
+        return false;
       }
 
       const handler = this.handlers.get(action);
@@ -116,7 +120,7 @@ class MessageHandler {
       const errorResponse = MessageHandler._formatError(error, action);
       this.logger.error?.('MessageHandler error:', error);
       sendResponse(errorResponse);
-      return true;
+      return false;
     }
   }
 
@@ -134,6 +138,7 @@ class MessageHandler {
 
   /**
    * 獲取已註冊的動作列表
+   *
    * @returns {string[]}
    */
   getRegisteredActions() {

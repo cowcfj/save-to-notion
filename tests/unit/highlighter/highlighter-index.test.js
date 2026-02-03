@@ -20,7 +20,7 @@ const mockLogger = {
   info: jest.fn(),
   debug: jest.fn(),
 };
-global.Logger = mockLogger;
+globalThis.Logger = mockLogger;
 
 // Mock Chrome API
 const mockChrome = {
@@ -36,7 +36,7 @@ const mockChrome = {
     lastError: null,
   },
 };
-global.chrome = mockChrome;
+globalThis.chrome = mockChrome;
 
 // Mock HighlightManager
 const mockManager = {
@@ -87,18 +87,18 @@ describe('Highlighter Index', () => {
     jest.clearAllMocks();
 
     // 清除全局 HighlighterV2
-    delete window.HighlighterV2;
-    delete window.notionHighlighter;
-    delete window.initHighlighter;
-    delete window.collectHighlights;
-    delete window.clearPageHighlights;
+    delete globalThis.HighlighterV2;
+    delete globalThis.notionHighlighter;
+    delete globalThis.initHighlighter;
+    delete globalThis.collectHighlights;
+    delete globalThis.clearPageHighlights;
 
     // 重新載入模組
     jest.resetModules();
 
     // 重新設置 mock
-    global.Logger = mockLogger;
-    global.chrome = mockChrome;
+    globalThis.Logger = mockLogger;
+    globalThis.chrome = mockChrome;
 
     // 載入模組
     const module = require('../../../scripts/highlighter/index.js');
@@ -107,11 +107,11 @@ describe('Highlighter Index', () => {
   });
 
   afterEach(() => {
-    delete window.HighlighterV2;
-    delete window.notionHighlighter;
-    delete window.initHighlighter;
-    delete window.collectHighlights;
-    delete window.clearPageHighlights;
+    delete globalThis.HighlighterV2;
+    delete globalThis.notionHighlighter;
+    delete globalThis.initHighlighter;
+    delete globalThis.collectHighlights;
+    delete globalThis.clearPageHighlights;
   });
 
   describe('initHighlighter', () => {
@@ -147,42 +147,42 @@ describe('Highlighter Index', () => {
   describe('setupHighlighter', () => {
     test('應該設置 window.HighlighterV2', () => {
       // setupHighlighter 在模組載入時自動執行
-      expect(window.HighlighterV2).toBeDefined();
+      expect(globalThis.HighlighterV2).toBeDefined();
     });
 
     test('window.HighlighterV2 應該包含所有必要的屬性', () => {
       // 源代碼使用簡化的方法名稱
-      expect(typeof window.HighlighterV2.init).toBe('function');
-      expect(typeof window.HighlighterV2.initWithToolbar).toBe('function');
-      expect(typeof window.HighlighterV2.getInstance).toBe('function');
-      expect(typeof window.HighlighterV2.getToolbar).toBe('function');
+      expect(typeof globalThis.HighlighterV2.init).toBe('function');
+      expect(typeof globalThis.HighlighterV2.initWithToolbar).toBe('function');
+      expect(typeof globalThis.HighlighterV2.getInstance).toBe('function');
+      expect(typeof globalThis.HighlighterV2.getToolbar).toBe('function');
     });
 
     test('應該設置 window.notionHighlighter 兼容層', () => {
-      expect(window.notionHighlighter).toBeDefined();
+      expect(globalThis.notionHighlighter).toBeDefined();
     });
 
     test('notionHighlighter 應該包含兼容方法', () => {
-      expect(typeof window.notionHighlighter.show).toBe('function');
-      expect(typeof window.notionHighlighter.hide).toBe('function');
-      expect(typeof window.notionHighlighter.toggle).toBe('function');
-      expect(typeof window.notionHighlighter.collectHighlights).toBe('function');
-      expect(typeof window.notionHighlighter.clearAll).toBe('function');
-      expect(typeof window.notionHighlighter.getCount).toBe('function');
+      expect(typeof globalThis.notionHighlighter.show).toBe('function');
+      expect(typeof globalThis.notionHighlighter.hide).toBe('function');
+      expect(typeof globalThis.notionHighlighter.toggle).toBe('function');
+      expect(typeof globalThis.notionHighlighter.collectHighlights).toBe('function');
+      expect(typeof globalThis.notionHighlighter.clearAll).toBe('function');
+      expect(typeof globalThis.notionHighlighter.getCount).toBe('function');
     });
   });
 
   describe('全局函數別名', () => {
     test('window.initHighlighter 應該可用', () => {
-      expect(typeof window.initHighlighter).toBe('function');
+      expect(typeof globalThis.initHighlighter).toBe('function');
     });
 
     test('window.collectHighlights 應該可用', () => {
-      expect(typeof window.collectHighlights).toBe('function');
+      expect(typeof globalThis.collectHighlights).toBe('function');
     });
 
     test('window.clearPageHighlights 應該可用', () => {
-      expect(typeof window.clearPageHighlights).toBe('function');
+      expect(typeof globalThis.clearPageHighlights).toBe('function');
     });
   });
 
@@ -193,38 +193,38 @@ describe('Highlighter Index', () => {
     });
 
     test('show() 應該調用 toolbar.show()', async () => {
-      await window.notionHighlighter.show();
+      await globalThis.notionHighlighter.show();
       expect(mockToolbar.show).toHaveBeenCalled();
     });
 
     test('hide() 應該調用 toolbar.hide()', async () => {
       // 先調用 show() 確保 toolbar 已創建（currentToolbar 不為 null）
-      await window.notionHighlighter.show();
+      await globalThis.notionHighlighter.show();
       jest.clearAllMocks(); // 清除 show 的調用記錄
-      await window.notionHighlighter.hide();
+      await globalThis.notionHighlighter.hide();
       expect(mockToolbar.hide).toHaveBeenCalled();
     });
 
     test('toggle() 在 hidden 狀態時應該調用 toolbar.show()', async () => {
       // stateManager.currentState 預設為 'hidden'
-      await window.notionHighlighter.toggle();
+      await globalThis.notionHighlighter.toggle();
       // 當 state === 'hidden' 時，應該調用 show()
       expect(mockToolbar.show).toHaveBeenCalled();
     });
 
     test('collectHighlights() 應該調用 manager.collectHighlightsForNotion()', async () => {
-      const result = await window.notionHighlighter.collectHighlights();
+      const result = await globalThis.notionHighlighter.collectHighlights();
       expect(mockManager.collectHighlightsForNotion).toHaveBeenCalled();
       expect(result).toEqual([]);
     });
 
     test('clearAll() 應該調用 manager.clearAll()', async () => {
-      await window.notionHighlighter.clearAll();
+      await globalThis.notionHighlighter.clearAll();
       expect(mockManager.clearAll).toHaveBeenCalled();
     });
 
     test('getCount() 應該調用 manager.getCount()', async () => {
-      const count = await window.notionHighlighter.getCount();
+      const count = await globalThis.notionHighlighter.getCount();
       expect(mockManager.getCount).toHaveBeenCalled();
       expect(count).toBe(5);
     });

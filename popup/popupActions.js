@@ -13,6 +13,7 @@ import Logger from '../scripts/utils/Logger.js';
 
 /**
  * 檢查設置是否完整
+ *
  * @returns {Promise<{valid: boolean, apiKey?: string, dataSourceId?: string}>}
  */
 export async function checkSettings() {
@@ -36,6 +37,8 @@ export async function checkSettings() {
 
 /**
  * 檢查頁面狀態
+ *
+ * @param options
  * @returns {Promise<{success: boolean, isSaved?: boolean, notionUrl?: string, wasDeleted?: boolean}>}
  */
 export async function checkPageStatus(options = {}) {
@@ -60,7 +63,8 @@ export async function checkPageStatus(options = {}) {
 
 /**
  * 保存頁面到 Notion
- * @returns {Promise<Object>} 保存結果
+ *
+ * @returns {Promise<object>} 保存結果
  */
 export async function savePage() {
   try {
@@ -74,6 +78,7 @@ export async function savePage() {
 
 /**
  * 啟動標記模式
+ *
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function startHighlight() {
@@ -88,6 +93,7 @@ export async function startHighlight() {
 
 /**
  * 打開 Notion 頁面
+ *
  * @param {string} url - Notion 頁面 URL
  * @returns {Promise<{success: boolean, error?: string}>}
  */
@@ -109,6 +115,7 @@ export async function openNotionPage(url) {
 
 /**
  * 獲取當前活動標籤頁
+ *
  * @returns {Promise<chrome.tabs.Tab|null>}
  */
 export async function getActiveTab() {
@@ -123,6 +130,7 @@ export async function getActiveTab() {
 
 /**
  * 清除高亮
+ *
  * @param {number} tabId - 標籤頁 ID
  * @param {string} tabUrl - 標籤頁 URL
  * @returns {Promise<{success: boolean, clearedCount?: number, error?: string}>}
@@ -150,6 +158,7 @@ export async function clearHighlights(tabId, tabUrl) {
 /**
  * 在頁面中執行清除標記的函數
  * 注意：此函數會被序列化後在 content script 中執行
+ *
  * @param {string[]} trackingParams - 要移除的追蹤參數列表
  * @param {string} pageKey - 用於清除存儲的鍵
  * @returns {number} 清除的標記數量
@@ -160,7 +169,7 @@ function clearHighlightsInPage(trackingParams, pageKey) {
   highlights.forEach(highlight => {
     const parent = highlight.parentNode;
     parent.insertBefore(document.createTextNode(highlight.textContent), highlight);
-    parent.removeChild(highlight);
+    highlight.remove();
     parent.normalize();
   });
 
@@ -173,20 +182,20 @@ function clearHighlightsInPage(trackingParams, pageKey) {
       // 降級到 localStorage（舊版或受限環境）
       localStorage.removeItem(pageKey);
     }
-  } catch (_) {
+  } catch {
     // chrome.storage.local.remove 失敗時再嘗試 localStorage
     if (typeof localStorage !== 'undefined') {
       try {
         localStorage.removeItem(pageKey);
-      } catch (_err) {
+      } catch {
         // 完全失敗，靜默忽略
       }
     }
   }
 
   // 更新工具欄計數（如果存在）
-  if (window.simpleHighlighter) {
-    window.simpleHighlighter.updateHighlightCount();
+  if (globalThis.simpleHighlighter) {
+    globalThis.simpleHighlighter.updateHighlightCount();
   }
 
   return highlights.length;

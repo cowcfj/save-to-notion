@@ -4,7 +4,7 @@
  */
 function getErrorHandler() {
   // 於瀏覽器環境優先使用全域 ErrorHandler，以便在 runtime 覆蓋
-  const globalRef = typeof globalThis !== 'undefined' ? globalThis.ErrorHandler : null;
+  const globalRef = typeof globalThis === 'undefined' ? null : globalThis.ErrorHandler;
   const ref = globalRef || null; // 避免引用模組級符號造成遮蔽/循環
   if (!ref) {
     return null;
@@ -19,7 +19,7 @@ function getErrorHandler() {
   if (typeof ref === 'function' && ref.prototype && typeof ref.prototype.logError === 'function') {
     try {
       return new ref();
-    } catch (_) {
+    } catch {
       return null;
     }
   }
@@ -36,7 +36,8 @@ function getLogger() {
 class RetryManager {
   /**
    * 創建重試管理器實例
-   * @param {Object} options - 配置選項
+   *
+   * @param {object} options - 配置選項
    */
   constructor(options = {}) {
     this.options = {
@@ -51,8 +52,9 @@ class RetryManager {
 
   /**
    * 執行帶重試的異步操作
+   *
    * @param {Function} operation - 要執行的異步操作
-   * @param {Object} options - 重試選項
+   * @param {object} options - 重試選項
    * @returns {Promise<*>} 操作結果
    */
   async execute(operation, options = {}) {
@@ -146,8 +148,9 @@ class RetryManager {
 
   /**
    * 為網絡請求創建重試包裝器
+   *
    * @param {Function} fetchFunction - fetch 函數
-   * @param {Object} retryOptions - 重試選項
+   * @param {object} retryOptions - 重試選項
    * @returns {Function} 包裝後的 fetch 函數
    */
   wrapFetch(fetchFunction, retryOptions = {}) {
@@ -166,7 +169,7 @@ class RetryManager {
             if (typeof retryOptions.shouldRetryResponse === 'function') {
               try {
                 shouldRetryResp = Boolean(retryOptions.shouldRetryResponse(res));
-              } catch (_) {
+              } catch {
                 // 若使用者回呼拋錯，退回預設策略
                 shouldRetryResp = isDefaultRetryable;
               }
@@ -184,14 +187,12 @@ class RetryManager {
                 if (res?.headers && typeof res.headers.get === 'function') {
                   ra = res.headers.get('Retry-After');
                 }
-              } catch (_) {
+              } catch {
                 ra = null; // 不讓 headers 實作異常中斷重試流程
               }
               if (ra) {
                 const sec = Number(ra);
-                if (!Number.isNaN(sec)) {
-                  err.retryAfterMs = Math.max(0, Math.floor(sec * 1000));
-                } else {
+                if (Number.isNaN(sec)) {
                   const dateMs = Date.parse(ra);
                   if (!Number.isNaN(dateMs)) {
                     const delta = dateMs - Date.now();
@@ -199,6 +200,8 @@ class RetryManager {
                       err.retryAfterMs = delta;
                     }
                   }
+                } else {
+                  err.retryAfterMs = Math.max(0, Math.floor(sec * 1000));
                 }
               }
 
@@ -221,8 +224,9 @@ class RetryManager {
 
   /**
    * 為 DOM 操作創建重試包裝器
+   *
    * @param {Function} domOperation - DOM 操作函數
-   * @param {Object} retryOptions - 重試選項
+   * @param {object} retryOptions - 重試選項
    * @returns {Function} 包裝後的函數
    */
   wrapDomOperation(domOperation, retryOptions = {}) {
@@ -238,9 +242,10 @@ class RetryManager {
 
   /**
    * 判斷是否應該重試
+   *
    * @private
    * @param {Error} error - 錯誤對象
-   * @param {Object} config - 配置選項
+   * @param {object} config - 配置選項
    * @returns {boolean} 是否應該重試
    */
   _shouldRetry(error, config) {
@@ -255,6 +260,7 @@ class RetryManager {
 
   /**
    * 判斷網絡錯誤是否應該重試
+   *
    * @private
    * @param {Error} error - 錯誤對象
    * @returns {boolean} 是否應該重試
@@ -293,6 +299,7 @@ class RetryManager {
 
   /**
    * 判斷 DOM 錯誤是否應該重試
+   *
    * @private
    * @param {Error} error - 錯誤對象
    * @returns {boolean} 是否應該重試
@@ -312,9 +319,10 @@ class RetryManager {
 
   /**
    * 計算延遲時間
+   *
    * @private
    * @param {number} attempt - 當前嘗試次數
-   * @param {Object} config - 配置選項
+   * @param {object} config - 配置選項
    * @returns {number} 延遲毫秒數
    */
   static _calculateDelay(attempt, config) {
@@ -335,6 +343,7 @@ class RetryManager {
 
   /**
    * 延遲執行
+   *
    * @private
    * @param {number} ms - 延遲毫秒數
    * @param {AbortSignal} signal - 中止信號
@@ -384,6 +393,7 @@ class RetryManager {
 
   /**
    * 記錄重試嘗試
+   *
    * @private
    * @param {Error} error - 錯誤對象
    * @param {number} attempt - 當前嘗試次數
@@ -421,6 +431,7 @@ class RetryManager {
 
   /**
    * 記錄重試成功
+   *
    * @private
    * @param {number} totalRetries - 總重試次數
    * @param {string} contextType - 上下文類型
@@ -437,6 +448,7 @@ class RetryManager {
 
   /**
    * 記錄重試失敗
+   *
    * @private
    * @param {Error} error - 最終錯誤
    * @param {number} totalRetries - 總重試次數
@@ -464,7 +476,8 @@ class RetryManager {
 
   /**
    * 獲取當前配置快照（不含動態統計）
-   * @returns {Object} 配置快照
+   *
+   * @returns {object} 配置快照
    */
   getConfigSnapshot() {
     return {
@@ -478,7 +491,8 @@ class RetryManager {
 
   /**
    * 獲取最近一次重試統計資訊
-   * @returns {Object|null} 最近一次執行的統計資訊
+   *
+   * @returns {object | null} 最近一次執行的統計資訊
    */
   getLastStats() {
     return this._lastStats || null;
@@ -490,8 +504,9 @@ const defaultRetryManager = new RetryManager();
 
 /**
  * 便捷的重試函數
+ *
  * @param {Function} operation - 要重試的操作
- * @param {Object} options - 重試選項
+ * @param {object} options - 重試選項
  * @returns {Promise<*>} 操作結果
  */
 function withRetry(operation, options = {}) {
@@ -500,9 +515,10 @@ function withRetry(operation, options = {}) {
 
 /**
  * 為 fetch 添加重試機制
+ *
  * @param {string} url - 請求 URL
- * @param {Object} options - fetch 選項
- * @param {Object} retryOptions - 重試選項
+ * @param {object} options - fetch 選項
+ * @param {object} retryOptions - 重試選項
  * @returns {Promise<Response>} fetch 響應
  */
 function fetchWithRetry(url, options = {}, retryOptions = {}) {
@@ -513,8 +529,8 @@ function fetchWithRetry(url, options = {}, retryOptions = {}) {
 // 導出類和函數
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { RetryManager, withRetry, fetchWithRetry };
-} else if (typeof window !== 'undefined') {
-  window.RetryManager = RetryManager;
-  window.withRetry = withRetry;
-  window.fetchWithRetry = fetchWithRetry;
+} else if (globalThis.window !== undefined) {
+  globalThis.RetryManager = RetryManager;
+  globalThis.withRetry = withRetry;
+  globalThis.fetchWithRetry = fetchWithRetry;
 }

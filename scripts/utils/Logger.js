@@ -37,10 +37,11 @@ const isExtensionContext =
   // 但這裡是為了檢查是否能夠調用 extension API
   true;
 
-const isBackground = isExtensionContext && typeof window === 'undefined'; // Service Worker 環境通常沒有 window (或 self !== window)
+const isBackground = isExtensionContext && globalThis.window === undefined; // Service Worker 環境通常沒有 window (或 self !== window)
 
 /**
  * 格式化日誌消息
+ *
  * @param {number} level - 日誌級別
  * @param {Array} args - 參數列表
  * @returns {Array} 格式化後的參數列表
@@ -61,6 +62,7 @@ function formatMessage(level, args) {
 
 /**
  * 發送日誌到 Background (僅在 Content Script 環境下)
+ *
  * @param {string} level - 日誌級別字符串
  * @param {string} message - 主消息
  * @param {Array} args - 額外參數
@@ -81,7 +83,7 @@ function sendToBackground(level, message, args) {
           return JSON.parse(JSON.stringify(arg));
         }
         return arg;
-      } catch (_err) {
+      } catch {
         return '[Unserializable Object]';
       }
     });
@@ -100,13 +102,14 @@ function sendToBackground(level, message, args) {
         }
       }
     );
-  } catch (_err) {
+  } catch {
     // 忽略發送錯誤
   }
 }
 
 /**
  * 寫入 LogBuffer (僅 Background 有效)
+ *
  * @param {string} level
  * @param {string} message
  * @param {Array} args
@@ -141,8 +144,8 @@ function writeToBuffer(level, message, args) {
         message: safeEntry.message,
         context: safeEntry.context,
       });
-    } catch (err) {
-      console.error('[Logger] Failed to write to buffer', err);
+    } catch (error) {
+      console.error('[Logger] Failed to write to buffer', error);
     }
   }
 }
@@ -167,9 +170,9 @@ function initDebugState() {
         _debugEnabled = true;
       }
     }
-  } catch (err) {
+  } catch (error) {
     // skipcq: JS-0002
-    console.warn('[Logger] Failed to check manifest:', err);
+    console.warn('[Logger] Failed to check manifest:', error);
   }
 
   // 2. 檢查 Storage (覆蓋值) 並設置監聽
@@ -276,7 +279,13 @@ export default class Logger {
 
   /**
    * 直接寫入日誌到緩衝區 (供 devLogSink 使用，保留原始來源和時間戳)
-   * @param {Object} logEntry
+   *
+   * @param {object} logEntry
+   * @param logEntry.level
+   * @param logEntry.message
+   * @param logEntry.context
+   * @param logEntry.source
+   * @param logEntry.timestamp
    */
   static addLogToBuffer({ level, message, context, source, timestamp }) {
     if (_logBuffer) {
@@ -291,8 +300,8 @@ export default class Logger {
           context: safeEntry.context,
           timestamp: timestamp || new Date().toISOString(),
         });
-      } catch (err) {
-        console.error('[Logger] Failed to add external log to buffer', { error: err });
+      } catch (error) {
+        console.error('[Logger] Failed to add external log to buffer', { error });
       }
     }
   }
@@ -302,9 +311,9 @@ export default class Logger {
 initDebugState();
 
 // Global Assignment (Module & Classic Script compatible fallback)
-if (typeof self !== 'undefined') {
-  self.Logger = Logger;
+if (globalThis.self !== undefined) {
+  globalThis.Logger = Logger;
 }
-if (typeof window !== 'undefined') {
-  window.Logger = Logger;
+if (globalThis.window !== undefined) {
+  globalThis.Logger = Logger;
 }

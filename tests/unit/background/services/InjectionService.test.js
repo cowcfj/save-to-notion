@@ -5,7 +5,7 @@ import {
 } from '../../../../scripts/background/services/InjectionService.js';
 
 // Mock chrome API
-global.chrome = {
+globalThis.chrome = {
   scripting: {
     executeScript: jest.fn(),
   },

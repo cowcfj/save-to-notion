@@ -16,12 +16,12 @@ describe('ColorPicker', () => {
   beforeEach(() => {
     // 建立測試容器
     container = document.createElement('div');
-    document.body.appendChild(container);
+    document.body.append(container);
   });
 
   afterEach(() => {
     // 清理
-    document.body.removeChild(container);
+    container.remove();
   });
 
   describe('參數驗證', () => {
@@ -58,7 +58,7 @@ describe('ColorPicker', () => {
       renderColorPicker(container, mockColors, 'yellow', onColorChange);
 
       const buttons = container.querySelectorAll('.nh-color-btn');
-      expect(buttons.length).toBe(4); // 4 種顏色
+      expect(buttons).toHaveLength(4); // 4 種顏色
     });
 
     test('應該為當前顏色添加選中樣式', () => {

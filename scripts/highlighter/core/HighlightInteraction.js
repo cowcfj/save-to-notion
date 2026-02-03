@@ -11,7 +11,7 @@
  */
 export class HighlightInteraction {
   /**
-   * @param {Object} manager - HighlightManager 實例（需要具備 highlights Map 和 removeHighlight 方法）
+   * @param {object} manager - HighlightManager 實例（需要具備 highlights Map 和 removeHighlight 方法）
    */
   constructor(manager) {
     this.manager = manager;
@@ -42,6 +42,7 @@ export class HighlightInteraction {
 
   /**
    * 檢測點擊位置是否在標註內
+   *
    * @param {number} x - X 座標
    * @param {number} y - Y 座標
    * @returns {string|null} 標註 ID 或 null
@@ -81,6 +82,7 @@ export class HighlightInteraction {
 
   /**
    * 檢測兩個 Range 是否重疊
+   *
    * @param {Range} range1 - 第一個 Range
    * @param {Range} range2 - 第二個 Range
    * @returns {boolean} 是否重疊

@@ -46,7 +46,7 @@ describe('core/HighlightStorage', () => {
     storage = new HighlightStorage(mockManager, mockToolbar);
 
     // Mock window objects
-    window.normalizeUrl = jest.fn(url => url);
+    globalThis.normalizeUrl = jest.fn(url => url);
 
     // Reset mocks
     StorageUtil.saveHighlights.mockResolvedValue();
@@ -76,7 +76,7 @@ describe('core/HighlightStorage', () => {
         id: 'h1',
         color: 'yellow',
         text: 'Test',
-        timestamp: 12345,
+        timestamp: 12_345,
         rangeInfo: { startPath: 'mock' },
       });
 
@@ -154,14 +154,14 @@ describe('core/HighlightStorage', () => {
         id: 'h1',
         text: 'Test text',
         color: 'yellow',
-        timestamp: 12345,
+        timestamp: 12_345,
         range: {},
       });
       mockManager.highlights.set('h2', {
         id: 'h2',
         text: 'Another',
         color: 'green',
-        timestamp: 12346,
+        timestamp: 12_346,
         range: {},
       });
 
@@ -171,12 +171,12 @@ describe('core/HighlightStorage', () => {
       expect(collected[0]).toEqual({
         text: 'Test text',
         color: 'yellow',
-        timestamp: 12345,
+        timestamp: 12_345,
       });
       expect(collected[1]).toEqual({
         text: 'Another',
         color: 'green',
-        timestamp: 12346,
+        timestamp: 12_346,
       });
     });
 

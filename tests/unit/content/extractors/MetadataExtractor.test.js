@@ -40,7 +40,7 @@ describe('MetadataExtractor', () => {
       const meta = document.createElement('meta');
       meta.name = 'author';
       meta.content = 'Jane Doe';
-      document.head.appendChild(meta);
+      document.head.append(meta);
 
       const result = MetadataExtractor.extractAuthor(document, {});
       expect(result).toBe('Jane Doe');
@@ -50,7 +50,7 @@ describe('MetadataExtractor', () => {
       const meta = document.createElement('meta');
       meta.setAttribute('property', 'article:author');
       meta.content = 'Author Name';
-      document.head.appendChild(meta);
+      document.head.append(meta);
 
       const result = MetadataExtractor.extractAuthor(document, {});
       expect(result).toBe('Author Name');
@@ -67,7 +67,7 @@ describe('MetadataExtractor', () => {
       const meta = document.createElement('meta');
       meta.name = 'description';
       meta.content = 'Meta description';
-      document.head.appendChild(meta);
+      document.head.append(meta);
 
       const result = MetadataExtractor.extractDescription(document, {});
       expect(result).toBe('Meta description');
@@ -79,7 +79,7 @@ describe('MetadataExtractor', () => {
       const link = document.createElement('link');
       link.rel = 'icon';
       link.href = 'https://example.com/favicon.ico';
-      document.head.appendChild(link);
+      document.head.append(link);
 
       const result = MetadataExtractor.extractFavicon(document);
       expect(result).toBe('https://example.com/favicon.ico');
@@ -161,7 +161,7 @@ describe('MetadataExtractor', () => {
     test('should extract from src attribute', () => {
       const img = document.createElement('img');
       img.src = 'https://example.com/image.png';
-      document.body.appendChild(img);
+      document.body.append(img);
 
       const result = MetadataExtractor.extractImageSrc(img);
       expect(result).toBe('https://example.com/image.png');
@@ -169,8 +169,8 @@ describe('MetadataExtractor', () => {
 
     test('should extract from data-src (lazy loading)', () => {
       const img = document.createElement('img');
-      img.setAttribute('data-src', 'https://example.com/lazy.png');
-      document.body.appendChild(img);
+      img.dataset.src = 'https://example.com/lazy.png';
+      document.body.append(img);
 
       const result = MetadataExtractor.extractImageSrc(img);
       expect(result).toBe('https://example.com/lazy.png');
@@ -179,7 +179,7 @@ describe('MetadataExtractor', () => {
     test('should skip data: URLs', () => {
       const img = document.createElement('img');
       img.src = 'data:image/png;base64,abc123';
-      document.body.appendChild(img);
+      document.body.append(img);
 
       const result = MetadataExtractor.extractImageSrc(img);
       expect(result).toBeNull();
@@ -197,8 +197,8 @@ describe('MetadataExtractor', () => {
       const div = document.createElement('div');
       div.className = 'profile-container';
       const img = document.createElement('img');
-      div.appendChild(img);
-      document.body.appendChild(div);
+      div.append(img);
+      document.body.append(div);
 
       expect(MetadataExtractor.isAvatarImage(img)).toBe(true);
     });
@@ -220,7 +220,7 @@ describe('MetadataExtractor', () => {
       link.rel = 'apple-touch-icon';
       link.href = 'https://example.com/apple-touch-icon.png';
       link.setAttribute('sizes', '180x180');
-      document.head.appendChild(link);
+      document.head.append(link);
 
       const result = MetadataExtractor.extractSiteIcon(document);
       expect(result).toBe('https://example.com/apple-touch-icon.png');

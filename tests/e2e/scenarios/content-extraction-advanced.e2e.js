@@ -18,7 +18,7 @@ module.exports = {
     console.log('  1️⃣ 測試 Readability 提取...');
     await page.goto(config.testPages.mdn, {
       waitUntil: 'domcontentloaded',
-      timeout: 60000,
+      timeout: 60_000,
     });
 
     const readabilityResult = await page.evaluate(() => {
@@ -44,7 +44,7 @@ module.exports = {
           .filter(text => text.length > 20);
 
         const headings = Array.from(article.querySelectorAll('h1, h2, h3, h4')).map(heading => ({
-          level: parseInt(heading.tagName[1]),
+          level: Number.parseInt(heading.tagName[1]),
           text: heading.textContent.trim(),
         }));
 
@@ -69,7 +69,7 @@ module.exports = {
       throw new Error(`Readability 提取失敗: ${readabilityResult.error}`);
     }
 
-    console.log(`     ✅ 標題: ${readabilityResult.title.substring(0, 50)}...`);
+    console.log(`     ✅ 標題: ${readabilityResult.title.slice(0, 50)}...`);
     console.log(`     ✅ 段落: ${readabilityResult.paragraphCount} 個`);
     console.log(`     ✅ 標題: ${readabilityResult.headingCount} 個`);
     console.log(`     ✅ 字數: ${readabilityResult.wordCount}`);
@@ -108,7 +108,7 @@ module.exports = {
           if (document.querySelector('[content*="Drupal"]')) {
             return 'drupal';
           }
-          if (window.location.hostname.includes('medium.com')) {
+          if (globalThis.location.hostname.includes('medium.com')) {
             return 'medium';
           }
           return 'generic';
@@ -210,11 +210,11 @@ module.exports = {
 
             // 大小分數 (面積)
             const area = (img.naturalWidth || img.width) * (img.naturalHeight || img.height);
-            if (area > 100000) {
+            if (area > 100_000) {
               score += 30;
-            } else if (area > 50000) {
+            } else if (area > 50_000) {
               score += 20;
-            } else if (area > 10000) {
+            } else if (area > 10_000) {
               score += 10;
             }
 

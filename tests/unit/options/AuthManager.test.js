@@ -32,7 +32,7 @@ describe('AuthManager', () => {
     authManager.init({ loadDatabases: mockLoadDatabases });
 
     // Mock chrome storage
-    global.chrome = {
+    globalThis.chrome = {
       storage: {
         sync: {
           get: jest.fn(),
@@ -46,7 +46,7 @@ describe('AuthManager', () => {
     };
 
     // Mock Logger
-    window.Logger = {
+    globalThis.Logger = {
       info: jest.fn(),
       error: jest.fn(),
     };
@@ -69,9 +69,9 @@ describe('AuthManager', () => {
 
     authManager.checkAuthStatus();
 
-    expect(document.getElementById('api-key').value).toBe('secret_123');
-    expect(document.getElementById('database-id').value).toBe('db_456');
-    expect(document.getElementById('auth-status').textContent).toContain('已連接');
+    expect(document.querySelector('#api-key').value).toBe('secret_123');
+    expect(document.querySelector('#database-id').value).toBe('db_456');
+    expect(document.querySelector('#auth-status').textContent).toContain('已連接');
     // Ensure mockLoadDatabases is called (might need setTimeout if inside checkAuthStatus it's async or complex)
     // Based on implementation, it calls loadDatabases immediately in handleConnectedState
     expect(mockLoadDatabases).toHaveBeenCalledWith('secret_123');
@@ -120,7 +120,7 @@ describe('AuthManager Extended', () => {
     mockUiManager.showStatus = jest.fn();
     mockLoadDatabases = jest.fn();
 
-    global.chrome = {
+    globalThis.chrome = {
       storage: {
         sync: {
           get: jest.fn(),
@@ -136,9 +136,9 @@ describe('AuthManager Extended', () => {
       },
     };
 
-    global.fetch = jest.fn();
+    globalThis.fetch = jest.fn();
 
-    window.Logger = {
+    globalThis.Logger = {
       info: jest.fn(),
       error: jest.fn(),
       warn: jest.fn(),
@@ -170,7 +170,7 @@ describe('AuthManager Extended', () => {
 
       authManager.handleConnectedState(result);
 
-      expect(document.getElementById('auth-status').textContent).toContain('已連接');
+      expect(document.querySelector('#auth-status').textContent).toContain('已連接');
     });
 
     test('應調用 loadDatabases', () => {
@@ -189,7 +189,7 @@ describe('AuthManager Extended', () => {
     test('未連接狀態應顯示連接按鈕', () => {
       authManager.handleDisconnectedState();
 
-      expect(document.getElementById('auth-status').textContent).toContain('未連接');
+      expect(document.querySelector('#auth-status').textContent).toContain('未連接');
     });
   });
 
@@ -207,7 +207,7 @@ describe('AuthManager Extended', () => {
 
   describe('testApiKey', () => {
     test('API Key 為空時應顯示錯誤', async () => {
-      document.getElementById('api-key').value = '';
+      document.querySelector('#api-key').value = '';
 
       await authManager.testApiKey();
 
@@ -218,7 +218,7 @@ describe('AuthManager Extended', () => {
     });
 
     test('有效 API Key 應調用 loadDatabases', async () => {
-      document.getElementById('api-key').value = 'secret_valid_key_1234567890';
+      document.querySelector('#api-key').value = 'secret_valid_key_1234567890';
 
       mockLoadDatabases.mockResolvedValueOnce([]);
 
@@ -228,9 +228,9 @@ describe('AuthManager Extended', () => {
     });
 
     test('API 請求失敗應顯示錯誤', async () => {
-      document.getElementById('api-key').value = 'secret_invalid';
+      document.querySelector('#api-key').value = 'secret_invalid';
 
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
       });
@@ -241,9 +241,9 @@ describe('AuthManager Extended', () => {
     });
 
     test('網絡錯誤應顯示錯誤訊息', async () => {
-      document.getElementById('api-key').value = 'secret_test';
+      document.querySelector('#api-key').value = 'secret_test';
 
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+      globalThis.fetch.mockRejectedValueOnce(new Error('Network error'));
 
       await authManager.testApiKey();
 
@@ -251,13 +251,13 @@ describe('AuthManager Extended', () => {
     });
 
     test('當 loadDatabases 不返回 Promise 時應處理按鈕狀態', () => {
-      document.getElementById('api-key').value = 'secret_test_long_enough_12345';
+      document.querySelector('#api-key').value = 'secret_test_long_enough_12345';
       // Mock return non-promise
       mockLoadDatabases.mockReturnValueOnce();
 
       authManager.testApiKey();
 
-      const btn = document.getElementById('test-api-button');
+      const btn = document.querySelector('#test-api-button');
       expect(btn.disabled).toBe(false);
       expect(btn.textContent).toBe('測試 API Key');
     });
@@ -271,13 +271,13 @@ describe('AuthManager Extended', () => {
 
       authManager.checkAuthStatus();
 
-      expect(document.getElementById('auth-status').textContent).toContain('未連接');
+      expect(document.querySelector('#auth-status').textContent).toContain('未連接');
     });
   });
 
   describe('disconnectFromNotion extended', () => {
     test('斷開連接應清除 API Key 輸入', async () => {
-      document.getElementById('api-key').value = 'secret_test';
+      document.querySelector('#api-key').value = 'secret_test';
 
       chrome.storage.sync.remove.mockImplementation((keys, sendResponse) => {
         if (sendResponse) {
@@ -290,7 +290,7 @@ describe('AuthManager Extended', () => {
 
       await authManager.disconnectFromNotion();
 
-      expect(document.getElementById('api-key').value).toBe('');
+      expect(document.querySelector('#api-key').value).toBe('');
     });
 
     test('斷開連接失敗應處理錯誤', async () => {

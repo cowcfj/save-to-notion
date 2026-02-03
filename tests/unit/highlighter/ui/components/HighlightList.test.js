@@ -18,11 +18,11 @@ describe('HighlightList', () => {
 
   beforeEach(() => {
     container = document.createElement('div');
-    document.body.appendChild(container);
+    document.body.append(container);
   });
 
   afterEach(() => {
-    document.body.removeChild(container);
+    container.remove();
   });
 
   describe('參數驗證', () => {
@@ -62,7 +62,7 @@ describe('HighlightList', () => {
       renderHighlightList(container, mockHighlights, jest.fn());
 
       const items = container.querySelectorAll('.nh-btn-delete');
-      expect(items.length).toBe(3);
+      expect(items).toHaveLength(3);
     });
 
     test('應該正確顯示標註序號和顏色', () => {

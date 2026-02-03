@@ -17,7 +17,7 @@ describe('UIManager', () => {
             <button id="test-api-button"></button>
         `;
 
-    mockStatus = document.getElementById('status');
+    mockStatus = document.querySelector('#status');
     mockManualSection = document.querySelector('.manual-section');
 
     uiManager = new UIManager();

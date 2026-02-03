@@ -111,7 +111,7 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Save timeout'));
-      }, 30000);
+      }, 30_000);
 
       chrome.runtime.sendMessage({ action: 'savePage' }, response => {
         clearTimeout(timeout);

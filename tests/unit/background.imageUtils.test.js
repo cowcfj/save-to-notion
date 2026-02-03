@@ -5,16 +5,17 @@
 import '../mocks/chrome.js';
 
 // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
-delete global.ImageUtils;
-if (global.window) {
-  delete global.window.ImageUtils;
+delete globalThis.ImageUtils;
+if (globalThis.window) {
+  delete globalThis.window.ImageUtils;
 }
 
 // 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
 require('../../scripts/utils/imageUtils.js');
 
 // 從 global.ImageUtils 獲取函數
-const { cleanImageUrl, isValidImageUrl } = global.ImageUtils || global.window?.ImageUtils || {};
+const { cleanImageUrl, isValidImageUrl } =
+  globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
 
 // 無需 afterAll 清理，因為不再依賴 background.js 的 cleanupInterval
 
