@@ -229,41 +229,11 @@ export function injectIcons() {
         return;
       }
 
-      const required = [
-        // Tabs
-        'icon-general',
-        'icon-templates',
-        'icon-data',
-        'icon-bug',
-        'icon-book',
-        // Common actions
-        'icon-refresh',
-        'icon-download',
-        'icon-upload',
-        'icon-search',
-        'icon-trash',
-        // Status / indicators
-        'icon-warning',
-        'icon-x-circle',
-        'icon-success',
-        'icon-error',
-        'icon-info',
-        // Backup & data
-        'icon-server',
-        'icon-target',
-        'icon-tree',
-        // Guide & features
-        'icon-hexagon',
-        'icon-component',
-        'icon-palette',
-        'icon-keyboard',
-        'icon-sync',
-        // Auth
-        'icon-link',
-        'icon-unlink',
-        // Lists
-        'icon-list',
-      ];
+      // 動態生成 ID 列表，確保所有定義的圖標都已正確注入
+      // 這比維護一份靜態列表更好，因為它是 Single Source of Truth
+      const required = Object.keys(UI_ICONS).map(
+        key => `icon-${key.toLowerCase().replace(/_/g, '-')}`
+      );
       required.forEach(id => {
         if (!defsEl.querySelector(`#${id}`)) {
           Logger.warn('Missing SVG symbol', {
