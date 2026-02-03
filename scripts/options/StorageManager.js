@@ -30,6 +30,10 @@ export class StorageManager {
 
   /**
    * 輔助方法：分析單個頁面是否需要清理
+   *
+   * @param {object} page 頁面物件
+   * @param {object} data 存儲數據
+   * @param {object} plan 清理計劃
    * @private
    */
   async _analyzePageForCleanup(page, data, plan) {
@@ -84,29 +88,29 @@ export class StorageManager {
   initializeElements() {
     this.elements = {
       // 備份/恢復按鈕
-      exportButton: document.getElementById('export-data-button'),
-      importButton: document.getElementById('import-data-button'),
-      importFile: document.getElementById('import-data-file'),
-      checkButton: document.getElementById('check-data-button'),
-      dataStatus: document.getElementById('data-status'),
+      exportButton: document.querySelector('#export-data-button'),
+      importButton: document.querySelector('#import-data-button'),
+      importFile: document.querySelector('#import-data-file'),
+      checkButton: document.querySelector('#check-data-button'),
+      dataStatus: document.querySelector('#data-status'),
 
       // 使用量統計
-      refreshUsageButton: document.getElementById('refresh-usage-button'),
-      usageFill: document.getElementById('usage-fill'),
-      usagePercentage: document.getElementById('usage-percentage'),
-      usageDetails: document.getElementById('usage-details'),
-      pagesCount: document.getElementById('pages-count'),
-      highlightsCount: document.getElementById('highlights-count'),
-      configCount: document.getElementById('config-count'),
+      refreshUsageButton: document.querySelector('#refresh-usage-button'),
+      usageFill: document.querySelector('#usage-fill'),
+      usagePercentage: document.querySelector('#usage-percentage'),
+      usageDetails: document.querySelector('#usage-details'),
+      pagesCount: document.querySelector('#pages-count'),
+      highlightsCount: document.querySelector('#highlights-count'),
+      configCount: document.querySelector('#config-count'),
 
       // 清理與優化
-      previewCleanupButton: document.getElementById('preview-cleanup-button'),
-      executeCleanupButton: document.getElementById('execute-cleanup-button'),
-      analyzeOptimizationButton: document.getElementById('analyze-optimization-button'),
-      executeOptimizationButton: document.getElementById('execute-optimization-button'),
-      cleanupPreview: document.getElementById('cleanup-preview'),
-      optimizationPreview: document.getElementById('optimization-preview'),
-      cleanupDeletedPages: document.getElementById('cleanup-deleted-pages'),
+      previewCleanupButton: document.querySelector('#preview-cleanup-button'),
+      executeCleanupButton: document.querySelector('#execute-cleanup-button'),
+      analyzeOptimizationButton: document.querySelector('#analyze-optimization-button'),
+      executeOptimizationButton: document.querySelector('#execute-optimization-button'),
+      cleanupPreview: document.querySelector('#cleanup-preview'),
+      optimizationPreview: document.querySelector('#optimization-preview'),
+      cleanupDeletedPages: document.querySelector('#cleanup-deleted-pages'),
     };
   }
 
@@ -159,7 +163,7 @@ export class StorageManager {
       const link = document.createElement('a');
       link.href = url;
       link.download = `notion-clipper-backup-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
+      document.body.append(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
@@ -188,7 +192,8 @@ export class StorageManager {
       const backup = JSON.parse(text);
 
       // 防呆檢查：確保是有效的備份格式（基本結構檢查）
-      if (!backup?.data) {
+      // 要求 backup.data 必須存在，必須是物件，且不能是陣列
+      if (!backup?.data || typeof backup.data !== 'object' || Array.isArray(backup.data)) {
         throw new Error(UI_MESSAGES.STORAGE.INVALID_BACKUP_FORMAT);
       }
 
@@ -286,107 +291,103 @@ export class StorageManager {
     return report;
   }
 
+  /**
+   * 確保按鈕具有正確的 DOM 結構（圖標與文字容器）
+   *
+   * @param {HTMLElement} btn
+   * @returns {{iconWrap: HTMLElement, textSpan: HTMLElement}}
+   * @private
+   */
+  _ensureUsageButtonStructure(btn) {
+    let iconWrap = btn.querySelector('span.icon');
+    if (!iconWrap) {
+      iconWrap = document.createElement('span');
+      iconWrap.className = 'icon';
+      btn.insertBefore(iconWrap, btn.firstChild);
+    }
+    let textSpan = btn.querySelector('span.button-text');
+    if (!textSpan) {
+      textSpan = document.createElement('span');
+      textSpan.className = 'button-text';
+      btn.append(textSpan);
+    }
+    return { iconWrap, textSpan };
+  }
+
   async updateStorageUsage() {
     const button = this.elements.refreshUsageButton;
-
-    // SVG Icons
-    const ICONS = {
-      refresh: UI_ICONS.REFRESH,
-      check: UI_ICONS.SUCCESS,
-      error: UI_ICONS.ERROR,
-    };
-
-    // Helper: 確保按鈕 DOM 結構一致
-    const ensureButtonStructure = btn => {
-      let iconWrap = btn.querySelector('span.icon');
-      if (!iconWrap) {
-        iconWrap = document.createElement('span');
-        iconWrap.className = 'icon';
-        btn.insertBefore(iconWrap, btn.firstChild);
-      }
-      let textSpan = btn.querySelector('span.button-text');
-      if (!textSpan) {
-        textSpan = document.createElement('span');
-        textSpan.className = 'button-text';
-        btn.appendChild(textSpan);
-      }
-      return { iconWrap, textSpan };
-    };
-
-    // Helper 以標準結構更新按鈕狀態
-    const setButtonState = (state, text, disabled = false) => {
-      if (!button) {
-        return;
-      }
-
-      let iconHtml = ICONS.refresh; // default
-      if (state === 'success') {
-        iconHtml = ICONS.check;
-      }
-      if (state === 'error') {
-        iconHtml = ICONS.error;
-      }
-
-      const { iconWrap, textSpan } = ensureButtonStructure(button);
-
-      // 更新圖標（安全方式）
-      iconWrap.innerHTML = '';
-      const safe = createSafeIcon(iconHtml);
-      // createSafeIcon 產出 span.icon > svg.icon-svg；此處僅取其中的 svg 放入 wrapper
-      const svg = safe.querySelector('svg');
-
-      if (svg) {
-        // 確保基本類名存在（createSafeIcon 通常已處理，但雙重確認無害）
-        if (!svg.classList.contains('icon-svg')) {
-          svg.classList.add('icon-svg');
-        }
-
-        // 根據狀態添加旋轉效果
-        if (state === 'loading') {
-          svg.classList.add('spin');
-        }
-
-        iconWrap.appendChild(svg);
-      } else {
-        // Fallback: 如果無法提取 SVG，則使用完整的 safe 元素
-        iconWrap.appendChild(safe);
-      }
-
-      // 更新文字
-      textSpan.textContent = text;
-
-      button.disabled = disabled;
-    };
+    if (!button) {
+      return;
+    }
 
     // 添加加載狀態
-    if (button) {
-      setButtonState('loading', '更新中...', true);
-    }
+    this._updateUsageButtonState(button, 'loading', '更新中...', true);
 
     try {
       const usage = await StorageManager.getStorageUsage();
       this.updateUsageDisplay(usage);
 
       // 顯示成功提示
-      if (button) {
-        setButtonState('success', '已更新');
-        setTimeout(() => {
-          setButtonState('default', '刷新統計');
-          button.disabled = false;
-        }, 1500);
-      }
+      this._updateUsageButtonState(button, 'success', '已更新');
+      setTimeout(() => {
+        this._updateUsageButtonState(button, 'default', '刷新統計', false);
+      }, 1500);
     } catch (error) {
       Logger.error('Failed to get storage usage', { action: 'get_usage', error });
 
       // 顯示錯誤狀態
-      if (button) {
-        setButtonState('error', '更新失敗');
-        setTimeout(() => {
-          setButtonState('default', '刷新統計');
-          button.disabled = false;
-        }, 2000);
-      }
+      this._updateUsageButtonState(button, 'error', '更新失敗');
+      setTimeout(() => {
+        this._updateUsageButtonState(button, 'default', '刷新統計', false);
+      }, 2000);
     }
+  }
+
+  /**
+   * 輔助方法：統一更新使用量按鈕的狀態
+   *
+   * @param {HTMLElement} button
+   * @param {string} state 狀態 (loading, success, error, default)
+   * @param {string} text 顯示文字
+   * @param {boolean} disabled 是否禁用
+   * @private
+   */
+  _updateUsageButtonState(button, state, text, disabled = false) {
+    if (!button) {
+      return;
+    }
+
+    const { iconWrap, textSpan } = this._ensureUsageButtonStructure(button);
+
+    // SVG Icons
+    const stateIcons = {
+      success: UI_ICONS.SUCCESS,
+      error: UI_ICONS.ERROR,
+      loading: UI_ICONS.REFRESH,
+      default: UI_ICONS.REFRESH,
+    };
+    const iconHtml = stateIcons[state] || stateIcons.default;
+
+    // 更新圖標（安全方式）
+    iconWrap.innerHTML = '';
+    const safe = createSafeIcon(iconHtml);
+    const svg = safe.querySelector('svg');
+
+    if (svg) {
+      if (!svg.classList.contains('icon-svg')) {
+        svg.classList.add('icon-svg');
+      }
+      if (state === 'loading') {
+        svg.classList.add('spin');
+      }
+      iconWrap.append(svg);
+    } else {
+      iconWrap.append(safe);
+    }
+
+    // 更新文字
+    textSpan.textContent = text;
+    button.disabled = disabled;
   }
 
   static async getStorageUsage() {
@@ -571,7 +572,7 @@ export class StorageManager {
         await this._analyzePageForCleanup(page, data, plan);
 
         if (i < savedPages.length - 1) {
-          await new Promise(sleep => setTimeout(sleep, 350));
+          await new Promise(resolve => setTimeout(resolve, 350));
         }
       }
     }
@@ -605,16 +606,16 @@ export class StorageManager {
 
       const strong = document.createElement('strong');
       const icon = UI_ICONS.SUCCESS;
-      strong.appendChild(createSafeIcon(icon));
-      strong.appendChild(document.createTextNode(' 沒有發現需要清理的數據'));
-      container.appendChild(strong);
+      strong.append(createSafeIcon(icon));
+      strong.append(document.createTextNode(' 沒有發現需要清理的數據'));
+      container.append(strong);
 
       const paragraph = document.createElement('p');
       paragraph.textContent = '所有頁面記錄都是有效的，無需清理。';
-      container.appendChild(paragraph);
+      container.append(paragraph);
 
       this.elements.cleanupPreview.textContent = '';
-      this.elements.cleanupPreview.appendChild(container);
+      this.elements.cleanupPreview.append(container);
       return;
     }
 
@@ -645,33 +646,33 @@ export class StorageManager {
     const paragraph = document.createElement('p');
     // 處理換行
     summaryLines.forEach((line, index) => {
-      paragraph.appendChild(document.createTextNode(line));
+      paragraph.append(document.createTextNode(line));
       if (index < summaryLines.length - 1) {
-        paragraph.appendChild(document.createElement('br'));
+        paragraph.append(document.createElement('br'));
       }
     });
-    summaryDiv.appendChild(paragraph);
+    summaryDiv.append(paragraph);
 
     const warningDiv = document.createElement('div');
     warningDiv.className = 'warning-notice';
     // icon 是受信任的 SVG 字串
-    warningDiv.appendChild(createSafeIcon(icon));
+    warningDiv.append(createSafeIcon(icon));
 
     // " 重要提醒："
-    warningDiv.appendChild(document.createTextNode(' '));
+    warningDiv.append(document.createTextNode(' '));
     const labelStrong = document.createElement('strong');
     labelStrong.textContent = '重要提醒：';
-    warningDiv.appendChild(labelStrong);
-    warningDiv.appendChild(document.createTextNode('這只會清理擴展中的無效記錄，'));
+    warningDiv.append(labelStrong);
+    warningDiv.append(document.createTextNode('這只會清理擴展中的無效記錄，'));
 
     // "絕對不會影響您在 Notion 中保存的任何頁面"
     const panicStrong = document.createElement('strong');
     panicStrong.textContent = '絕對不會影響您在 Notion 中保存的任何頁面';
-    warningDiv.appendChild(panicStrong);
-    warningDiv.appendChild(document.createTextNode('。'));
+    warningDiv.append(panicStrong);
+    warningDiv.append(document.createTextNode('。'));
 
-    summaryDiv.appendChild(warningDiv);
-    this.elements.cleanupPreview.appendChild(summaryDiv);
+    summaryDiv.append(warningDiv);
+    this.elements.cleanupPreview.append(summaryDiv);
 
     // 2. 構建 List 區塊
     const listDiv = document.createElement('div');
@@ -697,16 +698,16 @@ export class StorageManager {
         });
         urlStrong.textContent = item.url;
       }
-      itemDiv.appendChild(urlStrong);
+      itemDiv.append(urlStrong);
 
-      itemDiv.appendChild(document.createTextNode(` - ${item.reason}`));
-      itemDiv.appendChild(document.createElement('br'));
+      itemDiv.append(document.createTextNode(` - ${item.reason}`));
+      itemDiv.append(document.createElement('br'));
 
       const sizeSmall = document.createElement('small');
       sizeSmall.textContent = `${(item.size / 1024).toFixed(1)} KB`;
-      itemDiv.appendChild(sizeSmall);
+      itemDiv.append(sizeSmall);
 
-      fragment.appendChild(itemDiv);
+      fragment.append(itemDiv);
     });
 
     if (plan.items.length > 10) {
@@ -714,12 +715,12 @@ export class StorageManager {
       moreDiv.className = 'cleanup-item';
       const em = document.createElement('em');
       em.textContent = `... 還有 ${plan.items.length - 10} 個項目`;
-      moreDiv.appendChild(em);
-      fragment.appendChild(moreDiv);
+      moreDiv.append(em);
+      fragment.append(moreDiv);
     }
 
-    listDiv.appendChild(fragment);
-    this.elements.cleanupPreview.appendChild(listDiv);
+    listDiv.append(fragment);
+    this.elements.cleanupPreview.append(listDiv);
   }
 
   async executeSafeCleanup() {
@@ -812,48 +813,32 @@ export class StorageManager {
 
   /**
    * 輔助方法：分析存儲數據結構並填充優化計劃
+   *
+   * @param {object} data 存儲數據
+   * @param {object} plan 優化計劃
    * @private
    */
   static _analyzeStructureForOptimization(data, plan) {
-    let migrationDataSize = 0;
-    let migrationKeysCount = 0;
-    let emptyHighlightKeys = 0;
-    let emptyHighlightSize = 0;
+    const stats = {
+      migrationDataSize: 0,
+      migrationKeysCount: 0,
+      emptyHighlightKeys: 0,
+      emptyHighlightSize: 0,
+    };
 
     for (const [key, value] of Object.entries(data)) {
-      if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
-        migrationKeysCount++;
-        const size = new Blob([JSON.stringify({ [key]: value })]).size;
-        migrationDataSize += size;
-        plan.keysToRemove.push(key);
-        continue;
-      }
-
-      if (key.startsWith('highlights_')) {
-        const highlightsArray = Array.isArray(value) ? value : value?.highlights;
-        if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
-          plan.highlightPages++;
-          plan.totalHighlights += highlightsArray.length;
-          plan.optimizedData[key] = value;
-        } else {
-          emptyHighlightKeys++;
-          emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
-          plan.keysToRemove.push(key);
-        }
-      } else {
-        plan.optimizedData[key] = value;
-      }
+      StorageManager._processOptimizationEntry(key, value, plan, stats);
     }
 
-    if (migrationDataSize > 1024) {
-      const sizeKB = (migrationDataSize / 1024).toFixed(1);
-      plan.optimizations.push(`清理遷移數據（${migrationKeysCount} 項，${sizeKB} KB）`);
+    if (stats.migrationDataSize > 1024) {
+      const sizeKB = (stats.migrationDataSize / 1024).toFixed(1);
+      plan.optimizations.push(`清理遷移數據（${stats.migrationKeysCount} 項，${sizeKB} KB）`);
       plan.canOptimize = true;
     }
 
-    if (emptyHighlightKeys > 0) {
-      const sizeKB = (emptyHighlightSize / 1024).toFixed(1);
-      plan.optimizations.push(`移除空標註紀錄（${emptyHighlightKeys} 項，${sizeKB} KB）`);
+    if (stats.emptyHighlightKeys > 0) {
+      const sizeKB = (stats.emptyHighlightSize / 1024).toFixed(1);
+      plan.optimizations.push(`移除空標註紀錄（${stats.emptyHighlightKeys} 項，${sizeKB} KB）`);
       plan.canOptimize = true;
     }
 
@@ -864,6 +849,40 @@ export class StorageManager {
     if (hasFragmentation) {
       plan.optimizations.push('修復數據碎片');
       plan.canOptimize = true;
+    }
+  }
+
+  /**
+   * 輔助方法：處理單個數據項的優化分析
+   *
+   * @param {string} key 鍵名
+   * @param {any} value 值
+   * @param {object} plan 計劃
+   * @param {object} stats 統計
+   * @private
+   */
+  static _processOptimizationEntry(key, value, plan, stats) {
+    if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
+      stats.migrationKeysCount++;
+      const size = new Blob([JSON.stringify({ [key]: value })]).size;
+      stats.migrationDataSize += size;
+      plan.keysToRemove.push(key);
+      return;
+    }
+
+    if (key.startsWith('highlights_')) {
+      const highlightsArray = Array.isArray(value) ? value : value?.highlights;
+      if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
+        plan.highlightPages++;
+        plan.totalHighlights += highlightsArray.length;
+        plan.optimizedData[key] = value;
+      } else {
+        stats.emptyHighlightKeys++;
+        stats.emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
+        plan.keysToRemove.push(key);
+      }
+    } else {
+      plan.optimizedData[key] = value;
     }
   }
 
@@ -884,14 +903,14 @@ export class StorageManager {
 
       // Header
       const strong = document.createElement('strong');
-      strong.appendChild(createSafeIcon(UI_ICONS.SUCCESS));
-      strong.appendChild(document.createTextNode(' 數據已經處於最佳狀態'));
-      container.appendChild(strong);
+      strong.append(createSafeIcon(UI_ICONS.SUCCESS));
+      strong.append(document.createTextNode(' 數據已經處於最佳狀態'));
+      container.append(strong);
 
       // Description
       const paragraph = document.createElement('p');
       paragraph.textContent = '當前數據結構已經很好，暫時不需要重整優化。';
-      container.appendChild(paragraph);
+      container.append(paragraph);
 
       // Stats
       const statsDiv = document.createElement('div');
@@ -905,13 +924,13 @@ export class StorageManager {
 
       items.forEach(item => {
         const div = document.createElement('div');
-        div.appendChild(createSafeIcon(item.icon));
-        div.appendChild(document.createTextNode(item.text));
-        statsDiv.appendChild(div);
+        div.append(createSafeIcon(item.icon));
+        div.append(document.createTextNode(item.text));
+        statsDiv.append(div);
       });
 
-      container.appendChild(statsDiv);
-      this.elements.optimizationPreview.appendChild(container);
+      container.append(statsDiv);
+      this.elements.optimizationPreview.append(container);
       return;
     }
 
@@ -923,26 +942,26 @@ export class StorageManager {
 
     // Header
     const strong = document.createElement('strong');
-    strong.appendChild(createSafeIcon(UI_ICONS.BOLT));
-    strong.appendChild(document.createTextNode(' 數據重整分析結果'));
-    container.appendChild(strong);
+    strong.append(createSafeIcon(UI_ICONS.BOLT));
+    strong.append(document.createTextNode(' 數據重整分析結果'));
+    container.append(strong);
 
     // Description
     const paragraph = document.createElement('p');
-    paragraph.appendChild(document.createTextNode('可以優化您的數據結構，預計節省 '));
+    paragraph.append(document.createTextNode('可以優化您的數據結構，預計節省 '));
 
     const mbStrong = document.createElement('strong');
     mbStrong.textContent = `${spaceSavedMB} MB`;
-    paragraph.appendChild(mbStrong);
+    paragraph.append(mbStrong);
 
-    paragraph.appendChild(document.createTextNode(' 空間（'));
+    paragraph.append(document.createTextNode(' 空間（'));
 
     const pctStrong = document.createElement('strong');
     pctStrong.textContent = `${percentSaved}%`;
-    paragraph.appendChild(pctStrong);
+    paragraph.append(pctStrong);
 
-    paragraph.appendChild(document.createTextNode('）'));
-    container.appendChild(paragraph);
+    paragraph.append(document.createTextNode('）'));
+    container.append(paragraph);
 
     // Details Container
     const detailsDiv = document.createElement('div');
@@ -975,18 +994,18 @@ export class StorageManager {
 
     comparisonItems.forEach(item => {
       const div = document.createElement('div');
-      div.appendChild(createSafeIcon(item.icon));
-      div.appendChild(document.createTextNode(item.label));
+      div.append(createSafeIcon(item.icon));
+      div.append(document.createTextNode(item.label));
 
       const span = document.createElement('span');
       span.className = item.className;
       span.textContent = item.value;
-      div.appendChild(span);
+      div.append(span);
 
-      comparisonDiv.appendChild(div);
+      comparisonDiv.append(div);
     });
 
-    detailsDiv.appendChild(comparisonDiv);
+    detailsDiv.append(comparisonDiv);
 
     // Optimization List
     const listDiv = document.createElement('div');
@@ -994,19 +1013,19 @@ export class StorageManager {
 
     const listStrong = document.createElement('strong');
     listStrong.textContent = '將執行的優化：';
-    listDiv.appendChild(listStrong);
+    listDiv.append(listStrong);
 
     plan.optimizations.forEach(opt => {
       const itemDiv = document.createElement('div');
       itemDiv.className = 'optimization-item';
-      itemDiv.appendChild(createSafeIcon(UI_ICONS.CHECK));
-      itemDiv.appendChild(document.createTextNode(` ${opt}`));
-      listDiv.appendChild(itemDiv);
+      itemDiv.append(createSafeIcon(UI_ICONS.CHECK));
+      itemDiv.append(document.createTextNode(` ${opt}`));
+      listDiv.append(itemDiv);
     });
 
-    detailsDiv.appendChild(listDiv);
-    container.appendChild(detailsDiv);
-    this.elements.optimizationPreview.appendChild(container);
+    detailsDiv.append(listDiv);
+    container.append(detailsDiv);
+    this.elements.optimizationPreview.append(container);
   }
 
   async executeOptimization() {
@@ -1082,7 +1101,7 @@ export class StorageManager {
   /**
    * 顯示資料管理狀態消息（安全版本）
    *
-   * @SECURITY_NOTE 此函數僅應接收內部可信的訊息字串
+   * Security Note: 此函數僅應接收內部可信的訊息字串
    * - SVG/Emoji 圖標內容應由系統內部生成，不應來自外部輸入
    * - 所有外部錯誤訊息必須先經過 sanitizeApiError() 清理
    * - message 參數不應直接包含未經驗證的用戶輸入或 API 響應
@@ -1108,21 +1127,26 @@ export class StorageManager {
     // [優化] 如果訊息本身不帶圖標，根據 type 自動匹配預設圖標
     if (!safeIcon) {
       switch (type) {
-        case 'success':
+        case 'success': {
           safeIcon = UI_ICONS.SUCCESS;
           break;
-        case 'error':
+        }
+        case 'error': {
           safeIcon = UI_ICONS.ERROR;
           break;
-        case 'warning':
+        }
+        case 'warning': {
           safeIcon = UI_ICONS.WARNING;
           break;
-        case 'info':
+        }
+        case 'info': {
           safeIcon = UI_ICONS.INFO;
           break;
-        default:
+        }
+        default: {
           safeIcon = UI_ICONS.INFO;
           break;
+        }
       }
     }
 
@@ -1133,7 +1157,7 @@ export class StorageManager {
     if (safeIcon) {
       const iconSpan = createSafeIcon(safeIcon);
       iconSpan.className = 'status-icon';
-      this.elements.dataStatus.appendChild(iconSpan);
+      this.elements.dataStatus.append(iconSpan);
     }
 
     // 使用 textContent 設置文本（防止 XSS），並支持換行
@@ -1160,19 +1184,19 @@ export class StorageManager {
             const numSpan = document.createElement('span');
             numSpan.className = 'highlight-primary';
             numSpan.textContent = token; // 使用 textContent
-            textSpan.appendChild(numSpan);
+            textSpan.append(numSpan);
           } else {
             // 其他文字，使用 TextNode 自動轉義
-            textSpan.appendChild(document.createTextNode(token));
+            textSpan.append(document.createTextNode(token));
           }
         });
 
         if (index < lines.length - 1) {
-          textSpan.appendChild(document.createElement('br'));
+          textSpan.append(document.createElement('br'));
         }
       });
 
-      this.elements.dataStatus.appendChild(textSpan);
+      this.elements.dataStatus.append(textSpan);
     }
 
     this.elements.dataStatus.className = `data-status ${type}`;
