@@ -183,10 +183,20 @@ export function injectIcons() {
         // ID 規則: GENERAL -> icon-general
         symbol.id = `icon-${key.toLowerCase().replace(/_/g, '-')}`;
 
-        // 遷移 viewBox 與內容
-        if (svgEl.hasAttribute('viewBox')) {
-          symbol.setAttribute('viewBox', svgEl.getAttribute('viewBox'));
-        }
+        // 遷移 viewBox 與外觀屬性
+        const attributes = [
+          'viewBox',
+          'fill',
+          'stroke',
+          'stroke-width',
+          'stroke-linecap',
+          'stroke-linejoin',
+        ];
+        attributes.forEach(attr => {
+          if (svgEl.hasAttribute(attr)) {
+            symbol.setAttribute(attr, svgEl.getAttribute(attr));
+          }
+        });
         symbol.innerHTML = svgEl.innerHTML;
         symbols.push(symbol);
       }
