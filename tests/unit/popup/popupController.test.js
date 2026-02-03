@@ -85,7 +85,7 @@ describe('popup.js Controller', () => {
 
     expect(setStatus).toHaveBeenCalledWith(
       mockElements,
-      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_API_KEY)
+      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED)
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);

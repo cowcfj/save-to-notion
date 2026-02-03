@@ -48,7 +48,7 @@ export async function initPopup() {
   if (!settings.valid) {
     // 根據實際缺失的設定顯示對應的提示訊息
     const msg = !settings.apiKey
-      ? ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_API_KEY
+      ? ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED
       : !settings.dataSourceId
         ? ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE
         : UI_MESSAGES.SETUP.MISSING_CONFIG;
