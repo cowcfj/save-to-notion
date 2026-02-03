@@ -12,6 +12,7 @@ import { renderHighlightList } from './components/HighlightList.js';
 import { injectIcons } from '../../utils/uiUtils.js';
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
+import { sanitizeApiError } from '../../utils/securityUtils.js';
 import LoggerModule from '../../utils/Logger.js';
 const SafeLogger =
   LoggerModule && typeof LoggerModule === 'object'
@@ -456,7 +457,7 @@ export class Toolbar {
           statusDiv.appendChild(successIcon);
           statusDiv.appendChild(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_SUCCESS}`));
         } else {
-          const errorMsg = response?.error || 'Unknown error';
+          const errorMsg = sanitizeApiError(response?.error || 'Unknown error');
           statusDiv.textContent = ''; // Clear
           const errorIcon = document.createElement('span');
           errorIcon.innerHTML = UI_ICONS.ERROR; // Use standardized Error icon

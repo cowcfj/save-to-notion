@@ -159,7 +159,7 @@ export async function initPopup() {
     } else {
       const safe = sanitizeApiError(response?.error || 'Unknown Error', 'popup_start_highlight');
       const msg = ErrorHandler.formatUserMessage(safe);
-      setStatus(elements, `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX || ''}${msg}`.trim());
+      setStatus(elements, `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`);
       Logger.error('Failed to start highlight mode', {
         action: 'startHighlight',
         error: response?.error,

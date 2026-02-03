@@ -160,7 +160,7 @@ export function injectIcons(icons) {
      */
     const attach = () => {
       if (!spriteContainer.parentNode) {
-        // 優先掛在 <body>���否則退回 <html>
+        // 優先掛在 <body>，否則退回 <html>
         const parent = document.body || document.documentElement;
         parent.prepend(spriteContainer);
       }

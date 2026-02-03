@@ -577,7 +577,8 @@ export function isSafeSvgAttribute(name, value) {
   }
 
   // 白名單屬性檢查
-  if (!SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS.includes(attrName)) {
+  const allowedAttrs = SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS.map(attr => attr.toLowerCase());
+  if (!allowedAttrs.includes(attrName)) {
     return false;
   }
 

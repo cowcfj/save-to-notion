@@ -69,6 +69,7 @@ export const UI_MESSAGES = {
     CLEARING: '正在清除標註...',
     CLEAR_FAILED: '清除標註失敗。',
     CLEAR_SUCCESS: count => `已成功清除 ${count} 條標註！`,
+    HIGHLIGHT_FAILED_PREFIX: '啟動標註失敗：',
     PAGE_READY: '頁面已儲存，可以開始標註或再次儲存。',
   },
   TOOLBAR: {

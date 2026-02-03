@@ -383,7 +383,7 @@ function setupLogExport() {
         const userFriendlyMsg = ErrorHandler.formatUserMessage(safeReason);
 
         // 組合最終訊息
-        const errorMessage = `${UI_MESSAGES.LOGS.EXPORT_FAILED_PREFIX} ${userFriendlyMsg}`;
+        const errorMessage = `${UI_MESSAGES.LOGS.EXPORT_FAILED_PREFIX}${userFriendlyMsg}`;
 
         statusEl.textContent = errorMessage;
         statusEl.className = 'status-message error';
