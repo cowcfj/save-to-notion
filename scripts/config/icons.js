@@ -155,4 +155,8 @@ export const UI_ICONS = {
 
   // 同步 (Sync)
   SYNC: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 16A10.01 10.01 0 0 1 12 2a10 10 0 0 1 9.9 9"/><path d="M21.5 8A10.01 10.01 0 0 1 12 22a10 10 0 0 1-9.9-9"/></svg>',
+
+  // 隱私/安全 (Shield)
+  SHIELD:
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
 };
