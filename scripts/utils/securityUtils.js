@@ -565,6 +565,44 @@ export function validateLogExportData(data) {
 }
 
 /**
+ * 允許的 SVG 屬性白名單與安全協議（屬性級過濾）
+ * 注意：定義已移動至 constants.js，此函數負責邏輯檢查
+ */
+export function isSafeSvgAttribute(name, value) {
+  const attrName = String(name || '').toLowerCase();
+
+  // 阻擋 on* 事件屬性
+  if (attrName.startsWith('on')) {
+    return false;
+  }
+
+  // 白名單屬性檢查
+  if (!SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS.includes(attrName)) {
+    return false;
+  }
+
+  // URL 相關屬性需要協議安全檢查
+  if (/(?:^|:)href$|^src$/i.test(attrName)) {
+    const attrValue = String(value || '').trim();
+    // 明確阻擋 javascript: 與 data:text/html
+    if (/^\s*javascript:/i.test(attrValue) || /^\s*data:text\/html/i.test(attrValue)) {
+      return false;
+    }
+    try {
+      const url = new URL(attrValue, 'https://example.com');
+      if (!SECURITY_CONSTANTS.SAFE_URL_PROTOCOLS.includes(url.protocol)) {
+        return false;
+      }
+    } catch {
+      // 非法 URL 字串：視為不安全
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * 驗證備份數據的結構安全性
  *
  * @param {Object} backup - 用戶上傳的備份對象

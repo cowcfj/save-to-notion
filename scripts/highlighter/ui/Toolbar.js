@@ -12,7 +12,16 @@ import { renderHighlightList } from './components/HighlightList.js';
 import { injectIcons } from '../../utils/uiUtils.js';
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
-import Logger from '../../utils/Logger.js';
+import LoggerModule from '../../utils/Logger.js';
+const SafeLogger =
+  LoggerModule && typeof LoggerModule === 'object'
+    ? LoggerModule
+    : {
+        error: (...args) => console.error(...args),
+        warn: (...args) => console.warn(...args),
+        info: (...args) => console.info(...args),
+        debug: (...args) => console.debug(...args),
+      };
 
 /**
  * 工具欄管理器類別
@@ -185,7 +194,7 @@ export class Toolbar {
             selection.removeAllRanges();
           }
         } catch (error) {
-          Logger.error('添加標註失敗', {
+          SafeLogger.error('添加標註失敗', {
             action: 'selectionHandler',
             error,
           });
@@ -232,7 +241,7 @@ export class Toolbar {
         this.hide();
         break;
       default:
-        Logger.warn('Toolbar received unknown state', {
+        SafeLogger.warn('Toolbar received unknown state', {
           action: 'handleStateChange',
           state,
           component: 'Toolbar',
@@ -478,7 +487,7 @@ export class Toolbar {
           statusDiv.textContent = originalText;
         }, 2000);
 
-        Logger.error('同步失敗', {
+        SafeLogger.error('同步失敗', {
           action: 'syncToNotion',
           error,
         });

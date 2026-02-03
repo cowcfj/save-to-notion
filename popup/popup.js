@@ -117,7 +117,9 @@ export async function initPopup() {
         });
       }
     } else {
-      const errorMsg = ErrorHandler.formatUserMessage(response?.error);
+      // 統一錯誤處理流程：sanitize → ErrorHandler
+      const safe = sanitizeApiError(response?.error || 'Unknown Error', 'popup_save');
+      const errorMsg = ErrorHandler.formatUserMessage(safe);
       setStatus(elements, `${UI_MESSAGES.POPUP.SAVE_FAILED_PREFIX}${errorMsg}`);
     }
 
@@ -155,7 +157,9 @@ export async function initPopup() {
         window.close();
       }, 1000);
     } else {
-      setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_FAILED);
+      const safe = sanitizeApiError(response?.error || 'Unknown Error', 'popup_start_highlight');
+      const msg = ErrorHandler.formatUserMessage(safe);
+      setStatus(elements, `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX || ''}${msg}`.trim());
       Logger.error('Failed to start highlight mode', {
         action: 'startHighlight',
         error: response?.error,
@@ -173,7 +177,9 @@ export async function initPopup() {
     if (notionUrl) {
       const result = await openNotionPage(notionUrl);
       if (!result.success) {
-        setStatus(elements, UI_MESSAGES.POPUP.OPEN_NOTION_FAILED);
+        const safe = sanitizeApiError(result.error || 'Unknown Error', 'popup_open_notion');
+        const msg = ErrorHandler.formatUserMessage(safe);
+        setStatus(elements, msg);
         Logger.error('Failed to open Notion page', {
           action: 'openNotionPage',
           error: result.error,

@@ -4,121 +4,178 @@
  */
 
 import Logger from './Logger.js';
+import { validateSafeSvg, isSafeSvgAttribute } from './securityUtils.js';
 
 /**
- * Injects SVG Sprite Sheet into the document body.
- * Accepts an icons object (key-value pairs of SVG strings).
+ * 將 SVG 圖標精靈 (sprite) 注入至當前文件。
+ * - 單例守衛：避免重複注入
+ * - DOM 就緒：等待 DOMContentLoaded 或掛至 <html>
+ * - 合併策略：若存在 #svg-sprite-definitions 則僅補齊缺失的 <symbol>
+ * - ID 規則：icon-${key.toLowerCase()}
  *
- * @param {Object} icons - The icons configuration object (e.g., UI_ICONS)
+ * @param {Object} icons - key 為圖標鍵名，value 為對應 SVG 字串
  */
+let __spriteInjectionScheduled = false;
+
 export function injectIcons(icons) {
   if (typeof document === 'undefined') {
     return;
   }
 
-  // Prevent duplicate injection
-  if (document.getElementById('notion-clipper-svg-definitions')) {
-    return;
-  }
+  const SPRITE_ID = 'svg-sprite-definitions';
 
-  if (!icons || typeof icons !== 'object') {
-    Logger.warn('Invalid icons object provided to injectIcons', {
-      action: 'injectIcons',
-      icons,
-    });
-    return;
-  }
+  const performInjection = () => {
+    const existingSprite = document.getElementById(SPRITE_ID);
+    const parser = new DOMParser();
 
-  const parser = new DOMParser();
-  const symbols = [];
+    // 若已存在 sprite，僅合併缺失；否則建立新的容器
+    let spriteContainer = existingSprite;
+    let defs;
+    if (spriteContainer) {
+      defs =
+        spriteContainer.querySelector('defs') ||
+        document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      if (!defs.parentNode) {
+        spriteContainer.appendChild(defs);
+      }
+    } else {
+      spriteContainer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      spriteContainer.id = SPRITE_ID;
+      spriteContainer.style.display = 'none';
+      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      spriteContainer.appendChild(defs);
+    }
 
-  Object.entries(icons).forEach(([key, svgString]) => {
-    try {
-      // Use DOMParser to ensure attributes and structure are handled correctly
-      const doc = parser.parseFromString(svgString, 'image/svg+xml');
-      const svgEl = doc.querySelector('svg');
+    if (!icons || typeof icons !== 'object') {
+      Logger.warn('Invalid icons object provided to injectIcons', {
+        action: 'injectIcons',
+        icons,
+      });
+      return;
+    }
 
-      if (svgEl) {
+    Object.entries(icons).forEach(([key, svgString]) => {
+      try {
+        // 安全性檢查：阻擋可疑 SVG
+        if (!validateSafeSvg(svgString)) {
+          Logger.warn('Blocked unsafe SVG icon during injection', {
+            action: 'injectIcons',
+            key,
+          });
+          return;
+        }
+
+        const symbolId = `icon-${key.toLowerCase()}`;
+        if (defs.querySelector(`#${symbolId}`)) {
+          return; // 已存在，跳過（冪等）
+        }
+
+        // 解析並清洗 SVG
+        const doc = parser.parseFromString(svgString, 'image/svg+xml');
+        const svgEl = doc.querySelector('svg');
+        if (!svgEl) {
+          return;
+        }
+
         const symbol = document.createElementNS('http://www.w3.org/2000/svg', 'symbol');
-        // ID Rule: GENERAL -> icon-general
-        symbol.id = `icon-${key.toLowerCase().replace(/_/g, '-')}`;
+        symbol.id = symbolId;
 
-        // Migrate viewBox and appearance attributes
-        const attributes = [
-          'viewBox',
-          'fill',
-          'stroke',
-          'stroke-width',
-          'stroke-linecap',
-          'stroke-linejoin',
-        ];
-        attributes.forEach(attr => {
-          if (svgEl.hasAttribute(attr)) {
-            symbol.setAttribute(attr, svgEl.getAttribute(attr));
+        // 遷移安全屬性
+        Array.from(svgEl.attributes).forEach(attr => {
+          if (isSafeSvgAttribute(attr.name, attr.value)) {
+            symbol.setAttribute(attr.name, attr.value);
           }
         });
-        symbol.innerHTML = svgEl.innerHTML;
-        symbols.push(symbol);
-      }
-    } catch (error) {
-      Logger.warn('Failed to parse icon', {
-        action: 'injectIcons',
-        key,
-        error,
-      });
-    }
-  });
 
-  const spriteContainer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  spriteContainer.id = 'notion-clipper-svg-definitions';
-  spriteContainer.style.display = 'none';
+        // 深度清洗子節點危險屬性
+        const sanitizeElement = el => {
+          if (el && el.nodeType === 1) {
+            Array.from(el.attributes).forEach(attr => {
+              if (!isSafeSvgAttribute(attr.name, attr.value)) {
+                el.removeAttribute(attr.name);
+              }
+            });
+            Array.from(el.children).forEach(child => sanitizeElement(child));
+          }
+        };
 
-  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-  symbols.forEach(symbol => defs.appendChild(symbol));
-
-  spriteContainer.appendChild(defs);
-
-  const verifySymbols = () => {
-    try {
-      const defsEl = document.querySelector('#notion-clipper-svg-definitions defs');
-      if (!defsEl) {
-        Logger.warn('SVG sprite defs not found after injection', {
-          action: 'injectIcons',
-          operation: 'verifySymbols',
+        const safeFragment = document.createDocumentFragment();
+        Array.from(svgEl.childNodes).forEach(node => {
+          const cloned = node.cloneNode(true);
+          if (cloned && cloned.nodeType === 1) {
+            sanitizeElement(cloned);
+          }
+          safeFragment.appendChild(cloned);
         });
-        return;
-      }
 
-      // Dynamic ID list for verification
-      const required = Object.keys(icons).map(
-        key => `icon-${key.toLowerCase().replace(/_/g, '-')}`
-      );
-      required.forEach(id => {
-        if (!defsEl.querySelector(`#${id}`)) {
-          Logger.warn('Missing SVG symbol', {
+        symbol.innerHTML = '';
+        symbol.appendChild(safeFragment);
+        defs.appendChild(symbol);
+      } catch (error) {
+        Logger.warn('Failed to parse icon', {
+          action: 'injectIcons',
+          key,
+          error,
+        });
+      }
+    });
+
+    const verifySymbols = () => {
+      try {
+        const defsEl = spriteContainer.querySelector('defs');
+        if (!defsEl) {
+          Logger.warn('SVG sprite defs not found after injection', {
             action: 'injectIcons',
             operation: 'verifySymbols',
-            id,
           });
+          return;
         }
-      });
-    } catch (error) {
-      Logger.warn('Failed to verify SVG symbols', {
-        action: 'injectIcons',
-        operation: 'verifySymbols',
-        error,
-      });
+        const required = Object.keys(icons).map(key => `icon-${key.toLowerCase()}`);
+        required.forEach(id => {
+          if (!defsEl.querySelector(`#${id}`)) {
+            Logger.warn('Missing SVG symbol', {
+              action: 'injectIcons',
+              operation: 'verifySymbols',
+              id,
+            });
+          }
+        });
+      } catch (error) {
+        Logger.warn('Failed to verify SVG symbols', {
+          action: 'injectIcons',
+          operation: 'verifySymbols',
+          error,
+        });
+      }
+    };
+
+    const attach = () => {
+      if (!spriteContainer.parentNode) {
+        // 優先掛在 <body>���否則退回 <html>
+        const parent = document.body || document.documentElement;
+        parent.prepend(spriteContainer);
+      }
+      verifySymbols();
+    };
+
+    if (document.readyState === 'loading') {
+      if (__spriteInjectionScheduled) {
+        return;
+      }
+      __spriteInjectionScheduled = true;
+      document.addEventListener(
+        'DOMContentLoaded',
+        () => {
+          attach();
+          __spriteInjectionScheduled = false;
+        },
+        { once: true }
+      );
+    } else {
+      attach();
     }
   };
 
-  // Inject into body
-  if (document.body) {
-    document.body.prepend(spriteContainer);
-    verifySymbols();
-  } else {
-    document.addEventListener('DOMContentLoaded', () => {
-      document.body.prepend(spriteContainer);
-      verifySymbols();
-    });
-  }
+  // 執行注入（單例守衛：避免重複排程）
+  performInjection();
 }

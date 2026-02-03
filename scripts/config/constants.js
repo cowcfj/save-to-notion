@@ -281,4 +281,37 @@ export const SECURITY_CONSTANTS = {
     'image', // 允許圖片（但已在危險模式中檢查 data: 協議）
     'a', // 允許連結（但已在危險模式中檢查 javascript: 協議）
   ],
+
+  // SVG 驗證白名單屬性 (來自 securityUtils.js)
+  SVG_ALLOWED_ATTRS: [
+    'viewBox',
+    'fill',
+    'stroke',
+    'stroke-width',
+    'stroke-linecap',
+    'stroke-linejoin',
+    'width',
+    'height',
+    'class',
+    'id',
+    'xmlns',
+    'x',
+    'y',
+    'cx',
+    'cy',
+    'r',
+    'rx',
+    'ry',
+    'd',
+    'points',
+    'x1',
+    'y1',
+    'x2',
+    'y2',
+    'transform',
+    'opacity',
+  ],
+
+  // 安全 URL 協議
+  SAFE_URL_PROTOCOLS: ['http:', 'https:', ''],
 };
