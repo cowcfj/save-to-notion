@@ -400,7 +400,7 @@ export class Toolbar {
    */
   static _sendMessageAsync(message) {
     return new Promise((resolve, reject) => {
-      if (typeof globalThis.window === 'undefined' || !globalThis.chrome?.runtime?.sendMessage) {
+      if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {
         reject(new Error('無法連接擴展'));
         return;
       }
@@ -502,7 +502,7 @@ export class Toolbar {
    * @static
    */
   static openInNotion() {
-    if (typeof globalThis.window !== 'undefined' && globalThis.chrome?.runtime?.sendMessage) {
+    if (globalThis.window !== undefined && globalThis.chrome?.runtime?.sendMessage) {
       globalThis.chrome.runtime.sendMessage({
         action: 'openNotionPage',
         url: globalThis.location.href,

@@ -206,7 +206,7 @@ export { extractPageContent };
 
 // IIFE bundle 會將這個賦值給全局 ContentScript 對象
 // 同時也需要直接暴露到 window 供 background.js 調用
-if (typeof globalThis.window !== 'undefined') {
+if (globalThis.window !== undefined) {
   globalThis.extractPageContent = extractPageContent;
 
   // 單元測試支持：如果檢測到測試環境，自動執行並暴露結果

@@ -31,6 +31,12 @@ jest.mock('../../../popup/popupUI.js');
 jest.mock('../../../popup/popupActions.js');
 jest.mock('../../../scripts/utils/Logger.js');
 
+// Helper to trigger event
+async function triggerEvent(element, eventType = 'click') {
+  const handler = element.addEventListener.mock.calls.find(call => call[0] === eventType)[1];
+  await handler({ target: element });
+}
+
 describe('popup.js Controller', () => {
   const setup = () => {
     const mockElements = {
@@ -146,12 +152,6 @@ describe('popup.js Controller', () => {
       expect.any(Function)
     );
   });
-
-  // Helper to trigger event
-  async function triggerEvent(element, eventType = 'click') {
-    const handler = element.addEventListener.mock.calls.find(call => call[0] === eventType)[1];
-    await handler({ target: element });
-  }
 
   describe('Event Handlers', () => {
     it('saveButton click should save page', async () => {
