@@ -283,21 +283,30 @@ export class StorageManager {
         iconHtml = ICONS.error;
       }
 
-      // 加入/移除旋轉樣式
-      if (state === 'loading') {
-        iconHtml = iconHtml.replace('<svg', '<svg class="icon-svg spin"');
-      } else if (!iconHtml.includes('class="icon-svg"')) {
-        iconHtml = iconHtml.replace('<svg', '<svg class="icon-svg"');
-      }
-
       const { iconWrap, textSpan } = ensureButtonStructure(button);
 
       // 更新圖標（安全方式）
       iconWrap.innerHTML = '';
       const safe = createSafeIcon(iconHtml);
       // createSafeIcon 產出 span.icon > svg.icon-svg；此處僅取其中的 svg 放入 wrapper
-      const svg = safe.querySelector('svg') || safe;
-      iconWrap.appendChild(svg);
+      const svg = safe.querySelector('svg');
+
+      if (svg) {
+        // 確保基本類名存在（createSafeIcon 通常已處理，但雙重確認無害）
+        if (!svg.classList.contains('icon-svg')) {
+          svg.classList.add('icon-svg');
+        }
+
+        // 根據狀態添加旋轉效果
+        if (state === 'loading') {
+          svg.classList.add('spin');
+        }
+
+        iconWrap.appendChild(svg);
+      } else {
+        // Fallback: 如果無法提取 SVG，則使用完整的 safe 元素
+        iconWrap.appendChild(safe);
+      }
 
       // 更新文字
       textSpan.textContent = text;
