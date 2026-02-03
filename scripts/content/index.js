@@ -211,6 +211,7 @@ if (globalThis.window !== undefined) {
 
   // 單元測試支持：如果檢測到測試環境，自動執行並暴露結果
   if (globalThis.__UNIT_TESTING__) {
+    // 使用 IIFE 包裝以避免頂層 await 在非模組環境下的兼容性問題
     (async () => {
       try {
         globalThis.__notion_extraction_result = await extractPageContent();

@@ -28,6 +28,53 @@ export class StorageManager {
     this.optimizationPlan = null;
   }
 
+  /**
+   * 輔助方法：分析單個頁面是否需要清理
+   * @private
+   */
+  async _analyzePageForCleanup(page, data, plan) {
+    try {
+      const exists = await StorageManager.checkNotionPageExists(page.data.notionPageId);
+
+      if (!exists) {
+        const { key: savedKey, url } = page;
+        const highlightsKey = `highlights_${url}`;
+
+        const savedSize = new Blob([JSON.stringify({ [savedKey]: page.data })]).size;
+        const highlightsData = data[highlightsKey];
+        const highlightsSize = highlightsData
+          ? new Blob([JSON.stringify({ [highlightsKey]: highlightsData })]).size
+          : 0;
+        const totalSize = savedSize + highlightsSize;
+
+        plan.items.push({
+          key: savedKey,
+          url,
+          size: savedSize,
+          reason: '已刪除頁面的保存狀態',
+        });
+
+        if (highlightsData) {
+          plan.items.push({
+            key: highlightsKey,
+            url,
+            size: highlightsSize,
+            reason: '已刪除頁面的標註數據',
+          });
+        }
+
+        plan.spaceFreed += totalSize;
+        plan.deletedPages++;
+      }
+    } catch (error) {
+      Logger.error('Page existence check failed', {
+        action: 'check_page_existence',
+        url: page.url,
+        error,
+      });
+    }
+  }
+
   init() {
     this.initializeElements();
     this.setupEventListeners();
@@ -114,7 +161,7 @@ export class StorageManager {
       link.download = `notion-clipper-backup-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      link.remove();
       URL.revokeObjectURL(url);
 
       const icon = UI_ICONS.SUCCESS;
@@ -128,51 +175,48 @@ export class StorageManager {
     }
   }
 
-  importData(event) {
+  async importData(event) {
     const file = event.target.files[0];
     if (!file) {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async readerEvent => {
-      try {
-        this.showDataStatus(UI_MESSAGES.STORAGE.RESTORE_START, 'info');
+    try {
+      this.showDataStatus(UI_MESSAGES.STORAGE.RESTORE_START, 'info');
 
-        const backup = JSON.parse(readerEvent.target.result);
+      const text = await file.text();
+      const backup = JSON.parse(text);
 
-        // 防呆檢查：確保是有效的備份格式（基本結構檢查）
-        if (!backup || !backup.data) {
-          throw new Error(UI_MESSAGES.STORAGE.INVALID_BACKUP_FORMAT);
-        }
-
-        await new Promise(resolve => {
-          chrome.storage.local.set(backup.data, resolve);
-        });
-
-        const icon = UI_ICONS.SUCCESS;
-        this.showDataStatus(
-          `${icon} ${UI_MESSAGES.STORAGE.RESTORE_SUCCESS(Object.keys(backup.data).length)}`,
-          'success'
-        );
-
-        // 清除文件選擇
-        this.elements.importFile.value = '';
-
-        // 重新載入頁面或狀態
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } catch (error) {
-        Logger.error('Import failed', { action: 'import_backup', error });
-        const icon = UI_ICONS.ERROR;
-        const safeMessage = sanitizeApiError(error, 'import_backup');
-        const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
-        this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.RESTORE_FAILED}${errorMsg}`, 'error');
-        this.elements.importFile.value = '';
+      // 防呆檢查：確保是有效的備份格式（基本結構檢查）
+      if (!backup?.data) {
+        throw new Error(UI_MESSAGES.STORAGE.INVALID_BACKUP_FORMAT);
       }
-    };
-    reader.readAsText(file);
+
+      await new Promise(resolve => {
+        chrome.storage.local.set(backup.data, resolve);
+      });
+
+      const icon = UI_ICONS.SUCCESS;
+      this.showDataStatus(
+        `${icon} ${UI_MESSAGES.STORAGE.RESTORE_SUCCESS(Object.keys(backup.data).length)}`,
+        'success'
+      );
+
+      // 清除文件選擇
+      this.elements.importFile.value = '';
+
+      // 重新載入頁面或狀態
+      setTimeout(() => {
+        globalThis.window.location.reload();
+      }, 2000);
+    } catch (error) {
+      Logger.error('Import failed', { action: 'import_backup', error });
+      const icon = UI_ICONS.ERROR;
+      const safeMessage = sanitizeApiError(error, 'import_backup');
+      const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.RESTORE_FAILED}${errorMsg}`, 'error');
+      this.elements.importFile.value = '';
+    }
   }
 
   async checkDataIntegrity() {
@@ -394,7 +438,7 @@ export class StorageManager {
     }
 
     this.elements.usageFill.style.width = `${usage.percentage}%`;
-    const usedMB = parseFloat(usage.usedMB);
+    const usedMB = Number.parseFloat(usage.usedMB);
 
     this.elements.usageFill.className = 'usage-fill';
     if (usedMB > 80) {
@@ -520,53 +564,14 @@ export class StorageManager {
         const page = savedPages[i];
         this.updateCheckProgress(i + 1, savedPages.length);
 
-        if (!page.data || !page.data.notionPageId) {
+        if (!page.data?.notionPageId) {
           continue;
         }
 
-        try {
-          const exists = await StorageManager.checkNotionPageExists(page.data.notionPageId);
+        await this._analyzePageForCleanup(page, data, plan);
 
-          if (!exists) {
-            const savedKey = page.key;
-            const highlightsKey = `highlights_${page.url}`;
-
-            const savedSize = new Blob([JSON.stringify({ [savedKey]: page.data })]).size;
-            const highlightsData = data[highlightsKey];
-            const highlightsSize = highlightsData
-              ? new Blob([JSON.stringify({ [highlightsKey]: highlightsData })]).size
-              : 0;
-            const totalSize = savedSize + highlightsSize;
-
-            plan.items.push({
-              key: savedKey,
-              url: page.url,
-              size: savedSize,
-              reason: '已刪除頁面的保存狀態',
-            });
-
-            if (highlightsData) {
-              plan.items.push({
-                key: highlightsKey,
-                url: page.url,
-                size: highlightsSize,
-                reason: '已刪除頁面的標註數據',
-              });
-            }
-
-            plan.spaceFreed += totalSize;
-            plan.deletedPages++;
-          }
-
-          if (i < savedPages.length - 1) {
-            await new Promise(sleep => setTimeout(sleep, 350));
-          }
-        } catch (error) {
-          Logger.error('Page existence check failed', {
-            action: 'check_page_existence',
-            url: page.url,
-            error,
-          });
+        if (i < savedPages.length - 1) {
+          await new Promise(sleep => setTimeout(sleep, 350));
         }
       }
     }
@@ -581,7 +586,7 @@ export class StorageManager {
         action: 'checkNotionPageExists',
         pageId,
       });
-      return response && response.exists === true;
+      return response?.exists === true;
     } catch (error) {
       Logger.error('Batch page check failed', { action: 'batch_check_existence', error });
       return true;
@@ -625,8 +630,7 @@ export class StorageManager {
       summaryLines.push(UI_MESSAGES.STORAGE.DELETED_PAGES_DATA(plan.deletedPages));
     }
 
-    summaryLines.push('');
-    summaryLines.push(UI_MESSAGES.STORAGE.SPACE_FREED_ESTIMATE(spaceMB));
+    summaryLines.push('', UI_MESSAGES.STORAGE.SPACE_FREED_ESTIMATE(spaceMB));
 
     // summaryText variable removed as it was unused
 
@@ -731,15 +735,7 @@ export class StorageManager {
 
       const keysToRemove = this.cleanupPlan.items.map(item => item.key);
 
-      await new Promise((resolve, reject) => {
-        chrome.storage.local.remove(keysToRemove, () => {
-          if (chrome.runtime.lastError) {
-            reject(chrome.runtime.lastError);
-          } else {
-            resolve();
-          }
-        });
-      });
+      await chrome.storage.local.remove(keysToRemove);
 
       const spaceKB = (this.cleanupPlan.spaceFreed / 1024).toFixed(1);
       const successIcon = UI_ICONS.SUCCESS;
@@ -800,74 +796,75 @@ export class StorageManager {
         const originalData = JSON.stringify(data);
         plan.originalSize = new Blob([originalData]).size;
 
-        let migrationDataSize = 0;
-        let migrationKeysCount = 0;
-        let emptyHighlightKeys = 0;
-        let emptyHighlightSize = 0;
+        // 使用輔助方法分析數據結構
+        StorageManager._analyzeStructureForOptimization(data, plan);
 
-        const optimizedData = {};
-        const keysToRemove = [];
-
-        for (const [key, value] of Object.entries(data)) {
-          if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
-            migrationKeysCount++;
-            const size = new Blob([JSON.stringify({ [key]: value })]).size;
-            migrationDataSize += size;
-            keysToRemove.push(key);
-            continue;
-          }
-
-          if (key.startsWith('highlights_')) {
-            const highlightsArray = Array.isArray(value) ? value : value?.highlights;
-            if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
-              plan.highlightPages++;
-              plan.totalHighlights += highlightsArray.length;
-              optimizedData[key] = value;
-            } else {
-              emptyHighlightKeys++;
-              emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
-              keysToRemove.push(key);
-            }
-          } else {
-            optimizedData[key] = value;
-          }
-        }
-
-        if (migrationDataSize > 1024) {
-          const sizeKB = (migrationDataSize / 1024).toFixed(1);
-          plan.optimizations.push(`清理遷移數據（${migrationKeysCount} 項，${sizeKB} KB）`);
-          plan.canOptimize = true;
-        }
-
-        if (emptyHighlightKeys > 0) {
-          const sizeKB = (emptyHighlightSize / 1024).toFixed(1);
-          plan.optimizations.push(`移除空標註紀錄（${emptyHighlightKeys} 項，${sizeKB} KB）`);
-          plan.canOptimize = true;
-        }
-
-        plan.keysToRemove = keysToRemove;
-        plan.optimizedData = optimizedData;
-
-        const optimizedJson = JSON.stringify(optimizedData);
-        plan.optimizedSize = new Blob([optimizedJson]).size;
-        plan.spaceSaved = plan.originalSize - plan.optimizedSize;
-
-        if (migrationKeysCount > 0 || emptyHighlightKeys > 0) {
-          plan.canOptimize = true;
-        }
-
-        const hasFragmentation = Object.keys(data).some(
-          key => key.startsWith('highlights_') && (!data[key] || !Array.isArray(data[key]))
-        );
-
-        if (hasFragmentation) {
-          plan.optimizations.push('修復數據碎片');
-          plan.canOptimize = true;
+        if (plan.highlightPages > 0 || plan.keysToRemove.length > 0) {
+          const optimizedJson = JSON.stringify(plan.optimizedData);
+          plan.optimizedSize = new Blob([optimizedJson]).size;
+          plan.spaceSaved = plan.originalSize - plan.optimizedSize;
         }
 
         resolve(plan);
       });
     });
+  }
+
+  /**
+   * 輔助方法：分析存儲數據結構並填充優化計劃
+   * @private
+   */
+  static _analyzeStructureForOptimization(data, plan) {
+    let migrationDataSize = 0;
+    let migrationKeysCount = 0;
+    let emptyHighlightKeys = 0;
+    let emptyHighlightSize = 0;
+
+    for (const [key, value] of Object.entries(data)) {
+      if (key.includes('migration') || key.includes('_v1_') || key.includes('_backup_')) {
+        migrationKeysCount++;
+        const size = new Blob([JSON.stringify({ [key]: value })]).size;
+        migrationDataSize += size;
+        plan.keysToRemove.push(key);
+        continue;
+      }
+
+      if (key.startsWith('highlights_')) {
+        const highlightsArray = Array.isArray(value) ? value : value?.highlights;
+        if (Array.isArray(highlightsArray) && highlightsArray.length > 0) {
+          plan.highlightPages++;
+          plan.totalHighlights += highlightsArray.length;
+          plan.optimizedData[key] = value;
+        } else {
+          emptyHighlightKeys++;
+          emptyHighlightSize += new Blob([JSON.stringify({ [key]: value })]).size;
+          plan.keysToRemove.push(key);
+        }
+      } else {
+        plan.optimizedData[key] = value;
+      }
+    }
+
+    if (migrationDataSize > 1024) {
+      const sizeKB = (migrationDataSize / 1024).toFixed(1);
+      plan.optimizations.push(`清理遷移數據（${migrationKeysCount} 項，${sizeKB} KB）`);
+      plan.canOptimize = true;
+    }
+
+    if (emptyHighlightKeys > 0) {
+      const sizeKB = (emptyHighlightSize / 1024).toFixed(1);
+      plan.optimizations.push(`移除空標註紀錄（${emptyHighlightKeys} 項，${sizeKB} KB）`);
+      plan.canOptimize = true;
+    }
+
+    const hasFragmentation = Object.keys(data).some(
+      key => key.startsWith('highlights_') && (!data[key] || !Array.isArray(data[key]))
+    );
+
+    if (hasFragmentation) {
+      plan.optimizations.push('修復數據碎片');
+      plan.canOptimize = true;
+    }
   }
 
   displayOptimizationPreview(plan) {
@@ -1014,7 +1011,7 @@ export class StorageManager {
 
   async executeOptimization() {
     try {
-      if (!this.optimizationPlan || !this.optimizationPlan.canOptimize) {
+      if (!this.optimizationPlan?.canOptimize) {
         const icon = UI_ICONS.ERROR;
         this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.OPTIMIZE_EXECUTE_NONE}`, 'error');
         return;
