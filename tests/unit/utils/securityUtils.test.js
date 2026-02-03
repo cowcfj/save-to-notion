@@ -725,7 +725,7 @@ describe('securityUtils', () => {
 
     test('缺少數據對象應拋出錯誤', () => {
       expect(() => validateLogExportData(null)).toThrow('missing data object');
-      expect(() => validateLogExportData(undefined)).toThrow('missing data object');
+      expect(() => validateLogExportData()).toThrow('missing data object');
     });
 
     test('無效的文件名應拋出錯誤', () => {

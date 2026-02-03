@@ -352,12 +352,7 @@ function setupLogExport() {
         const data = response.data;
 
         // 使用 securityUtils 中的集中驗證邏輯
-        try {
-          validateLogExportData(data);
-        } catch (validationError) {
-          // 重新拋出以進入錯誤處理流程
-          throw validationError;
-        }
+        validateLogExportData(data);
 
         const { filename, content, mimeType, count } = data;
 
