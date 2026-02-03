@@ -149,8 +149,14 @@ export function injectIcons(icons) {
         return; // 已存在，跳過（冪等）
       }
 
+      // Ensure SVG has proper namespace for DOMParser
+      let validSvgString = svgString;
+      if (!validSvgString.includes('xmlns=')) {
+        validSvgString = validSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+
       // 解析並清洗 SVG
-      const doc = parser.parseFromString(svgString, 'image/svg+xml');
+      const doc = parser.parseFromString(validSvgString, 'image/svg+xml');
       const svgEl = doc.querySelector('svg');
       if (!svgEl) {
         return;
