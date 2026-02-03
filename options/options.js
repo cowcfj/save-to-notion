@@ -5,7 +5,9 @@ import { DataSourceManager } from '../scripts/options/DataSourceManager.js';
 import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
+import { injectIcons } from '../scripts/config/icons.js';
 import Logger from '../scripts/utils/Logger.js';
+
 import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 
@@ -15,7 +17,9 @@ import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
  */
 export function initOptions() {
   // 1. 初始化各管理器
+  injectIcons(); // Inject SVG sprites (Shared System)
   const ui = new UIManager();
+
   const auth = new AuthManager(ui);
   const dataSource = new DataSourceManager(ui);
   const storage = new StorageManager(ui);
