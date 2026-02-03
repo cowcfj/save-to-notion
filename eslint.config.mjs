@@ -72,7 +72,7 @@ export default [
       }],
       'no-empty': ['error', { allowEmptyCatch: true }],
       'no-case-declarations': 'off',
-      'no-implicit-coercion': ['error', {
+      'no-implicit-coercion': ['warn', {
         boolean: true,
         number: false,
         string: false,

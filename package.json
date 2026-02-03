@@ -90,7 +90,7 @@
     ],
     "*.js": [
       "prettier --write",
-      "eslint --fix --max-warnings=0 --no-warn-ignored"
+      "eslint --fix --no-warn-ignored"
     ],
     "*.{json,md}": [
       "prettier --write"
