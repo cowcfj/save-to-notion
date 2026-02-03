@@ -630,6 +630,11 @@ export function validateBackupData(backup) {
   // 2. 數據鍵值檢查 (防止 Prototype Pollution) - 遞歸檢查
   const FORBIDDEN_KEYS = ['__proto__', 'constructor', 'prototype'];
 
+  /**
+   * 遞歸檢查對象中的禁止鍵
+   * @param {Object} obj - 待檢查的對象
+   * @throws {Error} 如果發現禁止的鍵
+   */
   function checkForbiddenKeys(obj) {
     if (!obj || typeof obj !== 'object') {
       return;

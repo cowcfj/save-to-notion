@@ -6,6 +6,8 @@
 import Logger from './Logger.js';
 import { validateSafeSvg, isSafeSvgAttribute } from './securityUtils.js';
 
+let __spriteInjectionScheduled = false;
+
 /**
  * 將 SVG 圖標精靈 (sprite) 注入至當前文件。
  * - 單例守衛：避免重複注入
@@ -15,8 +17,6 @@ import { validateSafeSvg, isSafeSvgAttribute } from './securityUtils.js';
  *
  * @param {Object} icons - key 為圖標鍵名，value 為對應 SVG 字串
  */
-let __spriteInjectionScheduled = false;
-
 export function injectIcons(icons) {
   if (typeof document === 'undefined') {
     return;
@@ -24,13 +24,16 @@ export function injectIcons(icons) {
 
   const SPRITE_ID = 'svg-sprite-definitions';
 
+  /**
+   * 執行實際的 SVG 注入邏輯
+   */
   const performInjection = () => {
     const existingSprite = document.getElementById(SPRITE_ID);
     const parser = new DOMParser();
 
     // 若已存在 sprite，僅合併缺失；否則建立新的容器
     let spriteContainer = existingSprite;
-    let defs;
+    let defs = null;
     if (spriteContainer) {
       defs =
         spriteContainer.querySelector('defs') ||
@@ -120,6 +123,9 @@ export function injectIcons(icons) {
       }
     });
 
+    /**
+     * 驗證 SVG symbol 是否正確注入
+     */
     const verifySymbols = () => {
       try {
         const defsEl = spriteContainer.querySelector('defs');
@@ -149,6 +155,9 @@ export function injectIcons(icons) {
       }
     };
 
+    /**
+     * 將 sprite 掛載到 DOM
+     */
     const attach = () => {
       if (!spriteContainer.parentNode) {
         // 優先掛在 <body>���否則退回 <html>
