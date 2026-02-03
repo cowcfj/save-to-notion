@@ -248,3 +248,37 @@ export const HIGHLIGHT_MIGRATION = {
 };
 
 // ERROR_MESSAGES has been moved to messages.js
+
+// ==========================================
+// 安全驗證相關常量
+// ==========================================
+
+export const SECURITY_CONSTANTS = {
+  // SVG 驗證白名單標籤 (來自 securityUtils.js)
+  SVG_ALLOWED_TAGS: [
+    'svg',
+    'path',
+    'circle',
+    'rect',
+    'line',
+    'polyline',
+    'polygon',
+    'ellipse',
+    'g',
+    'defs',
+    'use',
+    'symbol',
+    'title',
+    'desc',
+    'lineargradient', // 注意：轉為小寫比較
+    'radialgradient',
+    'stop',
+    'clippath',
+    'mask',
+    'pattern',
+    'text',
+    'tspan',
+    'image', // 允許圖片（但已在危險模式中檢查 data: 協議）
+    'a', // 允許連結（但已在危險模式中檢查 javascript: 協議）
+  ],
+};

@@ -9,6 +9,8 @@
 /* global chrome */
 
 import Logger from './Logger.js';
+import { SECURITY_CONSTANTS } from '../config/constants.js';
+
 import { ERROR_MESSAGES } from '../config/messages.js';
 
 // ============================================================================
@@ -387,32 +389,7 @@ export function validateSafeSvg(svgContent) {
   // ============================================================================
   // 允許的 SVG 標籤（常見且安全的圖形元素）
   // 注意：這是基礎白名單，可根據實際需求擴展
-  const allowedTags = [
-    'svg',
-    'path',
-    'circle',
-    'rect',
-    'line',
-    'polyline',
-    'polygon',
-    'ellipse',
-    'g',
-    'defs',
-    'use',
-    'symbol',
-    'title',
-    'desc',
-    'lineargradient', // 注意：轉為小寫比較
-    'radialgradient',
-    'stop',
-    'clippath',
-    'mask',
-    'pattern',
-    'text',
-    'tspan',
-    'image', // 允許圖片（但已在危險模式中檢查 data: 協議）
-    'a', // 允許連結（但已在危險模式中檢查 javascript: 協議）
-  ];
+  const allowedTags = SECURITY_CONSTANTS.SVG_ALLOWED_TAGS;
 
   // 提取所有標籤名稱（簡化驗證，不使用完整 XML 解析器）
   // 正則說明：匹配 <tagname 或 </tagname 格式，支援駝峰命名
@@ -612,17 +589,27 @@ export function validateBackupData(backup) {
     throw new Error('Invalid backup data structure');
   }
 
-  // 2. 數據鍵值檢查 (防止 Prototype Pollution)
+  // 2. 數據鍵值檢查 (防止 Prototype Pollution) - 遞歸檢查
   const FORBIDDEN_KEYS = ['__proto__', 'constructor', 'prototype'];
 
-  for (const key of Object.keys(backup.data)) {
-    if (FORBIDDEN_KEYS.includes(key)) {
-      throw new Error(`Security Alert: Malicious key detected (${key})`);
+  function checkForbiddenKeys(obj) {
+    if (!obj || typeof obj !== 'object') {
+      return;
     }
-    // 簡單的鍵名格式檢查 (Notion Clipper 的鍵通常是 URL, UUID 或 config_*)
-    // 這裡不做過於嚴格的限制以免誤殺，但確保是字串
-    if (typeof key !== 'string') {
-      throw new Error('Invalid data key type');
+
+    // 檢查當前對象的鍵
+    for (const key of Object.keys(obj)) {
+      if (FORBIDDEN_KEYS.includes(key)) {
+        throw new Error(`Security Alert: Malicious key detected (${key})`);
+      }
+
+      // 遞歸檢查值 (如果是對象或陣列)
+      const value = obj[key];
+      if (value && typeof value === 'object') {
+        checkForbiddenKeys(value);
+      }
     }
   }
+
+  checkForbiddenKeys(backup.data);
 }
