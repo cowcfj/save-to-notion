@@ -9,6 +9,8 @@ import { validateSafeSvg, isSafeSvgAttribute } from './securityUtils.js';
 let __spriteInjectionScheduled = false;
 let __pendingSpriteContainer = null;
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
 /**
  * 將 SVG 圖標精靈 (sprite) 注入至當前文件。
  * - 單例守衛：避免重複注入
@@ -16,7 +18,7 @@ let __pendingSpriteContainer = null;
  * - 合併策略：若存在 #svg-sprite-definitions 則僅補齊缺失的 <symbol>
  * - ID 規則：icon-${key.toLowerCase()}
  *
- * @param {Object} icons - key 為圖標鍵名，value 為對應 SVG 字串
+ * @param {object} icons - key 為圖標鍵名，value 為對應 SVG 字串
  */
 // ============================================================================
 // Internal Helpers
@@ -28,7 +30,7 @@ const SPRITE_ID = 'svg-sprite-definitions';
  * 驗證 SVG symbol 是否正確注入
  *
  * @param {Element} spriteContainer - The SVG container element
- * @param {Object} icons - The icons object being injected
+ * @param {object} icons - The icons object being injected
  * @returns {void}
  */
 const _verifySymbols = (spriteContainer, icons) => {
@@ -64,7 +66,7 @@ const _verifySymbols = (spriteContainer, icons) => {
  * 將 sprite 掛載到 DOM
  *
  * @param {Element} spriteContainer - The SVG container element
- * @param {Object} icons - The icons object being injected (for verification)
+ * @param {object} icons - The icons object being injected (for verification)
  * @returns {void}
  */
 const _attachSprite = (spriteContainer, icons) => {
@@ -89,7 +91,7 @@ const _attachSprite = (spriteContainer, icons) => {
  * - 合併策略：若存在 #svg-sprite-definitions 則僅補齊缺失的 <symbol>
  * - ID 規則：icon-${key.toLowerCase()}
  *
- * @param {Object} icons - key 為圖標鍵名，value 為對應 SVG 字串
+ * @param {object} icons - key 為圖標鍵名，value 為對應 SVG 字串
  * @returns {void}
  */
 export function injectIcons(icons) {
@@ -97,7 +99,7 @@ export function injectIcons(icons) {
     return;
   }
 
-  const existingSprite = document.getElementById(SPRITE_ID);
+  const existingSprite = document.querySelector(`#${SPRITE_ID}`);
   const parser = new DOMParser();
 
   // 若已存在 sprite，僅合併缺失；否則建立新的容器
@@ -110,17 +112,17 @@ export function injectIcons(icons) {
   if (spriteContainer) {
     defs = spriteContainer.querySelector('defs');
     if (!defs) {
-      defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      defs = document.createElementNS(SVG_NS, 'defs');
     }
     if (!defs.parentNode) {
-      spriteContainer.appendChild(defs);
+      spriteContainer.append(defs);
     }
   } else {
-    spriteContainer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    spriteContainer = document.createElementNS(SVG_NS, 'svg');
     spriteContainer.id = SPRITE_ID;
     spriteContainer.style.display = 'none';
-    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    spriteContainer.appendChild(defs);
+    defs = document.createElementNS(SVG_NS, 'defs');
+    spriteContainer.append(defs);
     // 暫存此容器供後續並發呼叫使用
     __pendingSpriteContainer = spriteContainer;
   }
@@ -162,7 +164,7 @@ export function injectIcons(icons) {
         return;
       }
 
-      const symbol = document.createElementNS('http://www.w3.org/2000/svg', 'symbol');
+      const symbol = document.createElementNS(SVG_NS, 'symbol');
       symbol.id = symbolId;
 
       // 遷移安全屬性
@@ -192,12 +194,12 @@ export function injectIcons(icons) {
         if (cloned?.nodeType === 1) {
           sanitizeElement(cloned);
         }
-        safeFragment.appendChild(cloned);
+        safeFragment.append(cloned);
       });
 
       symbol.innerHTML = '';
-      symbol.appendChild(safeFragment);
-      defs.appendChild(symbol);
+      symbol.append(safeFragment);
+      defs.append(symbol);
     } catch (error) {
       Logger.warn('Failed to parse icon', {
         action: 'injectIcons',
@@ -227,16 +229,17 @@ export function injectIcons(icons) {
 
 /**
  * 創建使用 Sprite 的 SVG 圖標
+ *
  * @param {string} name - 圖標名稱 (不含 icon- 前綴)
  * @returns {SVGElement}
  */
 export const createSpriteIcon = name => {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const svg = document.createElementNS(SVG_NS, 'svg');
   svg.classList.add('icon-svg');
   svg.setAttribute('width', '16');
   svg.setAttribute('height', '16');
-  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-  use.setAttribute('href', `#icon-${name}`);
-  svg.appendChild(use);
+  const use = document.createElementNS(SVG_NS, 'use');
+  use.setAttribute('href', `#icon-${name.toLowerCase()}`);
+  svg.append(use);
   return svg;
 };
