@@ -231,15 +231,22 @@ export default [
       'jest/no-identical-title': 'warn',
       'jest/prefer-to-have-length': 'warn',
       'jest/valid-expect': 'warn',
+      'jest/no-conditional-expect': 'off',
       'init-declarations': 'off',
+      'no-magic-numbers': 'off',
+      'id-length': 'off',
       'sonarjs/no-duplicate-string': 'off',
+      'sonarjs/cognitive-complexity': 'off',
+      'sonarjs/no-identical-functions': 'off',
+      'sonarjs/no-unused-collection': 'off',
       'security/detect-object-injection': 'off',
+      'security/detect-unsafe-regex': 'off',
+      'security/detect-non-literal-regexp': 'off',
+      'regexp/no-super-linear-backtracking': 'off',
       'unicorn/consistent-function-scoping': 'off',
       'jsdoc/require-jsdoc': 'off',
       'jsdoc/require-param': 'off',
-      'jsdoc/require-returns': 'off',
-      'sonarjs/no-unused-collection': 'off',
-      'jest/no-conditional-expect': 'warn'
+      'jsdoc/require-returns': 'off'
     }
   }
 ];
