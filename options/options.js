@@ -6,6 +6,8 @@ import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import Logger from '../scripts/utils/Logger.js';
+import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 
 /**
  * Options Page Main Controller
@@ -364,10 +366,14 @@ function setupLogExport() {
         }, 3000);
       } catch (err) {
         Logger.error('Log export failed', err);
-        // 安全地提取錯誤訊息
-        const rawMsg = err?.message ?? String(err) ?? 'Unknown error';
-        // 使用 textContent 防止 XSS，無需 escapeHtml
-        const errorMessage = UI_MESSAGES.LOGS.EXPORT_FAILED(rawMsg);
+
+        // 使用標準化的錯誤處理機制
+        const safeReason = sanitizeApiError(err, 'export_debug_logs');
+        const userFriendlyMsg = ErrorHandler.formatUserMessage(safeReason);
+
+        // 組合最終訊息
+        const errorMessage = `${UI_MESSAGES.LOGS.EXPORT_FAILED_PREFIX} ${userFriendlyMsg}`;
+
         statusEl.textContent = errorMessage;
         statusEl.className = 'status-message error';
 
