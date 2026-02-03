@@ -19,9 +19,9 @@ export const UI_MESSAGES = {
     DEFAULT_OPTION: '選擇資料來源...',
   },
   LOGS: {
-    EXPORT_SUCCESS: count => `已成功導出 ${count} 條日誌`,
-    EXPORT_FAILED_PREFIX: '導出失敗：',
-    EXPORTING: '導出中...',
+    EXPORT_SUCCESS: count => `已成功匯出 ${count} 條日誌`,
+    EXPORT_FAILED_PREFIX: '匯出失敗：',
+    EXPORTING: '匯出中...',
   },
   SETTINGS: {
     SAVE_SUCCESS: '設置已成功保存！',

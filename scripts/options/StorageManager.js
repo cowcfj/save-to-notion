@@ -141,7 +141,8 @@ export class StorageManager {
 
         const backup = JSON.parse(readerEvent.target.result);
 
-        if (!backup.data) {
+        // 防呆檢查：確保是有效的備份格式（基本結構檢查）
+        if (!backup || !backup.data) {
           throw new Error(UI_MESSAGES.STORAGE.INVALID_BACKUP_FORMAT);
         }
 

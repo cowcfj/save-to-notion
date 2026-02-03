@@ -586,3 +586,43 @@ export function validateLogExportData(data) {
     throw new Error('Security check failed: Invalid MIME type');
   }
 }
+
+/**
+ * 驗證備份數據的結構安全性
+ *
+ * @param {Object} backup - 用戶上傳的備份對象
+ * @throws {Error} 如果驗證失敗
+ */
+export function validateBackupData(backup) {
+  if (!backup || typeof backup !== 'object') {
+    throw new Error('Invalid backup format: root must be an object');
+  }
+
+  // 1. 必要欄位檢查
+  if (!backup.version || typeof backup.version !== 'string') {
+    throw new Error('Invalid backup version');
+  }
+
+  if (!backup.timestamp || typeof backup.timestamp !== 'string') {
+    throw new Error('Invalid backup timestamp');
+  }
+
+  if (!backup.data || typeof backup.data !== 'object') {
+    // 這裡我們直接使用字串，避免引入 ERROR_MESSAGES 的循環依賴風險，如果它沒被正確導出
+    throw new Error('Invalid backup data structure');
+  }
+
+  // 2. 數據鍵值檢查 (防止 Prototype Pollution)
+  const FORBIDDEN_KEYS = ['__proto__', 'constructor', 'prototype'];
+
+  for (const key of Object.keys(backup.data)) {
+    if (FORBIDDEN_KEYS.includes(key)) {
+      throw new Error(`Security Alert: Malicious key detected (${key})`);
+    }
+    // 簡單的鍵名格式檢查 (Notion Clipper 的鍵通常是 URL, UUID 或 config_*)
+    // 這裡不做過於嚴格的限制以免誤殺，但確保是字串
+    if (typeof key !== 'string') {
+      throw new Error('Invalid data key type');
+    }
+  }
+}
