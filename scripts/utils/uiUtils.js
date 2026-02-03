@@ -168,7 +168,7 @@ export function injectIcons(icons) {
 
       // 深度清洗子節點危險屬性
       const sanitizeElement = el => {
-        if (el && el.nodeType === 1) {
+        if (el?.nodeType === 1) {
           Array.from(el.attributes).forEach(attr => {
             if (!isSafeSvgAttribute(attr.name, attr.value)) {
               el.removeAttribute(attr.name);
@@ -183,7 +183,7 @@ export function injectIcons(icons) {
       const safeFragment = document.createDocumentFragment();
       Array.from(svgEl.childNodes).forEach(node => {
         const cloned = node.cloneNode(true);
-        if (cloned && cloned.nodeType === 1) {
+        if (cloned?.nodeType === 1) {
           sanitizeElement(cloned);
         }
         safeFragment.appendChild(cloned);

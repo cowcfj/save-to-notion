@@ -50,63 +50,55 @@ export class UIManager {
       return;
     }
 
-    // 向後兼容：支持對象或字串格式
-    let icon = '';
-    let text = '';
+    const { icon, text } = this._resolveMessage(message, type);
 
+    // SVG 安全驗證
+    const safeIcon = icon && validateSafeSvg(icon) ? icon : '';
+
+    this._renderStatus(status, safeIcon, text, type);
+  }
+
+  /**
+   * 解析圖標與文本 (私有)
+   */
+  _resolveMessage(message, type) {
     if (typeof message === 'object' && message !== null) {
-      // 新格式：{icon: '...', text: '...'}
-      icon = message.icon || '';
-      text = message.text || '';
-    } else if (typeof message === 'string') {
-      // 使用共用函數分離圖標和文本（統一處理 Emoji 和 SVG）
-      // 注意：訊息翻譯應由呼叫端負責，UIManager 僅負責顯示
-      const separated = separateIconAndText(message);
-      icon = separated.icon;
-      text = separated.text;
-
-      // [優化] 如果訊息本身不帶圖標，根據 type 自動匹配預設圖標
-      if (!icon) {
-        switch (type) {
-          case 'success':
-            icon = UI_ICONS.SUCCESS;
-            break;
-          case 'error':
-            icon = UI_ICONS.ERROR;
-            break;
-          case 'warning':
-            icon = UI_ICONS.WARNING;
-            break;
-          default:
-            icon = UI_ICONS.INFO;
-            break;
-        }
-      }
+      return { icon: message.icon || '', text: message.text || '' };
     }
 
-    // SVG 安全驗證：使用 securityUtils 統一處理
-    // 即使預期只接收內部生成的 SVG，仍進行驗證作為縱深防禦
-    if (icon && !validateSafeSvg(icon)) {
-      icon = ''; // 拒絕不安全的 SVG
+    const separated = separateIconAndText(String(message || ''));
+    let icon = separated.icon;
+    const text = separated.text;
+
+    if (!icon) {
+      const defaults = {
+        success: UI_ICONS.SUCCESS,
+        error: UI_ICONS.ERROR,
+        warning: UI_ICONS.WARNING,
+      };
+      icon = defaults[type] || UI_ICONS.INFO;
     }
 
-    // 清空並重建內容（安全方式）
+    return { icon, text };
+  }
+
+  /**
+   * 渲染狀態內容 (私有)
+   */
+  _renderStatus(status, icon, text, type) {
     status.innerHTML = '';
 
-    // 如果有圖標，插入圖標
     if (icon) {
       const iconSpan = document.createElement('span');
       iconSpan.className = 'status-icon';
-      // 區分 Emoji 和 SVG：Emoji 用 textContent（更安全），SVG 用 innerHTML（必要）
       if (icon.startsWith('<svg')) {
-        iconSpan.innerHTML = icon; // SVG 需要使用 innerHTML
+        iconSpan.innerHTML = icon;
       } else {
-        iconSpan.textContent = icon; // Emoji 使用 textContent
+        iconSpan.textContent = icon;
       }
       status.appendChild(iconSpan);
     }
 
-    // 使用 textContent 設置文本（防止 XSS）
     if (text) {
       const textSpan = document.createElement('span');
       textSpan.className = 'status-text';
@@ -114,13 +106,13 @@ export class UIManager {
       status.appendChild(textSpan);
     }
 
-    status.classList.remove('success', 'error', 'info', 'status-message'); // 清除舊類
-    status.classList.add('status-message', type); // 添加基礎類和類型類
+    status.classList.remove('success', 'error', 'info', 'warning', 'status-message');
+    status.classList.add('status-message', type);
 
     if (type === 'success') {
       setTimeout(() => {
         status.innerHTML = '';
-        status.classList.remove('success', 'error', 'info', 'status-message');
+        status.classList.remove('success', 'error', 'info', 'warning', 'status-message');
       }, 3000);
     }
   }

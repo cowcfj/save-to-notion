@@ -173,7 +173,7 @@ export class Toolbar {
 
       // 延遲處理以確保選擇完成
       setTimeout(() => {
-        const selection = window.getSelection();
+        const selection = globalThis.getSelection();
         if (!selection || selection.isCollapsed) {
           return;
         }
@@ -400,14 +400,14 @@ export class Toolbar {
    */
   static _sendMessageAsync(message) {
     return new Promise((resolve, reject) => {
-      if (typeof window === 'undefined' || !window.chrome?.runtime?.sendMessage) {
+      if (typeof globalThis.window === 'undefined' || !globalThis.chrome?.runtime?.sendMessage) {
         reject(new Error('無法連接擴展'));
         return;
       }
 
-      window.chrome.runtime.sendMessage(message, response => {
-        if (window.chrome.runtime.lastError) {
-          reject(new Error(window.chrome.runtime.lastError.message));
+      globalThis.chrome.runtime.sendMessage(message, response => {
+        if (globalThis.chrome.runtime.lastError) {
+          reject(new Error(globalThis.chrome.runtime.lastError.message));
           return;
         }
         resolve(response);
@@ -502,10 +502,10 @@ export class Toolbar {
    * @static
    */
   static openInNotion() {
-    if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
-      window.chrome.runtime.sendMessage({
+    if (typeof globalThis.window !== 'undefined' && globalThis.chrome?.runtime?.sendMessage) {
+      globalThis.chrome.runtime.sendMessage({
         action: 'openNotionPage',
-        url: window.location.href,
+        url: globalThis.location.href,
       });
     }
   }
@@ -524,12 +524,12 @@ export class Toolbar {
     }
 
     // 移除 DOM 元素
-    if (this.container?.parentNode) {
-      this.container.parentNode.removeChild(this.container);
+    if (this.container) {
+      this.container.remove();
     }
 
-    if (this.miniIcon?.parentNode) {
-      this.miniIcon.parentNode.removeChild(this.miniIcon);
+    if (this.miniIcon) {
+      this.miniIcon.remove();
     }
   }
 }

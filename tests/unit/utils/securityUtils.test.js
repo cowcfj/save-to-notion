@@ -97,7 +97,7 @@ describe('securityUtils', () => {
     const mockRuntimeId = 'mock-extension-id';
 
     beforeEach(() => {
-      global.chrome = {
+      globalThis.chrome = {
         runtime: {
           id: mockRuntimeId,
         },
@@ -142,7 +142,7 @@ describe('securityUtils', () => {
     const mockRuntimeId = 'mock-extension-id';
 
     beforeEach(() => {
-      global.chrome = {
+      globalThis.chrome = {
         runtime: {
           id: mockRuntimeId,
         },

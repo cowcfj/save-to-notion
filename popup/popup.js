@@ -47,11 +47,12 @@ export async function initPopup() {
   const settings = await checkSettings();
   if (!settings.valid) {
     // 根據實際缺失的設定顯示對應的提示訊息
-    const msg = !settings.apiKey
-      ? ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED
-      : !settings.dataSourceId
-        ? ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE
-        : UI_MESSAGES.SETUP.MISSING_CONFIG;
+    let msg = UI_MESSAGES.SETUP.MISSING_CONFIG;
+    if (!settings.apiKey) {
+      msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED;
+    } else if (!settings.dataSourceId) {
+      msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE;
+    }
     setStatus(elements, msg);
     setButtonState(elements.saveButton, true);
     setButtonState(elements.highlightButton, true);
@@ -173,7 +174,7 @@ export async function initPopup() {
 
   // 打開 Notion 按鈕
   elements.openNotionButton.addEventListener('click', async () => {
-    const notionUrl = elements.openNotionButton.getAttribute('data-url');
+    const notionUrl = elements.openNotionButton.dataset.url;
     if (notionUrl) {
       const result = await openNotionPage(notionUrl);
       if (!result.success) {

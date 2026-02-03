@@ -159,15 +159,14 @@ export function cleanDatabaseId(input) {
 
   // 如果是完整 URL，提取 ID 部分
   // 例如: https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890?v=123
-  const urlMatch = cleaned.match(
-    /([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i
-  );
+  const urlMatch =
+    /(?:[a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i.exec(cleaned);
   if (urlMatch) {
     cleaned = urlMatch[0];
   }
 
   // 移除所有連字符
-  cleaned = cleaned.replace(/-/g, '');
+  cleaned = cleaned.replaceAll('-', '');
 
   // 驗證格式：應該是 32 字符的十六進制字符串
   if (!/^[a-f0-9]{32}$/i.test(cleaned)) {
@@ -289,7 +288,7 @@ export function setupTemplatePreview() {
  * @param {Object} variables
  */
 export function formatTitle(template, variables) {
-  return template.replace(/{(\w+)}/g, (match, key) => {
+  return template.replaceAll(/{(\w+)}/g, (match, key) => {
     return variables[key] || match;
   });
 }
@@ -364,7 +363,7 @@ function setupLogExport() {
         downloadLink.download = filename;
         document.body.appendChild(downloadLink);
         downloadLink.click();
-        document.body.removeChild(downloadLink);
+        downloadLink.remove();
         setTimeout(() => URL.revokeObjectURL(url), 100);
 
         statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);

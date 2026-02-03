@@ -52,13 +52,13 @@ describe('popup.js Controller', () => {
     checkPageStatus.mockResolvedValue({ success: true, isSaved: true });
 
     // Mock global chrome
-    global.chrome = {
+    globalThis.chrome = {
       tabs: {
         query: jest.fn().mockResolvedValue([{ id: 123, url: 'http://example.com' }]),
         sendMessage: jest.fn().mockResolvedValue({}),
       },
     };
-    global.window.close = jest.fn();
+    globalThis.window.close = jest.fn();
 
     return { mockElements };
   };
@@ -147,13 +147,13 @@ describe('popup.js Controller', () => {
     );
   });
 
-  describe('Event Handlers', () => {
-    // Helper to trigger event
-    async function triggerEvent(element, eventType = 'click') {
-      const handler = element.addEventListener.mock.calls.find(call => call[0] === eventType)[1];
-      await handler({ target: element });
-    }
+  // Helper to trigger event
+  async function triggerEvent(element, eventType = 'click') {
+    const handler = element.addEventListener.mock.calls.find(call => call[0] === eventType)[1];
+    await handler({ target: element });
+  }
 
+  describe('Event Handlers', () => {
     it('saveButton click should save page', async () => {
       const { mockElements } = setup();
       await initPopup();
