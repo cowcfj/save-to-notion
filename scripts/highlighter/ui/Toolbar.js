@@ -478,12 +478,10 @@ export class Toolbar {
           statusDiv.textContent = originalText;
         }, 2000);
 
-        if (typeof window.Logger !== 'undefined') {
-          Logger.error('同步失敗', {
-            action: 'syncToNotion',
-            error,
-          });
-        }
+        Logger.error('同步失敗', {
+          action: 'syncToNotion',
+          error,
+        });
       }
     }
   }
