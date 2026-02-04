@@ -34,7 +34,7 @@ import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const activeTab = tabs[0];
-  if (!activeTab || !activeTab.id) {
+  if (!activeTab?.id) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   }
   return activeTab;
@@ -96,7 +96,7 @@ export function createSaveHandlers(services) {
    * 清理頁面標記的輔助函數 (跨模組調用時可能需要，暫時保留在此，若 highlightHandlers 也需要則各自實現)
    * 注意：savePage 中會調用 clearPageHighlights
    *
-   * @param tabId
+   * @param {number} tabId - 標籤頁 ID
    */
   async function clearPageHighlights(tabId) {
     try {
@@ -114,7 +114,12 @@ export function createSaveHandlers(services) {
   /**
    * 執行頁面創建（包含圖片錯誤重試邏輯）
    *
-   * @param params
+   * @param {object} params - 參數對象
+   * @param {string} params.normUrl - 正規化的 URL
+   * @param {string} params.dataSourceId - Notion 數據源 ID
+   * @param {string} params.dataSourceType - 數據源類型
+   * @param {object} params.contentResult - 內容提取結果
+   * @returns {Promise<object>} 保存結果
    */
   async function performCreatePage(params) {
     const { normUrl, dataSourceId, dataSourceType, contentResult } = params;
@@ -175,9 +180,71 @@ export function createSaveHandlers(services) {
   }
 
   /**
+   * 處理現有頁面的更新邏輯
+   *
+   * @param {object} params - 參數對象
+   * @returns {Promise<void>}
+   * @private
+   */
+  async function _handleExistingPageUpdate(params) {
+    const { savedData, highlights, contentResult, normUrl, sendResponse } = params;
+    const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
+
+    if (highlights.length > 0) {
+      const buildBlocks = buildHighlightBlocks || (() => []);
+      const highlightBlocks = buildBlocks(highlights);
+      const result = await notionService.updateHighlightsSection(
+        savedData.notionPageId,
+        highlightBlocks
+      );
+
+      if (result.success) {
+        result.highlightCount = highlights.length;
+        result.highlightsUpdated = true;
+        await storageService.setSavedPageData(normUrl, {
+          ...savedData,
+          lastUpdated: new Date().toISOString(),
+        });
+        sendResponse(result);
+      } else {
+        const userMessage = ErrorHandler.formatUserMessage(result.error);
+        const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
+        sendResponse({
+          ...result,
+          error: `${userMessage}${phaseInfo}`,
+        });
+      }
+    } else {
+      const result = await notionService.refreshPageContent(
+        savedData.notionPageId,
+        contentResult.blocks,
+        { updateTitle: true, title: contentResult.title }
+      );
+
+      if (result.success) {
+        result.imageCount = imageCount;
+        result.blockCount = contentResult.blocks.length;
+        result.updated = true;
+        await storageService.setSavedPageData(normUrl, {
+          ...savedData,
+          lastUpdated: new Date().toISOString(),
+        });
+        sendResponse(result);
+      } else {
+        const userMessage = ErrorHandler.formatUserMessage(result.error);
+        const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
+        sendResponse({
+          ...result,
+          error: `${userMessage}${phaseInfo}`,
+        });
+      }
+    }
+  }
+
+  /**
    * 根據頁面狀態決定並執行保存操作
    *
-   * @param params
+   * @param {object} params - 參數對象
    */
   async function determineAndExecuteSaveAction(params) {
     const {
@@ -186,12 +253,9 @@ export function createSaveHandlers(services) {
       dataSourceId,
       dataSourceType,
       contentResult,
-      highlights,
       activeTabId,
       sendResponse,
     } = params;
-
-    const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
 
     // 已有保存記錄：檢查頁面是否仍存在
     if (savedData?.notionPageId) {
@@ -200,7 +264,7 @@ export function createSaveHandlers(services) {
       if (pageExists === null) {
         Logger.warn('無法確認 Notion 頁面存在性', {
           action: 'checkPageExists',
-          pageId: savedData.notionPageId ? `${savedData.notionPageId.slice(0, 4)}***` : 'unknown',
+          pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
           result: 'aborted',
         });
         sendResponse({
@@ -211,49 +275,9 @@ export function createSaveHandlers(services) {
       }
 
       if (pageExists) {
-        // 頁面存在：更新標註或內容
-        if (highlights.length > 0) {
-          // 只更新標註
-          // Build highlight blocks (safely)
-          const buildBlocks = buildHighlightBlocks || (() => []);
-          const highlightBlocks = buildBlocks(highlights);
-          const result = await notionService.updateHighlightsSection(
-            savedData.notionPageId,
-            highlightBlocks
-          );
-
-          if (result.success) {
-            result.highlightCount = highlights.length;
-            result.highlightsUpdated = true;
-            // 更新本地時間戳以保持數據一致性
-            await storageService.setSavedPageData(normUrl, {
-              ...savedData,
-              lastUpdated: new Date().toISOString(),
-            });
-          }
-          sendResponse(result);
-        } else {
-          // 刷新頁面內容
-          const result = await notionService.refreshPageContent(
-            savedData.notionPageId,
-            contentResult.blocks,
-            { updateTitle: true, title: contentResult.title }
-          );
-
-          if (result.success) {
-            result.imageCount = imageCount;
-            result.blockCount = contentResult.blocks.length;
-            result.updated = true;
-            // 更新本地時間戳以保持數據一致性
-            await storageService.setSavedPageData(normUrl, {
-              ...savedData,
-              lastUpdated: new Date().toISOString(),
-            });
-          }
-          sendResponse(result);
-        }
+        await _handleExistingPageUpdate(params);
       } else {
-        // 頁面已刪除：清理狀態並創建新頁面
+        // 頁面已刪除：清理狀態並重新創建新頁面
         Logger.log('Notion 頁面已被刪除，正在清理本地狀態並重新創建', {
           action: 'recreatePage',
           url: sanitizeUrlForLogging(normUrl),
@@ -261,7 +285,6 @@ export function createSaveHandlers(services) {
         await storageService.clearPageState(normUrl);
         await clearPageHighlights(activeTabId);
 
-        // 使用 performCreatePage 統一處理創建與重試
         const result = await performCreatePage({
           normUrl,
           dataSourceId,
@@ -275,7 +298,6 @@ export function createSaveHandlers(services) {
         sendResponse(result);
       }
     } else {
-      // 首次保存
       const result = await performCreatePage({
         normUrl,
         dataSourceId,
@@ -290,9 +312,9 @@ export function createSaveHandlers(services) {
     /**
      * 保存頁面
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
      */
     savePage: async (request, sender, sendResponse) => {
       try {
@@ -377,7 +399,7 @@ export function createSaveHandlers(services) {
           Logger.error('內容提取失敗', { action: 'extractContent', error: error.message });
         }
 
-        if (!result || !result.title || !result.blocks) {
+        if (!result?.title || !result?.blocks) {
           Logger.error('內容提取結果驗證失敗', {
             action: 'validateContent',
             hasResult: Boolean(result),
@@ -386,16 +408,15 @@ export function createSaveHandlers(services) {
             blocksCount: result?.blocks?.length ?? 0,
             url: sanitizeUrlForLogging(activeTab.url),
           });
-          const errorMessage = result
-            ? (result.title
-              ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING
-              : ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING)
-            : ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED;
 
-          sendResponse({
-            success: false,
-            error: errorMessage,
-          });
+          let error = ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED;
+          if (result) {
+            error = result.title
+              ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING
+              : ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING;
+          }
+
+          sendResponse({ success: false, error });
           return;
         }
 
@@ -423,9 +444,9 @@ export function createSaveHandlers(services) {
     /**
      * 打開 Notion 頁面
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
      */
     openNotionPage: async (request, sender, sendResponse) => {
       try {
@@ -456,7 +477,7 @@ export function createSaveHandlers(services) {
         const normUrl = normalize(pageUrl);
         const savedData = await storageService.getSavedPageData(normUrl);
 
-        if (!savedData || !savedData.notionPageId) {
+        if (!savedData?.notionPageId) {
           sendResponse({
             success: false,
             error: ERROR_MESSAGES.USER_MESSAGES.PAGE_NOT_SAVED_TO_NOTION,
@@ -523,9 +544,9 @@ export function createSaveHandlers(services) {
     /**
      * 檢查頁面是否存在
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
      */
     checkNotionPageExists: async (request, sender, sendResponse) => {
       try {
@@ -551,118 +572,82 @@ export function createSaveHandlers(services) {
     /**
      * 檢查頁面保存狀態
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
+     * @returns {Promise<void>}
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
         const activeTab = await getActiveTab();
-
-        const normalize = normalizeUrl || (url => url);
-        const normUrl = normalize(activeTab.url || '');
+        const normUrl = (normalizeUrl || (url => url))(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
-        if (savedData?.notionPageId) {
-          // 緩存驗證機制
-          const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
-          const lastVerified = savedData.lastVerifiedAt || 0;
-          const now = Date.now();
-          // forceRefresh 會繞過緩存，強制重新驗證
-          const isFresh = !request.forceRefresh && now - lastVerified < TTL;
+        if (!savedData?.notionPageId) {
+          return sendResponse({ success: true, isSaved: false });
+        }
 
-          if (isFresh) {
-            // 緩存有效，直接返回本地狀態
-            sendResponse({
-              success: true,
-              isSaved: true,
-              notionPageId: savedData.notionPageId,
-              notionUrl: savedData.notionUrl,
-              title: savedData.title,
-            });
-            return;
-          }
-
-          // 緩存過期，執行 API 驗證
-          const config = await storageService.getConfig(['notionApiKey']);
-          if (config.notionApiKey) {
-            notionService.setApiKey(config.notionApiKey);
-
-            // 嚴格檢查：確認頁面在 Notion 中是否真的存在
-            let exists = await notionService.checkPageExists(savedData.notionPageId);
-
-            // 如果第一次檢查返回 null (不確定/錯誤)，嘗試重試一次以排除冷啟動或暫時性網絡問題
-            if (exists === null) {
-              Logger.warn('首次檢查頁面存在性失敗，正在重試', {
-                action: 'checkPageExists',
-                pageId: savedData.notionPageId
-                  ? `${savedData.notionPageId.slice(0, 4)}***`
-                  : 'unknown',
-              });
-              await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
-              exists = await notionService.checkPageExists(savedData.notionPageId);
-            }
-
-            switch (exists) {
-              case false: {
-                // 頁面已在 Notion 刪除，清理本地狀態
-                Logger.log('頁面在本地存儲中存在但已在 Notion 中刪除，正在清理狀態', {
-                  action: 'syncLocalState',
-                  pageId: savedData.notionPageId
-                    ? `${savedData.notionPageId.slice(0, 4)}***`
-                    : 'unknown',
-                });
-                await storageService.clearPageState(normUrl);
-
-                // 🔑 更新 badge 為「未保存」狀態
-                try {
-                  chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
-                } catch (badgeError) {
-                  Logger.warn('更新標記失敗', { action: 'updateBadge', error: badgeError.message });
-                }
-
-                sendResponse({
-                  success: true,
-                  isSaved: false,
-                  wasDeleted: true,
-                });
-                return;
-              }
-              case true: {
-                // 頁面存在，更新驗證時間
-                savedData.lastVerifiedAt = now;
-                // setSavedPageData 會自動更新 lastUpdated，但這裡是更新 metadata，可以接受
-                await storageService.setSavedPageData(normUrl, savedData);
-
-                break;
-              }
-              case null: {
-                Logger.warn('重試後仍無法驗證頁面存在性，暫時假設本地狀態正確', {
-                  action: 'checkPageExists',
-                  pageId: savedData.notionPageId
-                    ? `${savedData.notionPageId.slice(0, 4)}***`
-                    : 'unknown',
-                });
-
-                break;
-              }
-              // No default
-            }
-          }
-
-          sendResponse({
+        const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
+        const now = Date.now();
+        if (!request.forceRefresh && now - (savedData.lastVerifiedAt || 0) < TTL) {
+          return sendResponse({
             success: true,
             isSaved: true,
             notionPageId: savedData.notionPageId,
             notionUrl: savedData.notionUrl,
             title: savedData.title,
           });
-        } else {
-          sendResponse({
+        }
+
+        const config = await storageService.getConfig(['notionApiKey']);
+        if (!config.notionApiKey) {
+          return sendResponse({
             success: true,
-            isSaved: false,
+            isSaved: true,
+            notionPageId: savedData.notionPageId,
+            notionUrl: savedData.notionUrl,
+            title: savedData.title,
           });
         }
+
+        notionService.setApiKey(config.notionApiKey);
+        let exists = await notionService.checkPageExists(savedData.notionPageId);
+
+        if (exists === null) {
+          Logger.warn('首次檢查頁面存在性失敗，正在重試', {
+            action: 'checkPageExists',
+            pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+          });
+          await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
+          exists = await notionService.checkPageExists(savedData.notionPageId);
+        }
+
+        if (exists === false) {
+          Logger.log('頁面已在 Notion 中刪除，正在清理狀態', {
+            action: 'syncLocalState',
+            pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+          });
+          await storageService.clearPageState(normUrl);
+          try {
+            chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
+          } catch {
+            /* ignore */
+          }
+          return sendResponse({ success: true, isSaved: false, wasDeleted: true });
+        }
+
+        if (exists === true) {
+          savedData.lastVerifiedAt = now;
+          await storageService.setSavedPageData(normUrl, savedData);
+        }
+
+        sendResponse({
+          success: true,
+          isSaved: true,
+          notionPageId: savedData.notionPageId,
+          notionUrl: savedData.notionUrl,
+          title: savedData.title,
+        });
       } catch (error) {
         Logger.error('檢查頁面狀態時出錯', { action: 'checkPageStatus', error: error.message });
         const safeMessage = sanitizeApiError(error, 'check_page_status');
@@ -674,9 +659,9 @@ export function createSaveHandlers(services) {
      * 處理來自 Content Script 的日誌轉發
      * 用於將 Content Script 的日誌集中到 Background Console
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
      */
     devLogSink: (request, sender, sendResponse) => {
       try {

@@ -676,7 +676,9 @@ describe('NotionService', () => {
       const result = await service.refreshPageContent('page-123', []);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('刪除區塊失敗');
+      expect(result.error).toBe('Delete failed');
+      expect(result.errorType).toBe('notion_api');
+      expect(result.details.phase).toBe('delete_existing');
     });
 
     it('should update title when option is set', async () => {
@@ -714,9 +716,9 @@ describe('NotionService', () => {
       const result = await promise;
 
       expect(result.success).toBe(false);
-      // 驗證返回清理後的用戶友好錯誤訊息
-      // 應該返回標準化的 Network error
       expect(result.error).toContain('Network error');
+      expect(result.errorType).toBe('internal');
+      expect(result.details.phase).toBe('catch_all');
     });
   });
   describe('_findHighlightSectionBlocks', () => {
@@ -859,6 +861,8 @@ describe('NotionService', () => {
       expect(result).toEqual({
         success: false,
         error: 'Fetch failed',
+        errorType: 'notion_api',
+        details: { phase: 'fetch_blocks' },
       });
       expect(service._deleteBlocksByIds).not.toHaveBeenCalled();
     });
@@ -888,6 +892,8 @@ describe('NotionService', () => {
       expect(result.success).toBe(false);
       expect(result.deletedCount).toBe(0);
       expect(result.error).toBeDefined();
+      expect(result.errorType).toBe('notion_api');
+      expect(result.details.phase).toBe('append_highlights');
     });
 
     it('應該正確處理分頁以獲取所有區塊', async () => {

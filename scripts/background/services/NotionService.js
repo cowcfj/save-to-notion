@@ -10,7 +10,7 @@
  */
 
 // 導入統一配置
-import { NOTION_API, ERROR_MESSAGES } from '../../config/index.js';
+import { NOTION_CONFIG, ERROR_MESSAGES } from '../../config/index.js';
 // 導入安全工具
 import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 // 導入圖片區塊過濾函數（整合自 imageUtils）
@@ -18,28 +18,7 @@ import { filterNotionImageBlocks } from '../../utils/imageUtils.js';
 // 導入統一日誌記錄器
 import Logger from '../../utils/Logger.js';
 
-// 使用統一常量構建配置
-const NOTION_CONFIG = {
-  API_VERSION: NOTION_API.VERSION,
-  BASE_URL: NOTION_API.BASE_URL,
-  BLOCKS_PER_BATCH: NOTION_API.BLOCKS_PER_BATCH,
-  DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES,
-  DEFAULT_BASE_DELAY: NOTION_API.BASE_RETRY_DELAY,
-  // 操作特定配置
-  CHECK_RETRIES: NOTION_API.CHECK_RETRIES,
-  CHECK_DELAY: NOTION_API.CHECK_DELAY,
-  CREATE_RETRIES: NOTION_API.CREATE_RETRIES,
-  CREATE_DELAY: NOTION_API.CREATE_DELAY,
-  DELETE_RETRIES: NOTION_API.DELETE_RETRIES,
-  DELETE_DELAY: NOTION_API.DELETE_DELAY,
-  RATE_LIMIT_DELAY: NOTION_API.RATE_LIMIT_DELAY,
-  PAGE_SIZE: NOTION_API.PAGE_SIZE,
-  // 頁面結構配置
-  HIGHLIGHT_SECTION_HEADER: NOTION_API.HIGHLIGHT_SECTION_HEADER,
-  // 批量刪除配置
-  DELETE_CONCURRENCY: NOTION_API.DELETE_CONCURRENCY,
-  DELETE_BATCH_DELAY_MS: NOTION_API.DELETE_BATCH_DELAY_MS,
-};
+// (NOTION_CONFIG 已遷移至 scripts/config/constants.js)
 
 /**
  * 延遲函數
@@ -858,8 +837,13 @@ class NotionService {
       if (!deleteResult.success) {
         return {
           success: false,
-          error: `刪除區塊失敗: ${deleteResult.error}`,
-          deletedCount: deleteResult.deletedCount,
+          error: deleteResult.error,
+          errorType: 'notion_api',
+          details: {
+            phase: 'delete_existing',
+            deletedCount: deleteResult.deletedCount,
+            totalFailures: deleteResult.failureCount,
+          },
         };
       }
 
@@ -878,7 +862,12 @@ class NotionService {
         action: 'refreshPageContent',
         error: error.message,
       });
-      return { success: false, error: sanitizeApiError(error, 'refresh_page') };
+      return {
+        success: false,
+        error: sanitizeApiError(error, 'refresh_page'),
+        errorType: 'internal',
+        details: { phase: 'catch_all' },
+      };
     }
   }
 
@@ -896,7 +885,12 @@ class NotionService {
       // 步驟 1: 獲取現有區塊
       const fetchResult = await this._fetchPageBlocks(pageId);
       if (!fetchResult.success) {
-        return { success: false, error: fetchResult.error };
+        return {
+          success: false,
+          error: fetchResult.error,
+          errorType: 'notion_api',
+          details: { phase: 'fetch_blocks' },
+        };
       }
 
       // 步驟 2: 找出需要刪除的標記區塊
@@ -937,6 +931,8 @@ class NotionService {
             success: false,
             deletedCount,
             error: sanitizeApiError(rawError, 'add_highlights'),
+            errorType: 'notion_api',
+            details: { phase: 'append_highlights' },
           };
         }
 
@@ -960,10 +956,16 @@ class NotionService {
         action: 'updateHighlightsSection',
         error: error.message,
       });
-      return { success: false, error: sanitizeApiError(error, 'update_highlights') };
+      return {
+        success: false,
+        error: sanitizeApiError(error, 'update_highlights'),
+        errorType: 'internal',
+        details: { phase: 'catch_all' },
+      };
     }
   }
 }
 
 // 導出
-export { NotionService, fetchWithRetry, NOTION_CONFIG };
+export { NotionService, fetchWithRetry };
+export { NOTION_CONFIG } from '../../config/index.js';
