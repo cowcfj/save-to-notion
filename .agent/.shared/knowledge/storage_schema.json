@@ -1,0 +1,59 @@
+{
+  "description": "Chrome Extension Storage Schema Definition",
+  "source_of_truth": "scripts/background/services/StorageService.js",
+  "storage_areas": {
+    "local": {
+      "limits": "5MB (unlimitedStorage permission)",
+      "patterns": {
+        "saved_{normalizedUrl}": {
+          "description": "Cached state of a preserved page",
+          "schema": {
+            "notionPageId": "string (UUID)",
+            "notionUrl": "string (https://www.notion.so/...)",
+            "title": "string",
+            "lastUpdated": "number (timestamp ms)",
+            "lastVerifiedAt": "number (timestamp ms)",
+            "savedAt": "number (timestamp ms)"
+          }
+        },
+        "highlights_{normalizedUrl}": {
+          "description": "List of highlights for a specific page",
+          "schema": {
+            "id": "string (UUID)",
+            "text": "string (Content)",
+            "color": "string (notion color name)",
+            "timestamp": "number",
+            "domPath": "string (selector)"
+          }
+        }
+      }
+    },
+    "sync": {
+      "limits": "100KB total, 8KB per item",
+      "keys": {
+        "notionApiKey": {
+          "type": "string",
+          "description": "Notion Integration Secret (Bearer Token)",
+          "sensitive": true
+        },
+        "notionDatabaseId": {
+          "type": "string",
+          "description": "Default target database ID"
+        },
+        "notionDataSourceId": {
+          "type": "string",
+          "description": "Selected data source ID (db or page)"
+        },
+        "notionDataSourceType": {
+          "type": "string",
+          "enum": ["database", "page"],
+          "default": "database"
+        },
+        "themeMode": {
+          "type": "string",
+          "enum": ["light", "dark", "auto"]
+        }
+      }
+    }
+  }
+}

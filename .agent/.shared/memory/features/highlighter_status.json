@@ -1,0 +1,47 @@
+{
+  "features": {
+    "core": {
+      "zero_dom_modification": {
+        "status": "stable",
+        "impl": "CSS Highlight API"
+      },
+      "persistence": {
+        "status": "stable",
+        "impl": "storage.local"
+      },
+      "auto_recovery": {
+        "status": "beta",
+        "impl": "MutationObserver + Text Search"
+      }
+    },
+    "interaction": {
+      "cross_element_selection": {
+        "status": "stable"
+      },
+      "delete_highlight": {
+        "status": "stable",
+        "trigger": "Ctrl+Click"
+      },
+      "hover_detection": {
+        "status": "pending"
+      }
+    },
+    "ui": {
+      "toolbar": {
+        "status": "stable",
+        "states": ["hidden", "minimized", "expanded"]
+      },
+      "color_picker": {
+        "status": "stable",
+        "colors": ["yellow", "green", "blue", "pink"]
+      }
+    }
+  },
+  "migration": {
+    "legacy_local_storage": {
+      "status": "active",
+      "strategy": "lazy_migration"
+    }
+  },
+  "future_roadmap": ["persistence_toggle", "collaborative_highlighting", "cloud_sync"]
+}

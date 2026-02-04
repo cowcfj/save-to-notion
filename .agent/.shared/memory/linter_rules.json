@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "language": {
+      "primary": "zh-TW",
+      "enforcement": "strict",
+      "exceptions": ["technical_terms", "variable_names"]
+    },
+    "artifacts": {
+      "required_templates": {
+        "implementation_plan": "docs/guides/PROJECT_STANDARDS.md#✅-implementation-plan-模板-繁體中文"
+      }
+    },
+    "git": {
+      "commit_message": {
+        "format": "<type>: <subject>",
+        "types": ["feat", "fix", "docs", "style", "refactor", "test", "chore"],
+        "subject_language": "zh-TW"
+      }
+    },
+    "code": {
+      "no_magic_numbers": true,
+      "no_console_log": true,
+      "use_constants_module": true
+    },
+    "documentation": {
+      "sync_required": true,
+      "forbidden_files": ["QUICK_START.md", "*_INTERNAL.md"]
+    }
+  }
+}

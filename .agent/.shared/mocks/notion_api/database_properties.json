@@ -1,0 +1,69 @@
+{
+  "properties": {
+    "Name": {
+      "id": "title",
+      "type": "title",
+      "title": {}
+    },
+    "Tags": {
+      "id": "tags",
+      "type": "multi_select",
+      "multi_select": {
+        "options": [
+          {
+            "id": "uuid-1",
+            "name": "Reading",
+            "color": "blue"
+          },
+          {
+            "id": "uuid-2",
+            "name": "Work",
+            "color": "red"
+          }
+        ]
+      }
+    },
+    "Category": {
+      "id": "category",
+      "type": "select",
+      "select": {
+        "options": [
+          {
+            "id": "uuid-3",
+            "name": "Article",
+            "color": "green"
+          },
+          {
+            "id": "uuid-4",
+            "name": "Video",
+            "color": "pink"
+          }
+        ]
+      }
+    },
+    "URL": {
+      "id": "url",
+      "type": "url",
+      "url": {}
+    },
+    "Date": {
+      "id": "date",
+      "type": "date",
+      "date": {}
+    },
+    "Created By": {
+      "id": "created_by",
+      "type": "created_by",
+      "created_by": {}
+    },
+    "Related": {
+      "id": "related",
+      "type": "relation",
+      "relation": {
+        "database_id": "uuid-database",
+        "synced_property_name": "Backlink",
+        "synced_property_id": "uuid-prop"
+      }
+    }
+  }
+}
