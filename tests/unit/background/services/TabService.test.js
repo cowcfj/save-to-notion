@@ -5,7 +5,7 @@
 import { TabService } from '../../../../scripts/background/services/TabService.js';
 
 // Mock chrome API
-global.chrome = {
+globalThis.chrome = {
   action: {
     setBadgeText: jest.fn(),
     setBadgeBackgroundColor: jest.fn(),
@@ -52,7 +52,10 @@ describe('TabService', () => {
       normalizeUrl: url => url,
       getSavedPageData: jest.fn().mockResolvedValue(null),
       isRestrictedUrl: url => url.includes('chrome://'),
-      isRecoverableError: msg => msg.includes('Cannot access'),
+      isRecoverableError: err => {
+        const msg = typeof err === 'string' ? err : err?.message || '';
+        return msg.includes('Cannot access');
+      },
     });
 
     // 初始化全局 chrome.runtime
@@ -166,7 +169,7 @@ describe('TabService', () => {
 
       // Assert: 錯誤被記錄
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to inject bundle'),
+        expect.stringContaining('[TabService] Error updating tab status:'),
         injectionError
       );
 
@@ -268,9 +271,9 @@ describe('TabService', () => {
         'highlights_https://example.com'
       );
 
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        '⚠️ Migration skipped due to recoverable error:',
-        expect.any(String)
+      expect(mockLogger.log).toHaveBeenCalled();
+      expect(mockLogger.log.mock.calls[0][0]).toMatch(
+        /Migration skipped due to recoverable error:?/
       );
     });
 

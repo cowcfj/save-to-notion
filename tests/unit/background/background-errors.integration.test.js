@@ -13,7 +13,7 @@ function createEvent() {
     addListener: fn => listeners.push(fn),
     removeListener: fn => {
       const i = listeners.indexOf(fn);
-      if (i >= 0) {
+      if (i !== -1) {
         listeners.splice(i, 1);
       }
     },
@@ -37,10 +37,10 @@ describe('background error branches (integration)', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    originalChrome = global.chrome;
+    originalChrome = globalThis.chrome;
 
     // 明確設定 Logger 為非調試模式
-    global.Logger = {
+    globalThis.Logger = {
       debugEnabled: false,
       error: jest.fn(),
       warn: jest.fn(),
@@ -56,7 +56,7 @@ describe('background error branches (integration)', () => {
 
     const storageData = {};
 
-    global.chrome = {
+    globalThis.chrome = {
       runtime: {
         id: 'test',
         lastError: null,
@@ -126,7 +126,7 @@ describe('background error branches (integration)', () => {
   });
 
   afterEach(() => {
-    global.chrome = originalChrome;
+    globalThis.chrome = originalChrome;
     jest.useRealTimers();
   });
 
@@ -508,8 +508,8 @@ describe('background error branches (integration)', () => {
     });
 
     // 模擬 Notion API 回覆 400 非 image 錯誤
-    const originalFetch = global.fetch;
-    global.fetch = jest.fn(() =>
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn(() =>
       Promise.resolve({
         ok: false,
         status: 400,
@@ -530,7 +530,7 @@ describe('background error branches (integration)', () => {
       })
     );
 
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
   });
 
   test('savePage：Notion API image validation_error 觸發自動重試（排除圖片）→ 成功', async () => {
@@ -586,9 +586,9 @@ describe('background error branches (integration)', () => {
     });
 
     // fetch：第1次返回 validation_error（含 image 字樣），第2次返回 ok:true
-    const originalFetch = global.fetch;
+    const originalFetch = globalThis.fetch;
     let fetchCall = 0;
-    global.fetch = jest.fn(() => {
+    globalThis.fetch = jest.fn(() => {
       fetchCall += 1;
       if (fetchCall === 1) {
         return Promise.resolve({
@@ -622,7 +622,7 @@ describe('background error branches (integration)', () => {
     expect(resp.success).toBe(true);
     // 可存在 warning（All images were skipped...），但不強制檢查文案
 
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
     jest.useRealTimers();
   });
 
@@ -674,8 +674,8 @@ describe('background error branches (integration)', () => {
       mockCb?.();
     });
 
-    const originalFetch = global.fetch;
-    global.fetch = jest.fn((requestUrl, init) => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn((requestUrl, init) => {
       // 檢查頁面存在
       if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
         return Promise.resolve({
@@ -723,7 +723,7 @@ describe('background error branches (integration)', () => {
       })
     );
 
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
   });
 
   test('updateNotionPage：一般 4xx 錯誤 → 返回原始訊息', async () => {
@@ -771,8 +771,8 @@ describe('background error branches (integration)', () => {
       mockCb?.();
     });
 
-    const originalFetch = global.fetch;
-    global.fetch = jest.fn((requestUrl, init) => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn((requestUrl, init) => {
       if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
         return Promise.resolve({
           ok: true,
@@ -810,7 +810,7 @@ describe('background error branches (integration)', () => {
       })
     );
 
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
   });
 
   test('updateNotionPage：PATCH 失敗無 message → 返回預設錯誤訊息', async () => {
@@ -858,8 +858,8 @@ describe('background error branches (integration)', () => {
       mockCb?.();
     });
 
-    const originalFetch = global.fetch;
-    global.fetch = jest.fn((requestUrl, init) => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn((requestUrl, init) => {
       if (/\/v1\/pages\//u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
@@ -892,6 +892,6 @@ describe('background error branches (integration)', () => {
       expect(typeof resp.error).toBe('string');
     }
 
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
   });
 });

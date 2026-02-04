@@ -1,10 +1,9 @@
-/**
- * 標註列表組件
- * 負責渲染和更新標註列表
- */
+import { TOOLBAR_SELECTORS } from '../../../config/selectors.js';
+import { createSafeIcon } from '../../../utils/securityUtils.js';
 
 /**
  * 獲取顏色的中文名稱
+ *
  * @param {string} color - 顏色英文名稱
  * @returns {string} 顏色的中文名稱
  */
@@ -20,6 +19,7 @@ function getColorName(color) {
 
 /**
  * 渲染標註列表
+ *
  * @param {HTMLElement} container - 容器元素
  * @param {Array} highlights - 標註數組，每個元素包含 {id, text, color}
  * @param {Function} onDelete - 刪除回調函數，接收標註 id
@@ -30,10 +30,10 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     throw new Error('Container is required');
   }
   if (!Array.isArray(highlights)) {
-    throw new Error('Highlights must be an array');
+    throw new TypeError('Highlights must be an array');
   }
   if (typeof onDelete !== 'function') {
-    throw new Error('onDelete must be a function');
+    throw new TypeError('onDelete must be a function');
   }
 
   // 清空容器
@@ -44,7 +44,7 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     const emptyDiv = document.createElement('div');
     emptyDiv.style.cssText = 'padding: 16px; text-align: center; color: #9ca3af; font-size: 13px;';
     emptyDiv.textContent = '暫無標註';
-    container.appendChild(emptyDiv);
+    container.append(emptyDiv);
     return;
   }
 
@@ -54,24 +54,33 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
 
   const headerSpan = document.createElement('span');
   headerSpan.textContent = '標註列表';
-  headerDiv.appendChild(headerSpan);
+  headerDiv.append(headerSpan);
 
   // 打開 Notion 按鈕（可選）
   if (onOpenNotion) {
     const openBtn = document.createElement('button');
-    openBtn.id = 'list-open-notion-v2';
+    openBtn.id = TOOLBAR_SELECTORS.LIST_OPEN_NOTION.slice(1);
     openBtn.className = 'nh-btn nh-btn-mini';
-    openBtn.textContent = '🔗 打開';
+    // SVG Icon for External Link
+    const iconSvg =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
+
+    // Use createSafeIcon for security
+    const iconSpan = createSafeIcon(iconSvg);
+    const textSpan = document.createElement('span');
+    textSpan.textContent = ' 打開';
+
+    openBtn.append(iconSpan, textSpan);
     openBtn.addEventListener('click', onOpenNotion);
-    headerDiv.appendChild(openBtn);
+    headerDiv.append(openBtn);
   }
 
-  container.appendChild(headerDiv);
+  container.append(headerDiv);
 
   // 標註項目
   highlights.forEach((highlight, index) => {
     // 截斷過長的文本
-    const text = highlight.text.substring(0, 40) + (highlight.text.length > 40 ? '...' : '');
+    const text = highlight.text.slice(0, 40) + (highlight.text.length > 40 ? '...' : '');
     const colorName = getColorName(highlight.color);
 
     // 創建項目容器
@@ -92,29 +101,28 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     textDiv.className = 'nh-list-text';
     textDiv.textContent = text;
 
-    contentDiv.appendChild(titleDiv);
-    contentDiv.appendChild(textDiv);
+    contentDiv.append(titleDiv);
+    contentDiv.append(textDiv);
 
     // 刪除按鈕
     const deleteBtn = document.createElement('button');
-    deleteBtn.setAttribute('data-highlight-id', highlight.id);
+    deleteBtn.dataset.highlightId = highlight.id;
     deleteBtn.className = 'nh-btn-delete';
     deleteBtn.title = '刪除此標註';
 
     // SVG 圖標（靜態內容，安全使用 innerHTML）
-    deleteBtn.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M1 3H13M2.5 3L3.5 12C3.5 12.5523 3.94772 13 4.5 13H9.5C10.0523 13 10.5 12.5523 10.5 12L11.5 3M5 1V3M9 1V3M5 6V10M9 6V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    `;
+    // SVG 圖標（使用 createSafeIcon 替代 innerHTML）
+    const deleteIconSvg =
+      '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 3H13M2.5 3L3.5 12C3.5 12.5523 3.94772 13 4.5 13H9.5C10.0523 13 10.5 12.5523 10.5 12L11.5 3M5 1V3M9 1V3M5 6V10M9 6V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    deleteBtn.append(createSafeIcon(deleteIconSvg));
 
     // 綁定刪除事件
     deleteBtn.addEventListener('click', () => {
       onDelete(highlight.id);
     });
 
-    itemDiv.appendChild(contentDiv);
-    itemDiv.appendChild(deleteBtn);
-    container.appendChild(itemDiv);
+    itemDiv.append(contentDiv);
+    itemDiv.append(deleteBtn);
+    container.append(itemDiv);
   });
 }

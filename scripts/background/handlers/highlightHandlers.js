@@ -26,6 +26,7 @@ import { ERROR_MESSAGES } from '../../config/messages.js';
 
 /**
  * 獲取活動標籤頁
+ *
  * @returns {Promise<chrome.tabs.Tab>}
  * @throws {Error} 如果無法獲取標籤頁
  */
@@ -40,6 +41,7 @@ async function getActiveTab() {
 
 /**
  * 獲取並設置 Notion API Key
+ *
  * @param {StorageService} storageService
  * @param {NotionService} notionService
  * @returns {Promise<string>} API Key
@@ -55,6 +57,7 @@ async function ensureNotionApiKey(storageService, notionService) {
 }
 /**
  * 確保 Bundle 已就緒
+ *
  * @param {number} tabId
  * @param {number} maxRetries
  * @returns {Promise<boolean>}
@@ -94,8 +97,9 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
 
 /**
  * 創建 Highlight Handlers
- * @param {Object} services - 服務實例集合
- * @returns {Object} 處理函數映射
+ *
+ * @param {object} services - 服務實例集合
+ * @returns {object} 處理函數映射
  */
 export function createHighlightHandlers(services) {
   const { notionService, storageService, injectionService } = services;
@@ -103,6 +107,10 @@ export function createHighlightHandlers(services) {
   return {
     /**
      * 處理用戶快捷鍵激活（來自 Preloader）
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     USER_ACTIVATE_SHORTCUT: async (request, sender, sendResponse) => {
       try {
@@ -207,6 +215,10 @@ export function createHighlightHandlers(services) {
 
     /**
      * 啟動/切換高亮工具
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     startHighlight: async (request, sender, sendResponse) => {
       try {
@@ -280,6 +292,10 @@ export function createHighlightHandlers(services) {
 
     /**
      * 更新現有頁面的標註
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     updateHighlights: async (request, sender, sendResponse) => {
       try {
@@ -324,6 +340,10 @@ export function createHighlightHandlers(services) {
 
     /**
      * 同步標註 (從請求 payload 中獲取)
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     syncHighlights: async (request, sender, sendResponse) => {
       try {

@@ -40,8 +40,8 @@ export class ToolbarStateManager {
 
     try {
       // 使用 sessionStorage（每個標籤頁獨立，刷新頁面後保持）
-      if (typeof window !== 'undefined' && window.sessionStorage) {
-        const savedState = window.sessionStorage.getItem(STORAGE_KEY);
+      if (globalThis.window !== undefined && globalThis.sessionStorage) {
+        const savedState = globalThis.sessionStorage.getItem(STORAGE_KEY);
 
         if (savedState && Object.values(ToolbarStates).includes(savedState)) {
           this._currentState = savedState;
@@ -64,6 +64,7 @@ export class ToolbarStateManager {
 
   /**
    * 設置新狀態並通知監聽器
+   *
    * @param {string} newState - 新狀態 (必須是 ToolbarStates 的值)
    */
   set currentState(newState) {
@@ -84,6 +85,7 @@ export class ToolbarStateManager {
 
   /**
    * 保存狀態到 storage
+   *
    * @param {string} state
    * @private
    */
@@ -91,8 +93,8 @@ export class ToolbarStateManager {
   // skipcq: JS-0105
   _saveState(state) {
     try {
-      if (typeof window !== 'undefined' && window.sessionStorage) {
-        window.sessionStorage.setItem(STORAGE_KEY, state);
+      if (globalThis.window !== undefined && globalThis.sessionStorage) {
+        globalThis.sessionStorage.setItem(STORAGE_KEY, state);
       }
     } catch (error) {
       Logger.warn('[ToolbarState] 無法保存狀態:', error);
@@ -101,6 +103,7 @@ export class ToolbarStateManager {
 
   /**
    * 添加狀態變更監聽器
+   *
    * @param {Function} listener - 回調函數 (state) => void
    */
   addListener(listener) {
@@ -115,6 +118,7 @@ export class ToolbarStateManager {
 
   /**
    * 移除監聽器
+   *
    * @param {Function} listener
    */
   removeListener(listener) {

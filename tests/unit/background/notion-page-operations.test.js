@@ -5,10 +5,10 @@
 
 // Mock Chrome APIs
 const mockChrome = require('../../mocks/chrome');
-global.chrome = mockChrome;
+globalThis.chrome = mockChrome;
 
 // Mock console methods
-global.console = {
+globalThis.console = {
   log: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
@@ -16,7 +16,7 @@ global.console = {
 };
 
 // Mock fetch
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 describe('Background Notion Page Operations', () => {
   let checkNotionPageExists = null;
@@ -27,7 +27,7 @@ describe('Background Notion Page Operations', () => {
     jest.clearAllMocks();
 
     // Mock fetch responses
-    global.fetch.mockClear();
+    globalThis.fetch.mockClear();
 
     // 模擬 checkNotionPageExists 函數
     checkNotionPageExists = jest.fn(async (pageId, apiKey) => {
@@ -175,7 +175,7 @@ describe('Background Notion Page Operations', () => {
         properties: {},
       };
 
-      global.fetch.mockResolvedValue({
+      globalThis.fetch.mockResolvedValue({
         ok: true,
         status: 200,
         json: () => Promise.resolve(mockPageData),
@@ -185,7 +185,7 @@ describe('Background Notion Page Operations', () => {
       const result = await checkNotionPageExists(pageId, apiKey);
 
       // Assert
-      expect(global.fetch).toHaveBeenCalledWith(`https://api.notion.com/v1/pages/${pageId}`, {
+      expect(globalThis.fetch).toHaveBeenCalledWith(`https://api.notion.com/v1/pages/${pageId}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -204,7 +204,7 @@ describe('Background Notion Page Operations', () => {
       const pageId = 'non-existent-page';
       const apiKey = 'test-api-key';
 
-      global.fetch.mockResolvedValue({
+      globalThis.fetch.mockResolvedValue({
         ok: false,
         status: 404,
         json: () => Promise.resolve({ message: 'Page not found' }),
@@ -230,7 +230,7 @@ describe('Background Notion Page Operations', () => {
         code: 'unauthorized',
       };
 
-      global.fetch.mockResolvedValue({
+      globalThis.fetch.mockResolvedValue({
         ok: false,
         status: 401,
         json: () => Promise.resolve(errorData),
@@ -256,7 +256,7 @@ describe('Background Notion Page Operations', () => {
       const apiKey = 'test-api-key';
       const networkError = new Error('Network error');
 
-      global.fetch.mockRejectedValue(networkError);
+      globalThis.fetch.mockRejectedValue(networkError);
 
       // Act
       const result = await checkNotionPageExists(pageId, apiKey);
@@ -274,7 +274,7 @@ describe('Background Notion Page Operations', () => {
       const pageId = 'test-page-id';
       const apiKey = 'test-api-key';
 
-      global.fetch.mockResolvedValue({
+      globalThis.fetch.mockResolvedValue({
         ok: false,
         status: 500,
         json: () => Promise.resolve({}),
@@ -370,7 +370,7 @@ describe('Background Notion Page Operations', () => {
       // Act
       try {
         await handleCheckNotionPageExistsMessage(request, mockSendResponse);
-      } catch (_error) {
+      } catch {
         // 預期會有錯誤
       }
 
@@ -483,7 +483,7 @@ describe('Background Notion Page Operations', () => {
         mockCb({ notionApiToken: apiKey });
       });
 
-      global.fetch.mockResolvedValue({
+      globalThis.fetch.mockResolvedValue({
         ok: true,
         status: 200,
         json: () => Promise.resolve(mockPageData),
@@ -496,7 +496,7 @@ describe('Background Notion Page Operations', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       // Assert
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         `https://api.notion.com/v1/pages/${pageId}`,
         expect.objectContaining({
           method: 'GET',
@@ -538,7 +538,7 @@ describe('Background Notion Page Operations', () => {
   describe('錯誤處理和邊界情況', () => {
     test('checkNotionPageExists 應該處理空參數', async () => {
       // Arrange
-      global.fetch.mockRejectedValue(new Error('Invalid parameters'));
+      globalThis.fetch.mockRejectedValue(new Error('Invalid parameters'));
 
       // Act & Assert
       const result1 = await checkNotionPageExists('', 'api-key');

@@ -19,6 +19,8 @@ import {
   hideModal,
   formatSaveSuccessMessage,
 } from './popupUI.js';
+import { injectIcons } from '../scripts/utils/uiUtils.js';
+import { UI_ICONS } from '../scripts/config/index.js';
 import {
   checkSettings,
   checkPageStatus,
@@ -33,8 +35,15 @@ import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../scripts/config/messages.js';
 import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
 
+const DEFAULT_ERROR = 'Unknown Error';
+
 // Export initialization function for testing
 export async function initPopup() {
+  Logger.start('[Popup] Initializing...');
+
+  // 注入 SVG 圖標
+  injectIcons(UI_ICONS);
+
   // 獲取所有 DOM 元素
   const elements = getElements();
 
@@ -42,11 +51,12 @@ export async function initPopup() {
   const settings = await checkSettings();
   if (!settings.valid) {
     // 根據實際缺失的設定顯示對應的提示訊息
-    const msg = !settings.apiKey
-      ? ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_API_KEY
-      : !settings.dataSourceId
-        ? ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE
-        : UI_MESSAGES.SETUP.MISSING_CONFIG;
+    let msg = UI_MESSAGES.SETUP.MISSING_CONFIG;
+    if (!settings.apiKey) {
+      msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED;
+    } else if (!settings.dataSourceId) {
+      msg = ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_DATA_SOURCE;
+    }
     setStatus(elements, msg);
     setButtonState(elements.saveButton, true);
     setButtonState(elements.highlightButton, true);
@@ -63,6 +73,7 @@ export async function initPopup() {
       } else {
         updateUIForUnsavedPage(elements, pageStatus);
       }
+      Logger.success('[Popup] Initialization complete', { pageStatus });
     }
   } catch (error) {
     Logger.error('Failed to initialize popup:', error);
@@ -76,6 +87,7 @@ export async function initPopup() {
 
   // 保存按鈕
   elements.saveButton.addEventListener('click', async () => {
+    Logger.start('[Popup] Saving page...');
     setStatus(elements, UI_MESSAGES.POPUP.SAVING);
     setButtonState(elements.saveButton, true);
 
@@ -97,6 +109,7 @@ export async function initPopup() {
       };
 
       updateUIForSavedPage(elements, directPageStatus);
+      Logger.success('[Popup] Page saved successfully', { url: response.url });
 
       // 🔑 保存完成後，通知 Content Script 創建並顯示 Toolbar
       try {
@@ -112,7 +125,8 @@ export async function initPopup() {
         });
       }
     } else {
-      const errorMsg = ErrorHandler.formatUserMessage(response?.error);
+      const safe = sanitizeApiError(response?.error || DEFAULT_ERROR, 'popup_save');
+      const errorMsg = ErrorHandler.formatUserMessage(safe);
       setStatus(elements, `${UI_MESSAGES.POPUP.SAVE_FAILED_PREFIX}${errorMsg}`);
     }
 
@@ -139,18 +153,22 @@ export async function initPopup() {
     }
 
     // 啟動標記模式
+    Logger.start('[Popup] Starting highlight mode...');
     setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_STARTING);
     setButtonState(elements.highlightButton, true);
 
     const response = await startHighlight();
 
     if (response?.success) {
+      Logger.success('[Popup] Highlight mode activated');
       setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_ACTIVATED);
       setTimeout(() => {
         window.close();
       }, 1000);
     } else {
-      setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_FAILED);
+      const safe = sanitizeApiError(response?.error || DEFAULT_ERROR, 'popup_start_highlight');
+      const msg = ErrorHandler.formatUserMessage(safe);
+      setStatus(elements, `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}${msg}`);
       Logger.error('Failed to start highlight mode', {
         action: 'startHighlight',
         error: response?.error,
@@ -164,11 +182,13 @@ export async function initPopup() {
 
   // 打開 Notion 按鈕
   elements.openNotionButton.addEventListener('click', async () => {
-    const notionUrl = elements.openNotionButton.getAttribute('data-url');
+    const notionUrl = elements.openNotionButton.dataset?.url;
     if (notionUrl) {
       const result = await openNotionPage(notionUrl);
       if (!result.success) {
-        setStatus(elements, UI_MESSAGES.POPUP.OPEN_NOTION_FAILED);
+        const safe = sanitizeApiError(result.error || DEFAULT_ERROR, 'popup_open_notion');
+        const msg = ErrorHandler.formatUserMessage(safe);
+        setStatus(elements, msg);
         Logger.error('Failed to open Notion page', {
           action: 'openNotionPage',
           error: result.error,
@@ -200,6 +220,7 @@ export async function initPopup() {
   // Modal 確認按鈕
   elements.modalConfirm.addEventListener('click', async () => {
     hideModal(elements);
+    Logger.start('[Popup] Clearing highlights...');
     setStatus(elements, UI_MESSAGES.POPUP.CLEARING);
     setButtonState(elements.clearHighlightsButton, true);
 
@@ -213,6 +234,7 @@ export async function initPopup() {
     const result = await clearHighlights(activeTab.id, activeTab.url);
 
     if (result.success) {
+      Logger.success('[Popup] Highlights cleared', { count: result.clearedCount });
       setStatus(elements, UI_MESSAGES.POPUP.CLEAR_SUCCESS(result.clearedCount));
       setTimeout(() => {
         setButtonState(elements.clearHighlightsButton, false);

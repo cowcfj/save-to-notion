@@ -90,20 +90,20 @@ describe('utils/dom', () => {
 
     test('should handle elements with getBoundingClientRect', () => {
       const div = document.createElement('div');
-      document.body.appendChild(div);
+      document.body.append(div);
 
       // 在 jsdom 中，元素默認是在視口內的（所有座標都是 0）
       const result = isInViewport(div);
       expect(typeof result).toBe('boolean');
 
-      document.body.removeChild(div);
+      div.remove();
     });
   });
 
   describe('getAttribute', () => {
     test('should return attribute value', () => {
       const div = document.createElement('div');
-      div.setAttribute('data-id', '123');
+      div.dataset.id = '123';
       expect(getAttribute(div, 'data-id')).toBe('123');
     });
 
@@ -129,7 +129,7 @@ describe('utils/dom', () => {
       const div = document.createElement('div');
       div.setAttribute('id', 'test');
       div.setAttribute('class', 'my-class');
-      div.setAttribute('data-value', '42');
+      div.dataset.value = '42';
 
       expect(getAttribute(div, 'id')).toBe('test');
       expect(getAttribute(div, 'class')).toBe('my-class');

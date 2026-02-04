@@ -1,10 +1,10 @@
 /**
- * @fileoverview Logger 系統進階測試
+ * @file Logger 系統進階測試
  * 測試 Logger 的邊界情況、開發模式檢測和錯誤處理
  */
 
 // 使用 presetup.js 提供的 global.Logger
-const Logger = global.Logger;
+const Logger = globalThis.Logger;
 
 if (!Logger) {
   throw new Error('Logger 未正確載入，請確認 tests/presetup.js 設定正確');
@@ -15,7 +15,7 @@ describe('Logger 系統進階測試', () => {
 
   beforeEach(() => {
     // 保存原始環境
-    originalChrome = global.chrome;
+    originalChrome = globalThis.chrome;
 
     // 重置 console 方法
     jest.spyOn(console, 'debug').mockImplementation(() => undefined);
@@ -26,7 +26,7 @@ describe('Logger 系統進階測試', () => {
 
   afterEach(() => {
     // 恢復原始環境
-    global.chrome = originalChrome;
+    globalThis.chrome = originalChrome;
 
     // 清理 mock
     jest.restoreAllMocks();
@@ -66,7 +66,7 @@ describe('Logger 系統進階測試', () => {
   describe('Chrome runtime 異常處理', () => {
     test('應該處理 chrome 不存在的情況', () => {
       // Arrange
-      delete global.chrome;
+      delete globalThis.chrome;
 
       // Act & Assert - 不應該拋出錯誤
       expect(() => {
@@ -79,7 +79,7 @@ describe('Logger 系統進階測試', () => {
 
     test('應該處理 chrome.runtime 不完整的情況', () => {
       // Arrange
-      global.chrome = {};
+      globalThis.chrome = {};
 
       // Act & Assert
       expect(() => {

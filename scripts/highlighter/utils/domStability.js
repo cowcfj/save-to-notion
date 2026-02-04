@@ -7,15 +7,13 @@
  * 等待 DOM 穩定
  * 監視指定容器或整個文檔的 DOM 變更，當在穩定閾值時間內無新增變更時視為穩定
  *
- * @param {Object} options - 配置選項
+ * @param {object} options - 配置選項
  * @param {string} [options.containerSelector] - 要監視的容器選擇器
  * @param {number} [options.stabilityThresholdMs=150] - 穩定閾值（毫秒）
  * @param {number} [options.maxWaitMs=5000] - 最大等待時間（毫秒）
  * @returns {Promise<boolean>} true=成功穩定, false=超時或找不到容器
- *
  * @example
  * const isStable = await waitForDOMStability();
- *
  * @example
  * const isStable = await waitForDOMStability({
  *   containerSelector: '#main',
@@ -96,7 +94,13 @@ export function waitForDOMStability(options = {}) {
       }
 
       // 優先使用 requestIdleCallback
-      if (typeof requestIdleCallback !== 'undefined') {
+      if (typeof requestIdleCallback === 'undefined') {
+        stabilityTimerId = setTimeout(() => {
+          if (!checkStability()) {
+            scheduleStabilityCheck();
+          }
+        }, stabilityThresholdMs);
+      } else {
         idleCallbackId = requestIdleCallback(
           () => {
             if (!checkStability()) {
@@ -105,12 +109,6 @@ export function waitForDOMStability(options = {}) {
           },
           { timeout: stabilityThresholdMs }
         );
-      } else {
-        stabilityTimerId = setTimeout(() => {
-          if (!checkStability()) {
-            scheduleStabilityCheck();
-          }
-        }, stabilityThresholdMs);
       }
     };
 
@@ -137,7 +135,7 @@ export function waitForDOMStability(options = {}) {
       });
 
       scheduleStabilityCheck();
-    } catch (_error) {
+    } catch {
       cleanup();
       resolve(false);
     }

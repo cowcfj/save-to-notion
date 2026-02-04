@@ -9,6 +9,13 @@ import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { renderHighlightList } from './components/HighlightList.js';
+import { injectIcons, createSpriteIcon } from '../../utils/uiUtils.js';
+import { TOOLBAR_SELECTORS } from '../../config/selectors.js';
+import { UI_STYLE_CONSTANTS } from '../../config/constants.js';
+import { UI_ICONS } from '../../config/icons.js';
+import { UI_MESSAGES } from '../../config/messages.js';
+import { sanitizeApiError } from '../../utils/securityUtils.js';
+import Logger from '../../utils/Logger.js';
 
 /**
  * 工具欄管理器類別
@@ -16,9 +23,13 @@ import { renderHighlightList } from './components/HighlightList.js';
 export class Toolbar {
   /**
    * 創建工具欄實例
+   *
    * @param {HighlightManager} highlightManager - 標註管理器實例
    */
   constructor(highlightManager) {
+    // 注入 SVG 圖標到當前頁面
+    injectIcons(UI_ICONS);
+
     if (!highlightManager) {
       throw new Error('HighlightManager is required');
     }
@@ -38,8 +49,8 @@ export class Toolbar {
     // 插入到 DOM（默認隱藏）
     this.container.style.display = 'none';
     this.miniIcon.style.display = 'none';
-    document.body.appendChild(this.container);
-    document.body.appendChild(this.miniIcon);
+    document.body.append(this.container);
+    document.body.append(this.miniIcon);
 
     // 綁定事件
     this.bindEvents();
@@ -89,9 +100,9 @@ export class Toolbar {
    * 綁定控制按鈕（開始標註、最小化、關閉）
    */
   bindControlButtons() {
-    const toggleBtn = this.container.querySelector('#toggle-highlight-v2');
-    const minimizeBtn = this.container.querySelector('#minimize-highlight-v2');
-    const closeBtn = this.container.querySelector('#close-highlight-v2');
+    const toggleBtn = this.container.querySelector(TOOLBAR_SELECTORS.TOGGLE_HIGHLIGHT);
+    const minimizeBtn = this.container.querySelector(TOOLBAR_SELECTORS.MINIMIZE);
+    const closeBtn = this.container.querySelector(TOOLBAR_SELECTORS.CLOSE);
 
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => this.toggleHighlightMode());
@@ -110,7 +121,7 @@ export class Toolbar {
    * 綁定顏色選擇器
    */
   bindColorPicker() {
-    const container = this.container.querySelector('#color-picker-v2');
+    const container = this.container.querySelector(TOOLBAR_SELECTORS.COLOR_PICKER);
     if (container) {
       renderColorPicker(container, this.manager.colors, this.manager.currentColor, color => {
         this.manager.setColor(color);
@@ -122,9 +133,9 @@ export class Toolbar {
    * 綁定操作按鈕（同步、打開、管理）
    */
   bindActionButtons() {
-    const syncBtn = this.container.querySelector('#sync-to-notion-v2');
-    const openBtn = this.container.querySelector('#open-notion-v2');
-    const manageBtn = this.container.querySelector('#manage-highlights-v2');
+    const syncBtn = this.container.querySelector(TOOLBAR_SELECTORS.SYNC_TO_NOTION);
+    const openBtn = this.container.querySelector(TOOLBAR_SELECTORS.OPEN_NOTION);
+    const manageBtn = this.container.querySelector(TOOLBAR_SELECTORS.MANAGE_HIGHLIGHTS);
 
     if (syncBtn) {
       syncBtn.addEventListener('click', () => this.syncToNotion());
@@ -150,13 +161,13 @@ export class Toolbar {
       }
 
       // 忽略工具欄內的點擊
-      if (event.target.closest('#notion-highlighter-v2')) {
+      if (event.target.closest(TOOLBAR_SELECTORS.CONTAINER)) {
         return;
       }
 
       // 延遲處理以確保選擇完成
       setTimeout(() => {
-        const selection = window.getSelection();
+        const selection = globalThis.getSelection();
         if (!selection || selection.isCollapsed) {
           return;
         }
@@ -178,9 +189,10 @@ export class Toolbar {
             selection.removeAllRanges();
           }
         } catch (error) {
-          if (typeof window.Logger !== 'undefined') {
-            window.Logger?.error('添加標註失敗:', error);
-          }
+          Logger.error('添加標註失敗', {
+            action: 'selectionHandler',
+            error,
+          });
         }
       }, 10);
     };
@@ -198,7 +210,7 @@ export class Toolbar {
         this.updateHighlightCount();
 
         // 如果列表是打開的，刷新列表
-        const listContainer = this.container.querySelector('#highlight-list-v2');
+        const listContainer = this.container.querySelector(TOOLBAR_SELECTORS.HIGHLIGHT_LIST);
         if (listContainer && listContainer.style.display !== 'none') {
           this.refreshHighlightList();
         }
@@ -210,22 +222,31 @@ export class Toolbar {
 
   /**
    * 處理狀態變更
+   *
    * @param {string} state - 新狀態
    */
   handleStateChange(state) {
     switch (state) {
-      case ToolbarStates.EXPANDED:
+      case ToolbarStates.EXPANDED: {
         this.show();
         break;
-      case ToolbarStates.MINIMIZED:
+      }
+      case ToolbarStates.MINIMIZED: {
         this.minimize();
         break;
-      case ToolbarStates.HIDDEN:
+      }
+      case ToolbarStates.HIDDEN: {
         this.hide();
         break;
-      default:
-        console.warn(`[Toolbar] 未知狀態: ${state}`);
+      }
+      default: {
+        Logger.warn('Toolbar received unknown state', {
+          action: 'handleStateChange',
+          state,
+          component: 'Toolbar',
+        });
         this.hide();
+      }
     }
   }
 
@@ -276,7 +297,7 @@ export class Toolbar {
    */
   toggleHighlightMode() {
     this.isHighlightModeActive = !this.isHighlightModeActive;
-    const btn = this.container.querySelector('#toggle-highlight-v2');
+    const btn = this.container.querySelector(TOOLBAR_SELECTORS.TOGGLE_HIGHLIGHT);
 
     if (!btn) {
       return;
@@ -299,7 +320,7 @@ export class Toolbar {
    * 更新標註計數
    */
   updateHighlightCount() {
-    const countSpan = this.container.querySelector('#highlight-count-v2');
+    const countSpan = this.container.querySelector(TOOLBAR_SELECTORS.COUNT_DISPLAY);
     if (countSpan) {
       const count = this.manager.getCount();
       countSpan.textContent = count.toString();
@@ -310,7 +331,7 @@ export class Toolbar {
    * 切換標註列表顯示
    */
   toggleHighlightList() {
-    const listContainer = this.container.querySelector('#highlight-list-v2');
+    const listContainer = this.container.querySelector(TOOLBAR_SELECTORS.HIGHLIGHT_LIST);
 
     if (!listContainer) {
       return;
@@ -342,7 +363,7 @@ export class Toolbar {
    * 刷新標註列表（僅在列表可見時）
    */
   refreshHighlightList() {
-    const listContainer = this.container.querySelector('#highlight-list-v2');
+    const listContainer = this.container.querySelector(TOOLBAR_SELECTORS.HIGHLIGHT_LIST);
 
     if (!listContainer) {
       return;
@@ -372,20 +393,21 @@ export class Toolbar {
    */
   /**
    * 封裝 chrome.runtime.sendMessage 為 Promise
-   * @param {Object} message - 要發送的消息
-   * @returns {Promise<Object>}
+   *
+   * @param {object} message - 要發送的消息
+   * @returns {Promise<object>}
    * @private
    */
   static _sendMessageAsync(message) {
     return new Promise((resolve, reject) => {
-      if (typeof window === 'undefined' || !window.chrome?.runtime?.sendMessage) {
+      if (globalThis.window === undefined || !globalThis.chrome?.runtime?.sendMessage) {
         reject(new Error('無法連接擴展'));
         return;
       }
 
-      window.chrome.runtime.sendMessage(message, response => {
-        if (window.chrome.runtime.lastError) {
-          reject(new Error(window.chrome.runtime.lastError.message));
+      globalThis.chrome.runtime.sendMessage(message, response => {
+        if (globalThis.chrome.runtime.lastError) {
+          reject(new Error(globalThis.chrome.runtime.lastError.message));
           return;
         }
         resolve(response);
@@ -397,14 +419,25 @@ export class Toolbar {
    * 同步到 Notion
    */
   async syncToNotion() {
-    const statusDiv = this.container.querySelector('#highlight-status-v2');
+    const statusDiv = this.container.querySelector(TOOLBAR_SELECTORS.STATUS_CONTAINER);
 
     if (statusDiv) {
-      const loadingIcon =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px; animation: spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
-      const originalText = statusDiv.innerHTML;
-      statusDiv.innerHTML = `${loadingIcon} 正在同步...`;
+      const originalText = statusDiv.textContent; // Use textContent for safety
 
+      // Update UI to Loading State
+      statusDiv.textContent = ''; // Clear content safely
+      const loadingIcon = document.createElement('span');
+      // Use SYNC icon and add spinning animation style
+      loadingIcon.append(createSpriteIcon('sync'));
+      loadingIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
+      loadingIcon.style.marginRight = '4px';
+      loadingIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
+      loadingIcon.style.animation = 'spin 1s linear infinite';
+
+      statusDiv.append(loadingIcon);
+      statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNCING}`));
+
+      Logger.start('準備同步標註到 Notion');
       try {
         // 收集標註數據
         const highlights = this.manager.collectHighlightsForNotion();
@@ -415,34 +448,52 @@ export class Toolbar {
         });
 
         if (response?.success) {
-          const successIcon =
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-          statusDiv.innerHTML = `${successIcon} 同步成功`;
+          statusDiv.textContent = '';
+          const successIcon = document.createElement('span');
+          successIcon.append(createSpriteIcon('success'));
+          successIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
+          successIcon.style.marginRight = '4px';
+          successIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
+
+          statusDiv.append(successIcon);
+          statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_SUCCESS}`));
         } else {
-          const errorMsg = response?.error || '未知錯誤';
-          const errorIcon =
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-          // 使用 innerHTML 設置圖標（固定內容），textContent 添加錯誤訊息（動態內容）以避免 XSS
-          statusDiv.innerHTML = errorIcon;
-          const msgSpan = document.createElement('span');
-          msgSpan.textContent = ` ${errorMsg}`;
-          statusDiv.appendChild(msgSpan);
+          const rawError = sanitizeApiError(response?.error || 'Unknown error');
+          const errorMsg = ErrorHandler.formatUserMessage(rawError);
+          statusDiv.textContent = ''; // Clear
+          const errorIcon = document.createElement('span');
+          errorIcon.append(createSpriteIcon('error')); // Use standardized Error icon
+          errorIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
+          errorIcon.style.marginRight = '4px';
+          errorIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
+
+          statusDiv.append(errorIcon);
+          statusDiv.append(document.createTextNode(` ${errorMsg}`));
         }
 
         setTimeout(() => {
-          statusDiv.innerHTML = originalText;
+          // Restore original text safely
+          statusDiv.textContent = originalText;
         }, 2000);
       } catch (error) {
-        const errorIcon =
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-        statusDiv.innerHTML = `${errorIcon} 同步失敗`;
+        statusDiv.textContent = '';
+        const errorIcon = document.createElement('span');
+        errorIcon.append(createSpriteIcon('error'));
+        errorIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
+        errorIcon.style.marginRight = '4px';
+        errorIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
+
+        statusDiv.append(errorIcon);
+        statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_FAILED}`));
+
         setTimeout(() => {
-          statusDiv.innerHTML = originalText;
+          statusDiv.textContent = originalText;
         }, 2000);
 
-        if (typeof window.Logger !== 'undefined') {
-          window.Logger?.error('同步失敗:', error);
-        }
+        Logger.error('同步失敗:', {
+          action: 'syncToNotion',
+          error,
+        });
       }
     }
   }
@@ -450,13 +501,14 @@ export class Toolbar {
   /**
    * 在 Notion 中打開當前頁面
    * 發送當前頁面 URL 給 background,由 background 查詢對應的 Notion 頁面 URL
+   *
    * @static
    */
   static openInNotion() {
-    if (typeof window !== 'undefined' && window.chrome?.runtime?.sendMessage) {
-      window.chrome.runtime.sendMessage({
+    if (globalThis.window !== undefined && globalThis.chrome?.runtime?.sendMessage) {
+      globalThis.chrome.runtime.sendMessage({
         action: 'openNotionPage',
-        url: window.location.href,
+        url: globalThis.location.href,
       });
     }
   }
@@ -475,12 +527,12 @@ export class Toolbar {
     }
 
     // 移除 DOM 元素
-    if (this.container?.parentNode) {
-      this.container.parentNode.removeChild(this.container);
+    if (this.container) {
+      this.container.remove();
     }
 
-    if (this.miniIcon?.parentNode) {
-      this.miniIcon.parentNode.removeChild(this.miniIcon);
+    if (this.miniIcon) {
+      this.miniIcon.remove();
     }
   }
 }

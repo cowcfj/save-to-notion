@@ -383,7 +383,7 @@ describe('Background Storage Operations', () => {
       const oldData = {
         pageId: 'old-123',
         url: 'https://example.com',
-        savedAt: 1234567890,
+        savedAt: 1_234_567_890,
       };
 
       // Act
@@ -392,7 +392,7 @@ describe('Background Storage Operations', () => {
       // Assert
       expect(newData.notionPageId).toBe('old-123');
       expect(newData.notionUrl).toBe('https://www.notion.so/old123');
-      expect(newData.savedAt).toBe(1234567890);
+      expect(newData.savedAt).toBe(1_234_567_890);
     });
 
     it('應該保留新格式數據不變', () => {
@@ -459,7 +459,7 @@ function migrateToNewFormat(data) {
   if (isOldFormatData(data)) {
     return {
       notionPageId: data.pageId,
-      notionUrl: `https://www.notion.so/${data.pageId.replace(/-/g, '')}`,
+      notionUrl: `https://www.notion.so/${data.pageId.replaceAll('-', '')}`,
       savedAt: data.savedAt,
       lastUpdated: Date.now(),
     };

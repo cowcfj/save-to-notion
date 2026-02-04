@@ -10,11 +10,11 @@ describe('HighlightList - XSS 安全性測試', () => {
 
   beforeEach(() => {
     container = document.createElement('div');
-    document.body.appendChild(container);
+    document.body.append(container);
   });
 
   afterEach(() => {
-    document.body.removeChild(container);
+    container.remove();
   });
 
   test('應該防禦 script 標籤注入', () => {
@@ -49,7 +49,7 @@ describe('HighlightList - XSS 安全性測試', () => {
     expect(container.textContent).toContain('<img src=x onerror="alert(\'XSS\')">');
     // 確認沒有 img 元素被創建（除了刪除按鈕中的 SVG）
     const imgs = container.querySelectorAll('img');
-    expect(imgs.length).toBe(0);
+    expect(imgs).toHaveLength(0);
   });
 
   test('應該防禦 iframe 注入', () => {

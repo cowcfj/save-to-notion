@@ -38,6 +38,7 @@ class ImageUrlValidationCache {
 
   /**
    * 獲取緩存的驗證結果
+   *
    * @param {string} url - 要檢查的 URL
    * @returns {boolean|null} 驗證結果或 null（未緩存）
    */
@@ -67,6 +68,7 @@ class ImageUrlValidationCache {
 
   /**
    * 設置緩存的驗證結果
+   *
    * @param {string} url - 要緩存的 URL
    * @param {boolean} isValid - 驗證結果
    */
@@ -131,6 +133,7 @@ class ImageUrlValidationCache {
 
   /**
    * 獲取緩存統計信息
+   *
    * @returns {{hits: number, misses: number, evictions: number, hitRate: string, size: number, maxSize: number}}
    */
   getStats() {
@@ -160,11 +163,11 @@ class ImageUrlValidationCache {
  */
 class ImageService {
   /**
-   * @param {Object} options - 配置選項
+   * @param {object} options - 配置選項
    * @param {number} options.maxCacheSize - 緩存最大條目數
    * @param {number} options.cacheTtl - 緩存 TTL（毫秒）
    * @param {Function} options.validator - 驗證函數（預設使用 ImageUtils）
-   * @param {Object} options.logger - 日誌對象（預設使用 console）
+   * @param {object} options.logger - 日誌對象（預設使用 console）
    */
   constructor(options = {}) {
     this.cache = new ImageUrlValidationCache(
@@ -178,6 +181,7 @@ class ImageService {
 
   /**
    * 設置外部驗證器
+   *
    * @param {Function} validator - 驗證函數 (url) => boolean
    */
   setValidator(validator) {
@@ -186,6 +190,7 @@ class ImageService {
 
   /**
    * 本地輕量級驗證器（回退方案）
+   *
    * @param {string} url - 要驗證的 URL
    * @returns {boolean} 是否為有效的圖片 URL
    * @private
@@ -212,13 +217,14 @@ class ImageService {
 
       // 至少滿足一個條件
       return hasImageExtension || hasImageKeyword;
-    } catch (_error) {
+    } catch {
       return false;
     }
   }
 
   /**
    * 驗證圖片 URL 是否有效（帶緩存）
+   *
    * @param {string} url - 要驗證的圖片 URL
    * @returns {boolean} 是否為有效的圖片 URL
    */
@@ -263,7 +269,8 @@ class ImageService {
 
   /**
    * 獲取緩存統計信息
-   * @returns {Object} 統計信息
+   *
+   * @returns {object} 統計信息
    */
   getStats() {
     return this.cache.getStats();
@@ -278,6 +285,7 @@ class ImageService {
 
   /**
    * 啟動定期清理任務
+   *
    * @param {number} intervalMs - 清理間隔（毫秒，預設 5 分鐘）
    */
   startCleanupTask(intervalMs = DEFAULT_CLEANUP_INTERVAL) {

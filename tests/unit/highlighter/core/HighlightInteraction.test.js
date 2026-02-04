@@ -59,7 +59,7 @@ describe('core/HighlightInteraction', () => {
     test('should remove highlight on Ctrl+Click', () => {
       const div = document.createElement('div');
       div.textContent = 'Click to remove';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -100,7 +100,7 @@ describe('core/HighlightInteraction', () => {
     test('should work with metaKey (Mac)', () => {
       const div = document.createElement('div');
       div.textContent = 'Mac click';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -145,7 +145,7 @@ describe('core/HighlightInteraction', () => {
     test('should return highlight ID at clicked point', () => {
       const div = document.createElement('div');
       div.textContent = 'Click test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -197,7 +197,7 @@ describe('core/HighlightInteraction', () => {
     test('should detect overlapping ranges', () => {
       const div = document.createElement('div');
       div.textContent = 'Overlap Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range1 = document.createRange();
       range1.setStart(div.firstChild, 0);
@@ -214,7 +214,7 @@ describe('core/HighlightInteraction', () => {
     test('should detect non-overlapping ranges', () => {
       const div = document.createElement('div');
       div.textContent = 'Non Overlapping';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range1 = document.createRange();
       range1.setStart(div.firstChild, 0);
@@ -240,7 +240,7 @@ describe('core/HighlightInteraction', () => {
     test('should detect contained ranges', () => {
       const div = document.createElement('div');
       div.textContent = 'Container';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const outerRange = document.createRange();
       outerRange.setStart(div.firstChild, 0);

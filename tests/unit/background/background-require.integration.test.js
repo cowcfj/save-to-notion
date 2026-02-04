@@ -13,7 +13,7 @@ function createEvent() {
     addListener: fn => listeners.push(fn),
     removeListener: fn => {
       const i = listeners.indexOf(fn);
-      if (i >= 0) {
+      if (i !== -1) {
         listeners.splice(i, 1);
       }
     },
@@ -22,7 +22,7 @@ function createEvent() {
       listeners.forEach(fn => {
         try {
           fn(...args);
-        } catch (_e) {
+        } catch {
           /* 忽略 listener 內部錯誤以避免中斷測試 */
         }
       }),
@@ -54,8 +54,8 @@ describe('scripts/background.js require integration', () => {
     jest.useFakeTimers();
 
     // 保存原始全域
-    originalChrome = global.chrome;
-    originalFetch = global.fetch;
+    originalChrome = globalThis.chrome;
+    originalFetch = globalThis.fetch;
 
     // 建立可觸發的 Chrome 模擬
     const onInstalled = createEvent();
@@ -65,7 +65,7 @@ describe('scripts/background.js require integration', () => {
 
     const storageData = {};
 
-    global.chrome = {
+    globalThis.chrome = {
       runtime: {
         id: 'test-id',
         lastError: null,
@@ -145,7 +145,7 @@ describe('scripts/background.js require integration', () => {
     };
 
     // 全域 fetch mock（避免網路）
-    global.fetch = jest.fn(() =>
+    globalThis.fetch = jest.fn(() =>
       Promise.resolve({
         ok: true,
         status: 200,
@@ -158,8 +158,8 @@ describe('scripts/background.js require integration', () => {
   afterEach(() => {
     jest.useRealTimers();
     // 還原全域
-    global.chrome = originalChrome;
-    global.fetch = originalFetch;
+    globalThis.chrome = originalChrome;
+    globalThis.fetch = originalFetch;
   });
 
   test('onInstalled(update) 會顯示更新通知並傳送版本訊息', async () => {

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Background 通知處理器測試
+ * @file Background 通知處理器測試
  * 測試更新通知和 Notion 頁面打開功能
  */
 
@@ -19,7 +19,7 @@ describe('Background 通知處理器', () => {
         sendMessage: jest.fn(),
       },
     };
-    global.chrome = mockChrome;
+    globalThis.chrome = mockChrome;
 
     // 設置 Logger mock
     mockLogger = {
@@ -27,15 +27,15 @@ describe('Background 通知處理器', () => {
       error: jest.fn(),
       warn: jest.fn(),
     };
-    global.Logger = mockLogger;
+    globalThis.Logger = mockLogger;
 
     // 清除 console mock - 靜默 console.error 輸出以保持測試輸出清晰
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
-    delete global.chrome;
-    delete global.Logger;
+    delete globalThis.chrome;
+    delete globalThis.Logger;
     jest.restoreAllMocks();
   });
 

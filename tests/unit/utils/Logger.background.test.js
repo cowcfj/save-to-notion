@@ -18,7 +18,7 @@ describe('Logger (Background Context)', () => {
     jest.resetModules();
 
     // Mock Chrome API
-    global.chrome = {
+    globalThis.chrome = {
       runtime: {
         id: 'test-id',
         getManifest: () => ({ version_name: '1.0.0-dev' }),
@@ -68,8 +68,8 @@ describe('Logger (Background Context)', () => {
   });
 
   afterEach(() => {
-    delete global.chrome;
-    delete global.Logger;
+    delete globalThis.chrome;
+    delete globalThis.Logger;
   });
 
   test('should initialize LogBuffer in background context', () => {

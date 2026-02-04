@@ -1,5 +1,5 @@
 // Mock dependencies
-global.chrome = {
+globalThis.chrome = {
   tabs: {
     onUpdated: { addListener: jest.fn() },
     onActivated: { addListener: jest.fn() },
@@ -31,7 +31,7 @@ global.chrome = {
   },
 };
 
-global.Logger = {
+globalThis.Logger = {
   log: jest.fn(),
   debug: jest.fn(),
   error: jest.fn(),
@@ -39,9 +39,9 @@ global.Logger = {
 };
 
 // Mock other globals that might be used in background.js
-global.ImageUtils = { cleanImageUrl: jest.fn(), isValidImageUrl: jest.fn() };
-global.ErrorHandler = {};
-global.PerformanceOptimizer = {};
+globalThis.ImageUtils = { cleanImageUrl: jest.fn(), isValidImageUrl: jest.fn() };
+globalThis.ErrorHandler = {};
+globalThis.PerformanceOptimizer = {};
 
 // Import services directly
 import { TabService } from '../../../scripts/background/services/TabService.js';
@@ -71,7 +71,7 @@ describe('Background State Updates', () => {
 
     // Instantiate TabService
     tabService = new TabService({
-      logger: global.Logger,
+      logger: globalThis.Logger,
       injectionService,
       normalizeUrl: mockNormalizeUrl,
       getSavedPageData: mockGetSavedPageData,

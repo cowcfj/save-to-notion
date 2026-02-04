@@ -53,8 +53,8 @@ describe('ContentParts 覆蓋率補強 (整合)', () => {
     });
 
     test('ContentBridge: createTextBlocks 長文本與空內容', () => {
-        expect(createTextBlocks('   ').length).toBe(0);
-        expect(createTextBlocks('a'.repeat(2500)).length).toBe(2);
+        expect(createTextBlocks('   ')).toHaveLength(0);
+        expect(createTextBlocks('a'.repeat(2500))).toHaveLength(2);
     });
 
     // --- imageUtils ---
@@ -62,7 +62,7 @@ describe('ContentParts 覆蓋率補強 (整合)', () => {
         const div = document.createElement('div');
         const noscript = document.createElement('noscript');
         noscript.textContent = '<img src="https://example.com/img.jpg">';
-        div.appendChild(noscript);
+        div.append(noscript);
 
         // 模擬 DOMParser
         const result = extractFromNoscript(div);

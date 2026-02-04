@@ -40,6 +40,21 @@ export const FEATURED_IMAGE_SELECTORS = [
   'article > div:first-of-type img',
   '.article > figure:first-of-type img',
   '.post > figure:first-of-type img',
+  '.post > div:first-of-type img',
+];
+
+/**
+ * 圖片源屬性列表（用於處理懶加載）
+ * 按優先級排序，通常優先檢查 data-* 屬性
+ */
+export const IMAGE_SRC_ATTRIBUTES = [
+  'src',
+  'data-src',
+  'data-lazy-src',
+  'data-original',
+  'data-lazy',
+  'data-url',
+  'data-image',
 ];
 
 // ==========================================
@@ -303,4 +318,36 @@ export const AD_SELECTORS = [
 export const PRELOADER_SELECTORS = {
   article: 'article',
   mainContent: 'main, [role="main"], #content, .content',
+};
+
+// ==========================================
+// 選項頁面 (Options Page) 選擇器
+// ==========================================
+
+export const OPTIONS_PAGE_SELECTORS = {
+  STATUS_CONTAINER: '#status',
+  MANUAL_SECTION: '.manual-section',
+  TEST_API_BUTTON: '#test-api-button',
+  HIDDEN_CLASS: 'hidden',
+  STATUS_MESSAGE_CLASS: 'status-message',
+};
+
+// ==========================================
+// 工具欄 (Toolbar) 選擇器
+// ==========================================
+
+export const TOOLBAR_SELECTORS = {
+  CONTAINER: '#notion-highlighter-v2',
+  MINI_ICON: '#notion-highlighter-mini-icon',
+  TOGGLE_HIGHLIGHT: '#toggle-highlight-v2',
+  MINIMIZE: '#minimize-highlight-v2',
+  CLOSE: '#close-highlight-v2',
+  COLOR_PICKER: '#color-picker-v2',
+  SYNC_TO_NOTION: '#sync-to-notion-v2',
+  OPEN_NOTION: '#open-notion-v2',
+  MANAGE_HIGHLIGHTS: '#manage-highlights-v2',
+  HIGHLIGHT_LIST: '#highlight-list-v2',
+  STATUS_CONTAINER: '#highlight-status-v2',
+  COUNT_DISPLAY: '#highlight-count-v2',
+  LIST_OPEN_NOTION: '#list-open-notion-v2',
 };

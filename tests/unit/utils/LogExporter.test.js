@@ -11,7 +11,7 @@ jest.mock('../../../scripts/utils/Logger.js');
 
 describe('LogExporter', () => {
   let mockBuffer = null;
-  const originalNavigator = global.navigator;
+  const originalNavigator = globalThis.navigator;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -25,22 +25,22 @@ describe('LogExporter', () => {
     Logger.getBuffer.mockReturnValue(mockBuffer);
 
     // Mock Chrome API
-    global.chrome = {
+    globalThis.chrome = {
       runtime: {
         getManifest: jest.fn().mockReturnValue({ version: '1.2.3' }),
       },
     };
 
     // Mock Navigator
-    Object.defineProperty(global, 'navigator', {
+    Object.defineProperty(globalThis, 'navigator', {
       value: { userAgent: 'TestUserAgent' },
       writable: true,
     });
   });
 
   afterEach(() => {
-    global.navigator = originalNavigator;
-    delete global.chrome;
+    globalThis.navigator = originalNavigator;
+    delete globalThis.chrome;
   });
 
   test('should export logs correctly in JSON format', () => {

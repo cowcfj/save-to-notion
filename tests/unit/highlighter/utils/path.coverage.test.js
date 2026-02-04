@@ -26,8 +26,8 @@ describe('Path Utils Coverage Tests', () => {
     test('should get path for element node', () => {
       const div = document.createElement('div');
       const paragraphElement = document.createElement('p');
-      div.appendChild(paragraphElement);
-      document.body.appendChild(div);
+      div.append(paragraphElement);
+      document.body.append(div);
 
       const path = getNodePath(paragraphElement);
       expect(path).toBe('div[0]/p[0]');
@@ -36,8 +36,8 @@ describe('Path Utils Coverage Tests', () => {
     test('should get path for text node', () => {
       const div = document.createElement('div');
       const textNode = document.createTextNode('Test');
-      div.appendChild(textNode);
-      document.body.appendChild(div);
+      div.append(textNode);
+      document.body.append(div);
 
       const path = getNodePath(textNode);
       expect(path).toBe('div[0]/text[0]');
@@ -47,9 +47,9 @@ describe('Path Utils Coverage Tests', () => {
       const div1 = document.createElement('div');
       const div2 = document.createElement('div');
       const paragraphElement = document.createElement('p');
-      div2.appendChild(paragraphElement);
-      document.body.appendChild(div1);
-      document.body.appendChild(div2);
+      div2.append(paragraphElement);
+      document.body.append(div1);
+      document.body.append(div2);
 
       const path = getNodePath(paragraphElement);
       expect(path).toBe('div[1]/p[0]');
@@ -57,9 +57,9 @@ describe('Path Utils Coverage Tests', () => {
 
     test('should handle multiple text nodes', () => {
       const div = document.createElement('div');
-      div.appendChild(document.createTextNode('First'));
-      div.appendChild(document.createTextNode('Second'));
-      document.body.appendChild(div);
+      div.append(document.createTextNode('First'));
+      div.append(document.createTextNode('Second'));
+      document.body.append(div);
 
       const path = getNodePath(div.childNodes[1]);
       expect(path).toBe('div[0]/text[1]');
@@ -127,8 +127,8 @@ describe('Path Utils Coverage Tests', () => {
     test('should get node from string path', () => {
       const div = document.createElement('div');
       const paragraphElement = document.createElement('p');
-      div.appendChild(paragraphElement);
-      document.body.appendChild(div);
+      div.append(paragraphElement);
+      document.body.append(div);
 
       const node = getNodeByPath('div[0]/p[0]');
       expect(node).toBe(paragraphElement);
@@ -137,8 +137,8 @@ describe('Path Utils Coverage Tests', () => {
     test('should get node from path array', () => {
       const div = document.createElement('div');
       const paragraphElement = document.createElement('p');
-      div.appendChild(paragraphElement);
-      document.body.appendChild(div);
+      div.append(paragraphElement);
+      document.body.append(div);
 
       const path = [
         { type: 'element', tag: 'div', index: 0 },
@@ -152,8 +152,8 @@ describe('Path Utils Coverage Tests', () => {
     test('should get text node from path', () => {
       const div = document.createElement('div');
       const textNode = document.createTextNode('Test');
-      div.appendChild(textNode);
-      document.body.appendChild(div);
+      div.append(textNode);
+      document.body.append(div);
 
       const path = [
         { type: 'element', tag: 'div', index: 0 },
@@ -166,7 +166,7 @@ describe('Path Utils Coverage Tests', () => {
 
     test('should trigger fuzzy matching for out of bounds index with different tag', () => {
       const div = document.createElement('div');
-      document.body.appendChild(div);
+      document.body.append(div);
 
       // Index 5 is out of bounds and looking for 'span' which doesn't exist
       const path = [{ type: 'element', tag: 'span', index: 5 }];
@@ -178,8 +178,8 @@ describe('Path Utils Coverage Tests', () => {
     test('should fallback to tag matching when index is out of bounds', () => {
       const div1 = document.createElement('div');
       const div2 = document.createElement('div');
-      document.body.appendChild(div1);
-      document.body.appendChild(div2);
+      document.body.append(div1);
+      document.body.append(div2);
 
       // Index 5 is out of bounds, should find first div
       const path = [{ type: 'element', tag: 'div', index: 5 }];
@@ -195,7 +195,7 @@ describe('Path Utils Coverage Tests', () => {
 
     test('should return null when element has no children', () => {
       const div = document.createElement('div');
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const path = [
         { type: 'element', tag: 'div', index: 0 },

@@ -19,7 +19,7 @@ describe('core/Range', () => {
     test('should serialize a simple range', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello World';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -38,7 +38,7 @@ describe('core/Range', () => {
     test('should deserialize a valid range', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello World';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const originalRange = document.createRange();
       originalRange.setStart(div.firstChild, 0);
@@ -59,7 +59,7 @@ describe('core/Range', () => {
     test('should return null when text mismatch', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello World';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -76,7 +76,7 @@ describe('core/Range', () => {
     test('should validate matching range', () => {
       const div = document.createElement('div');
       div.textContent = 'Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -88,7 +88,7 @@ describe('core/Range', () => {
     test('should return false for mismatched text', () => {
       const div = document.createElement('div');
       div.textContent = 'Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -122,7 +122,7 @@ describe('core/Range', () => {
     test('should maintain range through serialization', () => {
       const div = document.createElement('div');
       div.textContent = 'Round Trip Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const original = document.createRange();
       original.setStart(div.firstChild, 0);

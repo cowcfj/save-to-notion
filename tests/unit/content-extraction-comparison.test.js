@@ -118,7 +118,7 @@ awesome.init();
       };
 
       // 儲存到全域以便後續比較
-      global.readabilityResult = summary;
+      globalThis.readabilityResult = summary;
     });
 
     test('Defuddle 提取結果', () => {
@@ -173,7 +173,7 @@ awesome.init();
 
       console.log('\n📝 Turndown Markdown 結果:');
       console.log('Markdown 長度:', markdown.length);
-      console.log('預覽 (前 200 字):\n', markdown.substring(0, 200));
+      console.log('預覽 (前 200 字):\n', markdown.slice(0, 200));
 
       expect(markdown).toBeTruthy();
       expect(markdown.length).toBeGreaterThan(0);

@@ -24,7 +24,7 @@ import '../highlighter/index.js';
 // ============================================================
 // Preloader 快取接管
 // ============================================================
-const preloaderCache = window.__NOTION_PRELOADER_CACHE__;
+const preloaderCache = globalThis.__NOTION_PRELOADER_CACHE__;
 if (preloaderCache) {
   Logger.debug('偵測到 Preloader 快取', {
     action: 'initializeContentBundle',
@@ -36,7 +36,7 @@ if (preloaderCache) {
 }
 
 // 標記 Bundle 已就緒（供 Preloader 和 InjectionService 檢測）
-window.__NOTION_BUNDLE_READY__ = true;
+globalThis.__NOTION_BUNDLE_READY__ = true;
 
 // ============================================================
 // PING 響應機制（供 InjectionService.ensureBundleInjected 使用）
@@ -52,8 +52,8 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
   if (request.action === 'showHighlighter') {
     // 顯示 highlighter toolbar
-    if (window.notionHighlighter) {
-      window.notionHighlighter.show();
+    if (globalThis.notionHighlighter) {
+      globalThis.notionHighlighter.show();
       sendResponse({ success: true });
     } else {
       sendResponse({ success: false, error: 'Highlighter not initialized' });
@@ -81,9 +81,9 @@ chrome.runtime.sendMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, response => {
     events.forEach(event => {
       if (event.type === 'shortcut') {
         // 觸發快捷鍵處理：顯示 highlighter toolbar
-        if (window.notionHighlighter) {
+        if (globalThis.notionHighlighter) {
           Logger.log('重放快捷鍵事件，顯示工具欄', { action: 'replayEvents' });
-          window.notionHighlighter.show();
+          globalThis.notionHighlighter.show();
         } else {
           Logger.warn('Highlighter 不可用，無法重放', { action: 'replayEvents' });
         }
@@ -108,7 +108,7 @@ async function extractPageContent() {
     // 1. 提取內容和元數據
     const extractResult = ContentExtractor.extract(document);
 
-    if (!extractResult || !extractResult.content) {
+    if (!extractResult?.content) {
       Logger.warn('內容提取失敗或返回空內容', { action: 'extractPageContent' });
       return {
         title: document.title || 'Untitled Page',
@@ -145,10 +145,12 @@ async function extractPageContent() {
     let additionalImages = [];
     try {
       // 創建臨時容器來查找圖片
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = content;
+      // 使用 DOMParser 安全解析 HTML 內容，避免直接操作 innerHTML
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(content, 'text/html');
 
-      additionalImages = await ImageCollector.collectAdditionalImages(tempDiv);
+      // ImageCollector 預期一個 Element，傳入 doc.body 即可
+      additionalImages = await ImageCollector.collectAdditionalImages(doc.body);
       Logger.log('額外圖片收集完成', {
         action: 'extractPageContent',
         imageCount: additionalImages.length,
@@ -204,13 +206,19 @@ export { extractPageContent };
 
 // IIFE bundle 會將這個賦值給全局 ContentScript 對象
 // 同時也需要直接暴露到 window 供 background.js 調用
-if (typeof window !== 'undefined') {
-  window.extractPageContent = extractPageContent;
+if (globalThis.window !== undefined) {
+  globalThis.extractPageContent = extractPageContent;
 
   // 單元測試支持：如果檢測到測試環境，自動執行並暴露結果
-  if (window.__UNIT_TESTING__) {
-    extractPageContent().then(result => {
-      window.__notion_extraction_result = result;
-    });
+  if (globalThis.__UNIT_TESTING__) {
+    // 使用 IIFE 包裝以避免頂層 await 在非模組環境下的兼容性問題
+    (async () => {
+      try {
+        globalThis.__notion_extraction_result = await extractPageContent();
+      } catch (error) {
+        // 僅在測試環境下記錄
+        console.error('[Test] Failed to extract page content:', error);
+      }
+    })();
   }
 }

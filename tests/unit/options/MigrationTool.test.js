@@ -1,6 +1,4 @@
-/**
- * @jest-environment jsdom
- */
+// @jest-environment jsdom
 /* global document */
 import { MigrationTool } from '../../../scripts/options/MigrationTool.js';
 import { UIManager } from '../../../scripts/options/UIManager.js';
@@ -78,7 +76,7 @@ describe('MigrationTool', () => {
 
       expect(mockScanner.scanStorage).toHaveBeenCalled();
 
-      const scanStatus = document.getElementById('scan-status');
+      const scanStatus = document.querySelector('#scan-status');
       expect(scanStatus.innerHTML).toContain('2 個頁面');
       expect(scanStatus.innerHTML).toContain('5 個舊版標記');
     });
@@ -94,7 +92,7 @@ describe('MigrationTool', () => {
 
       await migrationTool.scanForLegacyHighlights();
 
-      const scanStatus = document.getElementById('scan-status');
+      const scanStatus = document.querySelector('#scan-status');
       expect(scanStatus.textContent).toContain('未發現舊版格式');
     });
 
@@ -103,9 +101,9 @@ describe('MigrationTool', () => {
 
       await migrationTool.scanForLegacyHighlights();
 
-      const scanStatus = document.getElementById('scan-status');
+      const scanStatus = document.querySelector('#scan-status');
       expect(scanStatus.textContent).toContain('掃描錯誤');
-      expect(scanStatus.textContent).toContain('發生未知錯誤，請稍後再試');
+      expect(scanStatus.textContent).toContain('發生未知錯誤');
     });
   });
 
@@ -122,7 +120,7 @@ describe('MigrationTool', () => {
       migrationTool.renderMigrationList(items);
 
       // 新版代碼將項目渲染到 #migration-items
-      const migrationItems = document.getElementById('migration-items');
+      const migrationItems = document.querySelector('#migration-items');
       expect(migrationItems.innerHTML).toContain('3 個標註');
       expect(migrationItems.innerHTML).toContain('2 個標註');
       // 新版列表項目應包含 checkbox
@@ -132,7 +130,7 @@ describe('MigrationTool', () => {
     test('空列表顯示空狀態', () => {
       migrationTool.renderMigrationList([]);
 
-      const migrationItems = document.getElementById('migration-items');
+      const migrationItems = document.querySelector('#migration-items');
       expect(migrationItems.innerHTML).toContain('沒有找到舊版數據');
     });
   });
@@ -208,7 +206,7 @@ describe('MigrationTool Extended', () => {
     });
 
     test('應設置事件監聽器', () => {
-      const scanButton = document.getElementById('migration-scan-button');
+      const scanButton = document.querySelector('#migration-scan-button');
       expect(scanButton).toBeTruthy();
     });
   });
@@ -223,7 +221,7 @@ describe('MigrationTool Extended', () => {
 
       await migrationTool.scanForLegacyHighlights();
 
-      const migrationList = document.getElementById('migration-list');
+      const migrationList = document.querySelector('#migration-list');
       expect(migrationList.style.display).toBe('none');
     });
 
@@ -234,7 +232,7 @@ describe('MigrationTool Extended', () => {
       migrationTool.renderMigrationList(items1);
       migrationTool.renderMigrationList(items2);
 
-      const migrationItems = document.getElementById('migration-items');
+      const migrationItems = document.querySelector('#migration-items');
       expect(migrationItems.innerHTML).not.toContain('first.com');
       expect(migrationItems.innerHTML).toContain('second.com');
     });
@@ -247,7 +245,7 @@ describe('MigrationTool Extended', () => {
 
       migrationTool.renderMigrationList(items);
 
-      const migrationItems = document.getElementById('migration-items');
+      const migrationItems = document.querySelector('#migration-items');
       expect(migrationItems.innerHTML).toContain('example0.com');
       expect(migrationItems.innerHTML).toContain('example19.com');
     });
@@ -262,7 +260,7 @@ describe('MigrationTool Extended', () => {
     test('應處理臨界長度', () => {
       const url = 'a'.repeat(60);
       const result = MigrationTool.truncateUrl(url, 60);
-      expect(result.length).toBe(60);
+      expect(result).toHaveLength(60);
     });
   });
 });

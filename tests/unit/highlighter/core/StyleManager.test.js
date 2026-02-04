@@ -24,7 +24,7 @@ describe('core/StyleManager', () => {
     document.body.innerHTML = '';
 
     // 模擬 browser Highlight API
-    global.CSS = {
+    globalThis.CSS = {
       highlights: {
         set: jest.fn(),
         get: jest.fn(),
@@ -34,13 +34,13 @@ describe('core/StyleManager', () => {
     };
 
     // Mock Highlight constructor
-    global.Highlight = jest.fn().mockImplementation(() => ({
+    globalThis.Highlight = jest.fn().mockImplementation(() => ({
       add: jest.fn(),
       delete: jest.fn(),
       clear: jest.fn(),
     }));
     // Make it look like native code
-    global.Highlight.toString = () => 'function Highlight() { [native code] }';
+    globalThis.Highlight.toString = () => 'function Highlight() { [native code] }';
 
     styleManager = new StyleManager();
   });
@@ -50,7 +50,7 @@ describe('core/StyleManager', () => {
       styleManager.cleanup();
     }
     // 清理樣式元素
-    const style = document.getElementById('notion-highlight-styles');
+    const style = document.querySelector('#notion-highlight-styles');
     if (style) {
       style.remove();
     }
@@ -96,12 +96,12 @@ describe('core/StyleManager', () => {
     test('should inject styles after initialization', () => {
       styleManager.initialize();
 
-      const style = document.getElementById('notion-highlight-styles');
+      const style = document.querySelector('#notion-highlight-styles');
       expect(style).toBeTruthy();
     });
 
     test('should skip initialization if Highlight is not native', () => {
-      global.Highlight.toString = () => 'function Highlight() { polyfill }';
+      globalThis.Highlight.toString = () => 'function Highlight() { polyfill }';
 
       styleManager.initialize();
 
@@ -113,7 +113,7 @@ describe('core/StyleManager', () => {
     test('should inject style element into head', () => {
       styleManager.injectStyles();
 
-      const style = document.getElementById('notion-highlight-styles');
+      const style = document.querySelector('#notion-highlight-styles');
       expect(style).not.toBeNull();
       expect(document.head.contains(style)).toBe(true);
     });
@@ -122,7 +122,7 @@ describe('core/StyleManager', () => {
       styleManager.styleMode = 'background';
       styleManager.injectStyles();
 
-      const style = document.getElementById('notion-highlight-styles');
+      const style = document.querySelector('#notion-highlight-styles');
       expect(style.textContent).toContain('background-color:');
       expect(style.textContent).toContain('color: black');
     });
@@ -131,7 +131,7 @@ describe('core/StyleManager', () => {
       styleManager.styleMode = 'text';
       styleManager.injectStyles();
 
-      const style = document.getElementById('notion-highlight-styles');
+      const style = document.querySelector('#notion-highlight-styles');
       expect(style.textContent).toContain('background-color: transparent');
     });
 
@@ -139,19 +139,19 @@ describe('core/StyleManager', () => {
       styleManager.styleMode = 'underline';
       styleManager.injectStyles();
 
-      const style = document.getElementById('notion-highlight-styles');
+      const style = document.querySelector('#notion-highlight-styles');
       expect(style.textContent).toContain('text-decoration: underline');
       expect(style.textContent).toContain('text-decoration-color:');
     });
 
     test('should update existing style element', () => {
       styleManager.injectStyles();
-      const style1 = document.getElementById('notion-highlight-styles');
+      const style1 = document.querySelector('#notion-highlight-styles');
       expect(style1.dataset.styleMode).toBe('background');
 
       styleManager.styleMode = 'text';
       styleManager.injectStyles();
-      const style2 = document.getElementById('notion-highlight-styles');
+      const style2 = document.querySelector('#notion-highlight-styles');
       expect(style2.dataset.styleMode).toBe('text');
     });
 
@@ -160,7 +160,7 @@ describe('core/StyleManager', () => {
       styleManager.injectStyles();
 
       const styles = document.querySelectorAll('#notion-highlight-styles');
-      expect(styles.length).toBe(1);
+      expect(styles).toHaveLength(1);
     });
   });
 
@@ -230,10 +230,10 @@ describe('core/StyleManager', () => {
   describe('cleanup', () => {
     test('should remove style element', () => {
       styleManager.injectStyles();
-      expect(document.getElementById('notion-highlight-styles')).toBeTruthy();
+      expect(document.querySelector('#notion-highlight-styles')).toBeTruthy();
 
       styleManager.cleanup();
-      expect(document.getElementById('notion-highlight-styles')).toBeNull();
+      expect(document.querySelector('#notion-highlight-styles')).toBeNull();
     });
 
     test('should delete highlights from CSS.highlights', () => {

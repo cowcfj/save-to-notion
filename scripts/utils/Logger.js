@@ -9,6 +9,7 @@
 
 import { LogBuffer } from './LogBuffer.js';
 import { LogSanitizer } from './LogSanitizer.js';
+import { LOG_ICONS } from '../config/constants.js';
 
 // 內部狀態
 let _debugEnabled = false;
@@ -27,20 +28,14 @@ const LOG_LEVELS = {
 
 const DEFAULT_BUFFER_CAPACITY = 500;
 
-// 環境檢測
 // 檢查是否在 Chrome 擴展環境中
-const isExtensionContext =
-  typeof chrome !== 'undefined' &&
-  chrome.runtime &&
-  chrome.runtime.id &&
-  // 確保不是在一般的網頁中被意外注入 (content scripts have chrome.runtime but some features are restricted)
-  // 但這裡是為了檢查是否能夠調用 extension API
-  true;
+const isExtensionContext = Boolean(chrome?.runtime?.id);
 
-const isBackground = isExtensionContext && typeof window === 'undefined'; // Service Worker 環境通常沒有 window (或 self !== window)
+const isBackground = isExtensionContext && globalThis.window === undefined; // Service Worker 環境通常沒有 window (或 self !== window)
 
 /**
  * 格式化日誌消息
+ *
  * @param {number} level - 日誌級別
  * @param {Array} args - 參數列表
  * @returns {Array} 格式化後的參數列表
@@ -49,11 +44,11 @@ function formatMessage(level, args) {
   const timestamp = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
   const levelPrefix =
     {
-      [LOG_LEVELS.DEBUG]: '🐛 [DEBUG]',
-      [LOG_LEVELS.LOG]: '📝 [LOG]',
-      [LOG_LEVELS.INFO]: 'ℹ️ [INFO]',
-      [LOG_LEVELS.WARN]: '⚠️ [WARN]',
-      [LOG_LEVELS.ERROR]: '❌ [ERROR]',
+      [LOG_LEVELS.DEBUG]: '[DEBUG]',
+      [LOG_LEVELS.LOG]: '[LOG]',
+      [LOG_LEVELS.INFO]: '[INFO]',
+      [LOG_LEVELS.WARN]: `[WARN] ${LOG_ICONS.WARN}`,
+      [LOG_LEVELS.ERROR]: `[ERROR] ${LOG_ICONS.ERROR}`,
     }[level] || '[UNKNOWN]';
 
   return [`${levelPrefix} ${timestamp}:`, ...args];
@@ -61,6 +56,7 @@ function formatMessage(level, args) {
 
 /**
  * 發送日誌到 Background (僅在 Content Script 環境下)
+ *
  * @param {string} level - 日誌級別字符串
  * @param {string} message - 主消息
  * @param {Array} args - 額外參數
@@ -78,10 +74,10 @@ function sendToBackground(level, message, args) {
           return { message: arg.message, stack: arg.stack, name: arg.name };
         }
         if (typeof arg === 'object' && arg !== null) {
-          return JSON.parse(JSON.stringify(arg));
+          return structuredClone(arg);
         }
         return arg;
-      } catch (_err) {
+      } catch {
         return '[Unserializable Object]';
       }
     });
@@ -100,13 +96,14 @@ function sendToBackground(level, message, args) {
         }
       }
     );
-  } catch (_err) {
+  } catch {
     // 忽略發送錯誤
   }
 }
 
 /**
  * 寫入 LogBuffer (僅 Background 有效)
+ *
  * @param {string} level
  * @param {string} message
  * @param {Array} args
@@ -141,8 +138,8 @@ function writeToBuffer(level, message, args) {
         message: safeEntry.message,
         context: safeEntry.context,
       });
-    } catch (err) {
-      console.error('[Logger] Failed to write to buffer', err);
+    } catch (error) {
+      console.error('寫入緩衝區失敗', { action: 'writeToBuffer', error });
     }
   }
 }
@@ -167,13 +164,13 @@ function initDebugState() {
         _debugEnabled = true;
       }
     }
-  } catch (err) {
+  } catch (error) {
     // skipcq: JS-0002
-    console.warn('[Logger] Failed to check manifest:', err);
+    console.warn('檢查 Manifest 失敗', { action: 'initDebugState', error });
   }
 
   // 2. 檢查 Storage (覆蓋值) 並設置監聽
-  if (isExtensionContext && chrome.storage && chrome.storage.sync) {
+  if (isExtensionContext && chrome.storage?.sync) {
     // 初始讀取
     chrome.storage.sync.get(['enableDebugLogs'], result => {
       if (result.enableDebugLogs !== undefined) {
@@ -187,9 +184,10 @@ function initDebugState() {
         if (area === 'sync' && changes.enableDebugLogs) {
           _debugEnabled = Boolean(changes.enableDebugLogs.newValue);
           // 在控制台輸出狀態變更，方便調試
-          const status = _debugEnabled ? 'ENABLED' : 'DISABLED';
-          // skipcq: JS-0002
-          console.info(`[Logger] Debug mode ${status}`);
+          console.info('調試模式狀態變更', {
+            action: 'initDebugState',
+            status: _debugEnabled ? 'ENABLED' : 'DISABLED',
+          });
         }
       });
     }
@@ -204,39 +202,39 @@ function initDebugState() {
 }
 
 /**
- * 統一日誌類
- * 提供靜態方法用於記錄不同級別的日誌
+ * 統一日誌模組
  */
-export default class Logger {
-  static get debugEnabled() {
+const Logger = {
+  get debugEnabled() {
     if (!_isInitialized) {
       initDebugState();
     }
     return _debugEnabled;
-  }
+  },
 
-  static debug(message, ...args) {
+  debug(message, ...args) {
     if (!this.debugEnabled) {
       return;
     }
 
-    // skipcq: JS-0002
+    // eslint-disable-next-line no-console
     console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
     sendToBackground('debug', message, args);
     writeToBuffer('debug', message, args);
-  }
+  },
 
-  static log(message, ...args) {
+  log(message, ...args) {
     if (!this.debugEnabled) {
       return;
     }
 
+    // eslint-disable-next-line no-console
     console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
     sendToBackground('log', message, args);
     writeToBuffer('log', message, args);
-  }
+  },
 
-  static info(message, ...args) {
+  info(message, ...args) {
     if (!this.debugEnabled) {
       return;
     }
@@ -244,17 +242,47 @@ export default class Logger {
     console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
     sendToBackground('info', message, args);
     writeToBuffer('info', message, args);
-  }
+  },
 
-  static warn(message, ...args) {
+  /**
+   * 成功日誌 (Shortcut for INFO with ✅)
+   *
+   * @param {string} message - 日誌訊息
+   * @param {...any} args - 額外參數
+   */
+  success(message, ...args) {
+    this.info(`${LOG_ICONS.SUCCESS} ${message}`, ...args);
+  },
+
+  /**
+   * 啟動日誌 (Shortcut for INFO with 🚀)
+   *
+   * @param {string} message - 日誌訊息
+   * @param {...any} args - 額外參數
+   */
+  start(message, ...args) {
+    this.info(`${LOG_ICONS.START} ${message}`, ...args);
+  },
+
+  /**
+   * 就緒日誌 (Shortcut for INFO with 📦)
+   *
+   * @param {string} message - 日誌訊息
+   * @param {...any} args - 額外參數
+   */
+  ready(message, ...args) {
+    this.info(`${LOG_ICONS.READY} ${message}`, ...args);
+  },
+
+  warn(message, ...args) {
     // Warn 總是輸出
     // skipcq: JS-0002
     console.warn(...formatMessage(LOG_LEVELS.WARN, [message, ...args]));
     sendToBackground('warn', message, args);
     writeToBuffer('warn', message, args);
-  }
+  },
 
-  static error(message, ...args) {
+  error(message, ...args) {
     // 檢查是否為忽略的錯誤（Chrome 擴展框架相關的非關鍵錯誤）
     const errorMsg = message instanceof Error ? message.message : String(message);
     if (errorMsg.includes('Frame with ID') && errorMsg.includes('was removed')) {
@@ -262,23 +290,32 @@ export default class Logger {
     }
 
     // Error 總是輸出
+    // skipcq: JS-0002
     console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
     sendToBackground('error', message, args);
     writeToBuffer('error', message, args);
-  }
+  },
 
   /**
    * 獲取日誌緩衝區實例 (供 LogExporter 使用)
+   *
+   * @returns {LogBuffer|null}
    */
-  static getBuffer() {
+  getBuffer() {
     return _logBuffer;
-  }
+  },
 
   /**
    * 直接寫入日誌到緩衝區 (供 devLogSink 使用，保留原始來源和時間戳)
-   * @param {Object} logEntry
+   *
+   * @param {object} logEntry - 日誌 entry 對象
+   * @param {string} logEntry.level - 日誌等級
+   * @param {string} logEntry.message - 消息內容
+   * @param {object} logEntry.context - 上下文數據
+   * @param {string} [logEntry.source] - 來源標識
+   * @param {string} [logEntry.timestamp] - 時間戳
    */
-  static addLogToBuffer({ level, message, context, source, timestamp }) {
+  addLogToBuffer({ level, message, context, source, timestamp }) {
     if (_logBuffer) {
       try {
         // 即時脫敏
@@ -291,20 +328,22 @@ export default class Logger {
           context: safeEntry.context,
           timestamp: timestamp || new Date().toISOString(),
         });
-      } catch (err) {
-        console.error('[Logger] Failed to add external log to buffer', { error: err });
+      } catch (error) {
+        console.error('添加外部日誌到緩衝區失敗', { action: 'addLogToBuffer', error });
       }
     }
-  }
-}
+  },
+};
+
+export default Logger;
 
 // 自動初始化 (嘗試)
 initDebugState();
 
 // Global Assignment (Module & Classic Script compatible fallback)
-if (typeof self !== 'undefined') {
-  self.Logger = Logger;
+if (globalThis.self !== undefined) {
+  globalThis.Logger = Logger;
 }
-if (typeof window !== 'undefined') {
-  window.Logger = Logger;
+if (globalThis.window !== undefined) {
+  globalThis.Logger = Logger;
 }

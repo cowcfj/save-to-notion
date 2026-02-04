@@ -19,7 +19,7 @@ import { HIGHLIGHT_MIGRATION } from '../../config/constants.js';
  */
 export class HighlightMigration {
   /**
-   * @param {Object} manager - HighlightManager 實例（需要具備 nextId 屬性）
+   * @param {object} manager - HighlightManager 實例（需要具備 nextId 屬性）
    */
   constructor(manager) {
     this.manager = manager;
@@ -29,19 +29,19 @@ export class HighlightMigration {
    * 檢查並遷移 localStorage 中的舊標註數據
    */
   async checkAndMigrate() {
-    if (typeof window === 'undefined' || typeof window.normalizeUrl !== 'function') {
+    if (globalThis.window === undefined || typeof globalThis.normalizeUrl !== 'function') {
       return;
     }
 
     try {
-      const currentUrl = window.location.href;
-      const normalizedUrl = window.normalizeUrl(currentUrl);
+      const currentUrl = globalThis.location.href;
+      const normalizedUrl = globalThis.normalizeUrl(currentUrl);
 
       // 檢查可能的舊 key
       const possibleKeys = [
         `highlights_${normalizedUrl}`,
         `highlights_${currentUrl}`,
-        `highlights_${window.location.origin}${window.location.pathname}`,
+        `highlights_${globalThis.location.origin}${globalThis.location.pathname}`,
       ];
 
       let legacyData = null;
@@ -118,6 +118,7 @@ export class HighlightMigration {
 
   /**
    * 將舊格式數據遷移到新格式
+   *
    * @param {Array} legacyData - 舊數據
    * @param {string} oldKey - 舊 key
    */
@@ -183,9 +184,9 @@ export class HighlightMigration {
 
       if (migratedHighlights.length > 0) {
         // 使用標準化 URL 保持與存儲格式一致
-        const currentUrl = window.normalizeUrl
-          ? window.normalizeUrl(window.location.href)
-          : window.location.href;
+        const currentUrl = globalThis.normalizeUrl
+          ? globalThis.normalizeUrl(globalThis.location.href)
+          : globalThis.location.href;
 
         await StorageUtil.saveHighlights(currentUrl, {
           url: currentUrl,
@@ -195,8 +196,8 @@ export class HighlightMigration {
 
       // 標記遷移完成
       const storage = HighlightManager.getSafeExtensionStorage();
-      if (storage && window.normalizeUrl) {
-        const normalizedUrl = window.normalizeUrl(window.location.href);
+      if (storage && globalThis.normalizeUrl) {
+        const normalizedUrl = globalThis.normalizeUrl(globalThis.location.href);
         await storage.set({
           [`migration_completed_${normalizedUrl}`]: {
             timestamp: Date.now(),
@@ -222,6 +223,7 @@ export class HighlightMigration {
 
 /**
  * 限制 localStorage 遍歷數量，避免性能問題
+ *
  * @type {number}
  */
 HighlightMigration.MAX_SCAN_LIMIT = HIGHLIGHT_MIGRATION.MAX_SCAN_LIMIT;

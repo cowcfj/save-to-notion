@@ -19,6 +19,7 @@ const { MIN_CONTENT_LENGTH } = CONTENT_QUALITY;
 
 /**
  * 安全地查詢 DOM 元素,避免拋出異常
+ *
  * @param {Element|Document} container - 要查詢的容器元素
  * @param {string} selector - CSS 選擇器
  * @returns {NodeList|Array} 查詢結果或空數組
@@ -40,11 +41,10 @@ function safeQueryElements(container, selector) {
  * 評估提取的內容質量
  * 檢查內容長度和鏈接密度，判斷內容是否足夠好
  *
- * @param {Object} article - Readability 提取的文章對象
+ * @param {object} article - Readability 提取的文章對象
  * @param {string} article.content - 文章 HTML 內容
  * @param {number} article.textContent - 文章文本內容（用於長度計算）
  * @returns {boolean} 如果內容質量良好返回 true，否則返回 false
- *
  * @description
  * 質量評估標準：
  * 1. 內容長度至少 250 字符（MIN_CONTENT_LENGTH）
@@ -123,6 +123,7 @@ function isContentGood(article) {
 /**
  * 嘗試展開頁面上常見的可折疊/懶載入內容，以便 Readability 能夠擷取隱藏的文本
  * Best-effort：會處理 <details>、aria-expanded/aria-hidden、常見 collapsed 類別 和 Bootstrap collapse
+ *
  * @param {number} timeout - 等待時間（毫秒）
  * @returns {Promise<Array>} 展開的元素數組
  */
@@ -166,8 +167,7 @@ async function expandCollapsibleElements(timeout = 300) {
           const target = document.getElementById(ctrl) || document.querySelector(`#${ctrl}`);
           if (target) {
             target.removeAttribute('aria-hidden');
-            target.classList.remove('collapsed');
-            target.classList.remove('collapse');
+            target.classList.remove('collapsed', 'collapse');
             expanded.push(target);
           }
         }
@@ -184,8 +184,7 @@ async function expandCollapsibleElements(timeout = 300) {
     const collapsedEls = Array.from(document.querySelectorAll('.collapsed, .collapse:not(.show)'));
     collapsedEls.forEach(el => {
       try {
-        el.classList.remove('collapsed');
-        el.classList.remove('collapse');
+        el.classList.remove('collapsed', 'collapse');
         el.classList.add('expanded-by-clipper');
         el.removeAttribute('aria-hidden');
         expanded.push(el);
@@ -238,17 +237,18 @@ async function expandCollapsibleElements(timeout = 300) {
 
 /**
  * 便捷的緩存查詢函數
+ *
  * @param {string} selector - CSS 選擇器
  * @param {Element|Document} context - 查詢上下文
- * @param {Object} options - 選項對象
+ * @param {object} options - 選項對象
  * @param {boolean} options.single - 是否返回單一元素
  * @param {boolean} options.all - 是否返回所有匹配元素
  * @returns {Element|NodeList|Array} 查詢結果
  */
 function cachedQuery(selector, context = document, options = {}) {
   // 如果全域的 PerformanceOptimizer 可用,使用緩存查詢
-  if (typeof PerformanceOptimizer !== 'undefined' && window.performanceOptimizer) {
-    return window.performanceOptimizer.cachedQuery(selector, context, options);
+  if (typeof PerformanceOptimizer !== 'undefined' && globalThis.performanceOptimizer) {
+    return globalThis.performanceOptimizer.cachedQuery(selector, context, options);
   }
   // 回退到原生查詢
   return options.single ? context.querySelector(selector) : context.querySelectorAll(selector);
@@ -257,6 +257,7 @@ function cachedQuery(selector, context = document, options = {}) {
 /**
  * A new, CMS-aware fallback function. It specifically looks for patterns
  * found in CMS like Drupal and other common website structures.
+ *
  * @returns {string|null} The combined innerHTML of the article components.
  */
 function findContentCmsFallback() {
@@ -543,6 +544,7 @@ function extractLargestListFallback() {
 /**
  * 創建優化的文檔副本用於 Readability 解析
  * 移除廣告、追蹤元素、導航等非內容元素以提高解析質量
+ *
  * @returns {Document|null} 優化後的文檔副本,失敗時返回 null
  */
 function createOptimizedDocumentClone() {
@@ -627,7 +629,8 @@ function createOptimizedDocumentClone() {
 /**
  * 使用 Readability.js 解析文章內容
  * 包含性能優化、錯誤處理和邊緣情況處理
- * @returns {Object} 解析後的文章對象,包含 title 和 content 屬性
+ *
+ * @returns {object} 解析後的文章對象,包含 title 和 content 屬性
  * @throws {Error} 當 Readability 不可用或解析失敗時拋出錯誤
  */
 function parseArticleWithReadability() {

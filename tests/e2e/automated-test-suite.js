@@ -154,8 +154,8 @@ const TEST_CONFIG = {
 
   // 測試超時設置
   timeout: {
-    navigation: 30000, // 30秒
-    scriptExecution: 10000, // 10秒
+    navigation: 30_000, // 30秒
+    scriptExecution: 10_000, // 10秒
   },
 
   // 截圖設置
@@ -365,7 +365,7 @@ class TestReport {
     md += '## 📝 詳細結果\n\n';
 
     this.results.forEach((result, index) => {
-      const icon = result.status === 'passed' ? '✅' : result.status === 'failed' ? '❌' : '⏭️';
+      const icon = result.status === 'passed' ? '✅' : (result.status === 'failed' ? '❌' : '⏭️');
       md += `### ${icon} ${index + 1}. ${result.siteName}\n\n`;
       md += `**狀態：** ${result.status}\n`;
       md += `**耗時：** ${(result.duration / 1000).toFixed(2)} 秒\n\n`;

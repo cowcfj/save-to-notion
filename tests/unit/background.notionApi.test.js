@@ -9,7 +9,7 @@
  */
 
 // Mock Chrome APIs
-global.chrome = {
+globalThis.chrome = {
   storage: {
     sync: {
       get: jest.fn(),
@@ -36,7 +36,7 @@ global.chrome = {
 };
 
 // Mock fetch
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 // 測試統一模擬 fetch.json 回傳 Promise，避免每次手動撰寫 async 函式
 const mockJson = payload => () => Promise.resolve(payload);
@@ -44,13 +44,13 @@ const mockJson = payload => () => Promise.resolve(payload);
 describe('Notion API - 基礎頁面創建', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch.mockClear();
+    globalThis.fetch.mockClear();
   });
 
   describe('createNotionPage()', () => {
     test('應該成功創建基本頁面', async () => {
       // Mock 成功響應
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: mockJson({
           id: 'page-123',
@@ -58,7 +58,7 @@ describe('Notion API - 基礎頁面創建', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
         headers: {
           Authorization: 'Bearer test-key',
@@ -86,7 +86,7 @@ describe('Notion API - 基礎頁面創建', () => {
     });
 
     test('應該處理 API Key 無效錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
         json: mockJson({
@@ -97,7 +97,7 @@ describe('Notion API - 基礎頁面創建', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
         headers: {
           Authorization: 'Bearer invalid-key',
@@ -114,7 +114,7 @@ describe('Notion API - 基礎頁面創建', () => {
     });
 
     test('應該處理數據庫不存在錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
         json: mockJson({
@@ -125,7 +125,7 @@ describe('Notion API - 基礎頁面創建', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
         body: JSON.stringify({
           parent: {
@@ -143,9 +143,9 @@ describe('Notion API - 基礎頁面創建', () => {
     });
 
     test('應該處理網絡錯誤', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+      globalThis.fetch.mockRejectedValueOnce(new Error('Network error'));
 
-      await expect(global.fetch('https://api.notion.com/v1/pages')).rejects.toThrow(
+      await expect(globalThis.fetch('https://api.notion.com/v1/pages')).rejects.toThrow(
         'Network error'
       );
     });
@@ -155,12 +155,12 @@ describe('Notion API - 基礎頁面創建', () => {
 describe('Notion API - 批次追加邏輯', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch.mockClear();
+    globalThis.fetch.mockClear();
   });
 
   describe('appendBlocksInBatches()', () => {
     test('應該成功追加少量區塊（< 100）', async () => {
-      const blocks = Array(50)
+      const blocks = Array.from({ length: 50 })
         .fill(null)
         .map((_, i) => ({
           object: 'block',
@@ -170,22 +170,22 @@ describe('Notion API - 批次追加邏輯', () => {
           },
         }));
 
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: mockJson({ results: blocks }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/blocks/page-123/children', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/blocks/page-123/children', {
         method: 'PATCH',
         body: JSON.stringify({ children: blocks }),
       });
 
       expect(result.ok).toBe(true);
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
     test('應該分批追加大量區塊（> 100）', async () => {
-      const blocks = Array(250)
+      const blocks = Array.from({ length: 250 })
         .fill(null)
         .map((_, i) => ({
           object: 'block',
@@ -196,7 +196,7 @@ describe('Notion API - 批次追加邏輯', () => {
         }));
 
       // Mock 3 次成功響應（100 + 100 + 50）
-      global.fetch
+      globalThis.fetch
         .mockResolvedValueOnce({ ok: true, json: mockJson({ results: [] }) })
         .mockResolvedValueOnce({ ok: true, json: mockJson({ results: [] }) })
         .mockResolvedValueOnce({ ok: true, json: mockJson({ results: [] }) });
@@ -205,17 +205,17 @@ describe('Notion API - 批次追加邏輯', () => {
       const batchSize = 100;
       for (let i = 0; i < blocks.length; i += batchSize) {
         const batch = blocks.slice(i, i + batchSize);
-        await global.fetch('https://api.notion.com/v1/blocks/page-123/children', {
+        await globalThis.fetch('https://api.notion.com/v1/blocks/page-123/children', {
           method: 'PATCH',
           body: JSON.stringify({ children: batch }),
         });
       }
 
-      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(3);
     });
 
     test('應該處理批次中的錯誤', async () => {
-      global.fetch
+      globalThis.fetch
         .mockResolvedValueOnce({ ok: true, json: mockJson({ results: [] }) })
         .mockResolvedValueOnce({
           ok: false,
@@ -227,13 +227,13 @@ describe('Notion API - 批次追加邏輯', () => {
         });
 
       // 第一批成功
-      const result1 = await global.fetch('https://api.notion.com/v1/blocks/page-123/children', {
+      const result1 = await globalThis.fetch('https://api.notion.com/v1/blocks/page-123/children', {
         method: 'PATCH',
       });
       expect(result1.ok).toBe(true);
 
       // 第二批失敗
-      const result2 = await global.fetch('https://api.notion.com/v1/blocks/page-123/children', {
+      const result2 = await globalThis.fetch('https://api.notion.com/v1/blocks/page-123/children', {
         method: 'PATCH',
       });
       expect(result2.ok).toBe(false);
@@ -245,12 +245,12 @@ describe('Notion API - 批次追加邏輯', () => {
 describe('Notion API - 資料來源獲取', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch.mockClear();
+    globalThis.fetch.mockClear();
   });
 
   describe('fetchDatabases()', () => {
     test('應該成功獲取資料來源列表', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: mockJson({
           results: [
@@ -269,7 +269,7 @@ describe('Notion API - 資料來源獲取', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/search', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/search', {
         method: 'POST',
         body: JSON.stringify({
           filter: { property: 'object', value: 'database' },
@@ -285,7 +285,7 @@ describe('Notion API - 資料來源獲取', () => {
     });
 
     test('應該處理空資料來源列表', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: mockJson({
           results: [],
@@ -293,7 +293,7 @@ describe('Notion API - 資料來源獲取', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/search', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/search', {
         method: 'POST',
       });
 
@@ -304,10 +304,10 @@ describe('Notion API - 資料來源獲取', () => {
     });
 
     test('應該處理分頁結果', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: mockJson({
-          results: Array(100)
+          results: Array.from({ length: 100 })
             .fill(null)
             .map((_, i) => ({
               id: `db-${i}`,
@@ -318,7 +318,7 @@ describe('Notion API - 資料來源獲取', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/search', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/search', {
         method: 'POST',
       });
 
@@ -335,19 +335,19 @@ describe('Notion API - 資料來源獲取', () => {
 describe('Notion API - API Key 驗證', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch.mockClear();
+    globalThis.fetch.mockClear();
   });
 
   describe('testApiKey()', () => {
     test('應該驗證有效的 API Key', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: mockJson({
           results: [],
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/search', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/search', {
         method: 'POST',
         headers: {
           Authorization: 'Bearer valid-key',
@@ -359,7 +359,7 @@ describe('Notion API - API Key 驗證', () => {
     });
 
     test('應該拒絕無效的 API Key', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
         json: mockJson({
@@ -368,7 +368,7 @@ describe('Notion API - API Key 驗證', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/search', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/search', {
         method: 'POST',
         headers: {
           Authorization: 'Bearer invalid-key',
@@ -380,7 +380,7 @@ describe('Notion API - API Key 驗證', () => {
     });
 
     test('應該處理空 API Key', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
         json: mockJson({
@@ -389,7 +389,7 @@ describe('Notion API - API Key 驗證', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/search', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/search', {
         method: 'POST',
         headers: {},
       });
@@ -399,7 +399,7 @@ describe('Notion API - API Key 驗證', () => {
     });
 
     test('應該處理格式錯誤的 API Key', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
         json: mockJson({
@@ -408,7 +408,7 @@ describe('Notion API - API Key 驗證', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/search', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/search', {
         method: 'POST',
         headers: {
           Authorization: 'InvalidFormat',
@@ -424,12 +424,12 @@ describe('Notion API - API Key 驗證', () => {
 describe('Notion API - 錯誤處理增強', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch.mockClear();
+    globalThis.fetch.mockClear();
   });
 
   describe('HTTP 狀態碼處理', () => {
     test('應該處理 401 未授權錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
         statusText: 'Unauthorized',
@@ -441,7 +441,7 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
         headers: { Authorization: 'Bearer invalid-key' },
       });
@@ -455,7 +455,7 @@ describe('Notion API - 錯誤處理增強', () => {
     });
 
     test('應該處理 404 資源不存在錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Not Found',
@@ -467,7 +467,7 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/databases/db-nonexistent');
+      const result = await globalThis.fetch('https://api.notion.com/v1/databases/db-nonexistent');
 
       expect(result.ok).toBe(false);
       expect(result.status).toBe(404);
@@ -477,7 +477,7 @@ describe('Notion API - 錯誤處理增強', () => {
     });
 
     test('應該處理 429 速率限制錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 429,
         statusText: 'Too Many Requests',
@@ -490,7 +490,7 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
       });
 
@@ -502,7 +502,7 @@ describe('Notion API - 錯誤處理增強', () => {
     });
 
     test('應該處理 500 服務器錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
@@ -514,14 +514,14 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages');
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages');
 
       expect(result.ok).toBe(false);
       expect(result.status).toBe(500);
     });
 
     test('應該處理 503 服務不可用錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 503,
         statusText: 'Service Unavailable',
@@ -533,7 +533,7 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages');
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages');
 
       expect(result.ok).toBe(false);
       expect(result.status).toBe(503);
@@ -542,31 +542,33 @@ describe('Notion API - 錯誤處理增強', () => {
 
   describe('網絡錯誤處理', () => {
     test('應該處理網絡超時', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network timeout'));
+      globalThis.fetch.mockRejectedValueOnce(new Error('Network timeout'));
 
-      await expect(global.fetch('https://api.notion.com/v1/pages')).rejects.toThrow(
+      await expect(globalThis.fetch('https://api.notion.com/v1/pages')).rejects.toThrow(
         'Network timeout'
       );
     });
 
     test('應該處理連接失敗', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Failed to fetch'));
+      globalThis.fetch.mockRejectedValueOnce(new Error('Failed to fetch'));
 
-      await expect(global.fetch('https://api.notion.com/v1/pages')).rejects.toThrow(
+      await expect(globalThis.fetch('https://api.notion.com/v1/pages')).rejects.toThrow(
         'Failed to fetch'
       );
     });
 
     test('應該處理 DNS 解析失敗', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('getaddrinfo ENOTFOUND'));
+      globalThis.fetch.mockRejectedValueOnce(new Error('getaddrinfo ENOTFOUND'));
 
-      await expect(global.fetch('https://api.notion.com/v1/pages')).rejects.toThrow('ENOTFOUND');
+      await expect(globalThis.fetch('https://api.notion.com/v1/pages')).rejects.toThrow(
+        'ENOTFOUND'
+      );
     });
 
     test('應該處理 SSL 證書錯誤', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('SSL certificate problem'));
+      globalThis.fetch.mockRejectedValueOnce(new Error('SSL certificate problem'));
 
-      await expect(global.fetch('https://api.notion.com/v1/pages')).rejects.toThrow(
+      await expect(globalThis.fetch('https://api.notion.com/v1/pages')).rejects.toThrow(
         'SSL certificate'
       );
     });
@@ -574,7 +576,7 @@ describe('Notion API - 錯誤處理增強', () => {
 
   describe('數據驗證錯誤', () => {
     test('應該處理無效的請求體', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
         json: mockJson({
@@ -585,7 +587,7 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
         body: JSON.stringify({
           parent: {
@@ -603,7 +605,7 @@ describe('Notion API - 錯誤處理增強', () => {
     });
 
     test('應該處理缺少必需字段', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
         json: mockJson({
@@ -614,7 +616,7 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
         body: JSON.stringify({
           properties: {},
@@ -628,7 +630,7 @@ describe('Notion API - 錯誤處理增強', () => {
     });
 
     test('應該處理無效的區塊類型', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
         json: mockJson({
@@ -639,7 +641,7 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/blocks/page-123/children', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/blocks/page-123/children', {
         method: 'PATCH',
         body: JSON.stringify({
           children: [
@@ -659,7 +661,7 @@ describe('Notion API - 錯誤處理增強', () => {
 
   describe('權限錯誤', () => {
     test('應該處理無權限訪問資料來源', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 403,
         json: mockJson({
@@ -670,7 +672,7 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/data_sources/ds-restricted');
+      const result = await globalThis.fetch('https://api.notion.com/v1/data_sources/ds-restricted');
 
       expect(result.ok).toBe(false);
       expect(result.status).toBe(403);
@@ -680,7 +682,7 @@ describe('Notion API - 錯誤處理增強', () => {
     });
 
     test('應該處理無權限創建頁面', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 403,
         json: mockJson({
@@ -691,7 +693,7 @@ describe('Notion API - 錯誤處理增強', () => {
         }),
       });
 
-      const result = await global.fetch('https://api.notion.com/v1/pages', {
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages', {
         method: 'POST',
         body: JSON.stringify({
           parent: {
@@ -710,13 +712,13 @@ describe('Notion API - 錯誤處理增強', () => {
 describe('Notion API - 重試邏輯', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch.mockClear();
+    globalThis.fetch.mockClear();
   });
 
   describe('自動重試機制', () => {
     test('應該在暫時性錯誤後重試', async () => {
       // 第一次失敗，第二次成功
-      global.fetch.mockRejectedValueOnce(new Error('Network timeout')).mockResolvedValueOnce({
+      globalThis.fetch.mockRejectedValueOnce(new Error('Network timeout')).mockResolvedValueOnce({
         ok: true,
         json: mockJson({ id: 'page-123' }),
       });
@@ -728,7 +730,7 @@ describe('Notion API - 重試邏輯', () => {
 
       while (attempts < maxAttempts) {
         try {
-          result = await global.fetch('https://api.notion.com/v1/pages');
+          result = await globalThis.fetch('https://api.notion.com/v1/pages');
           if (result.ok) {
             break;
           }
@@ -742,13 +744,13 @@ describe('Notion API - 重試邏輯', () => {
         }
       }
 
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
       expect(result.ok).toBe(true);
     });
 
     test('應該在多次失敗後放棄', async () => {
       // 所有嘗試都失敗
-      global.fetch
+      globalThis.fetch
         .mockRejectedValueOnce(new Error('Network error'))
         .mockRejectedValueOnce(new Error('Network error'))
         .mockRejectedValueOnce(new Error('Network error'));
@@ -759,7 +761,7 @@ describe('Notion API - 重試邏輯', () => {
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-          await global.fetch('https://api.notion.com/v1/pages');
+          await globalThis.fetch('https://api.notion.com/v1/pages');
           break;
         } catch (error) {
           lastError = error;
@@ -770,7 +772,7 @@ describe('Notion API - 重試邏輯', () => {
         }
       }
 
-      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(3);
       expect(lastError).toBeDefined();
       expect(lastError.message).toContain('Network error');
     });
@@ -778,7 +780,7 @@ describe('Notion API - 重試邏輯', () => {
     test('應該使用指數退避策略', async () => {
       const delays = [];
 
-      global.fetch
+      globalThis.fetch
         .mockRejectedValueOnce(new Error('Error 1'))
         .mockRejectedValueOnce(new Error('Error 2'))
         .mockResolvedValueOnce({ ok: true, json: mockJson({}) });
@@ -789,7 +791,7 @@ describe('Notion API - 重試邏輯', () => {
 
       while (attempt < 3) {
         try {
-          const result = await global.fetch('https://api.notion.com/v1/pages');
+          const result = await globalThis.fetch('https://api.notion.com/v1/pages');
           if (result.ok) {
             break;
           }
@@ -804,11 +806,11 @@ describe('Notion API - 重試邏輯', () => {
       }
 
       expect(delays).toEqual([100, 200]); // 100ms, 200ms
-      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(3);
     });
 
     test('不應該重試 4xx 客戶端錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
         json: mockJson({
@@ -818,7 +820,7 @@ describe('Notion API - 重試邏輯', () => {
       });
 
       // 模擬重試邏輯（不應該重試 4xx）
-      const result = await global.fetch('https://api.notion.com/v1/pages');
+      const result = await globalThis.fetch('https://api.notion.com/v1/pages');
 
       // 檢查是否為客戶端錯誤
       const shouldRetry = result.status >= 500 || result.status === 429;
@@ -826,11 +828,11 @@ describe('Notion API - 重試邏輯', () => {
       expect(result.ok).toBe(false);
       expect(result.status).toBe(400);
       expect(shouldRetry).toBe(false);
-      expect(global.fetch).toHaveBeenCalledTimes(1); // 只調用一次
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1); // 只調用一次
     });
 
     test('應該重試 5xx 服務器錯誤', async () => {
-      global.fetch
+      globalThis.fetch
         .mockResolvedValueOnce({
           ok: false,
           status: 500,
@@ -846,7 +848,7 @@ describe('Notion API - 重試邏輯', () => {
       let attempts = 0;
 
       while (attempts < 3) {
-        result = await global.fetch('https://api.notion.com/v1/pages');
+        result = await globalThis.fetch('https://api.notion.com/v1/pages');
         attempts++;
 
         if (result.ok) {
@@ -861,7 +863,7 @@ describe('Notion API - 重試邏輯', () => {
         break;
       }
 
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
       expect(result.ok).toBe(true);
     });
   });
@@ -870,7 +872,7 @@ describe('Notion API - 重試邏輯', () => {
     test('應該遵守 Retry-After 標頭', async () => {
       const retryAfter = 2; // 秒
 
-      global.fetch
+      globalThis.fetch
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
@@ -883,15 +885,15 @@ describe('Notion API - 重試邏輯', () => {
         });
 
       // 模擬速率限制處理
-      let result = await global.fetch('https://api.notion.com/v1/pages');
+      let result = await globalThis.fetch('https://api.notion.com/v1/pages');
 
       if (result.status === 429) {
         // 等待 Retry-After 時間
         await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-        result = await global.fetch('https://api.notion.com/v1/pages');
+        result = await globalThis.fetch('https://api.notion.com/v1/pages');
       }
 
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
       expect(result.ok).toBe(true);
     });
   });
@@ -900,7 +902,7 @@ describe('Notion API - 重試邏輯', () => {
 describe('Notion API - 批次處理優化', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch.mockClear();
+    globalThis.fetch.mockClear();
   });
 
   describe('大量數據處理', () => {
@@ -934,7 +936,7 @@ describe('Notion API - 批次處理優化', () => {
       const batches = Math.ceil(totalBlocks / batchSize);
       const progress = [];
 
-      global.fetch.mockResolvedValue({
+      globalThis.fetch.mockResolvedValue({
         ok: true,
         json: mockJson({ results: [] }),
       });
@@ -944,7 +946,7 @@ describe('Notion API - 批次處理優化', () => {
         const end = Math.min(start + batchSize, totalBlocks);
         const currentBatch = end - start;
 
-        await global.fetch('https://api.notion.com/v1/blocks/page-123/children');
+        await globalThis.fetch('https://api.notion.com/v1/blocks/page-123/children');
 
         progress.push({
           batch: i + 1,
@@ -963,7 +965,7 @@ describe('Notion API - 批次處理優化', () => {
 
   describe('批次錯誤恢復', () => {
     test('應該從失敗的批次繼續', async () => {
-      global.fetch
+      globalThis.fetch
         .mockResolvedValueOnce({ ok: true, json: mockJson({}) }) // 批次 1 成功
         .mockResolvedValueOnce({ ok: false, status: 500 }) // 批次 2 失敗
         .mockResolvedValueOnce({ ok: true, json: mockJson({}) }) // 批次 2 重試成功
@@ -977,7 +979,9 @@ describe('Notion API - 批次處理優化', () => {
         let attempts = 0;
 
         while (!success && attempts < 2) {
-          const result = await global.fetch('https://api.notion.com/v1/blocks/page-123/children');
+          const result = await globalThis.fetch(
+            'https://api.notion.com/v1/blocks/page-123/children'
+          );
 
           if (result.ok) {
             success = true;
@@ -990,7 +994,7 @@ describe('Notion API - 批次處理優化', () => {
       }
 
       expect(completedBatches).toBe(3);
-      expect(global.fetch).toHaveBeenCalledTimes(4); // 3 + 1 重試
+      expect(globalThis.fetch).toHaveBeenCalledTimes(4); // 3 + 1 重試
     });
   });
 });

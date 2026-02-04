@@ -16,13 +16,13 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
         const path = [];
 
         for (const step of steps) {
-          const match = step.match(/^([a-z0-9-]+)\[(\d+)\]$/i);
+          const match = step.match(/^([\da-z-]+)\[(\d+)]$/i);
           if (!match) {
             return null;
           }
 
           const [, name, indexStr] = match;
-          const index = parseInt(indexStr, 10);
+          const index = Number.parseInt(indexStr, 10);
 
           if (name === 'text') {
             path.push({ type: 'text', index });
@@ -212,7 +212,7 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
       console.log(`節省: ${saved} bytes (${savedPercent}%)`);
 
       expect(newSize).toBeLessThan(oldSize);
-      expect(parseFloat(savedPercent)).toBeGreaterThan(70); // 至少節省 70%
+      expect(Number.parseFloat(savedPercent)).toBeGreaterThan(70); // 至少節省 70%
     });
 
     test('計算 70 個標註的總節省', () => {
@@ -230,7 +230,7 @@ describe('路徑壓縮優化 (v2.9.0)', () => {
       console.log(`新格式總大小: ${(newTotal / 1024).toFixed(1)} KB`);
       console.log(`總節省: ${savedKB} KB`);
 
-      expect(parseFloat(savedKB)).toBeGreaterThan(15); // 至少節省 15 KB
+      expect(Number.parseFloat(savedKB)).toBeGreaterThan(15); // 至少節省 15 KB
     });
   });
 

@@ -52,7 +52,7 @@ jest.mock('../../../../scripts/config/constants.js', () => {
 });
 
 // Mock chrome API
-global.chrome = {
+globalThis.chrome = {
   tabs: {
     query: jest.fn(),
     sendMessage: jest.fn(),
@@ -85,7 +85,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     jest.clearAllMocks();
 
     // Mock Logger 為非調試模式
-    global.Logger = {
+    globalThis.Logger = {
       debugEnabled: false,
       error: jest.fn(),
       warn: jest.fn(),

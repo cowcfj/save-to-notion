@@ -11,17 +11,19 @@
 // ImageUtils 由 Rollup intro 從 window.ImageUtils 注入
 // 使用 getter 函數以支持測試時的 mock 覆蓋
 const getImageUtils = () =>
-  (typeof window !== 'undefined' && window.ImageUtils) ||
-  (typeof global !== 'undefined' && global.ImageUtils) ||
+  (globalThis.window !== undefined && globalThis.ImageUtils) ||
+  (globalThis.global !== undefined && globalThis.ImageUtils) ||
   {};
 
 import {
   BLOCKS_SUPPORTING_CHILDREN,
   UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
+  CODE_LANGUAGE_MAP,
 } from '../../config/constants.js';
 
 /**
  * Notion API 文本長度限制
+ *
  * @constant {number}
  */
 const MAX_TEXT_LENGTH = 2000;
@@ -37,6 +39,8 @@ class DomConverter {
 
   /**
    * 初始化轉換策略
+   *
+   * @returns {object} 標籤到轉換函數的映射表
    */
   initStrategies() {
     return {
@@ -79,6 +83,7 @@ class DomConverter {
 
   /**
    * 將 HTML 轉換為 Notion 區塊陣列
+   *
    * @param {string|Node} htmlOrNode - HTML 字串或 DOM 節點
    * @returns {Array} Notion 區塊陣列
    */
@@ -98,6 +103,7 @@ class DomConverter {
 
   /**
    * 處理子節點
+   *
    * @param {Node} parentNode
    * @returns {Array} Blocks
    */
@@ -123,8 +129,9 @@ class DomConverter {
 
   /**
    * 處理單個節點
+   *
    * @param {Node} node
-   * @returns {Object|Array|null} Block or Array of Blocks
+   * @returns {object | Array | null} Block or Array of Blocks
    */
   processNode(node) {
     if (node.nodeType !== Node.ELEMENT_NODE) {
@@ -157,7 +164,7 @@ class DomConverter {
 
   createHeadingBlock(type, node) {
     const richText = this.parseRichText(node);
-    if (!richText.length) {
+    if (richText.length === 0) {
       return null;
     }
     return {
@@ -169,7 +176,7 @@ class DomConverter {
 
   createBoldParagraphBlock(node) {
     const richText = this.parseRichText(node);
-    if (!richText.length) {
+    if (richText.length === 0) {
       return null;
     }
 
@@ -205,7 +212,7 @@ class DomConverter {
     // 為了保持 2.1 版本重構的純粹性，我們先專注於標準 P 標籤
 
     const richText = this.parseRichText(node);
-    if (!richText.length) {
+    if (richText.length === 0) {
       return null;
     }
 
@@ -255,55 +262,7 @@ class DomConverter {
     // 2. Block 級元素 (P, H1) -> 這裡需要決定是合併還是作為 children
     // 3. 嵌套列表 (UL, OL) -> children
 
-    // 簡化策略：
-    // 1. 提取 LI 的 "直接" 文本內容作為 item title
-    // 2. 提取 LI 內的 "嵌套列表" 作為 children
-
-    // 為了準確提取 Text，我們需要遍歷 childNodes
-    const richTexts = [];
-    const childrenBlocks = [];
-
-    node.childNodes.forEach(child => {
-      if (['UL', 'OL'].includes(child.nodeName)) {
-        // 嵌套列表 -> Children
-        const nestedBlocks = this.processList(
-          child,
-          child.nodeName === 'OL' ? 'numbered_list_item' : 'bulleted_list_item'
-        );
-        childrenBlocks.push(...nestedBlocks);
-      } else if (child.nodeName === 'P') {
-        // 如果 LI 內部有 P，通常 P 的內容就是列表文本
-        // 但如果有多個 P，第一個是文本，後面的是 children??
-        // Notion 列表項本身就有文本，所以我們把第一個 P 的內容合併進來
-        const pRichText = this.parseRichText(child);
-        richTexts.push(...pRichText);
-        // P 之後如果還有其他 Block 級元素，怎麼辦？
-        // 暫時將其忽略或作為文本附加
-      } else if (child.nodeType !== Node.ELEMENT_NODE || DomConverter.isInlineNode(child)) {
-        // Inline 内容 -> Rich Text
-        const rt = this.processInlineNode(child);
-        if (rt) {
-          if (Array.isArray(rt)) {
-            richTexts.push(...rt);
-          } else {
-            richTexts.push(rt);
-          }
-        }
-      } else {
-        // 其他 Block 級元素 (如 Div, Quote) -> Children
-        const result = this.processNode(child);
-        if (result) {
-          if (Array.isArray(result)) {
-            childrenBlocks.push(...result);
-          } else {
-            childrenBlocks.push(result);
-          }
-        }
-      }
-    });
-
-    // 如果沒有文本，給個預設空字符，否則 Notion 可能會報錯
-    // 實際上 Notion 允許空 list item
+    const { richTexts, childrenBlocks } = this._processListItemNodes(node, type);
 
     // 合併相鄰的 Text 節點 (優化)
     const mergedRichText = DomConverter.mergeRichText(richTexts);
@@ -323,11 +282,61 @@ class DomConverter {
     return block;
   }
 
+  _processListItemNodes(node) {
+    const richTexts = [];
+    const childrenBlocks = [];
+
+    node.childNodes.forEach(child => {
+      this._processListItemChild(child, richTexts, childrenBlocks);
+    });
+
+    return { richTexts, childrenBlocks };
+  }
+
+  _processListItemChild(child, richTexts, childrenBlocks) {
+    if (['UL', 'OL'].includes(child.nodeName)) {
+      this._processListInsideItem(child, childrenBlocks);
+    } else if (child.nodeName === 'P') {
+      const pRichText = this.parseRichText(child);
+      richTexts.push(...pRichText);
+    } else if (child.nodeType !== Node.ELEMENT_NODE || DomConverter.isInlineNode(child)) {
+      this._processTextInsideItem(child, richTexts);
+    } else {
+      this._processBlockInsideItem(child, childrenBlocks);
+    }
+  }
+
+  _processListInsideItem(child, childrenBlocks) {
+    const nestedBlocks = this.processList(
+      child,
+      child.nodeName === 'OL' ? 'numbered_list_item' : 'bulleted_list_item'
+    );
+    childrenBlocks.push(...nestedBlocks);
+  }
+
+  _processTextInsideItem(child, richTexts) {
+    const rt = this.processInlineNode(child);
+    if (rt && rt.length > 0) {
+      richTexts.push(...rt);
+    }
+  }
+
+  _processBlockInsideItem(child, childrenBlocks) {
+    const result = this.processNode(child);
+    if (result) {
+      if (Array.isArray(result)) {
+        childrenBlocks.push(...result);
+      } else {
+        childrenBlocks.push(result);
+      }
+    }
+  }
+
   createQuoteBlock(node) {
     // 引用可以包含複雜內容，但 Notion Quote 主要由 rich_text 構成。
     // 如果引用包含多個段落，通常第一個段落是 quote text，後續作為 children。
     const richText = this.parseRichText(node); // 這會提取所有文本
-    if (!richText.length) {
+    if (richText.length === 0) {
       return null;
     }
 
@@ -355,7 +364,9 @@ class DomConverter {
       object: 'block',
       type: 'code',
       code: {
-        rich_text: [{ type: 'text', text: { content: text.substring(0, MAX_TEXT_LENGTH) } }],
+        rich_text: [
+          { type: 'text', text: { content: text.slice(0, Math.max(0, MAX_TEXT_LENGTH)) } },
+        ],
         language,
       },
     };
@@ -372,7 +383,7 @@ class DomConverter {
     try {
       finalUrl = new URL(src, document.baseURI).href;
       finalUrl = cleanImageUrl?.(finalUrl) ?? finalUrl;
-    } catch (_error) {
+    } catch {
       // ignore invalid url
     }
 
@@ -412,12 +423,8 @@ class DomConverter {
     const richTexts = [];
     node.childNodes.forEach(child => {
       const rt = this.processInlineNode(child);
-      if (rt) {
-        if (Array.isArray(rt)) {
-          richTexts.push(...rt);
-        } else {
-          richTexts.push(rt);
-        }
+      if (rt && rt.length > 0) {
+        richTexts.push(...rt);
       }
     });
     return DomConverter.mergeRichText(richTexts);
@@ -425,24 +432,49 @@ class DomConverter {
 
   processInlineNode(node, annotations = {}) {
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent;
-      if (!text) {
-        return null;
-      }
-      // 注意：不要在這裡 trim()，否則會丟失詞與詞之間的空格
-      // 只有在 block 開頭結尾才 trim，或者完全信任 DOM 的空白
-      return {
-        type: 'text',
-        text: { content: text },
-        annotations: { ...annotations },
-      };
+      return this._processTextNode(node, annotations);
     }
 
     if (node.nodeType !== Node.ELEMENT_NODE) {
-      return null;
+      return [];
     }
 
     // 合併樣式
+    const newAnnotations = this._mergeAnnotations(node, annotations);
+
+    // 連結處理
+    const link = this._extractLink(node);
+
+    // 遞歸處理子節點
+    const childrenRichTexts = [];
+    node.childNodes.forEach(child => {
+      const rt = this.processInlineNode(child, newAnnotations);
+      if (rt && rt.length > 0) {
+        if (link) {
+          this._applyLinkToRichTexts(rt, link);
+        }
+        childrenRichTexts.push(...rt);
+      }
+    });
+
+    return childrenRichTexts;
+  }
+
+  _processTextNode(node, annotations) {
+    const text = node.textContent;
+    if (!text) {
+      return [];
+    }
+    return [
+      {
+        type: 'text',
+        text: { content: text },
+        annotations: { ...annotations },
+      },
+    ];
+  }
+
+  _mergeAnnotations(node, annotations) {
     const newAnnotations = { ...annotations };
     const tagName = node.tagName;
 
@@ -458,47 +490,35 @@ class DomConverter {
       newAnnotations.code = true;
     }
 
-    // 連結處理
-    let link = null;
-    if (tagName === 'A') {
+    return newAnnotations;
+  }
+
+  _extractLink(node) {
+    if (node.tagName === 'A') {
       const href = node.getAttribute('href');
       if (href) {
         try {
           const url = new URL(href, document.baseURI);
-          // 白名單方式：只允許安全協議（http, https）
           if (['http:', 'https:'].includes(url.protocol)) {
-            link = { url: url.href };
+            return { url: url.href };
           }
-        } catch (_error) {
-          /* ignore invalid URLs */
+        } catch {
+          /* ignore */
         }
       }
     }
+    return null;
+  }
 
-    // 遞歸處理子節點
-    const childrenRichTexts = [];
-    node.childNodes.forEach(child => {
-      const rt = this.processInlineNode(child, newAnnotations);
-      if (rt) {
-        if (Array.isArray(rt)) {
-          if (link) {
-            rt.forEach(item => {
-              if (item.text) {
-                item.text.link = link;
-              }
-            });
-          }
-          childrenRichTexts.push(...rt);
-        } else {
-          if (link && rt.text) {
-            rt.text.link = link;
-          }
-          childrenRichTexts.push(rt);
-        }
+  _applyLinkToRichTexts(richTexts, link) {
+    if (!link) {
+      return;
+    }
+    richTexts.forEach(item => {
+      if (item.text) {
+        item.text.link = link;
       }
     });
-
-    return childrenRichTexts;
   }
 
   static isInlineNode(node) {
@@ -507,7 +527,7 @@ class DomConverter {
   }
 
   static mergeRichText(richTextArray) {
-    if (!richTextArray.length) {
+    if (richTextArray.length === 0) {
       return [];
     }
 
@@ -546,29 +566,17 @@ class DomConverter {
     if (!lang) {
       return 'plain text';
     }
-    const map = {
-      js: 'javascript',
-      ts: 'typescript',
-      py: 'python',
-      md: 'markdown',
-      html: 'html',
-      css: 'css',
-      json: 'json',
-      sh: 'bash',
-      bash: 'bash',
-      c: 'c',
-      cpp: 'c++',
-      java: 'java',
-      go: 'go',
-      rust: 'rust',
-    };
-    return map[lang.toLowerCase()] || lang;
+    return CODE_LANGUAGE_MAP[lang.toLowerCase()] || lang;
   }
 
   /**
    * 遞歸清洗 Block 結構，確保符合 Notion API 規範 (2025-09-03)
    * 1. 移除不支持 children 的 block 的 children 屬性
    * 2. 截斷過長的 rich_text
+   *
+   * @param {Array} blocks - 要清洗的 Notion 區塊陣列
+   * @param {number} [depth=0] - 遞歸深度
+   * @returns {Array} 清洗後的區塊陣列
    */
   static cleanBlocks(blocks, depth = 0) {
     if (!blocks || !Array.isArray(blocks)) {
@@ -576,96 +584,97 @@ class DomConverter {
     }
 
     return blocks.flatMap(block => {
-      // 基本驗證：必須有有效的 type
-      if (!block || typeof block !== 'object' || !block.type) {
+      // 1. Basic Validation
+      if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
         return [];
       }
 
-      const type = block.type;
+      // 2. Process Rich Text
+      DomConverter._cleanRichText(block);
 
-      // Safety Check: block[type] must exist
-      if (!block[type]) {
-        return [];
-      }
-
-      // 1. 處理 Rich Text: 截斷 & Trim & 防空
-      if (block[type]?.rich_text) {
-        if (block[type].rich_text.length === 0) {
-          block[type].rich_text = [{ type: 'text', text: { content: ' ' } }];
-        } else {
-          let totalLength = 0;
-          block[type].rich_text = block[type].rich_text.reduce((acc, rt) => {
-            // TRIM: Remove leading/trailing newlines which can confuse Notion
-            let content = rt.text?.content || '';
-            // Only trim if it's the first or last item? Or always?
-            // Safer to just trim. Notion blocks are block-level.
-            content = content.trim();
-            // If trim made it empty, but it's the only text?
-            if (!content && block[type].rich_text.length === 1) {
-              content = ' ';
-            }
-
-            if (totalLength + content.length > 2000) {
-              const remaining = 2000 - totalLength;
-              if (remaining > 0) {
-                rt.text.content = content.substring(0, remaining);
-                acc.push(rt);
-              }
-              totalLength = 2000;
-            } else if (content) {
-              // 如果 trim 後非空，或原本就是空(被上面的 guard 處理)
-              rt.text.content = content;
-              totalLength += content.length;
-              acc.push(rt);
-            }
-            return acc;
-          }, []);
-          // Final check: if reduce resulted in empty array
-          if (block[type].rich_text.length === 0) {
-            block[type].rich_text = [{ type: 'text', text: { content: ' ' } }];
-          }
-        }
-      }
-
-      // 2. 處理 Children (深度限制 & Flattening)
-      // Notion API 要求 children 在 block[type].children 內，不是 block.children
-      const blockTypeData = block[type];
-      const hasChildren = blockTypeData?.children && blockTypeData.children.length > 0;
-
-      if (hasChildren) {
-        const MAX_DEPTH = 1;
-        const isSupportedType = BLOCKS_SUPPORTING_CHILDREN.includes(type);
-
-        const hasUnsafeChild = blockTypeData.children.some(
-          child => child && UNSAFE_LIST_CHILDREN_FOR_FLATTENING.includes(child.type)
-        );
-        const shouldFlatten =
-          !isSupportedType ||
-          depth > MAX_DEPTH ||
-          (block.type.includes('list_item') && hasUnsafeChild);
-
-        if (!shouldFlatten) {
-          // 遞歸清洗子節點 (Keep Nesting)
-          blockTypeData.children = DomConverter.cleanBlocks(blockTypeData.children, depth + 1);
-          if (blockTypeData.children.length === 0) {
-            delete blockTypeData.children;
-          }
-          return [block];
-        }
-
-        // Flatten: 返回 [Parent, ...Children]
-        // 先移除父節點的 children 屬性
-        const children = blockTypeData.children;
-        delete blockTypeData.children;
-
-        // 遞歸清洗子節點（它們現在變成頂層/兄弟了，保持相對深度）
-        const cleanChildren = DomConverter.cleanBlocks(children, depth);
-
-        return [block, ...cleanChildren];
-      }
-
-      return [block];
+      // 3. Process Children (Recursion / Flattening)
+      return DomConverter._cleanBlockChildren(block, depth);
     });
+  }
+
+  static _cleanRichText(block) {
+    const type = block.type;
+    const blockData = block[type];
+
+    if (!blockData.rich_text || blockData.rich_text.length === 0) {
+      // Ensure rich_text exists if property is present?
+      // Note: Some blocks might imply rich_text.
+      // Original code checked block[type].rich_text existence.
+      if (blockData.rich_text) {
+        blockData.rich_text = [{ type: 'text', text: { content: ' ' } }];
+      }
+      return;
+    }
+
+    let totalLength = 0;
+    const processedRichText = [];
+
+    for (const rt of blockData.rich_text) {
+      let content = rt.text?.content || '';
+      content = content.trim();
+
+      if (!content && blockData.rich_text.length === 1) {
+        content = ' ';
+      }
+
+      if (totalLength + content.length > 2000) {
+        const remaining = 2000 - totalLength;
+        if (remaining > 0) {
+          rt.text.content = content.slice(0, Math.max(0, remaining));
+          processedRichText.push(rt);
+        }
+        break; // Max reached
+      } else if (content) {
+        rt.text.content = content;
+        totalLength += content.length;
+        processedRichText.push(rt);
+      }
+    }
+
+    blockData.rich_text = processedRichText;
+    if (blockData.rich_text.length === 0) {
+      blockData.rich_text = [{ type: 'text', text: { content: ' ' } }];
+    }
+  }
+
+  static _cleanBlockChildren(block, depth) {
+    const type = block.type;
+    const blockTypeData = block[type];
+    const hasChildren = blockTypeData?.children && blockTypeData.children.length > 0;
+
+    if (!hasChildren) {
+      return [block];
+    }
+
+    const MAX_DEPTH = 1;
+    const isSupportedType = BLOCKS_SUPPORTING_CHILDREN.includes(type);
+
+    const hasUnsafeChild = blockTypeData.children.some(
+      child => child && UNSAFE_LIST_CHILDREN_FOR_FLATTENING.includes(child.type)
+    );
+
+    const shouldFlatten =
+      !isSupportedType || depth > MAX_DEPTH || (block.type.includes('list_item') && hasUnsafeChild);
+
+    if (!shouldFlatten) {
+      blockTypeData.children = DomConverter.cleanBlocks(blockTypeData.children, depth + 1);
+      if (blockTypeData.children.length === 0) {
+        delete blockTypeData.children;
+      }
+      return [block];
+    }
+
+    // Flatten
+    const children = blockTypeData.children;
+    delete blockTypeData.children;
+    const cleanChildren = DomConverter.cleanBlocks(children, depth);
+
+    return [block, ...cleanChildren];
   }
 }
 

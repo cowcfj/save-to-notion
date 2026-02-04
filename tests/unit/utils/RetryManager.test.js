@@ -50,7 +50,7 @@ function createAbortController() {
       listeners.forEach(callback => {
         try {
           callback();
-        } catch (_) {
+        } catch {
           /* empty */
         }
       });

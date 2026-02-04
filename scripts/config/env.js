@@ -12,41 +12,48 @@
 
 /**
  * 檢測當前是否為擴充功能環境
+ *
  * @returns {boolean} 是否在擴充功能環境中
  */
 export function isExtensionContext() {
-  return Boolean(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
+  return Boolean(typeof chrome !== 'undefined' && chrome?.runtime?.id);
 }
 
 /**
  * 檢測當前是否為 Background Script 環境
  * Service Worker 環境通常沒有 window 對象
+ *
  * @returns {boolean} 是否在 Background Script 環境中
  */
 export function isBackgroundContext() {
-  return isExtensionContext() && typeof window === 'undefined';
+  return isExtensionContext() && globalThis.window === undefined;
 }
 
 /**
  * 檢測當前是否為 Content Script 環境
  * Content Script 有 window 對象
+ *
  * @returns {boolean} 是否在 Content Script 環境中
  */
 export function isContentContext() {
-  return isExtensionContext() && typeof window !== 'undefined';
+  return isExtensionContext() && globalThis.window !== undefined;
 }
 
 /**
  * 檢測當前是否為 Node.js 測試環境
+ *
  * @returns {boolean} 是否在 Node.js 環境中
  */
 export function isNodeEnvironment() {
-  return Boolean(typeof module !== 'undefined' && module.exports && typeof window === 'undefined');
+  return Boolean(
+    typeof module !== 'undefined' && module.exports && globalThis.window === undefined
+  );
 }
 
 /**
  * 檢測當前是否為開發模式
  * 通過檢查 manifest.json 的 version_name 是否包含 'dev'
+ *
  * @returns {boolean} 是否為開發模式
  */
 export function isDevelopment() {
@@ -58,14 +65,15 @@ export function isDevelopment() {
     const manifest = chrome.runtime.getManifest();
     const versionString = manifest.version_name || manifest.version || '';
     return /dev/i.test(versionString);
-  } catch (err) {
-    console.warn('[環境檢測] 無法讀取 manifest:', err);
+  } catch (error) {
+    console.warn('[環境檢測] 無法讀取 manifest:', error);
     return false;
   }
 }
 
 /**
  * 檢測當前是否為生產模式
+ *
  * @returns {boolean} 是否為生產模式
  */
 export function isProduction() {
@@ -74,7 +82,8 @@ export function isProduction() {
 
 /**
  * 獲取當前環境信息
- * @returns {Object} 環境信息對象
+ *
+ * @returns {object} 環境信息對象
  */
 export function getEnvironment() {
   return {
@@ -89,10 +98,10 @@ export function getEnvironment() {
 
 /**
  * 根據環境選擇配置值
+ *
  * @param {any} devValue - 開發環境值
  * @param {any} prodValue - 生產環境值
  * @returns {any} 選擇的配置值
- *
  * @example
  * const logLevel = selectByEnvironment('DEBUG', 'WARN');
  */

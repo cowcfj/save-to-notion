@@ -31,13 +31,24 @@ jest.mock('../../../popup/popupUI.js');
 jest.mock('../../../popup/popupActions.js');
 jest.mock('../../../scripts/utils/Logger.js');
 
+// Helper to trigger event
+async function triggerEvent(element, eventType = 'click') {
+  const handler = element.addEventListener.mock.calls.find(call => call[0] === eventType)[1];
+  await handler({ target: element });
+}
+
 describe('popup.js Controller', () => {
   const setup = () => {
     const mockElements = {
-      saveButton: { addEventListener: jest.fn(), style: {} },
-      highlightButton: { addEventListener: jest.fn(), style: {} },
-      clearHighlightsButton: { addEventListener: jest.fn(), style: {} },
-      openNotionButton: { addEventListener: jest.fn(), getAttribute: jest.fn(), style: {} },
+      saveButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
+      highlightButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
+      clearHighlightsButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
+      openNotionButton: {
+        addEventListener: jest.fn(),
+        getAttribute: jest.fn(),
+        style: {},
+        dataset: { url: 'https://notion.so/new' },
+      },
       status: { textContent: '', style: {} },
       modal: { addEventListener: jest.fn(), style: {} },
       modalMessage: { textContent: '' },
@@ -52,13 +63,13 @@ describe('popup.js Controller', () => {
     checkPageStatus.mockResolvedValue({ success: true, isSaved: true });
 
     // Mock global chrome
-    global.chrome = {
+    globalThis.chrome = {
       tabs: {
-        query: jest.fn().mockResolvedValue([{ id: 123, url: 'http://example.com' }]),
+        query: jest.fn().mockResolvedValue([{ id: 123, url: 'https://example.com' }]),
         sendMessage: jest.fn().mockResolvedValue({}),
       },
     };
-    global.window.close = jest.fn();
+    globalThis.window.close = jest.fn();
 
     return { mockElements };
   };
@@ -85,7 +96,7 @@ describe('popup.js Controller', () => {
 
     expect(setStatus).toHaveBeenCalledWith(
       mockElements,
-      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_MISSING_API_KEY)
+      expect.stringContaining(ERROR_MESSAGES.USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED)
     );
     expect(setButtonState).toHaveBeenCalledWith(mockElements.saveButton, true);
     expect(setButtonState).toHaveBeenCalledWith(mockElements.highlightButton, true);
@@ -148,17 +159,11 @@ describe('popup.js Controller', () => {
   });
 
   describe('Event Handlers', () => {
-    // Helper to trigger event
-    async function triggerEvent(element, eventType = 'click') {
-      const handler = element.addEventListener.mock.calls.find(call => call[0] === eventType)[1];
-      await handler({ target: element });
-    }
-
     it('saveButton click should save page', async () => {
       const { mockElements } = setup();
       await initPopup();
 
-      savePage.mockResolvedValue({ success: true, url: 'http://notion.so/page' });
+      savePage.mockResolvedValue({ success: true, url: 'https://notion.so/page' });
 
       await triggerEvent(mockElements.saveButton);
 
@@ -176,10 +181,7 @@ describe('popup.js Controller', () => {
 
       await triggerEvent(mockElements.saveButton);
 
-      expect(setStatus).toHaveBeenCalledWith(
-        mockElements,
-        expect.stringContaining(ERROR_MESSAGES.DEFAULT)
-      );
+      expect(setStatus).toHaveBeenCalledWith(mockElements, expect.stringContaining('發生未知錯誤'));
     });
 
     it('highlightButton click should start highlight if saved', async () => {
@@ -215,12 +217,11 @@ describe('popup.js Controller', () => {
     it('openNotionButton click should open notion page', async () => {
       const { mockElements } = setup();
       await initPopup();
-      mockElements.openNotionButton.getAttribute.mockReturnValue('http://notion.so/new');
       openNotionPage.mockResolvedValue({ success: true });
 
       await triggerEvent(mockElements.openNotionButton);
 
-      expect(openNotionPage).toHaveBeenCalledWith('http://notion.so/new');
+      expect(openNotionPage).toHaveBeenCalledWith('https://notion.so/new');
     });
 
     it('clearHighlightsButton click should show modal', async () => {
@@ -240,14 +241,14 @@ describe('popup.js Controller', () => {
     it('modal confirm should clear highlights', async () => {
       const { mockElements } = setup();
       await initPopup();
-      getActiveTab.mockResolvedValue({ id: 123, url: 'http://page.com' });
+      getActiveTab.mockResolvedValue({ id: 123, url: 'https://page.com' });
       clearHighlights.mockResolvedValue({ success: true, clearedCount: 5 });
 
       await triggerEvent(mockElements.modalConfirm);
 
       expect(hideModal).toHaveBeenCalled();
       expect(setStatus).toHaveBeenCalledWith(mockElements, UI_MESSAGES.POPUP.CLEARING);
-      expect(clearHighlights).toHaveBeenCalledWith(123, 'http://page.com');
+      expect(clearHighlights).toHaveBeenCalledWith(123, 'https://page.com');
       expect(setStatus).toHaveBeenCalledWith(
         mockElements,
         expect.stringContaining(UI_MESSAGES.POPUP.CLEAR_SUCCESS(5))

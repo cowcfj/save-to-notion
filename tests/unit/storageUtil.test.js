@@ -4,14 +4,14 @@
  */
 
 describe('StorageUtil', () => {
-  /** @type {Object|null} Chrome API 模擬物件 */
+  /** @type {object | null} Chrome API 模擬物件 */
   let mockChrome = null;
-  /** @type {Object|null} LocalStorage 模擬物件 */
+  /** @type {object | null} LocalStorage 模擬物件 */
   let mockLocalStorage = null;
 
   beforeEach(() => {
     // Mock normalizeUrl function
-    global.normalizeUrl = jest.fn(url => {
+    globalThis.normalizeUrl = jest.fn(url => {
       // 簡單的 normalizeUrl 模擬
       try {
         const urlObj = new URL(url);
@@ -50,7 +50,7 @@ describe('StorageUtil', () => {
         lastError: null,
       },
     };
-    global.chrome = mockChrome;
+    globalThis.chrome = mockChrome;
 
     // 替換 localStorage 為完全可控的 mock
     mockLocalStorage = {
@@ -68,10 +68,10 @@ describe('StorageUtil', () => {
         mockLocalStorage.data = {};
       }),
     };
-    global.localStorage = mockLocalStorage;
+    globalThis.localStorage = mockLocalStorage;
 
     // Mock console 方法
-    global.console = {
+    globalThis.console = {
       log: jest.fn(),
       error: jest.fn(),
       warn: jest.fn(),
@@ -79,7 +79,7 @@ describe('StorageUtil', () => {
 
     // 載入 utils.js 中的 StorageUtil
     // 因為測試環境，我們需要手動定義 StorageUtil
-    global.StorageUtil = {
+    globalThis.StorageUtil = {
       /**
        * 保存標註數據
        *
@@ -106,13 +106,13 @@ describe('StorageUtil', () => {
                 resolve();
               }
             });
-          } catch (_error) {
+          } catch {
             console.log('Chrome storage not available, using localStorage');
             try {
               localStorage.setItem(pageKey, JSON.stringify(highlightData));
               resolve();
-            } catch (err) {
-              reject(err);
+            } catch (error) {
+              reject(error);
             }
           }
         });
@@ -170,7 +170,7 @@ describe('StorageUtil', () => {
               }
               resolve([]);
             });
-          } catch (_error) {
+          } catch {
             console.log('Chrome storage not available, falling back to localStorage');
             const legacy = localStorage.getItem(pageKey);
             if (legacy) {
@@ -212,16 +212,16 @@ describe('StorageUtil', () => {
             chrome.storage?.local?.remove([pageKey], () => {
               try {
                 localStorage.removeItem(pageKey);
-              } catch (_error) {
+              } catch {
                 // ignore - 清理操作失敗可安全忽略
               }
               resolve();
             });
-          } catch (_error) {
+          } catch {
             // ignore - 回退到 localStorage 清理
             try {
               localStorage.removeItem(pageKey);
-            } catch (_err) {
+            } catch {
               // ignore - 清理操作失敗可安全忽略
             }
             resolve();
@@ -336,7 +336,7 @@ describe('StorageUtil', () => {
       const result = await StorageUtil.loadHighlights(testUrl);
 
       expect(result).toEqual(testData);
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
     });
 
     test('應該從 chrome.storage 加載標註（對象格式）', async () => {
@@ -362,7 +362,7 @@ describe('StorageUtil', () => {
       const result = await StorageUtil.loadHighlights(testUrl);
 
       expect(result).toEqual(testData.highlights);
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
     });
 
     test('應該在 chrome.storage 無數據時回退到 localStorage', async () => {
@@ -462,8 +462,8 @@ describe('StorageUtil', () => {
       const testUrl = 'https://example.com/page';
 
       // 模擬 chrome.storage 不可用
-      const savedChrome = global.chrome;
-      global.chrome = undefined;
+      const savedChrome = globalThis.chrome;
+      globalThis.chrome = undefined;
 
       // 使用 Storage.prototype spy
       const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
@@ -475,7 +475,7 @@ describe('StorageUtil', () => {
       } finally {
         removeItemSpy.mockRestore();
         // 恢復 chrome
-        global.chrome = savedChrome;
+        globalThis.chrome = savedChrome;
       }
     });
 
@@ -529,7 +529,7 @@ describe('StorageUtil', () => {
       });
 
       // 並發讀取同一個 URL
-      const promises = Array(5)
+      const promises = Array.from({ length: 5 })
         .fill(null)
         .map(() => StorageUtil.loadHighlights(testUrl));
 
@@ -696,7 +696,7 @@ describe('StorageUtil', () => {
     test('應該處理存儲配額超限錯誤', async () => {
       const testUrl = 'https://example.com/page';
       // 使用較小的數據避免實際超限
-      const largeData = Array(100)
+      const largeData = Array.from({ length: 100 })
         .fill(null)
         .map((_, i) => ({
           text: `Highlight text ${i}`,
@@ -723,7 +723,7 @@ describe('StorageUtil', () => {
 
     test('應該處理 localStorage 配額超限', async () => {
       const testUrl = 'https://example.com/page';
-      const largeData = Array(100)
+      const largeData = Array.from({ length: 100 })
         .fill(null)
         .map((_, i) => ({
           text: `Highlight ${i}`,
@@ -763,7 +763,7 @@ describe('StorageUtil', () => {
     test('應該處理超大單個標註', async () => {
       const testUrl = 'https://example.com/page';
       const hugeHighlight = {
-        text: 'x'.repeat(10000), // 10KB 文本
+        text: 'x'.repeat(10_000), // 10KB 文本
         color: 'yellow',
       };
 
@@ -929,10 +929,10 @@ describe('StorageUtil', () => {
     });
 
     test('應該處理批量保存操作', async () => {
-      const urls = Array(10)
+      const urls = Array.from({ length: 10 })
         .fill(null)
         .map((_, i) => `https://example.com/page${i}`);
-      const data = Array(10)
+      const data = Array.from({ length: 10 })
         .fill(null)
         .map((_, i) => [{ text: `highlight ${i}`, color: 'yellow' }]);
 

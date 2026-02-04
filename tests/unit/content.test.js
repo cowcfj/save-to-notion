@@ -140,10 +140,10 @@ describe('content.js - 圖片處理函數', () => {
       const wrapper = document.createElement('div');
       const img = document.createElement('img');
       // 無任何可用屬性
-      wrapper.appendChild(img);
+      wrapper.append(img);
       const nos = document.createElement('noscript');
       nos.textContent = '<img src="https://example.com/in-noscript.jpg" alt="">';
-      wrapper.appendChild(nos);
+      wrapper.append(nos);
       expect(extractImageSrc(img)).toBe('https://example.com/in-noscript.jpg');
     });
 
@@ -154,12 +154,12 @@ describe('content.js - 圖片處理函數', () => {
         writable: true,
       });
       // jsdom 不支援計算樣式，模擬 getComputedStyle
-      const originalGCS = window.getComputedStyle;
-      window.getComputedStyle = () => ({
+      const originalGCS = globalThis.getComputedStyle;
+      globalThis.getComputedStyle = () => ({
         getPropertyValue: () => 'url("https://example.com/bg.jpg")',
       });
       expect(extractImageSrc(img)).toBe('https://example.com/bg.jpg');
-      window.getComputedStyle = originalGCS;
+      globalThis.getComputedStyle = originalGCS;
     });
 
     test('應該在 srcset 以最大寬度選擇 URL', () => {
@@ -173,7 +173,7 @@ describe('content.js - 圖片處理函數', () => {
 
     test('應該從擴展 data-* 屬性提取', () => {
       const img = document.createElement('img');
-      img.setAttribute('data-actualsrc', 'https://example.com/actual.jpg');
+      img.dataset.actualsrc = 'https://example.com/actual.jpg';
       expect(extractImageSrc(img)).toBe('https://example.com/actual.jpg');
     });
     test('應該從 src 屬性提取', () => {
@@ -184,7 +184,7 @@ describe('content.js - 圖片處理函數', () => {
 
     test('應該從 data-src 提取（懶加載）', () => {
       const img = document.createElement('img');
-      img.setAttribute('data-src', 'https://example.com/lazy-image.jpg');
+      img.dataset.src = 'https://example.com/lazy-image.jpg';
       expect(extractImageSrc(img)).toBe('https://example.com/lazy-image.jpg');
     });
 
@@ -200,27 +200,27 @@ describe('content.js - 圖片處理函數', () => {
 
     test('應該從 data-lazy-src 提取', () => {
       const img = document.createElement('img');
-      img.setAttribute('data-lazy-src', 'https://example.com/lazy.jpg');
+      img.dataset.lazySrc = 'https://example.com/lazy.jpg';
       expect(extractImageSrc(img)).toBe('https://example.com/lazy.jpg');
     });
 
     test('應該從 data-original 提取', () => {
       const img = document.createElement('img');
-      img.setAttribute('data-original', 'https://example.com/original.jpg');
+      img.dataset.original = 'https://example.com/original.jpg';
       expect(extractImageSrc(img)).toBe('https://example.com/original.jpg');
     });
 
     test('應該跳過 data: URL', () => {
       const img = document.createElement('img');
       img.setAttribute('src', 'data:image/png;base64,iVBORw0KGgoAAAANS');
-      img.setAttribute('data-src', 'https://example.com/real.jpg');
+      img.dataset.src = 'https://example.com/real.jpg';
       expect(extractImageSrc(img)).toBe('https://example.com/real.jpg');
     });
 
     test('應該跳過 blob: URL', () => {
       const img = document.createElement('img');
       img.setAttribute('src', 'blob:https://example.com/abc-123');
-      img.setAttribute('data-src', 'https://example.com/real.jpg');
+      img.dataset.src = 'https://example.com/real.jpg';
       expect(extractImageSrc(img)).toBe('https://example.com/real.jpg');
     });
 
@@ -228,19 +228,19 @@ describe('content.js - 圖片處理函數', () => {
       const picture = document.createElement('picture');
       const source = document.createElement('source');
       source.setAttribute('srcset', 'https://example.com/picture.jpg');
-      picture.appendChild(source);
+      picture.append(source);
 
       const img = document.createElement('img');
       // 不設置 src，讓函數去 picture 中尋找
-      picture.appendChild(img);
+      picture.append(img);
 
       expect(extractImageSrc(img)).toBe('https://example.com/picture.jpg');
     });
 
     test('應該從多個 data- 屬性中選擇第一個有效的', () => {
       const img = document.createElement('img');
-      img.setAttribute('data-lazy-src', '');
-      img.setAttribute('data-original', 'https://example.com/original.jpg');
+      img.dataset.lazySrc = '';
+      img.dataset.original = 'https://example.com/original.jpg';
       expect(extractImageSrc(img)).toBe('https://example.com/original.jpg');
     });
 
@@ -363,11 +363,11 @@ describe('content.js - 圖片處理函數', () => {
     test('應該在沒有 document 時使用簡化邏輯', () => {
       // 測試未覆蓋的行 170：document undefined 分支
       // 保存原始 document
-      const originalDocument = global.document;
+      const originalDocument = globalThis.document;
 
       try {
         // 模擬 document 不存在
-        global.document = undefined;
+        globalThis.document = undefined;
 
         const article = {
           content: '<p>Some content</p>',
@@ -384,26 +384,26 @@ describe('content.js - 圖片處理函數', () => {
         expect(isContentGood(shortArticle, 250)).toBe(false);
       } finally {
         // 恢復 document
-        global.document = originalDocument;
+        globalThis.document = originalDocument;
       }
     });
   });
   describe('PerformanceOptimizer 可選邏輯', () => {
     beforeEach(() => {
       // 重置全局變數
-      global.PerformanceOptimizer = undefined;
-      global.ImageUtils = undefined;
+      globalThis.PerformanceOptimizer = undefined;
+      globalThis.ImageUtils = undefined;
     });
 
     afterEach(() => {
       // 清理測試後的全局變數
-      delete global.PerformanceOptimizer;
-      delete global.ImageUtils;
+      delete globalThis.PerformanceOptimizer;
+      delete globalThis.ImageUtils;
     });
 
     test('應該在 PerformanceOptimizer 可用時正常初始化', () => {
       // 模擬 PerformanceOptimizer 可用
-      global.PerformanceOptimizer = jest.fn().mockImplementation(() => ({
+      globalThis.PerformanceOptimizer = jest.fn().mockImplementation(() => ({
         cachedQuery: jest.fn(),
         preloadSelectors: jest.fn(),
       }));
@@ -415,17 +415,17 @@ describe('content.js - 圖片處理函數', () => {
       // 模擬 content.js 中的邏輯
       let performanceOptimizer = null;
       try {
-        if (typeof PerformanceOptimizer !== 'undefined') {
+        if (typeof PerformanceOptimizer === 'undefined') {
+          console.warn(
+            '⚠️ PerformanceOptimizer not available in content script, using fallback queries'
+          );
+        } else {
           performanceOptimizer = new PerformanceOptimizer({
             enableCache: true,
             enableBatching: true,
             enableMetrics: true,
           });
           console.log('✓ PerformanceOptimizer initialized in content script');
-        } else {
-          console.warn(
-            '⚠️ PerformanceOptimizer not available in content script, using fallback queries'
-          );
         }
       } catch (perfError) {
         console.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
@@ -447,17 +447,17 @@ describe('content.js - 圖片處理函數', () => {
 
       let performanceOptimizer = null;
       try {
-        if (typeof PerformanceOptimizer !== 'undefined') {
+        if (typeof PerformanceOptimizer === 'undefined') {
+          console.warn(
+            '⚠️ PerformanceOptimizer not available in content script, using fallback queries'
+          );
+        } else {
           performanceOptimizer = new PerformanceOptimizer({
             enableCache: true,
             enableBatching: true,
             enableMetrics: true,
           });
           console.log('✓ PerformanceOptimizer initialized in content script');
-        } else {
-          console.warn(
-            '⚠️ PerformanceOptimizer not available in content script, using fallback queries'
-          );
         }
       } catch (perfError) {
         console.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
@@ -474,7 +474,7 @@ describe('content.js - 圖片處理函數', () => {
 
     test('應該在 PerformanceOptimizer 初始化失敗時優雅降級', () => {
       // 模擬 PerformanceOptimizer 拋出錯誤
-      global.PerformanceOptimizer = jest.fn().mockImplementation(() => {
+      globalThis.PerformanceOptimizer = jest.fn().mockImplementation(() => {
         throw new Error('Initialization failed');
       });
 
@@ -482,17 +482,17 @@ describe('content.js - 圖片處理函數', () => {
 
       let performanceOptimizer = null;
       try {
-        if (typeof PerformanceOptimizer !== 'undefined') {
+        if (typeof PerformanceOptimizer === 'undefined') {
+          console.warn(
+            '⚠️ PerformanceOptimizer not available in content script, using fallback queries'
+          );
+        } else {
           performanceOptimizer = new PerformanceOptimizer({
             enableCache: true,
             enableBatching: true,
             enableMetrics: true,
           });
           console.log('✓ PerformanceOptimizer initialized in content script');
-        } else {
-          console.warn(
-            '⚠️ PerformanceOptimizer not available in content script, using fallback queries'
-          );
         }
       } catch (perfError) {
         console.warn('⚠️ PerformanceOptimizer initialization failed in content script:', perfError);
@@ -552,7 +552,7 @@ describe('content.js - 圖片處理函數', () => {
       };
 
       const mockElement = document.createElement('div');
-      document.body.appendChild(mockElement);
+      document.body.append(mockElement);
 
       const result = cachedQuery('div', document, { single: true });
       expect(result).toBe(mockElement);
@@ -560,7 +560,7 @@ describe('content.js - 圖片處理函數', () => {
       const allResults = cachedQuery('div', document, { all: true });
       expect(allResults).toContain(mockElement);
 
-      document.body.removeChild(mockElement);
+      mockElement.remove();
     });
 
     test('應該正確處理 single 選項', () => {
@@ -577,21 +577,21 @@ describe('content.js - 圖片處理函數', () => {
 
       const div1 = document.createElement('div');
       const div2 = document.createElement('div');
-      document.body.appendChild(div1);
-      document.body.appendChild(div2);
+      document.body.append(div1);
+      document.body.append(div2);
 
       expect(cachedQuery('div', document, { single: true })).toBe(div1);
       expect(cachedQuery('div', document, {})).toEqual(expect.any(NodeList));
 
-      document.body.removeChild(div1);
-      document.body.removeChild(div2);
+      div1.remove();
+      div2.remove();
     });
   });
 
   describe('ImageUtils 回退實現', () => {
     beforeEach(() => {
       // 清理可能的全局 ImageUtils
-      delete global.window.ImageUtils;
+      delete globalThis.window.ImageUtils;
     });
 
     test('應該在 ImageUtils 不存在時創建回退實現', () => {
@@ -600,7 +600,7 @@ describe('content.js - 圖片處理函數', () => {
       // 模擬 content.js 中的邏輯
       if (typeof ImageUtils === 'undefined') {
         console.warn('ImageUtils not available, using fallback implementations');
-        global.window.ImageUtils = {
+        globalThis.window.ImageUtils = {
           cleanImageUrl(url) {
             if (!url || typeof url !== 'string') {
               return null;
@@ -621,7 +621,7 @@ describe('content.js - 圖片處理函數', () => {
             if (!imgNode) {
               return null;
             }
-            return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
+            return imgNode.getAttribute('src') || imgNode.dataset.src || null;
           },
           generateImageCacheKey(imgNode) {
             if (!imgNode) {
@@ -632,16 +632,16 @@ describe('content.js - 圖片處理函數', () => {
         };
       }
 
-      expect(global.window.ImageUtils).toBeDefined();
-      expect(typeof global.window.ImageUtils.cleanImageUrl).toBe('function');
-      expect(typeof global.window.ImageUtils.isValidImageUrl).toBe('function');
-      expect(typeof global.window.ImageUtils.extractImageSrc).toBe('function');
-      expect(typeof global.window.ImageUtils.generateImageCacheKey).toBe('function');
+      expect(globalThis.window.ImageUtils).toBeDefined();
+      expect(typeof globalThis.window.ImageUtils.cleanImageUrl).toBe('function');
+      expect(typeof globalThis.window.ImageUtils.isValidImageUrl).toBe('function');
+      expect(typeof globalThis.window.ImageUtils.extractImageSrc).toBe('function');
+      expect(typeof globalThis.window.ImageUtils.generateImageCacheKey).toBe('function');
     });
 
     test('回退實現應該正確處理 cleanImageUrl', () => {
       if (typeof ImageUtils === 'undefined') {
-        global.window.ImageUtils = {
+        globalThis.window.ImageUtils = {
           cleanImageUrl(url) {
             if (!url || typeof url !== 'string') {
               return null;
@@ -655,16 +655,16 @@ describe('content.js - 圖片處理函數', () => {
         };
       }
 
-      expect(global.window.ImageUtils.cleanImageUrl('https://example.com/image.jpg')).toBe(
+      expect(globalThis.window.ImageUtils.cleanImageUrl('https://example.com/image.jpg')).toBe(
         'https://example.com/image.jpg'
       );
-      expect(global.window.ImageUtils.cleanImageUrl(null)).toBeNull();
-      expect(global.window.ImageUtils.cleanImageUrl('invalid-url')).toBeNull();
+      expect(globalThis.window.ImageUtils.cleanImageUrl(null)).toBeNull();
+      expect(globalThis.window.ImageUtils.cleanImageUrl('invalid-url')).toBeNull();
     });
 
     test('回退實現應該正確處理 isValidImageUrl', () => {
       if (typeof ImageUtils === 'undefined') {
-        global.window.ImageUtils = {
+        globalThis.window.ImageUtils = {
           isValidImageUrl(url) {
             if (!url || typeof url !== 'string') {
               return false;
@@ -674,37 +674,43 @@ describe('content.js - 圖片處理函數', () => {
         };
       }
 
-      expect(global.window.ImageUtils.isValidImageUrl('https://example.com/image.jpg')).toBe(true);
-      expect(global.window.ImageUtils.isValidImageUrl('https://example.com/image.png')).toBe(true);
-      expect(global.window.ImageUtils.isValidImageUrl('https://example.com/script.js')).toBe(false);
-      expect(global.window.ImageUtils.isValidImageUrl(null)).toBe(false);
+      expect(globalThis.window.ImageUtils.isValidImageUrl('https://example.com/image.jpg')).toBe(
+        true
+      );
+      expect(globalThis.window.ImageUtils.isValidImageUrl('https://example.com/image.png')).toBe(
+        true
+      );
+      expect(globalThis.window.ImageUtils.isValidImageUrl('https://example.com/script.js')).toBe(
+        false
+      );
+      expect(globalThis.window.ImageUtils.isValidImageUrl(null)).toBe(false);
     });
 
     test('回退實現應該正確處理 extractImageSrc', () => {
       if (typeof ImageUtils === 'undefined') {
-        global.window.ImageUtils = {
+        globalThis.window.ImageUtils = {
           extractImageSrc(imgNode) {
             if (!imgNode) {
               return null;
             }
-            return imgNode.getAttribute('src') || imgNode.getAttribute('data-src') || null;
+            return imgNode.getAttribute('src') || imgNode.dataset.src || null;
           },
         };
       }
 
       const img = document.createElement('img');
-      img.setAttribute('data-src', 'fallback.jpg');
-      expect(global.window.ImageUtils.extractImageSrc(img)).toBe('fallback.jpg');
+      img.dataset.src = 'fallback.jpg';
+      expect(globalThis.window.ImageUtils.extractImageSrc(img)).toBe('fallback.jpg');
 
       img.setAttribute('src', 'primary.jpg');
-      expect(global.window.ImageUtils.extractImageSrc(img)).toBe('primary.jpg');
+      expect(globalThis.window.ImageUtils.extractImageSrc(img)).toBe('primary.jpg');
 
-      expect(global.window.ImageUtils.extractImageSrc(null)).toBeNull();
+      expect(globalThis.window.ImageUtils.extractImageSrc(null)).toBeNull();
     });
 
     test('回退實現應該正確處理 generateImageCacheKey', () => {
       if (typeof ImageUtils === 'undefined') {
-        global.window.ImageUtils = {
+        globalThis.window.ImageUtils = {
           generateImageCacheKey(imgNode) {
             if (!imgNode) {
               return 'null';
@@ -717,8 +723,8 @@ describe('content.js - 圖片處理函數', () => {
       const img = document.createElement('img');
       img.setAttribute('src', 'image.jpg');
       img.className = 'lazy-image';
-      expect(global.window.ImageUtils.generateImageCacheKey(img)).toBe('image.jpg|lazy-image');
-      expect(global.window.ImageUtils.generateImageCacheKey(null)).toBe('null');
+      expect(globalThis.window.ImageUtils.generateImageCacheKey(img)).toBe('image.jpg|lazy-image');
+      expect(globalThis.window.ImageUtils.generateImageCacheKey(null)).toBe('null');
     });
   });
 });

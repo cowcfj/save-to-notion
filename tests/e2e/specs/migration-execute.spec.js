@@ -13,7 +13,7 @@ test.describe('Migration Execute', () => {
     popupUrl = `chrome-extension://${extensionId}/popup/popup.html`;
 
     await context.addInitScript(() => {
-      window.HighlighterV2 = {
+      globalThis.HighlighterV2 = {
         manager: {
           addHighlight: () => `new-id-${Math.random()}`,
           getCount: () => 1,

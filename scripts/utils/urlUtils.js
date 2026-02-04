@@ -8,7 +8,7 @@ import { URL_NORMALIZATION } from '../config/constants.js';
 
 // Logger 回退定義：在 Rollup 打包時由 intro 注入自 self.Logger
 // 在直接載入時使用回退定義
-const Logger = (typeof self !== 'undefined' && self.Logger) || {
+const Logger = (globalThis.self !== undefined && globalThis.Logger) || {
   log: () => {
     /* no-op */
   },
@@ -67,13 +67,13 @@ export function normalizeUrl(rawUrl) {
     });
 
     // 3. 標準化尾部斜杠（保留根路徑 "/"）
-    if (urlObj.pathname !== '/' && urlObj.pathname.endsWith('/')) {
-      urlObj.pathname = urlObj.pathname.replace(/\/+$/, '');
+    while (urlObj.pathname.length > 1 && urlObj.pathname.endsWith('/')) {
+      urlObj.pathname = urlObj.pathname.slice(0, -1);
     }
 
     return urlObj.toString();
   } catch (error) {
-    Logger.error?.('❌ [normalizeUrl] 標準化失敗:', error);
+    Logger.error?.('normalizeUrl 標準化失敗', { action: 'normalizeUrl', error });
     return rawUrl || '';
   }
 }

@@ -14,8 +14,8 @@ describe('CMS Content Extraction', () => {
   beforeEach(() => {
     dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
     document = dom.window.document;
-    global.document = document;
-    global.window = dom.window;
+    globalThis.document = document;
+    globalThis.window = dom.window;
   });
 
   describe('Drupal CMS 內容提取', () => {
@@ -23,7 +23,7 @@ describe('CMS Content Extraction', () => {
       const mainContent = document.createElement('div');
       mainContent.className = 'field--type-text-with-summary';
       mainContent.innerHTML = '<h2>Drupal 文章標題</h2><p>這是第一段內容。</p>';
-      document.body.appendChild(mainContent);
+      document.body.append(mainContent);
 
       const selector = '.field--type-text-with-summary';
       const extracted = document.querySelector(selector);
@@ -36,7 +36,7 @@ describe('CMS Content Extraction', () => {
       const bodyField = document.createElement('div');
       bodyField.className = 'field--name-body';
       bodyField.innerHTML = '<div class="field__item"><p>正文內容段落 1</p></div>';
-      document.body.appendChild(bodyField);
+      document.body.append(bodyField);
 
       const extracted = document.querySelector('.field--name-body');
 
@@ -50,7 +50,7 @@ describe('CMS Content Extraction', () => {
       const entryContent = document.createElement('div');
       entryContent.className = 'entry-content';
       entryContent.innerHTML = '<h1>WordPress 文章</h1><p>WordPress 文章內容第一段。</p>';
-      document.body.appendChild(entryContent);
+      document.body.append(entryContent);
 
       const extracted = document.querySelector('.entry-content');
 
@@ -62,7 +62,7 @@ describe('CMS Content Extraction', () => {
       const postContent = document.createElement('article');
       postContent.className = 'post-content';
       postContent.innerHTML = '<h2>文章標題</h2><p>文章正文內容。</p>';
-      document.body.appendChild(postContent);
+      document.body.append(postContent);
 
       const extracted = document.querySelector('.post-content');
 
@@ -78,13 +78,13 @@ describe('CMS Content Extraction', () => {
       for (let i = 1; i <= 50; i++) {
         const li = document.createElement('li');
         li.innerHTML = `<code>command-${i}</code> - 命令描述 ${i}`;
-        ul.appendChild(li);
+        ul.append(li);
       }
 
-      document.body.appendChild(ul);
+      document.body.append(ul);
 
       const lists = document.querySelectorAll('ul li');
-      expect(lists.length).toBe(50);
+      expect(lists).toHaveLength(50);
     });
 
     it('應該處理嵌套列表結構', () => {
@@ -99,20 +99,20 @@ describe('CMS Content Extraction', () => {
           for (let j = 1; j <= 3; j++) {
             const nestedLi = document.createElement('li');
             nestedLi.textContent = `子項目 ${i}-${j}`;
-            nestedUl.appendChild(nestedLi);
+            nestedUl.append(nestedLi);
           }
-          li.appendChild(nestedUl);
+          li.append(nestedUl);
         }
 
-        ul.appendChild(li);
+        ul.append(li);
       }
 
-      document.body.appendChild(ul);
+      document.body.append(ul);
 
       const topLevelItems = document.querySelectorAll('body > ul > li');
       const nestedLists = document.querySelectorAll('ul ul');
 
-      expect(topLevelItems.length).toBe(25);
+      expect(topLevelItems).toHaveLength(25);
       expect(nestedLists.length).toBeGreaterThan(0);
     });
   });
@@ -125,9 +125,9 @@ describe('CMS Content Extraction', () => {
       const content = document.createElement('div');
       content.textContent = '隱藏的內容';
 
-      details.appendChild(summary);
-      details.appendChild(content);
-      document.body.appendChild(details);
+      details.append(summary);
+      details.append(content);
+      document.body.append(details);
 
       const foundDetails = document.querySelector('details');
       expect(foundDetails).toBeDefined();
@@ -138,7 +138,7 @@ describe('CMS Content Extraction', () => {
       const collapsible = document.createElement('div');
       collapsible.className = 'collapsible';
       collapsible.textContent = '可折疊內容';
-      document.body.appendChild(collapsible);
+      document.body.append(collapsible);
 
       const found = document.querySelector('.collapsible');
       expect(found).toBeDefined();
@@ -150,7 +150,7 @@ describe('CMS Content Extraction', () => {
     it('應該能夠識別廣告元素', () => {
       const article = document.createElement('article');
       article.innerHTML = '<p>正常內容。</p><div class="advertisement">廣告內容</div>';
-      document.body.appendChild(article);
+      document.body.append(article);
 
       const ad = document.querySelector('.advertisement');
       expect(ad).toBeDefined();
@@ -160,7 +160,7 @@ describe('CMS Content Extraction', () => {
     it('應該能夠識別導航元素', () => {
       const content = document.createElement('div');
       content.innerHTML = '<nav>導航菜單</nav><p>文章內容。</p>';
-      document.body.appendChild(content);
+      document.body.append(content);
 
       const nav = document.querySelector('nav');
       expect(nav).toBeDefined();

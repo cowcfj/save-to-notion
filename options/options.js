@@ -5,7 +5,12 @@ import { DataSourceManager } from '../scripts/options/DataSourceManager.js';
 import { StorageManager } from '../scripts/options/StorageManager.js';
 import { MigrationTool } from '../scripts/options/MigrationTool.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
+import { UI_ICONS } from '../scripts/config/icons.js';
+import { injectIcons } from '../scripts/utils/uiUtils.js';
 import Logger from '../scripts/utils/Logger.js';
+
+import { sanitizeApiError, validateLogExportData } from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 
 /**
  * Options Page Main Controller
@@ -13,7 +18,9 @@ import Logger from '../scripts/utils/Logger.js';
  */
 export function initOptions() {
   // 1. 初始化各管理器
+  injectIcons(UI_ICONS); // Inject SVG sprites (Shared System)
   const ui = new UIManager();
+
   const auth = new AuthManager(ui);
   const dataSource = new DataSourceManager(ui);
   const storage = new StorageManager(ui);
@@ -50,12 +57,12 @@ export function initOptions() {
   });
 
   // 6. 保存設置邏輯
-  const saveButton = document.getElementById('save-button');
+  const saveButton = document.querySelector('#save-button');
   if (saveButton) {
     saveButton.addEventListener('click', () => saveSettings(ui, auth, 'status'));
   }
 
-  const saveTemplatesButton = document.getElementById('save-templates-button');
+  const saveTemplatesButton = document.querySelector('#save-templates-button');
   if (saveTemplatesButton) {
     saveTemplatesButton.addEventListener('click', () => saveSettings(ui, auth, 'template-status'));
   }
@@ -140,6 +147,7 @@ function setupSidebarNavigation() {
  * - 移除 URL 前綴和查詢參數
  * - 移除連字符
  * - 提取純 32 字符的 ID
+ *
  * @param {string} input - 使用者輸入的 ID 或 URL
  * @returns {string} 清理後的 ID，格式無效時返回空字符串
  */
@@ -152,18 +160,22 @@ export function cleanDatabaseId(input) {
 
   // 如果是完整 URL，提取 ID 部分
   // 例如: https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890?v=123
-  const urlMatch = cleaned.match(
-    /([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i
-  );
-  if (urlMatch) {
-    cleaned = urlMatch[0];
+  // 使用非正則方式解析以徹底消除 ESLint 的所有正則相關警告 (Unsafe/Optimization)
+
+  // Notion ID 可能是 32 位純字串或 36 位帶橫線的 UUID
+  // 我們從路徑中尋找長度匹配的片段
+  const pathParts = cleaned.split(/[#?]/)[0].split('/');
+  const lastPathPart = pathParts.at(-1);
+
+  if (lastPathPart && (lastPathPart.length === 36 || lastPathPart.length === 32)) {
+    cleaned = lastPathPart;
   }
 
   // 移除所有連字符
-  cleaned = cleaned.replace(/-/g, '');
+  cleaned = cleaned.replaceAll('-', '');
 
   // 驗證格式：應該是 32 字符的十六進制字符串
-  if (!/^[a-f0-9]{32}$/i.test(cleaned)) {
+  if (!/^[\da-f]{32}$/i.test(cleaned)) {
     return '';
   }
 
@@ -172,21 +184,22 @@ export function cleanDatabaseId(input) {
 
 /**
  * 保存設置
+ *
  * @param {UIManager} ui
  * @param {AuthManager} auth
  * @param {string} [statusId='status']
  */
 export function saveSettings(ui, auth, statusId = 'status') {
-  const apiKey = document.getElementById('api-key').value.trim();
-  const rawDatabaseId = document.getElementById('database-id').value;
-  const titleTemplate = document.getElementById('title-template').value;
-  const addSource = document.getElementById('add-source').checked;
-  const addTimestamp = document.getElementById('add-timestamp').checked;
-  const typeInput = document.getElementById('database-type');
+  const apiKey = document.querySelector('#api-key').value.trim();
+  const rawDatabaseId = document.querySelector('#database-id').value;
+  const titleTemplate = document.querySelector('#title-template').value;
+  const addSource = document.querySelector('#add-source').checked;
+  const addTimestamp = document.querySelector('#add-timestamp').checked;
+  const typeInput = document.querySelector('#database-type');
 
   // 驗證
   if (!apiKey) {
-    ui.showStatus(UI_MESSAGES.SETTINGS.MISSING_API_KEY, 'error', statusId);
+    ui.showStatus(UI_MESSAGES.SETTINGS.KEY_INPUT_REQUIRED, 'error', statusId);
     return;
   }
 
@@ -218,7 +231,7 @@ export function saveSettings(ui, auth, statusId = 'status') {
   }
 
   // 保存標註樣式
-  const highlightStyle = document.getElementById('highlight-style');
+  const highlightStyle = document.querySelector('#highlight-style');
   if (highlightStyle) {
     settings.highlightStyle = highlightStyle.value;
   }
@@ -241,9 +254,9 @@ export function saveSettings(ui, auth, statusId = 'status') {
  * 設置標題模板預覽功能
  */
 export function setupTemplatePreview() {
-  const previewButton = document.getElementById('preview-template');
-  const templateInput = document.getElementById('title-template');
-  const previewDiv = document.getElementById('template-preview');
+  const previewButton = document.querySelector('#preview-template');
+  const templateInput = document.querySelector('#title-template');
+  const previewDiv = document.querySelector('#template-preview');
 
   if (previewButton && templateInput && previewDiv) {
     previewButton.addEventListener('click', () => {
@@ -268,9 +281,9 @@ export function setupTemplatePreview() {
       const br = document.createElement('br');
       const previewText = document.createTextNode(preview);
 
-      previewDiv.appendChild(strong);
-      previewDiv.appendChild(br);
-      previewDiv.appendChild(previewText);
+      previewDiv.append(strong);
+      previewDiv.append(br);
+      previewDiv.append(previewText);
       previewDiv.classList.remove('hidden');
     });
   }
@@ -278,11 +291,13 @@ export function setupTemplatePreview() {
 
 /**
  * 格式化標題
+ *
  * @param {string} template
- * @param {Object} variables
+ * @param {object} variables
+ * @returns {string} 格式化後的標題
  */
 export function formatTitle(template, variables) {
-  return template.replace(/{(\w+)}/g, (match, key) => {
+  return template.replaceAll(/{(\w+)}/g, (match, key) => {
     return variables[key] || match;
   });
 }
@@ -292,7 +307,7 @@ export function formatTitle(template, variables) {
  * 從 manifest.json 讀取版本號並顯示到側邊欄底部
  */
 function displayAppVersion() {
-  const versionElement = document.getElementById('app-version');
+  const versionElement = document.querySelector('#app-version');
   if (!versionElement) {
     return;
   }
@@ -313,21 +328,13 @@ function displayAppVersion() {
  * 設置日誌導出
  */
 function setupLogExport() {
-  const exportBtn = document.getElementById('export-logs-button');
-  const statusEl = document.getElementById('export-status');
+  const exportBtn = document.querySelector('#export-logs-button');
+  const statusEl = document.querySelector('#export-status');
 
   if (exportBtn && statusEl) {
     exportBtn.addEventListener('click', async () => {
       try {
         exportBtn.disabled = true;
-
-        // 使用 data 屬性保存原始文字，避免脆弱的 DOM 查找
-        if (!exportBtn.hasAttribute('data-original-text')) {
-          exportBtn.setAttribute('data-original-text', exportBtn.textContent);
-        }
-
-        // 設置導出中狀態
-        exportBtn.textContent = UI_MESSAGES.LOGS.EXPORTING;
 
         // 發送訊息給 Background
         const response = await chrome.runtime.sendMessage({
@@ -349,7 +356,13 @@ function setupLogExport() {
           throw new Error(ERROR_MESSAGES.TECHNICAL.LOG_EXPORT_FAILED);
         }
 
-        const { filename, content, mimeType, count } = response.data;
+        // 審核要求：驗證外部輸入 (Security-First Input Validation)
+        const data = response.data;
+
+        // 使用 securityUtils 中的集中驗證邏輯
+        validateLogExportData(data);
+
+        const { filename, content, mimeType, count } = data;
 
         // 觸發下載
         const blob = new Blob([content], { type: mimeType });
@@ -357,9 +370,9 @@ function setupLogExport() {
         const downloadLink = document.createElement('a');
         downloadLink.href = url;
         downloadLink.download = filename;
-        document.body.appendChild(downloadLink);
+        document.body.append(downloadLink);
         downloadLink.click();
-        document.body.removeChild(downloadLink);
+        downloadLink.remove();
         setTimeout(() => URL.revokeObjectURL(url), 100);
 
         statusEl.textContent = UI_MESSAGES.LOGS.EXPORT_SUCCESS(count);
@@ -370,12 +383,20 @@ function setupLogExport() {
           statusEl.textContent = '';
           statusEl.className = 'status-message';
         }, 3000);
-      } catch (err) {
-        Logger.error('Log export failed', err);
-        // 安全地提取錯誤訊息
-        const rawMsg = err?.message ?? String(err) ?? 'Unknown error';
-        // 使用 textContent 防止 XSS，無需 escapeHtml
-        const errorMessage = UI_MESSAGES.LOGS.EXPORT_FAILED(rawMsg);
+      } catch (error) {
+        Logger.error('Log export failed', {
+          action: 'setupLogExport',
+          error: error.message || error,
+          stack: error.stack,
+        });
+
+        // 使用標準化的錯誤處理機制
+        const safeReason = sanitizeApiError(error, 'export_debug_logs');
+        const userFriendlyMsg = ErrorHandler.formatUserMessage(safeReason);
+
+        // 組合最終訊息
+        const errorMessage = `${UI_MESSAGES.LOGS.EXPORT_FAILED_PREFIX}${userFriendlyMsg}`;
+
         statusEl.textContent = errorMessage;
         statusEl.className = 'status-message error';
 
@@ -386,10 +407,6 @@ function setupLogExport() {
         }, 5000);
       } finally {
         exportBtn.disabled = false;
-        // 恢復按鈕文字內容
-        if (exportBtn.hasAttribute('data-original-text')) {
-          exportBtn.textContent = exportBtn.getAttribute('data-original-text');
-        }
       }
     });
   }

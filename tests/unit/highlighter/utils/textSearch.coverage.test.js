@@ -13,7 +13,7 @@ describe('TextSearch Utils Coverage Tests', () => {
     document.body.innerHTML = '';
 
     // Mock window.Logger
-    window.Logger = {
+    globalThis.Logger = {
       error: jest.fn(),
       warn: jest.fn(),
     };
@@ -40,13 +40,21 @@ describe('TextSearch Utils Coverage Tests', () => {
         rangeCount: 1,
       };
 
-      window.getSelection = jest.fn(() => mockSelection);
-      window.find = jest.fn(() => true);
+      globalThis.getSelection = jest.fn(() => mockSelection);
+      globalThis.find = jest.fn(() => true);
 
       const range = findTextInPage('Hello');
 
       expect(range).not.toBeNull();
-      expect(window.find).toHaveBeenCalledWith('Hello', false, false, false, false, true, false);
+      expect(globalThis.find).toHaveBeenCalledWith(
+        'Hello',
+        false,
+        false,
+        false,
+        false,
+        true,
+        false
+      );
     });
 
     test('should return null for empty text', () => {
@@ -71,12 +79,12 @@ describe('TextSearch Utils Coverage Tests', () => {
         rangeCount: 1,
       };
 
-      window.getSelection = jest.fn(() => mockSelection);
-      window.find = jest.fn(() => true);
+      globalThis.getSelection = jest.fn(() => mockSelection);
+      globalThis.find = jest.fn(() => true);
 
       findTextInPage('  Hello   World  ');
 
-      expect(window.find).toHaveBeenCalledWith(
+      expect(globalThis.find).toHaveBeenCalledWith(
         'Hello World',
         false,
         false,
@@ -95,8 +103,8 @@ describe('TextSearch Utils Coverage Tests', () => {
         rangeCount: 0,
       };
 
-      window.getSelection = jest.fn(() => mockSelection);
-      window.find = jest.fn(() => false);
+      globalThis.getSelection = jest.fn(() => mockSelection);
+      globalThis.find = jest.fn(() => false);
 
       const range = findTextInPage('Test');
 
@@ -104,14 +112,14 @@ describe('TextSearch Utils Coverage Tests', () => {
     });
 
     test('should handle errors gracefully', () => {
-      window.getSelection = jest.fn(() => {
+      globalThis.getSelection = jest.fn(() => {
         throw new Error('Test error');
       });
 
       const range = findTextInPage('Test');
 
       expect(range).toBeNull();
-      expect(window.Logger.error).toHaveBeenCalled();
+      expect(globalThis.Logger.error).toHaveBeenCalled();
     });
   });
 
@@ -140,10 +148,10 @@ describe('TextSearch Utils Coverage Tests', () => {
     test('should find text across multiple nodes', () => {
       // Create text nodes that are actually adjacent
       const paragraph = document.createElement('p');
-      paragraph.appendChild(document.createTextNode('Hello'));
-      paragraph.appendChild(document.createTextNode(' '));
-      paragraph.appendChild(document.createTextNode('World'));
-      document.body.appendChild(paragraph);
+      paragraph.append(document.createTextNode('Hello'));
+      paragraph.append(document.createTextNode(' '));
+      paragraph.append(document.createTextNode('World'));
+      document.body.append(paragraph);
 
       const range = findTextWithTreeWalker('Hello World');
 
@@ -163,9 +171,9 @@ describe('TextSearch Utils Coverage Tests', () => {
 
     test('should skip empty text nodes', () => {
       const paragraph = document.createElement('p');
-      paragraph.appendChild(document.createTextNode('   '));
-      paragraph.appendChild(document.createTextNode('Hello'));
-      document.body.appendChild(paragraph);
+      paragraph.append(document.createTextNode('   '));
+      paragraph.append(document.createTextNode('Hello'));
+      document.body.append(paragraph);
 
       const range = findTextWithTreeWalker('Hello');
 
@@ -196,7 +204,7 @@ describe('TextSearch Utils Coverage Tests', () => {
       findTextWithTreeWalker('Testcontent');
 
       // Should try and fail, logging warning
-      expect(window.Logger.warn).toHaveBeenCalled();
+      expect(globalThis.Logger.warn).toHaveBeenCalled();
 
       document.createRange = originalCreateRange;
     });

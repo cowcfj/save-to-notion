@@ -14,17 +14,17 @@ describe('Highlighter Interactions', () => {
     dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
     document = dom.window.document;
     window = dom.window;
-    global.document = document;
-    global.window = window;
-    global.Selection = window.Selection;
-    global.Range = window.Range;
+    globalThis.document = document;
+    globalThis.window = window;
+    globalThis.Selection = window.Selection;
+    globalThis.Range = window.Range;
   });
 
   describe('文本選擇和高亮創建', () => {
     it('應該能夠選擇文本', () => {
       const paragraph = document.createElement('p');
       paragraph.textContent = '這是一段測試文字。';
-      document.body.appendChild(paragraph);
+      document.body.append(paragraph);
 
       const range = document.createRange();
       range.selectNodeContents(paragraph);
@@ -39,7 +39,7 @@ describe('Highlighter Interactions', () => {
     it('應該能夠獲取選擇的範圍', () => {
       const paragraph = document.createElement('p');
       paragraph.textContent = '這是一段較長的測試文字，用於測試選擇功能。';
-      document.body.appendChild(paragraph);
+      document.body.append(paragraph);
 
       const range = document.createRange();
       const textNode = paragraph.firstChild;
@@ -57,7 +57,7 @@ describe('Highlighter Interactions', () => {
     it('應該處理跨段落選擇', () => {
       const div = document.createElement('div');
       div.innerHTML = '<p>第一段文字。</p><p>第二段文字。</p>';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       const firstP = div.querySelector('p:first-child');
@@ -148,9 +148,9 @@ describe('Highlighter Interactions', () => {
     it('應該能夠檢測 Highlight API 是否可用', () => {
       // 在 JSDOM 中，Highlight API 不可用
       const hasHighlightAPI =
-        typeof window.Highlight !== 'undefined' &&
+        window.Highlight !== undefined &&
         typeof CSS !== 'undefined' &&
-        typeof CSS.highlights !== 'undefined';
+        CSS.highlights !== undefined;
 
       expect(hasHighlightAPI).toBe(false);
     });
@@ -192,7 +192,7 @@ describe('Highlighter Interactions', () => {
     it('應該處理 mouseup 事件', () => {
       const paragraph = document.createElement('p');
       paragraph.textContent = '測試文字';
-      document.body.appendChild(paragraph);
+      document.body.append(paragraph);
 
       let eventFired = false;
       const handler = () => {
@@ -215,7 +215,7 @@ describe('Highlighter Interactions', () => {
       const spanElement = document.createElement('span');
       spanElement.className = 'highlight';
       spanElement.textContent = '高亮文字';
-      document.body.appendChild(spanElement);
+      document.body.append(spanElement);
 
       let clickHandled = false;
       spanElement.addEventListener('click', event => {
@@ -239,7 +239,7 @@ describe('Highlighter Interactions', () => {
       const spanElement = document.createElement('span');
       spanElement.className = 'highlight';
       spanElement.textContent = '高亮文字';
-      document.body.appendChild(spanElement);
+      document.body.append(spanElement);
 
       let dblclickHandled = false;
       spanElement.addEventListener('dblclick', () => {
@@ -268,7 +268,7 @@ describe('Highlighter Interactions', () => {
 
       highlights.push(newHighlight);
 
-      expect(highlights.length).toBe(1);
+      expect(highlights).toHaveLength(1);
       expect(highlights[0].id).toBe('h1');
     });
 
@@ -281,7 +281,7 @@ describe('Highlighter Interactions', () => {
 
       const filtered = highlights.filter(highlight => highlight.id !== 'h2');
 
-      expect(filtered.length).toBe(2);
+      expect(filtered).toHaveLength(2);
       expect(filtered.some(highlight => highlight.id === 'h2')).toBe(false);
     });
 
@@ -305,9 +305,9 @@ describe('Highlighter Interactions', () => {
       const paragraph1 = document.createElement('p');
       const paragraph2 = document.createElement('p');
 
-      div.appendChild(paragraph1);
-      div.appendChild(paragraph2);
-      document.body.appendChild(div);
+      div.append(paragraph1);
+      div.append(paragraph2);
+      document.body.append(div);
 
       // 簡化版 XPath 生成
       const getXPath = element => {
@@ -329,7 +329,7 @@ describe('Highlighter Interactions', () => {
     it('應該處理文本節點的路徑', () => {
       const paragraph = document.createElement('p');
       paragraph.textContent = '測試文字';
-      document.body.appendChild(paragraph);
+      document.body.append(paragraph);
 
       const textNode = paragraph.firstChild;
       expect(textNode.nodeType).toBe(3); // TEXT_NODE

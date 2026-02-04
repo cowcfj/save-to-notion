@@ -4,16 +4,13 @@
  */
 
 class TestEnvironmentHelper {
-  constructor() {
-    this.originalChrome = null;
-    this.originalWindow = null;
-    this.originalConsole = null;
-  }
+  constructor() {}
 
   /**
    * 創建標準的 Chrome API mock 對象
-   * @param {Object} overrides - 覆蓋特定的 mock 行為
-   * @returns {Object} Mock Chrome 對象
+   *
+   * @param {object} overrides - 覆蓋特定的 mock 行為
+   * @returns {object} Mock Chrome 對象
    */
   static createMockChrome(overrides = {}) {
     const defaultChrome = {
@@ -54,7 +51,8 @@ class TestEnvironmentHelper {
 
   /**
    * 創建標準的 Console mock 對象
-   * @returns {Object} Mock Console 對象
+   *
+   * @returns {object} Mock Console 對象
    */
   static createMockConsole() {
     return {
@@ -68,8 +66,9 @@ class TestEnvironmentHelper {
 
   /**
    * 創建標準的 Window mock 對象
-   * @param {Object} overrides - 覆蓋特定屬性
-   * @returns {Object} Mock Window 對象
+   *
+   * @param {object} overrides - 覆蓋特定屬性
+   * @returns {object} Mock Window 對象
    */
   static createMockWindow(overrides = {}) {
     return {
@@ -85,16 +84,17 @@ class TestEnvironmentHelper {
    * 保存當前環境狀態
    */
   saveCurrentEnvironment() {
-    this.originalChrome = global.chrome;
-    this.originalWindow = global.window;
-    this.originalConsole = global.console;
+    this.originalChrome = globalThis.chrome;
+    this.originalWindow = globalThis.window;
+    this.originalConsole = globalThis.console;
   }
 
   /**
    * 設置測試環境
-   * @param {Object} options - 配置選項
-   * @param {Object} options.chromeOverrides - Chrome API 覆蓋設置
-   * @param {Object} options.windowOverrides - Window 對象覆蓋設置
+   *
+   * @param {object} options - 配置選項
+   * @param {object} options.chromeOverrides - Chrome API 覆蓋設置
+   * @param {object} options.windowOverrides - Window 對象覆蓋設置
    * @param {boolean} options.mockConsole - 是否 mock console（默認 true）
    */
   setupTestEnvironment(options = {}) {
@@ -104,11 +104,11 @@ class TestEnvironmentHelper {
     this.saveCurrentEnvironment();
 
     // 設置 mock 環境
-    global.chrome = TestEnvironmentHelper.createMockChrome(chromeOverrides);
-    global.window = TestEnvironmentHelper.createMockWindow(windowOverrides);
+    globalThis.chrome = TestEnvironmentHelper.createMockChrome(chromeOverrides);
+    globalThis.window = TestEnvironmentHelper.createMockWindow(windowOverrides);
 
     if (mockConsole) {
-      global.console = TestEnvironmentHelper.createMockConsole();
+      globalThis.console = TestEnvironmentHelper.createMockConsole();
     }
   }
 
@@ -117,13 +117,13 @@ class TestEnvironmentHelper {
    */
   restoreEnvironment() {
     if (this.originalChrome !== null) {
-      global.chrome = this.originalChrome;
+      globalThis.chrome = this.originalChrome;
     }
     if (this.originalWindow !== null) {
-      global.window = this.originalWindow;
+      globalThis.window = this.originalWindow;
     }
     if (this.originalConsole !== null) {
-      global.console = this.originalConsole;
+      globalThis.console = this.originalConsole;
     }
   }
 
@@ -137,11 +137,12 @@ class TestEnvironmentHelper {
 
   /**
    * 模擬 Chrome Storage 錯誤
+   *
    * @param {string} errorMessage - 錯誤消息
    */
   static simulateStorageError(errorMessage = 'Storage access denied') {
-    if (global.chrome?.storage?.local) {
-      global.chrome.storage.local.get = jest.fn(() => {
+    if (globalThis.chrome?.storage?.local) {
+      globalThis.chrome.storage.local.get = jest.fn(() => {
         throw new Error(errorMessage);
       });
     }
@@ -149,21 +150,23 @@ class TestEnvironmentHelper {
 
   /**
    * 模擬 Chrome Runtime 錯誤
+   *
    * @param {string} errorMessage - 錯誤消息
    */
   static simulateRuntimeError(errorMessage = 'Runtime error') {
-    if (global.chrome?.runtime) {
-      global.chrome.runtime.lastError = { message: errorMessage };
+    if (globalThis.chrome?.runtime) {
+      globalThis.chrome.runtime.lastError = { message: errorMessage };
     }
   }
 
   /**
    * 移除 Chrome API 的特定部分
+   *
    * @param {string} path - 要移除的路徑，如 'storage.local' 或 'storage'
    */
   static removeChromeAPI(path) {
     const parts = path.split('.');
-    let current = global.chrome;
+    let current = globalThis.chrome;
 
     for (let i = 0; i < parts.length - 1; i++) {
       if (current?.[parts[i]]) {
@@ -174,7 +177,7 @@ class TestEnvironmentHelper {
     }
 
     if (current) {
-      delete current[parts[parts.length - 1]];
+      delete current[parts.at(-1)];
     }
   }
 
@@ -182,8 +185,11 @@ class TestEnvironmentHelper {
    * 完全移除 Chrome API
    */
   static removeChrome() {
-    delete global.chrome;
+    delete globalThis.chrome;
   }
+  originalChrome = null;
+  originalWindow = null;
+  originalConsole = null;
 }
 
 module.exports = TestEnvironmentHelper;

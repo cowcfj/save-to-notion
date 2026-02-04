@@ -21,24 +21,25 @@ export class AuthManager {
 
   /**
    * 初始化認證管理器
-   * @param {Object} dependencies - 依賴項 { loadDatabases }
+   *
+   * @param {object} dependencies - 依賴項 { loadDatabases }
    */
   init(dependencies = {}) {
     this.dependencies = dependencies;
 
     // 快取 DOM 元素
-    this.elements.apiKeyInput = document.getElementById('api-key');
-    this.elements.databaseIdInput = document.getElementById('database-id');
-    this.elements.oauthButton = document.getElementById('oauth-button');
-    this.elements.disconnectButton = document.getElementById('disconnect-button');
-    this.elements.testApiButton = document.getElementById('test-api-button');
-    this.elements.authStatus = document.getElementById('auth-status');
+    this.elements.apiKeyInput = document.querySelector('#api-key');
+    this.elements.databaseIdInput = document.querySelector('#database-id');
+    this.elements.oauthButton = document.querySelector('#oauth-button');
+    this.elements.disconnectButton = document.querySelector('#disconnect-button');
+    this.elements.testApiButton = document.querySelector('#test-api-button');
+    this.elements.authStatus = document.querySelector('#auth-status');
     // 其他相關設定
-    this.elements.titleTemplateInput = document.getElementById('title-template');
-    this.elements.addSourceCheckbox = document.getElementById('add-source');
-    this.elements.addTimestampCheckbox = document.getElementById('add-timestamp');
-    this.elements.highlightStyleSelect = document.getElementById('highlight-style');
-    this.elements.debugToggle = document.getElementById('enable-debug-logs');
+    this.elements.titleTemplateInput = document.querySelector('#title-template');
+    this.elements.addSourceCheckbox = document.querySelector('#add-source');
+    this.elements.addTimestampCheckbox = document.querySelector('#add-timestamp');
+    this.elements.highlightStyleSelect = document.querySelector('#highlight-style');
+    this.elements.debugToggle = document.querySelector('#enable-debug-logs');
 
     // 綁定事件
     this.setupEventListeners();
@@ -192,6 +193,8 @@ export class AuthManager {
 
   async startNotionSetup() {
     try {
+      Logger.start('開始 Notion 授權流程', { action: 'startNotionSetup' });
+
       this.elements.oauthButton.disabled = true;
       this.elements.oauthButton.innerHTML = `<span class="loading"></span><span>${UI_MESSAGES.AUTH.OPENING_NOTION}</span>`;
 
@@ -225,7 +228,7 @@ export class AuthManager {
 
   async disconnectFromNotion() {
     try {
-      Logger.info('開始斷開 Notion 連接', {
+      Logger.start('開始斷開 Notion 連接', {
         action: 'disconnect',
         phase: 'start',
       });
@@ -247,7 +250,7 @@ export class AuthManager {
       }
 
       this.ui.showStatus(UI_MESSAGES.SETTINGS.DISCONNECT_SUCCESS, 'success');
-      Logger.info('UI 已更新為未連接狀態', {
+      Logger.success('UI 已更新為未連接狀態', {
         action: 'disconnect',
         phase: 'uiUpdate',
       });
@@ -262,10 +265,10 @@ export class AuthManager {
     }
   }
 
-  testApiKey() {
+  async testApiKey() {
     const apiKey = this.elements.apiKeyInput?.value.trim();
     if (!apiKey) {
-      this.ui.showStatus(UI_MESSAGES.SETTINGS.MISSING_API_KEY, 'error');
+      this.ui.showStatus(UI_MESSAGES.SETTINGS.KEY_INPUT_REQUIRED, 'error');
       return;
     }
 
@@ -277,21 +280,19 @@ export class AuthManager {
     this.elements.testApiButton.disabled = true;
     this.elements.testApiButton.textContent = UI_MESSAGES.SETTINGS.TESTING_LABEL;
 
-    // 使用 loadDatabases 進行測試
-    const promise = this.dependencies.loadDatabases?.(apiKey);
-
-    // 如果返回 Promise 則等待
-    if (promise && typeof promise.then === 'function') {
-      promise.finally(() => {
-        if (this.elements.testApiButton) {
-          this.elements.testApiButton.disabled = false;
-          this.elements.testApiButton.textContent = UI_MESSAGES.SETTINGS.TEST_API_LABEL;
-        }
-      });
-    } else if (this.elements.testApiButton) {
-      // Fallback if not promise
-      this.elements.testApiButton.disabled = false;
-      this.elements.testApiButton.textContent = UI_MESSAGES.SETTINGS.TEST_API_LABEL;
+    try {
+      Logger.start('開始測試 API Key', { action: 'testApiKey' });
+      // 使用 loadDatabases 進行測試
+      await this.dependencies.loadDatabases?.(apiKey);
+      Logger.success('API Key 測試成功', { action: 'testApiKey' });
+    } catch (error) {
+      Logger.error('API 測試失敗', { action: 'testApiKey', error });
+    } finally {
+      const btn = this.elements.testApiButton;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '測試 API Key';
+      }
     }
   }
 }

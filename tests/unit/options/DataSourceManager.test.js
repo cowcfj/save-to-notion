@@ -11,7 +11,7 @@ jest.mock('../../../scripts/options/UIManager.js');
 jest.mock('../../../scripts/options/SearchableDatabaseSelector.js');
 
 // Mock fetch globally
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 describe('DataSourceManager', () => {
   let dataSourceManager = null;
@@ -31,24 +31,24 @@ describe('DataSourceManager', () => {
     dataSourceManager.init();
 
     // Mock Logger
-    window.Logger = {
+    globalThis.Logger = {
       info: jest.fn(),
       error: jest.fn(),
     };
 
     // Reset fetch mock
-    global.fetch.mockReset();
+    globalThis.fetch.mockReset();
   });
 
   afterEach(() => {
     document.body.innerHTML = '';
     jest.clearAllMocks();
-    delete window.Logger;
+    delete globalThis.Logger;
   });
 
   describe('loadDatabases', () => {
     test('處理 401 認證錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
         json: () => Promise.resolve({ message: 'Unauthorized' }),
@@ -63,7 +63,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理網路錯誤', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+      globalThis.fetch.mockRejectedValueOnce(new Error('Network error'));
 
       await dataSourceManager.loadDatabases('secret_test_key');
 
@@ -74,7 +74,7 @@ describe('DataSourceManager', () => {
     });
 
     test('帶有 query 參數時發送正確的請求主體', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ results: [] }),
       });
@@ -82,7 +82,7 @@ describe('DataSourceManager', () => {
       await dataSourceManager.loadDatabases('secret_test_key', 'test_query');
 
       // 驗證 fetch 被調用且包含 query 參數
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         'https://api.notion.com/v1/search',
         expect.objectContaining({
           method: 'POST',
@@ -91,7 +91,7 @@ describe('DataSourceManager', () => {
       );
 
       // 解析請求主體並驗證
-      const callArgs = global.fetch.mock.calls[0][1];
+      const callArgs = globalThis.fetch.mock.calls[0][1];
       const requestBody = JSON.parse(callArgs.body);
 
       expect(requestBody.query).toBe('test_query');
@@ -99,14 +99,14 @@ describe('DataSourceManager', () => {
     });
 
     test('無 query 參數時使用時間排序', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ results: [] }),
       });
 
       await dataSourceManager.loadDatabases('secret_test_key');
 
-      const callArgs = global.fetch.mock.calls[0][1];
+      const callArgs = globalThis.fetch.mock.calls[0][1];
       const requestBody = JSON.parse(callArgs.body);
 
       expect(requestBody.query).toBeUndefined();
@@ -162,7 +162,7 @@ describe('DataSourceManager', () => {
       const filtered = DataSourceManager.filterAndSortResults(results);
 
       // page-1 應該被過濾掉（因為 parent 是 data_source_id 且有 URL 屬性）
-      expect(filtered.length).toBe(1);
+      expect(filtered).toHaveLength(1);
       expect(filtered[0].id).toBe('page-2');
     });
 
@@ -180,7 +180,7 @@ describe('DataSourceManager', () => {
 
       const filtered = DataSourceManager.filterAndSortResults(results);
 
-      expect(filtered.length).toBe(1);
+      expect(filtered).toHaveLength(1);
       expect(filtered[0].id).toBe('page-1');
     });
 
@@ -209,7 +209,7 @@ describe('DataSourceManager', () => {
 
       const filtered = DataSourceManager.filterAndSortResults(results);
 
-      expect(filtered.length).toBe(2);
+      expect(filtered).toHaveLength(2);
       expect(filtered[0].id).toBe('db-2'); // URL database 優先
     });
   });
@@ -293,7 +293,7 @@ describe('DataSourceManager', () => {
 
       dataSourceManager.handleDatabaseSelect();
 
-      expect(document.getElementById('database-id').value).toBe('db-123');
+      expect(document.querySelector('#database-id').value).toBe('db-123');
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         UI_MESSAGES.DATA_SOURCE.SELECT_REMINDER,
         'info'
@@ -305,14 +305,14 @@ describe('DataSourceManager', () => {
 
       dataSourceManager.handleDatabaseSelect();
 
-      expect(document.getElementById('database-id').value).toBe('');
+      expect(document.querySelector('#database-id').value).toBe('');
       expect(mockUiManager.showStatus).not.toHaveBeenCalled();
     });
   });
 
   describe('loadDatabases - additional error handling', () => {
     test('處理 403 權限錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 403,
         json: () => Promise.resolve({ message: 'Forbidden' }),
@@ -327,7 +327,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理其他 HTTP 錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
         json: () => Promise.resolve({ message: 'Internal Server Error' }),
@@ -343,7 +343,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理無內容的 503 錯誤', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: false,
         status: 503,
         json: () => Promise.resolve({}), // 空回應
@@ -359,7 +359,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理空結果', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ results: [] }),
       });
@@ -374,7 +374,7 @@ describe('DataSourceManager', () => {
     });
 
     test('搜尋模式下空結果顯示 info 訊息', async () => {
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ results: [] }),
       });
@@ -397,14 +397,14 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ results: mockResults }),
       });
 
       const result = await dataSourceManager.loadDatabases('test_key');
 
-      expect(result.length).toBe(1);
+      expect(result).toHaveLength(1);
     });
 
     test('過濾後無可用資料來源時顯示錯誤', async () => {
@@ -421,7 +421,7 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      global.fetch.mockResolvedValueOnce({
+      globalThis.fetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ results: mockResults }),
       });

@@ -3,6 +3,21 @@
  * 針對未覆蓋的分支和邊界情況
  */
 
+jest.mock('../../../../scripts/highlighter/core/HighlightManager.js');
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  },
+}));
+
+import Logger from '../../../../scripts/utils/Logger.js';
 import { Toolbar } from '../../../../scripts/highlighter/ui/Toolbar.js';
 import { createToolbarContainer } from '../../../../scripts/highlighter/ui/components/ToolbarContainer.js';
 
@@ -45,50 +60,50 @@ describe('Toolbar 覆蓋率補強', () => {
     const countSpan = document.createElement('span');
     countSpan.id = 'highlight-count-v2';
     countSpan.textContent = '0';
-    div.appendChild(countSpan);
+    div.append(countSpan);
 
     // 狀態 div
     const statusDiv = document.createElement('div');
     statusDiv.id = 'highlight-status-v2';
-    div.appendChild(statusDiv);
+    div.append(statusDiv);
 
     // 控制按鈕
     const toggleBtn = document.createElement('button');
     toggleBtn.id = 'toggle-highlight-v2';
     toggleBtn.textContent = '開始標註';
-    div.appendChild(toggleBtn);
+    div.append(toggleBtn);
 
     const minimizeBtn = document.createElement('button');
     minimizeBtn.id = 'minimize-highlight-v2';
-    div.appendChild(minimizeBtn);
+    div.append(minimizeBtn);
 
     const closeBtn = document.createElement('button');
     closeBtn.id = 'close-highlight-v2';
-    div.appendChild(closeBtn);
+    div.append(closeBtn);
 
     // 操作按鈕
     const syncBtn = document.createElement('button');
     syncBtn.id = 'sync-to-notion-v2';
-    div.appendChild(syncBtn);
+    div.append(syncBtn);
 
     const openBtn = document.createElement('button');
     openBtn.id = 'open-notion-v2';
-    div.appendChild(openBtn);
+    div.append(openBtn);
 
     const manageBtn = document.createElement('button');
     manageBtn.id = 'manage-highlights-v2';
-    div.appendChild(manageBtn);
+    div.append(manageBtn);
 
     // 顏色選擇器容器
     const colorPicker = document.createElement('div');
     colorPicker.id = 'color-picker-v2';
-    div.appendChild(colorPicker);
+    div.append(colorPicker);
 
     // 標註列表容器
     const listContainer = document.createElement('div');
     listContainer.id = 'highlight-list-v2';
     listContainer.style.display = 'none';
-    div.appendChild(listContainer);
+    div.append(listContainer);
 
     return div;
   };
@@ -98,17 +113,14 @@ describe('Toolbar 覆蓋率補強', () => {
     document.body.innerHTML = '';
 
     // Mock chrome API
-    global.window.chrome = {
+    globalThis.window.chrome = {
       runtime: {
         sendMessage: jest.fn(),
       },
     };
 
-    // Mock Logger
-    window.Logger = {
-      error: jest.fn(),
-      log: jest.fn(),
-    };
+    // Use the mocked Logger
+    globalThis.Logger = Logger;
 
     container = createMockContainer();
     createToolbarContainer.mockReturnValue(container);
@@ -168,14 +180,15 @@ describe('Toolbar 覆蓋率補強', () => {
     });
 
     test('應該在未知狀態時發出警告並隱藏工具欄', () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      const hideSpy = jest.spyOn(toolbar, 'hide');
+      const hideSpy = jest.spyOn(toolbar, 'hide').mockImplementation();
 
       toolbar.handleStateChange('unknown_state');
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('未知狀態'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Toolbar received unknown state'),
+        expect.any(Object)
+      );
       expect(hideSpy).toHaveBeenCalled();
-      consoleWarnSpy.mockRestore();
     });
   });
 
@@ -360,17 +373,17 @@ describe('Toolbar 覆蓋率補強', () => {
   describe('_sendMessageAsync', () => {
     test('應該在 window 不可用時拒絕 Promise', async () => {
       // 儲存原始 chrome
-      const originalChrome = global.window.chrome;
-      global.window.chrome = undefined;
+      const originalChrome = globalThis.window.chrome;
+      globalThis.window.chrome = undefined;
 
       await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('無法連接擴展');
 
       // 恢復
-      global.window.chrome = originalChrome;
+      globalThis.window.chrome = originalChrome;
     });
 
     test('應該正確處理成功回應', async () => {
-      global.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
+      globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
         const response = { success: true };
         callback(response);
       });
@@ -380,10 +393,10 @@ describe('Toolbar 覆蓋率補強', () => {
     });
 
     test('應該在 lastError 時拒絕 Promise', async () => {
-      global.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        global.window.chrome.runtime.lastError = { message: '連接失敗' };
+      globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
+        globalThis.window.chrome.runtime.lastError = { message: '連接失敗' };
         callback();
-        delete global.window.chrome.runtime.lastError;
+        delete globalThis.window.chrome.runtime.lastError;
       });
 
       await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('連接失敗');
@@ -401,7 +414,7 @@ describe('Toolbar 覆蓋率補強', () => {
 
   describe('openInNotion 邊界情況', () => {
     test('應該在 chrome.runtime 不可用時安全返回', () => {
-      global.window.chrome = undefined;
+      globalThis.window.chrome = undefined;
 
       expect(() => Toolbar.openInNotion()).not.toThrow();
     });
@@ -418,8 +431,8 @@ describe('Toolbar 覆蓋率補強', () => {
     });
 
     test('應該移除 DOM 元素', () => {
-      document.body.appendChild(toolbar.container);
-      document.body.appendChild(toolbar.miniIcon);
+      document.body.append(toolbar.container);
+      document.body.append(toolbar.miniIcon);
 
       toolbar.cleanup();
 
@@ -482,11 +495,11 @@ describe('Toolbar 覆蓋率補強', () => {
         getRangeAt: jest.fn(),
         removeAllRanges: jest.fn(),
       };
-      jest.spyOn(window, 'getSelection').mockReturnValue(mockSelection);
+      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
 
       // 創建一個真實的 DOM 元素作為事件目標
       const targetElement = document.createElement('p');
-      document.body.appendChild(targetElement);
+      document.body.append(targetElement);
 
       const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
       targetElement.dispatchEvent(mouseupEvent);
@@ -504,11 +517,11 @@ describe('Toolbar 覆蓋率補強', () => {
         getRangeAt: jest.fn(),
         removeAllRanges: jest.fn(),
       };
-      jest.spyOn(window, 'getSelection').mockReturnValue(mockSelection);
+      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
 
       // 創建一個真實的 DOM 元素作為事件目標
       const targetElement = document.createElement('p');
-      document.body.appendChild(targetElement);
+      document.body.append(targetElement);
 
       const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
       targetElement.dispatchEvent(mouseupEvent);
@@ -527,11 +540,11 @@ describe('Toolbar 覆蓋率補強', () => {
         getRangeAt: jest.fn().mockReturnValue(mockRange),
         removeAllRanges: jest.fn(),
       };
-      jest.spyOn(window, 'getSelection').mockReturnValue(mockSelection);
+      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
 
       // 創建一個真實的 DOM 元素作為事件目標
       const targetElement = document.createElement('p');
-      document.body.appendChild(targetElement);
+      document.body.append(targetElement);
 
       const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
       targetElement.dispatchEvent(mouseupEvent);
@@ -551,11 +564,11 @@ describe('Toolbar 覆蓋率補強', () => {
         getRangeAt: jest.fn().mockReturnValue(mockRange),
         removeAllRanges: jest.fn(),
       };
-      jest.spyOn(window, 'getSelection').mockReturnValue(mockSelection);
+      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
 
       // 創建一個真實的 DOM 元素作為事件目標
       const targetElement = document.createElement('p');
-      document.body.appendChild(targetElement);
+      document.body.append(targetElement);
 
       const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
       targetElement.dispatchEvent(mouseupEvent);
@@ -577,27 +590,30 @@ describe('Toolbar 覆蓋率補強', () => {
         getRangeAt: jest.fn().mockReturnValue(mockRange),
         removeAllRanges: jest.fn(),
       };
-      jest.spyOn(window, 'getSelection').mockReturnValue(mockSelection);
+      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
 
       // 創建一個真實的 DOM 元素作為事件目標
       const targetElement = document.createElement('p');
-      document.body.appendChild(targetElement);
+      document.body.append(targetElement);
 
       const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
       targetElement.dispatchEvent(mouseupEvent);
       jest.runAllTimers();
 
-      expect(window.Logger.error).toHaveBeenCalledWith('添加標註失敗:', expect.any(Error));
+      expect(globalThis.Logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('添加標註失敗'),
+        expect.objectContaining({ error: expect.any(Error) })
+      );
     });
 
     test('應該在 window.getSelection 返回 null 時安全處理', () => {
       toolbar.isHighlightModeActive = true;
 
-      jest.spyOn(window, 'getSelection').mockReturnValue(null);
+      jest.spyOn(globalThis, 'getSelection').mockReturnValue(null);
 
       // 創建一個真實的 DOM 元素作為事件目標
       const targetElement = document.createElement('p');
-      document.body.appendChild(targetElement);
+      document.body.append(targetElement);
 
       const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
       targetElement.dispatchEvent(mouseupEvent);

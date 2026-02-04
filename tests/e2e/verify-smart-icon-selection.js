@@ -25,12 +25,12 @@
 
     const match = sizeStr.match(/(\d+)x(\d+)/i);
     if (match) {
-      return parseInt(match[1]);
+      return Number.parseInt(match[1]);
     }
 
     const numMatch = sizeStr.match(/\d+/);
     if (numMatch) {
-      return parseInt(numMatch[0]);
+      return Number.parseInt(numMatch[0]);
     }
 
     return 0;
@@ -55,41 +55,41 @@
       // 1. 格式評分
       if (url.endsWith('.svg') || url.includes('image/svg') || icon.type.includes('svg')) {
         score += 1000;
-        console.log(`  ${icon.url.substring(0, 50)}...: +1000 (SVG)`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +1000 (SVG)`);
       } else if (url.endsWith('.png') || icon.type.includes('png')) {
         score += 500;
-        console.log(`  ${icon.url.substring(0, 50)}...: +500 (PNG)`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +500 (PNG)`);
       } else if (url.endsWith('.ico') || icon.type.includes('ico')) {
         score += 100;
-        console.log(`  ${icon.url.substring(0, 50)}...: +100 (ICO)`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +100 (ICO)`);
       } else if (url.endsWith('.jpg') || url.endsWith('.jpeg') || icon.type.includes('jpeg')) {
         score += 200;
-        console.log(`  ${icon.url.substring(0, 50)}...: +200 (JPEG)`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +200 (JPEG)`);
       }
 
       // 2. 尺寸評分
       const size = icon.size || 0;
       if (size === 999) {
         score += 500;
-        console.log(`  ${icon.url.substring(0, 50)}...: +500 (any size - SVG)`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +500 (any size - SVG)`);
       } else if (size >= 180 && size <= 256) {
         score += 300;
-        console.log(`  ${icon.url.substring(0, 50)}...: +300 (ideal: ${size}x${size})`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +300 (ideal: ${size}x${size})`);
       } else if (size > 256) {
         score += 200;
-        console.log(`  ${icon.url.substring(0, 50)}...: +200 (large: ${size}x${size})`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +200 (large: ${size}x${size})`);
       } else if (size >= 120) {
         score += 100;
-        console.log(`  ${icon.url.substring(0, 50)}...: +100 (medium: ${size}x${size})`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +100 (medium: ${size}x${size})`);
       } else if (size > 0) {
         score += 50;
-        console.log(`  ${icon.url.substring(0, 50)}...: +50 (small: ${size}x${size})`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +50 (small: ${size}x${size})`);
       }
 
       // 3. 類型評分
       if (icon.iconType === 'apple-touch') {
         score += 50;
-        console.log(`  ${icon.url.substring(0, 50)}...: +50 (apple-touch)`);
+        console.log(`  ${icon.url.slice(0, 50)}...: +50 (apple-touch)`);
       }
 
       // 4. 優先級評分
@@ -110,7 +110,7 @@
     if (scored.length > 1) {
       console.log('\n其他候選:');
       scored.slice(1, 4).forEach((icon, idx) => {
-        console.log(`  ${idx + 2}. ${icon.url.substring(0, 40)}... (${icon.score}分)`);
+        console.log(`  ${idx + 2}. ${icon.url.slice(0, 40)}... (${icon.score}分)`);
       });
       if (scored.length > 4) {
         console.log(`  ... 還有 ${scored.length - 4} 個`);
@@ -166,7 +166,7 @@
           });
 
           console.log(
-            `  ✓ ${absoluteUrl.substring(0, 50)}... (${sizes || 'no size'}, ${type || 'no type'})`
+            `  ✓ ${absoluteUrl.slice(0, 50)}... (${sizes || 'no size'}, ${type || 'no type'})`
           );
         } catch (error) {
           console.warn(`  ✗ 無法處理: ${iconUrl}`, error);

@@ -11,19 +11,21 @@ import { domConverter } from './DomConverter.js';
  * 轉換器工廠類
  * 負責根據輸入類型提供適當的轉換器實例
  */
-class ConverterFactory {
+const ConverterFactory = {
   /**
    * 獲取轉換器
+   *
    * @param {string} [_type] - 內容類型 (已忽略，統一使用 DomConverter)
    * @returns {DomConverter} 轉換器實例
    */
-  static getConverter(_type) {
+  getConverter(_type) {
     // 所有的內容現在都視為 DOM/HTML 處理
     // 即使源是 Markdown，ContentExtractor 也已將其提取為 HTML 格式
     return domConverter;
-  }
-}
+  },
+};
 
-const converterFactory = new ConverterFactory();
+// 改為直接使用對象
+const converterFactory = ConverterFactory;
 
 export { ConverterFactory, converterFactory };

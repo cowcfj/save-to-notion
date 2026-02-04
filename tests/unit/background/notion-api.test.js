@@ -13,15 +13,15 @@ const Logger = {
 
 describe('Background Notion API Operations', () => {
   let mockFetch = null;
-  let originalFetch = global.fetch;
+  let originalFetch = globalThis.fetch;
 
   beforeEach(() => {
     // 保存原始 fetch
-    originalFetch = global.fetch;
+    originalFetch = globalThis.fetch;
 
     // 創建 fetch mock
     mockFetch = jest.fn();
-    global.fetch = mockFetch;
+    globalThis.fetch = mockFetch;
 
     // 清理存儲
     if (chrome._clearStorage) {
@@ -36,7 +36,7 @@ describe('Background Notion API Operations', () => {
 
   afterEach(() => {
     // 恢復原始 fetch
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
 
     // 清理 mocks
     jest.restoreAllMocks();
@@ -671,7 +671,7 @@ async function saveToNotionSimulated(
           }
 
           // 檢查特殊字符
-          const problematicChars = /[<>{}|\\^`[\]]/;
+          const problematicChars = /[<>[\\\]^`{|}]/;
           if (problematicChars.test(imageUrl)) {
             return false;
           }
@@ -753,7 +753,7 @@ async function saveToNotionSimulated(
       // 構建 Notion 頁面 URL
       let notionUrl = responseData.url;
       if (!notionUrl && notionPageId) {
-        notionUrl = `https://www.notion.so/${notionPageId.replace(/-/g, '')}`;
+        notionUrl = `https://www.notion.so/${notionPageId.replaceAll('-', '')}`;
       }
 
       // 模擬保存到存儲

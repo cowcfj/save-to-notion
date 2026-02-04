@@ -20,7 +20,7 @@ describe('MigrationScanner', () => {
     mockRemove = jest.fn();
     mockSendMessage = jest.fn();
 
-    global.chrome = {
+    globalThis.chrome = {
       storage: {
         local: {
           get: mockGet,
@@ -33,7 +33,7 @@ describe('MigrationScanner', () => {
     };
 
     // Mock Logger to prevent console pollution and ensure function existence
-    global.Logger = {
+    globalThis.Logger = {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
@@ -41,8 +41,8 @@ describe('MigrationScanner', () => {
     };
 
     // Explicitly set window.Logger for JSDOM
-    if (typeof window !== 'undefined') {
-      window.Logger = global.Logger;
+    if (globalThis.window !== undefined) {
+      globalThis.Logger = globalThis.Logger;
     }
 
     scanner = new MigrationScanner();
@@ -74,7 +74,7 @@ describe('MigrationScanner', () => {
 
       const result = await scanner.scanStorage();
 
-      expect(result.items.length).toBe(1);
+      expect(result.items).toHaveLength(1);
       expect(result.items[0]).toEqual({
         url: 'https://example.com',
         highlightCount: 1,
@@ -91,7 +91,7 @@ describe('MigrationScanner', () => {
 
       const result = await scanner.scanStorage();
 
-      expect(result.items.length).toBe(0);
+      expect(result.items).toHaveLength(0);
       expect(result.needsMigration).toBe(false);
     });
 
@@ -114,7 +114,7 @@ describe('MigrationScanner', () => {
 
       const result = await scanner.scanStorage();
 
-      expect(result.items.length).toBe(0);
+      expect(result.items).toHaveLength(0);
     });
   });
 
@@ -166,7 +166,7 @@ describe('MigrationScanner', () => {
 
       expect(result.success).toBe(1);
       expect(result.failed).toBe(1);
-      expect(result.errors.length).toBe(1);
+      expect(result.errors).toHaveLength(1);
     });
   });
 
@@ -228,7 +228,7 @@ describe('MigrationScanner', () => {
     it('should truncate long URLs', () => {
       const longUrl = 'https://example.com/very/long/path/that/exceeds/maximum/length';
       const result = MigrationScanner.truncateUrl(longUrl, 30);
-      expect(result.length).toBe(30);
+      expect(result).toHaveLength(30);
       expect(result.endsWith('...')).toBe(true);
     });
 

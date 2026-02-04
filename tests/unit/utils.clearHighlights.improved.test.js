@@ -6,8 +6,8 @@
 const chrome = require('../mocks/chrome');
 
 // 設置全局環境
-global.chrome = chrome;
-global.localStorage = {
+globalThis.chrome = chrome;
+globalThis.localStorage = {
   data: {},
   getItem(key) {
     return this.data[key] || null;
@@ -62,7 +62,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
     chrome.runtime.lastError = null;
 
     // 重置 localStorage
-    global.localStorage.clear();
+    globalThis.localStorage.clear();
 
     // 重置 Logger mocks
     Logger.log.mockClear();
@@ -137,12 +137,12 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       const pageKey = 'highlights_https://example.com/test';
 
       await chrome.storage.local.set({ [pageKey]: [{ text: 'test' }] });
-      global.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
+      globalThis.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
 
       await StorageUtil.clearHighlights(testUrl);
 
       expect(chrome.storage.local.remove).toHaveBeenCalledWith([pageKey], expect.any(Function));
-      expect(global.localStorage.getItem(pageKey)).toBeNull();
+      expect(globalThis.localStorage.getItem(pageKey)).toBeNull();
       expect(Logger.log).toHaveBeenCalledWith(
         '標註清除完成',
         expect.objectContaining({ action: 'clearHighlights' })
@@ -177,7 +177,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
         callback();
       });
 
-      global.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
+      globalThis.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
 
       await StorageUtil.clearHighlights(testUrl);
 
@@ -185,7 +185,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
         '部分存儲清除失敗',
         expect.objectContaining({ action: 'clearHighlights' })
       );
-      expect(global.localStorage.getItem(pageKey)).toBeNull();
+      expect(globalThis.localStorage.getItem(pageKey)).toBeNull();
     });
 
     test('當 Chrome Storage 不可用時應該只使用 localStorage', async () => {
@@ -195,20 +195,20 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       const testUrl = 'https://example.com/test';
       const pageKey = 'highlights_https://example.com/test';
 
-      const originalChrome = global.chrome;
-      global.chrome = {};
+      const originalChrome = globalThis.chrome;
+      globalThis.chrome = {};
 
-      global.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
+      globalThis.localStorage.setItem(pageKey, JSON.stringify([{ text: 'test' }]));
 
       await StorageUtil.clearHighlights(testUrl);
 
-      expect(global.localStorage.getItem(pageKey)).toBeNull();
+      expect(globalThis.localStorage.getItem(pageKey)).toBeNull();
       expect(Logger.warn).toHaveBeenCalledWith(
         '部分存儲清除失敗',
         expect.objectContaining({ action: 'clearHighlights' })
       );
 
-      global.chrome = originalChrome;
+      globalThis.chrome = originalChrome;
     });
   });
 
@@ -231,14 +231,14 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
         if (!StorageUtil) {
           return;
         }
-        const originalChrome = global.chrome;
-        global.chrome = {};
+        const originalChrome = globalThis.chrome;
+        globalThis.chrome = {};
 
         await expect(StorageUtil._clearFromChromeStorage('test_key')).rejects.toThrow(
           'Chrome storage not available'
         );
 
-        global.chrome = originalChrome;
+        globalThis.chrome = originalChrome;
       });
 
       test('當操作失敗時應該拋出包含錯誤信息的錯誤', async () => {
@@ -262,11 +262,11 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
           return;
         }
         const testKey = 'test_key';
-        global.localStorage.setItem(testKey, 'test_value');
+        globalThis.localStorage.setItem(testKey, 'test_value');
 
         await StorageUtil._clearFromLocalStorage(testKey);
 
-        expect(global.localStorage.getItem(testKey)).toBeNull();
+        expect(globalThis.localStorage.getItem(testKey)).toBeNull();
       });
 
       test('正常操作應該成功完成', async () => {
@@ -274,10 +274,10 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
           return;
         }
         const testKey = 'test_error_key';
-        global.localStorage.setItem(testKey, 'test_value');
+        globalThis.localStorage.setItem(testKey, 'test_value');
 
         await expect(StorageUtil._clearFromLocalStorage(testKey)).resolves.toBeUndefined();
-        expect(global.localStorage.getItem(testKey)).toBeNull();
+        expect(globalThis.localStorage.getItem(testKey)).toBeNull();
       });
     });
   });
@@ -336,8 +336,8 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
         }, 10);
       });
 
-      const originalRemoveItem = global.localStorage.removeItem;
-      global.localStorage.removeItem = jest.fn();
+      const originalRemoveItem = globalThis.localStorage.removeItem;
+      globalThis.localStorage.removeItem = jest.fn();
 
       const startTime = Date.now();
       await StorageUtil.clearHighlights(testUrl);
@@ -345,7 +345,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
 
       expect(totalTime).toBeLessThan(100);
 
-      global.localStorage.removeItem = originalRemoveItem;
+      globalThis.localStorage.removeItem = originalRemoveItem;
     });
   });
 });

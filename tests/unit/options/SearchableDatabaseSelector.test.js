@@ -80,8 +80,8 @@ describe('SearchableDatabaseSelector', () => {
     it('should populate list and handle empty/loading states', () => {
       selector.populateDatabases(mockDatabases);
 
-      expect(selector.databases.length).toBe(2);
-      expect(selector.databaseList.children.length).toBe(2);
+      expect(selector.databases).toHaveLength(2);
+      expect(selector.databaseList.children).toHaveLength(2);
       expect(selector.container.style.display).toBe('block');
 
       // Check formatting of items
@@ -90,7 +90,7 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should handle pre-selected value', () => {
-      document.getElementById('database-id').value = 'db1';
+      document.querySelector('#database-id').value = 'db1';
       // Re-populate to trigger selection logic
       selector.populateDatabases(mockDatabases);
 
@@ -129,25 +129,25 @@ describe('SearchableDatabaseSelector', () => {
 
     it('should filter based on search query', () => {
       selector.filterDatabases('app');
-      expect(selector.filteredDatabases.length).toBe(1);
+      expect(selector.filteredDatabases).toHaveLength(1);
       expect(selector.filteredDatabases[0].title).toBe('Apple');
 
       // Verify UI update
       // We mocked renderDatabaseList implicitly by checking filteredDatabases,
       // but let's check the DOM
       const items = selector.databaseList.querySelectorAll('.database-item');
-      expect(items.length).toBe(1);
+      expect(items).toHaveLength(1);
       expect(items[0].textContent).toContain('Apple');
     });
 
     it('should show all when query is empty', () => {
       selector.filterDatabases('');
-      expect(selector.filteredDatabases.length).toBe(2);
+      expect(selector.filteredDatabases).toHaveLength(2);
     });
 
     it('should show no results message', () => {
       selector.filterDatabases('xyz');
-      expect(selector.filteredDatabases.length).toBe(0);
+      expect(selector.filteredDatabases).toHaveLength(0);
       expect(selector.databaseList.innerHTML).toContain('未找到匹配的資料來源');
     });
   });
@@ -159,8 +159,8 @@ describe('SearchableDatabaseSelector', () => {
       selector.selectDatabase(db);
 
       expect(selector.selectedDatabase).toBe(db);
-      expect(document.getElementById('database-id').value).toBe('db1');
-      expect(document.getElementById('database-type').value).toBe('database');
+      expect(document.querySelector('#database-id').value).toBe('db1');
+      expect(document.querySelector('#database-type').value).toBe('database');
       expect(selector.searchInput.value).toBe('Database 1');
       expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('已選擇'), 'success');
     });
@@ -285,8 +285,8 @@ describe('SearchableDatabaseSelector', () => {
     it('should restore initial database list after search', () => {
       // 設置初始列表
       selector.populateDatabases(mockDatabases);
-      expect(selector.databases.length).toBe(2);
-      expect(selector.initialDatabases.length).toBe(2);
+      expect(selector.databases).toHaveLength(2);
+      expect(selector.initialDatabases).toHaveLength(2);
 
       // 模擬搜尋結果修改了 databases
       selector.databases = [{ id: '3', title: 'Search Result' }];
@@ -295,8 +295,8 @@ describe('SearchableDatabaseSelector', () => {
       // 還原初始列表
       selector.restoreInitialDatabases();
 
-      expect(selector.databases.length).toBe(2);
-      expect(selector.filteredDatabases.length).toBe(2);
+      expect(selector.databases).toHaveLength(2);
+      expect(selector.filteredDatabases).toHaveLength(2);
       expect(selector.databases[0].id).toBe('1');
     });
   });
@@ -652,7 +652,7 @@ describe('SearchableDatabaseSelector', () => {
       selector.populateDatabases([
         { id: '1', object: 'database', title: [{ plain_text: 'Initial' }] },
       ]);
-      expect(selector.initialDatabases.length).toBe(1);
+      expect(selector.initialDatabases).toHaveLength(1);
 
       // 添加搜尋結果（不應覆蓋初始列表）
       selector.populateDatabases(
@@ -660,7 +660,7 @@ describe('SearchableDatabaseSelector', () => {
         true
       );
 
-      expect(selector.initialDatabases.length).toBe(1);
+      expect(selector.initialDatabases).toHaveLength(1);
       expect(selector.initialDatabases[0].id).toBe('1');
     });
   });

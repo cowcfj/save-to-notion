@@ -15,14 +15,14 @@
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
 
 // Mock Logger
-global.Logger = {
+globalThis.Logger = {
   log: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
 };
 
 // Mock chrome API
-global.chrome = {
+globalThis.chrome = {
   runtime: {
     id: 'test-extension-id',
     lastError: null,

@@ -493,12 +493,12 @@ describe('頁面複雜度檢測器', () => {
       };
 
       // Mock analytics
-      const originalAnalytics = window.analytics;
-      window.analytics = { track: jest.fn() };
+      const originalAnalytics = globalThis.analytics;
+      globalThis.analytics = { track: jest.fn() };
 
       logAnalysis(complexity, selection, extractionResult);
 
-      expect(window.analytics.track).toHaveBeenCalledWith(
+      expect(globalThis.analytics.track).toHaveBeenCalledWith(
         'content_extraction_analysis',
         expect.objectContaining({
           extractor: 'extractus',
@@ -509,7 +509,7 @@ describe('頁面複雜度檢測器', () => {
       );
 
       // Cleanup
-      window.analytics = originalAnalytics;
+      globalThis.analytics = originalAnalytics;
     });
   });
 

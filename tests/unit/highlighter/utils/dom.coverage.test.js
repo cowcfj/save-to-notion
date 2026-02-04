@@ -17,7 +17,7 @@ describe('DOM Utils Coverage Tests', () => {
 
   describe('supportsHighlightAPI', () => {
     test('should return true when CSS.highlights is available', () => {
-      global.CSS = {
+      globalThis.CSS = {
         highlights: new Map(),
       };
 
@@ -25,16 +25,16 @@ describe('DOM Utils Coverage Tests', () => {
     });
 
     test('should return false when CSS is undefined', () => {
-      const originalCSS = global.CSS;
-      delete global.CSS;
+      const originalCSS = globalThis.CSS;
+      delete globalThis.CSS;
 
       expect(supportsHighlightAPI()).toBe(false);
 
-      global.CSS = originalCSS;
+      globalThis.CSS = originalCSS;
     });
 
     test('should return false when highlights is not in CSS', () => {
-      global.CSS = {};
+      globalThis.CSS = {};
 
       expect(supportsHighlightAPI()).toBe(false);
     });
@@ -72,7 +72,7 @@ describe('DOM Utils Coverage Tests', () => {
     test('should return text for visible element', () => {
       const div = document.createElement('div');
       div.textContent = '  Test content  ';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       expect(getVisibleText(div)).toBe('Test content');
     });
@@ -81,7 +81,7 @@ describe('DOM Utils Coverage Tests', () => {
       const div = document.createElement('div');
       div.textContent = 'Hidden';
       div.style.display = 'none';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       expect(getVisibleText(div)).toBe('');
     });
@@ -90,7 +90,7 @@ describe('DOM Utils Coverage Tests', () => {
       const div = document.createElement('div');
       div.textContent = 'Hidden';
       div.style.visibility = 'hidden';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       expect(getVisibleText(div)).toBe('');
     });
@@ -99,7 +99,7 @@ describe('DOM Utils Coverage Tests', () => {
       const div = document.createElement('div');
       div.textContent = 'Hidden';
       div.style.opacity = '0';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       expect(getVisibleText(div)).toBe('');
     });
@@ -111,7 +111,7 @@ describe('DOM Utils Coverage Tests', () => {
 
     test('should return empty string for element without text', () => {
       const div = document.createElement('div');
-      document.body.appendChild(div);
+      document.body.append(div);
 
       expect(getVisibleText(div)).toBe('');
     });
@@ -125,7 +125,7 @@ describe('DOM Utils Coverage Tests', () => {
       div.style.left = '0px';
       div.style.width = '100px';
       div.style.height = '100px';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       // Mock getBoundingClientRect
       div.getBoundingClientRect = jest.fn(() => ({
@@ -142,7 +142,7 @@ describe('DOM Utils Coverage Tests', () => {
 
     test('should return false for element outside viewport (below)', () => {
       const div = document.createElement('div');
-      document.body.appendChild(div);
+      document.body.append(div);
 
       div.getBoundingClientRect = jest.fn(() => ({
         top: window.innerHeight + 100,
@@ -158,7 +158,7 @@ describe('DOM Utils Coverage Tests', () => {
 
     test('should return false for element outside viewport (right)', () => {
       const div = document.createElement('div');
-      document.body.appendChild(div);
+      document.body.append(div);
 
       div.getBoundingClientRect = jest.fn(() => ({
         top: 0,
@@ -181,7 +181,7 @@ describe('DOM Utils Coverage Tests', () => {
   describe('getAttribute', () => {
     test('should return attribute value when it exists', () => {
       const div = document.createElement('div');
-      div.setAttribute('data-id', '123');
+      div.dataset.id = '123';
 
       expect(getAttribute(div, 'data-id')).toBe('123');
     });
@@ -205,7 +205,7 @@ describe('DOM Utils Coverage Tests', () => {
 
     test('should handle empty string attribute value', () => {
       const div = document.createElement('div');
-      div.setAttribute('data-value', '');
+      div.dataset.value = '';
 
       expect(getAttribute(div, 'data-value', 'default')).toBe('');
     });

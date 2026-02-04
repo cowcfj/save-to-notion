@@ -14,20 +14,23 @@ import { TEXT_PROCESSING, NOTION_API } from '../../config/index.js';
 
 /**
  * 文本內容最大長度（從統一配置獲取）
+ *
  * @constant {number}
  */
 const MAX_TEXT_LENGTH = TEXT_PROCESSING?.MAX_RICH_TEXT_LENGTH || 2000;
 
 /**
  * 高亮標記區域標題（從統一配置獲取）
+ *
  * @constant {string}
  */
 const HIGHLIGHT_SECTION_HEADER = NOTION_API?.HIGHLIGHT_SECTION_HEADER || '📝 頁面標記';
 
 /**
  * 創建 rich_text 對象
+ *
  * @param {string} content - 文本內容
- * @param {Object} options - 選項
+ * @param {object} options - 選項
  * @param {string} options.color - 文本顏色 (default, gray, brown, orange, yellow, green, blue, purple, pink, red)
  * @param {boolean} options.bold - 粗體
  * @param {boolean} options.italic - 斜體
@@ -35,10 +38,10 @@ const HIGHLIGHT_SECTION_HEADER = NOTION_API?.HIGHLIGHT_SECTION_HEADER || '📝 �
  * @param {boolean} options.underline - 底線
  * @param {boolean} options.code - 代碼樣式
  * @param {string} options.link - 連結 URL
- * @returns {Object} rich_text 對象
+ * @returns {object} rich_text 對象
  */
 function createRichText(content, options = {}) {
-  const text = (content || '').substring(0, MAX_TEXT_LENGTH);
+  const text = (content || '').slice(0, Math.max(0, MAX_TEXT_LENGTH));
 
   const richText = {
     type: 'text',
@@ -80,9 +83,10 @@ function createRichText(content, options = {}) {
 
 /**
  * 創建段落區塊
+ *
  * @param {string} content - 段落內容
- * @param {Object} options - rich_text 選項
- * @returns {Object} Notion paragraph block
+ * @param {object} options - rich_text 選項
+ * @returns {object} Notion paragraph block
  */
 function createParagraph(content, options = {}) {
   return {
@@ -96,9 +100,10 @@ function createParagraph(content, options = {}) {
 
 /**
  * 創建標題區塊
+ *
  * @param {string} content - 標題內容
  * @param {number} level - 標題層級 (1, 2, 3)
- * @returns {Object} Notion heading block
+ * @returns {object} Notion heading block
  */
 function createHeading(content, level = 2) {
   const validLevel = Math.min(Math.max(level, 1), 3);
@@ -115,9 +120,10 @@ function createHeading(content, level = 2) {
 
 /**
  * 創建圖片區塊
+ *
  * @param {string} url - 圖片 URL
  * @param {string} caption - 圖片說明 (可選)
- * @returns {Object} Notion image block
+ * @returns {object} Notion image block
  */
 function createImage(url, caption = '') {
   const block = {
@@ -138,9 +144,10 @@ function createImage(url, caption = '') {
 
 /**
  * 創建代碼區塊
+ *
  * @param {string} code - 代碼內容
  * @param {string} language - 程式語言 (默認 'plain text')
- * @returns {Object} Notion code block
+ * @returns {object} Notion code block
  */
 function createCodeBlock(code, language = 'plain text') {
   return {
@@ -155,8 +162,9 @@ function createCodeBlock(code, language = 'plain text') {
 
 /**
  * 創建項目符號列表項
+ *
  * @param {string} content - 列表項內容
- * @returns {Object} Notion bulleted_list_item block
+ * @returns {object} Notion bulleted_list_item block
  */
 function createBulletItem(content) {
   return {
@@ -170,8 +178,9 @@ function createBulletItem(content) {
 
 /**
  * 創建編號列表項
+ *
  * @param {string} content - 列表項內容
- * @returns {Object} Notion numbered_list_item block
+ * @returns {object} Notion numbered_list_item block
  */
 function createNumberedItem(content) {
   return {
@@ -185,8 +194,9 @@ function createNumberedItem(content) {
 
 /**
  * 創建引用區塊
+ *
  * @param {string} content - 引用內容
- * @returns {Object} Notion quote block
+ * @returns {object} Notion quote block
  */
 function createQuote(content) {
   return {
@@ -200,7 +210,8 @@ function createQuote(content) {
 
 /**
  * 創建分隔線
- * @returns {Object} Notion divider block
+ *
+ * @returns {object} Notion divider block
  */
 function createDivider() {
   return {
@@ -213,6 +224,7 @@ function createDivider() {
 /**
  * 將長文本分割成符合 Notion 限制的片段 (智能分割)
  * Notion API 限制每個 rich_text 區塊最多 2000 字符
+ *
  * @param {string} text - 原始文本
  * @param {number} maxLength - 最大長度
  * @returns {string[]} 分割後的文本片段
@@ -253,8 +265,8 @@ function splitTextForHighlight(text, maxLength = 2000) {
       }
     }
 
-    chunks.push(remaining.substring(0, splitIndex).trim());
-    remaining = remaining.substring(splitIndex).trim();
+    chunks.push(remaining.slice(0, Math.max(0, splitIndex)).trim());
+    remaining = remaining.slice(Math.max(0, splitIndex)).trim();
   }
 
   return chunks.filter(chunk => chunk.length > 0);
@@ -262,6 +274,7 @@ function splitTextForHighlight(text, maxLength = 2000) {
 
 /**
  * 創建標註區塊組（包含標題和標註內容）
+ *
  * @param {Array} highlights - 標註數據數組 [{text, color}]
  * @param {string} title - 標題（默認使用配置的標記區域標題）
  * @returns {Array} Notion blocks 數組
@@ -292,8 +305,9 @@ function buildHighlightBlocks(highlights, title = HIGHLIGHT_SECTION_HEADER) {
 
 /**
  * 將純文本內容轉換為段落區塊數組
+ *
  * @param {string} text - 純文本內容
- * @param {Object} options - 選項
+ * @param {object} options - 選項
  * @param {number} options.minLength - 最小段落長度 (默認 10)
  * @returns {Array} Notion paragraph blocks 數組
  */
@@ -314,6 +328,7 @@ function textToParagraphs(text, options = {}) {
 
 /**
  * 創建錯誤回退區塊
+ *
  * @param {string} message - 錯誤訊息
  * @returns {Array} 包含錯誤訊息的 blocks 數組
  */
@@ -323,7 +338,8 @@ function createFallbackBlocks(message = 'Content extraction failed.') {
 
 /**
  * 驗證區塊結構是否有效
- * @param {Object} block - Notion block 對象
+ *
+ * @param {object} block - Notion block 對象
  * @returns {boolean} 是否為有效區塊
  */
 function isValidBlock(block) {

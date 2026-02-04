@@ -36,7 +36,7 @@ jest.mock('../../../scripts/utils/securityUtils.js', () => ({
 import { createHighlightHandlers } from '../../../scripts/background/handlers/highlightHandlers.js';
 
 // Global mocks
-global.Logger = {
+globalThis.Logger = {
     log: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
@@ -44,7 +44,7 @@ global.Logger = {
     debug: jest.fn(),
 };
 
-global.chrome = {
+globalThis.chrome = {
     runtime: { id: 'mock-id', lastError: null },
     tabs: { sendMessage: jest.fn(), query: jest.fn() },
 };

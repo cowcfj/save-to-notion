@@ -10,13 +10,13 @@ const {
 describe('ContentBridge', () => {
   // Mock Logger
   beforeAll(() => {
-    global.Logger = {
+    globalThis.Logger = {
       log: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
       info: jest.fn(),
     };
-    global.document = {
+    globalThis.document = {
       title: 'Test Document',
       createElement: jest.fn(() => ({
         innerHTML: '',
@@ -27,8 +27,8 @@ describe('ContentBridge', () => {
   });
 
   afterAll(() => {
-    delete global.Logger;
-    delete global.document;
+    delete globalThis.Logger;
+    delete globalThis.document;
   });
 
   describe('bridgeContentToBlocks', () => {
@@ -201,8 +201,8 @@ describe('ContentBridge', () => {
       };
 
       // Mock document.createElement 更完整
-      const originalCreateElement = global.document.createElement;
-      global.document.createElement = jest.fn(() => ({
+      const originalCreateElement = globalThis.document.createElement;
+      globalThis.document.createElement = jest.fn(() => ({
         innerHTML: '',
         get textContent() {
           return 'Fallback text content';
@@ -221,7 +221,7 @@ describe('ContentBridge', () => {
       expect(result.blocks.length).toBeGreaterThanOrEqual(1);
       expect(Logger.error).toHaveBeenCalled();
 
-      global.document.createElement = originalCreateElement;
+      globalThis.document.createElement = originalCreateElement;
     });
 
     test('應在空 blocks 結果時創建回退區塊', () => {
@@ -269,7 +269,7 @@ describe('ContentBridge', () => {
   describe('createTextBlocks', () => {
     beforeEach(() => {
       // Mock document.createElement 返回可設置 innerHTML 的對象
-      global.document.createElement = jest.fn(() => {
+      globalThis.document.createElement = jest.fn(() => {
         const elem = {
           _innerHTML: '',
           _textContent: '',
@@ -279,7 +279,7 @@ describe('ContentBridge', () => {
           set innerHTML(val) {
             this._innerHTML = val;
             // 模擬瀏覽器行為：設置 innerHTML 後更新 textContent
-            this._textContent = val.replace(/<[^>]*>/g, '');
+            this._textContent = val.replaceAll(/<[^>]*>/g, '');
           },
           get textContent() {
             return this._textContent;

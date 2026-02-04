@@ -9,7 +9,9 @@
 /* global chrome */
 
 import Logger from './Logger.js';
-import { ERROR_MESSAGES } from '../config/messages.js';
+import { SECURITY_CONSTANTS } from '../config/constants.js';
+
+import { API_ERROR_PATTERNS } from '../config/messages.js';
 
 // ============================================================================
 // URL 驗證函數
@@ -17,6 +19,7 @@ import { ERROR_MESSAGES } from '../config/messages.js';
 
 /**
  * 驗證 URL 格式是否有效
+ *
  * @param {string} urlString - 要驗證的 URL 字串
  * @returns {boolean} 是否為有效的 URL
  */
@@ -31,6 +34,7 @@ export function isValidUrl(urlString) {
 
 /**
  * 驗證是否為安全的 Notion URL
+ *
  * @param {string} urlString - 要驗證的 URL 字串
  * @returns {boolean} 是否為有效的 Notion URL
  */
@@ -47,7 +51,10 @@ export function isValidNotionUrl(urlString) {
     const allowedDomains = ['notion.so', 'www.notion.so'];
 
     // 規範化 hostname：轉小寫並移除 trailing dot
-    const hostname = url.hostname.toLowerCase().replace(/\.+$/, '');
+    let hostname = url.hostname.toLowerCase();
+    while (hostname.endsWith('.')) {
+      hostname = hostname.slice(0, -1);
+    }
 
     // 允許 notion.so 的子網域（例如 xxx.notion.so）
     return allowedDomains.includes(hostname) || hostname.endsWith('.notion.so');
@@ -62,6 +69,7 @@ export function isValidNotionUrl(urlString) {
 
 /**
  * 驗證請求來源是否為擴充功能內部
+ *
  * @param {object} sender - Chrome message sender object
  * @returns {object|null} 錯誤對象或 null（驗證通過）
  */
@@ -81,6 +89,7 @@ export function validateInternalRequest(sender) {
 
 /**
  * 驗證請求是否來自我們自己的 content script
+ *
  * @param {object} sender - Chrome message sender object
  * @returns {object|null} 錯誤對象或 null（驗證通過）
  */
@@ -93,7 +102,7 @@ export function validateContentScriptRequest(sender) {
     return { success: false, error: '拒絕訪問：僅限本擴充功能的 content script 調用' };
   }
 
-  if (!sender.tab || !sender.tab.id) {
+  if (!sender.tab?.id) {
     return { success: false, error: '拒絕訪問：此操作必須在標籤頁上下文中調用' };
   }
 
@@ -105,12 +114,100 @@ export function validateContentScriptRequest(sender) {
 // ============================================================================
 
 // [REMOVED] sanitizeUrlForLogging moved to LogSanitizer.js
-import { sanitizeUrlForLogging } from './LogSanitizer.js';
-export { sanitizeUrlForLogging }; // Re-export for compatibility if needed
+// [REMOVED] sanitizeUrlForLogging moved to LogSanitizer.js
+export { sanitizeUrlForLogging } from './LogSanitizer.js';
 
 // [REMOVED] maskSensitiveString moved to LogSanitizer.js
 
 // [REMOVED] escapeHtml as it is no longer needed with DOM API refactoring
+
+/**
+ * 內部 API 錯誤分類器 (私有實現，引用純配置數據)
+ *
+ * @param {string} lowerMessage - 已轉小寫的錯誤訊息
+ * @returns {string|null} 分類後的錯誤關鍵字
+ */
+function _classifyApiError(lowerMessage) {
+  const {
+    AUTH,
+    AUTH_DISCONNECTED,
+    AUTH_INVALID,
+    PERMISSION,
+    PERMISSION_DB,
+    RATE_LIMIT,
+    NOT_FOUND,
+    ACTIVE_TAB,
+    DATA_SOURCE,
+    VALIDATION,
+    NETWORK,
+    SERVER_ERROR,
+  } = API_ERROR_PATTERNS;
+
+  // 1. 認證與權限 (Auth & Permission)
+  const authResult = _checkAuthErrors(lowerMessage, AUTH, AUTH_DISCONNECTED, AUTH_INVALID);
+  if (authResult) {
+    return authResult;
+  }
+
+  if (PERMISSION.some(k => lowerMessage.includes(k))) {
+    return PERMISSION_DB.some(k => lowerMessage.includes(k))
+      ? 'Database access denied'
+      : 'Cannot access contents';
+  }
+
+  // 2. 簡單映射 (Simple Mapping)
+  const directMatch = _checkSimpleMappings(lowerMessage, {
+    'rate limit': RATE_LIMIT,
+    'Page ID is missing': NOT_FOUND,
+    'active tab': ACTIVE_TAB,
+    'Data Source ID': DATA_SOURCE,
+    'Invalid request': VALIDATION,
+    'Network error': NETWORK,
+  });
+  if (directMatch) {
+    return directMatch;
+  }
+
+  // 3. 服務器錯誤 (Server Error)
+  if (SERVER_ERROR.some(k => lowerMessage.includes(k))) {
+    return _checkServerError(lowerMessage);
+  }
+
+  return null;
+}
+
+// === 輔助函數 (降低 Cognitive Complexity) ===
+
+function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid) {
+  if (!patterns.some(k => lowerMessage.includes(k))) {
+    return null;
+  }
+  if (disconnected.some(k => lowerMessage.includes(k))) {
+    return 'Integration disconnected';
+  }
+  if (invalid.some(k => lowerMessage.includes(k))) {
+    return 'Invalid API Key format';
+  }
+  return 'API Key';
+}
+
+function _checkSimpleMappings(lowerMessage, mapping) {
+  for (const [result, patterns] of Object.entries(mapping)) {
+    if (patterns.some(k => lowerMessage.includes(k))) {
+      return result;
+    }
+  }
+  return null;
+}
+
+function _checkServerError(lowerMessage) {
+  const isInternal = lowerMessage.includes('internal') && lowerMessage.includes('error');
+  const isUnavailable = lowerMessage.includes('service') && lowerMessage.includes('unavailable');
+  if (isInternal || isUnavailable) {
+    return 'Internal Server Error';
+  }
+  return null;
+}
 
 /**
  * 清理外部 API 錯誤訊息，防止洩露技術細節並標準化錯誤分類
@@ -118,131 +215,33 @@ export { sanitizeUrlForLogging }; // Re-export for compatibility if needed
  * 安全與架構考量：
  * 1. 職責分離：此函數僅負責「分類」與「清洗」，不包含 UI 文案。
  * 2. 縱深防禦：防止內部實現細節、Stack Traces 等洩露。
- * 3. 翻譯橋接：返回的字串（如 'API Key'）應與 constants.js 中的 ERROR_MESSAGES.PATTERNS 鍵對應。
+ * 3. 翻譯橋接：返回的關鍵字（如 'API Key'）由 ErrorHandler 轉換為友善語句。
  *
- * @param {string|Object} apiError - API 錯誤訊息或錯誤對象
+ * @param {string | object} apiError - API 錯誤訊息或錯誤對象
  * @param {string} context - 錯誤上下文（如 'create_page', 'update_page'）
- * @returns {string} 錯誤代碼或清洗後的安全錯誤訊息（由 ErrorHandler 轉換為友善語句）
+ * @returns {string | object} 錯誤代碼或清洗後的結構化錯誤對象
  */
 export function sanitizeApiError(apiError, context = 'operation') {
   const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
   const lowerMessage = errorMessage.toLowerCase();
 
-  // 1. Integration 連接斷開（token 被撤銷或過期）- 最具體，優先檢查
-  if (
-    lowerMessage.includes('unauthorized') &&
-    (lowerMessage.includes('token') || lowerMessage.includes('integration'))
-  ) {
-    return 'Integration disconnected';
+  // 1. 使用內部解析器進行分類 (引用配置)
+  const classification = _classifyApiError(lowerMessage);
+  if (classification) {
+    return classification;
   }
 
-  // 2. API Key 格式無效
-  // 注意：若錯誤同時包含 unauthorized（如 "unauthorized: invalid token"），
-  // 會被上方第 1 條規則攔截並返回 Integration disconnected，這裡僅處理純格式錯誤
-  if (
-    lowerMessage.includes('invalid token') ||
-    lowerMessage.includes('invalid api key') ||
-    lowerMessage.includes('malformed')
-  ) {
-    return 'Invalid API Key format';
-  }
-
-  // 3. 一般認證錯誤 (映射至 constants.js: 'API Key')
-  // 注意：此檢查在第 218-224 行的 Integration 檢查之後執行
-  // 若錯誤訊息包含 unauthorized + token/integration 會被上方攔截，這裡只處理純 unauthorized 類錯誤
-  if (
-    lowerMessage.includes('unauthorized') ||
-    lowerMessage.includes('authentication') ||
-    lowerMessage.includes('api key')
-  ) {
-    return 'API Key';
-  }
-
-  // 4. 資料庫權限不足
-  // 注意：此檢查必須在第 276 行的通用 database 檢查之前，否則權限錯誤會被錯誤分類為 'Data Source ID'
-  if (
-    lowerMessage.includes('database') &&
-    (lowerMessage.includes('forbidden') ||
-      lowerMessage.includes('permission') ||
-      lowerMessage.includes('access denied'))
-  ) {
-    return 'Database access denied';
-  }
-
-  // 5. 一般權限不足錯誤
-  if (
-    lowerMessage.includes('forbidden') ||
-    lowerMessage.includes('permission') ||
-    lowerMessage.includes('access denied')
-  ) {
-    return 'Cannot access contents';
-  }
-
-  // 6. 速率限制錯誤 (映射至 constants.js: 'rate limit')
-  if (lowerMessage.includes('rate limit') || lowerMessage.includes('too many requests')) {
-    return 'rate limit';
-  }
-
-  // 7. 資源不存在錯誤
-  if (lowerMessage.includes('not found') || lowerMessage.includes('does not exist')) {
-    return 'Page ID is missing'; // 映射至資源遺失類錯誤
-  }
-
-  // 7a. Tab 相關錯誤 (映射至 constants.js: 'active tab')
-  if (lowerMessage.includes('active tab')) {
-    return 'active tab';
-  }
-
-  // 8. 數據庫/頁面上下文錯誤 (映射至 constants.js: 'Data Source ID')
-  // 注意：此檢查必須在第 246-253 行的資料庫權限檢查之後，因為那個檢查更具體
-  if (lowerMessage.includes('database') || lowerMessage.includes('object_not_found')) {
-    return 'Data Source ID';
-  }
-
-  // 9. 驗證錯誤（圖片、數據格式等）
-  if (
-    lowerMessage.includes('validation') ||
-    lowerMessage.includes('image') ||
-    lowerMessage.includes('media') ||
-    lowerMessage.includes('conflict') ||
-    lowerMessage.includes('bad request') ||
-    lowerMessage.includes('invalid') ||
-    lowerMessage.includes('400')
-  ) {
-    return 'Invalid request';
-  }
-
-  // 10. 網絡/超時錯誤 (映射至 constants.js: 'Network error')
-  if (
-    lowerMessage.includes('network') ||
-    lowerMessage.includes('fetch') ||
-    lowerMessage.includes('timeout') ||
-    lowerMessage.includes('enotfound')
-  ) {
-    return 'Network error';
-  }
-
-  // 11. Notion 服務器內部錯誤
-  if (
-    (lowerMessage.includes('service') && lowerMessage.includes('unavailable')) ||
-    (lowerMessage.includes('internal') && lowerMessage.includes('error'))
-  ) {
-    return 'Internal Server Error';
-  }
-
-  // 9. 如果是已知友善字串（兼容性墊片）：
-  // 如果字串中包含中文字符，視為已經是友善訊息
-  // [安全更正] 因 UI 已全面改用 textContent，此處不再需要 escapeHtml
-  if (/[\u{4e00}-\u{9fa5}]/u.test(errorMessage)) {
+  // 2. 處理中文字串 (友善訊息)
+  // 限制檢查長度防止 ReDoS
+  if (/\p{Unified_Ideograph}/u.test(errorMessage.slice(0, 500))) {
     return errorMessage;
   }
 
-  // 10. 兜底處理：將不可識別的技術訊息清洗為通用標籤
-  // 不直接返回 errorMessage 以防洩露敏感資訊
-  // [安全性修復] 不記錄原始錯誤訊息，避免敏感資訊（如 token、URL、識別碼）洩露到日誌
+  // 3. 結構化兜底處理
   Logger.warn(
     `[Security] Unrecognized API error sanitized (context: ${context}, length: ${errorMessage.length})`
   );
+
   return 'Unknown Error';
 }
 
@@ -280,10 +279,12 @@ export function validateSafeDomElement(element, contextDocument, expectedSelecto
 
   // 4. 正確性：如果提供了選擇器，必須匹配
   // 防止元素標籤或屬性被篡改
-  if (expectedSelector && typeof element.matches === 'function') {
-    if (!element.matches(expectedSelector)) {
-      return false;
-    }
+  if (
+    expectedSelector &&
+    typeof element.matches === 'function' &&
+    !element.matches(expectedSelector)
+  ) {
+    return false;
   }
 
   return true;
@@ -292,7 +293,7 @@ export function validateSafeDomElement(element, contextDocument, expectedSelecto
 /**
  * 驗證 Preloader 快取對象的結構完整性
  *
- * @param {Object} cache - 待驗證的快取對象
+ * @param {object} cache - 待驗證的快取對象
  * @returns {boolean} 是否為有效的快取結構
  */
 export function validatePreloaderCache(cache) {
@@ -321,17 +322,14 @@ export function validatePreloaderCache(cache) {
  *
  * @param {string} svgContent - SVG 字串內容
  * @returns {boolean} 是否為安全的 SVG（true = 安全，false = 包含危險內容）
- *
  * @example
  * // 安全的 SVG
  * validateSafeSvg('<svg width="16" height="16"><circle cx="8" cy="8" r="8"/></svg>')
  * // 返回: true
- *
  * @example
  * // 危險的 SVG（包含 script）
  * validateSafeSvg('<svg><script>alert("XSS")</script></svg>')
  * // 返回: false
- *
  * @example
  * // 格式不完整的 SVG（缺少結束標籤）
  * validateSafeSvg('<svg width="16" height="16"><circle/>')
@@ -373,7 +371,7 @@ export function validateSafeSvg(svgContent) {
   //   - onfocus, onblur（焦點事件）
   // - <foreignObject>：可嵌入 HTML 內容（潛在風險）
   const dangerousPatterns =
-    /<script|<embed|<object|<iframe|<foreignObject|javascript:|data:text\/html|onerror|onload|onclick|onmouseover|onfocus|onblur|onanimationstart|onanimationend|ontransitionend/i;
+    /<script|<embed|<object|<iframe|<foreignobject|javascript:|data:text\/html|onerror|onload|onclick|onmouseover|onfocus|onblur|onanimationstart|onanimationend|ontransitionend/i;
 
   const hasDangerousContent = dangerousPatterns.test(svgContent);
 
@@ -387,36 +385,11 @@ export function validateSafeSvg(svgContent) {
   // ============================================================================
   // 允許的 SVG 標籤（常見且安全的圖形元素）
   // 注意：這是基礎白名單，可根據實際需求擴展
-  const allowedTags = [
-    'svg',
-    'path',
-    'circle',
-    'rect',
-    'line',
-    'polyline',
-    'polygon',
-    'ellipse',
-    'g',
-    'defs',
-    'use',
-    'symbol',
-    'title',
-    'desc',
-    'lineargradient', // 注意：轉為小寫比較
-    'radialgradient',
-    'stop',
-    'clippath',
-    'mask',
-    'pattern',
-    'text',
-    'tspan',
-    'image', // 允許圖片（但已在危險模式中檢查 data: 協議）
-    'a', // 允許連結（但已在危險模式中檢查 javascript: 協議）
-  ];
+  const allowedTags = SECURITY_CONSTANTS.SVG_ALLOWED_TAGS;
 
   // 提取所有標籤名稱（簡化驗證，不使用完整 XML 解析器）
   // 正則說明：匹配 <tagname 或 </tagname 格式，支援駝峰命名
-  const tagPattern = /<\/?([a-z][a-z0-9]*)/gi;
+  const tagPattern = /<\/?([a-z][\da-z]*)/gi;
   const foundTags = new Set();
   let match = null;
 
@@ -448,17 +421,14 @@ export function validateSafeSvg(svgContent) {
  *
  * @param {string} message - 原始消息字串（可能包含圖標前綴）
  * @returns {{icon: string, text: string}} 分離後的圖標和文本
- *
  * @example
  * // SVG 圖標 + 文本
  * separateIconAndText('<svg>...</svg> 操作成功')
  * // 返回: {icon: '<svg>...</svg>', text: ' 操作成功'}
- *
  * @example
  * // Emoji 圖標 + 文本
  * separateIconAndText('✅ 操作成功')
  * // 返回: {icon: '✅', text: ' 操作成功'}
- *
  * @example
  * // 純文本（無圖標）
  * separateIconAndText('操作成功')
@@ -479,7 +449,7 @@ export function separateIconAndText(message) {
   const iconPattern =
     /^(?:<svg[^>]*>.*?<\/svg>|(?:\p{RI}\p{RI}|\p{Emoji}(?:\p{Emoji_Modifier}|\u{FE0F}|\u{200D}\p{Emoji})*))/su;
 
-  const match = message.match(iconPattern);
+  const match = iconPattern.exec(message);
 
   if (match) {
     const icon = match[0];
@@ -504,14 +474,27 @@ export function separateIconAndText(message) {
  * @returns {HTMLElement} 包含 SVG 的 span 元素
  */
 export const createSafeIcon = svgString => {
-  if (!svgString || !svgString.startsWith('<svg')) {
+  if (!svgString?.startsWith('<svg')) {
     const span = document.createElement('span');
     span.textContent = svgString || '';
     return span;
   }
 
+  // Defense in Depth: 在解析前先驗證內容安全性
+  // 這可以防止惡意構造的 SVG 繞過後續處理，或利用解析器的漏洞
+  if (!validateSafeSvg(svgString)) {
+    // validateSafeSvg 內部已經會記錄警告日誌
+    return document.createElement('span');
+  }
+
+  // 確保 SVG 具有 XML 命名空間，這對於 DOMParser ('image/svg+xml') 是必須的
+  let validSvgString = svgString;
+  if (!validSvgString.includes('xmlns=')) {
+    validSvgString = validSvgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  }
+
   const parser = new DOMParser();
-  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+  const doc = parser.parseFromString(validSvgString, 'image/svg+xml');
   const svgElement = doc.documentElement;
 
   if (svgElement.tagName === 'parsererror') {
@@ -532,8 +515,144 @@ export const createSafeIcon = svgString => {
     return document.createElement('span');
   }
 
+  // 標準化：為 SVG 添加 CSS 類以便正確樣式化
+  if (!svgElement.classList.contains('icon-svg')) {
+    svgElement.classList.add('icon-svg');
+  }
+
   const span = document.createElement('span');
-  span.className = 'icon-wrapper';
-  span.appendChild(svgElement);
+  span.className = 'icon'; // 使用標準的 icon 類別
+  span.append(svgElement);
   return span;
 };
+
+/**
+ * 驗證日誌導出數據的安全性
+ * 確保從 Background 返回的數據結構符合預期且不包含惡意內容
+ *
+ * @param {object} data - 待驗證的數據對象
+ * @throws {Error} 如果驗證失敗，拋出具體錯誤
+ */
+export function validateLogExportData(data) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid response format: missing data object');
+  }
+
+  const { filename, content, mimeType } = data;
+
+  // 1. 驗證文件名 (防止 Path Traversal 或惡意擴展名)
+  // 僅允許字母、數字、點、下劃線、連字符，且必須以 .json 結尾
+  if (!filename || typeof filename !== 'string' || !/^[\w.-]+\.json$/i.test(filename)) {
+    throw new TypeError('Security check failed: Invalid filename format');
+  }
+
+  // 2. 驗證內容 (必須是字串)
+  if (typeof content !== 'string') {
+    throw new TypeError('Security check failed: Invalid content type');
+  }
+
+  // 3. 驗證 MIME 類型 (僅允許 application/json)
+  if (mimeType !== 'application/json') {
+    throw new Error('Security check failed: Invalid MIME type');
+  }
+}
+
+/**
+ * 允許的 SVG 屬性白名單與安全協議（屬性級過濾）
+ * 注意：定義已移動至 constants.js，此函數負責邏輯檢查
+ *
+ * @param {string} name - 屬性名
+ * @param {string} value - 屬性值
+ * @returns {boolean} 是否安全
+ */
+export function isSafeSvgAttribute(name, value) {
+  const attrName = String(name || '').toLowerCase();
+
+  // 阻擋 on* 事件屬性
+  if (attrName.startsWith('on')) {
+    return false;
+  }
+
+  // 白名單屬性檢查
+  const allowedAttrs = SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS.map(attr => attr.toLowerCase());
+  if (!allowedAttrs.includes(attrName)) {
+    return false;
+  }
+
+  // URL 相關屬性需要協議安全檢查
+  if (/(?:^|:)href$|^src$/i.test(attrName)) {
+    const attrValue = String(value || '').trim();
+    // 明確阻擋 javascript: 與 data:text/html
+    if (/^\s*javascript:/i.test(attrValue) || /^\s*data:text\/html/i.test(attrValue)) {
+      return false;
+    }
+    try {
+      const url = new URL(attrValue, 'https://example.com');
+      if (!SECURITY_CONSTANTS.SAFE_URL_PROTOCOLS.includes(url.protocol)) {
+        return false;
+      }
+    } catch {
+      // 非法 URL 字串：視為不安全
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * 驗證備份數據的結構安全性
+ *
+ * @param {object} backup - 用戶上傳的備份對象
+ * @throws {Error} 如果驗證失敗
+ */
+export function validateBackupData(backup) {
+  if (!backup || typeof backup !== 'object') {
+    throw new Error('Invalid backup format: root must be an object');
+  }
+
+  // 1. 必要欄位檢查
+  if (!backup.version || typeof backup.version !== 'string') {
+    throw new Error('Invalid backup version');
+  }
+
+  if (!backup.timestamp || typeof backup.timestamp !== 'string') {
+    throw new Error('Invalid backup timestamp');
+  }
+
+  if (!backup.data || typeof backup.data !== 'object') {
+    // 這裡我們直接使用字串，避免引入 ERROR_MESSAGES 的循環依賴風險，如果它沒被正確導出
+    throw new Error('Invalid backup data structure');
+  }
+
+  _checkForbiddenKeys(backup.data);
+}
+
+/**
+ * 遞歸檢查對象中的禁止鍵
+ * 防止 Prototype Pollution 攻擊
+ *
+ * @param {object} obj - 待檢查的對象
+ * @throws {Error} 如果發現禁止的鍵
+ */
+function _checkForbiddenKeys(obj) {
+  // 禁止的鍵名列表
+  const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+  if (!obj || typeof obj !== 'object') {
+    return;
+  }
+
+  // 檢查當前對象的鍵
+  for (const key of Object.keys(obj)) {
+    if (FORBIDDEN_KEYS.has(key)) {
+      throw new Error(`Security Alert: Malicious key detected (${key})`);
+    }
+
+    // 遞歸檢查值 (如果是對象或陣列)
+    const value = obj[key];
+    if (value && typeof value === 'object') {
+      _checkForbiddenKeys(value);
+    }
+  }
+}

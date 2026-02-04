@@ -76,7 +76,7 @@ describe('Validation Utils Coverage Tests', () => {
     test('should return false for non-collapsed range', () => {
       const div = document.createElement('div');
       div.textContent = 'Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);

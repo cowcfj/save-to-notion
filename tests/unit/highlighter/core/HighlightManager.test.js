@@ -114,7 +114,7 @@ describe('core/HighlightManager', () => {
     test('should add a highlight with valid range', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello World';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -135,7 +135,7 @@ describe('core/HighlightManager', () => {
     test('should return null for collapsed range', () => {
       const div = document.createElement('div');
       div.textContent = 'Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -148,7 +148,7 @@ describe('core/HighlightManager', () => {
     test('should return null for empty or whitespace-only range', () => {
       const div = document.createElement('div');
       div.textContent = '   ';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -164,7 +164,7 @@ describe('core/HighlightManager', () => {
 
       const div = document.createElement('div');
       div.textContent = 'Test text';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -220,7 +220,7 @@ describe('core/HighlightManager', () => {
 
       const div = document.createElement('div');
       div.textContent = 'Retry Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -249,7 +249,7 @@ describe('core/HighlightManager', () => {
     test('should remove existing highlight', () => {
       const div = document.createElement('div');
       div.textContent = 'Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
@@ -277,7 +277,7 @@ describe('core/HighlightManager', () => {
     test('should clear all highlights', () => {
       const div = document.createElement('div');
       div.textContent = 'Test';
-      document.body.appendChild(div);
+      document.body.append(div);
       const range = document.createRange();
       range.setStart(div.firstChild, 0);
       range.setEnd(div.firstChild, 3);
@@ -349,7 +349,7 @@ describe('core/HighlightManager', () => {
       // 建立真實 DOM 結構
       const div = document.createElement('div');
       div.textContent = 'Hello World Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const textNode = div.firstChild;
 
@@ -366,13 +366,13 @@ describe('core/HighlightManager', () => {
       expect(HighlightManager.rangesOverlap(range1, range2)).toBe(true);
 
       // 清理
-      document.body.removeChild(div);
+      div.remove();
     });
 
     test('should detect non-overlapping ranges correctly', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello World Test';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const textNode = div.firstChild;
 
@@ -389,7 +389,7 @@ describe('core/HighlightManager', () => {
       expect(HighlightManager.rangesOverlap(range1, range2)).toBe(false);
 
       // 清理
-      document.body.removeChild(div);
+      div.remove();
     });
   });
 

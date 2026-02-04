@@ -12,8 +12,8 @@ import { ErrorHandler, ErrorTypes } from '../../utils/ErrorHandler.js';
 /**
  * 處理導出除錯日誌的請求
  *
- * @param {Object} message - 訊息物件，包含導出格式
- * @param {Object} sender - 訊息發送者資訊
+ * @param {object} message - 訊息物件，包含導出格式
+ * @param {object} sender - 訊息發送者資訊
  * @param {Function} sendResponse - 回應回調函數
  * @returns {boolean} 返回 true 以支援並行非同步回應
  */
@@ -39,7 +39,7 @@ export const exportDebugLogs = (message, sender, sendResponse) => {
 /**
  * 創建日誌處理程序物件
  *
- * @returns {Object} 包含日誌處理函數的物件
+ * @returns {object} 包含日誌處理函數的物件
  */
 export function createLogHandlers() {
   return {

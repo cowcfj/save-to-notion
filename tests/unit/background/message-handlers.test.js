@@ -175,7 +175,7 @@ describe('Background Message Handlers', () => {
       });
 
       // Mock fetch for Notion API
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ object: 'block', id: 'block-123' }),
@@ -305,7 +305,7 @@ describe('Background Message Handlers', () => {
       });
 
       // Mock fetch
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ object: 'block' }),
@@ -465,23 +465,29 @@ function simulateMessageHandler(request) {
 
     try {
       switch (request.action) {
-        case 'checkPageStatus':
+        case 'checkPageStatus': {
           handleCheckPageStatusSimulated(sendResponse);
           break;
-        case 'startHighlight':
+        }
+        case 'startHighlight': {
           handleStartHighlightSimulated(sendResponse);
           break;
-        case 'syncHighlights':
+        }
+        case 'syncHighlights': {
           handleSyncHighlightsSimulated(request, sendResponse);
           break;
-        case 'updateHighlights':
+        }
+        case 'updateHighlights': {
           handleUpdateHighlightsSimulated(sendResponse);
           break;
-        case 'openNotionPage':
+        }
+        case 'openNotionPage': {
           handleOpenNotionPageSimulated(request, sendResponse);
           break;
-        default:
+        }
+        default: {
           sendResponse({ success: false, error: 'Unknown action' });
+        }
       }
     } catch (error) {
       sendResponse({ success: false, error: error.message });
@@ -667,7 +673,7 @@ async function handleOpenNotionPageSimulated(request, sendResponse) {
     }
 
     const notionUrl =
-      savedData.notionUrl || `https://www.notion.so/${savedData.notionPageId.replace(/-/g, '')}`;
+      savedData.notionUrl || `https://www.notion.so/${savedData.notionPageId.replaceAll('-', '')}`;
 
     await new Promise(resolve => {
       chrome.tabs.create({ url: notionUrl }, resolve);

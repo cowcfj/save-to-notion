@@ -18,7 +18,7 @@ describe('ErrorHandler.formatUserMessage', () => {
       log: jest.fn(),
       debug: jest.fn(),
     };
-    global.Logger = mockLogger;
+    globalThis.Logger = mockLogger;
 
     // 確保 jest.resetModules() 之後重新加載，或者直接控制 mock
     jest.spyOn(ErrorHandler, 'logger', 'get').mockReturnValue(mockLogger);

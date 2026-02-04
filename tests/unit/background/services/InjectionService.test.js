@@ -5,7 +5,7 @@ import {
 } from '../../../../scripts/background/services/InjectionService.js';
 
 // Mock chrome API
-global.chrome = {
+globalThis.chrome = {
   scripting: {
     executeScript: jest.fn(),
   },
@@ -23,6 +23,7 @@ const mockLogger = {
   debug: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
+  success: jest.fn(),
 };
 
 describe('InjectionService', () => {
@@ -156,7 +157,7 @@ describe('InjectionService', () => {
       // Assert
       expect(result).toBe(true);
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.success).toHaveBeenCalledWith(
         expect.stringContaining('Bundle already exists')
       );
     });

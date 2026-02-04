@@ -12,13 +12,14 @@
 import Logger from '../../utils/Logger.js';
 import { TECHNICAL_CONTENT_SELECTORS } from '../../config/selectors.js';
 
-export class MarkdownExtractor {
+export const MarkdownExtractor = {
   /**
    * 嘗試提取 Markdown 內容
+   *
    * @param {Document} doc
-   * @returns {Object|null} { content, type: 'html', rawArticle }
+   * @returns {object | null} { content, type: 'html', rawArticle }
    */
-  static extract(doc) {
+  extract(doc) {
     Logger.log('📘 Executing MarkdownExtractor...');
 
     // 1. 尋找最佳容器
@@ -43,12 +44,14 @@ export class MarkdownExtractor {
         byline: 'MarkdownExtractor',
       },
     };
-  }
+  },
 
   /**
    * 尋找內容容器
+   *
+   * @param doc
    */
-  static findContainer(doc) {
+  findContainer(doc) {
     for (const selector of TECHNICAL_CONTENT_SELECTORS) {
       const element = doc.querySelector(selector);
       if (element) {
@@ -57,14 +60,15 @@ export class MarkdownExtractor {
       }
     }
     return null;
-  }
+  },
 
   /**
    * 清洗 DOM，移除 UI 元素但保留內容結構
+   *
    * @param {Element} element
    * @returns {Element}
    */
-  static cleanDOM(element) {
+  cleanDOM(element) {
     const clone = element.cloneNode(true);
 
     // 定義需要移除的雜訊選擇器
@@ -117,5 +121,5 @@ export class MarkdownExtractor {
 
     // 清洗完成
     return clone;
-  }
-}
+  },
+};

@@ -22,12 +22,12 @@ describe('Logger', () => {
     jest.resetModules();
 
     // 清除全局 Logger（如果存在）
-    delete global.Logger;
-    delete global.window.Logger;
-    delete global.self.Logger;
+    delete globalThis.Logger;
+    delete globalThis.window.Logger;
+    delete globalThis.self.Logger;
 
     // 保存原始 chrome 對象
-    originalChrome = global.chrome;
+    originalChrome = globalThis.chrome;
 
     // Mock console 方法
     consoleSpy = {
@@ -41,25 +41,25 @@ describe('Logger', () => {
 
   afterEach(() => {
     // 恢復 chrome 對象
-    global.chrome = originalChrome;
+    globalThis.chrome = originalChrome;
 
     // 恢復 console 方法
     Object.values(consoleSpy).forEach(spy => spy.mockRestore());
 
     // 清除全局 Logger
-    delete global.Logger;
-    delete global.window.Logger;
-    delete global.self.Logger;
+    delete globalThis.Logger;
+    delete globalThis.window.Logger;
+    delete globalThis.self.Logger;
   });
 
   describe('在非擴展環境中', () => {
     beforeEach(() => {
       // 模擬非擴展環境
-      global.chrome = undefined;
+      globalThis.chrome = undefined;
 
       // 載入 Logger 模組
       require('../../../scripts/utils/Logger.js');
-      Logger = global.window.Logger;
+      Logger = globalThis.window.Logger;
     });
 
     test('應該將 Logger 設置到 window', () => {
@@ -127,7 +127,7 @@ describe('Logger', () => {
   describe('在模擬擴展環境中（開發版本）', () => {
     beforeEach(() => {
       // 模擬 Chrome 擴展環境（開發版本）
-      global.chrome = {
+      globalThis.chrome = {
         runtime: {
           id: 'test-extension-id',
           getManifest: jest.fn().mockReturnValue({
@@ -153,7 +153,7 @@ describe('Logger', () => {
 
       // 載入 Logger 模組
       require('../../../scripts/utils/Logger.js');
-      Logger = global.window.Logger;
+      Logger = globalThis.window.Logger;
     });
 
     test('debugEnabled 應該返回 true（開發版本）', () => {
@@ -195,7 +195,7 @@ describe('Logger', () => {
   describe('在模擬擴展環境中（生產版本）', () => {
     beforeEach(() => {
       // 模擬 Chrome 擴展環境（生產版本）
-      global.chrome = {
+      globalThis.chrome = {
         runtime: {
           id: 'test-extension-id',
           getManifest: jest.fn().mockReturnValue({
@@ -216,7 +216,7 @@ describe('Logger', () => {
       };
 
       require('../../../scripts/utils/Logger.js');
-      Logger = global.window.Logger;
+      Logger = globalThis.window.Logger;
     });
 
     test('debugEnabled 應該返回 false（生產版本）', () => {
@@ -227,7 +227,7 @@ describe('Logger', () => {
   describe('Storage 配置覆蓋', () => {
     beforeEach(() => {
       // 模擬 Chrome 擴展環境，storage 配置啟用調試
-      global.chrome = {
+      globalThis.chrome = {
         runtime: {
           id: 'test-extension-id',
           getManifest: jest.fn().mockReturnValue({
@@ -250,16 +250,16 @@ describe('Logger', () => {
       };
 
       require('../../../scripts/utils/Logger.js');
-      Logger = global.window.Logger;
+      Logger = globalThis.window.Logger;
     });
 
     test('應該註冊 storage 變更監聽器', () => {
-      expect(global.chrome.storage.onChanged.addListener).toHaveBeenCalled();
+      expect(globalThis.chrome.storage.onChanged.addListener).toHaveBeenCalled();
     });
 
     test('onChanged 回調應該更新 debugEnabled 狀態', () => {
       // 捕獲傳遞給 addListener 的回調函數
-      const onChangedCallback = global.chrome.storage.onChanged.addListener.mock.calls[0][0];
+      const onChangedCallback = globalThis.chrome.storage.onChanged.addListener.mock.calls[0][0];
 
       // 確認初始狀態為 true（來自 beforeEach 中的 mock）
       expect(Logger.debugEnabled).toBe(true);
@@ -274,7 +274,7 @@ describe('Logger', () => {
     });
 
     test('onChanged 回調應該忽略非 sync 區域的變更', () => {
-      const onChangedCallback = global.chrome.storage.onChanged.addListener.mock.calls[0][0];
+      const onChangedCallback = globalThis.chrome.storage.onChanged.addListener.mock.calls[0][0];
 
       // 使用 sync 變更設置初始狀態為 true
       onChangedCallback({ enableDebugLogs: { newValue: true } }, 'sync');
@@ -288,9 +288,9 @@ describe('Logger', () => {
 
   describe('消息格式化', () => {
     beforeEach(() => {
-      global.chrome = undefined;
+      globalThis.chrome = undefined;
       require('../../../scripts/utils/Logger.js');
-      Logger = global.window.Logger;
+      Logger = globalThis.window.Logger;
     });
 
     test('warn 消息應該包含警告圖標', () => {
@@ -307,7 +307,7 @@ describe('Logger', () => {
   describe('sendToBackground 功能', () => {
     beforeEach(() => {
       // Setup default mock specifically for this suite
-      global.chrome = {
+      globalThis.chrome = {
         runtime: {
           id: 'test-extension-id',
           getManifest: jest.fn().mockReturnValue({
@@ -331,13 +331,13 @@ describe('Logger', () => {
       };
 
       require('../../../scripts/utils/Logger.js');
-      Logger = global.window.Logger;
+      Logger = globalThis.window.Logger;
     });
 
     test('在擴展環境中應該發送消息到 background', () => {
       Logger.warn('test message', { extra: 'data' });
 
-      expect(global.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'devLogSink',
           level: 'warn',
@@ -351,7 +351,7 @@ describe('Logger', () => {
       const testError = new Error('Test error');
       Logger.warn('Error occurred', testError);
 
-      const sentArgs = global.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
       expect(sentArgs[0]).toEqual(
         expect.objectContaining({
           message: 'Test error',
@@ -363,7 +363,7 @@ describe('Logger', () => {
     test('應該正確處理純量參數 (數字, 字串)', () => {
       Logger.info('Scalar test', 123, 'test-string');
 
-      const sentArgs = global.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
       expect(sentArgs).toEqual([123, 'test-string']);
     });
 
@@ -373,14 +373,14 @@ describe('Logger', () => {
 
       Logger.warn('Circular test', circular);
 
-      const sentArgs = global.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
       expect(sentArgs[0]).toBe('[Unserializable Object]');
     });
   });
 
   describe('manifest 錯誤處理', () => {
     test('當 getManifest 拋出錯誤時應該優雅處理', () => {
-      global.chrome = {
+      globalThis.chrome = {
         runtime: {
           id: 'test-extension-id',
           getManifest: jest.fn().mockImplementation(() => {
@@ -404,7 +404,7 @@ describe('Logger', () => {
         require('../../../scripts/utils/Logger.js');
       }).not.toThrow();
 
-      Logger = global.window.Logger;
+      Logger = globalThis.window.Logger;
       expect(Logger.debugEnabled).toBe(false);
     });
   });

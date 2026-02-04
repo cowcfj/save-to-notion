@@ -15,7 +15,7 @@
  */
 export const LIST_PREFIX_PATTERNS = {
   // 移除列表前綴：連字符、項目符號、星號、數字、點、管道、括號和空格
-  bulletPrefix: /^(?:[-\u{2022}*•·–—►▶✔▪]|\d+[.)])\s+/u,
+  bulletPrefix: /^(?:[-\u{2022}*·–—►▶✔▪]|\d+[.)])\s+/u,
   // 多餘空格正規化
   multipleSpaces: /\s+/g,
   // 空白行檢測
@@ -26,8 +26,8 @@ export const LIST_PREFIX_PATTERNS = {
  * 項目符號字符正則表達式
  */
 export const BULLET_PATTERNS = {
-  bulletChar: /^[-\u{2022}*•·–—►▶✔▪]\s+/u,
-  numbered: /^\d+[.|)]\s+/,
+  bulletChar: /^[-\u{2022}*·–—►▶✔▪]\s+/u,
+  numbered: /^\d+[).|]\s+/,
 };
 
 // ==========================================
@@ -70,25 +70,24 @@ export const IMAGE_ATTRIBUTES = [
 // 圖片路徑與排除模式
 // ==========================================
 
-export const IMAGE_EXTENSIONS =
-  /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
+export const IMAGE_EXTENSIONS = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)$/i;
 
 export const IMAGE_PATH_PATTERNS = [
-  /\/image[s]?\//i,
-  /\/img[s]?\//i,
-  /\/photo[s]?\//i,
-  /\/picture[s]?\//i,
+  /\/images?\//i,
+  /\/imgs?\//i,
+  /\/photos?\//i,
+  /\/pictures?\//i,
   /\/media\//i,
-  /\/upload[s]?\//i,
-  /\/asset[s]?\//i,
-  /\/file[s]?\//i,
+  /\/uploads?\//i,
+  /\/assets?\//i,
+  /\/files?\//i,
   /\/content\//i,
   /\/wp-content\//i,
   /\/cdn\//i,
   /cdn\d*\./i,
   /\/static\//i,
-  /\/thumb[s]?\//i,
-  /\/thumbnail[s]?\//i,
+  /\/thumbs?\//i,
+  /\/thumbnails?\//i,
   /\/resize\//i,
   /\/crop\//i,
   /\/(\d{4})\/(\d{2})\//,
@@ -277,4 +276,28 @@ export const PLACEHOLDER_KEYWORDS = [
   'empty',
   '1x1',
   'transparent',
+];
+
+// ==========================================
+// 日誌脫敏模式
+// ==========================================
+
+/**
+ * 敏感鍵名模式（涵蓋常見的敏感欄位名稱，包括複合詞）
+ * 用於 LogSanitizer.js
+ */
+export const SENSITIVE_KEY_PATTERN =
+  /auth|token|secret|credential|password|pwd|key|cookie|session|authorization|bearer|viewer|access|refresh|api|private/i;
+
+/**
+ * 安全的 HTTP Headers 白名單（不包含敏感資訊）
+ * 用於 LogSanitizer.js
+ */
+export const LOGGING_SAFE_HEADERS = [
+  'content-type',
+  'content-length',
+  'user-agent',
+  'accept',
+  'accept-language',
+  'cache-control',
 ];

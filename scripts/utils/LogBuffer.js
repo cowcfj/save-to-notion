@@ -16,14 +16,15 @@ export class LogBuffer {
   constructor(capacity = 500) {
     // 確保容量為正整數
     this.capacity = Math.max(1, Math.floor(capacity));
-    this.buffer = new Array(this.capacity);
+    this.buffer = Array.from({ length: this.capacity });
     this.head = 0; // 指向最舊記錄的索引
     this.size = 0; // 當前記錄數量
   }
 
   /**
    * 添加一條日誌記錄
-   * @param {Object} entry - 日誌對象
+   *
+   * @param {object} entry - 日誌對象
    */
   push(entry) {
     // 確保有時間戳
@@ -36,7 +37,7 @@ export class LogBuffer {
     // [Memory Safety] 檢查單條日誌大小
     // 簡單估算：JSON序列化長度。限制為 25KB (約 25000 字符)
     // 這是一個折衷方案：避免 buffer 存儲過大對象，但會消耗一次 serialization 成本
-    const MAX_ENTRY_SIZE = 25000;
+    const MAX_ENTRY_SIZE = 25_000;
 
     try {
       const serialized = JSON.stringify(entryWithTimestamp);
@@ -54,7 +55,7 @@ export class LogBuffer {
           },
         };
       }
-    } catch (_err) {
+    } catch {
       // 序列化失敗（可能已經已經被 LogSanitizer 處理過所以不該發生，但為了安全）
       entryWithTimestamp = {
         ...entryWithTimestamp,
@@ -80,10 +81,11 @@ export class LogBuffer {
 
   /**
    * 獲取所有日誌記錄的副本
-   * @returns {Array<Object>} 按時間排序的日誌陣列
+   *
+   * @returns {Array<object>} 按時間排序的日誌陣列
    */
   getAll() {
-    const result = new Array(this.size);
+    const result = Array.from({ length: this.size });
     for (let i = 0; i < this.size; i++) {
       const index = (this.head + i) % this.capacity;
       // [Security] 返回副本防止外部修改內部 buffer
@@ -98,14 +100,15 @@ export class LogBuffer {
    * 清空緩衝區
    */
   clear() {
-    this.buffer = new Array(this.capacity);
+    this.buffer = Array.from({ length: this.capacity });
     this.head = 0;
     this.size = 0;
   }
 
   /**
    * 獲取緩衝區統計信息
-   * @returns {Object} { count, capacity, oldest, newest }
+   *
+   * @returns {object} { count, capacity, oldest, newest }
    */
   getStats() {
     let oldest = null;

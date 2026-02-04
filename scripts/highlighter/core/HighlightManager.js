@@ -13,7 +13,15 @@ import Logger from '../../utils/Logger.js';
  */
 export class HighlightManager {
   /**
-   * @param {Object} options - 配置選項
+   * 初始化 Promise（預設為已解決狀態）
+   * 注意：此屬性會在 index.js 中被覆寫為實際的 initialize() Promise，
+   * 以便外部代碼可以 await manager.initializationComplete 來等待初始化完成。
+   * 預設值確保在未調用 initialize() 時，await 不會阻塞。
+   */
+  initializationComplete = Promise.resolve();
+
+  /**
+   * @param {object} options - 配置選項
    */
   constructor(options = {}) {
     // 核心數據結構
@@ -24,12 +32,6 @@ export class HighlightManager {
     // 顏色配置（向後兼容，供 Toolbar 等組件使用）
     this.colors = COLORS;
 
-    // 初始化 Promise（預設為已解決狀態）
-    // 注意：此屬性會在 index.js 中被覆寫為實際的 initialize() Promise，
-    // 以便外部代碼可以 await manager.initializationComplete 來等待初始化完成。
-    // 預設值確保在未調用 initialize() 時，await 不會阻塞。
-    this.initializationComplete = Promise.resolve();
-
     // 子模組依賴（通過 setDependencies 注入）
     this.styleManager = null;
     this.interaction = null;
@@ -39,7 +41,8 @@ export class HighlightManager {
 
   /**
    * 注入依賴模組
-   * @param {Object} dependencies
+   *
+   * @param {object} dependencies
    * @param {StyleManager} dependencies.styleManager
    * @param {HighlightInteraction} dependencies.interaction
    * @param {HighlightStorage} dependencies.storage
@@ -54,6 +57,7 @@ export class HighlightManager {
 
   /**
    * 異步初始化流程
+   *
    * @param {boolean} [skipRestore=false] - 是否跳過恢復標註（用於頁面已刪除的情況）
    */
   async initialize(skipRestore = false) {
@@ -62,7 +66,7 @@ export class HighlightManager {
         throw new Error('依賴未注入，初始化中止');
       }
 
-      Logger.info('開始初始化', { action: 'initialize' });
+      Logger.start('開始初始化', { action: 'initialize' });
 
       // 初始化樣式管理器
       if (this.styleManager) {
@@ -75,20 +79,21 @@ export class HighlightManager {
       }
 
       // 步驟2：從存儲恢復標註（如果允許）
-      if (!skipRestore) {
-        await this.restoreHighlights();
-      } else {
+      if (skipRestore) {
         Logger.info('跳過恢復標註（頁面已刪除）', { action: 'initialize' });
+      } else {
+        await this.restoreHighlights();
       }
 
-      Logger.info('初始化完成', { action: 'initialize' });
+      Logger.success('初始化完成', { action: 'initialize' });
     } catch (error) {
-      Logger.error('初始化失敗', { action: 'initialize', error: error.message });
+      Logger.error('初始化失敗', { action: 'initialize', error });
     }
   }
 
   /**
    * 添加標註
+   *
    * @param {Range} range - 選區範圍
    * @param {string} [color] - 標註顏色
    * @returns {string|null} 標註 ID
@@ -153,13 +158,14 @@ export class HighlightManager {
 
       return id;
     } catch (error) {
-      Logger.error('添加標註失敗', { action: 'addHighlight', error: error.message });
+      Logger.error('添加標註失敗', { action: 'addHighlight', error });
       return null;
     }
   }
 
   /**
    * 移除標註
+   *
    * @param {string} id - 標註 ID
    * @returns {boolean} 是否成功移除
    */
@@ -191,6 +197,9 @@ export class HighlightManager {
 
   /**
    * 清除所有標註
+   *
+   * @param {object} [options] - 配置選項
+   * @param {boolean} [options.skipStorage] - 是否跳過存儲更新
    */
   clearAll(options = {}) {
     // 清除視覺效果
@@ -199,7 +208,7 @@ export class HighlightManager {
     }
 
     this.highlights.clear();
-    Logger.info('已清除所有標註', { action: 'clearAll' });
+    Logger.success('已清除所有標註', { action: 'clearAll' });
 
     // 保存變更（清空存儲）
     if (this.storage && !options.skipStorage) {
@@ -209,6 +218,7 @@ export class HighlightManager {
 
   /**
    * 應用 Highlight API 樣式
+   *
    * @param {Range} range
    * @param {string} color
    * @returns {boolean} 是否成功應用
@@ -228,6 +238,7 @@ export class HighlightManager {
 
   /**
    * 設置當前高亮顏色
+   *
    * @param {string} color
    */
   setColor(color) {
@@ -240,6 +251,7 @@ export class HighlightManager {
 
   /**
    * 獲取當前標註數量
+   *
    * @returns {number}
    */
   getCount() {
@@ -263,6 +275,7 @@ export class HighlightManager {
 
   /**
    * 處理文檔點擊事件
+   *
    * @param {MouseEvent} event
    * @returns {boolean} 是否處理了點擊
    */
@@ -275,6 +288,7 @@ export class HighlightManager {
 
   /**
    * 檢測點擊位置是否在標註內
+   *
    * @param {number} x
    * @param {number} y
    * @returns {string|null}
@@ -288,6 +302,10 @@ export class HighlightManager {
 
   /**
    * 檢測兩個 Range 是否重疊
+   *
+   * @param {Range} range1 - 第一個選區
+   * @param {Range} range2 - 第二個選區
+   * @returns {boolean} 是否重疊
    */
   static rangesOverlap(range1, range2) {
     try {
@@ -361,7 +379,8 @@ export class HighlightManager {
 
   /**
    * 僅恢復單個標註（由 Storage 調用）
-   * @param {Object} item - 標註數據
+   *
+   * @param {object} item - 標註數據
    * @returns {boolean}
    */
   restoreLocalHighlight(item) {
@@ -391,8 +410,8 @@ export class HighlightManager {
         this.applyHighlightAPI(range, highlight.color);
 
         // 更新 nextId 以避免衝突
-        const numId = parseInt(item.id.replace('h', ''), 10);
-        if (!isNaN(numId) && numId >= this.nextId) {
+        const numId = Number.parseInt(item.id.replace('h', ''), 10);
+        if (!Number.isNaN(numId) && numId >= this.nextId) {
           this.nextId = numId + 1;
         }
 
@@ -402,7 +421,7 @@ export class HighlightManager {
       Logger.warn('恢復標註失敗', {
         action: 'restoreLocalHighlight',
         id: item.id,
-        error: error.message,
+        error,
       });
     }
     return false;
@@ -424,13 +443,8 @@ export class HighlightManager {
   }
 
   static getSafeExtensionStorage() {
-    if (
-      typeof window !== 'undefined' &&
-      window.chrome &&
-      window.chrome.runtime &&
-      window.chrome.runtime.id
-    ) {
-      return window.chrome.storage?.local || null;
+    if (globalThis.window !== undefined && globalThis.chrome?.runtime?.id) {
+      return globalThis.chrome.storage?.local || null;
     }
     return null;
   }

@@ -12,7 +12,7 @@ describe('模板變數替換', () => {
     test('應該替換 {title} 變數', () => {
       const template = 'Page: {title}';
       const vars = { title: 'Test Page' };
-      const result = template.replace(/{title}/g, vars.title);
+      const result = template.replaceAll('{title}', vars.title);
 
       expect(result).toBe('Page: Test Page');
     });
@@ -20,7 +20,7 @@ describe('模板變數替換', () => {
     test('應該替換 {date} 變數', () => {
       const template = 'Created: {date}';
       const date = '2025-10-06';
-      const result = template.replace(/{date}/g, date);
+      const result = template.replaceAll('{date}', date);
 
       expect(result).toBe('Created: 2025-10-06');
     });
@@ -28,7 +28,7 @@ describe('模板變數替換', () => {
     test('應該替換 {domain} 變數', () => {
       const template = 'From: {domain}';
       const domain = 'example.com';
-      const result = template.replace(/{domain}/g, domain);
+      const result = template.replaceAll('{domain}', domain);
 
       expect(result).toBe('From: example.com');
     });
@@ -36,7 +36,7 @@ describe('模板變數替換', () => {
     test('應該替換 {url} 變數', () => {
       const template = 'Source: {url}';
       const url = 'https://example.com/page';
-      const result = template.replace(/{url}/g, url);
+      const result = template.replaceAll('{url}', url);
 
       expect(result).toBe('Source: https://example.com/page');
     });
@@ -51,7 +51,7 @@ describe('模板變數替換', () => {
 
       let result = template;
       Object.keys(vars).forEach(key => {
-        result = result.replace(new RegExp(`{${key}}`, 'g'), vars[key]);
+        result = result.replaceAll(new RegExp(`{${key}}`, 'g'), vars[key]);
       });
 
       expect(result).toBe('Test - 2025-10-06 - example.com');
@@ -61,7 +61,7 @@ describe('模板變數替換', () => {
       const template = '{title} - {unknown}';
       const vars = { title: 'Test' };
 
-      const result = template.replace(/{title}/g, vars.title);
+      const result = template.replaceAll('{title}', vars.title);
 
       expect(result).toBe('Test - {unknown}');
     });
@@ -69,7 +69,7 @@ describe('模板變數替換', () => {
     test('應該處理空字符串變數', () => {
       const template = '{title}';
       const vars = { title: '' };
-      const result = template.replace(/{title}/g, vars.title);
+      const result = template.replaceAll('{title}', vars.title);
 
       expect(result).toBe('');
     });
@@ -77,7 +77,7 @@ describe('模板變數替換', () => {
     test('應該處理特殊字符', () => {
       const template = '{title}';
       const vars = { title: 'Test & <Special> "Chars"' };
-      const result = template.replace(/{title}/g, vars.title);
+      const result = template.replaceAll('{title}', vars.title);
 
       expect(result).toBe('Test & <Special> "Chars"');
     });
@@ -85,7 +85,7 @@ describe('模板變數替換', () => {
     test('應該處理重複的變數', () => {
       const template = '{title} - {title}';
       const vars = { title: 'Test' };
-      const result = template.replace(/{title}/g, vars.title);
+      const result = template.replaceAll('{title}', vars.title);
 
       expect(result).toBe('Test - Test');
     });
@@ -129,18 +129,18 @@ describe('模板變數替換', () => {
     test('應該轉義 HTML 特殊字符', () => {
       const text = '<script>alert("XSS")</script>';
       const escaped = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
 
       expect(escaped).toBe('&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;');
     });
 
     test('應該處理空字符串', () => {
       const text = '';
-      const escaped = text.replace(/</g, '&lt;');
+      const escaped = text.replaceAll('<', '&lt;');
 
       expect(escaped).toBe('');
     });
@@ -148,11 +148,11 @@ describe('模板變數替換', () => {
     test('應該處理只有特殊字符的字符串', () => {
       const text = '<>&"\'';
       const escaped = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
 
       expect(escaped).toBe('&lt;&gt;&amp;&quot;&#039;');
     });

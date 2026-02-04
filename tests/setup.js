@@ -7,29 +7,29 @@
  */
 
 // 確保 TextEncoder/TextDecoder 可用（某些 Node 版本需要）
-if (typeof global.TextEncoder === 'undefined') {
+if (globalThis.TextEncoder === undefined) {
   const { TextEncoder, TextDecoder } = require('util');
-  global.TextEncoder = TextEncoder;
-  global.TextDecoder = TextDecoder;
+  globalThis.TextEncoder = TextEncoder;
+  globalThis.TextDecoder = TextDecoder;
 }
 
 // 導入 Chrome API mock
 require('./mocks/chrome');
 
 // Force Logger into dev mode for testing
-global.__FORCE_LOG__ = true;
-global.__LOGGER_DEV__ = true;
+globalThis.__FORCE_LOG__ = true;
+globalThis.__LOGGER_DEV__ = true;
 
 // Initialize runtime.lastError for ScriptInjector tests
-global.chrome.runtime.lastError = null;
+globalThis.chrome.runtime.lastError = null;
 
 // Mock Logger (used by scripts) - simulate dev mode behavior since __FORCE_LOG__ is set
 // deepcode ignore UseConsoleLogInBrowser: Console usage is intentional in test environment for Logger mock
-global.Logger = {
+globalThis.Logger = {
   log: jest.fn((message, ...args) => {
     // Simulate dev mode: send background log and console.log
-    if (global.chrome?.runtime?.sendMessage) {
-      global.chrome.runtime.sendMessage(
+    if (globalThis.chrome?.runtime?.sendMessage) {
+      globalThis.chrome.runtime.sendMessage(
         {
           action: 'devLogSink',
           level: 'log',
@@ -47,8 +47,8 @@ global.Logger = {
   }),
   debug: jest.fn((message, ...args) => {
     // Simulate dev mode: send background log and console.log
-    if (global.chrome?.runtime?.sendMessage) {
-      global.chrome.runtime.sendMessage(
+    if (globalThis.chrome?.runtime?.sendMessage) {
+      globalThis.chrome.runtime.sendMessage(
         {
           action: 'devLogSink',
           level: 'debug',
@@ -64,14 +64,14 @@ global.Logger = {
       // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
       // skipcq: JS-0002
       console.log(`[DEBUG] ${message}`, ...args);
-    } catch (_e) {
+    } catch {
       // 忽略 console 錯誤
     }
   }),
   info: jest.fn((message, ...args) => {
     // Simulate dev mode: send background log and console.log
-    if (global.chrome?.runtime?.sendMessage) {
-      global.chrome.runtime.sendMessage(
+    if (globalThis.chrome?.runtime?.sendMessage) {
+      globalThis.chrome.runtime.sendMessage(
         {
           action: 'devLogSink',
           level: 'info',
@@ -87,15 +87,15 @@ global.Logger = {
       // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
       // skipcq: JS-0002
       console.log(`[INFO] ${message}`, ...args);
-    } catch (_e) {
+    } catch {
       // 忽略 console 錯誤
     }
   }),
   warn: jest.fn((message, ...args) => {
     // Always send background log, optionally console.warn in dev mode
-    if (global.chrome?.runtime?.sendMessage) {
+    if (globalThis.chrome?.runtime?.sendMessage) {
       try {
-        global.chrome.runtime.sendMessage(
+        globalThis.chrome.runtime.sendMessage(
           {
             action: 'devLogSink',
             level: 'warn',
@@ -106,23 +106,23 @@ global.Logger = {
             /* no-op */
           }
         );
-      } catch (_) {
+      } catch {
         // Ignore sendMessage errors in tests
       }
     }
-    if (global.__LOGGER_DEV__) {
+    if (globalThis.__LOGGER_DEV__) {
       // Tests expect console.warn with concatenated message
       try {
         console.warn(`[WARN] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
-      } catch (_e) {
+      } catch {
         // 忽略 console 錯誤
       }
     }
   }),
   error: jest.fn((message, ...args) => {
     // Always send background log and console.error
-    if (global.chrome?.runtime?.sendMessage) {
-      global.chrome.runtime.sendMessage(
+    if (globalThis.chrome?.runtime?.sendMessage) {
+      globalThis.chrome.runtime.sendMessage(
         {
           action: 'devLogSink',
           level: 'error',
@@ -136,7 +136,7 @@ global.Logger = {
     }
     try {
       console.error(`[ERROR] ${message}`, ...args); // deepcode ignore UseConsoleLogInBrowser: Test environment Logger mock
-    } catch (_e) {
+    } catch {
       // 忽略 console 錯誤
     }
   }),
@@ -144,14 +144,14 @@ global.Logger = {
 
 // ImageUtils mock is handled in presetup.js
 // Mock chrome.runtime.sendMessage for Logger background logging
-global.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
+globalThis.chrome.runtime.sendMessage = jest.fn((payload, callback) => {
   if (typeof callback === 'function') {
     callback();
   }
 });
 
 // Mock fetch API
-global.fetch = jest.fn();
+globalThis.fetch = jest.fn();
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -159,7 +159,7 @@ const localStorageMock = (() => {
 
   return {
     getItem: jest.fn(key => {
-      return store[key] !== undefined ? store[key] : null;
+      return store[key] === undefined ? null : store[key];
     }),
     setItem: jest.fn((key, value) => {
       store[key] = value.toString();
@@ -188,10 +188,10 @@ const localStorageMock = (() => {
   };
 })();
 
-global.localStorage = localStorageMock;
+globalThis.localStorage = localStorageMock;
 
 // Mock console 方法（防止測試輸出過多）
-global.console = {
+globalThis.console = {
   ...console,
   log: jest.fn(),
   warn: jest.fn(),
@@ -203,19 +203,19 @@ global.console = {
 // 每個測試前清理 mocks（在 beforeEach 中已經有，但這裡確保 Logger 相關測試正常）
 beforeEach(() => {
   // 清理 Logger mocks
-  if (global.Logger) {
-    Object.keys(global.Logger).forEach(method => {
-      if (global.Logger[method]?.mockClear) {
-        global.Logger[method].mockClear();
+  if (globalThis.Logger) {
+    Object.keys(globalThis.Logger).forEach(method => {
+      if (globalThis.Logger[method]?.mockClear) {
+        globalThis.Logger[method].mockClear();
       }
     });
   }
 
   // 清理 console mocks（確保 Logger 測試不會受影響）
-  if (global.console) {
+  if (globalThis.console) {
     ['log', 'warn', 'error', 'info', 'debug'].forEach(method => {
-      if (global.console[method]?.mockClear) {
-        global.console[method].mockClear();
+      if (globalThis.console[method]?.mockClear) {
+        globalThis.console[method].mockClear();
       }
     });
   }
@@ -229,18 +229,18 @@ beforeEach(() => {
   }
 
   // 清理 fetch mock
-  if (global.fetch?.mockClear) {
-    global.fetch.mockClear();
+  if (globalThis.fetch?.mockClear) {
+    globalThis.fetch.mockClear();
   }
 
   // 清理 localStorage
-  if (global.localStorage?._reset) {
-    global.localStorage._reset();
+  if (globalThis.localStorage?._reset) {
+    globalThis.localStorage._reset();
   }
 
   // 清理 Chrome storage
-  if (global.chrome?._clearStorage) {
-    global.chrome._clearStorage();
+  if (globalThis.chrome?._clearStorage) {
+    globalThis.chrome._clearStorage();
   }
 
   // 清理 console mocks
@@ -252,7 +252,7 @@ beforeEach(() => {
 });
 
 // 輔助函數：創建 mock Response
-global.createMockResponse = (data, status = 200, ok = true) => ({
+globalThis.createMockResponse = (data, status = 200, ok = true) => ({
   ok,
   status,
   statusText: ok ? 'OK' : 'Error',
@@ -262,10 +262,10 @@ global.createMockResponse = (data, status = 200, ok = true) => ({
 });
 
 // 輔助函數：等待 Promise 解析
-global.flushPromises = () => new Promise(resolve => setImmediate(resolve));
+globalThis.flushPromises = () => new Promise(resolve => setImmediate(resolve));
 
 // 輔助函數：創建 DOM 元素
-global.createDOMElement = (tag, attributes = {}, textContent = '') => {
+globalThis.createDOMElement = (tag, attributes = {}, textContent = '') => {
   const element = document.createElement(tag);
   Object.entries(attributes).forEach(([key, value]) => {
     if (key === 'className') {
@@ -283,13 +283,13 @@ global.createDOMElement = (tag, attributes = {}, textContent = '') => {
 };
 
 // 輔助函數：創建完整的 HTML 結構
-global.createDOMFromHTML = htmlString => {
+globalThis.createDOMFromHTML = htmlString => {
   const container = document.createElement('div');
   container.innerHTML = htmlString;
   return container;
 };
 
 // 輔助函數：模擬圖片元素
-global.createMockImage = (src, attributes = {}) => {
-  return global.createDOMElement('img', { src, ...attributes });
+globalThis.createMockImage = (src, attributes = {}) => {
+  return globalThis.createDOMElement('img', { src, ...attributes });
 };

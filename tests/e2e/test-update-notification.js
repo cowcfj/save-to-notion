@@ -61,10 +61,10 @@
   }
 
   // 暴露測試函數到全局
-  window.testUpdateNotification = testUpdateNotification;
-  window.testVersionComparison = testVersionComparison;
-  window.testImportantUpdates = testImportantUpdates;
-  window.openUpdateNotification = openUpdateNotification;
+  globalThis.testUpdateNotification = testUpdateNotification;
+  globalThis.testVersionComparison = testVersionComparison;
+  globalThis.testImportantUpdates = testImportantUpdates;
+  globalThis.openUpdateNotification = openUpdateNotification;
 
   console.log('✅ 測試函數已準備就緒');
   console.log('可用函數:');

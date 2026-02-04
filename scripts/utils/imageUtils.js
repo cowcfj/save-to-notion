@@ -26,13 +26,48 @@ const DEFAULT_VALIDATION = {
   MAX_RECURSION_DEPTH: 5,
 };
 
-const IMAGE_VALIDATION = { ...DEFAULT_VALIDATION, ...(CONFIG_VALIDATION || {}) };
+const IMAGE_VALIDATION = { ...DEFAULT_VALIDATION, ...CONFIG_VALIDATION };
 
 // 重新導出 IMAGE_ATTRIBUTES 以維持向後兼容
-export { IMAGE_ATTRIBUTES };
+
+/**
+ * 解析 URL 字串，支援相對路徑與路徑簡化
+ *
+ * @param {string} url - 原始 URL
+ * @returns {object|null} 解析結果 { urlObj, isRelative } 或 null
+ * @private
+ */
+function _resolveUrl(url) {
+  try {
+    return { urlObj: new URL(url), isRelative: false };
+  } catch {
+    // 嘗試作為相對 URL 解析
+    try {
+      const isPathLike =
+        url.startsWith('/') ||
+        url.startsWith('./') ||
+        url.startsWith('../') ||
+        /\.[\dA-Za-z]{2,4}$/.test(url);
+
+      if (!isPathLike) {
+        throw new Error('Invalid format');
+      }
+
+      if (url.startsWith('//')) {
+        return { urlObj: new URL(`https:${url}`), isRelative: false };
+      }
+
+      // 使用假域名作為基底來解析相對路徑
+      return { urlObj: new URL(url, 'https://dummy-base.com'), isRelative: true };
+    } catch {
+      return null;
+    }
+  }
+}
 
 /**
  * 清理和標準化圖片 URL
+ *
  * @param {string} url - 原始圖片 URL
  * @param {number} depth - 當前遞迴深度（用於防止無限遞迴）
  * @returns {string|null} 清理後的 URL 或 null（如果無效）
@@ -42,60 +77,28 @@ function cleanImageUrl(url, depth = 0) {
     return null;
   }
 
-  // 防止無限遞迴
   if (depth >= IMAGE_VALIDATION.MAX_RECURSION_DEPTH) {
-    Logger.warn('達到最大遞迴深度，停止處理', {
+    Logger.warn('達到最大遞迴深度', {
       action: 'cleanImageUrl',
       depth,
       url: sanitizeUrlForLogging(url),
     });
-    return url; // 返回當前 URL 而不是 null，避免丟失數據
+    return url;
   }
 
-  let urlObj = null;
-  let isRelative = false;
-
-  try {
-    urlObj = new URL(url);
-  } catch {
-    // 嘗試作為相對 URL 解析
-    try {
-      // 簡單啟發式檢查：如果是相對路徑，應該看起來像路徑
-      // 1. 以 / 或 ./ 或 ../ 開頭
-      // 2. 或者包含文件擴展名
-      const isPathLike =
-        url.startsWith('/') ||
-        url.startsWith('./') ||
-        url.startsWith('../') ||
-        /\.[a-zA-Z0-9]{2,4}$/.test(url);
-
-      if (!isPathLike) {
-        throw new Error('Invalid relative URL format');
-      }
-
-      if (url.startsWith('//')) {
-        urlObj = new URL(`https:${url}`);
-        isRelative = false;
-      } else {
-        // 使用假域名作為基底來解析相對路徑
-        urlObj = new URL(url, 'http://dummy-base.com');
-        isRelative = true;
-      }
-    } catch {
-      Logger.error('URL 轉換失敗', {
-        action: 'cleanImageUrl',
-        url: sanitizeUrlForLogging(url),
-      });
-      return null;
-    }
+  const resolved = _resolveUrl(url);
+  if (!resolved) {
+    Logger.error('URL 轉換失敗', { action: 'cleanImageUrl', url: sanitizeUrlForLogging(url) });
+    return null;
   }
 
+  const { urlObj, isRelative } = resolved;
+
   try {
-    // 處理代理 URL（如 pgw.udn.com.tw/gw/photo.php）
+    // 處理代理 URL
     if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
       const uParam = urlObj.searchParams.get('u');
-      if (uParam?.match(/^https?:\/\//)) {
-        // 使用代理中的原始圖片 URL，遞增深度以防止無限遞迴
+      if (uParam && /^https?:\/\//.test(uParam)) {
         return cleanImageUrl(uParam, depth + 1);
       }
     }
@@ -110,9 +113,6 @@ function cleanImageUrl(url, depth = 0) {
     urlObj.search = params.toString();
 
     if (isRelative) {
-      // 重建相對 URL
-      // 注意：pathname 總是從 / 開始，如果原始 URL 是 'image.jpg'，這裡會變成 '/image.jpg'
-      // 這通常是可以接受的標準化
       return urlObj.pathname + urlObj.search + urlObj.hash;
     }
 
@@ -125,6 +125,7 @@ function cleanImageUrl(url, depth = 0) {
 /**
  * 檢查 URL 是否為有效的圖片格式
  * 整合了 AttributeExtractor 和 background.js 的驗證邏輯
+ *
  * @param {string} url - 要檢查的 URL
  * @returns {boolean} 是否為有效的圖片 URL
  */
@@ -175,7 +176,7 @@ function isValidImageUrl(url) {
 
   try {
     // 為了後續檢查，如果是相對路徑，再次轉為對象
-    const urlObj = isAbsolute ? new URL(cleanedUrl) : new URL(cleanedUrl, 'http://dummy-base.com');
+    const urlObj = isAbsolute ? new URL(cleanedUrl) : new URL(cleanedUrl, 'https://dummy-base.com');
 
     // 檢查文件擴展名（使用 patterns.js 的配置）
     const pathname = urlObj.pathname.toLowerCase();
@@ -200,6 +201,7 @@ function isValidImageUrl(url) {
 
 /**
  * 檢查 URL 是否可能被 Notion API 接受（更嚴格的驗證）
+ *
  * @param {string} url - 要檢查的 URL
  * @returns {boolean} 是否可能被 Notion 接受
  */
@@ -219,7 +221,7 @@ function isNotionCompatibleImageUrl(url) {
 
     // 檢查是否包含可能導致問題的特殊字符
     // Notion API 對某些字符敏感
-    const problematicChars = /[<>{}|\\^`[\]]/;
+    const problematicChars = /[<>[\\\]^`{|}]/;
     if (problematicChars.test(url)) {
       return false;
     }
@@ -250,8 +252,81 @@ function isNotionCompatibleImageUrl(url) {
 }
 
 /**
+ * 獲取 Srcset 解析器（支援多環境）
+ *
+ * @returns {object|null} SrcsetParser 引用
+ * @private
+ */
+function _getSrcsetParser() {
+  if (typeof SrcsetParser !== 'undefined') {
+    return SrcsetParser;
+  }
+  if (globalThis.window !== undefined && globalThis.SrcsetParser) {
+    return globalThis.SrcsetParser;
+  }
+  return null;
+}
+
+/**
+ * 解析單個 srcset 條目並計算其度量值
+ *
+ * @param {string} entry - srcset 條目（例如 "image.jpg 1000w"）
+ * @returns {{url: string, metric: number}|null}
+ * @private
+ */
+function _parseSrcsetEntry(entry) {
+  const [url, descriptor] = entry.trim().split(/\s+/);
+  if (!url || url.startsWith('data:')) {
+    return null;
+  }
+
+  let metric = 0;
+  const wMatch = descriptor ? /^(\d+)w$/i.exec(descriptor) : null;
+  const xMatch = descriptor ? /^(\d+)x$/i.exec(descriptor) : null;
+
+  if (wMatch) {
+    metric = Number.parseInt(wMatch[1], 10) * IMAGE_VALIDATION.SRCSET_WIDTH_MULTIPLIER;
+  } else if (xMatch) {
+    metric = Number.parseInt(xMatch[1], 10);
+  }
+
+  return { url, metric };
+}
+
+/**
+ * 手動解析 srcset
+ *
+ * @param {string[]} srcsetEntries - 分割後的條目數組
+ * @returns {string|null} 最佳 URL 或 null
+ * @private
+ */
+function _manualParseSrcset(srcsetEntries) {
+  let bestUrl = null;
+  let bestMetric = -1;
+
+  for (const entry of srcsetEntries) {
+    const result = _parseSrcsetEntry(entry);
+    if (result && result.metric > bestMetric) {
+      bestMetric = result.metric;
+      bestUrl = result.url;
+    }
+  }
+
+  // 回退邏輯：如果沒找到度量值最高的，取最後一個有效條目
+  if (!bestUrl && srcsetEntries.length > 0) {
+    const valid = srcsetEntries.map(item => item.trim()).filter(Boolean);
+    if (valid.length > 0) {
+      bestUrl = valid.at(-1).split(/\s+/)[0] || null;
+    }
+  }
+
+  return bestUrl;
+}
+
+/**
  * 從 srcset 字符串中提取最佳圖片 URL
  * 優先使用 SrcsetParser 進行精確解析，回退到簡單實現
+ *
  * @param {string} srcset - srcset 屬性值
  * @returns {string|null} 最佳圖片 URL 或 null
  */
@@ -260,86 +335,34 @@ function extractBestUrlFromSrcset(srcset) {
     return null;
   }
 
-  // 優先使用 SrcsetParser（如果可用）
-  // SrcsetParser 在瀏覽器環境中掛載到 window.SrcsetParser
-  // 在 Node.js 測試環境中可能通過 require 引入
-  const SrcsetParserRef =
-    typeof window !== 'undefined'
-      ? window.SrcsetParser
-      : typeof SrcsetParser !== 'undefined'
-        ? SrcsetParser
-        : null;
-
-  if (typeof SrcsetParserRef?.parse === 'function') {
+  const parser = _getSrcsetParser();
+  if (typeof parser?.parse === 'function') {
     try {
-      const bestUrl = SrcsetParserRef.parse(srcset, {
-        preferredWidth: 1920, // 預設首選寬度
-        preferredDensity: 2.0, // 預設首選密度
-      });
+      const bestUrl = parser.parse(srcset, { preferredWidth: 1920, preferredDensity: 2 });
       if (bestUrl) {
         return bestUrl;
       }
     } catch (error) {
-      Logger.error('SrcsetParser 失敗，回退到簡單實現', {
+      Logger.error('SrcsetParser 失敗', {
         action: 'extractBestUrlFromSrcset',
         error: error.message,
       });
     }
   }
 
-  // 回退實現：簡單的 srcset 解析
-  const srcsetEntries = srcset.split(',').map(entry => entry.trim());
-  if (srcsetEntries.length === 0) {
-    return null;
-  }
-
-  let bestUrl = null;
-  let bestMetric = -1; // 比較值，優先使用 w，其次使用 x
-
-  for (const entry of srcsetEntries) {
-    const [url, descriptor] = entry.split(/\s+/);
-    if (url && !url.startsWith('data:')) {
-      let metric = -1;
-      const wMatch = descriptor?.match(/(\d+)w/i);
-      const xMatch = descriptor?.match(/(\d+)x/i);
-
-      if (wMatch) {
-        metric = parseInt(wMatch[1], 10) * IMAGE_VALIDATION.SRCSET_WIDTH_MULTIPLIER;
-      } else if (xMatch) {
-        metric = parseInt(xMatch[1], 10);
-      } else {
-        // 沒有描述，視為最小優先
-        metric = 0;
-      }
-
-      if (metric > bestMetric) {
-        bestMetric = metric;
-        bestUrl = url;
-      }
-    }
-  }
-  // 回退：獲取最後一個有效條目（過濾空字串）
-  if (!bestUrl) {
-    const validEntries = srcsetEntries.filter(entry => entry.trim());
-    if (validEntries.length > 0) {
-      const lastEntry = validEntries[validEntries.length - 1];
-      bestUrl = lastEntry.split(/\s+/)[0] || null;
-    }
-  }
-
-  return bestUrl;
+  const entries = srcset.split(',').map(entry => entry.trim());
+  return entries.length > 0 ? _manualParseSrcset(entries) : null;
 }
 
 /**
  * 從 srcset 屬性提取 URL
+ *
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
 function extractFromSrcset(imgNode) {
   const srcset =
-    imgNode.getAttribute('srcset') ||
-    imgNode.getAttribute('data-srcset') ||
-    imgNode.getAttribute('data-lazy-srcset');
+    imgNode.getAttribute('srcset') || imgNode.dataset.srcset || imgNode.dataset.lazySrcset;
 
   if (srcset) {
     const bestUrl = extractBestUrlFromSrcset(srcset);
@@ -352,6 +375,7 @@ function extractFromSrcset(imgNode) {
 
 /**
  * 從圖片屬性提取 URL
+ *
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -367,6 +391,7 @@ function extractFromAttributes(imgNode) {
 
 /**
  * 從 picture 元素提取 URL
+ *
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -391,52 +416,53 @@ function extractFromPicture(imgNode) {
 
 /**
  * 從背景圖片 CSS 屬性提取 URL
+ *
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
 function extractFromBackgroundImage(imgNode) {
   try {
-    if (typeof window === 'undefined' || !window.getComputedStyle) {
+    if (globalThis.window === undefined || !globalThis.getComputedStyle) {
       return null;
     }
 
-    const computedStyle = window.getComputedStyle(imgNode);
+    const computedStyle = globalThis.getComputedStyle(imgNode);
     const backgroundImage =
       computedStyle.backgroundImage || computedStyle.getPropertyValue?.('background-image');
 
     if (backgroundImage && backgroundImage !== 'none') {
-      // 限制捕獲組長度，防止 ReDoS 攻擊，使用 IMAGE_VALIDATION.MAX_URL_LENGTH 常量
-      const bgUrlPattern = new RegExp(
-        `url\\(['"]?([^'"]{1,${IMAGE_VALIDATION.MAX_URL_LENGTH}})['"]?\\)`
-      );
-      const urlMatch = backgroundImage.match(bgUrlPattern);
+      // 使用 RegExp.exec() 取代 .match() 以符合 Lint 規範，優化 Regex 模式
+      const bgPattern = /url\(["']?([^"']+)["']?\)/i;
+      const match = bgPattern.exec(backgroundImage);
+      const rawUrl = match?.[1];
       if (
-        urlMatch?.[1] &&
-        !urlMatch[1].startsWith('data:') &&
-        urlMatch[1].length < IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH
+        rawUrl &&
+        rawUrl.length <= IMAGE_VALIDATION.MAX_URL_LENGTH &&
+        !rawUrl.startsWith('data:') &&
+        rawUrl.length < IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH
       ) {
-        return urlMatch[1];
+        return rawUrl;
       }
     }
 
     // 檢查父節點的背景圖片
     const parent = imgNode.parentElement;
     if (parent) {
-      const parentStyle = window.getComputedStyle(parent);
+      const parentStyle = globalThis.getComputedStyle(parent);
       const parentBg =
         parentStyle.backgroundImage || parentStyle.getPropertyValue?.('background-image');
 
       if (parentBg && parentBg !== 'none') {
-        const parentBgPattern = new RegExp(
-          `url\\(['"]?([^'"]{1,${IMAGE_VALIDATION.MAX_URL_LENGTH}})['"]?\\)`
-        );
-        const parentMatch = parentBg.match(parentBgPattern);
+        const parentPattern = /url\(["']?([^"']+)["']?\)/i;
+        const parentMatch = parentPattern.exec(parentBg);
+        const parentUrl = parentMatch?.[1];
         if (
-          parentMatch?.[1] &&
-          !parentMatch[1].startsWith('data:') &&
-          parentMatch[1].length < IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH
+          parentUrl &&
+          parentUrl.length <= IMAGE_VALIDATION.MAX_URL_LENGTH &&
+          !parentUrl.startsWith('data:') &&
+          parentUrl.length < IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH
         ) {
-          return parentMatch[1];
+          return parentUrl;
         }
       }
     }
@@ -447,8 +473,48 @@ function extractFromBackgroundImage(imgNode) {
 }
 
 /**
+ * 使用 DOMParser 從 HTML 提取圖片 src
+ *
+ * @param {string} html - HTML 字串
+ * @returns {string|null} 圖片 src 或 null
+ * @private
+ */
+function _extractWithDOMParser(html) {
+  if (typeof DOMParser === 'undefined') {
+    return null;
+  }
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const img = doc.querySelector('img[src]');
+    const src = img?.getAttribute('src');
+    return src && !src.startsWith('data:') ? src : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 使用正則表達式從 HTML 提取圖片 src
+ *
+ * @param {string} html - HTML 字串
+ * @returns {string|null} 圖片 src 或 null
+ * @private
+ */
+function _extractWithRegex(html) {
+  // 使用 RegExp.exec() 取代 .match() 配合長度檢查
+  const imgPattern = /<img[^>]+src=["']([^"']+)["']/i;
+  const match = imgPattern.exec(html);
+  const src = match?.[1];
+  if (src && src.length <= IMAGE_VALIDATION.MAX_URL_LENGTH && !src.startsWith('data:')) {
+    return src;
+  }
+  return null;
+}
+
+/**
  * 從 noscript 標籤提取 URL
  * 使用 DOMParser 優先策略（更穩健）+ Regex 回退（相容性）
+ *
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string|null} 提取的 URL 或 null
  */
@@ -462,40 +528,15 @@ function extractFromNoscript(imgNode) {
       }
 
       const html = noscript.textContent;
-
-      // 長度限制檢查，防止資源消耗型 DoS 攻擊
-      // noscript 內容通常很短（只包含一個 img 標籤），超長內容視為異常
-      const MAX_NOSCRIPT_LENGTH = IMAGE_VALIDATION.MAX_URL_LENGTH * 2; // 4000 字符
-      if (html.length > MAX_NOSCRIPT_LENGTH) {
-        Logger.warn('noscript 內容過長，跳過解析', {
-          action: 'extractFromNoscript',
-          length: html.length,
-        });
+      const MAX_LENGTH = IMAGE_VALIDATION.MAX_URL_LENGTH * 2;
+      if (html.length > MAX_LENGTH) {
+        Logger.warn('noscript 內容過長', { action: 'extractFromNoscript', length: html.length });
         continue;
       }
 
-      // 優先使用 DOMParser（Content Script 環境可用，更穩健）
-      if (typeof DOMParser !== 'undefined') {
-        try {
-          const doc = new DOMParser().parseFromString(html, 'text/html');
-          const img = doc.querySelector('img[src]');
-          const src = img?.getAttribute('src');
-          if (src && !src.startsWith('data:')) {
-            return src;
-          }
-        } catch {
-          // DOMParser 失敗，回退到 Regex
-        }
-      }
-
-      // 回退：Regex 解析（加入長度限制防止 ReDoS，使用 IMAGE_VALIDATION.MAX_URL_LENGTH 常量）
-      const noscriptImgPattern = new RegExp(
-        `<img[^>]+src=["']([^"']{1,${IMAGE_VALIDATION.MAX_URL_LENGTH}})["']`,
-        'i'
-      );
-      const match = html.match(noscriptImgPattern);
-      if (match?.[1] && !match[1].startsWith('data:')) {
-        return match[1];
+      const src = _extractWithDOMParser(html) || _extractWithRegex(html);
+      if (src) {
+        return src;
       }
     }
   } catch {
@@ -527,6 +568,7 @@ function extractImageSrc(imgNode) {
 
 /**
  * 生成圖片緩存鍵
+ *
  * @param {HTMLImageElement} imgNode - 圖片元素
  * @returns {string} 緩存鍵
  */
@@ -536,7 +578,7 @@ function generateImageCacheKey(imgNode) {
   }
 
   const src = imgNode.getAttribute('src') || '';
-  const dataSrc = imgNode.getAttribute('data-src') || '';
+  const dataSrc = imgNode.dataset.src || '';
   const className = imgNode.className || '';
   const id = imgNode.id || '';
 
@@ -546,6 +588,7 @@ function generateImageCacheKey(imgNode) {
 /**
  * 過濾 Notion 區塊中的有效圖片
  * 純函數版本，無日誌依賴，適用於 Background/Service Worker 環境
+ *
  * @param {Array} blocks - Notion 區塊數組
  * @param {boolean} excludeImages - 是否排除所有圖片（重試模式）
  * @returns {{validBlocks: Array, skippedCount: number, invalidReasons: Array}}
@@ -639,8 +682,8 @@ const ImageUtils = {
 };
 
 // Global assignment for backward compatibility
-if (typeof window !== 'undefined') {
-  window.ImageUtils = ImageUtils;
+if (globalThis.window !== undefined) {
+  globalThis.ImageUtils = ImageUtils;
 }
 
 export {
@@ -659,3 +702,4 @@ export {
 };
 
 export default ImageUtils;
+export { IMAGE_ATTRIBUTES } from '../config/patterns.js';

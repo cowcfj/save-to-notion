@@ -57,7 +57,7 @@ describe('PageComplexityDetector - Testable Wrapper', () => {
 
   test('logAnalysis 輸出到 console 與 analytics', () => {
     const spy = jest.fn();
-    global.console = { log: spy };
+    globalThis.console = { log: spy };
     const complexity = detectPageComplexity(document);
     const sel = selectExtractor(complexity);
     logAnalysis(

@@ -16,7 +16,7 @@ module.exports = {
     console.log('  1️⃣ 導航到 MDN JavaScript Guide...');
     await page.goto(config.testPages.mdn, {
       waitUntil: 'domcontentloaded', // 改用更寬鬆的等待條件
-      timeout: 60000, // 增加超時時間
+      timeout: 60_000, // 增加超時時間
     });
 
     // 2. 等待頁面內容加載（使用多個備選選擇器）
@@ -36,7 +36,7 @@ module.exports = {
         console.log(`     ✅ 找到內容容器: ${selector}`);
         articleFound = true;
         break;
-      } catch (_e) {
+      } catch {
         console.log(`     ⚠️ 選擇器 ${selector} 未找到，嘗試下一個...`);
       }
     }
@@ -115,7 +115,7 @@ module.exports = {
         range.setStart(textNode, 0);
         range.setEnd(textNode, textLength);
 
-        const selection = window.getSelection();
+        const selection = globalThis.getSelection();
         selection.removeAllRanges();
         selection.addRange(range);
 
@@ -136,14 +136,14 @@ module.exports = {
       throw new Error(`文本選擇失敗: ${selectionResult.error}`);
     }
 
-    console.log(`     ✅ 成功選擇文本: "${selectionResult.text.substring(0, 30)}..."`);
+    console.log(`     ✅ 成功選擇文本: "${selectionResult.text.slice(0, 30)}..."`);
 
     // 5. 檢測 CSS Highlight API 支持
     console.log('  5️⃣ 檢測 CSS Highlight API 支持...');
     const apiSupport = await page.evaluate(() => {
       return {
-        hasHighlight: typeof window.Highlight !== 'undefined',
-        hasCSSHighlights: typeof CSS !== 'undefined' && typeof CSS.highlights !== 'undefined',
+        hasHighlight: globalThis.Highlight !== undefined,
+        hasCSSHighlights: typeof CSS !== 'undefined' && CSS.highlights !== undefined,
       };
     });
 
@@ -157,7 +157,7 @@ module.exports = {
       const highlightResult = await page.evaluate(() => {
         try {
           // 獲取當前選擇
-          const selection = window.getSelection();
+          const selection = globalThis.getSelection();
           if (selection.rangeCount === 0) {
             return { success: false, error: 'No selection' };
           }
@@ -181,10 +181,10 @@ module.exports = {
         }
       });
 
-      if (!highlightResult.success) {
-        console.warn(`     ⚠️ 高亮創建失敗: ${highlightResult.error}`);
-      } else {
+      if (highlightResult.success) {
         console.log(`     ✅ 成功創建高亮，當前共有 ${highlightResult.highlightCount} 個高亮`);
+      } else {
+        console.warn(`     ⚠️ 高亮創建失敗: ${highlightResult.error}`);
       }
     }
 
@@ -199,7 +199,7 @@ module.exports = {
           timestamp: Date.now(),
         };
 
-        const storageKey = `highlights_${window.location.href}`;
+        const storageKey = `highlights_${globalThis.location.href}`;
         localStorage.setItem(storageKey, JSON.stringify([highlightData]));
 
         // 驗證保存
@@ -231,7 +231,7 @@ module.exports = {
 
     const restoreResult = await page.evaluate(() => {
       try {
-        const storageKey = `highlights_${window.location.href}`;
+        const storageKey = `highlights_${globalThis.location.href}`;
         const saved = localStorage.getItem(storageKey);
         const highlights = JSON.parse(saved);
 
@@ -256,7 +256,7 @@ module.exports = {
 
     // 9. 清理測試數據
     await page.evaluate(() => {
-      const storageKey = `highlights_${window.location.href}`;
+      const storageKey = `highlights_${globalThis.location.href}`;
       localStorage.removeItem(storageKey);
 
       // 清除所有 CSS highlights

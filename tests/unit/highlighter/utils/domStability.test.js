@@ -39,7 +39,7 @@ describe('utils/domStability', () => {
     test('should use custom container selector', async () => {
       const container = document.createElement('div');
       container.id = 'test-container';
-      document.body.appendChild(container);
+      document.body.append(container);
 
       const promise = waitForDOMStability({
         containerSelector: '#test-container',

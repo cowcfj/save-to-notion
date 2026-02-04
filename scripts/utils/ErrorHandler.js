@@ -63,47 +63,50 @@ const LOG_LEVELS = {
  * 統一錯誤處理器
  * 提供標準化的錯誤日誌記錄
  */
-class ErrorHandler {
+const ErrorHandler = {
   /**
    * 獲取 Logger 實例 (安全回退)
-   * @returns {Object} Logger 實例
+   *
+   * @returns {object} Logger 實例
    */
-  static get logger() {
+  get logger() {
     if (typeof Logger !== 'undefined') {
       return Logger;
     }
-    if (typeof window !== 'undefined' && window.Logger) {
-      return window.Logger;
+    if (globalThis.window !== undefined && globalThis.Logger) {
+      return globalThis.Logger;
     }
-    if (typeof self !== 'undefined' && self.Logger) {
-      return self.Logger;
+    if (globalThis.self !== undefined && globalThis.Logger) {
+      return globalThis.Logger;
     }
     return console;
-  }
+  },
 
   /**
    * 淨化日誌內容（防止日誌注入和敏感資訊外洩）
+   *
    * @param {string} str - 要淨化的字串
    * @param {number} maxLength - 最大長度
    * @returns {string} 淨化後的字串
    */
-  static sanitizeLogContent(str, maxLength = 200) {
+  sanitizeLogContent(str, maxLength = 200) {
     if (!str) {
       return '';
     }
     return String(str)
-      .replace(/[\r\n]+/g, ' ') // 移除換行防止日誌注入
+      .replaceAll(/[\n\r]+/g, ' ') // 移除換行防止日誌注入
       .slice(0, maxLength);
-  }
+  },
 
   /**
    * 記錄錯誤信息
-   * @param {Object} errorInfo - 錯誤信息對象
+   *
+   * @param {object} errorInfo - 錯誤信息對象
    * @param {string} errorInfo.type - 錯誤類型
    * @param {string} errorInfo.context - 錯誤上下文
    * @param {Error} [errorInfo.originalError] - 原始錯誤對象
    */
-  static logError(errorInfo) {
+  logError(errorInfo) {
     // 防禦性檢查：確保輸入有效
     if (!errorInfo || typeof errorInfo !== 'object') {
       this.logger.warn('[ErrorHandler] logError called with invalid input');
@@ -121,28 +124,33 @@ class ErrorHandler {
     const message = `[${type}] ${safeContext}: ${safeMessage || 'Unknown error'}`;
 
     switch (logLevel) {
-      case 'error':
+      case 'error': {
         this.logger.error(message);
         break;
-      case 'warn':
+      }
+      case 'warn': {
         this.logger.warn(message);
         break;
-      case 'info':
+      }
+      case 'info': {
         this.logger.info(message);
         break;
-      default:
+      }
+      default: {
         this.logger.warn(message);
+      }
     }
-  }
+  },
 
   /**
    * 根據錯誤類型獲取日誌級別
+   *
    * @param {string} errorType - 錯誤類型
    * @returns {string} 日誌級別
    */
-  static getLogLevel(errorType) {
+  getLogLevel(errorType) {
     return LOG_LEVELS[errorType] || 'warn';
-  }
+  },
 
   /**
    * 格式化用戶可見的錯誤訊息
@@ -156,13 +164,12 @@ class ErrorHandler {
    *
    * @param {Error|string} error - 原始錯誤物件或錯誤代碼字串
    * @returns {string} 格式化後的用戶友善錯誤訊息
-   *
    * @example
    * // 有效的 Error Code 範例（來自 ERROR_MESSAGES.PATTERNS 的 key）：
    * // 'API Key', 'rate limit', 'Network error', 'Page not saved'
    * formatUserMessage('API Key'); // 返回「請先在設定頁面配置 Notion API Key」
    */
-  static formatUserMessage(error) {
+  formatUserMessage(error) {
     if (!error) {
       return ERROR_MESSAGES.DEFAULT;
     }
@@ -171,7 +178,7 @@ class ErrorHandler {
 
     // [安全性修復] 如果訊息已經包含中文字符，說明已經是友善訊息
     // 因 UI 已全面改用 textContent，此處不再需要 escapeHtml
-    if (/[\u{4e00}-\u{9fa5}]/u.test(message)) {
+    if (/[\u{4E00}-\u{9FA5}]/u.test(message)) {
       return message;
     }
 
@@ -185,8 +192,8 @@ class ErrorHandler {
     // [兜底保護]
     // 防止直接將技術代碼 (如 'unknown_api_response') 顯示給用戶
     return ERROR_MESSAGES.DEFAULT;
-  }
-}
+  },
+};
 
 /**
  * 應用錯誤類別
@@ -196,7 +203,7 @@ class AppError extends Error {
   /**
    * @param {string} type - 錯誤類型（使用 ErrorTypes）
    * @param {string} message - 錯誤訊息
-   * @param {Object} details - 額外詳情
+   * @param {object} details - 額外詳情
    */
   constructor(type, message, details = {}) {
     super(message);
@@ -208,7 +215,8 @@ class AppError extends Error {
 
   /**
    * 轉換為 JSON 格式（用於 sendResponse）
-   * @returns {Object}
+   *
+   * @returns {object}
    */
   toJSON() {
     return {
@@ -220,7 +228,8 @@ class AppError extends Error {
 
   /**
    * 轉換為標準響應格式
-   * @returns {Object}
+   *
+   * @returns {object}
    */
   toResponse() {
     return {

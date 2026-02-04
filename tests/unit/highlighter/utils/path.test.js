@@ -23,7 +23,7 @@ describe('utils/path', () => {
 
     test('should return path for element node', () => {
       const div = document.createElement('div');
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const path = getNodePath(div);
       expect(path).toBe('div[0]');
@@ -32,8 +32,8 @@ describe('utils/path', () => {
     test('should return path for nested elements', () => {
       const div = document.createElement('div');
       const paragraph = document.createElement('p');
-      div.appendChild(paragraph);
-      document.body.appendChild(div);
+      div.append(paragraph);
+      document.body.append(div);
 
       const path = getNodePath(paragraph);
       expect(path).toBe('div[0]/p[0]');
@@ -42,7 +42,7 @@ describe('utils/path', () => {
     test('should return path for text node', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const textNode = div.firstChild;
       const path = getNodePath(textNode);
@@ -102,7 +102,7 @@ describe('utils/path', () => {
 
     test('should get element by path array', () => {
       const div = document.createElement('div');
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const path = [{ type: 'element', tag: 'div', index: 0 }];
       const node = getNodeByPath(path);
@@ -112,7 +112,7 @@ describe('utils/path', () => {
 
     test('should get element by path string', () => {
       const div = document.createElement('div');
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const node = getNodeByPath('div[0]');
       expect(node).toBe(div);
@@ -121,8 +121,8 @@ describe('utils/path', () => {
     test('should get nested element', () => {
       const div = document.createElement('div');
       const paragraph = document.createElement('p');
-      div.appendChild(paragraph);
-      document.body.appendChild(div);
+      div.append(paragraph);
+      document.body.append(div);
 
       const node = getNodeByPath('div[0]/p[0]');
       expect(node).toBe(paragraph);
@@ -131,7 +131,7 @@ describe('utils/path', () => {
     test('should get text node', () => {
       const div = document.createElement('div');
       div.textContent = 'Hello';
-      document.body.appendChild(div);
+      document.body.append(div);
 
       const node = getNodeByPath('div[0]/text[0]');
       expect(node).toBe(div.firstChild);
@@ -193,8 +193,8 @@ describe('utils/path', () => {
       const div = document.createElement('div');
       const paragraph = document.createElement('p');
       paragraph.textContent = 'Test';
-      div.appendChild(paragraph);
-      document.body.appendChild(div);
+      div.append(paragraph);
+      document.body.append(div);
 
       const textNode = paragraph.firstChild;
       const path = getNodePath(textNode);

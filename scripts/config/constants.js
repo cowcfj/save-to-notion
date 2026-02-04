@@ -111,6 +111,53 @@ export const NOTION_API = {
 };
 
 /**
+ * Notion 服務配置（整合自 NotionService.js）
+ * 集中管理 API 版本、延遲、重試等參數
+ */
+export const NOTION_CONFIG = {
+  API_VERSION: NOTION_API.VERSION,
+  BASE_URL: NOTION_API.BASE_URL,
+  BLOCKS_PER_BATCH: NOTION_API.BLOCKS_PER_BATCH,
+  DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES,
+  DEFAULT_BASE_DELAY: NOTION_API.BASE_RETRY_DELAY,
+  // 操作特定配置
+  CHECK_RETRIES: NOTION_API.CHECK_RETRIES,
+  CHECK_DELAY: NOTION_API.CHECK_DELAY,
+  CREATE_RETRIES: NOTION_API.CREATE_RETRIES,
+  CREATE_DELAY: NOTION_API.CREATE_DELAY,
+  DELETE_RETRIES: NOTION_API.DELETE_RETRIES,
+  DELETE_DELAY: NOTION_API.DELETE_DELAY,
+  RATE_LIMIT_DELAY: NOTION_API.RATE_LIMIT_DELAY,
+  PAGE_SIZE: NOTION_API.PAGE_SIZE,
+  // 頁面結構配置
+  HIGHLIGHT_SECTION_HEADER: NOTION_API.HIGHLIGHT_SECTION_HEADER,
+  // 批量刪除配置
+  DELETE_CONCURRENCY: NOTION_API.DELETE_CONCURRENCY,
+  DELETE_BATCH_DELAY_MS: NOTION_API.DELETE_BATCH_DELAY_MS,
+};
+
+/**
+ * 程式語言映射表 (用於 DomConverter.mapLanguage)
+ * 將常見縮寫或別名映射至 Notion API 支援的語言名稱
+ */
+export const CODE_LANGUAGE_MAP = {
+  js: 'javascript',
+  ts: 'typescript',
+  py: 'python',
+  md: 'markdown',
+  html: 'html',
+  css: 'css',
+  json: 'json',
+  sh: 'bash',
+  bash: 'bash',
+  c: 'c',
+  cpp: 'c++',
+  java: 'java',
+  go: 'go',
+  rust: 'rust',
+};
+
+/**
  * 支持嵌套 Children 的 Block 類型 (Notion API 2025-09-03)
  */
 export const BLOCKS_SUPPORTING_CHILDREN = [
@@ -161,6 +208,40 @@ export const LOG_LEVELS = {
   ERROR: 4,
 };
 
+/**
+ * 統一日誌圖標定義 (Centralized Emoji Config)
+ * 用於 Logger.success/start/ready 等語義化方法
+ */
+export const LOG_ICONS = {
+  SUCCESS: '✅',
+  ERROR: '❌',
+  WARN: '⚠️',
+  START: '🚀',
+  READY: '📦',
+};
+
+/**
+ * UI 提示狀態類型
+ */
+export const UI_STATUS_TYPES = {
+  SUCCESS: 'success',
+  ERROR: 'error',
+  INFO: 'info',
+  WARNING: 'warning',
+};
+
+/**
+ * 通用 UI 組件 CSS 類名（用於盒子、徽章等）
+ */
+export const COMMON_CSS_CLASSES = {
+  SUCCESS_BOX: 'success-box',
+  ERROR_BOX: 'error-box',
+  WARNING_BOX: 'warning-box',
+  RESULT_URL: 'result-url',
+  RESULT_ITEM: 'migration-result-item',
+  COUNT_BADGE: 'count-badge',
+};
+
 // ==========================================
 // 文本處理相關常量
 // ==========================================
@@ -207,7 +288,7 @@ export const HANDLER_CONSTANTS = {
 // ==========================================
 
 export const TAB_SERVICE = {
-  LOADING_TIMEOUT_MS: 10000, // 頁面載入超時時間 (ms)
+  LOADING_TIMEOUT_MS: 10_000, // 頁面載入超時時間 (ms)
   STATUS_UPDATE_DELAY_MS: 1000, // 狀態更新延遲 (ms)
 };
 
@@ -248,3 +329,79 @@ export const HIGHLIGHT_MIGRATION = {
 };
 
 // ERROR_MESSAGES has been moved to messages.js
+
+// ==========================================
+// 安全驗證相關常量
+// ==========================================
+
+export const SECURITY_CONSTANTS = {
+  // SVG 驗證白名單標籤 (來自 securityUtils.js)
+  SVG_ALLOWED_TAGS: [
+    'svg',
+    'path',
+    'circle',
+    'rect',
+    'line',
+    'polyline',
+    'polygon',
+    'ellipse',
+    'g',
+    'defs',
+    'use',
+    'symbol',
+    'title',
+    'desc',
+    'lineargradient', // 注意：轉為小寫比較
+    'radialgradient',
+    'stop',
+    'clippath',
+    'mask',
+    'pattern',
+    'text',
+    'tspan',
+    'image', // 允許圖片（但已在危險模式中檢查 data: 協議）
+    'a', // 允許連結（但已在危險模式中檢查 javascript: 協議）
+  ],
+
+  // SVG 驗證白名單屬性 (來自 securityUtils.js)
+  SVG_ALLOWED_ATTRS: [
+    'viewBox',
+    'fill',
+    'stroke',
+    'stroke-width',
+    'stroke-linecap',
+    'stroke-linejoin',
+    'width',
+    'height',
+    'class',
+    'id',
+    'xmlns',
+    'x',
+    'y',
+    'cx',
+    'cy',
+    'r',
+    'rx',
+    'ry',
+    'd',
+    'points',
+    'x1',
+    'y1',
+    'x2',
+    'y2',
+    'transform',
+    'opacity',
+  ],
+
+  // 安全 URL 協議
+  SAFE_URL_PROTOCOLS: ['http:', 'https:', ''],
+};
+
+// ==========================================
+// UI 樣式相關常量
+// ==========================================
+
+export const UI_STYLE_CONSTANTS = {
+  INLINE_BLOCK: 'inline-block',
+  TEXT_BOTTOM: 'text-bottom',
+};

@@ -23,7 +23,7 @@ describe('Highlighter Integration Tests', () => {
     document.body.innerHTML = '';
 
     // Mock window globals
-    window.Logger = {
+    globalThis.Logger = {
       log: jest.fn(),
       error: jest.fn(),
       warn: jest.fn(),
@@ -33,7 +33,7 @@ describe('Highlighter Integration Tests', () => {
     // 因為 StorageUtil 模組會在 import 時自動覆蓋 window.StorageUtil
 
     // Mock Chrome Extension API（使用 callback 風格，與源碼一致）
-    window.chrome = {
+    globalThis.chrome = {
       runtime: {
         id: 'test-extension-id',
         sendMessage: jest.fn((msg, sendResponse) => {
@@ -66,14 +66,12 @@ describe('Highlighter Integration Tests', () => {
     };
 
     // Mock CSS Highlight API
-    window.CSS = {
+    globalThis.CSS = {
       highlights: new Map(),
     };
 
-    window.Highlight = class MockHighlight {
-      constructor() {
-        this.size = 0;
-      }
+    globalThis.Highlight = class MockHighlight {
+      constructor() {}
       add(_range) {
         this.size++;
       }
@@ -85,11 +83,13 @@ describe('Highlighter Integration Tests', () => {
       clear() {
         this.size = 0;
       }
+
+      size = 0;
     };
 
     // Mock requestIdleCallback (not available in jsdom)
-    window.requestIdleCallback =
-      window.requestIdleCallback ||
+    globalThis.requestIdleCallback =
+      globalThis.requestIdleCallback ||
       jest.fn((callback, _options) => {
         const timeoutId = setTimeout(() => {
           callback({
@@ -100,18 +100,18 @@ describe('Highlighter Integration Tests', () => {
         return timeoutId;
       });
 
-    window.cancelIdleCallback =
-      window.cancelIdleCallback ||
+    globalThis.cancelIdleCallback =
+      globalThis.cancelIdleCallback ||
       jest.fn(id => {
         clearTimeout(id);
       });
 
     // Mock normalizeUrl (required by HighlightMigration)
     // Note: window.location is already provided by jsdom
-    window.normalizeUrl = jest.fn(url => url);
+    globalThis.normalizeUrl = jest.fn(url => url);
 
     // Clear window.HighlighterV2 if exists
-    delete window.HighlighterV2;
+    delete globalThis.HighlighterV2;
   });
 
   afterEach(() => {
@@ -169,31 +169,31 @@ describe('Highlighter Integration Tests', () => {
     test('should setup window.HighlighterV2', () => {
       const { manager } = setupHighlighter();
 
-      expect(window.HighlighterV2).toBeDefined();
-      expect(window.HighlighterV2.manager).toBe(manager);
-      expect(window.HighlighterV2.getInstance()).toBe(manager);
+      expect(globalThis.HighlighterV2).toBeDefined();
+      expect(globalThis.HighlighterV2.manager).toBe(manager);
+      expect(globalThis.HighlighterV2.getInstance()).toBe(manager);
     });
 
     test('should expose all utility functions on window', () => {
       setupHighlighter();
 
-      expect(window.HighlighterV2.serializeRange).toBeDefined();
-      expect(window.HighlighterV2.deserializeRange).toBeDefined();
-      expect(window.HighlighterV2.findTextInPage).toBeDefined();
-      expect(window.HighlighterV2.COLORS).toBeDefined();
-      expect(window.HighlighterV2.supportsHighlightAPI).toBeDefined();
+      expect(globalThis.HighlighterV2.serializeRange).toBeDefined();
+      expect(globalThis.HighlighterV2.deserializeRange).toBeDefined();
+      expect(globalThis.HighlighterV2.findTextInPage).toBeDefined();
+      expect(globalThis.HighlighterV2.COLORS).toBeDefined();
+      expect(globalThis.HighlighterV2.supportsHighlightAPI).toBeDefined();
     });
 
     test('should provide convenience methods', () => {
       setupHighlighter();
 
-      expect(typeof window.HighlighterV2.init).toBe('function');
-      expect(typeof window.HighlighterV2.getInstance).toBe('function');
+      expect(typeof globalThis.HighlighterV2.init).toBe('function');
+      expect(typeof globalThis.HighlighterV2.getInstance).toBe('function');
     });
 
     test('should send checkPageStatus message on auto-init', () => {
       // Clear window.HighlighterV2 to allow auto-init
-      delete window.HighlighterV2;
+      delete globalThis.HighlighterV2;
 
       // Import again to trigger auto-init
       // In real scenario, this happens on page load
@@ -201,12 +201,12 @@ describe('Highlighter Integration Tests', () => {
 
       // The message may or may not be sent depending on initialization
       // Just verify the function is available
-      expect(window.chrome.runtime.sendMessage).toBeDefined();
+      expect(globalThis.chrome.runtime.sendMessage).toBeDefined();
     });
 
     test('should handle chrome.runtime.sendMessage errors gracefully', () => {
-      window.chrome.runtime.sendMessage = jest.fn((msg, callback) => {
-        window.chrome.runtime.lastError = { message: 'Test error' };
+      globalThis.chrome.runtime.sendMessage = jest.fn((msg, callback) => {
+        globalThis.chrome.runtime.lastError = { message: 'Test error' };
         if (callback) {
           callback();
         }
@@ -308,8 +308,8 @@ describe('Highlighter Integration Tests', () => {
       await manager.initializationComplete;
 
       // Mock window.find
-      window.find = jest.fn(() => true);
-      window.getSelection = jest.fn(() => ({
+      globalThis.find = jest.fn(() => true);
+      globalThis.getSelection = jest.fn(() => ({
         removeAllRanges: jest.fn(),
         getRangeAt: jest.fn(() => {
           const range = document.createRange();

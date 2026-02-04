@@ -172,7 +172,7 @@ ${'='.repeat(60)}`);
       const before = beforeSummary[metric].pct || 0;
       const after = afterSummary[metric].pct || 0;
       const diff = after - before;
-      const arrow = diff > 0 ? '↗️' : diff < 0 ? '↘️' : '→';
+      const arrow = diff > 0 ? '↗️' : (diff < 0 ? '↘️' : '→');
       const sign = diff > 0 ? '+' : '';
 
       console.log(

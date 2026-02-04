@@ -15,16 +15,16 @@ describe('content script require test', () => {
       '<!doctype html><html><head><title>Require Test</title></head><body><article><h1>Hi</h1><p>Some content to satisfy Readability.</p></article></body></html>';
     const dom = new JSDOM(html);
     // expose globals
-    global.window = dom.window;
-    global.document = dom.window.document;
-    global.navigator = dom.window.navigator;
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.navigator = dom.window.navigator;
 
     // mocks
-    global.Readability = function (doc) {
+    globalThis.Readability = function (doc) {
       return { parse: () => ({ title: doc.title, content: '<p>Parsed</p>', length: 300 }) };
     };
 
-    global.ImageUtils = {
+    globalThis.ImageUtils = {
       cleanImageUrl: url => url,
       isValidImageUrl: (..._args) => true,
       extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
@@ -32,7 +32,7 @@ describe('content script require test', () => {
     };
 
     // mark unit testing mode
-    global.window.__UNIT_TESTING__ = true;
+    globalThis.window.__UNIT_TESTING__ = true;
 
     const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
 
@@ -47,8 +47,8 @@ describe('content script require test', () => {
     let result = null;
     for (let i = 0; i < 30; i++) {
       await new Promise(resolve => setTimeout(resolve, 200));
-      if (global.window.__notion_extraction_result) {
-        result = global.window.__notion_extraction_result;
+      if (globalThis.window.__notion_extraction_result) {
+        result = globalThis.window.__notion_extraction_result;
         break;
       }
     }
@@ -57,8 +57,8 @@ describe('content script require test', () => {
     expect(typeof result.title).toBe('string');
     expect(result.title.length).toBeGreaterThan(0);
     // cleanup
-    delete global.window;
-    delete global.document;
-    delete global.navigator;
-  }, 10000);
+    delete globalThis.window;
+    delete globalThis.document;
+    delete globalThis.navigator;
+  }, 10_000);
 });

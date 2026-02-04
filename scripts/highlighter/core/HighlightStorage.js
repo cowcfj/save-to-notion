@@ -14,8 +14,8 @@ import { StorageUtil } from '../utils/StorageUtil.js';
  */
 export class HighlightStorage {
   /**
-   * @param {Object} highlightManager - HighlightManager 實例
-   * @param {Object|null} toolbar - Toolbar 實例（可選，用於恢復後隱藏）
+   * @param {object} highlightManager - HighlightManager 實例
+   * @param {object | null} toolbar - Toolbar 實例（可選，用於恢復後隱藏）
    */
   constructor(highlightManager, toolbar = null) {
     this.manager = highlightManager;
@@ -31,7 +31,7 @@ export class HighlightStorage {
    */
   async save() {
     // StorageUtil is imported, so we don't need to check window property
-    if (typeof window === 'undefined') {
+    if (globalThis.window === undefined) {
       return;
     }
 
@@ -115,6 +115,7 @@ export class HighlightStorage {
 
   /**
    * 收集標註數據用於同步到 Notion
+   *
    * @returns {Array} 標註數據數組
    */
   collectForNotion() {
@@ -156,6 +157,7 @@ export class HighlightStorage {
 
   /**
    * 檢查是否已完成恢復
+   *
    * @returns {boolean}
    */
   hasRestored() {
@@ -164,11 +166,14 @@ export class HighlightStorage {
 
   /**
    * 獲取標準化 URL
+   *
    * @returns {string}
    * @private
    */
   static _getNormalizedUrl() {
-    return window.normalizeUrl ? window.normalizeUrl(window.location.href) : window.location.href;
+    return globalThis.normalizeUrl
+      ? globalThis.normalizeUrl(globalThis.location.href)
+      : globalThis.location.href;
   }
 }
 

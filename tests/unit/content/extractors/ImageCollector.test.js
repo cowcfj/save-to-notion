@@ -18,7 +18,7 @@ import { cachedQuery } from '../../../../scripts/content/extractors/ReadabilityA
 import { batchProcessWithRetry } from '../../../../scripts/performance/PerformanceOptimizer.js';
 
 // Mock Globals
-global.Logger = {
+globalThis.Logger = {
   log: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -48,14 +48,14 @@ import {
 } from '../../../../scripts/utils/imageUtils.js';
 
 // Global mock not needed for ImageCollector but might be used by other parts if they fallback
-global.ImageUtils = {
+globalThis.ImageUtils = {
   extractImageSrc,
   cleanImageUrl,
   isValidImageUrl,
   isNotionCompatibleImageUrl,
 };
 
-global.ErrorHandler = {
+globalThis.ErrorHandler = {
   logError: jest.fn(),
 };
 
@@ -65,9 +65,9 @@ describe('ImageCollector', () => {
     document.body.innerHTML = '';
 
     // Default mocks
-    global.Logger.log.mockImplementation(() => undefined);
-    global.Logger.warn.mockImplementation(() => undefined);
-    global.Logger.error.mockImplementation(() => undefined);
+    globalThis.Logger.log.mockImplementation(() => undefined);
+    globalThis.Logger.warn.mockImplementation(() => undefined);
+    globalThis.Logger.error.mockImplementation(() => undefined);
 
     extractImageSrc.mockReturnValue(null);
     cleanImageUrl.mockImplementation(url => url);
@@ -227,7 +227,7 @@ describe('ImageCollector', () => {
       // Setup
       const contentElement = document.createElement('div');
       // Create 6 images to trigger batch processing (> 5)
-      const mockImgs = Array(6)
+      const mockImgs = Array.from({ length: 6 })
         .fill(0)
         .map((_, idx) => {
           const img = document.createElement('img');

@@ -67,19 +67,19 @@ describe('MigrationExecutor', () => {
   });
 
   describe('checkBrowserSupport', () => {
-    const originalCSS = global.CSS;
+    const originalCSS = globalThis.CSS;
 
     afterEach(() => {
-      global.CSS = originalCSS;
+      globalThis.CSS = originalCSS;
     });
 
     it('should return true when CSS Highlight API is supported', () => {
-      global.CSS = { highlights: {} };
+      globalThis.CSS = { highlights: {} };
       expect(MigrationExecutor.checkBrowserSupport()).toBe(true);
     });
 
     it('should return false when CSS.highlights is missing', () => {
-      global.CSS = {};
+      globalThis.CSS = {};
       expect(MigrationExecutor.checkBrowserSupport()).toBe(false);
     });
   });
@@ -115,12 +115,12 @@ describe('MigrationExecutor', () => {
     let executor = null;
 
     beforeEach(() => {
-      global.CSS = { highlights: {} };
+      globalThis.CSS = { highlights: {} };
       executor = new MigrationExecutor();
     });
 
     afterEach(() => {
-      delete global.CSS;
+      delete globalThis.CSS;
     });
 
     it('should return statistics object', () => {
@@ -141,7 +141,7 @@ describe('MigrationExecutor', () => {
     });
 
     it('should report CSS Highlight API support status', () => {
-      global.CSS = {};
+      globalThis.CSS = {};
       const stats = executor.getStatistics();
       expect(stats.supportsCSSHighlight).toBe(false);
     });
@@ -164,10 +164,10 @@ describe('MigrationExecutor Extended', () => {
         },
       },
     };
-    global.chrome = mockChrome;
+    globalThis.chrome = mockChrome;
 
     // Mock CSS Highlight API support
-    global.CSS = { highlights: {} };
+    globalThis.CSS = { highlights: {} };
 
     // Mock HighlightManager
     mockHighlightManager = {
@@ -184,7 +184,7 @@ describe('MigrationExecutor Extended', () => {
   afterEach(() => {
     jest.clearAllMocks();
     document.body.innerHTML = '';
-    delete global.CSS;
+    delete globalThis.CSS;
   });
 
   describe('getMigrationState', () => {
@@ -270,7 +270,7 @@ describe('MigrationExecutor Extended', () => {
 
   describe('migrate', () => {
     test('瀏覽器不支持時應跳過', async () => {
-      global.CSS = {};
+      globalThis.CSS = {};
 
       const result = await executor.migrate(mockHighlightManager);
 
@@ -380,7 +380,7 @@ describe('MigrationExecutor Extended', () => {
 
       expect(result).not.toBeNull();
       expect(result.id).toBe('mock-highlight-id');
-      expect(span.getAttribute('data-migrated')).toBe('true');
+      expect(span.dataset.migrated).toBe('true');
       expect(span.style.opacity).toBe('0');
     });
 
@@ -402,7 +402,7 @@ describe('MigrationExecutor Extended', () => {
       const span = document.querySelector('.test');
       MigrationExecutor.removeOldSpan(span);
 
-      const container = document.getElementById('container');
+      const container = document.querySelector('#container');
       expect(container.innerHTML).toBe('Hello World');
     });
   });
@@ -419,7 +419,7 @@ describe('MigrationExecutor Extended', () => {
 
       const span = document.querySelector('.simple-highlight');
       expect(span.style.opacity).toBe('1');
-      expect(span.hasAttribute('data-migrated')).toBe(false);
+      expect(Object.hasOwn(span.dataset, 'migrated')).toBe(false);
     });
   });
 

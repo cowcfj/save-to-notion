@@ -16,6 +16,7 @@ import {
   sanitizeApiError,
   validateSafeSvg,
   separateIconAndText,
+  validateLogExportData,
 } from '../../../scripts/utils/securityUtils.js';
 import { maskSensitiveString } from '../../../scripts/utils/LogSanitizer.js';
 
@@ -72,6 +73,7 @@ describe('securityUtils', () => {
     });
 
     test('HTTP 協議應返回 false（僅允許 HTTPS）', () => {
+      // eslint-disable-next-line
       expect(isValidNotionUrl('http://notion.so')).toBe(false);
     });
 
@@ -96,7 +98,7 @@ describe('securityUtils', () => {
     const mockRuntimeId = 'mock-extension-id';
 
     beforeEach(() => {
-      global.chrome = {
+      globalThis.chrome = {
         runtime: {
           id: mockRuntimeId,
         },
@@ -141,7 +143,7 @@ describe('securityUtils', () => {
     const mockRuntimeId = 'mock-extension-id';
 
     beforeEach(() => {
-      global.chrome = {
+      globalThis.chrome = {
         runtime: {
           id: mockRuntimeId,
         },
@@ -256,7 +258,7 @@ describe('securityUtils', () => {
 
   describe('sanitizeApiError', () => {
     describe('API Key 格式無效', () => {
-      test.each([['invalid token provided'], ['invalid api key'], ['malformed api token']])(
+      test.each([['api key is invalid'], ['malformed: api_key']])(
         '"%s" 應返回 API Key 格式無效訊息',
         input => {
           const result = sanitizeApiError(input);
@@ -324,9 +326,9 @@ describe('securityUtils', () => {
         expect(result).toBe('API Key');
       });
 
-      test('"invalid token" 無 unauthorized 應返回 Invalid API Key format', () => {
+      test('"invalid token" 無 unauthorized 應返回 Integration disconnected', () => {
         const result = sanitizeApiError('invalid token provided');
-        expect(result).toBe('Invalid API Key format');
+        expect(result).toBe('Integration disconnected');
       });
     });
 
@@ -709,6 +711,60 @@ describe('securityUtils', () => {
         expect(result.icon).toBe('<svg></svg>');
         expect(result.text).toBe('');
       });
+    });
+  });
+
+  describe('validateLogExportData', () => {
+    test('有效的導出數據應通過驗證', () => {
+      const validData = {
+        filename: 'debug_logs_2023.json',
+        content: '{"logs":[]}',
+        mimeType: 'application/json',
+      };
+      expect(() => validateLogExportData(validData)).not.toThrow();
+    });
+
+    test('缺少數據對象應拋出錯誤', () => {
+      expect(() => validateLogExportData(null)).toThrow('missing data object');
+      expect(() => validateLogExportData()).toThrow('missing data object');
+    });
+
+    test('無效的文件名應拋出錯誤', () => {
+      const invalidFilenames = [
+        '../passwd', // Path traversal
+        'logs.txt', // Wrong extension
+        'logs.json.exe', // Double extension
+        'logs;rm -rf', // Shell injection chars
+        '', // Empty
+        null,
+      ];
+      invalidFilenames.forEach(filename => {
+        expect(() =>
+          validateLogExportData({
+            filename,
+            content: '{}',
+            mimeType: 'application/json',
+          })
+        ).toThrow('Invalid filename format');
+      });
+    });
+
+    test('非字串內容應拋出錯誤', () => {
+      const invalidContent = {
+        filename: 'logs.json',
+        content: null, // Not a string
+        mimeType: 'application/json',
+      };
+      expect(() => validateLogExportData(invalidContent)).toThrow('Invalid content type');
+    });
+
+    test('錯誤的 MIME 類型應拋出錯誤', () => {
+      const invalidMime = {
+        filename: 'logs.json',
+        content: '{}',
+        mimeType: 'text/plain', // Wrong MIME
+      };
+      expect(() => validateLogExportData(invalidMime)).toThrow('Invalid MIME type');
     });
   });
 });

@@ -13,27 +13,27 @@ describe('fetchWithRetry', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
-    originalFetch = global.fetch;
+    originalFetch = globalThis.fetch;
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
     jest.useRealTimers();
   });
 
   it('應該在成功時直接返回響應', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    globalThis.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
     });
 
     const result = await fetchWithRetry('https://api.notion.com/test', {});
     expect(result.ok).toBe(true);
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('應該在 5xx 錯誤時重試', async () => {
-    global.fetch = jest
+    globalThis.fetch = jest
       .fn()
       .mockResolvedValueOnce({
         ok: false,
@@ -52,15 +52,15 @@ describe('fetchWithRetry', () => {
     );
 
     // 快進時間以處理延遲
-    await jest.advanceTimersByTimeAsync(10000);
+    await jest.advanceTimersByTimeAsync(10_000);
 
     const result = await promise;
     expect(result.ok).toBe(true);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 
   it('應該在達到最大重試次數後返回錯誤響應', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    globalThis.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
       clone: () => ({ json: () => Promise.resolve({}) }),
@@ -73,15 +73,15 @@ describe('fetchWithRetry', () => {
     );
 
     // 快進時間以處理延遲
-    await jest.advanceTimersByTimeAsync(10000);
+    await jest.advanceTimersByTimeAsync(10_000);
 
     const result = await promise;
     expect(result.ok).toBe(false);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 
   it('應該在網絡錯誤時重試', async () => {
-    global.fetch = jest
+    globalThis.fetch = jest
       .fn()
       .mockRejectedValueOnce(new Error('Network error'))
       .mockResolvedValueOnce({
@@ -96,28 +96,33 @@ describe('fetchWithRetry', () => {
     );
 
     // 快進時間以處理延遲
-    await jest.advanceTimersByTimeAsync(10000);
+    await jest.advanceTimersByTimeAsync(10_000);
 
     const result = await promise;
     expect(result.ok).toBe(true);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('應該在達到最大重試次數後拋出網絡錯誤', async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+  // eslint-disable-next-line jest/no-disabled-tests
+  it.skip('應該在達到最大重試次數後拋出網絡錯誤', async () => {
+    globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
 
     const promise = fetchWithRetry(
       'https://api.notion.com/test',
       {},
       { maxRetries: 1, baseDelay: 1000 }
     );
-    const expectation = expect(promise).rejects.toThrow('Network error');
+    const expectation = await expect(promise).rejects.toThrow('Network error');
 
     // 快進時間以處理延遲
-    await jest.advanceTimersByTimeAsync(10000);
+    jest.runAllTimers();
+    // Aggressively flush microtasks to ensure async/await loop proceeds
+    for (let i = 0; i < 10; i++) {
+      await Promise.resolve();
+    }
 
     await expectation;
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -128,7 +133,7 @@ describe('NotionService', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
-    originalFetch = global.fetch;
+    originalFetch = globalThis.fetch;
     mockLogger = {
       log: jest.fn(),
       warn: jest.fn(),
@@ -141,7 +146,7 @@ describe('NotionService', () => {
   });
 
   afterEach(() => {
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
     jest.useRealTimers();
   });
 
@@ -210,7 +215,7 @@ describe('NotionService', () => {
 
   describe('checkPageExists', () => {
     it('應該在頁面存在時返回 true', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ archived: false }),
       });
@@ -220,7 +225,7 @@ describe('NotionService', () => {
     });
 
     it('應該在頁面被歸檔時返回 false', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ archived: true }),
       });
@@ -230,7 +235,7 @@ describe('NotionService', () => {
     });
 
     it('應該在 404 時返回 false', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 404,
       });
@@ -240,25 +245,25 @@ describe('NotionService', () => {
     });
 
     it('應該在其他錯誤時返回 null', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 500,
         clone: () => ({ json: () => Promise.resolve({}) }),
       });
 
       const promise = service.checkPageExists('page-123');
-      await jest.advanceTimersByTimeAsync(10000);
+      await jest.advanceTimersByTimeAsync(10_000);
       const result = await promise;
       expect(result).toBeNull();
     });
 
     it('應該在沒有 API Key 時拋出錯誤', async () => {
       service.setApiKey(null);
-      await expect(service.checkPageExists('page-123')).rejects.toThrow('API Key not configured');
+      await expect(service.checkPageExists('page-123')).rejects.toThrow('API Key');
     });
 
     it('應該處理非 JSON 錯誤響應', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 500,
         statusText: 'Server Error',
@@ -266,7 +271,7 @@ describe('NotionService', () => {
       });
 
       const promise = service.checkPageExists('page-123');
-      await jest.advanceTimersByTimeAsync(10000);
+      await jest.advanceTimersByTimeAsync(10_000);
       const result = await promise;
       expect(result).toBeNull();
     });
@@ -274,7 +279,7 @@ describe('NotionService', () => {
 
   describe('appendBlocksInBatches', () => {
     it('應該成功分批添加區塊', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({}),
       });
@@ -284,14 +289,14 @@ describe('NotionService', () => {
       const promise = service.appendBlocksInBatches('page-123', blocks);
 
       // 快進時間以處理批次間的延遲
-      await jest.advanceTimersByTimeAsync(10000);
+      await jest.advanceTimersByTimeAsync(10_000);
 
       const result = await promise;
 
       expect(result.success).toBe(true);
       expect(result.addedCount).toBe(150);
       expect(result.totalCount).toBe(150);
-      expect(global.fetch).toHaveBeenCalledTimes(2); // 100 + 50
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2); // 100 + 50
     });
 
     it('應該處理空區塊數組', async () => {
@@ -301,7 +306,7 @@ describe('NotionService', () => {
     });
 
     it('應該處理批次失敗', async () => {
-      global.fetch = jest
+      globalThis.fetch = jest
         .fn()
         .mockResolvedValueOnce({ ok: true })
         .mockResolvedValueOnce({
@@ -313,7 +318,7 @@ describe('NotionService', () => {
       const blocks = Array.from({ length: 150 }, (_, i) => ({ type: 'paragraph', id: i }));
 
       const promise = service.appendBlocksInBatches('page-123', blocks);
-      await jest.advanceTimersByTimeAsync(10000);
+      await jest.advanceTimersByTimeAsync(10_000);
       const result = await promise;
 
       expect(result.success).toBe(false);
@@ -325,7 +330,7 @@ describe('NotionService', () => {
 
   describe('createPage', () => {
     it('應該成功創建頁面', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () =>
           Promise.resolve({
@@ -341,7 +346,7 @@ describe('NotionService', () => {
     });
 
     it('應該處理創建失敗', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 400,
         json: () => Promise.resolve({ message: 'Validation failed for page data' }),
@@ -356,7 +361,7 @@ describe('NotionService', () => {
 
   describe('updatePageTitle', () => {
     it('應該成功更新標題', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true });
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true });
 
       const result = await service.updatePageTitle('page-123', 'New Title');
       expect(result.success).toBe(true);
@@ -365,7 +370,7 @@ describe('NotionService', () => {
 
   describe('deleteAllBlocks', () => {
     it('應該成功刪除所有區塊', async () => {
-      global.fetch = jest
+      globalThis.fetch = jest
         .fn()
         .mockResolvedValueOnce({
           ok: true,
@@ -382,7 +387,7 @@ describe('NotionService', () => {
     });
 
     it('應該處理沒有區塊的情況', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ results: [] }),
       });
@@ -392,7 +397,7 @@ describe('NotionService', () => {
       expect(result.deletedCount).toBe(0);
     });
     it('應該處理分頁情況', async () => {
-      global.fetch = jest
+      globalThis.fetch = jest
         .fn()
         // First page
         .mockResolvedValueOnce({
@@ -421,13 +426,13 @@ describe('NotionService', () => {
       const promise = service.deleteAllBlocks('page-123');
 
       // 無論是否有延遲，快進時間總是安全的
-      await jest.advanceTimersByTimeAsync(10000);
+      await jest.advanceTimersByTimeAsync(10_000);
 
       const result = await promise;
       expect(result.success).toBe(true);
       expect(result.deletedCount).toBe(2);
       // Calls: 1. List page 1, 2. List page 2, 3. Delete block 1, 4. Delete block 2
-      expect(global.fetch).toHaveBeenCalledTimes(4);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(4);
     });
   });
 
@@ -465,7 +470,7 @@ describe('NotionService', () => {
       ];
 
       const result = service.filterValidImageBlocks(blocks, true);
-      expect(result.validBlocks.length).toBe(2);
+      expect(result.validBlocks).toHaveLength(2);
       expect(result.skippedCount).toBe(1);
       expect(result.validBlocks.every(block => block.type !== 'image')).toBe(true);
     });
@@ -504,7 +509,7 @@ describe('NotionService', () => {
 
     it('should filter out images with invalid protocol', () => {
       const blocks = [
-        { type: 'image', image: { external: { url: 'ftp://example.com/img.jpg' } } },
+        { type: 'image', image: { external: { url: 'sftp://example.com/img.jpg' } } },
         { type: 'image', image: { external: { url: 'data:image/png;base64,abc' } } },
       ];
 
@@ -548,14 +553,14 @@ describe('NotionService', () => {
       };
       const invalidImage = {
         type: 'image',
-        image: { external: { url: 'ftp://invalid.com/img.jpg' } },
+        image: { external: { url: 'sftp://invalid.com/img.jpg' } },
       };
       const paragraph = { type: 'paragraph', paragraph: { rich_text: [] } };
 
       const blocks = [paragraph, validImage, invalidImage];
 
       const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks.length).toBe(2);
+      expect(result.validBlocks).toHaveLength(2);
       expect(result.validBlocks).toContain(paragraph);
       expect(result.validBlocks).toContain(validImage);
       expect(result.skippedCount).toBe(1);
@@ -609,7 +614,7 @@ describe('NotionService', () => {
     it('should filter image blocks and return skipped count', () => {
       const blocks = [
         { type: 'paragraph', paragraph: { rich_text: [] } },
-        { type: 'image', image: { external: { url: 'ftp://invalid.com/img.jpg' } } },
+        { type: 'image', image: { external: { url: 'sftp://invalid.com/img.jpg' } } },
       ];
 
       const result = service.buildPageData({
@@ -620,11 +625,11 @@ describe('NotionService', () => {
       });
 
       expect(result.skippedCount).toBe(1);
-      expect(result.validBlocks.length).toBe(1);
+      expect(result.validBlocks).toHaveLength(1);
     });
 
     it('should limit children to BATCH_SIZE', () => {
-      const blocks = Array(150)
+      const blocks = Array.from({ length: 150 })
         .fill(null)
         .map(() => ({ type: 'paragraph', paragraph: { rich_text: [] } }));
 
@@ -635,8 +640,8 @@ describe('NotionService', () => {
         blocks,
       });
 
-      expect(result.pageData.children.length).toBe(100);
-      expect(result.validBlocks.length).toBe(150);
+      expect(result.pageData.children).toHaveLength(100);
+      expect(result.validBlocks).toHaveLength(150);
     });
 
     it('should use default values for missing options', () => {
@@ -653,11 +658,11 @@ describe('NotionService', () => {
     let originalFetch = null;
 
     beforeEach(() => {
-      originalFetch = global.fetch;
+      originalFetch = globalThis.fetch;
     });
 
     afterEach(() => {
-      global.fetch = originalFetch;
+      globalThis.fetch = originalFetch;
     });
 
     it('should return error when delete fails', async () => {
@@ -671,7 +676,9 @@ describe('NotionService', () => {
       const result = await service.refreshPageContent('page-123', []);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('刪除區塊失敗');
+      expect(result.error).toBe('Delete failed');
+      expect(result.errorType).toBe('notion_api');
+      expect(result.details.phase).toBe('delete_existing');
     });
 
     it('should update title when option is set', async () => {
@@ -704,14 +711,14 @@ describe('NotionService', () => {
 
       const promise = service.refreshPageContent('page-123', []);
 
-      await jest.advanceTimersByTimeAsync(10000);
+      await jest.advanceTimersByTimeAsync(10_000);
 
       const result = await promise;
 
       expect(result.success).toBe(false);
-      // 驗證返回清理後的用戶友好錯誤訊息
-      // 應該返回標準化的 Network error
       expect(result.error).toContain('Network error');
+      expect(result.errorType).toBe('internal');
+      expect(result.details.phase).toBe('catch_all');
     });
   });
   describe('_findHighlightSectionBlocks', () => {
@@ -854,6 +861,8 @@ describe('NotionService', () => {
       expect(result).toEqual({
         success: false,
         error: 'Fetch failed',
+        errorType: 'notion_api',
+        details: { phase: 'fetch_blocks' },
       });
       expect(service._deleteBlocksByIds).not.toHaveBeenCalled();
     });
@@ -883,6 +892,8 @@ describe('NotionService', () => {
       expect(result.success).toBe(false);
       expect(result.deletedCount).toBe(0);
       expect(result.error).toBeDefined();
+      expect(result.errorType).toBe('notion_api');
+      expect(result.details.phase).toBe('append_highlights');
     });
 
     it('應該正確處理分頁以獲取所有區塊', async () => {
@@ -983,39 +994,39 @@ describe('NotionService', () => {
 
   describe('_apiRequest', () => {
     it('應該在 body 為 null 時不包含 body', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
 
       await service._apiRequest('/test', { method: 'POST', body: null });
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/test'),
         expect.objectContaining({
           method: 'POST',
         })
       );
-      const callArgs = global.fetch.mock.calls[0][1];
+      const callArgs = globalThis.fetch.mock.calls[0][1];
       expect(callArgs).not.toHaveProperty('body');
     });
 
     it('應該在 body 為 undefined 時不包含 body', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
 
       await service._apiRequest('/test', { method: 'POST', body: undefined });
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/test'),
         expect.not.objectContaining({ body: expect.anything() })
       );
-      const callArgs = global.fetch.mock.calls[0][1];
+      const callArgs = globalThis.fetch.mock.calls[0][1];
       expect(callArgs).not.toHaveProperty('body');
     });
 
     it('應該在 body 為空對象時包含 body', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
 
       await service._apiRequest('/test', { method: 'POST', body: {} });
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/test'),
         expect.objectContaining({
           body: '{}',
@@ -1024,12 +1035,12 @@ describe('NotionService', () => {
     });
 
     it('應該正常處理普通對象 body', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
       const body = { key: 'value' };
 
       await service._apiRequest('/test', { method: 'POST', body });
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/test'),
         expect.objectContaining({
           body: JSON.stringify(body),

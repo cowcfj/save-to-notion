@@ -150,7 +150,7 @@ const chrome = {
     }),
     create: jest.fn((createProperties, callback) => {
       const tab = {
-        id: Math.floor(Math.random() * 10000),
+        id: Math.floor(Math.random() * 10_000),
         ...createProperties,
       };
       if (callback) {
@@ -208,6 +208,6 @@ const chrome = {
   _getStorage: () => ({ ...storageData }),
 };
 
-global.chrome = chrome;
+globalThis.chrome = chrome;
 
 module.exports = chrome;

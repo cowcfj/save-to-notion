@@ -5,6 +5,7 @@
 
 /**
  * 獲取顏色的中文名稱
+ *
  * @param {string} color - 顏色英文名稱
  * @returns {string} 顏色的中文名稱
  */
@@ -20,8 +21,9 @@ function getColorName(color) {
 
 /**
  * 渲染顏色選擇器
+ *
  * @param {HTMLElement} container - 容器元素
- * @param {Object} colors - 顏色配置對象，格式: {colorName: colorValue}
+ * @param {object} colors - 顏色配置對象，格式: {colorName: colorValue}
  * @param {string} currentColor - 當前選中的顏色
  * @param {Function} onColorChange - 顏色變更回調函數
  */
@@ -33,7 +35,7 @@ export function renderColorPicker(container, colors, currentColor, onColorChange
     throw new Error('Colors must be an object');
   }
   if (typeof onColorChange !== 'function') {
-    throw new Error('onColorChange must be a function');
+    throw new TypeError('onColorChange must be a function');
   }
 
   // 生成顏色按鈕的 HTML
@@ -59,7 +61,7 @@ export function renderColorPicker(container, colors, currentColor, onColorChange
   // 綁定點擊事件
   container.querySelectorAll('.nh-color-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const color = btn.getAttribute('data-color');
+      const color = btn.dataset.color;
       if (color) {
         onColorChange(color);
         // 重新渲染以更新選中狀態

@@ -134,7 +134,7 @@ describe('normalizeUrl', () => {
       // URL API 可能會將 %20 轉換為 +
       expect(result).toContain('example.com/search');
       expect(result).toContain('id=123');
-      expect(result).toMatch(/hello[+%20]+world/);
+      expect(result).toMatch(/hello[%+02]+world/);
     });
 
     test('應該處理中文字符', () => {

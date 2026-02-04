@@ -78,11 +78,11 @@ test.describe('Popup UI', () => {
     await page.reload();
     await page.evaluate(() => {
       // 模擬 Actions 模組的導入並手動調用更新 UI 的函數 (測試 UI 響應)
-      document.getElementById('save-button').style.display = 'none';
-      document.getElementById('highlight-button').style.display = 'block';
-      document.getElementById('highlight-button').disabled = false;
-      document.getElementById('open-notion-button').style.display = 'block';
-      document.getElementById('status').textContent = 'Page saved. Ready to highlight or update.';
+      document.querySelector('#save-button').style.display = 'none';
+      document.querySelector('#highlight-button').style.display = 'block';
+      document.querySelector('#highlight-button').disabled = false;
+      document.querySelector('#open-notion-button').style.display = 'block';
+      document.querySelector('#status').textContent = 'Page saved. Ready to highlight or update.';
     });
 
     // 檢查 UI 元素切換
@@ -121,7 +121,7 @@ test.describe('Popup UI', () => {
 
     // 2. 手動顯示清除按鈕（因為正常流程依賴 Service Worker 返回 isSaved: true）
     await page.evaluate(() => {
-      document.getElementById('clear-highlights-button').style.display = 'block';
+      document.querySelector('#clear-highlights-button').style.display = 'block';
     });
 
     // 3. 點擊清除按鈕

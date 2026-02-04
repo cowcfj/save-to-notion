@@ -31,20 +31,22 @@ const dom = new JSDOM(`
 
 // 設置所需的全局引用（使用解構以減少未宣告變數警告）
 const { document, window } = dom.window;
-global.document = document;
-global.window = window;
-global.performance = {
+globalThis.document = document;
+globalThis.window = window;
+globalThis.performance = {
   now: () => Date.now(),
   memory: {
-    usedJSHeapSize: 1000000,
-    totalJSHeapSize: 2000000,
-    jsHeapSizeLimit: 4000000,
+    usedJSHeapSize: 1_000_000,
+    totalJSHeapSize: 2_000_000,
+    jsHeapSizeLimit: 4_000_000,
   },
 };
 
 // 確保 DOM 查詢方法可用
-global.document.querySelector = dom.window.document.querySelector.bind(dom.window.document);
-global.document.querySelectorAll = dom.window.document.querySelectorAll.bind(dom.window.document);
+globalThis.document.querySelector = dom.window.document.querySelector.bind(dom.window.document);
+globalThis.document.querySelectorAll = dom.window.document.querySelectorAll.bind(
+  dom.window.document
+);
 
 // 引入性能優化器
 const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
@@ -58,7 +60,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
       enableCache: true,
       enableBatching: true,
       cacheMaxSize: 100,
-      cacheTTL: 300000, // 5分鐘 TTL
+      cacheTTL: 300_000, // 5分鐘 TTL
     });
   });
 
@@ -94,8 +96,8 @@ describe('PerformanceOptimizer 進階功能測試', () => {
       const expiredKey = 'expired_test_key';
       optimizer.queryCache.set(expiredKey, {
         result: 'test_result',
-        timestamp: Date.now() - 400000, // 5分鐘前，已過期
-        ttl: 300000,
+        timestamp: Date.now() - 400_000, // 5分鐘前，已過期
+        ttl: 300_000,
       });
 
       // 清理過期緩存
@@ -128,7 +130,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
       // 創建一個小容量的優化器
       const smallOptimizer = new PerformanceOptimizer({
         cacheMaxSize: 2,
-        cacheTTL: 300000,
+        cacheTTL: 300_000,
       });
 
       // 添加超過限制的查詢
@@ -149,7 +151,7 @@ describe('PerformanceOptimizer 進階功能測試', () => {
       const results = await optimizer.preloadSelectors(selectors);
 
       expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(selectors.length);
+      expect(results).toHaveLength(selectors.length);
 
       // 驗證預熱計數增加
       const stats = optimizer.getPerformanceStats();
@@ -195,15 +197,15 @@ describe('PerformanceOptimizer 進階功能測試', () => {
       expect(size0).toBe(100); // 默認大小
 
       // 模擬不同隊列長度
-      optimizer.batchQueue = new Array(10);
+      optimizer.batchQueue = Array.from({ length: 10 });
       const size1 = optimizer._calculateOptimalBatchSize();
       expect(size1).toBe(50); // 中等大小
 
-      optimizer.batchQueue = new Array(300);
+      optimizer.batchQueue = Array.from({ length: 300 });
       const size2 = optimizer._calculateOptimalBatchSize();
       expect(size2).toBe(150); // 較大
 
-      optimizer.batchQueue = new Array(600);
+      optimizer.batchQueue = Array.from({ length: 600 });
       const size3 = optimizer._calculateOptimalBatchSize();
       expect(size3).toBe(200); // 最大
     });

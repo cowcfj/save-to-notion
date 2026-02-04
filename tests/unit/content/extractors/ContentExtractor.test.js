@@ -50,7 +50,7 @@ const {
 const { MetadataExtractor } = require('../../../../scripts/content/extractors/MetadataExtractor');
 const pageComplexityDetector = require('../../../../scripts/utils/pageComplexityDetector');
 
-global.Logger = {
+globalThis.Logger = {
   log: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),

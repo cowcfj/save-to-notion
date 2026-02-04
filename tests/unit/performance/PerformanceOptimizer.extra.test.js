@@ -37,11 +37,11 @@ describe('PerformanceOptimizer (extra tests)', () => {
 
   test('batchDomOperations executes operations when processing runs', async () => {
     const op1 = () => {
-      document.body.appendChild(document.createElement('div'));
+      document.body.append(document.createElement('div'));
       return 1;
     };
     const op2 = () => {
-      document.body.appendChild(document.createElement('span'));
+      document.body.append(document.createElement('span'));
       return 2;
     };
 
@@ -53,7 +53,7 @@ describe('PerformanceOptimizer (extra tests)', () => {
 
     const results = await promise;
     expect(Array.isArray(results)).toBe(true);
-    expect(results.length).toBe(2);
+    expect(results).toHaveLength(2);
   });
 
   test('preloadSelectors prewarms selectors', async () => {

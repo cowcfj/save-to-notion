@@ -22,8 +22,8 @@ import { ERROR_MESSAGES } from '../../config/messages.js';
  * 創建遷移處理函數
  * 沿用工廠模式，保持與 actionHandlers 一致的依賴注入風格
  *
- * @param {Object} services - 服務實例集合（目前未使用，保留擴展性）
- * @returns {Object} 遷移處理函數映射
+ * @param {object} services - 服務實例集合（目前未使用，保留擴展性）
+ * @returns {object} 遷移處理函數映射
  */
 // eslint-disable-next-line no-unused-vars
 export function createMigrationHandlers(services) {
@@ -48,6 +48,10 @@ export function createMigrationHandlers(services) {
      * 執行標註數據遷移
      * 從選項頁面發起，將舊版標註升級為現代格式
      * 使用 Headless Tab 策略：在後台分頁中執行 DOM 感知的遷移
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     migration_execute: async (request, sender, sendResponse) => {
       let createdTabId = null;
@@ -104,7 +108,7 @@ export function createMigrationHandlers(services) {
 
           // 等待分頁加載完成 (帶超時保護)
           await new Promise((resolve, reject) => {
-            const TIMEOUT_MS = 15000;
+            const TIMEOUT_MS = 15_000;
             let timeoutId = null;
             let listener = null;
 
@@ -122,6 +126,7 @@ export function createMigrationHandlers(services) {
 
             /**
              * 監聽分頁更新狀態的回調函數
+             *
              * @param {number} tabId - 更新的分頁 ID
              * @param {object} changeInfo - 分頁變更信息
              */
@@ -177,8 +182,8 @@ export function createMigrationHandlers(services) {
               func: () => {
                 return {
                   ready:
-                    typeof window.MigrationExecutor !== 'undefined' &&
-                    typeof window.HighlighterV2?.manager !== 'undefined',
+                    globalThis.MigrationExecutor !== undefined &&
+                    globalThis.HighlighterV2?.manager !== undefined,
                 };
               },
             });
@@ -188,7 +193,7 @@ export function createMigrationHandlers(services) {
               Logger.log('腳本就緒', { action: 'migration_execute', attempt: i + 1 });
               break;
             }
-          } catch (_checkError) {
+          } catch {
             // 腳本還未就緒，繼續重試
           }
 
@@ -207,16 +212,16 @@ export function createMigrationHandlers(services) {
           target: { tabId: targetTab.id },
           func: async (executorErrorMsg, managerErrorMsg) => {
             // 在分頁上下文中執行
-            if (!window.MigrationExecutor) {
+            if (!globalThis.MigrationExecutor) {
               return { error: executorErrorMsg };
             }
 
-            if (!window.HighlighterV2?.manager) {
+            if (!globalThis.HighlighterV2?.manager) {
               return { error: managerErrorMsg };
             }
 
-            const executor = new window.MigrationExecutor();
-            const manager = window.HighlighterV2.manager;
+            const executor = new globalThis.MigrationExecutor();
+            const manager = globalThis.HighlighterV2.manager;
 
             // 執行遷移
             const outcome = await executor.migrate(manager);
@@ -286,6 +291,10 @@ export function createMigrationHandlers(services) {
     /**
      * 刪除標註數據
      * 從選項頁面發起，刪除指定 URL 的所有標註
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     migration_delete: async (request, sender, sendResponse) => {
       try {
@@ -342,6 +351,10 @@ export function createMigrationHandlers(services) {
      * 批量遷移標註數據
      * 直接在 Storage 中轉換格式，標記 needsRangeInfo
      * 用戶訪問頁面時會自動完成 rangeInfo 生成
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     migration_batch: async (request, sender, sendResponse) => {
       try {
@@ -465,6 +478,10 @@ export function createMigrationHandlers(services) {
     /**
      * 批量刪除標註數據
      * 一次性刪除多個 URL 的標註數據
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     migration_batch_delete: async (request, sender, sendResponse) => {
       try {
@@ -519,6 +536,10 @@ export function createMigrationHandlers(services) {
     /**
      * 獲取待完成 rangeInfo 的遷移項目
      * 返回待完成項目和失敗項目
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     migration_get_pending: async (request, sender, sendResponse) => {
       try {
@@ -599,6 +620,10 @@ export function createMigrationHandlers(services) {
 
     /**
      * 刪除指定 URL 的失敗遷移標註
+     *
+     * @param request
+     * @param sender
+     * @param sendResponse
      */
     migration_delete_failed: async (request, sender, sendResponse) => {
       try {

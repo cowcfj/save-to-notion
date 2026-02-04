@@ -21,7 +21,7 @@ describe('buildHighlightBlocks', () => {
     const highlights = [{ text: 'Test highlight', color: 'yellow_background' }];
     const result = buildHighlightBlocks(highlights);
 
-    expect(result.length).toBe(2); // 1 heading + 1 paragraph
+    expect(result).toHaveLength(2); // 1 heading + 1 paragraph
     expect(result[0].type).toBe('heading_3');
     expect(result[0].heading_3.rich_text[0].text.content).toBe('📝 頁面標記');
     expect(result[1].type).toBe('paragraph');
@@ -37,7 +37,7 @@ describe('buildHighlightBlocks', () => {
     ];
     const result = buildHighlightBlocks(highlights);
 
-    expect(result.length).toBe(4); // 1 heading + 3 paragraphs
+    expect(result).toHaveLength(4); // 1 heading + 3 paragraphs
     expect(result[0].type).toBe('heading_3');
     expect(result[1].paragraph.rich_text[0].text.content).toBe('First highlight');
     expect(result[2].paragraph.rich_text[0].text.content).toBe('Second highlight');
@@ -102,16 +102,16 @@ describe('buildHighlightBlocks', () => {
     // 1 heading block + 2 paragraph blocks (chunks)
     const result = buildHighlightBlocks(highlights);
 
-    expect(result.length).toBe(3);
+    expect(result).toHaveLength(3);
 
     // Check first chunk
     expect(result[1].type).toBe('paragraph');
-    expect(result[1].paragraph.rich_text[0].text.content.length).toBe(2000);
+    expect(result[1].paragraph.rich_text[0].text.content).toHaveLength(2000);
     expect(result[1].paragraph.rich_text[0].annotations.color).toBe('red_background');
 
     // Check second chunk
     expect(result[2].type).toBe('paragraph');
-    expect(result[2].paragraph.rich_text[0].text.content.length).toBe(1000);
+    expect(result[2].paragraph.rich_text[0].text.content).toHaveLength(1000);
     expect(result[2].paragraph.rich_text[0].annotations.color).toBe('red_background');
   });
 });

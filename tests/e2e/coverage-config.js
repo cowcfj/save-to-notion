@@ -50,31 +50,31 @@ module.exports = {
     {
       name: 'Highlighter Workflow',
       file: 'tests/e2e/scenarios/highlighter.e2e.js',
-      timeout: 60000,
+      timeout: 60_000,
       enabled: true,
     },
     {
       name: 'Content Extraction',
       file: 'tests/e2e/scenarios/content-extraction.e2e.js',
-      timeout: 30000,
+      timeout: 30_000,
       enabled: true,
     },
     {
       name: 'Background Integration',
       file: 'tests/e2e/scenarios/background-integration.e2e.js',
-      timeout: 30000,
+      timeout: 30_000,
       enabled: true,
     },
     {
       name: 'Content Extraction Advanced',
       file: 'tests/e2e/scenarios/content-extraction-advanced.e2e.js',
-      timeout: 60000,
+      timeout: 60_000,
       enabled: true,
     },
     {
       name: 'Notion Integration',
       file: 'tests/e2e/scenarios/notion-integration.e2e.js',
-      timeout: 60000,
+      timeout: 60_000,
       enabled: false, // 需要真實 Notion API token
     },
   ],

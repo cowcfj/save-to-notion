@@ -4,9 +4,9 @@
  */
 
 // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
-delete global.ImageUtils;
-if (global.window) {
-  delete global.window.ImageUtils;
+delete globalThis.ImageUtils;
+if (globalThis.window) {
+  delete globalThis.window.ImageUtils;
 }
 
 // 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
@@ -25,7 +25,7 @@ const {
   extractFromBackgroundImage,
   extractFromNoscript,
   IMAGE_VALIDATION: IMAGE_VALIDATION_CONSTANTS,
-} = global.ImageUtils || global.window?.ImageUtils || {};
+} = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
 
 describe('imageUtils - 邊界條件測試', () => {
   describe('isValidImageUrl - URL 長度邊界', () => {
@@ -35,7 +35,7 @@ describe('imageUtils - 邊界條件測試', () => {
       const extension = '.jpg';
       const padding = 2000 - baseUrl.length - extension.length;
       const url = baseUrl + 'a'.repeat(padding) + extension;
-      expect(url.length).toBe(2000);
+      expect(url).toHaveLength(2000);
       expect(isValidImageUrl(url)).toBe(true);
     });
 
@@ -45,7 +45,7 @@ describe('imageUtils - 邊界條件測試', () => {
       const extension = '.jpg';
       const padding = 2001 - baseUrl.length - extension.length;
       const url = baseUrl + 'a'.repeat(padding) + extension;
-      expect(url.length).toBe(2001);
+      expect(url).toHaveLength(2001);
       expect(isValidImageUrl(url)).toBe(false);
     });
 
@@ -216,7 +216,7 @@ describe('imageUtils - 邊界條件測試', () => {
     test('應優先檢查 srcset 屬性', () => {
       const img = document.createElement('img');
       img.setAttribute('srcset', 'https://example.com/small.jpg');
-      img.setAttribute('data-srcset', 'https://example.com/large.jpg');
+      img.dataset.srcset = 'https://example.com/large.jpg';
       // extractFromSrcset 按順序檢查：srcset || data-srcset || data-lazy-srcset
       // 因此優先返回 srcset
       expect(extractFromSrcset(img)).toBe('https://example.com/small.jpg');
@@ -224,7 +224,7 @@ describe('imageUtils - 邊界條件測試', () => {
 
     test('當 srcset 不存在時應檢查 data-srcset', () => {
       const img = document.createElement('img');
-      img.setAttribute('data-srcset', 'https://example.com/large.jpg');
+      img.dataset.srcset = 'https://example.com/large.jpg';
       expect(extractFromSrcset(img)).toBe('https://example.com/large.jpg');
     });
   });
@@ -237,14 +237,14 @@ describe('imageUtils - 邊界條件測試', () => {
     test('應跳過 data: URL', () => {
       const img = document.createElement('img');
       img.setAttribute('src', 'data:image/png;base64,abc');
-      img.setAttribute('data-src', 'https://example.com/real.jpg');
+      img.dataset.src = 'https://example.com/real.jpg';
       expect(extractFromAttributes(img)).toBe('https://example.com/real.jpg');
     });
 
     test('應跳過 blob: URL', () => {
       const img = document.createElement('img');
       img.setAttribute('src', 'blob:https://example.com/123');
-      img.setAttribute('data-src', 'https://example.com/real.jpg');
+      img.dataset.src = 'https://example.com/real.jpg';
       expect(extractFromAttributes(img)).toBe('https://example.com/real.jpg');
     });
 
@@ -267,15 +267,15 @@ describe('imageUtils - 邊界條件測試', () => {
 
     test('應處理沒有 picture 父元素的情況', () => {
       const img = document.createElement('img');
-      document.body.appendChild(img);
+      document.body.append(img);
       expect(extractFromPicture(img)).toBeNull();
     });
 
     test('應處理 picture 元素中沒有 source 的情況', () => {
       const picture = document.createElement('picture');
       const img = document.createElement('img');
-      picture.appendChild(img);
-      document.body.appendChild(picture);
+      picture.append(img);
+      document.body.append(picture);
       expect(extractFromPicture(img)).toBeNull();
     });
 
@@ -283,9 +283,9 @@ describe('imageUtils - 邊界條件測試', () => {
       const picture = document.createElement('picture');
       const source = document.createElement('source');
       const img = document.createElement('img');
-      picture.appendChild(source);
-      picture.appendChild(img);
-      document.body.appendChild(picture);
+      picture.append(source);
+      picture.append(img);
+      document.body.append(picture);
       expect(extractFromPicture(img)).toBeNull();
     });
 
@@ -296,10 +296,10 @@ describe('imageUtils - 邊界條件測試', () => {
       const source2 = document.createElement('source');
       source2.setAttribute('srcset', 'https://example.com/image.jpg');
       const img = document.createElement('img');
-      picture.appendChild(source1);
-      picture.appendChild(source2);
-      picture.appendChild(img);
-      document.body.appendChild(picture);
+      picture.append(source1);
+      picture.append(source2);
+      picture.append(img);
+      document.body.append(picture);
       expect(extractFromPicture(img)).toBe('https://example.com/image.jpg');
     });
   });
@@ -313,7 +313,7 @@ describe('imageUtils - 邊界條件測試', () => {
       const img = document.createElement('img');
       const longUrl = `https://example.com/${'a'.repeat(3000)}.jpg`;
       img.style.backgroundImage = `url('${longUrl}')`;
-      document.body.appendChild(img);
+      document.body.append(img);
 
       const result = extractFromBackgroundImage(img);
       expect(result).toBeNull();
@@ -323,7 +323,7 @@ describe('imageUtils - 邊界條件測試', () => {
       const img = document.createElement('img');
       const url = `https://example.com/${'a'.repeat(1000)}.jpg`;
       img.style.backgroundImage = `url('${url}')`;
-      document.body.appendChild(img);
+      document.body.append(img);
 
       const result = extractFromBackgroundImage(img);
       expect(result).toBe(url);
@@ -332,14 +332,14 @@ describe('imageUtils - 邊界條件測試', () => {
     test('應處理 background-image: none', () => {
       const img = document.createElement('img');
       img.style.backgroundImage = 'none';
-      document.body.appendChild(img);
+      document.body.append(img);
       expect(extractFromBackgroundImage(img)).toBeNull();
     });
 
     test('應跳過 data: URL 背景圖片', () => {
       const img = document.createElement('img');
       img.style.backgroundImage = 'url(data:image/png;base64,abc)';
-      document.body.appendChild(img);
+      document.body.append(img);
       expect(extractFromBackgroundImage(img)).toBeNull();
     });
   });
@@ -351,15 +351,15 @@ describe('imageUtils - 邊界條件測試', () => {
 
     test('應處理沒有 noscript 的情況', () => {
       const img = document.createElement('img');
-      document.body.appendChild(img);
+      document.body.append(img);
       expect(extractFromNoscript(img)).toBeNull();
     });
 
     test('應處理 noscript 為空的情況', () => {
       const img = document.createElement('img');
       const noscript = document.createElement('noscript');
-      img.appendChild(noscript);
-      document.body.appendChild(img);
+      img.append(noscript);
+      document.body.append(img);
       expect(extractFromNoscript(img)).toBeNull();
     });
 
@@ -367,8 +367,8 @@ describe('imageUtils - 邊界條件測試', () => {
       const img = document.createElement('img');
       const noscript = document.createElement('noscript');
       noscript.textContent = '<div>No image here</div>';
-      img.appendChild(noscript);
-      document.body.appendChild(img);
+      img.append(noscript);
+      document.body.append(img);
       expect(extractFromNoscript(img)).toBeNull();
     });
 
@@ -376,8 +376,8 @@ describe('imageUtils - 邊界條件測試', () => {
       const img = document.createElement('img');
       const noscript = document.createElement('noscript');
       noscript.textContent = '<img alt="test">';
-      img.appendChild(noscript);
-      document.body.appendChild(img);
+      img.append(noscript);
+      document.body.append(img);
       expect(extractFromNoscript(img)).toBeNull();
     });
 
@@ -385,8 +385,8 @@ describe('imageUtils - 邊界條件測試', () => {
       const img = document.createElement('img');
       const noscript = document.createElement('noscript');
       noscript.textContent = '<img src="data:image/png;base64,abc">';
-      img.appendChild(noscript);
-      document.body.appendChild(img);
+      img.append(noscript);
+      document.body.append(img);
       expect(extractFromNoscript(img)).toBeNull();
     });
 
@@ -394,10 +394,10 @@ describe('imageUtils - 邊界條件測試', () => {
       const parent = document.createElement('div');
       const noscript = document.createElement('noscript');
       noscript.textContent = '<img src="https://example.com/image.jpg">';
-      parent.appendChild(noscript);
+      parent.append(noscript);
       const img = document.createElement('img');
-      parent.appendChild(img);
-      document.body.appendChild(parent);
+      parent.append(img);
+      document.body.append(parent);
 
       expect(extractFromNoscript(img)).toBe('https://example.com/image.jpg');
     });
@@ -438,10 +438,10 @@ describe('imageUtils - 邊界條件測試', () => {
       const noscript = document.createElement('noscript');
       noscript.textContent = '<img src="https://example.com/from-noscript.jpg">';
 
-      picture.appendChild(source);
-      picture.appendChild(img);
-      img.appendChild(noscript);
-      document.body.appendChild(picture);
+      picture.append(source);
+      picture.append(img);
+      img.append(noscript);
+      document.body.append(picture);
 
       // 應優先使用 srcset
       expect(extractImageSrc(img)).toBe('https://example.com/from-srcset.jpg');
@@ -451,7 +451,7 @@ describe('imageUtils - 邊界條件測試', () => {
       const img = document.createElement('img');
       img.setAttribute('src', 'https://example.com/from-attr.jpg');
       img.style.backgroundImage = 'url(https://example.com/from-bg.jpg)';
-      document.body.appendChild(img);
+      document.body.append(img);
 
       expect(extractImageSrc(img)).toBe('https://example.com/from-attr.jpg');
     });
@@ -462,8 +462,8 @@ describe('imageUtils - 邊界條件測試', () => {
 
       const noscript = document.createElement('noscript');
       noscript.textContent = '<img src="https://example.com/from-noscript.jpg">';
-      img.appendChild(noscript);
-      document.body.appendChild(img);
+      img.append(noscript);
+      document.body.append(img);
 
       expect(extractImageSrc(img)).toBe('https://example.com/from-bg.jpg');
     });
@@ -472,15 +472,15 @@ describe('imageUtils - 邊界條件測試', () => {
       const img = document.createElement('img');
       const noscript = document.createElement('noscript');
       noscript.textContent = '<img src="https://example.com/from-noscript.jpg">';
-      img.appendChild(noscript);
-      document.body.appendChild(img);
+      img.append(noscript);
+      document.body.append(img);
 
       expect(extractImageSrc(img)).toBe('https://example.com/from-noscript.jpg');
     });
 
     test('當所有方法都失敗時應返回 null', () => {
       const img = document.createElement('img');
-      document.body.appendChild(img);
+      document.body.append(img);
 
       expect(extractImageSrc(img)).toBeNull();
     });

@@ -32,7 +32,7 @@ describe('BlockBuilder', () => {
     test('should truncate text to MAX_TEXT_LENGTH', () => {
       const longText = 'a'.repeat(3000);
       const result = createRichText(longText);
-      expect(result.text.content.length).toBe(MAX_TEXT_LENGTH);
+      expect(result.text.content).toHaveLength(MAX_TEXT_LENGTH);
     });
 
     test('should add color annotation', () => {
@@ -187,7 +187,7 @@ describe('BlockBuilder', () => {
 
       const result = buildHighlightBlocks(highlights);
 
-      expect(result.length).toBe(3);
+      expect(result).toHaveLength(3);
       expect(result[0].type).toBe('heading_3');
       expect(result[0].heading_3.rich_text[0].text.content).toBe('📝 頁面標記');
       expect(result[1].paragraph.rich_text[0].text.content).toBe('First highlight');
@@ -206,9 +206,9 @@ describe('BlockBuilder', () => {
       const result = buildHighlightBlocks(highlights);
 
       // 1 heading + 2 paragraphs for the split text
-      expect(result.length).toBe(3);
-      expect(result[1].paragraph.rich_text[0].text.content.length).toBe(MAX_TEXT_LENGTH);
-      expect(result[2].paragraph.rich_text[0].text.content.length).toBe(500);
+      expect(result).toHaveLength(3);
+      expect(result[1].paragraph.rich_text[0].text.content).toHaveLength(MAX_TEXT_LENGTH);
+      expect(result[2].paragraph.rich_text[0].text.content).toHaveLength(500);
       expect(result[2].paragraph.rich_text[0].annotations.color).toBe('yellow');
     });
   });
@@ -218,7 +218,7 @@ describe('BlockBuilder', () => {
       const text = 'First paragraph.\n\nSecond paragraph with more content.';
       const result = textToParagraphs(text);
 
-      expect(result.length).toBe(2);
+      expect(result).toHaveLength(2);
       expect(result[0].paragraph.rich_text[0].text.content).toBe('First paragraph.');
       expect(result[1].paragraph.rich_text[0].text.content).toBe(
         'Second paragraph with more content.'
@@ -229,7 +229,7 @@ describe('BlockBuilder', () => {
       const text = 'Short.\n\nThis is a longer paragraph that should pass the filter.';
       const result = textToParagraphs(text, { minLength: 15 });
 
-      expect(result.length).toBe(1);
+      expect(result).toHaveLength(1);
     });
 
     test('should return empty array for invalid input', () => {
@@ -241,7 +241,7 @@ describe('BlockBuilder', () => {
   describe('createFallbackBlocks', () => {
     test('should create fallback paragraph with default message', () => {
       const result = createFallbackBlocks();
-      expect(result.length).toBe(1);
+      expect(result).toHaveLength(1);
       expect(result[0].paragraph.rich_text[0].text.content).toBe('Content extraction failed.');
     });
 

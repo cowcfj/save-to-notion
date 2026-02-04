@@ -121,7 +121,7 @@ describe('ImageService', () => {
     };
     service = new ImageService({
       maxCacheSize: 10,
-      cacheTtl: 60000,
+      cacheTtl: 60_000,
       validator: mockValidator,
       logger: mockLogger,
     });
