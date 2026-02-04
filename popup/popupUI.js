@@ -65,11 +65,19 @@ export function setStatus(elements, content, color = '') {
           // Pure text part -> safe textContent
           elements.status.append(document.createTextNode(part));
         } else if (part?.type === 'svg') {
-          // Structured SVG part -> specific handling
-          // Assume content is a safe SVG string from internal source
+          // 結構化 SVG 部分 -> 特殊處理
           const span = document.createElement('span');
-          span.innerHTML = part.content;
-          // Add some basic styling for alignment
+
+          // 使用 DOMParser 安全地解析 SVG 字串，取代 innerHTML
+          const parser = new DOMParser();
+          const svgDoc = parser.parseFromString(part.content, 'image/svg+xml');
+
+          // 確保解析成功且無錯誤
+          if (!svgDoc.querySelector('parsererror') && svgDoc.documentElement) {
+            span.append(svgDoc.documentElement);
+          }
+
+          // 加入基本樣式以對齊
           span.classList.add('status-icon-inline');
           elements.status.append(span);
         }
