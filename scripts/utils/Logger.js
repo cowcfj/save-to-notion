@@ -216,7 +216,7 @@ const Logger = {
       return;
     }
 
-    // skipcq: JS-0002
+    // eslint-disable-next-line no-console
     console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
     sendToBackground('debug', message, args);
     writeToBuffer('debug', message, args);
@@ -227,6 +227,7 @@ const Logger = {
       return;
     }
 
+    // eslint-disable-next-line no-console
     console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
     sendToBackground('log', message, args);
     writeToBuffer('log', message, args);

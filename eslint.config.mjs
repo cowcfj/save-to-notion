@@ -97,6 +97,7 @@ export default [
         string: false,
         disallowTemplateShorthand: false
       }],
+      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
 
       // Code Style
       'prefer-template': 'warn',
@@ -244,6 +245,7 @@ export default [
       'security/detect-non-literal-regexp': 'off',
       'regexp/no-super-linear-backtracking': 'off',
       'unicorn/consistent-function-scoping': 'off',
+      'no-console': 'off',
       'jsdoc/require-jsdoc': 'off',
       'jsdoc/require-param': 'off',
       'jsdoc/require-returns': 'off'
