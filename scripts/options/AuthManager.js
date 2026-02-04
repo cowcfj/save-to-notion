@@ -193,6 +193,8 @@ export class AuthManager {
 
   async startNotionSetup() {
     try {
+      Logger.start('開始 Notion 授權流程', { action: 'startNotionSetup' });
+
       this.elements.oauthButton.disabled = true;
       this.elements.oauthButton.innerHTML = `<span class="loading"></span><span>${UI_MESSAGES.AUTH.OPENING_NOTION}</span>`;
 
@@ -226,7 +228,7 @@ export class AuthManager {
 
   async disconnectFromNotion() {
     try {
-      Logger.info('開始斷開 Notion 連接', {
+      Logger.start('開始斷開 Notion 連接', {
         action: 'disconnect',
         phase: 'start',
       });
@@ -248,7 +250,7 @@ export class AuthManager {
       }
 
       this.ui.showStatus(UI_MESSAGES.SETTINGS.DISCONNECT_SUCCESS, 'success');
-      Logger.info('UI 已更新為未連接狀態', {
+      Logger.success('UI 已更新為未連接狀態', {
         action: 'disconnect',
         phase: 'uiUpdate',
       });
@@ -279,8 +281,10 @@ export class AuthManager {
     this.elements.testApiButton.textContent = UI_MESSAGES.SETTINGS.TESTING_LABEL;
 
     try {
+      Logger.start('開始測試 API Key', { action: 'testApiKey' });
       // 使用 loadDatabases 進行測試
       await this.dependencies.loadDatabases?.(apiKey);
+      Logger.success('API Key 測試成功', { action: 'testApiKey' });
     } catch (error) {
       Logger.error('API 測試失敗', { action: 'testApiKey', error });
     } finally {
