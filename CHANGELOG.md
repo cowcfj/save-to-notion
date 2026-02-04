@@ -1,5 +1,20 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.28.0](https://github.com/cowcfj/save-to-notion/compare/v2.27.0...v2.28.0) (2026-02-04)
+
+
+### ✨ 新功能
+
+* implement debug log export MVP ([#245](https://github.com/cowcfj/save-to-notion/issues/245)) ([becb08b](https://github.com/cowcfj/save-to-notion/commit/becb08b44662df60083cd81e8f042203389a178c))
+* 更新 .gitignore 以包含新的文檔和報告文件 ([a1ec677](https://github.com/cowcfj/save-to-notion/commit/a1ec677c52f12c9c81519e012f21abfd59556389))
+* 更新日誌記錄以提高可讀性和可追蹤性 ([#244](https://github.com/cowcfj/save-to-notion/issues/244)) ([b29be37](https://github.com/cowcfj/save-to-notion/commit/b29be37c5f3d55be77c2e660bc3392441d99ab8a))
+* 更新選項頁面按鈕以包含圖示並改善導出按鈕行為 ([#246](https://github.com/cowcfj/save-to-notion/issues/246)) ([5a2fb0e](https://github.com/cowcfj/save-to-notion/commit/5a2fb0ee7b209e2ab536a8bac134059301382d35))
+
+
+### 🐛 Bug 修復
+
+* 改善受限頁面保存時的錯誤訊息 ([#242](https://github.com/cowcfj/save-to-notion/issues/242)) ([c672619](https://github.com/cowcfj/save-to-notion/commit/c672619c95adfb873fd8d97a5a2706bd00d4af79))
+
 ## [2.27.0](https://github.com/cowcfj/save-to-notion/compare/v2.26.0...v2.27.0) (2026-02-01)
 
 
