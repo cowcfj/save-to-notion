@@ -11,7 +11,7 @@
 
 /* global chrome */
 
-import { TAB_SERVICE } from '../../config/constants.js';
+import { TAB_SERVICE, URL_NORMALIZATION } from '../../config/constants.js';
 
 /**
  * TabService 類
@@ -252,26 +252,37 @@ class TabService {
         return;
       }
 
-      const result = await this.injectionService.injectWithResponse(tabId, _migrationScript);
+      const res = await this.injectionService.injectWithResponse(tabId, _migrationScript, [
+        URL_NORMALIZATION.TRACKING_PARAMS,
+      ]);
 
-      // injectWithResponse 已經解包回傳值，直接使用 result
-      const res = result;
+      // injectWithResponse 已經解包回傳值，直接使用 res
       if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {
         // 不記錄 foundKey 以保護用戶 URL 隱私
-        this.logger.log(`Migrating ${res.data.length} legacy highlights`);
+        this.logger.log('[TabService] Migrating legacy highlights', {
+          action: 'migrateLegacyHighlights',
+          count: res.data.length,
+        });
 
         await chrome.storage.local.set({ [storageKey]: res.data });
 
-        this.logger.log('Legacy highlights migrated successfully, injecting restore script');
+        this.logger.log('[TabService] Legacy highlights migrated successfully', {
+          action: 'injectRestoreScript',
+          status: 'success',
+        });
         await this.injectionService.injectHighlightRestore(tabId);
+      } else if (res?.error) {
+        // 記錄注入端的結構化錯誤
+        this.logger.warn?.('[TabService] Migration script reported error:', res.error);
       }
     } catch (error) {
-      // 檢查是否為可恢復的注入錯誤（如錯誤頁面、標籤已關閉等）
+      const isRecoverable = this.isRecoverableError(error);
       const errorMessage = error?.message || String(error);
-      if (this.isRecoverableError(errorMessage)) {
-        this.logger.log('[TabService] Migration skipped due to recoverable error:', errorMessage);
+
+      if (isRecoverable) {
+        this.logger.log('[TabService] Migration skipped (recoverable):', errorMessage);
       } else {
-        this.logger.error?.('[TabService] Error handling migration results:', error);
+        this.logger.error?.('[TabService] Fatal migration error:', error);
       }
     }
   }
@@ -281,40 +292,31 @@ class TabService {
  * 此函數將被注入到頁面中執行
  * 必須保持完全獨立，不能依賴外部變數
  *
+ * @param {string[]} trackingParams - URL 追蹤參數列表
  * @returns {{migrated: boolean, data?: any[], foundKey?: string, error?: string}}
  */
-function _migrationScript() {
+function _migrationScript(trackingParams) {
   // 檢測開發環境
   const isDev = chrome?.runtime?.getManifest?.()?.version_name?.includes('dev');
 
-  // 內部輔助函數：日誌
-  const logError = (msg, err) => {
-    if (isDev) {
-      console.error(`[InjectedScript:legacyMigration] ${msg}:`, err);
-    } else {
-      console.error(`[InjectedScript:legacyMigration] ${msg}`);
+  // 內部輔助函數：結構化日誌
+  const log = (level, msg, detail) => {
+    if (level === 'error') {
+      console.error(`[NotionChrome:Migration] ${msg}`, {
+        detail,
+        isDev,
+        timestamp: new Date().toISOString(),
+      });
     }
   };
 
   // 內部輔助函數：URL 標準化
-  // eslint-disable-next-line unicorn/consistent-function-scoping
+
   const normalize = raw => {
     try {
       const urlObj = new URL(raw);
       urlObj.hash = '';
-      const params = [
-        'utm_source',
-        'utm_medium',
-        'utm_campaign',
-        'utm_term',
-        'utm_content',
-        'gclid',
-        'fbclid',
-        'mc_cid',
-        'mc_eid',
-        'igshid',
-        'vero_id',
-      ];
+      const params = trackingParams || [];
       params.forEach(param => urlObj.searchParams.delete(param));
       while (urlObj.pathname.length > 1 && urlObj.pathname.endsWith('/')) {
         urlObj.pathname = urlObj.pathname.slice(0, -1);
@@ -367,13 +369,14 @@ function _migrationScript() {
         return { migrated: true, data, foundKey: key };
       }
     } catch (parseError) {
-      logError('Parse error', parseError);
+      log('error', 'Parse error', { message: parseError.message });
     }
 
     return { migrated: false };
   } catch (error) {
-    logError('Migration error', error);
-    return { migrated: false };
+    const errorInfo = { message: error.message, stack: isDev ? error.stack : undefined };
+    log('error', 'Migration error', errorInfo);
+    return { migrated: false, error: errorInfo };
   }
 }
 
