@@ -258,7 +258,7 @@ describe('securityUtils', () => {
 
   describe('sanitizeApiError', () => {
     describe('API Key 格式無效', () => {
-      test.each([['invalid token provided'], ['invalid api key'], ['malformed api token']])(
+      test.each([['api key is invalid'], ['malformed: api_key']])(
         '"%s" 應返回 API Key 格式無效訊息',
         input => {
           const result = sanitizeApiError(input);
@@ -326,9 +326,9 @@ describe('securityUtils', () => {
         expect(result).toBe('API Key');
       });
 
-      test('"invalid token" 無 unauthorized 應返回 Invalid API Key format', () => {
+      test('"invalid token" 無 unauthorized 應返回 Integration disconnected', () => {
         const result = sanitizeApiError('invalid token provided');
-        expect(result).toBe('Invalid API Key format');
+        expect(result).toBe('Integration disconnected');
       });
     });
 

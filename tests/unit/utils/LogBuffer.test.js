@@ -94,7 +94,7 @@ describe('LogBuffer', () => {
 
   describe('clear()', () => {
     test('should remove all entries', () => {
-      logBuffer.push({ msg: 1 }, { msg: 2 });
+      [{ msg: 1 }, { msg: 2 }].forEach(e => logBuffer.push(e));
 
       logBuffer.clear();
       expect(logBuffer.getAll()).toHaveLength(0);
@@ -103,7 +103,7 @@ describe('LogBuffer', () => {
 
   describe('getStats()', () => {
     test('should return correct statistics', () => {
-      logBuffer.push({ msg: 1 }, { msg: 2 });
+      [{ msg: 1 }, { msg: 2 }].forEach(e => logBuffer.push(e));
 
       const stats = logBuffer.getStats();
 

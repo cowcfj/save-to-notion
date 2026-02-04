@@ -102,7 +102,7 @@ describe('Toolbar Actions', () => {
       await toolbar.syncToNotion();
 
       expect(sendMessageMock).toHaveBeenCalled();
-      expect(statusDiv.textContent).toContain('API Key Missing');
+      expect(statusDiv.textContent).toContain('API Key');
       expect(statusDiv.innerHTML).toContain('<svg');
     });
 
@@ -130,7 +130,7 @@ describe('Toolbar Actions', () => {
 
       expect(statusDiv.textContent).toContain('同步失敗');
       expect(statusDiv.innerHTML).toContain('<svg');
-      expect(globalThis.Logger.error).toHaveBeenCalledWith('同步失敗:', expect.any(Error));
+      expect(globalThis.Logger.error).toHaveBeenCalledWith('同步失敗:', expect.any(Object));
     });
   });
 

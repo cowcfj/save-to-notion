@@ -3,6 +3,21 @@
  * 針對未覆蓋的分支和邊界情況
  */
 
+jest.mock('../../../../scripts/highlighter/core/HighlightManager.js');
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  },
+}));
+
+import Logger from '../../../../scripts/utils/Logger.js';
 import { Toolbar } from '../../../../scripts/highlighter/ui/Toolbar.js';
 import { createToolbarContainer } from '../../../../scripts/highlighter/ui/components/ToolbarContainer.js';
 
@@ -104,11 +119,8 @@ describe('Toolbar 覆蓋率補強', () => {
       },
     };
 
-    // Mock Logger
-    globalThis.Logger = {
-      error: jest.fn(),
-      log: jest.fn(),
-    };
+    // Use the mocked Logger
+    globalThis.Logger = Logger;
 
     container = createMockContainer();
     createToolbarContainer.mockReturnValue(container);
@@ -168,14 +180,15 @@ describe('Toolbar 覆蓋率補強', () => {
     });
 
     test('應該在未知狀態時發出警告並隱藏工具欄', () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      const hideSpy = jest.spyOn(toolbar, 'hide');
+      const hideSpy = jest.spyOn(toolbar, 'hide').mockImplementation();
 
       toolbar.handleStateChange('unknown_state');
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('未知狀態'));
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Toolbar received unknown state'),
+        expect.any(Object)
+      );
       expect(hideSpy).toHaveBeenCalled();
-      consoleWarnSpy.mockRestore();
     });
   });
 
@@ -587,7 +600,10 @@ describe('Toolbar 覆蓋率補強', () => {
       targetElement.dispatchEvent(mouseupEvent);
       jest.runAllTimers();
 
-      expect(globalThis.Logger.error).toHaveBeenCalledWith('添加標註失敗:', expect.any(Error));
+      expect(globalThis.Logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('添加標註失敗'),
+        expect.objectContaining({ error: expect.any(Error) })
+      );
     });
 
     test('應該在 window.getSelection 返回 null 時安全處理', () => {

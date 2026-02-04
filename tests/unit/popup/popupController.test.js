@@ -40,10 +40,15 @@ async function triggerEvent(element, eventType = 'click') {
 describe('popup.js Controller', () => {
   const setup = () => {
     const mockElements = {
-      saveButton: { addEventListener: jest.fn(), style: {} },
-      highlightButton: { addEventListener: jest.fn(), style: {} },
-      clearHighlightsButton: { addEventListener: jest.fn(), style: {} },
-      openNotionButton: { addEventListener: jest.fn(), getAttribute: jest.fn(), style: {} },
+      saveButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
+      highlightButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
+      clearHighlightsButton: { addEventListener: jest.fn(), style: {}, dataset: {} },
+      openNotionButton: {
+        addEventListener: jest.fn(),
+        getAttribute: jest.fn(),
+        style: {},
+        dataset: { url: 'https://notion.so/new' },
+      },
       status: { textContent: '', style: {} },
       modal: { addEventListener: jest.fn(), style: {} },
       modalMessage: { textContent: '' },
@@ -176,10 +181,7 @@ describe('popup.js Controller', () => {
 
       await triggerEvent(mockElements.saveButton);
 
-      expect(setStatus).toHaveBeenCalledWith(
-        mockElements,
-        expect.stringContaining(ERROR_MESSAGES.DEFAULT)
-      );
+      expect(setStatus).toHaveBeenCalledWith(mockElements, expect.stringContaining('發生未知錯誤'));
     });
 
     it('highlightButton click should start highlight if saved', async () => {
@@ -215,7 +217,6 @@ describe('popup.js Controller', () => {
     it('openNotionButton click should open notion page', async () => {
       const { mockElements } = setup();
       await initPopup();
-      mockElements.openNotionButton.getAttribute.mockReturnValue('https://notion.so/new');
       openNotionPage.mockResolvedValue({ success: true });
 
       await triggerEvent(mockElements.openNotionButton);

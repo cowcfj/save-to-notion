@@ -22,6 +22,20 @@ describe('StorageManager Branch Coverage', () => {
   let mockSet = null;
   let mockRemove = null;
 
+  // Blob Polyfill for JSDOM
+  if (globalThis.Blob === undefined) {
+    globalThis.Blob = class Blob {
+      constructor(content) {
+        this.content = content;
+        this.size = JSON.stringify(content).length;
+      }
+
+      async arrayBuffer() {
+        return new ArrayBuffer(0);
+      }
+    };
+  }
+
   beforeEach(() => {
     // DOM Setup
     document.body.innerHTML = `
@@ -273,7 +287,12 @@ describe('StorageManager Branch Coverage', () => {
         deletedPages: 5,
       };
 
-      mockRemove.mockImplementation((keys, respond) => respond());
+      mockRemove.mockImplementation((keys, respond) => {
+        if (typeof respond === 'function') {
+          respond();
+        }
+        return Promise.resolve();
+      });
       // 模擬 updateStorageUsage 內部調用的 getStorageUsage
       mockGet.mockImplementation((k, respond) => {
         const emptyData = {};

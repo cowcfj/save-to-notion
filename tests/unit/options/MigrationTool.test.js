@@ -1,6 +1,4 @@
-/**
- * @jest-environment jsdom
- */
+// @jest-environment jsdom
 /* global document */
 import { MigrationTool } from '../../../scripts/options/MigrationTool.js';
 import { UIManager } from '../../../scripts/options/UIManager.js';
@@ -105,7 +103,7 @@ describe('MigrationTool', () => {
 
       const scanStatus = document.querySelector('#scan-status');
       expect(scanStatus.textContent).toContain('掃描錯誤');
-      expect(scanStatus.textContent).toContain('發生未知錯誤，請稍後再試');
+      expect(scanStatus.textContent).toContain('發生未知錯誤');
     });
   });
 

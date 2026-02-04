@@ -1,6 +1,4 @@
-/**
- * @jest-environment jsdom
- */
+// @jest-environment jsdom
 /* global document, chrome */
 import { AuthManager } from '../../../scripts/options/AuthManager.js';
 import { UIManager } from '../../../scripts/options/UIManager.js';
@@ -250,12 +248,12 @@ describe('AuthManager Extended', () => {
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(expect.any(String), 'error');
     });
 
-    test('當 loadDatabases 不返回 Promise 時應處理按鈕狀態', () => {
+    test('當 loadDatabases 不返回 Promise 時應處理按鈕狀態', async () => {
       document.querySelector('#api-key').value = 'secret_test_long_enough_12345';
       // Mock return non-promise
       mockLoadDatabases.mockReturnValueOnce();
 
-      authManager.testApiKey();
+      await authManager.testApiKey();
 
       const btn = document.querySelector('#test-api-button');
       expect(btn.disabled).toBe(false);

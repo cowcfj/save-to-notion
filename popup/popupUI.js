@@ -135,10 +135,11 @@ export function updateUIForSavedPage(elements, response) {
     elements.saveButton.style.display = 'none';
   }
 
-  // 顯示打開 Notion 按鈕
   if (response.notionUrl && elements.openNotionButton) {
     elements.openNotionButton.style.display = 'block';
-    elements.openNotionButton.dataset.url = response.notionUrl;
+    if (elements.openNotionButton.dataset) {
+      elements.openNotionButton.dataset.url = response.notionUrl;
+    }
   }
 
   // 更新狀態

@@ -24,7 +24,7 @@ describe('popupUI.js', () => {
       saveButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       highlightButton: { style: { display: 'block' }, disabled: false, querySelector: jest.fn() },
       clearHighlightsButton: { style: { display: 'none' } },
-      openNotionButton: { style: { display: 'none' }, setAttribute: jest.fn() },
+      openNotionButton: { style: { display: 'none' }, dataset: {}, setAttribute: jest.fn() },
       status: { textContent: '', style: { color: '' } },
       modal: { style: { display: 'none' } },
       modalMessage: { textContent: '' },
@@ -96,10 +96,7 @@ describe('popupUI.js', () => {
       expect(mockElements.clearHighlightsButton.style.display).toBe('block');
       expect(mockElements.saveButton.style.display).toBe('none');
       expect(mockElements.openNotionButton.style.display).toBe('block');
-      expect(mockElements.openNotionButton.setAttribute).toHaveBeenCalledWith(
-        'data-url',
-        response.notionUrl
-      );
+      expect(mockElements.openNotionButton.dataset.url).toBe(response.notionUrl);
       expect(mockElements.status.textContent).toContain('Page saved');
     });
   });

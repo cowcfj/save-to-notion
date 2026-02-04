@@ -246,7 +246,7 @@ export const ERROR_MESSAGES = {
  */
 export const API_ERROR_PATTERNS = {
   // 1. 認證相關
-  AUTH: ['unauthorized', 'authentication', 'api key'],
+  AUTH: ['unauthorized', 'authentication', 'api key', 'token', 'api_key'],
   AUTH_DISCONNECTED: ['token', 'integration'],
   AUTH_INVALID: ['invalid', 'malformed'],
 

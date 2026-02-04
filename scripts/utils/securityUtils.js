@@ -242,12 +242,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
     `[Security] Unrecognized API error sanitized (context: ${context}, length: ${errorMessage.length})`
   );
 
-  return {
-    code: 'UNKNOWN_ERROR',
-    message: 'Unknown Error',
-    context,
-    length: errorMessage.length,
-  };
+  return 'Unknown Error';
 }
 
 // ============================================================================

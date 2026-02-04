@@ -277,12 +277,13 @@ class TabService {
       }
     } catch (error) {
       const isRecoverable = this.isRecoverableError(error);
-      const errorMessage = error?.message || String(error);
-
       if (isRecoverable) {
-        this.logger.log('[TabService] Migration skipped (recoverable):', errorMessage);
+        this.logger.log(
+          '[TabService] Migration skipped due to recoverable error:',
+          error.message || error
+        );
       } else {
-        this.logger.error?.('[TabService] Fatal migration error:', error);
+        this.logger.error('[TabService] Fatal migration error:', error);
       }
     }
   }

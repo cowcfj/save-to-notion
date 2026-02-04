@@ -284,9 +284,10 @@ export class AuthManager {
     } catch (error) {
       Logger.error('API 測試失敗', { action: 'testApiKey', error });
     } finally {
-      if (this.elements.testApiButton) {
-        this.elements.testApiButton.disabled = false;
-        this.elements.testApiButton.textContent = UI_MESSAGES.SETTINGS.TEST_API_LABEL;
+      const btn = this.elements.testApiButton;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '測試 API Key';
       }
     }
   }

@@ -38,7 +38,7 @@ describe('popupUI', () => {
       <button id="save-button">Save</button>
       <button id="highlight-button"><span class="btn-text">Highlight</span></button>
       <button id="clear-highlights-button" style="display: none;">Clear</button>
-      <button id="open-notion-button" style="display: none;">Open Notion</button>
+      <button id="open-notion-button" style="display: none;" data-url="">Open Notion</button>
       <div id="confirmation-modal" style="display: none;">
         <p id="modal-message"></p>
         <button id="modal-confirm">確認</button>

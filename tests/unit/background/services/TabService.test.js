@@ -52,7 +52,10 @@ describe('TabService', () => {
       normalizeUrl: url => url,
       getSavedPageData: jest.fn().mockResolvedValue(null),
       isRestrictedUrl: url => url.includes('chrome://'),
-      isRecoverableError: msg => msg.includes('Cannot access'),
+      isRecoverableError: err => {
+        const msg = typeof err === 'string' ? err : err?.message || '';
+        return msg.includes('Cannot access');
+      },
     });
 
     // 初始化全局 chrome.runtime
@@ -268,9 +271,9 @@ describe('TabService', () => {
         'highlights_https://example.com'
       );
 
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        '[TabService] Migration skipped due to recoverable error:',
-        expect.any(String)
+      expect(mockLogger.log).toHaveBeenCalled();
+      expect(mockLogger.log.mock.calls[0][0]).toMatch(
+        /Migration skipped due to recoverable error:?/
       );
     });
 

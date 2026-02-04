@@ -35,7 +35,7 @@
  * @returns {object} { title, blocks, siteIcon }
  */
 function bridgeContentToBlocks(extractedContent, options = {}) {
-  const { includeFeaturedImage = true } = options;
+  const { includeFeaturedImage = true, includeTitle = false } = options;
 
   // 驗證輸入
   if (!extractedContent) {
@@ -61,7 +61,7 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
   Logger.log('區塊生成完成', { action: 'bridgeContentToBlocks', count: blocks.length });
 
   // 3. 插入元數據 (封面圖等)
-  _insertMetaBlocks(blocks, metadata, includeFeaturedImage);
+  _insertMetaBlocks(blocks, metadata, { includeFeaturedImage, includeTitle });
 
   // 4. 提取 siteIcon
   const siteIcon = metadata.siteIcon || metadata.favicon || null;
@@ -128,8 +128,29 @@ function _createFallbackBlocks() {
   ];
 }
 
-function _insertMetaBlocks(blocks, metadata, includeFeaturedImage) {
-  // 插入封面圖
+function _insertMetaBlocks(blocks, metadata, options = {}) {
+  const { includeFeaturedImage = true, includeTitle = false } = options;
+
+  // 1. 插入標題 (如果 metadata 有 title 且顯式要求)
+  if (includeTitle && metadata.title) {
+    const hasTitle = blocks.some(
+      block =>
+        block.type === 'heading_1' &&
+        block.heading_1?.rich_text?.[0]?.text?.content === metadata.title
+    );
+
+    if (!hasTitle) {
+      const titleBlock = {
+        type: 'heading_1',
+        heading_1: {
+          rich_text: [{ type: 'text', text: { content: metadata.title } }],
+        },
+      };
+      blocks.splice(0, 0, titleBlock);
+    }
+  }
+
+  // 2. 插入封面圖
   if (includeFeaturedImage && metadata.featuredImage) {
     const featuredImageUrl = metadata.featuredImage;
 
@@ -152,15 +173,6 @@ function _insertMetaBlocks(blocks, metadata, includeFeaturedImage) {
       Logger.log('封面圖已插入到區塊開頭', { action: 'bridgeContentToBlocks' });
     }
   }
-
-  // 4. 提取 siteIcon
-  const siteIcon = metadata.siteIcon || metadata.favicon || null;
-
-  return {
-    title,
-    blocks,
-    siteIcon,
-  };
 }
 
 /**

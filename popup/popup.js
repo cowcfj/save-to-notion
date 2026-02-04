@@ -175,7 +175,7 @@ export async function initPopup() {
 
   // 打開 Notion 按鈕
   elements.openNotionButton.addEventListener('click', async () => {
-    const notionUrl = elements.openNotionButton.dataset.url;
+    const notionUrl = elements.openNotionButton.dataset?.url;
     if (notionUrl) {
       const result = await openNotionPage(notionUrl);
       if (!result.success) {

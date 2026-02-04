@@ -266,16 +266,24 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
   });
 });
 
-describe('ImageUtils - extractImageSrc', () => {
-  // Mock DOM 元素
-  function createMockImg(attributes = {}) {
-    const img = {
-      getAttribute: jest.fn(name => attributes[name] || null),
-      closest: jest.fn(() => null),
-    };
-    return img;
-  }
+/**
+ * Mock DOM 元素
+ *
+ * @param {object} attributes - 屬性
+ * @returns {object} Mock 元素
+ */
+function createMockImg(attributes = {}) {
+  const img = {
+    getAttribute: jest.fn(name => attributes[name] || null),
+    closest: jest.fn(() => null),
+    dataset: attributes.dataset || {},
+    className: attributes.className || '',
+    id: attributes.id || '',
+  };
+  return img;
+}
 
+describe('ImageUtils - extractImageSrc', () => {
   test('應該提取標準 src 屬性', () => {
     const img = createMockImg({ src: 'image.jpg' });
     expect(extractImageSrc(img)).toBe('image.jpg');
@@ -325,20 +333,13 @@ describe('ImageUtils - extractImageSrc', () => {
 });
 
 describe('ImageUtils - generateImageCacheKey', () => {
-  function createMockImg(attributes = {}) {
-    return {
-      getAttribute: jest.fn(name => attributes[name] || ''),
-      className: attributes.className || '',
-      id: attributes.id || '',
-    };
-  }
-
   test('應該生成基於屬性的緩存鍵', () => {
     const img = createMockImg({
       src: 'image.jpg',
       'data-src': 'data-image.jpg',
       className: 'lazy-image',
       id: 'img-1',
+      dataset: { src: 'data-image.jpg' },
     });
     const key = generateImageCacheKey(img);
     expect(key).toBe('image.jpg|data-image.jpg|lazy-image|img-1');

@@ -376,9 +376,9 @@ describe('options.js', () => {
       mockSendMessage.mockResolvedValue({
         success: true,
         data: {
-          filename: 'test.log',
+          filename: 'test.json',
           content: 'log content',
-          mimeType: 'text/plain',
+          mimeType: 'application/json',
           count: 10,
         },
       });
@@ -408,7 +408,7 @@ describe('options.js', () => {
       expect(exportBtn.textContent).toBe(originalText); // 文字不應該改變
 
       const statusEl = document.querySelector('#export-status');
-      expect(statusEl.textContent).toContain('已成功導出 10 條日誌');
+      expect(statusEl.textContent).toContain('已成功匯出 10 條日誌');
     });
 
     it('should restore disabled state even on error without changing text', async () => {
@@ -436,7 +436,7 @@ describe('options.js', () => {
       expect(exportBtn.textContent).toBe(originalText);
 
       const statusEl = document.querySelector('#export-status');
-      expect(statusEl.textContent).toContain('Network error');
+      expect(statusEl.textContent).toContain('網路連線異常');
     });
   });
 });
