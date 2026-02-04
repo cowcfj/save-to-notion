@@ -143,6 +143,7 @@ export class StorageManager {
 
   async exportData() {
     try {
+      Logger.start('開始導出備份數據');
       this.showDataStatus(UI_MESSAGES.STORAGE.BACKUP_START, 'info');
 
       const data = await new Promise(resolve => {
@@ -170,6 +171,7 @@ export class StorageManager {
 
       const icon = UI_ICONS.SUCCESS;
       this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.BACKUP_SUCCESS}`, 'success');
+      Logger.success('備份數據導出成功');
     } catch (error) {
       Logger.error('Backup failed', { action: 'export_backup', error });
       const icon = UI_ICONS.ERROR;
@@ -186,6 +188,7 @@ export class StorageManager {
     }
 
     try {
+      Logger.start('開始導入備份數據');
       this.showDataStatus(UI_MESSAGES.STORAGE.RESTORE_START, 'info');
 
       const text = await file.text();
@@ -201,11 +204,10 @@ export class StorageManager {
         chrome.storage.local.set(backup.data, resolve);
       });
 
+      const count = Object.keys(backup.data).length;
       const icon = UI_ICONS.SUCCESS;
-      this.showDataStatus(
-        `${icon} ${UI_MESSAGES.STORAGE.RESTORE_SUCCESS(Object.keys(backup.data).length)}`,
-        'success'
-      );
+      this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.RESTORE_SUCCESS(count)}`, 'success');
+      Logger.success(`成功導入 ${count} 條數據`);
 
       // 清除文件選擇
       this.elements.importFile.value = '';
@@ -227,6 +229,7 @@ export class StorageManager {
   async checkDataIntegrity() {
     try {
       this.showDataStatus(UI_MESSAGES.STORAGE.CHECKING, 'info');
+      Logger.start('開始檢查數據完整性');
 
       const data = await new Promise(resolve => {
         chrome.storage.local.get(null, resolve);
@@ -251,9 +254,9 @@ export class StorageManager {
         statusText += UI_MESSAGES.STORAGE.OPTIMIZATION_SUGGESTION;
         this.showDataStatus(statusText, 'warning');
       } else {
-        statusText += UI_MESSAGES.STORAGE.INTEGRITY_OK;
         this.showDataStatus(statusText, 'success');
       }
+      Logger.success('數據完整性檢查完成');
     } catch (error) {
       Logger.error('Data check failed', { action: 'check_integrity', error });
       const icon = UI_ICONS.ERROR;
@@ -324,6 +327,7 @@ export class StorageManager {
     this._updateUsageButtonState(button, 'loading', '更新中...', true);
 
     try {
+      Logger.start('開始更新存儲使用量統計');
       const usage = await StorageManager.getStorageUsage();
       this.updateUsageDisplay(usage);
 
@@ -332,6 +336,7 @@ export class StorageManager {
       setTimeout(() => {
         this._updateUsageButtonState(button, 'default', '刷新統計', false);
       }, 1500);
+      Logger.success('存儲使用量更新完成');
     } catch (error) {
       Logger.error('Failed to get storage usage', { action: 'get_usage', error });
 
@@ -477,11 +482,13 @@ export class StorageManager {
     const cleanDeletedPages = this.elements.cleanupDeletedPages?.checked;
 
     this.setPreviewButtonLoading(true);
+    Logger.start('開始生成清理預覽計劃');
 
     try {
       const plan = await this.generateSafeCleanupPlan(cleanDeletedPages);
       this.cleanupPlan = plan;
       this.displayCleanupPreview(plan);
+      Logger.success(`清理預覽生成完成，發現 ${plan.items.length} 個可清理項目`);
 
       if (plan.items.length > 0) {
         if (this.elements.executeCleanupButton) {
@@ -733,6 +740,7 @@ export class StorageManager {
     try {
       const icon = UI_ICONS.REFRESH;
       this.showDataStatus(`${icon} ${UI_MESSAGES.STORAGE.CLEANUP_EXECUTING}`, 'info');
+      Logger.start('開始執行清理操作');
 
       const keysToRemove = this.cleanupPlan.items.map(item => item.key);
 
@@ -747,6 +755,7 @@ export class StorageManager {
       }
 
       this.showDataStatus(message, 'success');
+      Logger.success(`清理完成，釋放空間 ${(this.cleanupPlan.spaceFreed / 1024).toFixed(1)} KB`);
 
       this.updateStorageUsage();
       if (this.elements.executeCleanupButton) {
