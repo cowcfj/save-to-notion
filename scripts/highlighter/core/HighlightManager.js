@@ -13,6 +13,14 @@ import Logger from '../../utils/Logger.js';
  */
 export class HighlightManager {
   /**
+   * 初始化 Promise（預設為已解決狀態）
+   * 注意：此屬性會在 index.js 中被覆寫為實際的 initialize() Promise，
+   * 以便外部代碼可以 await manager.initializationComplete 來等待初始化完成。
+   * 預設值確保在未調用 initialize() 時，await 不會阻塞。
+   */
+  initializationComplete = Promise.resolve();
+
+  /**
    * @param {object} options - 配置選項
    */
   constructor(options = {}) {
@@ -23,12 +31,6 @@ export class HighlightManager {
 
     // 顏色配置（向後兼容，供 Toolbar 等組件使用）
     this.colors = COLORS;
-
-    // 初始化 Promise（預設為已解決狀態）
-    // 注意：此屬性會在 index.js 中被覆寫為實際的 initialize() Promise，
-    // 以便外部代碼可以 await manager.initializationComplete 來等待初始化完成。
-    // 預設值確保在未調用 initialize() 時，await 不會阻塞。
-    this.initializationComplete = Promise.resolve();
 
     // 子模組依賴（通過 setDependencies 注入）
     this.styleManager = null;
@@ -196,7 +198,8 @@ export class HighlightManager {
   /**
    * 清除所有標註
    *
-   * @param options
+   * @param {object} [options] - 配置選項
+   * @param {boolean} [options.skipStorage] - 是否跳過存儲更新
    */
   clearAll(options = {}) {
     // 清除視覺效果
@@ -300,8 +303,9 @@ export class HighlightManager {
   /**
    * 檢測兩個 Range 是否重疊
    *
-   * @param range1
-   * @param range2
+   * @param {Range} range1 - 第一個選區
+   * @param {Range} range2 - 第二個選區
+   * @returns {boolean} 是否重疊
    */
   static rangesOverlap(range1, range2) {
     try {
@@ -407,7 +411,7 @@ export class HighlightManager {
 
         // 更新 nextId 以避免衝突
         const numId = Number.parseInt(item.id.replace('h', ''), 10);
-        if (!isNaN(numId) && numId >= this.nextId) {
+        if (!Number.isNaN(numId) && numId >= this.nextId) {
           this.nextId = numId + 1;
         }
 
@@ -439,12 +443,7 @@ export class HighlightManager {
   }
 
   static getSafeExtensionStorage() {
-    if (
-      globalThis.window !== undefined &&
-      globalThis.chrome &&
-      globalThis.chrome.runtime &&
-      globalThis.chrome.runtime.id
-    ) {
+    if (globalThis.window !== undefined && globalThis.chrome?.runtime?.id) {
       return globalThis.chrome.storage?.local || null;
     }
     return null;

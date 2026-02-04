@@ -475,7 +475,14 @@ describe('RetryManager - 全面測試', () => {
 
       RetryManager._logRetryAttempt(error, 1, 3, 100);
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('重試'));
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('重試'),
+        expect.objectContaining({
+          error,
+          attempt: 1,
+          maxAttempts: 3,
+        })
+      );
 
       // 清理
       delete globalThis.Logger;
@@ -518,6 +525,23 @@ describe('RetryManager - 全面測試', () => {
 
       expect(logCalled || infoCalled).toBe(true);
 
+      // 檢查調用參數中是否包含結構化對象
+      const logArgs =
+        mockLogger.log.mock.calls.find(call => call[0].includes('已成功')) ||
+        mockLogger.info.mock.calls.find(call => call[0].includes('已成功'));
+
+      if (
+        logArgs && // 如果傳遞了第二個參數，驗證它是結構化對象
+        logArgs.length > 1
+      ) {
+        expect(logArgs[1]).toEqual(
+          expect.objectContaining({
+            totalRetries: expect.anything(),
+            contextType: expect.anything(),
+          })
+        );
+      }
+
       // 清理
       delete globalThis.Logger;
     });
@@ -538,7 +562,14 @@ describe('RetryManager - 全面測試', () => {
 
       RetryManager._logRetryFailure(error, 3);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('失敗'), error);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('失敗'),
+        expect.objectContaining({
+          error,
+          totalRetries: 3,
+          contextType: 'network',
+        })
+      );
 
       // 清理
       delete globalThis.Logger;
