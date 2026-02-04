@@ -18,6 +18,7 @@ const getImageUtils = () =>
 import {
   BLOCKS_SUPPORTING_CHILDREN,
   UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
+  CODE_LANGUAGE_MAP,
 } from '../../config/constants.js';
 
 /**
@@ -565,23 +566,7 @@ class DomConverter {
     if (!lang) {
       return 'plain text';
     }
-    const map = {
-      js: 'javascript',
-      ts: 'typescript',
-      py: 'python',
-      md: 'markdown',
-      html: 'html',
-      css: 'css',
-      json: 'json',
-      sh: 'bash',
-      bash: 'bash',
-      c: 'c',
-      cpp: 'c++',
-      java: 'java',
-      go: 'go',
-      rust: 'rust',
-    };
-    return map[lang.toLowerCase()] || lang;
+    return CODE_LANGUAGE_MAP[lang.toLowerCase()] || lang;
   }
 
   /**

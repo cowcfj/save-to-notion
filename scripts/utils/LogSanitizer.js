@@ -1,19 +1,10 @@
+import { SENSITIVE_KEY_PATTERN, LOGGING_SAFE_HEADERS } from '../config/index.js';
+
 const MAX_DEPTH = 3;
 const SANITIZED_LABEL = '[REDACTED_TOKEN]';
 
-// 敏感鍵名模式（涵蓋常見的敏感欄位名稱，包括複合詞）
-const SENSITIVE_KEY_PATTERN =
-  /auth|token|secret|credential|password|pwd|key|cookie|session|authorization|bearer|viewer|access|refresh|api|private/i;
-
-// 安全的 HTTP Headers 白名單（不包含敏感資訊）
-const SAFE_HEADERS = new Set([
-  'content-type',
-  'content-length',
-  'user-agent',
-  'accept',
-  'accept-language',
-  'cache-control',
-]);
+// 安全的 HTTP Headers 白名單 Set（為了性能而在內部轉換）
+const SAFE_HEADERS_SET = new Set(LOGGING_SAFE_HEADERS);
 
 /**
  * 清理 URL 用於日誌記錄，移除可能包含敏感資訊的部分
@@ -229,7 +220,7 @@ export const LogSanitizer = {
     const safeHeaders = {};
     for (const [key, val] of Object.entries(headers)) {
       const lowerKey = key.toLowerCase();
-      if (SAFE_HEADERS.has(lowerKey)) {
+      if (SAFE_HEADERS_SET.has(lowerKey)) {
         safeHeaders[key] = val;
       } else {
         safeHeaders[key] = '[REDACTED_HEADER]';

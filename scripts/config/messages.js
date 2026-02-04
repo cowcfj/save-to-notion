@@ -239,3 +239,31 @@ export const ERROR_MESSAGES = {
    */
   DEFAULT: '操作失敗，請稍後再試。如問題持續，請查看擴充功能設置',
 };
+
+/**
+ * API 錯誤關鍵字模式配置
+ * 僅存儲純數據 (字串陣列)，供 securityUtils.js 中的分類器使用
+ */
+export const API_ERROR_PATTERNS = {
+  // 1. 認證相關
+  AUTH: ['unauthorized', 'authentication', 'api key'],
+  AUTH_DISCONNECTED: ['token', 'integration'],
+  AUTH_INVALID: ['invalid', 'malformed'],
+
+  // 2. 權限相關
+  PERMISSION: ['forbidden', 'permission', 'access denied'],
+  PERMISSION_DB: ['database'],
+
+  // 3. 限制與資源
+  RATE_LIMIT: ['rate limit', 'too many requests'],
+  NOT_FOUND: ['not found', 'does not exist'],
+  ACTIVE_TAB: ['active tab'],
+  DATA_SOURCE: ['database', 'object_not_found'],
+
+  // 4. 驗證與網路
+  VALIDATION: ['validation', 'image', 'media', 'conflict', 'bad request', 'invalid', '400'],
+  NETWORK: ['network', 'fetch', 'timeout', 'enotfound'],
+
+  // 5. 伺服器錯誤 (需組合判斷)
+  SERVER_ERROR: ['service', 'unavailable', 'internal', 'error'],
+};

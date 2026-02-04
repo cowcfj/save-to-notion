@@ -14,6 +14,7 @@ import {
   FEATURED_IMAGE_SELECTORS,
   SITE_ICON_SELECTORS,
   AVATAR_KEYWORDS,
+  IMAGE_SRC_ATTRIBUTES,
 } from '../../config/selectors.js';
 
 const MetadataExtractor = {
@@ -230,15 +231,7 @@ const MetadataExtractor = {
    * @returns {string|null} 圖片 URL
    */
   extractImageSrc(img) {
-    const srcAttributes = [
-      'src',
-      'data-src',
-      'data-lazy-src',
-      'data-original',
-      'data-lazy',
-      'data-url',
-      'data-image',
-    ];
+    const srcAttributes = IMAGE_SRC_ATTRIBUTES;
 
     for (const attr of srcAttributes) {
       const value = img.getAttribute(attr);

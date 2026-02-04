@@ -73,7 +73,7 @@ export function normalizeUrl(rawUrl) {
 
     return urlObj.toString();
   } catch (error) {
-    Logger.error?.('❌ [normalizeUrl] 標準化失敗:', error);
+    Logger.error?.('normalizeUrl 標準化失敗', { action: 'normalizeUrl', error });
     return rawUrl || '';
   }
 }

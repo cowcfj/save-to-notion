@@ -137,6 +137,27 @@ export const NOTION_CONFIG = {
 };
 
 /**
+ * 程式語言映射表 (用於 DomConverter.mapLanguage)
+ * 將常見縮寫或別名映射至 Notion API 支援的語言名稱
+ */
+export const CODE_LANGUAGE_MAP = {
+  js: 'javascript',
+  ts: 'typescript',
+  py: 'python',
+  md: 'markdown',
+  html: 'html',
+  css: 'css',
+  json: 'json',
+  sh: 'bash',
+  bash: 'bash',
+  c: 'c',
+  cpp: 'c++',
+  java: 'java',
+  go: 'go',
+  rust: 'rust',
+};
+
+/**
  * 支持嵌套 Children 的 Block 類型 (Notion API 2025-09-03)
  */
 export const BLOCKS_SUPPORTING_CHILDREN = [

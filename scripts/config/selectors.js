@@ -40,6 +40,21 @@ export const FEATURED_IMAGE_SELECTORS = [
   'article > div:first-of-type img',
   '.article > figure:first-of-type img',
   '.post > figure:first-of-type img',
+  '.post > div:first-of-type img',
+];
+
+/**
+ * 圖片源屬性列表（用於處理懶加載）
+ * 按優先級排序，通常優先檢查 data-* 屬性
+ */
+export const IMAGE_SRC_ATTRIBUTES = [
+  'src',
+  'data-src',
+  'data-lazy-src',
+  'data-original',
+  'data-lazy',
+  'data-url',
+  'data-image',
 ];
 
 // ==========================================

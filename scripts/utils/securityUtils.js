@@ -11,7 +11,7 @@
 import Logger from './Logger.js';
 import { SECURITY_CONSTANTS } from '../config/constants.js';
 
-import { ERROR_MESSAGES } from '../config/messages.js';
+import { API_ERROR_PATTERNS } from '../config/messages.js';
 
 // ============================================================================
 // URL 驗證函數
@@ -122,88 +122,113 @@ export { sanitizeUrlForLogging } from './LogSanitizer.js';
 // [REMOVED] escapeHtml as it is no longer needed with DOM API refactoring
 
 /**
+ * 內部 API 錯誤分類器 (私有實現，引用純配置數據)
+ *
+ * @param {string} lowerMessage - 已轉小寫的錯誤訊息
+ * @returns {string|null} 分類後的錯誤關鍵字
+ */
+function _classifyApiError(lowerMessage) {
+  const {
+    AUTH,
+    AUTH_DISCONNECTED,
+    AUTH_INVALID,
+    PERMISSION,
+    PERMISSION_DB,
+    RATE_LIMIT,
+    NOT_FOUND,
+    ACTIVE_TAB,
+    DATA_SOURCE,
+    VALIDATION,
+    NETWORK,
+    SERVER_ERROR,
+  } = API_ERROR_PATTERNS;
+
+  // 1. 認證與權限 (Auth & Permission)
+  const authResult = _checkAuthErrors(lowerMessage, AUTH, AUTH_DISCONNECTED, AUTH_INVALID);
+  if (authResult) {
+    return authResult;
+  }
+
+  if (PERMISSION.some(k => lowerMessage.includes(k))) {
+    return PERMISSION_DB.some(k => lowerMessage.includes(k))
+      ? 'Database access denied'
+      : 'Cannot access contents';
+  }
+
+  // 2. 簡單映射 (Simple Mapping)
+  const directMatch = _checkSimpleMappings(lowerMessage, {
+    'rate limit': RATE_LIMIT,
+    'Page ID is missing': NOT_FOUND,
+    'active tab': ACTIVE_TAB,
+    'Data Source ID': DATA_SOURCE,
+    'Invalid request': VALIDATION,
+    'Network error': NETWORK,
+  });
+  if (directMatch) {
+    return directMatch;
+  }
+
+  // 3. 服務器錯誤 (Server Error)
+  if (SERVER_ERROR.some(k => lowerMessage.includes(k))) {
+    return _checkServerError(lowerMessage);
+  }
+
+  return null;
+}
+
+// === 輔助函數 (降低 Cognitive Complexity) ===
+
+function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid) {
+  if (!patterns.some(k => lowerMessage.includes(k))) {
+    return null;
+  }
+  if (disconnected.some(k => lowerMessage.includes(k))) {
+    return 'Integration disconnected';
+  }
+  if (invalid.some(k => lowerMessage.includes(k))) {
+    return 'Invalid API Key format';
+  }
+  return 'API Key';
+}
+
+function _checkSimpleMappings(lowerMessage, mapping) {
+  for (const [result, patterns] of Object.entries(mapping)) {
+    if (patterns.some(k => lowerMessage.includes(k))) {
+      return result;
+    }
+  }
+  return null;
+}
+
+function _checkServerError(lowerMessage) {
+  const isInternal = lowerMessage.includes('internal') && lowerMessage.includes('error');
+  const isUnavailable = lowerMessage.includes('service') && lowerMessage.includes('unavailable');
+  if (isInternal || isUnavailable) {
+    return 'Internal Server Error';
+  }
+  return null;
+}
+
+/**
  * 清理外部 API 錯誤訊息，防止洩露技術細節並標準化錯誤分類
  *
  * 安全與架構考量：
  * 1. 職責分離：此函數僅負責「分類」與「清洗」，不包含 UI 文案。
  * 2. 縱深防禦：防止內部實現細節、Stack Traces 等洩露。
- * 3. 翻譯橋接：返回的字串（如 'API Key'）應與 constants.js 中的 ERROR_MESSAGES.PATTERNS 鍵對應。
+ * 3. 翻譯橋接：返回的關鍵字（如 'API Key'）由 ErrorHandler 轉換為友善語句。
  *
  * @param {string | object} apiError - API 錯誤訊息或錯誤對象
  * @param {string} context - 錯誤上下文（如 'create_page', 'update_page'）
- * @returns {string} 錯誤代碼或清洗後的安全錯誤訊息（由 ErrorHandler 轉換為友善語句）
+ * @returns {string | object} 錯誤代碼或清洗後的結構化錯誤對象
  */
-/**
- * 內部錯誤轉換映射 (私有)
- */
-const API_ERROR_MAPPINGS = [
-  {
-    patterns: ['unauthorized', 'authentication', 'api key'],
-    handler: (lower, _msg) => {
-      if (lower.includes('token') || lower.includes('integration')) {
-        return 'Integration disconnected';
-      }
-      if (lower.includes('invalid') || lower.includes('malformed')) {
-        return 'Invalid API Key format';
-      }
-      return 'API Key';
-    },
-  },
-  {
-    patterns: ['forbidden', 'permission', 'access denied'],
-    handler: lower =>
-      lower.includes('database') ? 'Database access denied' : 'Cannot access contents',
-  },
-  {
-    patterns: ['rate limit', 'too many requests'],
-    handler: () => 'rate limit',
-  },
-  {
-    patterns: ['not found', 'does not exist'],
-    handler: () => 'Page ID is missing',
-  },
-  {
-    patterns: ['active tab'],
-    handler: () => 'active tab',
-  },
-  {
-    patterns: ['database', 'object_not_found'],
-    handler: () => 'Data Source ID',
-  },
-  {
-    patterns: ['validation', 'image', 'media', 'conflict', 'bad request', 'invalid', '400'],
-    handler: () => 'Invalid request',
-  },
-  {
-    patterns: ['network', 'fetch', 'timeout', 'enotfound'],
-    handler: () => 'Network error',
-  },
-  {
-    patterns: ['service', 'unavailable', 'internal'],
-    handler: lower => {
-      if (lower.includes('internal') && lower.includes('error')) {
-        return 'Internal Server Error';
-      }
-      if (lower.includes('service') && lower.includes('unavailable')) {
-        return 'Internal Server Error';
-      }
-      return null;
-    },
-  },
-];
-
 export function sanitizeApiError(apiError, context = 'operation') {
   const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
   const lowerMessage = errorMessage.toLowerCase();
 
-  // 1. 遍歷映射表進行分類
-  for (const { patterns, handler } of API_ERROR_MAPPINGS) {
-    if (patterns.some(pattern => lowerMessage.includes(pattern))) {
-      const result = handler(lowerMessage, errorMessage);
-      if (result) {
-        return result;
-      }
-    }
+  // 1. 使用內部解析器進行分類 (引用配置)
+  const classification = _classifyApiError(lowerMessage);
+  if (classification) {
+    return classification;
   }
 
   // 2. 處理中文字串 (友善訊息)
@@ -212,11 +237,17 @@ export function sanitizeApiError(apiError, context = 'operation') {
     return errorMessage;
   }
 
-  // 3. 兜底處理
+  // 3. 結構化兜底處理
   Logger.warn(
     `[Security] Unrecognized API error sanitized (context: ${context}, length: ${errorMessage.length})`
   );
-  return 'Unknown Error';
+
+  return {
+    code: 'UNKNOWN_ERROR',
+    message: 'Unknown Error',
+    context,
+    length: errorMessage.length,
+  };
 }
 
 // ============================================================================

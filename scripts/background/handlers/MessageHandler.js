@@ -132,7 +132,10 @@ class MessageHandler {
       chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return this.handle(request, sender, sendResponse);
       });
-      this.logger.log?.('✅ MessageHandler listener setup complete');
+      this.logger.log?.('MessageHandler listener setup complete', {
+        actions: this.getRegisteredActions(),
+        count: this.handlers.size,
+      });
     }
   }
 

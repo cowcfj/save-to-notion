@@ -70,7 +70,7 @@ function createAndInjectDependencies(manager, options, toolbar = null) {
 /**
  * 初始化 Highlighter V2 (僅 Manager)
  *
- * @param options
+ * @param {object} [options={}] - 初始化選項
  * @returns {HighlightManager}
  */
 export function initHighlighter(options = {}) {
@@ -81,7 +81,7 @@ export function initHighlighter(options = {}) {
 
   // 驗證關鍵依賴是否成功創建
   if (!deps.styleManager || !deps.storage) {
-    Logger.error('[initHighlighter] 關鍵依賴創建失敗，初始化中止');
+    Logger.error('初始化標註器失敗，關鍵依賴創建失敗', { action: 'initHighlighter' });
     return manager; // 返回未初始化的 manager，避免後續錯誤
   }
 
@@ -89,7 +89,7 @@ export function initHighlighter(options = {}) {
   manager.initializationComplete = manager.initialize();
 
   // 監聽來自 background 的消息
-  if (globalThis.chrome?.runtime && globalThis.chrome.runtime.onMessage) {
+  if (globalThis.chrome?.runtime?.onMessage) {
     globalThis.chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.action === 'toggleHighlighter') {
         if (globalThis.notionHighlighter) {
@@ -156,6 +156,7 @@ export function initHighlighterWithToolbar(options = {}) {
  * @param {object} [options] - 初始化選項
  * @param {boolean} [options.skipRestore] - 是否跳過恢復標註
  * @param {boolean} [options.skipToolbar] - 是否跳過創建工具欄
+ * @returns {object} 包含 manager, toolbar, restoreManager 的對象
  */
 export function setupHighlighter(options = {}) {
   if (globalThis.window === undefined) {
@@ -368,7 +369,6 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       if (pageStatus?.wasDeleted) {
         // 頁面已在 Notion 刪除，跳過標註恢復和 Toolbar
         skipRestore = true;
-        skipToolbar = true;
         Logger.log('[Highlighter] Page was deleted, skipping toolbar and restore.');
       } else if (pageStatus?.isSaved) {
         // 頁面已保存，創建 Toolbar
@@ -379,18 +379,18 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
       // 初始化 Highlighter
       setupHighlighter({ skipRestore, skipToolbar, styleMode });
     } catch (error) {
-      Logger.error('[Highlighter] Initialization failed:', error);
+      Logger.error('初始化失敗', { action: 'initializeHighlighter', error });
       // 發生嚴重錯誤時，嘗試以安全模式初始化（不帶 Toolbar 和 Restore）
       // 以確保基本功能可用，或至少不導致頁面其他腳本崩潰
       try {
         setupHighlighter({ skipRestore: true, skipToolbar: true });
       } catch (fallbackError) {
-        console.error('[Highlighter] Fallback initialization failed:', fallbackError);
+        Logger.error('回退初始化失敗', { action: 'fallbackInitialize', error: fallbackError });
       }
     }
   };
 
-  initializeExtension();
+  await initializeExtension();
 
   // 🔑 監聽來自 Popup 的消息（如保存完成後顯示 Toolbar）
   if (globalThis.chrome?.runtime?.onMessage) {
@@ -402,7 +402,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
             globalThis.notionHighlighter.createAndShowToolbar();
             sendResponse({ success: true });
           } catch (error) {
-            Logger.error('[Highlighter] Failed to show toolbar:', error);
+            Logger.error('顯示工具欄失敗', { action: 'showToolbar', error });
             sendResponse({ success: false, error: error.message });
           }
         } else {
