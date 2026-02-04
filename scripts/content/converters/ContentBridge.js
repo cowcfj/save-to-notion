@@ -47,7 +47,10 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
 
   // 1. 提取標題
   const title = _extractTitle(metadata, rawArticle);
-  Logger.log('處理標題', { action: 'bridgeContentToBlocks', title });
+  Logger.debug('[ContentBridge] 處理標題', {
+    action: 'bridgeContentToBlocks',
+    titleLength: title ? title.length : 0,
+  });
 
   // 2. 轉換內容為 Notion Blocks
   let blocks = _convertContent(content, type, options);
@@ -58,7 +61,10 @@ function bridgeContentToBlocks(extractedContent, options = {}) {
     blocks = _createFallbackBlocks();
   }
 
-  Logger.log('區塊生成完成', { action: 'bridgeContentToBlocks', count: blocks.length });
+  Logger.success('[ContentBridge] 區塊生成完成', {
+    action: 'bridgeContentToBlocks',
+    count: blocks.length,
+  });
 
   // 3. 插入元數據 (封面圖等)
   _insertMetaBlocks(blocks, metadata, { includeFeaturedImage, includeTitle });
@@ -89,7 +95,7 @@ function _convertContent(content, type, options) {
 
   try {
     if (type === 'html' || type === 'markdown') {
-      Logger.log('準備轉換內容', { action: 'bridgeContentToBlocks', type });
+      Logger.info('[ContentBridge] 準備轉換內容', { action: 'bridgeContentToBlocks', type });
       const converter =
         options.htmlConverter ||
         globalThis.domConverter ||
@@ -160,7 +166,7 @@ function _insertMetaBlocks(blocks, metadata, options = {}) {
     );
 
     if (isDuplicate) {
-      Logger.log('封面圖已存在，跳過插入', { action: 'bridgeContentToBlocks' });
+      Logger.debug('[ContentBridge] 封面圖已存在，跳過插入', { action: 'bridgeContentToBlocks' });
     } else {
       blocks.unshift({
         object: 'block',
@@ -170,7 +176,7 @@ function _insertMetaBlocks(blocks, metadata, options = {}) {
           external: { url: featuredImageUrl },
         },
       });
-      Logger.log('封面圖已插入到區塊開頭', { action: 'bridgeContentToBlocks' });
+      Logger.debug('[ContentBridge] 封面圖已插入到區塊開頭', { action: 'bridgeContentToBlocks' });
     }
   }
 }
@@ -275,7 +281,7 @@ function extractAndBridge(doc, options = {}) {
 
   // 1. 使用 ContentExtractor 提取內容
   const extractedContent = ContentExtractor.extract(doc);
-  Logger.log('ContentExtractor 提取完成', { action: 'extractAndBridge' });
+  Logger.success('[ContentBridge] ContentExtractor 提取完成', { action: 'extractAndBridge' });
 
   // 2. 轉換為 blocks 格式
   return bridgeContentToBlocks(extractedContent, options);
