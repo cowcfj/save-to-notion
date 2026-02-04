@@ -1,4 +1,5 @@
 import { TOOLBAR_SELECTORS } from '../../../config/selectors.js';
+import { createSafeIcon } from '../../../utils/securityUtils.js';
 
 /**
  * 獲取顏色的中文名稱
@@ -60,7 +61,16 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     const openBtn = document.createElement('button');
     openBtn.id = TOOLBAR_SELECTORS.LIST_OPEN_NOTION.slice(1);
     openBtn.className = 'nh-btn nh-btn-mini';
-    openBtn.textContent = '🔗 打開';
+    // SVG Icon for External Link
+    const iconSvg =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
+
+    // Use createSafeIcon for security
+    const iconSpan = createSafeIcon(iconSvg);
+    const textSpan = document.createElement('span');
+    textSpan.textContent = ' 打開';
+
+    openBtn.append(iconSpan, textSpan);
     openBtn.addEventListener('click', onOpenNotion);
     headerDiv.append(openBtn);
   }
@@ -101,11 +111,10 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
     deleteBtn.title = '刪除此標註';
 
     // SVG 圖標（靜態內容，安全使用 innerHTML）
-    deleteBtn.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M1 3H13M2.5 3L3.5 12C3.5 12.5523 3.94772 13 4.5 13H9.5C10.0523 13 10.5 12.5523 10.5 12L11.5 3M5 1V3M9 1V3M5 6V10M9 6V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    `;
+    // SVG 圖標（使用 createSafeIcon 替代 innerHTML）
+    const deleteIconSvg =
+      '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 3H13M2.5 3L3.5 12C3.5 12.5523 3.94772 13 4.5 13H9.5C10.0523 13 10.5 12.5523 10.5 12L11.5 3M5 1V3M9 1V3M5 6V10M9 6V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    deleteBtn.append(createSafeIcon(deleteIconSvg));
 
     // 綁定刪除事件
     deleteBtn.addEventListener('click', () => {
