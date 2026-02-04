@@ -12,6 +12,7 @@
 /* global chrome */
 
 import { TAB_SERVICE, URL_NORMALIZATION } from '../../config/constants.js';
+import Logger from '../../utils/Logger.js';
 
 /**
  * TabService 類
@@ -32,7 +33,7 @@ class TabService {
    *   - highlightsKey: 標註存儲鍵名（格式: "highlights_{normUrl}"）
    */
   constructor(options = {}) {
-    this.logger = options.logger || console;
+    this.logger = options.logger || Logger;
     this.injectionService = options.injectionService;
     this.normalizeUrl = options.normalizeUrl || (url => url);
     this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
@@ -59,7 +60,7 @@ class TabService {
 
     // 防止並發調用：檢查是否正在處理
     if (this.processingTabs.has(tabId)) {
-      this.logger.debug?.(`[TabService] Tab ${tabId} is already being processed, skipping`);
+      this.logger.debug(`[TabService] Tab ${tabId} is already being processed, skipping`);
       return;
     }
 
@@ -95,13 +96,13 @@ class TabService {
         return;
       }
 
-      this.logger.debug?.(
+      this.logger.debug(
         `[TabService] Found ${highlights.length} highlights, preparing to inject bundle...`
       );
 
       const tab = await this._waitForTabCompilation(tabId);
       if (tab) {
-        this.logger.debug?.(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
+        this.logger.debug(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
         await this.injectionService.ensureBundleInjected(tabId);
       }
     } catch (error) {
@@ -110,9 +111,9 @@ class TabService {
       }
       // Avoid logging recoverable errors as true errors to reduce noise
       if (this.injectionService && error.message?.includes('The tab was closed')) {
-        this.logger.debug?.(`[TabService] Tab closed during update: ${error.message}`);
+        this.logger.debug(`[TabService] Tab closed during update: ${error.message}`);
       } else {
-        this.logger.error('[TabService] Error updating tab status:', error);
+        this.logger.error('[TabService] Error updating tab status', { error });
       }
     }
   }
@@ -135,7 +136,7 @@ class TabService {
 
     const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
 
-    this.logger.debug?.(`[TabService] Checking highlights for ${key}:`, {
+    this.logger.debug(`[TabService] Checking highlights for ${key}:`, {
       found: hasHighlights,
       count: hasHighlights ? highlights.length : 0,
     });
@@ -154,7 +155,7 @@ class TabService {
     }
 
     if (this.pendingListeners.has(tabId)) {
-      this.logger.debug?.(`[TabService] Tab ${tabId} already has pending listener, skipping`);
+      this.logger.debug(`[TabService] Tab ${tabId} already has pending listener, skipping`);
       return null;
     }
 
@@ -192,7 +193,7 @@ class TabService {
       // 設定超時
       const timeoutId = setTimeout(() => {
         cleanup();
-        this.logger.warn?.(`[TabService] Tab ${tabId} loading timeout`);
+        this.logger.warn(`[TabService] Tab ${tabId} loading timeout`);
         resolve(null);
       }, TAB_SERVICE.LOADING_TIMEOUT_MS || 10_000);
     });
@@ -221,7 +222,7 @@ class TabService {
         }
       } catch (error) {
         // Tab 可能已被關閉，靜默處理
-        this.logger.debug?.(`[TabService] Failed to get tab ${activeInfo.tabId}:`, error);
+        this.logger.debug(`[TabService] Failed to get tab ${activeInfo.tabId}:`, { error });
       }
     });
   }
@@ -235,12 +236,12 @@ class TabService {
    */
   async migrateLegacyHighlights(tabId, normUrl, storageKey) {
     if (!normUrl || !storageKey) {
-      this.logger.warn?.('Skipping legacy migration: missing normalized URL or storage key');
+      this.logger.warn('Skipping legacy migration: missing normalized URL or storage key');
       return;
     }
 
     if (!/^https?:/i.test(normUrl)) {
-      this.logger.warn?.('Skipping legacy migration for non-http URL:', normUrl);
+      this.logger.warn('Skipping legacy migration for non-http URL:', { normUrl });
       return;
     }
 
@@ -248,7 +249,7 @@ class TabService {
       // 檢查標籤頁是否仍然有效且不是錯誤頁面
       const tab = await chrome.tabs.get(tabId).catch(() => null);
       if (!tab?.url || tab.url.startsWith('chrome-error://')) {
-        this.logger.log('[TabService] Skipping migration: tab is invalid or showing error page');
+        this.logger.info('[TabService] Skipping migration: tab is invalid or showing error page');
         return;
       }
 
@@ -259,31 +260,29 @@ class TabService {
       // injectWithResponse 已經解包回傳值，直接使用 res
       if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {
         // 不記錄 foundKey 以保護用戶 URL 隱私
-        this.logger.log('[TabService] Migrating legacy highlights', {
+        this.logger.info('[TabService] Migrating legacy highlights', {
           action: 'migrateLegacyHighlights',
           count: res.data.length,
         });
 
         await chrome.storage.local.set({ [storageKey]: res.data });
 
-        this.logger.log('[TabService] Legacy highlights migrated successfully', {
+        this.logger.success('[TabService] Legacy highlights migrated successfully', {
           action: 'injectRestoreScript',
-          status: 'success',
         });
         await this.injectionService.injectHighlightRestore(tabId);
       } else if (res?.error) {
         // 記錄注入端的結構化錯誤
-        this.logger.warn?.('[TabService] Migration script reported error:', res.error);
+        this.logger.warn('[TabService] Migration script reported error:', { error: res.error });
       }
     } catch (error) {
       const isRecoverable = this.isRecoverableError(error);
       if (isRecoverable) {
-        this.logger.log(
-          '[TabService] Migration skipped due to recoverable error:',
-          error.message || error
-        );
+        this.logger.warn('[TabService] Migration skipped due to recoverable error:', {
+          error: error.message || error,
+        });
       } else {
-        this.logger.error('[TabService] Fatal migration error:', error);
+        this.logger.error('[TabService] Fatal migration error', { error });
       }
     }
   }
