@@ -60,7 +60,7 @@ function isRestrictedInjectionUrl(url) {
       return urlObj.pathname.startsWith(pathPrefix);
     });
   } catch (error) {
-    console.warn('Failed to parse URL when checking restrictions:', error);
+    console.warn('[Injection:Utils] ⚠️ Failed to parse URL when checking restrictions:', error);
     return true;
   }
 }
@@ -87,7 +87,7 @@ function getRuntimeErrorMessage(runtimeError) {
   try {
     return JSON.stringify(runtimeError);
   } catch (error) {
-    console.warn('Unable to stringify runtime error:', error);
+    console.warn('[Injection:Utils] ⚠️ Unable to stringify runtime error:', error);
     return `[Runtime Error: ${Object.prototype.toString.call(runtimeError)}]`;
   }
 }
@@ -195,7 +195,10 @@ class InjectionService {
       }
     } catch (error) {
       if (options.logErrors !== false) {
-        this.logger.error?.(options.errorMessage || 'Script injection failed', error);
+        this.logger.error?.(
+          `[Injection] ❌ ${options.errorMessage || 'Script injection failed'}`,
+          error
+        );
       }
       throw error;
     }
@@ -270,7 +273,7 @@ class InjectionService {
    */
   _handleInjectionSuccess(resolve, options, isFunction, results) {
     if (isFunction && options.successMessage && options.logErrors) {
-      this.logger.log(options.successMessage);
+      this.logger.info(`[Injection] ✅ ${options.successMessage}`);
     }
     const result = (options.returnResult && results?.[0]?.result) ?? null;
     resolve(result);
@@ -292,9 +295,9 @@ class InjectionService {
 
     const msgPrefix = isFunction ? 'Function execution' : 'File injection';
     if (isRecoverable) {
-      this.logger.warn?.(`⚠️ ${msgPrefix} skipped (recoverable):`, errMsg);
+      this.logger.warn?.(`[Injection] ⚠️ ${msgPrefix} skipped (recoverable):`, errMsg);
     } else {
-      this.logger.error?.(`${msgPrefix} failed:`, errMsg);
+      this.logger.error?.(`[Injection] ❌ ${msgPrefix} failed:`, errMsg);
     }
   }
 
@@ -324,12 +327,12 @@ class InjectionService {
       ]);
 
       if (response?.status === 'bundle_ready') {
-        this.logger.debug?.(`✅ Bundle already exists in tab ${tabId}`);
+        this.logger.debug?.(`[Injection] ✅ Bundle already exists in tab ${tabId}`);
         return true; // Bundle 已存在
       }
 
       // Bundle 不存在（僅 Preloader 或無回應），注入主程式
-      this.logger.debug?.(`📦 Injecting Content Bundle into tab ${tabId}...`);
+      this.logger.debug?.(`[Injection] 📦 Injecting Content Bundle into tab ${tabId}...`);
 
       await new Promise((resolve, reject) => {
         chrome.scripting.executeScript(
@@ -347,16 +350,18 @@ class InjectionService {
         );
       });
 
-      this.logger.log?.(`✅ Content Bundle injected into tab ${tabId}`);
+      this.logger.info?.(`[Injection] ✅ Content Bundle injected into tab ${tabId}`);
       return true;
     } catch (error) {
       // 處理錯誤（如無法連接、權限受限）
       const errorMessage = error?.message || String(error);
       if (isRecoverableInjectionError(errorMessage)) {
-        this.logger.warn?.(`⚠️ Bundle injection skipped (recoverable): ${errorMessage}`);
+        this.logger.warn?.(
+          `[Injection] ⚠️ Bundle injection skipped (recoverable): ${errorMessage}`
+        );
         return false;
       }
-      this.logger.error?.(`❌ Bundle injection failed: ${errorMessage}`);
+      this.logger.error?.(`[Injection] ❌ Bundle injection failed: ${errorMessage}`);
       throw error;
     }
   }
@@ -387,14 +392,14 @@ class InjectionService {
               globalThis.notionHighlighter.show();
               const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
               // skipcq: JS-0002 - Running in page context
-              console.log(`✅ 標註工具已準備，共 ${count} 個標註`);
+              console.info(`[Notion Highlighter] ✅ 標註工具已準備，共 ${count} 個標註`);
               resolve({ initialized: true, highlightCount: count });
               return;
             }
 
             if (Date.now() - startTime > timeout) {
               // skipcq: JS-0002 - Running in page context
-              console.warn('⚠️ notionHighlighter 初始化超時');
+              console.warn('[Notion Highlighter] ⚠️ 初始化超時');
               resolve({ initialized: false, highlightCount: 0 });
               return;
             }
@@ -502,7 +507,7 @@ class InjectionService {
 
       return null;
     } catch (error) {
-      this.logger.error?.('injectWithResponse failed:', error);
+      this.logger.error?.('[Injection] ❌ injectWithResponse failed:', error);
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
       return null;
     }
@@ -523,7 +528,7 @@ class InjectionService {
         logErrors: true,
       });
     } catch (error) {
-      this.logger.error?.('inject failed:', error);
+      this.logger.error?.('[Injection] ❌ inject failed:', error);
       throw error;
     }
   }
