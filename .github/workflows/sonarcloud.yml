@@ -13,15 +13,19 @@ jobs:
     name: SonarCloud Scan
     runs-on: ubuntu-latest
     if: ${{ !startsWith(github.head_ref, 'release-please--') }}
+    permissions:
+      pull-requests: write
+      contents: read
+      checks: write
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 淺層克隆會導致分析不準確，建議設定為 0 以獲取所有歷史紀錄
+          fetch-depth: 0
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # 由 GitHub 自動提供，用於在 PR 留言
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # 需要在 Repository Secrets 中手動設定
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
