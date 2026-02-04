@@ -96,7 +96,7 @@ class TabService {
       }
 
       this.logger.debug?.(
-        `📦 [TabService] Found ${highlights.length} highlights, preparing to inject bundle...`
+        `[TabService] Found ${highlights.length} highlights, preparing to inject bundle...`
       );
 
       const tab = await this._waitForTabCompilation(tabId);
@@ -135,7 +135,7 @@ class TabService {
 
     const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
 
-    this.logger.debug?.(`🔍 [TabService] Checking highlights for ${key}:`, {
+    this.logger.debug?.(`[TabService] Checking highlights for ${key}:`, {
       found: hasHighlights,
       count: hasHighlights ? highlights.length : 0,
     });
@@ -248,7 +248,7 @@ class TabService {
       // 檢查標籤頁是否仍然有效且不是錯誤頁面
       const tab = await chrome.tabs.get(tabId).catch(() => null);
       if (!tab?.url || tab.url.startsWith('chrome-error://')) {
-        this.logger.log('⚠️ Skipping migration: tab is invalid or showing error page');
+        this.logger.log('[TabService] Skipping migration: tab is invalid or showing error page');
         return;
       }
 
@@ -269,9 +269,9 @@ class TabService {
       // 檢查是否為可恢復的注入錯誤（如錯誤頁面、標籤已關閉等）
       const errorMessage = error?.message || String(error);
       if (this.isRecoverableError(errorMessage)) {
-        this.logger.log('⚠️ Migration skipped due to recoverable error:', errorMessage);
+        this.logger.log('[TabService] Migration skipped due to recoverable error:', errorMessage);
       } else {
-        this.logger.error?.('❌ Error handling migration results:', error);
+        this.logger.error?.('[TabService] Error handling migration results:', error);
       }
     }
   }

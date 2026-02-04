@@ -269,7 +269,7 @@ describe('TabService', () => {
       );
 
       expect(mockLogger.log).toHaveBeenCalledWith(
-        '⚠️ Migration skipped due to recoverable error:',
+        '[TabService] Migration skipped due to recoverable error:',
         expect.any(String)
       );
     });
