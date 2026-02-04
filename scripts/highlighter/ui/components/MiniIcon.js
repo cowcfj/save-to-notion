@@ -1,7 +1,4 @@
-/**
- * 最小化圖標組件
- * 負責創建和管理最小化後的浮動圖標
- */
+import { TOOLBAR_SELECTORS } from '../../../config/selectors.js';
 
 /**
  * 創建最小化圖標
@@ -10,7 +7,7 @@
  */
 export function createMiniIcon() {
   const miniIcon = document.createElement('div');
-  miniIcon.id = 'notion-highlighter-mini-icon';
+  miniIcon.id = TOOLBAR_SELECTORS.MINI_ICON.slice(1);
 
   // 設置內容
   miniIcon.innerHTML = `

@@ -10,28 +10,12 @@ import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { renderHighlightList } from './components/HighlightList.js';
 import { injectIcons, createSpriteIcon } from '../../utils/uiUtils.js';
+import { TOOLBAR_SELECTORS } from '../../config/selectors.js';
+import { UI_STYLE_CONSTANTS } from '../../config/constants.js';
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
 import { sanitizeApiError } from '../../utils/securityUtils.js';
-import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import LoggerModule from '../../utils/Logger.js';
-const SafeLogger =
-  LoggerModule && typeof LoggerModule === 'object'
-    ? LoggerModule
-    : {
-        error: (...args) => console.error(...args),
-        warn: (...args) => console.warn(...args),
-        info: (...args) => console.info(...args),
-        debug: (...args) => console.info(...args),
-      };
-
-// UI 元素 ID 常量
-const HIGHLIGHT_LIST_ID = '#highlight-list-v2';
-const TOGGLE_HIGHLIGHT_ID = '#toggle-highlight-v2';
-
-// 樣式常量
-const STYLE_INLINE_BLOCK = 'inline-block';
-const STYLE_TEXT_BOTTOM = 'text-bottom';
+import Logger from '../../utils/Logger.js';
 
 /**
  * 工具欄管理器類別
@@ -116,9 +100,9 @@ export class Toolbar {
    * 綁定控制按鈕（開始標註、最小化、關閉）
    */
   bindControlButtons() {
-    const toggleBtn = this.container.querySelector(TOGGLE_HIGHLIGHT_ID);
-    const minimizeBtn = this.container.querySelector('#minimize-highlight-v2');
-    const closeBtn = this.container.querySelector('#close-highlight-v2');
+    const toggleBtn = this.container.querySelector(TOOLBAR_SELECTORS.TOGGLE_HIGHLIGHT);
+    const minimizeBtn = this.container.querySelector(TOOLBAR_SELECTORS.MINIMIZE);
+    const closeBtn = this.container.querySelector(TOOLBAR_SELECTORS.CLOSE);
 
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => this.toggleHighlightMode());
@@ -137,7 +121,7 @@ export class Toolbar {
    * 綁定顏色選擇器
    */
   bindColorPicker() {
-    const container = this.container.querySelector('#color-picker-v2');
+    const container = this.container.querySelector(TOOLBAR_SELECTORS.COLOR_PICKER);
     if (container) {
       renderColorPicker(container, this.manager.colors, this.manager.currentColor, color => {
         this.manager.setColor(color);
@@ -149,9 +133,9 @@ export class Toolbar {
    * 綁定操作按鈕（同步、打開、管理）
    */
   bindActionButtons() {
-    const syncBtn = this.container.querySelector('#sync-to-notion-v2');
-    const openBtn = this.container.querySelector('#open-notion-v2');
-    const manageBtn = this.container.querySelector('#manage-highlights-v2');
+    const syncBtn = this.container.querySelector(TOOLBAR_SELECTORS.SYNC_TO_NOTION);
+    const openBtn = this.container.querySelector(TOOLBAR_SELECTORS.OPEN_NOTION);
+    const manageBtn = this.container.querySelector(TOOLBAR_SELECTORS.MANAGE_HIGHLIGHTS);
 
     if (syncBtn) {
       syncBtn.addEventListener('click', () => this.syncToNotion());
@@ -177,7 +161,7 @@ export class Toolbar {
       }
 
       // 忽略工具欄內的點擊
-      if (event.target.closest('#notion-highlighter-v2')) {
+      if (event.target.closest(TOOLBAR_SELECTORS.CONTAINER)) {
         return;
       }
 
@@ -205,7 +189,7 @@ export class Toolbar {
             selection.removeAllRanges();
           }
         } catch (error) {
-          SafeLogger.error('添加標註失敗', {
+          Logger.error('添加標註失敗', {
             action: 'selectionHandler',
             error,
           });
@@ -226,7 +210,7 @@ export class Toolbar {
         this.updateHighlightCount();
 
         // 如果列表是打開的，刷新列表
-        const listContainer = this.container.querySelector(HIGHLIGHT_LIST_ID);
+        const listContainer = this.container.querySelector(TOOLBAR_SELECTORS.HIGHLIGHT_LIST);
         if (listContainer && listContainer.style.display !== 'none') {
           this.refreshHighlightList();
         }
@@ -256,7 +240,7 @@ export class Toolbar {
         break;
       }
       default: {
-        SafeLogger.warn('Toolbar received unknown state', {
+        Logger.warn('Toolbar received unknown state', {
           action: 'handleStateChange',
           state,
           component: 'Toolbar',
@@ -313,7 +297,7 @@ export class Toolbar {
    */
   toggleHighlightMode() {
     this.isHighlightModeActive = !this.isHighlightModeActive;
-    const btn = this.container.querySelector(TOGGLE_HIGHLIGHT_ID);
+    const btn = this.container.querySelector(TOOLBAR_SELECTORS.TOGGLE_HIGHLIGHT);
 
     if (!btn) {
       return;
@@ -336,7 +320,7 @@ export class Toolbar {
    * 更新標註計數
    */
   updateHighlightCount() {
-    const countSpan = this.container.querySelector('#highlight-count-v2');
+    const countSpan = this.container.querySelector(TOOLBAR_SELECTORS.COUNT_DISPLAY);
     if (countSpan) {
       const count = this.manager.getCount();
       countSpan.textContent = count.toString();
@@ -347,7 +331,7 @@ export class Toolbar {
    * 切換標註列表顯示
    */
   toggleHighlightList() {
-    const listContainer = this.container.querySelector(HIGHLIGHT_LIST_ID);
+    const listContainer = this.container.querySelector(TOOLBAR_SELECTORS.HIGHLIGHT_LIST);
 
     if (!listContainer) {
       return;
@@ -379,7 +363,7 @@ export class Toolbar {
    * 刷新標註列表（僅在列表可見時）
    */
   refreshHighlightList() {
-    const listContainer = this.container.querySelector(HIGHLIGHT_LIST_ID);
+    const listContainer = this.container.querySelector(TOOLBAR_SELECTORS.HIGHLIGHT_LIST);
 
     if (!listContainer) {
       return;
@@ -435,7 +419,7 @@ export class Toolbar {
    * 同步到 Notion
    */
   async syncToNotion() {
-    const statusDiv = this.container.querySelector('#highlight-status-v2');
+    const statusDiv = this.container.querySelector(TOOLBAR_SELECTORS.STATUS_CONTAINER);
 
     if (statusDiv) {
       const originalText = statusDiv.textContent; // Use textContent for safety
@@ -445,14 +429,15 @@ export class Toolbar {
       const loadingIcon = document.createElement('span');
       // Use SYNC icon and add spinning animation style
       loadingIcon.append(createSpriteIcon('sync'));
-      loadingIcon.style.display = STYLE_INLINE_BLOCK;
+      loadingIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
       loadingIcon.style.marginRight = '4px';
-      loadingIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
+      loadingIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
       loadingIcon.style.animation = 'spin 1s linear infinite';
 
       statusDiv.append(loadingIcon);
       statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNCING}`));
 
+      Logger.start('準備同步標註到 Notion');
       try {
         // 收集標註數據
         const highlights = this.manager.collectHighlightsForNotion();
@@ -466,9 +451,9 @@ export class Toolbar {
           statusDiv.textContent = '';
           const successIcon = document.createElement('span');
           successIcon.append(createSpriteIcon('success'));
-          successIcon.style.display = STYLE_INLINE_BLOCK;
+          successIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
           successIcon.style.marginRight = '4px';
-          successIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
+          successIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
 
           statusDiv.append(successIcon);
           statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_SUCCESS}`));
@@ -478,9 +463,9 @@ export class Toolbar {
           statusDiv.textContent = ''; // Clear
           const errorIcon = document.createElement('span');
           errorIcon.append(createSpriteIcon('error')); // Use standardized Error icon
-          errorIcon.style.display = STYLE_INLINE_BLOCK;
+          errorIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
           errorIcon.style.marginRight = '4px';
-          errorIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
+          errorIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
 
           statusDiv.append(errorIcon);
           statusDiv.append(document.createTextNode(` ${errorMsg}`));
@@ -494,9 +479,9 @@ export class Toolbar {
         statusDiv.textContent = '';
         const errorIcon = document.createElement('span');
         errorIcon.append(createSpriteIcon('error'));
-        errorIcon.style.display = STYLE_INLINE_BLOCK;
+        errorIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
         errorIcon.style.marginRight = '4px';
-        errorIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
+        errorIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
 
         statusDiv.append(errorIcon);
         statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_FAILED}`));
@@ -505,7 +490,7 @@ export class Toolbar {
           statusDiv.textContent = originalText;
         }, 2000);
 
-        SafeLogger.error('同步失敗:', {
+        Logger.error('同步失敗:', {
           action: 'syncToNotion',
           error,
         });

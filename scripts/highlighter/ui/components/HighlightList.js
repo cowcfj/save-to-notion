@@ -1,7 +1,4 @@
-/**
- * 標註列表組件
- * 負責渲染和更新標註列表
- */
+import { TOOLBAR_SELECTORS } from '../../../config/selectors.js';
 
 /**
  * 獲取顏色的中文名稱
@@ -61,7 +58,7 @@ export function renderHighlightList(container, highlights, onDelete, onOpenNotio
   // 打開 Notion 按鈕（可選）
   if (onOpenNotion) {
     const openBtn = document.createElement('button');
-    openBtn.id = 'list-open-notion-v2';
+    openBtn.id = TOOLBAR_SELECTORS.LIST_OPEN_NOTION.slice(1);
     openBtn.className = 'nh-btn nh-btn-mini';
     openBtn.textContent = '🔗 打開';
     openBtn.addEventListener('click', onOpenNotion);

@@ -396,3 +396,12 @@ export const SECURITY_CONSTANTS = {
   // 安全 URL 協議
   SAFE_URL_PROTOCOLS: ['http:', 'https:', ''],
 };
+
+// ==========================================
+// UI 樣式相關常量
+// ==========================================
+
+export const UI_STYLE_CONSTANTS = {
+  INLINE_BLOCK: 'inline-block',
+  TEXT_BOTTOM: 'text-bottom',
+};

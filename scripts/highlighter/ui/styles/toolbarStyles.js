@@ -1,7 +1,4 @@
-/**
- * 工具欄樣式定義
- * 集中管理所有 UI 樣式配置，使用 CSS 注入方式
- */
+import { TOOLBAR_SELECTORS } from '../../../config/selectors.js';
 
 /**
  * 注入全局樣式到頁面
@@ -10,7 +7,7 @@ export function injectGlobalStyles() {
   const styleId = 'notion-highlighter-v2-styles';
 
   // 避免重複注入
-  if (document.getElementById(styleId)) {
+  if (document.querySelector(`#${styleId}`)) {
     return;
   }
 
@@ -18,7 +15,7 @@ export function injectGlobalStyles() {
   style.id = styleId;
   style.textContent = `
         /* 容器樣式 */
-        #notion-highlighter-v2 {
+        ${TOOLBAR_SELECTORS.CONTAINER} {
             position: fixed;
             top: 20px;
             right: 20px;
@@ -272,7 +269,7 @@ export function injectGlobalStyles() {
         }
 
         /* 最小化圖標 */
-        #notion-highlighter-mini-icon {
+        ${TOOLBAR_SELECTORS.MINI_ICON} {
             position: fixed;
             top: 20px;
             right: 20px;
