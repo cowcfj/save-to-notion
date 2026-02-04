@@ -66,7 +66,7 @@ export class HighlightManager {
         throw new Error('依賴未注入，初始化中止');
       }
 
-      Logger.info('開始初始化', { action: 'initialize' });
+      Logger.start('開始初始化', { action: 'initialize' });
 
       // 初始化樣式管理器
       if (this.styleManager) {
@@ -85,9 +85,9 @@ export class HighlightManager {
         await this.restoreHighlights();
       }
 
-      Logger.info('初始化完成', { action: 'initialize' });
+      Logger.success('初始化完成', { action: 'initialize' });
     } catch (error) {
-      Logger.error('初始化失敗', { action: 'initialize', error: error.message });
+      Logger.error('初始化失敗', { action: 'initialize', error });
     }
   }
 
@@ -158,7 +158,7 @@ export class HighlightManager {
 
       return id;
     } catch (error) {
-      Logger.error('添加標註失敗', { action: 'addHighlight', error: error.message });
+      Logger.error('添加標註失敗', { action: 'addHighlight', error });
       return null;
     }
   }
@@ -208,7 +208,7 @@ export class HighlightManager {
     }
 
     this.highlights.clear();
-    Logger.info('已清除所有標註', { action: 'clearAll' });
+    Logger.success('已清除所有標註', { action: 'clearAll' });
 
     // 保存變更（清空存儲）
     if (this.storage && !options.skipStorage) {
@@ -421,7 +421,7 @@ export class HighlightManager {
       Logger.warn('恢復標註失敗', {
         action: 'restoreLocalHighlight',
         id: item.id,
-        error: error.message,
+        error,
       });
     }
     return false;

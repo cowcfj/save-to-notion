@@ -37,8 +37,6 @@ import { ErrorHandler } from '../utils/ErrorHandler.js';
  * 負責掃描和識別存儲中需要從舊版格式遷移到新版格式的標註數據
  */
 export class MigrationScanner {
-  constructor() {}
-
   /**
    * 掃描所有待遷移數據
    *
@@ -76,9 +74,10 @@ export class MigrationScanner {
         totalHighlights += highlightCount;
       }
 
-      Logger.info(
-        `[MigrationScanner] 掃描完成: ${items.length} 個待遷移, ${totalHighlights} 個總標註`
-      );
+      Logger.success('[MigrationScanner] 掃描完成', {
+        count: items.length,
+        total: totalHighlights,
+      });
 
       return {
         items,
@@ -87,7 +86,7 @@ export class MigrationScanner {
         needsMigration: items.length > 0,
       };
     } catch (error) {
-      Logger.error('[MigrationScanner] 掃描失敗:', error);
+      Logger.error('[MigrationScanner] 掃描失敗', { error });
       throw error;
     }
   }
@@ -154,7 +153,7 @@ export class MigrationScanner {
       }
     }
 
-    Logger.info(`[MigrationScanner] 遷移完成: ${results.success} 成功, ${results.failed} 失敗`);
+    Logger.success('[MigrationScanner] 遷移完成', results);
 
     return results;
   }
@@ -193,7 +192,7 @@ export class MigrationScanner {
 
       return { completed, pending, failed };
     } catch (error) {
-      Logger.error('[MigrationScanner] 獲取狀態失敗:', error);
+      Logger.error('[MigrationScanner] 獲取狀態失敗', { error });
       return { completed: 0, pending: 0, failed: 0 };
     }
   }
@@ -218,10 +217,10 @@ export class MigrationScanner {
         await chrome.storage.local.remove(keysToRemove);
       }
 
-      Logger.info(`[MigrationScanner] 已清理 ${keysToRemove.length} 個遷移記錄`);
+      Logger.success('[MigrationScanner] 已清理完成', { count: keysToRemove.length });
       return keysToRemove.length;
     } catch (error) {
-      Logger.error('[MigrationScanner] 清理失敗:', error);
+      Logger.error('[MigrationScanner] 清理失敗', { error });
       return 0;
     }
   }
