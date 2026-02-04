@@ -39,6 +39,8 @@ const DEFAULT_ERROR = 'Unknown Error';
 
 // Export initialization function for testing
 export async function initPopup() {
+  Logger.start('[Popup] Initializing...');
+
   // 注入 SVG 圖標
   injectIcons(UI_ICONS);
 
@@ -71,6 +73,7 @@ export async function initPopup() {
       } else {
         updateUIForUnsavedPage(elements, pageStatus);
       }
+      Logger.success('[Popup] Initialization complete', { pageStatus });
     }
   } catch (error) {
     Logger.error('Failed to initialize popup:', error);
@@ -84,6 +87,7 @@ export async function initPopup() {
 
   // 保存按鈕
   elements.saveButton.addEventListener('click', async () => {
+    Logger.start('[Popup] Saving page...');
     setStatus(elements, UI_MESSAGES.POPUP.SAVING);
     setButtonState(elements.saveButton, true);
 
@@ -105,6 +109,7 @@ export async function initPopup() {
       };
 
       updateUIForSavedPage(elements, directPageStatus);
+      Logger.success('[Popup] Page saved successfully', { url: response.url });
 
       // 🔑 保存完成後，通知 Content Script 創建並顯示 Toolbar
       try {
@@ -148,12 +153,14 @@ export async function initPopup() {
     }
 
     // 啟動標記模式
+    Logger.start('[Popup] Starting highlight mode...');
     setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_STARTING);
     setButtonState(elements.highlightButton, true);
 
     const response = await startHighlight();
 
     if (response?.success) {
+      Logger.success('[Popup] Highlight mode activated');
       setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_ACTIVATED);
       setTimeout(() => {
         window.close();
@@ -213,6 +220,7 @@ export async function initPopup() {
   // Modal 確認按鈕
   elements.modalConfirm.addEventListener('click', async () => {
     hideModal(elements);
+    Logger.start('[Popup] Clearing highlights...');
     setStatus(elements, UI_MESSAGES.POPUP.CLEARING);
     setButtonState(elements.clearHighlightsButton, true);
 
@@ -226,6 +234,7 @@ export async function initPopup() {
     const result = await clearHighlights(activeTab.id, activeTab.url);
 
     if (result.success) {
+      Logger.success('[Popup] Highlights cleared', { count: result.clearedCount });
       setStatus(elements, UI_MESSAGES.POPUP.CLEAR_SUCCESS(result.clearedCount));
       setTimeout(() => {
         setButtonState(elements.clearHighlightsButton, false);
