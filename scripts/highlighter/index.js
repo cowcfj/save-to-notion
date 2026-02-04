@@ -324,10 +324,10 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
             globalThis.chrome.runtime.sendMessage({ action: 'checkPageStatus' }, result => {
               // 檢查 lastError 以避免 runtime 錯誤（例如 extension context 無效）
               if (globalThis.chrome.runtime.lastError) {
-                Logger.warn(
-                  '[Highlighter] checkPageStatus failed:',
-                  globalThis.chrome.runtime.lastError
-                );
+                Logger.warn('[Highlighter] checkPageStatus failed', {
+                  error: globalThis.chrome.runtime.lastError,
+                  action: 'checkPageStatus',
+                });
                 resolve(null);
               } else {
                 resolve(result);
@@ -342,10 +342,10 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
           if (globalThis.chrome?.storage?.sync) {
             globalThis.chrome.storage.sync.get(['highlightStyle'], result => {
               if (globalThis.chrome.runtime.lastError) {
-                Logger.warn(
-                  '[Highlighter] Failed to load settings:',
-                  globalThis.chrome.runtime.lastError
-                );
+                Logger.warn('[Highlighter] Failed to load settings', {
+                  error: globalThis.chrome.runtime.lastError,
+                  action: 'initializeExtension',
+                });
                 resolve({});
               } else {
                 resolve(result || {});
@@ -362,14 +362,19 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         styleMode = settings.highlightStyle;
       } else if (settings?.highlightStyle) {
         // 設定值無效，記錄警告並使用預設值
-        Logger.warn('[Highlighter] Invalid highlightStyle value:', settings.highlightStyle);
+        Logger.warn('[Highlighter] Invalid highlightStyle value', {
+          value: settings.highlightStyle,
+          action: 'initializeExtension',
+        });
       }
 
       // 處理頁面狀態
       if (pageStatus?.wasDeleted) {
         // 頁面已在 Notion 刪除，跳過標註恢復和 Toolbar
         skipRestore = true;
-        Logger.log('[Highlighter] Page was deleted, skipping toolbar and restore.');
+        Logger.info('[Highlighter] 🗑️ Page was deleted, skipping toolbar and restore', {
+          action: 'initializeExtension',
+        });
       } else if (pageStatus?.isSaved) {
         // 頁面已保存，創建 Toolbar
         skipToolbar = false;
@@ -390,7 +395,10 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     }
   };
 
-  await initializeExtension();
+  // eslint-disable-next-line unicorn/prefer-top-level-await
+  (async () => {
+    await initializeExtension();
+  })();
 
   // 🔑 監聽來自 Popup 的消息（如保存完成後顯示 Toolbar）
   if (globalThis.chrome?.runtime?.onMessage) {

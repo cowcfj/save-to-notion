@@ -196,7 +196,7 @@ class InjectionService {
     } catch (error) {
       if (options.logErrors !== false) {
         this.logger.error?.(
-          `[Injection] ❌ ${options.errorMessage || 'Script injection failed'}`,
+          `[Injection] ${options.errorMessage || 'Script injection failed'}`,
           error
         );
       }
@@ -273,7 +273,7 @@ class InjectionService {
    */
   _handleInjectionSuccess(resolve, options, isFunction, results) {
     if (isFunction && options.successMessage && options.logErrors) {
-      this.logger.info(`[Injection] ✅ ${options.successMessage}`);
+      this.logger.success?.(`[Injection] ${options.successMessage}`);
     }
     const result = (options.returnResult && results?.[0]?.result) ?? null;
     resolve(result);
@@ -295,9 +295,9 @@ class InjectionService {
 
     const msgPrefix = isFunction ? 'Function execution' : 'File injection';
     if (isRecoverable) {
-      this.logger.warn?.(`[Injection] ⚠️ ${msgPrefix} skipped (recoverable):`, errMsg);
+      this.logger.warn?.(`[Injection] ${msgPrefix} skipped (recoverable):`, errMsg);
     } else {
-      this.logger.error?.(`[Injection] ❌ ${msgPrefix} failed:`, errMsg);
+      this.logger.error?.(`[Injection] ${msgPrefix} failed:`, errMsg);
     }
   }
 
@@ -327,12 +327,12 @@ class InjectionService {
       ]);
 
       if (response?.status === 'bundle_ready') {
-        this.logger.debug?.(`[Injection] ✅ Bundle already exists in tab ${tabId}`);
+        this.logger.success?.(`[Injection] Bundle already exists in tab ${tabId}`);
         return true; // Bundle 已存在
       }
 
       // Bundle 不存在（僅 Preloader 或無回應），注入主程式
-      this.logger.debug?.(`[Injection] 📦 Injecting Content Bundle into tab ${tabId}...`);
+      this.logger.start?.(`[Injection] Injecting Content Bundle into tab ${tabId}...`);
 
       await new Promise((resolve, reject) => {
         chrome.scripting.executeScript(
@@ -356,12 +356,10 @@ class InjectionService {
       // 處理錯誤（如無法連接、權限受限）
       const errorMessage = error?.message || String(error);
       if (isRecoverableInjectionError(errorMessage)) {
-        this.logger.warn?.(
-          `[Injection] ⚠️ Bundle injection skipped (recoverable): ${errorMessage}`
-        );
+        this.logger.warn?.(`[Injection] Bundle injection skipped (recoverable): ${errorMessage}`);
         return false;
       }
-      this.logger.error?.(`[Injection] ❌ Bundle injection failed: ${errorMessage}`);
+      this.logger.error?.(`[Injection] Bundle injection failed: ${errorMessage}`);
       throw error;
     }
   }
@@ -507,7 +505,7 @@ class InjectionService {
 
       return null;
     } catch (error) {
-      this.logger.error?.('[Injection] ❌ injectWithResponse failed:', error);
+      this.logger.error?.('[Injection] injectWithResponse failed:', error);
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
       return null;
     }
@@ -528,7 +526,7 @@ class InjectionService {
         logErrors: true,
       });
     } catch (error) {
-      this.logger.error?.('[Injection] ❌ inject failed:', error);
+      this.logger.error?.('[Injection] inject failed:', error);
       throw error;
     }
   }

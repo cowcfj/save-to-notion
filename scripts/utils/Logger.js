@@ -9,6 +9,7 @@
 
 import { LogBuffer } from './LogBuffer.js';
 import { LogSanitizer } from './LogSanitizer.js';
+import { LOG_ICONS } from '../config/constants.js';
 
 // 內部狀態
 let _debugEnabled = false;
@@ -46,8 +47,8 @@ function formatMessage(level, args) {
       [LOG_LEVELS.DEBUG]: '[DEBUG]',
       [LOG_LEVELS.LOG]: '[LOG]',
       [LOG_LEVELS.INFO]: '[INFO]',
-      [LOG_LEVELS.WARN]: '[WARN]',
-      [LOG_LEVELS.ERROR]: '[ERROR]',
+      [LOG_LEVELS.WARN]: `[WARN] ${LOG_ICONS.WARN}`,
+      [LOG_LEVELS.ERROR]: `[ERROR] ${LOG_ICONS.ERROR}`,
     }[level] || '[UNKNOWN]';
 
   return [`${levelPrefix} ${timestamp}:`, ...args];
@@ -243,6 +244,36 @@ const Logger = {
     writeToBuffer('info', message, args);
   },
 
+  /**
+   * 成功日誌 (Shortcut for INFO with ✅)
+   *
+   * @param {string} message - 日誌訊息
+   * @param {...any} args - 額外參數
+   */
+  success(message, ...args) {
+    this.info(`${LOG_ICONS.SUCCESS} ${message}`, ...args);
+  },
+
+  /**
+   * 啟動日誌 (Shortcut for INFO with 🚀)
+   *
+   * @param {string} message - 日誌訊息
+   * @param {...any} args - 額外參數
+   */
+  start(message, ...args) {
+    this.info(`${LOG_ICONS.START} ${message}`, ...args);
+  },
+
+  /**
+   * 就緒日誌 (Shortcut for INFO with 📦)
+   *
+   * @param {string} message - 日誌訊息
+   * @param {...any} args - 額外參數
+   */
+  ready(message, ...args) {
+    this.info(`${LOG_ICONS.READY} ${message}`, ...args);
+  },
+
   warn(message, ...args) {
     // Warn 總是輸出
     // skipcq: JS-0002
@@ -259,6 +290,8 @@ const Logger = {
     }
 
     // Error 總是輸出
+    // skipcq: JS-0002
+    console.error(...formatMessage(LOG_LEVELS.ERROR, [message, ...args]));
     sendToBackground('error', message, args);
     writeToBuffer('error', message, args);
   },
