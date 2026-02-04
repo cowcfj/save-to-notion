@@ -1,0 +1,96 @@
+{
+  "description": "Chrome Extension Runtime Message Bus Registry",
+  "source_of_truth": "scripts/background/handlers/*.js",
+  "actions": {
+    "save": {
+      "savePage": {
+        "description": "Trigger the save to motion workflow",
+        "payload": {
+          "url": "string"
+        },
+        "response": {
+          "success": "boolean",
+          "pageId": "string"
+        }
+      },
+      "openNotionPage": {
+        "description": "Open a saved page in Notion",
+        "payload": {
+          "url": "string"
+        },
+        "response": {
+          "success": "boolean",
+          "tabId": "number"
+        }
+      },
+      "checkNotionPageExists": {
+        "description": "Verify if a page ID exists in Notion",
+        "payload": {
+          "pageId": "string"
+        },
+        "response": {
+          "success": "boolean",
+          "exists": "boolean"
+        }
+      },
+      "checkPageStatus": {
+        "description": "Check if current URL is already saved locally",
+        "payload": {
+          "forceRefresh": "boolean"
+        },
+        "response": {
+          "success": "boolean",
+          "isSaved": "boolean",
+          "notionPageId": "string"
+        }
+      }
+    },
+    "highlight": {
+      "USER_ACTIVATE_SHORTCUT": {
+        "description": "User pressed shortcut to activate highlighter",
+        "payload": {},
+        "response": {
+          "success": "boolean"
+        }
+      },
+      "startHighlight": {
+        "description": "Initialize highlighter mode",
+        "payload": {},
+        "response": {
+          "success": "boolean"
+        }
+      },
+      "updateHighlights": {
+        "description": "Update highlights for current page in Notion",
+        "payload": {},
+        "response": {
+          "success": "boolean",
+          "highlightsUpdated": "boolean"
+        }
+      },
+      "syncHighlights": {
+        "description": "Sync specific highlights list to Notion",
+        "payload": {
+          "highlights": "array"
+        },
+        "response": {
+          "success": "boolean",
+          "count": "number"
+        }
+      }
+    },
+    "utility": {
+      "devLogSink": {
+        "description": "Forward content script logs to background",
+        "payload": {
+          "level": "string",
+          "message": "string",
+          "args": "array"
+        },
+        "response": {
+          "success": "boolean"
+        }
+      }
+    }
+  }
+}

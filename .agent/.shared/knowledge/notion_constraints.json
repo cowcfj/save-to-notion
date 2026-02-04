@@ -1,0 +1,43 @@
+{
+  "api": {
+    "version": "2022-06-28",
+    "base_url": "https://api.notion.com/v1",
+    "timeout_ms": 15000,
+    "user_agent_prefix": "Notion-Chrome-Extension"
+  },
+  "limits": {
+    "block_batch_size": 100,
+    "rich_text_length": 2000,
+    "url_length": 2000,
+    "rate_limit_delay_ms": 350,
+    "max_retries": 3,
+    "image_upload_size_mb": 5
+  },
+  "supported_blocks": [
+    "paragraph",
+    "heading_1",
+    "heading_2",
+    "heading_3",
+    "bulleted_list_item",
+    "numbered_list_item",
+    "to_do",
+    "toggle",
+    "quote",
+    "divider",
+    "callout",
+    "image",
+    "video",
+    "embed",
+    "bookmark",
+    "code",
+    "table"
+  ],
+  "error_codes": {
+    "400": "Bad Request (Validation Error)",
+    "401": "Unauthorized (Invalid/Missing Token)",
+    "404": "Not Found (Page/Database deleted or no access)",
+    "429": "Rate Limited (Too Many Requests)",
+    "500": "Internal Server Error (Retry safe)",
+    "502": "Bad Gateway (Retry safe)"
+  }
+}

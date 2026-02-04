@@ -1,0 +1,74 @@
+{
+  "paragraph": {
+    "object": "block",
+    "type": "paragraph",
+    "paragraph": {
+      "rich_text": [
+        {
+          "type": "text",
+          "text": {
+            "content": "Lacinato kale is a variety of kale with a long tradition in Italian cuisine.",
+            "link": null
+          }
+        }
+      ]
+    }
+  },
+  "heading_1": {
+    "object": "block",
+    "type": "heading_1",
+    "heading_1": {
+      "rich_text": [
+        {
+          "type": "text",
+          "text": {
+            "content": "Lacinato kale"
+          }
+        }
+      ]
+    }
+  },
+  "heading_2": {
+    "object": "block",
+    "type": "heading_2",
+    "heading_2": {
+      "rich_text": [
+        {
+          "type": "text",
+          "text": {
+            "content": "Lacinato kale"
+          }
+        }
+      ]
+    }
+  },
+  "bulleted_list_item": {
+    "object": "block",
+    "type": "bulleted_list_item",
+    "bulleted_list_item": {
+      "rich_text": [
+        {
+          "type": "text",
+          "text": {
+            "content": "Lacinato kale"
+          }
+        }
+      ]
+    }
+  },
+  "to_do": {
+    "object": "block",
+    "type": "to_do",
+    "to_do": {
+      "rich_text": [
+        {
+          "type": "text",
+          "text": {
+            "content": "Buy milk"
+          }
+        }
+      ],
+      "checked": false
+    }
+  }
+}
