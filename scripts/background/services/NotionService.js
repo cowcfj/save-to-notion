@@ -18,7 +18,7 @@ import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUti
 // 導入圖片區塊過濾函數（整合自 imageUtils）
 import { filterNotionImageBlocks } from '../../utils/imageUtils.js';
 // 導入統一日誌記錄器
-// Logger import removed as it is passed via constructor options or unused
+import Logger from '../../utils/Logger.js';
 
 // (NOTION_CONFIG 已遷移至 scripts/config/constants.js)
 
@@ -42,7 +42,6 @@ class NotionService {
    */
   constructor(options = {}) {
     this.apiKey = options.apiKey || null;
-    this.logger = options.logger || console;
     this.config = { ...NOTION_CONFIG, ...options.config };
     this.client = null;
 
@@ -124,7 +123,10 @@ class NotionService {
         lastError = error;
 
         // 詳細記錄錯誤供除錯使用
-        this.logger.error?.(`[NotionService] ${label} 執行出錯: ${error.message}`, {
+        Logger.error('[NotionService] 執行出錯', {
+          action: label,
+          operation: 'executeWithRetry',
+          message: error.message,
           code: error.code,
           status: error.status,
           name: error.name,
@@ -149,13 +151,14 @@ class NotionService {
           const jitter = crypto.getRandomValues(new Uint32Array(1))[0] % 200;
           const delay = baseDelay * Math.pow(2, attempt) + jitter;
 
-          this.logger.warn?.(
-            `[NotionService] ${label} 失敗，將重試 (${attempt + 1}/${maxRetries})`,
-            {
-              error: error.code || error.message,
-              delay,
-            }
-          );
+          Logger.warn(`[NotionService] ${label} 失敗，將重試`, {
+            action: label,
+            operation: 'retry',
+            attempt: attempt + 1,
+            maxRetries,
+            error: error.code || error.message,
+            delay,
+          });
 
           await sleep(delay);
           attempt++;
@@ -202,7 +205,10 @@ class NotionService {
 
       return response;
     } catch (error) {
-      this.logger.error?.('搜索失敗', { error: error.message });
+      Logger.error('[NotionService] 搜索失敗', {
+        action: 'search',
+        error: error.message,
+      });
       throw error; // 讓調用者處理錯誤
     }
   }
@@ -315,7 +321,7 @@ class NotionService {
         return { success: true, id: blockId };
       } catch (deleteError) {
         const errorText = deleteError.message || 'Unknown error';
-        this.logger.warn?.('刪除區塊異常', {
+        Logger.warn('[NotionService] 刪除區塊異常', {
           action: 'deleteAllBlocks',
           operation: 'deleteBlock',
           blockId,
@@ -358,7 +364,7 @@ class NotionService {
   filterValidImageBlocks(blocks, excludeImages = false) {
     // 防禦性檢查：確保 filterNotionImageBlocks 存在
     if (typeof filterNotionImageBlocks !== 'function') {
-      this.logger.error?.('filterNotionImageBlocks 不可用', {
+      Logger.error('[NotionService] filterNotionImageBlocks 不可用', {
         action: 'filterValidImageBlocks',
         operation: 'checkDependency',
         error: 'filterNotionImageBlocks is not available',
@@ -373,7 +379,7 @@ class NotionService {
 
     // 日誌輸出（保留原有行為）
     if (excludeImages && skippedCount > 0) {
-      this.logger.log?.('重試模式排除所有圖片', {
+      Logger.info('[NotionService] 重試模式排除所有圖片', {
         action: 'filterValidImageBlocks',
         excludeImages: true,
         skippedCount,
@@ -381,7 +387,7 @@ class NotionService {
     }
 
     if (skippedCount > 0 && !excludeImages) {
-      this.logger.log?.('過濾圖片區塊', {
+      Logger.info('[NotionService] 過濾圖片區塊', {
         action: 'filterValidImageBlocks',
         skippedCount,
         totalBlocks: blocks.length,
@@ -396,7 +402,7 @@ class NotionService {
       const reason = invalidReasons[i];
       switch (reason.reason) {
         case 'invalid_structure': {
-          this.logger.warn?.('跳過無效區塊', {
+          Logger.warn('[NotionService] 跳過無效區塊', {
             action: 'filterValidImageBlocks',
             reason: 'invalid_structure',
             detail: 'missing type or type property',
@@ -405,7 +411,7 @@ class NotionService {
           break;
         }
         case 'missing_url': {
-          this.logger.warn?.('跳過無 URL 圖片', {
+          Logger.warn('[NotionService] 跳過無 URL 圖片', {
             action: 'filterValidImageBlocks',
             reason: 'missing_url',
           });
@@ -413,7 +419,7 @@ class NotionService {
           break;
         }
         case 'invalid_url': {
-          this.logger.warn?.('跳過無效 URL 圖片', {
+          Logger.warn('[NotionService] 跳過無效 URL 圖片', {
             action: 'filterValidImageBlocks',
             reason: 'invalid_url',
             url: sanitizeUrlForLogging(reason.url),
@@ -427,7 +433,7 @@ class NotionService {
 
     // 如有更多問題，輸出摘要
     if (invalidReasons.length > MAX_DETAILED_LOGS) {
-      this.logger.warn?.('更多區塊被跳過', {
+      Logger.warn('[NotionService] 更多區塊被跳過', {
         action: 'filterValidImageBlocks',
         additionalSkipped: invalidReasons.length - MAX_DETAILED_LOGS,
       });
@@ -458,7 +464,10 @@ class NotionService {
       if (error.status === 404 || error.code === 'object_not_found') {
         return false;
       }
-      this.logger.error?.('Error checking page existence:', error);
+      Logger.error('[NotionService] 無法確定頁面存續狀態', {
+        action: 'checkPageExists',
+        error: error.message,
+      });
       return null;
     }
   }
@@ -480,7 +489,7 @@ class NotionService {
       return { success: true, addedCount: 0, totalCount: 0 };
     }
 
-    this.logger.log?.('準備分批添加區塊', {
+    Logger.info('[NotionService] 準備分批添加區塊', {
       action: 'appendBlocksInBatches',
       totalBlocks,
       startIndex,
@@ -492,7 +501,7 @@ class NotionService {
         const batchNumber = Math.floor((i - startIndex) / BLOCKS_PER_BATCH) + 1;
         const totalBatches = Math.ceil(totalBlocks / BLOCKS_PER_BATCH);
 
-        this.logger.log?.('發送批次', {
+        Logger.info('[NotionService] 發送批次', {
           action: 'appendBlocksInBatches',
           batchNumber,
           totalBatches,
@@ -513,7 +522,7 @@ class NotionService {
         );
 
         addedCount += batch.length;
-        this.logger.log?.('批次成功', {
+        Logger.info('[NotionService] 批次成功', {
           action: 'appendBlocksInBatches',
           batchNumber,
           addedCount,
@@ -526,14 +535,14 @@ class NotionService {
         }
       }
 
-      this.logger.log?.('所有區塊添加完成', {
+      Logger.success('[NotionService] 所有區塊添加完成', {
         action: 'appendBlocksInBatches',
         addedCount,
         totalBlocks,
       });
       return { success: true, addedCount, totalCount: totalBlocks };
     } catch (error) {
-      this.logger.error?.('分批添加區塊失敗', {
+      Logger.error('[NotionService] 分批添加區塊失敗', {
         action: 'appendBlocksInBatches',
         error: error.message,
       });
@@ -573,7 +582,7 @@ class NotionService {
 
       // 自動批次添加超過 100 的區塊
       if (autoBatch && allBlocks.length > 100) {
-        this.logger.log?.('超長文章批次添加', {
+        Logger.info('[NotionService] 超長文章批次添加', {
           action: 'createPage',
           phase: 'autoBatch',
           totalBlocks: allBlocks.length,
@@ -582,7 +591,7 @@ class NotionService {
         result.appendResult = appendResult;
 
         if (!appendResult.success) {
-          this.logger.warn?.('部分區塊添加失敗', {
+          Logger.warn('[NotionService] 部分區塊添加失敗', {
             action: 'createPage',
             phase: 'autoBatch',
             addedCount: appendResult.addedCount,
@@ -593,7 +602,7 @@ class NotionService {
 
       return result;
     } catch (error) {
-      this.logger.error?.('創建頁面失敗', { action: 'createPage', error: error.message });
+      Logger.error('[NotionService] 創建頁面失敗', { action: 'createPage', error: error.message });
       return { success: false, error: sanitizeApiError(error, 'create_page') };
     }
   }
@@ -626,7 +635,10 @@ class NotionService {
 
       return { success: true };
     } catch (error) {
-      this.logger.error?.('更新標題失敗', { action: 'updatePageTitle', error: error.message });
+      Logger.error('[NotionService] 更新標題失敗', {
+        action: 'updatePageTitle',
+        error: error.message,
+      });
       return { success: false, error: sanitizeApiError(error, 'update_title') };
     }
   }
@@ -655,7 +667,7 @@ class NotionService {
       const { successCount, failureCount, errors } = await this._deleteBlocksByIds(blockIds);
 
       if (failureCount > 0) {
-        this.logger.warn?.('部分區塊刪除失敗', {
+        Logger.warn('[NotionService] 部分區塊刪除失敗', {
           action: 'deleteAllBlocks',
           failureCount,
           totalBlocks: blocks.length,
@@ -665,7 +677,10 @@ class NotionService {
 
       return { success: true, deletedCount: successCount, failureCount, errors };
     } catch (error) {
-      this.logger.error?.('刪除區塊失敗', { action: 'deleteAllBlocks', error: error.message });
+      Logger.error('[NotionService] 刪除區塊失敗', {
+        action: 'deleteAllBlocks',
+        error: error.message,
+      });
       return { success: false, deletedCount: 0, error: sanitizeApiError(error, 'delete_blocks') };
     }
   }
@@ -752,7 +767,7 @@ class NotionService {
       if (updateTitle && title) {
         const titleResult = await this.updatePageTitle(pageId, title);
         if (!titleResult.success) {
-          this.logger.warn?.('標題更新失敗', {
+          Logger.warn('[NotionService] 標題更新失敗', {
             action: 'refreshPageContent',
             phase: 'updateTitle',
             error: titleResult.error,
@@ -786,7 +801,7 @@ class NotionService {
         error: appendResult.error,
       };
     } catch (error) {
-      this.logger.error?.('刷新頁面內容失敗', {
+      Logger.error('[NotionService] 刷新頁面內容失敗', {
         action: 'refreshPageContent',
         error: error.message,
       });
@@ -808,7 +823,7 @@ class NotionService {
    */
   async updateHighlightsSection(pageId, highlightBlocks) {
     try {
-      this.logger.log?.('開始更新標記區域', { action: 'updateHighlightsSection' });
+      Logger.info('[NotionService] 開始更新標記區域', { action: 'updateHighlightsSection' });
 
       // 步驟 1: 獲取現有區塊
       const fetchResult = await this._fetchPageBlocks(pageId);
@@ -829,14 +844,14 @@ class NotionService {
         await this._deleteBlocksByIds(blocksToDelete);
 
       if (deleteErrors.length > 0) {
-        this.logger.warn?.('部分標記區塊刪除失敗', {
+        Logger.warn('[NotionService] 部分標記區塊刪除失敗', {
           action: 'updateHighlightsSection',
           phase: 'delete',
           failureCount: deleteErrors.length,
           errors: deleteErrors,
         });
       }
-      this.logger.log?.('刪除舊標記區塊', {
+      Logger.info('[NotionService] 刪除舊標記區塊', {
         action: 'updateHighlightsSection',
         phase: 'delete',
         deletedCount,
@@ -845,42 +860,36 @@ class NotionService {
 
       // 步驟 4: 添加新的標記區塊
       if (highlightBlocks.length > 0) {
-        const addResponse = await this._apiRequest(`/blocks/${pageId}/children`, {
-          method: 'PATCH',
-          body: { children: highlightBlocks },
-          maxRetries: this.config.CREATE_RETRIES,
-          baseDelay: this.config.CREATE_DELAY,
-        });
+        const response = await this._executeWithRetry(
+          () =>
+            this.client.blocks.children.append({
+              block_id: pageId,
+              children: highlightBlocks,
+            }),
+          {
+            maxRetries: this.config.CREATE_RETRIES,
+            baseDelay: this.config.CREATE_DELAY,
+            label: 'AppendHighlights',
+          }
+        );
 
-        if (!addResponse.ok) {
-          const errorData = await addResponse.json().catch(() => ({}));
-          const rawError = errorData.message || 'Unknown error';
-          return {
-            success: false,
-            deletedCount,
-            error: sanitizeApiError(rawError, 'add_highlights'),
-            errorType: 'notion_api',
-            details: { phase: 'append_highlights' },
-          };
-        }
-
-        const addResult = await addResponse.json();
-        this.logger.log?.('添加新標記區塊', {
+        const addedCount = response.results?.length || 0;
+        Logger.success('[NotionService] 添加新標記區塊成功', {
           action: 'updateHighlightsSection',
           phase: 'append',
-          addedCount: addResult.results?.length || 0,
+          addedCount,
         });
 
         return {
           success: true,
           deletedCount,
-          addedCount: addResult.results?.length || 0,
+          addedCount,
         };
       }
 
       return { success: true, deletedCount, addedCount: 0 };
     } catch (error) {
-      this.logger.error?.('更新標記區域失敗', {
+      Logger.error('[NotionService] 更新標記區域失敗', {
         action: 'updateHighlightsSection',
         error: error.message,
       });
