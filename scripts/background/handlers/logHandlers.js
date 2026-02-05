@@ -8,6 +8,7 @@
 
 import { LogExporter } from '../../utils/LogExporter.js';
 import { ErrorHandler, ErrorTypes } from '../../utils/ErrorHandler.js';
+import Logger from '../../utils/Logger.js';
 
 /**
  * 處理導出除錯日誌的請求
@@ -37,6 +38,51 @@ export const exportDebugLogs = (message, sender, sendResponse) => {
 };
 
 /**
+ * 處理來自其他上下文（如 Popup/Options）的日誌匯入
+ *
+ * @param {object} message - 訊息物件
+ * @param {object} sender - 發送者資訊
+ * @param {Function} sendResponse - 回應回調
+ * @returns {boolean}
+ */
+export const handleDevLogSink = (message, sender, sendResponse) => {
+  try {
+    const { level, message: logMessage, args } = message;
+
+    // 解析上下文
+    let context = {};
+    if (args && Array.isArray(args) && args.length > 0) {
+      if (typeof args[0] === 'object' && args[0] !== null) {
+        context = args[0];
+        // 如果有多個參數，將其餘放入 details
+        if (args.length > 1) {
+          context.details = args.slice(1);
+        }
+      } else {
+        context = { details: args };
+      }
+    }
+
+    Logger.addLogToBuffer({
+      level,
+      message: logMessage,
+      context,
+      source: sender.url ? new URL(sender.url).pathname : 'unknown_external',
+      timestamp: new Date().toISOString(),
+    });
+
+    sendResponse({ success: true });
+  } catch (error) {
+    // 靜默失敗，避免日誌迴圈
+    sendResponse({
+      success: false,
+      error: error.message,
+    });
+  }
+  return false;
+};
+
+/**
  * 創建日誌處理程序物件
  *
  * @returns {object} 包含日誌處理函數的物件
@@ -44,5 +90,6 @@ export const exportDebugLogs = (message, sender, sendResponse) => {
 export function createLogHandlers() {
   return {
     exportDebugLogs,
+    devLogSink: handleDevLogSink,
   };
 }

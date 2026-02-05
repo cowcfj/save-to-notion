@@ -135,7 +135,10 @@ function writeToBuffer(level, message, args) {
       }
 
       // 即時脫敏：確保存儲在 LogBuffer 中的數據是安全的
-      const safeEntry = LogSanitizer.sanitizeEntry(String(message), context);
+      // 根據調試模式決定是否保留堆疊追蹤細節
+      const safeEntry = LogSanitizer.sanitizeEntry(String(message), context, {
+        isDev: _debugEnabled,
+      });
 
       _logBuffer.push({
         level,
@@ -150,6 +153,49 @@ function writeToBuffer(level, message, args) {
 }
 
 /**
+ * 初始化全域錯誤監聽器 (僅 Background)
+ * 捕捉未處理的異常並記錄到 LogBuffer
+ */
+function initGlobalErrorHandlers() {
+  if (!isBackground) {
+    return;
+  }
+
+  // 1. 監聽未捕獲的異常 (Synchronous + Asynchronous)
+  if (globalThis.self) {
+    self.addEventListener('error', event => {
+      try {
+        const { message, filename, lineno, colno, error } = event;
+        Logger.error(`[Uncaught Exception] ${message}`, {
+          filename,
+          lineno,
+          colno,
+          stack: error?.stack,
+        });
+      } catch (error) {
+        console.error('Failed to log uncaught exception:', error);
+      }
+    });
+
+    // 2. 監聽未處理的 Promise Rejection
+    self.addEventListener('unhandledrejection', event => {
+      try {
+        const reason = event.reason;
+        const msg = reason instanceof Error ? reason.message : String(reason);
+        const stack = reason instanceof Error ? reason.stack : null;
+
+        Logger.error(`[Unhandled Rejection] ${msg}`, {
+          reason: typeof reason === 'object' ? reason : String(reason),
+          stack,
+        });
+      } catch (error) {
+        console.error('Failed to log unhandled rejection:', error);
+      }
+    });
+  }
+}
+
+/**
  * 初始化調試狀態
  * 優先級：
  * 1. Manifest version_name (包含 'dev')
@@ -159,6 +205,9 @@ function initDebugState() {
   if (_isInitialized) {
     return;
   }
+
+  // 初始化全域錯誤監聽
+  initGlobalErrorHandlers();
 
   // 1. 檢查 Manifest (默認值)
   try {
@@ -324,7 +373,9 @@ const Logger = {
     if (_logBuffer) {
       try {
         // 即時脫敏
-        const safeEntry = LogSanitizer.sanitizeEntry(String(message), context);
+        const safeEntry = LogSanitizer.sanitizeEntry(String(message), context, {
+          isDev: _debugEnabled,
+        });
 
         _logBuffer.push({
           level,
