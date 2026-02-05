@@ -79,7 +79,7 @@ export class DataSourceManager {
       : UI_MESSAGES.DATA_SOURCE.LOADING;
     this.ui.showStatus(statusMessage, 'info');
 
-    Logger.info('開始載入保存目標', {
+    Logger.start('[DataSource] 開始載入保存目標', {
       action: 'loadDataSources',
       hasApiKey: true,
       query: query || null,
@@ -140,7 +140,7 @@ export class DataSourceManager {
    * @private
    */
   _handleLoadSuccess(data, query, isSearchQuery) {
-    Logger.info('API 返回結果', {
+    Logger.success('[DataSource] API 返回結果', {
       action: 'loadDataSources',
       count: data.results?.length || 0,
     });
@@ -193,9 +193,10 @@ export class DataSourceManager {
         ? JSON.stringify(rawError)
         : rawError || 'Unknown error occurred';
 
-    Logger.error(`API 載入保存目標失敗: ${errorMsg}`, {
+    Logger.error('[DataSource] API 載入保存目標失敗', {
       action: 'loadDataSources',
       error: rawError,
+      errorMsg,
     });
     this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(errorMsg), 'error');
     if (this.elements.dataSourceSelect) {
@@ -210,7 +211,7 @@ export class DataSourceManager {
    * @private
    */
   _handleLoadError(error) {
-    Logger.error('載入保存目標失敗', {
+    Logger.error('[DataSource] 載入保存目標執行錯誤', {
       action: 'loadDataSources',
       error: error.message,
     });
@@ -223,7 +224,7 @@ export class DataSourceManager {
   }
 
   populateDataSourceSelect(dataSources, isSearchResult = false) {
-    Logger.info('populateDataSourceSelect 被調用', {
+    Logger.debug('[DataSource] populateDataSourceSelect 被調用', {
       action: 'populateDataSourceSelect',
       count: dataSources.length,
       isSearchResult,
