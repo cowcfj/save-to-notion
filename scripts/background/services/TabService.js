@@ -253,9 +253,12 @@ class TabService {
         return;
       }
 
-      const res = await this.injectionService.injectWithResponse(tabId, _migrationScript, [
-        URL_NORMALIZATION.TRACKING_PARAMS,
-      ]);
+      const res = await this.injectionService.injectWithResponse(
+        tabId,
+        _migrationScript,
+        [],
+        [URL_NORMALIZATION.TRACKING_PARAMS]
+      );
 
       // injectWithResponse 已經解包回傳值，直接使用 res
       if (res?.migrated && Array.isArray(res.data) && res.data.length > 0) {

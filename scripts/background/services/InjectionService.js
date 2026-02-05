@@ -225,7 +225,11 @@ class InjectionService {
 
   async _executeFunction(tabId, func, options) {
     return new Promise((resolve, reject) => {
-      chrome.scripting.executeScript({ target: { tabId }, func }, results =>
+      const injection = { target: { tabId }, func };
+      if (options.args) {
+        injection.args = options.args;
+      }
+      chrome.scripting.executeScript(injection, results =>
         this._handleScriptResult(resolve, reject, options, true, results)
       );
     });
@@ -483,9 +487,10 @@ class InjectionService {
    * @param {number} tabId
    * @param {Function} func
    * @param {string[]} files
+   * @param {any[]} [args] - 傳遞給函數的參數
    * @returns {Promise<any>}
    */
-  async injectWithResponse(tabId, func, files = []) {
+  async injectWithResponse(tabId, func, files = [], args = []) {
     try {
       // 如果有文件需要注入，先注入文件
       if (files && files.length > 0) {
@@ -497,6 +502,7 @@ class InjectionService {
         return this.injectAndExecute(tabId, [], func, {
           returnResult: true,
           logErrors: true,
+          args,
         });
       } else if (files && files.length > 0) {
         // 如果只注入文件而不執行函數，等待注入完成後返回成功標記
