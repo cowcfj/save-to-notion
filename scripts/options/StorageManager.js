@@ -374,7 +374,7 @@ export class StorageManager {
     const iconHtml = stateIcons[state] || stateIcons.default;
 
     // 更新圖標（安全方式）
-    iconWrap.innerHTML = '';
+    iconWrap.textContent = '';
     const safe = createSafeIcon(iconHtml);
     const svg = safe.querySelector('svg');
 

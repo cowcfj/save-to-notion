@@ -222,6 +222,12 @@ function _checkServerError(lowerMessage) {
  * @returns {string | object} 錯誤代碼或清洗後的結構化錯誤對象
  */
 export function sanitizeApiError(apiError, context = 'operation') {
+  // [SDK Support] 優先處理 SDK 錯誤代碼
+  if (apiError && apiError.code) {
+    // 直接返回 code，交由 ErrorHandler.formatUserMessage 匹配
+    return apiError.code;
+  }
+
   const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
   const lowerMessage = errorMessage.toLowerCase();
 

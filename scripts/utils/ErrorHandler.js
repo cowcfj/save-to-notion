@@ -178,7 +178,7 @@ const ErrorHandler = {
 
     // [安全性修復] 如果訊息已經包含中文字符，說明已經是友善訊息
     // 因 UI 已全面改用 textContent，此處不再需要 escapeHtml
-    if (/[\u{4E00}-\u{9FA5}]/u.test(message)) {
+    if (/\p{Unified_Ideograph}/u.test(message)) {
       return message;
     }
 
@@ -187,6 +187,13 @@ const ErrorHandler = {
     // 所有外部錯誤應先經過 sanitizeApiError 標準化，故此處只需精確匹配
     if (ERROR_MESSAGES.PATTERNS[message]) {
       return ERROR_MESSAGES.PATTERNS[message];
+    }
+
+    // [SDK Error Support]
+    // 處理 Notion SDK 的 APIResponseError
+    // error.code (例如 'object_not_found', 'validation_error')
+    if (error?.code && ERROR_MESSAGES.PATTERNS[error.code]) {
+      return ERROR_MESSAGES.PATTERNS[error.code];
     }
 
     // [兜底保護]

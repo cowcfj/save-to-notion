@@ -2,13 +2,15 @@
  * NotionService - Notion API 交互服務
  *
  * 職責：封裝所有與 Notion API 的交互，包括：
- * - 請求重試機制（處理 5xx/429/409 錯誤）
+ * - 使用官方 @notionhq/client SDK
+ * - 請求重試機制（SDK 內建 + 自定義邏輯）
  * - 區塊批次處理（每批 100 個）
- * - 速率限制（350ms 間隔）
+ * - 速率限制
  *
  * @module services/NotionService
  */
 
+import { Client } from '@notionhq/client';
 // 導入統一配置
 import { NOTION_CONFIG, ERROR_MESSAGES } from '../../config/index.js';
 // 導入安全工具
@@ -16,7 +18,7 @@ import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUti
 // 導入圖片區塊過濾函數（整合自 imageUtils）
 import { filterNotionImageBlocks } from '../../utils/imageUtils.js';
 // 導入統一日誌記錄器
-import Logger from '../../utils/Logger.js';
+// Logger import removed as it is passed via constructor options or unused
 
 // (NOTION_CONFIG 已遷移至 scripts/config/constants.js)
 
@@ -29,74 +31,8 @@ import Logger from '../../utils/Logger.js';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * 帶重試的 fetch 請求（處理暫時性錯誤）
- *
- * @param {string} url - 請求 URL
- * @param {object} options - fetch 選項
- * @param {object} retryOptions - 重試配置
- * @returns {Promise<Response>}
- */
-async function fetchWithRetry(url, options, retryOptions = {}) {
-  const {
-    maxRetries = NOTION_CONFIG.DEFAULT_MAX_RETRIES,
-    baseDelay = NOTION_CONFIG.DEFAULT_BASE_DELAY,
-  } = retryOptions;
-
-  let attempt = 0;
-  let lastError = null;
-
-  while (attempt <= maxRetries) {
-    try {
-      const res = await fetch(url, options);
-
-      if (res.ok) {
-        return res;
-      }
-
-      // 嘗試解析錯誤訊息
-      let message = '';
-      try {
-        const data = await res.clone().json();
-        message = data?.message || '';
-      } catch {
-        /* ignore parse errors */
-      }
-
-      const retriableStatus = res.status >= 500 || res.status === 429 || res.status === 409;
-      const retriableMessage = /unsaved transactions|datastoreinfraerror/i.test(message);
-
-      if (attempt < maxRetries && (retriableStatus || retriableMessage)) {
-        const jitter = crypto.getRandomValues(new Uint32Array(1))[0] % 200;
-        const delay = baseDelay * Math.pow(2, attempt) + jitter;
-        await sleep(delay);
-        attempt++;
-        continue;
-      }
-
-      // 非可重試錯誤或已達最大重試次數
-      return res;
-    } catch (error) {
-      lastError = error;
-      if (attempt < maxRetries) {
-        const jitter = crypto.getRandomValues(new Uint32Array(1))[0] % 200;
-        const delay = baseDelay * Math.pow(2, attempt) + jitter;
-        await sleep(delay);
-        attempt++;
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
-  throw new Error('fetchWithRetry failed unexpectedly');
-}
-
-/**
  * NotionService 類
- * 封裝 Notion API 操作
+ * 封裝 Notion API 操作，使用官方 SDK
  */
 class NotionService {
   /**
@@ -108,117 +44,166 @@ class NotionService {
     this.apiKey = options.apiKey || null;
     this.logger = options.logger || console;
     this.config = { ...NOTION_CONFIG, ...options.config };
+    this.client = null;
+
+    if (this.apiKey) {
+      this._initClient();
+    }
   }
 
   /**
-   * 設置 API Key
+   * 初始化 Notion SDK Client
+   *
+   * @private
+   */
+  _initClient() {
+    if (!this.apiKey) {
+      return;
+    }
+
+    this.client = new Client({
+      auth: this.apiKey,
+      notionVersion: this.config.API_VERSION,
+      // SDK 內建重試，我們設置較小值，主要依賴外層邏輯控制
+      retry: {
+        retries: 0, // 禁用 SDK 內建重試，以便我們控制自定義重試邏輯
+      },
+      // 自定義 fetch 適配器，防止 Illegal Invocation 錯誤
+      fetch: (url, options) => fetch(url, options),
+    });
+  }
+
+  /**
+   * 設置 API Key 並重新初始化 Client
    *
    * @param {string} apiKey
    */
   setApiKey(apiKey) {
     this.apiKey = apiKey;
+    this._initClient();
   }
 
   /**
-   * 獲取通用請求頭
+   * 確保 Client 已初始化
    *
-   * @returns {object}
    * @private
    */
-  _getHeaders() {
-    return {
-      Authorization: `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json',
-      'Notion-Version': this.config.API_VERSION,
-    };
-  }
-
-  /**
-   * 通用 API 調用方法
-   *
-   * @param {string} endpoint - API 端點（相對路徑，如 '/pages'）
-   * @param {object} options - 請求選項
-   * @returns {Promise<Response>}
-   * @private
-   */
-  _apiRequest(endpoint, options = {}) {
+  _ensureClient() {
     if (!this.apiKey) {
-      return Promise.reject(new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED));
+      throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
     }
+    if (!this.client) {
+      this._initClient();
+    }
+  }
+
+  /**
+   * 執行帶重試的 SDK 操作
+   *
+   * @param {Function} operation - 執行 SDK 調用的函數
+   * @param {object} retryOptions - 重試配置
+   * @returns {Promise<any>}
+   * @private
+   */
+  async _executeWithRetry(operation, retryOptions = {}) {
+    this._ensureClient();
 
     const {
-      method = 'GET',
-      body = null,
-      queryParams = {},
       maxRetries = this.config.DEFAULT_MAX_RETRIES,
       baseDelay = this.config.DEFAULT_BASE_DELAY,
-    } = options;
+      label = 'operation',
+    } = retryOptions;
 
-    const url = this._buildUrl(endpoint, queryParams);
+    let attempt = 0;
+    let lastError = null;
 
-    return fetchWithRetry(
-      url,
-      {
-        method,
-        headers: this._getHeaders(),
-        ...(body !== null && body !== undefined && { body: JSON.stringify(body) }),
-      },
-      { maxRetries, baseDelay }
-    );
+    while (attempt <= maxRetries) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+
+        // 詳細記錄錯誤供除錯使用
+        this.logger.error?.(`[NotionService] ${label} 執行出錯: ${error.message}`, {
+          code: error.code,
+          status: error.status,
+          name: error.name,
+        });
+
+        // 檢查是否為可重試錯誤
+
+        // SDK 錯誤代碼: rate_limited (429), internal_server_error (500), service_unavailable (503)
+        // 另外處理 409 conflict
+        const isRateLimit = error.status === 429 || error.code === 'rate_limited';
+        const isServerErr =
+          error.status >= 500 ||
+          ['internal_server_error', 'service_unavailable'].includes(error.code);
+        const isConflict = error.status === 409 || error.code === 'conflict_error';
+        const isRetriableMessage = /unsaved transactions|datastoreinfraerror/i.test(error.message);
+
+        const shouldRetry = isRateLimit || isServerErr || isConflict || isRetriableMessage;
+
+        if (attempt < maxRetries && shouldRetry) {
+          // 計算延遲 (指數退避 + Jitter)
+          // 使用瀏覽器原生 crypto API
+          const jitter = crypto.getRandomValues(new Uint32Array(1))[0] % 200;
+          const delay = baseDelay * Math.pow(2, attempt) + jitter;
+
+          this.logger.warn?.(
+            `[NotionService] ${label} 失敗，將重試 (${attempt + 1}/${maxRetries})`,
+            {
+              error: error.code || error.message,
+              delay,
+            }
+          );
+
+          await sleep(delay);
+          attempt++;
+          continue;
+        }
+
+        // 不可重試或重試耗盡
+        throw error;
+      }
+    }
+    throw lastError;
   }
 
   /**
-   * 構建 API URL
+   * 搜索 Database 或 Page
+   * 取代原 DataSourceManager 中的 fetch 邏輯
    *
-   * @param {string} path - 路徑（相對於 BASE_URL，如 '/pages' 或 '/blocks/xxx/children'）
-   * @param {object} params - 查詢參數（null 和 undefined 的值會被自動過濾）
-   * @returns {string}
-   * @private
+   * @param {object} params - 搜索參數
+   * @param {string} params.query - 關鍵字
+   * @param {object} params.filter - 過濾條件
+   * @param {object} params.sort - 排序條件
+   * @returns {Promise<{results: Array, next_cursor: string|null}>}
    */
-  _buildUrl(path, params = {}) {
-    // 1. 輸入驗證 (Input Validation)
-    if (typeof path !== 'string') {
-      throw new TypeError(`[NotionService] Invalid path: must be a string, got ${typeof path}`);
-    }
-
-    // 2. Base URL 準備 (確保無尾部斜線)
-    // 這是為了標準化拼接基礎，避免雙重斜線或缺少斜線
-    const baseUrl = this.config.BASE_URL.replace(/\/$/, '');
-
-    // 3. 路徑正規化 (Path normalization)
-    // 確保 path 總是以 / 開頭，這樣與 baseUrl 拼接時格式統一
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-
-    // 4. 安全的 URL 建構 (Safe URL Construction)
-    // 使用字串拼接全路徑以避免 new URL(path, base) 的陷阱：
-    // 當 path 以 / 開頭時，new URL 會忽略 base path。
-    // 例如：new URL('/pages', 'https://api.notion.com/v1') 會得到 https://api.notion.com/pages (錯誤，丟失 /v1)
-    // 我們需要的是：https://api.notion.com/v1/pages (正確)
-    const fullUrl = `${baseUrl}${normalizedPath}`;
+  async search(params = {}) {
+    const { query, filter, sort, start_cursor, page_size } = params;
 
     try {
-      const url = new URL(fullUrl);
+      // 構建搜索參數
+      const searchParams = {
+        query,
+        sort,
+        start_cursor,
+        page_size: page_size || this.config.PAGE_SIZE,
+      };
 
-      // 5. 附加查詢參數 (Append Query Parameters)
-      if (params) {
-        Object.entries(params).forEach(entry => {
-          const [key, value] = entry;
-          if (value !== null && value !== undefined) {
-            url.searchParams.append(key, String(value));
-          }
-        });
+      // 2025-09-03 API 使用 'data_source' 而非 'database'
+      if (filter) {
+        searchParams.filter = filter;
       }
 
-      return url.toString();
-    } catch (error) {
-      // 捕獲所有 URL 建構錯誤，記錄詳細日誌
-      Logger.error('URL 建構失敗', {
-        action: 'apiRequest',
-        operation: 'buildUrl',
-        fullUrl,
-        error: error.message,
+      const response = await this._executeWithRetry(() => this.client.search(searchParams), {
+        label: 'Search',
       });
-      throw error;
+
+      return response;
+    } catch (error) {
+      this.logger.error?.('搜索失敗', { error: error.message });
+      throw error; // 讓調用者處理錯誤
     }
   }
 
@@ -232,37 +217,38 @@ class NotionService {
   async _fetchPageBlocks(pageId) {
     const allBlocks = [];
     let hasMore = true;
-    let startCursor = null;
+    let startCursor; // SDK 使用 undefined 表示無 cursor
 
-    while (hasMore) {
-      const response = await this._apiRequest(`/blocks/${pageId}/children`, {
-        method: 'GET',
-        queryParams: {
-          page_size: this.config.PAGE_SIZE,
-          start_cursor: startCursor,
-        },
-        maxRetries: this.config.CHECK_RETRIES,
-        baseDelay: this.config.CHECK_DELAY,
-      });
+    try {
+      while (hasMore) {
+        const response = await this._executeWithRetry(
+          () =>
+            this.client.blocks.children.list({
+              block_id: pageId,
+              page_size: this.config.PAGE_SIZE,
+              start_cursor: startCursor,
+            }),
+          {
+            maxRetries: this.config.CHECK_RETRIES,
+            baseDelay: this.config.CHECK_DELAY,
+            label: 'FetchBlocks',
+          }
+        );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const rawError = errorData.message || response.statusText;
-        return {
-          success: false,
-          error: sanitizeApiError(rawError, 'fetch_blocks'),
-        };
+        const results = response.results || [];
+        allBlocks.push(...results);
+
+        hasMore = response.has_more;
+        startCursor = response.next_cursor || undefined;
       }
 
-      const data = await response.json();
-      const results = data.results || [];
-      allBlocks.push(...results);
-
-      hasMore = data.has_more;
-      startCursor = data.next_cursor;
+      return { success: true, blocks: allBlocks };
+    } catch (error) {
+      return {
+        success: false,
+        error: sanitizeApiError(error, 'fetch_blocks'),
+      };
     }
-
-    return { success: true, blocks: allBlocks };
   }
 
   /**
@@ -320,31 +306,22 @@ class NotionService {
     // 刪除單個區塊的函數
     const deleteBlock = async blockId => {
       try {
-        const response = await this._apiRequest(`/blocks/${blockId}`, {
-          method: 'DELETE',
+        await this._executeWithRetry(() => this.client.blocks.delete({ block_id: blockId }), {
           maxRetries: DELETE_RETRIES,
           baseDelay: DELETE_DELAY,
+          label: 'DeleteBlock',
         });
 
-        if (response.ok) {
-          return { success: true, id: blockId };
-        }
-        const errorText = await response.text().catch(() => response.statusText);
-        this.logger.warn?.('刪除區塊失敗', {
+        return { success: true, id: blockId };
+      } catch (deleteError) {
+        const errorText = deleteError.message || 'Unknown error';
+        this.logger.warn?.('刪除區塊異常', {
           action: 'deleteAllBlocks',
           operation: 'deleteBlock',
           blockId,
           error: errorText,
         });
         return { success: false, id: blockId, error: errorText };
-      } catch (deleteError) {
-        this.logger.warn?.('刪除區塊異常', {
-          action: 'deleteAllBlocks',
-          operation: 'deleteBlock',
-          blockId,
-          error: deleteError.message,
-        });
-        return { success: false, id: blockId, error: deleteError.message };
       }
     };
 
@@ -466,29 +443,21 @@ class NotionService {
    * @returns {Promise<boolean|null>} true=存在, false=不存在, null=不確定
    */
   async checkPageExists(pageId) {
-    if (!this.apiKey) {
-      throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
-    }
-
     try {
-      const response = await this._apiRequest(`/pages/${pageId}`, {
-        method: 'GET',
-        maxRetries: this.config.CHECK_RETRIES,
-        baseDelay: this.config.CHECK_DELAY,
-      });
+      const response = await this._executeWithRetry(
+        () => this.client.pages.retrieve({ page_id: pageId }),
+        {
+          maxRetries: this.config.CHECK_RETRIES,
+          baseDelay: this.config.CHECK_DELAY,
+          label: 'CheckPage',
+        }
+      );
 
-      if (response.ok) {
-        const pageData = await response.json();
-        return !pageData.archived;
-      }
-
-      if (response.status === 404) {
+      return !response.archived;
+    } catch (error) {
+      if (error.status === 404 || error.code === 'object_not_found') {
         return false;
       }
-
-      // 其他情況返回不確定
-      return null;
-    } catch (error) {
       this.logger.error?.('Error checking page existence:', error);
       return null;
     }
@@ -503,10 +472,6 @@ class NotionService {
    * @returns {Promise<{success: boolean, addedCount: number, totalCount: number, error?: string}>}
    */
   async appendBlocksInBatches(pageId, blocks, startIndex = 0) {
-    if (!this.apiKey) {
-      throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
-    }
-
     const { BLOCKS_PER_BATCH, CREATE_RETRIES, CREATE_DELAY, RATE_LIMIT_DELAY } = this.config;
     let addedCount = 0;
     const totalBlocks = blocks.length - startIndex;
@@ -534,23 +499,18 @@ class NotionService {
           batchSize: batch.length,
         });
 
-        const response = await this._apiRequest(`/blocks/${pageId}/children`, {
-          method: 'PATCH',
-          body: { children: batch },
-          maxRetries: CREATE_RETRIES,
-          baseDelay: CREATE_DELAY,
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          this.logger.error?.('批次失敗', {
-            action: 'appendBlocksInBatches',
-            batchNumber,
-            status: response.status,
-            error: errorText,
-          });
-          throw new Error(`Batch append failed: ${response.status} - ${errorText}`);
-        }
+        await this._executeWithRetry(
+          () =>
+            this.client.blocks.children.append({
+              block_id: pageId,
+              children: batch,
+            }),
+          {
+            maxRetries: CREATE_RETRIES,
+            baseDelay: CREATE_DELAY,
+            label: `AppendBatch-${batchNumber}`,
+          }
+        );
 
         addedCount += batch.length;
         this.logger.log?.('批次成功', {
@@ -596,57 +556,42 @@ class NotionService {
    * @returns {Promise<{success: boolean, pageId?: string, url?: string, appendResult?: object, error?: string}>}
    */
   async createPage(pageData, options = {}) {
-    if (!this.apiKey) {
-      throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
-    }
-
     const { autoBatch = false, allBlocks = [] } = options;
 
     try {
-      const response = await this._apiRequest('/pages', {
-        method: 'POST',
-        body: pageData,
+      const response = await this._executeWithRetry(() => this.client.pages.create(pageData), {
         maxRetries: this.config.CREATE_RETRIES,
         baseDelay: this.config.CREATE_DELAY,
+        label: 'CreatePage',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const result = {
-          success: true,
-          pageId: data.id,
-          url: data.url,
-        };
+      const result = {
+        success: true,
+        pageId: response.id,
+        url: response.url,
+      };
 
-        // 自動批次添加超過 100 的區塊
-        if (autoBatch && allBlocks.length > 100) {
-          this.logger.log?.('超長文章批次添加', {
+      // 自動批次添加超過 100 的區塊
+      if (autoBatch && allBlocks.length > 100) {
+        this.logger.log?.('超長文章批次添加', {
+          action: 'createPage',
+          phase: 'autoBatch',
+          totalBlocks: allBlocks.length,
+        });
+        const appendResult = await this.appendBlocksInBatches(response.id, allBlocks, 100);
+        result.appendResult = appendResult;
+
+        if (!appendResult.success) {
+          this.logger.warn?.('部分區塊添加失敗', {
             action: 'createPage',
             phase: 'autoBatch',
-            totalBlocks: allBlocks.length,
+            addedCount: appendResult.addedCount,
+            totalCount: appendResult.totalCount,
           });
-          const appendResult = await this.appendBlocksInBatches(data.id, allBlocks, 100);
-          result.appendResult = appendResult;
-
-          if (!appendResult.success) {
-            this.logger.warn?.('部分區塊添加失敗', {
-              action: 'createPage',
-              phase: 'autoBatch',
-              addedCount: appendResult.addedCount,
-              totalCount: appendResult.totalCount,
-            });
-          }
         }
-
-        return result;
       }
 
-      const errorData = await response.json().catch(() => ({}));
-      const rawError = errorData.message || `API Error: ${response.status}`;
-      return {
-        success: false,
-        error: sanitizeApiError(rawError, 'create_page'),
-      };
+      return result;
     } catch (error) {
       this.logger.error?.('創建頁面失敗', { action: 'createPage', error: error.message });
       return { success: false, error: sanitizeApiError(error, 'create_page') };
@@ -662,20 +607,24 @@ class NotionService {
    */
   async updatePageTitle(pageId, title) {
     try {
-      const response = await this._apiRequest(`/pages/${pageId}`, {
-        method: 'PATCH',
-        body: {
-          properties: {
-            title: {
-              title: [{ type: 'text', text: { content: title } }],
+      await this._executeWithRetry(
+        () =>
+          this.client.pages.update({
+            page_id: pageId,
+            properties: {
+              title: {
+                title: [{ type: 'text', text: { content: title } }],
+              },
             },
-          },
-        },
-        maxRetries: this.config.CREATE_RETRIES,
-        baseDelay: this.config.CREATE_DELAY,
-      });
+          }),
+        {
+          maxRetries: this.config.CREATE_RETRIES,
+          baseDelay: this.config.CREATE_DELAY,
+          label: 'UpdateTitle',
+        }
+      );
 
-      return { success: response.ok };
+      return { success: true };
     } catch (error) {
       this.logger.error?.('更新標題失敗', { action: 'updatePageTitle', error: error.message });
       return { success: false, error: sanitizeApiError(error, 'update_title') };
@@ -691,46 +640,25 @@ class NotionService {
   async deleteAllBlocks(pageId) {
     try {
       // 收集所有區塊（處理分頁）
-      const allBlocks = [];
-      let startCursor = null;
-      let hasMore = true;
+      const { success, blocks, error } = await this._fetchPageBlocks(pageId);
 
-      while (hasMore) {
-        const listResponse = await this._apiRequest(`/blocks/${pageId}/children`, {
-          method: 'GET',
-          queryParams: {
-            page_size: this.config.PAGE_SIZE,
-            start_cursor: startCursor,
-          },
-          maxRetries: this.config.CHECK_RETRIES,
-          baseDelay: this.config.CHECK_DELAY,
-        });
-
-        if (!listResponse.ok) {
-          return { success: false, deletedCount: 0, error: 'Failed to list blocks' };
-        }
-
-        const data = await listResponse.json();
-        const blocks = data.results || [];
-        allBlocks.push(...blocks);
-
-        hasMore = data.has_more === true;
-        startCursor = data.next_cursor;
+      if (!success) {
+        return { success: false, deletedCount: 0, error: error || 'Failed to list blocks' };
       }
 
-      if (allBlocks.length === 0) {
+      if (!blocks || blocks.length === 0) {
         return { success: true, deletedCount: 0 };
       }
 
       // 提取區塊 ID 並委託給 _deleteBlocksByIds
-      const blockIds = allBlocks.map(block => block.id);
+      const blockIds = blocks.map(block => block.id);
       const { successCount, failureCount, errors } = await this._deleteBlocksByIds(blockIds);
 
       if (failureCount > 0) {
         this.logger.warn?.('部分區塊刪除失敗', {
           action: 'deleteAllBlocks',
           failureCount,
-          totalBlocks: allBlocks.length,
+          totalBlocks: blocks.length,
           errors,
         });
       }
@@ -750,7 +678,7 @@ class NotionService {
    * @param {string} options.title - 頁面標題
    * @param {string} options.pageUrl - 原始頁面 URL
    * @param {string} options.dataSourceId - 數據源 ID (database 或 page)
-   * @param {string} options.dataSourceType - 類型 ('data_source' 或 'page')
+   * @param {string} options.dataSourceType - 類型 ('database' 或 'page')
    * @param {Array} options.blocks - 內容區塊 (最多取前 100 個)
    * @param {string} [options.siteIcon] - 網站 Icon URL
    * @param {boolean} [options.excludeImages] - 是否排除圖片
@@ -761,7 +689,7 @@ class NotionService {
       title,
       pageUrl,
       dataSourceId,
-      dataSourceType = 'data_source',
+      dataSourceType = 'database',
       blocks = [],
       siteIcon = null,
       excludeImages = false,
@@ -784,7 +712,7 @@ class NotionService {
           title: [{ text: { content: title || 'Untitled' } }],
         },
         URL: {
-          url: pageUrl || '',
+          url: pageUrl || null, // SDK expects URL or null
         },
       },
       children: validBlocks.slice(0, this.config.BLOCKS_PER_BATCH),
@@ -967,5 +895,5 @@ class NotionService {
 }
 
 // 導出
-export { NotionService, fetchWithRetry };
+export { NotionService };
 export { NOTION_CONFIG } from '../../config/index.js';

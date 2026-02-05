@@ -9,7 +9,7 @@ export default {
     file: 'dist/content.bundle.js',
     format: 'umd', // 改為 UMD 格式，自動處理全局變量
     name: 'ContentScript',
-    sourcemap: isDev ? 'inline' : true,
+    sourcemap: isDev ? 'inline' : false,
     banner: '/* eslint-disable */\n/* Save to Notion - Content Script */',
     globals: {
       Readability: 'Readability',
@@ -20,10 +20,10 @@ export default {
     !isDev &&
       terser({
         compress: {
-          drop_console: true, // 移除 console.log（生產環境不需要）
           drop_debugger: true, // 移除 debugger
           pure_funcs: [
-            // 移除特定 debug 函式
+            // 移除特定除錯與日誌函式，保留 warn/error/info
+            'console.log',
             'console.debug',
           ],
         },

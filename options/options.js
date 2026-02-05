@@ -31,7 +31,7 @@ export function initOptions() {
 
   // AuthManager 需要 DataSourceManager 來載入資料庫列表
   auth.init({
-    loadDatabases: dataSource.loadDatabases.bind(dataSource),
+    loadDatabases: dataSource.loadDataSources.bind(dataSource),
   });
 
   dataSource.init();

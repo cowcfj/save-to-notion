@@ -29,6 +29,7 @@ import { createSaveHandlers } from './background/handlers/saveHandlers.js';
 import { createHighlightHandlers } from './background/handlers/highlightHandlers.js';
 import { createMigrationHandlers } from './background/handlers/migrationHandlers.js';
 import { createLogHandlers } from './background/handlers/logHandlers.js';
+import { createNotionHandlers } from './background/handlers/notionHandlers.js';
 
 // ==========================================
 // SERVICE INITIALIZATION
@@ -63,6 +64,7 @@ const actionHandlers = {
     notionService,
   }),
   ...createLogHandlers(),
+  ...createNotionHandlers({ notionService }),
 };
 
 messageHandler.registerAll(actionHandlers);
@@ -110,7 +112,7 @@ chrome.runtime.onInstalled.addListener(details => {
 /**
  * 處理擴展更新
  *
- * @param previousVersion
+ * @param {string} previousVersion - 舊版本號
  */
 async function handleExtensionUpdate(previousVersion) {
   const currentVersion = chrome.runtime.getManifest().version;
@@ -136,8 +138,9 @@ function handleExtensionInstall() {
 /**
  * 判斷是否需要顯示更新通知
  *
- * @param previousVersion
- * @param currentVersion
+ * @param {string} previousVersion - 舊版本號
+ * @param {string} currentVersion - 當前版本號
+ * @returns {boolean} 是否顯示通知
  */
 function shouldShowUpdateNotification(previousVersion, currentVersion) {
   // 跳過開發版本或測試版本
@@ -166,7 +169,8 @@ function shouldShowUpdateNotification(previousVersion, currentVersion) {
 /**
  * 檢查是否為重要更新
  *
- * @param version
+ * @param {string} version - 版本號
+ * @returns {boolean} 是否為重要更新
  */
 function isImportantUpdate(version) {
   // 定義重要更新的版本列表
@@ -182,8 +186,8 @@ function isImportantUpdate(version) {
 /**
  * 顯示更新通知
  *
- * @param previousVersion
- * @param currentVersion
+ * @param {string} previousVersion - 舊版本號
+ * @param {string} currentVersion - 當前版本號
  */
 async function showUpdateNotification(previousVersion, currentVersion) {
   try {

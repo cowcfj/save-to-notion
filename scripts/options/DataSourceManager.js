@@ -1,16 +1,16 @@
 /**
  * DataSourceManager.js
- * 負責資料庫清單的載入、篩選與選擇邏輯
+ * 負責資料來源清單的載入、篩選與選擇邏輯
  */
 import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
 import Logger from '../utils/Logger.js';
 import { sanitizeApiError } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { UI_MESSAGES, NOTION_API } from '../config/index.js';
+import { UI_MESSAGES } from '../config/index.js';
 
 /**
  * 資料來源管理器
- * 負責從 Notion API 載入、篩選和處理資料庫與頁面清單
+ * 負責從 Notion API 載入、篩選和處理資料來源與頁面清單
  */
 export class DataSourceManager {
   constructor(uiManager) {
@@ -20,248 +20,278 @@ export class DataSourceManager {
   }
 
   init() {
-    this.elements.databaseSelect = document.querySelector('#database-select');
-    this.elements.databaseIdInput = document.querySelector('#database-id');
+    this.elements.dataSourceSelect = document.querySelector('#database-select');
+    this.elements.dataSourceIdInput = document.querySelector('#database-id');
 
     // 綁定舊的選擇框邏輯（回退用）
-    if (this.elements.databaseSelect) {
-      this.elements.databaseSelect.addEventListener('change', () => this.handleDatabaseSelect());
+    if (this.elements.dataSourceSelect) {
+      this.elements.dataSourceSelect.addEventListener('change', () =>
+        this.handleDataSourceSelect()
+      );
     }
   }
 
-  handleDatabaseSelect() {
-    if (this.elements.databaseSelect?.value) {
-      if (this.elements.databaseIdInput) {
-        this.elements.databaseIdInput.value = this.elements.databaseSelect.value;
+  handleDataSourceSelect() {
+    if (this.elements.dataSourceSelect?.value) {
+      if (this.elements.dataSourceIdInput) {
+        this.elements.dataSourceIdInput.value = this.elements.dataSourceSelect.value;
       }
       this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.SELECT_REMINDER, 'info');
     }
   }
 
   /**
-   * 載入資料來源列表（支援頁面和數據庫）
+   * 載入資料來源列表（支援頁面和資料來源）
    *
    * @param {string} apiKey - Notion API Key
    * @param {string|null} query - 可選的搜尋關鍵字
    * @returns {Promise<Array>} 過濾後的資料來源列表
    */
-  async loadDatabases(apiKey, query = null) {
+  async loadDataSources(apiKey, query = null) {
     const isSearchQuery = Boolean(query);
 
     try {
-      // 狀態訊息中使用純文字格式，showStatus 內部會使用 textContent 防止 XSS
-      const statusMessage = query
-        ? UI_MESSAGES.DATA_SOURCE.SEARCHING(query)
-        : UI_MESSAGES.DATA_SOURCE.LOADING;
-      this.ui.showStatus(statusMessage, 'info');
-      // 不記錄 API Key 內容以避免敏感資訊洩漏
-      Logger.info('開始載入保存目標', {
-        action: 'loadDatabases',
-        hasApiKey: true,
-        query: query || null,
-      });
+      this._showLoadingStatus(query);
 
-      // 構建請求主體
-      const requestBody = {
-        page_size: 100,
-      };
+      const params = this._prepareSearchParams(query);
+      const response = await this._fetchFromNotion(apiKey, params);
 
-      if (query) {
-        // 有搜尋關鍵字時，使用 query 參數（Notion API 限制：有 query 時不能使用 sort）
-        requestBody.query = query;
-      } else {
-        // 無搜尋時，按最近編輯時間排序
-        requestBody.sort = {
-          direction: 'descending',
-          timestamp: 'last_edited_time',
-        };
+      if (response?.success) {
+        return this._handleLoadSuccess(response.data, query, isSearchQuery);
       }
 
-      const response = await fetch('https://api.notion.com/v1/search', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Notion-Version': NOTION_API.VERSION,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-
-        Logger.info('API 返回結果', {
-          action: 'loadDatabases',
-          count: data.results?.length || 0,
-        });
-
-        if (data.results && data.results.length > 0) {
-          // 客戶端智能篩選和排序（搜尋結果保留關聯度排序）
-          const filteredResults = DataSourceManager.filterAndSortResults(
-            data.results,
-            100,
-            isSearchQuery
-          );
-
-          if (filteredResults.length > 0) {
-            this.populateDatabaseSelect(filteredResults, isSearchQuery);
-            return filteredResults;
-          }
-          this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND, 'error');
-          if (this.elements.databaseSelect) {
-            this.elements.databaseSelect.style.display = 'none';
-          }
-        } else {
-          // 狀態訊息使用純文字，避免 XSS 風險
-          const msg = isSearchQuery
-            ? UI_MESSAGES.DATA_SOURCE.NO_RESULT(query)
-            : UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND;
-          this.ui.showStatus(msg, isSearchQuery ? 'info' : 'error');
-          if (this.elements.databaseSelect) {
-            this.elements.databaseSelect.style.display = 'none';
-          }
-        }
-      } else {
-        const errorData = await response.json();
-        Logger.error('API 載入保存目標失敗', {
-          action: 'loadDatabases',
-          status: response.status,
-          error: errorData,
-        });
-
-        // 統一使用 sanitizeApiError 處理 API 錯誤，提供更詳細的錯誤分類
-        // errorData.message 包含原始錯誤訊息，可提供更準確的錯誤類型判斷
-        // 若無錯誤訊息，針對 5xx 狀態碼提供明確的預設值，以便 sanitizeApiError 正確分類
-        const errorMessage =
-          errorData?.message ||
-          (response.status >= 500 ? 'Internal Server Error' : `HTTP ${response.status}`);
-        const safeMessage = sanitizeApiError(errorMessage, 'load_databases');
-        const translated = ErrorHandler.formatUserMessage(safeMessage);
-        this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(translated), 'error');
-
-        if (this.elements.databaseSelect) {
-          this.elements.databaseSelect.style.display = 'none';
-        }
-      }
+      this._handleLoadFailure(response, query, isSearchQuery);
     } catch (error) {
-      Logger.error('載入保存目標失敗', {
-        action: 'loadDatabases',
-        error,
-      });
-
-      const safeMessage = sanitizeApiError(error, 'load_databases');
-      const translated = ErrorHandler.formatUserMessage(safeMessage);
-      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(translated), 'error');
-      if (this.elements.databaseSelect) {
-        this.elements.databaseSelect.style.display = 'none';
-      }
+      this._handleLoadError(error);
     }
-
     return [];
   }
 
-  populateDatabaseSelect(databases, isSearchResult = false) {
-    Logger.info('populateDatabaseSelect 被調用', {
-      action: 'populateDatabaseSelect',
-      count: databases.length,
+  /**
+   * 顯示載入狀態
+   *
+   * @param {string|null} query - 搜尋關鍵字
+   * @private
+   */
+  _showLoadingStatus(query) {
+    const statusMessage = query
+      ? UI_MESSAGES.DATA_SOURCE.SEARCHING(query)
+      : UI_MESSAGES.DATA_SOURCE.LOADING;
+    this.ui.showStatus(statusMessage, 'info');
+
+    Logger.info('開始載入保存目標', {
+      action: 'loadDataSources',
+      hasApiKey: true,
+      query: query || null,
+    });
+  }
+
+  /**
+   * 準備搜尋參數
+   *
+   * @param {string|null} query - 搜尋關鍵字
+   * @returns {object} 搜尋參數
+   * @private
+   */
+  _prepareSearchParams(query) {
+    const params = { page_size: 100 };
+    if (query) {
+      params.query = query;
+    } else {
+      params.sort = {
+        direction: 'descending',
+        timestamp: 'last_edited_time',
+      };
+    }
+    return params;
+  }
+
+  /**
+   * 從 Notion 載入資料
+   *
+   * @param {string} apiKey - API Key
+   * @param {object} params - 搜尋參數
+   * @returns {Promise<object>} 背景腳本的回應
+   * @private
+   */
+  async _fetchFromNotion(apiKey, params) {
+    return new Promise(resolve => {
+      chrome.runtime.sendMessage(
+        {
+          action: 'searchNotion',
+          apiKey,
+          query: params.query,
+          filter: params.filter,
+          sort: params.sort,
+          page_size: params.page_size,
+        },
+        resolve
+      );
+    });
+  }
+
+  /**
+   * 處理載入成功
+   *
+   * @param {object} data - API 返回的資料
+   * @param {string|null} query - 搜尋關鍵字
+   * @param {boolean} isSearchQuery - 是否為搜尋請求
+   * @returns {Array} 過濾後的結果
+   * @private
+   */
+  _handleLoadSuccess(data, query, isSearchQuery) {
+    Logger.info('API 返回結果', {
+      action: 'loadDataSources',
+      count: data.results?.length || 0,
+    });
+
+    if (data.results?.length > 0) {
+      const filteredResults = DataSourceManager.filterAndSortResults(
+        data.results,
+        100,
+        isSearchQuery
+      );
+
+      if (filteredResults.length > 0) {
+        this.populateDataSourceSelect(filteredResults, isSearchQuery);
+        return filteredResults;
+      }
+    }
+
+    this._handleNoResults(query, isSearchQuery);
+    return [];
+  }
+
+  /**
+   * 處理無結果情況
+   *
+   * @param {string|null} query - 搜尋關鍵字
+   * @param {boolean} isSearchQuery - 是否為搜尋請求
+   * @private
+   */
+  _handleNoResults(query, isSearchQuery) {
+    const msg = isSearchQuery
+      ? UI_MESSAGES.DATA_SOURCE.NO_RESULT(query)
+      : UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND;
+
+    this.ui.showStatus(msg, isSearchQuery ? 'info' : 'error');
+    if (this.elements.dataSourceSelect) {
+      this.elements.dataSourceSelect.style.display = 'none';
+    }
+  }
+
+  /**
+   * 處理 API 失敗
+   *
+   * @param {object} response - background 的錯誤回應
+   * @private
+   */
+  _handleLoadFailure(response) {
+    const rawError = response?.error;
+    const errorMsg =
+      typeof rawError === 'object'
+        ? JSON.stringify(rawError)
+        : rawError || 'Unknown error occurred';
+
+    Logger.error(`API 載入保存目標失敗: ${errorMsg}`, {
+      action: 'loadDataSources',
+      error: rawError,
+    });
+    this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(errorMsg), 'error');
+    if (this.elements.dataSourceSelect) {
+      this.elements.dataSourceSelect.style.display = 'none';
+    }
+  }
+
+  /**
+   * 處理執行階段錯誤
+   *
+   * @param {Error} error - 錯誤對象
+   * @private
+   */
+  _handleLoadError(error) {
+    Logger.error('載入保存目標失敗', {
+      action: 'loadDataSources',
+      error: error.message,
+    });
+    const safeMessage = sanitizeApiError(error, 'load_data_sources');
+    const translated = ErrorHandler.formatUserMessage(safeMessage);
+    this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(translated), 'error');
+    if (this.elements.dataSourceSelect) {
+      this.elements.dataSourceSelect.style.display = 'none';
+    }
+  }
+
+  populateDataSourceSelect(dataSources, isSearchResult = false) {
+    Logger.info('populateDataSourceSelect 被調用', {
+      action: 'populateDataSourceSelect',
+      count: dataSources.length,
       isSearchResult,
     });
 
-    // 初始化搜索式選擇器（如果還沒有）
     if (!this.selector) {
       this.selector = new SearchableDatabaseSelector({
         showStatus: this.ui.showStatus.bind(this.ui),
-        loadDatabases: this.loadDatabases.bind(this),
+        loadDataSources: this.loadDataSources.bind(this),
         getApiKey: () => document.querySelector('#api-key')?.value || '',
       });
     }
 
-    // 使用新的搜索式選擇器，傳入 isSearchResult 標記
-    this.selector.populateDatabases(databases, isSearchResult);
+    this.selector.populateDataSources(dataSources, isSearchResult);
 
-    // 隱藏原有的簡單選擇器
-    if (this.elements.databaseSelect) {
-      this.elements.databaseSelect.style.display = 'none';
-      this.elements.databaseSelect.innerHTML = `<option value="">${UI_MESSAGES.DATA_SOURCE.DEFAULT_OPTION}</option>`;
+    if (this.elements.dataSourceSelect) {
+      this.elements.dataSourceSelect.style.display = 'none';
+      this.elements.dataSourceSelect.innerHTML = '';
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = UI_MESSAGES.DATA_SOURCE.DEFAULT_OPTION;
+      this.elements.dataSourceSelect.append(defaultOption);
 
-      databases.forEach(db => {
+      dataSources.forEach(ds => {
         const option = document.createElement('option');
-        option.value = db.id;
-        const title = SearchableDatabaseSelector.extractDatabaseTitle(db);
+        option.value = ds.id;
+        const title = SearchableDatabaseSelector.extractDataSourceTitle(ds);
         option.textContent = title;
-        this.elements.databaseSelect.append(option);
+        this.elements.dataSourceSelect.append(option);
       });
     }
 
-    if (databases.length > 0) {
-      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(databases.length), 'success');
+    if (dataSources.length > 0) {
+      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(dataSources.length), 'success');
     } else {
       this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND, 'error');
     }
   }
 
-  /**
-   * 篩選並排序搜索結果
-   *
-   * @param {Array} results - 原始結果列表
-   * @param {number} maxResults - 最大結果數量
-   * @param {boolean} preserveOrder - 是否保留原始順序（用於搜尋結果的關聯度排序）
-   * @returns {Array} 篩選後的結果
-   */
   static filterAndSortResults(results, maxResults = 100, preserveOrder = false) {
-    Logger.info('開始篩選', {
-      action: 'filterAndSortResults',
-      itemCount: results.length,
-      targetCount: maxResults,
-      preserveOrder,
-    });
+    const validItems = [];
 
-    // 使用 reduce 同時完成篩選和計數
-    // 使用 push 修改累積器陣列（O(n)），而非展開運算子（O(n²)）
-    const { validItems, excludedCount } = results.reduce(
-      (acc, item) => {
-        // 過濾非頁面/資料來源
-        if (item.object !== 'page' && item.object !== 'data_source') {
-          return acc;
-        }
-
-        // 過濾已保存的網頁
-        if (DataSourceManager.isSavedWebPage(item)) {
-          acc.excludedCount += 1;
-          return acc;
-        }
-
-        acc.validItems.push(item);
-        return acc;
-      },
-      { validItems: [], excludedCount: 0 }
-    );
-
-    // 如果是搜尋結果，保留 Notion API 的關聯度排序
-    if (preserveOrder) {
-      const filtered = validItems.slice(0, maxResults);
-      Logger.info('篩選完成', {
-        action: 'filterAndSortResults',
-        count: filtered.length,
-        excluded: excludedCount,
-        preserveOrder: true,
-      });
-      return filtered;
+    for (const item of results) {
+      if (item.object !== 'page' && item.object !== 'data_source') {
+        continue;
+      }
+      if (DataSourceManager.isSavedWebPage(item)) {
+        continue;
+      }
+      validItems.push(item);
     }
 
-    // 否則按類型重新排序（用於初始列表載入）
+    if (preserveOrder) {
+      return validItems.slice(0, maxResults);
+    }
+
     const workspacePages = [];
-    const urlDatabases = [];
+    const urlDataSources = [];
     const categoryPages = [];
-    const otherDatabases = [];
+    const otherDataSources = [];
     const otherPages = [];
 
     validItems.forEach(item => {
       if (item.object === 'data_source') {
         if (DataSourceManager.hasUrlProperty(item)) {
-          urlDatabases.push(item);
+          urlDataSources.push(item);
         } else {
-          otherDatabases.push(item);
+          otherDataSources.push(item);
         }
       } else if (item.object === 'page') {
         if (item.parent?.type === 'workspace') {
@@ -274,28 +304,20 @@ export class DataSourceManager {
       }
     });
 
-    const filtered = [
+    return [
       ...workspacePages,
-      ...urlDatabases,
+      ...urlDataSources,
       ...categoryPages,
-      ...otherDatabases,
+      ...otherDataSources,
       ...otherPages,
     ].slice(0, maxResults);
-
-    Logger.info('篩選完成', {
-      action: 'filterAndSortResults',
-      count: filtered.length,
-      excluded: excludedCount,
-    });
-
-    return filtered;
   }
 
-  static hasUrlProperty(database) {
-    if (database.object !== 'data_source' || !database.properties) {
+  static hasUrlProperty(dataSource) {
+    if (dataSource.object !== 'data_source' || !dataSource.properties) {
       return false;
     }
-    return Object.values(database.properties).some(prop => prop.type === 'url');
+    return Object.values(dataSource.properties).some(prop => prop.type === 'url');
   }
 
   static isSavedWebPage(page) {
@@ -303,18 +325,11 @@ export class DataSourceManager {
       return false;
     }
 
-    if (page.parent?.type === 'data_source_id') {
-      if (page.properties) {
-        const hasUrl = Object.entries(page.properties).some(([key, prop]) => {
-          return key.toLowerCase().includes('url') || prop.type === 'url';
-        });
-        if (hasUrl) {
-          return true;
-        }
-      }
-      return false;
+    if (page.parent?.type === 'data_source_id' && page.properties) {
+      return Object.entries(page.properties).some(([key, prop]) => {
+        return key.toLowerCase().includes('url') || prop.type === 'url';
+      });
     }
-
     return false;
   }
 }

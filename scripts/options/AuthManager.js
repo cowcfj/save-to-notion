@@ -1,6 +1,6 @@
 /* global chrome */
 import Logger from '../utils/Logger.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
+import { sanitizeApiError, createSafeIcon } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_MESSAGES, UI_ICONS } from '../config/index.js';
 
@@ -145,11 +145,19 @@ export class AuthManager {
 
   handleConnectedState(result) {
     if (this.elements.authStatus) {
-      this.elements.authStatus.innerHTML = `${UI_ICONS.SUCCESS}<span>${UI_MESSAGES.AUTH.STATUS_CONNECTED}</span>`;
+      this.elements.authStatus.textContent = '';
+      this.elements.authStatus.append(createSafeIcon(UI_ICONS.SUCCESS));
+      const textSpan = document.createElement('span');
+      textSpan.textContent = UI_MESSAGES.AUTH.STATUS_CONNECTED;
+      this.elements.authStatus.append(textSpan);
       this.elements.authStatus.className = 'auth-status success';
     }
     if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.REFRESH}</span><span>${UI_MESSAGES.AUTH.ACTION_RECONNECT}</span>`;
+      this.elements.oauthButton.textContent = '';
+      this.elements.oauthButton.append(createSafeIcon(UI_ICONS.REFRESH));
+      const textSpan = document.createElement('span');
+      textSpan.textContent = UI_MESSAGES.AUTH.ACTION_RECONNECT;
+      this.elements.oauthButton.append(textSpan);
     }
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'inline-flex';
@@ -183,7 +191,11 @@ export class AuthManager {
       this.elements.authStatus.className = 'auth-status';
     }
     if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
+      this.elements.oauthButton.textContent = '';
+      this.elements.oauthButton.append(createSafeIcon(UI_ICONS.LINK));
+      const textSpan = document.createElement('span');
+      textSpan.textContent = UI_MESSAGES.AUTH.ACTION_CONNECT;
+      this.elements.oauthButton.append(textSpan);
     }
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'none';
@@ -196,7 +208,13 @@ export class AuthManager {
       Logger.start('開始 Notion 授權流程', { action: 'startNotionSetup' });
 
       this.elements.oauthButton.disabled = true;
-      this.elements.oauthButton.innerHTML = `<span class="loading"></span><span>${UI_MESSAGES.AUTH.OPENING_NOTION}</span>`;
+      this.elements.oauthButton.textContent = '';
+      const loadingSpan = document.createElement('span');
+      loadingSpan.className = 'loading';
+      this.elements.oauthButton.append(loadingSpan);
+      const textSpan = document.createElement('span');
+      textSpan.textContent = UI_MESSAGES.AUTH.OPENING_NOTION;
+      this.elements.oauthButton.append(textSpan);
 
       // 打開 Notion 集成頁面
       const integrationUrl = 'https://www.notion.so/my-integrations';
@@ -208,13 +226,21 @@ export class AuthManager {
       setTimeout(() => {
         if (this.elements.oauthButton) {
           this.elements.oauthButton.disabled = false;
-          this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
+          this.elements.oauthButton.textContent = '';
+          this.elements.oauthButton.append(createSafeIcon(UI_ICONS.LINK));
+          const textSpan = document.createElement('span');
+          textSpan.textContent = UI_MESSAGES.AUTH.ACTION_CONNECT;
+          this.elements.oauthButton.append(textSpan);
         }
       }, 2000);
     } catch (error) {
       if (this.elements.oauthButton) {
         this.elements.oauthButton.disabled = false;
-        this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
+        this.elements.oauthButton.textContent = '';
+        this.elements.oauthButton.append(createSafeIcon(UI_ICONS.LINK));
+        const textSpan = document.createElement('span');
+        textSpan.textContent = UI_MESSAGES.AUTH.ACTION_CONNECT;
+        this.elements.oauthButton.append(textSpan);
       }
       const safeMessage = sanitizeApiError(error, 'open_notion_page');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);

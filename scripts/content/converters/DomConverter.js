@@ -570,7 +570,7 @@ class DomConverter {
   }
 
   /**
-   * 遞歸清洗 Block 結構，確保符合 Notion API 規範 (2025-09-03)
+   * 遞歸清洗 Block 結構，確保符合 Notion API 規範 (2022-06-28)
    * 1. 移除不支持 children 的 block 的 children 屬性
    * 2. 截斷過長的 rich_text
    *

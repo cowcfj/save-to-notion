@@ -41,7 +41,12 @@ const isBackground = isExtensionContext && globalThis.window === undefined; // S
  * @returns {Array} 格式化後的參數列表
  */
 function formatMessage(level, args) {
-  const timestamp = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  const timestamp = `${hours}:${minutes}:${seconds}.${milliseconds}`;
   const levelPrefix =
     {
       [LOG_LEVELS.DEBUG]: '[DEBUG]',
@@ -326,7 +331,14 @@ const Logger = {
           source: source || 'unknown',
           message: safeEntry.message,
           context: safeEntry.context,
-          timestamp: timestamp || new Date().toISOString(),
+          timestamp:
+            timestamp ||
+            (function () {
+              const now = new Date();
+              // 修正為本地時間 ISO 格式 (忽略時區偏移影響，僅取數值)
+              const offset = now.getTimezoneOffset() * 60_000;
+              return new Date(now - offset).toISOString().slice(0, -1).replace('T', ' ');
+            })(),
         });
       } catch (error) {
         console.error('添加外部日誌到緩衝區失敗', { action: 'addLogToBuffer', error });

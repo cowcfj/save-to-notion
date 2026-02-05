@@ -317,7 +317,12 @@
 
           <!-- 遷移工具 -->
           <div class="migration-tool">
-            <h4>舊版數據遷移</h4>
+            <h4>
+              <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
+                <use href="#icon-transfer" />
+              </svg>
+              舊版數據遷移
+            </h4>
             <p class="text-sm">將 v2.5 以前的 DOM 標記升級為現代 Highlight API 格式。</p>
             <div class="migration-controls">
               <button id="migration-scan-button" class="btn-secondary">
@@ -337,8 +342,18 @@
               </div>
               <div id="migration-items" class="list-body"></div>
               <div class="list-actions">
-                <button id="migration-execute-button" class="btn-primary" disabled>遷移</button>
-                <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
+                <button id="migration-execute-button" class="btn-primary" disabled>
+                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
+                    <use href="#icon-transfer" />
+                  </svg>
+                  <span class="button-text">遷移</span>
+                </button>
+                <button id="migration-delete-button" class="btn-danger" disabled>
+                  <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
+                    <use href="#icon-trash" />
+                  </svg>
+                  <span class="button-text">刪除</span>
+                </button>
               </div>
             </div>
             <div id="migration-progress" class="progress-container hidden">
@@ -378,7 +393,12 @@
 
           <!-- 優化工具 -->
           <div class="optimization-tool">
-            <h4>數據庫優化</h4>
+            <h4>
+              <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
+                <use href="#icon-bolt" />
+              </svg>
+              數據庫優化
+            </h4>
             <div class="checkbox-wrapper">
               <input type="checkbox" id="cleanup-deleted-pages" checked />
               <label for="cleanup-deleted-pages">清理已失效頁面的標註數據</label>

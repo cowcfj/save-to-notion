@@ -3,7 +3,7 @@
  * 負責選項頁面的共用 UI 邏輯
  */
 
-import { validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
+import { validateSafeSvg, separateIconAndText, createSafeIcon } from '../utils/securityUtils.js';
 import { UI_ICONS, NOTION_API, UI_STATUS_TYPES, OPTIONS_PAGE_SELECTORS } from '../config/index.js';
 
 /**
@@ -100,17 +100,13 @@ export class UIManager {
    * @param {string} type - 狀態類型
    */
   _renderStatus(status, icon, text, type) {
-    status.innerHTML = '';
+    status.textContent = '';
+    status.className = ''; // 確保重置 class
 
     if (icon) {
-      const iconSpan = document.createElement('span');
-      iconSpan.className = 'status-icon';
-      if (icon.startsWith('<svg')) {
-        iconSpan.innerHTML = icon;
-      } else {
-        iconSpan.textContent = icon;
-      }
-      status.append(iconSpan);
+      const iconWrap = createSafeIcon(icon);
+      iconWrap.className = 'status-icon';
+      status.append(iconWrap);
     }
 
     if (text) {
@@ -131,7 +127,7 @@ export class UIManager {
 
     if (type === UI_STATUS_TYPES.SUCCESS) {
       setTimeout(() => {
-        status.innerHTML = '';
+        status.textContent = '';
         status.classList.remove(
           UI_STATUS_TYPES.SUCCESS,
           UI_STATUS_TYPES.ERROR,

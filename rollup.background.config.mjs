@@ -1,5 +1,7 @@
 import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
+import commonjs from '@rollup/plugin-commonjs';
+import json from '@rollup/plugin-json';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -15,7 +17,7 @@ const stripTestConfig = () => ({
       }
       // 返回對象包含 map: null 以消除 sourcemap 警告
       return {
-        code: code.replace(regex, ''),
+        code: code.replaceAll(regex, ''),
         map: null,
       };
     }
@@ -28,17 +30,22 @@ export default {
   output: {
     file: 'dist/scripts/background.js',
     format: 'es', // Service Worker supports ES modules
-    sourcemap: isDev ? 'inline' : true,
+    sourcemap: isDev ? 'inline' : false,
     banner: '/* eslint-disable */\n/* Save to Notion - Background Script */',
   },
   plugins: [
     stripTestConfig(),
-    resolve(),
+    resolve({
+      browser: true,
+      preferBuiltins: false,
+    }),
+    commonjs(),
+    json(),
     !isDev &&
       terser({
         compress: {
-          drop_console: true,
           drop_debugger: true,
+          pure_funcs: ['console.log', 'console.debug'],
         },
         format: {
           comments: false,
