@@ -161,7 +161,7 @@ export default [
       'jsdoc/check-alignment': 'warn',
       'jsdoc/check-param-names': 'warn',
       'jsdoc/check-property-names': 'warn',
-      'jsdoc/check-tag-names': 'warn',
+      'jsdoc/check-tag-names': ['warn', { definedTags: ['jest-environment'] }],
       'jsdoc/check-types': 'warn',
       'jsdoc/check-values': 'warn',
       'jsdoc/empty-tags': 'warn',

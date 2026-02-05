@@ -125,7 +125,16 @@ export class DataSourceManager {
           sort: params.sort,
           page_size: params.page_size,
         },
-        resolve
+        response => {
+          if (chrome.runtime.lastError) {
+            resolve({
+              success: false,
+              error: chrome.runtime.lastError.message || 'Messaging error',
+            });
+          } else {
+            resolve(response);
+          }
+        }
       );
     });
   }
@@ -184,19 +193,21 @@ export class DataSourceManager {
    * 處理 API 失敗
    *
    * @param {object} response - background 的錯誤回應
+   * @param {string|null} query - 搜尋關鍵字
+   * @param {boolean} isSearchQuery - 是否為搜尋請求
    * @private
    */
-  _handleLoadFailure(response) {
+  _handleLoadFailure(response, query, isSearchQuery) {
     const rawError = response?.error;
-    const errorMsg =
-      typeof rawError === 'object'
-        ? JSON.stringify(rawError)
-        : rawError || 'Unknown error occurred';
+
+    // 安全地處理錯誤訊息，避免洩漏 API 細節
+    const safeError = sanitizeApiError(rawError, 'load_data_sources_api');
+    const errorMsg = ErrorHandler.formatUserMessage(safeError);
 
     Logger.error('[DataSource] API 載入保存目標失敗', {
       action: 'loadDataSources',
       error: rawError,
-      errorMsg,
+      isSearchQuery,
     });
     this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(errorMsg), 'error');
     if (this.elements.dataSourceSelect) {
