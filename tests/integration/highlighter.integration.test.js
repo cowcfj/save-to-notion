@@ -24,6 +24,11 @@ describe('Highlighter Integration Tests', () => {
 
     // Mock window globals
     globalThis.Logger = {
+      debug: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      info: jest.fn(),
       log: jest.fn(),
       error: jest.fn(),
       warn: jest.fn(),

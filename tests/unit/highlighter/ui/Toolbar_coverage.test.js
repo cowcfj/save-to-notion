@@ -14,6 +14,9 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
     success: jest.fn(),
     start: jest.fn(),
     ready: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
   },
 }));
 

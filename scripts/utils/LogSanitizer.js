@@ -69,10 +69,11 @@ export const LogSanitizer = {
    * 清洗日誌列表
    *
    * @param {Array<object>} logs - 原始日誌陣列
+   * @param {object} [options] - 配置選項（如 isDev）
    * @returns {Array<object>} 脫敏後的日誌副本
    * 注意：除了 `message` 和 `context` 會被重新處理外，其他頂層屬性僅進行淺拷貝 (Shallow Copy)。
    */
-  sanitize(logs) {
+  sanitize(logs, options = {}) {
     if (!Array.isArray(logs)) {
       return [];
     }

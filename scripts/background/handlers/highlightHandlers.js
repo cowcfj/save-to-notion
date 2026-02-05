@@ -75,7 +75,7 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
       });
 
       if (pingResponse?.status === 'bundle_ready') {
-        Logger.log('Bundle 已就緒', { action: 'ensureBundleReady', attempts: i + 1 });
+        Logger.ready('Bundle 已就緒', { action: 'ensureBundleReady', attempts: i + 1 });
         return true;
       }
     } catch {
@@ -134,7 +134,7 @@ export function createHighlightHandlers(services) {
 
         const tabId = sender.tab.id;
         const tabUrl = sender.tab.url;
-        Logger.log('觸發快捷鍵激活', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
+        Logger.start('觸發快捷鍵激活', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
 
         // 檢查是否為受限頁面
         if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
@@ -180,7 +180,7 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        // 發送消息顯示 highlighter
+        // 發送訊息顯示 highlighter
         chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, response => {
           if (chrome.runtime.lastError) {
             Logger.warn('顯示高亮工具失敗', {
@@ -196,7 +196,7 @@ export function createHighlightHandlers(services) {
               error: ErrorHandler.formatUserMessage(safeMessage),
             });
           } else {
-            Logger.log('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
+            Logger.success('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
             sendResponse({ success: true, response });
           }
         });
@@ -245,7 +245,7 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        // 嘗試先發送消息切換（如果腳本已加載）
+        // 嘗試先發送訊息切換（如果腳本已加載）
         try {
           const response = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(
@@ -267,8 +267,8 @@ export function createHighlightHandlers(services) {
             return;
           }
         } catch (error) {
-          // 消息發送失敗，說明腳本可能未加載，繼續執行注入
-          Logger.log('發送切換消息失敗，嘗試注入腳本', {
+          // 訊息發送失敗，說明腳本可能未加載，繼續執行注入
+          Logger.info('發送切換訊息失敗，嘗試注入腳本', {
             action: 'startHighlight',
             error: error.message,
           });
@@ -296,7 +296,17 @@ export function createHighlightHandlers(services) {
      */
     updateHighlights: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：確保請求來自擴充功能內部 (Popup)
+        const validationError = validateInternalRequest(sender);
+        if (validationError) {
+          sendResponse(validationError);
+          return;
+        }
+
         const activeTab = await getActiveTab();
+
+        // 1. 確保有 API Key（優先檢查，以符合測試期待）
+        const apiKey = await ensureNotionApiKey(storageService);
 
         const url = activeTab.url || '';
         const savedData = await storageService.getSavedPageData(url);
@@ -315,7 +325,6 @@ export function createHighlightHandlers(services) {
         const highlightBlocks = buildHighlightBlocks(highlights);
 
         // 調用 NotionService 更新標記 (以無狀態方式傳遞 apiKey)
-        const apiKey = await ensureNotionApiKey(storageService);
         const result = await notionService.updateHighlightsSection(
           savedData.notionPageId,
           highlightBlocks,
@@ -343,7 +352,17 @@ export function createHighlightHandlers(services) {
      */
     syncHighlights: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：確保請求來自我們自己的 content script
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          sendResponse(validationError);
+          return;
+        }
+
         const activeTab = await getActiveTab();
+
+        // 1. 確保有 API Key（優先檢查，以符合測試期待）
+        const apiKey = await ensureNotionApiKey(storageService);
 
         const url = activeTab.url || '';
         const savedData = await storageService.getSavedPageData(url);
@@ -370,7 +389,6 @@ export function createHighlightHandlers(services) {
         const highlightBlocks = buildHighlightBlocks(highlights);
 
         // 調用 NotionService 更新標記 (以無狀態方式傳遞 apiKey)
-        const apiKey = await ensureNotionApiKey(storageService);
         const result = await notionService.updateHighlightsSection(
           savedData.notionPageId,
           highlightBlocks,
@@ -378,7 +396,7 @@ export function createHighlightHandlers(services) {
         );
 
         if (result.success) {
-          Logger.log('成功同步標註', { action: 'syncHighlights', count: highlights.length });
+          Logger.success('成功同步標註', { action: 'syncHighlights', count: highlights.length });
           result.highlightCount = highlights.length;
           result.message = `成功同步 ${highlights.length} 個標註`;
         } else {

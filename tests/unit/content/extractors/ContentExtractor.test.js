@@ -51,6 +51,11 @@ const { MetadataExtractor } = require('../../../../scripts/content/extractors/Me
 const pageComplexityDetector = require('../../../../scripts/utils/pageComplexityDetector');
 
 globalThis.Logger = {
+  debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
   log: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),

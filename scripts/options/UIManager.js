@@ -32,7 +32,7 @@ export class UIManager {
   }
 
   /**
-   * 顯示狀態消息（安全版本：分離圖標與文本）
+   * 顯示狀態訊息（安全版本：分離圖標與文本）
    *
    * NOTE: 此函數僅應接收內部可信的訊息字串
    * - SVG 圖標內容應由系統內部生成，不應來自外部輸入
@@ -64,8 +64,8 @@ export class UIManager {
   /**
    * 解析圖標與文本 (私有)
    *
-   * @param {string|object} message - 原始消息
-   * @param {string} type - 消息類型
+   * @param {string|object} message - 原始訊息
+   * @param {string} type - 訊息類型
    * @returns {object} 解析後的 {icon, text}
    */
   _resolveMessage(message, type) {

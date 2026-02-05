@@ -263,7 +263,7 @@ describe('options.js', () => {
       // Setup mock instances
       mockUiInstance = { init: jest.fn(), showStatus: jest.fn() };
       mockAuthInstance = { init: jest.fn(), checkAuthStatus: jest.fn() };
-      mockDataSourceInstance = { init: jest.fn(), loadDatabases: jest.fn() };
+      mockDataSourceInstance = { init: jest.fn(), loadDataSources: jest.fn() };
       mockStorageInstance = { init: jest.fn(), updateStorageUsage: jest.fn() };
       mockMigrationInstance = { init: jest.fn() };
 

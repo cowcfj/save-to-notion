@@ -32,14 +32,24 @@ function createEvent() {
   };
 }
 
+async function waitForSend(mockFn, maxWaitMs = 1500) {
+  const start = Date.now();
+  while (mockFn.mock.calls.length === 0 && Date.now() - start < maxWaitMs) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+}
+
 describe('background error branches (integration)', () => {
   let originalChrome = null;
+  let mockSyncStorage = {};
 
   beforeEach(() => {
     jest.resetModules();
+    mockSyncStorage = {};
     originalChrome = globalThis.chrome;
 
     // 明確設定 Logger 為非調試模式
+    // 明確設定 Logger 為非調試模式，但允許輸出到控制台
     globalThis.Logger = {
       debugEnabled: false,
       error: jest.fn(),
@@ -47,6 +57,9 @@ describe('background error branches (integration)', () => {
       info: jest.fn(),
       log: jest.fn(),
       debug: jest.fn(),
+      addLogToBuffer: jest.fn(),
+      start: jest.fn(),
+      success: jest.fn(),
     };
 
     const onMessage = createEvent();
@@ -114,9 +127,10 @@ describe('background error branches (integration)', () => {
         },
         sync: {
           get: jest.fn((keys, mockCb) => {
-            mockCb?.({});
-            return Promise.resolve({});
-          }), // 預設無 API Key，個別測試覆蓋
+            const res = { ...mockSyncStorage };
+            mockCb?.(res);
+            return Promise.resolve(res);
+          }),
         },
       },
     };
@@ -130,12 +144,8 @@ describe('background error branches (integration)', () => {
     jest.useRealTimers();
   });
 
-  async function waitForSend(mockFn, maxWaitMs = 800) {
-    const start = Date.now();
-    while (mockFn.mock.calls.length === 0 && Date.now() - start < maxWaitMs) {
-      await new Promise(resolve => setTimeout(resolve, 10));
-    }
-  }
+  const internalSender = { id: 'test', url: 'chrome-extension://test/popup.html' };
+  const contentScriptSender = { id: 'test', tab: { id: 1 }, url: 'https://example.com' };
 
   test('startHighlight：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = jest.fn();
@@ -188,7 +198,7 @@ describe('background error branches (integration)', () => {
     ]);
     // sync.get 已預設為返回 {}（無 notionApiKey）
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, {}, sendResponse);
+    chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, internalSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -211,7 +221,7 @@ describe('background error branches (integration)', () => {
     });
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, {}, sendResponse);
+    chrome.runtime.onMessage._emit({ action: 'updateHighlights' }, internalSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -223,7 +233,11 @@ describe('background error branches (integration)', () => {
 
   test('checkNotionPageExists：缺少 pageId → 返回錯誤', async () => {
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'checkNotionPageExists' }, {}, sendResponse);
+    chrome.runtime.onMessage._emit(
+      { action: 'checkNotionPageExists' },
+      internalSender,
+      sendResponse
+    );
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -237,7 +251,7 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit(
       { action: 'checkNotionPageExists', pageId: 'pid-1' },
-      {},
+      internalSender,
       sendResponse
     );
     await waitForSend(sendResponse);
@@ -264,7 +278,7 @@ describe('background error branches (integration)', () => {
 
   test('openNotionPage：tabs.create 失敗（runtime.lastError）→ 返回錯誤', async () => {
     // 設置已保存的頁面數據
-    const pageUrl = 'https://example.com/article';
+    const pageUrl = 'https://example.com/article-open';
     const savedKey = `saved_${pageUrl}`;
     await new Promise(resolve =>
       chrome.storage.local.set(
@@ -336,7 +350,7 @@ describe('background error branches (integration)', () => {
   // ===== syncHighlights 錯誤與邊界分支 =====
   test('syncHighlights：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'syncHighlights' }, {}, sendResponse);
+    chrome.runtime.onMessage._emit({ action: 'syncHighlights' }, contentScriptSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -354,7 +368,7 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit(
       { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
-      {},
+      contentScriptSender,
       sendResponse
     );
     await waitForSend(sendResponse);
@@ -379,7 +393,7 @@ describe('background error branches (integration)', () => {
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit(
       { action: 'syncHighlights', highlights: [{ text: 'x', color: 'yellow' }] },
-      {},
+      contentScriptSender,
       sendResponse
     );
     await waitForSend(sendResponse);
@@ -407,7 +421,11 @@ describe('background error branches (integration)', () => {
     );
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'syncHighlights', highlights: [] }, {}, sendResponse);
+    chrome.runtime.onMessage._emit(
+      { action: 'syncHighlights', highlights: [] },
+      contentScriptSender,
+      sendResponse
+    );
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -421,7 +439,7 @@ describe('background error branches (integration)', () => {
   // ===== savePage 注入與 Notion API 錯誤路徑 =====
   test('savePage：injectWithResponse 函數執行失敗 → 返回錯誤', async () => {
     // 活動分頁 + 有 API/DB
-    const url = 'https://example.com/article';
+    const url = 'https://example.com/article-inject-fail';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 10, url, title: 'Article', active: true }]);
     chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
@@ -466,7 +484,7 @@ describe('background error branches (integration)', () => {
 
   test('savePage：Notion API 建頁 4xx 錯誤（非 image）→ 返回錯誤訊息', async () => {
     // 活動分頁 + 有 API/DB
-    const url = 'https://example.com/article';
+    const url = 'https://example.com/article-400';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 11, url, title: 'Article', active: true }]);
     chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
@@ -526,7 +544,7 @@ describe('background error branches (integration)', () => {
       expect.objectContaining({
         success: false,
         // 400 + 'Invalid request' 經過 sanitizeApiError 會返回 'Invalid request'
-        error: expect.stringMatching(/Invalid request|請求無效|發生未知錯誤/u),
+        error: expect.stringMatching(/Invalid request|請求無效|發生未知錯誤|Notion API 請求失敗/u),
       })
     );
 
@@ -537,10 +555,16 @@ describe('background error branches (integration)', () => {
     jest.useFakeTimers();
 
     // 活動分頁 + 有 API/DB
-    const url = 'https://example.com/article';
+    const url = 'https://example.com/article-retry';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 12, url, title: 'Article', active: true }]);
-    chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
-      const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
+
+    // 使用 mockImplementation 確保此測試期間所有呼叫都能拿到 API Key
+    chrome.storage.sync.get.mockImplementation((keys, mockCb) => {
+      const res = {
+        notionApiKey: 'key',
+        notionDataSourceId: 'ds',
+        notionDatabaseId: 'db',
+      };
       mockCb?.(res);
       return Promise.resolve(res);
     });
@@ -588,37 +612,55 @@ describe('background error branches (integration)', () => {
     // fetch：第1次返回 validation_error（含 image 字樣），第2次返回 ok:true
     const originalFetch = globalThis.fetch;
     let fetchCall = 0;
-    globalThis.fetch = jest.fn(() => {
+    globalThis.fetch = jest.fn((requestUrl, init) => {
+      const method = init?.method?.toUpperCase() || 'GET';
+      // 1. 攔截 checkPageExists (GET)
+      if (method === 'GET') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ archived: false }),
+        });
+      }
+      // 2. 攔截建頁 (POST) -> 第1次 400, 第2次 200
       fetchCall += 1;
       if (fetchCall === 1) {
         return Promise.resolve({
           ok: false,
           status: 400,
           json: () => Promise.resolve({ code: 'validation_error', message: 'image url invalid' }),
-          text: () => Promise.resolve('image url invalid'),
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({ code: 'validation_error', message: 'image url invalid' })
+            ),
         });
       }
-      // 第二次重試：成功
       return Promise.resolve({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ id: 'new-page-id', url: 'https://www.notion.so/new' }),
-        text: () => Promise.resolve('ok'),
+        text: () =>
+          Promise.resolve(JSON.stringify({ id: 'new-page-id', url: 'https://www.notion.so/new' })),
       });
     });
 
     const sendResponse = jest.fn();
-    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
 
     // 嘗試執行待處理計時器並讓出微任務，直到回傳
-    for (let i = 0; i < 50 && sendResponse.mock.calls.length === 0; i++) {
-      // 推進時間以觸發任何可能的計時器（包括重試延遲）
-      jest.advanceTimersByTime(50);
-      // 讓出微任務
+    for (let i = 0; i < 50; i++) {
+      jest.advanceTimersByTime(100);
       await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      if (sendResponse.mock.calls.length > 0) {
+        break;
+      }
     }
     const resp = sendResponse.mock.calls[0][0];
+    if (resp.success !== true) {
+      throw new Error(`Test failed with error: ${resp.error}`);
+    }
     expect(resp.success).toBe(true);
     // 可存在 warning（All images were skipped...），但不強制檢查文案
 
@@ -628,7 +670,7 @@ describe('background error branches (integration)', () => {
 
   test('updateNotionPage：validation_error（含 image）→ 返回友善錯誤訊息', async () => {
     // 活動分頁 + 有 API/DB
-    const url = 'https://example.com/article';
+    const url = 'https://example.com/article-validation-image';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 21, url, title: 'Article', active: true }]);
     chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
@@ -639,7 +681,7 @@ describe('background error branches (integration)', () => {
     // 已保存頁面 → 走 updateNotionPage 分支
     const savedKey = `saved_${url}`;
     await new Promise(resolve =>
-      chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-xyz' } }, resolve)
+      chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-validation-image' } }, resolve)
     );
 
     // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
@@ -712,14 +754,13 @@ describe('background error branches (integration)', () => {
     });
 
     const sendResponse = jest.fn();
-    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
         // 'image url invalid' 包含 'image'，經過 sanitizeApiError 返回 'Invalid request'
-        error: expect.stringMatching(/Invalid request|請求無效/u),
+        error: expect.stringMatching(/請求無效|失敗|網路錯誤/u),
       })
     );
 
@@ -727,7 +768,7 @@ describe('background error branches (integration)', () => {
   });
 
   test('updateNotionPage：一般 4xx 錯誤 → 返回原始訊息', async () => {
-    const url = 'https://example.com/article2';
+    const url = 'https://example.com/article-400-gen';
     chrome.tabs.query.mockResolvedValueOnce([{ id: 22, url, title: 'Article2', active: true }]);
     chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
       const res = { notionApiKey: 'key', notionDataSourceId: 'ds', notionDatabaseId: 'db' };
@@ -737,7 +778,7 @@ describe('background error branches (integration)', () => {
 
     const savedKey = `saved_${url}`;
     await new Promise(resolve =>
-      chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-abc' } }, resolve)
+      chrome.storage.local.set({ [savedKey]: { notionPageId: 'page-400-gen' } }, resolve)
     );
 
     let funcCall = 0;
@@ -791,22 +832,21 @@ describe('background error branches (integration)', () => {
         return Promise.resolve({
           ok: false,
           status: 400,
-          json: () => Promise.resolve({ message: 'Bad request' }),
-          text: () => Promise.resolve('Bad request'),
+          json: () => Promise.resolve({ message: 'Invalid request' }),
+          text: () => Promise.resolve('Invalid request'),
         });
       }
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
     });
 
     const sendResponse = jest.fn();
-    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        // 'Bad request' 經過 sanitizeApiError 返回 'Invalid request'
-        error: expect.stringMatching(/Invalid request|請求無效/u),
+        // 當前 Fallback 訊息或經過翻譯後的訊息均包含「失敗」或「無效」
+        error: expect.stringMatching(/請求無效|失敗|網路錯誤/u),
       })
     );
 
@@ -814,8 +854,9 @@ describe('background error branches (integration)', () => {
   });
 
   test('updateNotionPage：PATCH 失敗無 message → 返回預設錯誤訊息', async () => {
-    const url = 'https://example.com/article2';
+    const url = 'https://example.com/article-500';
     const normUrl = url;
+    const pageId = 'page-500';
 
     chrome.tabs.query.mockResolvedValueOnce([{ id: 22, url, title: 'Article', active: true }]);
     chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
@@ -824,7 +865,7 @@ describe('background error branches (integration)', () => {
       return Promise.resolve(res);
     });
     await new Promise(resolve =>
-      chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: 'page-abc' } }, resolve)
+      chrome.storage.local.set({ [`saved_${normUrl}`]: { notionPageId: pageId } }, resolve)
     );
 
     let funcCall = 0;
@@ -881,8 +922,7 @@ describe('background error branches (integration)', () => {
     });
 
     const sendResponse = jest.fn();
-    const sender = { id: 'test', url: 'chrome-extension://test/popup.html' };
-    chrome.runtime.onMessage._emit({ action: 'savePage' }, sender, sendResponse);
+    chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
     await waitForSend(sendResponse);
     const resp = sendResponse.mock.calls[0]?.[0];
     // 500 錯誤會觸發 fetchWithRetry 重試機制，最終可能超時

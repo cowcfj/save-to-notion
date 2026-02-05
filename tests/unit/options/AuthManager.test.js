@@ -45,6 +45,11 @@ describe('AuthManager', () => {
 
     // Mock Logger
     globalThis.Logger = {
+      debug: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      info: jest.fn(),
       info: jest.fn(),
       error: jest.fn(),
     };
@@ -137,6 +142,11 @@ describe('AuthManager Extended', () => {
     globalThis.fetch = jest.fn();
 
     globalThis.Logger = {
+      debug: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      info: jest.fn(),
       info: jest.fn(),
       error: jest.fn(),
       warn: jest.fn(),

@@ -13,6 +13,9 @@ jest.mock('../../../scripts/utils/Logger', () => ({
   error: jest.fn(),
   warn: jest.fn(),
   debug: jest.fn(),
+  start: jest.fn(),
+  finish: jest.fn(),
+  success: jest.fn(),
 }));
 
 describe('StorageManager Branch Coverage', () => {

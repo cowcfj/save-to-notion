@@ -10,8 +10,13 @@ import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/messages.js
 jest.mock('../../../scripts/options/UIManager.js');
 jest.mock('../../../scripts/options/SearchableDatabaseSelector.js');
 
-// Mock fetch globally
-globalThis.fetch = jest.fn();
+// Mock chrome API
+globalThis.chrome = {
+  runtime: {
+    sendMessage: jest.fn(),
+    lastError: null,
+  },
+};
 
 describe('DataSourceManager', () => {
   let dataSourceManager = null;
@@ -32,12 +37,17 @@ describe('DataSourceManager', () => {
 
     // Mock Logger
     globalThis.Logger = {
+      debug: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
       info: jest.fn(),
       error: jest.fn(),
     };
 
-    // Reset fetch mock
-    globalThis.fetch.mockReset();
+    // Reset chrome mock
+    globalThis.chrome.runtime.sendMessage.mockReset();
+    globalThis.chrome.runtime.lastError = null;
   });
 
   afterEach(() => {
@@ -46,15 +56,13 @@ describe('DataSourceManager', () => {
     delete globalThis.Logger;
   });
 
-  describe('loadDatabases', () => {
+  describe('loadDataSources', () => {
     test('處理 401 認證錯誤', async () => {
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: () => Promise.resolve({ message: 'Unauthorized' }),
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: false, error: 'Unauthorized' });
       });
 
-      await dataSourceManager.loadDatabases('invalid_key');
+      await dataSourceManager.loadDataSources('invalid_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         expect.stringContaining(ERROR_MESSAGES.PATTERNS['API Key']),
@@ -63,9 +71,11 @@ describe('DataSourceManager', () => {
     });
 
     test('處理網路錯誤', async () => {
-      globalThis.fetch.mockRejectedValueOnce(new Error('Network error'));
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: false, error: 'Network error' });
+      });
 
-      await dataSourceManager.loadDatabases('secret_test_key');
+      await dataSourceManager.loadDataSources('secret_test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         expect.stringContaining(ERROR_MESSAGES.PATTERNS['Network error'].split('，')[0]),
@@ -74,46 +84,39 @@ describe('DataSourceManager', () => {
     });
 
     test('帶有 query 參數時發送正確的請求主體', async () => {
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: [] }),
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: true, data: { results: [] } });
       });
 
-      await dataSourceManager.loadDatabases('secret_test_key', 'test_query');
+      await dataSourceManager.loadDataSources('secret_test_key', 'test_query');
 
-      // 驗證 fetch 被調用且包含 query 參數
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        'https://api.notion.com/v1/search',
+      // 驗證 sendMessage 被調用且包含 query 參數
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'POST',
-          body: expect.any(String),
-        })
+          action: 'searchNotion',
+          query: 'test_query',
+        }),
+        expect.any(Function)
       );
-
-      // 解析請求主體並驗證
-      const callArgs = globalThis.fetch.mock.calls[0][1];
-      const requestBody = JSON.parse(callArgs.body);
-
-      expect(requestBody.query).toBe('test_query');
-      expect(requestBody.sort).toBeUndefined(); // 有 query 時不應該有 sort
     });
 
     test('無 query 參數時使用時間排序', async () => {
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: [] }),
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: true, data: { results: [] } });
       });
 
-      await dataSourceManager.loadDatabases('secret_test_key');
+      await dataSourceManager.loadDataSources('secret_test_key');
 
-      const callArgs = globalThis.fetch.mock.calls[0][1];
-      const requestBody = JSON.parse(callArgs.body);
-
-      expect(requestBody.query).toBeUndefined();
-      expect(requestBody.sort).toEqual({
-        direction: 'descending',
-        timestamp: 'last_edited_time',
-      });
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'searchNotion',
+          sort: {
+            direction: 'descending',
+            timestamp: 'last_edited_time',
+          },
+        }),
+        expect.any(Function)
+      );
     });
   });
 
@@ -285,13 +288,13 @@ describe('DataSourceManager', () => {
     });
   });
 
-  describe('handleDatabaseSelect', () => {
+  describe('handleDataSourceSelect', () => {
     test('選擇資料來源時更新 database-id 輸入框', () => {
-      dataSourceManager.elements.databaseSelect.innerHTML =
+      dataSourceManager.elements.dataSourceSelect.innerHTML =
         '<option value="db-123">Test DB</option>';
-      dataSourceManager.elements.databaseSelect.value = 'db-123';
+      dataSourceManager.elements.dataSourceSelect.value = 'db-123';
 
-      dataSourceManager.handleDatabaseSelect();
+      dataSourceManager.handleDataSourceSelect();
 
       expect(document.querySelector('#database-id').value).toBe('db-123');
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
@@ -301,24 +304,22 @@ describe('DataSourceManager', () => {
     });
 
     test('未選擇時不更新', () => {
-      dataSourceManager.elements.databaseSelect.value = '';
+      dataSourceManager.elements.dataSourceSelect.value = '';
 
-      dataSourceManager.handleDatabaseSelect();
+      dataSourceManager.handleDataSourceSelect();
 
       expect(document.querySelector('#database-id').value).toBe('');
       expect(mockUiManager.showStatus).not.toHaveBeenCalled();
     });
   });
 
-  describe('loadDatabases - additional error handling', () => {
+  describe('loadDataSources - additional error handling', () => {
     test('處理 403 權限錯誤', async () => {
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 403,
-        json: () => Promise.resolve({ message: 'Forbidden' }),
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: false, error: 'Forbidden' });
       });
 
-      await dataSourceManager.loadDatabases('permission_denied_key');
+      await dataSourceManager.loadDataSources('permission_denied_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         expect.stringContaining('無法存取'), // 簡化匹配，甚至可以用 constants
@@ -327,13 +328,11 @@ describe('DataSourceManager', () => {
     });
 
     test('處理其他 HTTP 錯誤', async () => {
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        json: () => Promise.resolve({ message: 'Internal Server Error' }),
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: false, error: 'Internal Server Error' });
       });
 
-      await dataSourceManager.loadDatabases('test_key');
+      await dataSourceManager.loadDataSources('test_key');
 
       // sanitizeApiError 會正確識別 Internal Server Error 為服務不可用錯誤
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
@@ -343,13 +342,11 @@ describe('DataSourceManager', () => {
     });
 
     test('處理無內容的 503 錯誤', async () => {
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 503,
-        json: () => Promise.resolve({}), // 空回應
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: false, error: 'Service Unavailable' });
       });
 
-      await dataSourceManager.loadDatabases('test_key');
+      await dataSourceManager.loadDataSources('test_key');
 
       // 應自動識別為 Internal Server Error 並翻譯
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
@@ -359,12 +356,11 @@ describe('DataSourceManager', () => {
     });
 
     test('處理空結果', async () => {
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: [] }),
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: true, data: { results: [] } });
       });
 
-      const result = await dataSourceManager.loadDatabases('test_key');
+      const result = await dataSourceManager.loadDataSources('test_key');
 
       expect(result).toEqual([]);
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
@@ -374,12 +370,11 @@ describe('DataSourceManager', () => {
     });
 
     test('搜尋模式下空結果顯示 info 訊息', async () => {
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: [] }),
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: true, data: { results: [] } });
       });
 
-      await dataSourceManager.loadDatabases('test_key', 'nonexistent');
+      await dataSourceManager.loadDataSources('test_key', 'nonexistent');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         expect.stringContaining(UI_MESSAGES.DATA_SOURCE.NO_RESULT('nonexistent')),
@@ -397,12 +392,11 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: mockResults }),
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: true, data: { results: mockResults } });
       });
 
-      const result = await dataSourceManager.loadDatabases('test_key');
+      const result = await dataSourceManager.loadDataSources('test_key');
 
       expect(result).toHaveLength(1);
     });
@@ -421,12 +415,11 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: mockResults }),
+      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+        callback({ success: true, data: { results: mockResults } });
       });
 
-      await dataSourceManager.loadDatabases('test_key');
+      await dataSourceManager.loadDataSources('test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         expect.stringContaining(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND),

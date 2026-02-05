@@ -11,6 +11,7 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import {
   validateInternalRequest,
+  validateContentScriptRequest,
   isValidNotionUrl,
   sanitizeApiError,
   sanitizeUrlForLogging,
@@ -140,8 +141,12 @@ export function createSaveHandlers(services) {
       apiKey: params.apiKey,
     });
 
-    // 失敗重試邏輯：如果是圖片驗證錯誤
-    if (!result.success && result.error && /image|media|validation/i.test(result.error)) {
+    // 失敗重試邏輯：如果是圖片驗證錯誤或標準化後的驗證錯誤
+    if (
+      !result.success &&
+      result.error &&
+      /image|media|validation|validation_error/i.test(result.error)
+    ) {
       Logger.warn('收到 Notion 圖片驗證錯誤，準備重試', {
         action: 'performCreatePage',
         delay: HANDLER_CONSTANTS.IMAGE_RETRY_DELAY,
@@ -298,8 +303,11 @@ export function createSaveHandlers(services) {
 
         if (result.success) {
           result.recreated = true;
+          sendResponse(result);
+        } else {
+          const userMessage = ErrorHandler.formatUserMessage(result.error);
+          sendResponse({ ...result, error: userMessage });
         }
-        sendResponse(result);
       }
     } else {
       const result = await performCreatePage({
@@ -309,7 +317,12 @@ export function createSaveHandlers(services) {
         contentResult,
         apiKey: params.apiKey,
       });
-      sendResponse(result);
+      if (result.success) {
+        sendResponse(result);
+      } else {
+        const userMessage = ErrorHandler.formatUserMessage(result.error);
+        sendResponse({ ...result, error: userMessage });
+      }
     }
   }
 
@@ -354,7 +367,6 @@ export function createSaveHandlers(services) {
           });
           return;
         }
-
         const config = await storageService.getConfig([
           'notionApiKey',
           'notionDataSourceId',
@@ -555,6 +567,13 @@ export function createSaveHandlers(services) {
      */
     checkNotionPageExists: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：確保請求來自擴充功能內部 (Popup)
+        const validationError = validateInternalRequest(sender);
+        if (validationError) {
+          sendResponse(validationError);
+          return;
+        }
+
         const { pageId } = request;
         if (!pageId) {
           sendResponse({
@@ -584,6 +603,13 @@ export function createSaveHandlers(services) {
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：確保請求來自擴充功能內部 (Popup)
+        const validationError = validateInternalRequest(sender);
+        if (validationError) {
+          sendResponse(validationError);
+          return;
+        }
+
         const activeTab = await getActiveTab();
         const normUrl = (normalizeUrl || (url => url))(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
@@ -670,6 +696,13 @@ export function createSaveHandlers(services) {
      */
     devLogSink: (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：確保請求來自我們自己的 content script
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          sendResponse(validationError);
+          return;
+        }
+
         const level = request.level || 'log';
         const message = request.message || '';
         const args = Array.isArray(request.args) ? request.args : [];

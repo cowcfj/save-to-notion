@@ -34,7 +34,7 @@ const isExtensionContext = Boolean(chrome?.runtime?.id);
 const isBackground = isExtensionContext && globalThis.window === undefined; // Service Worker 環境通常沒有 window (或 self !== window)
 
 /**
- * 格式化日誌消息
+ * 格式化日誌訊息
  *
  * @param {number} level - 日誌級別
  * @param {Array} args - 參數列表
@@ -63,7 +63,7 @@ function formatMessage(level, args) {
  * 發送日誌到 Background (僅在 Content Script 環境下)
  *
  * @param {string} level - 日誌級別字符串
- * @param {string} message - 主消息
+ * @param {string} message - 主訊息
  * @param {Array} args - 額外參數
  */
 function sendToBackground(level, message, args) {
@@ -364,7 +364,7 @@ const Logger = {
    *
    * @param {object} logEntry - 日誌 entry 對象
    * @param {string} logEntry.level - 日誌等級
-   * @param {string} logEntry.message - 消息內容
+   * @param {string} logEntry.message - 訊息內容
    * @param {object} logEntry.context - 上下文數據
    * @param {string} [logEntry.source] - 來源標識
    * @param {string} [logEntry.timestamp] - 時間戳

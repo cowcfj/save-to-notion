@@ -8,6 +8,10 @@
 
 import { LogExporter } from '../../utils/LogExporter.js';
 import { ErrorHandler, ErrorTypes } from '../../utils/ErrorHandler.js';
+import {
+  validateInternalRequest,
+  validateContentScriptRequest,
+} from '../../utils/securityUtils.js';
 import Logger from '../../utils/Logger.js';
 
 /**
@@ -16,9 +20,15 @@ import Logger from '../../utils/Logger.js';
  * @param {object} message - 訊息物件，包含導出格式
  * @param {object} sender - 訊息發送者資訊
  * @param {Function} sendResponse - 回應回調函數
- * @returns {boolean} 返回 true 以支援並行非同步回應
  */
 export const exportDebugLogs = (message, sender, sendResponse) => {
+  // 安全性驗證：確保請求來自擴充功能內部 (Options)
+  const validationError = validateInternalRequest(sender);
+  if (validationError) {
+    sendResponse(validationError);
+    return;
+  }
+
   try {
     // LogExporter.exportLogs 內含即時脫敏邏輯
     const result = LogExporter.exportLogs({ format: message.format });
@@ -33,8 +43,6 @@ export const exportDebugLogs = (message, sender, sendResponse) => {
       errorType: error.type || ErrorTypes.INTERNAL,
     });
   }
-  // 返回 true 以保持訊息通道，支持潛在的異步擴展
-  return true;
 };
 
 /**
@@ -43,9 +51,19 @@ export const exportDebugLogs = (message, sender, sendResponse) => {
  * @param {object} message - 訊息物件
  * @param {object} sender - 發送者資訊
  * @param {Function} sendResponse - 回應回調
- * @returns {boolean}
  */
 export const handleDevLogSink = (message, sender, sendResponse) => {
+  // 安全性驗證：確保請求來自擴充功能內部或 Content Script
+  // 優先允許內部請求，如果不是內部請求則檢查是否為我們的 Content Script
+  const internalError = validateInternalRequest(sender);
+  if (internalError) {
+    const csError = validateContentScriptRequest(sender);
+    if (csError) {
+      sendResponse(csError);
+      return;
+    }
+  }
+
   try {
     const { level, message: logMessage, args } = message;
 
@@ -79,7 +97,6 @@ export const handleDevLogSink = (message, sender, sendResponse) => {
       error: error.message,
     });
   }
-  return false;
 };
 
 /**

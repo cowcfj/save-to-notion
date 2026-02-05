@@ -57,7 +57,7 @@ describe('Logger (Background Context)', () => {
       LogSanitizerModule.default?.LogSanitizer ||
       LogSanitizerModule;
     LogSanitizerMock.sanitizeEntry = jest.fn((msg, ctx) => ({
-      message: `SANITIZED_${msg}`,
+      message: `SANITIZED_${typeof msg === 'object' ? JSON.stringify(msg) : msg}`,
       context: ctx,
     }));
 
@@ -85,7 +85,9 @@ describe('Logger (Background Context)', () => {
     Logger.info(sensitiveMsg, context);
 
     // Verify sanitizeEntry was called
-    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(sensitiveMsg, context);
+    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(sensitiveMsg, context, {
+      isDev: true,
+    });
 
     // Verify sanitized data was pushed to buffer
     expect(mockBufferInstance.push).toHaveBeenCalledWith(
@@ -102,7 +104,9 @@ describe('Logger (Background Context)', () => {
     const objMsg = { error: 'failed' };
     Logger.error(objMsg);
 
-    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(String(objMsg), expect.anything());
+    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(String(objMsg), expect.anything(), {
+      isDev: true,
+    });
   });
 
   test('should capture all arguments when first arg is object', () => {
@@ -120,7 +124,8 @@ describe('Logger (Background Context)', () => {
       expect.objectContaining({
         foo: 'bar',
         details: [secondArg, thirdArg],
-      })
+      }),
+      { isDev: true }
     );
   });
 });

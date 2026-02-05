@@ -200,6 +200,27 @@ const ErrorHandler = {
     // 防止直接將技術代碼 (如 'unknown_api_response') 顯示給用戶
     return ERROR_MESSAGES.DEFAULT;
   },
+
+  /**
+   * 檢查是否為圖片相關的驗證錯誤
+   *
+   * @param {string|Error} error - 錯誤訊息或物件
+   * @returns {boolean} 是否為圖片驗證錯誤
+   */
+  isImageValidationError(error) {
+    if (!error) {
+      return false;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    const lowerMessage = message.toLowerCase();
+    // 檢查是否同時包含 'validation' 或 'invalid' 與 'image'
+    // 或者直接是標準的 'validation_error' 字串 (代表 API 驗證失敗，通常是圖片問題)
+    return (
+      lowerMessage === 'validation_error' ||
+      ((lowerMessage.includes('validation') || lowerMessage.includes('invalid')) &&
+        lowerMessage.includes('image'))
+    );
+  },
 };
 
 /**

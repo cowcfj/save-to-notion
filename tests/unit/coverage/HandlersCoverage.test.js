@@ -37,11 +37,14 @@ import { createHighlightHandlers } from '../../../scripts/background/handlers/hi
 
 // Global mocks
 globalThis.Logger = {
-    log: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+  log: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
 };
 
 globalThis.chrome = {

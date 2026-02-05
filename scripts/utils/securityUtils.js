@@ -132,6 +132,7 @@ function _classifyApiError(lowerMessage) {
     AUTH,
     AUTH_DISCONNECTED,
     AUTH_INVALID,
+    AUTH_FORBIDDEN,
     PERMISSION,
     PERMISSION_DB,
     RATE_LIMIT,
@@ -143,32 +144,39 @@ function _classifyApiError(lowerMessage) {
     SERVER_ERROR,
   } = API_ERROR_PATTERNS;
 
-  // 1. 認證與權限 (Auth & Permission)
-  const authResult = _checkAuthErrors(lowerMessage, AUTH, AUTH_DISCONNECTED, AUTH_INVALID);
-  if (authResult) {
-    return authResult;
-  }
-
-  if (PERMISSION.some(k => lowerMessage.includes(k))) {
-    return PERMISSION_DB.some(k => lowerMessage.includes(k))
-      ? 'Database access denied'
-      : 'Cannot access contents';
-  }
-
-  // 2. 簡單映射 (Simple Mapping)
+  // 1. 簡單映射 (Simple Mapping) - 優先識別明確的資源或驗證錯誤
   const directMatch = _checkSimpleMappings(lowerMessage, {
     'rate limit': RATE_LIMIT,
     'Page ID is missing': NOT_FOUND,
     'active tab': ACTIVE_TAB,
     'Data Source ID': DATA_SOURCE,
-    'Invalid request': VALIDATION,
+    validation_error: VALIDATION,
     'Network error': NETWORK,
   });
   if (directMatch) {
     return directMatch;
   }
 
-  // 3. 服務器錯誤 (Server Error)
+  // 2. 權限檢查 (Permission)
+  if (PERMISSION.some(k => lowerMessage.includes(k))) {
+    return PERMISSION_DB.some(k => lowerMessage.includes(k))
+      ? 'Database access denied'
+      : 'Cannot access contents';
+  }
+
+  // 3. 認證與權限 (Auth & Permission) - 作為較通用的分類放在後方
+  const authResult = _checkAuthErrors(
+    lowerMessage,
+    AUTH,
+    AUTH_DISCONNECTED,
+    AUTH_INVALID,
+    AUTH_FORBIDDEN
+  );
+  if (authResult) {
+    return authResult;
+  }
+
+  // 4. 服務器錯誤 (Server Error)
   if (SERVER_ERROR.some(k => lowerMessage.includes(k))) {
     return _checkServerError(lowerMessage);
   }
@@ -178,7 +186,7 @@ function _classifyApiError(lowerMessage) {
 
 // === 輔助函數 (降低 Cognitive Complexity) ===
 
-function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid) {
+function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid, forbidden) {
   if (!patterns.some(k => lowerMessage.includes(k))) {
     return null;
   }
@@ -187,6 +195,9 @@ function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid) {
   }
   if (invalid.some(k => lowerMessage.includes(k))) {
     return 'Invalid API Key format';
+  }
+  if (forbidden?.some(k => lowerMessage.includes(k))) {
+    return 'Database access denied';
   }
   return 'API Key';
 }
@@ -223,7 +234,12 @@ function _checkServerError(lowerMessage) {
  */
 export function sanitizeApiError(apiError, context = 'operation') {
   // [SDK Support] 優先處理 SDK 錯誤代碼
+  // 1. [SDK Support] 優先處理 SDK 錯誤碼
   if (apiError && apiError.code) {
+    // 支援 Notion SDK 的標準錯誤碼
+    if (apiError.code === 'validation_error') {
+      return 'validation_error';
+    }
     // 直接返回 code，交由 ErrorHandler.formatUserMessage 匹配
     return apiError.code;
   }
@@ -248,7 +264,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
     `[Security] Unrecognized API error sanitized (context: ${context}, length: ${errorMessage.length})`
   );
 
-  return 'Unknown Error';
+  return classification || 'Unknown Error';
 }
 
 // ============================================================================
@@ -416,7 +432,7 @@ export function validateSafeSvg(svgContent) {
 }
 
 /**
- * 從消息字串中分離圖標（Emoji 或 SVG）和純文本內容
+ * 從訊息字串中分離圖標（Emoji 或 SVG）和純文本內容
  *
  * 此函數統一處理 UIManager 和 StorageManager 中的圖標分離邏輯，
  * 避免重複維護相同的正則表達式模式。
@@ -425,7 +441,7 @@ export function validateSafeSvg(svgContent) {
  * - Unicode Emoji（範圍：U+1F300 to U+1F9FF）
  * - SVG 標籤（格式：<svg...>...</svg>）
  *
- * @param {string} message - 原始消息字串（可能包含圖標前綴）
+ * @param {string} message - 原始訊息字串（可能包含圖標前綴）
  * @returns {{icon: string, text: string}} 分離後的圖標和文本
  * @example
  * // SVG 圖標 + 文本
@@ -465,7 +481,7 @@ export function separateIconAndText(message) {
     };
   }
 
-  // 無匹配：視為純文本消息
+  // 無匹配：視為純文本訊息
   return {
     icon: '',
     text: message,

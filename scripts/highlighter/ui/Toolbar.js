@@ -394,7 +394,7 @@ export class Toolbar {
   /**
    * 封裝 chrome.runtime.sendMessage 為 Promise
    *
-   * @param {object} message - 要發送的消息
+   * @param {object} message - 要發送的訊息
    * @returns {Promise<object>}
    * @private
    */

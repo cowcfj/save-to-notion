@@ -221,7 +221,9 @@ export const ERROR_MESSAGES = {
     'Integration disconnected': USER_MESSAGES.INTEGRATION_DISCONNECTED,
     'Page ID is missing': '無法識別頁面，請重回 Notion 頁面再試',
     'Page not saved': '頁面尚未保存，請先保存頁面',
-    'Invalid request': '請求無效，請檢查設定與內容格式',
+    'Invalid request': USER_MESSAGES.CONTENT_PARSE_FAILED,
+    validation_error: USER_MESSAGES.CONTENT_PARSE_FAILED,
+    notionhq_client_response_error: 'Notion API 請求失敗，請稍後再試',
 
     // 網路與限流
     'Network error': '網路連線異常，請檢查網路後重試',
@@ -246,9 +248,10 @@ export const ERROR_MESSAGES = {
  */
 export const API_ERROR_PATTERNS = {
   // 1. 認證相關
-  AUTH: ['unauthorized', 'authentication', 'api key', 'token', 'api_key'],
-  AUTH_DISCONNECTED: ['token', 'integration'],
-  AUTH_INVALID: ['invalid', 'malformed'],
+  AUTH: ['unauthorized', 'authentication', 'api key', 'api_key', 'token'],
+  AUTH_DISCONNECTED: ['integration disconnected', 'invalid_token'],
+  AUTH_INVALID: ['invalid api key', 'malformed_token'],
+  AUTH_FORBIDDEN: ['forbidden', 'permission_denied'],
 
   // 2. 權限相關
   PERMISSION: ['forbidden', 'permission', 'access denied'],
@@ -261,7 +264,16 @@ export const API_ERROR_PATTERNS = {
   DATA_SOURCE: ['database', 'object_not_found'],
 
   // 4. 驗證與網路
-  VALIDATION: ['validation', 'image', 'media', 'conflict', 'bad request', 'invalid', '400'],
+  VALIDATION: [
+    'validation',
+    'image',
+    'media',
+    'conflict',
+    'bad request',
+    'invalid',
+    '400',
+    'request',
+  ],
   NETWORK: ['network', 'fetch', 'timeout', 'enotfound'],
 
   // 5. 伺服器錯誤 (需組合判斷)

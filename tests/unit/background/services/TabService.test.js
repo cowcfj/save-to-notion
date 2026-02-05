@@ -3,6 +3,26 @@
  */
 
 import { TabService } from '../../../../scripts/background/services/TabService.js';
+import Logger from '../../../../scripts/utils/Logger.js';
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  log: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  success: jest.fn(),
+}));
+
+jest.mock('../../../../scripts/config/constants.js', () => ({
+  TAB_SERVICE: {
+    LOADING_TIMEOUT_MS: 1000,
+    STATUS_UPDATE_DELAY_MS: 100,
+  },
+  URL_NORMALIZATION: {
+    TRACKING_PARAMS: ['utm_source'],
+  },
+}));
 
 // Mock chrome API
 globalThis.chrome = {
@@ -33,6 +53,8 @@ const mockLogger = {
   warn: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),
+  info: jest.fn(),
+  success: jest.fn(),
 };
 
 // Mock InjectionService
@@ -67,7 +89,7 @@ describe('TabService', () => {
   describe('constructor', () => {
     it('should initialize with default options', () => {
       const defaultService = new TabService();
-      expect(defaultService.logger).toBe(console);
+      expect(defaultService.logger).toBe(Logger);
       expect(typeof defaultService.normalizeUrl).toBe('function');
       expect(typeof defaultService.getSavedPageData).toBe('function');
     });
@@ -169,8 +191,8 @@ describe('TabService', () => {
 
       // Assert: 錯誤被記錄
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[TabService] Error updating tab status:'),
-        injectionError
+        expect.stringContaining('[TabService] Error updating tab status'),
+        expect.objectContaining({ error: injectionError })
       );
 
       // Assert: ensureBundleInjected 被調用
@@ -202,7 +224,7 @@ describe('TabService', () => {
 
   describe('migrateLegacyHighlights', () => {
     beforeEach(() => {
-      chrome.tabs.get.mockResolvedValue({ url: 'https://example.com' });
+      chrome.tabs.get.mockResolvedValue({ id: 1, url: 'https://example.com', status: 'complete' });
     });
 
     it('should skip if normUrl is missing', async () => {
@@ -254,6 +276,7 @@ describe('TabService', () => {
         'highlights_https://example.com'
       );
 
+      expect(mockInjectionService.injectWithResponse).toHaveBeenCalled();
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         'highlights_https://example.com': [{ id: '1', text: 'highlight' }],
       });
@@ -271,8 +294,8 @@ describe('TabService', () => {
         'highlights_https://example.com'
       );
 
-      expect(mockLogger.log).toHaveBeenCalled();
-      expect(mockLogger.log.mock.calls[0][0]).toMatch(
+      expect(mockLogger.warn).toHaveBeenCalled();
+      expect(mockLogger.warn.mock.calls[0][0]).toMatch(
         /Migration skipped due to recoverable error:?/
       );
     });

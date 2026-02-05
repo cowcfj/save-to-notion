@@ -239,6 +239,43 @@ class NotionService {
   }
 
   /**
+   * 獲取隨機抖動 (Jitter)
+   * 使用加密安全隨機數生成器並消除模數偏差 (Modulo Bias)
+   *
+   * @param {number} max - 最大值 (不包含)
+   * @returns {number} 隨機整數
+   * @private
+   */
+  _getJitter(max) {
+    try {
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        // 修正模數偏差 (Modulo Bias)
+        // 使用拒絕採樣 (Rejection Sampling) 確保隨機性均勻分布
+        // Uint32 的最大值為 2^32 - 1 = 4294967295
+        // 總共有 2^32 = 4294967296 個可能的隨機值
+        const totalValues = 4_294_967_296;
+        const limit = totalValues - (totalValues % max);
+        const array = new Uint32Array(1);
+
+        let randomInt;
+        do {
+          crypto.getRandomValues(array);
+          randomInt = array[0];
+        } while (randomInt >= limit);
+
+        return randomInt % max;
+      }
+    } catch (error) {
+      // 僅在加密環境不可用時回退
+      Logger.debug('[NotionService] 加密隨機數生成不可用，回退至 Math.random', {
+        error: error.message,
+      });
+    }
+    // eslint-disable-next-line sonarjs/pseudo-random
+    return Math.floor(Math.random() * max);
+  }
+
+  /**
    * 搜索 Database 或 Page
    * 取代原 DataSourceManager 中的 fetch 邏輯
    *
@@ -537,6 +574,9 @@ class NotionService {
     } catch (error) {
       if (error.status === 404 || error.code === 'object_not_found') {
         return false;
+      }
+      if (error.message?.includes('API Key') || error.message?.includes('config')) {
+        throw error;
       }
       Logger.error('[NotionService] 無法確定頁面存續狀態', {
         action: 'checkPageExists',

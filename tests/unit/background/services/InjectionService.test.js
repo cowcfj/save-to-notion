@@ -158,7 +158,8 @@ describe('InjectionService', () => {
       expect(result).toBe(true);
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.success).toHaveBeenCalledWith(
-        expect.stringContaining('Bundle already exists')
+        expect.stringContaining('Bundle already exists'),
+        expect.anything()
       );
     });
 
@@ -201,7 +202,8 @@ describe('InjectionService', () => {
       expect(result).toBe(false);
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Bundle injection skipped')
+        expect.stringContaining('Bundle injection skipped'),
+        expect.anything()
       );
     });
   });

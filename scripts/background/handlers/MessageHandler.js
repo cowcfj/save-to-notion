@@ -1,7 +1,7 @@
 /**
- * MessageHandler - 消息路由處理器
+ * MessageHandler - 訊息路由處理器
  *
- * 職責：統一處理來自 popup/content script 的消息
+ * 職責：統一處理來自 popup/content script 的訊息
  * - 按 action 分派到對應的處理函數
  * - 統一錯誤處理（支持結構化的 AppError）
  * - 支持異步響應
@@ -35,7 +35,7 @@ class MessageHandler {
   }
 
   /**
-   * 註冊消息處理函數
+   * 註冊訊息處理函數
    *
    * @param {string} action - 動作名稱
    * @param {Function} handler - 處理函數
@@ -85,7 +85,7 @@ class MessageHandler {
   }
 
   /**
-   * 處理消息
+   * 處理訊息
    *
    * @param {object} request - 請求對象
    * @param {object} sender - 發送者信息

@@ -7,7 +7,7 @@
  */
 
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { sanitizeApiError } from '../../utils/securityUtils.js';
+import { sanitizeApiError, validateInternalRequest } from '../../utils/securityUtils.js';
 
 export function createNotionHandlers({ notionService }) {
   return {
@@ -19,6 +19,13 @@ export function createNotionHandlers({ notionService }) {
      * @param {Function} sendResponse
      */
     searchNotion: async (request, sender, sendResponse) => {
+      // 1. 安全驗證：確保請求來自擴充功能內部 (Opions/Popup)
+      const validationError = validateInternalRequest(sender);
+      if (validationError) {
+        sendResponse(validationError);
+        return;
+      }
+
       try {
         const { query, filter, sort, apiKey } = request;
 

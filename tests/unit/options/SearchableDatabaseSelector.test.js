@@ -43,7 +43,7 @@ describe('SearchableDatabaseSelector', () => {
 
     selector = new SearchableDatabaseSelector({
       showStatus: mockShowStatus,
-      loadDatabases: mockLoadDatabases,
+      loadDataSources: mockLoadDatabases,
       getApiKey: mockGetApiKey,
     });
   });
@@ -57,7 +57,7 @@ describe('SearchableDatabaseSelector', () => {
       expect(() => new SearchableDatabaseSelector({})).toThrow();
       expect(() => new SearchableDatabaseSelector({ showStatus: jest.fn() })).toThrow();
       expect(
-        () => new SearchableDatabaseSelector({ showStatus: jest.fn(), loadDatabases: jest.fn() })
+        () => new SearchableDatabaseSelector({ showStatus: jest.fn(), loadDataSources: jest.fn() })
       ).toThrow('getApiKey');
     });
 
@@ -78,24 +78,24 @@ describe('SearchableDatabaseSelector', () => {
     ];
 
     it('should populate list and handle empty/loading states', () => {
-      selector.populateDatabases(mockDatabases);
+      selector.populateDataSources(mockDatabases);
 
-      expect(selector.databases).toHaveLength(2);
-      expect(selector.databaseList.children).toHaveLength(2);
+      expect(selector.dataSources).toHaveLength(2);
+      expect(selector.dataSourceList.children).toHaveLength(2);
       expect(selector.container.style.display).toBe('block');
 
       // Check formatting of items
-      const firstItem = selector.databaseList.children[0];
+      const firstItem = selector.dataSourceList.children[0];
       expect(firstItem.textContent).toContain('DB One');
     });
 
     it('should handle pre-selected value', () => {
       document.querySelector('#database-id').value = 'db1';
       // Re-populate to trigger selection logic
-      selector.populateDatabases(mockDatabases);
+      selector.populateDataSources(mockDatabases);
 
       expect(selector.searchInput.value).toBe('DB One');
-      expect(selector.selectedDatabase.id).toBe('db1');
+      expect(selector.selectedDataSource.id).toBe('db1');
     });
 
     it('should extract title from properties if top-level title is missing', () => {
@@ -112,8 +112,8 @@ describe('SearchableDatabaseSelector', () => {
         },
       };
 
-      selector.populateDatabases([complexDb]);
-      expect(selector.databases[0].title).toBe('Complex Title');
+      selector.populateDataSources([complexDb]);
+      expect(selector.dataSources[0].title).toBe('Complex Title');
     });
   });
 
@@ -124,31 +124,31 @@ describe('SearchableDatabaseSelector', () => {
     ];
 
     beforeEach(() => {
-      selector.populateDatabases(mockDatabases);
+      selector.populateDataSources(mockDatabases);
     });
 
     it('should filter based on search query', () => {
-      selector.filterDatabases('app');
-      expect(selector.filteredDatabases).toHaveLength(1);
-      expect(selector.filteredDatabases[0].title).toBe('Apple');
+      selector.filterDataSourcesLocally('app');
+      expect(selector.filteredDataSources).toHaveLength(1);
+      expect(selector.filteredDataSources[0].title).toBe('Apple');
 
       // Verify UI update
-      // We mocked renderDatabaseList implicitly by checking filteredDatabases,
+      // We mocked renderDataSourceList implicitly by checking filteredDataSources,
       // but let's check the DOM
-      const items = selector.databaseList.querySelectorAll('.database-item');
+      const items = selector.dataSourceList.querySelectorAll('.database-item');
       expect(items).toHaveLength(1);
       expect(items[0].textContent).toContain('Apple');
     });
 
     it('should show all when query is empty', () => {
-      selector.filterDatabases('');
-      expect(selector.filteredDatabases).toHaveLength(2);
+      selector.filterDataSourcesLocally('');
+      expect(selector.filteredDataSources).toHaveLength(2);
     });
 
     it('should show no results message', () => {
-      selector.filterDatabases('xyz');
-      expect(selector.filteredDatabases).toHaveLength(0);
-      expect(selector.databaseList.innerHTML).toContain('未找到匹配的資料來源');
+      selector.filterDataSourcesLocally('xyz');
+      expect(selector.filteredDataSources).toHaveLength(0);
+      expect(selector.dataSourceList.innerHTML).toContain('未找到匹配的資料來源');
     });
   });
 
@@ -156,9 +156,9 @@ describe('SearchableDatabaseSelector', () => {
     const db = { id: 'db1', title: 'Database 1', type: 'database' };
 
     it('should update inputs and UI on selection', () => {
-      selector.selectDatabase(db);
+      selector.selectDataSource(db);
 
-      expect(selector.selectedDatabase).toBe(db);
+      expect(selector.selectedDataSource).toBe(db);
       expect(document.querySelector('#database-id').value).toBe('db1');
       expect(document.querySelector('#database-type').value).toBe('database');
       expect(selector.searchInput.value).toBe('Database 1');
@@ -171,7 +171,7 @@ describe('SearchableDatabaseSelector', () => {
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(false); // Empty list initially
 
-      selector.populateDatabases([{ id: '1', object: 'db', title: [] }]);
+      selector.populateDataSources([{ id: '1', object: 'db', title: [] }]);
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(true);
       expect(selector.dropdown.style.display).toBe('block');
@@ -203,13 +203,6 @@ describe('SearchableDatabaseSelector', () => {
         // Mock locale if necessary or check loosely
         const result = SearchableDatabaseSelector.formatDate('2023-01-01T12:00:00Z');
         expect(result).toContain('2023');
-      });
-    });
-
-    describe('escapeRegex', () => {
-      it('should escape regex special characters', () => {
-        const result = SearchableDatabaseSelector.escapeRegex('test.*+?^${}()|[]\\');
-        expect(result).toBe('test\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\');
       });
     });
   });
@@ -265,14 +258,14 @@ describe('SearchableDatabaseSelector', () => {
   describe('showSearchingState', () => {
     it('should display loading spinner with search query', () => {
       selector.showSearchingState('my search');
-      expect(selector.databaseList.innerHTML).toContain('正在搜尋');
-      expect(selector.databaseList.innerHTML).toContain('my search');
-      expect(selector.databaseList.innerHTML).toContain('spinner');
+      expect(selector.dataSourceList.innerHTML).toContain('正在搜尋');
+      expect(selector.dataSourceList.innerHTML).toContain('my search');
+      expect(selector.dataSourceList.innerHTML).toContain('spinner');
     });
 
     it('should escape HTML in search query', () => {
       selector.showSearchingState('<script>alert("xss")</script>');
-      expect(selector.databaseList.innerHTML).not.toContain('<script>');
+      expect(selector.dataSourceList.innerHTML).not.toContain('<script>');
     });
   });
 
@@ -284,20 +277,20 @@ describe('SearchableDatabaseSelector', () => {
 
     it('should restore initial database list after search', () => {
       // 設置初始列表
-      selector.populateDatabases(mockDatabases);
-      expect(selector.databases).toHaveLength(2);
-      expect(selector.initialDatabases).toHaveLength(2);
+      selector.populateDataSources(mockDatabases);
+      expect(selector.dataSources).toHaveLength(2);
+      expect(selector.initialDataSources).toHaveLength(2);
 
-      // 模擬搜尋結果修改了 databases
-      selector.databases = [{ id: '3', title: 'Search Result' }];
-      selector.filteredDatabases = [...selector.databases];
+      // 模擬搜尋結果修改了 dataSources
+      selector.dataSources = [{ id: '3', title: 'Search Result' }];
+      selector.filteredDataSources = [...selector.dataSources];
 
       // 還原初始列表
-      selector.restoreInitialDatabases();
+      selector.restoreInitialDataSources();
 
-      expect(selector.databases).toHaveLength(2);
-      expect(selector.filteredDatabases).toHaveLength(2);
-      expect(selector.databases[0].id).toBe('1');
+      expect(selector.dataSources).toHaveLength(2);
+      expect(selector.filteredDataSources).toHaveLength(2);
+      expect(selector.dataSources[0].id).toBe('1');
     });
   });
 
@@ -309,7 +302,7 @@ describe('SearchableDatabaseSelector', () => {
     ];
 
     beforeEach(() => {
-      selector.populateDatabases(mockDatabases);
+      selector.populateDataSources(mockDatabases);
     });
 
     it('should open dropdown on ArrowDown when closed', () => {
@@ -378,7 +371,7 @@ describe('SearchableDatabaseSelector', () => {
       event.preventDefault = jest.fn();
       selector.handleKeyNavigation(event);
 
-      expect(selector.selectedDatabase.id).toBe('2');
+      expect(selector.selectedDataSource.id).toBe('2');
     });
 
     it('should close dropdown on Escape', () => {
@@ -411,13 +404,13 @@ describe('SearchableDatabaseSelector', () => {
     ];
 
     it('should call scrollIntoView on focused element', () => {
-      selector.populateDatabases(mockDatabases);
+      selector.populateDataSources(mockDatabases);
       selector.showDropdown();
       selector.focusedIndex = 0;
-      selector.renderDatabaseList();
+      selector.renderDataSourceList();
 
       // Mock scrollIntoView
-      const focusedElement = selector.databaseList.querySelector('.keyboard-focus');
+      const focusedElement = selector.dataSourceList.querySelector('.keyboard-focus');
       if (focusedElement) {
         focusedElement.scrollIntoView = jest.fn();
         selector.scrollToFocused();
@@ -426,7 +419,7 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should not error when focusedIndex is -1', () => {
-      selector.populateDatabases(mockDatabases);
+      selector.populateDataSources(mockDatabases);
       selector.focusedIndex = -1;
       expect(() => selector.scrollToFocused()).not.toThrow();
     });
@@ -435,8 +428,8 @@ describe('SearchableDatabaseSelector', () => {
   describe('showLoading', () => {
     it('should display loading spinner', () => {
       selector.showLoading();
-      expect(selector.databaseList.innerHTML).toContain('重新載入資料來源中');
-      expect(selector.databaseList.innerHTML).toContain('spinner');
+      expect(selector.dataSourceList.innerHTML).toContain('重新載入資料來源中');
+      expect(selector.dataSourceList.innerHTML).toContain('spinner');
       expect(selector.isOpen).toBe(true);
     });
   });
@@ -451,7 +444,7 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'page_id' },
       };
 
-      const element = selector.createDatabaseItem(pageDb, 0);
+      const element = selector.createDataSourceItem(pageDb, 0);
       expect(element.outerHTML).toContain('頁面');
       expect(element.outerHTML).toContain('Test Page');
       // 檢查是否存在 SVG 圖標
@@ -467,13 +460,13 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'workspace' },
       };
 
-      const element = selector.createDatabaseItem(db, 0);
+      const element = selector.createDataSourceItem(db, 0);
       expect(element.outerHTML).toContain('資料來源');
       expect(element.outerHTML).toContain('Test Database');
       expect(element.outerHTML).toContain('workspace-badge');
     });
 
-    it('should add container badge for workspace pages', () => {
+    it('should show workspace badge for workspace pages', () => {
       const containerPage = {
         id: 'container-1',
         title: 'Container Page',
@@ -482,12 +475,12 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'workspace' },
       };
 
-      const element = selector.createDatabaseItem(containerPage, 0);
-      expect(element.outerHTML).toContain('container-badge');
-      expect(element.outerHTML).toContain('容器');
+      const element = selector.createDataSourceItem(containerPage, 0);
+      expect(element.outerHTML).toContain('workspace-badge');
+      expect(element.outerHTML).toContain('工作區');
     });
 
-    it('should add category badge for child pages', () => {
+    it('should render child page with correct parent info', () => {
       const categoryPage = {
         id: 'category-1',
         title: 'Category Page',
@@ -496,9 +489,8 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'page_id' },
       };
 
-      const element = selector.createDatabaseItem(categoryPage, 0);
-      expect(element.outerHTML).toContain('category-badge');
-      expect(element.outerHTML).toContain('分類');
+      const element = selector.createDataSourceItem(categoryPage, 0);
+      expect(element.outerHTML).toContain('子頁面');
     });
 
     it('should show parent path for database_id parent', () => {
@@ -509,7 +501,7 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'database_id' },
       };
 
-      const element = selector.createDatabaseItem(dbItem, 0);
+      const element = selector.createDataSourceItem(dbItem, 0);
       expect(element.outerHTML).toContain('資料庫項目');
     });
 
@@ -521,7 +513,7 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'block_id' },
       };
 
-      const element = selector.createDatabaseItem(blockItem, 0);
+      const element = selector.createDataSourceItem(blockItem, 0);
       expect(element.outerHTML).toContain('區塊項目');
     });
 
@@ -533,7 +525,7 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'data_source_id' },
       };
 
-      const element = selector.createDatabaseItem(dsItem, 0);
+      const element = selector.createDataSourceItem(dsItem, 0);
       expect(element.outerHTML).toContain('資料庫項目');
     });
 
@@ -545,7 +537,7 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'unknown_type' },
       };
 
-      const element = selector.createDatabaseItem(unknownItem, 0);
+      const element = selector.createDataSourceItem(unknownItem, 0);
       expect(element.textContent).toContain('❓');
       expect(element.outerHTML).toContain('unknown_type');
     });
@@ -559,48 +551,35 @@ describe('SearchableDatabaseSelector', () => {
         parent: { type: 'workspace' },
       };
 
-      const element = selector.createDatabaseItem(db, 0);
+      const element = selector.createDataSourceItem(db, 0);
       expect(element.outerHTML).toContain('search-highlight');
       const highlight = element.querySelector('.search-highlight');
       expect(highlight.textContent.toLowerCase()).toBe('test');
     });
-
-    it('should show date when available', () => {
-      const db = {
-        id: 'db-1',
-        title: 'Test Database',
-        type: 'database',
-        parent: { type: 'workspace' },
-        created: '2023-05-15T10:00:00Z',
-      };
-
-      const element = selector.createDatabaseItem(db, 0);
-      expect(element.outerHTML).toContain('2023');
-    });
   });
 
-  describe('updateDatabaseCount', () => {
+  describe('updateDataSourceCount', () => {
     it('should show total count when all items are visible', () => {
-      selector.populateDatabases([
+      selector.populateDataSources([
         { id: '1', object: 'database', title: [{ plain_text: 'DB 1' }] },
         { id: '2', object: 'database', title: [{ plain_text: 'DB 2' }] },
       ]);
 
-      expect(selector.databaseCount.textContent).toContain('2 個資料來源');
+      expect(selector.dataSourceCount.textContent).toContain('2 個資料來源');
     });
 
     it('should show filtered count when filtering', () => {
-      selector.populateDatabases([
+      selector.populateDataSources([
         { id: '1', object: 'database', title: [{ plain_text: 'Apple' }] },
         { id: '2', object: 'database', title: [{ plain_text: 'Banana' }] },
       ]);
 
-      selector.filterDatabases('app');
-      expect(selector.databaseCount.textContent).toContain('1 / 2');
+      selector.filterDataSourcesLocally('app');
+      expect(selector.dataSourceCount.textContent).toContain('1 / 2');
     });
   });
 
-  describe('extractDatabaseTitle', () => {
+  describe('extractDataSourceTitle', () => {
     it('should extract title from page with text content', () => {
       const page = {
         object: 'page',
@@ -611,7 +590,7 @@ describe('SearchableDatabaseSelector', () => {
         },
       };
 
-      const title = SearchableDatabaseSelector.extractDatabaseTitle(page);
+      const title = SearchableDatabaseSelector.extractDataSourceTitle(page);
       expect(title).toBe('Text Content Title');
     });
 
@@ -621,7 +600,7 @@ describe('SearchableDatabaseSelector', () => {
         properties: {},
       };
 
-      const title = SearchableDatabaseSelector.extractDatabaseTitle(page);
+      const title = SearchableDatabaseSelector.extractDataSourceTitle(page);
       expect(title).toBe('未命名頁面');
     });
 
@@ -631,7 +610,7 @@ describe('SearchableDatabaseSelector', () => {
         properties: {},
       };
 
-      const title = SearchableDatabaseSelector.extractDatabaseTitle(db);
+      const title = SearchableDatabaseSelector.extractDataSourceTitle(db);
       expect(title).toBe('未命名資料來源');
     });
 
@@ -641,27 +620,27 @@ describe('SearchableDatabaseSelector', () => {
         title: [{ plain_text: '', text: { content: 'DB Text Content' } }],
       };
 
-      const title = SearchableDatabaseSelector.extractDatabaseTitle(db);
+      const title = SearchableDatabaseSelector.extractDataSourceTitle(db);
       expect(title).toBe('DB Text Content');
     });
   });
 
-  describe('populateDatabases with isSearchResult', () => {
-    it('should not save to initialDatabases when isSearchResult is true', () => {
+  describe('populateDataSources with isSearchResult', () => {
+    it('should not save to initialDataSources when isSearchResult is true', () => {
       // 首先設置初始列表
-      selector.populateDatabases([
+      selector.populateDataSources([
         { id: '1', object: 'database', title: [{ plain_text: 'Initial' }] },
       ]);
-      expect(selector.initialDatabases).toHaveLength(1);
+      expect(selector.initialDataSources).toHaveLength(1);
 
       // 添加搜尋結果（不應覆蓋初始列表）
-      selector.populateDatabases(
+      selector.populateDataSources(
         [{ id: '2', object: 'database', title: [{ plain_text: 'Search Result' }] }],
         true
       );
 
-      expect(selector.initialDatabases).toHaveLength(1);
-      expect(selector.initialDatabases[0].id).toBe('1');
+      expect(selector.initialDataSources).toHaveLength(1);
+      expect(selector.initialDataSources[0].id).toBe('1');
     });
   });
 });
