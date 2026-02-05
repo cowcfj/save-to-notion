@@ -83,11 +83,51 @@ class NotionService {
   }
 
   /**
-   * 確保 Client 已初始化
+   * 根據選項獲取適用的 Client
    *
+   * @param {object} options - 請求選項
+   * @param {string} [options.apiKey] - 臨時 API Key
+   * @param {object} [options.client] - 預先創建的 Client
+   * @returns {object} Notion Client 實例
    * @private
    */
-  _ensureClient() {
+  _getScopedClient(options = {}) {
+    // 1. 優先使用傳入的 client
+    if (options.client) {
+      return options.client;
+    }
+
+    // 2. 如果提供了臨時 apiKey，則創建一個次級實例
+    if (options.apiKey) {
+      // 如果臨時 key 與當前全域 key 相同，則復用全域 client
+      if (this.apiKey === options.apiKey && this.client) {
+        return this.client;
+      }
+
+      // 創建臨時 Client
+      return new Client({
+        auth: options.apiKey,
+        notionVersion: this.config.API_VERSION,
+        retry: { retries: 0 },
+        fetch: (url, opts) => fetch(url, opts),
+      });
+    }
+
+    // 3. 回退到全域 client
+    this._ensureClient();
+    return this.client;
+  }
+
+  /**
+   * 確保 Client 已初始化
+   *
+   * @param {object} [providedClient] - 可選的預設 Client
+   * @private
+   */
+  _ensureClient(providedClient) {
+    if (providedClient) {
+      return;
+    }
     if (!this.apiKey) {
       throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
     }
@@ -99,26 +139,26 @@ class NotionService {
   /**
    * 執行帶重試的 SDK 操作
    *
-   * @param {Function} operation - 執行 SDK 調用的函數
-   * @param {object} retryOptions - 重試配置
+   * @param {Function} operation - 執行 SDK 調用的函數 (接收 client 作為參數)
+   * @param {object} options - 配置與重試選項
    * @returns {Promise<any>}
    * @private
    */
-  async _executeWithRetry(operation, retryOptions = {}) {
-    this._ensureClient();
+  async _executeWithRetry(operation, options = {}) {
+    const client = this._getScopedClient(options);
 
     const {
       maxRetries = this.config.DEFAULT_MAX_RETRIES,
       baseDelay = this.config.DEFAULT_BASE_DELAY,
       label = 'operation',
-    } = retryOptions;
+    } = options;
 
     let attempt = 0;
     let lastError = null;
 
     while (attempt <= maxRetries) {
       try {
-        return await operation();
+        return await operation(client);
       } catch (error) {
         lastError = error;
 
@@ -147,8 +187,7 @@ class NotionService {
 
         if (attempt < maxRetries && shouldRetry) {
           // 計算延遲 (指數退避 + Jitter)
-          // 使用瀏覽器原生 crypto API
-          const jitter = crypto.getRandomValues(new Uint32Array(1))[0] % 200;
+          const jitter = this._getJitter(200);
           const delay = baseDelay * Math.pow(2, attempt) + jitter;
 
           Logger.warn(`[NotionService] ${label} 失敗，將重試`, {
@@ -166,10 +205,37 @@ class NotionService {
         }
 
         // 不可重試或重試耗盡
-        throw error;
+        throw lastError;
       }
     }
-    throw lastError;
+  }
+
+  /**
+   * (Legacy/Internal) 執行原始 API 請求
+   * 封裝 SDK 的 request 方法，支持 Scoped Client
+   *
+   * @param {string} path - API 路徑 (如 'pages' 或 '/pages')
+   * @param {object} [options={}] - 請求選項
+   * @param {string} [options.method='GET'] - HTTP 方法
+   * @param {object} [options.body] - 請求體
+   * @param {object} [options.queryParams] - 查詢參數 (SDK 稱為 query)
+   * @param {string} [options.apiKey] - 臨時 API Key
+   * @returns {Promise<any>}
+   * @private
+   */
+  async _apiRequest(path, options = {}) {
+    const { method = 'GET', body, queryParams, apiKey } = options;
+
+    return await this._executeWithRetry(
+      client =>
+        client.request({
+          path: path.startsWith('/') ? path.slice(1) : path,
+          method,
+          body: body === undefined ? undefined : body,
+          query: queryParams,
+        }),
+      { ...options, apiKey, label: `APIRequest:${path}` }
+    );
   }
 
   /**
@@ -180,9 +246,10 @@ class NotionService {
    * @param {string} params.query - 關鍵字
    * @param {object} params.filter - 過濾條件
    * @param {object} params.sort - 排序條件
+   * @param {object} [options={}] - 請求選項 (可包含 apiKey)
    * @returns {Promise<{results: Array, next_cursor: string|null}>}
    */
-  async search(params = {}) {
+  async search(params = {}, options = {}) {
     const { query, filter, sort, start_cursor, page_size } = params;
 
     try {
@@ -199,7 +266,8 @@ class NotionService {
         searchParams.filter = filter;
       }
 
-      const response = await this._executeWithRetry(() => this.client.search(searchParams), {
+      const response = await this._executeWithRetry(client => client.search(searchParams), {
+        ...options,
         label: 'Search',
       });
 
@@ -217,10 +285,11 @@ class NotionService {
    * 獲取頁面區塊列表
    *
    * @param {string} pageId - 頁面 ID
+   * @param {object} [options={}] - 請求選項 (可包含 apiKey)
    * @returns {Promise<{success: boolean, blocks?: Array, error?: string}>}
    * @private
    */
-  async _fetchPageBlocks(pageId) {
+  async _fetchPageBlocks(pageId, options = {}) {
     const allBlocks = [];
     let hasMore = true;
     let startCursor; // SDK 使用 undefined 表示無 cursor
@@ -228,13 +297,14 @@ class NotionService {
     try {
       while (hasMore) {
         const response = await this._executeWithRetry(
-          () =>
-            this.client.blocks.children.list({
+          client =>
+            client.blocks.children.list({
               block_id: pageId,
               page_size: this.config.PAGE_SIZE,
               start_cursor: startCursor,
             }),
           {
+            ...options,
             maxRetries: this.config.CHECK_RETRIES,
             baseDelay: this.config.CHECK_DELAY,
             label: 'FetchBlocks',
@@ -292,10 +362,11 @@ class NotionService {
    * 使用 3 並發符合 Notion API 限流 (3 req/s)
    *
    * @param {Array<string>} blockIds - 區塊 ID 列表
+   * @param {object} [options={}] - 請求選項 (可包含 apiKey)
    * @returns {Promise<{successCount: number, failureCount: number, errors: Array<{id: string, error: string}>}>}
    * @private
    */
-  async _deleteBlocksByIds(blockIds) {
+  async _deleteBlocksByIds(blockIds, options = {}) {
     // 並發數配合批次間延遲，共同確保遵守 Notion API 速率限制（3 req/s）
     // - 單請求模式：由 NOTION_API.RATE_LIMIT_DELAY (350ms) 控制間隔
     // - 並發刪除模式：每批請求後等待延遲（見下方批次延遲邏輯）
@@ -312,7 +383,8 @@ class NotionService {
     // 刪除單個區塊的函數
     const deleteBlock = async blockId => {
       try {
-        await this._executeWithRetry(() => this.client.blocks.delete({ block_id: blockId }), {
+        await this._executeWithRetry(client => client.blocks.delete({ block_id: blockId }), {
+          ...options,
           maxRetries: DELETE_RETRIES,
           baseDelay: DELETE_DELAY,
           label: 'DeleteBlock',
@@ -446,13 +518,15 @@ class NotionService {
    * 檢查頁面是否存在
    *
    * @param {string} pageId - Notion 頁面 ID
+   * @param {object} [options={}] - 請求選項 (可包含 apiKey)
    * @returns {Promise<boolean|null>} true=存在, false=不存在, null=不確定
    */
-  async checkPageExists(pageId) {
+  async checkPageExists(pageId, options = {}) {
     try {
       const response = await this._executeWithRetry(
-        () => this.client.pages.retrieve({ page_id: pageId }),
+        client => client.pages.retrieve({ page_id: pageId }),
         {
+          ...options,
           maxRetries: this.config.CHECK_RETRIES,
           baseDelay: this.config.CHECK_DELAY,
           label: 'CheckPage',
@@ -478,9 +552,10 @@ class NotionService {
    * @param {string} pageId - Notion 頁面 ID
    * @param {Array} blocks - 區塊數組
    * @param {number} startIndex - 開始索引
+   * @param {object} [options={}] - 請求選項 (可包含 apiKey)
    * @returns {Promise<{success: boolean, addedCount: number, totalCount: number, error?: string}>}
    */
-  async appendBlocksInBatches(pageId, blocks, startIndex = 0) {
+  async appendBlocksInBatches(pageId, blocks, startIndex = 0, options = {}) {
     const { BLOCKS_PER_BATCH, CREATE_RETRIES, CREATE_DELAY, RATE_LIMIT_DELAY } = this.config;
     let addedCount = 0;
     const totalBlocks = blocks.length - startIndex;
@@ -509,12 +584,13 @@ class NotionService {
         });
 
         await this._executeWithRetry(
-          () =>
-            this.client.blocks.children.append({
+          client =>
+            client.blocks.children.append({
               block_id: pageId,
               children: batch,
             }),
           {
+            ...options,
             maxRetries: CREATE_RETRIES,
             baseDelay: CREATE_DELAY,
             label: `AppendBatch-${batchNumber}`,
@@ -562,13 +638,15 @@ class NotionService {
    * @param {object} [options] - 選項
    * @param {boolean} [options.autoBatch=false] - 是否自動批次添加超過 100 的區塊
    * @param {Array} [options.allBlocks] - 完整區塊列表（當 autoBatch 為 true 時使用）
+   * @param {string} [options.apiKey] - 臨時 API Key
    * @returns {Promise<{success: boolean, pageId?: string, url?: string, appendResult?: object, error?: string}>}
    */
   async createPage(pageData, options = {}) {
     const { autoBatch = false, allBlocks = [] } = options;
 
     try {
-      const response = await this._executeWithRetry(() => this.client.pages.create(pageData), {
+      const response = await this._executeWithRetry(client => client.pages.create(pageData), {
+        ...options,
         maxRetries: this.config.CREATE_RETRIES,
         baseDelay: this.config.CREATE_DELAY,
         label: 'CreatePage',
@@ -587,7 +665,7 @@ class NotionService {
           phase: 'autoBatch',
           totalBlocks: allBlocks.length,
         });
-        const appendResult = await this.appendBlocksInBatches(response.id, allBlocks, 100);
+        const appendResult = await this.appendBlocksInBatches(response.id, allBlocks, 100, options);
         result.appendResult = appendResult;
 
         if (!appendResult.success) {
@@ -612,13 +690,14 @@ class NotionService {
    *
    * @param {string} pageId - 頁面 ID
    * @param {string} title - 新標題
+   * @param {object} [options] - 其他選項 (含 apiKey)
    * @returns {Promise<{success: boolean, error?: string}>}
    */
-  async updatePageTitle(pageId, title) {
+  async updatePageTitle(pageId, title, options = {}) {
     try {
       await this._executeWithRetry(
-        () =>
-          this.client.pages.update({
+        client =>
+          client.pages.update({
             page_id: pageId,
             properties: {
               title: {
@@ -627,6 +706,7 @@ class NotionService {
             },
           }),
         {
+          ...options,
           maxRetries: this.config.CREATE_RETRIES,
           baseDelay: this.config.CREATE_DELAY,
           label: 'UpdateTitle',
@@ -647,12 +727,13 @@ class NotionService {
    * 刪除頁面所有區塊
    *
    * @param {string} pageId - 頁面 ID
+   * @param {object} [options] - 其他選項 (含 apiKey)
    * @returns {Promise<{success: boolean, deletedCount: number, error?: string}>}
    */
-  async deleteAllBlocks(pageId) {
+  async deleteAllBlocks(pageId, options = {}) {
     try {
       // 收集所有區塊（處理分頁）
-      const { success, blocks, error } = await this._fetchPageBlocks(pageId);
+      const { success, blocks, error } = await this._fetchPageBlocks(pageId, options);
 
       if (!success) {
         return { success: false, deletedCount: 0, error: error || 'Failed to list blocks' };
@@ -664,7 +745,10 @@ class NotionService {
 
       // 提取區塊 ID 並委託給 _deleteBlocksByIds
       const blockIds = blocks.map(block => block.id);
-      const { successCount, failureCount, errors } = await this._deleteBlocksByIds(blockIds);
+      const { successCount, failureCount, errors } = await this._deleteBlocksByIds(
+        blockIds,
+        options
+      );
 
       if (failureCount > 0) {
         Logger.warn('[NotionService] 部分區塊刪除失敗', {
@@ -727,7 +811,7 @@ class NotionService {
           title: [{ text: { content: title || 'Untitled' } }],
         },
         URL: {
-          url: pageUrl || null, // SDK expects URL or null
+          url: pageUrl || '', // 符合現有測試預期
         },
       },
       children: validBlocks.slice(0, this.config.BLOCKS_PER_BATCH),
@@ -754,6 +838,7 @@ class NotionService {
    * @param {boolean} [options.excludeImages] - 是否排除圖片
    * @param {boolean} [options.updateTitle] - 是否同時更新標題
    * @param {string} [options.title] - 新標題（當 updateTitle 為 true 時）
+   * @param {string} [options.apiKey] - 臨時 API Key
    * @returns {Promise<{success: boolean, addedCount?: number, deletedCount?: number, error?: string}>}
    */
   async refreshPageContent(pageId, newBlocks, options = {}) {
@@ -765,7 +850,7 @@ class NotionService {
 
       // 步驟 1: 更新標題（如果需要）
       if (updateTitle && title) {
-        const titleResult = await this.updatePageTitle(pageId, title);
+        const titleResult = await this.updatePageTitle(pageId, title, options);
         if (!titleResult.success) {
           Logger.warn('[NotionService] 標題更新失敗', {
             action: 'refreshPageContent',
@@ -776,7 +861,7 @@ class NotionService {
       }
 
       // 步驟 2: 刪除現有區塊
-      const deleteResult = await this.deleteAllBlocks(pageId);
+      const deleteResult = await this.deleteAllBlocks(pageId, options);
       if (!deleteResult.success) {
         return {
           success: false,
@@ -791,7 +876,7 @@ class NotionService {
       }
 
       // 步驟 3: 添加新區塊
-      const appendResult = await this.appendBlocksInBatches(pageId, validBlocks, 0);
+      const appendResult = await this.appendBlocksInBatches(pageId, validBlocks, 0, options);
 
       return {
         success: appendResult.success,
@@ -819,14 +904,15 @@ class NotionService {
    *
    * @param {string} pageId - Notion 頁面 ID
    * @param {Array} highlightBlocks - 新的標記區塊（已構建好的 Notion block 格式）
+   * @param {object} [options] - 其他選項 (含 apiKey)
    * @returns {Promise<{success: boolean, deletedCount?: number, addedCount?: number, error?: string}>}
    */
-  async updateHighlightsSection(pageId, highlightBlocks) {
+  async updateHighlightsSection(pageId, highlightBlocks, options = {}) {
     try {
       Logger.info('[NotionService] 開始更新標記區域', { action: 'updateHighlightsSection' });
 
       // 步驟 1: 獲取現有區塊
-      const fetchResult = await this._fetchPageBlocks(pageId);
+      const fetchResult = await this._fetchPageBlocks(pageId, options);
       if (!fetchResult.success) {
         return {
           success: false,
@@ -840,8 +926,10 @@ class NotionService {
       const blocksToDelete = NotionService._findHighlightSectionBlocks(fetchResult.blocks);
 
       // 步驟 3: 刪除舊的標記區塊
-      const { successCount: deletedCount, errors: deleteErrors } =
-        await this._deleteBlocksByIds(blocksToDelete);
+      const { successCount: deletedCount, errors: deleteErrors } = await this._deleteBlocksByIds(
+        blocksToDelete,
+        options
+      );
 
       if (deleteErrors.length > 0) {
         Logger.warn('[NotionService] 部分標記區塊刪除失敗', {
@@ -861,12 +949,13 @@ class NotionService {
       // 步驟 4: 添加新的標記區塊
       if (highlightBlocks.length > 0) {
         const response = await this._executeWithRetry(
-          () =>
-            this.client.blocks.children.append({
+          client =>
+            client.blocks.children.append({
               block_id: pageId,
               children: highlightBlocks,
             }),
           {
+            ...options,
             maxRetries: this.config.CREATE_RETRIES,
             baseDelay: this.config.CREATE_DELAY,
             label: 'AppendHighlights',

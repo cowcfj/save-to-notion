@@ -8,7 +8,6 @@
 
 /* global chrome, Logger */
 
-import { normalizeUrl } from '../../utils/urlUtils.js';
 import {
   validateInternalRequest,
   validateContentScriptRequest,
@@ -33,26 +32,24 @@ import { ERROR_MESSAGES } from '../../config/messages.js';
 async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const activeTab = tabs[0];
-  if (!activeTab || !activeTab.id) {
+  if (!activeTab?.id) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   }
   return activeTab;
 }
 
 /**
- * 獲取並設置 Notion API Key
+ * 獲取獲 Notion API Key
  *
  * @param {StorageService} storageService
- * @param {NotionService} notionService
  * @returns {Promise<string>} API Key
  * @throws {Error} 如果 API Key 未設置
  */
-async function ensureNotionApiKey(storageService, notionService) {
+async function ensureNotionApiKey(storageService) {
   const config = await storageService.getConfig(['notionApiKey']);
   if (!config.notionApiKey) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
-  notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
 }
 /**
@@ -108,9 +105,9 @@ export function createHighlightHandlers(services) {
     /**
      * 處理用戶快捷鍵激活（來自 Preloader）
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
      */
     USER_ACTIVATE_SHORTCUT: async (request, sender, sendResponse) => {
       try {
@@ -129,7 +126,7 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        if (!sender.tab || !sender.tab.id) {
+        if (!sender.tab?.id) {
           Logger.warn('缺少標籤頁上下文', { action: 'USER_ACTIVATE_SHORTCUT' });
           sendResponse({ success: false, error: 'No tab context' });
           return;
@@ -216,9 +213,9 @@ export function createHighlightHandlers(services) {
     /**
      * 啟動/切換高亮工具
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
      */
     startHighlight: async (request, sender, sendResponse) => {
       try {
@@ -293,21 +290,18 @@ export function createHighlightHandlers(services) {
     /**
      * 更新現有頁面的標註
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
      */
     updateHighlights: async (request, sender, sendResponse) => {
       try {
         const activeTab = await getActiveTab();
 
-        await ensureNotionApiKey(storageService, notionService);
+        const url = activeTab.url || '';
+        const savedData = await storageService.getSavedPageData(url);
 
-        const normalize = normalizeUrl || (url => url);
-        const normUrl = normalize(activeTab.url || '');
-        const savedData = await storageService.getSavedPageData(normUrl);
-
-        if (!savedData || !savedData.notionPageId) {
+        if (!savedData?.notionPageId) {
           sendResponse({
             success: false,
             error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
@@ -320,10 +314,12 @@ export function createHighlightHandlers(services) {
         // 轉換標記為 Blocks
         const highlightBlocks = buildHighlightBlocks(highlights);
 
-        // 調用 NotionService 更新標記
+        // 調用 NotionService 更新標記 (以無狀態方式傳遞 apiKey)
+        const apiKey = await ensureNotionApiKey(storageService);
         const result = await notionService.updateHighlightsSection(
           savedData.notionPageId,
-          highlightBlocks
+          highlightBlocks,
+          { apiKey }
         );
 
         if (result.success) {
@@ -341,21 +337,18 @@ export function createHighlightHandlers(services) {
     /**
      * 同步標註 (從請求 payload 中獲取)
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
      */
     syncHighlights: async (request, sender, sendResponse) => {
       try {
         const activeTab = await getActiveTab();
 
-        await ensureNotionApiKey(storageService, notionService);
+        const url = activeTab.url || '';
+        const savedData = await storageService.getSavedPageData(url);
 
-        const normalize = normalizeUrl || (url => url);
-        const normUrl = normalize(activeTab.url || '');
-        const savedData = await storageService.getSavedPageData(normUrl);
-
-        if (!savedData || !savedData.notionPageId) {
+        if (!savedData?.notionPageId) {
           sendResponse({
             success: false,
             error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
@@ -364,12 +357,6 @@ export function createHighlightHandlers(services) {
         }
 
         const highlights = request.highlights || [];
-        Logger.log('準備同步標註到頁面', {
-          action: 'syncHighlights',
-          count: highlights.length,
-          pageId: savedData.notionPageId ? `${savedData.notionPageId.slice(0, 4)}***` : 'unknown',
-        });
-
         if (highlights.length === 0) {
           sendResponse({
             success: true,
@@ -382,10 +369,12 @@ export function createHighlightHandlers(services) {
         // 轉換標記為 Blocks
         const highlightBlocks = buildHighlightBlocks(highlights);
 
-        // 調用 NotionService 更新標記
+        // 調用 NotionService 更新標記 (以無狀態方式傳遞 apiKey)
+        const apiKey = await ensureNotionApiKey(storageService);
         const result = await notionService.updateHighlightsSection(
           savedData.notionPageId,
-          highlightBlocks
+          highlightBlocks,
+          { apiKey }
         );
 
         if (result.success) {

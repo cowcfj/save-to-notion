@@ -22,19 +22,14 @@ export function createNotionHandlers({ notionService }) {
       try {
         const { query, filter, sort, apiKey } = request;
 
-        // 如果提供了臨時 API Key，則更新 Service
-        // 注意：這會影響全域 Service 狀態，但在 Options 頁面配置場景下通常是預期的
-        if (apiKey) {
-          notionService.setApiKey(apiKey);
-        }
-
         const params = {
           query,
           filter,
           sort,
         };
 
-        const result = await notionService.search(params);
+        // 以無狀態方式執行搜索，如果提供了 apiKey 則覆蓋全域配置
+        const result = await notionService.search(params, { apiKey });
         sendResponse({ success: true, data: result });
       } catch (error) {
         const safeMessage = sanitizeApiError(error, 'search_notion');

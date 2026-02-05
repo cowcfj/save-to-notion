@@ -41,19 +41,17 @@ async function getActiveTab() {
 }
 
 /**
- * 獲取並設置 Notion API Key
+ * 獲取獲 Notion API Key
  *
  * @param {StorageService} storageService
- * @param {NotionService} notionService
  * @returns {Promise<string>} API Key
  * @throws {Error} 如果 API Key 未設置
  */
-async function ensureNotionApiKey(storageService, notionService) {
+async function ensureNotionApiKey(storageService) {
   const config = await storageService.getConfig(['notionApiKey']);
   if (!config.notionApiKey) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
-  notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
 }
 /**
@@ -139,6 +137,7 @@ export function createSaveHandlers(services) {
     let result = await notionService.createPage(pageData, {
       autoBatch: true,
       allBlocks: validBlocks,
+      apiKey: params.apiKey,
     });
 
     // 失敗重試邏輯：如果是圖片驗證錯誤
@@ -158,6 +157,7 @@ export function createSaveHandlers(services) {
       result = await notionService.createPage(rebuild.pageData, {
         autoBatch: true,
         allBlocks: rebuild.validBlocks,
+        apiKey: params.apiKey,
       });
     }
 
@@ -195,7 +195,8 @@ export function createSaveHandlers(services) {
       const highlightBlocks = buildBlocks(highlights);
       const result = await notionService.updateHighlightsSection(
         savedData.notionPageId,
-        highlightBlocks
+        highlightBlocks,
+        { apiKey: params.apiKey }
       );
 
       if (result.success) {
@@ -218,7 +219,7 @@ export function createSaveHandlers(services) {
       const result = await notionService.refreshPageContent(
         savedData.notionPageId,
         contentResult.blocks,
-        { updateTitle: true, title: contentResult.title }
+        { updateTitle: true, title: contentResult.title, apiKey: params.apiKey }
       );
 
       if (result.success) {
@@ -259,7 +260,9 @@ export function createSaveHandlers(services) {
 
     // 已有保存記錄：檢查頁面是否仍存在
     if (savedData?.notionPageId) {
-      const pageExists = await notionService.checkPageExists(savedData.notionPageId);
+      const pageExists = await notionService.checkPageExists(savedData.notionPageId, {
+        apiKey: params.apiKey,
+      });
 
       if (pageExists === null) {
         Logger.warn('無法確認 Notion 頁面存在性', {
@@ -290,6 +293,7 @@ export function createSaveHandlers(services) {
           dataSourceId,
           dataSourceType,
           contentResult,
+          apiKey: params.apiKey,
         });
 
         if (result.success) {
@@ -303,6 +307,7 @@ export function createSaveHandlers(services) {
         dataSourceId,
         dataSourceType,
         contentResult,
+        apiKey: params.apiKey,
       });
       sendResponse(result);
     }
@@ -376,8 +381,7 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        // 重要：設置 Service 的 API Key
-        notionService.setApiKey(config.notionApiKey);
+        const apiKey = config.notionApiKey;
 
         const normalize = normalizeUrl || (url => url);
         const normUrl = normalize(activeTab.url || '');
@@ -431,6 +435,7 @@ export function createSaveHandlers(services) {
           dataSourceType,
           contentResult,
           highlights,
+          apiKey,
           activeTabId: activeTab.id,
           sendResponse,
         });
@@ -559,9 +564,9 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        await ensureNotionApiKey(storageService, notionService);
+        const apiKey = await ensureNotionApiKey(storageService);
 
-        const exists = await notionService.checkPageExists(pageId);
+        const exists = await notionService.checkPageExists(pageId, { apiKey });
         sendResponse({ success: true, exists });
       } catch (error) {
         const safeMessage = sanitizeApiError(error, 'check_page_exists');
@@ -610,8 +615,8 @@ export function createSaveHandlers(services) {
           });
         }
 
-        notionService.setApiKey(config.notionApiKey);
-        let exists = await notionService.checkPageExists(savedData.notionPageId);
+        const apiKey = config.notionApiKey;
+        let exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
 
         if (exists === null) {
           Logger.warn('首次檢查頁面存在性失敗，正在重試', {
@@ -619,7 +624,7 @@ export function createSaveHandlers(services) {
             pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
           });
           await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
-          exists = await notionService.checkPageExists(savedData.notionPageId);
+          exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
         }
 
         if (exists === false) {
@@ -669,10 +674,8 @@ export function createSaveHandlers(services) {
         const message = request.message || '';
         const args = Array.isArray(request.args) ? request.args : [];
 
-        // 1. 輸出到 Background Console (方便即時調試)
-        // 使用 console 直接輸出避免再次觸發 writeToBuffer (避免雙重記錄)
-        // 但我們仍希望保留它的格式化輸出
-        const logMethod = console[level] || console.log;
+        // 1. 輸出到日誌系統 (Logger 會處理緩衝與層級)
+        const logMethod = Logger[level] || Logger.log;
         logMethod(`[ClientLog] ${message}`, ...args);
 
         // 2. 寫入 LogBuffer (保留原始時間戳與來源)
