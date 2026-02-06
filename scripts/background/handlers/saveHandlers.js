@@ -22,8 +22,6 @@ import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 
-const safeNormalizeUrl = normalizeUrl;
-
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
 // ============================================================================
@@ -78,6 +76,21 @@ export function processContentResult(rawResult, highlights) {
   }
 
   return { title, blocks, siteIcon };
+}
+
+/**
+ * 統一處理錯誤回應
+ *
+ * @param {object} result - 操作結果
+ * @param {Function} sendResponse - 回應函數
+ */
+function sendErrorResponse(result, sendResponse) {
+  const userMessage = ErrorHandler.formatUserMessage(result.error);
+  const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
+  sendResponse({
+    ...result,
+    error: `${userMessage}${phaseInfo}`,
+  });
 }
 
 // ============================================================================
@@ -211,12 +224,7 @@ export function createSaveHandlers(services) {
         });
         sendResponse(result);
       } else {
-        const userMessage = ErrorHandler.formatUserMessage(result.error);
-        const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
-        sendResponse({
-          ...result,
-          error: `${userMessage}${phaseInfo}`,
-        });
+        sendErrorResponse(result, sendResponse);
       }
     } else {
       const result = await notionService.refreshPageContent(
@@ -235,12 +243,7 @@ export function createSaveHandlers(services) {
         });
         sendResponse(result);
       } else {
-        const userMessage = ErrorHandler.formatUserMessage(result.error);
-        const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
-        sendResponse({
-          ...result,
-          error: `${userMessage}${phaseInfo}`,
-        });
+        sendErrorResponse(result, sendResponse);
       }
     }
   }
@@ -303,8 +306,7 @@ export function createSaveHandlers(services) {
           result.recreated = true;
           sendResponse(result);
         } else {
-          const userMessage = ErrorHandler.formatUserMessage(result.error);
-          sendResponse({ ...result, error: userMessage });
+          sendErrorResponse(result, sendResponse);
         }
       }
     } else {
@@ -318,8 +320,7 @@ export function createSaveHandlers(services) {
       if (result.success) {
         sendResponse(result);
       } else {
-        const userMessage = ErrorHandler.formatUserMessage(result.error);
-        sendResponse({ ...result, error: userMessage });
+        sendErrorResponse(result, sendResponse);
       }
     }
   }
@@ -393,7 +394,7 @@ export function createSaveHandlers(services) {
 
         const apiKey = config.notionApiKey;
 
-        const normUrl = safeNormalizeUrl(activeTab.url || '');
+        const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         // 注入 highlighter 並收集標記
@@ -487,7 +488,7 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const normUrl = safeNormalizeUrl(pageUrl);
+        const normUrl = normalizeUrl(pageUrl);
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {
@@ -606,7 +607,7 @@ export function createSaveHandlers(services) {
         }
 
         const activeTab = await getActiveTab();
-        const normUrl = safeNormalizeUrl(activeTab.url || '');
+        const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {

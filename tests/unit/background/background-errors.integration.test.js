@@ -98,7 +98,7 @@ describe('background error branches (integration)', () => {
 
   // 統一錯誤匹配模式，避免過於寬泛的 "失敗" 匹配
   const API_ERROR_REGEX =
-    /Invalid request|請求無效|無法解析頁面內容|Notion API 請求失敗|發生未知錯誤|操作失敗|網路錯誤/u;
+    /Invalid request|請求無效|無法解析頁面內容|Notion API 請求失敗|發生未知錯誤|操作失敗|網路錯誤|資料驗證失敗/u;
 
   beforeEach(() => {
     jest.resetModules();

@@ -158,6 +158,9 @@ const USER_MESSAGES = {
   CONTENT_TITLE_MISSING: '無法獲取頁面標題，請查看瀏覽器控制台。',
   CONTENT_BLOCKS_MISSING: '無法獲取頁面內容區塊，請查看瀏覽器控制台。',
 
+  // === API 請求驗證 ===
+  API_VALIDATION_FAILED: '資料驗證失敗，請確認設定正確後再試',
+
   // === API 認證與權限 ===
   INVALID_API_KEY_FORMAT: 'API Key 格式無效，請確認是否完整複製',
   DATABASE_ACCESS_DENIED: '無法存取此資料庫，請確認已授權擴展存取權限',
@@ -228,7 +231,7 @@ export const ERROR_MESSAGES = {
     'Page ID is missing': '無法識別頁面，請重回 Notion 頁面再試',
     'Page not saved': '頁面尚未保存，請先保存頁面',
     'Invalid request': USER_MESSAGES.CONTENT_PARSE_FAILED,
-    validation_error: USER_MESSAGES.CONTENT_PARSE_FAILED,
+    validation_error: USER_MESSAGES.API_VALIDATION_FAILED,
     notionhq_client_response_error: 'Notion API 請求失敗，請稍後再試',
 
     // Notion SDK 原始錯誤碼（直接來自 apiError.code）
