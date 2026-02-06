@@ -380,20 +380,23 @@ describe('TabService', () => {
 
     it('應該在超時後返回 null', async () => {
       jest.useFakeTimers();
-      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
+      try {
+        chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
 
-      const promise = service._waitForTabCompilation(1);
+        const promise = service._waitForTabCompilation(1);
 
-      // 讓 chrome.tabs.get 的 Promise resolve, 進入 _waitForTabCompilation 內部的 Promise 定義
-      await Promise.resolve();
-      await Promise.resolve();
+        // 讓 chrome.tabs.get 的 Promise resolve, 進入 _waitForTabCompilation 內部的 Promise 定義
+        await Promise.resolve();
+        await Promise.resolve();
 
-      jest.advanceTimersByTime(11_000); // 大於 10s
+        jest.advanceTimersByTime(11_000); // 大於 10s
 
-      const res = await promise;
-      expect(res).toBeNull();
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('timeout'));
-      jest.useRealTimers();
+        const res = await promise;
+        expect(res).toBeNull();
+        expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('timeout'));
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 

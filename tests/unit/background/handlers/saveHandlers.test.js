@@ -42,6 +42,8 @@ describe('saveHandlers', () => {
         checkPageExists: jest.fn(),
         createPage: jest.fn(),
         buildPageData: jest.fn(),
+        updateHighlightsSection: jest.fn(),
+        refreshPageContent: jest.fn(),
       },
       storageService: {
         getConfig: jest.fn(),
@@ -109,18 +111,171 @@ describe('saveHandlers', () => {
   });
 
   describe('Action Logic', () => {
+    // Shared setup for action tests
+    const validSender = {
+      id: 'test-extension-id',
+      origin: 'chrome-extension://test-extension-id',
+    };
+    const validContentScriptSender = {
+      id: 'test-extension-id',
+      tab: { id: 1 },
+      url: 'https://example.com',
+    };
+
+    beforeEach(() => {
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
+      // Default config
+      mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+        notionDataSourceId: 'db-123',
+      });
+      // Default extraction result
+      mockServices.pageContentService.extractContent.mockResolvedValue({
+        title: 'Test Page',
+        blocks: [],
+      });
+      // Default highlights
+      mockServices.injectionService.collectHighlights.mockResolvedValue([]);
+      // Default buildPageData
+      mockServices.notionService.buildPageData.mockReturnValue({
+        pageData: {},
+        validBlocks: [],
+      });
+    });
+
+    // ===== checkNotionPageExists Tests =====
     test('checkNotionPageExists 應在合法請求時調用 service', async () => {
       const sendResponse = jest.fn();
-      const sender = { id: 'test-extension-id' };
-      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
       mockServices.notionService.checkPageExists.mockResolvedValue(true);
 
-      await handlers.checkNotionPageExists({ pageId: 'page1' }, sender, sendResponse);
+      await handlers.checkNotionPageExists({ pageId: 'page1' }, validSender, sendResponse);
 
       expect(mockServices.notionService.checkPageExists).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, exists: true })
       );
+    });
+
+    // ===== savePage Tests =====
+    test('savePage: 新頁面應創建成功', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null); // No saved data
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.storageService.getConfig).toHaveBeenCalled();
+      expect(mockServices.injectionService.injectHighlighter).toHaveBeenCalled();
+      expect(mockServices.pageContentService.extractContent).toHaveBeenCalled();
+      expect(mockServices.notionService.createPage).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
+    test('savePage: 已有頁面且有新標註，應更新標註', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+      });
+      mockServices.notionService.checkPageExists.mockResolvedValue(true);
+      mockServices.injectionService.collectHighlights.mockResolvedValue([{ text: 'highlight' }]);
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.updateHighlightsSection).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ highlightsUpdated: true })
+      );
+    });
+
+    test('savePage: 已有頁面且無新標註，應刷新內容', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'existing-id',
+      });
+      mockServices.notionService.checkPageExists.mockResolvedValue(true);
+      mockServices.injectionService.collectHighlights.mockResolvedValue([]); // No highlights
+      mockServices.notionService.refreshPageContent.mockResolvedValue({ success: true });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.refreshPageContent).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
+    });
+
+    // ===== openNotionPage Tests =====
+    test('openNotionPage: 應該成功打開已保存的 Notion 頁面', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        notionUrl: 'https://notion.so/page-123',
+      });
+      // Mock chrome.tabs.create callback
+      chrome.tabs.create.mockImplementation((opts, callback) => {
+        if (callback) {
+          callback({ id: 99 });
+        }
+      });
+
+      await handlers.openNotionPage({ url: 'https://example.com' }, validSender, sendResponse);
+
+      expect(chrome.tabs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ url: 'https://notion.so/page-123' }),
+        expect.any(Function)
+      );
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    });
+
+    // ===== checkPageStatus Tests =====
+    test('checkPageStatus: 緩存有效時應直接返回各個狀態', async () => {
+      const sendResponse = jest.fn();
+      const validCacheTime = Date.now();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        lastVerifiedAt: validCacheTime,
+        title: 'Cached Title',
+      });
+
+      await handlers.checkPageStatus({}, validSender, sendResponse);
+
+      // Should verify calling checkPageExists is NOT called (cache hit)
+      expect(mockServices.notionService.checkPageExists).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, isSaved: true })
+      );
+    });
+
+    test('checkPageStatus: 緩存過期時應調用 API 檢查', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        lastVerifiedAt: 0, // Expired
+      });
+      mockServices.notionService.checkPageExists.mockResolvedValue(true);
+
+      await handlers.checkPageStatus({}, validSender, sendResponse);
+
+      expect(mockServices.notionService.checkPageExists).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, isSaved: true })
+      );
+    });
+
+    // ===== devLogSink Tests (Positive) =====
+    test('devLogSink: 應接受來自合法 content script 的請求並記錄日誌', () => {
+      const sendResponse = jest.fn();
+      const logData = { level: 'info', message: 'Test message form content script' };
+
+      handlers.devLogSink(logData, validContentScriptSender, sendResponse);
+
+      expect(Logger.info).toHaveBeenCalledWith(expect.stringContaining('[ClientLog] Test message'));
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
   });
 

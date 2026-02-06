@@ -152,7 +152,7 @@ describe('SearchableDatabaseSelector', () => {
     });
   });
 
-  describe('filterDatabases', () => {
+  describe('filterDataSourcesLocally', () => {
     const mockDatabases = [
       { id: '1', object: 'database', title: [{ plain_text: 'Apple' }] },
       { id: '2', object: 'database', title: [{ plain_text: 'Banana' }] },
@@ -185,7 +185,7 @@ describe('SearchableDatabaseSelector', () => {
     });
   });
 
-  describe('selectDatabase', () => {
+  describe('selectDataSource', () => {
     const db = { id: 'db1', title: 'Database 1', type: 'database' };
 
     it('should update inputs and UI on selection', () => {
@@ -204,7 +204,7 @@ describe('SearchableDatabaseSelector', () => {
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(false); // Empty list initially
 
-      selector.populateDataSources([{ id: '1', object: 'db', title: [] }]);
+      selector.populateDataSources([{ id: '1', object: 'database', title: [] }]);
       selector.toggleDropdown();
       expect(selector.isOpen).toBe(true);
       expect(selector.dropdown.style.display).toBe('block');
