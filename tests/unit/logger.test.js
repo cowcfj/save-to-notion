@@ -23,11 +23,9 @@ describe('Logger', () => {
 
     // 定義 Logger（模擬 utils.js 中的實現）
     globalThis.Logger = {
-      debug: jest.fn(),
       success: jest.fn(),
       start: jest.fn(),
       ready: jest.fn(),
-      info: jest.fn(),
       debug: (message, ...args) => {
         console.log(`[DEBUG] ${message}`, ...args);
       },

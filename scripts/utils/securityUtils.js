@@ -156,14 +156,7 @@ function _classifyApiError(lowerMessage) {
     return directMatch;
   }
 
-  // 2. 權限檢查 (Permission)
-  if (PERMISSION.some(k => lowerMessage.includes(k))) {
-    return PERMISSION_DB.some(k => lowerMessage.includes(k))
-      ? 'Database access denied'
-      : 'Cannot access contents';
-  }
-
-  // 3. 認證與權限 (Auth & Permission) - 作為較通用的分類放在後方
+  // 2. 認證與權限 (Auth & Permission) - 優先檢查
   const authResult = _checkAuthErrors(
     lowerMessage,
     AUTH,
@@ -173,6 +166,13 @@ function _classifyApiError(lowerMessage) {
   );
   if (authResult) {
     return authResult;
+  }
+
+  // 3. 權限檢查 (Permission)
+  if (PERMISSION.some(k => lowerMessage.includes(k))) {
+    return PERMISSION_DB.some(k => lowerMessage.includes(k))
+      ? 'Database access denied'
+      : 'Cannot access contents';
   }
 
   // 4. 服務器錯誤 (Server Error)
@@ -186,19 +186,31 @@ function _classifyApiError(lowerMessage) {
 // === 輔助函數 (降低 Cognitive Complexity) ===
 
 function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid, forbidden) {
-  if (!patterns.some(k => lowerMessage.includes(k))) {
+  const isGenericAuth = patterns.some(k => lowerMessage.includes(k));
+  const isDisconnected = disconnected.some(k => lowerMessage.includes(k));
+  const isInvalid = invalid.some(k => lowerMessage.includes(k));
+  const isForbidden = forbidden?.some(k => lowerMessage.includes(k));
+
+  if (!isGenericAuth && !isDisconnected && !isInvalid && !isForbidden) {
     return null;
   }
-  if (disconnected.some(k => lowerMessage.includes(k))) {
+
+  if (isDisconnected) {
     return 'Integration disconnected';
   }
-  if (invalid.some(k => lowerMessage.includes(k))) {
+  if (isInvalid) {
     return 'Invalid API Key format';
   }
-  if (forbidden?.some(k => lowerMessage.includes(k))) {
+  if (isForbidden) {
     return 'Database access denied';
   }
-  return 'API Key';
+
+  // Default to generic API Key error if matched main AUTH pattern
+  if (isGenericAuth) {
+    return 'API Key';
+  }
+
+  return null;
 }
 
 function _checkSimpleMappings(lowerMessage, mapping) {

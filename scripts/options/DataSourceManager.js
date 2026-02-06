@@ -279,7 +279,7 @@ export class DataSourceManager {
     const validItems = [];
 
     for (const item of results) {
-      if (item.object !== 'page' && item.object !== 'data_source') {
+      if (item.object !== 'page' && item.object !== 'database' && item.object !== 'data_source') {
         continue;
       }
       if (DataSourceManager.isSavedWebPage(item)) {
@@ -299,7 +299,7 @@ export class DataSourceManager {
     const otherPages = [];
 
     validItems.forEach(item => {
-      if (item.object === 'data_source') {
+      if (item.object === 'database' || item.object === 'data_source') {
         if (DataSourceManager.hasUrlProperty(item)) {
           urlDataSources.push(item);
         } else {
@@ -326,7 +326,10 @@ export class DataSourceManager {
   }
 
   static hasUrlProperty(dataSource) {
-    if (dataSource.object !== 'data_source' || !dataSource.properties) {
+    if (
+      (dataSource.object !== 'database' && dataSource.object !== 'data_source') ||
+      !dataSource.properties
+    ) {
       return false;
     }
     return Object.values(dataSource.properties).some(prop => prop.type === 'url');

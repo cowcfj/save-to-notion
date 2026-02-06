@@ -304,13 +304,18 @@ describe('securityUtils', () => {
       });
     });
 
-    describe('一般權限不足錯誤', () => {
-      test.each([
-        ['forbidden: access denied'],
-        ['Forbidden'],
-        ['permission denied'],
-        ['access denied to resource'],
-      ])('"%s" 應返回權限不足訊息', input => {
+    describe('一般權限不足錯誤 (Forbidden/Auth)', () => {
+      test.each([['forbidden: access denied'], ['Forbidden'], ['permission denied']])(
+        '"%s" 應返回資料庫權限不足訊息',
+        input => {
+          const result = sanitizeApiError(input);
+          expect(result).toBe('Database access denied');
+        }
+      );
+    });
+
+    describe('一般權限不足錯誤 (Access Denied)', () => {
+      test.each([['access denied to resource']])('"%s" 應返回不能存取內容訊息', input => {
         const result = sanitizeApiError(input);
         expect(result).toBe('Cannot access contents');
       });

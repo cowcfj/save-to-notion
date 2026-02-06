@@ -19,7 +19,7 @@ export function createNotionHandlers({ notionService }) {
      * @param {Function} sendResponse
      */
     searchNotion: async (request, sender, sendResponse) => {
-      // 1. 安全驗證：確保請求來自擴充功能內部 (Opions/Popup)
+      // 1. 安全驗證：確保請求來自擴充功能內部 (Options/Popup)
       const validationError = validateInternalRequest(sender);
       if (validationError) {
         sendResponse(validationError);

@@ -42,7 +42,7 @@ async function getActiveTab() {
 }
 
 /**
- * 獲取獲 Notion API Key
+ * 獲取 Notion API Key
  *
  * @param {StorageService} storageService
  * @returns {Promise<string>} API Key
@@ -142,11 +142,7 @@ export function createSaveHandlers(services) {
     });
 
     // 失敗重試邏輯：如果是圖片驗證錯誤或標準化後的驗證錯誤
-    if (
-      !result.success &&
-      result.error &&
-      /image|media|validation|validation_error/i.test(result.error)
-    ) {
+    if (!result.success && result.error && ErrorHandler.isImageValidationError(result.error)) {
       Logger.warn('收到 Notion 圖片驗證錯誤，準備重試', {
         action: 'performCreatePage',
         delay: HANDLER_CONSTANTS.IMAGE_RETRY_DELAY,

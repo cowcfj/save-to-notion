@@ -39,7 +39,7 @@ async function getActiveTab() {
 }
 
 /**
- * 獲取獲 Notion API Key
+ * 獲取 Notion API Key
  *
  * @param {StorageService} storageService
  * @returns {Promise<string>} API Key

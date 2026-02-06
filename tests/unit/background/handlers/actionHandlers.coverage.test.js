@@ -31,12 +31,6 @@ jest.mock('../../../../scripts/background/services/InjectionService.js', () => (
   isRestrictedInjectionUrl: jest.fn(url => url?.startsWith('chrome://')),
 }));
 
-jest.mock('../../../../scripts/background/utils/BlockBuilder.js', () => ({
-  buildHighlightBlocks: jest.fn(highlights =>
-    highlights.map(h => ({ type: 'quote', quote: { text: h.text } }))
-  ),
-}));
-
 jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
   validateInternalRequest: jest.fn(sender => {
     if (

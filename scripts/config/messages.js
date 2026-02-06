@@ -251,10 +251,10 @@ export const API_ERROR_PATTERNS = {
   AUTH: ['unauthorized', 'authentication', 'api key', 'api_key', 'token'],
   AUTH_DISCONNECTED: ['integration disconnected', 'invalid_token'],
   AUTH_INVALID: ['invalid api key', 'malformed_token'],
-  AUTH_FORBIDDEN: ['forbidden', 'permission_denied'],
+  AUTH_FORBIDDEN: ['forbidden', 'permission_denied', 'permission denied'],
 
   // 2. 權限相關
-  PERMISSION: ['forbidden', 'permission', 'access denied'],
+  PERMISSION: ['permission', 'access denied'],
   PERMISSION_DB: ['database'],
 
   // 3. 限制與資源
@@ -264,16 +264,7 @@ export const API_ERROR_PATTERNS = {
   DATA_SOURCE: ['database', 'object_not_found'],
 
   // 4. 驗證與網路
-  VALIDATION: [
-    'validation',
-    'image',
-    'media',
-    'conflict',
-    'bad request',
-    'invalid',
-    '400',
-    'request',
-  ],
+  VALIDATION: ['validation', 'image', 'media', 'conflict', 'bad request', 'invalid', '400'],
   NETWORK: ['network', 'fetch', 'timeout', 'enotfound'],
 
   // 5. 伺服器錯誤 (需組合判斷)

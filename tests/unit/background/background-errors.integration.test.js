@@ -728,7 +728,10 @@ describe('background error branches (integration)', () => {
         });
       }
       // 讀取既有內容
-      if (/\/v1\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'GET') {
+      if (
+        /\/v1\/blocks\/page-validation-image\/children/u.test(requestUrl) &&
+        init?.method === 'GET'
+      ) {
         return Promise.resolve({
           ok: true,
           status: 200,
@@ -737,7 +740,10 @@ describe('background error branches (integration)', () => {
         });
       }
       // 更新內容 → 返回 validation_error 且 message 含 image
-      if (/\/v1\/blocks\/page-xyz\/children/u.test(requestUrl) && init?.method === 'PATCH') {
+      if (
+        /\/v1\/blocks\/page-validation-image\/children/u.test(requestUrl) &&
+        init?.method === 'PATCH'
+      ) {
         return Promise.resolve({
           ok: false,
           status: 400,
@@ -821,14 +827,14 @@ describe('background error branches (integration)', () => {
           json: () => Promise.resolve({ archived: false }),
         });
       }
-      if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'GET') {
+      if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'GET') {
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
         });
       }
-      if (/\/v1\/blocks\/page-abc\/children/u.test(requestUrl) && init?.method === 'PATCH') {
+      if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'PATCH') {
         return Promise.resolve({
           ok: false,
           status: 400,
