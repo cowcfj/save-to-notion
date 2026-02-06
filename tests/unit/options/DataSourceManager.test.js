@@ -57,6 +57,8 @@ describe('DataSourceManager', () => {
   afterEach(() => {
     document.body.innerHTML = '';
     jest.clearAllMocks();
+    // 確保每次測試後都恢復真實計時器，防止 fake timers 洩漏
+    jest.useRealTimers();
   });
 
   describe('loadDataSources', () => {
@@ -112,8 +114,6 @@ describe('DataSourceManager', () => {
         expect.stringContaining('網路連線異常'),
         'error'
       );
-
-      jest.useRealTimers();
     });
 
     test('處理 chrome.runtime.lastError', async () => {
@@ -142,7 +142,9 @@ describe('DataSourceManager', () => {
       expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'searchNotion',
-          query: 'test_query',
+          searchParams: expect.objectContaining({
+            query: 'test_query',
+          }),
         }),
         expect.any(Function)
       );
@@ -158,10 +160,12 @@ describe('DataSourceManager', () => {
       expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'searchNotion',
-          sort: {
-            direction: 'descending',
-            timestamp: 'last_edited_time',
-          },
+          searchParams: expect.objectContaining({
+            sort: {
+              direction: 'descending',
+              timestamp: 'last_edited_time',
+            },
+          }),
         }),
         expect.any(Function)
       );
@@ -272,6 +276,19 @@ describe('DataSourceManager', () => {
         parent: { type: 'data_source_id', data_source_id: 'db-123' },
         properties: {
           Title: { title: [{ plain_text: 'Example' }] },
+          URL: { type: 'url', url: 'https://example.com' },
+        },
+      };
+
+      expect(DataSourceManager.isSavedWebPage(savedPage)).toBe(true);
+    });
+
+    test('識別屬於 database_id 父級的已保存網頁', () => {
+      const savedPage = {
+        object: 'page',
+        parent: { type: 'database_id', database_id: 'db-456' },
+        properties: {
+          Title: { title: [{ plain_text: 'DB Child Page' }] },
           URL: { type: 'url', url: 'https://example.com' },
         },
       };

@@ -131,7 +131,7 @@ export class DataSourceManager {
         {
           action: 'searchNotion',
           apiKey,
-          ...params,
+          searchParams: params,
         },
         response => {
           clearTimeout(timeoutId);

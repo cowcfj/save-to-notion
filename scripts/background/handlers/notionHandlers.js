@@ -27,12 +27,15 @@ export function createNotionHandlers({ notionService }) {
       }
 
       try {
-        const { query, filter, sort, apiKey } = request;
+        const { apiKey, searchParams } = request;
 
-        const params = {
-          query,
-          filter,
-          sort,
+        // 優先使用封裝的 searchParams，防止命名空間衝突；否則回退到扁平結構以保持相容
+        const params = searchParams || {
+          query: request.query,
+          filter: request.filter,
+          sort: request.sort,
+          page_size: request.page_size,
+          start_cursor: request.start_cursor,
         };
 
         // 以無狀態方式執行搜索，如果提供了 apiKey 則覆蓋全域配置
