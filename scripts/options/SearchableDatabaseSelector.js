@@ -46,8 +46,8 @@ export class SearchableDatabaseSelector {
     this.searchInput = document.querySelector('#database-search');
     this.toggleButton = document.querySelector('#selector-toggle');
     this.dropdown = document.querySelector('#database-dropdown');
-    this.dataSourceList = document.querySelector('#database-list');
-    this.dataSourceCount = document.querySelector('#database-count');
+    this.dataSourceList = document.querySelector('#data-source-list');
+    this.dataSourceCount = document.querySelector('#data-source-count');
     this.refreshButton = document.querySelector('#refresh-databases');
     this.databaseIdInput = document.querySelector('#database-id');
 
@@ -531,9 +531,9 @@ export class SearchableDatabaseSelector {
     const filtered = this.filteredDataSources.length;
 
     if (filtered === total) {
-      this.dataSourceCount.textContent = `${total} 個資料來源`;
+      this.dataSourceCount.textContent = `${total} 個保存目標`;
     } else {
-      this.dataSourceCount.textContent = `${filtered} / ${total} 個資料來源`;
+      this.dataSourceCount.textContent = `${filtered} / ${total} 個保存目標`;
     }
   }
 

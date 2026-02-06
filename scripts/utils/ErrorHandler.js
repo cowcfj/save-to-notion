@@ -176,7 +176,8 @@ const ErrorHandler = {
 
     const message = error instanceof Error ? error.message : String(error);
 
-    // [安全性修復] 如果訊息已經包含中文字符，說明已經是友善訊息
+    // [安全性修復] 如果訊息已經包含 CJK 統一表意文字（中日韓漢字），說明已經是友善訊息
+    // 注意：\p{Unified_Ideograph} 會匹配所有 CJK 表意文字，涵蓋中文、日文漢字、韓文漢字等
     // 因 UI 已全面改用 textContent，此處不再需要 escapeHtml
     if (/\p{Unified_Ideograph}/u.test(message)) {
       return message;

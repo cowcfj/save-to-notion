@@ -10,8 +10,8 @@ function checkHTMLStructure() {
     'database-search',
     'selector-toggle',
     'database-dropdown',
-    'database-list',
-    'database-count',
+    'data-source-list',
+    'data-source-count',
     'refresh-databases',
   ];
 

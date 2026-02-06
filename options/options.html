@@ -116,14 +116,14 @@
                 </div>
                 <div class="selector-dropdown hidden" id="database-dropdown">
                   <div class="dropdown-header">
-                    <span id="database-count">0 個來源</span>
+                    <span id="data-source-count">0 個來源</span>
                     <button type="button" id="refresh-databases" class="btn-icon" title="重新整理">
                       <svg width="14" height="14" class="icon-svg">
                         <use href="#icon-refresh" />
                       </svg>
                     </button>
                   </div>
-                  <div class="dropdown-list" id="database-list">
+                  <div class="dropdown-list" id="data-source-list">
                     <div class="loading-state">載入中...</div>
                   </div>
                 </div>
@@ -367,7 +367,7 @@
             <!-- 待完成的遷移（需訪問頁面） -->
             <div id="pending-migration-section" class="pending-migration-section hidden">
               <h4>
-                <svg width="16" height="16" class="icon-svg">
+                <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
                   <use href="#icon-list" />
                 </svg>
                 待完成的遷移（需訪問頁面）
@@ -379,7 +379,7 @@
             <!-- 遷移失敗的標註 -->
             <div id="failed-migration-section" class="failed-migration-section hidden">
               <h4>
-                <svg width="16" height="16" class="icon-svg">
+                <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
                   <use href="#icon-x-circle" />
                 </svg>
                 無法恢復的標註
@@ -411,7 +411,7 @@
                 <span class="button-text">預覽清理</span>
               </button>
               <button id="execute-cleanup-button" class="btn-danger hidden">
-                <svg width="16" height="16" class="icon-svg">
+                <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
                   <use href="#icon-trash" />
                 </svg>
                 <span class="button-text">執行清理</span>
@@ -546,7 +546,7 @@
 
             <div class="feature-card">
               <div class="feature-icon">
-                <svg width="24" height="24">
+                <svg width="24" height="24" aria-hidden="true" focusable="false">
                   <use href="#icon-keyboard" />
                 </svg>
               </div>
@@ -561,7 +561,7 @@
 
             <div class="feature-card">
               <div class="feature-icon">
-                <svg width="24" height="24">
+                <svg width="24" height="24" aria-hidden="true" focusable="false">
                   <use href="#icon-general" />
                 </svg>
               </div>
@@ -573,7 +573,7 @@
 
             <div class="feature-card">
               <div class="feature-icon">
-                <svg width="24" height="24">
+                <svg width="24" height="24" aria-hidden="true" focusable="false">
                   <use href="#icon-sync" />
                 </svg>
               </div>

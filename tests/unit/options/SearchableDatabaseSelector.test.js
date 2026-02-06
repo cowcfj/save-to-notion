@@ -29,8 +29,8 @@ describe('SearchableDatabaseSelector', () => {
         <input type="text" id="database-search" />
         <button id="selector-toggle"></button>
         <div id="database-dropdown" style="display: none;"></div>
-        <div id="database-list"></div>
-        <div id="database-count"></div>
+        <div id="data-source-list"></div>
+        <div id="data-source-count"></div>
         <button id="refresh-databases"></button>
       </div>
       <input type="hidden" id="database-id" />

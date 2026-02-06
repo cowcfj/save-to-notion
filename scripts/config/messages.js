@@ -10,13 +10,13 @@ export const UI_MESSAGES = {
   DATA_SOURCE: {
     LOADING: '正在載入保存目標列表...',
     SEARCHING: keyword => `正在搜尋 "${keyword}"...`,
-    SELECT_REMINDER: '資料來源已選擇，請點擊保存設置',
+    SELECT_REMINDER: '保存目標已選擇，請點擊保存設置',
     FOUND_COUNT: count => `找到 ${count} 個保存目標，請從下拉選單中選擇`,
     NO_RESULT: keyword => `未找到 "${keyword}" 相關的保存目標`,
     NO_DATA_SOURCE_FOUND:
       '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料庫',
     LOAD_FAILED: error => `載入保存目標失敗: ${error}`,
-    DEFAULT_OPTION: '選擇資料來源或頁面...',
+    DEFAULT_OPTION: '選擇保存目標...',
   },
   LOGS: {
     EXPORT_SUCCESS: count => `已成功匯出 ${count} 條日誌`,
@@ -28,7 +28,7 @@ export const UI_MESSAGES = {
     SAVE_FAILED: '保存失敗，請查看控制台日誌或稍後再試。',
     // Renamed to avoid security scanner false positives
     KEY_INPUT_REQUIRED: '請輸入 API Key',
-    INVALID_ID: '資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
+    INVALID_ID: '保存目標 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
     DEBUG_LOGS_ENABLED: '已啟用偵測日誌（前端日誌將轉送到背景頁）',
     DEBUG_LOGS_DISABLED: '已停用偵測日誌',
     DEBUG_LOGS_TOGGLE_FAILED: error => `切換日誌模式失敗: ${error}`,

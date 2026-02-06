@@ -34,18 +34,42 @@ const isExtensionContext = Boolean(chrome?.runtime?.id);
 const isBackground = isExtensionContext && globalThis.window === undefined; // Service Worker 環境通常沒有 window (或 self !== window)
 
 /**
- * 格式化日誌訊息
+ * 提取時間組件（共用輔助函數）
+ *
+ * @param {Date} date - Date 實例
+ * @returns {object} 包含 hours, minutes, seconds, milliseconds 的字串屬性
+ */
+function extractTimeComponents(date) {
+  return {
+    hours: String(date.getHours()).padStart(2, '0'),
+    minutes: String(date.getMinutes()).padStart(2, '0'),
+    seconds: String(date.getSeconds()).padStart(2, '0'),
+    milliseconds: String(date.getMilliseconds()).padStart(3, '0'),
+  };
+}
+
+/**
+ * 格式化本地時間戳（日誌匯出用）
+ * 返回格式：YYYY-MM-DD HH:mm:ss.SSS
+ *
+ * @param {Date} [date] - 可選的 Date 實例，默認為當前時間
+ * @returns {string} 本地時間 ISO 格式字串
+ */
+function formatLocalTimestamp(date = new Date()) {
+  // 修正為本地時間 ISO 格式 (忽略時區偏移影響，僅取數值)
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date - offset).toISOString().slice(0, -1).replace('T', ' ');
+}
+
+/**
+ * 格式化日誌訊息（控制台輸出用）
  *
  * @param {number} level - 日誌級別
  * @param {Array} args - 參數列表
  * @returns {Array} 格式化後的參數列表
  */
 function formatMessage(level, args) {
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  const { hours, minutes, seconds, milliseconds } = extractTimeComponents(new Date());
   const timestamp = `${hours}:${minutes}:${seconds}.${milliseconds}`;
   const levelPrefix =
     {
@@ -382,14 +406,7 @@ const Logger = {
           source: source || 'unknown',
           message: safeEntry.message,
           context: safeEntry.context,
-          timestamp:
-            timestamp ||
-            (function () {
-              const now = new Date();
-              // 修正為本地時間 ISO 格式 (忽略時區偏移影響，僅取數值)
-              const offset = now.getTimezoneOffset() * 60_000;
-              return new Date(now - offset).toISOString().slice(0, -1).replace('T', ' ');
-            })(),
+          timestamp: timestamp || formatLocalTimestamp(),
         });
       } catch (error) {
         console.error('添加外部日誌到緩衝區失敗', { action: 'addLogToBuffer', error });

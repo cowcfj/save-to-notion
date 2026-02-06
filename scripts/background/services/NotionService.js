@@ -298,7 +298,6 @@ class NotionService {
         page_size: page_size || this.config.PAGE_SIZE,
       };
 
-      // 2025-09-03 API 使用 'data_source' 而非 'database'
       if (filter) {
         searchParams.filter = filter;
       }
@@ -698,14 +697,19 @@ class NotionService {
         url: response.url,
       };
 
-      // 自動批次添加超過 100 的區塊
-      if (autoBatch && allBlocks.length > 100) {
+      // 自動批次添加超過配置限制的區塊
+      if (autoBatch && allBlocks.length > this.config.BLOCKS_PER_BATCH) {
         Logger.info('[NotionService] 超長文章批次添加', {
           action: 'createPage',
           phase: 'autoBatch',
           totalBlocks: allBlocks.length,
         });
-        const appendResult = await this.appendBlocksInBatches(response.id, allBlocks, 100, options);
+        const appendResult = await this.appendBlocksInBatches(
+          response.id,
+          allBlocks,
+          this.config.BLOCKS_PER_BATCH,
+          options
+        );
         result.appendResult = appendResult;
 
         if (!appendResult.success) {

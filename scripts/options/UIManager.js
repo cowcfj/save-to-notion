@@ -185,17 +185,15 @@ export class UIManager {
 
       manualSection.insertBefore(this.upgradeNoticeBanner, manualSection.firstChild);
 
-      const refreshButtonUI = this.upgradeNoticeBanner.querySelector('.upgrade-refresh-button');
-      if (refreshButtonUI) {
-        refreshButtonUI.addEventListener('click', () => {
-          const testApiButton =
-            this.elements.testApiButton ||
-            document.querySelector(OPTIONS_PAGE_SELECTORS.TEST_API_BUTTON);
-          if (testApiButton && !testApiButton.disabled) {
-            testApiButton.click();
-          }
-        });
-      }
+      // 直接使用已創建的 refreshButton 引用，避免冗餘的 DOM 查詢
+      refreshButton.addEventListener('click', () => {
+        const testApiButton =
+          this.elements.testApiButton ||
+          document.querySelector(OPTIONS_PAGE_SELECTORS.TEST_API_BUTTON);
+        if (testApiButton && !testApiButton.disabled) {
+          testApiButton.click();
+        }
+      });
     }
 
     const idDisplay = this.upgradeNoticeBanner.querySelector('.upgrade-notice-id');
@@ -229,12 +227,9 @@ export class UIManager {
 
     const guideDiv = document.createElement('div');
     guideDiv.className = 'setup-guide';
-    guideDiv.style.cssText =
-      'background: #e6fffa; border: 1px solid #38b2ac; border-radius: 6px; padding: 15px; margin: 15px 0;';
 
     const title = document.createElement('h3');
-    title.style.cssText =
-      'margin: 0 0 10px 0; color: #2c7a7b; display: flex; align-items: center; gap: 8px;';
+    title.className = 'setup-guide__title';
 
     const icon = createSafeIcon(UI_ICONS.SETUP_GUIDE);
     title.append(icon);
@@ -244,33 +239,39 @@ export class UIManager {
     title.append(titleText);
 
     const list = document.createElement('ol');
-    list.style.cssText = 'margin: 0; padding-left: 20px; line-height: 1.6;';
+    list.className = 'setup-guide__list';
 
+    // 結構化步驟定義：避免重複定義文本內容
+    // - text: 純文本步驟
+    // - prefix/emphasis/suffix: 帶強調標籤的步驟
     const steps = [
-      '點擊 "+ New integration" 創建新的集成',
-      '複製 "Internal Integration Token"',
-      '將 Token 貼到下方的 API Key 欄位',
-      '系統會自動載入可用的資料來源列表',
+      { prefix: '點擊 ', emphasis: '"+ New integration"', suffix: ' 創建新的集成' },
+      { prefix: '複製 ', emphasis: '"Internal Integration Token"' },
+      { text: '將 Token 貼到下方的 API Key 欄位' },
+      { text: '系統會自動載入可用的資料來源列表' },
     ];
 
-    steps.forEach(stepText => {
+    steps.forEach(step => {
       const li = document.createElement('li');
-      // 對於包含 HTML 標籤的內容，這裡我們改用 innerHTML 是受控的（靜態內容），
-      // 但為了徹底符合規範，我們使用 textContent 配合手動創建強化標籤
-      if (stepText.includes('"+ New integration"')) {
-        li.textContent = '點擊 ';
-        const strong = document.createElement('strong');
-        strong.textContent = '"+ New integration"';
-        li.append(strong);
-        li.append(' 創建新的集成');
-      } else if (stepText.includes('"Internal Integration Token"')) {
-        li.textContent = '複製 ';
-        const strong = document.createElement('strong');
-        strong.textContent = '"Internal Integration Token"';
-        li.append(strong);
+
+      if (step.text) {
+        // 純文本步驟
+        li.textContent = step.text;
       } else {
-        li.textContent = stepText;
+        // 帶強調的步驟：使用 DOM API 安全構建
+        if (step.prefix) {
+          li.append(step.prefix);
+        }
+        if (step.emphasis) {
+          const strong = document.createElement('strong');
+          strong.textContent = step.emphasis;
+          li.append(strong);
+        }
+        if (step.suffix) {
+          li.append(step.suffix);
+        }
       }
+
       list.append(li);
     });
 
