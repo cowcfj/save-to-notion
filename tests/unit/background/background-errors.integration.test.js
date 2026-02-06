@@ -758,6 +758,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
+          text: () => Promise.resolve('ok'),
         });
       }
       if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'GET') {
@@ -765,6 +766,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ results: [] }),
+          text: () => Promise.resolve('ok'),
         });
       }
       if (/\/v1\/blocks\/page-400-gen\/children/u.test(requestUrl) && init?.method === 'PATCH') {
@@ -831,9 +833,19 @@ describe('background error branches (integration)', () => {
         });
       }
       if (/\/v1\/blocks\/.+\/children$/u.test(requestUrl) && init?.method === 'PATCH') {
-        return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({}),
+          text: () => Promise.resolve('Internal Server Error'),
+        });
       }
-      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve('ok'),
+      });
     });
 
     const sendResponse = jest.fn();

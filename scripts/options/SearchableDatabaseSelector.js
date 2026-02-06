@@ -362,7 +362,8 @@ export class SearchableDatabaseSelector {
           break;
         }
         default: {
-          parentText = `❓ 其他 (${ds.parent.type})`;
+          parentIcon = UI_ICONS.HELP;
+          parentText = ` 其他 (${ds.parent.type})`;
         }
       }
 
