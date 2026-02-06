@@ -11,7 +11,7 @@
 
 /* global chrome */
 
-import { TAB_SERVICE, URL_NORMALIZATION } from '../../config/constants.js';
+import { TAB_SERVICE, URL_NORMALIZATION, HANDLER_CONSTANTS } from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
 
 /**
@@ -45,6 +45,12 @@ class TabService {
     this.pendingListeners = new Map();
     // 追蹤正在處理中的 tab，防止並發調用
     this.processingTabs = new Map();
+
+    // 依賴注入：驗證邏輯
+    this.checkPageExists = options.checkPageExists;
+    this.getApiKey = options.getApiKey;
+    this.clearPageState = options.clearPageState;
+    this.setSavedPageData = options.setSavedPageData;
   }
 
   /**
@@ -86,8 +92,10 @@ class TabService {
     const normUrl = this.normalizeUrl(url);
 
     try {
-      await this._updateBadgeStatus(tabId, normUrl);
+      // 1. 更新徽章狀態（同時處理自動驗證）
+      await this._verifyAndUpdateStatus(tabId, normUrl);
 
+      // 2. 處理標註注入
       const highlights = await this._getHighlightsFromStorage(normUrl);
       if (!highlights) {
         // 沒有找到現有標註，執行回調或預設遷移
@@ -118,8 +126,74 @@ class TabService {
     }
   }
 
-  async _updateBadgeStatus(tabId, normUrl) {
+  /**
+   * 驗證並更新頁面狀態（含自動聯網檢查）
+   *
+   * @param {number} tabId - 標籤頁 ID
+   * @param {string} normUrl - 標準化後的 URL
+   * @private
+   */
+  async _verifyAndUpdateStatus(tabId, normUrl) {
     const savedData = await this.getSavedPageData(normUrl);
+
+    if (!savedData) {
+      await this._updateBadgeStatus(tabId, null);
+      return;
+    }
+
+    // 檢查快取是否過期 (TTL)
+    const now = Date.now();
+    const lastVerifiedAt = savedData.lastVerifiedAt || 0;
+    const ttl = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL || 60_000;
+
+    if (now - lastVerifiedAt < ttl) {
+      this.logger.debug(`[TabService] Using cached status for ${normUrl.slice(0, 30)}...`);
+      await this._updateBadgeStatus(tabId, savedData);
+      return;
+    }
+
+    // 快取過期，執行聯網檢查
+    this.logger.debug(
+      `[TabService] Cache expired, verifying Notion page: ${savedData.notionPageId}`
+    );
+
+    try {
+      const apiKey = await this.getApiKey();
+      if (!apiKey) {
+        // 沒有 API Key，回退到基本徽章顯示
+        await this._updateBadgeStatus(tabId, savedData);
+        return;
+      }
+
+      const exists = await this.checkPageExists(savedData.notionPageId, apiKey);
+
+      if (exists === false) {
+        this.logger.log('✅ 頁面已在 Notion 中刪除，自動清理本地狀態', {
+          action: 'autoSyncLocalState',
+          pageId: savedData.notionPageId?.slice(0, 4),
+        });
+        await this.clearPageState(normUrl);
+        await this._updateBadgeStatus(tabId, null);
+      } else {
+        // 更新驗證時間
+        const updatedData = { ...savedData, lastVerifiedAt: now };
+        await this.setSavedPageData(normUrl, updatedData);
+        await this._updateBadgeStatus(tabId, updatedData);
+      }
+    } catch (error) {
+      this.logger.warn('[TabService] 自動驗證失敗，跳過並保留當前狀態', { error });
+      await this._updateBadgeStatus(tabId, savedData);
+    }
+  }
+
+  /**
+   * 更新徽章顯示
+   *
+   * @param {number} tabId - 標籤頁 ID
+   * @param {object | null} savedData - 已保存數據
+   * @private
+   */
+  async _updateBadgeStatus(tabId, savedData) {
     if (savedData) {
       await chrome.action.setBadgeText({ text: '✓', tabId });
       await chrome.action.setBadgeBackgroundColor({ color: '#48bb78', tabId });

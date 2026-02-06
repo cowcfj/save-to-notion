@@ -76,7 +76,6 @@ if (globalThis.self !== undefined) {
 }
 // TEST_EXPOSURE_END
 
-// Initialize TabService
 const tabService = new TabService({
   logger: Logger,
   injectionService,
@@ -84,6 +83,11 @@ const tabService = new TabService({
   getSavedPageData: url => storageService.getSavedPageData(url),
   isRestrictedUrl: isRestrictedInjectionUrl,
   isRecoverableError: isRecoverableInjectionError,
+  // 新增驗證所需的依賴
+  checkPageExists: (pageId, apiKey) => notionService.checkPageExists(pageId, { apiKey }),
+  getApiKey: () => storageService.getConfig(['apiKey']).then(config => config.apiKey),
+  clearPageState: url => storageService.clearPageState(url),
+  setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
 });
 
 // ==========================================

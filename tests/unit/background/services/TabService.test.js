@@ -22,6 +22,9 @@ jest.mock('../../../../scripts/config/constants.js', () => ({
   URL_NORMALIZATION: {
     TRACKING_PARAMS: ['utm_source'],
   },
+  HANDLER_CONSTANTS: {
+    PAGE_STATUS_CACHE_TTL: 60_000,
+  },
 }));
 
 // Mock chrome API
@@ -83,6 +86,11 @@ describe('TabService', () => {
         const msg = typeof err === 'string' ? err : err?.message || '';
         return msg.includes('Cannot access');
       },
+      // 注入 mock 依賴
+      checkPageExists: jest.fn().mockResolvedValue(true),
+      getApiKey: jest.fn().mockResolvedValue('test-api-key'),
+      clearPageState: jest.fn().mockResolvedValue(),
+      setSavedPageData: jest.fn().mockResolvedValue(),
     });
 
     // 初始化全局 chrome.runtime
@@ -121,7 +129,11 @@ describe('TabService', () => {
     });
 
     it('should set badge for saved pages', async () => {
-      service.getSavedPageData = jest.fn().mockResolvedValue({ pageId: '123' });
+      service.getSavedPageData = jest.fn().mockResolvedValue({
+        pageId: '123',
+        notionPageId: 'notion-123',
+        lastVerifiedAt: Date.now(), // 確保在 TTL 內
+      });
       chrome.storage.local.get.mockImplementation(_keys => Promise.resolve({}));
 
       await service.updateTabStatus(1, 'https://example.com');
@@ -205,11 +217,61 @@ describe('TabService', () => {
     });
 
     it('should handle errors gracefully', async () => {
+      // 確保 getSavedPageData 拋出錯誤
       service.getSavedPageData = jest.fn().mockRejectedValue(new Error('Storage error'));
 
       await service.updateTabStatus(1, 'https://example.com');
 
       expect(mockLogger.error).toHaveBeenCalled();
+    });
+
+    describe('Automatic Verification', () => {
+      it('should verify with Notion when cache is expired', async () => {
+        const expiredData = {
+          notionPageId: 'page-123',
+          lastVerifiedAt: Date.now() - 70_000, // 超過 60s
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+        service.checkPageExists = jest.fn().mockResolvedValue(true);
+
+        await service.updateTabStatus(1, 'https://example.com');
+
+        expect(service.checkPageExists).toHaveBeenCalledWith('page-123', 'test-api-key');
+        expect(service.setSavedPageData).toHaveBeenCalledWith(
+          'https://example.com',
+          expect.objectContaining({ lastVerifiedAt: expect.any(Number) })
+        );
+      });
+
+      it('should clear local state if Notion page is deleted', async () => {
+        const expiredData = {
+          notionPageId: 'page-123',
+          lastVerifiedAt: Date.now() - 70_000,
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+        service.checkPageExists = jest.fn().mockResolvedValue(false); // 模擬已刪除
+
+        await service.updateTabStatus(1, 'https://example.com');
+
+        expect(service.clearPageState).toHaveBeenCalledWith('https://example.com');
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
+      });
+
+      it('should fallback to cached status if verification fails', async () => {
+        const expiredData = {
+          pageId: '123',
+          notionPageId: 'page-123',
+          lastVerifiedAt: Date.now() - 70_000,
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+        service.checkPageExists = jest.fn().mockRejectedValue(new Error('Notion API Error'));
+
+        await service.updateTabStatus(1, 'https://example.com');
+
+        expect(mockLogger.warn).toHaveBeenCalled();
+        // 依然顯示勾勾
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
+      });
     });
   });
 
