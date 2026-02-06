@@ -14,8 +14,8 @@
 const MAX_ENTRY_SIZE = 25_000;
 
 // 結構開銷常量
-const STRUCTURE_OVERHEAD = 150;
-const FALLBACK_STRUCTURE_OVERHEAD = 200;
+const STRUCTURE_OVERHEAD = 300;
+const FALLBACK_STRUCTURE_OVERHEAD = 350;
 
 // 標準欄位列表
 const STANDARD_FIELDS = new Set(['level', 'message', 'source', 'context']);
@@ -88,7 +88,10 @@ const MAX_REASON_LENGTH = 500;
  * @returns {object} 回退日誌條目
  */
 function createSerializationFailedEntry(entry, error) {
-  const maxMessageLength = Math.max(100, MAX_ENTRY_SIZE - FALLBACK_STRUCTURE_OVERHEAD);
+  const maxMessageLength = Math.max(
+    100,
+    MAX_ENTRY_SIZE - FALLBACK_STRUCTURE_OVERHEAD - MAX_REASON_LENGTH
+  );
   const originalMessage = entry.message || '';
   const needsTruncate = originalMessage.length > maxMessageLength;
   const truncatedMsg = truncateMessage(originalMessage, maxMessageLength);
@@ -98,9 +101,9 @@ function createSerializationFailedEntry(entry, error) {
   const reason = truncateMessage(rawReason, MAX_REASON_LENGTH);
 
   return {
-    level: entry.level,
+    level: truncateMessage(entry.level, 50),
     message: truncatedMsg,
-    source: entry.source,
+    source: truncateMessage(entry.source, 50),
     context: {
       error: 'serialization_failed',
       reason,

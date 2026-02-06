@@ -68,7 +68,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理 401 認證錯誤', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: false, error: 'Unauthorized' });
       });
 
@@ -81,20 +81,58 @@ describe('DataSourceManager', () => {
     });
 
     test('處理網路錯誤', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: false, error: 'Network error' });
       });
 
       await dataSourceManager.loadDataSources('secret_test_key');
 
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining(ERROR_MESSAGES.PATTERNS['Network error'].split('，')[0]),
+        expect.stringContaining('網路連線異常'),
+        'error'
+      );
+    });
+
+    test('處理 chrome.runtime.sendMessage 超時', async () => {
+      jest.useFakeTimers();
+
+      globalThis.chrome.runtime.sendMessage.mockImplementation(() => {
+        // 不調用 callback 以模擬超時
+      });
+
+      const promise = dataSourceManager.loadDataSources('test_key');
+
+      // 快轉時間觸發超時
+      jest.advanceTimersByTime(30_000 + 100);
+
+      const result = await promise;
+
+      expect(result).toEqual([]);
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('網路連線異常'),
+        'error'
+      );
+
+      jest.useRealTimers();
+    });
+
+    test('處理 chrome.runtime.lastError', async () => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
+        globalThis.chrome.runtime.lastError = { message: 'Message port closed' };
+        callback();
+      });
+
+      await dataSourceManager.loadDataSources('test_key');
+
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        // 'Message port closed' 會被 sanitizeApiError 歸類為 'Unknown Error'
+        expect.stringContaining('發生未知錯誤'),
         'error'
       );
     });
 
     test('帶有 query 參數時發送正確的請求主體', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: true, data: { results: [] } });
       });
 
@@ -111,7 +149,7 @@ describe('DataSourceManager', () => {
     });
 
     test('無 query 參數時使用時間排序', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: true, data: { results: [] } });
       });
 
@@ -312,7 +350,7 @@ describe('DataSourceManager', () => {
 
   describe('loadDataSources - additional error handling', () => {
     test('處理 403 權限錯誤', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: false, error: 'Forbidden' });
       });
 
@@ -325,7 +363,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理其他 HTTP 錯誤', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: false, error: 'Internal Server Error' });
       });
 
@@ -339,7 +377,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理 503 錯誤（對應到 Internal Server Error 訊息）', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: false, error: 'Service Unavailable' });
       });
 
@@ -353,7 +391,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理空結果', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: true, data: { results: [] } });
       });
 
@@ -367,7 +405,7 @@ describe('DataSourceManager', () => {
     });
 
     test('搜尋模式下空結果顯示 info 訊息', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: true, data: { results: [] } });
       });
 
@@ -389,7 +427,7 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: true, data: { results: mockResults } });
       });
 
@@ -412,7 +450,7 @@ describe('DataSourceManager', () => {
         },
       ];
 
-      globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
+      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
         callback({ success: true, data: { results: mockResults } });
       });
 
