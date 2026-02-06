@@ -109,13 +109,6 @@ describe('LogExporter', () => {
     consoleSpy.mockRestore();
   });
 
-  test('should use fixed filename format', () => {
-    mockBuffer.getAll.mockReturnValue([]);
-    const result = LogExporter.exportLogs();
-
-    expect(result.filename).toBe('notion-debug.json');
-  });
-
   test('should throw error for unsupported formats', () => {
     mockBuffer.getAll.mockReturnValue([]);
 

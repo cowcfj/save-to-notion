@@ -15,13 +15,6 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
     start: jest.fn(),
     ready: jest.fn(),
   },
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  success: jest.fn(),
-  debug: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
 }));
 
 import Logger from '../../../../scripts/utils/Logger.js';
@@ -57,8 +50,8 @@ describe('InjectionService', () => {
   let service = null;
 
   beforeEach(() => {
-    service = new InjectionService({ logger: mockLogger });
     jest.clearAllMocks();
+    service = new InjectionService({ logger: mockLogger });
     chrome.runtime.lastError = null;
   });
 

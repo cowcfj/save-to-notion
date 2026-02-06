@@ -56,7 +56,7 @@ async function waitForSend(mockFn, maxWaitMs = 1500) {
  * @param {object|string} [contentResult] - Content object to return, or 'error' to throw.
  */
 function setupScriptMock(contentResult) {
-  const result = contentResult || { title: 'T', blocks: [] };
+  const result = contentResult ?? { title: 'T', blocks: [] };
   let funcCall = 0;
   chrome.scripting.executeScript.mockImplementation((opts, mockCb) => {
     if (opts?.func) {
@@ -100,7 +100,6 @@ describe('background error branches (integration)', () => {
     originalChrome = globalThis.chrome;
     originalFetch = globalThis.fetch;
 
-    // 明確設定 Logger 為非調試模式
     // 明確設定 Logger 為非調試模式，但允許輸出到控制台
     globalThis.Logger = {
       debugEnabled: false,
@@ -172,7 +171,9 @@ describe('background error branches (integration)', () => {
             return Promise.resolve();
           }),
           remove: jest.fn((keys, mockCb) => {
-            (Array.isArray(keys) ? keys : [keys]).forEach(key => delete storageData[key]);
+            (Array.isArray(keys) ? keys : [keys]).forEach(key => {
+              delete storageData[key];
+            });
             mockCb?.();
             return Promise.resolve();
           }),
@@ -495,7 +496,6 @@ describe('background error branches (integration)', () => {
     });
 
     // 追蹤 func 呼叫次序：第1次 func（injectHighlighter），第2次 func（collectHighlights），第3次 func（injectWithResponse）
-    // 追蹤 func 呼叫次序並模擬錯誤
     setupScriptMock('error');
 
     const sendResponse = jest.fn();
@@ -520,7 +520,6 @@ describe('background error branches (integration)', () => {
     });
 
     // 模擬內容注入成功：collectHighlights 空、injectWithResponse 回傳內容
-    // 模擬內容注入成功
     setupScriptMock({
       title: 'T',
       blocks: [
@@ -572,7 +571,6 @@ describe('background error branches (integration)', () => {
       return Promise.resolve(res);
     });
 
-    // 注入：collectHighlights 空、injectWithResponse 回傳「含圖片」的內容
     // 注入：collectHighlights 空、injectWithResponse 回傳「含圖片」的內容
     setupScriptMock({
       title: 'T',
@@ -664,7 +662,6 @@ describe('background error branches (integration)', () => {
     );
 
     // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
-    // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
     setupScriptMock({
       title: 'T',
       blocks: [
@@ -755,7 +752,6 @@ describe('background error branches (integration)', () => {
       ],
     });
 
-    const originalFetch = globalThis.fetch;
     globalThis.fetch = jest.fn((requestUrl, init) => {
       if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {
         return Promise.resolve({
@@ -792,8 +788,6 @@ describe('background error branches (integration)', () => {
         error: expect.stringMatching(API_ERROR_REGEX),
       })
     );
-
-    globalThis.fetch = originalFetch;
   });
 
   test('updateNotionPage：PATCH 失敗無 message → 返回預設錯誤訊息', async () => {
@@ -848,9 +842,9 @@ describe('background error branches (integration)', () => {
     const resp = sendResponse.mock.calls[0]?.[0];
     // 500 錯誤會觸發 fetchWithRetry 重試機制，最終可能超時
     // 但如果成功回應，應該是失敗且包含預設錯誤訊息
-    if (resp) {
-      expect(resp.success).toBe(false);
-      expect(typeof resp.error).toBe('string');
-    }
+    expect(sendResponse).toHaveBeenCalled();
+    expect(resp).toBeDefined();
+    expect(resp.success).toBe(false);
+    expect(typeof resp.error).toBe('string');
   });
 });

@@ -70,8 +70,25 @@ describe('LogBuffer', () => {
       expect(logs).toHaveLength(1);
       expect(logs[0].message).toBe('circular test');
       expect(logs[0].context.error).toMatch(/serialization_failed/);
-      // The circular reference should NOT be present in the stored entry
       expect(logs[0].self).toBeUndefined();
+    });
+
+    test('should truncate entry when size exceeds limit', () => {
+      // MAX_ENTRY_SIZE is 25,000 in LogBuffer.js
+      const hugeString = 'a'.repeat(30_000);
+      const hugeEntry = { level: 'info', message: 'huge payload', data: hugeString };
+
+      logBuffer.push(hugeEntry);
+
+      const logs = logBuffer.getAll();
+      expect(logs).toHaveLength(1);
+      expect(logs[0].message).toBe('huge payload');
+      expect(logs[0].data).toBeUndefined();
+      expect(logs[0].context).toMatchObject({
+        truncated: true,
+        reason: 'entry_exceeds_size_limit',
+      });
+      expect(typeof logs[0].context.originalSize).toBe('number');
     });
   });
 
