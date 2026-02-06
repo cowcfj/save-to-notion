@@ -222,20 +222,6 @@ describe('SearchableDatabaseSelector', () => {
     });
   });
 
-  describe('Static Helpers', () => {
-    describe('formatDate', () => {
-      it('should return empty string for invalid date', () => {
-        const result = SearchableDatabaseSelector.formatDate('invalid-date-string');
-        expect(result).toBe('');
-      });
-
-      it('should format valid date', () => {
-        const result = SearchableDatabaseSelector.formatDate('2023-01-01T12:00:00Z');
-        expect(result).toContain('2023');
-      });
-    });
-  });
-
   describe('performServerSearch', () => {
     beforeEach(() => {
       mockGetApiKey.mockReturnValue('secret_test_key');

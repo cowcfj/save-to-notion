@@ -173,6 +173,16 @@ const USER_MESSAGES = {
 };
 
 /**
+ * 安全相關錯誤訊息
+ * 集中管理安全驗證失敗時的提示訊息
+ */
+export const SECURITY_ERROR_MESSAGES = {
+  TAB_CONTEXT_REQUIRED: '拒絕訪問：此操作必須在標籤頁上下文中調用',
+  INTERNAL_ONLY: '拒絕訪問：此操作僅限擴充功能內部調用',
+  CONTENT_SCRIPT_ONLY: '拒絕訪問：僅限本擴充功能的 content script 調用',
+};
+
+/**
  * 錯誤訊息配置
  * 分為三個層次：
  * 1. TECHNICAL - 技術錯誤（供 ErrorHandler 內部使用）

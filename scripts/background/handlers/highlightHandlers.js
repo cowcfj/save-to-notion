@@ -407,12 +407,7 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        let activeTab;
-        if (sender.tab) {
-          activeTab = sender.tab;
-        } else {
-          activeTab = await getActiveTab();
-        }
+        const activeTab = sender.tab;
 
         const highlights = request.highlights || [];
         if (highlights.length === 0) {

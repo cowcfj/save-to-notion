@@ -42,6 +42,10 @@ export class DataSourceManager {
    */
 
   async loadDataSources(apiKey, query = null) {
+    if (!apiKey) {
+      Logger.warn('[DataSource] loadDataSources 呼叫時未提供 API Key，忽略請求');
+      return [];
+    }
     const isSearchQuery = Boolean(query);
 
     try {
@@ -261,7 +265,7 @@ export class DataSourceManager {
         ? UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(dataSources.length)
         : UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS(dataSources.length);
       this.ui.showStatus(message, 'success');
-    } else if (dataSources.length === 0) {
+    } else {
       this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND, 'error');
     }
   }

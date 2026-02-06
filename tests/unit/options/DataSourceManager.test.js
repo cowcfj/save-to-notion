@@ -9,6 +9,20 @@ import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/messages.js
 // Mock dependencies
 jest.mock('../../../scripts/options/UIManager.js');
 jest.mock('../../../scripts/options/SearchableDatabaseSelector.js');
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  },
+}));
+
+import Logger from '../../../scripts/utils/Logger.js';
 
 // Mock chrome API
 globalThis.chrome = {
@@ -43,6 +57,7 @@ describe('DataSourceManager', () => {
       ready: jest.fn(),
       info: jest.fn(),
       error: jest.fn(),
+      warn: jest.fn(),
     };
 
     // Reset chrome mock
@@ -57,6 +72,13 @@ describe('DataSourceManager', () => {
   });
 
   describe('loadDataSources', () => {
+    test('無 API Key 時返回空陣列且不發送請求', async () => {
+      const result = await dataSourceManager.loadDataSources('');
+      expect(result).toEqual([]);
+      expect(globalThis.chrome.runtime.sendMessage).not.toHaveBeenCalled();
+      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('未提供 API Key'));
+    });
+
     test('處理 401 認證錯誤', async () => {
       globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
         callback({ success: false, error: 'Unauthorized' });

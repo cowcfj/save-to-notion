@@ -613,18 +613,6 @@ export class SearchableDatabaseSelector {
     return title;
   }
 
-  static formatDate(dateString) {
-    try {
-      const date = new Date(dateString);
-      if (Number.isNaN(date.getTime())) {
-        return '';
-      }
-      return date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-      return '';
-    }
-  }
-
   destroy() {
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);

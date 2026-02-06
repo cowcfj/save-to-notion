@@ -11,7 +11,7 @@
 import Logger from './Logger.js';
 import { SECURITY_CONSTANTS } from '../config/constants.js';
 
-import { API_ERROR_PATTERNS } from '../config/messages.js';
+import { API_ERROR_PATTERNS, SECURITY_ERROR_MESSAGES } from '../config/messages.js';
 
 // ============================================================================
 // URL 驗證函數
@@ -81,7 +81,7 @@ export function validateInternalRequest(sender) {
   // 1. 沒有 tab 對象 (Popup, Background) 且 ID 匹配
   // 2. 有 tab 對象，但 URL 是擴充功能自身的 URL (Options in Tab) 且 ID 匹配
   if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionOrigin)) {
-    return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
+    return { success: false, error: SECURITY_ERROR_MESSAGES.INTERNAL_ONLY };
   }
 
   return null; // 驗證通過
@@ -99,11 +99,11 @@ export function validateContentScriptRequest(sender) {
   // 2. sender.tab 必須存在（在網頁上下文中）
 
   if (sender.id !== chrome.runtime.id) {
-    return { success: false, error: '拒絕訪問：僅限本擴充功能的 content script 調用' };
+    return { success: false, error: SECURITY_ERROR_MESSAGES.CONTENT_SCRIPT_ONLY };
   }
 
   if (!sender.tab?.id) {
-    return { success: false, error: '拒絕訪問：此操作必須在標籤頁上下文中調用' };
+    return { success: false, error: SECURITY_ERROR_MESSAGES.TAB_CONTEXT_REQUIRED };
   }
 
   return null; // 驗證通過
