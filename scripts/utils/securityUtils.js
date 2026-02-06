@@ -114,7 +114,6 @@ export function validateContentScriptRequest(sender) {
 // ============================================================================
 
 // [REMOVED] sanitizeUrlForLogging moved to LogSanitizer.js
-// [REMOVED] sanitizeUrlForLogging moved to LogSanitizer.js
 export { sanitizeUrlForLogging } from './LogSanitizer.js';
 
 // [REMOVED] maskSensitiveString moved to LogSanitizer.js

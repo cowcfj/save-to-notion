@@ -57,14 +57,9 @@ describe('Logger (Background Context)', () => {
       LogSanitizerModule.default?.LogSanitizer ||
       LogSanitizerModule;
     LogSanitizerMock.sanitizeEntry = jest.fn((msg, ctx) => {
-      let safeMsg;
-      if (typeof msg === 'string') {
-        safeMsg = msg;
-      } else if (typeof msg === 'object' && msg !== null) {
-        safeMsg = JSON.stringify(msg);
-      } else {
-        safeMsg = String(msg);
-      }
+      // 使用 JSON.stringify 統一處理，避免 '[object Object]' 警告
+      // JSON.stringify 對 undefined/function/symbol 返回 undefined，用 ?? 處理
+      const safeMsg = typeof msg === 'string' ? msg : (JSON.stringify(msg) ?? `${typeof msg}`);
       return {
         message: `SANITIZED_${safeMsg}`,
         context: ctx,
