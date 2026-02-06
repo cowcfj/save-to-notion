@@ -259,10 +259,8 @@ describe('InjectionService', () => {
   });
 
   describe('Edge Case Utilities', () => {
-    it('isRestrictedInjectionUrl 應該處理無效 URL 拋出的錯誤 (Line 63-70)', () => {
-      // Pass something that makes new URL() throw if possible (null/undefined handled, but maybe invalid chars)
-      // Actually, my current implementation handles empty. Let's try invalid protocol or something.
-      // JS `new URL()` throws for things that don't have a protocol or are completely mangled.
+    it('isRestrictedInjectionUrl 應處理無法解析的 URL 字符串', () => {
+      // 傳入無法被 new URL() 解析的字串，應觸發 catch 區塊並返回 true
       const result = isRestrictedInjectionUrl('not-a-url');
       expect(result).toBe(true);
       expect(Logger.warn).toHaveBeenCalled();

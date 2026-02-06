@@ -496,7 +496,7 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('checkNotionPageExists handler', () => {
     test('應該在缺少參數時報錯', async () => {
       const sendResponse = jest.fn();
-      await handlers.checkNotionPageExists({}, { id: 'mock-ext-id' }, sendResponse);
+      await handlers.checkNotionPageExists({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
@@ -539,13 +539,12 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該打開 Notion 頁面', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page-123' });
-      chrome.tabs.create.mockImplementation((opts, cb) => cb({ id: 1 }));
+      chrome.tabs.create.mockResolvedValue({ id: 1 });
 
       await handlers.openNotionPage({ url: 'http://test.com' }, internalSender, sendResponse);
       // Notion URL 會移除連字符
       expect(chrome.tabs.create).toHaveBeenCalledWith(
-        expect.objectContaining({ url: expect.stringContaining('page123') }),
-        expect.any(Function)
+        expect.objectContaining({ url: expect.stringContaining('page123') })
       );
     });
   });
@@ -737,7 +736,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/支援|受限/),
+          error: ERROR_MESSAGES.USER_MESSAGES.HIGHLIGHT_NOT_SUPPORTED,
         })
       );
     });

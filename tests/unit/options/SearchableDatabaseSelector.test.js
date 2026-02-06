@@ -268,6 +268,10 @@ describe('SearchableDatabaseSelector', () => {
     });
 
     it('should handle search error gracefully', async () => {
+      // NOTE:
+      // 雖然真實的 DataSourceManager.loadDataSources 會 catch 錯誤並返回空陣列，
+      // 但此處透過 mockRejectedValueOnce 模擬錯誤，是為了測試 SearchableDatabaseSelector
+      // 自身的 try-catch 錯誤處理邏輯（防禦性程式設計）。
       mockLoadDataSources.mockRejectedValueOnce(new Error('API Error'));
       await selector.performServerSearch('test query');
       expect(mockShowStatus).toHaveBeenCalledWith(expect.stringContaining('搜尋失敗'), 'error');
@@ -293,6 +297,8 @@ describe('SearchableDatabaseSelector', () => {
       selector.showSearchingState('<script>alert("xss")</script>');
       // DOM textContent automatically handles escaping
       expect(selector.dataSourceList.textContent).toContain('<script>');
+      // 額外驗證 innerHTML 中不存在未轉義的 <script> 標籤，確保 XSS 防護
+      expect(selector.dataSourceList.innerHTML).not.toContain('<script>alert("xss")</script>');
     });
   });
 

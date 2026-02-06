@@ -87,12 +87,18 @@ function setupScriptMock(contentResult) {
 
 describe('background error branches (integration)', () => {
   let originalChrome = null;
+  let originalFetch = null;
   let mockSyncStorage = {};
+
+  // 統一錯誤匹配模式，避免過於寬泛的 "失敗" 匹配
+  const API_ERROR_REGEX =
+    /Invalid request|請求無效|無法解析頁面內容|Notion API 請求失敗|發生未知錯誤|操作失敗|網路錯誤/u;
 
   beforeEach(() => {
     jest.resetModules();
     mockSyncStorage = {};
     originalChrome = globalThis.chrome;
+    originalFetch = globalThis.fetch;
 
     // 明確設定 Logger 為非調試模式
     // 明確設定 Logger 為非調試模式，但允許輸出到控制台
@@ -187,12 +193,12 @@ describe('background error branches (integration)', () => {
 
   afterEach(() => {
     globalThis.chrome = originalChrome;
+    globalThis.fetch = originalFetch;
     jest.useRealTimers();
   });
 
   const internalSender = { id: 'test', url: 'chrome-extension://test/popup.html' };
   const contentScriptSender = { id: 'test', tab: { id: 1 }, url: 'https://example.com' };
-  beforeEach(() => {});
 
   test('startHighlight：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = jest.fn();
@@ -543,7 +549,7 @@ describe('background error branches (integration)', () => {
       expect.objectContaining({
         success: false,
         // 400 + 'Invalid request' 經過 sanitizeApiError 會返回 'Invalid request'
-        error: expect.stringMatching(/Invalid request|請求無效|發生未知錯誤|Notion API 請求失敗/u),
+        error: expect.stringMatching(API_ERROR_REGEX),
       })
     );
   });
@@ -635,9 +641,6 @@ describe('background error branches (integration)', () => {
       }
     }
     const resp = sendResponse.mock.calls[0][0];
-    if (resp.success !== true) {
-      throw new Error(`Test failed with error: ${resp.error}`);
-    }
     expect(resp.success).toBe(true);
     // 可存在 warning（All images were skipped...），但不強制檢查文案
 
@@ -722,7 +725,7 @@ describe('background error branches (integration)', () => {
       expect.objectContaining({
         success: false,
         // 'image url invalid' 包含 'image'，經過 sanitizeApiError 返回 'Invalid request'
-        error: expect.stringMatching(/請求無效|失敗|網路錯誤/u),
+        error: expect.stringMatching(API_ERROR_REGEX),
       })
     );
   });
@@ -786,7 +789,7 @@ describe('background error branches (integration)', () => {
       expect.objectContaining({
         success: false,
         // 當前 Fallback 訊息或經過翻譯後的訊息均包含「失敗」或「無效」
-        error: expect.stringMatching(/請求無效|失敗|網路錯誤/u),
+        error: expect.stringMatching(API_ERROR_REGEX),
       })
     );
 
