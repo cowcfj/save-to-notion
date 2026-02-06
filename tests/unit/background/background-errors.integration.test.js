@@ -779,7 +779,12 @@ describe('background error branches (integration)', () => {
           text: () => Promise.resolve('Invalid request'),
         });
       }
-      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve('ok'),
+      });
     });
 
     const sendResponse = jest.fn();
@@ -818,11 +823,7 @@ describe('background error branches (integration)', () => {
         },
       ],
     };
-    chrome.scripting.executeScript
-      .mockImplementationOnce((opts, cb) => cb?.())
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: undefined }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: [] }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: contentResult }]));
+    setupScriptMock(contentResult);
 
     globalThis.fetch = jest.fn((requestUrl, init) => {
       if (/\/v1\/pages\//u.test(requestUrl) && init?.method === 'GET') {

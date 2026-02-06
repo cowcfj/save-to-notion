@@ -148,7 +148,12 @@ export class DataSourceManager {
                 error: lastError.message || 'Messaging error',
               });
             } else {
-              resolve(response);
+              resolve(
+                response || {
+                  success: false,
+                  error: 'No response from background script',
+                }
+              );
             }
           }
         }

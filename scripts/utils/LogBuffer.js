@@ -33,7 +33,8 @@ function truncateMessage(message, maxLength) {
     return safeMessage;
   }
   // 使用模板字串避免 prefer-template 警告
-  return `${safeMessage.slice(0, maxLength - 12)}... [截斷]`;
+  // ... [截斷] = 8 characters (3 + 1 + 4)
+  return `${safeMessage.slice(0, maxLength - 8)}... [截斷]`;
 }
 
 /**
@@ -64,9 +65,9 @@ function createTruncatedEntry(entry, originalSize, structureOverhead) {
   const truncatedMsg = truncateMessage(originalMessage, maxMessageLength);
 
   return {
-    level: entry.level,
+    level: truncateMessage(entry.level, 50),
     message: truncatedMsg,
-    source: entry.source,
+    source: truncateMessage(entry.source, 50),
     context: {
       truncated: true,
       reason: 'entry_exceeds_size_limit',

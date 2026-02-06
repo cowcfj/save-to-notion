@@ -57,7 +57,6 @@ describe('DataSourceManager', () => {
   afterEach(() => {
     document.body.innerHTML = '';
     jest.clearAllMocks();
-    delete globalThis.Logger;
   });
 
   describe('loadDataSources', () => {
@@ -339,14 +338,14 @@ describe('DataSourceManager', () => {
       );
     });
 
-    test('處理無內容的 503 錯誤', async () => {
+    test('處理 503 錯誤（對應到 Internal Server Error 訊息）', async () => {
       globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
         callback({ success: false, error: 'Service Unavailable' });
       });
 
       await dataSourceManager.loadDataSources('test_key');
 
-      // 應自動識別為 Internal Server Error 並翻譯
+      // sanitizeApiError 將 503 Service Unavailable 歸類為 Internal Server Error 群組
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
         expect.stringContaining(ERROR_MESSAGES.PATTERNS['Internal Server Error']),
         'error'
