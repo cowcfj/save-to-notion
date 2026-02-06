@@ -153,9 +153,8 @@ class TabService {
     }
 
     // 快取過期，執行聯網檢查
-    this.logger.debug(
-      `[TabService] Cache expired, verifying Notion page: ${savedData.notionPageId}`
-    );
+    const maskedPageId = `${savedData.notionPageId?.slice(0, 4)}...`;
+    this.logger.debug(`[TabService] Cache expired, verifying Notion page: ${maskedPageId}`);
 
     try {
       const apiKey = await this.getApiKey();

@@ -303,6 +303,13 @@ export function createHighlightHandlers(services) {
         // 安全性驗證：確保請求來自擴充功能內部 (Popup)
         const validationError = validateInternalRequest(sender);
         if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'updateHighlights',
+            reason: 'invalid_internal_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
+          });
           sendResponse(validationError);
           return;
         }
@@ -338,6 +345,10 @@ export function createHighlightHandlers(services) {
         if (result.success) {
           result.highlightsUpdated = true;
           result.highlightCount = highlights.length;
+          Logger.success('成功更新標註', {
+            action: 'updateHighlights',
+            count: highlights.length,
+          });
         }
         sendResponse(result);
       } catch (error) {
@@ -359,6 +370,13 @@ export function createHighlightHandlers(services) {
         // 安全性驗證：確保請求來自我們自己的 content script
         const validationError = validateContentScriptRequest(sender);
         if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'syncHighlights',
+            reason: 'invalid_content_script_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
+          });
           sendResponse(validationError);
           return;
         }

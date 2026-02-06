@@ -176,16 +176,15 @@ describe('BlockBuilder', () => {
 
   describe('splitTextForHighlight', () => {
     test('應該在標點符號處智能分割', () => {
-      const longText = `這是一個很長的段落。${'a'.repeat(990)}。${'b'.repeat(1000)}`;
+      // maxLength = 1000. 讓第二個 '。' 落在 (500, 1000) 區間內
+      // 5 + 800 + 1 = 806
+      const longText = `這是一個。${'a'.repeat(800)}。${'b'.repeat(500)}`;
       const chunks = splitTextForHighlight(longText, 1000);
 
-      // chunks[0] should be clamped to 1000 chars (forced split)
-      expect(chunks[0]).toHaveLength(1000);
-      // 在這個特定的 case 中，'。' 之前的長度是否滿足 < 1000?
-      // original: 10 + 990 + 1 = 1001 chars. Old code allowed search at 1000.
-      // New code searches at 999.
-      // 讓我們重新計算預期結果。如果 split logic 正確，它會確保 chunk <= 1000。
-      expect(chunks[0]).toHaveLength(1000);
+      // chunks[0] should be split at the second '。' (index 805, length 806)
+      expect(chunks[0]).toHaveLength(806);
+      expect(chunks[0].endsWith('。')).toBe(true);
+      expect(chunks[1]).toBe('b'.repeat(500));
     });
 
     test('應該在換行處優先分割', () => {

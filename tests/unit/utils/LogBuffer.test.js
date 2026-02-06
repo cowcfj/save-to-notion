@@ -59,6 +59,20 @@ describe('LogBuffer', () => {
       // Last item should be id: 5
       expect(logs[DEFAULT_CAPACITY - 1].id).toBe(DEFAULT_CAPACITY);
     });
+
+    test('should handle circular references safely', () => {
+      const circular = { level: 'error', message: 'circular test' };
+      circular.self = circular; // Create circular reference
+
+      logBuffer.push(circular);
+
+      const logs = logBuffer.getAll();
+      expect(logs).toHaveLength(1);
+      expect(logs[0].message).toBe('circular test');
+      expect(logs[0].context.error).toMatch(/serialization_failed/);
+      // The circular reference should NOT be present in the stored entry
+      expect(logs[0].self).toBeUndefined();
+    });
   });
 
   describe('getAll()', () => {

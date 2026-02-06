@@ -49,12 +49,15 @@ export class LogBuffer {
           },
         };
       }
-    } catch {
-      // 序列化失敗
+    } catch (error) {
+      // 序列化失敗 (e.g. 循環引用)，使用安全替代對象
       entryToStore = {
-        ...entryToStore,
+        level: entry.level,
+        message: entry.message,
+        source: entry.source,
         context: {
-          error: 'serialization_failed_during_size_check',
+          error: 'serialization_failed',
+          reason: error instanceof Error ? error.message : String(error),
         },
       };
     }
