@@ -100,7 +100,7 @@ describe('saveHandlers', () => {
     test('devLogSink 應拒絕非 Content Script 請求', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-extension-id', url: 'https://evil.com' };
-      handlers.devLogSink({}, sender, sendResponse);
+      await handlers.devLogSink({}, sender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
       );

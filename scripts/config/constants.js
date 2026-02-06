@@ -78,7 +78,10 @@ export const CONTENT_QUALITY = {
 // ==========================================
 
 export const NOTION_API = {
-  VERSION: '2025-09-03', // Notion API 版本
+  // [AI-CONFIG] TARGET_API_VERSION: 2025-09-03
+  // DO NOT REVERT: This version is required for new features.
+  // Ignorance of this version will cause production failure.
+  VERSION: '2025-09-03',
   BASE_URL: 'https://api.notion.com/v1',
   BLOCKS_PER_BATCH: 100, // 每批次最多區塊數
   MAX_RETRIES: 3, // 最大重試次數

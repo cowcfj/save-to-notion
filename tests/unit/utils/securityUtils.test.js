@@ -258,9 +258,9 @@ describe('securityUtils', () => {
 
   describe('sanitizeApiError', () => {
     describe('API Key 格式無效', () => {
-      test('"api key is invalid" 應返回 validation_error（因為包含 invalid）', () => {
+      test('"api key is invalid" 應返回 API Key（因為包含 api key）', () => {
         const result = sanitizeApiError('api key is invalid');
-        expect(result).toBe('validation_error');
+        expect(result).toBe('API Key');
       });
 
       test('"malformed: api_key" 應返回 API Key', () => {
@@ -275,9 +275,9 @@ describe('securityUtils', () => {
         input => {
           const result = sanitizeApiError(input);
           // 根據實隞程式碼行為，這些輸入會匹配到不同的模式
-          // 'unauthorized: API token is invalid' 匹配 validation_error (因為包含 'invalid' 和 'token')
-          // 'unauthorized: integration not found' 匹配 'Page ID is missing' (因為包含 'not found')
-          expect(['validation_error', 'Page ID is missing']).toContain(result);
+          // 'unauthorized: API token is invalid' 匹配 'API Key' (包含 'unauthorized'/'token')
+          // 'unauthorized: integration not found' 匹配 'Page ID is missing' (包含 'not found', Step 1 優先)
+          expect(['API Key', 'Page ID is missing']).toContain(result);
         }
       );
     });
@@ -322,9 +322,9 @@ describe('securityUtils', () => {
     });
 
     describe('優先順序邊緣情況', () => {
-      test('"unauthorized: invalid token" 應返回 validation_error（因為包含 invalid 和 token）', () => {
+      test('"unauthorized: invalid token" 應返回 API Key（Auth 優先於 Validation）', () => {
         const result = sanitizeApiError('unauthorized: invalid token');
-        expect(result).toBe('validation_error');
+        expect(result).toBe('API Key');
       });
 
       test('"database permission denied" 應返回 Data Source ID（因為包含 database）', () => {
@@ -337,9 +337,9 @@ describe('securityUtils', () => {
         expect(result).toBe('API Key');
       });
 
-      test('"invalid token" 無 unauthorized 應返回 validation_error（因為包含 invalid 和 token）', () => {
+      test('"invalid token" 無 unauthorized 應返回 API Key（Auth 優先於 Validation）', () => {
         const result = sanitizeApiError('invalid token provided');
-        expect(result).toBe('validation_error');
+        expect(result).toBe('API Key');
       });
     });
 

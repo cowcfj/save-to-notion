@@ -213,7 +213,7 @@ export const ERROR_MESSAGES = {
     'Receiving end does not exist': '頁面載入中，請稍候再試',
     'Could not establish connection': '頁面通訊失敗，請重新整理頁面',
 
-    // Notion API 錯誤
+    // Notion API 錯誤（已轉換的關鍵字）
     'API Key': USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
     'Invalid API Key format': USER_MESSAGES.INVALID_API_KEY_FORMAT,
     'Data Source ID': USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
@@ -224,6 +224,17 @@ export const ERROR_MESSAGES = {
     'Invalid request': USER_MESSAGES.CONTENT_PARSE_FAILED,
     validation_error: USER_MESSAGES.CONTENT_PARSE_FAILED,
     notionhq_client_response_error: 'Notion API 請求失敗，請稍後再試',
+
+    // Notion SDK 原始錯誤碼（直接來自 apiError.code）
+    // 這些 key 與 Notion SDK 的 APIResponseError.code 完全一致
+    rate_limited: '請求過於頻繁，請稍後再試',
+    conflict_error: '發生資料衝突，請稍後重試',
+    object_not_found: '找不到目標頁面或資料庫，請確認資源存在且已授權',
+    unauthorized: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
+    invalid_request_url: '請求的 URL 無效，請確認頁面網址正確',
+    invalid_json: '資料格式錯誤，請稍後再試',
+    service_unavailable: 'Notion 服務暫時不可用，請稍後再試',
+    internal_server_error: 'Notion 伺服器錯誤，請稍後再試',
 
     // 網路與限流
     'Network error': '網路連線異常，請檢查網路後重試',

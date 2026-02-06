@@ -149,7 +149,6 @@ function _classifyApiError(lowerMessage) {
     'Page ID is missing': NOT_FOUND,
     'active tab': ACTIVE_TAB,
     'Data Source ID': DATA_SOURCE,
-    validation_error: VALIDATION,
     'Network error': NETWORK,
   });
   if (directMatch) {
@@ -166,6 +165,12 @@ function _classifyApiError(lowerMessage) {
   );
   if (authResult) {
     return authResult;
+  }
+
+  // 2.5 驗證錯誤 (Validation) - 降級檢查順序
+  // 防止 'api key is invalid' 等認證錯誤被誤判為 validation_error
+  if (VALIDATION.some(k => lowerMessage.includes(k))) {
+    return 'validation_error';
   }
 
   // 3. 權限檢查 (Permission)
@@ -275,7 +280,7 @@ export function sanitizeApiError(apiError, context = 'operation') {
     `[Security] Unrecognized API error sanitized (context: ${context}, length: ${errorMessage.length})`
   );
 
-  return classification || 'Unknown Error';
+  return 'Unknown Error';
 }
 
 // ============================================================================

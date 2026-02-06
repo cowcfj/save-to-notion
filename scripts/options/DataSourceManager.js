@@ -340,7 +340,13 @@ export class DataSourceManager {
       return false;
     }
 
-    if (page.parent?.type === 'data_source_id' && page.properties) {
+    // 檢查頁面是否為資料庫或 DataSource 的子項目
+    // 'database_id': 標準 Notion Database 子頁面（最常見）
+    // 'data_source_id': DataSource 類型子頁面
+    const parentType = page.parent?.type;
+    const isDbChildPage = parentType === 'database_id' || parentType === 'data_source_id';
+
+    if (isDbChildPage && page.properties) {
       return Object.entries(page.properties).some(([key, prop]) => {
         return key.toLowerCase().includes('url') || prop.type === 'url';
       });

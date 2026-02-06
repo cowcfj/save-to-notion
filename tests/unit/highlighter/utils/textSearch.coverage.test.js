@@ -19,6 +19,7 @@ describe('TextSearch Utils Coverage Tests', () => {
       start: jest.fn(),
       ready: jest.fn(),
       info: jest.fn(),
+      log: jest.fn(),
       error: jest.fn(),
       warn: jest.fn(),
     };

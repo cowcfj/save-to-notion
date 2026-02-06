@@ -63,7 +63,7 @@ describe('NotionService Race Condition Fix Verification', () => {
     await Promise.all([p1, p2, p3]);
 
     // 驗證創建了多個 Client 實例
-    // 1. KEY_B (search scroped)
+    // 1. KEY_B (search scoped)
     // 2. KEY_C (checkPageExists scoped)
     // 3. KEY_A (雖然在 constructor 建立過一次，但 search 可能會再建立一次，具體取決於實現)
 

@@ -214,12 +214,12 @@ const ErrorHandler = {
     }
     const message = error instanceof Error ? error.message : String(error);
     const lowerMessage = message.toLowerCase();
-    // 檢查是否同時包含 'validation' 或 'invalid' 與 'image'
-    // 或者直接是標準的 'validation_error' 字串 (代表 API 驗證失敗，通常是圖片問題)
+    // 僅當錯誤訊息同時包含 ['validation' 或 'invalid'] 且包含 'image' 時
+    // 才判定為圖片驗證錯誤
+    // 注意：不再將 generic 'validation_error' 視為圖片錯誤，避免誤判
     return (
-      lowerMessage === 'validation_error' ||
-      ((lowerMessage.includes('validation') || lowerMessage.includes('invalid')) &&
-        lowerMessage.includes('image'))
+      (lowerMessage.includes('validation') || lowerMessage.includes('invalid')) &&
+      lowerMessage.includes('image')
     );
   },
 };
