@@ -168,7 +168,7 @@ class TabService {
       const exists = await this.checkPageExists(savedData.notionPageId, apiKey);
 
       if (exists === false) {
-        this.logger.log('✅ 頁面已在 Notion 中刪除，自動清理本地狀態', {
+        this.logger.log('頁面已在 Notion 中刪除，自動清理本地狀態', {
           action: 'autoSyncLocalState',
           pageId: savedData.notionPageId?.slice(0, 4),
         });

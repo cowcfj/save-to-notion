@@ -85,7 +85,7 @@ const tabService = new TabService({
   isRecoverableError: isRecoverableInjectionError,
   // 新增驗證所需的依賴
   checkPageExists: (pageId, apiKey) => notionService.checkPageExists(pageId, { apiKey }),
-  getApiKey: () => storageService.getConfig(['apiKey']).then(config => config.apiKey),
+  getApiKey: () => storageService.getConfig(['notionApiKey']).then(config => config.notionApiKey),
   clearPageState: url => storageService.clearPageState(url),
   setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
 });
