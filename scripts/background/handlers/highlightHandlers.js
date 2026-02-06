@@ -16,6 +16,7 @@ import {
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
+import { normalizeUrl } from '../../utils/urlUtils.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 
@@ -103,8 +104,9 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   // 1. 確保有 API Key
   const apiKey = await ensureNotionApiKey(storageService);
 
-  const url = activeTab.url || '';
-  const savedData = await storageService.getSavedPageData(url);
+  // 使用 normalizeUrl 正規化 URL，確保與 savePage/checkPageStatus 一致
+  const normUrl = normalizeUrl(activeTab.url || '');
+  const savedData = await storageService.getSavedPageData(normUrl);
 
   if (!savedData?.notionPageId) {
     return {
@@ -117,9 +119,20 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   const highlightBlocks = buildHighlightBlocks(highlights);
 
   // 調用 NotionService 更新標記
-  return await notionService.updateHighlightsSection(savedData.notionPageId, highlightBlocks, {
-    apiKey,
-  });
+  const result = await notionService.updateHighlightsSection(
+    savedData.notionPageId,
+    highlightBlocks,
+    {
+      apiKey,
+    }
+  );
+
+  // 格式化失敗訊息為用戶友善格式（與 saveHandlers.sendErrorResponse 模式一致）
+  if (!result.success && result.error) {
+    result.error = ErrorHandler.formatUserMessage(result.error);
+  }
+
+  return result;
 }
 
 // ============================================================================
@@ -419,6 +432,7 @@ export function createHighlightHandlers(services) {
           result.highlightCount = highlights.length;
           result.message = UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
         } else {
+          // 注意：performHighlightUpdate 已格式化 result.error 為用戶友善訊息
           Logger.error('同步標註失敗', { action: 'syncHighlights', error: result.error });
         }
         sendResponse(result);

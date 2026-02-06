@@ -13,6 +13,93 @@
 // [Memory Safety] 單條日誌最大允許大小 (25KB)
 const MAX_ENTRY_SIZE = 25_000;
 
+// 結構開銷常量
+const STRUCTURE_OVERHEAD = 150;
+const FALLBACK_STRUCTURE_OVERHEAD = 200;
+
+// 標準欄位列表
+const STANDARD_FIELDS = new Set(['level', 'message', 'source', 'context']);
+
+/**
+ * 截斷訊息至指定長度
+ *
+ * @param {string} message - 原始訊息
+ * @param {number} maxLength - 最大長度
+ * @returns {string} 截斷後的訊息
+ */
+function truncateMessage(message, maxLength) {
+  if (message.length <= maxLength) {
+    return message;
+  }
+  // 使用模板字串避免 prefer-template 警告
+  return `${message.slice(0, maxLength - 12)}... [截斷]`;
+}
+
+/**
+ * 判斷日誌條目是否需要進行大小檢查
+ *
+ * @param {object} entry - 日誌對象
+ * @returns {boolean} 是否需要大小檢查
+ */
+function needsSizeCheck(entry) {
+  const hasContext = entry.context && Object.keys(entry.context).length > 0;
+  const isLongMessage = (entry.message?.length || 0) > MAX_ENTRY_SIZE / 2;
+  const hasExtraData = Object.keys(entry).some(k => !STANDARD_FIELDS.has(k));
+  return hasContext || isLongMessage || hasExtraData;
+}
+
+/**
+ * 創建截斷後的日誌條目
+ *
+ * @param {object} entry - 原始日誌對象
+ * @param {number} originalSize - 原始序列化大小
+ * @param {number} structureOverhead - 結構開銷
+ * @returns {object} 截斷後的日誌條目
+ */
+function createTruncatedEntry(entry, originalSize, structureOverhead) {
+  const maxMessageLength = Math.max(100, MAX_ENTRY_SIZE - structureOverhead);
+  const originalMessage = entry.message || '';
+  const needsTruncate = originalMessage.length > maxMessageLength;
+  const truncatedMsg = truncateMessage(originalMessage, maxMessageLength);
+
+  return {
+    level: entry.level,
+    message: truncatedMsg,
+    source: entry.source,
+    context: {
+      truncated: true,
+      reason: 'entry_exceeds_size_limit',
+      originalSize,
+      ...(needsTruncate && { originalMessageLength: originalMessage.length }),
+    },
+  };
+}
+
+/**
+ * 創建序列化失敗時的回退條目
+ *
+ * @param {object} entry - 原始日誌對象
+ * @param {Error|string} error - 序列化錯誤
+ * @returns {object} 回退日誌條目
+ */
+function createSerializationFailedEntry(entry, error) {
+  const maxMessageLength = Math.max(100, MAX_ENTRY_SIZE - FALLBACK_STRUCTURE_OVERHEAD);
+  const originalMessage = entry.message || '';
+  const needsTruncate = originalMessage.length > maxMessageLength;
+  const truncatedMsg = truncateMessage(originalMessage, maxMessageLength);
+
+  return {
+    level: entry.level,
+    message: truncatedMsg,
+    source: entry.source,
+    context: {
+      error: 'serialization_failed',
+      reason: error instanceof Error ? error.message : String(error),
+      ...(needsTruncate && { originalMessageLength: originalMessage.length }),
+    },
+  };
+}
+
 export class LogBuffer {
   /**
    * @param {number} capacity - 緩衝區最大容量 (預設 500)
@@ -33,54 +120,13 @@ export class LogBuffer {
   push(entry) {
     let entryToStore = { ...entry };
 
-    // [Memory Safety] 檢查單條日誌大小
-    // 如果單條日誌過大，可能會影響記憶體佔用。使用模組常量 MAX_ENTRY_SIZE 控制。
-
-    // [Performance Optimization] 僅在存在 context 或訊息過長時執行完整序列化檢查
-    // 簡單日誌 (無 context 且短訊息) 直接寫入，避免 JSON.stringify 開銷
-    const hasContext = entry.context && Object.keys(entry.context).length > 0;
-    const isLongMessage = (entry.message?.length || 0) > MAX_ENTRY_SIZE / 2; // 保守估計：預留空間給其他欄位
-    // 檢查是否有非標準欄位 (防止透過非 context 欄位傳遞大數據，如測試案例)
-    const hasExtraData = Object.keys(entry).some(
-      k => !['level', 'message', 'source', 'context'].includes(k)
-    );
-
-    if (!hasContext && !isLongMessage && !hasExtraData) {
-      // Fast path: safe to store directly
-    } else {
-      try {
-        const serialized = JSON.stringify(entryToStore);
-        if (serialized.length > MAX_ENTRY_SIZE) {
-          // 如果過大，移除 context 並標記
-          entryToStore = {
-            level: entry.level,
-            message: entry.message,
-            source: entry.source,
-            context: {
-              truncated: true,
-              reason: 'entry_exceeds_size_limit',
-              originalSize: serialized.length,
-            },
-          };
-        }
-      } catch (error) {
-        // 序列化失敗 (e.g. 循環引用)，使用安全替代對象
-        entryToStore = {
-          level: entry.level,
-          message: entry.message,
-          source: entry.source,
-          context: {
-            error: 'serialization_failed',
-            reason: error instanceof Error ? error.message : String(error),
-          },
-        };
-      }
+    // [Performance Optimization] 僅在需要時執行完整序列化檢查
+    if (needsSizeCheck(entry)) {
+      entryToStore = this._processOversizedEntry(entry, entryToStore);
     }
 
     // 計算寫入位置：(head + size) % capacity
-    // 假如滿了，(head + size) 會剛好指回 head 所在位置，進行覆蓋
     const writeIndex = (this.head + this.size) % this.capacity;
-
     this.buffer[writeIndex] = entryToStore;
 
     if (this.size < this.capacity) {
@@ -88,6 +134,26 @@ export class LogBuffer {
     } else {
       // 緩衝區已滿，覆蓋了最舊的，head 往前移
       this.head = (this.head + 1) % this.capacity;
+    }
+  }
+
+  /**
+   * 處理可能過大的日誌條目
+   *
+   * @param {object} entry - 原始日誌對象
+   * @param {object} fallback - 回退對象
+   * @returns {object} 處理後的日誌條目
+   * @private
+   */
+  _processOversizedEntry(entry, fallback) {
+    try {
+      const serialized = JSON.stringify(fallback);
+      if (serialized.length > MAX_ENTRY_SIZE) {
+        return createTruncatedEntry(entry, serialized.length, STRUCTURE_OVERHEAD);
+      }
+      return fallback;
+    } catch (error) {
+      return createSerializationFailedEntry(entry, error);
     }
   }
 
