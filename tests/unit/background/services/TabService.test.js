@@ -381,6 +381,15 @@ describe('TabService', () => {
   });
 
   describe('waitForTabCompilation', () => {
+    // Helper to flush potential microtasks.
+    // We need to wait for the async _waitForTabCompilation method to proceed past its
+    // initial `await chrome.tabs.get()` and register the event listeners.
+    // A single await might not be enough depending on the internal promise chain.
+    const flushMicrotasks = async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    };
+
     it('應該在標籤頁已完成載入時直接返回', async () => {
       chrome.tabs.get.mockResolvedValue({ id: 1, status: 'complete' });
       const res = await service._waitForTabCompilation(1);
@@ -404,9 +413,8 @@ describe('TabService', () => {
 
       const promise = service._waitForTabCompilation(1);
 
-      // 讓 chrome.tabs.get resolve，進入 Promise 內部執行 addListener
-      await Promise.resolve();
-      await Promise.resolve();
+      // 等待非同步操作推進到監聽器註冊階段
+      await flushMicrotasks();
 
       // 觸發更新
       if (typeof updateCallback === 'function') {
@@ -427,9 +435,8 @@ describe('TabService', () => {
 
       const promise = service._waitForTabCompilation(1);
 
-      // 讓 chrome.tabs.get resolve
-      await Promise.resolve();
-      await Promise.resolve();
+      // 等待非同步操作推進到監聽器註冊階段
+      await flushMicrotasks();
 
       // 觸發移除
       if (typeof removeCallback === 'function') {
@@ -447,9 +454,8 @@ describe('TabService', () => {
 
         const promise = service._waitForTabCompilation(1);
 
-        // 讓 chrome.tabs.get 的 Promise resolve, 進入 _waitForTabCompilation 內部的 Promise 定義
-        await Promise.resolve();
-        await Promise.resolve();
+        // 等待非同步操作推進到內部 Promise 建立
+        await flushMicrotasks();
 
         jest.advanceTimersByTime(11_000); // 大於 10s
 

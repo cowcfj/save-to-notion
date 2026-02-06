@@ -285,6 +285,7 @@ describe('saveHandlers', () => {
     const validSender = {
       id: 'test-extension-id',
       tab: { id: 1 },
+      url: 'https://example.com',
     };
 
     test('should use correct log level when valid', () => {

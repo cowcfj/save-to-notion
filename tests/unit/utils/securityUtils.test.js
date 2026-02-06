@@ -270,16 +270,15 @@ describe('securityUtils', () => {
     });
 
     describe('Integration 連接斷開', () => {
-      test.each([['unauthorized: API token is invalid'], ['unauthorized: integration not found']])(
-        '"%s" 應返回 連接斷開訊息',
-        input => {
-          const result = sanitizeApiError(input);
-          // 根據實隞程式碼行為，這些輸入會匹配到不同的模式
-          // 'unauthorized: API token is invalid' 匹配 'API Key' (包含 'unauthorized'/'token')
-          // 'unauthorized: integration not found' 匹配 'Page ID is missing' (包含 'not found', Step 1 優先)
-          expect(['API Key', 'Page ID is missing']).toContain(result);
-        }
-      );
+      test('"unauthorized: API token is invalid" 應返回 API Key', () => {
+        const result = sanitizeApiError('unauthorized: API token is invalid');
+        expect(result).toBe('API Key');
+      });
+
+      test('"unauthorized: integration not found" 應返回 Page ID is missing', () => {
+        const result = sanitizeApiError('unauthorized: integration not found');
+        expect(result).toBe('Page ID is missing');
+      });
     });
 
     describe('一般認證錯誤', () => {

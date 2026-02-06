@@ -47,10 +47,10 @@ class TabService {
     this.processingTabs = new Map();
 
     // 依賴注入：驗證邏輯
-    this.checkPageExists = options.checkPageExists;
-    this.getApiKey = options.getApiKey;
-    this.clearPageState = options.clearPageState;
-    this.setSavedPageData = options.setSavedPageData;
+    this.checkPageExists = options.checkPageExists || (() => Promise.resolve(null));
+    this.getApiKey = options.getApiKey || (() => Promise.resolve(null));
+    this.clearPageState = options.clearPageState || (() => Promise.resolve());
+    this.setSavedPageData = options.setSavedPageData || (() => Promise.resolve());
   }
 
   /**

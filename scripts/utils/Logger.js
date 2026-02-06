@@ -333,8 +333,12 @@ const Logger = {
 
   error(message, ...args) {
     // 檢查是否為忽略的錯誤（Chrome 擴展框架相關的非關鍵錯誤）
+    // 特殊情況：全域未捕獲異常/rejection 不應被過濾，即使它們包含被忽略的關鍵字
     const errorMsg = message instanceof Error ? message.message : String(message);
-    if (errorMsg.includes('Frame with ID') && errorMsg.includes('was removed')) {
+    const isGlobalError =
+      errorMsg.startsWith('[Uncaught Exception]') || errorMsg.startsWith('[Unhandled Rejection]');
+
+    if (!isGlobalError && errorMsg.includes('Frame with ID') && errorMsg.includes('was removed')) {
       return;
     }
 
@@ -390,9 +394,6 @@ export default Logger;
 initDebugState();
 
 // Global Assignment (Module & Classic Script compatible fallback)
-if (globalThis.self !== undefined) {
-  globalThis.Logger = Logger;
-}
-if (globalThis.window !== undefined) {
+if (globalThis.self !== undefined || globalThis.window !== undefined) {
   globalThis.Logger = Logger;
 }

@@ -106,25 +106,38 @@ describe('fetchWithRetry', () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 
-  // eslint-disable-next-line jest/no-disabled-tests
-  it.skip('應該在達到最大重試次數後拋出網絡錯誤', async () => {
-    globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+  it('應該在達到最大重試次數後拋出網絡錯誤', async () => {
+    const error = new Error('Network error');
+    error.name = 'NetworkError';
+    globalThis.fetch = jest.fn().mockRejectedValue(error);
 
+    // 啟動請求，但不等待它完成 (Promise 會處於 pending 狀態等待重試計時器)
     const promise = fetchWithRetry(
       'https://api.notion.com/test',
       {},
       { maxRetries: 1, baseDelay: 1000 }
     );
-    const expectation = await expect(promise).rejects.toThrow('Network error');
 
-    // 快進時間以處理延遲
-    jest.runAllTimers();
-    // Aggressively flush microtasks to ensure async/await loop proceeds
-    for (let i = 0; i < 10; i++) {
+    // 讓初始請求執行、失敗並進入 setTimeout
+    // 需要多次 flush 確保非同步鏈接完全推進
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // 驗證第一次調用已發生
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+
+    // 快進時間以觸發重試 (確保超過 baseDelay)
+    jest.advanceTimersByTime(2000);
+
+    // 讓重試請求執行 (多次 flush 以防萬一)
+    for (let i = 0; i < 5; i++) {
       await Promise.resolve();
     }
 
-    await expectation;
+    // 等待 Promise 拒絕並驗證錯誤
+    await expect(promise).rejects.toThrow('Network error');
+
+    // 驗證總共調用次數（初始 + 1次重試）
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 });

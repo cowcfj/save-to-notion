@@ -22,7 +22,7 @@ import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 
-const safeNormalizeUrl = normalizeUrl || (url => url);
+const safeNormalizeUrl = normalizeUrl;
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
