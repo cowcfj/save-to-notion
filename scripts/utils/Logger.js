@@ -273,36 +273,33 @@ const Logger = {
   },
 
   debug(message, ...args) {
-    writeToBuffer('debug', message, args);
-
     if (!this.debugEnabled) {
       return;
     }
 
+    writeToBuffer('debug', message, args);
     // eslint-disable-next-line no-console
     console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
     sendToBackground('debug', message, args);
   },
 
   log(message, ...args) {
-    writeToBuffer('log', message, args);
-
     if (!this.debugEnabled) {
       return;
     }
 
+    writeToBuffer('log', message, args);
     // eslint-disable-next-line no-console
     console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
     sendToBackground('log', message, args);
   },
 
   info(message, ...args) {
-    writeToBuffer('info', message, args);
-
     if (!this.debugEnabled) {
       return;
     }
 
+    writeToBuffer('info', message, args);
     console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
     sendToBackground('info', message, args);
   },

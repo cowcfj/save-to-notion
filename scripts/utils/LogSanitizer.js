@@ -231,11 +231,9 @@ export const LogSanitizer = {
    * 清洗錯誤堆疊追蹤，移除內部路徑和精確位置資訊
    *
    * @param {string} stack - 原始 stack trace
-   * @param {object} options - 配置選項
-   * @param {boolean} [options.isDev=false] - 是否為開發模式（保留更多細節）
    * @returns {string} 清洗後的 stack trace
    */
-  _sanitizeStackTrace(stack, { isDev = false } = {}) {
+  _sanitizeStackTrace(stack) {
     if (!stack || typeof stack !== 'string') {
       return stack;
     }
@@ -279,10 +277,7 @@ export const LogSanitizer = {
       );
 
       // 3. 移除精確的行號和列號（:16:13），只保留檔案名
-      // 開發模式下 (isDev=true) 保留行號以便除錯
-      if (!isDev) {
-        sanitized = sanitized.replaceAll(/\.js:\d+:\d+/g, '.js:[位置已隱藏]');
-      }
+      // [Security Policy] 根據新架構，生產環境保留行號以協助除錯 (詳見 SECURE_LOGGING_ARCHITECTURE.md)
 
       return sanitized;
     });
