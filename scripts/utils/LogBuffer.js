@@ -36,32 +36,45 @@ export class LogBuffer {
     // [Memory Safety] 檢查單條日誌大小
     // 如果單條日誌過大，可能會影響記憶體佔用。使用模組常量 MAX_ENTRY_SIZE 控制。
 
-    try {
-      const serialized = JSON.stringify(entryToStore);
-      if (serialized.length > MAX_ENTRY_SIZE) {
-        // 如果過大，移除 context 並標記
+    // [Performance Optimization] 僅在存在 context 或訊息過長時執行完整序列化檢查
+    // 簡單日誌 (無 context 且短訊息) 直接寫入，避免 JSON.stringify 開銷
+    const hasContext = entry.context && Object.keys(entry.context).length > 0;
+    const isLongMessage = (entry.message?.length || 0) > MAX_ENTRY_SIZE / 2; // 保守估計：預留空間給其他欄位
+    // 檢查是否有非標準欄位 (防止透過非 context 欄位傳遞大數據，如測試案例)
+    const hasExtraData = Object.keys(entry).some(
+      k => !['level', 'message', 'source', 'context'].includes(k)
+    );
+
+    if (!hasContext && !isLongMessage && !hasExtraData) {
+      // Fast path: safe to store directly
+    } else {
+      try {
+        const serialized = JSON.stringify(entryToStore);
+        if (serialized.length > MAX_ENTRY_SIZE) {
+          // 如果過大，移除 context 並標記
+          entryToStore = {
+            level: entry.level,
+            message: entry.message,
+            source: entry.source,
+            context: {
+              truncated: true,
+              reason: 'entry_exceeds_size_limit',
+              originalSize: serialized.length,
+            },
+          };
+        }
+      } catch (error) {
+        // 序列化失敗 (e.g. 循環引用)，使用安全替代對象
         entryToStore = {
           level: entry.level,
           message: entry.message,
           source: entry.source,
           context: {
-            truncated: true,
-            reason: 'entry_exceeds_size_limit',
-            originalSize: serialized.length,
+            error: 'serialization_failed',
+            reason: error instanceof Error ? error.message : String(error),
           },
         };
       }
-    } catch (error) {
-      // 序列化失敗 (e.g. 循環引用)，使用安全替代對象
-      entryToStore = {
-        level: entry.level,
-        message: entry.message,
-        source: entry.source,
-        context: {
-          error: 'serialization_failed',
-          reason: error instanceof Error ? error.message : String(error),
-        },
-      };
     }
 
     // 計算寫入位置：(head + size) % capacity

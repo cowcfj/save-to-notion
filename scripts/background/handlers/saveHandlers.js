@@ -136,7 +136,7 @@ export function createSaveHandlers(services) {
    * @returns {Promise<object>} 保存結果
    */
   async function performCreatePage(params) {
-    const { normUrl, dataSourceId, dataSourceType, contentResult } = params;
+    const { normUrl, dataSourceId, dataSourceType, contentResult, apiKey } = params;
 
     // 第一次嘗試
     const buildOptions = {
@@ -153,7 +153,7 @@ export function createSaveHandlers(services) {
     let result = await notionService.createPage(pageData, {
       autoBatch: true,
       allBlocks: validBlocks,
-      apiKey: params.apiKey,
+      apiKey,
     });
 
     // 失敗重試邏輯：如果是圖片驗證錯誤或標準化後的驗證錯誤
@@ -173,7 +173,7 @@ export function createSaveHandlers(services) {
       result = await notionService.createPage(rebuild.pageData, {
         autoBatch: true,
         allBlocks: rebuild.validBlocks,
-        apiKey: params.apiKey,
+        apiKey,
       });
     }
 
@@ -203,7 +203,7 @@ export function createSaveHandlers(services) {
    * @private
    */
   async function _handleExistingPageUpdate(params) {
-    const { savedData, highlights, contentResult, normUrl, sendResponse } = params;
+    const { savedData, highlights, contentResult, normUrl, sendResponse, apiKey } = params;
     const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
 
     if (highlights.length > 0) {
@@ -212,7 +212,7 @@ export function createSaveHandlers(services) {
       const result = await notionService.updateHighlightsSection(
         savedData.notionPageId,
         highlightBlocks,
-        { apiKey: params.apiKey }
+        { apiKey }
       );
 
       if (result.success) {
@@ -230,7 +230,7 @@ export function createSaveHandlers(services) {
       const result = await notionService.refreshPageContent(
         savedData.notionPageId,
         contentResult.blocks,
-        { updateTitle: true, title: contentResult.title, apiKey: params.apiKey }
+        { updateTitle: true, title: contentResult.title, apiKey }
       );
 
       if (result.success) {
@@ -254,12 +254,14 @@ export function createSaveHandlers(services) {
    * @param {object} params - 參數對象
    */
   async function determineAndExecuteSaveAction(params) {
+    // 注意：params 還包含 highlights 和 apiKey，透過 _handleExistingPageUpdate(params) 傳遞
     const {
       savedData,
       normUrl,
       dataSourceId,
       dataSourceType,
       contentResult,
+      apiKey,
       activeTabId,
       sendResponse,
     } = params;
@@ -267,7 +269,7 @@ export function createSaveHandlers(services) {
     // 已有保存記錄：檢查頁面是否仍存在
     if (savedData?.notionPageId) {
       const pageExists = await notionService.checkPageExists(savedData.notionPageId, {
-        apiKey: params.apiKey,
+        apiKey,
       });
 
       if (pageExists === null) {
@@ -299,7 +301,7 @@ export function createSaveHandlers(services) {
           dataSourceId,
           dataSourceType,
           contentResult,
-          apiKey: params.apiKey,
+          apiKey,
         });
 
         if (result.success) {
@@ -315,7 +317,7 @@ export function createSaveHandlers(services) {
         dataSourceId,
         dataSourceType,
         contentResult,
-        apiKey: params.apiKey,
+        apiKey,
       });
       if (result.success) {
         sendResponse(result);
@@ -526,26 +528,14 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        try {
-          const tab = await chrome.tabs.create({ url: notionUrl });
-          Logger.log('成功在分頁中打開 Notion 頁面', {
-            action: 'openNotionPage',
-            notionUrl: sanitizeUrlForLogging(notionUrl),
-          });
-          sendResponse({ success: true, tabId: tab.id, notionUrl });
-        } catch (error) {
-          Logger.error('打開 Notion 頁面失敗', {
-            action: 'openNotionPage',
-            error: error.message,
-          });
-          const safeMessage = sanitizeApiError(error, 'open_page');
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(safeMessage),
-          });
-        }
+        const tab = await chrome.tabs.create({ url: notionUrl });
+        Logger.log('成功在分頁中打開 Notion 頁面', {
+          action: 'openNotionPage',
+          notionUrl: sanitizeUrlForLogging(notionUrl),
+        });
+        sendResponse({ success: true, tabId: tab.id, notionUrl });
       } catch (error) {
-        Logger.error('執行 openNotionPage 時出錯', {
+        Logger.error('打開 Notion 頁面失敗', {
           action: 'openNotionPage',
           error: error.message,
         });
@@ -734,7 +724,6 @@ export function createSaveHandlers(services) {
           message: `[ClientLog] ${message}`,
           context,
           source: 'content_script', // 明確標記來源
-          timestamp: request.timestamp, // 假設前端有傳，或者在這裡生成
         });
 
         sendResponse({ success: true });

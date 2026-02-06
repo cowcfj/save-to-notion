@@ -644,5 +644,11 @@ export class SearchableDatabaseSelector {
       this._handleDocumentClick = null;
       this._handleKeydown = null;
     }
+
+    // 防禦性清空：清除陣列與物件引用，防止銷毀後誤用
+    this.dataSources = [];
+    this.initialDataSources = [];
+    this.filteredDataSources = [];
+    this.selectedDataSource = null;
   }
 }

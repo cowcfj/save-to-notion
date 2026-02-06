@@ -292,7 +292,7 @@ export function createHighlightHandlers(services) {
               messageResponse => {
                 if (chrome.runtime.lastError) {
                   // 如果最後一個錯誤存在，說明沒有監聽器或其他問題
-                  reject(chrome.runtime.lastError);
+                  reject(new Error(chrome.runtime.lastError.message));
                 } else {
                   resolve(messageResponse);
                 }
@@ -394,7 +394,12 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        const activeTab = await getActiveTab();
+        let activeTab;
+        if (sender.tab) {
+          activeTab = sender.tab;
+        } else {
+          activeTab = await getActiveTab();
+        }
 
         const highlights = request.highlights || [];
         if (highlights.length === 0) {

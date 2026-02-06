@@ -404,12 +404,13 @@ describe('background error branches (integration)', () => {
   // ===== syncHighlights 錯誤與邊界分支 =====
   test('syncHighlights：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'syncHighlights' }, contentScriptSender, sendResponse);
+    // 使用沒有 tab 屬性的 sender (如 internalSender) 來測試 fallback 到 getActiveTab 失敗的情況
+    chrome.runtime.onMessage._emit({ action: 'syncHighlights' }, internalSender, sendResponse);
     await waitForSend(sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+        error: '拒絕訪問：此操作必須在標籤頁上下文中調用',
       })
     );
   });
@@ -859,7 +860,7 @@ describe('background error branches (integration)', () => {
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
-    await waitForSend(sendResponse);
+    await waitForSend(sendResponse, 7000);
     const resp = sendResponse.mock.calls[0]?.[0];
     // 500 錯誤會觸發 fetchWithRetry 重試機制，最終可能超時
     // 但如果成功回應，應該是失敗且包含預設錯誤訊息

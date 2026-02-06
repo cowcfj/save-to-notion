@@ -16,8 +16,15 @@ const MESSAGE_TIMEOUT_MS = 30_000; // 30 seconds
  * 負責從 Notion API 載入、篩選和處理資料來源與頁面清單
  */
 export class DataSourceManager {
-  constructor(uiManager) {
+  /**
+   * 建構資料來源管理器
+   *
+   * @param {object} uiManager - UI 管理器實例
+   * @param {Function|null} getApiKey - 取得 API Key 的函式（可選，用於依賴注入提升可測試性）
+   */
+  constructor(uiManager, getApiKey = null) {
     this.ui = uiManager;
+    this.getApiKey = getApiKey;
     this.selector = null;
     this.elements = {};
   }
@@ -242,7 +249,8 @@ export class DataSourceManager {
       this.selector = new SearchableDatabaseSelector({
         showStatus: this.ui.showStatus.bind(this.ui),
         loadDataSources: this.loadDataSources.bind(this),
-        getApiKey: () => document.querySelector('#api-key')?.value || '',
+        // 優先使用注入的 getApiKey，fallback 到 DOM 查詢以保持向後相容
+        getApiKey: this.getApiKey || (() => document.querySelector('#api-key')?.value || ''),
       });
     }
 
