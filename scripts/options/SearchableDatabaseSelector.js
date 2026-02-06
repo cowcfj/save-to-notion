@@ -51,19 +51,17 @@ export class SearchableDatabaseSelector {
     this.refreshButton = document.querySelector('#refresh-databases');
     this.databaseIdInput = document.querySelector('#database-id');
 
-    Logger.info('SearchableDatabaseSelector 元素初始化:', {
-      container: this.container,
-      searchInput: this.searchInput,
-      toggleButton: this.toggleButton,
-      dropdown: this.dropdown,
-      dataSourceList: this.dataSourceList,
-      dataSourceCount: this.dataSourceCount,
-      refreshButton: this.refreshButton,
-      databaseIdInput: this.databaseIdInput,
+    Logger.info('[Selector] 元素初始化完成', {
+      hasContainer: Boolean(this.container),
+      hasSearchInput: Boolean(this.searchInput),
+      hasToggleButton: Boolean(this.toggleButton),
+      hasDropdown: Boolean(this.dropdown),
+      hasDataSourceList: Boolean(this.dataSourceList),
+      hasRefreshButton: Boolean(this.refreshButton),
     });
 
     if (!this.container) {
-      Logger.error('找不到 database-selector-container 元素！');
+      Logger.error('[Selector] 找不到 #database-selector-container 元素');
     }
   }
 
@@ -215,7 +213,7 @@ export class SearchableDatabaseSelector {
       await this.loadDataSources(apiKey, query);
       Logger.info('伺服器端搜尋完成', { queryLength: query.length });
     } catch (error) {
-      Logger.error('伺服器端搜尋失敗:', error);
+      Logger.error('[Selector] 伺服器端搜尋失敗', { error: error.message });
       const errorMessage = error?.message || '未知錯誤';
       this.showStatus(`搜尋失敗: ${errorMessage}`, 'error');
     } finally {
