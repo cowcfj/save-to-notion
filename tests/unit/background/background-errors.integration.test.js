@@ -45,6 +45,9 @@ async function waitForSend(mockFn, maxWaitMs = 1500) {
   while (mockFn.mock.calls.length === 0 && Date.now() - start < maxWaitMs) {
     await new Promise(resolve => setTimeout(resolve, 10));
   }
+  if (mockFn.mock.calls.length === 0) {
+    throw new Error(`waitForSend timeout: function was not called within ${maxWaitMs}ms`);
+  }
 }
 
 /**
@@ -57,27 +60,30 @@ async function waitForSend(mockFn, maxWaitMs = 1500) {
  */
 function setupScriptMock(contentResult) {
   const result = contentResult ?? { title: 'T', blocks: [] };
-  let funcCall = 0;
+
   chrome.scripting.executeScript.mockImplementation((opts, mockCb) => {
     if (opts?.func) {
-      funcCall += 1;
-      // collectHighlights
-      if (funcCall === 2) {
+      const funcStr = opts.func.toString();
+
+      // Case 1: collectHighlights (依賴函數內容識別而非調用順序)
+      if (funcStr.includes('collectHighlights')) {
         mockCb?.([{ result: [] }]);
         return;
       }
-      // injectWithResponse
-      if (funcCall === 3) {
-        if (result === 'error') {
-          chrome.runtime.lastError = { message: 'Function execution failed' };
-          mockCb?.();
-        } else {
-          mockCb?.([{ result }]);
-        }
+
+      // Case 2: injectHighlighter init check
+      if (funcStr.includes('checkInitialization')) {
+        mockCb?.([{ result: undefined }]);
         return;
       }
-      // Others
-      mockCb?.([{ result: undefined }]);
+
+      // Case 3: injectWithResponse (視為內容提取函數)
+      if (result === 'error') {
+        chrome.runtime.lastError = { message: 'Function execution failed' };
+        mockCb?.();
+      } else {
+        mockCb?.([{ result }]);
+      }
       return;
     }
     // files injection
