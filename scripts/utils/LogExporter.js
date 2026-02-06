@@ -24,10 +24,13 @@ export const LogExporter = {
     // 因此這裡取得的日誌已經是安全的，無需再次脫敏。
     const safeLogs = rawLogs;
 
-    // 3. 格式化輸出
+    // 3. 格式化輸出（使用本地時間）
     // 格式化為: YYYYMMDD-HHmmss
-    const nowISO = new Date().toISOString();
-    const timestamp = `${nowISO.slice(0, 10).replaceAll('-', '')}-${nowISO
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60_000;
+    const localISO = new Date(now - offset).toISOString();
+    const nowISO = localISO.slice(0, -1).replace('T', ' '); // YYYY-MM-DD HH:mm:ss.SSS
+    const timestamp = `${localISO.slice(0, 10).replaceAll('-', '')}-${localISO
       .slice(11, 19)
       .replaceAll(':', '')}`;
     let content = '';

@@ -9,6 +9,18 @@
  * -先進先出 (FIFO)：當緩衝區滿時，自動移除最舊的記錄
  * -防禦性拷貝：導出數據時返回副本
  */
+
+/**
+ * 格式化本地時間戳
+ * 返回格式：YYYY-MM-DD HH:mm:ss.SSS（本地時間）
+ *
+ * @param {Date} [date] - 可選的 Date 實例，默認為當前時間
+ * @returns {string} 本地時間 ISO 格式字串
+ */
+function formatLocalTimestamp(date = new Date()) {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date - offset).toISOString().slice(0, -1).replace('T', ' ');
+}
 export class LogBuffer {
   /**
    * @param {number} capacity - 緩衝區最大容量 (預設 500)
@@ -27,8 +39,8 @@ export class LogBuffer {
    * @param {object} entry - 日誌對象
    */
   push(entry) {
-    // 確保有時間戳
-    const timestamp = entry.timestamp || new Date().toISOString();
+    // 確保有時間戳（使用本地時間格式）
+    const timestamp = entry.timestamp || formatLocalTimestamp();
     let entryWithTimestamp = {
       ...entry,
       timestamp,
