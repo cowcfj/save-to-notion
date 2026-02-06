@@ -565,7 +565,7 @@ describe('SearchableDatabaseSelector', () => {
         { id: '2', object: 'database', title: [{ plain_text: 'DB 2' }] },
       ]);
 
-      expect(selector.dataSourceCount.textContent).toContain('2 個資料來源');
+      expect(selector.dataSourceCount.textContent).toContain('2 個保存目標');
     });
 
     it('should show filtered count when filtering', () => {
