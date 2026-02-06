@@ -192,9 +192,7 @@ describe('background error branches (integration)', () => {
 
   const internalSender = { id: 'test', url: 'chrome-extension://test/popup.html' };
   const contentScriptSender = { id: 'test', tab: { id: 1 }, url: 'https://example.com' };
-  beforeEach(() => {
-    // originalFetch = globalThis.fetch; // Remove if unused, handled in global scope if needed
-  });
+  beforeEach(() => {});
 
   test('startHighlight：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = jest.fn();

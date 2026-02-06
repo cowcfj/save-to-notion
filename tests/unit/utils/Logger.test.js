@@ -178,11 +178,11 @@ describe('Logger', () => {
       expect(consoleSpy.info.mock.calls[0][0]).toContain('[INFO]');
     });
 
-    test('日誌應該包含時間戳', () => {
+    test('日誌不應該包含時間戳（由 DevTools 提供）', () => {
       Logger.warn('test message');
       const output = consoleSpy.warn.mock.calls[0][0];
-      // 檢查時間戳格式 HH:MM:SS.mmm
-      expect(output).toMatch(/\d{2}:\d{2}:\d{2}\.\d{3}/);
+      // 確認不包含時間戳格式 HH:MM:SS.mmm
+      expect(output).not.toMatch(/\d{2}:\d{2}:\d{2}\.\d{3}/);
     });
 
     test('日誌應該傳遞額外參數', () => {

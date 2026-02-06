@@ -42,14 +42,6 @@ describe('LogBuffer', () => {
       expect(logs[0]).toMatchObject(entry);
     });
 
-    test('should add timestamp if missing', () => {
-      logBuffer.push({ level: 'info', message: 'test' });
-
-      const logs = logBuffer.getAll();
-      expect(logs[0]).toHaveProperty('timestamp');
-      expect(new Date(logs[0].timestamp).getTime()).not.toBeNaN();
-    });
-
     test('should maintain FIFO behavior when capacity is exceeded', () => {
       // Fill buffer
       for (let i = 0; i < DEFAULT_CAPACITY; i++) {
@@ -66,14 +58,6 @@ describe('LogBuffer', () => {
       expect(logs[0].id).toBe(1);
       // Last item should be id: 5
       expect(logs[DEFAULT_CAPACITY - 1].id).toBe(DEFAULT_CAPACITY);
-    });
-
-    test('should accept entries with existing timestamps', () => {
-      const ts = '2023-01-01T00:00:00.000Z';
-      logBuffer.push({ timestamp: ts, message: 'old' });
-
-      const logs = logBuffer.getAll();
-      expect(logs[0].timestamp).toBe(ts);
     });
   });
 
@@ -109,15 +93,12 @@ describe('LogBuffer', () => {
 
       expect(stats.count).toBe(2);
       expect(stats.capacity).toBe(DEFAULT_CAPACITY);
-      expect(new Date(stats.oldest)).toBeInstanceOf(Date);
-      expect(new Date(stats.newest)).toBeInstanceOf(Date);
     });
 
-    test('should return null dates for empty buffer', () => {
+    test('should return zero count for empty buffer', () => {
       const stats = logBuffer.getStats();
       expect(stats.count).toBe(0);
-      expect(stats.oldest).toBeNull();
-      expect(stats.newest).toBeNull();
+      expect(stats.capacity).toBe(DEFAULT_CAPACITY);
     });
   });
 });

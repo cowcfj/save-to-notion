@@ -8,19 +8,8 @@
  * -固定容量 (Fixed Capacity)
  * -先進先出 (FIFO)：當緩衝區滿時，自動移除最舊的記錄
  * -防禦性拷貝：導出數據時返回副本
+ * -不處理時間戳：FIFO 結構已隱含時間順序
  */
-
-/**
- * 格式化本地時間戳
- * 返回格式：YYYY-MM-DD HH:mm:ss.SSS（本地時間）
- *
- * @param {Date} [date] - 可選的 Date 實例，默認為當前時間
- * @returns {string} 本地時間 ISO 格式字串
- */
-function formatLocalTimestamp(date = new Date()) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date - offset).toISOString().slice(0, -1).replace('T', ' ');
-}
 export class LogBuffer {
   /**
    * @param {number} capacity - 緩衝區最大容量 (預設 500)
@@ -39,25 +28,18 @@ export class LogBuffer {
    * @param {object} entry - 日誌對象
    */
   push(entry) {
-    // 確保有時間戳（使用本地時間格式）
-    const timestamp = entry.timestamp || formatLocalTimestamp();
-    let entryWithTimestamp = {
-      ...entry,
-      timestamp,
-    };
+    let entryToStore = { ...entry };
 
     // [Memory Safety] 檢查單條日誌大小
     // 簡單估算：JSON序列化長度。限制為 25KB (約 25000 字符)
-    // 這是一個折衷方案：避免 buffer 存儲過大對象，但會消耗一次 serialization 成本
     const MAX_ENTRY_SIZE = 25_000;
 
     try {
-      const serialized = JSON.stringify(entryWithTimestamp);
+      const serialized = JSON.stringify(entryToStore);
       if (serialized.length > MAX_ENTRY_SIZE) {
         // 如果過大，移除 context 並標記
-        entryWithTimestamp = {
+        entryToStore = {
           level: entry.level,
-          timestamp,
           message: entry.message,
           source: entry.source,
           context: {
@@ -68,9 +50,9 @@ export class LogBuffer {
         };
       }
     } catch {
-      // 序列化失敗（可能已經已經被 LogSanitizer 處理過所以不該發生，但為了安全）
-      entryWithTimestamp = {
-        ...entryWithTimestamp,
+      // 序列化失敗
+      entryToStore = {
+        ...entryToStore,
         context: {
           error: 'serialization_failed_during_size_check',
         },
@@ -81,7 +63,7 @@ export class LogBuffer {
     // 假如滿了，(head + size) 會剛好指回 head 所在位置，進行覆蓋
     const writeIndex = (this.head + this.size) % this.capacity;
 
-    this.buffer[writeIndex] = entryWithTimestamp;
+    this.buffer[writeIndex] = entryToStore;
 
     if (this.size < this.capacity) {
       this.size++;
@@ -120,23 +102,12 @@ export class LogBuffer {
   /**
    * 獲取緩衝區統計信息
    *
-   * @returns {object} { count, capacity, oldest, newest }
+   * @returns {object} { count, capacity }
    */
   getStats() {
-    let oldest = null;
-    let newest = null;
-
-    if (this.size > 0) {
-      oldest = this.buffer[this.head].timestamp;
-      const newestIndex = (this.head + this.size - 1) % this.capacity;
-      newest = this.buffer[newestIndex].timestamp;
-    }
-
     return {
       count: this.size,
       capacity: this.capacity,
-      oldest,
-      newest,
     };
   }
 }
