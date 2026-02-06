@@ -39,6 +39,7 @@ describe('NotionService Race Condition Fix Verification', () => {
   beforeEach(() => {
     mockLogger = {
       log: jest.fn(),
+      debug: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
       success: jest.fn(),

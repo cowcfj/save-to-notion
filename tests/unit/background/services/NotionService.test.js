@@ -675,76 +675,6 @@ describe('NotionService', () => {
       expect(result.details.phase).toBe('catch_all');
     });
   });
-  describe('_findHighlightSectionBlocks', () => {
-    it('應該找出標記區域的標題區塊及隨後的內容', () => {
-      const blocks = [
-        { id: '1', type: 'paragraph' },
-        {
-          id: '2',
-          type: 'heading_3',
-          heading_3: {
-            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
-          },
-        },
-        { id: '3', type: 'paragraph' }, // Changed to paragraph to match strict logic
-        { id: '4', type: 'heading_2' }, // 停止點
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toHaveLength(2); // ID: 2 and 3
-      expect(result).toEqual(['2', '3']);
-    });
-
-    it('應該處理只有標題沒有內容的情況', () => {
-      const blocks = [
-        { id: '1', type: 'paragraph' },
-        {
-          id: '2',
-          type: 'heading_3',
-          heading_3: {
-            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
-          },
-        },
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toHaveLength(1);
-      expect(result).toEqual(['2']);
-    });
-
-    it('應該處理沒有標記區域的情況', () => {
-      const blocks = [
-        { id: '1', type: 'paragraph' },
-        {
-          id: '2',
-          type: 'heading_3',
-          heading_3: {
-            rich_text: [{ text: { content: '其他標題' }, plain_text: '其他標題' }],
-          },
-        },
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toHaveLength(0);
-    });
-
-    it('應收集所有非標題類型的區塊', () => {
-      const blocks = [
-        {
-          id: '1',
-          type: 'heading_3',
-          heading_3: {
-            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
-          },
-        },
-        { id: '2', type: 'bulleted_list_item', has_children: true }, // 應收集
-        { id: '3', type: 'paragraph' }, // 應收集
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toEqual(['1', '2', '3']); // 收集所有非標題區塊
-    });
-  });
 
   describe('updateHighlightsSection', () => {
     const pageId = 'page-123';
@@ -988,6 +918,21 @@ describe('NotionService', () => {
   describe('_findHighlightSectionBlocks (靜態方法)', () => {
     const HEADER = '📝 頁面標記';
 
+    it('應該處理只有標題沒有內容的情況', () => {
+      const blocks = [
+        { id: '1', type: 'paragraph' },
+        {
+          id: '2',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ text: { content: HEADER }, plain_text: HEADER }] },
+        },
+      ];
+
+      const result = NotionService._findHighlightSectionBlocks(blocks);
+      expect(result).toHaveLength(1);
+      expect(result).toEqual(['2']);
+    });
+
     it('應該正確識別標記區塊', () => {
       const blocks = [
         { id: '1', type: 'paragraph' },
@@ -1096,7 +1041,7 @@ describe('NotionService', () => {
         expect(() => service._ensureClient(mockClient)).not.toThrow();
       });
 
-      it('應該在 client 為 null 時初始化它 (Line 135)', () => {
+      it('應該在 client 為 null 時初始化它', () => {
         service.client = null;
         service._ensureClient();
         expect(service.client).toBeDefined();
@@ -1104,7 +1049,7 @@ describe('NotionService', () => {
     });
 
     describe('_getJitter', () => {
-      it('應該在 crypto 拋出異常時回退到 Math.random 並記錄 debug (Line 270)', () => {
+      it('應該在 crypto 拋出異常時回退到 Math.random 並記錄 debug', () => {
         const originalCrypto = globalThis.crypto;
         Object.defineProperty(globalThis, 'crypto', {
           value: {
@@ -1126,7 +1071,7 @@ describe('NotionService', () => {
     });
 
     describe('search and filtering', () => {
-      it('應該成功執行搜索 (Line 289)', async () => {
+      it('應該成功執行搜索', async () => {
         globalThis.fetch.mockResolvedValue(createMockResponse({ results: [] }));
         await service.search({ query: 'test' });
         expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -1135,7 +1080,7 @@ describe('NotionService', () => {
         );
       });
 
-      it('應該正確傳遞過濾條件 (Line 301-303)', async () => {
+      it('應該正確傳遞過濾條件', async () => {
         globalThis.fetch.mockResolvedValue(createMockResponse({ results: [] }));
         const filter = { property: 'object', select: { equals: 'database' } };
         await service.search({ query: 'test', filter });
@@ -1143,7 +1088,7 @@ describe('NotionService', () => {
         expect(lastCallBody.filter).toEqual(filter);
       });
 
-      it('應該處理搜索失敗並記錄錯誤 (Line 312-316)', async () => {
+      it('應該處理搜索失敗並記錄錯誤', async () => {
         globalThis.fetch.mockResolvedValue(createMockResponse({ message: 'fail' }, false, 400));
         await expect(service.search({ query: 'test' })).rejects.toThrow();
         expect(Logger.error).toHaveBeenCalledWith(
@@ -1154,7 +1099,7 @@ describe('NotionService', () => {
     });
 
     describe('_fetchPageBlocks Error Handling', () => {
-      it('應該處理獲取區塊失敗 (Line 359-362)', async () => {
+      it('應該處理獲取區塊失敗', async () => {
         globalThis.fetch.mockResolvedValue(createMockResponse({ message: 'fail' }, false, 400));
         const result = await service._fetchPageBlocks('id');
         expect(result.success).toBe(false);
@@ -1162,7 +1107,7 @@ describe('NotionService', () => {
     });
 
     describe('_deleteBlocksByIds Error Handling and Delay', () => {
-      it('應該處理 deleteBlock 異常並記錄警告 (Line 431-438)', async () => {
+      it('應該處理 deleteBlock 異常並記錄警告', async () => {
         service._executeWithRetry = jest.fn().mockRejectedValue(new Error('crash'));
         await service._deleteBlocksByIds(['b1']);
         expect(Logger.warn).toHaveBeenCalledWith(
@@ -1171,7 +1116,7 @@ describe('NotionService', () => {
         );
       });
 
-      it('應該在批次間執行延遲 (Line 457)', async () => {
+      it('應該在批次間執行延遲', async () => {
         // 使用真實時間或非常小的延遲以避免超時，並確保與 beforeEach 的 timers 狀態一致
         jest.useRealTimers();
         service.config.DELETE_CONCURRENCY = 1;
@@ -1186,7 +1131,7 @@ describe('NotionService', () => {
     });
 
     describe('createPage autoBatch', () => {
-      it('應該在分批添加失敗時記錄警告 (Line 716)', async () => {
+      it('應該在分批添加失敗時記錄警告', async () => {
         globalThis.fetch
           .mockResolvedValueOnce(createMockResponse({ id: 'id' }))
           .mockResolvedValueOnce(createMockResponse({ message: 'fail' }, false, 400));
@@ -1203,7 +1148,7 @@ describe('NotionService', () => {
     });
 
     describe('updatePageTitle Error Handling', () => {
-      it('應該處理更新失敗並記錄錯誤 (Line 762)', async () => {
+      it('應該處理更新失敗並記錄錯誤', async () => {
         globalThis.fetch.mockResolvedValue(createMockResponse({ message: 'fail' }, false, 400));
         await service.updatePageTitle('id', 'Title');
         expect(Logger.error).toHaveBeenCalledWith(
@@ -1214,7 +1159,7 @@ describe('NotionService', () => {
     });
 
     describe('deleteAllBlocks Warn Handling', () => {
-      it('應該在部分失敗時記錄警告 (Line 798)', async () => {
+      it('應該在部分失敗時記錄警告', async () => {
         service._fetchPageBlocks = jest
           .fn()
           .mockResolvedValue({ success: true, blocks: [{ id: 'b1' }] });
@@ -1230,7 +1175,7 @@ describe('NotionService', () => {
     });
 
     describe('refreshPageContent Warn Handling', () => {
-      it('應該在標題更新失敗時記錄警告 (Line 899)', async () => {
+      it('應該在標題更新失敗時記錄警告', async () => {
         service.updatePageTitle = jest.fn().mockResolvedValue({ success: false });
         service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true });
         service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true });
@@ -1243,7 +1188,7 @@ describe('NotionService', () => {
     });
 
     describe('updateHighlightsSection Warn Handling', () => {
-      it('應該在刪除標記失敗時記錄警告 (Line 979)', async () => {
+      it('應該在刪除標記失敗時記錄警告', async () => {
         service._fetchPageBlocks = jest.fn().mockResolvedValue({ success: true, blocks: [] });
         service._deleteBlocksByIds = jest
           .fn()
@@ -1257,7 +1202,7 @@ describe('NotionService', () => {
     });
 
     describe('filterValidImageBlocks Corners', () => {
-      it('應該處理 invalid_structure 並記錄警告 (Line 513)', () => {
+      it('應該處理 invalid_structure 並記錄警告', () => {
         service.filterValidImageBlocks([{ type: 'image' }]);
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('跳過無效區塊'),
@@ -1265,7 +1210,7 @@ describe('NotionService', () => {
         );
       });
 
-      it('應該在跳過太多時記錄摘要 (Line 544)', () => {
+      it('應該在跳過太多時記錄摘要', () => {
         const many = Array.from({ length: 11 }, () => ({ type: 'image' }));
         service.filterValidImageBlocks(many);
         expect(Logger.warn).toHaveBeenCalledWith(
