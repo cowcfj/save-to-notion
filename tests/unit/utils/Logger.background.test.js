@@ -56,10 +56,20 @@ describe('Logger (Background Context)', () => {
       LogSanitizerModule.LogSanitizer ||
       LogSanitizerModule.default?.LogSanitizer ||
       LogSanitizerModule;
-    LogSanitizerMock.sanitizeEntry = jest.fn((msg, ctx) => ({
-      message: `SANITIZED_${typeof msg === 'object' ? JSON.stringify(msg) : msg}`,
-      context: ctx,
-    }));
+    LogSanitizerMock.sanitizeEntry = jest.fn((msg, ctx) => {
+      let safeMsg;
+      if (typeof msg === 'string') {
+        safeMsg = msg;
+      } else if (typeof msg === 'object' && msg !== null) {
+        safeMsg = JSON.stringify(msg);
+      } else {
+        safeMsg = String(msg);
+      }
+      return {
+        message: `SANITIZED_${safeMsg}`,
+        context: ctx,
+      };
+    });
 
     // Load Logger
     // Note: In node environment, window is undefined, so isBackground should be true
@@ -104,9 +114,13 @@ describe('Logger (Background Context)', () => {
     const objMsg = { error: 'failed' };
     Logger.error(objMsg);
 
-    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(String(objMsg), expect.anything(), {
-      isDev: true,
-    });
+    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(
+      '[object Object]',
+      expect.anything(),
+      {
+        isDev: true,
+      }
+    );
   });
 
   test('should capture all arguments when first arg is object', () => {
