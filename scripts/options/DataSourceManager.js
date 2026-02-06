@@ -126,12 +126,15 @@ export class DataSourceManager {
         },
         response => {
           clearTimeout(timeoutId);
+          // 必須先讀取 lastError 以清除 "Unchecked runtime.lastError" 警告
+          const lastError = chrome.runtime.lastError;
+
           if (!resolved) {
             resolved = true;
-            if (chrome.runtime.lastError) {
+            if (lastError) {
               resolve({
                 success: false,
-                error: chrome.runtime.lastError.message || 'Messaging error',
+                error: lastError.message || 'Messaging error',
               });
             } else {
               resolve(response);

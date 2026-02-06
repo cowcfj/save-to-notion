@@ -28,7 +28,7 @@ describe('splitTextForHighlight', () => {
       expect(result).toEqual(['']);
     });
 
-    test('null 或 undefined 返回包含原值的數組', () => {
+    test("null 或 undefined 返回 ['']", () => {
       expect(splitTextForHighlight(null)).toEqual(['']);
       expect(splitTextForHighlight()).toEqual(['']);
     });

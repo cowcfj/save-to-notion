@@ -298,7 +298,7 @@ describe('securityUtils', () => {
         ['database access denied'],
       ])('"%s" 應返回資料庫權限不足訊息', input => {
         const result = sanitizeApiError(input);
-        // 根據實隞程式碼行為，包含 'database' 會匹配 DATA_SOURCE 模式
+        // 根據實際程式碼行為，包含 'database' 會匹配 DATA_SOURCE 模式
         expect(result).toBe('Data Source ID');
       });
     });

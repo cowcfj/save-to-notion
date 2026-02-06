@@ -638,6 +638,9 @@ describe('background error branches (integration)', () => {
         break;
       }
     }
+    if (sendResponse.mock.calls.length === 0) {
+      throw new Error('sendResponse was not called within the timeout');
+    }
     const resp = sendResponse.mock.calls[0][0];
     expect(resp.success).toBe(true);
     // 可存在 warning（All images were skipped...），但不強制檢查文案
