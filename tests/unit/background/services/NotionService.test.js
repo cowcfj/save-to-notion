@@ -1192,7 +1192,7 @@ describe('NotionService', () => {
           .mockResolvedValueOnce(createMockResponse({ message: 'fail' }, false, 400));
         const manyBlocks = Array.from({ length: 110 }, () => ({ type: 'paragraph' }));
         await service.createPage(
-          { parent: { database_id: 'db' } },
+          { parent: { data_source_id: 'db' } },
           { autoBatch: true, allBlocks: manyBlocks }
         );
         expect(Logger.warn).toHaveBeenCalledWith(

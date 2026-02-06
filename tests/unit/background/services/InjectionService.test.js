@@ -27,7 +27,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 import Logger from '../../../../scripts/utils/Logger.js';
 
 // NOTE: We have two mocks for Logger here:
-// 1. Module-level mock (jest.mock above): Interceps direct imports of Logger in other files (e.g., helpers).
+// 1. Module-level mock (jest.mock above): Intercepts direct imports of Logger in other files (e.g., helpers).
 // 2. mockLogger (const below): Injected into InjectionService constructor for direct verification of service logic.
 // Both are needed because the service uses dependency injection, but some static utils might import Logger directly.
 

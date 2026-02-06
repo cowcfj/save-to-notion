@@ -250,7 +250,7 @@ function splitTextForHighlight(text, maxLength = 2000) {
     const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
 
     for (const punct of punctuation) {
-      const lastIndex = remaining.lastIndexOf(punct, maxLength);
+      const lastIndex = remaining.lastIndexOf(punct, maxLength - 1);
       if (lastIndex > maxLength * 0.5) {
         // 至少分割到一半以上，避免片段太短
         splitIndex = lastIndex + punct.length;
@@ -260,7 +260,7 @@ function splitTextForHighlight(text, maxLength = 2000) {
 
     // 如果找不到合適的標點，嘗試在空格處分割
     if (splitIndex === -1) {
-      splitIndex = remaining.lastIndexOf(' ', maxLength);
+      splitIndex = remaining.lastIndexOf(' ', maxLength - 1);
       if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
         // 實在找不到，強制在 maxLength 處分割
         splitIndex = maxLength;

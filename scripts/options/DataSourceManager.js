@@ -185,7 +185,7 @@ export class DataSourceManager {
 
     Logger.error('[DataSource] API 載入保存目標失敗', {
       action: 'loadDataSources',
-      error: rawError,
+      error: safeError,
       isSearchQuery,
     });
     this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(errorMsg), 'error');

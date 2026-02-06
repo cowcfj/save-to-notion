@@ -198,7 +198,7 @@ export function createHighlightHandlers(services) {
             action: 'USER_ACTIVATE_SHORTCUT',
             error: error.message,
           });
-          const safeMessage = sanitizeApiError(error.message, 'show_highlighter');
+          const safeMessage = sanitizeApiError(error, 'show_highlighter');
           sendResponse({
             success: false,
             error: ErrorHandler.formatUserMessage(safeMessage),

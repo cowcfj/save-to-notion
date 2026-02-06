@@ -218,16 +218,18 @@ describe('saveHandlers', () => {
       });
       // Mock chrome.tabs.create callback
       chrome.tabs.create.mockImplementation((opts, callback) => {
+        // Support callback style
         if (callback) {
           callback({ id: 99 });
         }
+        // Support Promise style
+        return Promise.resolve({ id: 99 });
       });
 
       await handlers.openNotionPage({ url: 'https://example.com' }, validSender, sendResponse);
 
       expect(chrome.tabs.create).toHaveBeenCalledWith(
-        expect.objectContaining({ url: 'https://notion.so/page-123' }),
-        expect.any(Function)
+        expect.objectContaining({ url: 'https://notion.so/page-123' })
       );
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
@@ -270,7 +272,7 @@ describe('saveHandlers', () => {
     // ===== devLogSink Tests (Positive) =====
     test('devLogSink: 應接受來自合法 content script 的請求並記錄日誌', () => {
       const sendResponse = jest.fn();
-      const logData = { level: 'info', message: 'Test message form content script' };
+      const logData = { level: 'info', message: 'Test message from content script' };
 
       handlers.devLogSink(logData, validContentScriptSender, sendResponse);
 
