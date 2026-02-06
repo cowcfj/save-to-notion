@@ -4,7 +4,8 @@
  */
 
 import Logger from '../utils/Logger.js';
-import { createSafeIcon } from '../utils/securityUtils.js';
+import { createSafeIcon, sanitizeApiError } from '../utils/securityUtils.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_ICONS } from '../config/index.js';
 
 /**
@@ -214,8 +215,12 @@ export class SearchableDatabaseSelector {
       Logger.info('伺服器端搜尋完成', { queryLength: query.length });
     } catch (error) {
       Logger.error('[Selector] 伺服器端搜尋失敗', { error: error.message });
-      const errorMessage = error?.message || '未知錯誤';
-      this.showStatus(`搜尋失敗: ${errorMessage}`, 'error');
+
+      // 安全地處理錯誤訊息
+      const safeError = sanitizeApiError(error, 'server_search');
+      const errorMsg = ErrorHandler.formatUserMessage(safeError);
+
+      this.showStatus(`搜尋失敗: ${errorMsg}`, 'error');
     } finally {
       this.isSearching = false;
     }

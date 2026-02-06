@@ -261,7 +261,7 @@ describe('SearchableDatabaseSelector', () => {
     it('should handle error without message property', async () => {
       mockLoadDataSources.mockRejectedValueOnce({});
       await selector.performServerSearch('test query');
-      expect(mockShowStatus).toHaveBeenCalledWith('搜尋失敗: 未知錯誤', 'error');
+      expect(mockShowStatus).toHaveBeenCalledWith('搜尋失敗: 發生未知錯誤，請稍後再試', 'error');
     });
   });
 
