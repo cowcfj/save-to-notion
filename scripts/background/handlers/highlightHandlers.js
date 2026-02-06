@@ -17,7 +17,7 @@ import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
-import { ERROR_MESSAGES } from '../../config/messages.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -52,6 +52,7 @@ async function ensureNotionApiKey(storageService) {
   }
   return config.notionApiKey;
 }
+
 /**
  * 確保 Bundle 已就緒
  *
@@ -88,6 +89,39 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
   return false;
 }
 
+/**
+ * 執行標註更新的核心邏輯
+ *
+ * @param {object} services - 服務實例集合
+ * @param {chrome.tabs.Tab} activeTab - 當前標籤頁
+ * @param {Array} highlights - 標註數據
+ * @returns {Promise<object>} 更新結果
+ */
+async function performHighlightUpdate(services, activeTab, highlights) {
+  const { storageService, notionService } = services;
+
+  // 1. 確保有 API Key
+  const apiKey = await ensureNotionApiKey(storageService);
+
+  const url = activeTab.url || '';
+  const savedData = await storageService.getSavedPageData(url);
+
+  if (!savedData?.notionPageId) {
+    return {
+      success: false,
+      error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
+    };
+  }
+
+  // 轉換標記為 Blocks
+  const highlightBlocks = buildHighlightBlocks(highlights);
+
+  // 調用 NotionService 更新標記
+  return await notionService.updateHighlightsSection(savedData.notionPageId, highlightBlocks, {
+    apiKey,
+  });
+}
+
 // ============================================================================
 // 工廠函數
 // ============================================================================
@@ -99,7 +133,7 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
  * @returns {object} 處理函數映射
  */
 export function createHighlightHandlers(services) {
-  const { notionService, storageService, injectionService } = services;
+  const { injectionService } = services;
 
   return {
     /**
@@ -316,31 +350,10 @@ export function createHighlightHandlers(services) {
 
         const activeTab = await getActiveTab();
 
-        // 1. 確保有 API Key（優先檢查，以符合測試期待）
-        const apiKey = await ensureNotionApiKey(storageService);
-
-        const url = activeTab.url || '';
-        const savedData = await storageService.getSavedPageData(url);
-
-        if (!savedData?.notionPageId) {
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
-          });
-          return;
-        }
-
         const highlights = await injectionService.collectHighlights(activeTab.id);
 
-        // 轉換標記為 Blocks
-        const highlightBlocks = buildHighlightBlocks(highlights);
-
-        // 調用 NotionService 更新標記 (以無狀態方式傳遞 apiKey)
-        const result = await notionService.updateHighlightsSection(
-          savedData.notionPageId,
-          highlightBlocks,
-          { apiKey }
-        );
+        // 使用共用邏輯執行更新
+        const result = await performHighlightUpdate(services, activeTab, highlights);
 
         if (result.success) {
           result.highlightsUpdated = true;
@@ -383,44 +396,23 @@ export function createHighlightHandlers(services) {
 
         const activeTab = await getActiveTab();
 
-        // 1. 確保有 API Key（優先檢查，以符合測試期待）
-        const apiKey = await ensureNotionApiKey(storageService);
-
-        const url = activeTab.url || '';
-        const savedData = await storageService.getSavedPageData(url);
-
-        if (!savedData?.notionPageId) {
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
-          });
-          return;
-        }
-
         const highlights = request.highlights || [];
         if (highlights.length === 0) {
           sendResponse({
             success: true,
-            message: '沒有新標註需要同步',
+            message: UI_MESSAGES.HIGHLIGHTS.NO_NEW_TO_SYNC,
             highlightCount: 0,
           });
           return;
         }
 
-        // 轉換標記為 Blocks
-        const highlightBlocks = buildHighlightBlocks(highlights);
-
-        // 調用 NotionService 更新標記 (以無狀態方式傳遞 apiKey)
-        const result = await notionService.updateHighlightsSection(
-          savedData.notionPageId,
-          highlightBlocks,
-          { apiKey }
-        );
+        // 使用共用邏輯執行更新
+        const result = await performHighlightUpdate(services, activeTab, highlights);
 
         if (result.success) {
           Logger.success('成功同步標註', { action: 'syncHighlights', count: highlights.length });
           result.highlightCount = highlights.length;
-          result.message = `成功同步 ${highlights.length} 個標註`;
+          result.message = UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
         } else {
           Logger.error('同步標註失敗', { action: 'syncHighlights', error: result.error });
         }

@@ -10,6 +10,9 @@
  * -防禦性拷貝：導出數據時返回副本
  * -不處理時間戳：FIFO 結構已隱含時間順序
  */
+// [Memory Safety] 單條日誌最大允許大小 (25KB)
+const MAX_ENTRY_SIZE = 25_000;
+
 export class LogBuffer {
   /**
    * @param {number} capacity - 緩衝區最大容量 (預設 500)
@@ -31,8 +34,7 @@ export class LogBuffer {
     let entryToStore = { ...entry };
 
     // [Memory Safety] 檢查單條日誌大小
-    // 簡單估算：JSON序列化長度。限制為 25KB (約 25000 字符)
-    const MAX_ENTRY_SIZE = 25_000;
+    // 如果單條日誌過大，可能會影響記憶體佔用。使用模組常量 MAX_ENTRY_SIZE 控制。
 
     try {
       const serialized = JSON.stringify(entryToStore);

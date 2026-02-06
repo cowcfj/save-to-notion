@@ -248,8 +248,11 @@ export class DataSourceManager {
 
     this.selector.populateDataSources(dataSources, isSearchResult);
 
-    if (dataSources.length > 0 && isSearchResult) {
-      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(dataSources.length), 'success');
+    if (dataSources.length > 0) {
+      const message = isSearchResult
+        ? UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(dataSources.length)
+        : UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS(dataSources.length);
+      this.ui.showStatus(message, 'success');
     } else if (dataSources.length === 0) {
       this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND, 'error');
     }

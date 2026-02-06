@@ -11,6 +11,7 @@ export const UI_MESSAGES = {
     LOADING: '正在載入保存目標列表...',
     SEARCHING: keyword => `正在搜尋 "${keyword}"...`,
     SELECT_REMINDER: '保存目標已選擇，請點擊保存設置',
+    LOAD_SUCCESS: count => `已成功載入 ${count} 個保存目標`,
     FOUND_COUNT: count => `找到 ${count} 個保存目標，請從下拉選單中選擇`,
     NO_RESULT: keyword => `未找到 "${keyword}" 相關的保存目標`,
     NO_DATA_SOURCE_FOUND:
@@ -71,6 +72,10 @@ export const UI_MESSAGES = {
     CLEAR_SUCCESS: count => `已成功清除 ${count} 條標註！`,
     HIGHLIGHT_FAILED_PREFIX: '啟動標註失敗：',
     PAGE_READY: '頁面已儲存，可以開始標註或再次儲存。',
+  },
+  HIGHLIGHTS: {
+    NO_NEW_TO_SYNC: '沒有新標註需要同步',
+    SYNC_SUCCESS_COUNT: count => `成功同步 ${count} 個標註`,
   },
   TOOLBAR: {
     SYNCING: '正在同步...',
