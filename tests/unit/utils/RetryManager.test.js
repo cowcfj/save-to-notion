@@ -313,9 +313,14 @@ describe('RetryManager', () => {
 
     test('fetchWithRetry 應該成功執行', async () => {
       const { fetchWithRetry } = require('../../../scripts/utils/RetryManager');
+      const originalFetch = globalThis.fetch;
       globalThis.fetch = jest.fn().mockResolvedValue({ status: 200, ok: true });
-      const res = await fetchWithRetry('https://api.test');
-      expect(res.status).toBe(200);
+      try {
+        const res = await fetchWithRetry('https://api.test');
+        expect(res.status).toBe(200);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
     });
 
     test('_calculateDelay 應該限制在 maxDelay (Line 243)', () => {

@@ -699,12 +699,19 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const level = request.level || 'log';
+        // 驗證並標準化日誌層級
+        const allowedLevels = ['log', 'info', 'warn', 'error', 'debug'];
+        let level = request.level;
+
+        if (!allowedLevels.includes(level) || typeof Logger[level] !== 'function') {
+          level = 'log';
+        }
+
         const message = request.message || '';
         const args = Array.isArray(request.args) ? request.args : [];
 
         // 1. 輸出到日誌系統 (Logger 會處理緩衝與層級)
-        const logMethod = Logger[level] || Logger.log;
+        const logMethod = Logger[level];
         logMethod(`[ClientLog] ${message}`, ...args);
 
         // 2. 寫入 LogBuffer (保留原始時間戳與來源)

@@ -153,7 +153,11 @@ export class SearchableDatabaseSelector {
     }
 
     const pageCount = dataSources.filter(ds => ds.object === 'page').length;
-    const dsCount = dataSources.filter(ds => ds.object === 'data_source').length;
+    // Consider both 'data_source' and 'database' as data sources for the count (consistent with DataSourceManager.filterAndSortResults)
+    const dsCount = dataSources.filter(
+      ds => ds.object === 'data_source' || ds.object === 'database'
+    ).length;
+
     if (this.searchInput) {
       this.searchInput.placeholder = `搜索 ${dataSources.length} 個保存目標（${dsCount} 個資料來源 + ${pageCount} 個頁面）`;
     }

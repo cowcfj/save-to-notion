@@ -78,9 +78,9 @@ export const CONTENT_QUALITY = {
 // ==========================================
 
 export const NOTION_API = {
-  // [AI-CONFIG] TARGET_API_VERSION: 2025-09-03
-  // DO NOT REVERT: This version is required for new features.
-  // Ignorance of this version will cause production failure.
+  // [Breaking Change] API version 2025-09-03 adds multi-data-source database support.
+  // This version is required; using older versions will fail with:
+  // "Databases with multiple data sources are not supported in this API version".
   VERSION: '2025-09-03',
   BASE_URL: 'https://api.notion.com/v1',
   BLOCKS_PER_BATCH: 100, // 每批次最多區塊數

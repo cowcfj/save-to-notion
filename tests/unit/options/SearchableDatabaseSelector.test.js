@@ -134,6 +134,22 @@ describe('SearchableDatabaseSelector', () => {
       expect(selector.initialDataSources).toHaveLength(1);
       expect(selector.initialDataSources[0].id).toBe('1');
     });
+
+    it('should correctly count database objects in placeholder text', () => {
+      const mixedDataSources = [
+        { id: 'db1', object: 'database', title: [{ plain_text: 'DB 1' }] },
+        {
+          id: 'page1',
+          object: 'page',
+          properties: { title: { title: [{ plain_text: 'Page 1' }] } },
+        },
+        { id: 'ds1', object: 'data_source', title: [{ plain_text: 'Source 1' }] },
+      ];
+      selector.populateDataSources(mixedDataSources);
+
+      // Total: 3, Pages: 1, DataSources: 2 (1 db + 1 ds)
+      expect(selector.searchInput.placeholder).toBe('搜索 3 個保存目標（2 個資料來源 + 1 個頁面）');
+    });
   });
 
   describe('filterDatabases', () => {

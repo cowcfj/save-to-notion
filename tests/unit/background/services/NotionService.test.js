@@ -967,7 +967,7 @@ describe('NotionService', () => {
       expect(callArgs.body).toBeUndefined();
     });
 
-    it('應該在 body 為空對象時包含 body', async () => {
+    it('應該在 body 為空對象時不包含 body', async () => {
       await service._apiRequest('/test', { method: 'POST', body: {} });
 
       expect(globalThis.fetch).toHaveBeenCalledWith(

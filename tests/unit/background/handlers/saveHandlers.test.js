@@ -14,6 +14,7 @@ globalThis.Logger = {
   success: jest.fn(),
   start: jest.fn(),
   ready: jest.fn(),
+  addLogToBuffer: jest.fn(),
 };
 
 // Mock chrome API
@@ -120,6 +121,36 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, exists: true })
       );
+    });
+  });
+
+  describe('devLogSink Log Level Validation', () => {
+    const validSender = {
+      id: 'test-extension-id',
+      tab: { id: 1 },
+    };
+
+    test('should use correct log level when valid', () => {
+      const levels = ['log', 'info', 'warn', 'error', 'debug'];
+      levels.forEach(level => {
+        handlers.devLogSink({ level, message: 'test' }, validSender, jest.fn());
+        expect(Logger[level]).toHaveBeenCalledWith(expect.stringContaining('[ClientLog] test'));
+      });
+    });
+
+    test('should fallback to log for invalid level', () => {
+      handlers.devLogSink({ level: 'invalid', message: 'test' }, validSender, jest.fn());
+      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('[ClientLog] test'));
+    });
+
+    test('should fallback to log for non-function property access', () => {
+      handlers.devLogSink({ level: 'addLogToBuffer', message: 'test' }, validSender, jest.fn());
+      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('[ClientLog] test'));
+    });
+
+    test('should fallback to log for prototype property access', () => {
+      handlers.devLogSink({ level: 'constructor', message: 'test' }, validSender, jest.fn());
+      expect(Logger.log).toHaveBeenCalledWith(expect.stringContaining('[ClientLog] test'));
     });
   });
 });

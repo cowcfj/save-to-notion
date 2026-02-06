@@ -491,12 +491,16 @@ describe('imageUtils - 邊界條件測試', () => {
       // 構造一個會觸發遞迴的 URL (例如代理嵌套自己)
       // 雖然代碼本身會判斷 pathname，但我們可以手動測試深度參數
       const url = 'https://proxy.com/photo.php?u=https://example.com/image.jpg';
-      const result = cleanImageUrl(url, 5); // 達到 MAX_RECURSION_DEPTH (5)
+      const result = cleanImageUrl(url, IMAGE_VALIDATION_CONSTANTS.MAX_RECURSION_DEPTH); // 達到 MAX_RECURSION_DEPTH
       expect(result).toBe(url);
     });
   });
 
   describe('extractFromBackgroundImage - 父元素背景', () => {
+    beforeEach(() => {
+      document.body.innerHTML = '';
+    });
+
     test('應能從父元素提取背景圖片', () => {
       const parent = document.createElement('div');
       parent.style.backgroundImage = "url('https://example.com/parent-bg.jpg')";

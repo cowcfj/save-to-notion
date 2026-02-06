@@ -231,21 +231,25 @@ describe('InjectionService', () => {
 
     it('應在 PING 超時時執行注入 (Timeout path)', async () => {
       jest.useFakeTimers();
-      // Arrange: sendMessage 不回應
-      chrome.tabs.sendMessage.mockImplementation(() => {});
-      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-        chrome.runtime.lastError = null;
-        cb();
-      });
+      try {
+        // Arrange: sendMessage 不回應
+        chrome.tabs.sendMessage.mockImplementation(() => {});
+        chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+          chrome.runtime.lastError = null;
+          cb();
+        });
 
-      const promise = service.ensureBundleInjected(1);
+        const promise = service.ensureBundleInjected(1);
 
-      // Fast-forward PING timeout
-      jest.advanceTimersByTime(2500);
+        // Fast-forward PING timeout
+        jest.advanceTimersByTime(2500);
 
-      const result = await promise;
-      expect(result).toBe(true);
-      expect(chrome.scripting.executeScript).toHaveBeenCalled();
+        const result = await promise;
+        expect(result).toBe(true);
+        expect(chrome.scripting.executeScript).toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
@@ -280,9 +284,14 @@ describe('InjectionService', () => {
 
   describe('_resolveHighlighterPath (Line 159-182)', () => {
     it('應該在 fetch 失敗時回退到預設路徑', async () => {
+      const originalFetch = globalThis.fetch;
       globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network fail'));
-      const path = await service._resolveHighlighterPath();
-      expect(path).toBe('dist/content.bundle.js');
+      try {
+        const path = await service._resolveHighlighterPath();
+        expect(path).toBe('dist/content.bundle.js');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
     });
   });
 
