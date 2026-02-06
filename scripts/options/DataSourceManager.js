@@ -49,7 +49,7 @@ export class DataSourceManager {
     const isSearchQuery = Boolean(query);
 
     try {
-      this._showLoadingStatus(query, Boolean(apiKey));
+      this._showLoadingStatus(query, true);
 
       const params = this._prepareSearchParams(query);
       const response = await this._fetchFromNotion(apiKey, params);
@@ -254,7 +254,12 @@ export class DataSourceManager {
         showStatus: this.ui.showStatus.bind(this.ui),
         loadDataSources: this.loadDataSources.bind(this),
         // 優先使用注入的 getApiKey，fallback 到 DOM 查詢以保持向後相容
-        getApiKey: this.getApiKey || (() => document.querySelector('#api-key')?.value || ''),
+        getApiKey:
+          this.getApiKey ||
+          (() => {
+            Logger.warn('[DataSource] Fallback to DOM query for API Key (Deprecated)');
+            return document.querySelector('#api-key')?.value || '';
+          }),
       });
     }
 
@@ -342,8 +347,8 @@ export class DataSourceManager {
     const isDbChildPage = parentType === 'database_id' || parentType === 'data_source_id';
 
     if (isDbChildPage && page.properties) {
-      return Object.entries(page.properties).some(([key, prop]) => {
-        return key.toLowerCase().includes('url') || prop.type === 'url';
+      return Object.values(page.properties).some(prop => {
+        return prop.type === 'url';
       });
     }
     return false;

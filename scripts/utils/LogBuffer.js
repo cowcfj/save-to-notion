@@ -28,11 +28,12 @@ const STANDARD_FIELDS = new Set(['level', 'message', 'source', 'context']);
  * @returns {string} 截斷後的訊息
  */
 function truncateMessage(message, maxLength) {
-  if (message.length <= maxLength) {
-    return message;
+  const safeMessage = message == null ? '' : String(message);
+  if (safeMessage.length <= maxLength) {
+    return safeMessage;
   }
   // 使用模板字串避免 prefer-template 警告
-  return `${message.slice(0, maxLength - 12)}... [截斷]`;
+  return `${safeMessage.slice(0, maxLength - 12)}... [截斷]`;
 }
 
 /**
@@ -75,6 +76,9 @@ function createTruncatedEntry(entry, originalSize, structureOverhead) {
   };
 }
 
+// reason 欄位最大長度（保守估計，確保回退條目不超限）
+const MAX_REASON_LENGTH = 500;
+
 /**
  * 創建序列化失敗時的回退條目
  *
@@ -88,13 +92,17 @@ function createSerializationFailedEntry(entry, error) {
   const needsTruncate = originalMessage.length > maxMessageLength;
   const truncatedMsg = truncateMessage(originalMessage, maxMessageLength);
 
+  // 截斷 reason 以確保回退條目不超過 MAX_ENTRY_SIZE
+  const rawReason = error instanceof Error ? error.message : String(error);
+  const reason = truncateMessage(rawReason, MAX_REASON_LENGTH);
+
   return {
     level: entry.level,
     message: truncatedMsg,
     source: entry.source,
     context: {
       error: 'serialization_failed',
-      reason: error instanceof Error ? error.message : String(error),
+      reason,
       ...(needsTruncate && { originalMessageLength: originalMessage.length }),
     },
   };

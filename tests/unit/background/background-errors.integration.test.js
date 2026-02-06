@@ -52,12 +52,28 @@ async function waitForSend(mockFn, maxWaitMs = 1500) {
 
 /**
  * Helper to mock chrome.scripting.executeScript for sequential calls.
- * Call 1: Files injection (always succeeds).
- * Call 2: collectHighlights (returns empty array by default).
- * Call 3: injectWithResponse (returns content object or throws).
+ * 1. Files injection (always succeeds).
+ * 2. checkInitialization (returns undefined).
+ * 3. collectHighlights (returns empty array).
+ * 4. injectWithResponse (returns content object or simulates error).
  *
- * @param {object|string} [contentResult] - Content object to return, or 'error' to throw.
+ * @param {object|string} [contentResult] - Content object to return, or 'error' to simulate failure.
  */
+function setupScriptMock(contentResult) {
+  const mock = chrome.scripting.executeScript
+    .mockImplementationOnce((opts, cb) => cb?.())
+    .mockImplementationOnce((opts, cb) => cb?.([{ result: undefined }]))
+    .mockImplementationOnce((opts, cb) => cb?.([{ result: [] }]));
+
+  if (contentResult === 'error') {
+    mock.mockImplementationOnce((opts, cb) => {
+      chrome.runtime.lastError = { message: 'Function execution failed' };
+      cb?.();
+    });
+  } else {
+    mock.mockImplementationOnce((opts, cb) => cb?.([{ result: contentResult ?? {} }]));
+  }
+}
 
 describe('background error branches (integration)', () => {
   let originalChrome = null;
@@ -471,14 +487,7 @@ describe('background error branches (integration)', () => {
     });
 
     // Explicit mock sequence: 1. Files -> 2. checkInitialization -> 3. collectHighlights -> 4. injectWithResponse
-    chrome.scripting.executeScript
-      .mockImplementationOnce((opts, cb) => cb?.())
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: undefined }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: [] }]))
-      .mockImplementationOnce((opts, cb) => {
-        chrome.runtime.lastError = { message: 'Function execution failed' };
-        cb?.();
-      });
+    setupScriptMock('error');
 
     const sendResponse = jest.fn();
     chrome.runtime.onMessage._emit({ action: 'savePage' }, internalSender, sendResponse);
@@ -513,11 +522,7 @@ describe('background error branches (integration)', () => {
         },
       ],
     };
-    chrome.scripting.executeScript
-      .mockImplementationOnce((opts, cb) => cb?.())
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: undefined }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: [] }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: contentResult }]));
+    setupScriptMock(contentResult);
 
     // 模擬 Notion API 回覆 400 非 image 錯誤
     globalThis.fetch = jest.fn(() =>
@@ -579,11 +584,7 @@ describe('background error branches (integration)', () => {
         },
       ],
     };
-    chrome.scripting.executeScript
-      .mockImplementationOnce((opts, cb) => cb?.())
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: undefined }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: [] }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: contentResult }]));
+    setupScriptMock(contentResult);
 
     // fetch：第1次返回 validation_error（含 image 字樣），第2次返回 ok:true
     let fetchCall = 0;
@@ -595,6 +596,7 @@ describe('background error branches (integration)', () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve({ archived: false }),
+          text: () => Promise.resolve(JSON.stringify({ archived: false })),
         });
       }
       // 2. 攔截建頁 (POST) -> 第1次 400, 第2次 200
@@ -659,7 +661,7 @@ describe('background error branches (integration)', () => {
     );
 
     // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
-    // 高亮收集為 0；injectWithResponse 回傳內容（無圖片亦可）
+
     const contentResult = {
       title: 'T',
       blocks: [
@@ -670,11 +672,7 @@ describe('background error branches (integration)', () => {
         },
       ],
     };
-    chrome.scripting.executeScript
-      .mockImplementationOnce((opts, cb) => cb?.())
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: undefined }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: [] }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: contentResult }]));
+    setupScriptMock(contentResult);
 
     globalThis.fetch = jest.fn((requestUrl, init) => {
       // 檢查頁面存在
@@ -754,11 +752,7 @@ describe('background error branches (integration)', () => {
         },
       ],
     };
-    chrome.scripting.executeScript
-      .mockImplementationOnce((opts, cb) => cb?.())
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: undefined }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: [] }]))
-      .mockImplementationOnce((opts, cb) => cb?.([{ result: contentResult }]));
+    setupScriptMock(contentResult);
 
     globalThis.fetch = jest.fn((requestUrl, init) => {
       if (/\/v1\/pages\//u.test(requestUrl) && (init?.method === 'GET' || !init)) {

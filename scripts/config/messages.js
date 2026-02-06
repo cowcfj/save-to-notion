@@ -278,7 +278,15 @@ export const ERROR_MESSAGES = {
  */
 export const API_ERROR_PATTERNS = {
   // 1. 認證相關
-  AUTH: ['unauthorized', 'authentication', 'api key', 'api_key', 'token'],
+  AUTH: [
+    'unauthorized',
+    'authentication',
+    'api key',
+    'api_key',
+    'api_token',
+    'api token',
+    'bearer token',
+  ],
   AUTH_DISCONNECTED: ['integration disconnected', 'invalid_token'],
   AUTH_INVALID: ['invalid api key', 'malformed_token'],
   AUTH_FORBIDDEN: ['forbidden', 'permission_denied', 'permission denied'],

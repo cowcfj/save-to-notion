@@ -336,8 +336,13 @@ describe('securityUtils', () => {
         expect(result).toBe('API Key');
       });
 
-      test('"invalid token" 無 unauthorized 應返回 API Key（Auth 優先於 Validation）', () => {
+      test('"invalid token" (通用 token) 應返回 validation_error (不再是 Auth 若無其他 Auth 關鍵字)', () => {
         const result = sanitizeApiError('invalid token provided');
+        expect(result).toBe('validation_error');
+      });
+
+      test('"invalid api token" 應返回 API Key', () => {
+        const result = sanitizeApiError('invalid api token provided');
         expect(result).toBe('API Key');
       });
     });

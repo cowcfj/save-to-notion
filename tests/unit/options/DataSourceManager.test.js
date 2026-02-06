@@ -49,17 +49,6 @@ describe('DataSourceManager', () => {
     dataSourceManager = new DataSourceManager(mockUiManager);
     dataSourceManager.init();
 
-    // Mock Logger
-    globalThis.Logger = {
-      debug: jest.fn(),
-      success: jest.fn(),
-      start: jest.fn(),
-      ready: jest.fn(),
-      info: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-    };
-
     // Reset chrome mock
     globalThis.chrome.runtime.sendMessage.mockReset();
     globalThis.chrome.runtime.lastError = null;
@@ -146,7 +135,7 @@ describe('DataSourceManager', () => {
     test('優先排序工作區頁面', () => {
       const results = [
         {
-          object: 'data_source',
+          object: 'database',
           id: 'db-1',
           parent: { type: 'page_id' },
           title: [{ plain_text: 'Database' }],
@@ -221,7 +210,7 @@ describe('DataSourceManager', () => {
           },
         },
         {
-          object: 'data_source',
+          object: 'database',
           id: 'db-2',
           parent: { type: 'workspace' },
           title: [{ plain_text: 'URL Database' }],
@@ -270,6 +259,18 @@ describe('DataSourceManager', () => {
     test('偵測到 data_source 有 URL 屬性', () => {
       const database = {
         object: 'data_source',
+        properties: {
+          Title: { type: 'title' },
+          URL: { type: 'url' },
+        },
+      };
+
+      expect(DataSourceManager.hasUrlProperty(database)).toBe(true);
+    });
+
+    test('偵測到 database (Notion API 格式) 有 URL 屬性', () => {
+      const database = {
+        object: 'database',
         properties: {
           Title: { type: 'title' },
           URL: { type: 'url' },
@@ -528,17 +529,17 @@ describe('DataSourceManager', () => {
       expect(DataSourceManager.isSavedWebPage(database)).toBe(false);
     });
 
-    test('URL 屬性名稱包含小寫 url 時識別為已保存網頁', () => {
+    test('避免誤判：僅憑屬性名稱包含 "url" 不應被識別為已保存網頁', () => {
       const page = {
         object: 'page',
         parent: { type: 'data_source_id', data_source_id: 'db-123' },
         properties: {
           Title: { title: [{ plain_text: 'Saved Article' }] },
-          pageurl: { type: 'rich_text' }, // 名稱包含 url
+          pageurl: { type: 'rich_text' }, // 名稱包含 url 但類型不是 url
         },
       };
 
-      expect(DataSourceManager.isSavedWebPage(page)).toBe(true);
+      expect(DataSourceManager.isSavedWebPage(page)).toBe(false);
     });
   });
 });
