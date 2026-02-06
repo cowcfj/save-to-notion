@@ -126,7 +126,7 @@ export class SearchableDatabaseSelector {
     const mappedDataSources = dataSources.map(ds => ({
       id: ds.id,
       title: SearchableDatabaseSelector.extractDataSourceTitle(ds),
-      type: ds.object, // 'page' 或 'data_source'
+      type: ds.object, // 'page', 'database' 或 'data_source'
       isWorkspace: ds.parent?.type === 'workspace',
       parent: ds.parent,
       raw: ds,

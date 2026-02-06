@@ -525,25 +525,24 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        chrome.tabs.create({ url: notionUrl }, tab => {
-          if (chrome.runtime.lastError) {
-            Logger.error('打開 Notion 頁面失敗', {
-              action: 'openNotionPage',
-              error: chrome.runtime.lastError.message,
-            });
-            const safeMessage = sanitizeApiError(chrome.runtime.lastError, 'open_page');
-            sendResponse({
-              success: false,
-              error: ErrorHandler.formatUserMessage(safeMessage),
-            });
-          } else {
-            Logger.log('成功在分頁中打開 Notion 頁面', {
-              action: 'openNotionPage',
-              notionUrl: sanitizeUrlForLogging(notionUrl),
-            });
-            sendResponse({ success: true, tabId: tab.id, notionUrl });
-          }
-        });
+        try {
+          const tab = await chrome.tabs.create({ url: notionUrl });
+          Logger.log('成功在分頁中打開 Notion 頁面', {
+            action: 'openNotionPage',
+            notionUrl: sanitizeUrlForLogging(notionUrl),
+          });
+          sendResponse({ success: true, tabId: tab.id, notionUrl });
+        } catch (error) {
+          Logger.error('打開 Notion 頁面失敗', {
+            action: 'openNotionPage',
+            error: error.message,
+          });
+          const safeMessage = sanitizeApiError(error, 'open_page');
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(safeMessage),
+          });
+        }
       } catch (error) {
         Logger.error('執行 openNotionPage 時出錯', {
           action: 'openNotionPage',

@@ -181,25 +181,29 @@ export function createHighlightHandlers(services) {
         }
 
         // 發送訊息顯示 highlighter
-        chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, response => {
-          if (chrome.runtime.lastError) {
-            Logger.warn('顯示高亮工具失敗', {
-              action: 'USER_ACTIVATE_SHORTCUT',
-              error: chrome.runtime.lastError.message,
+        try {
+          const response = await new Promise((resolve, reject) => {
+            chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, result => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(result);
+              }
             });
-            const safeMessage = sanitizeApiError(
-              chrome.runtime.lastError.message,
-              'show_highlighter'
-            );
-            sendResponse({
-              success: false,
-              error: ErrorHandler.formatUserMessage(safeMessage),
-            });
-          } else {
-            Logger.success('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
-            sendResponse({ success: true, response });
-          }
-        });
+          });
+          Logger.success('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
+          sendResponse({ success: true, response });
+        } catch (error) {
+          Logger.warn('顯示高亮工具失敗', {
+            action: 'USER_ACTIVATE_SHORTCUT',
+            error: error.message,
+          });
+          const safeMessage = sanitizeApiError(error.message, 'show_highlighter');
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(safeMessage),
+          });
+        }
       } catch (error) {
         Logger.error('執行快捷鍵激活時發生意外錯誤', {
           action: 'USER_ACTIVATE_SHORTCUT',

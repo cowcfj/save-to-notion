@@ -20,24 +20,7 @@ export class DataSourceManager {
   }
 
   init() {
-    this.elements.dataSourceSelect = document.querySelector('#database-select');
     this.elements.dataSourceIdInput = document.querySelector('#database-id');
-
-    // 綁定舊的選擇框邏輯（回退用）
-    if (this.elements.dataSourceSelect) {
-      this.elements.dataSourceSelect.addEventListener('change', () =>
-        this.handleDataSourceSelect()
-      );
-    }
-  }
-
-  handleDataSourceSelect() {
-    if (this.elements.dataSourceSelect?.value) {
-      if (this.elements.dataSourceIdInput) {
-        this.elements.dataSourceIdInput.value = this.elements.dataSourceSelect.value;
-      }
-      this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.SELECT_REMINDER, 'info');
-    }
   }
 
   /**
@@ -121,7 +104,6 @@ export class DataSourceManager {
           action: 'searchNotion',
           apiKey,
           query: params.query,
-          filter: params.filter,
           sort: params.sort,
           page_size: params.page_size,
         },
@@ -184,9 +166,6 @@ export class DataSourceManager {
       : UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND;
 
     this.ui.showStatus(msg, isSearchQuery ? 'info' : 'error');
-    if (this.elements.dataSourceSelect) {
-      this.elements.dataSourceSelect.style.display = 'none';
-    }
   }
 
   /**
@@ -210,9 +189,6 @@ export class DataSourceManager {
       isSearchQuery,
     });
     this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(errorMsg), 'error');
-    if (this.elements.dataSourceSelect) {
-      this.elements.dataSourceSelect.style.display = 'none';
-    }
   }
 
   /**
@@ -229,9 +205,6 @@ export class DataSourceManager {
     const safeMessage = sanitizeApiError(error, 'load_data_sources');
     const translated = ErrorHandler.formatUserMessage(safeMessage);
     this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.LOAD_FAILED(translated), 'error');
-    if (this.elements.dataSourceSelect) {
-      this.elements.dataSourceSelect.style.display = 'none';
-    }
   }
 
   populateDataSourceSelect(dataSources, isSearchResult = false) {
@@ -250,23 +223,6 @@ export class DataSourceManager {
     }
 
     this.selector.populateDataSources(dataSources, isSearchResult);
-
-    if (this.elements.dataSourceSelect) {
-      this.elements.dataSourceSelect.style.display = 'none';
-      this.elements.dataSourceSelect.innerHTML = '';
-      const defaultOption = document.createElement('option');
-      defaultOption.value = '';
-      defaultOption.textContent = UI_MESSAGES.DATA_SOURCE.DEFAULT_OPTION;
-      this.elements.dataSourceSelect.append(defaultOption);
-
-      dataSources.forEach(ds => {
-        const option = document.createElement('option');
-        option.value = ds.id;
-        const title = SearchableDatabaseSelector.extractDataSourceTitle(ds);
-        option.textContent = title;
-        this.elements.dataSourceSelect.append(option);
-      });
-    }
 
     if (dataSources.length > 0) {
       this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(dataSources.length), 'success');
