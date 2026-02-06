@@ -211,11 +211,7 @@ function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid, forbidd
   }
 
   // Default to generic API Key error if matched main AUTH pattern
-  if (isGenericAuth) {
-    return 'API Key';
-  }
-
-  return null;
+  return 'API Key';
 }
 
 function _checkSimpleMappings(lowerMessage, mapping) {
@@ -249,7 +245,6 @@ function _checkServerError(lowerMessage) {
  * @returns {string | object} 錯誤代碼或清洗後的結構化錯誤對象
  */
 export function sanitizeApiError(apiError, context = 'operation') {
-  // [SDK Support] 優先處理 SDK 錯誤代碼
   // 1. [SDK Support] 優先處理 SDK 錯誤碼
   if (apiError && apiError.code) {
     // 支援 Notion SDK 的標準錯誤碼
