@@ -219,6 +219,7 @@ export const ERROR_MESSAGES = {
     'Data Source ID': USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
     'Database access denied': USER_MESSAGES.DATABASE_ACCESS_DENIED,
     'Integration disconnected': USER_MESSAGES.INTEGRATION_DISCONNECTED,
+    'Integration forbidden (403)': USER_MESSAGES.DATABASE_ACCESS_DENIED,
     'Page ID is missing': '無法識別頁面，請重回 Notion 頁面再試',
     'Page not saved': '頁面尚未保存，請先保存頁面',
     'Invalid request': USER_MESSAGES.CONTENT_PARSE_FAILED,

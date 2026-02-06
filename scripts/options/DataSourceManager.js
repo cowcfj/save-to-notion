@@ -104,11 +104,16 @@ export class DataSourceManager {
    */
   async _fetchFromNotion(apiKey, params) {
     return new Promise(resolve => {
+      let resolved = false;
+
       const timeoutId = setTimeout(() => {
-        resolve({
-          success: false,
-          error: 'Extension messaging timeout',
-        });
+        if (!resolved) {
+          resolved = true;
+          resolve({
+            success: false,
+            error: 'Extension messaging timeout',
+          });
+        }
       }, MESSAGE_TIMEOUT_MS);
 
       chrome.runtime.sendMessage(
@@ -121,13 +126,16 @@ export class DataSourceManager {
         },
         response => {
           clearTimeout(timeoutId);
-          if (chrome.runtime.lastError) {
-            resolve({
-              success: false,
-              error: chrome.runtime.lastError.message || 'Messaging error',
-            });
-          } else {
-            resolve(response);
+          if (!resolved) {
+            resolved = true;
+            if (chrome.runtime.lastError) {
+              resolve({
+                success: false,
+                error: chrome.runtime.lastError.message || 'Messaging error',
+              });
+            } else {
+              resolve(response);
+            }
           }
         }
       );
@@ -237,9 +245,9 @@ export class DataSourceManager {
 
     this.selector.populateDataSources(dataSources, isSearchResult);
 
-    if (dataSources.length > 0) {
+    if (dataSources.length > 0 && isSearchResult) {
       this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(dataSources.length), 'success');
-    } else {
+    } else if (dataSources.length === 0) {
       this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND, 'error');
     }
   }

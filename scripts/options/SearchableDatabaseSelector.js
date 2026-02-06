@@ -234,7 +234,7 @@ export class SearchableDatabaseSelector {
 
   showSearchingState(query) {
     if (this.dataSourceList) {
-      this.dataSourceList.innerHTML = '';
+      this.dataSourceList.replaceChildren();
 
       const container = document.createElement('div');
       container.className = 'loading-state';
@@ -260,7 +260,7 @@ export class SearchableDatabaseSelector {
       return;
     }
 
-    this.dataSourceList.innerHTML = '';
+    this.dataSourceList.replaceChildren();
 
     if (this.filteredDataSources.length === 0) {
       const noResultsDiv = document.createElement('div');
@@ -580,7 +580,7 @@ export class SearchableDatabaseSelector {
 
   showLoading() {
     if (this.dataSourceList) {
-      this.dataSourceList.innerHTML = '';
+      this.dataSourceList.replaceChildren();
       const container = document.createElement('div');
       container.className = 'loading-state';
       const spinner = document.createElement('div');
