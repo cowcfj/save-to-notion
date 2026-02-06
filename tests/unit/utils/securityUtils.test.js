@@ -309,7 +309,7 @@ describe('securityUtils', () => {
         '"%s" 應返回資料庫權限不足訊息',
         input => {
           const result = sanitizeApiError(input);
-          expect(result).toBe('Database access denied');
+          expect(result).toBe('Integration forbidden (403)');
         }
       );
     });

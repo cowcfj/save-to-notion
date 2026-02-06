@@ -22,6 +22,8 @@ import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 
+const safeNormalizeUrl = normalizeUrl || (url => url);
+
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
 // ============================================================================
@@ -391,8 +393,7 @@ export function createSaveHandlers(services) {
 
         const apiKey = config.notionApiKey;
 
-        const normalize = normalizeUrl || (url => url);
-        const normUrl = normalize(activeTab.url || '');
+        const normUrl = safeNormalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         // 注入 highlighter 並收集標記
@@ -486,8 +487,7 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const normalize = normalizeUrl || (url => url);
-        const normUrl = normalize(pageUrl);
+        const normUrl = safeNormalizeUrl(pageUrl);
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {
@@ -606,7 +606,7 @@ export function createSaveHandlers(services) {
         }
 
         const activeTab = await getActiveTab();
-        const normUrl = (normalizeUrl || (url => url))(activeTab.url || '');
+        const normUrl = safeNormalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {

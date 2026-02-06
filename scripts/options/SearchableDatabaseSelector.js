@@ -12,6 +12,8 @@ import { UI_ICONS } from '../config/index.js';
  * 可搜索的資料來源選擇器組件
  * 提供帶有搜索功能的下拉選單，用於選擇保存目標（Page 或 Data Source）
  */
+const KEYBOARD_FOCUS_CLASS = 'keyboard-focus';
+
 export class SearchableDatabaseSelector {
   constructor(dependencies = {}) {
     const { showStatus, loadDataSources, getApiKey } = dependencies;
@@ -304,7 +306,7 @@ export class SearchableDatabaseSelector {
       itemDiv.classList.add('selected');
     }
     if (isFocused) {
-      itemDiv.classList.add('keyboard-focus');
+      itemDiv.classList.add(KEYBOARD_FOCUS_CLASS);
     }
 
     itemDiv.dataset.index = index;
@@ -494,15 +496,17 @@ export class SearchableDatabaseSelector {
     switch (event.key) {
       case 'ArrowDown': {
         event.preventDefault();
+        const prevIndex = this.focusedIndex;
         this.focusedIndex = Math.min(this.focusedIndex + 1, this.filteredDataSources.length - 1);
-        this.renderDataSourceList();
+        this.updateFocusedItem(prevIndex);
         this.scrollToFocused();
         break;
       }
       case 'ArrowUp': {
         event.preventDefault();
+        const prevIndex = this.focusedIndex;
         this.focusedIndex = Math.max(this.focusedIndex - 1, -1);
-        this.renderDataSourceList();
+        this.updateFocusedItem(prevIndex);
         this.scrollToFocused();
         break;
       }
@@ -521,9 +525,31 @@ export class SearchableDatabaseSelector {
     }
   }
 
+  updateFocusedItem(prevIndex) {
+    if (!this.dataSourceList) {
+      return;
+    }
+
+    // 移除之前的焦點
+    if (prevIndex >= 0) {
+      const prevItem = this.dataSourceList.children[prevIndex];
+      if (prevItem) {
+        prevItem.classList.remove(KEYBOARD_FOCUS_CLASS);
+      }
+    }
+
+    // 設置新的焦點
+    if (this.focusedIndex >= 0) {
+      const currentItem = this.dataSourceList.children[this.focusedIndex];
+      if (currentItem) {
+        currentItem.classList.add(KEYBOARD_FOCUS_CLASS);
+      }
+    }
+  }
+
   scrollToFocused() {
     if (this.focusedIndex >= 0 && this.dataSourceList) {
-      const focusedElement = this.dataSourceList.querySelector('.keyboard-focus');
+      const focusedElement = this.dataSourceList.children[this.focusedIndex];
       if (focusedElement) {
         focusedElement.scrollIntoView({ block: 'nearest' });
       }

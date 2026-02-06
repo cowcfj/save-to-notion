@@ -207,7 +207,7 @@ function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid, forbidd
     return 'Invalid API Key format';
   }
   if (isForbidden) {
-    return 'Database access denied';
+    return 'Integration forbidden (403)';
   }
 
   // Default to generic API Key error if matched main AUTH pattern

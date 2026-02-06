@@ -8,6 +8,9 @@ import { sanitizeApiError } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_MESSAGES } from '../config/index.js';
 
+const MAX_SEARCH_RESULTS = 100;
+const MESSAGE_TIMEOUT_MS = 30_000; // 30 seconds
+
 /**
  * 資料來源管理器
  * 負責從 Notion API 載入、篩選和處理資料來源與頁面清單
@@ -30,11 +33,12 @@ export class DataSourceManager {
    * @param {string|null} query - 可選的搜尋關鍵字
    * @returns {Promise<Array>} 過濾後的資料來源列表
    */
+
   async loadDataSources(apiKey, query = null) {
     const isSearchQuery = Boolean(query);
 
     try {
-      this._showLoadingStatus(query);
+      this._showLoadingStatus(query, Boolean(apiKey));
 
       const params = this._prepareSearchParams(query);
       const response = await this._fetchFromNotion(apiKey, params);
@@ -54,9 +58,10 @@ export class DataSourceManager {
    * 顯示載入狀態
    *
    * @param {string|null} query - 搜尋關鍵字
+   * @param {boolean} hasApiKey - 是否有 API Key
    * @private
    */
-  _showLoadingStatus(query) {
+  _showLoadingStatus(query, hasApiKey) {
     const statusMessage = query
       ? UI_MESSAGES.DATA_SOURCE.SEARCHING(query)
       : UI_MESSAGES.DATA_SOURCE.LOADING;
@@ -64,7 +69,7 @@ export class DataSourceManager {
 
     Logger.start('[DataSource] 開始載入保存目標', {
       action: 'loadDataSources',
-      hasApiKey: true,
+      hasApiKey,
       query: query || null,
     });
   }
@@ -77,7 +82,7 @@ export class DataSourceManager {
    * @private
    */
   _prepareSearchParams(query) {
-    const params = { page_size: 100 };
+    const params = { page_size: MAX_SEARCH_RESULTS };
     if (query) {
       params.query = query;
     } else {
@@ -99,6 +104,13 @@ export class DataSourceManager {
    */
   async _fetchFromNotion(apiKey, params) {
     return new Promise(resolve => {
+      const timeoutId = setTimeout(() => {
+        resolve({
+          success: false,
+          error: 'Extension messaging timeout',
+        });
+      }, MESSAGE_TIMEOUT_MS);
+
       chrome.runtime.sendMessage(
         {
           action: 'searchNotion',
@@ -108,6 +120,7 @@ export class DataSourceManager {
           page_size: params.page_size,
         },
         response => {
+          clearTimeout(timeoutId);
           if (chrome.runtime.lastError) {
             resolve({
               success: false,
@@ -139,7 +152,7 @@ export class DataSourceManager {
     if (data.results?.length > 0) {
       const filteredResults = DataSourceManager.filterAndSortResults(
         data.results,
-        100,
+        MAX_SEARCH_RESULTS,
         isSearchQuery
       );
 
@@ -231,7 +244,7 @@ export class DataSourceManager {
     }
   }
 
-  static filterAndSortResults(results, maxResults = 100, preserveOrder = false) {
+  static filterAndSortResults(results, maxResults = MAX_SEARCH_RESULTS, preserveOrder = false) {
     const validItems = [];
 
     for (const item of results) {

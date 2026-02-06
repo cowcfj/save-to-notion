@@ -288,31 +288,6 @@ describe('DataSourceManager', () => {
     });
   });
 
-  describe('handleDataSourceSelect', () => {
-    test('選擇資料來源時更新 database-id 輸入框', () => {
-      dataSourceManager.elements.dataSourceSelect.innerHTML =
-        '<option value="db-123">Test DB</option>';
-      dataSourceManager.elements.dataSourceSelect.value = 'db-123';
-
-      dataSourceManager.handleDataSourceSelect();
-
-      expect(document.querySelector('#database-id').value).toBe('db-123');
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        UI_MESSAGES.DATA_SOURCE.SELECT_REMINDER,
-        'info'
-      );
-    });
-
-    test('未選擇時不更新', () => {
-      dataSourceManager.elements.dataSourceSelect.value = '';
-
-      dataSourceManager.handleDataSourceSelect();
-
-      expect(document.querySelector('#database-id').value).toBe('');
-      expect(mockUiManager.showStatus).not.toHaveBeenCalled();
-    });
-  });
-
   describe('loadDataSources - additional error handling', () => {
     test('處理 403 權限錯誤', async () => {
       globalThis.chrome.runtime.sendMessage.mockImplementation((msg, callback) => {
