@@ -22,7 +22,9 @@ export function initOptions() {
   const ui = new UIManager();
 
   const auth = new AuthManager(ui);
-  const dataSource = new DataSourceManager(ui);
+  const dataSource = new DataSourceManager(ui, () => {
+    return document.querySelector('#api-key')?.value || '';
+  });
   const storage = new StorageManager(ui);
   const migration = new MigrationTool(ui);
 

@@ -19,7 +19,7 @@ describe('DataSourceManager Messaging Error Handling', () => {
   beforeEach(() => {
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
-    dataSourceManager = new DataSourceManager(mockUiManager);
+    dataSourceManager = new DataSourceManager(mockUiManager, () => 'test-api-key');
 
     // Reset mocks
     jest.clearAllMocks();

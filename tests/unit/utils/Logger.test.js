@@ -188,7 +188,7 @@ describe('Logger', () => {
     test('日誌應該傳遞額外參數', () => {
       const extraData = { key: 'value' };
       Logger.warn('message', extraData);
-      expect(consoleSpy.warn.mock.calls[0]).toContain(extraData);
+      expect(consoleSpy.warn.mock.calls[0]).toContain(JSON.stringify(extraData, null, 2));
     });
   });
 

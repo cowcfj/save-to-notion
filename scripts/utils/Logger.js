@@ -51,7 +51,18 @@ function formatMessage(level, args) {
       [LOG_LEVELS.ERROR]: `[ERROR] ${LOG_ICONS.ERROR}`,
     }[level] || '[UNKNOWN]';
 
-  return [levelPrefix, ...args];
+  const safeArgs = args.map(arg => {
+    if (typeof arg === 'object' && arg !== null && !(arg instanceof Error)) {
+      try {
+        return JSON.stringify(arg, null, 2);
+      } catch {
+        return '[Unserializable Object]';
+      }
+    }
+    return arg;
+  });
+
+  return [levelPrefix, ...safeArgs];
 }
 
 /**
@@ -262,6 +273,8 @@ const Logger = {
   },
 
   debug(message, ...args) {
+    writeToBuffer('debug', message, args);
+
     if (!this.debugEnabled) {
       return;
     }
@@ -269,10 +282,11 @@ const Logger = {
     // eslint-disable-next-line no-console
     console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
     sendToBackground('debug', message, args);
-    writeToBuffer('debug', message, args);
   },
 
   log(message, ...args) {
+    writeToBuffer('log', message, args);
+
     if (!this.debugEnabled) {
       return;
     }
@@ -280,17 +294,17 @@ const Logger = {
     // eslint-disable-next-line no-console
     console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
     sendToBackground('log', message, args);
-    writeToBuffer('log', message, args);
   },
 
   info(message, ...args) {
+    writeToBuffer('info', message, args);
+
     if (!this.debugEnabled) {
       return;
     }
 
     console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
     sendToBackground('info', message, args);
-    writeToBuffer('info', message, args);
   },
 
   /**

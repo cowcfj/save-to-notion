@@ -296,7 +296,7 @@ describe('options.js', () => {
 
       expect(UIManager).toHaveBeenCalled();
       expect(AuthManager).toHaveBeenCalled();
-      expect(DataSourceManager).toHaveBeenCalled();
+      expect(DataSourceManager).toHaveBeenCalledWith(expect.anything(), expect.any(Function));
       expect(StorageManager).toHaveBeenCalled();
       expect(MigrationTool).toHaveBeenCalled();
 

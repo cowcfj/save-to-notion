@@ -46,7 +46,7 @@ describe('DataSourceManager', () => {
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
 
-    dataSourceManager = new DataSourceManager(mockUiManager);
+    dataSourceManager = new DataSourceManager(mockUiManager, () => 'test-api-key');
     dataSourceManager.init();
 
     // Reset chrome mock
