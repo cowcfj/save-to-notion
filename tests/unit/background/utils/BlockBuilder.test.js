@@ -16,6 +16,7 @@ const {
   createQuote,
   createDivider,
   buildHighlightBlocks,
+  splitTextForHighlight,
   textToParagraphs,
   createFallbackBlocks,
   isValidBlock,
@@ -173,6 +174,46 @@ describe('BlockBuilder', () => {
     });
   });
 
+  describe('splitTextForHighlight', () => {
+    test('應該在標點符號處智能分割', () => {
+      const longText = `這是一個很長的段落。${'a'.repeat(990)}。${'b'.repeat(1000)}`;
+      const chunks = splitTextForHighlight(longText, 1000);
+
+      expect(chunks[0]).toBe(`這是一個很長的段落。${'a'.repeat(990)}。`);
+      expect(chunks[1]).toBe('b'.repeat(1000));
+    });
+
+    test('應該在換行處優先分割', () => {
+      // 確保總長度超過 1000，且第二個 \n 在 500 之後
+      const longText = `第一段\n${'a'.repeat(800)}\n第二段${'b'.repeat(300)}`;
+      const chunks = splitTextForHighlight(longText, 1000);
+
+      expect(chunks[0]).toBe(`第一段\n${'a'.repeat(800)}`);
+      expect(chunks[1]).toBe(`第二段${'b'.repeat(300)}`);
+    });
+
+    test('找不到標點時應在空格處分割', () => {
+      const longText = `${'a'.repeat(600)} ${'b'.repeat(600)}`;
+      const chunks = splitTextForHighlight(longText, 1000);
+
+      expect(chunks[0]).toBe('a'.repeat(600));
+      expect(chunks[1]).toBe('b'.repeat(600));
+    });
+
+    test('什麼都找不到時應強制分割', () => {
+      const longText = 'a'.repeat(2000);
+      const chunks = splitTextForHighlight(longText, 1000);
+
+      expect(chunks[0]).toHaveLength(1000);
+      expect(chunks[1]).toHaveLength(1000);
+    });
+
+    test('應該處理 null 或空字符串', () => {
+      expect(splitTextForHighlight(null)).toEqual([null]);
+      expect(splitTextForHighlight('')).toEqual(['']);
+    });
+  });
+
   describe('buildHighlightBlocks', () => {
     test('should return empty array for empty highlights', () => {
       expect(buildHighlightBlocks([])).toEqual([]);
@@ -260,7 +301,6 @@ describe('BlockBuilder', () => {
 
     test('should return false for invalid inputs', () => {
       expect(isValidBlock(null)).toBe(false);
-      // skipcq: JS-0356 - Intentionally testing undefined input handling
       expect(isValidBlock()).toBe(false);
       expect(isValidBlock({})).toBe(false);
       expect(isValidBlock({ object: 'block' })).toBe(false);

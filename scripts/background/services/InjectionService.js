@@ -12,11 +12,8 @@
 
 /* global chrome */
 
-import { RESTRICTED_PROTOCOLS } from '../../config/constants.js';
+import { RESTRICTED_PROTOCOLS, INJECTION_CONFIG } from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
-
-// PING 請求超時時間（毫秒）
-const PING_TIMEOUT_MS = 2000;
 
 /**
  * 檢查 URL 是否限制注入腳本
@@ -132,6 +129,7 @@ function isRecoverableInjectionError(message) {
     // 這是暫時性問題，通常在稍後重試會成功
     'Receiving end does not exist',
     'Could not establish connection',
+    INJECTION_CONFIG.PING_TIMEOUT_ERROR,
   ];
 
   return patterns.some(pattern => message.includes(pattern));
@@ -343,7 +341,10 @@ class InjectionService {
           });
         }),
         new Promise((resolve, reject) =>
-          setTimeout(() => reject(new Error('PING timeout')), PING_TIMEOUT_MS)
+          setTimeout(
+            () => reject(new Error(INJECTION_CONFIG.PING_TIMEOUT_ERROR)),
+            INJECTION_CONFIG.PING_TIMEOUT_MS
+          )
         ),
       ]);
 
@@ -354,8 +355,29 @@ class InjectionService {
         });
         return true; // Bundle 已存在
       }
+    } catch (error) {
+      if (isRecoverableInjectionError(error.message)) {
+        // 特別處理 PING 超時：視為頁面反應慢，但不代表不能注入，所以不 return false 而是記錄警告後繼續
+        if (error.message.includes(INJECTION_CONFIG.PING_TIMEOUT_ERROR)) {
+          this.logger.warn?.(`[Injection] PING timed out, proceeding with injection anyway`, {
+            action: 'ensureBundleInjected',
+            tabId,
+          });
+        } else {
+          this.logger.warn?.(`[Injection] PING failed with recoverable error, returning false`, {
+            action: 'ensureBundleInjected',
+            tabId,
+            error: error.message,
+          });
+          return false;
+        }
+      } else {
+        throw error;
+      }
+    }
 
-      // Bundle 不存在（僅 Preloader 或無回應），注入主程式
+    try {
+      // Bundle 不存在，注入主程式
       this.logger.start?.(`[Injection] Injecting Content Bundle into tab ${tabId}`, {
         action: 'ensureBundleInjected',
         tabId,
@@ -531,7 +553,7 @@ class InjectionService {
 
       // 執行函數並返回結果
       if (func) {
-        return this.injectAndExecute(tabId, [], func, {
+        return await this.injectAndExecute(tabId, [], func, {
           returnResult: true,
           logErrors: true,
           args,

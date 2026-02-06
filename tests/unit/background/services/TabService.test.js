@@ -39,9 +39,14 @@ globalThis.chrome = {
   tabs: {
     onUpdated: {
       addListener: jest.fn(),
+      removeListener: jest.fn(),
     },
     onActivated: {
       addListener: jest.fn(),
+    },
+    onRemoved: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
     },
     get: jest.fn(),
   },
@@ -310,6 +315,106 @@ describe('TabService', () => {
       );
 
       expect(mockLogger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('waitForTabCompilation', () => {
+    it('應該在標籤頁已完成載入時直接返回', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'complete' });
+      const res = await service._waitForTabCompilation(1);
+      expect(res.status).toBe('complete');
+    });
+
+    it('應該在已有待處理監聽器時返回 null', async () => {
+      service.pendingListeners.set(1, {});
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
+      const res = await service._waitForTabCompilation(1);
+      expect(res).toBeNull();
+    });
+
+    it('應該處理標籤頁更新事件', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
+
+      let updateCallback;
+      chrome.tabs.onUpdated.addListener.mockImplementation(cb => {
+        updateCallback = cb;
+      });
+
+      const promise = service._waitForTabCompilation(1);
+
+      // 讓 chrome.tabs.get resolve，進入 Promise 內部執行 addListener
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // 觸發更新
+      if (typeof updateCallback === 'function') {
+        updateCallback(1, { status: 'complete' });
+      }
+
+      const res = await promise;
+      expect(res.status).toBe('complete');
+    });
+
+    it('應該處理標籤頁移除事件', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
+
+      let removeCallback;
+      chrome.tabs.onRemoved.addListener.mockImplementation(cb => {
+        removeCallback = cb;
+      });
+
+      const promise = service._waitForTabCompilation(1);
+
+      // 讓 chrome.tabs.get resolve
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // 觸發移除
+      if (typeof removeCallback === 'function') {
+        removeCallback(1);
+      }
+
+      const res = await promise;
+      expect(res).toBeNull();
+    });
+
+    it('應該在超時後返回 null', async () => {
+      jest.useFakeTimers();
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
+
+      const promise = service._waitForTabCompilation(1);
+
+      // 讓 chrome.tabs.get 的 Promise resolve, 進入 _waitForTabCompilation 內部的 Promise 定義
+      await Promise.resolve();
+      await Promise.resolve();
+
+      jest.advanceTimersByTime(11_000); // 大於 10s
+
+      const res = await promise;
+      expect(res).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('timeout'));
+      jest.useRealTimers();
+    });
+  });
+
+  describe('Concurrency & Edge Cases', () => {
+    it('updateTabStatus 應該防止並發處理同一個標籤頁 (Line 62)', async () => {
+      service.processingTabs.set(1, Date.now());
+      await service.updateTabStatus(1, 'https://example.com');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('already being processed')
+      );
+    });
+
+    it('migrateLegacyHighlights 應該處理腳本回報的錯誤 (Line 277)', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 1, url: 'https://example.com' });
+      mockInjectionService.injectWithResponse.mockResolvedValue({ error: 'Injected script fail' });
+
+      await service.migrateLegacyHighlights(1, 'https://example.com', 'key');
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Migration script reported error'),
+        expect.anything()
+      );
     });
   });
 });

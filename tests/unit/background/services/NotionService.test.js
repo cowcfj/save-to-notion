@@ -1,13 +1,29 @@
-/**
- * NotionService 單元測試
- */
+// 1. Mocks MUST be at the very top
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    success: jest.fn(),
+    debug: jest.fn(),
+    debugEnabled: true,
+  },
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  success: jest.fn(),
+  debug: jest.fn(),
+  debugEnabled: true,
+}));
 
+// 2. Imports
 import {
   NotionService,
   NOTION_CONFIG,
 } from '../../../../scripts/background/services/NotionService.js';
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
-
+import Logger from '../../../../scripts/utils/Logger.js';
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
   status,
@@ -119,6 +135,7 @@ describe('NotionService', () => {
   const originalFetch = globalThis.fetch;
   beforeEach(() => {
     jest.useFakeTimers();
+    jest.clearAllMocks();
     mockLogger = {
       log: jest.fn(),
       warn: jest.fn(),
@@ -1055,6 +1072,214 @@ describe('NotionService', () => {
 
       const result = NotionService._findHighlightSectionBlocks(blocks);
       expect(result).toEqual(['3', '4']);
+    });
+  });
+
+  describe('Internal Methods and Edge Cases', () => {
+    describe('_getScopedClient', () => {
+      it('應該優先使用傳入的 client (Line 97)', () => {
+        const mockClient = { request: jest.fn() };
+        const client = service._getScopedClient({ client: mockClient });
+        expect(client).toBe(mockClient);
+      });
+
+      it('應該在 API Key 相同時復用全域 client (Line 103)', () => {
+        const client = service._getScopedClient({ apiKey: 'test-api-key' });
+        expect(client).toBe(service.client);
+      });
+
+      it('應該在使用不同 API Key 時創建臨時 client (Line 108-112)', () => {
+        const tempApiKey = 'different-key';
+        const client = service._getScopedClient({ apiKey: tempApiKey });
+        expect(client).not.toBe(service.client);
+        expect(client).toBeDefined();
+      });
+    });
+
+    describe('_ensureClient', () => {
+      it('應該在提供 providedClient 時直接返回 (Line 129)', () => {
+        const mockClient = {};
+        service.setApiKey(null);
+        expect(() => service._ensureClient(mockClient)).not.toThrow();
+      });
+
+      it('應該在 client 為 null 時初始化它 (Line 135)', () => {
+        service.client = null;
+        service._ensureClient();
+        expect(service.client).toBeDefined();
+      });
+    });
+
+    describe('_getJitter', () => {
+      it('應該在 crypto 拋出異常時回退到 Math.random 並記錄 debug (Line 270)', () => {
+        const originalCrypto = globalThis.crypto;
+        Object.defineProperty(globalThis, 'crypto', {
+          value: {
+            getRandomValues: () => {
+              throw new Error('fail');
+            },
+          },
+          configurable: true,
+        });
+
+        service._getJitter(100);
+        expect(Logger.debug).toHaveBeenCalledWith(
+          expect.stringContaining('回退至 Math.random'),
+          expect.any(Object)
+        );
+
+        Object.defineProperty(globalThis, 'crypto', { value: originalCrypto, configurable: true });
+      });
+    });
+
+    describe('search and filtering', () => {
+      it('應該成功執行搜索 (Line 289)', async () => {
+        globalThis.fetch.mockResolvedValue(createMockResponse({ results: [] }));
+        await service.search({ query: 'test' });
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/search'),
+          expect.any(Object)
+        );
+      });
+
+      it('應該正確傳遞過濾條件 (Line 301-303)', async () => {
+        globalThis.fetch.mockResolvedValue(createMockResponse({ results: [] }));
+        const filter = { property: 'object', select: { equals: 'database' } };
+        await service.search({ query: 'test', filter });
+        const lastCallBody = JSON.parse(globalThis.fetch.mock.calls[0][1].body);
+        expect(lastCallBody.filter).toEqual(filter);
+      });
+
+      it('應該處理搜索失敗並記錄錯誤 (Line 312-316)', async () => {
+        globalThis.fetch.mockResolvedValue(createMockResponse({ message: 'fail' }, false, 400));
+        await expect(service.search({ query: 'test' })).rejects.toThrow();
+        expect(Logger.error).toHaveBeenCalledWith(
+          expect.stringContaining('搜索失敗'),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('_fetchPageBlocks Error Handling', () => {
+      it('應該處理獲取區塊失敗 (Line 359-362)', async () => {
+        globalThis.fetch.mockResolvedValue(createMockResponse({ message: 'fail' }, false, 400));
+        const result = await service._fetchPageBlocks('id');
+        expect(result.success).toBe(false);
+      });
+    });
+
+    describe('_deleteBlocksByIds Error Handling and Delay', () => {
+      it('應該處理 deleteBlock 異常並記錄警告 (Line 431-438)', async () => {
+        service._executeWithRetry = jest.fn().mockRejectedValue(new Error('crash'));
+        await service._deleteBlocksByIds(['b1']);
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('刪除區塊異常'),
+          expect.any(Object)
+        );
+      });
+
+      it('應該在批次間執行延遲 (Line 457)', async () => {
+        // 使用真實時間或非常小的延遲以避免超時，並確保與 beforeEach 的 timers 狀態一致
+        jest.useRealTimers();
+        service.config.DELETE_CONCURRENCY = 1;
+        service.config.DELETE_BATCH_DELAY_MS = 1;
+        service._executeWithRetry = jest.fn().mockResolvedValue({ success: true });
+
+        await service._deleteBlocksByIds(['b1', 'b2']);
+
+        // 驗證 _executeWithRetry 被調用了兩次
+        expect(service._executeWithRetry).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe('createPage autoBatch', () => {
+      it('應該在分批添加失敗時記錄警告 (Line 716)', async () => {
+        globalThis.fetch
+          .mockResolvedValueOnce(createMockResponse({ id: 'id' }))
+          .mockResolvedValueOnce(createMockResponse({ message: 'fail' }, false, 400));
+        const manyBlocks = Array.from({ length: 110 }, () => ({ type: 'paragraph' }));
+        await service.createPage(
+          { parent: { database_id: 'db' } },
+          { autoBatch: true, allBlocks: manyBlocks }
+        );
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('部分區塊添加失敗'),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('updatePageTitle Error Handling', () => {
+      it('應該處理更新失敗並記錄錯誤 (Line 762)', async () => {
+        globalThis.fetch.mockResolvedValue(createMockResponse({ message: 'fail' }, false, 400));
+        await service.updatePageTitle('id', 'Title');
+        expect(Logger.error).toHaveBeenCalledWith(
+          expect.stringContaining('更新標題失敗'),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('deleteAllBlocks Warn Handling', () => {
+      it('應該在部分失敗時記錄警告 (Line 798)', async () => {
+        service._fetchPageBlocks = jest
+          .fn()
+          .mockResolvedValue({ success: true, blocks: [{ id: 'b1' }] });
+        service._deleteBlocksByIds = jest
+          .fn()
+          .mockResolvedValue({ successCount: 0, failureCount: 1, errors: [{ id: 'b1' }] });
+        await service.deleteAllBlocks('id');
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('部分區塊刪除失敗'),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('refreshPageContent Warn Handling', () => {
+      it('應該在標題更新失敗時記錄警告 (Line 899)', async () => {
+        service.updatePageTitle = jest.fn().mockResolvedValue({ success: false });
+        service.deleteAllBlocks = jest.fn().mockResolvedValue({ success: true });
+        service.appendBlocksInBatches = jest.fn().mockResolvedValue({ success: true });
+        await service.refreshPageContent('id', [], { updateTitle: true, title: 'T' });
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('標題更新失敗'),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('updateHighlightsSection Warn Handling', () => {
+      it('應該在刪除標記失敗時記錄警告 (Line 979)', async () => {
+        service._fetchPageBlocks = jest.fn().mockResolvedValue({ success: true, blocks: [] });
+        service._deleteBlocksByIds = jest
+          .fn()
+          .mockResolvedValue({ failureCount: 1, errors: [{ id: 'b1' }] });
+        await service.updateHighlightsSection('id', []);
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('部分標記區塊刪除失敗'),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('filterValidImageBlocks Corners', () => {
+      it('應該處理 invalid_structure 並記錄警告 (Line 513)', () => {
+        service.filterValidImageBlocks([{ type: 'image' }]);
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('跳過無效區塊'),
+          expect.any(Object)
+        );
+      });
+
+      it('應該在跳過太多時記錄摘要 (Line 544)', () => {
+        const many = Array.from({ length: 11 }, () => ({ type: 'image' }));
+        service.filterValidImageBlocks(many);
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('更多區塊被跳過'),
+          expect.any(Object)
+        );
+      });
     });
   });
 });

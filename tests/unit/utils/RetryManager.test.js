@@ -77,17 +77,14 @@ describe('RetryManager', () => {
   });
 
   test('fetch: 503 並帶 Retry-After 秒數時應重試，並遵循延遲', async () => {
-    const calls = [];
     const fetchFn = jest
       .fn()
       // 第一次回傳 503 + Retry-After: 2 秒
       .mockImplementationOnce(() => {
-        calls.push(Date.now());
         return { status: 503, headers: new MockHeaders({ 'Retry-After': '2' }) };
       })
       // 第二次回傳成功 200
       .mockImplementationOnce(() => {
-        calls.push(Date.now());
         return Promise.resolve({ status: 200, ok: true, headers: new MockHeaders() });
       });
 
@@ -304,5 +301,64 @@ describe('RetryManager', () => {
     expect(res).toBe(42);
     const stats = rm.getLastStats();
     expect(stats.contextType).toBe('dom');
+  });
+
+  describe('Static & Utility Helpers', () => {
+    test('withRetry 應該調用默認實例並成功', async () => {
+      const { withRetry } = require('../../../scripts/utils/RetryManager');
+      const op = jest.fn().mockResolvedValue('success');
+      const res = await withRetry(op);
+      expect(res).toBe('success');
+    });
+
+    test('fetchWithRetry 應該成功執行', async () => {
+      const { fetchWithRetry } = require('../../../scripts/utils/RetryManager');
+      globalThis.fetch = jest.fn().mockResolvedValue({ status: 200, ok: true });
+      const res = await fetchWithRetry('https://api.test');
+      expect(res.status).toBe(200);
+    });
+
+    test('_calculateDelay 應該限制在 maxDelay (Line 243)', () => {
+      const config = { baseDelay: 1000, backoffFactor: 10, maxDelay: 5000, jitter: false };
+      const delay = RetryManager._calculateDelay(3, config); // 1000 * 10^2 = 100000
+      expect(delay).toBe(5000);
+    });
+
+    test('_random 應該在 crypto 缺失時回退 (Line 522-527)', () => {
+      const originalCrypto = globalThis.crypto;
+      delete globalThis.crypto;
+      const rnd = RetryManager._random();
+      expect(rnd).toBeGreaterThanOrEqual(0);
+      expect(rnd).toBeLessThan(1);
+      globalThis.crypto = originalCrypto;
+    });
+
+    test('_logRetryAttempt 在 Logger 缺失時應降級 (Line 321-329)', () => {
+      const originalLogger = globalThis.Logger;
+      delete globalThis.Logger;
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      RetryManager._logRetryAttempt(new Error('test'), 1, 3, 100);
+      expect(consoleWarnSpy).toHaveBeenCalled();
+
+      consoleWarnSpy.mockRestore();
+      globalThis.Logger = originalLogger;
+    });
+
+    test('_parseRetryAfterHeader 應該處理各種 Header 格式 (Line 496-519)', () => {
+      expect(RetryManager._parseRetryAfterHeader(null)).toBe(0);
+      expect(
+        RetryManager._parseRetryAfterHeader({
+          headers: new MockHeaders({ 'Retry-After': 'invalid' }),
+        })
+      ).toBe(0);
+
+      // 未來日期
+      const futureDate = new Date(Date.now() + 5000).toUTCString();
+      const delay = RetryManager._parseRetryAfterHeader({
+        headers: new MockHeaders({ 'Retry-After': futureDate }),
+      });
+      expect(delay).toBeGreaterThan(4000);
+    });
   });
 });

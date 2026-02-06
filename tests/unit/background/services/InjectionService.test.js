@@ -4,6 +4,28 @@ import {
   isRecoverableInjectionError,
 } from '../../../../scripts/background/services/InjectionService.js';
 
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    success: jest.fn(),
+    debug: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  },
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  success: jest.fn(),
+  debug: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+}));
+
+import Logger from '../../../../scripts/utils/Logger.js';
+
 // Mock chrome API
 globalThis.chrome = {
   scripting: {
@@ -202,7 +224,86 @@ describe('InjectionService', () => {
       expect(result).toBe(false);
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Bundle injection skipped'),
+        expect.stringContaining('PING failed with recoverable error'),
+        expect.anything()
+      );
+    });
+
+    it('應在 PING 超時時執行注入 (Timeout path)', async () => {
+      jest.useFakeTimers();
+      // Arrange: sendMessage 不回應
+      chrome.tabs.sendMessage.mockImplementation(() => {});
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+        chrome.runtime.lastError = null;
+        cb();
+      });
+
+      const promise = service.ensureBundleInjected(1);
+
+      // Fast-forward PING timeout
+      jest.advanceTimersByTime(2500);
+
+      const result = await promise;
+      expect(result).toBe(true);
+      expect(chrome.scripting.executeScript).toHaveBeenCalled();
+    });
+  });
+
+  describe('Edge Case Utilities', () => {
+    it('isRestrictedInjectionUrl 應該處理無效 URL 拋出的錯誤 (Line 63-70)', () => {
+      // Pass something that makes new URL() throw if possible (null/undefined handled, but maybe invalid chars)
+      // Actually, my current implementation handles empty. Let's try invalid protocol or something.
+      // JS `new URL()` throws for things that don't have a protocol or are completely mangled.
+      const result = isRestrictedInjectionUrl('not-a-url');
+      expect(result).toBe(true);
+      expect(Logger.warn).toHaveBeenCalled();
+    });
+
+    describe('getRuntimeErrorMessage (Line 79-101)', () => {
+      it('應該處理各種錯誤對象類型', () => {
+        const {
+          getRuntimeErrorMessage,
+        } = require('../../../../scripts/background/services/InjectionService.js');
+        expect(getRuntimeErrorMessage(null)).toBe('');
+        expect(getRuntimeErrorMessage('string error')).toBe('string error');
+        expect(getRuntimeErrorMessage({ message: 'obj error' })).toBe('obj error');
+
+        // Trigger stringify failure (circular reference)
+        const circular = {};
+        circular.self = circular;
+        const msg = getRuntimeErrorMessage(circular);
+        expect(msg).toContain('Runtime Error');
+        expect(Logger.warn).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('_resolveHighlighterPath (Line 159-182)', () => {
+    it('應該在 fetch 失敗時回退到預設路徑', async () => {
+      globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network fail'));
+      const path = await service._resolveHighlighterPath();
+      expect(path).toBe('dist/content.bundle.js');
+    });
+  });
+
+  describe('injectWithResponse (Line 525-553)', () => {
+    it('應該在僅注入文件時返回成功標記', async () => {
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
+      const result = await service.injectWithResponse(1, null, ['test.js']);
+      expect(result).toEqual([{ result: { success: true } }]);
+    });
+
+    it('應該在拋出異常時記錄錯誤並返回 null', async () => {
+      chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => {
+        chrome.runtime.lastError = { message: 'Fatal' };
+        cb();
+      });
+
+      // We expect it to return null because of the try-catch in injectWithResponse
+      const result = await service.injectWithResponse(1, () => {});
+      expect(result).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('injectWithResponse failed'),
         expect.anything()
       );
     });

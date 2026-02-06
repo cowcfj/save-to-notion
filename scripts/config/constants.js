@@ -137,6 +137,15 @@ export const NOTION_CONFIG = {
 };
 
 /**
+ * InjectionService 相關配置
+ * 集中管理腳本注入服務的超時與錯誤定義
+ */
+export const INJECTION_CONFIG = {
+  PING_TIMEOUT_MS: 2000,
+  PING_TIMEOUT_ERROR: 'PING timeout',
+};
+
+/**
  * 程式語言映射表 (用於 DomConverter.mapLanguage)
  * 將常見縮寫或別名映射至 Notion API 支援的語言名稱
  */
