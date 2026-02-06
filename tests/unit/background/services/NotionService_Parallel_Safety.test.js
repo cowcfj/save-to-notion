@@ -88,10 +88,14 @@ describe('NotionService Race Condition Fix Verification', () => {
       })
     );
 
-    // 驗證預設實例也被使用（如果 auths 中包含 KEY_A）
-    const instanceA = mockInstances.find(i => i.auth === 'KEY_A');
-    if (instanceA) {
-      expect(instanceA.search).toHaveBeenCalled();
-    }
+    // 驗證預設實例也被使用
+    // 由於 NotionService 復用構造函數中創建的 client (KEY_A)，因此這裡不會有新的 Client 實例產生
+    const newInstanceA = mockInstances.find(i => i.auth === 'KEY_A');
+    expect(newInstanceA).toBeUndefined();
+
+    // 直接驗證 service.client (預設實例) 是否被調用
+    expect(service.client).toBeDefined();
+    expect(service.client.auth).toBe('KEY_A');
+    expect(service.client.search).toHaveBeenCalled();
   });
 });

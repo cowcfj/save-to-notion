@@ -5,8 +5,6 @@
  * 這些方法在 background script 端使用，處理從 content script 提取的內容。
  *
  * @author Content Extraction Team
- * @version 1.0
- * @date 2025-12-07
  */
 
 // 導入統一配置（從統一入口點導入，保持一致性）
@@ -230,7 +228,11 @@ function createDivider() {
  * @returns {string[]} 分割後的文本片段
  */
 function splitTextForHighlight(text, maxLength = 2000) {
-  if (!text || text.length <= maxLength) {
+  if (!text) {
+    return [''];
+  }
+
+  if (text.length <= maxLength) {
     return [text];
   }
 

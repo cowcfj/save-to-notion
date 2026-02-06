@@ -323,13 +323,13 @@ describe('RetryManager', () => {
       }
     });
 
-    test('_calculateDelay 應該限制在 maxDelay (Line 243)', () => {
+    test('_calculateDelay 應該限制在 maxDelay', () => {
       const config = { baseDelay: 1000, backoffFactor: 10, maxDelay: 5000, jitter: false };
       const delay = RetryManager._calculateDelay(3, config); // 1000 * 10^2 = 100000
       expect(delay).toBe(5000);
     });
 
-    test('_random 應該在 crypto 缺失時回退 (Line 522-527)', () => {
+    test('_random 應該在 crypto 缺失時回退', () => {
       const originalCrypto = globalThis.crypto;
       delete globalThis.crypto;
       const rnd = RetryManager._random();
@@ -338,7 +338,7 @@ describe('RetryManager', () => {
       globalThis.crypto = originalCrypto;
     });
 
-    test('_logRetryAttempt 在 Logger 缺失時應降級 (Line 321-329)', () => {
+    test('_logRetryAttempt 在 Logger 缺失時應降級使用 console.warn', () => {
       const originalLogger = globalThis.Logger;
       delete globalThis.Logger;
       const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
@@ -350,7 +350,7 @@ describe('RetryManager', () => {
       globalThis.Logger = originalLogger;
     });
 
-    test('_parseRetryAfterHeader 應該處理各種 Header 格式 (Line 496-519)', () => {
+    test('_parseRetryAfterHeader 應該處理各種 Header 格式', () => {
       expect(RetryManager._parseRetryAfterHeader(null)).toBe(0);
       expect(
         RetryManager._parseRetryAfterHeader({

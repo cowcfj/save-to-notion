@@ -458,31 +458,19 @@ describe('actionHandlers 覆蓋率補強', () => {
       sendResponse.mockClear();
 
       // 測試 error 級別
-      handlers.devLogSink(
-        { level: 'error', message: 'test error' },
-        { id: 'mock-ext-id', tab: { id: 1 } },
-        sendResponse
-      );
+      handlers.devLogSink({ level: 'error', message: 'test error' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
       sendResponse.mockClear();
 
       // 測試 info 級別
-      handlers.devLogSink(
-        { level: 'info', message: 'test info' },
-        { id: 'mock-ext-id', tab: { id: 1 } },
-        sendResponse
-      );
+      handlers.devLogSink({ level: 'info', message: 'test info' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
       sendResponse.mockClear();
 
       // 測試 log 級別（預設）
-      handlers.devLogSink(
-        { message: 'test log' },
-        { id: 'mock-ext-id', tab: { id: 1 } },
-        sendResponse
-      );
+      handlers.devLogSink({ message: 'test log' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
@@ -491,7 +479,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       handlers.devLogSink(
         { level: 'log', message: 'test with args', args: ['arg1', 'arg2'] },
-        { id: 'mock-ext-id', tab: { id: 1 } },
+        csSender,
         sendResponse
       );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
@@ -500,7 +488,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該處理空消息', () => {
       const sendResponse = jest.fn();
 
-      handlers.devLogSink({ level: 'log' }, { id: 'mock-ext-id', tab: { id: 1 } }, sendResponse);
+      handlers.devLogSink({ level: 'log' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
   });
@@ -614,11 +602,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
-      await handlers.syncHighlights(
-        { highlights: [{ text: 'hi' }] },
-        { id: 'mock-ext-id', tab: { id: 1 } },
-        sendResponse
-      );
+      await handlers.syncHighlights({ highlights: [{ text: 'hi' }] }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
   });
@@ -711,7 +695,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.any(String),
+          error: expect.stringMatching(/Notion API Key/),
         })
       );
     });

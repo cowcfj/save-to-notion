@@ -27,7 +27,7 @@ import Logger from '../../../../scripts/utils/Logger.js';
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
   status,
-  headers: new Map([['content-type', 'application/json']]),
+  headers: new Headers([['content-type', 'application/json']]),
   clone() {
     return this;
   },
@@ -612,15 +612,8 @@ describe('NotionService', () => {
   });
 
   describe('refreshPageContent', () => {
-    let originalFetch = null;
-
-    beforeEach(() => {
-      originalFetch = globalThis.fetch;
-    });
-
-    afterEach(() => {
-      globalThis.fetch = originalFetch;
-    });
+    // Note: global fetch context is already managed by outer describe block
+    // No need to redeclare or manage originalFetch here
 
     it('should return error when delete fails', async () => {
       // Mock deleteAllBlocks 失敗
@@ -1077,18 +1070,18 @@ describe('NotionService', () => {
 
   describe('Internal Methods and Edge Cases', () => {
     describe('_getScopedClient', () => {
-      it('應該優先使用傳入的 client (Line 97)', () => {
+      it('應該優先使用傳入的 client', () => {
         const mockClient = { request: jest.fn() };
         const client = service._getScopedClient({ client: mockClient });
         expect(client).toBe(mockClient);
       });
 
-      it('應該在 API Key 相同時復用全域 client (Line 103)', () => {
+      it('應該在 API Key 相同時復用全域 client', () => {
         const client = service._getScopedClient({ apiKey: 'test-api-key' });
         expect(client).toBe(service.client);
       });
 
-      it('應該在使用不同 API Key 時創建臨時 client (Line 108-112)', () => {
+      it('應該在使用不同 API Key 時創建臨時 client', () => {
         const tempApiKey = 'different-key';
         const client = service._getScopedClient({ apiKey: tempApiKey });
         expect(client).not.toBe(service.client);
@@ -1097,7 +1090,7 @@ describe('NotionService', () => {
     });
 
     describe('_ensureClient', () => {
-      it('應該在提供 providedClient 時直接返回 (Line 129)', () => {
+      it('應該在提供 providedClient 時直接返回', () => {
         const mockClient = {};
         service.setApiKey(null);
         expect(() => service._ensureClient(mockClient)).not.toThrow();

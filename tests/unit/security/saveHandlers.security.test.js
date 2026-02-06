@@ -40,8 +40,10 @@ import { validateInternalRequest } from '../../../scripts/utils/securityUtils.js
 
 describe('saveHandlers Security Verification', () => {
   let handlers;
+  let originalChrome;
 
   beforeEach(() => {
+    originalChrome = globalThis.chrome;
     handlers = createSaveHandlers({
       notionService: mockNotionService,
       storageService: mockStorageService,
@@ -53,6 +55,10 @@ describe('saveHandlers Security Verification', () => {
 
     // Default trusted internal request
     validateInternalRequest.mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    globalThis.chrome = originalChrome;
   });
 
   describe('savePage', () => {

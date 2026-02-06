@@ -24,6 +24,7 @@ const {
   extractFromPicture,
   extractFromBackgroundImage,
   extractFromNoscript,
+  filterNotionImageBlocks,
   IMAGE_VALIDATION: IMAGE_VALIDATION_CONSTANTS,
 } = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
 
@@ -514,8 +515,6 @@ describe('imageUtils - 邊界條件測試', () => {
   });
 
   describe('filterNotionImageBlocks', () => {
-    const { filterNotionImageBlocks } = globalThis.ImageUtils;
-
     test('應正確過濾有效和無效的圖片區塊', () => {
       const blocks = [
         { type: 'paragraph', paragraph: { rich_text: [] } },

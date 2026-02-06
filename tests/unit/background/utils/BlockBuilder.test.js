@@ -209,7 +209,7 @@ describe('BlockBuilder', () => {
     });
 
     test('應該處理 null 或空字符串', () => {
-      expect(splitTextForHighlight(null)).toEqual([null]);
+      expect(splitTextForHighlight(null)).toEqual(['']);
       expect(splitTextForHighlight('')).toEqual(['']);
     });
   });
