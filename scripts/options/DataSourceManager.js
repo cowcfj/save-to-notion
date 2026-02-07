@@ -49,7 +49,7 @@ export class DataSourceManager {
     const isSearchQuery = Boolean(query);
 
     try {
-      this._showLoadingStatus(query, true);
+      this._showLoadingStatus(query);
 
       const params = this._prepareSearchParams(query);
       const response = await this._fetchFromNotion(apiKey, params);
@@ -69,10 +69,9 @@ export class DataSourceManager {
    * 顯示載入狀態
    *
    * @param {string|null} query - 搜尋關鍵字
-   * @param {boolean} hasApiKey - 是否有 API Key
    * @private
    */
-  _showLoadingStatus(query, hasApiKey) {
+  _showLoadingStatus(query) {
     const statusMessage = query
       ? UI_MESSAGES.DATA_SOURCE.SEARCHING(query)
       : UI_MESSAGES.DATA_SOURCE.LOADING;
@@ -80,7 +79,7 @@ export class DataSourceManager {
 
     Logger.start('[DataSource] 開始載入保存目標', {
       action: 'loadDataSources',
-      hasApiKey,
+      hasApiKey: true, // 此方法僅在 apiKey 驗證後呼叫（Line 45-48）
       query: query || null,
     });
   }
@@ -274,6 +273,8 @@ export class DataSourceManager {
         : UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS(dataSources.length);
       this.ui.showStatus(message, 'success');
     } else {
+      // 防禦性檢查：雖然當前呼叫點（Line 184-185）已確保非空陣列，
+      // 但保留此分支以處理未來可能的其他呼叫路徑
       this.ui.showStatus(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND, 'error');
     }
   }

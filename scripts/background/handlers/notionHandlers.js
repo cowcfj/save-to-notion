@@ -30,13 +30,19 @@ export function createNotionHandlers({ notionService }) {
         const { apiKey, searchParams } = request;
 
         // 優先使用封裝的 searchParams，防止命名空間衝突；否則回退到扁平結構以保持相容
-        const params = searchParams || {
-          query: request.query,
-          filter: request.filter,
-          sort: request.sort,
-          page_size: request.page_size,
-          start_cursor: request.start_cursor,
-        };
+        const params =
+          searchParams ||
+          (() => {
+            const fallback = {};
+            const fields = ['query', 'filter', 'sort', 'page_size', 'start_cursor'];
+
+            for (const field of fields) {
+              if (request[field] !== undefined) {
+                fallback[field] = request[field];
+              }
+            }
+            return fallback;
+          })();
 
         // 以無狀態方式執行搜索，如果提供了 apiKey 則覆蓋全域配置
         const result = await notionService.search(params, { apiKey });

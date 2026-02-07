@@ -4,6 +4,22 @@
 import { DataSourceManager } from '../../../scripts/options/DataSourceManager.js';
 import { UIManager } from '../../../scripts/options/UIManager.js';
 
+// Mock dependencies
+jest.mock('../../../scripts/options/UIManager.js');
+jest.mock('../../../scripts/options/SearchableDatabaseSelector.js');
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  },
+}));
+
 // Mock chrome API
 globalThis.chrome = {
   runtime: {
@@ -17,13 +33,13 @@ describe('DataSourceManager Messaging Error Handling', () => {
   let mockUiManager;
 
   beforeEach(() => {
-    mockUiManager = new UIManager();
-    mockUiManager.showStatus = jest.fn();
-    dataSourceManager = new DataSourceManager(mockUiManager, () => 'test-api-key');
-
     // Reset mocks
     jest.clearAllMocks();
     globalThis.chrome.runtime.lastError = null;
+
+    mockUiManager = new UIManager();
+    mockUiManager.showStatus = jest.fn();
+    dataSourceManager = new DataSourceManager(mockUiManager, () => 'test-api-key');
   });
 
   test('_fetchFromNotion 應該正確處理 chrome.runtime.lastError', async () => {

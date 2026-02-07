@@ -28,6 +28,12 @@ const LOG_LEVELS = {
 
 const DEFAULT_BUFFER_CAPACITY = 500;
 
+// 全域錯誤前綴常量（用於 initGlobalErrorHandlers 和 error 方法的過濾邏輯）
+const GLOBAL_ERROR_PREFIXES = {
+  UNCAUGHT_EXCEPTION: '[Uncaught Exception]',
+  UNHANDLED_REJECTION: '[Unhandled Rejection]',
+};
+
 // 檢查是否在 Chrome 擴展環境中
 const isExtensionContext = Boolean(chrome?.runtime?.id);
 
@@ -36,6 +42,17 @@ const isBackground = isExtensionContext && globalThis.window === undefined; // S
 /**
  * 格式化日誌訊息（控制台輸出用）
  * 注意：不添加時間戳，Chrome DevTools 已內建此功能
+ *
+ * @param {number} level - 日誌級別
+ * @param {Array} args - 參數列表
+ * @returns {Array} 格式化後的參數列表
+ */
+/**
+ * 格式化日誌訊息（控制台輸出用）
+ * 注意：
+ * 1. 不添加時間戳，Chrome DevTools 已內建此功能
+ * 2. 保留物件原生形式以支援 DevTools 互動式檢查
+ * 3. 僅對無法被控制台處理的特殊情況進行序列化
  *
  * @param {number} level - 日誌級別
  * @param {Array} args - 參數列表
@@ -51,18 +68,9 @@ function formatMessage(level, args) {
       [LOG_LEVELS.ERROR]: `[ERROR] ${LOG_ICONS.ERROR}`,
     }[level] || '[UNKNOWN]';
 
-  const safeArgs = args.map(arg => {
-    if (typeof arg === 'object' && arg !== null && !(arg instanceof Error)) {
-      try {
-        return JSON.stringify(arg, null, 2);
-      } catch {
-        return '[Unserializable Object]';
-      }
-    }
-    return arg;
-  });
-
-  return [levelPrefix, ...safeArgs];
+  // 直接返回參數，保留物件原生形式以支援 DevTools 互動式檢查
+  // 控制台會自動處理循環引用、不可序列化物件等特殊情況
+  return [levelPrefix, ...args];
 }
 
 /**
@@ -172,7 +180,7 @@ function initGlobalErrorHandlers() {
     self.addEventListener('error', event => {
       try {
         const { message, filename, lineno, colno, error } = event;
-        Logger.error(`[Uncaught Exception] ${message}`, {
+        Logger.error(`${GLOBAL_ERROR_PREFIXES.UNCAUGHT_EXCEPTION} ${message}`, {
           filename,
           lineno,
           colno,
@@ -189,9 +197,11 @@ function initGlobalErrorHandlers() {
         const reason = event.reason;
         const msg = reason instanceof Error ? reason.message : String(reason);
         const stack = reason instanceof Error ? reason.stack : null;
+        // 正確處理 null：typeof null === 'object' 為 true，需要額外檢查
+        const reasonField = reason !== null && typeof reason === 'object' ? reason : String(reason);
 
-        Logger.error(`[Unhandled Rejection] ${msg}`, {
-          reason: typeof reason === 'object' ? reason : String(reason),
+        Logger.error(`${GLOBAL_ERROR_PREFIXES.UNHANDLED_REJECTION} ${msg}`, {
+          reason: reasonField,
           stack,
         });
       } catch (error) {
@@ -347,7 +357,8 @@ const Logger = {
     // 特殊情況：全域未捕獲異常/rejection 不應被過濾，即使它們包含被忽略的關鍵字
     const errorMsg = message instanceof Error ? message.message : String(message);
     const isGlobalError =
-      errorMsg.startsWith('[Uncaught Exception]') || errorMsg.startsWith('[Unhandled Rejection]');
+      errorMsg.startsWith(GLOBAL_ERROR_PREFIXES.UNCAUGHT_EXCEPTION) ||
+      errorMsg.startsWith(GLOBAL_ERROR_PREFIXES.UNHANDLED_REJECTION);
 
     if (!isGlobalError && errorMsg.includes('Frame with ID') && errorMsg.includes('was removed')) {
       return;
