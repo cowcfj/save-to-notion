@@ -126,7 +126,7 @@ export function createSaveHandlers(services) {
   }
 
   /**
-   * 執行頁面創建（包含圖片錯誤重試邏輯）
+   * 執行頁面創建（單次嘗試）
    *
    * @param {object} params - 參數對象
    * @param {string} params.normUrl - 正規化的 URL

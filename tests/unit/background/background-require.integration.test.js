@@ -123,11 +123,6 @@ describe('scripts/background.js require integration', () => {
     await flushPromises();
 
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://www.notion.so/test' });
-    // 模擬 tabs.create callback（background.js 使用 callback 風格）
-    const createCall = chrome.tabs.create.mock.calls[0];
-    const createdTab = await createCall[0];
-    // 直接觸發 callback
-    createCall[1]?.(createdTab);
 
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
   });

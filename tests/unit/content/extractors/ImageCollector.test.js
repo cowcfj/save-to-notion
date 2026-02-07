@@ -35,13 +35,11 @@ jest.mock('../../../../scripts/utils/imageUtils.js', () => ({
   extractImageSrc: jest.fn(),
   cleanImageUrl: jest.fn(url => url),
   isValidImageUrl: jest.fn(() => true),
-  isNotionCompatibleImageUrl: jest.fn(() => true),
   default: {
     // Keep default for potential legacy access elsewhere (if any)
     extractImageSrc: jest.fn(),
     cleanImageUrl: jest.fn(url => url),
     isValidImageUrl: jest.fn(() => true),
-    isNotionCompatibleImageUrl: jest.fn(() => true),
   },
 }));
 
@@ -49,7 +47,6 @@ import {
   extractImageSrc,
   cleanImageUrl,
   isValidImageUrl,
-  isNotionCompatibleImageUrl,
 } from '../../../../scripts/utils/imageUtils.js';
 
 // Global mock not needed for ImageCollector but might be used by other parts if they fallback
@@ -57,7 +54,6 @@ globalThis.ImageUtils = {
   extractImageSrc,
   cleanImageUrl,
   isValidImageUrl,
-  isNotionCompatibleImageUrl,
 };
 
 globalThis.ErrorHandler = {
@@ -77,7 +73,6 @@ describe('ImageCollector', () => {
     extractImageSrc.mockReturnValue(null);
     cleanImageUrl.mockImplementation(url => url);
     isValidImageUrl.mockReturnValue(true);
-    isNotionCompatibleImageUrl.mockReturnValue(true);
 
     // Default cachedQuery mock
     cachedQuery.mockImplementation((selector, context, options) => {
@@ -105,7 +100,7 @@ describe('ImageCollector', () => {
         }
         return null;
       });
-      ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
+      extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
 
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBe('https://example.com/featured.jpg');
@@ -144,7 +139,7 @@ describe('ImageCollector', () => {
     test('should skip duplicate featured image', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/featured.jpg';
-      ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
+      extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
 
       const result = ImageCollector.processImageForCollection(
         mockImg,
