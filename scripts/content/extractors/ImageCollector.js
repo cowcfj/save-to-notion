@@ -199,6 +199,9 @@ const ImageCollector = {
       this._collectFromExpansion(allImages);
     }
 
+    // 策略 4: 嘗試從 Next.js Data 提取 (針對 HK01 等 CSR/SSR 網站)
+    this._collectFromNextJsData(allImages);
+
     Logger.log('待處理圖片總數', { action: 'collectAdditionalImages', count: allImages.length });
 
     // 使用批處理優化
@@ -294,6 +297,142 @@ const ImageCollector = {
         addedFromExpansion++;
       }
     });
+  },
+
+  /**
+   * 從 Next.js 的 hydration data (__NEXT_DATA__) 中提取圖片
+   * 適用於像 HK01 這樣使用 CSR/SSR 且圖片資訊存在於 JSON 中的網站
+   *
+   * @param {Array} allImages - 現有的圖片元素數組
+   */
+  _collectFromNextJsData(allImages) {
+    Logger.log('圖片收集策略：Next.js Data (scoped)', { action: 'collectAdditionalImages' });
+
+    // 1. 獲取並解析 JSON 數據
+    const nextDataScript = document.querySelector('#__NEXT_DATA__');
+    if (!nextDataScript) {
+      return;
+    }
+
+    let nextData;
+    try {
+      nextData = JSON.parse(nextDataScript.textContent);
+    } catch (error) {
+      Logger.warn('解析 Next.js Data JSON 失敗', { error: error.message });
+      return;
+    }
+
+    const foundImages = [];
+    const seenUrls = new Set(); // 用於去重
+
+    // 2. 針對 HK01 的特定路徑: props.pageProps.article
+    const articleData = nextData?.props?.pageProps?.article;
+
+    if (articleData) {
+      this._extractImagesFromArticleData(articleData, foundImages, seenUrls);
+    } else {
+      // 如果找不到 article 對象，記錄警告但不進行全域遞歸搜索，避免提取無關圖片
+      const keys = nextData?.props?.pageProps ? Object.keys(nextData.props.pageProps) : 'no_props';
+      Logger.log('Next.js Data 中未找到 article 對象，跳過提取', { keys });
+    }
+
+    // 3. 記錄日誌
+    this._logFoundImages(foundImages);
+
+    // 4. 添加到結果集
+    const addedCount = this._addImagesToCollection(foundImages, allImages);
+    Logger.log('已添加來自 Next.js Data 的新圖片', { count: addedCount });
+  },
+
+  /**
+   * 從 article 數據中提取圖片 (提取輔助方法以降低複雜度)
+   *
+   * @param {object} articleData - 文章數據對象
+   * @param {Array} foundImages - 存儲找到的圖片的數組
+   * @param {Set} seenUrls - 用於去重的 URL 集合
+   * @private
+   */
+  _extractImagesFromArticleData(articleData, foundImages, seenUrls) {
+    // 設定提取目標：主圖、原圖、圖庫
+    // 排除 thumbnails 以避免重複和低畫質圖片
+    const candidates = [
+      articleData.mainImage,
+      articleData.originalImage,
+      ...(articleData.gallery?.images || []),
+    ].filter(Boolean); // 過濾掉 null/undefined
+
+    for (const imgData of candidates) {
+      if (imgData.cdnUrl && typeof imgData.cdnUrl === 'string') {
+        const url = imgData.cdnUrl;
+
+        // 去重檢查
+        if (!seenUrls.has(url)) {
+          seenUrls.add(url);
+          foundImages.push({
+            url, // 使用簡寫
+            width: imgData.originalWidth, // HK01 使用 originalWidth
+            height: imgData.originalHeight,
+            caption: imgData.caption,
+          });
+        }
+      }
+    }
+  },
+
+  /**
+   * 記錄找到的圖片 (提取輔助方法)
+   *
+   * @param {Array} foundImages - 找到的圖片數組
+   * @private
+   */
+  _logFoundImages(foundImages) {
+    Logger.log('從 Next.js Data 找到潛在圖片', {
+      count: foundImages.length,
+      samples: foundImages.slice(0, 3).map(img => {
+        const urlStr = img.url || '';
+        return urlStr.length > 50 ? `...${urlStr.slice(-50)}` : urlStr;
+      }),
+    });
+  },
+
+  /**
+   * 將找到的圖片添加到集合中 (提取輔助方法)
+   *
+   * @param {Array} foundImages - 找到的圖片數組
+   * @param {Array} allImages - 所有圖片元素的數組
+   * @returns {number} 添加的圖片數量
+   * @private
+   */
+  _addImagesToCollection(foundImages, allImages) {
+    let addedCount = 0;
+    foundImages.forEach(data => {
+      // 檢查是否已存在於 allImages (通過 URL)
+      // allImages 是 DOM 元素數組，檢查 src
+      const exists = allImages.some(img => img.src === data.url || img.src.includes(data.url));
+
+      if (!exists) {
+        // 創建偽造的 img 元素以便重用現有的處理邏輯
+        const fakeImg = document.createElement('img');
+        fakeImg.src = data.url;
+
+        if (data.width) {
+          Object.defineProperty(fakeImg, 'naturalWidth', { value: Number(data.width) });
+        }
+        if (data.height) {
+          Object.defineProperty(fakeImg, 'naturalHeight', { value: Number(data.height) });
+        }
+        if (data.caption) {
+          fakeImg.alt = data.caption;
+        }
+
+        // 添加一個標記屬性，識別來源
+        fakeImg.dataset.source = 'nextjs-data';
+
+        allImages.push(fakeImg);
+        addedCount++;
+      }
+    });
+    return addedCount;
   },
 
   async _processImages(allImages, featuredImage, additionalImages) {

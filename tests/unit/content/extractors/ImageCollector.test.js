@@ -274,5 +274,91 @@ describe('ImageCollector', () => {
       ImageCollector.processImageForCollection = originalProcess;
       seqSpy.mockRestore();
     });
+
+    test('should collect images from Next.js data (scoped to article)', async () => {
+      // Setup Next.js data reflecting HK01 structure
+      const nextData = {
+        props: {
+          pageProps: {
+            article: {
+              mainImage: {
+                cdnUrl: 'https://example.com/main.jpg',
+                originalWidth: 1000,
+                originalHeight: 800,
+              },
+              thumbnails: [{ cdnUrl: 'https://example.com/thumb.jpg' }],
+              gallery: {
+                images: [
+                  {
+                    cdnUrl: 'https://example.com/gallery1.jpg',
+                    originalWidth: 1200,
+                  },
+                  // Duplicate URL to test deduplication
+                  {
+                    cdnUrl: 'https://example.com/main.jpg',
+                    originalWidth: 1000,
+                  },
+                ],
+              },
+              // Irrelevant data (should be ignored)
+              related: {
+                cdnUrl: 'https://example.com/related.jpg',
+              },
+            },
+            // Other props (should be ignored)
+            navigation: {
+              cdnUrl: 'https://example.com/nav.jpg',
+            },
+          },
+        },
+      };
+
+      const script = document.createElement('script');
+      script.id = '__NEXT_DATA__';
+      script.type = 'application/json';
+      script.textContent = JSON.stringify(nextData);
+      document.body.append(script);
+
+      const contentElement = document.createElement('div');
+
+      // Mock processImageForCollection
+      const originalProcess = ImageCollector.processImageForCollection;
+      ImageCollector.processImageForCollection = jest.fn(img => ({
+        object: 'block',
+        type: 'image',
+        image: { external: { url: img.src } },
+        _meta: { width: img.naturalWidth },
+      }));
+
+      const searchSpy = jest.spyOn(ImageCollector, '_collectFromNextJsData');
+
+      const results = await ImageCollector.collectAdditionalImages(contentElement);
+
+      expect(searchSpy).toHaveBeenCalled();
+
+      // Expected: main.jpg + gallery1.jpg (thumb.jpg excluded, related.jpg ignored, nav.jpg ignored, duplicate main.jpg ignored)
+      // Total = 2
+      expect(results).toHaveLength(2);
+
+      const img1 = results.find(r => r.image.external.url === 'https://example.com/main.jpg');
+      expect(img1).toBeDefined();
+      expect(img1._meta.width).toBe(1000);
+
+      const img2 = results.find(r => r.image.external.url === 'https://example.com/gallery1.jpg');
+      expect(img2).toBeDefined();
+      expect(img2._meta.width).toBe(1200);
+
+      // Verify excluded images are NOT present
+      const thumb = results.find(r => r.image.external.url === 'https://example.com/thumb.jpg');
+      expect(thumb).toBeUndefined();
+
+      const related = results.find(r => r.image.external.url === 'https://example.com/related.jpg');
+      expect(related).toBeUndefined();
+
+      // Cleanup
+      script.remove();
+      ImageCollector.processImageForCollection = originalProcess;
+      searchSpy.mockRestore();
+    });
   });
 });
