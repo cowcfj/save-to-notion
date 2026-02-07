@@ -491,6 +491,11 @@ class NotionService {
     try {
       for (let i = startIndex; i < blocks.length; i += BLOCKS_PER_BATCH) {
         const batch = blocks.slice(i, i + BLOCKS_PER_BATCH);
+        // 清理區塊：移除內部使用的 _meta 欄位
+        const sanitizedBatch = batch.map(block => {
+          const { _meta, ...cleanBlock } = block;
+          return cleanBlock;
+        });
         const batchNumber = Math.floor((i - startIndex) / BLOCKS_PER_BATCH) + 1;
         const totalBatches = Math.ceil(totalBlocks / BLOCKS_PER_BATCH);
 
@@ -498,14 +503,14 @@ class NotionService {
           action: 'appendBlocksInBatches',
           batchNumber,
           totalBatches,
-          batchSize: batch.length,
+          batchSize: sanitizedBatch.length,
         });
 
         await this._executeWithRetry(
           client =>
             client.blocks.children.append({
               block_id: pageId,
-              children: batch,
+              children: sanitizedBatch,
             }),
           {
             ...options,
@@ -724,6 +729,13 @@ class NotionService {
         ? { type: 'page_id', page_id: dataSourceId }
         : { type: 'data_source_id', data_source_id: dataSourceId };
 
+    // 清理區塊：移除內部使用的 _meta 欄位，確保只有 Notion API 認可的欄位被發送
+    // 這是防禦性編程，防止內部元數據洩漏到外部 API
+    const sanitizedBlocks = blocks.slice(0, this.config.BLOCKS_PER_BATCH).map(block => {
+      const { _meta, ...cleanBlock } = block;
+      return cleanBlock;
+    });
+
     // 構建頁面數據
     const pageData = {
       parent: parentConfig,
@@ -735,7 +747,7 @@ class NotionService {
           url: pageUrl || '', // 符合現有測試預期
         },
       },
-      children: blocks.slice(0, this.config.BLOCKS_PER_BATCH),
+      children: sanitizedBlocks,
     };
 
     // 添加網站 Icon（如果有）
