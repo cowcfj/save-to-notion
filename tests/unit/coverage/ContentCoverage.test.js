@@ -30,6 +30,7 @@ describe('ContentParts 覆蓋率補強 (整合)', () => {
 
     afterEach(() => {
         delete globalThis.Logger;
+        delete globalThis.ImageUtils;
     });
 
     // --- PerformanceOptimizer ---

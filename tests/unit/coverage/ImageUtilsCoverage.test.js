@@ -100,17 +100,20 @@ describe('ImageUtils and DomConverter Missing Coverage Tests', () => {
              // Verification for catastrophic failure where global URL constructor is broken.
              // This tests the absolute fallback path in _resolveUrl.
              const originalURL = globalThis.URL;
-             globalThis.URL = jest.fn(() => { throw new Error('URL Error'); });
 
-             const result = ImageUtils.cleanImageUrl('https://example.com');
+             try {
+                 globalThis.URL = jest.fn(() => { throw new Error('URL Error'); });
 
-             expect(result).toBeNull();
-             expect(Logger.error).toHaveBeenCalledWith(
-                'URL 轉換失敗',
-                 expect.any(Object)
-             );
+                 const result = ImageUtils.cleanImageUrl('https://example.com');
 
-             globalThis.URL = originalURL;
+                 expect(result).toBeNull();
+                 expect(Logger.error).toHaveBeenCalledWith(
+                    'URL 轉換失敗',
+                     expect.any(Object)
+                 );
+             } finally {
+                 globalThis.URL = originalURL;
+             }
         });
 
         test('cleanImageUrl hits recursion limit', () => {
@@ -126,34 +129,45 @@ describe('ImageUtils and DomConverter Missing Coverage Tests', () => {
 
         // 此測試假設 cleanImageUrl 會先呼叫 new URL()，接著 _checkUrlPatterns 會再呼叫一次
         // 如果 isValidImageUrl 的實作順序改變，此測試可能會失敗
-        test('isValidImageUrl handles error in _checkUrlPatterns (assumes cleanImageUrl calls URL constructor first)', () => {
+        test('isValidImageUrl handles error in _checkUrlPatterns', () => {
             const originalURL = globalThis.URL;
-            let callCount = 0;
+            const initialUrl = 'https://example.com/initial.jpg';
+            const cleanedUrl = 'https://example.com/cleaned.jpg';
 
-            globalThis.URL = jest.fn((_url, _base) => {
-                callCount++;
-                // First call is likely in cleanImageUrl (or _resolveUrl)
-                if (callCount <= 1) {
-                    return {
-                        protocol: 'https:',
-                        hostname: 'example.com',
-                        pathname: '/image.jpg',
-                        searchParams: new URLSearchParams(),
-                        href: 'https://example.com/image.jpg',
-                        search: '',
-                        hash: ''
-                    };
-                }
-                // Second call (in _checkUrlPatterns) throws
-                throw new Error('Pattern check failed');
-            });
+            try {
+                globalThis.URL = jest.fn((url, base) => {
+                    // Normalize input URL for comparison (handle potential differences)
+                    const urlStr = url.toString();
 
-            // We use a valid-looking URL so it passes initial regex checks
-            const result = ImageUtils.isValidImageUrl('https://example.com/image.jpg');
+                    // First call: cleanImageUrl resolves the initial URL
+                    // We check if the input matches our initial URL
+                    if (urlStr === initialUrl || (base && urlStr === initialUrl)) {
+                         return {
+                             protocol: 'https:',
+                             hostname: 'example.com',
+                             pathname: '/initial.jpg',
+                             searchParams: new URLSearchParams(),
+                             href: cleanedUrl, // This ensures cleanImageUrl returns this URL
+                             search: '',
+                             hash: ''
+                         };
+                    }
 
-            expect(result).toBe(false);
+                    // Second call: _checkUrlPatterns validates the cleaned URL
+                    if (urlStr === cleanedUrl || (base && urlStr === cleanedUrl)) {
+                         throw new Error('Pattern check failed');
+                    }
 
-            globalThis.URL = originalURL;
+                    // Fallback for other calls (e.g. internal normalization)
+                    return new originalURL(url, base);
+                });
+
+                const result = ImageUtils.isValidImageUrl(initialUrl);
+
+                expect(result).toBe(false);
+            } finally {
+                globalThis.URL = originalURL;
+            }
         });
 
          test('_normalizeUrlInternal handles decodeURI error', () => {
