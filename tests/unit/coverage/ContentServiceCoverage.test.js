@@ -43,8 +43,11 @@ import { PageContentService } from '../../../scripts/background/services/PageCon
 jest.mock('../../../scripts/utils/imageUtils.js', () => ({
     extractImageSrc: jest.fn(),
     isValidImageUrl: jest.fn(() => true),
+    isValidCleanedImageUrl: jest.fn(() => true),
     cleanImageUrl: jest.fn(url => url),
 }));
+
+import * as imageUtils from '../../../scripts/utils/imageUtils.js';
 
 
 describe('Content Service Coverage Tests', () => {
@@ -54,9 +57,9 @@ describe('Content Service Coverage Tests', () => {
         document.body.innerHTML = '';
 
         // Default ImageUtils mocks
-        const imageUtils = require('../../../scripts/utils/imageUtils.js');
         imageUtils.extractImageSrc.mockReturnValue('https://example.com/image.jpg');
         imageUtils.isValidImageUrl.mockReturnValue(true);
+        imageUtils.isValidCleanedImageUrl.mockReturnValue(true);
         imageUtils.cleanImageUrl.mockImplementation(url => url);
     });
 
@@ -81,7 +84,6 @@ describe('Content Service Coverage Tests', () => {
 
         test('processImageForCollection handles error', () => {
              // Mock cleanImageUrl to throw error (which is inside the try block)
-             const imageUtils = require('../../../scripts/utils/imageUtils.js');
              imageUtils.cleanImageUrl.mockImplementation(() => {
                  throw new Error('Process Error');
              });
@@ -150,46 +152,53 @@ describe('Content Service Coverage Tests', () => {
     // which is the correct approach to simulate the environment the script runs in.
 
     describe('PageContentService Injected Logic Coverage', () => {
-        test('extractContent runs injected script logic successfully', async () => {
-            // We need to define the mocks outside so they are available
-            const mockInjector = {
-                injectWithResponse: jest.fn(async (tabId, func, ..._args) => {
-                    // This function is executed in the test environment directly because we mock injectWithResponse
-                    // to just call `func()`.
-                    // But `func` (the injected script) relies on `globalThis.Logger` or `console`.
-                    // And `globalThis.extractPageContent`.
+        // Helper to create mock injector that sets up global environment
+        const createMockInjector = (setupGlobalFn) => ({
+            injectWithResponse: jest.fn(async (tabId, func, ..._args) => {
+                const originalExtract = globalThis.extractPageContent;
+                const originalLogger = globalThis.Logger;
 
-                    // We can setup the environment *before* calling func.
+                const spyLogger = {
+                    log: jest.fn(),
+                    warn: jest.fn(),
+                    error: jest.fn(),
+                    success: jest.fn(),
+                    debug: jest.fn(),
+                };
+                globalThis.Logger = spyLogger;
 
-                    // Mock global objects for the duration of this call
-                    const originalLogger = globalThis.Logger;
-                    const originalExtract = globalThis.extractPageContent;
+                // Setup default or custom global state
+                if (setupGlobalFn) {
+                    await setupGlobalFn(globalThis, spyLogger);
+                }
 
-                    // The injected script does: const PageLogger = globalThis.Logger || console;
-                    // So if we set globalThis.Logger, it uses it.
-                    // We want to capture its calls.
-                    const spyLogger = {
-                        log: jest.fn(),
-                        warn: jest.fn(),
-                        error: jest.fn()
-                    };
-                    globalThis.Logger = spyLogger;
-
-                    globalThis.extractPageContent = jest.fn().mockResolvedValue({
-                        title: 'Injected Title',
-                        blocks: [{ type: 'paragraph' }],
-                        additionalImages: [],
-                        metadata: { siteIcon: 'icon.png' }
-                    });
-
-                    try {
-                        return await func();
-                    } finally {
-                        globalThis.Logger = originalLogger;
-                        globalThis.extractPageContent = originalExtract;
+                try {
+                    return await func();
+                } finally {
+                    // Restore global state
+                    if (originalExtract === undefined) {
+                         delete globalThis.extractPageContent;
+                    } else {
+                         globalThis.extractPageContent = originalExtract;
                     }
-                })
-            };
+                    if (originalLogger === undefined) {
+                         delete globalThis.Logger;
+                    } else {
+                         globalThis.Logger = originalLogger;
+                    }
+                }
+            })
+        });
+
+        test('extractContent runs injected script logic successfully', async () => {
+            const mockInjector = createMockInjector((global) => {
+                global.extractPageContent = jest.fn().mockResolvedValue({
+                    title: 'Injected Title',
+                    blocks: [{ type: 'paragraph' }],
+                    additionalImages: [],
+                    metadata: { siteIcon: 'icon.png' }
+                });
+            });
 
             const service = new PageContentService({
                 injectionService: mockInjector,
@@ -206,30 +215,9 @@ describe('Content Service Coverage Tests', () => {
         });
 
          test('extractContent handles extractPageContent unavailability', async () => {
-            const mockInjector = {
-                injectWithResponse: jest.fn(async (tabId, func, ..._args) => {
-                    const originalExtract = globalThis.extractPageContent;
-                    delete globalThis.extractPageContent;
-
-                    // We need to spy on console warnings if Logger is not present in globalThis
-                    // or setup a mock Logger. The script uses globalThis.Logger || console.
-
-                    const spyLogger = {
-                         log: jest.fn(),
-                        warn: jest.fn(), // We expect this to be called
-                        error: jest.fn()
-                    }
-                    const originalLogger = globalThis.Logger;
-                    globalThis.Logger = spyLogger;
-
-                    try {
-                         return await func();
-                    } finally {
-                        globalThis.extractPageContent = originalExtract;
-                        globalThis.Logger = originalLogger;
-                    }
-                })
-            };
+            const mockInjector = createMockInjector((global) => {
+                 delete global.extractPageContent;
+            });
 
             const service = new PageContentService({
                 injectionService: mockInjector,
@@ -238,33 +226,16 @@ describe('Content Service Coverage Tests', () => {
 
             const result = await service.extractContent(123);
 
-            // Should return fallback
-            expect(result.blocks[0].paragraph.rich_text[0].text.content).toContain('extractPageContent not available');
+            // Safer assertion
+            expect(result.blocks).toHaveLength(1);
+            expect(result.blocks[0]?.paragraph?.rich_text?.[0]?.text?.content)
+                .toContain('extractPageContent not available');
          });
 
          test('extractContent handles extraction failure', async () => {
-            const mockInjector = {
-                injectWithResponse: jest.fn(async (tabId, func, ..._args) => {
-                     const originalExtract = globalThis.extractPageContent;
-                     const originalLogger = globalThis.Logger;
-
-                     globalThis.extractPageContent = jest.fn().mockRejectedValue(new Error('Injected Error'));
-
-                     const spyLogger = {
-                         log: jest.fn(),
-                        warn: jest.fn(),
-                        error: jest.fn() // Expected
-                    }
-                    globalThis.Logger = spyLogger;
-
-                    try {
-                        return await func();
-                    } finally {
-                         globalThis.extractPageContent = originalExtract;
-                         globalThis.Logger = originalLogger;
-                    }
-                })
-            };
+            const mockInjector = createMockInjector((global) => {
+                 global.extractPageContent = jest.fn().mockRejectedValue(new Error('Injected Error'));
+            });
 
             const service = new PageContentService({
                 injectionService: mockInjector,
@@ -273,7 +244,10 @@ describe('Content Service Coverage Tests', () => {
 
             const result = await service.extractContent(123);
 
-            expect(result.blocks[0].paragraph.rich_text[0].text.content).toContain('Extraction failed: Injected Error');
+            // Safer assertion
+            expect(result.blocks).toHaveLength(1);
+            expect(result.blocks[0]?.paragraph?.rich_text?.[0]?.text?.content)
+                .toContain('Extraction failed: Injected Error');
          });
     });
 });
