@@ -489,5 +489,60 @@ describe('ImageCollector', () => {
       // Cleanup
       script.remove();
     });
+
+    test('should deduplicate images in batch processing results', async () => {
+      const contentElement = document.createElement('div');
+      // Create 6 images to trigger batch processing (> 5)
+      // 3 unique URLs repeated twice
+      const urls = [
+        'https://example.com/1.jpg',
+        'https://example.com/2.jpg',
+        'https://example.com/3.jpg',
+        'https://example.com/1.jpg', // Duplicate
+        'https://example.com/2.jpg', // Duplicate
+        'https://example.com/3.jpg', // Duplicate
+      ];
+
+      urls.forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        contentElement.append(img);
+      });
+
+      cachedQuery.mockImplementation((selector, context, options) => {
+        if (options?.single) {
+          return null;
+        }
+        return contentElement.querySelectorAll('img');
+      });
+      extractImageSrc.mockImplementation(img => img.src);
+
+      // Mock processImageForCollection to always return success
+      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+        object: 'block',
+        type: 'image',
+        image: { external: { url: img.src } },
+      }));
+
+      // Mock batchProcessWithRetry
+      batchProcessWithRetry.mockResolvedValue({
+        results: urls.map(url => ({
+          object: 'block',
+          type: 'image',
+          image: { external: { url } },
+        })),
+        meta: {},
+      });
+
+      const result = await ImageCollector.collectAdditionalImages(contentElement);
+
+      // Should filter out duplicates, expecting only 3 unique images
+      expect(result.images).toHaveLength(3);
+      const uniqueUrls = new Set(result.images.map(img => img.image.external.url));
+      expect(uniqueUrls.size).toBe(3);
+      expect(uniqueUrls.has('https://example.com/1.jpg')).toBe(true);
+      expect(uniqueUrls.has('https://example.com/2.jpg')).toBe(true);
+      expect(uniqueUrls.has('https://example.com/3.jpg')).toBe(true);
+    });
   });
 });

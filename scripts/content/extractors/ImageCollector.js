@@ -612,6 +612,18 @@ const ImageCollector = {
   },
 
   async _processImages(allImages, featuredImage, additionalImages) {
+    // 初始化已處理的 URL 集合，以防止重複
+    const processedUrls = new Set();
+    if (featuredImage) {
+      processedUrls.add(featuredImage);
+    }
+    additionalImages.forEach(img => {
+      const url = img.image?.external?.url;
+      if (url) {
+        processedUrls.add(url);
+      }
+    });
+
     if (batchProcess !== undefined && allImages.length > 5) {
       Logger.log('對圖片使用批次處理', {
         action: 'collectAdditionalImages',
@@ -625,7 +637,16 @@ const ImageCollector = {
           { maxAttempts: 3, isResultSuccessful: result => Boolean(result?.image?.external?.url) }
         );
         if (results) {
-          results.forEach(result => result && additionalImages.push(result));
+          results.forEach(result => {
+            if (!result) {
+              return;
+            }
+            const url = result.image?.external?.url;
+            if (url && !processedUrls.has(url)) {
+              processedUrls.add(url);
+              additionalImages.push(result);
+            }
+          });
         } else {
           ImageCollector.processImagesSequentially(allImages, featuredImage, additionalImages);
         }
@@ -635,7 +656,16 @@ const ImageCollector = {
           const results = await batchProcess(allImages, (img, index) =>
             ImageCollector.processImageForCollection(img, index, featuredImage)
           );
-          results.forEach(result => result && additionalImages.push(result));
+          results.forEach(result => {
+            if (!result) {
+              return;
+            }
+            const url = result.image?.external?.url;
+            if (url && !processedUrls.has(url)) {
+              processedUrls.add(url);
+              additionalImages.push(result);
+            }
+          });
         } catch {
           ImageCollector.processImagesSequentially(allImages, featuredImage, additionalImages);
         }
