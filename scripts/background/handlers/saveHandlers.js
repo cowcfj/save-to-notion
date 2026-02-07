@@ -60,7 +60,7 @@ async function ensureNotionApiKey(storageService) {
  *
  * @param {object} rawResult - 注入腳本返回的原始結果
  * @param {Array} highlights - 標註數據
- * @returns {object} 處理後的內容結果 { title, blocks, siteIcon }
+ * @returns {object} 處理後的內容結果 { title, blocks, siteIcon, coverImage }
  */
 export function processContentResult(rawResult, highlights) {
   // 正規化所有欄位，確保不修改原始輸入

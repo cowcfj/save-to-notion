@@ -102,7 +102,7 @@ Logger.log('Content Bundle 已載入', { action: 'loadBundle' });
  * 主要內容提取函數
  * 此函數會被 background.js 通過 executeScript 調用
  *
- * @returns {Promise<{title: string, blocks: Array, rawHtml: string}>}
+ * @returns {Promise<{title: string, blocks: Array, rawHtml: string, metadata: object, additionalImages: Array, coverImage: string|null, debug: object}>}
  */
 async function extractPageContent() {
   Logger.log('開始內容提取', { action: 'extractPageContent' });

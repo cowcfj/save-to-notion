@@ -11,7 +11,7 @@
  *   ↓ injects
  * dist/content.bundle.js → extractPageContent()
  *   ↓ returns
- * { title, blocks, siteIcon }
+ * { title, blocks, siteIcon, coverImage }
  */
 
 import Logger from '../../utils/Logger.js';
@@ -49,7 +49,7 @@ class PageContentService {
    *
    * @param {number} tabId - 目標標籤頁 ID
    * @param {object} _options - 提取選項（保留供未來使用）
-   * @returns {Promise<{title: string, blocks: Array, siteIcon: string|null}>}
+   * @returns {Promise<{title: string, blocks: Array, siteIcon: string|null, coverImage: string|null}>}
    */
   async extractContent(tabId, _options = {}) {
     this.logger.start?.('[PageContentService] 開始提取頁面內容', { tabId });
