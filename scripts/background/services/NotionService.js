@@ -389,17 +389,8 @@ class NotionService {
     try {
       const urlObj = new URL(cleanUrl);
 
-      // 檢查協議
-      if (
-        urlObj.protocol !== 'http:' &&
-        urlObj.protocol !== 'https:' &&
-        urlObj.protocol !== 'data:' // 雖然 Notion 不直接支持 data URI 上傳，但作為 URL 值本身是合法的，可能需要進一步過濾
-      ) {
-        return false;
-      }
-
-      // 排除 data: 和 blob: (Notion API 不支持作為 external url)
-      if (urlObj.protocol === 'data:' || urlObj.protocol === 'blob:') {
+      // 檢查協議：Notion API 僅支持 http 和 https 協議的外部圖片鏈接
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
         return false;
       }
 
@@ -977,7 +968,6 @@ class NotionService {
       }
 
       // 步驟 2: 找出需要刪除的標記區塊
-      // 步驟 2: 找出需要刪除的標記區塊
       const blocksToDelete = NotionService._findHighlightSectionBlocks(fetchResult.blocks);
 
       // 步驟 3: 刪除舊的標記區塊
@@ -1064,18 +1054,24 @@ class NotionService {
     }
 
     for (const block of blocks) {
-      if (
-        block.type === 'heading_3' &&
-        block.heading_3?.rich_text?.[0]?.text?.content === headerText
-      ) {
-        foundHighlightSection = true;
-        blocksToDelete.push(block.id);
-      } else if (foundHighlightSection) {
+      const isHighlightHeader =
+        block.type === 'heading_3' && block.heading_3?.rich_text?.[0]?.text?.content === headerText;
+
+      if (foundHighlightSection) {
+        // 如果已經在標記區域中，遇到任何標題（包括重複的目標標題）都停止收集
         if (block.type?.startsWith('heading_')) {
-          break; // 遇到下一個標題，停止收集
+          break;
         }
-        // 收集所有非標題類型的區塊（包含 paragraph, quote, callout 等）
-        blocksToDelete.push(block.id);
+        // 收集區域內的內容區塊
+        if (block.id) {
+          blocksToDelete.push(block.id);
+        }
+      } else if (isHighlightHeader) {
+        // 找到標記區域的開始
+        foundHighlightSection = true;
+        if (block.id) {
+          blocksToDelete.push(block.id);
+        }
       }
     }
 

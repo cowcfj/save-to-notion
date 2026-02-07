@@ -711,9 +711,7 @@ describe('NotionService', () => {
           createMockResponse({
             results: [{ id: 'block-1' }],
             has_more: true,
-            hasMore: true,
             next_cursor: 'cursor-2',
-            nextCursor: 'cursor-2',
           })
         )
         // 第二頁響應（結束）
@@ -721,9 +719,7 @@ describe('NotionService', () => {
           createMockResponse({
             results: [{ id: 'block-2' }],
             has_more: false,
-            hasMore: false,
             next_cursor: null,
-            nextCursor: null,
           })
         )
         // Mock 添加操作 (Success)
@@ -946,6 +942,58 @@ describe('NotionService', () => {
 
         const result = NotionService._findHighlightSectionBlocks(blocks);
         expect(result).toEqual(['1', '2', '3', '4']); // 收集所有非標題區塊
+      });
+
+      it('應該忽略沒有 ID 的區塊', () => {
+        const blocks = [
+          {
+            type: 'heading_3',
+            id: '1',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { type: 'paragraph' }, // 無 ID
+          { type: 'paragraph', id: '3' },
+        ];
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['1', '3']);
+      });
+
+      it('應該只處理第一個匹配的標記區域', () => {
+        const blocks = [
+          {
+            type: 'heading_3',
+            id: '1',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { type: 'paragraph', id: '2' },
+          {
+            type: 'heading_3',
+            id: '3',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] }, // 第二個相同標題
+          },
+          { type: 'paragraph', id: '4' },
+        ];
+        // 遇到下一個標題類型（包括 heading_3）時應該停止
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['1', '2']);
+      });
+
+      it('應該跳過內容不同的 heading_3', () => {
+        const blocks = [
+          {
+            type: 'heading_3',
+            id: '1',
+            heading_3: { rich_text: [{ text: { content: '其他標題' } }] },
+          },
+          {
+            type: 'heading_3',
+            id: '2',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { type: 'paragraph', id: '3' },
+        ];
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['2', '3']);
       });
 
       it('應該處理標記區域在頁面末尾的情況', () => {

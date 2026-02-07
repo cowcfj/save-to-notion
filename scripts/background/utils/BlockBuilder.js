@@ -367,18 +367,24 @@ function findHighlightSectionBlocks(blocks, headerText = HIGHLIGHT_SECTION_HEADE
   }
 
   for (const block of blocks) {
-    if (
-      block.type === 'heading_3' &&
-      block.heading_3?.rich_text?.[0]?.text?.content === headerText
-    ) {
-      foundHighlightSection = true;
-      blocksToDelete.push(block.id);
-    } else if (foundHighlightSection) {
-      if (block.type && block.type.startsWith('heading_')) {
-        break; // 遇到下一個標題，停止收集
+    const isHighlightHeader =
+      block.type === 'heading_3' && block.heading_3?.rich_text?.[0]?.text?.content === headerText;
+
+    if (foundHighlightSection) {
+      // 如果已經在標記區域中，遇到任何標題（包括重複的目標標題）都停止收集
+      if (block.type?.startsWith('heading_')) {
+        break;
       }
-      // 收集所有非標題類型的區塊（包含 paragraph, quote, callout 等）
-      blocksToDelete.push(block.id);
+      // 收集區域內的內容區塊
+      if (block.id) {
+        blocksToDelete.push(block.id);
+      }
+    } else if (isHighlightHeader) {
+      // 找到標記區域的開始
+      foundHighlightSection = true;
+      if (block.id) {
+        blocksToDelete.push(block.id);
+      }
     }
   }
 

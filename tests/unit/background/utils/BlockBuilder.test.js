@@ -352,10 +352,61 @@ describe('BlockBuilder', () => {
         },
         { type: 'paragraph', id: '2' },
       ];
-      // Default header is '📝 頁面標記' which is imported nicely because we are testing the function logic,
-      // but strictly speaking we rely on the default param.
       const result = findHighlightSectionBlocks(blocks);
       expect(result).toEqual(['1', '2']);
+    });
+
+    test('should ignore blocks without ID', () => {
+      const blocks = [
+        {
+          type: 'heading_3',
+          id: '1',
+          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
+        },
+        { type: 'paragraph' }, // No ID
+        { type: 'paragraph', id: '3' },
+      ];
+      const result = findHighlightSectionBlocks(blocks, '📝 頁面標記');
+      expect(result).toEqual(['1', '3']);
+    });
+
+    test('should only process the first matching highlight section', () => {
+      const blocks = [
+        {
+          type: 'heading_3',
+          id: '1',
+          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
+        },
+        { type: 'paragraph', id: '2' },
+        {
+          type: 'heading_3',
+          id: '3',
+          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
+        },
+        { type: 'paragraph', id: '4' },
+      ];
+      // Should stop collecting when it encounters the second header (even if it's the same header text)
+      // because the logic breaks on next heading_* block
+      const result = findHighlightSectionBlocks(blocks, '📝 頁面標記');
+      expect(result).toEqual(['1', '2']);
+    });
+
+    test('should skip similar heading_3 with different content', () => {
+      const blocks = [
+        {
+          type: 'heading_3',
+          id: '1',
+          heading_3: { rich_text: [{ text: { content: 'Different Header' } }] },
+        },
+        {
+          type: 'heading_3',
+          id: '2',
+          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
+        },
+        { type: 'paragraph', id: '3' },
+      ];
+      const result = findHighlightSectionBlocks(blocks, '📝 頁面標記');
+      expect(result).toEqual(['2', '3']);
     });
   });
 });

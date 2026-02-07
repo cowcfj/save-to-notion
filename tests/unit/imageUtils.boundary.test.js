@@ -16,7 +16,6 @@ require('../../scripts/utils/imageUtils.js');
 const {
   cleanImageUrl,
   isValidImageUrl,
-
   extractBestUrlFromSrcset,
   extractImageSrc,
   extractFromSrcset,
