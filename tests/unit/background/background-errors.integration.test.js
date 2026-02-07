@@ -6,49 +6,12 @@
 
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES, SECURITY_ERROR_MESSAGES } from '../../../scripts/config/messages.js';
-
-function createEvent() {
-  const listeners = [];
-  return {
-    addListener: fn => listeners.push(fn),
-    removeListener: fn => {
-      const i = listeners.indexOf(fn);
-      if (i !== -1) {
-        listeners.splice(i, 1);
-      }
-    },
-    hasListener: fn => listeners.includes(fn),
-    _emit: (...args) =>
-      listeners.forEach(fn => {
-        try {
-          fn(...args);
-        } catch (error) {
-          console.error('Test Execution Error:', error);
-          // 刻意忽略監聽器錯誤，確保所有監聽器都能執行
-          // 這模擬了真實 Chrome 事件系統的行為
-        }
-      }),
-    _listeners: listeners,
-  };
-}
-
-/**
- * Waits for a mock function to be called.
- * Note: This depends on real timers (Date.now, setTimeout).
- * If using jest.useFakeTimers(), ensure to advance timers or use real timers for this helper.
- *
- * @param {jest.Mock} mockFn
- * @param {number} [maxWaitMs=1500]
- */
-async function waitForSend(mockFn, maxWaitMs = 1500) {
-  const start = Date.now();
-  while (mockFn.mock.calls.length === 0 && Date.now() - start < maxWaitMs) {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  }
-  if (mockFn.mock.calls.length === 0) {
-    throw new Error(`waitForSend timeout: function was not called within ${maxWaitMs}ms`);
-  }
-}
+import {
+  createEvent,
+  waitForSend,
+  createMockLogger,
+  setupChromeMock,
+} from '../../helpers/integration-test-helper.js';
 
 /**
  * Helper to mock chrome.scripting.executeScript for sequential calls.
@@ -91,92 +54,25 @@ describe('background error branches (integration)', () => {
     originalFetch = globalThis.fetch;
 
     // 明確設定 Logger 為非調試模式，但允許輸出到控制台
-    globalThis.Logger = {
-      debugEnabled: false,
-      error: jest.fn(),
-      warn: jest.fn(),
-      info: jest.fn(),
-      log: jest.fn(),
-      debug: jest.fn(),
-      addLogToBuffer: jest.fn(),
-      start: jest.fn(),
-      success: jest.fn(),
-    };
+    globalThis.Logger = createMockLogger();
 
-    const onMessage = createEvent();
-    const onInstalled = createEvent();
-    const onUpdated = createEvent();
-    const onActivated = createEvent();
+    const { chromeMock, events } = setupChromeMock({}, mockSyncStorage);
 
-    const storageData = {};
+    // Override specific mocks for this test suite
+    chromeMock.runtime.id = 'test';
+    chromeMock.tabs.get = jest.fn((tabId, mockCb) =>
+      mockCb?.({ id: tabId, url: 'https://example.com' })
+    );
+    chromeMock.storage.sync.get = jest.fn((keys, mockCb) => {
+      const res = { ...mockSyncStorage };
+      mockCb?.(res);
+      return Promise.resolve(res);
+    });
 
-    globalThis.chrome = {
-      runtime: {
-        id: 'test',
-        lastError: null,
-        getManifest: jest.fn(() => ({ version: '2.9.5' })),
-        onMessage,
-        onInstalled,
-        getURL: jest.fn(path => `chrome-extension://test/${path}`),
-      },
-      tabs: {
-        onUpdated,
-        onActivated,
-        get: jest.fn((tabId, mockCb) => mockCb?.({ id: tabId, url: 'https://example.com' })),
-        // 支持 Promise 模式（MV3）和 callback 模式
-        query: jest.fn().mockResolvedValue([]),
-        create: jest.fn((props, mockCb) => mockCb?.({ id: 101, ...props })),
-        sendMessage: jest.fn((tabId, msg, mockCb) => mockCb?.({ success: true })),
-      },
-      action: {
-        setBadgeText: jest.fn(),
-        setBadgeBackgroundColor: jest.fn(),
-      },
-      scripting: {
-        executeScript: jest.fn((opts, mockCb) => mockCb?.([{ result: undefined }])),
-      },
-      storage: {
-        local: {
-          get: jest.fn((keys, mockCb) => {
-            const res = {};
-            if (Array.isArray(keys)) {
-              keys.forEach(key => {
-                if (key in storageData) {
-                  res[key] = storageData[key];
-                }
-              });
-            } else if (typeof keys === 'string') {
-              if (keys in storageData) {
-                res[keys] = storageData[keys];
-              }
-            } else if (!keys) {
-              Object.assign(res, storageData);
-            }
-            mockCb?.(res);
-            return Promise.resolve(res);
-          }),
-          set: jest.fn((items, mockCb) => {
-            Object.assign(storageData, items);
-            mockCb?.();
-            return Promise.resolve();
-          }),
-          remove: jest.fn((keys, mockCb) => {
-            (Array.isArray(keys) ? keys : [keys]).forEach(key => {
-              delete storageData[key];
-            });
-            mockCb?.();
-            return Promise.resolve();
-          }),
-        },
-        sync: {
-          get: jest.fn((keys, mockCb) => {
-            const res = { ...mockSyncStorage };
-            mockCb?.(res);
-            return Promise.resolve(res);
-          }),
-        },
-      },
-    };
+    globalThis.chrome = chromeMock;
+
+    // Convert events to what the test expects if needed (the helper returns the object directly)
+    // The test accesses chrome.runtime.onMessage._emit directly which is supported by our helper
 
     // 載入背景腳本（註冊 onMessage）
     require('../../../scripts/background.js');

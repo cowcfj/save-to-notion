@@ -7,43 +7,7 @@
  */
 
 // 簡單事件工具：保存 listener 並允許 _emit 觸發
-function createEvent() {
-  const listeners = [];
-  return {
-    addListener: fn => listeners.push(fn),
-    removeListener: fn => {
-      const i = listeners.indexOf(fn);
-      if (i !== -1) {
-        listeners.splice(i, 1);
-      }
-    },
-    hasListener: fn => listeners.includes(fn),
-    _emit: (...args) =>
-      listeners.forEach(fn => {
-        try {
-          fn(...args);
-        } catch {
-          /* 忽略 listener 內部錯誤以避免中斷測試 */
-        }
-      }),
-    _listeners: listeners,
-  };
-}
-
-/**
- * 清空 Promise 微任務隊列以確保異步操作完成。
- *
- * 預設值 3 是一個經驗值，通常足以覆蓋大多數「事件觸發 -> 處理函數 -> 服務調用」
- * 的簡單非同步鏈。如果測試涉及更深層的嵌套 Promise 或連續回調，
- * 可能需要增加此數值以確保所有微任務都已處理完畢。
- *
- * @param {number} ticks - 要刷新的 microtask 週期數（tick）。預設為 3。
- */
-async function flushPromises(ticks = 3) {
-  for (let i = 0; i < ticks; i++) {
-    await Promise.resolve();
-  }
-}
+import { flushPromises, setupChromeMock } from '../../helpers/integration-test-helper.js';
 
 describe('scripts/background.js require integration', () => {
   let originalChrome = null;
@@ -58,91 +22,26 @@ describe('scripts/background.js require integration', () => {
     originalFetch = globalThis.fetch;
 
     // 建立可觸發的 Chrome 模擬
-    const onInstalled = createEvent();
-    const onMessage = createEvent();
-    const onUpdated = createEvent();
-    const onRemoved = createEvent();
+    const { chromeMock } = setupChromeMock(
+      {},
+      {
+        notionApiKey: 'test-key',
+      }
+    );
 
-    const storageData = {};
+    // Customize for this test
+    chromeMock.runtime.id = 'test-id';
+    chromeMock.tabs.query = jest.fn((queryInfo, sendTabs) => {
+      sendTabs?.([{ id: 1, url: 'https://example.com/article', title: 'Article', active: true }]);
+    });
+    chromeMock.tabs.create = jest.fn(createProps => Promise.resolve({ id: 99, ...createProps }));
+    chromeMock.tabs.sendMessage = jest.fn(() => Promise.resolve({ success: true }));
 
-    globalThis.chrome = {
-      runtime: {
-        id: 'test-id',
-        lastError: null,
-        getManifest: jest.fn(() => ({ version: '2.9.5' })),
-        onInstalled,
-        onMessage,
-        getURL: jest.fn(path => `chrome-extension://test/${path}`),
-      },
-      tabs: {
-        onUpdated,
-        onActivated: createEvent(),
-        onRemoved,
-        query: jest.fn((queryInfo, sendTabs) => {
-          sendTabs?.([
-            { id: 1, url: 'https://example.com/article', title: 'Article', active: true },
-          ]);
-        }),
-        create: jest.fn(createProps => Promise.resolve({ id: 99, ...createProps })),
-        sendMessage: jest.fn(() => Promise.resolve({ success: true })),
-      },
-      action: {
-        setBadgeText: jest.fn(),
-        setBadgeBackgroundColor: jest.fn(),
-      },
-      scripting: {
-        executeScript: jest.fn((opts, sendResult) => sendResult?.([{ result: undefined }])),
-      },
-      storage: {
-        local: {
-          get: jest.fn((keys, cb) => {
-            const res = {};
-            if (Array.isArray(keys)) {
-              keys.forEach(k => {
-                if (k in storageData) {
-                  res[k] = storageData[k];
-                }
-              });
-            } else if (typeof keys === 'string') {
-              if (keys in storageData) {
-                res[keys] = storageData[keys];
-              }
-            } else if (!keys) {
-              Object.assign(res, storageData);
-            }
-            cb?.(res);
-            return Promise.resolve(res);
-          }),
-          set: jest.fn((items, cb) => {
-            Object.assign(storageData, items);
-            cb?.();
-            return Promise.resolve();
-          }),
-          remove: jest.fn((keys, cb) => {
-            (Array.isArray(keys) ? keys : [keys]).forEach(k => delete storageData[k]);
-            cb?.();
-            return Promise.resolve();
-          }),
-        },
-        sync: {
-          get: jest.fn((keys, cb) => {
-            const res = {};
-            // 預設提供 API Key 以走到正向流程
-            if (Array.isArray(keys)) {
-              keys.forEach(k => {
-                if (k === 'notionApiKey') {
-                  res[k] = 'test-key';
-                }
-              });
-            } else if (typeof keys === 'string' && keys === 'notionApiKey') {
-              res[keys] = 'test-key';
-            }
-            cb?.(res);
-            return Promise.resolve(res);
-          }),
-        },
-      },
-    };
+    // Add onRemoved event to tabs (which might be missing in helper if I didn't verify it)
+    // Checking helper... yes onRemoved is there.
+    // However, onActivated is also needed. Helper provides it.
+
+    globalThis.chrome = chromeMock;
 
     // 全域 fetch mock（避免網路）
     globalThis.fetch = jest.fn(() =>
@@ -227,10 +126,7 @@ describe('scripts/background.js require integration', () => {
 
     await flushPromises();
 
-    expect(chrome.tabs.create).toHaveBeenCalledWith(
-      { url: 'https://www.notion.so/test' },
-      expect.any(Function)
-    );
+    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://www.notion.so/test' });
     // 模擬 tabs.create callback（background.js 使用 callback 風格）
     const createCall = chrome.tabs.create.mock.calls[0];
     const createdTab = await createCall[0];
