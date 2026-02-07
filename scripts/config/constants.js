@@ -349,6 +349,9 @@ export const PERFORMANCE_OPTIMIZER = {
   DEFAULT_BATCH_SIZE: 100, // 預設批處理大小
   MAX_BATCH_SIZE: 500, // 最大批處理大小
   MIN_BATCH_SIZE: 10, // 最小批處理大小
+
+  // Next.js 數據處理設定
+  MAX_NEXT_DATA_SIZE: 5 * 1024 * 1024, // 5MB - JSON.parse 阻塞主線程的安全上限
 };
 
 /**

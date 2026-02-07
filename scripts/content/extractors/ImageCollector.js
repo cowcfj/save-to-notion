@@ -9,7 +9,12 @@
  */
 
 // ImageUtils Named Imports
-import { extractImageSrc, isValidImageUrl, cleanImageUrl } from '../../utils/imageUtils.js';
+import {
+  extractImageSrc,
+  isValidImageUrl,
+  isValidCleanedImageUrl,
+  cleanImageUrl,
+} from '../../utils/imageUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import Logger from '../../utils/Logger.js';
 
@@ -24,7 +29,7 @@ import {
   ARTICLE_SELECTORS,
   EXCLUSION_SELECTORS,
 } from '../../config/selectors.js';
-import { IMAGE_VALIDATION_CONSTANTS } from '../../config/constants.js';
+import { IMAGE_VALIDATION_CONSTANTS, PERFORMANCE_OPTIMIZER } from '../../config/constants.js';
 
 const ImageCollector = {
   /**
@@ -92,22 +97,22 @@ const ImageCollector = {
     try {
       // 1. 清理 URL
       const absoluteUrl = new URL(src, document.baseURI).href;
-      const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
+      const cleanedImageUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
 
       // 2. 檢查是否與特色圖片重複
-      if (featuredImage && cleanedUrl === featuredImage) {
+      if (featuredImage && cleanedImageUrl === featuredImage) {
         Logger.log('跳過重複的特色圖片', {
           action: 'processImageForCollection',
-          url: sanitizeUrlForLogging(cleanedUrl),
+          url: sanitizeUrlForLogging(cleanedImageUrl),
         });
         return null;
       }
 
-      // 3. 驗證圖片 URL
-      if (!isValidImageUrl?.(cleanedUrl)) {
+      // 3. 驗證圖片 URL (使用已清理的 URL，避免重複標準化)
+      if (!isValidCleanedImageUrl?.(cleanedImageUrl)) {
         Logger.log('無效或不相容的圖片 URL', {
           action: 'processImageForCollection',
-          url: sanitizeUrlForLogging(cleanedUrl),
+          url: sanitizeUrlForLogging(cleanedImageUrl),
         });
         return null;
       }
@@ -137,7 +142,7 @@ const ImageCollector = {
         type: 'image',
         image: {
           type: 'external',
-          external: { url: cleanedUrl },
+          external: { url: cleanedImageUrl },
         },
         // 添加元數據供後續處理使用
         _meta: {
@@ -314,9 +319,20 @@ const ImageCollector = {
       return;
     }
 
+    // 防禦性檢查：避免解析過大的 JSON 導致主線程阻塞
+    const textContent = nextDataScript.textContent;
+    if (textContent.length > PERFORMANCE_OPTIMIZER.MAX_NEXT_DATA_SIZE) {
+      Logger.warn('Next.js Data 超過大小限制，跳過解析', {
+        action: 'collectAdditionalImages',
+        size: textContent.length,
+        limit: PERFORMANCE_OPTIMIZER.MAX_NEXT_DATA_SIZE,
+      });
+      return;
+    }
+
     let nextData;
     try {
-      nextData = JSON.parse(nextDataScript.textContent);
+      nextData = JSON.parse(textContent);
     } catch (error) {
       Logger.warn('解析 Next.js Data JSON 失敗', { error: error.message });
       return;
@@ -364,6 +380,11 @@ const ImageCollector = {
     for (const imgData of candidates) {
       if (imgData.cdnUrl && typeof imgData.cdnUrl === 'string') {
         const url = imgData.cdnUrl;
+
+        // 早期驗證：過濾無效 URL，避免後續建立不必要的 DOM 元素
+        if (!isValidImageUrl?.(url)) {
+          continue;
+        }
 
         // 去重檢查
         if (!seenUrls.has(url)) {

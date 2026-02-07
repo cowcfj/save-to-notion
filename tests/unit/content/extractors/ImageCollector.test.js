@@ -35,11 +35,13 @@ jest.mock('../../../../scripts/utils/imageUtils.js', () => ({
   extractImageSrc: jest.fn(),
   cleanImageUrl: jest.fn(url => url),
   isValidImageUrl: jest.fn(() => true),
+  isValidCleanedImageUrl: jest.fn(() => true),
   default: {
     // Keep default for potential legacy access elsewhere (if any)
     extractImageSrc: jest.fn(),
     cleanImageUrl: jest.fn(url => url),
     isValidImageUrl: jest.fn(() => true),
+    isValidCleanedImageUrl: jest.fn(() => true),
   },
 }));
 
@@ -47,6 +49,7 @@ import {
   extractImageSrc,
   cleanImageUrl,
   isValidImageUrl,
+  isValidCleanedImageUrl,
 } from '../../../../scripts/utils/imageUtils.js';
 
 // Global mock not needed for ImageCollector but might be used by other parts if they fallback
@@ -54,6 +57,7 @@ globalThis.ImageUtils = {
   extractImageSrc,
   cleanImageUrl,
   isValidImageUrl,
+  isValidCleanedImageUrl,
 };
 
 globalThis.ErrorHandler = {
@@ -73,6 +77,7 @@ describe('ImageCollector', () => {
     extractImageSrc.mockReturnValue(null);
     cleanImageUrl.mockImplementation(url => url);
     isValidImageUrl.mockReturnValue(true);
+    isValidCleanedImageUrl.mockReturnValue(true);
 
     // Default cachedQuery mock
     cachedQuery.mockImplementation((selector, context, options) => {

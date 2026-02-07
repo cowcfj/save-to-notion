@@ -376,7 +376,7 @@ class DomConverter {
   }
 
   static createImageBlock(node) {
-    const { extractImageSrc, cleanImageUrl, isValidImageUrl } = getImageUtils();
+    const { extractImageSrc, cleanImageUrl, isValidCleanedImageUrl } = getImageUtils();
     const src = extractImageSrc?.(node);
     if (!src) {
       return null;
@@ -390,7 +390,8 @@ class DomConverter {
       // ignore invalid url
     }
 
-    if (isValidImageUrl && !isValidImageUrl(finalUrl)) {
+    // 使用已清理的 URL 進行驗證，避免重複標準化
+    if (isValidCleanedImageUrl && !isValidCleanedImageUrl(finalUrl)) {
       Logger.warn('[Content] Dropping invalid image to ensure page save', {
         action: 'createImageBlock',
         url: sanitizeUrlForLogging(finalUrl),

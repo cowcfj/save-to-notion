@@ -37,26 +37,18 @@ describe('ImageUtils and DomConverter Missing Coverage Tests', () => {
     });
 
     describe('DomConverter Coverage', () => {
-        test('should drop invalid image and warn when isValidImageUrl returns false', () => {
-             // We need to spy on isValidImageUrl.
-             // Since DomConverter uses the imported ImageUtils (or global depending on implementation)
-             // The implementation uses getImageUtils() which checks globalThis first.
-
-             // Mock implementation just for this test
-             const isValidSpy = jest.fn().mockReturnValue(false);
-
-             // DomConverter uses: const { isValidImageUrl } = getImageUtils();
-             // getImageUtils returns globalThis.ImageUtils if present.
-
-             globalThis.ImageUtils = {
-                 ...ImageUtils,
-                 isValidImageUrl: isValidSpy,
-                 extractImageSrc: jest.fn().mockReturnValue('https://example.com/invalid.jpg'),
-                 cleanImageUrl: jest.fn(url => url),
-             };
-
+        test('should drop invalid image and warn when isValidCleanedImageUrl returns false', () => {
             const src = 'https://example.com/invalid.jpg';
-            const html = `<img src="${src}" />`;
+            const html = `<img src="${src}" alt="test" />`;
+
+            // Mock isValidCleanedImageUrl to return false
+            globalThis.ImageUtils = {
+                ...ImageUtils,
+                extractImageSrc: jest.fn().mockReturnValue(src),
+                cleanImageUrl: jest.fn(url => url),
+                isValidCleanedImageUrl: jest.fn().mockReturnValue(false),
+            };
+
             const blocks = domConverter.convert(html);
 
             expect(blocks).toHaveLength(0);
@@ -104,14 +96,13 @@ describe('ImageUtils and DomConverter Missing Coverage Tests', () => {
              delete globalThis.SrcsetParser;
         });
 
-         test('_resolveUrl handles URL construction error', () => {
-             // cleanImageUrl calls _resolveUrl calls new URL()
-             // We mock URL constructor to throw
-
+         test('_resolveUrl handles URL construction error (catastrophic failure)', () => {
+             // Verification for catastrophic failure where global URL constructor is broken.
+             // This tests the absolute fallback path in _resolveUrl.
              const originalURL = globalThis.URL;
              globalThis.URL = jest.fn(() => { throw new Error('URL Error'); });
 
-             const result = ImageUtils.cleanImageUrl('some-url');
+             const result = ImageUtils.cleanImageUrl('https://example.com');
 
              expect(result).toBeNull();
              expect(Logger.error).toHaveBeenCalledWith(
@@ -163,13 +154,12 @@ describe('ImageUtils and DomConverter Missing Coverage Tests', () => {
             globalThis.URL = originalURL;
         });
 
-        test('_normalizeUrlInternal handles decodeURI error', () => {
-             // Passing a malformed URI component that fails decodeURI
-             const malformedUrl = 'https://example.com/%';
-             ImageUtils.cleanImageUrl(malformedUrl);
+         test('_normalizeUrlInternal handles decodeURI error', () => {
+              // Passing a malformed URI component that fails decodeURI
+              const malformedUrl = 'https://example.com/%';
 
-             // Implicitly verifies no crash if decodeURI throws inside _normalizeUrlInternal
-             expect(() => ImageUtils.cleanImageUrl(malformedUrl)).not.toThrow();
-        });
+              // Implicitly verifies no crash if decodeURI throws inside _normalizeUrlInternal
+              expect(() => ImageUtils.cleanImageUrl(malformedUrl)).not.toThrow();
+         });
     });
 });

@@ -157,6 +157,60 @@ function cleanImageUrl(url, depth = 0) {
 }
 
 /**
+ * 檢查已清理的圖片 URL 是否有效 (Notion 兼容性驗證)
+ *
+ * 此函數假設輸入 URL 已經過 cleanImageUrl 處理（標準化、協議升級等）。
+ * 用於已持有 cleanedUrl 的場景，避免重複執行清理邏輯。
+ *
+ * @param {string} cleanedUrl - 已清理的圖片 URL
+ * @returns {boolean} 是否為有效的圖片 URL
+ */
+function isValidCleanedImageUrl(cleanedUrl) {
+  if (!cleanedUrl || typeof cleanedUrl !== 'string') {
+    return false;
+  }
+
+  // 統一驗證：確保 patterns.js 常量已正確載入
+  const patternsLoaded =
+    IMAGE_EXTENSIONS && EXCLUDE_PATTERNS && IMAGE_PATH_PATTERNS && PLACEHOLDER_KEYWORDS;
+  if (!patternsLoaded) {
+    Logger.warn?.('Pattern 常量未載入，回退到基本驗證', { action: 'isValidCleanedImageUrl' });
+    return /^https:\/\//i.test(cleanedUrl); // Notion 要求 HTTPS
+  }
+
+  // 1. 攔截非 HTTP/HTTPS (已清理的 URL 不應包含 data: 或 blob:)
+  if (cleanedUrl.startsWith('data:') || cleanedUrl.startsWith('blob:')) {
+    return false;
+  }
+
+  // 2. 排除明顯的佔位符
+  const lowerUrl = cleanedUrl.toLowerCase();
+  if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {
+    return false;
+  }
+
+  // 3. 檢查基本 URL 結構
+  const isAbsolute = /^https:\/\//i.test(cleanedUrl);
+  const isRelative = cleanedUrl.startsWith('/');
+
+  if (!isAbsolute && !isRelative) {
+    return false;
+  }
+
+  // 4. 檢查 URL 長度 (Notion 限制 2000)
+  if (cleanedUrl.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
+    return false;
+  }
+
+  // 5. 檢查非法字符 (URL 規範)
+  if (/[<>[\]^|{}]/.test(cleanedUrl)) {
+    return false;
+  }
+
+  return _checkUrlPatterns(cleanedUrl, isAbsolute);
+}
+
+/**
  * 檢查 URL 是否為有效的圖片格式 (Notion 兼容性驗證)
  *
  * 注意：此函數會調用 cleanImageUrl 來進行標準化（如 http→https 升級與編碼修復）。
@@ -197,32 +251,13 @@ function isValidImageUrl(url) {
   }
 
   // 2. 清理與標準化
-  // 注意：調用方通常應該先調用 cleanImageUrl，但這裡為了防禦性編程再次檢查
-  // cleanImageUrl 內部會調用 normalizeImageUrl
   const cleanedUrl = cleanImageUrl(url);
   if (!cleanedUrl) {
     return false;
   }
 
-  // 3. 檢查基本 URL 結構
-  const isAbsolute = /^https:\/\//i.test(cleanedUrl);
-  const isRelative = cleanedUrl.startsWith('/');
-
-  if (!isAbsolute && !isRelative) {
-    return false;
-  }
-
-  // 4. 檢查 URL 長度 (Notion 限制 2000)
-  if (cleanedUrl.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
-    return false;
-  }
-
-  // 5. 檢查非法字符 (URL 規範)
-  if (/[<>[\]^|{}]/.test(cleanedUrl)) {
-    return false;
-  }
-
-  return _checkUrlPatterns(cleanedUrl, isAbsolute);
+  // 3. 使用清理後的 URL 進行驗證
+  return isValidCleanedImageUrl(cleanedUrl);
 }
 
 /**
@@ -594,6 +629,7 @@ function generateImageCacheKey(imgNode) {
 const ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,
+  isValidCleanedImageUrl,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,
@@ -614,6 +650,7 @@ if (globalThis.window !== undefined) {
 export {
   cleanImageUrl,
   isValidImageUrl,
+  isValidCleanedImageUrl,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,
