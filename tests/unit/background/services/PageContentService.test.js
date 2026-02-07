@@ -72,7 +72,8 @@ describe('PageContentService', () => {
       expect(mockInjectionService.injectWithResponse).toHaveBeenCalledWith(
         123,
         expect.any(Function),
-        CONTENT_EXTRACTION_SCRIPTS
+        CONTENT_EXTRACTION_SCRIPTS,
+        ['Untitled'] // CONTENT_QUALITY.DEFAULT_PAGE_TITLE resolve to 'Untitled'
       );
       expect(result.title).toBe('Test Page');
       expect(result.blocks).toHaveLength(1);
@@ -132,7 +133,6 @@ describe('PageContentService', () => {
 
       await service.extractContent(123);
 
-      // 驗證日誌包含成功訊息
       // 驗證日誌包含成功訊息
       // 在 PageContentService.js 中，成功日誌使用 this.logger.info 輸出
 

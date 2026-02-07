@@ -14,6 +14,7 @@
 
 /* global chrome */
 
+import { CONTENT_QUALITY } from '../config/constants.js';
 import Logger from '../utils/Logger.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
@@ -21,7 +22,7 @@ import { ImageCollector } from './extractors/ImageCollector.js';
 // 合併 Highlighter bundle：導入以執行其自動初始化邏輯 (setupHighlighter)
 import '../highlighter/index.js';
 
-const DEFAULT_TITLE = 'Untitled Page';
+const { DEFAULT_PAGE_TITLE } = CONTENT_QUALITY;
 
 // ============================================================
 // Preloader 快取接管
@@ -113,7 +114,7 @@ async function extractPageContent() {
     if (!extractResult?.content) {
       Logger.warn('內容提取失敗或返回空內容', { action: 'extractPageContent' });
       return {
-        title: document.title || DEFAULT_TITLE,
+        title: document.title || DEFAULT_PAGE_TITLE,
         blocks: [
           {
             object: 'block',
@@ -170,7 +171,7 @@ async function extractPageContent() {
 
     // 4. 返回結果
     return {
-      title: metadata.title || document.title || DEFAULT_TITLE,
+      title: metadata.title || document.title || DEFAULT_PAGE_TITLE,
       blocks,
       rawHtml: content,
       metadata, // 包含 author, description, favicon
@@ -188,7 +189,7 @@ async function extractPageContent() {
     Logger.error('內容提取發生異常', { action: 'extractPageContent', error: error.message });
 
     return {
-      title: document.title || DEFAULT_TITLE,
+      title: document.title || DEFAULT_PAGE_TITLE,
       blocks: [
         {
           object: 'block',

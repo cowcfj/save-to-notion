@@ -71,6 +71,7 @@ export const CONTENT_QUALITY = {
   MIN_CONTENT_LENGTH: 250, // 內容長度最小值
   MAX_LINK_DENSITY: 0.3, // 最大鏈接密度（30%）
   LIST_EXCEPTION_THRESHOLD: 8, // 列表項數量閾值（允許例外）
+  DEFAULT_PAGE_TITLE: 'Untitled', // 預設頁面標題
 };
 
 // TECHNICAL_TERMS moved to patterns.js

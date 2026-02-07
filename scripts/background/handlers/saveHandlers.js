@@ -18,7 +18,7 @@ import {
 } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { HANDLER_CONSTANTS } from '../../config/constants.js';
+import { HANDLER_CONSTANTS, CONTENT_QUALITY } from '../../config/constants.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 
@@ -64,7 +64,7 @@ async function ensureNotionApiKey(storageService) {
  */
 export function processContentResult(rawResult, highlights) {
   // 正規化所有欄位，確保不修改原始輸入
-  const title = rawResult?.title || 'Untitled';
+  const title = rawResult?.title || CONTENT_QUALITY.DEFAULT_PAGE_TITLE;
   const siteIcon = rawResult?.siteIcon ?? null;
   const coverImage = rawResult?.coverImage ?? null; // 封面圖片 URL
   const blocks = Array.isArray(rawResult?.blocks) ? [...rawResult.blocks] : [];

@@ -15,7 +15,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { LOG_ICONS } from '../../config/constants.js';
+import { LOG_ICONS, CONTENT_QUALITY } from '../../config/constants.js';
 
 // 此服務通過 InjectionService 執行腳本注入，不直接調用 chrome API
 
@@ -62,7 +62,7 @@ class PageContentService {
       // 注入 bundle 並執行提取
       const result = await this.injectionService.injectWithResponse(
         tabId,
-        async () => {
+        async defaultPageTitle => {
           // 此函數在頁面上下文中執行
           const PageLogger = globalThis.Logger || console;
 
@@ -85,7 +85,7 @@ class PageContentService {
 
               // 適配返回格式：添加 siteIcon 和 coverImage
               return {
-                title: extractResult.title || document.title || 'Untitled',
+                title: extractResult.title || document.title || defaultPageTitle,
                 blocks: [...contentBlocks, ...imageBlocks],
                 siteIcon:
                   extractResult.metadata?.siteIcon || extractResult.metadata?.favicon || null,
@@ -96,7 +96,7 @@ class PageContentService {
             // Fallback: 基本提取
             PageLogger.warn?.('[PageContentService] extractPageContent 不可用');
             return {
-              title: document.title || 'Untitled',
+              title: document.title || defaultPageTitle,
               blocks: [
                 {
                   object: 'block',
@@ -116,7 +116,7 @@ class PageContentService {
           } catch (error) {
             PageLogger.error?.('[PageContentService] 提取失敗', { error });
             return {
-              title: document.title || 'Untitled',
+              title: document.title || defaultPageTitle,
               blocks: [
                 {
                   object: 'block',
@@ -135,7 +135,8 @@ class PageContentService {
             };
           }
         },
-        CONTENT_EXTRACTION_SCRIPTS
+        CONTENT_EXTRACTION_SCRIPTS,
+        [CONTENT_QUALITY.DEFAULT_PAGE_TITLE]
       );
 
       // 處理注入結果
@@ -154,7 +155,7 @@ class PageContentService {
         resultKeys: Object.keys(result || {}),
       });
       return {
-        title: 'Untitled',
+        title: CONTENT_QUALITY.DEFAULT_PAGE_TITLE,
         blocks: [
           {
             object: 'block',
