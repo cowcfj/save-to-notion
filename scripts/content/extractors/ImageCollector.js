@@ -109,20 +109,12 @@ const ImageCollector = {
    * @private
    */
   _handleFeaturedImageError(error, selector) {
-    if (ErrorHandler === undefined) {
-      Logger.warn('檢查選擇器出錯', {
-        action: 'collectFeaturedImage',
-        selector,
-        error: error.message,
-      });
-    } else {
-      ErrorHandler.logError({
-        type: 'dom_error',
-        context: `featured image selector: ${selector}`,
-        originalError: error,
-        timestamp: Date.now(),
-      });
-    }
+    ErrorHandler.logError({
+      type: 'dom_error',
+      context: `featured image selector: ${selector}`,
+      originalError: error,
+      timestamp: Date.now(),
+    });
   },
 
   /**

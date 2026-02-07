@@ -112,6 +112,7 @@ class PageContentService {
                 },
               ],
               siteIcon: null,
+              coverImage: null,
             };
           } catch (error) {
             PageLogger.error?.('[PageContentService] 提取失敗', { error });
@@ -132,6 +133,7 @@ class PageContentService {
                 },
               ],
               siteIcon: null,
+              coverImage: null,
             };
           }
         },
@@ -166,6 +168,7 @@ class PageContentService {
           },
         ],
         siteIcon: null,
+        coverImage: null,
       };
     } catch (error) {
       this.logger.error?.(`${LOG_ICONS.ERROR} [PageContentService] 注入失敗`, { error });

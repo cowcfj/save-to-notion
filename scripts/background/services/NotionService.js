@@ -465,6 +465,18 @@ class NotionService {
   }
 
   /**
+   * 清理區塊：移除內部使用的 _meta 欄位
+   *
+   * @param {object} block - 原始區塊對象
+   * @returns {object} 清理後的區塊對象
+   * @private
+   */
+  _cleanBlock(block) {
+    const { _meta, ...cleanBlock } = block;
+    return cleanBlock;
+  }
+
+  /**
    * 分批添加區塊到頁面
    *
    * @param {string} pageId - Notion 頁面 ID
@@ -492,10 +504,7 @@ class NotionService {
       for (let i = startIndex; i < blocks.length; i += BLOCKS_PER_BATCH) {
         const batch = blocks.slice(i, i + BLOCKS_PER_BATCH);
         // 清理區塊：移除內部使用的 _meta 欄位
-        const sanitizedBatch = batch.map(block => {
-          const { _meta, ...cleanBlock } = block;
-          return cleanBlock;
-        });
+        const sanitizedBatch = batch.map(block => this._cleanBlock(block));
         const batchNumber = Math.floor((i - startIndex) / BLOCKS_PER_BATCH) + 1;
         const totalBatches = Math.ceil(totalBlocks / BLOCKS_PER_BATCH);
 
@@ -732,10 +741,9 @@ class NotionService {
 
     // 清理區塊：移除內部使用的 _meta 欄位，確保只有 Notion API 認可的欄位被發送
     // 這是防禦性編程，防止內部元數據洩漏到外部 API
-    const sanitizedBlocks = blocks.slice(0, this.config.BLOCKS_PER_BATCH).map(block => {
-      const { _meta, ...cleanBlock } = block;
-      return cleanBlock;
-    });
+    const sanitizedBlocks = blocks
+      .slice(0, this.config.BLOCKS_PER_BATCH)
+      .map(block => this._cleanBlock(block));
 
     // 構建頁面數據
     const pageData = {
@@ -759,8 +767,9 @@ class NotionService {
       };
     }
 
-    // 添加封面圖片（如果有）
-    if (coverImage) {
+    // 添加封面圖片（如果有且有效）
+    // 確保協議正確以避免 API 錯誤
+    if (coverImage && (coverImage.startsWith('http://') || coverImage.startsWith('https://'))) {
       pageData.cover = {
         type: 'external',
         external: { url: coverImage },
