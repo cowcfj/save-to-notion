@@ -233,6 +233,9 @@ function isValidImageUrl(url) {
   }
 
   // 1. 攔截非 HTTP/HTTPS (Notion 要求 HTTPS，但我們會嘗試自動升級)
+  // [Optimization] 下列檢查（data:/blob:、非 http 開頭、佔位符）與 isValidCleanedImageUrl 內的邏輯重疊。
+  // 這是有意為之的 Early Exit 優化，旨在避免對明顯無效的 URL 執行昂貴的 cleanImageUrl 操作。
+
   // 如果是 data: 或 blob: 則直接拒絕
   if (url.startsWith('data:') || url.startsWith('blob:')) {
     return false;

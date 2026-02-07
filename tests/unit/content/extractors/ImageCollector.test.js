@@ -323,7 +323,12 @@ describe('ImageCollector', () => {
         contentElement.append(img);
       }
 
-      cachedQuery.mockReturnValue(contentElement.querySelectorAll('img'));
+      cachedQuery.mockImplementation((selector, context, options) => {
+        if (options?.single) {
+          return null;
+        }
+        return contentElement.querySelectorAll('img');
+      });
       extractImageSrc.mockImplementation(img => img.src);
 
       // Mock processImageForCollection to always return success

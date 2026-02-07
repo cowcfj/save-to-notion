@@ -504,6 +504,8 @@ class NotionService {
       for (let i = startIndex; i < blocks.length; i += BLOCKS_PER_BATCH) {
         const batch = blocks.slice(i, i + BLOCKS_PER_BATCH);
         // 清理區塊：移除內部使用的 _meta 欄位
+        // Note: _cleanBlock 是冪等的 (idempotent)。即使區塊在 buildPageData 中已被清理過，
+        // 這裡再次執行也是安全的。這是為了確保所有進入 API 的區塊都是乾淨的防禦性措施。
         const sanitizedBatch = batch.map(block => this._cleanBlock(block));
         const batchNumber = Math.floor((i - startIndex) / BLOCKS_PER_BATCH) + 1;
         const totalBatches = Math.ceil(totalBlocks / BLOCKS_PER_BATCH);
@@ -740,6 +742,8 @@ class NotionService {
         : { type: 'data_source_id', data_source_id: dataSourceId };
 
     // 清理區塊：移除內部使用的 _meta 欄位，確保只有 Notion API 認可的欄位被發送
+    // Note: 雖然 appendBlocksInBatches 也會執行清理，但此處清理是為了滿足 createPage
+    // 直接使用這些區塊時的 API 格式要求。雙重清理是安全的（冪等操作）。
     // 這是防禦性編程，防止內部元數據洩漏到外部 API
     const sanitizedBlocks = blocks
       .slice(0, this.config.BLOCKS_PER_BATCH)
@@ -962,6 +966,8 @@ class NotionService {
 
       if (foundHighlightSection) {
         // 如果已經在標記區域中，遇到任何標題（包括重複的目標標題）都停止收集
+        // Note: 當前邏輯假設標記區域內不包含子標題 (heading_2, heading_3 等)。
+        // 如果未來允許標記區域內包含子結構，需調整此終止條件。
         if (block.type?.startsWith('heading_')) {
           break;
         }

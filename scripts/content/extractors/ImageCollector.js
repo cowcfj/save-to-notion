@@ -514,7 +514,7 @@ const ImageCollector = {
     }
 
     for (const imgData of candidates) {
-      if (!imgData || !imgData.cdnUrl || typeof imgData.cdnUrl !== 'string') {
+      if (!imgData?.cdnUrl || typeof imgData.cdnUrl !== 'string') {
         Logger.debug('Next.js Data 圖片候選者缺少或無效 cdnUrl，已跳過', {
           imgDataKeys: imgData ? Object.keys(imgData) : 'null/undefined',
         });
