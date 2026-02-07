@@ -704,7 +704,7 @@ class NotionService {
    * @param {Array} options.blocks - 內容區塊 (最多取前 100 個)
    * @param {string} [options.siteIcon] - 網站 Icon URL
    * @param {boolean} [options.excludeImages] - 是否排除圖片
-   * @returns {{pageData: object, validBlocks: Array, skippedCount: number}}
+   * @returns {{pageData: object}}
    */
   buildPageData(options) {
     const {
@@ -756,7 +756,6 @@ class NotionService {
    * @param {string} pageId - Notion 頁面 ID
    * @param {Array} newBlocks - 新的內容區塊
    * @param {object} [options] - 選項
-   * @param {boolean} [options.excludeImages] - 是否排除圖片
    * @param {boolean} [options.updateTitle] - 是否同時更新標題
    * @param {string} [options.title] - 新標題（當 updateTitle 為 true 時）
    * @param {string} [options.apiKey] - 臨時 API Key

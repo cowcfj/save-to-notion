@@ -140,7 +140,6 @@ describe('actionHandlers 覆蓋率補強', () => {
       createPage: jest.fn(),
       buildPageData: jest.fn(() => ({
         pageData: {},
-        validBlocks: [],
       })),
     };
 

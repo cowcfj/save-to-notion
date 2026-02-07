@@ -160,7 +160,11 @@ export function setupChromeMock(customStorageData = {}, customSyncStorageData = 
       setBadgeBackgroundColor: jest.fn(),
     },
     scripting: {
-      executeScript: jest.fn((opts, mockCb) => mockCb?.([{ result: undefined }])),
+      executeScript: jest.fn((opts, mockCb) => {
+        const res = [{ result: undefined }];
+        mockCb?.(res);
+        return Promise.resolve(res);
+      }),
     },
     storage: {
       local: {

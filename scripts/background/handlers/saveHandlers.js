@@ -148,11 +148,11 @@ export function createSaveHandlers(services) {
       siteIcon: contentResult.siteIcon,
     };
 
-    const { pageData, validBlocks } = notionService.buildPageData(buildOptions);
+    const { pageData } = notionService.buildPageData(buildOptions);
 
     const result = await notionService.createPage(pageData, {
       autoBatch: true,
-      allBlocks: validBlocks,
+      allBlocks: contentResult.blocks,
       apiKey,
     });
 

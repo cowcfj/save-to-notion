@@ -482,7 +482,6 @@ describe('NotionService', () => {
       });
 
       expect(result.pageData.children).toHaveLength(100);
-      expect(result.pageData.children).toHaveLength(100);
     });
 
     it('should use default values for missing options', () => {
@@ -662,7 +661,6 @@ describe('NotionService', () => {
     });
 
     it('應該正確處理分頁以獲取所有區塊', async () => {
-      // 第一頁響應（還有更多）
       // 第一頁響應（還有更多）
       globalThis.fetch
         .mockResolvedValueOnce(

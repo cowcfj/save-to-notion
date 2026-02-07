@@ -80,16 +80,11 @@ describe('ContentParts 覆蓋率補強 (整合)', () => {
         expect(result).toBe('https://example.com/img.jpg');
     });
 
-    test('imageUtils: isNotionCompatibleImageUrl', () => {
-        // Access from global if module doesn't export named export directly in this context
-        const { isNotionCompatibleImageUrl } = globalThis.ImageUtils || {};
-
-        if (isNotionCompatibleImageUrl) {
-            expect(isNotionCompatibleImageUrl('https://ab/img.jpg')).toBe(false);
-        } else {
-            // If function is not available, we should probably fail or skip?
-            // But this is just coverage test.
-            console.warn('isNotionCompatibleImageUrl not found on globalThis.ImageUtils');
-        }
+    test('imageUtils: isValidCleanedImageUrl', () => {
+        const { isValidCleanedImageUrl } = require('../../../scripts/utils/imageUtils.js');
+        // Valid case: HTTPS and image extension
+        expect(isValidCleanedImageUrl('https://example.com/image.jpg')).toBe(true);
+        // Invalid case: Data URL
+        expect(isValidCleanedImageUrl('data:image/jpeg;base64,123')).toBe(false);
     });
 });

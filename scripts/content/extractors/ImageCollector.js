@@ -320,7 +320,7 @@ const ImageCollector = {
     }
 
     // 防禦性檢查：避免解析過大的 JSON 導致主線程阻塞
-    const textContent = nextDataScript.textContent;
+    const textContent = nextDataScript.textContent ?? '';
     if (textContent.length > PERFORMANCE_OPTIMIZER.MAX_NEXT_DATA_SIZE) {
       Logger.warn('Next.js Data 超過大小限制，跳過解析', {
         action: 'collectAdditionalImages',
@@ -431,7 +431,12 @@ const ImageCollector = {
     foundImages.forEach(data => {
       let normalizedHref;
       try {
-        normalizedHref = new URL(data.url, document.baseURI).href;
+        const urlObj = new URL(data.url, document.baseURI);
+        // Security check: ensure protocol is http or https to prevent XSS
+        if (!['http:', 'https:'].includes(urlObj.protocol)) {
+          return;
+        }
+        normalizedHref = urlObj.href;
       } catch {
         return; // Skip invalid URLs
       }
