@@ -362,14 +362,6 @@ class NotionService {
   }
 
   /**
-   * 找出標記區域的區塊 ID
-   *
-   * @param {Array} blocks - 區塊列表
-   * @returns {Array<string>} 需要刪除的區塊 ID 列表
-   * @private
-   */
-
-  /**
    * 批量刪除區塊（並發控制版本）
    * 使用 3 並發符合 Notion API 限流 (3 req/s)
    *
@@ -725,8 +717,6 @@ class NotionService {
     } = options;
 
     // 前端已驗證圖片，此處直接使用
-    const validBlocks = blocks;
-    const skippedCount = 0;
 
     // 構建 parent 配置
     const parentConfig =
@@ -745,7 +735,7 @@ class NotionService {
           url: pageUrl || '', // 符合現有測試預期
         },
       },
-      children: validBlocks.slice(0, this.config.BLOCKS_PER_BATCH),
+      children: blocks.slice(0, this.config.BLOCKS_PER_BATCH),
     };
 
     // 添加網站 Icon（如果有）
@@ -756,7 +746,7 @@ class NotionService {
       };
     }
 
-    return { pageData, validBlocks, skippedCount };
+    return { pageData };
   }
 
   /**
@@ -777,8 +767,6 @@ class NotionService {
 
     try {
       // 前端已驗證圖片，此處直接使用
-      const validBlocks = newBlocks;
-      const skippedCount = 0;
 
       // 步驟 1: 更新標題（如果需要）
       if (updateTitle && title) {
@@ -808,13 +796,12 @@ class NotionService {
       }
 
       // 步驟 3: 添加新區塊
-      const appendResult = await this.appendBlocksInBatches(pageId, validBlocks, 0, options);
+      const appendResult = await this.appendBlocksInBatches(pageId, newBlocks, 0, options);
 
       return {
         success: appendResult.success,
         addedCount: appendResult.addedCount,
         deletedCount: deleteResult.deletedCount,
-        skippedImageCount: skippedCount,
         error: appendResult.error,
       };
     } catch (error) {

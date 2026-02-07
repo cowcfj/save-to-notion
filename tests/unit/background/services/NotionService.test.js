@@ -465,8 +465,8 @@ describe('NotionService', () => {
         blocks,
       });
 
-      expect(result.skippedCount).toBe(0);
-      expect(result.validBlocks).toHaveLength(2);
+      // No longer returning skippedCount or validBlocks
+      expect(result.pageData.children).toHaveLength(2);
     });
 
     it('should limit children to BATCH_SIZE', () => {
@@ -482,7 +482,7 @@ describe('NotionService', () => {
       });
 
       expect(result.pageData.children).toHaveLength(100);
-      expect(result.validBlocks).toHaveLength(150);
+      expect(result.pageData.children).toHaveLength(100);
     });
 
     it('should use default values for missing options', () => {
@@ -741,7 +741,9 @@ describe('NotionService', () => {
       const result = await service.updateHighlightsSection(pageId, []); // Empty highlightBlocks
 
       expect(service._deleteBlocksByIds).toHaveBeenCalledWith(['2'], expect.any(Object));
-      expect(service._apiRequest).not.toHaveBeenCalled(); // No append operation
+      // 由於所有依賴的方法 (fetchPageBlocks, deleteBlocksByIds) 都被 mock，
+      // 如果沒有執行 append，fetch 就不應該被調用。
+      expect(globalThis.fetch).not.toHaveBeenCalled();
       expect(result).toEqual({
         success: true,
         deletedCount: 1,
@@ -1129,7 +1131,7 @@ describe('NotionService', () => {
         service._fetchPageBlocks = jest.fn().mockResolvedValue({ success: true, blocks: [] });
         service._deleteBlocksByIds = jest
           .fn()
-          .mockResolvedValue({ failureCount: 1, errors: [{ id: 'b1' }] });
+          .mockResolvedValue({ successCount: 0, failureCount: 1, errors: [{ id: 'b1' }] });
         await service.updateHighlightsSection('id', []);
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('部分標記區塊刪除失敗'),
