@@ -249,6 +249,10 @@ export function sanitizeApiError(apiError, context = 'operation') {
   if (apiError && apiError.code) {
     // 支援 Notion SDK 的標準錯誤碼
     if (apiError.code === 'validation_error') {
+      const msg = (apiError.message || '').toLowerCase();
+      if (msg.includes('image') || msg.includes('media')) {
+        return 'image_validation_error';
+      }
       return 'validation_error';
     }
     // 直接返回 code，交由 ErrorHandler.formatUserMessage 匹配

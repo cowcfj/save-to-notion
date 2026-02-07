@@ -35,13 +35,13 @@ jest.mock('../../../../scripts/utils/imageUtils.js', () => ({
   extractImageSrc: jest.fn(),
   cleanImageUrl: jest.fn(url => url),
   isValidImageUrl: jest.fn(() => true),
-  isNotionCompatibleImageUrl: jest.fn(() => true),
+  isValidCleanedImageUrl: jest.fn(() => true),
   default: {
     // Keep default for potential legacy access elsewhere (if any)
     extractImageSrc: jest.fn(),
     cleanImageUrl: jest.fn(url => url),
     isValidImageUrl: jest.fn(() => true),
-    isNotionCompatibleImageUrl: jest.fn(() => true),
+    isValidCleanedImageUrl: jest.fn(() => true),
   },
 }));
 
@@ -49,7 +49,7 @@ import {
   extractImageSrc,
   cleanImageUrl,
   isValidImageUrl,
-  isNotionCompatibleImageUrl,
+  isValidCleanedImageUrl,
 } from '../../../../scripts/utils/imageUtils.js';
 
 // Global mock not needed for ImageCollector but might be used by other parts if they fallback
@@ -57,7 +57,7 @@ globalThis.ImageUtils = {
   extractImageSrc,
   cleanImageUrl,
   isValidImageUrl,
-  isNotionCompatibleImageUrl,
+  isValidCleanedImageUrl,
 };
 
 globalThis.ErrorHandler = {
@@ -77,7 +77,7 @@ describe('ImageCollector', () => {
     extractImageSrc.mockReturnValue(null);
     cleanImageUrl.mockImplementation(url => url);
     isValidImageUrl.mockReturnValue(true);
-    isNotionCompatibleImageUrl.mockReturnValue(true);
+    isValidCleanedImageUrl.mockReturnValue(true);
 
     // Default cachedQuery mock
     cachedQuery.mockImplementation((selector, context, options) => {
@@ -105,7 +105,7 @@ describe('ImageCollector', () => {
         }
         return null;
       });
-      ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
+      extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
 
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBe('https://example.com/featured.jpg');
@@ -144,7 +144,7 @@ describe('ImageCollector', () => {
     test('should skip duplicate featured image', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/featured.jpg';
-      ImageUtils.extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
+      extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
 
       const result = ImageCollector.processImageForCollection(
         mockImg,
@@ -273,6 +273,92 @@ describe('ImageCollector', () => {
       // Restore mocked methods
       ImageCollector.processImageForCollection = originalProcess;
       seqSpy.mockRestore();
+    });
+
+    test('should collect images from Next.js data (scoped to article)', async () => {
+      // Setup Next.js data reflecting HK01 structure
+      const nextData = {
+        props: {
+          pageProps: {
+            article: {
+              mainImage: {
+                cdnUrl: 'https://example.com/main.jpg',
+                originalWidth: 1000,
+                originalHeight: 800,
+              },
+              thumbnails: [{ cdnUrl: 'https://example.com/thumb.jpg' }],
+              gallery: {
+                images: [
+                  {
+                    cdnUrl: 'https://example.com/gallery1.jpg',
+                    originalWidth: 1200,
+                  },
+                  // Duplicate URL to test deduplication
+                  {
+                    cdnUrl: 'https://example.com/main.jpg',
+                    originalWidth: 1000,
+                  },
+                ],
+              },
+              // Irrelevant data (should be ignored)
+              related: {
+                cdnUrl: 'https://example.com/related.jpg',
+              },
+            },
+            // Other props (should be ignored)
+            navigation: {
+              cdnUrl: 'https://example.com/nav.jpg',
+            },
+          },
+        },
+      };
+
+      const script = document.createElement('script');
+      script.id = '__NEXT_DATA__';
+      script.type = 'application/json';
+      script.textContent = JSON.stringify(nextData);
+      document.body.append(script);
+
+      const contentElement = document.createElement('div');
+
+      // Mock processImageForCollection
+      const originalProcess = ImageCollector.processImageForCollection;
+      ImageCollector.processImageForCollection = jest.fn(img => ({
+        object: 'block',
+        type: 'image',
+        image: { external: { url: img.src } },
+        _meta: { width: img.naturalWidth },
+      }));
+
+      const searchSpy = jest.spyOn(ImageCollector, '_collectFromNextJsData');
+
+      const results = await ImageCollector.collectAdditionalImages(contentElement);
+
+      expect(searchSpy).toHaveBeenCalled();
+
+      // Expected: main.jpg + gallery1.jpg (thumb.jpg excluded, related.jpg ignored, nav.jpg ignored, duplicate main.jpg ignored)
+      // Total = 2
+      expect(results).toHaveLength(2);
+
+      const img1 = results.find(r => r.image.external.url === 'https://example.com/main.jpg');
+      expect(img1).toBeDefined();
+      expect(img1._meta.width).toBe(1000);
+
+      const img2 = results.find(r => r.image.external.url === 'https://example.com/gallery1.jpg');
+      expect(img2).toBeDefined();
+      expect(img2._meta.width).toBe(1200);
+
+      // Verify excluded images are NOT present
+      const thumb = results.find(r => r.image.external.url === 'https://example.com/thumb.jpg');
+      expect(thumb).toBeUndefined();
+
+      const related = results.find(r => r.image.external.url === 'https://example.com/related.jpg');
+      expect(related).toBeUndefined();
+
+      // Cleanup
+      script.remove();
+      ImageCollector.processImageForCollection = originalProcess;
+      searchSpy.mockRestore();
     });
   });
 });

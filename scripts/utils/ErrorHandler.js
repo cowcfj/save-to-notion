@@ -1,5 +1,6 @@
 /* global Logger */
 import { ERROR_MESSAGES } from '../config/messages.js';
+import { ERROR_TYPES } from '../config/constants.js';
 // [REMOVED] escapeHtml as it is no longer needed
 // import { escapeHtml } from './securityUtils.js';
 
@@ -11,23 +12,12 @@ import { ERROR_MESSAGES } from '../config/messages.js';
 /**
  * 錯誤類型枚舉
  */
-const ErrorTypes = {
-  // 原有類型
-  EXTRACTION_FAILED: 'extraction_failed',
-  INVALID_URL: 'invalid_url',
-  NETWORK_ERROR: 'network_error',
-  PARSING_ERROR: 'parsing_error',
-  PERFORMANCE_WARNING: 'performance_warning',
-  DOM_ERROR: 'dom_error',
-  VALIDATION_ERROR: 'validation_error',
-  TIMEOUT_ERROR: 'timeout_error',
-  // 背景服務相關類型
-  STORAGE: 'storage', // 存儲操作錯誤
-  NOTION_API: 'notion_api', // Notion API 錯誤
-  INJECTION: 'injection', // 腳本注入錯誤
-  PERMISSION: 'permission', // 權限不足
-  INTERNAL: 'internal', // 內部錯誤
-};
+/**
+ * 錯誤類型枚舉 (已移至 constants.js)
+ *
+ * @type {import('../config/constants.js').ERROR_TYPES}
+ */
+const ErrorTypes = ERROR_TYPES;
 
 /**
  * 錯誤嚴重程度
@@ -200,27 +190,6 @@ const ErrorHandler = {
     // [兜底保護]
     // 防止直接將技術代碼 (如 'unknown_api_response') 顯示給用戶
     return ERROR_MESSAGES.DEFAULT;
-  },
-
-  /**
-   * 檢查是否為圖片相關的驗證錯誤
-   *
-   * @param {string|Error} error - 錯誤訊息或物件
-   * @returns {boolean} 是否為圖片驗證錯誤
-   */
-  isImageValidationError(error) {
-    if (!error) {
-      return false;
-    }
-    const message = error instanceof Error ? error.message : String(error);
-    const lowerMessage = message.toLowerCase();
-    // 僅當錯誤訊息同時包含 ['validation' 或 'invalid'] 且包含 'image' 時
-    // 才判定為圖片驗證錯誤
-    // 注意：不再將 generic 'validation_error' 視為圖片錯誤，避免誤判
-    return (
-      (lowerMessage.includes('validation') || lowerMessage.includes('invalid')) &&
-      lowerMessage.includes('image')
-    );
   },
 };
 

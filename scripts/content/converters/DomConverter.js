@@ -15,11 +15,14 @@ const getImageUtils = () =>
   (globalThis.global !== undefined && globalThis.ImageUtils) ||
   {};
 
+import Logger from '../../utils/Logger.js';
+
 import {
   BLOCKS_SUPPORTING_CHILDREN,
   UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
   CODE_LANGUAGE_MAP,
 } from '../../config/constants.js';
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 /**
  * Notion API 文本長度限制
@@ -373,7 +376,7 @@ class DomConverter {
   }
 
   static createImageBlock(node) {
-    const { extractImageSrc, cleanImageUrl } = getImageUtils();
+    const { extractImageSrc, cleanImageUrl, isValidCleanedImageUrl } = getImageUtils();
     const src = extractImageSrc?.(node);
     if (!src) {
       return null;
@@ -385,6 +388,15 @@ class DomConverter {
       finalUrl = cleanImageUrl?.(finalUrl) ?? finalUrl;
     } catch {
       // ignore invalid url
+    }
+
+    // 使用已清理的 URL 進行驗證，避免重複標準化
+    if (isValidCleanedImageUrl && !isValidCleanedImageUrl(finalUrl)) {
+      Logger.warn('[Content] Dropping invalid image to ensure page save', {
+        action: 'createImageBlock',
+        url: sanitizeUrlForLogging(finalUrl),
+      });
+      return null;
     }
 
     const alt = node.getAttribute('alt') || '';

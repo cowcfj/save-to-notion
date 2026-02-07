@@ -14,9 +14,7 @@ import { Client } from '@notionhq/client';
 // 導入統一配置
 import { NOTION_CONFIG, ERROR_MESSAGES } from '../../config/index.js';
 // 導入安全工具
-import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUtils.js';
-// 導入圖片區塊過濾函數（整合自 imageUtils）
-import { filterNotionImageBlocks } from '../../utils/imageUtils.js';
+import { sanitizeApiError } from '../../utils/securityUtils.js';
 // 導入統一日誌記錄器
 import Logger from '../../utils/Logger.js';
 
@@ -364,36 +362,6 @@ class NotionService {
   }
 
   /**
-   * 找出標記區域的區塊 ID
-   *
-   * @param {Array} blocks - 區塊列表
-   * @returns {Array<string>} 需要刪除的區塊 ID 列表
-   * @private
-   */
-  static _findHighlightSectionBlocks(blocks) {
-    const blocksToDelete = [];
-    let foundHighlightSection = false;
-
-    for (const block of blocks) {
-      if (
-        block.type === 'heading_3' &&
-        block.heading_3?.rich_text?.[0]?.text?.content === NOTION_CONFIG.HIGHLIGHT_SECTION_HEADER
-      ) {
-        foundHighlightSection = true;
-        blocksToDelete.push(block.id);
-      } else if (foundHighlightSection) {
-        if (block.type.startsWith('heading_')) {
-          break; // 遇到下一個標題，停止收集
-        }
-        // 收集所有非標題類型的區塊（包含 paragraph, quote, callout 等）
-        blocksToDelete.push(block.id);
-      }
-    }
-
-    return blocksToDelete;
-  }
-
-  /**
    * 批量刪除區塊（並發控制版本）
    * 使用 3 並發符合 Notion API 限流 (3 req/s)
    *
@@ -459,95 +427,6 @@ class NotionService {
     }
 
     return { successCount, failureCount: errors.length, errors };
-  }
-
-  /**
-   * 過濾有效的圖片區塊
-   * 委託給 imageUtils.filterNotionImageBlocks 處理，保留日誌輸出
-   *
-   * @param {Array} blocks - 區塊數組
-   * @param {boolean} excludeImages - 是否排除所有圖片（重試模式）
-   * @returns {{validBlocks: Array, skippedCount: number}}
-   */
-  filterValidImageBlocks(blocks, excludeImages = false) {
-    // 防禦性檢查：確保 filterNotionImageBlocks 存在
-    if (typeof filterNotionImageBlocks !== 'function') {
-      Logger.error('[NotionService] filterNotionImageBlocks 不可用', {
-        action: 'filterValidImageBlocks',
-        operation: 'checkDependency',
-        error: 'filterNotionImageBlocks is not available',
-      });
-      return { validBlocks: blocks ?? [], skippedCount: 0 };
-    }
-
-    const { validBlocks, skippedCount, invalidReasons } = filterNotionImageBlocks(
-      blocks,
-      excludeImages
-    );
-
-    // 日誌輸出（保留原有行為）
-    if (excludeImages && skippedCount > 0) {
-      Logger.info('[NotionService] 重試模式排除所有圖片', {
-        action: 'filterValidImageBlocks',
-        excludeImages: true,
-        skippedCount,
-      });
-    }
-
-    if (skippedCount > 0 && !excludeImages) {
-      Logger.info('[NotionService] 過濾圖片區塊', {
-        action: 'filterValidImageBlocks',
-        skippedCount,
-        totalBlocks: blocks.length,
-      });
-    }
-
-    // 詳細日誌（供調試，設定上限避免日誌爆炸）
-    const MAX_DETAILED_LOGS = 5;
-    const loggedCount = Math.min(invalidReasons.length, MAX_DETAILED_LOGS);
-
-    for (let i = 0; i < loggedCount; i++) {
-      const reason = invalidReasons[i];
-      switch (reason.reason) {
-        case 'invalid_structure': {
-          Logger.warn('[NotionService] 跳過無效區塊', {
-            action: 'filterValidImageBlocks',
-            reason: 'invalid_structure',
-            detail: 'missing type or type property',
-          });
-
-          break;
-        }
-        case 'missing_url': {
-          Logger.warn('[NotionService] 跳過無 URL 圖片', {
-            action: 'filterValidImageBlocks',
-            reason: 'missing_url',
-          });
-
-          break;
-        }
-        case 'invalid_url': {
-          Logger.warn('[NotionService] 跳過無效 URL 圖片', {
-            action: 'filterValidImageBlocks',
-            reason: 'invalid_url',
-            url: sanitizeUrlForLogging(reason.url),
-          });
-
-          break;
-        }
-        // No default
-      }
-    }
-
-    // 如有更多問題，輸出摘要
-    if (invalidReasons.length > MAX_DETAILED_LOGS) {
-      Logger.warn('[NotionService] 更多區塊被跳過', {
-        action: 'filterValidImageBlocks',
-        additionalSkipped: invalidReasons.length - MAX_DETAILED_LOGS,
-      });
-    }
-
-    return { validBlocks, skippedCount };
   }
 
   /**
@@ -835,11 +714,9 @@ class NotionService {
       dataSourceType = 'database',
       blocks = [],
       siteIcon = null,
-      excludeImages = false,
     } = options;
 
-    // 過濾圖片區塊
-    const { validBlocks, skippedCount } = this.filterValidImageBlocks(blocks, excludeImages);
+    // 前端已驗證圖片，此處直接使用
 
     // 構建 parent 配置
     const parentConfig =
@@ -858,7 +735,7 @@ class NotionService {
           url: pageUrl || '', // 符合現有測試預期
         },
       },
-      children: validBlocks.slice(0, this.config.BLOCKS_PER_BATCH),
+      children: blocks.slice(0, this.config.BLOCKS_PER_BATCH),
     };
 
     // 添加網站 Icon（如果有）
@@ -869,7 +746,7 @@ class NotionService {
       };
     }
 
-    return { pageData, validBlocks, skippedCount };
+    return { pageData };
   }
 
   /**
@@ -886,11 +763,10 @@ class NotionService {
    * @returns {Promise<{success: boolean, addedCount?: number, deletedCount?: number, error?: string}>}
    */
   async refreshPageContent(pageId, newBlocks, options = {}) {
-    const { excludeImages = false, updateTitle = false, title = '' } = options;
+    const { updateTitle = false, title = '' } = options;
 
     try {
-      // 過濾有效區塊
-      const { validBlocks, skippedCount } = this.filterValidImageBlocks(newBlocks, excludeImages);
+      // 前端已驗證圖片，此處直接使用
 
       // 步驟 1: 更新標題（如果需要）
       if (updateTitle && title) {
@@ -920,13 +796,12 @@ class NotionService {
       }
 
       // 步驟 3: 添加新區塊
-      const appendResult = await this.appendBlocksInBatches(pageId, validBlocks, 0, options);
+      const appendResult = await this.appendBlocksInBatches(pageId, newBlocks, 0, options);
 
       return {
         success: appendResult.success,
         addedCount: appendResult.addedCount,
         deletedCount: deleteResult.deletedCount,
-        skippedImageCount: skippedCount,
         error: appendResult.error,
       };
     } catch (error) {
@@ -1033,6 +908,48 @@ class NotionService {
         details: { phase: 'catch_all' },
       };
     }
+  }
+
+  /**
+   * 找出標記區域的區塊 ID（靜態方法）
+   *
+   * @param {Array} blocks - 區塊列表
+   * @param {string} [headerText] - 標記區域標題
+   * @returns {Array<string>} 需要刪除的區塊 ID 列表
+   * @static
+   * @private
+   */
+  static _findHighlightSectionBlocks(blocks, headerText = NOTION_CONFIG.HIGHLIGHT_SECTION_HEADER) {
+    const blocksToDelete = [];
+    let foundHighlightSection = false;
+
+    if (!blocks || !Array.isArray(blocks)) {
+      return [];
+    }
+
+    for (const block of blocks) {
+      const isHighlightHeader =
+        block.type === 'heading_3' && block.heading_3?.rich_text?.[0]?.text?.content === headerText;
+
+      if (foundHighlightSection) {
+        // 如果已經在標記區域中，遇到任何標題（包括重複的目標標題）都停止收集
+        if (block.type?.startsWith('heading_')) {
+          break;
+        }
+        // 收集區域內的內容區塊
+        if (block.id) {
+          blocksToDelete.push(block.id);
+        }
+      } else if (isHighlightHeader) {
+        // 找到標記區域的開始
+        foundHighlightSection = true;
+        if (block.id) {
+          blocksToDelete.push(block.id);
+        }
+      }
+    }
+
+    return blocksToDelete;
   }
 }
 

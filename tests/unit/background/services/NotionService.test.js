@@ -408,137 +408,6 @@ describe('NotionService', () => {
     });
   });
 
-  describe('filterValidImageBlocks', () => {
-    it('should return empty array for null or undefined input', () => {
-      const result1 = service.filterValidImageBlocks(null);
-      const result2 = service.filterValidImageBlocks();
-
-      expect(result1.validBlocks).toEqual([]);
-      expect(result1.skippedCount).toBe(0);
-      expect(result2.validBlocks).toEqual([]);
-    });
-
-    it('should return empty array for non-array input', () => {
-      const result = service.filterValidImageBlocks('not an array');
-      expect(result.validBlocks).toEqual([]);
-    });
-
-    it('should pass through non-image blocks', () => {
-      const blocks = [
-        { type: 'paragraph', paragraph: { rich_text: [] } },
-        { type: 'heading_1', heading_1: { rich_text: [] } },
-      ];
-
-      const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks).toEqual(blocks);
-      expect(result.skippedCount).toBe(0);
-    });
-
-    it('should exclude all images when excludeImages is true', () => {
-      const blocks = [
-        { type: 'paragraph', paragraph: { rich_text: [] } },
-        { type: 'image', image: { external: { url: 'https://example.com/img.jpg' } } },
-        { type: 'heading_1', heading_1: { rich_text: [] } },
-      ];
-
-      const result = service.filterValidImageBlocks(blocks, true);
-      expect(result.validBlocks).toHaveLength(2);
-      expect(result.skippedCount).toBe(1);
-      expect(result.validBlocks.every(block => block.type !== 'image')).toBe(true);
-    });
-
-    it('should filter out images without URL', () => {
-      const blocks = [
-        { type: 'image', image: { external: {} } },
-        { type: 'image', image: {} },
-      ];
-
-      const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks).toEqual([]);
-      expect(result.skippedCount).toBe(2);
-    });
-
-    it('should filter out images with too long URLs', () => {
-      const longUrl = `https://example.com/${'a'.repeat(1600)}`;
-      const blocks = [{ type: 'image', image: { external: { url: longUrl } } }];
-
-      const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks).toEqual([]);
-      expect(result.skippedCount).toBe(1);
-    });
-
-    it('should filter out images with problematic characters', () => {
-      const blocks = [
-        { type: 'image', image: { external: { url: 'https://example.com/img<script>.jpg' } } },
-        { type: 'image', image: { external: { url: 'https://example.com/img{}.jpg' } } },
-        { type: 'image', image: { external: { url: 'https://example.com/img|test.jpg' } } },
-      ];
-
-      const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks).toEqual([]);
-      expect(result.skippedCount).toBe(3);
-    });
-
-    it('should filter out images with invalid protocol', () => {
-      const blocks = [
-        { type: 'image', image: { external: { url: 'sftp://example.com/img.jpg' } } },
-        { type: 'image', image: { external: { url: 'data:image/png;base64,abc' } } },
-      ];
-
-      const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks).toEqual([]);
-      expect(result.skippedCount).toBe(2);
-    });
-
-    it('should filter out images with invalid hostname', () => {
-      const blocks = [{ type: 'image', image: { external: { url: 'https://ab/img.jpg' } } }];
-
-      const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks).toEqual([]);
-      expect(result.skippedCount).toBe(1);
-    });
-
-    it('should filter out images with invalid URL format', () => {
-      const blocks = [{ type: 'image', image: { external: { url: 'not-a-valid-url' } } }];
-
-      const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks).toEqual([]);
-      expect(result.skippedCount).toBe(1);
-    });
-
-    it('should keep valid image blocks', () => {
-      const validImage = {
-        type: 'image',
-        image: { external: { url: 'https://example.com/image.jpg' } },
-      };
-      const blocks = [validImage];
-
-      const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks).toEqual([validImage]);
-      expect(result.skippedCount).toBe(0);
-    });
-
-    it('should handle mixed blocks correctly', () => {
-      const validImage = {
-        type: 'image',
-        image: { external: { url: 'https://example.com/valid.jpg' } },
-      };
-      const invalidImage = {
-        type: 'image',
-        image: { external: { url: 'sftp://invalid.com/img.jpg' } },
-      };
-      const paragraph = { type: 'paragraph', paragraph: { rich_text: [] } };
-
-      const blocks = [paragraph, validImage, invalidImage];
-
-      const result = service.filterValidImageBlocks(blocks);
-      expect(result.validBlocks).toHaveLength(2);
-      expect(result.validBlocks).toContain(paragraph);
-      expect(result.validBlocks).toContain(validImage);
-      expect(result.skippedCount).toBe(1);
-    });
-  });
-
   describe('buildPageData', () => {
     it('should build page data for data_source type', () => {
       const result = service.buildPageData({
@@ -583,7 +452,7 @@ describe('NotionService', () => {
       });
     });
 
-    it('should filter image blocks and return skipped count', () => {
+    it('should include all image blocks and return 0 skipped count', () => {
       const blocks = [
         { type: 'paragraph', paragraph: { rich_text: [] } },
         { type: 'image', image: { external: { url: 'sftp://invalid.com/img.jpg' } } },
@@ -596,8 +465,8 @@ describe('NotionService', () => {
         blocks,
       });
 
-      expect(result.skippedCount).toBe(1);
-      expect(result.validBlocks).toHaveLength(1);
+      // No longer returning skippedCount or validBlocks
+      expect(result.pageData.children).toHaveLength(2);
     });
 
     it('should limit children to BATCH_SIZE', () => {
@@ -613,7 +482,7 @@ describe('NotionService', () => {
       });
 
       expect(result.pageData.children).toHaveLength(100);
-      expect(result.validBlocks).toHaveLength(150);
+      expect(result.pageData.children).toHaveLength(100);
     });
 
     it('should use default values for missing options', () => {
@@ -699,19 +568,20 @@ describe('NotionService', () => {
 
     it('應該成功更新標記區域（刪除舊的並添加新的）', async () => {
       // Mock 獲取現有區塊
+      const existingBlocks = [
+        { id: '1', type: 'paragraph' },
+        {
+          id: '2',
+          type: 'heading_3',
+          heading_3: {
+            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+          },
+        },
+        { id: '3', type: 'paragraph' }, // 舊標記 (changed to paragraph)
+      ];
       service._fetchPageBlocks = jest.fn().mockResolvedValue({
         success: true,
-        blocks: [
-          { id: '1', type: 'paragraph' },
-          {
-            id: '2',
-            type: 'heading_3',
-            heading_3: {
-              rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
-            },
-          },
-          { id: '3', type: 'paragraph' }, // 舊標記 (changed to paragraph)
-        ],
+        blocks: existingBlocks,
       });
 
       // Mock 刪除操作
@@ -727,6 +597,7 @@ describe('NotionService', () => {
       const result = await service.updateHighlightsSection(pageId, highlightBlocks);
 
       expect(service._fetchPageBlocks).toHaveBeenCalledWith(pageId, expect.any(Object));
+
       expect(service._deleteBlocksByIds).toHaveBeenCalledWith(['2', '3'], expect.any(Object));
 
       expect(result).toEqual({
@@ -756,10 +627,12 @@ describe('NotionService', () => {
 
     it('應該處理添加新標記失敗', async () => {
       // Mock 獲取成功
+      const existingBlocks = [];
       service._fetchPageBlocks = jest.fn().mockResolvedValue({
         success: true,
-        blocks: [],
+        blocks: existingBlocks,
       });
+
       service._deleteBlocksByIds = jest.fn().mockResolvedValue({
         successCount: 0,
         failureCount: 0,
@@ -790,38 +663,25 @@ describe('NotionService', () => {
 
     it('應該正確處理分頁以獲取所有區塊', async () => {
       // 第一頁響應（還有更多）
+      // 第一頁響應（還有更多）
       globalThis.fetch
-        .mockResolvedValueOnce({
-          ...mockFetchResponse,
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              results: [{ id: 'block-1' }],
-              has_more: true,
-              hasMore: true, // Cover generic SDK transformation
-              next_cursor: 'cursor-2',
-              nextCursor: 'cursor-2', // Cover generic SDK transformation
-            }),
-        })
+        .mockResolvedValueOnce(
+          createMockResponse({
+            results: [{ id: 'block-1' }],
+            has_more: true,
+            next_cursor: 'cursor-2',
+          })
+        )
         // 第二頁響應（結束）
-        .mockResolvedValueOnce({
-          ...mockFetchResponse,
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              results: [{ id: 'block-2' }],
-              has_more: false,
-              hasMore: false,
-              next_cursor: null,
-              nextCursor: null,
-            }),
-        })
+        .mockResolvedValueOnce(
+          createMockResponse({
+            results: [{ id: 'block-2' }],
+            has_more: false,
+            next_cursor: null,
+          })
+        )
         // Mock 添加操作 (Success)
-        .mockResolvedValue({
-          ...mockFetchResponse,
-          ok: true,
-          json: () => Promise.resolve({ results: [] }),
-        });
+        .mockResolvedValue(createMockResponse({ results: [] }));
 
       // Mock 刪除操作
       service._deleteBlocksByIds = jest.fn().mockResolvedValue({
@@ -857,29 +717,33 @@ describe('NotionService', () => {
     });
 
     it('應該正確處理空標記列表（只刪除不添加）', async () => {
+      const existingBlocks = [
+        {
+          id: '2',
+          type: 'heading_3',
+          heading_3: {
+            rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
+          },
+        },
+      ];
       service._fetchPageBlocks = jest.fn().mockResolvedValue({
         success: true,
-        blocks: [
-          {
-            id: '2',
-            type: 'heading_3',
-            heading_3: {
-              rich_text: [{ text: { content: '📝 頁面標記' }, plain_text: '📝 頁面標記' }],
-            },
-          },
-        ],
+        blocks: existingBlocks,
       });
+
       service._deleteBlocksByIds = jest.fn().mockResolvedValue({
         successCount: 1,
         failureCount: 0,
         errors: [],
       });
-      service._apiRequest = jest.fn();
+      service._apiRequest = jest.fn(); // Ensure _apiRequest is not called for appending
 
-      const result = await service.updateHighlightsSection(pageId, []);
+      const result = await service.updateHighlightsSection(pageId, []); // Empty highlightBlocks
 
-      expect(service._deleteBlocksByIds).toHaveBeenCalled();
-      expect(service._apiRequest).not.toHaveBeenCalled();
+      expect(service._deleteBlocksByIds).toHaveBeenCalledWith(['2'], expect.any(Object));
+      // 由於所有依賴的方法 (fetchPageBlocks, deleteBlocksByIds) 都被 mock，
+      // 如果沒有執行 append，fetch 就不應該被調用。
+      expect(globalThis.fetch).not.toHaveBeenCalled();
       expect(result).toEqual({
         success: true,
         deletedCount: 1,
@@ -938,104 +802,6 @@ describe('NotionService', () => {
     });
   });
 
-  describe('_findHighlightSectionBlocks (靜態方法)', () => {
-    const HEADER = '📝 頁面標記';
-
-    it('應該處理只有標題沒有內容的情況', () => {
-      const blocks = [
-        { id: '1', type: 'paragraph' },
-        {
-          id: '2',
-          type: 'heading_3',
-          heading_3: { rich_text: [{ text: { content: HEADER }, plain_text: HEADER }] },
-        },
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toHaveLength(1);
-      expect(result).toEqual(['2']);
-    });
-
-    it('應該正確識別標記區塊', () => {
-      const blocks = [
-        { id: '1', type: 'paragraph' },
-        {
-          id: '2',
-          type: 'heading_3',
-          heading_3: { rich_text: [{ text: { content: HEADER } }] },
-        },
-        { id: '3', type: 'paragraph' },
-        { id: '4', type: 'paragraph' },
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toEqual(['2', '3', '4']);
-    });
-
-    it('應該在遇到下一個標題時停止收集', () => {
-      const blocks = [
-        {
-          id: '1',
-          type: 'heading_3',
-          heading_3: { rich_text: [{ text: { content: HEADER } }] },
-        },
-        { id: '2', type: 'paragraph' },
-        { id: '3', type: 'heading_2', heading_2: { rich_text: [] } },
-        { id: '4', type: 'paragraph' },
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toEqual(['1', '2']);
-    });
-
-    it('應該正確處理沒有標記區域的情況', () => {
-      const blocks = [
-        { id: '1', type: 'paragraph' },
-        { id: '2', type: 'heading_2', heading_2: { rich_text: [] } },
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toEqual([]);
-    });
-
-    it('應該處理空區塊數組', () => {
-      const result = NotionService._findHighlightSectionBlocks([]);
-      expect(result).toEqual([]);
-    });
-
-    it('應收集所有非標題類型的區塊', () => {
-      const blocks = [
-        {
-          id: '1',
-          type: 'heading_3',
-          heading_3: { rich_text: [{ text: { content: HEADER } }] },
-        },
-        { id: '2', type: 'paragraph' },
-        { id: '3', type: 'image', image: {} }, // 非標題，應收集
-        { id: '4', type: 'paragraph' },
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toEqual(['1', '2', '3', '4']); // 收集所有非標題區塊
-    });
-
-    it('應該處理標記區域在頁面末尾的情況', () => {
-      const blocks = [
-        { id: '1', type: 'paragraph' },
-        { id: '2', type: 'paragraph' },
-        {
-          id: '3',
-          type: 'heading_3',
-          heading_3: { rich_text: [{ text: { content: HEADER } }] },
-        },
-        { id: '4', type: 'paragraph' },
-      ];
-
-      const result = NotionService._findHighlightSectionBlocks(blocks);
-      expect(result).toEqual(['3', '4']);
-    });
-  });
-
   describe('Internal Methods and Edge Cases', () => {
     describe('_getScopedClient', () => {
       it('應該優先使用傳入的 client', () => {
@@ -1054,6 +820,156 @@ describe('NotionService', () => {
         const client = service._getScopedClient({ apiKey: tempApiKey });
         expect(client).not.toBe(service.client);
         expect(client).toBeDefined();
+      });
+    });
+
+    describe('_findHighlightSectionBlocks (靜態方法)', () => {
+      const HEADER = '📝 頁面標記';
+
+      it('應該處理只有標題沒有內容的情況', () => {
+        const blocks = [
+          { id: '1', type: 'paragraph' },
+          {
+            id: '2',
+            type: 'heading_3',
+            heading_3: { rich_text: [{ text: { content: HEADER }, plain_text: HEADER }] },
+          },
+        ];
+
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toHaveLength(1);
+        expect(result).toEqual(['2']);
+      });
+
+      it('應該正確識別標記區塊', () => {
+        const blocks = [
+          { id: '1', type: 'paragraph' },
+          {
+            id: '2',
+            type: 'heading_3',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { id: '3', type: 'paragraph' },
+          { id: '4', type: 'paragraph' },
+        ];
+
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['2', '3', '4']);
+      });
+
+      it('應該在遇到下一個標題時停止收集', () => {
+        const blocks = [
+          {
+            id: '1',
+            type: 'heading_3',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { id: '2', type: 'paragraph' },
+          { id: '3', type: 'heading_2', heading_2: { rich_text: [] } },
+          { id: '4', type: 'paragraph' },
+        ];
+
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['1', '2']);
+      });
+
+      it('應該正確處理沒有標記區域的情況', () => {
+        const blocks = [
+          { id: '1', type: 'paragraph' },
+          { id: '2', type: 'heading_2', heading_2: { rich_text: [] } },
+        ];
+
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual([]);
+      });
+
+      it('應該處理空區塊數組', () => {
+        const result = NotionService._findHighlightSectionBlocks([]);
+        expect(result).toEqual([]);
+      });
+
+      it('應收集所有非標題類型的區塊', () => {
+        const blocks = [
+          {
+            id: '1',
+            type: 'heading_3',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { id: '2', type: 'paragraph' },
+          { id: '3', type: 'image', image: {} }, // 非標題，應收集
+          { id: '4', type: 'paragraph' },
+        ];
+
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['1', '2', '3', '4']); // 收集所有非標題區塊
+      });
+
+      it('應該忽略沒有 ID 的區塊', () => {
+        const blocks = [
+          {
+            type: 'heading_3',
+            id: '1',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { type: 'paragraph' }, // 無 ID
+          { type: 'paragraph', id: '3' },
+        ];
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['1', '3']);
+      });
+
+      it('應該只處理第一個匹配的標記區域', () => {
+        const blocks = [
+          {
+            type: 'heading_3',
+            id: '1',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { type: 'paragraph', id: '2' },
+          {
+            type: 'heading_3',
+            id: '3',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] }, // 第二個相同標題
+          },
+          { type: 'paragraph', id: '4' },
+        ];
+        // 遇到下一個標題類型（包括 heading_3）時應該停止
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['1', '2']);
+      });
+
+      it('應該跳過內容不同的 heading_3', () => {
+        const blocks = [
+          {
+            type: 'heading_3',
+            id: '1',
+            heading_3: { rich_text: [{ text: { content: '其他標題' } }] },
+          },
+          {
+            type: 'heading_3',
+            id: '2',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { type: 'paragraph', id: '3' },
+        ];
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['2', '3']);
+      });
+
+      it('應該處理標記區域在頁面末尾的情況', () => {
+        const blocks = [
+          { id: '1', type: 'paragraph' },
+          { id: '2', type: 'paragraph' },
+          {
+            id: '3',
+            type: 'heading_3',
+            heading_3: { rich_text: [{ text: { content: HEADER } }] },
+          },
+          { id: '4', type: 'paragraph' },
+        ];
+
+        const result = NotionService._findHighlightSectionBlocks(blocks);
+        expect(result).toEqual(['3', '4']);
       });
     });
 
@@ -1215,29 +1131,10 @@ describe('NotionService', () => {
         service._fetchPageBlocks = jest.fn().mockResolvedValue({ success: true, blocks: [] });
         service._deleteBlocksByIds = jest
           .fn()
-          .mockResolvedValue({ failureCount: 1, errors: [{ id: 'b1' }] });
+          .mockResolvedValue({ successCount: 0, failureCount: 1, errors: [{ id: 'b1' }] });
         await service.updateHighlightsSection('id', []);
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('部分標記區塊刪除失敗'),
-          expect.any(Object)
-        );
-      });
-    });
-
-    describe('filterValidImageBlocks Corners', () => {
-      it('應該處理 invalid_structure 並記錄警告', () => {
-        service.filterValidImageBlocks([{ type: 'image' }]);
-        expect(Logger.warn).toHaveBeenCalledWith(
-          expect.stringContaining('跳過無效區塊'),
-          expect.any(Object)
-        );
-      });
-
-      it('應該在跳過太多時記錄摘要', () => {
-        const many = Array.from({ length: 11 }, () => ({ type: 'image' }));
-        service.filterValidImageBlocks(many);
-        expect(Logger.warn).toHaveBeenCalledWith(
-          expect.stringContaining('更多區塊被跳過'),
           expect.any(Object)
         );
       });
