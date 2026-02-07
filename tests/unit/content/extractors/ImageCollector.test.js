@@ -17,17 +17,24 @@ import { ImageCollector } from '../../../../scripts/content/extractors/ImageColl
 import { cachedQuery } from '../../../../scripts/content/extractors/ReadabilityAdapter.js';
 import { batchProcessWithRetry } from '../../../../scripts/performance/PerformanceOptimizer.js';
 
-// Mock Globals
-globalThis.Logger = {
-  debug: jest.fn(),
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-  info: jest.fn(),
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-};
+// Mock Logger
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
+import Logger from '../../../../scripts/utils/Logger.js';
+// Also set global for consistency if any code relies on global Logger
+globalThis.Logger = Logger;
 
 // Mock constants
 jest.mock('../../../../scripts/config/constants', () => ({
@@ -427,6 +434,48 @@ describe('ImageCollector', () => {
         r => r.image.external.url === 'https://example.com/related.jpg'
       );
       expect(related).toBeUndefined();
+
+      // Cleanup
+      script.remove();
+    });
+
+    test('should log debug message when Next.js image is missing cdnUrl', async () => {
+      // Setup Next.js data with missing cdnUrl
+      const nextData = {
+        props: {
+          pageProps: {
+            article: {
+              mainImage: {
+                // cdnUrl is missing
+                url: 'https://example.com/main.jpg',
+                originalWidth: 1000,
+              },
+            },
+          },
+        },
+      };
+
+      const script = document.createElement('script');
+      script.id = '__NEXT_DATA__';
+      script.type = 'application/json';
+      script.textContent = JSON.stringify(nextData);
+      document.body.append(script);
+
+      const contentElement = document.createElement('div');
+
+      const searchSpy = jest.spyOn(ImageCollector, '_collectFromNextJsData');
+
+      await ImageCollector.collectAdditionalImages(contentElement);
+
+      expect(searchSpy).toHaveBeenCalled();
+
+      // Verify debug log
+      expect(globalThis.Logger.debug).toHaveBeenCalledWith(
+        'Next.js Data 圖片候選者缺少 cdnUrl，已跳過',
+        expect.objectContaining({
+          imgDataKeys: expect.arrayContaining(['url', 'originalWidth']),
+        })
+      );
 
       // Cleanup
       script.remove();

@@ -97,7 +97,8 @@ export const NOTION_API = {
   BASE_URL: 'https://api.notion.com/v1',
   BLOCKS_PER_BATCH: 100, // 每批次最多區塊數
   MAX_RETRIES: 3, // 最大重試次數
-  BASE_RETRY_DELAY: 800, // 基礎重試延遲（ms）
+  RETRY_DELAY: 1000, // 基礎重試延遲（ms）
+  // IMAGE_RETRY_DELAY removed as it is unused
 
   // 操作特定配置
   CHECK_RETRIES: 2, // 檢查操作重試次數

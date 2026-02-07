@@ -514,24 +514,29 @@ const ImageCollector = {
     }
 
     for (const imgData of candidates) {
-      if (imgData.cdnUrl && typeof imgData.cdnUrl === 'string') {
-        const url = imgData.cdnUrl;
+      if (!imgData.cdnUrl || typeof imgData.cdnUrl !== 'string') {
+        Logger.debug('Next.js Data 圖片候選者缺少 cdnUrl，已跳過', {
+          imgDataKeys: Object.keys(imgData),
+        });
+        continue;
+      }
 
-        // 早期驗證：過濾無效 URL，避免後續建立不必要的 DOM 元素
-        if (!isValidImageUrl?.(url)) {
-          continue;
-        }
+      const url = imgData.cdnUrl;
 
-        // 去重檢查
-        if (!seenUrls.has(url)) {
-          seenUrls.add(url);
-          foundImages.push({
-            url, // 使用簡寫
-            width: imgData.originalWidth, // HK01 使用 originalWidth
-            height: imgData.originalHeight,
-            caption: imgData.caption,
-          });
-        }
+      // 早期驗證：過濾無效 URL，避免後續建立不必要的 DOM 元素
+      if (!isValidImageUrl?.(url)) {
+        continue;
+      }
+
+      // 去重檢查
+      if (!seenUrls.has(url)) {
+        seenUrls.add(url);
+        foundImages.push({
+          url, // 使用簡寫
+          width: imgData.originalWidth, // HK01 使用 originalWidth
+          height: imgData.originalHeight,
+          caption: imgData.caption,
+        });
       }
     }
   },

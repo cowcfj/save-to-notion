@@ -172,6 +172,10 @@ export function setupChromeMock(customStorageData = {}, customSyncStorageData = 
             if (keys in storageData) {
               res[keys] = storageData[keys];
             }
+          } else if (typeof keys === 'object' && keys !== null) {
+            for (const [key, defaultValue] of Object.entries(keys)) {
+              res[key] = key in storageData ? storageData[key] : defaultValue;
+            }
           } else if (!keys) {
             Object.assign(res, storageData);
           }
@@ -203,6 +207,10 @@ export function setupChromeMock(customStorageData = {}, customSyncStorageData = 
           } else if (typeof keys === 'string') {
             if (keys in syncStorageData) {
               res[keys] = syncStorageData[keys];
+            }
+          } else if (typeof keys === 'object' && keys !== null) {
+            for (const [key, defaultValue] of Object.entries(keys)) {
+              res[key] = key in syncStorageData ? syncStorageData[key] : defaultValue;
             }
           } else if (!keys) {
             Object.assign(res, syncStorageData);
