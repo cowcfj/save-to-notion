@@ -7,7 +7,6 @@
 import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES, SECURITY_ERROR_MESSAGES } from '../../../scripts/config/messages.js';
 import {
-  createEvent,
   waitForSend,
   createMockLogger,
   setupChromeMock,
@@ -56,7 +55,7 @@ describe('background error branches (integration)', () => {
     // 明確設定 Logger 為非調試模式，但允許輸出到控制台
     globalThis.Logger = createMockLogger();
 
-    const { chromeMock, events } = setupChromeMock({}, mockSyncStorage);
+    const { chromeMock } = setupChromeMock({}, mockSyncStorage);
 
     // Override specific mocks for this test suite
     chromeMock.runtime.id = 'test';

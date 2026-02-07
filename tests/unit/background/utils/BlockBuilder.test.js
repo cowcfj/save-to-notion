@@ -20,7 +20,6 @@ const {
   textToParagraphs,
   createFallbackBlocks,
   isValidBlock,
-  findHighlightSectionBlocks,
 } = require('../../../../scripts/background/utils/BlockBuilder');
 
 describe('BlockBuilder', () => {
@@ -310,103 +309,6 @@ describe('BlockBuilder', () => {
       expect(isValidBlock({})).toBe(false);
       expect(isValidBlock({ object: 'block' })).toBe(false);
       expect(isValidBlock({ type: 'paragraph' })).toBe(false);
-    });
-  });
-
-  describe('findHighlightSectionBlocks', () => {
-    test('should return empty array for invalid input', () => {
-      expect(findHighlightSectionBlocks(null)).toEqual([]);
-      expect(findHighlightSectionBlocks([])).toEqual([]);
-    });
-
-    test('should identify blocks to delete in highlight section', () => {
-      const blocks = [
-        { type: 'paragraph', id: '1' },
-        {
-          type: 'heading_3',
-          id: '2',
-          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
-        },
-        { type: 'paragraph', id: '3' },
-        { type: 'quote', id: '4' },
-        {
-          type: 'heading_1',
-          id: '5',
-          heading_1: { rich_text: [{ text: { content: 'Next Section' } }] },
-        },
-        { type: 'paragraph', id: '6' },
-      ];
-
-      const result = findHighlightSectionBlocks(blocks, '📝 頁面標記');
-      // Should include the header (2) and subsequent non-header blocks (3, 4)
-      // Should stop at (5) because it's a header
-      expect(result).toEqual(['2', '3', '4']);
-    });
-
-    test('should use default header text if not provided', () => {
-      const blocks = [
-        {
-          type: 'heading_3',
-          id: '1',
-          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
-        },
-        { type: 'paragraph', id: '2' },
-      ];
-      const result = findHighlightSectionBlocks(blocks);
-      expect(result).toEqual(['1', '2']);
-    });
-
-    test('should ignore blocks without ID', () => {
-      const blocks = [
-        {
-          type: 'heading_3',
-          id: '1',
-          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
-        },
-        { type: 'paragraph' }, // No ID
-        { type: 'paragraph', id: '3' },
-      ];
-      const result = findHighlightSectionBlocks(blocks, '📝 頁面標記');
-      expect(result).toEqual(['1', '3']);
-    });
-
-    test('should only process the first matching highlight section', () => {
-      const blocks = [
-        {
-          type: 'heading_3',
-          id: '1',
-          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
-        },
-        { type: 'paragraph', id: '2' },
-        {
-          type: 'heading_3',
-          id: '3',
-          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
-        },
-        { type: 'paragraph', id: '4' },
-      ];
-      // Should stop collecting when it encounters the second header (even if it's the same header text)
-      // because the logic breaks on next heading_* block
-      const result = findHighlightSectionBlocks(blocks, '📝 頁面標記');
-      expect(result).toEqual(['1', '2']);
-    });
-
-    test('should skip similar heading_3 with different content', () => {
-      const blocks = [
-        {
-          type: 'heading_3',
-          id: '1',
-          heading_3: { rich_text: [{ text: { content: 'Different Header' } }] },
-        },
-        {
-          type: 'heading_3',
-          id: '2',
-          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
-        },
-        { type: 'paragraph', id: '3' },
-      ];
-      const result = findHighlightSectionBlocks(blocks, '📝 頁面標記');
-      expect(result).toEqual(['2', '3']);
     });
   });
 });

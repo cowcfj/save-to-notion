@@ -351,46 +351,6 @@ function isValidBlock(block) {
   return block.object === 'block' && typeof block.type === 'string';
 }
 
-/**
- * 找出標記區域的區塊 ID
- *
- * @param {Array} blocks - 區塊列表
- * @param {string} [headerText] - 標記區域標題（默認為 HIGHLIGHT_SECTION_HEADER）
- * @returns {Array<string>} 需要刪除的區塊 ID 列表
- */
-function findHighlightSectionBlocks(blocks, headerText = HIGHLIGHT_SECTION_HEADER) {
-  const blocksToDelete = [];
-  let foundHighlightSection = false;
-
-  if (!blocks || !Array.isArray(blocks)) {
-    return [];
-  }
-
-  for (const block of blocks) {
-    const isHighlightHeader =
-      block.type === 'heading_3' && block.heading_3?.rich_text?.[0]?.text?.content === headerText;
-
-    if (foundHighlightSection) {
-      // 如果已經在標記區域中，遇到任何標題（包括重複的目標標題）都停止收集
-      if (block.type?.startsWith('heading_')) {
-        break;
-      }
-      // 收集區域內的內容區塊
-      if (block.id) {
-        blocksToDelete.push(block.id);
-      }
-    } else if (isHighlightHeader) {
-      // 找到標記區域的開始
-      foundHighlightSection = true;
-      if (block.id) {
-        blocksToDelete.push(block.id);
-      }
-    }
-  }
-
-  return blocksToDelete;
-}
-
 // 模組導出（ES6 語法）
 export {
   // 常量
@@ -415,5 +375,4 @@ export {
 
   // 驗證函數
   isValidBlock,
-  findHighlightSectionBlocks,
 };
