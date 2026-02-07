@@ -134,19 +134,29 @@ describe('ImageUtils and DomConverter Missing Coverage Tests', () => {
         });
 
         test('isValidImageUrl handles error in _checkUrlPatterns', () => {
-            const badUrl = 'https://bad-url';
             const originalURL = globalThis.URL;
+            let callCount = 0;
 
-            // Mock URL constructor solely for this test to throw for our specific input
-            // to simulate failure within _checkUrlPatterns
-            globalThis.URL = jest.fn((url, base) => {
-                if (url === badUrl && base === undefined) { // Check if called with 1 arg (isAbsolute)
-                    throw new Error('Invalid URL');
+            globalThis.URL = jest.fn((_url, _base) => {
+                callCount++;
+                // First call is likely in cleanImageUrl (or _resolveUrl)
+                if (callCount <= 1) {
+                    return {
+                        protocol: 'https:',
+                        hostname: 'example.com',
+                        pathname: '/image.jpg',
+                        searchParams: new URLSearchParams(),
+                        href: 'https://example.com/image.jpg',
+                        search: '',
+                        hash: ''
+                    };
                 }
-                return {}; // Minimal mock
+                // Second call (in _checkUrlPatterns) throws
+                throw new Error('Pattern check failed');
             });
 
-            const result = ImageUtils.isValidImageUrl(badUrl);
+            // We use a valid-looking URL so it passes initial regex checks
+            const result = ImageUtils.isValidImageUrl('https://example.com/image.jpg');
 
             expect(result).toBe(false);
 

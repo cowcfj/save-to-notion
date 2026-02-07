@@ -186,11 +186,6 @@ function isValidImageUrl(url) {
     return false;
   }
 
-  // 排除 data: 和 blob: URL
-  if (url.startsWith('data:') || url.startsWith('blob:')) {
-    return false;
-  }
-
   // 排除明顯的佔位符
   const lowerUrl = url.toLowerCase();
   if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {

@@ -405,32 +405,41 @@ const ImageCollector = {
    */
   _addImagesToCollection(foundImages, allImages) {
     let addedCount = 0;
+    const seenUrls = new Set(allImages.map(img => img.src));
+
     foundImages.forEach(data => {
-      // 檢查是否已存在於 allImages (通過 URL)
-      // allImages 是 DOM 元素數組，檢查 src
-      const exists = allImages.some(img => img.src === data.url || img.src.includes(data.url));
-
-      if (!exists) {
-        // 創建偽造的 img 元素以便重用現有的處理邏輯
-        const fakeImg = document.createElement('img');
-        fakeImg.src = data.url;
-
-        if (data.width) {
-          Object.defineProperty(fakeImg, 'naturalWidth', { value: Number(data.width) });
-        }
-        if (data.height) {
-          Object.defineProperty(fakeImg, 'naturalHeight', { value: Number(data.height) });
-        }
-        if (data.caption) {
-          fakeImg.alt = data.caption;
-        }
-
-        // 添加一個標記屬性，識別來源
-        fakeImg.dataset.source = 'nextjs-data';
-
-        allImages.push(fakeImg);
-        addedCount++;
+      let normalizedHref;
+      try {
+        normalizedHref = new URL(data.url, document.baseURI).href;
+      } catch {
+        return; // Skip invalid URLs
       }
+
+      // 檢查是否已存在於 allImages (通過 normalized URL)
+      if (seenUrls.has(normalizedHref)) {
+        return;
+      }
+
+      // 創建偽造的 img 元素以便重用現有的處理邏輯
+      const fakeImg = document.createElement('img');
+      fakeImg.src = normalizedHref;
+
+      if (data.width) {
+        Object.defineProperty(fakeImg, 'naturalWidth', { value: Number(data.width) });
+      }
+      if (data.height) {
+        Object.defineProperty(fakeImg, 'naturalHeight', { value: Number(data.height) });
+      }
+      if (data.caption) {
+        fakeImg.alt = data.caption;
+      }
+
+      // 添加一個標記屬性，識別來源
+      fakeImg.dataset.source = 'nextjs-data';
+
+      allImages.push(fakeImg);
+      seenUrls.add(normalizedHref);
+      addedCount++;
     });
     return addedCount;
   },

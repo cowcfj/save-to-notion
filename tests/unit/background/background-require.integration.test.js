@@ -37,10 +37,6 @@ describe('scripts/background.js require integration', () => {
     chromeMock.tabs.create = jest.fn(createProps => Promise.resolve({ id: 99, ...createProps }));
     chromeMock.tabs.sendMessage = jest.fn(() => Promise.resolve({ success: true }));
 
-    // Add onRemoved event to tabs (which might be missing in helper if I didn't verify it)
-    // Checking helper... yes onRemoved is there.
-    // However, onActivated is also needed. Helper provides it.
-
     globalThis.chrome = chromeMock;
 
     // 全域 fetch mock（避免網路）

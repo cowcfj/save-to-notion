@@ -113,7 +113,11 @@ export function setupChromeMock(customStorageData = {}, customSyncStorageData = 
       onUpdated,
       onActivated,
       onRemoved,
-      get: jest.fn((tabId, mockCb) => mockCb?.({ id: tabId, url: 'https://example.com' })),
+      get: jest.fn((tabId, mockCb) => {
+        const result = { id: tabId, url: 'https://example.com' };
+        mockCb?.(result);
+        return Promise.resolve(result);
+      }),
       query: jest.fn().mockResolvedValue([]),
       create: jest.fn((props, mockCb) => {
         const result = { id: 101, ...props };

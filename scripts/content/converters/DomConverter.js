@@ -22,6 +22,7 @@ import {
   UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
   CODE_LANGUAGE_MAP,
 } from '../../config/constants.js';
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 /**
  * Notion API 文本長度限制
@@ -392,7 +393,7 @@ class DomConverter {
     if (isValidImageUrl && !isValidImageUrl(finalUrl)) {
       Logger.warn('[Content] Dropping invalid image to ensure page save', {
         action: 'createImageBlock',
-        url: finalUrl,
+        url: sanitizeUrlForLogging(finalUrl),
       });
       return null;
     }
