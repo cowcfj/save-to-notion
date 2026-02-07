@@ -165,7 +165,10 @@ describe('Content Script Entry Point', () => {
         convert: jest.fn().mockReturnValue([]),
       };
       ConverterFactory.getConverter.mockReturnValue(mockConverter);
-      ImageCollector.collectAdditionalImages.mockResolvedValue([]);
+      ImageCollector.collectAdditionalImages.mockResolvedValue({
+        images: [],
+        coverImage: null,
+      });
 
       const result = await extractPageContent();
 
@@ -313,7 +316,10 @@ describe('Content Script Entry Point', () => {
 
       const mockConverter = { convert: jest.fn().mockReturnValue([]) };
       ConverterFactory.getConverter.mockReturnValue(mockConverter);
-      ImageCollector.collectAdditionalImages.mockResolvedValue([]);
+      ImageCollector.collectAdditionalImages.mockResolvedValue({
+        images: [],
+        coverImage: null,
+      });
 
       // 模擬單元測試模式下的手動調用
       globalThis.__UNIT_TESTING__ = true;

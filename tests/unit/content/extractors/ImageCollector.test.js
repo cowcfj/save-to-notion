@@ -475,7 +475,7 @@ describe('ImageCollector', () => {
 
       // Verify debug log
       expect(globalThis.Logger.debug).toHaveBeenCalledWith(
-        'Next.js Data 圖片候選者缺少 cdnUrl，已跳過',
+        'Next.js Data 圖片候選者缺少或無效 cdnUrl，已跳過',
         expect.objectContaining({
           imgDataKeys: expect.arrayContaining(['url', 'originalWidth']),
         })
