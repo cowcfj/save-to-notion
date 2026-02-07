@@ -5,6 +5,7 @@ import {
   PageContentService,
   CONTENT_EXTRACTION_SCRIPTS,
 } from '../../../../scripts/background/services/PageContentService.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 
 describe('PageContentService', () => {
   let mockInjectionService = null;
@@ -22,6 +23,8 @@ describe('PageContentService', () => {
       warn: jest.fn(),
       error: jest.fn(),
       debug: jest.fn(),
+      start: jest.fn(),
+      success: jest.fn(),
     };
 
     service = new PageContentService({
@@ -40,12 +43,8 @@ describe('PageContentService', () => {
       const serviceWithDefaults = new PageContentService({
         injectionService: mockInjectionService,
       });
-      // Import Logger from implementation to compare, or just check it's not console
-      // Since we don't import Logger in test easily (it is inside implementation closure or imported),
-      // we can check properties or import it in test if needed.
-      // But simpler: just expect it not to be console, or check if it has Logger methods.
-      expect(serviceWithDefaults.logger).not.toBe(console);
-      expect(serviceWithDefaults.logger).toBeDefined();
+      // 驗證預設 Logger 是我們預期的 Logger 模組
+      expect(serviceWithDefaults.logger).toBe(Logger);
     });
   });
 
@@ -134,11 +133,8 @@ describe('PageContentService', () => {
       await service.extractContent(123);
 
       // 驗證日誌包含成功訊息
-      // The actual log message uses LOG_ICONS.SUCCESS + " [PageContentService] 提取成功"
-      // Wait, mockLogger.log is unexpected?
-      // In code: this.logger.info?.(...) is called for success.
-      // Line 142: this.logger.info(...)
-      // So we should check mockLogger.info, not log.
+      // 驗證日誌包含成功訊息
+      // 在 PageContentService.js 中，成功日誌使用 this.logger.info 輸出
 
       const infoCalls = mockLogger.info.mock.calls;
       const successLog = infoCalls.find(call => call[0]?.includes('提取成功'));

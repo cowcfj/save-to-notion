@@ -52,7 +52,7 @@ class PageContentService {
    * @returns {Promise<{title: string, blocks: Array, siteIcon: string|null}>}
    */
   async extractContent(tabId, _options = {}) {
-    this.logger.debug?.(`${LOG_ICONS.START} [PageContentService] 開始提取頁面內容`, { tabId });
+    this.logger.start?.('[PageContentService] 開始提取頁面內容', { tabId });
 
     if (!this.injectionService) {
       throw new Error('InjectionService is required for PageContentService');

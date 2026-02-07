@@ -363,6 +363,9 @@ const ImageCollector = {
   /**
    * 從 article 數據中提取圖片 (提取輔助方法以降低複雜度)
    *
+   * 注意: 此方法目前與 HK01 的數據結構 (mainImage, originalImage, gallery) 高度耦合。
+   * 如果未來需要支援其他 Next.js 網站，應考慮將欄位映射邏輯抽離為可配置的策略模式。
+   *
    * @param {object} articleData - 文章數據對象
    * @param {Array} foundImages - 存儲找到的圖片的數組
    * @param {Set} seenUrls - 用於去重的 URL 集合

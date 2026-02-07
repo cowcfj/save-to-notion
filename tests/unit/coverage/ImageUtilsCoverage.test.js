@@ -124,7 +124,9 @@ describe('ImageUtils and DomConverter Missing Coverage Tests', () => {
              );
         });
 
-        test('isValidImageUrl handles error in _checkUrlPatterns', () => {
+        // 此測試假設 cleanImageUrl 會先呼叫 new URL()，接著 _checkUrlPatterns 會再呼叫一次
+        // 如果 isValidImageUrl 的實作順序改變，此測試可能會失敗
+        test('isValidImageUrl handles error in _checkUrlPatterns (assumes cleanImageUrl calls URL constructor first)', () => {
             const originalURL = globalThis.URL;
             let callCount = 0;
 

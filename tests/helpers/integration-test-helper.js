@@ -52,22 +52,14 @@ export function waitForSend(mockFn, maxWaitMs = 1500) {
       reject(new Error(`waitForSend timeout: function was not called within ${maxWaitMs}ms`));
     }, maxWaitMs);
 
+    // Capture the current implementation (if any) to pass-through
     const originalImpl = mockFn.getMockImplementation();
 
-    mockFn.mockImplementation(function (...args) {
+    mockFn.mockImplementationOnce(function (...args) {
       clearTimeout(timer);
-
-      // Restore original implementation
-      if (originalImpl) {
-        mockFn.mockImplementation(originalImpl);
-      } else {
-        // mockReset clears everything including calls, so avoid it.
-        // Just revert to empty implementation.
-        mockFn.mockImplementation(() => undefined);
-      }
-
       resolve();
 
+      // Pass through to original implementation if it exists
       if (originalImpl) {
         return originalImpl.apply(this, args);
       }

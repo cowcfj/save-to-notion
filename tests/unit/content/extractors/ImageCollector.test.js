@@ -65,6 +65,9 @@ globalThis.ErrorHandler = {
 };
 
 describe('ImageCollector', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   beforeEach(() => {
     jest.resetAllMocks(); // Use reset instead of clear to reset implementations
     document.body.innerHTML = '';
@@ -187,8 +190,8 @@ describe('ImageCollector', () => {
       extractImageSrc.mockImplementation(img => (img ? img.src : null));
 
       // Mock processImageForCollection to return valid results
-      const originalProcess = ImageCollector.processImageForCollection;
-      ImageCollector.processImageForCollection = jest.fn(img => ({
+      // Use spyOn to allow automatic restoration
+      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
         object: 'block',
         type: 'image',
         image: { external: { url: img.src } },
@@ -224,8 +227,7 @@ describe('ImageCollector', () => {
       expect(results).toHaveLength(2);
       expect(results[0].image.external.url).toBe('https://example.com/1.jpg');
 
-      // Restore original method
-      ImageCollector.processImageForCollection = originalProcess;
+      // Restore is handled by afterEach
     });
 
     test('should fallback to sequential processing if batch fails', async () => {
@@ -256,8 +258,7 @@ describe('ImageCollector', () => {
       });
 
       // Mock processImageForCollection
-      const originalProcess = ImageCollector.processImageForCollection;
-      ImageCollector.processImageForCollection = jest.fn().mockReturnValue({
+      jest.spyOn(ImageCollector, 'processImageForCollection').mockReturnValue({
         object: 'block',
         type: 'image',
         image: { external: { url: 'url' } },
@@ -270,9 +271,7 @@ describe('ImageCollector', () => {
 
       expect(seqSpy).toHaveBeenCalled();
 
-      // Restore mocked methods
-      ImageCollector.processImageForCollection = originalProcess;
-      seqSpy.mockRestore();
+      // Restore handled by afterEach
     });
 
     test('should collect images from Next.js data (scoped to article)', async () => {
@@ -322,8 +321,7 @@ describe('ImageCollector', () => {
       const contentElement = document.createElement('div');
 
       // Mock processImageForCollection
-      const originalProcess = ImageCollector.processImageForCollection;
-      ImageCollector.processImageForCollection = jest.fn(img => ({
+      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
         object: 'block',
         type: 'image',
         image: { external: { url: img.src } },
@@ -357,8 +355,6 @@ describe('ImageCollector', () => {
 
       // Cleanup
       script.remove();
-      ImageCollector.processImageForCollection = originalProcess;
-      searchSpy.mockRestore();
     });
   });
 });
