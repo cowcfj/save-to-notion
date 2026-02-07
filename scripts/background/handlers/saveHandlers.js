@@ -150,32 +150,11 @@ export function createSaveHandlers(services) {
 
     const { pageData, validBlocks } = notionService.buildPageData(buildOptions);
 
-    let result = await notionService.createPage(pageData, {
+    const result = await notionService.createPage(pageData, {
       autoBatch: true,
       allBlocks: validBlocks,
       apiKey,
     });
-
-    // 失敗重試邏輯：如果是圖片驗證錯誤或標準化後的驗證錯誤
-    if (!result.success && result.error && ErrorHandler.isImageValidationError(result.error)) {
-      Logger.warn('收到 Notion 圖片驗證錯誤，準備重試', {
-        action: 'performCreatePage',
-        delay: HANDLER_CONSTANTS.IMAGE_RETRY_DELAY,
-        reason: 'image_validation_error',
-      });
-
-      await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.IMAGE_RETRY_DELAY));
-
-      // 重建數據，排除圖片
-      buildOptions.excludeImages = true;
-      const rebuild = notionService.buildPageData(buildOptions);
-
-      result = await notionService.createPage(rebuild.pageData, {
-        autoBatch: true,
-        allBlocks: rebuild.validBlocks,
-        apiKey,
-      });
-    }
 
     if (result.success) {
       // 保存狀態

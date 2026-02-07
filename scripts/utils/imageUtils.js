@@ -7,7 +7,7 @@
 
 import { sanitizeUrlForLogging } from './securityUtils.js';
 import Logger from './Logger.js';
-import { IMAGE_VALIDATION as CONFIG_VALIDATION } from '../config/constants.js';
+import { IMAGE_VALIDATION } from '../config/constants.js';
 import {
   IMAGE_ATTRIBUTES,
   IMAGE_EXTENSIONS,
@@ -15,18 +15,6 @@ import {
   EXCLUDE_PATTERNS,
   PLACEHOLDER_KEYWORDS,
 } from '../config/patterns.js';
-
-// 圖片驗證 constant 默認值，如果 config 導入失敗或缺漏則使用這些
-const DEFAULT_VALIDATION = {
-  MAX_URL_LENGTH: 2000,
-  URL_LENGTH_SAFETY_MARGIN: 500,
-  MAX_QUERY_PARAMS: 10,
-  SRCSET_WIDTH_MULTIPLIER: 1000,
-  MAX_BACKGROUND_URL_LENGTH: 2000,
-  MAX_RECURSION_DEPTH: 5,
-};
-
-const IMAGE_VALIDATION = { ...DEFAULT_VALIDATION, ...CONFIG_VALIDATION };
 
 // 重新導出 IMAGE_ATTRIBUTES 以維持向後兼容
 
@@ -66,7 +54,37 @@ function _resolveUrl(url) {
 }
 
 /**
- * 清理和標準化圖片 URL
+ * 內部使用的 URL 標準化邏輯
+ *
+ * @param {string} url - 原始 URL
+ * @returns {string} 標準化後的 URL
+ * @private
+ */
+function _normalizeUrlInternal(url) {
+  let normalized = url.trim();
+
+  // 確保是 HTTP/HTTPS 協議
+  if (normalized.startsWith('//')) {
+    normalized = `https:${normalized}`;
+  } else if (normalized.startsWith('http://')) {
+    normalized = normalized.replace(/^http:\/\//i, 'https://');
+  }
+
+  // 特殊字符編碼修復
+  try {
+    const decoded = decodeURI(normalized);
+    normalized = encodeURI(decoded);
+    // 使用 'char' 替代 'c' 以滿足變數命名長度規範
+    normalized = normalized.replaceAll(/[[]\]^|{}<>]/g, char => encodeURIComponent(char));
+  } catch {
+    // 忽略編碼錯誤
+  }
+
+  return normalized;
+}
+
+/**
+ * 清理和標準化圖片 URL (整合 normalizeImageUrl)
  *
  * @param {string} url - 原始圖片 URL
  * @param {number} depth - 當前遞迴深度（用於防止無限遞迴）
@@ -86,9 +104,24 @@ function cleanImageUrl(url, depth = 0) {
     return url;
   }
 
-  const resolved = _resolveUrl(url);
+  // 1. 標準化 (Normalization)
+  const normalized = _normalizeUrlInternal(url);
+
+  // 基本格式驗證
+  if (
+    normalized.startsWith('data:') ||
+    normalized.startsWith('blob:') ||
+    !/^https?:\/\//i.test(normalized)
+  ) {
+    // 雖然這裡不直接返回 null，但後續的 URL 解析可能會失敗
+  }
+
+  const resolved = _resolveUrl(normalized);
   if (!resolved) {
-    Logger.error('URL 轉換失敗', { action: 'cleanImageUrl', url: sanitizeUrlForLogging(url) });
+    Logger.error('URL 轉換失敗', {
+      action: 'cleanImageUrl',
+      url: sanitizeUrlForLogging(normalized),
+    });
     return null;
   }
 
@@ -123,8 +156,7 @@ function cleanImageUrl(url, depth = 0) {
 }
 
 /**
- * 檢查 URL 是否為有效的圖片格式
- * 整合了 AttributeExtractor 和 background.js 的驗證邏輯
+ * 檢查 URL 是否為有效的圖片格式 (Notion 兼容性驗證)
  *
  * @param {string} url - 要檢查的 URL
  * @returns {boolean} 是否為有效的圖片 URL
@@ -139,61 +171,88 @@ function isValidImageUrl(url) {
     IMAGE_EXTENSIONS && EXCLUDE_PATTERNS && IMAGE_PATH_PATTERNS && PLACEHOLDER_KEYWORDS;
   if (!patternsLoaded) {
     Logger.warn?.('Pattern 常量未載入，回退到基本驗證', { action: 'isValidImageUrl' });
-    // 基本驗證：只檢查協議
-    return /^https?:\/\//i.test(url);
+    return /^https:\/\//i.test(url); // Notion 要求 HTTPS
   }
 
-  // 排除 data: 和 blob: URL（來自 AttributeExtractor）
+  // 1. 攔截非 HTTP/HTTPS (Notion 要求 HTTPS，但我們會嘗試自動升級)
+  // 如果是 data: 或 blob: 則直接拒絕
   if (url.startsWith('data:') || url.startsWith('blob:')) {
     return false;
   }
 
-  // 排除明顯的佔位符（使用 patterns.js 的配置）
+  // 允許相對路徑（因為後續會補全域名）
+  if (!url.startsWith('http') && !url.startsWith('/')) {
+    // 這裡可能過濾掉了其他協議如 ftp, file 等，這正是我們想要的
+    return false;
+  }
+
+  // 排除 data: 和 blob: URL
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    return false;
+  }
+
+  // 排除明顯的佔位符
   const lowerUrl = url.toLowerCase();
   if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {
     return false;
   }
 
-  // 先清理 URL
+  // 2. 清理與標準化
+  // 注意：調用方通常應該先調用 cleanImageUrl，但這裡為了防禦性編程再次檢查
+  // cleanImageUrl 內部會調用 normalizeImageUrl
   const cleanedUrl = cleanImageUrl(url);
   if (!cleanedUrl) {
     return false;
   }
 
-  // 檢查是否為有效的 HTTP/HTTPS URL 或 相對路徑
-  const isAbsolute = /^https?:\/\//i.test(cleanedUrl);
-  // 相對路徑通常以 / 或 . 開頭，或者只是文件名（cleanImageUrl 會加上 /）
+  // 3. 檢查基本 URL 結構
+  const isAbsolute = /^https:\/\//i.test(cleanedUrl);
   const isRelative = cleanedUrl.startsWith('/');
 
   if (!isAbsolute && !isRelative) {
     return false;
   }
 
-  // 檢查 URL 長度（Notion API 限制）
+  // 4. 檢查 URL 長度 (Notion 限制 2000)
   if (cleanedUrl.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
     return false;
   }
 
-  try {
-    // 為了後續檢查，如果是相對路徑，再次轉為對象
-    const urlObj = isAbsolute ? new URL(cleanedUrl) : new URL(cleanedUrl, 'https://dummy-base.com');
+  // 5. 檢查非法字符 (URL 規範)
+  if (/[<>[\]^|{}]/.test(cleanedUrl)) {
+    return false;
+  }
 
-    // 檢查文件擴展名（使用 patterns.js 的配置）
+  return _checkUrlPatterns(cleanedUrl, isAbsolute);
+}
+
+/**
+ * 內部使用的 URL 模式檢查
+ *
+ * @param {string} url - 清理後的 URL
+ * @param {boolean} isAbsolute - 是否為絕對路徑
+ * @returns {boolean} 是否符合模式
+ * @private
+ */
+function _checkUrlPatterns(url, isAbsolute) {
+  try {
+    const urlObj = isAbsolute ? new URL(url) : new URL(url, 'https://dummy-base.com');
+
+    // 檢查文件擴展名
     const pathname = urlObj.pathname.toLowerCase();
     const hasImageExtension = IMAGE_EXTENSIONS.test(pathname);
 
-    // 如果 URL 包含圖片擴展名，直接返回 true
     if (hasImageExtension) {
       return true;
     }
 
-    // 排除明顯不是圖片的 URL（使用 patterns.js 的配置）
-    if (EXCLUDE_PATTERNS.some(pattern => pattern.test(cleanedUrl))) {
+    // 排除特定模式
+    if (EXCLUDE_PATTERNS.some(pattern => pattern.test(url))) {
       return false;
     }
 
-    // 對於沒有明確擴展名的 URL（如 CDN 圖片），檢查是否包含圖片相關的路徑或關鍵字
-    return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(cleanedUrl));
+    // 檢查路徑模式
+    return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(url));
   } catch {
     return false;
   }

@@ -408,68 +408,6 @@ describe('NotionService', () => {
     });
   });
 
-  describe('filterValidImageBlocks', () => {
-    it('應該正確過濾有效和無效的圖片區塊', () => {
-      const blocks = [
-        { type: 'paragraph', id: '1' },
-        { type: 'image', id: '2', image: { external: { url: 'https://example.com/valid.jpg' } } },
-        { type: 'image', id: '3', image: { external: { url: 'http://example.com/valid.png' } } },
-        { type: 'image', id: '4', image: {} }, // 缺失 URL
-        { type: 'image', id: '5', image: { external: { url: 'java' + 'script:alert(1)' } } }, // 無效協議
-        { type: 'image', id: '6', image: { external: { url: 'data:image/png;base64,...' } } }, // data URI (不支援作為 external)
-      ];
-
-      const result = service.filterValidImageBlocks(blocks);
-
-      expect(result.validBlocks).toHaveLength(3); // paragraph (1) + valid images (2, 3)
-      expect(result.validBlocks.map(b => b.id)).toEqual(['1', '2', '3']);
-      expect(result.skippedCount).toBe(3); // 4, 5, 6
-    });
-
-    it('在 excludeImages 模式下應排除所有圖片', () => {
-      const blocks = [
-        { type: 'paragraph', id: '1' },
-        { type: 'image', id: '2', image: { external: { url: 'https://example.com/valid.jpg' } } },
-      ];
-
-      const result = service.filterValidImageBlocks(blocks, true);
-
-      expect(result.validBlocks).toHaveLength(1);
-      expect(result.validBlocks[0].id).toBe('1');
-      expect(result.skippedCount).toBe(1);
-      expect(Logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('重試模式排除所有圖片'),
-        expect.any(Object)
-      );
-    });
-
-    it('應該處理空輸入', () => {
-      const result = service.filterValidImageBlocks(null);
-      expect(result.validBlocks).toEqual([]);
-      expect(result.skippedCount).toBe(0);
-    });
-
-    it('應該正確過濾超過長度限制的圖片 URL', () => {
-      // MAX_URL_LENGTH (2000) - URL_LENGTH_INLINE_SAFETY_MARGIN (100) = 1900
-      const limit = 2000 - 100;
-      const prefix = 'https://example.com/';
-
-      const validUrl = prefix + 'a'.repeat(limit - prefix.length); // exactly 1900 chars
-      const invalidUrl = prefix + 'b'.repeat(limit - prefix.length + 1); // 1901 chars
-
-      const blocks = [
-        { type: 'image', id: 'valid', image: { external: { url: validUrl } } },
-        { type: 'image', id: 'invalid', image: { external: { url: invalidUrl } } },
-      ];
-
-      const result = service.filterValidImageBlocks(blocks);
-
-      expect(result.validBlocks).toHaveLength(1);
-      expect(result.validBlocks[0].id).toBe('valid');
-      expect(result.skippedCount).toBe(1);
-    });
-  });
-
   describe('buildPageData', () => {
     it('should build page data for data_source type', () => {
       const result = service.buildPageData({
@@ -514,7 +452,7 @@ describe('NotionService', () => {
       });
     });
 
-    it('should filter image blocks and return skipped count', () => {
+    it('should include all image blocks and return 0 skipped count', () => {
       const blocks = [
         { type: 'paragraph', paragraph: { rich_text: [] } },
         { type: 'image', image: { external: { url: 'sftp://invalid.com/img.jpg' } } },
@@ -527,8 +465,8 @@ describe('NotionService', () => {
         blocks,
       });
 
-      expect(result.skippedCount).toBe(1);
-      expect(result.validBlocks).toHaveLength(1);
+      expect(result.skippedCount).toBe(0);
+      expect(result.validBlocks).toHaveLength(2);
     });
 
     it('should limit children to BATCH_SIZE', () => {
@@ -1197,36 +1135,6 @@ describe('NotionService', () => {
           expect.stringContaining('部分標記區塊刪除失敗'),
           expect.any(Object)
         );
-      });
-    });
-
-    describe('filterValidImageBlocks Corners', () => {
-      it('應該處理無效區塊並記錄在 info 日誌中', () => {
-        service.filterValidImageBlocks([{ type: 'image' }]); // 缺少 url，視為無效
-        expect(Logger.info).toHaveBeenCalledWith(
-          expect.stringContaining('過濾圖片區塊'),
-          expect.objectContaining({
-            reasons: expect.arrayContaining([{ reason: 'missing_url', id: undefined }]),
-          })
-        );
-      });
-
-      it('應該在跳過太多時僅記錄前 5 個原因', () => {
-        const many = Array.from({ length: 11 }, () => ({ type: 'image' })); // 都會失敗因為沒 url
-        service.filterValidImageBlocks(many);
-
-        expect(Logger.info).toHaveBeenCalledWith(
-          expect.stringContaining('過濾圖片區塊'),
-          expect.objectContaining({
-            skippedCount: 11,
-            reasons: expect.any(Array),
-          })
-        );
-
-        // 驗證 reasons 長度被截斷為 5
-        const lastCall = Logger.info.mock.calls.at(-1);
-        const metadata = lastCall[1];
-        expect(metadata.reasons).toHaveLength(5);
       });
     });
   });

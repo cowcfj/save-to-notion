@@ -12,9 +12,9 @@
 
 import { Client } from '@notionhq/client';
 // 導入統一配置
-import { NOTION_CONFIG, ERROR_MESSAGES, IMAGE_VALIDATION_CONSTANTS } from '../../config/index.js';
+import { NOTION_CONFIG, ERROR_MESSAGES } from '../../config/index.js';
 // 導入安全工具
-import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { sanitizeApiError } from '../../utils/securityUtils.js';
 // 導入統一日誌記錄器
 import Logger from '../../utils/Logger.js';
 
@@ -368,50 +368,6 @@ class NotionService {
    * @returns {Array<string>} 需要刪除的區塊 ID 列表
    * @private
    */
-  /**
-   * 檢查 URL 是否可能被 Notion API 接受
-   *
-   * @param {string} url - 圖片 URL
-   * @returns {boolean} 是否兼容
-   * @private
-   */
-  _isNotionCompatibleImageUrl(url) {
-    if (!url || typeof url !== 'string') {
-      return false;
-    }
-
-    // 基本清理
-    const cleanUrl = url.trim();
-    if (!cleanUrl) {
-      return false;
-    }
-
-    try {
-      const urlObj = new URL(cleanUrl);
-
-      // 檢查協議：Notion API 僅支持 http 和 https 協議的外部圖片鏈接
-      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-        return false;
-      }
-
-      // 檢查特殊字符
-      const problematicChars = /[<>[\\\]^`{|}]/;
-      if (problematicChars.test(cleanUrl)) {
-        return false;
-      }
-
-      // 長度檢查 (Notion API 限制 2000，這裡留安全邊際)
-      const { MAX_URL_LENGTH, URL_LENGTH_INLINE_SAFETY_MARGIN } = IMAGE_VALIDATION_CONSTANTS;
-
-      if (cleanUrl.length > MAX_URL_LENGTH - URL_LENGTH_INLINE_SAFETY_MARGIN) {
-        return false;
-      }
-
-      return true;
-    } catch {
-      return false;
-    }
-  }
 
   /**
    * 批量刪除區塊（並發控制版本）
@@ -479,78 +435,6 @@ class NotionService {
     }
 
     return { successCount, failureCount: errors.length, errors };
-  }
-
-  /**
-   * 過濾有效的圖片區塊
-   * 委託給 imageUtils.filterNotionImageBlocks 處理，保留日誌輸出
-   *
-   * @param {Array} blocks - 區塊數組
-   * @param {boolean} excludeImages - 是否排除所有圖片（重試模式）
-   * @returns {{validBlocks: Array, skippedCount: number}}
-   */
-  filterValidImageBlocks(blocks, excludeImages = false) {
-    if (!blocks || !Array.isArray(blocks)) {
-      return { validBlocks: [], skippedCount: 0 };
-    }
-
-    if (excludeImages) {
-      const validBlocks = blocks.filter(block => block.type !== 'image');
-      const skippedCount = blocks.length - validBlocks.length;
-
-      if (skippedCount > 0) {
-        Logger.info('[NotionService] 重試模式排除所有圖片', {
-          action: 'filterValidImageBlocks',
-          excludeImages: true,
-          skippedCount,
-        });
-      }
-
-      return { validBlocks, skippedCount };
-    }
-
-    const validBlocks = [];
-    let skippedCount = 0;
-    const invalidReasons = [];
-
-    for (const block of blocks) {
-      // 非圖片區塊直接通過
-      if (block.type !== 'image') {
-        validBlocks.push(block);
-        continue;
-      }
-
-      // 圖片 URL 驗證
-      const imageUrl = block.image?.external?.url || block.image?.file?.url;
-
-      if (!imageUrl) {
-        skippedCount++;
-        invalidReasons.push({ reason: 'missing_url', id: block.id });
-        continue;
-      }
-
-      if (this._isNotionCompatibleImageUrl(imageUrl)) {
-        validBlocks.push(block);
-      } else {
-        skippedCount++;
-        invalidReasons.push({
-          reason: 'invalid_url',
-          id: block.id,
-          url: sanitizeUrlForLogging(imageUrl),
-        });
-      }
-    }
-
-    if (skippedCount > 0) {
-      Logger.info('[NotionService] 過濾圖片區塊', {
-        action: 'filterValidImageBlocks',
-        skippedCount,
-        totalBlocks: blocks.length,
-        reasons: invalidReasons.slice(0, 5), // 僅記錄前 5 個原因以防日誌爆炸
-      });
-    }
-
-    return { validBlocks, skippedCount };
   }
 
   /**
@@ -838,11 +722,11 @@ class NotionService {
       dataSourceType = 'database',
       blocks = [],
       siteIcon = null,
-      excludeImages = false,
     } = options;
 
-    // 過濾圖片區塊
-    const { validBlocks, skippedCount } = this.filterValidImageBlocks(blocks, excludeImages);
+    // 前端已驗證圖片，此處直接使用
+    const validBlocks = blocks;
+    const skippedCount = 0;
 
     // 構建 parent 配置
     const parentConfig =
@@ -889,11 +773,12 @@ class NotionService {
    * @returns {Promise<{success: boolean, addedCount?: number, deletedCount?: number, error?: string}>}
    */
   async refreshPageContent(pageId, newBlocks, options = {}) {
-    const { excludeImages = false, updateTitle = false, title = '' } = options;
+    const { updateTitle = false, title = '' } = options;
 
     try {
-      // 過濾有效區塊
-      const { validBlocks, skippedCount } = this.filterValidImageBlocks(newBlocks, excludeImages);
+      // 前端已驗證圖片，此處直接使用
+      const validBlocks = newBlocks;
+      const skippedCount = 0;
 
       // 步驟 1: 更新標題（如果需要）
       if (updateTitle && title) {

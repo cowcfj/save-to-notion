@@ -15,6 +15,8 @@ const getImageUtils = () =>
   (globalThis.global !== undefined && globalThis.ImageUtils) ||
   {};
 
+import Logger from '../../utils/Logger.js';
+
 import {
   BLOCKS_SUPPORTING_CHILDREN,
   UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
@@ -373,7 +375,7 @@ class DomConverter {
   }
 
   static createImageBlock(node) {
-    const { extractImageSrc, cleanImageUrl } = getImageUtils();
+    const { extractImageSrc, cleanImageUrl, isValidImageUrl } = getImageUtils();
     const src = extractImageSrc?.(node);
     if (!src) {
       return null;
@@ -385,6 +387,14 @@ class DomConverter {
       finalUrl = cleanImageUrl?.(finalUrl) ?? finalUrl;
     } catch {
       // ignore invalid url
+    }
+
+    if (isValidImageUrl && !isValidImageUrl(finalUrl)) {
+      Logger.warn('[Content] Dropping invalid image to ensure page save', {
+        action: 'createImageBlock',
+        url: finalUrl,
+      });
+      return null;
     }
 
     const alt = node.getAttribute('alt') || '';

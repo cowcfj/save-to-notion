@@ -9,12 +9,7 @@
  */
 
 // ImageUtils Named Imports
-import {
-  extractImageSrc,
-  isValidImageUrl,
-  cleanImageUrl,
-  isNotionCompatibleImageUrl,
-} from '../../utils/imageUtils.js';
+import { extractImageSrc, isValidImageUrl, cleanImageUrl } from '../../utils/imageUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import Logger from '../../utils/Logger.js';
 
@@ -108,13 +103,8 @@ const ImageCollector = {
         return null;
       }
 
-      // 3. 驗證圖片
-      // 使用 isNotionCompatibleImageUrl 如果可用，否則回退到 isValidImageUrl
-      const isCompatible = isNotionCompatibleImageUrl
-        ? isNotionCompatibleImageUrl(cleanedUrl)
-        : isValidImageUrl?.(cleanedUrl);
-
-      if (!isCompatible) {
+      // 3. 驗證圖片 URL
+      if (!isValidImageUrl?.(cleanedUrl)) {
         Logger.log('無效或不相容的圖片 URL', {
           action: 'processImageForCollection',
           url: sanitizeUrlForLogging(cleanedUrl),

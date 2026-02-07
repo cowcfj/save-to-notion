@@ -21,6 +21,7 @@ export const IMAGE_VALIDATION_CONSTANTS = {
   MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）
   MIN_IMAGE_WIDTH: 200, // 最小圖片寬度
   MIN_IMAGE_HEIGHT: 100, // 最小圖片高度
+  MAX_RECURSION_DEPTH: 5, // 遞歸解析最大深度
 };
 
 export const IMAGE_VALIDATION = IMAGE_VALIDATION_CONSTANTS;
@@ -209,6 +210,31 @@ export const UNSAFE_LIST_CHILDREN_FOR_FLATTENING = [
 // ==========================================
 // 日誌系統相關常量
 // ==========================================
+
+// ==========================================
+// 錯誤處理與類型定義 (來自 ErrorHandler.js)
+// ==========================================
+
+/**
+ * 應用程式錯誤類型枚舉
+ */
+export const ERROR_TYPES = {
+  // 原有類型
+  EXTRACTION_FAILED: 'extraction_failed',
+  INVALID_URL: 'invalid_url',
+  NETWORK_ERROR: 'network_error',
+  PARSING_ERROR: 'parsing_error',
+  PERFORMANCE_WARNING: 'performance_warning',
+  DOM_ERROR: 'dom_error',
+  VALIDATION_ERROR: 'validation_error',
+  TIMEOUT_ERROR: 'timeout_error',
+  // 背景服務相關類型
+  STORAGE: 'storage', // 存儲操作錯誤
+  NOTION_API: 'notion_api', // Notion API 錯誤
+  INJECTION: 'injection', // 腳本注入錯誤
+  PERMISSION: 'permission', // 權限不足
+  INTERNAL: 'internal', // 內部錯誤
+};
 
 /**
  * 日誌級別定義（來自 Logger.js）
