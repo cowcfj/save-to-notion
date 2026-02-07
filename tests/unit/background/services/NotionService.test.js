@@ -448,6 +448,26 @@ describe('NotionService', () => {
       expect(result.validBlocks).toEqual([]);
       expect(result.skippedCount).toBe(0);
     });
+
+    it('應該正確過濾超過長度限制的圖片 URL', () => {
+      // MAX_URL_LENGTH (2000) - URL_LENGTH_INLINE_SAFETY_MARGIN (100) = 1900
+      const limit = 2000 - 100;
+      const prefix = 'https://example.com/';
+
+      const validUrl = prefix + 'a'.repeat(limit - prefix.length); // exactly 1900 chars
+      const invalidUrl = prefix + 'b'.repeat(limit - prefix.length + 1); // 1901 chars
+
+      const blocks = [
+        { type: 'image', id: 'valid', image: { external: { url: validUrl } } },
+        { type: 'image', id: 'invalid', image: { external: { url: invalidUrl } } },
+      ];
+
+      const result = service.filterValidImageBlocks(blocks);
+
+      expect(result.validBlocks).toHaveLength(1);
+      expect(result.validBlocks[0].id).toBe('valid');
+      expect(result.skippedCount).toBe(1);
+    });
   });
 
   describe('buildPageData', () => {

@@ -12,7 +12,7 @@
 
 import { Client } from '@notionhq/client';
 // 導入統一配置
-import { NOTION_CONFIG, ERROR_MESSAGES } from '../../config/index.js';
+import { NOTION_CONFIG, ERROR_MESSAGES, IMAGE_VALIDATION_CONSTANTS } from '../../config/index.js';
 // 導入安全工具
 import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 // 導入統一日誌記錄器
@@ -401,7 +401,9 @@ class NotionService {
       }
 
       // 長度檢查 (Notion API 限制 2000，這裡留安全邊際)
-      if (cleanUrl.length > 2000 - 100) {
+      const { MAX_URL_LENGTH, URL_LENGTH_INLINE_SAFETY_MARGIN } = IMAGE_VALIDATION_CONSTANTS;
+
+      if (cleanUrl.length > MAX_URL_LENGTH - URL_LENGTH_INLINE_SAFETY_MARGIN) {
         return false;
       }
 
