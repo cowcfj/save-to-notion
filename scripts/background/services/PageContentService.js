@@ -75,18 +75,21 @@ class PageContentService {
 
               const contentBlocks = extractResult.blocks || [];
               const imageBlocks = extractResult.additionalImages || [];
+              const coverImage = extractResult.coverImage || null;
 
               PageLogger.log?.('✅ [PageContentService] 提取成功', {
                 contentBlocks: contentBlocks.length,
                 imageBlocks: imageBlocks.length,
+                hasCoverImage: Boolean(coverImage),
               });
 
-              // 適配返回格式：添加 siteIcon
+              // 適配返回格式：添加 siteIcon 和 coverImage
               return {
                 title: extractResult.title || document.title || 'Untitled',
                 blocks: [...contentBlocks, ...imageBlocks],
                 siteIcon:
                   extractResult.metadata?.siteIcon || extractResult.metadata?.favicon || null,
+                coverImage, // 封面圖片 URL（供 Notion cover 使用）
               };
             }
 

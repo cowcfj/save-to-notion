@@ -214,7 +214,7 @@ describe('ImageCollector', () => {
         meta: {},
       });
 
-      const results = await ImageCollector.collectAdditionalImages(contentElement);
+      const result = await ImageCollector.collectAdditionalImages(contentElement);
 
       // Depending on implementation, it might use batch or sequential.
       // If batch is used, it returns the mocked batch results.
@@ -224,8 +224,9 @@ describe('ImageCollector', () => {
       // So with 2 images, it will use sequential processing.
       // batchProcessWithRetry won't be called.
 
-      expect(results).toHaveLength(2);
-      expect(results[0].image.external.url).toBe('https://example.com/1.jpg');
+      // 新返回結構包含 images 和 coverImage
+      expect(result.images).toHaveLength(2);
+      expect(result.images[0].image.external.url).toBe('https://example.com/1.jpg');
 
       // Restore is handled by afterEach
     });
@@ -330,27 +331,34 @@ describe('ImageCollector', () => {
 
       const searchSpy = jest.spyOn(ImageCollector, '_collectFromNextJsData');
 
-      const results = await ImageCollector.collectAdditionalImages(contentElement);
+      const result = await ImageCollector.collectAdditionalImages(contentElement);
 
       expect(searchSpy).toHaveBeenCalled();
 
+      // 新返回結構包含 images 和 coverImage
       // Expected: main.jpg + gallery1.jpg (thumb.jpg excluded, related.jpg ignored, nav.jpg ignored, duplicate main.jpg ignored)
       // Total = 2
-      expect(results).toHaveLength(2);
+      expect(result.images).toHaveLength(2);
 
-      const img1 = results.find(r => r.image.external.url === 'https://example.com/main.jpg');
+      const img1 = result.images.find(r => r.image.external.url === 'https://example.com/main.jpg');
       expect(img1).toBeDefined();
       expect(img1._meta.width).toBe(1000);
 
-      const img2 = results.find(r => r.image.external.url === 'https://example.com/gallery1.jpg');
+      const img2 = result.images.find(
+        r => r.image.external.url === 'https://example.com/gallery1.jpg'
+      );
       expect(img2).toBeDefined();
       expect(img2._meta.width).toBe(1200);
 
       // Verify excluded images are NOT present
-      const thumb = results.find(r => r.image.external.url === 'https://example.com/thumb.jpg');
+      const thumb = result.images.find(
+        r => r.image.external.url === 'https://example.com/thumb.jpg'
+      );
       expect(thumb).toBeUndefined();
 
-      const related = results.find(r => r.image.external.url === 'https://example.com/related.jpg');
+      const related = result.images.find(
+        r => r.image.external.url === 'https://example.com/related.jpg'
+      );
       expect(related).toBeUndefined();
 
       // Cleanup

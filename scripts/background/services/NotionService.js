@@ -708,7 +708,7 @@ class NotionService {
    * @param {string} options.dataSourceType - 類型 ('database' 或 'page')
    * @param {Array} options.blocks - 內容區塊 (最多取前 100 個)
    * @param {string} [options.siteIcon] - 網站 Icon URL
-   * @param {boolean} [options.excludeImages] - 是否排除圖片
+   * @param {string} [options.coverImage] - 封面圖片 URL（用於頁面封面）
    * @returns {{pageData: object}}
    */
   buildPageData(options) {
@@ -719,6 +719,7 @@ class NotionService {
       dataSourceType = 'database',
       blocks = [],
       siteIcon = null,
+      coverImage = null,
     } = options;
 
     // 前端已驗證圖片，此處直接使用
@@ -755,6 +756,14 @@ class NotionService {
       pageData.icon = {
         type: 'external',
         external: { url: siteIcon },
+      };
+    }
+
+    // 添加封面圖片（如果有）
+    if (coverImage) {
+      pageData.cover = {
+        type: 'external',
+        external: { url: coverImage },
       };
     }
 

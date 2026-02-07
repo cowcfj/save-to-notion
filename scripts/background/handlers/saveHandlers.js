@@ -66,6 +66,7 @@ export function processContentResult(rawResult, highlights) {
   // 正規化所有欄位，確保不修改原始輸入
   const title = rawResult?.title || 'Untitled';
   const siteIcon = rawResult?.siteIcon ?? null;
+  const coverImage = rawResult?.coverImage ?? null; // 封面圖片 URL
   const blocks = Array.isArray(rawResult?.blocks) ? [...rawResult.blocks] : [];
 
   // 添加標註區塊
@@ -75,7 +76,7 @@ export function processContentResult(rawResult, highlights) {
     blocks.push(...highlightBlocks);
   }
 
-  return { title, blocks, siteIcon };
+  return { title, blocks, siteIcon, coverImage };
 }
 
 /**
@@ -146,6 +147,7 @@ export function createSaveHandlers(services) {
       dataSourceType,
       blocks: contentResult.blocks,
       siteIcon: contentResult.siteIcon,
+      coverImage: contentResult.coverImage, // 封面圖片 URL
     };
 
     const { pageData } = notionService.buildPageData(buildOptions);

@@ -40,42 +40,119 @@ const ImageCollector = {
   collectFeaturedImage() {
     Logger.log('嘗試收集特色/封面圖片', { action: 'collectFeaturedImage' });
 
-    for (const selector of FEATURED_IMAGE_SELECTORS) {
-      try {
-        const img = cachedQuery(selector, document, { single: true });
-        if (img) {
-          const src = extractImageSrc?.(img);
-          // 使用 ImageUtils 進行驗證
-          const isValid = isValidImageUrl?.(src);
+    // 策略 1: 優先使用 og:image / twitter:image meta 標籤（最可靠）
+    const metaImage = this._collectFeaturedFromMeta();
+    if (metaImage) {
+      return metaImage;
+    }
 
-          if (src && isValid) {
-            Logger.log('找到特色圖片', {
-              action: 'collectFeaturedImage',
-              selector,
-              url: sanitizeUrlForLogging(src),
-            });
-            return src;
-          }
-        }
-      } catch (error) {
-        if (ErrorHandler === undefined) {
-          Logger.warn('檢查選擇器出錯', {
-            action: 'collectFeaturedImage',
-            selector,
-            error: error.message,
-          });
-        } else {
-          ErrorHandler.logError({
-            type: 'dom_error',
-            context: `featured image selector: ${selector}`,
-            originalError: error,
-            timestamp: Date.now(),
-          });
-        }
-      }
+    // 策略 2: 使用 DOM 選擇器回退
+    const domImage = this._collectFeaturedFromDOM();
+    if (domImage) {
+      return domImage;
     }
 
     Logger.log('未找到特色圖片', { action: 'collectFeaturedImage' });
+    return null;
+  },
+
+  /**
+   * 從 DOM 選擇器獲取封面圖片（回退策略）
+   *
+   * @returns {string|null} 封面圖片 URL 或 null
+   * @private
+   */
+  _collectFeaturedFromDOM() {
+    for (const selector of FEATURED_IMAGE_SELECTORS) {
+      try {
+        const img = cachedQuery(selector, document, { single: true });
+        if (!img) {
+          continue;
+        }
+
+        // 排除側邊欄和非主文章區域的圖片
+        if (img.closest('aside, [role="complementary"], .sidebar, .side-bar, [class*="rhs"]')) {
+          Logger.log('跳過側邊欄圖片', { action: 'collectFeaturedImage', selector });
+          continue;
+        }
+
+        const src = extractImageSrc?.(img);
+        if (!src || !isValidImageUrl?.(src)) {
+          continue;
+        }
+
+        // 標準化 URL，確保與後續圖片的去重比較一致
+        const absoluteUrl = new URL(src, document.baseURI).href;
+        const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
+        Logger.log('找到特色圖片 (DOM)', {
+          action: 'collectFeaturedImage',
+          selector,
+          url: sanitizeUrlForLogging(cleanedUrl),
+        });
+        return cleanedUrl;
+      } catch (error) {
+        this._handleFeaturedImageError(error, selector);
+      }
+    }
+    return null;
+  },
+
+  /**
+   * 處理特色圖片提取錯誤（輔助方法）
+   *
+   * @param {Error} error - 錯誤對象
+   * @param {string} selector - 選擇器
+   * @private
+   */
+  _handleFeaturedImageError(error, selector) {
+    if (ErrorHandler === undefined) {
+      Logger.warn('檢查選擇器出錯', {
+        action: 'collectFeaturedImage',
+        selector,
+        error: error.message,
+      });
+    } else {
+      ErrorHandler.logError({
+        type: 'dom_error',
+        context: `featured image selector: ${selector}`,
+        originalError: error,
+        timestamp: Date.now(),
+      });
+    }
+  },
+
+  /**
+   * 從 meta 標籤獲取封面圖片（og:image / twitter:image）
+   *
+   * @returns {string|null} 封面圖片 URL 或 null
+   * @private
+   */
+  _collectFeaturedFromMeta() {
+    const metaSelectors = ['meta[property="og:image"]', 'meta[name="twitter:image"]'];
+
+    for (const selector of metaSelectors) {
+      try {
+        const meta = document.querySelector(selector);
+        const content = meta?.content;
+
+        if (content && isValidImageUrl?.(content)) {
+          const absoluteUrl = new URL(content, document.baseURI).href;
+          const cleanedUrl = cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
+          Logger.log('找到特色圖片 (Meta)', {
+            action: 'collectFeaturedImage',
+            source: selector,
+            url: sanitizeUrlForLogging(cleanedUrl),
+          });
+          return cleanedUrl;
+        }
+      } catch (error) {
+        Logger.warn('解析 meta 圖片出錯', {
+          action: 'collectFeaturedImage',
+          selector,
+          error: error.message,
+        });
+      }
+    }
     return null;
   },
 
@@ -170,10 +247,27 @@ const ImageCollector = {
    * @param {Array<object>} additionalImages - 用於存儲結果的數組
    */
   processImagesSequentially(images, featuredImage, additionalImages) {
+    // 追蹤已處理的 URL，避免重複添加
+    const processedUrls = new Set();
+    // 如果有特色圖片，先加入已處理集合
+    if (featuredImage) {
+      processedUrls.add(featuredImage);
+    }
+
     images.forEach((img, index) => {
       const result = ImageCollector.processImageForCollection(img, index, featuredImage);
       if (result) {
-        additionalImages.push(result);
+        const url = result.image?.external?.url;
+        // 檢查是否已處理過這個 URL
+        if (url && !processedUrls.has(url)) {
+          processedUrls.add(url);
+          additionalImages.push(result);
+        } else if (url) {
+          Logger.log('跳過重複的圖片 URL', {
+            action: 'processImagesSequentially',
+            url: sanitizeUrlForLogging(url),
+          });
+        }
       }
     });
   },
@@ -216,7 +310,12 @@ const ImageCollector = {
       action: 'collectAdditionalImages',
       count: additionalImages.length,
     });
-    return additionalImages;
+
+    // 返回結構化對象，包含封面圖片 URL 供 Notion cover 使用
+    return {
+      images: additionalImages,
+      coverImage: featuredImage, // 封面圖片 URL（用於設置 Notion 頁面封面）
+    };
   },
 
   _collectFromFeatured(additionalImages) {
@@ -341,15 +440,34 @@ const ImageCollector = {
     const foundImages = [];
     const seenUrls = new Set(); // 用於去重
 
-    // 2. 針對 HK01 的特定路徑: props.pageProps.article
-    const articleData = nextData?.props?.pageProps?.article;
+    // 2. 嘗試多個可能的 article 路徑（不同 Next.js 網站結構可能不同）
+    // HK01 使用 props.initialProps.pageProps.article
+    // 標準 Next.js 使用 props.pageProps.article
+    const articlePaths = [
+      nextData?.props?.initialProps?.pageProps?.article, // HK01 特定路徑
+      nextData?.props?.pageProps?.article, // 標準 Next.js 路徑
+    ];
+
+    const articleData = articlePaths.find(path => path !== undefined && path !== null);
 
     if (articleData) {
+      Logger.log('從 Next.js Data 找到 article 對象', {
+        action: 'collectAdditionalImages',
+        hasMainImage: Boolean(articleData.mainImage),
+        hasBlocks: Boolean(articleData.blocks),
+        hasGallery: Boolean(articleData.gallery),
+      });
       this._extractImagesFromArticleData(articleData, foundImages, seenUrls);
     } else {
       // 如果找不到 article 對象，記錄警告但不進行全域遞歸搜索，避免提取無關圖片
-      const keys = nextData?.props?.pageProps ? Object.keys(nextData.props.pageProps) : 'no_props';
-      Logger.log('Next.js Data 中未找到 article 對象，跳過提取', { keys });
+      const propsKeys = nextData?.props ? Object.keys(nextData.props) : [];
+      let pagePropsKeys = [];
+      if (nextData?.props?.pageProps) {
+        pagePropsKeys = Object.keys(nextData.props.pageProps);
+      } else if (nextData?.props?.initialProps?.pageProps) {
+        pagePropsKeys = Object.keys(nextData.props.initialProps.pageProps);
+      }
+      Logger.log('Next.js Data 中未找到 article 對象，跳過提取', { propsKeys, pagePropsKeys });
     }
 
     // 3. 記錄日誌
@@ -363,7 +481,7 @@ const ImageCollector = {
   /**
    * 從 article 數據中提取圖片 (提取輔助方法以降低複雜度)
    *
-   * 注意: 此方法目前與 HK01 的數據結構 (mainImage, originalImage, gallery) 高度耦合。
+   * 注意: 此方法目前與 HK01 的數據結構 (mainImage, originalImage, gallery, blocks) 高度耦合。
    * 如果未來需要支援其他 Next.js 網站，應考慮將欄位映射邏輯抽離為可配置的策略模式。
    *
    * @param {object} articleData - 文章數據對象
@@ -379,6 +497,21 @@ const ImageCollector = {
       articleData.originalImage,
       ...(articleData.gallery?.images || []),
     ].filter(Boolean); // 過濾掉 null/undefined
+
+    // HK01 特定: 從 blocks 數組中提取圖片
+    // blocks 中的圖片區塊有 blockType: 'image' 或 'gallery'
+    if (Array.isArray(articleData.blocks)) {
+      articleData.blocks.forEach(block => {
+        // 處理單張圖片區塊
+        if (block.blockType === 'image' && block.image) {
+          candidates.push(block.image);
+        }
+        // 處理圖庫區塊
+        if (block.blockType === 'gallery' && Array.isArray(block.images)) {
+          candidates.push(...block.images);
+        }
+      });
+    }
 
     for (const imgData of candidates) {
       if (imgData.cdnUrl && typeof imgData.cdnUrl === 'string') {

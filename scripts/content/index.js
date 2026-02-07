@@ -21,6 +21,8 @@ import { ImageCollector } from './extractors/ImageCollector.js';
 // 合併 Highlighter bundle：導入以執行其自動初始化邏輯 (setupHighlighter)
 import '../highlighter/index.js';
 
+const DEFAULT_TITLE = 'Untitled Page';
+
 // ============================================================
 // Preloader 快取接管
 // ============================================================
@@ -111,7 +113,7 @@ async function extractPageContent() {
     if (!extractResult?.content) {
       Logger.warn('內容提取失敗或返回空內容', { action: 'extractPageContent' });
       return {
-        title: document.title || 'Untitled Page',
+        title: document.title || DEFAULT_TITLE,
         blocks: [
           {
             object: 'block',
@@ -143,6 +145,7 @@ async function extractPageContent() {
 
     // 3. 收集額外圖片（可選）
     let additionalImages = [];
+    let coverImage = null;
     try {
       // 創建臨時容器來查找圖片
       // 使用 DOMParser 安全解析 HTML 內容，避免直接操作 innerHTML
@@ -150,10 +153,16 @@ async function extractPageContent() {
       const doc = parser.parseFromString(content, 'text/html');
 
       // ImageCollector 預期一個 Element，傳入 doc.body 即可
-      additionalImages = await ImageCollector.collectAdditionalImages(doc.body);
+      const imageResult = await ImageCollector.collectAdditionalImages(doc.body);
+
+      // 處理新的返回結構（包含 images 和 coverImage）
+      additionalImages = imageResult.images || imageResult; // 向後兼容
+      coverImage = imageResult.coverImage || null;
+
       Logger.log('額外圖片收集完成', {
         action: 'extractPageContent',
         imageCount: additionalImages.length,
+        hasCoverImage: Boolean(coverImage),
       });
     } catch (imageError) {
       Logger.warn('圖片收集失敗', { action: 'extractPageContent', error: imageError.message });
@@ -161,11 +170,12 @@ async function extractPageContent() {
 
     // 4. 返回結果
     return {
-      title: metadata.title || document.title || 'Untitled Page',
+      title: metadata.title || document.title || DEFAULT_TITLE,
       blocks,
       rawHtml: content,
       metadata, // 包含 author, description, favicon
       additionalImages,
+      coverImage, // 封面圖片 URL（供 Notion cover 使用）
       // 調試信息
       debug: {
         contentType: type,
@@ -178,7 +188,7 @@ async function extractPageContent() {
     Logger.error('內容提取發生異常', { action: 'extractPageContent', error: error.message });
 
     return {
-      title: document.title || 'Untitled Page',
+      title: document.title || DEFAULT_TITLE,
       blocks: [
         {
           object: 'block',
@@ -211,7 +221,7 @@ if (globalThis.window !== undefined) {
 
   // 單元測試支持：如果檢測到測試環境，自動執行並暴露結果
   if (globalThis.__UNIT_TESTING__) {
-    // 使用 IIFE 包裝以避免頂層 await 在非模組環境下的兼容性問題
+    // eslint-disable-next-line unicorn/prefer-top-level-await
     (async () => {
       try {
         globalThis.__notion_extraction_result = await extractPageContent();
