@@ -102,9 +102,6 @@ globalThis.ErrorHandler = {
 };
 
 describe('ImageCollector', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
   beforeEach(() => {
     jest.resetAllMocks(); // Use reset instead of clear to reset implementations
     document.body.innerHTML = '';
@@ -132,6 +129,10 @@ describe('ImageCollector', () => {
       results: [],
       meta: {},
     });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('collectFeaturedImage', () => {
@@ -263,6 +264,7 @@ describe('ImageCollector', () => {
 
       // 新返回結構包含 images 和 coverImage
       expect(result.images).toHaveLength(2);
+      expect(result.coverImage).toBeNull();
       expect(result.images[0].image.external.url).toBe('https://example.com/1.jpg');
 
       // Restore is handled by afterEach
@@ -346,6 +348,7 @@ describe('ImageCollector', () => {
       const result = await ImageCollector.collectAdditionalImages(contentElement);
 
       expect(result.images).toHaveLength(5); // Should limit to 5
+      expect(result.coverImage).toBeNull();
       expect(result.images[5]).toBeUndefined();
     });
 
@@ -413,6 +416,7 @@ describe('ImageCollector', () => {
       // Expected: main.jpg + gallery1.jpg (thumb.jpg excluded, related.jpg ignored, nav.jpg ignored, duplicate main.jpg ignored)
       // Total = 2
       expect(result.images).toHaveLength(2);
+      expect(result.coverImage).toBeNull();
 
       const img1 = result.images.find(r => r.image.external.url === 'https://example.com/main.jpg');
       expect(img1).toBeDefined();

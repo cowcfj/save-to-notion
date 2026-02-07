@@ -124,10 +124,21 @@ describe('Content Script Entry Point', () => {
       };
       ConverterFactory.getConverter.mockReturnValue(mockConverter);
 
-      ImageCollector.collectAdditionalImages.mockResolvedValue([
-        'https://example.com/image1.jpg',
-        'https://example.com/image2.jpg',
-      ]);
+      ImageCollector.collectAdditionalImages.mockResolvedValue({
+        images: [
+          {
+            object: 'block',
+            type: 'image',
+            image: { external: { url: 'https://example.com/image1.jpg' } },
+          },
+          {
+            object: 'block',
+            type: 'image',
+            image: { external: { url: 'https://example.com/image2.jpg' } },
+          },
+        ],
+        coverImage: null,
+      });
 
       const result = await extractPageContent();
 
@@ -175,6 +186,8 @@ describe('Content Script Entry Point', () => {
         'Content extraction failed'
       );
       expect(result.rawHtml).toBe('');
+      expect(result.additionalImages).toEqual([]);
+      expect(result.coverImage).toBeNull();
       expect(Logger.warn).toHaveBeenCalledWith(
         '內容提取失敗或返回空內容',
         expect.objectContaining({ action: 'extractPageContent' })
@@ -209,6 +222,8 @@ describe('Content Script Entry Point', () => {
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].paragraph.rich_text[0].text.content).toContain('Extraction error');
       expect(result.error).toBe('Extraction failed');
+      expect(result.additionalImages).toEqual([]);
+      expect(result.coverImage).toBeNull();
       expect(Logger.error).toHaveBeenCalledWith(
         '內容提取發生異常',
         expect.objectContaining({ action: 'extractPageContent' })
@@ -251,6 +266,29 @@ describe('Content Script Entry Point', () => {
         '圖片收集失敗',
         expect.objectContaining({ action: 'extractPageContent' })
       );
+    });
+
+    test('當 collectAdditionalImages 返回 null 時應該優雅降級', async () => {
+      ContentExtractor.extract.mockReturnValue({
+        content: '<p>Content</p>',
+        type: 'article',
+        metadata: { title: 'Title' },
+      });
+
+      const mockConverter = {
+        convert: jest.fn().mockReturnValue([]),
+      };
+      ConverterFactory.getConverter.mockReturnValue(mockConverter);
+
+      // 模擬返回 null
+      ImageCollector.collectAdditionalImages.mockResolvedValue(null);
+
+      const result = await extractPageContent();
+
+      expect(result.title).toBe('Title');
+      expect(result.additionalImages).toEqual([]);
+      expect(result.coverImage).toBeNull();
+      // 不應該拋出錯誤
     });
   });
 

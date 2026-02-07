@@ -133,6 +133,8 @@ async function extractPageContent() {
           },
         ],
         rawHtml: '',
+        additionalImages: [],
+        coverImage: null,
       };
     }
 
@@ -158,8 +160,10 @@ async function extractPageContent() {
       const imageResult = await ImageCollector.collectAdditionalImages(doc.body);
 
       // 處理新的返回結構（包含 images 和 coverImage）
-      const collectedImages = imageResult.images || imageResult; // 向後兼容
-      coverImage = imageResult.coverImage || null;
+      // 安全地處理 null/undefined 返回值，並支援向後兼容
+      const collectedImages =
+        imageResult?.images || (Array.isArray(imageResult) ? imageResult : []);
+      coverImage = imageResult?.coverImage || null;
 
       // 使用工具函數去重
       additionalImages = mergeUniqueImages(blocks, collectedImages);
@@ -213,6 +217,8 @@ async function extractPageContent() {
       ],
       rawHtml: '',
       error: error.message,
+      additionalImages: [],
+      coverImage: null,
     };
   }
 }

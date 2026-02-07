@@ -22,6 +22,7 @@ import {
   NotionService,
   NOTION_CONFIG,
 } from '../../../../scripts/background/services/NotionService.js';
+import { CONTENT_QUALITY } from '../../../../scripts/config/index.js';
 import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 const createMockResponse = (data, ok = true, status = 200) => ({
@@ -489,7 +490,9 @@ describe('NotionService', () => {
         dataSourceId: 'db-123',
       });
 
-      expect(result.pageData.properties.Title.title[0].text.content).toBe('Untitled');
+      expect(result.pageData.properties.Title.title[0].text.content).toBe(
+        CONTENT_QUALITY.DEFAULT_PAGE_TITLE
+      );
       expect(result.pageData.properties.URL.url).toBe('');
     });
   });
@@ -734,7 +737,6 @@ describe('NotionService', () => {
         failureCount: 0,
         errors: [],
       });
-      service._apiRequest = jest.fn(); // Ensure _apiRequest is not called for appending
 
       const result = await service.updateHighlightsSection(pageId, []); // Empty highlightBlocks
 

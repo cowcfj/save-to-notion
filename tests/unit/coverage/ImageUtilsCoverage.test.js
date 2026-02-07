@@ -41,59 +41,65 @@ describe('ImageUtils and DomConverter Missing Coverage Tests', () => {
             const src = 'https://example.com/invalid.jpg';
             const html = `<img src="${src}" alt="test" />`;
 
-            // Mock isValidCleanedImageUrl to return false
-            globalThis.ImageUtils = {
-                ...ImageUtils,
-                extractImageSrc: jest.fn().mockReturnValue(src),
-                cleanImageUrl: jest.fn(url => url),
-                isValidCleanedImageUrl: jest.fn().mockReturnValue(false),
-            };
+            try {
+                // Mock isValidCleanedImageUrl to return false
+                globalThis.ImageUtils = {
+                    ...ImageUtils,
+                    extractImageSrc: jest.fn().mockReturnValue(src),
+                    cleanImageUrl: jest.fn(url => url),
+                    isValidCleanedImageUrl: jest.fn().mockReturnValue(false),
+                };
 
-            const blocks = domConverter.convert(html);
+                const blocks = domConverter.convert(html);
 
-            expect(blocks).toHaveLength(0);
-            expect(Logger.warn).toHaveBeenCalledWith(
-                '[Content] Dropping invalid image to ensure page save',
-                expect.objectContaining({ url: src })
-            );
-
-            // Clean up
-            delete globalThis.ImageUtils;
+                expect(blocks).toHaveLength(0);
+                expect(Logger.warn).toHaveBeenCalledWith(
+                    '[Content] Dropping invalid image to ensure page save',
+                    expect.objectContaining({ url: src })
+                );
+            } finally {
+                // Clean up
+                delete globalThis.ImageUtils;
+            }
         });
     });
 
     describe('ImageUtils Coverage', () => {
         test('extractBestUrlFromSrcset handles SrcsetParser error', () => {
-            // Mock SrcsetParser
-            globalThis.SrcsetParser = {
-                parse: jest.fn(() => { throw new Error('Parser Error'); })
-            };
+            try {
+                // Mock SrcsetParser
+                globalThis.SrcsetParser = {
+                    parse: jest.fn(() => { throw new Error('Parser Error'); })
+                };
 
-            const srcset = 'image.jpg 100w';
-            const result = ImageUtils.extractBestUrlFromSrcset(srcset);
+                const srcset = 'image.jpg 100w';
+                const result = ImageUtils.extractBestUrlFromSrcset(srcset);
 
-            // Should fall back to manual parsing
-            expect(result).toBe('image.jpg');
-            expect(Logger.error).toHaveBeenCalledWith(
-                'SrcsetParser 失敗',
-                expect.objectContaining({ error: 'Parser Error' })
-            );
-
-            delete globalThis.SrcsetParser;
+                // Should fall back to manual parsing
+                expect(result).toBe('image.jpg');
+                expect(Logger.error).toHaveBeenCalledWith(
+                    'SrcsetParser 失敗',
+                    expect.objectContaining({ error: 'Parser Error' })
+                );
+            } finally {
+                delete globalThis.SrcsetParser;
+            }
         });
 
         test('extractBestUrlFromSrcset uses SrcsetParser successfully', () => {
              const expectedUrl = 'best-image.jpg';
-             globalThis.SrcsetParser = {
-                 parse: jest.fn(() => expectedUrl)
-             };
+             try {
+                 globalThis.SrcsetParser = {
+                     parse: jest.fn(() => expectedUrl)
+                 };
 
-             const srcset = 'image.jpg 100w';
-             const result = ImageUtils.extractBestUrlFromSrcset(srcset);
+                 const srcset = 'image.jpg 100w';
+                 const result = ImageUtils.extractBestUrlFromSrcset(srcset);
 
-             expect(result).toBe(expectedUrl);
-
-             delete globalThis.SrcsetParser;
+                 expect(result).toBe(expectedUrl);
+             } finally {
+                 delete globalThis.SrcsetParser;
+             }
         });
 
          test('_resolveUrl handles URL construction error (catastrophic failure)', () => {

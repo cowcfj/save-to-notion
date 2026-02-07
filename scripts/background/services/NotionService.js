@@ -12,7 +12,7 @@
 
 import { Client } from '@notionhq/client';
 // 導入統一配置
-import { NOTION_CONFIG, ERROR_MESSAGES } from '../../config/index.js';
+import { NOTION_CONFIG, ERROR_MESSAGES, CONTENT_QUALITY } from '../../config/index.js';
 // 導入安全工具
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 // 導入統一日誌記錄器
@@ -750,7 +750,7 @@ class NotionService {
       parent: parentConfig,
       properties: {
         Title: {
-          title: [{ text: { content: title || 'Untitled' } }],
+          title: [{ text: { content: title || CONTENT_QUALITY.DEFAULT_PAGE_TITLE } }],
         },
         URL: {
           url: pageUrl || '', // 符合現有測試預期

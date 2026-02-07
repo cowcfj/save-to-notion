@@ -148,6 +148,7 @@ class PageContentService {
           title: result.title,
           blockCount: result.blocks.length,
           hasSiteIcon: Boolean(result.siteIcon),
+          hasCoverImage: Boolean(result.coverImage),
         });
         return result;
       }
