@@ -176,9 +176,10 @@ const ErrorHandler = {
 
     const message = error instanceof Error ? error.message : String(error);
 
-    // [安全性修復] 如果訊息已經包含中文字符，說明已經是友善訊息
+    // [安全性修復] 如果訊息已經包含 CJK 統一表意文字（中日韓漢字），說明已經是友善訊息
+    // 注意：\p{Unified_Ideograph} 會匹配所有 CJK 表意文字，涵蓋中文、日文漢字、韓文漢字等
     // 因 UI 已全面改用 textContent，此處不再需要 escapeHtml
-    if (/[\u{4E00}-\u{9FA5}]/u.test(message)) {
+    if (/\p{Unified_Ideograph}/u.test(message)) {
       return message;
     }
 
@@ -189,9 +190,37 @@ const ErrorHandler = {
       return ERROR_MESSAGES.PATTERNS[message];
     }
 
+    // [SDK Error Support]
+    // 處理 Notion SDK 的 APIResponseError
+    // error.code (例如 'object_not_found', 'validation_error')
+    if (error?.code && ERROR_MESSAGES.PATTERNS[error.code]) {
+      return ERROR_MESSAGES.PATTERNS[error.code];
+    }
+
     // [兜底保護]
     // 防止直接將技術代碼 (如 'unknown_api_response') 顯示給用戶
     return ERROR_MESSAGES.DEFAULT;
+  },
+
+  /**
+   * 檢查是否為圖片相關的驗證錯誤
+   *
+   * @param {string|Error} error - 錯誤訊息或物件
+   * @returns {boolean} 是否為圖片驗證錯誤
+   */
+  isImageValidationError(error) {
+    if (!error) {
+      return false;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    const lowerMessage = message.toLowerCase();
+    // 僅當錯誤訊息同時包含 ['validation' 或 'invalid'] 且包含 'image' 時
+    // 才判定為圖片驗證錯誤
+    // 注意：不再將 generic 'validation_error' 視為圖片錯誤，避免誤判
+    return (
+      (lowerMessage.includes('validation') || lowerMessage.includes('invalid')) &&
+      lowerMessage.includes('image')
+    );
   },
 };
 

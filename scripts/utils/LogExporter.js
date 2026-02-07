@@ -25,11 +25,6 @@ export const LogExporter = {
     const safeLogs = rawLogs;
 
     // 3. 格式化輸出
-    // 格式化為: YYYYMMDD-HHmmss
-    const nowISO = new Date().toISOString();
-    const timestamp = `${nowISO.slice(0, 10).replaceAll('-', '')}-${nowISO
-      .slice(11, 19)
-      .replaceAll(':', '')}`;
     let content = '';
     let filename = '';
     let mimeType = '';
@@ -37,7 +32,6 @@ export const LogExporter = {
     if (format === 'json') {
       const exportData = {
         version: '1.0',
-        exportedAt: nowISO,
         extensionVersion: chrome.runtime.getManifest().version,
         userAgent: navigator.userAgent,
         logCount: count,
@@ -53,16 +47,14 @@ export const LogExporter = {
           error: 'Log_Serialization_Failed',
           message: 'Unable to serialize logs due to invalid content (e.g. circular references).',
           originalError: error.message,
-          exportedAt: exportData.exportedAt,
           extensionVersion: exportData.extensionVersion,
         };
         content = JSON.stringify(errorReport, null, 2);
-        // Adjust filename to indicate error
-        filename = `notion-debug-error-${timestamp}.json`;
+        filename = 'notion-debug-error.json';
       }
 
       if (!filename) {
-        filename = `notion-debug-${timestamp}.json`;
+        filename = 'notion-debug.json';
       }
       mimeType = 'application/json';
     } else {

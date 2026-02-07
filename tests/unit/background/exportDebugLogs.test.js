@@ -8,9 +8,21 @@ import { exportDebugLogs } from '../../../scripts/background/handlers/logHandler
 
 // Mock Logger
 globalThis.Logger = {
-  error: jest.fn(),
-  warn: jest.fn(),
+  debug: jest.fn(),
   info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+};
+
+// Mock Chrome API
+globalThis.chrome = {
+  runtime: {
+    id: 'mock-extension-id',
+    getManifest: jest.fn(() => ({ version: '1.0.0' })),
+  },
 };
 
 describe('exportDebugLogs Handler - Error Handling', () => {
@@ -41,7 +53,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       jest.spyOn(LogExporter, 'exportLogs').mockReturnValue(mockResult);
 
       const message = { format: 'json' };
-      const sender = {};
+      const sender = { id: 'mock-extension-id' };
 
       // Act
       await handler(message, sender, mockSendResponse);
@@ -64,7 +76,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       });
 
       const message = { format: 'json' };
-      const sender = {};
+      const sender = { id: 'mock-extension-id' };
 
       // Act
       await handler(message, sender, mockSendResponse);
@@ -83,13 +95,13 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       // Arrange
       jest.spyOn(LogExporter, 'exportLogs').mockImplementation(() => {
         // 故意拋出缺乏 message 的 Error 對象來測試預設錯誤訊息處理
-        const error = new Error();
+        const error = new Error('Test error');
         error.message = undefined;
         throw error;
       });
 
       const message = { format: 'json' };
-      const sender = {};
+      const sender = { id: 'mock-extension-id' };
 
       // Act
       await handler(message, sender, mockSendResponse);
@@ -112,7 +124,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       });
 
       const message = { format: 'xml' };
-      const sender = {};
+      const sender = { id: 'mock-extension-id' };
 
       // Act
       await handler(message, sender, mockSendResponse);
@@ -136,7 +148,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       });
 
       const message = { format: 'json' };
-      const sender = {};
+      const sender = { id: 'mock-extension-id' };
 
       // Act
       await handler(message, sender, mockSendResponse);
@@ -155,7 +167,7 @@ describe('exportDebugLogs Handler - Error Handling', () => {
       });
 
       const message = { format: 'json' };
-      const sender = {};
+      const sender = { id: 'mock-extension-id' };
 
       // Act
       await handler(message, sender, mockSendResponse);

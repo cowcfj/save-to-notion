@@ -55,12 +55,13 @@ export const LogSanitizer = {
    *
    * @param {string} message - 日誌訊息
    * @param {object} context - 日誌上下文
+   * @param {object} [options] - 配置選項
    * @returns {object} { message, context } 脫敏後的結果
    */
-  sanitizeEntry(message, context) {
+  sanitizeEntry(message, context, options = {}) {
     return {
       message: this._sanitizeString(message),
-      context: this._sanitizeValue(context, 0),
+      context: this._sanitizeValue(context, 0, new WeakSet(), options),
     };
   },
 
@@ -68,10 +69,11 @@ export const LogSanitizer = {
    * 清洗日誌列表
    *
    * @param {Array<object>} logs - 原始日誌陣列
+   * @param {object} [options] - 配置選項（如 isDev）
    * @returns {Array<object>} 脫敏後的日誌副本
    * 注意：除了 `message` 和 `context` 會被重新處理外，其他頂層屬性僅進行淺拷貝 (Shallow Copy)。
    */
-  sanitize(logs) {
+  sanitize(logs, options = {}) {
     if (!Array.isArray(logs)) {
       return [];
     }
@@ -79,7 +81,7 @@ export const LogSanitizer = {
     // Map returns a new array, deep cloning is done during sanitization properties
     return logs.map(log => ({
       ...log,
-      ...this.sanitizeEntry(log.message, log.context),
+      ...this.sanitizeEntry(log.message, log.context, options),
     }));
   },
 
@@ -89,17 +91,10 @@ export const LogSanitizer = {
    * @param {*} value - 要清理的值
    * @param {number} depth - 當前遞歸深度
    * @param {WeakSet} [seen] - 用於檢測循環引用的集合
+   * @param {object} [options] - 配置選項
    * @returns {*} 清理後的值
    */
-  /**
-   * 遞歸清理值（支持對象、數組、字符串）
-   *
-   * @param {*} value - 要清理的值
-   * @param {number} depth - 當前遞歸深度
-   * @param {WeakSet} [seen] - 用於檢測循環引用的集合
-   * @returns {*} 清理後的值
-   */
-  _sanitizeValue(value, depth, seen = new WeakSet()) {
+  _sanitizeValue(value, depth, seen = new WeakSet(), options = {}) {
     if (depth > MAX_DEPTH) {
       return '[MAX_DEPTH_REACHED]';
     }
@@ -121,15 +116,15 @@ export const LogSanitizer = {
     }
 
     if (Array.isArray(value)) {
-      return this._sanitizeArray(value, depth, seen);
+      return this._sanitizeArray(value, depth, seen, options);
     }
 
     if (value instanceof Error) {
-      return this._sanitizeError(value, depth, seen);
+      return this._sanitizeError(value, depth, seen, options);
     }
 
     if (typeof value === 'object') {
-      return this._sanitizeObject(value, depth, seen);
+      return this._sanitizeObject(value, depth, seen, options);
     }
 
     return value;
@@ -141,10 +136,11 @@ export const LogSanitizer = {
    * @param {Array} arr - 要清理的陣列
    * @param {number} depth - 當前深度
    * @param {WeakSet} seen - 循環引用集合
+   * @param {object} options - 配置選項
    * @returns {Array} 清理後的陣列
    */
-  _sanitizeArray(arr, depth, seen) {
-    return arr.map(item => this._sanitizeValue(item, depth + 1, seen));
+  _sanitizeArray(arr, depth, seen, options) {
+    return arr.map(item => this._sanitizeValue(item, depth + 1, seen, options));
   },
 
   /**
@@ -153,9 +149,10 @@ export const LogSanitizer = {
    * @param {Error} error - 要清理的錯誤對象
    * @param {number} depth - 當前深度
    * @param {WeakSet} seen - 循環引用集合
+   * @param {object} options - 配置選項
    * @returns {object} 清理後的錯誤信息對象
    */
-  _sanitizeError(error, depth, seen) {
+  _sanitizeError(error, depth, seen, options) {
     const sanitized = {
       name: error.name || 'Error',
     };
@@ -163,12 +160,12 @@ export const LogSanitizer = {
     // 嘗試保留其他自定義屬性
     for (const key of Object.keys(error)) {
       if (key !== 'message' && key !== 'stack' && key !== 'name') {
-        sanitized[key] = this._sanitizeValue(error[key], depth + 1, seen);
+        sanitized[key] = this._sanitizeValue(error[key], depth + 1, seen, options);
       }
     }
 
     sanitized.message = this._sanitizeString(error.message);
-    sanitized.stack = this._sanitizeStackTrace(error.stack);
+    sanitized.stack = this._sanitizeStackTrace(error.stack, options);
 
     return sanitized;
   },
@@ -179,9 +176,10 @@ export const LogSanitizer = {
    * @param {object} obj - 要清理的對象
    * @param {number} depth - 當前深度
    * @param {WeakSet} seen - 循環引用集合
+   * @param {object} options - 配置選項
    * @returns {object} 清理後的對象
    */
-  _sanitizeObject(obj, depth, seen) {
+  _sanitizeObject(obj, depth, seen, options) {
     const safeObj = {};
     for (const [key, val] of Object.entries(obj)) {
       // 1. 檢查鍵名是否為敏感鍵（優先級最高）
@@ -204,7 +202,7 @@ export const LogSanitizer = {
       } else if (/^properties$/i.test(key)) {
         safeObj[key] = '[REDACTED_PROPERTIES]';
       } else {
-        safeObj[key] = this._sanitizeValue(val, depth + 1, seen);
+        safeObj[key] = this._sanitizeValue(val, depth + 1, seen, options);
       }
     }
     return safeObj;
@@ -233,9 +231,10 @@ export const LogSanitizer = {
    * 清洗錯誤堆疊追蹤，移除內部路徑和精確位置資訊
    *
    * @param {string} stack - 原始 stack trace
+   * @param {object} [_options] - 配置選項（保留供未來擴展使用）
    * @returns {string} 清洗後的 stack trace
    */
-  _sanitizeStackTrace(stack) {
+  _sanitizeStackTrace(stack, _options = {}) {
     if (!stack || typeof stack !== 'string') {
       return stack;
     }
@@ -279,7 +278,7 @@ export const LogSanitizer = {
       );
 
       // 3. 移除精確的行號和列號（:16:13），只保留檔案名
-      sanitized = sanitized.replaceAll(/\.js:\d+:\d+/g, '.js:[位置已隱藏]');
+      // [Security Policy] 根據新架構，生產環境保留行號以協助除錯 (詳見 SECURE_LOGGING_ARCHITECTURE.md)
 
       return sanitized;
     });

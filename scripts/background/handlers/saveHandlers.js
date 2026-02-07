@@ -11,6 +11,7 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import {
   validateInternalRequest,
+  validateContentScriptRequest,
   isValidNotionUrl,
   sanitizeApiError,
   sanitizeUrlForLogging,
@@ -41,19 +42,17 @@ async function getActiveTab() {
 }
 
 /**
- * 獲取並設置 Notion API Key
+ * 獲取 Notion API Key
  *
  * @param {StorageService} storageService
- * @param {NotionService} notionService
  * @returns {Promise<string>} API Key
  * @throws {Error} 如果 API Key 未設置
  */
-async function ensureNotionApiKey(storageService, notionService) {
+async function ensureNotionApiKey(storageService) {
   const config = await storageService.getConfig(['notionApiKey']);
   if (!config.notionApiKey) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
-  notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
 }
 /**
@@ -77,6 +76,21 @@ export function processContentResult(rawResult, highlights) {
   }
 
   return { title, blocks, siteIcon };
+}
+
+/**
+ * 統一處理錯誤回應
+ *
+ * @param {object} result - 操作結果
+ * @param {Function} sendResponse - 回應函數
+ */
+function sendErrorResponse(result, sendResponse) {
+  const userMessage = ErrorHandler.formatUserMessage(result.error);
+  const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
+  sendResponse({
+    ...result,
+    error: `${userMessage}${phaseInfo}`,
+  });
 }
 
 // ============================================================================
@@ -122,7 +136,7 @@ export function createSaveHandlers(services) {
    * @returns {Promise<object>} 保存結果
    */
   async function performCreatePage(params) {
-    const { normUrl, dataSourceId, dataSourceType, contentResult } = params;
+    const { normUrl, dataSourceId, dataSourceType, contentResult, apiKey } = params;
 
     // 第一次嘗試
     const buildOptions = {
@@ -139,10 +153,11 @@ export function createSaveHandlers(services) {
     let result = await notionService.createPage(pageData, {
       autoBatch: true,
       allBlocks: validBlocks,
+      apiKey,
     });
 
-    // 失敗重試邏輯：如果是圖片驗證錯誤
-    if (!result.success && result.error && /image|media|validation/i.test(result.error)) {
+    // 失敗重試邏輯：如果是圖片驗證錯誤或標準化後的驗證錯誤
+    if (!result.success && result.error && ErrorHandler.isImageValidationError(result.error)) {
       Logger.warn('收到 Notion 圖片驗證錯誤，準備重試', {
         action: 'performCreatePage',
         delay: HANDLER_CONSTANTS.IMAGE_RETRY_DELAY,
@@ -158,6 +173,7 @@ export function createSaveHandlers(services) {
       result = await notionService.createPage(rebuild.pageData, {
         autoBatch: true,
         allBlocks: rebuild.validBlocks,
+        apiKey,
       });
     }
 
@@ -187,7 +203,7 @@ export function createSaveHandlers(services) {
    * @private
    */
   async function _handleExistingPageUpdate(params) {
-    const { savedData, highlights, contentResult, normUrl, sendResponse } = params;
+    const { savedData, highlights, contentResult, normUrl, sendResponse, apiKey } = params;
     const imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
 
     if (highlights.length > 0) {
@@ -195,7 +211,8 @@ export function createSaveHandlers(services) {
       const highlightBlocks = buildBlocks(highlights);
       const result = await notionService.updateHighlightsSection(
         savedData.notionPageId,
-        highlightBlocks
+        highlightBlocks,
+        { apiKey }
       );
 
       if (result.success) {
@@ -207,18 +224,13 @@ export function createSaveHandlers(services) {
         });
         sendResponse(result);
       } else {
-        const userMessage = ErrorHandler.formatUserMessage(result.error);
-        const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
-        sendResponse({
-          ...result,
-          error: `${userMessage}${phaseInfo}`,
-        });
+        sendErrorResponse(result, sendResponse);
       }
     } else {
       const result = await notionService.refreshPageContent(
         savedData.notionPageId,
         contentResult.blocks,
-        { updateTitle: true, title: contentResult.title }
+        { updateTitle: true, title: contentResult.title, apiKey }
       );
 
       if (result.success) {
@@ -231,12 +243,7 @@ export function createSaveHandlers(services) {
         });
         sendResponse(result);
       } else {
-        const userMessage = ErrorHandler.formatUserMessage(result.error);
-        const phaseInfo = result.details?.phase ? ` (在 ${result.details.phase} 階段)` : '';
-        sendResponse({
-          ...result,
-          error: `${userMessage}${phaseInfo}`,
-        });
+        sendErrorResponse(result, sendResponse);
       }
     }
   }
@@ -247,19 +254,23 @@ export function createSaveHandlers(services) {
    * @param {object} params - 參數對象
    */
   async function determineAndExecuteSaveAction(params) {
+    // 注意：params 還包含 highlights 和 apiKey，透過 _handleExistingPageUpdate(params) 傳遞
     const {
       savedData,
       normUrl,
       dataSourceId,
       dataSourceType,
       contentResult,
+      apiKey,
       activeTabId,
       sendResponse,
     } = params;
 
     // 已有保存記錄：檢查頁面是否仍存在
     if (savedData?.notionPageId) {
-      const pageExists = await notionService.checkPageExists(savedData.notionPageId);
+      const pageExists = await notionService.checkPageExists(savedData.notionPageId, {
+        apiKey,
+      });
 
       if (pageExists === null) {
         Logger.warn('無法確認 Notion 頁面存在性', {
@@ -290,12 +301,15 @@ export function createSaveHandlers(services) {
           dataSourceId,
           dataSourceType,
           contentResult,
+          apiKey,
         });
 
         if (result.success) {
           result.recreated = true;
+          sendResponse(result);
+        } else {
+          sendErrorResponse(result, sendResponse);
         }
-        sendResponse(result);
       }
     } else {
       const result = await performCreatePage({
@@ -303,8 +317,13 @@ export function createSaveHandlers(services) {
         dataSourceId,
         dataSourceType,
         contentResult,
+        apiKey,
       });
-      sendResponse(result);
+      if (result.success) {
+        sendResponse(result);
+      } else {
+        sendErrorResponse(result, sendResponse);
+      }
     }
   }
 
@@ -349,7 +368,6 @@ export function createSaveHandlers(services) {
           });
           return;
         }
-
         const config = await storageService.getConfig([
           'notionApiKey',
           'notionDataSourceId',
@@ -376,11 +394,9 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        // 重要：設置 Service 的 API Key
-        notionService.setApiKey(config.notionApiKey);
+        const apiKey = config.notionApiKey;
 
-        const normalize = normalizeUrl || (url => url);
-        const normUrl = normalize(activeTab.url || '');
+        const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         // 注入 highlighter 並收集標記
@@ -431,6 +447,7 @@ export function createSaveHandlers(services) {
           dataSourceType,
           contentResult,
           highlights,
+          apiKey,
           activeTabId: activeTab.id,
           sendResponse,
         });
@@ -473,8 +490,7 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const normalize = normalizeUrl || (url => url);
-        const normUrl = normalize(pageUrl);
+        const normUrl = normalizeUrl(pageUrl);
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {
@@ -512,27 +528,14 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        chrome.tabs.create({ url: notionUrl }, tab => {
-          if (chrome.runtime.lastError) {
-            Logger.error('打開 Notion 頁面失敗', {
-              action: 'openNotionPage',
-              error: chrome.runtime.lastError.message,
-            });
-            const safeMessage = sanitizeApiError(chrome.runtime.lastError, 'open_page');
-            sendResponse({
-              success: false,
-              error: ErrorHandler.formatUserMessage(safeMessage),
-            });
-          } else {
-            Logger.log('成功在分頁中打開 Notion 頁面', {
-              action: 'openNotionPage',
-              notionUrl: sanitizeUrlForLogging(notionUrl),
-            });
-            sendResponse({ success: true, tabId: tab.id, notionUrl });
-          }
+        const tab = await chrome.tabs.create({ url: notionUrl });
+        Logger.log('成功在分頁中打開 Notion 頁面', {
+          action: 'openNotionPage',
+          notionUrl: sanitizeUrlForLogging(notionUrl),
         });
+        sendResponse({ success: true, tabId: tab.id, notionUrl });
       } catch (error) {
-        Logger.error('執行 openNotionPage 時出錯', {
+        Logger.error('打開 Notion 頁面失敗', {
           action: 'openNotionPage',
           error: error.message,
         });
@@ -550,6 +553,13 @@ export function createSaveHandlers(services) {
      */
     checkNotionPageExists: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：確保請求來自擴充功能內部 (Popup)
+        const validationError = validateInternalRequest(sender);
+        if (validationError) {
+          sendResponse(validationError);
+          return;
+        }
+
         const { pageId } = request;
         if (!pageId) {
           sendResponse({
@@ -559,9 +569,9 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        await ensureNotionApiKey(storageService, notionService);
+        const apiKey = await ensureNotionApiKey(storageService);
 
-        const exists = await notionService.checkPageExists(pageId);
+        const exists = await notionService.checkPageExists(pageId, { apiKey });
         sendResponse({ success: true, exists });
       } catch (error) {
         const safeMessage = sanitizeApiError(error, 'check_page_exists');
@@ -579,8 +589,15 @@ export function createSaveHandlers(services) {
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
+        // 安全性驗證：確保請求來自擴充功能內部 (Popup)
+        const validationError = validateInternalRequest(sender);
+        if (validationError) {
+          sendResponse(validationError);
+          return;
+        }
+
         const activeTab = await getActiveTab();
-        const normUrl = (normalizeUrl || (url => url))(activeTab.url || '');
+        const normUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {
@@ -610,8 +627,8 @@ export function createSaveHandlers(services) {
           });
         }
 
-        notionService.setApiKey(config.notionApiKey);
-        let exists = await notionService.checkPageExists(savedData.notionPageId);
+        const apiKey = config.notionApiKey;
+        let exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
 
         if (exists === null) {
           Logger.warn('首次檢查頁面存在性失敗，正在重試', {
@@ -619,7 +636,7 @@ export function createSaveHandlers(services) {
             pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
           });
           await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
-          exists = await notionService.checkPageExists(savedData.notionPageId);
+          exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
         }
 
         if (exists === false) {
@@ -665,14 +682,26 @@ export function createSaveHandlers(services) {
      */
     devLogSink: (request, sender, sendResponse) => {
       try {
-        const level = request.level || 'log';
+        // 安全性驗證：確保請求來自我們自己的 content script
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          sendResponse(validationError);
+          return;
+        }
+
+        // 驗證並標準化日誌層級
+        const allowedLevels = ['log', 'info', 'warn', 'error', 'debug'];
+        let level = request.level;
+
+        if (!allowedLevels.includes(level) || typeof Logger[level] !== 'function') {
+          level = 'log';
+        }
+
         const message = request.message || '';
         const args = Array.isArray(request.args) ? request.args : [];
 
-        // 1. 輸出到 Background Console (方便即時調試)
-        // 使用 console 直接輸出避免再次觸發 writeToBuffer (避免雙重記錄)
-        // 但我們仍希望保留它的格式化輸出
-        const logMethod = console[level] || console.log;
+        // 1. 輸出到日誌系統 (Logger 會處理緩衝與層級)
+        const logMethod = Logger[level];
         logMethod(`[ClientLog] ${message}`, ...args);
 
         // 2. 寫入 LogBuffer (保留原始時間戳與來源)
@@ -695,7 +724,6 @@ export function createSaveHandlers(services) {
           message: `[ClientLog] ${message}`,
           context,
           source: 'content_script', // 明確標記來源
-          timestamp: request.timestamp, // 假設前端有傳，或者在這裡生成
         });
 
         sendResponse({ success: true });

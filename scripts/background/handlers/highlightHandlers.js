@@ -8,7 +8,6 @@
 
 /* global chrome, Logger */
 
-import { normalizeUrl } from '../../utils/urlUtils.js';
 import {
   validateInternalRequest,
   validateContentScriptRequest,
@@ -17,8 +16,9 @@ import {
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
+import { normalizeUrl } from '../../utils/urlUtils.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
-import { ERROR_MESSAGES } from '../../config/messages.js';
+import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 
 // ============================================================================
 // 內部輔助函數 (Local Helpers)
@@ -33,28 +33,27 @@ import { ERROR_MESSAGES } from '../../config/messages.js';
 async function getActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const activeTab = tabs[0];
-  if (!activeTab || !activeTab.id) {
+  if (!activeTab?.id) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB);
   }
   return activeTab;
 }
 
 /**
- * 獲取並設置 Notion API Key
+ * 獲取 Notion API Key
  *
  * @param {StorageService} storageService
- * @param {NotionService} notionService
  * @returns {Promise<string>} API Key
  * @throws {Error} 如果 API Key 未設置
  */
-async function ensureNotionApiKey(storageService, notionService) {
+async function ensureNotionApiKey(storageService) {
   const config = await storageService.getConfig(['notionApiKey']);
   if (!config.notionApiKey) {
     throw new Error(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED);
   }
-  notionService.setApiKey(config.notionApiKey);
   return config.notionApiKey;
 }
+
 /**
  * 確保 Bundle 已就緒
  *
@@ -78,7 +77,7 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
       });
 
       if (pingResponse?.status === 'bundle_ready') {
-        Logger.log('Bundle 已就緒', { action: 'ensureBundleReady', attempts: i + 1 });
+        Logger.ready('Bundle 已就緒', { action: 'ensureBundleReady', attempts: i + 1 });
         return true;
       }
     } catch {
@@ -89,6 +88,51 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
     }
   }
   return false;
+}
+
+/**
+ * 執行標註更新的核心邏輯
+ *
+ * @param {object} services - 服務實例集合
+ * @param {chrome.tabs.Tab} activeTab - 當前標籤頁
+ * @param {Array} highlights - 標註數據
+ * @returns {Promise<object>} 更新結果
+ */
+async function performHighlightUpdate(services, activeTab, highlights) {
+  const { storageService, notionService } = services;
+
+  // 1. 確保有 API Key
+  const apiKey = await ensureNotionApiKey(storageService);
+
+  // 使用 normalizeUrl 正規化 URL，確保與 savePage/checkPageStatus 一致
+  const normUrl = normalizeUrl(activeTab.url || '');
+  const savedData = await storageService.getSavedPageData(normUrl);
+
+  if (!savedData?.notionPageId) {
+    return {
+      success: false,
+      error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
+    };
+  }
+
+  // 轉換標記為 Blocks
+  const highlightBlocks = buildHighlightBlocks(highlights);
+
+  // 調用 NotionService 更新標記
+  const result = await notionService.updateHighlightsSection(
+    savedData.notionPageId,
+    highlightBlocks,
+    {
+      apiKey,
+    }
+  );
+
+  // 格式化失敗訊息為用戶友善格式（與 saveHandlers.sendErrorResponse 模式一致）
+  if (!result.success && result.error) {
+    result.error = ErrorHandler.formatUserMessage(result.error);
+  }
+
+  return result;
 }
 
 // ============================================================================
@@ -102,15 +146,15 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
  * @returns {object} 處理函數映射
  */
 export function createHighlightHandlers(services) {
-  const { notionService, storageService, injectionService } = services;
+  const { injectionService } = services;
 
   return {
     /**
      * 處理用戶快捷鍵激活（來自 Preloader）
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
      */
     USER_ACTIVATE_SHORTCUT: async (request, sender, sendResponse) => {
       try {
@@ -129,7 +173,7 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        if (!sender.tab || !sender.tab.id) {
+        if (!sender.tab?.id) {
           Logger.warn('缺少標籤頁上下文', { action: 'USER_ACTIVATE_SHORTCUT' });
           sendResponse({ success: false, error: 'No tab context' });
           return;
@@ -137,7 +181,7 @@ export function createHighlightHandlers(services) {
 
         const tabId = sender.tab.id;
         const tabUrl = sender.tab.url;
-        Logger.log('觸發快捷鍵激活', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
+        Logger.start('觸發快捷鍵激活', { action: 'USER_ACTIVATE_SHORTCUT', tabId });
 
         // 檢查是否為受限頁面
         if (tabUrl && isRestrictedInjectionUrl(tabUrl)) {
@@ -183,26 +227,30 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        // 發送消息顯示 highlighter
-        chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, response => {
-          if (chrome.runtime.lastError) {
-            Logger.warn('顯示高亮工具失敗', {
-              action: 'USER_ACTIVATE_SHORTCUT',
-              error: chrome.runtime.lastError.message,
+        // 發送訊息顯示 highlighter
+        try {
+          const response = await new Promise((resolve, reject) => {
+            chrome.tabs.sendMessage(tabId, { action: 'showHighlighter' }, result => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(result);
+              }
             });
-            const safeMessage = sanitizeApiError(
-              chrome.runtime.lastError.message,
-              'show_highlighter'
-            );
-            sendResponse({
-              success: false,
-              error: ErrorHandler.formatUserMessage(safeMessage),
-            });
-          } else {
-            Logger.log('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
-            sendResponse({ success: true, response });
-          }
-        });
+          });
+          Logger.success('成功顯示高亮工具', { action: 'USER_ACTIVATE_SHORTCUT' });
+          sendResponse({ success: true, response });
+        } catch (error) {
+          Logger.warn('顯示高亮工具失敗', {
+            action: 'USER_ACTIVATE_SHORTCUT',
+            error: error.message,
+          });
+          const safeMessage = sanitizeApiError(error, 'show_highlighter');
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(safeMessage),
+          });
+        }
       } catch (error) {
         Logger.error('執行快捷鍵激活時發生意外錯誤', {
           action: 'USER_ACTIVATE_SHORTCUT',
@@ -216,9 +264,9 @@ export function createHighlightHandlers(services) {
     /**
      * 啟動/切換高亮工具
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
      */
     startHighlight: async (request, sender, sendResponse) => {
       try {
@@ -248,7 +296,7 @@ export function createHighlightHandlers(services) {
           return;
         }
 
-        // 嘗試先發送消息切換（如果腳本已加載）
+        // 嘗試先發送訊息切換（如果腳本已加載）
         try {
           const response = await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(
@@ -257,7 +305,7 @@ export function createHighlightHandlers(services) {
               messageResponse => {
                 if (chrome.runtime.lastError) {
                   // 如果最後一個錯誤存在，說明沒有監聽器或其他問題
-                  reject(chrome.runtime.lastError);
+                  reject(new Error(chrome.runtime.lastError.message));
                 } else {
                   resolve(messageResponse);
                 }
@@ -270,8 +318,8 @@ export function createHighlightHandlers(services) {
             return;
           }
         } catch (error) {
-          // 消息發送失敗，說明腳本可能未加載，繼續執行注入
-          Logger.log('發送切換消息失敗，嘗試注入腳本', {
+          // 訊息發送失敗，說明腳本可能未加載，繼續執行注入
+          Logger.info('發送切換訊息失敗，嘗試注入腳本', {
             action: 'startHighlight',
             error: error.message,
           });
@@ -293,42 +341,40 @@ export function createHighlightHandlers(services) {
     /**
      * 更新現有頁面的標註
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request
+     * @param {chrome.runtime.MessageSender} sender
+     * @param {Function} sendResponse
      */
     updateHighlights: async (request, sender, sendResponse) => {
       try {
-        const activeTab = await getActiveTab();
-
-        await ensureNotionApiKey(storageService, notionService);
-
-        const normalize = normalizeUrl || (url => url);
-        const normUrl = normalize(activeTab.url || '');
-        const savedData = await storageService.getSavedPageData(normUrl);
-
-        if (!savedData || !savedData.notionPageId) {
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
+        // 安全性驗證：確保請求來自擴充功能內部 (Popup)
+        const validationError = validateInternalRequest(sender);
+        if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'updateHighlights',
+            reason: 'invalid_internal_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
           });
+          sendResponse(validationError);
           return;
         }
 
+        const activeTab = await getActiveTab();
+
         const highlights = await injectionService.collectHighlights(activeTab.id);
 
-        // 轉換標記為 Blocks
-        const highlightBlocks = buildHighlightBlocks(highlights);
-
-        // 調用 NotionService 更新標記
-        const result = await notionService.updateHighlightsSection(
-          savedData.notionPageId,
-          highlightBlocks
-        );
+        // 使用共用邏輯執行更新
+        const result = await performHighlightUpdate(services, activeTab, highlights);
 
         if (result.success) {
           result.highlightsUpdated = true;
           result.highlightCount = highlights.length;
+          Logger.success('成功更新標註', {
+            action: 'updateHighlights',
+            count: highlights.length,
+          });
         }
         sendResponse(result);
       } catch (error) {
@@ -341,58 +387,47 @@ export function createHighlightHandlers(services) {
     /**
      * 同步標註 (從請求 payload 中獲取)
      *
-     * @param request
-     * @param sender
-     * @param sendResponse
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
      */
     syncHighlights: async (request, sender, sendResponse) => {
       try {
-        const activeTab = await getActiveTab();
-
-        await ensureNotionApiKey(storageService, notionService);
-
-        const normalize = normalizeUrl || (url => url);
-        const normUrl = normalize(activeTab.url || '');
-        const savedData = await storageService.getSavedPageData(normUrl);
-
-        if (!savedData || !savedData.notionPageId) {
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
+        // 安全性驗證：確保請求來自我們自己的 content script
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'syncHighlights',
+            reason: 'invalid_content_script_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
           });
+          sendResponse(validationError);
           return;
         }
 
-        const highlights = request.highlights || [];
-        Logger.log('準備同步標註到頁面', {
-          action: 'syncHighlights',
-          count: highlights.length,
-          pageId: savedData.notionPageId ? `${savedData.notionPageId.slice(0, 4)}***` : 'unknown',
-        });
+        const activeTab = sender.tab;
 
+        const highlights = request.highlights || [];
         if (highlights.length === 0) {
           sendResponse({
             success: true,
-            message: '沒有新標註需要同步',
+            message: UI_MESSAGES.HIGHLIGHTS.NO_NEW_TO_SYNC,
             highlightCount: 0,
           });
           return;
         }
 
-        // 轉換標記為 Blocks
-        const highlightBlocks = buildHighlightBlocks(highlights);
-
-        // 調用 NotionService 更新標記
-        const result = await notionService.updateHighlightsSection(
-          savedData.notionPageId,
-          highlightBlocks
-        );
+        // 使用共用邏輯執行更新
+        const result = await performHighlightUpdate(services, activeTab, highlights);
 
         if (result.success) {
-          Logger.log('成功同步標註', { action: 'syncHighlights', count: highlights.length });
+          Logger.success('成功同步標註', { action: 'syncHighlights', count: highlights.length });
           result.highlightCount = highlights.length;
-          result.message = `成功同步 ${highlights.length} 個標註`;
+          result.message = UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT(highlights.length);
         } else {
+          // 注意：performHighlightUpdate 已格式化 result.error 為用戶友善訊息
           Logger.error('同步標註失敗', { action: 'syncHighlights', error: result.error });
         }
         sendResponse(result);

@@ -78,7 +78,10 @@ export const CONTENT_QUALITY = {
 // ==========================================
 
 export const NOTION_API = {
-  VERSION: '2025-09-03', // Notion API 版本
+  // [Breaking Change] API version 2025-09-03 adds multi-data-source database support.
+  // This version is required; using older versions will fail with:
+  // "Databases with multiple data sources are not supported in this API version".
+  VERSION: '2025-09-03',
   BASE_URL: 'https://api.notion.com/v1',
   BLOCKS_PER_BATCH: 100, // 每批次最多區塊數
   MAX_RETRIES: 3, // 最大重試次數
@@ -134,6 +137,15 @@ export const NOTION_CONFIG = {
   // 批量刪除配置
   DELETE_CONCURRENCY: NOTION_API.DELETE_CONCURRENCY,
   DELETE_BATCH_DELAY_MS: NOTION_API.DELETE_BATCH_DELAY_MS,
+};
+
+/**
+ * InjectionService 相關配置
+ * 集中管理腳本注入服務的超時與錯誤定義
+ */
+export const INJECTION_CONFIG = {
+  PING_TIMEOUT_MS: 2000,
+  PING_TIMEOUT_ERROR: 'PING timeout',
 };
 
 /**

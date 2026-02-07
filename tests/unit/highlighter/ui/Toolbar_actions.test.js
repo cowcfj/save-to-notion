@@ -24,9 +24,10 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   debug: jest.fn(),
+  success: jest.fn(),
   start: jest.fn(),
   ready: jest.fn(),
-  success: jest.fn(),
+
   __esModule: true,
   default: {
     error: jest.fn(),
@@ -34,9 +35,9 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     debug: jest.fn(),
+    success: jest.fn(),
     start: jest.fn(),
     ready: jest.fn(),
-    success: jest.fn(),
   },
 }));
 

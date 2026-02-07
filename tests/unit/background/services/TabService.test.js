@@ -3,6 +3,29 @@
  */
 
 import { TabService } from '../../../../scripts/background/services/TabService.js';
+import Logger from '../../../../scripts/utils/Logger.js';
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  log: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  success: jest.fn(),
+}));
+
+jest.mock('../../../../scripts/config/constants.js', () => ({
+  TAB_SERVICE: {
+    LOADING_TIMEOUT_MS: 1000,
+    STATUS_UPDATE_DELAY_MS: 100,
+  },
+  URL_NORMALIZATION: {
+    TRACKING_PARAMS: ['utm_source'],
+  },
+  HANDLER_CONSTANTS: {
+    PAGE_STATUS_CACHE_TTL: 60_000,
+  },
+}));
 
 // Mock chrome API
 globalThis.chrome = {
@@ -19,9 +42,14 @@ globalThis.chrome = {
   tabs: {
     onUpdated: {
       addListener: jest.fn(),
+      removeListener: jest.fn(),
     },
     onActivated: {
       addListener: jest.fn(),
+    },
+    onRemoved: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
     },
     get: jest.fn(),
   },
@@ -33,6 +61,8 @@ const mockLogger = {
   warn: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),
+  info: jest.fn(),
+  success: jest.fn(),
 };
 
 // Mock InjectionService
@@ -56,6 +86,11 @@ describe('TabService', () => {
         const msg = typeof err === 'string' ? err : err?.message || '';
         return msg.includes('Cannot access');
       },
+      // 注入 mock 依賴
+      checkPageExists: jest.fn().mockResolvedValue(true),
+      getApiKey: jest.fn().mockResolvedValue('test-api-key'),
+      clearPageState: jest.fn().mockResolvedValue(),
+      setSavedPageData: jest.fn().mockResolvedValue(),
     });
 
     // 初始化全局 chrome.runtime
@@ -67,7 +102,7 @@ describe('TabService', () => {
   describe('constructor', () => {
     it('should initialize with default options', () => {
       const defaultService = new TabService();
-      expect(defaultService.logger).toBe(console);
+      expect(defaultService.logger).toBe(Logger);
       expect(typeof defaultService.normalizeUrl).toBe('function');
       expect(typeof defaultService.getSavedPageData).toBe('function');
     });
@@ -94,7 +129,11 @@ describe('TabService', () => {
     });
 
     it('should set badge for saved pages', async () => {
-      service.getSavedPageData = jest.fn().mockResolvedValue({ pageId: '123' });
+      service.getSavedPageData = jest.fn().mockResolvedValue({
+        pageId: '123',
+        notionPageId: 'notion-123',
+        lastVerifiedAt: Date.now(), // 確保在 TTL 內
+      });
       chrome.storage.local.get.mockImplementation(_keys => Promise.resolve({}));
 
       await service.updateTabStatus(1, 'https://example.com');
@@ -169,8 +208,8 @@ describe('TabService', () => {
 
       // Assert: 錯誤被記錄
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[TabService] Error updating tab status:'),
-        injectionError
+        expect.stringContaining('[TabService] Error updating tab status'),
+        expect.objectContaining({ error: injectionError })
       );
 
       // Assert: ensureBundleInjected 被調用
@@ -178,11 +217,61 @@ describe('TabService', () => {
     });
 
     it('should handle errors gracefully', async () => {
+      // 確保 getSavedPageData 拋出錯誤
       service.getSavedPageData = jest.fn().mockRejectedValue(new Error('Storage error'));
 
       await service.updateTabStatus(1, 'https://example.com');
 
       expect(mockLogger.error).toHaveBeenCalled();
+    });
+
+    describe('Automatic Verification', () => {
+      it('should verify with Notion when cache is expired', async () => {
+        const expiredData = {
+          notionPageId: 'page-123',
+          lastVerifiedAt: Date.now() - 70_000, // 超過 60s
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+        service.checkPageExists = jest.fn().mockResolvedValue(true);
+
+        await service.updateTabStatus(1, 'https://example.com');
+
+        expect(service.checkPageExists).toHaveBeenCalledWith('page-123', 'test-api-key');
+        expect(service.setSavedPageData).toHaveBeenCalledWith(
+          'https://example.com',
+          expect.objectContaining({ lastVerifiedAt: expect.any(Number) })
+        );
+      });
+
+      it('should clear local state if Notion page is deleted', async () => {
+        const expiredData = {
+          notionPageId: 'page-123',
+          lastVerifiedAt: Date.now() - 70_000,
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+        service.checkPageExists = jest.fn().mockResolvedValue(false); // 模擬已刪除
+
+        await service.updateTabStatus(1, 'https://example.com');
+
+        expect(service.clearPageState).toHaveBeenCalledWith('https://example.com');
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
+      });
+
+      it('should fallback to cached status if verification fails', async () => {
+        const expiredData = {
+          pageId: '123',
+          notionPageId: 'page-123',
+          lastVerifiedAt: Date.now() - 70_000,
+        };
+        service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+        service.checkPageExists = jest.fn().mockRejectedValue(new Error('Notion API Error'));
+
+        await service.updateTabStatus(1, 'https://example.com');
+
+        expect(mockLogger.warn).toHaveBeenCalled();
+        // 依然顯示勾勾
+        expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
+      });
     });
   });
 
@@ -202,7 +291,7 @@ describe('TabService', () => {
 
   describe('migrateLegacyHighlights', () => {
     beforeEach(() => {
-      chrome.tabs.get.mockResolvedValue({ url: 'https://example.com' });
+      chrome.tabs.get.mockResolvedValue({ id: 1, url: 'https://example.com', status: 'complete' });
     });
 
     it('should skip if normUrl is missing', async () => {
@@ -254,6 +343,7 @@ describe('TabService', () => {
         'highlights_https://example.com'
       );
 
+      expect(mockInjectionService.injectWithResponse).toHaveBeenCalled();
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         'highlights_https://example.com': [{ id: '1', text: 'highlight' }],
       });
@@ -271,8 +361,8 @@ describe('TabService', () => {
         'highlights_https://example.com'
       );
 
-      expect(mockLogger.log).toHaveBeenCalled();
-      expect(mockLogger.log.mock.calls[0][0]).toMatch(
+      expect(mockLogger.warn).toHaveBeenCalled();
+      expect(mockLogger.warn.mock.calls[0][0]).toMatch(
         /Migration skipped due to recoverable error:?/
       );
     });
@@ -287,6 +377,115 @@ describe('TabService', () => {
       );
 
       expect(mockLogger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('waitForTabCompilation', () => {
+    // Helper to flush potential microtasks.
+    // We need to wait for the async _waitForTabCompilation method to proceed past its
+    // initial `await chrome.tabs.get()` and register the event listeners.
+    // A single await might not be enough depending on the internal promise chain.
+    const flushMicrotasks = async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    };
+
+    it('應該在標籤頁已完成載入時直接返回', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'complete' });
+      const res = await service._waitForTabCompilation(1);
+      expect(res.status).toBe('complete');
+    });
+
+    it('應該在已有待處理監聽器時返回 null', async () => {
+      service.pendingListeners.set(1, {});
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
+      const res = await service._waitForTabCompilation(1);
+      expect(res).toBeNull();
+    });
+
+    it('應該處理標籤頁更新事件', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
+
+      let updateCallback;
+      chrome.tabs.onUpdated.addListener.mockImplementation(cb => {
+        updateCallback = cb;
+      });
+
+      const promise = service._waitForTabCompilation(1);
+
+      // 等待非同步操作推進到監聽器註冊階段
+      await flushMicrotasks();
+
+      // 觸發更新
+      if (typeof updateCallback === 'function') {
+        updateCallback(1, { status: 'complete' });
+      }
+
+      const res = await promise;
+      expect(res.status).toBe('complete');
+    });
+
+    it('應該處理標籤頁移除事件', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
+
+      let removeCallback;
+      chrome.tabs.onRemoved.addListener.mockImplementation(cb => {
+        removeCallback = cb;
+      });
+
+      const promise = service._waitForTabCompilation(1);
+
+      // 等待非同步操作推進到監聽器註冊階段
+      await flushMicrotasks();
+
+      // 觸發移除
+      if (typeof removeCallback === 'function') {
+        removeCallback(1);
+      }
+
+      const res = await promise;
+      expect(res).toBeNull();
+    });
+
+    it('應該在超時後返回 null', async () => {
+      jest.useFakeTimers();
+      try {
+        chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
+
+        const promise = service._waitForTabCompilation(1);
+
+        // 等待非同步操作推進到內部 Promise 建立
+        await flushMicrotasks();
+
+        jest.advanceTimersByTime(11_000); // 大於 10s
+
+        const res = await promise;
+        expect(res).toBeNull();
+        expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('timeout'));
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  describe('Concurrency & Edge Cases', () => {
+    it('updateTabStatus 應該防止並發處理同一個標籤頁 (Line 62)', async () => {
+      service.processingTabs.set(1, Date.now());
+      await service.updateTabStatus(1, 'https://example.com');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('already being processed')
+      );
+    });
+
+    it('migrateLegacyHighlights 應該處理腳本回報的錯誤 (Line 277)', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 1, url: 'https://example.com' });
+      mockInjectionService.injectWithResponse.mockResolvedValue({ error: 'Injected script fail' });
+
+      await service.migrateLegacyHighlights(1, 'https://example.com', 'key');
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Migration script reported error'),
+        expect.anything()
+      );
     });
   });
 });

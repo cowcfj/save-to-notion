@@ -23,8 +23,12 @@ describe('Logger', () => {
 
     // 清除全局 Logger（如果存在）
     delete globalThis.Logger;
-    delete globalThis.window.Logger;
-    delete globalThis.self.Logger;
+    if (globalThis.window) {
+      delete globalThis.window.Logger;
+    }
+    if (globalThis.self) {
+      delete globalThis.self.Logger;
+    }
 
     // 保存原始 chrome 對象
     originalChrome = globalThis.chrome;
@@ -48,8 +52,12 @@ describe('Logger', () => {
 
     // 清除全局 Logger
     delete globalThis.Logger;
-    delete globalThis.window.Logger;
-    delete globalThis.self.Logger;
+    if (globalThis.window) {
+      delete globalThis.window.Logger;
+    }
+    if (globalThis.self) {
+      delete globalThis.self.Logger;
+    }
   });
 
   describe('在非擴展環境中', () => {
@@ -178,16 +186,17 @@ describe('Logger', () => {
       expect(consoleSpy.info.mock.calls[0][0]).toContain('[INFO]');
     });
 
-    test('日誌應該包含時間戳', () => {
+    test('日誌不應該包含時間戳（由 DevTools 提供）', () => {
       Logger.warn('test message');
       const output = consoleSpy.warn.mock.calls[0][0];
-      // 檢查時間戳格式 HH:MM:SS.mmm
-      expect(output).toMatch(/\d{2}:\d{2}:\d{2}\.\d{3}/);
+      // 確認不包含時間戳格式 HH:MM:SS.mmm
+      expect(output).not.toMatch(/\d{2}:\d{2}:\d{2}\.\d{3}/);
     });
 
-    test('日誌應該傳遞額外參數', () => {
+    test('日誌應該傳遞額外參數（保留物件原生形式）', () => {
       const extraData = { key: 'value' };
       Logger.warn('message', extraData);
+      // 修正後：物件以原生形式傳遞，提供更好的 DevTools 互動式檢查體驗
       expect(consoleSpy.warn.mock.calls[0]).toContain(extraData);
     });
   });
@@ -273,7 +282,7 @@ describe('Logger', () => {
       expect(Logger.debugEnabled).toBe(true);
     });
 
-    test('onChanged 回調應該忽略非 sync 區域的變更', () => {
+    test('onChanged 回調應該忽略 non-sync 區域的變更', () => {
       const onChangedCallback = globalThis.chrome.storage.onChanged.addListener.mock.calls[0][0];
 
       // 使用 sync 變更設置初始狀態為 true

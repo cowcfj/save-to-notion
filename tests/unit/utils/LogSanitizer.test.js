@@ -274,10 +274,10 @@ describe('LogSanitizer', () => {
       expect(sanitizedStack).toContain('background.js');
       expect(sanitizedStack).not.toContain('scripts/background.js');
 
-      // 應該移除精確的行號和列號
-      expect(sanitizedStack).toContain('[位置已隱藏]');
-      expect(sanitizedStack).not.toContain(':16:13');
-      expect(sanitizedStack).not.toContain(':67:42');
+      // [Security Policy Update] 行號不再被隱藏，以協助生產環境除錯
+      expect(sanitizedStack).not.toContain('[位置已隱藏]');
+      expect(sanitizedStack).toContain(':16:13');
+      expect(sanitizedStack).toContain(':67:42');
 
       // 應該保留函數名稱（除錯用）
       expect(sanitizedStack).toContain('LogExporter.exportLogs');

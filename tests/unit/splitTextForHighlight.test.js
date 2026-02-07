@@ -28,9 +28,9 @@ describe('splitTextForHighlight', () => {
       expect(result).toEqual(['']);
     });
 
-    test('null 或 undefined 返回包含原值的數組', () => {
-      expect(splitTextForHighlight(null)).toEqual([null]);
-      expect(splitTextForHighlight()).toEqual([undefined]);
+    test("null 或 undefined 返回 ['']", () => {
+      expect(splitTextForHighlight(null)).toEqual(['']);
+      expect(splitTextForHighlight()).toEqual(['']);
     });
 
     test('正好 maxLength 長度的文本不分割', () => {
@@ -288,7 +288,7 @@ describe('splitTextForHighlight', () => {
 
   describe('邊界情況', () => {
     test('文本恰好在標點後達到 maxLength', () => {
-      const text = `${'a'.repeat(2000)}。`;
+      const text = `${'a'.repeat(1999)}。`;
 
       const result = splitTextForHighlight(text, 2000);
 

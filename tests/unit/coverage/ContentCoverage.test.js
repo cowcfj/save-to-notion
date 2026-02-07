@@ -13,12 +13,21 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
     warn: jest.fn(),
     error: jest.fn(),
     log: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
 }));
 
 describe('ContentParts 覆蓋率補強 (整合)', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         document.body.innerHTML = '';
+        // 設置全域 Logger，因為部分模組（如 ContentBridge）使用 /* global Logger */
+        globalThis.Logger = require('../../../scripts/utils/Logger.js');
+    });
+
+    afterEach(() => {
+        delete globalThis.Logger;
     });
 
     // --- PerformanceOptimizer ---

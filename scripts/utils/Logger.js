@@ -28,20 +28,29 @@ const LOG_LEVELS = {
 
 const DEFAULT_BUFFER_CAPACITY = 500;
 
+// 全域錯誤前綴常量（用於 initGlobalErrorHandlers 和 error 方法的過濾邏輯）
+const GLOBAL_ERROR_PREFIXES = {
+  UNCAUGHT_EXCEPTION: '[Uncaught Exception]',
+  UNHANDLED_REJECTION: '[Unhandled Rejection]',
+};
+
 // 檢查是否在 Chrome 擴展環境中
 const isExtensionContext = Boolean(chrome?.runtime?.id);
 
 const isBackground = isExtensionContext && globalThis.window === undefined; // Service Worker 環境通常沒有 window (或 self !== window)
 
 /**
- * 格式化日誌消息
+ * 格式化日誌訊息（控制台輸出用）
+ * 注意：
+ * 1. 不添加時間戳，Chrome DevTools 已內建此功能
+ * 2. 保留物件原生形式以支援 DevTools 互動式檢查
+ * 3. 僅對無法被控制台處理的特殊情況進行序列化
  *
  * @param {number} level - 日誌級別
  * @param {Array} args - 參數列表
  * @returns {Array} 格式化後的參數列表
  */
 function formatMessage(level, args) {
-  const timestamp = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
   const levelPrefix =
     {
       [LOG_LEVELS.DEBUG]: '[DEBUG]',
@@ -51,14 +60,16 @@ function formatMessage(level, args) {
       [LOG_LEVELS.ERROR]: `[ERROR] ${LOG_ICONS.ERROR}`,
     }[level] || '[UNKNOWN]';
 
-  return [`${levelPrefix} ${timestamp}:`, ...args];
+  // 直接返回參數，保留物件原生形式以支援 DevTools 互動式檢查
+  // 控制台會自動處理循環引用、不可序列化物件等特殊情況
+  return [levelPrefix, ...args];
 }
 
 /**
  * 發送日誌到 Background (僅在 Content Script 環境下)
  *
  * @param {string} level - 日誌級別字符串
- * @param {string} message - 主消息
+ * @param {string} message - 主訊息
  * @param {Array} args - 額外參數
  */
 function sendToBackground(level, message, args) {
@@ -130,7 +141,10 @@ function writeToBuffer(level, message, args) {
       }
 
       // 即時脫敏：確保存儲在 LogBuffer 中的數據是安全的
-      const safeEntry = LogSanitizer.sanitizeEntry(String(message), context);
+      // 根據調試模式決定是否保留堆疊追蹤細節
+      const safeEntry = LogSanitizer.sanitizeEntry(String(message), context, {
+        isDev: _debugEnabled,
+      });
 
       _logBuffer.push({
         level,
@@ -145,6 +159,51 @@ function writeToBuffer(level, message, args) {
 }
 
 /**
+ * 初始化全域錯誤監聽器 (僅 Background)
+ * 捕捉未處理的異常並記錄到 LogBuffer
+ */
+function initGlobalErrorHandlers() {
+  if (!isBackground) {
+    return;
+  }
+
+  // 1. 監聽未捕獲的異常 (Synchronous + Asynchronous)
+  if (globalThis.self) {
+    self.addEventListener('error', event => {
+      try {
+        const { message, filename, lineno, colno, error } = event;
+        Logger.error(`${GLOBAL_ERROR_PREFIXES.UNCAUGHT_EXCEPTION} ${message}`, {
+          filename,
+          lineno,
+          colno,
+          stack: error?.stack,
+        });
+      } catch (error) {
+        console.error('Failed to log uncaught exception:', error);
+      }
+    });
+
+    // 2. 監聽未處理的 Promise Rejection
+    self.addEventListener('unhandledrejection', event => {
+      try {
+        const reason = event.reason;
+        const msg = reason instanceof Error ? reason.message : String(reason);
+        const stack = reason instanceof Error ? reason.stack : null;
+        // 正確處理 null：typeof null === 'object' 為 true，需要額外檢查
+        const reasonField = reason !== null && typeof reason === 'object' ? reason : String(reason);
+
+        Logger.error(`${GLOBAL_ERROR_PREFIXES.UNHANDLED_REJECTION} ${msg}`, {
+          reason: reasonField,
+          stack,
+        });
+      } catch (error) {
+        console.error('Failed to log unhandled rejection:', error);
+      }
+    });
+  }
+}
+
+/**
  * 初始化調試狀態
  * 優先級：
  * 1. Manifest version_name (包含 'dev')
@@ -154,6 +213,9 @@ function initDebugState() {
   if (_isInitialized) {
     return;
   }
+
+  // 初始化全域錯誤監聽
+  initGlobalErrorHandlers();
 
   // 1. 檢查 Manifest (默認值)
   try {
@@ -217,10 +279,10 @@ const Logger = {
       return;
     }
 
+    writeToBuffer('debug', message, args);
     // eslint-disable-next-line no-console
     console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
     sendToBackground('debug', message, args);
-    writeToBuffer('debug', message, args);
   },
 
   log(message, ...args) {
@@ -228,10 +290,10 @@ const Logger = {
       return;
     }
 
+    writeToBuffer('log', message, args);
     // eslint-disable-next-line no-console
     console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
     sendToBackground('log', message, args);
-    writeToBuffer('log', message, args);
   },
 
   info(message, ...args) {
@@ -239,9 +301,9 @@ const Logger = {
       return;
     }
 
+    writeToBuffer('info', message, args);
     console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
     sendToBackground('info', message, args);
-    writeToBuffer('info', message, args);
   },
 
   /**
@@ -284,8 +346,13 @@ const Logger = {
 
   error(message, ...args) {
     // 檢查是否為忽略的錯誤（Chrome 擴展框架相關的非關鍵錯誤）
+    // 特殊情況：全域未捕獲異常/rejection 不應被過濾，即使它們包含被忽略的關鍵字
     const errorMsg = message instanceof Error ? message.message : String(message);
-    if (errorMsg.includes('Frame with ID') && errorMsg.includes('was removed')) {
+    const isGlobalError =
+      errorMsg.startsWith(GLOBAL_ERROR_PREFIXES.UNCAUGHT_EXCEPTION) ||
+      errorMsg.startsWith(GLOBAL_ERROR_PREFIXES.UNHANDLED_REJECTION);
+
+    if (!isGlobalError && errorMsg.includes('Frame with ID') && errorMsg.includes('was removed')) {
       return;
     }
 
@@ -306,27 +373,27 @@ const Logger = {
   },
 
   /**
-   * 直接寫入日誌到緩衝區 (供 devLogSink 使用，保留原始來源和時間戳)
+   * 直接寫入日誌到緩衝區 (供 devLogSink 使用，保留原始來源)
    *
    * @param {object} logEntry - 日誌 entry 對象
    * @param {string} logEntry.level - 日誌等級
-   * @param {string} logEntry.message - 消息內容
+   * @param {string} logEntry.message - 訊息內容
    * @param {object} logEntry.context - 上下文數據
    * @param {string} [logEntry.source] - 來源標識
-   * @param {string} [logEntry.timestamp] - 時間戳
    */
-  addLogToBuffer({ level, message, context, source, timestamp }) {
+  addLogToBuffer({ level, message, context, source }) {
     if (_logBuffer) {
       try {
         // 即時脫敏
-        const safeEntry = LogSanitizer.sanitizeEntry(String(message), context);
+        const safeEntry = LogSanitizer.sanitizeEntry(String(message), context, {
+          isDev: _debugEnabled,
+        });
 
         _logBuffer.push({
           level,
           source: source || 'unknown',
           message: safeEntry.message,
           context: safeEntry.context,
-          timestamp: timestamp || new Date().toISOString(),
         });
       } catch (error) {
         console.error('添加外部日誌到緩衝區失敗', { action: 'addLogToBuffer', error });
@@ -341,9 +408,8 @@ export default Logger;
 initDebugState();
 
 // Global Assignment (Module & Classic Script compatible fallback)
-if (globalThis.self !== undefined) {
-  globalThis.Logger = Logger;
-}
-if (globalThis.window !== undefined) {
+// 確保覆蓋 Service Worker (self) 與 Window 環境。
+// 注意：此條件在大多數瀏覽器環境為真，但在純 Node.js 環境中可能兩者皆為 undefined，這符合預期 (避免污染測試環境全域)。
+if (globalThis.self !== undefined || globalThis.window !== undefined) {
   globalThis.Logger = Logger;
 }

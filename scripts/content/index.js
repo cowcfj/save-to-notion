@@ -61,7 +61,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     return true;
   }
 
-  // 未處理的消息不需要異步響應
+  // 未處理的訊息不需要異步響應
   return false;
 });
 

@@ -27,7 +27,7 @@ describe('AuthManager', () => {
     mockLoadDatabases = jest.fn();
 
     authManager = new AuthManager(mockUiManager);
-    authManager.init({ loadDatabases: mockLoadDatabases });
+    authManager.init({ loadDataSources: mockLoadDatabases });
 
     // Mock chrome storage
     globalThis.chrome = {
@@ -45,6 +45,10 @@ describe('AuthManager', () => {
 
     // Mock Logger
     globalThis.Logger = {
+      debug: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
       info: jest.fn(),
       error: jest.fn(),
     };
@@ -137,13 +141,17 @@ describe('AuthManager Extended', () => {
     globalThis.fetch = jest.fn();
 
     globalThis.Logger = {
+      debug: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
       info: jest.fn(),
       error: jest.fn(),
       warn: jest.fn(),
     };
 
     authManager = new AuthManager(mockUiManager);
-    authManager.init({ loadDatabases: mockLoadDatabases });
+    authManager.init({ loadDataSources: mockLoadDatabases });
   });
 
   afterEach(() => {

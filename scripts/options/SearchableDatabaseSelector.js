@@ -4,34 +4,37 @@
  */
 
 import Logger from '../utils/Logger.js';
-import { createSafeIcon } from '../utils/securityUtils.js';
+import { createSafeIcon, sanitizeApiError } from '../utils/securityUtils.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_ICONS } from '../config/index.js';
 
 /**
  * 可搜索的資料來源選擇器組件
- * 提供帶有搜索功能的下拉選單，用於選擇保存目標（Page 或 Database）
+ * 提供帶有搜索功能的下拉選單，用於選擇保存目標（Page 或 Data Source）
  */
+const KEYBOARD_FOCUS_CLASS = 'keyboard-focus';
+
 export class SearchableDatabaseSelector {
   constructor(dependencies = {}) {
-    const { showStatus, loadDatabases, getApiKey } = dependencies;
+    const { showStatus, loadDataSources, getApiKey } = dependencies;
 
     if (typeof showStatus !== 'function') {
       throw new TypeError('SearchableDatabaseSelector 需要 showStatus 函式');
     }
-    if (typeof loadDatabases !== 'function') {
-      throw new TypeError('SearchableDatabaseSelector 需要 loadDatabases 函式');
+    if (typeof loadDataSources !== 'function') {
+      throw new TypeError('SearchableDatabaseSelector 需要 loadDataSources 函式');
     }
     if (typeof getApiKey !== 'function') {
       throw new TypeError('SearchableDatabaseSelector 需要 getApiKey 函式');
     }
 
     this.showStatus = showStatus;
-    this.loadDatabases = loadDatabases;
+    this.loadDataSources = loadDataSources;
     this.getApiKey = getApiKey;
-    this.databases = [];
-    this.initialDatabases = []; // 儲存初始列表，用於清空搜尋時還原
-    this.filteredDatabases = [];
-    this.selectedDatabase = null;
+    this.dataSources = [];
+    this.initialDataSources = []; // 儲存初始列表，用於清空搜尋時還原
+    this.filteredDataSources = [];
+    this.selectedDataSource = null;
     this.isOpen = false;
     this.focusedIndex = -1;
     this.searchTimeout = null; // 防抖動計時器
@@ -46,59 +49,49 @@ export class SearchableDatabaseSelector {
     this.searchInput = document.querySelector('#database-search');
     this.toggleButton = document.querySelector('#selector-toggle');
     this.dropdown = document.querySelector('#database-dropdown');
-    this.databaseList = document.querySelector('#database-list');
-    this.databaseCount = document.querySelector('#database-count');
+    this.dataSourceList = document.querySelector('#data-source-list');
+    this.dataSourceCount = document.querySelector('#data-source-count');
     this.refreshButton = document.querySelector('#refresh-databases');
     this.databaseIdInput = document.querySelector('#database-id');
 
-    Logger.info('SearchableDatabaseSelector 元素初始化:', {
-      container: this.container,
-      searchInput: this.searchInput,
-      toggleButton: this.toggleButton,
-      dropdown: this.dropdown,
-      databaseList: this.databaseList,
-      databaseCount: this.databaseCount,
-      refreshButton: this.refreshButton,
-      databaseIdInput: this.databaseIdInput,
+    Logger.info('[Selector] 元素初始化完成', {
+      hasContainer: Boolean(this.container),
+      hasSearchInput: Boolean(this.searchInput),
+      hasToggleButton: Boolean(this.toggleButton),
+      hasDropdown: Boolean(this.dropdown),
+      hasDataSourceList: Boolean(this.dataSourceList),
+      hasRefreshButton: Boolean(this.refreshButton),
     });
 
     if (!this.container) {
-      Logger.error('找不到 database-selector-container 元素！');
-    }
-    if (!this.searchInput) {
-      Logger.error('找不到 database-search 元素！');
+      Logger.error('[Selector] 找不到 #database-selector-container 元素');
     }
   }
 
   setupEventListeners() {
-    // 儲存綁定的事件處理函式以便後續移除
     this._handleSearchInput = event => {
       const query = event.target.value.trim();
 
-      // 清除之前的計時器
       if (this.searchTimeout) {
         clearTimeout(this.searchTimeout);
       }
 
-      // 如果搜尋框為空，立即還原初始列表（無需等待）
       if (!query) {
-        this.restoreInitialDatabases();
+        this.restoreInitialDataSources();
         this.showDropdown();
         return;
       }
 
-      // 先進行本地過濾（即時回饋）
-      this.filterDatabasesLocally(query);
+      this.filterDataSourcesLocally(query);
       this.showDropdown();
 
-      // 防抖動：500ms 後觸發伺服器端搜尋
       this.searchTimeout = setTimeout(() => {
         this.performServerSearch(query);
       }, 500);
     };
 
     this._handleSearchFocus = () => {
-      if (this.databases.length > 0) {
+      if (this.dataSources.length > 0) {
         this.showDropdown();
       }
     };
@@ -110,7 +103,7 @@ export class SearchableDatabaseSelector {
 
     this._handleRefreshClick = event => {
       event.preventDefault();
-      this.refreshDatabases();
+      this.refreshDataSources();
     };
 
     this._handleDocumentClick = event => {
@@ -123,7 +116,6 @@ export class SearchableDatabaseSelector {
       this.handleKeyNavigation(event);
     };
 
-    // 綁定事件監聽器
     this.searchInput?.addEventListener('input', this._handleSearchInput);
     this.searchInput?.addEventListener('focus', this._handleSearchFocus);
     this.toggleButton?.addEventListener('click', this._handleToggleClick);
@@ -132,107 +124,86 @@ export class SearchableDatabaseSelector {
     this.searchInput?.addEventListener('keydown', this._handleKeydown);
   }
 
-  populateDatabases(databases, isSearchResult = false) {
-    // 映射數據，添加類型和父級信息
-    const mappedDatabases = databases.map(db => ({
-      id: db.id,
-      title: SearchableDatabaseSelector.extractDatabaseTitle(db),
-      type: db.object, // 'page' 或 'data_source'
-      isWorkspace: db.parent?.type === 'workspace', // 是否為工作區直屬項目
-      parent: db.parent, // 保留完整父級信息
-      raw: db,
-      created: db.created_time,
-      lastEdited: db.last_edited_time,
+  populateDataSources(dataSources, isSearchResult = false) {
+    const mappedDataSources = dataSources.map(ds => ({
+      id: ds.id,
+      title: SearchableDatabaseSelector.extractDataSourceTitle(ds),
+      type: ds.object, // 'page', 'database' 或 'data_source'
+      isWorkspace: ds.parent?.type === 'workspace',
+      parent: ds.parent,
+      raw: ds,
+      created: ds.created_time,
+      lastEdited: ds.last_edited_time,
     }));
 
-    this.databases = mappedDatabases;
+    this.dataSources = mappedDataSources;
 
-    // 只有非搜尋結果才保存為初始列表
     if (!isSearchResult) {
-      this.initialDatabases = [...mappedDatabases];
-      Logger.info('已保存初始資料來源列表:', this.initialDatabases.length);
+      this.initialDataSources = [...mappedDataSources];
+      Logger.info('已保存初始資料來源列表:', this.initialDataSources.length);
     }
 
-    Logger.info('處理後的保存目標:', this.databases);
+    Logger.info('保存目標列表處理完成', { count: this.dataSources.length });
 
-    this.filteredDatabases = [...this.databases];
+    this.filteredDataSources = [...this.dataSources];
     this.isSearching = false;
-    this.updateDatabaseCount();
-    this.renderDatabaseList();
+    this.updateDataSourceCount();
+    this.renderDataSourceList();
 
-    // 顯示選擇器
     if (this.container) {
       this.container.style.display = 'block';
     }
 
-    // 更新搜索框提示
-    const pageCount = databases.filter(db => db.object === 'page').length;
-    const dsCount = databases.filter(db => db.object === 'data_source').length;
+    const pageCount = dataSources.filter(ds => ds.object === 'page').length;
+    // Consider both 'data_source' and 'database' as data sources for the count (consistent with DataSourceManager.filterAndSortResults)
+    const dsCount = dataSources.filter(
+      ds => ds.object === 'data_source' || ds.object === 'database'
+    ).length;
+
     if (this.searchInput) {
-      this.searchInput.placeholder = `搜索 ${databases.length} 個保存目標（${dsCount} 個資料來源 + ${pageCount} 個頁面）`;
+      this.searchInput.placeholder = `搜索 ${dataSources.length} 個保存目標（${dsCount} 個資料來源 + ${pageCount} 個頁面）`;
     }
 
-    // 如果當前有選中的保存目標，在搜索框中顯示
     if (this.databaseIdInput?.value) {
-      const selectedDb = this.databases.find(db => db.id === this.databaseIdInput.value);
-      if (selectedDb) {
+      const selectedDs = this.dataSources.find(ds => ds.id === this.databaseIdInput.value);
+      if (selectedDs) {
         if (this.searchInput) {
-          this.searchInput.value = selectedDb.title;
+          this.searchInput.value = selectedDs.title;
         }
-        this.selectedDatabase = selectedDb;
+        this.selectedDataSource = selectedDs;
       }
     }
   }
 
-  /**
-   * 本地過濾資料庫（即時回饋，不觸發 API）
-   *
-   * @param {string} query - 搜尋關鍵字
-   */
-  filterDatabasesLocally(query) {
+  filterDataSourcesLocally(query) {
     const lowerQuery = query.toLowerCase().trim();
 
     if (lowerQuery) {
-      this.filteredDatabases = this.databases.filter(
-        db =>
-          db.title.toLowerCase().includes(lowerQuery) || db.id.toLowerCase().includes(lowerQuery)
+      this.filteredDataSources = this.dataSources.filter(
+        ds =>
+          ds.title.toLowerCase().includes(lowerQuery) || ds.id.toLowerCase().includes(lowerQuery)
       );
     } else {
-      this.filteredDatabases = [...this.databases];
+      this.filteredDataSources = [...this.dataSources];
     }
 
     this.focusedIndex = -1;
-    this.updateDatabaseCount();
-    this.renderDatabaseList();
+    this.updateDataSourceCount();
+    this.renderDataSourceList();
   }
 
-  /**
-   * 還原初始資料來源列表
-   *
-   * @performance 使用淺拷貝 (O(n)) 而非深拷貝以提升效能
-   * @note 淺拷貝在此情境下是安全的，因為：
-   *   1. 資料庫物件在組件內是唯讀的（不會修改物件屬性）
-   *   2. 物件僅用於顯示和選擇，不會被外部修改
-   *   3. Notion API 每次返回的是新物件，不存在共享引用問題
-   */
-  restoreInitialDatabases() {
-    this.databases = [...this.initialDatabases];
-    this.filteredDatabases = [...this.initialDatabases];
+  restoreInitialDataSources() {
+    this.dataSources = [...this.initialDataSources];
+    this.filteredDataSources = [...this.initialDataSources];
     this.isSearching = false;
     this.focusedIndex = -1;
-    this.updateDatabaseCount();
-    this.renderDatabaseList();
+    this.updateDataSourceCount();
+    this.renderDataSourceList();
     Logger.info('已還原初始資料來源列表');
   }
 
-  /**
-   * 執行伺服器端搜尋
-   *
-   * @param {string} query - 搜尋關鍵字
-   */
   async performServerSearch(query) {
     if (!query || query.length < 2) {
-      // 關鍵字太短，不觸發伺服器搜尋
       return;
     }
 
@@ -246,28 +217,24 @@ export class SearchableDatabaseSelector {
     this.showSearchingState(query);
 
     try {
-      // 呼叫 DataSourceManager.loadDatabases 並傳入 query
-      await this.loadDatabases(apiKey, query);
-      Logger.info(`伺服器端搜尋完成: "${query}"`);
+      await this.loadDataSources(apiKey, query);
+      Logger.info('伺服器端搜尋完成', { queryLength: query.length });
     } catch (error) {
-      Logger.error('伺服器端搜尋失敗:', error);
-      // 使用安全的錯誤訊息（避免 undefined）
-      const errorMessage = error?.message || '未知錯誤';
-      this.showStatus(`搜尋失敗: ${errorMessage}`, 'error');
+      Logger.error('[Selector] 伺服器端搜尋失敗', { error: error.message });
+
+      // 安全地處理錯誤訊息
+      const safeError = sanitizeApiError(error, 'server_search');
+      const errorMsg = ErrorHandler.formatUserMessage(safeError);
+
+      this.showStatus(`搜尋失敗: ${errorMsg}`, 'error');
     } finally {
-      // 確保在所有路徑下都重置搜尋狀態
       this.isSearching = false;
     }
   }
 
-  /**
-   * 顯示搜尋中狀態
-   *
-   * @param {string} query - 搜尋關鍵字
-   */
   showSearchingState(query) {
-    if (this.databaseList) {
-      this.databaseList.innerHTML = '';
+    if (this.dataSourceList) {
+      this.dataSourceList.replaceChildren();
 
       const container = document.createElement('div');
       container.className = 'loading-state';
@@ -284,28 +251,18 @@ export class SearchableDatabaseSelector {
       textSpan.append(document.createTextNode('」...'));
       container.append(textSpan);
 
-      this.databaseList.append(container);
+      this.dataSourceList.append(container);
     }
   }
 
-  /**
-   * 原有的 filterDatabases 方法（保留兼容性）
-   *
-   * @param query
-   * @deprecated 請使用 filterDatabasesLocally
-   */
-  filterDatabases(query) {
-    this.filterDatabasesLocally(query);
-  }
-
-  renderDatabaseList() {
-    if (!this.databaseList) {
+  renderDataSourceList() {
+    if (!this.dataSourceList) {
       return;
     }
 
-    this.databaseList.innerHTML = '';
+    this.dataSourceList.replaceChildren();
 
-    if (this.filteredDatabases.length === 0) {
+    if (this.filteredDataSources.length === 0) {
       const noResultsDiv = document.createElement('div');
       noResultsDiv.className = 'no-results';
 
@@ -322,33 +279,25 @@ export class SearchableDatabaseSelector {
       small.textContent = '嘗試使用不同的關鍵字搜索';
       noResultsDiv.append(small);
 
-      this.databaseList.append(noResultsDiv);
+      this.dataSourceList.append(noResultsDiv);
       return;
     }
 
     const fragment = document.createDocumentFragment();
 
-    this.filteredDatabases.forEach((db, index) => {
-      const itemElement = this.createDatabaseItem(db, index);
-      // 直接綁定點擊事件
+    this.filteredDataSources.forEach((ds, index) => {
+      const itemElement = this.createDataSourceItem(ds, index);
       itemElement.addEventListener('click', () => {
-        this.selectDatabase(this.filteredDatabases[index]);
+        this.selectDataSource(this.filteredDataSources[index]);
       });
       fragment.append(itemElement);
     });
 
-    this.databaseList.append(fragment);
+    this.dataSourceList.append(fragment);
   }
 
-  /**
-   * 構建資料庫項目的 DOM 元素
-   *
-   * @param {object} db - 資料庫對象
-   * @param {number} index - 索引
-   * @returns {HTMLElement}
-   */
-  createDatabaseItem(db, index) {
-    const isSelected = this.selectedDatabase && this.selectedDatabase.id === db.id;
+  createDataSourceItem(ds, index) {
+    const isSelected = this.selectedDataSource && this.selectedDataSource.id === ds.id;
     const isFocused = index === this.focusedIndex;
 
     const itemDiv = document.createElement('div');
@@ -357,68 +306,40 @@ export class SearchableDatabaseSelector {
       itemDiv.classList.add('selected');
     }
     if (isFocused) {
-      itemDiv.classList.add('keyboard-focus');
+      itemDiv.classList.add(KEYBOARD_FOCUS_CLASS);
     }
 
     itemDiv.dataset.index = index;
-    itemDiv.dataset.type = db.type;
-    itemDiv.dataset.isWorkspace = db.isWorkspace;
+    itemDiv.dataset.type = ds.type;
 
-    // Row 1: Title and Badges
     const titleRow = document.createElement('div');
     titleRow.className = 'database-title';
 
-    // 搜索關鍵字高亮
     const query = this.searchInput ? this.searchInput.value.trim() : '';
     const highlightedTitleFragment = SearchableDatabaseSelector._createHighlightedText(
-      db.title,
+      ds.title,
       query
     );
     titleRow.append(highlightedTitleFragment);
 
-    // Badges
-    if (db.isWorkspace) {
+    if (ds.isWorkspace) {
       const badge = document.createElement('span');
       badge.className = 'workspace-badge';
       badge.textContent = '工作區';
-      titleRow.append(document.createTextNode(' ')); // Spacer
-      titleRow.append(badge);
-    }
-
-    const isLikelyContainer = db.type === 'page' && db.parent?.type === 'workspace';
-    if (isLikelyContainer) {
-      itemDiv.dataset.isContainer = 'true';
-      const badge = document.createElement('span');
-      badge.className = 'container-badge';
-      badge.append(createSafeIcon(UI_ICONS.WORKSPACE));
-      badge.append(document.createTextNode(' 容器'));
-      titleRow.append(document.createTextNode(' ')); // Spacer
-      titleRow.append(badge);
-    }
-
-    const isLikelyCategory = db.type === 'page' && db.parent?.type === 'page_id';
-    if (isLikelyCategory) {
-      itemDiv.dataset.isCategory = 'true';
-      const badge = document.createElement('span');
-      badge.className = 'category-badge';
-      badge.append(createSafeIcon(UI_ICONS.CATEGORY));
-      badge.append(document.createTextNode(' 分類'));
-      titleRow.append(document.createTextNode(' ')); // Spacer
+      titleRow.append(document.createTextNode(' '));
       titleRow.append(badge);
     }
 
     itemDiv.append(titleRow);
 
-    // Row 2: Meta Info (Compact)
     const metaRow = document.createElement('div');
     metaRow.className = 'database-meta-compact';
 
-    // Parent 路徑信息
-    if (db.parent) {
+    if (ds.parent) {
       let parentIcon = '';
       let parentText = '';
 
-      switch (db.parent.type) {
+      switch (ds.parent.type) {
         case 'workspace': {
           parentIcon = UI_ICONS.WORKSPACE;
           parentText = ' 工作區';
@@ -441,7 +362,8 @@ export class SearchableDatabaseSelector {
           break;
         }
         default: {
-          parentText = `❓ 其他 (${db.parent.type})`;
+          parentIcon = UI_ICONS.HELP;
+          parentText = ` 其他 (${ds.parent.type})`;
         }
       }
 
@@ -457,60 +379,21 @@ export class SearchableDatabaseSelector {
       metaRow.append(separator);
     }
 
-    // Type
     const typeGroup = document.createElement('span');
     typeGroup.className = 'meta-group';
-
     const typeIconSpan = document.createElement('span');
     typeIconSpan.className = 'database-icon';
-    typeIconSpan.append(createSafeIcon(db.type === 'page' ? UI_ICONS.PAGE : UI_ICONS.DATABASE));
+    typeIconSpan.append(createSafeIcon(ds.type === 'page' ? UI_ICONS.PAGE : UI_ICONS.DATABASE));
     typeGroup.append(typeIconSpan);
-
     const typeLabelSpan = document.createElement('span');
-    typeLabelSpan.textContent = db.type === 'page' ? '頁面' : '資料來源';
+    typeLabelSpan.textContent = ds.type === 'page' ? '頁面' : '資料來源';
     typeGroup.append(typeLabelSpan);
-
     metaRow.append(typeGroup);
-
-    // Separator
-    const sep2 = document.createElement('span');
-    sep2.className = 'meta-separator';
-    sep2.textContent = '|';
-    metaRow.append(sep2);
-
-    // ID
-    const idGroup = document.createElement('span');
-    idGroup.className = 'meta-group';
-    idGroup.title = db.id;
-    idGroup.textContent = `${db.id.slice(0, 4)}...${db.id.slice(-4)}`;
-    metaRow.append(idGroup);
-
-    // Date
-    if (db.created) {
-      const sep3 = document.createElement('span');
-      sep3.className = 'meta-separator';
-      sep3.textContent = '|';
-      metaRow.append(sep3);
-
-      const dateGroup = document.createElement('span');
-      dateGroup.className = 'meta-group';
-      dateGroup.textContent = SearchableDatabaseSelector.formatDate(db.created);
-      metaRow.append(dateGroup);
-    }
 
     itemDiv.append(metaRow);
     return itemDiv;
   }
 
-  /**
-   * 安全地創建帶有搜尋高亮的文字片段 (DOM Node Splitting)
-   *
-   * @param {string} text - 原始文字
-   * @param {string} query - 搜尋關鍵字
-   * @returns {DocumentFragment}
-   * @static
-   * @private
-   */
   static _createHighlightedText(text, query) {
     const fragment = document.createDocumentFragment();
     if (!query) {
@@ -519,9 +402,10 @@ export class SearchableDatabaseSelector {
     }
 
     try {
-      // 轉義正則特殊字符
-      const escapedQuery = this.escapeRegex(query);
-      // 使用括號包含模式以在 split 結果中保留分隔符 (即匹配到的關鍵字)
+      // 轉義正則表達式特殊字元以防止注入攻擊
+      const escapedQuery = query.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+      // skipcq: JS-0113, JS-G103 - 安全性說明：query 已在上方明確轉義，動態正則在此為必要且受控
+      // eslint-disable-next-line security/detect-non-literal-regexp
       const regex = new RegExp(`(${escapedQuery})`, 'gi');
       const parts = text.split(regex);
 
@@ -532,59 +416,46 @@ export class SearchableDatabaseSelector {
           span.textContent = part;
           fragment.append(span);
         } else if (part) {
-          // 對於非關鍵字部分，直接作為文字節點插入（自動轉義）
           fragment.append(document.createTextNode(part));
         }
       });
     } catch {
-      // Fallback in case of regex error
       fragment.append(document.createTextNode(text));
     }
 
     return fragment;
   }
-  selectDatabase(database) {
-    this.selectedDatabase = database;
 
-    // 更新搜索框顯示
+  selectDataSource(dataSource) {
+    this.selectedDataSource = dataSource;
+
     if (this.searchInput) {
-      this.searchInput.value = database.title;
+      this.searchInput.value = dataSource.title;
     }
 
-    // 更新隱藏的資料來源 ID 輸入框
     if (this.databaseIdInput) {
-      this.databaseIdInput.value = database.id;
+      this.databaseIdInput.value = dataSource.id;
 
-      // 保存類型信息到隱藏字段（用於後續保存）
       const typeInput = document.querySelector('#database-type');
       if (typeInput) {
-        typeInput.value = database.type;
-      } else {
-        // 如果不存在，創建隱藏字段
-        const newTypeInput = document.createElement('input');
-        newTypeInput.type = 'hidden';
-        newTypeInput.id = 'database-type';
-        newTypeInput.value = database.type;
-        this.databaseIdInput.parentNode.append(newTypeInput);
+        typeInput.value = dataSource.type;
       }
     }
 
-    Logger.info(
-      `選擇了 ${database.type === 'page' ? '頁面' : '資料來源'}: ${database.title} (${database.id})`
+    Logger.info('已選擇保存目標', {
+      type: dataSource.type,
+      id: dataSource.id,
+    });
+
+    this.renderDataSourceList();
+    this.hideDropdown();
+    this.showStatus(
+      `已選擇${dataSource.type === 'page' ? '頁面' : '資料來源'}: ${dataSource.title}`,
+      'success'
     );
 
-    // 重新渲染以顯示選中狀態
-    this.renderDatabaseList();
-
-    this.hideDropdown();
-
-    // 顯示成功狀態
-    const typeLabel = database.type === 'page' ? '頁面' : '資料來源';
-    this.showStatus(`已選擇${typeLabel}: ${database.title}`, 'success');
-
-    // 觸發選擇事件（如果需要）
-    if (this.onDatabaseSelected) {
-      this.onDatabaseSelected(database);
+    if (this.onDataSourceSelected) {
+      this.onDataSourceSelected(dataSource);
     }
   }
 
@@ -603,13 +474,13 @@ export class SearchableDatabaseSelector {
     this.isOpen = false;
     this.focusedIndex = -1;
     this.toggleButton?.classList.remove('open');
-    this.renderDatabaseList(); // 清除鍵盤焦點樣式
+    this.renderDataSourceList();
   }
 
   toggleDropdown() {
     if (this.isOpen) {
       this.hideDropdown();
-    } else if (this.databases.length > 0) {
+    } else if (this.dataSources.length > 0) {
       this.showDropdown();
     }
   }
@@ -626,162 +497,127 @@ export class SearchableDatabaseSelector {
     switch (event.key) {
       case 'ArrowDown': {
         event.preventDefault();
-        this.focusedIndex = Math.min(this.focusedIndex + 1, this.filteredDatabases.length - 1);
-        this.renderDatabaseList();
+        const prevIndex = this.focusedIndex;
+        this.focusedIndex = Math.min(this.focusedIndex + 1, this.filteredDataSources.length - 1);
+        this.updateFocusedItem(prevIndex);
         this.scrollToFocused();
         break;
       }
-
       case 'ArrowUp': {
         event.preventDefault();
+        const prevIndex = this.focusedIndex;
         this.focusedIndex = Math.max(this.focusedIndex - 1, -1);
-        this.renderDatabaseList();
+        this.updateFocusedItem(prevIndex);
         this.scrollToFocused();
         break;
       }
-
       case 'Enter': {
         event.preventDefault();
-        if (this.focusedIndex >= 0 && this.filteredDatabases[this.focusedIndex]) {
-          this.selectDatabase(this.filteredDatabases[this.focusedIndex]);
+        if (this.focusedIndex >= 0 && this.filteredDataSources[this.focusedIndex]) {
+          this.selectDataSource(this.filteredDataSources[this.focusedIndex]);
         }
         break;
       }
-
       case 'Escape': {
         event.preventDefault();
         this.hideDropdown();
         break;
       }
+    }
+  }
 
-      default: {
-        // 其他按鍵不處理
-        break;
+  updateFocusedItem(prevIndex) {
+    if (!this.dataSourceList) {
+      return;
+    }
+
+    // 移除之前的焦點
+    if (prevIndex >= 0) {
+      const prevItem = this.dataSourceList.children[prevIndex];
+      if (prevItem) {
+        prevItem.classList.remove(KEYBOARD_FOCUS_CLASS);
+      }
+    }
+
+    // 設置新的焦點
+    if (this.focusedIndex >= 0) {
+      const currentItem = this.dataSourceList.children[this.focusedIndex];
+      if (currentItem) {
+        currentItem.classList.add(KEYBOARD_FOCUS_CLASS);
       }
     }
   }
 
   scrollToFocused() {
-    if (this.focusedIndex >= 0 && this.databaseList) {
-      const focusedElement = this.databaseList.querySelector('.keyboard-focus');
+    if (this.focusedIndex >= 0 && this.dataSourceList) {
+      const focusedElement = this.dataSourceList.children[this.focusedIndex];
       if (focusedElement) {
         focusedElement.scrollIntoView({ block: 'nearest' });
       }
     }
   }
 
-  updateDatabaseCount() {
-    if (!this.databaseCount) {
+  updateDataSourceCount() {
+    if (!this.dataSourceCount) {
       return;
     }
-    const total = this.databases.length;
-    const filtered = this.filteredDatabases.length;
+    const total = this.dataSources.length;
+    const filtered = this.filteredDataSources.length;
 
     if (filtered === total) {
-      this.databaseCount.textContent = `${total} 個資料來源`;
+      this.dataSourceCount.textContent = `${total} 個保存目標`;
     } else {
-      this.databaseCount.textContent = `${filtered} / ${total} 個資料來源`;
+      this.dataSourceCount.textContent = `${filtered} / ${total} 個保存目標`;
     }
   }
 
-  refreshDatabases() {
+  refreshDataSources() {
     const apiKey = this.getApiKey();
     if (apiKey) {
       this.showLoading();
-      this.loadDatabases(apiKey);
+      this.loadDataSources(apiKey);
     }
   }
 
   showLoading() {
-    if (this.databaseList) {
-      this.databaseList.innerHTML = '';
-
+    if (this.dataSourceList) {
+      this.dataSourceList.replaceChildren();
       const container = document.createElement('div');
       container.className = 'loading-state';
-
       const spinner = document.createElement('div');
       spinner.className = 'spinner';
       container.append(spinner);
-
       const span = document.createElement('span');
       span.textContent = '重新載入資料來源中...';
       container.append(span);
-
-      this.databaseList.append(container);
+      this.dataSourceList.append(container);
     }
     this.showDropdown();
   }
 
-  /**
-   * 提取數據庫或頁面的標題
-   *
-   * @param db
-   */
-  static extractDatabaseTitle(db) {
-    let title = db.object === 'page' ? '未命名頁面' : '未命名資料來源';
-
-    // 處理 page 對象（標題在 properties.title）
-    if (db.object === 'page' && db.properties?.title?.title) {
-      const titleContent = db.properties.title.title;
+  static extractDataSourceTitle(ds) {
+    let title = ds.object === 'page' ? '未命名頁面' : '未命名資料來源';
+    if (ds.object === 'page' && ds.properties?.title?.title) {
+      const titleContent = ds.properties.title.title;
       if (titleContent.length > 0) {
         title = titleContent[0].plain_text || titleContent[0].text?.content || title;
       }
-    }
-    // 處理 data_source 對象（標題在 title 或 properties）
-    else if (db.title && db.title.length > 0) {
-      title = db.title[0].plain_text || db.title[0].text?.content || title;
-    } else if (db.properties) {
-      const titleProp = Object.values(db.properties).find(prop => prop.type === 'title');
+    } else if (ds.title && ds.title.length > 0) {
+      title = ds.title[0].plain_text || ds.title[0].text?.content || title;
+    } else if (ds.properties) {
+      const titleProp = Object.values(ds.properties).find(prop => prop.type === 'title');
       if (titleProp?.title && titleProp.title.length > 0) {
         title = titleProp.title[0].plain_text || titleProp.title[0].text?.content || title;
       }
     }
-
     return title;
   }
 
-  /**
-   * 格式化日期字串
-   *
-   * @param dateString
-   */
-  static formatDate(dateString) {
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        return '';
-      }
-      return date.toLocaleDateString('zh-TW', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-    } catch {
-      return '';
-    }
-  }
-
-  /**
-   * 轉義正則表示式中的特殊字符
-   *
-   * @param string
-   */
-  static escapeRegex(string) {
-    return string.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
-  }
-
-  /**
-   * 清理組件資源（防止記憶體洩漏）
-   * 應在組件銷毀時調用
-   */
   destroy() {
-    // 清除防抖動計時器
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);
       this.searchTimeout = null;
     }
-
-    // 移除事件監聽器（使用儲存的處理函式引用）
     if (this._handleSearchInput) {
       this.searchInput?.removeEventListener('input', this._handleSearchInput);
       this.searchInput?.removeEventListener('focus', this._handleSearchFocus);
@@ -789,8 +625,6 @@ export class SearchableDatabaseSelector {
       this.toggleButton?.removeEventListener('click', this._handleToggleClick);
       this.refreshButton?.removeEventListener('click', this._handleRefreshClick);
       document.removeEventListener('click', this._handleDocumentClick);
-
-      // 清空處理函式引用以便 GC
       this._handleSearchInput = null;
       this._handleSearchFocus = null;
       this._handleToggleClick = null;
@@ -799,11 +633,10 @@ export class SearchableDatabaseSelector {
       this._handleKeydown = null;
     }
 
-    // 重置狀態
-    this.isSearching = false;
-    this.databases = [];
-    this.initialDatabases = [];
-    this.filteredDatabases = [];
-    this.selectedDatabase = null;
+    // 防禦性清空：清除陣列與物件引用，防止銷毀後誤用
+    this.dataSources = [];
+    this.initialDataSources = [];
+    this.filteredDataSources = [];
+    this.selectedDataSource = null;
   }
 }

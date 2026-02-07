@@ -13,13 +13,23 @@ jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
   supportsHighlightAPI: jest.fn(() => true),
 }));
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
-  debug: jest.fn(),
-}));
+jest.mock('../../../../scripts/utils/Logger.js', () => {
+  const mockLogger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    log: jest.fn(),
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  };
+  return {
+    __esModule: true,
+    default: mockLogger,
+    ...mockLogger,
+  };
+});
 
 jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
   serializeRange: jest.fn(),
@@ -190,29 +200,6 @@ describe('core/HighlightManager', () => {
           throw new Error('Failed to add range');
         },
       });
-      // 這裡我们需要 mock applyHighlightAPI 返回 false，或者讓它內部失敗。
-      // 由於 applyHighlightAPI 內部捕獲了 styleManager 的錯誤嗎？不，它只是調用它。
-      // 根據代碼，HighlightManager.js:219 getHighlightObject 返回對象，然後调 add。
-      // add 是同步的。如果 add 拋出錯誤，HighlightManager.js:152 catch 块會捕獲。
-      // 等等，代碼是：
-      /*
-        const applied = this.applyHighlightAPI(range, validatedColor);
-        if (!applied) { ... }
-      */
-      // applyHighlightAPI 實現：
-      /*
-        const highlightObject = this.styleManager.getHighlightObject(color);
-        if (highlightObject) {
-          highlightObject.add(range);
-          return true;
-        }
-        return false;
-      */
-      // 所以如果我们要觸發 "if (!applied)" 分支，需讓 applyHighlightAPI 返回 false。
-      // 這可以通過讓 getHighlightObject 返回 undefined 來實現，或者 mock applyHighlightAPI 本身。
-      // 當前測試使用的 `manager` 是真實的 HighlightManager 實例，不是 mock。
-      // 所以我們可以 mock styleManager.getHighlightObject 返回 undefined (無效顏色)，
-      // 但上面已經有個測試 "fallback to currentColor" 處理了無效顏色。
 
       // 讓我們模擬一個情境：applyHighlightAPI 返回 false。
       // 可以通過 spyOn manager.applyHighlightAPI

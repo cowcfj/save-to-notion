@@ -29,6 +29,7 @@ import { createSaveHandlers } from './background/handlers/saveHandlers.js';
 import { createHighlightHandlers } from './background/handlers/highlightHandlers.js';
 import { createMigrationHandlers } from './background/handlers/migrationHandlers.js';
 import { createLogHandlers } from './background/handlers/logHandlers.js';
+import { createNotionHandlers } from './background/handlers/notionHandlers.js';
 
 // ==========================================
 // SERVICE INITIALIZATION
@@ -63,6 +64,7 @@ const actionHandlers = {
     notionService,
   }),
   ...createLogHandlers(),
+  ...createNotionHandlers({ notionService }),
 };
 
 messageHandler.registerAll(actionHandlers);
@@ -74,7 +76,6 @@ if (globalThis.self !== undefined) {
 }
 // TEST_EXPOSURE_END
 
-// Initialize TabService
 const tabService = new TabService({
   logger: Logger,
   injectionService,
@@ -82,6 +83,11 @@ const tabService = new TabService({
   getSavedPageData: url => storageService.getSavedPageData(url),
   isRestrictedUrl: isRestrictedInjectionUrl,
   isRecoverableError: isRecoverableInjectionError,
+  // 新增驗證所需的依賴
+  checkPageExists: (pageId, apiKey) => notionService.checkPageExists(pageId, { apiKey }),
+  getApiKey: () => storageService.getConfig(['notionApiKey']).then(config => config.notionApiKey),
+  clearPageState: url => storageService.clearPageState(url),
+  setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
 });
 
 // ==========================================
@@ -97,7 +103,7 @@ tabService.setupListeners();
 
 // Initialize the extension
 chrome.runtime.onInstalled.addListener(details => {
-  Logger.info('Notion Smart Clipper extension installed/updated');
+  Logger.ready('[Lifecycle] Notion Smart Clipper extension ready');
 
   // 處理擴展更新
   if (details.reason === 'update') {
@@ -110,13 +116,14 @@ chrome.runtime.onInstalled.addListener(details => {
 /**
  * 處理擴展更新
  *
- * @param previousVersion
+ * @param {string} previousVersion - 舊版本號
  */
 async function handleExtensionUpdate(previousVersion) {
   const currentVersion = chrome.runtime.getManifest().version;
-  Logger.info('擴展已更新', {
+  Logger.success('[Lifecycle] 擴展已更新', {
     previousVersion,
     currentVersion,
+    action: 'handleExtensionUpdate',
   });
 
   // 檢查是否需要顯示更新說明
@@ -129,15 +136,16 @@ async function handleExtensionUpdate(previousVersion) {
  * 處理擴展安裝
  */
 function handleExtensionInstall() {
-  Logger.info('擴展首次安裝');
+  Logger.success('[Lifecycle] 擴展首次安裝', { action: 'handleExtensionInstall' });
   // 可以在這裡添加歡迎頁面或設置引導
 }
 
 /**
  * 判斷是否需要顯示更新通知
  *
- * @param previousVersion
- * @param currentVersion
+ * @param {string} previousVersion - 舊版本號
+ * @param {string} currentVersion - 當前版本號
+ * @returns {boolean} 是否顯示通知
  */
 function shouldShowUpdateNotification(previousVersion, currentVersion) {
   // 跳過開發版本或測試版本
@@ -166,7 +174,8 @@ function shouldShowUpdateNotification(previousVersion, currentVersion) {
 /**
  * 檢查是否為重要更新
  *
- * @param version
+ * @param {string} version - 版本號
+ * @returns {boolean} 是否為重要更新
  */
 function isImportantUpdate(version) {
   // 定義重要更新的版本列表
@@ -182,8 +191,8 @@ function isImportantUpdate(version) {
 /**
  * 顯示更新通知
  *
- * @param previousVersion
- * @param currentVersion
+ * @param {string} previousVersion - 舊版本號
+ * @param {string} currentVersion - 當前版本號
  */
 async function showUpdateNotification(previousVersion, currentVersion) {
   try {
@@ -273,10 +282,10 @@ async function showUpdateNotification(previousVersion, currentVersion) {
       currentVersion,
     });
 
-    Logger.info('已顯示更新通知頁面');
+    Logger.info('[Lifecycle] 已顯示更新通知頁面');
   } catch (error) {
     // 處理分頁可能已被關閉、載入超時或其他錯誤
-    Logger.warn('顯示更新通知失敗:', error);
+    Logger.warn('[Lifecycle] 顯示更新通知失敗', { error, action: 'showUpdateNotification' });
   }
 }
 

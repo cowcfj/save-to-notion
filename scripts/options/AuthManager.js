@@ -1,6 +1,6 @@
 /* global chrome */
 import Logger from '../utils/Logger.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
+import { sanitizeApiError, createSafeIcon } from '../utils/securityUtils.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_MESSAGES, UI_ICONS } from '../config/index.js';
 
@@ -22,7 +22,7 @@ export class AuthManager {
   /**
    * 初始化認證管理器
    *
-   * @param {object} dependencies - 依賴項 { loadDatabases }
+   * @param {object} dependencies - 依賴項 { loadDataSources }
    */
   init(dependencies = {}) {
     this.dependencies = dependencies;
@@ -45,6 +45,25 @@ export class AuthManager {
     this.setupEventListeners();
   }
 
+  /**
+   * 更新按鈕內容（圖標 + 文字）
+   *
+   * @param {HTMLElement} button - 按鈕元素
+   * @param {string} icon - 圖標名稱
+   * @param {string} text - 按鈕文字
+   * @private
+   */
+  _updateButtonContent(button, icon, text) {
+    if (!button) {
+      return;
+    }
+    button.textContent = '';
+    button.append(createSafeIcon(icon));
+    const textSpan = document.createElement('span');
+    textSpan.textContent = text;
+    button.append(textSpan);
+  }
+
   setupEventListeners() {
     this.elements.oauthButton?.addEventListener('click', () => this.startNotionSetup());
     this.elements.disconnectButton?.addEventListener('click', () => this.disconnectFromNotion());
@@ -64,7 +83,7 @@ export class AuthManager {
 
         if (apiKey && apiKey.length > 20) {
           timeout = setTimeout(() => {
-            this.dependencies.loadDatabases?.(apiKey);
+            this.dependencies.loadDataSources?.(apiKey);
           }, 1000);
         }
       };
@@ -145,12 +164,18 @@ export class AuthManager {
 
   handleConnectedState(result) {
     if (this.elements.authStatus) {
-      this.elements.authStatus.innerHTML = `${UI_ICONS.SUCCESS}<span>${UI_MESSAGES.AUTH.STATUS_CONNECTED}</span>`;
+      this.elements.authStatus.textContent = '';
+      this.elements.authStatus.append(createSafeIcon(UI_ICONS.SUCCESS));
+      const textSpan = document.createElement('span');
+      textSpan.textContent = UI_MESSAGES.AUTH.STATUS_CONNECTED;
+      this.elements.authStatus.append(textSpan);
       this.elements.authStatus.className = 'auth-status success';
     }
-    if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.REFRESH}</span><span>${UI_MESSAGES.AUTH.ACTION_RECONNECT}</span>`;
-    }
+    this._updateButtonContent(
+      this.elements.oauthButton,
+      UI_ICONS.REFRESH,
+      UI_MESSAGES.AUTH.ACTION_RECONNECT
+    );
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'inline-flex';
     }
@@ -174,7 +199,7 @@ export class AuthManager {
     }
 
     // 載入資料來源列表
-    this.dependencies.loadDatabases?.(result.notionApiKey);
+    this.dependencies.loadDataSources?.(result.notionApiKey);
   }
 
   handleDisconnectedState() {
@@ -182,9 +207,11 @@ export class AuthManager {
       this.elements.authStatus.textContent = UI_MESSAGES.AUTH.STATUS_DISCONNECTED;
       this.elements.authStatus.className = 'auth-status';
     }
-    if (this.elements.oauthButton) {
-      this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
-    }
+    this._updateButtonContent(
+      this.elements.oauthButton,
+      UI_ICONS.LINK,
+      UI_MESSAGES.AUTH.ACTION_CONNECT
+    );
     if (this.elements.disconnectButton) {
       this.elements.disconnectButton.style.display = 'none';
     }
@@ -195,8 +222,17 @@ export class AuthManager {
     try {
       Logger.start('開始 Notion 授權流程', { action: 'startNotionSetup' });
 
-      this.elements.oauthButton.disabled = true;
-      this.elements.oauthButton.innerHTML = `<span class="loading"></span><span>${UI_MESSAGES.AUTH.OPENING_NOTION}</span>`;
+      // 更新按鈕狀態為載入中
+      if (this.elements.oauthButton) {
+        this.elements.oauthButton.disabled = true;
+        this.elements.oauthButton.textContent = '';
+        const loadingSpan = document.createElement('span');
+        loadingSpan.className = 'loading';
+        this.elements.oauthButton.append(loadingSpan);
+        const textSpan = document.createElement('span');
+        textSpan.textContent = UI_MESSAGES.AUTH.OPENING_NOTION;
+        this.elements.oauthButton.append(textSpan);
+      }
 
       // 打開 Notion 集成頁面
       const integrationUrl = 'https://www.notion.so/my-integrations';
@@ -208,14 +244,22 @@ export class AuthManager {
       setTimeout(() => {
         if (this.elements.oauthButton) {
           this.elements.oauthButton.disabled = false;
-          this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
         }
+        this._updateButtonContent(
+          this.elements.oauthButton,
+          UI_ICONS.LINK,
+          UI_MESSAGES.AUTH.ACTION_CONNECT
+        );
       }, 2000);
     } catch (error) {
       if (this.elements.oauthButton) {
         this.elements.oauthButton.disabled = false;
-        this.elements.oauthButton.innerHTML = `<span class="icon">${UI_ICONS.LINK}</span><span>${UI_MESSAGES.AUTH.ACTION_CONNECT}</span>`;
       }
+      this._updateButtonContent(
+        this.elements.oauthButton,
+        UI_ICONS.LINK,
+        UI_MESSAGES.AUTH.ACTION_CONNECT
+      );
       const safeMessage = sanitizeApiError(error, 'open_notion_page');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
       Logger.error('打開 Notion 頁面失敗', {
@@ -282,8 +326,8 @@ export class AuthManager {
 
     try {
       Logger.start('開始測試 API Key', { action: 'testApiKey' });
-      // 使用 loadDatabases 進行測試
-      await this.dependencies.loadDatabases?.(apiKey);
+      // 使用 loadDataSources 進行測試
+      await this.dependencies.loadDataSources?.(apiKey);
       Logger.success('API Key 測試成功', { action: 'testApiKey' });
     } catch (error) {
       Logger.error('API 測試失敗', { action: 'testApiKey', error });
@@ -291,7 +335,7 @@ export class AuthManager {
       const btn = this.elements.testApiButton;
       if (btn) {
         btn.disabled = false;
-        btn.textContent = '測試 API Key';
+        btn.textContent = UI_MESSAGES.SETTINGS.TEST_API_LABEL;
       }
     }
   }

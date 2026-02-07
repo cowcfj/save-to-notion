@@ -10,13 +10,14 @@ export const UI_MESSAGES = {
   DATA_SOURCE: {
     LOADING: '正在載入保存目標列表...',
     SEARCHING: keyword => `正在搜尋 "${keyword}"...`,
-    SELECT_REMINDER: '資料來源已選擇，請點擊保存設置',
-    FOUND_COUNT: count => `找到 ${count} 個資料來源，請從下拉選單中選擇`,
+    SELECT_REMINDER: '保存目標已選擇，請點擊保存設置',
+    LOAD_SUCCESS: count => `已成功載入 ${count} 個保存目標`,
+    FOUND_COUNT: count => `找到 ${count} 個保存目標，請從下拉選單中選擇`,
     NO_RESULT: keyword => `未找到 "${keyword}" 相關的保存目標`,
     NO_DATA_SOURCE_FOUND:
-      '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料來源',
+      '未找到任何保存目標。請確保：1) API Key 正確 2) Integration 已連接到頁面或資料庫',
     LOAD_FAILED: error => `載入保存目標失敗: ${error}`,
-    DEFAULT_OPTION: '選擇資料來源...',
+    DEFAULT_OPTION: '選擇保存目標...',
   },
   LOGS: {
     EXPORT_SUCCESS: count => `已成功匯出 ${count} 條日誌`,
@@ -28,7 +29,7 @@ export const UI_MESSAGES = {
     SAVE_FAILED: '保存失敗，請查看控制台日誌或稍後再試。',
     // Renamed to avoid security scanner false positives
     KEY_INPUT_REQUIRED: '請輸入 API Key',
-    INVALID_ID: '資料來源 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
+    INVALID_ID: '保存目標 ID 格式無效。請輸入有效的 32 字符 ID 或完整的 Notion URL',
     DEBUG_LOGS_ENABLED: '已啟用偵測日誌（前端日誌將轉送到背景頁）',
     DEBUG_LOGS_DISABLED: '已停用偵測日誌',
     DEBUG_LOGS_TOGGLE_FAILED: error => `切換日誌模式失敗: ${error}`,
@@ -71,6 +72,10 @@ export const UI_MESSAGES = {
     CLEAR_SUCCESS: count => `已成功清除 ${count} 條標註！`,
     HIGHLIGHT_FAILED_PREFIX: '啟動標註失敗：',
     PAGE_READY: '頁面已儲存，可以開始標註或再次儲存。',
+  },
+  HIGHLIGHTS: {
+    NO_NEW_TO_SYNC: '沒有新標註需要同步',
+    SYNC_SUCCESS_COUNT: count => `成功同步 ${count} 個標註`,
   },
   TOOLBAR: {
     SYNCING: '正在同步...',
@@ -153,6 +158,9 @@ const USER_MESSAGES = {
   CONTENT_TITLE_MISSING: '無法獲取頁面標題，請查看瀏覽器控制台。',
   CONTENT_BLOCKS_MISSING: '無法獲取頁面內容區塊，請查看瀏覽器控制台。',
 
+  // === API 請求驗證 ===
+  API_VALIDATION_FAILED: '資料驗證失敗，請確認設定正確後再試',
+
   // === API 認證與權限 ===
   INVALID_API_KEY_FORMAT: 'API Key 格式無效，請確認是否完整複製',
   DATABASE_ACCESS_DENIED: '無法存取此資料庫，請確認已授權擴展存取權限',
@@ -162,6 +170,16 @@ const USER_MESSAGES = {
   // Renamed to avoid security scanner false positives
   SETUP_KEY_NOT_CONFIGURED: '請先在設定頁面配置 Notion API Key',
   SETUP_MISSING_DATA_SOURCE: '請先在設定頁面選擇 Notion 資料庫',
+};
+
+/**
+ * 安全相關錯誤訊息
+ * 集中管理安全驗證失敗時的提示訊息
+ */
+export const SECURITY_ERROR_MESSAGES = {
+  TAB_CONTEXT_REQUIRED: '拒絕訪問：此操作必須在標籤頁上下文中調用',
+  INTERNAL_ONLY: '拒絕訪問：此操作僅限擴充功能內部調用',
+  CONTENT_SCRIPT_ONLY: '拒絕訪問：僅限本擴充功能的 content script 調用',
 };
 
 /**
@@ -213,15 +231,29 @@ export const ERROR_MESSAGES = {
     'Receiving end does not exist': '頁面載入中，請稍候再試',
     'Could not establish connection': '頁面通訊失敗，請重新整理頁面',
 
-    // Notion API 錯誤
+    // Notion API 錯誤（已轉換的關鍵字）
     'API Key': USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
     'Invalid API Key format': USER_MESSAGES.INVALID_API_KEY_FORMAT,
     'Data Source ID': USER_MESSAGES.SETUP_MISSING_DATA_SOURCE,
     'Database access denied': USER_MESSAGES.DATABASE_ACCESS_DENIED,
     'Integration disconnected': USER_MESSAGES.INTEGRATION_DISCONNECTED,
+    'Integration forbidden (403)': USER_MESSAGES.DATABASE_ACCESS_DENIED,
     'Page ID is missing': '無法識別頁面，請重回 Notion 頁面再試',
     'Page not saved': '頁面尚未保存，請先保存頁面',
-    'Invalid request': '請求無效，請檢查設定與內容格式',
+    'Invalid request': USER_MESSAGES.CONTENT_PARSE_FAILED,
+    validation_error: USER_MESSAGES.API_VALIDATION_FAILED,
+    notionhq_client_response_error: 'Notion API 請求失敗，請稍後再試',
+
+    // Notion SDK 原始錯誤碼（直接來自 apiError.code）
+    // 這些 key 與 Notion SDK 的 APIResponseError.code 完全一致
+    rate_limited: '請求過於頻繁，請稍後再試',
+    conflict_error: '發生資料衝突，請稍後重試',
+    object_not_found: '找不到目標頁面或資料庫，請確認資源存在且已授權',
+    unauthorized: USER_MESSAGES.SETUP_KEY_NOT_CONFIGURED,
+    invalid_request_url: '請求的 URL 無效，請確認頁面網址正確',
+    invalid_json: '資料格式錯誤，請稍後再試',
+    service_unavailable: 'Notion 服務暫時不可用，請稍後再試',
+    internal_server_error: 'Notion 伺服器錯誤，請稍後再試',
 
     // 網路與限流
     'Network error': '網路連線異常，請檢查網路後重試',
@@ -246,12 +278,21 @@ export const ERROR_MESSAGES = {
  */
 export const API_ERROR_PATTERNS = {
   // 1. 認證相關
-  AUTH: ['unauthorized', 'authentication', 'api key', 'token', 'api_key'],
-  AUTH_DISCONNECTED: ['token', 'integration'],
-  AUTH_INVALID: ['invalid', 'malformed'],
+  AUTH: [
+    'unauthorized',
+    'authentication',
+    'api key',
+    'api_key',
+    'api_token',
+    'api token',
+    'bearer token',
+  ],
+  AUTH_DISCONNECTED: ['integration disconnected', 'invalid_token'],
+  AUTH_INVALID: ['invalid api key', 'malformed_token'],
+  AUTH_FORBIDDEN: ['forbidden', 'permission_denied', 'permission denied'],
 
   // 2. 權限相關
-  PERMISSION: ['forbidden', 'permission', 'access denied'],
+  PERMISSION: ['permission', 'access denied'],
   PERMISSION_DB: ['database'],
 
   // 3. 限制與資源

@@ -308,7 +308,11 @@ describe('scripts/background.js require integration', () => {
     });
 
     const sendResponse = jest.fn();
-    chrome.runtime.onMessage._emit({ action: 'exportDebugLogs', format: 'json' }, {}, sendResponse);
+    chrome.runtime.onMessage._emit(
+      { action: 'exportDebugLogs', format: 'json' },
+      { id: 'test-id' },
+      sendResponse
+    );
 
     await flushPromises();
 

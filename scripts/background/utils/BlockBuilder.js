@@ -5,8 +5,6 @@
  * 這些方法在 background script 端使用，處理從 content script 提取的內容。
  *
  * @author Content Extraction Team
- * @version 1.0
- * @date 2025-12-07
  */
 
 // 導入統一配置（從統一入口點導入，保持一致性）
@@ -230,7 +228,11 @@ function createDivider() {
  * @returns {string[]} 分割後的文本片段
  */
 function splitTextForHighlight(text, maxLength = 2000) {
-  if (!text || text.length <= maxLength) {
+  if (!text) {
+    return [''];
+  }
+
+  if (text.length <= maxLength) {
     return [text];
   }
 
@@ -248,7 +250,7 @@ function splitTextForHighlight(text, maxLength = 2000) {
     const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
 
     for (const punct of punctuation) {
-      const lastIndex = remaining.lastIndexOf(punct, maxLength);
+      const lastIndex = remaining.lastIndexOf(punct, maxLength - 1);
       if (lastIndex > maxLength * 0.5) {
         // 至少分割到一半以上，避免片段太短
         splitIndex = lastIndex + punct.length;
@@ -258,7 +260,7 @@ function splitTextForHighlight(text, maxLength = 2000) {
 
     // 如果找不到合適的標點，嘗試在空格處分割
     if (splitIndex === -1) {
-      splitIndex = remaining.lastIndexOf(' ', maxLength);
+      splitIndex = remaining.lastIndexOf(' ', maxLength - 1);
       if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
         // 實在找不到，強制在 maxLength 處分割
         splitIndex = maxLength;

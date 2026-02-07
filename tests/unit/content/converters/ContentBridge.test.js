@@ -15,6 +15,10 @@ describe('ContentBridge', () => {
       warn: jest.fn(),
       error: jest.fn(),
       info: jest.fn(),
+      debug: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
     };
     globalThis.document = {
       title: 'Test Document',
@@ -279,7 +283,19 @@ describe('ContentBridge', () => {
           set innerHTML(val) {
             this._innerHTML = val;
             // 模擬瀏覽器行為：設置 innerHTML 後更新 textContent
-            this._textContent = val.replaceAll(/<[^>]*>/g, '');
+            // 使用安全的字串處理方法來移除 HTML 標籤，避免 ReDoS 風險
+            let result = '';
+            let inTag = false;
+            for (const char of val) {
+              if (char === '<') {
+                inTag = true;
+              } else if (char === '>') {
+                inTag = false;
+              } else if (!inTag) {
+                result += char;
+              }
+            }
+            this._textContent = result;
           },
           get textContent() {
             return this._textContent;

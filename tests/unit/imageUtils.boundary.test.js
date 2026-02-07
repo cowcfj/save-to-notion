@@ -24,6 +24,7 @@ const {
   extractFromPicture,
   extractFromBackgroundImage,
   extractFromNoscript,
+  filterNotionImageBlocks,
   IMAGE_VALIDATION: IMAGE_VALIDATION_CONSTANTS,
 } = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
 
@@ -483,6 +484,65 @@ describe('imageUtils - 邊界條件測試', () => {
       document.body.append(img);
 
       expect(extractImageSrc(img)).toBeNull();
+    });
+  });
+
+  describe('cleanImageUrl - 遞迴深度限制', () => {
+    test('應在達到最大遞迴深度時停止並返回當前 URL', () => {
+      // 構造一個會觸發遞迴的 URL (例如代理嵌套自己)
+      // 雖然代碼本身會判斷 pathname，但我們可以手動測試深度參數
+      const url = 'https://proxy.com/photo.php?u=https://example.com/image.jpg';
+      const result = cleanImageUrl(url, IMAGE_VALIDATION_CONSTANTS.MAX_RECURSION_DEPTH); // 達到 MAX_RECURSION_DEPTH
+      expect(result).toBe(url);
+    });
+  });
+
+  describe('extractFromBackgroundImage - 父元素背景', () => {
+    beforeEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    test('應能從父元素提取背景圖片', () => {
+      const parent = document.createElement('div');
+      parent.style.backgroundImage = "url('https://example.com/parent-bg.jpg')";
+      const img = document.createElement('img');
+      parent.append(img);
+      document.body.append(parent);
+
+      const result = extractFromBackgroundImage(img);
+      expect(result).toBe('https://example.com/parent-bg.jpg');
+    });
+  });
+
+  describe('filterNotionImageBlocks', () => {
+    test('應正確過濾有效和無效的圖片區塊', () => {
+      const blocks = [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+        { type: 'image', image: { external: { url: 'https://example.com/valid.jpg' } } },
+        { type: 'image', image: { external: { url: 'java' + 'script:alert(1)' } } }, // 無效 URL
+        { type: 'image', image: {} }, // 缺失 URL
+      ];
+
+      const result = filterNotionImageBlocks(blocks);
+      expect(result.validBlocks).toHaveLength(2); // paragraph + valid image
+      expect(result.skippedCount).toBe(2);
+      expect(result.invalidReasons).toHaveLength(2);
+      // 第一個無效的是 javascript: (index 2)，原因應為 invalid_url
+      expect(result.invalidReasons[0].reason).toBe('invalid_url');
+      // 第二個無效的是缺失 URL (index 3)，原因應為 missing_url
+      expect(result.invalidReasons[1].reason).toBe('missing_url');
+    });
+
+    test('在 excludeImages 模式下應排除所有圖片', () => {
+      const blocks = [
+        { type: 'paragraph', paragraph: { rich_text: [] } },
+        { type: 'image', image: { external: { url: 'https://example.com/valid.jpg' } } },
+      ];
+
+      const result = filterNotionImageBlocks(blocks, true);
+      expect(result.validBlocks).toHaveLength(1);
+      expect(result.validBlocks[0].type).toBe('paragraph');
+      expect(result.skippedCount).toBe(1);
     });
   });
 });

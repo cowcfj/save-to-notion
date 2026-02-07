@@ -4,6 +4,26 @@ import {
   isRecoverableInjectionError,
 } from '../../../../scripts/background/services/InjectionService.js';
 
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    success: jest.fn(),
+    debug: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  },
+}));
+
+import Logger from '../../../../scripts/utils/Logger.js';
+
+// NOTE: We have two mocks for Logger here:
+// 1. Module-level mock (jest.mock above): Intercepts direct imports of Logger in other files (e.g., helpers).
+// 2. mockLogger (const below): Injected into InjectionService constructor for direct verification of service logic.
+// Both are needed because the service uses dependency injection, but some static utils might import Logger directly.
+
 // Mock chrome API
 globalThis.chrome = {
   scripting: {
@@ -30,8 +50,8 @@ describe('InjectionService', () => {
   let service = null;
 
   beforeEach(() => {
-    service = new InjectionService({ logger: mockLogger });
     jest.clearAllMocks();
+    service = new InjectionService({ logger: mockLogger });
     chrome.runtime.lastError = null;
   });
 
@@ -158,7 +178,8 @@ describe('InjectionService', () => {
       expect(result).toBe(true);
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.success).toHaveBeenCalledWith(
-        expect.stringContaining('Bundle already exists')
+        expect.stringContaining('Bundle already exists'),
+        expect.anything()
       );
     });
 
@@ -201,7 +222,94 @@ describe('InjectionService', () => {
       expect(result).toBe(false);
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Bundle injection skipped')
+        expect.stringContaining('PING failed with recoverable error'),
+        expect.anything()
+      );
+    });
+
+    it('應在 PING 超時時執行注入 (Timeout path)', async () => {
+      jest.useFakeTimers();
+      try {
+        // Arrange: sendMessage 不回應
+        chrome.tabs.sendMessage.mockImplementation(() => {});
+        chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+          chrome.runtime.lastError = null;
+          cb();
+        });
+
+        const promise = service.ensureBundleInjected(1);
+
+        // Fast-forward PING timeout
+        jest.advanceTimersByTime(2500);
+
+        const result = await promise;
+        expect(result).toBe(true);
+        expect(chrome.scripting.executeScript).toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  describe('Edge Case Utilities', () => {
+    it('isRestrictedInjectionUrl 應處理無法解析的 URL 字符串', () => {
+      // 傳入無法被 new URL() 解析的字串，應觸發 catch 區塊並返回 true
+      const result = isRestrictedInjectionUrl('not-a-url');
+      expect(result).toBe(true);
+      expect(Logger.warn).toHaveBeenCalled();
+    });
+
+    describe('getRuntimeErrorMessage (Line 79-101)', () => {
+      it('應該處理各種錯誤對象類型', () => {
+        const {
+          getRuntimeErrorMessage,
+        } = require('../../../../scripts/background/services/InjectionService.js');
+        expect(getRuntimeErrorMessage(null)).toBe('');
+        expect(getRuntimeErrorMessage('string error')).toBe('string error');
+        expect(getRuntimeErrorMessage({ message: 'obj error' })).toBe('obj error');
+
+        // Trigger stringify failure (circular reference)
+        const circular = {};
+        circular.self = circular;
+        const msg = getRuntimeErrorMessage(circular);
+        expect(msg).toContain('Runtime Error');
+        expect(Logger.warn).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('_resolveHighlighterPath (Line 159-182)', () => {
+    it('應該在 fetch 失敗時回退到預設路徑', async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network fail'));
+      try {
+        const path = await service._resolveHighlighterPath();
+        expect(path).toBe('dist/content.bundle.js');
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  describe('injectWithResponse (Line 525-553)', () => {
+    it('應該在僅注入文件時返回成功標記', async () => {
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
+      const result = await service.injectWithResponse(1, null, ['test.js']);
+      expect(result).toEqual([{ result: { success: true } }]);
+    });
+
+    it('應該在拋出異常時記錄錯誤並返回 null', async () => {
+      chrome.scripting.executeScript.mockImplementationOnce((opts, cb) => {
+        chrome.runtime.lastError = { message: 'Fatal' };
+        cb();
+      });
+
+      // We expect it to return null because of the try-catch in injectWithResponse
+      const result = await service.injectWithResponse(1, () => {});
+      expect(result).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('injectWithResponse failed'),
+        expect.anything()
       );
     });
   });

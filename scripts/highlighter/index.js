@@ -88,7 +88,7 @@ export function initHighlighter(options = {}) {
   // 自動執行初始化
   manager.initializationComplete = manager.initialize();
 
-  // 監聽來自 background 的消息
+  // 監聽來自 background 的訊息
   if (globalThis.chrome?.runtime?.onMessage) {
     globalThis.chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.action === 'toggleHighlighter') {
@@ -101,7 +101,7 @@ export function initHighlighter(options = {}) {
         sendResponse({ success: false, error: 'notionHighlighter not initialized' });
         return true;
       }
-      // 不處理的消息不返回 true
+      // 不處理的訊息不返回 true
       return false;
     });
   }
@@ -400,7 +400,7 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
     await initializeExtension();
   })();
 
-  // 🔑 監聽來自 Popup 的消息（如保存完成後顯示 Toolbar）
+  // 🔑 監聽來自 Popup 的訊息（如保存完成後顯示 Toolbar）
   if (globalThis.chrome?.runtime?.onMessage) {
     globalThis.chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       if (request.action === 'showToolbar') {

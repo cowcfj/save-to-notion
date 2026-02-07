@@ -25,6 +25,9 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   warn: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
 }));
 
 jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({

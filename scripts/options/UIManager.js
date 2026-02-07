@@ -3,7 +3,7 @@
  * 負責選項頁面的共用 UI 邏輯
  */
 
-import { validateSafeSvg, separateIconAndText } from '../utils/securityUtils.js';
+import { validateSafeSvg, separateIconAndText, createSafeIcon } from '../utils/securityUtils.js';
 import { UI_ICONS, NOTION_API, UI_STATUS_TYPES, OPTIONS_PAGE_SELECTORS } from '../config/index.js';
 
 /**
@@ -32,7 +32,7 @@ export class UIManager {
   }
 
   /**
-   * 顯示狀態消息（安全版本：分離圖標與文本）
+   * 顯示狀態訊息（安全版本：分離圖標與文本）
    *
    * NOTE: 此函數僅應接收內部可信的訊息字串
    * - SVG 圖標內容應由系統內部生成，不應來自外部輸入
@@ -64,8 +64,8 @@ export class UIManager {
   /**
    * 解析圖標與文本 (私有)
    *
-   * @param {string|object} message - 原始消息
-   * @param {string} type - 消息類型
+   * @param {string|object} message - 原始訊息
+   * @param {string} type - 訊息類型
    * @returns {object} 解析後的 {icon, text}
    */
   _resolveMessage(message, type) {
@@ -100,17 +100,13 @@ export class UIManager {
    * @param {string} type - 狀態類型
    */
   _renderStatus(status, icon, text, type) {
-    status.innerHTML = '';
+    status.textContent = '';
+    status.className = ''; // 確保重置 class
 
     if (icon) {
-      const iconSpan = document.createElement('span');
-      iconSpan.className = 'status-icon';
-      if (icon.startsWith('<svg')) {
-        iconSpan.innerHTML = icon;
-      } else {
-        iconSpan.textContent = icon;
-      }
-      status.append(iconSpan);
+      const iconWrap = createSafeIcon(icon);
+      iconWrap.className = 'status-icon';
+      status.append(iconWrap);
     }
 
     if (text) {
@@ -131,7 +127,7 @@ export class UIManager {
 
     if (type === UI_STATUS_TYPES.SUCCESS) {
       setTimeout(() => {
-        status.innerHTML = '';
+        status.textContent = '';
         status.classList.remove(
           UI_STATUS_TYPES.SUCCESS,
           UI_STATUS_TYPES.ERROR,
@@ -158,28 +154,46 @@ export class UIManager {
     if (!this.upgradeNoticeBanner) {
       this.upgradeNoticeBanner = document.createElement('div');
       this.upgradeNoticeBanner.className = 'upgrade-notice';
-      this.upgradeNoticeBanner.innerHTML = `
-                <strong>Notion API 已升級至 ${NOTION_API.VERSION} 版本</strong>
-                <p>偵測到您仍在使用舊的 Database ID：<code class="upgrade-notice-id">${legacyDatabaseId || '未設定'}</code>。請重新載入並選擇資料來源（Data Source），以儲存新的 Data Source ID，確保同步與標註完全正常。</p>
-                <div class="upgrade-hint">提示：點擊下方按鈕重新載入資料來源後，從列表重新選擇並儲存設定即可完成升級。</div>
-                <div class="upgrade-actions">
-                    <button type="button" class="upgrade-refresh-button">🔄 重新載入資料來源</button>
-                </div>
-            `;
+
+      const title = document.createElement('strong');
+      title.textContent = `Notion API 已升級至 ${NOTION_API.VERSION} 版本`;
+
+      const description = document.createElement('p');
+      description.textContent = '偵測到您仍在使用舊的 Database ID：';
+      const code = document.createElement('code');
+      code.className = 'upgrade-notice-id';
+      code.textContent = legacyDatabaseId || '未設定';
+      description.append(code);
+      description.append(
+        '。請重新載入並選擇資料來源（Data Source），以儲存新的 Data Source ID，確保同步與標註完全正常。'
+      );
+
+      const hint = document.createElement('div');
+      hint.className = 'upgrade-hint';
+      hint.textContent =
+        '提示：點擊下方按鈕重新載入資料來源後，從列表重新選擇並儲存設定即可完成升級。';
+
+      const actions = document.createElement('div');
+      actions.className = 'upgrade-actions';
+      const refreshButton = document.createElement('button');
+      refreshButton.type = 'button';
+      refreshButton.className = 'upgrade-refresh-button';
+      refreshButton.textContent = '🔄 重新載入資料來源';
+      actions.append(refreshButton);
+
+      this.upgradeNoticeBanner.append(title, description, hint, actions);
 
       manualSection.insertBefore(this.upgradeNoticeBanner, manualSection.firstChild);
 
-      const refreshButton = this.upgradeNoticeBanner.querySelector('.upgrade-refresh-button');
-      if (refreshButton) {
-        refreshButton.addEventListener('click', () => {
-          const testApiButton =
-            this.elements.testApiButton ||
-            document.querySelector(OPTIONS_PAGE_SELECTORS.TEST_API_BUTTON);
-          if (testApiButton && !testApiButton.disabled) {
-            testApiButton.click();
-          }
-        });
-      }
+      // 直接使用已創建的 refreshButton 引用，避免冗餘的 DOM 查詢
+      refreshButton.addEventListener('click', () => {
+        const testApiButton =
+          this.elements.testApiButton ||
+          document.querySelector(OPTIONS_PAGE_SELECTORS.TEST_API_BUTTON);
+        if (testApiButton && !testApiButton.disabled) {
+          testApiButton.click();
+        }
+      });
     }
 
     const idDisplay = this.upgradeNoticeBanner.querySelector('.upgrade-notice-id');
@@ -206,18 +220,6 @@ export class UIManager {
       return;
     }
 
-    const guideHtml = `
-            <div style="background: #e6fffa; border: 1px solid #38b2ac; border-radius: 6px; padding: 15px; margin: 15px 0;">
-                <h3 style="margin: 0 0 10px 0; color: #2c7a7b;">📋 快速設置</h3>
-                <ol style="margin: 0; padding-left: 20px; line-height: 1.6;">
-                    <li>點擊 <strong>"+ New integration"</strong> 創建新的集成</li>
-                    <li>複製 <strong>"Internal Integration Token"</strong></li>
-                    <li>將 Token 貼到下方的 API Key 欄位</li>
-                    <li>系統會自動載入可用的資料來源列表</li>
-                </ol>
-            </div>
-        `;
-
     const existingGuide = document.querySelector('.setup-guide');
     if (existingGuide) {
       existingGuide.remove();
@@ -225,8 +227,55 @@ export class UIManager {
 
     const guideDiv = document.createElement('div');
     guideDiv.className = 'setup-guide';
-    guideDiv.innerHTML = guideHtml;
 
+    const title = document.createElement('h3');
+    title.className = 'setup-guide__title';
+
+    const icon = createSafeIcon(UI_ICONS.SETUP_GUIDE);
+    title.append(icon);
+
+    const titleText = document.createElement('span');
+    titleText.textContent = '快速設置';
+    title.append(titleText);
+
+    const list = document.createElement('ol');
+    list.className = 'setup-guide__list';
+
+    // 結構化步驟定義：避免重複定義文本內容
+    // - text: 純文本步驟
+    // - prefix/emphasis/suffix: 帶強調標籤的步驟
+    const steps = [
+      { prefix: '點擊 ', emphasis: '"+ New integration"', suffix: ' 創建新的集成' },
+      { prefix: '複製 ', emphasis: '"Internal Integration Token"' },
+      { text: '將 Token 貼到下方的 API Key 欄位' },
+      { text: '系統會自動載入可用的資料來源列表' },
+    ];
+
+    steps.forEach(step => {
+      const li = document.createElement('li');
+
+      if (step.text) {
+        // 純文本步驟
+        li.textContent = step.text;
+      } else {
+        // 帶強調的步驟：使用 DOM API 安全構建
+        if (step.prefix) {
+          li.append(step.prefix);
+        }
+        if (step.emphasis) {
+          const strong = document.createElement('strong');
+          strong.textContent = step.emphasis;
+          li.append(strong);
+        }
+        if (step.suffix) {
+          li.append(step.suffix);
+        }
+      }
+
+      list.append(li);
+    });
+
+    guideDiv.append(title, list);
     manualSection.insertBefore(guideDiv, manualSection.firstChild);
   }
 }

@@ -8,7 +8,110 @@
  * -固定容量 (Fixed Capacity)
  * -先進先出 (FIFO)：當緩衝區滿時，自動移除最舊的記錄
  * -防禦性拷貝：導出數據時返回副本
+ * -不處理時間戳：FIFO 結構已隱含時間順序
  */
+// [Memory Safety] 單條日誌最大允許大小 (25KB)
+const MAX_ENTRY_SIZE = 25_000;
+
+// 結構開銷常量
+const STRUCTURE_OVERHEAD = 300;
+const FALLBACK_STRUCTURE_OVERHEAD = 350;
+
+// 標準欄位列表
+const STANDARD_FIELDS = new Set(['level', 'message', 'source', 'context']);
+
+/**
+ * 截斷訊息至指定長度
+ *
+ * @param {string} message - 原始訊息
+ * @param {number} maxLength - 最大長度
+ * @returns {string} 截斷後的訊息
+ */
+function truncateMessage(message, maxLength) {
+  const safeMessage = message == null ? '' : String(message);
+  if (safeMessage.length <= maxLength) {
+    return safeMessage;
+  }
+  // 使用模板字串避免 prefer-template 警告
+  // ... [截斷] = 8 characters (3 + 1 + 4)
+  return `${safeMessage.slice(0, maxLength - 8)}... [截斷]`;
+}
+
+/**
+ * 判斷日誌條目是否需要進行大小檢查
+ *
+ * @param {object} entry - 日誌對象
+ * @returns {boolean} 是否需要大小檢查
+ */
+function needsSizeCheck(entry) {
+  const hasContext = entry.context && Object.keys(entry.context).length > 0;
+  const isLongMessage = (entry.message?.length || 0) > MAX_ENTRY_SIZE / 2;
+  const hasExtraData = Object.keys(entry).some(k => !STANDARD_FIELDS.has(k));
+  return hasContext || isLongMessage || hasExtraData;
+}
+
+/**
+ * 創建截斷後的日誌條目
+ *
+ * @param {object} entry - 原始日誌對象
+ * @param {number} originalSize - 原始序列化大小
+ * @param {number} structureOverhead - 結構開銷
+ * @returns {object} 截斷後的日誌條目
+ */
+function createTruncatedEntry(entry, originalSize, structureOverhead) {
+  const maxMessageLength = Math.max(100, MAX_ENTRY_SIZE - structureOverhead);
+  const originalMessage = entry.message || '';
+  const needsTruncate = originalMessage.length > maxMessageLength;
+  const truncatedMsg = truncateMessage(originalMessage, maxMessageLength);
+
+  return {
+    level: truncateMessage(entry.level, 50),
+    message: truncatedMsg,
+    source: truncateMessage(entry.source, 50),
+    context: {
+      truncated: true,
+      reason: 'entry_exceeds_size_limit',
+      originalSize,
+      ...(needsTruncate && { originalMessageLength: originalMessage.length }),
+    },
+  };
+}
+
+// reason 欄位最大長度（保守估計，確保回退條目不超限）
+const MAX_REASON_LENGTH = 500;
+
+/**
+ * 創建序列化失敗時的回退條目
+ *
+ * @param {object} entry - 原始日誌對象
+ * @param {Error|string} error - 序列化錯誤
+ * @returns {object} 回退日誌條目
+ */
+function createSerializationFailedEntry(entry, error) {
+  const maxMessageLength = Math.max(
+    100,
+    MAX_ENTRY_SIZE - FALLBACK_STRUCTURE_OVERHEAD - MAX_REASON_LENGTH
+  );
+  const originalMessage = entry.message || '';
+  const needsTruncate = originalMessage.length > maxMessageLength;
+  const truncatedMsg = truncateMessage(originalMessage, maxMessageLength);
+
+  // 截斷 reason 以確保回退條目不超過 MAX_ENTRY_SIZE
+  const rawReason = error instanceof Error ? error.message : String(error);
+  const reason = truncateMessage(rawReason, MAX_REASON_LENGTH);
+
+  return {
+    level: truncateMessage(entry.level, 50),
+    message: truncatedMsg,
+    source: truncateMessage(entry.source, 50),
+    context: {
+      error: 'serialization_failed',
+      reason,
+      ...(needsTruncate && { originalMessageLength: originalMessage.length }),
+    },
+  };
+}
+
 export class LogBuffer {
   /**
    * @param {number} capacity - 緩衝區最大容量 (預設 500)
@@ -27,55 +130,42 @@ export class LogBuffer {
    * @param {object} entry - 日誌對象
    */
   push(entry) {
-    // 確保有時間戳
-    const timestamp = entry.timestamp || new Date().toISOString();
-    let entryWithTimestamp = {
-      ...entry,
-      timestamp,
-    };
+    let entryToStore = { ...entry };
 
-    // [Memory Safety] 檢查單條日誌大小
-    // 簡單估算：JSON序列化長度。限制為 25KB (約 25000 字符)
-    // 這是一個折衷方案：避免 buffer 存儲過大對象，但會消耗一次 serialization 成本
-    const MAX_ENTRY_SIZE = 25_000;
-
-    try {
-      const serialized = JSON.stringify(entryWithTimestamp);
-      if (serialized.length > MAX_ENTRY_SIZE) {
-        // 如果過大，移除 context 並標記
-        entryWithTimestamp = {
-          level: entry.level,
-          timestamp,
-          message: entry.message,
-          source: entry.source,
-          context: {
-            truncated: true,
-            reason: 'entry_exceeds_size_limit',
-            originalSize: serialized.length,
-          },
-        };
-      }
-    } catch {
-      // 序列化失敗（可能已經已經被 LogSanitizer 處理過所以不該發生，但為了安全）
-      entryWithTimestamp = {
-        ...entryWithTimestamp,
-        context: {
-          error: 'serialization_failed_during_size_check',
-        },
-      };
+    // [Performance Optimization] 僅在需要時執行完整序列化檢查
+    if (needsSizeCheck(entry)) {
+      entryToStore = this._processOversizedEntry(entry, entryToStore);
     }
 
     // 計算寫入位置：(head + size) % capacity
-    // 假如滿了，(head + size) 會剛好指回 head 所在位置，進行覆蓋
     const writeIndex = (this.head + this.size) % this.capacity;
-
-    this.buffer[writeIndex] = entryWithTimestamp;
+    this.buffer[writeIndex] = entryToStore;
 
     if (this.size < this.capacity) {
       this.size++;
     } else {
       // 緩衝區已滿，覆蓋了最舊的，head 往前移
       this.head = (this.head + 1) % this.capacity;
+    }
+  }
+
+  /**
+   * 處理可能過大的日誌條目
+   *
+   * @param {object} entry - 原始日誌對象
+   * @param {object} fallback - 回退對象
+   * @returns {object} 處理後的日誌條目
+   * @private
+   */
+  _processOversizedEntry(entry, fallback) {
+    try {
+      const serialized = JSON.stringify(fallback);
+      if (serialized.length > MAX_ENTRY_SIZE) {
+        return createTruncatedEntry(entry, serialized.length, STRUCTURE_OVERHEAD);
+      }
+      return fallback;
+    } catch (error) {
+      return createSerializationFailedEntry(entry, error);
     }
   }
 
@@ -108,23 +198,12 @@ export class LogBuffer {
   /**
    * 獲取緩衝區統計信息
    *
-   * @returns {object} { count, capacity, oldest, newest }
+   * @returns {object} { count, capacity }
    */
   getStats() {
-    let oldest = null;
-    let newest = null;
-
-    if (this.size > 0) {
-      oldest = this.buffer[this.head].timestamp;
-      const newestIndex = (this.head + this.size - 1) % this.capacity;
-      newest = this.buffer[newestIndex].timestamp;
-    }
-
     return {
       count: this.size,
       capacity: this.capacity,
-      oldest,
-      newest,
     };
   }
 }

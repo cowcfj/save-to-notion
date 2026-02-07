@@ -648,12 +648,6 @@ select:focus {
   color: #991b1b;
 }
 
-/* Migration & Optimization Tools */
-/* 
-.migration-tool,
-.optimization-tool {
-} 
-*/
 
 .migration-controls {
   display: flex;
@@ -1042,7 +1036,7 @@ select:focus {
   color: var(--text-primary);
 }
 
-.feature-content > div {
+.feature-content>div {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.5;
@@ -1092,7 +1086,8 @@ select:focus {
 }
 
 .inline-code.highlight {
-  color: #e11d48;
+  color: #be123c;
+  /* Rose-700: 提升對比度至 5.8:1，符合 WCAG AA 標準 */
   background: #fff1f2;
 }
 
@@ -1360,4 +1355,31 @@ h4 .icon-svg {
   display: block;
   margin-top: 4px;
   color: var(--success-color);
+}
+
+/* =========================================
+   Setup Guide Styles (Dynamic Component)
+   用於 UIManager.showSetupGuide() 動態生成的設置指南
+   ========================================= */
+
+.setup-guide {
+  background: #e6fffa;
+  border: 1px solid #38b2ac;
+  border-radius: 6px;
+  padding: 15px;
+  margin: 15px 0;
+}
+
+.setup-guide__title {
+  margin: 0 0 10px 0;
+  color: #2c7a7b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-guide__list {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
 }

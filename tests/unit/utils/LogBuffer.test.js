@@ -42,14 +42,6 @@ describe('LogBuffer', () => {
       expect(logs[0]).toMatchObject(entry);
     });
 
-    test('should add timestamp if missing', () => {
-      logBuffer.push({ level: 'info', message: 'test' });
-
-      const logs = logBuffer.getAll();
-      expect(logs[0]).toHaveProperty('timestamp');
-      expect(new Date(logs[0].timestamp).getTime()).not.toBeNaN();
-    });
-
     test('should maintain FIFO behavior when capacity is exceeded', () => {
       // Fill buffer
       for (let i = 0; i < DEFAULT_CAPACITY; i++) {
@@ -68,12 +60,35 @@ describe('LogBuffer', () => {
       expect(logs[DEFAULT_CAPACITY - 1].id).toBe(DEFAULT_CAPACITY);
     });
 
-    test('should accept entries with existing timestamps', () => {
-      const ts = '2023-01-01T00:00:00.000Z';
-      logBuffer.push({ timestamp: ts, message: 'old' });
+    test('should handle circular references safely', () => {
+      const circular = { level: 'error', message: 'circular test' };
+      circular.self = circular; // Create circular reference
+
+      logBuffer.push(circular);
 
       const logs = logBuffer.getAll();
-      expect(logs[0].timestamp).toBe(ts);
+      expect(logs).toHaveLength(1);
+      expect(logs[0].message).toBe('circular test');
+      expect(logs[0].context.error).toMatch(/serialization_failed/);
+      expect(logs[0].self).toBeUndefined();
+    });
+
+    test('should truncate entry when size exceeds limit', () => {
+      // MAX_ENTRY_SIZE is 25,000 in LogBuffer.js
+      const hugeString = 'a'.repeat(30_000);
+      const hugeEntry = { level: 'info', message: 'huge payload', data: hugeString };
+
+      logBuffer.push(hugeEntry);
+
+      const logs = logBuffer.getAll();
+      expect(logs).toHaveLength(1);
+      expect(logs[0].message).toBe('huge payload');
+      expect(logs[0].data).toBeUndefined();
+      expect(logs[0].context).toMatchObject({
+        truncated: true,
+        reason: 'entry_exceeds_size_limit',
+      });
+      expect(typeof logs[0].context.originalSize).toBe('number');
     });
   });
 
@@ -109,15 +124,12 @@ describe('LogBuffer', () => {
 
       expect(stats.count).toBe(2);
       expect(stats.capacity).toBe(DEFAULT_CAPACITY);
-      expect(new Date(stats.oldest)).toBeInstanceOf(Date);
-      expect(new Date(stats.newest)).toBeInstanceOf(Date);
     });
 
-    test('should return null dates for empty buffer', () => {
+    test('should return zero count for empty buffer', () => {
       const stats = logBuffer.getStats();
       expect(stats.count).toBe(0);
-      expect(stats.oldest).toBeNull();
-      expect(stats.newest).toBeNull();
+      expect(stats.capacity).toBe(DEFAULT_CAPACITY);
     });
   });
 });

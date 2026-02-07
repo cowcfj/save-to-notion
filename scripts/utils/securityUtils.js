@@ -11,7 +11,7 @@
 import Logger from './Logger.js';
 import { SECURITY_CONSTANTS } from '../config/constants.js';
 
-import { API_ERROR_PATTERNS } from '../config/messages.js';
+import { API_ERROR_PATTERNS, SECURITY_ERROR_MESSAGES } from '../config/messages.js';
 
 // ============================================================================
 // URL 驗證函數
@@ -81,7 +81,7 @@ export function validateInternalRequest(sender) {
   // 1. 沒有 tab 對象 (Popup, Background) 且 ID 匹配
   // 2. 有 tab 對象，但 URL 是擴充功能自身的 URL (Options in Tab) 且 ID 匹配
   if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionOrigin)) {
-    return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
+    return { success: false, error: SECURITY_ERROR_MESSAGES.INTERNAL_ONLY };
   }
 
   return null; // 驗證通過
@@ -99,11 +99,11 @@ export function validateContentScriptRequest(sender) {
   // 2. sender.tab 必須存在（在網頁上下文中）
 
   if (sender.id !== chrome.runtime.id) {
-    return { success: false, error: '拒絕訪問：僅限本擴充功能的 content script 調用' };
+    return { success: false, error: SECURITY_ERROR_MESSAGES.CONTENT_SCRIPT_ONLY };
   }
 
   if (!sender.tab?.id) {
-    return { success: false, error: '拒絕訪問：此操作必須在標籤頁上下文中調用' };
+    return { success: false, error: SECURITY_ERROR_MESSAGES.TAB_CONTEXT_REQUIRED };
   }
 
   return null; // 驗證通過
@@ -113,7 +113,6 @@ export function validateContentScriptRequest(sender) {
 // 日誌安全函數（防止敏感資訊洩露）
 // ============================================================================
 
-// [REMOVED] sanitizeUrlForLogging moved to LogSanitizer.js
 // [REMOVED] sanitizeUrlForLogging moved to LogSanitizer.js
 export { sanitizeUrlForLogging } from './LogSanitizer.js';
 
@@ -132,6 +131,7 @@ function _classifyApiError(lowerMessage) {
     AUTH,
     AUTH_DISCONNECTED,
     AUTH_INVALID,
+    AUTH_FORBIDDEN,
     PERMISSION,
     PERMISSION_DB,
     RATE_LIMIT,
@@ -143,32 +143,44 @@ function _classifyApiError(lowerMessage) {
     SERVER_ERROR,
   } = API_ERROR_PATTERNS;
 
-  // 1. 認證與權限 (Auth & Permission)
-  const authResult = _checkAuthErrors(lowerMessage, AUTH, AUTH_DISCONNECTED, AUTH_INVALID);
-  if (authResult) {
-    return authResult;
-  }
-
-  if (PERMISSION.some(k => lowerMessage.includes(k))) {
-    return PERMISSION_DB.some(k => lowerMessage.includes(k))
-      ? 'Database access denied'
-      : 'Cannot access contents';
-  }
-
-  // 2. 簡單映射 (Simple Mapping)
+  // 1. 簡單映射 (Simple Mapping) - 優先識別明確的資源或驗證錯誤
   const directMatch = _checkSimpleMappings(lowerMessage, {
     'rate limit': RATE_LIMIT,
     'Page ID is missing': NOT_FOUND,
     'active tab': ACTIVE_TAB,
     'Data Source ID': DATA_SOURCE,
-    'Invalid request': VALIDATION,
     'Network error': NETWORK,
   });
   if (directMatch) {
     return directMatch;
   }
 
-  // 3. 服務器錯誤 (Server Error)
+  // 2. 認證與權限 (Auth & Permission) - 優先檢查
+  const authResult = _checkAuthErrors(
+    lowerMessage,
+    AUTH,
+    AUTH_DISCONNECTED,
+    AUTH_INVALID,
+    AUTH_FORBIDDEN
+  );
+  if (authResult) {
+    return authResult;
+  }
+
+  // 2.5 驗證錯誤 (Validation) - 降級檢查順序
+  // 防止 'api key is invalid' 等認證錯誤被誤判為 validation_error
+  if (VALIDATION.some(k => lowerMessage.includes(k))) {
+    return 'validation_error';
+  }
+
+  // 3. 權限檢查 (Permission)
+  if (PERMISSION.some(k => lowerMessage.includes(k))) {
+    return PERMISSION_DB.some(k => lowerMessage.includes(k))
+      ? 'Database access denied'
+      : 'Cannot access contents';
+  }
+
+  // 4. 服務器錯誤 (Server Error)
   if (SERVER_ERROR.some(k => lowerMessage.includes(k))) {
     return _checkServerError(lowerMessage);
   }
@@ -178,16 +190,27 @@ function _classifyApiError(lowerMessage) {
 
 // === 輔助函數 (降低 Cognitive Complexity) ===
 
-function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid) {
-  if (!patterns.some(k => lowerMessage.includes(k))) {
+function _checkAuthErrors(lowerMessage, patterns, disconnected, invalid, forbidden) {
+  const isGenericAuth = patterns.some(k => lowerMessage.includes(k));
+  const isDisconnected = disconnected.some(k => lowerMessage.includes(k));
+  const isInvalid = invalid.some(k => lowerMessage.includes(k));
+  const isForbidden = forbidden?.some(k => lowerMessage.includes(k));
+
+  if (!isGenericAuth && !isDisconnected && !isInvalid && !isForbidden) {
     return null;
   }
-  if (disconnected.some(k => lowerMessage.includes(k))) {
+
+  if (isDisconnected) {
     return 'Integration disconnected';
   }
-  if (invalid.some(k => lowerMessage.includes(k))) {
+  if (isInvalid) {
     return 'Invalid API Key format';
   }
+  if (isForbidden) {
+    return 'Integration forbidden (403)';
+  }
+
+  // Default to generic API Key error if matched main AUTH pattern
   return 'API Key';
 }
 
@@ -222,6 +245,16 @@ function _checkServerError(lowerMessage) {
  * @returns {string | object} 錯誤代碼或清洗後的結構化錯誤對象
  */
 export function sanitizeApiError(apiError, context = 'operation') {
+  // 1. [SDK Support] 優先處理 SDK 錯誤碼
+  if (apiError && apiError.code) {
+    // 支援 Notion SDK 的標準錯誤碼
+    if (apiError.code === 'validation_error') {
+      return 'validation_error';
+    }
+    // 直接返回 code，交由 ErrorHandler.formatUserMessage 匹配
+    return apiError.code;
+  }
+
   const errorMessage = typeof apiError === 'string' ? apiError : apiError?.message || '';
   const lowerMessage = errorMessage.toLowerCase();
 
@@ -410,7 +443,7 @@ export function validateSafeSvg(svgContent) {
 }
 
 /**
- * 從消息字串中分離圖標（Emoji 或 SVG）和純文本內容
+ * 從訊息字串中分離圖標（Emoji 或 SVG）和純文本內容
  *
  * 此函數統一處理 UIManager 和 StorageManager 中的圖標分離邏輯，
  * 避免重複維護相同的正則表達式模式。
@@ -419,7 +452,7 @@ export function validateSafeSvg(svgContent) {
  * - Unicode Emoji（範圍：U+1F300 to U+1F9FF）
  * - SVG 標籤（格式：<svg...>...</svg>）
  *
- * @param {string} message - 原始消息字串（可能包含圖標前綴）
+ * @param {string} message - 原始訊息字串（可能包含圖標前綴）
  * @returns {{icon: string, text: string}} 分離後的圖標和文本
  * @example
  * // SVG 圖標 + 文本
@@ -459,7 +492,7 @@ export function separateIconAndText(message) {
     };
   }
 
-  // 無匹配：視為純文本消息
+  // 無匹配：視為純文本訊息
   return {
     icon: '',
     text: message,

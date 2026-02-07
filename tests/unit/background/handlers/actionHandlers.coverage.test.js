@@ -31,6 +31,38 @@ jest.mock('../../../../scripts/background/services/InjectionService.js', () => (
   isRestrictedInjectionUrl: jest.fn(url => url?.startsWith('chrome://')),
 }));
 
+jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
+  validateInternalRequest: jest.fn(sender => {
+    if (
+      sender?.id !== 'mock-ext-id' ||
+      (sender?.tab && !sender?.url?.startsWith('chrome-extension://'))
+    ) {
+      return { success: false, error: '拒絕訪問：此操作僅限擴充功能內部調用' };
+    }
+    return null;
+  }),
+  validateContentScriptRequest: jest.fn(sender => {
+    // 模擬真實行為: 1. 檢查是否為 Extension (ID)
+    if (sender?.id !== 'mock-ext-id') {
+      return { success: false, error: '拒絕訪問：僅限本擴充功能的 content script 調用' };
+    }
+    // 2. 檢查是否有 Tab
+    if (!sender?.tab?.id) {
+      return { success: false, error: '拒絕訪問：此操作必須在標籤頁上下文中調用' };
+    }
+    return null;
+  }),
+  validatePrivilegedRequest: jest.fn(sender => {
+    if (sender?.id !== 'mock-ext-id') {
+      return { success: false, error: '拒絕訪問' };
+    }
+    return null;
+  }),
+  sanitizeApiError: jest.fn(err => (err instanceof Error ? err.message : String(err))),
+  isValidNotionUrl: jest.fn(() => true),
+  sanitizeUrlForLogging: jest.fn(url => url),
+}));
+
 // 引入測試所需模組
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
@@ -59,6 +91,7 @@ globalThis.chrome = {
     create: jest.fn(),
   },
   runtime: {
+    id: 'mock-ext-id',
     lastError: null,
   },
 };
@@ -80,6 +113,8 @@ describe('actionHandlers 覆蓋率補強', () => {
   let mockInjectionService = null;
   let mockPageContentService = null;
   let handlers = null;
+  const internalSender = { id: 'mock-ext-id' };
+  const csSender = { id: 'mock-ext-id', tab: { id: 1 } };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -93,6 +128,8 @@ describe('actionHandlers 覆蓋率補強', () => {
       log: jest.fn(),
       debug: jest.fn(),
       addLogToBuffer: jest.fn(),
+      start: jest.fn(),
+      success: jest.fn(),
     };
 
     mockNotionService = {
@@ -117,7 +154,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     mockInjectionService = {
       injectHighlighter: jest.fn(),
       inject: jest.fn(),
-      collectHighlights: jest.fn(),
+      collectHighlights: jest.fn().mockResolvedValue([]),
     };
 
     mockPageContentService = {
@@ -194,7 +231,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'chrome://extensions/' }]);
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
@@ -207,7 +244,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([]);
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
@@ -220,7 +257,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({});
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
@@ -233,7 +270,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'valid-key' });
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
@@ -246,7 +283,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockPageContentService.extractContent.mockRejectedValue(new Error('Extract failed'));
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
       // 修正斷言：當 extract 拋出異常時，會返回 'Content extraction script returned no result.'
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -266,7 +303,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         url: 'notion.so/new',
       });
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
 
       expect(mockNotionService.createPage).toHaveBeenCalled();
       expect(mockStorageService.setSavedPageData).toHaveBeenCalledWith(
@@ -286,11 +323,12 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'new highlight' }]);
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
 
       expect(mockNotionService.updateHighlightsSection).toHaveBeenCalledWith(
         'existing-id',
-        expect.any(Array)
+        expect.any(Array),
+        { apiKey: 'secret-key' }
       );
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ highlightsUpdated: true })
@@ -305,7 +343,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockInjectionService.collectHighlights.mockResolvedValue([]); // No highlights
       mockNotionService.refreshPageContent.mockResolvedValue({ success: true });
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
 
       expect(mockNotionService.refreshPageContent).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
@@ -318,7 +356,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockNotionService.checkPageExists.mockResolvedValue(false); // Page deleted
       mockNotionService.createPage.mockResolvedValue({ success: true, pageId: 'new-id' });
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
 
       expect(mockStorageService.clearPageState).toHaveBeenCalled();
       expect(mockNotionService.createPage).toHaveBeenCalled();
@@ -332,7 +370,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
       mockNotionService.checkPageExists.mockResolvedValue(null); // Network error
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
@@ -363,7 +401,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       try {
         // 調用 savePage
-        const savePromise = handlers.savePage({}, {}, sendResponse);
+        const savePromise = handlers.savePage({}, internalSender, sendResponse);
 
         // 使用 runAllTimersAsync 來處理異步 timers
         await jest.runAllTimersAsync();
@@ -397,7 +435,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockNotionService.checkPageExists.mockResolvedValue(false); // 頁面已刪除
       mockNotionService.createPage.mockResolvedValue({ success: true, pageId: 'new-id' });
 
-      await handlers.savePage({}, {}, sendResponse);
+      await handlers.savePage({}, internalSender, sendResponse);
 
       expect(mockStorageService.clearPageState).toHaveBeenCalled();
       expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
@@ -414,25 +452,25 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
 
       // 測試 warn 級別
-      handlers.devLogSink({ level: 'warn', message: 'test warn' }, {}, sendResponse);
+      handlers.devLogSink({ level: 'warn', message: 'test warn' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
       sendResponse.mockClear();
 
       // 測試 error 級別
-      handlers.devLogSink({ level: 'error', message: 'test error' }, {}, sendResponse);
+      handlers.devLogSink({ level: 'error', message: 'test error' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
       sendResponse.mockClear();
 
       // 測試 info 級別
-      handlers.devLogSink({ level: 'info', message: 'test info' }, {}, sendResponse);
+      handlers.devLogSink({ level: 'info', message: 'test info' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
 
       sendResponse.mockClear();
 
       // 測試 log 級別（預設）
-      handlers.devLogSink({ message: 'test log' }, {}, sendResponse);
+      handlers.devLogSink({ message: 'test log' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
@@ -441,7 +479,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       handlers.devLogSink(
         { level: 'log', message: 'test with args', args: ['arg1', 'arg2'] },
-        {},
+        csSender,
         sendResponse
       );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
@@ -450,7 +488,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該處理空消息', () => {
       const sendResponse = jest.fn();
 
-      handlers.devLogSink({ level: 'log' }, {}, sendResponse);
+      handlers.devLogSink({ level: 'log' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
   });
@@ -458,7 +496,7 @@ describe('actionHandlers 覆蓋率補強', () => {
   describe('checkNotionPageExists handler', () => {
     test('應該在缺少參數時報錯', async () => {
       const sendResponse = jest.fn();
-      await handlers.checkNotionPageExists({}, {}, sendResponse);
+      await handlers.checkNotionPageExists({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
@@ -471,7 +509,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
       mockNotionService.checkPageExists.mockResolvedValue(true);
-      await handlers.checkNotionPageExists({ pageId: '123' }, {}, sendResponse);
+      await handlers.checkNotionPageExists({ pageId: '123' }, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true, exists: true });
     });
 
@@ -479,7 +517,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({}); // No API Key
 
-      await handlers.checkNotionPageExists({ pageId: '123' }, {}, sendResponse);
+      await handlers.checkNotionPageExists({ pageId: '123' }, internalSender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -494,20 +532,19 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該處理未保存頁面', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue(null);
-      await handlers.openNotionPage({ url: 'http://test.com' }, {}, sendResponse);
+      await handlers.openNotionPage({ url: 'http://test.com' }, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 
     test('應該打開 Notion 頁面', async () => {
       const sendResponse = jest.fn();
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'page-123' });
-      chrome.tabs.create.mockImplementation((opts, cb) => cb({ id: 1 }));
+      chrome.tabs.create.mockResolvedValue({ id: 1 });
 
-      await handlers.openNotionPage({ url: 'http://test.com' }, {}, sendResponse);
+      await handlers.openNotionPage({ url: 'http://test.com' }, internalSender, sendResponse);
       // Notion URL 會移除連字符
       expect(chrome.tabs.create).toHaveBeenCalledWith(
-        expect.objectContaining({ url: expect.stringContaining('page123') }),
-        expect.any(Function)
+        expect.objectContaining({ url: expect.stringContaining('page123') })
       );
     });
   });
@@ -516,7 +553,7 @@ describe('actionHandlers 覆蓋率補強', () => {
     test('應該處理無法獲取 tab', async () => {
       const sendResponse = jest.fn();
       chrome.tabs.query.mockResolvedValue([]);
-      await handlers.startHighlight({}, {}, sendResponse);
+      await handlers.startHighlight({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 
@@ -525,7 +562,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
       chrome.tabs.sendMessage.mockImplementation((_id, _msg, cb) => cb({ success: true }));
 
-      await handlers.startHighlight({}, {}, sendResponse);
+      await handlers.startHighlight({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
@@ -541,7 +578,7 @@ describe('actionHandlers 覆蓋率補強', () => {
 
       mockInjectionService.injectHighlighter.mockResolvedValue({ initialized: true });
 
-      await handlers.startHighlight({}, {}, sendResponse);
+      await handlers.startHighlight({}, internalSender, sendResponse);
 
       expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
@@ -553,7 +590,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
       mockStorageService.getSavedPageData.mockResolvedValue(null);
-      await handlers.syncHighlights({ highlights: [] }, {}, sendResponse);
+      await handlers.syncHighlights({ highlights: [] }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 
@@ -564,7 +601,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
-      await handlers.syncHighlights({ highlights: [{ text: 'hi' }] }, {}, sendResponse);
+      await handlers.syncHighlights({ highlights: [{ text: 'hi' }] }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
   });
@@ -582,7 +619,7 @@ describe('actionHandlers 覆蓋率補強', () => {
         lastVerifiedAt: Date.now(),
       });
 
-      await handlers.checkPageStatus({}, {}, sendResponse);
+      await handlers.checkPageStatus({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ isSaved: true, title: 'Start' })
       );
@@ -603,7 +640,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       // 第二次返回 true (成功)
       mockNotionService.checkPageExists.mockResolvedValueOnce(true);
 
-      await handlers.checkPageStatus({}, {}, sendResponse);
+      await handlers.checkPageStatus({}, internalSender, sendResponse);
 
       expect(mockNotionService.checkPageExists).toHaveBeenCalledTimes(2);
       expect(sendResponse).toHaveBeenCalledWith(
@@ -622,7 +659,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       // 一直返回 null
       mockNotionService.checkPageExists.mockResolvedValue(null);
 
-      await handlers.checkPageStatus({}, {}, sendResponse);
+      await handlers.checkPageStatus({}, internalSender, sendResponse);
 
       expect(mockNotionService.checkPageExists).toHaveBeenCalledTimes(2);
       expect(sendResponse).toHaveBeenCalledWith(
@@ -640,7 +677,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       mockInjectionService.collectHighlights.mockResolvedValue([{ text: 'hi' }]);
       mockNotionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
-      await handlers.updateHighlights({}, {}, sendResponse);
+      await handlers.updateHighlights({}, internalSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, highlightCount: 1 })
       );
@@ -651,12 +688,13 @@ describe('actionHandlers 覆蓋率補強', () => {
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'http://test.com' }]);
       mockStorageService.getConfig.mockResolvedValue({}); // No API Key
 
-      await handlers.updateHighlights({}, {}, sendResponse);
+      mockStorageService.getSavedPageData.mockResolvedValue({ notionPageId: 'id' });
+      await handlers.updateHighlights({}, internalSender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/Notion API Key|configured/),
+          error: expect.stringMatching(/Notion API Key/),
         })
       );
     });

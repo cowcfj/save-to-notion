@@ -374,7 +374,7 @@ export class StorageManager {
     const iconHtml = stateIcons[state] || stateIcons.default;
 
     // 更新圖標（安全方式）
-    iconWrap.innerHTML = '';
+    iconWrap.textContent = '';
     const safe = createSafeIcon(iconHtml);
     const svg = safe.querySelector('svg');
 
@@ -1108,7 +1108,7 @@ export class StorageManager {
   }
 
   /**
-   * 顯示資料管理狀態消息（安全版本）
+   * 顯示資料管理狀態訊息（安全版本）
    *
    * Security Note: 此函數僅應接收內部可信的訊息字串
    * - SVG/Emoji 圖標內容應由系統內部生成，不應來自外部輸入

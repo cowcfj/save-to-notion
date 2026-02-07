@@ -22,16 +22,18 @@ export function initOptions() {
   const ui = new UIManager();
 
   const auth = new AuthManager(ui);
-  const dataSource = new DataSourceManager(ui);
+  const dataSource = new DataSourceManager(ui, () => {
+    return document.querySelector('#api-key')?.value || '';
+  });
   const storage = new StorageManager(ui);
   const migration = new MigrationTool(ui);
 
   // 2. 注入依賴並啟動
   ui.init();
 
-  // AuthManager 需要 DataSourceManager 來載入資料庫列表
+  // AuthManager 需要 DataSourceManager 來載入資料來源列表
   auth.init({
-    loadDatabases: dataSource.loadDatabases.bind(dataSource),
+    loadDataSources: dataSource.loadDataSources.bind(dataSource),
   });
 
   dataSource.init();
