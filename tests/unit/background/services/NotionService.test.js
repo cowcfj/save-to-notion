@@ -452,7 +452,7 @@ describe('NotionService', () => {
       });
     });
 
-    it('should include all image blocks and return 0 skipped count', () => {
+    it('should include all image blocks and return valid page data', () => {
       const blocks = [
         { type: 'paragraph', paragraph: { rich_text: [] } },
         { type: 'image', image: { external: { url: 'sftp://invalid.com/img.jpg' } } },

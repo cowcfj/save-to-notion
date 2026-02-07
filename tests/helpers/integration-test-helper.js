@@ -210,6 +210,18 @@ export function setupChromeMock(customStorageData = {}, customSyncStorageData = 
           mockCb?.(res);
           return Promise.resolve(res);
         }),
+        set: jest.fn((items, mockCb) => {
+          Object.assign(syncStorageData, items);
+          mockCb?.();
+          return Promise.resolve();
+        }),
+        remove: jest.fn((keys, mockCb) => {
+          (Array.isArray(keys) ? keys : [keys]).forEach(key => {
+            delete syncStorageData[key];
+          });
+          mockCb?.();
+          return Promise.resolve();
+        }),
       },
     },
   };
