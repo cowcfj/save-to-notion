@@ -15,8 +15,6 @@ import { Client } from '@notionhq/client';
 import { NOTION_CONFIG, ERROR_MESSAGES } from '../../config/index.js';
 // 導入安全工具
 import { sanitizeApiError, sanitizeUrlForLogging } from '../../utils/securityUtils.js';
-// 導入圖片區塊過濾函數（整合自 imageUtils）
-import { filterNotionImageBlocks } from '../../utils/imageUtils.js';
 // 導入統一日誌記錄器
 import Logger from '../../utils/Logger.js';
 
@@ -370,27 +368,56 @@ class NotionService {
    * @returns {Array<string>} 需要刪除的區塊 ID 列表
    * @private
    */
-  static _findHighlightSectionBlocks(blocks) {
-    const blocksToDelete = [];
-    let foundHighlightSection = false;
-
-    for (const block of blocks) {
-      if (
-        block.type === 'heading_3' &&
-        block.heading_3?.rich_text?.[0]?.text?.content === NOTION_CONFIG.HIGHLIGHT_SECTION_HEADER
-      ) {
-        foundHighlightSection = true;
-        blocksToDelete.push(block.id);
-      } else if (foundHighlightSection) {
-        if (block.type.startsWith('heading_')) {
-          break; // 遇到下一個標題，停止收集
-        }
-        // 收集所有非標題類型的區塊（包含 paragraph, quote, callout 等）
-        blocksToDelete.push(block.id);
-      }
+  /**
+   * 檢查 URL 是否可能被 Notion API 接受
+   *
+   * @param {string} url - 圖片 URL
+   * @returns {boolean} 是否兼容
+   * @private
+   */
+  _isNotionCompatibleImageUrl(url) {
+    if (!url || typeof url !== 'string') {
+      return false;
     }
 
-    return blocksToDelete;
+    // 基本清理
+    const cleanUrl = url.trim();
+    if (!cleanUrl) {
+      return false;
+    }
+
+    try {
+      const urlObj = new URL(cleanUrl);
+
+      // 檢查協議
+      if (
+        urlObj.protocol !== 'http:' &&
+        urlObj.protocol !== 'https:' &&
+        urlObj.protocol !== 'data:' // 雖然 Notion 不直接支持 data URI 上傳，但作為 URL 值本身是合法的，可能需要進一步過濾
+      ) {
+        return false;
+      }
+
+      // 排除 data: 和 blob: (Notion API 不支持作為 external url)
+      if (urlObj.protocol === 'data:' || urlObj.protocol === 'blob:') {
+        return false;
+      }
+
+      // 檢查特殊字符
+      const problematicChars = /[<>[\\\]^`{|}]/;
+      if (problematicChars.test(cleanUrl)) {
+        return false;
+      }
+
+      // 長度檢查 (Notion API 限制 2000，這裡留安全邊際)
+      if (cleanUrl.length > 2000 - 100) {
+        return false;
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -470,80 +497,63 @@ class NotionService {
    * @returns {{validBlocks: Array, skippedCount: number}}
    */
   filterValidImageBlocks(blocks, excludeImages = false) {
-    // 防禦性檢查：確保 filterNotionImageBlocks 存在
-    if (typeof filterNotionImageBlocks !== 'function') {
-      Logger.error('[NotionService] filterNotionImageBlocks 不可用', {
-        action: 'filterValidImageBlocks',
-        operation: 'checkDependency',
-        error: 'filterNotionImageBlocks is not available',
-      });
-      return { validBlocks: blocks ?? [], skippedCount: 0 };
+    if (!blocks || !Array.isArray(blocks)) {
+      return { validBlocks: [], skippedCount: 0 };
     }
 
-    const { validBlocks, skippedCount, invalidReasons } = filterNotionImageBlocks(
-      blocks,
-      excludeImages
-    );
+    if (excludeImages) {
+      const validBlocks = blocks.filter(block => block.type !== 'image');
+      const skippedCount = blocks.length - validBlocks.length;
 
-    // 日誌輸出（保留原有行為）
-    if (excludeImages && skippedCount > 0) {
-      Logger.info('[NotionService] 重試模式排除所有圖片', {
-        action: 'filterValidImageBlocks',
-        excludeImages: true,
-        skippedCount,
-      });
+      if (skippedCount > 0) {
+        Logger.info('[NotionService] 重試模式排除所有圖片', {
+          action: 'filterValidImageBlocks',
+          excludeImages: true,
+          skippedCount,
+        });
+      }
+
+      return { validBlocks, skippedCount };
     }
 
-    if (skippedCount > 0 && !excludeImages) {
+    const validBlocks = [];
+    let skippedCount = 0;
+    const invalidReasons = [];
+
+    for (const block of blocks) {
+      // 非圖片區塊直接通過
+      if (block.type !== 'image') {
+        validBlocks.push(block);
+        continue;
+      }
+
+      // 圖片 URL 驗證
+      const imageUrl = block.image?.external?.url || block.image?.file?.url;
+
+      if (!imageUrl) {
+        skippedCount++;
+        invalidReasons.push({ reason: 'missing_url', id: block.id });
+        continue;
+      }
+
+      if (this._isNotionCompatibleImageUrl(imageUrl)) {
+        validBlocks.push(block);
+      } else {
+        skippedCount++;
+        invalidReasons.push({
+          reason: 'invalid_url',
+          id: block.id,
+          url: sanitizeUrlForLogging(imageUrl),
+        });
+      }
+    }
+
+    if (skippedCount > 0) {
       Logger.info('[NotionService] 過濾圖片區塊', {
         action: 'filterValidImageBlocks',
         skippedCount,
         totalBlocks: blocks.length,
-      });
-    }
-
-    // 詳細日誌（供調試，設定上限避免日誌爆炸）
-    const MAX_DETAILED_LOGS = 5;
-    const loggedCount = Math.min(invalidReasons.length, MAX_DETAILED_LOGS);
-
-    for (let i = 0; i < loggedCount; i++) {
-      const reason = invalidReasons[i];
-      switch (reason.reason) {
-        case 'invalid_structure': {
-          Logger.warn('[NotionService] 跳過無效區塊', {
-            action: 'filterValidImageBlocks',
-            reason: 'invalid_structure',
-            detail: 'missing type or type property',
-          });
-
-          break;
-        }
-        case 'missing_url': {
-          Logger.warn('[NotionService] 跳過無 URL 圖片', {
-            action: 'filterValidImageBlocks',
-            reason: 'missing_url',
-          });
-
-          break;
-        }
-        case 'invalid_url': {
-          Logger.warn('[NotionService] 跳過無效 URL 圖片', {
-            action: 'filterValidImageBlocks',
-            reason: 'invalid_url',
-            url: sanitizeUrlForLogging(reason.url),
-          });
-
-          break;
-        }
-        // No default
-      }
-    }
-
-    // 如有更多問題，輸出摘要
-    if (invalidReasons.length > MAX_DETAILED_LOGS) {
-      Logger.warn('[NotionService] 更多區塊被跳過', {
-        action: 'filterValidImageBlocks',
-        additionalSkipped: invalidReasons.length - MAX_DETAILED_LOGS,
+        reasons: invalidReasons.slice(0, 5), // 僅記錄前 5 個原因以防日誌爆炸
       });
     }
 
@@ -967,6 +977,7 @@ class NotionService {
       }
 
       // 步驟 2: 找出需要刪除的標記區塊
+      // 步驟 2: 找出需要刪除的標記區塊
       const blocksToDelete = NotionService._findHighlightSectionBlocks(fetchResult.blocks);
 
       // 步驟 3: 刪除舊的標記區塊
@@ -1033,6 +1044,42 @@ class NotionService {
         details: { phase: 'catch_all' },
       };
     }
+  }
+
+  /**
+   * 找出標記區域的區塊 ID（靜態方法）
+   *
+   * @param {Array} blocks - 區塊列表
+   * @param {string} [headerText] - 標記區域標題
+   * @returns {Array<string>} 需要刪除的區塊 ID 列表
+   * @static
+   * @private
+   */
+  static _findHighlightSectionBlocks(blocks, headerText = NOTION_CONFIG.HIGHLIGHT_SECTION_HEADER) {
+    const blocksToDelete = [];
+    let foundHighlightSection = false;
+
+    if (!blocks || !Array.isArray(blocks)) {
+      return [];
+    }
+
+    for (const block of blocks) {
+      if (
+        block.type === 'heading_3' &&
+        block.heading_3?.rich_text?.[0]?.text?.content === headerText
+      ) {
+        foundHighlightSection = true;
+        blocksToDelete.push(block.id);
+      } else if (foundHighlightSection) {
+        if (block.type?.startsWith('heading_')) {
+          break; // 遇到下一個標題，停止收集
+        }
+        // 收集所有非標題類型的區塊（包含 paragraph, quote, callout 等）
+        blocksToDelete.push(block.id);
+      }
+    }
+
+    return blocksToDelete;
   }
 }
 

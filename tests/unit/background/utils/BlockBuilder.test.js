@@ -20,6 +20,7 @@ const {
   textToParagraphs,
   createFallbackBlocks,
   isValidBlock,
+  findHighlightSectionBlocks,
 } = require('../../../../scripts/background/utils/BlockBuilder');
 
 describe('BlockBuilder', () => {
@@ -309,6 +310,52 @@ describe('BlockBuilder', () => {
       expect(isValidBlock({})).toBe(false);
       expect(isValidBlock({ object: 'block' })).toBe(false);
       expect(isValidBlock({ type: 'paragraph' })).toBe(false);
+    });
+  });
+
+  describe('findHighlightSectionBlocks', () => {
+    test('should return empty array for invalid input', () => {
+      expect(findHighlightSectionBlocks(null)).toEqual([]);
+      expect(findHighlightSectionBlocks([])).toEqual([]);
+    });
+
+    test('should identify blocks to delete in highlight section', () => {
+      const blocks = [
+        { type: 'paragraph', id: '1' },
+        {
+          type: 'heading_3',
+          id: '2',
+          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
+        },
+        { type: 'paragraph', id: '3' },
+        { type: 'quote', id: '4' },
+        {
+          type: 'heading_1',
+          id: '5',
+          heading_1: { rich_text: [{ text: { content: 'Next Section' } }] },
+        },
+        { type: 'paragraph', id: '6' },
+      ];
+
+      const result = findHighlightSectionBlocks(blocks, '📝 頁面標記');
+      // Should include the header (2) and subsequent non-header blocks (3, 4)
+      // Should stop at (5) because it's a header
+      expect(result).toEqual(['2', '3', '4']);
+    });
+
+    test('should use default header text if not provided', () => {
+      const blocks = [
+        {
+          type: 'heading_3',
+          id: '1',
+          heading_3: { rich_text: [{ text: { content: '📝 頁面標記' } }] },
+        },
+        { type: 'paragraph', id: '2' },
+      ];
+      // Default header is '📝 頁面標記' which is imported nicely because we are testing the function logic,
+      // but strictly speaking we rely on the default param.
+      const result = findHighlightSectionBlocks(blocks);
+      expect(result).toEqual(['1', '2']);
     });
   });
 });

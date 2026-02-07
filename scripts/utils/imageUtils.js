@@ -200,58 +200,6 @@ function isValidImageUrl(url) {
 }
 
 /**
- * 檢查 URL 是否可能被 Notion API 接受（更嚴格的驗證）
- *
- * @param {string} url - 要檢查的 URL
- * @returns {boolean} 是否可能被 Notion 接受
- */
-function isNotionCompatibleImageUrl(url) {
-  if (!isValidImageUrl(url)) {
-    return false;
-  }
-
-  try {
-    // Notion API 僅接受絕對 URL，相對 URL 會導致異常並返回 false
-    const urlObj = new URL(url);
-
-    // Notion 不支持某些特殊協議
-    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-      return false;
-    }
-
-    // 檢查是否包含可能導致問題的特殊字符
-    // Notion API 對某些字符敏感
-    const problematicChars = /[<>[\\\]^`{|}]/;
-    if (problematicChars.test(url)) {
-      return false;
-    }
-
-    // 檢查是否有過多的查詢參數（可能表示動態生成的 URL）
-    const paramCount = Array.from(urlObj.searchParams.keys()).length;
-    if (paramCount > IMAGE_VALIDATION.MAX_QUERY_PARAMS) {
-      Logger.warn('URL 查詢參數過多', {
-        action: 'isNotionCompatibleImageUrl',
-        count: paramCount,
-        url: sanitizeUrlForLogging(url),
-      });
-      return false;
-    }
-
-    // Notion API 的 URL 長度安全邊際（預留 API 請求的空間）
-    const safeMaxLength =
-      IMAGE_VALIDATION.MAX_URL_LENGTH - IMAGE_VALIDATION.URL_LENGTH_SAFETY_MARGIN;
-    if (url.length > safeMaxLength) {
-      return false;
-    }
-
-    // 檢查 hostname 有效性（從 NotionService 移植）
-    return Boolean(urlObj.hostname?.length >= 3);
-  } catch {
-    return false;
-  }
-}
-
-/**
  * 獲取 Srcset 解析器（支援多環境）
  *
  * @returns {object|null} SrcsetParser 引用
@@ -585,90 +533,9 @@ function generateImageCacheKey(imgNode) {
   return `${src}|${dataSrc}|${className}|${id}`;
 }
 
-/**
- * 過濾 Notion 區塊中的有效圖片
- * 純函數版本，無日誌依賴，適用於 Background/Service Worker 環境
- *
- * @param {Array} blocks - Notion 區塊數組
- * @param {boolean} excludeImages - 是否排除所有圖片（重試模式）
- * @returns {{validBlocks: Array, skippedCount: number, invalidReasons: Array}}
- */
-function filterNotionImageBlocks(blocks, excludeImages = false) {
-  if (!blocks || !Array.isArray(blocks)) {
-    return { validBlocks: [], skippedCount: 0, invalidReasons: [] };
-  }
-
-  if (excludeImages) {
-    const validBlocks = blocks.filter(block => block.type !== 'image');
-    return {
-      validBlocks,
-      skippedCount: blocks.length - validBlocks.length,
-      invalidReasons: [],
-    };
-  }
-
-  const invalidReasons = [];
-  const validBlocks = [];
-
-  blocks.forEach((block, index) => {
-    // 基本區塊驗證（從 NotionService._isValidBlock 移植）
-    if (!block || typeof block !== 'object' || !block.type || !block[block.type]) {
-      invalidReasons.push({
-        index,
-        blockId: block?.id,
-        blockType: block?.type ?? 'unknown',
-        reason: 'invalid_structure',
-      });
-      return;
-    }
-
-    // 非圖片區塊直接通過
-    if (block.type !== 'image') {
-      validBlocks.push(block);
-      return;
-    }
-
-    // 圖片 URL 驗證
-    // Notion 支援兩種圖片類型：
-    // 1. external: 外部托管的圖片 (block.image.external.url)
-    // 2. file: Notion 內部托管的圖片 (block.image.file.url)
-    const imageUrl = block.image?.external?.url || block.image?.file?.url;
-    if (!imageUrl) {
-      invalidReasons.push({
-        index,
-        blockId: block.id,
-        blockType: 'image',
-        reason: 'missing_url',
-      });
-      return;
-    }
-
-    if (!isNotionCompatibleImageUrl(imageUrl)) {
-      invalidReasons.push({
-        index,
-        blockId: block.id,
-        blockType: 'image',
-        reason: 'invalid_url',
-        url: imageUrl,
-      });
-      return;
-    }
-
-    validBlocks.push(block);
-  });
-
-  return {
-    validBlocks,
-    skippedCount: blocks.length - validBlocks.length,
-    invalidReasons,
-  };
-}
-
 const ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,
-  isNotionCompatibleImageUrl,
-  filterNotionImageBlocks,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,
@@ -689,8 +556,6 @@ if (globalThis.window !== undefined) {
 export {
   cleanImageUrl,
   isValidImageUrl,
-  isNotionCompatibleImageUrl,
-  filterNotionImageBlocks,
   extractImageSrc,
   extractBestUrlFromSrcset,
   generateImageCacheKey,
