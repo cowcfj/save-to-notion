@@ -19,6 +19,7 @@ import Logger from '../utils/Logger.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
+import { mergeUniqueImages } from '../utils/imageUtils.js';
 // 合併 Highlighter bundle：導入以執行其自動初始化邏輯 (setupHighlighter)
 import '../highlighter/index.js';
 
@@ -157,12 +158,16 @@ async function extractPageContent() {
       const imageResult = await ImageCollector.collectAdditionalImages(doc.body);
 
       // 處理新的返回結構（包含 images 和 coverImage）
-      additionalImages = imageResult.images || imageResult; // 向後兼容
+      const collectedImages = imageResult.images || imageResult; // 向後兼容
       coverImage = imageResult.coverImage || null;
 
-      Logger.log('額外圖片收集完成', {
+      // 使用工具函數去重
+      additionalImages = mergeUniqueImages(blocks, collectedImages);
+
+      Logger.log('額外圖片收集完成 (已去重)', {
         action: 'extractPageContent',
-        imageCount: additionalImages.length,
+        originalCount: collectedImages.length,
+        finalCount: additionalImages.length,
         hasCoverImage: Boolean(coverImage),
       });
     } catch (imageError) {

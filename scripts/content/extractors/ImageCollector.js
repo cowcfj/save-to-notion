@@ -272,13 +272,13 @@ const ImageCollector = {
    * 收集頁面中的所有相關圖片
    *
    * @param {Element} contentElement - 主要內容元素
-   * @returns {Promise<Array>} 圖片對象數組
+   * @returns {Promise<{images: Array<object>, coverImage: string|null}>} 包含圖片對象數組 (images) 和封面圖片 URL (coverImage) 的對象
    */
   async collectAdditionalImages(contentElement) {
     const additionalImages = [];
 
     // 策略 0: 優先查找封面圖/特色圖片
-    const featuredImage = this._collectFromFeatured(additionalImages);
+    const featuredImage = this._collectFromFeatured();
 
     // 策略 1: 從指定的內容元素收集
     const contentImages = this._collectFromContent(contentElement);
@@ -325,20 +325,13 @@ const ImageCollector = {
     };
   },
 
-  _collectFromFeatured(additionalImages) {
+  _collectFromFeatured() {
     Logger.log('圖片收集策略：特色圖片', { action: 'collectAdditionalImages' });
     const featuredImage = ImageCollector.collectFeaturedImage();
     if (featuredImage) {
-      additionalImages.push({
-        object: 'block',
-        type: 'image',
-        image: {
-          type: 'external',
-          external: { url: featuredImage },
-        },
-      });
-      Logger.log('特色圖片已作為首張圖片添加', { action: 'collectAdditionalImages' });
+      Logger.log('已獲取特色圖片 (供封面使用)', { action: 'collectAdditionalImages' });
     }
+
     return featuredImage;
   },
 

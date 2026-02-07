@@ -626,6 +626,46 @@ function generateImageCacheKey(imgNode) {
   return `${src}|${dataSrc}|${className}|${id}`;
 }
 
+/**
+ * 合併圖片區塊，過濾掉已存在於主區塊列表中的重複圖片
+ *
+ * @param {Array} contentBlocks - 主內容區塊列表
+ * @param {Array} additionalImages - 待合併的額外圖片列表
+ * @returns {Array} 去重後的額外圖片列表
+ */
+function mergeUniqueImages(contentBlocks, additionalImages) {
+  if (!Array.isArray(additionalImages) || additionalImages.length === 0) {
+    return [];
+  }
+
+  const existingUrls = new Set();
+
+  if (Array.isArray(contentBlocks)) {
+    // 收集 contentBlocks 中的圖片 URL
+    contentBlocks.forEach(block => {
+      if (block.type === 'image' && block.image?.external?.url) {
+        existingUrls.add(block.image.external.url);
+      }
+    });
+  }
+
+  // 過濾 additionalImages
+  return additionalImages.filter(imgBlock => {
+    const url = imgBlock.image?.external?.url;
+    if (!url) {
+      return false;
+    }
+
+    if (existingUrls.has(url)) {
+      return false;
+    }
+
+    // 防止 additionalImages 內部自我重複
+    existingUrls.add(url);
+    return true;
+  });
+}
+
 const ImageUtils = {
   cleanImageUrl,
   isValidImageUrl,
@@ -640,6 +680,7 @@ const ImageUtils = {
   extractFromPicture,
   extractFromBackgroundImage,
   extractFromNoscript,
+  mergeUniqueImages,
 };
 
 // Global assignment for backward compatibility
@@ -659,6 +700,7 @@ export {
   extractFromPicture,
   extractFromBackgroundImage,
   extractFromNoscript,
+  mergeUniqueImages,
 };
 
 export default ImageUtils;
