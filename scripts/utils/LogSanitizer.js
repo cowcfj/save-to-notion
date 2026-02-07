@@ -231,9 +231,10 @@ export const LogSanitizer = {
    * 清洗錯誤堆疊追蹤，移除內部路徑和精確位置資訊
    *
    * @param {string} stack - 原始 stack trace
+   * @param {object} [_options] - 配置選項（保留供未來擴展使用）
    * @returns {string} 清洗後的 stack trace
    */
-  _sanitizeStackTrace(stack) {
+  _sanitizeStackTrace(stack, _options = {}) {
     if (!stack || typeof stack !== 'string') {
       return stack;
     }

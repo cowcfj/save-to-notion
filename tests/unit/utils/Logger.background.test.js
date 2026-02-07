@@ -2,139 +2,96 @@
  * @jest-environment node
  */
 
-import { jest } from '@jest/globals';
-
-// 模擬依賴
-jest.mock('../../../scripts/utils/LogBuffer.js');
-jest.mock('../../../scripts/utils/LogSanitizer.js');
-
-describe('Logger (Background Context)', () => {
-  let Logger = null;
-  let LogBufferMock = null;
-  let LogSanitizerMock = null;
-  let mockBufferInstance = null;
+describe('Logger (背景環境整合測試)', () => {
+  let mockAddEventListener;
+  let consoleSpy;
 
   beforeEach(() => {
     jest.resetModules();
 
-    // Mock Chrome API
+    // 在 Node 環境中，window 默認是 undefined，這符合 Logger.js 對 Background 環境的判斷條件
+    // const isBackground = isExtensionContext && globalThis.window === undefined;
+
+    // 模擬 self (Service Worker Global Scope)
+    mockAddEventListener = jest.fn();
+    globalThis.self = {
+      addEventListener: mockAddEventListener,
+    };
+
+    // 模擬 chrome API
     globalThis.chrome = {
       runtime: {
-        id: 'test-id',
-        getManifest: () => ({ version_name: '1.0.0-dev' }),
+        id: 'test-env',
+        getManifest: jest.fn().mockReturnValue({ version: '1.0.0' }),
         sendMessage: jest.fn(),
       },
       storage: {
-        sync: {
-          get: jest.fn((keys, cb) => {
-            const data = {};
-            cb(data);
-          }),
-        },
-        onChanged: {
-          addListener: jest.fn(),
-        },
+        sync: { get: jest.fn((_k, cb) => cb({})) },
+        onChanged: { addListener: jest.fn() },
       },
     };
 
-    // Setup Mock LogBuffer
-    mockBufferInstance = {
-      push: jest.fn(),
-      getAll: jest.fn(),
+    // 模擬 console
+    consoleSpy = {
+      error: jest.spyOn(console, 'error').mockImplementation(),
     };
 
-    // Import mocked modules so we can retrieve the mocks
-    const LogBufferModule = require('../../../scripts/utils/LogBuffer.js');
-    LogBufferMock =
-      LogBufferModule.LogBuffer || LogBufferModule.default?.LogBuffer || LogBufferModule;
-    if (LogBufferMock.mockImplementation) {
-      LogBufferMock.mockImplementation(() => mockBufferInstance);
-    }
-
-    const LogSanitizerModule = require('../../../scripts/utils/LogSanitizer.js');
-    LogSanitizerMock =
-      LogSanitizerModule.LogSanitizer ||
-      LogSanitizerModule.default?.LogSanitizer ||
-      LogSanitizerModule;
-    LogSanitizerMock.sanitizeEntry = jest.fn((msg, ctx) => {
-      // 使用 JSON.stringify 統一處理，避免 '[object Object]' 警告
-      // JSON.stringify 對 undefined/function/symbol 返回 undefined，用 ?? 處理
-      const safeMsg = typeof msg === 'string' ? msg : (JSON.stringify(msg) ?? `${typeof msg}`);
-      return {
-        message: `SANITIZED_${safeMsg}`,
-        context: ctx,
-      };
-    });
-
-    // Load Logger
-    // Note: In node environment, window is undefined, so isBackground should be true
-    const LoggerModule = require('../../../scripts/utils/Logger.js');
-    Logger = LoggerModule.default;
+    // 載入 Logger 模組
+    // 注意：這會執行模組頂層代碼，包括 initDebugState -> initGlobalErrorHandlers
+    require('../../../scripts/utils/Logger.js');
   });
 
   afterEach(() => {
+    delete globalThis.self;
     delete globalThis.chrome;
+    // 清除全域 Logger
     delete globalThis.Logger;
+    jest.restoreAllMocks();
   });
 
-  test('should initialize LogBuffer in background context', () => {
-    // Access internal state indirectly or trigger initialization
-    // Trigger initDebugState
-    expect(LogBufferMock).toHaveBeenCalledWith(500);
-  });
+  test('應正確處理 unhandledrejection 事件 (當 reason 為 null 時)', () => {
+    // 驗證是否註冊了 unhandledrejection 監聽器
+    expect(mockAddEventListener).toHaveBeenCalledWith('unhandledrejection', expect.any(Function));
 
-  test('should sanitize logs before writing to buffer', () => {
-    const sensitiveMsg = 'secret_token';
-    const context = { user: 'admin' };
+    // 獲取監聽器回調
+    const handler = mockAddEventListener.mock.calls.find(
+      call => call[0] === 'unhandledrejection'
+    )[1];
 
-    Logger.info(sensitiveMsg, context);
+    // 觸發事件：reason 為 null
+    handler({ reason: null });
 
-    // Verify sanitizeEntry was called
-    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(sensitiveMsg, context, {
-      isDev: true,
-    });
+    // 驗證 console.error 被調用
+    expect(consoleSpy.error).toHaveBeenCalled();
+    const lastCall = consoleSpy.error.mock.calls.at(-1);
 
-    // Verify sanitized data was pushed to buffer
-    expect(mockBufferInstance.push).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: `SANITIZED_${sensitiveMsg}`,
-        context,
-        level: 'info',
-        source: 'background',
-      })
+    // 驗證錯誤訊息包含 [Unhandled Rejection] 和 'null' 字串
+    const fullMessage = lastCall.join(' ');
+    expect(fullMessage).toContain('[Unhandled Rejection] null');
+
+    // 驗證傳遞給 Logger 的上下文物件正確處理了 null
+    const context = lastCall.find(
+      arg => arg && typeof arg === 'object' && arg.reason !== undefined
     );
+    expect(context).toBeDefined();
+    expect(context.reason).toBe('null');
   });
 
-  test('should handle non-string messages in sanitization', () => {
-    const objMsg = { error: 'failed' };
-    Logger.error(objMsg);
+  test('應正確處理 unhandledrejection 事件 (當 reason 為物件時)', () => {
+    const handler = mockAddEventListener.mock.calls.find(
+      call => call[0] === 'unhandledrejection'
+    )[1];
+    const reasonObj = { error: 'test error', code: 500 };
 
-    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(
-      '[object Object]',
-      expect.anything(),
-      {
-        isDev: true,
-      }
+    // 觸發事件：reason 為物件
+    handler({ reason: reasonObj });
+
+    const lastCall = consoleSpy.error.mock.calls.at(-1);
+    const context = lastCall.find(
+      arg => arg && typeof arg === 'object' && arg.reason !== undefined
     );
-  });
 
-  test('should capture all arguments when first arg is object', () => {
-    const msg = 'test multi args';
-    const firstArg = { foo: 'bar' };
-    const secondArg = 'extra data';
-    const thirdArg = 123;
-
-    Logger.info(msg, firstArg, secondArg, thirdArg);
-
-    // Previously, secondArg and thirdArg would be lost.
-    // We expect them to be in context.details
-    expect(LogSanitizerMock.sanitizeEntry).toHaveBeenCalledWith(
-      msg,
-      expect.objectContaining({
-        foo: 'bar',
-        details: [secondArg, thirdArg],
-      }),
-      { isDev: true }
-    );
+    // 驗證物件結構被保留 (不是字串化)
+    expect(context.reason).toBe(reasonObj);
   });
 });

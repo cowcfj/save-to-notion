@@ -41,14 +41,6 @@ const isBackground = isExtensionContext && globalThis.window === undefined; // S
 
 /**
  * 格式化日誌訊息（控制台輸出用）
- * 注意：不添加時間戳，Chrome DevTools 已內建此功能
- *
- * @param {number} level - 日誌級別
- * @param {Array} args - 參數列表
- * @returns {Array} 格式化後的參數列表
- */
-/**
- * 格式化日誌訊息（控制台輸出用）
  * 注意：
  * 1. 不添加時間戳，Chrome DevTools 已內建此功能
  * 2. 保留物件原生形式以支援 DevTools 互動式檢查
