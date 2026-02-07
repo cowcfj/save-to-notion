@@ -77,6 +77,15 @@ export const CONTENT_QUALITY = {
 // TECHNICAL_TERMS moved to patterns.js
 
 // ==========================================
+// 圖片收集相關常量
+// ==========================================
+
+export const IMAGE_COLLECTION = {
+  MAX_IMAGES_PER_PAGE: 5, // 每頁最多內容圖片數（不含封面）
+  // 未來可擴展：PRIORITY_SOURCES, ENABLE_LIMIT 等
+};
+
+// ==========================================
 // Notion API 相關常量
 // ==========================================
 

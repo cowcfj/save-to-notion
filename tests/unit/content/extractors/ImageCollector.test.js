@@ -29,6 +29,36 @@ globalThis.Logger = {
   error: jest.fn(),
 };
 
+// Mock constants
+jest.mock('../../../../scripts/config/constants', () => ({
+  IMAGE_VALIDATION_CONSTANTS: {
+    MAX_URL_LENGTH: 2000,
+    MIN_IMAGE_WIDTH: 200,
+    MIN_IMAGE_HEIGHT: 100,
+  },
+  PERFORMANCE_OPTIMIZER: {
+    MAX_NEXT_DATA_SIZE: 5_000_000,
+  },
+  IMAGE_COLLECTION: {
+    MAX_IMAGES_PER_PAGE: 5,
+  },
+  ERROR_TYPES: {
+    EXTRACTION_FAILED: 'extraction_failed',
+    INVALID_URL: 'invalid_url',
+    NETWORK_ERROR: 'network_error',
+    PARSING_ERROR: 'parsing_error',
+    PERFORMANCE_WARNING: 'performance_warning',
+    DOM_ERROR: 'dom_error',
+    VALIDATION_ERROR: 'validation_error',
+    TIMEOUT_ERROR: 'timeout_error',
+    STORAGE: 'storage',
+    NOTION_API: 'notion_api',
+    INJECTION: 'injection',
+    PERMISSION: 'permission',
+    INTERNAL: 'internal',
+  },
+}));
+
 // Mock ImageUtils module
 jest.mock('../../../../scripts/utils/imageUtils.js', () => ({
   __esModule: true,
@@ -273,6 +303,43 @@ describe('ImageCollector', () => {
       expect(seqSpy).toHaveBeenCalled();
 
       // Restore handled by afterEach
+    });
+
+    test('should limit images to MAX_IMAGES_PER_PAGE', async () => {
+      const contentElement = document.createElement('div');
+      // Create 6 images (exceeding limit of 5)
+      for (let i = 0; i < 6; i++) {
+        const img = document.createElement('img');
+        img.src = `https://example.com/${i}.jpg`;
+        contentElement.append(img);
+      }
+
+      cachedQuery.mockReturnValue(contentElement.querySelectorAll('img'));
+      extractImageSrc.mockImplementation(img => img.src);
+
+      // Mock processImageForCollection to always return success
+      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+        object: 'block',
+        type: 'image',
+        image: { external: { url: img.src } },
+      }));
+
+      // Mock batchProcessWithRetry (since > 5 images triggers batch)
+      batchProcessWithRetry.mockResolvedValue({
+        results: Array.from({ length: 6 })
+          .fill(0)
+          .map((_, i) => ({
+            object: 'block',
+            type: 'image',
+            image: { external: { url: `https://example.com/${i}.jpg` } },
+          })),
+        meta: {},
+      });
+
+      const result = await ImageCollector.collectAdditionalImages(contentElement);
+
+      expect(result.images).toHaveLength(5); // Should limit to 5
+      expect(result.images[5]).toBeUndefined();
     });
 
     test('should collect images from Next.js data (scoped to article)', async () => {

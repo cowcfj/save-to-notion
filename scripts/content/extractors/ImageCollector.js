@@ -29,7 +29,11 @@ import {
   ARTICLE_SELECTORS,
   EXCLUSION_SELECTORS,
 } from '../../config/selectors.js';
-import { IMAGE_VALIDATION_CONSTANTS, PERFORMANCE_OPTIMIZER } from '../../config/constants.js';
+import {
+  IMAGE_VALIDATION_CONSTANTS,
+  PERFORMANCE_OPTIMIZER,
+  IMAGE_COLLECTION,
+} from '../../config/constants.js';
 
 const ImageCollector = {
   /**
@@ -310,6 +314,17 @@ const ImageCollector = {
       action: 'collectAdditionalImages',
       count: additionalImages.length,
     });
+
+    // 限制圖片數量（封面圖片不計入限制）
+    const maxImages = IMAGE_COLLECTION.MAX_IMAGES_PER_PAGE;
+    if (additionalImages.length > maxImages) {
+      Logger.log('圖片數量超過上限，已截取', {
+        action: 'collectAdditionalImages',
+        original: additionalImages.length,
+        limit: maxImages,
+      });
+      additionalImages.length = maxImages; // 原地截取，效能最優
+    }
 
     // 返回結構化對象，包含封面圖片 URL 供 Notion cover 使用
     return {
