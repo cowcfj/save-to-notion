@@ -108,12 +108,13 @@ function cleanImageUrl(url, depth = 0) {
   const normalized = _normalizeUrlInternal(url);
 
   // 基本格式驗證
+  // 基本格式驗證：Notion 僅支援 HTTP/HTTPS 協議
   if (
     normalized.startsWith('data:') ||
     normalized.startsWith('blob:') ||
     !/^https?:\/\//i.test(normalized)
   ) {
-    // 雖然這裡不直接返回 null，但後續的 URL 解析可能會失敗
+    return null;
   }
 
   const resolved = _resolveUrl(normalized);
@@ -157,6 +158,9 @@ function cleanImageUrl(url, depth = 0) {
 
 /**
  * 檢查 URL 是否為有效的圖片格式 (Notion 兼容性驗證)
+ *
+ * 注意：此函數會調用 cleanImageUrl 來進行標準化（如 http→https 升級與編碼修復）。
+ * 因此其驗證結果是基於清理後的 URL。
  *
  * @param {string} url - 要檢查的 URL
  * @returns {boolean} 是否為有效的圖片 URL

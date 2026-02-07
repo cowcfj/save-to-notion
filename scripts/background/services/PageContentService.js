@@ -14,6 +14,9 @@
  * { title, blocks, siteIcon }
  */
 
+import Logger from '../../utils/Logger.js';
+import { LOG_ICONS } from '../../config/constants.js';
+
 // 此服務通過 InjectionService 執行腳本注入，不直接調用 chrome API
 
 /**
@@ -26,10 +29,6 @@ const CONTENT_EXTRACTION_SCRIPTS = [
   // Content Script bundle（包含 ContentExtractor, ConverterFactory, Logger, ImageUtils 等）
   'dist/content.bundle.js',
 ];
-
-// [NEW] 導入統一日誌系統與圖標
-import Logger from '../../utils/Logger.js';
-import { LOG_ICONS } from '../../config/constants.js';
 
 /**
  * PageContentService 類

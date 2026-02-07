@@ -42,14 +42,38 @@ export function createEvent() {
  * @param {number} [maxWaitMs=1500] - Maximum wait time in milliseconds
  * @returns {Promise<void>} Resolves when called, rejects on timeout
  */
-export async function waitForSend(mockFn, maxWaitMs = 1500) {
-  const start = Date.now();
-  while (mockFn.mock.calls.length === 0 && Date.now() - start < maxWaitMs) {
-    await new Promise(resolve => setTimeout(resolve, 10));
+export function waitForSend(mockFn, maxWaitMs = 1500) {
+  if (mockFn.mock.calls.length > 0) {
+    return Promise.resolve();
   }
-  if (mockFn.mock.calls.length === 0) {
-    throw new Error(`waitForSend timeout: function was not called within ${maxWaitMs}ms`);
-  }
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`waitForSend timeout: function was not called within ${maxWaitMs}ms`));
+    }, maxWaitMs);
+
+    const originalImpl = mockFn.getMockImplementation();
+
+    mockFn.mockImplementation(function (...args) {
+      clearTimeout(timer);
+
+      // Restore original implementation
+      if (originalImpl) {
+        mockFn.mockImplementation(originalImpl);
+      } else {
+        // mockReset clears everything including calls, so avoid it.
+        // Just revert to empty implementation.
+        mockFn.mockImplementation(() => undefined);
+      }
+
+      resolve();
+
+      if (originalImpl) {
+        return originalImpl.apply(this, args);
+      }
+      return undefined;
+    });
+  });
 }
 
 /**
