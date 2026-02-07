@@ -153,7 +153,7 @@ describe('Content Service Coverage Tests', () => {
         test('extractContent runs injected script logic successfully', async () => {
             // We need to define the mocks outside so they are available
             const mockInjector = {
-                injectWithResponse: jest.fn(async (tabId, func, ...args) => {
+                injectWithResponse: jest.fn(async (tabId, func, ..._args) => {
                     // This function is executed in the test environment directly because we mock injectWithResponse
                     // to just call `func()`.
                     // But `func` (the injected script) relies on `globalThis.Logger` or `console`.
@@ -207,7 +207,7 @@ describe('Content Service Coverage Tests', () => {
 
          test('extractContent handles extractPageContent unavailability', async () => {
             const mockInjector = {
-                injectWithResponse: jest.fn(async (tabId, func, ...args) => {
+                injectWithResponse: jest.fn(async (tabId, func, ..._args) => {
                     const originalExtract = globalThis.extractPageContent;
                     delete globalThis.extractPageContent;
 
@@ -244,7 +244,7 @@ describe('Content Service Coverage Tests', () => {
 
          test('extractContent handles extraction failure', async () => {
             const mockInjector = {
-                injectWithResponse: jest.fn(async (tabId, func, ...args) => {
+                injectWithResponse: jest.fn(async (tabId, func, ..._args) => {
                      const originalExtract = globalThis.extractPageContent;
                      const originalLogger = globalThis.Logger;
 
