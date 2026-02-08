@@ -236,9 +236,11 @@ const ImageCollector = {
    * 收集頁面中的所有相關圖片
    *
    * @param {Element} contentElement - 主要內容元素
+   * @param {object} [options] - 配置選項
+   * @param {Array} [options.nextJsBlocks] - 預先提取的 Next.js 區塊 (避免重複解析)
    * @returns {Promise<{images: Array<object>, coverImage: string|null}>} 包含圖片對象數組 (images) 和封面圖片 URL (coverImage) 的對象
    */
-  async collectAdditionalImages(contentElement) {
+  async collectAdditionalImages(contentElement, options = {}) {
     const additionalImages = [];
 
     // 策略 0: 優先查找封面圖/特色圖片
@@ -259,7 +261,8 @@ const ImageCollector = {
     }
 
     // 策略 4: 嘗試從 Next.js Data 提取 (針對 HK01 等 CSR/SSR 網站)
-    this._collectFromNextJsData(allImages);
+    // 如果傳入了 nextJsBlocks，則直接使用，避免重複解析 DOM
+    this._collectFromNextJsData(allImages, options.nextJsBlocks);
 
     Logger.log('待處理圖片總數', { action: 'collectAdditionalImages', count: allImages.length });
 
@@ -372,18 +375,33 @@ const ImageCollector = {
    * 委託 NextJsExtractor 處理解析
    *
    * @param {Array} allImages - 現有的圖片元素數組
+   * @param {Array} [preExtractedBlocks] - 預先提取的 Next.js 區塊
    */
-  _collectFromNextJsData(allImages) {
+  _collectFromNextJsData(allImages, preExtractedBlocks) {
     Logger.log('圖片收集策略：Next.js Data', { action: 'collectAdditionalImages' });
 
-    // 使用 NextJsExtractor 進行檢測與提取
-    if (!NextJsExtractor.detect(document)) {
-      return;
+    let blocks = preExtractedBlocks;
+
+    // 如果沒有預先提取的區塊，則嘗試解析
+    if (blocks) {
+      Logger.log('使用預提取的 Next.js 區塊進行圖片收集', {
+        count: blocks.length,
+      });
+    } else {
+      // 使用 NextJsExtractor 進行檢測與提取
+      if (!NextJsExtractor.detect(document)) {
+        return;
+      }
+
+      const result = NextJsExtractor.extract(document);
+      if (!result?.blocks) {
+        Logger.log('Next.js Data 提取結果為空', { action: 'collectAdditionalImages' });
+        return;
+      }
+      blocks = result.blocks;
     }
 
-    const result = NextJsExtractor.extract(document);
-    if (!result?.blocks) {
-      Logger.log('Next.js Data 提取結果為空', { action: 'collectAdditionalImages' });
+    if (!Array.isArray(blocks)) {
       return;
     }
 
@@ -391,7 +409,7 @@ const ImageCollector = {
     const seenUrls = new Set(allImages.map(img => img.src));
 
     // 從轉換後的 Notion Blocks 中提取圖片
-    result.blocks.forEach(block => {
+    blocks.forEach(block => {
       if (block.type === 'image' && block.image?.external?.url) {
         const url = block.image.external.url;
 

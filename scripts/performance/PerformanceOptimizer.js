@@ -518,6 +518,11 @@ class PerformanceOptimizer {
       const result = this.cachedQuery(selector, context);
 
       if (result) {
+        // Fix: Empty NodeList/Array is truthy but represents "no hits"
+        if (result.length !== undefined && result.length === 0) {
+          return null;
+        }
+
         let count = 0;
         if (result.length !== undefined) {
           count = result.length;
@@ -920,6 +925,7 @@ class PerformanceOptimizer {
    *
    * @param {object} item - 批處理項目
    * @param {Array} results - 結果數組
+   * @returns {void} Function resolves the item's promise directly; never rejects (resolve with empty/error object).
    * @private
    */
   _processSingleBatchItem(item, results) {

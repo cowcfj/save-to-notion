@@ -37,6 +37,8 @@ export const NextJsExtractor = {
       }
 
       const jsonData = script.textContent;
+      // jsonData.length 為字元數，MAX_JSON_SIZE 為 2MB (位元組)。
+      // 對於多位元組字元 (如中文)，字元數 < 位元組數，所以此檢查作為安全上限是有效的。
       if (!jsonData || jsonData.length > NEXTJS_CONFIG.MAX_JSON_SIZE) {
         Logger.warn('Next.js 數據過大或為空', {
           action,
@@ -142,9 +144,9 @@ export const NextJsExtractor = {
 
     return jsonBlocks
       .flatMap(block => {
-        const type = NEXTJS_CONFIG.BLOCK_TYPE_MAP[block.blockType] || 'paragraph';
-
-        // 處理 HK01 'summary' 區塊 (數組形式)
+        // 先處理特殊類型，避免被 BLOCK_TYPE_MAP 默認行為攔截
+        // 1. 處理 HK01 'summary' 區塊 (數組形式)
+        // summary 不在 BLOCK_TYPE_MAP 中，若不先處理會回退為 'paragraph'
         if (block.blockType === 'summary' && Array.isArray(block.summary)) {
           const summaryText = block.summary.join('\n');
           return [
@@ -158,7 +160,8 @@ export const NextJsExtractor = {
           ];
         }
 
-        // 處理 HK01 'text' 區塊 (htmlTokens)
+        // 2. 處理 HK01 'text' 區塊 (htmlTokens)
+        // text 在 BLOCK_TYPE_MAP 中映射為 'paragraph'，但這裡需要特殊解析邏輯
         if (block.blockType === 'text' && Array.isArray(block.htmlTokens)) {
           const paragraphs = [];
           block.htmlTokens.forEach(tokenGroup => {
@@ -183,6 +186,8 @@ export const NextJsExtractor = {
           });
           return paragraphs;
         }
+
+        const type = NEXTJS_CONFIG.BLOCK_TYPE_MAP[block.blockType] || 'paragraph';
 
         switch (type) {
           case 'image': {

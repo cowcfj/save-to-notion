@@ -384,6 +384,40 @@ describe('ImageCollector', () => {
       // Cleanup
     });
 
+    test('should use provided Next.js blocks without re-extracting', async () => {
+      const mockBlocks = [
+        {
+          type: 'image',
+          image: { external: { url: 'https://example.com/provided.jpg' } },
+        },
+      ];
+      const contentElement = document.createElement('div');
+
+      const searchSpy = jest.spyOn(ImageCollector, '_collectFromNextJsData');
+
+      // Mock processImageForCollection to bypass size checks for the fake image
+      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+        object: 'block',
+        type: 'image',
+        image: { external: { url: img.src } },
+      }));
+
+      // Call collectAdditionalImages with nextJsBlocks option
+      const result = await ImageCollector.collectAdditionalImages(contentElement, {
+        nextJsBlocks: mockBlocks,
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(expect.any(Array), mockBlocks);
+
+      // Verify NextJsExtractor.extract was NOT called
+      expect(NextJsExtractor.extract).not.toHaveBeenCalled();
+
+      const img = result.images.find(
+        r => r.image.external.url === 'https://example.com/provided.jpg'
+      );
+      expect(img).toBeDefined();
+    });
+
     test('should handle empty Next.js extraction result', async () => {
       NextJsExtractor.detect.mockReturnValue(true);
       NextJsExtractor.extract.mockReturnValue(null);
@@ -394,7 +428,12 @@ describe('ImageCollector', () => {
       await ImageCollector.collectAdditionalImages(contentElement);
 
       expect(searchSpy).toHaveBeenCalled();
-      // Should log debug message or just return
+
+      // Should log debug message
+      expect(Logger.log).toHaveBeenCalledWith(
+        'Next.js Data 提取結果為空',
+        expect.objectContaining({ action: 'collectAdditionalImages' })
+      );
     });
 
     test('should deduplicate images in batch processing results', async () => {

@@ -293,7 +293,7 @@ function findContentBySelectors(selectors, type) {
         length: textLength,
       });
 
-      if (textLength >= CONTENT_QUALITY.MIN_CONTENT_LENGTH) {
+      if (textLength >= MIN_CONTENT_LENGTH) {
         Logger.log(`成功找到 ${type} 內容`, {
           action: 'findContentCmsFallback',
           selector,
@@ -306,7 +306,7 @@ function findContentBySelectors(selectors, type) {
         action: 'findContentCmsFallback',
         selector,
         length: textLength,
-        minRequired: CONTENT_QUALITY.MIN_CONTENT_LENGTH,
+        minRequired: MIN_CONTENT_LENGTH,
       });
     } else {
       Logger.log(`未找到該 ${type} 選擇器對應的元素`, {
@@ -326,7 +326,7 @@ function findContentBySelectors(selectors, type) {
 function findGenericContent() {
   Logger.log('未找到 CMS 結構，回退到通用內容尋找', {
     action: 'findContentCmsFallback',
-    minRequired: CONTENT_QUALITY.MIN_CONTENT_LENGTH,
+    minRequired: MIN_CONTENT_LENGTH,
   });
 
   const candidates = cachedQuery('article, section, main, div', document);
@@ -337,7 +337,7 @@ function findGenericContent() {
   for (const el of candidates) {
     const text = el.textContent?.trim() || '';
 
-    if (text.length < CONTENT_QUALITY.MIN_CONTENT_LENGTH) {
+    if (text.length < MIN_CONTENT_LENGTH) {
       continue;
     }
 
@@ -369,7 +369,7 @@ function findGenericContent() {
   // 最後的嘗試：降低標準
   for (const el of candidates) {
     const text = el.textContent?.trim() || '';
-    if (text.length >= CONTENT_QUALITY.MIN_CONTENT_LENGTH / 2) {
+    if (text.length >= MIN_CONTENT_LENGTH / 2) {
       Logger.log('緊急備案：找到內容', { action: 'findContentCmsFallback', length: text.length });
       return el.innerHTML;
     }

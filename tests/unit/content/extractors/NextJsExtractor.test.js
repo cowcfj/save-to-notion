@@ -114,6 +114,22 @@ describe('NextJsExtractor', () => {
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
     });
 
+    it('should handle article with content but no blocks', () => {
+      const mockArticle = {
+        title: 'Content Only',
+        content: 'Some content',
+        // no blocks
+      };
+
+      const mockJson = { props: { pageProps: { article: mockArticle } } };
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.blocks).toEqual([]); // blocks should be empty array
+      expect(result.metadata.title).toBe('Content Only');
+    });
+
     it('should handle JSON parse error gracefully', () => {
       mockDoc.querySelector.mockReturnValue({ textContent: '{ invalid json ' });
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
@@ -121,6 +137,16 @@ describe('NextJsExtractor', () => {
   });
 
   describe('convertBlocks', () => {
+    it('should return empty array for non-array input', () => {
+      expect(NextJsExtractor.convertBlocks(null)).toEqual([]);
+      expect(NextJsExtractor.convertBlocks(undefined)).toEqual([]);
+      expect(NextJsExtractor.convertBlocks({})).toEqual([]);
+    });
+
+    it('should return empty array for empty array input', () => {
+      expect(NextJsExtractor.convertBlocks([])).toEqual([]);
+    });
+
     it('should convert heading blocks', () => {
       const input = [{ blockType: 'heading_1', text: 'H1' }];
       const output = NextJsExtractor.convertBlocks(input);
@@ -133,6 +159,20 @@ describe('NextJsExtractor', () => {
       const output = NextJsExtractor.convertBlocks(input);
       expect(output[0].type).toBe('heading_1');
       expect(output[0].heading_1.rich_text[0].text.content).toBe('Title Italic');
+    });
+
+    it('should strip script tags from content', () => {
+      const input = [{ blockType: 'paragraph', text: '<script>alert("xss")</script>Hello' }];
+      const output = NextJsExtractor.convertBlocks(input);
+      expect(output[0].type).toBe('paragraph');
+      expect(output[0].paragraph.rich_text[0].text.content).toBe('Hello');
+    });
+
+    it('should strip style tags from content', () => {
+      const input = [{ blockType: 'paragraph', text: '<style>body { color: red; }</style>Hello' }];
+      const output = NextJsExtractor.convertBlocks(input);
+      expect(output[0].type).toBe('paragraph');
+      expect(output[0].paragraph.rich_text[0].text.content).toBe('Hello');
     });
 
     it('should strip HTML from quote blocks', () => {
@@ -191,6 +231,18 @@ describe('NextJsExtractor', () => {
       expect(output[0].paragraph.rich_text[0].text.content).toBe('Paragraph 1 part A, part B.');
       expect(output[1].type).toBe('paragraph');
       expect(output[1].paragraph.rich_text[0].text.content).toBe('Paragraph 2.');
+    });
+  });
+
+  describe('_stripHtml', () => {
+    it('should handle null or undefined input', () => {
+      expect(NextJsExtractor._stripHtml(null)).toBe('');
+      expect(NextJsExtractor._stripHtml(undefined)).toBe('');
+    });
+
+    it('should remove script tags entirely', () => {
+      const html = '<div>Content<script>console.log("bad")</script></div>';
+      expect(NextJsExtractor._stripHtml(html)).toBe('Content');
     });
   });
 });
