@@ -10,6 +10,8 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   log: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
 }));
 
 describe('NextJsExtractor', () => {
@@ -180,6 +182,66 @@ describe('NextJsExtractor', () => {
       const result = NextJsExtractor.extract(mockDoc);
       expect(result).not.toBeNull();
       expect(result.metadata.title).toBe('Heuristic Title');
+    });
+
+    it('should extract Yahoo News App Router content correctly', () => {
+      // Mock Yahoo RSC structure with body field
+      const longContent = 'A'.repeat(201);
+      const yahooArticle = {
+        title: 'Yahoo Test',
+        body: `<p>${longContent}</p>`,
+        // These should be excluded by heuristic search
+        postArticleStream: [{ title: 'Ad 1' }],
+        recommendedContentsResp: [{ title: 'Ad 2' }],
+      };
+
+      // Mock finding this via heuristic search (simulating deep nesting)
+      const deepYahooData = {
+        someWrapper: {
+          ...yahooArticle,
+        },
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(deepYahooData) });
+      mockDoc.querySelectorAll.mockReturnValue([]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('Yahoo Test');
+      // Should extract body content as a paragraph block
+      // Note: _stripHtml removes tags, so we expect just the content
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe(longContent);
+    });
+
+    it('should extract Yahoo News App Router content with storyAtoms correctly', () => {
+      // Mock Yahoo RSC structure with storyAtoms
+      const yahooArticle = {
+        title: 'Yahoo Atoms',
+        storyAtoms: [
+          { type: 'text', content: '<p>Para 1</p>', tagName: 'p' },
+          { type: 'image', url: 'img.jpg', caption: 'Img 1' },
+          { type: 'text', content: '<h2>Heading</h2>', tagName: 'h2' },
+        ],
+        // Excluded
+        recommended: [],
+      };
+
+      const deepYahooData = { wrapper: yahooArticle };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(deepYahooData) });
+      mockDoc.querySelectorAll.mockReturnValue([]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('Yahoo Atoms');
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].type).toBe('paragraph');
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe('Para 1');
+      expect(result.blocks[1].type).toBe('image');
+      expect(result.blocks[2].type).toBe('heading_2');
     });
   });
 

@@ -11,6 +11,17 @@
 export const NEXTJS_CONFIG = {
   // 常見 Next.js 網站的文章數據路徑
   ARTICLE_PATHS: [
+    // Yahoo News App Router (RSC format)
+    'pageData.pageState.article.data.contentMeta', // Contains storyAtoms
+    'props.pageData.pageState.article.data.contentMeta',
+    'props.pageData.pageState.article.data',
+    'pageData.pageState.article.data',
+    'props.pageData.pageState.article',
+    'pageData.pageState.article',
+    'initialArticle.data',
+    'initialArticle',
+
+    // 標準路徑
     'props.initialProps.pageProps.article', // HK01
     'props.pageProps.article',
     'props.pageProps.post',
@@ -44,12 +55,25 @@ export const NEXTJS_CONFIG = {
 
   // [NEW] 啟發式搜索特徵
   HEURISTIC_PATTERNS: {
-    // 必須包含的欄位 (AND 邏輯)
-    REQUIRED_FIELDS: ['blocks', 'content'], // 二選一即可
+    // 必須包含的欄位 (AND 邏輯) - 增加 body/markup 支援
+    REQUIRED_FIELDS: ['blocks', 'content', 'body', 'markup', 'storyAtoms'], // 滿足其一即可 (邏輯在代碼中處理)
     // 用於評分的關鍵字
     SCORE_KEYWORDS: ['article', 'post', 'detail', 'story'],
     // 排除的鍵名
-    EXCLUDE_KEYS: ['header', 'footer', 'menu', 'navigation', 'sidebar'],
+    EXCLUDE_KEYS: [
+      'header',
+      'footer',
+      'menu',
+      'navigation',
+      'sidebar',
+      // Yahoo 推薦區塊
+      'postArticleStream',
+      'recommendedContentsResp',
+      'breakingNews',
+      'mostPopular',
+      'taboola',
+      'trendingNow',
+    ],
   },
 
   // [NEW] App Router 特徵
@@ -168,6 +192,26 @@ export const EXCLUSION_SELECTORS = [
   '.site-header',
   '.site-footer',
   '.site-nav',
+  // Yahoo News (2024+ App Router 版本)
+  '[class*="w-article-aside"]', // 側邊欄整體容器
+  '#module-most-popular', // 熱門新聞區塊
+  '#recommended-article-stream',
+  '.stream-card',
+  '.recommendation-contents',
+  '.bg-toast-background',
+  '#module-preference-stream',
+  '[id^="taboola-stream"]',
+  '.trc_rbox',
+  '.trc-content-sponsored', // Taboola 贊助內容
+  '#social-share',
+  '#mktbanner',
+  // 保留通用模式
+  '[class*="infinite-scroll"]',
+  '[class*="endless-scroll"]',
+  '[data-component="stream"]',
+  // 通用推薦與建議內容
+  '[class*="recommendation"]',
+  '[class*="suggested"]',
 ];
 
 // ==========================================

@@ -74,17 +74,7 @@ export const NextJsExtractor = {
         title: articleData.title,
       });
 
-      const rawBlocks = [...(articleData.blocks || [])];
-
-      // Generic teaser handling
-      if (Array.isArray(articleData.teaser) && articleData.teaser.length > 0) {
-        rawBlocks.unshift({
-          blockType: 'summary',
-          summary: articleData.teaser,
-        });
-      }
-
-      const blocks = this.convertBlocks(rawBlocks);
+      const blocks = this._processArticleContent(articleData);
 
       // 嘗試從數據中提取 Metadata，如果沒有則使用空值，讓外層去補
       // 注意：App Router 的數據通常不包含 metadata (meta tags 在 head 中)
@@ -111,6 +101,65 @@ export const NextJsExtractor = {
   },
 
   /**
+   * 處理文章內容轉換為 Notion Blocks
+   *
+   * @param {object} articleData
+   * @returns {Array} blocks
+   */
+  _processArticleContent(articleData) {
+    const rawBlocks = [...(articleData.blocks || [])];
+    let blocks = [];
+
+    // [NEW] 優先處理 Yahoo storyAtoms (直接轉換為 Notion Blocks)
+    if (
+      rawBlocks.length === 0 &&
+      Array.isArray(articleData.storyAtoms) &&
+      articleData.storyAtoms.length > 0
+    ) {
+      blocks = this._convertStoryAtoms(articleData.storyAtoms);
+    }
+    // [NEW] 處理 Yahoo 風格的 body/markup 內容 (如果沒有標準 blocks 且沒有 storyAtoms)
+    else if (rawBlocks.length === 0) {
+      if (articleData.body && typeof articleData.body === 'string') {
+        const formattedBody = articleData.body
+          .replaceAll(/<\/p>/gi, '\n\n')
+          .replaceAll(/<br\s*\/?>/gi, '\n')
+          .trim();
+
+        rawBlocks.push({
+          blockType: 'paragraph',
+          text: formattedBody,
+        });
+      } else if (articleData.markup && typeof articleData.markup === 'string') {
+        const formattedMarkup = articleData.markup
+          .replaceAll(/<\/p>/gi, '\n\n')
+          .replaceAll(/<br\s*\/?>/gi, '\n')
+          .trim();
+
+        rawBlocks.push({
+          blockType: 'paragraph',
+          text: formattedMarkup,
+        });
+      }
+    }
+
+    // 如果 blocks 尚未生成（即不是 storyAtoms），則處理 rawBlocks
+    if (blocks.length === 0) {
+      // Generic teaser handling
+      if (Array.isArray(articleData.teaser) && articleData.teaser.length > 0) {
+        rawBlocks.unshift({
+          blockType: 'summary',
+          summary: articleData.teaser,
+        });
+      }
+
+      blocks = this.convertBlocks(rawBlocks);
+    }
+
+    return blocks;
+  },
+
+  /**
    * 遞歸查找文章數據
    *
    * @param {object} data
@@ -122,18 +171,48 @@ export const NextJsExtractor = {
     }
 
     // 1. 嘗試已知路徑 (Fast Path)
-    for (const path of NEXTJS_CONFIG.ARTICLE_PATHS) {
-      const result = this._getValueByPath(data, path);
-      // 基本驗證：必須包含 blocks 或 content
-      if (result && (Array.isArray(result.blocks) || result.content)) {
-        return result;
-      }
+    // 對於 App Router，需要在每個 fragment 中搜索
+    const searchTargets = data.appRouterFragments ? [...data.appRouterFragments, data] : [data];
+
+    const result = this._searchByKnownPaths(searchTargets);
+    if (result) {
+      return result;
     }
 
     // 2. 啟發式搜索 (Slow Path / Deep Search)
-    // 當已知路徑都找不到時，掃描整個物件樹
     Logger.log('NextJsExtractor: 使用啟發式搜索');
     return this._heuristicSearch(data);
+  },
+
+  /**
+   * 在目標對象列表中使用已知路徑搜索數據
+   *
+   * @param {Array<object>} targets
+   * @returns {object|null}
+   */
+  _searchByKnownPaths(targets) {
+    for (const target of targets) {
+      if (!target || typeof target !== 'object') {
+        continue;
+      }
+
+      for (const path of NEXTJS_CONFIG.ARTICLE_PATHS) {
+        const result = this._getValueByPath(target, path);
+        if (result) {
+          const hasBlocks = Array.isArray(result.blocks);
+          const hasContent = typeof result.content === 'string';
+          const hasBody = typeof result.body === 'string';
+          const hasMarkup = typeof result.markup === 'string';
+          const hasStoryAtoms = Array.isArray(result.storyAtoms);
+
+          if (hasBlocks || hasContent || hasBody || hasMarkup || hasStoryAtoms) {
+            Logger.log(`NextJsExtractor: 使用路徑 "${path}" 提取成功`);
+            return result;
+          }
+        }
+      }
+    }
+    return null;
   },
 
   /**
@@ -235,20 +314,117 @@ export const NextJsExtractor = {
       return chunk;
     }
 
+    const objects = this._parseMultiLineRsc(chunk);
+
+    if (objects.length > 1) {
+      return { _rscItems: objects };
+    }
+    if (objects.length === 1) {
+      return objects[0];
+    }
+
+    return this._fallbackParseRsc(chunk) || chunk;
+  },
+
+  /**
+   * 解析多行 RSC 內容
+   *
+   * @param {string} chunk
+   * @returns {Array<object>}
+   */
+  _parseMultiLineRsc(chunk) {
+    const lines = chunk.split('\n').filter(line => line.trim());
+    const objects = [];
+
+    for (const line of lines) {
+      const parsed = this._tryParseRscLine(line);
+      if (parsed) {
+        objects.push(parsed);
+      }
+    }
+    return objects;
+  },
+
+  /**
+   * 嘗試解析單行 RSC
+   *
+   * @param {string} line
+   * @returns {object|null}
+   */
+  _tryParseRscLine(line) {
+    try {
+      const colonIndex = line.indexOf(':');
+      if (colonIndex !== -1) {
+        const payload = line.slice(colonIndex + 1);
+        if (payload.startsWith('{') || payload.startsWith('[')) {
+          const parsed = JSON.parse(payload);
+          const extracted = this._extractRscDataObject(parsed);
+
+          if (extracted) {
+            return extracted;
+          }
+          if (typeof parsed === 'object' && parsed !== null) {
+            return parsed;
+          }
+        }
+      }
+    } catch {
+      // 忽略單行解析錯誤
+    }
+    return null;
+  },
+
+  /**
+   * 回退：嘗試解析整個 chunk
+   *
+   * @param {string} chunk
+   * @returns {object|null}
+   */
+  _fallbackParseRsc(chunk) {
     try {
       const colonIndex = chunk.indexOf(':');
       if (colonIndex !== -1) {
         const payload = chunk.slice(colonIndex + 1);
-        // 如果看起來像 JSON 物件或陣列，嘗試解析
         if (payload.startsWith('{') || payload.startsWith('[')) {
-          return JSON.parse(payload);
+          const parsed = JSON.parse(payload);
+          const extracted = this._extractRscDataObject(parsed);
+          return extracted || parsed;
         }
       }
     } catch {
-      // 解析失敗則返回原始字串
+      // 解析失敗
     }
+    return null;
+  },
 
-    return chunk;
+  /**
+   * 提取 RSC 陣列中的數據對象
+   * Yahoo RSC 格式: ["$", "$L2a", null, { pageData: {...} }]
+   *
+   * @param {any} parsed
+   * @returns {object|null}
+   */
+  _extractRscDataObject(parsed) {
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+    // RSC 陣列格式: ["$", "$L...", null, { actualData }]
+    // 檢查 index 3 是否為對象
+    if (parsed.length >= 4 && typeof parsed[3] === 'object' && parsed[3] !== null) {
+      return parsed[3];
+    }
+    // 有時數據在其他索引位置，搜索第一個有意義的對象
+    for (const item of parsed) {
+      if (
+        typeof item === 'object' &&
+        item !== null &&
+        !Array.isArray(item) && // 確保這是一個有內容的對象，不只是空對象
+        Object.keys(item).length > 0
+      ) {
+        return item;
+      }
+    }
+    return null;
   },
 
   /**
@@ -267,15 +443,27 @@ export const NextJsExtractor = {
 
     // 1. 計算當前節點分數
     const score = this._calculateScore(root);
-    if (score >= 50) {
-      // 找到高可信度節點
+
+    if (score >= 35) {
+      Logger.log(`NextJsExtractor: 找到高可信度節點 (分數=${score})`);
       return root;
     }
 
     // 2. 遞歸遍歷子節點
+    return this._searchChildren(root, depth, maxDepth);
+  },
+
+  /**
+   * 遞歸遍歷子節點
+   *
+   * @param {object} root
+   * @param {number} depth
+   * @param {number} maxDepth
+   * @returns {object|null}
+   */
+  _searchChildren(root, depth, maxDepth) {
     for (const key in root) {
-      // 跳過排除的鍵名
-      if (NEXTJS_CONFIG.HEURISTIC_PATTERNS.EXCLUDE_KEYS.includes(key.toLowerCase())) {
+      if (this._shouldSkipKey(key)) {
         continue;
       }
 
@@ -288,8 +476,21 @@ export const NextJsExtractor = {
         }
       }
     }
-
     return null;
+  },
+
+  /**
+   * 檢查是否應跳過遍歷該鍵
+   *
+   * @param {string} key
+   * @returns {boolean}
+   */
+  _shouldSkipKey(key) {
+    const lowerKey = key.toLowerCase();
+    return NEXTJS_CONFIG.HEURISTIC_PATTERNS.EXCLUDE_KEYS.some(exclude => {
+      const lowerExclude = exclude.toLowerCase();
+      return lowerKey === lowerExclude || key.includes(exclude);
+    });
   },
 
   /**
@@ -302,54 +503,86 @@ export const NextJsExtractor = {
     if (!node || typeof node !== 'object') {
       return 0;
     }
-    let score = 0;
 
+    let score = 0;
+    score += this._scoreStandardBlocks(node);
+    score += this._scoreStructureAndText(node);
+    score += this._scoreSpecialCmsFields(node);
+
+    return score;
+  },
+
+  /**
+   * 計算標準區塊分數
+   *
+   * @param {object} node
+   * @returns {number}
+   */ _scoreStandardBlocks(node) {
+    let score = 0;
     // 規則 1: 包含 blocks 陣列且非空
     if (Array.isArray(node.blocks) && node.blocks.length > 0) {
       score += 50;
     }
-
     // 規則 2: 包含 htmlTokens (HK01 特有)
     // 提高權重，因為這通常是我們想要的內容
     if (Array.isArray(node.htmlTokens) && node.htmlTokens.length > 0) {
       score += 60;
     }
-
     // 規則 3: 包含 rich_text (Notion 格式)
     if (Array.isArray(node.rich_text)) {
       score += 30;
     }
+    return score;
+  },
 
-    // 規則 4: 鍵名特徵 (這裡我們無法知道當前節點的鍵名，只能檢查它是否包含特定屬性)
-    // 通常文章物件會包含 title, author 等
+  /**
+   * 計算結構和文本特徵分數
+   *
+   * @param {object} node
+   * @returns {number}
+   */
+  _scoreStructureAndText(node) {
+    let score = 0;
+    // 規則 4: 鍵名特徵
     if (node.title && typeof node.title === 'string') {
       score += 10;
     }
     if (node.author) {
       score += 5;
     }
-
     // 規則 5: HK01 或其他內容結構特徵
-    // 如果包含 paragraphs 數組
     if (Array.isArray(node.paragraphs) && node.paragraphs.length > 0) {
       score += 40;
     }
-    // 如果包含 text 和 id (HK01 內容塊常見)
     if (node.text && typeof node.text === 'string' && node.id) {
       score += 15;
     }
-
     // 檢查是否包含必要的 Blocks 結構 (如果沒有顯式的 blocks 欄位)
-    // 這對於 App Router 的 RSC Payload 很有用，那裡的結構可能很深
-    // 但目前我們只看顯式的 blocks/content 字段
     if (node.content && typeof node.content === 'string' && node.content.length > 100) {
-      // 可能是純文本內容
       score += 20;
     }
+    return score;
+  },
 
-    // 驗證必要欄位
-    // 如果分數很高但缺乏關鍵欄位，可能需要扣分或忽略
-    // 這裡我們假設如果有 blocks/htmlTokens 就足夠強了
+  /**
+   * 計算特殊 CMS 欄位分數
+   *
+   * @param {object} node
+   * @returns {number}
+   */ _scoreSpecialCmsFields(node) {
+    let score = 0;
+    // 規則 6: Yahoo 風格的 body 欄位（HTML 字串）
+    if (node.body && typeof node.body === 'string' && node.body.length > 200) {
+      score += 40;
+    }
+    // 規則 7: 包含 markup 欄位
+    if (node.markup && typeof node.markup === 'string') {
+      score += 35;
+    }
+    // 規則 8: Yahoo storyAtoms
+    if (Array.isArray(node.storyAtoms) && node.storyAtoms.length > 0) {
+      score += 60;
+    }
     return score;
   },
 
@@ -562,5 +795,110 @@ export const NextJsExtractor = {
     }
 
     return chunks;
+  },
+
+  /**
+   * 轉換 Yahoo storyAtoms 為 Notion Blocks
+   *
+   * @param {Array} atoms
+   * @returns {Array}
+   */
+  _convertStoryAtoms(atoms) {
+    if (!Array.isArray(atoms)) {
+      return [];
+    }
+
+    const blocks = [];
+
+    for (const atom of atoms) {
+      if (atom.type === 'text') {
+        const block = this._createBlockFromTextAtom(atom);
+        if (block) {
+          blocks.push(block);
+        }
+      } else if (atom.type === 'image') {
+        const block = this._createBlockFromImageAtom(atom);
+        if (block) {
+          blocks.push(block);
+        }
+      }
+    }
+
+    return blocks;
+  },
+
+  _createBlockFromTextAtom(atom) {
+    if (!atom.content) {
+      return null;
+    }
+
+    const text = this._stripHtml(atom.content).trim();
+    if (!text) {
+      return null;
+    }
+
+    let type = 'paragraph';
+    const tagName = (atom.tagName || 'p').toLowerCase();
+
+    switch (tagName) {
+      case 'h1': {
+        type = 'heading_1';
+        break;
+      }
+      case 'h2': {
+        type = 'heading_2';
+        break;
+      }
+      case 'h3': {
+        type = 'heading_3';
+        break;
+      }
+      case 'blockquote': {
+        type = 'quote';
+        break;
+      }
+    }
+
+    return {
+      object: 'block',
+      type,
+      [type]: {
+        rich_text: this._createRichTextChunks(text),
+      },
+    };
+  },
+
+  _createBlockFromImageAtom(atom) {
+    // Yahoo 格式: atom.size.resized.url 或 atom.size.original.url
+    // 通用格式: atom.url
+    const imageUrl =
+      atom.url || atom.size?.resized?.url || atom.size?.original?.url || atom.size?.lightbox?.url;
+
+    if (!imageUrl) {
+      Logger.debug('NextJsExtractor._createBlockFromImageAtom: 無法找到圖片 URL', {
+        atomKeys: Object.keys(atom),
+        hasSize: atom.size > 0,
+      });
+      return null;
+    }
+
+    return {
+      object: 'block',
+      type: 'image',
+      image: {
+        type: 'external',
+        external: {
+          url: imageUrl,
+        },
+        caption: atom.caption
+          ? [
+              {
+                type: 'text',
+                text: { content: atom.caption },
+              },
+            ]
+          : [],
+      },
+    };
   },
 };

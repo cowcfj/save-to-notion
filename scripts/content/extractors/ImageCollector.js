@@ -187,22 +187,32 @@ const ImageCollector = {
         return null;
       }
 
-      // 4. 檢查尺寸 (如果 ImageUtils 有 getSize 或類似方法，或者我們需要加載圖片檢查)
-      // 這裡簡化處理，假設 ImageUtils.isValidImageUrl 已經做了一些檢查
-      // 原代碼中有檢查 naturalWidth/Height，但在 content.js 中這部分邏輯似乎被簡化了或依賴 ImageUtils
-      // 讓我們檢查 content.js 的 processImageForCollection (我之前看過)
-      // 原代碼有檢查 img.naturalWidth < 200 等。我應該加上。
+      // 4. 檢查尺寸過濾小圖
+      // 優先使用 naturalWidth/naturalHeight（已載入的圖片）
+      // 回退到 HTML width/height 屬性或 data-width/data-height（處理懶加載圖片）
+      const imgWidth =
+        img.naturalWidth ||
+        Number.parseInt(img.getAttribute('width'), 10) ||
+        Number.parseInt(img.dataset.width, 10) ||
+        0;
+      const imgHeight =
+        img.naturalHeight ||
+        Number.parseInt(img.getAttribute('height'), 10) ||
+        Number.parseInt(img.dataset.height, 10) ||
+        0;
 
+      // 只在有有效尺寸資訊時進行過濾（避免誤殺未設置尺寸屬性的大圖）
       if (
-        img.naturalWidth > 0 &&
-        img.naturalHeight > 0 &&
-        (img.naturalWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
-          img.naturalHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT)
+        imgWidth > 0 &&
+        imgHeight > 0 &&
+        (imgWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
+          imgHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT)
       ) {
         Logger.log('圖片尺寸太小', {
           action: 'processImageForCollection',
-          width: img.naturalWidth,
-          height: img.naturalHeight,
+          width: imgWidth,
+          height: imgHeight,
+          source: img.naturalWidth > 0 ? 'naturalSize' : 'htmlAttribute',
         });
         return null;
       }

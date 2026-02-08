@@ -94,6 +94,8 @@ export const IMAGE_PATH_PATTERNS = [
   /\/avatars?\//i,
   /\/u\/\d+/i,
   /\/profile_images\//i,
+  /\/creatr-uploaded-images\//i,
+  /\/ny\/api\/res\//i,
 ];
 
 export const EXCLUDE_PATTERNS = [

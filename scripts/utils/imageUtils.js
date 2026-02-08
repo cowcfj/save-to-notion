@@ -333,13 +333,27 @@ function _checkUrlPatterns(url, isAbsolute) {
       return true;
     }
 
-    // 排除特定模式
+    // 2. 先檢查正向圖片路徑模式 (優先於排除)
+    if (IMAGE_PATH_PATTERNS.some(pattern => pattern.test(url))) {
+      // 但必須確保它不是被明確排除的文件類型 (如 .js, .json)
+      // 這解決了 https://example.com/api/images/data.js 的誤判問題
+      const isExplicitlyExcluded = EXCLUDE_PATTERNS.some(pattern => {
+        // 只檢查文件擴展名相關的排除模式 (通常包含 \.)
+        return pattern.source.includes(String.raw`\.`) && pattern.test(url);
+      });
+
+      if (!isExplicitlyExcluded) {
+        return true;
+      }
+    }
+
+    // 3. 排除特定模式 (如 /api/, /callback/)
     if (EXCLUDE_PATTERNS.some(pattern => pattern.test(url))) {
       return false;
     }
 
-    // 檢查路徑模式
-    return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(url));
+    // 4. 回退：如果沒有匹配任何模式，拒絕
+    return false;
   } catch {
     return false;
   }
