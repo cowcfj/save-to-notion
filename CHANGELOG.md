@@ -1,5 +1,31 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.29.0](https://github.com/cowcfj/save-to-notion/compare/v2.28.0...v2.29.0) (2026-02-08)
+
+
+### ✨ 新功能
+
+* 更新資料來源選擇器及日誌記錄功能 ([#247](https://github.com/cowcfj/save-to-notion/issues/247)) ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+
+
+### 🐛 Bug 修復
+
+* **constants:** 更新 Notion API 版本註解 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+* **SearchableDatabaseSelector:** 調整資料來源計數邏輯 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+* 修正 sanitizeApiError 函數的測試用例 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+
+
+### ♻️ 代碼重構
+
+* **InjectionService:** 確保測試用例的清理 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+* 更新 StorageManager 和 Logger 測試以包含新的 Logger 方法 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+
+
+### 🧪 測試
+
+* **tests:** 增加單元測試以驗證日誌層級和資料來源計數 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+* 增加 highlightHandlers, logHandlers, notionHandlers 和 saveHandlers 的測試 ([060f182](https://github.com/cowcfj/save-to-notion/commit/060f18271472f5f635afbcf5bef0e38b42c43889))
+
 ## [2.28.0](https://github.com/cowcfj/save-to-notion/compare/v2.27.0...v2.28.0) (2026-02-04)
 
 
