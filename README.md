@@ -3,10 +3,10 @@
 [![Latest Release](https://img.shields.io/github/v/release/cowcfj/save-to-notion)](https://github.com/cowcfj/save-to-notion/releases/latest)
 [![Tests](https://github.com/cowcfj/save-to-notion/actions/workflows/ci.yml/badge.svg)](https://github.com/cowcfj/save-to-notion/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/cowcfj/save-to-notion/branch/main/graph/badge.svg)](https://codecov.io/gh/cowcfj/save-to-notion)
-[![Chrome Users](https://img.shields.io/chrome-web-store/users/gmelegphcncnddlaeogfhododhbcbmhp)](https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp)
+[![Chrome Users](https://img.shields.io/chrome-web-store/users/gmelegphcncnddlaeogfhododhbcbmhp?label=Chrome%20Users)](https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-一個智能的 Chrome 擴展，用於將網頁內容保存到 Notion，支持多色標註和智能內容提取。
+一個智能的 Chrome 擴展，精準將網頁內容保存至 Notion。具備強大的智能內容提取功能，結合 Readability 與獨家演算法，為絕大多數網頁提供純淨的正文與圖片保存體驗；同時針對結構複雜的網站（如 HK01、Yahoo 香港新聞等，持續擴展中）提供深度優化支持，並支援可持久保存及遷移的多色標註功能。
 
 ## 目錄
 
