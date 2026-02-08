@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.30.0](https://github.com/cowcfj/save-to-notion/compare/v2.29.0...v2.30.0) (2026-02-08)
+
+
+### ✨ 新功能
+
+* 新增 Next.js 提取器以支持內容提取 ([#250](https://github.com/cowcfj/save-to-notion/issues/250)) ([c8fa9a3](https://github.com/cowcfj/save-to-notion/commit/c8fa9a3f9004c44538e7389f920461323ddb4ed1))
+
+
+### 🐛 Bug 修復
+
+* 修正 Chrome 使用者徽章標籤格式並更新擴展描述 ([b567fc0](https://github.com/cowcfj/save-to-notion/commit/b567fc0b1e842b3c492ea7eb4c25b6a23c3340e1))
+
 ## [2.29.0](https://github.com/cowcfj/save-to-notion/compare/v2.28.0...v2.29.0) (2026-02-08)
 
 
