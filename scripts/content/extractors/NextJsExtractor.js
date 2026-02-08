@@ -152,12 +152,7 @@ export const NextJsExtractor = {
               object: 'block',
               type: 'quote',
               quote: {
-                rich_text: [
-                  {
-                    type: 'text',
-                    text: { content: summaryText },
-                  },
-                ],
+                rich_text: this._createRichTextChunks(summaryText),
               },
             },
           ];
@@ -180,12 +175,7 @@ export const NextJsExtractor = {
                   object: 'block',
                   type: 'paragraph',
                   paragraph: {
-                    rich_text: [
-                      {
-                        type: 'text',
-                        text: { content: paragraphText },
-                      },
-                    ],
+                    rich_text: this._createRichTextChunks(paragraphText),
                   },
                 });
               }
@@ -295,5 +285,36 @@ export const NextJsExtractor = {
     // Remove script and style tags to prevent their content from being included in textContent
     doc.querySelectorAll('script, style').forEach(el => el.remove());
     return doc.body.textContent || '';
+  },
+
+  /**
+   * 將長文本分割為 Notion rich_text 對象數組
+   * 每個文本對象不超過 2000 字符，且數組總長度不超過 100
+   *
+   * @param {string} text
+   * @returns {Array} rich_text 數組
+   */
+  _createRichTextChunks(text) {
+    if (!text) {
+      return [];
+    }
+
+    const MAX_LENGTH = 2000;
+    const MAX_ITEMS = 100;
+    const chunks = [];
+
+    for (let i = 0; i < text.length; i += MAX_LENGTH) {
+      if (chunks.length >= MAX_ITEMS) {
+        break; // 達到 Notion 限制，截斷剩餘內容
+      }
+      chunks.push({
+        type: 'text',
+        text: {
+          content: text.slice(i, i + MAX_LENGTH),
+        },
+      });
+    }
+
+    return chunks;
   },
 };

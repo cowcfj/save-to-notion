@@ -469,8 +469,10 @@ const ImageCollector = {
       });
 
       // 定義處理函數，注意這裡不進行去重，去重在收集結果時統一處理
-      const processFn = (img, index) =>
-        ImageCollector.processImageForCollection(img, index, featuredImage);
+      const processFn = img => {
+        const index = allImages.indexOf(img);
+        return ImageCollector.processImageForCollection(img, index, featuredImage);
+      };
 
       const handleResults = results => {
         if (!results) {

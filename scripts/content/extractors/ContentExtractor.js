@@ -38,7 +38,13 @@ const ContentExtractor = {
       if (nextResult) {
         // 合併 metadata: 先獲取基礎 metadata (favicon 等)，再用 Next.js 的 metadata 覆蓋
         const baseMetadata = MetadataExtractor.extract(doc, null);
-        const finalMetadata = { ...baseMetadata, ...nextResult.metadata };
+        const nextMetadata = nextResult.metadata || {};
+        const finalMetadata = { ...baseMetadata, ...nextMetadata };
+
+        // 確保 byline 被映射到 author
+        if (nextMetadata.byline) {
+          finalMetadata.author = nextMetadata.byline;
+        }
 
         return {
           content: nextResult.content, // HTML (可能為空)
