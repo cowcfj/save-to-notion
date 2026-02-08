@@ -86,6 +86,27 @@ describe('NextJsExtractor', () => {
       expect(result.blocks[1].image.external.url).toBe('https://example.com/img.jpg');
     });
 
+    it('should include teaser as the first summary block (HK01 style)', () => {
+      const mockArticle = {
+        title: 'Teaser Test',
+        teaser: ['This is a teaser summary.'],
+        blocks: [{ blockType: 'paragraph', text: 'Existing content' }],
+      };
+
+      const mockJson = {
+        props: { initialProps: { pageProps: { article: mockArticle } } },
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      const result = NextJsExtractor.extract(mockDoc);
+
+      expect(result).not.toBeNull();
+      expect(result.blocks).toHaveLength(2);
+      expect(result.blocks[0].type).toBe('quote');
+      expect(result.blocks[0].quote.rich_text[0].text.content).toBe('This is a teaser summary.');
+      expect(result.blocks[1].type).toBe('paragraph');
+    });
+
     it('should return null if no article data found in JSON', () => {
       const mockJson = { props: { pageProps: { otherData: {} } } };
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
@@ -122,6 +143,40 @@ describe('NextJsExtractor', () => {
       const output = NextJsExtractor.convertBlocks(input);
       expect(output).toHaveLength(1);
       expect(output[0].image.external.url).toBe('https://valid.com');
+    });
+
+    it('should convert HK01 summary blocks to quotes', () => {
+      const input = [
+        {
+          blockType: 'summary',
+          summary: ['Summary line 1', 'Summary line 2'],
+        },
+      ];
+      const output = NextJsExtractor.convertBlocks(input);
+      expect(output).toHaveLength(1);
+      expect(output[0].type).toBe('quote');
+      expect(output[0].quote.rich_text[0].text.content).toBe('Summary line 1\nSummary line 2');
+    });
+
+    it('should convert HK01 text blocks (htmlTokens) to paragraphs', () => {
+      const input = [
+        {
+          blockType: 'text',
+          htmlTokens: [
+            [
+              { type: 'text', content: 'Paragraph 1 part A, ' },
+              { type: 'text', content: 'part B.' },
+            ],
+            [{ type: 'text', content: 'Paragraph 2.' }],
+          ],
+        },
+      ];
+      const output = NextJsExtractor.convertBlocks(input);
+      expect(output).toHaveLength(2);
+      expect(output[0].type).toBe('paragraph');
+      expect(output[0].paragraph.rich_text[0].text.content).toBe('Paragraph 1 part A, part B.');
+      expect(output[1].type).toBe('paragraph');
+      expect(output[1].paragraph.rich_text[0].text.content).toBe('Paragraph 2.');
     });
   });
 });

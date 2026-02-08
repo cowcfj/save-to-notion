@@ -111,8 +111,13 @@ async function extractPageContent() {
   try {
     // 1. 提取內容和元數據
     const extractResult = ContentExtractor.extract(document);
+    const { content, type, metadata, blocks: preExtractedBlocks } = extractResult || {};
 
-    if (!extractResult?.content) {
+    // 檢查是否有有效內容 (HTML Content 或預提取的 Blocks)
+    const hasContent = content && content.trim().length > 0;
+    const hasBlocks = Array.isArray(preExtractedBlocks) && preExtractedBlocks.length > 0;
+
+    if (!hasContent && !hasBlocks) {
       Logger.warn('內容提取失敗或返回空內容', { action: 'extractPageContent' });
       return {
         title: document.title || DEFAULT_PAGE_TITLE,
@@ -138,14 +143,21 @@ async function extractPageContent() {
       };
     }
 
-    const { content, type, metadata } = extractResult;
-
-    // 2. 轉換為 Notion Blocks
-    Logger.log('正在將內容轉換為 Notion 區塊', { action: 'extractPageContent', type });
-    const converter = ConverterFactory.getConverter(type);
-    const blocks = converter.convert(content);
-
-    Logger.log('內容轉換完成', { action: 'extractPageContent', blockCount: blocks.length });
+    // 2. 獲取或轉換 Notion Blocks
+    let blocks = [];
+    if (hasBlocks) {
+      Logger.log('使用預提取的 Notion 區塊', {
+        action: 'extractPageContent',
+        type,
+        count: preExtractedBlocks.length,
+      });
+      blocks = preExtractedBlocks;
+    } else {
+      Logger.log('正在將內容轉換為 Notion 區塊', { action: 'extractPageContent', type });
+      const converter = ConverterFactory.getConverter(type);
+      blocks = converter.convert(content);
+      Logger.log('內容轉換完成', { action: 'extractPageContent', blockCount: blocks.length });
+    }
 
     // 3. 收集額外圖片（可選）
     let additionalImages = [];

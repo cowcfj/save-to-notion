@@ -213,6 +213,57 @@ describe('Content Script Entry Point', () => {
     });
   });
 
+  describe('預計算 Blocks 處理 (Next.js 等)', () => {
+    test('當 content 為空但 blocks 存在時應該成功', async () => {
+      // 模擬 NextJsExtractor 的返回結構
+      ContentExtractor.extract.mockReturnValue({
+        content: '', // 空 HTML
+        blocks: [
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [{ type: 'text', text: { content: 'Structured Content' } }],
+            },
+          },
+        ],
+        type: 'nextjs',
+        metadata: {
+          title: 'Structured Title',
+        },
+      });
+
+      ImageCollector.collectAdditionalImages.mockResolvedValue({
+        images: [],
+        coverImage: null,
+      });
+
+      const result = await extractPageContent();
+
+      expect(result.title).toBe('Structured Title');
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toBe('Structured Content');
+      expect(result.rawHtml).toBe('');
+      // ConverterFactory 不應該被調用
+      expect(ConverterFactory.getConverter).not.toHaveBeenCalled();
+    });
+
+    test('當 content 為空且 blocks 也為空時應該失敗', async () => {
+      ContentExtractor.extract.mockReturnValue({
+        content: '',
+        blocks: [], // 空 blocks
+        type: 'nextjs',
+        metadata: {},
+      });
+
+      const result = await extractPageContent();
+
+      expect(result.blocks[0].paragraph.rich_text[0].text.content).toContain(
+        'Content extraction failed'
+      );
+    });
+  });
+
   describe('異常處理', () => {
     test('當 ContentExtractor 拋出錯誤時應該返回錯誤信息', async () => {
       ContentExtractor.extract.mockImplementation(() => {

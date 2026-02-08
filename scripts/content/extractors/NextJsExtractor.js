@@ -58,7 +58,17 @@ export const NextJsExtractor = {
         title: articleData.title,
       });
 
-      const blocks = this.convertBlocks(articleData.blocks || []);
+      const rawBlocks = [...(articleData.blocks || [])];
+
+      // HK01 handling: Inject teaser as the first summary block if present
+      if (Array.isArray(articleData.teaser) && articleData.teaser.length > 0) {
+        rawBlocks.unshift({
+          blockType: 'summary',
+          summary: articleData.teaser,
+        });
+      }
+
+      const blocks = this.convertBlocks(rawBlocks);
 
       return {
         content: '',
@@ -67,7 +77,6 @@ export const NextJsExtractor = {
           title: articleData.title,
           excerpt: articleData.excerpt || articleData.description,
           byline: articleData.author?.name || articleData.author,
-          siteName: 'HK01',
         },
         type: 'nextjs',
         rawArticle: articleData,
@@ -132,81 +141,149 @@ export const NextJsExtractor = {
     }
 
     return jsonBlocks
-      .map(block => {
+      .flatMap(block => {
         const type = NEXTJS_CONFIG.BLOCK_TYPE_MAP[block.blockType] || 'paragraph';
 
-        switch (type) {
-          case 'image': {
-            return {
-              object: 'block',
-              type: 'image',
-              image: {
-                type: 'external',
-                external: {
-                  url: block.image?.cdnUrl || block.image?.url || '',
-                },
-                caption: block.image?.caption
-                  ? [
-                      {
-                        type: 'text',
-                        text: { content: block.image.caption },
-                      },
-                    ]
-                  : [],
-              },
-            };
-          }
-
-          case 'heading_1':
-          case 'heading_2':
-          case 'heading_3': {
-            return {
-              object: 'block',
-              type,
-              [type]: {
-                rich_text: [
-                  {
-                    type: 'text',
-                    text: { content: block.text || '' },
-                  },
-                ],
-              },
-            };
-          }
-
-          case 'quote': {
-            return {
+        // 處理 HK01 'summary' 區塊 (數組形式)
+        if (block.blockType === 'summary' && Array.isArray(block.summary)) {
+          const summaryText = block.summary.join('\n');
+          return [
+            {
               object: 'block',
               type: 'quote',
               quote: {
                 rich_text: [
                   {
                     type: 'text',
-                    text: { content: block.text || '' },
+                    text: { content: summaryText },
                   },
                 ],
               },
-            };
+            },
+          ];
+        }
+
+        // 處理 HK01 'text' 區塊 (htmlTokens)
+        if (block.blockType === 'text' && Array.isArray(block.htmlTokens)) {
+          const paragraphs = [];
+          block.htmlTokens.forEach(tokenGroup => {
+            if (Array.isArray(tokenGroup)) {
+              let paragraphText = '';
+              tokenGroup.forEach(token => {
+                if (token.type === 'text' && token.content) {
+                  paragraphText += token.content;
+                }
+              });
+
+              if (paragraphText.trim()) {
+                paragraphs.push({
+                  object: 'block',
+                  type: 'paragraph',
+                  paragraph: {
+                    rich_text: [
+                      {
+                        type: 'text',
+                        text: { content: paragraphText },
+                      },
+                    ],
+                  },
+                });
+              }
+            }
+          });
+          return paragraphs;
+        }
+
+        switch (type) {
+          case 'image': {
+            return [
+              {
+                object: 'block',
+                type: 'image',
+                image: {
+                  type: 'external',
+                  external: {
+                    url: block.image?.cdnUrl || block.image?.url || '',
+                  },
+                  caption: block.image?.caption
+                    ? [
+                        {
+                          type: 'text',
+                          text: { content: block.image.caption },
+                        },
+                      ]
+                    : [],
+                },
+              },
+            ];
+          }
+
+          case 'heading_1':
+          case 'heading_2':
+          case 'heading_3': {
+            return [
+              {
+                object: 'block',
+                type,
+                [type]: {
+                  rich_text: [
+                    {
+                      type: 'text',
+                      text: { content: block.text || '' },
+                    },
+                  ],
+                },
+              },
+            ];
+          }
+
+          case 'quote': {
+            return [
+              {
+                object: 'block',
+                type: 'quote',
+                quote: {
+                  rich_text: [
+                    {
+                      type: 'text',
+                      text: { content: block.text || '' },
+                    },
+                  ],
+                },
+              },
+            ];
           }
 
           default: {
-            return {
-              object: 'block',
-              type: 'paragraph',
-              paragraph: {
-                rich_text: [
-                  {
-                    type: 'text',
-                    text: { content: this._stripHtml(block.text || '') },
-                  },
-                ],
+            const content = block.text ? this._stripHtml(block.text) : '';
+            // 如果默認處理產生空內容，且不是已處理的特殊類型，則嘗試返回空
+            // 但為了保持一致性，如果確實沒有 text 字段，可能是一個未知類型的塊
+            if (!Boolean(content)) {
+              return [];
+            }
+
+            return [
+              {
+                object: 'block',
+                type: 'paragraph',
+                paragraph: {
+                  rich_text: [
+                    {
+                      type: 'text',
+                      text: { content },
+                    },
+                  ],
+                },
               },
-            };
+            ];
           }
         }
       })
       .filter(block => {
-        return !(block.type === 'image' && !block.image.external.url);
+        if (block.type === 'image') {
+          return Boolean(block.image.external.url);
+        }
+        return true;
       });
   },
 
@@ -214,6 +291,9 @@ export const NextJsExtractor = {
     if (!html) {
       return '';
     }
-    return html.replaceAll(/<[^>]*>?/g, '');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    // Remove script and style tags to prevent their content from being included in textContent
+    doc.querySelectorAll('script, style').forEach(el => el.remove());
+    return doc.body.textContent || '';
   },
 };
