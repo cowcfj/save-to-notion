@@ -152,7 +152,7 @@ export function detectPageComplexity(document = globalThis.document) {
         title: document?.title,
       }).isDoc,
 
-      // 廣告元素檢測（使用統一配置 scripts/config/selectors.js）
+      // 廣告元素檢測（使用統一配置 scripts/config/extraction.js）
       adElements: countElements(document, AD_SELECTORS.join(', ')),
       navElements: countElements(document, 'nav, header, footer, aside, .sidebar, .navigation'),
       contentElements: countElements(document, 'article, main, .content, .post, .entry, section'),
@@ -160,7 +160,7 @@ export function detectPageComplexity(document = globalThis.document) {
       // Markdown/技術文檔特徵
       codeBlocks: countElements(document, 'pre, code, .highlight, .codehilite'),
       // Markdown 容器檢測（GitHub, GitBook 等 Markdown 渲染頁面）
-      // 注意：必須保持與 scripts/config/selectors.js 中的 TECHNICAL_CONTENT_SELECTORS 一致 (嚴格模式)
+      // 注意：必須保持與 scripts/config/extraction.js 中的 TECHNICAL_CONTENT_SELECTORS 一致 (嚴格模式)
       markdownContainers: countElements(document, TECHNICAL_CONTENT_SELECTORS.join(', ')),
 
       // 媒體內容

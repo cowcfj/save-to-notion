@@ -202,7 +202,7 @@ describe('isValidImageUrl', () => {
     });
 
     test('應該處理 GitHub 頭像', () => {
-      expect(isValidImageUrl('https://avatars.githubusercontent.com/u/12345')).toBe(false); // 沒有明確的圖片擴展名或路徑
+      expect(isValidImageUrl('https://avatars.githubusercontent.com/u/12345')).toBe(true); // GitHub 頭像現在被視為有效
     });
 
     test('應該處理 WordPress 媒體庫', () => {
