@@ -60,7 +60,7 @@ export const NextJsExtractor = {
 
       const rawBlocks = [...(articleData.blocks || [])];
 
-      // HK01 handling: Inject teaser as the first summary block if present
+      // Generic teaser handling: Inject teaser as the first summary block if present
       if (Array.isArray(articleData.teaser) && articleData.teaser.length > 0) {
         rawBlocks.unshift({
           blockType: 'summary',
@@ -258,7 +258,7 @@ export const NextJsExtractor = {
             const content = block.text ? this._stripHtml(block.text) : '';
             // 如果默認處理產生空內容，且不是已處理的特殊類型，則嘗試返回空
             // 但為了保持一致性，如果確實沒有 text 字段，可能是一個未知類型的塊
-            if (!Boolean(content)) {
+            if (!content) {
               return [];
             }
 

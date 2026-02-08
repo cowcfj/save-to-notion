@@ -86,7 +86,7 @@ describe('NextJsExtractor', () => {
       expect(result.blocks[1].image.external.url).toBe('https://example.com/img.jpg');
     });
 
-    it('should include teaser as the first summary block (HK01 style)', () => {
+    it('should include teaser as summary block if present', () => {
       const mockArticle = {
         title: 'Teaser Test',
         teaser: ['This is a teaser summary.'],
