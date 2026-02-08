@@ -128,6 +128,20 @@ describe('NextJsExtractor', () => {
       expect(output[0].heading_1.rich_text[0].text.content).toBe('H1');
     });
 
+    it('should strip HTML from heading blocks', () => {
+      const input = [{ blockType: 'heading_1', text: '<h1>Title <i>Italic</i></h1>' }];
+      const output = NextJsExtractor.convertBlocks(input);
+      expect(output[0].type).toBe('heading_1');
+      expect(output[0].heading_1.rich_text[0].text.content).toBe('Title Italic');
+    });
+
+    it('should strip HTML from quote blocks', () => {
+      const input = [{ blockType: 'quote', text: '<blockquote>Quote <b>Bold</b></blockquote>' }];
+      const output = NextJsExtractor.convertBlocks(input);
+      expect(output[0].type).toBe('quote');
+      expect(output[0].quote.rich_text[0].text.content).toBe('Quote Bold');
+    });
+
     it('should strip HTML from paragraph text', () => {
       const input = [{ blockType: 'paragraph', text: '<p>Hello <b>World</b></p>' }];
       const output = NextJsExtractor.convertBlocks(input);

@@ -229,7 +229,7 @@ export const NextJsExtractor = {
                   rich_text: [
                     {
                       type: 'text',
-                      text: { content: block.text || '' },
+                      text: { content: block.text ? this._stripHtml(block.text) : '' },
                     },
                   ],
                 },
@@ -246,7 +246,7 @@ export const NextJsExtractor = {
                   rich_text: [
                     {
                       type: 'text',
-                      text: { content: block.text || '' },
+                      text: { content: block.text ? this._stripHtml(block.text) : '' },
                     },
                   ],
                 },
