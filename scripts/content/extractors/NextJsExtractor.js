@@ -489,7 +489,8 @@ export const NextJsExtractor = {
     const lowerKey = key.toLowerCase();
     return NEXTJS_CONFIG.HEURISTIC_PATTERNS.EXCLUDE_KEYS.some(exclude => {
       const lowerExclude = exclude.toLowerCase();
-      return lowerKey === lowerExclude || key.includes(exclude);
+      // 統一轉為小寫比對，確保像 'MyPOSTARTICLESTREAMData' 這樣的大小寫混合鍵名也能被過濾
+      return lowerKey === lowerExclude || lowerKey.includes(lowerExclude);
     });
   },
 
@@ -517,7 +518,8 @@ export const NextJsExtractor = {
    *
    * @param {object} node
    * @returns {number}
-   */ _scoreStandardBlocks(node) {
+   */
+  _scoreStandardBlocks(node) {
     let score = 0;
     // 規則 1: 包含 blocks 陣列且非空
     if (Array.isArray(node.blocks) && node.blocks.length > 0) {
@@ -569,7 +571,8 @@ export const NextJsExtractor = {
    *
    * @param {object} node
    * @returns {number}
-   */ _scoreSpecialCmsFields(node) {
+   */
+  _scoreSpecialCmsFields(node) {
     let score = 0;
     // 規則 6: Yahoo 風格的 body 欄位（HTML 字串）
     if (node.body && typeof node.body === 'string' && node.body.length > 200) {
@@ -618,47 +621,22 @@ export const NextJsExtractor = {
 
     return jsonBlocks
       .flatMap(block => {
-        // 先處理特殊類型，避免被 BLOCK_TYPE_MAP 默認行為攔截
-        // 1. 處理 HK01 'summary' 區塊 (數組形式)
-        // summary 不在 BLOCK_TYPE_MAP 中，若不先處理會回退為 'paragraph'
-        if (block.blockType === 'summary' && Array.isArray(block.summary)) {
-          const summaryText = block.summary.join('\n');
-          return [
-            {
-              object: 'block',
-              type: 'quote',
-              quote: {
-                rich_text: this._createRichTextChunks(summaryText),
-              },
-            },
-          ];
+        // 1. 處理 HK01 'summary' 區塊
+        const summaryBlock = this._convertSummaryBlock(block);
+        if (summaryBlock) {
+          return summaryBlock;
         }
 
         // 2. 處理 HK01 'text' 區塊 (htmlTokens)
-        // text 在 BLOCK_TYPE_MAP 中映射為 'paragraph'，但這裡需要特殊解析邏輯
-        if (block.blockType === 'text' && Array.isArray(block.htmlTokens)) {
-          const paragraphs = [];
-          block.htmlTokens.forEach(tokenGroup => {
-            if (Array.isArray(tokenGroup)) {
-              let paragraphText = '';
-              tokenGroup.forEach(token => {
-                if (token.type === 'text' && token.content) {
-                  paragraphText += token.content;
-                }
-              });
+        const htmlTokensBlock = this._convertHtmlTokensBlock(block);
+        if (htmlTokensBlock) {
+          return htmlTokensBlock;
+        }
 
-              if (paragraphText.trim()) {
-                paragraphs.push({
-                  object: 'block',
-                  type: 'paragraph',
-                  paragraph: {
-                    rich_text: this._createRichTextChunks(paragraphText),
-                  },
-                });
-              }
-            }
-          });
-          return paragraphs;
+        // 3. 處理 'list' 區塊
+        const listBlock = this._convertListBlock(block);
+        if (listBlock) {
+          return listBlock;
         }
 
         const type = NEXTJS_CONFIG.BLOCK_TYPE_MAP[block.blockType] || 'paragraph';
@@ -674,14 +652,7 @@ export const NextJsExtractor = {
                   external: {
                     url: block.image?.cdnUrl || block.image?.url || '',
                   },
-                  caption: block.image?.caption
-                    ? [
-                        {
-                          type: 'text',
-                          text: { content: block.image.caption },
-                        },
-                      ]
-                    : [],
+                  caption: this._createRichTextChunks(block.image?.caption),
                 },
               },
             ];
@@ -812,10 +783,91 @@ export const NextJsExtractor = {
         }
       }
     }
-
     return blocks;
   },
 
+  /**
+   * 轉換 summary 區塊
+   *
+   * @param {object} block
+   * @returns {Array|null}
+   */
+  _convertSummaryBlock(block) {
+    if (block.blockType === 'summary' && Array.isArray(block.summary)) {
+      const summaryText = block.summary.join('\n');
+      return [
+        {
+          object: 'block',
+          type: 'quote',
+          quote: {
+            rich_text: this._createRichTextChunks(summaryText),
+          },
+        },
+      ];
+    }
+    return null;
+  },
+
+  /**
+   * 轉換 htmlTokens 區塊
+   *
+   * @param {object} block
+   * @returns {Array|null}
+   */
+  _convertHtmlTokensBlock(block) {
+    if (block.blockType === 'text' && Array.isArray(block.htmlTokens)) {
+      const paragraphs = [];
+      block.htmlTokens.forEach(tokenGroup => {
+        if (Array.isArray(tokenGroup)) {
+          let paragraphText = '';
+          tokenGroup.forEach(token => {
+            if (token.type === 'text' && token.content) {
+              paragraphText += token.content;
+            }
+          });
+
+          if (paragraphText.trim()) {
+            paragraphs.push({
+              object: 'block',
+              type: 'paragraph',
+              paragraph: {
+                rich_text: this._createRichTextChunks(paragraphText),
+              },
+            });
+          }
+        }
+      });
+      return paragraphs;
+    }
+    return null;
+  },
+
+  /**
+   * 轉換 list 區塊
+   *
+   * @param {object} block
+   * @returns {Array|null}
+   */
+  _convertListBlock(block) {
+    if (block.blockType === 'list' && Array.isArray(block.items)) {
+      const listType = block.ordered ? 'numbered_list_item' : 'bulleted_list_item';
+      return block.items.map(item => ({
+        object: 'block',
+        type: listType,
+        [listType]: {
+          rich_text: this._createRichTextChunks(this._stripHtml(item)),
+        },
+      }));
+    }
+    return null;
+  },
+
+  /**
+   * 根據文本 Atom 創建 Block
+   *
+   * @param {object} atom
+   * @returns {object|null}
+   */
   _createBlockFromTextAtom(atom) {
     if (!atom.content) {
       return null;
@@ -866,7 +918,8 @@ export const NextJsExtractor = {
     if (!imageUrl) {
       Logger.debug('NextJsExtractor._createBlockFromImageAtom: 無法找到圖片 URL', {
         atomKeys: Object.keys(atom),
-        hasSize: atom.size > 0,
+        // eslint-disable-next-line
+        hasSize: Boolean(atom.size && Object.keys(atom.size).length > 0),
       });
       return null;
     }
@@ -879,14 +932,7 @@ export const NextJsExtractor = {
         external: {
           url: imageUrl,
         },
-        caption: atom.caption
-          ? [
-              {
-                type: 'text',
-                text: { content: atom.caption },
-              },
-            ]
-          : [],
+        caption: this._createRichTextChunks(atom.caption),
       },
     };
   },

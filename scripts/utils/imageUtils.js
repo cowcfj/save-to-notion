@@ -339,6 +339,9 @@ function _checkUrlPatterns(url, isAbsolute) {
       // 這解決了 https://example.com/api/images/data.js 的誤判問題
       const isExplicitlyExcluded = EXCLUDE_PATTERNS.some(pattern => {
         // 只檢查文件擴展名相關的排除模式 (通常包含 \.)
+        // WARNING: 这是一个启发式检查，假设包含 "\." 的模式是为了匹配文件扩展名。
+        // 如果 EXCLUDE_PATTERNS 中包含像 /\.internal\.domain/ 这样的非扩展名模式，这里可能会产生假阴性。
+        // Future improvement: 在 patterns.js 中明确区分 "扩展名排除" 和 "路径排除"。
         return pattern.source.includes(String.raw`\.`) && pattern.test(url);
       });
 

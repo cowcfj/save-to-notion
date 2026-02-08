@@ -34,6 +34,8 @@ describe('NextJsExtractor', () => {
 
     it('should return false if __NEXT_DATA__ script does not exist', () => {
       mockDoc.querySelector.mockReturnValue(null);
+      // Ensure querySelectorAll returns empty to avoid accidental App Router detection
+      mockDoc.querySelectorAll.mockReturnValue([]);
       expect(NextJsExtractor.detect(mockDoc)).toBe(false);
     });
 
@@ -380,10 +382,17 @@ describe('NextJsExtractor', () => {
         { blockType: 'list', items: ['First', 'Second'], ordered: true },
       ];
       const output = NextJsExtractor.convertBlocks(input);
-      // List handling is not implemented in convertBlocks, and 'list' usually doesn't have 'text' prop
-      // so it might return empty array or handled differently.
-      // Based on implementation: default case checks block.text. If undefined -> empty array.
-      expect(output).toHaveLength(0);
+      expect(output).toHaveLength(4);
+      // First list (unordered)
+      expect(output[0].type).toBe('bulleted_list_item');
+      expect(output[0].bulleted_list_item.rich_text[0].text.content).toBe('Item 1');
+      expect(output[1].type).toBe('bulleted_list_item');
+      expect(output[1].bulleted_list_item.rich_text[0].text.content).toBe('Item 2');
+      // Second list (ordered)
+      expect(output[2].type).toBe('numbered_list_item');
+      expect(output[2].numbered_list_item.rich_text[0].text.content).toBe('First');
+      expect(output[3].type).toBe('numbered_list_item');
+      expect(output[3].numbered_list_item.rich_text[0].text.content).toBe('Second');
     });
 
     it('should convert code blocks (fallback to paragraph)', () => {

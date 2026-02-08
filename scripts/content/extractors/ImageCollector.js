@@ -416,7 +416,7 @@ const ImageCollector = {
     }
 
     let addedCount = 0;
-    const seenUrls = new Set(allImages.map(img => img.src));
+    const seenUrls = new Set(allImages.map(img => img.src).filter(Boolean));
 
     // 從轉換後的 Notion Blocks 中提取圖片
     blocks.forEach(block => {

@@ -55,8 +55,8 @@ export const NEXTJS_CONFIG = {
 
   // [NEW] 啟發式搜索特徵
   HEURISTIC_PATTERNS: {
-    // 必須包含的欄位 (AND 邏輯) - 增加 body/markup 支援
-    REQUIRED_FIELDS: ['blocks', 'content', 'body', 'markup', 'storyAtoms'], // 滿足其一即可 (邏輯在代碼中處理)
+    // 用於驗證內容是否有效的欄位 (OR 邏輯 - 滿足其一即可)
+    VALIDATION_FIELDS: ['blocks', 'content', 'body', 'markup', 'storyAtoms'],
     // 用於評分的關鍵字
     SCORE_KEYWORDS: ['article', 'post', 'detail', 'story'],
     // 排除的鍵名

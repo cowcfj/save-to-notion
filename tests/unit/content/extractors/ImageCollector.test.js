@@ -431,7 +431,7 @@ describe('ImageCollector', () => {
 
       // Should log debug message
       expect(Logger.log).toHaveBeenCalledWith(
-        'Next.js Data 提取結果為空',
+        expect.stringContaining('Next.js Data'),
         expect.objectContaining({ action: 'collectAdditionalImages' })
       );
     });

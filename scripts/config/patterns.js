@@ -92,7 +92,7 @@ export const IMAGE_PATH_PATTERNS = [
   /\/crop\//i,
   /\/(\d{4})\/(\d{2})\//,
   /\/avatars?\//i,
-  /\/u\/\d+/i,
+  /\/u\/\d+(?:$|\/|\?)/i,
   /\/profile_images\//i,
   /\/creatr-uploaded-images\//i,
   /\/ny\/api\/res\//i,
