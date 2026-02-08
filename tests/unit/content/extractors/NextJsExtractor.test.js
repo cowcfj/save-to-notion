@@ -19,6 +19,7 @@ describe('NextJsExtractor', () => {
     mockDoc = {
       getElementById: jest.fn(),
       querySelector: jest.fn(),
+      querySelectorAll: jest.fn().mockReturnValue([]),
     };
   });
 
@@ -32,6 +33,14 @@ describe('NextJsExtractor', () => {
     it('should return false if __NEXT_DATA__ script does not exist', () => {
       mockDoc.querySelector.mockReturnValue(null);
       expect(NextJsExtractor.detect(mockDoc)).toBe(false);
+    });
+
+    it('should return true if App Router script exists', () => {
+      mockDoc.querySelector.mockReturnValue(null);
+      mockDoc.querySelectorAll.mockReturnValue([
+        { textContent: 'self.__next_f.push([1, "r:data"])' },
+      ]);
+      expect(NextJsExtractor.detect(mockDoc)).toBe(true);
     });
   });
 
@@ -133,6 +142,44 @@ describe('NextJsExtractor', () => {
     it('should handle JSON parse error gracefully', () => {
       mockDoc.querySelector.mockReturnValue({ textContent: '{ invalid json ' });
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+    });
+
+    it('should extract content from App Router fragments using heuristic search', () => {
+      mockDoc.querySelector.mockReturnValue(null);
+      const articleData = {
+        title: 'App Router Title',
+        blocks: [{ blockType: 'paragraph', text: 'Content' }],
+      };
+      // Mock App Router fragment: self.__next_f.push([1, articleData])
+      const fragment = JSON.stringify([1, articleData], null, 2);
+
+      mockDoc.querySelectorAll.mockReturnValue([
+        { textContent: `self.__next_f.push(${fragment})` },
+      ]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('App Router Title');
+      expect(result.blocks).toHaveLength(1);
+    });
+
+    it('should use heuristic search when standard paths fail', () => {
+      const deepData = {
+        someWrapper: {
+          nested: {
+            unknownKey: {
+              title: 'Heuristic Title',
+              blocks: [{ blockType: 'paragraph', text: 'Found me' }],
+            },
+          },
+        },
+      };
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(deepData) });
+      mockDoc.querySelectorAll.mockReturnValue([]);
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('Heuristic Title');
     });
   });
 

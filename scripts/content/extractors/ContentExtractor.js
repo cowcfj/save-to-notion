@@ -57,7 +57,7 @@ const ContentExtractor = {
           },
         };
       }
-      Logger.warn('Next.js 結構化提取失敗，回退到標準流程', { action: 'extract' });
+      Logger.info('Next.js 結構化提取未返回有效結果，回退到標準流程', { action: 'extract' });
     }
 
     // 1. 檢測頁面複雜度與類型

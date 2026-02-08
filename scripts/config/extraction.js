@@ -41,6 +41,19 @@ export const NEXTJS_CONFIG = {
 
   // 最小有效區塊數
   MIN_VALID_BLOCKS: 3,
+
+  // [NEW] 啟發式搜索特徵
+  HEURISTIC_PATTERNS: {
+    // 必須包含的欄位 (AND 邏輯)
+    REQUIRED_FIELDS: ['blocks', 'content'], // 二選一即可
+    // 用於評分的關鍵字
+    SCORE_KEYWORDS: ['article', 'post', 'detail', 'story'],
+    // 排除的鍵名
+    EXCLUDE_KEYS: ['header', 'footer', 'menu', 'navigation', 'sidebar'],
+  },
+
+  // [NEW] App Router 特徵
+  APP_ROUTER_SELECTOR: 'script:not([id]):not([src])', // 粗篩，再透過內容過濾
 };
 
 // ==========================================
