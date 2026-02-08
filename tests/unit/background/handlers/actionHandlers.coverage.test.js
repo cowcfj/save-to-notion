@@ -140,7 +140,6 @@ describe('actionHandlers 覆蓋率補強', () => {
       createPage: jest.fn(),
       buildPageData: jest.fn(() => ({
         pageData: {},
-        validBlocks: [],
       })),
     };
 
@@ -379,52 +378,6 @@ describe('actionHandlers 覆蓋率補強', () => {
       );
     });
 
-    test('應該在收到 Notion 圖片驗證錯誤時嘗試排除圖片並重試', async () => {
-      const sendResponse = jest.fn();
-      mockStorageService.getSavedPageData.mockResolvedValue(null);
-
-      // 第一次嘗試失敗 (Image validation error)
-      mockNotionService.createPage.mockResolvedValueOnce({
-        success: false,
-        error: 'validation error: image block',
-      });
-
-      // 重試成功
-      mockNotionService.createPage.mockResolvedValueOnce({
-        success: true,
-        pageId: 'retry-page-id',
-        url: 'notion.so/retry',
-      });
-
-      // 使用 fake timers 來控制重試延遲
-      jest.useFakeTimers();
-
-      try {
-        // 調用 savePage
-        const savePromise = handlers.savePage({}, internalSender, sendResponse);
-
-        // 使用 runAllTimersAsync 來處理異步 timers
-        await jest.runAllTimersAsync();
-
-        // 等待 promise 完成
-        await savePromise;
-
-        expect(mockNotionService.createPage).toHaveBeenCalledTimes(2);
-        // 第一次調用包含 blocks
-        expect(mockNotionService.createPage.mock.calls[0][1].allBlocks).toBeDefined();
-        // 第二次調用應該設置 excludeImages
-        expect(mockNotionService.buildPageData).toHaveBeenCalledWith(
-          expect.objectContaining({ excludeImages: true })
-        );
-        // 第二次調用是重試成功
-        expect(sendResponse).toHaveBeenCalledWith(
-          expect.objectContaining({ success: true, created: true })
-        );
-      } finally {
-        jest.useRealTimers();
-      }
-    });
-
     /**
      * [補強測試] 驗證頁面已被刪除時的重建流程
      * 覆蓋 saveHandlers.js:245-265
@@ -590,7 +543,12 @@ describe('actionHandlers 覆蓋率補強', () => {
       const sendResponse = jest.fn();
       mockStorageService.getConfig.mockResolvedValue({ notionApiKey: 'key' });
       mockStorageService.getSavedPageData.mockResolvedValue(null);
-      await handlers.syncHighlights({ highlights: [] }, csSender, sendResponse);
+      // highlights must not be empty to trigger saved check
+      await handlers.syncHighlights(
+        { highlights: [{ text: 'some highlight' }] },
+        csSender,
+        sendResponse
+      );
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 

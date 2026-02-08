@@ -5,6 +5,7 @@ import {
   PageContentService,
   CONTENT_EXTRACTION_SCRIPTS,
 } from '../../../../scripts/background/services/PageContentService.js';
+import Logger from '../../../../scripts/utils/Logger.js';
 
 describe('PageContentService', () => {
   let mockInjectionService = null;
@@ -18,8 +19,12 @@ describe('PageContentService', () => {
 
     mockLogger = {
       log: jest.fn(),
+      info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
+      debug: jest.fn(),
+      start: jest.fn(),
+      success: jest.fn(),
     };
 
     service = new PageContentService({
@@ -34,11 +39,12 @@ describe('PageContentService', () => {
       expect(service.logger).toBe(mockLogger);
     });
 
-    test('應使用 console 作為預設 logger', () => {
+    test('應使用 Logger 作為預設 logger', () => {
       const serviceWithDefaults = new PageContentService({
         injectionService: mockInjectionService,
       });
-      expect(serviceWithDefaults.logger).toBe(console);
+      // 驗證預設 Logger 是我們預期的 Logger 模組
+      expect(serviceWithDefaults.logger).toBe(Logger);
     });
   });
 
@@ -66,7 +72,8 @@ describe('PageContentService', () => {
       expect(mockInjectionService.injectWithResponse).toHaveBeenCalledWith(
         123,
         expect.any(Function),
-        CONTENT_EXTRACTION_SCRIPTS
+        CONTENT_EXTRACTION_SCRIPTS,
+        ['Untitled'] // CONTENT_QUALITY.DEFAULT_PAGE_TITLE resolve to 'Untitled'
       );
       expect(result.title).toBe('Test Page');
       expect(result.blocks).toHaveLength(1);
@@ -127,8 +134,10 @@ describe('PageContentService', () => {
       await service.extractContent(123);
 
       // 驗證日誌包含成功訊息
-      const logCalls = mockLogger.log.mock.calls;
-      const successLog = logCalls.find(call => call[0]?.includes('成功'));
+      // 在 PageContentService.js 中，成功日誌使用 this.logger.info 輸出
+
+      const infoCalls = mockLogger.info.mock.calls;
+      const successLog = infoCalls.find(call => call[0]?.includes('提取成功'));
       expect(successLog).toBeDefined();
     });
   });

@@ -83,8 +83,19 @@ describe('cleanImageUrl - 深度測試', () => {
   describe('錯誤處理', () => {
     test('無效的 URL 應該返回 null', () => {
       expect(cleanImageUrl('not-a-url')).toBeNull();
-      // FTP URL 是有效的 URL，只是不是 HTTP/HTTPS
-      // cleanImageUrl 只檢查 URL 格式，不檢查協議
+    });
+
+    test('Data URL 應該返回 null', () => {
+      expect(cleanImageUrl('data:image/png;base64,iVBORw0KG...')).toBeNull();
+    });
+
+    test('Blob URL 應該返回 null', () => {
+      expect(cleanImageUrl('blob:https://example.com/uuid')).toBeNull();
+    });
+
+    test('其他協議 (ftp, file) 應該返回 null', () => {
+      expect(cleanImageUrl('ftp://example.com/image.jpg')).toBeNull();
+      expect(cleanImageUrl('file:///path/to/image.jpg')).toBeNull();
     });
 
     test('空值應該返回 null', () => {

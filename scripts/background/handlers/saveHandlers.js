@@ -18,7 +18,7 @@ import {
 } from '../../utils/securityUtils.js';
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { HANDLER_CONSTANTS } from '../../config/constants.js';
+import { HANDLER_CONSTANTS, CONTENT_QUALITY } from '../../config/constants.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 
@@ -60,12 +60,13 @@ async function ensureNotionApiKey(storageService) {
  *
  * @param {object} rawResult - 注入腳本返回的原始結果
  * @param {Array} highlights - 標註數據
- * @returns {object} 處理後的內容結果 { title, blocks, siteIcon }
+ * @returns {object} 處理後的內容結果 { title, blocks, siteIcon, coverImage }
  */
 export function processContentResult(rawResult, highlights) {
   // 正規化所有欄位，確保不修改原始輸入
-  const title = rawResult?.title || 'Untitled';
+  const title = rawResult?.title || CONTENT_QUALITY.DEFAULT_PAGE_TITLE;
   const siteIcon = rawResult?.siteIcon ?? null;
+  const coverImage = rawResult?.coverImage ?? null; // 封面圖片 URL
   const blocks = Array.isArray(rawResult?.blocks) ? [...rawResult.blocks] : [];
 
   // 添加標註區塊
@@ -75,7 +76,7 @@ export function processContentResult(rawResult, highlights) {
     blocks.push(...highlightBlocks);
   }
 
-  return { title, blocks, siteIcon };
+  return { title, blocks, siteIcon, coverImage };
 }
 
 /**
@@ -126,7 +127,7 @@ export function createSaveHandlers(services) {
   }
 
   /**
-   * 執行頁面創建（包含圖片錯誤重試邏輯）
+   * 執行頁面創建（單次嘗試）
    *
    * @param {object} params - 參數對象
    * @param {string} params.normUrl - 正規化的 URL
@@ -146,36 +147,16 @@ export function createSaveHandlers(services) {
       dataSourceType,
       blocks: contentResult.blocks,
       siteIcon: contentResult.siteIcon,
+      coverImage: contentResult.coverImage, // 封面圖片 URL
     };
 
-    const { pageData, validBlocks } = notionService.buildPageData(buildOptions);
+    const { pageData } = notionService.buildPageData(buildOptions);
 
-    let result = await notionService.createPage(pageData, {
+    const result = await notionService.createPage(pageData, {
       autoBatch: true,
-      allBlocks: validBlocks,
+      allBlocks: contentResult.blocks,
       apiKey,
     });
-
-    // 失敗重試邏輯：如果是圖片驗證錯誤或標準化後的驗證錯誤
-    if (!result.success && result.error && ErrorHandler.isImageValidationError(result.error)) {
-      Logger.warn('收到 Notion 圖片驗證錯誤，準備重試', {
-        action: 'performCreatePage',
-        delay: HANDLER_CONSTANTS.IMAGE_RETRY_DELAY,
-        reason: 'image_validation_error',
-      });
-
-      await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.IMAGE_RETRY_DELAY));
-
-      // 重建數據，排除圖片
-      buildOptions.excludeImages = true;
-      const rebuild = notionService.buildPageData(buildOptions);
-
-      result = await notionService.createPage(rebuild.pageData, {
-        autoBatch: true,
-        allBlocks: rebuild.validBlocks,
-        apiKey,
-      });
-    }
 
     if (result.success) {
       // 保存狀態

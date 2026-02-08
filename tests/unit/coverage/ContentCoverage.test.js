@@ -5,7 +5,7 @@
 import { PerformanceOptimizer } from '../../../scripts/performance/PerformanceOptimizer.js';
 import { ImageCollector } from '../../../scripts/content/extractors/ImageCollector.js';
 import { bridgeContentToBlocks, createTextBlocks } from '../../../scripts/content/converters/ContentBridge.js';
-import { extractFromNoscript, isNotionCompatibleImageUrl } from '../../../scripts/utils/imageUtils.js';
+import { extractFromNoscript } from '../../../scripts/utils/imageUtils.js';
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
     debug: jest.fn(),
@@ -24,10 +24,13 @@ describe('ContentParts 覆蓋率補強 (整合)', () => {
         document.body.innerHTML = '';
         // 設置全域 Logger，因為部分模組（如 ContentBridge）使用 /* global Logger */
         globalThis.Logger = require('../../../scripts/utils/Logger.js');
+        // Ensure imageUtils is loaded into globalThis
+        require('../../../scripts/utils/imageUtils.js');
     });
 
     afterEach(() => {
         delete globalThis.Logger;
+        delete globalThis.ImageUtils;
     });
 
     // --- PerformanceOptimizer ---
@@ -78,7 +81,11 @@ describe('ContentParts 覆蓋率補強 (整合)', () => {
         expect(result).toBe('https://example.com/img.jpg');
     });
 
-    test('imageUtils: isNotionCompatibleImageUrl', () => {
-        expect(isNotionCompatibleImageUrl('https://ab/img.jpg')).toBe(false);
+    test('imageUtils: isValidCleanedImageUrl', () => {
+        const { isValidCleanedImageUrl } = require('../../../scripts/utils/imageUtils.js');
+        // Valid case: HTTPS and image extension
+        expect(isValidCleanedImageUrl('https://example.com/image.jpg')).toBe(true);
+        // Invalid case: Data URL
+        expect(isValidCleanedImageUrl('data:image/jpeg;base64,123')).toBe(false);
     });
 });

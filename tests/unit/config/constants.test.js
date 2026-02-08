@@ -79,7 +79,7 @@ describe('配置模組 - constants.js', () => {
 
     test('應包含重試配置', () => {
       expect(NOTION_API.MAX_RETRIES).toBe(3);
-      expect(NOTION_API.BASE_RETRY_DELAY).toBe(800);
+      expect(NOTION_API.RETRY_DELAY).toBe(1000);
     });
 
     test('配置值應為合理範圍', () => {

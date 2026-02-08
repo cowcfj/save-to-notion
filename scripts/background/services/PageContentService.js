@@ -11,8 +11,11 @@
  *   ↓ injects
  * dist/content.bundle.js → extractPageContent()
  *   ↓ returns
- * { title, blocks, siteIcon }
+ * { title, blocks, siteIcon, coverImage }
  */
+
+import Logger from '../../utils/Logger.js';
+import { LOG_ICONS, CONTENT_QUALITY } from '../../config/constants.js';
 
 // 此服務通過 InjectionService 執行腳本注入，不直接調用 chrome API
 
@@ -38,7 +41,7 @@ class PageContentService {
    */
   constructor(options = {}) {
     this.injectionService = options.injectionService;
-    this.logger = options.logger || console;
+    this.logger = options.logger || Logger;
   }
 
   /**
@@ -46,10 +49,10 @@ class PageContentService {
    *
    * @param {number} tabId - 目標標籤頁 ID
    * @param {object} _options - 提取選項（保留供未來使用）
-   * @returns {Promise<{title: string, blocks: Array, siteIcon: string|null}>}
+   * @returns {Promise<{title: string, blocks: Array, siteIcon: string|null, coverImage: string|null}>}
    */
   async extractContent(tabId, _options = {}) {
-    this.logger.log?.('📄 [PageContentService] 開始提取頁面內容...');
+    this.logger.start?.('[PageContentService] 開始提取頁面內容', { tabId });
 
     if (!this.injectionService) {
       throw new Error('InjectionService is required for PageContentService');
@@ -59,36 +62,41 @@ class PageContentService {
       // 注入 bundle 並執行提取
       const result = await this.injectionService.injectWithResponse(
         tabId,
-        async () => {
+        async defaultPageTitle => {
           // 此函數在頁面上下文中執行
           const PageLogger = globalThis.Logger || console;
 
           try {
-            PageLogger.log?.('🚀 [PageContentService] 調用 extractPageContent...');
+            PageLogger.log?.('[PageContentService] 調用 extractPageContent');
 
             // 使用 content.bundle.js 暴露的 extractPageContent
             if (typeof globalThis.extractPageContent === 'function') {
               const extractResult = await globalThis.extractPageContent();
 
-              if (extractResult?.blocks) {
-                PageLogger.log?.(
-                  `✅ [PageContentService] 提取成功: ${extractResult.blocks.length} blocks`
-                );
+              const contentBlocks = extractResult.blocks || [];
+              const imageBlocks = extractResult.additionalImages || [];
+              const coverImage = extractResult.coverImage || null;
 
-                // 適配返回格式：添加 siteIcon
-                return {
-                  title: extractResult.title || document.title || 'Untitled',
-                  blocks: extractResult.blocks,
-                  siteIcon:
-                    extractResult.metadata?.siteIcon || extractResult.metadata?.favicon || null,
-                };
-              }
+              PageLogger.log?.('✅ [PageContentService] 提取成功', {
+                contentBlocks: contentBlocks.length,
+                imageBlocks: imageBlocks.length,
+                hasCoverImage: Boolean(coverImage),
+              });
+
+              // 適配返回格式：添加 siteIcon 和 coverImage
+              return {
+                title: extractResult.title || document.title || defaultPageTitle,
+                blocks: [...contentBlocks, ...imageBlocks],
+                siteIcon:
+                  extractResult.metadata?.siteIcon || extractResult.metadata?.favicon || null,
+                coverImage, // 封面圖片 URL（供 Notion cover 使用）
+              };
             }
 
             // Fallback: 基本提取
-            PageLogger.warn?.('⚠️ [PageContentService] extractPageContent 不可用');
+            PageLogger.warn?.('[PageContentService] extractPageContent 不可用');
             return {
-              title: document.title || 'Untitled',
+              title: document.title || defaultPageTitle,
               blocks: [
                 {
                   object: 'block',
@@ -104,11 +112,12 @@ class PageContentService {
                 },
               ],
               siteIcon: null,
+              coverImage: null,
             };
           } catch (error) {
-            PageLogger.error?.('❌ [PageContentService] 提取失敗:', error);
+            PageLogger.error?.('[PageContentService] 提取失敗', { error });
             return {
-              title: document.title || 'Untitled',
+              title: document.title || defaultPageTitle,
               blocks: [
                 {
                   object: 'block',
@@ -124,25 +133,32 @@ class PageContentService {
                 },
               ],
               siteIcon: null,
+              coverImage: null,
             };
           }
         },
-        CONTENT_EXTRACTION_SCRIPTS
+        CONTENT_EXTRACTION_SCRIPTS,
+        [CONTENT_QUALITY.DEFAULT_PAGE_TITLE]
       );
 
       // 處理注入結果
       // 注意：injectWithResponse 已經解包了 results[0].result，直接返回函數執行結果
       if (result?.title && result?.blocks) {
-        this.logger.log?.(
-          `✅ [PageContentService] 成功: "${result.title}" (${result.blocks.length} blocks)`
-        );
+        this.logger.info?.(`${LOG_ICONS.SUCCESS} [PageContentService] 提取成功`, {
+          title: result.title,
+          blockCount: result.blocks.length,
+          hasSiteIcon: Boolean(result.siteIcon),
+          hasCoverImage: Boolean(result.coverImage),
+        });
         return result;
       }
 
       // 結果無效
-      this.logger.warn?.('⚠️ [PageContentService] 提取結果無效');
+      this.logger.warn?.(`${LOG_ICONS.WARN} [PageContentService] 提取結果無效`, {
+        resultKeys: Object.keys(result || {}),
+      });
       return {
-        title: 'Untitled',
+        title: CONTENT_QUALITY.DEFAULT_PAGE_TITLE,
         blocks: [
           {
             object: 'block',
@@ -153,9 +169,10 @@ class PageContentService {
           },
         ],
         siteIcon: null,
+        coverImage: null,
       };
     } catch (error) {
-      this.logger.error?.('❌ [PageContentService] 注入失敗:', error);
+      this.logger.error?.(`${LOG_ICONS.ERROR} [PageContentService] 注入失敗`, { error });
       throw error;
     }
   }

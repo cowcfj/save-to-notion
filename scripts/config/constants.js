@@ -15,11 +15,13 @@
 export const IMAGE_VALIDATION_CONSTANTS = {
   MAX_URL_LENGTH: 2000, // Notion API 限制通常為 2000 字符，這也是瀏覽器的安全限制
   URL_LENGTH_SAFETY_MARGIN: 500, // 安全邊際，用於 Notion API 請求時預留空間，避免臨界值問題
+  URL_LENGTH_INLINE_SAFETY_MARGIN: 100, // 行內圖片 URL 安全邊際，較寬鬆的檢查
   MAX_QUERY_PARAMS: 10, // 查詢參數數量閾值（超過可能為動態 URL）
   SRCSET_WIDTH_MULTIPLIER: 1000, // srcset w 描述符權重（優先於 x）
   MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）
   MIN_IMAGE_WIDTH: 200, // 最小圖片寬度
   MIN_IMAGE_HEIGHT: 100, // 最小圖片高度
+  MAX_RECURSION_DEPTH: 5, // 遞歸解析最大深度
 };
 
 export const IMAGE_VALIDATION = IMAGE_VALIDATION_CONSTANTS;
@@ -69,9 +71,19 @@ export const CONTENT_QUALITY = {
   MIN_CONTENT_LENGTH: 250, // 內容長度最小值
   MAX_LINK_DENSITY: 0.3, // 最大鏈接密度（30%）
   LIST_EXCEPTION_THRESHOLD: 8, // 列表項數量閾值（允許例外）
+  DEFAULT_PAGE_TITLE: 'Untitled', // 預設頁面標題
 };
 
 // TECHNICAL_TERMS moved to patterns.js
+
+// ==========================================
+// 圖片收集相關常量
+// ==========================================
+
+export const IMAGE_COLLECTION = {
+  MAX_IMAGES_PER_PAGE: 5, // 每頁最多內容圖片數（不含封面）
+  // 未來可擴展：PRIORITY_SOURCES, ENABLE_LIMIT 等
+};
 
 // ==========================================
 // Notion API 相關常量
@@ -85,7 +97,8 @@ export const NOTION_API = {
   BASE_URL: 'https://api.notion.com/v1',
   BLOCKS_PER_BATCH: 100, // 每批次最多區塊數
   MAX_RETRIES: 3, // 最大重試次數
-  BASE_RETRY_DELAY: 800, // 基礎重試延遲（ms）
+  RETRY_DELAY: 1000, // 基礎重試延遲（ms）
+  // IMAGE_RETRY_DELAY removed as it is unused
 
   // 操作特定配置
   CHECK_RETRIES: 2, // 檢查操作重試次數
@@ -122,7 +135,7 @@ export const NOTION_CONFIG = {
   BASE_URL: NOTION_API.BASE_URL,
   BLOCKS_PER_BATCH: NOTION_API.BLOCKS_PER_BATCH,
   DEFAULT_MAX_RETRIES: NOTION_API.MAX_RETRIES,
-  DEFAULT_BASE_DELAY: NOTION_API.BASE_RETRY_DELAY,
+  DEFAULT_BASE_DELAY: NOTION_API.RETRY_DELAY,
   // 操作特定配置
   CHECK_RETRIES: NOTION_API.CHECK_RETRIES,
   CHECK_DELAY: NOTION_API.CHECK_DELAY,
@@ -208,6 +221,31 @@ export const UNSAFE_LIST_CHILDREN_FOR_FLATTENING = [
 // ==========================================
 // 日誌系統相關常量
 // ==========================================
+
+// ==========================================
+// 錯誤處理與類型定義 (來自 ErrorHandler.js)
+// ==========================================
+
+/**
+ * 應用程式錯誤類型枚舉
+ */
+export const ERROR_TYPES = {
+  // 原有類型
+  EXTRACTION_FAILED: 'extraction_failed',
+  INVALID_URL: 'invalid_url',
+  NETWORK_ERROR: 'network_error',
+  PARSING_ERROR: 'parsing_error',
+  PERFORMANCE_WARNING: 'performance_warning',
+  DOM_ERROR: 'dom_error',
+  VALIDATION_ERROR: 'validation_error',
+  TIMEOUT_ERROR: 'timeout_error',
+  // 背景服務相關類型
+  STORAGE: 'storage', // 存儲操作錯誤
+  NOTION_API: 'notion_api', // Notion API 錯誤
+  INJECTION: 'injection', // 腳本注入錯誤
+  PERMISSION: 'permission', // 權限不足
+  INTERNAL: 'internal', // 內部錯誤
+};
 
 /**
  * 日誌級別定義（來自 Logger.js）
@@ -322,6 +360,9 @@ export const PERFORMANCE_OPTIMIZER = {
   DEFAULT_BATCH_SIZE: 100, // 預設批處理大小
   MAX_BATCH_SIZE: 500, // 最大批處理大小
   MIN_BATCH_SIZE: 10, // 最小批處理大小
+
+  // Next.js 數據處理設定
+  MAX_NEXT_DATA_SIZE: 5 * 1024 * 1024, // 5MB - JSON.parse 阻塞主線程的安全上限
 };
 
 /**

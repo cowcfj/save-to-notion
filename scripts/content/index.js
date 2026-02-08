@@ -14,12 +14,16 @@
 
 /* global chrome */
 
+import { CONTENT_QUALITY } from '../config/constants.js';
 import Logger from '../utils/Logger.js';
 import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
+import { mergeUniqueImages } from '../utils/imageUtils.js';
 // 合併 Highlighter bundle：導入以執行其自動初始化邏輯 (setupHighlighter)
 import '../highlighter/index.js';
+
+const { DEFAULT_PAGE_TITLE } = CONTENT_QUALITY;
 
 // ============================================================
 // Preloader 快取接管
@@ -99,7 +103,7 @@ Logger.log('Content Bundle 已載入', { action: 'loadBundle' });
  * 主要內容提取函數
  * 此函數會被 background.js 通過 executeScript 調用
  *
- * @returns {Promise<{title: string, blocks: Array, rawHtml: string}>}
+ * @returns {Promise<{title: string, blocks: Array, rawHtml: string, metadata: object, additionalImages: Array, coverImage: string|null, debug: object}>}
  */
 async function extractPageContent() {
   Logger.log('開始內容提取', { action: 'extractPageContent' });
@@ -111,7 +115,7 @@ async function extractPageContent() {
     if (!extractResult?.content) {
       Logger.warn('內容提取失敗或返回空內容', { action: 'extractPageContent' });
       return {
-        title: document.title || 'Untitled Page',
+        title: document.title || DEFAULT_PAGE_TITLE,
         blocks: [
           {
             object: 'block',
@@ -129,6 +133,8 @@ async function extractPageContent() {
           },
         ],
         rawHtml: '',
+        additionalImages: [],
+        coverImage: null,
       };
     }
 
@@ -143,6 +149,7 @@ async function extractPageContent() {
 
     // 3. 收集額外圖片（可選）
     let additionalImages = [];
+    let coverImage = null;
     try {
       // 創建臨時容器來查找圖片
       // 使用 DOMParser 安全解析 HTML 內容，避免直接操作 innerHTML
@@ -150,10 +157,22 @@ async function extractPageContent() {
       const doc = parser.parseFromString(content, 'text/html');
 
       // ImageCollector 預期一個 Element，傳入 doc.body 即可
-      additionalImages = await ImageCollector.collectAdditionalImages(doc.body);
-      Logger.log('額外圖片收集完成', {
+      const imageResult = await ImageCollector.collectAdditionalImages(doc.body);
+
+      // 處理新的返回結構（包含 images 和 coverImage）
+      // 安全地處理 null/undefined 返回值，並支援向後兼容
+      const collectedImages =
+        imageResult?.images || (Array.isArray(imageResult) ? imageResult : []);
+      coverImage = imageResult?.coverImage || null;
+
+      // 使用工具函數去重
+      additionalImages = mergeUniqueImages(blocks, collectedImages);
+
+      Logger.log('額外圖片收集完成 (已去重)', {
         action: 'extractPageContent',
-        imageCount: additionalImages.length,
+        originalCount: collectedImages.length,
+        finalCount: additionalImages.length,
+        hasCoverImage: Boolean(coverImage),
       });
     } catch (imageError) {
       Logger.warn('圖片收集失敗', { action: 'extractPageContent', error: imageError.message });
@@ -161,11 +180,12 @@ async function extractPageContent() {
 
     // 4. 返回結果
     return {
-      title: metadata.title || document.title || 'Untitled Page',
+      title: metadata.title || document.title || DEFAULT_PAGE_TITLE,
       blocks,
       rawHtml: content,
       metadata, // 包含 author, description, favicon
       additionalImages,
+      coverImage, // 封面圖片 URL（供 Notion cover 使用）
       // 調試信息
       debug: {
         contentType: type,
@@ -178,7 +198,7 @@ async function extractPageContent() {
     Logger.error('內容提取發生異常', { action: 'extractPageContent', error: error.message });
 
     return {
-      title: document.title || 'Untitled Page',
+      title: document.title || DEFAULT_PAGE_TITLE,
       blocks: [
         {
           object: 'block',
@@ -197,6 +217,8 @@ async function extractPageContent() {
       ],
       rawHtml: '',
       error: error.message,
+      additionalImages: [],
+      coverImage: null,
     };
   }
 }
@@ -211,7 +233,7 @@ if (globalThis.window !== undefined) {
 
   // 單元測試支持：如果檢測到測試環境，自動執行並暴露結果
   if (globalThis.__UNIT_TESTING__) {
-    // 使用 IIFE 包裝以避免頂層 await 在非模組環境下的兼容性問題
+    // eslint-disable-next-line unicorn/prefer-top-level-await
     (async () => {
       try {
         globalThis.__notion_extraction_result = await extractPageContent();
