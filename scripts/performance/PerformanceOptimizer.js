@@ -510,6 +510,7 @@ class PerformanceOptimizer {
    */
   _preloadSingleSelector(selector, context) {
     if (this.prewarmedSelectors.has(selector)) {
+      Logger.debug('預熱跳過：已預熱', { action: 'preloadSelectors', selector });
       return null; // 已預熱過，跳過
     }
 
@@ -520,6 +521,7 @@ class PerformanceOptimizer {
       if (result) {
         // Fix: Empty NodeList/Array is truthy but represents "no hits"
         if (result.length !== undefined && result.length === 0) {
+          Logger.debug('預熱跳過：結果為空', { action: 'preloadSelectors', selector });
           return null;
         }
 
@@ -567,6 +569,8 @@ class PerformanceOptimizer {
         cached: false,
       };
     }
+
+    Logger.debug('預熱跳過：查詢無結果', { action: 'preloadSelectors', selector });
     return null;
   }
 
