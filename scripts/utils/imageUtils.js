@@ -84,6 +84,50 @@ function _normalizeUrlInternal(url) {
 }
 
 /**
+ * 處理 Next.js 圖片優化 URL 的拆包邏輯 (私有輔助函數)
+ *
+ * @param {URL} urlObj - 解析後的 URL 對象
+ * @param {number} depth - 當前遞迴深度
+ * @returns {string|null} 拆包後的標準 URL 或 null
+ * @private
+ */
+function _unwrapNextJsUrl(urlObj, depth) {
+  // 檢查路徑特徵
+  if (!urlObj.pathname.includes('/_next/image')) {
+    return null;
+  }
+
+  const urlParam = urlObj.searchParams.get('url');
+  if (!urlParam) {
+    return null;
+  }
+
+  try {
+    let nextUrl = urlParam;
+
+    // 處理 _normalizeUrlInternal 可能引入的雙重編碼問題
+    // 如果 URL 參數看起來仍被編碼 (如 https%3A%2F%2F 或 %2F 開頭)，嘗試解碼
+    if (!/^https?:\/\//i.test(nextUrl) && /^(?:https?%3A%2F%2F|%2F)/i.test(nextUrl)) {
+      try {
+        nextUrl = decodeURIComponent(nextUrl);
+      } catch {
+        // 解碼失敗則保持原樣
+      }
+    }
+
+    // 如果是相對路徑，則繼承當前 URL 的 origin
+    const isAbsolute = /^https?:\/\//i.test(nextUrl);
+    if (!isAbsolute) {
+      nextUrl = new URL(nextUrl, urlObj.origin).href;
+    }
+
+    return cleanImageUrl(nextUrl, depth + 1);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 清理和標準化圖片 URL (整合 normalizeImageUrl)
  *
  * @param {string} url - 原始圖片 URL
@@ -129,6 +173,12 @@ function cleanImageUrl(url, depth = 0) {
   const { urlObj, isRelative } = resolved;
 
   try {
+    // 優先處理 Next.js 拆包 (提取為獨立函數以降低複雜度)
+    const unwrappedNextUrl = _unwrapNextJsUrl(urlObj, depth);
+    if (unwrappedNextUrl) {
+      return unwrappedNextUrl;
+    }
+
     // 處理代理 URL
     if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
       const uParam = urlObj.searchParams.get('u');

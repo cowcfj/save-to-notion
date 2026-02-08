@@ -91,6 +91,9 @@ export const IMAGE_PATH_PATTERNS = [
   /\/resize\//i,
   /\/crop\//i,
   /\/(\d{4})\/(\d{2})\//,
+  /\/avatars?\//i,
+  /\/u\/\d+/i,
+  /\/profile_images\//i,
 ];
 
 export const EXCLUDE_PATTERNS = [

@@ -183,5 +183,42 @@ describe('ImageUtils and DomConverter Missing Coverage Tests', () => {
               // Implicitly verifies no crash if decodeURI throws inside _normalizeUrlInternal
               expect(() => ImageUtils.cleanImageUrl(malformedUrl)).not.toThrow();
          });
+
+         test('isValidImageUrl correctly unwraps Next.js image optimization URLs (Absolute)', () => {
+             // Next.js URL wrapping an absolute path
+             const validTarget = 'https://example.com/foo.png';
+             const nextJsUrl = `https://vercel.com/_next/image?url=${encodeURIComponent(validTarget)}&w=128&q=75`;
+
+             // Check cleanImageUrl directly to verify unwrapping
+             const cleaned = ImageUtils.cleanImageUrl(nextJsUrl);
+             expect(cleaned).toBe(validTarget);
+
+             // Check validation
+             expect(ImageUtils.isValidImageUrl(nextJsUrl)).toBe(true);
+         });
+
+         test('isValidImageUrl correctly unwraps Next.js image optimization URLs (Relative)', () => {
+             // Next.js URL wrapping a relative path
+             const relativeTarget = '/assets/bar.jpg';
+             const origin = 'https://vercel.com';
+             const nextJsUrl = `${origin}/_next/image?url=${encodeURIComponent(relativeTarget)}&w=128&q=75`;
+
+             const expected = `${origin}${relativeTarget}`;
+
+             const cleaned = ImageUtils.cleanImageUrl(nextJsUrl);
+             expect(cleaned).toBe(expected);
+
+             expect(ImageUtils.isValidImageUrl(nextJsUrl)).toBe(true);
+         });
+
+         test('isValidImageUrl accepts whitelisted avatar URLs (GitHub/GitLab)', () => {
+             // GitHub avatar (no extension, but matches /u/\d+)
+             const githubAvatar = 'https://avatars.githubusercontent.com/u/14985020?v=4';
+             expect(ImageUtils.isValidImageUrl(githubAvatar)).toBe(true);
+
+             // Generic avatar path
+             const genericAvatar = 'https://example.com/avatars/user123';
+             expect(ImageUtils.isValidImageUrl(genericAvatar)).toBe(true);
+         });
     });
 });
