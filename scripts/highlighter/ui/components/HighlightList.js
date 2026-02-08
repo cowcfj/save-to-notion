@@ -1,4 +1,4 @@
-import { TOOLBAR_SELECTORS } from '../../../config/selectors.js';
+import { TOOLBAR_SELECTORS } from '../../../config/extraction.js';
 import { createSafeIcon } from '../../../utils/securityUtils.js';
 
 /**
