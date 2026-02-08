@@ -164,11 +164,15 @@ async function expandCollapsibleElements(timeout = 300) {
         // 如果有 aria-controls，嘗試移除 aria-hidden 或 collapsed 類別
         const ctrl = trigger.getAttribute?.('aria-controls');
         if (ctrl) {
-          const target = document.querySelector(`#${ctrl}`);
-          if (target) {
-            target.removeAttribute('aria-hidden');
-            target.classList.remove('collapsed', 'collapse');
-            expanded.push(target);
+          try {
+            const target = document.querySelector(`#${CSS.escape(ctrl)}`);
+            if (target) {
+              target.removeAttribute('aria-hidden');
+              target.classList.remove('collapsed', 'collapse');
+              expanded.push(target);
+            }
+          } catch {
+            // Ignore querySelector errors
           }
         }
       } catch (error) {

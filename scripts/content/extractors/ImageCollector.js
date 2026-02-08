@@ -428,9 +428,7 @@ const ImageCollector = {
           // 創建偽造的 img 元素以便重用現有的處理邏輯
           const fakeImg = document.createElement('img');
           fakeImg.src = url;
-          if (block.image.caption && block.image.caption.length > 0) {
-            fakeImg.alt = block.image.caption[0].text.content;
-          }
+          fakeImg.alt = block.image?.caption?.[0]?.text?.content || '';
           fakeImg.dataset.source = 'nextjs-data';
 
           allImages.push(fakeImg);
@@ -497,8 +495,7 @@ const ImageCollector = {
       });
 
       // 定義處理函數，注意這裡不進行去重，去重在收集結果時統一處理
-      const processFn = img => {
-        const index = allImages.indexOf(img);
+      const processFn = ({ img, index }) => {
         return ImageCollector.processImageForCollection(img, index, featuredImage);
       };
 
@@ -519,7 +516,8 @@ const ImageCollector = {
       };
 
       if (typeof batchProcessWithRetry === 'function') {
-        const { results } = await batchProcessWithRetry(allImages, processFn, {
+        const indexedImages = allImages.map((img, index) => ({ img, index }));
+        const { results } = await batchProcessWithRetry(indexedImages, processFn, {
           maxAttempts: 3,
           isResultSuccessful: result => Boolean(result?.image?.external?.url),
         });
@@ -527,7 +525,9 @@ const ImageCollector = {
       } else {
         // Fallback to simple batch
         try {
-          const results = await batchProcess(allImages, processFn);
+          // Wrap images with index if simple batch accepts array
+          const indexedImages = allImages.map((img, index) => ({ img, index }));
+          const results = await batchProcess(indexedImages, processFn);
           handleResults(results);
         } catch (error) {
           Logger.warn('批次處理失敗，回退到順序處理', { error: error.message });

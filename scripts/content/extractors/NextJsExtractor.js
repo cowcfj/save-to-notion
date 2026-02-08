@@ -695,12 +695,9 @@ export const NextJsExtractor = {
                 object: 'block',
                 type,
                 [type]: {
-                  rich_text: [
-                    {
-                      type: 'text',
-                      text: { content: block.text ? this._stripHtml(block.text) : '' },
-                    },
-                  ],
+                  rich_text: this._createRichTextChunks(
+                    block.text ? this._stripHtml(block.text) : ''
+                  ),
                 },
               },
             ];
@@ -712,12 +709,9 @@ export const NextJsExtractor = {
                 object: 'block',
                 type: 'quote',
                 quote: {
-                  rich_text: [
-                    {
-                      type: 'text',
-                      text: { content: block.text ? this._stripHtml(block.text) : '' },
-                    },
-                  ],
+                  rich_text: this._createRichTextChunks(
+                    block.text ? this._stripHtml(block.text) : ''
+                  ),
                 },
               },
             ];
@@ -736,12 +730,7 @@ export const NextJsExtractor = {
                 object: 'block',
                 type: 'paragraph',
                 paragraph: {
-                  rich_text: [
-                    {
-                      type: 'text',
-                      text: { content },
-                    },
-                  ],
+                  rich_text: this._createRichTextChunks(content),
                 },
               },
             ];

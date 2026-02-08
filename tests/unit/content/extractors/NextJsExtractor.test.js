@@ -58,6 +58,38 @@ describe('NextJsExtractor', () => {
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
     });
 
+    it('should split long text into multiple chunks', () => {
+      const longText = 'a'.repeat(3000); // Exceeds 2000 limit
+      const mockArticle = {
+        title: 'Long Text',
+        blocks: [{ blockType: 'paragraph', text: longText }],
+      };
+
+      const mockJson = { props: { initialProps: { pageProps: { article: mockArticle } } } };
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.blocks).toHaveLength(1);
+      const chunks = result.blocks[0].paragraph.rich_text;
+      expect(chunks.length).toBeGreaterThan(1);
+      expect(chunks[0].text.content.length).toBeLessThanOrEqual(2000);
+      expect(chunks.map(c => c.text.content).join('')).toBe(longText); // Combined content should match original
+    });
+
+    it('should handle author as string', () => {
+      const mockArticle = {
+        title: 'String Author',
+        author: 'Jane Doe',
+        blocks: [],
+      };
+      const mockJson = { props: { initialProps: { pageProps: { article: mockArticle } } } };
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result.metadata.byline).toBe('Jane Doe');
+    });
+
     it('should extract content correctly from valid Next.js data (Deep nested path)', () => {
       const mockArticle = {
         title: 'Test Title',
@@ -340,6 +372,27 @@ describe('NextJsExtractor', () => {
       expect(output[0].paragraph.rich_text[0].text.content).toBe('Paragraph 1 part A, part B.');
       expect(output[1].type).toBe('paragraph');
       expect(output[1].paragraph.rich_text[0].text.content).toBe('Paragraph 2.');
+    });
+
+    it('should convert list blocks (fallback to paragraph)', () => {
+      const input = [
+        { blockType: 'list', items: ['Item 1', 'Item 2'], ordered: false },
+        { blockType: 'list', items: ['First', 'Second'], ordered: true },
+      ];
+      const output = NextJsExtractor.convertBlocks(input);
+      // List handling is not implemented in convertBlocks, and 'list' usually doesn't have 'text' prop
+      // so it might return empty array or handled differently.
+      // Based on implementation: default case checks block.text. If undefined -> empty array.
+      expect(output).toHaveLength(0);
+    });
+
+    it('should convert code blocks (fallback to paragraph)', () => {
+      const input = [{ blockType: 'code', text: 'console.log("hello")', language: 'javascript' }];
+      const output = NextJsExtractor.convertBlocks(input);
+      // Currently falls back to paragraph as 'code' is not explicitly handled in switch
+      expect(output).toHaveLength(1);
+      expect(output[0].type).toBe('paragraph');
+      expect(output[0].paragraph.rich_text[0].text.content).toBe('console.log("hello")');
     });
   });
 

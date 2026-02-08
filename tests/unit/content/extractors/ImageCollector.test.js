@@ -364,7 +364,7 @@ describe('ImageCollector', () => {
       expect(searchSpy).toHaveBeenCalled();
 
       // 新返回結構包含 images 和 coverImage
-      // Expected: main.jpg + gallery1.jpg (thumb.jpg excluded, related.jpg ignored, nav.jpg ignored, duplicate main.jpg ignored)
+      // Expected: main.jpg + gallery1.jpg
       // Total = 2
       expect(result.images).toHaveLength(2);
       expect(result.coverImage).toBeNull();
@@ -379,7 +379,7 @@ describe('ImageCollector', () => {
       );
       expect(img2).toBeDefined();
 
-      // Verify excluded images are NOT present (implicit by length 2 and specific matches)
+      // Verify correct images are present
 
       // Cleanup
     });
