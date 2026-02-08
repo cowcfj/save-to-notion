@@ -1,16 +1,91 @@
 /**
- * DOM 選擇器配置模組
- * 集中管理所有 DOM 選擇器，便於統一調整提取策略
- *
- * 注意：此模組必須為純 ES6 模組，不可依賴 window 或 document
+ * 提取配置模組 (Extraction Configuration)
+ * 統一管理所有內容提取相關的配置，包括 DOM 選擇器、JSON 路徑映射、Block 類型映射等。
+ * 取代原有的 selectors.js 與分散的配置。
  */
 
 // ==========================================
-// 封面圖選擇器
+// Next.js 提取配置
+// ==========================================
+
+export const NEXTJS_CONFIG = {
+  // 常見 Next.js 網站的文章數據路徑
+  ARTICLE_PATHS: [
+    // Yahoo News App Router (RSC format)
+    'pageData.pageState.article.data.contentMeta', // Contains storyAtoms
+    'props.pageData.pageState.article.data.contentMeta',
+    'props.pageData.pageState.article.data',
+    'pageData.pageState.article.data',
+    'props.pageData.pageState.article',
+    'pageData.pageState.article',
+    'initialArticle.data',
+    'initialArticle',
+
+    // 標準路徑
+    'props.initialProps.pageProps.article', // HK01
+    'props.pageProps.article',
+    'props.pageProps.post',
+    'props.pageProps.content',
+    'props.pageProps.data',
+  ],
+
+  // Block 類型映射
+  BLOCK_TYPE_MAP: {
+    text: 'paragraph',
+    paragraph: 'paragraph',
+    image: 'image',
+    heading: 'heading_2', // 默認映射
+    heading1: 'heading_1',
+    heading2: 'heading_2',
+    heading3: 'heading_3',
+    heading_1: 'heading_1',
+    heading_2: 'heading_2',
+    heading_3: 'heading_3',
+    quote: 'quote',
+    blockquote: 'quote',
+    list: 'bulleted_list_item',
+    code: 'code',
+  },
+
+  // JSON 大小限制 (2MB)
+  MAX_JSON_SIZE: 2 * 1024 * 1024,
+
+  // 最小有效區塊數
+  MIN_VALID_BLOCKS: 3,
+
+  // [NEW] 啟發式搜索特徵
+  HEURISTIC_PATTERNS: {
+    // 用於驗證內容是否有效的欄位 (OR 邏輯 - 滿足其一即可)
+    VALIDATION_FIELDS: ['blocks', 'content', 'body', 'markup', 'storyAtoms'],
+    // 用於評分的關鍵字
+    SCORE_KEYWORDS: ['article', 'post', 'detail', 'story'],
+    // 排除的鍵名
+    EXCLUDE_KEYS: [
+      'header',
+      'footer',
+      'menu',
+      'navigation',
+      'sidebar',
+      // Yahoo 推薦區塊
+      'postArticleStream',
+      'recommendedContentsResp',
+      'breakingNews',
+      'mostPopular',
+      'taboola',
+      'trendingNow',
+    ],
+  },
+
+  // [NEW] App Router 特徵
+  APP_ROUTER_SELECTOR: 'script:not([id]):not([src])', // 粗篩，再透過內容過濾
+};
+
+// ==========================================
+// 封面圖選擇器 (原 selectors.js)
 // ==========================================
 
 /**
- * 封面圖/特色圖片選擇器（來自 content.js collectFeaturedImage）
+ * 封面圖/特色圖片選擇器
  * 按優先級排序
  */
 export const FEATURED_IMAGE_SELECTORS = [
@@ -45,7 +120,6 @@ export const FEATURED_IMAGE_SELECTORS = [
 
 /**
  * 圖片源屬性列表（用於處理懶加載）
- * 按優先級排序，通常優先檢查 data-* 屬性
  */
 export const IMAGE_SRC_ATTRIBUTES = [
   'src',
@@ -58,11 +132,11 @@ export const IMAGE_SRC_ATTRIBUTES = [
 ];
 
 // ==========================================
-// 文章區域選擇器
+// 文章區域選擇器 (原 selectors.js)
 // ==========================================
 
 /**
- * 文章區域選擇器（來自 content.js collectAdditionalImages 策略 2）
+ * 文章區域選擇器
  */
 export const ARTICLE_SELECTORS = [
   'article',
@@ -76,11 +150,11 @@ export const ARTICLE_SELECTORS = [
 ];
 
 /**
- * 排除選擇器（來自 content.js collectAdditionalImages 策略 3）
+ * 排除選擇器
  * 用於過濾非內容區域的圖片
  */
 export const EXCLUSION_SELECTORS = [
-  'header:not(.article-header):not(.post-header)', // 排除普通 header，但保留文章 header
+  'header:not(.article-header):not(.post-header)',
   'footer',
   'nav',
   'aside',
@@ -118,15 +192,32 @@ export const EXCLUSION_SELECTORS = [
   '.site-header',
   '.site-footer',
   '.site-nav',
+  // Yahoo News (2024+ App Router 版本)
+  '[class*="w-article-aside"]', // 側邊欄整體容器
+  '#module-most-popular', // 熱門新聞區塊
+  '#recommended-article-stream',
+  '.stream-card',
+  '.recommendation-contents',
+  '.bg-toast-background',
+  '#module-preference-stream',
+  '[id^="taboola-stream"]',
+  '.trc_rbox',
+  '.trc-content-sponsored', // Taboola 贊助內容
+  '#social-share',
+  '#mktbanner',
+  // 保留通用模式
+  '[class*="infinite-scroll"]',
+  '[class*="endless-scroll"]',
+  '[data-component="stream"]',
+  // 通用推薦與建議內容
+  '[class*="recommendation"]',
+  '[class*="suggested"]',
 ];
 
 // ==========================================
-// CMS 內容選擇器
+// CMS 內容選擇器 (原 selectors.js)
 // ==========================================
 
-/**
- * WordPress 和其他 CMS 內容選擇器（來自 content.js findContentCmsFallback）
- */
 export const CMS_CONTENT_SELECTORS = [
   '.entry-content',
   '.post-content',
@@ -143,7 +234,7 @@ export const CMS_CONTENT_SELECTORS = [
   '.post-text',
   '.content-main',
   '.article-main',
-  // 移動版常用選擇器
+  // 移動版
   '.mobile-content',
   '.m-content',
   '.content',
@@ -155,18 +246,12 @@ export const CMS_CONTENT_SELECTORS = [
   '.story-content',
 ];
 
-/**
- * Drupal 特定選擇器
- */
 export const DRUPAL_SELECTORS = {
   nodeContent: '.node__content',
   imageField: '.field--name-field-image',
   bodyField: '.field--name-field-body',
 };
 
-/**
- * 文章結構選擇器（來自 content.js findContentCmsFallback 策略 3）
- */
 export const ARTICLE_STRUCTURE_SELECTORS = [
   'article[role="main"]',
   'article.post',
@@ -182,7 +267,6 @@ export const ARTICLE_STRUCTURE_SELECTORS = [
   '.article-container',
   '.post-container',
   '.content-container',
-  // 通用文章標籤
   'article',
   'main article',
   '.article',
@@ -190,7 +274,6 @@ export const ARTICLE_STRUCTURE_SELECTORS = [
   '.entry',
   '.news',
   '.story',
-  // ID 選擇器（常見的）
   '#content',
   '#main-content',
   '#article-content',
@@ -201,22 +284,15 @@ export const ARTICLE_STRUCTURE_SELECTORS = [
 ];
 
 // ==========================================
-// 元數據選擇器
+// 元數據選擇器 (原 selectors.js)
 // ==========================================
 
-/**
- * Favicon 選擇器（來自 MetadataExtractor.js）
- */
 export const FAVICON_SELECTORS = [
   'link[rel="icon"]',
   'link[rel="shortcut icon"]',
   'link[rel="apple-touch-icon"]',
 ];
 
-/**
- * Site Icon 選擇器配置（來自 MetadataExtractor.js extractSiteIcon）
- * 帶優先級和類型信息，用於智能選擇最佳 icon
- */
 export const SITE_ICON_SELECTORS = [
   { selector: 'link[rel="apple-touch-icon"]', attr: 'href', priority: 1, iconType: 'apple-touch' },
   {
@@ -229,9 +305,6 @@ export const SITE_ICON_SELECTORS = [
   { selector: 'link[rel="shortcut icon"]', attr: 'href', priority: 4, iconType: 'standard' },
 ];
 
-/**
- * 作者頭像/Logo 關鍵字（用於過濾，來自 MetadataExtractor.js）
- */
 export const AVATAR_KEYWORDS = [
   'avatar',
   'profile',
@@ -246,45 +319,24 @@ export const AVATAR_KEYWORDS = [
 ];
 
 // ==========================================
-// 技術文檔選擇器
+// 技術文檔選擇器 (原 selectors.js)
 // ==========================================
 
-/**
- * 技術文檔/Markdown 內容選擇器（來自 ContentExtractor.js）
- */
-/**
- * 技術文檔/Markdown 內容選擇器（來自 ContentExtractor.js）
- * 注意：僅包含明確的容器類名，避免使用通用標籤（如 article, main）以防止誤抓
- */
 export const TECHNICAL_CONTENT_SELECTORS = [
   '.markdown-body', // GitHub
   '.docs-content', // Generic Docs
   '.documentation', // Generic Docs
   '.gitbook-root', // GitBook
   '.md-content', // MkDocs
-  '.prose', // Tailwind Typography (確認是否過於寬泛? 通常 safe)
+  '.prose', // Tailwind Typography
   '#readme', // GitHub/NPM
 ];
 
 // ==========================================
-// 廣告元素選擇器
+// 廣告與 Preloader (原 selectors.js)
 // ==========================================
 
-/**
- * 廣告元素選擇器（用於頁面複雜度檢測）
- * 來源：Issue #178 - 擴充 pageComplexityDetector 廣告元素選擇器
- *
- * 注意事項：
- * - 使用空格邊界匹配避免誤判（如 .bad-element, #download-btn）
- * - [class^="ad-"] 匹配開頭，[class*=" ad-"] 匹配空格後的 ad-
- *
- * 與 EXCLUSION_SELECTORS 的關係：
- * - EXCLUSION_SELECTORS 用於圖片收集時排除非內容區域
- * - AD_SELECTORS 用於頁面複雜度檢測計算廣告數量
- * - 兩者的廣告選擇器應保持同步（.advertisement, .ads, .ad 等）
- */
 export const AD_SELECTORS = [
-  // 1. 精確類選擇器（與 EXCLUSION_SELECTORS 保持同步）
   '.advertisement',
   '.ads',
   '.ad',
@@ -292,62 +344,15 @@ export const AD_SELECTORS = [
   '.adsbygoogle',
   '.sponsor',
   '.sponsor-content',
-  // 2. 前綴匹配選擇器
   '[id^="div-gpt-ad"]',
-  // 3. 邊界匹配選擇器（涵蓋 .ad-container, .ad-banner, .ad-widget 等）
-  // class 以 "ad-" 開頭，或空格後跟 "ad-"
   '[class^="ad-"]',
   '[class*=" ad-"]',
-  // id 以 "ad-" 開頭，或包含 "-ad-" 模式
   '[id^="ad-"]',
   '[id*="-ad-"]',
-  // sponsor 相關
   '[id*="sponsor"]',
 ];
 
-// ==========================================
-// Preloader 選擇器
-// ==========================================
-
-/**
- * Preloader 使用的選擇器
- * 用於 PerformanceOptimizer 接管 Preloader 快取時使用
- *
- * 注意：此配置必須與 scripts/performance/preloader.js 中的硬編碼選擇器保持同步
- */
 export const PRELOADER_SELECTORS = {
   article: 'article',
   mainContent: 'main, [role="main"], #content, .content',
-};
-
-// ==========================================
-// 選項頁面 (Options Page) 選擇器
-// ==========================================
-
-export const OPTIONS_PAGE_SELECTORS = {
-  STATUS_CONTAINER: '#status',
-  MANUAL_SECTION: '.manual-section',
-  TEST_API_BUTTON: '#test-api-button',
-  HIDDEN_CLASS: 'hidden',
-  STATUS_MESSAGE_CLASS: 'status-message',
-};
-
-// ==========================================
-// 工具欄 (Toolbar) 選擇器
-// ==========================================
-
-export const TOOLBAR_SELECTORS = {
-  CONTAINER: '#notion-highlighter-v2',
-  MINI_ICON: '#notion-highlighter-mini-icon',
-  TOGGLE_HIGHLIGHT: '#toggle-highlight-v2',
-  MINIMIZE: '#minimize-highlight-v2',
-  CLOSE: '#close-highlight-v2',
-  COLOR_PICKER: '#color-picker-v2',
-  SYNC_TO_NOTION: '#sync-to-notion-v2',
-  OPEN_NOTION: '#open-notion-v2',
-  MANAGE_HIGHLIGHTS: '#manage-highlights-v2',
-  HIGHLIGHT_LIST: '#highlight-list-v2',
-  STATUS_CONTAINER: '#highlight-status-v2',
-  COUNT_DISPLAY: '#highlight-count-v2',
-  LIST_OPEN_NOTION: '#list-open-notion-v2',
 };

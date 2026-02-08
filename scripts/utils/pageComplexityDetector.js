@@ -1,4 +1,4 @@
-import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/selectors.js';
+import { TECHNICAL_CONTENT_SELECTORS, AD_SELECTORS } from '../config/extraction.js';
 import {
   TECHNICAL_TERMS,
   DOC_HOST_PATTERNS,
@@ -6,6 +6,7 @@ import {
   TECHNICAL_DOC_URL_PATTERNS,
   TECHNICAL_DOC_TITLE_PATTERNS,
 } from '../config/index.js';
+import Logger from './Logger.js';
 
 /**
  * 頁面複雜度檢測器
@@ -15,8 +16,6 @@ import {
  * - 新聞/複雜頁面 → Readability (穩定、完整性高)
  *
  * @author Content Extraction Team
- * @version 1.1
- * @date 2025-11-17
  */
 
 /**
@@ -90,15 +89,16 @@ export function isDocumentation(options = {}) {
 /**
  * 統計DOM元素數量
  *
- * @param container
- * @param selector
+ * @param {Document|Element} container - DOM 容器
+ * @param {string} selector - CSS 選擇器
+ * @returns {number} 元素數量
  */
 function countElements(container, selector) {
   try {
     const elements = container.querySelectorAll(selector);
     return elements ? elements.length : 0;
   } catch (error) {
-    console.warn(`❌ 無法統計元素 ${selector}:`, error.message);
+    Logger.warn(`無法統計元素 ${selector}`, { action: 'countElements', error: error.message });
     return 0;
   }
 }
@@ -107,19 +107,22 @@ function countElements(container, selector) {
  * 檢測技術內容特徵
  * 檢查頁面是否包含大量技術相關的內容
  *
- * @param document
+ * @param {Document} document - DOM 文檔對象
+ * @returns {{technicalTermCount: number, technicalRatio: number, isTechnical: boolean}} 技術特徵分析結果
  */
 function hasTechnicalFeatures(document) {
   const textContent = (document.body?.textContent || '').toLowerCase();
 
   // 技術關鍵詞計數 (使用統一配置)
-  const technicalTermCount = TECHNICAL_TERMS.reduce((count, term) => {
+  let technicalTermCount = 0;
+  for (const term of TECHNICAL_TERMS) {
     // Escape special characters in the term to support terms like 'c++'
     const escapedTerm = term.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+    /* eslint-disable-next-line security/detect-non-literal-regexp */
     const regex = new RegExp(String.raw`\b${escapedTerm}\b`, 'gi');
     const termMatches = textContent.match(regex);
-    return count + (termMatches ? termMatches.length : 0);
-  }, 0);
+    technicalTermCount += termMatches ? termMatches.length : 0;
+  }
 
   // 如果技術詞彙出現頻率高，認為是技術文檔
   const wordCount = textContent.split(/\s+/).length;
@@ -136,7 +139,8 @@ function hasTechnicalFeatures(document) {
  * 檢測頁面複雜度
  * 分析頁面結構，返回複雜度指標
  *
- * @param document
+ * @param {Document} [document=globalThis.document] - DOM 文檔對象
+ * @returns {object} 複雜度分析結果
  */
 export function detectPageComplexity(document = globalThis.document) {
   try {
@@ -148,7 +152,7 @@ export function detectPageComplexity(document = globalThis.document) {
         title: document?.title,
       }).isDoc,
 
-      // 廣告元素檢測（使用統一配置 scripts/config/selectors.js）
+      // 廣告元素檢測（使用統一配置 scripts/config/extraction.js）
       adElements: countElements(document, AD_SELECTORS.join(', ')),
       navElements: countElements(document, 'nav, header, footer, aside, .sidebar, .navigation'),
       contentElements: countElements(document, 'article, main, .content, .post, .entry, section'),
@@ -156,7 +160,7 @@ export function detectPageComplexity(document = globalThis.document) {
       // Markdown/技術文檔特徵
       codeBlocks: countElements(document, 'pre, code, .highlight, .codehilite'),
       // Markdown 容器檢測（GitHub, GitBook 等 Markdown 渲染頁面）
-      // 注意：必須保持與 scripts/config/selectors.js 中的 TECHNICAL_CONTENT_SELECTORS 一致 (嚴格模式)
+      // 注意：必須保持與 scripts/config/extraction.js 中的 TECHNICAL_CONTENT_SELECTORS 一致 (嚴格模式)
       markdownContainers: countElements(document, TECHNICAL_CONTENT_SELECTORS.join(', ')),
 
       // 媒體內容
@@ -198,7 +202,7 @@ export function detectPageComplexity(document = globalThis.document) {
 
     return complexity;
   } catch (error) {
-    console.error('❌ 頁面複雜度檢測失敗:', error);
+    Logger.error('頁面複雜度檢測失敗', { action: 'detectPageComplexity', error });
     // 回退到安全的預設值
     return {
       isClean: false,
@@ -222,21 +226,19 @@ export function detectPageComplexity(document = globalThis.document) {
  * - 新聞/複雜頁面 → Readability (穩定、完整性高)
  *
  * @author Content Extraction Team
- * @version 1.2
- * @date 2025-12-08
  */
 
 /**
  * 選擇最佳提取器
  * 基於頁面複雜度分析結果，選擇最適合的提取器
  *
- * @param complexity
+ * @param {object} complexity - 複雜度分析結果
+ * @returns {object} 選擇結果 {extractor, reasons, confidence, fallbackRequired}
  */
 export function selectExtractor(complexity) {
   const reasons = [];
 
   // 1. 強制規則：明確的 Markdown 容器 -> Markdown
-  // 這是最可信的信號，通常意味著這是一個專門的文檔頁面
   if (complexity.metrics.markdownContainers > 0) {
     return {
       extractor: 'markdown',
@@ -246,47 +248,16 @@ export function selectExtractor(complexity) {
     };
   }
 
-  // 2. 正常規則
-  // 優先選擇 @markdown 的條件
-  const preferMarkdown =
-    complexity.isClean || complexity.hasMarkdownFeatures || complexity.hasTechnicalContent;
+  // Determine extractor and gather reasons
+  const { hasAds, isComplexLayout, hasRichMedia, isLongForm } = complexity;
+  const requireReadability = hasAds || isComplexLayout || hasRichMedia || isLongForm;
 
-  // 必須使用 Readability 的條件
-  // 注意：即使有 Markdown 特徵 (如列表)，如果有廣告或複雜佈局，也應傾向於 Readability 以獲得清洗能力
-  const requireReadability =
-    complexity.hasAds || complexity.isComplexLayout || complexity.hasRichMedia;
+  const selectedExtractor = requireReadability ? 'readability' : 'markdown';
 
-  let selectedExtractor = 'markdown'; // 預設提取器
-
-  if (preferMarkdown && !requireReadability) {
-    selectedExtractor = 'markdown';
-    if (complexity.isClean) {
-      reasons.push('頁面簡潔');
-    }
-    if (complexity.hasMarkdownFeatures) {
-      // 只有在沒有干擾的情況下，才信任 Markdown 特徵
-      reasons.push('包含代碼/列表且佈局乾淨');
-    }
-    if (complexity.hasTechnicalContent) {
-      reasons.push('技術文檔內容');
-    }
-  } else if (requireReadability) {
-    selectedExtractor = 'readability';
-    if (complexity.hasAds) {
-      reasons.push('包含廣告元素');
-    }
-    if (complexity.isComplexLayout) {
-      reasons.push('複雜頁面佈局');
-    }
-    if (complexity.hasRichMedia) {
-      reasons.push('大量媒體內容');
-    }
-  } else if (complexity.isLongForm) {
-    selectedExtractor = 'readability';
-    reasons.push('長文內容');
+  if (requireReadability) {
+    _addReadabilityReasons(reasons, complexity);
   } else {
-    selectedExtractor = 'markdown';
-    reasons.push('一般頁面');
+    _addMarkdownReasons(reasons, complexity);
   }
 
   return {
@@ -298,47 +269,76 @@ export function selectExtractor(complexity) {
 }
 
 /**
+ * 計算 Markdown 提取器的信心度
+ *
+ * @param {object} complexity - 複雜度分析結果
+ * @returns {number} 信心分數調整值
+ */
+function getMarkdownConfidence(complexity) {
+  let score = 0;
+  const { isClean, hasMarkdownFeatures, hasTechnicalContent, hasAds, isComplexLayout } = complexity;
+
+  if (isClean) {
+    score += 20;
+  }
+  if (hasMarkdownFeatures) {
+    score += 15;
+  }
+  if (hasTechnicalContent) {
+    score += 15;
+  }
+  if (hasAds) {
+    score -= 25;
+  }
+  if (isComplexLayout) {
+    score -= 15;
+  }
+  return score;
+}
+
+/**
+ * 計算 Readability 提取器的信心度
+ *
+ * @param {object} complexity - 複雜度分析結果
+ * @returns {number} 信心分數調整值
+ */
+function getReadabilityConfidence(complexity) {
+  let score = 0;
+  const { hasAds, isComplexLayout, hasRichMedia, isLongForm, isClean } = complexity;
+
+  if (hasAds) {
+    score += 20;
+  }
+  if (isComplexLayout) {
+    score += 15;
+  }
+  if (hasRichMedia) {
+    score += 10;
+  }
+  if (isLongForm) {
+    score += 10;
+  }
+  if (isClean && !hasAds) {
+    score -= 15;
+  }
+  return score;
+}
+
+/**
  * 計算選擇信心度
  * 返回 0-100 的信心分數
  *
- * @param complexity
- * @param selectedExtractor
+ * @param {object} complexity - 複雜度分析結果
+ * @param {string} selectedExtractor - 選擇的提取器
+ * @returns {number} 信心分數 (0-100)
  */
 function calculateConfidence(complexity, selectedExtractor) {
   let confidence = 50; // 基礎信心度
 
   if (selectedExtractor === 'markdown') {
-    if (complexity.isClean) {
-      confidence += 20;
-    }
-    if (complexity.hasMarkdownFeatures) {
-      confidence += 15;
-    }
-    if (complexity.hasTechnicalContent) {
-      confidence += 15;
-    }
-    if (complexity.hasAds) {
-      confidence -= 25;
-    } // 有廣告會降低信心度
-    if (complexity.isComplexLayout) {
-      confidence -= 15;
-    }
+    confidence += getMarkdownConfidence(complexity);
   } else {
-    if (complexity.hasAds) {
-      confidence += 20;
-    }
-    if (complexity.isComplexLayout) {
-      confidence += 15;
-    }
-    if (complexity.hasRichMedia) {
-      confidence += 10;
-    }
-    if (complexity.isLongForm) {
-      confidence += 10;
-    }
-    if (complexity.isClean && !complexity.hasAds) {
-      confidence -= 15;
-    } // 簡潔頁面用 Readability 信心度較低
+    confidence += getReadabilityConfidence(complexity);
   }
 
   return Math.max(0, Math.min(100, confidence));
@@ -347,7 +347,8 @@ function calculateConfidence(complexity, selectedExtractor) {
 /**
  * 判斷是否需要備用方案
  *
- * @param complexity
+ * @param {object} complexity - 複雜度分析結果
+ * @returns {boolean} 是否需要備用方案
  */
 function shouldUseFallback(complexity) {
   // 如果頁面特徵不明顯，建議使用備用方案驗證
@@ -361,8 +362,9 @@ function shouldUseFallback(complexity) {
  * 獲取詳細的分析報告
  * 用於調試和監控
  *
- * @param complexity
- * @param selection
+ * @param {object} complexity - 複雜度分析結果
+ * @param {object} selection - 選擇結果
+ * @returns {object} 分析報告
  */
 export function getAnalysisReport(complexity, selection) {
   const report = {
@@ -393,8 +395,9 @@ export function getAnalysisReport(complexity, selection) {
 /**
  * 生成優化建議
  *
- * @param complexity
- * @param selection
+ * @param {object} complexity - 複雜度分析結果
+ * @param {object} selection - 選擇結果
+ * @returns {string[]} 建議列表
  */
 function generateRecommendations(complexity, selection) {
   const recommendations = [];
@@ -415,16 +418,61 @@ function generateRecommendations(complexity, selection) {
 }
 
 /**
+ * Helper to add reasons for selecting Readability
+ *
+ * @private
+ * @param {string[]} reasons - The array to push reasons to
+ * @param {object} complexity - The complexity analysis result
+ */
+function _addReadabilityReasons(reasons, complexity) {
+  const { hasAds, isComplexLayout, hasRichMedia, isLongForm } = complexity;
+  if (hasAds) {
+    reasons.push('包含廣告元素');
+  }
+  if (isComplexLayout) {
+    reasons.push('複雜頁面佈局');
+  }
+  if (hasRichMedia) {
+    reasons.push('大量媒體內容');
+  }
+  if (isLongForm) {
+    reasons.push('長文內容');
+  }
+}
+
+/**
+ * Helper to add reasons for selecting Markdown
+ *
+ * @private
+ * @param {string[]} reasons - The array to push reasons to
+ * @param {object} complexity - The complexity analysis result
+ */
+function _addMarkdownReasons(reasons, complexity) {
+  const { isClean, hasMarkdownFeatures, hasTechnicalContent } = complexity;
+  if (isClean) {
+    reasons.push('頁面簡潔');
+  }
+  if (hasMarkdownFeatures) {
+    reasons.push('包含代碼/列表且佈局乾淨');
+  }
+  if (hasTechnicalContent) {
+    reasons.push('技術文檔內容');
+  }
+  if (!isClean && !hasMarkdownFeatures && !hasTechnicalContent) {
+    reasons.push('一般頁面');
+  }
+}
+
+/**
  * 記錄分析結果 (用於效能監控)
  *
- * @param complexity
- * @param selection
- * @param extractionResult
+ * @param {object} complexity - 複雜度分析結果
+ * @param {object} selection - 選擇結果
+ * @param {object} extractionResult - 提取結果
+ * @returns {void}
  */
 export function logAnalysis(complexity, selection, extractionResult) {
-  if (typeof console === 'undefined') {
-    return;
-  }
+  // Logger handles environment checks
 
   const logData = {
     url: globalThis.location.href,
@@ -440,6 +488,9 @@ export function logAnalysis(complexity, selection, extractionResult) {
   if (globalThis.analytics) {
     globalThis.analytics.track('content_extraction_analysis', logData);
   }
+
+  // Log to console/buffer using Logger
+  Logger.info('Page analysis log', logData);
 }
 
 // 匯出主要功能

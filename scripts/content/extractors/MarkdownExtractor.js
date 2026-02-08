@@ -10,7 +10,7 @@
  */
 
 import Logger from '../../utils/Logger.js';
-import { TECHNICAL_CONTENT_SELECTORS } from '../../config/selectors.js';
+import { TECHNICAL_CONTENT_SELECTORS } from '../../config/extraction.js';
 
 export const MarkdownExtractor = {
   /**
@@ -20,13 +20,13 @@ export const MarkdownExtractor = {
    * @returns {object | null} { content, type: 'html', rawArticle }
    */
   extract(doc) {
-    Logger.log('📘 Executing MarkdownExtractor...');
+    Logger.log('Executing MarkdownExtractor');
 
     // 1. 尋找最佳容器
     const container = this.findContainer(doc);
     if (!container) {
       Logger.warn(
-        '⚠️ MarkdownExtractor activated but no valid container found using strict selectors.'
+        'MarkdownExtractor activated but no valid container found using strict selectors.'
       );
       return null;
     }
@@ -49,13 +49,14 @@ export const MarkdownExtractor = {
   /**
    * 尋找內容容器
    *
-   * @param doc
+   * @param {Document} doc - DOM Document
+   * @returns {Element|null} The found container element or null
    */
   findContainer(doc) {
     for (const selector of TECHNICAL_CONTENT_SELECTORS) {
       const element = doc.querySelector(selector);
       if (element) {
-        Logger.log(`✅ Found Markdown container: ${selector}`);
+        Logger.log('Found Markdown container', { selector });
         return element;
       }
     }

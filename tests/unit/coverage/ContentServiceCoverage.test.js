@@ -122,9 +122,16 @@ describe('Content Service Coverage Tests', () => {
 
              ImageCollector._collectFromNextJsData([]);
 
-             expect(Logger.warn).toHaveBeenCalledWith(
-                 '解析 Next.js Data JSON 失敗',
-                 expect.anything()
+             // NextJsExtractor catches the error and logs error, then returns null
+             // ImageCollector sees null and logs "提取結果為空"
+             // Since we can't easily spy on NextJsExtractor logger calls (it uses the imported Logger),
+             // and ImageCollector logs are what we are primarily testing here if possible,
+             // or we accept that it logs "提取結果為空" because the extraction failed silently from ImageCollector's perspective.
+
+             // Check for the error log from NextJsExtractor (since Logger is mocked globally)
+             expect(Logger.error).toHaveBeenCalledWith(
+                 'Next.js 提取過程發生錯誤',
+                 expect.objectContaining({ error: expect.stringContaining('Unexpected token') })
              );
         });
 
@@ -138,8 +145,10 @@ describe('Content Service Coverage Tests', () => {
 
              ImageCollector._collectFromNextJsData([]);
 
+             // NextJsExtractor logs warn, returns null.
+             // ImageCollector logs "提取結果為空"
              expect(Logger.log).toHaveBeenCalledWith(
-                 'Next.js Data 中未找到 article 對象，跳過提取',
+                 'Next.js Data 提取結果為空',
                  expect.anything()
              );
         });
@@ -154,7 +163,7 @@ describe('Content Service Coverage Tests', () => {
     describe('PageContentService Injected Logic Coverage', () => {
         // Helper to create mock injector that sets up global environment
         const createMockInjector = (setupGlobalFn) => ({
-            injectWithResponse: jest.fn(async (tabId, func, ..._args) => {
+            injectWithResponse: jest.fn(async (tabId, func, scripts, args) => {
                 const originalExtract = globalThis.extractPageContent;
                 const originalLogger = globalThis.Logger;
 
@@ -173,7 +182,8 @@ describe('Content Service Coverage Tests', () => {
                 }
 
                 try {
-                    return await func();
+                    // Pass arguments to the function (important for defaultPageTitle)
+                    return await func(...(args || []));
                 } finally {
                     // Restore global state
                     if (originalExtract === undefined) {
@@ -210,7 +220,8 @@ describe('Content Service Coverage Tests', () => {
             expect(result).toEqual({
                 title: 'Injected Title',
                 blocks: expect.any(Array),
-                siteIcon: 'icon.png'
+                siteIcon: 'icon.png',
+                coverImage: null
             });
         });
 

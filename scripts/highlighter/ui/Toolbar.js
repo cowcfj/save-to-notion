@@ -10,7 +10,7 @@ import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { renderHighlightList } from './components/HighlightList.js';
 import { injectIcons, createSpriteIcon } from '../../utils/uiUtils.js';
-import { TOOLBAR_SELECTORS } from '../../config/selectors.js';
+import { TOOLBAR_SELECTORS } from '../../config/ui-selectors.js';
 import { UI_STYLE_CONSTANTS } from '../../config/constants.js';
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';

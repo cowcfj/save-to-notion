@@ -24,16 +24,13 @@ import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { batchProcess, batchProcessWithRetry } from '../../performance/PerformanceOptimizer.js';
 
 import { cachedQuery } from './ReadabilityAdapter.js';
+import { NextJsExtractor } from './NextJsExtractor.js';
 import {
   FEATURED_IMAGE_SELECTORS,
   ARTICLE_SELECTORS,
   EXCLUSION_SELECTORS,
-} from '../../config/selectors.js';
-import {
-  IMAGE_VALIDATION_CONSTANTS,
-  PERFORMANCE_OPTIMIZER,
-  IMAGE_COLLECTION,
-} from '../../config/constants.js';
+} from '../../config/extraction.js';
+import { IMAGE_VALIDATION_CONSTANTS, IMAGE_COLLECTION } from '../../config/constants.js';
 
 const ImageCollector = {
   /**
@@ -190,22 +187,32 @@ const ImageCollector = {
         return null;
       }
 
-      // 4. 檢查尺寸 (如果 ImageUtils 有 getSize 或類似方法，或者我們需要加載圖片檢查)
-      // 這裡簡化處理，假設 ImageUtils.isValidImageUrl 已經做了一些檢查
-      // 原代碼中有檢查 naturalWidth/Height，但在 content.js 中這部分邏輯似乎被簡化了或依賴 ImageUtils
-      // 讓我們檢查 content.js 的 processImageForCollection (我之前看過)
-      // 原代碼有檢查 img.naturalWidth < 200 等。我應該加上。
+      // 4. 檢查尺寸過濾小圖
+      // 優先使用 naturalWidth/naturalHeight（已載入的圖片）
+      // 回退到 HTML width/height 屬性或 data-width/data-height（處理懶加載圖片）
+      const imgWidth =
+        img.naturalWidth ||
+        Number.parseInt(img.getAttribute('width'), 10) ||
+        Number.parseInt(img.dataset.width, 10) ||
+        0;
+      const imgHeight =
+        img.naturalHeight ||
+        Number.parseInt(img.getAttribute('height'), 10) ||
+        Number.parseInt(img.dataset.height, 10) ||
+        0;
 
+      // 只在有有效尺寸資訊時進行過濾（避免誤殺未設置尺寸屬性的大圖）
       if (
-        img.naturalWidth > 0 &&
-        img.naturalHeight > 0 &&
-        (img.naturalWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
-          img.naturalHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT)
+        imgWidth > 0 &&
+        imgHeight > 0 &&
+        (imgWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
+          imgHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT)
       ) {
         Logger.log('圖片尺寸太小', {
           action: 'processImageForCollection',
-          width: img.naturalWidth,
-          height: img.naturalHeight,
+          width: imgWidth,
+          height: imgHeight,
+          source: img.naturalWidth > 0 ? 'naturalSize' : 'htmlAttribute',
         });
         return null;
       }
@@ -236,45 +243,14 @@ const ImageCollector = {
   },
 
   /**
-   * 順序處理圖片列表
-   *
-   * @param {Element[]} images - 圖片元素數組
-   * @param {string|null} featuredImage - 特色圖片 URL
-   * @param {Array<object>} additionalImages - 用於存儲結果的數組
-   */
-  processImagesSequentially(images, featuredImage, additionalImages) {
-    // 追蹤已處理的 URL，避免重複添加
-    const processedUrls = new Set();
-    // 如果有特色圖片，先加入已處理集合
-    if (featuredImage) {
-      processedUrls.add(featuredImage);
-    }
-
-    images.forEach((img, index) => {
-      const result = ImageCollector.processImageForCollection(img, index, featuredImage);
-      if (result) {
-        const url = result.image?.external?.url;
-        // 檢查是否已處理過這個 URL
-        if (url && !processedUrls.has(url)) {
-          processedUrls.add(url);
-          additionalImages.push(result);
-        } else if (url) {
-          Logger.log('跳過重複的圖片 URL', {
-            action: 'processImagesSequentially',
-            url: sanitizeUrlForLogging(url),
-          });
-        }
-      }
-    });
-  },
-
-  /**
    * 收集頁面中的所有相關圖片
    *
    * @param {Element} contentElement - 主要內容元素
+   * @param {object} [options] - 配置選項
+   * @param {Array} [options.nextJsBlocks] - 預先提取的 Next.js 區塊 (避免重複解析)
    * @returns {Promise<{images: Array<object>, coverImage: string|null}>} 包含圖片對象數組 (images) 和封面圖片 URL (coverImage) 的對象
    */
-  async collectAdditionalImages(contentElement) {
+  async collectAdditionalImages(contentElement, options = {}) {
     const additionalImages = [];
 
     // 策略 0: 優先查找封面圖/特色圖片
@@ -295,7 +271,8 @@ const ImageCollector = {
     }
 
     // 策略 4: 嘗試從 Next.js Data 提取 (針對 HK01 等 CSR/SSR 網站)
-    this._collectFromNextJsData(allImages);
+    // 如果傳入了 nextJsBlocks，則直接使用，避免重複解析 DOM
+    this._collectFromNextJsData(allImages, options.nextJsBlocks);
 
     Logger.log('待處理圖片總數', { action: 'collectAdditionalImages', count: allImages.length });
 
@@ -405,218 +382,105 @@ const ImageCollector = {
 
   /**
    * 從 Next.js 的 hydration data (__NEXT_DATA__) 中提取圖片
-   * 適用於像 HK01 這樣使用 CSR/SSR 且圖片資訊存在於 JSON 中的網站
+   * 委託 NextJsExtractor 處理解析
    *
    * @param {Array} allImages - 現有的圖片元素數組
+   * @param {Array} [preExtractedBlocks] - 預先提取的 Next.js 區塊
    */
-  _collectFromNextJsData(allImages) {
-    Logger.log('圖片收集策略：Next.js Data (scoped)', { action: 'collectAdditionalImages' });
+  _collectFromNextJsData(allImages, preExtractedBlocks) {
+    Logger.log('圖片收集策略：Next.js Data', { action: 'collectAdditionalImages' });
 
-    // 1. 獲取並解析 JSON 數據
-    const nextDataScript = document.querySelector('#__NEXT_DATA__');
-    if (!nextDataScript) {
-      return;
-    }
+    let blocks = preExtractedBlocks;
 
-    // 防禦性檢查：避免解析過大的 JSON 導致主線程阻塞
-    const textContent = nextDataScript.textContent ?? '';
-    if (textContent.length > PERFORMANCE_OPTIMIZER.MAX_NEXT_DATA_SIZE) {
-      Logger.warn('Next.js Data 超過大小限制，跳過解析', {
-        action: 'collectAdditionalImages',
-        size: textContent.length,
-        limit: PERFORMANCE_OPTIMIZER.MAX_NEXT_DATA_SIZE,
+    // 如果沒有預先提取的區塊，則嘗試解析
+    if (blocks) {
+      Logger.log('使用預提取的 Next.js 區塊進行圖片收集', {
+        count: blocks.length,
       });
-      return;
-    }
-
-    let nextData;
-    try {
-      nextData = JSON.parse(textContent);
-    } catch (error) {
-      Logger.warn('解析 Next.js Data JSON 失敗', { error: error.message });
-      return;
-    }
-
-    const foundImages = [];
-    const seenUrls = new Set(); // 用於去重
-
-    // 2. 嘗試多個可能的 article 路徑（不同 Next.js 網站結構可能不同）
-    // HK01 使用 props.initialProps.pageProps.article
-    // 標準 Next.js 使用 props.pageProps.article
-    const articlePaths = [
-      nextData?.props?.initialProps?.pageProps?.article, // HK01 特定路徑
-      nextData?.props?.pageProps?.article, // 標準 Next.js 路徑
-    ];
-
-    const articleData = articlePaths.find(path => path !== undefined && path !== null);
-
-    if (articleData) {
-      Logger.log('從 Next.js Data 找到 article 對象', {
-        action: 'collectAdditionalImages',
-        hasMainImage: Boolean(articleData.mainImage),
-        hasBlocks: Boolean(articleData.blocks),
-        hasGallery: Boolean(articleData.gallery),
-      });
-      this._extractImagesFromArticleData(articleData, foundImages, seenUrls);
     } else {
-      // 如果找不到 article 對象，記錄警告但不進行全域遞歸搜索，避免提取無關圖片
-      const propsKeys = nextData?.props ? Object.keys(nextData.props) : [];
-      let pagePropsKeys = [];
-      if (nextData?.props?.pageProps) {
-        pagePropsKeys = Object.keys(nextData.props.pageProps);
-      } else if (nextData?.props?.initialProps?.pageProps) {
-        pagePropsKeys = Object.keys(nextData.props.initialProps.pageProps);
-      }
-      Logger.log('Next.js Data 中未找到 article 對象，跳過提取', { propsKeys, pagePropsKeys });
-    }
-
-    // 3. 記錄日誌
-    this._logFoundImages(foundImages);
-
-    // 4. 添加到結果集
-    const addedCount = this._addImagesToCollection(foundImages, allImages);
-    Logger.log('已添加來自 Next.js Data 的新圖片', { count: addedCount });
-  },
-
-  /**
-   * 從 article 數據中提取圖片 (提取輔助方法以降低複雜度)
-   *
-   * 注意: 此方法目前與 HK01 的數據結構 (mainImage, originalImage, gallery, blocks) 高度耦合。
-   * 如果未來需要支援其他 Next.js 網站，應考慮將欄位映射邏輯抽離為可配置的策略模式。
-   *
-   * @param {object} articleData - 文章數據對象
-   * @param {Array} foundImages - 存儲找到的圖片的數組
-   * @param {Set} seenUrls - 用於去重的 URL 集合
-   * @private
-   */
-  _extractImagesFromArticleData(articleData, foundImages, seenUrls) {
-    // 設定提取目標：主圖、原圖、圖庫
-    // 排除 thumbnails 以避免重複和低畫質圖片
-    const candidates = [
-      articleData.mainImage,
-      articleData.originalImage,
-      ...(articleData.gallery?.images || []),
-    ].filter(Boolean); // 過濾掉 null/undefined
-
-    // HK01 特定: 從 blocks 數組中提取圖片
-    // blocks 中的圖片區塊有 blockType: 'image' 或 'gallery'
-    if (Array.isArray(articleData.blocks)) {
-      articleData.blocks.forEach(block => {
-        // 處理單張圖片區塊
-        if (block.blockType === 'image' && block.image) {
-          candidates.push(block.image);
-        }
-        // 處理圖庫區塊
-        if (block.blockType === 'gallery' && Array.isArray(block.images)) {
-          candidates.push(...block.images);
-        }
-      });
-    }
-
-    for (const imgData of candidates) {
-      if (!imgData?.cdnUrl || typeof imgData.cdnUrl !== 'string') {
-        Logger.debug('Next.js Data 圖片候選者缺少或無效 cdnUrl，已跳過', {
-          imgDataKeys: imgData ? Object.keys(imgData) : 'null/undefined',
-        });
-        continue;
-      }
-
-      const url = imgData.cdnUrl;
-
-      // 早期驗證：過濾無效 URL，避免後續建立不必要的 DOM 元素
-      if (!isValidImageUrl?.(url)) {
-        continue;
-      }
-
-      // 去重檢查
-      if (!seenUrls.has(url)) {
-        seenUrls.add(url);
-        foundImages.push({
-          url, // 使用簡寫
-          width: imgData.originalWidth, // HK01 使用 originalWidth
-          height: imgData.originalHeight,
-          caption: imgData.caption,
-        });
-      }
-    }
-  },
-
-  /**
-   * 記錄找到的圖片 (提取輔助方法)
-   *
-   * @param {Array} foundImages - 找到的圖片數組
-   * @private
-   */
-  _logFoundImages(foundImages) {
-    Logger.log('從 Next.js Data 找到潛在圖片', {
-      count: foundImages.length,
-      samples: foundImages.slice(0, 3).map(img => {
-        const urlStr = img.url || '';
-        return urlStr.length > 50 ? `...${urlStr.slice(-50)}` : urlStr;
-      }),
-    });
-  },
-
-  /**
-   * 將找到的圖片添加到集合中 (提取輔助方法)
-   *
-   * @param {Array} foundImages - 找到的圖片數組
-   * @param {Array} allImages - 所有圖片元素的數組
-   * @returns {number} 添加的圖片數量
-   * @private
-   */
-  _addImagesToCollection(foundImages, allImages) {
-    let addedCount = 0;
-    const seenUrls = new Set(allImages.map(img => img.src));
-
-    foundImages.forEach(data => {
-      let normalizedHref;
-      try {
-        const urlObj = new URL(data.url, document.baseURI);
-        // Security check: ensure protocol is http or https to prevent XSS
-        if (!['http:', 'https:'].includes(urlObj.protocol)) {
-          return;
-        }
-        normalizedHref = urlObj.href;
-      } catch {
-        return; // Skip invalid URLs
-      }
-
-      // 檢查是否已存在於 allImages (通過 normalized URL)
-      if (seenUrls.has(normalizedHref)) {
+      // 使用 NextJsExtractor 進行檢測與提取
+      if (!NextJsExtractor.detect(document)) {
         return;
       }
 
-      // 創建偽造的 img 元素以便重用現有的處理邏輯
-      const fakeImg = document.createElement('img');
-      fakeImg.src = normalizedHref;
-
-      if (data.width) {
-        Object.defineProperty(fakeImg, 'naturalWidth', { value: Number(data.width) });
+      const result = NextJsExtractor.extract(document);
+      if (!result?.blocks) {
+        Logger.log('Next.js Data 提取結果為空', { action: 'collectAdditionalImages' });
+        return;
       }
-      if (data.height) {
-        Object.defineProperty(fakeImg, 'naturalHeight', { value: Number(data.height) });
-      }
-      if (data.caption) {
-        fakeImg.alt = data.caption;
-      }
+      blocks = result.blocks;
+    }
 
-      // 添加一個標記屬性，識別來源
-      fakeImg.dataset.source = 'nextjs-data';
+    if (!Array.isArray(blocks)) {
+      return;
+    }
 
-      allImages.push(fakeImg);
-      seenUrls.add(normalizedHref);
-      addedCount++;
+    let addedCount = 0;
+    const seenUrls = new Set(allImages.map(img => img.src).filter(Boolean));
+
+    // 從轉換後的 Notion Blocks 中提取圖片
+    blocks.forEach(block => {
+      if (block.type === 'image' && block.image?.external?.url) {
+        const url = block.image.external.url;
+
+        // 簡單去重與驗證
+        if (!seenUrls.has(url) && isValidImageUrl?.(url)) {
+          // 創建偽造的 img 元素以便重用現有的處理邏輯
+          const fakeImg = document.createElement('img');
+          fakeImg.src = url;
+          fakeImg.alt = block.image?.caption?.[0]?.text?.content || '';
+          fakeImg.dataset.source = 'nextjs-data';
+
+          allImages.push(fakeImg);
+          seenUrls.add(url);
+          addedCount++;
+        }
+      }
     });
-    return addedCount;
+
+    Logger.log('從 Next.js Data 添加了新圖片', { count: addedCount });
+  },
+
+  /**
+   * 順序處理圖片列表
+   *
+   * @param {Element[]} images - 圖片元素數組
+   * @param {string|null} featuredImage - 特色圖片 URL
+   * @param {Array<object>} additionalImages - 用於存儲結果的數組
+   * @param {Set<string>} processedUrls - 已處理的 URL 集合 (Context)
+   */
+  processImagesSequentially(images, featuredImage, additionalImages, processedUrls = new Set()) {
+    // 如果有特色圖片且尚未記錄，先加入
+    if (featuredImage && !processedUrls.has(featuredImage)) {
+      processedUrls.add(featuredImage);
+    }
+
+    images.forEach((img, index) => {
+      const result = ImageCollector.processImageForCollection(img, index, featuredImage);
+      if (result) {
+        const url = result.image?.external?.url;
+        // 檢查是否已處理過這個 URL
+        if (url && !processedUrls.has(url)) {
+          processedUrls.add(url);
+          additionalImages.push(result);
+        } else if (url) {
+          Logger.log('跳過重複的圖片 URL', {
+            action: 'processImagesSequentially',
+            url: sanitizeUrlForLogging(url),
+          });
+        }
+      }
+    });
   },
 
   async _processImages(allImages, featuredImage, additionalImages) {
-    // 初始化已處理的 URL 集合，以防止重複
+    // 初始化已處理的 URL 集合，以防止重複 (Shared Context)
     const processedUrls = new Set();
     if (featuredImage) {
       processedUrls.add(featuredImage);
     }
+
+    // 初始化已有結果的 URL
     additionalImages.forEach(img => {
       const url = img.image?.external?.url;
       if (url) {
@@ -630,48 +494,58 @@ const ImageCollector = {
         count: allImages.length,
       });
 
-      if (typeof batchProcessWithRetry === 'function') {
-        const { results } = await batchProcessWithRetry(
-          allImages,
-          (img, index) => ImageCollector.processImageForCollection(img, index, featuredImage),
-          { maxAttempts: 3, isResultSuccessful: result => Boolean(result?.image?.external?.url) }
-        );
-        if (results) {
-          results.forEach(result => {
-            if (!result) {
-              return;
-            }
-            const url = result.image?.external?.url;
-            if (url && !processedUrls.has(url)) {
-              processedUrls.add(url);
-              additionalImages.push(result);
-            }
-          });
-        } else {
-          ImageCollector.processImagesSequentially(allImages, featuredImage, additionalImages);
+      // 定義處理函數，注意這裡不進行去重，去重在收集結果時統一處理
+      const processFn = ({ img, index }) => {
+        return ImageCollector.processImageForCollection(img, index, featuredImage);
+      };
+
+      const handleResults = results => {
+        if (!results) {
+          return;
         }
+        results.forEach(result => {
+          if (!result) {
+            return;
+          }
+          const url = result.image?.external?.url;
+          if (url && !processedUrls.has(url)) {
+            processedUrls.add(url);
+            additionalImages.push(result);
+          }
+        });
+      };
+
+      if (typeof batchProcessWithRetry === 'function') {
+        const indexedImages = allImages.map((img, index) => ({ img, index }));
+        const { results } = await batchProcessWithRetry(indexedImages, processFn, {
+          maxAttempts: 3,
+          isResultSuccessful: result => Boolean(result?.image?.external?.url),
+        });
+        handleResults(results);
       } else {
         // Fallback to simple batch
         try {
-          const results = await batchProcess(allImages, (img, index) =>
-            ImageCollector.processImageForCollection(img, index, featuredImage)
+          // Wrap images with index if simple batch accepts array
+          const indexedImages = allImages.map((img, index) => ({ img, index }));
+          const results = await batchProcess(indexedImages, processFn);
+          handleResults(results);
+        } catch (error) {
+          Logger.warn('批次處理失敗，回退到順序處理', { error: error.message });
+          ImageCollector.processImagesSequentially(
+            allImages,
+            featuredImage,
+            additionalImages,
+            processedUrls
           );
-          results.forEach(result => {
-            if (!result) {
-              return;
-            }
-            const url = result.image?.external?.url;
-            if (url && !processedUrls.has(url)) {
-              processedUrls.add(url);
-              additionalImages.push(result);
-            }
-          });
-        } catch {
-          ImageCollector.processImagesSequentially(allImages, featuredImage, additionalImages);
         }
       }
     } else {
-      ImageCollector.processImagesSequentially(allImages, featuredImage, additionalImages);
+      ImageCollector.processImagesSequentially(
+        allImages,
+        featuredImage,
+        additionalImages,
+        processedUrls
+      );
     }
   },
 };

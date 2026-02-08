@@ -7,7 +7,7 @@ import {
   ARTICLE_SELECTORS,
   CMS_CONTENT_SELECTORS,
   PRELOADER_SELECTORS,
-} from '../config/selectors.js';
+} from '../config/extraction.js';
 import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
@@ -192,7 +192,7 @@ class PerformanceOptimizer {
    */
   batchProcessImages(images, processor, options = {}) {
     if (!this.options.enableBatching) {
-      return Promise.resolve(images.map(processor));
+      return Promise.resolve(images.map(img => processor(img)));
     }
 
     return new Promise((resolve, reject) => {
@@ -260,10 +260,10 @@ class PerformanceOptimizer {
           resolve({ url, success: true, image: img });
         });
 
-        img.onerror = () => {
+        img.addEventListener('error', () => {
           clearTimeout(timer);
           resolve({ url, success: false, error: 'Load failed' });
-        };
+        });
 
         img.src = url;
       });
@@ -379,7 +379,7 @@ class PerformanceOptimizer {
       const result = context.querySelectorAll(selector);
       return result.length === 1 ? result[0] : result;
     } catch (error) {
-      console.error('DOM Query Error:', error);
+      Logger.error('DOM Query Error', { error });
       if (ErrorHandler !== undefined) {
         ErrorHandler.logError({
           type: 'dom_error',
@@ -442,7 +442,7 @@ class PerformanceOptimizer {
         // NodeList 或數組
         return Array.from(result).every(el => {
           // 確保 el 是有效的 Node 對象
-          if (!el || !el.nodeType) {
+          if (!el?.nodeType) {
             return false;
           }
 
@@ -485,51 +485,9 @@ class PerformanceOptimizer {
     const results = [];
 
     for (const selector of selectors) {
-      if (this.prewarmedSelectors.has(selector)) {
-        continue; // 已預熱過，跳過
-      }
-
-      try {
-        // 執行查詢並將結果存入緩存
-        const result = this.cachedQuery(selector, context);
-
-        if (result) {
-          results.push({
-            selector,
-            count: result.length || (result.nodeType ? 1 : 0),
-            cached: true,
-          });
-
-          this.cacheStats.prewarms++;
-          this.prewarmedSelectors.add(selector);
-
-          Logger.info('預熱成功', {
-            action: 'preloadSelectors',
-            selector,
-            count: results.at(-1).count,
-          });
-        }
-      } catch (error) {
-        Logger.warn('預熱選擇器失敗', {
-          action: 'preloadSelectors',
-          selector,
-          error: error.message,
-        });
-
-        if (ErrorHandler !== undefined) {
-          ErrorHandler.logError({
-            type: 'preload_error',
-            context: `preloading selector: ${selector}`,
-            originalError: error,
-            timestamp: Date.now(),
-          });
-        }
-
-        results.push({
-          selector,
-          error: error.message,
-          cached: false,
-        });
+      const result = this._preloadSingleSelector(selector, context);
+      if (result) {
+        results.push(result);
       }
     }
 
@@ -540,6 +498,80 @@ class PerformanceOptimizer {
     });
     // 保守策略：統一以 Promise.resolve 返回，呼叫者可以使用 await 一致處理
     return Promise.resolve(results);
+  }
+
+  /**
+   * 預熱單個選擇器
+   *
+   * @param {string} selector - CSS 選擇器
+   * @param {Element} context - 查詢上下文
+   * @returns {object|null} 預熱結果或 null (如果跳過)
+   * @private
+   */
+  _preloadSingleSelector(selector, context) {
+    if (this.prewarmedSelectors.has(selector)) {
+      Logger.debug('預熱跳過：已預熱', { action: 'preloadSelectors', selector });
+      return null; // 已預熱過，跳過
+    }
+
+    try {
+      // 執行查詢並將結果存入緩存
+      const result = this.cachedQuery(selector, context);
+
+      if (result) {
+        // Fix: Empty NodeList/Array is truthy but represents "no hits"
+        if (result.length !== undefined && result.length === 0) {
+          Logger.debug('預熱跳過：結果為空', { action: 'preloadSelectors', selector });
+          return null;
+        }
+
+        let count = 0;
+        if (result.length !== undefined) {
+          count = result.length;
+        } else if (result.nodeType) {
+          count = 1;
+        }
+
+        this.cacheStats.prewarms++;
+        this.prewarmedSelectors.add(selector);
+
+        Logger.info('預熱成功', {
+          action: 'preloadSelectors',
+          selector,
+          count,
+        });
+
+        return {
+          selector,
+          count,
+          cached: true,
+        };
+      }
+    } catch (error) {
+      Logger.warn('預熱選擇器失敗', {
+        action: 'preloadSelectors',
+        selector,
+        error: error.message,
+      });
+
+      if (ErrorHandler !== undefined) {
+        ErrorHandler.logError({
+          type: 'preload_error',
+          context: `preloading selector: ${selector}`,
+          originalError: error,
+          timestamp: Date.now(),
+        });
+      }
+
+      return {
+        selector,
+        error: error.message,
+        cached: false,
+      };
+    }
+
+    Logger.debug('預熱跳過：查詢無結果', { action: 'preloadSelectors', selector });
+    return null;
   }
 
   /**
@@ -621,7 +653,7 @@ class PerformanceOptimizer {
   /**
    * 維護緩存大小限制，實現 LRU 策略
    *
-   * @param newKey
+   * @param {string} newKey - 新增的緩存鍵
    * @private
    */
   _maintainCacheSizeLimit(newKey) {
@@ -825,6 +857,7 @@ class PerformanceOptimizer {
   /**
    * 計算最佳批處理大小
    *
+   * @returns {number} 最佳批處理大小
    * @private
    */
   _calculateOptimalBatchSize() {
@@ -853,10 +886,10 @@ class PerformanceOptimizer {
   /**
    * 分批處理項目以避免阻塞 UI
    *
-   * @param items
-   * @param startTime
-   * @param index
-   * @param results
+   * @param {Array} items - 要處理的項目數組
+   * @param {number} startTime - 開始時間
+   * @param {number} index - 當前處理索引
+   * @param {Array} results - 累積結果
    * @private
    */
   _processBatchItems(items, startTime, index = 0, results = []) {
@@ -865,33 +898,7 @@ class PerformanceOptimizer {
 
     // 處理當前塊
     for (let i = index; i < endIndex; i++) {
-      const item = items[i];
-      try {
-        if (item.type === 'dom') {
-          // DOM 操作批處理
-          const result = item.operations.map(op => op());
-          item.resolve(result);
-          results.push(result);
-        } else {
-          // 圖片處理批處理或其他處理
-          const result = Array.isArray(item.images)
-            ? item.images.map(img => item.processor(img))
-            : [item.processor()]; // 處理單個項目
-          item.resolve(result);
-          results.push(result);
-        }
-      } catch (error) {
-        if (ErrorHandler !== undefined) {
-          ErrorHandler.logError({
-            type: 'performance_warning',
-            context: 'batch processing',
-            originalError: error,
-            timestamp: Date.now(),
-          });
-        }
-        // Return empty array on error so Promise.all (or map) doesn't fail entire batch
-        item.resolve([]);
-      }
+      this._processSingleBatchItem(items[i], results);
     }
 
     // 如果還有更多項目，安排下一塊處理
@@ -917,11 +924,50 @@ class PerformanceOptimizer {
   }
 
   /**
+   * 處理單個批處理項目
+   * Extracts complex logic from _processBatchItems to reduce cognitive complexity.
+   *
+   * @param {object} item - 批處理項目
+   * @param {Array} results - 結果數組
+   * @returns {void} Function resolves the item's promise directly; never rejects (resolve with empty/error object).
+   * @private
+   */
+  _processSingleBatchItem(item, results) {
+    try {
+      if (item.type === 'dom') {
+        // DOM 操作批處理
+        const result = item.operations.map(op => op());
+        item.resolve(result);
+        results.push(result);
+      } else {
+        // 圖片處理批處理或其他處理
+        const result = Array.isArray(item.images)
+          ? item.images.map(img => item.processor(img))
+          : [item.processor()]; // 處理單個項目
+        item.resolve(result);
+        results.push(result);
+      }
+    } catch (error) {
+      if (ErrorHandler !== undefined) {
+        ErrorHandler.logError({
+          type: 'performance_warning',
+          context: 'batch processing',
+          originalError: error,
+          timestamp: Date.now(),
+        });
+      }
+      // Return empty array on error so Promise.all (or map) doesn't fail entire batch
+      item.resolve([]);
+    }
+  }
+
+  /**
    * 分批處理數組
    *
-   * @param items
-   * @param batchSize
-   * @param processor
+   * @param {Array} items - 要處理的項目
+   * @param {number} batchSize - 批處理大小
+   * @param {Function} processor - 處理函數
+   * @returns {Promise<Array>} 處理結果
    * @private
    */
   async _processInBatches(items, batchSize, processor) {
@@ -936,7 +982,7 @@ class PerformanceOptimizer {
         // 如果動態大小小於當前批次，進行細分
         for (let j = 0; j < batch.length; j += dynamicBatchSize) {
           const subBatch = batch.slice(j, j + dynamicBatchSize);
-          const subBatchPromises = subBatch.map(processor);
+          const subBatchPromises = subBatch.map(item => processor(item));
           const subBatchResults = await Promise.allSettled(subBatchPromises);
 
           results.push(
@@ -949,7 +995,7 @@ class PerformanceOptimizer {
           await PerformanceOptimizer._yieldToMain();
         }
       } else {
-        const batchPromises = batch.map(processor);
+        const batchPromises = batch.map(item => processor(item));
         const batchResults = await Promise.allSettled(batchPromises);
 
         results.push(
@@ -966,7 +1012,8 @@ class PerformanceOptimizer {
   /**
    * 根據性能動態調整批處理大小
    *
-   * @param currentSize
+   * @param {number} currentSize - 當前批次大小
+   * @returns {number} 調整後的大小
    * @private
    */
   _adjustBatchSizeForPerformance(currentSize) {
@@ -1007,7 +1054,7 @@ class PerformanceOptimizer {
   /**
    * 記錄查詢時間
    *
-   * @param startTime
+   * @param {number} startTime - 開始時間戳
    * @private
    */
   _recordQueryTime(startTime) {
@@ -1028,10 +1075,10 @@ class PerformanceOptimizer {
    *
    * @private
    * @static
-   * @returns {object | null} 內存統計對象或 null（如果不支持）
-   * @returns {number} returns.usedJSHeapSize - 已使用的 JS 堆大小（字節）
-   * @returns {number} returns.totalJSHeapSize - JS 堆總大小（字節）
-   * @returns {number} returns.jsHeapSizeLimit - JS 堆大小限制（字節）
+   * @returns {object|null} 內存統計對象或 null（如果不支持）
+   * @property {number} usedJSHeapSize - 已使用的 JS 堆大小（字節）
+   * @property {number} totalJSHeapSize - JS 堆總大小（字節）
+   * @property {number} jsHeapSizeLimit - JS 堆大小限制（字節）
    */
   static _getMemoryStats() {
     // 檢查 window.performance.memory 或 global.performance.memory（測試環境）

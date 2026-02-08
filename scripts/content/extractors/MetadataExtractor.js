@@ -15,7 +15,7 @@ import {
   SITE_ICON_SELECTORS,
   AVATAR_KEYWORDS,
   IMAGE_SRC_ATTRIBUTES,
-} from '../../config/selectors.js';
+} from '../../config/extraction.js';
 
 const MetadataExtractor = {
   /**

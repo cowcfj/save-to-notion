@@ -84,6 +84,50 @@ function _normalizeUrlInternal(url) {
 }
 
 /**
+ * 處理 Next.js 圖片優化 URL 的拆包邏輯 (私有輔助函數)
+ *
+ * @param {URL} urlObj - 解析後的 URL 對象
+ * @param {number} depth - 當前遞迴深度
+ * @returns {string|null} 拆包後的標準 URL 或 null
+ * @private
+ */
+function _unwrapNextJsUrl(urlObj, depth) {
+  // 檢查路徑特徵
+  if (!urlObj.pathname.includes('/_next/image')) {
+    return null;
+  }
+
+  const urlParam = urlObj.searchParams.get('url');
+  if (!urlParam) {
+    return null;
+  }
+
+  try {
+    let nextUrl = urlParam;
+
+    // 處理 _normalizeUrlInternal 可能引入的雙重編碼問題
+    // 如果 URL 參數看起來仍被編碼 (如 https%3A%2F%2F 或 %2F 開頭)，嘗試解碼
+    if (!/^https?:\/\//i.test(nextUrl) && /^(?:https?%3A%2F%2F|%2F)/i.test(nextUrl)) {
+      try {
+        nextUrl = decodeURIComponent(nextUrl);
+      } catch {
+        // 解碼失敗則保持原樣
+      }
+    }
+
+    // 如果是相對路徑，則繼承當前 URL 的 origin
+    const isAbsolute = /^https?:\/\//i.test(nextUrl);
+    if (!isAbsolute) {
+      nextUrl = new URL(nextUrl, urlObj.origin).href;
+    }
+
+    return cleanImageUrl(nextUrl, depth + 1);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 清理和標準化圖片 URL (整合 normalizeImageUrl)
  *
  * @param {string} url - 原始圖片 URL
@@ -129,6 +173,12 @@ function cleanImageUrl(url, depth = 0) {
   const { urlObj, isRelative } = resolved;
 
   try {
+    // 優先處理 Next.js 拆包 (提取為獨立函數以降低複雜度)
+    const unwrappedNextUrl = _unwrapNextJsUrl(urlObj, depth);
+    if (unwrappedNextUrl) {
+      return unwrappedNextUrl;
+    }
+
     // 處理代理 URL
     if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
       const uParam = urlObj.searchParams.get('u');
@@ -283,13 +333,30 @@ function _checkUrlPatterns(url, isAbsolute) {
       return true;
     }
 
-    // 排除特定模式
+    // 2. 先檢查正向圖片路徑模式 (優先於排除)
+    if (IMAGE_PATH_PATTERNS.some(pattern => pattern.test(url))) {
+      // 但必須確保它不是被明確排除的文件類型 (如 .js, .json)
+      // 這解決了 https://example.com/api/images/data.js 的誤判問題
+      const isExplicitlyExcluded = EXCLUDE_PATTERNS.some(pattern => {
+        // 只檢查文件擴展名相關的排除模式 (通常包含 \.)
+        // WARNING: 这是一个启发式检查，假设包含 "\." 的模式是为了匹配文件扩展名。
+        // 如果 EXCLUDE_PATTERNS 中包含像 /\.internal\.domain/ 这样的非扩展名模式，这里可能会产生假阴性。
+        // Future improvement: 在 patterns.js 中明确区分 "扩展名排除" 和 "路径排除"。
+        return pattern.source.includes(String.raw`\.`) && pattern.test(url);
+      });
+
+      if (!isExplicitlyExcluded) {
+        return true;
+      }
+    }
+
+    // 3. 排除特定模式 (如 /api/, /callback/)
     if (EXCLUDE_PATTERNS.some(pattern => pattern.test(url))) {
       return false;
     }
 
-    // 檢查路徑模式
-    return IMAGE_PATH_PATTERNS.some(pattern => pattern.test(url));
+    // 4. 回退：如果沒有匹配任何模式，拒絕
+    return false;
   } catch {
     return false;
   }

@@ -1,4 +1,4 @@
-import { TOOLBAR_SELECTORS } from '../../../config/selectors.js';
+import { TOOLBAR_SELECTORS } from '../../../config/ui-selectors.js';
 
 /**
  * 創建工具欄容器
@@ -14,7 +14,7 @@ export function createToolbarContainer() {
         <div class="nh-header">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nh-icon"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 標註工具
         </div>
-        
+
         <!-- 控制按鈕區 -->
         <div style="display: flex; gap: 8px; margin-bottom: 16px;">
             <button id="${TOOLBAR_SELECTORS.TOGGLE_HIGHLIGHT.slice(
@@ -33,10 +33,10 @@ export function createToolbarContainer() {
                 </svg>
             </button>
         </div>
-        
+
         <!-- 顏色選擇器 -->
         <div id="${TOOLBAR_SELECTORS.COLOR_PICKER.slice(1)}" class="nh-color-picker"></div>
-        
+
         <!-- 操作按鈕 -->
         <div style="display: flex; gap: 8px; margin-bottom: 12px;">
             <button id="${TOOLBAR_SELECTORS.SYNC_TO_NOTION.slice(
@@ -49,17 +49,17 @@ export function createToolbarContainer() {
               1
             )}" class="nh-btn nh-btn-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 管理</button>
         </div>
-        
+
         <!-- 標註列表 -->
         <div id="${TOOLBAR_SELECTORS.HIGHLIGHT_LIST.slice(
           1
         )}" class="nh-list" style="display: none;"></div>
-        
+
         <!-- 狀態顯示 -->
         <div id="${TOOLBAR_SELECTORS.STATUS_CONTAINER.slice(1)}" class="nh-status">
             已標註: <span id="${TOOLBAR_SELECTORS.COUNT_DISPLAY.slice(1)}">0</span> 段
         </div>
-        
+
         <div class="nh-hint">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Ctrl+點擊標註可快速刪除
         </div>

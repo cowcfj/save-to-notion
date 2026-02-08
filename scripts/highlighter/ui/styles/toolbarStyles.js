@@ -1,4 +1,4 @@
-import { TOOLBAR_SELECTORS } from '../../../config/selectors.js';
+import { TOOLBAR_SELECTORS } from '../../../config/ui-selectors.js';
 
 /**
  * 注入全局樣式到頁面
@@ -292,21 +292,21 @@ export function injectGlobalStyles() {
             transform: scale(1.1) rotate(15deg);
             box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }
-        
+
         /* 滾動條美化 */
         .nh-list::-webkit-scrollbar {
             width: 4px;
         }
-        
+
         .nh-list::-webkit-scrollbar-track {
             background: transparent;
         }
-        
+
         .nh-list::-webkit-scrollbar-thumb {
             background: #d1d5db;
             border-radius: 2px;
         }
-        
+
         .nh-list::-webkit-scrollbar-thumb:hover {
             background: #9ca3af;
         }

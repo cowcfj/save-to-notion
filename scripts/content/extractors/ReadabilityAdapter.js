@@ -12,7 +12,7 @@
 
 import { CONTENT_QUALITY } from '../../config/constants.js';
 import { LIST_PREFIX_PATTERNS } from '../../config/patterns.js';
-import { CMS_CONTENT_SELECTORS, ARTICLE_STRUCTURE_SELECTORS } from '../../config/selectors.js';
+import { CMS_CONTENT_SELECTORS, ARTICLE_STRUCTURE_SELECTORS } from '../../config/extraction.js';
 
 // 從 CONTENT_QUALITY 解構常用常量到模組級別
 const { MIN_CONTENT_LENGTH } = CONTENT_QUALITY;
@@ -60,7 +60,7 @@ function isContentGood(article) {
   const { MAX_LINK_DENSITY, LIST_EXCEPTION_THRESHOLD } = CONTENT_QUALITY;
 
   // 驗證輸入
-  if (!article || !article.content) {
+  if (!article?.content) {
     Logger.warn('文章對象或內容為空', { action: 'isContentGood' });
     return false;
   }
@@ -162,13 +162,17 @@ async function expandCollapsibleElements(timeout = 300) {
         }
 
         // 如果有 aria-controls，嘗試移除 aria-hidden 或 collapsed 類別
-        const ctrl = trigger.getAttribute && trigger.getAttribute('aria-controls');
+        const ctrl = trigger.getAttribute?.('aria-controls');
         if (ctrl) {
-          const target = document.getElementById(ctrl) || document.querySelector(`#${ctrl}`);
-          if (target) {
-            target.removeAttribute('aria-hidden');
-            target.classList.remove('collapsed', 'collapse');
-            expanded.push(target);
+          try {
+            const target = document.querySelector(`#${CSS.escape(ctrl)}`);
+            if (target) {
+              target.removeAttribute('aria-hidden');
+              target.classList.remove('collapsed', 'collapse');
+              expanded.push(target);
+            }
+          } catch {
+            // Ignore querySelector errors
           }
         }
       } catch (error) {
@@ -255,20 +259,14 @@ function cachedQuery(selector, context = document, options = {}) {
 }
 
 /**
- * A new, CMS-aware fallback function. It specifically looks for patterns
- * found in CMS like Drupal and other common website structures.
+ * 策略 1: 尋找 Drupal 結構
  *
- * @returns {string|null} The combined innerHTML of the article components.
+ * @returns {string|null} HTML 內容或 null
  */
-function findContentCmsFallback() {
-  Logger.log('執行 CMS 導向的備案尋找', { action: 'findContentCmsFallback' });
-
-  // Strategy 1: Look for Drupal's typical structure
+function findDrupalContent() {
   const drupalNodeContent = cachedQuery('.node__content', document, { single: true });
   if (drupalNodeContent) {
-    const imageField = cachedQuery('.field--name-field-image', drupalNodeContent, {
-      single: true,
-    });
+    const imageField = cachedQuery('.field--name-field-image', drupalNodeContent, { single: true });
     const bodyField = cachedQuery('.field--name-field-body', drupalNodeContent, { single: true });
 
     if (bodyField) {
@@ -278,69 +276,58 @@ function findContentCmsFallback() {
       return imageHtml + bodyHtml;
     }
   }
+  return null;
+}
 
-  // Strategy 2: Look for WordPress and other CMS patterns
-  for (const selector of CMS_CONTENT_SELECTORS) {
+/**
+ * 策略 2 & 3: 尋找 CMS 或文章結構選擇器
+ *
+ * @param {string[]} selectors List of selectors to check
+ * @param {string} type Log type identifier
+ * @returns {string|null} HTML 內容或 null
+ */
+function findContentBySelectors(selectors, type) {
+  for (const selector of selectors) {
     const element = cachedQuery(selector, document, { single: true });
     if (element) {
       const textLength = element.textContent.trim().length;
-      Logger.log('找到潛在 CMS 元素', {
+      Logger.log(`找到潛在 ${type} 元素`, {
         action: 'findContentCmsFallback',
         selector,
         length: textLength,
       });
+
       if (textLength >= MIN_CONTENT_LENGTH) {
-        Logger.log('成功找到 CMS 內容', {
+        Logger.log(`成功找到 ${type} 內容`, {
           action: 'findContentCmsFallback',
           selector,
           length: textLength,
         });
         return element.innerHTML;
       }
-      Logger.log('內容太短，跳過該 CMS 選擇器', {
+
+      Logger.log(`內容太短，跳過該 ${type} 選擇器`, {
         action: 'findContentCmsFallback',
         selector,
         length: textLength,
         minRequired: MIN_CONTENT_LENGTH,
       });
     } else {
-      Logger.log('未找到該 CMS 選擇器對應的元素', { action: 'findContentCmsFallback', selector });
-    }
-  }
-
-  // Strategy 3: Look for common article structures
-  for (const selector of ARTICLE_STRUCTURE_SELECTORS) {
-    const element = cachedQuery(selector, document, { single: true });
-    if (element) {
-      const textLength = element.textContent.trim().length;
-      Logger.log('找到潛在文章結構元素', {
-        action: 'findContentCmsFallback',
-        selector,
-        length: textLength,
-      });
-      if (textLength >= MIN_CONTENT_LENGTH) {
-        Logger.log('成功找到文章結構內容', {
-          action: 'findContentCmsFallback',
-          selector,
-          length: textLength,
-        });
-        return element.innerHTML;
-      }
-      Logger.log('內容太短，跳過該文章結構選擇器', {
-        action: 'findContentCmsFallback',
-        selector,
-        length: textLength,
-        minRequired: MIN_CONTENT_LENGTH,
-      });
-    } else {
-      Logger.log('未找到該文章結構選擇器對應的元素', {
+      Logger.log(`未找到該 ${type} 選擇器對應的元素`, {
         action: 'findContentCmsFallback',
         selector,
       });
     }
   }
+  return null;
+}
 
-  // Strategy 4: Generic "biggest content block" as a final attempt
+/**
+ * 策略 4: 通用內容尋找
+ *
+ * @returns {string|null} HTML 內容或 null
+ */
+function findGenericContent() {
   Logger.log('未找到 CMS 結構，回退到通用內容尋找', {
     action: 'findContentCmsFallback',
     minRequired: MIN_CONTENT_LENGTH,
@@ -351,19 +338,10 @@ function findContentCmsFallback() {
 
   let bestElement = null;
   let maxScore = 0;
-  let candidateCount = 0;
-
   for (const el of candidates) {
     const text = el.textContent?.trim() || '';
-    candidateCount++;
 
     if (text.length < MIN_CONTENT_LENGTH) {
-      Logger.log('候選者內容太短', {
-        action: 'findContentCmsFallback',
-        index: candidateCount,
-        length: text.length,
-        minRequired: MIN_CONTENT_LENGTH,
-      });
       continue;
     }
 
@@ -374,25 +352,13 @@ function findContentCmsFallback() {
     // 給圖片加分，因為我們想要包含圖片的內容
     const score = text.length + paragraphs * 50 + images * 30 - links * 25;
 
-    Logger.log('候選者評分詳情', {
-      action: 'findContentCmsFallback',
-      index: candidateCount,
-      length: text.length,
-      paragraphs,
-      images,
-      links,
-      score,
-    });
-
     if (score > maxScore) {
       // 避免選擇嵌套的父元素
       if (bestElement && el.contains(bestElement)) {
-        Logger.log('跳過嵌套的父元素', { action: 'findContentCmsFallback' });
         continue;
       }
       maxScore = score;
       bestElement = el;
-      Logger.log('找到新的最佳候選者', { action: 'findContentCmsFallback', score });
     }
   }
 
@@ -403,16 +369,8 @@ function findContentCmsFallback() {
     });
     return bestElement.innerHTML;
   }
-  Logger.log('未找到合適內容', {
-    action: 'findContentCmsFallback',
-    totalCandidates: candidateCount,
-  });
 
   // 最後的嘗試：降低標準
-  Logger.log('正在降低標準重新嘗試', {
-    action: 'findContentCmsFallback',
-    newMin: MIN_CONTENT_LENGTH / 2,
-  });
   for (const el of candidates) {
     const text = el.textContent?.trim() || '';
     if (text.length >= MIN_CONTENT_LENGTH / 2) {
@@ -421,14 +379,46 @@ function findContentCmsFallback() {
     }
   }
 
-  Logger.log('最終失敗：即使降低標準也未找到內容', { action: 'findContentCmsFallback' });
   return null;
+}
+
+/**
+ * A new, CMS-aware fallback function. It specifically looks for patterns
+ * found in CMS like Drupal and other common website structures.
+ *
+ * @returns {string|null} The combined innerHTML of the article components.
+ */
+function findContentCmsFallback() {
+  Logger.log('執行 CMS 導向的備案尋找', { action: 'findContentCmsFallback' });
+
+  // 1. Drupal
+  const drupalContent = findDrupalContent();
+  if (drupalContent) {
+    return drupalContent;
+  }
+
+  // 2. CMS Selectors
+  const cmsContent = findContentBySelectors(CMS_CONTENT_SELECTORS, 'CMS');
+  if (cmsContent) {
+    return cmsContent;
+  }
+
+  // 3. Article Structure Selectors
+  const articleContent = findContentBySelectors(ARTICLE_STRUCTURE_SELECTORS, '文章結構');
+  if (articleContent) {
+    return articleContent;
+  }
+
+  // 4. Generic Fallback
+  return findGenericContent();
 }
 
 /**
  * 當 Readability 與 CMS fallback 都無法取得內容時，嘗試擷取最大的一個 <ul> 或 <ol>
  * 針對像是 CLI 文件或參考頁面（大量 bullet points）的改善。
  * 回傳該列表的 innerHTML 或 null。
+ *
+ * @returns {string|null} The largest list's innerHTML or null
  */
 function extractLargestListFallback() {
   try {
