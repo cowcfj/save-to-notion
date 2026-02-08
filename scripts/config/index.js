@@ -16,7 +16,8 @@
 export * from './constants.js';
 
 // DOM 選擇器配置
-export * from './selectors.js';
+// 提取配置 (DOM 選擇器與 Next.js 配置)
+export * from './extraction.js';
 
 // 正則表達式和模式配置
 export * from './patterns.js';

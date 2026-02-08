@@ -17,6 +17,7 @@ import {
 } from './ReadabilityAdapter.js';
 import { MetadataExtractor } from './MetadataExtractor.js';
 import { MarkdownExtractor } from './MarkdownExtractor.js';
+import { NextJsExtractor } from './NextJsExtractor.js';
 
 import { detectPageComplexity, selectExtractor } from '../../utils/pageComplexityDetector.js';
 
@@ -29,6 +30,29 @@ const ContentExtractor = {
    */
   extract(doc) {
     Logger.log('開始內容提取', { action: 'extract' });
+
+    // 0. 優先檢查 Next.js 結構化數據
+    if (NextJsExtractor.detect(doc)) {
+      Logger.log('檢測到 Next.js 網站，嘗試結構化提取', { action: 'extract' });
+      const nextResult = NextJsExtractor.extract(doc);
+      if (nextResult) {
+        // 合併 metadata: 先獲取基礎 metadata (favicon 等)，再用 Next.js 的 metadata 覆蓋
+        const baseMetadata = MetadataExtractor.extract(doc, null);
+        const finalMetadata = { ...baseMetadata, ...nextResult.metadata };
+
+        return {
+          content: nextResult.content, // HTML (可能為空)
+          blocks: nextResult.blocks, // Notion Blocks
+          type: nextResult.type, // 'nextjs'
+          metadata: finalMetadata,
+          rawArticle: nextResult.rawArticle,
+          debug: {
+            extractor: 'nextjs',
+          },
+        };
+      }
+      Logger.warn('Next.js 結構化提取失敗，回退到標準流程', { action: 'extract' });
+    }
 
     // 1. 檢測頁面複雜度與類型
     const complexity = detectPageComplexity(doc);
@@ -73,7 +97,8 @@ const ContentExtractor = {
   /**
    * 使用 Readability 提取內容
    *
-   * @param doc
+   * @param {Document} doc - DOM Document
+   * @returns {object|null} 提取結果
    */
   extractReadability(doc) {
     Logger.log('執行 Readability 提取', { action: 'extractReadability' });
@@ -120,7 +145,8 @@ const ContentExtractor = {
    * 提取技術文檔/Markdown 內容
    * 委託給 MarkdownExtractor 處理 (支持 DOM 清洗和更精確的容器定位)
    *
-   * @param doc
+   * @param {Document} doc - DOM Document
+   * @returns {object|null} 提取結果
    */
   extractTechnicalContent(doc) {
     return MarkdownExtractor.extract(doc);
