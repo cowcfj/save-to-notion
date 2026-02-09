@@ -660,7 +660,6 @@ function parseArticleWithReadability() {
     const readabilityInstance = new Readability(clonedDocument, { keepClasses: true });
 
     Logger.log('正在解析文檔內容', { action: 'parseArticleWithReadability' });
-    Logger.log('正在解析文檔內容', { action: 'parseArticleWithReadability' });
     parsedArticle = readabilityInstance.parse();
 
     if (parsedArticle?.content) {
