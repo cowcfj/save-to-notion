@@ -63,6 +63,9 @@ jest.mock('../../../../scripts/config/constants', () => ({
     MAX_ADDITIONAL_IMAGES: 2,
     MAIN_CONTENT_SUFFICIENT_THRESHOLD: 2,
     MAX_GALLERY_IMAGES: 6,
+    MIN_IMAGES_FOR_ARTICLE_SEARCH: 3,
+    MAX_IMAGES_FROM_ARTICLE_SEARCH: 5,
+    BATCH_PROCESS_THRESHOLD: 5,
   },
   PERFORMANCE_OPTIMIZER: {
     MAX_NEXT_DATA_SIZE: 5_000_000,
@@ -281,7 +284,7 @@ describe('ImageCollector', () => {
       // If batch is used, it returns the mocked batch results.
       // If sequential is used (e.g. < 5 images), it processes them.
       // In this test setup, we have 2 images.
-      // The implementation checks: if (allImages.length > 5) for batch.
+      // The implementation checks: if (allImages.length > IMAGE_LIMITS.BATCH_PROCESS_THRESHOLD) for batch.
       // So with 2 images, it will use sequential processing.
       // batchProcessWithRetry won't be called.
 
@@ -320,7 +323,7 @@ describe('ImageCollector', () => {
         image: { external: { url: img.src } },
       }));
 
-      // Mock batchProcessWithRetry (since > 5 images triggers batch)
+      // Mock batchProcessWithRetry (since > BATCH_PROCESS_THRESHOLD images triggers batch)
       batchProcessWithRetry.mockResolvedValue({
         results: Array.from({ length: 6 })
           .fill(0)
@@ -454,7 +457,7 @@ describe('ImageCollector', () => {
 
     test('should deduplicate images in batch processing results', async () => {
       const contentElement = document.createElement('div');
-      // Create 6 images to trigger batch processing (> 5)
+      // Create 6 images to trigger batch processing (> BATCH_PROCESS_THRESHOLD)
       // 3 unique URLs repeated twice
       const urls = [
         'https://example.com/1.jpg',
@@ -543,7 +546,7 @@ describe('ImageCollector', () => {
     });
 
     test('collectAdditionalImages should fallback to sequential processing on batch error', async () => {
-      // 設置 6 張圖片以觸發批次處理 (> 5)
+      // 設置 6 張圖片以觸發批次處理 (> BATCH_PROCESS_THRESHOLD)
       const contentElement = document.createElement('div');
       for (let i = 0; i < 6; i++) {
         const img = document.createElement('img');

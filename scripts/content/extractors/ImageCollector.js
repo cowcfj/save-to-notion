@@ -338,7 +338,7 @@ const ImageCollector = {
     const imageElements = this._collectFromContent(contentElement);
 
     // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
-    if (imageElements.length < 3) {
+    if (imageElements.length < IMAGE_LIMITS.MIN_IMAGES_FOR_ARTICLE_SEARCH) {
       this._collectFromArticle(imageElements);
     }
 
@@ -453,7 +453,7 @@ const ImageCollector = {
             allImages.push(img);
           }
         });
-        if (allImages.length >= 5) {
+        if (allImages.length >= IMAGE_LIMITS.MAX_IMAGES_FROM_ARTICLE_SEARCH) {
           break;
         }
       }
@@ -596,7 +596,7 @@ const ImageCollector = {
       }
     });
 
-    if (batchProcess !== undefined && allImages.length > 5) {
+    if (batchProcess !== undefined && allImages.length > IMAGE_LIMITS.BATCH_PROCESS_THRESHOLD) {
       Logger.log('對圖片使用批次處理', {
         action: 'collectAdditionalImages',
         count: allImages.length,

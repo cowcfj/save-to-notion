@@ -175,7 +175,7 @@ export const IMAGE_SELECTORS = [
   '#topimage', // Top image container
 
   // Metadata
-  OG_IMAGE_SELECTOR,
+  // OG_IMAGE_SELECTOR removed: it's a meta tag, not a container for img tags
 ];
 
 /**

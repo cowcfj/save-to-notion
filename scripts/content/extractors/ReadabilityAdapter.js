@@ -615,7 +615,7 @@ function performSmartCleaning(articleContent, cmsType) {
   });
 
   // 1.1 特別處理 display: none (使用正則防止誤判)
-  const styleElements = safeQueryElements(tempDiv, '[style*="display"]');
+  const styleElements = safeQueryElements(tempDiv, '[style*="display" i]');
   styleElements.forEach(el => {
     const style = el.getAttribute('style');
     if (style && /\bdisplay\s*:\s*none\b/i.test(style)) {

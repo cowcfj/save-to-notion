@@ -88,6 +88,9 @@ export const IMAGE_LIMITS = {
   MAX_ADDITIONAL_IMAGES: 2,
   MAIN_CONTENT_SUFFICIENT_THRESHOLD: 2,
   MAX_GALLERY_IMAGES: 6,
+  MIN_IMAGES_FOR_ARTICLE_SEARCH: 3, // 觸發文章區域搜索的最小圖片數
+  MAX_IMAGES_FROM_ARTICLE_SEARCH: 5, // 文章區域搜索的最大圖片數
+  BATCH_PROCESS_THRESHOLD: 5, // 觸發批次處理的圖片數量閾值
 };
 
 // ==========================================

@@ -14,7 +14,7 @@ const Logger = {
 globalThis.Logger = Logger;
 if (typeof CSS === 'undefined') {
   globalThis.CSS = {
-    escape: s => s.replaceAll(/([!"#$%&'()*+,.\/:;<=>?@\[\\\]^`{|}~])/g, String.raw`\$1`),
+    escape: s => s.replaceAll(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, String.raw`\$1`),
   };
 }
 

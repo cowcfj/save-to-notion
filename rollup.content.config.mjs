@@ -42,7 +42,11 @@ export default {
   onwarn(warning, warn) {
     // 忽略某些常見警告
     if (warning.code === 'THIS_IS_UNDEFINED') return;
-    if (warning.code === 'CIRCULAR_DEPENDENCY') return;
+    if (warning.code === 'CIRCULAR_DEPENDENCY') {
+      // 僅記錄警告，不中斷構建
+      console.warn(`[WARN] Circular dependency detected: ${warning.message}`);
+      return;
+    }
     warn(warning);
   },
 };
