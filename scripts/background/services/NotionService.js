@@ -45,8 +45,6 @@ class NotionService {
 
     // 初始化共用 RetryManager
     this._retryManager = new RetryManager({
-      maxRetries: this.config.DEFAULT_MAX_RETRIES,
-      baseDelay: this.config.DEFAULT_BASE_DELAY,
       jitter: true,
     });
 
