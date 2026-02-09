@@ -299,7 +299,18 @@ function isValidImageUrl(url) {
 
   // 排除明顯的佔位符
   const lowerUrl = url.toLowerCase();
-  if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {
+
+  // 優化：針對 .gif 使用正則表達式進行精確匹配（避免誤殺包含 gif 的非擴展名路徑）
+  if (/\.gif(?:\?|$)/i.test(url)) {
+    return false;
+  }
+
+  // 其他簡單關鍵字匹配
+  if (
+    PLACEHOLDER_KEYWORDS.some(
+      placeholder => placeholder !== '.gif' && lowerUrl.includes(placeholder)
+    )
+  ) {
     return false;
   }
 
@@ -657,12 +668,13 @@ function extractFromNoscript(imgNode) {
 }
 
 /**
- * 從 Anchor 標籤提取 href
+ * 從 Anchor 標籤提取 href (內部輔助函數)
  *
  * @param {HTMLElement} node - 元素
  * @returns {string|null} 提取的 URL 或 null
+ * @private
  */
-function extractFromAnchorHref(node) {
+function _extractFromAnchorHref(node) {
   if (node.tagName !== 'A') {
     return null;
   }
@@ -691,7 +703,7 @@ function extractImageSrc(imgNode) {
   // 這解決了像明報畫廊這樣的情況，<a> 的 href 包含高解析度圖片，
   // 而其子 <img> 的 src 只是加載佔位符 (loading.gif)
   if (imgNode.tagName === 'A') {
-    const hrefResult = extractFromAnchorHref(imgNode);
+    const hrefResult = _extractFromAnchorHref(imgNode);
     if (hrefResult) {
       return hrefResult;
     }
@@ -704,7 +716,7 @@ function extractImageSrc(imgNode) {
     extractFromPicture(imgNode) ||
     extractFromBackgroundImage(imgNode) ||
     extractFromNoscript(imgNode) ||
-    extractFromAnchorHref(imgNode)
+    _extractFromAnchorHref(imgNode)
   );
 }
 

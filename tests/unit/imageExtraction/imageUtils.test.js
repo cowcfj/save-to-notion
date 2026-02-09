@@ -97,7 +97,21 @@ describe('isValidImageUrl', () => {
   });
 
   describe('圖片格式支持', () => {
-    const formats = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif'];
+    const formats = [
+      'jpg',
+      'jpeg',
+      'png',
+      // 'gif' removed
+      'webp',
+      'svg',
+      'bmp',
+      'ico',
+      'tiff',
+      'tif',
+      'avif',
+      'heic',
+      'heif',
+    ];
 
     formats.forEach(format => {
       test(`應該支持 .${format} 格式`, () => {

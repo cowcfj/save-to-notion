@@ -70,7 +70,7 @@ export const IMAGE_ATTRIBUTES = [
 // 圖片路徑與排除模式
 // ==========================================
 
-export const IMAGE_EXTENSIONS = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)$/i;
+export const IMAGE_EXTENSIONS = /\.(?:jpg|jpeg|png|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)$/i;
 
 export const IMAGE_PATH_PATTERNS = [
   /\/images?\//i,

@@ -662,11 +662,6 @@ function parseArticleWithReadability() {
     Logger.log('正在解析文檔內容', { action: 'parseArticleWithReadability' });
     parsedArticle = readabilityInstance.parse();
 
-    if (parsedArticle?.content) {
-      // [Added] 執行智慧清洗
-      parsedArticle.content = performSmartCleaning(parsedArticle.content, cmsType);
-    }
-
     Logger.log('Readability 解析完成', { action: 'parseArticleWithReadability' });
   } catch (parseError) {
     Logger.error('Readability 解析失敗', {
@@ -674,6 +669,20 @@ function parseArticleWithReadability() {
       error: parseError.message,
     });
     throw new Error(`Readability parsing error: ${parseError.message}`);
+  }
+
+  // 4. [Moved] 執行智慧清洗 (獨立於 Readability 解析過程)
+  try {
+    if (parsedArticle?.content) {
+      Logger.log('正在執行智慧清洗', { action: 'parseArticleWithReadability', cmsType });
+      parsedArticle.content = performSmartCleaning(parsedArticle.content, cmsType);
+    }
+  } catch (cleaningError) {
+    // 清洗失敗不應阻斷流程，僅記錄錯誤
+    Logger.warn('智慧清洗過程中發生錯誤，將使用原始解析結果', {
+      action: 'parseArticleWithReadability',
+      error: cleaningError.message,
+    });
   }
 
   // 4. 驗證解析結果

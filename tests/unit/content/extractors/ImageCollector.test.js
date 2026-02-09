@@ -49,8 +49,8 @@ globalThis.Logger = Logger;
 jest.mock('../../../../scripts/config/constants', () => ({
   IMAGE_VALIDATION_CONSTANTS: {
     MAX_URL_LENGTH: 2000,
-    MIN_IMAGE_WIDTH: 200,
-    MIN_IMAGE_HEIGHT: 100,
+    MIN_IMAGE_WIDTH: 600,
+    MIN_IMAGE_HEIGHT: 400,
   },
   IMAGE_LIMITS: {
     MAX_MAIN_CONTENT_IMAGES: 6,
@@ -209,8 +209,8 @@ describe('ImageCollector', () => {
     test('should skip small images', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/small.jpg';
-      Object.defineProperty(mockImg, 'naturalWidth', { value: 100 });
-      Object.defineProperty(mockImg, 'naturalHeight', { value: 50 });
+      Object.defineProperty(mockImg, 'naturalWidth', { value: 500 });
+      Object.defineProperty(mockImg, 'naturalHeight', { value: 300 });
 
       extractImageSrc.mockReturnValue('https://example.com/small.jpg');
 

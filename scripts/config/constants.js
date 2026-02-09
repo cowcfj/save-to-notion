@@ -87,6 +87,7 @@ export const IMAGE_LIMITS = {
   MAX_MAIN_CONTENT_IMAGES: 6,
   MAX_ADDITIONAL_IMAGES: 2,
   MIN_IMAGES_TO_TRIGGER_ADDITIONAL: 2,
+  MAX_GALLERY_IMAGES: 6,
 };
 
 // ==========================================

@@ -342,32 +342,33 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
 
       expect(() => parseArticleWithReadability()).toThrow('Readability parsing error: Parse error');
     });
-    describe('detectCMS', () => {
-      afterEach(() => {
-        document.head.innerHTML = '';
-        document.body.className = '';
-      });
+  });
 
-      test('應該檢測到 WordPress (Meta Generator)', () => {
-        const meta = document.createElement('meta');
-        meta.name = 'generator';
-        meta.content = 'WordPress 6.0';
-        document.head.append(meta);
+  describe('detectCMS', () => {
+    afterEach(() => {
+      document.head.innerHTML = '';
+      document.body.className = '';
+    });
 
-        const type = detectCMS();
-        expect(type).toBe('wordpress');
-      });
+    test('應該檢測到 WordPress (Meta Generator)', () => {
+      const meta = document.createElement('meta');
+      meta.name = 'generator';
+      meta.content = 'WordPress 6.0';
+      document.head.append(meta);
 
-      test('應該檢測到 WordPress (Body Class)', () => {
-        document.body.className = 'home blog wordpress-site';
-        const type = detectCMS();
-        expect(type).toBe('wordpress');
-      });
+      const type = detectCMS();
+      expect(type).toBe('wordpress');
+    });
 
-      test('當無匹配時應該返回 null', () => {
-        const type = detectCMS();
-        expect(type).toBeNull();
-      });
+    test('應該檢測到 WordPress (Body Class)', () => {
+      document.body.className = 'home blog wordpress-site';
+      const type = detectCMS();
+      expect(type).toBe('wordpress');
+    });
+
+    test('當無匹配時應該返回 null', () => {
+      const type = detectCMS();
+      expect(type).toBeNull();
     });
   });
 });

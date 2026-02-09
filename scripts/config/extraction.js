@@ -157,19 +157,25 @@ export const IMAGE_SRC_ATTRIBUTES = [
  */
 export const ARTICLE_SELECTORS = [
   'article',
-  // Mingpao Gallery
-  MINGPAO_GALLERY_SELECTOR, // Lightbox
-  '#zoomedimg .imgLiquid', // Lightbox BG
-
-  // Specific
-  OG_IMAGE_SELECTOR,
-
   '.article',
   '.post',
   '.entry-content',
   '.post-content',
   '.article-content',
-  '#topimage',
+];
+
+/**
+ * 圖片專用選擇器 (Image Selectors)
+ * 用於 ImageCollector.js 直接查找圖片，不作為文章容器
+ */
+export const IMAGE_SELECTORS = [
+  // Mingpao
+  MINGPAO_GALLERY_SELECTOR, // Lightbox link
+  '#zoomedimg .imgLiquid', // Lightbox BG
+  '#topimage', // Top image container
+
+  // Metadata
+  OG_IMAGE_SELECTOR,
 ];
 
 /**

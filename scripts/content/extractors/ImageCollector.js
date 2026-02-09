@@ -27,7 +27,7 @@ import { cachedQuery } from './ReadabilityAdapter.js';
 import { NextJsExtractor } from './NextJsExtractor.js';
 import {
   FEATURED_IMAGE_SELECTORS,
-  ARTICLE_SELECTORS,
+  IMAGE_SELECTORS,
   GALLERY_SELECTORS,
   EXCLUSION_SELECTORS,
 } from '../../config/extraction.js';
@@ -377,7 +377,9 @@ const ImageCollector = {
     // 限制圖片數量（封面圖片不計入限制）
     // [Updated] 如果有圖集圖片，放寬限制以完整捕捉畫廊內容
     const hasGalleryImages = galleryImages.length > 0;
-    const maxImages = hasGalleryImages ? 20 : IMAGE_LIMITS.MAX_ADDITIONAL_IMAGES;
+    const maxImages = hasGalleryImages
+      ? IMAGE_LIMITS.MAX_GALLERY_IMAGES
+      : IMAGE_LIMITS.MAX_ADDITIONAL_IMAGES;
 
     if (additionalImages.length > maxImages) {
       Logger.log('圖片數量超過上限，已截取', {
@@ -422,8 +424,8 @@ const ImageCollector = {
   },
 
   _collectFromArticle(allImages) {
-    Logger.log('圖片收集策略：文章區域', { action: 'collectAdditionalImages' });
-    for (const selector of ARTICLE_SELECTORS) {
+    Logger.log('圖片收集策略：指定區域', { action: 'collectAdditionalImages' });
+    for (const selector of IMAGE_SELECTORS) {
       const articleElement = cachedQuery(selector, document, { single: true });
       if (articleElement) {
         const imgElements = cachedQuery('img', articleElement, { all: true });
