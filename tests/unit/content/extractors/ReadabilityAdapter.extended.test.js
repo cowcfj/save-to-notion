@@ -11,8 +11,9 @@
  * - cachedQuery
  * - findContentCmsFallback
  * - extractLargestListFallback
- * - createOptimizedDocumentClone
  * - parseArticleWithReadability
+ * - detectCMS
+ * - performSmartCleaning
  */
 
 // Mock Logger
@@ -24,6 +25,11 @@ const Logger = {
   debug: jest.fn(),
 };
 globalThis.Logger = Logger;
+if (typeof CSS === 'undefined') {
+  globalThis.CSS = {
+    escape: s => s.replaceAll(/([!"#$%&'()*+,.\/:;<=>?@\[\\\]^`{|}~])/g, String.raw`\$1`),
+  };
+}
 
 // Mock PerformanceOptimizer（可選依賴）
 // Mock Readability（用於 parseArticleWithReadability）

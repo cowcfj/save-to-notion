@@ -600,4 +600,95 @@ describe('ImageCollector', () => {
       expect(Logger.warn).toHaveBeenCalledWith('圖集收集錯誤', expect.any(Object));
     });
   });
+
+  describe('collectAdditionalImages extra coverage', () => {
+    test('should skip collection when main content images are sufficient', async () => {
+      // Mock _collectFromFeatured
+      jest.spyOn(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
+      const contentElement = document.createElement('div');
+      const minImages = 2; // from mocked constants
+
+      const result = await ImageCollector.collectAdditionalImages(contentElement, {
+        mainContentImageCount: minImages + 1,
+      });
+
+      expect(result.images).toHaveLength(0);
+      expect(Logger.log).toHaveBeenCalledWith(
+        '主內容圖片充足，跳過額外收集',
+        expect.objectContaining({ mainCount: minImages + 1 })
+      );
+    });
+
+    test('should fallback to expansion when no images found', async () => {
+      // Mock internal methods to simulate finding nothing initially
+      jest.spyOn(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
+      jest.spyOn(ImageCollector, '_collectFromContent').mockReturnValue([]);
+      jest.spyOn(ImageCollector, '_collectFromArticle').mockImplementation(() => {});
+      jest.spyOn(ImageCollector, '_collectFromNextJsData').mockImplementation(() => {});
+
+      const expansionSpy = jest
+        .spyOn(ImageCollector, '_collectFromExpansion')
+        .mockImplementation(images => {
+          const img = document.createElement('img');
+          img.src = 'https://example.com/expansion.jpg';
+          images.push(img);
+        });
+
+      // Mock process images to return what we found
+      jest
+        .spyOn(ImageCollector, '_processImages')
+        .mockImplementation((inputImages, _, outputImages) => {
+          inputImages.forEach(img => {
+            outputImages.push({
+              object: 'block',
+              type: 'image',
+              image: { external: { url: img.src } },
+            });
+          });
+        });
+
+      const contentElement = document.createElement('div');
+      const result = await ImageCollector.collectAdditionalImages(contentElement);
+
+      expect(expansionSpy).toHaveBeenCalled();
+      expect(result.images).toHaveLength(1);
+      expect(result.images[0].image.external.url).toBe('https://example.com/expansion.jpg');
+    });
+  });
+
+  describe('_collectFromNextJsData coverage', () => {
+    test('should return early if detection fails', () => {
+      NextJsExtractor.detect.mockReturnValue(false);
+      const allImages = [];
+
+      ImageCollector._collectFromNextJsData(allImages);
+
+      expect(NextJsExtractor.detect).toHaveBeenCalled();
+      expect(NextJsExtractor.extract).not.toHaveBeenCalled();
+      expect(allImages).toHaveLength(0);
+    });
+
+    test('should return early if blocks are invalid', () => {
+      NextJsExtractor.detect.mockReturnValue(true);
+      NextJsExtractor.extract.mockReturnValue({ blocks: 'not-an-array' });
+      const allImages = [];
+
+      ImageCollector._collectFromNextJsData(allImages);
+
+      expect(allImages).toHaveLength(0);
+    });
+
+    test('should handle undefined result correctly', () => {
+      NextJsExtractor.detect.mockReturnValue(true);
+      NextJsExtractor.extract.mockReturnValue(null); // Return null specifically
+      const allImages = [];
+
+      ImageCollector._collectFromNextJsData(allImages);
+      // Should log "Next.js Data 提取結果為空"
+      expect(Logger.log).toHaveBeenCalledWith(
+        'Next.js Data 提取結果為空',
+        expect.objectContaining({ action: 'collectAdditionalImages' })
+      );
+    });
+  });
 });

@@ -12,7 +12,6 @@ export default {
     name: 'ContentScript',
     sourcemap: isDev ? 'inline' : false,
     banner: '/* eslint-disable */\n/* Save to Notion - Content Script */',
-    globals: {},
   },
   plugins: [
     resolve(),

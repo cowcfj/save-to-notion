@@ -150,30 +150,24 @@ describe('DomConverter', () => {
       expect(blocks).toHaveLength(0);
     });
     test('should log info when image limit is reached', () => {
-      // Manually set image count to a high number to ensure limit is reached
-      domConverter.imageCount = 9999;
+      const maxImages = 6; // Based on IMAGE_LIMITS.MAX_MAIN_CONTENT_IMAGES
+      let html = '';
+      for (let i = 0; i <= maxImages; i++) {
+        html += `<img src="https://example.com/img${i}.jpg" alt="img${i}" />`;
+      }
 
-      // Create a mock image node
-      const img = document.createElement('img');
-      img.src = 'https://example.com/img.jpg';
+      globalThis.ImageUtils.extractImageSrc.mockImplementation(node => node.src);
 
-      // Call createImageBlock directly to avoid reset in convert()
-      const block = domConverter.createImageBlock(img);
+      const blocks = domConverter.convert(html);
 
-      // Verify Logger.info was called
+      // Verify Logger.info was called for the extra image
       expect(Logger.info).toHaveBeenCalledWith(
         expect.stringContaining('已達主要內容圖片數量上限'),
-        expect.any(Object)
+        expect.objectContaining({ currentCount: maxImages })
       );
 
-      // Verify Logger.log was NOT called
-      expect(Logger.log).not.toHaveBeenCalledWith(
-        expect.stringContaining('已達主要內容圖片數量上限'),
-        expect.any(Object)
-      );
-
-      // Verify no block was returned for this image
-      expect(block).toBeNull();
+      // Verify blocks length is limited to maxImages
+      expect(blocks.filter(b => b.type === 'image')).toHaveLength(maxImages);
     });
 
     test('should handle cleanImageUrl errors implicitly (catch block coverage)', () => {

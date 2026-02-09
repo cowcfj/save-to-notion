@@ -229,6 +229,8 @@ export const EXCLUSION_SELECTORS = [
   '.social-share',
   '.share-buttons',
   '.social-links',
+  '[class~="social"]',
+  '[class~="share"]',
   '.menu',
   '.site-header',
   '.site-footer',
@@ -439,8 +441,12 @@ export const GENERIC_CLEANING_RULES = [
   'footer:not(.article-footer)',
   'header:not(.article-header)',
   // 社交與互動
-  '[class*="social"]',
-  '[class*="share"]',
+  '.social',
+  '.social-share',
+  '.share-buttons',
+  '.social-links',
+  '[class~="social"]',
+  '[class~="share"]',
   '.comments',
   '.comment-section',
   // 隱藏內容

@@ -545,7 +545,7 @@ function extractLargestListFallback() {
  */
 function checkCmsSignal(signal) {
   if (signal.type === 'meta') {
-    const meta = document.querySelector(`meta[name="${signal.name}"]`);
+    const meta = document.querySelector(`meta[name="${CSS.escape(signal.name)}"]`);
     if (meta && signal.pattern.test(meta.content)) {
       return 'meta';
     }
@@ -599,7 +599,7 @@ function performSmartCleaning(articleContent, cmsType) {
 
   // 1. 通用清洗 (Generic Cleaning)
   GENERIC_CLEANING_RULES.forEach(selector => {
-    const elements = tempDiv.querySelectorAll(selector);
+    const elements = safeQueryElements(tempDiv, selector);
     elements.forEach(el => {
       el.remove();
       removedCount++;
@@ -610,7 +610,7 @@ function performSmartCleaning(articleContent, cmsType) {
   if (cmsType && CMS_CLEANING_RULES[cmsType]) {
     const cmsRules = CMS_CLEANING_RULES[cmsType];
     cmsRules.remove.forEach(selector => {
-      const elements = tempDiv.querySelectorAll(selector);
+      const elements = safeQueryElements(tempDiv, selector);
       elements.forEach(el => {
         el.remove();
         removedCount++;
@@ -692,13 +692,13 @@ function parseArticleWithReadability() {
     });
   }
 
-  // 4. 驗證解析結果
+  // 5. 驗證解析結果
   if (!parsedArticle) {
     Logger.warn('Readability 返回空結果', { action: 'parseArticleWithReadability' });
     throw new Error('Readability parsing returned no result');
   }
 
-  // 5. 驗證基本屬性
+  // 6. 驗證基本屬性
   if (!parsedArticle.content || typeof parsedArticle.content !== 'string') {
     Logger.info('Readability 結果缺少內容屬性', { action: 'parseArticleWithReadability' });
     throw new Error('Parsed article has no valid content');
@@ -728,6 +728,8 @@ const readabilityAdapter = {
   findContentCmsFallback,
   extractLargestListFallback,
   parseArticleWithReadability,
+  detectCMS,
+  performSmartCleaning,
 };
 
 export {
