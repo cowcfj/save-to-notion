@@ -13,7 +13,6 @@
  * - extractLargestListFallback
  * - parseArticleWithReadability
  * - detectCMS
- * - detectCMS
  *
  * Note: performSmartCleaning is tested in ReadabilityAdapter.smartCleaning.test.js
  */
@@ -28,6 +27,11 @@ const Logger = {
 };
 globalThis.Logger = Logger;
 if (typeof CSS === 'undefined') {
+  /**
+   * 簡化版的 CSS.escape polyfill (僅供測試使用)
+   * 限制：未處理 null 字元、控制字元或以數字開頭的字串。
+   * 對於目前測試中使用的簡單標識符（如 "generator"）已足夠。
+   */
   globalThis.CSS = {
     escape: s => s.replaceAll(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, String.raw`\$1`),
   };
@@ -111,7 +115,7 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
 
       // 清理
       delete globalThis.performanceOptimizer;
-      globalThis.PerformanceOptimizer = undefined;
+      delete globalThis.PerformanceOptimizer;
     });
   });
 

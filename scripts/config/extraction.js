@@ -118,8 +118,10 @@ export const FEATURED_IMAGE_SELECTORS = [
   'figure.featured img',
   '.featured-media img',
   '.wp-block-post-featured-image img',
-  'div[class*="featured-image"] img',
-  'div[class*="hero"] img',
+  '.featured-image img',
+  'div[class~="featured-image"] img',
+  '.hero-image img',
+  'div[class~="hero"] img',
 
   // 特定網站適配
   OG_IMAGE_SELECTOR,
