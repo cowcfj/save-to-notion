@@ -255,19 +255,27 @@ const ImageCollector = {
         0;
 
       // 只在有有效尺寸資訊時進行過濾（避免誤殺未設置尺寸屬性的大圖）
-      if (
-        imgWidth > 0 &&
-        imgHeight > 0 &&
-        (imgWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
-          imgHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT)
-      ) {
-        Logger.log('圖片尺寸太小', {
+      // Treat missing dimensions (0) as "unknown" and pass them through (secondary validation)
+      if (imgWidth > 0 && imgHeight > 0) {
+        if (
+          imgWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
+          imgHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT
+        ) {
+          Logger.log('圖片尺寸太小', {
+            action: 'processImageForCollection',
+            width: imgWidth,
+            height: imgHeight,
+            source: img.naturalWidth > 0 ? 'naturalSize' : 'htmlAttribute',
+          });
+          return null;
+        }
+      } else {
+        // Dimensions are unknown (0), we allow it to pass but log it
+        Logger.log('圖片尺寸未知 (0)，跳過尺寸檢查', {
           action: 'processImageForCollection',
           width: imgWidth,
           height: imgHeight,
-          source: img.naturalWidth > 0 ? 'naturalSize' : 'htmlAttribute',
         });
-        return null;
       }
 
       return {

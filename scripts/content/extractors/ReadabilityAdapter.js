@@ -601,9 +601,34 @@ function performSmartCleaning(articleContent, cmsType) {
   GENERIC_CLEANING_RULES.forEach(selector => {
     const elements = safeQueryElements(tempDiv, selector);
     elements.forEach(el => {
+      // Whitelist check
+      if (
+        el.dataset.keep ||
+        el.getAttribute('role') === 'main' ||
+        (el.textContent && el.textContent.length > 300)
+      ) {
+        return;
+      }
       el.remove();
       removedCount++;
     });
+  });
+
+  // 1.1 特別處理 display: none (使用正則防止誤判)
+  const styleElements = safeQueryElements(tempDiv, '[style*="display"]');
+  styleElements.forEach(el => {
+    const style = el.getAttribute('style');
+    if (style && /\bdisplay\s*:\s*none\b/i.test(style)) {
+      if (
+        el.dataset.keep ||
+        el.getAttribute('role') === 'main' ||
+        (el.textContent && el.textContent.length > 300)
+      ) {
+        return;
+      }
+      el.remove();
+      removedCount++;
+    }
   });
 
   // 2. CMS 特定清洗 (CMS Specific Cleaning)

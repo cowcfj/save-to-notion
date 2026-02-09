@@ -19,8 +19,8 @@ export const IMAGE_VALIDATION_CONSTANTS = {
   MAX_QUERY_PARAMS: 10, // 查詢參數數量閾值（超過可能為動態 URL）
   SRCSET_WIDTH_MULTIPLIER: 1000, // srcset w 描述符權重（優先於 x）
   MAX_BACKGROUND_URL_LENGTH: 2000, // 背景圖片 URL 最大長度（防止 ReDoS）
-  MIN_IMAGE_WIDTH: 600, // 最小圖片寬度 (User Request: 600)
-  MIN_IMAGE_HEIGHT: 400, // 最小圖片高度 (User Request: 400)
+  MIN_IMAGE_WIDTH: 550, // 最小圖片寬度 (User Request: 550)
+  MIN_IMAGE_HEIGHT: 350, // 最小圖片高度 (User Request: 350)
   MAX_RECURSION_DEPTH: 5, // 遞歸解析最大深度
 };
 

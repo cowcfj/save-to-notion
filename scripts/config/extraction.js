@@ -426,9 +426,10 @@ export const GENERIC_CLEANING_RULES = [
   'style',
   'link[rel="stylesheet"]',
   // 廣告與追蹤
-  '[class*="ad"]',
-  '[class*="advertisement"]',
-  '[id*="ad"]',
+  '[class^="ad-"]',
+  '[class*=" ad-"]',
+  '[id^="ad-"]',
+  '[id*="-ad-"]',
   '[class*="tracking"]',
   '[class*="analytics"]',
   // 導航與側邊欄
@@ -450,6 +451,6 @@ export const GENERIC_CLEANING_RULES = [
   '.comments',
   '.comment-section',
   // 隱藏內容
-  '[style*="display: none"]',
+  // Note: [style*="display: none"] removed; handled by style regex check in ReadabilityAdapter
   '[hidden]',
 ];
