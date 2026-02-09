@@ -5,16 +5,26 @@
 import { domConverter } from '../../../../scripts/content/converters/DomConverter.js';
 
 // Mock dependencies
-globalThis.Logger = {
-  debug: jest.fn(),
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-  info: jest.fn(),
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-};
+import Logger from '../../../../scripts/utils/Logger.js';
+
+jest.mock('../../../../scripts/utils/Logger.js', () => {
+  return {
+    __esModule: true,
+    default: {
+      debug: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      info: jest.fn(),
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    },
+  };
+});
+
+// Sync global Logger with the mocked module for consistency
+globalThis.Logger = Logger;
 
 globalThis.ImageUtils = {
   extractImageSrc: jest.fn(),
@@ -137,6 +147,32 @@ describe('DomConverter', () => {
       const html = '<img src="" />';
       const blocks = domConverter.convert(html);
       expect(blocks).toHaveLength(0);
+    });
+    test('should log info when image limit is reached', () => {
+      // Manually set image count to a high number to ensure limit is reached
+      domConverter.imageCount = 9999;
+
+      // Create a mock image node
+      const img = document.createElement('img');
+      img.src = 'https://example.com/img.jpg';
+
+      // Call createImageBlock directly to avoid reset in convert()
+      const block = domConverter.createImageBlock(img);
+
+      // Verify Logger.info was called
+      expect(Logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('已達主要內容圖片數量上限'),
+        expect.any(Object)
+      );
+
+      // Verify Logger.log was NOT called
+      expect(Logger.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('已達主要內容圖片數量上限'),
+        expect.any(Object)
+      );
+
+      // Verify no block was returned for this image
+      expect(block).toBeNull();
     });
   });
 

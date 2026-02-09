@@ -715,8 +715,7 @@ function extractImageSrc(imgNode) {
     extractFromAttributes(imgNode) ||
     extractFromPicture(imgNode) ||
     extractFromBackgroundImage(imgNode) ||
-    extractFromNoscript(imgNode) ||
-    _extractFromAnchorHref(imgNode)
+    extractFromNoscript(imgNode)
   );
 }
 

@@ -1,0 +1,16 @@
+
+  describe('佔位符關鍵字更新驗證', () => {
+    test('應該接受包含 miscellaneous 的普通圖片', () => {
+      // 之前 miscellaneous 是被禁止的，現在放寬了
+      expect(isValidImageUrl('https://example.com/miscellaneous/photo.jpg')).toBe(true);
+      expect(isValidImageUrl('https://example.com/images/miscellaneous-news.png')).toBe(true);
+    });
+
+    test('應該拒絕 miscellaneous_sprite 圖片', () => {
+      // 新的禁止關鍵字
+      expect(isValidImageUrl('https://example.com/assets/miscellaneous_sprite.png')).toBe(false);
+      expect(isValidImageUrl('https://example.com/images/icon-miscellaneous_sprite.jpg')).toBe(
+        false
+      );
+    });
+  });

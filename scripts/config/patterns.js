@@ -281,7 +281,7 @@ export const PLACEHOLDER_KEYWORDS = [
   'empty',
   '1x1',
   'transparent',
-  'miscellaneous', // 排除雜項佈局圖片 (e.g., miscellaneous_sprite.png)
+  'miscellaneous_sprite', // 排除雜項佈局圖片 (e.g., miscellaneous_sprite.png)
   '.gif', // 排除 GIF 圖片（通常為動畫圖標或佔位符，非內容圖片）
 ];
 

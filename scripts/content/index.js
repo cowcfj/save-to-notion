@@ -9,7 +9,7 @@
  * - 返回提取結果給 background.js
  *
  * 依賴：
- * - Readability.js - 第三方庫（與此 Bundle 一同注入）
+ * - @mozilla/readability - 第三方庫（已透過 npm 打包進 bundle，不再單獨注入）
  */
 
 /* global chrome */

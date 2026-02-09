@@ -381,7 +381,7 @@ class DomConverter {
   createImageBlock(node) {
     // Check image limit
     if (this.imageCount >= IMAGE_LIMITS.MAX_MAIN_CONTENT_IMAGES) {
-      Logger.log('已達主要內容圖片數量上限，跳過圖片', {
+      Logger.info('已達主要內容圖片數量上限，跳過圖片', {
         action: 'createImageBlock',
         currentCount: this.imageCount,
         max: IMAGE_LIMITS.MAX_MAIN_CONTENT_IMAGES,

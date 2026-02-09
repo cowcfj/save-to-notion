@@ -225,4 +225,18 @@ describe('isValidImageUrl', () => {
       );
     });
   });
+  describe('佔位符關鍵字更新驗證', () => {
+    test('應該接受包含 miscellaneous 的普通圖片', () => {
+      expect(isValidImageUrl('https://example.com/miscellaneous/photo.jpg')).toBe(true);
+      expect(isValidImageUrl('https://example.com/images/miscellaneous-news.png')).toBe(true);
+    });
+
+    test('應該拒絕 miscellaneous_sprite 圖片', () => {
+      // 確保排除雜項佈局圖片
+      expect(isValidImageUrl('https://example.com/assets/miscellaneous_sprite.png')).toBe(false);
+      expect(isValidImageUrl('https://example.com/images/icon-miscellaneous_sprite.jpg')).toBe(
+        false
+      );
+    });
+  });
 });
