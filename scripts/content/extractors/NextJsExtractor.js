@@ -199,25 +199,12 @@ export const NextJsExtractor = {
       for (const path of NEXTJS_CONFIG.ARTICLE_PATHS) {
         const result = this._getValueByPath(target, path);
 
-        // Debug logging for HK01 issue investigation
         if (result) {
           const hasBlocks = Array.isArray(result.blocks);
           const hasContent = typeof result.content === 'string';
           const hasBody = typeof result.body === 'string';
           const hasMarkup = typeof result.markup === 'string';
           const hasStoryAtoms = Array.isArray(result.storyAtoms);
-
-          // Log potential matches to help debugging
-          if (path.includes('article') || path.includes('content')) {
-            Logger.debug(`NextJsExtractor: Path "${path}" found object`, {
-              hasBlocks,
-              blocksLength: result.blocks?.length,
-              hasContent,
-              hasBody,
-              hasMarkup,
-              hasStoryAtoms,
-            });
-          }
 
           if (hasBlocks || hasContent || hasBody || hasMarkup || hasStoryAtoms) {
             Logger.log(`NextJsExtractor: 使用路徑 "${path}" 提取成功`);
