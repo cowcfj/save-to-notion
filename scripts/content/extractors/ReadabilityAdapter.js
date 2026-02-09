@@ -538,6 +538,27 @@ function extractLargestListFallback() {
 }
 
 /**
+ * 檢查單個 CMS 信號是否匹配
+ *
+ * @param {object} signal - 信號配置對象
+ * @returns {string|null} 匹配的信號類型 ('meta' | 'class') 或 null
+ */
+function checkCmsSignal(signal) {
+  if (signal.type === 'meta') {
+    const meta = document.querySelector(`meta[name="${signal.name}"]`);
+    if (meta && signal.pattern.test(meta.content)) {
+      return 'meta';
+    }
+  } else if (signal.type === 'class') {
+    const element = document.querySelector(signal.target);
+    if (element && signal.pattern.test(element.className)) {
+      return 'class';
+    }
+  }
+  return null;
+}
+
+/**
  * 檢測網站使用的 CMS 類型
  *
  * @returns {string|null} CMS 類型 (e.g., 'wordpress') 或 null
@@ -546,18 +567,10 @@ function detectCMS() {
   for (const [type, config] of Object.entries(CMS_CLEANING_RULES)) {
     // 檢查所有信號
     for (const signal of config.signals) {
-      if (signal.type === 'meta') {
-        const meta = document.querySelector(`meta[name="${signal.name}"]`);
-        if (meta && signal.pattern.test(meta.content)) {
-          Logger.log('檢測到 CMS', { action: 'detectCMS', type, signal: 'meta' });
-          return type;
-        }
-      } else if (signal.type === 'class') {
-        const element = document.querySelector(signal.target);
-        if (element && signal.pattern.test(element.className)) {
-          Logger.log('檢測到 CMS', { action: 'detectCMS', type, signal: 'class' });
-          return type;
-        }
+      const matchType = checkCmsSignal(signal);
+      if (matchType) {
+        Logger.log('檢測到 CMS', { action: 'detectCMS', type, signal: matchType });
+        return type;
       }
     }
   }
@@ -577,8 +590,11 @@ function performSmartCleaning(articleContent, cmsType) {
     return '';
   }
 
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = articleContent;
+  // 使用 DOMParser 解析 HTML 字符串，避免直接設置 innerHTML 帶來的 XSS 風險
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(articleContent, 'text/html');
+  // 使用 doc.body 作為臨時容器
+  const tempDiv = doc.body;
   let removedCount = 0;
 
   // 1. 通用清洗 (Generic Cleaning)
@@ -647,7 +663,7 @@ function parseArticleWithReadability() {
     Logger.log('正在解析文檔內容', { action: 'parseArticleWithReadability' });
     parsedArticle = readabilityInstance.parse();
 
-    if (parsedArticle && parsedArticle.content) {
+    if (parsedArticle?.content) {
       // [Added] 執行智慧清洗
       parsedArticle.content = performSmartCleaning(parsedArticle.content, cmsType);
     }

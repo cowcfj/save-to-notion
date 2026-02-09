@@ -17,6 +17,7 @@ globalThis.Logger = Logger;
 const {
   isContentGood,
   expandCollapsibleElements,
+  performSmartCleaning,
 } = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
 
 describe('ReadabilityAdapter - expandCollapsibleElements', () => {
@@ -333,5 +334,24 @@ describe('ReadabilityAdapter - isContentGood', () => {
         );
       }
     });
+  });
+});
+
+describe('ReadabilityAdapter - performSmartCleaning', () => {
+  test('應該使用 DOMParser 進行安全解析', () => {
+    // Spy on prototype method instead of constructor
+    const spy = jest.spyOn(DOMParser.prototype, 'parseFromString');
+    const maliciousInput = '<img src="x" onerror="alert(1)">';
+
+    // 執行函數
+    const output = performSmartCleaning(maliciousInput, null);
+
+    // 驗證 parseFromString 被調用
+    expect(spy).toHaveBeenCalled();
+    // 雖然 DOMParser 可能保留 onerror 屬性在字符串中，
+    // 但它的解析過程保護了執行環境。
+    expect(output).toContain('<img');
+
+    spy.mockRestore();
   });
 });
