@@ -174,55 +174,94 @@ function cleanImageUrl(url, depth = 0) {
   const { urlObj, isRelative } = resolved;
 
   try {
-    // 優先處理 Next.js 拆包 (提取為獨立函數以降低複雜度)
+    // 優先處理 Next.js 拆包
     const unwrappedNextUrl = _unwrapNextJsUrl(urlObj, depth);
     if (unwrappedNextUrl) {
       return unwrappedNextUrl;
     }
 
-    // 處理代理 URL
-    if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
-      const uParam = urlObj.searchParams.get('u');
-      if (uParam && /^https?:\/\//.test(uParam)) {
-        return cleanImageUrl(uParam, depth + 1);
-      }
+    // 處理特定域名規則 (代理 URL、itok 等)
+    const specialResult = _handleSpecialDomainRules(urlObj, depth);
+    if (specialResult) {
+      return specialResult;
     }
 
-    // [Fixed] inmediahk.net 專門處理：移除所有查詢參數 (如 ?itok=...) 以解決 Notion 加載失敗問題
-    // 用戶反饋：帶參數的 URL 即使編碼正確也無法在 Notion 顯示，移除後綴則正常
-    if (urlObj.hostname.includes('inmediahk.net')) {
-      urlObj.search = '';
-    }
-
-    // 移除重複的查詢參數
-    const params = new URLSearchParams();
-    for (const [key, value] of urlObj.searchParams.entries()) {
-      if (!params.has(key)) {
-        params.set(key, value);
-      }
-    }
-    urlObj.search = params.toString();
+    // 標準化查詢參數
+    _standardizeSearchParams(urlObj);
 
     if (isRelative) {
       return urlObj.pathname + urlObj.search + urlObj.hash;
     }
 
-    // [Fixed] Notion/Markdown 兼容性修復：再次編碼括號與單引號
-    // new URL() 會自動解碼這些 "安全" 字符，但在 Markdown 語境中它們需要被編碼
-    // 手動 map 映射，因為 encodeURIComponent 不會編碼這些字符
-    let finalUrl = urlObj.href;
-    finalUrl = finalUrl.replaceAll(/[()']/g, char => {
-      const map = {
-        '(': '%28',
-        ')': '%29',
-        "'": '%27',
-      };
-      return map[char] || char;
-    });
-    return finalUrl;
+    // Notion 兼容性編碼修復
+    return _applyNotionCompatibilityEncoding(urlObj.href);
   } catch {
     return null;
   }
+}
+
+/**
+ * 處理特定域名的特殊規則 (如代理 URL 提取、Drupal itok 移除等)
+ *
+ * @param {URL} urlObj - URL 物件
+ * @param {number} depth - 遞迴深度
+ * @returns {string|null} 處理後的 URL (如有特殊轉換) 或 null
+ * @private
+ */
+function _handleSpecialDomainRules(urlObj, depth) {
+  // 處理代理 URL (photo.php, gw/)
+  if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
+    const uParam = urlObj.searchParams.get('u');
+    if (uParam) {
+      // 確保 u 參數是有效的 URL (解碼後再校驗以提高兼容性)
+      const targetUrl = uParam.includes('%') ? decodeURIComponent(uParam) : uParam;
+      if (/^https?:\/\//i.test(targetUrl)) {
+        return cleanImageUrl(targetUrl, depth + 1);
+      }
+    }
+  }
+
+  // [Fixed] inmediahk.net 專門處理：移除 itok 查詢參數以解決 Notion 加載失敗問題
+  if (urlObj.hostname.includes('inmediahk.net') && urlObj.searchParams.has('itok')) {
+    urlObj.searchParams.delete('itok');
+  }
+
+  return null;
+}
+
+/**
+ * 標準化查詢參數 (移除重複項)
+ *
+ * @param {URL} urlObj - URL 物件
+ * @private
+ */
+function _standardizeSearchParams(urlObj) {
+  const params = new URLSearchParams();
+  for (const [key, value] of urlObj.searchParams.entries()) {
+    if (!params.has(key)) {
+      params.set(key, value);
+    }
+  }
+  urlObj.search = params.toString();
+}
+
+/**
+ * 應用 Notion/Markdown 兼容性編碼
+ *
+ * @param {string} url - 原始 URL 字串
+ * @returns {string} 編碼後的 URL
+ * @private
+ */
+function _applyNotionCompatibilityEncoding(url) {
+  // new URL() 會自動解碼 "安全" 字符 (如括號)，但在 Markdown 語境中它們需要被編碼
+  return url.replaceAll(/[()']/g, char => {
+    const map = {
+      '(': '%28',
+      ')': '%29',
+      "'": '%27',
+    };
+    return map[char] || char;
+  });
 }
 
 /**
