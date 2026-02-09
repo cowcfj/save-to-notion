@@ -119,8 +119,8 @@ class TabService {
       }
       // Avoid logging recoverable errors as true errors to reduce noise
       if (
-        this.injectionService &&
-        (error.message?.includes('The tab was closed') || error.message?.includes('No tab with id'))
+        error.message?.includes('The tab was closed') ||
+        error.message?.includes('No tab with id')
       ) {
         this.logger.debug(`[TabService] Tab closed/missing during update: ${error.message}`);
       } else {
