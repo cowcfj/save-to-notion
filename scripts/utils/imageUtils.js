@@ -75,7 +75,8 @@ function _normalizeUrlInternal(url) {
     const decoded = decodeURI(normalized);
     normalized = encodeURI(decoded);
     // 使用 'char' 替代 'c' 以滿足變數命名長度規範
-    normalized = normalized.replaceAll(/[[]\]^|{}<>]/g, char => encodeURIComponent(char));
+    // [Changed] Also encode parentheses and single quotes which can cause issues in Notion/Markdown
+    normalized = normalized.replaceAll(/[()'[\]^|{}<>]/g, char => encodeURIComponent(char));
   } catch {
     // 忽略編碼錯誤
   }
@@ -187,6 +188,12 @@ function cleanImageUrl(url, depth = 0) {
       }
     }
 
+    // [Fixed] inmediahk.net 專門處理：移除所有查詢參數 (如 ?itok=...) 以解決 Notion 加載失敗問題
+    // 用戶反饋：帶參數的 URL 即使編碼正確也無法在 Notion 顯示，移除後綴則正常
+    if (urlObj.hostname.includes('inmediahk.net')) {
+      urlObj.search = '';
+    }
+
     // 移除重複的查詢參數
     const params = new URLSearchParams();
     for (const [key, value] of urlObj.searchParams.entries()) {
@@ -200,7 +207,19 @@ function cleanImageUrl(url, depth = 0) {
       return urlObj.pathname + urlObj.search + urlObj.hash;
     }
 
-    return urlObj.href;
+    // [Fixed] Notion/Markdown 兼容性修復：再次編碼括號與單引號
+    // new URL() 會自動解碼這些 "安全" 字符，但在 Markdown 語境中它們需要被編碼
+    // 手動 map 映射，因為 encodeURIComponent 不會編碼這些字符
+    let finalUrl = urlObj.href;
+    finalUrl = finalUrl.replaceAll(/[()']/g, char => {
+      const map = {
+        '(': '%28',
+        ')': '%29',
+        "'": '%27',
+      };
+      return map[char] || char;
+    });
+    return finalUrl;
   } catch {
     return null;
   }

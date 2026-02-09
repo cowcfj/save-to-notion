@@ -96,6 +96,10 @@ export const MINGPAO_GALLERY_SELECTOR = '#zoomedimg a.fancybox';
  * 按優先級排序
  */
 export const FEATURED_IMAGE_SELECTORS = [
+  // Drupal
+  '.field--name-field-image img',
+  '.field-name-field-image img',
+
   // WordPress 和常見 CMS
   '.cover-image img',
   '.post-thumbnail img',
