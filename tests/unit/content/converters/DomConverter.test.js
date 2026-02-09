@@ -194,8 +194,8 @@ describe('DomConverter', () => {
       // The current mock setup in line 32: isNotionCompatibleImageUrl.
       // But code uses isValidCleanedImageUrl.
       // Let's add isValidCleanedImageUrl to global mock.
-      const originalIsValid = globalThis.ImageUtils.isValidCleanedImageUrl;
-      globalThis.ImageUtils.isValidCleanedImageUrl = jest.fn(() => false);
+      // Mock validation failure for this specific test
+      globalThis.ImageUtils.isValidCleanedImageUrl.mockReturnValueOnce(false);
 
       const html = `<img src="${src}" />`;
       const blocks = domConverter.convert(html);
@@ -205,13 +205,6 @@ describe('DomConverter', () => {
         '[Content] Dropping invalid image to ensure page save',
         expect.objectContaining({ url: src })
       );
-
-      // Restore
-      if (originalIsValid) {
-        globalThis.ImageUtils.isValidCleanedImageUrl = originalIsValid;
-      } else {
-        delete globalThis.ImageUtils.isValidCleanedImageUrl;
-      }
     });
 
     // Coverage for "catch" block when new URL throws

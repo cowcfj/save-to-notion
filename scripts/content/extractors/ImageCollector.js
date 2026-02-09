@@ -313,11 +313,11 @@ const ImageCollector = {
     // [New] 條件式收集檢查
     // 如果主內容圖片數量充足，則不收集額外圖片 (但保留封面圖)
     const mainCount = options.mainContentImageCount || 0;
-    if (mainCount >= IMAGE_LIMITS.MIN_IMAGES_TO_TRIGGER_ADDITIONAL) {
+    if (mainCount >= IMAGE_LIMITS.MAIN_CONTENT_SUFFICIENT_THRESHOLD) {
       Logger.log('主內容圖片充足，跳過額外收集', {
         action: 'collectAdditionalImages',
         mainCount,
-        threshold: IMAGE_LIMITS.MIN_IMAGES_TO_TRIGGER_ADDITIONAL,
+        threshold: IMAGE_LIMITS.MAIN_CONTENT_SUFFICIENT_THRESHOLD,
       });
       return {
         images: [],

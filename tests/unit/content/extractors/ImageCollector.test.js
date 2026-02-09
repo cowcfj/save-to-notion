@@ -61,7 +61,7 @@ jest.mock('../../../../scripts/config/constants', () => ({
   IMAGE_LIMITS: {
     MAX_MAIN_CONTENT_IMAGES: 6,
     MAX_ADDITIONAL_IMAGES: 2,
-    MIN_IMAGES_TO_TRIGGER_ADDITIONAL: 2,
+    MAIN_CONTENT_SUFFICIENT_THRESHOLD: 2,
   },
   PERFORMANCE_OPTIMIZER: {
     MAX_NEXT_DATA_SIZE: 5_000_000,
@@ -123,7 +123,9 @@ globalThis.ErrorHandler = ErrorHandler;
 
 describe('ImageCollector', () => {
   beforeEach(() => {
-    jest.resetAllMocks(); // Use reset instead of clear to reset implementations
+    // jest.resetAllMocks() clears all mocks including their implementations.
+    // We must restore default implementations below to ensure tests start with a clean state.
+    jest.resetAllMocks();
     document.body.innerHTML = '';
 
     // Default mocks
