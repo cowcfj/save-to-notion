@@ -222,7 +222,9 @@ function _handleSpecialDomainRules(urlObj, depth) {
   }
 
   // [Fixed] inmediahk.net 專門處理：移除 itok 查詢參數以解決 Notion 加載失敗問題
-  if (urlObj.hostname.includes('inmediahk.net') && urlObj.searchParams.has('itok')) {
+  // 使用嚴格匹配確保安全性，防止 evil-inmediahk.net 等欺騙域名
+  const isInMediaHK = /(?:^|\.)inmediahk\.net$/i.test(urlObj.hostname);
+  if (isInMediaHK && urlObj.searchParams.has('itok')) {
     urlObj.searchParams.delete('itok');
   }
 
