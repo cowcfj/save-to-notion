@@ -198,12 +198,26 @@ export const NextJsExtractor = {
 
       for (const path of NEXTJS_CONFIG.ARTICLE_PATHS) {
         const result = this._getValueByPath(target, path);
+
+        // Debug logging for HK01 issue investigation
         if (result) {
           const hasBlocks = Array.isArray(result.blocks);
           const hasContent = typeof result.content === 'string';
           const hasBody = typeof result.body === 'string';
           const hasMarkup = typeof result.markup === 'string';
           const hasStoryAtoms = Array.isArray(result.storyAtoms);
+
+          // Log potential matches to help debugging
+          if (path.includes('article') || path.includes('content')) {
+            Logger.debug(`NextJsExtractor: Path "${path}" found object`, {
+              hasBlocks,
+              blocksLength: result.blocks?.length,
+              hasContent,
+              hasBody,
+              hasMarkup,
+              hasStoryAtoms,
+            });
+          }
 
           if (hasBlocks || hasContent || hasBody || hasMarkup || hasStoryAtoms) {
             Logger.log(`NextJsExtractor: 使用路徑 "${path}" 提取成功`);
@@ -821,7 +835,8 @@ export const NextJsExtractor = {
         if (Array.isArray(tokenGroup)) {
           let paragraphText = '';
           tokenGroup.forEach(token => {
-            if (token.type === 'text' && token.content) {
+            // 處理所有包含 content 的 token 類型 (e.g. text, specific-link, boldLink)
+            if (token.content) {
               paragraphText += token.content;
             }
           });

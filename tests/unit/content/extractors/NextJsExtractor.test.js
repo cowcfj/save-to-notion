@@ -376,6 +376,27 @@ describe('NextJsExtractor', () => {
       expect(output[1].paragraph.rich_text[0].text.content).toBe('Paragraph 2.');
     });
 
+    it('should convert HK01 complex tokens (boldLink, link) to paragraphs', () => {
+      const input = [
+        {
+          blockType: 'text',
+          htmlTokens: [
+            [
+              { type: 'text', content: 'Normal text ' },
+              { type: 'boldLink', content: 'Bold Link' },
+              { type: 'text', content: ' more text.' },
+            ],
+          ],
+        },
+      ];
+      const output = NextJsExtractor.convertBlocks(input);
+      expect(output).toHaveLength(1);
+      expect(output[0].type).toBe('paragraph');
+      expect(output[0].paragraph.rich_text[0].text.content).toBe(
+        'Normal text Bold Link more text.'
+      );
+    });
+
     it('should convert list blocks (fallback to paragraph)', () => {
       const input = [
         { blockType: 'list', items: ['Item 1', 'Item 2'], ordered: false },
