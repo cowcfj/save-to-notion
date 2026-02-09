@@ -1,14 +1,24 @@
 const { RetryManager } = require('../../../scripts/utils/RetryManager');
 
-// Mock Logger
-const mockLogger = {
-  warn: jest.fn(),
-  error: jest.fn(),
-};
-
-globalThis.Logger = mockLogger;
-
 describe('RetryManager Security', () => {
+  let mockLogger;
+  let originalLogger;
+
+  beforeAll(() => {
+    // 保存原始 Logger 並注入 Mock
+    originalLogger = globalThis.Logger;
+    mockLogger = {
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    globalThis.Logger = mockLogger;
+  });
+
+  afterAll(() => {
+    // 恢復原始 Logger，防止污染其他測試套件
+    globalThis.Logger = originalLogger;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -38,17 +48,18 @@ describe('RetryManager Security', () => {
     expect(mockLogger.warn).toHaveBeenCalledTimes(1);
     const logCall = mockLogger.warn.mock.calls[0];
     const logMeta = logCall[1];
+    const safeError = logMeta.error; // Capture the sanitized error
 
     // 驗證核心屬性存在
-    expect(logMeta.error.message).toBe('API Error');
-    expect(logMeta.error.name).toBe('APIResponseError');
-    expect(logMeta.error.code).toBe('unauthorized');
-    expect(logMeta.error.status).toBe(401);
+    expect(safeError.message).toBe('API Error');
+    expect(safeError.name).toBe('APIResponseError');
+    expect(safeError.code).toBe('unauthorized');
+    expect(safeError.status).toBe(401);
 
     // 驗證敏感屬性被移除
-    expect(logMeta.error).not.toHaveProperty('headers');
-    expect(logMeta.error).not.toHaveProperty('request');
-    expect(logMeta.error).not.toHaveProperty('response');
+    expect(safeError.headers).toBeUndefined();
+    expect(safeError.request).toBeUndefined();
+    expect(safeError.response).toBeUndefined();
   });
 
   test('_logRetryFailure 應過濾錯誤物件中的敏感屬性', () => {

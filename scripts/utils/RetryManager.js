@@ -56,6 +56,7 @@ class RetryManager {
       maxDelay: 5000,
       backoffFactor: 2,
       jitter: true,
+      random: RetryManager._random, // 將 random 預設值移至此處，避免在 execute 中重複設定
       ...options,
     };
   }
@@ -409,13 +410,13 @@ class RetryManager {
     };
 
     // 白名單屬性：僅保留這些已知安全的字段
-    if (error.code) {
+    if (error.code !== undefined) {
       safeError.code = error.code;
     }
-    if (error.status) {
+    if (error.status !== undefined) {
       safeError.status = error.status;
     }
-    if (error.type) {
+    if (error.type !== undefined) {
       safeError.type = error.type;
     }
 

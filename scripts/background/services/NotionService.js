@@ -44,9 +44,7 @@ class NotionService {
     this.client = null;
 
     // 初始化共用 RetryManager
-    this._retryManager = new RetryManager({
-      jitter: true,
-    });
+    this._retryManager = new RetryManager();
 
     if (this.apiKey) {
       this._initClient();
