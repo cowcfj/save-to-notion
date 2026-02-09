@@ -356,3 +356,52 @@ export const PRELOADER_SELECTORS = {
   article: 'article',
   mainContent: 'main, [role="main"], #content, .content',
 };
+
+// ==========================================
+// 智慧清洗規則 (Smart Cleaning)
+// ==========================================
+
+export const CMS_CLEANING_RULES = {
+  wordpress: {
+    signals: [
+      { type: 'meta', name: 'generator', pattern: /WordPress/i },
+      { type: 'class', target: 'body', pattern: /wordpress/i },
+    ],
+    remove: ['.wpc-related-posts', '.sharedaddy', '.jp-relatedposts', '#comments', '.author-bio'],
+  },
+  // 可擴展其他 CMS
+};
+
+/**
+ * 通用清洗規則 (應用於所有內容) - Post-process
+ * 提取自原 createOptimizedDocumentClone 中的 elementsToRemove
+ */
+export const GENERIC_CLEANING_RULES = [
+  // 基礎雜訊
+  'script',
+  'style',
+  'link[rel="stylesheet"]',
+  // 廣告與追蹤
+  '[class*="ad"]',
+  '[class*="advertisement"]',
+  '[id*="ad"]',
+  '[class*="tracking"]',
+  '[class*="analytics"]',
+  // 導航與側邊欄
+  'nav',
+  'aside',
+  '.sidebar',
+  '.navigation',
+  '.menu',
+  // 頁首頁尾 (排除文章專屬)
+  'footer:not(.article-footer)',
+  'header:not(.article-header)',
+  // 社交與互動
+  '[class*="social"]',
+  '[class*="share"]',
+  '.comments',
+  '.comment-section',
+  // 隱藏內容
+  '[style*="display: none"]',
+  '[hidden]',
+];

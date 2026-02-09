@@ -52,6 +52,11 @@ jest.mock('../../../../scripts/config/constants', () => ({
     MIN_IMAGE_WIDTH: 200,
     MIN_IMAGE_HEIGHT: 100,
   },
+  IMAGE_LIMITS: {
+    MAX_MAIN_CONTENT_IMAGES: 6,
+    MAX_ADDITIONAL_IMAGES: 2,
+    MIN_IMAGES_TO_TRIGGER_ADDITIONAL: 2,
+  },
   PERFORMANCE_OPTIMIZER: {
     MAX_NEXT_DATA_SIZE: 5_000_000,
   },
@@ -281,7 +286,7 @@ describe('ImageCollector', () => {
 
     test('should limit images to MAX_IMAGES_PER_PAGE', async () => {
       const contentElement = document.createElement('div');
-      // Create 6 images (exceeding limit of 5)
+      // Create 6 images (exceeding limit of 2)
       for (let i = 0; i < 6; i++) {
         const img = document.createElement('img');
         img.src = `https://example.com/${i}.jpg`;
@@ -316,10 +321,10 @@ describe('ImageCollector', () => {
       });
 
       const result = await ImageCollector.collectAdditionalImages(contentElement);
-
-      expect(result.images).toHaveLength(5); // Should limit to 5
+      // Mocked IMAGE_LIMITS.MAX_ADDITIONAL_IMAGES is 2
+      expect(result.images).toHaveLength(2);
       expect(result.coverImage).toBeNull();
-      expect(result.images[5]).toBeUndefined();
+      expect(result.images[2]).toBeUndefined();
     });
 
     test('should collect images from Next.js data (scoped to article)', async () => {
@@ -483,12 +488,13 @@ describe('ImageCollector', () => {
       const result = await ImageCollector.collectAdditionalImages(contentElement);
 
       // Should filter out duplicates, expecting only 3 unique images
-      expect(result.images).toHaveLength(3);
+      // BUT MAX_ADDITIONAL_IMAGES is 2, so it will be truncated to 2
+      expect(result.images).toHaveLength(2);
       const uniqueUrls = new Set(result.images.map(img => img.image.external.url));
-      expect(uniqueUrls.size).toBe(3);
+      expect(uniqueUrls.size).toBe(2);
       expect(uniqueUrls.has('https://example.com/1.jpg')).toBe(true);
       expect(uniqueUrls.has('https://example.com/2.jpg')).toBe(true);
-      expect(uniqueUrls.has('https://example.com/3.jpg')).toBe(true);
+      // 3.jpg is truncated due to limit 2
     });
   });
 });

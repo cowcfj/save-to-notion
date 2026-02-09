@@ -30,7 +30,7 @@ import {
   ARTICLE_SELECTORS,
   EXCLUSION_SELECTORS,
 } from '../../config/extraction.js';
-import { IMAGE_VALIDATION_CONSTANTS, IMAGE_COLLECTION } from '../../config/constants.js';
+import { IMAGE_VALIDATION_CONSTANTS, IMAGE_LIMITS } from '../../config/constants.js';
 
 const ImageCollector = {
   /**
@@ -256,6 +256,21 @@ const ImageCollector = {
     // 策略 0: 優先查找封面圖/特色圖片
     const featuredImage = this._collectFromFeatured();
 
+    // [New] 條件式收集檢查
+    // 如果主內容圖片數量充足，則不收集額外圖片 (但保留封面圖)
+    const mainCount = options.mainContentImageCount || 0;
+    if (mainCount >= IMAGE_LIMITS.MIN_IMAGES_TO_TRIGGER_ADDITIONAL) {
+      Logger.log('主內容圖片充足，跳過額外收集', {
+        action: 'collectAdditionalImages',
+        mainCount,
+        threshold: IMAGE_LIMITS.MIN_IMAGES_TO_TRIGGER_ADDITIONAL,
+      });
+      return {
+        images: [],
+        coverImage: featuredImage,
+      };
+    }
+
     // 策略 1: 從指定的內容元素收集
     const contentImages = this._collectFromContent(contentElement);
 
@@ -285,7 +300,7 @@ const ImageCollector = {
     });
 
     // 限制圖片數量（封面圖片不計入限制）
-    const maxImages = IMAGE_COLLECTION.MAX_IMAGES_PER_PAGE;
+    const maxImages = IMAGE_LIMITS.MAX_ADDITIONAL_IMAGES;
     if (additionalImages.length > maxImages) {
       Logger.log('圖片數量超過上限，已截取', {
         action: 'collectAdditionalImages',

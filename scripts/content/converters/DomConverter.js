@@ -21,6 +21,7 @@ import {
   BLOCKS_SUPPORTING_CHILDREN,
   UNSAFE_LIST_CHILDREN_FOR_FLATTENING,
   CODE_LANGUAGE_MAP,
+  IMAGE_LIMITS,
 } from '../../config/constants.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
@@ -38,6 +39,7 @@ const MAX_TEXT_LENGTH = 2000;
 class DomConverter {
   constructor() {
     this.strategies = this.initStrategies();
+    this.imageCount = 0; // Initialize image counter
   }
 
   /**
@@ -71,8 +73,8 @@ class DomConverter {
       PRE: node => DomConverter.createCodeBlock(node),
 
       // 圖片
-      IMG: node => DomConverter.createImageBlock(node),
-      FIGURE: node => DomConverter.processFigure(node),
+      IMG: node => this.createImageBlock(node),
+      FIGURE: node => this.processFigure(node),
 
       // 分隔線
       HR: () => ({ object: 'block', type: 'divider', divider: {} }),
@@ -91,6 +93,7 @@ class DomConverter {
    * @returns {Array} Notion 區塊陣列
    */
   convert(htmlOrNode) {
+    this.imageCount = 0; // Reset counter for new conversion
     let rootNode = null;
     if (typeof htmlOrNode === 'string') {
       const parser = new DOMParser();
@@ -206,7 +209,7 @@ class DomConverter {
     const img = node.querySelector('img');
     // 如果段落只包含圖片，直接返回圖片 Block
     if (img && node.textContent.trim().length === 0) {
-      return DomConverter.createImageBlock(img);
+      return this.createImageBlock(img);
     }
 
     // 檢查是否是 "偽裝列表" (List-like paragraph)
@@ -375,7 +378,17 @@ class DomConverter {
     };
   }
 
-  static createImageBlock(node) {
+  createImageBlock(node) {
+    // Check image limit
+    if (this.imageCount >= IMAGE_LIMITS.MAX_MAIN_CONTENT_IMAGES) {
+      Logger.log('已達主要內容圖片數量上限，跳過圖片', {
+        action: 'createImageBlock',
+        currentCount: this.imageCount,
+        max: IMAGE_LIMITS.MAX_MAIN_CONTENT_IMAGES,
+      });
+      return null;
+    }
+
     const { extractImageSrc, cleanImageUrl, isValidCleanedImageUrl } = getImageUtils();
     const src = extractImageSrc?.(node);
     if (!src) {
@@ -401,7 +414,7 @@ class DomConverter {
 
     const alt = node.getAttribute('alt') || '';
 
-    return {
+    const block = {
       object: 'block',
       type: 'image',
       image: {
@@ -410,13 +423,16 @@ class DomConverter {
         caption: alt ? [{ type: 'text', text: { content: alt } }] : [],
       },
     };
+
+    this.imageCount++; // Increment counter
+    return block;
   }
 
-  static processFigure(node) {
+  processFigure(node) {
     // 處理 Figure，通常包含 Img 和 Figcaption
     const img = node.querySelector('img');
     if (img) {
-      const block = DomConverter.createImageBlock(img);
+      const block = this.createImageBlock(img);
       const caption = node.querySelector('figcaption');
       if (block && caption) {
         const captionText = caption.textContent.trim();

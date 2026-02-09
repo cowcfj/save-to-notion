@@ -376,3 +376,4 @@ docs/specs/future/shadow_dom_migration.md
 .agent/skills/file-organizer/scripts/organizer.py
 .agent/skills/local-docs-backup/SKILL.md
 .agent/skills/mcp-sync/SKILL.md
+.agent/.shared/staging/content_extraction_analysis.md

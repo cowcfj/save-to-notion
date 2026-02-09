@@ -387,7 +387,7 @@ class InjectionService {
         chrome.scripting.executeScript(
           {
             target: { tabId },
-            files: ['lib/Readability.js', 'dist/content.bundle.js'],
+            files: ['dist/content.bundle.js'],
           },
           () => {
             if (chrome.runtime.lastError) {

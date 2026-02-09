@@ -303,11 +303,11 @@ describe('ReadabilityAdapter - isContentGood', () => {
 
   describe('邊界條件', () => {
     test('應該處理剛好達到最大鏈接密度閾值的情況', () => {
-      // 創建真實的 DOM 結構：剛好 30% 鏈接密度
-      const content = `<p>${'a'.repeat(700)}</p><a href="#">${'a'.repeat(300)}</a>`;
+      // 創建真實的 DOM 結構：剛好 25% 鏈接密度
+      const content = `<p>${'a'.repeat(750)}</p><a href="#">${'a'.repeat(250)}</a>`;
 
       const result = isContentGood({ content });
-      // 鏈接密度 = 300 / 1000 = 0.3，剛好等於閾值，應該接受
+      // 鏈接密度 = 250 / 1000 = 0.25，剛好等於閾值，應該接受
       expect(result).toBe(true);
     });
 
