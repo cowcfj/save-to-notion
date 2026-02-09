@@ -316,9 +316,12 @@ class RetryManager {
     const msg = String(error?.message || '');
     const message = `[重試] 第 ${attempt}/${maxAttempts} 次，延遲 ${delay}ms：${msg}`;
 
+    // 安全過濾：避免敏感資訊（如 API Key）洩漏到控制台
+    const safeError = RetryManager._sanitizeErrorForLog(error);
+
     // 使用 Logger（若不可用則在非生產環境降級到 console）
     if (logger && typeof logger.warn === 'function') {
-      logger.warn(message, { error, attempt, maxAttempts, delay, contextType });
+      logger.warn(message, { error: safeError, attempt, maxAttempts, delay, contextType });
     } else if (
       typeof process !== 'undefined' &&
       process.env &&
@@ -333,7 +336,7 @@ class RetryManager {
       handler.logError({
         type: contextType === 'dom' ? 'dom_error' : 'network_error',
         context: `retry attempt ${attempt}/${maxAttempts} (delay ${delay}ms)`,
-        originalError: error,
+        originalError: error, // ErrorHandler 內部應負責進一步處理或儲存（假設它是安全的後端存儲）
         timestamp: Date.now(),
       });
     }
@@ -369,8 +372,11 @@ class RetryManager {
     const msg = String(error?.message || '');
     const message = `[重試] 失敗（${contextType}），共重試 ${totalRetries} 次：${msg}`;
 
+    // 安全過濾
+    const safeError = RetryManager._sanitizeErrorForLog(error);
+
     if (logger && typeof logger.error === 'function') {
-      logger.error(message, { error, totalRetries, contextType });
+      logger.error(message, { error: safeError, totalRetries, contextType });
     }
 
     const handler = getErrorHandler();
@@ -382,6 +388,38 @@ class RetryManager {
         timestamp: Date.now(),
       });
     }
+  }
+
+  /**
+   * 清理錯誤物件以確保日誌安全
+   * 僅保留白名單屬性，防止敏感資訊（如 headers 中的 API Key）洩漏
+   *
+   * @private
+   * @param {Error} error - 原始錯誤物件
+   * @returns {object} 安全的錯誤資訊物件
+   */
+  static _sanitizeErrorForLog(error) {
+    if (!error || typeof error !== 'object') {
+      return { message: String(error) };
+    }
+
+    const safeError = {
+      name: error.name || 'Error',
+      message: error.message || '',
+    };
+
+    // 白名單屬性：僅保留這些已知安全的字段
+    if (error.code) {
+      safeError.code = error.code;
+    }
+    if (error.status) {
+      safeError.status = error.status;
+    }
+    if (error.type) {
+      safeError.type = error.type;
+    }
+
+    return safeError;
   }
 
   /**
