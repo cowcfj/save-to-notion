@@ -60,9 +60,6 @@ jest.mock('../../../../scripts/config/constants', () => ({
   PERFORMANCE_OPTIMIZER: {
     MAX_NEXT_DATA_SIZE: 5_000_000,
   },
-  IMAGE_COLLECTION: {
-    MAX_IMAGES_PER_PAGE: 5,
-  },
   ERROR_TYPES: {
     EXTRACTION_FAILED: 'extraction_failed',
     INVALID_URL: 'invalid_url',
@@ -297,7 +294,10 @@ describe('ImageCollector', () => {
         if (options?.single) {
           return null;
         }
-        return contentElement.querySelectorAll('img');
+        if (selector === 'img') {
+          return Array.from(contentElement.querySelectorAll('img'));
+        }
+        return [];
       });
       extractImageSrc.mockImplementation(img => img.src);
 
@@ -464,7 +464,10 @@ describe('ImageCollector', () => {
         if (options?.single) {
           return null;
         }
-        return contentElement.querySelectorAll('img');
+        if (selector === 'img') {
+          return Array.from(contentElement.querySelectorAll('img'));
+        }
+        return [];
       });
       extractImageSrc.mockImplementation(img => img.src);
 

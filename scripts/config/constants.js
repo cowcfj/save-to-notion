@@ -80,11 +80,6 @@ export const CONTENT_QUALITY = {
 // 圖片收集相關常量
 // ==========================================
 
-export const IMAGE_COLLECTION = {
-  MAX_IMAGES_PER_PAGE: 5, // [Deprecated] See IMAGE_LIMITS
-  // 未來可擴展：PRIORITY_SOURCES, ENABLE_LIMIT 等
-};
-
 /**
  * [NEW] 圖片數量限制配置
  */

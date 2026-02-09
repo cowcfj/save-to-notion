@@ -186,7 +186,7 @@ const ImageCollector = {
           // ImageUtils.extractImageSrc 已經支持從 anchor href 提取
           const imageObj = this.processImageForCollection(el, index, featuredImage);
 
-          if (imageObj && imageObj.image && imageObj.image.external) {
+          if (imageObj?.image?.external) {
             const url = imageObj.image.external.url;
             if (!processedUrls.has(url)) {
               processedUrls.add(url);
