@@ -41,6 +41,7 @@
             role="tab"
             aria-controls="section-templates"
             aria-selected="false"
+            tabindex="-1"
           >
             <span class="icon"
               ><svg width="16" height="16" class="icon-svg">
@@ -55,6 +56,7 @@
             role="tab"
             aria-controls="section-data"
             aria-selected="false"
+            tabindex="-1"
           >
             <span class="icon"
               ><svg width="16" height="16" class="icon-svg">
@@ -69,6 +71,7 @@
             role="tab"
             aria-controls="section-diagnostics"
             aria-selected="false"
+            tabindex="-1"
           >
             <span class="icon"
               ><svg width="16" height="16" class="icon-svg">
@@ -83,6 +86,7 @@
             role="tab"
             aria-controls="section-guide"
             aria-selected="false"
+            tabindex="-1"
           >
             <span class="icon"
               ><svg width="16" height="16" class="icon-svg">
@@ -160,7 +164,21 @@
                       placeholder="搜尋資料來源..."
                       autocomplete="off"
                     />
-                    <button type="button" id="selector-toggle" class="selector-toggle">▼</button>
+                    <button type="button" id="selector-toggle" class="selector-toggle">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="icon-svg"
+                      >
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </button>
                   </div>
                   <div class="selector-dropdown hidden" id="database-dropdown">
                     <div class="dropdown-header">
