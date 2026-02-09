@@ -2,7 +2,7 @@
  * ReadabilityAdapter - Readability.js 適配層
  *
  * 職責:
- * - 調用 lib/Readability.js (透過全域變數 window.Readability)
+ * - 調用 @mozilla/readability npm 套件
  * - 整合內容質量檢查 (isContentGood)
  * - 提供多層 fallback 策略 (Readability → CMS → List)
  * - 統一錯誤處理和日誌記錄
@@ -54,7 +54,7 @@ function safeQueryElements(container, selector) {
  * @description
  * 質量評估標準：
  * 1. 內容長度至少 250 字符（MIN_CONTENT_LENGTH）
- * 2. 鏈接密度不超過 30%（MAX_LINK_DENSITY）
+ * 2. 鏈接密度不超過 25%（MAX_LINK_DENSITY）
  * 3. 列表項數量 >= 8 時允許例外（LIST_EXCEPTION_THRESHOLD）
  *
  * 鏈接密度 = (所有鏈接文本長度) / (總文本長度)
@@ -618,6 +618,19 @@ function performSmartCleaning(articleContent, cmsType) {
     });
   }
 
+  // 3. 安全性清洗 (Security Cleaning)
+  // 移除所有元素的 on* 屬性 (e.g. onerror, onclick) 以防止 DOMParser 保留潛在的 XSS 風險
+  const allElements = tempDiv.querySelectorAll('*');
+  allElements.forEach(el => {
+    // 遍歷所有屬性
+    const attributes = Array.from(el.attributes);
+    attributes.forEach(attr => {
+      if (attr.name.toLowerCase().startsWith('on')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+
   Logger.log('智慧清洗完成', {
     action: 'performSmartCleaning',
     cmsType,
@@ -628,6 +641,11 @@ function performSmartCleaning(articleContent, cmsType) {
 }
 
 // createOptimizedDocumentClone is kept for reference but logic is migrated to performSmartCleaning
+/**
+ * @deprecated Since logic moved to post-processing in performSmartCleaning.
+ * This function now only performs a simple clone.
+ * @returns {Document} The cloned document.
+ */
 function createOptimizedDocumentClone() {
   // Return simple clone as pre-processing is now handled by post-processing
   return document.cloneNode(true);

@@ -301,6 +301,7 @@ const ImageCollector = {
    * @param {Element} contentElement - 主要內容元素
    * @param {object} [options] - 配置選項
    * @param {Array} [options.nextJsBlocks] - 預先提取的 Next.js 區塊 (避免重複解析)
+   * @param {number} [options.mainContentImageCount] - 主要內容區域已找到的圖片數量
    * @returns {Promise<{images: Array<object>, coverImage: string|null}>} 包含圖片對象數組 (images) 和封面圖片 URL (coverImage) 的對象
    */
   async collectAdditionalImages(contentElement, options = {}) {
@@ -359,11 +360,14 @@ const ImageCollector = {
     // 合併圖集圖片 (去重)
     if (galleryImages.length > 0) {
       Logger.log('合併圖集圖片', { count: galleryImages.length });
+
+      // 構建現有圖片 URL 的 Set 以優化查找
+      const existingUrls = new Set(additionalImages.map(img => img.image.external.url));
+
       galleryImages.forEach(img => {
         const url = img.image.external.url;
-        // 檢查是否已存在於 additionalImages
-        const exists = additionalImages.some(existing => existing.image.external.url === url);
-        if (!exists) {
+        if (!existingUrls.has(url)) {
+          existingUrls.add(url);
           additionalImages.push(img);
         }
       });

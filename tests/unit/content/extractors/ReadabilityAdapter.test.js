@@ -338,20 +338,59 @@ describe('ReadabilityAdapter - isContentGood', () => {
 });
 
 describe('ReadabilityAdapter - performSmartCleaning', () => {
-  test('應該使用 DOMParser 進行安全解析', () => {
-    // Spy on prototype method instead of constructor
-    const spy = jest.spyOn(DOMParser.prototype, 'parseFromString');
-    const maliciousInput = '<img src="x" onerror="alert(1)">';
+  let parserSpy;
 
-    // 執行函數
+  beforeEach(() => {
+    parserSpy = jest.spyOn(DOMParser.prototype, 'parseFromString');
+  });
+
+  afterEach(() => {
+    parserSpy.mockRestore();
+  });
+
+  test('應該使用 DOMParser 進行安全解析', () => {
+    const maliciousInput = '<img src="x" onerror="alert(1)">';
     const output = performSmartCleaning(maliciousInput, null);
 
-    // 驗證 parseFromString 被調用
-    expect(spy).toHaveBeenCalled();
-    // 雖然 DOMParser 可能保留 onerror 屬性在字符串中，
-    // 但它的解析過程保護了執行環境。
-    expect(output).toContain('<img');
+    expect(parserSpy).toHaveBeenCalled();
+    // 驗證 onerror 被移除
+    expect(output).not.toContain('onerror');
+    expect(output).toContain('<img src="x">');
+  });
 
-    spy.mockRestore();
+  test('應該處理空輸入', () => {
+    expect(performSmartCleaning('', null)).toBe('');
+    expect(performSmartCleaning(null, null)).toBe('');
+  });
+
+  test('應該執行通用清洗規則', () => {
+    // 假設 GENERIC_CLEANING_RULES 包含 script, style 等
+    // 這裡我們 mock 一個包含 script 的輸入，雖然我們不能輕易修改常量，
+    // 但我們可以驗證這些常見標籤是否被移除 (因為它們通常在通用規則中)
+    const input = '<div>Content<script>alert(1)</script><style>.css{}</style></div>';
+
+    // 注意：這裡依賴於真實的 GENERIC_CLEANING_RULES 配置
+    // 如果單元測試環境加載的配置不同，可能需要調整
+    const output = performSmartCleaning(input, null);
+
+    expect(output).not.toContain('<script>');
+    expect(output).not.toContain('<style>');
+    expect(output).toContain('Content');
+  });
+
+  test('應該移除所有元素的 on* 屬性 (安全性清洗)', () => {
+    const input = `
+      <div onclick="evil()">
+        <a href="#" onmouseover="evil()">Link</a>
+        <img src="x" onerror="evil()">
+      </div>
+    `;
+    const output = performSmartCleaning(input, null);
+
+    expect(output).not.toContain('onclick');
+    expect(output).not.toContain('onmouseover');
+    expect(output).not.toContain('onerror');
+    expect(output).toContain('<div>'); // 修正預期，DOMParser 的行為可能不會保留多餘空格
+    expect(output).toContain('<a href="#">Link</a>');
   });
 });

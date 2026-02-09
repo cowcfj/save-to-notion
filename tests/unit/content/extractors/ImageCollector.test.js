@@ -281,7 +281,7 @@ describe('ImageCollector', () => {
       // Restore is handled by afterEach
     });
 
-    test('should limit images to MAX_IMAGES_PER_PAGE', async () => {
+    test('should limit images to MAX_ADDITIONAL_IMAGES', async () => {
       const contentElement = document.createElement('div');
       // Create 6 images (exceeding limit of 2)
       for (let i = 0; i < 6; i++) {
@@ -324,7 +324,6 @@ describe('ImageCollector', () => {
       // Mocked IMAGE_LIMITS.MAX_ADDITIONAL_IMAGES is 2
       expect(result.images).toHaveLength(2);
       expect(result.coverImage).toBeNull();
-      expect(result.images[2]).toBeUndefined();
     });
 
     test('should collect images from Next.js data (scoped to article)', async () => {
