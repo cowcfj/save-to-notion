@@ -122,7 +122,7 @@ const ContentExtractor = {
     try {
       article = parseArticleWithReadability(doc);
     } catch (readabilityError) {
-      Logger.warn('Readability 解析失敗', {
+      Logger.info('Readability 解析失敗，將嘗試備案程序', {
         action: 'extractReadability',
         error: readabilityError.message,
       });
@@ -138,7 +138,7 @@ const ContentExtractor = {
     }
 
     // 嘗試 Fallback
-    Logger.warn('Readability 質量檢查失敗，嘗試備案程序', { action: 'extractReadability' });
+    Logger.info('Readability 質量檢查未通過，嘗試備案程序', { action: 'extractReadability' });
 
     const cmsContent = findContentCmsFallback();
     if (cmsContent) {

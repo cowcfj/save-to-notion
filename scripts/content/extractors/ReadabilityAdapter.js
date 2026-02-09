@@ -2,17 +2,23 @@
  * ReadabilityAdapter - Readability.js 適配層
  *
  * 職責:
- * - 調用 lib/Readability.js (透過全域變數 window.Readability)
+ * - 調用 @mozilla/readability npm 套件
  * - 整合內容質量檢查 (isContentGood)
  * - 提供多層 fallback 策略 (Readability → CMS → List)
  * - 統一錯誤處理和日誌記錄
  */
 
-/* global Readability, Logger, PerformanceOptimizer */
+/* global Logger, PerformanceOptimizer */
 
+import { Readability } from '@mozilla/readability';
 import { CONTENT_QUALITY } from '../../config/constants.js';
 import { LIST_PREFIX_PATTERNS } from '../../config/patterns.js';
-import { CMS_CONTENT_SELECTORS, ARTICLE_STRUCTURE_SELECTORS } from '../../config/extraction.js';
+import {
+  CMS_CONTENT_SELECTORS,
+  ARTICLE_STRUCTURE_SELECTORS,
+  CMS_CLEANING_RULES,
+  GENERIC_CLEANING_RULES,
+} from '../../config/extraction.js';
 
 // 從 CONTENT_QUALITY 解構常用常量到模組級別
 const { MIN_CONTENT_LENGTH } = CONTENT_QUALITY;
@@ -48,7 +54,7 @@ function safeQueryElements(container, selector) {
  * @description
  * 質量評估標準：
  * 1. 內容長度至少 250 字符（MIN_CONTENT_LENGTH）
- * 2. 鏈接密度不超過 30%（MAX_LINK_DENSITY）
+ * 2. 鏈接密度不超過 25%（MAX_LINK_DENSITY）
  * 3. 列表項數量 >= 8 時允許例外（LIST_EXCEPTION_THRESHOLD）
  *
  * 鏈接密度 = (所有鏈接文本長度) / (總文本長度)
@@ -532,88 +538,131 @@ function extractLargestListFallback() {
 }
 
 /**
- * 創建優化的文檔副本用於 Readability 解析
- * 移除廣告、追蹤元素、導航等非內容元素以提高解析質量
+ * 檢查單個 CMS 信號是否匹配
  *
- * @returns {Document|null} 優化後的文檔副本,失敗時返回 null
+ * @param {object} signal - 信號配置對象
+ * @returns {string|null} 匹配的信號類型 ('meta' | 'class') 或 null
  */
-function createOptimizedDocumentClone() {
-  try {
-    Logger.log('正在創建優化的文檔副本', { action: 'createOptimizedDocumentClone' });
-
-    // 克隆文檔
-    const clonedDoc = document.cloneNode(true);
-
-    // 性能優化：移除可能影響解析的元素
-    // 移除不必要的元素以減少噪音
-    // 注意：此選擇器集為文檔克隆清理專用，包含 script/style 等，與 EXCLUSION_SELECTORS 用途不同
-    const elementsToRemove = [
-      'script',
-      'style',
-      'link[rel="stylesheet"]',
-      // 廣告和追蹤元素
-      '[class*="ad"]',
-      '[class*="advertisement"]',
-      '[id*="ad"]',
-      '[class*="tracking"]',
-      '[class*="analytics"]',
-      // 導航和側邊欄（通常不包含主要內容）
-      'nav',
-      'aside',
-      '.sidebar',
-      '.navigation',
-      '.menu',
-      // 頁腳和頁眉（除非是文章的一部分）
-      'footer:not(.article-footer)',
-      'header:not(.article-header)',
-      // 社交媒體小部件
-      '[class*="social"]',
-      '[class*="share"]',
-      // 評論區域
-      '.comments',
-      '.comment-section',
-      // 隱藏元素（通常不是內容的一部分）
-      '[style*="display: none"]',
-      '[hidden]',
-    ];
-
-    let removedCount = 0;
-    elementsToRemove.forEach(selector => {
-      try {
-        const elements = clonedDoc.querySelectorAll(selector);
-        elements.forEach(el => {
-          el.remove();
-          removedCount++;
-        });
-      } catch {
-        // 忽略選擇器錯誤，繼續處理其他選擇器
-        Logger.log('移除元素失敗', { action: 'createOptimizedDocumentClone', selector });
-      }
-    });
-
-    Logger.log('移除文檔中非內容元素完成', {
-      action: 'createOptimizedDocumentClone',
-      removedCount,
-    });
-    Logger.log('優化後的文檔已就緒', { action: 'createOptimizedDocumentClone' });
-
-    return clonedDoc;
-  } catch (error) {
-    Logger.error('創建優化文檔副本失敗', {
-      action: 'createOptimizedDocumentClone',
-      error: error.message,
-    });
-    // 回退到簡單克隆
-    try {
-      return document.cloneNode(true);
-    } catch (fallbackError) {
-      Logger.error('最終文檔克隆失敗', {
-        action: 'createOptimizedDocumentClone',
-        error: fallbackError.message,
-      });
-      return null;
+function checkCmsSignal(signal) {
+  if (signal.type === 'meta') {
+    const meta = document.querySelector(`meta[name="${CSS.escape(signal.name)}"]`);
+    if (meta && signal.pattern.test(meta.content)) {
+      return 'meta';
+    }
+  } else if (signal.type === 'class') {
+    const element = document.querySelector(signal.target);
+    if (element && signal.pattern.test(element.className)) {
+      return 'class';
     }
   }
+  return null;
+}
+
+/**
+ * 檢測網站使用的 CMS 類型
+ *
+ * @returns {string|null} CMS 類型 (e.g., 'wordpress') 或 null
+ */
+function detectCMS() {
+  for (const [type, config] of Object.entries(CMS_CLEANING_RULES)) {
+    // 檢查所有信號
+    for (const signal of config.signals) {
+      const matchType = checkCmsSignal(signal);
+      if (matchType) {
+        Logger.log('檢測到 CMS', { action: 'detectCMS', type, signal: matchType });
+        return type;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 執行智慧清洗 (Smart Cleaning)
+ * 在 Readability 解析後，針對特定 CMS 或通用雜訊進行二次清理
+ *
+ * @param {string} articleContent - Readability 返回的 HTML 內容
+ * @param {string|null} cmsType - 檢測到的 CMS 類型
+ * @returns {string} 清洗後的 HTML 內容
+ */
+function performSmartCleaning(articleContent, cmsType) {
+  if (!articleContent) {
+    return '';
+  }
+
+  // 使用 DOMParser 解析 HTML 字符串，避免直接設置 innerHTML 帶來的 XSS 風險
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(articleContent, 'text/html');
+  // 使用 doc.body 作為臨時容器
+  const tempDiv = doc.body;
+  let removedCount = 0;
+
+  // 1. 通用清洗 (Generic Cleaning)
+  GENERIC_CLEANING_RULES.forEach(selector => {
+    const elements = safeQueryElements(tempDiv, selector);
+    elements.forEach(el => {
+      // Whitelist check
+      if (
+        el.dataset.keep ||
+        el.getAttribute('role') === 'main' ||
+        (el.textContent && el.textContent.length > 300)
+      ) {
+        return;
+      }
+      el.remove();
+      removedCount++;
+    });
+  });
+
+  // 1.1 特別處理 display: none (使用正則防止誤判)
+  const styleElements = safeQueryElements(tempDiv, '[style*="display" i]');
+  styleElements.forEach(el => {
+    const style = el.getAttribute('style');
+    if (style && /\bdisplay\s*:\s*none\b/i.test(style)) {
+      if (
+        el.dataset.keep ||
+        el.getAttribute('role') === 'main' ||
+        (el.textContent && el.textContent.length > 300)
+      ) {
+        return;
+      }
+      el.remove();
+      removedCount++;
+    }
+  });
+
+  // 2. CMS 特定清洗 (CMS Specific Cleaning)
+  if (cmsType && CMS_CLEANING_RULES[cmsType]) {
+    const cmsRules = CMS_CLEANING_RULES[cmsType];
+    cmsRules.remove.forEach(selector => {
+      const elements = safeQueryElements(tempDiv, selector);
+      elements.forEach(el => {
+        el.remove();
+        removedCount++;
+      });
+    });
+  }
+
+  // 3. 安全性清洗 (Security Cleaning)
+  // 移除所有元素的 on* 屬性 (e.g. onerror, onclick) 以防止 DOMParser 保留潛在的 XSS 風險
+  const allElements = tempDiv.querySelectorAll('*');
+  allElements.forEach(el => {
+    // 遍歷所有屬性
+    const attributes = Array.from(el.attributes);
+    attributes.forEach(attr => {
+      if (attr.name.toLowerCase().startsWith('on')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+
+  Logger.log('智慧清洗完成', {
+    action: 'performSmartCleaning',
+    cmsType,
+    removedCount,
+  });
+
+  return tempDiv.innerHTML;
 }
 
 /**
@@ -624,19 +673,14 @@ function createOptimizedDocumentClone() {
  * @throws {Error} 當 Readability 不可用或解析失敗時拋出錯誤
  */
 function parseArticleWithReadability() {
-  // 1. 驗證 Readability 依賴項
-  if (typeof Readability === 'undefined') {
-    Logger.error('Readability 函式庫不可用', { action: 'parseArticleWithReadability' });
-    throw new Error('Readability library not loaded');
-  }
+  // 1. (Removed) Readability dependency check is no longer needed with NPM package
 
   Logger.log('開始 Readability 內容解析', { action: 'parseArticleWithReadability' });
 
-  // 2. 克隆文檔（與舊邏輯一致，不做預處理）
-  // 注意：之前使用 createOptimizedDocumentClone() 進行 DOM 預處理，
-  // 但這會過度移除元素導致 Readability 無法識別正文。
-  // 舊邏輯 (background.js:2352) 直接使用 document.cloneNode(true)，
-  // 讓 Readability 自己決定如何處理文檔結構。
+  // 1. 檢測 CMS 類型 (用於後續清洗)
+  const cmsType = detectCMS();
+
+  // 2. 克隆文檔 (直接克隆，保留完整結構讓 Readability 判斷)
   const clonedDocument = document.cloneNode(true);
 
   // 3. 執行 Readability 解析
@@ -644,7 +688,8 @@ function parseArticleWithReadability() {
 
   try {
     Logger.log('正在初始化 Readability 解析器', { action: 'parseArticleWithReadability' });
-    const readabilityInstance = new Readability(clonedDocument);
+    // [Changed] Enable keepClasses to allow for smart cleaning post-processing
+    const readabilityInstance = new Readability(clonedDocument, { keepClasses: true });
 
     Logger.log('正在解析文檔內容', { action: 'parseArticleWithReadability' });
     parsedArticle = readabilityInstance.parse();
@@ -658,15 +703,29 @@ function parseArticleWithReadability() {
     throw new Error(`Readability parsing error: ${parseError.message}`);
   }
 
-  // 4. 驗證解析結果
+  // 4. [Moved] 執行智慧清洗 (獨立於 Readability 解析過程)
+  try {
+    if (parsedArticle?.content) {
+      Logger.log('正在執行智慧清洗', { action: 'parseArticleWithReadability', cmsType });
+      parsedArticle.content = performSmartCleaning(parsedArticle.content, cmsType);
+    }
+  } catch (cleaningError) {
+    // 清洗失敗不應阻斷流程，僅記錄錯誤
+    Logger.warn('智慧清洗過程中發生錯誤，將使用原始解析結果', {
+      action: 'parseArticleWithReadability',
+      error: cleaningError.message,
+    });
+  }
+
+  // 5. 驗證解析結果
   if (!parsedArticle) {
     Logger.warn('Readability 返回空結果', { action: 'parseArticleWithReadability' });
     throw new Error('Readability parsing returned no result');
   }
 
-  // 5. 驗證基本屬性
+  // 6. 驗證基本屬性
   if (!parsedArticle.content || typeof parsedArticle.content !== 'string') {
-    Logger.warn('Readability 結果缺少內容屬性', { action: 'parseArticleWithReadability' });
+    Logger.info('Readability 結果缺少內容屬性', { action: 'parseArticleWithReadability' });
     throw new Error('Parsed article has no valid content');
   }
 
@@ -693,8 +752,9 @@ const readabilityAdapter = {
   cachedQuery,
   findContentCmsFallback,
   extractLargestListFallback,
-  createOptimizedDocumentClone,
   parseArticleWithReadability,
+  detectCMS,
+  performSmartCleaning,
 };
 
 export {
@@ -705,6 +765,7 @@ export {
   cachedQuery,
   findContentCmsFallback,
   extractLargestListFallback,
-  createOptimizedDocumentClone,
+  detectCMS,
+  performSmartCleaning,
   parseArticleWithReadability,
 };

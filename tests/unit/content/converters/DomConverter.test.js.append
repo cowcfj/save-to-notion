@@ -1,0 +1,42 @@
+
+    test('should log info when image limit is reached', () => {
+      // Mock IMAGE_LIMITS.MAX_MAIN_CONTENT_IMAGES to a small number for testing
+      // Since it's imported, we can't easily mock the constant directly without jest.mock
+      // However, we can simulate the condition by adding many images
+
+      // Assuming the limit is > 0. Let's try to add enough images to trigger the limit.
+      // But triggering the real limit (e.g. 50) in a unit test might be slow/verbose.
+      // Alternatively, we can check if the code calls Logger.info
+
+      // Let's rely on the fact that we can manipulate the internal imageCount if we could access the instance,
+      // but here we are using the exported singleton `domConverter`.
+
+      // A better approach for this unit test given the constraints:
+      // We can't easily change the imported constant.
+      // We will try to rely on the implementation detail that imageCount increases.
+      // But since we can't easily reach the limit (e.g. 50) efficiently in this test setup without a lot of mocking,
+      // maybe we should just verify the Logger.info is called if we force the condition?
+      // Since we can't force the condition easily without changing the code or the constant.
+
+      // Actually, we can check the Logger usage in a slightly different way if we can't trigger it easily.
+      // But wait, the task is to verify the change "Logger.log -> Logger.info".
+
+      // Let's try to spy on Logger.info and Logger.log
+
+      // TO trigger the limit, we need `domConverter.imageCount` to be >= MAX.
+      // We can manually set the imageCount check if we could access it.
+      // `domConverter` is an instance of `DomConverter`.
+      domConverter.imageCount = 1000; // Force limit reached
+
+      const html = '<img src="https://example.com/img.jpg" />';
+      domConverter.convert(html);
+
+      expect(globalThis.Logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('已達主要內容圖片數量上限'),
+        expect.any(Object)
+      );
+      expect(globalThis.Logger.log).not.toHaveBeenCalledWith(
+         expect.stringContaining('已達主要內容圖片數量上限'),
+        expect.any(Object)
+      );
+    });

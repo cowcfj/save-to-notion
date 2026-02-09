@@ -81,6 +81,13 @@ export const NEXTJS_CONFIG = {
 };
 
 // ==========================================
+// 常量定義
+// ==========================================
+
+export const OG_IMAGE_SELECTOR = 'meta[property="og:image"]';
+export const MINGPAO_GALLERY_SELECTOR = '#zoomedimg a.fancybox';
+
+// ==========================================
 // 封面圖選擇器 (原 selectors.js)
 // ==========================================
 
@@ -89,33 +96,47 @@ export const NEXTJS_CONFIG = {
  * 按優先級排序
  */
 export const FEATURED_IMAGE_SELECTORS = [
+  // Drupal
+  '.field--name-field-image img',
+  '.field-name-field-image img',
+
   // WordPress 和常見 CMS
-  '.featured-image img',
-  '.hero-image img',
   '.cover-image img',
   '.post-thumbnail img',
   '.entry-thumbnail img',
   '.wp-post-image',
 
+  // Mingpao Gallery
+  MINGPAO_GALLERY_SELECTOR, // High-res link
+  '#zoomedimg .imgLiquid', // Background image container
+
   // 文章頭部區域
+  'header img',
   '.article-header img',
-  'header.article-header img',
-  '.post-header img',
   '.entry-header img',
+  '.page-header img',
 
   // 通用特色圖片容器
   'figure.featured img',
-  'figure.hero img',
-  '[class*="featured"] img:first-of-type',
-  '[class*="hero"] img:first-of-type',
-  '[class*="cover"] img:first-of-type',
+  '.featured-media img',
+  '.wp-block-post-featured-image img',
+  '.featured-image img',
+  'div[class~="featured-image"] img',
+  '.hero-image img',
+  'div[class~="hero"] img',
 
-  // 文章開頭的第一張圖片
-  'article > figure:first-of-type img',
-  'article > div:first-of-type img',
+  // 特定網站適配
+  OG_IMAGE_SELECTOR,
+
+  // 第一張大圖 (作為回退)
+  'article img:first-of-type',
   '.article > figure:first-of-type img',
   '.post > figure:first-of-type img',
   '.post > div:first-of-type img',
+
+  // 特定網站配置
+  '.d-block.w-100', // Yahoo Carousel
+  'figure.image img', // HK01 (部分)
 ];
 
 /**
@@ -140,8 +161,6 @@ export const IMAGE_SRC_ATTRIBUTES = [
  */
 export const ARTICLE_SELECTORS = [
   'article',
-  'main',
-  '[role="main"]',
   '.article',
   '.post',
   '.entry-content',
@@ -150,45 +169,93 @@ export const ARTICLE_SELECTORS = [
 ];
 
 /**
+ * 圖片專用選擇器 (Image Selectors)
+ * 用於 ImageCollector.js 直接查找圖片，不作為文章容器
+ */
+export const IMAGE_SELECTORS = [
+  // Mingpao
+  MINGPAO_GALLERY_SELECTOR, // Lightbox link
+  '#zoomedimg .imgLiquid', // Lightbox BG
+  '#topimage', // Top image container
+
+  // Metadata
+  // OG_IMAGE_SELECTOR removed: it's a meta tag, not a container for img tags
+];
+
+/**
+ * 圖集/畫廊選擇器 (Gallery Selectors)
+ * 用於 ImageCollector.js 收集圖集圖片
+ */
+export const GALLERY_SELECTORS = [
+  MINGPAO_GALLERY_SELECTOR, // Mingpao Lightbox (high-res images)
+  // NOTE: Do NOT add #topimage a - those anchors have javascript:void(0) href,
+  // causing fallback to child <img> thumbnails instead of high-res images.
+  '.gallery-item a',
+  '.slideshow .slide a',
+];
+
+/**
  * 排除選擇器
  * 用於過濾非內容區域的圖片
  */
-export const EXCLUSION_SELECTORS = [
-  'header:not(.article-header):not(.post-header)',
-  'footer',
+/**
+ * 基礎雜訊選擇器集合 (NOISE_SELECTORS)
+ * 供 EXCLUSION_SELECTORS 和 GENERIC_CLEANING_RULES 共用
+ */
+export const NOISE_SELECTORS = [
+  // 導航與側邊欄
   'nav',
   'aside',
+  '.sidebar',
+  '.side-bar',
+  '.navigation',
+  '.menu',
+  '.nav',
+  '.navbar',
   '[role="navigation"]',
   '[role="banner"]',
   '[role="contentinfo"]',
   '[role="complementary"]',
-  '.header:not(.article-header):not(.post-header)',
-  '.footer',
-  '.navigation',
-  '.nav',
-  '.navbar',
-  '.sidebar',
-  '.side-bar',
-  '.widget',
-  '.widgets',
+
+  // 社交與互動
+  '.social',
+  '.social-share',
+  '.share-buttons',
+  '.social-links',
+  '[class~="social"]',
+  '[class~="share"]',
+  '#social-share',
+
+  // 評論與互動
   '.comments',
   '.comment-list',
   '.comment-section',
   '.comment-area',
-  '.related',
-  '.related-posts',
-  '.related-articles',
-  '.recommended',
+
+  // 廣告與推薦
   '.advertisement',
   '.ads',
   '.ad',
   '.banner',
   '.ad-container',
-  '.social',
-  '.social-share',
-  '.share-buttons',
-  '.social-links',
-  '.menu',
+  '.related',
+  '.related-posts',
+  '.related-articles',
+  '.recommended',
+  '.widget',
+  '.widgets',
+];
+
+/**
+ * 排除選擇器
+ * 用於過濾非內容區域的圖片
+ */
+export const EXCLUSION_SELECTORS = [
+  ...NOISE_SELECTORS,
+  'header:not(.article-header):not(.post-header)',
+  'footer',
+  '.header:not(.article-header):not(.post-header)',
+  '.footer',
   '.site-header',
   '.site-footer',
   '.site-nav',
@@ -203,7 +270,6 @@ export const EXCLUSION_SELECTORS = [
   '[id^="taboola-stream"]',
   '.trc_rbox',
   '.trc-content-sponsored', // Taboola 贊助內容
-  '#social-share',
   '#mktbanner',
   // 保留通用模式
   '[class*="infinite-scroll"]',
@@ -225,6 +291,7 @@ export const CMS_CONTENT_SELECTORS = [
   '.content-area',
   '.single-content',
   '.main-content',
+  '.txt4', // Mingpao
   '.page-content',
   '.content-wrapper',
   '.article-wrapper',
@@ -356,3 +423,43 @@ export const PRELOADER_SELECTORS = {
   article: 'article',
   mainContent: 'main, [role="main"], #content, .content',
 };
+
+// ==========================================
+// 智慧清洗規則 (Smart Cleaning)
+// ==========================================
+
+export const CMS_CLEANING_RULES = {
+  wordpress: {
+    signals: [
+      { type: 'meta', name: 'generator', pattern: /WordPress/i },
+      { type: 'class', target: 'body', pattern: /wordpress/i },
+    ],
+    remove: ['.wpc-related-posts', '.sharedaddy', '.jp-relatedposts', '#comments', '.author-bio'],
+  },
+  // 可擴展其他 CMS
+};
+
+/**
+ * 通用清洗規則 (應用於所有內容) - Post-process
+ * 提取自原 createOptimizedDocumentClone 中的 elementsToRemove
+ */
+export const GENERIC_CLEANING_RULES = [
+  ...NOISE_SELECTORS,
+  // 基礎雜訊
+  'script',
+  'style',
+  'link[rel="stylesheet"]',
+  // 廣告與追蹤
+  '[class^="ad-"]',
+  '[class*=" ad-"]',
+  '[id^="ad-"]',
+  '[id*="-ad-"]',
+  '[class*="tracking"]',
+  '[class*="analytics"]',
+  // 頁首頁尾 (排除文章專屬)
+  'footer:not(.article-footer)',
+  'header:not(.article-header)',
+  // 隱藏內容
+  // Note: [style*="display: none"] removed; handled by style regex check in ReadabilityAdapter
+  '[hidden]',
+];

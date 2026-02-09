@@ -11,8 +11,10 @@
  * - cachedQuery
  * - findContentCmsFallback
  * - extractLargestListFallback
- * - createOptimizedDocumentClone
  * - parseArticleWithReadability
+ * - detectCMS
+ *
+ * Note: performSmartCleaning is tested in ReadabilityAdapter.smartCleaning.test.js
  */
 
 // Mock Logger
@@ -24,13 +26,27 @@ const Logger = {
   debug: jest.fn(),
 };
 globalThis.Logger = Logger;
+if (typeof CSS === 'undefined') {
+  /**
+   * 簡化版的 CSS.escape polyfill (僅供測試使用)
+   * 限制：未處理 null 字元、控制字元或以數字開頭的字串。
+   * 對於目前測試中使用的簡單標識符（如 "generator"）已足夠。
+   */
+  globalThis.CSS = {
+    escape: s => s.replaceAll(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, String.raw`\$1`),
+  };
+}
 
 // Mock PerformanceOptimizer（可選依賴）
-globalThis.PerformanceOptimizer = undefined;
-globalThis.performanceOptimizer = undefined;
-
 // Mock Readability（用於 parseArticleWithReadability）
-globalThis.Readability = undefined;
+const mockReadabilityParse = jest.fn();
+const MockReadability = jest.fn().mockImplementation(() => ({
+  parse: mockReadabilityParse,
+}));
+
+jest.mock('@mozilla/readability', () => ({
+  Readability: MockReadability,
+}));
 
 // 引入模組
 const {
@@ -39,8 +55,8 @@ const {
   cachedQuery,
   findContentCmsFallback,
   extractLargestListFallback,
-  createOptimizedDocumentClone,
   parseArticleWithReadability,
+  detectCMS,
 } = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
 
 describe('ReadabilityAdapter - 額外函數測試', () => {
@@ -99,7 +115,7 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
 
       // 清理
       delete globalThis.performanceOptimizer;
-      globalThis.PerformanceOptimizer = undefined;
+      delete globalThis.PerformanceOptimizer;
     });
   });
 
@@ -283,69 +299,12 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
     });
   });
 
-  describe('createOptimizedDocumentClone', () => {
-    test('應該創建文檔副本', () => {
-      document.body.innerHTML = '<article><p>Content</p></article>';
-
-      const clonedDoc = createOptimizedDocumentClone();
-
-      expect(clonedDoc).toBeTruthy();
-      expect(clonedDoc.body.innerHTML).toBeTruthy();
-    });
-
-    test('應該移除廣告元素', () => {
-      document.body.innerHTML = `
-        <article><p>Content</p></article>
-        <div class="advertisement">Ad here</div>
-      `;
-
-      const clonedDoc = createOptimizedDocumentClone();
-
-      expect(clonedDoc.querySelector('.advertisement')).toBeNull();
-    });
-
-    test('應該移除 script 和 style 元素', () => {
-      document.body.innerHTML = `
-        <script>console.log('test')</script>
-        <style>.test{}</style>
-        <article><p>Content</p></article>
-      `;
-
-      const clonedDoc = createOptimizedDocumentClone();
-
-      expect(clonedDoc.querySelectorAll('script')).toHaveLength(0);
-      expect(clonedDoc.querySelectorAll('style')).toHaveLength(0);
-    });
-
-    test('應該移除導航元素', () => {
-      document.body.innerHTML = `
-        <nav>Navigation</nav>
-        <aside>Sidebar</aside>
-        <article><p>Content</p></article>
-      `;
-
-      const clonedDoc = createOptimizedDocumentClone();
-
-      expect(clonedDoc.querySelector('nav')).toBeNull();
-      expect(clonedDoc.querySelector('aside')).toBeNull();
-    });
-  });
-
   describe('parseArticleWithReadability', () => {
-    test('當 Readability 不可用時應該拋出錯誤', () => {
-      globalThis.Readability = undefined;
-
-      expect(() => parseArticleWithReadability()).toThrow('Readability library not loaded');
-    });
-
     test('應該成功解析文章', () => {
-      // Mock Readability
-      globalThis.Readability = jest.fn().mockImplementation(() => ({
-        parse: () => ({
-          title: 'Test Article',
-          content: '<p>Article content here</p>',
-        }),
-      }));
+      mockReadabilityParse.mockReturnValue({
+        title: 'Test Article',
+        content: '<p>Article content here</p>',
+      });
 
       document.body.innerHTML = '<article><p>Content</p></article>';
 
@@ -357,20 +316,16 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
     });
 
     test('當 Readability 返回 null 時應該拋出錯誤', () => {
-      globalThis.Readability = jest.fn().mockImplementation(() => ({
-        parse: () => null,
-      }));
+      mockReadabilityParse.mockReturnValue(null);
 
       expect(() => parseArticleWithReadability()).toThrow('Readability parsing returned no result');
     });
 
     test('當解析結果無 content 時應該拋出錯誤', () => {
-      globalThis.Readability = jest.fn().mockImplementation(() => ({
-        parse: () => ({
-          title: 'Title',
-          content: null,
-        }),
-      }));
+      mockReadabilityParse.mockReturnValue({
+        title: 'Title',
+        content: null,
+      });
 
       expect(() => parseArticleWithReadability()).toThrow('Parsed article has no valid content');
     });
@@ -382,12 +337,10 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
         configurable: true,
       });
 
-      globalThis.Readability = jest.fn().mockImplementation(() => ({
-        parse: () => ({
-          title: null,
-          content: '<p>Content</p>',
-        }),
-      }));
+      mockReadabilityParse.mockReturnValue({
+        title: null,
+        content: '<p>Content</p>',
+      });
 
       const result = parseArticleWithReadability();
 
@@ -395,13 +348,66 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
     });
 
     test('當 Readability.parse 拋出錯誤時應該重新拋出', () => {
-      globalThis.Readability = jest.fn().mockImplementation(() => ({
-        parse: () => {
-          throw new Error('Parse error');
-        },
-      }));
+      mockReadabilityParse.mockImplementation(() => {
+        throw new Error('Parse error');
+      });
 
       expect(() => parseArticleWithReadability()).toThrow('Readability parsing error: Parse error');
+    });
+  });
+
+  describe('detectCMS', () => {
+    afterEach(() => {
+      document.head.innerHTML = '';
+      document.body.className = '';
+    });
+
+    test('應該檢測到 WordPress (Meta Generator)', () => {
+      const meta = document.createElement('meta');
+      meta.name = 'generator';
+      meta.content = 'WordPress 6.0';
+      document.head.append(meta);
+
+      const type = detectCMS();
+      expect(type).toBe('wordpress');
+    });
+
+    test('應該檢測到 WordPress (Body Class)', () => {
+      document.body.className = 'home blog wordpress-site';
+      const type = detectCMS();
+      expect(type).toBe('wordpress');
+    });
+
+    test('當無匹配時應該返回 null', () => {
+      const type = detectCMS();
+      expect(type).toBeNull();
+    });
+  });
+
+  describe('parseArticleWithReadability - Error Handling', () => {
+    test('當智慧清洗失敗時應該記錄警告並返回原始內容', () => {
+      mockReadabilityParse.mockReturnValue({
+        title: 'Original Title',
+        content: '<p>Original Content</p>',
+      });
+
+      // Mock DOMParser to throw error during cleaning phase
+      // This requires mocking DOMParser which is global.
+      // Since ReadabilityAdapter uses new DOMParser(), we can spy on prototype.
+      const parserSpy = jest.spyOn(DOMParser.prototype, 'parseFromString');
+      parserSpy.mockImplementation(() => {
+        throw new Error('Cleaning Failed');
+      });
+
+      const result = parseArticleWithReadability();
+
+      expect(result.content).toBe('<p>Original Content</p>');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '智慧清洗過程中發生錯誤，將使用原始解析結果',
+        expect.objectContaining({ error: 'Cleaning Failed' })
+      );
+
+      parserSpy.mockRestore();
     });
   });
 });

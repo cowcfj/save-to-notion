@@ -75,7 +75,8 @@ function _normalizeUrlInternal(url) {
     const decoded = decodeURI(normalized);
     normalized = encodeURI(decoded);
     // 使用 'char' 替代 'c' 以滿足變數命名長度規範
-    normalized = normalized.replaceAll(/[[]\]^|{}<>]/g, char => encodeURIComponent(char));
+    // [Changed] Also encode parentheses and single quotes which can cause issues in Notion/Markdown
+    normalized = normalized.replaceAll(/[()'[\]^|{}<>]/g, char => encodeURIComponent(char));
   } catch {
     // 忽略編碼錯誤
   }
@@ -173,37 +174,96 @@ function cleanImageUrl(url, depth = 0) {
   const { urlObj, isRelative } = resolved;
 
   try {
-    // 優先處理 Next.js 拆包 (提取為獨立函數以降低複雜度)
+    // 優先處理 Next.js 拆包
     const unwrappedNextUrl = _unwrapNextJsUrl(urlObj, depth);
     if (unwrappedNextUrl) {
       return unwrappedNextUrl;
     }
 
-    // 處理代理 URL
-    if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
-      const uParam = urlObj.searchParams.get('u');
-      if (uParam && /^https?:\/\//.test(uParam)) {
-        return cleanImageUrl(uParam, depth + 1);
-      }
+    // 處理特定域名規則 (代理 URL、itok 等)
+    const specialResult = _handleSpecialDomainRules(urlObj, depth);
+    if (specialResult) {
+      return specialResult;
     }
 
-    // 移除重複的查詢參數
-    const params = new URLSearchParams();
-    for (const [key, value] of urlObj.searchParams.entries()) {
-      if (!params.has(key)) {
-        params.set(key, value);
-      }
-    }
-    urlObj.search = params.toString();
+    // 標準化查詢參數
+    _standardizeSearchParams(urlObj);
 
     if (isRelative) {
       return urlObj.pathname + urlObj.search + urlObj.hash;
     }
 
-    return urlObj.href;
+    // Notion 兼容性編碼修復
+    return _applyNotionCompatibilityEncoding(urlObj.href);
   } catch {
     return null;
   }
+}
+
+/**
+ * 處理特定域名的特殊規則 (如代理 URL 提取、Drupal itok 移除等)
+ *
+ * @param {URL} urlObj - URL 物件
+ * @param {number} depth - 遞迴深度
+ * @returns {string|null} 處理後的 URL (如有特殊轉換) 或 null
+ * @private
+ */
+function _handleSpecialDomainRules(urlObj, depth) {
+  // 處理代理 URL (photo.php, gw/)
+  if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
+    const uParam = urlObj.searchParams.get('u');
+    if (uParam) {
+      // 確保 u 參數是有效的 URL (解碼後再校驗以提高兼容性)
+      const targetUrl = uParam.includes('%') ? decodeURIComponent(uParam) : uParam;
+      if (/^https?:\/\//i.test(targetUrl)) {
+        return cleanImageUrl(targetUrl, depth + 1);
+      }
+    }
+  }
+
+  // [Fixed] inmediahk.net 專門處理：移除 itok 查詢參數以解決 Notion 加載失敗問題
+  // 使用嚴格匹配確保安全性，防止 evil-inmediahk.net 等欺騙域名
+  const isInMediaHK = /(?:^|\.)inmediahk\.net$/i.test(urlObj.hostname);
+  if (isInMediaHK && urlObj.searchParams.has('itok')) {
+    urlObj.searchParams.delete('itok');
+  }
+
+  return null;
+}
+
+/**
+ * 標準化查詢參數 (移除重複項)
+ *
+ * @param {URL} urlObj - URL 物件
+ * @private
+ */
+function _standardizeSearchParams(urlObj) {
+  const params = new URLSearchParams();
+  for (const [key, value] of urlObj.searchParams.entries()) {
+    if (!params.has(key)) {
+      params.set(key, value);
+    }
+  }
+  urlObj.search = params.toString();
+}
+
+/**
+ * 應用 Notion/Markdown 兼容性編碼
+ *
+ * @param {string} url - 原始 URL 字串
+ * @returns {string} 編碼後的 URL
+ * @private
+ */
+function _applyNotionCompatibilityEncoding(url) {
+  // new URL() 會自動解碼 "安全" 字符 (如括號)，但在 Markdown 語境中它們需要被編碼
+  return url.replaceAll(/[()']/g, char => {
+    const map = {
+      '(': '%28',
+      ')': '%29',
+      "'": '%27',
+    };
+    return map[char] || char;
+  });
 }
 
 /**
@@ -299,7 +359,18 @@ function isValidImageUrl(url) {
 
   // 排除明顯的佔位符
   const lowerUrl = url.toLowerCase();
-  if (PLACEHOLDER_KEYWORDS.some(placeholder => lowerUrl.includes(placeholder))) {
+
+  // 優化：針對 .gif 使用正則表達式進行精確匹配（避免誤殺包含 gif 的非擴展名路徑）
+  if (/\.gif(?:\?|$)/i.test(url)) {
+    return false;
+  }
+
+  // 其他簡單關鍵字匹配
+  if (
+    PLACEHOLDER_KEYWORDS.some(
+      placeholder => placeholder !== '.gif' && lowerUrl.includes(placeholder)
+    )
+  ) {
     return false;
   }
 
@@ -657,15 +728,46 @@ function extractFromNoscript(imgNode) {
 }
 
 /**
- * 從圖片元素中提取最佳的 src URL
- * 使用多層回退策略：srcset → 屬性 → picture → background → noscript
+ * 從 Anchor 標籤提取 href (內部輔助函數)
  *
- * @param {HTMLImageElement} imgNode - 圖片元素
+ * @param {HTMLElement} node - 元素
+ * @returns {string|null} 提取的 URL 或 null
+ * @private
+ */
+function _extractFromAnchorHref(node) {
+  if (node.tagName !== 'A') {
+    return null;
+  }
+  const href = node.getAttribute('href');
+  if (href && !/^javascript:/i.test(href) && !href.startsWith('#')) {
+    return href;
+  }
+  return null;
+}
+
+/**
+ * 從圖片元素中提取最佳的 src URL
+ * 使用多層回退策略：
+ * - 對於 Anchor 元素：優先使用 href（用於畫廊圖片）
+ * - 對於其他元素：srcset → 屬性 → picture → background → noscript → anchor
+ *
+ * @param {HTMLImageElement|HTMLElement} imgNode - 圖片元素或容器
  * @returns {string|null} 提取的圖片 URL 或 null
  */
 function extractImageSrc(imgNode) {
   if (!imgNode) {
     return null;
+  }
+
+  // [IMPORTANT] 對於 Anchor 元素，優先使用 href
+  // 這解決了像明報畫廊這樣的情況，<a> 的 href 包含高解析度圖片，
+  // 而其子 <img> 的 src 只是加載佔位符 (loading.gif)
+  if (imgNode.tagName === 'A') {
+    const hrefResult = _extractFromAnchorHref(imgNode);
+    if (hrefResult) {
+      return hrefResult;
+    }
+    // 如果 href 無效（如 javascript: 或空），則回退到子元素提取
   }
 
   return (

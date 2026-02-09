@@ -276,7 +276,7 @@ describe('ImageService', () => {
     });
 
     it('應該接受有效的圖片擴展名', () => {
-      const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+      const extensions = ['jpg', 'jpeg', 'png', 'webp', 'svg'];
       extensions.forEach(ext => {
         serviceNoValidator.clearCache();
         expect(serviceNoValidator.isValidImageUrl(`https://example.com/img.${ext}`)).toBe(true);

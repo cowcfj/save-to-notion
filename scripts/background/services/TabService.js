@@ -121,7 +121,8 @@ class TabService {
       if (this.injectionService && error.message?.includes('The tab was closed')) {
         this.logger.debug(`[TabService] Tab closed during update: ${error.message}`);
       } else {
-        this.logger.error('[TabService] Error updating tab status', { error });
+        const errorMsg = error.message || String(error);
+        this.logger.error(`[TabService] Error updating tab status: ${errorMsg}`, { error });
       }
     }
   }
@@ -220,6 +221,11 @@ class TabService {
   async _waitForTabCompilation(tabId) {
     const tab = await chrome.tabs.get(tabId).catch(() => null);
     if (!tab) {
+      return null;
+    }
+
+    if (tab.discarded) {
+      this.logger.debug(`[TabService] Tab ${tabId} is discarded, skipping injection`);
       return null;
     }
 

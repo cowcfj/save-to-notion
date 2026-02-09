@@ -24,8 +24,6 @@ import { LOG_ICONS, CONTENT_QUALITY } from '../../config/constants.js';
  * 使用 Rollup 打包的 bundle，包含所有 Content Extractors
  */
 const CONTENT_EXTRACTION_SCRIPTS = [
-  // 基礎依賴
-  'lib/Readability.js',
   // Content Script bundle（包含 ContentExtractor, ConverterFactory, Logger, ImageUtils 等）
   'dist/content.bundle.js',
 ];

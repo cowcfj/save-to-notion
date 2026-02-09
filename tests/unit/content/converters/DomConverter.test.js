@@ -5,21 +5,32 @@
 import { domConverter } from '../../../../scripts/content/converters/DomConverter.js';
 
 // Mock dependencies
-globalThis.Logger = {
-  debug: jest.fn(),
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-  info: jest.fn(),
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-};
+import Logger from '../../../../scripts/utils/Logger.js';
+
+jest.mock('../../../../scripts/utils/Logger.js', () => {
+  return {
+    __esModule: true,
+    default: {
+      debug: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+      info: jest.fn(),
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    },
+  };
+});
+
+// Sync global Logger with the mocked module for consistency
+globalThis.Logger = Logger;
 
 globalThis.ImageUtils = {
   extractImageSrc: jest.fn(),
   cleanImageUrl: jest.fn(url => url),
   isNotionCompatibleImageUrl: jest.fn(() => true),
+  isValidCleanedImageUrl: jest.fn(() => true),
 };
 
 globalThis.ErrorHandler = {
@@ -137,6 +148,79 @@ describe('DomConverter', () => {
       const html = '<img src="" />';
       const blocks = domConverter.convert(html);
       expect(blocks).toHaveLength(0);
+    });
+    test('should log info when image limit is reached', () => {
+      const maxImages = 6; // Based on IMAGE_LIMITS.MAX_MAIN_CONTENT_IMAGES
+      let html = '';
+      for (let i = 0; i <= maxImages; i++) {
+        html += `<img src="https://example.com/img${i}.jpg" alt="img${i}" />`;
+      }
+
+      globalThis.ImageUtils.extractImageSrc.mockImplementation(node => node.src);
+
+      const blocks = domConverter.convert(html);
+
+      // Verify Logger.info was called for the extra image
+      expect(Logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('已達主要內容圖片數量上限'),
+        expect.objectContaining({ currentCount: maxImages })
+      );
+
+      // Verify blocks length is limited to maxImages
+      expect(blocks.filter(b => b.type === 'image')).toHaveLength(maxImages);
+    });
+
+    test('should handle cleanImageUrl errors implicitly (catch block coverage)', () => {
+      const src = 'https://example.com/error.jpg';
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
+      // Mock cleanImageUrl to throw
+      globalThis.ImageUtils.cleanImageUrl.mockImplementationOnce(() => {
+        throw new Error('Clean Error');
+      });
+
+      const html = `<img src="${src}" />`;
+      const blocks = domConverter.convert(html);
+
+      // Should recover and use original src
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].image.external.url).toBe(src);
+    });
+
+    test('should drop image if validCleanedImageUrl returns false', () => {
+      const src = 'https://example.com/invalid.jpg';
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
+      // Mock validation failure
+      // We need to temporarily define isValidCleanedImageUrl on globalThis.ImageUtils if not present or mock it
+      // The current mock setup in line 32: isNotionCompatibleImageUrl.
+      // But code uses isValidCleanedImageUrl.
+      // Let's add isValidCleanedImageUrl to global mock.
+      // Mock validation failure for this specific test
+      globalThis.ImageUtils.isValidCleanedImageUrl.mockReturnValueOnce(false);
+
+      const html = `<img src="${src}" />`;
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(0);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '[Content] Dropping invalid image to ensure page save',
+        expect.objectContaining({ url: src })
+      );
+    });
+
+    // Coverage for "catch" block when new URL throws
+    test('should handle malformed URLs in Constructor', () => {
+      const src = 'https://['; // Invalid URL
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
+
+      const html = `<img src="${src}" />`;
+      // DOMParser might encode it or leave it.
+      // If passed to new URL('http://[', base), it throws.
+
+      const blocks = domConverter.convert(html);
+
+      // Should fall back to src
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].image.external.url).toBe(src);
     });
   });
 

@@ -198,6 +198,7 @@ export const NextJsExtractor = {
 
       for (const path of NEXTJS_CONFIG.ARTICLE_PATHS) {
         const result = this._getValueByPath(target, path);
+
         if (result) {
           const hasBlocks = Array.isArray(result.blocks);
           const hasContent = typeof result.content === 'string';
@@ -821,7 +822,8 @@ export const NextJsExtractor = {
         if (Array.isArray(tokenGroup)) {
           let paragraphText = '';
           tokenGroup.forEach(token => {
-            if (token.type === 'text' && token.content) {
+            // 處理所有包含 content 的 token 類型 (e.g. text, specific-link, boldLink)
+            if (token.content) {
               paragraphText += token.content;
             }
           });

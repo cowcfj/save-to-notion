@@ -27,10 +27,11 @@ import { cachedQuery } from './ReadabilityAdapter.js';
 import { NextJsExtractor } from './NextJsExtractor.js';
 import {
   FEATURED_IMAGE_SELECTORS,
-  ARTICLE_SELECTORS,
+  IMAGE_SELECTORS,
+  GALLERY_SELECTORS,
   EXCLUSION_SELECTORS,
 } from '../../config/extraction.js';
-import { IMAGE_VALIDATION_CONSTANTS, IMAGE_COLLECTION } from '../../config/constants.js';
+import { IMAGE_VALIDATION_CONSTANTS, IMAGE_LIMITS } from '../../config/constants.js';
 
 const ImageCollector = {
   /**
@@ -150,6 +151,58 @@ const ImageCollector = {
   },
 
   /**
+   * 從圖集/畫廊收集圖片
+   *
+   * @param {string} featuredImage - 特色圖片 URL (用於去重)
+   * @returns {Array} 圖片區塊列表
+   * @private
+   */
+  _collectFromGalleries(featuredImage) {
+    const images = [];
+    const processedUrls = new Set();
+    if (featuredImage) {
+      processedUrls.add(featuredImage);
+    }
+
+    if (!GALLERY_SELECTORS || GALLERY_SELECTORS.length === 0) {
+      return images;
+    }
+
+    Logger.log('開始收集圖集圖片', { action: 'collectFromGalleries' });
+
+    for (const selector of GALLERY_SELECTORS) {
+      try {
+        const elements = cachedQuery(selector, document, { all: true });
+        if (!elements || elements.length === 0) {
+          continue;
+        }
+
+        Logger.log(`找到圖集元素: ${selector}`, { count: elements.length });
+
+        elements.forEach((el, index) => {
+          // 對於圖集，我們希望收集所有高解析度圖片，所以給予較高的優先級
+          // 並且放寬一些限制（例如 display:none 的容器內的圖片）
+
+          // ImageUtils.extractImageSrc 已經支持從 anchor href 提取
+          const imageObj = this.processImageForCollection(el, index, featuredImage);
+
+          if (imageObj?.image?.external) {
+            const url = imageObj.image.external.url;
+            if (!processedUrls.has(url)) {
+              processedUrls.add(url);
+              images.push(imageObj);
+            }
+          }
+        });
+      } catch (error) {
+        Logger.warn('圖集收集錯誤', { selector, error: error.message });
+      }
+    }
+
+    return images;
+  },
+
+  /**
    * 處理單張圖片以進行收集
    *
    * @param {Element} img - 圖片元素
@@ -202,19 +255,27 @@ const ImageCollector = {
         0;
 
       // 只在有有效尺寸資訊時進行過濾（避免誤殺未設置尺寸屬性的大圖）
-      if (
-        imgWidth > 0 &&
-        imgHeight > 0 &&
-        (imgWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
-          imgHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT)
-      ) {
-        Logger.log('圖片尺寸太小', {
+      // Treat missing dimensions (0) as "unknown" and pass them through (secondary validation)
+      if (imgWidth > 0 && imgHeight > 0) {
+        if (
+          imgWidth < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_WIDTH ||
+          imgHeight < IMAGE_VALIDATION_CONSTANTS.MIN_IMAGE_HEIGHT
+        ) {
+          Logger.log('圖片尺寸太小', {
+            action: 'processImageForCollection',
+            width: imgWidth,
+            height: imgHeight,
+            source: img.naturalWidth > 0 ? 'naturalSize' : 'htmlAttribute',
+          });
+          return null;
+        }
+      } else {
+        // Dimensions are unknown (0), we allow it to pass but log it
+        Logger.log('圖片尺寸未知 (0)，跳過尺寸檢查', {
           action: 'processImageForCollection',
           width: imgWidth,
           height: imgHeight,
-          source: img.naturalWidth > 0 ? 'naturalSize' : 'htmlAttribute',
         });
-        return null;
       }
 
       return {
@@ -248,6 +309,7 @@ const ImageCollector = {
    * @param {Element} contentElement - 主要內容元素
    * @param {object} [options] - 配置選項
    * @param {Array} [options.nextJsBlocks] - 預先提取的 Next.js 區塊 (避免重複解析)
+   * @param {number} [options.mainContentImageCount] - 主要內容區域已找到的圖片數量
    * @returns {Promise<{images: Array<object>, coverImage: string|null}>} 包含圖片對象數組 (images) 和封面圖片 URL (coverImage) 的對象
    */
   async collectAdditionalImages(contentElement, options = {}) {
@@ -256,28 +318,68 @@ const ImageCollector = {
     // 策略 0: 優先查找封面圖/特色圖片
     const featuredImage = this._collectFromFeatured();
 
+    // [New] 條件式收集檢查
+    // 如果主內容圖片數量充足，則不收集額外圖片 (但保留封面圖)
+    const mainCount = options.mainContentImageCount || 0;
+    if (mainCount >= IMAGE_LIMITS.MAIN_CONTENT_SUFFICIENT_THRESHOLD) {
+      Logger.log('主內容圖片充足，跳過額外收集', {
+        action: 'collectAdditionalImages',
+        mainCount,
+        threshold: IMAGE_LIMITS.MAIN_CONTENT_SUFFICIENT_THRESHOLD,
+      });
+      return {
+        images: [],
+        coverImage: featuredImage,
+      };
+    }
+
     // 策略 1: 從指定的內容元素收集
-    const contentImages = this._collectFromContent(contentElement);
+    // imageElements 用於存儲待處理的 DOM 元素
+    const imageElements = this._collectFromContent(contentElement);
 
     // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
-    const allImages = [...contentImages];
-    if (allImages.length < 3) {
-      this._collectFromArticle(allImages);
+    if (imageElements.length < IMAGE_LIMITS.MIN_IMAGES_FOR_ARTICLE_SEARCH) {
+      this._collectFromArticle(imageElements);
     }
 
     // 策略 3: 如果仍然沒有圖片（< 1張），謹慎地擴展搜索
-    if (allImages.length === 0) {
-      this._collectFromExpansion(allImages);
+    if (imageElements.length === 0) {
+      this._collectFromExpansion(imageElements);
     }
 
     // 策略 4: 嘗試從 Next.js Data 提取 (針對 HK01 等 CSR/SSR 網站)
-    // 如果傳入了 nextJsBlocks，則直接使用，避免重複解析 DOM
-    this._collectFromNextJsData(allImages, options.nextJsBlocks);
+    // 注意: 這可能會直接添加 Image Block 對象到 additionalImages，或者添加元素到 imageElements
+    // 這裡我們假設它處理 elements，或者我們稍後處理
+    // 查看源碼，_collectFromNextJsData 似乎是處理數據並可能返回對象，暫時保留原樣調用方式如果它是副作用函數
+    // 根據之前的上下文，我們將其視為元素收集的一部分
+    this._collectFromNextJsData(imageElements, options.nextJsBlocks);
 
-    Logger.log('待處理圖片總數', { action: 'collectAdditionalImages', count: allImages.length });
+    Logger.log('待處理圖片元素總數', {
+      action: 'collectAdditionalImages',
+      count: imageElements.length,
+    });
 
-    // 使用批處理優化
-    await this._processImages(allImages, featuredImage, additionalImages);
+    // 批處理：將元素轉換為圖片對象
+    await this._processImages(imageElements, featuredImage, additionalImages);
+
+    // 策略 5: 從圖集/畫廊收集 (Mingpao etc.) -> 返回圖片對象
+    const galleryImages = this._collectFromGalleries(featuredImage);
+
+    // 合併圖集圖片 (去重)
+    if (galleryImages.length > 0) {
+      Logger.log('合併圖集圖片', { count: galleryImages.length });
+
+      // 構建現有圖片 URL 的 Set 以優化查找
+      const existingUrls = new Set(additionalImages.map(img => img.image.external.url));
+
+      galleryImages.forEach(img => {
+        const url = img.image.external.url;
+        if (!existingUrls.has(url)) {
+          existingUrls.add(url);
+          additionalImages.push(img);
+        }
+      });
+    }
 
     Logger.log('已成功收集有效圖片', {
       action: 'collectAdditionalImages',
@@ -285,12 +387,18 @@ const ImageCollector = {
     });
 
     // 限制圖片數量（封面圖片不計入限制）
-    const maxImages = IMAGE_COLLECTION.MAX_IMAGES_PER_PAGE;
+    // [Updated] 如果有圖集圖片，放寬限制以完整捕捉畫廊內容
+    const hasGalleryImages = galleryImages.length > 0;
+    const maxImages = hasGalleryImages
+      ? IMAGE_LIMITS.MAX_GALLERY_IMAGES
+      : IMAGE_LIMITS.MAX_ADDITIONAL_IMAGES;
+
     if (additionalImages.length > maxImages) {
       Logger.log('圖片數量超過上限，已截取', {
         action: 'collectAdditionalImages',
         original: additionalImages.length,
         limit: maxImages,
+        mode: hasGalleryImages ? 'gallery (relaxed)' : 'standard (strict)',
       });
       additionalImages.length = maxImages; // 原地截取，效能最優
     }
@@ -328,8 +436,8 @@ const ImageCollector = {
   },
 
   _collectFromArticle(allImages) {
-    Logger.log('圖片收集策略：文章區域', { action: 'collectAdditionalImages' });
-    for (const selector of ARTICLE_SELECTORS) {
+    Logger.log('圖片收集策略：指定區域', { action: 'collectAdditionalImages' });
+    for (const selector of IMAGE_SELECTORS) {
       const articleElement = cachedQuery(selector, document, { single: true });
       if (articleElement) {
         const imgElements = cachedQuery('img', articleElement, { all: true });
@@ -345,7 +453,7 @@ const ImageCollector = {
             allImages.push(img);
           }
         });
-        if (allImages.length >= 5) {
+        if (allImages.length >= IMAGE_LIMITS.MAX_IMAGES_FROM_ARTICLE_SEARCH) {
           break;
         }
       }
@@ -488,7 +596,7 @@ const ImageCollector = {
       }
     });
 
-    if (batchProcess !== undefined && allImages.length > 5) {
+    if (batchProcess !== undefined && allImages.length > IMAGE_LIMITS.BATCH_PROCESS_THRESHOLD) {
       Logger.log('對圖片使用批次處理', {
         action: 'collectAdditionalImages',
         count: allImages.length,
@@ -516,12 +624,22 @@ const ImageCollector = {
       };
 
       if (typeof batchProcessWithRetry === 'function') {
-        const indexedImages = allImages.map((img, index) => ({ img, index }));
-        const { results } = await batchProcessWithRetry(indexedImages, processFn, {
-          maxAttempts: 3,
-          isResultSuccessful: result => Boolean(result?.image?.external?.url),
-        });
-        handleResults(results);
+        try {
+          const indexedImages = allImages.map((img, index) => ({ img, index }));
+          const { results } = await batchProcessWithRetry(indexedImages, processFn, {
+            maxAttempts: 3,
+            isResultSuccessful: result => Boolean(result?.image?.external?.url),
+          });
+          handleResults(results);
+        } catch (error) {
+          Logger.warn('批次處理失敗 (Retry)，回退到順序處理', { error: error.message });
+          ImageCollector.processImagesSequentially(
+            allImages,
+            featuredImage,
+            additionalImages,
+            processedUrls
+          );
+        }
       } else {
         // Fallback to simple batch
         try {

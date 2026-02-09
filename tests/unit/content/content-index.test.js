@@ -143,11 +143,12 @@ describe('Content Script Entry Point', () => {
       const result = await extractPageContent();
 
       expect(result.title).toBe('Extracted Title');
-      expect(result.blocks).toHaveLength(1);
-      expect(result.blocks[0].type).toBe('paragraph');
+      expect(result.blocks).toHaveLength(2);
+      expect(result.blocks[0].type).toBe('image');
+      expect(result.blocks[1].type).toBe('paragraph');
       expect(result.rawHtml).toBe('<p>Test content</p>');
       expect(result.metadata).toBeDefined();
-      expect(result.additionalImages).toHaveLength(2);
+      expect(result.additionalImages).toHaveLength(1);
       expect(result.debug).toBeDefined();
       expect(result.debug.contentType).toBe('article');
     });

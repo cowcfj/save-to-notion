@@ -70,7 +70,7 @@ export const IMAGE_ATTRIBUTES = [
 // 圖片路徑與排除模式
 // ==========================================
 
-export const IMAGE_EXTENSIONS = /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)$/i;
+export const IMAGE_EXTENSIONS = /\.(?:jpg|jpeg|png|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)$/i;
 
 export const IMAGE_PATH_PATTERNS = [
   /\/images?\//i,
@@ -281,6 +281,8 @@ export const PLACEHOLDER_KEYWORDS = [
   'empty',
   '1x1',
   'transparent',
+  'miscellaneous_sprite', // 排除雜項佈局圖片 (e.g., miscellaneous_sprite.png)
+  '.gif', // 排除 GIF 圖片（通常為動畫圖標或佔位符，非內容圖片）
 ];
 
 // ==========================================

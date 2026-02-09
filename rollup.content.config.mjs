@@ -1,4 +1,5 @@
 import resolve from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
 import terser from '@rollup/plugin-terser';
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -11,12 +12,10 @@ export default {
     name: 'ContentScript',
     sourcemap: isDev ? 'inline' : false,
     banner: '/* eslint-disable */\n/* Save to Notion - Content Script */',
-    globals: {
-      Readability: 'Readability',
-    },
   },
   plugins: [
     resolve(),
+    commonjs(),
     !isDev &&
       terser({
         compress: {
@@ -43,7 +42,11 @@ export default {
   onwarn(warning, warn) {
     // 忽略某些常見警告
     if (warning.code === 'THIS_IS_UNDEFINED') return;
-    if (warning.code === 'CIRCULAR_DEPENDENCY') return;
+    if (warning.code === 'CIRCULAR_DEPENDENCY') {
+      // 僅記錄警告，不中斷構建
+      console.warn(`[WARN] Circular dependency detected: ${warning.message}`);
+      return;
+    }
     warn(warning);
   },
 };

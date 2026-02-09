@@ -53,7 +53,7 @@ describe('配置模組 - constants.js', () => {
     test('應導出內容質量評估常量', () => {
       expect(CONTENT_QUALITY).toBeDefined();
       expect(CONTENT_QUALITY.MIN_CONTENT_LENGTH).toBe(250);
-      expect(CONTENT_QUALITY.MAX_LINK_DENSITY).toBe(0.3);
+      expect(CONTENT_QUALITY.MAX_LINK_DENSITY).toBe(0.25);
       expect(CONTENT_QUALITY.LIST_EXCEPTION_THRESHOLD).toBe(8);
     });
 

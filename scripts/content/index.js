@@ -9,7 +9,7 @@
  * - 返回提取結果給 background.js
  *
  * 依賴：
- * - Readability.js - 第三方庫（與此 Bundle 一同注入）
+ * - @mozilla/readability - 第三方庫（已透過 npm 打包進 bundle，不再單獨注入）
  */
 
 /* global chrome */
@@ -145,6 +145,7 @@ async function extractPageContent() {
 
     // 2. 獲取或轉換 Notion Blocks
     let blocks = [];
+    let mainImageCount = 0; // [New] Track main images
     if (hasBlocks) {
       Logger.log('使用預提取的 Notion 區塊', {
         action: 'extractPageContent',
@@ -152,10 +153,13 @@ async function extractPageContent() {
         count: preExtractedBlocks.length,
       });
       blocks = preExtractedBlocks;
+      // 簡單統計圖片數量
+      mainImageCount = blocks.filter(block => block.type === 'image').length;
     } else {
       Logger.log('正在將內容轉換為 Notion 區塊', { action: 'extractPageContent', type });
       const converter = ConverterFactory.getConverter(type);
       blocks = converter.convert(content);
+      mainImageCount = converter.imageCount || 0;
       Logger.log('內容轉換完成', { action: 'extractPageContent', blockCount: blocks.length });
     }
 
@@ -175,6 +179,7 @@ async function extractPageContent() {
       // ImageCollector 預期一個 Element，傳入 doc.body 即可
       const imageResult = await ImageCollector.collectAdditionalImages(contentElement, {
         nextJsBlocks: type === 'nextjs' ? preExtractedBlocks : null,
+        mainContentImageCount: mainImageCount,
       });
 
       // 處理新的返回結構（包含 images 和 coverImage）
@@ -185,6 +190,16 @@ async function extractPageContent() {
 
       // 使用工具函數去重
       additionalImages = mergeUniqueImages(blocks, collectedImages);
+
+      // [New] 如果正文沒有圖片，將第一張額外圖片插入到文章開頭
+      if (mainImageCount === 0 && additionalImages.length > 0) {
+        const leadImage = additionalImages.shift(); // 取出第一張
+        blocks.unshift(leadImage); // 插入到開頭
+        Logger.log('正文無圖片，已將首張額外圖片插入文章開頭', {
+          action: 'extractPageContent',
+          imageUrl: `${leadImage?.image?.external?.url?.slice(0, 50)}...`,
+        });
+      }
 
       Logger.log('額外圖片收集完成 (已去重)', {
         action: 'extractPageContent',
