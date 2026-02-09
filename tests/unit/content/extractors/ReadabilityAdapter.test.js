@@ -13,11 +13,21 @@ const Logger = {
 
 globalThis.Logger = Logger;
 
+// Mock Readability
+const mockParse = jest.fn();
+jest.mock('@mozilla/readability', () => ({
+  Readability: jest.fn().mockImplementation(() => ({
+    parse: mockParse,
+  })),
+}));
+
 // 引用 ReadabilityAdapter 模組
 const {
   isContentGood,
   expandCollapsibleElements,
   performSmartCleaning,
+  safeQueryElements,
+  parseArticleWithReadability,
 } = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
 
 describe('ReadabilityAdapter - expandCollapsibleElements', () => {
@@ -390,7 +400,115 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
     expect(output).not.toContain('onclick');
     expect(output).not.toContain('onmouseover');
     expect(output).not.toContain('onerror');
-    expect(output).toContain('<div>'); // 修正預期，DOMParser 的行為可能不會保留多餘空格
+    expect(output).toContain('<div>');
     expect(output).toContain('<a href="#">Link</a>');
+  });
+});
+
+describe('ReadabilityAdapter - safeQueryElements', () => {
+  test('正常查詢應該返回 NodeList', () => {
+    document.body.innerHTML = '<div class="test"></div><div class="test"></div>';
+    const results = safeQueryElements(document, '.test');
+    expect(results).toHaveLength(2);
+  });
+
+  test('當 querySelectorAll 拋出錯誤時應該安全處理', () => {
+    // 透過 spyOn 來模擬 querySelectorAll 拋出錯誤
+    // 注意: safeQueryElements 使用 container.querySelectorAll
+    const container = document.createElement('div');
+    jest.spyOn(container, 'querySelectorAll').mockImplementation(() => {
+      throw new Error('Query Error');
+    });
+
+    const results = safeQueryElements(container, '.test');
+
+    expect(results).toEqual([]);
+    expect(Logger.warn).toHaveBeenCalledWith(
+      '查詢選擇器失敗',
+      expect.objectContaining({ error: 'Query Error' })
+    );
+  });
+});
+
+describe('ReadabilityAdapter - parseArticleWithReadability', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockParse.mockReturnValue({ title: 'Test', content: '<div>Content</div>' });
+  });
+
+  test('應該成功解析文章', () => {
+    const article = parseArticleWithReadability();
+    expect(article).not.toBeNull();
+    expect(article.content).toContain('Content');
+  });
+
+  test('當 Readability 解析失敗時應該拋出錯誤', () => {
+    mockParse.mockImplementation(() => {
+      throw new Error('Readability failed');
+    });
+
+    expect(() => parseArticleWithReadability()).toThrow(
+      'Readability parsing error: Readability failed'
+    );
+  });
+
+  test('當智慧清洗失敗時應該記錄警告但返回原始內容', () => {
+    // 我們需要模擬 performSmartCleaning 拋出錯誤
+    // 但 performSmartCleaning 是直接導出的函數，無法直接 spyOn 模組內部的調用 (除非模組導出方式允許)
+    // ReadabilityAdapter.js 是一個 module，內部使用 function declaration 定義 performSmartCleaning
+    // 並且在 parseArticleWithReadability 內部直接調用。
+    // 在這種情況下，直接 mock 內部函數比較困難。
+
+    // 替代方案：傳遞一個會導致 DOMParser 失敗的內容，
+    // 或者利用 performSmartCleaning 的錯誤處理邏輯。
+    // 但 performSmartCleaning 內部也有 try-catch。
+
+    // 如果我們無法輕易 mock 內部函數，我們可以專注於測試 parseArticleWithReadability 的 catch block
+    // 該 block 是針對 "智慧清洗過程中發生錯誤"
+
+    // 由於 performSmartCleaning 相當健壯，要讓它 crash 比較難。
+    // 或許我們可以傳遞一個巨大的遞歸結構？
+
+    // 讓我們試著 mock DOMParser.parseFromString 在特定情況下 throw error
+    // 這會觸發 performSmartCleaning 內部的錯誤 (如果不被它自己的 try-catch 捕獲的話？)
+    // 等等，performSmartCleaning 沒有 try-catch 包裹整個 parser 邏輯，
+    // 除了它內部是同步的。
+
+    // 讓我們嘗試 mock DOMParser (這是全域的)
+    /*
+      function performSmartCleaning(articleContent, cmsType) {
+         // ...
+         const parser = new DOMParser();
+         const doc = parser.parseFromString(articleContent, 'text/html'); // Can we make this throw?
+    */
+
+    const parserConfig = { throwValue: null };
+
+    const originalParseFromString = DOMParser.prototype.parseFromString;
+    jest.spyOn(DOMParser.prototype, 'parseFromString').mockImplementation(function (...args) {
+      if (parserConfig.throwValue) {
+        throw new Error(parserConfig.throwValue);
+      }
+      return originalParseFromString.apply(this, args);
+    });
+
+    // 觸發錯誤
+    parserConfig.throwValue = 'Cleaning Error';
+
+    // 注意：parseArticleWithReadability 會先調用 Readability 解析，得到 content
+    // 然後調用 performSmartCleaning(content)
+
+    const article = parseArticleWithReadability();
+
+    // 應該返回原始 content (因為 mockParse 默認返回 '<div>Content</div>')
+    expect(article.content).toBe('<div>Content</div>');
+
+    // 應該記錄警告
+    expect(Logger.warn).toHaveBeenCalledWith(
+      '智慧清洗過程中發生錯誤，將使用原始解析結果',
+      expect.objectContaining({ error: 'Cleaning Error' })
+    );
+
+    parserConfig.throwValue = null;
   });
 });

@@ -640,17 +640,6 @@ function performSmartCleaning(articleContent, cmsType) {
   return tempDiv.innerHTML;
 }
 
-// createOptimizedDocumentClone is kept for reference but logic is migrated to performSmartCleaning
-/**
- * @deprecated Since logic moved to post-processing in performSmartCleaning.
- * This function now only performs a simple clone.
- * @returns {Document} The cloned document.
- */
-function createOptimizedDocumentClone() {
-  // Return simple clone as pre-processing is now handled by post-processing
-  return document.cloneNode(true);
-}
-
 /**
  * 使用 Readability.js 解析文章內容
  * 包含性能優化、錯誤處理和邊緣情況處理
@@ -738,7 +727,6 @@ const readabilityAdapter = {
   cachedQuery,
   findContentCmsFallback,
   extractLargestListFallback,
-  createOptimizedDocumentClone,
   parseArticleWithReadability,
 };
 
@@ -750,7 +738,6 @@ export {
   cachedQuery,
   findContentCmsFallback,
   extractLargestListFallback,
-  createOptimizedDocumentClone,
   detectCMS,
   performSmartCleaning,
   parseArticleWithReadability,

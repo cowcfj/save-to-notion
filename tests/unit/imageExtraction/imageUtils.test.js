@@ -239,4 +239,51 @@ describe('isValidImageUrl', () => {
       );
     });
   });
+
+  describe('Coverage Improvements', () => {
+    test('cleanImageUrl should handle max recursion depth', () => {
+      // Construct a deeply nested URL
+      // MAX_RECURSION_DEPTH is likely 5
+      let url = 'https://example.com/final.jpg';
+      for (let i = 0; i < 6; i++) {
+        url = `https://example.com/photo.php?u=${encodeURIComponent(url)}`;
+      }
+      // The function should return the URL at depth 5 (which is still a wrapper)
+      // or at least not crash and return *something*.
+      // If it returns the wrapper URL, it means it stopped recursing.
+      const result = cleanImageUrl(url);
+      expect(result).not.toBeNull();
+      // Expect it to stop unwrapping eventually
+      expect(result).not.toBe('https://example.com/final.jpg');
+      expect(result).toContain('photo.php');
+    });
+
+    test('_unwrapNextJsUrl should handle invalid inner URL', () => {
+      // url param contains invalid protocol (javascript:) which cleanImageUrl rejects
+      const invalidInnerUrl = 'https://example.com/_next/image?url=javascript:alert(1)&w=640&q=75';
+      const result = cleanImageUrl(invalidInnerUrl);
+      // unwrap should fail (return null), so it returns the original cleaned URL
+      expect(result).not.toBeNull();
+      expect(result).toContain('_next/image');
+    });
+
+    test('extractBestUrlFromSrcset should fallback when SrcsetParser throws', () => {
+      // Mock SrcsetParser to throw
+      globalThis.SrcsetParser = {
+        parse: () => {
+          throw new Error('Parser Error');
+        },
+      };
+      const { extractBestUrlFromSrcset } = globalThis.ImageUtils;
+
+      const srcset = 'https://example.com/img.jpg 1x';
+      const result = extractBestUrlFromSrcset(srcset);
+
+      // Should fallback to manual parsing
+      expect(result).toBe('https://example.com/img.jpg');
+
+      // Clean up
+      delete globalThis.SrcsetParser;
+    });
+  });
 });

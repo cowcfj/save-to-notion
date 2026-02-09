@@ -616,12 +616,22 @@ const ImageCollector = {
       };
 
       if (typeof batchProcessWithRetry === 'function') {
-        const indexedImages = allImages.map((img, index) => ({ img, index }));
-        const { results } = await batchProcessWithRetry(indexedImages, processFn, {
-          maxAttempts: 3,
-          isResultSuccessful: result => Boolean(result?.image?.external?.url),
-        });
-        handleResults(results);
+        try {
+          const indexedImages = allImages.map((img, index) => ({ img, index }));
+          const { results } = await batchProcessWithRetry(indexedImages, processFn, {
+            maxAttempts: 3,
+            isResultSuccessful: result => Boolean(result?.image?.external?.url),
+          });
+          handleResults(results);
+        } catch (error) {
+          Logger.warn('批次處理失敗 (Retry)，回退到順序處理', { error: error.message });
+          ImageCollector.processImagesSequentially(
+            allImages,
+            featuredImage,
+            additionalImages,
+            processedUrls
+          );
+        }
       } else {
         // Fallback to simple batch
         try {

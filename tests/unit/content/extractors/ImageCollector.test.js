@@ -13,6 +13,12 @@ jest.mock('../../../../scripts/performance/PerformanceOptimizer', () => ({
   batchProcessWithRetry: jest.fn(),
 }));
 
+jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({
+  ErrorHandler: {
+    logError: jest.fn(),
+  },
+}));
+
 // Mock NextJsExtractor
 jest.mock('../../../../scripts/content/extractors/NextJsExtractor.js', () => ({
   NextJsExtractor: {
@@ -108,9 +114,12 @@ globalThis.ImageUtils = {
   isValidCleanedImageUrl,
 };
 
-globalThis.ErrorHandler = {
-  logError: jest.fn(),
-};
+// Import ErrorHandler to use in tests
+import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
+
+// globalThis.ErrorHandler was likely for legacy support or incomplete mocking
+// We can keep it if needed but prefer module mock
+globalThis.ErrorHandler = ErrorHandler;
 
 describe('ImageCollector', () => {
   beforeEach(() => {
@@ -497,6 +506,98 @@ describe('ImageCollector', () => {
       expect(uniqueUrls.has('https://example.com/1.jpg')).toBe(true);
       expect(uniqueUrls.has('https://example.com/2.jpg')).toBe(true);
       // 3.jpg is truncated due to limit 2
+    });
+  });
+
+  describe('Error Handling and Fallbacks', () => {
+    test('collectFeaturedImage should handle meta query errors', () => {
+      // 模擬 meta 查詢拋出錯誤
+      jest.spyOn(document, 'querySelector').mockImplementation(() => {
+        throw new Error('Meta Error');
+      });
+      const result = ImageCollector.collectFeaturedImage();
+      expect(result).toBeNull();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '解析 meta 圖片出錯',
+        expect.objectContaining({ error: 'Meta Error' })
+      );
+    });
+
+    test('collectFeaturedImage should handle DOM query errors', () => {
+      // 模擬 meta 查詢返回 null，以便進入 DOM 查詢
+      jest.spyOn(document, 'querySelector').mockReturnValue(null);
+
+      // 模擬 cachedQuery 拋出錯誤
+      cachedQuery.mockImplementation(() => {
+        throw new Error('DOM Error');
+      });
+
+      const result = ImageCollector.collectFeaturedImage();
+      expect(result).toBeNull();
+      expect(ErrorHandler.logError).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'dom_error', originalError: expect.any(Error) })
+      );
+    });
+
+    test('collectAdditionalImages should fallback to sequential processing on batch error', async () => {
+      // 設置 6 張圖片以觸發批次處理 (> 5)
+      const contentElement = document.createElement('div');
+      for (let i = 0; i < 6; i++) {
+        const img = document.createElement('img');
+        img.src = `https://example.com/${i}.jpg`;
+        contentElement.append(img);
+      }
+
+      cachedQuery.mockImplementation((sel, _ctx) => {
+        if (sel === 'img') {
+          return Array.from(contentElement.querySelectorAll('img'));
+        }
+        return [];
+      });
+
+      // 模擬批次處理失敗
+      batchProcessWithRetry.mockRejectedValue(new Error('Batch Failed'));
+
+      // 監控順序處理函數
+      const seqSpy = jest.spyOn(ImageCollector, 'processImagesSequentially');
+
+      // Mock processImageForCollection for sequential fallback
+      jest.spyOn(ImageCollector, 'processImageForCollection').mockImplementation(img => ({
+        object: 'block',
+        type: 'image',
+        image: { external: { url: img.src } },
+      }));
+
+      await ImageCollector.collectAdditionalImages(contentElement);
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '批次處理失敗 (Retry)，回退到順序處理',
+        expect.objectContaining({ error: 'Batch Failed' })
+      );
+      expect(seqSpy).toHaveBeenCalled();
+    });
+
+    test('collectAdditionalImages should handle gallery collection errors', async () => {
+      const contentElement = document.createElement('div');
+
+      // Spy on internal methods to skip them ensure we get to gallery collection
+      // 策略 0-4 全部跳過
+      jest.spyOn(ImageCollector, '_collectFromFeatured').mockReturnValue(null);
+      jest.spyOn(ImageCollector, '_collectFromContent').mockReturnValue([]);
+      jest.spyOn(ImageCollector, '_collectFromArticle').mockImplementation(() => {});
+      jest.spyOn(ImageCollector, '_collectFromExpansion').mockImplementation(() => {});
+      jest.spyOn(ImageCollector, '_collectFromNextJsData').mockImplementation(() => {});
+      jest.spyOn(ImageCollector, '_processImages').mockImplementation(() => {});
+
+      // 模擬 cachedQuery 針對圖集選擇器拋出錯誤
+      cachedQuery.mockImplementation(() => {
+        throw new Error('Gallery Error');
+      });
+
+      // 確保不會因錯誤崩潰
+      await ImageCollector.collectAdditionalImages(contentElement);
+
+      expect(Logger.warn).toHaveBeenCalledWith('圖集收集錯誤', expect.any(Object));
     });
   });
 });

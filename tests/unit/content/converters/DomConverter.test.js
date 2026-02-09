@@ -30,6 +30,7 @@ globalThis.ImageUtils = {
   extractImageSrc: jest.fn(),
   cleanImageUrl: jest.fn(url => url),
   isNotionCompatibleImageUrl: jest.fn(() => true),
+  isValidCleanedImageUrl: jest.fn(() => true),
 };
 
 globalThis.ErrorHandler = {
@@ -173,6 +174,66 @@ describe('DomConverter', () => {
 
       // Verify no block was returned for this image
       expect(block).toBeNull();
+    });
+
+    test('should handle cleanImageUrl errors implicitly (catch block coverage)', () => {
+      const src = 'https://example.com/error.jpg';
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
+      // Mock cleanImageUrl to throw
+      globalThis.ImageUtils.cleanImageUrl.mockImplementationOnce(() => {
+        throw new Error('Clean Error');
+      });
+
+      const html = `<img src="${src}" />`;
+      const blocks = domConverter.convert(html);
+
+      // Should recover and use original src
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].image.external.url).toBe(src);
+    });
+
+    test('should drop image if validCleanedImageUrl returns false', () => {
+      const src = 'https://example.com/invalid.jpg';
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
+      // Mock validation failure
+      // We need to temporarily define isValidCleanedImageUrl on globalThis.ImageUtils if not present or mock it
+      // The current mock setup in line 32: isNotionCompatibleImageUrl.
+      // But code uses isValidCleanedImageUrl.
+      // Let's add isValidCleanedImageUrl to global mock.
+      const originalIsValid = globalThis.ImageUtils.isValidCleanedImageUrl;
+      globalThis.ImageUtils.isValidCleanedImageUrl = jest.fn(() => false);
+
+      const html = `<img src="${src}" />`;
+      const blocks = domConverter.convert(html);
+
+      expect(blocks).toHaveLength(0);
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '[Content] Dropping invalid image to ensure page save',
+        expect.objectContaining({ url: src })
+      );
+
+      // Restore
+      if (originalIsValid) {
+        globalThis.ImageUtils.isValidCleanedImageUrl = originalIsValid;
+      } else {
+        delete globalThis.ImageUtils.isValidCleanedImageUrl;
+      }
+    });
+
+    // Coverage for "catch" block when new URL throws
+    test('should handle malformed URLs in Constructor', () => {
+      const src = 'https://['; // Invalid URL
+      globalThis.ImageUtils.extractImageSrc.mockReturnValue(src);
+
+      const html = `<img src="${src}" />`;
+      // DOMParser might encode it or leave it.
+      // If passed to new URL('http://[', base), it throws.
+
+      const blocks = domConverter.convert(html);
+
+      // Should fall back to src
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].image.external.url).toBe(src);
     });
   });
 

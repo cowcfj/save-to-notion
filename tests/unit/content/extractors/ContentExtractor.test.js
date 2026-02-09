@@ -30,6 +30,13 @@ jest.mock('../../../../scripts/content/extractors/MetadataExtractor', () => ({
   },
 }));
 
+jest.mock('../../../../scripts/content/extractors/NextJsExtractor', () => ({
+  NextJsExtractor: {
+    detect: jest.fn(),
+    extract: jest.fn(),
+  },
+}));
+
 // Mock pageComplexityDetector
 jest.mock(
   '../../../../scripts/utils/pageComplexityDetector',
@@ -50,16 +57,22 @@ const {
 const { MetadataExtractor } = require('../../../../scripts/content/extractors/MetadataExtractor');
 const pageComplexityDetector = require('../../../../scripts/utils/pageComplexityDetector');
 
-globalThis.Logger = {
-  debug: jest.fn(),
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-  info: jest.fn(),
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-};
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
+const Logger = require('../../../../scripts/utils/Logger.js').default;
+globalThis.Logger = Logger;
 
 describe('ContentExtractor', () => {
   beforeEach(() => {
@@ -151,6 +164,52 @@ describe('ContentExtractor', () => {
 
       expect(result.content).toBe('<div>Readability</div>');
       expect(parseArticleWithReadability).toHaveBeenCalled();
+    });
+
+    test('should handle Next.js detection errors gracefully', () => {
+      // Mock NextJsExtractor to throw
+      const { NextJsExtractor } = require('../../../../scripts/content/extractors/NextJsExtractor');
+      NextJsExtractor.detect.mockImplementationOnce(() => {
+        throw new Error('Next.js Error');
+      });
+
+      // Mock standard extraction flow
+      pageComplexityDetector.detectPageComplexity.mockReturnValue({});
+      pageComplexityDetector.selectExtractor.mockReturnValue({
+        extractor: 'readability',
+      });
+      parseArticleWithReadability.mockReturnValue({ content: 'Fallback' });
+      isContentGood.mockReturnValue(true);
+
+      const result = ContentExtractor.extract(document);
+
+      expect(result.content).toBe('Fallback');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Next.js detection/extraction failed'),
+        expect.objectContaining({ error: 'Next.js Error' })
+      );
+    });
+
+    test('should handle Readability parsing errors gracefully in extractReadability', () => {
+      // This tests the try-catch block inside extractReadability
+      pageComplexityDetector.detectPageComplexity.mockReturnValue({});
+      pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'readability' });
+
+      // Mock parseArticleWithReadability to throw
+      parseArticleWithReadability.mockImplementationOnce(() => {
+        throw new Error('Readability Error');
+      });
+
+      // Should attempt fallback
+      findContentCmsFallback.mockReturnValue('CMS Fallback');
+
+      const result = ContentExtractor.extract(document);
+
+      expect(result.content).toBe('CMS Fallback');
+      expect(Logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Readability 解析失敗'),
+        expect.any(Object)
+      );
     });
   });
 });
