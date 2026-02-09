@@ -17,8 +17,8 @@ import { NOTION_CONFIG, ERROR_MESSAGES, CONTENT_QUALITY } from '../../config/ind
 import { sanitizeApiError } from '../../utils/securityUtils.js';
 // 導入統一日誌記錄器
 import Logger from '../../utils/Logger.js';
-
-// (NOTION_CONFIG 已遷移至 scripts/config/constants.js)
+// 導入重試管理器
+import { RetryManager } from '../../utils/RetryManager.js';
 
 /**
  * 延遲函數
@@ -42,6 +42,9 @@ class NotionService {
     this.apiKey = options.apiKey || null;
     this.config = { ...NOTION_CONFIG, ...options.config };
     this.client = null;
+
+    // 初始化共用 RetryManager
+    this._retryManager = new RetryManager();
 
     if (this.apiKey) {
       this._initClient();
@@ -135,7 +138,32 @@ class NotionService {
   }
 
   /**
-   * 執行帶重試的 SDK 操作
+   * 判斷 Notion API 錯誤是否可重試
+   *
+   * @param {Error} error - 錯誤對象
+   * @returns {boolean} 是否應該重試
+   * @private
+   */
+  _isNotionRetriableError(error) {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    // SDK 錯誤代碼: rate_limited (429), internal_server_error (500), service_unavailable (503)
+    const isRateLimit = error.status === 429 || error.code === 'rate_limited';
+    const isServerErr =
+      (error.status >= 500 && error.status < 600) ||
+      ['internal_server_error', 'service_unavailable'].includes(error.code);
+    // 處理 409 conflict
+    const isConflict = error.status === 409 || error.code === 'conflict_error';
+    // 處理特定錯誤訊息
+    const isRetriableMessage = /unsaved transactions|datastoreinfraerror/i.test(error.message);
+
+    return isRateLimit || isServerErr || isConflict || isRetriableMessage;
+  }
+
+  /**
+   * 執行帶重試的 SDK 操作（委託給 RetryManager）
    *
    * @param {Function} operation - 執行 SDK 調用的函數 (接收 client 作為參數)
    * @param {object} options - 配置與重試選項
@@ -144,68 +172,18 @@ class NotionService {
    */
   async _executeWithRetry(operation, options = {}) {
     const client = this._getScopedClient(options);
-
     const {
       maxRetries = this.config.DEFAULT_MAX_RETRIES,
       baseDelay = this.config.DEFAULT_BASE_DELAY,
       label = 'operation',
     } = options;
 
-    let attempt = 0;
-    let lastError = null;
-
-    while (attempt <= maxRetries) {
-      try {
-        return await operation(client);
-      } catch (error) {
-        lastError = error;
-
-        // 詳細記錄錯誤供除錯使用
-        Logger.error('[NotionService] 執行出錯', {
-          action: label,
-          operation: 'executeWithRetry',
-          message: error.message,
-          code: error.code,
-          status: error.status,
-          name: error.name,
-        });
-
-        // 檢查是否為可重試錯誤
-
-        // SDK 錯誤代碼: rate_limited (429), internal_server_error (500), service_unavailable (503)
-        // 另外處理 409 conflict
-        const isRateLimit = error.status === 429 || error.code === 'rate_limited';
-        const isServerErr =
-          error.status >= 500 ||
-          ['internal_server_error', 'service_unavailable'].includes(error.code);
-        const isConflict = error.status === 409 || error.code === 'conflict_error';
-        const isRetriableMessage = /unsaved transactions|datastoreinfraerror/i.test(error.message);
-
-        const shouldRetry = isRateLimit || isServerErr || isConflict || isRetriableMessage;
-
-        if (attempt < maxRetries && shouldRetry) {
-          // 計算延遲 (指數退避 + Jitter)
-          const jitter = this._getJitter(200);
-          const delay = baseDelay * Math.pow(2, attempt) + jitter;
-
-          Logger.warn(`[NotionService] ${label} 失敗，將重試`, {
-            action: label,
-            operation: 'retry',
-            attempt: attempt + 1,
-            maxRetries,
-            error: error.code || error.message,
-            delay,
-          });
-
-          await sleep(delay);
-          attempt++;
-          continue;
-        }
-
-        // 不可重試或重試耗盡
-        throw lastError;
-      }
-    }
+    return this._retryManager.execute(() => operation(client), {
+      maxRetries,
+      baseDelay,
+      shouldRetry: error => this._isNotionRetriableError(error),
+      contextType: label,
+    });
   }
 
   /**
@@ -234,43 +212,6 @@ class NotionService {
         }),
       { ...options, apiKey, label: `APIRequest:${path}` }
     );
-  }
-
-  /**
-   * 獲取隨機抖動 (Jitter)
-   * 使用加密安全隨機數生成器並消除模數偏差 (Modulo Bias)
-   *
-   * @param {number} max - 最大值 (不包含)
-   * @returns {number} 隨機整數
-   * @private
-   */
-  _getJitter(max) {
-    try {
-      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-        // 修正模數偏差 (Modulo Bias)
-        // 使用拒絕採樣 (Rejection Sampling) 確保隨機性均勻分布
-        // Uint32 的最大值為 2^32 - 1 = 4294967295
-        // 總共有 2^32 = 4294967296 個可能的隨機值
-        const totalValues = 4_294_967_296;
-        const limit = totalValues - (totalValues % max);
-        const array = new Uint32Array(1);
-
-        let randomInt;
-        do {
-          crypto.getRandomValues(array);
-          randomInt = array[0];
-        } while (randomInt >= limit);
-
-        return randomInt % max;
-      }
-    } catch (error) {
-      // 僅在加密環境不可用時回退
-      Logger.debug('[NotionService] 加密隨機數生成不可用，回退至 Math.random', {
-        error: error.message,
-      });
-    }
-    // eslint-disable-next-line sonarjs/pseudo-random
-    return Math.floor(Math.random() * max);
   }
 
   /**

@@ -648,7 +648,6 @@ select:focus {
   color: #991b1b;
 }
 
-
 .migration-controls {
   display: flex;
   align-items: center;
@@ -1036,7 +1035,7 @@ select:focus {
   color: var(--text-primary);
 }
 
-.feature-content>div {
+.feature-content > div {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.5;
@@ -1154,7 +1153,7 @@ h4 .icon-svg {
   vertical-align: text-bottom;
 }
 
-/* 
+/*
  * 修正警示文字與圖標的對齊問題
  * .help-text (12px) 較小，需要特別調整圖標對齊
  */
@@ -1382,4 +1381,16 @@ h4 .icon-svg {
   margin: 0;
   padding-left: 20px;
   line-height: 1.6;
+}
+
+/* Inline Hint Icon */
+.icon-inline-hint {
+  color: var(--success-color);
+  vertical-align: text-bottom;
+  margin-right: 4px;
+}
+
+/* Margin Utilities */
+.mt-12 {
+  margin-top: 12px;
 }

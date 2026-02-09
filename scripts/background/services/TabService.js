@@ -118,8 +118,11 @@ class TabService {
         return;
       }
       // Avoid logging recoverable errors as true errors to reduce noise
-      if (this.injectionService && error.message?.includes('The tab was closed')) {
-        this.logger.debug(`[TabService] Tab closed during update: ${error.message}`);
+      if (
+        error.message?.includes('The tab was closed') ||
+        error.message?.includes('No tab with id')
+      ) {
+        this.logger.debug(`[TabService] Tab closed/missing during update: ${error.message}`);
       } else {
         const errorMsg = error.message || String(error);
         this.logger.error(`[TabService] Error updating tab status: ${errorMsg}`, { error });

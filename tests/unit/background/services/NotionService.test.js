@@ -987,28 +987,6 @@ describe('NotionService', () => {
       });
     });
 
-    describe('_getJitter', () => {
-      it('應該在 crypto 拋出異常時回退到 Math.random 並記錄 debug', () => {
-        const originalCrypto = globalThis.crypto;
-        Object.defineProperty(globalThis, 'crypto', {
-          value: {
-            getRandomValues: () => {
-              throw new Error('fail');
-            },
-          },
-          configurable: true,
-        });
-
-        service._getJitter(100);
-        expect(Logger.debug).toHaveBeenCalledWith(
-          expect.stringContaining('回退至 Math.random'),
-          expect.any(Object)
-        );
-
-        Object.defineProperty(globalThis, 'crypto', { value: originalCrypto, configurable: true });
-      });
-    });
-
     describe('search and filtering', () => {
       it('應該成功執行搜索', async () => {
         globalThis.fetch.mockResolvedValue(createMockResponse({ results: [] }));
