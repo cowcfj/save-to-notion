@@ -383,4 +383,31 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
       expect(type).toBeNull();
     });
   });
+
+  describe('parseArticleWithReadability - Error Handling', () => {
+    test('當智慧清洗失敗時應該記錄警告並返回原始內容', () => {
+      mockReadabilityParse.mockReturnValue({
+        title: 'Original Title',
+        content: '<p>Original Content</p>',
+      });
+
+      // Mock DOMParser to throw error during cleaning phase
+      // This requires mocking DOMParser which is global.
+      // Since ReadabilityAdapter uses new DOMParser(), we can spy on prototype.
+      const parserSpy = jest.spyOn(DOMParser.prototype, 'parseFromString');
+      parserSpy.mockImplementation(() => {
+        throw new Error('Cleaning Failed');
+      });
+
+      const result = parseArticleWithReadability();
+
+      expect(result.content).toBe('<p>Original Content</p>');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '智慧清洗過程中發生錯誤，將使用原始解析結果',
+        expect.objectContaining({ error: 'Cleaning Failed' })
+      );
+
+      parserSpy.mockRestore();
+    });
+  });
 });

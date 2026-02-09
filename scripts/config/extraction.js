@@ -97,8 +97,6 @@ export const MINGPAO_GALLERY_SELECTOR = '#zoomedimg a.fancybox';
  */
 export const FEATURED_IMAGE_SELECTORS = [
   // WordPress 和常見 CMS
-  '.featured-image img',
-  '.hero-image img',
   '.cover-image img',
   '.post-thumbnail img',
   '.entry-thumbnail img',
@@ -196,44 +194,64 @@ export const GALLERY_SELECTORS = [
  * 排除選擇器
  * 用於過濾非內容區域的圖片
  */
-export const EXCLUSION_SELECTORS = [
-  'header:not(.article-header):not(.post-header)',
-  'footer',
+/**
+ * 基礎雜訊選擇器集合 (NOISE_SELECTORS)
+ * 供 EXCLUSION_SELECTORS 和 GENERIC_CLEANING_RULES 共用
+ */
+export const NOISE_SELECTORS = [
+  // 導航與側邊欄
   'nav',
   'aside',
+  '.sidebar',
+  '.side-bar',
+  '.navigation',
+  '.menu',
+  '.nav',
+  '.navbar',
   '[role="navigation"]',
   '[role="banner"]',
   '[role="contentinfo"]',
   '[role="complementary"]',
-  '.header:not(.article-header):not(.post-header)',
-  '.footer',
-  '.navigation',
-  '.nav',
-  '.navbar',
-  '.sidebar',
-  '.side-bar',
-  '.widget',
-  '.widgets',
-  '.comments',
-  '.comment-list',
-  '.comment-section',
-  '.comment-area',
-  '.related',
-  '.related-posts',
-  '.related-articles',
-  '.recommended',
-  '.advertisement',
-  '.ads',
-  '.ad',
-  '.banner',
-  '.ad-container',
+
+  // 社交與互動
   '.social',
   '.social-share',
   '.share-buttons',
   '.social-links',
   '[class~="social"]',
   '[class~="share"]',
-  '.menu',
+  '#social-share',
+
+  // 評論與互動
+  '.comments',
+  '.comment-list',
+  '.comment-section',
+  '.comment-area',
+
+  // 廣告與推薦
+  '.advertisement',
+  '.ads',
+  '.ad',
+  '.banner',
+  '.ad-container',
+  '.related',
+  '.related-posts',
+  '.related-articles',
+  '.recommended',
+  '.widget',
+  '.widgets',
+];
+
+/**
+ * 排除選擇器
+ * 用於過濾非內容區域的圖片
+ */
+export const EXCLUSION_SELECTORS = [
+  ...NOISE_SELECTORS,
+  'header:not(.article-header):not(.post-header)',
+  'footer',
+  '.header:not(.article-header):not(.post-header)',
+  '.footer',
   '.site-header',
   '.site-footer',
   '.site-nav',
@@ -248,7 +266,6 @@ export const EXCLUSION_SELECTORS = [
   '[id^="taboola-stream"]',
   '.trc_rbox',
   '.trc-content-sponsored', // Taboola 贊助內容
-  '#social-share',
   '#mktbanner',
   // 保留通用模式
   '[class*="infinite-scroll"]',
@@ -423,6 +440,7 @@ export const CMS_CLEANING_RULES = {
  * 提取自原 createOptimizedDocumentClone 中的 elementsToRemove
  */
 export const GENERIC_CLEANING_RULES = [
+  ...NOISE_SELECTORS,
   // 基礎雜訊
   'script',
   'style',
@@ -434,24 +452,9 @@ export const GENERIC_CLEANING_RULES = [
   '[id*="-ad-"]',
   '[class*="tracking"]',
   '[class*="analytics"]',
-  // 導航與側邊欄
-  'nav',
-  'aside',
-  '.sidebar',
-  '.navigation',
-  '.menu',
   // 頁首頁尾 (排除文章專屬)
   'footer:not(.article-footer)',
   'header:not(.article-header)',
-  // 社交與互動
-  '.social',
-  '.social-share',
-  '.share-buttons',
-  '.social-links',
-  '[class~="social"]',
-  '[class~="share"]',
-  '.comments',
-  '.comment-section',
   // 隱藏內容
   // Note: [style*="display: none"] removed; handled by style regex check in ReadabilityAdapter
   '[hidden]',
