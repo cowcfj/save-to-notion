@@ -191,6 +191,16 @@ async function extractPageContent() {
       // 使用工具函數去重
       additionalImages = mergeUniqueImages(blocks, collectedImages);
 
+      // [New] 如果正文沒有圖片，將第一張額外圖片插入到文章開頭
+      if (mainImageCount === 0 && additionalImages.length > 0) {
+        const leadImage = additionalImages.shift(); // 取出第一張
+        blocks.unshift(leadImage); // 插入到開頭
+        Logger.log('正文無圖片，已將首張額外圖片插入文章開頭', {
+          action: 'extractPageContent',
+          imageUrl: `${leadImage?.image?.external?.url?.slice(0, 50)}...`,
+        });
+      }
+
       Logger.log('額外圖片收集完成 (已去重)', {
         action: 'extractPageContent',
         originalCount: collectedImages.length,

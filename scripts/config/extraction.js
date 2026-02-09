@@ -81,6 +81,13 @@ export const NEXTJS_CONFIG = {
 };
 
 // ==========================================
+// 常量定義
+// ==========================================
+
+export const OG_IMAGE_SELECTOR = 'meta[property="og:image"]';
+export const MINGPAO_GALLERY_SELECTOR = '#zoomedimg a.fancybox';
+
+// ==========================================
 // 封面圖選擇器 (原 selectors.js)
 // ==========================================
 
@@ -97,25 +104,35 @@ export const FEATURED_IMAGE_SELECTORS = [
   '.entry-thumbnail img',
   '.wp-post-image',
 
+  // Mingpao Gallery
+  MINGPAO_GALLERY_SELECTOR, // High-res link
+  '#zoomedimg .imgLiquid', // Background image container
+
   // 文章頭部區域
+  'header img',
   '.article-header img',
-  'header.article-header img',
-  '.post-header img',
   '.entry-header img',
+  '.page-header img',
 
   // 通用特色圖片容器
   'figure.featured img',
-  'figure.hero img',
-  '[class*="featured"] img:first-of-type',
-  '[class*="hero"] img:first-of-type',
-  '[class*="cover"] img:first-of-type',
+  '.featured-media img',
+  '.wp-block-post-featured-image img',
+  'div[class*="featured-image"] img',
+  'div[class*="hero"] img',
 
-  // 文章開頭的第一張圖片
-  'article > figure:first-of-type img',
-  'article > div:first-of-type img',
+  // 特定網站適配
+  OG_IMAGE_SELECTOR,
+
+  // 第一張大圖 (作為回退)
+  'article img:first-of-type',
   '.article > figure:first-of-type img',
   '.post > figure:first-of-type img',
   '.post > div:first-of-type img',
+
+  // 特定網站配置
+  '.d-block.w-100', // Yahoo Carousel
+  'figure.image img', // HK01 (部分)
 ];
 
 /**
@@ -140,13 +157,31 @@ export const IMAGE_SRC_ATTRIBUTES = [
  */
 export const ARTICLE_SELECTORS = [
   'article',
-  'main',
-  '[role="main"]',
+  // Mingpao Gallery
+  MINGPAO_GALLERY_SELECTOR, // Lightbox
+  '#zoomedimg .imgLiquid', // Lightbox BG
+
+  // Specific
+  OG_IMAGE_SELECTOR,
+
   '.article',
   '.post',
   '.entry-content',
   '.post-content',
   '.article-content',
+  '#topimage',
+];
+
+/**
+ * 圖集/畫廊選擇器 (Gallery Selectors)
+ * 用於 ImageCollector.js 收集圖集圖片
+ */
+export const GALLERY_SELECTORS = [
+  MINGPAO_GALLERY_SELECTOR, // Mingpao Lightbox (high-res images)
+  // NOTE: Do NOT add #topimage a - those anchors have javascript:void(0) href,
+  // causing fallback to child <img> thumbnails instead of high-res images.
+  '.gallery-item a',
+  '.slideshow .slide a',
 ];
 
 /**
@@ -225,6 +260,7 @@ export const CMS_CONTENT_SELECTORS = [
   '.content-area',
   '.single-content',
   '.main-content',
+  '.txt4', // Mingpao
   '.page-content',
   '.content-wrapper',
   '.article-wrapper',

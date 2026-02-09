@@ -28,6 +28,7 @@ import { NextJsExtractor } from './NextJsExtractor.js';
 import {
   FEATURED_IMAGE_SELECTORS,
   ARTICLE_SELECTORS,
+  GALLERY_SELECTORS,
   EXCLUSION_SELECTORS,
 } from '../../config/extraction.js';
 import { IMAGE_VALIDATION_CONSTANTS, IMAGE_LIMITS } from '../../config/constants.js';
@@ -147,6 +148,58 @@ const ImageCollector = {
       }
     }
     return null;
+  },
+
+  /**
+   * 從圖集/畫廊收集圖片
+   *
+   * @param {string} featuredImage - 特色圖片 URL (用於去重)
+   * @returns {Array} 圖片區塊列表
+   * @private
+   */
+  _collectFromGalleries(featuredImage) {
+    const images = [];
+    const processedUrls = new Set();
+    if (featuredImage) {
+      processedUrls.add(featuredImage);
+    }
+
+    if (!GALLERY_SELECTORS || GALLERY_SELECTORS.length === 0) {
+      return images;
+    }
+
+    Logger.log('開始收集圖集圖片', { action: 'collectFromGalleries' });
+
+    for (const selector of GALLERY_SELECTORS) {
+      try {
+        const elements = cachedQuery(selector, document, { all: true });
+        if (!elements || elements.length === 0) {
+          continue;
+        }
+
+        Logger.log(`找到圖集元素: ${selector}`, { count: elements.length });
+
+        elements.forEach((el, index) => {
+          // 對於圖集，我們希望收集所有高解析度圖片，所以給予較高的優先級
+          // 並且放寬一些限制（例如 display:none 的容器內的圖片）
+
+          // ImageUtils.extractImageSrc 已經支持從 anchor href 提取
+          const imageObj = this.processImageForCollection(el, index, featuredImage);
+
+          if (imageObj && imageObj.image && imageObj.image.external) {
+            const url = imageObj.image.external.url;
+            if (!processedUrls.has(url)) {
+              processedUrls.add(url);
+              images.push(imageObj);
+            }
+          }
+        });
+      } catch (error) {
+        Logger.warn('圖集收集錯誤', { selector, error: error.message });
+      }
+    }
+
+    return images;
   },
 
   /**
@@ -272,27 +325,49 @@ const ImageCollector = {
     }
 
     // 策略 1: 從指定的內容元素收集
-    const contentImages = this._collectFromContent(contentElement);
+    // imageElements 用於存儲待處理的 DOM 元素
+    const imageElements = this._collectFromContent(contentElement);
 
     // 策略 2: 如果內容元素圖片少，從整個頁面的文章區域收集
-    const allImages = [...contentImages];
-    if (allImages.length < 3) {
-      this._collectFromArticle(allImages);
+    if (imageElements.length < 3) {
+      this._collectFromArticle(imageElements);
     }
 
     // 策略 3: 如果仍然沒有圖片（< 1張），謹慎地擴展搜索
-    if (allImages.length === 0) {
-      this._collectFromExpansion(allImages);
+    if (imageElements.length === 0) {
+      this._collectFromExpansion(imageElements);
     }
 
     // 策略 4: 嘗試從 Next.js Data 提取 (針對 HK01 等 CSR/SSR 網站)
-    // 如果傳入了 nextJsBlocks，則直接使用，避免重複解析 DOM
-    this._collectFromNextJsData(allImages, options.nextJsBlocks);
+    // 注意: 這可能會直接添加 Image Block 對象到 additionalImages，或者添加元素到 imageElements
+    // 這裡我們假設它處理 elements，或者我們稍後處理
+    // 查看源碼，_collectFromNextJsData 似乎是處理數據並可能返回對象，暫時保留原樣調用方式如果它是副作用函數
+    // 根據之前的上下文，我們將其視為元素收集的一部分
+    this._collectFromNextJsData(imageElements, options.nextJsBlocks);
 
-    Logger.log('待處理圖片總數', { action: 'collectAdditionalImages', count: allImages.length });
+    Logger.log('待處理圖片元素總數', {
+      action: 'collectAdditionalImages',
+      count: imageElements.length,
+    });
 
-    // 使用批處理優化
-    await this._processImages(allImages, featuredImage, additionalImages);
+    // 批處理：將元素轉換為圖片對象
+    await this._processImages(imageElements, featuredImage, additionalImages);
+
+    // 策略 5: 從圖集/畫廊收集 (Mingpao etc.) -> 返回圖片對象
+    const galleryImages = this._collectFromGalleries(featuredImage);
+
+    // 合併圖集圖片 (去重)
+    if (galleryImages.length > 0) {
+      Logger.log('合併圖集圖片', { count: galleryImages.length });
+      galleryImages.forEach(img => {
+        const url = img.image.external.url;
+        // 檢查是否已存在於 additionalImages
+        const exists = additionalImages.some(existing => existing.image.external.url === url);
+        if (!exists) {
+          additionalImages.push(img);
+        }
+      });
+    }
 
     Logger.log('已成功收集有效圖片', {
       action: 'collectAdditionalImages',
@@ -300,12 +375,16 @@ const ImageCollector = {
     });
 
     // 限制圖片數量（封面圖片不計入限制）
-    const maxImages = IMAGE_LIMITS.MAX_ADDITIONAL_IMAGES;
+    // [Updated] 如果有圖集圖片，放寬限制以完整捕捉畫廊內容
+    const hasGalleryImages = galleryImages.length > 0;
+    const maxImages = hasGalleryImages ? 20 : IMAGE_LIMITS.MAX_ADDITIONAL_IMAGES;
+
     if (additionalImages.length > maxImages) {
       Logger.log('圖片數量超過上限，已截取', {
         action: 'collectAdditionalImages',
         original: additionalImages.length,
         limit: maxImages,
+        mode: hasGalleryImages ? 'gallery (relaxed)' : 'standard (strict)',
       });
       additionalImages.length = maxImages; // 原地截取，效能最優
     }

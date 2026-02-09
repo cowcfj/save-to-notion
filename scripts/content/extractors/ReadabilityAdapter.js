@@ -669,7 +669,7 @@ function parseArticleWithReadability() {
 
   // 5. 驗證基本屬性
   if (!parsedArticle.content || typeof parsedArticle.content !== 'string') {
-    Logger.warn('Readability 結果缺少內容屬性', { action: 'parseArticleWithReadability' });
+    Logger.info('Readability 結果缺少內容屬性', { action: 'parseArticleWithReadability' });
     throw new Error('Parsed article has no valid content');
   }
 

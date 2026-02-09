@@ -657,10 +657,29 @@ function extractFromNoscript(imgNode) {
 }
 
 /**
- * 從圖片元素中提取最佳的 src URL
- * 使用多層回退策略：srcset → 屬性 → picture → background → noscript
+ * 從 Anchor 標籤提取 href
  *
- * @param {HTMLImageElement} imgNode - 圖片元素
+ * @param {HTMLElement} node - 元素
+ * @returns {string|null} 提取的 URL 或 null
+ */
+function extractFromAnchorHref(node) {
+  if (node.tagName !== 'A') {
+    return null;
+  }
+  const href = node.getAttribute('href');
+  if (href && !/^javascript:/i.test(href) && !href.startsWith('#')) {
+    return href;
+  }
+  return null;
+}
+
+/**
+ * 從圖片元素中提取最佳的 src URL
+ * 使用多層回退策略：
+ * - 對於 Anchor 元素：優先使用 href（用於畫廊圖片）
+ * - 對於其他元素：srcset → 屬性 → picture → background → noscript → anchor
+ *
+ * @param {HTMLImageElement|HTMLElement} imgNode - 圖片元素或容器
  * @returns {string|null} 提取的圖片 URL 或 null
  */
 function extractImageSrc(imgNode) {
@@ -668,12 +687,24 @@ function extractImageSrc(imgNode) {
     return null;
   }
 
+  // [IMPORTANT] 對於 Anchor 元素，優先使用 href
+  // 這解決了像明報畫廊這樣的情況，<a> 的 href 包含高解析度圖片，
+  // 而其子 <img> 的 src 只是加載佔位符 (loading.gif)
+  if (imgNode.tagName === 'A') {
+    const hrefResult = extractFromAnchorHref(imgNode);
+    if (hrefResult) {
+      return hrefResult;
+    }
+    // 如果 href 無效（如 javascript: 或空），則回退到子元素提取
+  }
+
   return (
     extractFromSrcset(imgNode) ||
     extractFromAttributes(imgNode) ||
     extractFromPicture(imgNode) ||
     extractFromBackgroundImage(imgNode) ||
-    extractFromNoscript(imgNode)
+    extractFromNoscript(imgNode) ||
+    extractFromAnchorHref(imgNode)
   );
 }
 
