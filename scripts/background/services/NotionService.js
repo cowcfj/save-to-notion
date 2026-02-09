@@ -152,7 +152,8 @@ class NotionService {
     // SDK 錯誤代碼: rate_limited (429), internal_server_error (500), service_unavailable (503)
     const isRateLimit = error.status === 429 || error.code === 'rate_limited';
     const isServerErr =
-      error.status >= 500 || ['internal_server_error', 'service_unavailable'].includes(error.code);
+      (error.status >= 500 && error.status < 600) ||
+      ['internal_server_error', 'service_unavailable'].includes(error.code);
     // 處理 409 conflict
     const isConflict = error.status === 409 || error.code === 'conflict_error';
     // 處理特定錯誤訊息

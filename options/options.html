@@ -120,14 +120,26 @@
             <div class="auth-actions">
               <button id="oauth-button" class="btn-primary">
                 <span class="icon"
-                  ><svg width="16" height="16" class="icon-svg">
+                  ><svg
+                    width="16"
+                    height="16"
+                    class="icon-svg"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
                     <use href="#icon-link" /></svg
                 ></span>
                 <span>連接到 Notion</span>
               </button>
               <button id="disconnect-button" class="btn-danger hidden">
                 <span class="icon"
-                  ><svg width="16" height="16" class="icon-svg">
+                  ><svg
+                    width="16"
+                    height="16"
+                    class="icon-svg"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
                     <use href="#icon-unlink" /></svg
                 ></span>
                 <span>斷開連接</span>
@@ -175,6 +187,8 @@
                         stroke-linecap="round"
                         stroke-linejoin="round"
                         class="icon-svg"
+                        aria-hidden="true"
+                        focusable="false"
                       >
                         <polyline points="6 9 12 15 18 9"></polyline>
                       </svg>
@@ -189,7 +203,13 @@
                         class="btn-icon"
                         title="重新整理"
                       >
-                        <svg width="14" height="14" class="icon-svg">
+                        <svg
+                          width="14"
+                          height="14"
+                          class="icon-svg"
+                          aria-hidden="true"
+                          focusable="false"
+                        >
                           <use href="#icon-refresh" />
                         </svg>
                       </button>
@@ -321,7 +341,7 @@
             </div>
             <button id="refresh-usage-button" class="btn-secondary">
               <span class="icon">
-                <svg width="16" height="16" class="icon-svg">
+                <svg width="16" height="16" class="icon-svg" aria-hidden="true" focusable="false">
                   <use href="#icon-refresh" />
                 </svg>
               </span>
@@ -334,7 +354,13 @@
             <div class="backup-info">
               <p class="help-text mb-12">
                 <strong
-                  ><svg width="16" height="16" class="list-icon">
+                  ><svg
+                    width="16"
+                    height="16"
+                    class="list-icon"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
                     <use href="#icon-server" />
                   </svg>
                   備份包含的數據：</strong
@@ -342,13 +368,25 @@
               </p>
               <ul class="backup-data-list">
                 <li>
-                  <svg width="16" height="16" class="list-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    class="list-icon"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
                     <use href="#icon-target" />
                   </svg>
                   <strong>標註數據</strong>：所有頁面的高亮標記（文字、顏色、位置）
                 </li>
                 <li>
-                  <svg width="16" height="16" class="list-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    class="list-icon"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
                     <use href="#icon-database" />
                   </svg>
                   <strong>保存記錄</strong>：已同步到 Notion 的頁面狀態
@@ -586,12 +624,7 @@
                     focusable="false"
                     width="16"
                     height="16"
-                    class="icon-svg"
-                    style="
-                      color: var(--success-color);
-                      vertical-align: text-bottom;
-                      margin-right: 4px;
-                    "
+                    class="icon-svg icon-inline-hint"
                   >
                     <use href="#icon-shield" />
                   </svg>

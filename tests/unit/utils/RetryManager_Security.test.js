@@ -4,7 +4,7 @@ describe('RetryManager Security', () => {
   let mockLogger;
   let originalLogger;
 
-  beforeAll(() => {
+  beforeEach(() => {
     // 保存原始 Logger 並注入 Mock
     originalLogger = globalThis.Logger;
     mockLogger = {
@@ -12,15 +12,12 @@ describe('RetryManager Security', () => {
       error: jest.fn(),
     };
     globalThis.Logger = mockLogger;
+    jest.clearAllMocks();
   });
 
-  afterAll(() => {
+  afterEach(() => {
     // 恢復原始 Logger，防止污染其他測試套件
     globalThis.Logger = originalLogger;
-  });
-
-  beforeEach(() => {
-    jest.clearAllMocks();
   });
 
   test('_logRetryAttempt 應過濾錯誤物件中的敏感屬性（如 headers）', () => {

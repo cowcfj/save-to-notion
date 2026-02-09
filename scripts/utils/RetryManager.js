@@ -70,7 +70,7 @@ class RetryManager {
    */
   async execute(operation, options = {}) {
     // 確保 this.options 中的 random 能覆蓋默認值
-    const config = { random: RetryManager._random, ...this.options, ...options };
+    const config = { ...this.options, ...options };
     let totalDelayMs = 0;
     const startTime = Date.now();
 
