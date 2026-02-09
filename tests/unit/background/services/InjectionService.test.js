@@ -202,7 +202,7 @@ describe('InjectionService', () => {
       expect(result).toBe(true);
       expect(chrome.scripting.executeScript).toHaveBeenCalledWith(
         expect.objectContaining({
-          files: ['lib/Readability.js', 'dist/content.bundle.js'],
+          files: ['dist/content.bundle.js'],
         }),
         expect.any(Function)
       );

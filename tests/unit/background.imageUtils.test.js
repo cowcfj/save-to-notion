@@ -137,7 +137,7 @@ describe('isValidImageUrl - 深度測試', () => {
       expect(isValidImageUrl('https://example.com/image.jpg')).toBe(true);
       expect(isValidImageUrl('https://example.com/image.jpeg')).toBe(true);
       expect(isValidImageUrl('https://example.com/image.png')).toBe(true);
-      expect(isValidImageUrl('https://example.com/image.gif')).toBe(true);
+      expect(isValidImageUrl('https://example.com/image.gif')).toBe(false);
       expect(isValidImageUrl('https://example.com/image.webp')).toBe(true);
       expect(isValidImageUrl('https://example.com/image.svg')).toBe(true);
       expect(isValidImageUrl('https://example.com/image.bmp')).toBe(true);
@@ -149,7 +149,7 @@ describe('isValidImageUrl - 深度測試', () => {
     test('大小寫不敏感', () => {
       expect(isValidImageUrl('https://example.com/image.JPG')).toBe(true);
       expect(isValidImageUrl('https://example.com/image.PNG')).toBe(true);
-      expect(isValidImageUrl('https://example.com/image.GIF')).toBe(true);
+      expect(isValidImageUrl('https://example.com/image.GIF')).toBe(false);
     });
 
     test('帶查詢參數的圖片 URL 應該返回 true', () => {

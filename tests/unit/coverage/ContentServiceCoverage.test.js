@@ -129,8 +129,8 @@ describe('Content Service Coverage Tests', () => {
              // or we accept that it logs "提取結果為空" because the extraction failed silently from ImageCollector's perspective.
 
              // Check for the error log from NextJsExtractor (since Logger is mocked globally)
-             expect(Logger.error).toHaveBeenCalledWith(
-                 'Next.js 提取過程發生錯誤',
+             expect(Logger.warn).toHaveBeenCalledWith(
+                 '解析 __NEXT_DATA__ 失敗',
                  expect.objectContaining({ error: expect.stringContaining('Unexpected token') })
              );
         });

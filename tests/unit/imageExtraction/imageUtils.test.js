@@ -83,7 +83,7 @@ describe('isValidImageUrl', () => {
     test('應該接受標準圖片 URL', () => {
       expect(isValidImageUrl('https://example.com/image.jpg')).toBe(true);
       expect(isValidImageUrl('https://example.com/photo.png')).toBe(true);
-      expect(isValidImageUrl('https://example.com/pic.gif')).toBe(true);
+      expect(isValidImageUrl('https://example.com/pic.gif')).toBe(false);
     });
 
     test('應該接受帶查詢參數的圖片 URL', () => {
@@ -97,7 +97,7 @@ describe('isValidImageUrl', () => {
   });
 
   describe('圖片格式支持', () => {
-    const formats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif'];
+    const formats = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif'];
 
     formats.forEach(format => {
       test(`應該支持 .${format} 格式`, () => {
