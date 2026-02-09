@@ -145,6 +145,10 @@ class NotionService {
    * @private
    */
   _isNotionRetriableError(error) {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
     // SDK 錯誤代碼: rate_limited (429), internal_server_error (500), service_unavailable (503)
     const isRateLimit = error.status === 429 || error.code === 'rate_limited';
     const isServerErr =
