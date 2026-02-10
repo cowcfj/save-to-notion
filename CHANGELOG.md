@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.31.1](https://github.com/cowcfj/save-to-notion/compare/v2.31.0...v2.31.1) (2026-02-10)
+
+
+### 🧹 其他變更
+
+* 移除 package-extension.sh 中的 lib 目錄複製步驟 ([56de324](https://github.com/cowcfj/save-to-notion/commit/56de324af1fa9dc05e5e9ea7f1576dbd58c9b8bc))
+
 ## [2.31.0](https://github.com/cowcfj/save-to-notion/compare/v2.30.0...v2.31.0) (2026-02-10)
 
 
