@@ -686,7 +686,14 @@ function prepareLazyImages(doc) {
         continue;
       }
 
-      const value = img.getAttribute(attr);
+      let value = img.getAttribute(attr);
+
+      // 如果屬性名包含 'srcset'，則解析並提取第一個 URL
+      if (value && attr.includes('srcset')) {
+        const firstEntry = value.split(',')[0].trim();
+        value = firstEntry.split(/\s+/)[0];
+      }
+
       /*
          Prioritize the first valid lazy-load attribute found (e.g., data-src > data-original).
          NOTE: This assumes that if a lazy-load attribute exists and differs from src, it contains the high-res/real image.

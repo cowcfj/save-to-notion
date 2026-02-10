@@ -601,6 +601,16 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
     expect(doc.querySelector('source').getAttribute('srcset')).toBe('other.webp');
   });
 
+  test('應該正確處理 data-srcset 屬性並提取第一個 URL 作為 src', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-srcset="https://example.com/img-400.jpg 400w, https://example.com/img-800.jpg 800w" src=""></body></html>',
+      'text/html'
+    );
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/img-400.jpg');
+  });
+
   test('應該跳過 data-src 為 blob: 的圖片', () => {
     const doc = new DOMParser().parseFromString(
       '<html><body><img data-src="blob:http://example.com/abc" src=""></body></html>',
