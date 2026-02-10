@@ -80,6 +80,22 @@ export function initOptions() {
 
   // 10. 設置日誌導出
   setupLogExport();
+
+  // 11. 初始化介面縮放
+  const zoomSelect = document.querySelector('#ui-zoom-level');
+  if (zoomSelect) {
+    // 讀取設定
+    chrome.storage.sync.get(['uiZoomLevel'], result => {
+      const zoom = result.uiZoomLevel || '1';
+      document.body.style.zoom = zoom;
+      zoomSelect.value = zoom;
+    });
+
+    // 即時預覽
+    zoomSelect.addEventListener('change', () => {
+      document.body.style.zoom = zoomSelect.value;
+    });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initOptions);
@@ -198,6 +214,7 @@ export function saveSettings(ui, auth, statusId = 'status') {
   const addSource = document.querySelector('#add-source').checked;
   const addTimestamp = document.querySelector('#add-timestamp').checked;
   const typeInput = document.querySelector('#database-type');
+  const uiZoomLevel = document.querySelector('#ui-zoom-level')?.value;
 
   // 驗證
   if (!apiKey) {
@@ -225,6 +242,7 @@ export function saveSettings(ui, auth, statusId = 'status') {
     titleTemplate,
     addSource,
     addTimestamp,
+    uiZoomLevel: uiZoomLevel || '1',
   };
 
   // 如果類型欄位存在，一併保存
