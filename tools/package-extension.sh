@@ -41,7 +41,6 @@ cp -a manifest.json "$RM_DIR/"
 cp -a icons "$RM_DIR/"
 cp -a options "$RM_DIR/"
 cp -a popup "$RM_DIR/"
-cp -a lib "$RM_DIR/"
 cp -a update-notification "$RM_DIR/"
 cp -a dist "$RM_DIR/"
 
