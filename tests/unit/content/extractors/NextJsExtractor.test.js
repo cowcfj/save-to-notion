@@ -22,6 +22,7 @@ describe('NextJsExtractor', () => {
       getElementById: jest.fn(),
       querySelector: jest.fn(),
       querySelectorAll: jest.fn().mockReturnValue([]),
+      defaultView: { location: { pathname: '/' } },
     };
   });
 
@@ -52,6 +53,100 @@ describe('NextJsExtractor', () => {
     it('should return null if script tag is missing', () => {
       mockDoc.querySelector.mockReturnValue(null);
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+    });
+
+    it('should return null when asPath does not match current URL (SPA navigation)', () => {
+      // 模擬 SPA 導航：asPath 是舊文章，pathname 是新文章
+      mockDoc.defaultView.location.pathname =
+        '/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60321104/new-article';
+
+      const mockJson = {
+        props: { initialProps: { pageProps: { article: { title: 'Old Article', blocks: [] } } } },
+        asPath: '/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60320801/old-article',
+        page: '/article',
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+    });
+
+    it('should extract normally when asPath matches current URL', () => {
+      const path = '/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60320801/article-slug';
+      mockDoc.defaultView.location.pathname = path;
+
+      const mockJson = {
+        props: { initialProps: { pageProps: { article: { title: 'Same Article', blocks: [] } } } },
+        asPath: path,
+        page: '/article',
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('Same Article');
+    });
+
+    it('should return null when asPath is missing and title is inconsistent (SPA navigation)', () => {
+      // 模擬：無 asPath (如 HK01)，且 document.title 已更新但 article.title 是舊的
+      mockDoc.defaultView.location.pathname = '/new-article';
+      mockDoc.title = 'New Article Title | HK01';
+
+      const mockJson = {
+        props: {
+          initialProps: { pageProps: { article: { title: 'Old Stale Article', blocks: [] } } },
+        },
+        page: '/article',
+        // asPath missing
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+    });
+
+    it('should extract normally when asPath is missing but title matches', () => {
+      mockDoc.defaultView.location.pathname = '/current-article';
+      // 注意：document.title 通常包含後綴
+      mockDoc.title = 'Current Article Title | HK01';
+
+      const mockJson = {
+        props: {
+          initialProps: { pageProps: { article: { title: 'Current Article Title', blocks: [] } } },
+        },
+        page: '/article',
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      const result = NextJsExtractor.extract(mockDoc);
+      expect(result).not.toBeNull();
+      expect(result.metadata.title).toBe('Current Article Title');
+    });
+
+    it('should ignore title check if title contains only short generic words', () => {
+      // 短標題容易誤殺，應放行
+      mockDoc.defaultView.location.pathname = '/brief';
+      mockDoc.title = 'Different Title'; // 即使不匹配
+
+      const mockJson = {
+        props: { initialProps: { pageProps: { article: { title: 'HK01', blocks: [] } } } },
+        page: '/article',
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      expect(NextJsExtractor.extract(mockDoc)).not.toBeNull();
+    });
+
+    it('should extract normally when defaultView is not available (title check skipped or defaults)', () => {
+      // 如果沒有 defaultView，asPath 檢查跳過；title 檢查依賴 doc.title (mockDoc 有)
+      delete mockDoc.defaultView;
+      mockDoc.title = 'Same Title';
+
+      const mockJson = {
+        props: { initialProps: { pageProps: { article: { title: 'Same Title', blocks: [] } } } },
+        page: '/article',
+      };
+
+      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      expect(NextJsExtractor.extract(mockDoc)).not.toBeNull();
     });
 
     it('should return null if JSON content is too large', () => {

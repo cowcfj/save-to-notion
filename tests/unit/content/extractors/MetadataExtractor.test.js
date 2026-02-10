@@ -12,13 +12,20 @@ describe('MetadataExtractor', () => {
   });
 
   describe('extractTitle', () => {
-    test('should prioritize Readability title', () => {
-      document.title = 'Doc Title';
+    test('should prioritize Readability title if consistent with doc title', () => {
+      document.title = 'Readability Title | Site Name';
       const result = MetadataExtractor.extractTitle(document, { title: 'Readability Title' });
       expect(result).toBe('Readability Title');
     });
 
-    test('should fallback to document title', () => {
+    test('should fallback to document title if Readability title is inconsistent', () => {
+      document.title = 'New Page Title | Site Name';
+      // Readability gets stale title
+      const result = MetadataExtractor.extractTitle(document, { title: 'Old Stale Title' });
+      expect(result).toBe('New Page Title | Site Name');
+    });
+
+    test('should fallback to document title if Readability title is missing', () => {
       document.title = 'Doc Title';
       const result = MetadataExtractor.extractTitle(document, {});
       expect(result).toBe('Doc Title');
@@ -27,6 +34,12 @@ describe('MetadataExtractor', () => {
     test('should fallback to default if no title', () => {
       const result = MetadataExtractor.extractTitle(document, {});
       expect(result).toBe('Untitled Page');
+    });
+
+    test('should accept short titles without consistency check', () => {
+      document.title = 'Something Else';
+      const result = MetadataExtractor.extractTitle(document, { title: 'News' });
+      expect(result).toBe('News');
     });
   });
 

@@ -34,6 +34,7 @@ const {
   safeQueryElements,
   parseArticleWithReadability,
   detectCMS,
+  _prepareLazyImages,
 } = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
 
 describe('ReadabilityAdapter - expandCollapsibleElements', () => {
@@ -485,6 +486,107 @@ describe('ReadabilityAdapter - parseArticleWithReadability', () => {
 
     parserSpy.mockRestore();
     parserConfig.throwValue = null;
+  });
+});
+
+describe('ReadabilityAdapter - _prepareLazyImages', () => {
+  test('應該將 data-src 寫入空 src 的圖片', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-src="https://example.com/photo.jpg" src=""></body></html>',
+      'text/html'
+    );
+    const count = _prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/photo.jpg');
+  });
+
+  test('應該處理 data: 佔位符 src', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-src="https://example.com/real.jpg" src="data:image/gif;base64,R0lGODlhAQABAIA"></body></html>',
+      'text/html'
+    );
+    const count = _prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/real.jpg');
+  });
+
+  test('應該處理包含 loading 佔位符的 src', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-src="https://example.com/real.jpg" src="/images/loading.gif"></body></html>',
+      'text/html'
+    );
+    const count = _prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/real.jpg');
+  });
+
+  test('不應該覆蓋已有有效 src 的圖片', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img src="https://example.com/valid.jpg" data-src="https://example.com/other.jpg"></body></html>',
+      'text/html'
+    );
+    const count = _prepareLazyImages(doc);
+    expect(count).toBe(0);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/valid.jpg');
+  });
+
+  test('應該嘗試多個 lazy loading 屬性', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-lazy-src="https://example.com/lazy.jpg" src=""></body></html>',
+      'text/html'
+    );
+    const count = _prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/lazy.jpg');
+  });
+
+  test('應該處理多張圖片', () => {
+    const doc = new DOMParser().parseFromString(
+      `<html><body>
+        <img data-src="https://example.com/1.jpg" src="">
+        <img src="https://example.com/valid.jpg">
+        <img data-src="https://example.com/2.jpg" src="">
+      </body></html>`,
+      'text/html'
+    );
+    const count = _prepareLazyImages(doc);
+    expect(count).toBe(2);
+  });
+
+  test('應該處理 source 元素的 data-srcset', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><picture><source data-srcset="img.webp"></picture></body></html>',
+      'text/html'
+    );
+    _prepareLazyImages(doc);
+    expect(doc.querySelector('source').getAttribute('srcset')).toBe('img.webp');
+  });
+
+  test('不應該覆蓋已有 srcset 的 source 元素', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><picture><source srcset="existing.webp" data-srcset="other.webp"></picture></body></html>',
+      'text/html'
+    );
+    _prepareLazyImages(doc);
+    expect(doc.querySelector('source').getAttribute('srcset')).toBe('existing.webp');
+  });
+
+  test('應該跳過 data-src 為 blob: 的圖片', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-src="blob:http://example.com/abc" src=""></body></html>',
+      'text/html'
+    );
+    const count = _prepareLazyImages(doc);
+    expect(count).toBe(0);
+  });
+
+  test('沒有任何圖片時應返回 0', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><p>No images here</p></body></html>',
+      'text/html'
+    );
+    const count = _prepareLazyImages(doc);
+    expect(count).toBe(0);
   });
 });
 

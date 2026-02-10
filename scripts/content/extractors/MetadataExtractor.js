@@ -46,10 +46,40 @@ const MetadataExtractor = {
    * @returns {string} 頁面標題
    */
   extractTitle(doc, readabilityArticle) {
-    if (readabilityArticle?.title && typeof readabilityArticle.title === 'string') {
-      return readabilityArticle.title;
+    const docTitle = doc.title || '';
+    const rTitle = readabilityArticle?.title;
+
+    if (rTitle && typeof rTitle === 'string' && this._isTitleConsistent(rTitle, docTitle)) {
+      return rTitle;
     }
-    return doc.title || 'Untitled Page';
+    return docTitle || 'Untitled Page';
+  },
+
+  /**
+   * 檢查標題是否一致
+   *
+   * @param {string} title - 候選標題 (來自 Readability)
+   * @param {string} docTitle - 文檔標題 (來自 document.title)
+   * @returns {boolean}
+   */
+  _isTitleConsistent(title, docTitle) {
+    if (!title || !docTitle) {
+      return true;
+    }
+
+    const cleanTitle = title.trim();
+    const cleanDocTitle = docTitle.trim();
+
+    // 標題太短容易誤殺，直接放行
+    if (cleanTitle.length <= 4) {
+      return true;
+    }
+
+    // 取前 15 個字元作為特徵值
+    // 因為 document.title 常會有後綴 (e.g. " | HK01")
+    const signature = cleanTitle.slice(0, 15);
+
+    return cleanDocTitle.includes(signature);
   },
 
   /**

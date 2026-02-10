@@ -12,7 +12,7 @@
 
 import { Readability } from '@mozilla/readability';
 import { CONTENT_QUALITY } from '../../config/constants.js';
-import { LIST_PREFIX_PATTERNS } from '../../config/patterns.js';
+import { LIST_PREFIX_PATTERNS, IMAGE_ATTRIBUTES } from '../../config/patterns.js';
 import {
   CMS_CONTENT_SELECTORS,
   ARTICLE_STRUCTURE_SELECTORS,
@@ -666,6 +666,67 @@ function performSmartCleaning(articleContent, cmsType) {
 }
 
 /**
+ * 預處理克隆 DOM 中的懶加載圖片
+ * 將 data-src 等懶加載屬性的值寫入 src，確保 Readability 不會移除這些圖片
+ *
+ * @param {Document} doc - 克隆的文檔對象（會被直接修改）
+ * @returns {number} 處理的圖片數量
+ */
+function _prepareLazyImages(doc) {
+  const images = doc.querySelectorAll('img');
+  let fixedCount = 0;
+
+  images.forEach(img => {
+    const currentSrc = img.getAttribute('src') || '';
+
+    // 已有有效 src 的圖片不需要處理
+    if (
+      currentSrc &&
+      !currentSrc.startsWith('data:') &&
+      !currentSrc.includes('loading') &&
+      !currentSrc.includes('placeholder') &&
+      !currentSrc.includes('blank')
+    ) {
+      return;
+    }
+
+    // 依序嘗試 IMAGE_ATTRIBUTES 中的屬性（跳過 src 本身）
+    for (const attr of IMAGE_ATTRIBUTES) {
+      if (attr === 'src') {
+        continue;
+      }
+      const value = img.getAttribute(attr);
+      if (value?.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
+        img.setAttribute('src', value.trim());
+        fixedCount++;
+        break;
+      }
+    }
+  });
+
+  // 同時處理 <source> 元素的 data-srcset → srcset
+  const sources = doc.querySelectorAll('source[data-srcset]');
+  sources.forEach(source => {
+    if (!source.getAttribute('srcset')) {
+      const dataSrcset = source.dataset.srcset;
+      if (dataSrcset?.trim()) {
+        source.setAttribute('srcset', dataSrcset.trim());
+      }
+    }
+  });
+
+  if (fixedCount > 0) {
+    Logger.log('懶加載圖片預處理完成', {
+      action: '_prepareLazyImages',
+      totalImages: images.length,
+      fixedCount,
+    });
+  }
+
+  return fixedCount;
+}
+
+/**
  * 使用 Readability.js 解析文章內容
  * 包含性能優化、錯誤處理和邊緣情況處理
  *
@@ -682,6 +743,9 @@ function parseArticleWithReadability() {
 
   // 2. 克隆文檔 (直接克隆，保留完整結構讓 Readability 判斷)
   const clonedDocument = document.cloneNode(true);
+
+  // 2.5 預處理懶加載圖片（確保 Readability 保留 data-src 圖片）
+  _prepareLazyImages(clonedDocument);
 
   // 3. 執行 Readability 解析
   let parsedArticle = null;
@@ -755,6 +819,7 @@ const readabilityAdapter = {
   parseArticleWithReadability,
   detectCMS,
   performSmartCleaning,
+  _prepareLazyImages,
 };
 
 export {
@@ -768,4 +833,5 @@ export {
   detectCMS,
   performSmartCleaning,
   parseArticleWithReadability,
+  _prepareLazyImages,
 };
