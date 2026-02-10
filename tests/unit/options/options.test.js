@@ -129,9 +129,7 @@ describe('options.js', () => {
           <option value="text">文字顏色</option>
           <option value="underline">底線</option>
         </select>
-          <option value="text">文字顏色</option>
-          <option value="underline">底線</option>
-        </select>
+
         <select id="ui-zoom-level">
           <option value="1">中 (100%)</option>
           <option value="1.1">大 (110%)</option>
@@ -305,8 +303,6 @@ describe('options.js', () => {
             <select id="ui-zoom-level">
               <option value="1">1</option>
               <option value="1.1">1.1</option>
-              <option value="1.2">1.2</option>
-              <option value="1.5">1.5</option>
             </select>
         `;
 
@@ -402,7 +398,7 @@ describe('options.js', () => {
     it('should initialize zoom level', () => {
       // Mock storage get
       globalThis.chrome.storage.sync.get = jest.fn((keys, cb) => {
-        cb({ uiZoomLevel: '1.2' });
+        cb({ uiZoomLevel: '1.1' });
       });
 
       initOptions();
@@ -412,8 +408,8 @@ describe('options.js', () => {
         ['uiZoomLevel'],
         expect.any(Function)
       );
-      expect(document.body.style.zoom).toBe('1.2');
-      expect(zoomSelect.value).toBe('1.2');
+      expect(document.body.style.zoom).toBe('1.1');
+      expect(zoomSelect.value).toBe('1.1');
     });
 
     it('should handle zoom level change', () => {
@@ -425,10 +421,10 @@ describe('options.js', () => {
       initOptions();
 
       const zoomSelect = document.querySelector('#ui-zoom-level');
-      zoomSelect.value = '1.5';
+      zoomSelect.value = '1.1';
       zoomSelect.dispatchEvent(new Event('change'));
 
-      expect(document.body.style.zoom).toBe('1.5');
+      expect(document.body.style.zoom).toBe('1.1');
     });
   });
 

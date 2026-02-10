@@ -86,7 +86,7 @@ export function initOptions() {
   if (zoomSelect) {
     // 讀取設定
     chrome.storage.sync.get(['uiZoomLevel'], result => {
-      const zoom = result.uiZoomLevel || '1';
+      const zoom = String(result.uiZoomLevel || '1');
       document.body.style.zoom = zoom;
       zoomSelect.value = zoom;
     });
