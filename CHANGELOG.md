@@ -1,5 +1,22 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.31.0](https://github.com/cowcfj/save-to-notion/compare/v2.30.0...v2.31.0) (2026-02-10)
+
+
+### ✨ 新功能
+
+* 更新依賴與優化內容提取邏輯 ([#252](https://github.com/cowcfj/save-to-notion/issues/252)) ([acbf5c5](https://github.com/cowcfj/save-to-notion/commit/acbf5c5813e44f881466af6ef69e20711e5e4125))
+
+
+### 📝 文檔更新
+
+* 更新 README.md ([c13267b](https://github.com/cowcfj/save-to-notion/commit/c13267bbb9939e22a29d00d2d2a2d8f63c119c54))
+
+
+### 🧹 其他變更
+
+* 移除 lib 目錄及其相關說明文件 ([1060932](https://github.com/cowcfj/save-to-notion/commit/10609320cd98ccec53d0985f2dfc747e455c5c56))
+
 ## [2.30.0](https://github.com/cowcfj/save-to-notion/compare/v2.29.0...v2.30.0) (2026-02-08)
 
 
