@@ -673,7 +673,7 @@ function performSmartCleaning(articleContent, cmsType) {
  * @param {Document} doc - 克隆的文檔對象（會被直接修改）
  * @returns {number} 處理的圖片數量
  */
-function _prepareLazyImages(doc) {
+function prepareLazyImages(doc) {
   const images = doc.querySelectorAll('img');
   let fixedCount = 0;
 
@@ -687,7 +687,11 @@ function _prepareLazyImages(doc) {
       }
 
       const value = img.getAttribute(attr);
-      // 確保值存在且不是 data/blob URI
+      /*
+         Prioritize the first valid lazy-load attribute found (e.g., data-src > data-original).
+         NOTE: This assumes that if a lazy-load attribute exists and differs from src, it contains the high-res/real image.
+         This might be incorrect if data-src is a low-res placeholder, but standard practice usually reserves data-src for the real image.
+       */
       if (value?.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
         const candidateSrc = value.trim();
 
@@ -716,6 +720,7 @@ function _prepareLazyImages(doc) {
 
     if (dataSrcset?.trim() && dataSrcset.trim() !== currentSrcset) {
       source.setAttribute('srcset', dataSrcset.trim());
+      fixedCount++; // Count source modifications too
     }
   });
 
@@ -749,7 +754,8 @@ function parseArticleWithReadability() {
   const clonedDocument = document.cloneNode(true);
 
   // 2.5 預處理懶加載圖片（確保 Readability 保留 data-src 圖片）
-  _prepareLazyImages(clonedDocument);
+  // 2.5 預處理懶加載圖片（確保 Readability 保留 data-src 圖片）
+  prepareLazyImages(clonedDocument);
 
   // 3. 執行 Readability 解析
   let parsedArticle = null;
@@ -823,7 +829,7 @@ const readabilityAdapter = {
   parseArticleWithReadability,
   detectCMS,
   performSmartCleaning,
-  _prepareLazyImages,
+  prepareLazyImages,
 };
 
 export {
@@ -837,5 +843,5 @@ export {
   detectCMS,
   performSmartCleaning,
   parseArticleWithReadability,
-  _prepareLazyImages,
+  prepareLazyImages,
 };

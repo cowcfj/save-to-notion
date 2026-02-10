@@ -137,10 +137,11 @@ export const NextJsExtractor = {
     }
 
     try {
-      // 去除 query string，只比較路徑部分
-      const asPathClean = decodeURIComponent(asPath.split('?')[0]);
-      const currentClean = decodeURIComponent(currentPath);
-      return asPathClean === currentClean;
+      // 有些版本 currentPath 可能帶有 query string，防禦性處理
+      const cleanCurrentPath = currentPath.split('?')[0];
+      const cleanAsPath = asPath.split('?')[0];
+
+      return decodeURIComponent(cleanCurrentPath) === decodeURIComponent(cleanAsPath);
     } catch {
       // decodeURIComponent 可能因格式錯誤拋出異常，此時放行
       return true;

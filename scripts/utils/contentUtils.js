@@ -33,7 +33,7 @@ export function isTitleConsistent(candidateTitle, docTitle) {
   // 取前 15 個字元作為特徵值
   // 因為 document.title 常會有後綴 (e.g. " | HK01")
   // 而 candidateTitle 可能是完整標題
-  const signature = cleanCandidate.slice(0, 15);
+  const signature = cleanCandidate.slice(0, 15).toLowerCase();
 
-  return cleanDoc.includes(signature);
+  return cleanDoc.toLowerCase().includes(signature);
 }
