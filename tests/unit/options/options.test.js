@@ -129,6 +129,11 @@ describe('options.js', () => {
           <option value="text">文字顏色</option>
           <option value="underline">底線</option>
         </select>
+
+        <select id="ui-zoom-level">
+          <option value="1">中 (100%)</option>
+          <option value="1.1">大 (110%)</option>
+        </select>
       `;
 
       mockUi = { showStatus: jest.fn() };
@@ -248,6 +253,17 @@ describe('options.js', () => {
         expect.any(Function)
       );
     });
+    it('should save uiZoomLevel', () => {
+      document.querySelector('#ui-zoom-level').value = '1.1';
+      saveSettings(mockUi, mockAuth);
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          uiZoomLevel: '1.1',
+        }),
+        expect.any(Function)
+      );
+    });
   });
 
   describe('Initialization (initOptions)', () => {
@@ -284,10 +300,32 @@ describe('options.js', () => {
             <button id="preview-template"></button>
             <input id="title-template" />
             <div id="template-preview"></div>
+            <select id="ui-zoom-level">
+              <option value="1">1</option>
+              <option value="1.1">1.1</option>
+            </select>
         `;
 
-      globalThis.chrome.runtime.onMessage = {
-        addListener: jest.fn(),
+      // JSDOM doesn't support zoom property, so we mock it
+      Object.defineProperty(document.body.style, 'zoom', {
+        value: '',
+        writable: true,
+        configurable: true,
+      });
+
+      globalThis.chrome = {
+        runtime: {
+          onMessage: {
+            addListener: jest.fn(),
+          },
+          getManifest: jest.fn(() => ({ version: '1.2.3' })),
+        },
+        storage: {
+          sync: {
+            get: jest.fn((keys, cb) => cb({})),
+            set: jest.fn(),
+          },
+        },
       };
     });
 
@@ -355,6 +393,38 @@ describe('options.js', () => {
       navItem.click();
       expect(navItem.classList.contains('active')).toBe(true);
       expect(section.classList.contains('active')).toBe(true);
+    });
+
+    it('should initialize zoom level', () => {
+      // Mock storage get
+      globalThis.chrome.storage.sync.get = jest.fn((keys, cb) => {
+        cb({ uiZoomLevel: '1.1' });
+      });
+
+      initOptions();
+
+      const zoomSelect = document.querySelector('#ui-zoom-level');
+      expect(globalThis.chrome.storage.sync.get).toHaveBeenCalledWith(
+        ['uiZoomLevel'],
+        expect.any(Function)
+      );
+      expect(document.body.style.zoom).toBe('1.1');
+      expect(zoomSelect.value).toBe('1.1');
+    });
+
+    it('should handle zoom level change', () => {
+      // Mock storage get with default
+      globalThis.chrome.storage.sync.get = jest.fn((keys, cb) => {
+        cb({});
+      });
+
+      initOptions();
+
+      const zoomSelect = document.querySelector('#ui-zoom-level');
+      zoomSelect.value = '1.1';
+      zoomSelect.dispatchEvent(new Event('change'));
+
+      expect(document.body.style.zoom).toBe('1.1');
     });
   });
 

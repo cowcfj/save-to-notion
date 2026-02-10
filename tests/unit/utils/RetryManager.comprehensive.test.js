@@ -478,7 +478,10 @@ describe('RetryManager - 全面測試', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('重試'),
         expect.objectContaining({
-          error,
+          error: expect.objectContaining({
+            message: 'Test error',
+            name: 'Error',
+          }),
           attempt: 1,
           maxAttempts: 3,
         })
@@ -565,7 +568,10 @@ describe('RetryManager - 全面測試', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('失敗'),
         expect.objectContaining({
-          error,
+          error: expect.objectContaining({
+            message: 'Final error',
+            name: 'Error',
+          }),
           totalRetries: 3,
           contextType: 'network',
         })

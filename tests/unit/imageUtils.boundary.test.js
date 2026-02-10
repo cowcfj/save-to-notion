@@ -149,10 +149,9 @@ describe('imageUtils - 邊界條件測試', () => {
       const outerProxyUrl = `https://proxy2.com/gw/?u=${encodeURIComponent(proxyUrl)}`;
 
       const result = cleanImageUrl(outerProxyUrl);
-      // cleanImageUrl logic results in double encoding of the inner URL in this specific case.
-      // We update the expectation to match the actual behavior for now to ensure stability.
-      const expected =
-        'https://proxy2.com/gw/?u=https%253A%252F%252Fproxy.com%252Fphoto.php%253Fu%253Dhttps%253A%252F%252Fcdn.example.com%252Fimage.jpg';
+      // cleanImageUrl logic correctly unwraps the nested proxy URL.
+      // We update the expectation to match the unwrapped behavior.
+      const expected = 'https://cdn.example.com/image.jpg';
       expect(result).toBe(expected);
     });
 
