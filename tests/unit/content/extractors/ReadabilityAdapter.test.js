@@ -601,6 +601,15 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
     expect(doc.querySelector('source').getAttribute('srcset')).toBe('other.webp');
   });
 
+  test('應該處理 source 元素的 data-lazy-srcset', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><picture><source data-lazy-srcset="lazy.webp"></picture></body></html>',
+      'text/html'
+    );
+    prepareLazyImages(doc);
+    expect(doc.querySelector('source').getAttribute('srcset')).toBe('lazy.webp');
+  });
+
   test('應該正確處理 data-srcset 屬性並提取第一個 URL 作為 src', () => {
     const doc = new DOMParser().parseFromString(
       '<html><body><img data-srcset="https://example.com/img-400.jpg 400w, https://example.com/img-800.jpg 800w" src=""></body></html>',

@@ -719,10 +719,11 @@ function prepareLazyImages(doc) {
     }
   });
 
-  // 同時處理 <source> 元素的 data-srcset → srcset
-  const sources = doc.querySelectorAll('source[data-srcset]');
+  // 同時處理 <source> 元素的 data-srcset / data-lazy-srcset → srcset
+  const sources = doc.querySelectorAll('source[data-srcset], source[data-lazy-srcset]');
   sources.forEach(source => {
-    const dataSrcset = source.dataset.srcset;
+    // 優先順序：data-srcset > data-lazy-srcset
+    const dataSrcset = source.dataset.srcset || source.dataset.lazySrcset;
     const currentSrcset = source.getAttribute('srcset');
 
     if (dataSrcset?.trim() && dataSrcset.trim() !== currentSrcset) {
