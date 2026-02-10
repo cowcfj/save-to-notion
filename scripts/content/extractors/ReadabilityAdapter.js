@@ -668,6 +668,7 @@ function performSmartCleaning(articleContent, cmsType) {
 /**
  * 預處理克隆 DOM 中的懶加載圖片
  * 將 data-src 等懶加載屬性的值寫入 src，確保 Readability 不會移除這些圖片
+ * 策略：模擬所有圖片進入視口，將 lazy-load 屬性(data-src 等) 提升為 src
  *
  * @param {Document} doc - 克隆的文檔對象（會被直接修改）
  * @returns {number} 處理的圖片數量
@@ -679,27 +680,30 @@ function _prepareLazyImages(doc) {
   images.forEach(img => {
     const currentSrc = img.getAttribute('src') || '';
 
-    // 已有有效 src 的圖片不需要處理
-    if (
-      currentSrc &&
-      !currentSrc.startsWith('data:') &&
-      !currentSrc.includes('loading') &&
-      !currentSrc.includes('placeholder') &&
-      !currentSrc.includes('blank')
-    ) {
-      return;
-    }
-
-    // 依序嘗試 IMAGE_ATTRIBUTES 中的屬性（跳過 src 本身）
+    // 依序嘗試屬性
     for (const attr of IMAGE_ATTRIBUTES) {
       if (attr === 'src') {
         continue;
       }
+
       const value = img.getAttribute(attr);
+      // 確保值存在且不是 data/blob URI
       if (value?.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
-        img.setAttribute('src', value.trim());
-        fixedCount++;
-        break;
+        const candidateSrc = value.trim();
+
+        // 如果候選地址與當前地址不同，則認為它是真實地址 (Lazy Load)
+        // 這涵蓋了：
+        // 1. src 為空
+        // 2. src 為占位符 (spacer.gif, loading.svg)
+        // 3. src 為低解析度預覽圖
+        if (candidateSrc !== currentSrc) {
+          img.setAttribute('src', candidateSrc);
+          // 如果有 srcset，通常也需要清除或更新，這裡簡單起見先不清 srcset，
+          // 因為瀏覽器/Readability 通常優先級別 src < srcset。
+          // 但 Readability 主要看 src。
+          fixedCount++;
+        }
+        break; // 找到第一個有效值就停止，優先級由 IMAGE_ATTRIBUTES 順序決定
       }
     }
   });
@@ -707,11 +711,11 @@ function _prepareLazyImages(doc) {
   // 同時處理 <source> 元素的 data-srcset → srcset
   const sources = doc.querySelectorAll('source[data-srcset]');
   sources.forEach(source => {
-    if (!source.getAttribute('srcset')) {
-      const dataSrcset = source.dataset.srcset;
-      if (dataSrcset?.trim()) {
-        source.setAttribute('srcset', dataSrcset.trim());
-      }
+    const dataSrcset = source.dataset.srcset;
+    const currentSrcset = source.getAttribute('srcset');
+
+    if (dataSrcset?.trim() && dataSrcset.trim() !== currentSrcset) {
+      source.setAttribute('srcset', dataSrcset.trim());
     }
   });
 
