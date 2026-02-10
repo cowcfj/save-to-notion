@@ -10,6 +10,7 @@
 
 import Logger from '../../utils/Logger.js';
 import { NEXTJS_CONFIG } from '../../config/extraction.js';
+import { isTitleConsistent } from '../../utils/contentUtils.js';
 
 export const NextJsExtractor = {
   /**
@@ -77,7 +78,7 @@ export const NextJsExtractor = {
       // 2. 標題一致性檢查 (備用機制，當 asPath 不存在時)
       if (extractionSource === PAGES_ROUTER && articleData?.title) {
         const docTitle = doc.title;
-        if (docTitle && !this._isTitleConsistent(articleData.title, docTitle)) {
+        if (docTitle && !isTitleConsistent(articleData.title, docTitle)) {
           Logger.warn('SPA 導航偵測：__NEXT_DATA__ 標題與 document.title 不符，放棄結構化提取', {
             action,
             articleTitle: articleData.title,
@@ -144,40 +145,6 @@ export const NextJsExtractor = {
       // decodeURIComponent 可能因格式錯誤拋出異常，此時放行
       return true;
     }
-  },
-
-  /**
-   * 檢查文章標題是否與 document.title 一致
-   * 用於偵測 SPA 導航導致的數據過期 (當 asPath 不可用時)
-   *
-   * 策略：
-   * 1. Next.js SPA 導航時會更新 document.title
-   * 2. 但 __NEXT_DATA__ 不會更新
-   * 3. 如果 document.title 不包含 articleData.title，表示數據已過期
-   *
-   * @param {string} articleTitle
-   * @param {string} docTitle
-   * @returns {boolean} true 表示一致 (數據有效)
-   */
-  _isTitleConsistent(articleTitle, docTitle) {
-    if (!articleTitle || !docTitle) {
-      return true;
-    }
-
-    const cleanArticleTitle = articleTitle.trim();
-    const cleanDocTitle = docTitle.trim();
-
-    // 標題太短容易誤殺，直接放行 (例如 "News", "Home", "HK01")
-    if (cleanArticleTitle.length <= 4) {
-      return true;
-    }
-
-    // 取前 15 個字元作為特徵值
-    // 因為 document.title 常會有後綴 (e.g. " | HK01")
-    // 而 articleTitle 可能是完整標題
-    const signature = cleanArticleTitle.slice(0, 15);
-
-    return cleanDocTitle.includes(signature);
   },
 
   /**

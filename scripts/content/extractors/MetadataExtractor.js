@@ -16,6 +16,7 @@ import {
   AVATAR_KEYWORDS,
   IMAGE_SRC_ATTRIBUTES,
 } from '../../config/extraction.js';
+import { isTitleConsistent } from '../../utils/contentUtils.js';
 
 const MetadataExtractor = {
   /**
@@ -36,7 +37,6 @@ const MetadataExtractor = {
       featuredImage: MetadataExtractor.extractFeaturedImage(doc),
     };
   },
-
   /**
    * 提取標題
    * 優先級: Readability.title > document.title > 'Untitled Page'
@@ -49,37 +49,10 @@ const MetadataExtractor = {
     const docTitle = doc.title || '';
     const rTitle = readabilityArticle?.title;
 
-    if (rTitle && typeof rTitle === 'string' && this._isTitleConsistent(rTitle, docTitle)) {
+    if (rTitle && typeof rTitle === 'string' && isTitleConsistent(rTitle, docTitle)) {
       return rTitle;
     }
     return docTitle || 'Untitled Page';
-  },
-
-  /**
-   * 檢查標題是否一致
-   *
-   * @param {string} title - 候選標題 (來自 Readability)
-   * @param {string} docTitle - 文檔標題 (來自 document.title)
-   * @returns {boolean}
-   */
-  _isTitleConsistent(title, docTitle) {
-    if (!title || !docTitle) {
-      return true;
-    }
-
-    const cleanTitle = title.trim();
-    const cleanDocTitle = docTitle.trim();
-
-    // 標題太短容易誤殺，直接放行
-    if (cleanTitle.length <= 4) {
-      return true;
-    }
-
-    // 取前 15 個字元作為特徵值
-    // 因為 document.title 常會有後綴 (e.g. " | HK01")
-    const signature = cleanTitle.slice(0, 15);
-
-    return cleanDocTitle.includes(signature);
   },
 
   /**
