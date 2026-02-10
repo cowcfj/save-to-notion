@@ -726,7 +726,7 @@ function prepareLazyImages(doc) {
 
   if (fixedCount > 0) {
     Logger.log('懶加載圖片預處理完成', {
-      action: '_prepareLazyImages',
+      action: 'prepareLazyImages',
       totalImages: images.length,
       fixedCount,
     });
@@ -753,7 +753,6 @@ function parseArticleWithReadability() {
   // 2. 克隆文檔 (直接克隆，保留完整結構讓 Readability 判斷)
   const clonedDocument = document.cloneNode(true);
 
-  // 2.5 預處理懶加載圖片（確保 Readability 保留 data-src 圖片）
   // 2.5 預處理懶加載圖片（確保 Readability 保留 data-src 圖片）
   prepareLazyImages(clonedDocument);
 
