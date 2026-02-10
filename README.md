@@ -231,7 +231,6 @@ notion-chrome/
 │   ├── content.bundle.js         # Content Script 統一打包版
 │   └── *.js.map           # Source maps
 ├── update-notification/   # 更新通知頁面與邏輯
-├── lib/                   # 第三方庫（Readability.js）
 ├── icons/                 # 圖標
 ├── promo-images/          # 宣傳圖片（Chrome Web Store）
 ├── tests/                 # 測試文件（2500+ tests）
