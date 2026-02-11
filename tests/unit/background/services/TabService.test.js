@@ -27,6 +27,13 @@ jest.mock('../../../../scripts/config/constants.js', () => ({
   },
 }));
 
+jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+  resolveStorageUrl: jest.fn(url => url),
+  buildStableUrlFromNextData: jest.fn(),
+  hasSameOrigin: jest.fn(),
+  normalizeUrl: jest.fn(url => url),
+}));
+
 // Mock chrome API
 globalThis.chrome = {
   action: {

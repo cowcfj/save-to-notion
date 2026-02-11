@@ -126,7 +126,10 @@ export function computeStableUrl(rawUrl) {
  * 從 Next.js Pages Router 數據構建穩定 URL
  *
  * 透過分析路由 pattern（如 /[category]/[id]/[slug]）識別可變段並移除。
- * 識別邏輯：欄位名包含 slug/title，或值包含非 ASCII 字符（中文標題等）。
+ * 識別邏輯：
+ * 1. 欄位名包含 `slug` 或 `title` -> 判定為不穩定（移除）。
+ * 2. 欄位名包含 `category`, `section`, `topic`, `channel`, `tag` -> 判定為穩定（保留，即使含中文）。
+ * 3. 欄位名不屬於上述，但值包含非 ASCII 字符（例如中文標題）-> 判定為不穩定（移除）。
  *
  * @param {{ page: string, query: object, buildId?: string }} routeInfo - Preloader 提取的 Next.js 路由資訊
  * @param {string} originalUrl - 原始 URL（提供 origin）
@@ -146,13 +149,19 @@ export function buildStableUrlFromNextData(routeInfo, originalUrl) {
       return null; // 無動態段 → 非動態路由，不需處理
     }
 
-    // 識別「不穩定」的段：slug、title、或包含非 ASCII 字符的值
+    // 識別「不穩定」的段（即 slug）
     const slugKeys = dynamicSegments.filter(key => {
-      // 欄位名明確包含 slug 或 title
+      // 1. 欄位名明確包含 slug 或 title -> 判定為不穩定
       if (/slug|title/i.test(key)) {
         return true;
       }
-      // 值包含非 ASCII 字符（中文、日文等）→ 可能是標題 / slug
+
+      // 2. 欄位名明確包含分類/頻道等穩定段 -> 判定為穩定 (即使含非 ASCII)
+      if (/category|section|channel|topic|tag/i.test(key)) {
+        return false;
+      }
+
+      // 3. 值包含非 ASCII 字符（中文、日文等）且非已知穩定段 -> 判定為標題 / slug
       const value = query[key];
       if (typeof value === 'string' && /[^\u0020-\u007E]/.test(value)) {
         return true;

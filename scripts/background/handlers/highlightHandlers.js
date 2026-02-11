@@ -107,14 +107,15 @@ async function performHighlightUpdate(services, activeTab, highlights) {
 
   // Phase 2: 獲取 Preloader 數據以解析穩定 URL
   const preloaderData = await tabService?.getPreloaderData?.(activeTab.id);
-  const stableUrl = resolveStorageUrl(activeTab.url || '', preloaderData);
-  const normUrl = stableUrl || normalizeUrl(activeTab.url || '');
+  // resolveStorageUrl 內部已包含 normalizeUrl 回退機制，返回值即為規範 URL
+  const normUrl = resolveStorageUrl(activeTab.url || '', preloaderData);
   const originalUrl = normalizeUrl(activeTab.url || '');
+  const hasStableUrl = normUrl !== originalUrl;
 
   let savedData = await storageService.getSavedPageData(normUrl);
 
   // 雙查：若穩定 URL 未找到，嘗試原始 URL（向後兼容）
-  if (!savedData?.notionPageId && stableUrl && originalUrl !== normUrl) {
+  if (!savedData?.notionPageId && hasStableUrl) {
     savedData = await storageService.getSavedPageData(originalUrl);
   }
 

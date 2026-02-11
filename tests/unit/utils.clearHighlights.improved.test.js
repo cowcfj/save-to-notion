@@ -319,20 +319,7 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       await StorageUtil.clearHighlights(testUrl);
 
       const duration = Date.now() - startTime;
-      expect(duration).toBeLessThan(100);
-    });
-
-    test('應該在合理時間內完成清除操作', async () => {
-      if (!StorageUtil) {
-        return;
-      }
-      const testUrl = 'https://example.com/test';
-      const startTime = Date.now();
-
-      await StorageUtil.clearHighlights(testUrl);
-
-      const duration = Date.now() - startTime;
-      // Should complete quickly (under 100ms for synchronous operations)
+      // 確保操作在合理時間內完成（異步環境下通常遠小於 100ms）
       expect(duration).toBeLessThan(100);
     });
   });

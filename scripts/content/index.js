@@ -55,8 +55,16 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       nextRouteInfo: (() => {
         try {
           const el = document.querySelector('#__NEXT_DATA__');
-          if (!el || el.textContent.length > 1_048_576) {return null;}
-          const data = JSON.parse(el.textContent);
+          if (!el) {
+            return null;
+          }
+
+          const content = el.textContent;
+          if (content.length > 1_048_576) {
+            return null;
+          }
+
+          const data = JSON.parse(content);
           return { page: data.page, query: data.query, buildId: data.buildId };
         } catch {
           return null;

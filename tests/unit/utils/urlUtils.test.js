@@ -162,8 +162,8 @@ describe('urlUtils', () => {
           'https://www.hk01.com/社會新聞/60320801/示威者遭警方拘捕'
         );
 
-        // category 含中文也被移除，id 保留
-        expect(result).toBe('https://www.hk01.com/60320801');
+        // category 名稱被視為穩定段而保留，slug 被移除
+        expect(result).toBe('https://www.hk01.com/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60320801');
       });
     });
 

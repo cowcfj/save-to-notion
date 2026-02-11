@@ -13,7 +13,7 @@
 
 import { TAB_SERVICE, URL_NORMALIZATION, HANDLER_CONSTANTS } from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
-import { buildStableUrlFromNextData, hasSameOrigin } from '../../utils/urlUtils.js';
+import { resolveStorageUrl } from '../../utils/urlUtils.js';
 
 /**
  * TabService 類
@@ -95,39 +95,20 @@ class TabService {
     // 取得 Preloader 元數據（Phase 2: nextRouteInfo, shortlink）
     const preloaderData = await this.getPreloaderData(tabId);
 
-    // 按優先級計算穩定 URL
-    // Phase 1: 已知網站純字串規則
-    let stableUrl = this.computeStableUrl?.(url);
-
-    // Phase 2a: Next.js 路由
-    if (!stableUrl && preloaderData?.nextRouteInfo) {
-      stableUrl = buildStableUrlFromNextData(preloaderData.nextRouteInfo, url);
-    }
-
-    // Phase 2a+: WordPress shortlink
-    if (!stableUrl && preloaderData?.shortlink) {
-      // 驗證 shortlink 與原始 URL 有相同來源
-      if (hasSameOrigin(preloaderData.shortlink, url)) {
-        stableUrl = preloaderData.shortlink;
-      } else {
-        this.logger.debug?.('[TabService] Rejected cross-origin shortlink', {
-          action: 'updateTabStatus',
-          shortlink: preloaderData.shortlink,
-          originalUrl: url,
-        });
-      }
-    }
-
-    const normUrl = stableUrl || this.normalizeUrl(url);
+    // 按優先級計算穩定 URL - 使用通用解析邏輯 (包含 Phase 1, Phase 2a/2a+, fallback)
+    const normUrl = resolveStorageUrl(url, preloaderData);
     const originalUrl = this.normalizeUrl(url);
 
+    // 判斷是否為穩定 URL (與原始 URL 不同)，若是則需進行雙查 (向後兼容)
+    const hasStableUrl = normUrl !== originalUrl;
+
     try {
-      // 1. 更新徽章狀態（雙查：穩定 URL 優先，回退到原始 URL）
-      await this._verifyAndUpdateStatus(tabId, normUrl, stableUrl ? originalUrl : null);
+      // 1. 更新徽章狀態（雙查：若有穩定 URL，同時檢查原始 URL）
+      await this._verifyAndUpdateStatus(tabId, normUrl, hasStableUrl ? originalUrl : null);
 
       // 2. 處理標註注入（雙查：穩定 URL 優先，回退到原始 URL）
       let highlights = await this._getHighlightsFromStorage(normUrl);
-      if (!highlights && stableUrl && originalUrl !== normUrl) {
+      if (!highlights && hasStableUrl) {
         // 回退查詢：嘗試原始 URL（向後兼容）
         highlights = await this._getHighlightsFromStorage(originalUrl);
       }
