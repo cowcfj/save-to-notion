@@ -1010,7 +1010,7 @@ describe('NotionService', () => {
         await expect(service.search({ query: 'test' })).rejects.toThrow();
         expect(Logger.error).toHaveBeenCalledWith(
           expect.stringContaining('搜索失敗'),
-          expect.any(Object)
+          expect.objectContaining({ error: expect.any(Object) }) // Error object or message
         );
       });
     });
@@ -1029,7 +1029,7 @@ describe('NotionService', () => {
         await service._deleteBlocksByIds(['b1']);
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.stringContaining('刪除區塊異常'),
-          expect.any(Object)
+          expect.objectContaining({ error: expect.any(Error) })
         );
       });
 
@@ -1070,7 +1070,7 @@ describe('NotionService', () => {
         await service.updatePageTitle('id', 'Title');
         expect(Logger.error).toHaveBeenCalledWith(
           expect.stringContaining('更新標題失敗'),
-          expect.any(Object)
+          expect.objectContaining({ error: expect.any(Object) })
         );
       });
     });

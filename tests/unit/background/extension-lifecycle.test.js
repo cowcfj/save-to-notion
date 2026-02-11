@@ -1,331 +1,224 @@
 /**
- * Background Extension Lifecycle Tests
- * 測試擴展生命週期相關的函數
+ * @jest-environment jsdom
  */
 
 // Mock Chrome APIs
-const mockChrome = require('../../mocks/chrome');
+const mockChrome = {
+  runtime: {
+    getManifest: jest.fn(),
+    getURL: jest.fn(),
+    onInstalled: {
+      addListener: jest.fn(),
+    },
+    id: 'test-extension-id',
+  },
+  tabs: {
+    create: jest.fn(),
+    onUpdated: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+    },
+    onRemoved: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+    },
+    sendMessage: jest.fn(),
+    get: jest.fn(),
+  },
+};
 globalThis.chrome = mockChrome;
 
-// Mock console methods
-globalThis.console = {
-  log: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-  info: jest.fn(),
-};
+// Mock Logger
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    ready: jest.fn(),
+    success: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+import Logger from '../../../scripts/utils/Logger.js';
 
-// Mock performance API
-globalThis.performance = {
-  now: jest.fn(() => Date.now()),
-};
+jest.mock('../../../scripts/utils/urlUtils.js', () => ({
+  normalizeUrl: jest.fn(),
+  computeStableUrl: jest.fn(),
+}));
 
-// Mock fetch
-globalThis.fetch = jest.fn();
+jest.mock('../../../scripts/config/constants.js', () => ({
+  TAB_SERVICE: { LOADING_TIMEOUT_MS: 1000 },
+}));
+
+// Inline mock factories
+jest.mock('../../../scripts/background/services/StorageService.js', () => ({
+  StorageService: jest.fn().mockImplementation(() => ({
+    name: 'StorageService',
+    setupListeners: jest.fn(),
+  })),
+}));
+jest.mock('../../../scripts/background/services/NotionService.js', () => ({
+  NotionService: jest.fn().mockImplementation(() => ({
+    name: 'NotionService',
+    setupListeners: jest.fn(),
+  })),
+}));
+jest.mock('../../../scripts/background/services/InjectionService.js', () => ({
+  InjectionService: jest.fn().mockImplementation(() => ({
+    name: 'InjectionService',
+    setupListeners: jest.fn(),
+  })),
+  isRestrictedInjectionUrl: jest.fn(),
+  isRecoverableInjectionError: jest.fn(),
+}));
+jest.mock('../../../scripts/background/services/PageContentService.js', () => ({
+  PageContentService: jest.fn().mockImplementation(() => ({
+    name: 'PageContentService',
+    setupListeners: jest.fn(),
+  })),
+}));
+jest.mock('../../../scripts/background/services/TabService.js', () => ({
+  TabService: jest.fn().mockImplementation(() => ({
+    name: 'TabService',
+    setupListeners: jest.fn(),
+  })),
+}));
+
+// Mock Handlers
+jest.mock('../../../scripts/background/handlers/MessageHandler.js', () => ({
+  MessageHandler: jest.fn().mockImplementation(() => ({
+    registerAll: jest.fn(),
+    setupListener: jest.fn(),
+  })),
+}));
+jest.mock('../../../scripts/background/handlers/saveHandlers.js', () => ({
+  createSaveHandlers: jest.fn(() => ({})),
+}));
+jest.mock('../../../scripts/background/handlers/highlightHandlers.js', () => ({
+  createHighlightHandlers: jest.fn(() => ({})),
+}));
+jest.mock('../../../scripts/background/handlers/migrationHandlers.js', () => ({
+  createMigrationHandlers: jest.fn(() => ({})),
+}));
+jest.mock('../../../scripts/background/handlers/logHandlers.js', () => ({
+  createLogHandlers: jest.fn(() => ({})),
+}));
+jest.mock('../../../scripts/background/handlers/notionHandlers.js', () => ({
+  createNotionHandlers: jest.fn(() => ({})),
+}));
+
+let background;
 
 describe('Background Extension Lifecycle', () => {
-  let handleExtensionUpdate = null;
-  let handleExtensionInstall = null;
-  let shouldShowUpdateNotification = null;
-  let isImportantUpdate = null;
-  let showUpdateNotification = null;
+  beforeAll(() => {
+    // Manually assign global Logger since mocked module doesn't run side-effects
+    globalThis.Logger = Logger;
+
+    // Ensure background.js is loaded
+    // Since we mocked everything, it should initialize without error
+    background = require('../../../scripts/background.js');
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    // Reset Chrome API mocks
-    mockChrome.runtime.getManifest.mockReturnValue({
-      version: '2.8.1',
-    });
-
-    mockChrome.tabs.create.mockImplementation((options, sendTab) => {
-      if (sendTab) {
-        sendTab({ id: 123, url: options.url });
-      }
-    });
-
-    // 模擬 background.js 中的函數
-    handleExtensionUpdate = async previousVersion => {
-      try {
-        const currentVersion = chrome.runtime.getManifest().version;
-        console.log(`擴展已更新: ${previousVersion} → ${currentVersion}`);
-
-        if (shouldShowUpdateNotification(previousVersion, currentVersion)) {
-          await showUpdateNotification(previousVersion, currentVersion);
-        }
-      } catch (error) {
-        console.error('處理擴展更新失敗:', error);
-      }
-    };
-
-    handleExtensionInstall = jest.fn(() => {
-      console.log('擴展首次安裝');
-    });
-
-    shouldShowUpdateNotification = jest.fn((previousVersion, currentVersion) => {
-      if (!previousVersion || !currentVersion) {
-        return false;
-      }
-      if (currentVersion.includes('dev') || currentVersion.includes('beta')) {
-        return false;
-      }
-
-      const importantUpdates = ['2.7.0', '2.7.1', '2.7.2', '2.7.3', '2.8.0', '2.8.1'];
-
-      return importantUpdates.includes(currentVersion);
-    });
-
-    isImportantUpdate = jest.fn(version => {
-      const importantUpdates = ['2.7.0', '2.7.1', '2.7.2', '2.7.3', '2.8.0', '2.8.1'];
-      return importantUpdates.includes(version);
-    });
-
-    showUpdateNotification = jest.fn(async (previousVersion, currentVersion) => {
-      try {
-        const updateUrl = `${chrome.runtime.getURL('update-notification/update-notification.html')}?from=${encodeURIComponent(previousVersion)}&to=${encodeURIComponent(currentVersion)}`;
-
-        await chrome.tabs.create({ url: updateUrl });
-      } catch (error) {
-        console.error('顯示更新通知失敗:', error);
-      }
-    });
+    mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.1' });
+    mockChrome.tabs.create.mockResolvedValue({ id: 123 });
+    mockChrome.tabs.sendMessage.mockResolvedValue({});
+    mockChrome.tabs.get.mockResolvedValue({ status: 'complete' });
   });
 
   describe('handleExtensionUpdate', () => {
     test('應該記錄更新信息', async () => {
-      // Arrange
-      const previousVersion = '2.7.3';
-
-      // Act
-      await handleExtensionUpdate(previousVersion);
-
-      // Assert
-      expect(console.log).toHaveBeenCalledWith('擴展已更新: 2.7.3 → 2.8.1');
+      await background.handleExtensionUpdate('2.7.3');
+      expect(Logger.success).toHaveBeenCalledWith(
+        '[Lifecycle] 擴展已更新',
+        expect.objectContaining({ previousVersion: '2.7.3' })
+      );
     });
 
     test('應該在重要更新時顯示通知', async () => {
-      // Arrange
-      const previousVersion = '2.7.3';
-      shouldShowUpdateNotification.mockReturnValue(true);
+      mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
+      await background.handleExtensionUpdate('2.7.3');
 
-      // Act
-      await handleExtensionUpdate(previousVersion);
+      expect(mockChrome.tabs.create).toHaveBeenCalled();
+      expect(Logger.info).toHaveBeenCalledWith(expect.stringContaining('已顯示更新通知頁面'));
+    });
+  });
 
-      // Assert
-      expect(shouldShowUpdateNotification).toHaveBeenCalledWith('2.7.3', '2.8.1');
-      expect(showUpdateNotification).toHaveBeenCalledWith('2.7.3', '2.8.1');
+  describe('shouldShowUpdateNotification', () => {
+    // 透過直接測試 shouldShowUpdateNotification（如果導出）或通過 handleExtensionUpdate 間接測試 logic
+
+    // 由於 shouldShowUpdateNotification 未導出，我們通過修改 manifest mock 來測試 handleExtensionUpdate
+    const setupUpdateTest = async (previousVersion, currentVersion) => {
+      mockChrome.runtime.getManifest.mockReturnValue({ version: currentVersion });
+      mockChrome.tabs.create.mockClear();
+      await background.handleExtensionUpdate(previousVersion);
+    };
+
+    test('應該正確處理主版本升級 (2.5.0 -> 3.0.0)', async () => {
+      await setupUpdateTest('2.5.0', '3.0.0');
+      expect(mockChrome.tabs.create).toHaveBeenCalled();
     });
 
-    test('應該在非重要更新時跳過通知', async () => {
-      // Arrange
-      const previousVersion = '2.6.0';
-      shouldShowUpdateNotification.mockReturnValue(false);
+    test('應該正確處理次版本升級 (2.4.5 -> 2.5.0)', async () => {
+      await setupUpdateTest('2.4.5', '2.5.0');
+      expect(mockChrome.tabs.create).toHaveBeenCalled();
+    });
 
-      // Act
-      await handleExtensionUpdate(previousVersion);
+    test('應該正確處理降級 (3.0.0 -> 2.5.0)', async () => {
+      await setupUpdateTest('3.0.0', '2.5.0');
+      expect(mockChrome.tabs.create).not.toHaveBeenCalled();
+    });
 
-      // Assert
-      expect(shouldShowUpdateNotification).toHaveBeenCalledWith('2.6.0', '2.8.1');
-      expect(showUpdateNotification).not.toHaveBeenCalled();
+    test('應該正確處理次版本降級 (2.5.0 -> 2.4.0)', async () => {
+      await setupUpdateTest('2.5.0', '2.4.0');
+      expect(mockChrome.tabs.create).not.toHaveBeenCalled();
     });
   });
 
   describe('handleExtensionInstall', () => {
     test('應該記錄首次安裝信息', () => {
-      // Act
-      handleExtensionInstall();
-
-      // Assert
-      expect(console.log).toHaveBeenCalledWith('擴展首次安裝');
-    });
-  });
-
-  describe('shouldShowUpdateNotification', () => {
-    test('應該為重要更新返回 true', () => {
-      // Act & Assert
-      expect(shouldShowUpdateNotification('2.7.2', '2.7.3')).toBe(true);
-      expect(shouldShowUpdateNotification('2.7.3', '2.8.0')).toBe(true);
-      expect(shouldShowUpdateNotification('2.8.0', '2.8.1')).toBe(true);
-    });
-
-    test('應該為非重要更新返回 false', () => {
-      // Act & Assert
-      expect(shouldShowUpdateNotification('2.6.0', '2.6.1')).toBe(false);
-      expect(shouldShowUpdateNotification('2.5.0', '2.5.1')).toBe(false);
-    });
-
-    test('應該為開發版本返回 false', () => {
-      // Act & Assert
-      expect(shouldShowUpdateNotification('2.7.3', '2.8.0-dev')).toBe(false);
-      expect(shouldShowUpdateNotification('2.7.3', '2.8.0-beta')).toBe(false);
-    });
-
-    test('應該處理空值', () => {
-      // Act & Assert
-      expect(shouldShowUpdateNotification(null, '2.8.1')).toBe(false);
-      expect(shouldShowUpdateNotification('2.7.3', null)).toBe(false);
-      expect(shouldShowUpdateNotification(null, null)).toBe(false);
+      background.handleExtensionInstall();
+      expect(Logger.success).toHaveBeenCalledWith('[Lifecycle] 擴展首次安裝', expect.anything());
     });
   });
 
   describe('isImportantUpdate', () => {
     test('應該識別重要更新版本', () => {
-      // Act & Assert
-      expect(isImportantUpdate('2.7.0')).toBe(true);
-      expect(isImportantUpdate('2.7.1')).toBe(true);
-      expect(isImportantUpdate('2.7.2')).toBe(true);
-      expect(isImportantUpdate('2.7.3')).toBe(true);
-      expect(isImportantUpdate('2.8.0')).toBe(true);
-      expect(isImportantUpdate('2.8.1')).toBe(true);
+      expect(background.isImportantUpdate('2.8.0')).toBe(true);
     });
 
     test('應該識別非重要更新版本', () => {
-      // Act & Assert
-      expect(isImportantUpdate('2.6.0')).toBe(false);
-      expect(isImportantUpdate('2.5.1')).toBe(false);
-      expect(isImportantUpdate('2.9.0')).toBe(false);
-      expect(isImportantUpdate('3.0.0')).toBe(false);
-    });
-
-    test('應該處理無效版本', () => {
-      // Act & Assert
-      expect(isImportantUpdate('')).toBe(false);
-      expect(isImportantUpdate(null)).toBe(false);
-      expect(isImportantUpdate()).toBe(false);
-      expect(isImportantUpdate('invalid')).toBe(false);
+      expect(background.isImportantUpdate('2.9.9')).toBe(false);
     });
   });
 
   describe('showUpdateNotification', () => {
     test('應該創建更新通知標籤頁', async () => {
-      // Arrange
-      const previousVersion = '2.7.3';
-      const currentVersion = '2.8.1';
-
       mockChrome.runtime.getURL.mockReturnValue(
-        'chrome-extension://test/update-notification/update-notification.html'
+        'chrome-extension://id/update-notification/update-notification.html'
       );
 
-      // Act
-      await showUpdateNotification(previousVersion, currentVersion);
+      await background.showUpdateNotification('2.7.3', '2.8.1');
 
-      // Assert
-      expect(mockChrome.runtime.getURL).toHaveBeenCalledWith(
-        'update-notification/update-notification.html'
+      expect(mockChrome.tabs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: expect.stringContaining('update-notification.html'),
+        })
       );
-      expect(mockChrome.tabs.create).toHaveBeenCalledWith({
-        url: 'chrome-extension://test/update-notification/update-notification.html?from=2.7.3&to=2.8.1',
-      });
-    });
-
-    test('應該正確編碼 URL 參數', async () => {
-      // Arrange
-      const previousVersion = '2.7.3-beta';
-      const currentVersion = '2.8.1-rc';
-
-      mockChrome.runtime.getURL.mockReturnValue(
-        'chrome-extension://test/update-notification/update-notification.html'
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+        123,
+        expect.objectContaining({ type: 'UPDATE_INFO' })
       );
-
-      // Act
-      await showUpdateNotification(previousVersion, currentVersion);
-
-      // Assert
-      expect(mockChrome.tabs.create).toHaveBeenCalledWith({
-        url: 'chrome-extension://test/update-notification/update-notification.html?from=2.7.3-beta&to=2.8.1-rc',
-      });
     });
 
-    test('應該處理創建標籤頁的錯誤', async () => {
-      // Arrange
-      const previousVersion = '2.7.3';
-      const currentVersion = '2.8.1';
-
-      mockChrome.runtime.getURL.mockReturnValue(
-        'chrome-extension://test/update-notification/update-notification.html'
+    test('應該處理錯誤', async () => {
+      mockChrome.tabs.create.mockRejectedValue(new Error('Failed'));
+      await background.showUpdateNotification('2.7.3', '2.8.1');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('顯示更新通知失敗'),
+        expect.anything()
       );
-      mockChrome.tabs.create.mockImplementation(() => {
-        throw new Error('Failed to create tab');
-      });
-
-      // Act & Assert
-      await expect(showUpdateNotification(previousVersion, currentVersion)).resolves.not.toThrow();
-    });
-  });
-
-  describe('版本比較邏輯', () => {
-    test('應該正確處理版本號格式', () => {
-      // 測試各種版本號格式
-      const versions = ['2.7.0', '2.7.1', '2.7.2', '2.7.3', '2.8.0', '2.8.1', '2.9.0', '3.0.0'];
-
-      versions.forEach(version => {
-        expect(typeof version).toBe('string');
-        expect(version).toMatch(/^\d+\.\d+\.\d+/);
-      });
-    });
-
-    test('應該處理預發布版本', () => {
-      // Act & Assert
-      expect(shouldShowUpdateNotification('2.7.3', '2.8.0-dev')).toBe(false);
-      expect(shouldShowUpdateNotification('2.7.3', '2.8.0-beta')).toBe(false);
-      expect(shouldShowUpdateNotification('2.7.3', '2.8.0-rc')).toBe(false);
-    });
-  });
-
-  describe('錯誤處理', () => {
-    test('handleExtensionUpdate 應該處理異常', async () => {
-      // Arrange
-      shouldShowUpdateNotification.mockImplementation(() => {
-        throw new Error('Test error');
-      });
-
-      // Act & Assert
-      await expect(handleExtensionUpdate('2.7.3')).resolves.not.toThrow();
-    });
-
-    test('showUpdateNotification 應該處理 Chrome API 錯誤', async () => {
-      // Arrange
-      mockChrome.runtime.getURL.mockImplementation(() => {
-        throw new Error('Chrome API error');
-      });
-
-      // Act & Assert
-      await expect(showUpdateNotification('2.7.3', '2.8.1')).resolves.not.toThrow();
-    });
-  });
-
-  describe('集成測試', () => {
-    test('完整的更新流程應該正常工作', async () => {
-      // Arrange
-      const previousVersion = '2.7.3';
-      mockChrome.runtime.getURL.mockReturnValue(
-        'chrome-extension://test/update-notification/update-notification.html'
-      );
-
-      // Act
-      await handleExtensionUpdate(previousVersion);
-
-      // Assert
-      expect(console.log).toHaveBeenCalledWith('擴展已更新: 2.7.3 → 2.8.1');
-      expect(shouldShowUpdateNotification).toHaveBeenCalledWith('2.7.3', '2.8.1');
-      expect(showUpdateNotification).toHaveBeenCalledWith('2.7.3', '2.8.1');
-      expect(mockChrome.tabs.create).toHaveBeenCalled();
-    });
-
-    test('非重要更新不應該顯示通知', async () => {
-      // Arrange
-      const previousVersion = '2.6.0';
-
-      // Act
-      await handleExtensionUpdate(previousVersion);
-
-      // Assert
-      expect(console.log).toHaveBeenCalledWith('擴展已更新: 2.6.0 → 2.8.1');
-      expect(shouldShowUpdateNotification).toHaveBeenCalledWith('2.6.0', '2.8.1');
-      // 由於 shouldShowUpdateNotification 返回 false，showUpdateNotification 不應該被調用
-      // 但我們的 mock 實現中沒有正確處理這個邏輯，所以先註釋掉
-      // expect(showUpdateNotification).not.toHaveBeenCalled();
-      // expect(mockChrome.tabs.create).not.toHaveBeenCalled();
     });
   });
 });

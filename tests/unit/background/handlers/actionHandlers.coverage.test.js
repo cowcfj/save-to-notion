@@ -19,6 +19,8 @@
 
 jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   normalizeUrl: jest.fn(url => url),
+  computeStableUrl: jest.fn(() => null),
+  resolveStorageUrl: jest.fn(url => url),
 }));
 
 jest.mock('../../../../scripts/background/utils/BlockBuilder.js', () => ({

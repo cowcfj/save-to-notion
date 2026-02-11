@@ -6,6 +6,9 @@ import {
   StorageService,
   normalizeUrl,
   URL_TRACKING_PARAMS,
+  SAVED_PREFIX,
+  HIGHLIGHTS_PREFIX,
+  STORAGE_ERROR,
 } from '../../../../scripts/background/services/StorageService.js';
 
 describe('normalizeUrl', () => {
@@ -88,7 +91,9 @@ describe('StorageService', () => {
   describe('getSavedPageData', () => {
     it('應該正確獲取保存的頁面數據', async () => {
       const pageData = { title: 'Test Page', savedAt: 12_345 };
-      mockStorage.local.get.mockResolvedValue({ 'saved_https://example.com/page': pageData });
+      mockStorage.local.get.mockResolvedValue({
+        [`${SAVED_PREFIX}https://example.com/page`]: pageData,
+      });
 
       const result = await service.getSavedPageData('https://example.com/page');
       expect(result).toEqual(pageData);
@@ -101,7 +106,9 @@ describe('StorageService', () => {
 
     it('應該標準化 URL', async () => {
       await service.getSavedPageData('https://example.com/page#section');
-      expect(mockStorage.local.get).toHaveBeenCalledWith(['saved_https://example.com/page']);
+      expect(mockStorage.local.get).toHaveBeenCalledWith([
+        `${SAVED_PREFIX}https://example.com/page`,
+      ]);
     });
   });
 
@@ -112,7 +119,7 @@ describe('StorageService', () => {
 
       expect(mockStorage.local.set).toHaveBeenCalledWith(
         expect.objectContaining({
-          'saved_https://example.com/page': expect.objectContaining({
+          [`${SAVED_PREFIX}https://example.com/page`]: expect.objectContaining({
             title: 'Test Page',
             lastUpdated: expect.any(Number),
           }),
@@ -126,9 +133,12 @@ describe('StorageService', () => {
       await service.clearPageState('https://example.com/page');
 
       expect(mockStorage.local.remove).toHaveBeenCalledWith([
-        'saved_https://example.com/page',
-        'highlights_https://example.com/page',
+        `${SAVED_PREFIX}https://example.com/page`,
+        `${HIGHLIGHTS_PREFIX}https://example.com/page`,
       ]);
+      expect(mockLogger.log).toHaveBeenCalledWith('Cleared all data', {
+        url: 'https://example.com/page',
+      });
     });
   });
 
@@ -151,9 +161,9 @@ describe('StorageService', () => {
   describe('getAllSavedPageUrls', () => {
     it('應該返回所有已保存頁面的 URL', async () => {
       mockStorage.local.get.mockResolvedValue({
-        'saved_https://example.com/page1': {},
-        'saved_https://example.com/page2': {},
-        'highlights_https://example.com/page1': [],
+        [`${SAVED_PREFIX}https://example.com/page1`]: {},
+        [`${SAVED_PREFIX}https://example.com/page2`]: {},
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page1`]: [],
         other_key: 'value',
       });
 
@@ -168,9 +178,13 @@ describe('StorageService', () => {
       delete globalThis.chrome;
 
       const serviceNoStorage = new StorageService({ chromeStorage: null });
-      await expect(serviceNoStorage.getSavedPageData('url')).rejects.toThrow(
-        'Chrome storage not available'
-      );
+
+      await expect(serviceNoStorage.getSavedPageData('url')).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.setSavedPageData('url', {})).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.clearPageState('url')).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.getConfig(['key'])).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.setConfig({ key: 'val' })).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.getAllSavedPageUrls()).rejects.toThrow(STORAGE_ERROR);
 
       globalThis.chrome = originalChrome;
     });
@@ -178,55 +192,49 @@ describe('StorageService', () => {
     it('應該在 storage.local.get 失敗時記錄錯誤並拋出', async () => {
       mockStorage.local.get.mockRejectedValue(new Error('Storage fail'));
       await expect(service.getSavedPageData('url')).rejects.toThrow('Storage fail');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('StorageService'),
-        expect.any(Error)
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('StorageService'), {
+        error: expect.any(Error),
+      });
     });
 
     it('應該在 storage.local.set 失敗時記錄錯誤並拋出', async () => {
       mockStorage.local.set.mockRejectedValue(new Error('Storage fail'));
       await expect(service.setSavedPageData('url', {})).rejects.toThrow('Storage fail');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('StorageService'),
-        expect.any(Error)
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('StorageService'), {
+        error: expect.any(Error),
+      });
     });
 
     it('應該在 storage.local.remove 失敗時記錄錯誤並拋出', async () => {
       mockStorage.local.remove.mockRejectedValue(new Error('Storage fail'));
       await expect(service.clearPageState('url')).rejects.toThrow('Storage fail');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('StorageService'),
-        expect.any(Error)
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('StorageService'), {
+        error: expect.any(Error),
+      });
     });
 
     it('應該在 storage.sync.get 失敗時記錄錯誤並拋出', async () => {
       mockStorage.sync.get.mockRejectedValue(new Error('Storage fail'));
       await expect(service.getConfig(['key'])).rejects.toThrow('Storage fail');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('StorageService'),
-        expect.any(Error)
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('StorageService'), {
+        error: expect.any(Error),
+      });
     });
 
     it('應該在 storage.sync.set 失敗時記錄錯誤並拋出', async () => {
       mockStorage.sync.set.mockRejectedValue(new Error('Storage fail'));
       await expect(service.setConfig({ key: 'val' })).rejects.toThrow('Storage fail');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('StorageService'),
-        expect.any(Error)
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('StorageService'), {
+        error: expect.any(Error),
+      });
     });
 
     it('應該在 getAllSavedPageUrls 失敗時記錄錯誤並拋出', async () => {
       mockStorage.local.get.mockRejectedValue(new Error('Storage fail'));
       await expect(service.getAllSavedPageUrls()).rejects.toThrow('Storage fail');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('StorageService'),
-        expect.any(Error)
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('StorageService'), {
+        error: expect.any(Error),
+      });
     });
   });
 });

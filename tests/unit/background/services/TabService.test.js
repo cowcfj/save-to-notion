@@ -488,4 +488,34 @@ describe('TabService', () => {
       );
     });
   });
+  describe('Coverage Improvements', () => {
+    it('_waitForTabCompilation should return null if chrome.tabs.get fails', async () => {
+      chrome.tabs.get.mockRejectedValue(new Error('Get tab failed'));
+      const res = await service._waitForTabCompilation(999);
+      expect(res).toBeNull();
+    });
+
+    it('_waitForTabCompilation should return null if tab is discarded', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 999, discarded: true });
+      const res = await service._waitForTabCompilation(999);
+      expect(res).toBeNull();
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('discarded'));
+    });
+
+    it('updateTabStatus should log specific message for "No tab with id" error', async () => {
+      service._verifyAndUpdateStatus = jest
+        .fn()
+        .mockRejectedValue(new Error('No tab with id: 999'));
+      await service.updateTabStatus(999, 'https://example.com');
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('Tab closed/missing'));
+    });
+
+    it('updateTabStatus should log specific message for "The tab was closed" error', async () => {
+      service._verifyAndUpdateStatus = jest
+        .fn()
+        .mockRejectedValue(new Error('The tab was closed.'));
+      await service.updateTabStatus(999, 'https://example.com');
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('Tab closed/missing'));
+    });
+  });
 });

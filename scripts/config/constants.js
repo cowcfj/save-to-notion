@@ -329,6 +329,32 @@ export const URL_NORMALIZATION = {
   ],
 };
 
+/**
+ * 穩定 URL 規則 — 用於移除已知網站的可變 slug 段
+ * 每個規則定義如何從 URL 中識別並移除動態標題段，保留穩定的標識符
+ */
+export const STABLE_URL_RULES = [
+  {
+    name: 'hk01',
+    hostPattern: 'hk01.com',
+    // 匹配: /category/[數字ID]/[slug]
+    // 範例: /社會新聞/60320801/示威者遭警方拘捕
+    pathPattern: /^(\/[^/]+\/\d+)\/.+$/,
+    // 保留: /category/[數字ID]
+    stablePath: '$1',
+  },
+  {
+    name: 'mingpao',
+    hostPattern: 'mingpao.com',
+    pathRequires: '/article/',
+    // 匹配並移除最後的 slug 段 (至少需要 4 段: /article/<date>/<section>/<slug>)
+    // 範例: /article/20240101/s00001/title-here → /article/20240101/s00001
+    // 避免誤傷: /article/20240101/s00001 (不含 slug)
+    pathPattern: /^(\/article\/[^/]+\/[^/]+)\/.+$/,
+    stablePath: '$1',
+  },
+];
+
 // ==========================================
 // Handlers 相關常量
 // ==========================================

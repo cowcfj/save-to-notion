@@ -14,11 +14,15 @@
 /* global chrome */
 
 // 從統一工具函數導入（Single Source of Truth）
-import { normalizeUrl } from '../../utils/urlUtils.js';
+import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 /**
  * URL 標準化相關常量（從 urlUtils 導出，用於兼容既有導入）
  */
+export const SAVED_PREFIX = 'saved_';
+export const HIGHLIGHTS_PREFIX = 'highlights_';
+export const STORAGE_ERROR = 'Chrome storage not available';
 
 /**
  * StorageService 類
@@ -42,17 +46,17 @@ class StorageService {
    */
   async getSavedPageData(pageUrl) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `saved_${normalizedUrl}`;
+    const key = `${SAVED_PREFIX}${normalizedUrl}`;
 
     try {
       const result = await this.storage.local.get([key]);
       return result[key] || null;
     } catch (error) {
-      this.logger.error?.('[StorageService] getSavedPageData failed:', error);
+      this.logger.error?.('[StorageService] getSavedPageData failed', { error });
       throw error;
     }
   }
@@ -66,11 +70,11 @@ class StorageService {
    */
   async setSavedPageData(pageUrl, data) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `saved_${normalizedUrl}`;
+    const key = `${SAVED_PREFIX}${normalizedUrl}`;
 
     try {
       await this.storage.local.set({
@@ -80,31 +84,42 @@ class StorageService {
         },
       });
     } catch (error) {
-      this.logger.error?.('[StorageService] setSavedPageData failed:', error);
+      this.logger.error?.('[StorageService] setSavedPageData failed', { error });
       throw error;
     }
   }
 
   /**
    * 清除頁面狀態
+   * 同時清理穩定 URL 和原始 URL 的存儲 key（確保完全清除）
    *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
    */
+
   async clearPageState(pageUrl) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const savedKey = `saved_${normalizedUrl}`;
-    const highlightsKey = `highlights_${normalizedUrl}`;
+    const stableUrl = computeStableUrl(pageUrl);
+
+    const keysToRemove = [
+      `${SAVED_PREFIX}${normalizedUrl}`,
+      `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+    ];
+
+    // 如果有穩定 URL 且與原始 URL 不同，也清理穩定 URL 的 key
+    if (stableUrl && stableUrl !== normalizedUrl) {
+      keysToRemove.push(`${SAVED_PREFIX}${stableUrl}`, `${HIGHLIGHTS_PREFIX}${stableUrl}`);
+    }
 
     try {
-      await this.storage.local.remove([savedKey, highlightsKey]);
-      this.logger.log?.('✅ Cleared all data for:', normalizedUrl);
+      await this.storage.local.remove(keysToRemove);
+      this.logger.log?.('Cleared all data', { url: sanitizeUrlForLogging(normalizedUrl) });
     } catch (error) {
-      this.logger.error?.('[StorageService] clearPageState failed:', error);
+      this.logger.error?.('[StorageService] clearPageState failed', { error });
       throw error;
     }
   }
@@ -117,13 +132,13 @@ class StorageService {
    */
   async getConfig(keys) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     try {
       return await this.storage.sync.get(keys);
     } catch (error) {
-      this.logger.error?.('[StorageService] getConfig failed:', error);
+      this.logger.error?.('[StorageService] getConfig failed', { error });
       throw error;
     }
   }
@@ -136,13 +151,13 @@ class StorageService {
    */
   async setConfig(config) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     try {
       await this.storage.sync.set(config);
     } catch (error) {
-      this.logger.error?.('[StorageService] setConfig failed:', error);
+      this.logger.error?.('[StorageService] setConfig failed', { error });
       throw error;
     }
   }
@@ -154,16 +169,16 @@ class StorageService {
    */
   async getAllSavedPageUrls() {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     try {
       const result = await this.storage.local.get(null);
       return Object.keys(result)
-        .filter(key => key.startsWith('saved_'))
-        .map(key => key.replace('saved_', ''));
+        .filter(key => key.startsWith(SAVED_PREFIX))
+        .map(key => key.slice(SAVED_PREFIX.length));
     } catch (error) {
-      this.logger.error?.('[StorageService] getAllSavedPageUrls failed:', error);
+      this.logger.error?.('[StorageService] getAllSavedPageUrls failed', { error });
       throw error;
     }
   }

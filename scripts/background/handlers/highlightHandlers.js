@@ -16,7 +16,7 @@ import {
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { normalizeUrl } from '../../utils/urlUtils.js';
+import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 
@@ -104,9 +104,17 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   // 1. 確保有 API Key
   const apiKey = await ensureNotionApiKey(storageService);
 
-  // 使用 normalizeUrl 正規化 URL，確保與 savePage/checkPageStatus 一致
-  const normUrl = normalizeUrl(activeTab.url || '');
-  const savedData = await storageService.getSavedPageData(normUrl);
+  // 使用雙查策略：穩定 URL 優先，回退到原始 URL（與 savePage/checkPageStatus 一致）
+  const stableUrl = computeStableUrl(activeTab.url || '');
+  const normUrl = stableUrl || normalizeUrl(activeTab.url || '');
+  const originalUrl = normalizeUrl(activeTab.url || '');
+
+  let savedData = await storageService.getSavedPageData(normUrl);
+
+  // 雙查：若穩定 URL 未找到，嘗試原始 URL（向後兼容）
+  if (!savedData?.notionPageId && stableUrl && originalUrl !== normUrl) {
+    savedData = await storageService.getSavedPageData(originalUrl);
+  }
 
   if (!savedData?.notionPageId) {
     return {
