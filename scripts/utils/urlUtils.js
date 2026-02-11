@@ -106,7 +106,7 @@ export function computeStableUrl(rawUrl) {
       }
 
       // 嘗試匹配 path pattern
-      const match = pathname.match(rule.pathPattern);
+      const match = rule.pathPattern.exec(pathname);
       if (match) {
         urlObj.pathname = pathname.replace(rule.pathPattern, rule.stablePath);
         return normalizeUrl(urlObj.toString());

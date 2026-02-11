@@ -234,78 +234,87 @@ export function createSaveHandlers(services) {
    *
    * @param {object} params - 參數對象
    */
+  /**
+   * 處理頁面重新創建邏輯
+   *
+   * @param {object} params - 參數對象
+   * @returns {Promise<object>}
+   * @private
+   */
+  async function _handlePageRecreation(params) {
+    const { normUrl, originalUrl, activeTabId } = params;
+    Logger.log('Notion 頁面已被刪除，正在清理本地狀態並重新創建', {
+      action: 'recreatePage',
+      url: sanitizeUrlForLogging(normUrl),
+    });
+
+    await storageService.clearPageState(normUrl);
+    // 同時清理原始 URL 的資料（標註可能以原始 URL 存儲）
+    if (originalUrl && originalUrl !== normUrl) {
+      await storageService.clearPageState(originalUrl);
+    }
+    await clearPageHighlights(activeTabId);
+
+    return await performCreatePage(params);
+  }
+
+  /**
+   * 處理新頁面創建邏輯
+   *
+   * @param {object} params - 參數對象
+   * @returns {Promise<void>}
+   * @private
+   */
+  async function _handleNewPageCreation(params) {
+    const { sendResponse } = params;
+    const result = await performCreatePage(params);
+
+    if (result.success) {
+      sendResponse(result);
+    } else {
+      sendErrorResponse(result, sendResponse);
+    }
+  }
+
+  /**
+   * 根據頁面狀態決定並執行保存操作
+   *
+   * @param {object} params - 參數對象
+   */
   async function determineAndExecuteSaveAction(params) {
     // 注意：params 還包含 highlights 和 apiKey，透過 _handleExistingPageUpdate(params) 傳遞
-    const {
-      savedData,
-      normUrl,
-      dataSourceId,
-      dataSourceType,
-      contentResult,
-      apiKey,
-      activeTabId,
-      sendResponse,
-      originalUrl,
-    } = params;
+    const { savedData, apiKey, sendResponse } = params;
 
-    // 已有保存記錄：檢查頁面是否仍存在
-    if (savedData?.notionPageId) {
-      const pageExists = await notionService.checkPageExists(savedData.notionPageId, {
-        apiKey,
+    // 1. 新頁面路徑
+    if (!savedData?.notionPageId) {
+      await _handleNewPageCreation(params);
+      return;
+    }
+
+    // 2. 已有保存記錄：檢查頁面是否仍存在
+    const pageExists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
+
+    if (pageExists === null) {
+      Logger.warn('無法確認 Notion 頁面存在性', {
+        action: 'checkPageExists',
+        pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
+        result: 'aborted',
       });
+      sendResponse({
+        success: false,
+        error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+      });
+      return;
+    }
 
-      if (pageExists === null) {
-        Logger.warn('無法確認 Notion 頁面存在性', {
-          action: 'checkPageExists',
-          pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
-          result: 'aborted',
-        });
-        sendResponse({
-          success: false,
-          error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
-        });
-        return;
-      }
-
-      if (pageExists) {
-        await _handleExistingPageUpdate(params);
-      } else {
-        // 頁面已刪除：清理狀態並重新創建新頁面
-        Logger.log('Notion 頁面已被刪除，正在清理本地狀態並重新創建', {
-          action: 'recreatePage',
-          url: sanitizeUrlForLogging(normUrl),
-        });
-        await storageService.clearPageState(normUrl);
-        // 同時清理原始 URL 的資料（標註可能以原始 URL 存儲）
-        if (originalUrl && originalUrl !== normUrl) {
-          await storageService.clearPageState(originalUrl);
-        }
-        await clearPageHighlights(activeTabId);
-
-        const result = await performCreatePage({
-          normUrl,
-          dataSourceId,
-          dataSourceType,
-          contentResult,
-          apiKey,
-        });
-
-        if (result.success) {
-          result.recreated = true;
-          sendResponse(result);
-        } else {
-          sendErrorResponse(result, sendResponse);
-        }
-      }
+    if (pageExists) {
+      await _handleExistingPageUpdate(params);
     } else {
-      const result = await performCreatePage({
-        normUrl,
-        dataSourceId,
-        dataSourceType,
-        contentResult,
-        apiKey,
-      });
+      // 頁面已刪除：清理狀態並重新創建新頁面
+      const result = await _handlePageRecreation(params);
+
       if (result.success) {
+        result.recreated = true;
         sendResponse(result);
       } else {
         sendErrorResponse(result, sendResponse);

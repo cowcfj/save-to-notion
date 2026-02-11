@@ -19,6 +19,9 @@ import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 /**
  * URL 標準化相關常量（從 urlUtils 導出，用於兼容既有導入）
  */
+export const SAVED_PREFIX = 'saved_';
+export const HIGHLIGHTS_PREFIX = 'highlights_';
+export const STORAGE_ERROR = 'Chrome storage not available';
 
 /**
  * StorageService 類
@@ -42,11 +45,11 @@ class StorageService {
    */
   async getSavedPageData(pageUrl) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `saved_${normalizedUrl}`;
+    const key = `${SAVED_PREFIX}${normalizedUrl}`;
 
     try {
       const result = await this.storage.local.get([key]);
@@ -66,11 +69,11 @@ class StorageService {
    */
   async setSavedPageData(pageUrl, data) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const key = `saved_${normalizedUrl}`;
+    const key = `${SAVED_PREFIX}${normalizedUrl}`;
 
     try {
       await this.storage.local.set({
@@ -94,17 +97,20 @@ class StorageService {
    */
   async clearPageState(pageUrl) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
     const stableUrl = computeStableUrl(pageUrl);
 
-    const keysToRemove = [`saved_${normalizedUrl}`, `highlights_${normalizedUrl}`];
+    const keysToRemove = [
+      `${SAVED_PREFIX}${normalizedUrl}`,
+      `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+    ];
 
     // 如果有穩定 URL 且與原始 URL 不同，也清理穩定 URL 的 key
     if (stableUrl && stableUrl !== normalizedUrl) {
-      keysToRemove.push(`saved_${stableUrl}`, `highlights_${stableUrl}`);
+      keysToRemove.push(`${SAVED_PREFIX}${stableUrl}`, `${HIGHLIGHTS_PREFIX}${stableUrl}`);
     }
 
     try {
@@ -124,7 +130,7 @@ class StorageService {
    */
   async getConfig(keys) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     try {
@@ -143,7 +149,7 @@ class StorageService {
    */
   async setConfig(config) {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     try {
@@ -161,14 +167,14 @@ class StorageService {
    */
   async getAllSavedPageUrls() {
     if (!this.storage) {
-      throw new Error('Chrome storage not available');
+      throw new Error(STORAGE_ERROR);
     }
 
     try {
       const result = await this.storage.local.get(null);
       return Object.keys(result)
-        .filter(key => key.startsWith('saved_'))
-        .map(key => key.replace('saved_', ''));
+        .filter(key => key.startsWith(SAVED_PREFIX))
+        .map(key => key.slice(SAVED_PREFIX.length));
     } catch (error) {
       this.logger.error?.('[StorageService] getAllSavedPageUrls failed:', error);
       throw error;
