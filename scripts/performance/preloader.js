@@ -47,6 +47,9 @@
           return null;
         }
         const data = JSON.parse(text);
+        if (!data?.page || !data?.query) {
+          return null;
+        }
         return { page: data.page, query: data.query, buildId: data.buildId };
       } catch {
         return null;

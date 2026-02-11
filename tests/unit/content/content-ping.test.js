@@ -40,6 +40,8 @@ describe('Content Script PING Handler', () => {
   afterEach(() => {
     delete globalThis.__NOTION_PRELOADER_CACHE__;
     delete globalThis.__NOTION_BUNDLE_READY__;
+    delete globalThis.chrome;
+    jest.restoreAllMocks();
   });
 
   test('PING 應該返回 shortlink 和 nextRouteInfo', () => {
