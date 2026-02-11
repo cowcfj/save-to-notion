@@ -15,6 +15,7 @@
 
 // 從統一工具函數導入（Single Source of Truth）
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 
 /**
  * URL 標準化相關常量（從 urlUtils 導出，用於兼容既有導入）
@@ -95,6 +96,7 @@ class StorageService {
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
    */
+
   async clearPageState(pageUrl) {
     if (!this.storage) {
       throw new Error(STORAGE_ERROR);
@@ -115,7 +117,7 @@ class StorageService {
 
     try {
       await this.storage.local.remove(keysToRemove);
-      this.logger.log?.('Cleared all data', { url: normalizedUrl });
+      this.logger.log?.('Cleared all data', { url: sanitizeUrlForLogging(normalizedUrl) });
     } catch (error) {
       this.logger.error?.('[StorageService] clearPageState failed', { error });
       throw error;

@@ -230,11 +230,6 @@ export function createSaveHandlers(services) {
   }
 
   /**
-   * 根據頁面狀態決定並執行保存操作
-   *
-   * @param {object} params - 參數對象
-   */
-  /**
    * 處理頁面重新創建邏輯
    *
    * @param {object} params - 參數對象
@@ -248,11 +243,8 @@ export function createSaveHandlers(services) {
       url: sanitizeUrlForLogging(normUrl),
     });
 
-    await storageService.clearPageState(normUrl);
-    // 同時清理原始 URL 的資料（標註可能以原始 URL 存儲）
-    if (originalUrl && originalUrl !== normUrl) {
-      await storageService.clearPageState(originalUrl);
-    }
+    // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
+    await storageService.clearPageState(originalUrl || normUrl);
     await clearPageHighlights(activeTabId);
 
     return await performCreatePage(params);
@@ -649,11 +641,8 @@ export function createSaveHandlers(services) {
             action: 'syncLocalState',
             pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
           });
-          await storageService.clearPageState(normUrl);
-          // 同時清理原始 URL 的資料（標註可能以原始 URL 存儲）
-          if (originalUrl !== normUrl) {
-            await storageService.clearPageState(originalUrl);
-          }
+          // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
+          await storageService.clearPageState(originalUrl || normUrl);
           try {
             chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
           } catch {
