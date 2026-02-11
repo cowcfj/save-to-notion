@@ -204,7 +204,7 @@ class InjectionService {
         this.logger.error?.(`[Injection] ${options.errorMessage || 'Script injection failed'}`, {
           action: 'injectAndExecute',
           files,
-          error: error.message || error,
+          error,
         });
       }
       throw error;
@@ -367,7 +367,7 @@ class InjectionService {
           this.logger.warn?.(`[Injection] PING failed with recoverable error, returning false`, {
             action: 'ensureBundleInjected',
             tabId,
-            error: error.message,
+            error,
           });
           return false;
         }
@@ -410,13 +410,13 @@ class InjectionService {
       if (isRecoverableInjectionError(errorMessage)) {
         this.logger.warn?.(`[Injection] Bundle injection skipped (recoverable)`, {
           action: 'ensureBundleInjected',
-          error: errorMessage,
+          error,
         });
         return false;
       }
       this.logger.error?.(`[Injection] Bundle injection failed`, {
         action: 'ensureBundleInjected',
-        error: errorMessage,
+        error,
       });
       throw error;
     }
@@ -567,7 +567,7 @@ class InjectionService {
     } catch (error) {
       this.logger.error?.('[Injection] injectWithResponse failed', {
         action: 'injectWithResponse',
-        error: error.message || error,
+        error,
       });
       // 返回 null，由調用方判斷並回覆錯誤，避免未捕獲拒絕
       return null;
@@ -591,7 +591,7 @@ class InjectionService {
     } catch (error) {
       this.logger.error?.('[Injection] inject failed', {
         action: 'inject',
-        error: error.message,
+        error,
       });
       throw error;
     }

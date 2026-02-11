@@ -55,7 +55,7 @@ class StorageService {
       const result = await this.storage.local.get([key]);
       return result[key] || null;
     } catch (error) {
-      this.logger.error?.('[StorageService] getSavedPageData failed:', error);
+      this.logger.error?.('[StorageService] getSavedPageData failed', { error });
       throw error;
     }
   }
@@ -83,7 +83,7 @@ class StorageService {
         },
       });
     } catch (error) {
-      this.logger.error?.('[StorageService] setSavedPageData failed:', error);
+      this.logger.error?.('[StorageService] setSavedPageData failed', { error });
       throw error;
     }
   }
@@ -115,9 +115,9 @@ class StorageService {
 
     try {
       await this.storage.local.remove(keysToRemove);
-      this.logger.log?.('✅ Cleared all data for:', normalizedUrl);
+      this.logger.log?.('Cleared all data', { url: normalizedUrl });
     } catch (error) {
-      this.logger.error?.('[StorageService] clearPageState failed:', error);
+      this.logger.error?.('[StorageService] clearPageState failed', { error });
       throw error;
     }
   }
@@ -136,7 +136,7 @@ class StorageService {
     try {
       return await this.storage.sync.get(keys);
     } catch (error) {
-      this.logger.error?.('[StorageService] getConfig failed:', error);
+      this.logger.error?.('[StorageService] getConfig failed', { error });
       throw error;
     }
   }
@@ -155,7 +155,7 @@ class StorageService {
     try {
       await this.storage.sync.set(config);
     } catch (error) {
-      this.logger.error?.('[StorageService] setConfig failed:', error);
+      this.logger.error?.('[StorageService] setConfig failed', { error });
       throw error;
     }
   }
@@ -176,7 +176,7 @@ class StorageService {
         .filter(key => key.startsWith(SAVED_PREFIX))
         .map(key => key.slice(SAVED_PREFIX.length));
     } catch (error) {
-      this.logger.error?.('[StorageService] getAllSavedPageUrls failed:', error);
+      this.logger.error?.('[StorageService] getAllSavedPageUrls failed', { error });
       throw error;
     }
   }

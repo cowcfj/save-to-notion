@@ -250,7 +250,7 @@ class NotionService {
     } catch (error) {
       Logger.error('[NotionService] 搜索失敗', {
         action: 'search',
-        error: error.message,
+        error,
       });
       throw error; // 讓調用者處理錯誤
     }
@@ -342,7 +342,7 @@ class NotionService {
           action: 'deleteAllBlocks',
           operation: 'deleteBlock',
           blockId,
-          error: errorText,
+          error: deleteError,
         });
         return { success: false, id: blockId, error: errorText };
       }
@@ -399,7 +399,7 @@ class NotionService {
       }
       Logger.error('[NotionService] 無法確定頁面存續狀態', {
         action: 'checkPageExists',
-        error: error.message,
+        error,
       });
       return null;
     }
@@ -495,7 +495,7 @@ class NotionService {
     } catch (error) {
       Logger.error('[NotionService] 分批添加區塊失敗', {
         action: 'appendBlocksInBatches',
-        error: error.message,
+        error,
       });
       return {
         success: false,
@@ -560,7 +560,7 @@ class NotionService {
 
       return result;
     } catch (error) {
-      Logger.error('[NotionService] 創建頁面失敗', { action: 'createPage', error: error.message });
+      Logger.error('[NotionService] 創建頁面失敗', { action: 'createPage', error });
       return { success: false, error: sanitizeApiError(error, 'create_page') };
     }
   }
@@ -597,7 +597,7 @@ class NotionService {
     } catch (error) {
       Logger.error('[NotionService] 更新標題失敗', {
         action: 'updatePageTitle',
-        error: error.message,
+        error,
       });
       return { success: false, error: sanitizeApiError(error, 'update_title') };
     }
@@ -643,7 +643,7 @@ class NotionService {
     } catch (error) {
       Logger.error('[NotionService] 刪除區塊失敗', {
         action: 'deleteAllBlocks',
-        error: error.message,
+        error,
       });
       return { success: false, deletedCount: 0, error: sanitizeApiError(error, 'delete_blocks') };
     }
@@ -781,7 +781,7 @@ class NotionService {
     } catch (error) {
       Logger.error('[NotionService] 刷新頁面內容失敗', {
         action: 'refreshPageContent',
-        error: error.message,
+        error,
       });
       return {
         success: false,

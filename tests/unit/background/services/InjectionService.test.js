@@ -223,7 +223,7 @@ describe('InjectionService', () => {
       expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('PING failed with recoverable error'),
-        expect.anything()
+        expect.objectContaining({ error: expect.anything() })
       );
     });
 
@@ -309,7 +309,7 @@ describe('InjectionService', () => {
       expect(result).toBeNull();
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('injectWithResponse failed'),
-        expect.anything()
+        expect.objectContaining({ error: expect.anything() })
       );
     });
   });
