@@ -178,7 +178,13 @@ describe('StorageService', () => {
       delete globalThis.chrome;
 
       const serviceNoStorage = new StorageService({ chromeStorage: null });
+
       await expect(serviceNoStorage.getSavedPageData('url')).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.setSavedPageData('url', {})).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.clearPageState('url')).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.getConfig(['key'])).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.setConfig({ key: 'val' })).rejects.toThrow(STORAGE_ERROR);
+      await expect(serviceNoStorage.getAllSavedPageUrls()).rejects.toThrow(STORAGE_ERROR);
 
       globalThis.chrome = originalChrome;
     });

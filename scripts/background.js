@@ -303,6 +303,11 @@ if (typeof module !== 'undefined' && module.exports) {
     tabService,
     messageHandler,
     actionHandlers,
+    handleExtensionUpdate,
+    handleExtensionInstall,
+    shouldShowUpdateNotification,
+    isImportantUpdate,
+    showUpdateNotification,
   };
 }
 // TEST_EXPOSURE_END
