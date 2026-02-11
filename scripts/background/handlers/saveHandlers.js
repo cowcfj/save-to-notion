@@ -245,6 +245,7 @@ export function createSaveHandlers(services) {
       apiKey,
       activeTabId,
       sendResponse,
+      originalUrl,
     } = params;
 
     // 已有保存記錄：檢查頁面是否仍存在
@@ -275,6 +276,10 @@ export function createSaveHandlers(services) {
           url: sanitizeUrlForLogging(normUrl),
         });
         await storageService.clearPageState(normUrl);
+        // 同時清理原始 URL 的資料（標註可能以原始 URL 存儲）
+        if (originalUrl && originalUrl !== normUrl) {
+          await storageService.clearPageState(originalUrl);
+        }
         await clearPageHighlights(activeTabId);
 
         const result = await performCreatePage({
@@ -378,6 +383,7 @@ export function createSaveHandlers(services) {
         const apiKey = config.notionApiKey;
 
         const normUrl = resolveStorageUrl(activeTab.url || '');
+        const originalUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         // 注入 highlighter 並收集標記
@@ -424,6 +430,7 @@ export function createSaveHandlers(services) {
         await determineAndExecuteSaveAction({
           savedData,
           normUrl,
+          originalUrl,
           dataSourceId,
           dataSourceType,
           contentResult,
@@ -634,6 +641,10 @@ export function createSaveHandlers(services) {
             pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
           });
           await storageService.clearPageState(normUrl);
+          // 同時清理原始 URL 的資料（標註可能以原始 URL 存儲）
+          if (originalUrl !== normUrl) {
+            await storageService.clearPageState(originalUrl);
+          }
           try {
             chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
           } catch {

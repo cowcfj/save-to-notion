@@ -192,6 +192,10 @@ class TabService {
           pageId: savedData.notionPageId?.slice(0, 4),
         });
         await this.clearPageState(normUrl);
+        // 同時清理回退 URL 的資料（標註可能以原始 URL 存儲）
+        if (fallbackUrl && fallbackUrl !== normUrl) {
+          await this.clearPageState(fallbackUrl);
+        }
         await this._updateBadgeStatus(tabId, null);
       } else {
         // 更新驗證時間
