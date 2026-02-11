@@ -578,5 +578,54 @@ describe('TabService', () => {
         expect.stringContaining('Failed to get preloader data')
       );
     });
+    describe('Coverage Improvements (Stable URL Fallback)', () => {
+      test('應正確執行回退查找 (Stable URL Miss -> Original URL Hit)', async () => {
+        const mockTabId = 999;
+        const mockRawUrl = 'https://example.com/?slug=test';
+        const mockStableUrl = 'https://example.com/stable';
+        const mockOriginalUrl = 'https://example.com/';
+
+        const { resolveStorageUrl } = require('../../../../scripts/utils/urlUtils.js');
+        // Temporarily mock implementation
+        const originalResolve = resolveStorageUrl.getMockImplementation();
+
+        resolveStorageUrl.mockReturnValue(mockStableUrl);
+
+        // Override service.normalizeUrl to use mock
+        service.normalizeUrl = jest.fn().mockReturnValue(mockOriginalUrl);
+
+        // Mock storage to return highlights only for Original URL
+        const getHighlightsSpy = jest
+          .spyOn(service, '_getHighlightsFromStorage')
+          .mockImplementation(async url => {
+            if (url === mockStableUrl) {
+              return null;
+            }
+            if (url === mockOriginalUrl) {
+              return [{ text: 'highlight' }];
+            }
+            return null;
+          });
+
+        // Mock dependencies
+        service.getPreloaderData = jest.fn().mockResolvedValue(null);
+        service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+        service._waitForTabCompilation = jest.fn().mockResolvedValue({ id: mockTabId });
+        service.injectionService = { ensureBundleInjected: jest.fn().mockResolvedValue() };
+
+        await service._updateTabStatusInternal(mockTabId, mockRawUrl);
+
+        // Verify fallback logic usage
+        expect(service._getHighlightsFromStorage).toHaveBeenCalledWith(mockOriginalUrl);
+        expect(service.injectionService.ensureBundleInjected).toHaveBeenCalled();
+
+        // Cleanup
+        if (originalResolve) {
+          resolveStorageUrl.mockImplementation(originalResolve);
+        }
+        // normalizeUrl was not modified (I modified service instance property)
+        getHighlightsSpy.mockRestore();
+      });
+    });
   });
 });

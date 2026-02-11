@@ -69,6 +69,25 @@ describe('Content Script PING Handler', () => {
     );
   });
 
+  test('PING 應該處理無效的 Next.js JSON 並返回 null', () => {
+    // Setup DOM with invalid JSON
+    document.querySelector.mockImplementation(selector => {
+      if (selector === '#__NEXT_DATA__') {
+        return { textContent: '{ invalid json' };
+      }
+      return null;
+    });
+
+    const sendResponse = jest.fn();
+    messageHandler({ action: 'PING' }, {}, sendResponse);
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nextRouteInfo: null,
+      })
+    );
+  });
+
   test('PING 應該處理無效的 NextJS 數據', () => {
     document.querySelector.mockImplementation(selector => {
       if (selector === '#__NEXT_DATA__') {
