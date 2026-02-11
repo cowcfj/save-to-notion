@@ -13,7 +13,7 @@
 
 import { TAB_SERVICE, URL_NORMALIZATION, HANDLER_CONSTANTS } from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
-import { buildStableUrlFromNextData } from '../../utils/urlUtils.js';
+import { buildStableUrlFromNextData, hasSameOrigin } from '../../utils/urlUtils.js';
 
 /**
  * TabService 類
@@ -106,7 +106,16 @@ class TabService {
 
     // Phase 2a+: WordPress shortlink
     if (!stableUrl && preloaderData?.shortlink) {
-      stableUrl = preloaderData.shortlink;
+      // 驗證 shortlink 與原始 URL 有相同來源
+      if (hasSameOrigin(preloaderData.shortlink, url)) {
+        stableUrl = preloaderData.shortlink;
+      } else {
+        this.logger.debug?.('[TabService] Rejected cross-origin shortlink', {
+          action: 'updateTabStatus',
+          shortlink: preloaderData.shortlink,
+          originalUrl: url,
+        });
+      }
     }
 
     const normUrl = stableUrl || this.normalizeUrl(url);

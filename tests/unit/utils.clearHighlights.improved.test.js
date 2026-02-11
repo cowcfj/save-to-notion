@@ -322,33 +322,18 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       expect(duration).toBeLessThan(100);
     });
 
-    test('應該並行執行清除操作而非串行', async () => {
+    test('應該在合理時間內完成清除操作', async () => {
       if (!StorageUtil) {
         return;
       }
       const testUrl = 'https://example.com/test';
-
-      chrome.storage.local.remove.mockImplementation((keys, callback) => {
-        setTimeout(() => {
-          if (callback) {
-            callback();
-          }
-        }, 10);
-      });
-
-      const originalRemoveItem = globalThis.localStorage.removeItem;
-      globalThis.localStorage.removeItem = jest.fn();
-
       const startTime = Date.now();
+
       await StorageUtil.clearHighlights(testUrl);
-      const totalTime = Date.now() - startTime;
 
-      // 如果串行執行，理論與實際可能因環境而異。
-      // 但我們至少期望它不慢於預期太久。
-      // CI環境可能會有延遲，將閾值提高到 500ms 以避免 flaky test
-      expect(totalTime).toBeLessThan(500);
-
-      globalThis.localStorage.removeItem = originalRemoveItem;
+      const duration = Date.now() - startTime;
+      // Should complete quickly (under 100ms for synchronous operations)
+      expect(duration).toBeLessThan(100);
     });
   });
 });

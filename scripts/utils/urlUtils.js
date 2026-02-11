@@ -173,8 +173,8 @@ export function buildStableUrlFromNextData(routeInfo, originalUrl) {
         // eslint-disable-next-line security/detect-non-literal-regexp
         stablePath = stablePath.replace(new RegExp(String.raw`/\[${key}\]`), '');
       } else {
-        // 替換為實際值
-        stablePath = stablePath.replace(`[${key}]`, query[key]);
+        // 替換為實際值，使用函數形式避免 $ 解釋
+        stablePath = stablePath.replace(`[${key}]`, () => String(query[key] ?? ''));
       }
     }
 
@@ -195,6 +195,27 @@ export function buildStableUrlFromNextData(routeInfo, originalUrl) {
       error,
     });
     return null;
+  }
+}
+
+/**
+ * 檢查兩個 URL 是否有相同來源（protocol + host）
+ *
+ * @param {string} url1 - 第一個 URL
+ * @param {string} url2 - 第二個 URL
+ * @returns {boolean} 是否相同來源
+ */
+export function hasSameOrigin(url1, url2) {
+  if (!url1 || !url2) {
+    return false;
+  }
+
+  try {
+    const origin1 = new URL(url1).origin;
+    const origin2 = new URL(url2).origin;
+    return origin1 === origin2;
+  } catch {
+    return false;
   }
 }
 
@@ -228,7 +249,10 @@ export function resolveStorageUrl(rawUrl, preloaderData) {
   }
 
   // Phase 2a+: WordPress shortlink
-  if (preloaderData?.shortlink) {
+  if (
+    preloaderData?.shortlink && // 驗證 shortlink 與原始 URL 有相同來源
+    hasSameOrigin(preloaderData.shortlink, rawUrl)
+  ) {
     return preloaderData.shortlink;
   }
 
