@@ -12,7 +12,7 @@
 
 import { Readability } from '@mozilla/readability';
 import { CONTENT_QUALITY } from '../../config/constants.js';
-import { LIST_PREFIX_PATTERNS } from '../../config/patterns.js';
+import { LIST_PREFIX_PATTERNS, IMAGE_ATTRIBUTES } from '../../config/patterns.js';
 import {
   CMS_CONTENT_SELECTORS,
   ARTICLE_STRUCTURE_SELECTORS,
@@ -666,6 +666,84 @@ function performSmartCleaning(articleContent, cmsType) {
 }
 
 /**
+ * 預處理克隆 DOM 中的懶加載圖片
+ * 將 data-src 等懶加載屬性的值寫入 src，確保 Readability 不會移除這些圖片
+ * 策略：模擬所有圖片進入視口，將 lazy-load 屬性(data-src 等) 提升為 src
+ *
+ * @param {Document} doc - 克隆的文檔對象（會被直接修改）
+ * @returns {number} 處理的圖片數量
+ */
+function prepareLazyImages(doc) {
+  const images = doc.querySelectorAll('img');
+  let fixedCount = 0;
+
+  images.forEach(img => {
+    const currentSrc = img.getAttribute('src') || '';
+
+    // 依序嘗試屬性
+    for (const attr of IMAGE_ATTRIBUTES) {
+      if (attr === 'src') {
+        continue;
+      }
+
+      let value = img.getAttribute(attr);
+
+      // 如果屬性名包含 'srcset'，則解析並提取第一個 URL
+      if (value && attr.includes('srcset')) {
+        const firstEntry = value.split(',')[0].trim();
+        value = firstEntry.split(/\s+/)[0];
+      }
+
+      /*
+         Prioritize the first valid lazy-load attribute found (e.g., data-src > data-original).
+         NOTE: This assumes that if a lazy-load attribute exists and differs from src, it contains the high-res/real image.
+         This might be incorrect if data-src is a low-res placeholder, but standard practice usually reserves data-src for the real image.
+       */
+      if (value?.trim() && !value.startsWith('data:') && !value.startsWith('blob:')) {
+        const candidateSrc = value.trim();
+
+        // 如果候選地址與當前地址不同，則認為它是真實地址 (Lazy Load)
+        // 這涵蓋了：
+        // 1. src 為空
+        // 2. src 為占位符 (spacer.gif, loading.svg)
+        // 3. src 為低解析度預覽圖
+        if (candidateSrc !== currentSrc) {
+          img.setAttribute('src', candidateSrc);
+          // 如果有 srcset，通常也需要清除或更新，這裡簡單起見先不清 srcset，
+          // 因為瀏覽器/Readability 通常優先級別 src < srcset。
+          // 但 Readability 主要看 src。
+          fixedCount++;
+        }
+        break; // 找到第一個有效值就停止，優先級由 IMAGE_ATTRIBUTES 順序決定
+      }
+    }
+  });
+
+  // 同時處理 <source> 元素的 data-srcset / data-lazy-srcset → srcset
+  const sources = doc.querySelectorAll('source[data-srcset], source[data-lazy-srcset]');
+  sources.forEach(source => {
+    // 優先順序：data-srcset > data-lazy-srcset
+    const dataSrcset = source.dataset.srcset || source.dataset.lazySrcset;
+    const currentSrcset = source.getAttribute('srcset');
+
+    if (dataSrcset?.trim() && dataSrcset.trim() !== currentSrcset) {
+      source.setAttribute('srcset', dataSrcset.trim());
+      fixedCount++; // Count source modifications too
+    }
+  });
+
+  if (fixedCount > 0) {
+    Logger.log('懶加載圖片預處理完成', {
+      action: 'prepareLazyImages',
+      totalImages: images.length,
+      fixedCount,
+    });
+  }
+
+  return fixedCount;
+}
+
+/**
  * 使用 Readability.js 解析文章內容
  * 包含性能優化、錯誤處理和邊緣情況處理
  *
@@ -682,6 +760,9 @@ function parseArticleWithReadability() {
 
   // 2. 克隆文檔 (直接克隆，保留完整結構讓 Readability 判斷)
   const clonedDocument = document.cloneNode(true);
+
+  // 2.5 預處理懶加載圖片（確保 Readability 保留 data-src 圖片）
+  prepareLazyImages(clonedDocument);
 
   // 3. 執行 Readability 解析
   let parsedArticle = null;
@@ -755,6 +836,7 @@ const readabilityAdapter = {
   parseArticleWithReadability,
   detectCMS,
   performSmartCleaning,
+  prepareLazyImages,
 };
 
 export {
@@ -768,4 +850,5 @@ export {
   detectCMS,
   performSmartCleaning,
   parseArticleWithReadability,
+  prepareLazyImages,
 };

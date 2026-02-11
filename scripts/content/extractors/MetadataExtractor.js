@@ -16,6 +16,7 @@ import {
   AVATAR_KEYWORDS,
   IMAGE_SRC_ATTRIBUTES,
 } from '../../config/extraction.js';
+import { isTitleConsistent } from '../../utils/contentUtils.js';
 
 const MetadataExtractor = {
   /**
@@ -36,7 +37,6 @@ const MetadataExtractor = {
       featuredImage: MetadataExtractor.extractFeaturedImage(doc),
     };
   },
-
   /**
    * 提取標題
    * 優先級: Readability.title > document.title > 'Untitled Page'
@@ -46,10 +46,13 @@ const MetadataExtractor = {
    * @returns {string} 頁面標題
    */
   extractTitle(doc, readabilityArticle) {
-    if (readabilityArticle?.title && typeof readabilityArticle.title === 'string') {
-      return readabilityArticle.title;
+    const docTitle = doc.title || '';
+    const rTitle = readabilityArticle?.title;
+
+    if (rTitle && typeof rTitle === 'string' && isTitleConsistent(rTitle, docTitle)) {
+      return rTitle;
     }
-    return doc.title || 'Untitled Page';
+    return docTitle || 'Untitled Page';
   },
 
   /**

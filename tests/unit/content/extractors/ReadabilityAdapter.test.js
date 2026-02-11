@@ -26,6 +26,8 @@ jest.mock('@mozilla/readability', () => ({
   })),
 }));
 
+const { Readability } = require('@mozilla/readability');
+
 // 引用 ReadabilityAdapter 模組
 const {
   isContentGood,
@@ -34,7 +36,10 @@ const {
   safeQueryElements,
   parseArticleWithReadability,
   detectCMS,
+  prepareLazyImages,
 } = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
+
+// ... (existing code)
 
 describe('ReadabilityAdapter - expandCollapsibleElements', () => {
   beforeEach(() => {
@@ -448,6 +453,39 @@ describe('ReadabilityAdapter - parseArticleWithReadability', () => {
     expect(article.content).toContain('Content');
   });
 
+  test('parseArticleWithReadability 應該自動處理懶加載圖片且不需要參數', () => {
+    // 1. 設置全局 document (模擬真實環境)
+    document.body.innerHTML = `
+      <div id="content">
+        <h1>Test Title</h1>
+        <img id="lazy-img" src="spacer.gif" data-src="real.jpg">
+        <p>Some content</p>
+      </div>
+    `;
+    document.title = 'Test Page';
+
+    mockParse.mockReturnValue({
+      title: 'Test Title',
+      content: '<div>...</div>',
+      textContent: 'Some content',
+      length: 100,
+    });
+
+    // 2. 執行函數 (不傳參數)
+    parseArticleWithReadability();
+
+    // 3. 驗證 Readability 是否被調用 (可能被多次調用，這裡確保至少一次)
+    expect(Readability).toHaveBeenCalled();
+
+    // 4. 驗證傳遞給 Readability 的文檔是否經過 prepareLazyImages 處理
+    // 獲取最後一次調用的參數
+    const passedDoc = Readability.mock.calls.at(-1)[0];
+    const img = passedDoc.querySelector('#lazy-img');
+
+    // 根據 prepareLazyImages 邏輯，data-src 應該被寫入 src
+    expect(img.getAttribute('src')).toBe('real.jpg');
+  });
+
   test('當 Readability 解析失敗時應該拋出錯誤', () => {
     mockParse.mockImplementation(() => {
       throw new Error('Readability failed');
@@ -485,6 +523,128 @@ describe('ReadabilityAdapter - parseArticleWithReadability', () => {
 
     parserSpy.mockRestore();
     parserConfig.throwValue = null;
+  });
+});
+
+describe('ReadabilityAdapter - prepareLazyImages', () => {
+  test('應該將 data-src 寫入空 src 的圖片', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-src="https://example.com/photo.jpg" src=""></body></html>',
+      'text/html'
+    );
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/photo.jpg');
+  });
+
+  test('應該處理 data: 佔位符 src', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-src="https://example.com/real.jpg" src="data:image/gif;base64,R0lGODlhAQABAIA"></body></html>',
+      'text/html'
+    );
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/real.jpg');
+  });
+
+  test('應該處理包含 loading 佔位符的 src', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-src="https://example.com/real.jpg" src="/images/loading.gif"></body></html>',
+      'text/html'
+    );
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/real.jpg');
+  });
+
+  test('應該覆蓋已有有效 src 的圖片如果 data-src 存在且不同', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img src="https://example.com/valid.jpg" data-src="https://example.com/other.jpg"></body></html>',
+      'text/html'
+    );
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/other.jpg');
+  });
+
+  // ... (保留 data-lazy-src 測試) ...
+
+  test('應該處理多張圖片', () => {
+    const doc = new DOMParser().parseFromString(
+      `<html><body>
+        <img data-src="https://example.com/1.jpg" src="">
+        <img src="https://example.com/valid.jpg">
+        <img data-src="https://example.com/2.jpg" src="">
+      </body></html>`,
+      'text/html'
+    );
+    // 第一張和第三張會被替換，第二張沒有 lazy load 屬性，不會被替換
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(2);
+  });
+
+  test('應該處理 source 元素的 data-srcset', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><picture><source data-srcset="img.webp"></picture></body></html>',
+      'text/html'
+    );
+    prepareLazyImages(doc);
+    expect(doc.querySelector('source').getAttribute('srcset')).toBe('img.webp');
+  });
+
+  test('應該覆蓋已有 srcset 的 source 元素如果 data-srcset 存在且不同', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><picture><source srcset="existing.webp" data-srcset="other.webp"></picture></body></html>',
+      'text/html'
+    );
+    prepareLazyImages(doc);
+    expect(doc.querySelector('source').getAttribute('srcset')).toBe('other.webp');
+  });
+
+  test('應該處理 source 元素的 data-lazy-srcset', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><picture><source data-lazy-srcset="lazy.webp"></picture></body></html>',
+      'text/html'
+    );
+    prepareLazyImages(doc);
+    expect(doc.querySelector('source').getAttribute('srcset')).toBe('lazy.webp');
+  });
+
+  test('應該正確處理 data-srcset 屬性並提取第一個 URL 作為 src', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-srcset="https://example.com/img-400.jpg 400w, https://example.com/img-800.jpg 800w" src=""></body></html>',
+      'text/html'
+    );
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/img-400.jpg');
+  });
+
+  test('應該跳過 data-src 為 blob: 的圖片', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img data-src="blob:http://example.com/abc" src=""></body></html>',
+      'text/html'
+    );
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(0);
+  });
+
+  test('沒有任何圖片時應返回 0', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><p>No images here</p></body></html>',
+      'text/html'
+    );
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(0);
+  });
+  test('應該覆蓋看似有效但與 data-src 不一致的 src (模擬 placeholder)', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><img src="https://example.com/spacer.gif" data-src="https://example.com/real.jpg"></body></html>',
+      'text/html'
+    );
+    const count = prepareLazyImages(doc);
+    expect(count).toBe(1);
+    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/real.jpg');
   });
 });
 

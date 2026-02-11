@@ -18,7 +18,6 @@ import {
 import { MetadataExtractor } from './MetadataExtractor.js';
 import { MarkdownExtractor } from './MarkdownExtractor.js';
 import { NextJsExtractor } from './NextJsExtractor.js';
-
 import { detectPageComplexity, selectExtractor } from '../../utils/pageComplexityDetector.js';
 
 const ContentExtractor = {
@@ -81,7 +80,6 @@ const ContentExtractor = {
     let result = null;
 
     // 2. 根據選擇的策略執行提取
-    // 'markdown' 在這裡對應 Markdown/Technical 策略 (基於 pageComplexityDetector 的定義)
     if (selection.extractor === 'markdown') {
       result = ContentExtractor.extractTechnicalContent(doc);
     }

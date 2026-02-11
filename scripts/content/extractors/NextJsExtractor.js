@@ -10,6 +10,7 @@
 
 import Logger from '../../utils/Logger.js';
 import { NEXTJS_CONFIG } from '../../config/extraction.js';
+import { isTitleConsistent } from '../../utils/contentUtils.js';
 
 export const NextJsExtractor = {
   /**
@@ -41,11 +42,12 @@ export const NextJsExtractor = {
   extract(doc) {
     const action = 'NextJsExtractor.extract';
     try {
+      const PAGES_ROUTER = 'pages-router';
       let extractionSource = 'unknown';
       let rawData = this._getPagesRouterData(doc);
 
       if (rawData) {
-        extractionSource = 'pages-router';
+        extractionSource = PAGES_ROUTER;
       } else {
         rawData = this._getAppRouterData(doc);
         if (rawData) {
@@ -58,6 +60,11 @@ export const NextJsExtractor = {
         return null; // 讓 fallback 機制接手 (如 Readability)
       }
 
+      // 檢查 Pages Router 數據是否因 SPA 導航而過期
+      if (extractionSource === PAGES_ROUTER && !this._validatePagesRouterData(rawData, doc)) {
+        return null;
+      }
+
       const articleData = this._findArticleData(rawData);
 
       if (!articleData) {
@@ -66,6 +73,19 @@ export const NextJsExtractor = {
           source: extractionSource,
         });
         return null;
+      }
+
+      // 2. 標題一致性檢查 (備用機制，當 asPath 不存在時)
+      if (extractionSource === PAGES_ROUTER && articleData?.title) {
+        const docTitle = doc.title;
+        if (docTitle && !isTitleConsistent(articleData.title, docTitle)) {
+          Logger.warn('SPA 導航偵測：__NEXT_DATA__ 標題與 document.title 不符，放棄結構化提取', {
+            action,
+            articleTitle: articleData.title,
+            docTitle,
+          });
+          return null;
+        }
       }
 
       Logger.log('成功提取 Next.js 文章數據', {
@@ -98,6 +118,56 @@ export const NextJsExtractor = {
       });
       return null;
     }
+  },
+
+  /**
+   * 檢查 __NEXT_DATA__.asPath 是否與當前 URL 匹配
+   * 用於偵測 SPA 導航導致的數據過期
+   *
+   * asPath 在頁面初次載入時寫入，SPA 導航後不會更新。
+   * 因此 asPath ≠ pathname 代表用戶已 SPA 導航到其他頁面。
+   *
+   * @param {string} asPath - __NEXT_DATA__ 中的 asPath (e.g. "/社會新聞/60320801/slug")
+   * @param {string} currentPath - 當前 window.location.pathname
+   * @returns {boolean} true 表示數據仍然有效
+   */
+  _isAsPathMatch(asPath, currentPath) {
+    if (!asPath || !currentPath) {
+      return true; // 無法比對時默認匹配，避免誤殺
+    }
+
+    try {
+      // 有些版本 currentPath 可能帶有 query string，防禦性處理
+      const cleanCurrentPath = currentPath.split('?')[0];
+      const cleanAsPath = asPath.split('?')[0];
+
+      return decodeURIComponent(cleanCurrentPath) === decodeURIComponent(cleanAsPath);
+    } catch {
+      // decodeURIComponent 可能因格式錯誤拋出異常，此時放行
+      return true;
+    }
+  },
+
+  /**
+   * 驗證 Pages Router 數據的有效性 (針對 SPA 導航場景)
+   *
+   * @param {object} rawData - __NEXT_DATA__ 原始數據
+   * @param {Document} doc - 當前文檔對象
+   * @returns {boolean} true 表示數據有效，false 表示數據已過期
+   */
+  _validatePagesRouterData(rawData, doc) {
+    // 1. asPath 檢查 (如果有的話)
+    if (rawData?.asPath) {
+      const currentPath = doc.defaultView?.location?.pathname;
+      if (currentPath && !this._isAsPathMatch(rawData.asPath, currentPath)) {
+        Logger.warn('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', {
+          asPath: rawData.asPath,
+          currentPath,
+        });
+        return false;
+      }
+    }
+    return true;
   },
 
   /**
