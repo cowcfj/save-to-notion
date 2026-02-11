@@ -145,20 +145,41 @@ describe('Background Extension Lifecycle', () => {
     });
   });
 
+  describe('shouldShowUpdateNotification', () => {
+    // 透過直接測試 shouldShowUpdateNotification（如果導出）或通過 handleExtensionUpdate 間接測試 logic
+
+    // 由於 shouldShowUpdateNotification 未導出，我們通過修改 manifest mock 來測試 handleExtensionUpdate
+    const setupUpdateTest = async (previousVersion, currentVersion) => {
+      mockChrome.runtime.getManifest.mockReturnValue({ version: currentVersion });
+      mockChrome.tabs.create.mockClear();
+      await background.handleExtensionUpdate(previousVersion);
+    };
+
+    test('應該正確處理主版本升級 (2.5.0 -> 3.0.0)', async () => {
+      await setupUpdateTest('2.5.0', '3.0.0');
+      expect(mockChrome.tabs.create).toHaveBeenCalled();
+    });
+
+    test('應該正確處理次版本升級 (2.4.5 -> 2.5.0)', async () => {
+      await setupUpdateTest('2.4.5', '2.5.0');
+      expect(mockChrome.tabs.create).toHaveBeenCalled();
+    });
+
+    test('應該正確處理降級 (3.0.0 -> 2.5.0)', async () => {
+      await setupUpdateTest('3.0.0', '2.5.0');
+      expect(mockChrome.tabs.create).not.toHaveBeenCalled();
+    });
+
+    test('應該正確處理次版本降級 (2.5.0 -> 2.4.0)', async () => {
+      await setupUpdateTest('2.5.0', '2.4.0');
+      expect(mockChrome.tabs.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('handleExtensionInstall', () => {
     test('應該記錄首次安裝信息', () => {
       background.handleExtensionInstall();
       expect(Logger.success).toHaveBeenCalledWith('[Lifecycle] 擴展首次安裝', expect.anything());
-    });
-  });
-
-  describe('shouldShowUpdateNotification', () => {
-    test('應該為重要更新返回 true', () => {
-      expect(background.shouldShowUpdateNotification('2.7.3', '2.8.0')).toBe(true);
-    });
-
-    test('應該為非重要更新返回 false', () => {
-      expect(background.shouldShowUpdateNotification('2.6.0', '2.6.1')).toBe(false);
     });
   });
 

@@ -873,7 +873,7 @@ class NotionService {
     } catch (error) {
       Logger.error('[NotionService] 更新標記區域失敗', {
         action: 'updateHighlightsSection',
-        error: error.message,
+        error,
       });
       return {
         success: false,

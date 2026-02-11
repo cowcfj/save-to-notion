@@ -158,12 +158,23 @@ function shouldShowUpdateNotification(previousVersion, currentVersion) {
   const prevParts = previousVersion.split('.').map(Number);
   const currParts = currentVersion.split('.').map(Number);
 
-  // 主版本或次版本更新時顯示通知
-  if (currParts[0] > prevParts[0] || currParts[1] > prevParts[1]) {
+  // 1. 主版本 (Major)
+  if (currParts[0] > prevParts[0]) {
     return true;
   }
+  if (currParts[0] < prevParts[0]) {
+    return false;
+  } // 降級不通知
 
-  // 修訂版本更新且有重要功能時也顯示
+  // 2. 次版本 (Minor) - 主版本相同時才比較
+  if (currParts[1] > prevParts[1]) {
+    return true;
+  }
+  if (currParts[1] < prevParts[1]) {
+    return false;
+  } // 降級不通知
+
+  // 3. 修訂版本 (Patch) - 主次版本都相同時才比較
   if (currParts[2] > prevParts[2]) {
     // 檢查是否為重要更新
     return isImportantUpdate(currentVersion);
