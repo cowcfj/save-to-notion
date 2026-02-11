@@ -147,10 +147,7 @@ describe('highlightHandlers', () => {
     it('USER_ACTIVATE_SHORTCUT should handle restricted URL', async () => {
       isRestrictedInjectionUrl.mockReturnValue(true);
       const sendResponse = jest.fn();
-      const sender = { tab: { id: 1, url: 'chrome://extensions' } }; // Valid sender structure (missing id check passed by mock?)
-      // We need valid sender for validateContentScriptRequest to pass or mock it.
-      // validateContentScriptRequest checks sender.tab and (!sender.frameId || sender.frameId === 0) usually?
-      // Let's force validateContentScriptRequest to return null (success)
+      const sender = { tab: { id: 1, url: 'chrome://extensions' } };
       validateContentScriptRequest.mockReturnValue(null);
 
       await handlers.USER_ACTIVATE_SHORTCUT({}, sender, sendResponse);
