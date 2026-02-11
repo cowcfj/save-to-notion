@@ -105,7 +105,8 @@ function sendErrorResponse(result, sendResponse) {
  * @returns {object} 處理函數映射
  */
 export function createSaveHandlers(services) {
-  const { notionService, storageService, injectionService, pageContentService } = services;
+  const { notionService, storageService, injectionService, pageContentService, tabService } =
+    services;
 
   /**
    * 清理頁面標記的輔助函數 (跨模組調用時可能需要，暫時保留在此，若 highlightHandlers 也需要則各自實現)
@@ -383,7 +384,9 @@ export function createSaveHandlers(services) {
 
         const apiKey = config.notionApiKey;
 
-        const normUrl = resolveStorageUrl(activeTab.url || '');
+        // Phase 2: 獲取 Preloader 數據以解析穩定 URL
+        const preloaderData = await tabService?.getPreloaderData?.(activeTab.id);
+        const normUrl = resolveStorageUrl(activeTab.url || '', preloaderData);
         const originalUrl = normalizeUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
@@ -586,7 +589,10 @@ export function createSaveHandlers(services) {
         }
 
         const activeTab = await getActiveTab();
-        const stableUrl = computeStableUrl(activeTab.url || '');
+
+        // Phase 2: 獲取 Preloader 數據以解析穩定 URL
+        const preloaderData = await tabService?.getPreloaderData?.(activeTab.id);
+        const stableUrl = resolveStorageUrl(activeTab.url || '', preloaderData);
         const normUrl = stableUrl || normalizeUrl(activeTab.url || '');
         const originalUrl = normalizeUrl(activeTab.url || '');
 

@@ -93,7 +93,7 @@ class TabService {
    */
   async _updateTabStatusInternal(tabId, url) {
     // 取得 Preloader 元數據（Phase 2: nextRouteInfo, shortlink）
-    const preloaderData = await this._getPreloaderData(tabId);
+    const preloaderData = await this.getPreloaderData(tabId);
 
     // 按優先級計算穩定 URL
     // Phase 1: 已知網站純字串規則
@@ -164,9 +164,8 @@ class TabService {
    *
    * @param {number} tabId - 標籤頁 ID
    * @returns {Promise<{nextRouteInfo?: object, shortlink?: string}|null>}
-   * @private
    */
-  async _getPreloaderData(tabId) {
+  async getPreloaderData(tabId) {
     try {
       const response = await Promise.race([
         new Promise((resolve, reject) => {

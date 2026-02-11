@@ -50,6 +50,18 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     sendResponse({
       status: 'bundle_ready',
       hasPreloaderCache: Boolean(preloaderCache),
+      // Phase 2: 返回穩定 URL 元數據
+      shortlink: document.querySelector('link[rel="shortlink"]')?.href || null,
+      nextRouteInfo: (() => {
+        try {
+          const el = document.querySelector('#__NEXT_DATA__');
+          if (!el || el.textContent.length > 1_048_576) {return null;}
+          const data = JSON.parse(el.textContent);
+          return { page: data.page, query: data.query, buildId: data.buildId };
+        } catch {
+          return null;
+        }
+      })(),
     });
     return true;
   }

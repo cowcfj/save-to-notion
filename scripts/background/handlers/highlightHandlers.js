@@ -16,7 +16,7 @@ import {
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
+import { normalizeUrl, resolveStorageUrl } from '../../utils/urlUtils.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 
@@ -98,14 +98,16 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
  * @param {Array} highlights - 標註數據
  * @returns {Promise<object>} 更新結果
  */
+
 async function performHighlightUpdate(services, activeTab, highlights) {
-  const { storageService, notionService } = services;
+  const { storageService, notionService, tabService } = services;
 
   // 1. 確保有 API Key
   const apiKey = await ensureNotionApiKey(storageService);
 
-  // 使用雙查策略：穩定 URL 優先，回退到原始 URL（與 savePage/checkPageStatus 一致）
-  const stableUrl = computeStableUrl(activeTab.url || '');
+  // Phase 2: 獲取 Preloader 數據以解析穩定 URL
+  const preloaderData = await tabService?.getPreloaderData?.(activeTab.id);
+  const stableUrl = resolveStorageUrl(activeTab.url || '', preloaderData);
   const normUrl = stableUrl || normalizeUrl(activeTab.url || '');
   const originalUrl = normalizeUrl(activeTab.url || '');
 

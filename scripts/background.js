@@ -47,17 +47,36 @@ const notionService = new NotionService({ logger: Logger });
 const messageHandler = new MessageHandler({ logger: Logger });
 
 // Create and Register Action Handlers
+// Initialize TabService
+const tabService = new TabService({
+  logger: Logger,
+  injectionService,
+  normalizeUrl,
+  computeStableUrl,
+  getSavedPageData: url => storageService.getSavedPageData(url),
+  isRestrictedUrl: isRestrictedInjectionUrl,
+  isRecoverableError: isRecoverableInjectionError,
+  // 新增驗證所需的依賴
+  checkPageExists: (pageId, apiKey) => notionService.checkPageExists(pageId, { apiKey }),
+  getApiKey: () => storageService.getConfig(['notionApiKey']).then(config => config.notionApiKey),
+  clearPageState: url => storageService.clearPageState(url),
+  setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
+});
+
+// Create and Register Action Handlers
 const actionHandlers = {
   ...createSaveHandlers({
     notionService,
     storageService,
     injectionService,
     pageContentService,
+    tabService,
   }),
   ...createHighlightHandlers({
     notionService,
     storageService,
     injectionService,
+    tabService,
   }),
   ...createMigrationHandlers({
     storageService,
@@ -75,21 +94,6 @@ if (globalThis.self !== undefined) {
   globalThis.actionHandlers = actionHandlers;
 }
 // TEST_EXPOSURE_END
-
-const tabService = new TabService({
-  logger: Logger,
-  injectionService,
-  normalizeUrl,
-  computeStableUrl,
-  getSavedPageData: url => storageService.getSavedPageData(url),
-  isRestrictedUrl: isRestrictedInjectionUrl,
-  isRecoverableError: isRecoverableInjectionError,
-  // 新增驗證所需的依賴
-  checkPageExists: (pageId, apiKey) => notionService.checkPageExists(pageId, { apiKey }),
-  getApiKey: () => storageService.getConfig(['notionApiKey']).then(config => config.notionApiKey),
-  clearPageState: url => storageService.clearPageState(url),
-  setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
-});
 
 // ==========================================
 // LISTENERS SETUP
