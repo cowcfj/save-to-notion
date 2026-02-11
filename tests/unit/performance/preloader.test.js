@@ -270,6 +270,8 @@ describe('Preloader', () => {
       expect(sendResponse).toHaveBeenCalledWith({
         status: 'preloader_only',
         hasCache: true,
+        nextRouteInfo: null,
+        shortlink: null,
       });
     });
 

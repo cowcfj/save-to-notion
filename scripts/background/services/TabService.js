@@ -13,6 +13,7 @@
 
 import { TAB_SERVICE, URL_NORMALIZATION, HANDLER_CONSTANTS } from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
+import { buildStableUrlFromNextData } from '../../utils/urlUtils.js';
 
 /**
  * TabService 類
@@ -91,8 +92,23 @@ class TabService {
    * @private
    */
   async _updateTabStatusInternal(tabId, url) {
-    // 優先使用穩定 URL（Phase 1）
-    const stableUrl = this.computeStableUrl?.(url);
+    // 取得 Preloader 元數據（Phase 2: nextRouteInfo, shortlink）
+    const preloaderData = await this._getPreloaderData(tabId);
+
+    // 按優先級計算穩定 URL
+    // Phase 1: 已知網站純字串規則
+    let stableUrl = this.computeStableUrl?.(url);
+
+    // Phase 2a: Next.js 路由
+    if (!stableUrl && preloaderData?.nextRouteInfo) {
+      stableUrl = buildStableUrlFromNextData(preloaderData.nextRouteInfo, url);
+    }
+
+    // Phase 2a+: WordPress shortlink
+    if (!stableUrl && preloaderData?.shortlink) {
+      stableUrl = preloaderData.shortlink;
+    }
+
     const normUrl = stableUrl || this.normalizeUrl(url);
     const originalUrl = this.normalizeUrl(url);
 
@@ -137,6 +153,48 @@ class TabService {
         const errorMsg = error.message || String(error);
         this.logger.error(`[TabService] Error updating tab status: ${errorMsg}`, { error });
       }
+    }
+  }
+
+  /**
+   * 快速取得 Preloader 元數據（Phase 2 穩定 URL 用）
+   *
+   * 透過 PING 訊息向 Preloader 請求頁面元數據（nextRouteInfo, shortlink）。
+   * 帶 500ms 超時保護，超時或失敗時返回 null，不影響 Phase 1 行為。
+   *
+   * @param {number} tabId - 標籤頁 ID
+   * @returns {Promise<{nextRouteInfo?: object, shortlink?: string}|null>}
+   * @private
+   */
+  async _getPreloaderData(tabId) {
+    try {
+      const response = await Promise.race([
+        new Promise((resolve, reject) => {
+          chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(result);
+            }
+          });
+        }),
+        new Promise(resolve =>
+          setTimeout(() => resolve(null), TAB_SERVICE.PRELOADER_PING_TIMEOUT_MS ?? 500)
+        ),
+      ]);
+
+      if (!response) {
+        return null;
+      }
+
+      // 只提取 Phase 2 相關數據
+      return {
+        nextRouteInfo: response.nextRouteInfo || null,
+        shortlink: response.shortlink || null,
+      };
+    } catch {
+      // Preloader 未載入或 tab 不可用，靜默返回 null
+      return null;
     }
   }
 
