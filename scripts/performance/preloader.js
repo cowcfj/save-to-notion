@@ -143,7 +143,7 @@
   // 啟用後重新載入頁面即可看到調試訊息
   try {
     if (localStorage.getItem('NOTION_DEBUG')) {
-      console.log('🔌 [Notion Preloader] Loaded, cache:', {
+      console.info('Notion Preloader initialized:', preloaderCache, {
         hasArticle: Boolean(preloaderCache.article),
         hasMainContent: Boolean(preloaderCache.mainContent),
         hasNextRouteInfo: Boolean(preloaderCache.nextRouteInfo),

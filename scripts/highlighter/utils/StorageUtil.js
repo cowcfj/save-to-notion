@@ -16,6 +16,11 @@
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
 
+const MESSAGES = {
+  CHROME_STORAGE_UNAVAILABLE: 'Chrome storage not available',
+  INVALID_PAGE_URL: 'Invalid pageUrl: must be a non-empty string',
+};
+
 /**
  * StorageUtil 對象
  */
@@ -57,13 +62,14 @@ const StorageUtil = {
   /**
    * 保存到 Chrome Storage
    *
-   * @param key
-   * @param data
+   * @param {string} key - 鍵名
+   * @param {any} data - 數據
+   * @returns {Promise<void>}
    * @private
    */
   _saveToChromeStorage(key, data) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-      return Promise.reject(new Error('Chrome storage not available'));
+      return Promise.reject(new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE));
     }
 
     return new Promise((resolve, reject) => {
@@ -84,8 +90,9 @@ const StorageUtil = {
   /**
    * 保存到 localStorage
    *
-   * @param key
-   * @param data
+   * @param {string} key - 鍵名
+   * @param {any} data - 數據
+   * @returns {Promise<void>}
    * @private
    */
   _saveToLocalStorage(key, data) {
@@ -136,12 +143,13 @@ const StorageUtil = {
   /**
    * 從 Chrome Storage 加載並解析格式
    *
-   * @param key
+   * @param {string} key - 鍵名
+   * @returns {Promise<Array>}
    * @private
    */
   _loadFromChromeStorage(key) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-      return Promise.reject(new Error('Chrome storage not available'));
+      return Promise.reject(new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE));
     }
 
     return new Promise((resolve, reject) => {
@@ -163,7 +171,8 @@ const StorageUtil = {
   /**
    * 從 localStorage 加載並解析格式
    *
-   * @param key
+   * @param {string} key - 鍵名
+   * @returns {Promise<Array>}
    * @private
    */
   _loadFromLocalStorage(key) {
@@ -194,7 +203,8 @@ const StorageUtil = {
   /**
    * 解析不同版本的標注數據格式
    *
-   * @param data
+   * @param {any} data - 存儲的數據
+   * @returns {Array} List of highlights
    * @private
    */
   _parseHighlightFormat(data) {
@@ -224,7 +234,7 @@ const StorageUtil = {
   async clearHighlights(pageUrl) {
     // 輸入驗證
     if (!pageUrl || typeof pageUrl !== 'string') {
-      const error = new Error('Invalid pageUrl: must be a non-empty string');
+      const error = new Error(MESSAGES.INVALID_PAGE_URL);
       Logger.error('無效的 URL 參數', { action: 'clearHighlights', error: error.message });
       throw error;
     }
@@ -263,12 +273,13 @@ const StorageUtil = {
   /**
    * 從 Chrome Storage 清除數據
    *
-   * @param key
+   * @param {string} key - 鍵名
+   * @returns {Promise<void>}
    * @private
    */
   _clearFromChromeStorage(key) {
     if (typeof chrome === 'undefined' || !chrome?.storage?.local) {
-      return Promise.reject(new Error('Chrome storage not available'));
+      return Promise.reject(new Error(MESSAGES.CHROME_STORAGE_UNAVAILABLE));
     }
 
     return new Promise((resolve, reject) => {
@@ -289,7 +300,8 @@ const StorageUtil = {
   /**
    * 從 localStorage 清除數據
    *
-   * @param key
+   * @param {string} key - 鍵名
+   * @returns {Promise<void>}
    * @private
    */
   _clearFromLocalStorage(key) {

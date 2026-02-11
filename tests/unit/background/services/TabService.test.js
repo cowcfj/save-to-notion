@@ -52,6 +52,7 @@ globalThis.chrome = {
       removeListener: jest.fn(),
     },
     get: jest.fn(),
+    sendMessage: jest.fn(),
   },
 };
 
@@ -516,6 +517,59 @@ describe('TabService', () => {
         .mockRejectedValue(new Error('The tab was closed.'));
       await service.updateTabStatus(999, 'https://example.com');
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('Tab closed/missing'));
+    });
+  });
+  describe('getPreloaderData', () => {
+    it('應該成功獲取 Preloader 數據', async () => {
+      const mockData = { shortlink: 'https://example.com/p=1', nextRouteInfo: null };
+      chrome.tabs.sendMessage.mockImplementation((_tabId, _msg, cb) => cb(mockData));
+
+      const result = await service.getPreloaderData(1);
+      expect(result).toEqual(mockData);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: 'PING' },
+        expect.any(Function)
+      );
+    });
+
+    it('應該在超時後返回 null', async () => {
+      jest.useFakeTimers();
+      chrome.tabs.sendMessage.mockImplementation(() => {
+        // 不調用 callback，模擬無響應
+      });
+
+      const promise = service.getPreloaderData(1);
+      jest.advanceTimersByTime(1000); // 超過 500ms
+      const result = await promise;
+
+      expect(result).toBeNull();
+      jest.useRealTimers();
+    });
+
+    it('應該在 runtime.lastError 時返回 null', async () => {
+      chrome.tabs.sendMessage.mockImplementation((_tabId, _msg, cb) => {
+        chrome.runtime.lastError = { message: 'Port closed' };
+        cb();
+      });
+
+      const result = await service.getPreloaderData(1);
+      expect(result).toBeNull();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to get preloader data')
+      );
+    });
+
+    it('應該在 sendMessage 拋出異常時返回 null', async () => {
+      chrome.tabs.sendMessage.mockImplementation(() => {
+        throw new Error('API Error');
+      });
+
+      const result = await service.getPreloaderData(1);
+      expect(result).toBeNull();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to get preloader data')
+      );
     });
   });
 });

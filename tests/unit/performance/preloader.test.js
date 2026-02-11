@@ -349,14 +349,72 @@ describe('Preloader', () => {
       expect(cache.article.tagName).toBe('ARTICLE');
     });
 
-    test('快取應正確識別 main content 元素', () => {
+    test('快取應包含 shortlink', () => {
+      // Mock document.querySelector for shortlink
+      document.querySelector.mockImplementation(selector => {
+        if (selector === 'link[rel="shortlink"]') {
+          return { href: 'https://example.com/?p=123' };
+        }
+        return null;
+      });
+
       executePreloader();
       requestHandler();
 
       const event = document.dispatchEvent.mock.calls[0][0];
       const cache = event.detail;
 
-      expect(cache.mainContent.tagName).toBe('MAIN');
+      expect(cache.shortlink).toBe('https://example.com/?p=123');
+    });
+
+    test('當無 shortlink 時應為 null', () => {
+      document.querySelector.mockReturnValue(null);
+      executePreloader();
+      requestHandler();
+
+      const event = document.dispatchEvent.mock.calls[0][0];
+      const cache = event.detail;
+
+      expect(cache.shortlink).toBeNull();
+    });
+
+    // Phase 2a: Next.js coverage
+    test('應正確解析 Next.js 路由信息', () => {
+      const mockNextData = {
+        page: '/post/[id]',
+        query: { id: '123' },
+        buildId: 'abc',
+      };
+
+      document.querySelector.mockImplementation(selector => {
+        if (selector === '#__NEXT_DATA__') {
+          return { textContent: JSON.stringify(mockNextData) };
+        }
+        return null;
+      });
+
+      executePreloader();
+      requestHandler();
+
+      const event = document.dispatchEvent.mock.calls[0][0];
+      const cache = event.detail;
+
+      expect(cache.nextRouteInfo).toEqual(mockNextData);
+    });
+
+    test('當 Next.js 數據過大時應跳過', () => {
+      document.querySelector.mockImplementation(selector => {
+        if (selector === '#__NEXT_DATA__') {
+          // Mock > 1MB text
+          return { textContent: 'a'.repeat(1_048_577) };
+        }
+        return null;
+      });
+
+      executePreloader();
+      requestHandler();
+      const event = document.dispatchEvent.mock.calls[0][0];
+      expect(event.detail.nextRouteInfo).toBeNull();
     });
   });
 

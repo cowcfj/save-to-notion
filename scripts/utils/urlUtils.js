@@ -170,6 +170,7 @@ export function buildStableUrlFromNextData(routeInfo, originalUrl) {
     for (const key of dynamicSegments) {
       if (slugKeys.includes(key)) {
         // 移除 slug 段（包含前面的 /）
+        // eslint-disable-next-line security/detect-non-literal-regexp
         stablePath = stablePath.replace(new RegExp(String.raw`/\[${key}\]`), '');
       } else {
         // 替換為實際值

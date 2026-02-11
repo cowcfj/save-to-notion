@@ -8,7 +8,7 @@
 
 /* global chrome, Logger */
 
-import { normalizeUrl, computeStableUrl, resolveStorageUrl } from '../../utils/urlUtils.js';
+import { normalizeUrl, resolveStorageUrl } from '../../utils/urlUtils.js';
 import {
   validateInternalRequest,
   validateContentScriptRequest,

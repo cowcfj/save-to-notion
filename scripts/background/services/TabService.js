@@ -191,7 +191,8 @@ class TabService {
         nextRouteInfo: response.nextRouteInfo || null,
         shortlink: response.shortlink || null,
       };
-    } catch {
+    } catch (error) {
+      this.logger.debug(`[TabService] Failed to get preloader data: ${error.message}`);
       // Preloader 未載入或 tab 不可用，靜默返回 null
       return null;
     }
