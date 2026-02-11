@@ -342,6 +342,13 @@ describe('saveHandlers', () => {
         notionApiKey: 'valid-key',
         notionDataSourceId: 'db-123',
       });
+      // Mock other services to prevent undefined errors in flows that reach them
+      mockServices.injectionService.collectHighlights.mockResolvedValue([]);
+      mockServices.injectionService.injectHighlighter.mockResolvedValue(true);
+      mockServices.pageContentService.extractContent.mockResolvedValue({
+        title: 'Test Page',
+        blocks: [],
+      });
     });
 
     test('savePage: 應拒絕非法內部請求', async () => {
@@ -399,10 +406,15 @@ describe('saveHandlers', () => {
       await handlers.savePage({}, sender, sendResponse);
 
       expect(Logger.error).toHaveBeenCalledWith(
-        expect.stringMatching(/保存頁面/),
+        expect.stringMatching(/內容提取失敗|驗證失敗/),
         expect.anything()
       );
-      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.stringMatching(/內容提取失敗|驗證失敗|Missing/),
+        })
+      );
     });
 
     test('savePage: 應處理創建頁面失敗', async () => {

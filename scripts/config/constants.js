@@ -347,9 +347,10 @@ export const STABLE_URL_RULES = [
     name: 'mingpao',
     hostPattern: 'mingpao.com',
     pathRequires: '/article/',
-    // 匹配並移除最後的 slug 段
+    // 匹配並移除最後的 slug 段 (至少需要 4 段: /article/<date>/<section>/<slug>)
     // 範例: /article/20240101/s00001/title-here → /article/20240101/s00001
-    pathPattern: /^(.+)\/[^/]+$/,
+    // 避免誤傷: /article/20240101/s00001 (不含 slug)
+    pathPattern: /^(\/article\/[^/]+\/[^/]+)\/.+$/,
     stablePath: '$1',
   },
 ];

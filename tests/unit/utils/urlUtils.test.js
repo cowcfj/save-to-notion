@@ -62,9 +62,9 @@ describe('urlUtils', () => {
         const url = 'https://news.mingpao.com/article/20240101/s00001';
         const result = computeStableUrl(url);
 
-        // 路徑過短（只有一段），正則會匹配並移除最後一段
-        // 這是正確行為：/article/20240101/s00001 → /article/20240101
-        expect(result).toBe('https://news.mingpao.com/article/20240101');
+        // 路徑過短（只有三段：date/section），正則不會匹配
+        // 這是正確行為：/article/20240101/s00001 不應被截斷
+        expect(result).toBeNull();
       });
     });
 

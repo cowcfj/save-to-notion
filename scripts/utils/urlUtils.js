@@ -95,8 +95,11 @@ export function computeStableUrl(rawUrl) {
     const { hostname, pathname } = urlObj;
 
     for (const rule of STABLE_URL_RULES) {
-      // 檢查 hostname 是否匹配
-      if (!hostname.includes(rule.hostPattern)) {
+      const pattern = rule.hostPattern.toLowerCase();
+      const host = hostname.toLowerCase();
+
+      // 嚴格域名檢查：必須完全匹配或為子域名
+      if (host !== pattern && !host.endsWith(`.${pattern}`)) {
         continue;
       }
 
