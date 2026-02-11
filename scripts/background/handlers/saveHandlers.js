@@ -8,7 +8,7 @@
 
 /* global chrome, Logger */
 
-import { normalizeUrl } from '../../utils/urlUtils.js';
+import { normalizeUrl, computeStableUrl, resolveStorageUrl } from '../../utils/urlUtils.js';
 import {
   validateInternalRequest,
   validateContentScriptRequest,
@@ -377,7 +377,7 @@ export function createSaveHandlers(services) {
 
         const apiKey = config.notionApiKey;
 
-        const normUrl = normalizeUrl(activeTab.url || '');
+        const normUrl = resolveStorageUrl(activeTab.url || '');
         const savedData = await storageService.getSavedPageData(normUrl);
 
         // 注入 highlighter 並收集標記
@@ -471,7 +471,7 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const normUrl = normalizeUrl(pageUrl);
+        const normUrl = resolveStorageUrl(pageUrl);
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {
@@ -578,8 +578,16 @@ export function createSaveHandlers(services) {
         }
 
         const activeTab = await getActiveTab();
-        const normUrl = normalizeUrl(activeTab.url || '');
-        const savedData = await storageService.getSavedPageData(normUrl);
+        const stableUrl = computeStableUrl(activeTab.url || '');
+        const normUrl = stableUrl || normalizeUrl(activeTab.url || '');
+        const originalUrl = normalizeUrl(activeTab.url || '');
+
+        let savedData = await storageService.getSavedPageData(normUrl);
+
+        // 雙查：若穩定 URL 未找到，嘗試原始 URL（向後兼容）
+        if (!savedData?.notionPageId && stableUrl && originalUrl !== normUrl) {
+          savedData = await storageService.getSavedPageData(originalUrl);
+        }
 
         if (!savedData?.notionPageId) {
           return sendResponse({ success: true, isSaved: false });

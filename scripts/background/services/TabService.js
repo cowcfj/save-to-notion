@@ -23,6 +23,7 @@ class TabService {
    * @param {object} options.logger - 日誌對象
    * @param {object} options.injectionService - 注入服務實例
    * @param {Function} options.normalizeUrl - URL 標準化函數
+   * @param {Function} [options.computeStableUrl] - 計算穩定 URL 的函數（Phase 1）
    * @param {Function} options.getSavedPageData - 獲取已保存頁面數據的函數
    * @param {Function} options.isRestrictedUrl - 檢查受限 URL 的函數
    * @param {Function} options.isRecoverableError - 檢查可恢復錯誤的函數
@@ -36,6 +37,7 @@ class TabService {
     this.logger = options.logger || Logger;
     this.injectionService = options.injectionService;
     this.normalizeUrl = options.normalizeUrl || (url => url);
+    this.computeStableUrl = options.computeStableUrl || null;
     this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
     this.isRestrictedUrl = options.isRestrictedUrl || (() => false);
     this.isRecoverableError = options.isRecoverableError || (() => false);
@@ -89,14 +91,22 @@ class TabService {
    * @private
    */
   async _updateTabStatusInternal(tabId, url) {
-    const normUrl = this.normalizeUrl(url);
+    // 優先使用穩定 URL（Phase 1）
+    const stableUrl = this.computeStableUrl?.(url);
+    const normUrl = stableUrl || this.normalizeUrl(url);
+    const originalUrl = this.normalizeUrl(url);
 
     try {
-      // 1. 更新徽章狀態（同時處理自動驗證）
-      await this._verifyAndUpdateStatus(tabId, normUrl);
+      // 1. 更新徽章狀態（雙查：穩定 URL 優先，回退到原始 URL）
+      await this._verifyAndUpdateStatus(tabId, normUrl, stableUrl ? originalUrl : null);
 
-      // 2. 處理標註注入
-      const highlights = await this._getHighlightsFromStorage(normUrl);
+      // 2. 處理標註注入（雙查：穩定 URL 優先，回退到原始 URL）
+      let highlights = await this._getHighlightsFromStorage(normUrl);
+      if (!highlights && stableUrl && originalUrl !== normUrl) {
+        // 回退查詢：嘗試原始 URL（向後兼容）
+        highlights = await this._getHighlightsFromStorage(originalUrl);
+      }
+
       if (!highlights) {
         // 沒有找到現有標註，執行回調或預設遷移
         const handler = this.onNoHighlightsFound ?? this.migrateLegacyHighlights.bind(this);
@@ -134,11 +144,17 @@ class TabService {
    * 驗證並更新頁面狀態（含自動聯網檢查）
    *
    * @param {number} tabId - 標籤頁 ID
-   * @param {string} normUrl - 標準化後的 URL
+   * @param {string} normUrl - 標準化後的 URL（可能是穩定 URL）
+   * @param {string|null} fallbackUrl - 回退 URL（原始 URL，用於向後兼容）
    * @private
    */
-  async _verifyAndUpdateStatus(tabId, normUrl) {
-    const savedData = await this.getSavedPageData(normUrl);
+  async _verifyAndUpdateStatus(tabId, normUrl, fallbackUrl = null) {
+    let savedData = await this.getSavedPageData(normUrl);
+
+    // 雙查：若穩定 URL 未找到，嘗試原始 URL（向後兼容）
+    if (!savedData && fallbackUrl && fallbackUrl !== normUrl) {
+      savedData = await this.getSavedPageData(fallbackUrl);
+    }
 
     if (!savedData) {
       await this._updateBadgeStatus(tabId, null);

@@ -14,7 +14,7 @@
 /* global chrome */
 
 // 從統一工具函數導入（Single Source of Truth）
-import { normalizeUrl } from '../../utils/urlUtils.js';
+import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 
 /**
  * URL 標準化相關常量（從 urlUtils 導出，用於兼容既有導入）
@@ -87,6 +87,7 @@ class StorageService {
 
   /**
    * 清除頁面狀態
+   * 同時清理穩定 URL 和原始 URL 的存儲 key（確保完全清除）
    *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
@@ -97,11 +98,17 @@ class StorageService {
     }
 
     const normalizedUrl = normalizeUrl(pageUrl);
-    const savedKey = `saved_${normalizedUrl}`;
-    const highlightsKey = `highlights_${normalizedUrl}`;
+    const stableUrl = computeStableUrl(pageUrl);
+
+    const keysToRemove = [`saved_${normalizedUrl}`, `highlights_${normalizedUrl}`];
+
+    // 如果有穩定 URL 且與原始 URL 不同，也清理穩定 URL 的 key
+    if (stableUrl && stableUrl !== normalizedUrl) {
+      keysToRemove.push(`saved_${stableUrl}`, `highlights_${stableUrl}`);
+    }
 
     try {
-      await this.storage.local.remove([savedKey, highlightsKey]);
+      await this.storage.local.remove(keysToRemove);
       this.logger.log?.('✅ Cleared all data for:', normalizedUrl);
     } catch (error) {
       this.logger.error?.('[StorageService] clearPageState failed:', error);

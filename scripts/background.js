@@ -8,7 +8,7 @@
 // Import Utils
 import './utils/Logger.js'; // Side-effect import to register self.Logger
 
-import { normalizeUrl } from './utils/urlUtils.js';
+import { normalizeUrl, computeStableUrl } from './utils/urlUtils.js';
 
 import { TAB_SERVICE } from './config/constants.js';
 
@@ -80,6 +80,7 @@ const tabService = new TabService({
   logger: Logger,
   injectionService,
   normalizeUrl,
+  computeStableUrl,
   getSavedPageData: url => storageService.getSavedPageData(url),
   isRestrictedUrl: isRestrictedInjectionUrl,
   isRecoverableError: isRecoverableInjectionError,

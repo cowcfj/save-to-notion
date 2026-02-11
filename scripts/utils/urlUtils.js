@@ -4,7 +4,7 @@
  */
 
 // 從統一配置導入 TRACKING_PARAMS（Single Source of Truth）
-import { URL_NORMALIZATION } from '../config/constants.js';
+import { URL_NORMALIZATION, STABLE_URL_RULES } from '../config/constants.js';
 
 // Logger 回退定義：在 Rollup 打包時由 intro 注入自 self.Logger
 // 在直接載入時使用回退定義
@@ -76,4 +76,56 @@ export function normalizeUrl(rawUrl) {
     Logger.error?.('normalizeUrl 標準化失敗', { action: 'normalizeUrl', error });
     return rawUrl || '';
   }
+}
+
+/**
+ * 計算穩定 URL — 對已知網站移除可變的 slug 段
+ * 純字串操作，不需 DOM 訪問，適用於零延遲場景
+ *
+ * @param {string} rawUrl - 原始 URL
+ * @returns {string|null} 穩定 URL，若無匹配規則返回 null
+ */
+export function computeStableUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.includes('://')) {
+    return null;
+  }
+
+  try {
+    const urlObj = new URL(rawUrl);
+    const { hostname, pathname } = urlObj;
+
+    for (const rule of STABLE_URL_RULES) {
+      // 檢查 hostname 是否匹配
+      if (!hostname.includes(rule.hostPattern)) {
+        continue;
+      }
+
+      // 檢查 path 是否包含必要字串（如果有指定）
+      if (rule.pathRequires && !pathname.includes(rule.pathRequires)) {
+        continue;
+      }
+
+      // 嘗試匹配 path pattern
+      const match = pathname.match(rule.pathPattern);
+      if (match) {
+        urlObj.pathname = pathname.replace(rule.pathPattern, rule.stablePath);
+        return normalizeUrl(urlObj.toString());
+      }
+    }
+  } catch (error) {
+    Logger.error?.('computeStableUrl 失敗', { action: 'computeStableUrl', error });
+  }
+
+  return null;
+}
+
+/**
+ * 解析存儲用的 URL — 優先使用穩定 URL
+ * 這是 normalizeUrl 的增強版，優先嘗試穩定 URL，再回退到標準化
+ *
+ * @param {string} rawUrl - 原始 URL
+ * @returns {string} 穩定 URL 或標準化的原始 URL
+ */
+export function resolveStorageUrl(rawUrl) {
+  return computeStableUrl(rawUrl) || normalizeUrl(rawUrl);
 }
