@@ -39,13 +39,8 @@ export class MigrationService {
         hasHighlights: Boolean(highlights),
       });
 
-      // 1. 寫入新 Key（全部成功後才刪除舊 key）
-      if (pageData) {
-        await this.storageService.setSavedPageData(stableUrl, pageData);
-      }
-      if (highlights) {
-        await this.storageService.setHighlights(stableUrl, highlights);
-      }
+      // 1. 原子寫入新 Key（全部成功後才刪除舊 key）
+      await this.storageService.savePageDataAndHighlights(stableUrl, pageData, highlights);
 
       // 2. 刪除舊 Key（clearPageState 會同時清除 saved_* 和 highlights_*）
       await this.storageService.clearPageState(legacyUrl);

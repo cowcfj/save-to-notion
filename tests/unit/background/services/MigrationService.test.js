@@ -33,6 +33,7 @@ describe('MigrationService', () => {
       setSavedPageData: jest.fn(),
       clearPageState: jest.fn(),
       getHighlights: jest.fn(),
+      savePageDataAndHighlights: jest.fn(),
     };
 
     mockTabService = {
@@ -85,7 +86,8 @@ describe('MigrationService', () => {
 
     test('should perform atomic migration (copy then delete) when legacy data exists', async () => {
       mockStorageService.getSavedPageData.mockResolvedValue(pageData);
-      mockStorageService.setSavedPageData.mockResolvedValue();
+      mockStorageService.getHighlights.mockResolvedValue(null);
+      mockStorageService.savePageDataAndHighlights.mockResolvedValue();
       mockStorageService.clearPageState.mockResolvedValue();
 
       const result = await service.migrateStorageKey(stableUrl, legacyUrl);
@@ -93,20 +95,24 @@ describe('MigrationService', () => {
       expect(result).toBe(true);
       // 1. Verify read
       expect(mockStorageService.getSavedPageData).toHaveBeenCalledWith(legacyUrl);
-      // 2. Verify write new key
-      expect(mockStorageService.setSavedPageData).toHaveBeenCalledWith(stableUrl, pageData);
+      // 2. Verify write new key via atomic method
+      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
+        stableUrl,
+        pageData,
+        null
+      );
       // 3. Verify delete old key
       expect(mockStorageService.clearPageState).toHaveBeenCalledWith(legacyUrl);
     });
 
     test('should return false and NOT delete legacy data if write fails', async () => {
       mockStorageService.getSavedPageData.mockResolvedValue(pageData);
-      mockStorageService.setSavedPageData.mockRejectedValue(new Error('Write failed'));
+      mockStorageService.savePageDataAndHighlights.mockRejectedValue(new Error('Write failed'));
 
       const result = await service.migrateStorageKey(stableUrl, legacyUrl);
 
       expect(result).toBe(false);
-      expect(mockStorageService.setSavedPageData).toHaveBeenCalled();
+      expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalled();
       // Critical: Should NOT clear old data if write failed
       expect(mockStorageService.clearPageState).not.toHaveBeenCalled();
     });

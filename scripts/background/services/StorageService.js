@@ -108,6 +108,46 @@ class StorageService {
   }
 
   /**
+   * 原子寫入頁面數據和標註
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @param {object|null} pageData - 頁面數據
+   * @param {Array|null} highlights - 標註數據
+   * @returns {Promise<void>}
+   */
+  async savePageDataAndHighlights(pageUrl, pageData, highlights) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const dataToSet = {};
+
+    if (pageData) {
+      const savedKey = `${SAVED_PREFIX}${normalizedUrl}`;
+      dataToSet[savedKey] = {
+        ...pageData,
+        lastUpdated: Date.now(),
+      };
+    }
+
+    if (highlights) {
+      const highlightKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+      dataToSet[highlightKey] = highlights;
+    }
+
+    // 只有當有資料要寫入時才執行 set
+    if (Object.keys(dataToSet).length > 0) {
+      try {
+        await this.storage.local.set(dataToSet);
+      } catch (error) {
+        this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
+        throw error;
+      }
+    }
+  }
+
+  /**
    * 設置頁面保存狀態
    *
    * @param {string} pageUrl - 頁面 URL

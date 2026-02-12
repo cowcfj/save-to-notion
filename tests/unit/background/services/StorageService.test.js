@@ -142,6 +142,35 @@ describe('StorageService', () => {
     });
   });
 
+  describe('savePageDataAndHighlights', () => {
+    it('應該原子寫入頁面數據和標註', async () => {
+      const pageData = { title: 'Test' };
+      const highlights = ['hl1'];
+      await service.savePageDataAndHighlights('https://example.com/page', pageData, highlights);
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [`${SAVED_PREFIX}https://example.com/page`]: expect.objectContaining({ title: 'Test' }),
+          [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: highlights,
+        })
+      );
+    });
+
+    it('應該只寫入提供的部分', async () => {
+      const pageData = { title: 'Test' };
+      await service.savePageDataAndHighlights('https://example.com/page', pageData, null);
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${SAVED_PREFIX}https://example.com/page`]: expect.objectContaining({ title: 'Test' }),
+      });
+    });
+
+    it('如果全部為 null 則不應調用 set', async () => {
+      await service.savePageDataAndHighlights('https://example.com/page', null, null);
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getConfig', () => {
     it('應該從 sync storage 獲取配置', async () => {
       mockStorage.sync.get.mockResolvedValue({ apiKey: 'test-key' });
