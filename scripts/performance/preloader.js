@@ -47,7 +47,8 @@
           return null;
         }
         const data = JSON.parse(text);
-        if (!data?.page || !data?.query) {
+        // Only return if critical fields exist
+        if (!data || typeof data !== 'object' || !data.page || !data.query) {
           return null;
         }
         return { page: data.page, query: data.query, buildId: data.buildId };

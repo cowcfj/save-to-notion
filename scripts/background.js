@@ -22,6 +22,7 @@ import {
 } from './background/services/InjectionService.js';
 import { PageContentService } from './background/services/PageContentService.js';
 import { TabService } from './background/services/TabService.js';
+import { MigrationService } from './background/services/MigrationService.js';
 
 // Import Handlers
 import { MessageHandler } from './background/handlers/MessageHandler.js';
@@ -63,6 +64,13 @@ const tabService = new TabService({
   setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
 });
 
+const migrationService = new MigrationService(
+  storageService,
+  notionService,
+  tabService,
+  injectionService
+);
+
 // Create and Register Action Handlers
 const actionHandlers = {
   ...createSaveHandlers({
@@ -70,7 +78,9 @@ const actionHandlers = {
     storageService,
     injectionService,
     pageContentService,
+    pageContentService,
     tabService,
+    migrationService,
   }),
   ...createHighlightHandlers({
     notionService,
@@ -81,6 +91,7 @@ const actionHandlers = {
   ...createMigrationHandlers({
     storageService,
     notionService,
+    migrationService,
   }),
   ...createLogHandlers(),
   ...createNotionHandlers({ notionService }),

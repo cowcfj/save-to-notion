@@ -5,6 +5,7 @@
 import { createSaveHandlers } from '../../../../scripts/background/handlers/saveHandlers.js';
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import { validateInternalRequest } from '../../../../scripts/utils/securityUtils.js';
+import { normalizeUrl, resolveStorageUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/background/services/InjectionService.js', () => ({
   isRestrictedInjectionUrl: jest.fn(),
@@ -18,6 +19,12 @@ jest.mock('../../../../scripts/utils/securityUtils.js', () => {
     validateInternalRequest: jest.fn(original.validateInternalRequest),
   };
 });
+
+jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+  __esModule: true,
+  normalizeUrl: jest.fn(url => url), // Default identity
+  resolveStorageUrl: jest.fn(url => url), // Default identity
+}));
 
 jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({
   __esModule: true,
@@ -80,6 +87,10 @@ describe('saveHandlers', () => {
       },
       pageContentService: {
         extractContent: jest.fn(),
+      },
+      migrationService: {
+        migrateStorageKey: jest.fn(),
+        executeContentMigration: jest.fn(),
       },
     };
     handlers = createSaveHandlers(mockServices);
@@ -432,6 +443,106 @@ describe('saveHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: false }) // Relax expectation
       );
+    });
+  });
+
+  describe('Data Migration (Move & Delete)', () => {
+    const stableUrl = 'https://example.com/stable';
+    const legacyUrl = 'https://example.com/legacy';
+    const originalTabUrl = 'https://example.com/legacy';
+    const sender = { id: 'test-extension-id', origin: 'chrome-extension://test-extension-id' };
+    const sendResponse = jest.fn();
+
+    beforeEach(() => {
+      chrome.tabs.query.mockResolvedValue([{ id: 1, url: originalTabUrl }]);
+
+      mockServices.storageService.getConfig.mockResolvedValue({
+        notionApiKey: 'valid-key',
+        notionDataSourceId: 'db-123',
+      });
+
+      // Mock Injection Service default behavior
+      mockServices.injectionService.injectHighlighter.mockResolvedValue(true);
+      mockServices.injectionService.collectHighlights.mockResolvedValue([]);
+
+      // Ensure utils return different URLs to trigger migration logic
+      resolveStorageUrl.mockReturnValue(stableUrl);
+      normalizeUrl.mockReturnValue(legacyUrl);
+
+      // Mock Storage: stable -> null, legacy -> data
+      mockServices.storageService.getSavedPageData.mockImplementation(key => {
+        if (key === stableUrl) {
+          return Promise.resolve(null);
+        }
+        if (key === legacyUrl) {
+          return Promise.resolve({
+            notionPageId: 'legacy-id-123',
+            title: 'Legacy Title',
+            lastVerifiedAt: Date.now(),
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      mockServices.notionService.checkPageExists.mockResolvedValue(true);
+
+      // Mock MigrationService behavior
+      mockServices.migrationService.migrateStorageKey.mockImplementation(async (stable, legacy) => {
+        if (stable === stableUrl && legacy === legacyUrl) {
+          // Simulate successful migration side effects (state changes in storage)
+          // Storage logic is mocked below, but here we just return success
+          return true;
+        }
+        return false;
+      });
+
+      // Update storage mocks to reflect post-migration state when triggered
+      mockServices.storageService.getSavedPageData.mockImplementation(key => {
+        if (key === stableUrl) {
+          return Promise.resolve({
+            notionPageId: 'legacy-id-123',
+            title: 'Legacy Title',
+            lastVerifiedAt: Date.now(),
+          });
+        }
+        return Promise.resolve(null);
+      });
+    });
+
+    test('checkPageStatus: 應檢測到舊數據並遷移至新 Key', async () => {
+      await handlers.checkPageStatus({}, sender, sendResponse);
+
+      // Expect MigrationService to be called
+      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
+        stableUrl,
+        legacyUrl
+      );
+
+      // Respond with migrated data (which comes from getSavedPageData after migration)
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          isSaved: true,
+          notionPageId: 'legacy-id-123',
+        })
+      );
+    });
+
+    test('savePage: 保存流程中也應觸發遷移', async () => {
+      mockServices.pageContentService.extractContent.mockResolvedValue({
+        title: 'Legacy Title',
+        blocks: [],
+      });
+
+      await handlers.savePage({}, sender, sendResponse);
+
+      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
+        stableUrl,
+        legacyUrl
+      );
+
+      // Should continue to refresh content for existing page
+      expect(mockServices.notionService.refreshPageContent).toHaveBeenCalled();
     });
   });
 });

@@ -105,8 +105,14 @@ function sendErrorResponse(result, sendResponse) {
  * @returns {object} 處理函數映射
  */
 export function createSaveHandlers(services) {
-  const { notionService, storageService, injectionService, pageContentService, tabService } =
-    services;
+  const {
+    notionService,
+    storageService,
+    injectionService,
+    pageContentService,
+    tabService,
+    migrationService, // Added MigrationService
+  } = services;
 
   /**
    * 清理頁面標記的輔助函數 (跨模組調用時可能需要，暫時保留在此，若 highlightHandlers 也需要則各自實現)
@@ -315,6 +321,16 @@ export function createSaveHandlers(services) {
     }
   }
 
+  /**
+   * 獲取保存的頁面數據，並嘗試從舊 Key 遷移（Dual Lookup + Move & Delete）
+   *
+   * @param {string} normUrl - 穩定 URL
+   * @param {string} originalUrl - 原始 URL
+   * @param {boolean} hasStableUrl - 是否有穩定 URL
+   * @returns {Promise<{savedData: object|null, migratedFromOldKey: boolean}>}
+   */
+  // getOrMigrateSavedData removed - replaced by MigrationService.migrateStorageKey
+
   return {
     /**
      * 保存頁面
@@ -388,6 +404,10 @@ export function createSaveHandlers(services) {
         const preloaderData = await tabService?.getPreloaderData?.(activeTab.id);
         const normUrl = resolveStorageUrl(activeTab.url || '', preloaderData);
         const originalUrl = normalizeUrl(activeTab.url || '');
+        const hasStableUrl = normUrl !== originalUrl;
+
+        // 使用 MigrationService 處理數據遷移
+        await migrationService.migrateStorageKey(normUrl, hasStableUrl ? originalUrl : null);
         const savedData = await storageService.getSavedPageData(normUrl);
 
         // 注入 highlighter 並收集標記
@@ -594,15 +614,15 @@ export function createSaveHandlers(services) {
         const preloaderData = await tabService?.getPreloaderData?.(activeTab.id);
         // resolveStorageUrl 內部已包含 normalizeUrl 回退機制
         const normUrl = resolveStorageUrl(activeTab.url || '', preloaderData);
+        // Explicitly get original normalized URL for fallback check
         const originalUrl = normalizeUrl(activeTab.url || '');
         const hasStableUrl = normUrl !== originalUrl;
 
-        let savedData = await storageService.getSavedPageData(normUrl);
-
-        // 雙查：若穩定 URL 未找到，嘗試原始 URL（向後兼容）
-        if (!savedData?.notionPageId && hasStableUrl) {
-          savedData = await storageService.getSavedPageData(originalUrl);
-        }
+        const migratedFromOldKey = await migrationService.migrateStorageKey(
+          normUrl,
+          hasStableUrl ? originalUrl : null
+        );
+        const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {
           return sendResponse({ success: true, isSaved: false });
@@ -610,7 +630,12 @@ export function createSaveHandlers(services) {
 
         const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
         const now = Date.now();
-        if (!request.forceRefresh && now - (savedData.lastVerifiedAt || 0) < TTL) {
+        // If just migrated, we trust the data and don't need to re-verify immediately unless forced
+        if (
+          !request.forceRefresh &&
+          !migratedFromOldKey &&
+          now - (savedData.lastVerifiedAt || 0) < TTL
+        ) {
           return sendResponse({
             success: true,
             isSaved: true,
@@ -649,7 +674,12 @@ export function createSaveHandlers(services) {
             pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
           });
           // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
-          await storageService.clearPageState(originalUrl || normUrl);
+          await storageService.clearPageState(normUrl);
+          // Also try clearing original URL just in case migration left something behind or failed partially
+          if (hasStableUrl) {
+            await storageService.clearPageState(originalUrl);
+          }
+
           try {
             chrome.action.setBadgeText({ text: '', tabId: activeTab.id });
           } catch {
