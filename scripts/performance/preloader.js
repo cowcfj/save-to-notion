@@ -47,10 +47,22 @@
           return null;
         }
         const data = JSON.parse(text);
-        // Only return if critical fields exist
-        if (!data || typeof data !== 'object' || !data.page || !data.query) {
+
+        // Schema Validation: Ensure critical fields exist and have correct types
+        if (!data || typeof data !== 'object') {
           return null;
         }
+
+        // Validate 'page' is a string
+        if (typeof data.page !== 'string') {
+          return null;
+        }
+
+        // Validate 'query' is an object (and not null)
+        if (!data.query || typeof data.query !== 'object') {
+          return null;
+        }
+
         return { page: data.page, query: data.query, buildId: data.buildId };
       } catch {
         return null;

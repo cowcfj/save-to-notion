@@ -628,4 +628,43 @@ describe('TabService', () => {
       });
     });
   });
+
+  describe('LIFECYCLE & LISTENERS', () => {
+    it('應該處理 chrome.tabs.onActivated 事件', async () => {
+      chrome.tabs.get.mockResolvedValue({ id: 10, url: 'https://example.com/activated' });
+
+      service.setupListeners();
+      const activatedCallback = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+
+      await activatedCallback({ tabId: 10, windowId: 1 });
+
+      // 驗證 updateTabStatus 被呼叫
+      expect(chrome.tabs.get).toHaveBeenCalledWith(10);
+    });
+
+    it('應該在 chrome.tabs.onActivated 失敗時靜默處理', async () => {
+      chrome.tabs.get.mockRejectedValue(new Error('Tab not found'));
+
+      service.setupListeners();
+      const activatedCallback = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+
+      await expect(activatedCallback({ tabId: 999, windowId: 1 })).resolves.not.toThrow();
+      expect(mockLogger.debug).toHaveBeenCalled();
+    });
+
+    it('應該處理 chrome.tabs.onUpdated 事件', () => {
+      jest.useFakeTimers();
+      service.setupListeners();
+      const updatedCallback = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+
+      updatedCallback(1, { status: 'complete' }, { id: 1, url: 'https://example.com/updated' });
+
+      jest.advanceTimersByTime(2000); // Wait for STATUS_UPDATE_DELAY_MS
+
+      // 驗證延遲後的行為
+      expect(chrome.tabs.sendMessage).toHaveBeenCalled();
+
+      jest.useRealTimers();
+    });
+  });
 });

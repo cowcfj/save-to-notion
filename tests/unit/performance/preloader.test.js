@@ -153,5 +153,159 @@ describe('Preloader Performance Script', () => {
 
       expect(responseDetail.nextRouteInfo).toBeNull();
     });
+
+    test('應該拒絕類型錯誤的 Next.js 數據 (page 不是字串 或 query 不是物件)', () => {
+      const invalidTypeData = { page: 123, query: 'invalid' };
+      document.body.innerHTML = `
+          <script id="__NEXT_DATA__" type="application/json">${JSON.stringify(invalidTypeData)}</script>
+        `;
+
+      try {
+        require('../../../scripts/performance/preloader.js');
+      } catch (error) {
+        console.error(error);
+      }
+
+      let responseDetail = null;
+      document.addEventListener('notion-preloader-response', e => {
+        responseDetail = e.detail;
+      });
+      document.dispatchEvent(new CustomEvent('notion-preloader-request'));
+
+      expect(responseDetail.nextRouteInfo).toBeNull();
+    });
+  });
+
+  describe('Keyboard Shortcut handling', () => {
+    test('應該在按下 Ctrl+S 時發送激活訊息', () => {
+      runPreloader();
+      const event = new KeyboardEvent('keydown', {
+        ctrlKey: true,
+        key: 's',
+      });
+      document.dispatchEvent(event);
+
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+        { action: 'USER_ACTIVATE_SHORTCUT' },
+        expect.any(Function)
+      );
+    });
+
+    test('應該在按下 Cmd+S 時發送激活訊息', () => {
+      runPreloader();
+      const event = new KeyboardEvent('keydown', {
+        metaKey: true,
+        key: 's',
+      });
+      document.dispatchEvent(event);
+
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+        { action: 'USER_ACTIVATE_SHORTCUT' },
+        expect.any(Function)
+      );
+    });
+
+    test('應該處理快捷鍵發送訊息後的回調 (緩衝事件)', () => {
+      runPreloader();
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+      document.dispatchEvent(event);
+
+      const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
+
+      // 模擬回調運作：Bundle 尚未準備好，應該緩衝
+      callback({ success: true });
+
+      // 驗證緩衝：透過 REPLAY_BUFFERED_EVENTS 訊息獲取
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+      onMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          events: expect.arrayContaining([expect.objectContaining({ type: 'shortcut' })]),
+        })
+      );
+    });
+
+    test('應該處理快捷鍵發送訊息後的錯誤', () => {
+      const originalWarn = console.warn;
+      console.warn = jest.fn();
+
+      runPreloader();
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+      document.dispatchEvent(event);
+
+      mockChrome.runtime.lastError = { message: 'Connection error' };
+      const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
+      callback();
+
+      expect(console.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to send shortcut message'),
+        'Connection error'
+      );
+
+      console.warn = originalWarn;
+      mockChrome.runtime.lastError = null;
+    });
+
+    test('當 Bundle 已就緒時不應該緩衝快捷鍵事件', () => {
+      globalThis.__NOTION_BUNDLE_READY__ = true;
+      runPreloader();
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+      document.dispatchEvent(event);
+
+      const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
+      callback({ success: true });
+
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+      onMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith({ events: [] });
+
+      delete globalThis.__NOTION_BUNDLE_READY__;
+    });
+  });
+
+  describe('Message Handling', () => {
+    test('應該正確執行 INIT_BUNDLE', () => {
+      runPreloader();
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+
+      onMessage({ action: 'INIT_BUNDLE' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ ready: true }));
+    });
+
+    test('應該正確執行 REPLAY_BUFFERED_EVENTS', () => {
+      runPreloader();
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+
+      onMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ events: expect.any(Array) })
+      );
+    });
+
+    test('PING 應該在 Bundle 未準備好時響應', () => {
+      runPreloader();
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+
+      onMessage({ action: 'PING' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'preloader_only' })
+      );
+    });
+
+    test('PING 不應該在 Bundle 已就緒時響應', () => {
+      globalThis.__NOTION_BUNDLE_READY__ = true;
+      runPreloader();
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+
+      const handled = onMessage({ action: 'PING' }, {}, sendResponse);
+      expect(handled).toBe(false);
+      expect(sendResponse).not.toHaveBeenCalled();
+    });
   });
 });

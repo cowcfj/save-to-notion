@@ -28,7 +28,7 @@ describe('Content Script PING Handler', () => {
     };
 
     // Mock document methods
-    document.querySelector = jest.fn();
+    jest.spyOn(document, 'querySelector').mockImplementation(() => null);
 
     // Load module
     // We use require to force execution of the top-level code (like addListener)
@@ -41,17 +41,6 @@ describe('Content Script PING Handler', () => {
     delete globalThis.__NOTION_PRELOADER_CACHE__;
     delete globalThis.__NOTION_BUNDLE_READY__;
     delete globalThis.chrome;
-    // Restore document.querySelector if it was mocked on the object itself
-    // However, since we used jest.fn(), usually jest.restoreAllMocks() is enough IF we used spyOn
-    // But here we assigned directly. So we should restore it?
-    // JSDOM document.querySelector is native code.
-    // Better to use jest.spyOn in future, but for now let's just restore usage.
-    // Actually, JSDOM environment resets document between test files but NOT between tests in same file?
-    // No, Jest resets module registry but globals like document depend on environment.
-    // Let's safe-guard by just resetting the mock implementation if it's a mock.
-    if (document.querySelector.mockReset) {
-      document.querySelector.mockReset();
-    }
     jest.restoreAllMocks();
   });
 
