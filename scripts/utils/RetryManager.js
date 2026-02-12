@@ -367,9 +367,15 @@ class RetryManager {
    * @param {Error} error - 最終錯誤
    * @param {number} totalRetries - 總重試次數
    * @param {string} contextType - 上下文類型
+   * @param {object} [options] - 其他選項 (例如 shouldLogFailure)
    */
-  static _logRetryFailure(error, totalRetries, contextType = 'network') {
+  static _logRetryFailure(error, totalRetries, contextType = 'network', options = {}) {
     const logger = getLogger();
+
+    // 如果提供了 shouldLogFailure 且返回 false，則不記錄錯誤日誌
+    if (typeof options.shouldLogFailure === 'function' && !options.shouldLogFailure(error)) {
+      return;
+    }
     const msg = String(error?.message || '');
     const message = `[重試] 失敗（${contextType}），共重試 ${totalRetries} 次：${msg}`;
 
@@ -463,7 +469,7 @@ class RetryManager {
   }
 
   _recordFailureContext(error, attempt, config, totalDelayMs) {
-    RetryManager._logRetryFailure(error, attempt - 1, config.contextType);
+    RetryManager._logRetryFailure(error, attempt - 1, config.contextType, config);
     this._lastStats = {
       lastTotalRetries: attempt - 1,
       lastTotalDelayMs: totalDelayMs,
@@ -488,7 +494,7 @@ class RetryManager {
       if (elapsed + delay > config.totalTimeoutMs) {
         const timeoutErr = new Error('重試總時長已超時');
         timeoutErr.name = 'TimeoutError';
-        RetryManager._logRetryFailure(timeoutErr, attempt - 1, config.contextType);
+        RetryManager._logRetryFailure(timeoutErr, attempt - 1, config.contextType, config);
         throw timeoutErr;
       }
     }

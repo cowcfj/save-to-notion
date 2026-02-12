@@ -6,14 +6,16 @@ import { MigrationService } from '../../../../scripts/background/services/Migrat
 
 // Mock dependencies
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  Logger: {
+  __esModule: true,
+  default: {
     info: jest.fn(),
     error: jest.fn(),
     warn: jest.fn(),
+    log: jest.fn(),
   },
 }));
 
-jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
   sanitizeUrlForLogging: jest.fn(url => `safe://${url}`),
 }));
 
@@ -33,8 +35,29 @@ describe('MigrationService', () => {
       getHighlights: jest.fn(),
     };
 
-    mockTabService = {};
-    mockInjectionService = {};
+    mockTabService = {
+      _waitForTabLoad: jest.fn(),
+    };
+    mockInjectionService = {
+      injectAndExecute: jest.fn(),
+      injectWithResponse: jest.fn(),
+    };
+
+    globalThis.chrome = {
+      tabs: {
+        query: jest.fn(),
+        create: jest.fn(),
+        remove: jest.fn().mockResolvedValue(),
+        get: jest.fn(),
+        onUpdated: {
+          addListener: jest.fn(),
+          removeListener: jest.fn(),
+        },
+      },
+      runtime: {
+        lastError: null,
+      },
+    };
 
     service = new MigrationService(mockStorageService, mockTabService, mockInjectionService);
   });

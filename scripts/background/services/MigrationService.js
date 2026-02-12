@@ -1,5 +1,5 @@
-import { Logger } from '../../utils/Logger.js';
-import { sanitizeUrlForLogging } from '../../utils/urlUtils.js';
+import Logger from '../../utils/Logger.js';
+import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 
 export class MigrationService {

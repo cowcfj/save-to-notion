@@ -183,6 +183,7 @@ class NotionService {
       baseDelay,
       shouldRetry: error => this._isNotionRetriableError(error),
       contextType: label,
+      shouldLogFailure: options.shouldLogFailure,
     });
   }
 
@@ -386,6 +387,10 @@ class NotionService {
           maxRetries: this.config.CHECK_RETRIES,
           baseDelay: this.config.CHECK_DELAY,
           label: 'CheckPage',
+          shouldLogFailure: error => {
+            // 404 or object_not_found is expected result (page deleted), so apply silent failure
+            return error.status !== 404 && error.code !== 'object_not_found';
+          },
         }
       );
 
