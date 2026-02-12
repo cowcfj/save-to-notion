@@ -2,9 +2,8 @@ import { Logger } from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/urlUtils.js';
 
 export class MigrationService {
-  constructor(storageService, notionService, tabService, injectionService) {
+  constructor(storageService, tabService, injectionService) {
     this.storageService = storageService;
-    this.notionService = notionService;
     this.tabService = tabService;
     this.injectionService = injectionService;
   }

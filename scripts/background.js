@@ -64,12 +64,7 @@ const tabService = new TabService({
   setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
 });
 
-const migrationService = new MigrationService(
-  storageService,
-  notionService,
-  tabService,
-  injectionService
-);
+const migrationService = new MigrationService(storageService, tabService, injectionService);
 
 // Create and Register Action Handlers
 const actionHandlers = {

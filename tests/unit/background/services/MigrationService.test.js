@@ -21,7 +21,6 @@ jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
 describe('MigrationService', () => {
   let service;
   let mockStorageService;
-  let mockNotionService;
   let mockTabService;
   let mockInjectionService;
 
@@ -34,16 +33,10 @@ describe('MigrationService', () => {
       clearPageState: jest.fn(),
     };
 
-    mockNotionService = {};
     mockTabService = {};
     mockInjectionService = {};
 
-    service = new MigrationService(
-      mockStorageService,
-      mockNotionService,
-      mockTabService,
-      mockInjectionService
-    );
+    service = new MigrationService(mockStorageService, mockTabService, mockInjectionService);
   });
 
   describe('migrateStorageKey', () => {
