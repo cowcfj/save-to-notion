@@ -62,6 +62,29 @@ class StorageService {
   }
 
   /**
+   * 獲取頁面標註數據
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @returns {Promise<any | null>}
+   */
+  async getHighlights(pageUrl) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const key = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+    try {
+      const result = await this.storage.local.get([key]);
+      return result[key] || null;
+    } catch (error) {
+      this.logger.error?.('[StorageService] getHighlights failed', { error });
+      throw error;
+    }
+  }
+
+  /**
    * 設置頁面保存狀態
    *
    * @param {string} pageUrl - 頁面 URL

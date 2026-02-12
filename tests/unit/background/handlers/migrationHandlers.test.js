@@ -66,7 +66,12 @@ describe('migrationHandlers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockServices = {}; // 目前 migrationHandlers 不依賴具體 services
+    mockServices = {
+      migrationService: {
+        executeContentMigration: jest.fn(),
+      },
+      // ...other services if needed
+    };
     handlers = createMigrationHandlers(mockServices);
   });
 
@@ -98,8 +103,8 @@ describe('migrationHandlers', () => {
         await handlers.migration_execute(request, sender, sendResponse);
 
         // 正面斷言：驗證成功路徑被執行
-        // 如果安全性檢查通過，應該會調用 storage.local.get 來查詢數據
-        expect(chrome.storage.local.get).toHaveBeenCalled();
+        // 如果安全性檢查通過，應該會調用 executeContentMigration
+        expect(mockServices.migrationService.executeContentMigration).toHaveBeenCalled();
 
         // 負面斷言：確認沒有返回拒絕訪問錯誤
         expect(sendResponse).not.toHaveBeenCalledWith(
@@ -280,101 +285,43 @@ describe('migrationHandlers', () => {
     });
   });
 
-  describe('migration_execute (Unit Mock)', () => {
-    test('應該處理無數據需要遷移的情況', async () => {
-      const url = 'https://example.com/empty';
-      const sendResponse = jest.fn();
-      chrome.storage.local.get.mockResolvedValue({});
+  describe('migration_execute (Delegation to Service)', () => {
+    const request = { url: 'https://example.com' };
 
-      await handlers.migration_execute({ url }, defaultSender, sendResponse);
+    test('應該將請求委託給 MigrationService', async () => {
+      const sendResponse = jest.fn();
+      const expectedResult = { success: true, count: 5 };
+
+      // Mock service method
+      mockServices.migrationService.executeContentMigration.mockResolvedValue(expectedResult);
+
+      // Execute handler
+      await handlers.migration_execute(request, defaultSender, sendResponse);
+
+      // Verify service call
+      expect(mockServices.migrationService.executeContentMigration).toHaveBeenCalledWith(
+        request,
+        defaultSender
+      );
+
+      // Verify response
+      expect(sendResponse).toHaveBeenCalledWith(expectedResult);
+    });
+
+    test('應該處理 MigrationService 拋出的錯誤', async () => {
+      const sendResponse = jest.fn();
+      const errorMsg = 'Service Failure';
+
+      mockServices.migrationService.executeContentMigration.mockRejectedValue(new Error(errorMsg));
+
+      await handlers.migration_execute(request, defaultSender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ message: '無數據需要遷移' })
+        expect.objectContaining({
+          success: false,
+          error: expect.stringContaining('發生未知錯誤'), // sanitizes error
+        })
       );
-    });
-
-    test('應該處理分頁加載成功後的腳本注入流程', async () => {
-      const url = 'https://example.com/full';
-      const sendResponse = jest.fn();
-
-      // 1. Storage 有數據
-      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: [{ id: '1' }] });
-
-      // 2. Mock Tab 操作
-      chrome.tabs.query.mockResolvedValue([]); // 無現成分頁
-      chrome.tabs.create.mockResolvedValue({ id: 999 });
-      chrome.tabs.get.mockResolvedValue({ id: 999, status: 'complete' });
-
-      // 3. Mock Scripting
-      chrome.scripting.executeScript.mockResolvedValueOnce([]); // 注入檔案
-      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { ready: true } }]); // 準備就緒檢查
-      chrome.scripting.executeScript.mockResolvedValueOnce([
-        {
-          result: { statistics: { newHighlightsCreated: 5 } },
-        },
-      ]); // 執行遷移
-
-      await handlers.migration_execute({ url }, defaultSender, sendResponse);
-
-      expect(chrome.tabs.create).toHaveBeenCalled();
-      expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(3);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, count: 5 })
-      );
-      expect(chrome.tabs.remove).toHaveBeenCalledWith(999);
-    });
-
-    test('應該優雅處理分頁清理失敗', async () => {
-      const url = 'https://example.com/cleanup-fail';
-      const sendResponse = jest.fn();
-
-      // Ensure data exists so logic proceeds to tab creation
-      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: [{ id: '1' }] });
-      chrome.tabs.query.mockResolvedValue([]); // Force create new tab
-
-      chrome.tabs.create.mockResolvedValue({ id: 888 });
-      chrome.tabs.get.mockResolvedValue({ id: 888, status: 'complete' });
-
-      // Mock cleanup failure
-      chrome.tabs.remove.mockRejectedValue(new Error('Tab closed'));
-
-      // Mock executeScript to avoid errors during execution phase causing early exit before cleanup
-      // Inject:
-      chrome.scripting.executeScript.mockResolvedValueOnce([]);
-      // Ready check:
-      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { ready: true } }]);
-      // Execute:
-      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { success: true } }]);
-
-      await handlers.migration_execute({ url }, defaultSender, sendResponse);
-
-      // 驗證即使清理失敗，主流程也是成功的
-      // 重點是代碼執行沒有崩潰
-      expect(chrome.tabs.remove).toHaveBeenCalledWith(888);
-      expect(sendResponse).toHaveBeenCalled();
-    });
-
-    test('應該處理腳本就緒檢查時的錯誤', async () => {
-      const url = 'https://example.com/script-fail';
-      const sendResponse = jest.fn();
-
-      chrome.storage.local.get.mockResolvedValue({ [`highlights_${url}`]: [{ id: '1' }] });
-      chrome.tabs.query.mockResolvedValue([{ id: 777 }]); // Use existing tab
-
-      // Inject script success
-      chrome.scripting.executeScript.mockResolvedValueOnce([]);
-
-      // ready check fails once then succeeds
-      chrome.scripting.executeScript.mockRejectedValueOnce(new Error('Context invalid'));
-      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { ready: true } }]);
-
-      // migrate succeeds
-      chrome.scripting.executeScript.mockResolvedValueOnce([{ result: { success: true } }]);
-
-      await handlers.migration_execute({ url }, defaultSender, sendResponse);
-
-      expect(chrome.scripting.executeScript).toHaveBeenCalledTimes(4); // Inject + 2 checks + execute
-      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
   });
 });
