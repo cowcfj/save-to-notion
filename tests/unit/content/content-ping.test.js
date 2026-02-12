@@ -45,16 +45,9 @@ describe('Content Script PING Handler', () => {
   });
 
   test('PING 應該返回 shortlink 和 nextRouteInfo', () => {
-    // Setup DOM mocks
-    document.querySelector.mockImplementation(selector => {
-      if (selector === 'link[rel="shortlink"]') {
-        return { href: 'https://example.com/?p=7741' };
-      }
-      if (selector === '#__NEXT_DATA__') {
-        return { textContent: JSON.stringify({ page: '/test', query: { id: '1' } }) };
-      }
-      return null;
-    });
+    // Setup Preloader Cache
+    globalThis.__NOTION_PRELOADER_CACHE__.nextRouteInfo = { page: '/test', query: { id: '1' } };
+    globalThis.__NOTION_PRELOADER_CACHE__.shortlink = 'https://example.com/?p=7741';
 
     const sendResponse = jest.fn();
     const result = messageHandler({ action: 'PING' }, {}, sendResponse);
@@ -65,61 +58,6 @@ describe('Content Script PING Handler', () => {
         status: 'bundle_ready',
         shortlink: 'https://example.com/?p=7741',
         nextRouteInfo: { page: '/test', query: { id: '1' } },
-      })
-    );
-  });
-
-  test('PING 應該處理無效的 Next.js JSON 並返回 null', () => {
-    // Setup DOM with invalid JSON
-    document.querySelector.mockImplementation(selector => {
-      if (selector === '#__NEXT_DATA__') {
-        return { textContent: '{ invalid json' };
-      }
-      return null;
-    });
-
-    const sendResponse = jest.fn();
-    messageHandler({ action: 'PING' }, {}, sendResponse);
-
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        nextRouteInfo: null,
-      })
-    );
-  });
-
-  test('PING 應該處理無效的 NextJS 數據', () => {
-    document.querySelector.mockImplementation(selector => {
-      if (selector === '#__NEXT_DATA__') {
-        return { textContent: 'invalid json' };
-      }
-      return null;
-    });
-
-    const sendResponse = jest.fn();
-    messageHandler({ action: 'PING' }, {}, sendResponse);
-
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        nextRouteInfo: null,
-      })
-    );
-  });
-
-  test('PING 應該處理過大的 NextJS 數據', () => {
-    document.querySelector.mockImplementation(selector => {
-      if (selector === '#__NEXT_DATA__') {
-        return { textContent: 'a'.repeat(1_048_577) };
-      }
-      return null;
-    });
-
-    const sendResponse = jest.fn();
-    messageHandler({ action: 'PING' }, {}, sendResponse);
-
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        nextRouteInfo: null,
       })
     );
   });

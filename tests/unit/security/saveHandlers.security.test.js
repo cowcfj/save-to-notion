@@ -26,6 +26,19 @@ const mockPageContentService = {
   extractContent: jest.fn().mockResolvedValue({ title: 'Test Page', blocks: [] }),
 };
 
+const mockTabService = {
+  getPreloaderData: jest.fn().mockResolvedValue(null),
+  resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
+    stableUrl: url,
+    originalUrl: url,
+    migrated: false,
+  })),
+};
+
+const mockMigrationService = {
+  migrateStorageKey: jest.fn().mockResolvedValue(false),
+};
+
 // Security Utils Mock
 jest.mock('../../../scripts/utils/securityUtils.js', () => ({
   validateInternalRequest: jest.fn(),
@@ -44,11 +57,19 @@ describe('saveHandlers Security Verification', () => {
 
   beforeEach(() => {
     originalChrome = globalThis.chrome;
+    mockNotionService.createPage.mockResolvedValue({
+      success: true,
+      pageId: 'test-page-id',
+      url: 'https://notion.so/test-page-id',
+    });
+    mockNotionService.checkPageExists.mockResolvedValue(false);
     handlers = createSaveHandlers({
       notionService: mockNotionService,
       storageService: mockStorageService,
       injectionService: mockInjectionService,
       pageContentService: mockPageContentService,
+      tabService: mockTabService,
+      migrationService: mockMigrationService,
     });
 
     jest.clearAllMocks();
@@ -115,17 +136,20 @@ describe('saveHandlers Security Verification', () => {
 
       await handlers.savePage(request, sender, sendResponse);
 
-      // Verify createPage was called with TRUSTED_STORAGE_KEY
+      const callArgs = mockNotionService.createPage.mock.calls[0]?.[1];
+
+      if (callArgs) {
+        expect(callArgs.apiKey).not.toBe('MALICIOUS_INJECTED_KEY');
+      } else {
+        // If createPage wasn't called, the test will fail below at expect(...).toHaveBeenCalledWith
+        // but we can log unexpected responses here if needed
+      }
       expect(mockNotionService.createPage).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
           apiKey: 'TRUSTED_STORAGE_KEY',
         })
       );
-
-      // Verify it was NOT called with malicious key
-      const callArgs = mockNotionService.createPage.mock.calls[0][1];
-      expect(callArgs.apiKey).not.toBe('MALICIOUS_INJECTED_KEY');
     });
   });
 });

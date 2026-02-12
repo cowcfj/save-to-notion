@@ -114,6 +114,8 @@ describe('actionHandlers 覆蓋率補強', () => {
   let mockStorageService = null;
   let mockInjectionService = null;
   let mockPageContentService = null;
+  let mockTabService = null;
+  let mockMigrationService = null;
   let handlers = null;
   const internalSender = { id: 'mock-ext-id' };
   const csSender = { id: 'mock-ext-id', tab: { id: 1 } };
@@ -162,23 +164,38 @@ describe('actionHandlers 覆蓋率補強', () => {
       extractContent: jest.fn(),
     };
 
-    // Manually aggregate handlers to mimic background.js behavior
+    mockTabService = {
+      getPreloaderData: jest.fn().mockResolvedValue(null),
+      resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
+        stableUrl: url,
+        originalUrl: url,
+        migrated: false,
+      })),
+    };
+
+    mockMigrationService = {
+      migrateStorageKey: jest.fn().mockResolvedValue(false),
+    };
+
     handlers = {
       ...createSaveHandlers({
         notionService: mockNotionService,
         storageService: mockStorageService,
         injectionService: mockInjectionService,
         pageContentService: mockPageContentService,
+        tabService: mockTabService,
+        migrationService: mockMigrationService,
       }),
       ...createHighlightHandlers({
         notionService: mockNotionService,
         storageService: mockStorageService,
         injectionService: mockInjectionService,
+        tabService: mockTabService,
+        migrationService: mockMigrationService,
       }),
       ...createMigrationHandlers({
         notionService: mockNotionService,
         storageService: mockStorageService,
-        // migrationHandlers 不需要 injectionService 參數
       }),
     };
   });

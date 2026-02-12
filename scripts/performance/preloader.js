@@ -2,7 +2,7 @@
  * Preloader - 極輕量預載器
  *
  * 職責：
- * 1. 監聯快捷鍵 (Ctrl+S / Cmd+S)
+ * 1. 監聽快捷鍵 (Ctrl+S / Cmd+S)
  * 2. 接收 Background 訊息
  * 3. 輕量預熱（快取 article 節點）
  * 4. 與主 Bundle 橋接

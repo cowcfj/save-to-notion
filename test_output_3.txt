@@ -1,0 +1,734 @@
+
+> notion-smart-clipper@2.31.1 test
+> jest --config jest.config.js
+
+FAIL tests/unit/background/handlers/highlightHandlers.test.js
+  ● highlightHandlers › Coverage Improvements (Extended) › should use original URL if stable URL data not found (Double Check logic)
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 2
+    Received number of calls: 1
+
+      303 |       await handlers.updateHighlights({ highlights: [] }, sender, sendResponse);
+      304 |
+    > 305 |       expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(2);
+          |                                                            ^
+      306 |       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+      307 |     });
+      308 |
+
+      at Object.toHaveBeenCalledTimes (tests/unit/background/handlers/highlightHandlers.test.js:305:60)
+
+FAIL tests/unit/background/background-errors.integration.test.js
+  ● background error branches (integration) › savePage：Notion API image validation_error 觸發自動重試（排除圖片）→ 成功
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      537 |       console.log('Failed Response Error:', resp.error);
+      538 |     }
+    > 539 |     expect(resp.success).toBe(true);
+          |                          ^
+      540 |     // 可存在 warning（All images were skipped...），但不強制檢查文案
+      541 |
+      542 |     jest.useRealTimers();
+
+      at Object.toBe (tests/unit/background/background-errors.integration.test.js:539:26)
+
+FAIL tests/unit/background/handlers/saveHandlers.test.js
+  ● saveHandlers › Action Logic › savePage: 新頁面應創建成功
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      225 |       expect(mockServices.injectionService.injectHighlighter).toHaveBeenCalled();
+      226 |       expect(mockServices.pageContentService.extractContent).toHaveBeenCalled();
+    > 227 |       expect(mockServices.notionService.createPage).toHaveBeenCalled();
+          |                                                     ^
+      228 |       expect(sendResponse).toHaveBeenCalledWith(
+      229 |         expect.objectContaining({ success: true, created: true })
+      230 |       );
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/saveHandlers.test.js:227:53)
+
+  ● saveHandlers › Action Logic › savePage: 已有頁面且有新標註，應更新標註
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      242 |       await handlers.savePage({}, validSender, sendResponse);
+      243 |
+    > 244 |       expect(mockServices.notionService.updateHighlightsSection).toHaveBeenCalled();
+          |                                                                  ^
+      245 |       expect(sendResponse).toHaveBeenCalledWith(
+      246 |         expect.objectContaining({ highlightsUpdated: true })
+      247 |       );
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/saveHandlers.test.js:244:66)
+
+  ● saveHandlers › Action Logic › savePage: 已有頁面且無新標註，應刷新內容
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      259 |       await handlers.savePage({}, validSender, sendResponse);
+      260 |
+    > 261 |       expect(mockServices.notionService.refreshPageContent).toHaveBeenCalled();
+          |                                                             ^
+      262 |       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
+      263 |     });
+      264 |
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/saveHandlers.test.js:261:61)
+
+  ● saveHandlers › Data Migration (Move & Delete) › checkPageStatus: 應檢測到舊數據並遷移至新 Key
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "https://example.com/stable", "https://example.com/legacy"
+
+    Number of calls: 0
+
+      529 |
+      530 |       // Expect MigrationService to be called
+    > 531 |       expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
+          |                                                               ^
+      532 |         stableUrl,
+      533 |         legacyUrl
+      534 |       );
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/saveHandlers.test.js:531:63)
+
+  ● saveHandlers › Data Migration (Move & Delete) › savePage: 保存流程中也應觸發遷移
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "https://example.com/stable", "https://example.com/legacy"
+
+    Number of calls: 0
+
+      552 |       await handlers.savePage({}, sender, sendResponse);
+      553 |
+    > 554 |       expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
+          |                                                               ^
+      555 |         stableUrl,
+      556 |         legacyUrl
+      557 |       );
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/saveHandlers.test.js:554:63)
+
+  ● saveHandlers › Notion Page Deletion Handling › checkPageStatus 應在 Notion 頁面已刪除時清理本地狀態
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: {"tabId": 1, "text": ""}
+
+    Number of calls: 0
+
+      671 |
+      672 |       expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
+    > 673 |       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
+          |                                          ^
+      674 |       expect(sendResponse).toHaveBeenCalledWith(
+      675 |         expect.objectContaining({
+      676 |           success: true,
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/saveHandlers.test.js:673:42)
+
+FAIL tests/unit/security/saveHandlers.security.test.js
+  ● saveHandlers Security Verification › savePage › should use API Key from Storage, NOT from request params
+
+    savePage failed with: {"success":false,"error":"操作失敗，請稍後再試。如問題持續，請查看擴充功能設置"}
+
+      145 |         const failure = responseMatches.find(r => r && r.success === false);
+      146 |         if (failure) {
+    > 147 |           throw new Error(`savePage failed with: ${JSON.stringify(failure)}`);
+          |                 ^
+      148 |         }
+      149 |         throw new Error(
+      150 |           `createPage NOT called. sendResponse calls: ${JSON.stringify(responseMatches)}`
+
+      at Object.<anonymous> (tests/unit/security/saveHandlers.security.test.js:147:17)
+
+FAIL tests/unit/content/content-index.test.js
+  ● Content Script Entry (index.js) › Message Handlers & Side Effects › PING 應該返回正確的元數據
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"nextRouteInfo": ObjectContaining {"page": "/p1"}, "shortlink": "https://wp.me/p1", "status": "bundle_ready"}
+    Received: {"hasPreloaderCache": false, "nextRouteInfo": null, "shortlink": null, "status": "bundle_ready"}
+
+    Number of calls: 1
+
+      83 |       messageHandler({ action: 'PING' }, {}, sendResponse);
+      84 |
+    > 85 |       expect(sendResponse).toHaveBeenCalledWith(
+         |                            ^
+      86 |         expect.objectContaining({
+      87 |           status: 'bundle_ready',
+      88 |           shortlink: 'https://wp.me/p1',
+
+      at Object.toHaveBeenCalledWith (tests/unit/content/content-index.test.js:85:28)
+
+FAIL tests/unit/background/handlers/actionHandlers.coverage.test.js
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 新頁面：應該調用 createPage
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      324 |       await handlers.savePage({}, internalSender, sendResponse);
+      325 |
+    > 326 |       expect(mockNotionService.createPage).toHaveBeenCalled();
+          |                                            ^
+      327 |       expect(mockStorageService.setSavedPageData).toHaveBeenCalledWith(
+      328 |         'https://example.com',
+      329 |         expect.objectContaining({ notionPageId: 'new-page-id' })
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/actionHandlers.coverage.test.js:326:44)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 已有頁面：有新標註時應該調用 updateHighlightsSection
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "existing-id", Any<Array>, {"apiKey": "secret-key"}
+
+    Number of calls: 0
+
+      344 |       await handlers.savePage({}, internalSender, sendResponse);
+      345 |
+    > 346 |       expect(mockNotionService.updateHighlightsSection).toHaveBeenCalledWith(
+          |                                                         ^
+      347 |         'existing-id',
+      348 |         expect.any(Array),
+      349 |         { apiKey: 'secret-key' }
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/actionHandlers.coverage.test.js:346:57)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 已有頁面：無新標註時應該調用 refreshPageContent
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      364 |       await handlers.savePage({}, internalSender, sendResponse);
+      365 |
+    > 366 |       expect(mockNotionService.refreshPageContent).toHaveBeenCalled();
+          |                                                    ^
+      367 |       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
+      368 |     });
+      369 |
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/actionHandlers.coverage.test.js:366:52)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 已有頁面但 Notion 中已刪除：應該重新創建頁面
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      377 |       await handlers.savePage({}, internalSender, sendResponse);
+      378 |
+    > 379 |       expect(mockStorageService.clearPageState).toHaveBeenCalled();
+          |                                                 ^
+      380 |       expect(mockNotionService.createPage).toHaveBeenCalled();
+      381 |       expect(sendResponse).toHaveBeenCalledWith(
+      382 |         expect.objectContaining({ created: true, recreated: true })
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/actionHandlers.coverage.test.js:379:49)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 檢查頁面存在性失敗時應報錯
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"error": "檢查頁面狀態時發生網路錯誤或服務不可用，請稍後再試。", "success": false}
+    Received: {"error": "操作失敗，請稍後再試。如問題持續，請查看擴充功能設置", "success": false}
+
+    Number of calls: 1
+
+      390 |
+      391 |       await handlers.savePage({}, internalSender, sendResponse);
+    > 392 |       expect(sendResponse).toHaveBeenCalledWith(
+          |                            ^
+      393 |         expect.objectContaining({
+      394 |           success: false,
+      395 |           error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/actionHandlers.coverage.test.js:392:28)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 頁面已刪除時應清理狀態並重新創建
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      410 |       await handlers.savePage({}, internalSender, sendResponse);
+      411 |
+    > 412 |       expect(mockStorageService.clearPageState).toHaveBeenCalled();
+          |                                                 ^
+      413 |       expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
+      414 |       expect(sendResponse).toHaveBeenCalledWith(
+      415 |         expect.objectContaining({ created: true, recreated: true })
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/actionHandlers.coverage.test.js:412:49)
+
+PASS tests/unit/performance/PerformanceOptimizer.comprehensive.test.js (14.851 s)
+PASS tests/unit/background/services/TabService.test.js (6.625 s)
+PASS tests/unit/background.notionApi.test.js
+PASS tests/unit/pageComplexityDetector.test.js (5.223 s)
+PASS tests/unit/background/services/ImageService.test.js
+PASS tests/unit/background/notion-api.test.js
+PASS tests/unit/utils/RetryManager.comprehensive.test.js
+PASS tests/unit/background/background-exports.test.js
+PASS tests/unit/backgroundUtils.test.js
+PASS tests/unit/content/content-script.require.test.js
+PASS tests/unit/content/content-script.integration.test.js
+PASS tests/unit/background/services/NotionService.test.js
+PASS tests/unit/popup.test.js
+PASS tests/unit/content/extractors/ReadabilityAdapter.extended.test.js
+PASS tests/unit/options/StorageManager.test.js
+PASS tests/unit/highlighter/ui/Toolbar_coverage.test.js
+(node:79668) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS tests/unit/utils/urlUtils.test.js
+PASS tests/unit/content/cms-extraction.test.js
+PASS tests/unit/imageExtraction/imageUtils.test.js
+PASS tests/unit/content/extractors/NextJsExtractor.test.js
+PASS tests/unit/highlighter/highlight-interactions.test.js
+PASS tests/unit/highlighter/core/StyleManager.test.js
+PASS tests/integration/highlighter.integration.test.js
+PASS tests/unit/background/tab-listeners.test.js
+PASS tests/unit/utils/securityUtils.test.js
+PASS tests/unit/options/DataSourceManager.test.js
+PASS tests/unit/storageUtil.test.js
+PASS tests/unit/performance/PerformanceOptimizer.test.js
+PASS tests/unit/highlighter/highlighter-path-compression.test.js
+PASS tests/unit/background/notion-page-operations.test.js
+PASS tests/unit/performance/PerformanceOptimizerAdvanced.test.js
+PASS tests/unit/options/AuthManager.test.js
+PASS tests/unit/background.imageUtils.test.js
+PASS tests/unit/background/handlers/MessageHandler.test.js
+PASS tests/unit/highlighter/core/HighlightManager.test.js
+PASS tests/unit/imageUtils.utils.test.js
+PASS tests/unit/options/options.test.js
+  ● Console
+
+    console.error
+      Error: Not implemented: navigation (except hash changes)
+          at module.exports (/Volumes/WD1TMac/code/notion-chrome/node_modules/jest-environment-jsdom/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+          at navigateFetch (/Volumes/WD1TMac/code/notion-chrome/node_modules/jest-environment-jsdom/node_modules/jsdom/lib/jsdom/living/window/navigation.js:77:3)
+          at exports.navigate (/Volumes/WD1TMac/code/notion-chrome/node_modules/jest-environment-jsdom/node_modules/jsdom/lib/jsdom/living/window/navigation.js:55:3)
+          at Timeout._onTimeout (/Volumes/WD1TMac/code/notion-chrome/node_modules/jest-environment-jsdom/node_modules/jsdom/lib/jsdom/living/nodes/HTMLHyperlinkElementUtils-impl.js:80:7)
+          at listOnTimeout (node:internal/timers:605:17)
+          at processTimers (node:internal/timers:541:7) {
+        type: 'not implemented'
+      }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:91:27)
+
+PASS tests/unit/options/UIManager.test.js
+PASS tests/unit/background/utils/BlockBuilder.test.js
+PASS tests/unit/content/extractors/ReadabilityAdapter.test.js
+PASS tests/unit/options/SearchableDatabaseSelector.test.js
+PASS tests/unit/performance/PerformanceOptimizer.batchProcessing.test.js
+PASS tests/unit/imageUtils.boundary.test.js
+PASS tests/unit/options/StorageManager_coverage.test.js
+PASS tests/unit/content/extractors/MetadataExtractor.test.js
+PASS tests/unit/options/MigrationTool.test.js
+PASS tests/unit/highlighter/highlighter-index.test.js
+PASS tests/unit/content/converters/DomConverter.coverage.test.js
+PASS tests/unit/utils/Logger.test.js
+PASS tests/unit/content/extractors/ContentExtractor.test.js
+PASS tests/unit/highlighter/utils/dom.coverage.test.js
+PASS tests/unit/popup/popupUI.test.js
+PASS tests/unit/highlighter/utils/validation.test.js
+PASS tests/unit/background/core-functions.test.js
+PASS tests/unit/background/handlers/migrationHandlers.test.js
+PASS tests/unit/background/image-processing.test.js
+PASS tests/unit/highlighter/utils/validation.coverage.test.js
+PASS tests/unit/highlighter/utils/StorageUtil.extended.test.js
+PASS tests/unit/highlighter/core/HighlightMigration.test.js
+PASS tests/unit/highlighter/ui/components/ColorPicker.test.js
+PASS tests/unit/background/update-highlights.test.js
+PASS tests/unit/background/notification-handlers.test.js
+PASS tests/unit/highlighter/utils/color.test.js
+PASS tests/unit/highlighter/core/Range.coverage.test.js
+PASS tests/unit/legacy/MigrationExecutor.test.js
+PASS tests/unit/highlighter/ui/components/HighlightList.test.js
+PASS tests/unit/content/extractors/ImageCollector.test.js
+PASS tests/unit/background/services/StorageService.test.js
+PASS tests/unit/background/services/InjectionService.test.js
+PASS tests/unit/utils/RetryManager.test.js
+PASS tests/unit/utils/LogBuffer.test.js
+PASS tests/unit/highlighter/highlighter-storage-optimization.test.js
+PASS tests/unit/highlighter/highlighter-dom-stability.test.js
+PASS tests/unit/background/services/PageContentService.test.js
+PASS tests/unit/config/patterns.test.js
+PASS tests/unit/highlighter/utils/textSearch.coverage.test.js
+PASS tests/unit/highlighter/core/HighlightStorage.test.js
+PASS tests/unit/utils.dateFormat.test.js
+PASS tests/unit/content/converters/DomConverterNestedLinks.test.js
+PASS tests/unit/content/converters/DomConverter.test.js
+PASS tests/unit/popup/popupController.test.js
+PASS tests/unit/background/extension-lifecycle.test.js
+PASS tests/unit/background/background-require.integration.test.js
+PASS tests/unit/utils.templateVars.test.js
+PASS tests/unit/highlighter/ui/Toolbar_list.test.js
+PASS tests/unit/highlighter/utils/path.coverage.test.js
+PASS tests/unit/background/handlers/notionHandlers.test.js
+PASS tests/unit/logger.test.js
+PASS tests/unit/utils/ErrorHandler.formatUserMessage.test.js
+PASS tests/unit/background/storage-operations.test.js
+PASS tests/unit/background.test.js
+PASS tests/unit/coverage/ImageUtilsCoverage.test.js
+PASS tests/unit/content/content-ping.test.js
+PASS tests/unit/utils.clearHighlights.improved.test.js
+PASS tests/unit/content/extractors/ReadabilityAdapter.smartCleaning.test.js
+PASS tests/unit/content/converters/ContentBridge.test.js
+PASS tests/unit/performance/preloader.test.js
+PASS tests/unit/splitTextForHighlight.test.js
+PASS tests/unit/utils/LogSanitizer.test.js
+PASS tests/unit/content/isContentGood.test.js
+PASS tests/unit/background/message-handlers.test.js
+PASS tests/unit/highlighter/utils/path.test.js
+PASS tests/unit/highlighter/utils/dom.test.js
+PASS tests/unit/coverage/ContentServiceCoverage.test.js
+PASS tests/unit/normalizeUrl.test.js
+PASS tests/unit/highlighter/ui/ToolbarState.test.js
+PASS tests/unit/background/services/MigrationService.test.js
+PASS tests/unit/popup/popupActions.test.js
+PASS tests/unit/highlighter/utils/domStability.coverage.test.js
+PASS tests/unit/config/constants.test.js
+PASS tests/unit/highlighter/ui/Toolbar_init.test.js
+PASS tests/unit/highlighter/ui/Toolbar_actions.test.js
+PASS tests/unit/background/exportDebugLogs.test.js
+PASS tests/unit/utils/ErrorHandler.comprehensive.test.js
+PASS tests/unit/options/MigrationScanner.test.js
+PASS tests/unit/coverage/ContentCoverage.test.js
+PASS tests/unit/background/background-state.test.js
+PASS tests/unit/highlighter/core/Range.test.js
+PASS tests/unit/utils/RetryManager_Security.test.js
+PASS tests/unit/config/env.test.js
+PASS tests/unit/highlighter/ui/components/HighlightList.security.test.js
+PASS tests/unit/highlighter/core/HighlightInteraction.test.js
+PASS tests/unit/performance/PerformanceOptimizer.extra.test.js
+PASS tests/unit/highlighter/utils/textSearch.test.js
+PASS tests/unit/utils/LogExporter.test.js
+PASS tests/unit/logger.advanced.test.js
+PASS tests/unit/options/DataSourceManagerError.test.js
+PASS tests/unit/highlighter/utils/domStability.test.js
+PASS tests/unit/background/handlers/notionHandlers_params.test.js
+PASS tests/unit/background/handlers/logHandlers.test.js
+PASS tests/unit/background/services/NotionService_Parallel_Safety.test.js
+PASS tests/unit/utils/Logger.background.test.js
+PASS tests/unit/background/processContentResult.test.js
+PASS tests/unit/background/buildHighlightBlocks.test.js
+PASS tests/unit/highlighter/utils/color.coverage.test.js
+PASS tests/unit/coverage/HandlersCoverage.test.js
+PASS tests/unit/content/converters/ConverterFactory.test.js
+PASS tests/unit/utils/mergeUniqueImages.test.js
+PASS tests/unit/utils/uiUtils.test.js
+
+Summary of all failing tests
+FAIL tests/unit/background/handlers/highlightHandlers.test.js
+  ● highlightHandlers › Coverage Improvements (Extended) › should use original URL if stable URL data not found (Double Check logic)
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 2
+    Received number of calls: 1
+
+      303 |       await handlers.updateHighlights({ highlights: [] }, sender, sendResponse);
+      304 |
+    > 305 |       expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(2);
+          |                                                            ^
+      306 |       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+      307 |     });
+      308 |
+
+      at Object.toHaveBeenCalledTimes (tests/unit/background/handlers/highlightHandlers.test.js:305:60)
+
+FAIL tests/unit/background/background-errors.integration.test.js
+  ● background error branches (integration) › savePage：Notion API image validation_error 觸發自動重試（排除圖片）→ 成功
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      537 |       console.log('Failed Response Error:', resp.error);
+      538 |     }
+    > 539 |     expect(resp.success).toBe(true);
+          |                          ^
+      540 |     // 可存在 warning（All images were skipped...），但不強制檢查文案
+      541 |
+      542 |     jest.useRealTimers();
+
+      at Object.toBe (tests/unit/background/background-errors.integration.test.js:539:26)
+
+FAIL tests/unit/background/handlers/saveHandlers.test.js
+  ● saveHandlers › Action Logic › savePage: 新頁面應創建成功
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      225 |       expect(mockServices.injectionService.injectHighlighter).toHaveBeenCalled();
+      226 |       expect(mockServices.pageContentService.extractContent).toHaveBeenCalled();
+    > 227 |       expect(mockServices.notionService.createPage).toHaveBeenCalled();
+          |                                                     ^
+      228 |       expect(sendResponse).toHaveBeenCalledWith(
+      229 |         expect.objectContaining({ success: true, created: true })
+      230 |       );
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/saveHandlers.test.js:227:53)
+
+  ● saveHandlers › Action Logic › savePage: 已有頁面且有新標註，應更新標註
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      242 |       await handlers.savePage({}, validSender, sendResponse);
+      243 |
+    > 244 |       expect(mockServices.notionService.updateHighlightsSection).toHaveBeenCalled();
+          |                                                                  ^
+      245 |       expect(sendResponse).toHaveBeenCalledWith(
+      246 |         expect.objectContaining({ highlightsUpdated: true })
+      247 |       );
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/saveHandlers.test.js:244:66)
+
+  ● saveHandlers › Action Logic › savePage: 已有頁面且無新標註，應刷新內容
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      259 |       await handlers.savePage({}, validSender, sendResponse);
+      260 |
+    > 261 |       expect(mockServices.notionService.refreshPageContent).toHaveBeenCalled();
+          |                                                             ^
+      262 |       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
+      263 |     });
+      264 |
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/saveHandlers.test.js:261:61)
+
+  ● saveHandlers › Data Migration (Move & Delete) › checkPageStatus: 應檢測到舊數據並遷移至新 Key
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "https://example.com/stable", "https://example.com/legacy"
+
+    Number of calls: 0
+
+      529 |
+      530 |       // Expect MigrationService to be called
+    > 531 |       expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
+          |                                                               ^
+      532 |         stableUrl,
+      533 |         legacyUrl
+      534 |       );
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/saveHandlers.test.js:531:63)
+
+  ● saveHandlers › Data Migration (Move & Delete) › savePage: 保存流程中也應觸發遷移
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "https://example.com/stable", "https://example.com/legacy"
+
+    Number of calls: 0
+
+      552 |       await handlers.savePage({}, sender, sendResponse);
+      553 |
+    > 554 |       expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
+          |                                                               ^
+      555 |         stableUrl,
+      556 |         legacyUrl
+      557 |       );
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/saveHandlers.test.js:554:63)
+
+  ● saveHandlers › Notion Page Deletion Handling › checkPageStatus 應在 Notion 頁面已刪除時清理本地狀態
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: {"tabId": 1, "text": ""}
+
+    Number of calls: 0
+
+      671 |
+      672 |       expect(mockServices.storageService.clearPageState).toHaveBeenCalled();
+    > 673 |       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
+          |                                          ^
+      674 |       expect(sendResponse).toHaveBeenCalledWith(
+      675 |         expect.objectContaining({
+      676 |           success: true,
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/saveHandlers.test.js:673:42)
+
+FAIL tests/unit/security/saveHandlers.security.test.js
+  ● saveHandlers Security Verification › savePage › should use API Key from Storage, NOT from request params
+
+    savePage failed with: {"success":false,"error":"操作失敗，請稍後再試。如問題持續，請查看擴充功能設置"}
+
+      145 |         const failure = responseMatches.find(r => r && r.success === false);
+      146 |         if (failure) {
+    > 147 |           throw new Error(`savePage failed with: ${JSON.stringify(failure)}`);
+          |                 ^
+      148 |         }
+      149 |         throw new Error(
+      150 |           `createPage NOT called. sendResponse calls: ${JSON.stringify(responseMatches)}`
+
+      at Object.<anonymous> (tests/unit/security/saveHandlers.security.test.js:147:17)
+
+FAIL tests/unit/content/content-index.test.js
+  ● Content Script Entry (index.js) › Message Handlers & Side Effects › PING 應該返回正確的元數據
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"nextRouteInfo": ObjectContaining {"page": "/p1"}, "shortlink": "https://wp.me/p1", "status": "bundle_ready"}
+    Received: {"hasPreloaderCache": false, "nextRouteInfo": null, "shortlink": null, "status": "bundle_ready"}
+
+    Number of calls: 1
+
+      83 |       messageHandler({ action: 'PING' }, {}, sendResponse);
+      84 |
+    > 85 |       expect(sendResponse).toHaveBeenCalledWith(
+         |                            ^
+      86 |         expect.objectContaining({
+      87 |           status: 'bundle_ready',
+      88 |           shortlink: 'https://wp.me/p1',
+
+      at Object.toHaveBeenCalledWith (tests/unit/content/content-index.test.js:85:28)
+
+FAIL tests/unit/background/handlers/actionHandlers.coverage.test.js
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 新頁面：應該調用 createPage
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      324 |       await handlers.savePage({}, internalSender, sendResponse);
+      325 |
+    > 326 |       expect(mockNotionService.createPage).toHaveBeenCalled();
+          |                                            ^
+      327 |       expect(mockStorageService.setSavedPageData).toHaveBeenCalledWith(
+      328 |         'https://example.com',
+      329 |         expect.objectContaining({ notionPageId: 'new-page-id' })
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/actionHandlers.coverage.test.js:326:44)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 已有頁面：有新標註時應該調用 updateHighlightsSection
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "existing-id", Any<Array>, {"apiKey": "secret-key"}
+
+    Number of calls: 0
+
+      344 |       await handlers.savePage({}, internalSender, sendResponse);
+      345 |
+    > 346 |       expect(mockNotionService.updateHighlightsSection).toHaveBeenCalledWith(
+          |                                                         ^
+      347 |         'existing-id',
+      348 |         expect.any(Array),
+      349 |         { apiKey: 'secret-key' }
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/actionHandlers.coverage.test.js:346:57)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 已有頁面：無新標註時應該調用 refreshPageContent
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      364 |       await handlers.savePage({}, internalSender, sendResponse);
+      365 |
+    > 366 |       expect(mockNotionService.refreshPageContent).toHaveBeenCalled();
+          |                                                    ^
+      367 |       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ updated: true }));
+      368 |     });
+      369 |
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/actionHandlers.coverage.test.js:366:52)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 已有頁面但 Notion 中已刪除：應該重新創建頁面
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      377 |       await handlers.savePage({}, internalSender, sendResponse);
+      378 |
+    > 379 |       expect(mockStorageService.clearPageState).toHaveBeenCalled();
+          |                                                 ^
+      380 |       expect(mockNotionService.createPage).toHaveBeenCalled();
+      381 |       expect(sendResponse).toHaveBeenCalledWith(
+      382 |         expect.objectContaining({ created: true, recreated: true })
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/actionHandlers.coverage.test.js:379:49)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 檢查頁面存在性失敗時應報錯
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"error": "檢查頁面狀態時發生網路錯誤或服務不可用，請稍後再試。", "success": false}
+    Received: {"error": "操作失敗，請稍後再試。如問題持續，請查看擴充功能設置", "success": false}
+
+    Number of calls: 1
+
+      390 |
+      391 |       await handlers.savePage({}, internalSender, sendResponse);
+    > 392 |       expect(sendResponse).toHaveBeenCalledWith(
+          |                            ^
+      393 |         expect.objectContaining({
+      394 |           success: false,
+      395 |           error: ERROR_MESSAGES.USER_MESSAGES.CHECK_PAGE_EXISTENCE_FAILED,
+
+      at Object.toHaveBeenCalledWith (tests/unit/background/handlers/actionHandlers.coverage.test.js:392:28)
+
+  ● actionHandlers 覆蓋率補強 › savePage Handler (Core Logic) › 頁面已刪除時應清理狀態並重新創建
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      410 |       await handlers.savePage({}, internalSender, sendResponse);
+      411 |
+    > 412 |       expect(mockStorageService.clearPageState).toHaveBeenCalled();
+          |                                                 ^
+      413 |       expect(mockInjectionService.injectHighlighter).toHaveBeenCalled();
+      414 |       expect(sendResponse).toHaveBeenCalledWith(
+      415 |         expect.objectContaining({ created: true, recreated: true })
+
+      at Object.toHaveBeenCalled (tests/unit/background/handlers/actionHandlers.coverage.test.js:412:49)
+
+
+Test Suites: 6 failed, 139 passed, 145 total
+Tests:       16 failed, 2 skipped, 2820 passed, 2838 total
+Snapshots:   0 total
+Time:        141.042 s
+Ran all test suites.

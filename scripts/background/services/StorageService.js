@@ -85,6 +85,29 @@ class StorageService {
   }
 
   /**
+   * 設置頁面標註數據
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @param {any} data - 標註數據
+   * @returns {Promise<void>}
+   */
+  async setHighlights(pageUrl, data) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const key = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+    try {
+      await this.storage.local.set({ [key]: data });
+    } catch (error) {
+      this.logger.error?.('[StorageService] setHighlights failed', { error });
+      throw error;
+    }
+  }
+
+  /**
    * 設置頁面保存狀態
    *
    * @param {string} pageUrl - 頁面 URL

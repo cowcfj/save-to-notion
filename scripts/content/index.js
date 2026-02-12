@@ -50,26 +50,9 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     sendResponse({
       status: 'bundle_ready',
       hasPreloaderCache: Boolean(preloaderCache),
-      // Phase 2: 返回穩定 URL 元數據
-      shortlink: document.querySelector('link[rel="shortlink"]')?.href || null,
-      nextRouteInfo: (() => {
-        try {
-          const el = document.querySelector('#__NEXT_DATA__');
-          if (!el) {
-            return null;
-          }
-
-          const content = el.textContent;
-          if (content.length > 1_048_576) {
-            return null;
-          }
-
-          const data = JSON.parse(content);
-          return { page: data.page, query: data.query, buildId: data.buildId };
-        } catch {
-          return null;
-        }
-      })(),
+      // Phase 2: 從 preloaderCache 取得穩定 URL 元數據（由 preloader 提取並驗證）
+      nextRouteInfo: preloaderCache?.nextRouteInfo || null,
+      shortlink: preloaderCache?.shortlink || null,
     });
     return true;
   }
@@ -248,7 +231,11 @@ async function extractPageContent() {
       },
     };
   } catch (error) {
-    Logger.error('內容提取發生異常', { action: 'extractPageContent', error: error.message });
+    Logger.error('內容提取發生異常', {
+      action: 'extractPageContent',
+      error: error.message,
+      stack: error.stack,
+    });
 
     return {
       title: document.title || DEFAULT_PAGE_TITLE,

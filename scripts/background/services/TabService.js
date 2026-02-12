@@ -85,6 +85,31 @@ class TabService {
   }
 
   /**
+   * 解析 tab 的穩定 URL，可選自動遷移
+   *
+   * 將 getPreloaderData + resolveStorageUrl + migrateStorageKey 三步流程收斂為一個方法，
+   * 避免各 Handler 重複實作相同邏輯。
+   *
+   * @param {number} tabId - 標籤頁 ID
+   * @param {string} url - tab 的原始 URL
+   * @param {MigrationService} [migrationService] - 提供時自動觸發遷移
+   * @returns {Promise<{stableUrl: string, originalUrl: string, migrated: boolean}>}
+   */
+  async resolveTabUrl(tabId, url, migrationService = null) {
+    const preloaderData = await this.getPreloaderData(tabId);
+    const stableUrl = resolveStorageUrl(url, preloaderData);
+    const originalUrl = this.normalizeUrl(url);
+    const hasStableUrl = stableUrl !== originalUrl;
+
+    let migrated = false;
+    if (hasStableUrl && migrationService) {
+      migrated = await migrationService.migrateStorageKey(stableUrl, originalUrl);
+    }
+
+    return { stableUrl, originalUrl, migrated };
+  }
+
+  /**
    * 內部方法：實際的狀態更新邏輯
    *
    * @param {number} tabId - 標籤頁 ID

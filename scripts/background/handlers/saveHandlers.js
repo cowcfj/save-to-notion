@@ -400,14 +400,11 @@ export function createSaveHandlers(services) {
 
         const apiKey = config.notionApiKey;
 
-        // Phase 2: 獲取 Preloader 數據以解析穩定 URL
-        const preloaderData = await tabService?.getPreloaderData?.(activeTab.id);
-        const normUrl = resolveStorageUrl(activeTab.url || '', preloaderData);
-        const originalUrl = normalizeUrl(activeTab.url || '');
-        const hasStableUrl = normUrl !== originalUrl;
-
-        // 使用 MigrationService 處理數據遷移
-        await migrationService.migrateStorageKey(normUrl, hasStableUrl ? originalUrl : null);
+        const { stableUrl: normUrl, originalUrl } = await tabService.resolveTabUrl(
+          activeTab.id,
+          activeTab.url || '',
+          migrationService
+        );
         const savedData = await storageService.getSavedPageData(normUrl);
 
         // 注入 highlighter 並收集標記
@@ -423,7 +420,11 @@ export function createSaveHandlers(services) {
           result = await pageContentService.extractContent(activeTab.id);
           Logger.log('內容提取成功', { action: 'extractContent' });
         } catch (error) {
-          Logger.error('內容提取失敗', { action: 'extractContent', error: error.message });
+          Logger.error('內容提取發生異常', {
+            action: 'extractPageContent',
+            error: error.message,
+            stack: error.stack,
+          });
         }
 
         if (!result?.title || !result?.blocks) {
@@ -610,18 +611,13 @@ export function createSaveHandlers(services) {
 
         const activeTab = await getActiveTab();
 
-        // Phase 2: 獲取 Preloader 數據以解析穩定 URL
-        const preloaderData = await tabService?.getPreloaderData?.(activeTab.id);
-        // resolveStorageUrl 內部已包含 normalizeUrl 回退機制
-        const normUrl = resolveStorageUrl(activeTab.url || '', preloaderData);
-        // Explicitly get original normalized URL for fallback check
-        const originalUrl = normalizeUrl(activeTab.url || '');
+        // Phase 2: 統一 URL 解析 + 自動遷移
+        const {
+          stableUrl: normUrl,
+          originalUrl,
+          migrated: migratedFromOldKey,
+        } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
         const hasStableUrl = normUrl !== originalUrl;
-
-        const migratedFromOldKey = await migrationService.migrateStorageKey(
-          normUrl,
-          hasStableUrl ? originalUrl : null
-        );
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {

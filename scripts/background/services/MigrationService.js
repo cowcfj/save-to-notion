@@ -23,21 +23,31 @@ export class MigrationService {
     }
 
     try {
+      // 同時取得 saved 和 highlights 數據
       const pageData = await this.storageService.getSavedPageData(legacyUrl);
-      if (!pageData) {
+      const highlights = await this.storageService.getHighlights(legacyUrl);
+
+      // 兩者皆無 → 不需遷移
+      if (!pageData && !highlights) {
         return false;
       }
 
       Logger.info('Migrating legacy data to stable URL', {
         legacy: sanitizeUrlForLogging(legacyUrl),
         stable: sanitizeUrlForLogging(stableUrl),
+        hasPageData: Boolean(pageData),
+        hasHighlights: Boolean(highlights),
       });
 
-      // 1. 寫入新 Key (Atomic Step 1)
-      await this.storageService.setSavedPageData(stableUrl, pageData);
+      // 1. 寫入新 Key（全部成功後才刪除舊 key）
+      if (pageData) {
+        await this.storageService.setSavedPageData(stableUrl, pageData);
+      }
+      if (highlights) {
+        await this.storageService.setHighlights(stableUrl, highlights);
+      }
 
-      // 2. 刪除舊 Key (Atomic Step 2)
-      // 只有在 Step 1 成功後才執行
+      // 2. 刪除舊 Key（clearPageState 會同時清除 saved_* 和 highlights_*）
       await this.storageService.clearPageState(legacyUrl);
 
       Logger.info('Migration successful', {

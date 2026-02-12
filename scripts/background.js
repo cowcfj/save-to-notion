@@ -73,7 +73,6 @@ const actionHandlers = {
     storageService,
     injectionService,
     pageContentService,
-    pageContentService,
     tabService,
     migrationService,
   }),
@@ -82,6 +81,7 @@ const actionHandlers = {
     storageService,
     injectionService,
     tabService,
+    migrationService,
   }),
   ...createMigrationHandlers({
     storageService,

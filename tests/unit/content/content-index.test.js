@@ -65,22 +65,21 @@ describe('Content Script Entry (index.js)', () => {
       });
       globalThis.chrome.runtime.sendMessage = sendMessageMock;
 
+      // Setup default cache for PING
+      globalThis.__NOTION_PRELOADER_CACHE__ = {
+        shortlink: 'https://wp.me/p1',
+        nextRouteInfo: { page: '/p1' },
+      };
+      if (globalThis.window !== undefined) {
+        globalThis.__NOTION_PRELOADER_CACHE__ = globalThis.__NOTION_PRELOADER_CACHE__;
+      }
+
       jest.isolateModules(() => {
         require('../../../scripts/content/index.js');
       });
     });
 
     test('PING 應該返回正確的元數據', () => {
-      document.querySelector.mockImplementation(selector => {
-        if (selector === 'link[rel="shortlink"]') {
-          return { href: 'https://wp.me/p1' };
-        }
-        if (selector === '#__NEXT_DATA__') {
-          return { textContent: JSON.stringify({ page: '/p1' }) };
-        }
-        return null;
-      });
-
       const sendResponse = jest.fn();
       messageHandler({ action: 'PING' }, {}, sendResponse);
 

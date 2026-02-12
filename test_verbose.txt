@@ -1,0 +1,33 @@
+
+> notion-smart-clipper@2.31.1 test
+> jest --config jest.config.js tests/unit/security/saveHandlers.security.test.js --verbose
+
+FAIL tests/unit/security/saveHandlers.security.test.js
+  saveHandlers Security Verification
+    savePage
+      ✓ should reject requests that fail internal validation (10 ms)
+      ✕ should use API Key from Storage, NOT from request params (7 ms)
+
+  ● saveHandlers Security Verification › savePage › should use API Key from Storage, NOT from request params
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: Anything, ObjectContaining {"apiKey": "TRUSTED_STORAGE_KEY"}
+
+    Number of calls: 0
+
+      138 |         console.log('createPage NOT called. sendResponse calls:', sendResponse.mock.calls);
+      139 |       } // Verify createPage was called with TRUSTED_STORAGE_KEY
+    > 140 |       expect(mockNotionService.createPage).toHaveBeenCalledWith(
+          |                                            ^
+      141 |         expect.anything(),
+      142 |         expect.objectContaining({
+      143 |           apiKey: 'TRUSTED_STORAGE_KEY',
+
+      at Object.toHaveBeenCalledWith (tests/unit/security/saveHandlers.security.test.js:140:44)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 passed, 2 total
+Snapshots:   0 total
+Time:        0.844 s, estimated 1 s
+Ran all test suites matching tests/unit/security/saveHandlers.security.test.js.

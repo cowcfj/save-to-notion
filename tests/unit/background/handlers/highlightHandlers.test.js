@@ -57,6 +57,17 @@ describe('highlightHandlers', () => {
         injectHighlighter: jest.fn(),
         collectHighlights: jest.fn(),
       },
+      tabService: {
+        getPreloaderData: jest.fn().mockResolvedValue(null),
+        resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
+          stableUrl: url,
+          originalUrl: url,
+          migrated: false,
+        })),
+      },
+      migrationService: {
+        migrateStorageKey: jest.fn().mockResolvedValue(false),
+      },
     };
 
     // Mock global chrome
@@ -285,9 +296,12 @@ describe('highlightHandlers', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({ notionPageId: 'page_orig' });
 
-      // 確保 normUrl (stable) 與 originalUrl 不同
-      resolveStorageUrl.mockReturnValue('https://example.com/stable-url');
-      normalizeUrl.mockReturnValue('https://example.com/original-url');
+      // Update tabService mock to simulate divergent URLs
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: 'https://example.com/stable-url',
+        originalUrl: 'https://example.com/original-url',
+        migrated: false,
+      });
 
       await handlers.updateHighlights({ highlights: [] }, sender, sendResponse);
 

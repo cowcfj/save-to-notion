@@ -1,0 +1,29 @@
+
+> notion-smart-clipper@2.31.1 test
+> jest --config jest.config.js tests/unit/security/saveHandlers.security.test.js --verbose
+
+FAIL tests/unit/security/saveHandlers.security.test.js
+  saveHandlers Security Verification
+    savePage
+      ✓ should reject requests that fail internal validation (11 ms)
+      ✕ should use API Key from Storage, NOT from request params (7 ms)
+
+  ● saveHandlers Security Verification › savePage › should use API Key from Storage, NOT from request params
+
+    savePage failed with: {"success":false,"error":"操作失敗，請稍後再試。如問題持續，請查看擴充功能設置"}
+
+      139 |         const failure = responseMatches.find(r => r && r.success === false);
+      140 |         if (failure) {
+    > 141 |           throw new Error(`savePage failed with: ${JSON.stringify(failure)}`);
+          |                 ^
+      142 |         }
+      143 |         throw new Error(
+      144 |           `createPage NOT called. sendResponse calls: ${JSON.stringify(responseMatches)}`
+
+      at Object.<anonymous> (tests/unit/security/saveHandlers.security.test.js:141:17)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 passed, 2 total
+Snapshots:   0 total
+Time:        4.371 s
+Ran all test suites matching tests/unit/security/saveHandlers.security.test.js.

@@ -88,6 +88,14 @@ describe('saveHandlers', () => {
       pageContentService: {
         extractContent: jest.fn(),
       },
+      tabService: {
+        getPreloaderData: jest.fn().mockResolvedValue(null),
+        resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
+          stableUrl: url,
+          originalUrl: url,
+          migrated: false,
+        })),
+      },
       migrationService: {
         migrateStorageKey: jest.fn(),
         executeContentMigration: jest.fn(),
@@ -481,12 +489,16 @@ describe('saveHandlers', () => {
       resolveStorageUrl.mockReturnValue(stableUrl);
       normalizeUrl.mockReturnValue(legacyUrl);
 
-      // Mock Storage: stable -> null, legacy -> data
+      // Mock tabService to simulating migration having occurred (returning stableUrl)
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl,
+        originalUrl: originalTabUrl,
+        migrated: true,
+      });
+
+      // Mock Storage: stable -> data (simulating migration completed), legacy -> data
       mockServices.storageService.getSavedPageData.mockImplementation(key => {
-        if (key === stableUrl) {
-          return Promise.resolve(null);
-        }
-        if (key === legacyUrl) {
+        if (key === stableUrl || key === legacyUrl) {
           return Promise.resolve({
             notionPageId: 'legacy-id-123',
             title: 'Legacy Title',
@@ -520,9 +532,11 @@ describe('saveHandlers', () => {
       await handlers.checkPageStatus({}, sender, sendResponse);
 
       // Expect MigrationService to be called
-      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
-        stableUrl,
-        legacyUrl
+      // Expect MigrationService to be called (via tabService.resolveTabUrl)
+      expect(mockServices.tabService.resolveTabUrl).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        mockServices.migrationService
       );
 
       // Respond with migrated data (which comes from getSavedPageData after migration)
@@ -543,9 +557,10 @@ describe('saveHandlers', () => {
 
       await handlers.savePage({}, sender, sendResponse);
 
-      expect(mockServices.migrationService.migrateStorageKey).toHaveBeenCalledWith(
-        stableUrl,
-        legacyUrl
+      expect(mockServices.tabService.resolveTabUrl).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        mockServices.migrationService
       );
 
       // Should continue to refresh content for existing page
