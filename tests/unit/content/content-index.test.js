@@ -71,7 +71,7 @@ describe('Content Script Entry (index.js)', () => {
         nextRouteInfo: { page: '/p1' },
       };
       if (globalThis.window !== undefined) {
-        globalThis.__NOTION_PRELOADER_CACHE__ = globalThis.__NOTION_PRELOADER_CACHE__;
+        globalThis.window.__NOTION_PRELOADER_CACHE__ = globalThis.__NOTION_PRELOADER_CACHE__;
       }
 
       jest.isolateModules(() => {
