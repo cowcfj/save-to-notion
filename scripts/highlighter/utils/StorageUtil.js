@@ -154,13 +154,26 @@ const StorageUtil = {
 
     return new Promise((resolve, reject) => {
       try {
+        Logger.debug(`[StorageUtil] Reading from Chrome Storage: "${key}"`, {
+          action: '_loadFromChromeStorage',
+        });
         chrome.storage.local.get([key], data => {
           if (chrome.runtime.lastError) {
+            Logger.error(`[StorageUtil] Chrome Storage Error for "${key}"`, {
+              action: '_loadFromChromeStorage',
+              error: chrome.runtime.lastError.message,
+            });
             reject(new Error(chrome.runtime.lastError.message));
             return;
           }
           const stored = data?.[key];
-          resolve(this._parseHighlightFormat(stored));
+          const result = this._parseHighlightFormat(stored);
+          Logger.debug(`[StorageUtil] Read result for "${key}"`, {
+            action: '_loadFromChromeStorage',
+            found: Boolean(stored),
+            itemCount: Array.isArray(result) ? result.length : 0,
+          });
+          resolve(result);
         });
       } catch (error) {
         reject(error);

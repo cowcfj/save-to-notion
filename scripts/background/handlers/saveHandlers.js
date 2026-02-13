@@ -650,14 +650,21 @@ export function createSaveHandlers(services) {
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
-        // 安全性驗證：確保請求來自擴充功能內部 (Popup)
+        // 安全性驗證：確保請求來自擴充功能內部 (Popup 或 Content Script)
+        // 注意：Content Script 請求也需要通過驗證，這裡假設 validateInternalRequest 或類似機制已處理
+        // 如果來自 Content Script，sender.tab 會存在且包含 url (自身的權限)
+        // 如果來自 Popup，sender.tab 可能為空，需使用 getActiveTab()
         const validationError = validateInternalRequest(sender);
         if (validationError) {
           sendResponse(validationError);
           return;
         }
 
-        const activeTab = await getActiveTab();
+        let activeTab = sender.tab;
+
+        if (!activeTab || !activeTab.url) {
+          activeTab = await getActiveTab();
+        }
 
         // Phase 2: 統一 URL 解析 + 自動遷移
         const {
@@ -678,7 +685,7 @@ export function createSaveHandlers(services) {
         }
 
         if (!savedData?.notionPageId) {
-          return sendResponse({ success: true, isSaved: false });
+          return sendResponse({ success: true, isSaved: false, stableUrl: normUrl });
         }
 
         const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
@@ -695,6 +702,7 @@ export function createSaveHandlers(services) {
             notionPageId: savedData.notionPageId,
             notionUrl: savedData.notionUrl,
             title: savedData.title,
+            stableUrl: normUrl,
           });
         }
 
@@ -706,6 +714,7 @@ export function createSaveHandlers(services) {
             notionPageId: savedData.notionPageId,
             notionUrl: savedData.notionUrl,
             title: savedData.title,
+            stableUrl: normUrl,
           });
         }
 
@@ -734,7 +743,12 @@ export function createSaveHandlers(services) {
           } catch {
             /* ignore */
           }
-          return sendResponse({ success: true, isSaved: false, wasDeleted: true });
+          return sendResponse({
+            success: true,
+            isSaved: false,
+            wasDeleted: true,
+            stableUrl: normUrl,
+          });
         }
 
         if (exists === true) {
@@ -748,6 +762,7 @@ export function createSaveHandlers(services) {
           notionPageId: savedData.notionPageId,
           notionUrl: savedData.notionUrl,
           title: savedData.title,
+          stableUrl: normUrl,
         });
       } catch (error) {
         Logger.error('檢查頁面狀態時出錯', { action: 'checkPageStatus', error: error.message });

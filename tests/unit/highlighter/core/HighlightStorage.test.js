@@ -22,6 +22,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   warn: jest.fn(),
   error: jest.fn(),
   log: jest.fn(),
+  debug: jest.fn(),
 }));
 
 describe('core/HighlightStorage', () => {
@@ -165,6 +166,35 @@ describe('core/HighlightStorage', () => {
       StorageUtil.loadHighlights.mockRejectedValue(new Error('Load failed'));
       const result = await storage.restore();
       expect(result).toBe(false);
+    });
+
+    test('should fallback to original URL if stable URL yields no highlights', async () => {
+      globalThis.__NOTION_STABLE_URL__ = 'https://stable.url';
+
+      // rely on normalizeUrl mock to return the fallback URL
+
+      globalThis.normalizeUrl.mockReturnValue('https://original.url');
+
+      StorageUtil.loadHighlights.mockImplementation(async url => {
+        if (url === 'https://stable.url') {
+          return [];
+        }
+        if (url === 'https://original.url') {
+          return [{ id: 'h1', text: 'Fallback' }];
+        }
+        return [];
+      });
+
+      mockManager.restoreLocalHighlight = jest.fn().mockReturnValue(true);
+
+      const result = await storage.restore();
+
+      expect(StorageUtil.loadHighlights).toHaveBeenCalledWith('https://stable.url');
+      expect(StorageUtil.loadHighlights).toHaveBeenCalledWith('https://original.url');
+      expect(mockManager.restoreLocalHighlight).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Fallback' })
+      );
+      expect(result).toBe(true);
     });
   });
 
