@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import Logger from '../../../../scripts/utils/Logger.js';
 import {
   HighlightStorage,
   RestoreManager,
@@ -104,7 +105,11 @@ describe('core/HighlightStorage', () => {
 
       await storage.save();
 
-      // 不應該拋出錯誤
+      // Ensure error is logged
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[HighlightStorage] 保存標註失敗:',
+        expect.any(Error)
+      );
     });
 
     test('should use global stable URL if available', async () => {
@@ -257,7 +262,11 @@ describe('core/HighlightStorage', () => {
       storage.hideToolbarAfterRestore();
       jest.advanceTimersByTime(500);
 
-      // 不應該拋出錯誤
+      // Ensure error is logged
+      expect(Logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('隱藏工具欄時出錯'),
+        expect.any(Error)
+      );
     });
   });
 
