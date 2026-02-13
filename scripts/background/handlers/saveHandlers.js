@@ -8,7 +8,7 @@
 
 /* global chrome, Logger */
 
-import { resolveStorageUrl } from '../../utils/urlUtils.js';
+// resolveStorageUrl 已由 tabService.resolveTabUrl() 內部處理，此處不再需要直接匯入
 import {
   validateInternalRequest,
   validateContentScriptRequest,
@@ -493,8 +493,17 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const normUrl = resolveStorageUrl(pageUrl);
-        const savedData = await storageService.getSavedPageData(normUrl);
+        // 使用 tabService.resolveTabUrl 取得完整的 Phase 1+2 穩定 URL
+        // 這樣即使頁面以 Next.js 路由或 shortlink 儲存，也能正確查找
+        const activeTab = await getActiveTab();
+        const { stableUrl, originalUrl } = await tabService.resolveTabUrl(activeTab.id, pageUrl);
+
+        let savedData = await storageService.getSavedPageData(stableUrl);
+
+        // 回退查詢：如果穩定 URL 查不到，嘗試原始 URL
+        if (!savedData?.notionPageId && originalUrl !== stableUrl) {
+          savedData = await storageService.getSavedPageData(originalUrl);
+        }
 
         if (!savedData?.notionPageId) {
           sendResponse({
