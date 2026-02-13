@@ -222,7 +222,7 @@ export function createSaveHandlers(services) {
       }
     }
 
-    return { savedData, normUrl, originalUrl };
+    return { savedData, normUrl, originalUrl, migrated };
   }
 
   /**
@@ -662,27 +662,18 @@ export function createSaveHandlers(services) {
 
         let activeTab = sender.tab;
 
-        if (!activeTab || !activeTab.url) {
+        // Prefer using an optional chain expression instead
+        if (!activeTab?.url) {
           activeTab = await getActiveTab();
         }
 
         // Phase 2: 統一 URL 解析 + 自動遷移
+        // 使用 resolvePageData 复用逻辑，减少 cognitive complexity
         const {
-          stableUrl: normUrl,
-          originalUrl,
+          normUrl,
+          savedData,
           migrated: migratedFromOldKey,
-          hasStableUrl,
-        } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
-
-        let savedData = await storageService.getSavedPageData(normUrl);
-
-        // 雙查回退：若穩定 URL 未找到數據且未發生遷移（即不是因為遷移失敗導致的空數據），嘗試原始 URL
-        if (!savedData?.notionPageId && !migratedFromOldKey && hasStableUrl) {
-          const fallbackData = await storageService.getSavedPageData(originalUrl);
-          if (fallbackData?.notionPageId) {
-            savedData = fallbackData;
-          }
-        }
+        } = await resolvePageData(activeTab);
 
         if (!savedData?.notionPageId) {
           return sendResponse({ success: true, isSaved: false, stableUrl: normUrl });
