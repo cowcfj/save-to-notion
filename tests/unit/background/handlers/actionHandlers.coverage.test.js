@@ -196,6 +196,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       ...createMigrationHandlers({
         notionService: mockNotionService,
         storageService: mockStorageService,
+        migrationService: mockMigrationService,
       }),
     };
   });

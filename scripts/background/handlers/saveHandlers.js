@@ -134,6 +134,148 @@ export function createSaveHandlers(services) {
   }
 
   /**
+   * 驗證請求並獲取配置
+   *
+   * @param {object} sender - 請求發送者
+   * @param {Function} sendResponse - 回應函數
+   * @returns {Promise<object|null>} 配置對象或 null
+   */
+  async function validateRequestAndGetConfig(sender, sendResponse) {
+    const validationError = validateInternalRequest(sender);
+    if (validationError) {
+      Logger.warn('安全性阻擋', {
+        action: 'savePage',
+        reason: 'invalid_internal_request',
+        error: validationError.error,
+        senderId: sender?.id,
+        origin: sender?.origin,
+      });
+      sendResponse(validationError);
+      return null;
+    }
+
+    const activeTab = await getActiveTab();
+
+    if (isRestrictedInjectionUrl(activeTab.url)) {
+      Logger.warn('受限頁面無法保存', {
+        action: 'savePage',
+        url: sanitizeUrlForLogging(activeTab.url),
+        result: 'blocked',
+        reason: 'restricted_url',
+      });
+      sendResponse({
+        success: false,
+        error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
+      });
+      return null;
+    }
+
+    const config = await storageService.getConfig([
+      'notionApiKey',
+      'notionDataSourceId',
+      'notionDatabaseId',
+      'notionDataSourceType',
+    ]);
+
+    if (!config.notionApiKey) {
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+      });
+      return null;
+    }
+
+    const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
+    if (!dataSourceId) {
+      sendResponse({
+        success: false,
+        error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+      });
+      return null;
+    }
+
+    const dataSourceType = config.notionDataSourceType || 'data_source';
+
+    return { config, dataSourceId, dataSourceType, activeTab };
+  }
+
+  /**
+   * 解析頁面數據與回退查詢
+   *
+   * @param {object} activeTab - 活動標籤頁
+   * @returns {Promise<object>} 解析結果
+   */
+  async function resolvePageData(activeTab) {
+    const {
+      stableUrl: normUrl,
+      originalUrl,
+      migrated,
+      hasStableUrl,
+    } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
+
+    let savedData = await storageService.getSavedPageData(normUrl);
+
+    if (!savedData && !migrated && hasStableUrl) {
+      const originalData = await storageService.getSavedPageData(originalUrl);
+      if (originalData) {
+        savedData = originalData;
+      }
+    }
+
+    return { savedData, normUrl, originalUrl };
+  }
+
+  /**
+   * 提取並驗證頁面內容
+   *
+   * @param {object} activeTab - 活動標籤頁
+   * @param {Function} sendResponse - 回應函數
+   * @returns {Promise<object|null>} 提取結果或 null
+   */
+  async function extractPageContent(activeTab, sendResponse) {
+    await injectionService.injectHighlighter(activeTab.id);
+    const highlights = await injectionService.collectHighlights(activeTab.id);
+
+    Logger.log('收集到的標註數據', { action: 'collectHighlights', count: highlights.length });
+
+    let result = null;
+
+    try {
+      result = await pageContentService.extractContent(activeTab.id);
+      Logger.log('內容提取成功', { action: 'extractContent' });
+    } catch (error) {
+      Logger.error('內容提取發生異常', {
+        action: 'extractContent',
+        error: error.message,
+        stack: error.stack,
+      });
+    }
+
+    if (!result?.title || !result?.blocks) {
+      Logger.error('內容提取結果驗證失敗', {
+        action: 'validateContent',
+        hasResult: Boolean(result),
+        hasTitle: Boolean(result?.title),
+        hasBlocks: Array.isArray(result?.blocks),
+        blocksCount: result?.blocks?.length ?? 0,
+        url: sanitizeUrlForLogging(activeTab.url),
+      });
+
+      let error = ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED;
+      if (result) {
+        error = result.title
+          ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING
+          : ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING;
+      }
+
+      sendResponse({ success: false, error });
+      return null;
+    }
+
+    return { result, highlights };
+  }
+
+  /**
    * 執行頁面創建（單次嘗試）
    *
    * @param {object} params - 參數對象
@@ -331,112 +473,19 @@ export function createSaveHandlers(services) {
      */
     savePage: async (request, sender, sendResponse) => {
       try {
-        // 安全性驗證：檢查請求來源
-        // savePage 會執行腳本注入和內容提取，必須確保僅限內部調用
-        const validationError = validateInternalRequest(sender);
-        if (validationError) {
-          Logger.warn('安全性阻擋', {
-            action: 'savePage',
-            reason: 'invalid_internal_request',
-            error: validationError.error,
-            senderId: sender?.id,
-            origin: sender?.origin,
-          });
-          sendResponse(validationError);
+        const configData = await validateRequestAndGetConfig(sender, sendResponse);
+        if (!configData) {
           return;
         }
+        const { config, dataSourceId, dataSourceType, activeTab } = configData;
 
-        const activeTab = await getActiveTab();
+        const { savedData, normUrl, originalUrl } = await resolvePageData(activeTab);
 
-        // 檢查是否為受限頁面（chrome://、chrome-extension://、擴展商店等）
-        if (isRestrictedInjectionUrl(activeTab.url)) {
-          Logger.warn('受限頁面無法保存', {
-            action: 'savePage',
-            url: sanitizeUrlForLogging(activeTab.url),
-            result: 'blocked',
-            reason: 'restricted_url',
-          });
-          sendResponse({
-            success: false,
-            error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
-          });
+        const extractionData = await extractPageContent(activeTab, sendResponse);
+        if (!extractionData) {
           return;
         }
-        const config = await storageService.getConfig([
-          'notionApiKey',
-          'notionDataSourceId',
-          'notionDatabaseId',
-          'notionDataSourceType',
-        ]);
-
-        const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
-        const dataSourceType = config.notionDataSourceType || 'data_source';
-
-        if (!config.notionApiKey) {
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
-          });
-          return;
-        }
-
-        if (!dataSourceId) {
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
-          });
-          return;
-        }
-
-        const apiKey = config.notionApiKey;
-
-        const { stableUrl: normUrl, originalUrl } = await tabService.resolveTabUrl(
-          activeTab.id,
-          activeTab.url || '',
-          migrationService
-        );
-        const savedData = await storageService.getSavedPageData(normUrl);
-
-        // 注入 highlighter 並收集標記
-        await injectionService.injectHighlighter(activeTab.id);
-        const highlights = await injectionService.collectHighlights(activeTab.id);
-
-        Logger.log('收集到的標註數據', { action: 'collectHighlights', count: highlights.length });
-
-        // 注入並執行內容提取
-        let result = null;
-
-        try {
-          result = await pageContentService.extractContent(activeTab.id);
-          Logger.log('內容提取成功', { action: 'extractContent' });
-        } catch (error) {
-          Logger.error('內容提取發生異常', {
-            action: 'extractContent',
-            error: error.message,
-            stack: error.stack,
-          });
-        }
-
-        if (!result?.title || !result?.blocks) {
-          Logger.error('內容提取結果驗證失敗', {
-            action: 'validateContent',
-            hasResult: Boolean(result),
-            hasTitle: Boolean(result?.title),
-            hasBlocks: Array.isArray(result?.blocks),
-            blocksCount: result?.blocks?.length ?? 0,
-            url: sanitizeUrlForLogging(activeTab.url),
-          });
-
-          let error = ERROR_MESSAGES.USER_MESSAGES.CONTENT_EXTRACTION_FAILED;
-          if (result) {
-            error = result.title
-              ? ERROR_MESSAGES.USER_MESSAGES.CONTENT_BLOCKS_MISSING
-              : ERROR_MESSAGES.USER_MESSAGES.CONTENT_TITLE_MISSING;
-          }
-
-          sendResponse({ success: false, error });
-          return;
-        }
+        const { result, highlights } = extractionData;
 
         // 處理內容結果並添加標註
         const contentResult = processContentResult(result, highlights);
@@ -450,13 +499,13 @@ export function createSaveHandlers(services) {
           dataSourceType,
           contentResult,
           highlights,
-          apiKey,
+          apiKey: config.notionApiKey,
           activeTabId: activeTab.id,
           sendResponse,
         });
       } catch (error) {
         Logger.error('保存頁面時發生未預期錯誤', { action: 'savePage', error: error.message });
-        const safeMessage = sanitizeApiError(error, 'save_page');
+        const safeMessage = sanitizeApiError(error, 'save_page_unknown');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },

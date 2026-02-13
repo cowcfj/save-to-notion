@@ -93,7 +93,7 @@ class TabService {
    * @param {number} tabId - 標籤頁 ID
    * @param {string} url - tab 的原始 URL
    * @param {MigrationService} [migrationService] - 提供時自動觸發遷移
-   * @returns {Promise<{stableUrl: string, originalUrl: string, migrated: boolean}>}
+   * @returns {Promise<{stableUrl: string, originalUrl: string, hasStableUrl: boolean, migrated: boolean}>}
    */
   async resolveTabUrl(tabId, url, migrationService = null) {
     const preloaderData = await this.getPreloaderData(tabId);
@@ -214,16 +214,21 @@ class TabService {
    */
   async getPreloaderData(tabId) {
     try {
+      const sendMessagePromise = new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(result);
+          }
+        });
+      });
+
+      // 防止 Unhandled Rejection：若超時發生，此 Promise 仍可能在未來 reject
+      sendMessagePromise.catch(() => {});
+
       const response = await Promise.race([
-        new Promise((resolve, reject) => {
-          chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(result);
-            }
-          });
-        }),
+        sendMessagePromise,
         new Promise(resolve =>
           setTimeout(() => resolve(null), TAB_SERVICE.PRELOADER_PING_TIMEOUT_MS ?? 500)
         ),

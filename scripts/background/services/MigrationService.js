@@ -216,7 +216,7 @@ export class MigrationService {
               globalThis.HighlighterV2?.manager !== undefined,
           }),
           [],
-          { returnResult: true }
+          []
         );
 
         if (result?.ready) {
