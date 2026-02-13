@@ -210,6 +210,9 @@ export const ERROR_MESSAGES = {
     BACKGROUND_NO_RESPONSE: '未收到背景頁回應',
     LOG_EXPORT_FAILED: '日誌導出失敗',
     SVG_PARSE_ERROR: 'SVG parse error',
+    CHROME_STORAGE_UNAVAILABLE: 'Chrome storage not available',
+    INVALID_PAGE_URL: 'Invalid pageUrl: must be a non-empty string',
+    LOG_INVALID_URL: '無效的 URL 參數',
   },
 
   /**

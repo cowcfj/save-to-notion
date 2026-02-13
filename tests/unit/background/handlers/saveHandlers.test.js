@@ -496,18 +496,6 @@ describe('saveHandlers', () => {
         migrated: true,
       });
 
-      // Mock Storage: stable -> data (simulating migration completed), legacy -> data
-      mockServices.storageService.getSavedPageData.mockImplementation(key => {
-        if (key === stableUrl || key === legacyUrl) {
-          return Promise.resolve({
-            notionPageId: 'legacy-id-123',
-            title: 'Legacy Title',
-            lastVerifiedAt: Date.now(),
-          });
-        }
-        return Promise.resolve(null);
-      });
-
       mockServices.notionService.checkPageExists.mockResolvedValue(true);
 
       // Mock MigrationService behavior
@@ -515,7 +503,7 @@ describe('saveHandlers', () => {
         return stable === stableUrl && legacy === legacyUrl;
       });
 
-      // Update storage mocks to reflect post-migration state when triggered
+      // Mock Storage: stable -> data (reflecting post-migration state)
       mockServices.storageService.getSavedPageData.mockImplementation(key => {
         if (key === stableUrl) {
           return Promise.resolve({

@@ -290,6 +290,17 @@ describe('urlUtils', () => {
         // Next.js 路由優先於 shortlink
         expect(result).toBe('https://blog.example.com/tech/999');
       });
+
+      it('應該拒絕跨域 shortlink 並回退到 normalizeUrl', () => {
+        const url = 'https://blog.example.com/2024/01/01/some-post/';
+        const preloaderData = {
+          shortlink: 'https://evil.com/?p=12345',
+        };
+
+        const result = resolveStorageUrl(url, preloaderData);
+        // 跨域 shortlink 被 hasSameOrigin 安全守衛攔截，回退到 normalizeUrl
+        expect(result).toBe(normalizeUrl(url));
+      });
     });
   });
 

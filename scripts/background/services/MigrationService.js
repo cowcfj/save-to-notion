@@ -23,9 +23,11 @@ export class MigrationService {
     }
 
     try {
-      // 同時取得 saved 和 highlights 數據
-      const pageData = await this.storageService.getSavedPageData(legacyUrl);
-      const highlights = await this.storageService.getHighlights(legacyUrl);
+      // 並行取得 saved 和 highlights 數據
+      const [pageData, highlights] = await Promise.all([
+        this.storageService.getSavedPageData(legacyUrl),
+        this.storageService.getHighlights(legacyUrl),
+      ]);
 
       // 兩者皆無 → 不需遷移
       if (!pageData && !highlights) {
@@ -91,8 +93,7 @@ export class MigrationService {
       }
 
       // 2. Find or create tab
-      // We need to use chrome.tabs directly as TabService doesn't expose "create background tab"
-      const tabs = await chrome.tabs.query({ url });
+      const tabs = await this.tabService.queryTabs({ url });
       let targetTab = null;
 
       if (tabs.length > 0) {
@@ -102,7 +103,7 @@ export class MigrationService {
           tabId: targetTab.id,
         });
       } else {
-        targetTab = await chrome.tabs.create({
+        targetTab = await this.tabService.createTab({
           url,
           active: false,
         });
@@ -110,7 +111,7 @@ export class MigrationService {
         Logger.log('Created new tab', { action: 'executeContentMigration', tabId: targetTab.id });
 
         // Wait for tab to load
-        await this._waitForTabLoad(targetTab.id);
+        await this.tabService.waitForTabComplete(targetTab.id);
       }
 
       // 3. Inject migration-executor.js using InjectionService
@@ -165,13 +166,11 @@ export class MigrationService {
         ]
       );
 
-      const execResult = migrationResult; // injectWithResponse returns the result directly
-
-      if (execResult?.error) {
-        throw new Error(execResult.error);
+      if (migrationResult?.error) {
+        throw new Error(migrationResult.error);
       }
 
-      const stats = execResult?.statistics || {};
+      const stats = migrationResult?.statistics || {};
       Logger.log('Migration completed', {
         action: 'executeContentMigration',
         url: sanitizeUrlForLogging(url),
@@ -192,52 +191,9 @@ export class MigrationService {
       // 5. Cleanup
       if (createdTabId) {
         Logger.log('Closing tab', { action: 'executeContentMigration', tabId: createdTabId });
-        await chrome.tabs.remove(createdTabId).catch(() => {});
+        await this.tabService.removeTab(createdTabId).catch(() => {});
       }
     }
-  }
-
-  /**
-   * Helper: Wait for tab to complete loading
-   * Private helper since TabService._waitForTabCompilation is private
-   *
-   * @param {number} tabId
-   */
-  async _waitForTabLoad(tabId) {
-    return new Promise((resolve, reject) => {
-      const TIMEOUT_MS = 15_000;
-      let timeoutId = null;
-
-      const listener = (tid, changeInfo) => {
-        if (tid === tabId && changeInfo.status === 'complete') {
-          cleanup();
-          resolve();
-        }
-      };
-
-      const cleanup = () => {
-        chrome.tabs.onUpdated.removeListener(listener);
-        clearTimeout(timeoutId);
-      };
-
-      chrome.tabs.onUpdated.addListener(listener);
-
-      timeoutId = setTimeout(() => {
-        cleanup();
-        reject(new Error(`Tab loading timed out (${TIMEOUT_MS}ms)`));
-      }, TIMEOUT_MS);
-
-      // Check current status
-      chrome.tabs
-        .get(tabId)
-        .then(tab => {
-          if (tab?.status === 'complete') {
-            cleanup();
-            resolve();
-          }
-        })
-        .catch(() => {});
-    });
   }
 
   /**

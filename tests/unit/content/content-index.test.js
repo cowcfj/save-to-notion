@@ -34,8 +34,8 @@ describe('Content Script Entry (index.js)', () => {
         },
         sendMessage: jest.fn(),
         lastError: null,
+        getManifest: () => ({ version_name: 'dev' }),
       },
-      getManifest: () => ({ version_name: 'dev' }),
     };
 
     // Mock document.querySelector
@@ -70,9 +70,6 @@ describe('Content Script Entry (index.js)', () => {
         shortlink: 'https://wp.me/p1',
         nextRouteInfo: { page: '/p1' },
       };
-      if (globalThis.window !== undefined) {
-        globalThis.window.__NOTION_PRELOADER_CACHE__ = globalThis.__NOTION_PRELOADER_CACHE__;
-      }
 
       jest.isolateModules(() => {
         require('../../../scripts/content/index.js');
@@ -117,9 +114,11 @@ describe('Content Script Entry (index.js)', () => {
       globalThis.notionHighlighter = mockHighlighter;
 
       // Simulate response to REPLAY_BUFFERED_EVENTS
-      const replayCallback = sendMessageMock.mock.calls.find(
+      const replayCall = sendMessageMock.mock.calls.find(
         call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
-      )[1];
+      );
+      expect(replayCall).toBeDefined();
+      const replayCallback = replayCall[1];
 
       replayCallback({ events: [{ type: 'shortcut' }] });
 

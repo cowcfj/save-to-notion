@@ -136,14 +136,6 @@ describe('saveHandlers Security Verification', () => {
 
       await handlers.savePage(request, sender, sendResponse);
 
-      const callArgs = mockNotionService.createPage.mock.calls[0]?.[1];
-
-      if (callArgs) {
-        expect(callArgs.apiKey).not.toBe('MALICIOUS_INJECTED_KEY');
-      } else {
-        // If createPage wasn't called, the test will fail below at expect(...).toHaveBeenCalledWith
-        // but we can log unexpected responses here if needed
-      }
       expect(mockNotionService.createPage).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({

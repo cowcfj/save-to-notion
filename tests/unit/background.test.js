@@ -188,7 +188,7 @@ describe('Background Script Lifecycle', () => {
       );
     });
 
-    test('Should NOT show notification for minor/non-important updates', async () => {
+    test('Should NOT show notification for patch updates (unless flagged as important)', async () => {
       mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.1' });
 
       await handleExtensionUpdate('2.8.0'); // Patch update, not important

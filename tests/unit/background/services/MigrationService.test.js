@@ -37,7 +37,17 @@ describe('MigrationService', () => {
     };
 
     mockTabService = {
-      _waitForTabLoad: jest.fn(),
+      queryTabs: jest.fn().mockImplementation(q => globalThis.chrome.tabs.query(q)),
+      createTab: jest.fn().mockImplementation(p => globalThis.chrome.tabs.create(p)),
+      removeTab: jest.fn().mockImplementation(id => globalThis.chrome.tabs.remove(id)),
+      waitForTabComplete: jest.fn().mockImplementation(id => {
+        return globalThis.chrome.tabs.get(id).then(tab => {
+          if (tab?.status === 'complete') {
+            return;
+          }
+          // 這裡簡化模擬，實際測試中會透過 mockResolvedValue 控制
+        });
+      }),
     };
     mockInjectionService = {
       injectAndExecute: jest.fn(),
@@ -57,6 +67,9 @@ describe('MigrationService', () => {
       },
       runtime: {
         lastError: null,
+      },
+      scripting: {
+        executeScript: jest.fn(),
       },
     };
 
@@ -122,28 +135,6 @@ describe('MigrationService', () => {
     const targetUrl = 'https://example.com/target';
     const sender = { id: 'sender-123' };
 
-    beforeAll(() => {
-      globalThis.chrome = {
-        tabs: {
-          query: jest.fn(),
-          create: jest.fn(),
-          remove: jest.fn(),
-          get: jest.fn(),
-          onUpdated: {
-            addListener: jest.fn(),
-            removeListener: jest.fn(),
-          },
-        },
-        scripting: {
-          executeScript: jest.fn(),
-        },
-      };
-    });
-
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
     test('should return error if URL is missing', async () => {
       const result = await service.executeContentMigration({}, sender);
       expect(result.success).toBe(false);
@@ -189,6 +180,7 @@ describe('MigrationService', () => {
         null,
         expect.anything()
       );
+      expect(globalThis.chrome.tabs.remove).not.toHaveBeenCalled();
     });
 
     test('should create new tab if none exists and clean it up', async () => {
@@ -197,8 +189,8 @@ describe('MigrationService', () => {
       globalThis.chrome.tabs.query.mockResolvedValue([]); // No existing tabs
       globalThis.chrome.tabs.create.mockResolvedValue(newTab);
 
-      // Setup _waitForTabLoad via chrome.tabs.get immediately returning complete
-      globalThis.chrome.tabs.get.mockResolvedValue({ status: 'complete' });
+      // Setup waitForTabComplete
+      mockTabService.waitForTabComplete.mockResolvedValue();
 
       mockInjectionService.injectAndExecute.mockResolvedValue();
       mockInjectionService.injectWithResponse

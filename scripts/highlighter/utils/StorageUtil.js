@@ -15,11 +15,9 @@
 // 從統一工具函數導入 normalizeUrl
 import { normalizeUrl } from '../../utils/urlUtils.js';
 import Logger from '../../utils/Logger.js';
+import { ERROR_MESSAGES } from '../../config/messages.js';
 
-const MESSAGES = {
-  CHROME_STORAGE_UNAVAILABLE: 'Chrome storage not available',
-  INVALID_PAGE_URL: 'Invalid pageUrl: must be a non-empty string',
-};
+const MESSAGES = ERROR_MESSAGES.TECHNICAL;
 
 /**
  * StorageUtil 對象
@@ -34,8 +32,9 @@ const StorageUtil = {
    */
   async saveHighlights(pageUrl, highlightData) {
     if (!pageUrl || typeof pageUrl !== 'string') {
-      Logger.warn('無效的 pageUrl', { action: 'saveHighlights' });
-      return;
+      const error = new Error(MESSAGES.INVALID_PAGE_URL);
+      Logger.error(MESSAGES.LOG_INVALID_URL, { action: 'saveHighlights', error: error.message });
+      throw error;
     }
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `highlights_${normalizedUrl}`;
@@ -114,8 +113,9 @@ const StorageUtil = {
    */
   async loadHighlights(pageUrl) {
     if (!pageUrl || typeof pageUrl !== 'string') {
-      Logger.warn('無效的 pageUrl', { action: 'loadHighlights' });
-      return [];
+      const error = new Error(MESSAGES.INVALID_PAGE_URL);
+      Logger.error(MESSAGES.LOG_INVALID_URL, { action: 'loadHighlights', error: error.message });
+      throw error;
     }
     const normalizedUrl = normalizeUrl(pageUrl);
     const pageKey = `highlights_${normalizedUrl}`;
@@ -235,7 +235,7 @@ const StorageUtil = {
     // 輸入驗證
     if (!pageUrl || typeof pageUrl !== 'string') {
       const error = new Error(MESSAGES.INVALID_PAGE_URL);
-      Logger.error('無效的 URL 參數', { action: 'clearHighlights', error: error.message });
+      Logger.error(MESSAGES.LOG_INVALID_URL, { action: 'clearHighlights', error: error.message });
       throw error;
     }
 

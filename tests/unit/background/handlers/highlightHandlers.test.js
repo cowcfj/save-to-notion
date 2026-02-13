@@ -50,20 +50,17 @@ describe('highlightHandlers', () => {
       },
       tabService: {
         getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
-        getPreloaderData: jest.fn(),
-      },
-      injectionService: {
-        ensureBundleInjected: jest.fn(),
-        injectHighlighter: jest.fn(),
-        collectHighlights: jest.fn(),
-      },
-      tabService: {
         getPreloaderData: jest.fn().mockResolvedValue(null),
         resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
           stableUrl: url,
           originalUrl: url,
           migrated: false,
         })),
+      },
+      injectionService: {
+        ensureBundleInjected: jest.fn(),
+        injectHighlighter: jest.fn(),
+        collectHighlights: jest.fn(),
       },
       migrationService: {
         migrateStorageKey: jest.fn().mockResolvedValue(false),

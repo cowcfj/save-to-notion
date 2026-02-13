@@ -106,7 +106,47 @@ class TabService {
       migrated = await migrationService.migrateStorageKey(stableUrl, originalUrl);
     }
 
-    return { stableUrl, originalUrl, migrated };
+    return { stableUrl, originalUrl, hasStableUrl, migrated };
+  }
+
+  /**
+   * 公開方法：等標籤頁完成（包裝內部私有方法）
+   *
+   * @param {number} tabId
+   * @returns {Promise<object|null>}
+   */
+  async waitForTabComplete(tabId) {
+    return this._waitForTabCompilation(tabId);
+  }
+
+  /**
+   * 包裝 chrome.tabs.query
+   *
+   * @param {object} queryInfo
+   * @returns {Promise<chrome.tabs.Tab[]>}
+   */
+  async queryTabs(queryInfo) {
+    return chrome.tabs.query(queryInfo);
+  }
+
+  /**
+   * 包裝 chrome.tabs.create
+   *
+   * @param {object} createProperties
+   * @returns {Promise<chrome.tabs.Tab>}
+   */
+  async createTab(createProperties) {
+    return chrome.tabs.create(createProperties);
+  }
+
+  /**
+   * 包裝 chrome.tabs.remove
+   *
+   * @param {number|number[]} tabId
+   * @returns {Promise<void>}
+   */
+  async removeTab(tabId) {
+    return chrome.tabs.remove(tabId);
   }
 
   /**
@@ -117,15 +157,8 @@ class TabService {
    * @private
    */
   async _updateTabStatusInternal(tabId, url) {
-    // 取得 Preloader 元數據（Phase 2: nextRouteInfo, shortlink）
-    const preloaderData = await this.getPreloaderData(tabId);
-
-    // 按優先級計算穩定 URL - 使用通用解析邏輯 (包含 Phase 1, Phase 2a/2a+, fallback)
-    const normUrl = resolveStorageUrl(url, preloaderData);
-    const originalUrl = this.normalizeUrl(url);
-
-    // 判斷是否為穩定 URL (與原始 URL 不同)，若是則需進行雙查 (向後兼容)
-    const hasStableUrl = normUrl !== originalUrl;
+    // 按優先級計算穩定 URL（包含 Phase 1, Phase 2a/2a+, fallback）
+    const { stableUrl: normUrl, originalUrl, hasStableUrl } = await this.resolveTabUrl(tabId, url);
 
     try {
       // 1. 更新徽章狀態（雙查：若有穩定 URL，同時檢查原始 URL）
@@ -148,7 +181,6 @@ class TabService {
       this.logger.debug(
         `[TabService] Found ${highlights.length} highlights, preparing to inject bundle...`
       );
-
       const tab = await this._waitForTabCompilation(tabId);
       if (tab) {
         this.logger.debug(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
@@ -311,6 +343,13 @@ class TabService {
     return hasHighlights ? highlights : null;
   }
 
+  /**
+   * 內部方法：等待標籤頁編譯/載入完成
+   *
+   * @param {number} tabId
+   * @returns {Promise<object|null>}
+   * @private
+   */
   async _waitForTabCompilation(tabId) {
     const tab = await chrome.tabs.get(tabId).catch(() => null);
     if (!tab) {

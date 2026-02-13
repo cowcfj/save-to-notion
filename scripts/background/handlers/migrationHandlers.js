@@ -19,13 +19,6 @@ import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 
 /**
- * 創建遷移處理函數
- * 沿用工廠模式，保持與 actionHandlers 一致的依賴注入風格
- *
- * @param {object} services - 服務實例集合（目前未使用，保留擴展性）
- * @returns {object} 遷移處理函數映射
- */
-/**
  * 驗證特權請求和 URL 安全性（使用共享驗證函數）
  *
  * @param {object} sender - 請求發送者對象

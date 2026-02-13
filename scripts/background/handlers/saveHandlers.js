@@ -321,16 +321,6 @@ export function createSaveHandlers(services) {
     }
   }
 
-  /**
-   * 獲取保存的頁面數據，並嘗試從舊 Key 遷移（Dual Lookup + Move & Delete）
-   *
-   * @param {string} normUrl - 穩定 URL
-   * @param {string} originalUrl - 原始 URL
-   * @param {boolean} hasStableUrl - 是否有穩定 URL
-   * @returns {Promise<{savedData: object|null, migratedFromOldKey: boolean}>}
-   */
-  // getOrMigrateSavedData removed - replaced by MigrationService.migrateStorageKey
-
   return {
     /**
      * 保存頁面
@@ -421,7 +411,7 @@ export function createSaveHandlers(services) {
           Logger.log('內容提取成功', { action: 'extractContent' });
         } catch (error) {
           Logger.error('內容提取發生異常', {
-            action: 'extractPageContent',
+            action: 'extractContent',
             error: error.message,
             stack: error.stack,
           });
@@ -617,7 +607,6 @@ export function createSaveHandlers(services) {
           originalUrl,
           migrated: migratedFromOldKey,
         } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
-        const hasStableUrl = normUrl !== originalUrl;
         const savedData = await storageService.getSavedPageData(normUrl);
 
         if (!savedData?.notionPageId) {
@@ -670,11 +659,7 @@ export function createSaveHandlers(services) {
             pageId: savedData.notionPageId?.slice(0, 4) ?? 'unknown',
           });
           // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
-          await storageService.clearPageState(normUrl);
-          // Also try clearing original URL just in case migration left something behind or failed partially
-          if (hasStableUrl) {
-            await storageService.clearPageState(originalUrl);
-          }
+          await storageService.clearPageState(originalUrl || normUrl);
 
           try {
             chrome.action.setBadgeText({ text: '', tabId: activeTab.id });

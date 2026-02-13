@@ -4,10 +4,9 @@
 
 describe('Preloader Performance Script', () => {
   let mockChrome;
-
-  beforeAll(() => {
-    // No need to read file manually anymore
-  });
+  let testListeners = [];
+  let originalAdd;
+  let originalRemove;
 
   beforeEach(() => {
     // Reset global state
@@ -29,32 +28,24 @@ describe('Preloader Performance Script', () => {
 
     // Reset DOM
     document.body.innerHTML = '';
-    jest.restoreAllMocks();
 
     // Track event listeners strictly for cleanup
-    const originalAdd = document.addEventListener;
-    const originalRemove = document.removeEventListener;
-    const listeners = [];
+    originalAdd = document.addEventListener;
+    originalRemove = document.removeEventListener;
+    testListeners = [];
 
     document.addEventListener = jest.fn((type, listener, options) => {
-      listeners.push({ type, listener, options });
+      testListeners.push({ type, listener, options });
       originalAdd.call(document, type, listener, options);
     });
 
     document.removeEventListener = jest.fn((type, listener, options) => {
-      const index = listeners.findIndex(l => l.type === type && l.listener === listener);
+      const index = testListeners.findIndex(l => l.type === type && l.listener === listener);
       if (index !== -1) {
-        listeners.splice(index, 1);
+        testListeners.splice(index, 1);
       }
       originalRemove.call(document, type, listener, options);
     });
-
-    // Store cleanup in global or accessible scope?
-    // Actually easier: just attach to test context or rely on jest.restoreAllMocks?
-    // jest.restoreAllMocks restores implementations but does NOT remove listeners added to real DOM objects!
-    // So we must manually remove them.
-    globalThis.__test_listeners__ = listeners;
-    globalThis.__test_original_remove__ = originalRemove;
   });
 
   afterEach(() => {
@@ -62,26 +53,25 @@ describe('Preloader Performance Script', () => {
     delete globalThis.__NOTION_PRELOADER_INITIALIZED__;
 
     // Clean up event listeners
-    if (globalThis.__test_listeners__) {
-      globalThis.__test_listeners__.forEach(({ type, listener, options }) => {
-        globalThis.__test_original_remove__.call(document, type, listener, options);
-      });
-      delete globalThis.__test_listeners__;
-      delete globalThis.__test_original_remove__;
-    }
+    testListeners.forEach(({ type, listener, options }) => {
+      originalRemove.call(document, type, listener, options);
+    });
+    testListeners = [];
+
+    // Restore original methods
+    document.addEventListener = originalAdd;
+    document.removeEventListener = originalRemove;
+
+    jest.restoreAllMocks();
   });
 
   /**
    * Helper to execute the preloader script via require
    */
   const runPreloader = () => {
-    try {
-      // Use require to execute the script in the current environment
-      // jest.resetModules() in beforeEach ensures it re-runs
-      require('../../../scripts/performance/preloader.js');
-    } catch (error) {
-      console.error('Error executing preloader script:', error);
-    }
+    // Use require to execute the script in the current environment
+    // jest.resetModules() in beforeEach ensures it re-runs
+    require('../../../scripts/performance/preloader.js');
   };
 
   describe('Initialization Check', () => {
@@ -160,11 +150,7 @@ describe('Preloader Performance Script', () => {
           <script id="__NEXT_DATA__" type="application/json">${JSON.stringify(invalidTypeData)}</script>
         `;
 
-      try {
-        require('../../../scripts/performance/preloader.js');
-      } catch (error) {
-        console.error(error);
-      }
+      runPreloader();
 
       let responseDetail = null;
       document.addEventListener('notion-preloader-response', e => {
@@ -227,8 +213,7 @@ describe('Preloader Performance Script', () => {
     });
 
     test('應該處理快捷鍵發送訊息後的錯誤', () => {
-      const originalWarn = console.warn;
-      console.warn = jest.fn();
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
       runPreloader();
       const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
@@ -238,12 +223,11 @@ describe('Preloader Performance Script', () => {
       const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
       callback();
 
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to send shortcut message'),
         'Connection error'
       );
 
-      console.warn = originalWarn;
       mockChrome.runtime.lastError = null;
     });
 

@@ -3,10 +3,9 @@
  *
  * 職責：封裝 chrome.storage 操作，提供統一的異步接口
  * - 頁面保存狀態管理
+ * - 標註 (Highlights) 數據管理與遷移
  * - 配置讀取
  * - URL 標準化（使用統一的 urlUtils）
- *
- * 注意：Highlights 存儲由 StorageUtil（Content Script）處理
  *
  * @module services/StorageService
  */
