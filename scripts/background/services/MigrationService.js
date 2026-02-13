@@ -1,6 +1,7 @@
 import Logger from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
+import { MIGRATION_CONFIG } from '../../config/constants.js';
 
 export class MigrationService {
   constructor(storageService, tabService, injectionService) {
@@ -95,11 +96,12 @@ export class MigrationService {
       }
 
       // 2. Find or create tab
-      const tabs = await this.tabService.queryTabs({ url });
-      let targetTab = null;
+      // 使用 queryTabs({}) 獲取所有 tabs 後手動過濾，避免 chrome.tabs.query({ url }) 的 match patterns 行為
+      // 導致特殊字符 URL 匹配失敗或誤匹配
+      const tabs = await this.tabService.queryTabs({});
+      let targetTab = tabs.find(tab => tab.url === url);
 
-      if (tabs.length > 0) {
-        targetTab = tabs[0];
+      if (targetTab) {
         Logger.log('Using existing tab', {
           action: 'executeContentMigration',
           tabId: targetTab.id,
@@ -112,8 +114,11 @@ export class MigrationService {
         createdTabId = targetTab.id;
         Logger.log('Created new tab', { action: 'executeContentMigration', tabId: targetTab.id });
 
-        // Wait for tab to load
-        await this.tabService.waitForTabComplete(targetTab.id);
+        // Wait for tab to load if not already complete
+        // 即使 createTab 返回時 status 為 complete，仍建議確保其內容腳本環境準備就緒
+        if (targetTab.status !== 'complete') {
+          await this.tabService.waitForTabComplete(targetTab.id);
+        }
       }
 
       // 3. Inject migration-executor.js using InjectionService
@@ -205,8 +210,8 @@ export class MigrationService {
    * @returns {Promise<boolean>}
    */
   async _waitForScriptReady(tabId) {
-    const maxRetries = 10;
-    const retryDelay = 200;
+    const maxRetries = MIGRATION_CONFIG.SCRIPT_READY_MAX_RETRIES;
+    const retryDelay = MIGRATION_CONFIG.SCRIPT_READY_RETRY_DELAY;
 
     for (let i = 0; i < maxRetries; i++) {
       try {

@@ -90,6 +90,7 @@ describe('MigrationService', () => {
 
     test('should return false if no legacy data exists', async () => {
       mockStorageService.getSavedPageData.mockResolvedValue(null);
+      mockStorageService.getHighlights.mockResolvedValue(null);
 
       const result = await service.migrateStorageKey(stableUrl, legacyUrl);
 
@@ -154,9 +155,9 @@ describe('MigrationService', () => {
     });
 
     test('should reuse existing tab if available', async () => {
-      const existingTab = { id: 888, status: 'complete' };
+      const existingTab = { id: 888, status: 'complete', url: targetUrl };
       mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
-      globalThis.chrome.tabs.query.mockResolvedValue([existingTab]);
+      globalThis.chrome.tabs.query.mockResolvedValue([existingTab]); // Mock queryTabs({}) to return our tab
       mockInjectionService.injectAndExecute.mockResolvedValue(); // script injection
       mockInjectionService.injectWithResponse
         // Script readiness check
@@ -171,7 +172,7 @@ describe('MigrationService', () => {
 
       expect(result.success).toBe(true);
       expect(result.count).toBe(5);
-      expect(globalThis.chrome.tabs.query).toHaveBeenCalledWith({ url: targetUrl });
+      expect(globalThis.chrome.tabs.query).toHaveBeenCalledWith({}); // Verify precise match logic
       expect(mockTabService.createTab).not.toHaveBeenCalled();
 
       // Verify script injection
@@ -204,6 +205,7 @@ describe('MigrationService', () => {
       const result = await service.executeContentMigration({ url: targetUrl }, sender);
 
       expect(result.success).toBe(true);
+      expect(globalThis.chrome.tabs.query).toHaveBeenCalledWith({}); // Verify precise match logic
       expect(mockTabService.createTab).toHaveBeenCalledWith({ url: targetUrl, active: false });
 
       // Cleanup verification
@@ -211,7 +213,7 @@ describe('MigrationService', () => {
     });
 
     test('should handle migration execution failure and cleanup', async () => {
-      const existingTab = { id: 777, status: 'complete' };
+      const existingTab = { id: 777, status: 'complete', url: targetUrl };
       mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
       globalThis.chrome.tabs.query.mockResolvedValue([existingTab]);
       mockInjectionService.injectAndExecute.mockResolvedValue();

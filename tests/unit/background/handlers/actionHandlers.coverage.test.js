@@ -166,11 +166,13 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     mockTabService = {
       getPreloaderData: jest.fn().mockResolvedValue(null),
-      resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
-        stableUrl: url,
-        originalUrl: url,
-        migrated: false,
-      })),
+      resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
+        Promise.resolve({
+          stableUrl: url,
+          originalUrl: url,
+          migrated: false,
+        })
+      ),
     };
 
     mockMigrationService = {

@@ -6,8 +6,12 @@ describe('migrationHandlers Extended Coverage', () => {
   let mockServices;
   let mockSender;
   let sendResponse;
+  let originalChrome;
+  let originalLogger;
 
   beforeEach(() => {
+    originalChrome = globalThis.chrome;
+    originalLogger = globalThis.Logger;
     mockServices = {
       migrationService: {
         executeContentMigration: jest.fn(),
@@ -44,6 +48,18 @@ describe('migrationHandlers Extended Coverage', () => {
   });
 
   afterEach(() => {
+    if (originalChrome === undefined) {
+      delete globalThis.chrome;
+    } else {
+      globalThis.chrome = originalChrome;
+    }
+
+    if (originalLogger === undefined) {
+      delete globalThis.Logger;
+    } else {
+      globalThis.Logger = originalLogger;
+    }
+
     jest.clearAllMocks();
   });
 

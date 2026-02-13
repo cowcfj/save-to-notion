@@ -540,43 +540,51 @@ describe('TabService', () => {
       const mockOriginalUrl = 'https://example.com/';
 
       // 1. Mock 外部工具函數以模擬 Phase 1 為該頁面生成了不同的穩定 URL
-      const { resolveStorageUrl } = require('../../../../scripts/utils/urlUtils.js');
-      const originalResolve = resolveStorageUrl.getMockImplementation();
+      // 1. Mock 外部工具函數以模擬 Phase 1 為該頁面生成了不同的穩定 URL
+      // 使用 import 的 mock 對象，避免 require 與手動還原
+      const { resolveStorageUrl } = await import('../../../../scripts/utils/urlUtils.js');
+      // 重要：在測試結束後還原 mock，避免影響後續測試 (如 getPreloaderData edge cases)
+      const originalImpl = resolveStorageUrl.getMockImplementation();
       resolveStorageUrl.mockReturnValue(mockStableUrl);
 
-      // 2. 配置 service 的 URL 標準化行為
-      service.normalizeUrl = jest.fn().mockReturnValue(mockOriginalUrl);
+      try {
+        // 2. 配置 service 的 URL 標準化行為
+        service.normalizeUrl = jest.fn().mockReturnValue(mockOriginalUrl);
 
-      // 3. Mock 外部儲存 API：穩定 URL 為空，原始 URL 有數據
-      chrome.storage.local.get.mockImplementation(async keys => {
-        if (keys.includes(`highlights_${mockStableUrl}`)) {
+        // 3. Mock 外部儲存 API：穩定 URL 為空，原始 URL 有數據
+        chrome.storage.local.get.mockImplementation(async keys => {
+          if (keys.includes(`highlights_${mockStableUrl}`)) {
+            return {};
+          }
+          if (keys.includes(`highlights_${mockOriginalUrl}`)) {
+            return { [`highlights_${mockOriginalUrl}`]: [{ text: 'fallback-highlight' }] };
+          }
           return {};
+        });
+
+        // 4. Mock 其他無關此測試邏輯的內部步驟，以隔離並專注於回退邏輯檢測
+        service.getPreloaderData = jest.fn().mockResolvedValue(null);
+        service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+        service._waitForTabCompilation = jest.fn().mockResolvedValue({ id: mockTabId });
+        service.injectionService = { ensureBundleInjected: jest.fn().mockResolvedValue() };
+
+        // 5. 執行測試
+        await service._updateTabStatusInternal(mockTabId, mockRawUrl);
+
+        // 6. 驗證：儲存 API 應該被呼叫了兩次（一次穩定，一次原始）
+        expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockStableUrl}`]);
+        expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockOriginalUrl}`]);
+
+        // 驗證最終成功觸發了注入
+        expect(service.injectionService.ensureBundleInjected).toHaveBeenCalledWith(mockTabId);
+      } finally {
+        // 還原 Mock
+        if (originalImpl) {
+          resolveStorageUrl.mockImplementation(originalImpl);
+        } else {
+          resolveStorageUrl.mockReset(); // 或者 mockBack to default implementation if needed
+          resolveStorageUrl.mockImplementation(url => url); // Restore default mock behavior defined at top of file
         }
-        if (keys.includes(`highlights_${mockOriginalUrl}`)) {
-          return { [`highlights_${mockOriginalUrl}`]: [{ text: 'fallback-highlight' }] };
-        }
-        return {};
-      });
-
-      // 4. Mock 其他無關此測試邏輯的內部步驟，以隔離並專注於回退邏輯檢測
-      service.getPreloaderData = jest.fn().mockResolvedValue(null);
-      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
-      service._waitForTabCompilation = jest.fn().mockResolvedValue({ id: mockTabId });
-      service.injectionService = { ensureBundleInjected: jest.fn().mockResolvedValue() };
-
-      // 5. 執行測試
-      await service._updateTabStatusInternal(mockTabId, mockRawUrl);
-
-      // 6. 驗證：儲存 API 應該被呼叫了兩次（一次穩定，一次原始）
-      expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockStableUrl}`]);
-      expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockOriginalUrl}`]);
-
-      // 驗證最終成功觸發了注入
-      expect(service.injectionService.ensureBundleInjected).toHaveBeenCalledWith(mockTabId);
-
-      // 清理環境
-      if (originalResolve) {
-        resolveStorageUrl.mockImplementation(originalResolve);
       }
     });
   });
@@ -711,6 +719,10 @@ describe('TabService', () => {
 
     it('應該處理 chrome.tabs.onUpdated 事件', () => {
       jest.useFakeTimers();
+
+      // Spy on the public method we expect to be called
+      const updateStatusSpy = jest.spyOn(service, 'updateTabStatus').mockImplementation(() => {});
+
       service.setupListeners();
       const updatedCallback = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
 
@@ -719,10 +731,11 @@ describe('TabService', () => {
       // 推進時間：等待 STATUS_UPDATE_DELAY_MS (100ms) 觸發延遲更新
       jest.advanceTimersByTime(200);
 
-      // 驗證延遲後的行為
-      expect(chrome.tabs.sendMessage).toHaveBeenCalled();
+      // 驗證延遲後的行為：應該呼叫 updateTabStatus
+      expect(updateStatusSpy).toHaveBeenCalledWith(1, 'https://example.com/updated');
 
       jest.useRealTimers();
+      updateStatusSpy.mockRestore();
     });
   });
 });
