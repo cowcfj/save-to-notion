@@ -32,6 +32,7 @@ describe('MigrationService', () => {
       getSavedPageData: jest.fn(),
       setSavedPageData: jest.fn(),
       clearPageState: jest.fn(),
+      clearLegacyKeys: jest.fn(),
       getHighlights: jest.fn(),
       savePageDataAndHighlights: jest.fn(),
     };
@@ -101,7 +102,7 @@ describe('MigrationService', () => {
       mockStorageService.getSavedPageData.mockResolvedValue(pageData);
       mockStorageService.getHighlights.mockResolvedValue(null);
       mockStorageService.savePageDataAndHighlights.mockResolvedValue();
-      mockStorageService.clearPageState.mockResolvedValue();
+      mockStorageService.clearLegacyKeys.mockResolvedValue();
 
       const result = await service.migrateStorageKey(stableUrl, legacyUrl);
 
@@ -114,8 +115,8 @@ describe('MigrationService', () => {
         pageData,
         null
       );
-      // 3. Verify delete old key
-      expect(mockStorageService.clearPageState).toHaveBeenCalledWith(legacyUrl);
+      // 3. Verify delete old key using clearLegacyKeys (不會誤刪 stable URL)
+      expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(legacyUrl);
     });
 
     test('should return false and NOT delete legacy data if write fails', async () => {
@@ -127,7 +128,7 @@ describe('MigrationService', () => {
       expect(result).toBe(false);
       expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalled();
       // Critical: Should NOT clear old data if write failed
-      expect(mockStorageService.clearPageState).not.toHaveBeenCalled();
+      expect(mockStorageService.clearLegacyKeys).not.toHaveBeenCalled();
     });
   });
 

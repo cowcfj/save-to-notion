@@ -211,6 +211,37 @@ class StorageService {
   }
 
   /**
+   * 清理舊版 URL 的 Storage Keys（僅刪除精確 key，不使用 computeStableUrl）
+   *
+   * 使用場景：在 URL 遷移後安全刪除舊資料，避免誤刪新寫入的穩定 URL key。
+   * 與 clearPageState 的區別：
+   * - clearPageState: 完整清理，包含 normalizedUrl 和 computeStableUrl(pageUrl) 的 keys
+   * - clearLegacyKeys: 僅刪除 normalizedUrl 的 keys，不計算 stable URL
+   *
+   * @param {string} legacyUrl - 舊版 URL
+   * @returns {Promise<void>}
+   */
+  async clearLegacyKeys(legacyUrl) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(legacyUrl);
+    const keysToRemove = [
+      `${SAVED_PREFIX}${normalizedUrl}`,
+      `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+    ];
+
+    try {
+      await this.storage.local.remove(keysToRemove);
+      this.logger.log?.('Cleared legacy keys', { url: sanitizeUrlForLogging(normalizedUrl) });
+    } catch (error) {
+      this.logger.error?.('[StorageService] clearLegacyKeys failed', { error });
+      throw error;
+    }
+  }
+
+  /**
    * 獲取配置（從 sync storage）
    *
    * @param {string[]} keys - 要獲取的配置鍵

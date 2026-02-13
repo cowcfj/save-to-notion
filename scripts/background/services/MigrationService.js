@@ -44,8 +44,10 @@ export class MigrationService {
       // 1. 原子寫入新 Key（全部成功後才刪除舊 key）
       await this.storageService.savePageDataAndHighlights(stableUrl, pageData, highlights);
 
-      // 2. 刪除舊 Key（clearPageState 會同時清除 saved_* 和 highlights_*）
-      await this.storageService.clearPageState(legacyUrl);
+      // 2. 刪除舊 Key（使用 clearLegacyKeys 避免誤刪新寫入的 stable URL key）
+      // clearLegacyKeys 僅刪除 saved_<normalizedUrl> 和 highlights_<normalizedUrl>，
+      // 不會呼叫 computeStableUrl，確保不會與新寫入的 stableUrl key 衝突
+      await this.storageService.clearLegacyKeys(legacyUrl);
 
       Logger.info('Migration successful', {
         url: sanitizeUrlForLogging(stableUrl),

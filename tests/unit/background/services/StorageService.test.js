@@ -142,6 +142,43 @@ describe('StorageService', () => {
     });
   });
 
+  describe('clearLegacyKeys', () => {
+    it('應該僅清除 normalized URL 的 keys（不使用 computeStableUrl）', async () => {
+      // 即使 URL 有 stable URL，clearLegacyKeys 也不應該刪除 stable URL keys
+      await service.clearLegacyKeys('https://example.com/article?utm_source=test');
+
+      // 應該僅刪除 normalizedUrl 的 keys
+      expect(mockStorage.local.remove).toHaveBeenCalledWith([
+        `${SAVED_PREFIX}https://example.com/article`,
+        `${HIGHLIGHTS_PREFIX}https://example.com/article`,
+      ]);
+
+      // 不應該包含其他 keys（例如 computeStableUrl 的結果）
+      const removeCall = mockStorage.local.remove.mock.calls[0][0];
+      expect(removeCall).toHaveLength(2);
+    });
+
+    it('應該記錄成功日誌', async () => {
+      await service.clearLegacyKeys('https://example.com/page');
+
+      expect(mockLogger.log).toHaveBeenCalledWith('Cleared legacy keys', {
+        url: 'https://example.com/page',
+      });
+    });
+
+    it('應該處理錯誤', async () => {
+      mockStorage.local.remove.mockRejectedValue(new Error('Remove failed'));
+
+      await expect(service.clearLegacyKeys('https://example.com/page')).rejects.toThrow(
+        'Remove failed'
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[StorageService] clearLegacyKeys failed',
+        expect.any(Object)
+      );
+    });
+  });
+
   describe('savePageDataAndHighlights', () => {
     it('應該原子寫入頁面數據和標註', async () => {
       const pageData = { title: 'Test' };

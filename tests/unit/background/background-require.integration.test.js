@@ -32,10 +32,28 @@ describe('scripts/background.js require integration', () => {
     // Customize for this test
     chromeMock.runtime.id = 'test-id';
     chromeMock.tabs.query = jest.fn((queryInfo, sendTabs) => {
-      sendTabs?.([{ id: 1, url: 'https://example.com/article', title: 'Article', active: true }]);
+      const result = [
+        { id: 1, url: 'https://example.com/article', title: 'Article', active: true },
+      ];
+      if (sendTabs) {
+        sendTabs(result);
+      }
+      return Promise.resolve(result);
     });
     chromeMock.tabs.create = jest.fn(createProps => Promise.resolve({ id: 99, ...createProps }));
-    chromeMock.tabs.sendMessage = jest.fn(() => Promise.resolve({ success: true }));
+    chromeMock.tabs.sendMessage = jest.fn((tabId, message, optionsOrCallback, callback) => {
+      // Handle optional options argument
+      let cb = callback;
+      if (typeof optionsOrCallback === 'function') {
+        cb = optionsOrCallback;
+      }
+
+      const response = { success: true };
+      if (cb) {
+        cb(response);
+      }
+      return Promise.resolve(response);
+    });
 
     globalThis.chrome = chromeMock;
 
@@ -120,7 +138,11 @@ describe('scripts/background.js require integration', () => {
       sendResponse
     );
 
-    await flushPromises();
+    // getPreloaderData 內部使用 Promise.race + setTimeout 超時機制
+    // 在 fake timers 下需要推進計時器讓超時（或 sendMessage 回調）完成
+    await flushPromises(10);
+    jest.advanceTimersByTime(1000);
+    await flushPromises(10);
 
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://www.notion.so/test' });
 

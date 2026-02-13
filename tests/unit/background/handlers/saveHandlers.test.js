@@ -686,7 +686,7 @@ describe('saveHandlers', () => {
         .mockResolvedValueOnce(true);
 
       const sendResponse = jest.fn();
-      const sender = { tab: { id: 1, url: 'https://example.com' } };
+      const sender = { id: 'test-extension-id' };
       await handlers.checkPageStatus({ url: 'https://example.com' }, sender, sendResponse);
 
       expect(mockServices.notionService.checkPageExists).toHaveBeenCalledTimes(2);
@@ -696,7 +696,8 @@ describe('saveHandlers', () => {
     it('checkPageStatus 應該處理一般錯誤', async () => {
       mockServices.storageService.getSavedPageData.mockRejectedValue(new Error('Fatal Error'));
       const sendResponse = jest.fn();
-      await handlers.checkPageStatus({ url: 'https://example.com' }, {}, sendResponse);
+      const sender = { id: 'test-extension-id' };
+      await handlers.checkPageStatus({ url: 'https://example.com' }, sender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 
@@ -717,7 +718,8 @@ describe('saveHandlers', () => {
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
 
       const sendResponse = jest.fn();
-      await handlers.checkPageStatus({ url: 'https://example.com' }, {}, sendResponse);
+      const sender = { id: 'test-extension-id' };
+      await handlers.checkPageStatus({ url: 'https://example.com' }, sender, sendResponse);
 
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, isSaved: true })
@@ -735,9 +737,10 @@ describe('saveHandlers', () => {
       chrome.tabs.query.mockResolvedValue([{ id: 1, url: 'https://example.com' }]);
 
       const sendResponse = jest.fn();
+      const sender = { id: 'test-extension-id' };
       await handlers.checkPageStatus(
         { url: 'https://example.com', forceRefresh: true },
-        {},
+        sender,
         sendResponse
       );
 
