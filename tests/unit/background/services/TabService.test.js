@@ -18,6 +18,7 @@ jest.mock('../../../../scripts/config/constants.js', () => ({
   TAB_SERVICE: {
     LOADING_TIMEOUT_MS: 1000,
     STATUS_UPDATE_DELAY_MS: 100,
+    PRELOADER_PING_TIMEOUT_MS: 500,
   },
   URL_NORMALIZATION: {
     TRACKING_PARAMS: ['utm_source'],
