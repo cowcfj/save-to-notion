@@ -64,6 +64,17 @@ describe('BackgroundHandlers 覆蓋率補強 (整合)', () => {
         handlers = createHighlightHandlers({
             injectionService: mockInjectionService,
             storageService: {},
+            tabService: {
+                getPreloaderData: jest.fn().mockResolvedValue(null),
+                resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
+                    stableUrl: url,
+                    originalUrl: url,
+                    migrated: false,
+                })),
+            },
+            migrationService: {
+                migrateStorageKey: jest.fn().mockResolvedValue(false),
+            },
         });
     });
 

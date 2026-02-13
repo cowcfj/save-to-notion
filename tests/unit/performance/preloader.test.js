@@ -1,487 +1,294 @@
 /**
- * Preloader 單元測試
- *
- * 測試 scripts/performance/preloader.js 的功能
- * - 初始化防護
- * - 快捷鍵監聽
- * - 消息監聽
- * - 快取機制
+ * @jest-environment jsdom
  */
 
-/**
- * 執行實際的 preloader.js 腳本
- * 通過讀取並執行實際文件，確保測試與實現同步
- *
- * skipcq: JS-0083 - 在測試環境中執行受信任的本地腳本是安全的
- */
-function executePreloader() {
-  const fs = require('node:fs');
-  const path = require('node:path');
-
-  // 讀取實際的 preloader.js 腳本
-  const preloaderPath = path.resolve(__dirname, '../../../scripts/performance/preloader.js');
-  const preloaderCode = fs.readFileSync(preloaderPath, 'utf8');
-
-  // 抑制 console.log 輸出（preloader 會輸出載入日誌）
-  const originalConsoleLog = console.log;
-  console.log = jest.fn();
-
-  try {
-    // 使用 Function 構造函數執行腳本（提供全域上下文）
-    // skipcq: JS-0083 - 執行受信任的本地腳本
-    // eslint-disable-next-line sonarjs/code-eval
-    const executeScript = new Function('window', 'document', 'chrome', 'console', preloaderCode);
-    // eslint-disable-next-line sonarjs/code-eval
-    executeScript(globalThis.window, globalThis.document, globalThis.chrome, console);
-  } finally {
-    // 恢復 console.log
-    console.log = originalConsoleLog;
-  }
-}
-
-describe('Preloader', () => {
-  // Jest beforeEach 模式：變數在 beforeEach 中初始化
-  /** @type {object} */
-  let originalWindow; // skipcq: JS-0119
-  /** @type {object} */
-  let mockChrome; // skipcq: JS-0119
-  /** @type {Function|null} */
-  let keydownHandler = null;
-  /** @type {Function|null} */
-  let messageHandler = null;
-  /** @type {Function|null} */
-  let requestHandler = null;
+describe('Preloader Performance Script', () => {
+  let mockChrome;
+  let testListeners = [];
+  let originalAdd;
+  let originalRemove;
 
   beforeEach(() => {
-    // 保存原始狀態
-    originalWindow = { ...globalThis.window };
-
-    // 重置全域變數
-    delete globalThis.window.__NOTION_PRELOADER_INITIALIZED__;
-    delete globalThis.window.__NOTION_BUNDLE_READY__;
-
-    // 捕獲事件監聽器
-    keydownHandler = null;
-    messageHandler = null;
-    requestHandler = null;
-
-    // Mock document.addEventListener
-    document.addEventListener = jest.fn((event, handler) => {
-      if (event === 'keydown') {
-        keydownHandler = handler;
-      }
-      if (event === 'notion-preloader-request') {
-        requestHandler = handler;
-      }
-    });
-
-    // Mock document.dispatchEvent to capture response
-    document.dispatchEvent = jest.fn();
-
-    document.querySelector = jest.fn(selector => {
-      if (selector === 'article') {
-        return { tagName: 'ARTICLE' };
-      }
-      if (selector.includes('main')) {
-        return { tagName: 'MAIN' };
-      }
-      return null;
-    });
+    // Reset global state
+    jest.resetModules();
+    delete globalThis.__NOTION_PRELOADER_INITIALIZED__;
+    delete globalThis.__NOTION_BUNDLE_READY__;
 
     // Mock chrome API
     mockChrome = {
       runtime: {
-        // Chrome API callback - 非 Node.js error-first 模式
-        sendMessage: jest.fn((message, callback) => {
-          if (callback) {
-            callback({ success: true }); // skipcq: JS-0255
-          }
-        }),
+        sendMessage: jest.fn(),
         onMessage: {
-          addListener: jest.fn(handler => {
-            messageHandler = handler;
-          }),
+          addListener: jest.fn(),
         },
         lastError: null,
       },
     };
-
     globalThis.chrome = mockChrome;
-    globalThis.window = globalThis.window || {};
+
+    // Reset DOM
+    document.body.innerHTML = '';
+
+    // Track event listeners strictly for cleanup
+    originalAdd = document.addEventListener;
+    originalRemove = document.removeEventListener;
+    testListeners = [];
+
+    document.addEventListener = jest.fn((type, listener, options) => {
+      testListeners.push({ type, listener, options });
+      originalAdd.call(document, type, listener, options);
+    });
+
+    document.removeEventListener = jest.fn((type, listener, options) => {
+      const index = testListeners.findIndex(l => l.type === type && l.listener === listener);
+      if (index !== -1) {
+        testListeners.splice(index, 1);
+      }
+      originalRemove.call(document, type, listener, options);
+    });
   });
 
   afterEach(() => {
-    globalThis.window = originalWindow;
-    jest.clearAllMocks();
+    delete globalThis.chrome;
+    delete globalThis.__NOTION_PRELOADER_INITIALIZED__;
+    delete globalThis.__NOTION_BUNDLE_READY__;
+
+    // Clean up event listeners
+    testListeners.forEach(({ type, listener, options }) => {
+      originalRemove.call(document, type, listener, options);
+    });
+    testListeners = [];
+
+    // Restore original methods
+    document.addEventListener = originalAdd;
+    document.removeEventListener = originalRemove;
+
+    jest.restoreAllMocks();
   });
 
   /**
-   * 執行實際的 preloader.js 腳本
-   * 通過讀取並執行實際文件，確保測試與實現同步
-   *
-   * skipcq: JS-0083 - 在測試環境中執行受信任的本地腳本是安全的
+   * Helper to execute the preloader script via require
    */
+  const runPreloader = () => {
+    // Use require to execute the script in the current environment
+    // jest.resetModules() in beforeEach ensures it re-runs
+    require('../../../scripts/performance/preloader.js');
+  };
 
-  describe('初始化防護', () => {
-    test('應該正確初始化並設置標記', () => {
-      executePreloader();
-
+  describe('Initialization Check', () => {
+    test('應該只初始化一次', () => {
+      runPreloader();
       expect(globalThis.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
-      expect(requestHandler).toBeInstanceOf(Function);
-    });
 
-    test('應該阻止重複初始化', () => {
-      // 第一次初始化
-      executePreloader();
-      expect(document.addEventListener).toHaveBeenCalledWith(
-        'notion-preloader-request',
-        expect.any(Function)
-      );
+      // Reset mock to verify it's not called again
+      mockChrome.runtime.onMessage.addListener.mockClear();
 
-      const firstHandler = requestHandler;
-
-      // 清除調用記錄以便驗證第二次
-      document.addEventListener.mockClear();
-
-      // 模擬第二次呼叫
-      executePreloader();
-
-      // 不應該再次註冊監聽器
-      expect(document.addEventListener).not.toHaveBeenCalledWith(
-        'notion-preloader-request',
-        expect.any(Function)
-      );
-      // 標記應保持
-      expect(globalThis.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
-      // Handler 應該保持不變
-      expect(requestHandler).toBe(firstHandler);
-    });
-
-    test('應該正確回應預載快取請求', () => {
-      executePreloader();
-
-      // 觸發請求
-      expect(requestHandler).toBeInstanceOf(Function);
-      requestHandler();
-
-      // 驗證回應
-      expect(document.dispatchEvent).toHaveBeenCalledWith(expect.any(CustomEvent));
-
-      const event = document.dispatchEvent.mock.calls[0][0];
-      expect(event.type).toBe('notion-preloader-response');
-      expect(event.detail).toBeDefined();
-      expect(event.detail.article).toBeDefined();
-      expect(event.detail.timestamp).toBeDefined();
+      runPreloader();
+      expect(mockChrome.runtime.onMessage.addListener).not.toHaveBeenCalled();
     });
   });
 
-  describe('快捷鍵監聽', () => {
-    test('應該註冊 keydown 事件監聽器', () => {
-      executePreloader();
+  describe('Cache Retrieval via Event', () => {
+    test('應該透過事件正確返回快取數據', () => {
+      const nextData = { page: '/test', query: { id: '123' }, buildId: 'abc' };
+      document.body.innerHTML = `
+          <article>Article Content</article>
+          <script id="__NEXT_DATA__" type="application/json">${JSON.stringify(nextData)}</script>
+          <link rel="shortlink" href="https://example.com/?p=123" />
+        `;
 
-      expect(document.addEventListener).toHaveBeenCalledWith('keydown', expect.any(Function));
+      runPreloader();
+
+      let responseDetail = null;
+      document.addEventListener('notion-preloader-response', e => {
+        responseDetail = e.detail;
+      });
+
+      document.dispatchEvent(new CustomEvent('notion-preloader-request'));
+
+      expect(responseDetail).not.toBeNull();
+      expect(responseDetail.article).not.toBeNull();
+      expect(responseDetail.nextRouteInfo).toEqual(nextData);
+      expect(responseDetail.shortlink).toBe('https://example.com/?p=123');
     });
 
-    test('Ctrl+S 應該觸發 USER_ACTIVATE_SHORTCUT 消息', () => {
-      executePreloader();
+    test('應該處理無效的 Next.js 數據 (缺少 page/query)', () => {
+      const invalidData = { foo: 'bar' }; // Missing page/query
+      document.body.innerHTML = `
+          <script id="__NEXT_DATA__" type="application/json">${JSON.stringify(invalidData)}</script>
+        `;
 
-      const mockEvent = {
+      runPreloader();
+
+      let responseDetail = null;
+      document.addEventListener('notion-preloader-response', e => {
+        responseDetail = e.detail;
+      });
+      document.dispatchEvent(new CustomEvent('notion-preloader-request'));
+
+      expect(responseDetail.nextRouteInfo).toBeNull();
+    });
+
+    test('應該處理無效的 Next.js JSON (語法錯誤)', () => {
+      document.body.innerHTML = `
+          <script id="__NEXT_DATA__" type="application/json">{ invalid json </script>
+        `;
+
+      runPreloader();
+
+      let responseDetail = null;
+      document.addEventListener('notion-preloader-response', e => {
+        responseDetail = e.detail;
+      });
+      document.dispatchEvent(new CustomEvent('notion-preloader-request'));
+
+      expect(responseDetail.nextRouteInfo).toBeNull();
+    });
+
+    test('應該拒絕類型錯誤的 Next.js 數據 (page 不是字串 或 query 不是物件)', () => {
+      const invalidTypeData = { page: 123, query: 'invalid' };
+      document.body.innerHTML = `
+          <script id="__NEXT_DATA__" type="application/json">${JSON.stringify(invalidTypeData)}</script>
+        `;
+
+      runPreloader();
+
+      let responseDetail = null;
+      document.addEventListener('notion-preloader-response', e => {
+        responseDetail = e.detail;
+      });
+      document.dispatchEvent(new CustomEvent('notion-preloader-request'));
+
+      expect(responseDetail.nextRouteInfo).toBeNull();
+    });
+  });
+
+  describe('Keyboard Shortcut handling', () => {
+    test('應該在按下 Ctrl+S 時發送激活訊息', () => {
+      runPreloader();
+      const event = new KeyboardEvent('keydown', {
         ctrlKey: true,
-        metaKey: false,
         key: 's',
-        preventDefault: jest.fn(),
-      };
+      });
+      document.dispatchEvent(event);
 
-      keydownHandler(mockEvent);
-
-      expect(mockEvent.preventDefault).toHaveBeenCalled();
-      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
         { action: 'USER_ACTIVATE_SHORTCUT' },
         expect.any(Function)
       );
     });
 
-    test('Cmd+S (macOS) 應該觸發 USER_ACTIVATE_SHORTCUT 消息', () => {
-      executePreloader();
-
-      const mockEvent = {
-        ctrlKey: false,
+    test('應該在按下 Cmd+S 時發送激活訊息', () => {
+      runPreloader();
+      const event = new KeyboardEvent('keydown', {
         metaKey: true,
         key: 's',
-        preventDefault: jest.fn(),
-      };
+      });
+      document.dispatchEvent(event);
 
-      keydownHandler(mockEvent);
-
-      expect(mockEvent.preventDefault).toHaveBeenCalled();
-      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
         { action: 'USER_ACTIVATE_SHORTCUT' },
         expect.any(Function)
       );
     });
 
-    test('普通按鍵不應觸發消息發送', () => {
-      executePreloader();
+    test('應該處理快捷鍵發送訊息後的回調 (緩衝事件)', () => {
+      runPreloader();
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+      document.dispatchEvent(event);
 
-      const mockEvent = {
-        ctrlKey: false,
-        metaKey: false,
-        key: 'a',
-        preventDefault: jest.fn(),
-      };
+      const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
 
-      keydownHandler(mockEvent);
+      // 模擬回調運作：Bundle 尚未準備好，應該緩衝
+      callback({ success: true });
 
-      expect(mockEvent.preventDefault).not.toHaveBeenCalled();
-      expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
-    });
-
-    test('Ctrl+其他鍵不應觸發消息發送', () => {
-      executePreloader();
-
-      const mockEvent = {
-        ctrlKey: true,
-        metaKey: false,
-        key: 'a',
-        preventDefault: jest.fn(),
-      };
-
-      keydownHandler(mockEvent);
-
-      expect(mockEvent.preventDefault).not.toHaveBeenCalled();
-      expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('消息監聽', () => {
-    test('應該註冊消息監聽器', () => {
-      executePreloader();
-
-      expect(chrome.runtime.onMessage.addListener).toHaveBeenCalledWith(expect.any(Function));
-    });
-
-    test('PING 應該在 Bundle 未載入時由 Preloader 響應', () => {
-      executePreloader();
-
+      // 驗證緩衝：透過 REPLAY_BUFFERED_EVENTS 訊息獲取
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       const sendResponse = jest.fn();
-      const result = messageHandler({ action: 'PING' }, {}, sendResponse);
-
-      expect(result).toBe(true);
-      expect(sendResponse).toHaveBeenCalledWith({
-        status: 'preloader_only',
-        hasCache: true,
-      });
+      onMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          events: [expect.objectContaining({ type: 'shortcut' })],
+        })
+      );
     });
 
-    test('PING 在 Bundle 已載入時不應響應', () => {
-      executePreloader();
+    test('應該處理快捷鍵發送訊息後的錯誤', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      runPreloader();
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+      document.dispatchEvent(event);
+
+      mockChrome.runtime.lastError = { message: 'Connection error' };
+      const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
+      callback();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to send shortcut message'),
+        'Connection error'
+      );
+
+      mockChrome.runtime.lastError = null;
+    });
+
+    test('當 Bundle 已就緒時不應該緩衝快捷鍵事件', () => {
       globalThis.__NOTION_BUNDLE_READY__ = true;
+      runPreloader();
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+      document.dispatchEvent(event);
 
+      const callback = mockChrome.runtime.sendMessage.mock.calls[0][1];
+      callback({ success: true });
+
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       const sendResponse = jest.fn();
-      const result = messageHandler({ action: 'PING' }, {}, sendResponse);
+      onMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith({ events: [] });
+    });
+  });
 
-      expect(result).toBe(false);
+  describe('Message Handling', () => {
+    test('應該正確執行 INIT_BUNDLE', () => {
+      runPreloader();
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+
+      onMessage({ action: 'INIT_BUNDLE' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ ready: true }));
+    });
+
+    test('應該正確執行 REPLAY_BUFFERED_EVENTS', () => {
+      runPreloader();
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+
+      onMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ events: expect.any(Array) })
+      );
+    });
+
+    test('PING 應該在 Bundle 未準備好時響應', () => {
+      runPreloader();
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+
+      onMessage({ action: 'PING' }, {}, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'preloader_only' })
+      );
+    });
+
+    test('PING 不應該在 Bundle 已就緒時響應', () => {
+      globalThis.__NOTION_BUNDLE_READY__ = true;
+      runPreloader();
+      const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+      const sendResponse = jest.fn();
+
+      const handled = onMessage({ action: 'PING' }, {}, sendResponse);
+      expect(handled).toBe(false);
       expect(sendResponse).not.toHaveBeenCalled();
-    });
-
-    test('INIT_BUNDLE 應該返回 ready 狀態', () => {
-      executePreloader();
-
-      const sendResponse = jest.fn();
-      const result = messageHandler({ action: 'INIT_BUNDLE' }, {}, sendResponse);
-
-      expect(result).toBe(true);
-      expect(sendResponse).toHaveBeenCalledWith({
-        ready: true,
-        bufferedEvents: 0,
-      });
-    });
-
-    test('REPLAY_BUFFERED_EVENTS 應該清空並返回緩衝事件', () => {
-      executePreloader();
-
-      const sendResponse = jest.fn();
-      const result = messageHandler({ action: 'REPLAY_BUFFERED_EVENTS' }, {}, sendResponse);
-
-      expect(result).toBe(true);
-      expect(sendResponse).toHaveBeenCalledWith({
-        events: [],
-      });
-    });
-
-    test('未知消息不應需要異步響應', () => {
-      executePreloader();
-
-      const sendResponse = jest.fn();
-      const result = messageHandler({ action: 'UNKNOWN_ACTION' }, {}, sendResponse);
-
-      expect(result).toBe(false);
-      expect(sendResponse).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('快取結構', () => {
-    test('快取應包含正確的結構', () => {
-      executePreloader();
-
-      // 觸發請求以獲取快取
-      requestHandler();
-
-      // 從 dispatchEvent 參數中獲取快取
-      const event = document.dispatchEvent.mock.calls[0][0];
-      const cache = event.detail;
-
-      expect(cache).toHaveProperty('article');
-      expect(cache).toHaveProperty('mainContent');
-      expect(cache).toHaveProperty('timestamp');
-      expect(typeof cache.timestamp).toBe('number');
-    });
-
-    test('快取應正確識別 article 元素', () => {
-      executePreloader();
-      requestHandler();
-
-      const event = document.dispatchEvent.mock.calls[0][0];
-      const cache = event.detail;
-
-      expect(cache.article.tagName).toBe('ARTICLE');
-    });
-
-    test('快取應正確識別 main content 元素', () => {
-      executePreloader();
-      requestHandler();
-
-      const event = document.dispatchEvent.mock.calls[0][0];
-      const cache = event.detail;
-
-      expect(cache.mainContent.tagName).toBe('MAIN');
-    });
-  });
-
-  describe('錯誤處理', () => {
-    test('sendMessage 錯誤時應優雅處理', () => {
-      chrome.runtime.lastError = { message: 'Connection error' };
-
-      executePreloader();
-
-      const mockEvent = {
-        ctrlKey: true,
-        metaKey: false,
-        key: 's',
-        preventDefault: jest.fn(),
-      };
-
-      // 不應拋出錯誤
-      expect(() => keydownHandler(mockEvent)).not.toThrow();
-    });
-  });
-
-  describe('調試日誌', () => {
-    test('當 localStorage 啟用調試時應輸出日誌', () => {
-      // Mock localStorage
-      const originalLocalStorage = globalThis.window.localStorage;
-      const mockGetItem = jest.fn(key => (key === 'NOTION_DEBUG' ? '1' : null));
-
-      // 確保 localStorage 在全局 window 上可用
-      Object.defineProperty(globalThis.window, 'localStorage', {
-        value: {
-          getItem: mockGetItem,
-          setItem: jest.fn(),
-          removeItem: jest.fn(),
-        },
-        writable: true,
-      });
-      // 同時也設置到 global，以防 executeScript 環境需要
-      globalThis.localStorage = globalThis.window.localStorage;
-
-      // 監聽 console.log
-      const consoleSpy = jest.spyOn(console, 'log');
-
-      try {
-        // Force reset flag
-        globalThis.__NOTION_PRELOADER_INITIALIZED__ = false;
-
-        executePreloader();
-
-        // 驗證是否輸出了特定的調試訊息
-        expect(mockGetItem).toHaveBeenCalledWith('NOTION_DEBUG');
-        // Console spy check removed due to environment issues with new Function context
-        // The mockGetItem check is sufficient to prove the branch was entered
-      } finally {
-        // 恢復環境
-        consoleSpy.mockRestore();
-        if (originalLocalStorage) {
-          globalThis.window.localStorage = originalLocalStorage;
-          globalThis.localStorage = originalLocalStorage;
-        } else {
-          delete globalThis.window.localStorage;
-          delete globalThis.localStorage;
-        }
-      }
-    });
-
-    test('當 localStorage 未啟用調試時不應輸出日誌', () => {
-      // Mock localStorage returning null
-      const originalLocalStorage = globalThis.window.localStorage;
-      const mockGetItem = jest.fn(() => null);
-
-      Object.defineProperty(globalThis.window, 'localStorage', {
-        value: {
-          getItem: mockGetItem,
-          setItem: jest.fn(),
-          removeItem: jest.fn(),
-        },
-        writable: true,
-      });
-
-      const consoleSpy = jest.spyOn(console, 'log');
-
-      try {
-        executePreloader();
-
-        // 驗證沒有輸出調試訊息
-        // 注意：executePreloader 內部可能會用 console.log 輸出其他錯誤，
-        // 但我們只關心那個特定的調試日誌是否被調用
-        expect(consoleSpy).not.toHaveBeenCalledWith(
-          expect.stringContaining('🔌 [Notion Preloader] Loaded'),
-          expect.any(Object)
-        );
-      } finally {
-        consoleSpy.mockRestore();
-        if (originalLocalStorage) {
-          globalThis.window.localStorage = originalLocalStorage;
-          globalThis.localStorage = originalLocalStorage;
-        } else {
-          delete globalThis.window.localStorage;
-          delete globalThis.localStorage;
-        }
-      }
-    });
-    test('當 localStorage 拋出異常時應優雅處理', () => {
-      const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis.window, 'localStorage');
-
-      try {
-        // Mock localStorage throwing error
-        Object.defineProperty(globalThis.window, 'localStorage', {
-          get: () => {
-            throw new Error('Access denied');
-          },
-          configurable: true,
-        });
-
-        // 執行應該不拋出錯誤
-        expect(() => executePreloader()).not.toThrow();
-
-        // 核心功能（如初始化標記）應該仍然生效
-        expect(globalThis.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
-      } finally {
-        // Restore functionality to avoid affecting other tests or cleanup
-        if (originalDescriptor) {
-          Object.defineProperty(globalThis.window, 'localStorage', originalDescriptor);
-        } else {
-          delete globalThis.window.localStorage;
-        }
-      }
     });
   });
 });

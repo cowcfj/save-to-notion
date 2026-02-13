@@ -3,10 +3,9 @@
  *
  * 職責：封裝 chrome.storage 操作，提供統一的異步接口
  * - 頁面保存狀態管理
+ * - 標註 (Highlights) 數據管理與遷移
  * - 配置讀取
  * - URL 標準化（使用統一的 urlUtils）
- *
- * 注意：Highlights 存儲由 StorageUtil（Content Script）處理
  *
  * @module services/StorageService
  */
@@ -16,13 +15,14 @@
 // 從統一工具函數導入（Single Source of Truth）
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
+import { ERROR_MESSAGES } from '../../config/messages.js';
 
 /**
  * URL 標準化相關常量（從 urlUtils 導出，用於兼容既有導入）
  */
 export const SAVED_PREFIX = 'saved_';
 export const HIGHLIGHTS_PREFIX = 'highlights_';
-export const STORAGE_ERROR = 'Chrome storage not available';
+export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
 
 /**
  * StorageService 類
@@ -58,6 +58,92 @@ class StorageService {
     } catch (error) {
       this.logger.error?.('[StorageService] getSavedPageData failed', { error });
       throw error;
+    }
+  }
+
+  /**
+   * 獲取頁面標註數據
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @returns {Promise<any | null>}
+   */
+  async getHighlights(pageUrl) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const key = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+    try {
+      const result = await this.storage.local.get([key]);
+      return result[key] || null;
+    } catch (error) {
+      this.logger.error?.('[StorageService] getHighlights failed', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * 設置頁面標註數據
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @param {any} data - 標註數據
+   * @returns {Promise<void>}
+   */
+  async setHighlights(pageUrl, data) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const key = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+
+    try {
+      await this.storage.local.set({ [key]: data });
+    } catch (error) {
+      this.logger.error?.('[StorageService] setHighlights failed', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * 原子寫入頁面數據和標註
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @param {object|null} pageData - 頁面數據
+   * @param {Array|null} highlights - 標註數據
+   * @returns {Promise<void>}
+   */
+  async savePageDataAndHighlights(pageUrl, pageData, highlights) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const dataToSet = {};
+
+    if (pageData) {
+      const savedKey = `${SAVED_PREFIX}${normalizedUrl}`;
+      dataToSet[savedKey] = {
+        ...pageData,
+        lastUpdated: Date.now(),
+      };
+    }
+
+    if (highlights) {
+      const highlightKey = `${HIGHLIGHTS_PREFIX}${normalizedUrl}`;
+      dataToSet[highlightKey] = highlights;
+    }
+
+    // 只有當有資料要寫入時才執行 set
+    if (Object.keys(dataToSet).length > 0) {
+      try {
+        await this.storage.local.set(dataToSet);
+      } catch (error) {
+        this.logger.error?.('[StorageService] savePageDataAndHighlights failed', { error });
+        throw error;
+      }
     }
   }
 
@@ -120,6 +206,37 @@ class StorageService {
       this.logger.log?.('Cleared all data', { url: sanitizeUrlForLogging(normalizedUrl) });
     } catch (error) {
       this.logger.error?.('[StorageService] clearPageState failed', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * 清理舊版 URL 的 Storage Keys（僅刪除精確 key，不使用 computeStableUrl）
+   *
+   * 使用場景：在 URL 遷移後安全刪除舊資料，避免誤刪新寫入的穩定 URL key。
+   * 與 clearPageState 的區別：
+   * - clearPageState: 完整清理，包含 normalizedUrl 和 computeStableUrl(pageUrl) 的 keys
+   * - clearLegacyKeys: 僅刪除 normalizedUrl 的 keys，不計算 stable URL
+   *
+   * @param {string} legacyUrl - 舊版 URL
+   * @returns {Promise<void>}
+   */
+  async clearLegacyKeys(legacyUrl) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(legacyUrl);
+    const keysToRemove = [
+      `${SAVED_PREFIX}${normalizedUrl}`,
+      `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+    ];
+
+    try {
+      await this.storage.local.remove(keysToRemove);
+      this.logger.log?.('Cleared legacy keys', { url: sanitizeUrlForLogging(normalizedUrl) });
+    } catch (error) {
+      this.logger.error?.('[StorageService] clearLegacyKeys failed', { error });
       throw error;
     }
   }

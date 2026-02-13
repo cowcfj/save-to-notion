@@ -16,7 +16,6 @@ import {
 import { buildHighlightBlocks } from '../utils/BlockBuilder.js';
 import { isRestrictedInjectionUrl } from '../services/InjectionService.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
-import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { HANDLER_CONSTANTS } from '../../config/constants.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../config/messages.js';
 
@@ -98,21 +97,24 @@ async function ensureBundleReady(tabId, maxRetries = HANDLER_CONSTANTS.BUNDLE_RE
  * @param {Array} highlights - 標註數據
  * @returns {Promise<object>} 更新結果
  */
+
 async function performHighlightUpdate(services, activeTab, highlights) {
-  const { storageService, notionService } = services;
+  const { storageService, notionService, tabService, migrationService } = services;
 
   // 1. 確保有 API Key
   const apiKey = await ensureNotionApiKey(storageService);
 
-  // 使用雙查策略：穩定 URL 優先，回退到原始 URL（與 savePage/checkPageStatus 一致）
-  const stableUrl = computeStableUrl(activeTab.url || '');
-  const normUrl = stableUrl || normalizeUrl(activeTab.url || '');
-  const originalUrl = normalizeUrl(activeTab.url || '');
+  // Phase 2: 統一 URL 解析 + 自動遷移
+  const {
+    stableUrl: normUrl,
+    originalUrl,
+    migrated,
+  } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
 
   let savedData = await storageService.getSavedPageData(normUrl);
 
-  // 雙查：若穩定 URL 未找到，嘗試原始 URL（向後兼容）
-  if (!savedData?.notionPageId && stableUrl && originalUrl !== normUrl) {
+  // 雙查安全網：遷移失敗時回退查詢原始 URL
+  if (!savedData?.notionPageId && !migrated && normUrl !== originalUrl) {
     savedData = await storageService.getSavedPageData(originalUrl);
   }
 

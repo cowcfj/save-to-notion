@@ -13,6 +13,7 @@
 
 import { TAB_SERVICE, URL_NORMALIZATION, HANDLER_CONSTANTS } from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
+import { resolveStorageUrl } from '../../utils/urlUtils.js';
 
 /**
  * TabService 類
@@ -34,21 +35,30 @@ class TabService {
    *   - highlightsKey: 標註存儲鍵名（格式: "highlights_{normUrl}"）
    */
   constructor(options = {}) {
+    // === 核心依賴 ===
     this.logger = options.logger || Logger;
     this.injectionService = options.injectionService;
+
+    // === URL 處理 ===
     this.normalizeUrl = options.normalizeUrl || (url => url);
     this.computeStableUrl = options.computeStableUrl || null;
+
+    // === 存儲查詢 ===
     this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
+
+    // === 安全檢查 ===
     this.isRestrictedUrl = options.isRestrictedUrl || (() => false);
     this.isRecoverableError = options.isRecoverableError || (() => false);
-    // 回調：無標註時觸發（可用於遷移或其他邏輯）
+
+    // === 回調與狀態 ===
+    // 無標註時觸發（可用於遷移或其他邏輯）
     this.onNoHighlightsFound = options.onNoHighlightsFound || null;
     // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
     this.pendingListeners = new Map();
     // 追蹤正在處理中的 tab，防止並發調用
     this.processingTabs = new Map();
 
-    // 依賴注入：驗證邏輯
+    // === 頁面驗證邏輯 (_verifyAndUpdateStatus 使用) ===
     this.checkPageExists = options.checkPageExists || (() => Promise.resolve(null));
     this.getApiKey = options.getApiKey || (() => Promise.resolve(null));
     this.clearPageState = options.clearPageState || (() => Promise.resolve());
@@ -84,6 +94,71 @@ class TabService {
   }
 
   /**
+   * 解析 tab 的穩定 URL，可選自動遷移
+   *
+   * 將 getPreloaderData + resolveStorageUrl + migrateStorageKey 三步流程收斂為一個方法，
+   * 避免各 Handler 重複實作相同邏輯。
+   *
+   * @param {number} tabId - 標籤頁 ID
+   * @param {string} url - tab 的原始 URL
+   * @param {MigrationService} [migrationService] - 提供時自動觸發遷移
+   * @returns {Promise<{stableUrl: string, originalUrl: string, hasStableUrl: boolean, migrated: boolean}>}
+   */
+  async resolveTabUrl(tabId, url, migrationService = null) {
+    const preloaderData = await this.getPreloaderData(tabId);
+    const stableUrl = resolveStorageUrl(url, preloaderData);
+    const originalUrl = this.normalizeUrl(url);
+    const hasStableUrl = stableUrl !== originalUrl;
+
+    let migrated = false;
+    if (hasStableUrl && migrationService) {
+      migrated = await migrationService.migrateStorageKey(stableUrl, originalUrl);
+    }
+
+    return { stableUrl, originalUrl, hasStableUrl, migrated };
+  }
+
+  /**
+   * 公開方法：等標籤頁完成（包裝內部私有方法）
+   *
+   * @param {number} tabId
+   * @returns {Promise<object|null>}
+   */
+  async waitForTabComplete(tabId) {
+    return this._waitForTabCompilation(tabId);
+  }
+
+  /**
+   * 包裝 chrome.tabs.query
+   *
+   * @param {object} queryInfo
+   * @returns {Promise<chrome.tabs.Tab[]>}
+   */
+  async queryTabs(queryInfo) {
+    return chrome.tabs.query(queryInfo);
+  }
+
+  /**
+   * 包裝 chrome.tabs.create
+   *
+   * @param {object} createProperties
+   * @returns {Promise<chrome.tabs.Tab>}
+   */
+  async createTab(createProperties) {
+    return chrome.tabs.create(createProperties);
+  }
+
+  /**
+   * 包裝 chrome.tabs.remove
+   *
+   * @param {number|number[]} tabId
+   * @returns {Promise<void>}
+   */
+  async removeTab(tabId) {
+    return chrome.tabs.remove(tabId);
+  }
+
+  /**
    * 內部方法：實際的狀態更新邏輯
    *
    * @param {number} tabId - 標籤頁 ID
@@ -91,18 +166,16 @@ class TabService {
    * @private
    */
   async _updateTabStatusInternal(tabId, url) {
-    // 優先使用穩定 URL（Phase 1）
-    const stableUrl = this.computeStableUrl?.(url);
-    const normUrl = stableUrl || this.normalizeUrl(url);
-    const originalUrl = this.normalizeUrl(url);
+    // 按優先級計算穩定 URL（包含 Phase 1, Phase 2a/2a+, fallback）
+    const { stableUrl: normUrl, originalUrl, hasStableUrl } = await this.resolveTabUrl(tabId, url);
 
     try {
-      // 1. 更新徽章狀態（雙查：穩定 URL 優先，回退到原始 URL）
-      await this._verifyAndUpdateStatus(tabId, normUrl, stableUrl ? originalUrl : null);
+      // 1. 更新徽章狀態（雙查：若有穩定 URL，同時檢查原始 URL）
+      await this._verifyAndUpdateStatus(tabId, normUrl, hasStableUrl ? originalUrl : null);
 
       // 2. 處理標註注入（雙查：穩定 URL 優先，回退到原始 URL）
       let highlights = await this._getHighlightsFromStorage(normUrl);
-      if (!highlights && stableUrl && originalUrl !== normUrl) {
+      if (!highlights && hasStableUrl) {
         // 回退查詢：嘗試原始 URL（向後兼容）
         highlights = await this._getHighlightsFromStorage(originalUrl);
       }
@@ -117,11 +190,22 @@ class TabService {
       this.logger.debug(
         `[TabService] Found ${highlights.length} highlights, preparing to inject bundle...`
       );
-
       const tab = await this._waitForTabCompilation(tabId);
       if (tab) {
         this.logger.debug(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
         await this.injectionService.ensureBundleInjected(tabId);
+
+        // [Phase 2] 將計算出的穩定 URL 傳送給 Content Script，確保標註恢復時使用正確的 Key
+        try {
+          chrome.tabs
+            .sendMessage(tabId, {
+              action: 'SET_STABLE_URL',
+              stableUrl: normUrl,
+            })
+            .catch(() => {}); // 忽略可能的連接錯誤 (如 tab 關閉)
+        } catch (error) {
+          this.logger.debug(`[TabService] Failed to send stable URL: ${error.message}`);
+        }
       }
     } catch (error) {
       if (!this.logger.error) {
@@ -137,6 +221,53 @@ class TabService {
         const errorMsg = error.message || String(error);
         this.logger.error(`[TabService] Error updating tab status: ${errorMsg}`, { error });
       }
+    }
+  }
+
+  /**
+   * 快速取得 Preloader 元數據（Phase 2 穩定 URL 用）
+   *
+   * 透過 PING 訊息向 Preloader 請求頁面元數據（nextRouteInfo, shortlink）。
+   * 帶 500ms 超時保護，超時或失敗時返回 null，不影響 Phase 1 行為。
+   *
+   * @param {number} tabId - 標籤頁 ID
+   * @returns {Promise<{nextRouteInfo?: object, shortlink?: string}|null>}
+   */
+  async getPreloaderData(tabId) {
+    try {
+      const sendMessagePromise = new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, { action: 'PING' }, result => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(result);
+          }
+        });
+      });
+
+      // 防止 Unhandled Rejection：若超時發生，此 Promise 仍可能在未來 reject
+      sendMessagePromise.catch(() => {});
+
+      const response = await Promise.race([
+        sendMessagePromise,
+        new Promise(resolve =>
+          setTimeout(() => resolve(null), TAB_SERVICE.PRELOADER_PING_TIMEOUT_MS)
+        ),
+      ]);
+
+      if (!response) {
+        return null;
+      }
+
+      // 只提取 Phase 2 相關數據
+      return {
+        nextRouteInfo: response.nextRouteInfo || null,
+        shortlink: response.shortlink || null,
+      };
+    } catch (error) {
+      this.logger.debug(`[TabService] Failed to get preloader data: ${error.message}`);
+      // Preloader 未載入或 tab 不可用，靜默返回 null
+      return null;
     }
   }
 
@@ -238,6 +369,13 @@ class TabService {
     return hasHighlights ? highlights : null;
   }
 
+  /**
+   * 內部方法：等待標籤頁編譯/載入完成
+   *
+   * @param {number} tabId
+   * @returns {Promise<object|null>}
+   * @private
+   */
   async _waitForTabCompilation(tabId) {
     const tab = await chrome.tabs.get(tabId).catch(() => null);
     if (!tab) {
@@ -483,4 +621,4 @@ function _migrationScript(trackingParams) {
 }
 
 // 導出
-export { TabService };
+export { TabService, _migrationScript };

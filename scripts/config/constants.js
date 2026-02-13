@@ -374,6 +374,7 @@ export const HANDLER_CONSTANTS = {
 export const TAB_SERVICE = {
   LOADING_TIMEOUT_MS: 10_000, // 頁面載入超時時間 (ms)
   STATUS_UPDATE_DELAY_MS: 1000, // 狀態更新延遲 (ms)
+  PRELOADER_PING_TIMEOUT_MS: 500, // Preloader PING 超時 (ms)
 };
 
 // ==========================================
@@ -482,6 +483,15 @@ export const SECURITY_CONSTANTS = {
 
   // 安全 URL 協議
   SAFE_URL_PROTOCOLS: ['http:', 'https:', ''],
+};
+
+// ==========================================
+// 遷移服務配置
+// ==========================================
+
+export const MIGRATION_CONFIG = {
+  SCRIPT_READY_MAX_RETRIES: 10,
+  SCRIPT_READY_RETRY_DELAY: 200,
 };
 
 // ==========================================

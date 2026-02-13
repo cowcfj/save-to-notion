@@ -50,6 +50,9 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     sendResponse({
       status: 'bundle_ready',
       hasPreloaderCache: Boolean(preloaderCache),
+      // Phase 2: 從 preloaderCache 取得穩定 URL 元數據（由 preloader 提取並驗證）
+      nextRouteInfo: preloaderCache?.nextRouteInfo || null,
+      shortlink: preloaderCache?.shortlink || null,
     });
     return true;
   }
@@ -63,6 +66,17 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       sendResponse({ success: false, error: 'Highlighter not initialized' });
     }
     return true;
+  }
+
+  if (request.action === 'SET_STABLE_URL') {
+    if (request.stableUrl) {
+      globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
+      Logger.debug('已接收並設置穩定 URL', {
+        action: 'setStableUrl',
+        stableUrl: request.stableUrl,
+      });
+    }
+    return false;
   }
 
   // 未處理的訊息不需要異步響應
@@ -228,7 +242,11 @@ async function extractPageContent() {
       },
     };
   } catch (error) {
-    Logger.error('內容提取發生異常', { action: 'extractPageContent', error: error.message });
+    Logger.error('內容提取發生異常', {
+      action: 'extractPageContent',
+      error: error.message,
+      stack: error.stack,
+    });
 
     return {
       title: document.title || DEFAULT_PAGE_TITLE,

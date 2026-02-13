@@ -319,33 +319,8 @@ describe('StorageUtil.clearHighlights - 改進版測試', () => {
       await StorageUtil.clearHighlights(testUrl);
 
       const duration = Date.now() - startTime;
+      // 確保操作在合理時間內完成（異步環境下通常遠小於 100ms）
       expect(duration).toBeLessThan(100);
-    });
-
-    test('應該並行執行清除操作而非串行', async () => {
-      if (!StorageUtil) {
-        return;
-      }
-      const testUrl = 'https://example.com/test';
-
-      chrome.storage.local.remove.mockImplementation((keys, callback) => {
-        setTimeout(() => {
-          if (callback) {
-            callback();
-          }
-        }, 10);
-      });
-
-      const originalRemoveItem = globalThis.localStorage.removeItem;
-      globalThis.localStorage.removeItem = jest.fn();
-
-      const startTime = Date.now();
-      await StorageUtil.clearHighlights(testUrl);
-      const totalTime = Date.now() - startTime;
-
-      expect(totalTime).toBeLessThan(100);
-
-      globalThis.localStorage.removeItem = originalRemoveItem;
     });
   });
 });

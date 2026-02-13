@@ -44,6 +44,7 @@ function isRestrictedInjectionUrl(url) {
     // 檢查受限域名列表
     const blockedHosts = [
       { host: 'chrome.google.com', pathPrefix: '/webstore' },
+      { host: 'chromewebstore.google.com' },
       { host: 'microsoftedge.microsoft.com', pathPrefix: '/addons' },
       { host: 'addons.mozilla.org' },
     ];
@@ -128,6 +129,8 @@ function isRecoverableInjectionError(message) {
     // Content script 環境未就緒（Preloader 還未注入）
     // 這是暫時性問題，通常在稍後重試會成功
     'Receiving end does not exist',
+    // Chrome Web Store restricted error
+    'The extensions gallery cannot be scripted.',
     'Could not establish connection',
     INJECTION_CONFIG.PING_TIMEOUT_ERROR,
   ];

@@ -66,6 +66,7 @@ describe('InjectionService', () => {
 
     it('should return true for webstore urls', () => {
       expect(isRestrictedInjectionUrl('https://chrome.google.com/webstore/detail/xyz')).toBe(true);
+      expect(isRestrictedInjectionUrl('https://chromewebstore.google.com/detail/xyz')).toBe(true);
     });
 
     it('should return false for normal urls', () => {
@@ -82,6 +83,7 @@ describe('InjectionService', () => {
     it('should identify recoverable errors', () => {
       expect(isRecoverableInjectionError('Cannot access contents of page')).toBe(true);
       expect(isRecoverableInjectionError('The tab was closed')).toBe(true);
+      expect(isRecoverableInjectionError('The extensions gallery cannot be scripted.')).toBe(true);
     });
 
     it('should identify non-recoverable errors', () => {

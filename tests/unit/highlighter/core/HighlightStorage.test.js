@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import Logger from '../../../../scripts/utils/Logger.js';
 import {
   HighlightStorage,
   RestoreManager,
@@ -21,6 +22,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   warn: jest.fn(),
   error: jest.fn(),
   log: jest.fn(),
+  debug: jest.fn(),
 }));
 
 describe('core/HighlightStorage', () => {
@@ -56,6 +58,7 @@ describe('core/HighlightStorage', () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+    delete globalThis.__NOTION_STABLE_URL__;
   });
 
   describe('constructor', () => {
@@ -103,7 +106,25 @@ describe('core/HighlightStorage', () => {
 
       await storage.save();
 
-      // 不應該拋出錯誤
+      // Ensure error is logged
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[HighlightStorage] 保存標註失敗:',
+        expect.any(Error)
+      );
+    });
+
+    test('should use global stable URL if available', async () => {
+      globalThis.__NOTION_STABLE_URL__ = 'https://stable.url';
+      mockManager.highlights.set('h1', { id: 'h1', text: 'Test' });
+
+      await storage.save();
+
+      expect(StorageUtil.saveHighlights).toHaveBeenCalledWith(
+        'https://stable.url',
+        expect.anything()
+      );
+
+      delete globalThis.__NOTION_STABLE_URL__;
     });
   });
 
@@ -145,6 +166,35 @@ describe('core/HighlightStorage', () => {
       StorageUtil.loadHighlights.mockRejectedValue(new Error('Load failed'));
       const result = await storage.restore();
       expect(result).toBe(false);
+    });
+
+    test('should fallback to original URL if stable URL yields no highlights', async () => {
+      globalThis.__NOTION_STABLE_URL__ = 'https://stable.url';
+
+      // rely on normalizeUrl mock to return the fallback URL
+
+      globalThis.normalizeUrl.mockReturnValue('https://original.url');
+
+      StorageUtil.loadHighlights.mockImplementation(async url => {
+        if (url === 'https://stable.url') {
+          return [];
+        }
+        if (url === 'https://original.url') {
+          return [{ id: 'h1', text: 'Fallback' }];
+        }
+        return [];
+      });
+
+      mockManager.restoreLocalHighlight = jest.fn().mockReturnValue(true);
+
+      const result = await storage.restore();
+
+      expect(StorageUtil.loadHighlights).toHaveBeenCalledWith('https://stable.url');
+      expect(StorageUtil.loadHighlights).toHaveBeenCalledWith('https://original.url');
+      expect(mockManager.restoreLocalHighlight).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Fallback' })
+      );
+      expect(result).toBe(true);
     });
   });
 
@@ -242,7 +292,11 @@ describe('core/HighlightStorage', () => {
       storage.hideToolbarAfterRestore();
       jest.advanceTimersByTime(500);
 
-      // 不應該拋出錯誤
+      // Ensure error is logged
+      expect(Logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('隱藏工具欄時出錯'),
+        expect.any(Error)
+      );
     });
   });
 

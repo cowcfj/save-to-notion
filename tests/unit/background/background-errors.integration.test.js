@@ -228,6 +228,16 @@ describe('background error branches (integration)', () => {
       )
     );
 
+    // Mock active tab 以支持 getActiveTab() + resolveTabUrl()
+    const tabId = 99;
+    chrome.tabs.query.mockResolvedValueOnce([
+      { id: tabId, url: pageUrl, title: 'Test', active: true },
+    ]);
+    // resolveTabUrl 內部會 sendMessage PING，模擬回應無 preloader 數據
+    chrome.tabs.sendMessage.mockImplementationOnce((_tabId, _msg, callback) => {
+      callback?.({ status: 'bundle_ready' });
+    });
+
     const sendResponse = jest.fn();
     // 讓 create callback 觸發 lastError
     chrome.tabs.create.mockImplementationOnce((props, mockCb) => {

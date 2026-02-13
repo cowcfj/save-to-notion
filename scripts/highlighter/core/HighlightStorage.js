@@ -76,9 +76,7 @@ export class HighlightStorage {
     }
 
     try {
-      const currentUrl = HighlightStorage._getNormalizedUrl();
-      const data = await StorageUtil.loadHighlights(currentUrl);
-      const highlights = Array.isArray(data) ? data : data?.highlights || [];
+      const highlights = await this._loadHighlightsWithFallback();
 
       if (highlights.length === 0) {
         Logger.info('[HighlightStorage] 無標註可恢復');
@@ -171,9 +169,55 @@ export class HighlightStorage {
    * @private
    */
   static _getNormalizedUrl() {
+    if (globalThis.__NOTION_STABLE_URL__) {
+      return globalThis.__NOTION_STABLE_URL__;
+    }
     return globalThis.normalizeUrl
       ? globalThis.normalizeUrl(globalThis.location.href)
       : globalThis.location.href;
+  }
+
+  /**
+   * 加載標註（含回退邏輯）
+   *
+   * @returns {Promise<Array>}
+   * @private
+   */
+  async _loadHighlightsWithFallback() {
+    const currentUrl = HighlightStorage._getNormalizedUrl();
+    Logger.debug(`[HighlightStorage] Loading highlights. Current URL: "${currentUrl}"`, {
+      action: '_loadHighlightsWithFallback',
+      stableUrlGlobal: globalThis.__NOTION_STABLE_URL__ || 'undefined',
+    });
+
+    const data = await StorageUtil.loadHighlights(currentUrl);
+    const highlights = Array.isArray(data) ? data : data?.highlights || [];
+
+    // 若找到標註，直接返回
+    if (highlights.length > 0) {
+      return highlights;
+    }
+
+    // [Phase 2 Fix] 回退邏輯：若使用穩定 URL 未找到標註，嘗試使用原始 URL
+    if (globalThis.__NOTION_STABLE_URL__) {
+      const originalUrl = globalThis.normalizeUrl
+        ? globalThis.normalizeUrl(globalThis.location.href)
+        : globalThis.location.href;
+
+      if (originalUrl !== currentUrl) {
+        const fallbackData = await StorageUtil.loadHighlights(originalUrl);
+        const fallbackHighlights = Array.isArray(fallbackData)
+          ? fallbackData
+          : fallbackData?.highlights || [];
+
+        if (fallbackHighlights.length > 0) {
+          Logger.info('[HighlightStorage] Found highlights via fallback URL', { originalUrl });
+          return fallbackHighlights;
+        }
+      }
+    }
+
+    return [];
   }
 }
 

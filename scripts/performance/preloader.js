@@ -6,6 +6,7 @@
  * 2. 接收 Background 訊息
  * 3. 輕量預熱（快取 article 節點）
  * 4. 與主 Bundle 橋接
+ * 5. 提取穩定 URL 所需的頁面元數據（Phase 2）
  *
  * 設計原則：
  * - 獨立運行，不依賴任何其他模組
@@ -33,6 +34,42 @@
   const preloaderCache = {
     article: document.querySelector('article'),
     mainContent: document.querySelector('main, [role="main"], #content, .content'),
+    // Phase 2a: Next.js Pages Router 路由資訊
+    nextRouteInfo: (() => {
+      try {
+        const el = document.querySelector('#__NEXT_DATA__');
+        if (!el) {
+          return null;
+        }
+        const text = el.textContent;
+        // 安全上限：避免解析過大的 JSON 阻塞頁面
+        if (!text || text.length > 1_048_576) {
+          return null;
+        }
+        const data = JSON.parse(text);
+
+        // Schema Validation: Ensure critical fields exist and have correct types
+        if (!data || typeof data !== 'object') {
+          return null;
+        }
+
+        // Validate 'page' is a string
+        if (typeof data.page !== 'string') {
+          return null;
+        }
+
+        // Validate 'query' is an object (and not null)
+        if (!data.query || typeof data.query !== 'object') {
+          return null;
+        }
+
+        return { page: data.page, query: data.query, buildId: data.buildId };
+      } catch {
+        return null;
+      }
+    })(),
+    // Phase 2a+: WordPress shortlink（穩定數字 ID URL）
+    shortlink: document.querySelector('link[rel="shortlink"]')?.href || null,
     timestamp: Date.now(),
   };
 
@@ -94,6 +131,8 @@
       sendResponse({
         status: 'preloader_only',
         hasCache: Boolean(preloaderCache.article) || Boolean(preloaderCache.mainContent),
+        nextRouteInfo: preloaderCache.nextRouteInfo,
+        shortlink: preloaderCache.shortlink,
       });
       return true;
     }
@@ -120,9 +159,11 @@
   // 啟用後重新載入頁面即可看到調試訊息
   try {
     if (localStorage.getItem('NOTION_DEBUG')) {
-      console.log('🔌 [Notion Preloader] Loaded, cache:', {
+      console.info('Notion Preloader initialized:', preloaderCache, {
         hasArticle: Boolean(preloaderCache.article),
         hasMainContent: Boolean(preloaderCache.mainContent),
+        hasNextRouteInfo: Boolean(preloaderCache.nextRouteInfo),
+        hasShortlink: Boolean(preloaderCache.shortlink),
       });
     }
   } catch {

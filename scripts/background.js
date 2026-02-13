@@ -22,6 +22,7 @@ import {
 } from './background/services/InjectionService.js';
 import { PageContentService } from './background/services/PageContentService.js';
 import { TabService } from './background/services/TabService.js';
+import { MigrationService } from './background/services/MigrationService.js';
 
 // Import Handlers
 import { MessageHandler } from './background/handlers/MessageHandler.js';
@@ -47,35 +48,7 @@ const notionService = new NotionService({ logger: Logger });
 const messageHandler = new MessageHandler({ logger: Logger });
 
 // Create and Register Action Handlers
-const actionHandlers = {
-  ...createSaveHandlers({
-    notionService,
-    storageService,
-    injectionService,
-    pageContentService,
-  }),
-  ...createHighlightHandlers({
-    notionService,
-    storageService,
-    injectionService,
-  }),
-  ...createMigrationHandlers({
-    storageService,
-    notionService,
-  }),
-  ...createLogHandlers(),
-  ...createNotionHandlers({ notionService }),
-};
-
-messageHandler.registerAll(actionHandlers);
-
-// TEST_EXPOSURE_START
-// Expose handlers for E2E testing (Development/Test only)
-if (globalThis.self !== undefined) {
-  globalThis.actionHandlers = actionHandlers;
-}
-// TEST_EXPOSURE_END
-
+// Initialize TabService
 const tabService = new TabService({
   logger: Logger,
   injectionService,
@@ -90,6 +63,43 @@ const tabService = new TabService({
   clearPageState: url => storageService.clearPageState(url),
   setSavedPageData: (url, data) => storageService.setSavedPageData(url, data),
 });
+
+const migrationService = new MigrationService(storageService, tabService, injectionService);
+
+// Create and Register Action Handlers
+const actionHandlers = {
+  ...createSaveHandlers({
+    notionService,
+    storageService,
+    injectionService,
+    pageContentService,
+    tabService,
+    migrationService,
+  }),
+  ...createHighlightHandlers({
+    notionService,
+    storageService,
+    injectionService,
+    tabService,
+    migrationService,
+  }),
+  ...createMigrationHandlers({
+    storageService,
+    notionService,
+    migrationService,
+  }),
+  ...createLogHandlers(),
+  ...createNotionHandlers({ notionService }),
+};
+
+messageHandler.registerAll(actionHandlers);
+
+// TEST_EXPOSURE_START
+// Expose handlers for E2E testing (Development/Test only)
+if (globalThis.self !== undefined) {
+  globalThis.actionHandlers = actionHandlers;
+}
+// TEST_EXPOSURE_END
 
 // ==========================================
 // LISTENERS SETUP

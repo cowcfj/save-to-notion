@@ -123,12 +123,148 @@ export function computeStableUrl(rawUrl) {
 }
 
 /**
+ * 從 Next.js Pages Router 數據構建穩定 URL
+ *
+ * 透過分析路由 pattern（如 /[category]/[id]/[slug]）識別可變段並移除。
+ * 識別邏輯：
+ * 1. 欄位名包含 `slug` 或 `title` -> 判定為不穩定（移除）。
+ * 2. 欄位名包含 `category`, `section`, `topic`, `channel`, `tag` -> 判定為穩定（保留，即使含中文）。
+ * 3. 欄位名不屬於上述，但值包含非 ASCII 字符（例如中文標題）-> 判定為不穩定（移除）。
+ *
+ * @param {{ page: string, query: object, buildId?: string }} routeInfo - Preloader 提取的 Next.js 路由資訊
+ * @param {string} originalUrl - 原始 URL（提供 origin）
+ * @returns {string|null} 穩定 URL，若無法識別 slug 則返回 null
+ */
+export function buildStableUrlFromNextData(routeInfo, originalUrl) {
+  if (!routeInfo?.page || !routeInfo?.query || !originalUrl) {
+    return null;
+  }
+
+  try {
+    const { page, query } = routeInfo;
+
+    // 找出所有動態段（如 [id], [slug], [category]）
+    const dynamicSegments = [...page.matchAll(/\[(\w+)\]/g)].map(match => match[1]);
+    if (dynamicSegments.length === 0) {
+      return null; // 無動態段 → 非動態路由，不需處理
+    }
+
+    // 識別「不穩定」的段（即 slug）
+    const slugKeys = dynamicSegments.filter(key => {
+      // 1. 欄位名明確包含 slug 或 title -> 判定為不穩定
+      if (/slug|title/i.test(key)) {
+        return true;
+      }
+
+      // 2. 欄位名明確包含分類/頻道等穩定段 -> 判定為穩定 (即使含非 ASCII)
+      if (/category|section|channel|topic|tag/i.test(key)) {
+        return false;
+      }
+
+      // 3. 值包含非 ASCII 字符（中文、日文等）且非已知穩定段 -> 判定為標題 / slug
+      const value = query[key];
+      if (typeof value === 'string' && /[^\u0020-\u007E]/.test(value)) {
+        return true;
+      }
+      return false;
+    });
+
+    // 無法識別任何 slug → 放棄，避免誤判
+    if (slugKeys.length === 0) {
+      return null;
+    }
+
+    // 構建穩定路徑：保留穩定段，移除 slug 段
+    let stablePath = page;
+    for (const key of dynamicSegments) {
+      if (slugKeys.includes(key)) {
+        // 移除 slug 段（包含前面的 /）
+        // eslint-disable-next-line security/detect-non-literal-regexp
+        stablePath = stablePath.replace(new RegExp(String.raw`/\[${key}\]`), '');
+      } else {
+        // 替換為實際值，使用函數形式避免 $ 解釋
+        stablePath = stablePath.replace(`[${key}]`, () => String(query[key] ?? ''));
+      }
+    }
+
+    const origin = new URL(originalUrl).origin;
+    const stableUrl = normalizeUrl(`${origin}${stablePath}`);
+
+    Logger.debug?.('buildStableUrlFromNextData 成功', {
+      action: 'buildStableUrlFromNextData',
+      page,
+      stablePath,
+      slugKeys,
+    });
+
+    return stableUrl;
+  } catch (error) {
+    Logger.error?.('buildStableUrlFromNextData 失敗', {
+      action: 'buildStableUrlFromNextData',
+      error,
+    });
+    return null;
+  }
+}
+
+/**
+ * 檢查兩個 URL 是否有相同來源（protocol + host）
+ *
+ * @param {string} url1 - 第一個 URL
+ * @param {string} url2 - 第二個 URL
+ * @returns {boolean} 是否相同來源
+ */
+export function hasSameOrigin(url1, url2) {
+  if (!url1 || !url2) {
+    return false;
+  }
+
+  try {
+    const origin1 = new URL(url1).origin;
+    const origin2 = new URL(url2).origin;
+    return origin1 === origin2;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 解析存儲用的 URL — 優先使用穩定 URL
  * 這是 normalizeUrl 的增強版，優先嘗試穩定 URL，再回退到標準化
  *
+ * 優先級：
+ * 1. Phase 1: computeStableUrl（已知網站純字串規則）
+ * 2. Phase 2a: buildStableUrlFromNextData（Next.js 路由）
+ * 3. Phase 2a+: shortlink（WordPress）
+ * 4. normalizeUrl（最終回退）
+ *
  * @param {string} rawUrl - 原始 URL
+ * @param {{ nextRouteInfo?: object, shortlink?: string }} [preloaderData] - Preloader 提供的元數據
  * @returns {string} 穩定 URL 或標準化的原始 URL
  */
-export function resolveStorageUrl(rawUrl) {
-  return computeStableUrl(rawUrl) || normalizeUrl(rawUrl);
+export function resolveStorageUrl(rawUrl, preloaderData) {
+  // Phase 1: 已知網站規則
+  const phase1 = computeStableUrl(rawUrl);
+  if (phase1) {
+    return phase1;
+  }
+
+  // Phase 2a: Next.js 路由
+  if (preloaderData?.nextRouteInfo) {
+    const phase2a = buildStableUrlFromNextData(preloaderData.nextRouteInfo, rawUrl);
+    if (phase2a) {
+      return phase2a;
+    }
+  }
+
+  // Phase 2a+: WordPress shortlink
+  if (
+    preloaderData?.shortlink && // 驗證 shortlink 與原始 URL 有相同來源
+    hasSameOrigin(preloaderData.shortlink, rawUrl)
+  ) {
+    return preloaderData.shortlink;
+  }
+
+  // 最終回退
+  return normalizeUrl(rawUrl);
 }
