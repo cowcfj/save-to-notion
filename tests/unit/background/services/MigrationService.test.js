@@ -171,7 +171,7 @@ describe('MigrationService', () => {
       expect(result.success).toBe(true);
       expect(result.count).toBe(5);
       expect(globalThis.chrome.tabs.query).toHaveBeenCalledWith({ url: targetUrl });
-      expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
+      expect(mockTabService.createTab).not.toHaveBeenCalled();
 
       // Verify script injection
       expect(mockInjectionService.injectAndExecute).toHaveBeenCalledWith(
@@ -180,7 +180,7 @@ describe('MigrationService', () => {
         null,
         expect.anything()
       );
-      expect(globalThis.chrome.tabs.remove).not.toHaveBeenCalled();
+      expect(mockTabService.removeTab).not.toHaveBeenCalled();
     });
 
     test('should create new tab if none exists and clean it up', async () => {
@@ -203,10 +203,10 @@ describe('MigrationService', () => {
       const result = await service.executeContentMigration({ url: targetUrl }, sender);
 
       expect(result.success).toBe(true);
-      expect(globalThis.chrome.tabs.create).toHaveBeenCalledWith({ url: targetUrl, active: false });
+      expect(mockTabService.createTab).toHaveBeenCalledWith({ url: targetUrl, active: false });
 
       // Cleanup verification
-      expect(globalThis.chrome.tabs.remove).toHaveBeenCalledWith(newTab.id);
+      expect(mockTabService.removeTab).toHaveBeenCalledWith(newTab.id);
     });
 
     test('should handle migration execution failure and cleanup', async () => {
@@ -226,7 +226,7 @@ describe('MigrationService', () => {
       // Cleanup should still run (though tab reuse scenario technically doesn't create tab, logic handles createdTabId)
       // Since we reused tab, remove shouldn't be called unless we created it.
       // Let's verify standard reuse logic doesn't close existing tabs
-      expect(globalThis.chrome.tabs.remove).not.toHaveBeenCalled();
+      expect(mockTabService.removeTab).not.toHaveBeenCalled();
     });
 
     test('should handle create tab failure', async () => {

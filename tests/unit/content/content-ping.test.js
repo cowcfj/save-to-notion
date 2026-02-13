@@ -75,20 +75,21 @@ describe('Content Script PING Handler', () => {
     });
 
     // 從所有註冊的監聽器中找到 PING 處理程序
-    const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(
-      call => call[0]
-    );
-    const pingHandler = handlers.find(h => {
-      // 模擬呼叫以找出回應 PING 的處理程序
-      const mockSendResponse = jest.fn();
-      return h({ action: 'PING' }, {}, mockSendResponse) === true;
-    });
+    // 由於引入了 highlighter，可能會有其他監聽器被註冊 (例如 highlighter/index.js)
+    // 因此我們不能假設只有一個監聽器，也不能假設第一個就是我們的。
+    // 我們遍歷所有監聽器，並確保其中 *有一個* 正確處理了 PING 請求。
 
-    expect(pingHandler).toBeDefined();
+    const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+    expect(handlers.length).toBeGreaterThan(0);
+
     const sendResponse = jest.fn();
-    const result = pingHandler({ action: 'PING' }, {}, sendResponse);
 
-    expect(result).toBe(true);
+    // 對每個 handler 嘗試發送 PING
+    const results = handlers.map(h => h({ action: 'PING' }, {}, sendResponse));
+
+    // 驗證是否有 handler 返回了 true (表示異步處理)
+    const handled = results.includes(true);
+    expect(handled).toBe(true);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'bundle_ready',

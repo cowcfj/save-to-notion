@@ -158,6 +158,14 @@ describe('Background Script Lifecycle', () => {
     test('Same version should return false', () => {
       expect(shouldShowUpdateNotification('1.0.0', '1.0.0')).toBe(false);
     });
+
+    test('Null or undefined versions should return false', () => {
+      expect(shouldShowUpdateNotification(null, '2.0.0')).toBe(false);
+      expect(shouldShowUpdateNotification('1.0.0', null)).toBe(false);
+      expect(shouldShowUpdateNotification(undefined, '2.0.0')).toBe(false);
+      expect(shouldShowUpdateNotification('1.0.0', undefined)).toBe(false);
+      expect(shouldShowUpdateNotification(null, null)).toBe(false);
+    });
   });
 
   describe('isImportantUpdate', () => {

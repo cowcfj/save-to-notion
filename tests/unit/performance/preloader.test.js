@@ -51,6 +51,7 @@ describe('Preloader Performance Script', () => {
   afterEach(() => {
     delete globalThis.chrome;
     delete globalThis.__NOTION_PRELOADER_INITIALIZED__;
+    delete globalThis.__NOTION_BUNDLE_READY__;
 
     // Clean up event listeners
     testListeners.forEach(({ type, listener, options }) => {
@@ -207,7 +208,7 @@ describe('Preloader Performance Script', () => {
       onMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
-          events: expect.arrayContaining([expect.objectContaining({ type: 'shortcut' })]),
+          events: [expect.objectContaining({ type: 'shortcut' })],
         })
       );
     });
@@ -244,8 +245,6 @@ describe('Preloader Performance Script', () => {
       const sendResponse = jest.fn();
       onMessage({ action: 'REPLAY_BUFFERED_EVENTS' }, {}, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ events: [] });
-
-      delete globalThis.__NOTION_BUNDLE_READY__;
     });
   });
 

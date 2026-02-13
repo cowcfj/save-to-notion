@@ -51,11 +51,13 @@ describe('highlightHandlers', () => {
       tabService: {
         getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
         getPreloaderData: jest.fn().mockResolvedValue(null),
-        resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
-          stableUrl: url,
-          originalUrl: url,
-          migrated: false,
-        })),
+        resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
+          Promise.resolve({
+            stableUrl: url,
+            originalUrl: url,
+            migrated: false,
+          })
+        ),
       },
       injectionService: {
         ensureBundleInjected: jest.fn(),
@@ -281,9 +283,6 @@ describe('highlightHandlers', () => {
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com/stable-path' } };
 
       mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'key1' });
-      mockServices.tabService.getPreloaderData.mockResolvedValue({
-        nextRouteInfo: { page: '/path' },
-      });
 
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
       mockServices.injectionService.collectHighlights.mockResolvedValue([{ text: 'test' }]);

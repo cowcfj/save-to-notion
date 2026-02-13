@@ -90,11 +90,13 @@ describe('saveHandlers', () => {
       },
       tabService: {
         getPreloaderData: jest.fn().mockResolvedValue(null),
-        resolveTabUrl: jest.fn().mockImplementation((_tabId, url) => ({
-          stableUrl: url,
-          originalUrl: url,
-          migrated: false,
-        })),
+        resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
+          Promise.resolve({
+            stableUrl: url,
+            originalUrl: url,
+            migrated: false,
+          })
+        ),
       },
       migrationService: {
         migrateStorageKey: jest.fn(),
@@ -631,8 +633,7 @@ describe('saveHandlers', () => {
     it('應該處理異常情況', async () => {
       const sendResponse = jest.fn();
       // 故意使 Logger 噴錯
-      const originalAdd = globalThis.Logger.addLogToBuffer;
-      globalThis.Logger.addLogToBuffer = jest.fn().mockImplementation(() => {
+      globalThis.Logger.addLogToBuffer.mockImplementationOnce(() => {
         throw new Error('Buffer fail');
       });
 
@@ -643,7 +644,6 @@ describe('saveHandlers', () => {
       );
 
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
-      globalThis.Logger.addLogToBuffer = originalAdd;
     });
   });
 

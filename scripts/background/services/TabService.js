@@ -35,21 +35,30 @@ class TabService {
    *   - highlightsKey: 標註存儲鍵名（格式: "highlights_{normUrl}"）
    */
   constructor(options = {}) {
+    // === 核心依賴 ===
     this.logger = options.logger || Logger;
     this.injectionService = options.injectionService;
+
+    // === URL 處理 ===
     this.normalizeUrl = options.normalizeUrl || (url => url);
     this.computeStableUrl = options.computeStableUrl || null;
+
+    // === 存儲查詢 ===
     this.getSavedPageData = options.getSavedPageData || (() => Promise.resolve(null));
+
+    // === 安全檢查 ===
     this.isRestrictedUrl = options.isRestrictedUrl || (() => false);
     this.isRecoverableError = options.isRecoverableError || (() => false);
-    // 回調：無標註時觸發（可用於遷移或其他邏輯）
+
+    // === 回調與狀態 ===
+    // 無標註時觸發（可用於遷移或其他邏輯）
     this.onNoHighlightsFound = options.onNoHighlightsFound || null;
     // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
     this.pendingListeners = new Map();
     // 追蹤正在處理中的 tab，防止並發調用
     this.processingTabs = new Map();
 
-    // 依賴注入：驗證邏輯
+    // === 頁面驗證邏輯 (_verifyAndUpdateStatus 使用) ===
     this.checkPageExists = options.checkPageExists || (() => Promise.resolve(null));
     this.getApiKey = options.getApiKey || (() => Promise.resolve(null));
     this.clearPageState = options.clearPageState || (() => Promise.resolve());
@@ -230,7 +239,7 @@ class TabService {
       const response = await Promise.race([
         sendMessagePromise,
         new Promise(resolve =>
-          setTimeout(() => resolve(null), TAB_SERVICE.PRELOADER_PING_TIMEOUT_MS ?? 500)
+          setTimeout(() => resolve(null), TAB_SERVICE.PRELOADER_PING_TIMEOUT_MS)
         ),
       ]);
 

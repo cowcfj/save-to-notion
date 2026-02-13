@@ -526,6 +526,60 @@ describe('TabService', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('Tab closed/missing'));
     });
   });
+  describe('Stable URL Fallback Logic', () => {
+    test('應正確執行回退查找 (Stable URL Miss -> Original URL Hit)', async () => {
+      /**
+       * 此測試旨在驗證 _updateTabStatusInternal 的「雙查/回退」邏輯：
+       * 當為頁面計算出穩定 URL (Stable URL) 時，應優先查詢該 URL 的標註；
+       * 若穩定 URL 下無數據，應回退到原始 URL (Original URL) 查詢，以確保向後兼容。
+       */
+      const mockTabId = 999;
+      const mockRawUrl = 'https://example.com/?slug=test';
+      const mockStableUrl = 'https://example.com/stable';
+      const mockOriginalUrl = 'https://example.com/';
+
+      // 1. Mock 外部工具函數以模擬 Phase 1 為該頁面生成了不同的穩定 URL
+      const { resolveStorageUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const originalResolve = resolveStorageUrl.getMockImplementation();
+      resolveStorageUrl.mockReturnValue(mockStableUrl);
+
+      // 2. 配置 service 的 URL 標準化行為
+      service.normalizeUrl = jest.fn().mockReturnValue(mockOriginalUrl);
+
+      // 3. Mock 外部儲存 API：穩定 URL 為空，原始 URL 有數據
+      chrome.storage.local.get.mockImplementation(async keys => {
+        if (keys.includes(`highlights_${mockStableUrl}`)) {
+          return {};
+        }
+        if (keys.includes(`highlights_${mockOriginalUrl}`)) {
+          return { [`highlights_${mockOriginalUrl}`]: [{ text: 'fallback-highlight' }] };
+        }
+        return {};
+      });
+
+      // 4. Mock 其他無關此測試邏輯的內部步驟，以隔離並專注於回退邏輯檢測
+      service.getPreloaderData = jest.fn().mockResolvedValue(null);
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._waitForTabCompilation = jest.fn().mockResolvedValue({ id: mockTabId });
+      service.injectionService = { ensureBundleInjected: jest.fn().mockResolvedValue() };
+
+      // 5. 執行測試
+      await service._updateTabStatusInternal(mockTabId, mockRawUrl);
+
+      // 6. 驗證：儲存 API 應該被呼叫了兩次（一次穩定，一次原始）
+      expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockStableUrl}`]);
+      expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockOriginalUrl}`]);
+
+      // 驗證最終成功觸發了注入
+      expect(service.injectionService.ensureBundleInjected).toHaveBeenCalledWith(mockTabId);
+
+      // 清理環境
+      if (originalResolve) {
+        resolveStorageUrl.mockImplementation(originalResolve);
+      }
+    });
+  });
+
   describe('getPreloaderData', () => {
     it('應該成功獲取 Preloader 數據', async () => {
       const mockData = { shortlink: 'https://example.com/p=1', nextRouteInfo: null };
@@ -583,59 +637,6 @@ describe('TabService', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.stringContaining('Failed to get preloader data')
       );
-    });
-    describe('Coverage Improvements (Stable URL Fallback)', () => {
-      test('應正確執行回退查找 (Stable URL Miss -> Original URL Hit)', async () => {
-        /**
-         * 此測試旨在驗證 _updateTabStatusInternal 的「雙查/回退」邏輯：
-         * 當為頁面計算出穩定 URL (Stable URL) 時，應優先查詢該 URL 的標註；
-         * 若穩定 URL 下無數據，應回退到原始 URL (Original URL) 查詢，以確保向後兼容。
-         */
-        const mockTabId = 999;
-        const mockRawUrl = 'https://example.com/?slug=test';
-        const mockStableUrl = 'https://example.com/stable';
-        const mockOriginalUrl = 'https://example.com/';
-
-        // 1. Mock 外部工具函數以模擬 Phase 1 為該頁面生成了不同的穩定 URL
-        const { resolveStorageUrl } = require('../../../../scripts/utils/urlUtils.js');
-        const originalResolve = resolveStorageUrl.getMockImplementation();
-        resolveStorageUrl.mockReturnValue(mockStableUrl);
-
-        // 2. 配置 service 的 URL 標準化行為
-        service.normalizeUrl = jest.fn().mockReturnValue(mockOriginalUrl);
-
-        // 3. Mock 外部儲存 API：穩定 URL 為空，原始 URL 有數據
-        chrome.storage.local.get.mockImplementation(async keys => {
-          if (keys.includes(`highlights_${mockStableUrl}`)) {
-            return {};
-          }
-          if (keys.includes(`highlights_${mockOriginalUrl}`)) {
-            return { [`highlights_${mockOriginalUrl}`]: [{ text: 'fallback-highlight' }] };
-          }
-          return {};
-        });
-
-        // 4. Mock 其他無關此測試邏輯的內部步驟，以隔離並專注於回退邏輯檢測
-        service.getPreloaderData = jest.fn().mockResolvedValue(null);
-        service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
-        service._waitForTabCompilation = jest.fn().mockResolvedValue({ id: mockTabId });
-        service.injectionService = { ensureBundleInjected: jest.fn().mockResolvedValue() };
-
-        // 5. 執行測試
-        await service._updateTabStatusInternal(mockTabId, mockRawUrl);
-
-        // 6. 驗證：儲存 API 應該被呼叫了兩次（一次穩定，一次原始）
-        expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockStableUrl}`]);
-        expect(chrome.storage.local.get).toHaveBeenCalledWith([`highlights_${mockOriginalUrl}`]);
-
-        // 驗證最終成功觸發了注入
-        expect(service.injectionService.ensureBundleInjected).toHaveBeenCalledWith(mockTabId);
-
-        // 清理環境
-        if (originalResolve) {
-          resolveStorageUrl.mockImplementation(originalResolve);
-        }
-      });
     });
 
     describe('Coverage Improvements (Edge Cases)', () => {

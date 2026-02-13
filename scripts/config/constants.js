@@ -374,6 +374,7 @@ export const HANDLER_CONSTANTS = {
 export const TAB_SERVICE = {
   LOADING_TIMEOUT_MS: 10_000, // 頁面載入超時時間 (ms)
   STATUS_UPDATE_DELAY_MS: 1000, // 狀態更新延遲 (ms)
+  PRELOADER_PING_TIMEOUT_MS: 500, // Preloader PING 超時 (ms)
 };
 
 // ==========================================

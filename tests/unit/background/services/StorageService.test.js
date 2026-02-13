@@ -165,6 +165,15 @@ describe('StorageService', () => {
       });
     });
 
+    it('應該只寫入標註數據 (pageData 為 null)', async () => {
+      const highlights = ['hl1', 'hl2'];
+      await service.savePageDataAndHighlights('https://example.com/page', null, highlights);
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/page`]: highlights,
+      });
+    });
+
     it('如果全部為 null 則不應調用 set', async () => {
       await service.savePageDataAndHighlights('https://example.com/page', null, null);
       expect(mockStorage.local.set).not.toHaveBeenCalled();
