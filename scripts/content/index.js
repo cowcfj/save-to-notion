@@ -68,6 +68,17 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'SET_STABLE_URL') {
+    if (request.stableUrl) {
+      globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
+      Logger.debug('已接收並設置穩定 URL', {
+        action: 'setStableUrl',
+        stableUrl: request.stableUrl,
+      });
+    }
+    return false;
+  }
+
   // 未處理的訊息不需要異步響應
   return false;
 });

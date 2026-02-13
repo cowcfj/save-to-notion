@@ -194,6 +194,18 @@ class TabService {
       if (tab) {
         this.logger.debug(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
         await this.injectionService.ensureBundleInjected(tabId);
+
+        // [Phase 2] 將計算出的穩定 URL 傳送給 Content Script，確保標註恢復時使用正確的 Key
+        try {
+          chrome.tabs
+            .sendMessage(tabId, {
+              action: 'SET_STABLE_URL',
+              stableUrl: normUrl,
+            })
+            .catch(() => {}); // 忽略可能的連接錯誤 (如 tab 關閉)
+        } catch (error) {
+          this.logger.debug(`[TabService] Failed to send stable URL: ${error.message}`);
+        }
       }
     } catch (error) {
       if (!this.logger.error) {

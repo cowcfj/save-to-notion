@@ -171,6 +171,9 @@ export class HighlightStorage {
    * @private
    */
   static _getNormalizedUrl() {
+    if (globalThis.__NOTION_STABLE_URL__) {
+      return globalThis.__NOTION_STABLE_URL__;
+    }
     return globalThis.normalizeUrl
       ? globalThis.normalizeUrl(globalThis.location.href)
       : globalThis.location.href;

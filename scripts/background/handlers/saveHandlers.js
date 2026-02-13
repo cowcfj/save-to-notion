@@ -664,8 +664,18 @@ export function createSaveHandlers(services) {
           stableUrl: normUrl,
           originalUrl,
           migrated: migratedFromOldKey,
+          hasStableUrl,
         } = await tabService.resolveTabUrl(activeTab.id, activeTab.url || '', migrationService);
-        const savedData = await storageService.getSavedPageData(normUrl);
+
+        let savedData = await storageService.getSavedPageData(normUrl);
+
+        // 雙查回退：若穩定 URL 未找到數據且未發生遷移（即不是因為遷移失敗導致的空數據），嘗試原始 URL
+        if (!savedData?.notionPageId && !migratedFromOldKey && hasStableUrl) {
+          const fallbackData = await storageService.getSavedPageData(originalUrl);
+          if (fallbackData?.notionPageId) {
+            savedData = fallbackData;
+          }
+        }
 
         if (!savedData?.notionPageId) {
           return sendResponse({ success: true, isSaved: false });

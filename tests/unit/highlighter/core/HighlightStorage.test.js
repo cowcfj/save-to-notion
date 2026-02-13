@@ -56,6 +56,7 @@ describe('core/HighlightStorage', () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+    delete globalThis.__NOTION_STABLE_URL__;
   });
 
   describe('constructor', () => {
@@ -104,6 +105,20 @@ describe('core/HighlightStorage', () => {
       await storage.save();
 
       // 不應該拋出錯誤
+    });
+
+    test('should use global stable URL if available', async () => {
+      globalThis.__NOTION_STABLE_URL__ = 'https://stable.url';
+      mockManager.highlights.set('h1', { id: 'h1', text: 'Test' });
+
+      await storage.save();
+
+      expect(StorageUtil.saveHighlights).toHaveBeenCalledWith(
+        'https://stable.url',
+        expect.anything()
+      );
+
+      delete globalThis.__NOTION_STABLE_URL__;
     });
   });
 
