@@ -540,7 +540,6 @@ describe('TabService', () => {
       const mockOriginalUrl = 'https://example.com/';
 
       // 1. Mock 外部工具函數以模擬 Phase 1 為該頁面生成了不同的穩定 URL
-      // 1. Mock 外部工具函數以模擬 Phase 1 為該頁面生成了不同的穩定 URL
       // 使用 import 的 mock 對象，避免 require 與手動還原
       const { resolveStorageUrl } = await import('../../../../scripts/utils/urlUtils.js');
       // 重要：在測試結束後還原 mock，避免影響後續測試 (如 getPreloaderData edge cases)

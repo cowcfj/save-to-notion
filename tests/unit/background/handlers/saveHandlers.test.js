@@ -704,7 +704,8 @@ describe('saveHandlers', () => {
     it('savePage 應在發生意外時返回錯誤', async () => {
       chrome.tabs.query.mockRejectedValue(new Error('Query failed'));
       const sendResponse = jest.fn();
-      await handlers.savePage({}, {}, sendResponse);
+      const sender = { id: 'test-extension-id' }; // Valid sender ensures validation passes
+      await handlers.savePage({}, sender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
     });
 

@@ -38,17 +38,10 @@ describe('MigrationService', () => {
     };
 
     mockTabService = {
-      queryTabs: jest.fn().mockImplementation(q => globalThis.chrome.tabs.query(q)),
-      createTab: jest.fn().mockImplementation(p => globalThis.chrome.tabs.create(p)),
-      removeTab: jest.fn().mockImplementation(id => globalThis.chrome.tabs.remove(id)),
-      waitForTabComplete: jest.fn().mockImplementation(id => {
-        return globalThis.chrome.tabs.get(id).then(tab => {
-          if (tab?.status === 'complete') {
-            return;
-          }
-          // 這裡簡化模擬，實際測試中會透過 mockResolvedValue 控制
-        });
-      }),
+      queryTabs: jest.fn().mockResolvedValue([]),
+      createTab: jest.fn().mockResolvedValue({ id: 999 }),
+      removeTab: jest.fn().mockResolvedValue(),
+      waitForTabComplete: jest.fn().mockResolvedValue(),
     };
     mockInjectionService = {
       injectAndExecute: jest.fn(),
@@ -122,6 +115,7 @@ describe('MigrationService', () => {
 
     test('should return false and NOT delete legacy data if write fails', async () => {
       mockStorageService.getSavedPageData.mockResolvedValue(pageData);
+      mockStorageService.getHighlights.mockResolvedValue(null); // Explicit mock
       mockStorageService.savePageDataAndHighlights.mockRejectedValue(new Error('Write failed'));
 
       const result = await service.migrateStorageKey(stableUrl, legacyUrl);
@@ -151,13 +145,15 @@ describe('MigrationService', () => {
       expect(result.success).toBe(true);
       expect(result.message).toContain('No data');
       expect(mockStorageService.getHighlights).toHaveBeenCalledWith(targetUrl);
-      expect(globalThis.chrome.tabs.query).not.toHaveBeenCalled();
+      expect(result.message).toContain('No data');
+      expect(mockStorageService.getHighlights).toHaveBeenCalledWith(targetUrl);
+      expect(mockTabService.queryTabs).not.toHaveBeenCalled();
     });
 
     test('should reuse existing tab if available', async () => {
       const existingTab = { id: 888, status: 'complete', url: targetUrl };
       mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
-      globalThis.chrome.tabs.query.mockResolvedValue([existingTab]); // Mock queryTabs({}) to return our tab
+      mockTabService.queryTabs.mockResolvedValue([existingTab]); // Mock mockTabService directly
       mockInjectionService.injectAndExecute.mockResolvedValue(); // script injection
       mockInjectionService.injectWithResponse
         // Script readiness check
@@ -172,7 +168,7 @@ describe('MigrationService', () => {
 
       expect(result.success).toBe(true);
       expect(result.count).toBe(5);
-      expect(globalThis.chrome.tabs.query).toHaveBeenCalledWith({}); // Verify precise match logic
+      expect(mockTabService.queryTabs).toHaveBeenCalledWith({}); // Verify precise match logic
       expect(mockTabService.createTab).not.toHaveBeenCalled();
 
       // Verify script injection
@@ -188,8 +184,8 @@ describe('MigrationService', () => {
     test('should create new tab if none exists and clean it up', async () => {
       const newTab = { id: 999 };
       mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
-      globalThis.chrome.tabs.query.mockResolvedValue([]); // No existing tabs
-      globalThis.chrome.tabs.create.mockResolvedValue(newTab);
+      mockTabService.queryTabs.mockResolvedValue([]); // No existing tabs
+      mockTabService.createTab.mockResolvedValue(newTab);
 
       // Setup waitForTabComplete
       mockTabService.waitForTabComplete.mockResolvedValue();
@@ -205,8 +201,9 @@ describe('MigrationService', () => {
       const result = await service.executeContentMigration({ url: targetUrl }, sender);
 
       expect(result.success).toBe(true);
-      expect(globalThis.chrome.tabs.query).toHaveBeenCalledWith({}); // Verify precise match logic
+      expect(mockTabService.queryTabs).toHaveBeenCalledWith({}); // Verify precise match logic
       expect(mockTabService.createTab).toHaveBeenCalledWith({ url: targetUrl, active: false });
+      expect(mockTabService.waitForTabComplete).toHaveBeenCalledWith(newTab.id);
 
       // Cleanup verification
       expect(mockTabService.removeTab).toHaveBeenCalledWith(newTab.id);
@@ -215,7 +212,7 @@ describe('MigrationService', () => {
     test('should handle migration execution failure and cleanup', async () => {
       const existingTab = { id: 777, status: 'complete', url: targetUrl };
       mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
-      globalThis.chrome.tabs.query.mockResolvedValue([existingTab]);
+      mockTabService.queryTabs.mockResolvedValue([existingTab]);
       mockInjectionService.injectAndExecute.mockResolvedValue();
       mockInjectionService.injectWithResponse
         .mockResolvedValueOnce({ ready: true })
@@ -234,8 +231,8 @@ describe('MigrationService', () => {
 
     test('should handle create tab failure', async () => {
       mockStorageService.getHighlights.mockResolvedValue(['highlight1']);
-      globalThis.chrome.tabs.query.mockResolvedValue([]);
-      globalThis.chrome.tabs.create.mockRejectedValue(new Error('Tab Error'));
+      mockTabService.queryTabs.mockResolvedValue([]);
+      mockTabService.createTab.mockRejectedValue(new Error('Tab Error'));
 
       await expect(service.executeContentMigration({ url: targetUrl }, sender)).rejects.toThrow(
         'Tab Error'
