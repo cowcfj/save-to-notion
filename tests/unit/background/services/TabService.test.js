@@ -637,6 +637,51 @@ describe('TabService', () => {
         }
       });
     });
+
+    describe('Coverage Improvements (Edge Cases)', () => {
+      test('應正確處理 getPreloaderData 返回 null 的情況 (回退到 normalizeUrl)', async () => {
+        service.getPreloaderData = jest.fn().mockResolvedValue(null);
+        // Ensure normalizeUrl uses default behavior or specific mock
+        service.normalizeUrl = jest.fn(url => url);
+
+        const url = 'https://example.com/test';
+        // resolveStorageUrl util will return normalizeUrl(url) if preloaderData is null
+        // We need to ensure resolveStorageUrl is not mocked to return something else from previous tests OR restore it
+        // The previous test mocked resolveStorageUrl, so we must ensure it's restored.
+        // The previous test does restore it in 'finally' logical block (lines 635-637 of original file)
+
+        const result = await service.resolveTabUrl(999, url);
+
+        expect(result.stableUrl).toBe(url); // resolveStorageUrl fallback
+        expect(result.originalUrl).toBe(url);
+        expect(result.hasStableUrl).toBe(false);
+      });
+
+      test('應正確執行 _verifyAndUpdateStatus 的回退查詢邏輯 (Stable URL Miss -> Original URL Hit)', async () => {
+        const tabId = 999;
+        const normUrl = 'https://example.com/stable';
+        const fallbackUrl = 'https://example.com/';
+
+        // Setup mocks
+        service.getSavedPageData = jest
+          .fn()
+          .mockResolvedValueOnce(null) // First call for normUrl returns null
+          .mockResolvedValueOnce({ notionPageId: 'page-123', lastVerifiedAt: Date.now() }); // Second call for fallbackUrl returns data
+
+        service._updateBadgeStatus = jest.fn().mockResolvedValue();
+
+        // Execute private method
+        await service._verifyAndUpdateStatus(tabId, normUrl, fallbackUrl);
+
+        // Verify
+        expect(service.getSavedPageData).toHaveBeenNthCalledWith(1, normUrl);
+        expect(service.getSavedPageData).toHaveBeenNthCalledWith(2, fallbackUrl);
+        expect(service._updateBadgeStatus).toHaveBeenCalledWith(
+          tabId,
+          expect.objectContaining({ notionPageId: 'page-123' })
+        );
+      });
+    });
   });
 
   describe('LIFECYCLE & LISTENERS', () => {

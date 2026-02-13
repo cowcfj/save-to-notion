@@ -595,4 +595,4 @@ function _migrationScript(trackingParams) {
 }
 
 // 導出
-export { TabService };
+export { TabService, _migrationScript };
