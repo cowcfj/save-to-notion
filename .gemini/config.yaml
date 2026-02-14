@@ -11,16 +11,43 @@ code_review:
     code_review: true
     include_drafts: true
 ignore_patterns:
-  # 依賴與構建產物 (標準)
+  # 依賴與構建產物
   - 'node_modules/**'
   - 'dist/**'
   - 'coverage/**'
+  - '.nyc_output/**'
 
-  # 測試報告與日誌 (避免干擾 Context)
+  # 測試報告與日誌
   - 'playwright-report/**'
   - 'test-results/**'
   - '*.log'
 
-  # 鎖定檔與系統檔 (通常不需要讀取詳細內容)
+  # 大型/低價值文件
+  - 'CHANGELOG.md'
   - 'package-lock.json'
+  - 'CODE_OF_CONDUCT.md'
+  - 'LICENSE'
+  - 'terms'
+
+  # 靜態資源 (AI 不需處理)
+  - 'icons/**'
+  - 'promo-images/**'
+  - 'demos/**'
+  - 'releases/**'
+
+  # 編輯器與系統檔案
   - '.DS_Store'
+  - '.history/**'
+  - '.vscode/**'
+
+  # 非活躍 AI 工具設定 (避免交叉讀取浪費)
+  - '.kilocode/**'
+  - '.kiro/**'
+  - '.roo/**'
+  - '.serena/**'
+  - '.claude/**'
+  - '.venv/**'
+
+  # MCP 專屬指南 (需要時手動查閱)
+  - 'docs/guides/*_MCP_GUIDE.md'
+  - 'docs/guides/CONTEXT7_MCP_GUIDE.md'

@@ -13,3 +13,14 @@ reviews:
     ignore_usernames:
       - 'release-please[bot]'
       - 'github-actions[bot]'
+  path_filters:
+    - '!CHANGELOG.md'
+    - '!package-lock.json'
+    - '!dist/**'
+    - '!coverage/**'
+    - '!icons/**'
+    - '!promo-images/**'
+    - '!releases/**'
+    - '!demos/**'
+    - '!docs/guides/*_MCP_GUIDE.md'
+    - '!docs/guides/CONTEXT7_MCP_GUIDE.md'
