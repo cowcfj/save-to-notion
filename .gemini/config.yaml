@@ -10,4 +10,17 @@ code_review:
     summary: true
     code_review: true
     include_drafts: true
-ignore_patterns: []
+ignore_patterns:
+  # 依賴與構建產物 (標準)
+  - 'node_modules/**'
+  - 'dist/**'
+  - 'coverage/**'
+
+  # 測試報告與日誌 (避免干擾 Context)
+  - 'playwright-report/**'
+  - 'test-results/**'
+  - '*.log'
+
+  # 鎖定檔與系統檔 (通常不需要讀取詳細內容)
+  - 'package-lock.json'
+  - '.DS_Store'
