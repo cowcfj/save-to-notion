@@ -33,6 +33,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
+        env:
+          PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: npm ci
 
       - name: Node.js 20.x compatibility check
@@ -57,13 +60,13 @@ jobs:
         run: |
           echo "Building production bundle..."
           npm run build:prod
-          
+
           # Verify bundle existence (content + highlighter merged bundle)
           if [ ! -f "dist/content.bundle.js" ]; then
             echo "❌ Content bundle file not found!"
             exit 1
           fi
-          
+
           if [ ! -f "dist/scripts/background.js" ]; then
             echo "❌ Background script not found!"
             exit 1
@@ -72,7 +75,7 @@ jobs:
           # Check bundle size (merged content+highlighter bundle, fail if > 200KB)
           SIZE=$(stat -f%z "dist/content.bundle.js" 2>/dev/null || stat -c%s "dist/content.bundle.js" 2>/dev/null)
           echo "✅ Content bundle size: $SIZE bytes"
-          
+
           if [ "$SIZE" -gt 204800 ]; then
             echo "❌ Bundle size ($SIZE bytes) exceeds 200KB limit!"
             exit 1
@@ -82,13 +85,13 @@ jobs:
         id: validate-coverage
         run: |
           LCOV_FILE="coverage/merged/lcov.info"
-          
+
           if [ ! -f "$LCOV_FILE" ]; then
             echo "⚠️ Coverage file not found: $LCOV_FILE"
             echo "valid=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # 檢查文件是否包含有效的 LCOV 格式（至少包含 SF: 和 end_of_record）
           if grep -q "^SF:" "$LCOV_FILE" && grep -q "end_of_record" "$LCOV_FILE"; then
             LINE_COUNT=$(wc -l < "$LCOV_FILE")
