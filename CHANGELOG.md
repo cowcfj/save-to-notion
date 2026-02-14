@@ -1,5 +1,27 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.32.0](https://github.com/cowcfj/save-to-notion/compare/v2.31.1...v2.32.0) (2026-02-14)
+
+
+### ✨ 新功能
+
+* 增強 MetadataExtractor 和 NextJsExtractor 的標題一致性檢查 ([#258](https://github.com/cowcfj/save-to-notion/issues/258)) ([cf216c3](https://github.com/cowcfj/save-to-notion/commit/cf216c390ffa8f0225e5d3856335037776d2bb59))
+* 實現穩定 URL 提取階段 1 ([#259](https://github.com/cowcfj/save-to-notion/issues/259)) ([5eef5af](https://github.com/cowcfj/save-to-notion/commit/5eef5af27e66a22270b10c3e50e165df986e702d))
+* 實現穩定 URL 提取階段 2 ([#260](https://github.com/cowcfj/save-to-notion/issues/260)) ([7a1748a](https://github.com/cowcfj/save-to-notion/commit/7a1748a63185f3e8644e69697b2a4ba3fb0144f6))
+* 新增介面縮放設定 ([#256](https://github.com/cowcfj/save-to-notion/issues/256)) ([24d25ab](https://github.com/cowcfj/save-to-notion/commit/24d25ab1af052577c002273fea46f484f4d37f29))
+* 更新 config.yaml 以新增忽略模式，刪除測試輸出檔案 ([cc9d300](https://github.com/cowcfj/save-to-notion/commit/cc9d3009314c7b7322654416681503a72fecef3d))
+* 更新配置文件以增強忽略模式，包含更多文件類型 ([4aab5d4](https://github.com/cowcfj/save-to-notion/commit/4aab5d4b62ac1332a8841cd7b76a9725f6b720e9))
+
+
+### 🐛 Bug 修復
+
+* **imageUtils:** 修正 cleanImageUrl 函數的邊界條件測試 ([24d25ab](https://github.com/cowcfj/save-to-notion/commit/24d25ab1af052577c002273fea46f484f4d37f29))
+
+
+### 🧪 測試
+
+* **retryManager:** 增強重試管理器的錯誤日誌測試 ([24d25ab](https://github.com/cowcfj/save-to-notion/commit/24d25ab1af052577c002273fea46f484f4d37f29))
+
 ## [2.31.1](https://github.com/cowcfj/save-to-notion/compare/v2.31.0...v2.31.1) (2026-02-10)
 
 
