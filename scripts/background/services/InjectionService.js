@@ -47,6 +47,11 @@ function isRestrictedInjectionUrl(url) {
       { host: 'chromewebstore.google.com' },
       { host: 'microsoftedge.microsoft.com', pathPrefix: '/addons' },
       { host: 'addons.mozilla.org' },
+      // 不對 Notion 自身頁面注入腳本
+      { host: 'www.notion.so' },
+      { host: 'notion.so' },
+      { host: 'www.notion.com' },
+      { host: 'notion.com' },
     ];
 
     return blockedHosts.some(({ host, pathPrefix }) => {
@@ -309,7 +314,7 @@ class InjectionService {
 
     const msgPrefix = isFunction ? 'Function execution' : 'File injection';
     if (isRecoverable) {
-      this.logger.warn?.(`[Injection] ${msgPrefix} skipped (recoverable)`, {
+      this.logger.debug?.(`[Injection] ${msgPrefix} skipped (recoverable)`, {
         action: 'logInjectionStatus',
         operation: isFunction ? 'executeFunction' : 'injectFiles',
         error: errMsg,
