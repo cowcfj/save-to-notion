@@ -106,7 +106,20 @@ class TabService {
    */
   async resolveTabUrl(tabId, url, migrationService = null) {
     // Notion 自身頁面不需要 Preloader 數據
-    const isNotionPage = url && new URL(url).hostname.includes('notion.so');
+    let isNotionPage = false;
+    try {
+      if (url) {
+        const { hostname } = new URL(url);
+        isNotionPage =
+          hostname === 'notion.so' ||
+          hostname.endsWith('.notion.so') ||
+          hostname === 'notion.com' ||
+          hostname.endsWith('.notion.com');
+      }
+    } catch {
+      // Ignore invalid URLs
+    }
+
     const preloaderData = isNotionPage ? null : await this.getPreloaderData(tabId);
     const stableUrl = resolveStorageUrl(url, preloaderData);
     const originalUrl = this.normalizeUrl(url);
