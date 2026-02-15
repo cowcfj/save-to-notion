@@ -673,6 +673,7 @@ export function createSaveHandlers(services) {
           normUrl,
           savedData,
           migrated: migratedFromOldKey,
+          originalUrl,
         } = await resolvePageData(activeTab);
 
         if (!savedData?.notionPageId) {
@@ -681,12 +682,21 @@ export function createSaveHandlers(services) {
 
         const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
         const now = Date.now();
-        // If just migrated, we trust the data and don't need to re-verify immediately unless forced
-        if (
-          !request.forceRefresh &&
-          !migratedFromOldKey &&
-          now - (savedData.lastVerifiedAt || 0) < TTL
-        ) {
+        const lastVerified = savedData.lastVerifiedAt || 0;
+        const isCacheValid = now - lastVerified < TTL;
+
+        // Debug Log for forceRefresh
+        if (request.forceRefresh) {
+          Logger.log('強制刷新頁面狀態', {
+            action: 'checkPageStatus',
+            url: sanitizeUrlForLogging(normUrl),
+            migrated: migratedFromOldKey,
+            cacheAge: now - (savedData.lastVerifiedAt || 0),
+          });
+        }
+
+        // It just migrated, we trust the data and don't need to re-verify immediately unless forced
+        if (!request.forceRefresh && !migratedFromOldKey && isCacheValid) {
           return sendResponse({
             success: true,
             isSaved: true,
@@ -712,6 +722,11 @@ export function createSaveHandlers(services) {
         const apiKey = config.notionApiKey;
         let exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
 
+        Logger.debug('checkPageExists result', {
+          action: 'checkPageExists',
+          result: exists,
+        });
+
         if (exists === null) {
           Logger.warn('首次檢查頁面存在性失敗，正在重試', {
             action: 'checkPageExists',
@@ -719,6 +734,11 @@ export function createSaveHandlers(services) {
           });
           await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
           exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
+          Logger.debug('Retry checkPageExists result', {
+            action: 'checkPageExists',
+            attempt: 'retry',
+            result: exists,
+          });
         }
 
         if (exists === false) {
