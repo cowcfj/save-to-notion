@@ -1,4 +1,5 @@
 import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import {
   validateContentScriptRequest,
@@ -163,9 +164,12 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/tab|context/i),
+          error: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
         })
       );
+      expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
+      expect(mockServices.storageService.getSavedPageData).not.toHaveBeenCalled();
+      expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
     });
 
     it('應該處理缺少 sender.tab.url 的情況', async () => {
@@ -178,9 +182,12 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.stringMatching(/tab|context/i),
+          error: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
         })
       );
+      expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
+      expect(mockServices.storageService.getSavedPageData).not.toHaveBeenCalled();
+      expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
     });
   });
 
@@ -335,35 +342,32 @@ describe('highlightHandlers', () => {
     });
 
     it('should sync successfully when preloader fails (stableUrl equals originalUrl) but storage finds data', async () => {
+      // Setup - Simulate Preloader failure causing stableUrl fall back to originalUrl
+      const fullPath = 'https://example.com/full-path';
       const sendResponse = jest.fn();
-      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com/full-path' } };
+      const sender = { id: 'test-id', tab: { id: 1, url: fullPath } };
       const request = { highlights: [{ text: 'test' }] };
 
-      // Simulate Preloader failure causing stableUrl fall back to originalUrl
-      const fullPath = 'https://example.com/full-path';
       mockServices.tabService.resolveTabUrl.mockResolvedValue({
         stableUrl: fullPath,
         originalUrl: fullPath,
         migrated: false,
       });
 
-      // Mock required config
+      // Mock required config & services
       mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
-
-      // Simulate StorageService finding data (via alias, though mocked here just returning data)
       mockServices.storageService.getSavedPageData.mockResolvedValue({
         notionPageId: 'page-123',
         title: 'Saved Page',
       });
-
-      // Mock updateHighlightsSection success
       mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
 
+      // Execution
       await handlers.syncHighlights(request, sender, sendResponse);
 
-      // Verify it called getSavedPageData with the full path
+      // Verification
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(1);
       expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledWith(fullPath);
-      // Verify success
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
