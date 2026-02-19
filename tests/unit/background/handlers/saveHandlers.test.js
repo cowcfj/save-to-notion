@@ -79,6 +79,7 @@ describe('saveHandlers', () => {
         getSavedPageData: jest.fn(),
         setSavedPageData: jest.fn(),
         clearPageState: jest.fn(),
+        setUrlAlias: jest.fn().mockResolvedValue(),
       },
       injectionService: {
         injectHighlighter: jest.fn(),
@@ -227,6 +228,33 @@ describe('saveHandlers', () => {
       expect(mockServices.injectionService.injectHighlighter).toHaveBeenCalled();
       expect(mockServices.pageContentService.extractContent).toHaveBeenCalled();
       expect(mockServices.notionService.createPage).toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, created: true })
+      );
+    });
+
+    test('savePage: 當 stableUrl 與 originalUrl 不同時應設定 alias', async () => {
+      const sendResponse = jest.fn();
+      const stableUrl = 'https://example.com/stable';
+      const originalUrl = 'https://example.com/original';
+
+      mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      mockServices.notionService.createPage.mockResolvedValue({
+        success: true,
+        pageId: 'new-page-id',
+        url: 'https://notion.so/new-page',
+      });
+
+      // 模擬 resolveTabUrl 返回不一致的 URL
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl,
+        originalUrl,
+        migrated: false,
+      });
+
+      await handlers.savePage({}, validSender, sendResponse);
+
+      expect(mockServices.storageService.setUrlAlias).toHaveBeenCalledWith(originalUrl, stableUrl);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({ success: true, created: true })
       );

@@ -49,7 +49,7 @@ function isRestrictedInjectionUrl(url) {
       { host: 'addons.mozilla.org' },
     ];
 
-    return blockedHosts.some(({ host, pathPrefix }) => {
+    const isBlockedHost = blockedHosts.some(({ host, pathPrefix }) => {
       if (urlObj.host !== host) {
         return false;
       }
@@ -58,6 +58,16 @@ function isRestrictedInjectionUrl(url) {
       }
       return urlObj.pathname.startsWith(pathPrefix);
     });
+
+    if (isBlockedHost) {
+      return true;
+    }
+
+    // 不對 Notion 自身頁面注入腳本 (包含子域名如 custom.notion.site)
+    const notionDomains = ['notion.so', 'notion.com', 'notion.site'];
+    return notionDomains.some(
+      domain => urlObj.host === domain || urlObj.host.endsWith(`.${domain}`)
+    );
   } catch (error) {
     Logger.warn('[Injection:Utils] Failed to parse URL when checking restrictions', {
       action: 'isRestrictedInjectionUrl',
@@ -309,7 +319,7 @@ class InjectionService {
 
     const msgPrefix = isFunction ? 'Function execution' : 'File injection';
     if (isRecoverable) {
-      this.logger.warn?.(`[Injection] ${msgPrefix} skipped (recoverable)`, {
+      this.logger.debug?.(`[Injection] ${msgPrefix} skipped (recoverable)`, {
         action: 'logInjectionStatus',
         operation: isFunction ? 'executeFunction' : 'injectFiles',
         error: errMsg,

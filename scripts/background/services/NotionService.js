@@ -69,7 +69,7 @@ class NotionService {
         retries: 0, // 禁用 SDK 內建重試，以便我們控制自定義重試邏輯
       },
       // 自定義 fetch 適配器，防止 Illegal Invocation 錯誤
-      fetch: (url, options) => fetch(url, options),
+      fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' }),
     });
   }
 
@@ -110,7 +110,7 @@ class NotionService {
         auth: options.apiKey,
         notionVersion: this.config.API_VERSION,
         retry: { retries: 0 },
-        fetch: (url, opts) => fetch(url, opts),
+        fetch: (url, opts) => fetch(url, { ...opts, cache: 'no-store' }),
       });
     }
 

@@ -117,7 +117,7 @@ Logger.log('Content Bundle 已載入', { action: 'loadBundle' });
  * 主要內容提取函數
  * 此函數會被 background.js 通過 executeScript 調用
  *
- * @returns {Promise<{title: string, blocks: Array, rawHtml: string, metadata: object, additionalImages: Array, coverImage: string|null, debug: object}>}
+ * @returns {Promise<{title: string, blocks: Array, metadata: object, additionalImages: Array, coverImage: string|null, debug: object}>}
  */
 async function extractPageContent() {
   Logger.log('開始內容提取', { action: 'extractPageContent' });
@@ -151,7 +151,6 @@ async function extractPageContent() {
             },
           },
         ],
-        rawHtml: '',
         additionalImages: [],
         coverImage: null,
       };
@@ -229,7 +228,6 @@ async function extractPageContent() {
     return {
       title: metadata.title || document.title || DEFAULT_PAGE_TITLE,
       blocks,
-      rawHtml: content,
       metadata, // 包含 author, description, favicon
       additionalImages,
       coverImage, // 封面圖片 URL（供 Notion cover 使用）
@@ -266,7 +264,6 @@ async function extractPageContent() {
           },
         },
       ],
-      rawHtml: '',
       error: error.message,
       additionalImages: [],
       coverImage: null,

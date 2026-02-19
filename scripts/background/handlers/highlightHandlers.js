@@ -419,6 +419,19 @@ export function createHighlightHandlers(services) {
 
         const activeTab = sender.tab;
 
+        // sender.tab 在某些情況下可能為 null（例如 service worker 注入的 content script）
+        if (!activeTab?.id || !activeTab?.url) {
+          Logger.warn('syncHighlights: 缺少標籤頁上下文', {
+            action: 'syncHighlights',
+            senderId: sender?.id,
+          });
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB),
+          });
+          return;
+        }
+
         const highlights = request.highlights || [];
         if (highlights.length === 0) {
           sendResponse({

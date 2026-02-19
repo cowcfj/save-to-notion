@@ -15,6 +15,7 @@ import { UI_STYLE_CONSTANTS } from '../../config/constants.js';
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
 import { sanitizeApiError } from '../../utils/securityUtils.js';
+import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
 
 /**
@@ -492,7 +493,12 @@ export class Toolbar {
 
         Logger.error('同步失敗:', {
           action: 'syncToNotion',
-          error,
+          error: error?.message ?? String(error),
+          stack: error?.stack,
+          details: {
+            name: error?.name,
+            code: error?.code,
+          },
         });
       }
     }

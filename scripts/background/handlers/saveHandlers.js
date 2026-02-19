@@ -286,7 +286,7 @@ export function createSaveHandlers(services) {
    * @returns {Promise<object>} 保存結果
    */
   async function performCreatePage(params) {
-    const { normUrl, dataSourceId, dataSourceType, contentResult, apiKey } = params;
+    const { normUrl, originalUrl, dataSourceId, dataSourceType, contentResult, apiKey } = params;
 
     // 第一次嘗試
     const buildOptions = {
@@ -314,6 +314,16 @@ export function createSaveHandlers(services) {
         notionUrl: result.url,
         title: contentResult.title,
         savedAt: Date.now(),
+        lastVerifiedAt: Date.now(),
+      });
+
+      // 建立 URL alias 映射，讓後續在 preloader PING 失敗時
+      // 也能透過 originalUrl 找到以 stableUrl（normUrl）存儲的 savedData
+      await storageService.setUrlAlias(originalUrl, normUrl).catch(error => {
+        Logger.warn('設定 URL alias 失敗（不影響主流程）', {
+          action: 'setUrlAlias',
+          error: error.message,
+        });
       });
 
       // 補充統計數據
@@ -673,6 +683,7 @@ export function createSaveHandlers(services) {
           normUrl,
           savedData,
           migrated: migratedFromOldKey,
+          originalUrl,
         } = await resolvePageData(activeTab);
 
         if (!savedData?.notionPageId) {
@@ -681,12 +692,21 @@ export function createSaveHandlers(services) {
 
         const TTL = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL;
         const now = Date.now();
-        // If just migrated, we trust the data and don't need to re-verify immediately unless forced
-        if (
-          !request.forceRefresh &&
-          !migratedFromOldKey &&
-          now - (savedData.lastVerifiedAt || 0) < TTL
-        ) {
+        const lastVerified = savedData.lastVerifiedAt || 0;
+        const isCacheValid = now - lastVerified < TTL;
+
+        // Debug Log for forceRefresh
+        if (request.forceRefresh) {
+          Logger.log('強制刷新頁面狀態', {
+            action: 'checkPageStatus',
+            url: sanitizeUrlForLogging(normUrl),
+            migrated: migratedFromOldKey,
+            cacheAge: now - lastVerified,
+          });
+        }
+
+        // It just migrated, we trust the data and don't need to re-verify immediately unless forced
+        if (!request.forceRefresh && !migratedFromOldKey && isCacheValid) {
           return sendResponse({
             success: true,
             isSaved: true,
@@ -712,6 +732,11 @@ export function createSaveHandlers(services) {
         const apiKey = config.notionApiKey;
         let exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
 
+        Logger.debug('checkPageExists result', {
+          action: 'checkPageExists',
+          result: exists,
+        });
+
         if (exists === null) {
           Logger.warn('首次檢查頁面存在性失敗，正在重試', {
             action: 'checkPageExists',
@@ -719,6 +744,11 @@ export function createSaveHandlers(services) {
           });
           await new Promise(resolve => setTimeout(resolve, HANDLER_CONSTANTS.CHECK_DELAY));
           exists = await notionService.checkPageExists(savedData.notionPageId, { apiKey });
+          Logger.debug('Retry checkPageExists result', {
+            action: 'checkPageExists',
+            attempt: 'retry',
+            result: exists,
+          });
         }
 
         if (exists === false) {
@@ -743,8 +773,8 @@ export function createSaveHandlers(services) {
         }
 
         if (exists === true) {
-          savedData.lastVerifiedAt = now;
-          await storageService.setSavedPageData(normUrl, savedData);
+          const updatedData = { ...savedData, lastVerifiedAt: now };
+          await storageService.setSavedPageData(normUrl, updatedData);
         }
 
         sendResponse({

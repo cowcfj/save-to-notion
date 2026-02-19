@@ -182,6 +182,28 @@ describe('NotionService', () => {
       service.setApiKey('new-api-key');
       expect(service.apiKey).toBe('new-api-key');
     });
+
+    it('應該使用 cache: no-store 初始化 client', async () => {
+      // Force init
+      service._initClient();
+
+      // Trigger a fetch to verify options
+      // We need to access private client or trigger a method that uses it
+      // Using a public method that triggers fetch
+      await service.checkPageExists('page-123');
+
+      // Verify the fetch mock was called with correct options in the last call
+      // Note: _initClient creates the client with the custom fetch
+      // We need to check if that custom fetch passes the cache option
+
+      // Since we can't easily spy on the internal fetch wrapper without redesigning the test,
+      // we can check if globalThis.fetch was called with expected options
+      // when a request is made.
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ cache: 'no-store' })
+      );
+    });
   });
 
   describe('checkPageExists', () => {

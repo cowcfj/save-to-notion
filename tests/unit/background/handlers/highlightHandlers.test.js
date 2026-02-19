@@ -1,4 +1,5 @@
 import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/messages.js';
 import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
 import {
   validateContentScriptRequest,
@@ -6,7 +7,7 @@ import {
   validateInternalRequest,
 } from '../../../../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
-import { normalizeUrl, resolveStorageUrl } from '../../../../scripts/utils/urlUtils.js';
+import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/Logger.js');
 jest.mock('../../../../scripts/background/services/InjectionService.js');
@@ -26,7 +27,6 @@ describe('highlightHandlers', () => {
     validateInternalRequest.mockReturnValue(null);
     isRestrictedInjectionUrl.mockReturnValue(false);
     normalizeUrl.mockImplementation(url => url);
-    resolveStorageUrl.mockImplementation(url => url);
 
     // Fix ErrorHandler mock
     ErrorHandler.formatUserMessage.mockImplementation(msg => msg);
@@ -152,6 +152,42 @@ describe('highlightHandlers', () => {
           highlightCount: 0,
         })
       );
+    });
+
+    it('應該處理缺少 sender.tab 的情況', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: null };
+      const request = { highlights: [{ text: 'test' }] };
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+        })
+      );
+      expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
+      expect(mockServices.storageService.getSavedPageData).not.toHaveBeenCalled();
+      expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
+    });
+
+    it('應該處理缺少 sender.tab.url 的情況', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1 } }; // Missing url
+      const request = { highlights: [{ text: 'test' }] };
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+        })
+      );
+      expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
+      expect(mockServices.storageService.getSavedPageData).not.toHaveBeenCalled();
+      expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
     });
   });
 
@@ -302,6 +338,36 @@ describe('highlightHandlers', () => {
       await handlers.updateHighlights({ highlights: [] }, sender, sendResponse);
 
       expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(2);
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    });
+
+    it('should sync successfully when preloader fails (stableUrl equals originalUrl) but storage finds data', async () => {
+      // Setup - Simulate Preloader failure causing stableUrl fall back to originalUrl
+      const fullPath = 'https://example.com/full-path';
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: fullPath } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: fullPath,
+        originalUrl: fullPath,
+        migrated: false,
+      });
+
+      // Mock required config & services
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        title: 'Saved Page',
+      });
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
+
+      // Execution
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      // Verification
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledTimes(1);
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledWith(fullPath);
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
