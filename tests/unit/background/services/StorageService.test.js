@@ -12,6 +12,14 @@ import {
   STORAGE_ERROR,
 } from '../../../../scripts/background/services/StorageService.js';
 
+jest.mock('../../../../scripts/utils/urlUtils.js', () => {
+  const original = jest.requireActual('../../../../scripts/utils/urlUtils.js');
+  return {
+    ...original,
+    computeStableUrl: jest.fn(url => `${url}_stable`),
+  };
+});
+
 describe('normalizeUrl', () => {
   it('應該移除 hash', () => {
     expect(normalizeUrl('https://example.com/page#section')).toBe('https://example.com/page');
@@ -109,6 +117,7 @@ describe('StorageService', () => {
       await service.getSavedPageData('https://example.com/page#section');
       expect(mockStorage.local.get).toHaveBeenCalledWith([
         `${SAVED_PREFIX}https://example.com/page`,
+        `${URL_ALIAS_PREFIX}https://example.com/page`,
       ]);
     });
 
@@ -118,29 +127,27 @@ describe('StorageService', () => {
       const pageData = { title: 'Test Page' };
 
       // 模擬 storage 狀態：
-      // 1. 直接查 originalUrl -> null
-      // 2. 查 alias -> stableUrl
-      // 3. 查 stableUrl -> pageData
+      // 1. 直接查 keys [original, alias] -> 返回 alias pointing to stableUrl
+      // 2. 查 stableUrl -> pageData
       mockStorage.local.get.mockImplementation(keys => {
-        const key = keys[0];
-        if (typeof key === 'string') {
-          if (key === `${SAVED_PREFIX}${originalUrl}`) {
-            return Promise.resolve({});
+        const result = {};
+        const keyList = Array.isArray(keys) ? keys : [keys];
+
+        keyList.forEach(k => {
+          if (k === `${URL_ALIAS_PREFIX}${originalUrl}`) {
+            result[k] = stableUrl;
           }
-          if (key === `${URL_ALIAS_PREFIX}${originalUrl}`) {
-            return Promise.resolve({ [key]: stableUrl });
+          if (k === `${SAVED_PREFIX}${stableUrl}`) {
+            result[k] = pageData;
           }
-          if (key === `${SAVED_PREFIX}${stableUrl}`) {
-            return Promise.resolve({ [key]: pageData });
-          }
-        }
-        return Promise.resolve({});
+        });
+
+        return Promise.resolve(result);
       });
 
       const result = await service.getSavedPageData(originalUrl);
 
       expect(result).toEqual(pageData);
-      expect(mockStorage.local.get).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -164,10 +171,14 @@ describe('StorageService', () => {
     it('應該清除頁面狀態、標註和 alias', async () => {
       await service.clearPageState('https://example.com/page');
 
+      // Note: computeStableUrl is mocked to return url + '_stable'
       expect(mockStorage.local.remove).toHaveBeenCalledWith([
         `${SAVED_PREFIX}https://example.com/page`,
         `${HIGHLIGHTS_PREFIX}https://example.com/page`,
         `${URL_ALIAS_PREFIX}https://example.com/page`,
+        `${SAVED_PREFIX}https://example.com/page_stable`,
+        `${HIGHLIGHTS_PREFIX}https://example.com/page_stable`,
+        `${URL_ALIAS_PREFIX}https://example.com/page_stable`,
       ]);
       expect(mockLogger.log).toHaveBeenCalledWith('Cleared all data', {
         url: 'https://example.com/page',
@@ -265,6 +276,26 @@ describe('StorageService', () => {
     it('如果兩者相同則不應設定 alias', async () => {
       await service.setUrlAlias('https://example.com/same', 'https://example.com/same');
       expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('應該處理無效輸入 (null/empty)', async () => {
+      await service.setUrlAlias(null, 'stable');
+      await service.setUrlAlias('original', null);
+      await service.setUrlAlias('', 'stable');
+      await service.setUrlAlias('original', '');
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('應該記錄並拋出存儲錯誤', async () => {
+      mockStorage.local.set.mockRejectedValue(new Error('Storage Error'));
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+
+      await expect(service.setUrlAlias(originalUrl, stableUrl)).rejects.toThrow('Storage Error');
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[StorageService] setUrlAlias failed',
+        expect.objectContaining({ error: expect.any(Error) })
+      );
     });
   });
 

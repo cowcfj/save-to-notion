@@ -493,7 +493,9 @@ export class Toolbar {
 
         Logger.error('同步失敗:', {
           action: 'syncToNotion',
-          error: error.message ?? String(error),
+          error: error?.message ?? String(error),
+          stack: error?.stack,
+          details: error,
         });
       }
     }

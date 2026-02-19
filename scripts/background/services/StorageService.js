@@ -56,17 +56,18 @@ class StorageService {
 
     const normalizedUrl = normalizeUrl(pageUrl);
     const key = `${SAVED_PREFIX}${normalizedUrl}`;
+    const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
 
     try {
-      const result = await this.storage.local.get([key]);
+      // 批量查詢：同時查找直接存儲和 alias
+      const result = await this.storage.local.get([key, aliasKey]);
+
       if (result[key]) {
         return result[key];
       }
 
-      // 直接查找失敗，嘗試 URL alias 映射（處理 preloader PING 不穩定的情況）
-      const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
-      const aliasResult = await this.storage.local.get([aliasKey]);
-      const stableUrl = aliasResult[aliasKey];
+      // 直接查找失敗，檢查是否有 alias
+      const stableUrl = result[aliasKey];
 
       if (stableUrl) {
         const stableKey = `${SAVED_PREFIX}${stableUrl}`;
@@ -251,14 +252,18 @@ class StorageService {
       throw new Error(STORAGE_ERROR);
     }
 
-    if (!originalUrl || !stableUrl || originalUrl === stableUrl) {
+    // 防衛性標準化
+    const normalizedOriginal = normalizeUrl(originalUrl);
+    const normalizedStable = normalizeUrl(stableUrl);
+
+    if (!normalizedOriginal || !normalizedStable || normalizedOriginal === normalizedStable) {
       return;
     }
 
-    const aliasKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+    const aliasKey = `${URL_ALIAS_PREFIX}${normalizedOriginal}`;
 
     try {
-      await this.storage.local.set({ [aliasKey]: stableUrl });
+      await this.storage.local.set({ [aliasKey]: normalizedStable });
     } catch (error) {
       this.logger.error?.('[StorageService] setUrlAlias failed', { error });
       throw error;

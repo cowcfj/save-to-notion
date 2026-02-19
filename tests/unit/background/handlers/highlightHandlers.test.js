@@ -6,7 +6,7 @@ import {
   validateInternalRequest,
 } from '../../../../scripts/utils/securityUtils.js';
 import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
-import { normalizeUrl, resolveStorageUrl } from '../../../../scripts/utils/urlUtils.js';
+import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 
 jest.mock('../../../../scripts/utils/Logger.js');
 jest.mock('../../../../scripts/background/services/InjectionService.js');
@@ -26,7 +26,6 @@ describe('highlightHandlers', () => {
     validateInternalRequest.mockReturnValue(null);
     isRestrictedInjectionUrl.mockReturnValue(false);
     normalizeUrl.mockImplementation(url => url);
-    resolveStorageUrl.mockImplementation(url => url);
 
     // Fix ErrorHandler mock
     ErrorHandler.formatUserMessage.mockImplementation(msg => msg);
@@ -150,6 +149,36 @@ describe('highlightHandlers', () => {
         expect.objectContaining({
           success: true,
           highlightCount: 0,
+        })
+      );
+    });
+
+    it('應該處理缺少 sender.tab 的情況', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: null };
+      const request = { highlights: [{ text: 'test' }] };
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String), // ERROR_MESSAGES not imported, checking for string
+        })
+      );
+    });
+
+    it('應該處理缺少 sender.tab.url 的情況', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1 } }; // Missing url
+      const request = { highlights: [{ text: 'test' }] };
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.any(String),
         })
       );
     });

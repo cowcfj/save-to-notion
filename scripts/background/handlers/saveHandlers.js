@@ -314,18 +314,17 @@ export function createSaveHandlers(services) {
         notionUrl: result.url,
         title: contentResult.title,
         savedAt: Date.now(),
+        lastVerifiedAt: Date.now(),
       });
 
       // 建立 URL alias 映射，讓後續在 preloader PING 失敗時
       // 也能透過 originalUrl 找到以 stableUrl（normUrl）存儲的 savedData
-      if (originalUrl && normUrl && originalUrl !== normUrl) {
-        await storageService.setUrlAlias(originalUrl, normUrl).catch(error => {
-          Logger.warn('設定 URL alias 失敗（不影響主流程）', {
-            action: 'setUrlAlias',
-            error: error.message,
-          });
+      await storageService.setUrlAlias(originalUrl, normUrl).catch(error => {
+        Logger.warn('設定 URL alias 失敗（不影響主流程）', {
+          action: 'setUrlAlias',
+          error: error.message,
         });
-      }
+      });
 
       // 補充統計數據
       result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
