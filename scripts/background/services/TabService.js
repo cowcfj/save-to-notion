@@ -114,7 +114,9 @@ class TabService {
           hostname === 'notion.so' ||
           hostname.endsWith('.notion.so') ||
           hostname === 'notion.com' ||
-          hostname.endsWith('.notion.com');
+          hostname.endsWith('.notion.com') ||
+          hostname === 'notion.site' ||
+          hostname.endsWith('.notion.site');
       }
     } catch {
       // Ignore invalid URLs

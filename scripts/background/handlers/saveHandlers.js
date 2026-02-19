@@ -691,7 +691,7 @@ export function createSaveHandlers(services) {
             action: 'checkPageStatus',
             url: sanitizeUrlForLogging(normUrl),
             migrated: migratedFromOldKey,
-            cacheAge: now - (savedData.lastVerifiedAt || 0),
+            cacheAge: now - lastVerified,
           });
         }
 

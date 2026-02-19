@@ -42,19 +42,15 @@ function isRestrictedInjectionUrl(url) {
     const urlObj = new URL(url);
 
     // 檢查受限域名列表
+    // 檢查受限域名列表
     const blockedHosts = [
       { host: 'chrome.google.com', pathPrefix: '/webstore' },
       { host: 'chromewebstore.google.com' },
       { host: 'microsoftedge.microsoft.com', pathPrefix: '/addons' },
       { host: 'addons.mozilla.org' },
-      // 不對 Notion 自身頁面注入腳本
-      { host: 'www.notion.so' },
-      { host: 'notion.so' },
-      { host: 'www.notion.com' },
-      { host: 'notion.com' },
     ];
 
-    return blockedHosts.some(({ host, pathPrefix }) => {
+    const isBlockedHost = blockedHosts.some(({ host, pathPrefix }) => {
       if (urlObj.host !== host) {
         return false;
       }
@@ -63,6 +59,16 @@ function isRestrictedInjectionUrl(url) {
       }
       return urlObj.pathname.startsWith(pathPrefix);
     });
+
+    if (isBlockedHost) {
+      return true;
+    }
+
+    // 不對 Notion 自身頁面注入腳本 (包含子域名如 custom.notion.site)
+    const notionDomains = ['notion.so', 'notion.com', 'notion.site'];
+    return notionDomains.some(
+      domain => urlObj.host === domain || urlObj.host.endsWith(`.${domain}`)
+    );
   } catch (error) {
     Logger.warn('[Injection:Utils] Failed to parse URL when checking restrictions', {
       action: 'isRestrictedInjectionUrl',
