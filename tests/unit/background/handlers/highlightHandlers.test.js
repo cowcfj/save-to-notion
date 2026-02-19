@@ -305,6 +305,39 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     });
 
+    it('should sync successfully when preloader fails (stableUrl equals originalUrl) but storage finds data', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com/full-path' } };
+      const request = { highlights: [{ text: 'test' }] };
+
+      // Simulate Preloader failure causing stableUrl fall back to originalUrl
+      const fullPath = 'https://example.com/full-path';
+      mockServices.tabService.resolveTabUrl.mockResolvedValue({
+        stableUrl: fullPath,
+        originalUrl: fullPath,
+        migrated: false,
+      });
+
+      // Mock required config
+      mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey: 'test-key' });
+
+      // Simulate StorageService finding data (via alias, though mocked here just returning data)
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        title: 'Saved Page',
+      });
+
+      // Mock updateHighlightsSection success
+      mockServices.notionService.updateHighlightsSection.mockResolvedValue({ success: true });
+
+      await handlers.syncHighlights(request, sender, sendResponse);
+
+      // Verify it called getSavedPageData with the full path
+      expect(mockServices.storageService.getSavedPageData).toHaveBeenCalledWith(fullPath);
+      // Verify success
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    });
+
     it('should handle showHighlighter message failure in USER_ACTIVATE_SHORTCUT', async () => {
       const sendResponse = jest.fn();
       const sender = { id: 'test-id', tab: { id: 1, url: 'https://example.com' } };

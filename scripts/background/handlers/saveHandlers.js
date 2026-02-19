@@ -286,7 +286,7 @@ export function createSaveHandlers(services) {
    * @returns {Promise<object>} 保存結果
    */
   async function performCreatePage(params) {
-    const { normUrl, dataSourceId, dataSourceType, contentResult, apiKey } = params;
+    const { normUrl, originalUrl, dataSourceId, dataSourceType, contentResult, apiKey } = params;
 
     // 第一次嘗試
     const buildOptions = {
@@ -315,6 +315,17 @@ export function createSaveHandlers(services) {
         title: contentResult.title,
         savedAt: Date.now(),
       });
+
+      // 建立 URL alias 映射，讓後續在 preloader PING 失敗時
+      // 也能透過 originalUrl 找到以 stableUrl（normUrl）存儲的 savedData
+      if (originalUrl && normUrl && originalUrl !== normUrl) {
+        await storageService.setUrlAlias(originalUrl, normUrl).catch(error => {
+          Logger.warn('設定 URL alias 失敗（不影響主流程）', {
+            action: 'setUrlAlias',
+            error: error.message,
+          });
+        });
+      }
 
       // 補充統計數據
       result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;

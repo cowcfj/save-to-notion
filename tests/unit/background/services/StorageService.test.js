@@ -8,6 +8,7 @@ import {
   URL_TRACKING_PARAMS,
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
+  URL_ALIAS_PREFIX,
   STORAGE_ERROR,
 } from '../../../../scripts/background/services/StorageService.js';
 
@@ -110,6 +111,37 @@ describe('StorageService', () => {
         `${SAVED_PREFIX}https://example.com/page`,
       ]);
     });
+
+    it('應在直接查找失敗時嘗試使用 alias 查找', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+      const pageData = { title: 'Test Page' };
+
+      // 模擬 storage 狀態：
+      // 1. 直接查 originalUrl -> null
+      // 2. 查 alias -> stableUrl
+      // 3. 查 stableUrl -> pageData
+      mockStorage.local.get.mockImplementation(keys => {
+        const key = keys[0];
+        if (typeof key === 'string') {
+          if (key === `${SAVED_PREFIX}${originalUrl}`) {
+            return Promise.resolve({});
+          }
+          if (key === `${URL_ALIAS_PREFIX}${originalUrl}`) {
+            return Promise.resolve({ [key]: stableUrl });
+          }
+          if (key === `${SAVED_PREFIX}${stableUrl}`) {
+            return Promise.resolve({ [key]: pageData });
+          }
+        }
+        return Promise.resolve({});
+      });
+
+      const result = await service.getSavedPageData(originalUrl);
+
+      expect(result).toEqual(pageData);
+      expect(mockStorage.local.get).toHaveBeenCalledTimes(3);
+    });
   });
 
   describe('setSavedPageData', () => {
@@ -129,12 +161,13 @@ describe('StorageService', () => {
   });
 
   describe('clearPageState', () => {
-    it('應該清除頁面狀態和標註', async () => {
+    it('應該清除頁面狀態、標註和 alias', async () => {
       await service.clearPageState('https://example.com/page');
 
       expect(mockStorage.local.remove).toHaveBeenCalledWith([
         `${SAVED_PREFIX}https://example.com/page`,
         `${HIGHLIGHTS_PREFIX}https://example.com/page`,
+        `${URL_ALIAS_PREFIX}https://example.com/page`,
       ]);
       expect(mockLogger.log).toHaveBeenCalledWith('Cleared all data', {
         url: 'https://example.com/page',
@@ -213,6 +246,24 @@ describe('StorageService', () => {
 
     it('如果全部為 null 則不應調用 set', async () => {
       await service.savePageDataAndHighlights('https://example.com/page', null, null);
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setUrlAlias', () => {
+    it('應該設定 URL alias 映射', async () => {
+      const originalUrl = 'https://example.com/original';
+      const stableUrl = 'https://example.com/stable';
+
+      await service.setUrlAlias(originalUrl, stableUrl);
+
+      expect(mockStorage.local.set).toHaveBeenCalledWith({
+        [`${URL_ALIAS_PREFIX}${originalUrl}`]: stableUrl,
+      });
+    });
+
+    it('如果兩者相同則不應設定 alias', async () => {
+      await service.setUrlAlias('https://example.com/same', 'https://example.com/same');
       expect(mockStorage.local.set).not.toHaveBeenCalled();
     });
   });

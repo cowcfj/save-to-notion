@@ -42,7 +42,6 @@ function isRestrictedInjectionUrl(url) {
     const urlObj = new URL(url);
 
     // 檢查受限域名列表
-    // 檢查受限域名列表
     const blockedHosts = [
       { host: 'chrome.google.com', pathPrefix: '/webstore' },
       { host: 'chromewebstore.google.com' },

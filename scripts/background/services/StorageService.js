@@ -22,6 +22,7 @@ import { ERROR_MESSAGES } from '../../config/messages.js';
  */
 export const SAVED_PREFIX = 'saved_';
 export const HIGHLIGHTS_PREFIX = 'highlights_';
+export const URL_ALIAS_PREFIX = 'url_alias:';
 export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
 
 /**
@@ -41,6 +42,10 @@ class StorageService {
   /**
    * 獲取頁面保存狀態
    *
+   * 查找優先順序：
+   * 1. 直接以 pageUrl 為 key 查找
+   * 2. 查找 url_alias 映射，若存在則以 alias 指向的 stableUrl 重新查找
+   *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<object | null>}
    */
@@ -54,7 +59,22 @@ class StorageService {
 
     try {
       const result = await this.storage.local.get([key]);
-      return result[key] || null;
+      if (result[key]) {
+        return result[key];
+      }
+
+      // 直接查找失敗，嘗試 URL alias 映射（處理 preloader PING 不穩定的情況）
+      const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+      const aliasResult = await this.storage.local.get([aliasKey]);
+      const stableUrl = aliasResult[aliasKey];
+
+      if (stableUrl) {
+        const stableKey = `${SAVED_PREFIX}${stableUrl}`;
+        const stableResult = await this.storage.local.get([stableKey]);
+        return stableResult[stableKey] || null;
+      }
+
+      return null;
     } catch (error) {
       this.logger.error?.('[StorageService] getSavedPageData failed', { error });
       throw error;
@@ -177,12 +197,12 @@ class StorageService {
 
   /**
    * 清除頁面狀態
-   * 同時清理穩定 URL 和原始 URL 的存儲 key（確保完全清除）
+   * 同時清理穩定 URL 和原始 URL 的存儲 key（確保完全清除），
+   * 以及對應的 URL alias 映射。
    *
    * @param {string} pageUrl - 頁面 URL
    * @returns {Promise<void>}
    */
-
   async clearPageState(pageUrl) {
     if (!this.storage) {
       throw new Error(STORAGE_ERROR);
@@ -194,11 +214,16 @@ class StorageService {
     const keysToRemove = [
       `${SAVED_PREFIX}${normalizedUrl}`,
       `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
+      `${URL_ALIAS_PREFIX}${normalizedUrl}`,
     ];
 
-    // 如果有穩定 URL 且與原始 URL 不同，也清理穩定 URL 的 key
+    // 如果有穩定 URL 且與原始 URL 不同，也清理穩定 URL 的 key 和 alias
     if (stableUrl && stableUrl !== normalizedUrl) {
-      keysToRemove.push(`${SAVED_PREFIX}${stableUrl}`, `${HIGHLIGHTS_PREFIX}${stableUrl}`);
+      keysToRemove.push(
+        `${SAVED_PREFIX}${stableUrl}`,
+        `${HIGHLIGHTS_PREFIX}${stableUrl}`,
+        `${URL_ALIAS_PREFIX}${stableUrl}`
+      );
     }
 
     try {
@@ -206,6 +231,36 @@ class StorageService {
       this.logger.log?.('Cleared all data', { url: sanitizeUrlForLogging(normalizedUrl) });
     } catch (error) {
       this.logger.error?.('[StorageService] clearPageState failed', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * 設置 URL alias 映射（originalUrl → stableUrl）
+   *
+   * 用於解決 preloader PING 不穩定問題：
+   * savePage 成功後記錄映射，後續 syncHighlights 即使 PING 失敗
+   * 也能透過 originalUrl 找到以 stableUrl 存儲的 savedData。
+   *
+   * @param {string} originalUrl - 原始 URL（normalizeUrl 後的完整路徑）
+   * @param {string} stableUrl - 穩定 URL（shortlink 或其他計算後的穩定 key）
+   * @returns {Promise<void>}
+   */
+  async setUrlAlias(originalUrl, stableUrl) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    if (!originalUrl || !stableUrl || originalUrl === stableUrl) {
+      return;
+    }
+
+    const aliasKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+
+    try {
+      await this.storage.local.set({ [aliasKey]: stableUrl });
+    } catch (error) {
+      this.logger.error?.('[StorageService] setUrlAlias failed', { error });
       throw error;
     }
   }
