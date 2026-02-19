@@ -1,5 +1,18 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.33.0](https://github.com/cowcfj/save-to-notion/compare/v2.32.0...v2.33.0) (2026-02-19)
+
+
+### ✨ 新功能
+
+* 新增使用超能力的技能說明文件 ([4a2c415](https://github.com/cowcfj/save-to-notion/commit/4a2c41527f5ea51fd97096b08d9e6385aeb92c1c))
+* 更新 Notion 服務以改善頁面內容提取和注入邏輯 ([#261](https://github.com/cowcfj/save-to-notion/issues/261)) ([3854e9e](https://github.com/cowcfj/save-to-notion/commit/3854e9eea012108b28aad72bc2768ef17e670635))
+
+
+### 🧹 其他變更
+
+* remove SKILL.md and stop tracking ([40b8fa0](https://github.com/cowcfj/save-to-notion/commit/40b8fa07970a8ffaa927db6a147a1a1e8952a0f0))
+
 ## [2.32.0](https://github.com/cowcfj/save-to-notion/compare/v2.31.1...v2.32.0) (2026-02-14)
 
 
