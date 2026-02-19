@@ -278,6 +278,21 @@ describe('StorageService', () => {
       expect(mockStorage.local.set).not.toHaveBeenCalled();
     });
 
+    it('如果 URL 標準化後相同則不應設定 alias', async () => {
+      const url1 = 'https://example.com/page?utm_source=test';
+      const url2 = 'https://example.com/page';
+      // normalizeUrl mock is identity by default in this test file?
+      // Wait, we need to check if normalizeUrl is mocked to identity or real logic.
+      // In this test file, normalizeUrl is imported from source, but line 15 mocks urlUtils.js
+      // EXCEPT computeStableUrl? No, let's check the mock setup again.
+      // The mock setup at line 15 does:
+      // return { ...original, computeStableUrl: ... }
+      // So normalizeUrl is the REAL function.
+
+      await service.setUrlAlias(url1, url2);
+      expect(mockStorage.local.set).not.toHaveBeenCalled();
+    });
+
     it('應該處理無效輸入 (null/empty)', async () => {
       await service.setUrlAlias(null, 'stable');
       await service.setUrlAlias('original', null);

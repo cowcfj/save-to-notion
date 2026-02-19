@@ -773,8 +773,8 @@ export function createSaveHandlers(services) {
         }
 
         if (exists === true) {
-          savedData.lastVerifiedAt = now;
-          await storageService.setSavedPageData(normUrl, savedData);
+          const updatedData = { ...savedData, lastVerifiedAt: now };
+          await storageService.setSavedPageData(normUrl, updatedData);
         }
 
         sendResponse({

@@ -495,7 +495,10 @@ export class Toolbar {
           action: 'syncToNotion',
           error: error?.message ?? String(error),
           stack: error?.stack,
-          details: error,
+          details: {
+            name: error?.name,
+            code: error?.code,
+          },
         });
       }
     }

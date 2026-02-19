@@ -163,7 +163,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.any(String), // ERROR_MESSAGES not imported, checking for string
+          error: expect.stringMatching(/tab|context/i),
         })
       );
     });
@@ -178,7 +178,7 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          error: expect.any(String),
+          error: expect.stringMatching(/tab|context/i),
         })
       );
     });
