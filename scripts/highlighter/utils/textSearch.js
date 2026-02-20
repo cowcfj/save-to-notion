@@ -3,6 +3,12 @@
  * 提供在頁面中查找文本並返回 Range 的功能
  */
 
+/** 上下文搜索窗口：為序列化上下文長度 (CONTEXT_LENGTH=32) 的 2 倍，以容許 DOM 結構變動後的文字偏移 */
+const CONTEXT_SEARCH_WINDOW = 64;
+
+/** 局部匹配時取前後文的字元數 */
+const PARTIAL_MATCH_LENGTH = 10;
+
 /**
  * 在頁面中查找文本並返回 Range
  * 使用多種策略：window.find()、TreeWalker、模糊匹配
@@ -266,12 +272,12 @@ function calculateCandidateScore(candidate, context) {
 
   if (context.prefix) {
     const nodePrefixText = candidate.nodeText.slice(
-      Math.max(0, candidate.matchIndex - 64),
+      Math.max(0, candidate.matchIndex - CONTEXT_SEARCH_WINDOW),
       candidate.matchIndex
     );
     if (nodePrefixText.endsWith(context.prefix)) {
       score += 2; // 精確匹配
-    } else if (nodePrefixText.includes(context.prefix.slice(-10))) {
+    } else if (nodePrefixText.includes(context.prefix.slice(-PARTIAL_MATCH_LENGTH))) {
       score += 1; // 局部匹配
     }
   }
@@ -279,11 +285,11 @@ function calculateCandidateScore(candidate, context) {
   if (context.suffix) {
     const nodeSuffixText = candidate.nodeText.slice(
       candidate.matchIndex + candidate.matchLength,
-      candidate.matchIndex + candidate.matchLength + 64
+      candidate.matchIndex + candidate.matchLength + CONTEXT_SEARCH_WINDOW
     );
     if (nodeSuffixText.startsWith(context.suffix)) {
       score += 2; // 精確匹配
-    } else if (nodeSuffixText.includes(context.suffix.slice(0, 10))) {
+    } else if (nodeSuffixText.includes(context.suffix.slice(0, PARTIAL_MATCH_LENGTH))) {
       score += 1; // 局部匹配
     }
   }
