@@ -1,5 +1,17 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.34.0](https://github.com/cowcfj/save-to-notion/compare/v2.33.0...v2.34.0) (2026-02-20)
+
+
+### ✨ 新功能
+
+* 增強內容錨定功能，改善模糊匹配 ([#263](https://github.com/cowcfj/save-to-notion/issues/263)) ([df579ae](https://github.com/cowcfj/save-to-notion/commit/df579ae518451b2b32209a16e77375347e7977ee))
+
+
+### 🐛 Bug 修復
+
+* 處理舊版數據遷移與穩定 URL 的儲存隔離衝突 (已修正分支) ([#267](https://github.com/cowcfj/save-to-notion/issues/267)) ([6877608](https://github.com/cowcfj/save-to-notion/commit/6877608f14b9cbd3251130f1a0c6f336042ec6d6))
+
 ## [2.33.0](https://github.com/cowcfj/save-to-notion/compare/v2.32.0...v2.33.0) (2026-02-19)
 
 
