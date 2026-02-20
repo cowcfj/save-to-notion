@@ -2,6 +2,7 @@ import {
   InjectionService,
   isRestrictedInjectionUrl,
   isRecoverableInjectionError,
+  getRuntimeErrorMessage,
 } from '../../../../scripts/background/services/InjectionService.js';
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
@@ -137,8 +138,9 @@ describe('InjectionService', () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
 
       await expect(service.injectAndExecute(1, ['file.js'])).resolves.toBeUndefined();
-      // Default logErrors is true, recoverable error should log warn
-      expect(mockLogger.warn).toHaveBeenCalled();
+      // Default logErrors is true, recoverable error should log debug instead of warn
+      expect(mockLogger.debug).toHaveBeenCalled();
+      expect(mockLogger.warn).not.toHaveBeenCalled();
     });
   });
 
@@ -261,11 +263,8 @@ describe('InjectionService', () => {
       expect(Logger.warn).toHaveBeenCalled();
     });
 
-    describe('getRuntimeErrorMessage (Line 79-101)', () => {
+    describe('getRuntimeErrorMessage', () => {
       it('應該處理各種錯誤對象類型', () => {
-        const {
-          getRuntimeErrorMessage,
-        } = require('../../../../scripts/background/services/InjectionService.js');
         expect(getRuntimeErrorMessage(null)).toBe('');
         expect(getRuntimeErrorMessage('string error')).toBe('string error');
         expect(getRuntimeErrorMessage({ message: 'obj error' })).toBe('obj error');
@@ -280,7 +279,7 @@ describe('InjectionService', () => {
     });
   });
 
-  describe('_resolveHighlighterPath (Line 159-182)', () => {
+  describe('_resolveHighlighterPath', () => {
     it('應該在 fetch 失敗時回退到預設路徑', async () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = jest.fn().mockRejectedValue(new Error('Network fail'));
@@ -293,7 +292,7 @@ describe('InjectionService', () => {
     });
   });
 
-  describe('injectWithResponse (Line 525-553)', () => {
+  describe('injectWithResponse', () => {
     it('應該在僅注入文件時返回成功標記', async () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
       const result = await service.injectWithResponse(1, null, ['test.js']);

@@ -118,7 +118,11 @@ describe('actionHandlers 覆蓋率補強', () => {
   let mockMigrationService = null;
   let handlers = null;
   const internalSender = { id: 'mock-ext-id' };
-  const csSender = { id: 'mock-ext-id', tab: { id: 1 } };
+  const csSender = {
+    id: 'mock-ext-id',
+    tab: { id: 1, url: 'https://example.com' },
+    url: 'https://example.com',
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -152,6 +156,7 @@ describe('actionHandlers 覆蓋率補強', () => {
       getSavedPageData: jest.fn(),
       setSavedPageData: jest.fn(),
       clearPageState: jest.fn(),
+      setUrlAlias: jest.fn().mockResolvedValue(),
     };
 
     mockInjectionService = {

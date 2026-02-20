@@ -84,7 +84,11 @@ describe('background error branches (integration)', () => {
   });
 
   const internalSender = { id: 'test', url: 'chrome-extension://test/popup.html' };
-  const contentScriptSender = { id: 'test', tab: { id: 1 }, url: 'https://example.com' };
+  const contentScriptSender = {
+    id: 'test',
+    tab: { id: 1, url: 'https://example.com/page' },
+    url: 'https://example.com/page',
+  };
 
   test('startHighlight：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = jest.fn();
@@ -306,7 +310,7 @@ describe('background error branches (integration)', () => {
 
   test('syncHighlights：缺少 API Key → 返回錯誤', async () => {
     chrome.tabs.query.mockResolvedValueOnce([
-      { id: 2, url: 'https://example.com/page', title: 'P', active: true },
+      { id: 1, url: 'https://example.com/page', title: 'P', active: true },
     ]);
     // sync.get 預設 {} → 缺少 API Key
     const sendResponse = jest.fn();
@@ -326,7 +330,7 @@ describe('background error branches (integration)', () => {
 
   test('syncHighlights：頁面未保存 → 返回錯誤', async () => {
     chrome.tabs.query.mockResolvedValueOnce([
-      { id: 3, url: 'https://example.com/page', title: 'P', active: true },
+      { id: 1, url: 'https://example.com/page', title: 'P', active: true },
     ]);
     // 提供 notionApiKey，但不提供 saved_ 鍵
     chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
@@ -352,7 +356,7 @@ describe('background error branches (integration)', () => {
   test('syncHighlights：空標註 → 成功且 0', async () => {
     // 活動分頁
     const url = 'https://example.com/page';
-    chrome.tabs.query.mockResolvedValueOnce([{ id: 4, url, title: 'P', active: true }]);
+    chrome.tabs.query.mockResolvedValueOnce([{ id: 1, url, title: 'P', active: true }]);
     // 有 API Key 且頁面已保存
     chrome.storage.sync.get.mockImplementationOnce((keys, mockCb) => {
       const res = { notionApiKey: 'key' };

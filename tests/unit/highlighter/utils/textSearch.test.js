@@ -71,6 +71,35 @@ describe('utils/textSearch', () => {
 
       expect(range).toBe(null);
     });
+
+    test('should disambiguate multiple matches using prefix', () => {
+      document.body.innerHTML = `
+        <p>The first apple is green.</p>
+        <p>The second apple is red.</p>
+      `;
+      // 目標字串都是 "apple"
+      // context: prefix 是 "second "
+      const range = findTextFuzzy('apple', { prefix: 'second ' });
+      expect(range).not.toBe(null);
+
+      // 驗證它匹配到第二個 "apple"
+      expect(range.startContainer.textContent).toContain('second');
+      expect(range.toString()).toBe('apple');
+    });
+
+    test('should disambiguate multiple matches using suffix', () => {
+      document.body.innerHTML = `
+        <p>Target is matching here</p>
+        <p>Target is wrong here</p>
+      `;
+      // context: suffix 是 " is matching"
+      const range = findTextFuzzy('Target', { suffix: ' is matching' });
+      expect(range).not.toBe(null);
+
+      // 驗證它匹配到第一個
+      expect(range.startContainer.textContent).toContain('matching');
+      expect(range.toString()).toBe('Target');
+    });
   });
 
   describe('findTextInPage', () => {

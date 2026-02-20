@@ -86,18 +86,20 @@ export class HighlightStorage {
       // 清除現有（避免重複）
       this.manager.clearAll({ skipStorage: true });
 
-      let successCount = 0;
-      for (const item of highlights) {
+      // 委託 Manager 並行處理標註的創建
+      // 由於使用 CSS Custom Highlight API，不會修改 DOM 結構，因此沒有競態條件問題
+      const restorePromises = highlights.map(async item => {
         try {
-          // 委託 Manager 僅負責創建單個標註
           const result = this.manager.restoreLocalHighlight(item);
-          if (result) {
-            successCount++;
-          }
+          return result ? 1 : 0;
         } catch (error) {
           Logger.warn(`Failed to restore highlight ${item.id}`, error);
+          return 0;
         }
-      }
+      });
+
+      const results = await Promise.all(restorePromises);
+      const successCount = results.reduce((sum, count) => sum + count, 0);
 
       Logger.info(`[HighlightStorage] Restored ${successCount} highlights`);
       this.isRestored = true;
