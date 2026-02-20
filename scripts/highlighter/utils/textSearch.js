@@ -189,7 +189,7 @@ function createRangeFromNodesMatch(nodesInRange, matchIndex, textLength) {
     return range;
   } catch (error) {
     if (globalThis.Logger !== undefined) {
-      globalThis.Logger?.warn('[textSearch]', '創建跨節點 Range 失敗:', error);
+      globalThis.Logger?.warn(SEARCH_LOG_TAG, '創建跨節點 Range 失敗:', error);
     }
     return null;
   }
@@ -258,22 +258,17 @@ export function findTextWithTreeWalker(textToFind) {
  * 尋找正則表達式在所有文本節點中的匹配候選者
  *
  * @param {RegExp} regex - 匹配的正則表達式
+ * @param {Text[]} textNodes - 預先計算的文本節點陣列
  * @returns {Array} 候選者陣列
  */
-function findRegexCandidates(regex) {
-  if (!document.body) {
-    return [];
-  }
-
+function findRegexCandidates(regex, textNodes) {
   const candidates = [];
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, SEARCH_NODE_FILTER);
-  let node = null;
 
-  while ((node = walker.nextNode()) !== null) {
+  for (const [nodeIndex, node] of textNodes.entries()) {
     const textContent = node.textContent;
-    let match;
     regex.lastIndex = 0; // 重置正則表達式狀態
 
+    let match;
     while ((match = regex.exec(textContent)) !== null) {
       const index = match.index;
       const range = document.createRange();
@@ -283,6 +278,7 @@ function findRegexCandidates(regex) {
       candidates.push({
         range,
         node,
+        nodeIndex,
         nodeText: textContent,
         matchIndex: index,
         matchLength: match[0].length,
@@ -294,63 +290,47 @@ function findRegexCandidates(regex) {
 }
 
 /**
- * 使用 TreeWalker 往前回溯取得更多的前綴文字
+ * 透過文本節點陣列往前取得更多的前綴文字
  *
- * @param {Node} node - 起始節點
- * @param {string} initialText - 初始文本
+ * @param {Text[]} textNodes - 所有文本節點的陣列
+ * @param {number} nodeIndex - 候選者節點在陣列中的索引
+ * @param {string} initialText - 候選者節點內已取得的初始前綴
  * @returns {string} 擴展後的前綴文本
  */
-function getPrefixTextWithWalker(node, initialText) {
+function getPrefixFromNodes(textNodes, nodeIndex, initialText) {
   let prefixText = initialText;
-  if (!document.body) {
-    return prefixText;
+  let idx = nodeIndex - 1;
+
+  while (prefixText.length < CONTEXT_SEARCH_WINDOW && idx >= 0) {
+    const nodeText = textNodes[idx].textContent;
+    const missingLength = CONTEXT_SEARCH_WINDOW - prefixText.length;
+    prefixText =
+      (nodeText.length > missingLength ? nodeText.slice(-missingLength) : nodeText) + prefixText;
+    idx--;
   }
 
-  if (prefixText.length < CONTEXT_SEARCH_WINDOW && node) {
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      SEARCH_NODE_FILTER
-    );
-    walker.currentNode = node;
-    while (prefixText.length < CONTEXT_SEARCH_WINDOW && walker.previousNode()) {
-      const textNode = walker.currentNode;
-      const missingLength = CONTEXT_SEARCH_WINDOW - prefixText.length;
-      const nodeText = textNode.textContent;
-      prefixText =
-        (nodeText.length > missingLength ? nodeText.slice(-missingLength) : nodeText) + prefixText;
-    }
-  }
   return prefixText;
 }
 
 /**
- * 使用 TreeWalker 往後回溯取得更多的後綴文字
+ * 透過文本節點陣列往後取得更多的後綴文字
  *
- * @param {Node} node - 起始節點
- * @param {string} initialText - 初始文本
+ * @param {Text[]} textNodes - 所有文本節點的陣列
+ * @param {number} nodeIndex - 候選者節點在陣列中的索引
+ * @param {string} initialText - 候選者節點內已取得的初始後綴
  * @returns {string} 擴展後的後綴文本
  */
-function getSuffixTextWithWalker(node, initialText) {
+function getSuffixFromNodes(textNodes, nodeIndex, initialText) {
   let suffixText = initialText;
-  if (!document.body) {
-    return suffixText;
+  let idx = nodeIndex + 1;
+
+  while (suffixText.length < CONTEXT_SEARCH_WINDOW && idx < textNodes.length) {
+    const nodeText = textNodes[idx].textContent;
+    const missingLength = CONTEXT_SEARCH_WINDOW - suffixText.length;
+    suffixText += nodeText.length > missingLength ? nodeText.slice(0, missingLength) : nodeText;
+    idx++;
   }
 
-  if (suffixText.length < CONTEXT_SEARCH_WINDOW && node) {
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      SEARCH_NODE_FILTER
-    );
-    walker.currentNode = node;
-    while (suffixText.length < CONTEXT_SEARCH_WINDOW && walker.nextNode()) {
-      const textNode = walker.currentNode;
-      const missingLength = CONTEXT_SEARCH_WINDOW - suffixText.length;
-      const nodeText = textNode.textContent;
-      suffixText += nodeText.length > missingLength ? nodeText.slice(0, missingLength) : nodeText;
-    }
-  }
   return suffixText;
 }
 
@@ -359,9 +339,10 @@ function getSuffixTextWithWalker(node, initialText) {
  *
  * @param {object} candidate - 候選匹配項
  * @param {object} context - 上下文（prefix, suffix）
+ * @param {Text[]} textNodes - 預先計算的文本節點陣列
  * @returns {number} 評分分數
  */
-function calculateCandidateScore(candidate, context) {
+function calculateCandidateScore(candidate, context, textNodes) {
   let score = 0;
 
   const windowHalf = Math.floor(CONTEXT_SEARCH_WINDOW / 2);
@@ -371,7 +352,7 @@ function calculateCandidateScore(candidate, context) {
       Math.max(0, candidate.matchIndex - CONTEXT_SEARCH_WINDOW),
       candidate.matchIndex
     );
-    const nodePrefixText = getPrefixTextWithWalker(candidate.node, initialPrefix);
+    const nodePrefixText = getPrefixFromNodes(textNodes, candidate.nodeIndex, initialPrefix);
 
     const lowerContextPrefix = context.prefix.toLowerCase();
     const lowerNodePrefixText = nodePrefixText.toLowerCase();
@@ -392,7 +373,7 @@ function calculateCandidateScore(candidate, context) {
       candidate.matchIndex + candidate.matchLength,
       candidate.matchIndex + candidate.matchLength + CONTEXT_SEARCH_WINDOW
     );
-    const nodeSuffixText = getSuffixTextWithWalker(candidate.node, initialSuffix);
+    const nodeSuffixText = getSuffixFromNodes(textNodes, candidate.nodeIndex, initialSuffix);
 
     const lowerContextSuffix = context.suffix.toLowerCase();
     const lowerNodeSuffixText = nodeSuffixText.toLowerCase();
@@ -429,6 +410,9 @@ export function findTextFuzzy(textToFind, context = {}) {
       return null;
     }
 
+    // 取得所有文字節點（唯一一次 DOM 掃描）
+    const textNodes = getTextNodesForSearch();
+
     // 首先轉義所有正則表達式元字符，使其被當作普通字符處理
     const escapedText = cleanText.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
 
@@ -437,7 +421,7 @@ export function findTextFuzzy(textToFind, context = {}) {
     // eslint-disable-next-line security/detect-non-literal-regexp
     const regex = new RegExp(normalizedSearch, 'ig'); // 改為全域比對
 
-    const candidates = findRegexCandidates(regex);
+    const candidates = findRegexCandidates(regex, textNodes);
 
     if (candidates.length === 0) {
       return null;
@@ -452,7 +436,7 @@ export function findTextFuzzy(textToFind, context = {}) {
     let maxScore = -1;
 
     for (const candidate of candidates) {
-      const score = calculateCandidateScore(candidate, context);
+      const score = calculateCandidateScore(candidate, context, textNodes);
       if (score > maxScore) {
         maxScore = score;
         bestCandidate = candidate;
