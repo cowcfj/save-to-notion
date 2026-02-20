@@ -2,10 +2,10 @@ import Logger from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 
-const MIGRATION_CONFIG = {
+const MIGRATION_CONFIG = Object.freeze({
   SCRIPT_READY_MAX_RETRIES: 10,
   SCRIPT_READY_RETRY_DELAY: 200,
-};
+});
 
 /**
  * Migration 服務
@@ -216,6 +216,7 @@ export class MigrationService {
    *
    * @param {number} tabId
    * @returns {Promise<boolean>}
+   * @throws {Error} 當遷移執行腳本未能在配置的重試次數內載入時拋出包含 tabId 及重試次數之超時錯誤
    */
   async _waitForScriptReady(tabId) {
     const maxRetries = MIGRATION_CONFIG.SCRIPT_READY_MAX_RETRIES;

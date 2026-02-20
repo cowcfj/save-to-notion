@@ -9,9 +9,7 @@ import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { renderHighlightList } from './components/HighlightList.js';
-import { injectIcons } from '../../utils/uiUtils.js';
 import { TOOLBAR_SELECTORS } from '../../config/ui-selectors.js';
-// UI_STYLE_CONSTANTS removed, using literal strings directly
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
 import { sanitizeApiError, createSafeIcon } from '../../utils/securityUtils.js';
@@ -31,9 +29,6 @@ export class Toolbar {
    * @param {HighlightManager} highlightManager - 標註管理器實例
    */
   constructor(highlightManager) {
-    // 注入 SVG 圖標到當前頁面
-    injectIcons(UI_ICONS);
-
     if (!highlightManager) {
       throw new Error('HighlightManager is required');
     }
@@ -420,6 +415,29 @@ export class Toolbar {
   }
 
   /**
+   * 設置狀態欄圖標與文字，封裝共用語意與樣式
+   *
+   * @param {HTMLElement} statusDiv
+   * @param {string} iconKey
+   * @param {string} messageKey
+   * @private
+   */
+  static _setStatusIcon(statusDiv, iconKey, messageKey) {
+    statusDiv.textContent = '';
+    const icon = createSafeIcon(UI_ICONS[iconKey]);
+    icon.style.display = STYLE_INLINE_BLOCK;
+    icon.style.marginRight = '4px';
+    icon.style.verticalAlign = STYLE_TEXT_BOTTOM;
+
+    if (iconKey === 'SYNC') {
+      icon.style.animation = 'spin 1s linear infinite';
+    }
+
+    statusDiv.append(icon);
+    statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR[messageKey]}`));
+  }
+
+  /**
    * 同步到 Notion
    */
   async syncToNotion() {
@@ -429,15 +447,7 @@ export class Toolbar {
       const originalText = statusDiv.textContent; // Use textContent for safety
 
       // Update UI to Loading State
-      statusDiv.textContent = ''; // Clear content safely
-      const loadingIcon = createSafeIcon(UI_ICONS.SYNC);
-      loadingIcon.style.display = STYLE_INLINE_BLOCK;
-      loadingIcon.style.marginRight = '4px';
-      loadingIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
-      loadingIcon.style.animation = 'spin 1s linear infinite';
-
-      statusDiv.append(loadingIcon);
-      statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNCING}`));
+      Toolbar._setStatusIcon(statusDiv, 'SYNC', 'SYNCING');
 
       Logger.start('準備同步標註到 Notion');
       try {
@@ -450,14 +460,7 @@ export class Toolbar {
         });
 
         if (response?.success) {
-          statusDiv.textContent = '';
-          const successIcon = createSafeIcon(UI_ICONS.CHECK);
-          successIcon.style.display = STYLE_INLINE_BLOCK;
-          successIcon.style.marginRight = '4px';
-          successIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
-
-          statusDiv.append(successIcon);
-          statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_SUCCESS}`));
+          Toolbar._setStatusIcon(statusDiv, 'CHECK', 'SYNC_SUCCESS');
         } else {
           const rawError = sanitizeApiError(response?.error || 'Unknown error');
           const errorMsg = ErrorHandler.formatUserMessage(rawError);
@@ -476,14 +479,7 @@ export class Toolbar {
           statusDiv.textContent = originalText;
         }, 2000);
       } catch (error) {
-        statusDiv.textContent = '';
-        const errorIcon = createSafeIcon(UI_ICONS.X);
-        errorIcon.style.display = STYLE_INLINE_BLOCK;
-        errorIcon.style.marginRight = '4px';
-        errorIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
-
-        statusDiv.append(errorIcon);
-        statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_FAILED}`));
+        Toolbar._setStatusIcon(statusDiv, 'X', 'SYNC_FAILED');
 
         setTimeout(() => {
           statusDiv.textContent = originalText;

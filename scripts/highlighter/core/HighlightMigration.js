@@ -101,11 +101,13 @@ export class HighlightMigration {
    */
   _findLegacyData(normalizedUrl) {
     const currentUrl = globalThis.location.href;
-    const possibleKeys = [
-      `highlights_${normalizedUrl}`,
-      `highlights_${currentUrl}`,
-      `highlights_${globalThis.location.origin}${globalThis.location.pathname}`,
-    ];
+    const possibleKeys = Array.from(
+      new Set([
+        `highlights_${normalizedUrl}`,
+        `highlights_${currentUrl}`,
+        `highlights_${globalThis.location.origin}${globalThis.location.pathname}`,
+      ])
+    );
 
     return (
       HighlightMigration._findLegacyDataByKeys(possibleKeys) ||
@@ -239,28 +241,22 @@ export class HighlightMigration {
         }
       }
 
-      if (migratedHighlights.length > 0) {
-        const currentUrl = globalThis.normalizeUrl
-          ? globalThis.normalizeUrl(globalThis.location.href)
-          : globalThis.location.href;
-
-        await StorageUtil.saveHighlights(currentUrl, {
-          url: currentUrl,
+      if (successCount > 0) {
+        await StorageUtil.saveHighlights(normalizedUrl, {
+          url: normalizedUrl,
           highlights: migratedHighlights,
         });
-      }
 
-      // 標記遷移完成
-      await HighlightMigration._markMigrationComplete(
-        oldKey,
-        normalizedUrl,
-        legacyData.length,
-        successCount,
-        failCount
-      );
+        // 標記遷移完成
+        await HighlightMigration._markMigrationComplete(
+          oldKey,
+          normalizedUrl,
+          legacyData.length,
+          successCount,
+          failCount
+        );
 
-      // 刪除舊數據（僅在有成功遷移的項目時）
-      if (successCount > 0) {
+        // 刪除舊數據（僅在有成功遷移的項目時）
         localStorage.removeItem(oldKey);
       }
 

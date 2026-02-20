@@ -20,15 +20,21 @@ jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => ({
   findTextInPage: jest.fn(),
 }));
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-}));
+jest.mock('../../../../scripts/utils/Logger.js', () => {
+  const mockLogger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  };
+  return {
+    __esModule: true,
+    default: mockLogger,
+  };
+});
 
 jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
   StorageUtil: {
@@ -61,6 +67,7 @@ describe('core/HighlightMigration', () => {
   afterEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    globalThis.chrome = undefined;
   });
 
   describe('constructor', () => {
@@ -74,7 +81,13 @@ describe('core/HighlightMigration', () => {
       const cachedNormalizeUrl = globalThis.normalizeUrl;
       globalThis.normalizeUrl = undefined;
 
-      await migration.checkAndMigrate();
+      globalThis.chrome = {
+        storage: {
+          local: {
+            get: jest.fn(),
+          },
+        },
+      };
 
       await migration.checkAndMigrate();
 
@@ -197,10 +210,13 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: 'test content', color: 'green' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(findTextInPage).toHaveBeenCalledWith('test content');
-      expect(StorageUtil.saveHighlights).toHaveBeenCalled();
+      expect(StorageUtil.saveHighlights).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.any(Object)
+      );
     });
 
     test('should migrate string items', async () => {
@@ -209,7 +225,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = ['simple text'];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(findTextInPage).toHaveBeenCalledWith('simple text');
     });
@@ -220,7 +236,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: 'test', bgColor: '#d4edda' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       // 驗證調用時的顏色應該是 green
       const saveCall = StorageUtil.saveHighlights.mock.calls[0][1];
@@ -232,7 +248,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: '' }, { text: '   ' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(findTextInPage).not.toHaveBeenCalled();
     });
@@ -243,7 +259,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: 'not found' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
     });
@@ -256,7 +272,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: 'test' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(localStorage.getItem('old_key')).toBeNull();
     });
@@ -268,7 +284,7 @@ describe('core/HighlightMigration', () => {
       mockManager.nextId = 5;
       const legacyData = [{ text: 'one' }, { text: 'two' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(mockManager.nextId).toBe(7);
     });
