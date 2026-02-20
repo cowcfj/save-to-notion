@@ -71,7 +71,8 @@ describe('core/HighlightMigration', () => {
 
   describe('checkAndMigrate', () => {
     test('should skip when normalizeUrl is not available', async () => {
-      delete globalThis.normalizeUrl;
+      const cachedNormalizeUrl = globalThis.normalizeUrl;
+      globalThis.normalizeUrl = undefined;
 
       await migration.checkAndMigrate();
 
@@ -80,6 +81,8 @@ describe('core/HighlightMigration', () => {
       // Should verify calling checkAndMigrate without normalizeUrl is safe
       // and doesn't proceed with migration logic (e.g. accessing storage)
       expect(globalThis.chrome.storage.local.get).not.toHaveBeenCalled();
+
+      globalThis.normalizeUrl = cachedNormalizeUrl;
     });
 
     test('should skip when no legacy data exists', async () => {

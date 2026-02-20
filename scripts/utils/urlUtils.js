@@ -81,6 +81,11 @@ export function normalizeUrl(rawUrl) {
 /**
  * 穩定 URL 規則 — 用於移除已知網站的可變 slug 段
  * 每個規則定義如何從 URL 中識別並移除動態標題段，保留穩定的標識符
+ *
+ * 注意: rule.stablePath 是一個 `String.prototype.replace` 置換字串，
+ * 透過 `pathname.replace(rule.pathPattern, rule.stablePath)` 套用。
+ * 因此，它支援 `$n` 捕獲組變數（例如 `$1`）。如果有字面的金錢符號（$）需注意跳脫，
+ * 這不是一個路徑模板，而是替換模式。
  */
 export const STABLE_URL_RULES = [
   {
@@ -135,8 +140,7 @@ export function computeStableUrl(rawUrl) {
       }
 
       // 嘗試匹配 path pattern
-      const match = rule.pathPattern.exec(pathname);
-      if (match) {
+      if (rule.pathPattern.test(pathname)) {
         urlObj.pathname = pathname.replace(rule.pathPattern, rule.stablePath);
         return normalizeUrl(urlObj.toString());
       }

@@ -17,10 +17,8 @@ jest.mock('../../../../scripts/highlighter/utils/path.js', () => ({
 }));
 
 jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => ({
+  ...jest.requireActual('../../../../scripts/highlighter/utils/textSearch.js'),
   findTextInPage: jest.fn(),
-  HIGHLIGHT_ANCHORING: {
-    CONTEXT_LENGTH: 32,
-  },
 }));
 
 jest.mock('../../../../scripts/highlighter/utils/domStability.js', () => ({

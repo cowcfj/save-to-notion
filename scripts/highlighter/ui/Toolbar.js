@@ -9,12 +9,12 @@ import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { renderHighlightList } from './components/HighlightList.js';
-import { injectIcons, createSpriteIcon } from '../../utils/uiUtils.js';
+import { injectIcons } from '../../utils/uiUtils.js';
 import { TOOLBAR_SELECTORS } from '../../config/ui-selectors.js';
 // UI_STYLE_CONSTANTS removed, using literal strings directly
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
-import { sanitizeApiError } from '../../utils/securityUtils.js';
+import { sanitizeApiError, createSafeIcon } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
 
@@ -430,11 +430,8 @@ export class Toolbar {
 
       // Update UI to Loading State
       statusDiv.textContent = ''; // Clear content safely
-      const loadingIcon = document.createElement('span');
-      // Use SYNC icon and add spinning animation style
-      loadingIcon.append(createSpriteIcon('sync'));
+      const loadingIcon = createSafeIcon(UI_ICONS.SYNC);
       loadingIcon.style.display = STYLE_INLINE_BLOCK;
-      loadingIcon.innerHTML = UI_ICONS.SYNC;
       loadingIcon.style.marginRight = '4px';
       loadingIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
       loadingIcon.style.animation = 'spin 1s linear infinite';
@@ -454,10 +451,8 @@ export class Toolbar {
 
         if (response?.success) {
           statusDiv.textContent = '';
-          const successIcon = document.createElement('span');
-          successIcon.append(createSpriteIcon('success'));
+          const successIcon = createSafeIcon(UI_ICONS.CHECK);
           successIcon.style.display = STYLE_INLINE_BLOCK;
-          successIcon.innerHTML = UI_ICONS.CHECK;
           successIcon.style.marginRight = '4px';
           successIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
 
@@ -467,10 +462,8 @@ export class Toolbar {
           const rawError = sanitizeApiError(response?.error || 'Unknown error');
           const errorMsg = ErrorHandler.formatUserMessage(rawError);
           statusDiv.textContent = ''; // Clear
-          const errorIcon = document.createElement('span');
-          errorIcon.append(createSpriteIcon('error')); // Use standardized Error icon
+          const errorIcon = createSafeIcon(UI_ICONS.X);
           errorIcon.style.display = STYLE_INLINE_BLOCK;
-          errorIcon.innerHTML = UI_ICONS.X;
           errorIcon.style.marginRight = '4px';
           errorIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
 
@@ -484,10 +477,8 @@ export class Toolbar {
         }, 2000);
       } catch (error) {
         statusDiv.textContent = '';
-        const errorIcon = document.createElement('span');
-        errorIcon.append(createSpriteIcon('error'));
+        const errorIcon = createSafeIcon(UI_ICONS.X);
         errorIcon.style.display = STYLE_INLINE_BLOCK;
-        errorIcon.innerHTML = UI_ICONS.X;
         errorIcon.style.marginRight = '4px';
         errorIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
 

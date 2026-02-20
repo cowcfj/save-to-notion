@@ -13,7 +13,6 @@ const OPTIONS_PAGE_SELECTORS = {
   STATUS_CONTAINER: '#status',
   MANUAL_SECTION: '.manual-section',
   TEST_API_BUTTON: '#test-api-button',
-  HIDDEN_CLASS: 'hidden',
   STATUS_MESSAGE_CLASS: 'status-message',
 };
 

@@ -2,6 +2,16 @@
  * 性能優化器
  * 提供 DOM 查詢緩存和批處理隊列功能
  */
+
+import {
+  ARTICLE_SELECTORS,
+  CMS_CONTENT_SELECTORS,
+  PRELOADER_SELECTORS,
+} from '../config/extraction.js';
+import Logger from '../utils/Logger.js';
+import { ErrorHandler } from '../utils/ErrorHandler.js';
+import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
+
 export const PERFORMANCE_OPTIMIZER = {
   // Cache settings
   DEFAULT_CACHE_MAX_SIZE: 100, // Default cache size
@@ -22,15 +32,6 @@ export const PRELOADER_EVENTS = {
   REQUEST: 'notion-preloader-request',
   RESPONSE: 'notion-preloader-response',
 };
-
-import {
-  ARTICLE_SELECTORS,
-  CMS_CONTENT_SELECTORS,
-  PRELOADER_SELECTORS,
-} from '../config/extraction.js';
-import Logger from '../utils/Logger.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
 
 /**
  * 性能優化器類

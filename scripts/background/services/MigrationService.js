@@ -240,8 +240,12 @@ export class MigrationService {
       } catch {
         // Ignore errors during check
       }
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
     }
-    throw new Error('Migration executor script load timeout');
+    throw new Error(
+      `Migration executor script load timeout for tabId: ${tabId} after ${maxRetries} retries`
+    );
   }
 }

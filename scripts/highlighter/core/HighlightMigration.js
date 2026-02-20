@@ -12,15 +12,16 @@ import { HighlightManager } from './HighlightManager.js';
 import { StorageUtil } from '../utils/StorageUtil.js';
 import { convertBgColorToName } from '../utils/color.js';
 
-const HIGHLIGHT_MIGRATION = {
-  MAX_SCAN_LIMIT: 500, // localStorage traversal limit to avoid performance issues
-};
-
 /**
  * HighlightMigration
  * 處理舊版標註數據的遷移
+ *
+ * 外部依賴: globalThis.normalizeUrl - 由 scripts/highlighter/index.js 注入
+ * 此函式接受一個字串 URL 參數並返回去除雜訊後的標準化 URL 字串
  */
 export class HighlightMigration {
+  static MAX_SCAN_LIMIT = 500;
+
   /**
    * @param {object} manager - HighlightManager 實例（需要具備 nextId 屬性）
    */
@@ -65,13 +66,8 @@ export class HighlightMigration {
     return null;
   }
 
-  /**
-   * 遍歷 localStorage 尋找 highlights_ 開頭的舊數據（有掃描上限）
-   *
-   * @returns {{ data: Array, key: string }|null}
-   */
-  _findLegacyDataByScan() {
-    const maxLimit = this.constructor.MAX_SCAN_LIMIT;
+  static _findLegacyDataByScan() {
+    const maxLimit = HighlightMigration.MAX_SCAN_LIMIT;
 
     if (localStorage.length > maxLimit) {
       Logger.warn('localStorage 項目超過掃描限制，僅掃描部分項目', {
@@ -111,7 +107,10 @@ export class HighlightMigration {
       `highlights_${globalThis.location.origin}${globalThis.location.pathname}`,
     ];
 
-    return HighlightMigration._findLegacyDataByKeys(possibleKeys) || this._findLegacyDataByScan();
+    return (
+      HighlightMigration._findLegacyDataByKeys(possibleKeys) ||
+      HighlightMigration._findLegacyDataByScan()
+    );
   }
 
   /**
@@ -201,7 +200,7 @@ export class HighlightMigration {
       const legacy = this._findLegacyData(normalizedUrl);
 
       if (legacy && (await HighlightMigration._shouldRunMigration(normalizedUrl))) {
-        await this.migrateToNewFormat(legacy.data, legacy.key);
+        await this.migrateToNewFormat(legacy.data, legacy.key, normalizedUrl);
       }
     } catch (error) {
       Logger.error('檢查舊數據失敗', { action: 'checkAndMigrate', error: error.message });
@@ -213,8 +212,9 @@ export class HighlightMigration {
    *
    * @param {Array} legacyData - 舊數據
    * @param {string} oldKey - 舊 key
+   * @param {string} normalizedUrl - 標準化後的 URL
    */
-  async migrateToNewFormat(legacyData, oldKey) {
+  async migrateToNewFormat(legacyData, oldKey, normalizedUrl) {
     try {
       // 預先保留 ID 區間，避免與用戶操作產生競爭條件
       const baseId = this.manager.nextId;
@@ -251,7 +251,13 @@ export class HighlightMigration {
       }
 
       // 標記遷移完成
-      await this._markMigrationComplete(oldKey, legacyData.length, successCount, failCount);
+      await HighlightMigration._markMigrationComplete(
+        oldKey,
+        normalizedUrl,
+        legacyData.length,
+        successCount,
+        failCount
+      );
 
       // 刪除舊數據（僅在有成功遷移的項目時）
       if (successCount > 0) {
@@ -268,17 +274,17 @@ export class HighlightMigration {
    * 標記遷移完成
    *
    * @param {string} oldKey - 舊 key
+   * @param {string} normalizedUrl - 標準化後的 URL
    * @param {number} totalCount - 總項目數
    * @param {number} successCount - 成功數
    * @param {number} failCount - 失敗數
    */
-  async _markMigrationComplete(oldKey, totalCount, successCount, failCount) {
+  static async _markMigrationComplete(oldKey, normalizedUrl, totalCount, successCount, failCount) {
     const storage = HighlightManager.getSafeExtensionStorage();
-    if (!storage || !globalThis.normalizeUrl) {
+    if (!storage) {
       return;
     }
 
-    const normalizedUrl = globalThis.normalizeUrl(globalThis.location.href);
     await storage.set({
       [`migration_completed_${normalizedUrl}`]: {
         timestamp: Date.now(),
@@ -290,10 +296,3 @@ export class HighlightMigration {
     });
   }
 }
-
-/**
- * 限制 localStorage 遍歷數量，避免性能問題
- *
- * @type {number}
- */
-HighlightMigration.MAX_SCAN_LIMIT = HIGHLIGHT_MIGRATION.MAX_SCAN_LIMIT;
