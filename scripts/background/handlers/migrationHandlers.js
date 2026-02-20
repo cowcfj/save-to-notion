@@ -15,6 +15,7 @@ import {
   sanitizeApiError,
   sanitizeUrlForLogging,
 } from '../../utils/securityUtils.js';
+import { computeStableUrl } from '../../utils/urlUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
 
@@ -39,6 +40,30 @@ const validatePrivilegedRequest = (sender, url = null) => {
 
   return null; // 驗證通過
 };
+
+/**
+ * 處理批量遷移的穩定 URL 同步寫入
+ *
+ * @param {string} url - 原始 URL
+ * @param {Array} newHighlights - 新的標註資料
+ * @returns {Promise<string>} 返回最終應顯示的 URL (stableUrl 或 original url)
+ */
+async function _handleStableUrlMigration(url, newHighlights) {
+  const stableUrl = computeStableUrl(url);
+  if (stableUrl && stableUrl !== url) {
+    const stableKey = `highlights_${stableUrl}`;
+
+    // 檢查穩定 key 是否已有數據，避免覆蓋已存在的新數據
+    const existing = await chrome.storage.local.get(stableKey);
+    if (!existing[stableKey]) {
+      await chrome.storage.local.set({
+        [stableKey]: { url: stableUrl, highlights: newHighlights },
+      });
+      return stableUrl; // 使用穩定 URL 回報以對應結果列表的「打開頁面」連結
+    }
+  }
+  return url;
+}
 
 /**
  * 創建遷移處理函數
@@ -236,9 +261,12 @@ export function createMigrationHandlers(services) {
               [pageKey]: { url, highlights: newHighlights },
             });
 
+            // Phase 1: 嘗試計算穩定 URL，若存在則額外寫入穩定 key
+            const finalUrl = await _handleStableUrlMigration(url, newHighlights);
+
             results.success++;
             results.details.push({
-              url: sanitizeUrlForLogging(url),
+              url: sanitizeUrlForLogging(finalUrl),
               status: 'success',
               count: newHighlights.length,
               pending: newHighlights.filter(highlight => highlight.needsRangeInfo).length,
@@ -246,7 +274,7 @@ export function createMigrationHandlers(services) {
 
             Logger.log('批量遷移成功', {
               action: 'migration_batch',
-              url: sanitizeUrlForLogging(url),
+              url: sanitizeUrlForLogging(finalUrl),
               highlightCount: newHighlights.length,
             });
           } catch (itemError) {

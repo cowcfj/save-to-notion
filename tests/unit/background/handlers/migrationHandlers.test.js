@@ -13,6 +13,11 @@
  */
 
 import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
+import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
+
+jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+  computeStableUrl: jest.fn(),
+}));
 
 // Mock Logger
 globalThis.Logger = {
@@ -66,6 +71,7 @@ describe('migrationHandlers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    computeStableUrl.mockReturnValue(null); // 預設不返回穩定 URL
     mockServices = {
       migrationService: {
         executeContentMigration: jest.fn(),
@@ -201,6 +207,82 @@ describe('migrationHandlers', () => {
         expect.objectContaining({
           success: true,
           results: expect.objectContaining({ success: 2 }),
+        })
+      );
+    });
+
+    test('應該在計算出穩定 URL 時，額外複製數據到穩定 URL key', async () => {
+      const urls = ['https://a.com/original-slug'];
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      chrome.storage.local.get.mockImplementation(key => {
+        if (key === 'highlights_https://a.com/original-slug') {
+          return Promise.resolve({ 'highlights_https://a.com/original-slug': [{ id: '1' }] });
+        }
+        if (key === `highlights_${stableUrl}`) {
+          return Promise.resolve({}); // 穩定 key 目前無數據
+        }
+        return Promise.resolve({});
+      });
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      // 檢查是否寫入了原來的 key 和穩定的 key
+      expect(chrome.storage.local.set).toHaveBeenCalledTimes(2);
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ['highlights_https://a.com/original-slug']: expect.anything(),
+        })
+      );
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [`highlights_${stableUrl}`]: expect.objectContaining({
+            url: stableUrl,
+          }),
+        })
+      );
+
+      // 確保回報的 url 是 stableUrl
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({
+            details: expect.arrayContaining([
+              expect.objectContaining({ url: expect.stringContaining(stableUrl) }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    test('如果穩定 URL key 已經有數據，不應覆蓋它', async () => {
+      const urls = ['https://a.com/original-slug'];
+      const stableUrl = 'https://a.com/stable-part';
+      const sendResponse = jest.fn();
+
+      computeStableUrl.mockReturnValue(stableUrl);
+
+      chrome.storage.local.get.mockImplementation(key => {
+        if (key === 'highlights_https://a.com/original-slug') {
+          return Promise.resolve({ 'highlights_https://a.com/original-slug': [{ id: '1' }] });
+        }
+        if (key === `highlights_${stableUrl}`) {
+          // 穩定 key 已存在數據
+          return Promise.resolve({ [`highlights_${stableUrl}`]: [{ id: '2', isNew: true }] });
+        }
+        return Promise.resolve({});
+      });
+
+      await handlers.migration_batch({ urls }, defaultSender, sendResponse);
+
+      // 只會寫入一次（原來的 key），不會寫入穩定的 key
+      expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ['highlights_https://a.com/original-slug']: expect.anything(),
         })
       );
     });
