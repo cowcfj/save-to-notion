@@ -211,38 +211,34 @@ describe('migrationHandlers', () => {
       );
     });
 
-    test('應該在計算出穩定 URL 時，額外複製數據到穩定 URL key', async () => {
+    test('應該在計算出穩定 URL 時，將數據遷移到穩定 URL key 並刪除原始 key', async () => {
       const urls = ['https://a.com/original-slug'];
       const stableUrl = 'https://a.com/stable-part';
       const sendResponse = jest.fn();
 
       computeStableUrl.mockReturnValue(stableUrl);
 
-      chrome.storage.local.get.mockImplementation(key => {
-        if (key === 'highlights_https://a.com/original-slug') {
-          return Promise.resolve({ 'highlights_https://a.com/original-slug': [{ id: '1' }] });
-        }
-        if (key === `highlights_${stableUrl}`) {
-          return Promise.resolve({}); // 穩定 key 目前無數據
-        }
-        return Promise.resolve({});
+      // 使用 mockResolvedValue 以支援批量 get([pageKey, stableKey])
+      chrome.storage.local.get.mockResolvedValue({
+        'highlights_https://a.com/original-slug': [{ id: '1' }],
+        // highlights_${stableUrl} 不存在 → 應觸發遷移
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
 
-      // 檢查是否寫入了原來的 key 和穩定的 key
-      expect(chrome.storage.local.set).toHaveBeenCalledTimes(2);
-      expect(chrome.storage.local.set).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ['highlights_https://a.com/original-slug']: expect.anything(),
-        })
-      );
+      // 只寫入穩定 key（不再重複寫原始 key）
+      expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
       expect(chrome.storage.local.set).toHaveBeenCalledWith(
         expect.objectContaining({
           [`highlights_${stableUrl}`]: expect.objectContaining({
             url: stableUrl,
           }),
         })
+      );
+
+      // 刪除原始 key 以避免 migration_get_pending 重複計算
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+        'highlights_https://a.com/original-slug'
       );
 
       // 確保回報的 url 是 stableUrl
@@ -265,15 +261,9 @@ describe('migrationHandlers', () => {
 
       computeStableUrl.mockReturnValue(stableUrl);
 
-      chrome.storage.local.get.mockImplementation(key => {
-        if (key === 'highlights_https://a.com/original-slug') {
-          return Promise.resolve({ 'highlights_https://a.com/original-slug': [{ id: '1' }] });
-        }
-        if (key === `highlights_${stableUrl}`) {
-          // 穩定 key 已存在數據
-          return Promise.resolve({ [`highlights_${stableUrl}`]: [{ id: '2', isNew: true }] });
-        }
-        return Promise.resolve({});
+      chrome.storage.local.get.mockResolvedValue({
+        'highlights_https://a.com/original-slug': [{ id: '1' }],
+        [`highlights_${stableUrl}`]: [{ id: '2', isNew: true }], // 穩定 key 已存在數據
       });
 
       await handlers.migration_batch({ urls }, defaultSender, sendResponse);
@@ -283,6 +273,18 @@ describe('migrationHandlers', () => {
       expect(chrome.storage.local.set).toHaveBeenCalledWith(
         expect.objectContaining({
           ['highlights_https://a.com/original-slug']: expect.anything(),
+        })
+      );
+
+      // 驗證回報的是原始 URL（非穩定 URL，因為穩定 key 已存在，不觸發遷移）
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({
+            details: expect.arrayContaining([
+              expect.objectContaining({ url: expect.stringContaining('original-slug') }),
+            ]),
+          }),
         })
       );
     });
