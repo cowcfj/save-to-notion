@@ -194,7 +194,7 @@ describe('Highlighter Index', () => {
   });
 
   describe('notionHighlighter 兼容層方法', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       // 手動調用 setupHighlighter 以確保 notionHighlighter 被初始化
       highlighterModule.setupHighlighter();
     });

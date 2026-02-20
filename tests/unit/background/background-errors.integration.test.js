@@ -86,8 +86,8 @@ describe('background error branches (integration)', () => {
   const internalSender = { id: 'test', url: 'chrome-extension://test/popup.html' };
   const contentScriptSender = {
     id: 'test',
-    tab: { id: 1, url: 'https://example.com' },
-    url: 'https://example.com',
+    tab: { id: 1, url: 'https://example.com/page' },
+    url: 'https://example.com/page',
   };
 
   test('startHighlight：無活動分頁 → 返回錯誤', async () => {

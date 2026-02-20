@@ -22,6 +22,8 @@ const PARTIAL_MATCH_LENGTH = 10;
  *   // 使用 range
  * }
  */
+const SEARCH_LOG_TAG = '[textSearch]';
+
 export function findTextInPage(textToFind, context = {}) {
   try {
     // 清理文本（移除多餘空白）
@@ -33,7 +35,12 @@ export function findTextInPage(textToFind, context = {}) {
     }
 
     if (context.prefix || context.suffix) {
-      return findTextFuzzy(cleanText, context);
+      const fuzzyRange = findTextFuzzy(cleanText, context);
+      if (fuzzyRange) {
+        return fuzzyRange;
+      }
+      // 若模糊匹配無法找到（例如因正則無法跨多個文字節點），則退回到 TreeWalker 的跨節點匹配
+      return findTextWithTreeWalker(cleanText);
     }
 
     // 方法1：使用 window.find() API（最快，但可能不夠精確）
@@ -58,7 +65,7 @@ export function findTextInPage(textToFind, context = {}) {
     return findTextFuzzy(cleanText, context);
   } catch (error) {
     if (globalThis.Logger !== undefined) {
-      globalThis.Logger?.error('[textSearch]', '查找文本失敗:', error);
+      globalThis.Logger?.error(SEARCH_LOG_TAG, '查找文本失敗:', error);
     }
     return null;
   }
@@ -328,6 +335,8 @@ function getSuffixTextWithWalker(node, initialText) {
 function calculateCandidateScore(candidate, context) {
   let score = 0;
 
+  const windowHalf = Math.floor(CONTEXT_SEARCH_WINDOW / 2);
+
   if (context.prefix) {
     const initialPrefix = candidate.nodeText.slice(
       Math.max(0, candidate.matchIndex - CONTEXT_SEARCH_WINDOW),
@@ -337,7 +346,9 @@ function calculateCandidateScore(candidate, context) {
 
     if (nodePrefixText.endsWith(context.prefix)) {
       score += 2; // 精確匹配
-    } else if (nodePrefixText.includes(context.prefix.slice(-PARTIAL_MATCH_LENGTH))) {
+    } else if (
+      nodePrefixText.slice(-windowHalf).includes(context.prefix.slice(-PARTIAL_MATCH_LENGTH))
+    ) {
       score += 1; // 局部匹配
     }
   }
@@ -351,7 +362,9 @@ function calculateCandidateScore(candidate, context) {
 
     if (nodeSuffixText.startsWith(context.suffix)) {
       score += 2; // 精確匹配
-    } else if (nodeSuffixText.includes(context.suffix.slice(0, PARTIAL_MATCH_LENGTH))) {
+    } else if (
+      nodeSuffixText.slice(0, windowHalf).includes(context.suffix.slice(0, PARTIAL_MATCH_LENGTH))
+    ) {
       score += 1; // 局部匹配
     }
   }
@@ -395,6 +408,24 @@ export function findTextFuzzy(textToFind, context = {}) {
       maxScore = score;
       bestCandidate = candidate;
     }
+  }
+
+  if (maxScore <= 0 && (context.prefix || context.suffix) && globalThis.Logger !== undefined) {
+    globalThis.Logger?.debug(
+      SEARCH_LOG_TAG,
+      'calculateCandidateScore failed to disambiguate. maxScore <= 0.',
+      {
+        context,
+        candidateCount: candidates.length,
+        bestCandidate: bestCandidate.range.toString(),
+        maxScore,
+        scoringFunction: calculateCandidateScore.name,
+        candidatesInfo: candidates.map(candidateInfo => ({
+          matchIndex: candidateInfo.matchIndex,
+          range: candidateInfo.range.toString(),
+        })),
+      }
+    );
   }
 
   return bestCandidate.range;
