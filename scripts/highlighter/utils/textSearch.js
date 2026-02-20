@@ -12,6 +12,8 @@ const PARTIAL_MATCH_LENGTH = 10;
 // 跨節點比對的最大節點數量
 const MAX_COMBINED_NODES = 5;
 
+const SEARCH_LOG_TAG = '[textSearch]';
+
 /**
  * 在頁面中查找文本並返回 Range
  * 使用多種策略：window.find()、TreeWalker、模糊匹配
@@ -25,8 +27,6 @@ const MAX_COMBINED_NODES = 5;
  *   // 使用 range
  * }
  */
-const SEARCH_LOG_TAG = '[textSearch]';
-
 export function findTextInPage(textToFind, context = {}) {
   try {
     // 清理文本（移除多餘空白）
@@ -373,10 +373,15 @@ function calculateCandidateScore(candidate, context) {
     );
     const nodePrefixText = getPrefixTextWithWalker(candidate.node, initialPrefix);
 
-    if (nodePrefixText.endsWith(context.prefix)) {
+    const lowerContextPrefix = context.prefix.toLowerCase();
+    const lowerNodePrefixText = nodePrefixText.toLowerCase();
+
+    if (lowerNodePrefixText.endsWith(lowerContextPrefix)) {
       score += 2; // 精確匹配
     } else if (
-      nodePrefixText.slice(-windowHalf).includes(context.prefix.slice(-PARTIAL_MATCH_LENGTH))
+      lowerNodePrefixText
+        .slice(-windowHalf)
+        .includes(lowerContextPrefix.slice(-PARTIAL_MATCH_LENGTH))
     ) {
       score += 1; // 局部匹配
     }
@@ -389,10 +394,15 @@ function calculateCandidateScore(candidate, context) {
     );
     const nodeSuffixText = getSuffixTextWithWalker(candidate.node, initialSuffix);
 
-    if (nodeSuffixText.startsWith(context.suffix)) {
+    const lowerContextSuffix = context.suffix.toLowerCase();
+    const lowerNodeSuffixText = nodeSuffixText.toLowerCase();
+
+    if (lowerNodeSuffixText.startsWith(lowerContextSuffix)) {
       score += 2; // 精確匹配
     } else if (
-      nodeSuffixText.slice(0, windowHalf).includes(context.suffix.slice(0, PARTIAL_MATCH_LENGTH))
+      lowerNodeSuffixText
+        .slice(0, windowHalf)
+        .includes(lowerContextSuffix.slice(0, PARTIAL_MATCH_LENGTH))
     ) {
       score += 1; // 局部匹配
     }
@@ -454,9 +464,10 @@ export function findTextFuzzy(textToFind, context = {}) {
         SEARCH_LOG_TAG,
         'calculateCandidateScore failed to disambiguate. maxScore <= 0.',
         {
-          context,
+          prefixLength: context.prefix?.length || 0,
+          suffixLength: context.suffix?.length || 0,
           candidateCount: candidates.length,
-          bestCandidate: bestCandidate.range.toString(),
+          bestCandidateRangeLength: bestCandidate.range?.toString?.()?.length || 0,
           maxScore,
           scoringFunction: calculateCandidateScore.name,
           candidatesInfo: candidates.map(candidateInfo => ({
