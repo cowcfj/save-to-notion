@@ -24,7 +24,8 @@ import { computeStableUrl } from '../../utils/urlUtils.js';
  *
  * @param {string} url - 原始 URL
  * @returns {Promise<object>} 返回執行結果狀態與詳細資訊
- */ async function _migrateSingleUrl(url) {
+ */
+async function _migrateSingleUrl(url) {
   const pageKey = `highlights_${url}`;
 
   // 同步計算穩定 URL（無需 async），並批量讀取兩個 key 以縮小 TOCTOU 窗口
@@ -68,8 +69,8 @@ import { computeStableUrl } from '../../utils/urlUtils.js';
   // 單次 set 寫入目標 key
   await chrome.storage.local.set({ [writeKey]: { url: finalUrl, highlights: newHighlights } });
 
-  // 若完成穩定遷移，刪除原始 key 避免 migration_get_pending 重複計算
-  if (shouldMigrateToStable) {
+  // 若完成穩定遷移，或 stableKey 已存在資料（pageKey 為重複 key），刪除原始 key 避免 migration_get_pending 重複計算
+  if (stableKey) {
     await chrome.storage.local.remove(pageKey);
   }
 
@@ -185,7 +186,9 @@ export function createMigrationHandlers(services) {
 
         Logger.log('開始刪除', { action: 'migration_delete', url: sanitizeUrlForLogging(url) });
 
-        const pageKey = `highlights_${url}`;
+        const stableUrl = computeStableUrl(url);
+        const resolvedUrl = stableUrl || url;
+        const pageKey = `highlights_${resolvedUrl}`;
 
         // 檢查數據是否存在
         const result = await chrome.storage.local.get(pageKey);
@@ -345,7 +348,10 @@ export function createMigrationHandlers(services) {
 
         Logger.log('開始批量刪除', { action: 'migration_batch_delete', pageCount: urls.length });
 
-        const keysToRemove = urls.map(url => `highlights_${url}`);
+        const keysToRemove = urls.map(urlItem => {
+          const stableUrl = computeStableUrl(urlItem);
+          return `highlights_${stableUrl || urlItem}`;
+        });
         await chrome.storage.local.remove(keysToRemove);
 
         Logger.log('批量刪除完成', { action: 'migration_batch_delete', pageCount: urls.length });
