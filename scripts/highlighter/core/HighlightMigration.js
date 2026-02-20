@@ -99,7 +99,7 @@ export class HighlightMigration {
    * @param {string} normalizedUrl - 標準化後的 URL
    * @returns {{ data: Array, key: string }|null}
    */
-  _findLegacyData(normalizedUrl) {
+  static _findLegacyData(normalizedUrl) {
     const currentUrl = globalThis.location.href;
     const possibleKeys = Array.from(
       new Set([
@@ -151,7 +151,7 @@ export class HighlightMigration {
     let color = 'yellow';
 
     if (oldItem.color) {
-      color = oldItem.color;
+      color = convertBgColorToName(oldItem.color);
     } else if (oldItem.bgColor || oldItem.backgroundColor) {
       color = convertBgColorToName(oldItem.bgColor || oldItem.backgroundColor);
     }
@@ -199,7 +199,7 @@ export class HighlightMigration {
 
     try {
       const normalizedUrl = globalThis.normalizeUrl(globalThis.location.href);
-      const legacy = this._findLegacyData(normalizedUrl);
+      const legacy = HighlightMigration._findLegacyData(normalizedUrl);
 
       if (legacy && (await HighlightMigration._shouldRunMigration(normalizedUrl))) {
         await this.migrateToNewFormat(legacy.data, legacy.key, normalizedUrl);

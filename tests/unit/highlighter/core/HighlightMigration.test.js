@@ -327,7 +327,11 @@ describe('core/HighlightMigration', () => {
 
       globalThis.chrome.storage.local.set.mockRejectedValue(new Error('quota exceeded'));
 
+      localStorage.setItem('old_key', JSON.stringify([{ text: 'test' }]));
+
       await migration.migrateToNewFormat([{ text: 'test' }], 'old_key', 'https://example.com');
+
+      expect(localStorage.getItem('old_key')).toBeNull();
 
       expect(Logger.warn).toHaveBeenCalledWith(
         '儲存遷移完成標記失敗',
