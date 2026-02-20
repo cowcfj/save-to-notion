@@ -161,15 +161,6 @@ export const NOTION_CONFIG = {
 };
 
 /**
- * InjectionService 相關配置
- * 集中管理腳本注入服務的超時與錯誤定義
- */
-export const INJECTION_CONFIG = {
-  PING_TIMEOUT_MS: 2000,
-  PING_TIMEOUT_ERROR: 'PING timeout',
-};
-
-/**
  * 程式語言映射表 (用於 DomConverter.mapLanguage)
  * 將常見縮寫或別名映射至 Notion API 支援的語言名稱
  */
@@ -329,32 +320,6 @@ export const URL_NORMALIZATION = {
   ],
 };
 
-/**
- * 穩定 URL 規則 — 用於移除已知網站的可變 slug 段
- * 每個規則定義如何從 URL 中識別並移除動態標題段，保留穩定的標識符
- */
-export const STABLE_URL_RULES = [
-  {
-    name: 'hk01',
-    hostPattern: 'hk01.com',
-    // 匹配: /category/[數字ID]/[slug]
-    // 範例: /社會新聞/60320801/示威者遭警方拘捕
-    pathPattern: /^(\/[^/]+\/\d+)\/.+$/,
-    // 保留: /category/[數字ID]
-    stablePath: '$1',
-  },
-  {
-    name: 'mingpao',
-    hostPattern: 'mingpao.com',
-    pathRequires: '/article/',
-    // 匹配並移除最後的 slug 段 (至少需要 4 段: /article/<date>/<section>/<slug>)
-    // 範例: /article/20240101/s00001/title-here → /article/20240101/s00001
-    // 避免誤傷: /article/20240101/s00001 (不含 slug)
-    pathPattern: /^(\/article\/[^/]+\/[^/]+)\/.+$/,
-    stablePath: '$1',
-  },
-];
-
 // ==========================================
 // Handlers 相關常量
 // ==========================================
@@ -381,48 +346,9 @@ export const TAB_SERVICE = {
 // Performance 模組相關常量
 // ==========================================
 
-/**
- * PerformanceOptimizer 相關常量
- */
-export const PERFORMANCE_OPTIMIZER = {
-  // 緩存設定
-  DEFAULT_CACHE_MAX_SIZE: 100, // 預設緩存大小
-  MAX_CACHE_SIZE: 2000, // 最大緩存限制
-  MIN_CACHE_SIZE: 50, // 最小緩存大小
-  CACHE_TTL_MS: 5 * 60 * 1000, // 5 分鐘 TTL
-
-  // 批處理設定
-  DEFAULT_BATCH_SIZE: 100, // 預設批處理大小
-  MAX_BATCH_SIZE: 500, // 最大批處理大小
-  MIN_BATCH_SIZE: 10, // 最小批處理大小
-
-  // Next.js 數據處理設定
-  MAX_NEXT_DATA_SIZE: 5 * 1024 * 1024, // 5MB - JSON.parse 阻塞主線程的安全上限
-};
-
-/**
- * Preloader 事件名稱（解耦 Phase 8）
- */
-export const PRELOADER_EVENTS = {
-  REQUEST: 'notion-preloader-request',
-  RESPONSE: 'notion-preloader-response',
-};
-
 // ==========================================
 // 標註遷移相關常量
 // ==========================================
-
-export const HIGHLIGHT_MIGRATION = {
-  MAX_SCAN_LIMIT: 500, // localStorage 遍歷上限，避免性能問題
-};
-
-/**
- * 標註錨定（Content Anchoring）相關常量
- * 用於 Range 序列化時的上下文擷取與 textSearch 的模糊比對窗口
- */
-export const HIGHLIGHT_ANCHORING = {
-  CONTEXT_LENGTH: 32, // 序列化時前後文各擷取的字元數
-};
 
 // ERROR_MESSAGES has been moved to messages.js
 
@@ -491,22 +417,4 @@ export const SECURITY_CONSTANTS = {
 
   // 安全 URL 協議
   SAFE_URL_PROTOCOLS: ['http:', 'https:', ''],
-};
-
-// ==========================================
-// 遷移服務配置
-// ==========================================
-
-export const MIGRATION_CONFIG = {
-  SCRIPT_READY_MAX_RETRIES: 10,
-  SCRIPT_READY_RETRY_DELAY: 200,
-};
-
-// ==========================================
-// UI 樣式相關常量
-// ==========================================
-
-export const UI_STYLE_CONSTANTS = {
-  INLINE_BLOCK: 'inline-block',
-  TEXT_BOTTOM: 'text-bottom',
 };

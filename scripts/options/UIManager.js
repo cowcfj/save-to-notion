@@ -4,7 +4,18 @@
  */
 
 import { validateSafeSvg, separateIconAndText, createSafeIcon } from '../utils/securityUtils.js';
-import { UI_ICONS, NOTION_API, UI_STATUS_TYPES, OPTIONS_PAGE_SELECTORS } from '../config/index.js';
+import { UI_ICONS, NOTION_API, UI_STATUS_TYPES } from '../config/index.js';
+
+/**
+ * 選項頁面的 UI 選擇器常數
+ */
+const OPTIONS_PAGE_SELECTORS = {
+  STATUS_CONTAINER: '#status',
+  MANUAL_SECTION: '.manual-section',
+  TEST_API_BUTTON: '#test-api-button',
+  HIDDEN_CLASS: 'hidden',
+  STATUS_MESSAGE_CLASS: 'status-message',
+};
 
 /**
  * UI 管理器類別

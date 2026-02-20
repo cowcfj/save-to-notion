@@ -1,8 +1,16 @@
 import Logger from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
-import { MIGRATION_CONFIG } from '../../config/constants.js';
 
+const MIGRATION_CONFIG = {
+  SCRIPT_READY_MAX_RETRIES: 10,
+  SCRIPT_READY_RETRY_DELAY: 200,
+};
+
+/**
+ * Migration 服務
+ * 負責處理跨版本升級的數據遷移與初始化
+ */
 export class MigrationService {
   constructor(storageService, tabService, injectionService) {
     this.storageService = storageService;

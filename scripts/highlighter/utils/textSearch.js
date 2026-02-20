@@ -3,7 +3,9 @@
  * 提供在頁面中查找文本並返回 Range 的功能
  */
 
-import { HIGHLIGHT_ANCHORING } from '../../config/constants.js';
+export const HIGHLIGHT_ANCHORING = {
+  CONTEXT_LENGTH: 32, // Number of characters to extract from context for serialization
+};
 
 // 上下文比對的最大字元數，設定為 Range 擷取長度的 2 倍以容忍一定程度的偏移
 const CONTEXT_SEARCH_WINDOW = HIGHLIGHT_ANCHORING.CONTEXT_LENGTH * 2;

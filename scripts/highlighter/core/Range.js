@@ -4,9 +4,8 @@
  */
 
 import { getNodePath, getNodeByPath } from '../utils/path.js';
-import { findTextInPage } from '../utils/textSearch.js';
+import { findTextInPage, HIGHLIGHT_ANCHORING } from '../utils/textSearch.js';
 import { waitForDOMStability } from '../utils/domStability.js';
-import { HIGHLIGHT_ANCHORING } from '../../config/constants.js';
 
 const { CONTEXT_LENGTH } = HIGHLIGHT_ANCHORING;
 

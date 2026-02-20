@@ -4,7 +4,7 @@
  */
 
 // 從統一配置導入 TRACKING_PARAMS（Single Source of Truth）
-import { URL_NORMALIZATION, STABLE_URL_RULES } from '../config/constants.js';
+import { URL_NORMALIZATION } from '../config/constants.js';
 
 // Logger 回退定義：在 Rollup 打包時由 intro 注入自 self.Logger
 // 在直接載入時使用回退定義
@@ -77,6 +77,32 @@ export function normalizeUrl(rawUrl) {
     return rawUrl || '';
   }
 }
+
+/**
+ * 穩定 URL 規則 — 用於移除已知網站的可變 slug 段
+ * 每個規則定義如何從 URL 中識別並移除動態標題段，保留穩定的標識符
+ */
+export const STABLE_URL_RULES = [
+  {
+    name: 'hk01',
+    hostPattern: 'hk01.com',
+    // 匹配: /category/[數字ID]/[slug]
+    // 範例: /社會新聞/60320801/示威者遭警方拘捕
+    pathPattern: /^(\/[^/]+\/\d+)\/.+$/,
+    // 保留: /category/[數字ID]
+    stablePath: '$1',
+  },
+  {
+    name: 'mingpao',
+    hostPattern: 'mingpao.com',
+    pathRequires: '/article/',
+    // 匹配並移除最後的 slug 段 (至少需要 4 段: /article/<date>/<section>/<slug>)
+    // 範例: /article/20240101/s00001/title-here → /article/20240101/s00001
+    // 避免誤傷: /article/20240101/s00001 (不含 slug)
+    pathPattern: /^(\/article\/[^/]+\/[^/]+)\/.+$/,
+    stablePath: '$1',
+  },
+];
 
 /**
  * 計算穩定 URL — 對已知網站移除可變的 slug 段

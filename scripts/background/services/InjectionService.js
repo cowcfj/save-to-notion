@@ -12,8 +12,16 @@
 
 /* global chrome */
 
-import { RESTRICTED_PROTOCOLS, INJECTION_CONFIG } from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
+import { RESTRICTED_PROTOCOLS } from '../../config/constants.js';
+
+/**
+ * 腳本注入服務的超時與錯誤定義
+ */
+const INJECTION_CONFIG = {
+  PING_TIMEOUT_MS: 2000,
+  PING_TIMEOUT_ERROR: 'PING timeout',
+};
 
 /**
  * 檢查 URL 是否限制注入腳本
