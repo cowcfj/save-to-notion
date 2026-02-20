@@ -420,9 +420,10 @@ export class Toolbar {
    * @param {HTMLElement} statusDiv
    * @param {string} iconKey
    * @param {string} messageKey
+   * @param {string} [customMessage]
    * @private
    */
-  static _setStatusIcon(statusDiv, iconKey, messageKey) {
+  static _setStatusIcon(statusDiv, iconKey, messageKey, customMessage) {
     statusDiv.textContent = '';
     const icon = createSafeIcon(UI_ICONS[iconKey]);
     icon.style.display = STYLE_INLINE_BLOCK;
@@ -434,7 +435,10 @@ export class Toolbar {
     }
 
     statusDiv.append(icon);
-    statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR[messageKey]}`));
+
+    // UI_MESSAGES.TOOLBAR 查找對應多語言常數字串，如果 customMessage 提供則取代
+    const textMsg = customMessage ?? UI_MESSAGES.TOOLBAR[messageKey];
+    statusDiv.append(document.createTextNode(` ${textMsg}`));
   }
 
   /**
@@ -464,14 +468,7 @@ export class Toolbar {
         } else {
           const rawError = sanitizeApiError(response?.error || 'Unknown error');
           const errorMsg = ErrorHandler.formatUserMessage(rawError);
-          statusDiv.textContent = ''; // Clear
-          const errorIcon = createSafeIcon(UI_ICONS.X);
-          errorIcon.style.display = STYLE_INLINE_BLOCK;
-          errorIcon.style.marginRight = '4px';
-          errorIcon.style.verticalAlign = STYLE_TEXT_BOTTOM;
-
-          statusDiv.append(errorIcon);
-          statusDiv.append(document.createTextNode(` ${errorMsg}`));
+          Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
         }
 
         setTimeout(() => {

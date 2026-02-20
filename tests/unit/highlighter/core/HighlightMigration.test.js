@@ -169,25 +169,27 @@ describe('core/HighlightMigration', () => {
       const originalLimit = HighlightMigration.MAX_SCAN_LIMIT;
       HighlightMigration.MAX_SCAN_LIMIT = 5;
 
-      localStorage.clear();
+      try {
+        localStorage.clear();
 
-      // Add items exceeding limit
-      for (let i = 0; i < 10; i++) {
-        localStorage.setItem(`dummy_${i}`, '{}');
+        // Add items exceeding limit
+        for (let i = 0; i < 10; i++) {
+          localStorage.setItem(`dummy_${i}`, '{}');
+        }
+
+        // Verify setup
+        expect(localStorage).toHaveLength(10);
+
+        await migration.checkAndMigrate();
+
+        expect(Logger.warn).toHaveBeenCalledWith(
+          'localStorage 項目超過掃描限制，僅掃描部分項目',
+          expect.objectContaining({ action: 'checkAndMigrate' })
+        );
+      } finally {
+        // Restore limit
+        HighlightMigration.MAX_SCAN_LIMIT = originalLimit;
       }
-
-      // Verify setup
-      expect(localStorage).toHaveLength(10);
-
-      await migration.checkAndMigrate();
-
-      expect(Logger.warn).toHaveBeenCalledWith(
-        'localStorage 項目超過掃描限制，僅掃描部分項目',
-        expect.objectContaining({ action: 'checkAndMigrate' })
-      );
-
-      // Restore limit
-      HighlightMigration.MAX_SCAN_LIMIT = originalLimit;
     });
   });
 

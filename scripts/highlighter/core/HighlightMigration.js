@@ -205,7 +205,9 @@ export class HighlightMigration {
         await this.migrateToNewFormat(legacy.data, legacy.key, normalizedUrl);
       }
     } catch (error) {
-      Logger.error('檢查舊數據失敗', { action: 'checkAndMigrate', error: error.message });
+      const errInfo =
+        error instanceof Error ? { message: error.message, stack: error.stack } : String(error);
+      Logger.error('檢查舊數據失敗', { action: 'checkAndMigrate', error: errInfo });
     }
   }
 
@@ -247,6 +249,9 @@ export class HighlightMigration {
           highlights: migratedHighlights,
         });
 
+        // 刪除舊數據（僅在有成功遷移的項目時）
+        localStorage.removeItem(oldKey);
+
         // 標記遷移完成
         await HighlightMigration._markMigrationComplete(
           oldKey,
@@ -255,14 +260,13 @@ export class HighlightMigration {
           successCount,
           failCount
         );
-
-        // 刪除舊數據（僅在有成功遷移的項目時）
-        localStorage.removeItem(oldKey);
       }
 
       Logger.info('數據遷移完成', { action: 'migrateToNewFormat', successCount, failCount });
     } catch (_error) {
-      Logger.error('數據遷移失敗', { action: 'migrateToNewFormat', error: _error.message });
+      const errInfo =
+        _error instanceof Error ? { message: _error.message, stack: _error.stack } : String(_error);
+      Logger.error('數據遷移失敗', { action: 'migrateToNewFormat', error: errInfo });
     }
   }
 
@@ -281,14 +285,20 @@ export class HighlightMigration {
       return;
     }
 
-    await storage.set({
-      [`migration_completed_${normalizedUrl}`]: {
-        timestamp: Date.now(),
-        oldKey,
-        totalCount,
-        successCount,
-        failCount,
-      },
-    });
+    try {
+      await storage.set({
+        [`migration_completed_${normalizedUrl}`]: {
+          timestamp: Date.now(),
+          oldKey,
+          totalCount,
+          successCount,
+          failCount,
+        },
+      });
+    } catch (error) {
+      const errInfo =
+        error instanceof Error ? { message: error.message, stack: error.stack } : String(error);
+      Logger.warn('儲存遷移完成標記失敗', { action: '_markMigrationComplete', error: errInfo });
+    }
   }
 }
