@@ -53,7 +53,7 @@ describe('core/Range', () => {
       // 長度 50
       const longPrefix = 'A very long prefix string that exceeds 32 chars...';
       const target = 'Target';
-      // 長度 50
+      // 長度 60
       const longSuffix = '...and a very long suffix string that also exceeds 32 chars.';
       div.textContent = longPrefix + target + longSuffix;
       document.body.append(div);

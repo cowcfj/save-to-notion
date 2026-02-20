@@ -145,15 +145,16 @@ describe('Highlighter Index', () => {
   });
 
   describe('setupHighlighter', () => {
-    test('應該設置 window.HighlighterV2', () => {
+    beforeEach(() => {
       const module = require('../../../scripts/highlighter/index.js');
       module.setupHighlighter();
+    });
+
+    test('應該設置 window.HighlighterV2', () => {
       expect(globalThis.HighlighterV2).toBeDefined();
     });
 
     test('window.HighlighterV2 應該包含所有必要的屬性', () => {
-      const module = require('../../../scripts/highlighter/index.js');
-      module.setupHighlighter();
       expect(typeof globalThis.HighlighterV2.init).toBe('function');
       expect(typeof globalThis.HighlighterV2.initWithToolbar).toBe('function');
       expect(typeof globalThis.HighlighterV2.getInstance).toBe('function');
@@ -161,14 +162,10 @@ describe('Highlighter Index', () => {
     });
 
     test('應該設置 window.notionHighlighter 兼容層', () => {
-      const module = require('../../../scripts/highlighter/index.js');
-      module.setupHighlighter();
       expect(globalThis.notionHighlighter).toBeDefined();
     });
 
     test('notionHighlighter 應該包含兼容方法', () => {
-      const module = require('../../../scripts/highlighter/index.js');
-      module.setupHighlighter();
       expect(typeof globalThis.notionHighlighter.show).toBe('function');
       expect(typeof globalThis.notionHighlighter.hide).toBe('function');
       expect(typeof globalThis.notionHighlighter.toggle).toBe('function');

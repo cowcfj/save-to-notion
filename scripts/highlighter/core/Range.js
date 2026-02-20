@@ -14,15 +14,22 @@ import { waitForDOMStability } from '../utils/domStability.js';
  * @returns {object} 序列化的 Range 資訊
  */
 export function serializeRange(range) {
-  // 提取前文 (prefix)
   let prefix = '';
   if (range.startContainer.nodeType === Node.TEXT_NODE) {
     const text = range.startContainer.textContent;
     prefix = text.slice(Math.max(0, range.startOffset - 32), range.startOffset);
-  } else if (range.startContainer.textContent) {
-    // 元素節點，盡力提取
-    const text = range.startContainer.textContent;
-    prefix = text.slice(Math.max(0, text.length - 32));
+  } else {
+    // 當 startContainer 為元素節點時，startOffset 代表子節點索引。
+    // 創建一個從容器開頭到 startOffset 的 Range 來提取之前的文本。
+    try {
+      const prefixRange = document.createRange();
+      prefixRange.selectNodeContents(range.startContainer);
+      prefixRange.setEnd(range.startContainer, range.startOffset);
+      const text = prefixRange.toString();
+      prefix = text.slice(Math.max(0, text.length - 32));
+    } catch {
+      prefix = '';
+    }
   }
 
   // 提取後文 (suffix)
@@ -30,10 +37,18 @@ export function serializeRange(range) {
   if (range.endContainer.nodeType === Node.TEXT_NODE) {
     const text = range.endContainer.textContent;
     suffix = text.slice(range.endOffset, Math.min(text.length, range.endOffset + 32));
-  } else if (range.endContainer.textContent) {
-    // 元素節點，盡力提取
-    const text = range.endContainer.textContent;
-    suffix = text.slice(0, Math.min(text.length, 32));
+  } else {
+    // 當 endContainer 為元素節點時，endOffset 代表子節點索引。
+    // 創建一個從 endOffset 到容器結尾的 Range 來提取之後的文本。
+    try {
+      const suffixRange = document.createRange();
+      suffixRange.selectNodeContents(range.endContainer);
+      suffixRange.setStart(range.endContainer, range.endOffset);
+      const text = suffixRange.toString();
+      suffix = text.slice(0, 32);
+    } catch {
+      suffix = '';
+    }
   }
 
   return {

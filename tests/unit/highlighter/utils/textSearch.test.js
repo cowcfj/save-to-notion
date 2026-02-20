@@ -84,6 +84,7 @@ describe('utils/textSearch', () => {
 
       // 驗證它匹配到第二個 "apple"
       expect(range.startContainer.textContent).toContain('second');
+      expect(range.toString()).toBe('apple');
     });
 
     test('should disambiguate multiple matches using suffix', () => {
@@ -97,6 +98,7 @@ describe('utils/textSearch', () => {
 
       // 驗證它匹配到第一個
       expect(range.startContainer.textContent).toContain('matching');
+      expect(range.toString()).toBe('Target');
     });
   });
 

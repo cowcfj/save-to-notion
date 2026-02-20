@@ -55,21 +55,26 @@ export function findTextInPage(textToFind, context = {}) {
 }
 
 /**
+ * 用於文本搜索的通用節點過濾器
+ * 跳過腳本(SCRIPT)和樣式(STYLE)標籤，避免匹配到隱藏的原始碼內容
+ */
+const SEARCH_NODE_FILTER = {
+  acceptNode: node => {
+    const parent = node.parentElement;
+    if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
+      return NodeFilter.FILTER_REJECT;
+    }
+    return NodeFilter.FILTER_ACCEPT;
+  },
+};
+
+/**
  * 獲取頁面中用於搜索的所有文本節點，過濾掉不需要的元素
  *
  * @returns {Node[]} 文本節點陣列
  */
 function getTextNodesForSearch() {
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-    acceptNode: node => {
-      // 跳過腳本和樣式標籤
-      const parent = node.parentElement;
-      if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return NodeFilter.FILTER_ACCEPT;
-    },
-  });
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, SEARCH_NODE_FILTER);
 
   let node = null;
   const textNodes = [];
@@ -105,14 +110,6 @@ function findTextInSingleNode(textToFind, textNodes) {
   return null;
 }
 
-/**
- * 創建跨節點的 Range
- *
- * @param {Node[]} nodesInRange - 範圍內的節點陣列
- * @param {number} matchIndex - 匹配起始位置
- * @param {number} textLength - 要匹配的文本長度
- * @returns {Range|null}
- */
 /**
  * 根據目標偏移量尋找對應的文本節點與其內部偏移
  *
@@ -230,7 +227,7 @@ export function findTextWithTreeWalker(textToFind) {
  * @returns {Array} 候選者陣列
  */
 function findRegexCandidates(regex) {
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, SEARCH_NODE_FILTER);
   const candidates = [];
   let node = null;
 
