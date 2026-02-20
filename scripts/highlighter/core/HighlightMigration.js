@@ -142,7 +142,7 @@ export class HighlightMigration {
       return { text: oldItem, color: 'yellow' };
     }
 
-    if (typeof oldItem !== 'object') {
+    if (oldItem === null || typeof oldItem !== 'object') {
       return { text: null, color: 'yellow' };
     }
 
