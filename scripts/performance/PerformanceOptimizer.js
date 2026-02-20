@@ -2,7 +2,7 @@
  * 性能優化器
  * 提供 DOM 查詢緩存和批處理隊列功能
  */
-import { PERFORMANCE_OPTIMIZER, PRELOADER_EVENTS } from '../config/constants.js';
+
 import {
   ARTICLE_SELECTORS,
   CMS_CONTENT_SELECTORS,
@@ -11,6 +11,27 @@ import {
 import Logger from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { validateSafeDomElement, validatePreloaderCache } from '../utils/securityUtils.js';
+
+export const PERFORMANCE_OPTIMIZER = {
+  // Cache settings
+  DEFAULT_CACHE_MAX_SIZE: 100, // Default cache size
+  MAX_CACHE_SIZE: 2000, // Maximum cache limit
+  MIN_CACHE_SIZE: 50, // Minimum cache size
+  CACHE_TTL_MS: 5 * 60 * 1000, // 5 minutes TTL
+
+  // Batch processing settings
+  DEFAULT_BATCH_SIZE: 100, // Default batch size
+  MAX_BATCH_SIZE: 500, // Maximum batch size
+  MIN_BATCH_SIZE: 10, // Minimum batch size
+
+  // Next.js data processing settings
+  MAX_NEXT_DATA_SIZE: 5 * 1024 * 1024, // 5MB - Safe upper limit for JSON.parse blocking the main thread
+};
+
+export const PRELOADER_EVENTS = {
+  REQUEST: 'notion-preloader-request',
+  RESPONSE: 'notion-preloader-response',
+};
 
 /**
  * 性能優化器類

@@ -20,15 +20,21 @@ jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => ({
   findTextInPage: jest.fn(),
 }));
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-}));
+jest.mock('../../../../scripts/utils/Logger.js', () => {
+  const mockLogger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  };
+  return {
+    __esModule: true,
+    default: mockLogger,
+  };
+});
 
 jest.mock('../../../../scripts/highlighter/utils/StorageUtil.js', () => ({
   StorageUtil: {
@@ -61,6 +67,7 @@ describe('core/HighlightMigration', () => {
   afterEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    globalThis.chrome = undefined;
   });
 
   describe('constructor', () => {
@@ -71,15 +78,24 @@ describe('core/HighlightMigration', () => {
 
   describe('checkAndMigrate', () => {
     test('should skip when normalizeUrl is not available', async () => {
-      delete globalThis.normalizeUrl;
+      const cachedNormalizeUrl = globalThis.normalizeUrl;
+      globalThis.normalizeUrl = undefined;
 
-      await migration.checkAndMigrate();
+      globalThis.chrome = {
+        storage: {
+          local: {
+            get: jest.fn(),
+          },
+        },
+      };
 
       await migration.checkAndMigrate();
 
       // Should verify calling checkAndMigrate without normalizeUrl is safe
       // and doesn't proceed with migration logic (e.g. accessing storage)
       expect(globalThis.chrome.storage.local.get).not.toHaveBeenCalled();
+
+      globalThis.normalizeUrl = cachedNormalizeUrl;
     });
 
     test('should skip when no legacy data exists', async () => {
@@ -153,25 +169,27 @@ describe('core/HighlightMigration', () => {
       const originalLimit = HighlightMigration.MAX_SCAN_LIMIT;
       HighlightMigration.MAX_SCAN_LIMIT = 5;
 
-      localStorage.clear();
+      try {
+        localStorage.clear();
 
-      // Add items exceeding limit
-      for (let i = 0; i < 10; i++) {
-        localStorage.setItem(`dummy_${i}`, '{}');
+        // Add items exceeding limit
+        for (let i = 0; i < 10; i++) {
+          localStorage.setItem(`dummy_${i}`, '{}');
+        }
+
+        // Verify setup
+        expect(localStorage).toHaveLength(10);
+
+        await migration.checkAndMigrate();
+
+        expect(Logger.warn).toHaveBeenCalledWith(
+          'localStorage 項目超過掃描限制，僅掃描部分項目',
+          expect.objectContaining({ action: 'checkAndMigrate' })
+        );
+      } finally {
+        // Restore limit
+        HighlightMigration.MAX_SCAN_LIMIT = originalLimit;
       }
-
-      // Verify setup
-      expect(localStorage).toHaveLength(10);
-
-      await migration.checkAndMigrate();
-
-      expect(Logger.warn).toHaveBeenCalledWith(
-        'localStorage 項目超過掃描限制，僅掃描部分項目',
-        expect.objectContaining({ action: 'checkAndMigrate' })
-      );
-
-      // Restore limit
-      HighlightMigration.MAX_SCAN_LIMIT = originalLimit;
     });
   });
 
@@ -194,10 +212,13 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: 'test content', color: 'green' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(findTextInPage).toHaveBeenCalledWith('test content');
-      expect(StorageUtil.saveHighlights).toHaveBeenCalled();
+      expect(StorageUtil.saveHighlights).toHaveBeenCalledWith(
+        'https://example.com',
+        expect.any(Object)
+      );
     });
 
     test('should migrate string items', async () => {
@@ -206,7 +227,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = ['simple text'];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(findTextInPage).toHaveBeenCalledWith('simple text');
     });
@@ -217,7 +238,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: 'test', bgColor: '#d4edda' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       // 驗證調用時的顏色應該是 green
       const saveCall = StorageUtil.saveHighlights.mock.calls[0][1];
@@ -229,7 +250,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: '' }, { text: '   ' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(findTextInPage).not.toHaveBeenCalled();
     });
@@ -240,7 +261,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: 'not found' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(StorageUtil.saveHighlights).not.toHaveBeenCalled();
     });
@@ -253,7 +274,7 @@ describe('core/HighlightMigration', () => {
 
       const legacyData = [{ text: 'test' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(localStorage.getItem('old_key')).toBeNull();
     });
@@ -265,9 +286,58 @@ describe('core/HighlightMigration', () => {
       mockManager.nextId = 5;
       const legacyData = [{ text: 'one' }, { text: 'two' }];
 
-      await migration.migrateToNewFormat(legacyData, 'old_key');
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
 
       expect(mockManager.nextId).toBe(7);
+    });
+
+    test('should not remove old key when saveHighlights throws', async () => {
+      StorageUtil.saveHighlights.mockRejectedValue(new Error('storage full'));
+      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      findTextInPage.mockReturnValue(document.createRange());
+
+      localStorage.setItem('old_key', JSON.stringify([{ text: 'test' }]));
+
+      await migration.migrateToNewFormat([{ text: 'test' }], 'old_key', 'https://example.com');
+
+      expect(localStorage.getItem('old_key')).not.toBeNull();
+      expect(Logger.error).toHaveBeenCalledWith(
+        '數據遷移失敗',
+        expect.objectContaining({ action: 'migrateToNewFormat' })
+      );
+    });
+
+    test('should only save successfully migrated items in mixed batch', async () => {
+      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      findTextInPage
+        .mockReturnValueOnce(document.createRange()) // 第一個找到
+        .mockReturnValueOnce(null); // 第二個找不到
+
+      const legacyData = [{ text: 'found' }, { text: 'not found' }];
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
+
+      const saveArg = StorageUtil.saveHighlights.mock.calls[0][1];
+      expect(saveArg.highlights).toHaveLength(1);
+      expect(saveArg.highlights[0].text).toBe('found');
+    });
+
+    test('should log warning when _markMigrationComplete fails', async () => {
+      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      findTextInPage.mockReturnValue(document.createRange());
+
+      globalThis.chrome.storage.local.set.mockRejectedValue(new Error('quota exceeded'));
+
+      localStorage.setItem('old_key', JSON.stringify([{ text: 'test' }]));
+
+      await migration.migrateToNewFormat([{ text: 'test' }], 'old_key', 'https://example.com');
+
+      expect(localStorage.getItem('old_key')).toBeNull();
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '儲存遷移完成標記失敗',
+        expect.objectContaining({ action: '_markMigrationComplete' })
+      );
+      expect(StorageUtil.saveHighlights).toHaveBeenCalled();
     });
   });
 });

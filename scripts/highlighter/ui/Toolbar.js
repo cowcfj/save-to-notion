@@ -9,14 +9,15 @@ import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
 import { renderHighlightList } from './components/HighlightList.js';
-import { injectIcons, createSpriteIcon } from '../../utils/uiUtils.js';
 import { TOOLBAR_SELECTORS } from '../../config/ui-selectors.js';
-import { UI_STYLE_CONSTANTS } from '../../config/constants.js';
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
-import { sanitizeApiError } from '../../utils/securityUtils.js';
+import { sanitizeApiError, createSafeIcon } from '../../utils/securityUtils.js';
 import { ErrorHandler } from '../../utils/ErrorHandler.js';
 import Logger from '../../utils/Logger.js';
+
+const STYLE_INLINE_BLOCK = 'inline-block';
+const STYLE_TEXT_BOTTOM = 'text-bottom';
 
 /**
  * 工具欄管理器類別
@@ -28,9 +29,6 @@ export class Toolbar {
    * @param {HighlightManager} highlightManager - 標註管理器實例
    */
   constructor(highlightManager) {
-    // 注入 SVG 圖標到當前頁面
-    injectIcons(UI_ICONS);
-
     if (!highlightManager) {
       throw new Error('HighlightManager is required');
     }
@@ -417,6 +415,33 @@ export class Toolbar {
   }
 
   /**
+   * 設置狀態欄圖標與文字，封裝共用語意與樣式
+   *
+   * @param {HTMLElement} statusDiv
+   * @param {string} iconKey
+   * @param {string} messageKey
+   * @param {string} [customMessage]
+   * @private
+   */
+  static _setStatusIcon(statusDiv, iconKey, messageKey, customMessage) {
+    statusDiv.textContent = '';
+    const icon = createSafeIcon(UI_ICONS[iconKey]);
+    icon.style.display = STYLE_INLINE_BLOCK;
+    icon.style.marginRight = '4px';
+    icon.style.verticalAlign = STYLE_TEXT_BOTTOM;
+
+    if (iconKey === 'SYNC') {
+      icon.style.animation = 'spin 1s linear infinite';
+    }
+
+    statusDiv.append(icon);
+
+    // UI_MESSAGES.TOOLBAR 查找對應多語言常數字串，如果 customMessage 提供則取代
+    const textMsg = customMessage ?? UI_MESSAGES.TOOLBAR[messageKey];
+    statusDiv.append(document.createTextNode(` ${textMsg}`));
+  }
+
+  /**
    * 同步到 Notion
    */
   async syncToNotion() {
@@ -426,17 +451,7 @@ export class Toolbar {
       const originalText = statusDiv.textContent; // Use textContent for safety
 
       // Update UI to Loading State
-      statusDiv.textContent = ''; // Clear content safely
-      const loadingIcon = document.createElement('span');
-      // Use SYNC icon and add spinning animation style
-      loadingIcon.append(createSpriteIcon('sync'));
-      loadingIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
-      loadingIcon.style.marginRight = '4px';
-      loadingIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
-      loadingIcon.style.animation = 'spin 1s linear infinite';
-
-      statusDiv.append(loadingIcon);
-      statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNCING}`));
+      Toolbar._setStatusIcon(statusDiv, 'SYNC', 'SYNCING');
 
       Logger.start('準備同步標註到 Notion');
       try {
@@ -449,27 +464,11 @@ export class Toolbar {
         });
 
         if (response?.success) {
-          statusDiv.textContent = '';
-          const successIcon = document.createElement('span');
-          successIcon.append(createSpriteIcon('success'));
-          successIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
-          successIcon.style.marginRight = '4px';
-          successIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
-
-          statusDiv.append(successIcon);
-          statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_SUCCESS}`));
+          Toolbar._setStatusIcon(statusDiv, 'CHECK', 'SYNC_SUCCESS');
         } else {
           const rawError = sanitizeApiError(response?.error || 'Unknown error');
           const errorMsg = ErrorHandler.formatUserMessage(rawError);
-          statusDiv.textContent = ''; // Clear
-          const errorIcon = document.createElement('span');
-          errorIcon.append(createSpriteIcon('error')); // Use standardized Error icon
-          errorIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
-          errorIcon.style.marginRight = '4px';
-          errorIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
-
-          statusDiv.append(errorIcon);
-          statusDiv.append(document.createTextNode(` ${errorMsg}`));
+          Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
         }
 
         setTimeout(() => {
@@ -477,15 +476,7 @@ export class Toolbar {
           statusDiv.textContent = originalText;
         }, 2000);
       } catch (error) {
-        statusDiv.textContent = '';
-        const errorIcon = document.createElement('span');
-        errorIcon.append(createSpriteIcon('error'));
-        errorIcon.style.display = UI_STYLE_CONSTANTS.INLINE_BLOCK;
-        errorIcon.style.marginRight = '4px';
-        errorIcon.style.verticalAlign = UI_STYLE_CONSTANTS.TEXT_BOTTOM;
-
-        statusDiv.append(errorIcon);
-        statusDiv.append(document.createTextNode(` ${UI_MESSAGES.TOOLBAR.SYNC_FAILED}`));
+        Toolbar._setStatusIcon(statusDiv, 'X', 'SYNC_FAILED');
 
         setTimeout(() => {
           statusDiv.textContent = originalText;

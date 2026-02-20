@@ -1,8 +1,16 @@
 import Logger from '../../utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
-import { MIGRATION_CONFIG } from '../../config/constants.js';
 
+const MIGRATION_CONFIG = Object.freeze({
+  SCRIPT_READY_MAX_RETRIES: 10,
+  SCRIPT_READY_RETRY_DELAY: 200,
+});
+
+/**
+ * Migration 服務
+ * 負責處理跨版本升級的數據遷移與初始化
+ */
 export class MigrationService {
   constructor(storageService, tabService, injectionService) {
     this.storageService = storageService;
@@ -208,6 +216,7 @@ export class MigrationService {
    *
    * @param {number} tabId
    * @returns {Promise<boolean>}
+   * @throws {Error} 當遷移執行腳本未能在配置的重試次數內載入時拋出包含 tabId 及重試次數之超時錯誤
    */
   async _waitForScriptReady(tabId) {
     const maxRetries = MIGRATION_CONFIG.SCRIPT_READY_MAX_RETRIES;
@@ -232,8 +241,12 @@ export class MigrationService {
       } catch {
         // Ignore errors during check
       }
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
     }
-    throw new Error('Migration executor script load timeout');
+    throw new Error(
+      `Migration executor script load timeout for tabId: ${tabId} after ${maxRetries} retries`
+    );
   }
 }
