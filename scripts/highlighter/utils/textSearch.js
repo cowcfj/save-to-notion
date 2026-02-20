@@ -3,11 +3,14 @@
  * 提供在頁面中查找文本並返回 Range 的功能
  */
 
-/** 上下文搜索窗口：為序列化上下文長度 (CONTEXT_LENGTH=32) 的 2 倍，以容許 DOM 結構變動後的文字偏移 */
-const CONTEXT_SEARCH_WINDOW = 64;
+import { HIGHLIGHT_ANCHORING } from '../../config/constants.js';
 
-/** 局部匹配時取前後文的字元數 */
+// 上下文比對的最大字元數，設定為 Range 擷取長度的 2 倍以容忍一定程度的偏移
+const CONTEXT_SEARCH_WINDOW = HIGHLIGHT_ANCHORING.CONTEXT_LENGTH * 2;
+// 局部片段匹配的字元長度
 const PARTIAL_MATCH_LENGTH = 10;
+// 跨節點比對的最大節點數量
+const MAX_COMBINED_NODES = 5;
 
 /**
  * 在頁面中查找文本並返回 Range
@@ -76,10 +79,10 @@ export function findTextInPage(textToFind, context = {}) {
  * 跳過腳本(SCRIPT)和樣式(STYLE)標籤，避免匹配到隱藏的原始碼內容
  */
 const SEARCH_NODE_FILTER = {
-  acceptNode: node => {
+  acceptNode(node) {
     const parent = node.parentElement;
     if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
-      return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_SKIP;
     }
     return NodeFilter.FILTER_ACCEPT;
   },
@@ -91,6 +94,10 @@ const SEARCH_NODE_FILTER = {
  * @returns {Node[]} 文本節點陣列
  */
 function getTextNodesForSearch() {
+  if (!document.body) {
+    return [];
+  }
+
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, SEARCH_NODE_FILTER);
 
   let node = null;
@@ -200,7 +207,7 @@ function findRangeAcrossNodes(textToFind, textNodes) {
     let combinedText = '';
     const nodesInRange = [];
 
-    for (let j = i; j < Math.min(i + 5, textNodes.length); j++) {
+    for (let j = i; j < Math.min(i + MAX_COMBINED_NODES, textNodes.length); j++) {
       combinedText += textNodes[j].textContent;
       nodesInRange.push(textNodes[j]);
 
@@ -225,16 +232,26 @@ function findRangeAcrossNodes(textToFind, textNodes) {
  * const range = findTextWithTreeWalker('Hello');
  */
 export function findTextWithTreeWalker(textToFind) {
-  const textNodes = getTextNodesForSearch();
+  try {
+    if (!document.body) {
+      return null;
+    }
+    const textNodes = getTextNodesForSearch();
 
-  // 在單個文本節點中查找
-  const singleNodeRange = findTextInSingleNode(textToFind, textNodes);
-  if (singleNodeRange) {
-    return singleNodeRange;
+    // 在單個文本節點中查找
+    const singleNodeRange = findTextInSingleNode(textToFind, textNodes);
+    if (singleNodeRange) {
+      return singleNodeRange;
+    }
+
+    // 嘗試跨文本節點匹配
+    return findRangeAcrossNodes(textToFind, textNodes);
+  } catch (error) {
+    if (globalThis.Logger !== undefined) {
+      globalThis.Logger?.error(SEARCH_LOG_TAG, 'findTextWithTreeWalker error:', error);
+    }
+    return null;
   }
-
-  // 嘗試跨文本節點匹配
-  return findRangeAcrossNodes(textToFind, textNodes);
 }
 
 /**
@@ -244,8 +261,12 @@ export function findTextWithTreeWalker(textToFind) {
  * @returns {Array} 候選者陣列
  */
 function findRegexCandidates(regex) {
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, SEARCH_NODE_FILTER);
+  if (!document.body) {
+    return [];
+  }
+
   const candidates = [];
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, SEARCH_NODE_FILTER);
   let node = null;
 
   while ((node = walker.nextNode()) !== null) {
@@ -281,6 +302,10 @@ function findRegexCandidates(regex) {
  */
 function getPrefixTextWithWalker(node, initialText) {
   let prefixText = initialText;
+  if (!document.body) {
+    return prefixText;
+  }
+
   if (prefixText.length < CONTEXT_SEARCH_WINDOW && node) {
     const walker = document.createTreeWalker(
       document.body,
@@ -308,6 +333,10 @@ function getPrefixTextWithWalker(node, initialText) {
  */
 function getSuffixTextWithWalker(node, initialText) {
   let suffixText = initialText;
+  if (!document.body) {
+    return suffixText;
+  }
+
   if (suffixText.length < CONTEXT_SEARCH_WINDOW && node) {
     const walker = document.createTreeWalker(
       document.body,
@@ -380,53 +409,68 @@ function calculateCandidateScore(candidate, context) {
  * @returns {Range|null} 找到的最佳 Range 或 null
  */
 export function findTextFuzzy(textToFind, context = {}) {
-  // 首先轉義所有正則表達式元字符，使其被當作普通字符處理
-  const escapedText = textToFind.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+  try {
+    if (!document.body) {
+      return null;
+    }
 
-  // 然後將連續的空白字符轉換為 \s+ 以實現寬鬆匹配
-  const normalizedSearch = escapedText.replaceAll(/\s+/g, String.raw`\s+`);
-  // eslint-disable-next-line security/detect-non-literal-regexp
-  const regex = new RegExp(normalizedSearch, 'ig'); // 改為全域比對
+    const cleanText = textToFind.trim();
+    if (!cleanText) {
+      return null;
+    }
 
-  const candidates = findRegexCandidates(regex);
+    // 首先轉義所有正則表達式元字符，使其被當作普通字符處理
+    const escapedText = cleanText.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
 
-  if (candidates.length === 0) {
+    // 然後將連續的空白字符轉換為 \s+ 以實現寬鬆匹配
+    const normalizedSearch = escapedText.replaceAll(/\s+/g, String.raw`\s+`);
+    // eslint-disable-next-line security/detect-non-literal-regexp
+    const regex = new RegExp(normalizedSearch, 'ig'); // 改為全域比對
+
+    const candidates = findRegexCandidates(regex);
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    if (candidates.length === 1 || !(context.prefix || context.suffix)) {
+      return candidates[0].range; // 只有一個候選者或無上下文，直接返回
+    }
+
+    // 多候選情況下的消歧義打分
+    let bestCandidate = candidates[0];
+    let maxScore = -1;
+
+    for (const candidate of candidates) {
+      const score = calculateCandidateScore(candidate, context);
+      if (score > maxScore) {
+        maxScore = score;
+        bestCandidate = candidate;
+      }
+    }
+
+    if (maxScore <= 0 && (context.prefix || context.suffix) && globalThis.Logger !== undefined) {
+      globalThis.Logger?.debug(
+        SEARCH_LOG_TAG,
+        'calculateCandidateScore failed to disambiguate. maxScore <= 0.',
+        {
+          context,
+          candidateCount: candidates.length,
+          bestCandidate: bestCandidate.range.toString(),
+          maxScore,
+          scoringFunction: calculateCandidateScore.name,
+          candidatesInfo: candidates.map(candidateInfo => ({
+            matchIndex: candidateInfo.matchIndex,
+          })),
+        }
+      );
+    }
+
+    return bestCandidate.range;
+  } catch (error) {
+    if (globalThis.Logger !== undefined) {
+      globalThis.Logger?.error(SEARCH_LOG_TAG, 'findTextFuzzy error:', error);
+    }
     return null;
   }
-
-  if (candidates.length === 1 || !(context.prefix || context.suffix)) {
-    return candidates[0].range; // 只有一個候選者或無上下文，直接返回
-  }
-
-  // 多候選情況下的消歧義打分
-  let bestCandidate = candidates[0];
-  let maxScore = -1;
-
-  for (const candidate of candidates) {
-    const score = calculateCandidateScore(candidate, context);
-    if (score > maxScore) {
-      maxScore = score;
-      bestCandidate = candidate;
-    }
-  }
-
-  if (maxScore <= 0 && (context.prefix || context.suffix) && globalThis.Logger !== undefined) {
-    globalThis.Logger?.debug(
-      SEARCH_LOG_TAG,
-      'calculateCandidateScore failed to disambiguate. maxScore <= 0.',
-      {
-        context,
-        candidateCount: candidates.length,
-        bestCandidate: bestCandidate.range.toString(),
-        maxScore,
-        scoringFunction: calculateCandidateScore.name,
-        candidatesInfo: candidates.map(candidateInfo => ({
-          matchIndex: candidateInfo.matchIndex,
-          range: candidateInfo.range.toString(),
-        })),
-      }
-    );
-  }
-
-  return bestCandidate.range;
 }

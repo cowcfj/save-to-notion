@@ -6,8 +6,9 @@
 import { getNodePath, getNodeByPath } from '../utils/path.js';
 import { findTextInPage } from '../utils/textSearch.js';
 import { waitForDOMStability } from '../utils/domStability.js';
+import { HIGHLIGHT_ANCHORING } from '../../config/constants.js';
 
-const CONTEXT_LENGTH = 32;
+const { CONTEXT_LENGTH } = HIGHLIGHT_ANCHORING;
 
 /**
  * 序列化 Range 對象

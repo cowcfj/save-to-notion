@@ -416,6 +416,14 @@ export const HIGHLIGHT_MIGRATION = {
   MAX_SCAN_LIMIT: 500, // localStorage 遍歷上限，避免性能問題
 };
 
+/**
+ * 標註錨定（Content Anchoring）相關常量
+ * 用於 Range 序列化時的上下文擷取與 textSearch 的模糊比對窗口
+ */
+export const HIGHLIGHT_ANCHORING = {
+  CONTEXT_LENGTH: 32, // 序列化時前後文各擷取的字元數
+};
+
 // ERROR_MESSAGES has been moved to messages.js
 
 // ==========================================
