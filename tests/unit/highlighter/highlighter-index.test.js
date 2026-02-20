@@ -82,6 +82,7 @@ jest.mock('../../../scripts/highlighter/ui/Toolbar.js', () => ({
 describe('Highlighter Index', () => {
   let initHighlighter = null;
   let initHighlighterWithToolbar = null;
+  let highlighterModule = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -101,9 +102,9 @@ describe('Highlighter Index', () => {
     globalThis.chrome = mockChrome;
 
     // 載入模組
-    const module = require('../../../scripts/highlighter/index.js');
-    initHighlighter = module.initHighlighter;
-    initHighlighterWithToolbar = module.initHighlighterWithToolbar;
+    highlighterModule = require('../../../scripts/highlighter/index.js');
+    initHighlighter = highlighterModule.initHighlighter;
+    initHighlighterWithToolbar = highlighterModule.initHighlighterWithToolbar;
   });
 
   afterEach(() => {
@@ -146,8 +147,7 @@ describe('Highlighter Index', () => {
 
   describe('setupHighlighter', () => {
     beforeEach(() => {
-      const module = require('../../../scripts/highlighter/index.js');
-      module.setupHighlighter();
+      highlighterModule.setupHighlighter();
     });
 
     test('應該設置 window.HighlighterV2', () => {
@@ -177,8 +177,7 @@ describe('Highlighter Index', () => {
 
   describe('全局函數別名', () => {
     beforeEach(() => {
-      const module = require('../../../scripts/highlighter/index.js');
-      module.setupHighlighter();
+      highlighterModule.setupHighlighter();
     });
 
     test('window.initHighlighter 應該可用', () => {
@@ -197,8 +196,7 @@ describe('Highlighter Index', () => {
   describe('notionHighlighter 兼容層方法', () => {
     beforeEach(async () => {
       // 手動調用 setupHighlighter 以確保 notionHighlighter 被初始化
-      const module = require('../../../scripts/highlighter/index.js');
-      module.setupHighlighter();
+      highlighterModule.setupHighlighter();
     });
 
     test('show() 應該調用 toolbar.show()', async () => {

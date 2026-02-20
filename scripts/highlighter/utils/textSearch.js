@@ -32,6 +32,10 @@ export function findTextInPage(textToFind, context = {}) {
       return null;
     }
 
+    if (context.prefix || context.suffix) {
+      return findTextFuzzy(cleanText, context);
+    }
+
     // 方法1：使用 window.find() API（最快，但可能不夠精確）
     const selection = globalThis.getSelection();
     selection.removeAllRanges();
@@ -250,6 +254,7 @@ function findRegexCandidates(regex) {
 
       candidates.push({
         range,
+        node,
         nodeText: textContent,
         matchIndex: index,
         matchLength: match[0].length,
@@ -258,6 +263,59 @@ function findRegexCandidates(regex) {
   }
 
   return candidates;
+}
+
+/**
+ * 使用 TreeWalker 往前回溯取得更多的前綴文字
+ *
+ * @param {Node} node - 起始節點
+ * @param {string} initialText - 初始文本
+ * @returns {string} 擴展後的前綴文本
+ */
+function getPrefixTextWithWalker(node, initialText) {
+  let prefixText = initialText;
+  if (prefixText.length < CONTEXT_SEARCH_WINDOW && node) {
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      SEARCH_NODE_FILTER
+    );
+    walker.currentNode = node;
+    while (prefixText.length < CONTEXT_SEARCH_WINDOW && walker.previousNode()) {
+      const textNode = walker.currentNode;
+      const missingLength = CONTEXT_SEARCH_WINDOW - prefixText.length;
+      const nodeText = textNode.textContent;
+      prefixText =
+        (nodeText.length > missingLength ? nodeText.slice(-missingLength) : nodeText) + prefixText;
+    }
+  }
+  return prefixText;
+}
+
+/**
+ * 使用 TreeWalker 往後回溯取得更多的後綴文字
+ *
+ * @param {Node} node - 起始節點
+ * @param {string} initialText - 初始文本
+ * @returns {string} 擴展後的後綴文本
+ */
+function getSuffixTextWithWalker(node, initialText) {
+  let suffixText = initialText;
+  if (suffixText.length < CONTEXT_SEARCH_WINDOW && node) {
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      SEARCH_NODE_FILTER
+    );
+    walker.currentNode = node;
+    while (suffixText.length < CONTEXT_SEARCH_WINDOW && walker.nextNode()) {
+      const textNode = walker.currentNode;
+      const missingLength = CONTEXT_SEARCH_WINDOW - suffixText.length;
+      const nodeText = textNode.textContent;
+      suffixText += nodeText.length > missingLength ? nodeText.slice(0, missingLength) : nodeText;
+    }
+  }
+  return suffixText;
 }
 
 /**
@@ -271,10 +329,12 @@ function calculateCandidateScore(candidate, context) {
   let score = 0;
 
   if (context.prefix) {
-    const nodePrefixText = candidate.nodeText.slice(
+    const initialPrefix = candidate.nodeText.slice(
       Math.max(0, candidate.matchIndex - CONTEXT_SEARCH_WINDOW),
       candidate.matchIndex
     );
+    const nodePrefixText = getPrefixTextWithWalker(candidate.node, initialPrefix);
+
     if (nodePrefixText.endsWith(context.prefix)) {
       score += 2; // 精確匹配
     } else if (nodePrefixText.includes(context.prefix.slice(-PARTIAL_MATCH_LENGTH))) {
@@ -283,10 +343,12 @@ function calculateCandidateScore(candidate, context) {
   }
 
   if (context.suffix) {
-    const nodeSuffixText = candidate.nodeText.slice(
+    const initialSuffix = candidate.nodeText.slice(
       candidate.matchIndex + candidate.matchLength,
       candidate.matchIndex + candidate.matchLength + CONTEXT_SEARCH_WINDOW
     );
+    const nodeSuffixText = getSuffixTextWithWalker(candidate.node, initialSuffix);
+
     if (nodeSuffixText.startsWith(context.suffix)) {
       score += 2; // 精確匹配
     } else if (nodeSuffixText.includes(context.suffix.slice(0, PARTIAL_MATCH_LENGTH))) {
