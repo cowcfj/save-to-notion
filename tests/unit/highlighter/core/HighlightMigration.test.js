@@ -290,5 +290,50 @@ describe('core/HighlightMigration', () => {
 
       expect(mockManager.nextId).toBe(7);
     });
+
+    test('should not remove old key when saveHighlights throws', async () => {
+      StorageUtil.saveHighlights.mockRejectedValue(new Error('storage full'));
+      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      findTextInPage.mockReturnValue(document.createRange());
+
+      localStorage.setItem('old_key', JSON.stringify([{ text: 'test' }]));
+
+      await migration.migrateToNewFormat([{ text: 'test' }], 'old_key', 'https://example.com');
+
+      expect(localStorage.getItem('old_key')).not.toBeNull();
+      expect(Logger.error).toHaveBeenCalledWith(
+        '數據遷移失敗',
+        expect.objectContaining({ action: 'migrateToNewFormat' })
+      );
+    });
+
+    test('should only save successfully migrated items in mixed batch', async () => {
+      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      findTextInPage
+        .mockReturnValueOnce(document.createRange()) // 第一個找到
+        .mockReturnValueOnce(null); // 第二個找不到
+
+      const legacyData = [{ text: 'found' }, { text: 'not found' }];
+      await migration.migrateToNewFormat(legacyData, 'old_key', 'https://example.com');
+
+      const saveArg = StorageUtil.saveHighlights.mock.calls[0][1];
+      expect(saveArg.highlights).toHaveLength(1);
+      expect(saveArg.highlights[0].text).toBe('found');
+    });
+
+    test('should log warning when _markMigrationComplete fails', async () => {
+      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      findTextInPage.mockReturnValue(document.createRange());
+
+      globalThis.chrome.storage.local.set.mockRejectedValue(new Error('quota exceeded'));
+
+      await migration.migrateToNewFormat([{ text: 'test' }], 'old_key', 'https://example.com');
+
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '儲存遷移完成標記失敗',
+        expect.objectContaining({ action: '_markMigrationComplete' })
+      );
+      expect(StorageUtil.saveHighlights).toHaveBeenCalled();
+    });
   });
 });

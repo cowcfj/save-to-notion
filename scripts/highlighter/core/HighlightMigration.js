@@ -182,7 +182,7 @@ export class HighlightMigration {
       id: newId,
       color,
       text,
-      timestamp: oldItem.timestamp || Date.now(),
+      timestamp: oldItem.timestamp ?? Date.now(),
       rangeInfo: serializeRange(range),
     };
   }
