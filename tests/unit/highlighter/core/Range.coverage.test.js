@@ -61,6 +61,8 @@ describe('Range Module Coverage Tests', () => {
         startOffset: 0,
         endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
         endOffset: 4,
+        prefix: '',
+        suffix: ' content',
       });
       expect(pathUtils.getNodePath).toHaveBeenCalledTimes(2);
     });
@@ -211,7 +213,10 @@ describe('Range Module Coverage Tests', () => {
       const range = await restoreRangeWithRetry(rangeInfo, 'Test', 3);
 
       expect(range).not.toBeNull();
-      expect(textSearchUtils.findTextInPage).toHaveBeenCalledWith('Test');
+      expect(textSearchUtils.findTextInPage).toHaveBeenCalledWith('Test', {
+        prefix: undefined,
+        suffix: undefined,
+      });
     });
 
     test('should return null after all retries fail', async () => {
@@ -240,7 +245,7 @@ describe('Range Module Coverage Tests', () => {
       const range = findRangeByTextContent('Test text');
 
       expect(range).toBe(mockRange);
-      expect(textSearchUtils.findTextInPage).toHaveBeenCalledWith('Test text');
+      expect(textSearchUtils.findTextInPage).toHaveBeenCalledWith('Test text', {});
     });
 
     test('should return null for empty text', () => {

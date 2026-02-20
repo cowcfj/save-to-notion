@@ -90,7 +90,7 @@ export class HighlightStorage {
       for (const item of highlights) {
         try {
           // 委託 Manager 僅負責創建單個標註
-          const result = this.manager.restoreLocalHighlight(item);
+          const result = await this.manager.restoreLocalHighlight(item);
           if (result) {
             successCount++;
           }

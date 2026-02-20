@@ -84,7 +84,11 @@ describe('background error branches (integration)', () => {
   });
 
   const internalSender = { id: 'test', url: 'chrome-extension://test/popup.html' };
-  const contentScriptSender = { id: 'test', tab: { id: 1 }, url: 'https://example.com' };
+  const contentScriptSender = {
+    id: 'test',
+    tab: { id: 1, url: 'https://example.com' },
+    url: 'https://example.com',
+  };
 
   test('startHighlight：無活動分頁 → 返回錯誤', async () => {
     const sendResponse = jest.fn();

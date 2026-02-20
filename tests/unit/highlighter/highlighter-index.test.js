@@ -146,12 +146,14 @@ describe('Highlighter Index', () => {
 
   describe('setupHighlighter', () => {
     test('應該設置 window.HighlighterV2', () => {
-      // setupHighlighter 在模組載入時自動執行
+      const module = require('../../../scripts/highlighter/index.js');
+      module.setupHighlighter();
       expect(globalThis.HighlighterV2).toBeDefined();
     });
 
     test('window.HighlighterV2 應該包含所有必要的屬性', () => {
-      // 源代碼使用簡化的方法名稱
+      const module = require('../../../scripts/highlighter/index.js');
+      module.setupHighlighter();
       expect(typeof globalThis.HighlighterV2.init).toBe('function');
       expect(typeof globalThis.HighlighterV2.initWithToolbar).toBe('function');
       expect(typeof globalThis.HighlighterV2.getInstance).toBe('function');
@@ -159,10 +161,14 @@ describe('Highlighter Index', () => {
     });
 
     test('應該設置 window.notionHighlighter 兼容層', () => {
+      const module = require('../../../scripts/highlighter/index.js');
+      module.setupHighlighter();
       expect(globalThis.notionHighlighter).toBeDefined();
     });
 
     test('notionHighlighter 應該包含兼容方法', () => {
+      const module = require('../../../scripts/highlighter/index.js');
+      module.setupHighlighter();
       expect(typeof globalThis.notionHighlighter.show).toBe('function');
       expect(typeof globalThis.notionHighlighter.hide).toBe('function');
       expect(typeof globalThis.notionHighlighter.toggle).toBe('function');
@@ -173,6 +179,11 @@ describe('Highlighter Index', () => {
   });
 
   describe('全局函數別名', () => {
+    beforeEach(() => {
+      const module = require('../../../scripts/highlighter/index.js');
+      module.setupHighlighter();
+    });
+
     test('window.initHighlighter 應該可用', () => {
       expect(typeof globalThis.initHighlighter).toBe('function');
     });
@@ -188,8 +199,9 @@ describe('Highlighter Index', () => {
 
   describe('notionHighlighter 兼容層方法', () => {
     beforeEach(async () => {
-      // 確保 highlighter 已初始化
-      await initHighlighterWithToolbar();
+      // 手動調用 setupHighlighter 以確保 notionHighlighter 被初始化
+      const module = require('../../../scripts/highlighter/index.js');
+      module.setupHighlighter();
     });
 
     test('show() 應該調用 toolbar.show()', async () => {

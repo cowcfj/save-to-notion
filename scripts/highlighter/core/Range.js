@@ -14,11 +14,35 @@ import { waitForDOMStability } from '../utils/domStability.js';
  * @returns {object} 序列化的 Range 資訊
  */
 export function serializeRange(range) {
+  // 提取前文 (prefix)
+  let prefix = '';
+  if (range.startContainer.nodeType === Node.TEXT_NODE) {
+    const text = range.startContainer.textContent;
+    prefix = text.slice(Math.max(0, range.startOffset - 32), range.startOffset);
+  } else if (range.startContainer.textContent) {
+    // 元素節點，盡力提取
+    const text = range.startContainer.textContent;
+    prefix = text.slice(Math.max(0, text.length - 32));
+  }
+
+  // 提取後文 (suffix)
+  let suffix = '';
+  if (range.endContainer.nodeType === Node.TEXT_NODE) {
+    const text = range.endContainer.textContent;
+    suffix = text.slice(range.endOffset, Math.min(text.length, range.endOffset + 32));
+  } else if (range.endContainer.textContent) {
+    // 元素節點，盡力提取
+    const text = range.endContainer.textContent;
+    suffix = text.slice(0, Math.min(text.length, 32));
+  }
+
   return {
     startContainerPath: getNodePath(range.startContainer),
     startOffset: range.startOffset,
     endContainerPath: getNodePath(range.endContainer),
     endOffset: range.endOffset,
+    prefix, // 新增：用於模糊匹配消歧義
+    suffix, // 新增：用於模糊匹配消歧義
   };
 }
 
@@ -73,6 +97,12 @@ export async function restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
     return range;
   }
 
+  // 提取上下文，以便在文本搜索時進行消歧義
+  const context = {
+    prefix: rangeInfo?.prefix,
+    suffix: rangeInfo?.suffix,
+  };
+
   // 等待 DOM 穩定後重試
   for (let i = 0; i < maxRetries; i++) {
     const isStable = await waitForDOMStability({
@@ -87,9 +117,9 @@ export async function restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
       }
     }
 
-    // 最後嘗試：使用文本搜索
+    // 最後嘗試：使用文本搜索（傳入上下文交由 findTextInPage 處理）
     if (i === maxRetries - 1) {
-      range = findTextInPage(text);
+      range = findTextInPage(text, context);
       if (range) {
         return range;
       }
@@ -103,14 +133,15 @@ export async function restoreRangeWithRetry(rangeInfo, text, maxRetries = 3) {
  * 基於文本內容查找 Range
  *
  * @param {string} targetText - 目標文本
+ * @param {object} [context] - 上下文資訊，包含 prefix 和 suffix 用於消歧義
  * @returns {Range|null}
  */
-export function findRangeByTextContent(targetText) {
+export function findRangeByTextContent(targetText, context = {}) {
   if (!targetText || typeof targetText !== 'string') {
     return null;
   }
 
-  return findTextInPage(targetText);
+  return findTextInPage(targetText, context);
 }
 
 /**

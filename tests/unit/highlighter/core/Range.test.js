@@ -32,6 +32,42 @@ describe('core/Range', () => {
       expect(serialized).toHaveProperty('endContainerPath');
       expect(serialized).toHaveProperty('endOffset', 5);
     });
+
+    test('should extract prefix and suffix correctly from text node', () => {
+      const div = document.createElement('div');
+      div.textContent = 'This is a prefix before the Target text and this is a suffix after it.';
+      document.body.append(div);
+
+      // 提取 "Target text" (長度 11，從 index 28 到 39)
+      const range = document.createRange();
+      range.setStart(div.firstChild, 28);
+      range.setEnd(div.firstChild, 39);
+
+      const serialized = serializeRange(range);
+      expect(serialized.prefix).toBe('This is a prefix before the '); // 長度 28 <= 32
+      expect(serialized.suffix).toBe(' and this is a suffix after it.'); // 長度 31 <= 32
+    });
+
+    test('should truncate prefix and suffix to 32 characters', () => {
+      const div = document.createElement('div');
+      // 長度 50
+      const longPrefix = 'A very long prefix string that exceeds 32 chars...';
+      const target = 'Target';
+      // 長度 50
+      const longSuffix = '...and a very long suffix string that also exceeds 32 chars.';
+      div.textContent = longPrefix + target + longSuffix;
+      document.body.append(div);
+
+      const range = document.createRange();
+      range.setStart(div.firstChild, 50);
+      range.setEnd(div.firstChild, 56);
+
+      const serialized = serializeRange(range);
+      expect(serialized.prefix).toHaveLength(32);
+      expect(serialized.prefix).toBe(' string that exceeds 32 chars...');
+      expect(serialized.suffix).toHaveLength(32);
+      expect(serialized.suffix).toBe('...and a very long suffix string');
+    });
   });
 
   describe('deserializeRange', () => {
