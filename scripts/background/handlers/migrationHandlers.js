@@ -20,27 +20,65 @@ import { ERROR_MESSAGES } from '../../config/messages.js';
 import { computeStableUrl } from '../../utils/urlUtils.js';
 
 /**
- * 處理批量遷移的穩定 URL 同步寫入
+ * 處理單個 URL 的遷移邏輯，包含穩定 URL 檢查與資料轉移
  *
  * @param {string} url - 原始 URL
- * @param {Array} newHighlights - 新的標註資料
- * @returns {Promise<string>} 返回最終應顯示的 URL (stableUrl 或 original url)
- */
-async function _handleStableUrlMigration(url, newHighlights) {
-  const stableUrl = computeStableUrl(url);
-  if (stableUrl && stableUrl !== url) {
-    const stableKey = `highlights_${stableUrl}`;
+ * @returns {Promise<object>} 返回執行結果狀態與詳細資訊
+ */ async function _migrateSingleUrl(url) {
+  const pageKey = `highlights_${url}`;
 
-    // 檢查穩定 key 是否已有數據，避免覆蓋已存在的新數據
-    const existing = await chrome.storage.local.get(stableKey);
-    if (!existing[stableKey]) {
-      await chrome.storage.local.set({
-        [stableKey]: { url: stableUrl, highlights: newHighlights },
-      });
-      return stableUrl; // 使用穩定 URL 回報以對應結果列表的「打開頁面」連結
-    }
+  // 同步計算穩定 URL（無需 async），並批量讀取兩個 key 以縮小 TOCTOU 窗口
+  const stableUrl = computeStableUrl(url);
+  const stableKey = stableUrl && stableUrl !== url ? `highlights_${stableUrl}` : null;
+  const keysToFetch = stableKey ? [pageKey, stableKey] : pageKey;
+
+  const storageResult = await chrome.storage.local.get(keysToFetch);
+  const data = storageResult[pageKey];
+
+  if (!data) {
+    return {
+      status: 'skipped',
+      reason: '無數據',
+      url: sanitizeUrlForLogging(url),
+    };
   }
-  return url;
+
+  // 提取標註數據（支持新舊格式）
+  const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
+
+  if (oldHighlights.length === 0) {
+    return {
+      status: 'skipped',
+      reason: '無標註',
+      url: sanitizeUrlForLogging(url),
+    };
+  }
+
+  // 轉換格式：對於沒有 rangeInfo 的項目添加 needsRangeInfo 標記
+  const newHighlights = oldHighlights.map(item => ({
+    ...item,
+    needsRangeInfo: !item.rangeInfo,
+  }));
+
+  // 若穩定 key 不存在（由同一批次讀取決定），則遷移到穩定 key
+  const shouldMigrateToStable = stableKey && !storageResult[stableKey];
+  const finalUrl = shouldMigrateToStable ? stableUrl : url;
+  const writeKey = shouldMigrateToStable ? stableKey : pageKey;
+
+  // 單次 set 寫入目標 key
+  await chrome.storage.local.set({ [writeKey]: { url: finalUrl, highlights: newHighlights } });
+
+  // 若完成穩定遷移，刪除原始 key 避免 migration_get_pending 重複計算
+  if (shouldMigrateToStable) {
+    await chrome.storage.local.remove(pageKey);
+  }
+
+  return {
+    status: 'success',
+    url: sanitizeUrlForLogging(finalUrl),
+    count: newHighlights.length,
+    pending: newHighlights.filter(highlight => highlight.needsRangeInfo).length,
+  };
 }
 
 /**
@@ -225,58 +263,17 @@ export function createMigrationHandlers(services) {
 
         for (const url of urls) {
           try {
-            const pageKey = `highlights_${url}`;
-            const storageResult = await chrome.storage.local.get(pageKey);
-            const data = storageResult[pageKey];
+            const itemResult = await _migrateSingleUrl(url);
+            results.details.push(itemResult);
 
-            if (!data) {
-              results.details.push({
-                url: sanitizeUrlForLogging(url),
-                status: 'skipped',
-                reason: '無數據',
+            if (itemResult.status === 'success') {
+              results.success++;
+              Logger.log('批量遷移成功', {
+                action: 'migration_batch',
+                url: itemResult.url,
+                highlightCount: itemResult.count,
               });
-              continue;
             }
-
-            // 提取標註數據（支持新舊格式）
-            const oldHighlights = data.highlights || (Array.isArray(data) ? data : []);
-
-            if (oldHighlights.length === 0) {
-              results.details.push({
-                url: sanitizeUrlForLogging(url),
-                status: 'skipped',
-                reason: '無標註',
-              });
-              continue;
-            }
-
-            // 轉換格式：對於沒有 rangeInfo 的項目添加 needsRangeInfo 標記
-            const newHighlights = oldHighlights.map(item => ({
-              ...item,
-              needsRangeInfo: !item.rangeInfo,
-            }));
-
-            // 保存新格式數據
-            await chrome.storage.local.set({
-              [pageKey]: { url, highlights: newHighlights },
-            });
-
-            // Phase 1: 嘗試計算穩定 URL，若存在則額外寫入穩定 key
-            const finalUrl = await _handleStableUrlMigration(url, newHighlights);
-
-            results.success++;
-            results.details.push({
-              url: sanitizeUrlForLogging(finalUrl),
-              status: 'success',
-              count: newHighlights.length,
-              pending: newHighlights.filter(highlight => highlight.needsRangeInfo).length,
-            });
-
-            Logger.log('批量遷移成功', {
-              action: 'migration_batch',
-              url: sanitizeUrlForLogging(url),
-              highlightCount: newHighlights.length,
-            });
           } catch (itemError) {
             results.failed++;
             results.details.push({
