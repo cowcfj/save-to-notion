@@ -10,7 +10,12 @@
 /* global chrome */
 
 import { normalizeUrl, computeStableUrl } from '../utils/urlUtils.js';
-import { SAVED_PREFIX, HIGHLIGHTS_PREFIX, URL_ALIAS_PREFIX } from '../config/constants.js';
+import {
+  SAVED_PREFIX,
+  HIGHLIGHTS_PREFIX,
+  URL_ALIAS_PREFIX,
+  RESTRICTED_PROTOCOLS,
+} from '../config/constants.js';
 
 // DOM 元素
 let els = {};
@@ -30,8 +35,8 @@ async function init() {
 
   // 2. 監聽當前分頁變化
   chrome.tabs.onActivated.addListener(handleTabChange);
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, _tab) => {
-    if (changeInfo.status === 'complete') {
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab.active) {
       handleTabChange({ tabId });
     }
   });
@@ -69,7 +74,7 @@ async function loadCurrentTab(specificTabId = null) {
       tab = tabs[0];
     }
 
-    if (!tab?.url || tab.url.startsWith('chrome://')) {
+    if (!tab?.url || RESTRICTED_PROTOCOLS.includes(new URL(tab.url).protocol)) {
       showEmpty('Not supported on this page.');
       return;
     }
@@ -97,7 +102,6 @@ async function getStableUrlForTab(tabId, url) {
   try {
     const response = await chrome.tabs.sendMessage(tabId, { action: 'GET_STABLE_URL' });
     if (response?.stableUrl) {
-      expect(() => jest.runAllTimers()).not.toThrow();
       return response.stableUrl;
     }
   } catch {
@@ -158,6 +162,7 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
 
   if (!highlightsData?.highlights || highlightsData.highlights.length === 0) {
     showEmpty();
+    return;
   }
 
   // 渲染列表
@@ -188,6 +193,15 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
 function renderList(highlights, storageKey) {
   els.highlightsList.innerHTML = '';
 
+  const COLOR_MAP = {
+    yellow: 'var(--hl-yellow)',
+    green: 'var(--hl-green)',
+    blue: 'var(--hl-blue)',
+    red: 'var(--hl-red)',
+    purple: 'var(--hl-purple)',
+    pink: 'var(--hl-pink)',
+  };
+
   highlights.forEach(hl => {
     const clone = els.template.content.cloneNode(true);
     const card = clone.querySelector('.highlight-card');
@@ -199,16 +213,7 @@ function renderList(highlights, storageKey) {
 
     // 設置顏色指示條
     if (hl.color) {
-      // 假設 hl.color 是 'yellow', 'green', 需要對應到 CSS 變數或 hex
-      const colorMap = {
-        yellow: 'var(--hl-yellow)',
-        green: 'var(--hl-green)',
-        blue: 'var(--hl-blue)',
-        red: 'var(--hl-red)',
-        purple: 'var(--hl-purple)',
-        pink: 'var(--hl-pink)',
-      };
-      colorInd.style.backgroundColor = colorMap[hl.color] || colorMap.yellow;
+      colorInd.style.backgroundColor = COLOR_MAP[hl.color] || COLOR_MAP.yellow;
     }
 
     // 綁定刪除事件

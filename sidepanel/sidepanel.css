@@ -188,7 +188,7 @@ body {
   color: var(--text-main);
   /* Use multiline clamp or let it flow. Since side panel has space, we let it flow naturally */
   white-space: pre-wrap;
-  word-break: break-word; /* Handle long URLs/words */
+  overflow-wrap: break-word; /* Handle long URLs/words */
 }
 
 .delete-button {

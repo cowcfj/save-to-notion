@@ -1,7 +1,7 @@
 // storage prefix constants
-export const SAVED_PREFIX = 'sc_saved_';
-export const HIGHLIGHTS_PREFIX = 'sc_hl_';
-export const URL_ALIAS_PREFIX = 'sc_alias_';
+export const SAVED_PREFIX = 'saved_';
+export const HIGHLIGHTS_PREFIX = 'highlights_';
+export const URL_ALIAS_PREFIX = 'url_alias:';
 export const HIGHLIGHTS_LEGACY_PREFIX = 'nh_highlights_'; // 舊版標註存儲前綴
 
 /**
