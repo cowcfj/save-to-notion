@@ -7,9 +7,6 @@ jest.mock('../../../scripts/utils/urlUtils.js', () => ({
   computeStableUrl: jest.fn(),
 }));
 
-globalThis.expect = expect;
-globalThis.jest = jest;
-
 // Chrome API polyfills
 globalThis.chrome = {
   tabs: {
@@ -113,7 +110,7 @@ describe('Sidepanel JS Logic', () => {
       expect(emptyP.textContent).toBe('Not supported on this page.');
     });
 
-    it('should resolve table url via computeStableUrl fallback if content script rejects', async () => {
+    it('should resolve tab url via computeStableUrl fallback if content script rejects', async () => {
       chrome.tabs.sendMessage.mockRejectedValue(new Error('Extension context invalidated'));
       computeStableUrl.mockReturnValue('https://example.com/computed');
 
