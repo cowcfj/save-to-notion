@@ -98,6 +98,17 @@ button {
   background-color: #007aff;
 }
 
+#manage-button {
+  background-color: #6d28d9;
+  color: white;
+}
+
+#manage-button:hover {
+  background-color: #5b21b6;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 #save-button:hover {
   background-color: #005ecb;
   transform: translateY(-1px);
