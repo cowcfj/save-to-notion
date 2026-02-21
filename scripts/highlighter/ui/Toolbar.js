@@ -397,28 +397,16 @@ export class Toolbar {
 
         if (response?.success) {
           Toolbar._setStatusIcon(statusDiv, 'CHECK', 'SYNC_SUCCESS');
+        } else if (response?.errorCode === 'PAGE_NOT_SAVED') {
+          // 頁面尚未保存到 Notion，提供引導性訊息
+          Toolbar._setStatusIcon(statusDiv, 'X', null, '請先保存頁面到 Notion');
         } else {
           const rawError = sanitizeApiError(response?.error || 'Unknown error');
           const errorMsg = ErrorHandler.formatUserMessage(rawError);
           Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
         }
-
-        setTimeout(() => {
-          // Restore original text safely
-          statusDiv.textContent = originalText;
-          if (!originalText) {
-            statusDiv.style.display = 'none';
-          }
-        }, 2000);
       } catch (error) {
         Toolbar._setStatusIcon(statusDiv, 'X', 'SYNC_FAILED');
-
-        setTimeout(() => {
-          statusDiv.textContent = originalText;
-          if (!originalText) {
-            statusDiv.style.display = 'none';
-          }
-        }, 2000);
 
         Logger.error('同步失敗:', {
           action: 'syncToNotion',
@@ -430,6 +418,14 @@ export class Toolbar {
           },
         });
       }
+
+      setTimeout(() => {
+        // Restore original text safely
+        statusDiv.textContent = originalText;
+        if (!originalText) {
+          statusDiv.style.display = 'none';
+        }
+      }, 2000);
     }
   }
 

@@ -7,6 +7,7 @@ import {
   computeStableUrl,
   resolveStorageUrl,
   buildStableUrlFromNextData,
+  isRootUrl,
 } from '../../../scripts/utils/urlUtils.js';
 
 describe('urlUtils', () => {
@@ -296,7 +297,7 @@ describe('urlUtils', () => {
         expect(result).toBe(normalizeUrl(url));
       });
 
-      it('shortlink 不再影響 URL 解析', () => {
+      it('應該使用帶 query 參數的 shortlink（無 nextRouteInfo 時）', () => {
         const url = 'https://blog.example.com/tech/999/some-long-slug';
         const preloaderData = {
           shortlink: 'https://blog.example.com/?p=999',
@@ -332,6 +333,32 @@ describe('urlUtils', () => {
     it('應該保留根路徑的斜杠', () => {
       const url = 'https://example.com/';
       expect(normalizeUrl(url)).toBe('https://example.com/');
+    });
+  });
+
+  describe('isRootUrl', () => {
+    it('應該對根路徑（/）回傳 true', () => {
+      expect(isRootUrl('https://example.com/')).toBe(true);
+    });
+
+    it('應該對帶 query 參數的根路徑回傳 false', () => {
+      expect(isRootUrl('https://example.com/?p=123')).toBe(false);
+    });
+
+    it('應該對有路徑的 URL 回傳 false', () => {
+      expect(isRootUrl('https://example.com/some-post')).toBe(false);
+    });
+
+    it('應該對 null 回傳 true（視為根路徑）', () => {
+      expect(isRootUrl(null)).toBe(true);
+    });
+
+    it('應該對空字串回傳 true（視為根路徑）', () => {
+      expect(isRootUrl('')).toBe(true);
+    });
+
+    it('應該對無效 URL 回傳 false', () => {
+      expect(isRootUrl('not-a-valid-url')).toBe(false);
     });
   });
 });

@@ -145,7 +145,7 @@ export function injectGlobalStyles() {
             position: absolute;
             top: -6px;
             right: -6px;
-            background: #ef4444;
+            background: #c53030;
             color: white;
             font-size: 10px;
             font-weight: bold;

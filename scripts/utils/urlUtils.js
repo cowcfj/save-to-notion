@@ -260,10 +260,16 @@ export function hasSameOrigin(url1, url2) {
 
 /**
  * 檢查 URL 是否為根路徑（首頁）
- * 用於過濾掉指向首頁的無效 shortlink
+ * 用於過濾掉指向首頁的無效 shortlink 及拒絕設置首頁作為穩定 URL
  *
- * @param {string} url - 要檢查的 URL
+ * @param {string|null|undefined} url - 要檢查的 URL
  * @returns {boolean} 是否為根路徑
+ *
+ * 行為說明：
+ * - falsy 輸入（null、undefined、""）視為根路徑，回傳 true
+ * - 無效 URL（無法解析）回傳 false，不視為根路徑
+ * - 有效根路徑（pathname 為 "/" 或 "" 且無 query）回傳 true
+ * - 有 query 參數（如 "/?p=123"）或有路徑（如 "/post"）回傳 false
  */
 export function isRootUrl(url) {
   if (!url) {

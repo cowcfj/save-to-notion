@@ -72,6 +72,8 @@ async function handleTabChange(activeInfo) {
  * @param {number|null} specificTabId
  */
 async function loadCurrentTab(specificTabId = null) {
+  cachedStableUrl = null;
+  cachedTabUrl = null;
   showLoading();
 
   try {
@@ -314,7 +316,9 @@ async function handleOpenNotionClick() {
   try {
     const url = els.openNotionButton.dataset.targetUrl;
     const response = await chrome.runtime.sendMessage({ action: 'openNotionPage', url });
-    if (!response?.success) {
+    if (response?.success) {
+      showMessage('Opened successfully!', 'success');
+    } else {
       showMessage(response?.error || 'Failed to open', 'error');
     }
   } catch {
@@ -348,7 +352,9 @@ function handleStorageChange(changes, namespace) {
 
   // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
   if (cachedStableUrl && cachedTabUrl) {
-    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl);
+    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl).catch(error =>
+      Logger.error('[SidePanel] renderHighlightsForUrl failed', { error })
+    );
     return;
   }
 
