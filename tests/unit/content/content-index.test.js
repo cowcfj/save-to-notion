@@ -7,6 +7,7 @@ import { ContentExtractor } from '../../../scripts/content/extractors/ContentExt
 import { ConverterFactory } from '../../../scripts/content/converters/ConverterFactory.js';
 import { ImageCollector } from '../../../scripts/content/extractors/ImageCollector.js';
 import { mergeUniqueImages } from '../../../scripts/utils/imageUtils.js';
+import Logger from '../../../scripts/utils/Logger.js';
 
 // Mock dependencies
 jest.mock('../../../scripts/content/extractors/ContentExtractor.js');
@@ -171,7 +172,7 @@ describe('Content Script Entry (index.js)', () => {
 
         expect(result).toBe(false); // Rejected
         expect(globalThis.__NOTION_STABLE_URL__).toBe('old-url'); // Unchanged
-        expect(require('../../../scripts/utils/Logger.js').debug).toHaveBeenCalledWith(
+        expect(Logger.debug).toHaveBeenCalledWith(
           '拒絕設置首頁 URL 為穩定 URL',
           expect.any(Object)
         );
