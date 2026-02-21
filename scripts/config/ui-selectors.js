@@ -15,10 +15,7 @@ export const TOOLBAR_SELECTORS = {
   CLOSE: '#close-highlight-v2',
   COLOR_PICKER: '#color-picker-v2',
   SYNC_TO_NOTION: '#sync-to-notion-v2',
-  OPEN_NOTION: '#open-notion-v2',
   MANAGE_HIGHLIGHTS: '#manage-highlights-v2',
-  HIGHLIGHT_LIST: '#highlight-list-v2',
   STATUS_CONTAINER: '#highlight-status-v2',
   COUNT_DISPLAY: '#highlight-count-v2',
-  LIST_OPEN_NOTION: '#list-open-notion-v2',
 };

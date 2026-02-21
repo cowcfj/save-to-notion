@@ -401,14 +401,6 @@ describe('Toolbar 覆蓋率補強', () => {
     });
   });
 
-  describe('openInNotion 邊界情況', () => {
-    test('應該在 chrome.runtime 不可用時安全返回', () => {
-      globalThis.window.chrome = undefined;
-
-      expect(() => Toolbar.openInNotion()).not.toThrow();
-    });
-  });
-
   describe('cleanup', () => {
     test('應該移除所有事件監聽器', () => {
       const removeSelectionSpy = jest.spyOn(document, 'removeEventListener');

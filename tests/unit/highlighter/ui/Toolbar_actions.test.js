@@ -156,18 +156,4 @@ describe('Toolbar Actions', () => {
       expect(Logger.error).toHaveBeenCalledWith('同步失敗:', expect.any(Object));
     });
   });
-
-  describe('openInNotion', () => {
-    test('should send openNotionPage message with current URL', () => {
-      // Call the static method directly
-      Toolbar.openInNotion();
-
-      // 驗證發送的 URL 是當前頁面的 window.location.href
-      // 在 jsdom 環境中默認是 'http://localhost/'
-      expect(sendMessageMock).toHaveBeenCalledWith({
-        action: 'openNotionPage',
-        url: globalThis.location.href,
-      });
-    });
-  });
 });

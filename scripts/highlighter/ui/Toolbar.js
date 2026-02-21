@@ -132,15 +132,10 @@ export class Toolbar {
    */
   bindActionButtons() {
     const syncBtn = this.container.querySelector(TOOLBAR_SELECTORS.SYNC_TO_NOTION);
-    const openBtn = this.container.querySelector(TOOLBAR_SELECTORS.OPEN_NOTION);
     const manageBtn = this.container.querySelector(TOOLBAR_SELECTORS.MANAGE_HIGHLIGHTS);
 
     if (syncBtn) {
       syncBtn.addEventListener('click', () => this.syncToNotion());
-    }
-
-    if (openBtn) {
-      openBtn.addEventListener('click', () => Toolbar.openInNotion());
     }
 
     if (manageBtn) {
@@ -430,21 +425,6 @@ export class Toolbar {
           },
         });
       }
-    }
-  }
-
-  /**
-   * 在 Notion 中打開當前頁面
-   * 發送當前頁面 URL 給 background,由 background 查詢對應的 Notion 頁面 URL
-   *
-   * @static
-   */
-  static openInNotion() {
-    if (globalThis.window !== undefined && globalThis.chrome?.runtime?.sendMessage) {
-      globalThis.chrome.runtime.sendMessage({
-        action: 'openNotionPage',
-        url: globalThis.location.href,
-      });
     }
   }
 
