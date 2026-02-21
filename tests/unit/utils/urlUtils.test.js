@@ -265,40 +265,25 @@ describe('urlUtils', () => {
       });
     });
 
-    describe('Phase 2a+: WordPress shortlink', () => {
-      it('應該使用 shortlink 對於 WordPress 網站', () => {
+    describe('Phase 2a+ (已移除): WordPress shortlink', () => {
+      it('應該忽略 shortlink 並回退到 normalizeUrl', () => {
         const url = 'https://blog.example.com/2024/01/01/very-long-slug-title/';
         const preloaderData = {
           shortlink: 'https://blog.example.com/?p=12345',
         };
 
         const result = resolveStorageUrl(url, preloaderData);
-        expect(result).toBe('https://blog.example.com/?p=12345');
+        // WordPress shortlink 已移除，直接回退到 normalizeUrl
+        expect(result).toBe(normalizeUrl(url));
       });
 
-      it('Next.js 應優先於 shortlink', () => {
+      it('shortlink 不再影響 URL 解析', () => {
         const url = 'https://blog.example.com/tech/999/some-long-slug';
         const preloaderData = {
-          nextRouteInfo: {
-            page: '/[category]/[id]/[slug]',
-            query: { category: 'tech', id: '999', slug: 'some-long-slug' },
-          },
           shortlink: 'https://blog.example.com/?p=999',
         };
 
         const result = resolveStorageUrl(url, preloaderData);
-        // Next.js 路由優先於 shortlink
-        expect(result).toBe('https://blog.example.com/tech/999');
-      });
-
-      it('應該拒絕跨域 shortlink 並回退到 normalizeUrl', () => {
-        const url = 'https://blog.example.com/2024/01/01/some-post/';
-        const preloaderData = {
-          shortlink: 'https://evil.com/?p=12345',
-        };
-
-        const result = resolveStorageUrl(url, preloaderData);
-        // 跨域 shortlink 被 hasSameOrigin 安全守衛攔截，回退到 normalizeUrl
         expect(result).toBe(normalizeUrl(url));
       });
     });
