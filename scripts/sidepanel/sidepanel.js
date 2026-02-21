@@ -16,6 +16,7 @@ import {
   URL_ALIAS_PREFIX,
   RESTRICTED_PROTOCOLS,
 } from '../config/constants.js';
+import Logger from '../utils/Logger.js';
 
 // DOM 元素
 let els = {};
@@ -85,7 +86,7 @@ async function loadCurrentTab(specificTabId = null) {
     // 獲取資料
     await renderHighlightsForUrl(stableUrl, tab.url);
   } catch (error) {
-    console.error('[SidePanel] Failed to load tab:', error);
+    Logger.error('[SidePanel] Failed to load tab', { error });
     showEmpty('Failed to load annotations.');
   }
 }
@@ -259,11 +260,11 @@ async function handleDelete(highlightId, storageKey) {
           highlightId,
         })
         .catch(error => {
-          console.warn('Failed to send remove highlight DOM message', error);
+          Logger.error('Failed to send remove highlight DOM message', { error });
         });
     }
   } catch (error) {
-    console.error('Failed to delete highlight', error);
+    Logger.error('Failed to delete highlight', { error });
   }
 }
 
