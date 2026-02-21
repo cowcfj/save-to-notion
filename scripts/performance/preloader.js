@@ -69,7 +69,8 @@
       }
     })(),
     // Phase 2a+: WordPress shortlink（穩定數字 ID URL）
-    // 驗證 shortlink 不是首頁 URL（某些 WordPress 站點會錯誤地將 shortlink 設為首頁）
+    // 合法的 WordPress shortlink 一定有 query 參數（?p=12345），
+    // 沒有 query 參數的（如首頁 URL）不是有效 shortlink。
     shortlink: (() => {
       const href = document.querySelector('link[rel="shortlink"]')?.href;
       if (!href) {
@@ -77,11 +78,8 @@
       }
       try {
         const urlObj = new URL(href);
-        // 過濾掉根路徑（首頁）的 shortlink，它們不具有穩定性
-        if ((urlObj.pathname === '/' || urlObj.pathname === '') && !urlObj.search) {
-          return null;
-        }
-        return href;
+        // 有效 shortlink 必須包含 query 參數（如 ?p=12345）
+        return urlObj.search.length > 0 ? href : null;
       } catch {
         return null;
       }
