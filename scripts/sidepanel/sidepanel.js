@@ -30,7 +30,7 @@ async function init() {
 
   // 2. 監聽當前分頁變化
   chrome.tabs.onActivated.addListener(handleTabChange);
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, _tab) => {
     if (changeInfo.status === 'complete') {
       handleTabChange({ tabId });
     }
@@ -46,7 +46,7 @@ async function init() {
 /**
  * 處理分頁切換
  *
- * @param activeInfo
+ * @param {chrome.tabs.TabActiveInfo} activeInfo
  */
 async function handleTabChange(activeInfo) {
   await loadCurrentTab(activeInfo.tabId);
@@ -55,7 +55,7 @@ async function handleTabChange(activeInfo) {
 /**
  * 主要載入流程
  *
- * @param specificTabId
+ * @param {number|null} specificTabId
  */
 async function loadCurrentTab(specificTabId = null) {
   showLoading();
@@ -69,7 +69,7 @@ async function loadCurrentTab(specificTabId = null) {
       tab = tabs[0];
     }
 
-    if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+    if (!tab?.url || tab.url.startsWith('chrome://')) {
       showEmpty('Not supported on this page.');
       return;
     }
@@ -88,8 +88,9 @@ async function loadCurrentTab(specificTabId = null) {
 /**
  * 獲取穩定 URL (3層 Fallback)
  *
- * @param tabId
- * @param url
+ * @param {number} tabId
+ * @param {string} url
+ * @returns {Promise<string>}
  */
 async function getStableUrlForTab(tabId, url) {
   // 1. 向 Content Script 請求已解析的 __NOTION_STABLE_URL__
@@ -117,8 +118,8 @@ async function getStableUrlForTab(tabId, url) {
  * 根據 URL 渲染標註列表
  * 使用兩層查找法 (直接查 + Alias 查)
  *
- * @param url
- * @param originalTabUrl
+ * @param {string} url
+ * @param {string} originalTabUrl
  */
 async function renderHighlightsForUrl(url, originalTabUrl) {
   const normalizedUrl = normalizeUrl(url);
@@ -181,8 +182,8 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
 /**
  * 實體渲染 DOM
  *
- * @param highlights
- * @param storageKey
+ * @param {Array} highlights
+ * @param {string} storageKey
  */
 function renderList(highlights, storageKey) {
   els.highlightsList.innerHTML = '';
@@ -224,8 +225,8 @@ function renderList(highlights, storageKey) {
 /**
  * 刪除單個標註
  *
- * @param highlightId
- * @param storageKey
+ * @param {string} highlightId
+ * @param {string} storageKey
  */
 async function handleDelete(highlightId, storageKey) {
   try {
@@ -235,7 +236,7 @@ async function handleDelete(highlightId, storageKey) {
     }
 
     const data = result[storageKey];
-    data.highlights = data.highlights.filter(h => h.id !== highlightId);
+    data.highlights = data.highlights.filter(hl => hl.id !== highlightId);
 
     // 儲存回 storage, 會自動觸發 onChanged 重繪
     if (data.highlights.length === 0) {
@@ -287,8 +288,8 @@ async function handleSyncClick() {
 /**
  * 處理 Storage 變化
  *
- * @param changes
- * @param namespace
+ * @param {object} changes
+ * @param {string} namespace
  */
 function handleStorageChange(changes, namespace) {
   if (namespace !== 'local') {

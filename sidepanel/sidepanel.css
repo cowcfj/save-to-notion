@@ -162,7 +162,6 @@ body {
     box-shadow 0.2s,
     border-color 0.2s;
   position: relative;
-  group: hover;
 }
 
 .highlight-card:hover {
