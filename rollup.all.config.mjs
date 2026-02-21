@@ -7,6 +7,19 @@ import terser from '@rollup/plugin-terser';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
+const terserPlugin =
+  !isDev &&
+  terser({
+    compress: {
+      drop_console: true,
+      drop_debugger: true,
+    },
+    mangle: true,
+    format: {
+      comments: false,
+    },
+  });
+
 const preloaderConfig = {
   input: 'scripts/performance/preloader.js',
   output: {
@@ -17,17 +30,7 @@ const preloaderConfig = {
     banner: '/* Save to Notion - Preloader */',
   },
   plugins: [
-    !isDev &&
-      terser({
-        compress: {
-          drop_console: true, // 移除 console.log（生產環境）
-          drop_debugger: true,
-        },
-        mangle: true,
-        format: {
-          comments: false,
-        },
-      }),
+    terserPlugin,
   ].filter(Boolean),
   onwarn(warning, warn) {
     if (warning.code === 'THIS_IS_UNDEFINED') return;
@@ -45,17 +48,7 @@ const sidepanelConfig = {
   plugins: [
     resolve(), // 幫助 rollup 找到外部模組
     commonjs(), // 將 CommonJS 轉換成 ES6
-    !isDev &&
-      terser({
-        compress: {
-          drop_console: true,
-          drop_debugger: true,
-        },
-        mangle: true,
-        format: {
-          comments: false,
-        },
-      }),
+    terserPlugin,
   ].filter(Boolean),
 };
 

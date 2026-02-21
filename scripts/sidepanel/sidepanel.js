@@ -21,6 +21,8 @@ import Logger from '../utils/Logger.js';
 // DOM 元素
 let els = {};
 
+let statusMessageTimeoutId;
+
 async function init() {
   els = {
     loadingState: document.querySelector('#loading-state'),
@@ -338,7 +340,8 @@ function showMessage(text, type) {
   els.statusMessage.className = `status-message ${type}`;
   els.statusMessage.style.display = 'block';
 
-  setTimeout(() => {
+  clearTimeout(statusMessageTimeoutId);
+  statusMessageTimeoutId = setTimeout(() => {
     els.statusMessage.style.display = 'none';
   }, 3000);
 }

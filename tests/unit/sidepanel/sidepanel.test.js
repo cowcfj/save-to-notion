@@ -88,7 +88,7 @@ describe('Sidepanel JS Logic', () => {
 
     it('should handle tabs.onUpdated for complete status', async () => {
       const onUpdated = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
-      await onUpdated(201, { status: 'complete' }, {});
+      await onUpdated(201, { status: 'complete' }, { active: true });
       expect(chrome.tabs.get).toHaveBeenCalledWith(201);
     });
 

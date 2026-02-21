@@ -145,11 +145,9 @@ export class Toolbar {
 
     if (manageBtn) {
       manageBtn.addEventListener('click', () => {
-        if (globalThis.window !== undefined && globalThis.chrome?.runtime?.sendMessage) {
-          globalThis.chrome.runtime
-            .sendMessage({ action: 'OPEN_SIDE_PANEL' })
-            .catch(error => Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', { error }));
-        }
+        Toolbar._sendMessageAsync({ action: 'OPEN_SIDE_PANEL' }).catch(error =>
+          Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', { error })
+        );
       });
     }
   }
