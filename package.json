@@ -24,6 +24,8 @@
     "build": "rollup -c rollup.all.config.mjs",
     "build:watch": "rollup -c rollup.all.config.mjs -w",
     "build:highlighter": "rollup -c rollup.config.mjs",
+    "build:sidepanel": "rollup -c rollup.sidepanel.config.mjs",
+    "build:sidepanel:watch": "rollup -c rollup.sidepanel.config.mjs -w",
     "build:prod": "NODE_ENV=production rollup -c rollup.all.config.mjs",
     "build:content": "rollup -c rollup.content.config.mjs",
     "build:content:watch": "rollup -c rollup.content.config.mjs -w",

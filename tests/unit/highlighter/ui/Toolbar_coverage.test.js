@@ -326,349 +326,291 @@ describe('Toolbar 覆蓋率補強', () => {
       expect(syncSpy).toHaveBeenCalled();
     });
 
-    test('應該綁定管理按鈕點擊事件', () => {
-      const manageBtn = container.querySelector('#manage-highlights-v2');
-      const toggleListSpy = jest.spyOn(toolbar, 'toggleHighlightList');
+    describe('bindMiniIconEvents 整合', () => {
+      test('應該正確綁定最小化圖標展開事件', () => {
+        // 驗證 bindMiniIconEvents 被調用
+        expect(bindMiniIconEvents).toHaveBeenCalledWith(toolbar.miniIcon, expect.any(Function));
 
-      manageBtn.click();
+        // 獲取傳遞給 bindMiniIconEvents 的回調
+        const expandCallback = bindMiniIconEvents.mock.calls[0][1];
+        const showSpy = jest.spyOn(toolbar, 'show');
 
-      expect(toggleListSpy).toHaveBeenCalled();
-    });
-  });
+        // 調用回調
+        expandCallback();
 
-  describe('bindMiniIconEvents 整合', () => {
-    test('應該正確綁定最小化圖標展開事件', () => {
-      // 驗證 bindMiniIconEvents 被調用
-      expect(bindMiniIconEvents).toHaveBeenCalledWith(toolbar.miniIcon, expect.any(Function));
-
-      // 獲取傳遞給 bindMiniIconEvents 的回調
-      const expandCallback = bindMiniIconEvents.mock.calls[0][1];
-      const showSpy = jest.spyOn(toolbar, 'show');
-
-      // 調用回調
-      expandCallback();
-
-      expect(showSpy).toHaveBeenCalled();
-    });
-  });
-
-  describe('toggleHighlightList 邊界情況', () => {
-    test('應該在列表容器不存在時安全返回', () => {
-      const listContainer = container.querySelector('#highlight-list-v2');
-      listContainer.remove();
-
-      expect(() => toolbar.toggleHighlightList()).not.toThrow();
-    });
-  });
-
-  describe('refreshHighlightList 邊界情況', () => {
-    test('應該在列表容器不存在時安全返回', () => {
-      const listContainer = container.querySelector('#highlight-list-v2');
-      listContainer.remove();
-
-      expect(() => toolbar.refreshHighlightList()).not.toThrow();
-    });
-  });
-
-  describe('_sendMessageAsync', () => {
-    test('應該在 window 不可用時拒絕 Promise', async () => {
-      // 儲存原始 chrome
-      const originalChrome = globalThis.window.chrome;
-      globalThis.window.chrome = undefined;
-
-      await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('無法連接擴展');
-
-      // 恢復
-      globalThis.window.chrome = originalChrome;
+        expect(showSpy).toHaveBeenCalled();
+      });
     });
 
-    test('應該正確處理成功回應', async () => {
-      globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        const response = { success: true };
-        callback(response);
+    describe('_sendMessageAsync', () => {
+      test('應該在 window 不可用時拒絕 Promise', async () => {
+        // 儲存原始 chrome
+        const originalChrome = globalThis.window.chrome;
+        globalThis.window.chrome = undefined;
+
+        await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('無法連接擴展');
+
+        // 恢復
+        globalThis.window.chrome = originalChrome;
       });
 
-      const result = await Toolbar._sendMessageAsync({ action: 'test' });
-      expect(result).toEqual({ success: true });
-    });
+      test('應該正確處理成功回應', async () => {
+        globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
+          const response = { success: true };
+          callback(response);
+        });
 
-    test('應該在 lastError 時拒絕 Promise', async () => {
-      globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
-        globalThis.window.chrome.runtime.lastError = { message: '連接失敗' };
-        callback();
-        delete globalThis.window.chrome.runtime.lastError;
+        const result = await Toolbar._sendMessageAsync({ action: 'test' });
+        expect(result).toEqual({ success: true });
       });
 
-      await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('連接失敗');
-    });
-  });
+      test('應該在 lastError 時拒絕 Promise', async () => {
+        globalThis.window.chrome.runtime.sendMessage = jest.fn((message, callback) => {
+          globalThis.window.chrome.runtime.lastError = { message: '連接失敗' };
+          callback();
+          delete globalThis.window.chrome.runtime.lastError;
+        });
 
-  describe('syncToNotion 邊界情況', () => {
-    test('應該在狀態元素不存在時安全返回', async () => {
-      const statusDiv = container.querySelector('#highlight-status-v2');
-      statusDiv.remove();
-
-      await expect(toolbar.syncToNotion()).resolves.toBeUndefined();
-    });
-  });
-
-  describe('openInNotion 邊界情況', () => {
-    test('應該在 chrome.runtime 不可用時安全返回', () => {
-      globalThis.window.chrome = undefined;
-
-      expect(() => Toolbar.openInNotion()).not.toThrow();
-    });
-  });
-
-  describe('cleanup', () => {
-    test('應該移除所有事件監聽器', () => {
-      const removeSelectionSpy = jest.spyOn(document, 'removeEventListener');
-
-      toolbar.cleanup();
-
-      expect(removeSelectionSpy).toHaveBeenCalledWith('mouseup', toolbar.selectionHandler);
-      expect(removeSelectionSpy).toHaveBeenCalledWith('click', toolbar.clickDeleteHandler);
-    });
-
-    test('應該移除 DOM 元素', () => {
-      document.body.append(toolbar.container);
-      document.body.append(toolbar.miniIcon);
-
-      toolbar.cleanup();
-
-      expect(document.body.contains(toolbar.container)).toBe(false);
-      expect(document.body.contains(toolbar.miniIcon)).toBe(false);
-    });
-
-    test('應該在元素不存在時安全返回', () => {
-      toolbar.container = null;
-      toolbar.miniIcon = null;
-
-      expect(() => toolbar.cleanup()).not.toThrow();
-    });
-  });
-
-  describe('bindSelectionEvents 分支覆蓋', () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
-    test('應該在非標註模式時忽略選擇事件', () => {
-      toolbar.isHighlightModeActive = false;
-
-      const mouseupEvent = new MouseEvent('mouseup');
-      document.dispatchEvent(mouseupEvent);
-      jest.runAllTimers();
-
-      expect(managerMock.addHighlight).not.toHaveBeenCalled();
-    });
-
-    test('應該在點擊工具欄內元素時忽略事件', () => {
-      toolbar.isHighlightModeActive = true;
-
-      // 模擬點擊工具欄內元素
-      const mouseupEvent = new MouseEvent('mouseup', {
-        bubbles: true,
+        await expect(Toolbar._sendMessageAsync({ action: 'test' })).rejects.toThrow('連接失敗');
       });
-      Object.defineProperty(mouseupEvent, 'target', {
-        value: container,
-        writable: false,
+    });
+
+    describe('syncToNotion 邊界情況', () => {
+      test('應該在狀態元素不存在時安全返回', async () => {
+        const statusDiv = container.querySelector('#highlight-status-v2');
+        statusDiv.remove();
+
+        await expect(toolbar.syncToNotion()).resolves.toBeUndefined();
+      });
+    });
+
+    describe('openInNotion 邊界情況', () => {
+      test('應該在 chrome.runtime 不可用時安全返回', () => {
+        globalThis.window.chrome = undefined;
+
+        expect(() => Toolbar.openInNotion()).not.toThrow();
+      });
+    });
+
+    describe('cleanup', () => {
+      test('應該移除所有事件監聽器', () => {
+        const removeSelectionSpy = jest.spyOn(document, 'removeEventListener');
+
+        toolbar.cleanup();
+
+        expect(removeSelectionSpy).toHaveBeenCalledWith('mouseup', toolbar.selectionHandler);
+        expect(removeSelectionSpy).toHaveBeenCalledWith('click', toolbar.clickDeleteHandler);
       });
 
-      document.dispatchEvent(mouseupEvent);
-      jest.runAllTimers();
+      test('應該移除 DOM 元素', () => {
+        document.body.append(toolbar.container);
+        document.body.append(toolbar.miniIcon);
 
-      expect(managerMock.addHighlight).not.toHaveBeenCalled();
-    });
+        toolbar.cleanup();
 
-    test('應該在選擇為空時不創建標註', () => {
-      toolbar.isHighlightModeActive = true;
-
-      // Mock window.getSelection 返回空選擇
-      const mockSelection = {
-        isCollapsed: true,
-        toString: () => '',
-        getRangeAt: jest.fn(),
-        removeAllRanges: jest.fn(),
-      };
-      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
-
-      // 創建一個真實的 DOM 元素作為事件目標
-      const targetElement = document.createElement('p');
-      document.body.append(targetElement);
-
-      const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
-      targetElement.dispatchEvent(mouseupEvent);
-      jest.runAllTimers();
-
-      expect(managerMock.addHighlight).not.toHaveBeenCalled();
-    });
-
-    test('應該在選擇文字為空白時不創建標註', () => {
-      toolbar.isHighlightModeActive = true;
-
-      const mockSelection = {
-        isCollapsed: false,
-        toString: () => '   ',
-        getRangeAt: jest.fn(),
-        removeAllRanges: jest.fn(),
-      };
-      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
-
-      // 創建一個真實的 DOM 元素作為事件目標
-      const targetElement = document.createElement('p');
-      document.body.append(targetElement);
-
-      const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
-      targetElement.dispatchEvent(mouseupEvent);
-      jest.runAllTimers();
-
-      expect(managerMock.addHighlight).not.toHaveBeenCalled();
-    });
-
-    test('應該在有效選擇時創建標註', () => {
-      toolbar.isHighlightModeActive = true;
-
-      const mockRange = document.createRange();
-      const mockSelection = {
-        isCollapsed: false,
-        toString: () => 'Selected text',
-        getRangeAt: jest.fn().mockReturnValue(mockRange),
-        removeAllRanges: jest.fn(),
-      };
-      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
-
-      // 創建一個真實的 DOM 元素作為事件目標
-      const targetElement = document.createElement('p');
-      document.body.append(targetElement);
-
-      const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
-      targetElement.dispatchEvent(mouseupEvent);
-      jest.runAllTimers();
-
-      expect(managerMock.addHighlight).toHaveBeenCalledWith(mockRange, 'yellow');
-    });
-
-    test('應該在 addHighlight 返回 null 時不清除選擇', () => {
-      toolbar.isHighlightModeActive = true;
-      managerMock.addHighlight.mockReturnValue(null);
-
-      const mockRange = document.createRange();
-      const mockSelection = {
-        isCollapsed: false,
-        toString: () => 'Selected text',
-        getRangeAt: jest.fn().mockReturnValue(mockRange),
-        removeAllRanges: jest.fn(),
-      };
-      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
-
-      // 創建一個真實的 DOM 元素作為事件目標
-      const targetElement = document.createElement('p');
-      document.body.append(targetElement);
-
-      const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
-      targetElement.dispatchEvent(mouseupEvent);
-      jest.runAllTimers();
-
-      expect(mockSelection.removeAllRanges).not.toHaveBeenCalled();
-    });
-
-    test('應該在 addHighlight 拋出錯誤時記錄錯誤', () => {
-      toolbar.isHighlightModeActive = true;
-      managerMock.addHighlight.mockImplementation(() => {
-        throw new Error('添加失敗');
+        expect(document.body.contains(toolbar.container)).toBe(false);
+        expect(document.body.contains(toolbar.miniIcon)).toBe(false);
       });
 
-      const mockRange = document.createRange();
-      const mockSelection = {
-        isCollapsed: false,
-        toString: () => 'Selected text',
-        getRangeAt: jest.fn().mockReturnValue(mockRange),
-        removeAllRanges: jest.fn(),
-      };
-      jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
+      test('應該在元素不存在時安全返回', () => {
+        toolbar.container = null;
+        toolbar.miniIcon = null;
 
-      // 創建一個真實的 DOM 元素作為事件目標
-      const targetElement = document.createElement('p');
-      document.body.append(targetElement);
-
-      const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
-      targetElement.dispatchEvent(mouseupEvent);
-      jest.runAllTimers();
-
-      expect(globalThis.Logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('添加標註失敗'),
-        expect.objectContaining({ error: expect.any(Error) })
-      );
+        expect(() => toolbar.cleanup()).not.toThrow();
+      });
     });
 
-    test('應該在 window.getSelection 返回 null 時安全處理', () => {
-      toolbar.isHighlightModeActive = true;
+    describe('bindSelectionEvents 分支覆蓋', () => {
+      beforeEach(() => {
+        jest.useFakeTimers();
+      });
 
-      jest.spyOn(globalThis, 'getSelection').mockReturnValue(null);
+      afterEach(() => {
+        jest.useRealTimers();
+      });
 
-      // 創建一個真實的 DOM 元素作為事件目標
-      const targetElement = document.createElement('p');
-      document.body.append(targetElement);
+      test('應該在非標註模式時忽略選擇事件', () => {
+        toolbar.isHighlightModeActive = false;
 
-      const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
-      targetElement.dispatchEvent(mouseupEvent);
+        const mouseupEvent = new MouseEvent('mouseup');
+        document.dispatchEvent(mouseupEvent);
+        jest.runAllTimers();
 
-      expect(() => jest.runAllTimers()).not.toThrow();
-      expect(managerMock.addHighlight).not.toHaveBeenCalled();
+        expect(managerMock.addHighlight).not.toHaveBeenCalled();
+      });
+
+      test('應該在點擊工具欄內元素時忽略事件', () => {
+        toolbar.isHighlightModeActive = true;
+
+        // 模擬點擊工具欄內元素
+        const mouseupEvent = new MouseEvent('mouseup', {
+          bubbles: true,
+        });
+        Object.defineProperty(mouseupEvent, 'target', {
+          value: container,
+          writable: false,
+        });
+
+        document.dispatchEvent(mouseupEvent);
+        jest.runAllTimers();
+
+        expect(managerMock.addHighlight).not.toHaveBeenCalled();
+      });
+
+      test('應該在選擇為空時不創建標註', () => {
+        toolbar.isHighlightModeActive = true;
+
+        // Mock window.getSelection 返回空選擇
+        const mockSelection = {
+          isCollapsed: true,
+          toString: () => '',
+          getRangeAt: jest.fn(),
+          removeAllRanges: jest.fn(),
+        };
+        jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
+
+        // 創建一個真實的 DOM 元素作為事件目標
+        const targetElement = document.createElement('p');
+        document.body.append(targetElement);
+
+        const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
+        targetElement.dispatchEvent(mouseupEvent);
+        jest.runAllTimers();
+
+        expect(managerMock.addHighlight).not.toHaveBeenCalled();
+      });
+
+      test('應該在選擇文字為空白時不創建標註', () => {
+        toolbar.isHighlightModeActive = true;
+
+        const mockSelection = {
+          isCollapsed: false,
+          toString: () => '   ',
+          getRangeAt: jest.fn(),
+          removeAllRanges: jest.fn(),
+        };
+        jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
+
+        // 創建一個真實的 DOM 元素作為事件目標
+        const targetElement = document.createElement('p');
+        document.body.append(targetElement);
+
+        const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
+        targetElement.dispatchEvent(mouseupEvent);
+        jest.runAllTimers();
+
+        expect(managerMock.addHighlight).not.toHaveBeenCalled();
+      });
+
+      test('應該在有效選擇時創建標註', () => {
+        toolbar.isHighlightModeActive = true;
+
+        const mockRange = document.createRange();
+        const mockSelection = {
+          isCollapsed: false,
+          toString: () => 'Selected text',
+          getRangeAt: jest.fn().mockReturnValue(mockRange),
+          removeAllRanges: jest.fn(),
+        };
+        jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
+
+        // 創建一個真實的 DOM 元素作為事件目標
+        const targetElement = document.createElement('p');
+        document.body.append(targetElement);
+
+        const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
+        targetElement.dispatchEvent(mouseupEvent);
+        jest.runAllTimers();
+
+        expect(managerMock.addHighlight).toHaveBeenCalledWith(mockRange, 'yellow');
+      });
+
+      test('應該在 addHighlight 返回 null 時不清除選擇', () => {
+        toolbar.isHighlightModeActive = true;
+        managerMock.addHighlight.mockReturnValue(null);
+
+        const mockRange = document.createRange();
+        const mockSelection = {
+          isCollapsed: false,
+          toString: () => 'Selected text',
+          getRangeAt: jest.fn().mockReturnValue(mockRange),
+          removeAllRanges: jest.fn(),
+        };
+        jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
+
+        // 創建一個真實的 DOM 元素作為事件目標
+        const targetElement = document.createElement('p');
+        document.body.append(targetElement);
+
+        const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
+        targetElement.dispatchEvent(mouseupEvent);
+        jest.runAllTimers();
+
+        expect(mockSelection.removeAllRanges).not.toHaveBeenCalled();
+      });
+
+      test('應該在 addHighlight 拋出錯誤時記錄錯誤', () => {
+        toolbar.isHighlightModeActive = true;
+        managerMock.addHighlight.mockImplementation(() => {
+          throw new Error('添加失敗');
+        });
+
+        const mockRange = document.createRange();
+        const mockSelection = {
+          isCollapsed: false,
+          toString: () => 'Selected text',
+          getRangeAt: jest.fn().mockReturnValue(mockRange),
+          removeAllRanges: jest.fn(),
+        };
+        jest.spyOn(globalThis, 'getSelection').mockReturnValue(mockSelection);
+
+        // 創建一個真實的 DOM 元素作為事件目標
+        const targetElement = document.createElement('p');
+        document.body.append(targetElement);
+
+        const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
+        targetElement.dispatchEvent(mouseupEvent);
+        jest.runAllTimers();
+
+        expect(globalThis.Logger.error).toHaveBeenCalledWith(
+          expect.stringContaining('添加標註失敗'),
+          expect.objectContaining({ error: expect.any(Error) })
+        );
+      });
+
+      test('應該在 window.getSelection 返回 null 時安全處理', () => {
+        toolbar.isHighlightModeActive = true;
+
+        jest.spyOn(globalThis, 'getSelection').mockReturnValue(null);
+
+        // 創建一個真實的 DOM 元素作為事件目標
+        const targetElement = document.createElement('p');
+        document.body.append(targetElement);
+
+        const mouseupEvent = new MouseEvent('mouseup', { bubbles: true });
+        targetElement.dispatchEvent(mouseupEvent);
+
+        expect(() => jest.runAllTimers()).not.toThrow();
+        expect(managerMock.addHighlight).not.toHaveBeenCalled();
+      });
     });
-  });
 
-  describe('bindClickDeleteEvents 分支覆蓋', () => {
-    test('應該在刪除成功時更新計數和刷新列表', () => {
+    test('應該在刪除成功時更新計數', () => {
       managerMock.handleDocumentClick.mockReturnValue(true);
-
-      // 顯示列表
-      const listContainer = container.querySelector('#highlight-list-v2');
-      listContainer.style.display = 'block';
-
-      const refreshSpy = jest.spyOn(toolbar, 'refreshHighlightList');
 
       const clickEvent = new MouseEvent('click');
       document.dispatchEvent(clickEvent);
 
       expect(managerMock.getCount).toHaveBeenCalled();
-      expect(refreshSpy).toHaveBeenCalled();
     });
 
     test('應該在刪除失敗時不更新', () => {
       managerMock.handleDocumentClick.mockReturnValue(false);
 
-      const refreshSpy = jest.spyOn(toolbar, 'refreshHighlightList');
-
       const clickEvent = new MouseEvent('click');
       document.dispatchEvent(clickEvent);
 
-      // getCount 只在初始化時被呼叫
-      expect(refreshSpy).not.toHaveBeenCalled();
-    });
-
-    test('應該在列表隱藏時不刷新列表', () => {
-      managerMock.handleDocumentClick.mockReturnValue(true);
-
-      const listContainer = container.querySelector('#highlight-list-v2');
-      listContainer.style.display = 'none';
-
-      const {
-        renderHighlightList,
-      } = require('../../../../scripts/highlighter/ui/components/HighlightList.js');
-
-      // 重置 mock 計數
-      renderHighlightList.mockClear();
-
-      const clickEvent = new MouseEvent('click');
-      document.dispatchEvent(clickEvent);
-
-      expect(renderHighlightList).not.toHaveBeenCalled();
+      expect(managerMock.getCount).not.toHaveBeenCalled(); // getCount 只在初始化時被呼叫
     });
   });
 

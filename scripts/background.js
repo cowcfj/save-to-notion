@@ -31,6 +31,7 @@ import { createHighlightHandlers } from './background/handlers/highlightHandlers
 import { createMigrationHandlers } from './background/handlers/migrationHandlers.js';
 import { createLogHandlers } from './background/handlers/logHandlers.js';
 import { createNotionHandlers } from './background/handlers/notionHandlers.js';
+import { createSidepanelHandlers } from './background/handlers/sidepanelHandlers.js';
 
 // ==========================================
 // SERVICE INITIALIZATION
@@ -90,6 +91,7 @@ const actionHandlers = {
   }),
   ...createLogHandlers(),
   ...createNotionHandlers({ notionService }),
+  ...createSidepanelHandlers(),
 };
 
 messageHandler.registerAll(actionHandlers);

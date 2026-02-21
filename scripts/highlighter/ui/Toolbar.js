@@ -8,7 +8,6 @@ import { injectGlobalStyles } from './styles/toolbarStyles.js';
 import { createToolbarContainer } from './components/ToolbarContainer.js';
 import { createMiniIcon, bindMiniIconEvents } from './components/MiniIcon.js';
 import { renderColorPicker } from './components/ColorPicker.js';
-import { renderHighlightList } from './components/HighlightList.js';
 import { TOOLBAR_SELECTORS } from '../../config/ui-selectors.js';
 import { UI_ICONS } from '../../config/icons.js';
 import { UI_MESSAGES } from '../../config/messages.js';
@@ -145,7 +144,11 @@ export class Toolbar {
     }
 
     if (manageBtn) {
-      manageBtn.addEventListener('click', () => this.toggleHighlightList());
+      manageBtn.addEventListener('click', () => {
+        if (globalThis.window !== undefined && globalThis.chrome?.runtime?.sendMessage) {
+          globalThis.chrome.runtime.sendMessage({ action: 'OPEN_SIDE_PANEL' });
+        }
+      });
     }
   }
 
@@ -208,11 +211,7 @@ export class Toolbar {
         // 更新計數
         this.updateHighlightCount();
 
-        // 如果列表是打開的，刷新列表
-        const listContainer = this.container.querySelector(TOOLBAR_SELECTORS.HIGHLIGHT_LIST);
-        if (listContainer && listContainer.style.display !== 'none') {
-          this.refreshHighlightList();
-        }
+        // 如果側邊欄是打開的，可以透過 storage 事件自動更新，這裡不需要處理
       }
     };
 
@@ -324,67 +323,6 @@ export class Toolbar {
       const count = this.manager.getCount();
       countSpan.textContent = count.toString();
     }
-  }
-
-  /**
-   * 切換標註列表顯示
-   */
-  toggleHighlightList() {
-    const listContainer = this.container.querySelector(TOOLBAR_SELECTORS.HIGHLIGHT_LIST);
-
-    if (!listContainer) {
-      return;
-    }
-
-    const isVisible = listContainer.style.display !== 'none';
-
-    if (isVisible) {
-      listContainer.style.display = 'none';
-    } else {
-      const highlights = Array.from(this.manager.highlights.values());
-
-      renderHighlightList(
-        listContainer,
-        highlights,
-        id => {
-          this.manager.removeHighlight(id);
-          this.updateHighlightCount();
-          this.refreshHighlightList(); // 刷新列表
-        },
-        () => Toolbar.openInNotion()
-      );
-
-      listContainer.style.display = 'block';
-    }
-  }
-
-  /**
-   * 刷新標註列表（僅在列表可見時）
-   */
-  refreshHighlightList() {
-    const listContainer = this.container.querySelector(TOOLBAR_SELECTORS.HIGHLIGHT_LIST);
-
-    if (!listContainer) {
-      return;
-    }
-
-    // 僅在列表可見時刷新
-    if (listContainer.style.display === 'none') {
-      return;
-    }
-
-    const highlights = Array.from(this.manager.highlights.values());
-
-    renderHighlightList(
-      listContainer,
-      highlights,
-      id => {
-        this.manager.removeHighlight(id);
-        this.updateHighlightCount();
-        this.refreshHighlightList(); // 刷新列表
-      },
-      () => Toolbar.openInNotion()
-    );
   }
 
   /**

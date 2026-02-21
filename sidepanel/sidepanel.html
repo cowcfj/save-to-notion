@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Save to Notion - Annotations</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header Area -->
+      <div class="sidebar-header">
+        <h2 class="sidebar-title">
+          <svg
+            class="header-icon"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          Highlights
+        </h2>
+        <div class="header-actions">
+          <button id="sync-button" class="icon-button" title="Sync to Notion" disabled>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.21l-5.65 1.14" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading-state" class="state-container">
+        <div class="spinner"></div>
+        <p>Loading annotations...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="state-container" style="display: none">
+        <svg
+          class="empty-icon"
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+        </svg>
+        <p>No highlights found on this page.</p>
+        <p class="subtitle">Select text on the webpage to start highlighting.</p>
+      </div>
+
+      <!-- Highlights List -->
+      <div id="highlights-list" class="highlights-list" style="display: none">
+        <!-- Dynamic content will be injected here -->
+      </div>
+
+      <!-- Status Message Area -->
+      <div id="status-message" class="status-message" style="display: none"></div>
+    </div>
+
+    <!-- Template for a single highlight card -->
+    <template id="highlight-card-template">
+      <div class="highlight-card">
+        <div class="highlight-color-indicator"></div>
+        <div class="highlight-content">
+          <p class="highlight-text"></p>
+        </div>
+        <button class="delete-button" title="Delete highlight">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            ></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+        </button>
+      </div>
+    </template>
+
+    <script src="../dist/sidepanel.bundle.js" type="module"></script>
+  </body>
+</html>

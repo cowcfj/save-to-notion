@@ -1,5 +1,10 @@
+// storage prefix constants
+export const SAVED_PREFIX = 'sc_saved_';
+export const HIGHLIGHTS_PREFIX = 'sc_hl_';
+export const URL_ALIAS_PREFIX = 'sc_alias_';
+export const HIGHLIGHTS_LEGACY_PREFIX = 'nh_highlights_'; // 舊版標註存儲前綴
+
 /**
- * 統一常量配置模組
  * 集中管理所有靜態常量，避免散落在多個文件中
  *
  * 注意：此模組必須為純 ES6 模組，不可依賴 window 或 document
