@@ -17,5 +17,4 @@ export const TOOLBAR_SELECTORS = {
   SYNC_TO_NOTION: '#sync-to-notion-v2',
   MANAGE_HIGHLIGHTS: '#manage-highlights-v2',
   STATUS_CONTAINER: '#highlight-status-v2',
-  COUNT_DISPLAY: '#highlight-count-v2',
 };

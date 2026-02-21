@@ -175,13 +175,6 @@ export function injectGlobalStyles() {
             border: 1px solid #f1f5f9;
         }
 
-        .nh-hint {
-            margin-top: 8px;
-            font-size: 11px;
-            color: #9ca3af;
-            text-align: center;
-        }
-
         /* 最小化圖標 */
         ${TOOLBAR_SELECTORS.MINI_ICON} {
             position: fixed;

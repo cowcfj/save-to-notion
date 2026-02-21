@@ -138,7 +138,6 @@ export function initHighlighterWithToolbar(options = {}) {
     // 如果有 Toolbar，初始化並更新計數
     if (toolbar) {
       toolbar.initialize();
-      toolbar.updateHighlightCount();
     }
   })();
 
@@ -235,7 +234,6 @@ export function setupHighlighter(options = {}) {
       // 動態創建 Toolbar
       currentToolbar = new Toolbar(manager);
       currentToolbar.initialize();
-      currentToolbar.updateHighlightCount();
 
       // 更新 storage 的 toolbar 引用 (如果需要)
       if (storage) {

@@ -179,9 +179,6 @@ export class Toolbar {
           const id = this.manager.addHighlight(range, this.manager.currentColor);
 
           if (id) {
-            // 更新計數
-            this.updateHighlightCount();
-
             // 清除選擇
             selection.removeAllRanges();
           }
@@ -203,9 +200,6 @@ export class Toolbar {
   bindClickDeleteEvents() {
     this.clickDeleteHandler = event => {
       if (this.manager.handleDocumentClick(event)) {
-        // 更新計數
-        this.updateHighlightCount();
-
         // 如果側邊欄是打開的，可以透過 storage 事件自動更新，這裡不需要處理
       }
     };
@@ -250,9 +244,6 @@ export class Toolbar {
     this.stateManager.currentState = ToolbarStates.EXPANDED;
     this.container.style.display = 'block';
     this.miniIcon.style.display = 'none';
-
-    // 更新計數
-    this.updateHighlightCount();
   }
 
   /**
@@ -308,21 +299,6 @@ export class Toolbar {
       btn.style.borderColor = '#48bb78';
     }
   }
-
-  /**
-   * 更新標註計數
-   */
-  updateHighlightCount() {
-    const countSpan = this.container.querySelector(TOOLBAR_SELECTORS.COUNT_DISPLAY);
-    if (countSpan) {
-      const count = this.manager.getCount();
-      countSpan.textContent = count.toString();
-    }
-  }
-
-  /**
-   * 同步到 Notion
-   */
   /**
    * 封裝 chrome.runtime.sendMessage 為 Promise
    *
@@ -382,6 +358,7 @@ export class Toolbar {
 
     if (statusDiv) {
       const originalText = statusDiv.textContent; // Use textContent for safety
+      statusDiv.style.display = 'block'; // Ensure it's visible during sync
 
       // Update UI to Loading State
       Toolbar._setStatusIcon(statusDiv, 'SYNC', 'SYNCING');
@@ -407,12 +384,18 @@ export class Toolbar {
         setTimeout(() => {
           // Restore original text safely
           statusDiv.textContent = originalText;
+          if (!originalText) {
+            statusDiv.style.display = 'none';
+          }
         }, 2000);
       } catch (error) {
         Toolbar._setStatusIcon(statusDiv, 'X', 'SYNC_FAILED');
 
         setTimeout(() => {
           statusDiv.textContent = originalText;
+          if (!originalText) {
+            statusDiv.style.display = 'none';
+          }
         }, 2000);
 
         Logger.error('同步失敗:', {

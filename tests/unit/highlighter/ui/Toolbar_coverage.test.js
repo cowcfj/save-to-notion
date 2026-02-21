@@ -266,23 +266,6 @@ describe('Toolbar 覆蓋率補強', () => {
     });
   });
 
-  describe('updateHighlightCount', () => {
-    test('應該更新計數顯示', () => {
-      managerMock.getCount.mockReturnValue(5);
-      toolbar.updateHighlightCount();
-
-      const countSpan = container.querySelector('#highlight-count-v2');
-      expect(countSpan.textContent).toBe('5');
-    });
-
-    test('應該在計數元素不存在時安全返回', () => {
-      const countSpan = container.querySelector('#highlight-count-v2');
-      countSpan.remove();
-
-      expect(() => toolbar.updateHighlightCount()).not.toThrow();
-    });
-  });
-
   describe('bindControlButtons', () => {
     test('應該綁定最小化按鈕點擊事件', () => {
       const minimizeBtn = container.querySelector('#minimize-highlight-v2');
@@ -324,22 +307,13 @@ describe('Toolbar 覆蓋率補強', () => {
   });
 
   describe('bindClickDeleteEvents', () => {
-    test('應該在刪除成功時更新計數', () => {
+    test('應該處理點擊刪除邏輯', () => {
       managerMock.handleDocumentClick.mockReturnValue(true);
 
       const clickEvent = new MouseEvent('click');
       document.dispatchEvent(clickEvent);
 
-      expect(managerMock.getCount).toHaveBeenCalled();
-    });
-
-    test('應該在刪除失敗時不更新', () => {
-      managerMock.handleDocumentClick.mockReturnValue(false);
-
-      const clickEvent = new MouseEvent('click');
-      document.dispatchEvent(clickEvent);
-
-      expect(managerMock.getCount).not.toHaveBeenCalled(); // getCount 只在初始化時被呼叫
+      expect(managerMock.handleDocumentClick).toHaveBeenCalled();
     });
   });
 
