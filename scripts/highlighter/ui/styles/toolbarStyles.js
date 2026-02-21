@@ -141,6 +141,21 @@ export function injectGlobalStyles() {
             margin-bottom: 16px;
         }
 
+        .nh-sync-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 10px;
+            line-height: 1;
+            pointer-events: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
         /* 顏色按鈕 */
         .nh-color-btn {
             width: 28px;
