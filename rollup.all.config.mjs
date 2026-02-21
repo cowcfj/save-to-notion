@@ -40,11 +40,23 @@ const sidepanelConfig = {
   output: {
     file: 'dist/sidepanel.bundle.js',
     format: 'es', // 使用 ES 模組格式
+    sourcemap: isDev ? 'inline' : false,
   },
   plugins: [
     resolve(), // 幫助 rollup 找到外部模組
     commonjs(), // 將 CommonJS 轉換成 ES6
-  ],
+    !isDev &&
+      terser({
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+        mangle: true,
+        format: {
+          comments: false,
+        },
+      }),
+  ].filter(Boolean),
 };
 
 export default [contentConfig, backgroundConfig, migrationConfig, preloaderConfig, sidepanelConfig];
