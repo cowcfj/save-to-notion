@@ -20,16 +20,36 @@ export function createSidepanelHandlers() {
      * @returns {Promise<{success: boolean, error?: string}>} 處理結果
      */
     async OPEN_SIDE_PANEL(message, sender) {
-      if (!sender?.tab?.windowId) {
-        Logger.warn('[SidepanelHandler] 無效的 sender，無法開啟 Side Panel');
+      let windowId = sender?.tab?.windowId;
+
+      // 如果從 Popup 發送，sender.tab 會是 undefined，但 message 中有 tabId
+      if (!windowId && message?.tabId) {
+        try {
+          const tab = await chrome.tabs.get(message.tabId);
+          windowId = tab.windowId;
+        } catch (error) {
+          Logger.warn('[SidepanelHandler] 無法透過 tabId 獲取 windowId', { error });
+        }
+      }
+
+      // 如果依然沒有 windowId，嘗試獲取當前視窗
+      if (!windowId) {
+        try {
+          const win = await chrome.windows.getCurrent();
+          windowId = win.id;
+        } catch (error) {
+          Logger.warn('[SidepanelHandler] 無法獲取當前 windowId', { error });
+        }
+      }
+
+      if (!windowId) {
+        Logger.warn('[SidepanelHandler] 無效的 context，無法開啟 Side Panel');
         return { success: false, error: 'Invalid sender context' };
       }
 
       try {
-        await chrome.sidePanel.open({ windowId: sender.tab.windowId });
-        Logger.info(
-          `[SidepanelHandler] Side Panel opened successfully for windowId: ${sender.tab.windowId}`
-        );
+        await chrome.sidePanel.open({ windowId });
+        Logger.info(`[SidepanelHandler] Side Panel opened successfully for windowId: ${windowId}`);
         return { success: true };
       } catch (error) {
         Logger.error('[SidepanelHandler] Failed to open Side Panel', error);

@@ -116,8 +116,8 @@ describe('popupUI', () => {
 
       updateUIForUnsavedPage(elements, response);
 
-      expect(elements.highlightButton.textContent).toBe('Save First to Highlight');
-      expect(elements.highlightButton.disabled).toBe(true);
+      // Highlight-First 模式：即使未保存也不禁用標記按鈕
+      expect(elements.highlightButton.disabled).toBe(false);
       expect(elements.clearHighlightsButton.style.display).toBe('none');
       expect(elements.saveButton.style.display).toBe('block');
       expect(elements.openNotionButton.style.display).toBe('none');

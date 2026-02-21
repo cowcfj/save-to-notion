@@ -212,19 +212,11 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const stableUrl = computeStableUrl(pageUrl);
 
-    const keysToRemove = [
-      `${SAVED_PREFIX}${normalizedUrl}`,
-      `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
-      `${URL_ALIAS_PREFIX}${normalizedUrl}`,
-    ];
+    const keysToRemove = [`${SAVED_PREFIX}${normalizedUrl}`];
 
     // 如果有穩定 URL 且與原始 URL 不同，也清理穩定 URL 的 key 和 alias
     if (stableUrl && stableUrl !== normalizedUrl) {
-      keysToRemove.push(
-        `${SAVED_PREFIX}${stableUrl}`,
-        `${HIGHLIGHTS_PREFIX}${stableUrl}`,
-        `${URL_ALIAS_PREFIX}${stableUrl}`
-      );
+      keysToRemove.push(`${SAVED_PREFIX}${stableUrl}`);
     }
 
     try {
