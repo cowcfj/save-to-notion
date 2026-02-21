@@ -143,11 +143,11 @@ describe('Sidepanel JS Logic', () => {
 
     it('should render highlight list when highlights are available', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
-        if (typeof key === 'string' && key.startsWith('sc_saved_')) {
+        if (typeof key === 'string' && key.startsWith('saved_')) {
           return { [key]: true };
         }
         return {
-          'sc_hl_https://example.js/stable': {
+          'highlights_https://example.js/stable': {
             highlights: [
               { id: '1', text: 'hello world', color: 'yellow' },
               { id: '2', text: 'green code', color: 'green' },
@@ -165,11 +165,11 @@ describe('Sidepanel JS Logic', () => {
 
     it('should disable sync button if page is not saved', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
-        if (typeof key === 'string' && key.startsWith('sc_saved_')) {
+        if (typeof key === 'string' && key.startsWith('saved_')) {
           return {};
         }
         return {
-          'sc_hl_https://example.js/stable': {
+          'highlights_https://example.js/stable': {
             highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
           },
         };
@@ -185,7 +185,7 @@ describe('Sidepanel JS Logic', () => {
   describe('User Interactions', () => {
     it('should delete highlight on click', async () => {
       const currentMockData = {
-        'sc_hl_https://example.js/stable': {
+        'highlights_https://example.js/stable': {
           highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
         },
       };
@@ -205,7 +205,9 @@ describe('Sidepanel JS Logic', () => {
         await Promise.resolve();
       }
 
-      expect(chrome.storage.local.remove).toHaveBeenCalledWith('sc_hl_https://example.js/stable');
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+        'highlights_https://example.js/stable'
+      );
       expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(101, {
         action: 'REMOVE_HIGHLIGHT_DOM',
         highlightId: '1',
@@ -214,7 +216,7 @@ describe('Sidepanel JS Logic', () => {
 
     it('should update storage if highlights remain after delete', async () => {
       const currentMockData = {
-        'sc_hl_https://example.js/stable': {
+        'highlights_https://example.js/stable': {
           highlights: [
             { id: '1', text: 'hello', color: 'yellow' },
             { id: '2', text: 'world', color: 'blue' },
@@ -235,16 +237,16 @@ describe('Sidepanel JS Logic', () => {
 
       expect(chrome.storage.local.set).toHaveBeenCalled();
       const args = chrome.storage.local.set.mock.calls[0][0];
-      expect(args['sc_hl_https://example.js/stable'].highlights).toHaveLength(1);
+      expect(args['highlights_https://example.js/stable'].highlights).toHaveLength(1);
     });
 
     it('should trigger sync click successfully', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
-        if (typeof key === 'string' && key.startsWith('sc_saved_')) {
+        if (typeof key === 'string' && key.startsWith('saved_')) {
           return { [key]: true };
         }
         return {
-          'sc_hl_https://example.js/stable': {
+          'highlights_https://example.js/stable': {
             highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
           },
         };
@@ -268,11 +270,11 @@ describe('Sidepanel JS Logic', () => {
 
     it('should trigger sync click gracefully when fails', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
-        if (typeof key === 'string' && key.startsWith('sc_saved_')) {
+        if (typeof key === 'string' && key.startsWith('saved_')) {
           return { [key]: true };
         }
         return {
-          'sc_hl_https://example.js/stable': {
+          'highlights_https://example.js/stable': {
             highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
           },
         };
@@ -292,11 +294,11 @@ describe('Sidepanel JS Logic', () => {
 
     it('should display error message returned from runtime message', async () => {
       chrome.storage.local.get.mockImplementation(async key => {
-        if (typeof key === 'string' && key.startsWith('sc_saved_')) {
+        if (typeof key === 'string' && key.startsWith('saved_')) {
           return { [key]: true };
         }
         return {
-          'sc_hl_https://example.js/stable': {
+          'highlights_https://example.js/stable': {
             highlights: [{ id: '1', text: 'hello world', color: 'yellow' }],
           },
         };
@@ -321,7 +323,7 @@ describe('Sidepanel JS Logic', () => {
       const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
       chrome.tabs.query.mockResolvedValue([{ id: 999, url: 'https://sync.me' }]);
 
-      await onStorageChanged({ 'sc_hl_https://sync.me': { newValue: {} } }, 'local');
+      await onStorageChanged({ 'highlights_https://sync.me': { newValue: {} } }, 'local');
 
       expect(chrome.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
     });
@@ -330,7 +332,7 @@ describe('Sidepanel JS Logic', () => {
       const onStorageChanged = chrome.storage.onChanged.addListener.mock.calls[0][0];
       chrome.tabs.query.mockClear();
 
-      onStorageChanged({ 'sc_hl_https://sync.me': { newValue: {} } }, 'sync');
+      onStorageChanged({ 'highlights_https://sync.me': { newValue: {} } }, 'sync');
 
       expect(chrome.tabs.query).not.toHaveBeenCalled();
     });
