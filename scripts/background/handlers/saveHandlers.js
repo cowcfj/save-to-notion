@@ -115,25 +115,6 @@ export function createSaveHandlers(services) {
   } = services;
 
   /**
-   * 清理頁面標記的輔助函數 (跨模組調用時可能需要，暫時保留在此，若 highlightHandlers 也需要則各自實現)
-   * 注意：savePage 中會調用 clearPageHighlights
-   *
-   * @param {number} tabId - 標籤頁 ID
-   */
-  async function clearPageHighlights(tabId) {
-    try {
-      await injectionService.injectHighlighter(tabId);
-      await injectionService.inject(tabId, () => {
-        if (globalThis.clearPageHighlights) {
-          globalThis.clearPageHighlights();
-        }
-      });
-    } catch (error) {
-      Logger.warn('清除頁面標註失敗', { action: 'clearPageHighlights', error: error.message });
-    }
-  }
-
-  /**
    * 驗證請求並獲取配置
    *
    * @param {object} sender - 請求發送者
