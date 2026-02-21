@@ -259,6 +259,29 @@ export function hasSameOrigin(url1, url2) {
 }
 
 /**
+ * 檢查 URL 是否為根路徑（首頁）
+ * 用於過濾掉指向首頁的無效 shortlink
+ *
+ * @param {string} url - 要檢查的 URL
+ * @returns {boolean} 是否為根路徑
+ */
+export function isRootUrl(url) {
+  if (!url) {
+    return true;
+  }
+
+  try {
+    const urlObj = new URL(url);
+    const path = urlObj.pathname;
+    const hasQuery = urlObj.search.length > 0;
+    // 根路徑：pathname 為 "/" 且沒有查詢參數
+    return (path === '/' || path === '') && !hasQuery;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 解析存儲用的 URL — 優先使用穩定 URL
  * 這是 normalizeUrl 的增強版，優先嘗試穩定 URL，再回退到標準化
  *
@@ -290,7 +313,8 @@ export function resolveStorageUrl(rawUrl, preloaderData) {
   // Phase 2a+: WordPress shortlink
   if (
     preloaderData?.shortlink && // 驗證 shortlink 與原始 URL 有相同來源
-    hasSameOrigin(preloaderData.shortlink, rawUrl)
+    hasSameOrigin(preloaderData.shortlink, rawUrl) &&
+    !isRootUrl(preloaderData.shortlink) // 排除指向首頁的無效 shortlink
   ) {
     return preloaderData.shortlink;
   }
