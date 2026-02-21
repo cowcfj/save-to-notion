@@ -148,7 +148,7 @@ export class Toolbar {
         if (globalThis.window !== undefined && globalThis.chrome?.runtime?.sendMessage) {
           globalThis.chrome.runtime
             .sendMessage({ action: 'OPEN_SIDE_PANEL' })
-            .catch(error => console.error('[Toolbar] OPEN_SIDE_PANEL failed', error));
+            .catch(error => Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', { error }));
         }
       });
     }
