@@ -310,9 +310,19 @@ export function resolveStorageUrl(rawUrl, preloaderData) {
     }
   }
 
-  // Phase 2a+ (WordPress shortlink) 已移除：
-  // WordPress shortlink 不可靠（部分站點指向首頁），且 WordPress 文章 URL 本身已足夠穩定。
-  // 若未來需要支援 URL 會變的 WordPress 站點，應改用 Phase 1 的已知網站規則。
+  // Phase 2a+: WordPress shortlink（?p=ID 格式）
+  // 合法的 WordPress shortlink 一定有 query 參數（?p=12345 等），
+  // 指向首頁的無效 shortlink 則沒有 query 參數。
+  if (preloaderData?.shortlink && hasSameOrigin(preloaderData.shortlink, rawUrl)) {
+    try {
+      const shortlinkUrl = new URL(preloaderData.shortlink);
+      if (shortlinkUrl.search.length > 0) {
+        return preloaderData.shortlink;
+      }
+    } catch {
+      // 無效 URL，跳過
+    }
+  }
 
   // 最終回退
   return normalizeUrl(rawUrl);

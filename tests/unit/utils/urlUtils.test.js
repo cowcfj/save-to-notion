@@ -265,15 +265,34 @@ describe('urlUtils', () => {
       });
     });
 
-    describe('Phase 2a+ (已移除): WordPress shortlink', () => {
-      it('應該忽略 shortlink 並回退到 normalizeUrl', () => {
+    describe('Phase 2a+: WordPress shortlink', () => {
+      it('應該使用有 query 參數的 shortlink（?p=ID）', () => {
         const url = 'https://blog.example.com/2024/01/01/very-long-slug-title/';
         const preloaderData = {
           shortlink: 'https://blog.example.com/?p=12345',
         };
 
         const result = resolveStorageUrl(url, preloaderData);
-        // WordPress shortlink 已移除，直接回退到 normalizeUrl
+        expect(result).toBe('https://blog.example.com/?p=12345');
+      });
+
+      it('應該拒絕沒有 query 參數的 shortlink（首頁 URL）', () => {
+        const url = 'https://blog.example.com/2024/01/01/some-post/';
+        const preloaderData = {
+          shortlink: 'https://blog.example.com/',
+        };
+
+        const result = resolveStorageUrl(url, preloaderData);
+        expect(result).toBe(normalizeUrl(url));
+      });
+
+      it('應該拒絕跨域 shortlink 並回退到 normalizeUrl', () => {
+        const url = 'https://blog.example.com/2024/01/01/some-post/';
+        const preloaderData = {
+          shortlink: 'https://evil.com/?p=12345',
+        };
+
+        const result = resolveStorageUrl(url, preloaderData);
         expect(result).toBe(normalizeUrl(url));
       });
 
@@ -284,7 +303,7 @@ describe('urlUtils', () => {
         };
 
         const result = resolveStorageUrl(url, preloaderData);
-        expect(result).toBe(normalizeUrl(url));
+        expect(result).toBe('https://blog.example.com/?p=999');
       });
     });
   });
