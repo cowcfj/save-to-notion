@@ -40,10 +40,6 @@ jest.mock('../../../../scripts/highlighter/ui/components/ColorPicker.js', () => 
   renderColorPicker: jest.fn(),
 }));
 
-jest.mock('../../../../scripts/highlighter/ui/components/HighlightList.js', () => ({
-  renderHighlightList: jest.fn(),
-}));
-
 describe('Toolbar 覆蓋率補強', () => {
   let managerMock = null;
   let toolbar = null;
@@ -325,14 +321,25 @@ describe('Toolbar 覆蓋率補強', () => {
 
       expect(syncSpy).toHaveBeenCalled();
     });
+  });
 
-    test('應該綁定管理按鈕點擊事件', () => {
-      const manageBtn = container.querySelector('#manage-highlights-v2');
-      const toggleListSpy = jest.spyOn(toolbar, 'toggleHighlightList');
+  describe('bindClickDeleteEvents', () => {
+    test('應該在刪除成功時更新計數', () => {
+      managerMock.handleDocumentClick.mockReturnValue(true);
 
-      manageBtn.click();
+      const clickEvent = new MouseEvent('click');
+      document.dispatchEvent(clickEvent);
 
-      expect(toggleListSpy).toHaveBeenCalled();
+      expect(managerMock.getCount).toHaveBeenCalled();
+    });
+
+    test('應該在刪除失敗時不更新', () => {
+      managerMock.handleDocumentClick.mockReturnValue(false);
+
+      const clickEvent = new MouseEvent('click');
+      document.dispatchEvent(clickEvent);
+
+      expect(managerMock.getCount).not.toHaveBeenCalled(); // getCount 只在初始化時被呼叫
     });
   });
 
@@ -349,24 +356,6 @@ describe('Toolbar 覆蓋率補強', () => {
       expandCallback();
 
       expect(showSpy).toHaveBeenCalled();
-    });
-  });
-
-  describe('toggleHighlightList 邊界情況', () => {
-    test('應該在列表容器不存在時安全返回', () => {
-      const listContainer = container.querySelector('#highlight-list-v2');
-      listContainer.remove();
-
-      expect(() => toolbar.toggleHighlightList()).not.toThrow();
-    });
-  });
-
-  describe('refreshHighlightList 邊界情況', () => {
-    test('應該在列表容器不存在時安全返回', () => {
-      const listContainer = container.querySelector('#highlight-list-v2');
-      listContainer.remove();
-
-      expect(() => toolbar.refreshHighlightList()).not.toThrow();
     });
   });
 
@@ -620,55 +609,6 @@ describe('Toolbar 覆蓋率補強', () => {
 
       expect(() => jest.runAllTimers()).not.toThrow();
       expect(managerMock.addHighlight).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('bindClickDeleteEvents 分支覆蓋', () => {
-    test('應該在刪除成功時更新計數和刷新列表', () => {
-      managerMock.handleDocumentClick.mockReturnValue(true);
-
-      // 顯示列表
-      const listContainer = container.querySelector('#highlight-list-v2');
-      listContainer.style.display = 'block';
-
-      const refreshSpy = jest.spyOn(toolbar, 'refreshHighlightList');
-
-      const clickEvent = new MouseEvent('click');
-      document.dispatchEvent(clickEvent);
-
-      expect(managerMock.getCount).toHaveBeenCalled();
-      expect(refreshSpy).toHaveBeenCalled();
-    });
-
-    test('應該在刪除失敗時不更新', () => {
-      managerMock.handleDocumentClick.mockReturnValue(false);
-
-      const refreshSpy = jest.spyOn(toolbar, 'refreshHighlightList');
-
-      const clickEvent = new MouseEvent('click');
-      document.dispatchEvent(clickEvent);
-
-      // getCount 只在初始化時被呼叫
-      expect(refreshSpy).not.toHaveBeenCalled();
-    });
-
-    test('應該在列表隱藏時不刷新列表', () => {
-      managerMock.handleDocumentClick.mockReturnValue(true);
-
-      const listContainer = container.querySelector('#highlight-list-v2');
-      listContainer.style.display = 'none';
-
-      const {
-        renderHighlightList,
-      } = require('../../../../scripts/highlighter/ui/components/HighlightList.js');
-
-      // 重置 mock 計數
-      renderHighlightList.mockClear();
-
-      const clickEvent = new MouseEvent('click');
-      document.dispatchEvent(clickEvent);
-
-      expect(renderHighlightList).not.toHaveBeenCalled();
     });
   });
 

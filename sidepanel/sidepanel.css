@@ -1,0 +1,243 @@
+:root {
+  --primary-color: #007aff;
+  --primary-hover: #005ecb;
+  --danger-color: #ef4444;
+  --danger-hover: #dc2626;
+  --text-main: #333333;
+  --text-muted: #666666;
+  --border-color: #eaeaea;
+  --bg-color: #ffffff;
+  --bg-hover: #f5f5f5;
+  --panel-padding: 16px;
+
+  /* Highlight Colors */
+  --hl-yellow: #fde047;
+  --hl-green: #86efac;
+  --hl-blue: #93c5fd;
+  --hl-red: #fca5a5;
+  --hl-purple: #d8b4fe;
+  --hl-pink: #fbcfe8;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Header Area */
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px var(--panel-padding);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-color);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sidebar-title {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  gap: 8px;
+}
+
+.header-icon {
+  color: var(--text-muted);
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Icon Buttons */
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.icon-button:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  color: var(--primary-color);
+}
+
+.icon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* State Containers (Loading, Empty) */
+.state-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  padding: 40px var(--panel-padding);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.state-container p {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+.state-container .subtitle {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 4px;
+}
+
+.empty-icon {
+  color: #ccc;
+  margin-bottom: 12px;
+}
+
+/* Loading Spinner */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 1s ease-in-out infinite;
+  margin-bottom: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Highlights List Area */
+.highlights-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: var(--panel-padding);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Highlight Card */
+.highlight-card {
+  display: flex;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition:
+    box-shadow 0.2s,
+    border-color 0.2s;
+  position: relative;
+}
+
+.highlight-card:hover {
+  border-color: #ddd;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.highlight-color-indicator {
+  width: 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background-color: var(--hl-yellow); /* Default, overridden in JS */
+}
+
+.highlight-content {
+  flex-grow: 1;
+  min-width: 0; /* Ensures text truncation works if needed, standard practice */
+}
+
+.highlight-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-main);
+  /* Use multiline clamp or let it flow. Since side panel has space, we let it flow naturally */
+  white-space: pre-wrap;
+  overflow-wrap: break-word; /* Handle long URLs/words */
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    background-color 0.2s,
+    color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.highlight-card:hover .delete-button {
+  opacity: 1;
+}
+
+.delete-button:hover {
+  background-color: #fee2e2;
+  color: var(--danger-color);
+}
+
+/* Status Message (Toast) */
+.status-message {
+  padding: 12px var(--panel-padding);
+  text-align: center;
+  font-size: 13px;
+  background-color: var(--bg-hover);
+  border-top: 1px solid var(--border-color);
+  color: var(--text-main);
+}
+
+.status-message.success {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border-top-color: #a7f3d0;
+}
+
+.status-message.error {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border-top-color: #fecaca;
+}

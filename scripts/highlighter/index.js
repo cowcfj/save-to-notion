@@ -465,7 +465,14 @@ if (globalThis.window !== undefined && !globalThis.HighlighterV2) {
         } else {
           sendResponse({ success: false, error: 'notionHighlighter not initialized' });
         }
+        return true;
       }
+
+      if (request.action === 'GET_STABLE_URL') {
+        sendResponse({ stableUrl: globalThis.__NOTION_STABLE_URL__ });
+        return true;
+      }
+
       return undefined;
     });
   }
