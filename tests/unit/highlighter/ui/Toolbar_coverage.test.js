@@ -40,10 +40,6 @@ jest.mock('../../../../scripts/highlighter/ui/components/ColorPicker.js', () => 
   renderColorPicker: jest.fn(),
 }));
 
-jest.mock('../../../../scripts/highlighter/ui/components/HighlightList.js', () => ({
-  renderHighlightList: jest.fn(),
-}));
-
 describe('Toolbar 覆蓋率補強', () => {
   let managerMock = null;
   let toolbar = null;
@@ -325,7 +321,9 @@ describe('Toolbar 覆蓋率補強', () => {
 
       expect(syncSpy).toHaveBeenCalled();
     });
+  });
 
+  describe('bindClickDeleteEvents', () => {
     test('應該在刪除成功時更新計數', () => {
       managerMock.handleDocumentClick.mockReturnValue(true);
 
