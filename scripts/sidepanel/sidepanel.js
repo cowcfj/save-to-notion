@@ -167,9 +167,7 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
   }
 
   // 渲染列表
-  if (highlightsData?.highlights && highlightsData.highlights.length > 0) {
-    renderList(highlightsData.highlights, targetKey);
-  }
+  renderList(highlightsData.highlights, targetKey);
 
   // 檢查是否已儲存到 Notion 以啟用 Sync 按鈕
   const savedKey = targetKey.replace(HIGHLIGHTS_PREFIX, SAVED_PREFIX);
@@ -301,10 +299,12 @@ function handleStorageChange(changes, namespace) {
   if (namespace !== 'local') {
     return;
   }
-  // 簡單粗暴：只要 highlights 有變，就重整當前頁面資料
-  const hasHighlightChanges = Object.keys(changes).some(key => key.startsWith(HIGHLIGHTS_PREFIX));
+  // 只要 highlights 或 saved 有變，就重整當前頁面資料
+  const hasRelevantChanges = Object.keys(changes).some(
+    key => key.startsWith(HIGHLIGHTS_PREFIX) || key.startsWith(SAVED_PREFIX)
+  );
 
-  if (hasHighlightChanges) {
+  if (hasRelevantChanges) {
     loadCurrentTab();
   }
 }
