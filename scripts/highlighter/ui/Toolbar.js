@@ -146,7 +146,7 @@ export class Toolbar {
     if (manageBtn) {
       manageBtn.addEventListener('click', () => {
         Toolbar._sendMessageAsync({ action: 'OPEN_SIDE_PANEL' }).catch(error =>
-          Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', { error })
+          Logger.error('[Toolbar] OPEN_SIDE_PANEL failed', error)
         );
       });
     }

@@ -105,15 +105,25 @@ class MessageHandler {
       const handler = this.handlers.get(action);
 
       // 執行處理函數，支持 Promise
-      Promise.resolve(handler(request, sender, sendResponse)).catch(error => {
-        const errorResponse = MessageHandler._formatError(error, action);
-        this.logger.error?.(`Handler error for action '${action}':`, error);
-        try {
-          sendResponse(errorResponse);
-        } catch {
-          /* 忽略 sendResponse 錯誤 */
-        }
-      });
+      Promise.resolve(handler(request, sender, sendResponse))
+        .then(result => {
+          if (result !== undefined) {
+            try {
+              sendResponse(result);
+            } catch {
+              /* handler 可能已直接呼叫 sendResponse，忽略二次呼叫錯誤 */
+            }
+          }
+        })
+        .catch(error => {
+          const errorResponse = MessageHandler._formatError(error, action);
+          this.logger.error?.(`Handler error for action '${action}':`, error);
+          try {
+            sendResponse(errorResponse);
+          } catch {
+            /* 忽略 sendResponse 錯誤 */
+          }
+        });
 
       return true; // 表示異步響應
     } catch (error) {
