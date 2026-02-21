@@ -83,7 +83,10 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       try {
         new URL(request.stableUrl);
       } catch {
-        // 無效 URL，忽略
+        Logger.debug('拒絕設置無效 URL 為穩定 URL', {
+          action: 'setStableUrl',
+          rejected: request.stableUrl,
+        });
         return false;
       }
       globalThis.__NOTION_STABLE_URL__ = request.stableUrl;

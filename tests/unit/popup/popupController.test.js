@@ -199,18 +199,19 @@ describe('popup.js Controller', () => {
       expect(startHighlight).toHaveBeenCalled();
     });
 
-    it('highlightButton click should warn if not saved', async () => {
+    it('highlightButton click should start highlight even if page not saved', async () => {
       const { mockElements } = setup();
       await initPopup();
       checkPageStatus.mockResolvedValue({ isSaved: false });
+      startHighlight.mockResolvedValue({ success: true });
 
       await triggerEvent(mockElements.highlightButton);
 
-      // 錯誤訊息已被 ErrorHandler.formatUserMessage 轉換為友善訊息
+      // Highlight-First：不再檢查 isSaved，直接啟動標註
+      expect(startHighlight).toHaveBeenCalled();
       expect(setStatus).toHaveBeenCalledWith(
         mockElements,
-        expect.stringContaining('頁面尚未保存'),
-        expect.anything()
+        expect.stringContaining(UI_MESSAGES.POPUP.HIGHLIGHT_ACTIVATED)
       );
     });
 

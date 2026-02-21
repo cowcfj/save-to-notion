@@ -189,6 +189,10 @@ describe('Content Script Entry (index.js)', () => {
 
         expect(result).toBe(false); // Rejected
         expect(globalThis.__NOTION_STABLE_URL__).toBe('old-url'); // Unchanged
+        expect(Logger.debug).toHaveBeenCalledWith(
+          '拒絕設置無效 URL 為穩定 URL',
+          expect.any(Object)
+        );
       });
     });
   });

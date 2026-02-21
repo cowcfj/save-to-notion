@@ -396,15 +396,15 @@ export function createSaveHandlers(services) {
    * @private
    */
   async function _handlePageRecreation(params) {
-    const { normUrl, originalUrl, activeTabId } = params;
+    const { normUrl, originalUrl } = params;
     Logger.log('Notion 頁面已被刪除，正在清理本地狀態並重新創建', {
       action: 'recreatePage',
       url: sanitizeUrlForLogging(normUrl),
     });
 
-    // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
+    // 只清理頁面 metadata（notionPageId 等），保留本地標註
+    // Highlight-First：標註獨立於 Notion 頁面生命週期
     await storageService.clearPageState(originalUrl || normUrl);
-    await clearPageHighlights(activeTabId);
 
     return await performCreatePage(params);
   }
