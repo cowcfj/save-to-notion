@@ -128,6 +128,14 @@ describe('Content Script Entry (index.js)', () => {
     });
 
     describe('SET_STABLE_URL', () => {
+      beforeEach(() => {
+        globalThis.__NOTION_STABLE_URL__ = undefined;
+      });
+
+      afterEach(() => {
+        delete globalThis.__NOTION_STABLE_URL__;
+      });
+
       test('應該接受帶有 query 參數的 URL', () => {
         const sendResponse = jest.fn();
         const result = messageHandler(
