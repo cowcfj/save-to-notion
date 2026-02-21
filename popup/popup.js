@@ -235,6 +235,23 @@ export async function initPopup() {
       });
     }
   });
+
+  // 管理標註按鈕 (開啟 Side Panel)
+  if (elements.manageButton) {
+    elements.manageButton.addEventListener('click', async () => {
+      try {
+        const tab = await chrome.tabs
+          .query({ active: true, currentWindow: true })
+          .then(tabs => tabs[0]);
+        if (tab?.id) {
+          await chrome.runtime.sendMessage({ action: 'OPEN_SIDE_PANEL', tabId: tab.id });
+          window.close();
+        }
+      } catch (error) {
+        Logger.error('Failed to open Manage Highlights panel', { error });
+      }
+    });
+  }
 }
 
 // Initialize when DOM is ready

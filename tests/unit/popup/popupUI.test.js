@@ -106,7 +106,8 @@ describe('popupUI.js', () => {
       const response = { wasDeleted: false };
       updateUIForUnsavedPage(mockElements, response);
 
-      expect(mockElements.highlightButton.disabled).toBe(true);
+      // Highlight-First 模式：即使未保存也不禁用標記按鈕
+      expect(mockElements.highlightButton.disabled).toBe(false);
       expect(mockElements.clearHighlightsButton.style.display).toBe('none');
       expect(mockElements.saveButton.style.display).toBe('block');
       expect(mockElements.status.textContent).toContain('Save page first');

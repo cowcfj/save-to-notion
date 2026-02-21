@@ -30,6 +30,7 @@ export function getElements() {
   return {
     saveButton: document.querySelector('#save-button'),
     highlightButton: document.querySelector('#highlight-button'),
+    manageButton: document.querySelector('#manage-button'),
     clearHighlightsButton: document.querySelector('#clear-highlights-button'),
     openNotionButton: document.querySelector('#open-notion-button'),
     status: document.querySelector('#status'),
@@ -162,10 +163,10 @@ export function updateUIForSavedPage(elements, response) {
  * @param {boolean} [response.wasDeleted] - 頁面是否已被刪除
  */
 export function updateUIForUnsavedPage(elements, response) {
-  // 禁用標記按鈕
+  // 啟用標記按鈕 (Highlight-First)
   if (elements.highlightButton) {
-    setButtonText(elements.highlightButton, 'Save First to Highlight');
-    elements.highlightButton.disabled = true;
+    setButtonText(elements.highlightButton, 'Start Highlighting');
+    elements.highlightButton.disabled = false;
   }
 
   // 隱藏清除按鈕
