@@ -29,12 +29,14 @@ async function init() {
     emptyState: document.querySelector('#empty-state'),
     highlightsList: document.querySelector('#highlights-list'),
     syncButton: document.querySelector('#sync-button'),
+    openNotionButton: document.querySelector('#open-notion-button'),
     statusMessage: document.querySelector('#status-message'),
     template: document.querySelector('#highlight-card-template'),
   };
 
   // 1. 綁定按鈕事件
   els.syncButton.addEventListener('click', handleSyncClick);
+  els.openNotionButton.addEventListener('click', handleOpenNotionClick);
 
   // 2. 監聽當前分頁變化
   chrome.tabs.onActivated.addListener(handleTabChange);
@@ -177,12 +179,15 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
 
   if (savedResult[savedKey]) {
     els.syncButton.disabled = false; // If saved, enable sync button
+    els.openNotionButton.style.display = 'inline-flex'; // Show open in notion button
   } else {
     els.syncButton.disabled = true; // If not saved, disable sync button
+    els.openNotionButton.style.display = 'none';
   }
 
-  // Store the target page url for syncing
+  // Store the target page url for syncing / opening
   els.syncButton.dataset.targetUrl = targetKey.replace(HIGHLIGHTS_PREFIX, '');
+  els.openNotionButton.dataset.targetUrl = originalTabUrl;
 }
 
 /**
@@ -292,6 +297,28 @@ async function handleSyncClick() {
 }
 
 /**
+ * 點擊在 Notion 打開按鈕
+ */
+async function handleOpenNotionClick() {
+  els.openNotionButton.disabled = true;
+  showMessage('Opening...', 'info');
+
+  try {
+    const url = els.openNotionButton.dataset.targetUrl;
+    const response = await chrome.runtime.sendMessage({ action: 'openNotionPage', url });
+    if (!response?.success) {
+      showMessage(response?.error || 'Failed to open', 'error');
+    }
+  } catch {
+    showMessage('Failed to open', 'error');
+  } finally {
+    setTimeout(() => {
+      els.openNotionButton.disabled = false;
+    }, 1000);
+  }
+}
+
+/**
  * 處理 Storage 變化
  *
  * @param {object} changes
@@ -318,6 +345,7 @@ function showLoading() {
   els.emptyState.style.display = 'none';
   els.highlightsList.style.display = 'none';
   els.syncButton.disabled = true;
+  els.openNotionButton.style.display = 'none';
 }
 
 function showEmpty(msg = null) {
@@ -325,6 +353,7 @@ function showEmpty(msg = null) {
   els.emptyState.style.display = 'flex';
   els.highlightsList.style.display = 'none';
   els.syncButton.disabled = true;
+  els.openNotionButton.style.display = 'none';
 
   if (msg) {
     els.emptyState.querySelector('p').textContent = msg;

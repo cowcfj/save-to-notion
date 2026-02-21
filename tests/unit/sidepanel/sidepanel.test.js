@@ -42,6 +42,7 @@ describe('Sidepanel JS Logic', () => {
       </div>
       <div id="highlights-list" style="display:none"></div>
       <button id="sync-button"></button>
+      <button id="open-notion-button"></button>
       <div id="status-message"></div>
       <template id="highlight-card-template">
         <div class="highlight-card">
