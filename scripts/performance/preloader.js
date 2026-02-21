@@ -69,7 +69,23 @@
       }
     })(),
     // Phase 2a+: WordPress shortlink（穩定數字 ID URL）
-    shortlink: document.querySelector('link[rel="shortlink"]')?.href || null,
+    // 驗證 shortlink 不是首頁 URL（某些 WordPress 站點會錯誤地將 shortlink 設為首頁）
+    shortlink: (() => {
+      const href = document.querySelector('link[rel="shortlink"]')?.href;
+      if (!href) {
+        return null;
+      }
+      try {
+        const urlObj = new URL(href);
+        // 過濾掉根路徑（首頁）的 shortlink，它們不具有穩定性
+        if ((urlObj.pathname === '/' || urlObj.pathname === '') && !urlObj.search) {
+          return null;
+        }
+        return href;
+      } catch {
+        return null;
+      }
+    })(),
     timestamp: Date.now(),
   };
 

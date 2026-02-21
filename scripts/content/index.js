@@ -70,6 +70,20 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
   if (request.action === 'SET_STABLE_URL') {
     if (request.stableUrl) {
+      // 防禦：驗證穩定 URL 不是首頁根路徑（某些 WordPress 的 shortlink 會錯誤地解析為首頁）
+      try {
+        const urlObj = new URL(request.stableUrl);
+        if ((urlObj.pathname === '/' || urlObj.pathname === '') && !urlObj.search) {
+          Logger.debug('拒絕設置首頁 URL 為穩定 URL', {
+            action: 'setStableUrl',
+            rejected: request.stableUrl,
+          });
+          return false;
+        }
+      } catch {
+        // 無效 URL，忽略
+        return false;
+      }
       globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
       Logger.debug('已接收並設置穩定 URL', {
         action: 'setStableUrl',
