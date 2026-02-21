@@ -2,9 +2,12 @@ import { createSidepanelHandlers } from '../../../../scripts/background/handlers
 import Logger from '../../../../scripts/utils/Logger.js';
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  warn: jest.fn(),
-  info: jest.fn(),
-  error: jest.fn(),
+  __esModule: true,
+  default: {
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+  },
 }));
 
 describe('SidepanelHandlers', () => {
