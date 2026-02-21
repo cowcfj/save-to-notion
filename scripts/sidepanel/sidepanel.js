@@ -23,6 +23,10 @@ let els = {};
 
 let statusMessageTimeoutId;
 
+// 快取：避免每次 storage 變化都重新解析 URL
+let cachedStableUrl = null;
+let cachedTabUrl = null;
+
 async function init() {
   els = {
     loadingState: document.querySelector('#loading-state'),
@@ -86,6 +90,10 @@ async function loadCurrentTab(specificTabId = null) {
 
     // 核心: 解析穩定 URL (3層 Fallback)
     const stableUrl = await getStableUrlForTab(tab.id, tab.url);
+
+    // 快取 URL 供 handleStorageChange 快速路徑使用
+    cachedStableUrl = stableUrl;
+    cachedTabUrl = tab.url;
 
     // 獲取資料
     await renderHighlightsForUrl(stableUrl, tab.url);
@@ -320,6 +328,7 @@ async function handleOpenNotionClick() {
 
 /**
  * 處理 Storage 變化
+ * 使用快取 URL 避免重新查詢 tab 和 sendMessage，大幅降低延遲
  *
  * @param {object} changes
  * @param {string} namespace
@@ -333,9 +342,18 @@ function handleStorageChange(changes, namespace) {
     key => key.startsWith(HIGHLIGHTS_PREFIX) || key.startsWith(SAVED_PREFIX)
   );
 
-  if (hasRelevantChanges) {
-    loadCurrentTab();
+  if (!hasRelevantChanges) {
+    return;
   }
+
+  // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
+  if (cachedStableUrl && cachedTabUrl) {
+    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl);
+    return;
+  }
+
+  // 初始狀態尚無快取，走完整路徑
+  loadCurrentTab();
 }
 
 // === UI 輔助函數 ===
