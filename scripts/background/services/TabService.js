@@ -11,7 +11,12 @@
 
 /* global chrome */
 
-import { TAB_SERVICE, URL_NORMALIZATION, HANDLER_CONSTANTS } from '../../config/constants.js';
+import {
+  TAB_SERVICE,
+  URL_NORMALIZATION,
+  HANDLER_CONSTANTS,
+  URL_ALIAS_PREFIX,
+} from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
 import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
 
@@ -195,6 +200,16 @@ class TabService {
       if (!highlights && hasStableUrl) {
         // 回退查詢：嘗試原始 URL（向後兼容）
         highlights = await this._getHighlightsFromStorage(originalUrl);
+
+        // 建立 url_alias 連結：避免 shortlink 與原網址各自產生獨立的 storage key
+        if (highlights) {
+          const aliasKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+          chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
+          this.logger.debug('[TabService] Created url_alias for fallback URL', {
+            from: originalUrl,
+            to: normUrl,
+          });
+        }
       }
 
       if (!highlights) {
