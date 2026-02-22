@@ -389,6 +389,26 @@ function buildUnsyncedDOM() {
   `;
 }
 
+async function initModule(storageMock) {
+  chrome.storage.local.get.mockResolvedValue(storageMock);
+  jest.isolateModules(() => {
+    require('../../../sidepanel/sidepanel.js');
+  });
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+  // 讓所有 async 完成（init 會平行跑 loadCurrentTab + updateUnsyncedBadge）
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
+}
+
+async function clickUnsyncedTab() {
+  const tab = document.querySelector('[data-view="unsynced"]');
+  tab.click();
+  for (let i = 0; i < 5; i++) {
+    await Promise.resolve();
+  }
+}
+
 describe('Unsynced View (getUnsyncedPages integration)', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -404,26 +424,6 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
   afterEach(() => {
     jest.useRealTimers();
   });
-
-  async function initModule(storageMock) {
-    chrome.storage.local.get.mockResolvedValue(storageMock);
-    jest.isolateModules(() => {
-      require('../../../sidepanel/sidepanel.js');
-    });
-    document.dispatchEvent(new Event('DOMContentLoaded'));
-    // 讓所有 async 完成（init 會平行跑 loadCurrentTab + updateUnsyncedBadge）
-    for (let i = 0; i < 10; i++) {
-      await Promise.resolve();
-    }
-  }
-
-  async function clickUnsyncedTab() {
-    const tab = document.querySelector('[data-view="unsynced"]');
-    tab.click();
-    for (let i = 0; i < 5; i++) {
-      await Promise.resolve();
-    }
-  }
 
   it('should filter out synced pages (with notionPageId)', async () => {
     await initModule({
