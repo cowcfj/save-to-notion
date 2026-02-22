@@ -3,11 +3,11 @@
  * 負責舊版標註數據的遷移 UI 與協調
  */
 /* global chrome */
-import { UI_ICONS } from '../config/index.js';
-import { COMMON_CSS_CLASSES } from '../config/constants.js';
-import Logger from '../utils/Logger.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { sanitizeApiError, createSafeIcon } from '../utils/securityUtils.js';
+import { UI_ICONS } from '../scripts/config/index.js';
+import { COMMON_CSS_CLASSES } from '../scripts/config/constants.js';
+import Logger from '../scripts/utils/Logger.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { sanitizeApiError, createSafeIcon } from '../scripts/utils/securityUtils.js';
 import { MigrationScanner } from './MigrationScanner.js';
 
 /**

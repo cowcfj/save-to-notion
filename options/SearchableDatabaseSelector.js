@@ -3,10 +3,10 @@
  * 可搜索的資料來源選擇器 UI 組件
  */
 
-import Logger from '../utils/Logger.js';
-import { createSafeIcon, sanitizeApiError } from '../utils/securityUtils.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { UI_ICONS } from '../config/index.js';
+import Logger from '../scripts/utils/Logger.js';
+import { createSafeIcon, sanitizeApiError } from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { UI_ICONS } from '../scripts/config/index.js';
 
 /**
  * 可搜索的資料來源選擇器組件

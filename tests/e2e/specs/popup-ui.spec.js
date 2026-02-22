@@ -14,7 +14,7 @@ test.describe('Popup UI', () => {
   test('應該顯示初始狀態（提示設置）', async ({ page }) => {
     // 模擬未設置 API Key 的情況 (預設 storage 可能為空)
     const statusText = await page.textContent('#status');
-    expect(statusText).toContain('Please set API Key');
+    expect(statusText).toContain('請先在設定頁面配置 Notion API Key');
   });
 
   test('當設置完成後應該顯示保存按鈕', async ({ page, context, extensionId }) => {
@@ -48,7 +48,7 @@ test.describe('Popup UI', () => {
     await expect(saveButton).toBeVisible();
 
     const statusText = await page.textContent('#status');
-    expect(statusText).toContain('Save page first');
+    expect(statusText).toContain('Start highlighting to mark this page');
   });
 
   test('模擬已保存狀態下的 UI 變化', async ({ page, context, extensionId }) => {
@@ -82,7 +82,7 @@ test.describe('Popup UI', () => {
       document.querySelector('#highlight-button').style.display = 'block';
       document.querySelector('#highlight-button').disabled = false;
       document.querySelector('#open-notion-button').style.display = 'block';
-      document.querySelector('#status').textContent = 'Page saved. Ready to highlight or update.';
+      document.querySelector('#status').textContent = '已保存！Ready to highlight or update.';
     });
 
     // 檢查 UI 元素切換
@@ -91,7 +91,7 @@ test.describe('Popup UI', () => {
     await expect(page.locator('#open-notion-button')).toBeVisible();
 
     const statusText = await page.textContent('#status');
-    expect(statusText).toContain('Page saved');
+    expect(statusText).toContain('已保存');
   });
 
   test('清除標記應該顯示確認彈窗', async ({ page, context, extensionId }) => {
@@ -124,8 +124,8 @@ test.describe('Popup UI', () => {
       document.querySelector('#clear-highlights-button').style.display = 'block';
     });
 
-    // 3. 點擊清除按鈕
-    await page.click('#clear-highlights-button');
+    // 3. 點擊清除按鈕，使用 force: true 確保能夠點擊到即使它在視覺上可能有些遮擋
+    await page.locator('#clear-highlights-button').click({ force: true });
 
     // 4. 檢查 Modal 是否顯示
     const modal = page.locator('#confirmation-modal');

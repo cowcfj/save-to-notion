@@ -28,9 +28,9 @@
  * @param {string} status - 狀態描述
  */
 
-import Logger from '../utils/Logger.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
+import Logger from '../scripts/utils/Logger.js';
+import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 
 /**
  * 舊版數據遷移掃描器

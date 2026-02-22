@@ -4,7 +4,7 @@
  * Tests for options page storage management including analysis, cleanup, and optimization
  */
 
-import { StorageManager } from '../../../scripts/options/StorageManager';
+import { StorageManager } from '../../../options/StorageManager';
 import Logger from '../../../scripts/utils/Logger';
 
 // Mock Logger

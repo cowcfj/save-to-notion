@@ -12,19 +12,19 @@ import {
   initOptions,
 } from '../../../options/options.js';
 
-import { UIManager } from '../../../scripts/options/UIManager.js';
-import { AuthManager } from '../../../scripts/options/AuthManager.js';
-import { DataSourceManager } from '../../../scripts/options/DataSourceManager.js';
-import { StorageManager } from '../../../scripts/options/StorageManager.js';
-import { MigrationTool } from '../../../scripts/options/MigrationTool.js';
+import { UIManager } from '../../../options/UIManager.js';
+import { AuthManager } from '../../../options/AuthManager.js';
+import { DataSourceManager } from '../../../options/DataSourceManager.js';
+import { StorageManager } from '../../../options/StorageManager.js';
+import { MigrationTool } from '../../../options/MigrationTool.js';
 import Logger from '../../../scripts/utils/Logger.js';
 
 // Mocks for dependencies
-jest.mock('../../../scripts/options/UIManager.js');
-jest.mock('../../../scripts/options/AuthManager.js');
-jest.mock('../../../scripts/options/DataSourceManager.js');
-jest.mock('../../../scripts/options/StorageManager.js');
-jest.mock('../../../scripts/options/MigrationTool.js');
+jest.mock('../../../options/UIManager.js');
+jest.mock('../../../options/AuthManager.js');
+jest.mock('../../../options/DataSourceManager.js');
+jest.mock('../../../options/StorageManager.js');
+jest.mock('../../../options/MigrationTool.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   info: jest.fn(),
   warn: jest.fn(),

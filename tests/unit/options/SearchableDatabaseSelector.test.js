@@ -4,7 +4,7 @@
  * Tests for the searchable dropdown component for selecting Notion databases
  */
 
-import { SearchableDatabaseSelector } from '../../../scripts/options/SearchableDatabaseSelector';
+import { SearchableDatabaseSelector } from '../../../options/SearchableDatabaseSelector';
 // Mock Logger
 jest.mock('../../../scripts/utils/Logger', () => ({
   info: jest.fn(),
