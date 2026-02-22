@@ -63,9 +63,9 @@ export async function initPopup() {
     return;
   }
 
-  // 檢查頁面狀態並更新 UI（強制刷新以獲取最新狀態）
+  // 檢查頁面狀態並更新 UI（使用 TTL cache 避免不必要的 API 呼叫）
   try {
-    const pageStatus = await checkPageStatus({ forceRefresh: true });
+    const pageStatus = await checkPageStatus();
 
     if (pageStatus?.success) {
       if (pageStatus.isSaved) {

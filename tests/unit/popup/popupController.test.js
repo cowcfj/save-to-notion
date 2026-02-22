@@ -85,7 +85,7 @@ describe('popup.js Controller', () => {
 
     expect(getElements).toHaveBeenCalled();
     expect(checkSettings).toHaveBeenCalled();
-    expect(checkPageStatus).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(checkPageStatus).toHaveBeenCalledWith();
     expect(updateUIForSavedPage).toHaveBeenCalledWith(mockElements, expect.anything());
   });
 
