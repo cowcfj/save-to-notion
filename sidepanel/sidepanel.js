@@ -360,7 +360,7 @@ function renderList(highlights, storageKey) {
 
   els.loadingState.style.display = 'none';
   els.emptyState.style.display = 'none';
-  els.highlightsList.style.display = 'flex';
+  els.highlightsList.style.display = isCurrentViewActive() ? 'flex' : 'none';
 }
 
 /**
@@ -484,8 +484,14 @@ function handleStorageChange(changes, namespace) {
 
 // === UI 輔助函數 ===
 
+function isCurrentViewActive() {
+  const currentTab = document.querySelector('.view-tab[data-view="current"]');
+  return currentTab ? currentTab.classList.contains('active') : true;
+}
+
 function showLoading() {
-  els.loadingState.style.display = 'flex';
+  const isActive = isCurrentViewActive();
+  els.loadingState.style.display = isActive ? 'flex' : 'none';
   els.emptyState.style.display = 'none';
   els.highlightsList.style.display = 'none';
   els.syncButton.disabled = true;
@@ -493,8 +499,9 @@ function showLoading() {
 }
 
 function showEmpty(msg = null) {
+  const isActive = isCurrentViewActive();
   els.loadingState.style.display = 'none';
-  els.emptyState.style.display = 'flex';
+  els.emptyState.style.display = isActive ? 'flex' : 'none';
   els.highlightsList.style.display = 'none';
   els.syncButton.disabled = true;
   els.openNotionButton.style.display = 'none';
