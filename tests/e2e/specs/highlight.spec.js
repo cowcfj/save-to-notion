@@ -71,6 +71,11 @@ test.describe('Highlighting Feature', () => {
           files: ['dist/content.bundle.js'],
         });
 
+        // 2. 透過標準擴充功能訊息機制觸發 UI (取代在 Main World 中呼叫)
+        // 稍微等待腳本註冊訊息監聽器
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await chrome.tabs.sendMessage(tabId, { action: 'showToolbar' });
+
         return { success: true };
       } catch (error) {
         return { success: false, error: error.message };
@@ -79,28 +84,6 @@ test.describe('Highlighting Feature', () => {
 
     if (!injectionResult.success) {
       throw new Error(`Injection failed: ${injectionResult.error}`);
-    }
-
-    // 2. 使用 Playwright 的 waitForFunction 智能等待初始化
-    try {
-      await page.waitForFunction(
-        () => {
-          return globalThis.notionHighlighter && globalThis.HighlighterV2;
-        },
-        {
-          timeout: 10_000, // 可配置的超時時間：10秒
-          polling: 100, // 輪詢間隔：100ms
-        }
-      );
-
-      // 3. 初始化完成後顯示工具列
-      await page.evaluate(() => {
-        if (globalThis.notionHighlighter) {
-          globalThis.notionHighlighter.show();
-        }
-      });
-    } catch (error) {
-      throw new Error(`Highlighter initialization timeout: ${error.message}`);
     }
 
     // 4. 驗證工具列存在
