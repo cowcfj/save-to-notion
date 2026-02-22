@@ -27,6 +27,74 @@ let statusMessageTimeoutId;
 let cachedStableUrl = null;
 let cachedTabUrl = null;
 
+// === 待同步視圖設定 ===
+const PAGE_BATCH_SIZE = 10;
+const PREVIEW_HIGHLIGHT_COUNT = 3;
+const PREVIEW_TEXT_MAX_LENGTH = 80;
+
+/** @type {Array<object> | null} 快取的未同步頁面資料 */
+let cachedUnsyncedPages = null;
+/** @type {number} 目前已渲染的卡片數量 */
+let displayedCardCount = 0;
+
+/**
+ * 從 URL 中提取 domain 名稱
+ *
+ * @param {string} url
+ * @returns {string}
+ */
+function extractDomain(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * 從 chrome.storage.local 取出所有 highlights_ key，
+ * 過濾已同步（有 notionPageId）的頁面，回傳未同步頁面的摘要列表。
+ *
+ * @returns {Promise<Array<{url, storageKey, title, highlightCount, lastUpdated, previewHighlights, remainingCount}>>}
+ */
+async function getUnsyncedPages() {
+  const all = await chrome.storage.local.get(null);
+  const pages = [];
+
+  for (const [key, value] of Object.entries(all)) {
+    if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
+      continue;
+    }
+    const url = key.slice(HIGHLIGHTS_PREFIX.length);
+    const savedKey = `${SAVED_PREFIX}${url}`;
+    const savedData = all[savedKey];
+
+    // 跳過已同步頁面
+    if (savedData?.notionPageId) {
+      continue;
+    }
+
+    const highlights = value?.highlights || [];
+    const previewHighlights = highlights.slice(0, PREVIEW_HIGHLIGHT_COUNT).map(hl => ({
+      text: (hl.text || '').slice(0, PREVIEW_TEXT_MAX_LENGTH),
+      color: hl.color || 'yellow',
+    }));
+
+    pages.push({
+      url,
+      storageKey: key,
+      title: savedData?.title || value?.title || extractDomain(url),
+      highlightCount: highlights.length,
+      lastUpdated: value?.updatedAt || 0,
+      previewHighlights,
+      remainingCount: Math.max(0, highlights.length - PREVIEW_HIGHLIGHT_COUNT),
+    });
+  }
+
+  // 最近更新的頁面排最前
+  return pages.toSorted((pa, pb) => pb.lastUpdated - pa.lastUpdated);
+}
+
 async function init() {
   els = {
     loadingState: document.querySelector('#loading-state'),
@@ -53,8 +121,20 @@ async function init() {
   // 3. 監聽 Storage 變化 (即時更新)
   chrome.storage.onChanged.addListener(handleStorageChange);
 
-  // 4. 初始化載入當前分頁
+  // 4. Tab bar 切換
+  document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.addEventListener('click', handleViewTabClick);
+  });
+
+  // 5. 載入更多
+  const loadMoreBtn = document.querySelector('#load-more-btn');
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', loadMoreCards);
+  }
+
+  // 6. 初始化載入當前分頁，並更新 badge
   await loadCurrentTab();
+  updateUnsyncedBadge();
 }
 
 /**
@@ -401,3 +481,147 @@ function showMessage(text, type) {
 
 // 啟動
 document.addEventListener('DOMContentLoaded', init);
+
+// === 待同步視圖切換邏輯 ===
+
+/**
+ * 切換視圖：'current' 或 'unsynced'
+ *
+ * @param {'current'|'unsynced'} viewName
+ */
+function switchView(viewName) {
+  const currentViewEls = [
+    document.querySelector('#loading-state'),
+    document.querySelector('#empty-state'),
+    document.querySelector('#highlights-list'),
+    document.querySelector('#status-message'),
+  ];
+  const unsyncedView = document.querySelector('#unsynced-view');
+  const loadMoreBtn = document.querySelector('#load-more-btn');
+
+  if (viewName === 'unsynced') {
+    currentViewEls.forEach(el => el && (el.style.display = 'none'));
+    unsyncedView.style.display = 'block';
+    renderUnsyncedView();
+  } else {
+    unsyncedView.style.display = 'none';
+    if (loadMoreBtn) {
+      loadMoreBtn.style.display = 'none';
+    }
+    loadCurrentTab();
+  }
+
+  // 更新 tab 的 active 樣式
+  document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.view === viewName);
+  });
+}
+
+/**
+ * Tab bar 點擊事件處理
+ *
+ * @param {Event} event
+ */
+function handleViewTabClick(event) {
+  const viewName = event.currentTarget.dataset.view;
+  if (viewName) {
+    switchView(viewName);
+  }
+}
+
+/**
+ * 渲染「待同步」視圖（含分頁）
+ */
+async function renderUnsyncedView() {
+  const container = document.querySelector('#unsynced-view');
+  const loadMoreBtn = document.querySelector('#load-more-btn');
+
+  // 每次進入時重新抓取資料
+  cachedUnsyncedPages = await getUnsyncedPages();
+  displayedCardCount = 0;
+  container.innerHTML = '';
+
+  if (cachedUnsyncedPages.length === 0) {
+    container.innerHTML = '<p class="unsynced-empty">All highlights are synced!</p>';
+    if (loadMoreBtn) {
+      loadMoreBtn.style.display = 'none';
+    }
+    return;
+  }
+
+  appendCards(container, PAGE_BATCH_SIZE);
+}
+
+/**
+ * 從 cachedUnsyncedPages 取出下一批卡片並插入 container
+ *
+ * @param {HTMLElement} container
+ * @param {number} count
+ */
+function appendCards(container, count) {
+  const loadMoreBtn = document.querySelector('#load-more-btn');
+  const template = document.querySelector('#page-card-template');
+  const batch = cachedUnsyncedPages.slice(displayedCardCount, displayedCardCount + count);
+
+  batch.forEach(page => {
+    const cardNode = template.content.cloneNode(true);
+    const card = cardNode.querySelector('.page-card');
+
+    card.querySelector('.page-title').textContent = page.title;
+    card.querySelector('.page-meta').textContent =
+      `${extractDomain(page.url)} • ${page.highlightCount} highlight${page.highlightCount === 1 ? '' : 's'}`;
+
+    // 標註預覽
+    const previewContainer = card.querySelector('.page-card-previews');
+    page.previewHighlights.forEach(highlight => {
+      const row = document.createElement('p');
+      row.className = `preview-row color-${highlight.color}`;
+      row.textContent = `"${highlight.text}${highlight.text.length >= PREVIEW_TEXT_MAX_LENGTH ? '...' : ''}"`;
+      previewContainer.append(row);
+    });
+
+    // +N more
+    const remainingEl = card.querySelector('.page-card-remaining');
+    if (page.remainingCount > 0) {
+      remainingEl.textContent = `+${page.remainingCount} more`;
+    }
+
+    // 開啟頁面
+    card.querySelector('.page-open-button').addEventListener('click', () => {
+      chrome.tabs.create({ url: page.url });
+    });
+
+    container.append(card);
+  });
+
+  displayedCardCount += batch.length;
+
+  // 更新「載入更多」按鈕
+  if (loadMoreBtn) {
+    const hasMore = displayedCardCount < cachedUnsyncedPages.length;
+    loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+  }
+}
+
+/**
+ * 「載入更多」按鈕的 handler
+ */
+function loadMoreCards() {
+  if (!cachedUnsyncedPages) {
+    return;
+  }
+  const container = document.querySelector('#unsynced-view');
+  appendCards(container, PAGE_BATCH_SIZE);
+}
+
+/**
+ * 計算未同步頁面數量，更新 Tab 上的 badge
+ */
+async function updateUnsyncedBadge() {
+  const pages = await getUnsyncedPages();
+  const badge = document.querySelector('#unsynced-badge');
+  if (!badge) {
+    return;
+  }
+  badge.textContent = pages.length > 0 ? String(pages.length) : '';
+}
