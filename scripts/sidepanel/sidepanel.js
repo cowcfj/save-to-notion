@@ -23,18 +23,24 @@ let els = {};
 
 let statusMessageTimeoutId;
 
+// 快取：避免每次 storage 變化都重新解析 URL
+let cachedStableUrl = null;
+let cachedTabUrl = null;
+
 async function init() {
   els = {
     loadingState: document.querySelector('#loading-state'),
     emptyState: document.querySelector('#empty-state'),
     highlightsList: document.querySelector('#highlights-list'),
     syncButton: document.querySelector('#sync-button'),
+    openNotionButton: document.querySelector('#open-notion-button'),
     statusMessage: document.querySelector('#status-message'),
     template: document.querySelector('#highlight-card-template'),
   };
 
   // 1. 綁定按鈕事件
   els.syncButton.addEventListener('click', handleSyncClick);
+  els.openNotionButton.addEventListener('click', handleOpenNotionClick);
 
   // 2. 監聽當前分頁變化
   chrome.tabs.onActivated.addListener(handleTabChange);
@@ -66,6 +72,8 @@ async function handleTabChange(activeInfo) {
  * @param {number|null} specificTabId
  */
 async function loadCurrentTab(specificTabId = null) {
+  cachedStableUrl = null;
+  cachedTabUrl = null;
   showLoading();
 
   try {
@@ -84,6 +92,10 @@ async function loadCurrentTab(specificTabId = null) {
 
     // 核心: 解析穩定 URL (3層 Fallback)
     const stableUrl = await getStableUrlForTab(tab.id, tab.url);
+
+    // 快取 URL 供 handleStorageChange 快速路徑使用
+    cachedStableUrl = stableUrl;
+    cachedTabUrl = tab.url;
 
     // 獲取資料
     await renderHighlightsForUrl(stableUrl, tab.url);
@@ -177,12 +189,15 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
 
   if (savedResult[savedKey]) {
     els.syncButton.disabled = false; // If saved, enable sync button
+    els.openNotionButton.style.display = 'inline-flex'; // Show open in notion button
   } else {
     els.syncButton.disabled = true; // If not saved, disable sync button
+    els.openNotionButton.style.display = 'none';
   }
 
-  // Store the target page url for syncing
+  // Store the target page url for syncing / opening
   els.syncButton.dataset.targetUrl = targetKey.replace(HIGHLIGHTS_PREFIX, '');
+  els.openNotionButton.dataset.targetUrl = originalTabUrl;
 }
 
 /**
@@ -292,7 +307,32 @@ async function handleSyncClick() {
 }
 
 /**
+ * 點擊在 Notion 打開按鈕
+ */
+async function handleOpenNotionClick() {
+  els.openNotionButton.disabled = true;
+  showMessage('Opening...', 'info');
+
+  try {
+    const url = els.openNotionButton.dataset.targetUrl;
+    const response = await chrome.runtime.sendMessage({ action: 'openNotionPage', url });
+    if (response?.success) {
+      showMessage('Opened successfully!', 'success');
+    } else {
+      showMessage(response?.error || 'Failed to open', 'error');
+    }
+  } catch {
+    showMessage('Failed to open', 'error');
+  } finally {
+    setTimeout(() => {
+      els.openNotionButton.disabled = false;
+    }, 1000);
+  }
+}
+
+/**
  * 處理 Storage 變化
+ * 使用快取 URL 避免重新查詢 tab 和 sendMessage，大幅降低延遲
  *
  * @param {object} changes
  * @param {string} namespace
@@ -306,9 +346,20 @@ function handleStorageChange(changes, namespace) {
     key => key.startsWith(HIGHLIGHTS_PREFIX) || key.startsWith(SAVED_PREFIX)
   );
 
-  if (hasRelevantChanges) {
-    loadCurrentTab();
+  if (!hasRelevantChanges) {
+    return;
   }
+
+  // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
+  if (cachedStableUrl && cachedTabUrl) {
+    renderHighlightsForUrl(cachedStableUrl, cachedTabUrl).catch(error =>
+      Logger.error('[SidePanel] renderHighlightsForUrl failed', { error })
+    );
+    return;
+  }
+
+  // 初始狀態尚無快取，走完整路徑
+  loadCurrentTab();
 }
 
 // === UI 輔助函數 ===
@@ -318,6 +369,7 @@ function showLoading() {
   els.emptyState.style.display = 'none';
   els.highlightsList.style.display = 'none';
   els.syncButton.disabled = true;
+  els.openNotionButton.style.display = 'none';
 }
 
 function showEmpty(msg = null) {
@@ -325,6 +377,7 @@ function showEmpty(msg = null) {
   els.emptyState.style.display = 'flex';
   els.highlightsList.style.display = 'none';
   els.syncButton.disabled = true;
+  els.openNotionButton.style.display = 'none';
 
   if (msg) {
     els.emptyState.querySelector('p').textContent = msg;

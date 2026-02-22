@@ -121,6 +121,7 @@ async function performHighlightUpdate(services, activeTab, highlights) {
   if (!savedData?.notionPageId) {
     return {
       success: false,
+      errorCode: 'PAGE_NOT_SAVED',
       error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.PAGE_NOT_SAVED),
     };
   }

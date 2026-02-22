@@ -141,6 +141,34 @@ export function injectGlobalStyles() {
             margin-bottom: 16px;
         }
 
+        .nh-sync-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #c53030;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 10px;
+            line-height: 1;
+            pointer-events: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* 保存網頁按鈕 */
+        .nh-btn-save {
+            flex: 1;
+            background: #007aff !important;
+            color: white !important;
+            border-color: #007aff !important;
+            font-weight: 600;
+        }
+        .nh-btn-save:hover {
+            background: #005ecb !important;
+            border-color: #005ecb !important;
+        }
+
         /* 顏色按鈕 */
         .nh-color-btn {
             width: 28px;
@@ -163,92 +191,6 @@ export function injectGlobalStyles() {
             box-shadow: 0 0 0 2px #2eaadc, 0 4px 8px rgba(0,0,0,0.15);
         }
 
-        /* 標註列表 */
-        .nh-list {
-            margin-top: 12px;
-            border-top: 1px solid #eee;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .nh-list-header {
-            padding: 12px 4px 8px;
-            font-weight: 600;
-            color: #374151;
-            font-size: 13px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .nh-list-item {
-            display: flex;
-            align-items: center;
-            padding: 8px;
-            border-radius: 6px;
-            margin-bottom: 4px;
-            transition: background 0.2s;
-            gap: 10px;
-        }
-
-        .nh-list-item:hover {
-            background: #f3f4f6;
-        }
-
-        .nh-list-content {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .nh-list-title {
-            color: #1f2937;
-            font-weight: 500;
-            font-size: 13px;
-            margin-bottom: 2px;
-        }
-
-        .nh-list-text {
-            color: #6b7280;
-            font-size: 12px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .nh-btn-mini {
-            padding: 4px 8px;
-            font-size: 11px;
-            border-radius: 4px;
-            background: white;
-            border: 1px solid #e5e7eb;
-            color: #4b5563;
-        }
-
-        .nh-btn-mini:hover {
-            background: #f9fafb;
-            color: #111827;
-            border-color: #d1d5db;
-        }
-
-        .nh-btn-delete {
-            width: 24px;
-            height: 24px;
-            padding: 0;
-            border-radius: 4px;
-            color: #9ca3af;
-            background: transparent;
-            border: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .nh-btn-delete:hover {
-            background: #fee2e2;
-            color: #ef4444;
-        }
-
         /* 狀態欄 */
         .nh-status {
             margin-top: 12px;
@@ -259,13 +201,6 @@ export function injectGlobalStyles() {
             color: #64748b;
             text-align: center;
             border: 1px solid #f1f5f9;
-        }
-
-        .nh-hint {
-            margin-top: 8px;
-            font-size: 11px;
-            color: #9ca3af;
-            text-align: center;
         }
 
         /* 最小化圖標 */
@@ -291,24 +226,6 @@ export function injectGlobalStyles() {
         #notion-highlighter-mini-icon:hover {
             transform: scale(1.1) rotate(15deg);
             box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        }
-
-        /* 滾動條美化 */
-        .nh-list::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .nh-list::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .nh-list::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 2px;
-        }
-
-        .nh-list::-webkit-scrollbar-thumb:hover {
-            background: #9ca3af;
         }
     `;
 

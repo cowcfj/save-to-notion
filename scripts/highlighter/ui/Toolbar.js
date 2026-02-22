@@ -17,6 +17,9 @@ import Logger from '../../utils/Logger.js';
 
 const STYLE_INLINE_BLOCK = 'inline-block';
 const STYLE_TEXT_BOTTOM = 'text-bottom';
+const STYLE_INLINE_FLEX = 'inline-flex';
+const STYLE_NONE = 'none';
+const STYLE_BLOCK = 'block';
 
 /**
  * 工具欄管理器類別
@@ -128,19 +131,19 @@ export class Toolbar {
   }
 
   /**
-   * 綁定操作按鈕（同步、打開、管理）
+   * 綁定操作按鈕（保存、同步、管理）
    */
   bindActionButtons() {
+    const saveBtn = this.container.querySelector(TOOLBAR_SELECTORS.SAVE_PAGE);
     const syncBtn = this.container.querySelector(TOOLBAR_SELECTORS.SYNC_TO_NOTION);
-    const openBtn = this.container.querySelector(TOOLBAR_SELECTORS.OPEN_NOTION);
     const manageBtn = this.container.querySelector(TOOLBAR_SELECTORS.MANAGE_HIGHLIGHTS);
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => this.savePageToNotion());
+    }
 
     if (syncBtn) {
       syncBtn.addEventListener('click', () => this.syncToNotion());
-    }
-
-    if (openBtn) {
-      openBtn.addEventListener('click', () => Toolbar.openInNotion());
     }
 
     if (manageBtn) {
@@ -258,6 +261,9 @@ export class Toolbar {
 
     // 更新計數
     this.updateHighlightCount();
+
+    // 根據頁面保存狀態切換 Save / Sync 按鈕
+    this.updateSaveButtonVisibility();
   }
 
   /**
@@ -322,12 +328,10 @@ export class Toolbar {
     if (countSpan) {
       const count = this.manager.getCount();
       countSpan.textContent = count.toString();
+      countSpan.style.display = count > 0 ? 'inline-block' : 'none';
     }
   }
 
-  /**
-   * 同步到 Notion
-   */
   /**
    * 封裝 chrome.runtime.sendMessage 為 Promise
    *
@@ -380,13 +384,104 @@ export class Toolbar {
   }
 
   /**
+   * 查詢當前頁面保存狀態，切換「保存網頁」和「同步」按鈕的可見性
+   */
+  async updateSaveButtonVisibility() {
+    const saveBtn = this.container.querySelector(TOOLBAR_SELECTORS.SAVE_PAGE);
+    const syncBtn = this.container.querySelector(TOOLBAR_SELECTORS.SYNC_TO_NOTION);
+
+    if (!saveBtn || !syncBtn) {
+      return;
+    }
+
+    try {
+      const response = await Toolbar._sendMessageAsync({ action: 'checkPageStatus' });
+
+      if (response?.success && response.isSaved) {
+        // 已保存 → 顯示同步按鈕，隱藏保存按鈕
+        saveBtn.style.display = STYLE_NONE;
+        syncBtn.style.display = STYLE_INLINE_FLEX;
+      } else {
+        // 未保存 → 顯示保存按鈕，隱藏同步按鈕
+        saveBtn.style.display = STYLE_INLINE_FLEX;
+        syncBtn.style.display = STYLE_NONE;
+      }
+    } catch {
+      // 查詢失敗時預設顯示保存按鈕
+      saveBtn.style.display = STYLE_INLINE_FLEX;
+      syncBtn.style.display = STYLE_NONE;
+    }
+  }
+
+  /**
+   * 保存頁面到 Notion（從 Toolbar 發起）
+   */
+  async savePageToNotion() {
+    const statusDiv = this.container.querySelector(TOOLBAR_SELECTORS.STATUS_CONTAINER);
+    const saveBtn = this.container.querySelector(TOOLBAR_SELECTORS.SAVE_PAGE);
+    let success = false;
+
+    if (saveBtn) {
+      saveBtn.disabled = true;
+    }
+
+    if (statusDiv) {
+      statusDiv.style.display = STYLE_BLOCK;
+      Toolbar._setStatusIcon(statusDiv, 'SYNC', null, '正在保存...');
+    }
+
+    try {
+      const response = await Toolbar._sendMessageAsync({
+        action: 'SAVE_PAGE_FROM_TOOLBAR',
+      });
+
+      if (response?.success) {
+        success = true;
+        if (statusDiv) {
+          Toolbar._setStatusIcon(statusDiv, 'CHECK', null, '保存成功！');
+        }
+
+        // await 確保按鈕切換完成後 finally 才執行，避免閃爍
+        await this.updateSaveButtonVisibility();
+      } else {
+        const rawError = sanitizeApiError(response?.error || 'Unknown error');
+        const errorMsg = ErrorHandler.formatUserMessage(rawError);
+        if (statusDiv) {
+          Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
+        }
+      }
+    } catch (error) {
+      if (statusDiv) {
+        Toolbar._setStatusIcon(statusDiv, 'X', null, '保存失敗');
+      }
+      Logger.error('從 Toolbar 保存頁面失敗', {
+        action: 'savePageToNotion',
+        error: error?.message ?? String(error),
+      });
+    } finally {
+      // 失敗時才重新啟用按鈕（成功時按鈕已被 updateSaveButtonVisibility 隱藏）
+      if (!success && saveBtn) {
+        saveBtn.disabled = false;
+      }
+
+      // updateSaveButtonVisibility 已 await 完成，setTimeout 排程在其後
+      if (statusDiv) {
+        setTimeout(() => {
+          statusDiv.textContent = '';
+          statusDiv.style.display = STYLE_NONE;
+        }, 2000);
+      }
+    }
+  }
+
+  /**
    * 同步到 Notion
    */
   async syncToNotion() {
     const statusDiv = this.container.querySelector(TOOLBAR_SELECTORS.STATUS_CONTAINER);
 
     if (statusDiv) {
-      const originalText = statusDiv.textContent; // Use textContent for safety
+      statusDiv.style.display = 'block'; // Ensure it's visible during sync
 
       // Update UI to Loading State
       Toolbar._setStatusIcon(statusDiv, 'SYNC', 'SYNCING');
@@ -403,22 +498,16 @@ export class Toolbar {
 
         if (response?.success) {
           Toolbar._setStatusIcon(statusDiv, 'CHECK', 'SYNC_SUCCESS');
+        } else if (response?.errorCode === 'PAGE_NOT_SAVED') {
+          // 頁面尚未保存到 Notion，提供引導性訊息
+          Toolbar._setStatusIcon(statusDiv, 'X', null, '請先保存頁面到 Notion');
         } else {
           const rawError = sanitizeApiError(response?.error || 'Unknown error');
           const errorMsg = ErrorHandler.formatUserMessage(rawError);
           Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
         }
-
-        setTimeout(() => {
-          // Restore original text safely
-          statusDiv.textContent = originalText;
-        }, 2000);
       } catch (error) {
         Toolbar._setStatusIcon(statusDiv, 'X', 'SYNC_FAILED');
-
-        setTimeout(() => {
-          statusDiv.textContent = originalText;
-        }, 2000);
 
         Logger.error('同步失敗:', {
           action: 'syncToNotion',
@@ -430,21 +519,11 @@ export class Toolbar {
           },
         });
       }
-    }
-  }
 
-  /**
-   * 在 Notion 中打開當前頁面
-   * 發送當前頁面 URL 給 background,由 background 查詢對應的 Notion 頁面 URL
-   *
-   * @static
-   */
-  static openInNotion() {
-    if (globalThis.window !== undefined && globalThis.chrome?.runtime?.sendMessage) {
-      globalThis.chrome.runtime.sendMessage({
-        action: 'openNotionPage',
-        url: globalThis.location.href,
-      });
+      setTimeout(() => {
+        statusDiv.textContent = '';
+        statusDiv.style.display = 'none';
+      }, 2000);
     }
   }
 

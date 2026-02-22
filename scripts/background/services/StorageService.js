@@ -197,6 +197,32 @@ class StorageService {
   }
 
   /**
+   * 移除單一 URL 的 savedPageData（不連帶清理穩定 URL）
+   * 用於清除舊的 originalUrl 殘留數據，避免 autoSyncLocalState 誤刪新數據
+   *
+   * @param {string} pageUrl - 頁面 URL
+   * @returns {Promise<void>}
+   */
+  async removeSavedPageData(pageUrl) {
+    if (!this.storage) {
+      throw new Error(STORAGE_ERROR);
+    }
+
+    const normalizedUrl = normalizeUrl(pageUrl);
+    const key = `${SAVED_PREFIX}${normalizedUrl}`;
+
+    try {
+      await this.storage.local.remove([key]);
+      this.logger.log?.('Removed stale savedPageData', {
+        url: sanitizeUrlForLogging(normalizedUrl),
+      });
+    } catch (error) {
+      this.logger.error?.('[StorageService] removeSavedPageData failed', { error });
+      throw error;
+    }
+  }
+
+  /**
    * 清除頁面狀態
    * 同時清理穩定 URL 和原始 URL 的存儲 key（確保完全清除），
    * 以及對應的 URL alias 映射。
@@ -212,24 +238,18 @@ class StorageService {
     const normalizedUrl = normalizeUrl(pageUrl);
     const stableUrl = computeStableUrl(pageUrl);
 
-    const keysToRemove = [
-      `${SAVED_PREFIX}${normalizedUrl}`,
-      `${HIGHLIGHTS_PREFIX}${normalizedUrl}`,
-      `${URL_ALIAS_PREFIX}${normalizedUrl}`,
-    ];
+    const keysToRemove = [`${SAVED_PREFIX}${normalizedUrl}`];
 
     // 如果有穩定 URL 且與原始 URL 不同，也清理穩定 URL 的 key 和 alias
     if (stableUrl && stableUrl !== normalizedUrl) {
-      keysToRemove.push(
-        `${SAVED_PREFIX}${stableUrl}`,
-        `${HIGHLIGHTS_PREFIX}${stableUrl}`,
-        `${URL_ALIAS_PREFIX}${stableUrl}`
-      );
+      keysToRemove.push(`${SAVED_PREFIX}${stableUrl}`);
     }
 
     try {
       await this.storage.local.remove(keysToRemove);
-      this.logger.log?.('Cleared all data', { url: sanitizeUrlForLogging(normalizedUrl) });
+      this.logger.log?.('Cleared saved page metadata', {
+        url: sanitizeUrlForLogging(normalizedUrl),
+      });
     } catch (error) {
       this.logger.error?.('[StorageService] clearPageState failed', { error });
       throw error;

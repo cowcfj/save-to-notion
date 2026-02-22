@@ -20,6 +20,7 @@ import { ContentExtractor } from './extractors/ContentExtractor.js';
 import { ConverterFactory } from './converters/ConverterFactory.js';
 import { ImageCollector } from './extractors/ImageCollector.js';
 import { mergeUniqueImages } from '../utils/imageUtils.js';
+import { isRootUrl } from '../utils/urlUtils.js';
 // 合併 Highlighter bundle：導入以執行其自動初始化邏輯 (setupHighlighter)
 import '../highlighter/index.js';
 
@@ -70,6 +71,24 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
   if (request.action === 'SET_STABLE_URL') {
     if (request.stableUrl) {
+      // 防禦：驗證穩定 URL 有足夠的路徑或 query 來識別具體頁面
+      if (isRootUrl(request.stableUrl)) {
+        Logger.debug('拒絕設置首頁 URL 為穩定 URL', {
+          action: 'setStableUrl',
+          rejected: request.stableUrl,
+        });
+        return false;
+      }
+      // isRootUrl 對無效 URL 回傳 false（非根路徑），需另行驗證以拒絕不可解析的 URL
+      try {
+        new URL(request.stableUrl);
+      } catch {
+        Logger.debug('拒絕設置無效 URL 為穩定 URL', {
+          action: 'setStableUrl',
+          rejected: request.stableUrl,
+        });
+        return false;
+      }
       globalThis.__NOTION_STABLE_URL__ = request.stableUrl;
       Logger.debug('已接收並設置穩定 URL', {
         action: 'setStableUrl',

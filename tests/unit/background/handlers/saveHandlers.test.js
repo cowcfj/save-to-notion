@@ -352,6 +352,21 @@ describe('saveHandlers', () => {
       );
     });
 
+    test('checkPageStatus: 應接受來自 Content Script (Toolbar) 的請求', async () => {
+      const sendResponse = jest.fn();
+      mockServices.storageService.getSavedPageData.mockResolvedValue({
+        notionPageId: 'page-123',
+        lastVerifiedAt: Date.now(),
+        title: 'Test Title',
+      });
+
+      await handlers.checkPageStatus({}, validContentScriptSender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, isSaved: true })
+      );
+    });
+
     // ===== devLogSink Tests (Positive) =====
     test('devLogSink: 應接受來自合法 content script 的請求並記錄日誌', () => {
       const sendResponse = jest.fn();

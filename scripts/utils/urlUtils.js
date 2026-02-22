@@ -259,6 +259,35 @@ export function hasSameOrigin(url1, url2) {
 }
 
 /**
+ * 檢查 URL 是否為根路徑（首頁）
+ * 用於過濾掉指向首頁的無效 shortlink 及拒絕設置首頁作為穩定 URL
+ *
+ * @param {string|null|undefined} url - 要檢查的 URL
+ * @returns {boolean} 是否為根路徑
+ *
+ * 行為說明：
+ * - falsy 輸入（null、undefined、""）視為根路徑，回傳 true
+ * - 無效 URL（無法解析）回傳 false，不視為根路徑
+ * - 有效根路徑（pathname 為 "/" 或 "" 且無 query）回傳 true
+ * - 有 query 參數（如 "/?p=123"）或有路徑（如 "/post"）回傳 false
+ */
+export function isRootUrl(url) {
+  if (!url) {
+    return true;
+  }
+
+  try {
+    const urlObj = new URL(url);
+    const path = urlObj.pathname;
+    const hasQuery = urlObj.search.length > 0;
+    // 根路徑：pathname 為 "/" 且沒有查詢參數
+    return (path === '/' || path === '') && !hasQuery;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 解析存儲用的 URL — 優先使用穩定 URL
  * 這是 normalizeUrl 的增強版，優先嘗試穩定 URL，再回退到標準化
  *
@@ -287,12 +316,18 @@ export function resolveStorageUrl(rawUrl, preloaderData) {
     }
   }
 
-  // Phase 2a+: WordPress shortlink
-  if (
-    preloaderData?.shortlink && // 驗證 shortlink 與原始 URL 有相同來源
-    hasSameOrigin(preloaderData.shortlink, rawUrl)
-  ) {
-    return preloaderData.shortlink;
+  // Phase 2a+: WordPress shortlink（?p=ID 格式）
+  // 合法的 WordPress shortlink 一定有 query 參數（?p=12345 等），
+  // 指向首頁的無效 shortlink 則沒有 query 參數。
+  if (preloaderData?.shortlink && hasSameOrigin(preloaderData.shortlink, rawUrl)) {
+    try {
+      const shortlinkUrl = new URL(preloaderData.shortlink);
+      if (shortlinkUrl.search.length > 0) {
+        return preloaderData.shortlink;
+      }
+    } catch {
+      // 無效 URL，跳過
+    }
   }
 
   // 最終回退

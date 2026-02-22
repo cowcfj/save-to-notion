@@ -7,6 +7,7 @@ import { ContentExtractor } from '../../../scripts/content/extractors/ContentExt
 import { ConverterFactory } from '../../../scripts/content/converters/ConverterFactory.js';
 import { ImageCollector } from '../../../scripts/content/extractors/ImageCollector.js';
 import { mergeUniqueImages } from '../../../scripts/utils/imageUtils.js';
+import Logger from '../../../scripts/utils/Logger.js';
 
 // Mock dependencies
 jest.mock('../../../scripts/content/extractors/ContentExtractor.js');
@@ -125,6 +126,74 @@ describe('Content Script Entry (index.js)', () => {
       expect(mockHighlighter.show).toHaveBeenCalled();
 
       delete globalThis.notionHighlighter;
+    });
+
+    describe('SET_STABLE_URL', () => {
+      beforeEach(() => {
+        globalThis.__NOTION_STABLE_URL__ = undefined;
+      });
+
+      afterEach(() => {
+        delete globalThis.__NOTION_STABLE_URL__;
+      });
+
+      test('應該接受帶有 query 參數的 URL', () => {
+        const sendResponse = jest.fn();
+        const result = messageHandler(
+          { action: 'SET_STABLE_URL', stableUrl: 'https://example.com/?p=123' },
+          {},
+          sendResponse
+        );
+
+        expect(result).toBe(false); // Handler finishes synchronously
+        expect(globalThis.__NOTION_STABLE_URL__).toBe('https://example.com/?p=123');
+      });
+
+      test('應該接受帶有具體路徑的 URL', () => {
+        const sendResponse = jest.fn();
+        const result = messageHandler(
+          { action: 'SET_STABLE_URL', stableUrl: 'https://example.com/posts/123/' },
+          {},
+          sendResponse
+        );
+
+        expect(result).toBe(false); // Handler finishes synchronously
+        expect(globalThis.__NOTION_STABLE_URL__).toBe('https://example.com/posts/123/');
+      });
+
+      test('應該拒絕純首頁（無路徑無 query）', () => {
+        globalThis.__NOTION_STABLE_URL__ = 'old-url';
+        const sendResponse = jest.fn();
+        const result = messageHandler(
+          { action: 'SET_STABLE_URL', stableUrl: 'https://example.com/' },
+          {},
+          sendResponse
+        );
+
+        expect(result).toBe(false); // Rejected
+        expect(globalThis.__NOTION_STABLE_URL__).toBe('old-url'); // Unchanged
+        expect(Logger.debug).toHaveBeenCalledWith(
+          '拒絕設置首頁 URL 為穩定 URL',
+          expect.any(Object)
+        );
+      });
+
+      test('應該處理無效的 URL 字串', () => {
+        globalThis.__NOTION_STABLE_URL__ = 'old-url';
+        const sendResponse = jest.fn();
+        const result = messageHandler(
+          { action: 'SET_STABLE_URL', stableUrl: 'not-a-valid-url' },
+          {},
+          sendResponse
+        );
+
+        expect(result).toBe(false); // Rejected
+        expect(globalThis.__NOTION_STABLE_URL__).toBe('old-url'); // Unchanged
+        expect(Logger.debug).toHaveBeenCalledWith(
+          '拒絕設置無效 URL 為穩定 URL',
+          expect.any(Object)
+        );
+      });
     });
   });
 

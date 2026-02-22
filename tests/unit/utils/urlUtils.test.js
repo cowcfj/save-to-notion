@@ -7,6 +7,7 @@ import {
   computeStableUrl,
   resolveStorageUrl,
   buildStableUrlFromNextData,
+  isRootUrl,
 } from '../../../scripts/utils/urlUtils.js';
 
 describe('urlUtils', () => {
@@ -266,7 +267,7 @@ describe('urlUtils', () => {
     });
 
     describe('Phase 2a+: WordPress shortlink', () => {
-      it('應該使用 shortlink 對於 WordPress 網站', () => {
+      it('應該使用有 query 參數的 shortlink（?p=ID）', () => {
         const url = 'https://blog.example.com/2024/01/01/very-long-slug-title/';
         const preloaderData = {
           shortlink: 'https://blog.example.com/?p=12345',
@@ -276,19 +277,14 @@ describe('urlUtils', () => {
         expect(result).toBe('https://blog.example.com/?p=12345');
       });
 
-      it('Next.js 應優先於 shortlink', () => {
-        const url = 'https://blog.example.com/tech/999/some-long-slug';
+      it('應該拒絕沒有 query 參數的 shortlink（首頁 URL）', () => {
+        const url = 'https://blog.example.com/2024/01/01/some-post/';
         const preloaderData = {
-          nextRouteInfo: {
-            page: '/[category]/[id]/[slug]',
-            query: { category: 'tech', id: '999', slug: 'some-long-slug' },
-          },
-          shortlink: 'https://blog.example.com/?p=999',
+          shortlink: 'https://blog.example.com/',
         };
 
         const result = resolveStorageUrl(url, preloaderData);
-        // Next.js 路由優先於 shortlink
-        expect(result).toBe('https://blog.example.com/tech/999');
+        expect(result).toBe(normalizeUrl(url));
       });
 
       it('應該拒絕跨域 shortlink 並回退到 normalizeUrl', () => {
@@ -298,8 +294,17 @@ describe('urlUtils', () => {
         };
 
         const result = resolveStorageUrl(url, preloaderData);
-        // 跨域 shortlink 被 hasSameOrigin 安全守衛攔截，回退到 normalizeUrl
         expect(result).toBe(normalizeUrl(url));
+      });
+
+      it('應該使用帶 query 參數的 shortlink（無 nextRouteInfo 時）', () => {
+        const url = 'https://blog.example.com/tech/999/some-long-slug';
+        const preloaderData = {
+          shortlink: 'https://blog.example.com/?p=999',
+        };
+
+        const result = resolveStorageUrl(url, preloaderData);
+        expect(result).toBe('https://blog.example.com/?p=999');
       });
     });
   });
@@ -328,6 +333,32 @@ describe('urlUtils', () => {
     it('應該保留根路徑的斜杠', () => {
       const url = 'https://example.com/';
       expect(normalizeUrl(url)).toBe('https://example.com/');
+    });
+  });
+
+  describe('isRootUrl', () => {
+    it('應該對根路徑（/）回傳 true', () => {
+      expect(isRootUrl('https://example.com/')).toBe(true);
+    });
+
+    it('應該對帶 query 參數的根路徑回傳 false', () => {
+      expect(isRootUrl('https://example.com/?p=123')).toBe(false);
+    });
+
+    it('應該對有路徑的 URL 回傳 false', () => {
+      expect(isRootUrl('https://example.com/some-post')).toBe(false);
+    });
+
+    it('應該對 null 回傳 true（視為根路徑）', () => {
+      expect(isRootUrl(null)).toBe(true);
+    });
+
+    it('應該對空字串回傳 true（視為根路徑）', () => {
+      expect(isRootUrl('')).toBe(true);
+    });
+
+    it('應該對無效 URL 回傳 false', () => {
+      expect(isRootUrl('not-a-valid-url')).toBe(false);
     });
   });
 });

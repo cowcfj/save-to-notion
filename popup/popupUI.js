@@ -12,6 +12,7 @@ import { UI_ICONS } from '../scripts/config/index.js';
  * @typedef {object} PopupElements
  * @property {HTMLButtonElement} saveButton - 保存按鈕
  * @property {HTMLButtonElement} highlightButton - 標記按鈕
+ * @property {HTMLButtonElement} manageButton - 管理標註按鈕（開啟 Side Panel）
  * @property {HTMLButtonElement} clearHighlightsButton - 清除標記按鈕
  * @property {HTMLButtonElement} openNotionButton - 打開 Notion 按鈕
  * @property {HTMLElement} status - 狀態顯示元素
@@ -30,6 +31,7 @@ export function getElements() {
   return {
     saveButton: document.querySelector('#save-button'),
     highlightButton: document.querySelector('#highlight-button'),
+    manageButton: document.querySelector('#manage-button'),
     clearHighlightsButton: document.querySelector('#clear-highlights-button'),
     openNotionButton: document.querySelector('#open-notion-button'),
     status: document.querySelector('#status'),
@@ -162,10 +164,10 @@ export function updateUIForSavedPage(elements, response) {
  * @param {boolean} [response.wasDeleted] - 頁面是否已被刪除
  */
 export function updateUIForUnsavedPage(elements, response) {
-  // 禁用標記按鈕
+  // 啟用標記按鈕 (Highlight-First)
   if (elements.highlightButton) {
-    setButtonText(elements.highlightButton, 'Save First to Highlight');
-    elements.highlightButton.disabled = true;
+    setButtonText(elements.highlightButton, 'Start Highlighting');
+    elements.highlightButton.disabled = false;
   }
 
   // 隱藏清除按鈕
@@ -187,7 +189,7 @@ export function updateUIForUnsavedPage(elements, response) {
   if (response.wasDeleted) {
     setStatus(elements, 'Original page was deleted. Save to create new page.', '#d63384');
   } else {
-    setStatus(elements, 'Save page first to enable highlighting.');
+    setStatus(elements, 'Start highlighting to mark this page.');
   }
 }
 

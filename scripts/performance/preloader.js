@@ -69,7 +69,21 @@
       }
     })(),
     // Phase 2a+: WordPress shortlink（穩定數字 ID URL）
-    shortlink: document.querySelector('link[rel="shortlink"]')?.href || null,
+    // 合法的 WordPress shortlink 一定有 query 參數（?p=12345），
+    // 沒有 query 參數的（如首頁 URL）不是有效 shortlink。
+    shortlink: (() => {
+      const href = document.querySelector('link[rel="shortlink"]')?.href;
+      if (!href) {
+        return null;
+      }
+      try {
+        const urlObj = new URL(href);
+        // 有效 shortlink 必須包含 query 參數（如 ?p=12345）
+        return urlObj.search.length > 0 ? href : null;
+      } catch {
+        return null;
+      }
+    })(),
     timestamp: Date.now(),
   };
 

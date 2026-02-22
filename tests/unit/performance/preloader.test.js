@@ -161,6 +161,40 @@ describe('Preloader Performance Script', () => {
 
       expect(responseDetail.nextRouteInfo).toBeNull();
     });
+
+    test('應該拒絕沒有 query 參數的 shortlink (如首頁 URL)', () => {
+      document.body.innerHTML = `
+          <link rel="shortlink" href="https://example.com/" />
+        `;
+
+      runPreloader();
+
+      let responseDetail = null;
+      document.addEventListener('notion-preloader-response', e => {
+        responseDetail = e.detail;
+      });
+      document.dispatchEvent(new CustomEvent('notion-preloader-request'));
+
+      expect(responseDetail).not.toBeNull();
+      expect(responseDetail.shortlink).toBeNull();
+    });
+
+    test('應該處理無效的 shortlink URL 格式 (catch 區塊)', () => {
+      document.body.innerHTML = `
+          <link rel="shortlink" href="://invalid" />
+        `;
+
+      runPreloader();
+
+      let responseDetail = null;
+      document.addEventListener('notion-preloader-response', e => {
+        responseDetail = e.detail;
+      });
+      document.dispatchEvent(new CustomEvent('notion-preloader-request'));
+
+      expect(responseDetail).not.toBeNull();
+      expect(responseDetail.shortlink).toBeNull();
+    });
   });
 
   describe('Keyboard Shortcut handling', () => {

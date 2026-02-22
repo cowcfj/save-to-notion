@@ -115,25 +115,6 @@ export function createSaveHandlers(services) {
   } = services;
 
   /**
-   * 清理頁面標記的輔助函數 (跨模組調用時可能需要，暫時保留在此，若 highlightHandlers 也需要則各自實現)
-   * 注意：savePage 中會調用 clearPageHighlights
-   *
-   * @param {number} tabId - 標籤頁 ID
-   */
-  async function clearPageHighlights(tabId) {
-    try {
-      await injectionService.injectHighlighter(tabId);
-      await injectionService.inject(tabId, () => {
-        if (globalThis.clearPageHighlights) {
-          globalThis.clearPageHighlights();
-        }
-      });
-    } catch (error) {
-      Logger.warn('清除頁面標註失敗', { action: 'clearPageHighlights', error: error.message });
-    }
-  }
-
-  /**
    * 驗證請求並獲取配置
    *
    * @param {object} sender - 請求發送者
@@ -326,6 +307,20 @@ export function createSaveHandlers(services) {
         });
       });
 
+      // 清除 originalUrl 下可能殘留的舊 savedPageData（含已刪除的 pageId）
+      // 防止 autoSyncLocalState 在 fallback 查詢時找到舊條目並觸發破壞性清理
+      if (originalUrl && originalUrl !== normUrl) {
+        const staleData = await storageService.getSavedPageData(originalUrl);
+        if (staleData && staleData.notionPageId !== result.pageId) {
+          await storageService.removeSavedPageData(originalUrl).catch(error => {
+            Logger.warn('清除 originalUrl 舊 savedData 失敗（不影響主流程）', {
+              action: 'cleanStaleOriginalUrl',
+              error: error.message,
+            });
+          });
+        }
+      }
+
       // 補充統計數據
       result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
       result.blockCount = contentResult.blocks.length;
@@ -396,15 +391,15 @@ export function createSaveHandlers(services) {
    * @private
    */
   async function _handlePageRecreation(params) {
-    const { normUrl, originalUrl, activeTabId } = params;
+    const { normUrl, originalUrl } = params;
     Logger.log('Notion 頁面已被刪除，正在清理本地狀態並重新創建', {
       action: 'recreatePage',
       url: sanitizeUrlForLogging(normUrl),
     });
 
-    // 使用原始 URL 能夠同時清理穩定 URL（由 StorageService 內部處理）
+    // 只清理頁面 metadata（notionPageId 等），保留本地標註
+    // Highlight-First：標註獨立於 Notion 頁面生命週期
     await storageService.clearPageState(originalUrl || normUrl);
-    await clearPageHighlights(activeTabId);
 
     return await performCreatePage(params);
   }
@@ -516,6 +511,103 @@ export function createSaveHandlers(services) {
       } catch (error) {
         Logger.error('保存頁面時發生未預期錯誤', { action: 'savePage', error: error.message });
         const safeMessage = sanitizeApiError(error, 'save_page_unknown');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+      }
+    },
+
+    /**
+     * 從 Toolbar (Content Script) 保存頁面
+     * 與 savePage 邏輯完全一致，但使用 Content Script 安全性驗證
+     *
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
+     */
+    SAVE_PAGE_FROM_TOOLBAR: async (request, sender, sendResponse) => {
+      try {
+        // Content Script 安全性驗證
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'SAVE_PAGE_FROM_TOOLBAR',
+            reason: 'invalid_content_script_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
+          });
+          sendResponse(validationError);
+          return;
+        }
+
+        const activeTab = sender.tab;
+        if (!activeTab) {
+          sendResponse({ success: false, error: 'Cannot determine active tab from sender.' });
+          return;
+        }
+
+        if (isRestrictedInjectionUrl(activeTab.url)) {
+          sendResponse({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
+          });
+          return;
+        }
+
+        const config = await storageService.getConfig([
+          'notionApiKey',
+          'notionDataSourceId',
+          'notionDatabaseId',
+          'notionDataSourceType',
+        ]);
+
+        if (!config.notionApiKey) {
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+          });
+          return;
+        }
+
+        const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
+        const dataSourceType = config.notionDataSourceType || 'data_source';
+
+        if (!dataSourceId) {
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+          });
+          return;
+        }
+
+        // 複用完整保存邏輯（穩定 URL、遷移、alias 等）
+        const { savedData, normUrl, originalUrl } = await resolvePageData(activeTab);
+
+        const extractionData = await extractPageContent(activeTab, sendResponse);
+        if (!extractionData) {
+          return;
+        }
+        const { result, highlights } = extractionData;
+
+        const contentResult = processContentResult(result, highlights);
+
+        await determineAndExecuteSaveAction({
+          savedData,
+          normUrl,
+          originalUrl,
+          dataSourceId,
+          dataSourceType,
+          contentResult,
+          highlights,
+          apiKey: config.notionApiKey,
+          activeTabId: activeTab.id,
+          sendResponse,
+        });
+      } catch (error) {
+        Logger.error('從 Toolbar 保存頁面時發生錯誤', {
+          action: 'SAVE_PAGE_FROM_TOOLBAR',
+          error: error.message,
+        });
+        const safeMessage = sanitizeApiError(error, 'save_page_toolbar');
         sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
       }
     },
@@ -660,11 +752,13 @@ export function createSaveHandlers(services) {
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
-        // 安全性驗證：確保請求來自擴充功能內部 (Popup 或 Content Script)
-        // 注意：Content Script 請求也需要通過驗證，這裡假設 validateInternalRequest 或類似機制已處理
-        // 如果來自 Content Script，sender.tab 會存在且包含 url (自身的權限)
-        // 如果來自 Popup，sender.tab 可能為空，需使用 getActiveTab()
-        const validationError = validateInternalRequest(sender);
+        // 安全性驗證：支援 Popup 和 Content Script 兩種來源
+        // - Content Script（sender.tab 存在）：使用 validateContentScriptRequest
+        // - Popup / Background（sender.tab 不存在）：使用 validateInternalRequest
+        const isContentScript = Boolean(sender.tab);
+        const validationError = isContentScript
+          ? validateContentScriptRequest(sender)
+          : validateInternalRequest(sender);
         if (validationError) {
           sendResponse(validationError);
           return;

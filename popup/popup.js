@@ -63,9 +63,9 @@ export async function initPopup() {
     return;
   }
 
-  // 檢查頁面狀態並更新 UI（強制刷新以獲取最新狀態）
+  // 檢查頁面狀態並更新 UI（使用 TTL cache 避免不必要的 API 呼叫）
   try {
-    const pageStatus = await checkPageStatus({ forceRefresh: true });
+    const pageStatus = await checkPageStatus();
 
     if (pageStatus?.success) {
       if (pageStatus.isSaved) {
@@ -83,7 +83,17 @@ export async function initPopup() {
     setStatus(elements, msg, '#d63384');
   }
 
+  // 預取目前分頁資訊，供 manage button 同步呼叫 sidePanel.open() 使用
+  // 使用 let 以便 tabs.onActivated 監聽器可以更新它
+  let currentTab = await getActiveTab();
+
   // ========== 事件監聽器 ==========
+
+  // 當使用者切換分頁時更新 currentTab，避免舊的 tabId 導致 sidePanel 開到錯誤的分頁
+  chrome.tabs.onActivated.addListener(async () => {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentTab = tabs[0] ?? null;
+  });
 
   // 保存按鈕
   elements.saveButton.addEventListener('click', async () => {
@@ -138,20 +148,6 @@ export async function initPopup() {
 
   // 標記按鈕
   elements.highlightButton.addEventListener('click', async () => {
-    // 檢查頁面是否已保存
-    const statusResponse = await checkPageStatus({ forceRefresh: true });
-
-    if (!statusResponse?.isSaved) {
-      const msg = ErrorHandler.formatUserMessage('Page not saved');
-      // 先以警告色 (#d63384) 顯示訊息，提供即時視覺回饋
-      setStatus(elements, msg, '#d63384');
-      // 2 秒後重置為預設顏色，但保留訊息內容（紅色短暫閃現後淡化為預設色）
-      setTimeout(() => {
-        setStatus(elements, msg);
-      }, 2000);
-      return;
-    }
-
     // 啟動標記模式
     Logger.start('[Popup] Starting highlight mode...');
     setStatus(elements, UI_MESSAGES.POPUP.HIGHLIGHT_STARTING);
@@ -249,6 +245,22 @@ export async function initPopup() {
       });
     }
   });
+
+  // 管理標註按鈕 (開啟 Side Panel)
+  // 注意：sidePanel.open() 必須在使用者手勢上下文中同步呼叫，
+  // 因此直接在 Popup 頁面呼叫，不經由 background 轉發，
+  // 並使用初始化時預取的 currentTab.id（由 tabs.onActivated 保持最新）。
+  if (elements.manageButton) {
+    elements.manageButton.addEventListener('click', () => {
+      if (currentTab?.id) {
+        chrome.sidePanel.open({ tabId: currentTab.id });
+        window.close();
+      } else {
+        // currentTab 不可用（例如 chrome:// 頁面、PDF 檢視器）
+        alert('側邊欄無法在此頁面開啟。');
+      }
+    });
+  }
 }
 
 // Initialize when DOM is ready
