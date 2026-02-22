@@ -470,6 +470,9 @@ function handleStorageChange(changes, namespace) {
     return;
   }
 
+  // Always keep the unsynced badge in sync with storage
+  updateUnsyncedBadge(null).catch(() => {});
+
   // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
   if (cachedStableUrl && cachedTabUrl) {
     renderHighlightsForUrl(cachedStableUrl, cachedTabUrl).catch(error =>
@@ -550,6 +553,9 @@ function switchView(viewName) {
     if (loadMoreBtn) {
       loadMoreBtn.style.display = 'none';
     }
+    if (els.unsyncedToolbar) {
+      els.unsyncedToolbar.style.display = 'none';
+    }
     loadCurrentTab();
   }
 
@@ -604,6 +610,7 @@ async function renderUnsyncedView() {
   }
 
   appendCards(container, PAGE_BATCH_SIZE);
+  updateUnsyncedBadge(cachedUnsyncedPages);
 }
 
 /**
@@ -710,7 +717,12 @@ async function updateUnsyncedBadge(pages) {
  * @param {HTMLElement} cardEl 對應的卡片 DOM 節點（用於移除）
  */
 async function deleteUnsyncedPage(storageKey, cardEl) {
-  await chrome.storage.local.remove(storageKey);
+  try {
+    await chrome.storage.local.remove(storageKey);
+  } catch (error) {
+    Logger.error('[SidePanel] deleteUnsyncedPage: storage remove failed', { error });
+    return; // bail out — don't mutate UI if storage failed
+  }
 
   // 從快取移除
   cachedUnsyncedPages = cachedUnsyncedPages.filter(page => page.storageKey !== storageKey);
@@ -745,7 +757,12 @@ async function deleteAllUnsyncedPages() {
   }
 
   const keys = cachedUnsyncedPages.map(page => page.storageKey);
-  await chrome.storage.local.remove(keys);
+  try {
+    await chrome.storage.local.remove(keys);
+  } catch (error) {
+    Logger.error('[SidePanel] deleteAllUnsyncedPages: storage remove failed', { error });
+    return; // bail out — don't mutate UI if storage failed
+  }
 
   cachedUnsyncedPages = [];
   displayedCardCount = 0;
