@@ -8,7 +8,6 @@ jest.mock('../../../scripts/utils/urlUtils.js', () => ({
   isRootUrl: jest.fn(url => {
     try {
       const u = new URL(url);
-      console.log('isRootUrl check:', url, u.pathname);
       return (u.pathname === '/' || u.pathname === '') && u.search.length === 0;
     } catch {
       return false;
@@ -474,12 +473,6 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     await clickUnsyncedTab();
 
     const cards = document.querySelectorAll('#unsynced-view .page-card');
-    console.log(
-      'CARDS LENGTH:',
-      cards.length,
-      'HTML:',
-      document.querySelector('#unsynced-view').innerHTML
-    );
     expect(cards).toHaveLength(1);
     expect(cards[0].querySelector('.page-title').textContent).toContain('b.com');
   });
@@ -544,13 +537,9 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     await initModule(storageData);
     await clickUnsyncedTab();
 
-    // 確認點擊前只有 10 張（避免測試環境下重複渲染問題）
+    // 確認點擊前只有 10 張
     const container = document.querySelector('#unsynced-view');
-    // 清除重複卡片，只保留前 10 個
-    const allBeforeMore = container.querySelectorAll('.page-card');
-    // 截取 10 個卡片
-    const expectedBefore = Math.min(allBeforeMore.length, 10);
-    expect(expectedBefore).toBeGreaterThanOrEqual(10);
+    expect(container.querySelectorAll('.page-card')).toHaveLength(10);
 
     // 點擊「載入更多」
     document.querySelector('#load-more-btn').click();

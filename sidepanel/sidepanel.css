@@ -275,7 +275,7 @@ body {
   font-weight: 600;
 }
 
-/* === Status Dot (pendng sync indicator) === */
+/* === Status Dot (pending sync indicator) === */
 .status-dot {
   display: inline-block;
   width: 7px;

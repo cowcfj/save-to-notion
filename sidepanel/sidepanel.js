@@ -101,11 +101,15 @@ async function getUnsyncedPages() {
 
     const savedData = savedDataOriginal || savedDataCanonical;
 
-    const highlights = value?.highlights || [];
-    const previewHighlights = highlights.slice(0, PREVIEW_HIGHLIGHT_COUNT).map(hl => ({
-      text: (hl.text || '').slice(0, PREVIEW_TEXT_MAX_LENGTH),
-      color: hl.color || 'yellow',
-    }));
+    const highlights = Array.isArray(value) ? value : value?.highlights || [];
+    const previewHighlights = highlights.slice(0, PREVIEW_HIGHLIGHT_COUNT).map(hl => {
+      const rawText = hl.text || '';
+      return {
+        text: rawText.slice(0, PREVIEW_TEXT_MAX_LENGTH),
+        truncated: rawText.length > PREVIEW_TEXT_MAX_LENGTH,
+        color: hl.color || 'yellow',
+      };
+    });
 
     pages.push({
       url,
@@ -169,7 +173,8 @@ async function init() {
 
   // 6. 初始化載入當前分頁，並更新 badge
   await loadCurrentTab();
-  updateUnsyncedBadge();
+  const unsyncedPages = await getUnsyncedPages();
+  updateUnsyncedBadge(unsyncedPages);
 }
 
 /**
@@ -618,7 +623,7 @@ function appendCards(container, count) {
     page.previewHighlights.forEach(highlight => {
       const row = document.createElement('p');
       row.className = `preview-row color-${highlight.color}`;
-      row.textContent = `"${highlight.text}${highlight.text.length >= PREVIEW_TEXT_MAX_LENGTH ? '...' : ''}"`;
+      row.textContent = `"${highlight.text}${highlight.truncated ? '...' : ''}"`;
       previewContainer.append(row);
     });
 
@@ -679,14 +684,16 @@ function loadMoreCards() {
 
 /**
  * 計算未同步頁面數量，更新 Tab 上的 badge
+ *
+ * @param {Array|undefined} [pages] - 已取得的未同步頁面陣列；若未提供則自行呼叫 getUnsyncedPages()
  */
-async function updateUnsyncedBadge() {
-  const pages = await getUnsyncedPages();
+async function updateUnsyncedBadge(pages) {
+  const resolvedPages = pages ?? (await getUnsyncedPages());
   const badge = els.unsyncedBadge;
   if (!badge) {
     return;
   }
-  badge.textContent = pages.length > 0 ? String(pages.length) : '';
+  badge.textContent = resolvedPages.length > 0 ? String(resolvedPages.length) : '';
 }
 
 /**
