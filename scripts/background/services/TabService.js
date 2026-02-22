@@ -13,7 +13,7 @@
 
 import { TAB_SERVICE, URL_NORMALIZATION, HANDLER_CONSTANTS } from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
-import { resolveStorageUrl } from '../../utils/urlUtils.js';
+import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
 
 /**
  * TabService 類
@@ -211,18 +211,7 @@ class TabService {
       if (tab) {
         this.logger.debug(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
         await this.injectionService.ensureBundleInjected(tabId);
-
-        // [Phase 2] 將計算出的穩定 URL 傳送給 Content Script，確保標註恢復時使用正確的 Key
-        try {
-          chrome.tabs
-            .sendMessage(tabId, {
-              action: 'SET_STABLE_URL',
-              stableUrl: normUrl,
-            })
-            .catch(() => {}); // 忽略可能的連接錯誤 (如 tab 關閉)
-        } catch (error) {
-          this.logger.debug(`[TabService] Failed to send stable URL: ${error.message}`);
-        }
+        this._sendStableUrl(tabId, normUrl);
       }
     } catch (error) {
       if (!this.logger.error) {
@@ -238,6 +227,33 @@ class TabService {
         const errorMsg = error.message || String(error);
         this.logger.error(`[TabService] Error updating tab status: ${errorMsg}`, { error });
       }
+    }
+  }
+
+  /**
+   * 傳送穩定 URL 給 Content Script
+   *
+   * 防護：若 normUrl 是根路徑（首頁），不傳送——避免 WordPress 等站點的
+   * tabs.onUpdated 時序問題覆寫 Content Script 中已正確設定的穩定 URL
+   *
+   * @param {number} tabId
+   * @param {string} normUrl
+   * @private
+   */
+  _sendStableUrl(tabId, normUrl) {
+    if (isRootUrl(normUrl)) {
+      this.logger.warn('[TabService] Blocked SET_STABLE_URL: resolved URL is site root', {
+        normUrl,
+        tabId,
+      });
+      return;
+    }
+    try {
+      chrome.tabs
+        .sendMessage(tabId, { action: 'SET_STABLE_URL', stableUrl: normUrl })
+        .catch(() => {}); // 忽略可能的連接錯誤 (如 tab 關閉)
+    } catch (error) {
+      this.logger.debug(`[TabService] Failed to send stable URL: ${error.message}`);
     }
   }
 

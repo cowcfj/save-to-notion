@@ -5,6 +5,15 @@ import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.
 jest.mock('../../../scripts/utils/urlUtils.js', () => ({
   normalizeUrl: jest.fn(url => url),
   computeStableUrl: jest.fn(),
+  isRootUrl: jest.fn(url => {
+    try {
+      const u = new URL(url);
+      console.log('isRootUrl check:', url, u.pathname);
+      return (u.pathname === '/' || u.pathname === '') && u.search.length === 0;
+    } catch {
+      return false;
+    }
+  }),
 }));
 
 // Chrome API polyfills
@@ -427,12 +436,12 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
   it('should filter out synced pages (with notionPageId)', async () => {
     await initModule({
-      'highlights_https://a.com': {
+      'highlights_https://a.com/p': {
         highlights: [{ id: '1', text: 'Synced text', color: 'yellow' }],
         updatedAt: 2000,
       },
-      'saved_https://a.com': { notionPageId: 'page-aaa' }, // 已同步
-      'highlights_https://b.com': {
+      'saved_https://a.com/p': { notionPageId: 'page-aaa' }, // 已同步
+      'highlights_https://b.com/p': {
         highlights: [{ id: '2', text: 'Unsynced text', color: 'blue' }],
         updatedAt: 1000,
       },
@@ -443,6 +452,12 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     await clickUnsyncedTab();
 
     const cards = document.querySelectorAll('#unsynced-view .page-card');
+    console.log(
+      'CARDS LENGTH:',
+      cards.length,
+      'HTML:',
+      document.querySelector('#unsynced-view').innerHTML
+    );
     expect(cards).toHaveLength(1);
     expect(cards[0].querySelector('.page-title').textContent).toContain('b.com');
   });
@@ -450,7 +465,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
   it('should show preview text truncated to 80 chars', async () => {
     const longText = 'A'.repeat(100);
     await initModule({
-      'highlights_https://c.com': {
+      'highlights_https://c.com/p': {
         highlights: [{ id: '1', text: longText, color: 'yellow' }],
         updatedAt: 1000,
       },
@@ -471,7 +486,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
       color: 'yellow',
     }));
     await initModule({
-      'highlights_https://d.com': { highlights, updatedAt: 1000 },
+      'highlights_https://d.com/p': { highlights, updatedAt: 1000 },
     });
 
     await clickUnsyncedTab();
@@ -483,7 +498,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
   it('should show load-more button when unsynced pages exceed 10', async () => {
     const storageData = {};
     for (let i = 0; i < 15; i++) {
-      storageData[`highlights_https://page${i}.com`] = {
+      storageData[`highlights_https://example.com/page${i}`] = {
         highlights: [{ id: '1', text: 'x', color: 'yellow' }],
         updatedAt: i,
       };
@@ -499,7 +514,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
   it('should load more cards on load-more click', async () => {
     const storageData = {};
     for (let i = 0; i < 15; i++) {
-      storageData[`highlights_https://page${i}.com`] = {
+      storageData[`highlights_https://example.com/page${i}`] = {
         highlights: [{ id: '1', text: 'x', color: 'yellow' }],
         updatedAt: i,
       };
@@ -529,11 +544,11 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
   it('badge should show correct unsynced count on init', async () => {
     await initModule({
-      'highlights_https://x.com': {
+      'highlights_https://x.com/p': {
         highlights: [{ id: '1', text: 'x', color: 'yellow' }],
         updatedAt: 1,
       },
-      'highlights_https://y.com': {
+      'highlights_https://y.com/p': {
         highlights: [{ id: '2', text: 'y', color: 'blue' }],
         updatedAt: 2,
       },
@@ -546,11 +561,11 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
   it('should show empty message when all highlights are synced', async () => {
     await initModule({
-      'highlights_https://synced.com': {
+      'highlights_https://synced.com/p': {
         highlights: [{ id: '1', text: 'synced', color: 'yellow' }],
         updatedAt: 1000,
       },
-      'saved_https://synced.com': { notionPageId: 'notion-page-id' },
+      'saved_https://synced.com/p': { notionPageId: 'notion-page-id' },
     });
 
     await clickUnsyncedTab();

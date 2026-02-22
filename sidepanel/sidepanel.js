@@ -9,7 +9,7 @@
 
 /* global chrome */
 
-import { normalizeUrl, computeStableUrl } from '../scripts/utils/urlUtils.js';
+import { normalizeUrl, computeStableUrl, isRootUrl } from '../scripts/utils/urlUtils.js';
 import {
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
@@ -61,18 +61,46 @@ async function getUnsyncedPages() {
   const all = await chrome.storage.local.get(null);
   const pages = [];
 
+  // 收集所有 url_alias 映射，用於去重
+  const aliasMap = new Map();
+  for (const [key, value] of Object.entries(all)) {
+    if (key.startsWith(URL_ALIAS_PREFIX)) {
+      aliasMap.set(key.slice(URL_ALIAS_PREFIX.length), value);
+    }
+  }
+
+  // 追蹤已處理的 canonical URL，避免同一個 stable URL 產生重複的卡片
+  const seenCanonicalUrls = new Set();
+
   for (const [key, value] of Object.entries(all)) {
     if (!key.startsWith(HIGHLIGHTS_PREFIX)) {
       continue;
     }
     const url = key.slice(HIGHLIGHTS_PREFIX.length);
-    const savedKey = `${SAVED_PREFIX}${url}`;
-    const savedData = all[savedKey];
 
-    // 跳過已同步頁面
-    if (savedData?.notionPageId) {
+    // 跳過根路徑（首頁），通常是不正確的短網址回退結果
+    if (isRootUrl(url)) {
       continue;
     }
+
+    // 去重：如果這個 url 有 alias，我們追蹤 alias 的目標。
+    // 如果 alias 的目標已處理過，跳過它。
+    const canonicalUrl = aliasMap.get(url) || url;
+    if (seenCanonicalUrls.has(canonicalUrl)) {
+      continue;
+    }
+    seenCanonicalUrls.add(canonicalUrl);
+    // 預防其他 alias 直接指向這個 url 產生重複
+    seenCanonicalUrls.add(url);
+
+    // 同時檢查原 URL 和 canonical URL 是否已同步
+    const savedDataOriginal = all[`${SAVED_PREFIX}${url}`];
+    const savedDataCanonical = all[`${SAVED_PREFIX}${canonicalUrl}`];
+    if (savedDataOriginal?.notionPageId || savedDataCanonical?.notionPageId) {
+      continue;
+    }
+
+    const savedData = savedDataOriginal || savedDataCanonical;
 
     const highlights = value?.highlights || [];
     const previewHighlights = highlights.slice(0, PREVIEW_HIGHLIGHT_COUNT).map(hl => ({
