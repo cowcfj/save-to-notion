@@ -17,6 +17,9 @@ import Logger from '../../utils/Logger.js';
 
 const STYLE_INLINE_BLOCK = 'inline-block';
 const STYLE_TEXT_BOTTOM = 'text-bottom';
+const STYLE_INLINE_FLEX = 'inline-flex';
+const STYLE_NONE = 'none';
+const STYLE_BLOCK = 'block';
 
 /**
  * 工具欄管理器類別
@@ -392,22 +395,22 @@ export class Toolbar {
     }
 
     // 預設先隱藏兩者，查詢完再顯示，避免閃爍
-    saveBtn.style.display = 'none';
-    syncBtn.style.display = 'none';
+    saveBtn.style.display = STYLE_NONE;
+    syncBtn.style.display = STYLE_NONE;
 
     try {
       const response = await Toolbar._sendMessageAsync({ action: 'checkPageStatus' });
 
       if (response?.success && response.isSaved) {
         // 已保存 → 顯示同步按鈕
-        syncBtn.style.display = 'inline-flex';
+        syncBtn.style.display = STYLE_INLINE_FLEX;
       } else {
         // 未保存 → 顯示保存按鈕
-        saveBtn.style.display = 'inline-flex';
+        saveBtn.style.display = STYLE_INLINE_FLEX;
       }
     } catch {
       // 查詢失敗時預設顯示保存按鈕
-      saveBtn.style.display = 'inline-flex';
+      saveBtn.style.display = STYLE_INLINE_FLEX;
     }
   }
 
@@ -423,7 +426,7 @@ export class Toolbar {
     }
 
     if (statusDiv) {
-      statusDiv.style.display = 'block';
+      statusDiv.style.display = STYLE_BLOCK;
       Toolbar._setStatusIcon(statusDiv, 'SYNC', null, '正在保存...');
     }
 
@@ -463,7 +466,7 @@ export class Toolbar {
       if (statusDiv) {
         setTimeout(() => {
           statusDiv.textContent = '';
-          statusDiv.style.display = 'none';
+          statusDiv.style.display = STYLE_NONE;
         }, 2000);
       }
     }
