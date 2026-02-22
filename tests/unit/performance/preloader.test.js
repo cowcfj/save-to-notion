@@ -180,7 +180,7 @@ describe('Preloader Performance Script', () => {
 
     test('應該處理無效的 shortlink URL 格式 (catch 區塊)', () => {
       document.body.innerHTML = `
-          <link rel="shortlink" href="not-a-url:" />
+          <link rel="shortlink" href="://invalid" />
         `;
 
       runPreloader();
