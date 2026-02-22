@@ -570,7 +570,10 @@ export class StorageManager {
         }
       }
 
-      // 掃描孤兒 highlights_ key（無標注且無 saved_ 記錄）
+      // 孤兒掃描只在「清理已刪除頁面」啟用時執行：
+      // 因為 _collectOrphanHighlightItems 和 _collectOrphanAliasItems
+      // 的掃描結果與頁面刪除清理是同一個操作單元，
+      // 讓用戶透過同一個勾選框控制所有「殘留資料」的清理。
       this._collectOrphanHighlightItems(data, plan);
       this._collectOrphanAliasItems(data, plan);
     } // end of if (cleanDeletedPages)
@@ -624,11 +627,18 @@ export class StorageManager {
    *
    * @param {object} data  storage 完整快照
    * @param {object} plan  清理計劃（直接修改）
+   * alias 孤兒計入 plan.items 和 plan.spaceFreed，但不計入 plan.orphanHighlights，
+   * 因為 alias key 是內部實作細節，不在用戶可見的清理摘要中單獨列出。
    * @private
    */
   _collectOrphanAliasItems(data, plan) {
     for (const [key, normUrl] of Object.entries(data)) {
       if (!key.startsWith(URL_ALIAS_PREFIX)) {
+        continue;
+      }
+
+      // 防衛：alias value 必須是字串才能安全用於 key 查詢
+      if (typeof normUrl !== 'string' || normUrl === '') {
         continue;
       }
 
