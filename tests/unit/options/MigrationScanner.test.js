@@ -42,7 +42,7 @@ describe('MigrationScanner', () => {
 
     // Explicitly set window.Logger for JSDOM
     if (globalThis.window !== undefined) {
-      globalThis.Logger = globalThis.Logger;
+      globalThis.window.Logger = globalThis.Logger;
     }
 
     scanner = new MigrationScanner();
