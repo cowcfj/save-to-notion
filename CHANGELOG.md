@@ -1,5 +1,30 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.35.0](https://github.com/cowcfj/save-to-notion/compare/v2.34.0...v2.35.0) (2026-02-22)
+
+
+### ✨ 新功能
+
+* implement native Chrome Side Panel for highlights ([#268](https://github.com/cowcfj/save-to-notion/issues/268)) ([eeff62f](https://github.com/cowcfj/save-to-notion/commit/eeff62f1ccbf47fd53a3be5e5e5aeec289b9b8cb))
+* **sidepanel:** add Pending Sync view and improve sidepanel structure ([#271](https://github.com/cowcfj/save-to-notion/issues/271)) ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
+
+
+### 🐛 Bug 修復
+
+* **popup:** remove orphaned 'Open in Notion' HTML fragment ([2bacb86](https://github.com/cowcfj/save-to-notion/commit/2bacb86c542b1caac7886b98246f3ba5af479014))
+* **sidepanel:** 修正未同步頁面過濾邏輯 ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
+
+
+### ♻️ 代碼重構
+
+* Remove legacy Toolbar UI components ([#270](https://github.com/cowcfj/save-to-notion/issues/270)) ([2bacb86](https://github.com/cowcfj/save-to-notion/commit/2bacb86c542b1caac7886b98246f3ba5af479014))
+* **sidepanel:** 調整側邊欄文字顏色 ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
+
+
+### 🧪 測試
+
+* 新增側邊欄測試 ([989e666](https://github.com/cowcfj/save-to-notion/commit/989e666d3554f1edead575e0b7694bf6239e11c6))
+
 ## [2.34.0](https://github.com/cowcfj/save-to-notion/compare/v2.33.0...v2.34.0) (2026-02-20)
 
 
