@@ -107,6 +107,8 @@ export const UI_MESSAGES = {
     CLEANUP_SUCCESS: (keys, size) =>
       `安全清理完成！已移除 ${keys} 個無效記錄，釋放 ${size} KB 空間`,
     CLEANUP_DELETED_PAGES: count => `• 清理了 ${count} 筆無效的殘留數據`,
+    ORPHANED_HIGHLIGHTS_COUNT: count => `• ${count} 個孤兒標注資料（無對應的已保存頁面）`,
+    CLEANUP_ORPHAN_HIGHLIGHTS: count => `• 清理了 ${count} 個孤兒標注資料`,
     CLEANUP_FAILED: '清理失敗：',
     PREVIEW_CLEANUP_FAILED: '檢測無效數據失敗：',
     OPTIMIZE_SUCCESS: size =>
