@@ -307,6 +307,20 @@ export function createSaveHandlers(services) {
         });
       });
 
+      // 清除 originalUrl 下可能殘留的舊 savedPageData（含已刪除的 pageId）
+      // 防止 autoSyncLocalState 在 fallback 查詢時找到舊條目並觸發破壞性清理
+      if (originalUrl && originalUrl !== normUrl) {
+        const staleData = await storageService.getSavedPageData(originalUrl);
+        if (staleData && staleData.notionPageId !== result.pageId) {
+          await storageService.removeSavedPageData(originalUrl).catch(error => {
+            Logger.warn('清除 originalUrl 舊 savedData 失敗（不影響主流程）', {
+              action: 'cleanStaleOriginalUrl',
+              error: error.message,
+            });
+          });
+        }
+      }
+
       // 補充統計數據
       result.imageCount = contentResult.blocks.filter(block => block.type === 'image').length;
       result.blockCount = contentResult.blocks.length;
