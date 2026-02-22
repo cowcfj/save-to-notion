@@ -143,7 +143,10 @@ export class MigrationScanner {
           results.success++;
         } else {
           results.failed++;
-          results.errors.push({ error: response?.error || '未知錯誤' });
+          const rawError = response?.error || '未知錯誤';
+          const safeMessage = sanitizeApiError(rawError, 'scan_storage');
+          const translated = ErrorHandler.formatUserMessage(safeMessage);
+          results.errors.push({ error: translated });
         }
       } catch (error) {
         results.failed++;

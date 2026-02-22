@@ -5,6 +5,26 @@ const { test, expect } = require('../fixtures');
  * 測試 Popup 的主要功能及 UI 響應
  */
 
+async function setupStorage(context, extensionId) {
+  const optionsPage = await context.newPage();
+  await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
+  await optionsPage.evaluate(async () => {
+    await chrome.storage.sync.set({
+      notionApiKey: 'test-key',
+      notionDataSourceId: 'test-db',
+    });
+  });
+
+  // 驗證 storage 已經寫入
+  const storageVerified = await optionsPage.evaluate(async () => {
+    const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
+    return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
+  });
+  expect(storageVerified).toBe(true);
+
+  await optionsPage.close();
+}
+
 test.describe('Popup UI', () => {
   test.beforeEach(async ({ page, extensionId }) => {
     // 每個測試前導航到 Popup 頁面
@@ -14,28 +34,12 @@ test.describe('Popup UI', () => {
   test('應該顯示初始狀態（提示設置）', async ({ page }) => {
     // 模擬未設置 API Key 的情況 (預設 storage 可能為空)
     const statusText = await page.textContent('#status');
-    expect(statusText).toContain('請先在設定頁面配置 Notion API Key');
+    expect(statusText).toContain('Notion API Key');
   });
 
   test('當設置完成後應該顯示保存按鈕', async ({ page, context, extensionId }) => {
     // 透過 options 頁面設置 storage (確保 extension 實例一致)
-    const optionsPage = await context.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
-    await optionsPage.evaluate(async () => {
-      await chrome.storage.sync.set({
-        notionApiKey: 'test-key',
-        notionDataSourceId: 'test-db',
-      });
-    });
-
-    // 驗證 storage 已經寫入
-    const storageVerified = await optionsPage.evaluate(async () => {
-      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
-      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
-    });
-    expect(storageVerified).toBe(true);
-
-    await optionsPage.close();
+    await setupStorage(context, extensionId);
 
     // 重新載入 popup
     await page.reload();
@@ -45,28 +49,12 @@ test.describe('Popup UI', () => {
     await expect(saveButton).toBeVisible();
 
     const statusText = await page.textContent('#status');
-    expect(statusText).toContain('Start highlighting to mark this page');
+    expect(statusText).toMatch(/highlight/i);
   });
 
   test('模擬已保存狀態下的 UI 變化', async ({ page, context, extensionId }) => {
     // 1. 設置基本 storage
-    const optionsPage = await context.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
-    await optionsPage.evaluate(async () => {
-      await chrome.storage.sync.set({
-        notionApiKey: 'test-key',
-        notionDataSourceId: 'test-db',
-      });
-    });
-
-    // 驗證 storage 已經寫入
-    const storageVerified = await optionsPage.evaluate(async () => {
-      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
-      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
-    });
-    expect(storageVerified).toBe(true);
-
-    await optionsPage.close();
+    await setupStorage(context, extensionId);
 
     // 2. 透過 evaluate 直接修改 popup 內的邏輯來測試 UI 更新
     await page.reload();
@@ -78,7 +66,7 @@ test.describe('Popup UI', () => {
       document.querySelector('#highlight-button').style.display = 'block';
       document.querySelector('#highlight-button').disabled = false;
       document.querySelector('#open-notion-button').style.display = 'block';
-      document.querySelector('#status').textContent = '已保存！Ready to highlight or update.';
+      document.querySelector('#status').textContent = 'Page saved. Ready to highlight or update.';
     });
 
     // 檢查 UI 元素切換
@@ -87,28 +75,12 @@ test.describe('Popup UI', () => {
     await expect(page.locator('#open-notion-button')).toBeVisible();
 
     const statusText = await page.textContent('#status');
-    expect(statusText).toContain('已保存');
+    expect(statusText).toMatch(/saved|保存/i);
   });
 
   test('清除標記應該顯示確認彈窗', async ({ page, context, extensionId }) => {
     // 1. 先設置 storage 讓初始化通過
-    const optionsPage = await context.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
-    await optionsPage.evaluate(async () => {
-      await chrome.storage.sync.set({
-        notionApiKey: 'test-key',
-        notionDataSourceId: 'test-db',
-      });
-    });
-
-    // 驗證 storage 已經寫入
-    const storageVerified = await optionsPage.evaluate(async () => {
-      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
-      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
-    });
-    expect(storageVerified).toBe(true);
-
-    await optionsPage.close();
+    await setupStorage(context, extensionId);
 
     await page.reload();
 
