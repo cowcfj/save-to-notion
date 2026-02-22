@@ -752,11 +752,13 @@ export function createSaveHandlers(services) {
      */
     checkPageStatus: async (request, sender, sendResponse) => {
       try {
-        // 安全性驗證：確保請求來自擴充功能內部 (Popup 或 Content Script)
-        // 注意：Content Script 請求也需要通過驗證，這裡假設 validateInternalRequest 或類似機制已處理
-        // 如果來自 Content Script，sender.tab 會存在且包含 url (自身的權限)
-        // 如果來自 Popup，sender.tab 可能為空，需使用 getActiveTab()
-        const validationError = validateInternalRequest(sender);
+        // 安全性驗證：支援 Popup 和 Content Script 兩種來源
+        // - Content Script（sender.tab 存在）：使用 validateContentScriptRequest
+        // - Popup / Background（sender.tab 不存在）：使用 validateInternalRequest
+        const isContentScript = Boolean(sender.tab);
+        const validationError = isContentScript
+          ? validateContentScriptRequest(sender)
+          : validateInternalRequest(sender);
         if (validationError) {
           sendResponse(validationError);
           return;
