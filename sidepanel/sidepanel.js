@@ -104,6 +104,10 @@ async function init() {
     openNotionButton: document.querySelector('#open-notion-button'),
     statusMessage: document.querySelector('#status-message'),
     template: document.querySelector('#highlight-card-template'),
+    unsyncedView: document.querySelector('#unsynced-view'),
+    loadMoreBtn: document.querySelector('#load-more-btn'),
+    unsyncedBadge: document.querySelector('#unsynced-badge'),
+    pageCardTemplate: document.querySelector('#page-card-template'),
   };
 
   // 1. 綁定按鈕事件
@@ -127,7 +131,7 @@ async function init() {
   });
 
   // 5. 載入更多
-  const loadMoreBtn = document.querySelector('#load-more-btn');
+  const loadMoreBtn = els.loadMoreBtn;
   if (loadMoreBtn) {
     loadMoreBtn.addEventListener('click', loadMoreCards);
   }
@@ -490,14 +494,9 @@ document.addEventListener('DOMContentLoaded', init);
  * @param {'current'|'unsynced'} viewName
  */
 function switchView(viewName) {
-  const currentViewEls = [
-    document.querySelector('#loading-state'),
-    document.querySelector('#empty-state'),
-    document.querySelector('#highlights-list'),
-    document.querySelector('#status-message'),
-  ];
-  const unsyncedView = document.querySelector('#unsynced-view');
-  const loadMoreBtn = document.querySelector('#load-more-btn');
+  const currentViewEls = [els.loadingState, els.emptyState, els.highlightsList, els.statusMessage];
+  const unsyncedView = els.unsyncedView;
+  const loadMoreBtn = els.loadMoreBtn;
 
   if (viewName === 'unsynced') {
     currentViewEls.forEach(el => el && (el.style.display = 'none'));
@@ -533,8 +532,8 @@ function handleViewTabClick(event) {
  * 渲染「待同步」視圖（含分頁）
  */
 async function renderUnsyncedView() {
-  const container = document.querySelector('#unsynced-view');
-  const loadMoreBtn = document.querySelector('#load-more-btn');
+  const container = els.unsyncedView;
+  const loadMoreBtn = els.loadMoreBtn;
 
   // 每次進入時重新抓取資料
   cachedUnsyncedPages = await getUnsyncedPages();
@@ -559,8 +558,8 @@ async function renderUnsyncedView() {
  * @param {number} count
  */
 function appendCards(container, count) {
-  const loadMoreBtn = document.querySelector('#load-more-btn');
-  const template = document.querySelector('#page-card-template');
+  const loadMoreBtn = els.loadMoreBtn;
+  const template = els.pageCardTemplate;
   const batch = cachedUnsyncedPages.slice(displayedCardCount, displayedCardCount + count);
 
   batch.forEach(page => {
@@ -610,7 +609,7 @@ function loadMoreCards() {
   if (!cachedUnsyncedPages) {
     return;
   }
-  const container = document.querySelector('#unsynced-view');
+  const container = els.unsyncedView;
   appendCards(container, PAGE_BATCH_SIZE);
 }
 
@@ -619,7 +618,7 @@ function loadMoreCards() {
  */
 async function updateUnsyncedBadge() {
   const pages = await getUnsyncedPages();
-  const badge = document.querySelector('#unsynced-badge');
+  const badge = els.unsyncedBadge;
   if (!badge) {
     return;
   }
