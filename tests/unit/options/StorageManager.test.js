@@ -115,7 +115,7 @@ describe('StorageManager', () => {
 
   describe('getStorageUsage', () => {
     it('should calculate usage correctly', async () => {
-      mockGet.mockImplementation((keys, sendResponse) => {
+      mockGet.mockImplementation((_keys, sendResponse) => {
         sendResponse({
           highlights_page1: [{ text: 'abc' }],
           config_theme: 'dark',
@@ -133,7 +133,7 @@ describe('StorageManager', () => {
 
   describe('exportData', () => {
     it('should export data as JSON file', async () => {
-      mockGet.mockImplementation((keys, sendResponse) => {
+      mockGet.mockImplementation((_keys, sendResponse) => {
         sendResponse({ key: 'value' });
       });
 
@@ -228,7 +228,7 @@ describe('StorageManager', () => {
 
   describe('checkDataIntegrity', () => {
     it('should analyze data and report status', async () => {
-      mockGet.mockImplementation((keys, resolve) => {
+      mockGet.mockImplementation((_keys, resolve) => {
         resolve({
           highlights_valid: [{ text: 'ok', rangeInfo: {} }],
           highlights_corrupt: 'not-an-array',
@@ -248,7 +248,7 @@ describe('StorageManager', () => {
 
   describe('analyzeOptimization', () => {
     it('should identify optimization opportunities', async () => {
-      mockGet.mockImplementation((keys, sendResponse) =>
+      mockGet.mockImplementation((_keys, sendResponse) =>
         sendResponse({
           migration_file: {},
           highlights_empty: [],
@@ -277,12 +277,17 @@ describe('StorageManager', () => {
         spaceSaved: 100,
       };
 
-      mockRemove.mockImplementation((keys, sendResponse) => {
+      mockGet.mockImplementation((_keys, resolve) => {
+        if (typeof resolve === 'function') {
+          resolve({});
+        }
+      });
+      mockRemove.mockImplementation((_keys, sendResponse) => {
         if (typeof sendResponse === 'function') {
           sendResponse();
         }
       });
-      mockSet.mockImplementation((data, sendResponse) => {
+      mockSet.mockImplementation((_data, sendResponse) => {
         if (typeof sendResponse === 'function') {
           sendResponse();
         }
@@ -301,8 +306,13 @@ describe('StorageManager', () => {
         optimizedData: { key2: 'val' },
         spaceSaved: 100,
       };
+      mockGet.mockImplementation((_keys, resolve) => {
+        if (typeof resolve === 'function') {
+          resolve({});
+        }
+      });
       // Simulate error in remove
-      mockRemove.mockImplementation((keys, callback) => {
+      mockRemove.mockImplementation((_keys, callback) => {
         // simulate lastError
         // In the implementation: if (chrome.runtime.lastError) reject(...)
         // We need to mock chrome.runtime.lastError AND callback
@@ -387,7 +397,7 @@ describe('StorageManager Extended', () => {
 
   describe('previewSafeCleanup', () => {
     test('應生成清理預覽', async () => {
-      mockGet.mockImplementation((keys, sendResponse) =>
+      mockGet.mockImplementation((_keys, sendResponse) =>
         sendResponse({
           highlights_page1: [{ text: 'test' }],
           migration_old: {},
@@ -454,7 +464,7 @@ describe('StorageManager Extended', () => {
 
   describe('generateSafeCleanupPlan', () => {
     test('應生成清理計劃', async () => {
-      mockGet.mockImplementation((keys, sendResponse) =>
+      mockGet.mockImplementation((_keys, sendResponse) =>
         sendResponse({
           saved_page1: { notionPageId: 'page-123' },
           highlights_page1: [{ text: 'ok' }],
@@ -468,7 +478,7 @@ describe('StorageManager Extended', () => {
     });
 
     test('無可清理項目時應返回空計劃', async () => {
-      mockGet.mockImplementation((keys, sendResponse) =>
+      mockGet.mockImplementation((_keys, sendResponse) =>
         sendResponse({
           highlights_page1: [{ text: 'valid', rangeInfo: {} }],
           config_theme: 'dark',
@@ -499,7 +509,7 @@ describe('StorageManager Extended', () => {
         deletedPages: 0,
       };
 
-      mockRemove.mockImplementation(keys => Promise.resolve());
+      mockRemove.mockImplementation(_keys => Promise.resolve());
 
       await storageManager.executeSafeCleanup();
 
@@ -596,7 +606,7 @@ describe('StorageManager Extended', () => {
 
   describe('dataAnalysis', () => {
     test('應可存取統計數據', async () => {
-      mockGet.mockImplementation((keys, sendResponse) =>
+      mockGet.mockImplementation((_keys, sendResponse) =>
         sendResponse({
           highlights_page1: [{ text: 'test1' }, { text: 'test2' }],
           highlights_page2: [{ text: 'test3' }],
@@ -627,7 +637,7 @@ describe('StorageManager Extended', () => {
 
   describe('analyzeOptimization extended', () => {
     test('應識別可優化項目', async () => {
-      mockGet.mockImplementation((keys, sendResponse) =>
+      mockGet.mockImplementation((_keys, sendResponse) =>
         sendResponse({
           migration_file: {},
           highlights_empty: [],
