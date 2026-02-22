@@ -158,6 +158,7 @@ export function injectGlobalStyles() {
 
         /* 保存網頁按鈕 */
         .nh-btn-save {
+            flex: 1;
             background: #007aff !important;
             color: white !important;
             border-color: #007aff !important;
