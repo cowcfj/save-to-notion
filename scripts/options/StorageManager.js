@@ -42,14 +42,8 @@ export class StorageManager {
 
       if (!exists) {
         const { key: savedKey, url } = page;
-        const highlightsKey = `highlights_${url}`;
 
         const savedSize = new Blob([JSON.stringify({ [savedKey]: page.data })]).size;
-        const highlightsData = data[highlightsKey];
-        const highlightsSize = highlightsData
-          ? new Blob([JSON.stringify({ [highlightsKey]: highlightsData })]).size
-          : 0;
-        const totalSize = savedSize + highlightsSize;
 
         plan.items.push({
           key: savedKey,
@@ -58,16 +52,7 @@ export class StorageManager {
           reason: '已刪除頁面的保存狀態',
         });
 
-        if (highlightsData) {
-          plan.items.push({
-            key: highlightsKey,
-            url,
-            size: highlightsSize,
-            reason: '已刪除頁面的標註數據',
-          });
-        }
-
-        plan.spaceFreed += totalSize;
+        plan.spaceFreed += savedSize;
         plan.deletedPages++;
       }
     } catch (error) {
@@ -519,14 +504,14 @@ export class StorageManager {
       button.disabled = true;
       if (buttonText) {
         // 僅更新文字，保留原有圖標
-        buttonText.textContent = ' 檢查中...';
+        buttonText.textContent = ' 掃描中...';
       }
     } else {
       button.classList.remove('loading');
       button.disabled = false;
       if (buttonText) {
         // 僅更新文字，保留原有圖標
-        buttonText.textContent = ' 預覽清理效果';
+        buttonText.textContent = ' 檢測無效數據';
       }
     }
   }
@@ -541,7 +526,7 @@ export class StorageManager {
     if (total > 0 && buttonText) {
       const percentage = Math.round((current / total) * 100);
       // 僅更新文字，避免重複插入圖標
-      buttonText.textContent = ` 檢查中... ${current}/${total} (${percentage}%)`;
+      buttonText.textContent = ` 掃描中... ${current}/${total} (${percentage}%)`;
     }
   }
 

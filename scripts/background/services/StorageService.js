@@ -247,7 +247,9 @@ class StorageService {
 
     try {
       await this.storage.local.remove(keysToRemove);
-      this.logger.log?.('Cleared all data', { url: sanitizeUrlForLogging(normalizedUrl) });
+      this.logger.log?.('Cleared saved page metadata', {
+        url: sanitizeUrlForLogging(normalizedUrl),
+      });
     } catch (error) {
       this.logger.error?.('[StorageService] clearPageState failed', { error });
       throw error;
