@@ -59,7 +59,7 @@ describe('Sidepanel JS Logic', () => {
     chrome.storage.local.get.mockResolvedValue({});
 
     jest.isolateModules(() => {
-      require('../../../scripts/sidepanel/sidepanel.js');
+      require('../../../sidepanel/sidepanel.js');
     });
 
     document.dispatchEvent(new Event('DOMContentLoaded'));

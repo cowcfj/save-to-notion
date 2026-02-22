@@ -9,14 +9,14 @@
 
 /* global chrome */
 
-import { normalizeUrl, computeStableUrl } from '../utils/urlUtils.js';
+import { normalizeUrl, computeStableUrl } from '../scripts/utils/urlUtils.js';
 import {
   SAVED_PREFIX,
   HIGHLIGHTS_PREFIX,
   URL_ALIAS_PREFIX,
   RESTRICTED_PROTOCOLS,
-} from '../config/constants.js';
-import Logger from '../utils/Logger.js';
+} from '../scripts/config/constants.js';
+import Logger from '../scripts/utils/Logger.js';
 
 // DOM 元素
 let els = {};
