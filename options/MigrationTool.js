@@ -587,7 +587,7 @@ export class MigrationTool {
       results.errors.forEach(err => {
         const item = document.createElement('div');
         item.className = 'error-item';
-        item.textContent = err;
+        item.textContent = err.error;
         list.append(item);
       });
       box.append(list);
@@ -608,7 +608,7 @@ export class MigrationTool {
       results.errors.forEach(err => {
         const item = document.createElement('div');
         item.className = 'error-item';
-        item.textContent = err;
+        item.textContent = err.error;
         list.append(item);
       });
       box.append(list);
@@ -893,7 +893,7 @@ export class MigrationTool {
     // 顯示區塊
     failedSection.style.display = 'block';
 
-    failedList.innerHTML = '';
+    failedList.textContent = '';
     const fragment = document.createDocumentFragment();
 
     items.forEach(item => {

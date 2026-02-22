@@ -117,7 +117,7 @@ export class MigrationScanner {
    *
    * @param {string[]} urls - 待遷移的網址清單
    * @param {ProgressCallback} [onProgress] - 進度回調
-   * @returns {Promise<{success: number, failed: number, errors: string[]}>}
+   * @returns {Promise<{success: number, failed: number, errors: Array<{error: string}>}>}
    */
   static async requestBatchMigration(urls, onProgress) {
     const results = {
@@ -143,13 +143,13 @@ export class MigrationScanner {
           results.success++;
         } else {
           results.failed++;
-          results.errors.push(`${url}: ${response?.error || '未知錯誤'}`);
+          results.errors.push({ error: response?.error || '未知錯誤' });
         }
       } catch (error) {
         results.failed++;
         const safeMessage = sanitizeApiError(error, 'scan_storage');
         const translated = ErrorHandler.formatUserMessage(safeMessage);
-        results.errors.push(`${url}: ${translated}`);
+        results.errors.push({ error: translated });
       }
     }
 

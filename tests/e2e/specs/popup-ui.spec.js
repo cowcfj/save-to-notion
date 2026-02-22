@@ -37,9 +37,6 @@ test.describe('Popup UI', () => {
 
     await optionsPage.close();
 
-    // 等待 storage 同步
-    await page.waitForTimeout(300);
-
     // 重新載入 popup
     await page.reload();
 
@@ -71,11 +68,10 @@ test.describe('Popup UI', () => {
 
     await optionsPage.close();
 
-    // 等待 storage 同步
-    await page.waitForTimeout(300);
-
     // 2. 透過 evaluate 直接修改 popup 內的邏輯來測試 UI 更新
     await page.reload();
+    // 等待 popup 初始化完成（save-button 可見代表 initPopup() 已完成）
+    await expect(page.locator('#save-button')).toBeVisible();
     await page.evaluate(() => {
       // 模擬 Actions 模組的導入並手動調用更新 UI 的函數 (測試 UI 響應)
       document.querySelector('#save-button').style.display = 'none';
@@ -113,9 +109,6 @@ test.describe('Popup UI', () => {
     expect(storageVerified).toBe(true);
 
     await optionsPage.close();
-
-    // 等待 storage 同步
-    await page.waitForTimeout(300);
 
     await page.reload();
 

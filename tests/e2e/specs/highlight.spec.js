@@ -20,7 +20,7 @@ test.describe('Highlighting Feature', () => {
       await new Promise(resolve => {
         chrome.storage.sync.set(
           {
-            notionApiKey: 'secret_test_key',
+            notionApiKey: 'notion_test_key',
             notionDatabaseId: 'test_db_id',
           },
           resolve
@@ -74,7 +74,7 @@ test.describe('Highlighting Feature', () => {
         // 2. 透過標準擴充功能訊息機制觸發 UI (取代在 Main World 中呼叫)
         // 使用重試邏輯等待 notionHighlighter 初始化完成（監聽器已同步就緒，但物件需非同步建立）
         let showToolbarResult = null;
-        for (let attempt = 0; attempt < 10; attempt++) {
+        for (let attempt = 0; attempt < 15; attempt++) {
           if (attempt > 0) {
             await new Promise(resolve => setTimeout(resolve, 200));
           }
@@ -83,8 +83,12 @@ test.describe('Highlighting Feature', () => {
             if (showToolbarResult?.success) {
               break;
             }
-          } catch {
-            // 連線尚未就緒，繼續重試
+          } catch (error) {
+            const msg = error?.message ?? '';
+            if (!msg.includes('Could not establish connection')) {
+              throw error; // 非暫態錯誤立即向上拋出
+            }
+            // 暫態錯誤：連線尚未就緒，繼續重試
           }
         }
         if (!showToolbarResult?.success) {
@@ -108,11 +112,5 @@ test.describe('Highlighting Feature', () => {
       timeout: 5000,
       state: 'attached',
     });
-
-    const isToolbarPresent = await page.evaluate(() => {
-      return Boolean(document.querySelector('#notion-highlighter-v2'));
-    });
-
-    expect(isToolbarPresent).toBe(true);
   });
 });

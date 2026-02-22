@@ -277,8 +277,9 @@ describe('StorageManager', () => {
         spaceSaved: 100,
       };
 
-      mockRemove.mockImplementation((keys, sendResponse) => sendResponse());
-      mockGet.mockImplementation((keys, resolve) => resolve({ key2: 'old_val' }));
+      mockRemove.mockImplementation((keys, sendResponse) => {
+        if (typeof sendResponse === 'function') {sendResponse();}
+      });
       mockSet.mockImplementation((data, sendResponse) => sendResponse());
 
       await storageManager.executeOptimization();
@@ -300,7 +301,7 @@ describe('StorageManager', () => {
         // In the implementation: if (chrome.runtime.lastError) reject(...)
         // We need to mock chrome.runtime.lastError AND callback
         globalThis.chrome.runtime.lastError = { message: 'Remove failed' };
-        callback();
+        if (typeof callback === 'function') {callback();}
         globalThis.chrome.runtime.lastError = null; // cleanup
       });
 
@@ -490,7 +491,9 @@ describe('StorageManager Extended', () => {
         deletedPages: 0,
       };
 
-      mockRemove.mockImplementation((keys, sendResponse) => sendResponse());
+      mockRemove.mockImplementation((keys, sendResponse) => {
+        if (typeof sendResponse === 'function') {sendResponse();}
+      });
 
       await storageManager.executeSafeCleanup();
 

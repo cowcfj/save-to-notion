@@ -200,7 +200,7 @@ export class StorageManager {
 
       // 重新載入頁面或狀態
       setTimeout(() => {
-        globalThis.window.location.reload();
+        globalThis.location.reload();
       }, 2000);
     } catch (error) {
       Logger.error('Import failed', { action: 'import_backup', error });

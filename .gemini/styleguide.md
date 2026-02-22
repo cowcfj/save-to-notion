@@ -15,7 +15,7 @@ Follow these formatting rules for EVERY actionable comment:
 1. Start the prompt by asking the AI agent to _review_ the feedback first, not just blindly implement it (e.g., "請幫我審核這個 Code Review 意見", "請問這個建議合理嗎？").
 2. Clearly state the **file name**, **line number(s)**, the problem found, and the proposed solution inside the prompt.
 3. Use a designated fenced code block (e.g., ` ```markdown ` or ` ```text `) to encapsulate the actual prompt that the user should copy. **DO NOT** use markdown blockquotes (`>`) as they often display poorly in GitHub PR comments.
-4. **MUST** insert at least one blank line to separate your preceding review text from the suggested prompt block, so they are not joined together.
+4. **MUST** insert at least one blank line to separate your preceding review text from the suggested prompt block, so they are not joined.
 
 **Example Format:**
 發現一個潛在的效能問題。目前在迴圈內頻繁建立新物件，導致不必要的記憶體配置。

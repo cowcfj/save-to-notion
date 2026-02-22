@@ -26,9 +26,16 @@ jest.mock('../../../options/DataSourceManager.js');
 jest.mock('../../../options/StorageManager.js');
 jest.mock('../../../options/MigrationTool.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
+  __esModule: true,
+  default: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
 }));
 
 describe('options.js', () => {
