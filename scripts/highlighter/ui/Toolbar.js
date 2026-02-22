@@ -420,6 +420,7 @@ export class Toolbar {
   async savePageToNotion() {
     const statusDiv = this.container.querySelector(TOOLBAR_SELECTORS.STATUS_CONTAINER);
     const saveBtn = this.container.querySelector(TOOLBAR_SELECTORS.SAVE_PAGE);
+    let success = false;
 
     if (saveBtn) {
       saveBtn.disabled = true;
@@ -436,12 +437,13 @@ export class Toolbar {
       });
 
       if (response?.success) {
+        success = true;
         if (statusDiv) {
           Toolbar._setStatusIcon(statusDiv, 'CHECK', null, '保存成功！');
         }
 
-        // 切換按鈕：隱藏 Save，顯示 Sync
-        this.updateSaveButtonVisibility();
+        // await 確保按鈕切換完成後 finally 才執行，避免閃爍
+        await this.updateSaveButtonVisibility();
       } else {
         const rawError = sanitizeApiError(response?.error || 'Unknown error');
         const errorMsg = ErrorHandler.formatUserMessage(rawError);
@@ -458,11 +460,12 @@ export class Toolbar {
         error: error?.message ?? String(error),
       });
     } finally {
-      if (saveBtn) {
+      // 失敗時才重新啟用按鈕（成功時按鈕已被 updateSaveButtonVisibility 隱藏）
+      if (!success && saveBtn) {
         saveBtn.disabled = false;
       }
 
-      // 2 秒後自動隱藏狀態列
+      // updateSaveButtonVisibility 已 await 完成，setTimeout 排程在其後
       if (statusDiv) {
         setTimeout(() => {
           statusDiv.textContent = '';
