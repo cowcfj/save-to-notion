@@ -368,7 +368,7 @@ class TabService {
     const ttl = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL || 60_000;
 
     if (now - lastVerifiedAt < ttl) {
-      this.logger.debug(`[TabService] Using cached status for ${normUrl.slice(0, 30)}...`);
+      this.logger.debug(`[TabService] Using cached status for ${sanitizeUrlForLogging(normUrl)}`);
       await this._updateBadgeStatus(tabId, savedData);
       return;
     }
@@ -548,7 +548,9 @@ class TabService {
     }
 
     if (!/^https?:/i.test(normUrl)) {
-      this.logger.warn('Skipping legacy migration for non-http URL:', { normUrl });
+      this.logger.warn('Skipping legacy migration for non-http URL:', {
+        normUrl: sanitizeUrlForLogging(normUrl),
+      });
       return;
     }
 
