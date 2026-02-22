@@ -175,6 +175,7 @@ describe('Preloader Performance Script', () => {
       });
       document.dispatchEvent(new CustomEvent('notion-preloader-request'));
 
+      expect(responseDetail).not.toBeNull();
       expect(responseDetail.shortlink).toBeNull();
     });
 
@@ -191,6 +192,7 @@ describe('Preloader Performance Script', () => {
       });
       document.dispatchEvent(new CustomEvent('notion-preloader-request'));
 
+      expect(responseDetail).not.toBeNull();
       expect(responseDetail.shortlink).toBeNull();
     });
   });
