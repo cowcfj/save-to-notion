@@ -72,9 +72,26 @@ test.describe('Highlighting Feature', () => {
         });
 
         // 2. 透過標準擴充功能訊息機制觸發 UI (取代在 Main World 中呼叫)
-        // 稍微等待腳本註冊訊息監聽器
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await chrome.tabs.sendMessage(tabId, { action: 'showToolbar' });
+        // 使用重試邏輯等待 notionHighlighter 初始化完成（監聽器已同步就緒，但物件需非同步建立）
+        let showToolbarResult = null;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          if (attempt > 0) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+          try {
+            showToolbarResult = await chrome.tabs.sendMessage(tabId, { action: 'showToolbar' });
+            if (showToolbarResult?.success) {
+              break;
+            }
+          } catch {
+            // 連線尚未就緒，繼續重試
+          }
+        }
+        if (!showToolbarResult?.success) {
+          throw new Error(
+            `showToolbar failed after retries: ${showToolbarResult?.error ?? 'no response'}`
+          );
+        }
 
         return { success: true };
       } catch (error) {
