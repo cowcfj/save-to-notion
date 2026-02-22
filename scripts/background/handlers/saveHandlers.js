@@ -539,7 +539,11 @@ export function createSaveHandlers(services) {
           return;
         }
 
-        const activeTab = await getActiveTab();
+        const activeTab = sender.tab;
+        if (!activeTab) {
+          sendResponse({ success: false, error: 'Cannot determine active tab from sender.' });
+          return;
+        }
 
         if (isRestrictedInjectionUrl(activeTab.url)) {
           sendResponse({
@@ -565,7 +569,7 @@ export function createSaveHandlers(services) {
         }
 
         const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
-        const dataSourceType = config.notionDataSourceType || 'database';
+        const dataSourceType = config.notionDataSourceType || 'data_source';
 
         if (!dataSourceId) {
           sendResponse({
