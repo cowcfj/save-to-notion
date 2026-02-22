@@ -1,12 +1,12 @@
 /**
  * @jest-environment jsdom
  */
-import { DataSourceManager } from '../../../scripts/options/DataSourceManager.js';
-import { UIManager } from '../../../scripts/options/UIManager.js';
+import { DataSourceManager } from '../../../options/DataSourceManager.js';
+import { UIManager } from '../../../options/UIManager.js';
 
 // Mock dependencies
-jest.mock('../../../scripts/options/UIManager.js');
-jest.mock('../../../scripts/options/SearchableDatabaseSelector.js');
+jest.mock('../../../options/UIManager.js');
+jest.mock('../../../options/SearchableDatabaseSelector.js');
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {

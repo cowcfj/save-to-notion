@@ -3,8 +3,8 @@
  * 負責選項頁面的共用 UI 邏輯
  */
 
-import { validateSafeSvg, separateIconAndText, createSafeIcon } from '../utils/securityUtils.js';
-import { UI_ICONS, NOTION_API, UI_STATUS_TYPES } from '../config/index.js';
+import { validateSafeSvg, separateIconAndText, createSafeIcon } from '../scripts/utils/securityUtils.js';
+import { UI_ICONS, NOTION_API, UI_STATUS_TYPES } from '../scripts/config/index.js';
 
 /**
  * 選項頁面的 UI 選擇器常數

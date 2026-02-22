@@ -1,8 +1,8 @@
 /* global chrome */
-import Logger from '../utils/Logger.js';
-import { sanitizeApiError, createSafeIcon } from '../utils/securityUtils.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { UI_MESSAGES, UI_ICONS } from '../config/index.js';
+import Logger from '../scripts/utils/Logger.js';
+import { sanitizeApiError, createSafeIcon } from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { UI_MESSAGES, UI_ICONS } from '../scripts/config/index.js';
 
 /**
  * AuthManager.js

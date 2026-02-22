@@ -5,17 +5,17 @@
 
 /* global chrome */
 
-import Logger from '../utils/Logger.js';
+import Logger from '../scripts/utils/Logger.js';
 import {
   sanitizeApiError,
   validateSafeSvg,
   separateIconAndText,
   createSafeIcon,
-} from '../utils/securityUtils.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { UI_ICONS } from '../config/icons.js';
-import { UI_MESSAGES } from '../config/messages.js';
-import { URL_ALIAS_PREFIX } from '../config/constants.js';
+} from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { UI_ICONS } from '../scripts/config/icons.js';
+import { UI_MESSAGES } from '../scripts/config/messages.js';
+import { URL_ALIAS_PREFIX } from '../scripts/config/constants.js';
 
 /**
  * 管理存儲空間的類別
@@ -200,7 +200,7 @@ export class StorageManager {
 
       // 重新載入頁面或狀態
       setTimeout(() => {
-        globalThis.window.location.reload();
+        globalThis.location.reload();
       }, 2000);
     } catch (error) {
       Logger.error('Import failed', { action: 'import_backup', error });

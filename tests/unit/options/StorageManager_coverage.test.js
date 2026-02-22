@@ -4,7 +4,7 @@
  * Focuses on uncovered branches and error paths in StorageManager.js
  */
 
-import { StorageManager } from '../../../scripts/options/StorageManager';
+import { StorageManager } from '../../../options/StorageManager';
 import Logger from '../../../scripts/utils/Logger';
 
 // Mock Logger

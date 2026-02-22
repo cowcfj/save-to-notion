@@ -3,10 +3,10 @@
  * 負責資料來源清單的載入、篩選與選擇邏輯
  */
 import { SearchableDatabaseSelector } from './SearchableDatabaseSelector.js';
-import Logger from '../utils/Logger.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
-import { UI_MESSAGES } from '../config/index.js';
+import Logger from '../scripts/utils/Logger.js';
+import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
+import { UI_MESSAGES } from '../scripts/config/index.js';
 
 const MAX_SEARCH_RESULTS = 100;
 const MESSAGE_TIMEOUT_MS = 30_000; // 30 seconds

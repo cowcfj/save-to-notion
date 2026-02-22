@@ -4,7 +4,7 @@
  * Tests for options page storage scanning and migration coordination
  */
 
-import { MigrationScanner } from '../../../scripts/options/MigrationScanner';
+import { MigrationScanner } from '../../../options/MigrationScanner';
 
 // Mock Chrome API (reset in beforeEach)
 
@@ -42,7 +42,7 @@ describe('MigrationScanner', () => {
 
     // Explicitly set window.Logger for JSDOM
     if (globalThis.window !== undefined) {
-      globalThis.Logger = globalThis.Logger;
+      globalThis.window.Logger = globalThis.Logger;
     }
 
     scanner = new MigrationScanner();

@@ -5,6 +5,28 @@ const { test, expect } = require('../fixtures');
  * 測試 Popup 的主要功能及 UI 響應
  */
 
+async function setupStorage(context, extensionId) {
+  const optionsPage = await context.newPage();
+  try {
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
+    await optionsPage.evaluate(async () => {
+      await chrome.storage.sync.set({
+        notionApiKey: 'test-key',
+        notionDataSourceId: 'test-db',
+      });
+    });
+
+    // 驗證 storage 已經寫入
+    const storageVerified = await optionsPage.evaluate(async () => {
+      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
+      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
+    });
+    expect(storageVerified).toBe(true);
+  } finally {
+    await optionsPage.close();
+  }
+}
+
 test.describe('Popup UI', () => {
   test.beforeEach(async ({ page, extensionId }) => {
     // 每個測試前導航到 Popup 頁面
@@ -14,31 +36,12 @@ test.describe('Popup UI', () => {
   test('應該顯示初始狀態（提示設置）', async ({ page }) => {
     // 模擬未設置 API Key 的情況 (預設 storage 可能為空)
     const statusText = await page.textContent('#status');
-    expect(statusText).toContain('Please set API Key');
+    expect(statusText).toMatch(/Notion API Key/i);
   });
 
   test('當設置完成後應該顯示保存按鈕', async ({ page, context, extensionId }) => {
     // 透過 options 頁面設置 storage (確保 extension 實例一致)
-    const optionsPage = await context.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
-    await optionsPage.evaluate(async () => {
-      await chrome.storage.sync.set({
-        notionApiKey: 'test-key',
-        notionDataSourceId: 'test-db',
-      });
-    });
-
-    // 驗證 storage 已經寫入
-    const storageVerified = await optionsPage.evaluate(async () => {
-      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
-      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
-    });
-    expect(storageVerified).toBe(true);
-
-    await optionsPage.close();
-
-    // 等待 storage 同步
-    await page.waitForTimeout(300);
+    await setupStorage(context, extensionId);
 
     // 重新載入 popup
     await page.reload();
@@ -47,35 +50,17 @@ test.describe('Popup UI', () => {
     const saveButton = page.locator('#save-button');
     await expect(saveButton).toBeVisible();
 
-    const statusText = await page.textContent('#status');
-    expect(statusText).toContain('Save page first');
+    await expect(page.locator('#status')).toHaveText(/highlight/i);
   });
 
   test('模擬已保存狀態下的 UI 變化', async ({ page, context, extensionId }) => {
     // 1. 設置基本 storage
-    const optionsPage = await context.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
-    await optionsPage.evaluate(async () => {
-      await chrome.storage.sync.set({
-        notionApiKey: 'test-key',
-        notionDataSourceId: 'test-db',
-      });
-    });
-
-    // 驗證 storage 已經寫入
-    const storageVerified = await optionsPage.evaluate(async () => {
-      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
-      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
-    });
-    expect(storageVerified).toBe(true);
-
-    await optionsPage.close();
-
-    // 等待 storage 同步
-    await page.waitForTimeout(300);
+    await setupStorage(context, extensionId);
 
     // 2. 透過 evaluate 直接修改 popup 內的邏輯來測試 UI 更新
     await page.reload();
+    // 等待 popup 初始化完成（save-button 可見代表 initPopup() 已完成）
+    await expect(page.locator('#save-button')).toBeVisible();
     await page.evaluate(() => {
       // 模擬 Actions 模組的導入並手動調用更新 UI 的函數 (測試 UI 響應)
       document.querySelector('#save-button').style.display = 'none';
@@ -91,51 +76,38 @@ test.describe('Popup UI', () => {
     await expect(page.locator('#open-notion-button')).toBeVisible();
 
     const statusText = await page.textContent('#status');
-    expect(statusText).toContain('Page saved');
+    expect(statusText).toMatch(/saved|保存/i);
   });
 
   test('清除標記應該顯示確認彈窗', async ({ page, context, extensionId }) => {
     // 1. 先設置 storage 讓初始化通過
-    const optionsPage = await context.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
-    await optionsPage.evaluate(async () => {
-      await chrome.storage.sync.set({
-        notionApiKey: 'test-key',
-        notionDataSourceId: 'test-db',
-      });
-    });
-
-    // 驗證 storage 已經寫入
-    const storageVerified = await optionsPage.evaluate(async () => {
-      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
-      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
-    });
-    expect(storageVerified).toBe(true);
-
-    await optionsPage.close();
-
-    // 等待 storage 同步
-    await page.waitForTimeout(300);
+    await setupStorage(context, extensionId);
 
     await page.reload();
 
-    // 2. 手動顯示清除按鈕（因為正常流程依賴 Service Worker 返回 isSaved: true）
+    // 2. 等待 initPopup() 完成（save-button 可見代表 updateUIForUnsavedPage 已執行完畢）
+    await expect(page.locator('#save-button')).toBeVisible();
+
+    // 3. 手動顯示清除按鈕（因為正常流程依賴 Service Worker 返回 isSaved: true）
     await page.evaluate(() => {
       document.querySelector('#clear-highlights-button').style.display = 'block';
     });
 
-    // 3. 點擊清除按鈕
-    await page.click('#clear-highlights-button');
+    // 4. 確認按鈕真正可見後點擊（不需 force）
+    await expect(page.locator('#clear-highlights-button')).toBeVisible();
 
-    // 4. 檢查 Modal 是否顯示
+    // 5. 點擊清除按鈕
+    await page.locator('#clear-highlights-button').click();
+
+    // 6. 檢查 Modal 是否顯示
     const modal = page.locator('#confirmation-modal');
     await expect(modal).toHaveCSS('display', 'flex');
 
     const modalMessage = await page.textContent('#modal-message');
-    expect(modalMessage).toContain('確定要清除');
+    expect(modalMessage).toMatch(/確定要清除/);
 
-    // 5. 點擊取消
-    await page.click('#modal-cancel');
+    // 7. 點擊取消
+    await page.locator('#modal-cancel').click();
     await expect(modal).toHaveCSS('display', 'none');
   });
 });

@@ -28,9 +28,9 @@
  * @param {string} status - 狀態描述
  */
 
-import Logger from '../utils/Logger.js';
-import { sanitizeApiError } from '../utils/securityUtils.js';
-import { ErrorHandler } from '../utils/ErrorHandler.js';
+import Logger from '../scripts/utils/Logger.js';
+import { sanitizeApiError } from '../scripts/utils/securityUtils.js';
+import { ErrorHandler } from '../scripts/utils/ErrorHandler.js';
 
 /**
  * 舊版數據遷移掃描器
@@ -117,7 +117,7 @@ export class MigrationScanner {
    *
    * @param {string[]} urls - 待遷移的網址清單
    * @param {ProgressCallback} [onProgress] - 進度回調
-   * @returns {Promise<{success: number, failed: number, errors: string[]}>}
+   * @returns {Promise<{success: number, failed: number, errors: Array<{error: string}>}>}
    */
   static async requestBatchMigration(urls, onProgress) {
     const results = {
@@ -143,13 +143,16 @@ export class MigrationScanner {
           results.success++;
         } else {
           results.failed++;
-          results.errors.push(`${url}: ${response?.error || '未知錯誤'}`);
+          const rawError = response?.error || '未知錯誤';
+          const safeMessage = sanitizeApiError(rawError, 'request_batch_migration');
+          const translated = ErrorHandler.formatUserMessage(safeMessage);
+          results.errors.push({ error: translated });
         }
       } catch (error) {
         results.failed++;
-        const safeMessage = sanitizeApiError(error, 'scan_storage');
+        const safeMessage = sanitizeApiError(error, 'request_batch_migration');
         const translated = ErrorHandler.formatUserMessage(safeMessage);
-        results.errors.push(`${url}: ${translated}`);
+        results.errors.push({ error: translated });
       }
     }
 

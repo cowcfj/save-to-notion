@@ -1,12 +1,12 @@
 // @jest-environment jsdom
 /* global document */
-import { MigrationTool } from '../../../scripts/options/MigrationTool.js';
-import { UIManager } from '../../../scripts/options/UIManager.js';
-import { MigrationScanner } from '../../../scripts/options/MigrationScanner.js';
+import { MigrationTool } from '../../../options/MigrationTool.js';
+import { UIManager } from '../../../options/UIManager.js';
+import { MigrationScanner } from '../../../options/MigrationScanner.js';
 
 // Mock dependencies
-jest.mock('../../../scripts/options/UIManager.js');
-jest.mock('../../../scripts/options/MigrationScanner.js');
+jest.mock('../../../options/UIManager.js');
+jest.mock('../../../options/MigrationScanner.js');
 
 describe('MigrationTool', () => {
   let migrationTool = null;

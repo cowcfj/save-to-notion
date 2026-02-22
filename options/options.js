@@ -1,9 +1,9 @@
 /* global chrome */
-import { UIManager } from '../scripts/options/UIManager.js';
-import { AuthManager } from '../scripts/options/AuthManager.js';
-import { DataSourceManager } from '../scripts/options/DataSourceManager.js';
-import { StorageManager } from '../scripts/options/StorageManager.js';
-import { MigrationTool } from '../scripts/options/MigrationTool.js';
+import { UIManager } from './UIManager.js';
+import { AuthManager } from './AuthManager.js';
+import { DataSourceManager } from './DataSourceManager.js';
+import { StorageManager } from './StorageManager.js';
+import { MigrationTool } from './MigrationTool.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../scripts/config/messages.js';
 import { UI_ICONS } from '../scripts/config/icons.js';
 import { injectIcons } from '../scripts/utils/uiUtils.js';

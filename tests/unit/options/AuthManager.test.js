@@ -1,10 +1,10 @@
 // @jest-environment jsdom
 /* global document, chrome */
-import { AuthManager } from '../../../scripts/options/AuthManager.js';
-import { UIManager } from '../../../scripts/options/UIManager.js';
+import { AuthManager } from '../../../options/AuthManager.js';
+import { UIManager } from '../../../options/UIManager.js';
 
 // Mock dependencies
-jest.mock('../../../scripts/options/UIManager.js');
+jest.mock('../../../options/UIManager.js');
 
 describe('AuthManager', () => {
   let authManager = null;
