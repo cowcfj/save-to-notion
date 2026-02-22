@@ -49,7 +49,7 @@ export class StorageManager {
           key: savedKey,
           url,
           size: savedSize,
-          reason: '已刪除頁面的保存狀態',
+          reason: '無效殘留的保存狀態',
         });
 
         plan.spaceFreed += savedSize;

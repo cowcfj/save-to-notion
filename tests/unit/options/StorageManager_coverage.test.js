@@ -305,9 +305,7 @@ describe('StorageManager Branch Coverage', () => {
 
       await storageManager.executeSafeCleanup();
 
-      expect(storageManager.elements.dataStatus.textContent).toContain(
-        '清理了 5 個已刪除頁面的數據'
-      );
+      expect(storageManager.elements.dataStatus.textContent).toContain('清理了 5 筆無效的殘留數據');
     });
   });
 
