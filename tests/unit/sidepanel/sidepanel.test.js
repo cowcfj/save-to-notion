@@ -390,6 +390,7 @@ function buildUnsyncedDOM() {
           </div>
           <div class="page-info"><span class="page-meta"></span></div>
           <button class="page-open-button"></button>
+          <button class="page-delete-button"></button>
         </div>
         <div class="page-card-previews"></div>
         <span class="page-card-remaining"></span>

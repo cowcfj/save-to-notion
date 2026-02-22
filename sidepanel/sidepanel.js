@@ -136,11 +136,15 @@ async function init() {
     loadMoreBtn: document.querySelector('#load-more-btn'),
     unsyncedBadge: document.querySelector('#unsynced-badge'),
     pageCardTemplate: document.querySelector('#page-card-template'),
+    unsyncedToolbar: document.querySelector('#unsynced-toolbar'),
+    unsyncedCountLabel: document.querySelector('#unsynced-count-label'),
+    clearAllBtn: document.querySelector('#clear-all-btn'),
   };
 
   // 1. 綁定按鈕事件
   els.syncButton.addEventListener('click', handleSyncClick);
   els.openNotionButton.addEventListener('click', handleOpenNotionClick);
+  els.clearAllBtn?.addEventListener('click', deleteAllUnsyncedPages);
 
   // 2. 監聽當前分頁變化
   chrome.tabs.onActivated.addListener(handleTabChange);
@@ -573,7 +577,19 @@ async function renderUnsyncedView() {
     if (loadMoreBtn) {
       loadMoreBtn.style.display = 'none';
     }
+    if (els.unsyncedToolbar) {
+      els.unsyncedToolbar.style.display = 'none';
+    }
     return;
+  }
+
+  // 顯示工具列並更新計數
+  if (els.unsyncedToolbar) {
+    els.unsyncedToolbar.style.display = 'flex';
+  }
+  if (els.unsyncedCountLabel) {
+    const count = cachedUnsyncedPages.length;
+    els.unsyncedCountLabel.textContent = `${count} page${count === 1 ? '' : 's'}`;
   }
 
   appendCards(container, PAGE_BATCH_SIZE);
@@ -618,6 +634,11 @@ function appendCards(container, count) {
       chrome.tabs.create({ url: page.url });
     });
 
+    // 刪除單頁標注
+    card.querySelector('.page-delete-button').addEventListener('click', () => {
+      deleteUnsyncedPage(page.storageKey, card);
+    });
+
     container.append(card);
   });
 
@@ -651,4 +672,54 @@ async function updateUnsyncedBadge() {
     return;
   }
   badge.textContent = pages.length > 0 ? String(pages.length) : '';
+}
+
+/**
+ * 刪除單一頁面的所有標注
+ *
+ * @param {string} storageKey  storage 中的 highlights_ key
+ * @param {HTMLElement} cardEl 對應的卡片 DOM 節點（用於移除）
+ */
+async function deleteUnsyncedPage(storageKey, cardEl) {
+  await chrome.storage.local.remove(storageKey);
+
+  // 從快取移除
+  cachedUnsyncedPages = cachedUnsyncedPages.filter(p => p.storageKey !== storageKey);
+
+  // 移除 DOM 卡片（fade out）
+  cardEl.classList.add('card-removing');
+  cardEl.addEventListener('animationend', () => cardEl.remove(), { once: true });
+
+  // 更新工具列計數和 badge
+  const count = cachedUnsyncedPages.length;
+  if (els.unsyncedCountLabel) {
+    els.unsyncedCountLabel.textContent = `${count} page${count === 1 ? '' : 's'}`;
+  }
+  if (count === 0) {
+    if (els.unsyncedToolbar) {els.unsyncedToolbar.style.display = 'none';}
+    if (els.loadMoreBtn) {els.loadMoreBtn.style.display = 'none';}
+    els.unsyncedView.innerHTML = '<p class="unsynced-empty">All highlights are synced!</p>';
+  }
+  updateUnsyncedBadge();
+}
+
+/**
+ * 刪除所有未同步頁面的標注
+ */
+async function deleteAllUnsyncedPages() {
+  if (!cachedUnsyncedPages || cachedUnsyncedPages.length === 0) {
+    return;
+  }
+
+  const keys = cachedUnsyncedPages.map(p => p.storageKey);
+  await chrome.storage.local.remove(keys);
+
+  cachedUnsyncedPages = [];
+  displayedCardCount = 0;
+
+  if (els.unsyncedToolbar) {els.unsyncedToolbar.style.display = 'none';}
+  if (els.loadMoreBtn) {els.loadMoreBtn.style.display = 'none';}
+  els.unsyncedView.innerHTML = '<p class="unsynced-empty">All highlights are synced!</p>';
+
+  updateUnsyncedBadge();
 }
