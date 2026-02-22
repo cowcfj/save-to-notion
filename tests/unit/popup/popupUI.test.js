@@ -110,7 +110,7 @@ describe('popupUI.js', () => {
       expect(mockElements.highlightButton.disabled).toBe(false);
       expect(mockElements.clearHighlightsButton.style.display).toBe('none');
       expect(mockElements.saveButton.style.display).toBe('block');
-      expect(mockElements.status.textContent).toContain('Save page first');
+      expect(mockElements.status.textContent).toContain('Start highlighting');
     });
 
     it('當頁面被刪除時應該顯示特定錯誤', () => {

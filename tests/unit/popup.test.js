@@ -121,7 +121,7 @@ describe('popupUI', () => {
       expect(elements.clearHighlightsButton.style.display).toBe('none');
       expect(elements.saveButton.style.display).toBe('block');
       expect(elements.openNotionButton.style.display).toBe('none');
-      expect(elements.status.textContent).toBe('Save page first to enable highlighting.');
+      expect(elements.status.textContent).toBe('Start highlighting to mark this page.');
     });
 
     test('已刪除頁面應顯示警告訊息', () => {
@@ -365,6 +365,7 @@ describe('initPopup integration', () => {
       <div id="status"></div>
       <button id="save-button">Save</button>
       <button id="highlight-button"><span class="btn-text">Highlight</span></button>
+      <button id="manage-button">Manage</button>
       <button id="clear-highlights-button" style="display: none;">Clear</button>
       <button id="open-notion-button" style="display: none;">Open Notion</button>
       <div id="confirmation-modal" style="display: none;">

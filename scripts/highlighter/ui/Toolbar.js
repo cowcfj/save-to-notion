@@ -394,23 +394,22 @@ export class Toolbar {
       return;
     }
 
-    // 預設先隱藏兩者，查詢完再顯示，避免閃爍
-    saveBtn.style.display = STYLE_NONE;
-    syncBtn.style.display = STYLE_NONE;
-
     try {
       const response = await Toolbar._sendMessageAsync({ action: 'checkPageStatus' });
 
       if (response?.success && response.isSaved) {
-        // 已保存 → 顯示同步按鈕
+        // 已保存 → 顯示同步按鈕，隱藏保存按鈕
+        saveBtn.style.display = STYLE_NONE;
         syncBtn.style.display = STYLE_INLINE_FLEX;
       } else {
-        // 未保存 → 顯示保存按鈕
+        // 未保存 → 顯示保存按鈕，隱藏同步按鈕
         saveBtn.style.display = STYLE_INLINE_FLEX;
+        syncBtn.style.display = STYLE_NONE;
       }
     } catch {
       // 查詢失敗時預設顯示保存按鈕
       saveBtn.style.display = STYLE_INLINE_FLEX;
+      syncBtn.style.display = STYLE_NONE;
     }
   }
 
@@ -482,7 +481,6 @@ export class Toolbar {
     const statusDiv = this.container.querySelector(TOOLBAR_SELECTORS.STATUS_CONTAINER);
 
     if (statusDiv) {
-      const originalText = statusDiv.textContent; // Use textContent for safety
       statusDiv.style.display = 'block'; // Ensure it's visible during sync
 
       // Update UI to Loading State
@@ -523,11 +521,8 @@ export class Toolbar {
       }
 
       setTimeout(() => {
-        // Restore original text safely
-        statusDiv.textContent = originalText;
-        if (!originalText) {
-          statusDiv.style.display = 'none';
-        }
+        statusDiv.textContent = '';
+        statusDiv.style.display = 'none';
       }, 2000);
     }
   }

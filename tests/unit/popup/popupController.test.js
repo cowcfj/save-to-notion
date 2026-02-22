@@ -67,6 +67,7 @@ describe('popup.js Controller', () => {
       tabs: {
         query: jest.fn().mockResolvedValue([{ id: 123, url: 'https://example.com' }]),
         sendMessage: jest.fn().mockResolvedValue({}),
+        onActivated: { addListener: jest.fn() },
       },
     };
     globalThis.window.close = jest.fn();
