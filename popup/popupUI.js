@@ -12,6 +12,7 @@ import { UI_ICONS } from '../scripts/config/index.js';
  * @typedef {object} PopupElements
  * @property {HTMLButtonElement} saveButton - 保存按鈕
  * @property {HTMLButtonElement} highlightButton - 標記按鈕
+ * @property {HTMLButtonElement} manageButton - 管理標註按鈕（開啟 Side Panel）
  * @property {HTMLButtonElement} clearHighlightsButton - 清除標記按鈕
  * @property {HTMLButtonElement} openNotionButton - 打開 Notion 按鈕
  * @property {HTMLElement} status - 狀態顯示元素
