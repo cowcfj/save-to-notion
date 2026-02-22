@@ -84,9 +84,16 @@ export async function initPopup() {
   }
 
   // 預取目前分頁資訊，供 manage button 同步呼叫 sidePanel.open() 使用
-  const currentTab = await getActiveTab();
+  // 使用 let 以便 tabs.onActivated 監聽器可以更新它
+  let currentTab = await getActiveTab();
 
   // ========== 事件監聽器 ==========
+
+  // 當使用者切換分頁時更新 currentTab，避免舊的 tabId 導致 sidePanel 開到錯誤的分頁
+  chrome.tabs.onActivated.addListener(async () => {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentTab = tabs[0] ?? null;
+  });
 
   // 保存按鈕
   elements.saveButton.addEventListener('click', async () => {
@@ -242,13 +249,16 @@ export async function initPopup() {
   // 管理標註按鈕 (開啟 Side Panel)
   // 注意：sidePanel.open() 必須在使用者手勢上下文中同步呼叫，
   // 因此直接在 Popup 頁面呼叫，不經由 background 轉發，
-  // 並使用初始化時預取的 currentTab.id 避免在 handler 中使用 await。
+  // 並使用初始化時預取的 currentTab.id（由 tabs.onActivated 保持最新）。
   if (elements.manageButton) {
     elements.manageButton.addEventListener('click', () => {
       if (currentTab?.id) {
         chrome.sidePanel.open({ tabId: currentTab.id });
+        window.close();
+      } else {
+        // currentTab 不可用（例如 chrome:// 頁面、PDF 檢視器）
+        alert('側邊欄無法在此頁面開啟。');
       }
-      window.close();
     });
   }
 }
