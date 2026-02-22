@@ -490,8 +490,9 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
     const previewRow = document.querySelector('.preview-row');
     expect(previewRow).not.toBeNull();
-    // 文字本身被截斷至 80 字元，加上引號後顯示
-    expect(previewRow.textContent.length).toBeLessThan(100);
+    // 文字本身被截斷至 80 字元，加上省略號和引號後顯示
+    expect(previewRow.textContent).toContain('...');
+    expect(previewRow.textContent).toBe(`"${longText.slice(0, 80)}..."`);
   });
 
   it('should show +N more when highlights exceed PREVIEW_COUNT (3)', async () => {

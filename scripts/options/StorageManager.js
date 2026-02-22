@@ -651,6 +651,7 @@ export class StorageManager {
       const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
       plan.items.push({
         key,
+        url: encodeURIComponent(normUrl),
         size,
         reason: '孤兒 URL 別名（目標頁面已無資料）',
       });

@@ -35,6 +35,8 @@ const PREVIEW_TEXT_MAX_LENGTH = 80;
 let cachedUnsyncedPages = null;
 /** @type {number} 目前已渲染的卡片數量 */
 let displayedCardCount = 0;
+/** @type {ReturnType<typeof setTimeout> | null} 未同步 badge 更新的 debounce timer */
+let unsyncedBadgeTimer = null;
 
 /**
  * 從 URL 中提取 domain 名稱
@@ -295,13 +297,16 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
     }
   }
 
-  if (!highlightsData?.highlights || highlightsData.highlights.length === 0) {
+  const highlights = Array.isArray(highlightsData)
+    ? highlightsData
+    : highlightsData?.highlights || [];
+  if (highlights.length === 0) {
     showEmpty();
     return;
   }
 
   // 渲染列表
-  renderList(highlightsData.highlights, targetKey);
+  renderList(highlights, targetKey);
 
   // 檢查是否已儲存到 Notion 以啟用 Sync 按鈕
   const savedKey = targetKey.replace(HIGHLIGHTS_PREFIX, SAVED_PREFIX);
@@ -470,8 +475,11 @@ function handleStorageChange(changes, namespace) {
     return;
   }
 
-  // Always keep the unsynced badge in sync with storage
-  updateUnsyncedBadge(null).catch(() => {});
+  // Always keep the unsynced badge in sync with storage (debounced to avoid rapid get(null) calls)
+  clearTimeout(unsyncedBadgeTimer);
+  unsyncedBadgeTimer = setTimeout(() => {
+    updateUnsyncedBadge(null).catch(() => {});
+  }, 300);
 
   // 快速路徑：如果已有快取 URL，直接重新渲染，跳過 tab 查詢和 sendMessage
   if (cachedStableUrl && cachedTabUrl) {
@@ -546,10 +554,14 @@ function switchView(viewName) {
 
   if (viewName === 'unsynced') {
     currentViewEls.forEach(el => el && (el.style.display = 'none'));
+    if (els.syncButton) {els.syncButton.style.display = 'none';}
+    if (els.openNotionButton) {els.openNotionButton.style.display = 'none';}
     unsyncedView.style.display = 'block';
     renderUnsyncedView();
   } else {
     unsyncedView.style.display = 'none';
+    if (els.syncButton) {els.syncButton.style.display = '';}
+    if (els.openNotionButton) {els.openNotionButton.style.display = '';}
     if (loadMoreBtn) {
       loadMoreBtn.style.display = 'none';
     }
@@ -727,6 +739,7 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
 
   // 從快取移除
   cachedUnsyncedPages = cachedUnsyncedPages.filter(page => page.storageKey !== storageKey);
+  displayedCardCount = Math.max(0, Math.min(displayedCardCount - 1, cachedUnsyncedPages.length));
 
   // 移除 DOM 卡片（fade out）
   cardEl.classList.add('card-removing');
@@ -745,6 +758,9 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
       els.loadMoreBtn.style.display = 'none';
     }
     renderUnsyncedEmptyState();
+  }
+  if (count > 0 && displayedCardCount < cachedUnsyncedPages.length) {
+    appendCards(els.unsyncedView, 1);
   }
   updateUnsyncedBadge(cachedUnsyncedPages);
 }
