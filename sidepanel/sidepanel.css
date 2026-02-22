@@ -241,3 +241,288 @@ body {
   color: #991b1b;
   border-top-color: #fecaca;
 }
+
+/* === View Tabs === */
+.view-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.view-tab {
+  flex: 1;
+  padding: 8px 6px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+  transition: background 0.15s;
+  border-bottom: 2px solid transparent;
+}
+
+.view-tab:hover {
+  background-color: var(--bg-hover);
+}
+
+.view-tab.active {
+  color: var(--text-main);
+  border-bottom-color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* === Status Dot (pending sync indicator) === */
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f5a623;
+  flex-shrink: 0;
+}
+
+/* === Badge (unsynced count) === */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #f5a623;
+  color: #000000;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* === Unsynced View Scroll === */
+#unsynced-view {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+/* === Page Cards === */
+.page-card {
+  padding: 10px var(--panel-padding);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.page-card:last-child {
+  border-bottom: none;
+}
+
+.page-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.page-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-info {
+  margin: 2px 0 0 13px; /* 13px = status-dot(7px) + gap(6px) */
+}
+
+.page-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.page-open-button {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+}
+
+.page-open-button:hover {
+  background-color: var(--bg-hover);
+  color: var(--primary-color);
+}
+
+/* === Annotation Preview Rows === */
+.page-card-previews {
+  margin-top: 6px;
+  margin-left: 13px;
+}
+
+.preview-row {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 6px;
+  border-left: 3px solid #ddd;
+}
+
+.preview-row.color-yellow {
+  border-left-color: #f5c542;
+}
+.preview-row.color-blue {
+  border-left-color: #4a90d9;
+}
+.preview-row.color-green {
+  border-left-color: #5db35d;
+}
+.preview-row.color-red {
+  border-left-color: #e05c5c;
+}
+.preview-row.color-purple {
+  border-left-color: #a259e6;
+}
+.preview-row.color-pink {
+  border-left-color: #e87db0;
+}
+
+.page-card-remaining {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  margin-left: 13px;
+  opacity: 0.7;
+}
+
+/* === Load More Button === */
+.load-more-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 8px var(--panel-padding);
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: background 0.15s;
+}
+
+.load-more-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+/* === Unsynced Empty State === */
+.unsynced-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* === Unsynced Toolbar === */
+#unsynced-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.unsynced-count-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.clear-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid #e5534b33;
+  border-radius: 4px;
+  background: transparent;
+  color: #e5534b;
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.clear-all-btn:hover {
+  background: #e5534b18;
+}
+
+/* === Page Delete Button === */
+.page-delete-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
+  flex-shrink: 0;
+}
+
+.page-card:hover .page-delete-button {
+  opacity: 1;
+}
+
+.page-delete-button:hover {
+  background: #e5534b18;
+  color: #000000;
+}
+
+/* === Card Remove Animation === */
+@keyframes card-fade-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: 200px;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(12px);
+    max-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+.card-removing {
+  animation: card-fade-out 0.25s ease forwards;
+  overflow: hidden;
+}

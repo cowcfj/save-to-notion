@@ -15,6 +15,7 @@ import {
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_ICONS } from '../config/icons.js';
 import { UI_MESSAGES } from '../config/messages.js';
+import { URL_ALIAS_PREFIX } from '../config/constants.js';
 
 /**
  * 管理存儲空間的類別
@@ -49,7 +50,7 @@ export class StorageManager {
           key: savedKey,
           url,
           size: savedSize,
-          reason: '已刪除頁面的保存狀態',
+          reason: '無效殘留的保存狀態',
         });
 
         plan.spaceFreed += savedSize;
@@ -540,6 +541,7 @@ export class StorageManager {
       totalKeys: 0,
       spaceFreed: 0,
       deletedPages: 0,
+      orphanHighlights: 0,
     };
 
     if (cleanDeletedPages) {
@@ -567,10 +569,94 @@ export class StorageManager {
           await new Promise(resolve => setTimeout(resolve, 350));
         }
       }
-    }
+
+      // 孤兒掃描只在「清理已刪除頁面」啟用時執行：
+      // 因為 _collectOrphanHighlightItems 和 _collectOrphanAliasItems
+      // 的掃描結果與頁面刪除清理是同一個操作單元，
+      // 讓用戶透過同一個勾選框控制所有「殘留資料」的清理。
+      this._collectOrphanHighlightItems(data, plan);
+      this._collectOrphanAliasItems(data, plan);
+    } // end of if (cleanDeletedPages)
 
     plan.totalKeys = plan.items.length;
     return plan;
+  }
+
+  /**
+   * 掃描孤兒 highlights_ key：既無有效標注，也無對應的 saved_ 記錄
+   * 這是唯一符合「應刪除」條件的孤兒資料
+   *
+   * @param {object} data  storage 完整快照
+   * @param {object} plan  清理計劃（直接修改）
+   * @private
+   */
+  _collectOrphanHighlightItems(data, plan) {
+    for (const [key, value] of Object.entries(data)) {
+      if (!key.startsWith('highlights_')) {
+        continue;
+      }
+
+      const url = key.replace('highlights_', '');
+
+      // 1. 有效標注 → 保留
+      const highlights = Array.isArray(value) ? value : value?.highlights;
+      if (Array.isArray(highlights) && highlights.length > 0) {
+        continue;
+      }
+
+      // 2. 有對應的 saved_ 記錄 → 保留（用戶只是保存網頁未做標注）
+      if (data[`saved_${url}`]) {
+        continue;
+      }
+
+      // 3. 孤兒 key → 加入清理計畫
+      const size = new Blob([JSON.stringify({ [key]: value })]).size;
+      plan.items.push({
+        key,
+        url,
+        size,
+        reason: '孤兒資料（無標注且未保存到 Notion）',
+      });
+      plan.spaceFreed += size;
+      plan.orphanHighlights += 1;
+    }
+  }
+
+  /**
+   * 掃描孤兒 url_alias: key：目標 normUrl 已無對應的 highlights_ 或 saved_ 記錄
+   *
+   * @param {object} data  storage 完整快照
+   * @param {object} plan  清理計劃（直接修改）
+   * alias 孤兒計入 plan.items 和 plan.spaceFreed，但不計入 plan.orphanHighlights，
+   * 因為 alias key 是內部實作細節，不在用戶可見的清理摘要中單獨列出。
+   * @private
+   */
+  _collectOrphanAliasItems(data, plan) {
+    for (const [key, normUrl] of Object.entries(data)) {
+      if (!key.startsWith(URL_ALIAS_PREFIX)) {
+        continue;
+      }
+
+      // 防衛：alias value 必須是字串才能安全用於 key 查詢
+      if (typeof normUrl !== 'string' || normUrl === '') {
+        continue;
+      }
+
+      // alias value is the normUrl; check if target data still exists
+      if (data[`highlights_${normUrl}`] || data[`saved_${normUrl}`]) {
+        continue;
+      }
+
+      // 孤兒 alias → 加入清理計畫
+      const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
+      plan.items.push({
+        key,
+        url: encodeURIComponent(normUrl),
+        size,
+        reason: '孤兒 URL 別名（目標頁面已無資料）',
+      });
+      plan.spaceFreed += size;
+    }
   }
 
   static async checkNotionPageExists(pageId) {
@@ -621,6 +707,10 @@ export class StorageManager {
 
     if (plan.deletedPages > 0) {
       summaryLines.push(UI_MESSAGES.STORAGE.DELETED_PAGES_DATA(plan.deletedPages));
+    }
+
+    if (plan.orphanHighlights > 0) {
+      summaryLines.push(UI_MESSAGES.STORAGE.ORPHANED_HIGHLIGHTS_COUNT(plan.orphanHighlights));
     }
 
     summaryLines.push('', UI_MESSAGES.STORAGE.SPACE_FREED_ESTIMATE(spaceMB));
@@ -737,6 +827,10 @@ export class StorageManager {
 
       if (this.cleanupPlan.deletedPages > 0) {
         message += `\n${UI_MESSAGES.STORAGE.CLEANUP_DELETED_PAGES(this.cleanupPlan.deletedPages)}`;
+      }
+
+      if (this.cleanupPlan.orphanHighlights > 0) {
+        message += `\n${UI_MESSAGES.STORAGE.CLEANUP_ORPHAN_HIGHLIGHTS(this.cleanupPlan.orphanHighlights)}`;
       }
 
       this.showDataStatus(message, 'success');

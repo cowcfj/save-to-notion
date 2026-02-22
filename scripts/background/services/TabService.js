@@ -11,9 +11,15 @@
 
 /* global chrome */
 
-import { TAB_SERVICE, URL_NORMALIZATION, HANDLER_CONSTANTS } from '../../config/constants.js';
+import {
+  TAB_SERVICE,
+  URL_NORMALIZATION,
+  HANDLER_CONSTANTS,
+  URL_ALIAS_PREFIX,
+} from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
-import { resolveStorageUrl } from '../../utils/urlUtils.js';
+import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
 /**
  * TabService 類
@@ -127,6 +133,28 @@ class TabService {
     const originalUrl = this.normalizeUrl(url);
     const hasStableUrl = stableUrl !== originalUrl;
 
+    // 記錄 URL 解析決策，便於日後分析重複標注等問題
+    let phase;
+    if (!preloaderData) {
+      phase = 'fallback';
+    } else if (preloaderData.nextRouteInfo) {
+      phase = '2a(nextjs)';
+    } else if (preloaderData.shortlink) {
+      phase = '2a+(shortlink)';
+    } else {
+      phase = 'fallback';
+    }
+    this.logger.debug('[TabService] resolveTabUrl decision', {
+      rawUrl: sanitizeUrlForLogging(url),
+      stableUrl: sanitizeUrlForLogging(stableUrl),
+      originalUrl: sanitizeUrlForLogging(originalUrl),
+      phase,
+      preloaderShortlink: preloaderData?.shortlink
+        ? sanitizeUrlForLogging(preloaderData.shortlink)
+        : null,
+      hasStableUrl,
+    });
+
     let migrated = false;
     if (hasStableUrl && migrationService) {
       migrated = await migrationService.migrateStorageKey(stableUrl, originalUrl);
@@ -195,6 +223,16 @@ class TabService {
       if (!highlights && hasStableUrl) {
         // 回退查詢：嘗試原始 URL（向後兼容）
         highlights = await this._getHighlightsFromStorage(originalUrl);
+
+        // 建立 url_alias 連結：避免 shortlink 與原網址各自產生獨立的 storage key
+        if (highlights) {
+          const aliasKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
+          chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
+          this.logger.debug('[TabService] Created url_alias for fallback URL', {
+            from: sanitizeUrlForLogging(originalUrl),
+            to: sanitizeUrlForLogging(normUrl),
+          });
+        }
       }
 
       if (!highlights) {
@@ -211,18 +249,7 @@ class TabService {
       if (tab) {
         this.logger.debug(`[TabService] Tab ${tabId} is complete, injecting bundle now...`);
         await this.injectionService.ensureBundleInjected(tabId);
-
-        // [Phase 2] 將計算出的穩定 URL 傳送給 Content Script，確保標註恢復時使用正確的 Key
-        try {
-          chrome.tabs
-            .sendMessage(tabId, {
-              action: 'SET_STABLE_URL',
-              stableUrl: normUrl,
-            })
-            .catch(() => {}); // 忽略可能的連接錯誤 (如 tab 關閉)
-        } catch (error) {
-          this.logger.debug(`[TabService] Failed to send stable URL: ${error.message}`);
-        }
+        this._sendStableUrl(tabId, normUrl);
       }
     } catch (error) {
       if (!this.logger.error) {
@@ -238,6 +265,32 @@ class TabService {
         const errorMsg = error.message || String(error);
         this.logger.error(`[TabService] Error updating tab status: ${errorMsg}`, { error });
       }
+    }
+  }
+
+  /**
+   * 傳送穩定 URL 給 Content Script
+   *
+   * 防護：若 normUrl 是根路徑（首頁），不傳送——避免 WordPress 等站點的
+   * tabs.onUpdated 時序問題覆寫 Content Script 中已正確設定的穩定 URL
+   *
+   * @param {number} tabId
+   * @param {string} normUrl
+   * @private
+   */
+  _sendStableUrl(tabId, normUrl) {
+    if (isRootUrl(normUrl)) {
+      this.logger.warn('[TabService] Blocked SET_STABLE_URL: resolved URL is site root', {
+        tabId,
+      });
+      return;
+    }
+    try {
+      chrome.tabs
+        .sendMessage(tabId, { action: 'SET_STABLE_URL', stableUrl: normUrl })
+        .catch(() => {}); // 忽略可能的連接錯誤 (如 tab 關閉)
+    } catch (error) {
+      this.logger.debug(`[TabService] Failed to send stable URL: ${error.message}`);
     }
   }
 
@@ -315,7 +368,7 @@ class TabService {
     const ttl = HANDLER_CONSTANTS.PAGE_STATUS_CACHE_TTL || 60_000;
 
     if (now - lastVerifiedAt < ttl) {
-      this.logger.debug(`[TabService] Using cached status for ${normUrl.slice(0, 30)}...`);
+      this.logger.debug(`[TabService] Using cached status for ${sanitizeUrlForLogging(normUrl)}`);
       await this._updateBadgeStatus(tabId, savedData);
       return;
     }
@@ -495,7 +548,9 @@ class TabService {
     }
 
     if (!/^https?:/i.test(normUrl)) {
-      this.logger.warn('Skipping legacy migration for non-http URL:', { normUrl });
+      this.logger.warn('Skipping legacy migration for non-http URL:', {
+        normUrl: sanitizeUrlForLogging(normUrl),
+      });
       return;
     }
 

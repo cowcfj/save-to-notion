@@ -16,13 +16,14 @@
 import { normalizeUrl, computeStableUrl } from '../../utils/urlUtils.js';
 import { sanitizeUrlForLogging } from '../../utils/securityUtils.js';
 import { ERROR_MESSAGES } from '../../config/messages.js';
+import { URL_ALIAS_PREFIX } from '../../config/constants.js';
 
 /**
  * URL 標準化相關常量（從 urlUtils 導出，用於兼容既有導入）
  */
 export const SAVED_PREFIX = 'saved_';
 export const HIGHLIGHTS_PREFIX = 'highlights_';
-export const URL_ALIAS_PREFIX = 'url_alias:';
+
 export const STORAGE_ERROR = ERROR_MESSAGES.TECHNICAL.CHROME_STORAGE_UNAVAILABLE;
 
 /**
@@ -384,3 +385,4 @@ class StorageService {
 // 導出
 export { StorageService };
 export { TRACKING_PARAMS as URL_TRACKING_PARAMS, normalizeUrl } from '../../utils/urlUtils.js';
+export {URL_ALIAS_PREFIX} from '../../config/constants.js';

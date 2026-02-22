@@ -243,7 +243,7 @@ describe('StorageManager Branch Coverage', () => {
       expect(Logger.error).toHaveBeenCalled();
     });
 
-    test('當 Notion 頁面不存在時應將該頁面及其標註加入清理清單', async () => {
+    test('當 Notion 頁面不存在時應僅清理保存狀態，保留本地標註', async () => {
       mockGet.mockImplementation((k, respond) => {
         const mockData = {
           saved_page1: { notionPageId: 'p1' },
@@ -256,8 +256,9 @@ describe('StorageManager Branch Coverage', () => {
 
       const plan = await storageManager.generateSafeCleanupPlan(true);
 
+      // 只清理 saved_ 狀態，保留 highlights_（擴展允許未保存頁面標注）
       expect(plan.items.some(i => i.key === 'saved_page1')).toBe(true);
-      expect(plan.items.some(i => i.key === 'highlights_page1')).toBe(true);
+      expect(plan.items.some(i => i.key === 'highlights_page1')).toBe(false);
       expect(plan.deletedPages).toBe(1);
     });
   });
@@ -304,9 +305,7 @@ describe('StorageManager Branch Coverage', () => {
 
       await storageManager.executeSafeCleanup();
 
-      expect(storageManager.elements.dataStatus.textContent).toContain(
-        '清理了 5 個已刪除頁面的數據'
-      );
+      expect(storageManager.elements.dataStatus.textContent).toContain('清理了 5 筆無效的殘留數據');
     });
   });
 

@@ -100,13 +100,15 @@ export const UI_MESSAGES = {
     OPTIMIZE_NONE: '數據已經處於最佳狀態',
     CLEANUP_TITLE: '檢測殘留數據',
     CLEANUP_WILL_CLEAN: '將清理：',
-    DELETED_PAGES_DATA: count => `• ${count} 個已刪除頁面的數據`,
+    DELETED_PAGES_DATA: count => `• ${count} 筆無效的殘留數據`,
     SPACE_FREED_ESTIMATE: size => `釋放約 ${size} MB 空間`,
     EXECUTE_CLEANUP_NONE: '沒有清理計劃可執行',
     CLEANUP_EXECUTING: '正在執行安全清理...',
     CLEANUP_SUCCESS: (keys, size) =>
       `安全清理完成！已移除 ${keys} 個無效記錄，釋放 ${size} KB 空間`,
-    CLEANUP_DELETED_PAGES: count => `• 清理了 ${count} 個已刪除頁面的數據`,
+    CLEANUP_DELETED_PAGES: count => `• 清理了 ${count} 筆無效的殘留數據`,
+    ORPHANED_HIGHLIGHTS_COUNT: count => `• ${count} 個孤兒標注資料（無對應的已保存頁面）`,
+    CLEANUP_ORPHAN_HIGHLIGHTS: count => `• 清理了 ${count} 個孤兒標注資料`,
     CLEANUP_FAILED: '清理失敗：',
     PREVIEW_CLEANUP_FAILED: '檢測無效數據失敗：',
     OPTIMIZE_SUCCESS: size =>

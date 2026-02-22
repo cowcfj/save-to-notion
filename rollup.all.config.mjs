@@ -29,9 +29,7 @@ const preloaderConfig = {
     sourcemap: isDev ? 'inline' : false, // 生產環境不生成 sourcemap（保持極輕量）
     banner: '/* Save to Notion - Preloader */',
   },
-  plugins: [
-    terserPlugin,
-  ].filter(Boolean),
+  plugins: [terserPlugin].filter(Boolean),
   onwarn(warning, warn) {
     if (warning.code === 'THIS_IS_UNDEFINED') return;
     warn(warning);
@@ -39,7 +37,7 @@ const preloaderConfig = {
 };
 
 const sidepanelConfig = {
-  input: 'scripts/sidepanel/sidepanel.js',
+  input: 'sidepanel/sidepanel.js',
   output: {
     file: 'dist/sidepanel.bundle.js',
     format: 'es', // 使用 ES 模組格式

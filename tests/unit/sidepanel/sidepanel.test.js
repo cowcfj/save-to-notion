@@ -5,6 +5,14 @@ import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.
 jest.mock('../../../scripts/utils/urlUtils.js', () => ({
   normalizeUrl: jest.fn(url => url),
   computeStableUrl: jest.fn(),
+  isRootUrl: jest.fn(url => {
+    try {
+      const u = new URL(url);
+      return (u.pathname === '/' || u.pathname === '') && u.search.length === 0;
+    } catch {
+      return false;
+    }
+  }),
 }));
 
 // Chrome API polyfills
@@ -44,11 +52,28 @@ describe('Sidepanel JS Logic', () => {
       <button id="sync-button"></button>
       <button id="open-notion-button"></button>
       <div id="status-message"></div>
+      <div id="unsynced-view" style="display:none"></div>
+      <div id="unsynced-toolbar" style="display:none">
+        <span id="unsynced-count-label"></span>
+        <button id="clear-all-btn"></button>
+      </div>
+      <button id="load-more-btn" style="display:none"></button>
+      <span id="unsynced-badge"></span>
       <template id="highlight-card-template">
         <div class="highlight-card">
           <div class="highlight-color-indicator"></div>
           <p class="highlight-text"></p>
           <button class="delete-button"></button>
+        </div>
+      </template>
+      <template id="page-card-template">
+        <div class="page-card">
+          <div class="page-title"></div>
+          <div class="page-meta"></div>
+          <div class="page-card-previews"></div>
+          <div class="page-card-remaining"></div>
+          <button class="page-open-button"></button>
+          <button class="page-delete-button"></button>
         </div>
       </template>
     `;
@@ -59,7 +84,7 @@ describe('Sidepanel JS Logic', () => {
     chrome.storage.local.get.mockResolvedValue({});
 
     jest.isolateModules(() => {
-      require('../../../scripts/sidepanel/sidepanel.js');
+      require('../../../sidepanel/sidepanel.js');
     });
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -345,6 +370,305 @@ describe('Sidepanel JS Logic', () => {
       onStorageChanged({ sc_some_other_key: { newValue: {} } }, 'local');
 
       expect(chrome.tabs.query).not.toHaveBeenCalled();
+    });
+  });
+}); // end describe('Sidepanel JS Logic')
+
+// ---- 共用 DOM helper（待同步視圖測試用） ----
+
+function buildUnsyncedDOM() {
+  document.body.innerHTML = `
+    <div id="loading-state" style="display:none"><div class="spinner"></div><p></p></div>
+    <div id="empty-state" style="display:none"><p>Empty</p><div class="subtitle"></div></div>
+    <div id="highlights-list" style="display:none"></div>
+    <div id="unsynced-view" style="display:none"></div>
+    <div id="unsynced-toolbar" style="display:none">
+      <span id="unsynced-count-label"></span>
+      <button id="clear-all-btn"></button>
+    </div>
+    <button id="load-more-btn" style="display:none">Load more</button>
+    <button id="sync-button"></button>
+    <button id="open-notion-button" style="display:none"></button>
+    <div id="status-message"></div>
+    <div class="view-tabs">
+      <button class="view-tab active" data-view="current">Current Page</button>
+      <button class="view-tab" data-view="unsynced">Pending<span id="unsynced-badge"></span></button>
+    </div>
+    <template id="highlight-card-template">
+      <div class="highlight-card">
+        <div class="highlight-color-indicator"></div>
+        <p class="highlight-text"></p>
+        <button class="delete-button"></button>
+      </div>
+    </template>
+    <template id="page-card-template">
+      <div class="page-card">
+        <div class="page-card-header">
+          <div class="page-title-row">
+            <span class="status-dot"></span>
+            <p class="page-title"></p>
+          </div>
+          <div class="page-info"><span class="page-meta"></span></div>
+          <button class="page-open-button"></button>
+          <button class="page-delete-button"></button>
+        </div>
+        <div class="page-card-previews"></div>
+        <span class="page-card-remaining"></span>
+      </div>
+    </template>
+  `;
+}
+
+async function initModule(storageMock) {
+  chrome.storage.local.get.mockResolvedValue(storageMock);
+  jest.isolateModules(() => {
+    require('../../../sidepanel/sidepanel.js');
+  });
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+  // 讓所有 async 完成（init 會平行跑 loadCurrentTab + updateUnsyncedBadge）
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
+}
+
+async function clickUnsyncedTab() {
+  const tab = document.querySelector('[data-view="unsynced"]');
+  tab.click();
+  for (let i = 0; i < 5; i++) {
+    await Promise.resolve();
+  }
+}
+
+describe('Unsynced View (getUnsyncedPages integration)', () => {
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    buildUnsyncedDOM();
+
+    chrome.tabs.query.mockResolvedValue([{ id: 101, url: 'https://example.com' }]);
+    chrome.tabs.get.mockResolvedValue({ id: 102, url: 'https://example.org' });
+    chrome.tabs.sendMessage.mockResolvedValue({ stableUrl: 'https://example.com' });
+    chrome.storage.local.get.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should filter out synced pages (with notionPageId)', async () => {
+    await initModule({
+      'highlights_https://a.com/p': {
+        highlights: [{ id: '1', text: 'Synced text', color: 'yellow' }],
+        updatedAt: 2000,
+      },
+      'saved_https://a.com/p': { notionPageId: 'page-aaa' }, // 已同步
+      'highlights_https://b.com/p': {
+        highlights: [{ id: '2', text: 'Unsynced text', color: 'blue' }],
+        updatedAt: 1000,
+      },
+      // b.com 沒有 saved_，是未同步
+    });
+
+    // 切換到待同步 tab
+    await clickUnsyncedTab();
+
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    expect(cards).toHaveLength(1);
+    expect(cards[0].querySelector('.page-title').textContent).toContain('b.com');
+  });
+
+  it('should show preview text truncated to 80 chars', async () => {
+    const longText = 'A'.repeat(100);
+    await initModule({
+      'highlights_https://c.com/p': {
+        highlights: [{ id: '1', text: longText, color: 'yellow' }],
+        updatedAt: 1000,
+      },
+    });
+
+    await clickUnsyncedTab();
+
+    const previewRow = document.querySelector('.preview-row');
+    expect(previewRow).not.toBeNull();
+    // 文字本身被截斷至 80 字元，加上省略號和引號後顯示
+    expect(previewRow.textContent).toContain('...');
+    expect(previewRow.textContent).toBe(`"${longText.slice(0, 80)}..."`);
+  });
+
+  it('should show +N more when highlights exceed PREVIEW_COUNT (3)', async () => {
+    const highlights = Array.from({ length: 5 }, (_, i) => ({
+      id: String(i),
+      text: `Highlight ${i}`,
+      color: 'yellow',
+    }));
+    await initModule({
+      'highlights_https://d.com/p': { highlights, updatedAt: 1000 },
+    });
+
+    await clickUnsyncedTab();
+
+    const remaining = document.querySelector('.page-card-remaining');
+    expect(remaining.textContent).toContain('+2');
+  });
+
+  it('should show load-more button when unsynced pages exceed 10', async () => {
+    const storageData = {};
+    for (let i = 0; i < 15; i++) {
+      storageData[`highlights_https://example.com/page${i}`] = {
+        highlights: [{ id: '1', text: 'x', color: 'yellow' }],
+        updatedAt: i,
+      };
+    }
+    await initModule(storageData);
+    await clickUnsyncedTab();
+
+    const cards = document.querySelectorAll('#unsynced-view .page-card');
+    expect(cards).toHaveLength(10); // 第一批只顯示 10 張
+    expect(document.querySelector('#load-more-btn').style.display).not.toBe('none');
+  });
+
+  it('should load more cards on load-more click', async () => {
+    const storageData = {};
+    for (let i = 0; i < 15; i++) {
+      storageData[`highlights_https://example.com/page${i}`] = {
+        highlights: [{ id: '1', text: 'x', color: 'yellow' }],
+        updatedAt: i,
+      };
+    }
+    await initModule(storageData);
+    await clickUnsyncedTab();
+
+    // 確認點擊前只有 10 張
+    const container = document.querySelector('#unsynced-view');
+    expect(container.querySelectorAll('.page-card')).toHaveLength(10);
+
+    // 點擊「載入更多」
+    document.querySelector('#load-more-btn').click();
+    for (let i = 0; i < 5; i++) {
+      await Promise.resolve();
+    }
+
+    const cardsAfter = document.querySelectorAll('#unsynced-view .page-card');
+    // 點擊後應比原來多（至少 > 10）
+    expect(cardsAfter.length).toBeGreaterThan(10);
+    expect(document.querySelector('#load-more-btn').style.display).toBe('none');
+  });
+
+  it('badge should show correct unsynced count on init', async () => {
+    await initModule({
+      'highlights_https://x.com/p': {
+        highlights: [{ id: '1', text: 'x', color: 'yellow' }],
+        updatedAt: 1,
+      },
+      'highlights_https://y.com/p': {
+        highlights: [{ id: '2', text: 'y', color: 'blue' }],
+        updatedAt: 2,
+      },
+    });
+
+    // badge 在初始化時就應更新
+    const badge = document.querySelector('#unsynced-badge');
+    expect(badge.textContent).toBe('2');
+  });
+
+  it('should show empty message when all highlights are synced', async () => {
+    await initModule({
+      'highlights_https://synced.com/p': {
+        highlights: [{ id: '1', text: 'synced', color: 'yellow' }],
+        updatedAt: 1000,
+      },
+      'saved_https://synced.com/p': { notionPageId: 'notion-page-id' },
+    });
+
+    await clickUnsyncedTab();
+
+    const unsyncedView = document.querySelector('#unsynced-view');
+    expect(unsyncedView.textContent).toContain('All highlights are synced');
+  });
+  describe('deleteUnsyncedPage', () => {
+    it('should remove the page from storage, cache, and DOM', async () => {
+      const mockKey = 'highlights_https://example.com/delete-test';
+      const mockHl = { text: 'delete me', color: 'yellow', id: '1' };
+
+      // 使用 initModule 正確初始化 sidepanel 的 DOM 與內部資源
+      await initModule({
+        [mockKey]: [mockHl],
+      });
+
+      await clickUnsyncedTab();
+
+      const card = document.querySelector('.page-card');
+      expect(card).toBeTruthy();
+
+      const deleteBtn = card.querySelector('.page-delete-button');
+
+      // 模擬 Storage 剛好被清空的狀態（因為只有一台），使後續 getUnsyncedPages 回傳空陣列
+      chrome.storage.local.get.mockResolvedValue({});
+
+      // Action: 點擊刪除
+      deleteBtn.click();
+      await jest.runAllTimersAsync();
+
+      // Assert storage
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(mockKey);
+
+      // Get the current unsynced count label
+      const countLabel = document.querySelector('#unsynced-count-label');
+      expect(countLabel.textContent).toBe('0 pages');
+
+      // Trigger CSS animation end to remove card
+      const animationEndEvent = new Event('animationend');
+      card.dispatchEvent(animationEndEvent);
+
+      expect(document.querySelector('.page-card')).toBeNull();
+      expect(document.querySelector('.unsynced-empty')).toBeTruthy();
+    });
+  });
+
+  describe('deleteAllUnsyncedPages', () => {
+    it('should remove all unsynced pages when toolbar Clear All is clicked', async () => {
+      // Setup 2 pages
+      const key1 = 'highlights_https://example.com/p1';
+      const key2 = 'highlights_https://example.com/p2';
+
+      await initModule({
+        [key1]: [{ text: 'hl 1', color: 'yellow', id: '1' }],
+        [key2]: [{ text: 'hl 2', color: 'blue', id: '2' }],
+      });
+
+      await clickUnsyncedTab();
+
+      expect(document.querySelectorAll('.page-card')).toHaveLength(2);
+
+      // 模擬 Storage 已被清空，這樣 await getUnsyncedPages() 才會拿到 0
+      chrome.storage.local.get.mockResolvedValue({});
+
+      // Action: 點擊全部清除
+      const clearBtn = document.querySelector('#clear-all-btn');
+      clearBtn.click();
+
+      await jest.runAllTimersAsync();
+
+      // Assert storage
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith([key1, key2]);
+
+      // Assert DOM
+      expect(document.querySelector('#unsynced-toolbar').style.display).toBe('none');
+      expect(document.querySelector('.unsynced-empty')).toBeTruthy();
+      expect(document.querySelector('#unsynced-badge').textContent).toBe('');
+    });
+
+    it('should do nothing if cachedUnsyncedPages is empty', async () => {
+      await initModule({});
+      await clickUnsyncedTab();
+
+      const clearBtn = document.querySelector('#clear-all-btn');
+      chrome.storage.local.remove.mockClear();
+
+      if (clearBtn && clearBtn.style.display !== 'none') {
+        clearBtn.click();
+      }
+      expect(chrome.storage.local.remove).not.toHaveBeenCalled();
     });
   });
 });
