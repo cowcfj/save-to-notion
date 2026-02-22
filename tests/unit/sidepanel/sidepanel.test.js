@@ -646,8 +646,6 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
       const clearBtn = document.querySelector('#clear-all-btn');
       clearBtn.click();
 
-      // 測試中會跳 confirm，我們需要 mock window.confirm
-      // sidepanel.test.js 的 setupFiles 已經 mock 了 window.confirm 返回 true
       await jest.runAllTimersAsync();
 
       // Assert storage
