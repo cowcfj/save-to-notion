@@ -569,8 +569,50 @@ export class StorageManager {
       }
     }
 
+    // 掃描孤兒 highlights_ key（無標注且無 saved_ 記錄）
+    this._collectOrphanHighlightItems(data, plan);
+
     plan.totalKeys = plan.items.length;
     return plan;
+  }
+
+  /**
+   * 掃描孤兒 highlights_ key：既無有效標注，也無對應的 saved_ 記錄
+   * 這是唯一符合「應刪除」條件的孤兒資料
+   *
+   * @param {object} data  storage 完整快照
+   * @param {object} plan  清理計劃（直接修改）
+   * @private
+   */
+  _collectOrphanHighlightItems(data, plan) {
+    for (const [key, value] of Object.entries(data)) {
+      if (!key.startsWith('highlights_')) {
+        continue;
+      }
+
+      const url = key.replace('highlights_', '');
+
+      // 1. 有效標注 → 保留
+      const highlights = Array.isArray(value) ? value : value?.highlights;
+      if (Array.isArray(highlights) && highlights.length > 0) {
+        continue;
+      }
+
+      // 2. 有對應的 saved_ 記錄 → 保留（用戶只是保存網頁未做標注）
+      if (data[`saved_${url}`]) {
+        continue;
+      }
+
+      // 3. 孤兒 key → 加入清理計畫
+      const size = new Blob([JSON.stringify({ [key]: value })]).size;
+      plan.items.push({
+        key,
+        url,
+        size,
+        reason: '孤兒資料（無標注且未保存到 Notion）',
+      });
+      plan.spaceFreed += size;
+    }
   }
 
   static async checkNotionPageExists(pageId) {

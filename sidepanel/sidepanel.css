@@ -503,7 +503,7 @@ body {
 
 .page-delete-button:hover {
   background: #e5534b18;
-  color: #e5534b;
+  color: #000000;
 }
 
 /* === Card Remove Animation === */

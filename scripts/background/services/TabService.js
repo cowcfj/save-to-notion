@@ -132,6 +132,26 @@ class TabService {
     const originalUrl = this.normalizeUrl(url);
     const hasStableUrl = stableUrl !== originalUrl;
 
+    // 記錄 URL 解析決策，便於日後分析重複標注等問題
+    let phase;
+    if (!preloaderData) {
+      phase = 'fallback';
+    } else if (preloaderData.nextRouteInfo) {
+      phase = '2a(nextjs)';
+    } else if (preloaderData.shortlink) {
+      phase = '2a+(shortlink)';
+    } else {
+      phase = 'fallback';
+    }
+    this.logger.debug('[TabService] resolveTabUrl decision', {
+      rawUrl: url,
+      stableUrl,
+      originalUrl,
+      phase,
+      preloaderShortlink: preloaderData?.shortlink ?? null,
+      hasStableUrl,
+    });
+
     let migrated = false;
     if (hasStableUrl && migrationService) {
       migrated = await migrationService.migrateStorageKey(stableUrl, originalUrl);

@@ -18,7 +18,6 @@ import {
 } from '../scripts/config/constants.js';
 import Logger from '../scripts/utils/Logger.js';
 
-// DOM 元素
 let els = {};
 
 let statusMessageTimeoutId;
@@ -323,7 +322,7 @@ async function renderHighlightsForUrl(url, originalTabUrl) {
  * @param {string} storageKey
  */
 function renderList(highlights, storageKey) {
-  els.highlightsList.innerHTML = '';
+  els.highlightsList.textContent = '';
 
   const COLOR_MAP = {
     yellow: 'var(--hl-yellow)',
@@ -570,10 +569,10 @@ async function renderUnsyncedView() {
   // 每次進入時重新抓取資料
   cachedUnsyncedPages = await getUnsyncedPages();
   displayedCardCount = 0;
-  container.innerHTML = '';
+  container.textContent = '';
 
   if (cachedUnsyncedPages.length === 0) {
-    container.innerHTML = '<p class="unsynced-empty">All highlights are synced!</p>';
+    renderUnsyncedEmptyState();
     if (loadMoreBtn) {
       loadMoreBtn.style.display = 'none';
     }
@@ -652,6 +651,22 @@ function appendCards(container, count) {
 }
 
 /**
+ * 渲染未同步列表空狀態
+ */
+function renderUnsyncedEmptyState() {
+  const container = els.unsyncedView;
+  if (!container) {
+    return;
+  }
+
+  container.textContent = '';
+  const emptyMessage = document.createElement('p');
+  emptyMessage.className = 'unsynced-empty';
+  emptyMessage.textContent = 'All highlights are synced!';
+  container.append(emptyMessage);
+}
+
+/**
  * 「載入更多」按鈕的 handler
  */
 function loadMoreCards() {
@@ -684,7 +699,7 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
   await chrome.storage.local.remove(storageKey);
 
   // 從快取移除
-  cachedUnsyncedPages = cachedUnsyncedPages.filter(p => p.storageKey !== storageKey);
+  cachedUnsyncedPages = cachedUnsyncedPages.filter(page => page.storageKey !== storageKey);
 
   // 移除 DOM 卡片（fade out）
   cardEl.classList.add('card-removing');
@@ -696,9 +711,13 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
     els.unsyncedCountLabel.textContent = `${count} page${count === 1 ? '' : 's'}`;
   }
   if (count === 0) {
-    if (els.unsyncedToolbar) {els.unsyncedToolbar.style.display = 'none';}
-    if (els.loadMoreBtn) {els.loadMoreBtn.style.display = 'none';}
-    els.unsyncedView.innerHTML = '<p class="unsynced-empty">All highlights are synced!</p>';
+    if (els.unsyncedToolbar) {
+      els.unsyncedToolbar.style.display = 'none';
+    }
+    if (els.loadMoreBtn) {
+      els.loadMoreBtn.style.display = 'none';
+    }
+    renderUnsyncedEmptyState();
   }
   updateUnsyncedBadge();
 }
@@ -711,15 +730,19 @@ async function deleteAllUnsyncedPages() {
     return;
   }
 
-  const keys = cachedUnsyncedPages.map(p => p.storageKey);
+  const keys = cachedUnsyncedPages.map(page => page.storageKey);
   await chrome.storage.local.remove(keys);
 
   cachedUnsyncedPages = [];
   displayedCardCount = 0;
 
-  if (els.unsyncedToolbar) {els.unsyncedToolbar.style.display = 'none';}
-  if (els.loadMoreBtn) {els.loadMoreBtn.style.display = 'none';}
-  els.unsyncedView.innerHTML = '<p class="unsynced-empty">All highlights are synced!</p>';
+  if (els.unsyncedToolbar) {
+    els.unsyncedToolbar.style.display = 'none';
+  }
+  if (els.loadMoreBtn) {
+    els.loadMoreBtn.style.display = 'none';
+  }
+  renderUnsyncedEmptyState();
 
   updateUnsyncedBadge();
 }
