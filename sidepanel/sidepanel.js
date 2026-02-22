@@ -597,6 +597,7 @@ async function renderUnsyncedView() {
     if (els.unsyncedToolbar) {
       els.unsyncedToolbar.style.display = 'none';
     }
+    updateUnsyncedBadge(cachedUnsyncedPages);
     return;
   }
 
@@ -745,7 +746,7 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
     }
     renderUnsyncedEmptyState();
   }
-  updateUnsyncedBadge();
+  updateUnsyncedBadge(cachedUnsyncedPages);
 }
 
 /**
@@ -775,5 +776,5 @@ async function deleteAllUnsyncedPages() {
   }
   renderUnsyncedEmptyState();
 
-  updateUnsyncedBadge();
+  updateUnsyncedBadge(cachedUnsyncedPages);
 }
