@@ -19,6 +19,7 @@ import {
 } from '../../config/constants.js';
 import Logger from '../../utils/Logger.js';
 import { resolveStorageUrl, isRootUrl } from '../../utils/urlUtils.js';
+import { sanitizeUrlForLogging } from '../../utils/LogSanitizer.js';
 
 /**
  * TabService 類
@@ -144,11 +145,13 @@ class TabService {
       phase = 'fallback';
     }
     this.logger.debug('[TabService] resolveTabUrl decision', {
-      rawUrl: url,
-      stableUrl,
-      originalUrl,
+      rawUrl: sanitizeUrlForLogging(url),
+      stableUrl: sanitizeUrlForLogging(stableUrl),
+      originalUrl: sanitizeUrlForLogging(originalUrl),
       phase,
-      preloaderShortlink: preloaderData?.shortlink ?? null,
+      preloaderShortlink: preloaderData?.shortlink
+        ? sanitizeUrlForLogging(preloaderData.shortlink)
+        : null,
       hasStableUrl,
     });
 
@@ -226,8 +229,8 @@ class TabService {
           const aliasKey = `${URL_ALIAS_PREFIX}${originalUrl}`;
           chrome.storage.local.set({ [aliasKey]: normUrl }).catch(() => {});
           this.logger.debug('[TabService] Created url_alias for fallback URL', {
-            from: originalUrl,
-            to: normUrl,
+            from: sanitizeUrlForLogging(originalUrl),
+            to: sanitizeUrlForLogging(normUrl),
           });
         }
       }
@@ -278,7 +281,6 @@ class TabService {
   _sendStableUrl(tabId, normUrl) {
     if (isRootUrl(normUrl)) {
       this.logger.warn('[TabService] Blocked SET_STABLE_URL: resolved URL is site root', {
-        normUrl,
         tabId,
       });
       return;
