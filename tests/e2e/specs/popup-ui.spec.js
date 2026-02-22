@@ -50,8 +50,7 @@ test.describe('Popup UI', () => {
     const saveButton = page.locator('#save-button');
     await expect(saveButton).toBeVisible();
 
-    const statusText = await page.textContent('#status');
-    expect(statusText).toMatch(/highlight/i);
+    await expect(page.locator('#status')).toHaveText(/highlight/i);
   });
 
   test('模擬已保存狀態下的 UI 變化', async ({ page, context, extensionId }) => {
@@ -105,10 +104,10 @@ test.describe('Popup UI', () => {
     await expect(modal).toHaveCSS('display', 'flex');
 
     const modalMessage = await page.textContent('#modal-message');
-    expect(modalMessage).toContain('確定要清除');
+    expect(modalMessage).toMatch(/確定要清除/);
 
     // 7. 點擊取消
-    await page.click('#modal-cancel');
+    await page.locator('#modal-cancel').click();
     await expect(modal).toHaveCSS('display', 'none');
   });
 });
