@@ -53,11 +53,28 @@ describe('Sidepanel JS Logic', () => {
       <button id="sync-button"></button>
       <button id="open-notion-button"></button>
       <div id="status-message"></div>
+      <div id="unsynced-view" style="display:none"></div>
+      <div id="unsynced-toolbar" style="display:none">
+        <span id="unsynced-count-label"></span>
+        <button id="clear-all-btn"></button>
+      </div>
+      <button id="load-more-btn" style="display:none"></button>
+      <span id="unsynced-badge"></span>
       <template id="highlight-card-template">
         <div class="highlight-card">
           <div class="highlight-color-indicator"></div>
           <p class="highlight-text"></p>
           <button class="delete-button"></button>
+        </div>
+      </template>
+      <template id="page-card-template">
+        <div class="page-card">
+          <div class="page-title"></div>
+          <div class="page-meta"></div>
+          <div class="page-card-previews"></div>
+          <div class="page-card-remaining"></div>
+          <button class="page-open-button"></button>
+          <button class="page-delete-button"></button>
         </div>
       </template>
     `;
@@ -366,6 +383,10 @@ function buildUnsyncedDOM() {
     <div id="empty-state" style="display:none"><p>Empty</p><div class="subtitle"></div></div>
     <div id="highlights-list" style="display:none"></div>
     <div id="unsynced-view" style="display:none"></div>
+    <div id="unsynced-toolbar" style="display:none">
+      <span id="unsynced-count-label"></span>
+      <button id="clear-all-btn"></button>
+    </div>
     <button id="load-more-btn" style="display:none">Load more</button>
     <button id="sync-button"></button>
     <button id="open-notion-button" style="display:none"></button>
@@ -573,5 +594,93 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
     const unsyncedView = document.querySelector('#unsynced-view');
     expect(unsyncedView.textContent).toContain('All highlights are synced');
+  });
+  describe('deleteUnsyncedPage', () => {
+    it('should remove the page from storage, cache, and DOM', async () => {
+      const mockKey = 'highlights_https://example.com/delete-test';
+      const mockHl = { text: 'delete me', color: 'yellow', id: '1' };
+
+      // 使用 initModule 正確初始化 sidepanel 的 DOM 與內部資源
+      await initModule({
+        [mockKey]: [mockHl],
+      });
+
+      await clickUnsyncedTab();
+
+      const card = document.querySelector('.page-card');
+      expect(card).toBeTruthy();
+
+      const deleteBtn = card.querySelector('.page-delete-button');
+
+      // 模擬 Storage 剛好被清空的狀態（因為只有一台），使後續 getUnsyncedPages 回傳空陣列
+      chrome.storage.local.get.mockResolvedValue({});
+
+      // Action: 點擊刪除
+      deleteBtn.click();
+      await jest.runAllTimersAsync();
+
+      // Assert storage
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(mockKey);
+
+      // Get the current unsynced count label
+      const countLabel = document.querySelector('#unsynced-count-label');
+      expect(countLabel.textContent).toBe('0 pages');
+
+      // Trigger CSS animation end to remove card
+      const animationEndEvent = new Event('animationend');
+      card.dispatchEvent(animationEndEvent);
+
+      expect(document.querySelector('.page-card')).toBeNull();
+      expect(document.querySelector('.unsynced-empty')).toBeTruthy();
+    });
+  });
+
+  describe('deleteAllUnsyncedPages', () => {
+    it('should remove all unsynced pages when toolbar Clear All is clicked', async () => {
+      // Setup 2 pages
+      const key1 = 'highlights_https://example.com/p1';
+      const key2 = 'highlights_https://example.com/p2';
+
+      await initModule({
+        [key1]: [{ text: 'hl 1', color: 'yellow', id: '1' }],
+        [key2]: [{ text: 'hl 2', color: 'blue', id: '2' }],
+      });
+
+      await clickUnsyncedTab();
+
+      expect(document.querySelectorAll('.page-card')).toHaveLength(2);
+
+      // 模擬 Storage 已被清空，這樣 await getUnsyncedPages() 才會拿到 0
+      chrome.storage.local.get.mockResolvedValue({});
+
+      // Action: 點擊全部清除
+      const clearBtn = document.querySelector('#clear-all-btn');
+      clearBtn.click();
+
+      // 測試中會跳 confirm，我們需要 mock window.confirm
+      // sidepanel.test.js 的 setupFiles 已經 mock 了 window.confirm 返回 true
+      await jest.runAllTimersAsync();
+
+      // Assert storage
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith([key1, key2]);
+
+      // Assert DOM
+      expect(document.querySelector('#unsynced-toolbar').style.display).toBe('none');
+      expect(document.querySelector('.unsynced-empty')).toBeTruthy();
+      expect(document.querySelector('#unsynced-badge').textContent).toBe('');
+    });
+
+    it('should do nothing if cachedUnsyncedPages is empty', async () => {
+      await initModule({});
+      await clickUnsyncedTab();
+
+      const clearBtn = document.querySelector('#clear-all-btn');
+      chrome.storage.local.remove.mockClear();
+
+      if (clearBtn && clearBtn.style.display !== 'none') {
+        clearBtn.click();
+      }
+      expect(chrome.storage.local.remove).not.toHaveBeenCalled();
+    });
   });
 });
