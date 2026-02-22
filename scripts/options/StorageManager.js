@@ -15,6 +15,7 @@ import {
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 import { UI_ICONS } from '../config/icons.js';
 import { UI_MESSAGES } from '../config/messages.js';
+import { URL_ALIAS_PREFIX } from '../config/constants.js';
 
 /**
  * 管理存儲空間的類別
@@ -540,6 +541,7 @@ export class StorageManager {
       totalKeys: 0,
       spaceFreed: 0,
       deletedPages: 0,
+      orphanHighlights: 0,
     };
 
     if (cleanDeletedPages) {
@@ -567,10 +569,11 @@ export class StorageManager {
           await new Promise(resolve => setTimeout(resolve, 350));
         }
       }
-    }
 
-    // 掃描孤兒 highlights_ key（無標注且無 saved_ 記錄）
-    this._collectOrphanHighlightItems(data, plan);
+      // 掃描孤兒 highlights_ key（無標注且無 saved_ 記錄）
+      this._collectOrphanHighlightItems(data, plan);
+      this._collectOrphanAliasItems(data, plan);
+    } // end of if (cleanDeletedPages)
 
     plan.totalKeys = plan.items.length;
     return plan;
@@ -610,6 +613,36 @@ export class StorageManager {
         url,
         size,
         reason: '孤兒資料（無標注且未保存到 Notion）',
+      });
+      plan.spaceFreed += size;
+      plan.orphanHighlights += 1;
+    }
+  }
+
+  /**
+   * 掃描孤兒 url_alias: key：目標 normUrl 已無對應的 highlights_ 或 saved_ 記錄
+   *
+   * @param {object} data  storage 完整快照
+   * @param {object} plan  清理計劃（直接修改）
+   * @private
+   */
+  _collectOrphanAliasItems(data, plan) {
+    for (const [key, normUrl] of Object.entries(data)) {
+      if (!key.startsWith(URL_ALIAS_PREFIX)) {
+        continue;
+      }
+
+      // alias value is the normUrl; check if target data still exists
+      if (data[`highlights_${normUrl}`] || data[`saved_${normUrl}`]) {
+        continue;
+      }
+
+      // 孤兒 alias → 加入清理計畫
+      const size = new Blob([JSON.stringify({ [key]: normUrl })]).size;
+      plan.items.push({
+        key,
+        size,
+        reason: '孤兒 URL 別名（目標頁面已無資料）',
       });
       plan.spaceFreed += size;
     }
@@ -663,6 +696,10 @@ export class StorageManager {
 
     if (plan.deletedPages > 0) {
       summaryLines.push(UI_MESSAGES.STORAGE.DELETED_PAGES_DATA(plan.deletedPages));
+    }
+
+    if (plan.orphanHighlights > 0) {
+      summaryLines.push(UI_MESSAGES.STORAGE.ORPHANED_HIGHLIGHTS_COUNT(plan.orphanHighlights));
     }
 
     summaryLines.push('', UI_MESSAGES.STORAGE.SPACE_FREED_ESTIMATE(spaceMB));
@@ -779,6 +816,10 @@ export class StorageManager {
 
       if (this.cleanupPlan.deletedPages > 0) {
         message += `\n${UI_MESSAGES.STORAGE.CLEANUP_DELETED_PAGES(this.cleanupPlan.deletedPages)}`;
+      }
+
+      if (this.cleanupPlan.orphanHighlights > 0) {
+        message += `\n${UI_MESSAGES.STORAGE.CLEANUP_ORPHAN_HIGHLIGHTS(this.cleanupPlan.orphanHighlights)}`;
       }
 
       this.showDataStatus(message, 'success');
