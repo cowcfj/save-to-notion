@@ -99,12 +99,12 @@ button {
 }
 
 #manage-button {
-  background-color: #6d28d9;
+  background-color: #5b21b6;
   color: white;
 }
 
 #manage-button:hover {
-  background-color: #5b21b6;
+  background-color: #4c1d95;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -134,13 +134,13 @@ button:disabled {
 
 /* Specific style for Clear Highlights button */
 #clear-highlights-button {
-  background-color: #ef4444;
-  /* Danger red */
+  background-color: #b91c1c;
+  /* Darker Red for accessibility */
   margin-bottom: 8px;
 }
 
 #clear-highlights-button:hover {
-  background-color: #dc2626;
+  background-color: #991b1b;
 }
 
 /* Focus Accessibility */
@@ -159,7 +159,7 @@ a:focus-visible {
 }
 
 .links a {
-  color: #007aff;
+  color: #005ecb;
   text-decoration: none;
   font-size: 12px;
   padding: 5px 8px;
@@ -205,7 +205,7 @@ a:focus-visible {
 .modal-content p {
   margin-bottom: 20px;
   font-size: 14px;
-  color: #666;
+  color: #4b5563; /* Darker gray for better readability */
 }
 
 .modal-buttons {
@@ -222,19 +222,20 @@ a:focus-visible {
 }
 
 #modal-cancel {
-  background-color: #e2e8f0;
-  color: #4a5568;
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 500;
 }
 
 #modal-cancel:hover {
-  background-color: #cbd5e0;
+  background-color: #e2e8f0;
 }
 
 #modal-confirm.danger {
-  background-color: #e53e3e;
+  background-color: #b91c1c;
   color: white;
 }
 
 #modal-confirm.danger:hover {
-  background-color: #c53030;
+  background-color: #991b1b;
 }

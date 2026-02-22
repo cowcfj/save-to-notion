@@ -83,6 +83,9 @@ export async function initPopup() {
     setStatus(elements, msg, '#d63384');
   }
 
+  // 預取目前分頁資訊，供 manage button 同步呼叫 sidePanel.open() 使用
+  const currentTab = await getActiveTab();
+
   // ========== 事件監聽器 ==========
 
   // 保存按鈕
@@ -237,19 +240,15 @@ export async function initPopup() {
   });
 
   // 管理標註按鈕 (開啟 Side Panel)
+  // 注意：sidePanel.open() 必須在使用者手勢上下文中同步呼叫，
+  // 因此直接在 Popup 頁面呼叫，不經由 background 轉發，
+  // 並使用初始化時預取的 currentTab.id 避免在 handler 中使用 await。
   if (elements.manageButton) {
-    elements.manageButton.addEventListener('click', async () => {
-      try {
-        const tab = await chrome.tabs
-          .query({ active: true, currentWindow: true })
-          .then(tabs => tabs[0]);
-        if (tab?.id) {
-          await chrome.runtime.sendMessage({ action: 'OPEN_SIDE_PANEL', tabId: tab.id });
-          window.close();
-        }
-      } catch (error) {
-        Logger.error('Failed to open Manage Highlights panel', { error });
+    elements.manageButton.addEventListener('click', () => {
+      if (currentTab?.id) {
+        chrome.sidePanel.open({ tabId: currentTab.id });
       }
+      window.close();
     });
   }
 }
