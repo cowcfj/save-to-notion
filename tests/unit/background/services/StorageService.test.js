@@ -168,7 +168,7 @@ describe('StorageService', () => {
   });
 
   describe('clearPageState', () => {
-    it('應該清除頁面狀態和 alias', async () => {
+    it('應該清除頁面狀態', async () => {
       await service.clearPageState('https://example.com/page');
 
       // Note: computeStableUrl is mocked to return url + '_stable'
@@ -176,7 +176,7 @@ describe('StorageService', () => {
         `${SAVED_PREFIX}https://example.com/page`,
         `${SAVED_PREFIX}https://example.com/page_stable`,
       ]);
-      expect(mockLogger.log).toHaveBeenCalledWith('Cleared all data', {
+      expect(mockLogger.log).toHaveBeenCalledWith('Cleared saved page metadata', {
         url: 'https://example.com/page',
       });
     });

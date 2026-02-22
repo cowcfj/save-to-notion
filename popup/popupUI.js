@@ -188,7 +188,7 @@ export function updateUIForUnsavedPage(elements, response) {
   if (response.wasDeleted) {
     setStatus(elements, 'Original page was deleted. Save to create new page.', '#d63384');
   } else {
-    setStatus(elements, 'Save page first to enable highlighting.');
+    setStatus(elements, 'Start highlighting to mark this page.');
   }
 }
 
