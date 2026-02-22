@@ -5,7 +5,7 @@
     "local": {
       "limits": "5MB (unlimitedStorage permission)",
       "patterns": {
-        "saved_{normalizedUrl}": {
+        "saved_{stableUrl}": {
           "description": "Cached state of a preserved page",
           "schema": {
             "notionPageId": "string (UUID)",
@@ -16,7 +16,7 @@
             "savedAt": "number (timestamp ms)"
           }
         },
-        "highlights_{normalizedUrl}": {
+        "highlights_{stableUrl}": {
           "description": "List of highlights for a specific page",
           "schema": {
             "id": "string (UUID)",
@@ -25,6 +25,10 @@
             "timestamp": "number",
             "domPath": "string (selector)"
           }
+        },
+        "url_alias:{normalizedUrl}": {
+          "description": "Mapping from original URL to stable URL to handle async race conditions",
+          "schema": "string (stableUrl)"
         }
       }
     },
