@@ -144,13 +144,13 @@ export class MigrationScanner {
         } else {
           results.failed++;
           const rawError = response?.error || '未知錯誤';
-          const safeMessage = sanitizeApiError(rawError, 'scan_storage');
+          const safeMessage = sanitizeApiError(rawError, 'request_batch_migration');
           const translated = ErrorHandler.formatUserMessage(safeMessage);
           results.errors.push({ error: translated });
         }
       } catch (error) {
         results.failed++;
-        const safeMessage = sanitizeApiError(error, 'scan_storage');
+        const safeMessage = sanitizeApiError(error, 'request_batch_migration');
         const translated = ErrorHandler.formatUserMessage(safeMessage);
         results.errors.push({ error: translated });
       }

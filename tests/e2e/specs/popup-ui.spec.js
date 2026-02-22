@@ -7,22 +7,24 @@ const { test, expect } = require('../fixtures');
 
 async function setupStorage(context, extensionId) {
   const optionsPage = await context.newPage();
-  await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
-  await optionsPage.evaluate(async () => {
-    await chrome.storage.sync.set({
-      notionApiKey: 'test-key',
-      notionDataSourceId: 'test-db',
+  try {
+    await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
+    await optionsPage.evaluate(async () => {
+      await chrome.storage.sync.set({
+        notionApiKey: 'test-key',
+        notionDataSourceId: 'test-db',
+      });
     });
-  });
 
-  // 驗證 storage 已經寫入
-  const storageVerified = await optionsPage.evaluate(async () => {
-    const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
-    return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
-  });
-  expect(storageVerified).toBe(true);
-
-  await optionsPage.close();
+    // 驗證 storage 已經寫入
+    const storageVerified = await optionsPage.evaluate(async () => {
+      const data = await chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId']);
+      return data.notionApiKey === 'test-key' && data.notionDataSourceId === 'test-db';
+    });
+    expect(storageVerified).toBe(true);
+  } finally {
+    await optionsPage.close();
+  }
 }
 
 test.describe('Popup UI', () => {
@@ -34,7 +36,7 @@ test.describe('Popup UI', () => {
   test('應該顯示初始狀態（提示設置）', async ({ page }) => {
     // 模擬未設置 API Key 的情況 (預設 storage 可能為空)
     const statusText = await page.textContent('#status');
-    expect(statusText).toContain('Notion API Key');
+    expect(statusText).toMatch(/Notion API Key/i);
   });
 
   test('當設置完成後應該顯示保存按鈕', async ({ page, context, extensionId }) => {
