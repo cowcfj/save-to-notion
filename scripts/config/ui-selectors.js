@@ -16,6 +16,7 @@ export const TOOLBAR_SELECTORS = {
   COLOR_PICKER: '#color-picker-v2',
   SYNC_TO_NOTION: '#sync-to-notion-v2',
   MANAGE_HIGHLIGHTS: '#manage-highlights-v2',
+  SAVE_PAGE: '#save-page-v2',
   STATUS_CONTAINER: '#highlight-status-v2',
   COUNT_DISPLAY: '#sync-count-badge-v2',
 };

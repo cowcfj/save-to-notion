@@ -156,6 +156,18 @@ export function injectGlobalStyles() {
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
+        /* 保存網頁按鈕 */
+        .nh-btn-save {
+            background: #007aff !important;
+            color: white !important;
+            border-color: #007aff !important;
+            font-weight: 600;
+        }
+        .nh-btn-save:hover {
+            background: #005ecb !important;
+            border-color: #005ecb !important;
+        }
+
         /* 顏色按鈕 */
         .nh-color-btn {
             width: 28px;

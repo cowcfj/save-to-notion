@@ -502,6 +502,99 @@ export function createSaveHandlers(services) {
     },
 
     /**
+     * 從 Toolbar (Content Script) 保存頁面
+     * 與 savePage 邏輯完全一致，但使用 Content Script 安全性驗證
+     *
+     * @param {object} request - 請求對象
+     * @param {chrome.runtime.MessageSender} sender - 發送者信息
+     * @param {Function} sendResponse - 回應函數
+     */
+    SAVE_PAGE_FROM_TOOLBAR: async (request, sender, sendResponse) => {
+      try {
+        // Content Script 安全性驗證
+        const validationError = validateContentScriptRequest(sender);
+        if (validationError) {
+          Logger.warn('安全性阻擋', {
+            action: 'SAVE_PAGE_FROM_TOOLBAR',
+            reason: 'invalid_content_script_request',
+            error: validationError.error,
+            senderId: sender?.id,
+            tabId: sender?.tab?.id,
+          });
+          sendResponse(validationError);
+          return;
+        }
+
+        const activeTab = await getActiveTab();
+
+        if (isRestrictedInjectionUrl(activeTab.url)) {
+          sendResponse({
+            success: false,
+            error: ERROR_MESSAGES.USER_MESSAGES.SAVE_NOT_SUPPORTED_RESTRICTED_PAGE,
+          });
+          return;
+        }
+
+        const config = await storageService.getConfig([
+          'notionApiKey',
+          'notionDataSourceId',
+          'notionDatabaseId',
+          'notionDataSourceType',
+        ]);
+
+        if (!config.notionApiKey) {
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_API_KEY),
+          });
+          return;
+        }
+
+        const dataSourceId = config.notionDataSourceId || config.notionDatabaseId;
+        const dataSourceType = config.notionDataSourceType || 'database';
+
+        if (!dataSourceId) {
+          sendResponse({
+            success: false,
+            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.MISSING_DATA_SOURCE),
+          });
+          return;
+        }
+
+        // 複用完整保存邏輯（穩定 URL、遷移、alias 等）
+        const { savedData, normUrl, originalUrl } = await resolvePageData(activeTab);
+
+        const extractionData = await extractPageContent(activeTab, sendResponse);
+        if (!extractionData) {
+          return;
+        }
+        const { result, highlights } = extractionData;
+
+        const contentResult = processContentResult(result, highlights);
+
+        await determineAndExecuteSaveAction({
+          savedData,
+          normUrl,
+          originalUrl,
+          dataSourceId,
+          dataSourceType,
+          contentResult,
+          highlights,
+          apiKey: config.notionApiKey,
+          activeTabId: activeTab.id,
+          sendResponse,
+        });
+      } catch (error) {
+        Logger.error('從 Toolbar 保存頁面時發生錯誤', {
+          action: 'SAVE_PAGE_FROM_TOOLBAR',
+          error: error.message,
+        });
+        const safeMessage = sanitizeApiError(error, 'save_page_toolbar');
+        sendResponse({ success: false, error: ErrorHandler.formatUserMessage(safeMessage) });
+      }
+    },
+
+    /**
      * 打開 Notion 頁面
      *
      * @param {object} request - 請求對象

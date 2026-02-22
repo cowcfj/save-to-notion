@@ -128,11 +128,16 @@ export class Toolbar {
   }
 
   /**
-   * 綁定操作按鈕（同步、打開、管理）
+   * 綁定操作按鈕（保存、同步、管理）
    */
   bindActionButtons() {
+    const saveBtn = this.container.querySelector(TOOLBAR_SELECTORS.SAVE_PAGE);
     const syncBtn = this.container.querySelector(TOOLBAR_SELECTORS.SYNC_TO_NOTION);
     const manageBtn = this.container.querySelector(TOOLBAR_SELECTORS.MANAGE_HIGHLIGHTS);
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => this.savePageToNotion());
+    }
 
     if (syncBtn) {
       syncBtn.addEventListener('click', () => this.syncToNotion());
@@ -253,6 +258,9 @@ export class Toolbar {
 
     // 更新計數
     this.updateHighlightCount();
+
+    // 根據頁面保存狀態切換 Save / Sync 按鈕
+    this.updateSaveButtonVisibility();
   }
 
   /**
@@ -370,6 +378,95 @@ export class Toolbar {
     // UI_MESSAGES.TOOLBAR 查找對應多語言常數字串，如果 customMessage 提供則取代
     const textMsg = customMessage ?? UI_MESSAGES.TOOLBAR[messageKey];
     statusDiv.append(document.createTextNode(` ${textMsg}`));
+  }
+
+  /**
+   * 查詢當前頁面保存狀態，切換「保存網頁」和「同步」按鈕的可見性
+   */
+  async updateSaveButtonVisibility() {
+    const saveBtn = this.container.querySelector(TOOLBAR_SELECTORS.SAVE_PAGE);
+    const syncBtn = this.container.querySelector(TOOLBAR_SELECTORS.SYNC_TO_NOTION);
+
+    if (!saveBtn || !syncBtn) {
+      return;
+    }
+
+    // 預設先隱藏兩者，查詢完再顯示，避免閃爍
+    saveBtn.style.display = 'none';
+    syncBtn.style.display = 'none';
+
+    try {
+      const response = await Toolbar._sendMessageAsync({ action: 'checkPageStatus' });
+
+      if (response?.success && response.isSaved) {
+        // 已保存 → 顯示同步按鈕
+        syncBtn.style.display = 'inline-flex';
+      } else {
+        // 未保存 → 顯示保存按鈕
+        saveBtn.style.display = 'inline-flex';
+      }
+    } catch {
+      // 查詢失敗時預設顯示保存按鈕
+      saveBtn.style.display = 'inline-flex';
+    }
+  }
+
+  /**
+   * 保存頁面到 Notion（從 Toolbar 發起）
+   */
+  async savePageToNotion() {
+    const statusDiv = this.container.querySelector(TOOLBAR_SELECTORS.STATUS_CONTAINER);
+    const saveBtn = this.container.querySelector(TOOLBAR_SELECTORS.SAVE_PAGE);
+
+    if (saveBtn) {
+      saveBtn.disabled = true;
+    }
+
+    if (statusDiv) {
+      statusDiv.style.display = 'block';
+      Toolbar._setStatusIcon(statusDiv, 'SYNC', null, '正在保存...');
+    }
+
+    try {
+      const response = await Toolbar._sendMessageAsync({
+        action: 'SAVE_PAGE_FROM_TOOLBAR',
+      });
+
+      if (response?.success) {
+        if (statusDiv) {
+          Toolbar._setStatusIcon(statusDiv, 'CHECK', null, '保存成功！');
+        }
+
+        // 切換按鈕：隱藏 Save，顯示 Sync
+        this.updateSaveButtonVisibility();
+      } else {
+        const rawError = sanitizeApiError(response?.error || 'Unknown error');
+        const errorMsg = ErrorHandler.formatUserMessage(rawError);
+        if (statusDiv) {
+          Toolbar._setStatusIcon(statusDiv, 'X', null, errorMsg);
+        }
+      }
+    } catch (error) {
+      if (statusDiv) {
+        Toolbar._setStatusIcon(statusDiv, 'X', null, '保存失敗');
+      }
+      Logger.error('從 Toolbar 保存頁面失敗', {
+        action: 'savePageToNotion',
+        error: error?.message ?? String(error),
+      });
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+      }
+
+      // 2 秒後自動隱藏狀態列
+      if (statusDiv) {
+        setTimeout(() => {
+          statusDiv.textContent = '';
+          statusDiv.style.display = 'none';
+        }, 2000);
+      }
+    }
   }
 
   /**
