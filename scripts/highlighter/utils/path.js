@@ -86,7 +86,6 @@ export function parsePathFromString(pathString) {
       continue;
     }
 
-    const PATH_REGEX = /^(\w+)\[(\d+)]$/;
     const match = PATH_REGEX.exec(step);
     if (!match) {
       return null; // 格式錯誤
@@ -106,6 +105,62 @@ export function parsePathFromString(pathString) {
 }
 
 /**
+ * 根據 element 類型的路徑步驟，從當前節點導覽到下一個子元素
+ *
+ * @param {Element} current - 當前 DOM 元素
+ * @param {{type: 'element', tag: string, index: number}} step - 路徑步驟
+ * @returns {Element|null} 下一個 DOM 元素，或 null
+ */
+export function resolveElementNode(current, step) {
+  try {
+    if (!current?.children) {
+      return null;
+    }
+
+    const children = Array.from(current.children);
+
+    if (step.index >= 0 && step.index < children.length) {
+      return children[step.index];
+    }
+
+    // 模糊匹配：查找具有相同標籤名的元素
+    const matchingElements = children.filter(
+      child => child.tagName && child.tagName.toLowerCase() === step.tag
+    );
+    return matchingElements.length > 0 ? matchingElements[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 根據 text 類型的路徑步驟，從當前節點導覽到下一個文字節點
+ *
+ * @param {Node} current - 當前 DOM 節點
+ * @param {{type: 'text', index: number}} step - 路徑步驟
+ * @returns {Text|null} 下一個文字節點，或 null
+ */
+export function resolveTextNode(current, step) {
+  try {
+    if (!current?.childNodes) {
+      return null;
+    }
+
+    const textNodes = Array.from(current.childNodes).filter(
+      node => node.nodeType === Node.TEXT_NODE
+    );
+
+    if (step.index < 0 || step.index >= textNodes.length) {
+      return null;
+    }
+
+    return textNodes[step.index];
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 根據路徑對象數組獲取 DOM 節點
  *
  * @param {Array<object> | string} path - 路徑對象數組或路徑字符串
@@ -113,7 +168,6 @@ export function parsePathFromString(pathString) {
  * @example
  * const node = getNodeByPath('div[0]/p[2]/text[0]');
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export function getNodeByPath(path) {
   // 如果是字符串格式，先解析
   if (typeof path === 'string') {
@@ -136,43 +190,12 @@ export function getNodeByPath(path) {
   let current = document.body;
 
   for (const step of path) {
-    try {
-      if (step.type === 'element') {
-        if (!current?.children) {
-          return null;
-        }
-
-        const children = Array.from(current.children);
-
-        if (step.index < 0 || step.index >= children.length) {
-          // 模糊匹配：查找具有相同標籤名的元素
-          const matchingElements = children.filter(
-            child => child.tagName && child.tagName.toLowerCase() === step.tag
-          );
-          if (matchingElements.length > 0) {
-            current = matchingElements[0];
-            continue;
-          }
-          return null;
-        }
-
-        current = children[step.index];
-      } else if (step.type === 'text') {
-        if (!current?.childNodes) {
-          return null;
-        }
-
-        const textNodes = Array.from(current.childNodes).filter(
-          node => node.nodeType === Node.TEXT_NODE
-        );
-
-        if (step.index < 0 || step.index >= textNodes.length) {
-          return null;
-        }
-
-        current = textNodes[step.index];
-      }
-    } catch {
+    if (step.type === 'element') {
+      current = resolveElementNode(current, step);
+    } else if (step.type === 'text') {
+      current = resolveTextNode(current, step);
+    }
+    if (!current) {
       return null;
     }
   }

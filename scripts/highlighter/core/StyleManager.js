@@ -9,7 +9,8 @@ import { COLORS, TEXT_COLORS, VALID_STYLES } from '../utils/color.js';
 import { supportsHighlightAPI } from '../utils/dom.js';
 import Logger from '../../utils/Logger.js';
 
-const STYLE_SELECTOR = '#notion-highlight-styles';
+const STYLE_ELEMENT_ID = 'notion-highlight-styles';
+const STYLE_SELECTOR = `#${STYLE_ELEMENT_ID}`;
 
 /**
  * StyleManager
@@ -85,7 +86,7 @@ export class StyleManager {
     }
 
     const style = document.createElement('style');
-    style.id = STYLE_SELECTOR.slice(1);
+    style.id = STYLE_ELEMENT_ID;
     style.dataset.styleMode = this.styleMode;
 
     style.textContent = Object.entries(this.colors)

@@ -183,7 +183,6 @@ describe('popupActions.js', () => {
 
   describe('clearHighlightsInPage', () => {
     let originalChrome;
-    let originalGlobalThisSimpleHighlighter;
     let removeItemSpy;
 
     beforeEach(() => {
@@ -197,7 +196,6 @@ describe('popupActions.js', () => {
 
       // 備份全域物件
       originalChrome = globalThis.chrome;
-      originalGlobalThisSimpleHighlighter = globalThis.simpleHighlighter;
 
       // Mock localStorage 使用 spyOn 來避免直接覆寫唯讀屬性
       removeItemSpy = jest
@@ -208,7 +206,6 @@ describe('popupActions.js', () => {
     afterEach(() => {
       // 恢復全域物件
       globalThis.chrome = originalChrome;
-      globalThis.simpleHighlighter = originalGlobalThisSimpleHighlighter;
       document.body.innerHTML = '';
       removeItemSpy.mockRestore();
       jest.clearAllMocks();
@@ -272,16 +269,6 @@ describe('popupActions.js', () => {
 
       // 不應該拋出錯誤
       await expect(clearHighlightsInPage('test-key')).resolves.not.toThrow();
-    });
-
-    it('當 globalThis.simpleHighlighter 存在時，清除標記後應呼叫 updateHighlightCount', async () => {
-      globalThis.simpleHighlighter = {
-        updateHighlightCount: jest.fn(),
-      };
-
-      await clearHighlightsInPage('test-key');
-
-      expect(globalThis.simpleHighlighter.updateHighlightCount).toHaveBeenCalled();
     });
   });
 });

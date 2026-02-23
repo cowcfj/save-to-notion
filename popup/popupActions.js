@@ -193,10 +193,5 @@ export async function clearHighlightsInPage(pageKey) {
     }
   }
 
-  // 更新工具欄計數（如果存在）
-  if (globalThis.simpleHighlighter) {
-    globalThis.simpleHighlighter.updateHighlightCount();
-  }
-
   return highlights.length;
 }

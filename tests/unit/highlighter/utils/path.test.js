@@ -8,6 +8,8 @@ const {
   parsePathFromString,
   getNodeByPath,
   isValidPathString,
+  resolveElementNode,
+  resolveTextNode,
 } = require('../../../../scripts/highlighter/utils/path.js');
 
 describe('utils/path', () => {
@@ -158,6 +160,93 @@ describe('utils/path', () => {
       const node = getNodeByPath(path);
       expect(node).not.toBe(null);
       expect(node.tagName.toLowerCase()).toBe('p');
+    });
+  });
+
+  describe('resolveElementNode', () => {
+    test('should return child element at given index', () => {
+      document.body.innerHTML = '<div><p></p><span></span></div>';
+      const div = document.body.firstElementChild;
+      const span = div.children[1];
+
+      const result = resolveElementNode(div, { type: 'element', tag: 'span', index: 1 });
+      expect(result).toBe(span);
+    });
+
+    test('should return null when children is missing', () => {
+      const textNode = document.createTextNode('hello');
+      const result = resolveElementNode(textNode, { type: 'element', tag: 'p', index: 0 });
+      expect(result).toBeNull();
+    });
+
+    test('should return null when current is null', () => {
+      const result = resolveElementNode(null, { type: 'element', tag: 'p', index: 0 });
+      expect(result).toBeNull();
+    });
+
+    test('should fuzzy match by tag when index is out of range', () => {
+      document.body.innerHTML = '<div><p>First</p></div>';
+      const div = document.body.firstElementChild;
+
+      const result = resolveElementNode(div, { type: 'element', tag: 'p', index: 99 });
+      expect(result).not.toBeNull();
+      expect(result.tagName.toLowerCase()).toBe('p');
+    });
+
+    test('should return null when index is out of range and no matching tag', () => {
+      document.body.innerHTML = '<div><p>First</p></div>';
+      const div = document.body.firstElementChild;
+
+      const result = resolveElementNode(div, { type: 'element', tag: 'span', index: 99 });
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('resolveTextNode', () => {
+    test('should return text node at given index', () => {
+      const div = document.createElement('div');
+      div.append(document.createTextNode('hello'));
+      div.append(document.createTextNode('world'));
+      document.body.append(div);
+
+      const result = resolveTextNode(div, { type: 'text', index: 1 });
+      expect(result).not.toBeNull();
+      expect(result.nodeType).toBe(Node.TEXT_NODE);
+      expect(result.textContent).toBe('world');
+    });
+
+    test('should return null when childNodes is missing', () => {
+      const result = resolveTextNode(null, { type: 'text', index: 0 });
+      expect(result).toBeNull();
+    });
+
+    test('should return null when index is out of range', () => {
+      const div = document.createElement('div');
+      div.append(document.createTextNode('only'));
+      document.body.append(div);
+
+      const result = resolveTextNode(div, { type: 'text', index: 5 });
+      expect(result).toBeNull();
+    });
+
+    test('should return null when index is negative', () => {
+      const div = document.createElement('div');
+      div.append(document.createTextNode('text'));
+      document.body.append(div);
+
+      const result = resolveTextNode(div, { type: 'text', index: -1 });
+      expect(result).toBeNull();
+    });
+
+    test('should skip non-text childNodes', () => {
+      const div = document.createElement('div');
+      div.innerHTML = 'before<span>el</span>after';
+      document.body.append(div);
+
+      // 只有文字節點，index 0 = 'before', index 1 = 'after'
+      const result = resolveTextNode(div, { type: 'text', index: 1 });
+      expect(result).not.toBeNull();
+      expect(result.textContent).toBe('after');
     });
   });
 

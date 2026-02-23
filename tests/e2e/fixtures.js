@@ -79,11 +79,11 @@ export const test = base.extend({
       }
     }
 
-    // 3. 存儲到 coverage/e2e 目錄，供 merge 使用（確保目錄存在）
+    // 3. 確保 coverage/e2e 目錄存在（供後續存儲與 merge 使用）
     const nycOutput = path.join(__dirname, '../../coverage/e2e');
     fs.mkdirSync(nycOutput, { recursive: true });
 
-    // 4. 處理覆蓋率數據
+    // 4. 存儲覆蓋率數據至 coverage/e2e 目錄（逐一寫入覆蓋率檔案）
     for (const entry of allCoverage) {
       // 只處理擴充功能的腳本
       if (!entry.url.includes('chrome-extension://')) {
