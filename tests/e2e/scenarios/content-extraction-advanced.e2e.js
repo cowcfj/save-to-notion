@@ -8,6 +8,117 @@
  * - 圖片優先級排序
  */
 
+// 模擬 Readability 提取邏輯（在瀏覽器 context 中執行）
+function extractReadableContent() {
+  const article = document.querySelector('article, main, [role="main"]');
+
+  if (!article) {
+    return { success: false, error: 'No article container found' };
+  }
+
+  // 提取標題
+  const title = document.title || document.querySelector('h1')?.textContent?.trim() || 'Untitled';
+
+  // 提取作者
+  const authorMeta = document.querySelector('meta[name="author"]');
+  const author = authorMeta?.content || null;
+
+  // 提取內容
+  const paragraphs = Array.from(article.querySelectorAll('p'))
+    .map(paragraph => paragraph.textContent.trim())
+    .filter(text => text.length > 20);
+
+  const headings = Array.from(article.querySelectorAll('h1, h2, h3, h4')).map(heading => ({
+    level: Number.parseInt(heading.tagName[1]),
+    text: heading.textContent.trim(),
+  }));
+
+  // 計算字數
+  const wordCount = paragraphs.join(' ').split(/\s+/).length;
+
+  return {
+    success: true,
+    title,
+    author,
+    paragraphCount: paragraphs.length,
+    headingCount: headings.length,
+    wordCount,
+    hasContent: paragraphs.length > 0,
+  };
+}
+
+// 模擬 CMS 檢測與回退邏輯（在瀏覽器 context 中執行）
+function detectCMSAndExtract() {
+  const cmsSelectors = {
+    wordpress: {
+      article: '.post-content, .entry-content, article.post',
+      title: '.entry-title, .post-title',
+      author: '.author-name, .byline',
+    },
+    drupal: {
+      article: '.node__content, .field--name-body',
+      title: '.node__title',
+      author: '.field--name-uid',
+    },
+    medium: {
+      article: 'article section',
+      title: 'h1[data-testid="storyTitle"]',
+      author: '[data-testid="authorName"]',
+    },
+  };
+
+  // 檢測 CMS 類型
+  const detectedCMS = (() => {
+    if (
+      document.querySelector('[generator*="WordPress"]') ||
+      document.querySelector('.wp-content')
+    ) {
+      return 'wordpress';
+    }
+    if (document.querySelector('[content*="Drupal"]')) {
+      return 'drupal';
+    }
+    if (globalThis.location.hostname.includes('medium.com')) {
+      return 'medium';
+    }
+    return 'generic';
+  })();
+
+  let content = null;
+
+  // 嘗試 CMS 特定選擇器
+  if (detectedCMS !== 'generic') {
+    const selectors = cmsSelectors[detectedCMS];
+    const articleEl = document.querySelector(selectors.article);
+
+    if (articleEl) {
+      content = {
+        source: `cms-${detectedCMS}`,
+        paragraphs: Array.from(articleEl.querySelectorAll('p')).length,
+        found: true,
+      };
+    }
+  }
+
+  // 通用回退
+  if (!content) {
+    const genericArticle = document.querySelector('article, main, [role="main"]');
+    if (genericArticle) {
+      content = {
+        source: 'generic-fallback',
+        paragraphs: Array.from(genericArticle.querySelectorAll('p')).length,
+        found: true,
+      };
+    }
+  }
+
+  return {
+    detectedCMS,
+    content: content || { found: false },
+    fallbackUsed: content?.source.includes('fallback'),
+  };
+}
+
 /* eslint-disable sonarjs/no-nested-functions */
 module.exports = {
   name: 'Content Extraction Advanced',
@@ -22,49 +133,7 @@ module.exports = {
       timeout: 60_000,
     });
 
-    const readabilityResult = await page.evaluate(() => {
-      // 模擬 Readability 提取邏輯
-      function extractReadableContent() {
-        const article = document.querySelector('article, main, [role="main"]');
-
-        if (!article) {
-          return { success: false, error: 'No article container found' };
-        }
-
-        // 提取標題
-        const title =
-          document.title || document.querySelector('h1')?.textContent?.trim() || 'Untitled';
-
-        // 提取作者
-        const authorMeta = document.querySelector('meta[name="author"]');
-        const author = authorMeta?.content || null;
-
-        // 提取內容
-        const paragraphs = Array.from(article.querySelectorAll('p'))
-          .map(paragraph => paragraph.textContent.trim())
-          .filter(text => text.length > 20);
-
-        const headings = Array.from(article.querySelectorAll('h1, h2, h3, h4')).map(heading => ({
-          level: Number.parseInt(heading.tagName[1]),
-          text: heading.textContent.trim(),
-        }));
-
-        // 計算字數
-        const wordCount = paragraphs.join(' ').split(/\s+/).length;
-
-        return {
-          success: true,
-          title,
-          author,
-          paragraphCount: paragraphs.length,
-          headingCount: headings.length,
-          wordCount,
-          hasContent: paragraphs.length > 0,
-        };
-      }
-
-      return extractReadableContent();
-    });
+    const readabilityResult = await page.evaluate(extractReadableContent);
 
     if (!readabilityResult.success) {
       throw new Error(`Readability 提取失敗: ${readabilityResult.error}`);
@@ -77,81 +146,7 @@ module.exports = {
 
     // 2. 測試 CMS 特定選擇器回退
     console.log('  2️⃣ 測試 CMS 回退策略...');
-    const cmsResult = await page.evaluate(() => {
-      // 模擬 CMS 檢測與回退邏輯
-      function detectCMSAndExtract() {
-        const cmsSelectors = {
-          wordpress: {
-            article: '.post-content, .entry-content, article.post',
-            title: '.entry-title, .post-title',
-            author: '.author-name, .byline',
-          },
-          drupal: {
-            article: '.node__content, .field--name-body',
-            title: '.node__title',
-            author: '.field--name-uid',
-          },
-          medium: {
-            article: 'article section',
-            title: 'h1[data-testid="storyTitle"]',
-            author: '[data-testid="authorName"]',
-          },
-        };
-
-        // 檢測 CMS 類型
-        const detectedCMS = (() => {
-          if (
-            document.querySelector('[generator*="WordPress"]') ||
-            document.querySelector('.wp-content')
-          ) {
-            return 'wordpress';
-          }
-          if (document.querySelector('[content*="Drupal"]')) {
-            return 'drupal';
-          }
-          if (globalThis.location.hostname.includes('medium.com')) {
-            return 'medium';
-          }
-          return 'generic';
-        })();
-
-        let content = null;
-
-        // 嘗試 CMS 特定選擇器
-        if (detectedCMS !== 'generic') {
-          const selectors = cmsSelectors[detectedCMS];
-          const articleEl = document.querySelector(selectors.article);
-
-          if (articleEl) {
-            content = {
-              source: `cms-${detectedCMS}`,
-              paragraphs: Array.from(articleEl.querySelectorAll('p')).length,
-              found: true,
-            };
-          }
-        }
-
-        // 通用回退
-        if (!content) {
-          const genericArticle = document.querySelector('article, main, [role="main"]');
-          if (genericArticle) {
-            content = {
-              source: 'generic-fallback',
-              paragraphs: Array.from(genericArticle.querySelectorAll('p')).length,
-              found: true,
-            };
-          }
-        }
-
-        return {
-          detectedCMS,
-          content: content || { found: false },
-          fallbackUsed: content?.source.includes('fallback'),
-        };
-      }
-
-      return detectCMSAndExtract();
-    });
+    const cmsResult = await page.evaluate(detectCMSAndExtract);
 
     console.log(`     ✅ 檢測到 CMS: ${cmsResult.detectedCMS}`);
     console.log(`     ✅ 提取來源: ${cmsResult.content.source}`);
