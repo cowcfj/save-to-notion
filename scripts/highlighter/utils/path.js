@@ -3,8 +3,8 @@
  * 提供 DOM 節點路徑序列化和反序列化功能
  */
 
-/** 匹配路徑步驟格式 'tagName[index]' 的正則表達式 */
-const PATH_REGEX = /^(\w+)\[(\d+)]$/;
+/** 匹配路徑步驟格式 'tagName[index]' 的正則表達式（支援含連字號的自訂元素，如 my-widget） */
+const PATH_REGEX = /^([\w-]+)\[(\d+)\]$/;
 
 /**
  * 獲取節點的路徑（從當前節點到 document.body）

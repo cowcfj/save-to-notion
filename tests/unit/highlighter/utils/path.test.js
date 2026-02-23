@@ -58,6 +58,14 @@ describe('utils/path', () => {
       const path = getNodePath(thirdDiv);
       expect(path).toBe('div[2]');
     });
+
+    test('should return path for custom element with hyphen', () => {
+      const el = document.createElement('my-widget');
+      document.body.append(el);
+
+      const path = getNodePath(el);
+      expect(path).toBe('my-widget[0]');
+    });
   });
 
   describe('parsePathFromString', () => {
@@ -90,6 +98,14 @@ describe('utils/path', () => {
       expect(parsePathFromString(null)).toBe(null);
       expect(parsePathFromString()).toBe(null);
       expect(parsePathFromString(123)).toBe(null);
+    });
+
+    test('should parse path with hyphenated custom element', () => {
+      const result = parsePathFromString('my-widget[0]/custom-el[1]');
+      expect(result).toEqual([
+        { type: 'element', tag: 'my-widget', index: 0 },
+        { type: 'element', tag: 'custom-el', index: 1 },
+      ]);
     });
   });
 
@@ -275,6 +291,11 @@ describe('utils/path', () => {
       expect(isValidPathString(123)).toBe(false);
       expect(isValidPathString({})).toBe(false);
     });
+
+    test('should return true for hyphenated custom element paths', () => {
+      expect(isValidPathString('my-widget[0]')).toBe(true);
+      expect(isValidPathString('my-widget[0]/custom-el[1]')).toBe(true);
+    });
   });
 
   describe('round-trip conversion', () => {
@@ -308,6 +329,16 @@ describe('utils/path', () => {
 
       expect(retrievedNode).toBe(secondP);
       expect(retrievedNode.textContent).toBe('Second');
+    });
+
+    test('should round-trip a custom element with hyphen', () => {
+      const el = document.createElement('my-widget');
+      document.body.append(el);
+
+      const path = getNodePath(el);
+      const retrievedNode = getNodeByPath(path);
+
+      expect(retrievedNode).toBe(el);
     });
   });
 });
