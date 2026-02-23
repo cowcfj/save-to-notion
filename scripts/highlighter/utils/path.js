@@ -91,7 +91,8 @@ export function parsePathFromString(pathString) {
       return null; // 格式錯誤
     }
 
-    const [, tag, indexStr] = match;
+    const [, rawTag, indexStr] = match;
+    const tag = rawTag.toLowerCase();
     const index = Number.parseInt(indexStr, 10);
 
     if (tag === 'text') {
@@ -117,14 +118,19 @@ export function resolveElementNode(current, step) {
       return null;
     }
 
-    const children = Array.from(current.children);
+    if (!Number.isInteger(step.index) || step.index < 0) {
+      return null;
+    }
 
-    if (step.index >= 0 && step.index < children.length && children[step.index].tagName?.toLowerCase() === step.tag) {
-        return children[step.index];
-      }
+    const children = Array.from(current.children);
+    const tag = step.tag?.toLowerCase();
+
+    if (step.index < children.length && children[step.index].tagName?.toLowerCase() === tag) {
+      return children[step.index];
+    }
 
     // 模糊匹配：查找具有相同標籤名的元素
-    const matchingElements = children.filter(child => child.tagName?.toLowerCase() === step.tag);
+    const matchingElements = children.filter(child => child.tagName?.toLowerCase() === tag);
     return matchingElements.length > 0 ? matchingElements[0] : null;
   } catch {
     return null;
@@ -192,6 +198,8 @@ export function getNodeByPath(path) {
       current = resolveElementNode(current, step);
     } else if (step.type === 'text') {
       current = resolveTextNode(current, step);
+    } else {
+      return null;
     }
     if (!current) {
       return null;

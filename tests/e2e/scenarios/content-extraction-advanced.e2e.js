@@ -34,7 +34,8 @@ function extractReadableContent() {
   }));
 
   // 計算字數
-  const wordCount = paragraphs.join(' ').split(/\s+/).length;
+  const joined = paragraphs.join(' ');
+  const wordCount = joined.trim() ? joined.split(/\s+/).length : 0;
 
   return {
     success: true,
@@ -78,7 +79,10 @@ function detectCMSAndExtract() {
     if (document.querySelector('[content*="Drupal"]')) {
       return 'drupal';
     }
-    if (globalThis.location.hostname.includes('medium.com')) {
+    if (
+      globalThis.location.hostname === 'medium.com' ||
+      globalThis.location.hostname.endsWith('.medium.com')
+    ) {
       return 'medium';
     }
     return 'generic';
@@ -115,7 +119,7 @@ function detectCMSAndExtract() {
   return {
     detectedCMS,
     content: content || { found: false },
-    fallbackUsed: content?.source.includes('fallback'),
+    fallbackUsed: content?.source?.includes('fallback') ?? false,
   };
 }
 
@@ -240,7 +244,8 @@ function extractLargeLists() {
 
 // 模擬代碼區塊提取邏輯（在瀏覽器 context 中執行）
 function extractCodeBlocks() {
-  const codeBlocks = Array.from(document.querySelectorAll('pre code, pre')).map(block => {
+  const codeBlocks = Array.from(document.querySelectorAll('pre')).map(pre => {
+    const block = pre.querySelector('code') || pre;
     const code = block.textContent.trim();
 
     // 檢測語言
