@@ -167,7 +167,7 @@ describe('Highlighter Interactions', () => {
   describe('高亮存儲鍵生成', () => {
     it('應該基於 URL 生成存儲鍵', () => {
       const url = 'https://example.com/article';
-      const normalizedUrl = url.replace(/#.*$/, '').replace(/\/$/, '');
+      const normalizedUrl = url.split('#')[0].replace(/\/$/, '');
       const storageKey = `highlights_${normalizedUrl}`;
 
       expect(storageKey).toBe('highlights_https://example.com/article');
@@ -175,7 +175,7 @@ describe('Highlighter Interactions', () => {
 
     it('應該標準化 URL 中的 hash', () => {
       const url = 'https://example.com/article#section';
-      const normalized = url.replace(/#.*$/, '');
+      const normalized = url.split('#')[0];
 
       expect(normalized).toBe('https://example.com/article');
     });

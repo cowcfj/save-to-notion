@@ -4,8 +4,6 @@
  * 測試各種頁面類型的複雜度檢測和提取器選擇邏輯
  *
  * @author Content Extraction Team
- * @version 1.0
- * @date 2025-10-13
  */
 
 const { JSDOM } = require('jsdom');
@@ -21,10 +19,6 @@ const {
 } = require('../../scripts/utils/pageComplexityDetector.js');
 
 // 模擬瀏覽器環境
-// let mockWindow = null;
-// let mockDocument = null;
-// let mockLocation = null;
-
 beforeAll(() => {
   // 由於檢測器使用 ES Module，我們需要模擬相關功能
   // 這裡我們直接實現測試版本
@@ -32,13 +26,6 @@ beforeAll(() => {
 
 beforeEach(() => {
   // 創建新的 DOM 環境
-  // const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
-  //   url: 'https://example.com',
-  //   pretendToBeVisual: true,
-  // });
-  // mockDocument = dom.window.document;
-  // mockWindow = dom.window;
-  // mockLocation = mockWindow.location;
 });
 
 describe('頁面複雜度檢測器', () => {
@@ -544,7 +531,7 @@ describe('頁面複雜度檢測器', () => {
       // 應該能夠處理損壞的 HTML 而不崩潰
       expect(() => {
         const complexity = detectPageComplexity(dom.window.document);
-        const _selection = selectExtractor(complexity);
+        selectExtractor(complexity);
       }).not.toThrow();
     });
   });

@@ -83,7 +83,8 @@ export function parsePathFromString(pathString) {
       continue;
     }
 
-    const match = step.match(/^(\w+)\[(\d+)]$/);
+    const PATH_REGEX = /^(\w+)\[(\d+)]$/;
+    const match = PATH_REGEX.exec(step);
     if (!match) {
       return null; // 格式錯誤
     }
@@ -109,6 +110,7 @@ export function parsePathFromString(pathString) {
  * @example
  * const node = getNodeByPath('div[0]/p[2]/text[0]');
  */
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export function getNodeByPath(path) {
   // 如果是字符串格式，先解析
   if (typeof path === 'string') {
@@ -119,7 +121,7 @@ export function getNodeByPath(path) {
   }
 
   // 確保 document.body 存在
-  if (!document || !document.body) {
+  if (!document?.body) {
     return null;
   }
 
@@ -133,7 +135,7 @@ export function getNodeByPath(path) {
   for (const step of path) {
     try {
       if (step.type === 'element') {
-        if (!current || !current.children) {
+        if (!current?.children) {
           return null;
         }
 
@@ -153,7 +155,7 @@ export function getNodeByPath(path) {
 
         current = children[step.index];
       } else if (step.type === 'text') {
-        if (!current || !current.childNodes) {
+        if (!current?.childNodes) {
           return null;
         }
 

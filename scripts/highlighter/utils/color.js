@@ -6,7 +6,7 @@
 /**
  * 標註顏色常量
  *
- * @type {Object.<string, string>}
+ * @type {{[key: string]: string}}
  */
 export const COLORS = {
   yellow: '#fff3cd',
@@ -19,7 +19,7 @@ export const COLORS = {
  * 標註文字顏色常量 (用於 Text Mode)
  * 使用較深/飽和的顏色以確保在淺色背景上的可讀性
  *
- * @type {Object.<string, string>}
+ * @type {{[key: string]: string}}
  */
 export const TEXT_COLORS = {
   yellow: '#d97706', // Amber 600

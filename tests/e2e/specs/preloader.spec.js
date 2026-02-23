@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-skipped-tests */
 import { test, expect } from '../fixtures';
 
 test.describe('Preloader E2E Tests', () => {
@@ -52,9 +53,9 @@ test.describe('Preloader E2E Tests', () => {
       });
     });
 
-    // 如果 Preloader 未就緒，跳過此測試
     if (!pingResponse.status) {
-      test.skip();
+      test.skip(true, 'Preloader is not ready, skipping test');
+
       return;
     }
 

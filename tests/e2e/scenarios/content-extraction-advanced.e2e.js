@@ -8,6 +8,7 @@
  * - 圖片優先級排序
  */
 
+/* eslint-disable sonarjs/no-nested-functions */
 module.exports = {
   name: 'Content Extraction Advanced',
 
@@ -253,7 +254,7 @@ module.exports = {
               area,
             };
           })
-          .sort((imgA, imgB) => imgB.score - imgA.score);
+          .toSorted((imgA, imgB) => imgB.score - imgA.score);
 
         return {
           totalImages: images.length,
@@ -315,7 +316,8 @@ module.exports = {
 
           // 檢測語言
           let language = 'unknown';
-          const classMatch = block.className.match(/language-(\w+)/);
+          const langRegex = /language-(\w+)/;
+          const classMatch = langRegex.exec(block.className);
           if (classMatch) {
             language = classMatch[1];
           } else if (code.includes('function') || code.includes('const ')) {

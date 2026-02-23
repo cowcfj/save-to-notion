@@ -38,7 +38,7 @@ export async function checkSettings() {
 /**
  * 檢查頁面狀態
  *
- * @param options
+ * @param {object} [options={}] - 額外選項
  * @returns {Promise<{success: boolean, isSaved?: boolean, notionUrl?: string, wasDeleted?: boolean}>}
  */
 export async function checkPageStatus(options = {}) {
@@ -176,7 +176,7 @@ function clearHighlightsInPage(trackingParams, pageKey) {
   // 清除本地存儲
   try {
     // 檢查 chrome.storage 是否可用（content script 環境）
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
       chrome.storage.local.remove([pageKey]);
     } else {
       // 降級到 localStorage（舊版或受限環境）

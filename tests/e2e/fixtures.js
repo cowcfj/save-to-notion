@@ -1,7 +1,8 @@
+/* eslint-disable security/detect-non-literal-fs-filename */
 import { test as base, chromium } from '@playwright/test';
-import path from 'path';
-import fs from 'fs';
-import crypto from 'crypto';
+import path from 'node:path';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
 import v8toIstanbul from 'v8-to-istanbul';
 
 export const test = base.extend({

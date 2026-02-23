@@ -102,7 +102,7 @@ describe('utils/validation', () => {
   describe('isValidUrl', () => {
     test('should return true for valid URLs', () => {
       expect(isValidUrl('https://example.com')).toBe(true);
-      expect(isValidUrl('http://test.org')).toBe(true);
+      expect(isValidUrl('https://test.org')).toBe(true);
       expect(isValidUrl('https://example.com/path?query=1')).toBe(true);
     });
 

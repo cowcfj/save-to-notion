@@ -4,6 +4,7 @@
  * 這個文件展示如何使用 MCP 工具進行 E2E 測試
  * 需要在 Claude Code 環境中運行
  */
+/* eslint-disable unicorn/prefer-top-level-await */
 
 /**
  * 測試 1: 高亮功能基礎測試
@@ -338,7 +339,7 @@ module.exports = {
     for (const test of this.tests) {
       console.log(`\n▶️ 運行測試: ${test.name}`);
       try {
-        const result = await test.fn();
+        const result = await Promise.resolve(test.fn());
         console.log(`✅ ${test.name} - 測試計劃準備完成`);
         console.log(`   預期結果: ${result.expectedResult}`);
         results.push({ ...result, status: 'ready' });

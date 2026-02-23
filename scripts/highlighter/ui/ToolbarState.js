@@ -57,6 +57,8 @@ export class ToolbarStateManager {
 
   /**
    * 獲取當前狀態
+   *
+   * @returns {string} 當前狀態
    */
   get currentState() {
     return this._currentState;

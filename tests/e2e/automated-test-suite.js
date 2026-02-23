@@ -5,7 +5,6 @@
  * 測試範圍：Icon 提取、內容提取、封面圖識別、頁面兼容性
  *
  * @version 1.0.0
- * @date 2025-10-02
  */
 
 // ==================== 測試配置 ====================
@@ -162,6 +161,7 @@ const TEST_CONFIG = {
   screenshots: {
     enabled: true,
     saveOnError: true,
+    // eslint-disable-next-line sonarjs/publicly-writable-directories
     directory: '/tmp/notion-clipper-tests',
   },
 
@@ -181,7 +181,7 @@ const TEST_CONFIG = {
 const ICON_EXTRACTION_SCRIPT = `
 (function() {
     const icons = [];
-    
+
     // 1. Apple Touch Icon
     document.querySelectorAll('link[rel*="apple-touch-icon"]').forEach(link => {
         icons.push({
@@ -190,7 +190,7 @@ const ICON_EXTRACTION_SCRIPT = `
             sizes: link.sizes ? link.sizes.toString() : null
         });
     });
-    
+
     // 2. Standard Favicon
     document.querySelectorAll('link[rel*="icon"]').forEach(link => {
         if (!link.rel.includes('apple')) {
@@ -202,7 +202,7 @@ const ICON_EXTRACTION_SCRIPT = `
             });
         }
     });
-    
+
     // 3. Mask Icon (Safari)
     const maskIcon = document.querySelector('link[rel="mask-icon"]');
     if (maskIcon) {
@@ -212,10 +212,10 @@ const ICON_EXTRACTION_SCRIPT = `
             color: maskIcon.getAttribute('color')
         });
     }
-    
+
     // 4. Manifest
     const manifest = document.querySelector('link[rel="manifest"]');
-    
+
     return {
         icons: icons,
         iconCount: icons.length,
@@ -235,19 +235,19 @@ const FEATURED_IMAGE_SCRIPT = `
         twitterImage: null,
         schemaImage: null
     };
-    
+
     // 1. Open Graph Image
     const ogImageMeta = document.querySelector('meta[property="og:image"]');
     if (ogImageMeta) {
         result.ogImage = ogImageMeta.content;
     }
-    
+
     // 2. Twitter Card Image
     const twitterImageMeta = document.querySelector('meta[name="twitter:image"]');
     if (twitterImageMeta) {
         result.twitterImage = twitterImageMeta.content;
     }
-    
+
     // 3. Schema.org Image
     const schemaScript = document.querySelector('script[type="application/ld+json"]');
     if (schemaScript) {
@@ -260,7 +260,7 @@ const FEATURED_IMAGE_SCRIPT = `
             // 忽略解析錯誤
         }
     }
-    
+
     return result;
 })();
 `;
@@ -365,7 +365,12 @@ class TestReport {
     md += '## 📝 詳細結果\n\n';
 
     this.results.forEach((result, index) => {
-      const icon = result.status === 'passed' ? '✅' : (result.status === 'failed' ? '❌' : '⏭️');
+      let icon = '⏭️';
+      if (result.status === 'passed') {
+        icon = '✅';
+      } else if (result.status === 'failed') {
+        icon = '❌';
+      }
       md += `### ${icon} ${index + 1}. ${result.siteName}\n\n`;
       md += `**狀態：** ${result.status}\n`;
       md += `**耗時：** ${(result.duration / 1000).toFixed(2)} 秒\n\n`;

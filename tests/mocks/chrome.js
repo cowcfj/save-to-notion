@@ -3,6 +3,7 @@
 
 // 內存存儲模擬真實行為
 const storageData = {};
+let mockTabIdCounter = 1000;
 
 const chrome = {
   storage: {
@@ -150,7 +151,7 @@ const chrome = {
     }),
     create: jest.fn((createProperties, callback) => {
       const tab = {
-        id: Math.floor(Math.random() * 10_000),
+        id: mockTabIdCounter++,
         ...createProperties,
       };
       if (callback) {

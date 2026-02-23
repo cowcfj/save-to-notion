@@ -76,7 +76,6 @@ describe('Highlighter Integration Tests', () => {
     };
 
     globalThis.Highlight = class MockHighlight {
-      constructor() {}
       add(_range) {
         this.size++;
       }
@@ -353,6 +352,7 @@ describe('Highlighter Integration Tests', () => {
 
     // SKIP: 此測試在 fake timers 環境下會掛起，需要進一步調查
     // 可能的問題：MutationObserver 與 fake timers 的兼容性
+    // eslint-disable-next-line jest/no-disabled-tests
     test.skip('should integrate DOM stability waiting', async () => {
       jest.useFakeTimers();
 

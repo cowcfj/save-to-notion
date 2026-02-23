@@ -9,6 +9,8 @@ import { COLORS, TEXT_COLORS, VALID_STYLES } from '../utils/color.js';
 import { supportsHighlightAPI } from '../utils/dom.js';
 import Logger from '../../utils/Logger.js';
 
+const STYLE_SELECTOR = '#notion-highlight-styles';
+
 /**
  * StyleManager
  * 管理 CSS Highlight API 樣式的初始化和更新
@@ -73,9 +75,9 @@ export class StyleManager {
       return;
     }
 
-    if (document.querySelector('#notion-highlight-styles')) {
+    if (document.querySelector(STYLE_SELECTOR)) {
       // 如果樣式已存在，檢查是否需要更新（例如樣式模式改變）
-      const existingStyle = document.querySelector('#notion-highlight-styles');
+      const existingStyle = document.querySelector(STYLE_SELECTOR);
       if (existingStyle.dataset.styleMode === this.styleMode) {
         return;
       }
@@ -114,12 +116,12 @@ export class StyleManager {
             break;
           }
 
-          case 'background':
           default: {
+            // background
             // 預設背景模式（強制黑色文字以確保對比度）
             cssRules = `
               background-color: ${bgColor};
-              color: black; 
+              color: black;
             `;
             break;
           }
@@ -194,7 +196,7 @@ export class StyleManager {
 
     // 移除樣式元素
     if (typeof document !== 'undefined') {
-      const styleEl = document.querySelector('#notion-highlight-styles');
+      const styleEl = document.querySelector(STYLE_SELECTOR);
       if (styleEl) {
         styleEl.remove();
       }

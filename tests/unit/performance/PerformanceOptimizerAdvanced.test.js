@@ -178,13 +178,13 @@ describe('PerformanceOptimizer 進階功能測試', () => {
       const selector = 'img';
 
       // 第一次預熱
-      const _r1 = await optimizer.preloadSelectors([selector]);
+      await optimizer.preloadSelectors([selector]);
 
       // 第二次預熱相同的選擇器
-      const _r2 = await optimizer.preloadSelectors([selector]);
+      await optimizer.preloadSelectors([selector]);
 
       // 第二次預熱相同的選擇器
-      const _r3 = await optimizer.preloadSelectors([selector]);
+      await optimizer.preloadSelectors([selector]);
       const stats = optimizer.getPerformanceStats();
       expect(stats.cache.prewarms).toBeGreaterThanOrEqual(0);
     });
