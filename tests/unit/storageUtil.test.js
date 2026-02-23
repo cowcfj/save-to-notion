@@ -132,6 +132,26 @@ describe('StorageUtil', () => {
         const normalizedUrl = normalizeUrl(pageUrl);
         const pageKey = `highlights_${normalizedUrl}`;
 
+        // 輔助函式：解析舊版 Storage 的資料
+        const parseLegacyHighlights = legacy => {
+          if (!legacy) {
+            return [];
+          }
+          try {
+            const parsed = JSON.parse(legacy);
+            let highlights = [];
+            if (Array.isArray(parsed)) {
+              highlights = parsed;
+            } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
+              highlights = parsed.highlights;
+            }
+            return highlights;
+          } catch (error) {
+            console.error('Failed to parse legacy highlights:', error);
+            return [];
+          }
+        };
+
         return new Promise(resolve => {
           try {
             chrome.storage?.local?.get([pageKey], data => {
@@ -152,46 +172,20 @@ describe('StorageUtil', () => {
 
               // 回退到 localStorage
               const legacy = localStorage.getItem(pageKey);
-              if (legacy) {
-                try {
-                  const parsed = JSON.parse(legacy);
-                  let highlights = [];
-                  if (Array.isArray(parsed)) {
-                    highlights = parsed;
-                  } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
-                    highlights = parsed.highlights;
-                  }
-
-                  if (highlights.length > 0) {
-                    resolve(highlights);
-                    return;
-                  }
-                } catch (error) {
-                  console.error('Failed to parse legacy highlights:', error);
-                }
+              const legacyHighlights = parseLegacyHighlights(legacy);
+              if (legacyHighlights.length > 0) {
+                resolve(legacyHighlights);
+                return;
               }
               resolve([]);
             });
           } catch {
             console.log('Chrome storage not available, falling back to localStorage');
             const legacy = localStorage.getItem(pageKey);
-            if (legacy) {
-              try {
-                const parsed = JSON.parse(legacy);
-                let highlights = [];
-                if (Array.isArray(parsed)) {
-                  highlights = parsed;
-                } else if (parsed.highlights && Array.isArray(parsed.highlights)) {
-                  highlights = parsed.highlights;
-                }
-
-                if (highlights.length > 0) {
-                  resolve(highlights);
-                  return;
-                }
-              } catch (error) {
-                console.error('Failed to parse legacy highlights:', error);
-              }
+            const legacyHighlights = parseLegacyHighlights(legacy);
+            if (legacyHighlights.length > 0) {
+              resolve(legacyHighlights);
+              return;
             }
             resolve([]);
           }

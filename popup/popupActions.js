@@ -163,7 +163,8 @@ export async function clearHighlights(tabId, tabUrl) {
  * @param {string} pageKey - 用於清除存儲的鍵
  * @returns {number} 清除的標記數量
  */
-function clearHighlightsInPage(trackingParams, pageKey) {
+// Exported for testing
+export function clearHighlightsInPage(trackingParams, pageKey) {
   // 清除頁面上的標記
   const highlights = document.querySelectorAll('.simple-highlight');
   highlights.forEach(highlight => {
