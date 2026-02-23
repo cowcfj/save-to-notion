@@ -124,9 +124,7 @@ export function resolveElementNode(current, step) {
     }
 
     // 模糊匹配：查找具有相同標籤名的元素
-    const matchingElements = children.filter(
-      child => child.tagName && child.tagName.toLowerCase() === step.tag
-    );
+    const matchingElements = children.filter(child => child.tagName?.toLowerCase() === step.tag);
     return matchingElements.length > 0 ? matchingElements[0] : null;
   } catch {
     return null;

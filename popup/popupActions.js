@@ -6,7 +6,6 @@
 
 /* global chrome */
 
-import { URL_NORMALIZATION } from '../scripts/config/constants.js';
 import { normalizeUrl } from '../scripts/utils/urlUtils.js';
 import { isValidNotionUrl } from '../scripts/utils/securityUtils.js';
 import Logger from '../scripts/utils/Logger.js';
