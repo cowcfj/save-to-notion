@@ -216,6 +216,17 @@ describe('utils/path', () => {
       const result = resolveElementNode(div, { type: 'element', tag: 'span', index: 99 });
       expect(result).toBeNull();
     });
+
+    test('should fuzzy match when index is in range but tag does not match', () => {
+      document.body.innerHTML = '<div><span>Wrong</span><p>Right</p></div>';
+      const div = document.body.firstElementChild;
+
+      // index 0 是 span，但 step.tag 是 'p' → 不匹配，fallback 到模糊匹配找到 <p>
+      const result = resolveElementNode(div, { type: 'element', tag: 'p', index: 0 });
+      expect(result).not.toBeNull();
+      expect(result.tagName.toLowerCase()).toBe('p');
+      expect(result.textContent).toBe('Right');
+    });
   });
 
   describe('resolveTextNode', () => {

@@ -119,9 +119,9 @@ export function resolveElementNode(current, step) {
 
     const children = Array.from(current.children);
 
-    if (step.index >= 0 && step.index < children.length) {
-      return children[step.index];
-    }
+    if (step.index >= 0 && step.index < children.length && children[step.index].tagName?.toLowerCase() === step.tag) {
+        return children[step.index];
+      }
 
     // 模糊匹配：查找具有相同標籤名的元素
     const matchingElements = children.filter(child => child.tagName?.toLowerCase() === step.tag);
