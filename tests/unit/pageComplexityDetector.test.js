@@ -18,16 +18,6 @@ const {
   isDocumentation,
 } = require('../../scripts/utils/pageComplexityDetector.js');
 
-// 模擬瀏覽器環境
-beforeAll(() => {
-  // 由於檢測器使用 ES Module，我們需要模擬相關功能
-  // 這裡我們直接實現測試版本
-});
-
-beforeEach(() => {
-  // 創建新的 DOM 環境
-});
-
 describe('頁面複雜度檢測器', () => {
   describe('isDocumentation 函數 (替代 isTechnicalDoc)', () => {
     test('should detect documentation by hostname pattern - docs.*', () => {

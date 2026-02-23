@@ -184,6 +184,7 @@ describe('popupActions.js', () => {
   describe('clearHighlightsInPage', () => {
     let originalChrome;
     let originalGlobalThisSimpleHighlighter;
+    let removeItemSpy;
 
     beforeEach(() => {
       // 設置 DOM
@@ -199,7 +200,7 @@ describe('popupActions.js', () => {
       originalGlobalThisSimpleHighlighter = globalThis.simpleHighlighter;
 
       // Mock localStorage 使用 spyOn 來避免直接覆寫唯讀屬性
-      jest
+      removeItemSpy = jest
         .spyOn(Object.getPrototypeOf(globalThis.localStorage), 'removeItem')
         .mockImplementation(() => {});
     });
@@ -209,20 +210,21 @@ describe('popupActions.js', () => {
       globalThis.chrome = originalChrome;
       globalThis.simpleHighlighter = originalGlobalThisSimpleHighlighter;
       document.body.innerHTML = '';
+      removeItemSpy.mockRestore();
       jest.clearAllMocks();
     });
 
-    it('應該從 DOM 中移除標記並還原文字', () => {
+    it('應該從 DOM 中移除標記並還原文字', async () => {
       const parent = document.querySelector('#container');
 
-      const count = clearHighlightsInPage([], 'test-key');
+      const count = await clearHighlightsInPage('test-key');
 
       expect(count).toBe(2);
       expect(document.querySelectorAll('.simple-highlight')).toHaveLength(0);
-      expect(parent.textContent.trim()).toBe('text1\n          text2');
+      expect(parent.textContent.replaceAll(/\s+/g, ' ').trim()).toBe('text1 text2');
     });
 
-    it('當 chrome.storage.local 可用時應清除', () => {
+    it('當 chrome.storage.local 可用時應清除', async () => {
       globalThis.chrome = {
         storage: {
           local: {
@@ -231,21 +233,21 @@ describe('popupActions.js', () => {
         },
       };
 
-      clearHighlightsInPage([], 'test-key');
+      await clearHighlightsInPage('test-key');
 
       expect(globalThis.chrome.storage.local.remove).toHaveBeenCalledWith(['test-key']);
       expect(globalThis.localStorage.removeItem).not.toHaveBeenCalled();
     });
 
-    it('當 chrome.storage.local 不可用時應降級使用 localStorage', () => {
+    it('當 chrome.storage.local 不可用時應降級使用 localStorage', async () => {
       globalThis.chrome = undefined; // 模擬 content script 無法存取 chrome 的情況
 
-      clearHighlightsInPage([], 'test-key');
+      await clearHighlightsInPage('test-key');
 
       expect(globalThis.localStorage.removeItem).toHaveBeenCalledWith('test-key');
     });
 
-    it('當 chrome.storage.local 拋出錯誤時應降級使用 localStorage', () => {
+    it('當 chrome.storage.local 拋出錯誤時應降級使用 localStorage', async () => {
       globalThis.chrome = {
         storage: {
           local: {
@@ -256,30 +258,28 @@ describe('popupActions.js', () => {
         },
       };
 
-      clearHighlightsInPage([], 'test-key');
+      await clearHighlightsInPage('test-key');
 
       expect(globalThis.chrome.storage.local.remove).toHaveBeenCalledWith(['test-key']);
       expect(globalThis.localStorage.removeItem).toHaveBeenCalledWith('test-key');
     });
 
-    it('當 localStorage 也拋出錯誤時應靜默處理', () => {
+    it('當 localStorage 也拋出錯誤時應靜默處理', async () => {
       globalThis.chrome = undefined;
       globalThis.localStorage.removeItem.mockImplementationOnce(() => {
         throw new Error('LocalStorage error');
       });
 
       // 不應該拋出錯誤
-      expect(() => {
-        clearHighlightsInPage([], 'test-key');
-      }).not.toThrow();
+      await expect(clearHighlightsInPage('test-key')).resolves.not.toThrow();
     });
 
-    it('如果存在 simpleHighlighter', () => {
+    it('當 globalThis.simpleHighlighter 存在時，清除標記後應呼叫 updateHighlightCount', async () => {
       globalThis.simpleHighlighter = {
         updateHighlightCount: jest.fn(),
       };
 
-      clearHighlightsInPage([], 'test-key');
+      await clearHighlightsInPage('test-key');
 
       expect(globalThis.simpleHighlighter.updateHighlightCount).toHaveBeenCalled();
     });

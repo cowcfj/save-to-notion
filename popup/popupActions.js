@@ -142,7 +142,7 @@ export async function clearHighlights(tabId, tabUrl) {
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       func: clearHighlightsInPage,
-      args: [URL_NORMALIZATION.TRACKING_PARAMS, pageKey],
+      args: [pageKey],
     });
     const clearedCount =
       results && Array.isArray(results) && results[0] && typeof results[0].result === 'number'
@@ -159,12 +159,11 @@ export async function clearHighlights(tabId, tabUrl) {
  * 在頁面中執行清除標記的函數
  * 注意：此函數會被序列化後在 content script 中執行
  *
- * @param {string[]} trackingParams - 要移除的追蹤參數列表
  * @param {string} pageKey - 用於清除存儲的鍵
- * @returns {number} 清除的標記數量
+ * @returns {Promise<number>} 清除的標記數量
  */
 // Exported for testing
-export function clearHighlightsInPage(trackingParams, pageKey) {
+export async function clearHighlightsInPage(pageKey) {
   // 清除頁面上的標記
   const highlights = document.querySelectorAll('.simple-highlight');
   highlights.forEach(highlight => {
@@ -178,7 +177,7 @@ export function clearHighlightsInPage(trackingParams, pageKey) {
   try {
     // 檢查 chrome.storage 是否可用（content script 環境）
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      chrome.storage.local.remove([pageKey]);
+      await chrome.storage.local.remove([pageKey]);
     } else {
       // 降級到 localStorage（舊版或受限環境）
       localStorage.removeItem(pageKey);

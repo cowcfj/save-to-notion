@@ -389,6 +389,9 @@ describe('content.js - 圖片處理函數', () => {
     });
   });
   describe('PerformanceOptimizer 可選邏輯', () => {
+    let mockConsoleLog;
+    let mockConsoleWarn;
+
     beforeEach(() => {
       // 重置全局變數
       globalThis.PerformanceOptimizer = undefined;
@@ -399,6 +402,14 @@ describe('content.js - 圖片處理函數', () => {
       // 清理測試後的全局變數
       delete globalThis.PerformanceOptimizer;
       delete globalThis.ImageUtils;
+      if (mockConsoleLog) {
+        mockConsoleLog.mockRestore();
+        mockConsoleLog = null;
+      }
+      if (mockConsoleWarn) {
+        mockConsoleWarn.mockRestore();
+        mockConsoleWarn = null;
+      }
     });
 
     const initPerformanceOptimizer = () => {
@@ -441,8 +452,8 @@ describe('content.js - 圖片處理函數', () => {
       };
 
       // 重新載入模組（在真實環境中這會在 content.js 中發生）
-      const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation();
-      const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+      mockConsoleLog = jest.spyOn(console, 'log').mockImplementation();
+      mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
 
       // 模擬 content.js 中的邏輯
       const performanceOptimizer = initPerformanceOptimizer();
@@ -452,13 +463,10 @@ describe('content.js - 圖片處理函數', () => {
       expect(mockConsoleLog).toHaveBeenCalledWith(
         '✓ PerformanceOptimizer initialized in content script'
       );
-
-      mockConsoleLog.mockRestore();
-      mockConsoleWarn.mockRestore();
     });
 
     test('應該在 PerformanceOptimizer 不存在時使用回退', () => {
-      const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+      mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
 
       const performanceOptimizer = initPerformanceOptimizer();
 
@@ -466,8 +474,6 @@ describe('content.js - 圖片處理函數', () => {
       expect(mockConsoleWarn).toHaveBeenCalledWith(
         '⚠️ PerformanceOptimizer not available in content script, using fallback queries'
       );
-
-      mockConsoleWarn.mockRestore();
     });
 
     test('應該在 PerformanceOptimizer 初始化失敗時優雅降級', () => {
@@ -482,7 +488,7 @@ describe('content.js - 圖片處理函數', () => {
         }
       };
 
-      const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+      mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
 
       const performanceOptimizer = initPerformanceOptimizer();
 
@@ -491,18 +497,30 @@ describe('content.js - 圖片處理函數', () => {
         '⚠️ PerformanceOptimizer initialization failed in content script:',
         expect.any(Error)
       );
-
-      mockConsoleWarn.mockRestore();
     });
   });
 
   describe('cachedQuery 回退函數', () => {
     let performanceOptimizer = null;
+    let mockElement;
+    let div1;
+    let div2;
 
     beforeEach(() => {
       performanceOptimizer = {
         cachedQuery: jest.fn(),
       };
+    });
+
+    afterEach(() => {
+      for (const el of [mockElement, div1, div2]) {
+        if (el?.parentNode) {
+          el.remove();
+        }
+      }
+      mockElement = null;
+      div1 = null;
+      div2 = null;
     });
 
     const createCachedQuery = () => {
@@ -531,7 +549,7 @@ describe('content.js - 圖片處理函數', () => {
 
       const cachedQuery = createCachedQuery();
 
-      const mockElement = document.createElement('div');
+      mockElement = document.createElement('div');
       document.body.append(mockElement);
 
       const result = cachedQuery('div', document, { single: true });
@@ -539,8 +557,6 @@ describe('content.js - 圖片處理函數', () => {
 
       const allResults = cachedQuery('div', document, { all: true });
       expect(allResults).toContain(mockElement);
-
-      mockElement.remove();
     });
 
     test('應該正確處理 single 選項', () => {
@@ -548,62 +564,53 @@ describe('content.js - 圖片處理函數', () => {
 
       const cachedQuery = createCachedQuery();
 
-      const div1 = document.createElement('div');
-      const div2 = document.createElement('div');
+      div1 = document.createElement('div');
+      div2 = document.createElement('div');
       document.body.append(div1);
       document.body.append(div2);
 
       expect(cachedQuery('div', document, { single: true })).toBe(div1);
       expect(cachedQuery('div', document, {})).toEqual(expect.any(NodeList));
-
-      div1.remove();
-      div2.remove();
     });
   });
 
   describe('ImageUtils 回退實現', () => {
     beforeEach(() => {
-      // 清理可能的全局 ImageUtils
-      delete globalThis.window.ImageUtils;
+      // 模擬 content.js 中的邏輯：當 ImageUtils 不存在時建立回退實現
+      globalThis.window.ImageUtils = {
+        cleanImageUrl(url) {
+          if (!url || typeof url !== 'string') {
+            return null;
+          }
+          try {
+            return new URL(url).href;
+          } catch {
+            return null;
+          }
+        },
+        isValidImageUrl(url) {
+          if (!url || typeof url !== 'string') {
+            return false;
+          }
+          return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
+        },
+        extractImageSrc(imgNode) {
+          if (!imgNode) {
+            return null;
+          }
+          return imgNode.getAttribute('src') || imgNode.dataset.src || null;
+        },
+        generateImageCacheKey(imgNode) {
+          if (!imgNode) {
+            return 'null';
+          }
+          return `${imgNode.getAttribute('src') || ''}|${imgNode.className || ''}`;
+        },
+      };
     });
 
     test('應該在 ImageUtils 不存在時創建回退實現', () => {
       expect(typeof ImageUtils).toBe('undefined');
-
-      // 模擬 content.js 中的邏輯
-      if (typeof ImageUtils === 'undefined') {
-        console.warn('ImageUtils not available, using fallback implementations');
-        globalThis.window.ImageUtils = {
-          cleanImageUrl(url) {
-            if (!url || typeof url !== 'string') {
-              return null;
-            }
-            try {
-              return new URL(url).href;
-            } catch {
-              return null;
-            }
-          },
-          isValidImageUrl(url) {
-            if (!url || typeof url !== 'string') {
-              return false;
-            }
-            return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
-          },
-          extractImageSrc(imgNode) {
-            if (!imgNode) {
-              return null;
-            }
-            return imgNode.getAttribute('src') || imgNode.dataset.src || null;
-          },
-          generateImageCacheKey(imgNode) {
-            if (!imgNode) {
-              return 'null';
-            }
-            return `${imgNode.getAttribute('src') || ''}|${imgNode.className || ''}`;
-          },
-        };
-      }
 
       expect(globalThis.window.ImageUtils).toBeDefined();
       expect(typeof globalThis.window.ImageUtils.cleanImageUrl).toBe('function');
@@ -613,21 +620,6 @@ describe('content.js - 圖片處理函數', () => {
     });
 
     test('回退實現應該正確處理 cleanImageUrl', () => {
-      if (typeof ImageUtils === 'undefined') {
-        globalThis.window.ImageUtils = {
-          cleanImageUrl(url) {
-            if (!url || typeof url !== 'string') {
-              return null;
-            }
-            try {
-              return new URL(url).href;
-            } catch {
-              return null;
-            }
-          },
-        };
-      }
-
       expect(globalThis.window.ImageUtils.cleanImageUrl('https://example.com/image.jpg')).toBe(
         'https://example.com/image.jpg'
       );
@@ -636,17 +628,6 @@ describe('content.js - 圖片處理函數', () => {
     });
 
     test('回退實現應該正確處理 isValidImageUrl', () => {
-      if (typeof ImageUtils === 'undefined') {
-        globalThis.window.ImageUtils = {
-          isValidImageUrl(url) {
-            if (!url || typeof url !== 'string') {
-              return false;
-            }
-            return /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?.*)?$/i.test(url);
-          },
-        };
-      }
-
       expect(globalThis.window.ImageUtils.isValidImageUrl('https://example.com/image.jpg')).toBe(
         true
       );
@@ -660,17 +641,6 @@ describe('content.js - 圖片處理函數', () => {
     });
 
     test('回退實現應該正確處理 extractImageSrc', () => {
-      if (typeof ImageUtils === 'undefined') {
-        globalThis.window.ImageUtils = {
-          extractImageSrc(imgNode) {
-            if (!imgNode) {
-              return null;
-            }
-            return imgNode.getAttribute('src') || imgNode.dataset.src || null;
-          },
-        };
-      }
-
       const img = document.createElement('img');
       img.dataset.src = 'fallback.jpg';
       expect(globalThis.window.ImageUtils.extractImageSrc(img)).toBe('fallback.jpg');
@@ -682,17 +652,6 @@ describe('content.js - 圖片處理函數', () => {
     });
 
     test('回退實現應該正確處理 generateImageCacheKey', () => {
-      if (typeof ImageUtils === 'undefined') {
-        globalThis.window.ImageUtils = {
-          generateImageCacheKey(imgNode) {
-            if (!imgNode) {
-              return 'null';
-            }
-            return `${imgNode.getAttribute('src') || ''}|${imgNode.className || ''}`;
-          },
-        };
-      }
-
       const img = document.createElement('img');
       img.setAttribute('src', 'image.jpg');
       img.className = 'lazy-image';

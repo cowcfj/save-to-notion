@@ -55,8 +55,6 @@ test.describe('Preloader E2E Tests', () => {
 
     if (!pingResponse.status) {
       test.skip(true, 'Preloader is not ready, skipping test');
-
-      return;
     }
 
     // 4. 模擬按下 Ctrl+S（現在可以確保會被緩衝）

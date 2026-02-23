@@ -258,7 +258,9 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
       // 移除所有圖片
       const images = mockDocument.querySelectorAll('img');
-      images.forEach(img => img.remove());
+      for (const img of images) {
+        img.remove();
+      }
 
       optimizer.refreshCache('img', mockDocument);
 

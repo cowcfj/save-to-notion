@@ -3,6 +3,9 @@
  * 提供 DOM 節點路徑序列化和反序列化功能
  */
 
+/** 匹配路徑步驟格式 'tagName[index]' 的正則表達式 */
+const PATH_REGEX = /^(\w+)\[(\d+)]$/;
+
 /**
  * 獲取節點的路徑（從當前節點到 document.body）
  *
@@ -196,10 +199,9 @@ export function isValidPathString(pathString) {
   }
 
   const steps = pathString.split('/');
-  const regex = /^\w+\[\d+]$/;
 
   for (const step of steps) {
-    if (!step || !regex.test(step)) {
+    if (!step || !PATH_REGEX.test(step)) {
       return false;
     }
   }

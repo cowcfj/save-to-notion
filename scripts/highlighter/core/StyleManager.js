@@ -75,9 +75,9 @@ export class StyleManager {
       return;
     }
 
-    if (document.querySelector(STYLE_SELECTOR)) {
+    const existingStyle = document.querySelector(STYLE_SELECTOR);
+    if (existingStyle) {
       // 如果樣式已存在，檢查是否需要更新（例如樣式模式改變）
-      const existingStyle = document.querySelector(STYLE_SELECTOR);
       if (existingStyle.dataset.styleMode === this.styleMode) {
         return;
       }
@@ -85,7 +85,7 @@ export class StyleManager {
     }
 
     const style = document.createElement('style');
-    style.id = 'notion-highlight-styles';
+    style.id = STYLE_SELECTOR.slice(1);
     style.dataset.styleMode = this.styleMode;
 
     style.textContent = Object.entries(this.colors)

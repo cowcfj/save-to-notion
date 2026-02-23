@@ -203,6 +203,7 @@ const chrome = {
     Object.keys(storageData).forEach(key => {
       delete storageData[key];
     });
+    mockTabIdCounter = 1000;
   },
 
   // 輔助方法：獲取存儲數據（測試用）
