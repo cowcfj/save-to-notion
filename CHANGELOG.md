@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.36.1](https://github.com/cowcfj/save-to-notion/compare/v2.36.0...v2.36.1) (2026-02-24)
+
+
+### 🐛 Bug 修復
+
+* 修復 Chrome 商店安裝失敗的問題並優化打包體積 ([#277](https://github.com/cowcfj/save-to-notion/issues/277)) ([e8e61e3](https://github.com/cowcfj/save-to-notion/commit/e8e61e3cbe52df47372dd12a34312824c80d3195))
+
 ## [2.36.0](https://github.com/cowcfj/save-to-notion/compare/v2.35.0...v2.36.0) (2026-02-24)
 
 
