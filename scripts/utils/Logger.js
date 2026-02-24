@@ -106,9 +106,10 @@ function formatMessage(level, args) {
 /**
  * 將日誌加入待發送佇列（節流批量轉發機制）
  *
- * 創建節流計時器：500ms 內無新日誌則批量發送，
- * 或累積至 MAX_BATCH_SIZE 條立即發送。
- * warn/error 級別則略過此機制直接發送。
+ * 第一條日誌觸發 500ms 節流計時器，期間新日誌只加入佇列
+ * （不重設計時器），到期後批量發送。
+ * 累積至 MAX_BATCH_SIZE 條則立即發送。
+ * warn/error 級別略過此機制，直接發送。
  *
  * @param {string} level - 日誌級別字符串
  * @param {string} message - 主訊息

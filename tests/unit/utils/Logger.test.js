@@ -404,6 +404,12 @@ describe('Logger', () => {
   });
 
   describe('語法糖方法 (success, start, ready)', () => {
+    beforeEach(() => {
+      globalThis.chrome = undefined;
+      require('../../../scripts/utils/Logger.js');
+      Logger = globalThis.window.Logger;
+    });
+
     test('應該正確加上特定的 LOG_ICONS', () => {
       const infoSpy = jest.spyOn(Logger, 'info').mockImplementation(() => {});
 
@@ -422,8 +428,33 @@ describe('Logger', () => {
 
   describe('批量轉發機制 (_queueForBackground & _flushToBackground)', () => {
     beforeEach(() => {
+      globalThis.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({
+            version_name: '1.0.0-dev',
+          }),
+          sendMessage: jest.fn((msg, callback) => {
+            if (callback) {
+              callback();
+            }
+          }),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+      Logger = globalThis.window.Logger;
+
       jest.useFakeTimers();
-      // 在每次測試前清空內部 pending logs
       globalThis.chrome.runtime.sendMessage.mockClear();
     });
 
@@ -490,9 +521,9 @@ describe('Logger', () => {
   });
 
   describe('Buffer 寫入操作 (addLogToBuffer & getBuffer)', () => {
-    test('getBuffer 應該返回 null/undefined (在預設無 DEV_LOG_SINK 的情況下)', () => {
+    test('getBuffer 應該返回 null (在預設無 DEV_LOG_SINK 的情況下)', () => {
       const buffer = Logger.getBuffer();
-      expect(buffer !== undefined || buffer === null).toBeTruthy();
+      expect(buffer).toBeNull();
     });
   });
 
