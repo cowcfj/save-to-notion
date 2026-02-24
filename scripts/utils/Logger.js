@@ -14,7 +14,7 @@ import { LOG_ICONS } from '../config/constants.js';
 // 內部狀態
 let _debugEnabled = false;
 let _isInitialized = false;
-// 背景環境下的日誌緩衝區 (Singleton)
+// 背景環境下的日誌緩衝區(Singleton)
 let _logBuffer = null;
 
 // 日誌級別常量
@@ -38,6 +38,12 @@ const GLOBAL_ERROR_PREFIXES = {
 const isExtensionContext = Boolean(chrome?.runtime?.id);
 
 const isBackground = isExtensionContext && globalThis.window === undefined; // Service Worker 環境通常沒有 window (或 self !== window)
+
+// ---- 批量轉發狀態（僅 Content Script 環境生效）----
+const FLUSH_INTERVAL_MS = 500; // 最多 500ms 發送一次
+const MAX_BATCH_SIZE = 20; // 累積超過 20 條立即發送
+const _pendingLogs = []; // 待發送的日誌佇列（mutation only，不重賝變數）
+let _flushTimer = null; // 發送計時器
 
 /**
  * 格式化日誌訊息（控制台輸出用）
@@ -66,7 +72,88 @@ function formatMessage(level, args) {
 }
 
 /**
+ * 將日誌加入待發送佇列（節流批量轉發檀制）
+ *
+ * 創建節流計時器：500ms 內無新日誌則批量發送，
+ * 或累積至 MAX_BATCH_SIZE 條立即發送。
+ * warn/error 級別則玉過此機制直接發送。
+ *
+ * @param {string} level - 日誌級別字符串
+ * @param {string} message - 主訊息
+ * @param {Array} args - 額外參數
+ */
+function _queueForBackground(level, message, args) {
+  if (!isExtensionContext || isBackground) {
+    return;
+  }
+
+  try {
+    // 序列化參數，避免傳遞 DOM 對象導致錯誤
+    const safeArgs = args.map(arg => {
+      try {
+        if (arg instanceof Error) {
+          return { message: arg.message, stack: arg.stack, name: arg.name };
+        }
+        if (typeof arg === 'object' && arg !== null) {
+          return structuredClone(arg);
+        }
+        return arg;
+      } catch {
+        return '[Unserializable Object]';
+      }
+    });
+
+    _pendingLogs.push({ level, message: String(message), args: safeArgs });
+
+    // 超過批次上限，立即發送
+    if (_pendingLogs.length >= MAX_BATCH_SIZE) {
+      _flushToBackground();
+      return;
+    }
+
+    // 尚未建立計時器，建立之
+    if (!_flushTimer) {
+      _flushTimer = setTimeout(() => {
+        _flushToBackground();
+      }, FLUSH_INTERVAL_MS);
+    }
+  } catch {
+    // 忽略發送錯誤
+  }
+}
+
+/**
+ * 將待發送佇列中的日誌批量發送至 Background
+ *
+ * @private
+ */
+function _flushToBackground() {
+  if (_flushTimer) {
+    clearTimeout(_flushTimer);
+    _flushTimer = null;
+  }
+
+  if (_pendingLogs.length === 0) {
+    return;
+  }
+
+  const batch = _pendingLogs.splice(0); // 取出所有待發送項目
+
+  try {
+    chrome.runtime.sendMessage({ action: 'devLogSinkBatch', logs: batch }, () => {
+      // 忽略 lastError
+      if (chrome.runtime.lastError) {
+        /* empty */
+      }
+    });
+  } catch {
+    // 忽略發送錯誤（extension context 已斷開等情況）
+  }
+}
+
+/**
  * 發送日誌到 Background (僅在 Content Script 環境下)
+ * warn/error 級別使用，不經佇列直接發送，確保高優先級日誌不延遲。
  *
  * @param {string} level - 日誌級別字符串
  * @param {string} message - 主訊息
@@ -282,7 +369,7 @@ const Logger = {
     writeToBuffer('debug', message, args);
     // eslint-disable-next-line no-console
     console.debug(...formatMessage(LOG_LEVELS.DEBUG, [message, ...args]));
-    sendToBackground('debug', message, args);
+    _queueForBackground('debug', message, args);
   },
 
   log(message, ...args) {
@@ -293,7 +380,7 @@ const Logger = {
     writeToBuffer('log', message, args);
     // eslint-disable-next-line no-console
     console.log(...formatMessage(LOG_LEVELS.LOG, [message, ...args]));
-    sendToBackground('log', message, args);
+    _queueForBackground('log', message, args);
   },
 
   info(message, ...args) {
@@ -303,7 +390,7 @@ const Logger = {
 
     writeToBuffer('info', message, args);
     console.info(...formatMessage(LOG_LEVELS.INFO, [message, ...args]));
-    sendToBackground('info', message, args);
+    _queueForBackground('info', message, args);
   },
 
   /**

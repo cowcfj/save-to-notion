@@ -445,6 +445,11 @@ class PerformanceOptimizer {
    * - 處理單個元素和 NodeList 兩種情況，並兼容 JSDOM 測試環境
    * - 此驗證邏輯與緩存策略緊密相關，不建議獨立提取
    *
+   * 效能優化（抽樣驗證）：
+   * - NodeList 只驗證前 MAX_VALIDATION_SAMPLE_SIZE 個元素
+   * - 如果前幾個元素都仍在 DOM 中，整個列表極不可能部分失效
+   * - 最壞情況（後面元素已被移除）：呼叫方的 querySelector 會自然返回 null，不會崩潰
+   *
    * @private
    * @static
    * @param {Element|NodeList|Array} result - 要驗證的元素或元素列表
@@ -455,29 +460,37 @@ class PerformanceOptimizer {
       return false;
     }
 
+    // 只抽樣前 N 個元素進行驗證，避免大型 NodeList 全量遍歷
+    const MAX_VALIDATION_SAMPLE_SIZE = 5;
+
     try {
       if (result.nodeType) {
         // 單個元素
         return document.contains(result);
       } else if (result.length !== undefined) {
-        // NodeList 或數組
-        return Array.from(result).every(el => {
-          // 確保 el 是有效的 Node 對象
-          if (!el?.nodeType) {
-            return false;
-          }
+        // NodeList 或數組：抽樣驗證前 MAX_VALIDATION_SAMPLE_SIZE 個元素
+        const sample = Array.from(result).slice(0, MAX_VALIDATION_SAMPLE_SIZE);
+        // 空列表視為無效（避免返回已清空的快取）
+        return (
+          sample.length > 0 &&
+          sample.every(el => {
+            // 確保 el 是有效的 Node 對象
+            if (!el?.nodeType) {
+              return false;
+            }
 
-          // Use isConnected if available (standard DOM)
-          if (typeof el.isConnected === 'boolean') {
-            return el.isConnected;
-          }
+            // Use isConnected if available (standard DOM)
+            if (typeof el.isConnected === 'boolean') {
+              return el.isConnected;
+            }
 
-          try {
-            return document.contains(el);
-          } catch {
-            return false;
-          }
-        });
+            try {
+              return document.contains(el);
+            } catch {
+              return false;
+            }
+          })
+        );
       }
     } catch (error) {
       // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
@@ -650,8 +663,15 @@ class PerformanceOptimizer {
       selectors.push('article h1', 'article h2', 'article h3', 'article p', 'article img');
     }
 
+    // [role="main"] * 已移除——此選擇器匹配 main 區域內所有後代（可達數千個節點），
+    // 預熱成本過高，且沒有實際查詢使用此選擇器，改為使用具體的子選擇器。
     if (context.querySelector('[role="main"]')) {
-      selectors.push('[role="main"] *');
+      selectors.push(
+        '[role="main"] h1',
+        '[role="main"] h2',
+        '[role="main"] p',
+        '[role="main"] img'
+      );
     }
 
     // 檢查是否有常見的 CMS 類名（使用 CMS_CONTENT_SELECTORS 前 4 個核心選擇器）

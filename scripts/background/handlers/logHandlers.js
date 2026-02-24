@@ -46,6 +46,26 @@ export const exportDebugLogs = (message, sender, sendResponse) => {
 };
 
 /**
+ * 將日誌 args 陣列解析為 context 物件
+ *
+ * @param {Array} args - 日誌額外參數
+ * @returns {object} context 物件
+ */
+function parseArgsToContext(args) {
+  if (!Array.isArray(args) || args.length === 0) {
+    return {};
+  }
+  if (typeof args[0] === 'object' && args[0] !== null) {
+    const context = { ...args[0] };
+    if (args.length > 1) {
+      context.details = args.slice(1);
+    }
+    return context;
+  }
+  return { details: args };
+}
+
+/**
  * 處理來自其他上下文（如 Popup/Options）的日誌匯入
  *
  * @param {object} message - 訊息物件
@@ -66,20 +86,7 @@ export const handleDevLogSink = (message, sender, sendResponse) => {
 
   try {
     const { level, message: logMessage, args } = message;
-
-    // 解析上下文
-    let context = {};
-    if (args && Array.isArray(args) && args.length > 0) {
-      if (typeof args[0] === 'object' && args[0] !== null) {
-        context = args[0];
-        // 如果有多個參數，將其餘放入 details
-        if (args.length > 1) {
-          context.details = args.slice(1);
-        }
-      } else {
-        context = { details: args };
-      }
-    }
+    const context = parseArgsToContext(args);
 
     Logger.addLogToBuffer({
       level,
@@ -100,6 +107,54 @@ export const handleDevLogSink = (message, sender, sendResponse) => {
 };
 
 /**
+ * 處理來自 Content Script 的批量日誌嵌入（devLogSinkBatch）
+ * 將多條日誌一次寫入 LogBuffer，減少 IPC 次數。
+ *
+ * @param {object} message - 訊息物件，包含 logs 陣列
+ * @param {object} sender - 發送者資訊
+ * @param {Function} sendResponse - 回應回調函數
+ */
+export const handleDevLogSinkBatch = (message, sender, sendResponse) => {
+  // 安全性驗證：和單條版相同
+  const internalError = validateInternalRequest(sender);
+  if (internalError) {
+    const csError = validateContentScriptRequest(sender);
+    if (csError) {
+      sendResponse(csError);
+      return;
+    }
+  }
+
+  try {
+    const { logs } = message;
+    if (!Array.isArray(logs)) {
+      sendResponse({ success: false, error: 'Invalid batch format' });
+      return;
+    }
+
+    const sourcePath = sender.url ? new URL(sender.url).pathname : 'unknown_external';
+
+    for (const entry of logs) {
+      const { level, message: logMessage, args = [] } = entry;
+      const context = parseArgsToContext(args);
+
+      Logger.addLogToBuffer({
+        level,
+        message: String(logMessage),
+        context,
+        source: sourcePath,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    sendResponse({ success: true });
+  } catch (error) {
+    // 靜默失敗，避免日誌迴圈
+    sendResponse({ success: false, error: error.message });
+  }
+};
+
+/**
  * 創建日誌處理程序物件
  *
  * @returns {object} 包含日誌處理函數的物件
@@ -108,5 +163,6 @@ export function createLogHandlers() {
   return {
     exportDebugLogs,
     devLogSink: handleDevLogSink,
+    devLogSinkBatch: handleDevLogSinkBatch,
   };
 }

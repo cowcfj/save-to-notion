@@ -370,7 +370,9 @@ describe('Logger', () => {
     });
 
     test('應該正確處理純量參數 (數字, 字串)', () => {
-      Logger.info('Scalar test', 123, 'test-string');
+      // warn/error 使用即時發送路徑（sendToBackground），適合此測試
+      // info/log/debug 使用批量模式（_queueForBackground），不會立即觸發 sendMessage
+      Logger.warn('Scalar test', 123, 'test-string');
 
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
       expect(sentArgs).toEqual([123, 'test-string']);
