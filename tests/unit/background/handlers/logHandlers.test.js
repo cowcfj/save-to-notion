@@ -12,10 +12,14 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
     addLogToBuffer: jest.fn(),
   },
   parseArgsToContext: args => {
-    if (!Array.isArray(args) || args.length === 0) {return {};}
+    if (!Array.isArray(args) || args.length === 0) {
+      return {};
+    }
     if (typeof args[0] === 'object' && args[0] !== null) {
       const context = { ...args[0] };
-      if (args.length > 1) {context.details = args.slice(1);}
+      if (args.length > 1) {
+        context.details = args.slice(1);
+      }
       return context;
     }
     return { details: args };
@@ -251,6 +255,56 @@ describe('logHandlers', () => {
       handlers.devLogSinkBatch({ logs }, internalSender, sendResponse);
 
       expect(Logger.addLogToBuffer).toHaveBeenCalledTimes(20);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test('exportDebugLogs 在錯誤沒有自定義 type 時應回傳 INTERNAL 作為 errorType', () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-extension-id' };
+
+      LogExporter.exportLogs.mockImplementationOnce(() => {
+        throw new Error('plain error without type');
+      });
+
+      handlers.exportDebugLogs({ format: 'json' }, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorType: 'internal',
+        })
+      );
+    });
+
+    test('devLogSink 在 sender 沒有 url 時應使用 unknown_external 作為 source', () => {
+      const sendResponse = jest.fn();
+      const senderWithoutUrl = { id: 'test-extension-id' };
+
+      handlers.devLogSink(
+        { level: 'info', message: 'no url test', args: [] },
+        senderWithoutUrl,
+        sendResponse
+      );
+
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'unknown_external' })
+      );
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+    });
+
+    test('devLogSinkBatch 在 sender 沒有 url 時應使用 unknown_external 作為 source', () => {
+      const sendResponse = jest.fn();
+      const senderWithoutUrl = { id: 'test-extension-id' };
+
+      handlers.devLogSinkBatch(
+        { logs: [{ level: 'info', message: 'batch no url', args: [] }] },
+        senderWithoutUrl,
+        sendResponse
+      );
+
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'unknown_external' })
+      );
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
   });

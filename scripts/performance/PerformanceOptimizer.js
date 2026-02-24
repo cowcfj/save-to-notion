@@ -493,8 +493,8 @@ class PerformanceOptimizer {
     } catch (error) {
       // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
       Logger.warn('元素驗證失敗', { action: 'validateCachedElements', error: error.message });
-      return false;
     }
+    return false;
   }
 
   /**
@@ -680,7 +680,8 @@ class PerformanceOptimizer {
     }
 
     // [role="main"] * 已移除——此選擇器匹配 main 區域內所有後代（可達數千個節點），
-    // 預熱成本過高，且沒有實際查詢使用此選擇器，改為使用具體的子選擇器。
+    // 預熱成本過高，且沒有實際查詢使用此選擇器，改為使用具體的後代選擇器
+    // (descendant selector，以空格分隔；若要限制為直接子元素，應使用 > 組合器)。
     if (context.querySelector('[role="main"]')) {
       selectors.push(
         '[role="main"] h1',

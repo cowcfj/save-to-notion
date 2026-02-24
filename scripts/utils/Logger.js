@@ -60,6 +60,13 @@ function _serializeArgs(args) {
       if (arg instanceof Error) {
         return { message: arg.message, stack: arg.stack, name: arg.name };
       }
+      // Function / Symbol 無法通過 Chrome IPC (structuredClone / JSON)，需提前轉換
+      if (typeof arg === 'function') {
+        return '[Function]';
+      }
+      if (typeof arg === 'symbol') {
+        return arg.toString();
+      }
       if (typeof arg === 'object' && arg !== null) {
         return structuredClone(arg);
       }

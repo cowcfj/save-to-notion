@@ -387,6 +387,20 @@ describe('Logger', () => {
       const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
       expect(sentArgs[0]).toBe('[Unserializable Object]');
     });
+
+    test('應該將 function 參數序列化為 "[Function]"', () => {
+      Logger.warn('Function test', () => {});
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toBe('[Function]');
+    });
+
+    test('應該將 symbol 參數序列化為 toString 結果', () => {
+      Logger.warn('Symbol test', Symbol('mySymbol'));
+
+      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
+      expect(sentArgs[0]).toBe('Symbol(mySymbol)');
+    });
   });
 
   describe('語法糖方法 (success, start, ready)', () => {
@@ -482,6 +496,38 @@ describe('Logger', () => {
     });
   });
 
+  describe('parseArgsToContext 直接匯出函數', () => {
+    let parseArgsToContext;
+
+    beforeEach(() => {
+      globalThis.chrome = undefined;
+      const mod = require('../../../scripts/utils/Logger.js');
+      parseArgsToContext = mod.parseArgsToContext;
+    });
+
+    test('空陣列應返回空物件', () => {
+      expect(parseArgsToContext([])).toEqual({});
+    });
+
+    test('非陣列 (null, undefined) 應返回空物件', () => {
+      expect(parseArgsToContext(null)).toEqual({});
+      expect(parseArgsToContext(undefined)).toEqual({});
+    });
+
+    test('第一個參數為物件且有多個參數時應展開為 context 並包含 details', () => {
+      expect(parseArgsToContext([{ key: 'val' }, 'extra', 42])).toEqual({
+        key: 'val',
+        details: ['extra', 42],
+      });
+    });
+
+    test('第一個參數非物件時應將所有參數放入 details', () => {
+      expect(parseArgsToContext(['a', 'b', 123])).toEqual({
+        details: ['a', 'b', 123],
+      });
+    });
+  });
+
   describe('manifest 錯誤處理', () => {
     test('當 getManifest 拋出錯誤時應該優雅處理', () => {
       globalThis.chrome = {
@@ -544,6 +590,100 @@ describe('Logger', () => {
       expect(beforeunloadCall).toBeDefined();
 
       docSpy.mockRestore();
+      winSpy.mockRestore();
+    });
+
+    test('visibilitychange 回調在頁面隱藏時應觸發批量發送', () => {
+      const docSpy = jest.spyOn(document, 'addEventListener');
+
+      globalThis.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
+          sendMessage: jest.fn((msg, callback) => {
+            if (callback) {
+              callback();
+            }
+          }),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+      const LoadedLogger = globalThis.window.Logger;
+
+      // 將一條日誌加入佇列
+      LoadedLogger.info('flush on hidden');
+
+      // 找到 visibilitychange 回調並觸發
+      const visibilityCallback = docSpy.mock.calls.find(call => call[0] === 'visibilitychange')[1];
+
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        configurable: true,
+      });
+      visibilityCallback();
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'devLogSinkBatch' }),
+        expect.any(Function)
+      );
+
+      // 清理
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        configurable: true,
+      });
+      docSpy.mockRestore();
+    });
+
+    test('beforeunload 回調應觸發批量發送', () => {
+      const winSpy = jest.spyOn(globalThis, 'addEventListener');
+
+      globalThis.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
+          sendMessage: jest.fn((msg, callback) => {
+            if (callback) {
+              callback();
+            }
+          }),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+      const LoadedLogger = globalThis.window.Logger;
+
+      // 將一條日誌加入佇列
+      LoadedLogger.info('flush on unload');
+
+      // 找到 beforeunload 回調並觸發
+      const beforeunloadCallback = winSpy.mock.calls.find(call => call[0] === 'beforeunload')[1];
+      beforeunloadCallback();
+
+      expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'devLogSinkBatch' }),
+        expect.any(Function)
+      );
+
       winSpy.mockRestore();
     });
   });

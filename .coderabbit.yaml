@@ -5,7 +5,7 @@ language: 'zh'
 
 tools:
   biome: false
-  eslint: true
+  eslint: false
 
 reviews:
   profile: 'chill'
