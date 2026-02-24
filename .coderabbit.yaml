@@ -3,6 +3,10 @@
 
 language: 'zh'
 
+tools:
+  biome: false
+  eslint: true
+
 reviews:
   profile: 'chill'
   request_changes_workflow: false
