@@ -1,7 +1,9 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 # CodeRabbit Configuration
 # Documentation: https://coderabbit.ai/docs/configure-coderabbit
 
-language: 'zh'
+language: 'zh-TW'
+inheritance: true
 
 tools:
   biome: false
@@ -11,12 +13,21 @@ reviews:
   profile: 'chill'
   request_changes_workflow: false
   high_level_summary: false
+  changed_files_summary: false
   review_status: false
+  suggested_reviewers: false
+  poem: false
+
   auto_review:
     enabled: true
     ignore_usernames:
       - 'release-please[bot]'
       - 'github-actions[bot]'
+
+  finishing_touches:
+    unit_tests:
+      enabled: false
+
   path_filters:
     - '!CHANGELOG.md'
     - '!package-lock.json'
@@ -28,3 +39,11 @@ reviews:
     - '!demos/**'
     - '!docs/guides/*_MCP_GUIDE.md'
     - '!docs/guides/CONTEXT7_MCP_GUIDE.md'
+
+code_generation:
+  docstrings:
+    language: 'zh-TW'
+
+issue_enrichment:
+  auto_enrich:
+    enabled: true
