@@ -182,6 +182,61 @@ describe('PerformanceOptimizer', () => {
     });
   });
 
+  describe('_validateCachedElements', () => {
+    test('應該處理 falsy 輸入', () => {
+      expect(PerformanceOptimizer._validateCachedElements(null)).toBe(false);
+      expect(PerformanceOptimizer._validateCachedElements(undefined)).toBe(false);
+    });
+
+    test('應該處理 NodeList / Array 中缺乏 nodeType 的元素', () => {
+      const invalidList = [{ notNodeType: true }, document.createElement('div')];
+      expect(PerformanceOptimizer._validateCachedElements(invalidList)).toBe(false);
+    });
+
+    test('如果 isConnected 不為 boolean，應該退回使用 document.contains', () => {
+      const div = document.createElement('div');
+      document.body.append(div);
+
+      // 模擬環境不支持 isConnected
+      Object.defineProperty(div, 'isConnected', { value: undefined });
+
+      expect(PerformanceOptimizer._validateCachedElements([div])).toBe(true);
+
+      div.remove();
+      expect(PerformanceOptimizer._validateCachedElements([div])).toBe(false);
+    });
+
+    test('當 document.contains 拋出例外時，應該返回 false', () => {
+      const div = document.createElement('div');
+      Object.defineProperty(div, 'isConnected', { value: undefined });
+
+      // 改寫 document.contains 以拋出錯誤
+      jest.spyOn(document, 'contains').mockImplementationOnce(() => {
+        throw new Error('contain error');
+      });
+
+      expect(PerformanceOptimizer._validateCachedElements([div])).toBe(false);
+      document.contains.mockRestore();
+    });
+
+    test('如果 result 不是節點也沒有 length，應該返回 false', () => {
+      const weirdObject = { length: undefined };
+      expect(PerformanceOptimizer._validateCachedElements(weirdObject)).toBe(false);
+    });
+
+    test('如果發生意外錯誤，應該被全域 try-catch 攔截', () => {
+      // 模擬 result.nodeType 訪問拋出錯誤
+      const throwingObject = {};
+      Object.defineProperty(throwingObject, 'nodeType', {
+        get: () => {
+          throw new Error('accidental error');
+        },
+      });
+
+      expect(PerformanceOptimizer._validateCachedElements(throwingObject)).toBe(false);
+    });
+  });
+
   describe('緩存管理', () => {
     test('應該清理所有緩存', () => {
       // 添加一些緩存項
