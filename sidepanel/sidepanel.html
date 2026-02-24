@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -28,10 +28,10 @@
             <line x1="16" y1="17" x2="8" y2="17" />
             <polyline points="10 9 9 9 8 9" />
           </svg>
-          Highlights
+          標註
         </h2>
         <div class="header-actions">
-          <button id="sync-button" class="icon-button" title="Sync to Notion" aria-label="Sync to Notion" disabled>
+          <button id="sync-button" class="icon-button" title="同步" aria-label="同步" disabled>
             <svg
               width="16"
               height="16"
@@ -48,8 +48,8 @@
           <button
             id="open-notion-button"
             class="icon-button"
-            title="Open in Notion"
-            aria-label="Open in Notion"
+            title="開啟"
+            aria-label="開啟"
             style="display: none"
           >
             <svg
@@ -71,10 +71,10 @@
 
       <!-- View Tabs -->
       <div class="view-tabs" id="view-tabs">
-        <button class="view-tab active" data-view="current">Current Page</button>
+        <button class="view-tab active" data-view="current">本頁標註</button>
         <button class="view-tab" data-view="unsynced">
           <span class="status-dot"></span>
-          Pending Sync
+          待同步
           <span id="unsynced-badge" class="badge"></span>
         </button>
       </div>
@@ -82,7 +82,7 @@
       <!-- Loading State -->
       <div id="loading-state" class="state-container">
         <div class="spinner"></div>
-        <p>Loading annotations...</p>
+        <p>載入中...</p>
       </div>
 
       <!-- Empty State -->
@@ -101,8 +101,8 @@
           <path d="M12 20h9" />
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
         </svg>
-        <p>No highlights found on this page.</p>
-        <p class="subtitle">Select text on the webpage to start highlighting.</p>
+        <p>本頁尚無標註</p>
+        <p class="subtitle">選取網頁文字即可標註</p>
       </div>
 
       <!-- Highlights List -->
@@ -113,7 +113,7 @@
       <!-- Unsynced Pages View -->
       <div id="unsynced-toolbar" style="display: none">
         <span id="unsynced-count-label" class="unsynced-count-label"></span>
-        <button id="clear-all-btn" class="clear-all-btn" title="Delete all unsynced highlights">
+        <button id="clear-all-btn" class="clear-all-btn" title="清除全部">
           <svg
             aria-hidden="true"
             width="13"
@@ -130,7 +130,7 @@
               d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
             ></path>
           </svg>
-          Clear All
+          清除全部
         </button>
       </div>
       <div id="unsynced-view" style="display: none">
@@ -138,7 +138,7 @@
       </div>
 
       <!-- Load More Button -->
-      <button id="load-more-btn" class="load-more-btn" style="display: none"> Load more </button>
+      <button id="load-more-btn" class="load-more-btn" style="display: none"> 載入更多 </button>
 
       <!-- Status Message Area -->
       <div id="status-message" class="status-message" style="display: none"></div>
@@ -151,7 +151,7 @@
         <div class="highlight-content">
           <p class="highlight-text"></p>
         </div>
-        <button class="delete-button" title="Delete highlight">
+        <button class="delete-button" title="刪除">
           <svg
             width="14"
             height="14"
@@ -184,7 +184,7 @@
           <div class="page-info">
             <span class="page-meta"></span>
           </div>
-          <button class="page-open-button" title="Open page" aria-label="Open page">
+          <button class="page-open-button" title="開啟網頁" aria-label="開啟網頁">
             <svg
               viewBox="0 0 24 24"
               width="16"
@@ -198,7 +198,7 @@
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </button>
-          <button class="page-delete-button" title="Delete all highlights from this page" aria-label="Delete all highlights from this page">
+          <button class="page-delete-button" title="刪除本頁標註" aria-label="刪除本頁標註">
             <svg
               width="14"
               height="14"

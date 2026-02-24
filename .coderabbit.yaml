@@ -2,7 +2,7 @@
 # CodeRabbit Configuration
 # Documentation: https://coderabbit.ai/docs/configure-coderabbit
 
-language: 'zh-TW'
+language: 'zh'
 inheritance: true
 
 tools:
@@ -42,7 +42,7 @@ reviews:
 
 code_generation:
   docstrings:
-    language: 'zh-TW'
+    language: 'zh'
 
 issue_enrichment:
   auto_enrich:
