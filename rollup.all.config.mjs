@@ -1,8 +1,6 @@
 import contentConfig from './rollup.content.config.mjs';
 import backgroundConfig from './rollup.background.config.mjs';
 import migrationConfig from './rollup.migration.config.mjs';
-import resolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
 import terser from '@rollup/plugin-terser';
 
 const isDev = process.env.NODE_ENV !== 'production';
