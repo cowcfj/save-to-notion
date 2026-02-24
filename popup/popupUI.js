@@ -268,7 +268,7 @@ export function formatSaveSuccessMessage(response) {
 
       // Return structured array for safe rendering
       return [
-        `${action}${details ? ` ${details}` : ''}`,
+        [action, details].filter(Boolean).join(' '),
         { type: 'svg', content: warnIcon },
         response.warning,
       ];
@@ -276,5 +276,5 @@ export function formatSaveSuccessMessage(response) {
   }
 
   // Default return string
-  return `${action}${details ? ` ${details}` : ''}`;
+  return [action, details].filter(Boolean).join(' ');
 }
