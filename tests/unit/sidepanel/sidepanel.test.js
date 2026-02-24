@@ -508,7 +508,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     await clickUnsyncedTab();
 
     const remaining = document.querySelector('.page-card-remaining');
-    expect(remaining.textContent).toContain('+2');
+    expect(remaining.textContent).toContain('還有 2 筆');
   });
 
   it('should show load-more button when unsynced pages exceed 10', async () => {

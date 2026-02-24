@@ -172,5 +172,12 @@ describe('popupUI.js', () => {
       });
       expect(msg[2]).toBe('Size limit');
     });
+
+    it('預設路徑不應產生尾部空格', () => {
+      const response = {};
+      const msg = formatSaveSuccessMessage(response);
+      expect(msg).not.toMatch(/\s$/);
+      expect(msg).toBe('儲存成功！');
+    });
   });
 });

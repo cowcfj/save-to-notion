@@ -267,10 +267,14 @@ export function formatSaveSuccessMessage(response) {
       const warnIcon = UI_ICONS.WARNING;
 
       // Return structured array for safe rendering
-      return [`${action} ${details}`, { type: 'svg', content: warnIcon }, response.warning];
+      return [
+        `${action}${details ? ` ${details}` : ''}`,
+        { type: 'svg', content: warnIcon },
+        response.warning,
+      ];
     }
   }
 
   // Default return string
-  return `${action} ${details}`;
+  return `${action}${details ? ` ${details}` : ''}`;
 }

@@ -523,6 +523,8 @@ function showEmpty(msg = null) {
     els.emptyState.querySelector('.subtitle').style.display = 'none';
   } else {
     els.emptyState.querySelector('p').textContent = UI_MESSAGES.SIDEPANEL.NO_HIGHLIGHTS;
+    els.emptyState.querySelector('.subtitle').textContent =
+      UI_MESSAGES.SIDEPANEL.NO_HIGHLIGHTS_SUBTITLE;
     els.emptyState.querySelector('.subtitle').style.display = 'block';
   }
 }
@@ -628,7 +630,7 @@ async function renderUnsyncedView() {
   }
   if (els.unsyncedCountLabel) {
     const count = cachedUnsyncedPages.length;
-    els.unsyncedCountLabel.textContent = `${count} 個頁面`;
+    els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
   }
 
   appendCards(container, PAGE_BATCH_SIZE);
@@ -652,7 +654,7 @@ function appendCards(container, count) {
 
     card.querySelector('.page-title').textContent = page.title;
     card.querySelector('.page-meta').textContent =
-      `${extractDomain(page.url)} • ${page.highlightCount} 個標註`;
+      `${extractDomain(page.url)} • ${UI_MESSAGES.SIDEPANEL.HIGHLIGHT_COUNT(page.highlightCount)}`;
 
     // 標註預覽
     const previewContainer = card.querySelector('.page-card-previews');
@@ -666,7 +668,7 @@ function appendCards(container, count) {
     // +N more
     const remainingEl = card.querySelector('.page-card-remaining');
     if (page.remainingCount > 0) {
-      remainingEl.textContent = `+${page.remainingCount} more`;
+      remainingEl.textContent = UI_MESSAGES.SIDEPANEL.REMAINING_COUNT(page.remainingCount);
     }
 
     // 開啟頁面
@@ -757,7 +759,7 @@ async function deleteUnsyncedPage(storageKey, cardEl) {
   // 更新工具列計數和 badge
   const count = cachedUnsyncedPages.length;
   if (els.unsyncedCountLabel) {
-    els.unsyncedCountLabel.textContent = `${count} 個頁面`;
+    els.unsyncedCountLabel.textContent = UI_MESSAGES.SIDEPANEL.PAGE_COUNT(count);
   }
   if (count === 0) {
     if (els.unsyncedToolbar) {
