@@ -41,15 +41,26 @@ cp -a manifest.json "$RM_DIR/"
 cp -a icons "$RM_DIR/"
 cp -a options "$RM_DIR/"
 cp -a popup "$RM_DIR/"
+cp -a sidepanel "$RM_DIR/"
 cp -a update-notification "$RM_DIR/"
 cp -a dist "$RM_DIR/"
 
 # Copy scripts directory, excluding test-only and bundled directories
 rsync -a \
     --exclude='__mocks__' \
+    --exclude='background' \
+    --exclude='background.js' \
+    --exclude='config/extraction.js' \
+    --exclude='config/patterns.js' \
+    --exclude='config/ui-selectors.js' \
+    --exclude='config/README.md' \
     --exclude='content' \
     --exclude='highlighter' \
     --exclude='legacy' \
+    --exclude='utils/contentUtils.js' \
+    --exclude='utils/imageUtils.js' \
+    --exclude='utils/pageComplexityDetector.js' \
+    --exclude='utils/README.md' \
     scripts/ "$RM_DIR/scripts/"
 
 echo "📂 Scripts folder content:"
