@@ -58,6 +58,15 @@ describe('logHandlers', () => {
       );
     });
 
+    test('devLogSinkBatch 應拒絕外部請求', async () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'wrong-id' };
+      handlers.devLogSinkBatch({}, sender, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
+      );
+    });
+
     test('devLogSink 應允許來自內部或 Content Script 的請求', () => {
       const sendResponse = jest.fn();
       const internalSender = {
@@ -78,6 +87,79 @@ describe('logHandlers', () => {
       handlers.devLogSink({ level: 'log', message: 'test' }, csSender, sendResponse);
       expect(Logger.addLogToBuffer).toHaveBeenCalledTimes(2);
     });
+
+    test('devLogSinkBatch 應允許來自 Content Script 的請求並處理批量日誌', () => {
+      const sendResponse = jest.fn();
+      const csSender = {
+        id: 'test-extension-id',
+        tab: { id: 1 },
+        url: 'https://example.com/page1',
+      };
+
+      const message = {
+        logs: [
+          { level: 'info', message: 'batch msg 1', args: [{ some: 'data' }] },
+          { level: 'warn', message: 'batch msg 2', args: ['just string', 42] },
+          { level: 'error', message: 'batch msg 3' }, // 無 args
+        ],
+      };
+
+      handlers.devLogSinkBatch(message, csSender, sendResponse);
+
+      expect(Logger.addLogToBuffer).toHaveBeenCalledTimes(3);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
+
+      // 檢查第一個 log 的 parseArgsToContext
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'batch msg 1',
+          context: { some: 'data' },
+          source: '/page1',
+        })
+      );
+
+      // 檢查第二個 log 的 parseArgsToContext (非 object fallback)
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'batch msg 2',
+          context: { details: ['just string', 42] },
+        })
+      );
+
+      // 檢查第三個 log (無 args 情況)
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'batch msg 3',
+          context: {},
+        })
+      );
+    });
+
+    test('devLogSinkBatch 處理無效的 logs 格式應返回錯誤', () => {
+      const sendResponse = jest.fn();
+      const internalSender = { id: 'test-extension-id' };
+
+      // logs 不是 array
+      handlers.devLogSinkBatch({ logs: 'not array' }, internalSender, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith({ success: false, error: 'Invalid batch format' });
+    });
+
+    test('devLogSinkBatch 發生內部錯誤時應靜默失敗', () => {
+      const sendResponse = jest.fn();
+      const internalSender = { id: 'test-extension-id' };
+
+      // 強制 addLogToBuffer 拋出異常
+      Logger.addLogToBuffer.mockImplementationOnce(() => {
+        throw new Error('internal error');
+      });
+
+      handlers.devLogSinkBatch(
+        { logs: [{ level: 'info', message: 'x' }] },
+        internalSender,
+        sendResponse
+      );
+      expect(sendResponse).toHaveBeenCalledWith({ success: false, error: 'internal error' });
+    });
   });
 
   describe('Action Logic', () => {
@@ -90,6 +172,61 @@ describe('logHandlers', () => {
 
       expect(LogExporter.exportLogs).toHaveBeenCalledWith({ format: 'json' });
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    });
+
+    test('exportDebugLogs 在 Exporter 拋出錯誤時應回傳錯誤格式', () => {
+      const sendResponse = jest.fn();
+      const sender = { id: 'test-extension-id' };
+
+      // 確保回傳一個自定義的 error.type 讓覆蓋率走 default || INTERNAL
+      const mockError = new Error('export failed');
+      mockError.type = 'CUSTOM_ERROR';
+      LogExporter.exportLogs.mockImplementationOnce(() => {
+        throw mockError;
+      });
+
+      handlers.exportDebugLogs({ format: 'json' }, sender, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          errorType: 'CUSTOM_ERROR',
+        })
+      );
+    });
+
+    test('devLogSink 應正確解析多個參數的陣列為 context 與 details', () => {
+      const sendResponse = jest.fn();
+      const csSender = { id: 'test-extension-id', tab: { id: 1 }, url: 'http://test.com' };
+
+      handlers.devLogSink(
+        {
+          level: 'info',
+          message: 'test multi args',
+          args: [{ main: 'data' }, 'extra', 123],
+        },
+        csSender,
+        sendResponse
+      );
+
+      expect(Logger.addLogToBuffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'test multi args',
+          context: { main: 'data', details: ['extra', 123] },
+        })
+      );
+    });
+
+    test('devLogSink 在 Logger.addLogToBuffer 拋出錯誤時應靜默失敗', () => {
+      const sendResponse = jest.fn();
+      const csSender = { id: 'test-extension-id', tab: { id: 1 }, url: 'http://test.com' };
+
+      Logger.addLogToBuffer.mockImplementationOnce(() => {
+        throw new Error('logger error');
+      });
+
+      handlers.devLogSink({ level: 'info', message: 'test' }, csSender, sendResponse);
+      expect(sendResponse).toHaveBeenCalledWith({ success: false, error: 'logger error' });
     });
   });
 });
