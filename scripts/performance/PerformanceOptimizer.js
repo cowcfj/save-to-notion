@@ -462,56 +462,59 @@ class PerformanceOptimizer {
       return false;
     }
 
-    // 只抽樣前 N 個元素進行驗證，避免大型 NodeList 全量遍歷
     const MAX_VALIDATION_SAMPLE_SIZE = 5;
 
     try {
+      // 單個元素
       if (result.nodeType) {
-        // 單個元素：優先使用 isConnected（與 NodeList 分支保持一致）
-        if (typeof result.isConnected === 'boolean') {
-          return result.isConnected;
-        }
-        return document.contains(result);
-      } else if (result.length !== undefined) {
-        // NodeList 或數組：抽樣驗證前 MAX_VALIDATION_SAMPLE_SIZE 個元素
-        // 使用直接索引避免 Array.from 對整個 NodeList 的 O(n) 物質化
-        const sampleSize = Math.min(result.length, MAX_VALIDATION_SAMPLE_SIZE);
-        // 空列表視為無效（避免返回已清空的快取）
-        if (sampleSize === 0) {
+        return PerformanceOptimizer._isElementConnected(result);
+      }
+
+      // 非集合類型
+      if (result.length === undefined) {
+        return false;
+      }
+
+      // NodeList 或數組：抽樣驗證前 MAX_VALIDATION_SAMPLE_SIZE 個元素
+      // 使用直接索引避免 Array.from 對整個 NodeList 的 O(n) 物質化
+      const sampleSize = Math.min(result.length, MAX_VALIDATION_SAMPLE_SIZE);
+      // 空列表視為無效（避免返回已清空的快取）
+      if (sampleSize === 0) {
+        return false;
+      }
+
+      for (let i = 0; i < sampleSize; i++) {
+        const el = result[i];
+        if (!el?.nodeType || !PerformanceOptimizer._isElementConnected(el)) {
           return false;
         }
-        for (let i = 0; i < sampleSize; i++) {
-          const el = result[i];
-          // 確保 el 是有效的 Node 對象
-          if (!el?.nodeType) {
-            return false;
-          }
-
-          // Use isConnected if available (standard DOM)
-          if (typeof el.isConnected === 'boolean') {
-            if (!el.isConnected) {
-              return false;
-            }
-            continue;
-          }
-
-          try {
-            if (!document.contains(el)) {
-              return false;
-            }
-          } catch {
-            return false;
-          }
-        }
-        return true;
       }
+      return true;
     } catch (error) {
       // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
       Logger.warn('元素驗證失敗', { action: 'validateCachedElements', error: error.message });
       return false;
     }
+  }
 
-    return false;
+  /**
+   * 檢查單個 DOM 元素是否仍連接到文檔
+   * 優先使用標準的 isConnected 屬性，不支援時退回 document.contains。
+   *
+   * @private
+   * @static
+   * @param {Element} el - 要檢查的元素
+   * @returns {boolean} 元素是否仍在 DOM 中
+   */
+  static _isElementConnected(el) {
+    if (typeof el.isConnected === 'boolean') {
+      return el.isConnected;
+    }
+    try {
+      return document.contains(el);
+    } catch {
+      return false;
+    }
   }
 
   /**
