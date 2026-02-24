@@ -19,7 +19,7 @@
 
 ### 2. 僅注入環境 (僅網頁內執行)
 
-這些模組**只被** `content` 或 `highlighter` 引用。打包時會透過 Rollup tree-shaking 進入 bundle，因此最終的 zip 檔中**不會包含**它們。
+這些模組**只被** `content` 或 `highlighter` 引用。打包時會透過 Rollup tree-shaking 進入 bundle；打包腳本 (`tools/package-extension.sh`) 的 rsync 排除清單也會在封裝時排除這些原始檔案，因此最終的 zip 檔中**不會包含**它們。
 
 - `extraction.js`: 定義內容提取規則與選擇器 (被 Content 使用)
 - `patterns.js`: 網頁內容的正規表達式 (被 Content 使用)
@@ -30,5 +30,5 @@
 這些模組只在 Background, Popup, Options 或 Side Panel 中運行。
 
 - `icons.js`: 提供給 Extension UI 的 SVG ICONS 字串
-- `env.js`: (若有) 環境變數與建置設定
+- `env.js`: 環境檢測工具（判斷 Extension / Background / Content / Dev 等執行環境）
 - `features.js`: 功能開關設定
