@@ -448,7 +448,9 @@ class PerformanceOptimizer {
    * 效能優化（抽樣驗證）：
    * - NodeList 只驗證前 MAX_VALIDATION_SAMPLE_SIZE 個元素
    * - 如果前幾個元素都仍在 DOM 中，整個列表極不可能部分失效
-   * - 最壞情況（後面元素已被移除）：呼叫方的 querySelector 會自然返回 null，不會崩潰
+   * - 設計取捨：若超出抽樣範圍的元素已被移除，快取仍視為有效，
+   *   呼叫方將取得包含過時節點的 NodeList。此風險可接受，因為
+   *   DOM 部分失效的機率極低，且 TTL 機制會定期淘汰過期快取。
    *
    * @private
    * @static
@@ -465,32 +467,43 @@ class PerformanceOptimizer {
 
     try {
       if (result.nodeType) {
-        // 單個元素
+        // 單個元素：優先使用 isConnected（與 NodeList 分支保持一致）
+        if (typeof result.isConnected === 'boolean') {
+          return result.isConnected;
+        }
         return document.contains(result);
       } else if (result.length !== undefined) {
         // NodeList 或數組：抽樣驗證前 MAX_VALIDATION_SAMPLE_SIZE 個元素
-        const sample = Array.from(result).slice(0, MAX_VALIDATION_SAMPLE_SIZE);
+        // 使用直接索引避免 Array.from 對整個 NodeList 的 O(n) 物質化
+        const sampleSize = Math.min(result.length, MAX_VALIDATION_SAMPLE_SIZE);
         // 空列表視為無效（避免返回已清空的快取）
-        return (
-          sample.length > 0 &&
-          sample.every(el => {
-            // 確保 el 是有效的 Node 對象
-            if (!el?.nodeType) {
+        if (sampleSize === 0) {
+          return false;
+        }
+        for (let i = 0; i < sampleSize; i++) {
+          const el = result[i];
+          // 確保 el 是有效的 Node 對象
+          if (!el?.nodeType) {
+            return false;
+          }
+
+          // Use isConnected if available (standard DOM)
+          if (typeof el.isConnected === 'boolean') {
+            if (!el.isConnected) {
               return false;
             }
+            continue;
+          }
 
-            // Use isConnected if available (standard DOM)
-            if (typeof el.isConnected === 'boolean') {
-              return el.isConnected;
-            }
-
-            try {
-              return document.contains(el);
-            } catch {
+          try {
+            if (!document.contains(el)) {
               return false;
             }
-          })
-        );
+          } catch {
+            return false;
+          }
+        }
+        return true;
       }
     } catch (error) {
       // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
@@ -669,6 +682,7 @@ class PerformanceOptimizer {
       selectors.push(
         '[role="main"] h1',
         '[role="main"] h2',
+        '[role="main"] h3',
         '[role="main"] p',
         '[role="main"] img'
       );

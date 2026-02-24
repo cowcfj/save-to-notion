@@ -235,6 +235,38 @@ describe('PerformanceOptimizer', () => {
 
       expect(PerformanceOptimizer._validateCachedElements(throwingObject)).toBe(false);
     });
+
+    test('抽樣邊界：前 5 個元素在 DOM 但第 6 個已移除，應返回 true（抽樣不檢查）', () => {
+      const elements = [];
+      for (let i = 0; i < 6; i++) {
+        const el = document.createElement('span');
+        if (i < 5) {
+          document.body.append(el);
+        }
+        elements.push(el);
+      }
+
+      // MAX_VALIDATION_SAMPLE_SIZE = 5，只驗證前 5 個
+      expect(PerformanceOptimizer._validateCachedElements(elements)).toBe(true);
+
+      // 清理
+      elements.slice(0, 5).forEach(el => el.remove());
+    });
+
+    test('單個元素路徑：附加到 DOM 應返回 true，移除後應返回 false', () => {
+      const el = document.createElement('div');
+
+      // 未附加到 DOM
+      expect(PerformanceOptimizer._validateCachedElements(el)).toBe(false);
+
+      // 附加到 DOM
+      document.body.append(el);
+      expect(PerformanceOptimizer._validateCachedElements(el)).toBe(true);
+
+      // 從 DOM 移除
+      el.remove();
+      expect(PerformanceOptimizer._validateCachedElements(el)).toBe(false);
+    });
   });
 
   describe('緩存管理', () => {

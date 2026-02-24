@@ -512,4 +512,39 @@ describe('Logger', () => {
       expect(Logger.debugEnabled).toBe(false);
     });
   });
+
+  describe('頁面卸載沖刷機制 (visibilitychange & beforeunload)', () => {
+    test('應在非 Background 環境中註冊 visibilitychange 與 beforeunload 監聽器', () => {
+      const docSpy = jest.spyOn(document, 'addEventListener');
+      const winSpy = jest.spyOn(globalThis, 'addEventListener');
+
+      globalThis.chrome = {
+        runtime: {
+          id: 'test-extension-id',
+          getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
+          sendMessage: jest.fn(),
+          lastError: null,
+        },
+        storage: {
+          sync: {
+            get: jest.fn((_keys, callback) => callback({})),
+          },
+          onChanged: {
+            addListener: jest.fn(),
+          },
+        },
+      };
+
+      require('../../../scripts/utils/Logger.js');
+
+      const visibilityCall = docSpy.mock.calls.find(call => call[0] === 'visibilitychange');
+      expect(visibilityCall).toBeDefined();
+
+      const beforeunloadCall = winSpy.mock.calls.find(call => call[0] === 'beforeunload');
+      expect(beforeunloadCall).toBeDefined();
+
+      docSpy.mockRestore();
+      winSpy.mockRestore();
+    });
+  });
 });

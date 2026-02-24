@@ -42,8 +42,33 @@ const isBackground = isExtensionContext && globalThis.window === undefined; // S
 // ---- 批量轉發狀態（僅 Content Script 環境生效）----
 const FLUSH_INTERVAL_MS = 500; // 最多 500ms 發送一次
 const MAX_BATCH_SIZE = 20; // 累積超過 20 條立即發送
-const _pendingLogs = []; // 待發送的日誌佇列（mutation only，不重賝變數）
+const _pendingLogs = []; // 待發送的日誌佇列（mutation only，不重賦變數）
 let _flushTimer = null; // 發送計時器
+
+/**
+ * 序列化日誌參數，確保可透過 Chrome IPC 傳遞
+ * 將 Error 對象轉為純物件、使用 structuredClone 複製物件、
+ * 並對無法序列化的對象降級為佔位字串。
+ *
+ * @param {Array} args - 原始參數列表
+ * @returns {Array} 序列化後的安全參數列表
+ * @private
+ */
+function _serializeArgs(args) {
+  return args.map(arg => {
+    try {
+      if (arg instanceof Error) {
+        return { message: arg.message, stack: arg.stack, name: arg.name };
+      }
+      if (typeof arg === 'object' && arg !== null) {
+        return structuredClone(arg);
+      }
+      return arg;
+    } catch {
+      return '[Unserializable Object]';
+    }
+  });
+}
 
 /**
  * 格式化日誌訊息（控制台輸出用）
@@ -88,20 +113,7 @@ function _queueForBackground(level, message, args) {
   }
 
   try {
-    // 序列化參數，避免傳遞 DOM 對象導致錯誤
-    const safeArgs = args.map(arg => {
-      try {
-        if (arg instanceof Error) {
-          return { message: arg.message, stack: arg.stack, name: arg.name };
-        }
-        if (typeof arg === 'object' && arg !== null) {
-          return structuredClone(arg);
-        }
-        return arg;
-      } catch {
-        return '[Unserializable Object]';
-      }
-    });
+    const safeArgs = _serializeArgs(args);
 
     _pendingLogs.push({ level, message: String(message), args: safeArgs });
 
@@ -165,20 +177,7 @@ function sendToBackground(level, message, args) {
   }
 
   try {
-    // 序列化參數，避免傳遞 DOM 對象導致錯誤
-    const safeArgs = args.map(arg => {
-      try {
-        if (arg instanceof Error) {
-          return { message: arg.message, stack: arg.stack, name: arg.name };
-        }
-        if (typeof arg === 'object' && arg !== null) {
-          return structuredClone(arg);
-        }
-        return arg;
-      } catch {
-        return '[Unserializable Object]';
-      }
-    });
+    const safeArgs = _serializeArgs(args);
 
     chrome.runtime.sendMessage(
       {
@@ -200,6 +199,31 @@ function sendToBackground(level, message, args) {
 }
 
 /**
+ * 將日誌 args 陣列解析為 context 物件
+ *
+ * 解析規則：
+ * - 無參數或空陣列 → 空物件 {}
+ * - 第一個參數為物件 → 展開為 context，剩餘參數存入 context.details
+ * - 第一個參數非物件 → 所有參數存入 { details: args }
+ *
+ * @param {Array} args - 日誌額外參數
+ * @returns {object} context 物件
+ */
+function parseArgsToContext(args) {
+  if (!Array.isArray(args) || args.length === 0) {
+    return {};
+  }
+  if (typeof args[0] === 'object' && args[0] !== null) {
+    const context = { ...args[0] };
+    if (args.length > 1) {
+      context.details = args.slice(1);
+    }
+    return context;
+  }
+  return { details: args };
+}
+
+/**
  * 寫入 LogBuffer (僅 Background 有效)
  *
  * @param {string} level
@@ -209,23 +233,7 @@ function sendToBackground(level, message, args) {
 function writeToBuffer(level, message, args) {
   if (_logBuffer) {
     try {
-      // 提取第一個參數作為 context (如果是對象)，符合導出規格
-      // 如果 args[0] 不是對象，則視為普通參數放入 details
-      let context = {};
-
-      if (args.length > 0) {
-        if (typeof args[0] === 'object' && args[0] !== null) {
-          // Use the first object as the main context
-          context = { ...args[0] };
-          // Collect any remaining arguments into context.details
-          if (args.length > 1) {
-            context.details = args.slice(1);
-          }
-        } else {
-          // If first arg is not an object, treat all args as details
-          context = { details: args };
-        }
-      }
+      const context = parseArgsToContext(args);
 
       // 即時脫敏：確保存儲在 LogBuffer 中的數據是安全的
       // 根據調試模式決定是否保留堆疊追蹤細節
@@ -491,8 +499,24 @@ const Logger = {
 
 export default Logger;
 
+export { parseArgsToContext };
+
 // 自動初始化 (嘗試)
 initDebugState();
+
+// ---- 頁面卸載時沖刷待發送日誌（僅 Content Script 環境）----
+// Background Service Worker 沒有 document，因此需要環境檢查
+if (!isBackground && typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      _flushToBackground();
+    }
+  });
+
+  globalThis.addEventListener('beforeunload', () => {
+    _flushToBackground();
+  });
+}
 
 // Global Assignment (Module & Classic Script compatible fallback)
 // 確保覆蓋 Service Worker (self) 與 Window 環境。

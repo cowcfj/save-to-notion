@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-// Mock Logger
+// Mock Logger（保留 parseArgsToContext 的真實實作，因為它是純函數）
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
@@ -10,6 +10,15 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
     warn: jest.fn(),
     error: jest.fn(),
     addLogToBuffer: jest.fn(),
+  },
+  parseArgsToContext: args => {
+    if (!Array.isArray(args) || args.length === 0) {return {};}
+    if (typeof args[0] === 'object' && args[0] !== null) {
+      const context = { ...args[0] };
+      if (args.length > 1) {context.details = args.slice(1);}
+      return context;
+    }
+    return { details: args };
   },
 }));
 
@@ -227,6 +236,22 @@ describe('logHandlers', () => {
 
       handlers.devLogSink({ level: 'info', message: 'test' }, csSender, sendResponse);
       expect(sendResponse).toHaveBeenCalledWith({ success: false, error: 'logger error' });
+    });
+
+    test('devLogSinkBatch 應截斷超過 MAX_BATCH_SIZE (20) 的批次', () => {
+      const sendResponse = jest.fn();
+      const internalSender = { id: 'test-extension-id' };
+
+      const logs = Array.from({ length: 25 }, (_, i) => ({
+        level: 'info',
+        message: `msg-${i}`,
+        args: [],
+      }));
+
+      handlers.devLogSinkBatch({ logs }, internalSender, sendResponse);
+
+      expect(Logger.addLogToBuffer).toHaveBeenCalledTimes(20);
+      expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
   });
 });

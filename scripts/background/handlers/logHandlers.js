@@ -12,7 +12,10 @@ import {
   validateInternalRequest,
   validateContentScriptRequest,
 } from '../../utils/securityUtils.js';
-import Logger from '../../utils/Logger.js';
+import Logger, { parseArgsToContext } from '../../utils/Logger.js';
+
+/** 接收端批量日誌的最大數量限制，防禦過量批次 */
+const MAX_BATCH_SIZE = 20;
 
 /**
  * 處理導出除錯日誌的請求
@@ -61,26 +64,6 @@ function validateLogSourceRequest(sender) {
     }
   }
   return null;
-}
-
-/**
- * 將日誌 args 陣列解析為 context 物件
- *
- * @param {Array} args - 日誌額外參數
- * @returns {object} context 物件
- */
-function parseArgsToContext(args) {
-  if (!Array.isArray(args) || args.length === 0) {
-    return {};
-  }
-  if (typeof args[0] === 'object' && args[0] !== null) {
-    const context = { ...args[0] };
-    if (args.length > 1) {
-      context.details = args.slice(1);
-    }
-    return context;
-  }
-  return { details: args };
 }
 
 /**
@@ -141,9 +124,12 @@ export const handleDevLogSinkBatch = (message, sender, sendResponse) => {
       return;
     }
 
+    // 防禦性限制：截斷超過 MAX_BATCH_SIZE 的批次，避免處理過量日誌
+    const safeLogs = logs.length > MAX_BATCH_SIZE ? logs.slice(0, MAX_BATCH_SIZE) : logs;
+
     const sourcePath = sender.url ? new URL(sender.url).pathname : 'unknown_external';
 
-    for (const entry of logs) {
+    for (const entry of safeLogs) {
       const { level, message: logMessage, args = [] } = entry;
       const context = parseArgsToContext(args);
 
