@@ -51,6 +51,10 @@ rsync -a \
     --exclude='content' \
     --exclude='highlighter' \
     --exclude='legacy' \
+    --exclude='utils/contentUtils.js' \
+    --exclude='utils/imageUtils.js' \
+    --exclude='utils/pageComplexityDetector.js' \
+    --exclude='utils/README.md' \
     scripts/ "$RM_DIR/scripts/"
 
 echo "📂 Scripts folder content:"
